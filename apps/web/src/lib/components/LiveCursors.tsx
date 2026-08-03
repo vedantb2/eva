@@ -35,6 +35,7 @@ function RemoteCursorItem({ cursor }: { cursor: RemoteCursor }) {
     >
       <Cursor style={{ color: hex }}>
         <CursorPointer />
+        {/* design-check-ignore-next-line — label sits on the collaborator's assigned cursor hex, which is fixed per user and does not follow the appearance */}
         <CursorBody className="text-white" style={{ backgroundColor: hex }}>
           <CursorName data-pii>{cursor.firstName}</CursorName>
         </CursorBody>

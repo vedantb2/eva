@@ -2,8 +2,8 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
-import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";
-import { UserInitials } from "@eva/shared";
+import { StatusDot } from "@eva/ui";
+import { FollowableTeamAvatar } from "@/lib/components/sidebar/_components/FollowableTeamAvatar";
 import { useFollow } from "@/lib/contexts/FollowContext";
 import { useQuantizedNow } from "@/lib/hooks/useQuantizedNow";
 
@@ -46,39 +46,24 @@ export function OnlineTeamAvatars({ collapsed }: { collapsed: boolean }) {
           const isFollowing = following?.userId === u._id;
 
           return (
-            <Tooltip key={u._id}>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className={cn(
-                    "cursor-pointer rounded-full transition-[transform,background-color] hover:scale-110",
-                    isFollowing && "ring-2 ring-primary",
-                  )}
-                  onClick={() => {
-                    if (isFollowing) {
-                      stopFollowing();
-                    } else if (u.lastSeenPath) {
-                      startFollowing(u._id, name);
-                    }
-                  }}
-                  disabled={!u.lastSeenPath && !isFollowing}
-                >
-                  <UserInitials user={u} size="sm" hideLastSeen />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {isFollowing
-                  ? "Stop following "
-                  : u.lastSeenPath
-                    ? "Follow "
-                    : ""}
-                <span data-pii>{name}</span>
-              </TooltipContent>
-            </Tooltip>
+            <FollowableTeamAvatar
+              key={u._id}
+              user={u}
+              name={name}
+              isFollowing={isFollowing}
+              hasPath={!!u.lastSeenPath}
+              onToggle={() => {
+                if (isFollowing) {
+                  stopFollowing();
+                } else if (u.lastSeenPath) {
+                  startFollowing(u._id, name);
+                }
+              }}
+            />
           );
         })}
         {onlineMembers.length > 3 && (
-          <span className="text-[10px] text-muted-foreground">
+          <span className="text-3xs text-muted-foreground">
             +{onlineMembers.length - 3}
           </span>
         )}
@@ -89,11 +74,8 @@ export function OnlineTeamAvatars({ collapsed }: { collapsed: boolean }) {
   return (
     <div className="min-w-0 px-0.5">
       <div className="mb-1.5 flex items-center gap-1.5">
-        <span
-          className="size-1.5 shrink-0 rounded-full bg-success"
-          aria-hidden
-        />
-        <span className="truncate text-[10px] text-muted-foreground">
+        <StatusDot tone="active" />
+        <span className="truncate text-3xs text-muted-foreground">
           {onlineMembers.length} online
         </span>
       </div>
@@ -102,35 +84,20 @@ export function OnlineTeamAvatars({ collapsed }: { collapsed: boolean }) {
           const name = getDisplayName(u);
           const isFollowing = following?.userId === u._id;
           return (
-            <Tooltip key={u._id}>
-              <TooltipTrigger asChild>
-                <button
-                  type="button"
-                  className={cn(
-                    "cursor-pointer rounded-full transition-[transform,background-color] hover:scale-110",
-                    isFollowing && "ring-2 ring-primary",
-                  )}
-                  onClick={() => {
-                    if (isFollowing) {
-                      stopFollowing();
-                    } else if (u.lastSeenPath) {
-                      startFollowing(u._id, name);
-                    }
-                  }}
-                  disabled={!u.lastSeenPath && !isFollowing}
-                >
-                  <UserInitials user={u} size="sm" hideLastSeen />
-                </button>
-              </TooltipTrigger>
-              <TooltipContent>
-                {isFollowing
-                  ? "Stop following "
-                  : u.lastSeenPath
-                    ? "Follow "
-                    : ""}
-                <span data-pii>{name}</span>
-              </TooltipContent>
-            </Tooltip>
+            <FollowableTeamAvatar
+              key={u._id}
+              user={u}
+              name={name}
+              isFollowing={isFollowing}
+              hasPath={!!u.lastSeenPath}
+              onToggle={() => {
+                if (isFollowing) {
+                  stopFollowing();
+                } else if (u.lastSeenPath) {
+                  startFollowing(u._id, name);
+                }
+              }}
+            />
           );
         })}
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Spinner, cn } from "@eva/ui";
+import { Badge, Button, Spinner } from "@eva/ui";
 import {
   IconGitMerge,
   IconGitPullRequest,
@@ -9,12 +9,22 @@ import {
 } from "@tabler/icons-react";
 import { statusMeta, type PrOverview } from "./prOverviewMeta";
 
-function StatusIcon({ status }: { status: PrOverview["status"] }) {
-  if (status === "merged") return <IconGitMerge size={13} aria-hidden />;
-  if (status === "closed") {
-    return <IconGitPullRequestClosed size={13} aria-hidden />;
+function StatusIcon({
+  status,
+  className,
+}: {
+  status: PrOverview["status"];
+  className: string;
+}) {
+  if (status === "merged") {
+    return <IconGitMerge size={13} className={className} aria-hidden />;
   }
-  return <IconGitPullRequest size={13} aria-hidden />;
+  if (status === "closed") {
+    return (
+      <IconGitPullRequestClosed size={13} className={className} aria-hidden />
+    );
+  }
+  return <IconGitPullRequest size={13} className={className} aria-hidden />;
 }
 
 /**
@@ -39,17 +49,17 @@ export function PrOverviewHeader({
 
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-      <span
-        className={cn(
-          "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium",
-          status.className,
-        )}
-      >
-        <StatusIcon status={overview.status} />
+      {/* Quiet badge, coloured glyph: the lifecycle still reads at a glance
+          without a filled pill shouting from the top of the page. */}
+      <Badge variant="quiet" className="shrink-0 gap-1.5 font-medium">
+        <StatusIcon
+          status={overview.status}
+          className={status.glyphClassName}
+        />
         {status.label}
-      </span>
+      </Badge>
 
-      <p className="min-w-0 flex-1 text-sm text-muted-foreground">
+      <p className="min-w-0 flex-1 text-2sm text-muted-foreground">
         <span className="font-medium text-foreground">
           {overview.authorLogin ?? "Someone"}
         </span>{" "}
@@ -60,7 +70,7 @@ export function PrOverviewHeader({
 
       {onRefresh === undefined ? null : (
         <Button
-          size="sm"
+          size="xs"
           variant="ghost"
           onClick={onRefresh}
           disabled={refreshing}
@@ -80,7 +90,7 @@ export function PrOverviewHeader({
 
 function BranchRef({ name }: { name: string }) {
   return (
-    <span className="rounded border border-border bg-muted/60 px-1 py-0.5 font-mono text-[0.8125rem] text-foreground">
+    <span className="rounded-control border border-border bg-muted/60 px-1 py-0.5 font-mono text-2sm text-foreground">
       {name}
     </span>
   );

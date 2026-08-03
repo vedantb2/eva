@@ -65,7 +65,7 @@ export function WelcomeSetupNotificationsStep({
             className="flex flex-col gap-2 rounded-surface bg-muted/40 p-3"
           >
             <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary/10">
+              <div className="flex h-7 w-7 items-center justify-center rounded-control bg-primary/10">
                 <item.icon size={14} className="text-primary" />
               </div>
               <p className="text-sm font-medium text-foreground">
@@ -101,7 +101,7 @@ export function WelcomeSetupNotificationsStep({
             <IconMail size={14} className="text-primary" />
             <h3 className="text-sm font-medium">Email me these updates</h3>
           </div>
-          <p className="mt-1 text-[11px] text-muted-foreground">
+          <p className="mt-1 text-2xs text-muted-foreground">
             {enabled
               ? "You're subscribed. Manage email preferences in settings anytime."
               : "Includes the weekly changelog and daily unread digest. Off by default."}

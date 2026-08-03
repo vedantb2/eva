@@ -50,7 +50,7 @@ export function SkillRow({ skill }: { skill: Skill }) {
             </Button>
           ) : null}
         </div>
-        <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-muted-foreground">
+        <p className="mt-1.5 line-clamp-3 text-2sm leading-relaxed text-muted-foreground">
           {skill.description || "No description found in SKILL.md."}
         </p>
       </div>

@@ -50,7 +50,11 @@ export type MockTone =
   | "danger"
   | "review";
 
-const TONE_CHIP: Record<MockTone, string> = {
+/**
+ * Tinted fill, used only by `MockAvatar`. Identity colour on an avatar is the
+ * one place a tinted background is still right — status uses `MockDot`.
+ */
+const TONE_AVATAR: Record<MockTone, string> = {
   neutral: "border-border bg-muted text-muted-foreground",
   primary: "border-primary/25 bg-primary/10 text-primary",
   success: "border-success/25 bg-success/10 text-success",
@@ -59,6 +63,7 @@ const TONE_CHIP: Record<MockTone, string> = {
   review: "border-chart-3/30 bg-chart-3/10 text-chart-3",
 };
 
+/** Glyph colour per tone — the mock twin of `--status-*-bar`. */
 const TONE_DOT: Record<MockTone, string> = {
   neutral: "bg-muted-foreground/50",
   primary: "bg-primary",
@@ -67,25 +72,6 @@ const TONE_DOT: Record<MockTone, string> = {
   danger: "bg-destructive",
   review: "bg-chart-3",
 };
-
-export function MockChip({
-  tone = "neutral",
-  children,
-}: {
-  tone?: MockTone;
-  children: ReactNode;
-}) {
-  return (
-    <span
-      className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium",
-        TONE_CHIP[tone],
-      )}
-    >
-      {children}
-    </span>
-  );
-}
 
 export function MockDot({
   tone = "neutral",
@@ -101,6 +87,45 @@ export function MockDot({
         "size-1.5 shrink-0 rounded-full",
         TONE_DOT[tone],
         pulse ? "landing-pulse-dot" : null,
+      )}
+    />
+  );
+}
+
+/**
+ * Quiet chip: the reduced-scale twin of `Badge variant="quiet"` paired with a
+ * `StatusDot`. Hairline outline, neutral label, and the tone carried by a small
+ * dot instead of a filled background — the app stopped using loud status pills,
+ * so the mocks must not advertise them. A `neutral` chip is a plain count or
+ * label and takes no dot.
+ */
+export function MockChip({
+  tone = "neutral",
+  children,
+}: {
+  tone?: MockTone;
+  children: ReactNode;
+}) {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+      {tone === "neutral" ? null : <MockDot tone={tone} />}
+      {children}
+    </span>
+  );
+}
+
+/**
+ * Leading status stripe — the reduced-scale twin of `ListRow`'s accent bar,
+ * which is how the real task list shows a row's status. The parent needs
+ * `relative`.
+ */
+export function MockAccent({ tone = "neutral" }: { tone?: MockTone }) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "absolute inset-y-1.5 left-0 w-0.5 rounded-r-full",
+        TONE_DOT[tone],
       )}
     />
   );
@@ -123,7 +148,7 @@ export function MockRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-2.5 rounded-md border px-2.5 py-2",
+        "flex items-center gap-2.5 rounded-control border px-2.5 py-2",
         active
           ? "border-border bg-muted/60"
           : "border-transparent hover:bg-muted/30",
@@ -174,7 +199,7 @@ export function MockAvatar({
     <span
       className={cn(
         "flex size-6 shrink-0 items-center justify-center rounded-full border text-[9px] font-semibold",
-        TONE_CHIP[tone],
+        TONE_AVATAR[tone],
       )}
     >
       {initials}

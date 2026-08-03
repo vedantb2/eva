@@ -13,12 +13,19 @@ import {
   Checkbox,
   Button,
   Spinner,
+  StatusDot,
+  type StatusTone,
   cn,
 } from "@eva/ui";
 import { IconCheck } from "@tabler/icons-react";
 
 type AuditDoc = FunctionReturnType<typeof api.audits.listByTask>[number];
-type AuditSeverity = "critical" | "high" | "medium" | "low";
+// Derived from the Convex validator (`auditSeverityValidator`) rather than
+// restated as a literal union, so a new severity added to the schema shows up
+// here as a type error instead of silently falling through.
+type AuditSeverity = NonNullable<
+  AuditDoc["sections"][number]["results"][number]["severity"]
+>;
 
 type AuditFailure = {
   section: string;
@@ -34,11 +41,34 @@ const SEVERITY_ORDER: Record<AuditSeverity, number> = {
   low: 3,
 };
 
-const SEVERITY_COLORS: Record<AuditSeverity, string> = {
-  critical: "bg-red-500/15 text-red-700 dark:text-red-400",
-  high: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
-  medium: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400",
-  low: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
+/**
+ * `StatusDot` tone per audit-result severity — a small glyph beside neutral
+ * text rather than a loud filled pill.
+ *
+ * `high` and `medium` borrow the workflow ramp's orange and yellow. Those are
+ * the app's only two mid-warm steps, and adding severity-specific ones would
+ * invent a new tone step, which the colour ladder forbids.
+ *
+ * Local to this file on purpose — `automations/_utils.ts` and
+ * `testing-arena/IssuesList.tsx` each have their own copy for their own
+ * severity scale. The values match today, but the three are conceptually
+ * distinct features and sharing four lines would couple them.
+ */
+const SEVERITY_TONE: Record<AuditSeverity, StatusTone> = {
+  critical: "critical",
+  high: "business-review",
+  medium: "progress",
+  low: "neutral",
+};
+
+/** `StatusDot` tone per audit run status. `pending` and `running` share a
+ * tone — neither is "done" or "error" yet, and the badge text still shows the
+ * literal status string, so the two stay distinguishable by label. */
+const AUDIT_STATUS_TONE: Record<AuditDoc["status"], StatusTone> = {
+  pending: "progress",
+  running: "progress",
+  completed: "done",
+  error: "critical",
 };
 
 function failureKey(f: AuditFailure): string {
@@ -126,15 +156,8 @@ export function AuditResults({ auditData }: { auditData: AuditDoc }) {
 
   return (
     <div className="space-y-3">
-      <Badge
-        variant={
-          auditData.status === "completed"
-            ? "success"
-            : auditData.status === "error"
-              ? "destructive"
-              : "warning"
-        }
-      >
+      <Badge variant="quiet" className="gap-1.5">
+        <StatusDot tone={AUDIT_STATUS_TONE[auditData.status]} />
         {auditData.status}
       </Badge>
       {auditData.status === "error" && auditData.error && (
@@ -172,13 +195,14 @@ export function AuditResults({ auditData }: { auditData: AuditDoc }) {
                       <AccordionTrigger>
                         <div className="flex items-center gap-2">
                           <span className="text-sm">{section.name}</span>
-                          <Badge
-                            variant={
-                              section.results.every((i) => i.passed)
-                                ? "success"
-                                : "destructive"
-                            }
-                          >
+                          <Badge variant="quiet" className="gap-1.5">
+                            <StatusDot
+                              tone={
+                                section.results.every((i) => i.passed)
+                                  ? "done"
+                                  : "critical"
+                              }
+                            />
                             {section.results.filter((i) => i.passed).length}/
                             {section.results.length}
                           </Badge>
@@ -207,7 +231,10 @@ export function AuditResults({ auditData }: { auditData: AuditDoc }) {
                                     className="text-success mt-0.5 flex-shrink-0"
                                   />
                                 ) : isFixing ? (
-                                  <SeverityBadge severity={severity} />
+                                  <SeverityGlyph
+                                    severity={severity}
+                                    className="mt-0.5"
+                                  />
                                 ) : (
                                   <Checkbox
                                     checked={selected.has(key)}
@@ -220,7 +247,7 @@ export function AuditResults({ auditData }: { auditData: AuditDoc }) {
                                 <div className="flex-1 min-w-0">
                                   <div className="flex items-center gap-2">
                                     {!item.passed && !isFixing && (
-                                      <SeverityBadge severity={severity} />
+                                      <SeverityGlyph severity={severity} />
                                     )}
                                     <span className="font-medium">
                                       {item.requirement}
@@ -262,12 +289,14 @@ export function AuditResults({ auditData }: { auditData: AuditDoc }) {
             </div>
           )}
           {auditData.fixStatus === "fix_completed" && (
-            <Badge variant="success" className="mt-3">
+            <Badge variant="quiet" className="mt-3 gap-1.5">
+              <StatusDot tone="done" />
               Fixed audit issues
             </Badge>
           )}
           {auditData.fixStatus === "fix_error" && (
-            <Badge variant="destructive" className="mt-3">
+            <Badge variant="quiet" className="mt-3 gap-1.5">
+              <StatusDot tone="critical" />
               Fix failed
             </Badge>
           )}
@@ -277,15 +306,20 @@ export function AuditResults({ auditData }: { auditData: AuditDoc }) {
   );
 }
 
-function SeverityBadge({ severity }: { severity: AuditSeverity }) {
+/** Quiet severity glyph: a `StatusDot` plus neutral text, not a filled pill. */
+function SeverityGlyph({
+  severity,
+  className,
+}: {
+  severity: AuditSeverity;
+  className?: string;
+}) {
   return (
     <span
-      className={cn(
-        "inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium shrink-0",
-        SEVERITY_COLORS[severity],
-      )}
+      className={cn("inline-flex shrink-0 items-center gap-1.5", className)}
     >
-      {severity}
+      <StatusDot tone={SEVERITY_TONE[severity]} />
+      <span className="text-2xs text-muted-foreground">{severity}</span>
     </span>
   );
 }

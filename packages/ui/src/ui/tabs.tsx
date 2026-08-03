@@ -4,16 +4,12 @@ import * as React from "react";
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../utils/cn";
-import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 import { syncTabsPill } from "./tabsSliding";
 
 const Tabs = TabsPrimitive.Root;
 
 const tabsListVariants = cva(
-  cn(
-    "relative inline-flex items-center justify-center border border-border bg-background p-1 text-muted-foreground",
-    SURFACE_RADIUS_CLASS,
-  ),
+  "relative inline-flex items-center justify-center rounded-control border border-border bg-background p-1 text-muted-foreground",
   {
     variants: {
       size: {
@@ -100,7 +96,7 @@ const TabsList = React.forwardRef<
     >
       <span
         ref={pillRef}
-        className="t-tabs-pill rounded-lg bg-card"
+        className="t-tabs-pill rounded-control bg-card"
         aria-hidden="true"
       />
       {children}
@@ -160,7 +156,7 @@ const TabsTrigger = React.forwardRef<
     ref={ref}
     className={cn(
       "t-tab relative z-[1] inline-flex items-center justify-center whitespace-nowrap px-3 py-1.5 text-sm font-medium ring-offset-background transition-[color,transform] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground",
-      "rounded-lg",
+      "rounded-control",
       className,
     )}
     {...props}

@@ -41,7 +41,7 @@ function LandingMockAvatar({
   return (
     <span
       className={cn(
-        "flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/12 text-[10px] font-medium text-primary",
+        "flex size-7 shrink-0 items-center justify-center rounded-full bg-primary/12 text-3xs font-medium text-primary",
         className,
       )}
       aria-hidden
@@ -54,7 +54,7 @@ function LandingMockAvatar({
 /** Static task-detail frame using real Eva tab, badge, run, and activity-step UI. */
 export function LandingTaskDetailMock() {
   return (
-    <div className="landing-mock-frame overflow-hidden rounded-2xl bg-muted/40 p-1.5">
+    <div className="landing-mock-frame overflow-hidden rounded-surface bg-muted/40 p-1.5">
       <div className="flex items-center justify-between gap-3 bg-muted/30 px-3 py-2">
         <div className="flex min-w-0 items-center gap-2.5">
           <div className="flex shrink-0 items-center gap-1" aria-hidden>
@@ -62,26 +62,26 @@ export function LandingTaskDetailMock() {
             <span className="size-2 rounded-full bg-foreground/15" />
             <span className="size-2 rounded-full bg-foreground/15" />
           </div>
-          <span className="truncate font-mono text-[10px] text-muted-foreground">
+          <span className="truncate font-mono text-3xs text-muted-foreground">
             {LANDING_MOCK_REPO}
           </span>
           <span className="text-muted-foreground/40">·</span>
-          <span className="truncate font-mono text-[10px] tabular-nums text-muted-foreground/80">
+          <span className="truncate font-mono text-3xs tabular-nums text-muted-foreground/80">
             QT-{LANDING_MOCK_TASK_NUMBER}
           </span>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           <span
-            className="landing-pulse-dot size-1.5 rounded-full bg-emerald-500"
+            className="landing-pulse-dot size-1.5 rounded-full bg-success"
             aria-hidden
           />
-          <span className="text-[10px] font-medium text-muted-foreground">
+          <span className="text-3xs font-medium text-muted-foreground">
             Sandbox live
           </span>
         </div>
       </div>
 
-      <div className="landing-mock-body space-y-4 rounded-lg bg-background p-4 sm:p-5">
+      <div className="landing-mock-body space-y-4 rounded-surface bg-background p-4 sm:p-5">
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-balance text-base font-semibold tracking-tight text-foreground sm:text-lg">
@@ -137,7 +137,7 @@ export function LandingTaskDetailMock() {
                     <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                       <LandingMockAvatar
                         initials="YO"
-                        className="size-6 text-[9px]"
+                        className="size-6 text-3xs"
                       />
                       <span className="truncate text-xs font-medium text-foreground">
                         You
@@ -183,7 +183,7 @@ function LandingMockComposer() {
       <div className="flex items-center justify-between gap-2 px-2 pb-2">
         <span className="flex items-center gap-2">
           <span className="relative h-6 w-10 shrink-0 rounded-full bg-primary">
-            <span className="absolute left-[18px] top-0.5 size-5 rounded-full bg-white" />
+            <span className="absolute left-[18px] top-0.5 size-5 rounded-full bg-primary-foreground" />
           </span>
           <span className="text-xs text-foreground">Make changes</span>
         </span>
@@ -235,7 +235,7 @@ function LandingMockCommentThread() {
       <div className="space-y-3 pl-4">
         <Separator className={THREAD_SEPARATOR_CLASS} />
         <div className="flex items-start gap-2">
-          <LandingMockAvatar initials="YO" className="size-6 text-[9px]" />
+          <LandingMockAvatar initials="YO" className="size-6 text-3xs" />
           <div className="min-w-0 flex-1 space-y-1">
             <div className="flex items-center gap-2">
               <span className="text-xs font-medium text-foreground">You</span>

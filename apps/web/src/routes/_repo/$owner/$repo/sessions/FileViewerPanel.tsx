@@ -3,7 +3,14 @@ import { useAction } from "convex/react";
 import { useQueryState } from "nuqs";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { Button, MessageResponse, Spinner } from "@eva/ui";
+import {
+  Button,
+  EmptyState,
+  MessageResponse,
+  PageHeader,
+  PageHeaderActions,
+  Spinner,
+} from "@eva/ui";
 import {
   IconFileText,
   IconCopy,
@@ -60,11 +67,19 @@ function formatBytes(size: number): string {
 }
 
 /** Centered icon + message, matching the sandbox panels' inactive states. */
+/**
+ * Placeholder shown in place of a file's contents (nothing selected, sandbox
+ * asleep, read failed). Thin wrapper over the shared `EmptyState` so the
+ * viewer's several notices all read the same as every other empty surface.
+ */
 export function ViewerNotice({ message }: { message: string }) {
   return (
-    <div className="h-full flex flex-col items-center justify-center text-muted-foreground gap-3 px-6 text-center">
-      <IconFileText className="w-12 h-12 opacity-50" />
-      <p className="text-sm">{message}</p>
+    <div className="flex h-full items-center justify-center">
+      <EmptyState
+        icon={<IconFileText className="size-6" />}
+        title={message}
+        animate={false}
+      />
     </div>
   );
 }
@@ -209,48 +224,52 @@ export function FileViewerPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex items-center gap-2 border-b border-border px-3 py-2">
-        <IconFileText className="size-4 shrink-0 text-muted-foreground" />
-        <span
-          className="min-w-0 flex-1 truncate font-mono text-xs text-foreground"
-          title={filePath}
-        >
-          {filePath}
+      <PageHeader>
+        <span className="flex min-w-0 flex-1 items-center gap-2">
+          <IconFileText className="size-4 shrink-0 text-muted-foreground" />
+          <span
+            className="min-w-0 flex-1 truncate font-mono text-xs text-foreground"
+            title={filePath}
+          >
+            {filePath}
+          </span>
         </span>
-        {state.kind === "loaded" && isMarkdown ? (
+        <PageHeaderActions>
+          {state.kind === "loaded" && isMarkdown ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              className="size-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+              onClick={() =>
+                void setMarkdownView(
+                  markdownView === "rendered" ? "source" : "rendered",
+                )
+              }
+              aria-label={
+                markdownView === "rendered" ? "Show source" : "Show rendered"
+              }
+            >
+              {markdownView === "rendered" ? (
+                <IconCode className="size-3.5" />
+              ) : (
+                <IconMarkdown className="size-3.5" />
+              )}
+            </Button>
+          ) : null}
+          {state.kind === "loaded" ? (
+            <CopyButton content={state.content} />
+          ) : null}
           <Button
             size="sm"
             variant="ghost"
             className="size-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
-            onClick={() =>
-              void setMarkdownView(
-                markdownView === "rendered" ? "source" : "rendered",
-              )
-            }
-            aria-label={
-              markdownView === "rendered" ? "Show source" : "Show rendered"
-            }
+            onClick={() => setRefreshKey((k) => k + 1)}
+            aria-label="Refresh file"
           >
-            {markdownView === "rendered" ? (
-              <IconCode className="size-3.5" />
-            ) : (
-              <IconMarkdown className="size-3.5" />
-            )}
+            <IconRefresh className="size-3.5" />
           </Button>
-        ) : null}
-        {state.kind === "loaded" ? (
-          <CopyButton content={state.content} />
-        ) : null}
-        <Button
-          size="sm"
-          variant="ghost"
-          className="size-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
-          onClick={() => setRefreshKey((k) => k + 1)}
-          aria-label="Refresh file"
-        >
-          <IconRefresh className="size-3.5" />
-        </Button>
-      </div>
+        </PageHeaderActions>
+      </PageHeader>
 
       <div className="flex-1 min-h-0 overflow-auto">
         {state.kind === "loading" ? (

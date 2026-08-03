@@ -22,6 +22,7 @@ import { UnreadAutomationsBadge } from "@/lib/components/sidebar/UnreadAutomatio
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
+  sidebarNavButtonClass,
   sidebarNavLinkClass,
   sidebarSectionLabelClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
@@ -157,12 +158,17 @@ export function RepoNavSections({
           isActive={isActive}
           className="group relative"
         >
-          <button
+          <Button
             type="button"
+            variant="ghost"
             onClick={() => {
               onOpenContextSidebar(contextMode);
             }}
-            className={cn(navItemClass(isActive), "w-full pr-9")}
+            className={cn(
+              sidebarNavButtonClass(isActive, collapsed),
+              // Button sizes nested icons to 16px; nav rows draw theirs at 19.
+              "w-full pr-9 [&_svg]:size-[19px]",
+            )}
           >
             <item.icon
               size={19}
@@ -175,7 +181,7 @@ export function RepoNavSections({
             {item.name === "Automations" && repo && (
               <UnreadAutomationsBadge repoId={repo._id} />
             )}
-          </button>
+          </Button>
           <Button
             size="icon-sm"
             variant="ghost"

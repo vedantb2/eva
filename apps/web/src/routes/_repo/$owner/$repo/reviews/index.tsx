@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { IconGitPullRequest } from "@tabler/icons-react";
-import { EmptyState } from "@/lib/components/ui/EmptyState";
+import { EmptyState } from "@eva/ui";
 
 export const Route = createFileRoute("/_repo/$owner/$repo/reviews/")({
   staticData: { title: "Reviews" },

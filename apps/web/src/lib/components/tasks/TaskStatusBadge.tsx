@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge } from "@eva/ui";
+import { Badge, StatusDot, type StatusTone } from "@eva/ui";
 import {
   IconCircle,
   IconClock,
@@ -114,14 +114,25 @@ export const statusConfig: Record<
   },
 };
 
-export function TaskStatusBadge({ status }: TaskStatusBadgeProps) {
-  const config = statusConfig[status];
-  const Icon = config.icon;
+/** Linear-style status glyph per status — the dot carries the colour, the label
+ *  next to it stays neutral. `statusConfig.icon` is still used by the status
+ *  dropdown and the kanban, just not here: a dot, an icon and a label is one
+ *  glyph too many for a chip this small. */
+const TONE_BY_STATUS: Record<TaskStatus, StatusTone> = {
+  draft: "neutral",
+  todo: "neutral",
+  in_progress: "progress",
+  code_review: "code-review",
+  business_review: "business-review",
+  done: "done",
+  cancelled: "cancelled",
+};
 
+export function TaskStatusBadge({ status }: TaskStatusBadgeProps) {
   return (
-    <Badge className={`${config.text} ${config.bg} border-transparent`}>
-      <Icon size={14} className={`mr-1 ${config.text}`} />
-      {config.label}
+    <Badge variant="quiet" className="gap-1.5">
+      <StatusDot tone={TONE_BY_STATUS[status]} />
+      {statusConfig[status].label}
     </Badge>
   );
 }

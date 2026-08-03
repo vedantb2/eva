@@ -328,7 +328,11 @@ export function TaskDetailInline({
                 </div>
               </div>
             </div>
-            <div className="mt-6 flex shrink-0 flex-col min-w-0 overflow-x-hidden px-4 pb-4 md:mt-0 md:overflow-hidden md:px-0 md:pb-0 md:pl-8 md:pr-6 md:pt-5">
+            {/* Properties rail: hairline on the left from md up, per the
+                list/detail recipe. Below md it stacks under the content, where
+                a left border would read as decoration, so it becomes a top
+                divider instead. */}
+            <div className="mt-4 flex shrink-0 flex-col min-w-0 overflow-x-hidden border-t border-border px-4 pt-4 pb-4 md:mt-0 md:border-l md:border-t-0 md:overflow-hidden md:px-4 md:pb-0 md:pt-5">
               <StatusFieldsSection
                 taskId={taskId}
                 task={task}

@@ -36,7 +36,7 @@ export function SessionSummaryAccordion({
           type="single"
           collapsible
           defaultValue={showSummaryStreaming ? "summary" : undefined}
-          className="mx-auto w-full min-w-0 max-w-3xl rounded-b-lg border-x border-b border-border bg-card px-3 sm:px-6"
+          className="mx-auto w-full min-w-0 max-w-3xl rounded-b-surface border-x border-b border-border bg-card px-3 sm:px-6"
         >
           <AccordionItem value="summary" className="border-b-0">
             <AccordionTrigger className="py-2 text-sm">

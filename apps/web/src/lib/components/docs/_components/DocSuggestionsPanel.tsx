@@ -7,7 +7,13 @@ import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import type { Id } from "@eva/backend";
 import { UserInitials } from "@eva/shared";
-import { Button, cn } from "@eva/ui";
+import {
+  Button,
+  cn,
+  PageHeader,
+  PageHeaderActions,
+  PageHeaderTitle,
+} from "@eva/ui";
 import { IconX, IconCheck, IconArrowBackUp } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import {
@@ -47,20 +53,24 @@ export function DocSuggestionsPanel({
 
   return (
     <div className="flex h-full w-80 shrink-0 flex-col border-l border-border">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">Suggestions</span>
-          <span className="text-xs text-muted-foreground">{list.length}</span>
-        </div>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-6"
-          onClick={onClose}
-        >
-          <IconX size={14} />
-        </Button>
-      </div>
+      <PageHeader>
+        <PageHeaderTitle>
+          Suggestions
+          <span className="ml-2 text-xs font-normal text-muted-foreground">
+            {list.length}
+          </span>
+        </PageHeaderTitle>
+        <PageHeaderActions>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="hit-target"
+            onClick={onClose}
+          >
+            <IconX size={14} />
+          </Button>
+        </PageHeaderActions>
+      </PageHeader>
 
       {list.length > 0 && (
         <div className="flex items-center gap-1 border-b border-border px-3 py-1.5">
@@ -87,7 +97,7 @@ export function DocSuggestionsPanel({
 
       <div className="scrollbar scroll-fade flex-1 overflow-y-auto">
         {list.length === 0 ? (
-          <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+          <p className="px-3 py-6 text-center text-2sm text-muted-foreground">
             No suggestions yet. Switch to Suggesting mode and edit to propose
             changes.
           </p>
@@ -123,13 +133,13 @@ function SuggestionRow({
         />
         {userId ? <UserInitials userId={userId} size="sm" /> : null}
         <SuggestionAuthorName userId={userId} />
-        <span className="text-[10px] text-muted-foreground">
+        <span className="text-3xs text-muted-foreground">
           {KIND_LABEL[suggestion.kind]}
         </span>
         {suggestion.createdAt !== null && (
           <RelativeDateTime
             at={suggestion.createdAt}
-            className="ml-auto text-[10px] text-muted-foreground"
+            className="ml-auto text-3xs text-muted-foreground"
           />
         )}
       </div>

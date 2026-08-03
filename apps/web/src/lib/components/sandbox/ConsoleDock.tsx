@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
-import { cn } from "@eva/ui";
+import { Button, cn } from "@eva/ui";
 import {
   IconChevronDown,
   IconChevronUp,
@@ -105,11 +105,12 @@ export function ConsoleDock({
         </div>
       ) : null}
 
-      <button
+      <Button
         type="button"
+        variant="ghost"
         aria-expanded={expanded}
         onClick={toggle}
-        className="flex h-9 shrink-0 items-center justify-between border-t border-border px-3 text-muted-foreground transition-colors hover:bg-secondary"
+        className="h-9 w-full shrink-0 items-center justify-between rounded-none border-t border-border px-3 text-muted-foreground hover:bg-secondary"
       >
         <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
           <IconTerminal2 className="size-3.5" />
@@ -120,7 +121,7 @@ export function ConsoleDock({
         ) : (
           <IconChevronUp className="size-4" />
         )}
-      </button>
+      </Button>
 
       <div
         className={cn(

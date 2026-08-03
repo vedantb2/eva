@@ -105,8 +105,8 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
   const { currentStreak, longestStreak } = computeStreak(data);
 
   return (
-    <Widget contentClassName="p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-4">
+    <Widget>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-3">
         <div>
           <p className="text-3xl font-bold tabular-nums text-foreground">
             {totalCount}

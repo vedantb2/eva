@@ -43,14 +43,14 @@ export function PrCommentComposer({
   return (
     // Aligned with the bubbles above (32px gutter + 12px gap), so the thread
     // still reads as one column.
-    <div className="ml-11 overflow-hidden rounded-md border border-border bg-card">
+    <div className="ml-11 overflow-hidden rounded-surface border border-border bg-card">
       <div className="border-b border-border bg-muted/40 px-3 py-2 text-xs font-medium text-foreground">
         Add a comment
       </div>
 
       <div className="space-y-3 p-3">
         <Textarea
-          className="min-h-20 text-sm"
+          className="min-h-20 text-2sm"
           value={body}
           placeholder="Leave a comment"
           aria-label="Comment on this pull request"

@@ -6,7 +6,12 @@ import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useQueryState } from "nuqs";
 import { docCommentFilterParser } from "@/lib/search-params";
-import { Button, cn } from "@eva/ui";
+import {
+  Button,
+  PageHeader,
+  PageHeaderActions,
+  PageHeaderTitle,
+} from "@eva/ui";
 import { IconX } from "@tabler/icons-react";
 import { DocCommentThread } from "./DocCommentThread";
 import { DocNewCommentComposer } from "./DocNewCommentComposer";
@@ -55,48 +60,44 @@ export function DocCommentsPanel({
 
   return (
     <div className="flex h-full w-80 shrink-0 flex-col border-l border-border">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">Comments</span>
-          <span className="text-xs text-muted-foreground">
+      <PageHeader>
+        <PageHeaderTitle>
+          Comments
+          <span className="ml-2 text-xs font-normal text-muted-foreground">
             {openRoots.length} open
           </span>
-        </div>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="size-6"
-          onClick={onClose}
-        >
-          <IconX size={14} />
-        </Button>
-      </div>
+        </PageHeaderTitle>
+        <PageHeaderActions>
+          <Button
+            size="icon-sm"
+            variant="ghost"
+            className="hit-target"
+            onClick={onClose}
+          >
+            <IconX size={14} />
+          </Button>
+        </PageHeaderActions>
+      </PageHeader>
 
       <div className="flex items-center gap-1 border-b border-border px-3 py-1.5">
-        <button
+        <Button
           type="button"
+          size="sm"
+          variant={filter === "open" ? "secondary" : "ghost"}
           onClick={() => setFilter("open")}
-          className={cn(
-            "rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
-            filter === "open"
-              ? "bg-accent text-accent-foreground"
-              : "text-muted-foreground hover:text-foreground",
-          )}
+          className="h-6 px-2 text-2xs"
         >
           Open ({openRoots.length})
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
+          size="sm"
+          variant={filter === "resolved" ? "secondary" : "ghost"}
           onClick={() => setFilter("resolved")}
-          className={cn(
-            "rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
-            filter === "resolved"
-              ? "bg-accent text-accent-foreground"
-              : "text-muted-foreground hover:text-foreground",
-          )}
+          className="h-6 px-2 text-2xs"
         >
           Resolved ({resolvedRoots.length})
-        </button>
+        </Button>
       </div>
 
       <div className="scrollbar scroll-fade flex-1 overflow-y-auto">
@@ -114,7 +115,7 @@ export function DocCommentsPanel({
         )}
 
         {displayRoots.length === 0 && !composingAnchorId && (
-          <p className="px-3 py-6 text-center text-sm text-muted-foreground">
+          <p className="px-3 py-6 text-center text-2sm text-muted-foreground">
             {filter === "open"
               ? "No open comments. Select text to comment."
               : "No resolved comments."}

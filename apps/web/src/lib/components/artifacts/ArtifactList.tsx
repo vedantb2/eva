@@ -3,7 +3,7 @@
 import type { FunctionReturnType } from "convex/server";
 import { type api } from "@eva/backend";
 import { IconLayoutDashboard } from "@tabler/icons-react";
-import { EmptyState } from "@/lib/components/ui/EmptyState";
+import { EmptyState } from "@eva/ui";
 import { ArtifactCard } from "./ArtifactCard";
 
 type ArtifactRow = FunctionReturnType<typeof api.artifacts.listAll>[number];

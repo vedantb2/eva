@@ -2,8 +2,7 @@
 
 import { Link } from "@tanstack/react-router";
 import { IconAlertCircle } from "@tabler/icons-react";
-import { Button } from "@eva/ui";
-import { EmptyState } from "@/lib/components/ui/EmptyState";
+import { Button, EmptyState } from "@eva/ui";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 interface EntityNotFoundProps {

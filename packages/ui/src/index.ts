@@ -1,5 +1,12 @@
 export { cn } from "./utils/cn";
 export { STREAMDOWN_TABLE_RADIUS_CLASS } from "./utils/surface-radius";
+export {
+  catColorForId,
+  catColorForSlot,
+  catSlotForId,
+  CAT_SLOT_COUNT,
+} from "./utils/cat-color";
+export type { CatColorClasses, CatSlot } from "./utils/cat-color";
 
 export * from "./ui/accordion";
 export * from "./ui/alert";
@@ -10,6 +17,12 @@ export * from "./ui/button-group";
 export * from "./ui/calendar";
 export * from "./ui/card";
 export * from "./ui/carousel";
+// The shared menu recipe classes. Underscore-prefixed because the menu
+// primitives are the usual way to reach them, but they are also the documented
+// recipe for hand-composed menu chrome (a `<kbd>` hint in a popover that is not
+// a DropdownMenuItem), so they belong in the public surface rather than being
+// re-typed at each call site.
+export * from "./ui/_menu-classes";
 export * from "./ui/checkbox";
 export * from "./ui/clear-input";
 export * from "./ui/collapsible";
@@ -17,12 +30,14 @@ export * from "./ui/command";
 export * from "./ui/context-menu";
 export * from "./ui/dialog";
 export * from "./ui/dropdown-menu";
+export * from "./ui/empty-state";
 export * from "./ui/hover-card";
 export * from "./ui/input";
 export * from "./ui/input-group";
 export * from "./ui/search-input";
 export * from "./ui/label";
 export * from "./ui/list-row";
+export * from "./ui/page-header";
 export * from "./ui/popover";
 export * from "./ui/progress";
 export * from "./ui/select";
@@ -31,6 +46,7 @@ export * from "./ui/sheet";
 export * from "./ui/skeleton";
 export * from "./ui/sonner";
 export * from "./ui/spinner";
+export * from "./ui/status-dot";
 export * from "./ui/surface";
 export * from "./ui/switch";
 export * from "./ui/tabs";

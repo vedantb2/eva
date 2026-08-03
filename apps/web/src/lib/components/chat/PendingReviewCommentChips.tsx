@@ -1,6 +1,6 @@
 "use client";
 
-import { Tooltip, TooltipContent, TooltipTrigger } from "@eva/ui";
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@eva/ui";
 import { IconMessage, IconX } from "@tabler/icons-react";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
 import { useDiffSearchParams } from "@/lib/components/sandbox/useDiffSearchParams";
@@ -17,11 +17,12 @@ export function PendingReviewCommentChips() {
         const label = `${comment.filePath} ${comment.rangeLabel}`;
         return (
           <Tooltip key={comment.id}>
-            <span className="inline-flex max-w-full items-center gap-1 rounded-md border border-border bg-card py-0.5 pl-2 pr-1 text-xs text-foreground">
+            <span className="inline-flex max-w-full items-center gap-1 rounded-control border border-border bg-card py-0.5 pl-2 pr-1 text-xs text-foreground">
               <TooltipTrigger asChild>
-                <button
+                <Button
                   type="button"
-                  className="inline-flex min-w-0 flex-1 items-center gap-1 hover:text-foreground"
+                  variant="ghost"
+                  className="h-auto min-w-0 flex-1 justify-start gap-1 p-0 font-normal hover:bg-transparent hover:text-foreground"
                   onClick={() => {
                     setDiffFile(comment.filePath);
                     review.openDiffsTab();
@@ -29,16 +30,18 @@ export function PendingReviewCommentChips() {
                 >
                   <IconMessage className="size-3.5 shrink-0 text-muted-foreground" />
                   <span className="truncate">{label}</span>
-                </button>
+                </Button>
               </TooltipTrigger>
-              <button
+              <Button
                 type="button"
-                className="inline-flex size-5 shrink-0 items-center justify-center rounded hover:bg-muted"
+                variant="ghost"
+                size="icon-xs"
+                className="size-5 shrink-0 rounded-control hover:bg-muted"
                 aria-label={`Remove comment on ${label}`}
                 onClick={() => review.remove(comment.id)}
               >
                 <IconX className="size-3" />
-              </button>
+              </Button>
             </span>
             <TooltipContent side="top" className="max-w-96 whitespace-pre-wrap">
               {comment.text}

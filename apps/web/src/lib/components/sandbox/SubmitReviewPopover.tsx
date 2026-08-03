@@ -118,7 +118,7 @@ export function SubmitReviewPopover({
           <IconMessage className="size-3.5" />
           Review changes
           {review.comments.length > 0 ? (
-            <span className="ml-0.5 rounded bg-primary px-1.5 text-[10px] font-medium tabular-nums text-primary-foreground">
+            <span className="ml-0.5 rounded-control bg-primary px-1.5 text-3xs font-medium tabular-nums text-primary-foreground">
               {review.comments.length}
             </span>
           ) : null}
@@ -151,13 +151,14 @@ export function SubmitReviewPopover({
 
         <div className="flex flex-col gap-1">
           {EVENT_OPTIONS.map((option) => (
-            <button
+            <Button
               key={option.event}
               type="button"
+              variant="ghost"
               aria-pressed={event === option.event}
               onClick={() => setEvent(option.event)}
               className={cn(
-                "flex flex-col rounded-md border px-2 py-1.5 text-left transition-colors",
+                "h-auto flex-col items-start justify-start gap-0 border px-2 py-1.5 text-left text-foreground",
                 event === option.event
                   ? "border-border bg-muted"
                   : "border-transparent hover:bg-muted/60",
@@ -171,10 +172,10 @@ export function SubmitReviewPopover({
                 )}
                 {option.label}
               </span>
-              <span className="pl-5 text-[11px] text-muted-foreground">
+              <span className="pl-5 text-2xs text-muted-foreground">
                 {option.hint}
               </span>
-            </button>
+            </Button>
           ))}
         </div>
 

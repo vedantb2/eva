@@ -1,22 +1,22 @@
-import type { Id } from "@eva/backend";
 import {
-  IconCheck,
+  Badge,
+  StatusDot,
+  TableCell,
+  TableRow,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@eva/ui";
+import {
   IconChevronDown,
   IconChevronRight,
-  IconClock,
   IconLoader2,
   IconX,
 } from "@tabler/icons-react";
-
-type SeededAppResult = {
-  repoId: Id<"githubRepos">;
-  app?: string;
-  status?: "running" | "seeded" | "fallback";
-  seededSnapshotName: string | null;
-};
+import type { SeededBuildApp, SnapshotBuild } from "../snapshots/_utils";
 
 /** A per-app entry counts as seeded by explicit status, or (legacy rows) by name. */
-function isSeededEntry(a: SeededAppResult): boolean {
+function isSeededEntry(a: SeededBuildApp): boolean {
   return a.status ? a.status === "seeded" : a.seededSnapshotName !== null;
 }
 
@@ -26,60 +26,51 @@ export function BuildRow({
   duration,
   onToggle,
 }: {
-  build: {
-    _id: Id<"snapshotBuilds">;
-    status: "running" | "success" | "error";
-    triggeredBy: "cron" | "manual";
-    kind?: "base" | "seeded";
-    provider: "vercel";
-    logs: string;
-    error?: string;
-    startedAt: number;
-    completedAt?: number;
-    seededApps?: SeededAppResult[];
-  };
+  build: SnapshotBuild;
   isExpanded: boolean;
   duration: string;
   onToggle: () => void;
 }) {
   return (
     <>
-      <tr className="cursor-pointer hover:bg-muted/30" onClick={onToggle}>
-        <td className="px-2 py-2 sm:px-4">
+      <TableRow className="cursor-pointer" onClick={onToggle}>
+        <TableCell className="px-2 py-2 sm:px-4">
           {isExpanded ? (
             <IconChevronDown size={14} />
           ) : (
             <IconChevronRight size={14} />
           )}
-        </td>
-        <td className="px-2 py-2 sm:px-4">
+        </TableCell>
+        <TableCell className="px-2 py-2 sm:px-4">
           {new Date(build.startedAt).toLocaleDateString("en-GB", {
             day: "numeric",
             month: "short",
             hour: "2-digit",
             minute: "2-digit",
           })}
-        </td>
-        <td className="px-2 py-2 sm:px-4">{duration}</td>
-        <td className="px-2 py-2 capitalize sm:px-4">{build.triggeredBy}</td>
-        <td className="px-2 py-2 sm:px-4">
+        </TableCell>
+        <TableCell className="px-2 py-2 sm:px-4">{duration}</TableCell>
+        <TableCell className="px-2 py-2 capitalize sm:px-4">
+          {build.triggeredBy}
+        </TableCell>
+        <TableCell className="px-2 py-2 sm:px-4">
           <ProviderBadge />
-        </td>
-        <td className="px-2 py-2 sm:px-4">
+        </TableCell>
+        <TableCell className="px-2 py-2 sm:px-4">
           <BuildKindBadge kind={build.kind} />
-        </td>
-        <td className="px-2 py-2 sm:px-4">
+        </TableCell>
+        <TableCell className="px-2 py-2 sm:px-4">
           <BuildStatusBadge status={build.status} />
-        </td>
-        <td className="px-2 py-2 sm:px-4">
+        </TableCell>
+        <TableCell className="px-2 py-2 sm:px-4">
           <SeededSummary seededApps={build.seededApps} />
-        </td>
-      </tr>
+        </TableCell>
+      </TableRow>
       {isExpanded && (
-        <tr>
-          <td colSpan={8} className="px-4 py-3">
+        <TableRow className="hover:bg-transparent">
+          <TableCell colSpan={8} className="px-4 py-3">
             {build.error && (
-              <div className="mb-2 rounded bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              <div className="mb-2 rounded-control bg-destructive/10 px-3 py-2 text-xs text-destructive">
                 {build.error}
               </div>
             )}
@@ -88,7 +79,7 @@ export function BuildRow({
                 {build.seededApps.map((a) => (
                   <div key={a.repoId} className="flex items-start gap-2">
                     {a.status === "running" ? (
-                      <span className="inline-flex items-center gap-1 text-blue-500">
+                      <span className="inline-flex items-center gap-1 text-muted-foreground">
                         <IconLoader2
                           size={12}
                           className="shrink-0 animate-spin"
@@ -97,8 +88,8 @@ export function BuildRow({
                       </span>
                     ) : a.seededSnapshotName ? (
                       <>
-                        <span className="inline-flex shrink-0 items-center gap-1 text-green-500">
-                          <IconCheck size={12} className="shrink-0" />
+                        <span className="inline-flex shrink-0 items-center gap-1.5 text-foreground">
+                          <StatusDot tone="done" />
                           {a.app ?? a.repoId}
                         </span>
                         <span className="min-w-0">
@@ -120,7 +111,7 @@ export function BuildRow({
               </div>
             )}
             {build.logs ? (
-              <pre className="max-h-64 overflow-y-auto overflow-x-hidden scroll-fade rounded bg-muted/50 p-2 font-mono text-[10px] leading-relaxed whitespace-pre-wrap break-all sm:p-3 sm:text-[11px]">
+              <pre className="max-h-64 overflow-y-auto overflow-x-hidden scroll-fade rounded-control bg-muted/50 p-2 font-mono text-3xs leading-relaxed whitespace-pre-wrap break-all sm:p-3 sm:text-2xs">
                 {build.logs}
               </pre>
             ) : (
@@ -128,8 +119,8 @@ export function BuildRow({
                 No logs available.
               </p>
             )}
-          </td>
-        </tr>
+          </TableCell>
+        </TableRow>
       )}
     </>
   );
@@ -142,16 +133,16 @@ export function BuildStatusBadge({
 }) {
   if (status === "running") {
     return (
-      <span className="inline-flex items-center gap-1 text-blue-500">
-        <IconClock size={12} />
+      <span className="inline-flex items-center gap-1.5 text-foreground">
+        <StatusDot tone="progress" />
         Running
       </span>
     );
   }
   if (status === "success") {
     return (
-      <span className="inline-flex items-center gap-1 text-success">
-        <IconCheck size={12} />
+      <span className="inline-flex items-center gap-1.5 text-foreground">
+        <StatusDot tone="done" />
         Success
       </span>
     );
@@ -167,14 +158,12 @@ export function BuildStatusBadge({
 /** Sandbox provider badge with tooltip. */
 function ProviderBadge() {
   return (
-    <div className="group relative inline-flex">
-      <span className="inline-flex items-center gap-1 rounded-surface border border-blue-500/30 bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-600">
-        ▲ Vercel
-      </span>
-      <div className="absolute bottom-full mb-1 hidden whitespace-nowrap rounded bg-foreground px-2 py-1 text-[10px] text-background group-hover:block">
-        Vercel sandbox provider
-      </div>
-    </div>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge variant="quiet">▲ Vercel</Badge>
+      </TooltipTrigger>
+      <TooltipContent>Vercel sandbox provider</TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -184,21 +173,13 @@ function BuildKindBadge({ kind }: { kind?: "base" | "seeded" }) {
     return <span className="text-muted-foreground">&mdash;</span>;
   }
   if (kind === "seeded") {
-    return (
-      <span className="inline-flex items-center rounded-surface border border-border bg-primary/10 px-1.5 py-0.5 text-[11px] font-medium text-primary">
-        Seeded
-      </span>
-    );
+    return <Badge variant="default">Seeded</Badge>;
   }
-  return (
-    <span className="inline-flex items-center rounded-surface border border-border bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground">
-      Base image
-    </span>
-  );
+  return <Badge variant="secondary">Base image</Badge>;
 }
 
 /** Compact per-build seeding summary: seeded/total, coloured by completeness. */
-function SeededSummary({ seededApps }: { seededApps?: SeededAppResult[] }) {
+function SeededSummary({ seededApps }: { seededApps?: SeededBuildApp[] }) {
   if (!seededApps || seededApps.length === 0) {
     return <span className="text-muted-foreground">&mdash;</span>;
   }
@@ -207,20 +188,20 @@ function SeededSummary({ seededApps }: { seededApps?: SeededAppResult[] }) {
   // Still seeding: show a spinner with progress so far.
   if (seededApps.some((a) => a.status === "running")) {
     return (
-      <span className="inline-flex items-center gap-1 text-blue-500">
+      <span className="inline-flex items-center gap-1 text-muted-foreground">
         <IconLoader2 size={12} className="animate-spin" />
         {seeded}/{total}
       </span>
     );
   }
-  const color =
+  const toneClass =
     seeded === total
-      ? "text-green-500"
+      ? "text-success"
       : seeded === 0
         ? "text-destructive"
-        : "text-amber-500";
+        : "text-warning";
   return (
-    <span className={`inline-flex items-center gap-1 ${color}`}>
+    <span className={`inline-flex items-center gap-1 ${toneClass}`}>
       {seeded}/{total}
     </span>
   );

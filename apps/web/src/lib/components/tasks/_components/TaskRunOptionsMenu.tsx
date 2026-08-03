@@ -76,7 +76,7 @@ export function TaskRunOptionsMenu({
             >
               <IconAdjustmentsHorizontal size={size === "sm" ? 16 : 18} />
               {checkedCount > 0 ? (
-                <Badge className="absolute -right-1 -top-1 h-4 min-w-4 justify-center rounded-full px-1 text-[10px] leading-none">
+                <Badge className="absolute -right-1 -top-1 h-4 min-w-4 justify-center rounded-full px-1 text-3xs leading-none">
                   {checkedCount}
                 </Badge>
               ) : null}

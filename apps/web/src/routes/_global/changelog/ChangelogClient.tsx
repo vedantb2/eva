@@ -2,7 +2,13 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
-import { cn, Skeleton, STREAMDOWN_TABLE_RADIUS_CLASS } from "@eva/ui";
+import {
+  Badge,
+  cn,
+  EmptyState,
+  Skeleton,
+  STREAMDOWN_TABLE_RADIUS_CLASS,
+} from "@eva/ui";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { math } from "@streamdown/math";
@@ -10,7 +16,6 @@ import { mermaid } from "@streamdown/mermaid";
 import { IconSparkles } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { EmptyState } from "@/lib/components/ui/EmptyState";
 
 /** Same plugin set as `ChangelogDialog`, so both surfaces render identically. */
 const changelogPlugins = { cjk, math, mermaid };
@@ -55,9 +60,9 @@ export function ChangelogClient() {
                     Week of {dayjs(entry.publishedAt).format("MMM D, YYYY")}
                   </h2>
                   {index === 0 ? (
-                    <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                    <Badge variant="quiet" className="shrink-0">
                       Latest
-                    </span>
+                    </Badge>
                   ) : null}
                 </header>
                 <div className="px-4 py-3">

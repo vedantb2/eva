@@ -1,7 +1,7 @@
 "use client";
 
 import { PERSONALISATION_PRESETS } from "@eva/backend";
-import { cn } from "@eva/ui";
+import { ListRow } from "@eva/ui";
 import { IconBriefcase, IconCode, IconBrush } from "@tabler/icons-react";
 
 const PRESET_ICONS = {
@@ -31,27 +31,20 @@ export function RolePresetPicker({
         const isActive = activeRole === key;
 
         return (
-          <button
+          <ListRow
             key={key}
-            type="button"
+            selected={isActive}
             onClick={() => onSelect(isActive ? null : key)}
-            className={cn(
-              // Inactive tiles keep a transparent border so selecting one does
-              // not shift the grid.
-              "cursor-pointer rounded-surface border p-3 text-left transition-[background-color,border-color]",
-              isActive
-                ? "border-border bg-accent text-accent-foreground"
-                : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted/60",
-            )}
+            aria-label={preset.label}
           >
             <div className="flex items-center gap-2">
-              <Icon size={14} />
-              <span className="text-xs font-medium">{preset.label}</span>
+              <Icon size={14} className="shrink-0" />
+              <span className="text-2sm font-medium">{preset.label}</span>
             </div>
-            <p className="mt-1 text-xs leading-relaxed opacity-80">
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
               {preset.description}
             </p>
-          </button>
+          </ListRow>
         );
       })}
     </div>

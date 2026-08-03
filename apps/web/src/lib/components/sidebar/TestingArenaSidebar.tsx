@@ -13,6 +13,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  EmptyState,
   Spinner,
   cn,
 } from "@eva/ui";
@@ -99,16 +100,12 @@ export function TestingArenaSidebar({
             <Spinner size="sm" />
           </div>
         ) : docs.length === 0 ? (
-          <div className="px-4 py-8 text-center">
-            <IconFileText
-              size={20}
-              className="mx-auto mb-2 text-muted-foreground opacity-50"
-            />
-            <p className="text-sm font-medium text-foreground">No documents yet</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Create docs to test against.
-            </p>
-          </div>
+          <EmptyState
+            className="px-4 py-8"
+            icon={<IconFileText size={20} className="opacity-50" />}
+            title="No documents yet"
+            description="Create docs to test against."
+          />
         ) : (
           <SharedLayoutNav layoutId="testing-arena-nav" className="space-y-1">
             {docs.map((doc) => {

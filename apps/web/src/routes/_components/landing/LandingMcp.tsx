@@ -45,7 +45,7 @@ export function LandingMcp() {
                 className="motion-base flex flex-col gap-4 bg-background p-6 hover:bg-muted/30"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex size-9 items-center justify-center rounded-lg border border-border bg-card">
+                  <div className="flex size-9 items-center justify-center rounded-control border border-border bg-card">
                     <Icon size={17} className="text-primary" aria-hidden />
                   </div>
                   <h3 className="text-base font-medium text-foreground">
@@ -73,7 +73,7 @@ export function LandingMcp() {
         </LandingLattice>
 
         <div className="mt-4 flex items-start gap-4 rounded-surface border border-border bg-card p-6">
-          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-border bg-background">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-control border border-border bg-background">
             <IconBrowser size={17} className="text-primary" aria-hidden />
           </div>
           <div className="space-y-1.5">

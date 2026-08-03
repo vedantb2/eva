@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { EmojiPicker } from "frimousse";
-import { Popover, PopoverContent, PopoverTrigger, cn } from "@eva/ui";
+import { Button, Popover, PopoverContent, PopoverTrigger, cn } from "@eva/ui";
 import { IconMoodSmile } from "@tabler/icons-react";
 
 // Fast-path reactions shown above the full searchable grid.
@@ -36,9 +36,9 @@ export function EmojiReactionPicker({
   };
 
   const triggerClassName = cn(
-    "flex items-center justify-center text-muted-foreground transition-[opacity,background-color,color] hover:text-foreground focus-visible:opacity-100 data-[state=open]:text-foreground data-[state=open]:opacity-100",
+    "flex text-muted-foreground transition-[opacity,background-color,color] hover:text-foreground focus-visible:opacity-100 data-[state=open]:text-foreground data-[state=open]:opacity-100",
     variant === "ghost"
-      ? "size-7 rounded-md hover:bg-muted/60 data-[state=open]:bg-muted"
+      ? "size-7 rounded-control hover:bg-muted/60 data-[state=open]:bg-muted"
       : "h-6 rounded-full border border-border bg-muted/40 px-2 hover:bg-muted data-[state=open]:bg-muted",
     !alwaysVisible &&
       "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
@@ -47,26 +47,29 @@ export function EmojiReactionPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="ghost"
           aria-label="Add reaction"
           className={triggerClassName}
         >
           <IconMoodSmile className="size-3.5" />
-        </button>
+        </Button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-fit overflow-hidden p-0">
         <div className="flex items-center gap-0.5 border-b border-border p-1.5">
           {QUICK_REACTIONS.map((emoji) => (
-            <button
+            <Button
               key={emoji}
               type="button"
+              variant="ghost"
+              size="icon-sm"
               onClick={() => choose(emoji)}
               aria-label={`React with ${emoji}`}
-              className="flex size-8 items-center justify-center rounded-md text-lg transition-colors hover:bg-muted"
+              className="text-lg hover:bg-muted"
             >
               {emoji}
-            </button>
+            </Button>
           ))}
         </div>
         <EmojiPicker.Root
@@ -98,12 +101,14 @@ export function EmojiReactionPicker({
                   </div>
                 ),
                 Emoji: ({ emoji, ...props }) => (
-                  <button
-                    className="flex size-8 items-center justify-center rounded-md text-lg transition-colors data-[active]:bg-muted"
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-lg data-[active]:bg-muted"
                     {...props}
                   >
                     {emoji.emoji}
-                  </button>
+                  </Button>
                 ),
               }}
             />

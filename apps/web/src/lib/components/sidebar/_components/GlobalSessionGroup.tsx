@@ -6,17 +6,9 @@ import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
-import {
-  Badge,
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-  Spinner,
-  cn,
-} from "@eva/ui";
-import { IconChevronDown, IconPlus } from "@tabler/icons-react";
+import { Collapsible, CollapsibleContent, EmptyState, Spinner } from "@eva/ui";
 import { AnimatePresence } from "motion/react";
-import { RepoLogo } from "@/lib/components/RepoLogo";
+import { GlobalSessionGroupHeader } from "@/lib/components/sidebar/_components/GlobalSessionGroupHeader";
 import { SessionListShowMore } from "@/lib/components/sidebar/_components/SessionListShowMore";
 import { SidebarSessionRow } from "@/lib/components/sidebar/SidebarSessionRow";
 import { SharedLayoutNav } from "@/lib/components/sidebar/SharedLayoutNav";
@@ -112,63 +104,17 @@ export function GlobalSessionGroup({
 
   return (
     <Collapsible open={open} onOpenChange={onOpenChange}>
-      <div className="flex items-center gap-0.5 px-1">
-        <CollapsibleTrigger asChild>
-          <button
-            type="button"
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent/50"
-          >
-            <RepoLogo
-              logoUrl={repo.logoUrl}
-              size={18}
-              fallback={
-                <span className="flex size-[18px] items-center justify-center rounded-sm border border-border bg-muted text-[10px] font-semibold text-muted-foreground">
-                  {label.charAt(0).toUpperCase()}
-                </span>
-              }
-            />
-            <span className="flex min-w-0 items-center gap-1.5">
-              <span className="truncate text-xs font-medium text-muted-foreground">
-                {label}
-              </span>
-              {listMode === "active" && runningCount > 0 ? (
-                <Badge
-                  variant="outline"
-                  className="shrink-0 gap-1 border-border bg-transparent px-1.5 py-0"
-                >
-                  <span className="size-1.5 rounded-full bg-emerald-500" />
-                  <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
-                    {runningCount}
-                  </span>
-                </Badge>
-              ) : null}
-              <IconChevronDown
-                size={14}
-                className={cn(
-                  "shrink-0 text-muted-foreground transition-transform duration-200",
-                  !open && "-rotate-90",
-                )}
-              />
-            </span>
-          </button>
-        </CollapsibleTrigger>
-        {listMode === "active" ? (
-          <button
-            type="button"
-            aria-label={`New session in ${label}`}
-            title={`New session in ${label}`}
-            className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-sidebar-accent hover:text-sidebar-foreground"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              navigate({ to: repoSessionsIndexPath(repo) });
-              onNavigate?.();
-            }}
-          >
-            <IconPlus size={14} />
-          </button>
-        ) : null}
-      </div>
+      <GlobalSessionGroupHeader
+        label={label}
+        logoUrl={repo.logoUrl}
+        open={open}
+        listMode={listMode}
+        runningCount={runningCount}
+        onNewSession={() => {
+          navigate({ to: repoSessionsIndexPath(repo) });
+          onNavigate?.();
+        }}
+      />
       <CollapsibleContent>
         <div className="pb-1 pl-1">
           {isLoading ? (
@@ -176,18 +122,22 @@ export function GlobalSessionGroup({
               <Spinner size="sm" />
             </div>
           ) : hasNoResults ? (
-            <div className="px-3 py-3 text-center">
-              <p className="text-xs font-medium text-foreground">
-                {listMode === "archived"
+            /* animate={false}: this flashes on every list-mode switch, so it
+               stays still; py-3 keeps it inside a sidebar group's rhythm. */
+            <EmptyState
+              animate={false}
+              className="px-3 py-3"
+              title={
+                listMode === "archived"
                   ? "No archived sessions"
-                  : "No sessions yet"}
-              </p>
-              <p className="mt-0.5 text-[11px] text-muted-foreground">
-                {listMode === "archived"
+                  : "No sessions yet"
+              }
+              description={
+                listMode === "archived"
                   ? "Archive a thread from its menu."
-                  : "Press + to start one."}
-              </p>
-            </div>
+                  : "Press + to start one."
+              }
+            />
           ) : (
             <SharedLayoutNav
               layoutId={`global-sessions-${repo._id}-${listMode}`}

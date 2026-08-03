@@ -48,7 +48,7 @@ export function DocNewCommentComposer({
   return (
     <div>
       {anchorText && (
-        <div className="mb-2 rounded border border-border bg-muted/50 px-2 py-1 text-xs text-muted-foreground line-clamp-2 italic">
+        <div className="mb-2 rounded-surface border border-border bg-muted/50 px-2 py-1 text-xs text-muted-foreground line-clamp-2 italic">
           &ldquo;{anchorText}&rdquo;
         </div>
       )}

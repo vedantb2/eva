@@ -76,14 +76,16 @@ function SortableTaskWrapper({
       style={style}
       className={`flex items-center gap-1 ${isDragging ? "opacity-50" : ""}`}
     >
-      <button
+      <Button
         type="button"
-        className="cursor-grab touch-none text-muted-foreground hover:text-foreground shrink-0 p-0.5"
+        variant="ghost"
+        size="icon-xs"
+        className="h-auto w-auto cursor-grab touch-none p-0.5 hover:bg-transparent"
         {...attributes}
         {...listeners}
       >
         <IconGripVertical size={14} />
-      </button>
+      </Button>
       <div className="flex-1 min-w-0">
         <QuickTaskCard
           id={task._id}
@@ -245,7 +247,7 @@ export function ProjectTaskListPanel({
                   <div className="flex flex-1 items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <StatusIcon size={14} className={config.text} />
-                      <span className={`text-sm font-medium ${config.text}`}>
+                      <span className="text-sm font-medium text-foreground">
                         {config.label}
                       </span>
                       <span className="text-xs text-muted-foreground/60 tabular-nums">
@@ -300,7 +302,7 @@ export function ProjectTaskListPanel({
                 >
                   <div className="flex items-center gap-1.5">
                     <StatusIcon size={14} className={config.text} />
-                    <span className={`text-sm font-medium ${config.text}`}>
+                    <span className="text-sm font-medium text-foreground">
                       {config.label}
                     </span>
                     <span className="text-xs text-muted-foreground/60 tabular-nums">

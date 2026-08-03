@@ -1,6 +1,6 @@
 import type { ActivityStep } from "@eva/ui";
 import { IconFileText } from "@tabler/icons-react";
-import { cn, Surface } from "@eva/ui";
+import { Button, cn, Surface } from "@eva/ui";
 
 export interface ChangedFile {
   path: string;
@@ -100,26 +100,29 @@ export function ChangedFilesCard({
           Changed files ({files.length})
         </span>
         {onViewDiff ? (
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="xs"
             onClick={handleViewDiff}
-            className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="h-auto px-0 py-0 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
           >
             View diff
-          </button>
+          </Button>
         ) : null}
       </div>
       <ul className="divide-y divide-border">
         {files.map((file) => (
           <li key={file.path}>
             {onOpenFile ? (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => onOpenFile(file.path)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-muted"
+                className="h-auto w-full justify-start gap-2 rounded-none px-3 py-2 text-left font-normal hover:bg-muted"
               >
                 <FileRow file={file} />
-              </button>
+              </Button>
             ) : (
               <div className="flex items-center gap-2 px-3 py-2">
                 <FileRow file={file} />

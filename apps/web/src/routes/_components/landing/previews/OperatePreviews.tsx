@@ -40,7 +40,7 @@ export function AutomationsPreview() {
         {AUTOMATIONS.map((automation) => (
           <div
             key={automation.name}
-            className="flex items-center gap-2.5 rounded-md border border-border bg-card px-2.5 py-2"
+            className="flex items-center gap-2.5 rounded-control border border-border bg-card px-2.5 py-2"
           >
             <MockDot tone="success" />
             <div className="min-w-0 flex-1">
@@ -58,7 +58,7 @@ export function AutomationsPreview() {
         ))}
       </div>
 
-      <div className="mt-3 rounded-md border border-border bg-muted/25 p-3">
+      <div className="mt-3 rounded-surface border border-border bg-muted/25 p-3">
         <MockLabel>Next run</MockLabel>
         <p className="mt-1.5 text-[11px] text-foreground">
           Type coverage audit —{" "}
@@ -89,13 +89,13 @@ export function SnapshotsPreview() {
       bodyClassName="p-3.5"
     >
       <div className="grid grid-cols-2 gap-2">
-        <div className="rounded-md border border-border bg-muted/25 p-2.5">
+        <div className="rounded-control border border-border bg-muted/25 p-2.5">
           <MockLabel>Cold clone</MockLabel>
           <p className="mt-1 text-lg font-semibold tabular-nums text-muted-foreground">
             6m 01s
           </p>
         </div>
-        <div className="rounded-md border border-primary/30 bg-primary/5 p-2.5">
+        <div className="rounded-control border border-primary/30 bg-primary/5 p-2.5">
           <MockLabel>From snapshot</MockLabel>
           <p className="mt-1 text-lg font-semibold tabular-nums text-primary">
             4.1s
@@ -164,7 +164,7 @@ export function SkillsPreview() {
         {SKILL_FILES.map((file) => (
           <div
             key={file.name}
-            className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted/30"
+            className="flex items-center gap-2.5 rounded-menu-item px-2 py-1.5 hover:bg-muted/30"
           >
             <IconFileCode
               size={12}
@@ -181,7 +181,7 @@ export function SkillsPreview() {
         ))}
       </div>
 
-      <div className="mt-3 flex items-center gap-2 rounded-md border border-border bg-muted/25 px-2.5 py-2">
+      <div className="mt-3 flex items-center gap-2 rounded-control border border-border bg-muted/25 px-2.5 py-2">
         <MockDot tone="primary" pulse />
         <p className="truncate text-[10.5px] text-muted-foreground">
           Re-synced on every push, and again every six hours.

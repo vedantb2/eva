@@ -7,6 +7,7 @@ import { Link } from "@tanstack/react-router";
 import { IconUsers } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { EnvVarsTable } from "@/lib/components/EnvVarsTable";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 
 export function TeamEnvVarsClient() {
@@ -59,13 +60,13 @@ export function TeamEnvVarsClient() {
 
   if (!repo.teamId || !team) {
     return (
-      <div className="rounded-surface border border-border bg-card">
+      <SettingsSection title="Team variables" bodyVariant="list">
         <SettingsEmptyState
           icon={IconUsers}
           title="No team configured"
           description="This repository is not part of any team yet, so there are no team variables to inherit."
         />
-      </div>
+      </SettingsSection>
     );
   }
 

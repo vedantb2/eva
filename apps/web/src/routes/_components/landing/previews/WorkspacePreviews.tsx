@@ -78,19 +78,19 @@ export function StatsPreview() {
       bodyClassName="p-3.5"
     >
       <div className="grid grid-cols-3 gap-2">
-        <div className="rounded-md border border-border bg-muted/25 p-2">
+        <div className="rounded-control border border-border bg-muted/25 p-2">
           <MockLabel>Merged</MockLabel>
           <p className="mt-0.5 text-base font-semibold tabular-nums text-foreground">
             127
           </p>
         </div>
-        <div className="rounded-md border border-border bg-muted/25 p-2">
+        <div className="rounded-control border border-border bg-muted/25 p-2">
           <MockLabel>Sessions</MockLabel>
           <p className="mt-0.5 text-base font-semibold tabular-nums text-foreground">
             342
           </p>
         </div>
-        <div className="rounded-md border border-border bg-muted/25 p-2">
+        <div className="rounded-control border border-border bg-muted/25 p-2">
           <MockLabel>Merge rate</MockLabel>
           <p className="mt-0.5 text-base font-semibold tabular-nums text-foreground">
             71%
@@ -103,6 +103,7 @@ export function StatsPreview() {
           <span
             key={bar.week}
             aria-hidden
+            // design-check-ignore-next-line — 3px cap on a bar a few pixels wide; a clamped token (8px and up) would round the whole bar away at this scale
             className="flex-1 rounded-t-[3px] bg-primary/70"
             style={{ height: `${bar.value}%` }}
           />
@@ -116,6 +117,7 @@ export function StatsPreview() {
               <span
                 key={`${column.day}-${band}`}
                 className={cn(
+                  // design-check-ignore-next-line — imitates the product's contribution-graph cell, an SVG rect with a 2px corner; no radius token fits a 9px square
                   "size-[9px] rounded-[2px]",
                   HEAT_TONE[column.levels[row] ?? 0],
                 )}
@@ -178,7 +180,7 @@ export function InboxPreview() {
             <div
               key={notification.title}
               className={cn(
-                "flex items-start gap-2.5 rounded-md border px-2.5 py-2",
+                "flex items-start gap-2.5 rounded-control border px-2.5 py-2",
                 notification.unread
                   ? "border-border bg-card"
                   : "border-transparent",
@@ -203,7 +205,7 @@ export function InboxPreview() {
         })}
       </div>
 
-      <div className="mt-3 space-y-1.5 rounded-md border border-border bg-muted/25 p-2.5">
+      <div className="mt-3 space-y-1.5 rounded-surface border border-border bg-muted/25 p-2.5">
         <MockLabel>Also delivered by email</MockLabel>
         <p className="text-[10.5px] text-muted-foreground">
           Daily digest · Weekly changelog · Both optional
@@ -233,18 +235,19 @@ export function TeamsPreview() {
         {MEMBERS.map((member) => (
           <div
             key={member.name}
-            className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted/30"
+            className="flex items-center gap-2.5 rounded-menu-item px-2 py-1.5 hover:bg-muted/30"
           >
             <MockAvatar initials={member.initials} tone={member.tone} />
             <p className="min-w-0 flex-1 truncate text-[11.5px] font-medium text-foreground">
               {member.name}
             </p>
-            <MockChip tone={member.tone}>{member.role}</MockChip>
+            {/* A role is not a status: the chip stays a neutral hairline label and the avatar carries the identity colour. */}
+            <MockChip>{member.role}</MockChip>
           </div>
         ))}
       </div>
 
-      <div className="mt-3 rounded-md border border-border bg-muted/25 p-2.5">
+      <div className="mt-3 rounded-surface border border-border bg-muted/25 p-2.5">
         <div className="flex items-center gap-1.5">
           <IconLock size={11} className="text-muted-foreground" aria-hidden />
           <MockLabel>Environment variables</MockLabel>

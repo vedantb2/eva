@@ -129,11 +129,7 @@ export function SessionReviewModal({
                 <Button variant="ghost" onClick={handleClose}>
                   Cancel
                 </Button>
-                <Button
-                  className="bg-status-code-review text-white hover:bg-status-code-review/90"
-                  onClick={handleCreatePr}
-                  disabled={isCreatingPr}
-                >
+                <Button onClick={handleCreatePr} disabled={isCreatingPr}>
                   {isCreatingPr ? <Spinner size="sm" /> : "Confirm"}
                 </Button>
               </DialogFooter>

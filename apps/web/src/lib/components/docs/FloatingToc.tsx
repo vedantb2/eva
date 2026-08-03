@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { cn } from "@eva/ui";
+import { Button, cn } from "@eva/ui";
 import {
   assignHeadingIds,
   getHeadingElements,
@@ -132,7 +132,7 @@ export function FloatingToc({
       aria-label="On this page"
       className={cn("min-h-0 overflow-y-auto", className)}
     >
-      <p className="mb-2 px-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+      <p className="mb-2 px-3 text-2xs font-semibold uppercase tracking-wider text-muted-foreground">
         On this page
       </p>
       <ul className="border-l border-border">
@@ -140,21 +140,22 @@ export function FloatingToc({
           const isActive = item.id === activeId;
           return (
             <li key={item.id}>
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => handleClick(item.id)}
                 style={{
                   paddingLeft: `${(item.level - minLevel) * 12 + 12}px`,
                 }}
                 className={cn(
-                  "-ml-px block w-full border-l-2 py-1 pr-3 text-left text-[13px] leading-snug transition-colors",
+                  "-ml-px h-auto w-full justify-start whitespace-normal rounded-none border-l-2 py-1 pl-0 pr-3 text-left text-2sm font-normal leading-snug hover:bg-transparent",
                   isActive
                     ? "border-primary font-medium text-foreground"
                     : "border-transparent text-muted-foreground hover:border-border hover:text-foreground",
                 )}
               >
                 {item.text}
-              </button>
+              </Button>
             </li>
           );
         })}

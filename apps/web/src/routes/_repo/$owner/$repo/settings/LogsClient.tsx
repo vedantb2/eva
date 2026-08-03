@@ -3,7 +3,7 @@
 import { useQueryState, useQueryStates } from "nuqs";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
-import { Skeleton } from "@eva/ui";
+import { EmptyState, Skeleton } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   timeRangeParser,
@@ -15,13 +15,12 @@ import { getStartTime, DAY_MS } from "@/lib/components/analytics/timeRange";
 import { useQuantizedNow } from "@/lib/hooks/useQuantizedNow";
 import { IconFileOff } from "@tabler/icons-react";
 import { SettingsPage } from "@/lib/components/settings/SettingsPage";
-import { SettingsSection } from "@/lib/components/settings/SettingsSection";
-import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
-import { parseResultEvent, groupKeyFor, formatCost } from "./logs/_utils";
+import { parseResultEvent, groupKeyFor } from "./logs/_utils";
 import { LogsSummaryGrid } from "./logs/_components/LogsSummaryGrid";
 import { LogsHeader } from "./logs/_components/LogsHeader";
 import { LogEntryGroup } from "./logs/_components/LogEntryGroup";
 import { ProjectSpendingGroup } from "./logs/_components/ProjectSpendingGroup";
+import { ProjectSummaryCards } from "./logs/_components/ProjectSummaryCards";
 
 export function LogsClient() {
   const { repo } = useRepo();
@@ -216,19 +215,17 @@ export function LogsClient() {
           <Skeleton className="h-64 border border-border" />
         </div>
       ) : isEmpty ? (
-        <div className="rounded-surface border border-border bg-card">
-          <SettingsEmptyState
-            icon={IconFileOff}
-            title={
-              isProjectView ? "No project spending" : "No completions logged"
-            }
-            description={
-              isProjectView
-                ? "Nothing was billed to a project in this time range. Widen the range to see more."
-                : "Nothing ran in this time range. Widen the range or clear the filters to see more."
-            }
-          />
-        </div>
+        <EmptyState
+          icon={<IconFileOff size={24} className="text-muted-foreground" />}
+          title={
+            isProjectView ? "No project spending" : "No completions logged"
+          }
+          description={
+            isProjectView
+              ? "Nothing was billed to a project in this time range. Widen the range to see more."
+              : "Nothing ran in this time range. Widen the range or clear the filters to see more."
+          }
+        />
       ) : (
         <>
           {!isProjectView ? (
@@ -266,39 +263,5 @@ export function LogsClient() {
         </>
       )}
     </SettingsPage>
-  );
-}
-
-function ProjectSummaryCards({
-  groups,
-}: {
-  groups: Array<{ totalCost: number; logs: Array<unknown> }>;
-}) {
-  const totalCost = groups.reduce((sum, g) => sum + g.totalCost, 0);
-  const totalLogs = groups.reduce((sum, g) => sum + g.logs.length, 0);
-
-  return (
-    <SettingsSection title="Summary" bodyVariant="compact">
-      <div className="grid grid-cols-3 gap-4">
-        <div className="min-w-0">
-          <p className="text-[11px] text-muted-foreground">Project spending</p>
-          <p className="mt-0.5 text-sm font-medium tabular-nums text-foreground">
-            {formatCost(totalCost)}
-          </p>
-        </div>
-        <div className="min-w-0">
-          <p className="text-[11px] text-muted-foreground">Projects</p>
-          <p className="mt-0.5 text-sm font-medium tabular-nums text-foreground">
-            {groups.length}
-          </p>
-        </div>
-        <div className="min-w-0">
-          <p className="text-[11px] text-muted-foreground">Completions</p>
-          <p className="mt-0.5 text-sm font-medium tabular-nums text-foreground">
-            {totalLogs}
-          </p>
-        </div>
-      </div>
-    </SettingsSection>
   );
 }

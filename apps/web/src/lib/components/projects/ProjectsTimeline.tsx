@@ -56,7 +56,9 @@ const phaseStatusMap: Record<ProjectPhase, GanttStatus> = {
     name: "Draft",
     color: "rgb(var(--muted-foreground) / 0.5)",
   },
-  finalized: { id: "finalized", name: "Finalized", color: "rgb(59 130 246)" },
+  // Matches ProjectPhaseBadge's choice of the cat-1 categorical slot for
+  // "finalized" (no dedicated status token covers it) instead of a raw hex.
+  finalized: { id: "finalized", name: "Finalized", color: "rgb(var(--cat-1))" },
   in_progress: {
     id: "in_progress",
     name: "In Progress",

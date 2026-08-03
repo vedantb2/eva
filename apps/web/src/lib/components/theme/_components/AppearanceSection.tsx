@@ -58,7 +58,7 @@ export function AppearanceSection({
               // transparent one to hold their size.
               "relative flex flex-col items-center rounded-surface border font-medium motion-press transition-[background-color,border-color,color,transform] active:scale-[0.96]",
               compact
-                ? "gap-1 p-2 text-[11px]"
+                ? "gap-1 p-2 text-2xs"
                 : "gap-2 p-3 text-xs sm:gap-3 sm:p-4 sm:text-sm",
               isActive
                 ? "border-border bg-primary/8 text-primary"
@@ -79,7 +79,7 @@ export function AppearanceSection({
             ) : null}
             <div
               className={cn(
-                "flex w-full items-center justify-center rounded-lg",
+                "flex w-full items-center justify-center rounded-control",
                 compact ? "h-8" : "h-12 sm:h-16",
                 mode === "light"
                   ? "bg-white"

@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@eva/ui";
 import { IconDots } from "@tabler/icons-react";
 
 interface SessionListShowMoreProps {
@@ -15,17 +16,18 @@ export function SessionListShowMore({
   onToggle,
 }: SessionListShowMoreProps) {
   return (
-    <button
+    <Button
       type="button"
+      variant="ghost"
       onClick={onToggle}
-      className="flex w-full items-center gap-2 rounded-lg border border-transparent px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+      className="h-auto w-full justify-start gap-2 rounded-menu-item px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-foreground [&_svg]:size-3.5"
     >
-      <IconDots size={14} />
+      <IconDots />
       {expanded
         ? "Show less"
         : hiddenCount > 0
           ? `Show more (${hiddenCount})`
           : "Show more"}
-    </button>
+    </Button>
   );
 }

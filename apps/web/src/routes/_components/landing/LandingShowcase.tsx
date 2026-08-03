@@ -84,6 +84,7 @@ export function LandingShowcase({
           const isActive = index === tab.index;
 
           return (
+            // design-check-ignore-next-line — underline tab: `Button` has no variant for a flush -mb-px tab, and its hover fill plus active scale would drag the absolutely positioned countdown underline with it
             <button
               key={feature.name}
               type="button"

@@ -114,11 +114,14 @@ export function ReposClient() {
             <>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
+                  {/* Ghost, not outline: the page has one accent moment (the
+                      Add Repos plate) and a bordered sibling competes with it. */}
                   <Button
-                    size="sm"
-                    variant="outline"
+                    size="icon-sm"
+                    variant="ghost"
                     disabled={repos === undefined}
-                    className="motion-press border-border text-muted-foreground hover:scale-[1.01] active:scale-[0.96]"
+                    aria-label="Codebase options"
+                    className="motion-press text-muted-foreground"
                   >
                     <IconDots size={16} />
                   </Button>
@@ -215,14 +218,16 @@ export function ReposClient() {
     >
       {repos === undefined || appSlug === undefined ? (
         <div
-          className="min-h-[28rem] space-y-6"
+          className="min-h-[18rem] space-y-3"
           aria-busy="true"
           aria-label="Loading repositories"
         >
-          <Skeleton className="h-8 w-40" />
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Sized to the real tiles (compact list rows, ~52px) so the grid does
+              not jump when the query resolves. */}
+          <Skeleton className="h-5 w-32" />
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-28 border border-border" />
+              <Skeleton key={i} className="h-[3.25rem] border border-border" />
             ))}
           </div>
         </div>
@@ -235,7 +240,7 @@ export function ReposClient() {
               <WelcomeBanner onDismiss={handleDismissWelcome} />
             )}
           </AnimatePresence>
-          <div className="space-y-6">
+          <div className="space-y-5">
             {groupNames.map((groupName) => (
               <RepoGroup
                 key={groupName}

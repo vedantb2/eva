@@ -4,7 +4,13 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useAction } from "convex/react";
 import { api } from "@eva/backend";
-import { Button, Spinner } from "@eva/ui";
+import {
+  Button,
+  PageHeader,
+  PageHeaderActions,
+  PageHeaderTitle,
+  Spinner,
+} from "@eva/ui";
 import { IconExternalLink, IconRefresh } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PendingReviewCommentsProvider } from "@/lib/contexts/PendingReviewCommentsContext";
@@ -66,21 +72,22 @@ export function ReviewDetailClient({
     );
   }
 
+  // Author and last-updated live on the Overview tab's lifecycle line and in the
+  // reviews list, so the page chrome carries only the title and the two controls
+  // that act on the whole pull request. Loading and error states occupy the same
+  // 48px bar, so the tabs below never move.
   const header = (
-    <div className="shrink-0 px-3 pt-3">
+    <PageHeader>
       {prHeader !== undefined ? (
-        // Author and last-updated live on the Overview tab's lifecycle line and
-        // in the reviews list, so the page chrome carries the title and the two
-        // controls that act on the whole pull request.
-        <div className="flex flex-wrap items-start gap-2">
-          <h1 className="min-w-0 flex-1 text-lg font-semibold tracking-tight">
+        <>
+          <PageHeaderTitle>
             {prHeader.title}{" "}
             <span className="font-normal text-muted-foreground">
               #{prHeader.number}
             </span>
-          </h1>
-          <div className="flex shrink-0 items-center gap-1">
-            <Button size="sm" variant="ghost" asChild>
+          </PageHeaderTitle>
+          <PageHeaderActions>
+            <Button size="xs" variant="ghost" asChild>
               <a
                 href={prHeader.htmlUrl}
                 target="_blank"
@@ -91,7 +98,7 @@ export function ReviewDetailClient({
               </a>
             </Button>
             <Button
-              size="sm"
+              size="xs"
               variant="ghost"
               onClick={refresh}
               disabled={refreshing}
@@ -103,18 +110,16 @@ export function ReviewDetailClient({
               )}
               Refresh
             </Button>
-          </div>
-        </div>
+          </PageHeaderActions>
+        </>
       ) : headerQuery.isError ? (
-        <p className="text-sm text-destructive">
+        <PageHeaderTitle className="font-normal text-destructive">
           {prErrorMessage(headerQuery.error, "Couldn't load pull request")}
-        </p>
+        </PageHeaderTitle>
       ) : (
-        <div className="flex h-10 items-center">
-          <Spinner size="sm" />
-        </div>
+        <Spinner size="sm" />
       )}
-    </div>
+    </PageHeader>
   );
 
   return (

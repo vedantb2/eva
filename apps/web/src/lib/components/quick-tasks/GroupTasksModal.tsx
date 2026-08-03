@@ -34,6 +34,7 @@ import {
   DialogFooter,
   Button,
   Input,
+  ListRow,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -74,22 +75,25 @@ function SortableTaskItem({ task, index }: { task: Task; index: number }) {
     <div
       ref={setNodeRef}
       style={style}
-      className={`group flex items-center gap-2 rounded-lg px-3 py-2 bg-muted/40 ${
+      className={`group flex items-center gap-2 rounded-surface bg-muted/40 px-2 py-1.5 ${
         isDragging ? "opacity-50" : ""
       }`}
     >
-      <button
+      <Button
         type="button"
-        className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+        variant="ghost"
+        size="icon-xs"
+        aria-label="Reorder task"
+        className="cursor-grab touch-none text-muted-foreground"
         {...attributes}
         {...listeners}
       >
-        <IconGripVertical size={16} />
-      </button>
-      <span className="text-xs font-mono text-muted-foreground w-5 text-right shrink-0">
+        <IconGripVertical />
+      </Button>
+      <span className="w-5 shrink-0 text-right font-mono text-2xs text-muted-foreground">
         {index + 1}
       </span>
-      <MarqueeOnHover className="min-w-0 text-sm">{task.title}</MarqueeOnHover>
+      <MarqueeOnHover className="min-w-0 text-2sm">{task.title}</MarqueeOnHover>
     </div>
   );
 }
@@ -269,28 +273,25 @@ export function GroupTasksModal({
                 project.phase === "code_review" ||
                 project.phase === "completed"
                   ? [
-                      <button
+                      <ListRow
                         key={project._id}
-                        type="button"
+                        density="compact"
+                        aria-label={project.title}
+                        selected={selectedProjectId === project._id}
                         onClick={() => setSelectedProjectId(project._id)}
-                        className={`w-full rounded-lg p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35 ${
-                          selectedProjectId === project._id
-                            ? "ring-2 ring-primary bg-accent"
-                            : "bg-muted hover:bg-muted/70"
-                        }`}
                       >
-                        <div className="flex items-center gap-2 justify-between">
-                          <span className="text-sm font-medium truncate">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="truncate text-2sm font-medium">
                             {project.title}
                           </span>
                           <ProjectPhaseBadge phase={project.phase} />
                         </div>
                         {project.description && (
-                          <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
+                          <p className="mt-0.5 line-clamp-1 text-2xs text-muted-foreground">
                             {project.description}
                           </p>
                         )}
-                      </button>,
+                      </ListRow>,
                     ]
                   : [],
               )}

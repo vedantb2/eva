@@ -39,6 +39,7 @@ import {
   DialogFooter,
   Input,
   ListRow,
+  StatusDot,
   Textarea,
   Tooltip,
   TooltipContent,
@@ -171,7 +172,7 @@ export function ProjectCard({
       selected={isActive}
       link={
         href ? (
-          <DynamicLink to={toInternalRepoHref(href)} search={(prev) => prev} />
+          <DynamicLink to={toInternalRepoHref(href)} search={true} />
         ) : undefined
       }
       onClick={
@@ -190,7 +191,7 @@ export function ProjectCard({
     >
       <div className="flex min-w-0 items-start gap-2">
         <div className="min-w-0 flex-1">
-          <MarqueeOnHover className="min-w-0 text-[13px] font-medium leading-5 tracking-[-0.01em] text-foreground transition-colors duration-200 group-hover:text-primary">
+          <MarqueeOnHover className="min-w-0 text-2sm font-medium leading-5 tracking-[-0.01em] text-foreground transition-colors duration-200 group-hover:text-primary">
             {title}
           </MarqueeOnHover>
           {previewText ? (
@@ -209,11 +210,11 @@ export function ProjectCard({
         {sandboxStatus ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span
-                className={cn(
-                  "relative mt-1.5 size-2 shrink-0 rounded-full after:absolute after:inset-[-8px]",
-                  SANDBOX_STATUS_STYLES[sandboxStatus].dot,
-                )}
+              {/* `after:` pseudo widens the pointer target past the 8px dot. */}
+              <StatusDot
+                tone={SANDBOX_STATUS_STYLES[sandboxStatus].tone}
+                size="md"
+                className="relative mt-1.5 after:absolute after:inset-[-8px]"
               />
             </TooltipTrigger>
             <TooltipContent>
@@ -228,7 +229,7 @@ export function ProjectCard({
           <TooltipTrigger asChild>
             <Badge
               variant="secondary"
-              className="gap-0.5 px-1.5 py-0 text-[10px] font-medium leading-4"
+              className="gap-0.5 px-1.5 py-0 text-3xs font-medium leading-4"
             >
               {planningMode === "interview" ? (
                 <IconSparkles className="size-2.5 shrink-0" />
@@ -259,13 +260,13 @@ export function ProjectCard({
               ))}
             </AvatarStack>
             {hiddenCount > 0 ? (
-              <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
+              <span className="text-2xs font-medium tabular-nums text-muted-foreground">
                 +{hiddenCount}
               </span>
             ) : null}
           </div>
           {branchName ? (
-            <span className="max-w-[45%] truncate font-mono text-[10px] tabular-nums text-muted-foreground/65">
+            <span className="max-w-[45%] truncate font-mono text-3xs tabular-nums text-muted-foreground/65">
               {branchName}
             </span>
           ) : null}

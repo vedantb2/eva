@@ -4,6 +4,7 @@ import { IconStar, IconUser } from "@tabler/icons-react";
 import { Widget } from "@/lib/components/Widget";
 import type { FunctionReturnType } from "convex/server";
 import { type api } from "@eva/backend";
+import { EmptyState } from "@eva/ui";
 import { ScoreBar } from "./ScoreBar";
 import { StatusChip } from "./StatusChip";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
@@ -31,12 +32,13 @@ export function Leaderboard({ entries }: LeaderboardProps) {
     <Widget
       title="Top Contributors"
       className="animate-in fade-in duration-300"
-      contentClassName="p-5"
     >
       {entries.length === 0 ? (
-        <div className="py-8 text-center text-muted-foreground">
-          No activity yet
-        </div>
+        <EmptyState
+          icon={<IconUser size={20} />}
+          title="No activity yet"
+          animate={false}
+        />
       ) : (
         <div className="space-y-4">
           {entries.map((entry, index) => {

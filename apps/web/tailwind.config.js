@@ -78,6 +78,18 @@ export const themeExtend = {
       4: c("chart-4"),
       5: c("chart-5"),
     },
+    // Muted categorical ramp for hash-assigned identity colour (tab groups,
+    // repo tiles, avatars) — not for status; status uses `status-*`.
+    cat: {
+      1: c("cat-1"),
+      2: c("cat-2"),
+      3: c("cat-3"),
+      4: c("cat-4"),
+      5: c("cat-5"),
+      6: c("cat-6"),
+      7: c("cat-7"),
+      8: c("cat-8"),
+    },
     "warning-bg": c("warning-bg"),
     "success-bg": c("success-bg"),
     status: {
@@ -124,9 +136,12 @@ export const themeExtend = {
     "2xl": "var(--shadow-2xl)",
   },
   borderRadius: {
-    surface: "clamp(0.75rem, var(--radius), 1.25rem)",
-    control: "min(var(--radius), 1.25rem)",
-    "menu-item": "min(var(--radius), 0.75rem)",
+    // Linear geometry: controls stay small (~10px cap), surfaces sit in the
+    // 12-16px band, menu items are capped tighter still. Clamped/capped so
+    // the "Full" radius theme (--radius: 9999px) cannot turn these into pills.
+    surface: "clamp(0.75rem, var(--radius), 1rem)",
+    control: "min(var(--radius), 0.625rem)",
+    "menu-item": "min(var(--radius), 0.5rem)",
     "2xl": "calc(var(--radius) + 8px)",
     xl: "calc(var(--radius) + 4px)",
     lg: "var(--radius)",
@@ -136,6 +151,14 @@ export const themeExtend = {
   fontFamily: {
     sans: ["var(--font-sans)"],
     mono: ["var(--font-mono)"],
+  },
+  // Fills the gap below `text-sm` (14px) so call sites stop reaching for
+  // arbitrary `text-[11px]`-style classes. Extends (does not replace) the
+  // default Tailwind type scale.
+  fontSize: {
+    "3xs": ["0.625rem", { lineHeight: "0.875rem" }], // 10/14
+    "2xs": ["0.6875rem", { lineHeight: "1rem" }], // 11/16
+    "2sm": ["0.8125rem", { lineHeight: "1.125rem" }], // 13/18 — Linear's real UI body size
   },
   // Tailwind Typography ships an unthemed grey palette, which fights the design
   // tokens wherever rendered markdown sits next to normal UI text. Both the base

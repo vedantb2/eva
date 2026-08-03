@@ -47,17 +47,19 @@ export function DomainsSection({
             {domains.map((domain) => (
               <span
                 key={domain}
-                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-foreground"
+                className="inline-flex items-center gap-1 rounded-control border border-border pl-2 pr-0.5 text-xs text-foreground"
               >
                 {domain}
-                <button
+                {/* icon-xs already carries the hit-target expansion this hand-rolled `after:` hack used to provide. */}
+                <Button
                   type="button"
+                  size="icon-xs"
+                  variant="ghost"
                   onClick={() => removeDomain(domain)}
-                  className="relative rounded-sm p-0.5 text-muted-foreground transition-colors after:absolute after:inset-[-6px] hover:bg-muted hover:text-foreground"
                   aria-label={`Remove ${domain}`}
                 >
-                  <IconX size={12} />
-                </button>
+                  <IconX />
+                </Button>
               </span>
             ))}
           </div>

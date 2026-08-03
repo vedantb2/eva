@@ -1,5 +1,6 @@
 import type { MouseEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
+import { Button } from "@eva/ui";
 import {
   MentionText,
   SkillMentionChip,
@@ -67,14 +68,15 @@ export function MessageMentionText({
           );
         }
         return (
-          <button
+          <Button
             key={key}
             type="button"
+            variant="ghost"
             onClick={navigateToSkills}
-            className={`${SKILL_CHIP_CLASS} cursor-pointer transition-[background-color] hover:bg-primary/20`}
+            className={`${SKILL_CHIP_CLASS} h-auto hover:bg-primary/20`}
           >
             /{match.label}
-          </button>
+          </Button>
         );
       }}
     />

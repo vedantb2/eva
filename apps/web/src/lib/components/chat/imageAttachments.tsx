@@ -1,5 +1,6 @@
 import { type Id } from "@eva/backend";
 import {
+  Button,
   usePromptInputAttachments,
   toast,
   type PromptInputMessage,
@@ -96,14 +97,16 @@ export function ChatAttachmentPreview() {
                     alt={file.filename ?? "Attached image"}
                     className="size-full object-cover"
                   />
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
+                    size="icon-xs"
                     aria-label="Remove attachment"
                     onClick={() => attachments.remove(file.id)}
-                    className="absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-foreground shadow-sm opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-background"
+                    className="absolute right-0.5 top-0.5 h-auto w-auto rounded-full bg-background/80 p-0.5 text-foreground opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-background"
                   >
                     <IconX className="size-3" />
-                  </button>
+                  </Button>
                 </div>
               );
             }
@@ -113,9 +116,10 @@ export function ChatAttachmentPreview() {
                 key={file.id}
                 className="group relative flex max-w-[12rem] items-center gap-2 rounded-surface border border-border bg-muted px-2 py-1.5"
               >
-                <button
+                <Button
                   type="button"
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                  variant="ghost"
+                  className="h-auto min-w-0 flex-1 justify-start gap-2 p-0 text-left font-normal hover:bg-transparent"
                   onClick={() => {
                     void (async () => {
                       try {
@@ -142,15 +146,17 @@ export function ChatAttachmentPreview() {
                   <span className="truncate text-xs text-foreground">
                     {label}
                   </span>
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon-xs"
                   aria-label="Remove attachment"
                   onClick={() => attachments.remove(file.id)}
-                  className="absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-foreground shadow-sm opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-background"
+                  className="absolute right-0.5 top-0.5 h-auto w-auto rounded-full bg-background/80 p-0.5 text-foreground opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-background"
                 >
                   <IconX className="size-3" />
-                </button>
+                </Button>
               </div>
             );
           })}

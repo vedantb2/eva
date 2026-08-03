@@ -48,23 +48,23 @@ export function ArtifactCard({ artifact }: { artifact: ArtifactRow }) {
           <Link
             to="/artifacts/$artifactId"
             params={{ artifactId: artifact._id }}
-            className="flex flex-col gap-2 rounded-surface border border-border bg-card p-4 transition-colors hover:bg-muted"
+            className="flex flex-col gap-1.5 rounded-surface border border-border bg-card p-3 transition-colors hover:bg-muted"
           >
             <div className="flex items-center gap-2">
               <IconLayoutDashboard
-                size={18}
+                size={16}
                 className="shrink-0 text-muted-foreground"
               />
-              <span className="truncate font-medium text-foreground">
+              <span className="truncate text-2sm font-medium text-foreground">
                 {artifact.name}
               </span>
             </div>
             {artifact.description ? (
-              <p className="line-clamp-2 text-sm text-muted-foreground">
+              <p className="line-clamp-2 text-xs text-muted-foreground">
                 {artifact.description}
               </p>
             ) : null}
-            <span className="mt-auto text-xs text-muted-foreground">
+            <span className="mt-auto text-2xs text-muted-foreground">
               {relativeTime(artifact.createdAt)}
             </span>
           </Link>

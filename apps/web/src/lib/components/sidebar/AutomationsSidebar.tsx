@@ -13,9 +13,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  EmptyState,
   Input,
   Spinner,
-  cn,
+  StatusDot,
 } from "@eva/ui";
 import { IconPlayerPlay, IconPlus } from "@tabler/icons-react";
 import { ContextSidebarHeaderIconButton } from "@/lib/components/sidebar/ContextSidebarHeaderAction";
@@ -97,18 +98,12 @@ export function AutomationsSidebar({
             <Spinner size="sm" />
           </div>
         ) : automations.length === 0 ? (
-          <div className="px-4 py-8 text-center">
-            <IconPlayerPlay
-              size={20}
-              className="mx-auto mb-2 text-muted-foreground opacity-50"
-            />
-            <p className="text-sm font-medium text-foreground">
-              No automations yet
-            </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Create one to get started.
-            </p>
-          </div>
+          <EmptyState
+            className="px-4 py-8"
+            icon={<IconPlayerPlay size={20} className="opacity-50" />}
+            title="No automations yet"
+            description="Create one to get started."
+          />
         ) : (
           <SharedLayoutNav layoutId="automations-nav" className="space-y-1">
             {automations.map((automation) => {
@@ -134,13 +129,9 @@ export function AutomationsSidebar({
                       onClick={onNavigate}
                       className={sidebarNavLinkClass(isSelected)}
                     >
-                      <span
-                        className={cn(
-                          "h-2 w-2 shrink-0 rounded-full",
-                          automation.enabled
-                            ? "bg-success"
-                            : "bg-muted-foreground/30",
-                        )}
+                      <StatusDot
+                        tone={automation.enabled ? "active" : "neutral"}
+                        size="md"
                       />
                       <span className="min-w-0 flex-1 truncate">
                         {automation.title}

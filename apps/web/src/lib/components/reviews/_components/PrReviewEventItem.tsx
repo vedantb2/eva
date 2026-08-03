@@ -25,7 +25,7 @@ export function PrReviewEventItem({ item }: { item: TimelineReviewItem }) {
 
   return (
     <div className="min-w-0 space-y-2">
-      <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 pt-1 text-sm text-muted-foreground">
+      <p className="flex flex-wrap items-center gap-x-1.5 gap-y-1 pt-1 text-2sm text-muted-foreground">
         <a
           href={review.htmlUrl}
           target="_blank"

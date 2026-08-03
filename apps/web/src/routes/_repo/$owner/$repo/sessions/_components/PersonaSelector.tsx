@@ -202,7 +202,7 @@ export function ManagePersonasModal({
               ) : (
                 <div
                   key={persona._id}
-                  className="flex items-center justify-between rounded-lg border border-border bg-muted/40 px-3 py-2"
+                  className="flex items-center justify-between rounded-menu-item border border-border bg-muted/40 px-3 py-2"
                 >
                   <div className="min-w-0">
                     <p className="text-sm font-medium truncate">
@@ -214,17 +214,16 @@ export function ManagePersonasModal({
                   </div>
                   <div className="flex gap-1 shrink-0 ml-2">
                     <Button
-                      size="sm"
+                      size="icon-xs"
                       variant="ghost"
-                      className="h-7 w-7 p-0"
                       onClick={() => handleStartEdit(persona)}
                     >
                       <IconEdit size={14} />
                     </Button>
                     <Button
-                      size="sm"
+                      size="icon-xs"
                       variant="ghost"
-                      className="h-7 w-7 p-0 text-destructive"
+                      className="text-destructive"
                       onClick={() => setDeletingId(persona._id)}
                     >
                       <IconTrash size={14} />

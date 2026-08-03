@@ -34,28 +34,29 @@ export function PrDescriptionBubble({
         htmlUrl={overview.htmlUrl}
         body={overview.body ?? ""}
         actions={
-          <button
-            type="button"
-            className="inline-flex items-center gap-1 hover:text-foreground"
+          <Button
+            size="xs"
+            variant="ghost"
+            className="h-6 gap-1 px-1.5 text-muted-foreground"
             onClick={() => setDraft(overview.body ?? "")}
           >
             <IconPencil size={12} aria-hidden />
             Edit
-          </button>
+          </Button>
         }
       />
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-md border border-border bg-card">
+    <div className="overflow-hidden rounded-surface border border-border bg-card">
       <div className="border-b border-border bg-muted/40 px-3 py-2 text-xs font-medium text-foreground">
         Edit description
       </div>
 
       <div className="space-y-3 p-3">
         <Textarea
-          className="min-h-40 text-sm"
+          className="min-h-40 text-2sm"
           value={draft}
           placeholder="Describe this pull request"
           aria-label="Pull request description"

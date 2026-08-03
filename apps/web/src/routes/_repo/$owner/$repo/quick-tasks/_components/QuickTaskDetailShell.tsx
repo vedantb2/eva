@@ -3,7 +3,7 @@
 import { type ReactNode } from "react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
-import { Spinner } from "@eva/ui";
+import { Button, Spinner } from "@eva/ui";
 import { IconChevronRight, IconChevronLeft } from "@tabler/icons-react";
 import { EntityContextUsage } from "@/lib/components/context-usage";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
@@ -53,26 +53,30 @@ export function QuickTaskDetailShell({
     <QuickTaskHeaderActionsSlotProvider>
       <PageWrapper
         title={
-          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-            <div className="flex shrink-0 items-center gap-1.5 text-base sm:text-lg md:text-xl">
-              <button
+          // `text-2sm` matches the size PageWrapper's own h1 renders, so the
+          // crumb reads as the route title rather than as content inside it.
+          <div className="flex min-w-0 flex-1 items-center gap-2 text-2sm sm:gap-3">
+            <div className="flex shrink-0 items-center gap-1.5">
+              <Button
+                variant="ghost"
+                size="sm"
                 onClick={handleBack}
-                className="text-muted-foreground hover:text-foreground transition-colors font-semibold whitespace-nowrap"
+                className="h-7 px-1.5 text-2sm font-medium"
               >
                 Quick Tasks
-              </button>
+              </Button>
               <IconChevronRight
                 size={14}
                 className="text-muted-foreground/50 shrink-0"
               />
             </div>
             {selectedTask?.numId !== undefined ? (
-              <span className="shrink-0 font-semibold font-mono tabular-nums text-muted-foreground">
+              <span className="shrink-0 font-mono text-2sm font-medium tabular-nums text-muted-foreground">
                 #{selectedTask.numId}
               </span>
             ) : null}
             {navSurface === "sandbox" && selectedTask?.title ? (
-              <MarqueeOnHover className="min-w-0 font-semibold">
+              <MarqueeOnHover className="min-w-0 text-2sm font-medium">
                 {selectedTask.title}
               </MarqueeOnHover>
             ) : null}
@@ -80,22 +84,24 @@ export function QuickTaskDetailShell({
               <EntityContextUsage repoId={repo._id} entityId={taskId} />
               <QuickTaskHeaderActionsSlot />
               <div className="flex items-center gap-0.5">
-                <button
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
                   onClick={handleNavigatePrev}
                   disabled={!prevTaskId}
-                  className="rounded p-1 transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
                   title="Previous task"
                 >
-                  <IconChevronLeft size={16} />
-                </button>
-                <button
+                  <IconChevronLeft />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
                   onClick={handleNavigateNext}
                   disabled={!nextTaskId}
-                  className="rounded p-1 transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
                   title="Next task"
                 >
-                  <IconChevronRight size={16} />
-                </button>
+                  <IconChevronRight />
+                </Button>
               </div>
             </div>
           </div>

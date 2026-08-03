@@ -3,14 +3,13 @@ import { Link } from "@tanstack/react-router";
 import type { FunctionReturnType } from "convex/server";
 import type { api, Id } from "@eva/backend";
 import {
-  Card,
-  CardHeader,
-  CardTitle,
+  Badge,
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
+  ListRow,
 } from "@eva/ui";
 import {
   IconUsers,
@@ -23,7 +22,7 @@ import { useTeamLogoUpload } from "@/lib/hooks/useTeamLogoUpload";
 
 type Team = FunctionReturnType<typeof api.teams.list>[number];
 
-/** Team list card with logo display and a right-click menu for logo and delete. */
+/** Team list row with logo display and a right-click menu for logo and delete. */
 export function TeamCard({
   team,
   onDelete,
@@ -46,35 +45,29 @@ export function TeamCard({
     <>
       <ContextMenu>
         <ContextMenuTrigger asChild>
-          <div>
-            <Link
-              to="/teams/$teamId"
-              params={{ teamId: team._id }}
-              className="block rounded-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
-            >
-              <Card className="h-full transition-colors hover:bg-muted/50">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <RepoLogo
-                        logoUrl={team.logoUrl}
-                        size={32}
-                        fallback={
-                          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10">
-                            <IconUsers size={16} className="text-primary" />
-                          </div>
-                        }
-                      />
-                      <CardTitle className="text-base">{displayName}</CardTitle>
-                    </div>
-                    <span className="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium">
-                      {team.userRole}
-                    </span>
+          <ListRow
+            density="compact"
+            link={<Link to="/teams/$teamId" params={{ teamId: team._id }} />}
+            aria-label={displayName}
+          >
+            <div className="flex items-center gap-2.5">
+              <RepoLogo
+                logoUrl={team.logoUrl}
+                size={20}
+                fallback={
+                  <div className="flex size-5 items-center justify-center rounded-control border border-border bg-muted">
+                    <IconUsers size={12} className="text-muted-foreground" />
                   </div>
-                </CardHeader>
-              </Card>
-            </Link>
-          </div>
+                }
+              />
+              <span className="min-w-0 flex-1 truncate text-2sm font-medium">
+                {displayName}
+              </span>
+              <Badge variant="quiet" className="shrink-0">
+                {team.userRole}
+              </Badge>
+            </div>
+          </ListRow>
         </ContextMenuTrigger>
         <ContextMenuContent onClick={(e) => e.stopPropagation()}>
           <ContextMenuItem onClick={() => fileInputRef.current?.click()}>

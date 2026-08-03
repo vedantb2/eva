@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { Button } from "@eva/ui";
 import { IconX } from "@tabler/icons-react";
 
 interface ActiveFiltersBarProps {
@@ -13,28 +14,32 @@ export function ActiveFiltersBar({
   onClearAll,
 }: ActiveFiltersBarProps) {
   return (
-    <div className="flex items-center gap-1.5 flex-wrap pb-2">
-      <span className="text-xs text-muted-foreground mr-0.5">Filtered by</span>
+    <div className="flex flex-wrap items-center gap-1.5 pb-2">
+      <span className="mr-0.5 text-xs text-muted-foreground">Filtered by</span>
       {filters.map((f) => (
-        <button
+        <Button
           key={f.key}
+          variant="ghost"
+          size="xs"
           onClick={() => onClearFilter(f.key)}
-          className="group flex items-center gap-1 rounded-md bg-muted/60 px-2 py-0.5 text-xs text-muted-foreground hover:bg-muted transition-colors"
+          className="group gap-1 bg-muted/60 font-normal text-muted-foreground hover:bg-muted"
         >
           {f.label}
           <IconX
             size={12}
-            className="opacity-50 group-hover:opacity-100 transition-opacity"
+            className="opacity-50 transition-opacity group-hover:opacity-100"
           />
-        </button>
+        </Button>
       ))}
       {filters.length > 1 && (
-        <button
+        <Button
+          variant="ghost"
+          size="xs"
           onClick={onClearAll}
-          className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-1"
+          className="ml-1 px-1 font-normal text-muted-foreground hover:text-foreground"
         >
           Clear all
-        </button>
+        </Button>
       )}
     </div>
   );

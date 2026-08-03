@@ -25,7 +25,7 @@ export function RepoLogo({
       width={size}
       height={size}
       className={cn(
-        "shrink-0 rounded-md border border-border object-cover",
+        "rounded-control shrink-0 border border-border object-cover",
         className,
       )}
       style={{ width: size, height: size }}

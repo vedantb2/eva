@@ -8,6 +8,7 @@ import type { Id } from "@eva/backend";
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -154,7 +155,7 @@ export function ArtifactUploadDialog({
           <DialogTitle>Upload artifact</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4">
+        <DialogBody className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="artifact-file">Artifact HTML</Label>
             <input
@@ -162,7 +163,7 @@ export function ArtifactUploadDialog({
               type="file"
               accept=".html,text/html"
               onChange={onFileChange}
-              className="text-sm file:mr-3 file:rounded-surface file:border file:border-border file:bg-muted file:px-3 file:py-1.5 file:text-sm"
+              className="text-sm file:mr-3 file:rounded-control file:border file:border-border file:bg-muted file:px-3 file:py-1.5 file:text-sm"
             />
             {fileName ? (
               <span className="text-xs text-muted-foreground">{fileName}</span>
@@ -215,7 +216,7 @@ export function ArtifactUploadDialog({
           ) : null}
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button

@@ -18,6 +18,7 @@ export function HtmlPreviewFrame({
       title={title}
       srcDoc={html}
       sandbox="allow-scripts"
+      // design-check-ignore-next-line — untrusted agent HTML renders on a fixed white iframe plate, not a themed app surface
       className="h-full w-full rounded-surface border border-border bg-white"
     />
   );

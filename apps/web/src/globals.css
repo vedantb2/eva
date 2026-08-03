@@ -117,8 +117,21 @@ html {
     --chart-3: 129 140 248;
     --chart-4: 167 139 250;
     --chart-5: 6 182 212;
+    /* Muted categorical ramp for hash-assigned identity colour (tab groups,
+     * repo tiles, avatars). Not for status — status uses --status-*. */
+    --cat-1: 72 106 168; /* blue */
+    --cat-2: 120 96 170; /* violet */
+    --cat-3: 54 122 118; /* teal */
+    --cat-4: 150 108 42; /* amber */
+    --cat-5: 160 82 100; /* rose */
+    --cat-6: 62 122 84; /* emerald */
+    --cat-7: 56 112 150; /* sky */
+    --cat-8: 162 96 62; /* orange */
     --warning-bg: 255 247 237;
     --success-bg: 240 253 244;
+    /* --status-*-bg / --status-*-subtle are the loud filled-chip fills,
+     * reserved for kanban column washes only. Inline status indicators use
+     * --status-*-bar as a small glyph colour paired with neutral text. */
     --status-progress: 161 98 7;
     --status-progress-bg: 254 240 138;
     --status-progress-subtle: 255 251 235;
@@ -147,8 +160,9 @@ html {
     --sidebar-accent-foreground: 24 24 27;
     --sidebar-border: 221 222 223;
     --sidebar-ring: 9 9 11;
-    --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
-    --font-mono: Menlo, monospace;
+    --font-sans: "Geist Sans", ui-sans-serif, system-ui, sans-serif;
+    /* Geist Mono is not vendored yet, so this resolves to the platform mono until it is. */
+    --font-mono: ui-monospace, "Geist Mono", "SF Mono", Menlo, Consolas, monospace;
     --radius: 1rem;
     --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
     --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
@@ -205,8 +219,21 @@ html {
     --chart-3: 129 140 248;
     --chart-4: 167 139 250;
     --chart-5: 6 182 212;
+    /* Muted categorical ramp for hash-assigned identity colour (tab groups,
+     * repo tiles, avatars). Not for status — status uses --status-*. */
+    --cat-1: 138 165 214;
+    --cat-2: 170 152 214;
+    --cat-3: 120 176 172;
+    --cat-4: 202 160 96;
+    --cat-5: 210 142 158;
+    --cat-6: 126 178 144;
+    --cat-7: 128 172 200;
+    --cat-8: 212 152 118;
     --warning-bg: 47 35 20;
     --success-bg: 18 44 30;
+    /* --status-*-bg / --status-*-subtle are the loud filled-chip fills,
+     * reserved for kanban column washes only. Inline status indicators use
+     * --status-*-bar as a small glyph colour paired with neutral text. */
     --status-progress: 250 204 21;
     --status-progress-bg: 71 50 12;
     --status-progress-subtle: 44 35 17;
@@ -235,8 +262,9 @@ html {
     --sidebar-accent-foreground: 244 244 245;
     --sidebar-border: 36 36 36;
     --sidebar-ring: 250 250 250;
-    --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
-    --font-mono: Menlo, monospace;
+    --font-sans: "Geist Sans", ui-sans-serif, system-ui, sans-serif;
+    /* Geist Mono is not vendored yet, so this resolves to the platform mono until it is. */
+    --font-mono: ui-monospace, "Geist Mono", "SF Mono", Menlo, Consolas, monospace;
     --radius: 1rem;
     --shadow-2xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
     --shadow-xs: 0 1px 3px 0px hsl(0 0% 0% / 0.05);
@@ -257,26 +285,27 @@ html {
    * Status + accent tokens inherit from `.dark` so custom accents still apply. */
   .dark.neutral {
     color-scheme: dark;
-    --background: 34 35 37;
-    --app-shell: 34 35 37;
+    /* Linear graphite surface ladder. */
+    --background: 24 25 27;
+    --app-shell: 24 25 27;
     --foreground: 250 250 250;
-    --card: 48 49 52;
+    --card: 30 31 34;
     --card-foreground: 250 250 250;
-    --popover: 48 49 52;
+    --popover: 30 31 34;
     --popover-foreground: 250 250 250;
-    --secondary: 68 69 72;
+    --secondary: 36 37 40;
     --secondary-foreground: 252 252 252;
-    --muted: 58 59 62;
+    --muted: 36 37 40;
     --muted-foreground: 159 160 162;
     --destructive-foreground: 252 252 252;
     --success-foreground: 22 25 23;
     --warning-foreground: 26 24 21;
-    --border: 78 79 82;
-    --input: 78 79 82;
-    --sidebar: 34 35 37;
+    --border: 42 43 46;
+    --input: 42 43 46;
+    --sidebar: 24 25 27;
     --sidebar-foreground: 251 252 253;
-    --sidebar-accent: 58 59 62;
-    --sidebar-border: 78 79 82;
+    --sidebar-accent: 40 41 44;
+    --sidebar-border: 42 43 46;
   }
   * {
     @apply border-border;
@@ -316,11 +345,11 @@ html {
     ):not([type="file"]),
   textarea,
   select {
-    border-radius: min(var(--radius), 1.25rem);
+    border-radius: min(var(--radius), 0.625rem);
   }
 
   [contenteditable="true"][role="textbox"] {
-    border-radius: min(var(--radius), 1.25rem);
+    border-radius: min(var(--radius), 0.625rem);
   }
 }
 
@@ -398,25 +427,25 @@ html {
 
 @layer utilities {
   .rounded-surface {
-    border-radius: clamp(0.75rem, var(--radius), 1.25rem);
+    border-radius: clamp(0.75rem, var(--radius), 1rem);
   }
 
   .rounded-b-surface {
-    border-radius: 0 0 clamp(0.75rem, var(--radius), 1.25rem)
-      clamp(0.75rem, var(--radius), 1.25rem);
+    border-radius: 0 0 clamp(0.75rem, var(--radius), 1rem)
+      clamp(0.75rem, var(--radius), 1rem);
   }
 
   .rounded-t-surface {
-    border-radius: clamp(0.75rem, var(--radius), 1.25rem)
-      clamp(0.75rem, var(--radius), 1.25rem) 0 0;
+    border-radius: clamp(0.75rem, var(--radius), 1rem)
+      clamp(0.75rem, var(--radius), 1rem) 0 0;
   }
 
   .rounded-menu-item {
-    border-radius: min(var(--radius), 0.75rem);
+    border-radius: min(var(--radius), 0.5rem);
   }
 
   .rounded-control {
-    border-radius: min(var(--radius), 1.25rem);
+    border-radius: min(var(--radius), 0.625rem);
   }
 
   .bg-app-shell {
@@ -715,7 +744,7 @@ html[data-blur-pid] [data-pii] {
 .qt-in-progress-border {
   --qt-border-angle: 0deg;
   /* Outer = ListRow surface radius + 1px padding (concentric). */
-  border-radius: calc(clamp(0.75rem, var(--radius), 1.25rem) + 1px);
+  border-radius: calc(clamp(0.75rem, var(--radius), 1rem) + 1px);
   animation: qt-border-spin 2.5s linear infinite;
   background-image: conic-gradient(
     from var(--qt-border-angle),
@@ -1341,7 +1370,7 @@ html[data-blur-pid] [data-pii] {
 /* Unlayered — streamdown table-wrapper uses rounded-lg; inner scroll div uses rounded-md. */
 [data-streamdown="table-wrapper"],
 [data-streamdown="table-wrapper"] > div:has([data-streamdown="table"]) {
-  border-radius: clamp(0.75rem, var(--radius), 1.25rem);
+  border-radius: clamp(0.75rem, var(--radius), 1rem);
 }
 
 /* ───────────────────────────────────────────────────────────────────

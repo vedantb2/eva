@@ -3,7 +3,15 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
-import { Button, Card, CardContent } from "@eva/ui";
+import {
+  Badge,
+  Button,
+  cn,
+  EmptyState,
+  LIST_ROW_CONTROL_CLASS,
+  ListRow,
+  StatusDot,
+} from "@eva/ui";
 import { IconEye, IconEyeOff, IconUsers } from "@tabler/icons-react";
 import { UserInitials } from "@eva/shared";
 import { useFollow } from "@/lib/contexts/FollowContext";
@@ -45,19 +53,15 @@ export function TeamActivityTab({ members }: { members: Array<Member> }) {
 
   if (onlineMembers.length === 0) {
     return (
-      <Card>
-        <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
-          <IconUsers size={20} className="text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            Nobody from this team is online right now.
-          </p>
-        </CardContent>
-      </Card>
+      <EmptyState
+        icon={<IconUsers size={20} />}
+        title="Nobody from this team is online right now."
+      />
     );
   }
 
   return (
-    <div className="space-y-2">
+    <div className="flex flex-col gap-1">
       {onlineMembers.map((member) => {
         const name = getDisplayName(member.user);
         const location = describeLocation(member.user?.lastSeenPath);
@@ -66,26 +70,23 @@ export function TeamActivityTab({ members }: { members: Array<Member> }) {
         const canFollow = !isSelf && !!member.user?.lastSeenPath;
 
         return (
-          <Card key={member._id}>
-            <CardContent className="flex items-center justify-between gap-2 p-3 sm:p-4">
+          <ListRow key={member._id} density="compact">
+            <div className="flex items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                 <UserInitials userId={member.userId} hideLastSeen size="md" />
                 <div className="min-w-0">
-                  <p className="flex items-center gap-1.5 text-sm font-medium">
+                  <p className="flex items-center gap-1.5 text-2sm font-medium">
                     <span data-pii className="truncate">
                       {name}
                     </span>
                     {isSelf ? (
-                      <span className="shrink-0 rounded-full bg-secondary px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground">
+                      <Badge variant="quiet" className="shrink-0">
                         You
-                      </span>
+                      </Badge>
                     ) : null}
                   </p>
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <span
-                      className="size-1.5 shrink-0 rounded-full bg-success"
-                      aria-hidden
-                    />
+                  <p className="flex items-center gap-1.5 text-2xs text-muted-foreground">
+                    <StatusDot tone="active" />
                     <span className="truncate">{location ?? "Online"}</span>
                   </p>
                 </div>
@@ -94,7 +95,7 @@ export function TeamActivityTab({ members }: { members: Array<Member> }) {
                 <Button
                   size="sm"
                   variant="secondary"
-                  className="shrink-0"
+                  className={cn("shrink-0", LIST_ROW_CONTROL_CLASS)}
                   onClick={stopFollowing}
                 >
                   <IconEyeOff size={14} className="mr-1.5" />
@@ -104,15 +105,15 @@ export function TeamActivityTab({ members }: { members: Array<Member> }) {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="shrink-0"
+                  className={cn("shrink-0", LIST_ROW_CONTROL_CLASS)}
                   onClick={() => startFollowing(member.userId, name)}
                 >
                   <IconEye size={14} className="mr-1.5" />
                   Follow
                 </Button>
               ) : null}
-            </CardContent>
-          </Card>
+            </div>
+          </ListRow>
         );
       })}
     </div>

@@ -7,13 +7,13 @@ export const menuContentClass = [
 ].join(" ");
 
 export const menuSubTriggerClass =
-  "flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-2 text-sm outline-none transition-colors focus:bg-muted data-[state=open]:bg-muted [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0";
+  "flex cursor-pointer items-center gap-2 rounded-menu-item px-2.5 py-2 text-sm outline-none transition-colors focus:bg-muted data-[state=open]:bg-muted [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0";
 
 export const menuItemClass =
-  "relative flex cursor-pointer select-none items-center gap-2 rounded-lg px-2.5 py-2 text-sm outline-none transition-colors focus:bg-muted focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0";
+  "relative flex cursor-pointer select-none items-center gap-2 rounded-menu-item px-2.5 py-2 text-sm outline-none transition-colors focus:bg-muted focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0";
 
 export const menuCheckboxRadioItemClass =
-  "relative flex cursor-pointer select-none items-center gap-2 rounded-lg py-2 pl-9 pr-2.5 text-sm outline-none transition-colors focus:bg-muted focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50";
+  "relative flex cursor-pointer select-none items-center gap-2 rounded-menu-item py-2 pl-9 pr-2.5 text-sm outline-none transition-colors focus:bg-muted focus:text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50";
 
 export const menuLabelClass =
   "px-2.5 py-2 text-xs font-semibold uppercase tracking-[0.08em] text-muted-foreground";
@@ -21,4 +21,4 @@ export const menuLabelClass =
 export const menuSeparatorClass = "-mx-1.5 my-1.5 h-px bg-border";
 
 export const menuShortcutClass =
-  "ml-auto text-[11px] tracking-[0.08em] text-muted-foreground";
+  "ml-auto text-2xs tracking-[0.08em] text-muted-foreground";

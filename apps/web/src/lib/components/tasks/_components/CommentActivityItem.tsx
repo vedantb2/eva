@@ -201,7 +201,7 @@ export function CommentActivityItem({
           ) : null}
           <RelativeDateTime
             at={comment.createdAt}
-            className="shrink-0 pl-1 text-[11px] text-muted-foreground/60"
+            className="shrink-0 pl-1 text-2xs text-muted-foreground/60"
           />
         </div>
       </div>

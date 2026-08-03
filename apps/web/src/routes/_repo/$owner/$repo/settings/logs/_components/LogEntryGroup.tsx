@@ -5,6 +5,7 @@ import type { FunctionReturnType } from "convex/server";
 import type { api } from "@eva/backend";
 import {
   Badge,
+  Button,
   Collapsible,
   CollapsibleTrigger,
   CollapsibleContent,
@@ -42,13 +43,15 @@ function RawEventViewer({ raw }: { raw: string | undefined }) {
 
   return (
     <div className="mt-2">
-      <button
+      <Button
+        variant="ghost"
+        size="xs"
         onClick={() => setOpen((p) => !p)}
-        className="motion-base flex items-center gap-1.5 rounded-lg px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground"
+        className="gap-1.5 px-1.5 text-xs"
       >
         <IconCode size={12} />
         {open ? "Hide raw" : "View raw"}
-      </button>
+      </Button>
       <AnimatePresence initial={false}>
         {open ? (
           <m.div
@@ -79,7 +82,7 @@ function LogTypeIcon({ type }: { type: string }) {
 export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
   return (
     <Collapsible defaultOpen>
-      <CollapsibleTrigger className="motion-base flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-muted/60 sm:gap-2.5 sm:px-4 [&[data-state=open]>.chevron-icon]:rotate-90">
+      <CollapsibleTrigger className="motion-base flex w-full items-center gap-2 rounded-menu-item px-3 py-2.5 text-2sm font-medium hover:bg-muted/60 sm:gap-2.5 sm:px-4 [&[data-state=open]>.chevron-icon]:rotate-90">
         <IconChevronRight
           size={14}
           className="chevron-icon shrink-0 text-muted-foreground transition-transform"
@@ -97,14 +100,14 @@ export function LogEntryGroup({ type, logs, total }: LogEntryGroupProps) {
             return (
               <div
                 key={log._id}
-                className="motion-base rounded-lg px-3 py-2.5 transition-colors hover:bg-muted/25"
+                className="motion-base rounded-menu-item px-3 py-2.5 transition-colors hover:bg-muted/25"
               >
                 <div className="flex flex-col gap-1.5 sm:flex-row sm:items-center sm:gap-3">
-                  <span className="min-w-0 flex-1 truncate text-sm">
+                  <span className="min-w-0 flex-1 truncate text-2sm">
                     {log.entityTitle}
                   </span>
                   <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-                    <Badge variant="outline" className="font-mono text-[11px]">
+                    <Badge variant="outline" className="font-mono text-2xs">
                       {evt.provider && (
                         <ProviderIcon
                           provider={evt.provider}

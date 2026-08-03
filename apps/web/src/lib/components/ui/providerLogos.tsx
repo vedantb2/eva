@@ -46,6 +46,7 @@ export function OpenAILogo({ size = 16, className }: ProviderLogoProps) {
       height={size}
       role="img"
       aria-label="OpenAI"
+      // design-check-ignore-next-line — brand mark: OpenAI's logo is black on light and white on dark by their guidelines, not a themeable colour
       className={cn("text-black dark:text-white", className)}
     >
       <path fill="currentColor" d={OPENAI_PATH} />
@@ -61,6 +62,7 @@ export function CursorLogo({ size = 16, className }: ProviderLogoProps) {
       height={size}
       role="img"
       aria-label="Cursor"
+      // design-check-ignore-next-line — brand mark: Cursor's exact logo colours, not themeable
       className={cn("text-[#26251E] dark:text-[#EDECEC]", className)}
     >
       <path fill="currentColor" d={CURSOR_PATH} />
@@ -100,6 +102,7 @@ export function VercelLogo({ size = 16, className }: ProviderLogoProps) {
       fill="currentColor"
       role="img"
       aria-label="Vercel"
+      // design-check-ignore-next-line — brand mark: Vercel's logo is black on light and white on dark by their guidelines, not a themeable colour
       className={cn("text-black dark:text-white", className)}
     >
       <path d={VERCEL_PATH} />

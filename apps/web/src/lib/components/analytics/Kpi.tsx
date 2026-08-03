@@ -99,7 +99,7 @@ export function Kpi({
       <Card className="h-full transition-[background-color] duration-200 hover:bg-muted/40">
         <CardContent className="flex h-full flex-row items-center gap-2.5 p-3 sm:gap-3 sm:p-4">
           {Icon && (
-            <div className="motion-base rounded-lg bg-secondary p-1.5 text-muted-foreground sm:p-2">
+            <div className="motion-base rounded-control bg-secondary p-1.5 text-muted-foreground sm:p-2">
               <Icon size={18} className="sm:h-5 sm:w-5" />
             </div>
           )}
@@ -130,11 +130,11 @@ export function Kpi({
 
   return (
     <Card className="h-full">
-      <CardContent className="flex h-full flex-col gap-4 p-5">
+      <CardContent className="flex h-full flex-col gap-3 p-4">
         <div className="flex items-center justify-between gap-2">
           <div className="flex min-w-0 items-center gap-2.5">
             {Icon && (
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-secondary text-muted-foreground">
                 <Icon size={18} />
               </span>
             )}

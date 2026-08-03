@@ -22,6 +22,7 @@ import {
 import { UserInitials } from "@eva/shared";
 import type { Id } from "@eva/backend";
 import type { MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
+import type { MentionItem } from "@/lib/components/mentions";
 import {
   IMAGE_ATTACHMENT_ACCEPT,
   CHAT_ATTACHMENT_ACCEPT,
@@ -67,7 +68,7 @@ function MentionMenuRow({
           {label}
         </span>
         {badge ? (
-          <span className="shrink-0 rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
+          <span className="shrink-0 rounded-control border border-border bg-muted px-1.5 py-0.5 text-3xs font-medium leading-none text-muted-foreground">
             {badge}
           </span>
         ) : null}
@@ -84,7 +85,7 @@ function MentionMenuRow({
           <span className="truncate">{label}</span>
         </span>
         {badge ? (
-          <span className="shrink-0 rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
+          <span className="shrink-0 rounded-control border border-border bg-muted px-1.5 py-0.5 text-3xs font-medium leading-none text-muted-foreground">
             {badge}
           </span>
         ) : null}
@@ -136,16 +137,8 @@ function openFilePicker(accept: string, onFiles: (files: FileList) => void) {
   input.click();
 }
 
-interface DataMenuItem {
-  id: string;
-  label: string;
-  badge: string;
-  description?: string;
-  personUserId?: Id<"users">;
-}
-
 interface ComposerPlusMenuProps {
-  dataItems: DataMenuItem[];
+  dataItems: MentionItem[];
   skills: Array<{
     _id: Id<"repoSkills">;
     title: string;

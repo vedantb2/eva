@@ -81,7 +81,7 @@ export function TimelineToolbar({
         >
           <IconZoomOut size={15} />
         </Button>
-        <span className="w-10 text-center text-[11px] tabular-nums text-muted-foreground">
+        <span className="w-10 text-center text-2xs tabular-nums text-muted-foreground">
           {zoom}%
         </span>
         <Button

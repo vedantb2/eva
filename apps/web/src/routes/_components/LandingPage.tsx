@@ -85,6 +85,7 @@ function AgentSignIn() {
       <Button
         size="sm"
         variant="outline"
+        // design-check-ignore-next-line — floating dev-only control pinned over the page, not a flat surface; it needs the lift to read against whatever section is behind it
         className="shadow-lg"
         onClick={() => {
           navigate({ to: "/", search: { agent: true } });

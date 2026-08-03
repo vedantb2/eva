@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import {
+  Button,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -247,8 +248,9 @@ export function TaskActivityComposerForm({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="flex items-center gap-2">
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
                     role="switch"
                     aria-checked={effectiveRequestingChanges}
                     aria-label="Make changes"
@@ -258,9 +260,11 @@ export function TaskActivityComposerForm({
                       clearExecutionError();
                     }}
                     className={cn(
-                      "relative h-6 w-10 shrink-0 rounded-full transition-[background-color] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      effectiveRequestingChanges ? "bg-primary" : "bg-muted",
-                      !canRequestChanges && "cursor-not-allowed opacity-50",
+                      "relative h-6 w-10 shrink-0 rounded-full p-0 transition-[background-color] active:scale-100",
+                      effectiveRequestingChanges
+                        ? "bg-primary hover:bg-primary"
+                        : "bg-muted hover:bg-muted",
+                      !canRequestChanges && "cursor-not-allowed",
                     )}
                   >
                     <span
@@ -269,7 +273,7 @@ export function TaskActivityComposerForm({
                         effectiveRequestingChanges ? "left-[18px]" : "left-0.5",
                       )}
                     />
-                  </button>
+                  </Button>
                   <span
                     className={cn(
                       "text-xs select-none",
@@ -335,13 +339,14 @@ export function TaskActivityComposerForm({
                       asChild
                       disabled={!effectiveRequestingChanges}
                     >
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
                         disabled={!effectiveRequestingChanges}
                         className={cn(
-                          "relative flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors",
+                          "relative h-6 gap-1.5 px-2 py-0 text-xs font-medium",
                           !effectiveRequestingChanges
-                            ? "cursor-not-allowed text-muted-foreground opacity-50"
+                            ? "cursor-not-allowed text-muted-foreground"
                             : "hover:bg-muted hover:text-foreground",
                           effectiveRequestingChanges &&
                             (captureProof || runAudit)
@@ -359,11 +364,11 @@ export function TaskActivityComposerForm({
                         <IconAdjustmentsHorizontal className="size-3.5" />
                         Options
                         {changeRequestOptionCount > 0 ? (
-                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none text-primary-foreground">
+                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-3xs leading-none text-primary-foreground">
                             {changeRequestOptionCount}
                           </span>
                         ) : null}
-                      </button>
+                      </Button>
                     </DropdownMenuTrigger>
                   </span>
                 </TooltipTrigger>

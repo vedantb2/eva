@@ -100,7 +100,7 @@ function ProofCaptureGallery({
         </DialogTitle>
         <DialogHeader className="absolute right-10 top-2 z-10 flex flex-row items-center gap-2">
           {proofs.length > 1 ? (
-            <span className="rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground">
+            <span className="rounded-control bg-background/80 px-2 py-1 text-xs text-muted-foreground">
               {safeIndex + 1} / {proofs.length}
             </span>
           ) : null}
@@ -108,7 +108,7 @@ function ProofCaptureGallery({
             href={current.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-1 rounded-control bg-background/80 px-2 py-1 text-xs text-muted-foreground transition-colors hover:text-foreground"
           >
             <IconExternalLink size={14} />
             Open in new tab
@@ -201,16 +201,17 @@ export function ProofTimelineItem({
       {hasMedia ? (
         <>
           <span className="text-muted-foreground"> </span>
-          <button
+          <Button
             type="button"
+            variant="link"
             onClick={(e) => {
               e.stopPropagation();
               setOpen(true);
             }}
-            className="font-medium text-primary underline-offset-2 hover:underline"
+            className="h-auto p-0 text-xs font-medium underline-offset-2"
           >
             View capture{mediaProofs.length > 1 ? "s" : ""}
-          </button>
+          </Button>
         </>
       ) : messagePreview ? (
         <span className="text-muted-foreground"> — {messagePreview}</span>

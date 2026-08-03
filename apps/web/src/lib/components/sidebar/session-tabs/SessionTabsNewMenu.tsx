@@ -2,6 +2,7 @@
 
 import { Link } from "@tanstack/react-router";
 import {
+  Button,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -29,14 +30,16 @@ export function SessionTabsNewMenu({ repos }: SessionTabsNewMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           aria-label="New session"
           title="New session"
-          className="flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          className="shrink-0 rounded-full hover:bg-foreground/10"
         >
-          <IconPlus size={16} />
-        </button>
+          <IconPlus />
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent
         align="start"
@@ -44,6 +47,9 @@ export function SessionTabsNewMenu({ repos }: SessionTabsNewMenuProps) {
       >
         {repos.map((repo) => {
           const displayName = repoDisplayLabel(repo);
+          const tileColor = repoTileColor(
+            `${repo.owner}/${repo.name}/${displayName}`,
+          );
 
           return (
             <DropdownMenuItem key={repo._id} asChild>
@@ -57,10 +63,9 @@ export function SessionTabsNewMenu({ repos }: SessionTabsNewMenuProps) {
                   fallback={
                     <span
                       className={cn(
-                        "flex size-5 items-center justify-center rounded text-[10px] font-semibold text-white",
-                        repoTileColor(
-                          `${repo.owner}/${repo.name}/${displayName}`,
-                        ),
+                        "flex size-5 items-center justify-center rounded-menu-item text-3xs font-semibold",
+                        tileColor.bg,
+                        tileColor.text,
                       )}
                     >
                       {displayName.charAt(0).toUpperCase()}

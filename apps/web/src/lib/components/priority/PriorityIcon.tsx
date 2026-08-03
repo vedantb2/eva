@@ -67,7 +67,7 @@ function renderShape(level: Priority | undefined) {
           width={14}
           height={14}
           rx={3}
-          className="fill-orange-500"
+          className="fill-warning"
         />
         <rect
           x={7.25}

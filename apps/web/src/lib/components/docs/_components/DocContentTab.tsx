@@ -151,8 +151,17 @@ export function DocContentTab({
       immediatelyRender: false,
       editorProps: {
         attributes: {
+          // Reading column: prose's own 65ch measure (no max-w-none override),
+          // centred in the pane. Calm code blocks per the design pass — the
+          // block (`pre`) gets the bg-muted/border/rounded-surface treatment;
+          // `[&_pre_code]` resets the inline-code chip styling that would
+          // otherwise leak into code nested inside a block (both are plain
+          // `code` elements to the prose plugin).
           class:
-            "prose prose-sm dark:prose-invert max-w-none min-h-[12rem] px-4 py-3 outline-none focus:outline-none",
+            "prose dark:prose-invert mx-auto min-h-[12rem] max-w-prose px-4 py-8 outline-none focus:outline-none " +
+            "prose-pre:rounded-surface prose-pre:border prose-pre:border-border prose-pre:bg-muted prose-pre:font-mono " +
+            "prose-code:rounded-control prose-code:bg-muted prose-code:px-1.5 prose-code:py-0.5 prose-code:font-mono prose-code:font-normal prose-code:before:content-none prose-code:after:content-none " +
+            "[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:rounded-none",
         },
       },
     },
@@ -367,7 +376,14 @@ export function DocContentTab({
               {editor && (
                 <BubbleMenu
                   editor={editor}
-                  className="rounded-menu-item border border-border bg-popover p-1 shadow-md"
+                  // Hand-rolled floating shell (tiptap's BubbleMenu is a
+                  // positioning-only wrapper, not swappable for the shared
+                  // Popover primitive). Values match the canonical menu
+                  // content shell recipe (packages/ui's menuContentClass /
+                  // DESIGN.md recipe #5) exactly, since that constant isn't
+                  // exported from @eva/ui's public barrel.
+                  // design-check-ignore-next-line — genuine floating overlay: tiptap positions this bubble menu itself, so it needs the shared menu shell's shadow-lg rather than border-and-tone
+                  className="rounded-surface border border-border bg-popover p-1.5 text-popover-foreground shadow-lg"
                 >
                   <Button
                     size="sm"

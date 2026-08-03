@@ -5,7 +5,7 @@ import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Doc } from "@eva/backend";
-import { Button, Checkbox, Spinner, cn } from "@eva/ui";
+import { Button, Checkbox, Spinner, StatusDot, cn } from "@eva/ui";
 import {
   IconChevronDown,
   IconChevronRight,
@@ -13,16 +13,10 @@ import {
 } from "@tabler/icons-react";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { entityPathSegment } from "@/lib/numId";
+import { SEVERITY_TONE } from "../_utils";
 
 type AutomationRun = Doc<"automationRuns">;
 type Finding = NonNullable<AutomationRun["findings"]>[number];
-
-const SEVERITY_COLORS: Record<Finding["severity"], string> = {
-  critical: "bg-red-500/15 text-red-700 dark:text-red-400",
-  high: "bg-orange-500/15 text-orange-700 dark:text-orange-400",
-  medium: "bg-yellow-500/15 text-yellow-700 dark:text-yellow-400",
-  low: "bg-blue-500/15 text-blue-700 dark:text-blue-400",
-};
 
 interface FindingsListProps {
   run: AutomationRun;
@@ -159,10 +153,11 @@ function FindingRow({
           disabled={hasTaskCreated}
           onCheckedChange={onToggle}
         />
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={() => setExpanded((prev) => !prev)}
-          className="flex flex-1 items-center gap-2 text-left min-w-0"
+          className="h-auto flex-1 min-w-0 justify-start gap-2 rounded-control px-1.5 py-1 text-left font-normal text-foreground"
         >
           {expanded ? (
             <IconChevronDown
@@ -175,18 +170,16 @@ function FindingRow({
               className="shrink-0 text-muted-foreground"
             />
           )}
-          <span
-            className={cn(
-              "inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-medium",
-              SEVERITY_COLORS[finding.severity],
-            )}
-          >
-            {finding.severity}
+          <span className="inline-flex shrink-0 items-center gap-1.5">
+            <StatusDot tone={SEVERITY_TONE[finding.severity]} />
+            <span className="text-2xs text-muted-foreground">
+              {finding.severity}
+            </span>
           </span>
           <MarqueeOnHover className="min-w-0 text-sm font-medium">
             {finding.title}
           </MarqueeOnHover>
-        </button>
+        </Button>
         {hasTaskCreated && taskUrl && (
           <a
             href={taskUrl}

@@ -1,7 +1,7 @@
 "use client";
 
 import type { MouseEvent } from "react";
-import { HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
+import { Button, HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
 import type { Id } from "@eva/backend";
 import { MENTION_CHIP_CLASS } from "./mentionChipStyles";
 import { DataMentionHoverCardBody } from "./DataMentionHoverCardBody";
@@ -23,13 +23,14 @@ export function DataMentionChip({
   return (
     <HoverCard openDelay={250} closeDelay={100}>
       <HoverCardTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="ghost"
           onClick={onClick}
-          className={`${MENTION_CHIP_CLASS} cursor-pointer transition-[background-color] hover:bg-primary/20`}
+          className={`${MENTION_CHIP_CLASS} h-auto hover:bg-primary/20 hover:text-accent-foreground`}
         >
           @{label}
-        </button>
+        </Button>
       </HoverCardTrigger>
       <HoverCardContent
         align="start"

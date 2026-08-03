@@ -22,6 +22,7 @@ import {
 import { UserInitials } from "@eva/shared";
 import type { Id } from "@eva/backend";
 import type { MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
+import type { MentionItem } from "@/lib/components/mentions";
 import {
   IMAGE_ATTACHMENT_ACCEPT,
   CHAT_ATTACHMENT_ACCEPT,
@@ -136,16 +137,8 @@ function openFilePicker(accept: string, onFiles: (files: FileList) => void) {
   input.click();
 }
 
-interface DataMenuItem {
-  id: string;
-  label: string;
-  badge: string;
-  description?: string;
-  personUserId?: Id<"users">;
-}
-
 interface ComposerPlusMenuProps {
-  dataItems: DataMenuItem[];
+  dataItems: MentionItem[];
   skills: Array<{
     _id: Id<"repoSkills">;
     title: string;

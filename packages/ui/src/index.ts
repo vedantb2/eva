@@ -1,5 +1,12 @@
 export { cn } from "./utils/cn";
 export { STREAMDOWN_TABLE_RADIUS_CLASS } from "./utils/surface-radius";
+export {
+  catColorForId,
+  catColorForSlot,
+  catSlotForId,
+  CAT_SLOT_COUNT,
+} from "./utils/cat-color";
+export type { CatColorClasses, CatSlot } from "./utils/cat-color";
 
 export * from "./ui/accordion";
 export * from "./ui/alert";

@@ -60,6 +60,9 @@ export function ComposerAppSwitcher() {
         {(repos ?? []).map((row) => {
           const displayName = repoDisplayLabel(row);
           const active = row._id === repo._id;
+          const tileColor = repoTileColor(
+            `${row.owner}/${row.name}/${displayName}`,
+          );
 
           return (
             <DropdownMenuItem key={row._id} asChild>
@@ -73,10 +76,9 @@ export function ComposerAppSwitcher() {
                   fallback={
                     <span
                       className={cn(
-                        "flex size-5 items-center justify-center rounded text-[10px] font-semibold text-white",
-                        repoTileColor(
-                          `${row.owner}/${row.name}/${displayName}`,
-                        ),
+                        "flex size-5 items-center justify-center rounded text-[10px] font-semibold",
+                        tileColor.bg,
+                        tileColor.text,
                       )}
                     >
                       {displayName.charAt(0).toUpperCase()}

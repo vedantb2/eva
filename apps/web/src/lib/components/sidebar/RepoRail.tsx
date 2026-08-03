@@ -232,6 +232,9 @@ function RepoRailView({
             isRowActive(row, currentOwner, currentName, currentAppName);
           const tooltip = `${displayName} · ${row.owner}/${row.name}`;
           const hasActiveSandbox = activeSandboxRepoIds.has(row._id);
+          const tileColor = repoTileColor(
+            `${row.owner}/${row.name}/${displayName}`,
+          );
 
           return (
             <ContextMenu key={row._id}>
@@ -259,10 +262,9 @@ function RepoRailView({
                         fallback={
                           <span
                             className={cn(
-                              "flex size-[30px] items-center justify-center rounded-md text-sm font-semibold text-white",
-                              repoTileColor(
-                                `${row.owner}/${row.name}/${displayName}`,
-                              ),
+                              "flex size-[30px] items-center justify-center rounded-md text-sm font-semibold",
+                              tileColor.bg,
+                              tileColor.text,
                             )}
                           >
                             {displayName.charAt(0).toUpperCase()}

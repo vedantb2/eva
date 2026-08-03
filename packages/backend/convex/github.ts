@@ -17,6 +17,7 @@ export { listPullRequests, getPullRequestHeader } from "./_github/pullRequests";
 export {
   getPullRequestOverview,
   getPullRequestCommits,
+  updatePullRequest,
   mergePullRequest,
 } from "./_github/prOverview";
 

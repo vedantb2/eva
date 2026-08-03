@@ -7,6 +7,7 @@ import { IconGitCommit } from "@tabler/icons-react";
 import { usePrCommits } from "../usePrOverview";
 import { PrCommentBubble } from "./PrCommentBubble";
 import { PrCommitGroup } from "./PrCommitGroup";
+import { PrDescriptionBubble } from "./PrDescriptionBubble";
 import { PrReviewEventItem } from "./PrReviewEventItem";
 import {
   NOTICE_CLASS,
@@ -61,13 +62,7 @@ export function PrTimeline({
             />
           }
         >
-          <PrCommentBubble
-            authorLogin={overview.authorLogin}
-            action="opened this pull request"
-            at={overview.createdAt}
-            htmlUrl={overview.htmlUrl}
-            body={overview.body ?? ""}
-          />
+          <PrDescriptionBubble repoId={repoId} overview={overview} />
         </TimelineRow>
 
         {items.map((item) => {

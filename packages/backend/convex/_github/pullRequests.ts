@@ -2,7 +2,8 @@
 
 import { ActionCache } from "@convex-dev/action-cache";
 import { v } from "convex/values";
-import { action, internalAction } from "../_generated/server";
+import { action, internalAction, type ActionCtx } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { components, internal } from "../_generated/api";
 import { getInstallationOctokit } from "../githubAuth";
 
@@ -160,3 +161,15 @@ export const getPullRequestHeader = action({
     );
   },
 });
+
+/**
+ * Drops the cached header for one pull request. For callers that change the
+ * title on GitHub: the cached copy would otherwise keep serving the old one for
+ * up to the TTL, so the rename would appear to undo itself.
+ */
+export async function invalidatePrHeaderCache(
+  ctx: ActionCtx,
+  args: { repoId: Id<"githubRepos">; prNumber: number },
+): Promise<void> {
+  await prHeaderCache.remove(ctx, args);
+}

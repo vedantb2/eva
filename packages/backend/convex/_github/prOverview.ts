@@ -5,6 +5,7 @@ import { v } from "convex/values";
 import { action, internalAction } from "../_generated/server";
 import { components, internal } from "../_generated/api";
 import { getInstallationOctokit } from "../githubAuth";
+import { invalidatePrHeaderCache } from "./pullRequests";
 import type { Id } from "../_generated/dataModel";
 
 const MAX_ISSUE_COMMENTS = 100;
@@ -526,6 +527,57 @@ export const getPullRequestOverview = action({
       { repoId: args.repoId, prNumber: args.prNumber },
       { force: args.force === true },
     );
+  },
+});
+
+/**
+ * Renames a pull request or rewrites its description. Both cached payloads that
+ * carry those fields are dropped afterwards — without that, the overview and the
+ * page header would keep serving the old text for up to their TTL and the edit
+ * would look as though it had been undone.
+ */
+export const updatePullRequest = action({
+  args: {
+    repoId: v.id("githubRepos"),
+    prNumber: v.number(),
+    /** Omitted fields are left as they are on GitHub. */
+    title: v.optional(v.string()),
+    body: v.optional(v.string()),
+  },
+  returns: v.object({ title: v.string(), body: v.union(v.string(), v.null()) }),
+  handler: async (ctx, args): Promise<{ title: string; body: string | null }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+
+    const title = args.title?.trim();
+    if (title !== undefined && title.length === 0) {
+      throw new Error("Title cannot be empty");
+    }
+    if (title === undefined && args.body === undefined) {
+      throw new Error("Nothing to update");
+    }
+
+    const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
+      id: args.repoId,
+    });
+    if (!repo) throw new Error("Repo not found");
+
+    const octokit = await getInstallationOctokit(repo.installationId);
+    const { data } = await octokit.rest.pulls.update({
+      owner: repo.owner,
+      repo: repo.name,
+      pull_number: args.prNumber,
+      ...(title === undefined ? {} : { title }),
+      ...(args.body === undefined ? {} : { body: args.body }),
+    });
+
+    const cacheKey = { repoId: args.repoId, prNumber: args.prNumber };
+    await Promise.all([
+      prOverviewCache.remove(ctx, cacheKey),
+      invalidatePrHeaderCache(ctx, cacheKey),
+    ]);
+
+    return { title: data.title, body: data.body };
   },
 });
 

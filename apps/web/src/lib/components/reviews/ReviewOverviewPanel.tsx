@@ -4,6 +4,7 @@ import type { Id } from "@eva/backend";
 import { Button, Spinner } from "@eva/ui";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { usePrOverview } from "./usePrOverview";
+import { PrCommentComposer } from "./_components/PrCommentComposer";
 import { PrMergeBox } from "./_components/PrMergeBox";
 import { PrOverviewHeader } from "./_components/PrOverviewHeader";
 import { PrSidebar } from "./_components/PrSidebar";
@@ -74,6 +75,11 @@ export function ReviewOverviewPanel({
         <div className="grid grid-cols-1 gap-5 [@container(min-width:56rem)]:grid-cols-[minmax(0,1fr)_16.5rem]">
           <div className="min-w-0 space-y-5">
             <PrTimeline repoId={repoId} overview={overview} />
+            <PrCommentComposer
+              repoId={repoId}
+              prNumber={prNumber}
+              onPosted={reload}
+            />
             <PrMergeBox
               repoId={repoId}
               overview={overview}

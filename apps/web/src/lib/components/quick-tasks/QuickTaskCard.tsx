@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
   LIST_ROW_CONTROL_CLASS,
   ListRow,
+  StatusDot,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -232,11 +233,11 @@ export function QuickTaskCard({
           {sandboxStatus ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span
-                  className={cn(
-                    "relative size-2 shrink-0 rounded-full after:absolute after:inset-[-8px]",
-                    SANDBOX_STATUS_STYLES[sandboxStatus].dot,
-                  )}
+                {/* `after:` pseudo widens the pointer target past the 8px dot. */}
+                <StatusDot
+                  tone={SANDBOX_STATUS_STYLES[sandboxStatus].tone}
+                  size="md"
+                  className="relative after:absolute after:inset-[-8px]"
                 />
               </TooltipTrigger>
               <TooltipContent>

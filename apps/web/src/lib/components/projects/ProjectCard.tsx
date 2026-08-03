@@ -39,6 +39,7 @@ import {
   DialogFooter,
   Input,
   ListRow,
+  StatusDot,
   Textarea,
   Tooltip,
   TooltipContent,
@@ -209,11 +210,11 @@ export function ProjectCard({
         {sandboxStatus ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <span
-                className={cn(
-                  "relative mt-1.5 size-2 shrink-0 rounded-full after:absolute after:inset-[-8px]",
-                  SANDBOX_STATUS_STYLES[sandboxStatus].dot,
-                )}
+              {/* `after:` pseudo widens the pointer target past the 8px dot. */}
+              <StatusDot
+                tone={SANDBOX_STATUS_STYLES[sandboxStatus].tone}
+                size="md"
+                className="relative mt-1.5 after:absolute after:inset-[-8px]"
               />
             </TooltipTrigger>
             <TooltipContent>

@@ -3,7 +3,13 @@
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import type { Id } from "@eva/backend";
-import { cn, HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
+import {
+  cn,
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+  StatusDot,
+} from "@eva/ui";
 import { IconGitPullRequest } from "@tabler/icons-react";
 import {
   SANDBOX_STATUS_STYLES,
@@ -55,8 +61,13 @@ export function SidebarSessionItem({
           className="block rounded-menu-item px-4 py-1.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
         >
           <div className="flex min-w-0 items-center gap-2">
-            <span
-              className={cn("size-2 shrink-0 rounded-full", statusStyle.dot)}
+            {/* `aria-hidden={false}` because this dot is the only thing
+                carrying sandbox status here — `StatusDot` hides itself by
+                default, which is right when a text label sits beside it. */}
+            <StatusDot
+              tone={statusStyle.tone}
+              size="md"
+              aria-hidden={false}
               title={statusStyle.label}
             />
             <MarqueeOnHover

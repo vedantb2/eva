@@ -48,24 +48,30 @@ export interface StatusDotProps extends React.HTMLAttributes<HTMLSpanElement> {
 /**
  * Linear-style status glyph: a small coloured dot that carries the status,
  * so the label next to it can stay neutral text instead of a coloured pill.
+ *
+ * `forwardRef` is load-bearing, not ceremony: several call sites make the dot
+ * the tooltip anchor via `<TooltipTrigger asChild>`, and Radix composes its ref
+ * onto that child to position the popper. Without a forwarded ref the tooltip
+ * silently mispositions, and the call site has to wrap the dot in a throwaway
+ * span — which then loses the explicit size and stretches inside a flex row.
  */
-export function StatusDot({
-  tone,
-  size = "sm",
-  className,
-  "aria-hidden": ariaHidden = true,
-  ...props
-}: StatusDotProps) {
-  return (
-    <span
-      aria-hidden={ariaHidden}
-      className={cn(
-        "rounded-full shrink-0",
-        SIZE_CLASS[size],
-        TONE_CLASS[tone],
-        className,
-      )}
-      {...props}
-    />
-  );
-}
+export const StatusDot = React.forwardRef<HTMLSpanElement, StatusDotProps>(
+  function StatusDot(
+    { tone, size = "sm", className, "aria-hidden": ariaHidden = true, ...props },
+    ref,
+  ) {
+    return (
+      <span
+        ref={ref}
+        aria-hidden={ariaHidden}
+        className={cn(
+          "rounded-full shrink-0",
+          SIZE_CLASS[size],
+          TONE_CLASS[tone],
+          className,
+        )}
+        {...props}
+      />
+    );
+  },
+);

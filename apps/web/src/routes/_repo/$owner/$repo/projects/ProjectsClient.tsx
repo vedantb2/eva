@@ -1,75 +1,29 @@
 import { useState } from "react";
-import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { PageWrapper } from "@/lib/components/PageWrapper";
+import { useRoutePageTitle } from "@/lib/contexts/PageTitleContext";
 import {
-  Button,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuCheckboxItem,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuItem,
   EmptyState,
+  PageHeader,
+  PageHeaderActions,
+  PageHeaderTitle,
   Skeleton,
-  Tooltip,
-  TooltipTrigger,
-  TooltipContent,
 } from "@eva/ui";
-import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
-import {
-  IconLayoutKanban,
-  IconPlus,
-  IconFilter,
-  IconTimeline,
-  IconList,
-  IconSettings,
-  IconSortDescending,
-  IconX,
-} from "@tabler/icons-react";
+import { IconLayoutKanban } from "@tabler/icons-react";
 import {
   PROJECT_PHASES,
-  phaseConfig,
   type ProjectPhase,
 } from "@/lib/components/projects/ProjectPhaseBadge";
 import { priorityCompare } from "@/lib/components/priority/priorityMeta";
-import { ProjectsTimeline } from "@/lib/components/projects/ProjectsTimeline";
-import { ProjectsListView } from "@/lib/components/projects/ProjectsListView";
-import { ProjectsKanbanView } from "./_components/ProjectsKanbanView";
+import { ProjectsViewSwitcher } from "./_components/ProjectsViewSwitcher";
 import { ProjectDeleteDialog } from "./_components/ProjectDeleteDialog";
 import { ActiveFiltersBar } from "./_components/ActiveFiltersBar";
-import {
-  useProjectFilters,
-  SORT_FIELDS,
-  type ProjectView,
-  type SortField,
-} from "./_utils";
-
-const VIEW_OPTIONS: {
-  key: ProjectView;
-  icon: typeof IconLayoutKanban;
-  label: string;
-}[] = [
-  { key: "kanban", icon: IconLayoutKanban, label: "Kanban view" },
-  { key: "timeline", icon: IconTimeline, label: "Timeline view" },
-  { key: "list", icon: IconList, label: "List view" },
-];
-
-const SORT_FIELD_LABELS: Record<SortField, string> = {
-  created: "Date Created",
-  title: "Title",
-  priority: "Priority",
-};
+import { ProjectsToolbar } from "./_components/ProjectsToolbar";
+import { SORT_FIELD_LABELS, useProjectFilters } from "./_utils";
 
 export function ProjectsClient() {
   const { repo, basePath, owner, name } = useRepo();
@@ -88,6 +42,11 @@ export function ProjectsClient() {
       );
     }
   });
+
+  // The page header lives in this pane, but the mobile top bar renders the
+  // route title from context — so it still has to be published from here.
+  useRoutePageTitle("Projects");
+
   const [isCreating, setIsCreating] = useState(false);
   const [
     { q, view, hiddenPhases, sortField, sortDir, timelineRange, timelineZoom },
@@ -218,258 +177,96 @@ export function ProjectsClient() {
     }
   };
 
-  const toolbarContent = (
-    <div className="flex items-center gap-1.5 sm:gap-2">
-      <ToggleSearch
-        value={searchQuery}
-        onChange={(v) => setParams({ q: v ?? "" })}
-        placeholder="Search projects..."
-        visible={hasProjects}
-        variant="large"
-      />
-      {hasProjects && (
-        <div className="flex items-center rounded-surface border border-border bg-muted/40 overflow-hidden">
-          {VIEW_OPTIONS.map((opt) => (
-            <Tooltip key={opt.key}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={view === opt.key ? "secondary" : "ghost"}
-                  size="icon"
-                  className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.96]"
-                  onClick={() => setParams({ view: opt.key })}
-                >
-                  <opt.icon size={16} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{opt.label}</TooltipContent>
-            </Tooltip>
-          ))}
-        </div>
-      )}
-      {hasProjects && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              size="sm"
-              variant="secondary"
-              className="motion-press hover:scale-[1.01] active:scale-[0.96]"
-            >
-              <IconSettings size={16} />
-              <span className="hidden sm:inline">Options</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-52">
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <IconSortDescending size={16} className="mr-2" />
-                Sort: {SORT_FIELD_LABELS[sortField]}{" "}
-                {sortDir === "asc" ? "↑" : "↓"}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                <DropdownMenuRadioGroup
-                  value={sortField}
-                  onValueChange={(v) => {
-                    if (v === "created" || v === "title" || v === "priority") {
-                      setParams({ sortField: v });
-                    }
-                  }}
-                >
-                  {SORT_FIELDS.map((f) => (
-                    <DropdownMenuRadioItem key={f} value={f}>
-                      {SORT_FIELD_LABELS[f]}
-                    </DropdownMenuRadioItem>
-                  ))}
-                </DropdownMenuRadioGroup>
-                <DropdownMenuSeparator />
-                <DropdownMenuRadioGroup
-                  value={sortDir}
-                  onValueChange={(v) => {
-                    if (v === "asc" || v === "desc") {
-                      setParams({ sortDir: v });
-                    }
-                  }}
-                >
-                  <DropdownMenuRadioItem value="desc">
-                    Descending ↓
-                  </DropdownMenuRadioItem>
-                  <DropdownMenuRadioItem value="asc">
-                    Ascending ↑
-                  </DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            <DropdownMenuSeparator />
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger>
-                <IconFilter size={16} className="mr-2" />
-                {visiblePhases.size === PROJECT_PHASES.length
-                  ? "All Phases"
-                  : `${visiblePhases.size} Phases`}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent>
-                {PROJECT_PHASES.map((p) => {
-                  const cfg = phaseConfig[p];
-                  return (
-                    <DropdownMenuCheckboxItem
-                      key={p}
-                      checked={visiblePhases.has(p)}
-                      onCheckedChange={() => handlePhaseToggle(p)}
-                      onSelect={(e) => e.preventDefault()}
-                    >
-                      <cfg.icon size={16} className={cfg.text + " mr-2"} />
-                      <span className={cfg.text}>{cfg.label}</span>
-                    </DropdownMenuCheckboxItem>
-                  );
-                })}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-            {hasActiveFilters && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onSelect={clearAllFilters}>
-                  <IconX size={16} className="mr-2" />
-                  Clear all filters
-                </DropdownMenuItem>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
-      <Button
-        size="sm"
-        className="motion-press hover:scale-[1.01] active:scale-[0.96]"
-        onClick={() => setIsCreating(true)}
-      >
-        <IconPlus size={16} />
-        <span className="hidden sm:inline">New Project</span>
-      </Button>
-    </div>
-  );
-
   return (
-    <>
-      <PageWrapper
-        title="Projects"
-        fillHeight
-        childPadding={false}
-        headerRight={toolbarContent}
-      >
-        <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden p-3 pt-0">
-          {activeFilterLabels.length > 0 && (
-            <ActiveFiltersBar
-              filters={activeFilterLabels}
-              onClearFilter={clearFilter}
-              onClearAll={clearAllFilters}
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+      <PageHeader>
+        <PageHeaderTitle>Projects</PageHeaderTitle>
+        <PageHeaderActions>
+          <ProjectsToolbar
+            searchQuery={searchQuery}
+            onSearchChange={(v) => setParams({ q: v ?? "" })}
+            hasProjects={hasProjects}
+            view={view}
+            onViewChange={(v) => setParams({ view: v })}
+            sortField={sortField}
+            sortDir={sortDir}
+            onSortFieldChange={(v) => setParams({ sortField: v })}
+            onSortDirChange={(v) => setParams({ sortDir: v })}
+            visiblePhases={visiblePhases}
+            onPhaseToggle={handlePhaseToggle}
+            hasActiveFilters={hasActiveFilters}
+            onClearAllFilters={clearAllFilters}
+            onNewProject={() => setIsCreating(true)}
+          />
+        </PageHeaderActions>
+      </PageHeader>
+
+      <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden p-3 pt-0">
+        {activeFilterLabels.length > 0 && (
+          <ActiveFiltersBar
+            filters={activeFilterLabels}
+            onClearFilter={clearFilter}
+            onClearAll={clearAllFilters}
+          />
+        )}
+        {projects === undefined ? (
+          <div
+            className="flex flex-1 min-h-[24rem] flex-col gap-3"
+            aria-busy="true"
+            aria-label="Loading projects"
+          >
+            <div className="flex flex-1 gap-3 overflow-hidden">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton
+                  key={i}
+                  className="min-w-[220px] flex-1 border border-border"
+                />
+              ))}
+            </div>
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="flex min-h-0 flex-1 items-center justify-center">
+            <EmptyState
+              icon={
+                <IconLayoutKanban size={24} className="text-muted-foreground" />
+              }
+              title="No projects yet"
+              description="Create a project to describe a feature and let AI help you break it down into tasks"
+              actionLabel="Create Project"
+              onAction={() => setIsCreating(true)}
             />
-          )}
-          {projects === undefined ? (
-            <div
-              className="flex flex-1 min-h-[24rem] flex-col gap-3"
-              aria-busy="true"
-              aria-label="Loading projects"
-            >
-              <div className="flex flex-1 gap-3 overflow-hidden">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton
-                    key={i}
-                    className="min-w-[220px] flex-1 border border-border"
-                  />
-                ))}
-              </div>
-            </div>
-          ) : projects.length === 0 ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center">
-              <EmptyState
-                icon={
-                  <IconLayoutKanban
-                    size={24}
-                    className="text-muted-foreground"
-                  />
-                }
-                title="No projects yet"
-                description="Create a project to describe a feature and let AI help you break it down into tasks"
-                actionLabel="Create Project"
-                onAction={() => setIsCreating(true)}
-              />
-            </div>
-          ) : filteredSorted.length === 0 ? (
-            <div className="flex min-h-0 flex-1 items-center justify-center">
-              <EmptyState
-                icon={
-                  <IconLayoutKanban
-                    size={24}
-                    className="text-muted-foreground"
-                  />
-                }
-                title="No matching projects"
-                description="Try clearing filters to see all projects."
-                actionLabel="Clear filters"
-                onAction={clearAllFilters}
-                animate={false}
-              />
-            </div>
-          ) : (
-            <AnimatePresence initial={false} mode="wait">
-              {view === "kanban" ? (
-                <m.div
-                  key="projects-kanban-view"
-                  className="flex min-h-0 min-w-0 flex-1 flex-col"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <div className="flex h-full min-h-0 min-w-0 flex-1 items-stretch gap-2 overflow-x-auto overflow-y-hidden scrollbar scroll-fade-x snap-x snap-mandatory sm:gap-3 sm:snap-none">
-                    <ProjectsKanbanView
-                      projectsByPhase={projectsByPhase}
-                      visiblePhases={visiblePhases}
-                      owner={owner}
-                      name={name}
-                      basePath={basePath}
-                      onDelete={(id, title) =>
-                        setProjectToDelete({ id, title })
-                      }
-                    />
-                  </div>
-                </m.div>
-              ) : view === "timeline" ? (
-                <m.div
-                  key="projects-timeline-view"
-                  className="flex flex-1 min-h-0 min-w-0"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <ProjectsTimeline
-                    projects={filteredSorted}
-                    basePath={basePath}
-                    range={timelineRange}
-                    zoom={timelineZoom}
-                    onRangeChange={(r) => setParams({ timelineRange: r })}
-                    onZoomChange={(z) => setParams({ timelineZoom: z })}
-                  />
-                </m.div>
-              ) : (
-                <m.div
-                  key="projects-list-view"
-                  className="flex flex-1 min-h-0"
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.2 }}
-                >
-                  <ProjectsListView
-                    projectsByPhase={projectsByPhase}
-                    visiblePhases={visiblePhases}
-                    onDelete={(id, title) => setProjectToDelete({ id, title })}
-                  />
-                </m.div>
-              )}
-            </AnimatePresence>
-          )}
-        </div>
-      </PageWrapper>
+          </div>
+        ) : filteredSorted.length === 0 ? (
+          <div className="flex min-h-0 flex-1 items-center justify-center">
+            <EmptyState
+              icon={
+                <IconLayoutKanban size={24} className="text-muted-foreground" />
+              }
+              title="No matching projects"
+              description="Try clearing filters to see all projects."
+              actionLabel="Clear filters"
+              onAction={clearAllFilters}
+              animate={false}
+            />
+          </div>
+        ) : (
+          <ProjectsViewSwitcher
+            view={view}
+            filteredSorted={filteredSorted}
+            projectsByPhase={projectsByPhase}
+            visiblePhases={visiblePhases}
+            owner={owner}
+            name={name}
+            basePath={basePath}
+            onDelete={(id, title) => setProjectToDelete({ id, title })}
+            timelineRange={timelineRange}
+            timelineZoom={timelineZoom}
+            onTimelineRangeChange={(r) => setParams({ timelineRange: r })}
+            onTimelineZoomChange={(z) => setParams({ timelineZoom: z })}
+          />
+        )}
+      </div>
+
       <NewProjectModal
         isOpen={isCreating}
         onClose={() => setIsCreating(false)}
@@ -480,6 +277,6 @@ export function ProjectsClient() {
         onConfirm={handleDelete}
         isDeleting={isDeleting}
       />
-    </>
+    </div>
   );
 }

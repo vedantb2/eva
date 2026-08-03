@@ -14,6 +14,8 @@ import {
   ReasoningTrigger,
   ReasoningContent,
   ActivityTasks,
+  StatusDot,
+  type StatusTone,
   formatElapsed,
   ProviderIcon,
   formatModelDisplayLabel,
@@ -75,6 +77,18 @@ function getRunStatusLabel(run: Run, hasRunComment: boolean): string {
       return "success";
   }
 }
+
+/** `StatusDot` tone per run status — a small glyph beside neutral text
+ * instead of a loud filled pill. `running` uses `active` (a live/in-progress
+ * state, not a workflow stage reached) rather than `progress`, matching the
+ * sidebar's running-session dot. */
+const RUN_STATUS_TONE: Record<Run["status"], StatusTone> = {
+  queued: "neutral",
+  running: "active",
+  success: "done",
+  error: "critical",
+  cancelled: "cancelled",
+};
 
 export function RunTimelineItem({
   run,
@@ -157,17 +171,8 @@ export function RunTimelineItem({
                       {getUserDisplayName(requester)}
                     </span>
                   ) : null}
-                  <Badge
-                    variant={
-                      run.status === "running"
-                        ? "warning"
-                        : run.status === "error"
-                          ? "destructive"
-                          : run.status === "success"
-                            ? "success"
-                            : "secondary"
-                    }
-                  >
+                  <Badge variant="quiet" className="gap-1.5">
+                    <StatusDot tone={RUN_STATUS_TONE[run.status]} />
                     {getRunStatusLabel(run, hasRunComment)}
                   </Badge>
                   {modelProvider && modelDisplayLabel ? (

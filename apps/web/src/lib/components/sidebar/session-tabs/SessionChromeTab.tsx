@@ -11,6 +11,7 @@ import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
+  StatusDot,
   cn,
 } from "@eva/ui";
 import {
@@ -163,11 +164,9 @@ export function SessionChromeTab({
               >
                 {/* Sandbox status fills Chrome's favicon slot — stays visible when
                     the tab is fully squeezed. App logo lives on the group pill. */}
-                <span
-                  className={cn(
-                    "size-1.5 shrink-0 rounded-full",
-                    statusStyle.dot,
-                  )}
+                <StatusDot
+                  tone={statusStyle.tone}
+                  aria-hidden={false}
                   title={statusStyle.label}
                 />
                 <span className="min-w-0 flex-1 truncate font-medium [@container(max-width:4.5rem)]:hidden">

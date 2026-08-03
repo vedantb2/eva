@@ -12,6 +12,18 @@ type ProjectView = "kanban" | "timeline" | "list";
 const PROJECT_VIEWS: readonly ProjectView[] = ["kanban", "timeline", "list"];
 export const SORT_FIELDS = ["created", "title", "priority"] as const;
 type SortField = (typeof SORT_FIELDS)[number];
+
+/**
+ * Human labels for the sort fields. Lives here rather than in the toolbar
+ * because two siblings need it — the toolbar's sort submenu and the active
+ * filter chips on the page — and a child component exporting a constant for its
+ * own parent to import is a dependency pointing the wrong way.
+ */
+export const SORT_FIELD_LABELS: Record<SortField, string> = {
+  created: "Date Created",
+  title: "Title",
+  priority: "Priority",
+};
 type SortDir = "asc" | "desc";
 // Timeline axis granularity. Maps 1:1 to the Gantt engine's `Range`
 // ("daily" renders day columns, surfaced to users as the "Week" zoom).

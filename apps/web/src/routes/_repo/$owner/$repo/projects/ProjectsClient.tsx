@@ -49,7 +49,6 @@ import { ProjectsListView } from "@/lib/components/projects/ProjectsListView";
 import { ProjectsKanbanView } from "./_components/ProjectsKanbanView";
 import { ProjectDeleteDialog } from "./_components/ProjectDeleteDialog";
 import { ActiveFiltersBar } from "./_components/ActiveFiltersBar";
-import { HorizontalScrollFade } from "@/lib/components/ui/HorizontalScrollFade";
 import {
   useProjectFilters,
   SORT_FIELDS,
@@ -412,10 +411,7 @@ export function ProjectsClient() {
                   exit={{ opacity: 0, y: -8 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <HorizontalScrollFade
-                    className="min-h-0 flex-1"
-                    contentClassName="flex h-full min-h-0 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar"
-                  >
+                  <div className="flex h-full min-h-0 min-w-0 flex-1 items-stretch gap-3 overflow-x-auto overflow-y-hidden scrollbar scroll-fade-x">
                     <ProjectsKanbanView
                       projectsByPhase={projectsByPhase}
                       visiblePhases={visiblePhases}
@@ -427,7 +423,7 @@ export function ProjectsClient() {
                         setProjectToDelete({ id, title })
                       }
                     />
-                  </HorizontalScrollFade>
+                  </div>
                 </m.div>
               ) : view === "timeline" ? (
                 <m.div

@@ -38,7 +38,7 @@ export function DocHistoryPanel({
         </Button>
       </div>
 
-      <div className="scrollbar flex-1 overflow-y-auto">
+      <div className="scrollbar scroll-fade flex-1 overflow-y-auto">
         {versions.length === 0 && (
           <p className="px-3 py-6 text-center text-sm text-muted-foreground">
             {isRecap

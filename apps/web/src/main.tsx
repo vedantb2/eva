@@ -64,6 +64,14 @@ const router = createRouter({
   history: createAppHistory(),
   context: { isSignedIn: false },
   defaultErrorComponent: DeploymentErrorFallback,
+  // Fetch a route's chunk while the pointer rests on its link, so the click
+  // renders from cache instead of waiting on the network. Routes with a
+  // side-effecting `beforeLoad` must bail out on the `preload` flag — see
+  // `routes/index.tsx` and `routes/_global/home.tsx`.
+  defaultPreload: "intent",
+  // Twice the 50ms default: long enough that dragging the pointer across a
+  // sidebar does not queue a fetch for every item it crosses.
+  defaultPreloadDelay: 100,
   // Monorepo apps: address bar + link hrefs use /owner/repo/app/… while the
   // route tree matches /owner/repo--app/… (single $repo segment).
   rewrite: {

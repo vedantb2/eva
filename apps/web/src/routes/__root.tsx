@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { ClientProvider } from "@/lib/components/ClientProvider";
 import { AppToaster } from "@/lib/components/AppToaster";
 import { AppShell } from "@/lib/components/AppShell";
+import { ChangelogDialogGate } from "@/lib/components/ChangelogDialogGate";
 import { useDocumentTitle } from "@/lib/hooks/useDocumentTitle";
 
 export interface RouterContext {
@@ -14,13 +15,6 @@ export interface RouterContext {
 export const Route = createRootRouteWithContext<RouterContext>()({
   component: RootComponent,
 });
-
-/** Lazy: streamdown + cjk/math/mermaid (katex) off the critical path. */
-const ChangelogDialog = lazy(() =>
-  import("@/lib/components/ChangelogDialog").then((m) => ({
-    default: m.ChangelogDialog,
-  })),
-);
 
 /** Lazy so the agentation package stays out of the production bundle. */
 const DevAgentation = import.meta.env.DEV
@@ -41,9 +35,7 @@ function RootComponent() {
           <Outlet />
         </AppShell>
       </NuqsAdapter>
-      <Suspense fallback={null}>
-        <ChangelogDialog />
-      </Suspense>
+      <ChangelogDialogGate />
       <AppToaster />
       <Analytics />
       {DevAgentation ? (

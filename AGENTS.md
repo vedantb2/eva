@@ -20,8 +20,8 @@ Implementation:
 - Never use the non-null assertion operator `!`.
 - If a type is difficult to express, rethink the design instead of bypassing the type system.
 - Prefer simplicity over cleverness.
-- With React Compiler on apps/web, do not add useMemo/useCallback by default; only for proven identity/perf needs the compiler cannot cover.
-- React Compiler bails on a whole file for `finally`, a catch-less `try`, or `throw`/`?:`/`&&`/`??`/`?.`/loops inside `try` (`eva/no-value-block-in-try`).
+- No React Compiler on apps/web; add useMemo/useCallback only for a proven identity or perf need, never reflexively.
+- Keep `throw`/`?:`/`&&`/`??`/`?.`/loops out of `try` blocks and avoid `finally` (`eva/no-value-block-in-try`).
 - Minimize surface area of change.
 - Co-locate logic where it naturally belongs.
 - Avoid premature abstractions.

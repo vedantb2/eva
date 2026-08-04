@@ -33,7 +33,6 @@ export function ScheduleTasksModal({
   selectedTaskIds,
   onSuccess,
 }: ScheduleTasksModalProps) {
-  "use no memo";
   const schedule = useMutation(api.agentTasks.scheduleExecution);
   const updateSchedule = useMutation(api.agentTasks.updateScheduledExecution);
   const [isLoading, setIsLoading] = useState(false);

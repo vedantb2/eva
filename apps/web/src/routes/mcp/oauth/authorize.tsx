@@ -17,7 +17,10 @@ export const Route = createFileRoute("/mcp/oauth/authorize")({
   // Persist the OAuth params before any auth-driven redirect can strip them.
   // Prod Clerk live keys can bounce us to `/home` during the popup's session
   // handshake; `/home` reads this storage to recover us back into the flow.
-  beforeLoad: ({ search }) => {
+  // Skipped on preload so a hover cannot overwrite stored params with a
+  // half-filled search from some other link.
+  beforeLoad: ({ search, preload }) => {
+    if (preload) return;
     saveMcpOauthParams(search);
   },
   component: McpOauthAuthorize,

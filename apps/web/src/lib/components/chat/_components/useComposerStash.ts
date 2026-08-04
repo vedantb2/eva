@@ -10,7 +10,6 @@ import {
   isAllowedAttachmentFile,
   labelForAttachment,
   MAX_CHAT_ATTACHMENTS,
-  type ChatAttachmentMode,
 } from "@/lib/components/attachments/attachmentMeta";
 import { useUploadChatAttachments } from "@/lib/components/chat/imageAttachments";
 import { tokenizedToEditable } from "@/lib/components/mentions";
@@ -64,14 +63,12 @@ async function filesFromStashAttachments(
 export function useComposerStash({
   repoId,
   mentionRef,
-  attachmentMode,
 }: {
   repoId: Id<"githubRepos">;
   mentionRef: RefObject<MentionTextareaHandle | null>;
-  attachmentMode: ChatAttachmentMode;
 }) {
   const { textInput, attachments } = usePromptInputController();
-  const uploadChatAttachments = useUploadChatAttachments(attachmentMode);
+  const uploadChatAttachments = useUploadChatAttachments();
   const entries = useQuery(api.promptStash.listForRepo, { repoId }) ?? [];
 
   const addStash = useMutation(api.promptStash.add);
@@ -165,7 +162,7 @@ export function useComposerStash({
     for (const attachment of entry.attachments) {
       const mediaType =
         attachment.contentType === null ? undefined : attachment.contentType;
-      if (!isAllowedAttachmentFile(attachmentMode, { mediaType })) {
+      if (!isAllowedAttachmentFile({ mediaType })) {
         toast.error("This stash has attachments this composer cannot accept.");
         isRestoringRef.current = false;
         return false;

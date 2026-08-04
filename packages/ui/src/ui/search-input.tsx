@@ -1,8 +1,11 @@
 import { IconSearch } from "@tabler/icons-react";
-import { ClearInput } from "./clear-input";
+import { ClearInput, type ClearInputProps } from "./clear-input";
 import { cn } from "../utils/cn";
 
-interface SearchInputProps {
+interface SearchInputProps extends Omit<
+  ClearInputProps,
+  "value" | "onChange" | "leading" | "wrapperClassName"
+> {
   value: string;
   onChange: (value: string) => void;
   onClear: () => void;
@@ -18,6 +21,7 @@ function SearchInput({
   placeholder = "Search...",
   className,
   inputClassName,
+  ...props
 }: SearchInputProps) {
   return (
     <ClearInput
@@ -37,6 +41,7 @@ function SearchInput({
           className="pointer-events-none absolute left-3 top-1/2 z-[3] -translate-y-1/2 text-muted-foreground"
         />
       }
+      {...props}
     />
   );
 }

@@ -3,12 +3,15 @@
 import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { IconPaperclip } from "@tabler/icons-react";
+import { toast } from "@eva/ui";
 import { api, type Id } from "@eva/backend";
 import { AttachmentCard } from "@/lib/components/attachments/AttachmentCard";
 import {
-  chatAttachmentAccept,
+  CHAT_ATTACHMENT_ACCEPT,
+  isImageContentType,
   labelForAttachment,
 } from "@/lib/components/attachments/attachmentMeta";
+import { TextAttachmentModal } from "@/lib/components/attachments/TextAttachmentModal";
 import type { TaskAttachment } from "../useTaskAttachments";
 import { ConfirmDialog } from "./ConfirmDialog";
 
@@ -16,9 +19,19 @@ interface TaskFilesSectionProps {
   attachments: TaskAttachment[];
   onAdd: (files: File[]) => void;
   onRemove: (key: string) => void;
+  onReplace: (key: string, file: File) => void;
   /** The draft this composer is editing, when its files are already in storage. */
   draftTaskId: Id<"agentTasks"> | null;
 }
+
+type OpenTextAttachment = {
+  key: string;
+  title: string;
+  text: string;
+  readOnly: boolean;
+  filename: string;
+  mediaType: string;
+};
 
 /**
  * Quick task composer file picker: a paperclip button plus a "Files" list of
@@ -33,6 +46,7 @@ export function TaskFilesSection({
   attachments,
   onAdd,
   onRemove,
+  onReplace,
   draftTaskId,
 }: TaskFilesSectionProps) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -44,6 +58,7 @@ export function TaskFilesSection({
     label: string;
   } | null>(null);
   const [isRemoving, setIsRemoving] = useState(false);
+  const [open, setOpen] = useState<OpenTextAttachment | null>(null);
 
   const requestRemove = (attachment: TaskAttachment) => {
     // Not stored yet, or stored but not yet attached to a draft (a failed
@@ -78,6 +93,52 @@ export function TaskFilesSection({
     setIsRemoving(false);
   };
 
+  const openTextAttachment = (attachment: TaskAttachment) => {
+    void (async () => {
+      const title = labelForAttachment(attachment.name, attachment.contentType);
+      const filename = attachment.name ?? "pasted-text.txt";
+      const mediaType = attachment.contentType || "text/plain";
+      // Hydrated drafts have storageId + no local File — open read-only so
+      // editing would not orphan the stored blob.
+      const readOnly = attachment.file === null && attachment.storageId !== null;
+
+      try {
+        if (attachment.file) {
+          const text = await attachment.file.text();
+          setOpen({
+            key: attachment.key,
+            title,
+            text,
+            readOnly: false,
+            filename,
+            mediaType,
+          });
+          return;
+        }
+        if (!attachment.url) {
+          toast.error("Could not load attachment.");
+          return;
+        }
+        const response = await fetch(attachment.url);
+        if (!response.ok) {
+          toast.error("Could not load attachment.");
+          return;
+        }
+        const text = await response.text();
+        setOpen({
+          key: attachment.key,
+          title,
+          text,
+          readOnly,
+          filename,
+          mediaType,
+        });
+      } catch {
+        toast.error("Could not load attachment.");
+      }
+    })();
+  };
+
   return (
     <div className="flex flex-col gap-2 px-5 pb-2">
       {attachments.length > 0 ? (
@@ -93,6 +154,11 @@ export function TaskFilesSection({
                 contentType={attachment.contentType}
                 url={attachment.url}
                 onRemove={() => requestRemove(attachment)}
+                onOpen={
+                  isImageContentType(attachment.contentType)
+                    ? undefined
+                    : () => openTextAttachment(attachment)
+                }
               />
             ))}
           </div>
@@ -112,7 +178,7 @@ export function TaskFilesSection({
           ref={inputRef}
           type="file"
           multiple
-          accept={chatAttachmentAccept("sessionFiles")}
+          accept={CHAT_ATTACHMENT_ACCEPT}
           className="hidden"
           onChange={(e) => {
             onAdd(Array.from(e.target.files ?? []));
@@ -140,6 +206,28 @@ export function TaskFilesSection({
         onConfirm={handleConfirm}
         isLoading={isRemoving}
       />
+
+      {open ? (
+        <TextAttachmentModal
+          title={open.title}
+          text={open.text}
+          readOnly={open.readOnly}
+          onClose={() => setOpen(null)}
+          onSave={
+            open.readOnly
+              ? undefined
+              : (nextText) => {
+                  onReplace(
+                    open.key,
+                    new File([nextText], open.filename, {
+                      type: open.mediaType,
+                    }),
+                  );
+                  setOpen(null);
+                }
+          }
+        />
+      ) : null}
     </div>
   );
 }

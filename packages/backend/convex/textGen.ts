@@ -2,6 +2,7 @@
 
 import { ActionCache } from "@convex-dev/action-cache";
 import { generateText } from "ai";
+import { parseGeneratedTags } from "@eva/shared";
 import { v } from "convex/values";
 import { components, internal } from "./_generated/api";
 import { action, internalAction } from "./_generated/server";
@@ -53,6 +54,65 @@ export const generateSessionTitle = internalAction({
       });
     } catch (error) {
       console.error("[textGen.generateSessionTitle]", error);
+    }
+    return null;
+  },
+});
+
+/**
+ * Suggests up to three vocabulary tags for a newly created task. Background /
+ * flex tier — failures leave the task untagged rather than blocking create.
+ */
+export const generateTaskTags = internalAction({
+  args: {
+    taskId: v.id("agentTasks"),
+    title: v.string(),
+    description: v.optional(v.string()),
+    existingTags: v.array(v.string()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      const already =
+        args.existingTags.length > 0 ? args.existingTags.join(", ") : "none";
+      const description =
+        args.description !== undefined && args.description.trim().length > 0
+          ? args.description.slice(0, 2000)
+          : "(none)";
+      const { text } = await generateText({
+        model: TEXT_GEN_MODEL,
+        prompt: `Pick 0-3 tags that best describe this coding task. Choose only from the list below — never invent a tag. Prefer fewer precise tags over three loose ones. Reply with nothing if none clearly fit.
+
+Type: bug, feature, refactor, docs, testing, chore, migration
+Quality: performance, security, accessibility, reliability, design, ux
+Area: frontend, backend, database, infra, ci, auth, dependencies, config, integration
+
+Already applied — do not repeat these: ${already}
+
+Reply with the tags on one line, comma separated, no other text.
+
+Title: ${args.title}
+Description: ${description}`,
+        providerOptions: {
+          gateway: {
+            serviceTier: "flex",
+          },
+          openai: {
+            reasoningEffort: "minimal",
+            textVerbosity: "low",
+          },
+        },
+      });
+      const tags = parseGeneratedTags(text, args.existingTags);
+      if (tags.length === 0) {
+        return null;
+      }
+      await ctx.runMutation(internal.agentTasks.applyGeneratedTags, {
+        taskId: args.taskId,
+        tags,
+      });
+    } catch (error) {
+      console.error("[textGen.generateTaskTags]", error);
     }
     return null;
   },

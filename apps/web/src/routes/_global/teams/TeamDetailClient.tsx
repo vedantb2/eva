@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
-import type { TeamDetailTab } from "@/lib/search-params";
+import { isTeamDetailTab, type TeamDetailTab } from "@/lib/search-params";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { RepoLogo } from "@/lib/components/RepoLogo";
@@ -16,6 +16,7 @@ import {
   Button,
 } from "@eva/ui";
 import { IconUsers, IconPhoto, IconPhotoOff } from "@tabler/icons-react";
+import { TeamActivityTab } from "./_components/TeamActivityTab";
 import { TeamMembersTab } from "./_components/TeamMembersTab";
 import { TeamReposTab } from "./_components/TeamReposTab";
 import { TeamEnvVarsTab } from "./_components/TeamEnvVarsTab";
@@ -191,12 +192,7 @@ export function TeamDetailClient({
       <Tabs
         value={tab}
         onValueChange={(v) => {
-          if (
-            v === "members" ||
-            v === "codebases" ||
-            v === "env" ||
-            v === "artifacts"
-          ) {
+          if (isTeamDetailTab(v)) {
             navigate({
               to: `/teams/${teamId}/${v}`,
             });
@@ -205,12 +201,17 @@ export function TeamDetailClient({
       >
         <TabsBar className="mb-4 px-0 pt-0">
           <TabsList>
+            <TabsTrigger value="activity">Activity</TabsTrigger>
             <TabsTrigger value="members">Members</TabsTrigger>
             <TabsTrigger value="codebases">Codebases</TabsTrigger>
             <TabsTrigger value="env">Environment Variables</TabsTrigger>
             <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
           </TabsList>
         </TabsBar>
+
+        <TabsContent value="activity">
+          <TeamActivityTab members={members} />
+        </TabsContent>
 
         <TabsContent value="members">
           <TeamMembersTab

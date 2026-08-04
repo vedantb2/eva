@@ -24,16 +24,8 @@ import {
   hasMcpConfig,
 } from "./config.js";
 import { runSdkDaemon } from "./providers/claudeSdkDaemon.js";
-import { runCursorAcpDaemon } from "./providers/cursorAcpDaemon.js";
-import {
-  cursorAcpFailure,
-  cursorAcpResultEvent,
-  isCursorAcpAttempt,
-} from "./providers/cursorAcpResult.js";
 import { fetchWithTimeout, callConvexWithRetry } from "./http/convexClient.js";
 import { callbackState as S } from "./runtime/state.js";
-import { activeTurnIdentityArgs } from "./runtime/turnIdentity.js";
-import type { JsonValue } from "./types.js";
 import {
   flushStreaming,
   runPreflightHeartbeat,
@@ -95,9 +87,8 @@ S.lastStepType = "thinking";
 // Persistent warm-session daemon (Claude chat entities with CLAIM_MUTATION).
 // Job runs (tasks / automations / arena) omit CLAIM_MUTATION and use one-shot
 // SDK below. Keeps one warm query() across turns instead of respawning per turn.
-if (CLAIM_MUTATION) {
-  if (PROVIDER === "claude") await runSdkDaemon();
-  if (PROVIDER === "cursor") await runCursorAcpDaemon();
+if (PROVIDER === "claude" && CLAIM_MUTATION) {
+  await runSdkDaemon();
 }
 
 const preflightOk = await runPreflightHeartbeat();
@@ -189,50 +180,23 @@ try {
   const firstAttempt = await runProviderAttempt(initialSessionMode);
   await flushStreaming();
 
-  const cursorAcpAttempt = isCursorAcpAttempt(firstAttempt)
-    ? firstAttempt
-    : null;
-  const cliAttempt = isCursorAcpAttempt(firstAttempt) ? null : firstAttempt;
-  const cursorAcpError = cursorAcpAttempt
-    ? cursorAcpFailure(cursorAcpAttempt)
-    : null;
-  const finalCode = cursorAcpAttempt
-    ? cursorAcpError === null
-      ? 0
-      : 1
-    : (cliAttempt?.code ?? 1);
-  const finalTimedOutForNoOutput = cursorAcpAttempt
-    ? false
-    : Boolean(cliAttempt?.timedOutForNoOutput);
-  const finalTimedOutForMaxRuntime = cursorAcpAttempt
-    ? false
-    : Boolean(cliAttempt?.timedOutForMaxRuntime);
-  const finalTimedOutForFirstEvent = cursorAcpAttempt
-    ? false
-    : Boolean(cliAttempt?.timedOutForFirstEvent);
-  const finalTimedOutForFirstAssistant = cursorAcpAttempt
-    ? false
-    : Boolean(cliAttempt?.timedOutForFirstAssistant);
-  const finalTimedOutAfterFirstText = cursorAcpAttempt
-    ? false
-    : Boolean(cliAttempt?.timedOutAfterFirstText);
-  const finalTimedOutForZombie = cursorAcpAttempt
-    ? false
-    : Boolean(cliAttempt?.timedOutForZombie);
-  const finalTerminatedBySignal = cursorAcpAttempt
-    ? cursorAcpAttempt.childSignal !== null
-    : Boolean(cliAttempt?.terminatedBySignal);
-  const finalToolStallErrorMessage = cursorAcpAttempt
-    ? ""
-    : cliAttempt?.toolStallErrorMessage || "";
-  const finalResultEvent = cursorAcpAttempt
-    ? cursorAcpResultEvent(cursorAcpAttempt)
-    : extractResultEvent(cliAttempt?.output ?? "");
+  let finalCode = firstAttempt.code;
+  let finalTimedOutForNoOutput = Boolean(firstAttempt.timedOutForNoOutput);
+  let finalTimedOutForMaxRuntime = Boolean(firstAttempt.timedOutForMaxRuntime);
+  let finalTimedOutForFirstEvent = Boolean(firstAttempt.timedOutForFirstEvent);
+  let finalTimedOutForFirstAssistant = Boolean(
+    firstAttempt.timedOutForFirstAssistant,
+  );
+  let finalTimedOutAfterFirstText = Boolean(
+    firstAttempt.timedOutAfterFirstText,
+  );
+  let finalTimedOutForZombie = Boolean(firstAttempt.timedOutForZombie);
+  const finalTerminatedBySignal = firstAttempt.terminatedBySignal;
+  const finalToolStallErrorMessage = firstAttempt.toolStallErrorMessage || "";
+  let finalResultEvent = extractResultEvent(firstAttempt.output);
   log(
     "firstAttempt result: code=" +
-      finalCode +
-      " transport=" +
-      (cursorAcpAttempt?.transport ?? "legacy") +
+      firstAttempt.code +
       " isError=" +
       Boolean(finalResultEvent?.isError) +
       " hasToolActivity=" +
@@ -265,19 +229,17 @@ try {
     finalTimedOutForZombie ||
     Boolean(finalToolStallErrorMessage);
 
-  const runSucceededWithResult = cursorAcpAttempt
-    ? cursorAcpError === null && !agentWasInterrupted
-    : finalResultEvent != null &&
-      !finalResultEvent.isError &&
-      !agentWasInterrupted;
+  const runSucceededWithResult =
+    finalResultEvent != null &&
+    !finalResultEvent.isError &&
+    !agentWasInterrupted;
 
-  let errorValue: string | null = cursorAcpError;
-  if (!cursorAcpAttempt && finalResultEvent?.isError) {
+  let errorValue: string | null = null;
+  if (finalResultEvent?.isError) {
     errorValue = finalResultEvent.result;
   } else if (
-    !cursorAcpAttempt &&
-    ((!runSucceededWithResult && finalCode !== 0) ||
-      (attemptEndedDueToTimeout && !runSucceededWithResult))
+    (!runSucceededWithResult && finalCode !== 0) ||
+    (attemptEndedDueToTimeout && !runSucceededWithResult)
   ) {
     errorValue = appendDiagnosticTail(
       buildErrorMessage(
@@ -323,13 +285,11 @@ try {
   for (const step of S.accumulatedSteps) step.status = "complete";
   const activityLog = serializeSteps(S.accumulatedSteps);
 
-  let completionSuccess = cursorAcpAttempt
-    ? cursorAcpError === null && !agentWasInterrupted
-    : agentWasInterrupted
-      ? false
-      : finalResultEvent
-        ? !finalResultEvent.isError
-        : finalCode === 0;
+  let completionSuccess = agentWasInterrupted
+    ? false
+    : finalResultEvent
+      ? !finalResultEvent.isError
+      : finalCode === 0;
   if (attemptEndedDueToTimeout && !runSucceededWithResult) {
     completionSuccess = false;
   }
@@ -363,13 +323,12 @@ try {
       S.accumulatedSteps.length,
   );
 
-  const completionArgs: Record<string, JsonValue> = {
+  const completionArgs: Record<string, string | boolean | null> = {
     [ENTITY_ID_FIELD ?? "entityId"]: ENTITY_ID ?? "",
     success: completionSuccess,
     result: finalResultEvent?.result ?? S.rawOutput,
     error: errorValue,
     activityLog,
-    ...activeTurnIdentityArgs(),
   };
   if (RUN_ID) completionArgs.runId = RUN_ID;
   if (finalResultEvent?.rawResultEvent) {
@@ -403,7 +362,7 @@ try {
   writeDoneFile("fatal-error", {
     error: err instanceof Error ? err.message : String(err),
   });
-  const errorArgs: Record<string, JsonValue> = {
+  const errorArgs: Record<string, string | boolean | null> = {
     [ENTITY_ID_FIELD ?? "entityId"]: ENTITY_ID ?? "",
     success: false,
     result: null,
@@ -421,7 +380,6 @@ try {
             " CLI",
     ),
     activityLog: serializeSteps(S.accumulatedSteps),
-    ...activeTurnIdentityArgs(),
   };
   if (RUN_ID) errorArgs.runId = RUN_ID;
   try {

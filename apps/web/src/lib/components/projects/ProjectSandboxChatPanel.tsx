@@ -15,8 +15,6 @@ import {
   type StoredModelTraits,
 } from "@eva/backend";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
-import { useChatRuntime } from "@/lib/components/chat/useChatRuntime";
-import { optimisticallySubmitProjectTurn } from "@/lib/components/chat/chatOptimisticUpdates";
 import { ProjectChatOptionsSubmenu } from "@/lib/components/chat/ChatOptionsSubmenu";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
@@ -45,9 +43,17 @@ export function ProjectSandboxChatPanel({
 }: ProjectSandboxChatPanelProps) {
   const { repo, basePath } = useRepo();
   const project = useQuery(api.projects.get, { id: projectId });
-  const submitTurn = useMutation(
-    api.projectChatWorkflow.submitTurn,
-  ).withOptimisticUpdate(optimisticallySubmitProjectTurn);
+  const messages = useQuery(api.messages.listByParent, { parentId: projectId });
+  const queuedMessages = useQuery(api.queuedMessages.listByParent, {
+    parentId: projectId,
+  });
+  const streaming = useQuery(api.streaming.get, {
+    entityId: `project-chat-${projectId}`,
+  });
+
+  const addMessage = useMutation(api.projectChatWorkflow.addMessage);
+  const startExecute = useMutation(api.projectChatWorkflow.startExecute);
+  const enqueueMessage = useMutation(api.projectChatWorkflow.enqueueMessage);
   const cancelExecution = useMutation(api.projectChatWorkflow.cancelExecution);
   const requestStopBackgroundAgent = useMutation(
     api.projectChatWorkflow.requestStopBackgroundAgent,
@@ -98,22 +104,10 @@ export function ProjectSandboxChatPanel({
     thinkingEnabled: project?.lastThinkingEnabled,
     use1mContext: project?.lastUse1mContext,
   };
+  const displayTraits = resolveTraitsForDisplay(model, storedTraits);
+  const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
   const providerAccountId = project?.providerAccountId ?? null;
-  const { options: modelOptions, providerCapabilities } = useAvailableAiModels(
-    repo._id,
-    model,
-    providerAccountId,
-  );
-  const displayTraits = resolveTraitsForDisplay(
-    model,
-    storedTraits,
-    providerCapabilities,
-  );
-  const executionTraits = buildTraitsExecutionPayload(
-    model,
-    storedTraits,
-    providerCapabilities,
-  );
+  const { options: modelOptions } = useAvailableAiModels(repo._id, model);
   const { options: accounts, resolveId: resolveAccountId } =
     useProviderAccounts();
   const currentUserId = useQuery(api.auth.me);
@@ -154,6 +148,22 @@ export function ProjectSandboxChatPanel({
       }
     : undefined;
 
+  // Same entityId the project-chat sandbox posts with (project id, not stream prefix).
+  const activeQuestion = useQuery(api.pendingQuestions.getActive, {
+    entityId: projectId,
+  });
+  const answerPendingQuestion = useMutation(api.pendingQuestions.answer);
+  const handleAnswerBlockingQuestion = async (
+    toolUseId: string,
+    answers: Record<string, string>,
+  ) => {
+    await answerPendingQuestion({
+      entityId: projectId,
+      toolUseId,
+      answer: JSON.stringify(answers),
+    });
+  };
+
   const setModel = (next: AIModel) => {
     void setChatModelMutation({
       id: projectId,
@@ -183,25 +193,19 @@ export function ProjectSandboxChatPanel({
     });
   };
 
-  const runtime = useChatRuntime({
-    parentId: projectId,
-    streamingEntityId: `project-chat-${projectId}`,
-    questionEntityId: projectId,
-    activeTurn: project?.activeTurn,
-    legacyBusy:
-      project?.activeTurn === undefined &&
-      project?.activeChatWorkflowId !== undefined,
-    submissionKey: [
-      model,
-      displayTraits.effortLevel ?? "",
-      String(executionTraits.thinkingEnabled ?? ""),
-      String(executionTraits.use1mContext ?? ""),
-      providerAccountId ?? "",
-    ].join("|"),
-    submitAction: ({ turnId, content, attachmentStorageIds }) =>
-      submitTurn({
+  const lastMessage = messages?.[messages.length - 1];
+  const lastAssistantHasNoContent =
+    !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
+  const isExecuting =
+    Boolean(project?.activeChatWorkflowId) || lastAssistantHasNoContent;
+
+  const handleSend = async (
+    content: string,
+    attachmentStorageIds?: Id<"_storage">[],
+  ) => {
+    if (isExecuting) {
+      await enqueueMessage({
         projectId,
-        turnId,
         message: content,
         model,
         ...executionTraits,
@@ -209,22 +213,30 @@ export function ProjectSandboxChatPanel({
           displayTraits.effortLevel ?? executionTraits.reasoningLevel,
         providerAccountId: resolveAccountId(providerAccountId),
         attachmentStorageIds,
-      }),
-    cancelAction: async (target) => {
-      await cancelExecution({
-        projectId,
-        ...(target === undefined
-          ? {}
-          : target.kind === "pending"
-            ? { turnId: target.turnId }
-            : {
-                turnId: target.turn.turnId,
-                assistantMessageId: target.turn.assistantMessageId,
-                attempt: target.turn.attempt,
-              }),
       });
-    },
-  });
+      return;
+    }
+    const accountId = resolveAccountId(providerAccountId);
+    await addMessage({
+      projectId,
+      content,
+      attachmentStorageIds,
+      providerAccountId: accountId,
+      model,
+      reasoningLevel: displayTraits.effortLevel,
+    });
+    await startExecute({
+      projectId,
+      message: content,
+      model,
+      ...executionTraits,
+      providerAccountId: accountId,
+    });
+  };
+
+  const handleCancel = async () => {
+    await cancelExecution({ projectId });
+  };
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
@@ -246,24 +258,15 @@ export function ProjectSandboxChatPanel({
         repoId={repo._id}
         repoBasePath={basePath}
         conversationId={projectId}
-        messages={runtime.messages}
-        queuedMessages={runtime.queuedMessages}
-        pendingQueuedMessages={runtime.pendingQueuedMessages}
-        activeTurn={project?.activeTurn}
-        streaming={runtime.streaming ?? undefined}
-        blockingQuestion={runtime.activeQuestion ?? undefined}
-        localTurnId={runtime.localTurnId}
-        history={{
-          firstItemIndex: runtime.firstItemIndex,
-          canLoadOlder: runtime.canLoadOlder,
-          isLoadingOlder: runtime.isLoadingOlder,
-          onLoadOlder: runtime.loadOlder,
-        }}
-        onAnswerBlockingQuestion={runtime.handleAnswerBlockingQuestion}
-        availability={{
-          isExecuting: runtime.isExecuting,
-          isInputDisabled: !isSandboxActive,
-        }}
+        messages={messages ?? []}
+        queuedMessages={queuedMessages ?? []}
+        streamingActivity={streaming?.currentActivity}
+        streamingContent={streaming?.currentContent}
+        streamingPendingQuestion={streaming?.pendingQuestion}
+        blockingQuestion={activeQuestion ?? undefined}
+        onAnswerBlockingQuestion={handleAnswerBlockingQuestion}
+        isExecuting={isExecuting}
+        isInputDisabled={!isSandboxActive}
         placeholder={
           !isSandboxActive
             ? "Sandbox must be running to chat..."
@@ -281,10 +284,9 @@ export function ProjectSandboxChatPanel({
         accountId={providerAccountId}
         onAccountChange={setProviderAccountId}
         displayTraits={displayTraits}
-        providerCapabilities={providerCapabilities}
         onTraitsChange={onTraitsChange}
-        onSend={runtime.handleSend}
-        onCancel={runtime.handleCancel}
+        onSend={handleSend}
+        onCancel={handleCancel}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}

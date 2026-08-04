@@ -2,64 +2,29 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import type { ModelAccount } from "@eva/ui";
-import { useState } from "react";
 import {
   api,
-  getAIModelProvider,
   getVisibleAIModelOptions,
   normalizeAIModel,
   type Id,
 } from "@eva/backend";
 
-function includesModel(models: ReadonlyArray<string>, model: string): boolean {
-  return models.includes(model);
-}
-
 export function useAvailableAiModels(
   repoId: Id<"githubRepos"> | null | undefined,
   currentModel?: string | null,
-  providerAccountId?: Id<"userProviderAccounts"> | null,
 ) {
-  const [capabilityQueryTime] = useState(() => Date.now());
   const availability = useQuery(
     api.githubRepos.getProviderAvailability,
     repoId ? { repoId } : "skip",
   );
 
   const normalizedModel = normalizeAIModel(currentModel);
-  const cursorCapabilities = useQuery(
-    api.providerCapabilities.getCursor,
-    repoId && getAIModelProvider(normalizedModel) === "cursor"
-      ? {
-          repoId,
-          model: normalizedModel,
-          now: capabilityQueryTime,
-          ...(providerAccountId ? { providerAccountId } : {}),
-        }
-      : "skip",
-  );
-  const visibleOptions = getVisibleAIModelOptions(
-    availability,
-    normalizedModel,
-  );
-  const options = visibleOptions.map((option) =>
-    cursorCapabilities &&
-    option.provider === "cursor" &&
-    !includesModel(cursorCapabilities.availableModels, option.id)
-      ? {
-          ...option,
-          disabledReason:
-            "Unavailable for this Cursor account and CLI version.",
-        }
-      : option,
-  );
+  const options = getVisibleAIModelOptions(availability, normalizedModel);
 
   return {
     availability,
     options,
     model: normalizedModel,
-    providerCapabilities: cursorCapabilities?.controls,
-    cursorCapabilities,
   };
 }
 

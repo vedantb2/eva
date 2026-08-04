@@ -1,12 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { SessionRouteShell } from "../_components/SessionRouteShell";
 
-/** Inactive sessions unmount, so their subscriptions and effects cannot run. */
+/**
+ * Param + beforeLoad host for `/sessions/$numId/…`. The session shell is
+ * rendered by the parent `sessions` layout (`CachedSessionShell`) so Preview
+ * survives switching between sessions.
+ */
 export const Route = createFileRoute("/_repo/$owner/$repo/sessions/$numId")({
-  component: SessionRoute,
+  component: () => null,
 });
-
-function SessionRoute() {
-  const { numId } = Route.useParams();
-  return <SessionRouteShell numId={numId} />;
-}

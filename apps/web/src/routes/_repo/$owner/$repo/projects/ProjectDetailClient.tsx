@@ -63,8 +63,6 @@ import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-deta
 import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
 import { parseSpec } from "@/lib/utils/parseSpec";
 import { ProjectChatMessageList } from "@/lib/components/projects/ProjectChatMessageList";
-import { projectProjectInterview } from "@/lib/components/projects/projectChatMessage.utils";
-import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 export function ProjectDetailClient({
   projectId,
@@ -149,15 +147,11 @@ export function ProjectDetailClient({
   const toggleProjectSandboxView = () => {
     if (!projectPathSegment) return;
     if (isSandboxSurface) {
-      navigate({
-        to: toInternalRepoHref(`${basePath}/projects/${projectPathSegment}`),
-      });
+      navigate({ to: `${basePath}/projects/${projectPathSegment}` });
       return;
     }
     navigate({
-      to: toInternalRepoHref(
-        `${basePath}/projects/${projectPathSegment}/sandbox/preview`,
-      ),
+      to: `${basePath}/projects/${projectPathSegment}/sandbox/preview`,
     });
   };
 
@@ -165,9 +159,7 @@ export function ProjectDetailClient({
   const openFile = (path: string) => {
     if (!projectPathSegment) return;
     void navigate({
-      to: toInternalRepoHref(
-        `${basePath}/projects/${projectPathSegment}/sandbox/files`,
-      ),
+      to: `${basePath}/projects/${projectPathSegment}/sandbox/files`,
       search: (prev) => ({ ...prev, file: path }),
     });
   };
@@ -187,9 +179,7 @@ export function ProjectDetailClient({
     if (agentBrowsingAt === undefined || prev !== undefined) return;
     if (!projectPathSegment) return;
     void navigate({
-      to: toInternalRepoHref(
-        `${basePath}/projects/${projectPathSegment}/sandbox/browser`,
-      ),
+      to: `${basePath}/projects/${projectPathSegment}/sandbox/browser`,
       search: true,
     });
     setExpandRightSignal((n) => n + 1);
@@ -341,9 +331,7 @@ export function ProjectDetailClient({
       title={
         <div className="flex items-center gap-1.5 text-base sm:text-lg md:text-xl">
           <button
-            onClick={() =>
-              navigate({ to: toInternalRepoHref(`${basePath}/projects`) })
-            }
+            onClick={() => navigate({ to: `${basePath}/projects` })}
             className="text-muted-foreground hover:text-foreground transition-colors font-semibold"
           >
             Projects
@@ -565,6 +553,7 @@ export function ProjectDetailClient({
             projectId={projectId}
             projectPhase={project.phase}
             activeWorkflowId={project.activeWorkflowId}
+            rawInput={project.rawInput}
             generatedSpec={project.generatedSpec}
             conversationHistory={project.conversationHistory}
             streamingActivity={streaming?.currentActivity}
@@ -704,11 +693,7 @@ export function ProjectDetailClient({
           </DialogHeader>
           <DialogBody>
             <div className="flex flex-col gap-3 py-2">
-              <ProjectChatMessageList
-                projection={projectProjectInterview(
-                  project.conversationHistory,
-                )}
-              />
+              <ProjectChatMessageList messages={project.conversationHistory} />
             </div>
           </DialogBody>
         </DialogContent>

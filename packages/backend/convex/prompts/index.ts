@@ -2,6 +2,7 @@ export {
   buildRootDirectoryInstruction,
   buildCustomInstructionsBlock,
   buildSystemPromptBlock,
+  getResponseLengthInstruction,
 } from "./shared";
 export { PARSE_PROMPT, INTERVIEW_PROMPT, GENERATE_PROMPT } from "./doc";
 export {

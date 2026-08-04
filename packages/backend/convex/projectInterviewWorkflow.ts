@@ -1,10 +1,6 @@
 import { v } from "convex/values";
 import { z } from "zod";
-import {
-  internalMutation,
-  internalQuery,
-  type MutationCtx,
-} from "./_generated/server";
+import { internalMutation, internalQuery } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
@@ -25,9 +21,6 @@ import {
   setProjectGeneratedSpec,
 } from "./_projects/helpers";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
-import type { Id } from "./_generated/dataModel";
-import { getProjectWithAccess } from "./functions";
-import { projectConversationMessageKey } from "../projectInterview";
 
 const projectInterviewCompleteEvent = defineEvent({
   name: "projectInterviewComplete",
@@ -44,47 +37,9 @@ const interviewSaveOutcomeValidator = v.union(
 const INTERVIEW_COMPLETE_CONTENT = JSON.stringify({ interviewComplete: true });
 
 const interviewReadySchema = z.object({ ready: z.boolean() });
-const interviewQuestionSchema = z.object({
-  question: z.string(),
-  options: z.array(
-    z.object({
-      label: z.string(),
-      description: z.string(),
-    }),
-  ),
-});
 
 function isInterviewReady(parsed: unknown): boolean {
   return interviewReadySchema.safeParse(parsed).data?.ready === true;
-}
-
-async function startProjectInterview(
-  ctx: MutationCtx,
-  projectId: Id<"projects">,
-  featureDescription: string,
-  userId: Id<"users">,
-  rejectionReason?: string,
-): Promise<void> {
-  const project = await ctx.db.get(projectId);
-  if (!project) throw new Error("Project not found");
-  if (project.activeWorkflowId) return;
-
-  const repo = await ctx.db.get(project.repoId);
-  if (!repo) throw new Error("Repository not found");
-
-  const workflowId = await workflow.start(
-    ctx,
-    internal.projectInterviewWorkflow.projectInterviewWorkflow,
-    {
-      projectId,
-      featureDescription,
-      previousAnswers: [],
-      rejectionReason,
-      userId,
-      installationId: repo.installationId,
-    },
-  );
-  await trackProjectWorkflow(ctx, projectId, workflowId);
 }
 
 /** Builds a prompt that asks one implementation-focused question. Session persistence provides prior context. */
@@ -301,7 +256,6 @@ export const addEmptyAssistant = internalMutation({
     await setProjectConversation(ctx.db, args.projectId, [
       ...conversation,
       {
-        id: crypto.randomUUID(),
         role: "assistant",
         content: "",
         activityLog: "",
@@ -466,164 +420,70 @@ export const handleCompletion = authMutation({
 export const startInterview = authMutation({
   args: {
     projectId: v.id("projects"),
+    featureDescription: v.string(),
+    previousAnswers: v.array(
+      v.object({ question: v.string(), answer: v.string() }),
+    ),
+    rejectionReason: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const project = await getProjectWithAccess(
-      ctx.db,
-      args.projectId,
-      ctx.userId,
-    );
-    const conversation = await getProjectConversation(ctx.db, args.projectId);
-    const last = conversation.at(-1);
-    if (last?.role === "assistant") {
-      const parsed = extractFirstJsonValue(last.content);
-      if (interviewQuestionSchema.safeParse(parsed).success) {
-        throw new Error("Answer the current question before continuing");
-      }
-    }
-    await startProjectInterview(
+    const project = await ctx.db.get(args.projectId);
+    if (!project) throw new Error("Project not found");
+    if (project.activeWorkflowId) return null;
+
+    const repo = await ctx.db.get(project.repoId);
+    if (!repo) throw new Error("Repository not found");
+
+    const workflowId = await workflow.start(
       ctx,
-      args.projectId,
-      project.rawInput,
-      ctx.userId,
+      internal.projectInterviewWorkflow.projectInterviewWorkflow,
+      {
+        projectId: args.projectId,
+        featureDescription: args.featureDescription,
+        previousAnswers: args.previousAnswers,
+        rejectionReason: args.rejectionReason,
+        userId: ctx.userId,
+        installationId: repo.installationId,
+      },
     );
+
+    await trackProjectWorkflow(ctx, args.projectId, workflowId);
+
     return null;
   },
 });
 
 /**
- * Atomically accepts an answer to the exact visible question and starts the
- * next interview step. A stale browser cannot answer a replaced question.
+ * Public mutation to start spec generation after interview is complete.
  */
-export const answerInterview = authMutation({
+export const startSpec = authMutation({
   args: {
     projectId: v.id("projects"),
-    questionId: v.string(),
-    answer: v.string(),
+    featureDescription: v.string(),
   },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const project = await getProjectWithAccess(
-      ctx.db,
-      args.projectId,
-      ctx.userId,
-    );
-    if (project.activeWorkflowId) {
-      throw new Error("The interview is already advancing");
-    }
-    const conversation = await getProjectConversation(ctx.db, args.projectId);
-    const question = conversation.at(-1);
-    const parsed = question
-      ? extractFirstJsonValue(question.content)
-      : undefined;
-    const questionKey = question
-      ? projectConversationMessageKey(
-          question.id,
-          question.role,
-          question.startedAt,
-          question.finishedAt,
-          question.content,
-        )
-      : undefined;
-    if (
-      question?.role !== "assistant" ||
-      questionKey !== args.questionId ||
-      !interviewQuestionSchema.safeParse(parsed).success
-    ) {
-      throw new Error("That interview question is no longer active");
-    }
-    await setProjectConversation(ctx.db, args.projectId, [
-      ...conversation,
-      {
-        id: crypto.randomUUID(),
-        role: "user",
-        content: args.answer,
-        userId: ctx.userId,
-        startedAt: Date.now(),
-      },
-    ]);
-    await startProjectInterview(
-      ctx,
-      args.projectId,
-      project.rawInput,
-      ctx.userId,
-    );
-    return null;
-  },
-});
-
-/** Restarts planning from rejected-spec feedback as one durable transition. */
-export const restartInterview = authMutation({
-  args: {
-    projectId: v.id("projects"),
-    reason: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const project = await getProjectWithAccess(
-      ctx.db,
-      args.projectId,
-      ctx.userId,
-    );
-    if (project.activeWorkflowId) {
-      throw new Error("The project already has an active planning workflow");
-    }
-    const conversation = await getProjectConversation(ctx.db, args.projectId);
-    await setProjectConversation(ctx.db, args.projectId, [
-      ...conversation,
-      {
-        id: crypto.randomUUID(),
-        role: "user",
-        content: args.reason,
-        userId: ctx.userId,
-        startedAt: Date.now(),
-      },
-    ]);
-    await ctx.db.patch(args.projectId, { phase: "draft" });
-    await startProjectInterview(
-      ctx,
-      args.projectId,
-      project.rawInput,
-      ctx.userId,
-      args.reason,
-    );
-    return null;
-  },
-});
-
-/** Clears the interview transcript and returns planning to its initial state. */
-export const resetInterview = authMutation({
-  args: { projectId: v.id("projects") },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const project = await getProjectWithAccess(
-      ctx.db,
-      args.projectId,
-      ctx.userId,
-    );
-    if (project.activeWorkflowId) {
-      throw new Error("Wait for the active planning workflow before clearing");
-    }
-    await setProjectConversation(ctx.db, args.projectId, []);
-    await ctx.db.patch(args.projectId, { phase: "draft" });
-    return null;
-  },
-});
-
-/** Scheduled atomically with project creation so React never owns initial start. */
-export const startInitialInterviewInternal = internalMutation({
-  args: { projectId: v.id("projects") },
   returns: v.null(),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
-    if (!project || project.planningMode !== "interview") return null;
-    await startProjectInterview(
+    if (!project) throw new Error("Project not found");
+    if (project.activeWorkflowId) return null;
+
+    const repo = await ctx.db.get(project.repoId);
+    if (!repo) throw new Error("Repository not found");
+
+    const workflowId = await workflow.start(
       ctx,
-      args.projectId,
-      project.rawInput,
-      project.userId,
+      internal.projectInterviewWorkflow.projectSpecWorkflow,
+      {
+        projectId: args.projectId,
+        featureDescription: args.featureDescription,
+        userId: ctx.userId,
+        installationId: repo.installationId,
+      },
     );
+
+    await trackProjectWorkflow(ctx, args.projectId, workflowId);
+
     return null;
   },
 });

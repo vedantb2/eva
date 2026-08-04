@@ -4,13 +4,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useUser } from "@clerk/clerk-react";
 import { useMutation } from "convex/react";
-import {
-  api,
-  buildTraitsExecutionPayload,
-  normalizeAIModel,
-  resolveTraitsForDisplay,
-  type Id,
-} from "@eva/backend";
+import { api, normalizeAIModel, type Id } from "@eva/backend";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { toast } from "@eva/ui";
 import { BranchSelect } from "@/lib/components/BranchSelect";
@@ -26,7 +20,6 @@ import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
 import { ComposerAppSwitcher } from "./ComposerAppSwitcher";
 import { SessionModeDropdown } from "./SessionModeDropdown";
 import { SessionDesignComposerTools } from "./SessionDesignComposerTools";
-import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 /**
  * Shared landing composer for repo home and `/sessions`: branding + prompt,
@@ -44,22 +37,6 @@ export function NewSessionComposer() {
     repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
   );
 
-  // Switching apps changes this route's params without remounting, so a plain
-  // useState initializer would keep the branch it was seeded with at mount
-  // while the model and effort refresh (those key their storage on repo._id).
-  // Re-seed whenever the underlying git repository changes: a different repo
-  // has a different branch list, so carrying the name across would leave the
-  // composer naming a ref that need not exist there. Sibling apps of one
-  // monorepo share a branch list, so a deliberate pick survives moving between
-  // them. Adjusting state during render is React's documented pattern for
-  // this, and matches useTaskDetail.
-  const branchListKey = `${repo.owner}/${repo.name}`;
-  const [prevBranchListKey, setPrevBranchListKey] = useState(branchListKey);
-  if (branchListKey !== prevBranchListKey) {
-    setPrevBranchListKey(branchListKey);
-    setBaseBranch(repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH);
-  }
-
   const defaultModel = normalizeAIModel(repo.defaultModel);
   const {
     draft: draftTokenized,
@@ -67,7 +44,8 @@ export function NewSessionComposer() {
     setMode,
     model,
     setModel,
-    storedTraits,
+    displayTraits,
+    executionTraits,
     onTraitsChange,
     providerAccountId,
     setProviderAccountId,
@@ -84,27 +62,12 @@ export function NewSessionComposer() {
     skillMap: draftSkillMap,
   } = tokenizedToEditable(draftTokenized);
 
+  const { options: modelOptions } = useAvailableAiModels(repo._id, model);
   const {
     options: accounts,
     resolveId: resolveAccountId,
     ready: accountsReady,
   } = useProviderAccounts();
-  const resolvedProviderAccountId = resolveAccountId(providerAccountId);
-  const { options: modelOptions, providerCapabilities } = useAvailableAiModels(
-    repo._id,
-    model,
-    resolvedProviderAccountId,
-  );
-  const displayTraits = resolveTraitsForDisplay(
-    model,
-    storedTraits,
-    providerCapabilities,
-  );
-  const executionTraits = buildTraitsExecutionPayload(
-    model,
-    storedTraits,
-    providerCapabilities,
-  );
   const [accountDefaulted, setAccountDefaulted] = useState(false);
 
   // Default account once the provider list is ready. Runs in an effect because
@@ -124,7 +87,7 @@ export function NewSessionComposer() {
     setIsSubmitting(true);
     // Resolved before the try: React Compiler bails on the whole file when a
     // nullish-coalescing expression sits inside a try/catch.
-    const accountId = resolvedProviderAccountId ?? null;
+    const accountId = resolveAccountId(providerAccountId) ?? null;
     const designArgs =
       mode === "design" ? { personaId: selectedPersonaId, numDesigns } : {};
     try {
@@ -145,9 +108,7 @@ export function NewSessionComposer() {
         attachmentStorageIds,
       });
       clearDraft();
-      await navigate({
-        to: toInternalRepoHref(`${basePath}/sessions/${numId}`),
-      });
+      await navigate({ to: `${basePath}/sessions/${numId}` });
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Couldn't create session";
@@ -177,7 +138,6 @@ export function NewSessionComposer() {
           repoBasePath={basePath}
           conversationId={`new-session-${repo._id}`}
           queuedMessages={[]}
-          pendingQueuedMessages={[]}
           messageHistory={[]}
           isExecuting={false}
           isInputDisabled={isSubmitting}
@@ -198,7 +158,6 @@ export function NewSessionComposer() {
           accountId={providerAccountId}
           onAccountChange={setProviderAccountId}
           displayTraits={displayTraits}
-          providerCapabilities={providerCapabilities}
           onTraitsChange={onTraitsChange}
           onSend={handleSend}
           onCancel={async () => {}}

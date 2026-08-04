@@ -1,19 +1,20 @@
 "use client";
 
+import { useState } from "react";
 import type { Id } from "@eva/backend";
-import { api } from "@eva/backend";
 import { useMutation } from "convex/react";
-import { ProjectChatTab } from "./ProjectChatTab";
+import { api } from "@eva/backend";
+import { ProjectChatTab, type ConversationMessage } from "./ProjectChatTab";
 import { ProjectPlanTab } from "./ProjectPlanTab";
 import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
-import type { ProjectConversationMessage } from "./projectChatMessage.utils";
 
 interface ProjectTabsProps {
   projectId: Id<"projects">;
   projectPhase: ProjectPhase;
   activeWorkflowId?: string;
+  rawInput: string;
   generatedSpec: string | undefined;
-  conversationHistory: ProjectConversationMessage[];
+  conversationHistory: ConversationMessage[];
   streamingActivity?: string;
   sandboxStartupActivity?: string;
   basePath: string;
@@ -24,6 +25,7 @@ export function ProjectTabs({
   projectId,
   projectPhase,
   activeWorkflowId,
+  rawInput,
   generatedSpec,
   conversationHistory,
   streamingActivity,
@@ -31,22 +33,78 @@ export function ProjectTabs({
   basePath,
   repoId,
 }: ProjectTabsProps) {
-  const resetInterview = useMutation(
-    api.projectInterviewWorkflow.resetInterview,
+  const [pendingSpec, setPendingSpec] = useState<string | null>(null);
+  const updateProject = useMutation(api.projects.update).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.projects.get, { id: projectId });
+      if (current !== undefined && current !== null) {
+        const {
+          id: _id,
+          priority,
+          projectLead,
+          codeReviewer,
+          model,
+          providerAccountId,
+          screenshotsVideosEnabled: _screenshotsVideosEnabled,
+          runAuditEnabled: _runAuditEnabled,
+          ...safeFields
+        } = args;
+        localStore.setQuery(
+          api.projects.get,
+          { id: projectId },
+          {
+            ...current,
+            ...safeFields,
+            ...(priority !== undefined
+              ? { priority: priority ?? undefined }
+              : {}),
+            ...(projectLead !== undefined
+              ? { projectLead: projectLead ?? undefined }
+              : {}),
+            ...(codeReviewer !== undefined
+              ? { codeReviewer: codeReviewer ?? undefined }
+              : {}),
+            ...(model !== undefined ? { model: model ?? undefined } : {}),
+            ...(providerAccountId !== undefined
+              ? { providerAccountId: providerAccountId ?? undefined }
+              : {}),
+          },
+        );
+      }
+    },
   );
-  const restartInterview = useMutation(
-    api.projectInterviewWorkflow.restartInterview,
+  const clearMessagesDb = useMutation(api.projects.clearMessages);
+  const addMessageDb = useMutation(api.projects.addMessage);
+  const startProjectInterview = useMutation(
+    api.projectInterviewWorkflow.startInterview,
   );
 
+  const handleSpecGenerated = (spec: string) => {
+    setPendingSpec(spec);
+  };
+
   const handleClear = async () => {
-    await resetInterview({ projectId });
+    await clearMessagesDb({ id: projectId });
+    await updateProject({ id: projectId, phase: "draft" });
+    setPendingSpec(null);
   };
 
   const handleRejectSpec = async (reason: string) => {
-    await restartInterview({ projectId, reason });
+    await updateProject({ id: projectId, phase: "draft" });
+    await addMessageDb({ id: projectId, role: "user", content: reason });
+
+    await startProjectInterview({
+      projectId,
+      featureDescription: rawInput,
+      previousAnswers: [], // Session persistence provides context
+      rejectionReason: reason,
+    });
+
+    setPendingSpec(null);
   };
 
-  const specToShow = projectPhase !== "draft" ? generatedSpec : undefined;
+  const specToShow =
+    projectPhase !== "draft" ? (pendingSpec ?? generatedSpec) : undefined;
 
   if (!specToShow) {
     return (
@@ -56,7 +114,10 @@ export function ProjectTabs({
         activeWorkflowId={activeWorkflowId}
         initialMessages={conversationHistory}
         streamingActivity={streamingActivity ?? sandboxStartupActivity}
+        rawInput={rawInput}
+        onSpecGenerated={handleSpecGenerated}
         onClear={handleClear}
+        repoId={repoId}
       />
     );
   }
@@ -70,7 +131,10 @@ export function ProjectTabs({
           activeWorkflowId={activeWorkflowId}
           initialMessages={conversationHistory}
           streamingActivity={streamingActivity ?? sandboxStartupActivity}
+          rawInput={rawInput}
+          onSpecGenerated={handleSpecGenerated}
           onClear={handleClear}
+          repoId={repoId}
         />
       </div>
       <div className="overflow-y-auto scrollbar min-h-0">

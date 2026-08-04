@@ -1,11 +1,4 @@
 import { existsSync } from "fs";
-import { CHAT_TURN_PROTOCOL_VERSION as CURRENT_CHAT_TURN_PROTOCOL_VERSION } from "../shared/chatTurnProtocol.js";
-import {
-  cursorModelIdForEva,
-  type EvaSessionMode,
-} from "../cursorCapabilities.js";
-
-export const CHAT_TURN_PROTOCOL_VERSION = CURRENT_CHAT_TURN_PROTOCOL_VERSION;
 
 export const CONVEX_URL = process.env.CONVEX_URL;
 export const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
@@ -15,18 +8,6 @@ export const ENTITY_ID = process.env.ENTITY_ID;
 export const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 export const RUN_ID = process.env.RUN_ID || null;
 export const ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
-export const TURN_ID = process.env.CHAT_TURN_ID || "";
-export const ASSISTANT_MESSAGE_ID = process.env.CHAT_ASSISTANT_MESSAGE_ID || "";
-export const TURN_ATTEMPT = Number(process.env.CHAT_TURN_ATTEMPT || "0");
-export const CALLBACK_TURN_PROTOCOL_VERSION = Number(
-  process.env.CHAT_TURN_PROTOCOL_VERSION || "0",
-);
-export const supportsExactTurnIdentity =
-  CALLBACK_TURN_PROTOCOL_VERSION === CHAT_TURN_PROTOCOL_VERSION &&
-  TURN_ID.length > 0 &&
-  ASSISTANT_MESSAGE_ID.length > 0 &&
-  Number.isSafeInteger(TURN_ATTEMPT) &&
-  TURN_ATTEMPT > 0;
 export const TASK_PROOF_CAPTURE_ENABLED =
   process.env.TASK_PROOF_CAPTURE_ENABLED !== "false";
 /** App subdirectory (e.g. apps/eprocurement) — also scanned for proof media. */
@@ -168,7 +149,7 @@ export const CURSOR_RUNTIME_HOME_DIR =
   process.env.CURSOR_RUNTIME_HOME_DIR || "/tmp/cursor-home";
 export const CURSOR_PERSIST_DIR =
   process.env.CURSOR_PERSIST_DIR || "/home/eva/.cursor-persist";
-export const CURSOR_BIN_PATH =
+const CURSOR_BIN_PATH =
   process.env.CURSOR_BIN_PATH || "/home/eva/.local/bin/cursor-agent";
 const CURSOR_STATE_FILE = "session-state.json";
 export const CURSOR_LOCAL_STATE_FILE =
@@ -201,35 +182,15 @@ process.env.GH_PROMPT_DISABLED = "1";
 process.env.GH_NO_UPDATE_NOTIFIER = "1";
 
 export const REPO_ID = process.env.REPO_ID;
-export const PROVIDER_ACCOUNT_ID = process.env.PROVIDER_ACCOUNT_ID;
-
-function readEvaSessionMode(
-  value: string | undefined,
-): EvaSessionMode | undefined {
-  switch (value) {
-    case "edit":
-    case "ask":
-    case "execute":
-    case "plan":
-    case "design":
-      return value;
-    default:
-      return undefined;
-  }
-}
-
-export const EVA_SESSION_MODE = readEvaSessionMode(
-  process.env.EVA_SESSION_MODE,
-);
 
 // --- Reasoning / thinking effort ---
 // `AI_REASONING_EFFORT` is the abstract level from the traits menu, sent only
 // when the user picks a non-default level. Mapped per provider below:
 //   - Claude: Agent SDK `effort` option.
 //   - Codex: `model_reasoning_effort` in config.toml (see codexSession.ts).
-export const REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
-export const AI_THINKING_ENABLED = process.env.AI_THINKING_ENABLED || "";
-export const AI_CONTEXT_1M = process.env.AI_CONTEXT_1M || "";
+const REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
+const AI_THINKING_ENABLED = process.env.AI_THINKING_ENABLED || "";
+const AI_CONTEXT_1M = process.env.AI_CONTEXT_1M || "";
 
 const CLAUDE_EFFORT_LEVELS = new Set(["low", "medium", "high", "xhigh", "max"]);
 
@@ -283,14 +244,32 @@ export const normalizedCodexModel = MODEL.startsWith("codex:")
 export const normalizedOpencodeModel = MODEL.startsWith("opencode:")
   ? MODEL.slice("opencode:".length)
   : MODEL;
-// Eva keeps variant-style ids; Cursor ACP now uses a base model plus traits.
-export const normalizedCursorModel = cursorModelIdForEva(MODEL);
+// Cursor CLI renamed Grok slugs (Jul 2026): grok-4.5-* → cursor-grok-4.5-*.
+// Eva UI keeps cursor:grok-4.5-*; this map is what --model receives.
+const CURSOR_CLI_MODEL_IDS: Record<string, string> = {
+  "grok-4.5-low": "cursor-grok-4.5-low",
+  "grok-4.5-medium": "cursor-grok-4.5-medium",
+  "grok-4.5-high": "cursor-grok-4.5-high",
+  "cursor-grok-4.5-low": "cursor-grok-4.5-low",
+  "cursor-grok-4.5-medium": "cursor-grok-4.5-medium",
+  "cursor-grok-4.5-high": "cursor-grok-4.5-high",
+};
+
+const cursorModelRaw = MODEL.startsWith("cursor:")
+  ? MODEL.slice("cursor:".length)
+  : MODEL;
+
+export const normalizedCursorModel =
+  CURSOR_CLI_MODEL_IDS[cursorModelRaw] ?? cursorModelRaw;
 const codexCommand = existsSync(CODEX_BIN_PATH)
   ? JSON.stringify(CODEX_BIN_PATH)
   : "codex";
 const opencodeCommand = existsSync(OPENCODE_BIN_PATH)
   ? JSON.stringify(OPENCODE_BIN_PATH)
   : "opencode";
+const cursorCommand = existsSync(CURSOR_BIN_PATH)
+  ? JSON.stringify(CURSOR_BIN_PATH)
+  : "cursor-agent";
 export const codexPromptCmd = SYSTEM_PROMPT
   ? "(printf %s\\n\\n " +
     JSON.stringify(SYSTEM_PROMPT) +
@@ -305,6 +284,20 @@ export const opencodeExecBaseCmd =
   opencodeCommand +
   " run --format json --model " +
   JSON.stringify(normalizedOpencodeModel);
+const cursorPromptExpr = SYSTEM_PROMPT
+  ? '"$(printf %s\\n\\n ' +
+    JSON.stringify(SYSTEM_PROMPT) +
+    '; cat /tmp/design-prompt.txt)"'
+  : '"$(cat /tmp/design-prompt.txt)"';
+export const cursorExecBaseCmd =
+  cursorCommand +
+  " -p " +
+  cursorPromptExpr +
+  " --force --trust --workspace " +
+  JSON.stringify(WORK_DIR) +
+  " --model " +
+  JSON.stringify(normalizedCursorModel) +
+  " --output-format stream-json --approve-mcps";
 export const TOOL_STEP_TYPES = new Set([
   "read",
   "search_files",

@@ -11,6 +11,7 @@ import {
 } from "@eva/ui";
 import { IconCode, IconClipboardList } from "@tabler/icons-react";
 import { memo } from "react";
+import { m } from "motion/react";
 import dayjs from "@eva/shared/dates";
 import { formatDuration } from "@eva/shared/duration";
 import { findAIModelOption, getReasoningLevelLabel } from "@eva/backend";
@@ -39,10 +40,11 @@ import { getAssistantTurnState } from "@/lib/components/chat/chatBodyUtils";
 
 const EVA_ICON = <EvaIcon />;
 
-/** Squares the bottom-left corner against a teammate's side avatar. */
-function otherUserBubbleRadius(): string {
+/** Matches `.rounded-surface`, but squares the avatar-side corner (iMessage). */
+function userBubbleRadius(isOtherUser: boolean): string {
   const r = "clamp(0.75rem, var(--radius), 1.25rem)";
-  return `${r} ${r} ${r} 0`;
+  // CSS order: top-left, top-right, bottom-right, bottom-left
+  return isOtherUser ? `${r} ${r} ${r} 0` : `${r} ${r} 0 ${r}`;
 }
 
 /** Provider mark under an assistant turn; tooltip lists model, effort, account. */
@@ -99,12 +101,14 @@ interface ChatMessageProps {
   streamingActivity?: string;
   streamingContent?: string;
   blockingQuestions?: ParsedQuestion[] | null;
+  activePendingQuestion?: ParsedQuestion[] | null;
   /**
    * True only while an answer mutation/send is in flight. Must NOT mirror
    * turn `isExecuting` — AskUserQuestion keeps the turn executing while it
    * waits for the user, which would permanently disable the card.
    */
   isQuestionLoading?: boolean;
+  onQuestionAnswer: (answer: string) => Promise<void>;
   onBlockingAnswer: (answers: Record<string, string>) => Promise<void>;
   onOpenFile?: (path: string) => void;
   onViewDiff?: (repoRelativePath?: string) => void;
@@ -122,7 +126,9 @@ export const ChatMessage = memo(function ChatMessage({
   streamingActivity,
   streamingContent,
   blockingQuestions,
+  activePendingQuestion,
   isQuestionLoading = false,
+  onQuestionAnswer,
   onBlockingAnswer,
   onOpenFile,
   onViewDiff,
@@ -130,6 +136,7 @@ export const ChatMessage = memo(function ChatMessage({
   if (message.isSystemAlert) {
     return (
       <SystemAlertMessage
+        key={message._id}
         content={message.content ?? ""}
         errorDetail={message.errorDetail}
         timestamp={message.timestamp}
@@ -162,96 +169,77 @@ export const ChatMessage = memo(function ChatMessage({
 
   return (
     <ChatMessageContextMenu content={copySource}>
-      <div data-message-id={message._id}>
+      <m.div
+        key={message._id}
+        data-message-id={message._id}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+      >
         <AIMessage
           from={message.role}
           className={
             isOtherUser ? "ml-0 mr-auto justify-start gap-1.5" : undefined
           }
         >
-          {message.role === "user" ? (
-            <div
-              className={cn(
-                "flex flex-col gap-0.5",
-                isOtherUser ? "items-start" : "items-end",
-              )}
+          {isOtherUser && senderFirstName ? (
+            <span
+              data-pii
+              className="px-1 text-[11px] font-medium text-muted-foreground"
             >
-              {isOtherUser && senderFirstName ? (
-                <span
-                  data-pii
-                  className={cn(
-                    "text-[11px] font-medium text-muted-foreground",
-                    // Avatar (16) + gap (8) + bubble px-3 (12) → align with bubble text
-                    "pl-9",
-                  )}
-                >
-                  {senderFirstName}
-                </span>
-              ) : null}
-              <div className="flex items-end gap-2">
-                {isOtherUser ? (
-                  <div className="shrink-0">
-                    <UserMessageAvatar userId={message.userId} />
+              {senderFirstName}
+            </span>
+          ) : null}
+          <MessageContent
+            className={
+              message.role === "user"
+                ? cn(
+                    "group bg-secondary px-4 py-3 text-foreground",
+                    isOtherUser && "group-[.is-user]:ml-0",
+                  )
+                : "px-1 py-2"
+            }
+            style={
+              message.role === "user"
+                ? { borderRadius: userBubbleRadius(isOtherUser) }
+                : undefined
+            }
+          >
+            {isStreamingPlaceholder ? (
+              <>
+                <StreamingActivityDisplay
+                  activity={streamingActivity}
+                  name="Eva"
+                  startedAt={message.timestamp}
+                  onOpenFile={onOpenFile}
+                />
+                {streamingContent ? (
+                  <MessageResponse className="prose prose-sm dark:prose-invert max-w-none mt-2">
+                    {streamingContent}
+                  </MessageResponse>
+                ) : null}
+                {showQuestions && blockingQuestions ? (
+                  <div className="mt-3">
+                    <MultipleChoiceQuestion
+                      questions={blockingQuestions}
+                      onAnswer={onQuestionAnswer}
+                      onAnswerStructured={onBlockingAnswer}
+                      isLoading={isQuestionLoading}
+                    />
+                  </div>
+                ) : showQuestions && activePendingQuestion ? (
+                  <div className="mt-3">
+                    <MultipleChoiceQuestion
+                      questions={activePendingQuestion}
+                      onAnswer={onQuestionAnswer}
+                      isLoading={isQuestionLoading}
+                    />
                   </div>
                 ) : null}
-                <MessageContent
-                  className={cn(
-                    "group bg-secondary px-3 py-2 text-foreground",
-                    isOtherUser
-                      ? "group-[.is-user]:ml-0"
-                      : "rounded-surface",
-                  )}
-                  style={
-                    isOtherUser
-                      ? { borderRadius: otherUserBubbleRadius() }
-                      : undefined
-                  }
-                >
-                  <UserMessageBody
-                    message={message}
-                    repoBasePath={repoBasePath}
-                  />
-                </MessageContent>
-              </div>
-              <UserMessageMeta
-                align={isOtherUser ? "start" : "end"}
-                copyPlain={copyPlain}
-                mode={message.mode}
-                timestamp={message.timestamp}
-                className={isOtherUser ? "pl-6" : undefined}
-              />
-            </div>
-          ) : (
-            <>
-              <MessageContent className="px-1 py-2">
-                {isStreamingPlaceholder ? (
-                  <>
-                    <StreamingActivityDisplay
-                      activity={streamingActivity}
-                      name="Eva"
-                      startedAt={message.timestamp}
-                      onOpenFile={onOpenFile}
-                    />
-                    {streamingContent ? (
-                      <MessageResponse className="prose prose-sm dark:prose-invert max-w-none mt-2">
-                        {streamingContent}
-                      </MessageResponse>
-                    ) : null}
-                    {showQuestions && blockingQuestions ? (
-                      <div className="mt-3">
-                        <MultipleChoiceQuestion
-                          key={blockingQuestions
-                            .map((question) => question.question)
-                            .join("\u0000")}
-                          questions={blockingQuestions}
-                          onAnswer={() => undefined}
-                          onAnswerStructured={onBlockingAnswer}
-                          isLoading={isQuestionLoading}
-                        />
-                      </div>
-                    ) : null}
-                  </>
-                ) : (
+              </>
+            ) : (
+              <>
+                {message.role === "assistant" ? (
                   <>
                     {message.activityLog && (
                       <ActivityLogDisplay
@@ -275,125 +263,114 @@ export const ChatMessage = memo(function ChatMessage({
                       />
                     ) : null}
                     {videoMedia.map((entry, index) => (
-                      // Capped to the same width `ImageGalleryPreview` uses, so
-                      // a video and a screenshot in the same reply line up
-                      // instead of the video spanning the whole pane.
-                      <VideoPreview
-                        key={index}
-                        url={entry.url}
-                        className="max-w-lg"
-                      />
+                      <VideoPreview key={index} url={entry.url} />
                     ))}
                     {imageMedia.length > 0 ? (
                       <ImageGalleryPreview images={imageMedia} />
                     ) : null}
+                    {showQuestions && activePendingQuestion ? (
+                      <div className="mt-3">
+                        <MultipleChoiceQuestion
+                          questions={activePendingQuestion}
+                          onAnswer={onQuestionAnswer}
+                          isLoading={isQuestionLoading}
+                        />
+                      </div>
+                    ) : null}
+                  </>
+                ) : (
+                  <>
+                    <UserMessageAttachments
+                      attachments={
+                        message.attachments ??
+                        message.attachmentUrls?.map((url) => ({
+                          url,
+                          contentType: url ? "image/*" : null,
+                        }))
+                      }
+                    />
+                    {message.content ? (
+                      <CollapsibleUserMessageBody text={message.content}>
+                        <ReviewCommentMessage
+                          text={message.content}
+                          repoBasePath={repoBasePath}
+                        />
+                      </CollapsibleUserMessageBody>
+                    ) : null}
                   </>
                 )}
-              </MessageContent>
-              <div className="mt-0.5 flex items-center gap-2">
-                {turnModel ? (
-                  <MessageModelIcon
-                    model={turnModel}
-                    reasoningLevel={turnReasoningLevel}
-                    credentialSourceLabel={turnCredentialSourceLabel}
+              </>
+            )}
+          </MessageContent>
+          {message.role === "assistant" ? (
+            <div className="mt-0.5 flex items-center gap-2">
+              {turnModel ? (
+                <MessageModelIcon
+                  model={turnModel}
+                  reasoningLevel={turnReasoningLevel}
+                  credentialSourceLabel={turnCredentialSourceLabel}
+                />
+              ) : null}
+              {copyPlain ? (
+                <div className="flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                  <ChatMessageActions
+                    copyText={copyPlain}
+                    className="ml-0.5"
+                    revealOnHover={false}
+                  />
+                  {message.finishedAt && message.timestamp ? (
+                    <span className="text-[11px] tabular-nums text-muted-foreground/60">
+                      {dayjs(message.timestamp).format("h:mm A")} ·{" "}
+                      {formatDuration(message.timestamp, message.finishedAt)}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+          {message.role === "user" && (
+            <div
+              className={cn(
+                "mt-0.5 flex items-center gap-2",
+                isOtherUser ? "mr-auto justify-start" : "ml-auto justify-end",
+              )}
+            >
+              {isOtherUser ? (
+                <UserMessageAvatar userId={message.userId} />
+              ) : null}
+              <div className="flex items-center gap-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                {copyPlain ? (
+                  <ChatMessageActions
+                    copyText={copyPlain}
+                    revealOnHover={false}
                   />
                 ) : null}
-                {copyPlain ? (
-                  <div className="flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
-                    <ChatMessageActions
-                      copyText={copyPlain}
-                      className="ml-0.5"
-                      revealOnHover={false}
-                    />
-                    {message.finishedAt && message.timestamp ? (
-                      <span className="text-[11px] tabular-nums text-muted-foreground/60">
-                        {dayjs(message.timestamp).format("h:mm A")} ·{" "}
-                        {formatDuration(message.timestamp, message.finishedAt)}
-                      </span>
-                    ) : null}
+                {message.mode && (
+                  <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
+                    {message.mode === "plan" ? (
+                      <>
+                        <IconClipboardList className="w-2.5 h-2.5" /> Plan
+                      </>
+                    ) : (
+                      <>
+                        <IconCode className="w-2.5 h-2.5" /> Edit
+                      </>
+                    )}
                   </div>
-                ) : null}
+                )}
+                {message.timestamp && (
+                  <span className="text-[11px] text-muted-foreground/60">
+                    {dayjs(message.timestamp).format("h:mm A")}
+                  </span>
+                )}
               </div>
-            </>
+              {isOtherUser ? null : (
+                <UserMessageAvatar userId={message.userId} />
+              )}
+            </div>
           )}
         </AIMessage>
-      </div>
+      </m.div>
     </ChatMessageContextMenu>
   );
 });
-
-function UserMessageBody({
-  message,
-  repoBasePath,
-}: {
-  message: ChatBodyMessage;
-  repoBasePath: string;
-}) {
-  return (
-    <>
-      <UserMessageAttachments
-        attachments={
-          message.attachments ??
-          message.attachmentUrls?.map((url) => ({
-            url,
-            contentType: url ? "image/*" : null,
-          }))
-        }
-      />
-      {message.content ? (
-        <CollapsibleUserMessageBody text={message.content}>
-          <ReviewCommentMessage
-            text={message.content}
-            repoBasePath={repoBasePath}
-          />
-        </CollapsibleUserMessageBody>
-      ) : null}
-    </>
-  );
-}
-
-function UserMessageMeta({
-  align,
-  copyPlain,
-  mode,
-  timestamp,
-  className,
-}: {
-  align: "start" | "end";
-  copyPlain?: string;
-  mode?: ChatBodyMessage["mode"];
-  timestamp?: number;
-  className?: string;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex items-center gap-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100",
-        align === "start" ? "justify-start" : "justify-end",
-        className,
-      )}
-    >
-      {copyPlain ? (
-        <ChatMessageActions copyText={copyPlain} revealOnHover={false} />
-      ) : null}
-      {mode ? (
-        <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
-          {mode === "plan" ? (
-            <>
-              <IconClipboardList className="h-2.5 w-2.5" /> Plan
-            </>
-          ) : (
-            <>
-              <IconCode className="h-2.5 w-2.5" /> Edit
-            </>
-          )}
-        </div>
-      ) : null}
-      {timestamp ? (
-        <span className="text-[11px] text-muted-foreground/60">
-          {dayjs(timestamp).format("h:mm A")}
-        </span>
-      ) : null}
-    </div>
-  );
-}

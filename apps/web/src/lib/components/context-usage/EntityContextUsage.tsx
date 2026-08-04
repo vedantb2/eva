@@ -14,14 +14,80 @@ import {
   ContextOutputUsage,
   ContextCacheReadUsage,
   ContextCacheWriteUsage,
-  Button,
 } from "@eva/ui";
-import { aggregateContextUsage } from "./contextUsage";
+import { parseResultEvent } from "@/lib/utils/logs";
+
+// Model context window sizes (in tokens). Used for the usage percentage display;
+// not for cost (cost comes from Claude's `total_cost_usd` in the result event).
+const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
+  "claude-sonnet-4-20250514": 200000,
+  "claude-3-5-sonnet-20241022": 200000,
+  "claude-3-5-haiku-20241022": 200000,
+  "claude-3-opus-20240229": 200000,
+  "claude-3-sonnet-20240229": 200000,
+  "claude-3-haiku-20240307": 200000,
+  "gpt-4o": 128000,
+  "gpt-4o-mini": 128000,
+  "gpt-4-turbo": 128000,
+  "gpt-4": 8192,
+  "gpt-3.5-turbo": 16385,
+};
+
+function getMaxTokens(model: string): number {
+  return MODEL_CONTEXT_WINDOWS[model] ?? 200000;
+}
+
+type AggregatableLog = { rawResultEvent: string | undefined };
+
+function aggregateUsage(logs: AggregatableLog[] | undefined) {
+  if (!logs || logs.length === 0) return null;
+
+  let totalInputTokens = 0;
+  let totalOutputTokens = 0;
+  let totalCacheReadTokens = 0;
+  let totalCacheCreationTokens = 0;
+  let totalCostUsd = 0;
+  let latestModel = "";
+
+  for (const log of logs) {
+    const parsed = parseResultEvent(log.rawResultEvent);
+    totalInputTokens += parsed.inputTokens;
+    totalOutputTokens += parsed.outputTokens;
+    totalCacheReadTokens += parsed.cacheReadTokens;
+    totalCacheCreationTokens += parsed.cacheCreationTokens;
+    totalCostUsd += parsed.costUsd;
+    if (parsed.model !== "-" && !latestModel) {
+      latestModel = parsed.model;
+    }
+  }
+
+  // Total tokens consumed counts every input-side token: pure input, cache
+  // reads (still occupy context), cache writes (written into prompt), plus output.
+  const totalUsedTokens =
+    totalInputTokens +
+    totalOutputTokens +
+    totalCacheReadTokens +
+    totalCacheCreationTokens;
+
+  return {
+    usedTokens: totalUsedTokens,
+    maxTokens: getMaxTokens(latestModel),
+    usage: {
+      inputTokens: totalInputTokens,
+      outputTokens: totalOutputTokens,
+      cachedInputReadTokens: totalCacheReadTokens,
+      cachedInputWriteTokens: totalCacheCreationTokens,
+    },
+    costs: {
+      totalUSD: totalCostUsd,
+    },
+  };
+}
 
 function ContextUsageDisplay({
   aggregated,
 }: {
-  aggregated: ReturnType<typeof aggregateContextUsage>;
+  aggregated: ReturnType<typeof aggregateUsage>;
 }) {
   if (!aggregated) return null;
 
@@ -32,58 +98,16 @@ function ContextUsageDisplay({
       usage={aggregated.usage}
       costs={aggregated.costs}
     >
-      {aggregated.reporting.status === "unavailable" ? (
-        <ContextTrigger>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            aria-label={`${aggregated.reporting.provider} context usage unavailable`}
-          >
-            <span className="font-medium text-muted-foreground text-xs">—</span>
-            <span
-              aria-hidden="true"
-              className="size-4 rounded-full border border-dashed border-muted-foreground/70"
-            />
-          </Button>
-        </ContextTrigger>
-      ) : (
-        <ContextTrigger />
-      )}
+      <ContextTrigger />
       <ContextContent>
-        {aggregated.reporting.status === "unavailable" ? (
-          <ContextContentHeader>
-            <p className="text-sm font-medium">Context usage unavailable</p>
-            <p className="text-xs text-muted-foreground">
-              {aggregated.reporting.provider} did not report token or context
-              usage for this run.
-            </p>
-          </ContextContentHeader>
-        ) : (
-          <ContextContentHeader />
-        )}
+        <ContextContentHeader />
         <ContextContentBody className="space-y-1">
           <ContextInputUsage />
           <ContextOutputUsage />
           <ContextCacheReadUsage />
           <ContextCacheWriteUsage />
-          {aggregated.reporting.status === "partial" ? (
-            <p className="pt-1 text-xs text-muted-foreground">
-              {aggregated.reporting.providers.join(", ")} did not report
-              complete context or token data for part of this usage.
-            </p>
-          ) : null}
         </ContextContentBody>
-        {aggregated.reporting.status === "unavailable" ? (
-          <ContextContentFooter>
-            <span className="text-muted-foreground">
-              {aggregated.reporting.provider}
-            </span>
-            <span>Not reported</span>
-          </ContextContentFooter>
-        ) : (
-          <ContextContentFooter />
-        )}
+        <ContextContentFooter />
       </ContextContent>
     </Context>
   );
@@ -99,7 +123,7 @@ export function EntityContextUsage({
   entityId,
 }: EntityContextUsageProps) {
   const logs = useQuery(api.logs.getByEntityId, { repoId, entityId });
-  const aggregated = aggregateContextUsage(logs);
+  const aggregated = aggregateUsage(logs);
   return <ContextUsageDisplay aggregated={aggregated} />;
 }
 
@@ -115,6 +139,6 @@ export function ProjectContextUsage({
   projectId,
 }: ProjectContextUsageProps) {
   const logs = useQuery(api.logs.getByProjectId, { repoId, projectId });
-  const aggregated = aggregateContextUsage(logs);
+  const aggregated = aggregateUsage(logs);
   return <ContextUsageDisplay aggregated={aggregated} />;
 }

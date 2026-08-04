@@ -4,66 +4,6 @@ import {
   readStopTaskToolUseIds,
 } from "../providers/claimPendingTurnParse.js";
 import type { JsonValue } from "../types.js";
-import { readClaimedTurn } from "../providers/daemonTurn.js";
-
-describe("readClaimedTurn", () => {
-  test("unwraps the atomic prompt and keeps only string attachment URLs", () => {
-    expect(
-      readClaimedTurn({
-        value: {
-          prompt: "current prompt",
-          attachmentUrls: ["https://files.test/a", 4, null],
-        },
-      }),
-    ).toEqual({
-      prompt: "current prompt",
-      attachmentUrls: ["https://files.test/a"],
-      identity: null,
-    });
-  });
-
-  test("preserves an exact v2 turn identity", () => {
-    expect(
-      readClaimedTurn({
-        prompt: "current prompt",
-        attachmentUrls: [],
-        turnId: "2c2d6de9-9e86-4bd9-a365-8ab42de9f115",
-        assistantMessageId: "message-id",
-        attempt: 2,
-      }),
-    ).toEqual({
-      prompt: "current prompt",
-      attachmentUrls: [],
-      identity: {
-        turnId: "2c2d6de9-9e86-4bd9-a365-8ab42de9f115",
-        assistantMessageId: "message-id",
-        attempt: 2,
-      },
-    });
-  });
-
-  test("keeps only a supported per-turn session mode", () => {
-    expect(
-      readClaimedTurn({ prompt: "plan it", attachmentUrls: [], mode: "plan" }),
-    ).toEqual({
-      prompt: "plan it",
-      attachmentUrls: [],
-      identity: null,
-      mode: "plan",
-    });
-    expect(
-      readClaimedTurn({ prompt: "ignore it", mode: "unexpected" }),
-    ).toEqual({
-      prompt: "ignore it",
-      attachmentUrls: [],
-      identity: null,
-    });
-  });
-
-  test("rejects claim responses without a prompt", () => {
-    expect(readClaimedTurn({ value: { cancelRequested: true } })).toBeNull();
-  });
-});
 
 /**
  * `readCancelRequested` gates interrupt-based cancel (fix 1fc211db): the daemon

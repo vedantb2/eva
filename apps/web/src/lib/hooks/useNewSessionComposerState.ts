@@ -214,7 +214,6 @@ export function useNewSessionComposerState(
     model: normalized.model,
     mode: normalized.mode,
     providerAccountId: normalized.providerAccountId,
-    storedTraits,
     displayTraits,
     executionTraits,
     setDraft: (draft: string) => {

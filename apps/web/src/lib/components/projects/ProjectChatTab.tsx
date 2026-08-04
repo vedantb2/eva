@@ -1,13 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Button,
   Spinner,
   Conversation,
   ConversationContent,
   ConversationScrollButton,
-  Surface,
 } from "@eva/ui";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
@@ -18,17 +17,31 @@ import { IconTrash, IconPlayerPlay } from "@tabler/icons-react";
 import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ProjectChatMessageList } from "./ProjectChatMessageList";
 import {
-  projectProjectInterview,
-  type ProjectConversationMessage,
+  isInterviewTransitionContent,
+  isParsedQuestion,
+  isSpecContent,
+  type ParsedQuestion,
 } from "./projectChatMessage.utils";
+
+export interface ConversationMessage {
+  role: "user" | "assistant";
+  content: string;
+  activityLog?: string;
+  userId?: Id<"users">;
+  startedAt?: number;
+  finishedAt?: number;
+}
 
 interface ProjectChatTabProps {
   projectId: Id<"projects">;
   projectPhase: ProjectPhase;
   activeWorkflowId?: string;
-  initialMessages: ProjectConversationMessage[];
+  initialMessages: ConversationMessage[];
   streamingActivity?: string;
-  onClear: () => Promise<void>;
+  rawInput: string;
+  onSpecGenerated?: (spec: string) => void;
+  onClear?: () => void;
+  repoId: Id<"githubRepos">;
 }
 
 export function ProjectChatTab({
@@ -37,60 +50,117 @@ export function ProjectChatTab({
   activeWorkflowId,
   initialMessages,
   streamingActivity,
+  rawInput,
+  onSpecGenerated,
   onClear,
+  repoId: _repoId,
 }: ProjectChatTabProps) {
+  const addMessageDb = useMutation(api.projects.addMessage);
+  const clearMessagesDb = useMutation(api.projects.clearMessages);
   const startProjectInterview = useMutation(
     api.projectInterviewWorkflow.startInterview,
   );
-  const answerProjectInterview = useMutation(
-    api.projectInterviewWorkflow.answerInterview,
-  );
+  const startProjectSpec = useMutation(api.projectInterviewWorkflow.startSpec);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const [isClearing, setIsClearing] = useState(false);
-  const projection = projectProjectInterview(initialMessages);
+  const prevMessagesLengthRef = useRef(initialMessages.length);
 
   const isLocked =
     projectPhase === "in_progress" ||
     projectPhase === "business_review" ||
     projectPhase === "code_review" ||
     projectPhase === "completed";
+  const hasStarted = initialMessages.length > 0 || isLoading;
   const hasActiveWorkflow = activeWorkflowId !== undefined;
-  const hasStarted =
-    initialMessages.length > 0 || isLoading || hasActiveWorkflow;
 
-  const handleStartInterview = async () => {
-    setIsLoading(true);
-    try {
-      await startProjectInterview({ projectId });
-    } catch (error) {
-      setIsLoading(false);
-      throw error;
+  const questionCount = initialMessages.filter((m) => {
+    if (m.role !== "assistant" || !m.content) {
+      return false;
     }
-    setIsLoading(false);
+    try {
+      const parsed: unknown = JSON.parse(m.content);
+      return isParsedQuestion(parsed);
+    } catch {
+      return false;
+    }
+  }).length;
+
+  const hasSpecMessage = initialMessages.some(
+    (m) => m.role === "assistant" && m.content && isSpecContent(m.content),
+  );
+
+  useEffect(() => {
+    const lastMessage = initialMessages[initialMessages.length - 1];
+    if (lastMessage?.role === "assistant" && lastMessage.content) {
+      setIsLoading(false);
+      if (isSpecContent(lastMessage.content)) {
+        onSpecGenerated?.(lastMessage.content);
+      } else if (
+        isInterviewTransitionContent(lastMessage.content) &&
+        projectPhase === "draft" &&
+        !hasSpecMessage &&
+        !hasActiveWorkflow
+      ) {
+        // Legacy rows that still have {"ready":true} before spec was chained server-side.
+        setIsLoading(true);
+        void startProjectSpec({
+          projectId,
+          featureDescription: rawInput,
+        });
+      }
+    }
+    prevMessagesLengthRef.current = initialMessages.length;
+  }, [
+    initialMessages,
+    onSpecGenerated,
+    projectId,
+    rawInput,
+    startProjectSpec,
+    projectPhase,
+    hasSpecMessage,
+    hasActiveWorkflow,
+  ]);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [initialMessages]);
+
+  const askQuestion = async () => {
+    setIsLoading(true);
+    await startProjectInterview({
+      projectId: projectId,
+      featureDescription: rawInput,
+      previousAnswers: [], // Session persistence provides context
+    });
+  };
+
+  useEffect(() => {
+    if (isLocked || isLoading) return;
+    const hasAssistant = initialMessages.some((m) => m.role === "assistant");
+    if (initialMessages.length > 0 && !hasAssistant) {
+      void askQuestion();
+    }
+  }, []);
+
+  const handleStartInterview = () => {
+    void askQuestion();
   };
 
   const handleAnswer = async (answer: string) => {
-    const currentQuestion = projection.activeQuestion;
-    if (!currentQuestion) return;
-    setIsLoading(true);
-    try {
-      await answerProjectInterview({
-        projectId,
-        questionId: currentQuestion.id,
-        answer,
-      });
-    } catch (error) {
-      setIsLoading(false);
-      throw error;
-    }
-    setIsLoading(false);
+    await addMessageDb({ id: projectId, role: "user", content: answer });
+    await askQuestion();
   };
 
   const handleClearChat = async () => {
     setIsClearing(true);
     try {
-      await onClear();
+      await clearMessagesDb({ id: projectId });
+      setIsLoading(false);
+      // Called through an if rather than `?.`: React Compiler bails on the
+      // whole file when an optional-chaining call sits inside a try/catch.
+      if (onClear) onClear();
       setConfirmClearOpen(false);
     } catch (error) {
       setIsClearing(false);
@@ -99,15 +169,32 @@ export function ProjectChatTab({
     setIsClearing(false);
   };
 
+  const currentQuestion: ParsedQuestion | null = (() => {
+    if (isLoading) return null;
+    const lastAssistantMsg = [...initialMessages]
+      .reverse()
+      .find((m) => m.role === "assistant");
+    if (!lastAssistantMsg) return null;
+    try {
+      const parsed: unknown = JSON.parse(lastAssistantMsg.content);
+      if (isParsedQuestion(parsed)) return parsed;
+    } catch {
+      return null;
+    }
+    return null;
+  })();
+
   const waitingForResponse =
-    projection.lastRole === "user" && (isLoading || hasActiveWorkflow);
+    initialMessages.length > 0 &&
+    initialMessages[initialMessages.length - 1]?.role === "user" &&
+    (isLoading || hasActiveWorkflow);
   const canContinueInterview =
-    projection.lastRole === "user" &&
+    initialMessages.length > 0 &&
+    initialMessages[initialMessages.length - 1]?.role === "user" &&
     !isLoading &&
     !hasActiveWorkflow &&
     !isLocked;
-  const showQuestion =
-    projection.activeQuestion !== undefined && !waitingForResponse;
+  const showQuestion = currentQuestion && !waitingForResponse;
 
   if (!hasStarted && !isLocked) {
     return (
@@ -119,16 +206,11 @@ export function ProjectChatTab({
           Ready to Start Interview
         </h3>
         <p className="text-sm text-muted-foreground mb-6 max-w-md">
-          Start answering implementation questions about your project. Eva will
-          generate a plan after the important decisions are resolved.
+          Click the button below to start answering questions about your
+          project. Eva will ask multiple choice questions to understand your
+          requirements, then automatically generate a plan when ready.
         </p>
-        <Button
-          size="lg"
-          onClick={() => {
-            void handleStartInterview();
-          }}
-          disabled={isLoading}
-        >
+        <Button size="lg" onClick={handleStartInterview} disabled={isLoading}>
           {isLoading ? (
             <Spinner size="sm" />
           ) : (
@@ -145,11 +227,13 @@ export function ProjectChatTab({
       <Conversation className="flex-1 min-h-0">
         <ConversationContent className="gap-3 p-3 max-w-5xl mx-auto w-full">
           <ProjectChatMessageList
-            projection={projection}
+            messages={initialMessages}
             streamingActivity={streamingActivity}
           />
           {(isLoading || waitingForResponse) &&
-            !projection.hasEmptyAssistant && (
+            !initialMessages.some(
+              (m) => m.role === "assistant" && !m.content,
+            ) && (
               <div className="flex gap-3 items-center">
                 <Spinner size="sm" />
                 <span className="text-sm text-muted-foreground">
@@ -158,49 +242,39 @@ export function ProjectChatTab({
               </div>
             )}
           {canContinueInterview && (
-            <Surface
-              density="tight"
-              className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between"
-            >
+            <div className="flex flex-col gap-2 rounded-surface border border-border bg-card p-3 sm:flex-row sm:items-center sm:justify-between">
               <span className="text-sm text-muted-foreground">
                 The last interview run stopped before Eva asked the next
                 question.
               </span>
-              <Button
-                size="sm"
-                onClick={() => {
-                  void handleStartInterview();
-                }}
-              >
+              <Button size="sm" onClick={handleStartInterview}>
                 Continue interview
               </Button>
-            </Surface>
+            </div>
           )}
+          <div ref={messagesEndRef} />
         </ConversationContent>
         <ConversationScrollButton resetKey={projectId} />
       </Conversation>
       <div className="p-3 sm:p-4 space-y-3 max-w-5xl mx-auto w-full">
-        {showQuestion && projection.activeQuestion && (
+        {showQuestion && (
           <MultipleChoiceQuestion
-            question={projection.activeQuestion.question}
-            options={projection.activeQuestion.options}
+            question={currentQuestion.question}
+            options={currentQuestion.options}
             onAnswer={handleAnswer}
-            isLoading={isLoading || hasActiveWorkflow}
-            questionNumber={projection.questionCount}
+            isLoading={isLoading}
+            questionNumber={questionCount}
             trailingControls={
               <>
                 <span className="text-xs text-muted-foreground whitespace-nowrap">
-                  Answered: {projection.questionCount}
+                  Answered: {questionCount}
                 </span>
                 <Button
                   size="sm"
                   variant="destructive"
                   onClick={() => setConfirmClearOpen(true)}
                   disabled={
-                    isLoading ||
-                    hasActiveWorkflow ||
-                    isLocked ||
-                    initialMessages.length === 0
+                    isLoading || isLocked || initialMessages.length === 0
                   }
                 >
                   <IconTrash size={16} />

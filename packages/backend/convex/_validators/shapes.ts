@@ -84,9 +84,6 @@ export const terminalPaneValidator = v.object({
 });
 
 export const conversationMessageValidator = v.object({
-  // Stable event identity. Optional only while legacy transcript rows are
-  // backfilled; every new writer sets it.
-  id: v.optional(v.string()),
   role: roleValidator,
   content: v.string(),
   activityLog: v.optional(v.string()),

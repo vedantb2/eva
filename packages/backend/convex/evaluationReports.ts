@@ -76,7 +76,6 @@ export const createTasksFromIssues = authMutation({
         description: descriptionParts.join(""),
         repoId: report.repoId,
         status: "todo",
-        cursorTransport: "acp-v1",
         createdAt: now,
         updatedAt: now,
         createdBy: ctx.userId,

@@ -1,8 +1,10 @@
 import {
   CODEX_RUNTIME_HOME_DIR,
+  CURSOR_RUNTIME_HOME_DIR,
   PROVIDER,
   codexExecBaseCmd,
   codexPromptCmd,
+  cursorExecBaseCmd,
   opencodeExecBaseCmd,
   opencodePromptCmd,
 } from "../config.js";
@@ -26,11 +28,6 @@ import { codexAdapter } from "./codex.js";
 import { runClaudeSdkAttempt } from "./claudeSdk.js";
 import { runCliAttempt } from "../runtime/cliAttempt.js";
 import type { SessionMode } from "../types.js";
-import {
-  readCursorAcpMcpServers,
-  readCursorPromptFile,
-  runCursorAcpAttempt,
-} from "./cursorAcpRuntime.js";
 
 export function prepareProviderSessionState(): SessionMode {
   if (PROVIDER === "codex") return prepareCodexSessionState();
@@ -113,10 +110,23 @@ async function runCursorAttempt(sessionMode: SessionMode) {
       "CURSOR_API_KEY is missing in the sandbox environment — Cursor CLI cannot authenticate",
     );
   }
-  return await runCursorAcpAttempt({
-    sessionMode,
-    prompt: readCursorPromptFile(),
-    mcpServers: readCursorAcpMcpServers(),
+  const sessionArg =
+    sessionMode.mode === "resume" && sessionMode.sessionId
+      ? " --resume " + JSON.stringify(sessionMode.sessionId)
+      : "";
+  const cmd = cursorExecBaseCmd + sessionArg;
+  return await runCliAttempt({
+    cmd,
+    env: { ...process.env, HOME: CURSOR_RUNTIME_HOME_DIR },
+    processLabel: "cursor",
+    attemptLabel: "runCursorAttempt",
+    startupStep: {
+      label: "Starting Cursor CLI...",
+      detail:
+        sessionMode.mode === "resume"
+          ? "Restoring saved context..."
+          : "Launching Cursor process...",
+    },
   });
 }
 

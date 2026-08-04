@@ -6,6 +6,7 @@ import {
   PromptInputTools,
   PromptInputSubmit,
   ModelSelect,
+  TraitsMenu,
   usePromptInputController,
   toast,
   type PromptInputMessage,
@@ -29,6 +30,7 @@ import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
 import { ComposerPlusMenu } from "@/lib/components/chat/_components/ComposerPlusMenu";
 import { ComposerStash } from "@/lib/components/chat/_components/ComposerStash";
 import { usePeopleMentionItems } from "@/lib/hooks/usePeopleMentionItems";
+import { useDataMentionItems } from "@/lib/hooks/useDataMentionItems";
 import { mergeMentionItems } from "@/lib/components/mentions";
 import { IconPlayerStop } from "@tabler/icons-react";
 import { useRef, type ReactNode } from "react";
@@ -36,11 +38,12 @@ import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   api,
-  describeModelComposerControls,
+  getModelTraits,
+  getReasoningLevelLabel,
+  modelHasTraits,
   type AIModel,
   type Id,
   type ReasoningLevel,
-  type ProviderComposerCapability,
   type StoredModelTraits,
 } from "@eva/backend";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
@@ -50,16 +53,9 @@ import {
   MentionTextarea,
   type MentionTextareaHandle,
 } from "@/lib/components/chat/MentionTextarea";
-import {
-  QueuedMessagesPanel,
-  type QueuedMessageItem,
-} from "@/lib/components/QueuedMessagesPanel";
-import type {
-  ChatBodyPendingMessage,
-  ChatBodyQueuedMessage,
-} from "@/lib/components/chat/chatBodyUtils";
+import { QueuedMessagesPanel } from "@/lib/components/QueuedMessagesPanel";
+import type { ChatBodyQueuedMessage } from "@/lib/components/chat/chatBodyUtils";
 import { useQueuedMessageMutations } from "@/lib/components/chat/useQueuedMessageMutations";
-import { ComposerCapabilityControls } from "./ComposerCapabilityControls";
 
 /** localStorage-backed draft seed (no Convex row yet — e.g. new session). */
 type LocalChatDraft = {
@@ -74,7 +70,6 @@ interface ChatComposerProps {
   repoBasePath: string;
   conversationId: string;
   queuedMessages: ChatBodyQueuedMessage[];
-  pendingQueuedMessages: ChatBodyPendingMessage[];
   messageHistory: string[];
   isExecuting: boolean;
   isInputDisabled: boolean;
@@ -90,7 +85,6 @@ interface ChatComposerProps {
     thinkingEnabled: boolean;
     use1mContext: boolean;
   };
-  providerCapabilities?: ReadonlyArray<ProviderComposerCapability>;
   onTraitsChange?: (partial: Partial<StoredModelTraits>) => void;
   onSend: (
     content: string,
@@ -116,7 +110,6 @@ export function ChatComposer({
   repoBasePath,
   conversationId,
   queuedMessages,
-  pendingQueuedMessages,
   messageHistory,
   isExecuting,
   isInputDisabled,
@@ -128,7 +121,6 @@ export function ChatComposer({
   accountId,
   onAccountChange,
   displayTraits,
-  providerCapabilities,
   onTraitsChange,
   onSend,
   onCancel,
@@ -143,7 +135,7 @@ export function ChatComposer({
   hasPendingContext = false,
 }: ChatComposerProps) {
   const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
-  const dataMentions = useQuery(api.mentions.listData, { repoId }) ?? [];
+  const dataMentions = useDataMentionItems(repoId);
   const peopleMentions = usePeopleMentionItems(repoId);
   const { items: plusDataItems } = mergeMentionItems(
     peopleMentions,
@@ -156,9 +148,6 @@ export function ChatComposer({
     useQueuedMessageMutations(queuedMessages);
   // Convex draft wins when both are passed (existing sessions).
   const seed = draft ?? localDraft;
-  const capabilityControls = displayTraits
-    ? describeModelComposerControls(model, displayTraits, providerCapabilities)
-    : [];
 
   const handleSubmit = async (
     text: string,
@@ -184,29 +173,16 @@ export function ChatComposer({
     await handleSubmit(text, files);
   };
 
-  const queuedMessageItems: QueuedMessageItem[] = queuedMessages.map(
-    (message) => ({
-      id: String(message._id),
-      serverId: message._id,
-      content: message.displayContent ?? message.content,
-      model: message.model,
-      reasoningLevel: message.reasoningLevel,
-      userId: message.userId,
-    }),
-  );
-  for (const pendingMessage of pendingQueuedMessages) {
-    queuedMessageItems.push({
-      id: `turn:${pendingMessage.turnId}:queue`,
-      serverId: undefined,
-      content: pendingMessage.content,
-      model: pendingMessage.model,
-      reasoningLevel: pendingMessage.reasoningLevel,
-      userId: pendingMessage.userId,
-    });
-  }
+  const queuedMessageItems = queuedMessages.map((message) => ({
+    id: message._id,
+    content: message.displayContent ?? message.content,
+    model: message.model,
+    reasoningLevel: message.reasoningLevel,
+    userId: message.userId,
+  }));
 
   return (
-    <div className="p-3 md:p-4 max-w-3xl mx-auto w-full">
+    <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">
       <AnimatePresence initial={false}>
         {beforeQueuedContent ? (
           <m.div
@@ -259,7 +235,7 @@ export function ChatComposer({
           <div
             aria-busy="true"
             aria-label="Loading draft..."
-            className="pointer-events-none min-h-[4.5rem] rounded-surface border border-border bg-background opacity-50 shadow-none"
+            className="pointer-events-none rounded-surface border border-border shadow-lg bg-background opacity-50 min-h-[4.5rem]"
           />
         ) : (
           <PromptInputProvider initialInput={seed?.initialDisplay}>
@@ -309,7 +285,7 @@ export function ChatComposer({
                 enableAttachmentPaste
                 completionContext={`a message instructing an AI coding agent working on the repository ${repoBasePath.replace(/^\//, "")}`}
               />
-              <PromptInputFooter className="px-5 pb-5">
+              <PromptInputFooter>
                 <PromptInputTools>
                   <ComposerPlusMenu
                     dataItems={plusDataItems}
@@ -334,11 +310,37 @@ export function ChatComposer({
                     onAccountChange={onAccountChange}
                     className="max-w-48 truncate sm:max-w-none"
                   />
-                  {onTraitsChange && displayTraits ? (
-                    <ComposerCapabilityControls
-                      controls={capabilityControls}
-                      isExecuting={isExecuting}
-                      onChange={onTraitsChange}
+                  {onTraitsChange && displayTraits && modelHasTraits(model) ? (
+                    <TraitsMenu
+                      config={getModelTraits(model)}
+                      effortLevel={displayTraits.effortLevel}
+                      thinkingEnabled={displayTraits.thinkingEnabled}
+                      use1mContext={displayTraits.use1mContext}
+                      getLevelLabel={getReasoningLevelLabel}
+                      onEffortLevelChange={(level) => {
+                        if (level === undefined) {
+                          onTraitsChange({ effortLevel: undefined });
+                          return;
+                        }
+                        const { reasoning } = getModelTraits(model);
+                        if (!reasoning) return;
+                        const match = reasoning.levels.find(
+                          (entry) => entry === level,
+                        );
+                        if (match) {
+                          onTraitsChange({ effortLevel: match });
+                        }
+                      }}
+                      onThinkingEnabledChange={(enabled) =>
+                        onTraitsChange({
+                          thinkingEnabled: enabled ? undefined : false,
+                        })
+                      }
+                      onUse1mContextChange={(use1m) =>
+                        onTraitsChange({
+                          use1mContext: use1m ? true : undefined,
+                        })
+                      }
                     />
                   ) : null}
                   <ComposerSpeechButton disabled={isInputDisabled} />

@@ -46,13 +46,13 @@ test("startExecute clears streamingActivity before staging the placeholder", () 
  * clear-before-stage order is that shared function's property now, not each
  * config's own.
  */
-test("the shared dequeue clears streamingActivity before staging the exact turn pair", () => {
+test("the shared dequeue clears streamingActivity before staging the user turn", () => {
   const body = functionBody(
     queueHelpersSource,
     "async function startNextQueuedChatMessage<",
   );
   const clearAt = body.indexOf("await clearStreamingActivity(");
-  const insertAt = body.indexOf("config.insertMessages(");
+  const insertAt = body.indexOf("config.insertUserMessage(");
   expect(
     clearAt,
     "startNextQueuedChatMessage must clear streamingActivity",

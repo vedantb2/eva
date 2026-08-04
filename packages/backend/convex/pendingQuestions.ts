@@ -2,14 +2,6 @@ import { v } from "convex/values";
 import type { DatabaseWriter } from "./_generated/server";
 import { internalMutation } from "./_generated/server";
 import { authQuery, authMutation } from "./functions";
-import { optionalChatTurnIdentityFields } from "./_validators/tableFields";
-import {
-  callbackMatchesEntityId,
-  callbackMatchesActiveTurn,
-  resolveChatEntity,
-  turnIdentityMatches,
-  type ExactTurnIdentity,
-} from "./_chat/turnIdentity";
 
 /**
  * Blocking AskUserQuestion round-trip. A sandbox turn paused inside canUseTool
@@ -42,23 +34,6 @@ export async function clearPendingQuestionsForEntity(
   }
 }
 
-/** Deletes only unanswered questions owned by one exact turn. */
-export async function clearPendingQuestionsForTurn(
-  db: DatabaseWriter,
-  entityId: string,
-  identity: ExactTurnIdentity,
-): Promise<void> {
-  const rows = await db
-    .query("pendingQuestions")
-    .withIndex("by_entity", (q) => q.eq("entityId", entityId))
-    .collect();
-  for (const row of rows) {
-    if (row.answer === undefined && turnIdentityMatches(row, identity)) {
-      await db.delete(row._id);
-    }
-  }
-}
-
 /** One-off ops escape hatch: clear stale rows for an entity via `npx convex run`. */
 export const clearForEntity = internalMutation({
   args: { entityId: v.string() },
@@ -70,12 +45,7 @@ export const clearForEntity = internalMutation({
 });
 
 const activeQuestionValidator = v.union(
-  v.object({
-    questionId: v.id("pendingQuestions"),
-    toolUseId: v.string(),
-    payload: v.string(),
-    ...optionalChatTurnIdentityFields,
-  }),
+  v.object({ toolUseId: v.string(), payload: v.string() }),
   v.null(),
 );
 
@@ -85,24 +55,9 @@ const activeQuestionValidator = v.union(
  * (e.g. from a cancelled turn) must never shadow the current question.
  */
 export const post = authMutation({
-  args: {
-    entityId: v.string(),
-    toolUseId: v.string(),
-    payload: v.string(),
-    ...optionalChatTurnIdentityFields,
-  },
+  args: { entityId: v.string(), toolUseId: v.string(), payload: v.string() },
   returns: v.null(),
   handler: async (ctx, args) => {
-    if (
-      !(await callbackMatchesEntityId(
-        ctx,
-        args.entityId,
-        args,
-        "question_post",
-      ))
-    ) {
-      return null;
-    }
     const stale = await ctx.db
       .query("pendingQuestions")
       .withIndex("by_entity", (q) => q.eq("entityId", args.entityId))
@@ -115,9 +70,6 @@ export const post = authMutation({
       toolUseId: args.toolUseId,
       payload: args.payload,
       createdAt: Date.now(),
-      turnId: args.turnId,
-      assistantMessageId: args.assistantMessageId,
-      attempt: args.attempt,
     });
     return null;
   },
@@ -128,101 +80,50 @@ export const getActive = authQuery({
   args: { entityId: v.string() },
   returns: activeQuestionValidator,
   handler: async (ctx, args) => {
-    const entity = await resolveChatEntity(ctx, args.entityId);
     const rows = await ctx.db
       .query("pendingQuestions")
       .withIndex("by_entity", (q) => q.eq("entityId", args.entityId))
       .collect();
     const pending = rows
-      .filter(
-        (row) =>
-          row.answer === undefined &&
-          (entity === null || callbackMatchesActiveTurn(entity, row)),
-      )
+      .filter((row) => row.answer === undefined)
       .sort((a, b) => a.createdAt - b.createdAt)[0];
     if (!pending) return null;
-    return {
-      questionId: pending._id,
-      toolUseId: pending.toolUseId,
-      payload: pending.payload,
-      turnId: pending.turnId,
-      assistantMessageId: pending.assistantMessageId,
-      attempt: pending.attempt,
-    };
+    return { toolUseId: pending.toolUseId, payload: pending.payload };
   },
 });
 
 /** Records the user's answer (signed-in user), unblocking the paused turn. */
 export const answer = authMutation({
-  args: {
-    entityId: v.string(),
-    questionId: v.id("pendingQuestions"),
-    toolUseId: v.string(),
-    answer: v.string(),
-    ...optionalChatTurnIdentityFields,
-  },
-  returns: v.object({
-    status: v.union(v.literal("answered"), v.literal("stale")),
-  }),
-  handler: async (ctx, args): Promise<{ status: "answered" | "stale" }> => {
-    if (
-      !(await callbackMatchesEntityId(
-        ctx,
-        args.entityId,
-        args,
-        "question_answer",
-      ))
-    ) {
-      return { status: "stale" };
-    }
-    const existing = await ctx.db.get(args.questionId);
-    if (
-      !existing ||
-      existing.entityId !== args.entityId ||
-      existing.toolUseId !== args.toolUseId ||
-      existing.answer !== undefined ||
-      !turnIdentityMatches(existing, args)
-    ) {
-      return { status: "stale" };
-    }
-    await ctx.db.patch(existing._id, {
-      answer: args.answer,
-      answeredAt: Date.now(),
-    });
-    return { status: "answered" };
-  },
-});
-
-/** Claims the answer for the sandbox (sandbox token). Deletes the row once taken. */
-export const claimAnswer = authMutation({
-  args: {
-    entityId: v.string(),
-    toolUseId: v.string(),
-    ...optionalChatTurnIdentityFields,
-  },
-  returns: v.object({ answer: v.union(v.string(), v.null()) }),
+  args: { entityId: v.string(), toolUseId: v.string(), answer: v.string() },
+  returns: v.null(),
   handler: async (ctx, args) => {
-    if (
-      !(await callbackMatchesEntityId(
-        ctx,
-        args.entityId,
-        args,
-        "question_claim",
-      ))
-    ) {
-      return { answer: null };
-    }
     const existing = await ctx.db
       .query("pendingQuestions")
       .withIndex("by_entity_tool", (q) =>
         q.eq("entityId", args.entityId).eq("toolUseId", args.toolUseId),
       )
       .first();
-    if (
-      !existing ||
-      existing.answer === undefined ||
-      !turnIdentityMatches(existing, args)
-    ) {
+    if (!existing) return null;
+    await ctx.db.patch(existing._id, {
+      answer: args.answer,
+      answeredAt: Date.now(),
+    });
+    return null;
+  },
+});
+
+/** Claims the answer for the sandbox (sandbox token). Deletes the row once taken. */
+export const claimAnswer = authMutation({
+  args: { entityId: v.string(), toolUseId: v.string() },
+  returns: v.object({ answer: v.union(v.string(), v.null()) }),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("pendingQuestions")
+      .withIndex("by_entity_tool", (q) =>
+        q.eq("entityId", args.entityId).eq("toolUseId", args.toolUseId),
+      )
+      .first();
+    if (!existing || existing.answer === undefined) {
       return { answer: null };
     }
     const claimed = existing.answer;

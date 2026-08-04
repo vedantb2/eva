@@ -34,34 +34,3 @@ export const dataMigrations = new Migrations<DataModel>(components.migrations, {
 
 /** Generic runner: `npx convex run dataMigrations:run '{fn:"dataMigrations:…"}'`. */
 export const run = dataMigrations.runner();
-
-/** Gives every pre-identity queued row a deterministic, rerunnable turn key. */
-export const backfillQueuedTurnIds = dataMigrations.define({
-  table: "queuedMessages",
-  migrateOne: (_ctx, message) => {
-    if (message.turnId !== undefined) return;
-    return { turnId: `legacy-queue:${String(message._id)}` };
-  },
-});
-
-/** Adds stable event identity to project-interview transcript rows. */
-export const backfillProjectConversationMessageIds = dataMigrations.define({
-  table: "projectDetails",
-  migrateOne: (_ctx, details) => {
-    if (
-      details.conversationHistory.every((message) => message.id !== undefined)
-    ) {
-      return;
-    }
-    return {
-      conversationHistory: details.conversationHistory.map((message, index) =>
-        message.id !== undefined
-          ? message
-          : {
-              ...message,
-              id: `legacy-interview:${String(details._id)}:${index}`,
-            },
-      ),
-    };
-  },
-});

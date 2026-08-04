@@ -1,6 +1,7 @@
 import { completedLabels, PROVIDER } from "../config.js";
 import { claudeParseLine } from "../providers/claude.js";
 import { codexParseLine } from "../providers/codex.js";
+import { cursorParseLine } from "../providers/cursor.js";
 import { opencodeParseLine } from "../providers/opencode.js";
 import { callbackState as S } from "../runtime/state.js";
 import type {
@@ -155,9 +156,7 @@ export function parseToCanonical(
   event: JsonObject,
   provider: string = PROVIDER,
 ): CanonicalEvent[] {
-  if (provider === "cursor") {
-    throw new Error("Cursor events must be handled by the ACP runtime");
-  }
+  if (provider === "cursor") return cursorParseLine(event);
   if (provider === "opencode") return opencodeParseLine(event);
   if (provider === "codex") return codexParseLine(event);
   return claudeParseLine(event);

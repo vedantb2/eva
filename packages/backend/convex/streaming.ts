@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Doc } from "./_generated/dataModel";
 import {
   internalMutation,
   internalQuery,
@@ -8,12 +8,6 @@ import {
 } from "./_generated/server";
 import { authQuery, authMutation } from "./functions";
 import { cancelledMessageOutcome } from "./_chat/cancelledMessage";
-import { optionalChatTurnIdentityFields } from "./_validators/tableFields";
-import {
-  callbackMatchesEntityId,
-  turnIdentityMatches,
-  type OptionalTurnIdentity,
-} from "./_chat/turnIdentity";
 
 /**
  * Finalize an in-flight assistant message after the user hits stop.
@@ -45,7 +39,6 @@ const activityStateValidator = v.union(
     currentActivity: v.string(),
     currentContent: v.string(),
     pendingQuestion: v.optional(v.string()),
-    ...optionalChatTurnIdentityFields,
   }),
   v.null(),
 );
@@ -55,37 +48,7 @@ const setArgs = {
   currentActivity: v.string(),
   currentContent: v.optional(v.string()),
   pendingQuestion: v.optional(v.string()),
-  ...optionalChatTurnIdentityFields,
 };
-
-const httpTurnIdentityArgs = {
-  turnId: v.optional(v.string()),
-  assistantMessageId: v.optional(v.string()),
-  attempt: v.optional(v.number()),
-};
-
-function normalizeHttpTurnIdentity(
-  ctx: MutationCtx,
-  args: {
-    turnId?: string;
-    assistantMessageId?: string;
-    attempt?: number;
-  },
-): OptionalTurnIdentity | null {
-  if (args.assistantMessageId === undefined) {
-    return { turnId: args.turnId, attempt: args.attempt };
-  }
-  const assistantMessageId = ctx.db.normalizeId(
-    "messages",
-    args.assistantMessageId,
-  );
-  if (assistantMessageId === null) return null;
-  return {
-    turnId: args.turnId,
-    assistantMessageId,
-    attempt: args.attempt,
-  };
-}
 
 async function readStreamingActivity(ctx: QueryCtx, entityId: string) {
   const streaming = await ctx.db
@@ -97,9 +60,6 @@ async function readStreamingActivity(ctx: QueryCtx, entityId: string) {
     currentActivity: streaming.currentActivity,
     currentContent: streaming.currentContent ?? "",
     pendingQuestion: streaming.pendingQuestion,
-    turnId: streaming.turnId,
-    assistantMessageId: streaming.assistantMessageId,
-    attempt: streaming.attempt,
   };
 }
 
@@ -111,16 +71,8 @@ async function upsertStreamingActivity(
     currentActivity: string;
     currentContent?: string;
     pendingQuestion?: string;
-    turnId?: string;
-    assistantMessageId?: Id<"messages">;
-    attempt?: number;
   },
 ): Promise<void> {
-  if (
-    !(await callbackMatchesEntityId(ctx, args.entityId, args, "stream_set"))
-  ) {
-    return;
-  }
   const existing = await ctx.db
     .query("streamingActivity")
     .withIndex("by_entity", (q) => q.eq("entityId", args.entityId))
@@ -132,23 +84,11 @@ async function upsertStreamingActivity(
     const contentChanged = (existing.currentContent ?? "") !== nextContent;
     const questionChanged =
       (existing.pendingQuestion ?? "") !== (args.pendingQuestion ?? "");
-    const identityChanged =
-      existing.turnId !== args.turnId ||
-      existing.assistantMessageId !== args.assistantMessageId ||
-      existing.attempt !== args.attempt;
-    if (
-      activityChanged ||
-      contentChanged ||
-      questionChanged ||
-      identityChanged
-    ) {
+    if (activityChanged || contentChanged || questionChanged) {
       await ctx.db.patch(existing._id, {
         currentActivity: args.currentActivity,
         currentContent: nextContent,
         pendingQuestion: args.pendingQuestion,
-        turnId: args.turnId,
-        assistantMessageId: args.assistantMessageId,
-        attempt: args.attempt,
         lastUpdatedAt: now,
       });
     } else {
@@ -162,9 +102,6 @@ async function upsertStreamingActivity(
       currentActivity: args.currentActivity,
       currentContent: nextContent,
       pendingQuestion: args.pendingQuestion,
-      turnId: args.turnId,
-      assistantMessageId: args.assistantMessageId,
-      attempt: args.attempt,
       lastUpdatedAt: now,
     });
   }
@@ -197,13 +134,7 @@ export const internalGet = internalQuery({
 async function touchStreamingEntity(
   ctx: MutationCtx,
   entityId: string,
-  identity: OptionalTurnIdentity,
 ): Promise<boolean> {
-  if (
-    !(await callbackMatchesEntityId(ctx, entityId, identity, "stream_touch"))
-  ) {
-    return false;
-  }
   const now = Date.now();
   const existing = await ctx.db
     .query("streamingActivity")
@@ -214,7 +145,6 @@ async function touchStreamingEntity(
       entityId,
       currentActivity: "[]",
       currentContent: "",
-      ...identity,
       lastUpdatedAt: now,
     });
     return true;
@@ -225,27 +155,16 @@ async function touchStreamingEntity(
 
 /** Bumps lastUpdatedAt only — used for lightweight watchdog heartbeats (callback token). */
 export const touch = authMutation({
-  args: { entityId: v.string(), ...optionalChatTurnIdentityFields },
+  args: { entityId: v.string() },
   returns: v.boolean(),
-  handler: async (ctx, args) => touchStreamingEntity(ctx, args.entityId, args),
+  handler: async (ctx, args) => touchStreamingEntity(ctx, args.entityId),
 });
 
 /** Internal touch for HTTP heartbeat route and liveness probe refresh. */
 export const internalTouch = internalMutation({
-  args: { entityId: v.string(), ...optionalChatTurnIdentityFields },
+  args: { entityId: v.string() },
   returns: v.boolean(),
-  handler: async (ctx, args) => touchStreamingEntity(ctx, args.entityId, args),
-});
-
-/** HMAC route adapter: validates the string id before entering the typed core. */
-export const internalTouchFromHttp = internalMutation({
-  args: { entityId: v.string(), ...httpTurnIdentityArgs },
-  returns: v.boolean(),
-  handler: async (ctx, args) => {
-    const identity = normalizeHttpTurnIdentity(ctx, args);
-    if (identity === null) return false;
-    return await touchStreamingEntity(ctx, args.entityId, identity);
-  },
+  handler: async (ctx, args) => touchStreamingEntity(ctx, args.entityId),
 });
 
 /** Updates or creates streaming activity state (internal use, no auth check). */
@@ -254,30 +173,6 @@ export const internalSet = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     await upsertStreamingActivity(ctx, args);
-    return null;
-  },
-});
-
-/** HMAC route adapter: validates the string id before entering the typed core. */
-export const internalSetFromHttp = internalMutation({
-  args: {
-    entityId: v.string(),
-    currentActivity: v.string(),
-    currentContent: v.optional(v.string()),
-    pendingQuestion: v.optional(v.string()),
-    ...httpTurnIdentityArgs,
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const identity = normalizeHttpTurnIdentity(ctx, args);
-    if (identity === null) return null;
-    await upsertStreamingActivity(ctx, {
-      entityId: args.entityId,
-      currentActivity: args.currentActivity,
-      currentContent: args.currentContent,
-      pendingQuestion: args.pendingQuestion,
-      ...identity,
-    });
     return null;
   },
 });
@@ -295,35 +190,3 @@ export const clear = authMutation({
     return null;
   },
 });
-
-/** Deletes only the stream row owned by the expected turn tuple. */
-export async function clearStreamingActivityForTurn(
-  ctx: MutationCtx,
-  entityId: string,
-  expected: OptionalTurnIdentity,
-): Promise<boolean> {
-  const existing = await ctx.db
-    .query("streamingActivity")
-    .withIndex("by_entity", (q) => q.eq("entityId", entityId))
-    .first();
-  if (existing === null || !turnIdentityMatches(existing, expected)) {
-    if (existing !== null) {
-      console.log(
-        JSON.stringify({
-          event: "chat.stale_callback_ignored",
-          eventKind: "stream_clear",
-          entityId,
-          expectedTurnId: expected.turnId ?? null,
-          expectedAssistantMessageId: expected.assistantMessageId ?? null,
-          expectedAttempt: expected.attempt ?? null,
-          receivedTurnId: existing.turnId ?? null,
-          receivedAssistantMessageId: existing.assistantMessageId ?? null,
-          receivedAttempt: existing.attempt ?? null,
-        }),
-      );
-    }
-    return false;
-  }
-  await ctx.db.delete(existing._id);
-  return true;
-}

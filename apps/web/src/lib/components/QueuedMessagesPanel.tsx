@@ -46,14 +46,12 @@ import {
 } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 
-export interface QueuedMessageItem {
-  /** Logical UI identity; optimistic rows deliberately have no Convex id. */
-  id: string;
-  serverId?: Id<"queuedMessages">;
+interface QueuedMessageItem {
+  id: Id<"queuedMessages">;
   content: string;
   model?: string;
   reasoningLevel?: string;
-  /** Who queued it — a shared chat's queue mixes several teammates' prompts. */
+  /** Who queued it ??? a shared chat's queue mixes several teammates' prompts. */
   userId?: Id<"users">;
 }
 
@@ -237,7 +235,9 @@ export function QueuedMessagesPanel({
     null,
   );
   const [draftContent, setDraftContent] = useState("");
-  const [draftForId, setDraftForId] = useState<string | null>(null);
+  const [draftForId, setDraftForId] = useState<Id<"queuedMessages"> | null>(
+    null,
+  );
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -258,10 +258,7 @@ export function QueuedMessagesPanel({
     return null;
   }
 
-  const draggable =
-    Boolean(onReorder) &&
-    items.length > 1 &&
-    items.every((item) => item.serverId !== undefined);
+  const draggable = Boolean(onReorder) && items.length > 1;
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -269,8 +266,8 @@ export function QueuedMessagesPanel({
     const oldIndex = items.findIndex((item) => item.id === active.id);
     const newIndex = items.findIndex((item) => item.id === over.id);
     if (oldIndex === -1 || newIndex === -1) return;
-    const orderedIds = arrayMove(items, oldIndex, newIndex).flatMap((item) =>
-      item.serverId ? [item.serverId] : [],
+    const orderedIds = arrayMove(items, oldIndex, newIndex).map(
+      (item) => item.id,
     );
     void onReorder(orderedIds);
   };
@@ -278,11 +275,7 @@ export function QueuedMessagesPanel({
   const handleMoveToFront = (item: QueuedMessageItem) => {
     if (!onReorder) return;
     const rest = items.filter((entry) => entry.id !== item.id);
-    if (!item.serverId) return;
-    const restIds = rest.flatMap((entry) =>
-      entry.serverId ? [entry.serverId] : [],
-    );
-    void onReorder([item.serverId, ...restIds]);
+    void onReorder([item.id, ...rest.map((entry) => entry.id)]);
   };
 
   return (
@@ -312,17 +305,9 @@ export function QueuedMessagesPanel({
                       index={index}
                       draggable={draggable}
                       renderContent={renderContent}
-                      onEditClick={
-                        onEdit && item.serverId ? setEditingItem : undefined
-                      }
-                      onDeleteClick={
-                        onDelete && item.serverId ? setDeletingItem : undefined
-                      }
-                      onMoveToFront={
-                        onReorder && item.serverId
-                          ? handleMoveToFront
-                          : undefined
-                      }
+                      onEditClick={onEdit ? setEditingItem : undefined}
+                      onDeleteClick={onDelete ? setDeletingItem : undefined}
+                      onMoveToFront={onReorder ? handleMoveToFront : undefined}
                     />
                   ))}
                 </SortableContext>
@@ -358,12 +343,12 @@ export function QueuedMessagesPanel({
                 isSaving || !draftContent.trim() || !editingItem || !onEdit
               }
               onClick={async () => {
-                if (!editingItem?.serverId || !onEdit) {
+                if (!editingItem || !onEdit) {
                   return;
                 }
                 setIsSaving(true);
                 try {
-                  await onEdit(editingItem.serverId, draftContent);
+                  await onEdit(editingItem.id, draftContent);
                   setEditingItem(null);
                 } catch (error) {
                   setIsSaving(false);
@@ -401,12 +386,12 @@ export function QueuedMessagesPanel({
               variant="destructive"
               disabled={isDeleting || !deletingItem || !onDelete}
               onClick={async () => {
-                if (!deletingItem?.serverId || !onDelete) {
+                if (!deletingItem || !onDelete) {
                   return;
                 }
                 setIsDeleting(true);
                 try {
-                  await onDelete(deletingItem.serverId);
+                  await onDelete(deletingItem.id);
                   setDeletingItem(null);
                 } catch (error) {
                   setIsDeleting(false);

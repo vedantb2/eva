@@ -2,6 +2,7 @@ import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import {
   buildRootDirectoryInstruction,
   buildSystemPromptBlock,
+  getResponseLengthInstruction,
 } from "../prompts";
 import { buildDesignSystemPrompt } from "../prompts/design";
 import { stripMentionTokens } from "../_mentions/resolveDocMentions";
@@ -147,7 +148,7 @@ Create/update plan.md with a detailed implementation plan: goal, approach, files
 Rules:
 - ONLY write plan.md — no other files
 - Do NOT implement the plan
-- Do NOT commit or push${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
+- Do NOT commit or push${getResponseLengthInstruction("plan")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
 /** Eva-specific session constraints; exploration is left to the claude_code factory preset. */
@@ -218,5 +219,5 @@ Eva session (${repo.owner}/${repo.name}, branch "${branchName}"):
 - If you change code: \`git add -A -- ':!*.png' ... ':!recordings/' && git diff --cached --quiet || git commit -m "task: ${commitMessage}"\`
 - Duplicate/extract PR (when the user asks to ship this session's work as a separate PR that merges independently): never push this branch's commits to another ref — identical SHAs make GitHub auto-merge this session's PR. Instead squash onto a fresh branch: \`git fetch origin && git checkout -b eva/dup-<short-slug> origin/${baseBranch} && git merge --squash ${branchName} && git commit -m "<summary>" && git push -u origin HEAD && gh pr create --fill --base ${baseBranch} && git checkout ${branchName}\`. Base on "${baseBranch}" unless the user names a different base branch. Resolve squash conflicts if any. After that PR merges, merge the base branch into ${branchName} before continuing.
 - Questions only: answer without unnecessary edits. No build/lint/test unless asked.
-- Never commit images/video. Minimal changes.${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
+- Never commit images/video. Minimal changes.${getResponseLengthInstruction("edit")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }

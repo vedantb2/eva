@@ -48,9 +48,6 @@ import {
   repoEntityCounterFields,
   appTabFields,
   backgroundProcessFields,
-  streamingActivityFields,
-  pendingQuestionFields,
-  providerCapabilitySnapshotFields,
 } from "./validators";
 
 const schema = defineSchema({
@@ -144,13 +141,10 @@ const schema = defineSchema({
     "taskId",
   ]),
   taskActivity: defineTable(taskActivityFields).index("by_task", ["taskId"]),
-  messages: defineTable(messageFields)
-    .index("by_parent", ["parentId"])
-    .index("by_parent_and_turn", ["parentId", "turnId"]),
+  messages: defineTable(messageFields).index("by_parent", ["parentId"]),
   queuedMessages: defineTable(queuedMessageFields)
     .index("by_parent_and_created", ["parentId", "createdAt"])
-    .index("by_parent_and_order", ["parentId", "order"])
-    .index("by_parent_and_turn", ["parentId", "turnId"]),
+    .index("by_parent_and_order", ["parentId", "order"]),
   sessions: defineTable(sessionFields)
     .index("by_repo", ["repoId"])
     .index("by_user", ["userId"])
@@ -170,14 +164,25 @@ const schema = defineSchema({
   })
     .index("by_sandbox", ["sandboxId"])
     .index("by_last_heal", ["lastHealAt"]),
-  streamingActivity: defineTable(streamingActivityFields).index("by_entity", [
-    "entityId",
-  ]),
+  streamingActivity: defineTable({
+    entityId: v.string(),
+    currentActivity: v.string(),
+    currentContent: v.optional(v.string()),
+    pendingQuestion: v.optional(v.string()),
+    lastUpdatedAt: v.optional(v.number()),
+  }).index("by_entity", ["entityId"]),
   // Blocking AskUserQuestion round-trip. The paused sandbox turn posts a row
   // here (via canUseTool), the UI reads the unanswered one and writes the
   // answer, and the sandbox claims the answer to resume the turn. `entityId`
   // is the generic session/project/task id (matches streamingActivity).
-  pendingQuestions: defineTable(pendingQuestionFields)
+  pendingQuestions: defineTable({
+    entityId: v.string(),
+    toolUseId: v.string(),
+    payload: v.string(),
+    answer: v.optional(v.string()),
+    answeredAt: v.optional(v.number()),
+    createdAt: v.number(),
+  })
     .index("by_entity", ["entityId"])
     .index("by_entity_tool", ["entityId", "toolUseId"]),
   docs: defineTable(docFields)
@@ -361,9 +366,6 @@ const schema = defineSchema({
   userProviderAccounts: defineTable(userProviderAccountFields)
     .index("by_user", ["userId"])
     .index("by_user_and_provider", ["userId", "provider"]),
-  providerCapabilitySnapshots: defineTable(providerCapabilitySnapshotFields)
-    .index("by_scope_and_cli", ["scopeKey", "cliVersion"])
-    .index("by_scope_and_fetched", ["scopeKey", "fetchedAt"]),
   teamEnvVars: defineTable({
     teamId: v.id("teams"),
     vars: v.array(

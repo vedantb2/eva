@@ -10,18 +10,6 @@ import {
 } from "../config.js";
 import type { ConvexCallType, JsonObject, JsonValue } from "../types.js";
 import { readResponseJson } from "../utils.js";
-import { activeTurnIdentityArgs } from "../runtime/turnIdentity.js";
-
-function appendActiveTurnIdentity(body: URLSearchParams): void {
-  const identity = activeTurnIdentityArgs();
-  if (identity.turnId !== undefined) body.set("turnId", identity.turnId);
-  if (identity.assistantMessageId !== undefined) {
-    body.set("assistantMessageId", identity.assistantMessageId);
-  }
-  if (identity.attempt !== undefined) {
-    body.set("attempt", String(identity.attempt));
-  }
-}
 
 /** Wraps fetch with an AbortController timeout. */
 export async function fetchWithTimeout(
@@ -109,7 +97,6 @@ async function callStreamingHeartbeatTouchOnce(
     body.set("entityId", entityId);
     body.set("hmac", STREAMING_HMAC);
     body.set("touchOnly", "1");
-    appendActiveTurnIdentity(body);
     const res = await fetchWithTimeout(
       CONVEX_SITE_URL + "/api/streaming/heartbeat",
       {
@@ -127,10 +114,7 @@ async function callStreamingHeartbeatTouchOnce(
     return res.text();
   }
 
-  return await callConvex("mutation", "streaming:touch", {
-    entityId,
-    ...activeTurnIdentityArgs(),
-  });
+  return await callConvex("mutation", "streaming:touch", { entityId });
 }
 
 /** Sends one streaming heartbeat request through the scoped HMAC endpoint or legacy mutation fallback. */
@@ -146,7 +130,6 @@ async function callStreamingHeartbeatOnce(
     body.set("hmac", STREAMING_HMAC);
     body.set("currentActivity", currentActivity);
     body.set("currentContent", currentContent || "");
-    appendActiveTurnIdentity(body);
     if (pendingQuestion) {
       body.set("pendingQuestion", pendingQuestion);
     }
@@ -169,7 +152,6 @@ async function callStreamingHeartbeatOnce(
     entityId,
     currentActivity,
     currentContent,
-    ...activeTurnIdentityArgs(),
   };
   if (pendingQuestion) {
     args.pendingQuestion = pendingQuestion;

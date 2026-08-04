@@ -1,36 +1,49 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { EntityNumIdGate } from "@/lib/components/EntityNumIdGate";
 import { useSessionByNumId } from "@/lib/useResolveByNumId";
 import { SessionDetailClient } from "../SessionDetailClient";
 import { useSessionRouteSandboxTab } from "../_utils/useSessionRouteSandboxTab";
-import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
-interface SessionRouteShellProps {
+interface CachedSessionShellProps {
   numId: string;
+  /** True when this shell matches the URL `$numId` (visible). */
+  isActiveRoute: boolean;
 }
 
-/** Resolves one URL numId and owns navigation for the active session only. */
-export function SessionRouteShell({ numId }: SessionRouteShellProps) {
+/**
+ * One kept-alive session detail tree. While `isActiveRoute` is false the shell
+ * stays mounted (parent uses `hidden`) and freezes its sandbox tab so the
+ * active session's URL does not rewrite sibling caches.
+ */
+export function CachedSessionShell({
+  numId,
+  isActiveRoute,
+}: CachedSessionShellProps) {
   const navigate = useNavigate();
   const { basePath, repoId } = useRepo();
   const { status, convexId } = useSessionByNumId(numId, repoId);
-  const sandboxTab = useSessionRouteSandboxTab();
+  const urlSandboxTab = useSessionRouteSandboxTab();
+  const [sandboxTab, setSandboxTab] = useState(urlSandboxTab);
+
+  useEffect(() => {
+    if (!isActiveRoute) return;
+    setSandboxTab(urlSandboxTab);
+  }, [isActiveRoute, urlSandboxTab]);
 
   const openFile = (path: string) => {
     void navigate({
-      to: toInternalRepoHref(`${basePath}/sessions/${numId}/files`),
+      to: `${basePath}/sessions/${numId}/files`,
       search: (prev) => ({ ...prev, file: path }),
     });
   };
 
   const openDiffs = (repoRelativePath?: string) => {
     void navigate({
-      to: toInternalRepoHref(
-        `${basePath}/sessions/${numId}/review/diffs/unified`,
-      ),
+      to: `${basePath}/sessions/${numId}/review/diffs/unified`,
       search: (prev) => ({
         ...prev,
         ...(repoRelativePath ? { diffFile: repoRelativePath } : {}),
@@ -41,15 +54,13 @@ export function SessionRouteShell({ numId }: SessionRouteShellProps) {
   const onSandboxTabChange = (next: string) => {
     if (next === "review") {
       void navigate({
-        to: toInternalRepoHref(
-          `${basePath}/sessions/${numId}/review/diffs/unified`,
-        ),
+        to: `${basePath}/sessions/${numId}/review/diffs/unified`,
         search: true,
       });
       return;
     }
     void navigate({
-      to: toInternalRepoHref(`${basePath}/sessions/${numId}/${next}`),
+      to: `${basePath}/sessions/${numId}/${next}`,
       search: true,
     });
   };
@@ -68,6 +79,7 @@ export function SessionRouteShell({ numId }: SessionRouteShellProps) {
           onSandboxTabChange={onSandboxTabChange}
           onOpenFile={openFile}
           onViewDiff={openDiffs}
+          isRouteActive={isActiveRoute}
         />
       )}
     </EntityNumIdGate>

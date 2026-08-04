@@ -22,14 +22,13 @@ import {
   normalizedOpencodeModel,
 } from "../config.js";
 import { callConvexWithRetry, fetchWithTimeout } from "../http/convexClient.js";
-import { activeTurnIdentityArgs } from "./turnIdentity.js";
 import { getCodexAgentMessageText } from "../parse/toolSteps.js";
 import { callbackState as S } from "../runtime/state.js";
 import {
   PROOF_NO_MEDIA_MESSAGE,
   proofMediaSearchDirs,
 } from "../runtime/proofMedia.js";
-import type { JsonObject, JsonValue, ResultEvent } from "../types.js";
+import type { JsonObject, ResultEvent } from "../types.js";
 import { attemptElapsedMs, readResponseJson, tryParseJson } from "../utils.js";
 import {
   existsSync,
@@ -562,7 +561,6 @@ async function persistTaskProofIfNeeded(
     const mediaArgs: JsonObject = {
       parentId: ENTITY_ID ?? "",
       mediaStorageIds: uploaded.map((item) => item.storageId),
-      ...activeTurnIdentityArgs(),
     };
     await callConvexWithRetry(
       "action",
@@ -604,7 +602,7 @@ async function persistTaskProofIfNeeded(
  * completion caused duplicate proof captures whenever the upload lagged.
  */
 export async function deliverCompletionWithMedia(
-  completionArgs: Record<string, JsonValue>,
+  completionArgs: Record<string, string | boolean | null>,
 ): Promise<void> {
   const uploadFirst = isProofCompletionMutation(COMPLETION_MUTATION);
   if (uploadFirst) {

@@ -176,7 +176,7 @@ export function QuickTaskCard({
       selected={isActive}
       link={
         href ? (
-          <DynamicLink to={toInternalRepoHref(href)} search={(prev) => prev} />
+          <DynamicLink to={toInternalRepoHref(href)} search={true} />
         ) : undefined
       }
       onClick={

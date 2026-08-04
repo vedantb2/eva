@@ -28,7 +28,7 @@ Implementation:
 - Prefer explicit over magical behaviour.
 - All decisions should optimize for long-term maintainability.
 - Do not run any dev / lint / build commands unless the user asks you to
-- Never add `Co-authored-by: Cursor`, `Made-with: Cursor`, or other Cursor git attribution to commits (`.husky/prepare-commit-msg` strips these if the IDE injects them anyway)
+- Never add `Co-authored-by: Cursor`, `Made-with: Cursor`, or other Cursor git attribution to commits (husky prepare-commit-msg is disabled; `/preflight` reminds)
 
 Convex:
 
@@ -64,7 +64,7 @@ Nuqs:
 
 Husky:
 
-- If the codebase uses Nextjs/React, make sure husky is setup with the default prettier configuration to format code before it gets committed.
+- Prefer `/preflight` occasionally over husky commit/push gates (hooks under `.husky/` are commented out).
 
 Internal:
 

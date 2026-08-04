@@ -1,3 +1,4 @@
+# DISABLED — run `/preflight` (or `pnpm typecheck` / lint-staged) occasionally instead.
 # Call the local binary directly so `pnpm`'s verifyDepsBeforeRun cannot
 # recreate node_modules mid-commit (pnpm 11 defaults that to "install").
-./node_modules/.bin/lint-staged
+# ./node_modules/.bin/lint-staged

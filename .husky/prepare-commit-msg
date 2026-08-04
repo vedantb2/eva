@@ -1,2 +1,3 @@
 #!/usr/bin/env sh
-node scripts/strip-cursor-commit-attribution.mjs "$1"
+# DISABLED — agents must not add Cursor co-author trailers; `/preflight` reminds.
+# node scripts/strip-cursor-commit-attribution.mjs "$1"

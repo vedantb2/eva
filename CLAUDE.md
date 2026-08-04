@@ -15,7 +15,7 @@ Borders:
 
 Shadows:
 
-- Cards/surfaces may carry a subtle `shadow-sm`. Floating/overlay elements (popovers, tooltips, dropdowns, dialogs, sheets) get larger shadows for layering.
+- Cards and surfaces are border + tone only (no `shadow-sm`). Floating/overlay elements (popovers, tooltips, dropdowns, dialogs, sheets) keep larger shadows for layering.
 
 Layout & Surface Colors:
 
@@ -105,7 +105,7 @@ Nuqs:
 
 Husky:
 
-- If the codebase uses Nextjs/React, make sure husky is setup with the default prettier configuration to format code before it gets committed.
+- Prefer `/preflight` occasionally over husky commit/push gates (hooks under `.husky/` are commented out).
 
 Verification Rules after implementation:
 

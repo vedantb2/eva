@@ -1,4 +1,4 @@
-# TEMPORARILY DISABLED — re-enable when push speed matters less.
+# DISABLED — run `/preflight` occasionally instead of on every push.
 # Gate pushes on TypeScript. Uses local `tsc` only — never `convex codegen`
 # here, because codegen uploads to the linked deployment.
 # echo "pre-push: typechecking @eva/web..."

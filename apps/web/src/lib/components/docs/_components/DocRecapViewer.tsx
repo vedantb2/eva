@@ -133,6 +133,8 @@ export function DocRecapViewer({
 
   const isRecapPending = doc.prRecapStatus === "pending";
   const isRecapErrored = doc.prRecapStatus === "error";
+  // Pending with no workflow behind it means the run died — see PrRecapPanel.
+  const isRecapStalled = isRecapPending && doc.activeWorkflowId === undefined;
 
   const handleReviseRecap = async () => {
     setIsRevising(true);
@@ -210,6 +212,11 @@ export function DocRecapViewer({
           {isRecapErrored && doc.prRecapError ? (
             <p className="mt-1 text-destructive">{doc.prRecapError}</p>
           ) : null}
+          {isRecapStalled ? (
+            <p className="mt-1 text-destructive">
+              Generation stopped before it finished.
+            </p>
+          ) : null}
           {canReviseRecap ? (
             <div className="mt-2 flex items-center gap-2">
               <Button
@@ -235,7 +242,7 @@ export function DocRecapViewer({
           ) : null}
         </div>
       ) : null}
-      {(streaming || isRecapPending) && (
+      {isRecapPending && !isRecapStalled && (
         <div className="px-4 pb-3">
           <Surface density="tight" className="space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">

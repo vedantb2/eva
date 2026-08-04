@@ -130,6 +130,9 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
 
   const isPending = recapDoc.prRecapStatus === "pending";
   const isErrored = recapDoc.prRecapStatus === "error";
+  // Pending with no workflow behind it means the run died: show the failure and
+  // re-enable Generate instead of spinning on a stale activity trail forever.
+  const isStalled = isPending && recapDoc.activeWorkflowId === undefined;
   const docPath = entityPathSegment(recapDoc);
   const shortSha =
     recapDoc.headSha !== undefined ? recapDoc.headSha.slice(0, 7) : null;
@@ -179,7 +182,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
               onClick={() => {
                 void handleGenerate();
               }}
-              disabled={isGenerating || isPending}
+              disabled={isGenerating || (isPending && !isStalled)}
             >
               {isGenerating ? <Spinner size="sm" /> : <IconRefresh size={14} />}
               {recapDoc.prRecapStatus === "ready" ? "Regenerate" : "Generate"}
@@ -193,20 +196,24 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
         </TabsList>
       </TabsBar>
 
-      {isErrored ? (
+      {isErrored || isStalled ? (
         <div className="flex items-start gap-2 border-b border-border bg-destructive/5 px-3 py-2 text-sm text-destructive">
           <IconAlertTriangle size={16} className="mt-0.5 shrink-0" />
           <div className="min-w-0 flex-1">
-            <p className="font-medium">Recap failed</p>
+            <p className="font-medium">
+              {isStalled ? "Recap stopped" : "Recap failed"}
+            </p>
             <p className="text-destructive/80">
-              {recapDoc.prRecapError ??
-                "Something went wrong generating the recap."}
+              {isStalled
+                ? "Generation stopped before it finished. Generate again to retry."
+                : (recapDoc.prRecapError ??
+                  "Something went wrong generating the recap.")}
             </p>
           </div>
         </div>
       ) : null}
 
-      {(streaming || isPending) && (
+      {isPending && !isStalled && (
         <div className="shrink-0 px-3 py-2">
           <Surface density="tight" className="space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">

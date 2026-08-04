@@ -51,6 +51,8 @@ export function ReviewDetailClient({
   const { refresh, refreshing } = usePrRefresh(repoId, prNumber);
 
   const goToTab = (nextTab: string) => {
+    // basePath is already the router's internal `--` form on main
+    // (`repoHref`); staging's slash-URL rewrite is not in this slice.
     void navigate({
       to: toInternalRepoHref(`${basePath}/reviews/${prNumber}/${nextTab}`),
       search: (prev) => prev,

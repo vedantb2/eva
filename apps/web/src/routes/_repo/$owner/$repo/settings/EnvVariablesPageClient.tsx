@@ -7,6 +7,7 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { EnvVariablesClient } from "./EnvVariablesClient";
 import { TeamEnvVarsClient } from "./TeamEnvVarsClient";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 export function EnvVariablesPageClient({ scope }: { scope: EnvVarScope }) {
   const navigate = useNavigate();
@@ -22,7 +23,9 @@ export function EnvVariablesPageClient({ scope }: { scope: EnvVarScope }) {
           onValueChange={(value) => {
             if (value === "repo" || value === "team") {
               navigate({
-                to: `${basePath}/settings/env-variables/${value}`,
+                to: toInternalRepoHref(
+                  `${basePath}/settings/env-variables/${value}`,
+                ),
               });
             }
           }}

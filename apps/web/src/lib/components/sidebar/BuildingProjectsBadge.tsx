@@ -7,6 +7,7 @@ import { IconFolder, IconLoader2 } from "@tabler/icons-react";
 import type { Id } from "@eva/backend";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { entityPathSegment } from "@/lib/numId";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 interface BuildingProjectsBadgeProps {
   repoId: Id<"githubRepos">;
@@ -105,7 +106,9 @@ export function BuildingProjectsBadge({
                   <ProjectRow
                     key={project._id}
                     title={project.title}
-                    to={`${basePath}/projects/${entityPathSegment(project) ?? ""}`}
+                    to={toInternalRepoHref(
+                      `${basePath}/projects/${entityPathSegment(project) ?? ""}`,
+                    )}
                   />
                 ))}
               </Section>
@@ -121,7 +124,9 @@ export function BuildingProjectsBadge({
                   <ProjectRow
                     key={project._id}
                     title={project.title}
-                    to={`${basePath}/projects/${entityPathSegment(project) ?? ""}`}
+                    to={toInternalRepoHref(
+                      `${basePath}/projects/${entityPathSegment(project) ?? ""}`,
+                    )}
                   />
                 ))}
               </Section>

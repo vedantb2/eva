@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useNavigate, useLocation } from "@tanstack/react-router";
 import { api } from "@eva/backend";
-import { decodeRepoParam } from "@/lib/utils/repoUrl";
+import { decodeRepoParam, toInternalRepoHref } from "@/lib/utils/repoUrl";
 import type { FunctionReturnType } from "convex/server";
 import { Spinner } from "@eva/ui";
 
@@ -62,27 +62,36 @@ export function RepoProvider({
   }, [repo, navigate]);
 
   // Bare /owner/repo URLs for monorepos without a visible root row resolve to an
-  // app repo — canonicalize the path so links and basePath stay consistent.
+  // app repo — canonicalize to the public slash form (router rewrite maps it
+  // to the internal `--` segment for matching).
   useEffect(() => {
     if (!repo?.rootDirectory || appName) return;
     const appSegment = repo.rootDirectory.split("/").pop();
     if (!appSegment) return;
 
-    const barePrefix = `/${owner}/${repoParam}`;
-    const canonicalPrefix = `/${owner}/${name}--${appSegment}`;
+    const barePrefix = `/${owner}/${name}`;
+    const canonicalPrefix = `/${owner}/${name}/${appSegment}`;
     if (!location.pathname.startsWith(barePrefix)) return;
+    const after = location.pathname.slice(barePrefix.length);
+    if (after !== "" && !after.startsWith("/")) return;
     if (barePrefix === canonicalPrefix) return;
 
     navigate({
-      to: `${canonicalPrefix}${location.pathname.slice(barePrefix.length)}`,
+      to: toInternalRepoHref(`${canonicalPrefix}${after}`),
       search: (prev) => prev,
       replace: true,
     });
-  }, [repo, appName, owner, name, repoParam, location.pathname, navigate]);
+  }, [repo, appName, owner, name, location.pathname, navigate]);
 
+  /**
+   * Public path prefix for the active repo. Monorepo apps use slash form
+   * (`/owner/repo/app`) so `<a href>` and the address bar never show `repo--app`.
+   * Pass through {@link toInternalRepoHref} before `navigate({ to })` / `<Link to>`
+   * so the router still matches the single-segment `$repo` param.
+   */
   const resolvedAppName = appName ?? repo?.rootDirectory?.split("/").pop();
   const basePath = resolvedAppName
-    ? `/${owner}/${name}--${resolvedAppName}`
+    ? `/${owner}/${name}/${resolvedAppName}`
     : `/${owner}/${name}`;
 
   const value =

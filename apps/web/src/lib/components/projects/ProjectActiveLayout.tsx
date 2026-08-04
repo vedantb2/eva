@@ -19,6 +19,7 @@ import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-deta
 import type { ProjectPhase } from "./ProjectPhaseBadge";
 import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 import { TASK_TAGS } from "@eva/shared";
 
 interface Project {
@@ -78,13 +79,17 @@ export function ProjectActiveLayout({
     const taskPathSegment = task ? entityPathSegment(task) : null;
     if (!taskPathSegment) return;
     navigate({
-      to: `${basePath}/projects/${projectPathSegment}/${taskPathSegment}/activity`,
+      to: toInternalRepoHref(
+        `${basePath}/projects/${projectPathSegment}/${taskPathSegment}/activity`,
+      ),
     });
   };
 
   const handleCloseTask = () => {
     if (!projectPathSegment) return;
-    navigate({ to: `${basePath}/projects/${projectPathSegment}` });
+    navigate({
+      to: toInternalRepoHref(`${basePath}/projects/${projectPathSegment}`),
+    });
   };
 
   const activeDetailTab: TaskDetailTab = detailTab ?? "activity";
@@ -99,7 +104,9 @@ export function ProjectActiveLayout({
               const taskPathSegment = entityPathSegment(selectedTask);
               if (!taskPathSegment) return;
               navigate({
-                to: `${basePath}/projects/${projectPathSegment}/${taskPathSegment}/${tab}`,
+                to: toInternalRepoHref(
+                  `${basePath}/projects/${projectPathSegment}/${taskPathSegment}/${tab}`,
+                ),
               });
             },
           },

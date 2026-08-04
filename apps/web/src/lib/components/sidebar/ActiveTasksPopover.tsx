@@ -7,6 +7,7 @@ import { IconListCheck, IconLoader2 } from "@tabler/icons-react";
 import type { Id } from "@eva/backend";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { entityPathSegment } from "@/lib/numId";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 interface ActiveTasksBadgeProps {
   repoId: Id<"githubRepos">;
@@ -97,7 +98,9 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
                     key={task._id}
                     title={task.title}
                     taskNumber={task.taskNumber}
-                    to={`${basePath}/quick-tasks/${entityPathSegment(task) ?? ""}`}
+                    to={toInternalRepoHref(
+                      `${basePath}/quick-tasks/${entityPathSegment(task) ?? ""}`,
+                    )}
                   />
                 ))}
               </Section>
@@ -114,7 +117,9 @@ export function ActiveTasksBadge({ repoId, basePath }: ActiveTasksBadgeProps) {
                     key={task._id}
                     title={task.title}
                     taskNumber={task.taskNumber}
-                    to={`${basePath}/quick-tasks/${entityPathSegment(task) ?? ""}`}
+                    to={toInternalRepoHref(
+                      `${basePath}/quick-tasks/${entityPathSegment(task) ?? ""}`,
+                    )}
                   />
                 ))}
               </Section>

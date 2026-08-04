@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { IconAlertCircle } from "@tabler/icons-react";
 import { Button } from "@eva/ui";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 interface EntityNotFoundProps {
   /** Singular label used in copy, e.g. "task", "session", "document". */
@@ -33,7 +34,9 @@ export function EntityNotFound({
         action={
           backTo ? (
             <Button asChild size="sm" variant="outline" className="mt-5">
-              <Link to={backTo}>{backLabel ?? `Back to ${entityLabel}s`}</Link>
+              <Link to={toInternalRepoHref(backTo)}>
+                {backLabel ?? `Back to ${entityLabel}s`}
+              </Link>
             </Button>
           ) : undefined
         }

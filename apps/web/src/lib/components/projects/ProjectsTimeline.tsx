@@ -32,6 +32,7 @@ import { TimelineBar } from "./_components/TimelineBar";
 import { TimelineSidebarMeta } from "./_components/TimelineSidebarMeta";
 import { TimelineToolbar } from "./_components/TimelineToolbar";
 import { UnscheduledProjectsSection } from "./_components/UnscheduledProjectsSection";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 type ProjectProgress = FunctionReturnType<
@@ -191,7 +192,7 @@ export function ProjectsTimeline({
     const project = scheduledProjectMap.get(id);
     const segment = project ? entityPathSegment(project) : null;
     if (!segment) return;
-    navigate({ to: `${basePath}/projects/${segment}` });
+    navigate({ to: toInternalRepoHref(`${basePath}/projects/${segment}`) });
   };
 
   const handleMove = (id: string, startAt: Date, endAt: Date | null) => {

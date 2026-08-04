@@ -37,6 +37,7 @@ import {
 import dayjs, { compactRelativeTime } from "@eva/shared/dates";
 import { useState, type MouseEvent } from "react";
 import { DynamicLink } from "@/lib/components/DynamicLink";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 import { DeleteTaskDialog } from "./_components/DeleteTaskDialog";
 import { MoveTaskDialog } from "./_components/MoveTaskDialog";
 import { TaskCardMenuItems } from "./_components/TaskCardMenuItems";
@@ -175,7 +176,7 @@ export function QuickTaskCard({
       selected={isActive}
       link={
         href ? (
-          <DynamicLink to={href} search={(prev) => prev} />
+          <DynamicLink to={toInternalRepoHref(href)} search={true} />
         ) : undefined
       }
       onClick={

@@ -41,6 +41,7 @@ import { DocContentTab } from "./DocContentTab";
 import { HtmlPreviewFrame } from "./HtmlPreviewFrame";
 import { DocPresenceFacepile } from "./DocPresenceFacepile";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
@@ -101,7 +102,7 @@ export function DocRecapViewer({
     const segment = entityPathSegment(doc);
     if (!segment) return;
     void navigate({
-      to: `${basePath}/docs/${segment}/${viewTab}`,
+      to: toInternalRepoHref(`${basePath}/docs/${segment}/${viewTab}`),
       search: (prev) => prev,
       replace: true,
     });
@@ -110,7 +111,9 @@ export function DocRecapViewer({
   const handleDocTabChange = (value: string) => {
     if (value !== "recap" && value !== "summary") return;
     navigate({
-      to: `${basePath}/docs/${entityPathSegment(doc) ?? ""}/${value}`,
+      to: toInternalRepoHref(
+        `${basePath}/docs/${entityPathSegment(doc) ?? ""}/${value}`,
+      ),
       search: (prev) => prev,
     });
   };

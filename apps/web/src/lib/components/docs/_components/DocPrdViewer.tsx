@@ -45,6 +45,7 @@ import { DocModeSwitcher } from "./DocModeSwitcher";
 import { DocPresenceFacepile } from "./DocPresenceFacepile";
 import { DocTestGenDialog } from "./DocTestGenDialog";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
@@ -113,7 +114,9 @@ export function DocPrdViewer({
   const handleDocTabChange = (value: string) => {
     if (!isDocViewerTab(value)) return;
     navigate({
-      to: `${basePath}/docs/${entityPathSegment(doc) ?? ""}/${value}`,
+      to: toInternalRepoHref(
+        `${basePath}/docs/${entityPathSegment(doc) ?? ""}/${value}`,
+      ),
       search: (prev) => prev,
     });
   };

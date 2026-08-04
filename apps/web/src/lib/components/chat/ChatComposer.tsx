@@ -30,6 +30,7 @@ import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
 import { ComposerPlusMenu } from "@/lib/components/chat/_components/ComposerPlusMenu";
 import { ComposerStash } from "@/lib/components/chat/_components/ComposerStash";
 import { usePeopleMentionItems } from "@/lib/hooks/usePeopleMentionItems";
+import { useDataMentionItems } from "@/lib/hooks/useDataMentionItems";
 import { mergeMentionItems } from "@/lib/components/mentions";
 import { IconPlayerStop } from "@tabler/icons-react";
 import { useRef, type ReactNode } from "react";
@@ -134,7 +135,7 @@ export function ChatComposer({
   hasPendingContext = false,
 }: ChatComposerProps) {
   const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
-  const dataMentions = useQuery(api.mentions.listData, { repoId }) ?? [];
+  const dataMentions = useDataMentionItems(repoId);
   const peopleMentions = usePeopleMentionItems(repoId);
   const { items: plusDataItems } = mergeMentionItems(
     peopleMentions,

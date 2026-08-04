@@ -139,7 +139,7 @@ function openFilePicker(accept: string, onFiles: (files: FileList) => void) {
 interface DataMenuItem {
   id: string;
   label: string;
-  badge: string;
+  badge?: string;
   description?: string;
   personUserId?: Id<"users">;
 }

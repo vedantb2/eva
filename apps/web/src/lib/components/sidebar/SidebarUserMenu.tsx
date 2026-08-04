@@ -89,7 +89,10 @@ export function SidebarUserMenu({ name, showSearch }: SidebarUserMenuProps) {
               size="sm"
               disableProfileCard
             />
-            <p className="truncate text-sm font-medium text-foreground">
+            <p
+              data-pii
+              className="truncate text-sm font-medium text-foreground"
+            >
               {name}
             </p>
           </DropdownMenuLabel>

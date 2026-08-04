@@ -82,11 +82,19 @@ export function UserInitials({
   const initials = getUserInitials(user);
   const name = getUserName(user);
   const online = !!user.lastSeenAt && Date.now() - user.lastSeenAt < 120_000;
-  const tooltip = online
-    ? `${name} · Online`
+  // Name is a separate node rather than part of the string so the blur-PID
+  // rule can reach it without hiding the presence suffix.
+  const presenceSuffix = online
+    ? " · Online"
     : user.lastSeenAt
-      ? `${name} · Active ${compactRelativeTime(user.lastSeenAt)}`
-      : name;
+      ? ` · Active ${compactRelativeTime(user.lastSeenAt)}`
+      : "";
+  const tooltip = (
+    <>
+      <span data-pii>{name}</span>
+      {presenceSuffix}
+    </>
+  );
   const iconSizePx =
     size === "xl" ? 48 : size === "md" ? 24 : size === "lg" ? 32 : 16;
   const dotSize =
@@ -264,7 +272,10 @@ export function UserProfileHoverCardBody({ userId }: { userId: string }) {
           </div>
         ) : null}
 
-        <p className="truncate text-[15px] font-semibold leading-tight tracking-tight text-foreground">
+        <p
+          data-pii
+          className="truncate text-[15px] font-semibold leading-tight tracking-tight text-foreground"
+        >
           {name}
         </p>
         {roleLabel ? (
@@ -277,7 +288,9 @@ export function UserProfileHoverCardBody({ userId }: { userId: string }) {
           {user.email ? (
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <MailIcon className="size-3.5 shrink-0 text-muted-foreground/60" />
-              <span className="truncate">{user.email}</span>
+              <span data-pii className="truncate">
+                {user.email}
+              </span>
             </div>
           ) : null}
           <div className="flex items-center gap-2 text-xs">

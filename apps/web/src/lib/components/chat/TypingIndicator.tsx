@@ -1,16 +1,32 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { cn } from "@eva/ui";
 import type { TypingUser } from "@/lib/hooks/useTypingPresence";
 
-function typingLabel(users: TypingUser[]): string {
+function typingLabel(users: TypingUser[]): ReactNode {
   const names = users.map((user) => user.firstName);
   // Defaults guard against an empty array for the type checker; in practice the
   // indicator is only rendered with at least one user.
   const [first = "Someone", second = "Someone"] = names;
-  if (names.length === 1) return `${first} is typing`;
-  if (names.length === 2) return `${first} and ${second} are typing`;
-  return `${first} and ${names.length - 1} others are typing`;
+  if (names.length === 1)
+    return (
+      <>
+        <span data-pii>{first}</span> is typing
+      </>
+    );
+  if (names.length === 2)
+    return (
+      <>
+        <span data-pii>{first}</span> and <span data-pii>{second}</span> are
+        typing
+      </>
+    );
+  return (
+    <>
+      <span data-pii>{first}</span> and {names.length - 1} others are typing
+    </>
+  );
 }
 
 function TypingAvatar({ firstName }: { firstName: string }) {

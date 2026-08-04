@@ -209,7 +209,7 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
               className={`flex items-center gap-1.5 ${!project.projectLead ? "text-muted-foreground" : ""}`}
             >
               <IconUser size={14} className="text-muted-foreground" />
-              <span>
+              <span data-pii={Boolean(project.projectLead) || undefined}>
                 {project.projectLead
                   ? (() => {
                       const lead = (users ?? []).find(
@@ -227,7 +227,7 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
             <SelectLabel>Project Lead</SelectLabel>
             <SelectItem value="none">Unassigned</SelectItem>
             {(users ?? []).map((user) => (
-              <SelectItem key={user._id} value={user._id}>
+              <SelectItem data-pii key={user._id} value={user._id}>
                 {displayName(user)}
               </SelectItem>
             ))}
@@ -261,7 +261,7 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
               ) : (
                 <IconUserPlus size={14} className="text-muted-foreground" />
               )}
-              <span>
+              <span data-pii={Boolean(reviewerUser) || undefined}>
                 {reviewerUser ? displayName(reviewerUser) : "Code Reviewer"}
               </span>
             </div>
@@ -279,7 +279,7 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
                     name={getUserInitials(user)}
                     enableBlink
                   />
-                  <span>{displayName(user)}</span>
+                  <span data-pii>{displayName(user)}</span>
                 </div>
               </SelectItem>
             ))}
@@ -307,6 +307,7 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
               const isMember = memberIds.has(user._id);
               return (
                 <DropdownMenuCheckboxItem
+                  data-pii
                   key={user._id}
                   checked={isMember}
                   onCheckedChange={() => {
@@ -399,7 +400,7 @@ export function ProjectMetadataBar({ projectId }: ProjectMetadataBarProps) {
         {creator ? (
           <>
             <UserInitials userId={creator._id} size="sm" />
-            <span>{displayName(creator)}</span>
+            <span data-pii>{displayName(creator)}</span>
             <span>·</span>
           </>
         ) : null}

@@ -36,7 +36,7 @@ function RemoteCursorItem({ cursor }: { cursor: RemoteCursor }) {
       <Cursor style={{ color: hex }}>
         <CursorPointer />
         <CursorBody className="text-white" style={{ backgroundColor: hex }}>
-          <CursorName>{cursor.firstName}</CursorName>
+          <CursorName data-pii>{cursor.firstName}</CursorName>
         </CursorBody>
       </Cursor>
     </div>

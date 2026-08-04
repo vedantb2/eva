@@ -258,7 +258,9 @@ export function TaskCardMenuItems({
               user.role === "dev"
                 ? [
                     <RadioItem key={user._id} value={user._id}>
-                      {user.fullName ?? user.firstName ?? "Unknown"}
+                      <span data-pii>
+                        {user.fullName ?? user.firstName ?? "Unknown"}
+                      </span>
                     </RadioItem>,
                   ]
                 : [],

@@ -202,7 +202,9 @@ function DocCommentItem({ comment }: { comment: DocComment }) {
         {comment.authorId ? (
           <UserInitials userId={comment.authorId} size="sm" />
         ) : null}
-        <span className="font-medium text-xs">{name}</span>
+        <span data-pii className="font-medium text-xs">
+          {name}
+        </span>
         <RelativeDateTime
           at={comment.createdAt}
           className="text-[10px] text-muted-foreground"

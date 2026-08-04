@@ -150,7 +150,10 @@ export function RunTimelineItem({
               <div className="mr-2 flex min-w-0 flex-1 items-center justify-between gap-3">
                 <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
                   {requester ? (
-                    <span className="truncate text-xs font-medium text-foreground">
+                    <span
+                      data-pii
+                      className="truncate text-xs font-medium text-foreground"
+                    >
                       {getUserDisplayName(requester)}
                     </span>
                   ) : null}
@@ -329,7 +332,10 @@ function RunInlineComment({
             <UserInitials userId={comment.authorId} size="sm" />
           ) : null}
           {author ? (
-            <span className="truncate text-xs font-medium text-foreground">
+            <span
+              data-pii
+              className="truncate text-xs font-medium text-foreground"
+            >
               {getUserDisplayName(author)}
             </span>
           ) : null}

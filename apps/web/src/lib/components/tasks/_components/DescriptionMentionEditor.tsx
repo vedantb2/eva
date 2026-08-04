@@ -18,6 +18,7 @@ import {
 import { useDataMentionItems } from "@/lib/hooks/useDataMentionItems";
 import { useDataMentionNavigate } from "@/lib/useDataMentionNavigate";
 import { useInlineSuggestion } from "@/lib/hooks/useInlineSuggestion";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 export type DescriptionMentionEditorHandle = MentionEditorHandle;
 
@@ -86,7 +87,7 @@ export const DescriptionMentionEditor = forwardRef<
   };
 
   const handleSkillChipClick = (_skillId: string) => {
-    navigate({ to: `${basePath}/settings/skills` });
+    navigate({ to: toInternalRepoHref(`${basePath}/settings/skills`) });
   };
   const skills =
     useQuery(api.repoSkills.listByRepo, { repoId: repo._id }) ?? [];
@@ -140,7 +141,7 @@ export const DescriptionMentionEditor = forwardRef<
         <span>
           No available skills.{" "}
           <DynamicLink
-            to={`${basePath}/settings/skills`}
+            to={toInternalRepoHref(`${basePath}/settings/skills`)}
             className="text-foreground underline underline-offset-2"
           >
             Sync skills in Settings

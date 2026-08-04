@@ -44,6 +44,7 @@ import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { entityPathSegment } from "@/lib/numId";
 import { IconGripVertical } from "@tabler/icons-react";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 
@@ -162,7 +163,9 @@ export function GroupTasksModal({
       if (created) {
         const segment = entityPathSegment(created);
         if (segment) {
-          navigate({ to: `${basePath}/projects/${segment}` });
+          navigate({
+            to: toInternalRepoHref(`${basePath}/projects/${segment}`),
+          });
         }
       }
     } catch (error) {

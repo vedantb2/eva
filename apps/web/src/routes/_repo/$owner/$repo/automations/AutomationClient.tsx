@@ -28,6 +28,7 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { isAutomationTab, type AutomationTab } from "@/lib/search-params";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 type Automation = Doc<"automations">;
 
@@ -105,7 +106,9 @@ export function AutomationClient({
               const segment = entityPathSegment(automation);
               if (!segment) return;
               navigate({
-                to: `${basePath}/automations/${segment}/${v}`,
+                to: toInternalRepoHref(
+                  `${basePath}/automations/${segment}/${v}`,
+                ),
               });
             }
           }}

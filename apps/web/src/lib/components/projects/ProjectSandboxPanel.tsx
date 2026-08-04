@@ -23,6 +23,7 @@ import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 interface ProjectSandboxPanelProps {
   projectId: Id<"projects">;
@@ -80,13 +81,17 @@ export function ProjectSandboxPanel({
     if (tab === "prd" || !projectPathSegment) return;
     if (tab === "review") {
       void navigate({
-        to: `${basePath}/projects/${projectPathSegment}/sandbox/review/diffs/unified`,
+        to: toInternalRepoHref(
+          `${basePath}/projects/${projectPathSegment}/sandbox/review/diffs/unified`,
+        ),
         search: true,
       });
       return;
     }
     void navigate({
-      to: `${basePath}/projects/${projectPathSegment}/sandbox/${tab}`,
+      to: toInternalRepoHref(
+        `${basePath}/projects/${projectPathSegment}/sandbox/${tab}`,
+      ),
       // Keep diffFile across sandbox tabs.
       search: true,
     });

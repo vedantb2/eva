@@ -45,6 +45,7 @@ import {
   TooltipTrigger,
 } from "@eva/ui";
 import { DynamicLink } from "@/lib/components/DynamicLink";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 import {
   phaseConfig,
   PROJECT_PHASES,
@@ -170,7 +171,7 @@ export function ProjectCard({
       selected={isActive}
       link={
         href ? (
-          <DynamicLink to={href} search={(prev) => prev} />
+          <DynamicLink to={toInternalRepoHref(href)} search={true} />
         ) : undefined
       }
       onClick={

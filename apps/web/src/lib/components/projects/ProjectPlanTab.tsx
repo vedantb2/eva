@@ -16,6 +16,7 @@ import {
 } from "@tabler/icons-react";
 import { entityPathSegment } from "@/lib/numId";
 import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 interface ProjectPlanTabProps {
   projectId: Id<"projects">;
@@ -111,7 +112,9 @@ export function ProjectPlanTab({
       if (project) {
         const segment = entityPathSegment(project);
         if (segment) {
-          navigate({ to: `${basePath}/projects/${segment}` });
+          navigate({
+            to: toInternalRepoHref(`${basePath}/projects/${segment}`),
+          });
         }
       }
     } catch (error) {

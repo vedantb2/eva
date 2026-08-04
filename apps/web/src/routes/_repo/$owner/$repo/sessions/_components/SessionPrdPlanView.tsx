@@ -40,6 +40,7 @@ import {
   normalizePlanMarkdownForExport,
   proposedPlanTitle,
 } from "./planExport";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 interface SessionPrdPlanViewProps {
   sessionId: Id<"sessions">;
@@ -141,7 +142,9 @@ export function SessionPrdPlanView({
         const segment = entityPathSegment(doc);
         if (segment) {
           navigate({
-            to: `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
+            to: toInternalRepoHref(
+              `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
+            ),
           });
         }
       }

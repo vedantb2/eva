@@ -30,6 +30,7 @@ import {
 import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "./_utils";
 import { useAgentTaskByNumId } from "@/lib/useResolveByNumId";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 import { TASK_TAGS } from "@eva/shared";
 
 export function QuickTasksClient() {
@@ -374,7 +375,7 @@ export function QuickTasksClient() {
               // split); kanban shows the board, so close the task.
               if (selectedTaskId && v !== "list") {
                 navigate({
-                  to: `${basePath}/quick-tasks`,
+                  to: toInternalRepoHref(`${basePath}/quick-tasks`),
                   search: (prev) => prev,
                 });
               }

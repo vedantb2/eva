@@ -32,6 +32,7 @@ import {
 } from "@/lib/components/sidebar/SharedLayoutNav";
 import { SidebarListHoverCard } from "@/lib/components/sidebar/SidebarListHoverCard";
 import { entityPathSegment, routeNumIdFromPath } from "@/lib/numId";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 interface DocsSidebarProps {
   repoId: Id<"githubRepos">;
@@ -122,7 +123,9 @@ export function DocsSidebar({
       setNewDocTitle("");
       setIsCreateDialogOpen(false);
       navigate({
-        to: `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
+        to: toInternalRepoHref(
+          `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
+        ),
         search: (prev) => prev,
       });
       if (onNavigate) onNavigate();
@@ -184,7 +187,9 @@ export function DocsSidebar({
       setPastedPrdContent("");
       setNewDocTitle("");
       navigate({
-        to: `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
+        to: toInternalRepoHref(
+          `${basePath}/docs/${segment}/${DOC_VIEWER_DEFAULT_TAB}`,
+        ),
         search: (prev) => prev,
       });
       if (onNavigate) onNavigate();
@@ -237,7 +242,7 @@ export function DocsSidebar({
       setDocToDelete(null);
       if (isViewing) {
         navigate({
-          to: `${basePath}/docs`,
+          to: toInternalRepoHref(`${basePath}/docs`),
           search: (prev) => prev,
         });
         if (onNavigate) onNavigate();

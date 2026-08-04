@@ -36,6 +36,7 @@ import { useHotkey } from "@tanstack/react-hotkeys";
 import type { MarkdownEditorHandle } from "@/lib/components/tasks/_components/MarkdownEditor";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import type { Priority } from "@/lib/components/priority/priorityMeta";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 const MarkdownEditor = lazy(() =>
   import("@/lib/components/tasks/_components/MarkdownEditor").then((m) => ({
@@ -131,7 +132,9 @@ export function NewProjectModal({
       if (onCreated) {
         onCreated(projectId);
       } else {
-        navigate({ to: basePath + "/projects/" + projectId });
+        navigate({
+          to: toInternalRepoHref(basePath + "/projects/" + projectId),
+        });
       }
     } catch (error) {
       setIsLoading(false);
@@ -158,7 +161,7 @@ export function NewProjectModal({
         if (!v) handleClose();
       }}
     >
-      <DialogContent className="max-w-2xl gap-0 p-0" hideCloseButton>
+      <DialogContent className="max-w-2xl gap-0 p-0">
         <div className="px-5 pt-5 pb-1">
           <Input
             placeholder="Project title"
@@ -182,14 +185,14 @@ export function NewProjectModal({
               content={description}
               onChange={setDescription}
               editable
-              placeholder="Describe what you want to build..."
+              placeholder="Describe the feature…"
               minHeight="min-h-[160px]"
               className="text-sm [&_.tiptap]:px-0 [&_.tiptap]:py-2"
             />
           </Suspense>
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5 px-5 py-3 bg-muted/30">
+        <div className="flex flex-wrap items-center gap-1.5 border-t border-border px-5 py-3">
           <Popover>
             <PopoverTrigger asChild>
               <button
@@ -244,9 +247,6 @@ export function NewProjectModal({
                       <IconSparkles size={14} className="mr-2" />
                       <div className="flex-1">
                         <div className="text-sm">With interview/plan</div>
-                        <div className="text-xs text-muted-foreground">
-                          AI interview, then generated spec
-                        </div>
                       </div>
                       {!skipPlanning && (
                         <IconCheck size={14} className="ml-2" />
@@ -261,9 +261,6 @@ export function NewProjectModal({
                       <IconListCheck size={14} className="mr-2" />
                       <div className="flex-1">
                         <div className="text-sm">Tasks only</div>
-                        <div className="text-xs text-muted-foreground">
-                          Skip planning, just a task container
-                        </div>
                       </div>
                       {skipPlanning && <IconCheck size={14} className="ml-2" />}
                     </CommandItem>
@@ -274,7 +271,7 @@ export function NewProjectModal({
           </Popover>
         </div>
 
-        <DialogFooter className="flex-col-reverse gap-2 px-5 py-3 sm:flex-row sm:justify-end bg-muted/15">
+        <DialogFooter className="flex-col-reverse gap-2 border-t border-border px-5 py-3 sm:flex-row sm:justify-end">
           <Button variant="secondary" onClick={handleClose}>
             Cancel
           </Button>

@@ -1,7 +1,8 @@
+import type { ReactNode } from "react";
 import { IconX } from "@tabler/icons-react";
 
 interface ActiveFiltersBarProps {
-  filters: Array<{ key: string; label: string }>;
+  filters: Array<{ key: string; label: ReactNode }>;
   onClearFilter: (key: string) => void;
   onClearAll: () => void;
 }

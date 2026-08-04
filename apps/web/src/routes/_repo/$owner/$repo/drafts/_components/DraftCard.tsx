@@ -18,6 +18,7 @@ import { tokenizedToDisplayText } from "@/lib/components/mentions";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { entityPathSegment } from "@/lib/numId";
 import type { DraftCardModel } from "../_utils";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 interface DraftCardProps {
   model: DraftCardModel;
@@ -109,7 +110,7 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
   const handleClick = () => {
     if (model.source === "task") {
       void navigate({
-        to: `${basePath}/quick-tasks`,
+        to: toInternalRepoHref(`${basePath}/quick-tasks`),
         search: { draft: model.row._id },
       });
       return;
@@ -126,7 +127,7 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
           taskProjectId,
         );
         if (path) {
-          await navigate({ to: path });
+          await navigate({ to: toInternalRepoHref(path) });
         }
       })();
       return;
@@ -141,7 +142,7 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
           taskProjectId,
         );
         if (path) {
-          await navigate({ to: path });
+          await navigate({ to: toInternalRepoHref(path) });
         }
       })();
       return;
@@ -155,7 +156,9 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
           return;
         }
         await navigate({
-          to: `${basePath}/projects/${segment}/sandbox/preview`,
+          to: toInternalRepoHref(
+            `${basePath}/projects/${segment}/sandbox/preview`,
+          ),
         });
       })();
       return;
@@ -168,7 +171,9 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
         if (!segment) {
           return;
         }
-        await navigate({ to: `${basePath}/sessions/${segment}/preview` });
+        await navigate({
+          to: toInternalRepoHref(`${basePath}/sessions/${segment}/preview`),
+        });
       })();
       return;
     }

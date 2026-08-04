@@ -7,6 +7,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { IconChevronRight } from "@tabler/icons-react";
 import { phaseConfig } from "@/lib/components/projects/ProjectPhaseBadge";
 import { ScheduleDatesPopover } from "./ScheduleDatesPopover";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
@@ -52,7 +53,9 @@ export function UnscheduledProjectsSection({
                 type="button"
                 onClick={() =>
                   navigate({
-                    to: `${basePath}/projects/${entityPathSegment(project) ?? ""}`,
+                    to: toInternalRepoHref(
+                      `${basePath}/projects/${entityPathSegment(project) ?? ""}`,
+                    ),
                   })
                 }
                 className="flex-1 truncate text-left text-xs font-medium hover:text-primary"

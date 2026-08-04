@@ -6,6 +6,7 @@ import { ClerkProvider, useAuth } from "@clerk/clerk-react";
 import { queryClient } from "./lib/queryClient";
 import { routeTree } from "./routeTree.gen";
 import { createAppHistory } from "./lib/history";
+import { toDisplayRepoHref, toInternalRepoHref } from "./lib/utils/repoUrl";
 import { clientEnv } from "./env/client";
 import { convex } from "./lib/components/ClientProvider";
 import { DeploymentErrorFallback } from "./lib/components/DeploymentErrorFallback";
@@ -71,6 +72,18 @@ const router = createRouter({
   // Twice the 50ms default: long enough that dragging the pointer across a
   // sidebar does not queue a fetch for every item it crosses.
   defaultPreloadDelay: 100,
+  // Monorepo apps: address bar + link hrefs use /owner/repo/app/… while the
+  // route tree matches /owner/repo--app/… (single $repo segment).
+  rewrite: {
+    input: ({ url }) => {
+      url.pathname = toInternalRepoHref(url.pathname);
+      return url;
+    },
+    output: ({ url }) => {
+      url.pathname = toDisplayRepoHref(url.pathname);
+      return url;
+    },
+  },
 });
 
 declare module "@tanstack/react-router" {

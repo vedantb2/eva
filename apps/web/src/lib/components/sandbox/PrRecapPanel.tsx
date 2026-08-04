@@ -27,6 +27,7 @@ import { DynamicLink } from "@/lib/components/DynamicLink";
 import { HtmlPreviewFrame } from "@/lib/components/docs/_components/HtmlPreviewFrame";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 type RecapDoc = FunctionReturnType<typeof api.docs.getRecapByPrUrl>;
 
@@ -159,14 +160,16 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
             </a>
             {recapDoc.prNumber !== undefined ? (
               <DynamicLink
-                to={`${basePath}/reviews/${recapDoc.prNumber}/recap`}
+                to={toInternalRepoHref(
+                  `${basePath}/reviews/${recapDoc.prNumber}/recap`,
+                )}
                 className="hover:text-foreground"
               >
                 Open in Reviews
               </DynamicLink>
             ) : docPath ? (
               <DynamicLink
-                to={`${basePath}/docs/${docPath}/recap`}
+                to={toInternalRepoHref(`${basePath}/docs/${docPath}/recap`)}
                 className="hover:text-foreground"
               >
                 Open in Documents

@@ -8,33 +8,14 @@ import { useQueryState } from "nuqs";
 import { m, AnimatePresence } from "motion/react";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
-import { Button } from "@eva/ui";
+import { Button, Skeleton } from "@eva/ui";
 import { IconChecks, IconInbox } from "@tabler/icons-react";
 import dayjs from "@eva/shared/dates";
 import { inboxFilterParser } from "@/lib/search-params";
 import { type Notification } from "@/lib/components/notifications/notification-config";
 import { InboxFilterTabs } from "@/lib/components/inbox/InboxFilterTabs";
 import { NotificationRow } from "@/lib/components/inbox/NotificationRow";
-
-const KNOWN_SUB_PAGES = new Set([
-  "projects",
-  "docs",
-  "sessions",
-  "quick-tasks",
-  "settings",
-  "testing-arena",
-  "stats",
-  "automations",
-  "inbox",
-]);
-
-function transformNotificationHref(href: string): string {
-  const segments = href.split("/").filter(Boolean);
-  if (segments.length < 3) return href;
-  if (KNOWN_SUB_PAGES.has(segments[2])) return href;
-  const [owner, repo, appName, ...rest] = segments;
-  return `/${owner}/${repo}--${appName}/${rest.join("/")}`;
-}
+import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 function groupByDate(notifications: Notification[]) {
   const groups: { label: string; items: Notification[] }[] = [];
@@ -112,7 +93,7 @@ export function InboxClient() {
 
   const handleClick = (n: Notification) => {
     if (!n.read) markAsRead({ id: n._id });
-    if (n.href) navigate({ to: transformNotificationHref(n.href) });
+    if (n.href) navigate({ to: toInternalRepoHref(n.href) });
   };
 
   const isEmpty = groups !== undefined && groups.length === 0;
@@ -120,29 +101,30 @@ export function InboxClient() {
   return (
     <PageWrapper
       title="Inbox"
+      comfortable
       fillHeight={isEmpty}
       headerRight={
-        <div className="flex items-center gap-2">
-          <InboxFilterTabs
-            filter={filter}
-            unreadCount={unreadCount}
-            onChange={setFilter}
-          />
-          {unreadCount > 0 ? (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => markAllAsRead()}
-              title="Mark all as read"
-              aria-label="Mark all as read"
-              className="h-7 text-xs text-muted-foreground"
-            >
-              <IconChecks size={14} />
-              {/* The label is noise on narrow screens; the icon carries it. */}
-              <span className="hidden sm:inline">Mark all read</span>
-            </Button>
-          ) : null}
-        </div>
+        unreadCount > 0 ? (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => markAllAsRead()}
+            title="Mark all as read"
+            aria-label="Mark all as read"
+            className="h-7 text-xs text-muted-foreground"
+          >
+            <IconChecks size={14} />
+            {/* The label is noise on narrow screens; the icon carries it. */}
+            <span className="hidden sm:inline">Mark all read</span>
+          </Button>
+        ) : null
+      }
+      toolbar={
+        <InboxFilterTabs
+          filter={filter}
+          unreadCount={unreadCount}
+          onChange={setFilter}
+        />
       }
     >
       {filtered === undefined ? (
@@ -151,12 +133,9 @@ export function InboxClient() {
           aria-busy="true"
           aria-label="Loading inbox"
         >
-          <div className="h-4 w-24 animate-pulse rounded bg-muted" />
+          <Skeleton className="h-4 w-24" />
           {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="h-14 animate-pulse rounded-md bg-muted/60"
-            />
+            <Skeleton key={i} className="h-14" />
           ))}
         </div>
       ) : groups === undefined || groups.length === 0 ? (

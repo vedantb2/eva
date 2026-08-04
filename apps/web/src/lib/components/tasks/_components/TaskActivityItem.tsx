@@ -148,17 +148,25 @@ export function TaskActivityItem({
         )}
       </span>
       <span className="min-w-0 flex-1 truncate">
-        <span className="font-medium text-foreground">{actorName}</span>
+        <span data-pii className="font-medium text-foreground">
+          {actorName}
+        </span>
         {" changed "}
         <span className="font-medium">{fieldLabel}</span>
         {showValues && (
           <>
             {" from "}
-            <span className="font-medium text-foreground/80">
+            <span
+              data-pii={event.field === "assignee" || undefined}
+              className="font-medium text-foreground/80"
+            >
               {oldFormatted}
             </span>
             <IconArrowRight size={10} className="inline mx-0.5 align-middle" />
-            <span className="font-medium text-foreground/80">
+            <span
+              data-pii={event.field === "assignee" || undefined}
+              className="font-medium text-foreground/80"
+            >
               {newFormatted}
             </span>
           </>

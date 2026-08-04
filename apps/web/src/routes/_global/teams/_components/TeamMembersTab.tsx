@@ -173,10 +173,10 @@ export function TeamMembersTab({
               <div className="flex min-w-0 items-center gap-2 sm:gap-3">
                 <UserInitials userId={member.userId} hideLastSeen size="md" />
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">
+                  <p data-pii className="truncate text-sm font-medium">
                     {member.user?.fullName || member.user?.email || "Unknown"}
                   </p>
-                  <p className="truncate text-xs text-muted-foreground">
+                  <p data-pii className="truncate text-xs text-muted-foreground">
                     {member.user?.email}
                   </p>
                 </div>

@@ -118,7 +118,7 @@ export function AssignTasksModal({
           {mode === "me" ? (
             <DialogDescription>
               {count} task{count === 1 ? "" : "s"} will be assigned to{" "}
-              {currentUserName}.
+              <span data-pii>{currentUserName}</span>.
             </DialogDescription>
           ) : (
             <DialogDescription>
@@ -134,7 +134,7 @@ export function AssignTasksModal({
             <SelectContent>
               {(users ?? []).map((user) => (
                 <SelectItem key={user._id} value={user._id}>
-                  {getUserLabel(user)}
+                  <span data-pii>{getUserLabel(user)}</span>
                 </SelectItem>
               ))}
             </SelectContent>

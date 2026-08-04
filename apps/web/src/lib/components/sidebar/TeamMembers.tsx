@@ -19,7 +19,7 @@ function getDisplayName(user: {
   );
 }
 
-/** Online teammates as followable avatars (above the sidebar stats card). */
+/** Online teammates as followable avatars (above the sidebar stats). */
 export function OnlineTeamAvatars({ collapsed }: { collapsed: boolean }) {
   const teamData = useQuery(api.users.listTeamWithMembers, {});
   const { following, startFollowing, stopFollowing } = useFollow();
@@ -68,10 +68,11 @@ export function OnlineTeamAvatars({ collapsed }: { collapsed: boolean }) {
               </TooltipTrigger>
               <TooltipContent>
                 {isFollowing
-                  ? `Stop following ${name}`
+                  ? "Stop following "
                   : u.lastSeenPath
-                    ? `Follow ${name}`
-                    : name}
+                    ? "Follow "
+                    : ""}
+                <span data-pii>{name}</span>
               </TooltipContent>
             </Tooltip>
           );
@@ -123,10 +124,11 @@ export function OnlineTeamAvatars({ collapsed }: { collapsed: boolean }) {
               </TooltipTrigger>
               <TooltipContent>
                 {isFollowing
-                  ? `Stop following ${name}`
+                  ? "Stop following "
                   : u.lastSeenPath
-                    ? `Follow ${name}`
-                    : name}
+                    ? "Follow "
+                    : ""}
+                <span data-pii>{name}</span>
               </TooltipContent>
             </Tooltip>
           );

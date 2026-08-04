@@ -100,7 +100,7 @@ export function TaskSubscribers({
             >
               <div className="flex items-center gap-1.5">
                 <Facehash size={16} name={getUserInitials(user)} enableBlink />
-                <span>{getUserDisplayName(user)}</span>
+                <span data-pii>{getUserDisplayName(user)}</span>
               </div>
             </DropdownMenuCheckboxItem>
           ))}

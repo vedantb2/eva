@@ -38,7 +38,9 @@ export function CreatedTimelineItem({
         )}
       </span>
       <span className="min-w-0 flex-1 truncate">
-        <span className="font-medium text-foreground">{actorName}</span>
+        <span data-pii className="font-medium text-foreground">
+          {actorName}
+        </span>
         {` ${actionLabel}`}
         <span className="text-muted-foreground/50" aria-hidden>
           {" "}

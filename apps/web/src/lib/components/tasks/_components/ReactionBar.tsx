@@ -50,7 +50,7 @@ export function ReactionBar({ groups, toggle }: ReactionBarProps) {
                     hideLastSeen
                     disableProfileCard
                   />
-                  <span className="text-sm text-foreground">
+                  <span data-pii className="text-sm text-foreground">
                     {reactor.name}
                   </span>
                 </div>

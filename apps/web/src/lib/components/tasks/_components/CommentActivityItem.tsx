@@ -57,7 +57,7 @@ function CommentAuthorName({
 
   if (fromList) {
     return (
-      <span className="truncate text-sm font-medium text-foreground">
+      <span data-pii className="truncate text-sm font-medium text-foreground">
         {getUserDisplayName(fromList)}
       </span>
     );
@@ -80,7 +80,7 @@ function CommentAuthorName({
   }
 
   return (
-    <span className="truncate text-sm font-medium text-foreground">
+    <span data-pii className="truncate text-sm font-medium text-foreground">
       {getUserDisplayName(profile)}
     </span>
   );

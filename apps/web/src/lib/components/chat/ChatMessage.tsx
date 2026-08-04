@@ -183,7 +183,10 @@ export const ChatMessage = memo(function ChatMessage({
           }
         >
           {isOtherUser && senderFirstName ? (
-            <span className="px-1 text-[11px] font-medium text-muted-foreground">
+            <span
+              data-pii
+              className="px-1 text-[11px] font-medium text-muted-foreground"
+            >
               {senderFirstName}
             </span>
           ) : null}

@@ -20,7 +20,7 @@ const SelectTrigger = React.forwardRef<
   <SelectPrimitive.Trigger
     ref={ref}
     className={cn(
-      "flex h-10 w-full items-center justify-between whitespace-nowrap border border-input bg-card px-3.5 py-2 text-sm ring-offset-background transition-[border-color,box-shadow,background-color,transform] placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/35 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+      "flex h-10 w-full items-center justify-between whitespace-nowrap border border-input bg-card px-3.5 py-2 text-sm ring-offset-background transition-[border-color,box-shadow,background-color,transform] placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring/35 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
       CONTROL_RADIUS_CLASS,
       className,
     )}

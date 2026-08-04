@@ -12,6 +12,7 @@ import {
   DialogBody,
   DialogFooter,
   Button,
+  Surface,
   cn,
   STREAMDOWN_TABLE_RADIUS_CLASS,
 } from "@eva/ui";
@@ -89,7 +90,7 @@ export function ChangelogDialog() {
 
         <DialogBody>
           <div className="max-h-[60vh] overflow-y-auto">
-            <div className="rounded-surface border border-border bg-card p-4">
+            <Surface>
               <Streamdown
                 className={cn(
                   "text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
@@ -99,7 +100,7 @@ export function ChangelogDialog() {
               >
                 {changelog.content}
               </Streamdown>
-            </div>
+            </Surface>
           </div>
         </DialogBody>
 

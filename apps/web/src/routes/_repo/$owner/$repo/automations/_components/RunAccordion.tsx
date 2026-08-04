@@ -10,6 +10,7 @@ import {
   useElapsedSeconds,
   formatElapsed,
   Spinner as UISpinner,
+  Surface,
 } from "@eva/ui";
 import {
   IconAlertTriangle,
@@ -55,12 +56,12 @@ export function LatestRun({
 
   if (!run) {
     return (
-      <div className="rounded-surface border border-border bg-card p-8 text-center">
+      <Surface density="comfortable" className="text-center">
         <p className="text-sm text-muted-foreground">
           No runs yet. Enable the automation and wait for the cron schedule to
           trigger, or click &quot;Run Now&quot;.
         </p>
-      </div>
+      </Surface>
     );
   }
 
@@ -99,12 +100,12 @@ export function RunHistory({
 
   if (runs.length === 0) {
     return (
-      <div className="rounded-surface border border-border bg-card p-8 text-center">
+      <Surface density="comfortable" className="text-center">
         <p className="text-sm text-muted-foreground">
           No runs yet. Enable the automation and wait for the cron schedule to
           trigger, or click &quot;Run Now&quot;.
         </p>
-      </div>
+      </Surface>
     );
   }
 

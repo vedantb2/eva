@@ -18,7 +18,6 @@ import type { Id } from "@eva/backend";
 import { relativeTime } from "@/lib/components/artifacts/_format";
 import {
   isImageContentType,
-  type ChatAttachmentMode,
 } from "@/lib/components/attachments/attachmentMeta";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import type { MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
@@ -105,19 +104,16 @@ function ComposerStashItem({
 export function ComposerStash({
   repoId,
   mentionRef,
-  attachmentMode,
   disabled,
 }: {
   repoId: Id<"githubRepos">;
   mentionRef: RefObject<MentionTextareaHandle | null>;
-  attachmentMode: ChatAttachmentMode;
   disabled: boolean;
 }) {
   const { textInput, attachments } = usePromptInputController();
   const { entries, stash, restore, removeEntry } = useComposerStash({
     repoId,
     mentionRef,
-    attachmentMode,
   });
 
   const [open, setOpen] = useState(false);

@@ -196,7 +196,6 @@ export function QuickTasksToolbar({
         value={searchQuery}
         onChange={onSearchChange}
         placeholder="Search tasks..."
-        tooltipLabel="Search tasks"
         visible={hasQuickTasks}
         variant="large"
       />

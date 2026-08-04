@@ -1,8 +1,10 @@
 import { useState } from "react";
-
-// Logo geometry (matches public/icon.svg).
-const PURPLE = "0,256 217,237 256,64 295,237 512,256";
-const BLUE = "0,256 217,275 256,449 295,275 512,256";
+import {
+  EVA_MARK_BLUE,
+  EVA_MARK_BOTTOM_POINTS,
+  EVA_MARK_PURPLE,
+  EVA_MARK_TOP_POINTS,
+} from "@/lib/utils/evaMark";
 
 interface LogoMarkProps {
   size?: number;
@@ -29,17 +31,17 @@ export function LogoMark({ size = 22, className }: LogoMarkProps) {
       className={className}
     >
       <polygon
-        points={PURPLE}
+        points={EVA_MARK_TOP_POINTS}
         className="logo-draw-poly"
-        fill="#8B3FB8"
-        stroke="#8B3FB8"
+        fill={EVA_MARK_PURPLE}
+        stroke={EVA_MARK_PURPLE}
         pathLength={1}
       />
       <polygon
-        points={BLUE}
+        points={EVA_MARK_BOTTOM_POINTS}
         className="logo-draw-poly"
-        fill="#3B7DD8"
-        stroke="#3B7DD8"
+        fill={EVA_MARK_BLUE}
+        stroke={EVA_MARK_BLUE}
         pathLength={1}
       />
     </svg>

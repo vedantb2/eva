@@ -55,6 +55,7 @@ import {
   DescriptionMentionEditor,
   type DescriptionMentionEditorHandle,
 } from "@/lib/components/tasks/_components/DescriptionMentionEditor";
+import { attachPastedTextIfLarge } from "@/lib/components/attachments/attachmentMeta";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import type { Priority } from "@/lib/components/priority/priorityMeta";
@@ -376,6 +377,13 @@ export function QuickTaskModal({
                 initialSkillMap={initialDescMaps.skillMap}
                 completionContext={`the description of a coding task for the repository ${repo.owner}/${repo.name}${title ? `, titled "${title}"` : ""}`}
                 onImageFiles={attachments.add}
+                onLargeTextPaste={(text) =>
+                  attachPastedTextIfLarge(
+                    text,
+                    attachments.attachments.length,
+                    attachments.add,
+                  )
+                }
               />
             </div>
 
@@ -383,6 +391,7 @@ export function QuickTaskModal({
               attachments={attachments.attachments}
               onAdd={attachments.add}
               onRemove={attachments.remove}
+              onReplace={attachments.replace}
               draftTaskId={activeDraftId}
             />
           </div>

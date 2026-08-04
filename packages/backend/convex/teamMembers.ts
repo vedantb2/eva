@@ -47,6 +47,12 @@ export const list = authQuery({
           _id: v.id("users"),
           email: v.optional(v.string()),
           fullName: v.optional(v.string()),
+          firstName: v.optional(v.string()),
+          lastName: v.optional(v.string()),
+          // Presence, for the team page's Activity tab. Deliberately raw: only
+          // a client can re-evaluate "seen in the last two minutes" over time.
+          lastSeenAt: v.optional(v.number()),
+          lastSeenPath: v.optional(v.string()),
         }),
         v.null(),
       ),
@@ -76,6 +82,10 @@ export const list = authQuery({
               _id: user._id,
               email: user.email,
               fullName: user.fullName,
+              firstName: user.firstName,
+              lastName: user.lastName,
+              lastSeenAt: user.lastSeenAt,
+              lastSeenPath: user.lastSeenPath,
             }
           : null,
       });

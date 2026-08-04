@@ -13,7 +13,6 @@ export {
 export {
   create,
   update,
-  addMessage,
   remove,
   deleteCascade,
   clearMessages,

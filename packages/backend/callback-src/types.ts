@@ -1,3 +1,5 @@
+import type { Usage, UsageUpdate } from "@agentclientprotocol/sdk";
+
 /** JSON-compatible value for Convex HTTP payloads and stream events. */
 export type JsonValue =
   | string
@@ -118,6 +120,30 @@ export type CliAttemptResult = {
   timedOutAfterFirstText: boolean;
   timedOutForZombie: boolean;
   toolStallErrorMessage: string;
+};
+
+/** Structured result from one exact Cursor ACP prompt request. */
+export type CursorAcpAttemptResult = {
+  transport: "acp-v1";
+  sessionId: string;
+  stopReason:
+    | "end_turn"
+    | "max_tokens"
+    | "max_turn_requests"
+    | "refusal"
+    | "cancelled";
+  result: string;
+  events: CanonicalEvent[];
+  durationMs: number;
+  /** ACP token totals. Cursor currently omits these, so absence is explicit. */
+  usage: Usage | null;
+  /** Last ACP-reported context occupancy/cost for this session. */
+  contextUsage: UsageUpdate | null;
+  promptSubmitted: boolean;
+  cancellationAcknowledged: boolean;
+  childExitCode: number | null;
+  childSignal: NodeJS.Signals | null;
+  stderrTail: string;
 };
 
 export type ResultEvent = {

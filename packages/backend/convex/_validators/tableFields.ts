@@ -80,6 +80,58 @@ export const userProviderAccountFields = {
   updatedAt: v.number(),
 };
 
+export const cursorCapabilitySelectValueFields = {
+  value: v.string(),
+  name: v.string(),
+  description: v.optional(v.string()),
+};
+
+export const cursorCapabilityConfigOptionValidator = v.union(
+  v.object({
+    type: v.literal("select"),
+    id: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    category: v.optional(v.string()),
+    currentValue: v.string(),
+    options: v.array(v.object(cursorCapabilitySelectValueFields)),
+  }),
+  v.object({
+    type: v.literal("boolean"),
+    id: v.string(),
+    name: v.string(),
+    description: v.optional(v.string()),
+    category: v.optional(v.string()),
+    currentValue: v.boolean(),
+  }),
+);
+
+export const cursorAdvertisedModelValidator = v.object({
+  value: v.string(),
+  name: v.string(),
+  configOptions: v.array(cursorCapabilityConfigOptionValidator),
+});
+
+export const cursorAdvertisedModeValidator = v.object({
+  id: v.string(),
+  name: v.string(),
+  description: v.optional(v.string()),
+});
+
+/** Sanitized, account-scoped Cursor ACP capabilities with a bounded TTL. */
+export const providerCapabilitySnapshotFields = {
+  provider: v.literal("cursor"),
+  repoId: v.id("githubRepos"),
+  providerAccountId: v.optional(v.id("userProviderAccounts")),
+  scopeKey: v.string(),
+  cliVersion: v.string(),
+  models: v.array(cursorAdvertisedModelValidator),
+  sessionConfigOptions: v.array(cursorCapabilityConfigOptionValidator),
+  availableModes: v.array(cursorAdvertisedModeValidator),
+  fetchedAt: v.number(),
+  expiresAt: v.number(),
+};
+
 export const repoEntityTypeValidator = v.union(
   v.literal("sessions"),
   v.literal("docs"),
@@ -118,25 +170,58 @@ export const backgroundAgentEntryValidator = v.object(
 
 export type BackgroundAgentEntry = Infer<typeof backgroundAgentEntryValidator>;
 
+export const chatTurnIdentityFields = {
+  turnId: v.string(),
+  assistantMessageId: v.id("messages"),
+  attempt: v.number(),
+};
+
+export const chatTurnIdentityValidator = v.object(chatTurnIdentityFields);
+
+export const optionalChatTurnIdentityFields = {
+  turnId: v.optional(v.string()),
+  assistantMessageId: v.optional(v.id("messages")),
+  attempt: v.optional(v.number()),
+};
+
+export const activeTurnFields = {
+  ...chatTurnIdentityFields,
+  acceptedAt: v.number(),
+};
+
+export const activeTurnValidator = v.object(activeTurnFields);
+
 export const pendingTurnFields = {
   prompt: v.string(),
   requestedAt: v.number(),
+  ...optionalChatTurnIdentityFields,
   // legacy field, no longer written — cleanup migration later
   turnKind: v.optional(
     v.union(v.literal("conversational"), v.literal("agent")),
   ),
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   model: v.optional(aiModelValidator),
+  mode: v.optional(sessionModeValidator),
 };
 
 export const pendingTurnValidator = v.optional(v.object(pendingTurnFields));
 
+export const cursorTransportValidator = v.union(
+  v.literal("stream-json"),
+  v.literal("acp-v1"),
+);
+
 export const chatDaemonEntityFields = {
+  // Durable transport ownership. Existing rows omit this field and remain on
+  // stream-json; every newly created chat entity explicitly starts on ACP.
+  cursorTransport: v.optional(cursorTransportValidator),
+  activeTurn: v.optional(activeTurnValidator),
+  daemonTurnProtocolVersion: v.optional(v.number()),
   pendingTurn: pendingTurnValidator,
   syntheticTurnMessageId: v.optional(v.id("messages")),
   backgroundAgents: v.optional(v.array(backgroundAgentEntryValidator)),
   pendingTaskStops: v.optional(v.array(v.string())),
-  // Interrupt-cancel signal for a warm Claude daemon: cancelExecution sets this
+  // Interrupt-cancel signal for a warm provider daemon: cancelExecution sets this
   // instead of killing the sandbox process; claimPendingTurn drains it
   // unconditionally (even mid-turn, with no pendingTurn) so the daemon's poll
   // loop notices and aborts its in-flight SDK query.
@@ -571,6 +656,8 @@ export const messageFields = {
   // optimistically. Lets the client dedup its local pending row against the
   // server row once the reactive query delivers it.
   clientId: v.optional(v.string()),
+  turnId: v.optional(v.string()),
+  turnRequestFingerprint: v.optional(v.string()),
   isSystemAlert: v.optional(v.boolean()),
   errorDetail: v.optional(v.string()),
   personaId: v.optional(v.id("designPersonas")),
@@ -599,6 +686,8 @@ export const messageFields = {
 
 export const queuedMessageFields = {
   parentId: v.union(v.id("sessions"), v.id("projects"), v.id("agentTasks")),
+  turnId: v.optional(v.string()),
+  turnRequestFingerprint: v.optional(v.string()),
   content: v.string(),
   /** Compact chat-display text; `content` remains the full agent message. */
   displayContent: v.optional(v.string()),
@@ -621,6 +710,25 @@ export const queuedMessageFields = {
   numDesigns: v.optional(v.number()),
   // Carried from the composer through the queue to the started user message.
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+};
+
+export const streamingActivityFields = {
+  entityId: v.string(),
+  currentActivity: v.string(),
+  currentContent: v.optional(v.string()),
+  pendingQuestion: v.optional(v.string()),
+  lastUpdatedAt: v.optional(v.number()),
+  ...optionalChatTurnIdentityFields,
+};
+
+export const pendingQuestionFields = {
+  entityId: v.string(),
+  toolUseId: v.string(),
+  payload: v.string(),
+  answer: v.optional(v.string()),
+  answeredAt: v.optional(v.number()),
+  createdAt: v.number(),
+  ...optionalChatTurnIdentityFields,
 };
 
 export const taskSandboxEventFields = {

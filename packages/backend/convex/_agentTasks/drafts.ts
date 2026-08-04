@@ -102,6 +102,7 @@ export const saveDraft = authMutation({
       attachmentStorageIds: args.attachmentStorageIds,
       repoId: args.repoId,
       status: "draft",
+      cursorTransport: "acp-v1",
       createdAt: now,
       updatedAt: now,
       createdBy: ctx.userId,

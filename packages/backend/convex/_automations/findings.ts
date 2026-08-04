@@ -55,6 +55,7 @@ export const createTasksFromFindings = authMutation({
         description: descriptionParts.join(""),
         repoId: automation.repoId,
         status: "todo",
+        cursorTransport: "acp-v1",
         createdAt: now,
         updatedAt: now,
         createdBy: ctx.userId,

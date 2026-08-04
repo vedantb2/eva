@@ -6,6 +6,10 @@ import { getAIModelProvider, normalizeAIModel } from "../validators";
 import type { AIProvider } from "../validators";
 import { execHandle, requireEnv } from "./helpers";
 import type { SandboxHandle } from "../_sandbox/provider";
+import {
+  CHAT_TURN_PROTOCOL_VERSION,
+  type ChatTurnIdentity,
+} from "../../shared/chatTurnProtocol";
 import { CALLBACK_SCRIPT } from "./callbackScript";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
 
@@ -142,6 +146,7 @@ export async function launchScript(
     openSyntheticTurnMutation?: string;
     completeSyntheticTurnMutation?: string;
     updateBackgroundAgentsMutation?: string;
+    turnIdentity?: ChatTurnIdentity;
   } = {},
 ): Promise<void> {
   const launchStartedAt = Date.now();
@@ -252,6 +257,14 @@ export async function launchScript(
   if (opts.updateBackgroundAgentsMutation) {
     envParts.push(
       `UPDATE_BACKGROUND_AGENTS_MUTATION=${quote([opts.updateBackgroundAgentsMutation])}`,
+    );
+  }
+  envParts.push(`CHAT_TURN_PROTOCOL_VERSION=${CHAT_TURN_PROTOCOL_VERSION}`);
+  if (opts.turnIdentity) {
+    envParts.push(
+      `CHAT_TURN_ID=${quote([opts.turnIdentity.turnId])}`,
+      `CHAT_ASSISTANT_MESSAGE_ID=${quote([opts.turnIdentity.assistantMessageId])}`,
+      `CHAT_TURN_ATTEMPT=${opts.turnIdentity.attempt}`,
     );
   }
   if (opts.extraEnvVars) {

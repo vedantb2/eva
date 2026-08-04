@@ -1,9 +1,10 @@
 import { CLAIM_MUTATION, ENTITY_ID } from "../config.js";
 import { callConvexWithRetry } from "../http/convexClient.js";
 import { callbackState as S } from "./state.js";
+import { activeTurnIdentityArgs } from "./turnIdentity.js";
 import type { JsonValue } from "../types.js";
-import type { JsonLike, SdkCanUseTool } from "../providers/claudeSdk.js";
-import { log } from "../utils.js";
+import type { SdkCanUseTool } from "../providers/claudeSdk.js";
+import { log, tryParseJson } from "../utils.js";
 
 // How often the paused turn polls Convex for the user's answer. Matches the
 // daemon's turn-claim cadence — the model is idle while waiting, so this only
@@ -38,6 +39,7 @@ async function postQuestion(toolUseId: string, payload: string): Promise<void> {
     entityId: ENTITY_ID ?? "",
     toolUseId,
     payload,
+    ...activeTurnIdentityArgs(),
   });
 }
 
@@ -50,7 +52,11 @@ async function pollForAnswer(
     const result = await callConvexWithRetry(
       "mutation",
       "pendingQuestions:claimAnswer",
-      { entityId: ENTITY_ID ?? "", toolUseId },
+      {
+        entityId: ENTITY_ID ?? "",
+        toolUseId,
+        ...activeTurnIdentityArgs(),
+      },
     );
     const answer = readClaimedAnswer(result);
     if (answer !== null) return answer;
@@ -60,20 +66,37 @@ async function pollForAnswer(
 }
 
 /** Parses the stored answer JSON into an object safe to merge into tool input. */
-function parseAnswers(answerJson: string): Record<string, JsonLike> {
-  try {
-    const parsed: JsonLike = JSON.parse(answerJson);
-    if (
-      typeof parsed === "object" &&
-      parsed !== null &&
-      !Array.isArray(parsed)
-    ) {
-      return parsed;
+export function parsePendingQuestionAnswers(
+  answerJson: string,
+): Record<string, string> {
+  const parsed = tryParseJson(answerJson);
+  if (typeof parsed === "object" && parsed !== null && !Array.isArray(parsed)) {
+    const answers: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === "string") answers[key] = value;
     }
-  } catch {
-    /* malformed answer — fall through to empty */
+    return answers;
   }
   return {};
+}
+
+/** Publishes a blocking interaction and waits for the UI's structured answer. */
+export async function waitForPendingQuestionAnswer(
+  toolUseId: string,
+  payload: string,
+  signal: AbortSignal,
+): Promise<Record<string, string> | null> {
+  S.awaitingQuestionAnswer = true;
+  try {
+    await postQuestion(toolUseId, payload);
+    // Blocking questions live only in the exact pendingQuestions row. Keeping
+    // the legacy stream/message copy would let an answered request reappear.
+    S.pendingQuestionData = "";
+    const answerJson = await pollForAnswer(toolUseId, signal);
+    return answerJson === null ? null : parsePendingQuestionAnswers(answerJson);
+  } finally {
+    S.awaitingQuestionAnswer = false;
+  }
 }
 
 /**
@@ -107,20 +130,18 @@ export function buildCanUseTool(): SdkCanUseTool {
       typeof options.toolUseID === "string" && options.toolUseID
         ? options.toolUseID
         : "";
-    S.awaitingQuestionAnswer = true;
     log("canUseTool: AskUserQuestion — posting question, awaiting user answer");
-    try {
-      await postQuestion(toolUseId, JSON.stringify(input));
-      const answerJson = await pollForAnswer(toolUseId, options.signal);
-      if (answerJson === null) {
-        return { behavior: "deny", message: "The question was cancelled." };
-      }
-      return {
-        behavior: "allow",
-        updatedInput: { ...input, answers: parseAnswers(answerJson) },
-      };
-    } finally {
-      S.awaitingQuestionAnswer = false;
+    const answers = await waitForPendingQuestionAnswer(
+      toolUseId,
+      JSON.stringify(input),
+      options.signal,
+    );
+    if (answers === null) {
+      return { behavior: "deny", message: "The question was cancelled." };
     }
+    return {
+      behavior: "allow",
+      updatedInput: { ...input, answers },
+    };
   };
 }

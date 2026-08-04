@@ -66,18 +66,6 @@ test("codex sets toolUseId, file_change files, and failed isError", () => {
   expect(failed?.output?.exitCode).toBe(1);
 });
 
-test("cursor pairs call_id and attaches result output", () => {
-  applyFixture("cursor-tool-pair.jsonl", "cursor");
-  expect(S.accumulatedSteps).toHaveLength(1);
-  const step = S.accumulatedSteps[0];
-  expect(step?.toolUseId).toBe("call_cursor1");
-  expect(step?.type).toBe("bash");
-  expect(step?.command).toContain("ls -la");
-  expect(step?.output?.text).toContain("total 12");
-  expect(step?.output?.exitCode).toBe(0);
-  expect(step?.status).toBe("complete");
-});
-
 test("opencode captures output, exit, error, and durationMs", () => {
   applyFixture("opencode-tool.jsonl", "opencode");
   const ok = S.accumulatedSteps.find((s) => s.toolUseId === "part_oc1");

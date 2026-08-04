@@ -170,7 +170,7 @@ export function ProjectCard({
       selected={isActive}
       link={
         href ? (
-          <DynamicLink to={href} search={(prev) => prev} />
+          <DynamicLink to={href} search={true} />
         ) : undefined
       }
       onClick={

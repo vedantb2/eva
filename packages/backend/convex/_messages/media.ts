@@ -12,7 +12,7 @@ type MediaFields<TId> = {
 };
 
 /**
- * The ids one `updateLastInternal` call contributes, in capture order.
+ * The ids one exact message update contributes, in capture order.
  *
  * Video before image, matching the order the legacy pair was resolved in.
  */

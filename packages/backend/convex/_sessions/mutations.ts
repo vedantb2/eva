@@ -88,6 +88,7 @@ export const create = authMutation({
       userId: ctx.userId,
       title,
       status: "starting",
+      cursorTransport: "acp-v1",
       createdBy: ctx.userId,
       updatedAt: Date.now(),
       numId,
@@ -143,7 +144,7 @@ export const create = authMutation({
         numDesigns: args.numDesigns,
       });
       // The first message queues directly rather than going through
-      // startExecute, so its mentions are notified here instead.
+      // `submitTurn`, so its mentions are notified here instead.
       const session = await ctx.db.get(sessionId);
       if (session) {
         await notifyChatMentions(ctx, {

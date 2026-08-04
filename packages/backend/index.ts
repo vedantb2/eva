@@ -1,6 +1,7 @@
 export type { Id, Doc } from "./convex/_generated/dataModel";
 export type { BackgroundAgentEntry } from "./convex/_validators/tableFields";
 export { api } from "./convex/_generated/api";
+export { projectConversationMessageKey } from "./projectInterview";
 export {
   AI_MODEL_OPTIONS,
   DEFAULT_AI_MODEL,
@@ -13,6 +14,7 @@ export {
   getModelTraits,
   resolveTraitsForDisplay,
   buildTraitsExecutionPayload,
+  describeModelComposerControls,
   modelHasTraits,
   getReasoningLevelLabel,
   normalizeAIModel,
@@ -21,5 +23,15 @@ export {
   type ReasoningLevel,
   type StoredModelTraits,
   type ModelTraitsExecutionArgs,
+  type ModelTraitsDisplay,
+  type ModelComposerControlDescriptor,
   PERSONALISATION_PRESETS,
 } from "./convex/validators";
+export {
+  cursorModelIdForEva,
+  evaModelIdForCursor,
+  evaModelIdsForCursor,
+  cursorReasoningLevelForEvaModel,
+  type CursorComposerCapability as ProviderComposerCapability,
+  type CursorEvaModel,
+} from "./cursorCapabilities";

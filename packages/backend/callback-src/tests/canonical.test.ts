@@ -40,17 +40,6 @@ test("applyCanonicalEvents sets pending question", () => {
   expect(getPendingQuestionForTest()).toBe('{"questions":[]}');
 });
 
-test("parseToCanonical cursor assistant text appends", () => {
-  const events = parseToCanonical(
-    {
-      type: "assistant",
-      message: { content: [{ type: "text", text: "hello" }] },
-    },
-    "cursor",
-  );
-  expect(events.some((e) => e.kind === "append_text")).toBeTruthy();
-});
-
 test("tool_result clears in-flight tool by tool_use_id", () => {
   resetStateForTests();
   applyCanonicalEvents([
@@ -239,22 +228,6 @@ test("parseToCanonical opencode reasoning part routes to update_reasoning", () =
   expect(events[0]).toEqual({
     kind: "update_reasoning",
     text: "weighing options",
-  });
-});
-
-test("parseToCanonical cursor thinking block routes to update_reasoning", () => {
-  resetStateForTests();
-  const events = parseToCanonical(
-    {
-      type: "assistant",
-      message: { content: [{ type: "thinking", thinking: "hmm let me see" }] },
-    },
-    "cursor",
-  );
-  expect(events.length).toBe(1);
-  expect(events[0]).toEqual({
-    kind: "update_reasoning",
-    text: "hmm let me see",
   });
 });
 

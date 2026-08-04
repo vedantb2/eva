@@ -129,7 +129,7 @@ export function TeamDetailClient({
         </div>
       }
     >
-      <div className="mb-4 overflow-hidden rounded-lg border border-border bg-card shadow-sm">
+      <div className="mb-4 overflow-hidden rounded-lg border border-border bg-card">
         <div className="relative h-28 w-full bg-muted">
           {team.backgroundUrl ? (
             <img

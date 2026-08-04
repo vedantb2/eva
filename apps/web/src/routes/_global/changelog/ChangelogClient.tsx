@@ -33,7 +33,7 @@ export function ChangelogClient() {
           ))}
         </div>
       ) : entries.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-surface border border-border bg-card py-16 text-center shadow-sm">
+        <div className="flex flex-col items-center gap-2 rounded-surface border border-border bg-card py-16 text-center">
           <IconSparkles size={20} className="text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
             No changelog entries yet.
@@ -52,7 +52,7 @@ export function ChangelogClient() {
                 )}
                 aria-hidden
               />
-              <article className="rounded-surface border border-border bg-card shadow-sm">
+              <article className="rounded-surface border border-border bg-card">
                 <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
                   <h2 className="text-sm font-semibold">
                     Week of {dayjs(entry.publishedAt).format("MMM D, YYYY")}

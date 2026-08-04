@@ -83,7 +83,7 @@ const TabsList = React.forwardRef<
     >
       <span
         ref={pillRef}
-        className="t-tabs-pill rounded-lg bg-card shadow-sm"
+        className="t-tabs-pill rounded-lg bg-card"
         aria-hidden="true"
       />
       {children}

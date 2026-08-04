@@ -19,7 +19,7 @@ export function DiffCommentDraftBox({
 
   return (
     <div
-      className="mx-2 my-2 rounded-lg border border-border bg-card p-3 shadow-sm"
+      className="mx-2 my-2 rounded-lg border border-border bg-card p-3"
       contentEditable={false}
       onPointerDown={(event) => event.stopPropagation()}
     >
@@ -81,7 +81,7 @@ export function DiffCommentPendingCard({
 }: DiffCommentPendingCardProps) {
   return (
     <div
-      className="mx-2 my-2 rounded-lg border border-border bg-card p-3 shadow-sm"
+      className="mx-2 my-2 rounded-lg border border-border bg-card p-3"
       contentEditable={false}
       onPointerDown={(event) => event.stopPropagation()}
     >

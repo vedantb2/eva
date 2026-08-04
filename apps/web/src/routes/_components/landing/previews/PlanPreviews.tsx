@@ -109,7 +109,7 @@ export function ProjectsPreview() {
             {column.cards.map((card) => (
               <div
                 key={card.title}
-                className="space-y-2 rounded-md border border-border bg-card p-2 shadow-sm"
+                className="space-y-2 rounded-md border border-border bg-card p-2"
               >
                 <p className="text-[11px] font-medium leading-tight text-foreground">
                   {card.title}

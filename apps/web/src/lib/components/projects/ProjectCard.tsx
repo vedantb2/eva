@@ -161,7 +161,7 @@ export function ProjectCard({
       className={`group relative shrink-0 overflow-hidden rounded-surface border transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)] ${
         isActive
           ? "border-primary/30 bg-primary/5 ring-1 ring-primary/30"
-          : "border-border bg-card shadow-sm hover:bg-muted/40"
+          : "border-border bg-card hover:bg-muted/40"
       }`}
     >
       <div className="pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full bg-primary/10 blur-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100" />

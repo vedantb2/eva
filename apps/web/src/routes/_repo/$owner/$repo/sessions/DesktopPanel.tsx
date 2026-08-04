@@ -156,7 +156,7 @@ export function DesktopPanel({
           onClick={handleTakeControl}
           className="absolute inset-0 z-10 flex cursor-pointer flex-col items-center justify-center gap-2 bg-background/55 px-4 text-center backdrop-blur-[1px]"
         >
-          <span className="rounded-md border border-border bg-card px-3 py-2 text-sm shadow-sm">
+          <span className="rounded-md border border-border bg-card px-3 py-2 text-sm">
             Agent is browsing — click to take control
           </span>
         </button>

@@ -136,7 +136,7 @@ export const ConversationScrollButton = ({
     <div className="pointer-events-none absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 justify-center">
       <Button
         className={cn(
-          "pointer-events-auto h-7 gap-1.5 rounded-full border border-border/60 bg-card px-3 text-xs font-normal text-muted-foreground shadow-sm hover:border-border hover:bg-card hover:text-foreground",
+          "pointer-events-auto h-7 gap-1.5 rounded-full border border-border/60 bg-card px-3 text-xs font-normal text-muted-foreground hover:border-border hover:bg-card hover:text-foreground",
           className,
         )}
         onClick={handleScrollToEnd}

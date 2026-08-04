@@ -92,7 +92,7 @@ export function ArtifactViewer({ artifactId }: { artifactId: string }) {
           Open in new tab
         </button>
       </div>
-      <div className="min-h-0 w-full flex-1 overflow-hidden rounded-surface border border-border bg-white shadow-sm">
+      <div className="min-h-0 w-full flex-1 overflow-hidden rounded-surface border border-border bg-white">
         {url ? (
           <Suspense
             fallback={

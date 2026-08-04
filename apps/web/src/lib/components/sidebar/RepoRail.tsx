@@ -169,7 +169,7 @@ function RepoRailView({
                   : "border-transparent opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100",
               )}
             >
-              <span className="flex size-8 items-center justify-center rounded-full bg-white shadow-sm">
+              <span className="flex size-8 items-center justify-center rounded-full bg-white">
                 <LogoMark size={20} className="shrink-0" />
               </span>
             </Link>

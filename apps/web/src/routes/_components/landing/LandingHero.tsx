@@ -60,7 +60,7 @@ export function LandingHero() {
             href={EVA_GITHUB_URL}
             target="_blank"
             rel="noreferrer"
-            className="motion-base inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground shadow-sm hover:bg-muted/60 hover:text-foreground"
+            className="motion-base inline-flex items-center gap-2 rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground hover:bg-muted/60 hover:text-foreground"
           >
             <span className="landing-pulse-dot size-1.5 rounded-full bg-primary" />
             Open source and MIT licensed

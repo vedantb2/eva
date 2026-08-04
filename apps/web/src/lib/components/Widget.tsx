@@ -38,7 +38,7 @@ export function Widget({
   return (
     <div
       className={cn(
-        "flex h-full flex-col rounded-surface border border-border bg-muted/50 p-1.5 shadow-sm",
+        "flex h-full flex-col rounded-surface border border-border bg-muted/50 p-1.5",
         className,
       )}
     >
@@ -59,7 +59,7 @@ export function Widget({
       )}
       <div
         className={cn(
-          "min-h-0 flex-1 rounded-surface border border-border bg-card p-4 shadow-sm",
+          "min-h-0 flex-1 rounded-surface border border-border bg-card p-4",
           contentClassName,
         )}
       >

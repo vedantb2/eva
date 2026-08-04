@@ -3,12 +3,12 @@
 import type { ComponentProps, HTMLAttributes } from "react";
 import { createContext, useContext, useMemo } from "react";
 import {
-  CheckCircle2Icon,
-  ChevronRightIcon,
-  CircleDotIcon,
-  CircleIcon,
-  XCircleIcon,
-} from "lucide-react";
+  IconCircleCheck,
+  IconChevronRight,
+  IconCircleDot,
+  IconCircle,
+  IconCircleX,
+} from "@tabler/icons-react";
 import { Badge } from "../ui/badge";
 import {
   Collapsible,
@@ -103,18 +103,18 @@ export const TestResultsSummary = ({
       {children ?? (
         <>
           <Badge className="gap-1" variant="success">
-            <CheckCircle2Icon className="size-3" />
+            <IconCircleCheck className="size-3" />
             {summary.passed} passed
           </Badge>
           {summary.failed > 0 && (
             <Badge className="gap-1" variant="destructive">
-              <XCircleIcon className="size-3" />
+              <IconCircleX className="size-3" />
               {summary.failed} failed
             </Badge>
           )}
           {summary.skipped > 0 && (
             <Badge className="gap-1" variant="warning">
-              <CircleIcon className="size-3" />
+              <IconCircle className="size-3" />
               {summary.skipped} skipped
             </Badge>
           )}
@@ -247,7 +247,7 @@ export const TestSuiteName = ({
       )}
       {...props}
     >
-      <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
+      <IconChevronRight className="size-4 shrink-0 text-muted-foreground transition-transform group-data-[state=open]:rotate-90" />
       <TestStatusIcon status={status} />
       <span className="font-medium text-sm">{children ?? name}</span>
     </CollapsibleTrigger>
@@ -352,10 +352,10 @@ const statusStyles: Record<TestStatus, string> = {
 };
 
 const statusIcons: Record<TestStatus, React.ReactNode> = {
-  failed: <XCircleIcon className="size-4" />,
-  passed: <CheckCircle2Icon className="size-4" />,
-  running: <CircleDotIcon className="size-4" />,
-  skipped: <CircleIcon className="size-4" />,
+  failed: <IconCircleX className="size-4" />,
+  passed: <IconCircleCheck className="size-4" />,
+  running: <IconCircleDot className="size-4" />,
+  skipped: <IconCircle className="size-4" />,
 };
 
 const TestStatusIcon = ({ status }: { status: TestStatus }) => (

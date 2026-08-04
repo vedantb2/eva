@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { ChevronDownIcon } from "lucide-react";
+import { IconChevronDown } from "@tabler/icons-react";
 import { Button } from "../ui/button";
 import {
   DropdownMenu,
@@ -155,7 +155,7 @@ export function TraitsMenu({
           )}
         >
           <span>{triggerLabels.join(" · ")}</span>
-          <ChevronDownIcon aria-hidden="true" className="size-3 opacity-60" />
+          <IconChevronDown aria-hidden="true" className="size-3 opacity-60" />
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" className="min-w-44">

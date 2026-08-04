@@ -51,8 +51,13 @@ import {
 import { Spinner } from "../ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "../utils/cn";
-import { ImageIcon, PlusIcon, SquareIcon, XIcon } from "lucide-react";
-import { IconArrowUp } from "@tabler/icons-react";
+import {
+  IconArrowUp,
+  IconPhoto,
+  IconPlus,
+  IconSquare,
+  IconX,
+} from "@tabler/icons-react";
 import { nanoid } from "nanoid";
 import {
   Children,
@@ -365,7 +370,7 @@ export const PromptInputActionAddAttachments = ({
 
   return (
     <DropdownMenuItem {...props} onSelect={handleSelect}>
-      <ImageIcon className="mr-2 size-4" /> {label}
+      <IconPhoto className="mr-2 size-4" /> {label}
     </DropdownMenuItem>
   );
 };
@@ -1101,7 +1106,7 @@ export const PromptInputActionMenuTrigger = ({
 }: PromptInputActionMenuTriggerProps) => (
   <DropdownMenuTrigger asChild>
     <PromptInputButton className={className} {...props}>
-      {children ?? <PlusIcon className="size-4" />}
+      {children ?? <IconPlus className="size-4" />}
     </PromptInputButton>
   </DropdownMenuTrigger>
 );
@@ -1151,9 +1156,9 @@ export const PromptInputSubmit = ({
   if (status === "submitted") {
     Icon = <Spinner />;
   } else if (status === "streaming") {
-    Icon = <SquareIcon className="size-4" />;
+    Icon = <IconSquare className="size-4" />;
   } else if (status === "error") {
-    Icon = <XIcon className="size-4" />;
+    Icon = <IconX className="size-4" />;
   }
 
   const handleClick = useCallback(

@@ -6,7 +6,6 @@ import { usePromptInputController, usePromptInputAttachments } from "@eva/ui";
 import type { Id } from "@eva/backend";
 import { UserProfileHoverCardBody } from "@eva/shared";
 import { attachPastedTextIfLarge } from "@/lib/components/attachments/attachmentMeta";
-import { UserProfileHoverCardBody } from "@eva/shared";
 import {
   MentionEditor,
   type MentionEditorHandle,

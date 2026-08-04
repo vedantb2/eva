@@ -11,6 +11,7 @@ import {
 } from "@eva/ui";
 import {
   IconArchive,
+  IconArchiveOff,
   IconClipboard,
   IconCopy,
   IconLink,
@@ -43,15 +44,17 @@ interface SidebarSessionRowProps<T extends SessionItem> {
   onNavigate?: () => void;
   onRename?: (session: T, newTitle: string) => Promise<void>;
   onDuplicate?: (session: T) => Promise<string>;
-  onArchiveRequest: (session: T) => void;
-  onDuplicateNavigate: (pathSegment: string) => void;
-  onRenameRequest: (session: T) => void;
+  /** Active list: archive. Omit in archived list. */
+  onArchiveRequest?: (session: T) => void;
+  /** Archived list: unarchive. */
+  onUnarchive?: (session: T) => Promise<void>;
+  onDuplicateNavigate?: (pathSegment: string) => void;
+  onRenameRequest?: (session: T) => void;
 }
 
 /**
- * One active (non-archived) session row: the visual item plus its right-click
- * context menu (rename/duplicate/copy/archive). Extracted from
- * `SessionListSidebar` to keep that file under the component-size guideline.
+ * One session row plus context menu. Active list gets rename/duplicate/archive;
+ * archived list gets unarchive.
  */
 export function SidebarSessionRow<T extends SessionItem>({
   session,
@@ -61,11 +64,13 @@ export function SidebarSessionRow<T extends SessionItem>({
   onRename,
   onDuplicate,
   onArchiveRequest,
+  onUnarchive,
   onDuplicateNavigate,
   onRenameRequest,
 }: SidebarSessionRowProps<T>) {
   const pathSegment = entityPathSegment(session);
   const href = pathSegment ? `${baseUrl}/${pathSegment}` : baseUrl;
+  const isArchivedList = onUnarchive !== undefined;
 
   return (
     <ContextMenu>
@@ -79,13 +84,14 @@ export function SidebarSessionRow<T extends SessionItem>({
           <SharedLayoutNavSurface
             itemId={session._id}
             isActive={isSelected}
-            className="group mx-1 rounded-menu-item"
+            className="group mx-1 rounded-lg"
           >
             <SidebarSessionItem
               href={href}
               title={session.title}
               userId={session.userId}
               createdAt={session._creationTime}
+              updatedAt={session.updatedAt}
               status={session.status}
               isSelected={isSelected}
               onNavigate={onNavigate}
@@ -97,13 +103,13 @@ export function SidebarSessionRow<T extends SessionItem>({
         </m.div>
       </ContextMenuTrigger>
       <ContextMenuContent onClick={(e) => e.stopPropagation()}>
-        {onRename && (
+        {!isArchivedList && onRename && onRenameRequest ? (
           <ContextMenuItem onSelect={() => onRenameRequest(session)}>
             <IconPencil size={16} />
             Rename
           </ContextMenuItem>
-        )}
-        {onDuplicate && (
+        ) : null}
+        {!isArchivedList && onDuplicate && onDuplicateNavigate ? (
           <ContextMenuItem
             onSelect={() => {
               void onDuplicate(session).then((newPathSegment) => {
@@ -114,7 +120,7 @@ export function SidebarSessionRow<T extends SessionItem>({
             <IconCopy size={16} />
             Duplicate
           </ContextMenuItem>
-        )}
+        ) : null}
         <ContextMenuItem
           onSelect={() => {
             void navigator.clipboard.writeText(session.title);
@@ -131,14 +137,31 @@ export function SidebarSessionRow<T extends SessionItem>({
           <IconLink size={16} />
           Copy link
         </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem
-          className="text-warning"
-          onSelect={() => onArchiveRequest(session)}
-        >
-          <IconArchive size={16} />
-          Archive
-        </ContextMenuItem>
+        {isArchivedList && onUnarchive ? (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              onSelect={() => {
+                void onUnarchive(session);
+              }}
+            >
+              <IconArchiveOff size={16} />
+              Unarchive
+            </ContextMenuItem>
+          </>
+        ) : null}
+        {!isArchivedList && onArchiveRequest ? (
+          <>
+            <ContextMenuSeparator />
+            <ContextMenuItem
+              className="text-warning"
+              onSelect={() => onArchiveRequest(session)}
+            >
+              <IconArchive size={16} />
+              Archive
+            </ContextMenuItem>
+          </>
+        ) : null}
       </ContextMenuContent>
     </ContextMenu>
   );

@@ -170,6 +170,7 @@ export function ChatComposer({
     content: message.displayContent ?? message.content,
     model: message.model,
     reasoningLevel: message.reasoningLevel,
+    userId: message.userId,
   }));
 
   return (

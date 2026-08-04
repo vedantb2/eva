@@ -30,8 +30,9 @@ interface ReviewTabsPanelProps {
    */
   headerOwnsRefresh?: boolean;
   /**
-   * Nested surfaces (session sandbox Review) use `size="sm"` on the same
-   * TabsBar / TabsList; the standalone Reviews page keeps the default size.
+   * Nested surfaces (session sandbox Review) tighten padding via className;
+   * the standalone Reviews page keeps the default TabsBar / TabsList chrome.
+   * (`size` variants live on staging's Tabs only — not on main yet.)
    */
   compact?: boolean;
 }
@@ -63,7 +64,6 @@ export function ReviewTabsPanel({
     api.docs.getRecapByPrUrl,
     prUrl ? { repoId, prUrl } : "skip",
   );
-  const tabSize = compact ? "sm" : "default";
 
   return (
     // Mounted unconditionally and above the tabs, so the workers spin up while
@@ -82,8 +82,14 @@ export function ReviewTabsPanel({
         className="flex h-full min-h-0 flex-col"
       >
         {header}
-        <TabsBar size={tabSize}>
-          <TabsList size={tabSize}>
+        <TabsBar className={compact ? "px-2 py-1.5" : undefined}>
+          <TabsList
+            className={
+              compact
+                ? "h-8 [&_.t-tab]:px-2.5 [&_.t-tab]:py-1 [&_.t-tab]:text-xs"
+                : undefined
+            }
+          >
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="diffs">Diffs</TabsTrigger>
             <TabsTrigger value="recap">Recap</TabsTrigger>

@@ -51,7 +51,6 @@ export function LogsHeader({
         value={searchQuery}
         onChange={onSearchChange}
         placeholder="Search logs..."
-        tooltipLabel="Search logs"
       />
 
       <div className="flex items-center rounded-lg bg-muted/60 p-0.5">

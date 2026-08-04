@@ -4,6 +4,7 @@ import tanstackRouter from "@tanstack/router-plugin/vite";
 import { visualizer } from "rollup-plugin-visualizer";
 import path from "path";
 import { tablerDeepImports } from "./vite/deepImports";
+import { originHints } from "./vite/originHints";
 
 function agentLoginPlugin(): Plugin {
   let env: Record<string, string>;
@@ -83,6 +84,7 @@ export default defineConfig({
     // Only `tablerIcon.ts` still reaches the icon barrel, behind a dynamic
     // import — see lib/components/TablerIconByName.tsx.
     tablerDeepImports(),
+    originHints(),
     agentLoginPlugin(),
     process.env.ANALYZE === "true" &&
       visualizer({

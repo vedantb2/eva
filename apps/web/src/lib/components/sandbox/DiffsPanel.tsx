@@ -13,7 +13,6 @@ import { DiffFileAccordionItem } from "./DiffFileAccordionItem";
 import { DiffsToolbar } from "./DiffsToolbar";
 import { SubmitReviewPopover } from "./SubmitReviewPopover";
 import { prNumberFromGithubUrl } from "@/lib/githubPr";
-import { buildDiffFileEntries } from "./diffFiles";
 import { useDiffSearchParams } from "./useDiffSearchParams";
 import { useDiffViewedFiles } from "./useDiffViewedFiles";
 import { usePrDiff } from "./usePrDiff";
@@ -48,6 +47,10 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
   const [openPaths, setOpenPaths] = useState<string[]>([]);
   const [seededFilesKey, setSeededFilesKey] = useState<string | null>(null);
 
+  // Held in state, not a ref, because each file's body needs the element as its
+  // IntersectionObserver root and has to re-observe once it exists.
+  const [scrollRoot, setScrollRoot] = useState<HTMLDivElement | null>(null);
+
   // Wrapper element for each file's diff, keyed by path, so a tree click can
   // scroll the matching diff into view.
   const fileRefs = useRef<Map<string, HTMLDivElement>>(new Map());
@@ -60,9 +63,9 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
     [],
   );
 
-  // One entry per changed file: patch, path, status, and change counts.
-  const fileEntries =
-    state.status === "ready" ? buildDiffFileEntries(state.diff) : [];
+  // One entry per changed file: patch, path, status, and change counts. Parsed
+  // once when the diff is fetched, not on every render.
+  const fileEntries = state.status === "ready" ? state.entries : [];
   const filePaths = fileEntries.map((entry) => entry.path);
   const totals = fileEntries.reduce(
     (sum, entry) => ({
@@ -162,7 +165,7 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
   const prNumber = prNumberFromGithubUrl(prUrl);
 
   const fileDiffs = (
-    <div className="min-h-0 flex-1 overflow-auto">
+    <div ref={setScrollRoot} className="min-h-0 flex-1 overflow-auto">
       {state.status === "loading" ? (
         <div className="flex h-full items-center justify-center">
           <Spinner />
@@ -185,7 +188,7 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
       ) : (
         <div className="flex flex-col gap-3 p-3">
           {state.truncated ? (
-            <p className="text-xs text-muted-foreground">
+            <p className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
               Diff is large and has been truncated.
             </p>
           ) : null}
@@ -210,6 +213,9 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
                   baseSha={state.baseSha}
                   headSha={state.headSha}
                   repoUrl={state.repoUrl}
+                  scrollRoot={scrollRoot}
+                  // The scroll target must exist before it can be scrolled to.
+                  eager={diffFile === entry.path}
                 />
               </div>
             ))}
@@ -238,7 +244,10 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
         }
         onExpandAll={() => setOpenPaths(filePaths)}
         onCollapseAll={() => setOpenPaths([])}
-        isLoading={state.status === "loading"}
+        isLoading={
+          state.status === "loading" ||
+          (state.status === "ready" && state.refreshing)
+        }
         onRefresh={refresh}
         reviewAction={
           prNumber === undefined ? undefined : (

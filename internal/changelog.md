@@ -1,5 +1,15 @@
 # Changelog
 
+## Review tabs: sub-second loads + GitHub-style Overview - 2026-08-03
+
+- Review and Diff tabs now paint from an in-memory SWR cache, so a second visit within 30 seconds is instant and revalidates silently in the background; a failed revalidate keeps the stale view instead of dropping to an error panel.
+- Hovering a row in the Reviews sidebar warms the diff, overview, and header for that pull request, so clicking through from the list lands on painted content rather than a spinner.
+- Diff syntax highlighting moved off the main thread into a shared worker pool, and the raw diff is now parsed once at fetch time instead of on every render — the two costs that made opening Diffs janky on large pull requests.
+- Off-screen diff bodies mount only as they approach the viewport, with a sized placeholder holding their place, so a 30-file pull request no longer renders every file up front. Files targeted from the tree or the URL still materialise immediately.
+- The overview fetch starts the four commit/comment/review calls alongside `pulls.get` rather than after it, saving a GitHub round trip, and the pull request header is now cached for 60 seconds since it sits on the standalone page's critical path.
+- Rebuilt the Overview tab as GitHub's Conversation layout: description bubble, then a chronological timeline of comments, review verdicts with their inline comments nested underneath, and pushes grouped as "added N commits"; a merge box at the foot and a metadata sidebar for reviewers, assignees, and labels. This replaces the stat grid, ratio bar, and eight-card stack that read as generated filler. Narrow session panes stack the sidebar below the merge box.
+- Diffs toolbar and file headers follow GitHub conventions more closely: "N changed files", no chip on ordinary modified files, segmented Unified/Split control, and the viewed counter grouped with the review action on the right.
+
 ## Recording turns cannot self-terminate and report a promise as success - 2026-07-31
 
 All-feature walkthrough turns were using broad `pkill -f` cleanup that could match the Cursor CLI's own command line because the recording instructions are part of its process arguments. The agent died during setup, then the callback discarded Node's close signal and promoted the last streamed "recording now" preamble to a successful final reply. Recording prompts now require exact-PID cleanup, a named feature checklist, and a real deliverable per item; the callback preserves direct signal termination and rejects both direct and shell-translated interruptions even when partial assistant text exists.

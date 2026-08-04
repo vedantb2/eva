@@ -1,31 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useAction } from "convex/react";
-import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { Button, Spinner } from "@eva/ui";
-import { IconAlertTriangle, IconRefresh } from "@tabler/icons-react";
-import { PrChecksCard } from "./_components/PrChecksCard";
-import { PrCommitsCard } from "./_components/PrCommitsCard";
-import { PrConversationCard } from "./_components/PrConversationCard";
-import { PrDescriptionCard } from "./_components/PrDescriptionCard";
-import { PrMergeCard } from "./_components/PrMergeCard";
-import { PrReviewersCard } from "./_components/PrReviewersCard";
-import { PrSummaryCard } from "./_components/PrSummaryCard";
-import type { PrOverview } from "./_components/prOverviewMeta";
-
-type OverviewLoadState =
-  | { status: "loading" }
-  | { status: "error"; message: string }
-  // `refreshing` keeps the panel on screen during a manual refetch instead of
-  // collapsing back to a spinner.
-  | { status: "ready"; overview: PrOverview; refreshing: boolean };
+import { IconAlertTriangle } from "@tabler/icons-react";
+import { usePrOverview } from "./usePrOverview";
+import { PrMergeBox } from "./_components/PrMergeBox";
+import { PrOverviewHeader } from "./_components/PrOverviewHeader";
+import { PrSidebar } from "./_components/PrSidebar";
+import { PrTimeline } from "./_components/PrTimeline";
 
 /**
  * The Overview tab shared by the standalone Reviews page and the sandbox Review
- * tab: description, conversation, checks, reviewers, commits, and merge — so a
- * review needs no trip to GitHub.
+ * tab: GitHub's Conversation layout — description, then the timeline, then the
+ * merge box, with reviewers and labels alongside — so a review needs no trip to
+ * GitHub.
  */
 export function ReviewOverviewPanel({
   repoId,
@@ -34,40 +22,7 @@ export function ReviewOverviewPanel({
   repoId: Id<"githubRepos">;
   prNumber: number;
 }) {
-  const getOverview = useAction(api.github.getPullRequestOverview);
-  const [state, setState] = useState<OverviewLoadState>({ status: "loading" });
-  const [reloadKey, setReloadKey] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    // Same PR reloading (refresh, post-merge) keeps its data; a different PR
-    // starts from scratch so no stale numbers flash.
-    setState((prev) =>
-      prev.status === "ready" && prev.overview.number === prNumber
-        ? { ...prev, refreshing: true }
-        : { status: "loading" },
-    );
-    // reloadKey > 0 means an explicit refresh — bypass the ActionCache TTL.
-    getOverview({ repoId, prNumber, force: reloadKey > 0 })
-      .then((overview) => {
-        if (!cancelled) {
-          setState({ status: "ready", overview, refreshing: false });
-        }
-      })
-      .catch((error: Error) => {
-        if (!cancelled) {
-          setState({
-            status: "error",
-            message: error.message || "Couldn't load pull request",
-          });
-        }
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [repoId, prNumber, getOverview, reloadKey]);
-
-  const reload = () => setReloadKey((key) => key + 1);
+  const { state, reload } = usePrOverview(repoId, prNumber);
 
   if (state.status === "loading") {
     return (
@@ -96,55 +51,29 @@ export function ReviewOverviewPanel({
     // block TabsContent, where a flex item's basis never resolves and the
     // scroll container ends up unbounded.
     <div className="h-full overflow-auto">
-      <div className="mx-auto max-w-7xl space-y-4 px-4 py-4">
-        <div className="flex items-center justify-end">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={reload}
-            disabled={refreshing}
-            className="text-muted-foreground"
-          >
-            {refreshing ? (
-              <Spinner size="sm" />
-            ) : (
-              <IconRefresh size={14} aria-hidden />
-            )}
-            Refresh
-          </Button>
-        </div>
+      {/* Container query, not a viewport breakpoint: the same panel renders both
+          full-width on /reviews and in a narrow session pane, so the layout has
+          to respond to its own width. */}
+      <div className="mx-auto max-w-7xl space-y-5 px-4 py-4 [container-type:inline-size]">
+        <PrOverviewHeader
+          overview={overview}
+          refreshing={refreshing}
+          onRefresh={reload}
+        />
 
-        <PrSummaryCard overview={overview} />
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-          <div className="min-w-0 space-y-4">
-            <PrDescriptionCard body={overview.body} />
-            <PrConversationCard
-              comments={overview.comments}
-              truncated={overview.commentsTruncated}
-            />
-          </div>
-
-          <aside className="min-w-0 space-y-4">
-            <PrMergeCard
+        <div className="grid grid-cols-1 gap-5 [@container(min-width:56rem)]:grid-cols-[minmax(0,1fr)_16.5rem]">
+          <div className="min-w-0 space-y-5">
+            <PrTimeline overview={overview} />
+            <PrMergeBox
               repoId={repoId}
               overview={overview}
               onMerged={reload}
             />
-            <PrChecksCard
-              checks={overview.checks}
-              truncated={overview.checksTruncated}
-            />
-            <PrReviewersCard
-              reviews={overview.reviews}
-              requestedReviewers={overview.requestedReviewers}
-              assignees={overview.assignees}
-            />
-            <PrCommitsCard
-              commits={overview.commits}
-              commitCount={overview.commitCount}
-              truncated={overview.commitsTruncated}
-            />
+          </div>
+
+          {/* Narrow panes stack this under the merge box, as GitHub does. */}
+          <aside className="min-w-0">
+            <PrSidebar overview={overview} />
           </aside>
         </div>
       </div>

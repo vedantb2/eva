@@ -26,6 +26,11 @@ const pullRequestCommentValidator = v.object({
   /** Present for inline review comments. */
   path: v.optional(v.string()),
   line: v.optional(v.union(v.number(), v.null())),
+  /**
+   * Review this inline comment belongs to, so the timeline can nest it under the
+   * matching review verdict. Null for standalone (issue) comments.
+   */
+  reviewId: v.optional(v.union(v.number(), v.null())),
 });
 
 const pullRequestCheckValidator = v.object({
@@ -51,6 +56,21 @@ const pullRequestReviewValidator = v.object({
   state: v.string(),
   submittedAt: v.union(v.string(), v.null()),
   htmlUrl: v.string(),
+});
+
+/**
+ * A submitted review as a timeline event — unlike `reviews` (collapsed to the
+ * latest verdict per author for the sidebar), every submitted review is kept, in
+ * order, with its body, because the conversation shows each one where it landed.
+ */
+const pullRequestReviewEventValidator = v.object({
+  id: v.number(),
+  authorLogin: v.string(),
+  authorAvatarUrl: v.union(v.string(), v.null()),
+  state: v.string(),
+  submittedAt: v.union(v.string(), v.null()),
+  htmlUrl: v.string(),
+  body: v.string(),
 });
 
 const pullRequestActorValidator = v.object({
@@ -103,6 +123,8 @@ const pullRequestOverviewValidator = v.object({
   labels: v.array(pullRequestLabelValidator),
   /** Latest decisive review per reviewer, human or bot. */
   reviews: v.array(pullRequestReviewValidator),
+  /** Every submitted review, in order, for the conversation timeline. */
+  reviewEvents: v.array(pullRequestReviewEventValidator),
   requestedReviewers: v.array(pullRequestActorValidator),
   assignees: v.array(pullRequestActorValidator),
   checks: v.array(pullRequestCheckValidator),
@@ -121,6 +143,7 @@ type PullRequestComment = {
   htmlUrl: string;
   path?: string;
   line?: number | null;
+  reviewId?: number | null;
 };
 
 type PullRequestCheck = {
@@ -140,6 +163,8 @@ type PullRequestReview = {
   submittedAt: string | null;
   htmlUrl: string;
 };
+
+type PullRequestReviewEvent = PullRequestReview & { body: string };
 
 type PullRequestActor = {
   login: string;
@@ -187,6 +212,7 @@ type PullRequestOverview = {
   mergedByLogin: string | null;
   labels: PullRequestLabel[];
   reviews: PullRequestReview[];
+  reviewEvents: PullRequestReviewEvent[];
   requestedReviewers: PullRequestActor[];
   assignees: PullRequestActor[];
   checks: PullRequestCheck[];
@@ -245,20 +271,26 @@ export const fetchPullRequestOverview = internalAction({
     if (!repo) throw new Error("Repo not found");
 
     const octokit = await getInstallationOctokit(repo.installationId);
-    const { data: pr } = await octokit.rest.pulls.get({
+
+    // Only checks and commit statuses need the head sha, so they chain off the
+    // PR fetch while the other four calls start immediately — one round trip
+    // instead of two on the uncached path.
+    const prPromise = octokit.rest.pulls.get({
       owner: repo.owner,
       repo: repo.name,
       pull_number: args.prNumber,
     });
 
     const [
+      pr,
       issueRes,
       reviewCommentRes,
-      checksRes,
-      statusRes,
       reviewRes,
       commitRes,
+      checksRes,
+      statusRes,
     ] = await Promise.all([
+      prPromise.then((res) => res.data),
       octokit.rest.issues.listComments({
         owner: repo.owner,
         repo: repo.name,
@@ -271,22 +303,6 @@ export const fetchPullRequestOverview = internalAction({
         pull_number: args.prNumber,
         per_page: MAX_REVIEW_COMMENTS,
       }),
-      octokit.rest.checks
-        .listForRef({
-          owner: repo.owner,
-          repo: repo.name,
-          ref: pr.head.sha,
-          per_page: MAX_CHECKS,
-        })
-        .catch(() => ({ data: { check_runs: [], total_count: 0 } })),
-      // Older bots report through commit statuses rather than check runs.
-      octokit.rest.repos
-        .getCombinedStatusForRef({
-          owner: repo.owner,
-          repo: repo.name,
-          ref: pr.head.sha,
-        })
-        .catch(() => ({ data: { statuses: [] } })),
       octokit.rest.pulls
         .listReviews({
           owner: repo.owner,
@@ -303,6 +319,26 @@ export const fetchPullRequestOverview = internalAction({
           per_page: MAX_COMMITS,
         })
         .catch(() => ({ data: [] })),
+      prPromise
+        .then((res) =>
+          octokit.rest.checks.listForRef({
+            owner: repo.owner,
+            repo: repo.name,
+            ref: res.data.head.sha,
+            per_page: MAX_CHECKS,
+          }),
+        )
+        .catch(() => ({ data: { check_runs: [], total_count: 0 } })),
+      // Older bots report through commit statuses rather than check runs.
+      prPromise
+        .then((res) =>
+          octokit.rest.repos.getCombinedStatusForRef({
+            owner: repo.owner,
+            repo: repo.name,
+            ref: res.data.head.sha,
+          }),
+        )
+        .catch(() => ({ data: { statuses: [] } })),
     ]);
 
     const checkRuns: PullRequestCheck[] = checksRes.data.check_runs
@@ -332,8 +368,8 @@ export const fetchPullRequestOverview = internalAction({
       }),
     );
 
-    const reviews = latestReviewPerAuthor(
-      reviewRes.data.flatMap((review): PullRequestReview[] =>
+    const allReviews = reviewRes.data.flatMap(
+      (review): PullRequestReviewEvent[] =>
         review.user
           ? [
               {
@@ -343,10 +379,16 @@ export const fetchPullRequestOverview = internalAction({
                 state: review.state,
                 submittedAt: review.submitted_at ?? null,
                 htmlUrl: review.html_url,
+                body: review.body ?? "",
               },
             ]
           : [],
-      ),
+    );
+    const reviews = latestReviewPerAuthor(allReviews);
+    // A pending review is an unsubmitted draft, so it never appears on the
+    // conversation; the sidebar still collapses over the full history.
+    const reviewEvents = allReviews.filter(
+      (review) => review.state !== "PENDING",
     );
 
     const commits: PullRequestCommit[] = commitRes.data.map((commit) => ({
@@ -381,6 +423,7 @@ export const fetchPullRequestOverview = internalAction({
           htmlUrl: c.html_url,
           path: c.path,
           line: c.line ?? c.original_line ?? null,
+          reviewId: c.pull_request_review_id ?? null,
         }),
       ),
     ].toSorted(
@@ -417,6 +460,7 @@ export const fetchPullRequestOverview = internalAction({
         color: label.color,
       })),
       reviews,
+      reviewEvents,
       requestedReviewers: (pr.requested_reviewers ?? []).map((reviewer) => ({
         login: reviewer.login,
         avatarUrl: reviewer.avatar_url ?? null,
@@ -435,11 +479,12 @@ export const fetchPullRequestOverview = internalAction({
   },
 });
 
-// V2: payload gained commits, reviews, and mergeability — a bumped name drops
-// V1 entries instead of serving objects that are missing the new fields.
+// V3: payload gained `reviewEvents` and per-comment `reviewId` for the
+// conversation timeline — a bumped name drops V2 entries instead of serving
+// objects that are missing the new fields.
 const prOverviewCache = new ActionCache(components.actionCache, {
   action: internal._github.prOverview.fetchPullRequestOverview,
-  name: "prOverviewV2",
+  name: "prOverviewV3",
   ttl: PR_OVERVIEW_CACHE_TTL_MS,
 });
 

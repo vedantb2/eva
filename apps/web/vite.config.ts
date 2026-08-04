@@ -96,6 +96,13 @@ export default defineConfig({
     host: "0.0.0.0",
     cors: false,
   },
+  // The @pierre/diffs highlight worker keeps a dynamic `import("shiki/wasm")`
+  // that never runs (we stay on the JS highlighter). Vite's default `iife`
+  // worker format cannot code-split, so it would inline that ~1MB wasm payload
+  // into the worker bundle; ES workers leave it as a lazy chunk.
+  worker: {
+    format: "es",
+  },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

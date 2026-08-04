@@ -4,9 +4,14 @@ import type { ReactNode } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api, type Id } from "@eva/backend";
 import { Tabs, TabsBar, TabsContent, TabsList, TabsTrigger, cn } from "@eva/ui";
+import { WorkerPoolContextProvider } from "@pierre/diffs/react";
 import { IconGitPullRequest } from "@tabler/icons-react";
 import { isReviewTab, type ReviewTab } from "@/lib/search-params";
 import { DiffsPanel } from "@/lib/components/sandbox/DiffsPanel";
+import {
+  DIFF_HIGHLIGHTER_OPTIONS,
+  DIFF_POOL_OPTIONS,
+} from "@/lib/components/sandbox/diffWorkerPool";
 import { PrRecapPanel } from "@/lib/components/sandbox/PrRecapPanel";
 import { ReviewOverviewPanel } from "./ReviewOverviewPanel";
 
@@ -19,6 +24,11 @@ interface ReviewTabsPanelProps {
   onTabChange: (tab: ReviewTab) => void;
   /** Rendered above the tab row — the standalone page puts the PR title here. */
   header?: ReactNode;
+  /**
+   * Nested surfaces (session sandbox Review) use `size="sm"` on the same
+   * TabsBar / TabsList; the standalone Reviews page keeps the default size.
+   */
+  compact?: boolean;
 }
 
 /**
@@ -39,6 +49,7 @@ export function ReviewTabsPanel({
   activeTab,
   onTabChange,
   header,
+  compact = false,
 }: ReviewTabsPanelProps) {
   // Cached hook, so querying here as well as on a surface that needs the recap
   // to pick a default tab costs one request, not two.
@@ -46,42 +57,52 @@ export function ReviewTabsPanel({
     api.docs.getRecapByPrUrl,
     prUrl ? { repoId, prUrl } : "skip",
   );
+  const tabSize = compact ? "sm" : "default";
 
   return (
-    <Tabs
-      value={activeTab}
-      onValueChange={(value) => {
-        if (isReviewTab(value)) onTabChange(value);
-      }}
-      className="flex h-full min-h-0 flex-col"
+    // Mounted unconditionally and above the tabs, so the workers spin up while
+    // the surface is still hidden rather than on the click that reveals Diffs.
+    // The pool itself is a refcounted singleton, so several review surfaces
+    // share one set of workers and the last to unmount tears them down.
+    <WorkerPoolContextProvider
+      poolOptions={DIFF_POOL_OPTIONS}
+      highlighterOptions={DIFF_HIGHLIGHTER_OPTIONS}
     >
-      {header}
-      <TabsBar>
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="diffs">Diffs</TabsTrigger>
-          <TabsTrigger value="recap">Recap</TabsTrigger>
-        </TabsList>
-      </TabsBar>
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => {
+          if (isReviewTab(value)) onTabChange(value);
+        }}
+        className="flex h-full min-h-0 flex-col"
+      >
+        {header}
+        <TabsBar size={tabSize}>
+          <TabsList size={tabSize}>
+            <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="diffs">Diffs</TabsTrigger>
+            <TabsTrigger value="recap">Recap</TabsTrigger>
+          </TabsList>
+        </TabsBar>
 
-      {/* forceMount + hidden: switching tabs keeps each panel's state (drafted
-          comments, scroll position, expanded files) instead of refetching. */}
-      <ReviewTabContent tab="overview" activeTab={activeTab}>
-        {prNumber === undefined ? (
-          <NoPullRequest detail="Once a pull request is opened for this work, its overview will appear here." />
-        ) : (
-          <ReviewOverviewPanel repoId={repoId} prNumber={prNumber} />
-        )}
-      </ReviewTabContent>
+        {/* forceMount + hidden: switching tabs keeps each panel's state (drafted
+            comments, scroll position, expanded files) instead of refetching. */}
+        <ReviewTabContent tab="overview" activeTab={activeTab}>
+          {prNumber === undefined ? (
+            <NoPullRequest detail="Once a pull request is opened for this work, its overview will appear here." />
+          ) : (
+            <ReviewOverviewPanel repoId={repoId} prNumber={prNumber} />
+          )}
+        </ReviewTabContent>
 
-      <ReviewTabContent tab="diffs" activeTab={activeTab}>
-        <DiffsPanel prUrl={prUrl} repoId={repoId} />
-      </ReviewTabContent>
+        <ReviewTabContent tab="diffs" activeTab={activeTab}>
+          <DiffsPanel prUrl={prUrl} repoId={repoId} />
+        </ReviewTabContent>
 
-      <ReviewTabContent tab="recap" activeTab={activeTab}>
-        <PrRecapPanel prUrl={prUrl} repoId={repoId} recapDoc={recapDoc} />
-      </ReviewTabContent>
-    </Tabs>
+        <ReviewTabContent tab="recap" activeTab={activeTab}>
+          <PrRecapPanel prUrl={prUrl} repoId={repoId} recapDoc={recapDoc} />
+        </ReviewTabContent>
+      </Tabs>
+    </WorkerPoolContextProvider>
   );
 }
 

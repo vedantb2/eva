@@ -4,20 +4,14 @@ import { useEffect, useState } from "react";
 import { useAction } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { Link } from "@tanstack/react-router";
-import { Button, Spinner, cn } from "@eva/ui";
+import { Button, Spinner } from "@eva/ui";
 import { IconGitPullRequest } from "@tabler/icons-react";
 import { useQueryState } from "nuqs";
-import {
-  pullRequestListStateParser,
-  type PullRequestListState,
-} from "@/lib/search-params";
-import {
-  SharedLayoutNav,
-  SharedLayoutNavSurface,
-  sidebarNavLinkClass,
-} from "@/lib/components/sidebar/SharedLayoutNav";
-import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
+import { prefetchPrReview } from "@/lib/prReviewCache";
+import { pullRequestListStateParser } from "@/lib/search-params";
+import { ReviewsListStateTabs } from "@/lib/components/sidebar/_components/ReviewsListStateTabs";
+import { ReviewsSidebarRow } from "@/lib/components/sidebar/_components/ReviewsSidebarRow";
+import { SharedLayoutNav } from "@/lib/components/sidebar/SharedLayoutNav";
 
 interface ReviewsSidebarProps {
   repoId: Id<"githubRepos">;
@@ -53,6 +47,13 @@ export function ReviewsSidebar({
   onNavigate,
 }: ReviewsSidebarProps) {
   const listPullRequests = useAction(api.github.listPullRequests);
+  // Bound once here so the row only needs a `() => void` — the cache module
+  // stays free of any dependency on the Convex client.
+  const runners = {
+    diff: useAction(api.github.getPrDiff),
+    overview: useAction(api.github.getPullRequestOverview),
+    header: useAction(api.github.getPullRequestHeader),
+  };
   const [listState, setListState] = useQueryState(
     "prState",
     pullRequestListStateParser,
@@ -89,26 +90,15 @@ export function ReviewsSidebar({
 
   const pulls = state.status === "ready" ? state.pulls : [];
 
-  const stateButtons: Array<{ value: PullRequestListState; label: string }> = [
-    { value: "open", label: "Open" },
-    { value: "closed", label: "Closed" },
-    { value: "all", label: "All" },
-  ];
-
   return (
     <>
-      <div className="flex gap-1 px-2 py-2">
-        {stateButtons.map((btn) => (
-          <Button
-            key={btn.value}
-            size="sm"
-            variant={listState === btn.value ? "secondary" : "ghost"}
-            className="h-7 flex-1 px-2 text-xs"
-            onClick={() => setListState(btn.value)}
-          >
-            {btn.label}
-          </Button>
-        ))}
+      <div className="px-2 py-2">
+        <ReviewsListStateTabs
+          state={listState}
+          onChange={(next) => {
+            void setListState(next);
+          }}
+        />
       </div>
 
       <div className="flex-1">
@@ -139,52 +129,18 @@ export function ReviewsSidebar({
           </div>
         ) : (
           <SharedLayoutNav layoutId="reviews-sidebar-nav" className="px-2 pb-2">
-            {pulls.map((pr) => {
-              const href = `${basePath}/reviews/${pr.number}/overview`;
-              const isActive = activePrNumber === pr.number;
-              return (
-                <SharedLayoutNavSurface
-                  key={pr.number}
-                  itemId={String(pr.number)}
-                  isActive={isActive}
-                >
-                  <Link
-                    to={href}
-                    onClick={() => onNavigate?.()}
-                    className={cn(
-                      sidebarNavLinkClass(isActive),
-                      "flex-col items-start gap-0.5 py-2.5",
-                    )}
-                  >
-                    <span className="flex w-full min-w-0 items-center gap-1.5">
-                      <IconGitPullRequest
-                        size={14}
-                        className={cn(
-                          "shrink-0",
-                          pr.draft || pr.state !== "open"
-                            ? "text-muted-foreground"
-                            : "text-emerald-600 dark:text-emerald-400",
-                        )}
-                      />
-                      <span className="truncate text-sm font-medium">
-                        {pr.title}
-                      </span>
-                    </span>
-                    <span className="flex w-full min-w-0 items-center gap-1.5 pl-5 text-[11px] text-muted-foreground">
-                      <span className="shrink-0">#{pr.number}</span>
-                      {pr.authorLogin ? (
-                        <span className="truncate">{pr.authorLogin}</span>
-                      ) : null}
-                      <span className="ml-auto shrink-0">
-                        <RelativeDateTime
-                          at={new Date(pr.updatedAt).getTime()}
-                        />
-                      </span>
-                    </span>
-                  </Link>
-                </SharedLayoutNavSurface>
-              );
-            })}
+            {pulls.map((pr) => (
+              <ReviewsSidebarRow
+                key={pr.number}
+                pr={pr}
+                href={`${basePath}/reviews/${pr.number}/overview`}
+                isActive={activePrNumber === pr.number}
+                onNavigate={onNavigate}
+                onPrefetch={() =>
+                  prefetchPrReview(runners, { repoId, prNumber: pr.number })
+                }
+              />
+            ))}
           </SharedLayoutNav>
         )}
       </div>

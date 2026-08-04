@@ -20,6 +20,7 @@ import {
   DiffCommentDraftBox,
   DiffCommentPendingCard,
 } from "@/lib/components/sandbox/DiffCommentBox";
+import { DIFF_THEMES } from "@/lib/components/sandbox/diffWorkerPool";
 
 interface DiffCommentAnnotationEntry {
   readonly id: string;
@@ -114,7 +115,9 @@ function diffOptions<LAnnotation>({
 >): FileDiffOptions<LAnnotation> {
   return {
     diffStyle: diffView,
-    theme: { light: "github-light", dark: "github-dark" },
+    // Must match the worker pool's own render options — the pool's win when one
+    // is mounted, so a mismatch here would silently restyle every diff.
+    theme: DIFF_THEMES,
     themeType: resolvedTheme,
     disableFileHeader: hideFileHeader === true,
     overflow: wrapLines === true ? "wrap" : "scroll",
@@ -136,9 +139,9 @@ function PlainDiff({
 }) {
   const options = diffOptions(rest);
   if (fileDiff === null) {
-    return <PatchDiff patch={patch} disableWorkerPool options={options} />;
+    return <PatchDiff patch={patch} options={options} />;
   }
-  return <FileDiff fileDiff={fileDiff} disableWorkerPool options={options} />;
+  return <FileDiff fileDiff={fileDiff} options={options} />;
 }
 
 function AnnotatableDiff({
@@ -293,7 +296,6 @@ function AnnotatableDiff({
   return (
     <FileDiff<DiffCommentAnnotationGroup>
       fileDiff={renderFileDiff}
-      disableWorkerPool
       options={options}
       selectedLines={selectedLines}
       lineAnnotations={lineAnnotations}

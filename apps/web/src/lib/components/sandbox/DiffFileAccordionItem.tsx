@@ -28,6 +28,7 @@ import type { Id } from "@eva/backend";
 import type { DiffView } from "@/lib/search-params";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
 import { DiffCountBar, FileStatusChip } from "./DiffFileBadges";
+import { DiffFileLazyBody } from "./DiffFileLazyBody";
 import type { DiffFileEntry } from "./diffFiles";
 import {
   ReviewableFileDiff,
@@ -47,6 +48,10 @@ interface DiffFileAccordionItemProps {
   headSha: string;
   /** `https://github.com/<owner>/<name>`, for the "View file" link. */
   repoUrl: string;
+  /** Scrolling ancestor, so the diff body can defer until it is near view. */
+  scrollRoot: Element | null;
+  /** Skip deferral for the file being scrolled to. */
+  eager: boolean;
 }
 
 type FullFileState =
@@ -78,6 +83,8 @@ export function DiffFileAccordionItem({
   baseSha,
   headSha,
   repoUrl,
+  scrollRoot,
+  eager,
 }: DiffFileAccordionItemProps) {
   const { path, patch, status, additions, deletions, renamedFrom } = entry;
   const getPrFileContents = useAction(api.github.getPrFileContents);
@@ -153,9 +160,6 @@ export function DiffFileAccordionItem({
 
         <div className="flex shrink-0 items-center gap-2 py-1.5">
           <FileStatusChip status={status} />
-          {entry.binary ? null : (
-            <DiffCountBar additions={additions} deletions={deletions} />
-          )}
           {pendingComments > 0 ? (
             <span
               className="flex items-center gap-1 text-xs text-muted-foreground"
@@ -165,6 +169,9 @@ export function DiffFileAccordionItem({
               {pendingComments}
             </span>
           ) : null}
+          {entry.binary ? null : (
+            <DiffCountBar additions={additions} deletions={deletions} />
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -250,17 +257,27 @@ export function DiffFileAccordionItem({
                 {UNAVAILABLE_LABEL[fullFile.reason]}
               </p>
             ) : null}
-            <ReviewableFileDiff
-              patch={patch}
-              path={path}
+            <DiffFileLazyBody
+              additions={additions}
+              deletions={deletions}
+              contextLines={entry.contextLines}
+              hunkCount={entry.hunkCount}
               diffView={diffView}
-              resolvedTheme={resolvedTheme}
-              hideFileHeader
-              wrapLines={wrapLines}
-              fullFile={
-                fullFile.status === "ready" ? fullFile.fullFile : undefined
-              }
-            />
+              scrollRoot={scrollRoot}
+              eager={eager}
+            >
+              <ReviewableFileDiff
+                patch={patch}
+                path={path}
+                diffView={diffView}
+                resolvedTheme={resolvedTheme}
+                hideFileHeader
+                wrapLines={wrapLines}
+                fullFile={
+                  fullFile.status === "ready" ? fullFile.fullFile : undefined
+                }
+              />
+            </DiffFileLazyBody>
           </>
         )}
       </AccordionContent>

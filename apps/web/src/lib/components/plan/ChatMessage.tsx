@@ -8,6 +8,7 @@ import {
   MessageResponse,
 } from "@eva/ui";
 import { UserInitials } from "@eva/shared";
+import { EvaIcon } from "@/lib/components/EvaIcon";
 import dayjs from "@eva/shared/dates";
 import type { Id } from "@eva/backend";
 import {
@@ -42,11 +43,8 @@ export function ChatMessage({
   const isUser = role === "user";
 
   const evaIcon = (
-    <img
-      src="/icon.svg"
-      alt="Eva"
-      width={20}
-      height={20}
+    <EvaIcon
+      size={20}
       className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
     />
   );

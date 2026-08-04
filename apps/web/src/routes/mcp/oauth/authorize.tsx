@@ -4,6 +4,7 @@ import { useConvexAuth, useMutation } from "convex/react";
 import { useEffect, useRef, useState } from "react";
 import { api } from "@eva/backend";
 import { Button, Spinner } from "@eva/ui";
+import { EvaIcon } from "@/lib/components/EvaIcon";
 import {
   clearMcpOauthParams,
   mcpOauthParamsSchema,
@@ -138,12 +139,9 @@ function Shell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="flex w-full max-w-sm flex-col items-center gap-6">
-        <img
-          src="/icon.svg"
-          alt="Eva"
-          width={56}
-          height={56}
-          className="rounded-2xl outline outline-1 outline-black/10 dark:outline-white/10"
+        <EvaIcon
+          size={56}
+          className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
         />
         {children}
       </div>

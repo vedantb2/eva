@@ -267,7 +267,7 @@ export function FileViewerPanel({
           />
         ) : state.kind === "error" ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-4">
-            <pre className="max-h-48 max-w-full overflow-auto whitespace-pre-wrap rounded-surface bg-destructive/5 p-3 text-sm text-destructive">
+            <pre className="max-h-48 max-w-full overflow-auto scroll-fade whitespace-pre-wrap rounded-surface bg-destructive/5 p-3 text-sm text-destructive">
               {state.message}
             </pre>
             <Button

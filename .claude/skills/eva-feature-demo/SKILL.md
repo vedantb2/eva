@@ -93,8 +93,9 @@ always returns to the full frame, so nothing is permanently hidden.
 10. **Confidentiality.** Own repo `vvedantb/eva` only. Never client repos (`evalucom/carepulse`,
     `eprocurement`) or the "Codebases" home listing them. This matters more than for a still — the
     recording passes through sidebars, lists, and modals you didn't plan to feature. Watch what
-    scrolls past. **Don't raise personal-data concerns about the app's own users** — accounts are
-    first-name-only by design and the demo email is fake (confirmed twice; raising it again is noise).
+    scrolls past. **Never raise personal-data concerns about names or emails on screen** — Settings →
+    Experimental has a blur-PID toggle that blurs every `[data-pii]` element, so this is handled in
+    the product. Turn it on if a recording will pass through a lot of member lists.
 
 ## Workflow
 

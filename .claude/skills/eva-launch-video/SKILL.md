@@ -87,10 +87,9 @@ Each of these was a mistake first. Keep them unless the user overrides.
 7. **Be honest + protect confidentiality.** Use the user's OWN repo (`vvedantb/eva`), never client
    repos (Evalucom/CarePulse). Don't show the "Codebases" home (lists client repos), and check
    document/task lists for client-named items before capturing — stage a clean demo doc if the list is
-   dirty. **Don't raise personal-data concerns about the app's own users** — accounts are
-   first-name-only by design and the demo email is fake (confirmed twice; raising it again is noise).
-   Do flag third-party names, real customer data, and error panels leaking env var names or project
-   ids. Captions describe truthfully — never imply a feature the screen doesn't show. If the only
+   dirty. **Never raise personal-data concerns about names or emails on screen** — Settings →
+   Experimental has a blur-PID toggle that blurs every `[data-pii]` element, so this is handled in
+   the product. Do flag error panels leaking env var names or project ids. Captions describe truthfully — never imply a feature the screen doesn't show. If the only
    available capture is a stopped sandbox or an empty state, reword the caption to match the screen
    rather than dressing it up.
 

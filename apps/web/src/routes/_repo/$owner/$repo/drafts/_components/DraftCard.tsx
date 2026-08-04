@@ -5,7 +5,14 @@ import type { ConvexReactClient } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { Badge, Button, cn } from "@eva/ui";
+import {
+  Badge,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+  cn,
+} from "@eva/ui";
 import { IconTrash } from "@tabler/icons-react";
 import { tokenizedToDisplayText } from "@/lib/components/mentions";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
@@ -91,8 +98,7 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
   const removeCommentDraft = useMutation(api.drafts.remove);
   const removeTaskDraft = useMutation(api.agentTasks.remove);
 
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleDelete = () => {
     if (model.source === "comment") {
       void removeCommentDraft({ id: model.row._id });
     } else {
@@ -174,47 +180,55 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
   const ts = model.row.updatedAt;
 
   return (
-    <div
-      role="button"
-      tabIndex={0}
-      onClick={handleClick}
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") handleClick();
-      }}
-      className={cn(
-        "group relative flex h-full cursor-pointer flex-col gap-2 rounded-surface border border-border bg-card p-4 shadow-sm",
-        "hover:bg-muted/40 transition-colors duration-100",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-      )}
-    >
-      <div className="flex items-center gap-2">
-        <Badge
-          variant="secondary"
-          className="border-none bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={handleClick}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") handleClick();
+          }}
+          className={cn(
+            "flex h-full cursor-pointer flex-col gap-2 rounded-surface border border-border bg-card p-4 shadow-sm",
+            "hover:bg-muted/40 transition-colors duration-100",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          )}
         >
-          {label}
-        </Badge>
-        <RelativeDateTime at={ts} className="min-w-0 flex-1 truncate text-xs" />
-        <Button
-          size="icon-sm"
-          variant="ghost"
-          className="h-6 w-6 shrink-0 opacity-0 transition-opacity group-hover:opacity-100 text-muted-foreground hover:text-destructive"
-          onClick={handleDelete}
-          title="Delete draft"
-        >
-          <IconTrash size={13} />
-        </Button>
-      </div>
+          <div className="flex items-center gap-2">
+            <Badge
+              variant="secondary"
+              className="border-none bg-muted px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
+            >
+              {label}
+            </Badge>
+            <RelativeDateTime
+              at={ts}
+              className="min-w-0 flex-1 truncate text-xs"
+            />
+          </div>
 
-      <p className="line-clamp-2 text-sm font-medium text-foreground">
-        {title}
-      </p>
+          <p className="line-clamp-2 text-sm font-medium text-foreground">
+            {title}
+          </p>
 
-      {snippet ? (
-        <p className="line-clamp-3 text-sm text-muted-foreground">{snippet}</p>
-      ) : (
-        <p className="text-sm text-muted-foreground/50 italic">No content</p>
-      )}
-    </div>
+          {snippet ? (
+            <p className="line-clamp-3 text-sm text-muted-foreground">
+              {snippet}
+            </p>
+          ) : (
+            <p className="text-sm text-muted-foreground/50 italic">
+              No content
+            </p>
+          )}
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem className="text-destructive" onClick={handleDelete}>
+          <IconTrash size={16} />
+          Delete draft
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

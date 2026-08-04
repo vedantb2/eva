@@ -257,11 +257,19 @@ export const handleStaleDoc = internalMutation({
 
     const patch: Record<
       string,
-      undefined | string | typeof doc.interviewHistory
+      undefined | string | number | typeof doc.interviewHistory
     > = { activeWorkflowId: undefined };
 
     if (doc.testGenStatus === "running") {
       patch.testGenStatus = "error";
+    }
+
+    // A recap left "pending" is unrecoverable from the UI — the panel hides
+    // Generate while pending — so a timed-out workflow must land on "error".
+    if (doc.prRecapStatus === "pending") {
+      patch.prRecapStatus = "error";
+      patch.prRecapError = "Recap generation timed out";
+      patch.updatedAt = Date.now();
     }
 
     if (doc.interviewHistory && doc.interviewHistory.length > 0) {

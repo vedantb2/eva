@@ -11,7 +11,6 @@ import { ChatJumpRail } from "@/lib/components/chat/ChatJumpRail";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { ChatMessage } from "@/lib/components/chat/ChatMessage";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
-import type { ChatAttachmentMode } from "@/lib/components/chat/imageAttachments";
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
@@ -127,8 +126,6 @@ interface ChatBodyProps {
   onViewDiff?: (repoRelativePath?: string) => void;
   /** True when ephemeral diff review comments are queued for the next send. */
   hasPendingContext?: boolean;
-  /** Session coding chat can attach HTML/MD/TXT; default images-only. */
-  attachmentMode?: ChatAttachmentMode;
 }
 
 export function ChatBody({

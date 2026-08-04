@@ -9,6 +9,7 @@ import { Badge, Button, Card, CardContent } from "@eva/ui";
 import { IconX } from "@tabler/icons-react";
 import { AnimatePresence, m, useReducedMotion } from "motion/react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
+import { playNotificationChime } from "@/lib/utils/notificationChime";
 import {
   NotificationIcon,
   getNotificationAppearance,
@@ -74,6 +75,14 @@ export function NotificationToastStream() {
 
     if (newlyArrived.length === 0) {
       return;
+    }
+
+    // One chime per batch, however many landed together, and only for unread
+    // arrivals. `list` returns the newest 100, so pruning an old notification
+    // pulls the next one into the window and it reads as newly arrived — but
+    // anything resurfacing that way is long since read.
+    if (newlyArrived.some((notification) => !notification.read)) {
+      playNotificationChime();
     }
 
     setToasts((previous) => {

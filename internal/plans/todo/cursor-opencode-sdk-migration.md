@@ -1,5 +1,12 @@
 # Cursor and OpenCode SDK Migration
 
+> **Superseded — do not implement this plan.** The Cursor recommendation was
+> replaced on 2026-07-31 by
+> [`cursor-acp-adoption.md`](./cursor-acp-adoption.md) after a commit-pinned
+> review of t3code and Cursor's now-stable ACP v1 documentation. The OpenCode
+> work also needs a fresh, separate plan after Cursor; its versions and
+> sequencing below are retained only as historical context.
+
 ## Summary
 
 - Migrate both providers away from Eva-owned stdout parsing.

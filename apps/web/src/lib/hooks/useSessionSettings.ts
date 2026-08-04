@@ -6,6 +6,7 @@ import {
   normalizeAIModel,
   resolveTraitsForDisplay,
   type AIModel,
+  type ProviderComposerCapability,
   type StoredModelTraits,
 } from "@eva/backend";
 
@@ -36,6 +37,7 @@ export function useSessionSettings(overrides: {
   onModeChange?: (mode: SessionMode) => void;
   traits?: StoredModelTraits;
   onTraitsPersist?: (partial: Partial<StoredModelTraits>) => void;
+  providerCapabilities?: ReadonlyArray<ProviderComposerCapability>;
   providerAccountId?: string | null;
   onProviderAccountChange?: (providerAccountId: string | null) => void;
 }) {
@@ -50,8 +52,16 @@ export function useSessionSettings(overrides: {
     use1mContext: overrides.traits?.use1mContext,
   };
 
-  const displayTraits = resolveTraitsForDisplay(model, storedTraits);
-  const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
+  const displayTraits = resolveTraitsForDisplay(
+    model,
+    storedTraits,
+    overrides.providerCapabilities,
+  );
+  const executionTraits = buildTraitsExecutionPayload(
+    model,
+    storedTraits,
+    overrides.providerCapabilities,
+  );
 
   const setModel = (nextModel: AIModel) => {
     overrides.onModelChange?.(normalizeAIModel(nextModel));

@@ -20,8 +20,7 @@ export {
 } from "./_sessions/workflow";
 
 export {
-  startExecute,
+  submitTurn,
   prewarmDaemon,
-  enqueueMessage,
   cancelExecution,
 } from "./_sessions/execution";

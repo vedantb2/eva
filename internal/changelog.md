@@ -1,25 +1,19 @@
 # Changelog
 
-## New notifications chime, background tabs included - 2026-08-01
+## Another 1.2 MB off first load, and clicks that wait for nothing - 2026-08-04
 
-A backgrounded tab gave no sign that anything had arrived beyond the favicon count, which only helps if you happen to look. New unread notifications now play a short two-note chime, hung off the arrival detection `NotificationToastStream` already runs so it costs no extra subscription and can never disagree with the toasts. The tones are synthesised through the Web Audio API rather than loaded from a file: nothing to fetch or cache, and no silent first notification while a request is in flight. Scheduling goes through the audio clock, which browsers keep accurate in hidden tabs even while they throttle timers, so a chime queued by a background tab still plays on time. One chime per batch however many land together, and only for unread arrivals, so pruning an old notification into the 100-item window stays silent. Autoplay policy keeps a context suspended until the user has interacted with the page at least once, which signing in and navigating satisfies well before the first notification.
+- Four `codeSplitting.groups` entries were quietly forcing mermaid, shiki, streamdown, and katex into the eager module graph: a group's `test` claims every module under the matched path, including third-party utilities a package bundles inside its own dist, so one eager import of dayjs (bundled inside mermaid) or clsx (inside streamdown) dragged the entire group chunk into the entry. Dropping those groups cut the modulepreload set from 1585.6 kB to 347.6 kB gzip, and total output grew only 0.9%, which rules out the bytes simply having been duplicated elsewhere.
+- The changelog dialog was `lazy()`, but the root route mounted it unconditionally, so React fetched the chunk on every page load regardless. A small gate component now checks whether there is a changelog to show before it fetches the dialog, moving roughly 220 kB gzip of Streamdown, mermaid, and katex off first load and onto the moment the dialog actually opens.
+- The build-time barrel rewrite from the icon work is now a reusable helper in `vite/deepImports.ts`, so the same trick applies to any fat-entry package (lucide-react, `@mui/icons-material`, react-icons, date-fns) here or in another repo, rather than being a one-off inline block.
+- Routes now preload on hover (`defaultPreload: "intent"`, 100 ms), so a click on a link the pointer has rested on costs no requests at all — measured on a production build, hovering Changelog fetched its 20 chunks and the click then rendered with zero further network activity. Preloading runs `beforeLoad`, so the three route hooks with side effects bail out on the preload flag; `/home` was the one that mattered, since it consumes the stored MCP OAuth params and its redirect is swallowed during a preload, meaning a hover over any `/home` link would previously have dropped the user out of the flow.
+- The Convex and Clerk resource hints were hardcoded in `index.html` and pointed at a Clerk instance the app never contacts, which costs a wasted TLS handshake rather than being harmless. Both origins are now derived from build-time env — the Clerk host is base64-encoded inside the publishable key — so they cannot drift from the deployment again.
 
-## Voice dictation streams through AI Gateway - 2026-08-02
+## 489 kB of icons off every first page load - 2026-08-04
 
-Composer mic was a no-op (it queried a textarea that never existed), and browser Web Speech is uneven across browsers. An experimental switch now mints a short-lived Gateway STT token (`xai/grok-stt`) so chat composers and the quick-task description field can stream live transcription without exposing the server API key. Off by default; when off, chat still falls back to Web Speech where available.
-## Quick tasks get auto-tagged on create - 2026-08-02
-
-Tags existed on tasks — badges, filters, bulk edit, composer picker — but nothing ever wrote them, so the filters stayed empty. Creating or activating a task now schedules the same background gpt-5-nano path sessions already use for titles, picks up to three tags from a fixed vocabulary, and merges them after any tags the user already chose. The picker lists that vocabulary up front so manual picks stay on the same words the model uses.
-## Paste-as-file for long chat pastes - 2026-08-02
-
-Pasting a wall of text into a composer flooded the input and made the draft hard to edit. Pastes over 2,000 characters now attach as a `.txt` file (Claude.ai-style) across sessions, new-session, quick tasks, and sandbox chats. Clicking the chip opens a modal with live word/char counts — editable before send, read-only on sent messages. Attachment accept lists are unified so every chat surface takes the same image + HTML/MD/TXT set; no backend changes because text attachments already materialize as `/tmp/eva-attachment-N.txt`.
-## The app icon follows the theme, and its badge steps outside it - 2026-08-02
-
-Eva's mark hardcoded a white rounded square, so the one element guaranteed to appear on every surface was the one element that ignored the theme: a bright chip in the browser tab, and another beside every chat message, nav bar, and footer for anyone on dark or neutral. The disc now tracks `--card` and the shape is a circle. It follows the in-app theme rather than `prefers-color-scheme`, because neutral has no operating-system equivalent and a light-theme user on a dark machine must still get the light chip — in-app that falls out of a `fill-card` class for free, and for the favicon a controller rewrites the icon href on every appearance change. That controller moved above the auth gate, so the landing page and the signed-out app get a themed icon too, which they did not before. The unread count, added last week, moved from inside the mark to the bottom-right edge where it half-overlaps, Discord-style. An SVG viewport clips, so the room outside the circle has to come from somewhere: the mark is permanently scaled to 212/256, which reserves the gutter whether or not a count is showing and keeps the tab icon from resizing every time notifications arrive and clear. The geometry had been hand-copied into three files that could disagree, and is now one module; the two static SVGs left in `public/` split by job, one full-bleed for the touch icon and one with the badge gutter for the favicon. The `theme-color` meta was `#0891b2`, a cyan belonging to no theme in the app, and now matches the shell colour of whichever is active — set in the pre-paint script so mobile browser chrome never flashes the wrong one. Safari is the exception throughout: it ignores SVG favicons entirely and keeps showing the old white PNG.
-
-## Unread inbox count reaches the browser tab - 2026-08-01
-
-The unread count lived only in the sidebar rail, so a backgrounded tab gave no sign that anything had arrived. The favicon now carries that count in a large Discord-style bubble overlapping the mark, sized by rendering every count width from 16px up so the digits stay readable at real tab scale, drawn as an SVG data URI from the same cached `countUnread` subscription the rail already holds, so it inherits that query's optimistic updates and adds no server load. Only the SVG icon link is rewritten, which means browsers that prefer it show the badge while Safari, which ignores SVG favicons outright, keeps showing the plain PNG.
+- Tabler's package entry re-exports 6095 icons, so an ordinary `import { IconPlus } from "@tabler/icons-react"` put that barrel in the eager module graph. Combined with the runtime name resolver in `tablerIcon.ts`, which reads the whole namespace and therefore blocks tree-shaking, the initial payload carried a 2.5 MB (489 kB gzip) icon chunk that every visitor downloaded.
+- Named icon imports are now rewritten to their own files at build time (`@rolldown/plugin-transform-imports`), so the barrel is no longer reachable from the eager graph. The plugin is build-only: in dev each deep path is a separate optimizer entry, which would re-bundle deps and reload the page on every newly visited route.
+- The name resolver stays behind a lazy `import()` via a new `TablerIconByName` component, so custom app tabs keep accepting any Tabler name as free text — only the screens that render one pay for the barrel, instead of every visitor.
+- Reason for change: this was diagnosed while chasing build time, which turned out to be immovable. Removing the react() plugin, the router plugin, minification, compressed-size reporting, and half the module graph each changed the build by under 0.5s — it is bound by fixed work, not by anything in the config. The payload was the real defect the investigation surfaced.
 
 ## Reviews: act on a pull request without leaving eva - 2026-08-03
 
@@ -39,6 +33,172 @@ The unread count lived only in the sidebar rail, so a backgrounded tab gave no s
 - The overview fetch starts the four commit/comment/review calls alongside `pulls.get` rather than after it, saving a GitHub round trip, and the pull request header is now cached for 60 seconds since it sits on the standalone page's critical path.
 - Rebuilt the Overview tab as GitHub's Conversation layout: description bubble, then a chronological timeline of comments, review verdicts with their inline comments nested underneath, and pushes grouped as "added N commits"; a merge box at the foot and a metadata sidebar for reviewers, assignees, and labels. This replaces the stat grid, ratio bar, and eight-card stack that read as generated filler. Narrow session panes stack the sidebar below the merge box.
 - Diffs toolbar and file headers follow GitHub conventions more closely: "N changed files", no chip on ordinary modified files, segmented Unified/Split control, and the viewed counter grouped with the review action on the right.
+
+## Agent browser lock aurora overlay - 2026-08-02
+
+Replaced the full-panel grey scrim with a viewport aurora ring and floating “Take control” bar so users can watch the agent drive Chrome while still reaching the sandbox toolbar. Soft-lock TTL now clears the overlay on expiry without waiting for an unrelated re-render.
+
+## Session chat + sandbox polish - 2026-08-02
+
+Session Review/preview chrome, Virtuoso chat scroll affordances, and teammate message layout (side avatar, name over bubble text) so the highest-traffic session surface matches the rest of the product language. Dropped the low-signal Humans Prompting KPI from app stats.
+
+## Session preview empty + sandbox tab chrome - 2026-08-02
+
+Preview empty copy stays muted and Start sandbox is primary so the cold-start CTA reads as the action. Sandbox tabs drop the bar hairline and folder stroke so the strip blends into the panel; the chat header start control shares outline chrome with the other secondary header buttons.
+
+## Menu padding + composer plus search/people - 2026-08-02
+
+Restored inset padding on dropdown/context menus after the tighten pass left them flush. Plus-menu Skills/Data submenus now filter with search, and Data includes people like the `@` picker so both paths offer the same mention set.
+
+## Sessions Active / Archived list mode - 2026-08-02
+
+Replace nested per-app Archived accordions with a top-level Active | Archived switch so the main Sessions list stays clean while archives stay one click away in the same sidebar.
+
+## Sessions sidebar chrome polish - 2026-08-02
+
+Bring the cross-repo Sessions list onto the same hairline active chips, quieter empties, and flat options controls as the rest of the shell — without changing where the list lives.
+
+## Session, dialog, and sandbox chrome polish - 2026-08-02
+
+Flattened session chat header/composer/chips, create modals, and sandbox/diffs toolbars to the same hairline-border, short-copy contract as settings — so the highest-traffic surfaces match when reviewing side by side.
+
+## Product chrome consistency pass - 2026-08-02
+
+Aligned list pages, board columns, sidebar active states, empty states, and teams with the settings layout contract: quieter empties, hairline board columns, toolbar refine on Inbox, compact team hero, and shorter first-run onboarding without marketing fluff.
+
+## Settings layout contract - 2026-08-02
+
+Shared `SettingsPage` / section body variants / toggle rows so global and repo settings share one reading width, title/refine/tabs chrome, and section rhythm. Pages then got shadcn-style simplification: group by job, shorter copy, progressive disclosure (PR recap model, personalisation preset prompt), and fewer one-field cards (audits add forms fold into list sections; app lifecycle commands live in one section).
+
+## Dispatch-ticket project & quick-task cards - 2026-08-02
+
+## Dispatch-ticket project & quick-task cards - 2026-08-02
+
+Cards drop info the column already encodes (status / phase). Face keeps badges for planning mode and tags, plus people, progress, and time. Quieter type hierarchy and a concentric in-progress ring.
+
+## Flatter dark UI language (Onyx-inspired) - 2026-08-02
+
+Dark product chrome was a soft charcoal with card shadows, so hierarchy leaned on elevation instead of hairlines. Dark surfaces now sit nearer pure black with a one-step card ladder, cards/surfaces drop `shadow-sm` (overlays keep `shadow-lg/xl`), and landing sections plus empty states get more vertical air — accents, light/neutral, and theme radius stay as they were.
+
+## Paste-as-file for long chat pastes - 2026-08-02
+
+Pasting a wall of text into a composer flooded the input and made the draft hard to edit. Pastes over 2,000 characters now attach as a `.txt` file (Claude.ai-style) across sessions, new-session, quick tasks, and sandbox chats. Clicking the chip opens a modal with live word/char counts — editable before send, read-only on sent messages. Attachment accept lists are unified so every chat surface takes the same image + HTML/MD/TXT set; no backend changes because text attachments already materialize as `/tmp/eva-attachment-N.txt`.
+
+## Husky gates moved to on-demand `/preflight` - 2026-08-02
+
+Commit and push hooks (lint-staged, typecheck, compiler check, Cursor attribution strip, stray `@` guard) were slowing every git write while still often disabled. Those `.husky/` scripts are commented out in place; run `/preflight` when you want the same checks without paying on every commit.
+
+## Voice dictation streams through AI Gateway - 2026-08-02
+
+Composer mic was a no-op (it queried a textarea that never existed), and browser Web Speech is uneven across browsers. An experimental switch now mints a short-lived Gateway STT token (`xai/grok-stt`) so chat composers and the quick-task description field can stream live transcription without exposing the server API key. Off by default; when off, chat still falls back to Web Speech where available.
+
+## Quick tasks get auto-tagged on create - 2026-08-02
+
+Tags existed on tasks — badges, filters, bulk edit, composer picker — but nothing ever wrote them, so the filters stayed empty. Creating or activating a task now schedules the same background gpt-5-nano path sessions already use for titles, picks up to three tags from a fixed vocabulary, and merges them after any tags the user already chose. The picker lists that vocabulary up front so manual picks stay on the same words the model uses.
+
+## ListRow cards use the router Link - 2026-08-02
+
+Raw `<a href>` on project and quick-task cards bypassed TanStack Router's `rewrite`, so monorepo URLs could still hard-load the internal `repo--app` form. ListRow now accepts a `link` slot (Radix Slot) so cards render `DynamicLink`; the rewrite owns the address-bar href, and plain clicks SPA-navigate without a parallel `navigate()` handler.
+
+## Monorepo URLs stay on slash form - 2026-08-02
+
+Clicking into a monorepo app (e.g. carepulse-ts/web) sometimes flipped the tab from `/owner/repo/app/...` to `/owner/repo--app/...` because the router needs a single `$repo` segment while shareable links already used slashes. A TanStack Router rewrite now maps slash ↔ dash at the history boundary, so the address bar stays on slash while routing still matches `repo--app`. `basePath` stays slash for shareable paths; SPA `navigate`/`Link` convert via `toInternalRepoHref`. Backend task/session URLs and notification hrefs use slash as well.
+
+## Inline scroll areas fade at their edges - 2026-08-02
+
+Inline scroll panels hard-cut their content at the boundary, so a list or log pane gave no signal that anything continued past the edge. A new `.scroll-fade` utility masks both edges from the element's own scroll timeline, so an edge only fades while there is content beyond it. Gated on `@supports (animation-timeline: scroll())` — a static fade would permanently dim fully-visible content, worse than the hard cut. Exempted from the blanket reduced-motion rule, which would otherwise collapse the scroll range and freeze the mask at its end state. The same recipe now covers the horizontal axis as `.scroll-fade-x`, replacing the JS overlay fades on the quick-task and project kanban column rows.
+
+## Three primitives replace thirty hand-rolled copies - 2026-08-02
+
+Skeleton, Surface, and ListRow already existed in the codebase — about thirty times each, written from memory, no two quite alike. `<Skeleton>` owns the pulse, radius, and fill so placeholder sizes stop drifting across screens. `<Surface>` is the padded-box recipe for places that need one box rather than Card's Header/Content/Footer split, with density as a closed set of paddings. `<ListRow>` settles project, quick-task, and notification rows onto one shell with a real button or anchor stretched across it, so nested checkboxes and menus keep working without `role="button"` hacks. Button also gains an `xs` size for the row controls that were hand-sized below `sm`.
+
+## The app icon follows the theme, and its badge steps outside it - 2026-08-02
+
+Eva's mark hardcoded a white rounded square, so the one element guaranteed to appear on every surface was the one element that ignored the theme: a bright chip in the browser tab, and another beside every chat message, nav bar, and footer for anyone on dark or neutral. The disc now tracks `--card` and the shape is a circle. It follows the in-app theme rather than `prefers-color-scheme`, because neutral has no operating-system equivalent and a light-theme user on a dark machine must still get the light chip — in-app that falls out of a `fill-card` class for free, and for the favicon a controller rewrites the icon href on every appearance change. That controller moved above the auth gate, so the landing page and the signed-out app get a themed icon too, which they did not before. The unread count, added last week, moved from inside the mark to the bottom-right edge where it half-overlaps, Discord-style. An SVG viewport clips, so the room outside the circle has to come from somewhere: the mark is permanently scaled to 212/256, which reserves the gutter whether or not a count is showing and keeps the tab icon from resizing every time notifications arrive and clear. The geometry had been hand-copied into three files that could disagree, and is now one module; the two static SVGs left in `public/` split by job, one full-bleed for the touch icon and one with the badge gutter for the favicon. The `theme-color` meta was `#0891b2`, a cyan belonging to no theme in the app, and now matches the shell colour of whichever is active — set in the pre-paint script so mobile browser chrome never flashes the wrong one. Safari is the exception throughout: it ignores SVG favicons entirely and keeps showing the old white PNG.
+
+## One icon library across the app - 2026-08-02
+
+Eighteen call sites still imported from `lucide-react` while the rest of the UI already used Tabler, so the same chevron, search, and close glyphs shipped twice under different stroke weights. Those files now import from `@tabler/icons-react`, and `lucide-react` is dropped from web, UI, and the chrome extension. One library, one visual weight.
+
+## Past changelogs are readable at /changelog - 2026-08-01
+
+Each week's changelog was shown once, in a dialog that dismissed permanently, so anyone who clicked through it lost the entry and anyone who joined later never saw the earlier ones. A new `/changelog` route in the home sidebar lists every published entry newest-first as a timeline, rendered with the same Streamdown setup as the dialog so the two cannot disagree on how a table or diagram looks. Both read the "Eva Weekly Changelog" automation's successful runs, now through one shared automation lookup rather than two copies of the same title scan. Successful runs that finished without a summary are dropped instead of rendering as empty cards, and the list caps at fifty entries — about a year of a weekly automation, deep enough that paging is not needed.
+
+## Teammates can be @-mentioned in sandbox chats - 2026-08-01
+
+The `@` picker in session, project, and quick-task chats offered data entities only, so naming a colleague meant typing plain text nobody was told about. It now offers teammates alongside documents, sessions, projects, and quick tasks, in one alphabetical list titled "Mentions" — the same picker comment inputs already had, which lets those inputs drop their duplicated row renderer. People and data tokens are byte-identical on the wire (`@[Label](convexId)`), so the id is the only discriminator: the client resolves it through the same `mentions.getEntity` lookup Data chips already use, and the backend through `db.normalizeId("users", id)`. A mention notifies at submit time from the three `submitTurn` mutations plus the new-session composer, upstream of the accept and enqueue branches, so it fires whether the agent is idle or busy, and only for members of the repo's team so a stale token cannot leak a message body outside it. The agent prompt is unaffected: person tokens already degraded to plain `@Name` before the prompt was built. Fixed in passing: notification hrefs were built from Convex ids while every detail route parses a numeric per-repo `numId`, so existing comment-mention notifications linked to a "not found" page.
+
+## New notifications chime, background tabs included - 2026-08-01
+
+A backgrounded tab gave no sign that anything had arrived beyond the favicon count, which only helps if you happen to look. New unread notifications now play a short two-note chime, hung off the arrival detection `NotificationToastStream` already runs so it costs no extra subscription and can never disagree with the toasts. The tones are synthesised through the Web Audio API rather than loaded from a file: nothing to fetch or cache, and no silent first notification while a request is in flight. Scheduling goes through the audio clock, which browsers keep accurate in hidden tabs even while they throttle timers, so a chime queued by a background tab still plays on time. One chime per batch however many land together, and only for unread arrivals, so pruning an old notification into the 100-item window stays silent. Autoplay policy keeps a context suspended until the user has interacted with the page at least once, which signing in and navigating satisfies well before the first notification.
+
+## Sandbox snapshots regain ripgrep, fd, and Git LFS - 2026-08-01
+
+The deleted Daytona image workflow installed ripgrep, fd, and Git LFS, and none of the three were carried over when the toolchain install moved into `launchSeedRun`. Agent CLIs had been silently falling back to `grep -r` and `find` for months, and cloning a repo that uses LFS produced pointer stubs where the real files should be, which reads as corrupt content rather than a missing tool. All three now install from pinned upstream tarballs alongside `gh`, since the Amazon Linux repos carry none of them, and Git LFS additionally registers its `--system` filters so checkout actually resolves pointers. The README and the landing page's sandbox spec claimed all three the whole time; those lists are now true, and their stale Daytona-era desktop stack (Xvfb, XFCE, x11vnc) is corrected to the TigerVNC one that Vercel sandboxes really run.
+
+## Unread inbox count reaches the browser tab - 2026-08-01
+
+The unread count lived only in the sidebar rail, so a backgrounded tab gave no sign that anything had arrived. The favicon now carries that count in a large Discord-style bubble overlapping the mark, sized by rendering every count width from 16px up so the digits stay readable at real tab scale, drawn as an SVG data URI from the same cached `countUnread` subscription the rail already holds, so it inherits that query's optimistic updates and adds no server load. Only the SVG icon link is rewritten, which means browsers that prefer it show the badge while Safari, which ignores SVG favicons outright, keeps showing the plain PNG.
+
+## Identifiable info can blur from one global preference - 2026-08-01
+
+Names and emails appeared in tooltips, hover cards, and other portals where a per-component prop could not reach them, which made demos and screenshots risky. A persisted blur-PID toggle now drives a single `data-blur-pid` rule on `<html>` that blurs every `[data-pii]` node app-wide, including portaled UI, without threading props through every call site.
+
+## Context usage remains provider-wide - 2026-08-01
+
+The context header treated an explicitly tagged Cursor log as newer than valid historical Claude logs that predated provider tags, allowing one incomplete Cursor report to hide usable context totals across a session or project. Result selection now follows actual usage metadata, supports Claude, Codex, OpenCode, and Cursor uniformly, preserves authoritative ACP occupancy when present, and represents incomplete providers as partial coverage instead of a global Cursor-only failure.
+
+## Chat execution feedback starts in the optimistic frame - 2026-08-01
+
+The Convex optimistic send path previously projected only the user bubble, while the Stop control and empty assistant “Thinking…” row still depended on the server-confirmed active turn. Idle sends now project both canonical-shaped rows through the same `withOptimisticUpdate` cache entry and treat that pending turn as executing immediately. A turn-id-only cancellation is resolved against the server's canonical active identity, so Stop is functional even when clicked before the submit round trip finishes without weakening stale-turn protection.
+
+## Cursor context accounting is ACP-native and honest when unavailable - 2026-08-01
+
+Cursor sessions previously wrote result logs without token, cache, cost, model, or context-window fields, so the session header silently presented incomplete historical totals as current context usage. Eva now consumes both standardized ACP reporting paths: prompt-response token totals and `usage_update` context/cost notifications. Cursor's cumulative per-session reports are de-duplicated during log aggregation, authoritative context sizes override model guesses, and the header explicitly says when Cursor has not reported context instead of showing a misleading percentage. This is forward-compatible with Cursor emitting the optional ACP fields without inventing token estimates while its current CLI omits them.
+
+## Chat sends reconcile through Convex without changing bubble layout - 2026-08-01
+
+Pending session, task, project, and preview-annotation sends previously lived in a React-only object that rendered a reduced bubble, so the canonical Convex message later remounted with its avatar and metadata and visibly shifted the timeline. Submit mutations now use Convex `withOptimisticUpdate` against a typed pending-turn cache view, active and queued projections share the same turn identity as the server transaction, and active pending rows render through the normal message component with the authenticated user from the first frame. Convex now owns optimistic rollback and reconciliation; the bespoke React optimistic state and special-case timeline row are gone.
+
+## Grok 4.5 is one model; effort lives on the reasoning control - 2026-08-01
+
+The model picker still offered Grok 4.5 Low/Medium/High even after Cursor moved effort onto a separate ACP trait. Those variants are gone from the selector in favor of a single `cursor:grok-4.5`, with low/medium/high chosen from the reasoning control. Stored variant ids keep loading and normalize to the base model.
+
+## Cursor ACP messages complete through one recoverable daemon - 2026-08-01
+
+Cursor chat could remain on Working indefinitely because every headless ACP process entered Cursor's interactive login method despite already receiving `CURSOR_API_KEY`; repeated prewarm requests could also race and launch several daemons for the same session. API-key sessions now skip interactive authentication, entity prewarm is protected by an expiring launch lease, page-open prewarm carries the same saved reasoning/thinking/context traits as the next turn, and a rejected saved-session restore falls back to a fresh ACP session. Cursor's current base-model-plus-traits contract is also normalized back to Eva's variant-style model IDs, so selections such as Grok 4.5 Low resolve to `grok-4.5` plus low effort instead of failing against an obsolete literal slug.
+
+## Cursor and chat now share an exact, capability-aware runtime - 2026-07-31
+
+Cursor is fully ACP-only through the official SDK: chat surfaces use a warm authenticated daemon, non-chat runs use the same structured prompt boundary, and the old `-p` command, stream-JSON adapter/parser, legacy session translation, and automatic transport fallback are removed. Every prompt reapplies its exact advertised model, reasoning/context configuration, and mode; authenticated capability snapshots feed the composer so unavailable models and controls fail before execution instead of being guessed. Exact turn ownership now also covers pending-question document identity, synthetic continuations, media, stale watchdogs, cancel races, and late callbacks, with structured mismatch logs and accessible keyboard-first question controls. Architecture and operations guides preserve the no-latest-row and no-duplicate-execution rules that prevent prior replies from resurfacing.
+
+## Chat surfaces consume one exact, paginated timeline - 2026-07-31
+
+Session, quick-task, and project sandbox chats now share one controller that submits a client-created turn once, reconciles its authoritative active-or-queued result, cancels and answers questions against the exact attempt, and preserves drafts across rejected sends. Recent history loads through Convex pagination and renders as stable logical turn rows in a virtualized timeline; loading older pages preserves the viewport, completed rows retain object identity during token streaming, jump navigation uses row indexes, and inactive session routes no longer retain hidden chat subscriptions. The old latest-message scans, fake Convex IDs, full-history sandbox query, and whole-session React cache are gone.
+
+## Project interviews become server-owned event flows - 2026-07-31
+
+The planning interview remains a distinct product, but React no longer coordinates its durable workflow. Project creation atomically schedules the first step; answering validates the exact visible question identity and appends the answer plus next workflow in one mutation; rejected plans and resets are single server transitions; and spec generation remains chained by the workflow itself. Transcript entries now carry stable IDs with an online backfill, and one Convex-derived discriminated projection parses stored JSON once for both the transcript and shared multiple-choice controls, eliminating duplicated document types, index keys, repeated render-time parsing, and stale-question advancement.
+
+## Every chat callback now belongs to one exact turn - 2026-07-31
+
+Session, quick-task, and project chat submission is now one atomic Convex operation: the server records the canonical user/assistant pair, decides whether the turn starts or queues, and preserves the same client-created turn ID and request fingerprint through dequeue. The active turn is a durable `(turnId, assistantMessageId, attempt, protocolVersion)` tuple carried through sandbox launch, warm Claude/Cursor daemon claims, streams, questions, screenshots, cancellation, and completion. Every mutation validates that tuple before changing state, final results target the accepted assistant row instead of “latest,” and stale callbacks become harmless. Protocol-versioned claims also prevent an old daemon from taking a v2 turn. This removes the inference races that let delayed work display or overwrite a different reply and supplies a paginated newest-first message query for the frontend migration.
+
+## Cursor ACP becomes a durable warm chat transport - 2026-07-31
+
+New sessions, projects, and task chats now explicitly own ACP in Convex and run their Cursor turns through one reusable `cursor-agent acp` process and session. The daemon uses the same atomic turn claim, attachment materialisation, pre-completion streaming reconcile, queued-turn parking, protocol cancellation, watchdog, stale-bundle drain, and entity-scoped process markers as Eva's proven Claude path; existing entities without the ownership marker stay on stream-JSON so a conversation can never change transport halfway through its history. Queue staging, cancellation, recovery, page-open prewarm, and sandbox launch now consult that durable marker across all three chat surfaces. Cursor extension events are replay-gated and merge with standard ACP tool lifecycles by tool-call ID, preventing duplicate subagent/image steps as well as prior-session content leakage.
+
+## Cursor turns gain an exact ACP completion boundary - 2026-07-31
+
+New Cursor conversations now use the official stable ACP v1 TypeScript SDK to control `cursor-agent acp`, while conversations with persisted stream-JSON state remain explicitly legacy. The adapter filters load replay and foreign-session updates, correlates tools by ACP IDs, keeps thoughts out of final text, handles Cursor permissions/questions/plans/todos/subagents/generated images, validates the selected model against live session options, and classifies the exact `session/prompt` stop response instead of accepting whichever prior-looking stdout result appears last. Cursor session state is now transport-versioned and written atomically, direct HTTP MCP descriptors are passed alongside the short-lived file compatibility path, and a redacted live probe records protocol/capability behavior without prompts, content, credentials, or headers. This removes the ambiguous completion mechanism behind stale or mismatched Cursor replies and establishes the reusable protocol boundary needed for the warm Cursor daemon.
+
+## Exact-turn chat and frontend architecture plan - 2026-07-31
+
+The recent stale-reply incidents exposed a broader ownership problem: message insertion, execution start, queue selection, streaming, questions, and completion can still infer the current turn from separate client state or the latest assistant row. A new detailed implementation plan makes one Convex `submitTurn` transaction the start-or-queue authority, preserves one client-created turn identity through optimistic UI and dequeue, binds every callback to the exact assistant row and attempt, and then layers stable timeline projection, pagination, virtualization, and narrow resource retention on that correctness foundation. The plan adopts t3code's useful command identity and projection ideas while explicitly retaining Convex and rejecting Effect, WebSocket replay, and event-store machinery.
+
+## Cursor ACP adoption decision and migration plan - 2026-07-31
+
+A commit-pinned review of t3code confirmed that its Cursor integration still runs the Cursor CLI, but controls a long-lived `cursor-agent acp` child through typed, bidirectional ACP instead of inferring completion from `stream-json` text and process exit. Eva should adopt that protocol boundary through the official ACP TypeScript SDK while retaining Convex as the durable queue/workflow owner. The new staged plan first swaps in one-shot ACP for protocol-correct completion, then extends Eva's existing daemon-pull path to Cursor with replay isolation, protocol cancellation, visible subagents, durable per-entity transport markers, and a no-duplicate fallback policy. The older Cursor SDK/OpenCode plan is marked superseded so future implementation has one source of truth.
 ## Another 1.2 MB off first load, and clicks that wait for nothing - 2026-08-04
 
 - Four `codeSplitting.groups` entries were quietly forcing mermaid, shiki, streamdown, and katex into the eager module graph: a group's `test` claims every module under the matched path, including third-party utilities a package bundles inside its own dist, so one eager import of dayjs (bundled inside mermaid) or clsx (inside streamdown) dragged the entire group chunk into the entry. Dropping those groups cut the modulepreload set from 1585.6 kB to 347.6 kB gzip, and total output grew only 0.9%, which rules out the bytes simply having been duplicated elsewhere.

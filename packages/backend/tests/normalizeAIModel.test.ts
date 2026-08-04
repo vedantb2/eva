@@ -15,8 +15,12 @@ test("normalizeAIModel remaps retired cursor model ids", () => {
     "cursor:composer-2.5",
   );
   expect(normalizeAIModel("cursor:claude-4.6-sonnet-medium-thinking")).toBe(
-    "cursor:grok-4.5-medium",
+    "cursor:grok-4.5",
   );
+  expect(normalizeAIModel("cursor:grok-4.5-low")).toBe("cursor:grok-4.5");
+  expect(normalizeAIModel("cursor:grok-4.5-medium")).toBe("cursor:grok-4.5");
+  expect(normalizeAIModel("cursor:grok-4.5-high")).toBe("cursor:grok-4.5");
+  expect(normalizeAIModel("cursor:grok-4.5")).toBe("cursor:grok-4.5");
   expect(normalizeAIModel("cursor:gpt-5.5-high")).toBe("cursor:gpt-5.5-low");
   expect(normalizeAIModel("cursor:gpt-5.5-low")).toBe("cursor:gpt-5.5-low");
 });

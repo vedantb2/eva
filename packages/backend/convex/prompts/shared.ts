@@ -31,13 +31,3 @@ export function buildRootDirectoryInstruction(rootDirectory: string): string {
   if (!rootDirectory) return "";
   return `\nIMPORTANT: Unless the user mentions otherwise, all changes must be made inside the app at "${rootDirectory}".`;
 }
-
-type PromptMode = "edit" | "plan";
-
-/** Returns the response length instruction string based on chat mode. */
-export function getResponseLengthInstruction(mode: PromptMode): string {
-  if (mode === "plan") {
-    return "\n\nResponse length: Concise. Explain what you changed in the plan and why.";
-  }
-  return "\n\nResponse length: Hyper-concise — 1–3 short bullet lines max. Outcomes only; no process, paths, jargon, or code.";
-}

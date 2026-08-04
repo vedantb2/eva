@@ -1,33 +1,21 @@
 "use client";
 
-import {
-  useEffect,
-  useState,
-  type KeyboardEvent,
-  type MouseEvent,
-} from "react";
-import { useStickToBottomContext } from "use-stick-to-bottom";
+import { useState, type KeyboardEvent, type MouseEvent } from "react";
 import { cn } from "@eva/ui";
 import { tokenizedToDisplayText } from "@/lib/components/mentions";
+import type { ChatJumpAnchor } from "./chatTimeline";
 
-/** Matches t3code `TIMELINE_MINIMAP_ITEM_SPACING` — compact rail, not full-height. */
 const ITEM_SPACING_PX = 8;
 const MIN_VISIBLE_TICKS = 2;
 const MAX_HEIGHT_CSS = "calc(100vh - 18rem)";
 
-interface ChatJumpRailMessage {
-  id: string;
-  content: string;
-  /** Plain-text preview of the assistant reply that follows this user turn. */
-  reply?: string;
-}
-
 interface ChatJumpRailProps {
-  messages: ChatJumpRailMessage[];
+  anchors: ReadonlyArray<ChatJumpAnchor>;
+  visibleRange: { startIndex: number; endIndex: number } | null;
+  onJump: (rowIndex: number) => void;
 }
 
-interface Tick {
-  id: string;
+interface Tick extends ChatJumpAnchor {
   userText: string;
   assistantText: string | null;
 }
@@ -64,66 +52,22 @@ function resolveIndexFromPointer(input: {
   );
 }
 
-/**
- * t3code-style timeline minimap: a short, vertically-centered rail of ticks
- * (one per user message). Hover scrubbing shows a floating preview of the user
- * turn + assistant reply; click jumps to that message. Must render inside
- * `<Conversation>` (StickToBottom) so it can read the shared scroll viewport
- * and resolve `[data-message-id]` targets within it.
- */
-export function ChatJumpRail({ messages }: ChatJumpRailProps) {
-  const { scrollRef } = useStickToBottomContext();
+/** Loaded-history minimap backed by Virtuoso row indexes. */
+export function ChatJumpRail({
+  anchors,
+  visibleRange,
+  onJump,
+}: ChatJumpRailProps) {
   const [hoverIndex, setHoverIndex] = useState<number | null>(null);
-  const [inViewIds, setInViewIds] = useState<ReadonlySet<string>>(
-    () => new Set(),
-  );
-
-  const ticks: Tick[] = messages.map((message) => {
-    const userText = toPreview(message.content);
-    const assistantText = message.reply ? toPreview(message.reply) : "";
+  const ticks: Tick[] = anchors.map((anchor) => {
+    const userText = toPreview(anchor.content);
+    const assistantText = anchor.reply ? toPreview(anchor.reply) : "";
     return {
-      id: message.id,
+      ...anchor,
       userText: userText.length > 0 ? userText : "Message",
       assistantText: assistantText.length > 0 ? assistantText : null,
     };
   });
-
-  useEffect(() => {
-    const viewport = scrollRef.current;
-    if (!viewport || ticks.length < MIN_VISIBLE_TICKS) return;
-
-    const targets = ticks
-      .map((tick) =>
-        viewport.querySelector<HTMLElement>(`[data-message-id="${tick.id}"]`),
-      )
-      .filter((el): el is HTMLElement => el !== null);
-    if (targets.length === 0) return;
-
-    const visible = new Set<string>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          const id = entry.target.getAttribute("data-message-id");
-          if (!id) continue;
-          if (entry.isIntersecting) visible.add(id);
-          else visible.delete(id);
-        }
-        setInViewIds(new Set(visible));
-      },
-      { root: viewport, rootMargin: "0px 0px -70% 0px", threshold: 0 },
-    );
-
-    for (const target of targets) observer.observe(target);
-    return () => observer.disconnect();
-  }, [scrollRef, ticks]);
-
-  const scrollToTick = (id: string) => {
-    const viewport = scrollRef.current;
-    const target = viewport?.querySelector<HTMLElement>(
-      `[data-message-id="${id}"]`,
-    );
-    target?.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
 
   const resolveHoverIndexFromPointer = (event: MouseEvent<HTMLElement>) => {
     const rect = event.currentTarget.getBoundingClientRect();
@@ -157,8 +101,8 @@ export function ChatJumpRail({ messages }: ChatJumpRailProps) {
       setHoverIndex(ticks.length - 1);
     } else if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
-      const active = hoverIndex !== null ? (ticks[hoverIndex] ?? null) : null;
-      if (active) scrollToTick(active.id);
+      const active = hoverIndex === null ? null : (ticks[hoverIndex] ?? null);
+      if (active) onJump(active.rowIndex);
     }
   };
 
@@ -206,7 +150,7 @@ export function ChatJumpRail({ messages }: ChatJumpRailProps) {
             const nextIndex = resolveHoverIndexFromPointer(event);
             const nextTick =
               nextIndex === null ? null : (ticks[nextIndex] ?? null);
-            if (nextTick) scrollToTick(nextTick.id);
+            if (nextTick) onJump(nextTick.rowIndex);
             event.currentTarget.blur();
           }}
           onKeyDown={handleKeyDown}
@@ -218,7 +162,10 @@ export function ChatJumpRail({ messages }: ChatJumpRailProps) {
               resolvedHoverIndex === null
                 ? null
                 : Math.abs(index - resolvedHoverIndex);
-            const inView = inViewIds.has(tick.id);
+            const inView =
+              visibleRange !== null &&
+              tick.rowIndex >= visibleRange.startIndex &&
+              tick.rowIndex <= visibleRange.endIndex;
             return (
               <span
                 key={tick.id}

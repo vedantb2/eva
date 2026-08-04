@@ -3,9 +3,9 @@ import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import { Analytics } from "@vercel/analytics/react";
 import { ClientProvider } from "@/lib/components/ClientProvider";
-import { ChangelogDialog } from "@/lib/components/ChangelogDialog";
 import { AppToaster } from "@/lib/components/AppToaster";
 import { AppShell } from "@/lib/components/AppShell";
+import { ChangelogDialogGate } from "@/lib/components/ChangelogDialogGate";
 import { useDocumentTitle } from "@/lib/hooks/useDocumentTitle";
 
 export interface RouterContext {
@@ -35,7 +35,7 @@ function RootComponent() {
           <Outlet />
         </AppShell>
       </NuqsAdapter>
-      <ChangelogDialog />
+      <ChangelogDialogGate />
       <AppToaster />
       <Analytics />
       {DevAgentation ? (

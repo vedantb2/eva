@@ -3,9 +3,12 @@ import { IconLayoutGrid, type TablerIcon } from "@tabler/icons-react";
 
 // Custom tabs store a free-text Tabler icon name (e.g. "IconBolt"). Tabler ships
 // no runtime name -> component resolver, so we build one from the namespace
-// import. This pulls the full icon set into the bundle (tree-shaking is lost);
-// acceptable for this internal platform. If bundle size becomes a concern, swap
-// `iconMap` for a curated allowlist without changing callers.
+// import. This pulls the full icon set in (tree-shaking is lost), so the module
+// weighs ~2.5 MB.
+//
+// IMPORT THIS MODULE DYNAMICALLY ONLY. A static import drags that 2.5 MB into
+// the initial bundle for every visitor. `TablerIconByName` is the one caller and
+// it goes through `await import()` to keep the weight in a lazy chunk.
 //
 // The namespace also exports non-icon members (createReactComponent, iconsList,
 // ...), so the filter keeps only `Icon*` forwardRef components.

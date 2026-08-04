@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, createElement } from "react";
+import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import { Button, Input } from "@eva/ui";
@@ -10,7 +10,7 @@ import {
   RESERVED_APP_TAB_SLUGS,
   slugifyAppTabName,
 } from "@/lib/utils/appTabSlug";
-import { resolveTablerIcon } from "@/lib/utils/tablerIcon";
+import { TablerIconByName } from "@/lib/components/TablerIconByName";
 import { CustomTabRow } from "./_components/CustomTabRow";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
@@ -18,9 +18,12 @@ import { SettingsField } from "@/lib/components/settings/SettingsField";
 import { IconLayoutNavbar } from "@tabler/icons-react";
 
 function TabIconPreview({ icon }: { icon: string }) {
-  return createElement(resolveTablerIcon(icon), {
-    className: "mb-2 h-4 w-4 shrink-0 text-muted-foreground",
-  });
+  return (
+    <TablerIconByName
+      name={icon}
+      className="mb-2 h-4 w-4 shrink-0 text-muted-foreground"
+    />
+  );
 }
 
 function nameError(

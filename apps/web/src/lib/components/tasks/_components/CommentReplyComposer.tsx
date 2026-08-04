@@ -105,7 +105,7 @@ function CommentReplyComposerForm({
           <UserInitials userId={currentUserId} size="sm" hideLastSeen />
         ) : null}
       </span>
-      <div className="relative flex-1">
+      <div className="flex min-h-9 min-w-0 flex-1 items-start gap-1 rounded-control border border-input bg-card transition-[background-color,border-color,box-shadow] focus-within:border-ring/60 focus-within:ring-2 focus-within:ring-ring/35 hover:bg-muted/50">
         <CommentMentionInput
           ref={mentionRef}
           value={replyText}
@@ -117,7 +117,7 @@ function CommentReplyComposerForm({
           className="min-h-0 max-h-36 rounded-none border-0 bg-transparent transition-[background-color] hover:bg-muted/50"
         />
         <CommentSendButton
-          className="absolute right-1.5 bottom-1.5"
+          className="mt-1 mr-1.5 shrink-0"
           disabled={!canSubmit}
           isSubmitting={isSubmitting}
           onClick={handleSubmit}
@@ -151,7 +151,7 @@ export function CommentReplyComposer({
     return (
       <div className="flex items-start gap-2">
         <span className="flex h-9 w-4 shrink-0 items-center justify-center" />
-        <div className="relative flex-1">
+        <div className="flex min-h-9 min-w-0 flex-1 items-start rounded-control border border-input bg-card">
           <CommentMentionInput
             value=""
             onValueChange={() => undefined}

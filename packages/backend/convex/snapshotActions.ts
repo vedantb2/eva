@@ -34,6 +34,13 @@ const SUPABASE_CLI_VERSION = "2.90.0";
 // Pinned GitHub CLI for Vercel seeds. Amazon Linux dnf repos don't ship it,
 // so we install the official release tarball.
 const GH_CLI_VERSION = "2.72.0";
+// Search and VCS tooling the agent CLIs shell out to. Like gh, none of these
+// are in the AL2023 repos, so each comes from its pinned upstream tarball.
+// Note the differing tag conventions: ripgrep tags have no `v` prefix, and
+// git-lfs drops the `v` from its archive's top-level directory.
+const RIPGREP_VERSION = "15.2.0";
+const FD_VERSION = "10.4.2";
+const GIT_LFS_VERSION = "3.7.1";
 
 function shouldCaptureSupabaseState(commands: string[]): boolean {
   return commands.some((command) => {
@@ -264,8 +271,17 @@ export const launchSeedRun = internalAction({
       // ffmpeg for agent-browser WebM recording. Not in core AL2023 repos —
       // enable SPAL then install ffmpeg-free (VP8/WebM). Soft-fail so seed
       // still completes if the mirror is unavailable.
-      "command -v ffmpeg >/dev/null 2>&1 || sudo dnf install -y spal-release >/tmp/spal-dnf.log 2>&1 || true",
-      "command -v ffmpeg >/dev/null 2>&1 || sudo dnf install -y ffmpeg-free >/tmp/ffmpeg-dnf.log 2>&1 || sudo dnf install -y ffmpeg >/tmp/ffmpeg-dnf.log 2>&1 || true",
+      //
+      // Gate on `ffmpeg -version`, NOT `command -v ffmpeg`: SPAL's ffmpeg links
+      // against libjack.so.0 without depending on the package that ships it, so
+      // the binary can exist and still die with a missing-shared-object error.
+      // `command -v` would call that healthy and skip the libjack repair below.
+      "ffmpeg -version >/dev/null 2>&1 || sudo dnf install -y spal-release >/tmp/spal-dnf.log 2>&1 || true",
+      "ffmpeg -version >/dev/null 2>&1 || sudo dnf install -y ffmpeg-free >/tmp/ffmpeg-dnf.log 2>&1 || sudo dnf install -y ffmpeg >/tmp/ffmpeg-dnf.log 2>&1 || true",
+      // libjack.so.0. Asked for by capability first because the providing
+      // package was renamed (jack-audio-connection-kit → …-libs) and differs by
+      // AL2023/SPAL revision; the two literal names are the fallback.
+      'ffmpeg -version >/dev/null 2>&1 || sudo dnf install -y "libjack.so.0()(64bit)" >/tmp/libjack-dnf.log 2>&1 || sudo dnf install -y jack-audio-connection-kit-libs >>/tmp/libjack-dnf.log 2>&1 || sudo dnf install -y jack-audio-connection-kit >>/tmp/libjack-dnf.log 2>&1 || true',
       'docker info >/dev/null 2>&1 || sudo setsid dockerd </dev/null >/tmp/dockerd.log 2>&1 & for i in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 1; done; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; docker info >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
       'corepack enable || sudo corepack enable || { echo "SEEDRUN-FAILED:corepack"; exit 1; }',
       'corepack prepare pnpm@10.33.4 --activate || { echo "SEEDRUN-FAILED:pnpm"; exit 1; }',
@@ -276,6 +292,17 @@ export const launchSeedRun = internalAction({
       // GitHub CLI — Daytona Image installs via apt; Vercel AL2023 needs the
       // release tarball (dnf has no `gh` package by default).
       `command -v gh >/dev/null 2>&1 || { curl -fsSL https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz -o /tmp/gh.tgz && sudo tar -xzf /tmp/gh.tgz -C /tmp && sudo mv /tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh /usr/local/bin/gh && rm -rf /tmp/gh.tgz /tmp/gh_${GH_CLI_VERSION}_linux_amd64; } || { echo "SEEDRUN-FAILED:gh-cli"; exit 1; }`,
+      // ripgrep and fd — every agent CLI reaches for these to search a repo, and
+      // fall back to far slower `grep -r`/`find` when they are missing.
+      `command -v rg >/dev/null 2>&1 || { curl -fsSL https://github.com/BurntSushi/ripgrep/releases/download/${RIPGREP_VERSION}/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl.tar.gz -o /tmp/rg.tgz && sudo tar -xzf /tmp/rg.tgz -C /tmp && sudo mv /tmp/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl/rg /usr/local/bin/rg && rm -rf /tmp/rg.tgz /tmp/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl; } || { echo "SEEDRUN-FAILED:ripgrep"; exit 1; }`,
+      `command -v fd >/dev/null 2>&1 || { curl -fsSL https://github.com/sharkdp/fd/releases/download/v${FD_VERSION}/fd-v${FD_VERSION}-x86_64-unknown-linux-musl.tar.gz -o /tmp/fd.tgz && sudo tar -xzf /tmp/fd.tgz -C /tmp && sudo mv /tmp/fd-v${FD_VERSION}-x86_64-unknown-linux-musl/fd /usr/local/bin/fd && rm -rf /tmp/fd.tgz /tmp/fd-v${FD_VERSION}-x86_64-unknown-linux-musl; } || { echo "SEEDRUN-FAILED:fd"; exit 1; }`,
+      // Git LFS. Without it a clone of an LFS repo succeeds but leaves pointer
+      // stubs where the real files should be, which reads as corrupt content
+      // rather than a missing tool. Registering the --system filters is the half
+      // that makes checkout resolve pointers, so it must follow the binary; call
+      // the absolute path because sudo's secure_path may exclude /usr/local/bin.
+      `command -v git-lfs >/dev/null 2>&1 || { curl -fsSL https://github.com/git-lfs/git-lfs/releases/download/v${GIT_LFS_VERSION}/git-lfs-linux-amd64-v${GIT_LFS_VERSION}.tar.gz -o /tmp/lfs.tgz && sudo tar -xzf /tmp/lfs.tgz -C /tmp && sudo mv /tmp/git-lfs-${GIT_LFS_VERSION}/git-lfs /usr/local/bin/git-lfs && rm -rf /tmp/lfs.tgz /tmp/git-lfs-${GIT_LFS_VERSION}; } || { echo "SEEDRUN-FAILED:git-lfs"; exit 1; }`,
+      'sudo /usr/local/bin/git-lfs install --system >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:git-lfs-filters"; exit 1; }',
       'command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && command -v opencode >/dev/null 2>&1 || sudo npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
       'command -v code-server >/dev/null 2>&1 || curl -fsSL https://code-server.dev/install.sh | sh || { echo "SEEDRUN-FAILED:code-server"; exit 1; }',
       'command -v websockify >/dev/null 2>&1 || python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1 || { echo "SEEDRUN-FAILED:websockify"; exit 1; }',

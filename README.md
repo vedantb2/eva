@@ -226,8 +226,8 @@ Build is split into phases (Convex 10-min action ceiling). Normally finishes in 
 
 - Base: `node24`, pnpm, Node tooling
 - System: git, git-lfs, curl, jq, ripgrep, fd, gh CLI, sudo, ffmpeg
-- Desktop: Xvfb, XFCE, x11vnc, noVNC, Google Chrome
-- Docker Engine 28.3.3 (nested containers like `supabase start`)
+- Desktop: TigerVNC, noVNC, websockify, Google Chrome
+- Docker Engine (nested containers like `supabase start`)
 - Agent CLIs: Claude Code, Codex, opencode, Cursor
 - Other: agent-browser, Convex CLI, Supabase CLI 2.90.0, agentation-mcp, Claude Agent SDK, code-server
 

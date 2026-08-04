@@ -212,12 +212,24 @@ class VercelDesktop implements SandboxDesktop {
     // ffmpeg: required by `agent-browser record` (WebM encode). Runs BEFORE the
     // health/install logic below because older snapshots bake the VNC stack but
     // not ffmpeg — both the healthy early-return and the INSTALLED=1 guard would
-    // skip it forever. Idempotent (`command -v` gate) and soft-failing.
+    // skip it forever. Idempotent and soft-failing.
+    //
+    // The gate runs `ffmpeg -version` rather than `command -v ffmpeg`: SPAL's
+    // ffmpeg links against libjack.so.0 without depending on the package that
+    // ships it, so snapshots exist where the binary is present but every
+    // invocation dies with a missing-shared-object error. Only actually running
+    // it catches that, and the libjack install below is what repairs it.
     await this.handle.exec(
       [
-        "if ! command -v ffmpeg >/dev/null 2>&1; then",
+        "if ! ffmpeg -version >/dev/null 2>&1; then",
         "  sudo dnf install -y spal-release >/tmp/spal-dnf.log 2>&1 || true",
         "  sudo dnf install -y ffmpeg-free >/tmp/ffmpeg-dnf.log 2>&1 || sudo dnf install -y ffmpeg >/tmp/ffmpeg-dnf.log 2>&1 || true",
+        "fi",
+        // Asked for by capability first because the providing package was
+        // renamed (jack-audio-connection-kit → …-libs) and differs by
+        // AL2023/SPAL revision; the two literal names are the fallback.
+        "if ! ffmpeg -version >/dev/null 2>&1; then",
+        '  sudo dnf install -y "libjack.so.0()(64bit)" >/tmp/libjack-dnf.log 2>&1 || sudo dnf install -y jack-audio-connection-kit-libs >>/tmp/libjack-dnf.log 2>&1 || sudo dnf install -y jack-audio-connection-kit >>/tmp/libjack-dnf.log 2>&1 || true',
         "fi",
       ].join("\n"),
       { timeoutSeconds: 180 },

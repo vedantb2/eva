@@ -1,6 +1,7 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react, { reactCompilerPreset } from "@vitejs/plugin-react";
 import babel from "@rolldown/plugin-babel";
+import transformImports from "@rolldown/plugin-transform-imports";
 import tanstackRouter from "@tanstack/router-plugin/vite";
 import { visualizer } from "rollup-plugin-visualizer";
 import path from "path";
@@ -83,6 +84,28 @@ export default defineConfig({
     // React Compiler for both dev and build so local runtime matches production
     // memoization (dev transforms are slower; worth it for responsive UI).
     babel({ presets: [reactCompilerPreset()] }),
+    // `import { IconPlus } from "@tabler/icons-react"` pulls in Tabler's barrel,
+    // which re-exports 6095 icons — so the barrel lands in the eager graph and
+    // drags every icon with it (~2.5 MB / 489 kB gzip in the initial payload).
+    // Rewriting each named import to its own icon file means the barrel is never
+    // loaded here; only `tablerIcon.ts` still reads it, behind a dynamic import.
+    //
+    // `^Icon.+$` deliberately excludes the bare `Icon` type export (there is no
+    // `icons/Icon.mjs`); unmatched members keep their original import.
+    //
+    // Build-only: in dev these deep paths are each a fresh optimizer entry, so
+    // every newly visited route would re-bundle deps and force a page reload.
+    // Dev keeps the barrel, which the optimizer pre-bundles once.
+    {
+      ...transformImports({
+        "@tabler/icons-react": {
+          transform: [
+            ["^Icon.+$", "@tabler/icons-react/dist/esm/icons/{{member}}.mjs"],
+          ],
+        },
+      }),
+      apply: "build",
+    },
     agentLoginPlugin(),
     process.env.ANALYZE === "true" &&
       visualizer({

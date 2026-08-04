@@ -1,5 +1,13 @@
 # Changelog
 
+## 489 kB of icons off every first page load - 2026-08-04
+
+- Tabler's package entry re-exports 6095 icons, so an ordinary `import { IconPlus } from "@tabler/icons-react"` put that barrel in the eager module graph. Combined with the runtime name resolver in `tablerIcon.ts`, which reads the whole namespace and therefore blocks tree-shaking, the initial payload carried a 2.5 MB (489 kB gzip) icon chunk that every visitor downloaded.
+- Named icon imports are now rewritten to their own files at build time (`@rolldown/plugin-transform-imports`), so the barrel is no longer reachable from the eager graph. The plugin is build-only: in dev each deep path is a separate optimizer entry, which would re-bundle deps and reload the page on every newly visited route.
+- The name resolver stays behind a lazy `import()` via a new `TablerIconByName` component, so custom app tabs keep accepting any Tabler name as free text — only the screens that render one pay for the barrel, instead of every visitor.
+- Reason for change: this was diagnosed while chasing build time, which turned out to be immovable. Removing the react() plugin, the router plugin, minification, compressed-size reporting, and half the module graph each changed the build by under 0.5s — it is bound by fixed work, not by anything in the config. The payload was the real defect the investigation surfaced.
+
+
 ## Recording turns cannot self-terminate and report a promise as success - 2026-07-31
 
 All-feature walkthrough turns were using broad `pkill -f` cleanup that could match the Cursor CLI's own command line because the recording instructions are part of its process arguments. The agent died during setup, then the callback discarded Node's close signal and promoted the last streamed "recording now" preamble to a successful final reply. Recording prompts now require exact-PID cleanup, a named feature checklist, and a real deliverable per item; the callback preserves direct signal termination and rejects both direct and shell-translated interruptions even when partial assistant text exists.

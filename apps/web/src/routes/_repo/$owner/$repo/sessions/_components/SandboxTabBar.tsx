@@ -16,7 +16,7 @@ import {
 import type { Doc } from "@eva/backend";
 import { useCycleSandboxTabHotkey } from "@/lib/components/sandbox/useCycleSandboxTabHotkey";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
-import { resolveTablerIcon } from "@/lib/utils/tablerIcon";
+import { TablerIconByName } from "@/lib/components/TablerIconByName";
 import type { SandboxTab } from "@/lib/search-params";
 import {
   Tabs,
@@ -259,7 +259,6 @@ export function SandboxTabBar({
             </TabsTrigger>
           ) : null}
           {customTabs?.map((tab) => {
-            const Icon = resolveTablerIcon(tab.icon);
             const slug = slugifyAppTabName(tab.name);
             return (
               <TabsTrigger
@@ -267,7 +266,7 @@ export function SandboxTabBar({
                 value={slug}
                 className={TAB_TRIGGER_CLASS}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <TablerIconByName name={tab.icon} className="w-3.5 h-3.5" />
                 {tab.name}
               </TabsTrigger>
             );

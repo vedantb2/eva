@@ -20,6 +20,7 @@ import {
 } from "../_userProviderAccounts/defaults";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
+import { notifyChatMentions } from "../_mentions/notifyChatMentions";
 
 async function finalizeOpenSyntheticTurnOnCancel(
   ctx: MutationCtx,
@@ -54,6 +55,13 @@ export const startExecute = authMutation({
     if (!session) throw new Error("Session not found");
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
+
+    // Notify before the turn runs or queues so a mention fires either way.
+    await notifyChatMentions(ctx, {
+      content: args.message,
+      authorUserId: ctx.userId,
+      surface: { kind: "session", session },
+    });
 
     const normalizedMode =
       args.mode === "ask" || args.mode === "execute" ? "edit" : args.mode;
@@ -282,6 +290,12 @@ export const enqueueMessage = authMutation({
     if (!session) throw new Error("Session not found");
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
+
+    await notifyChatMentions(ctx, {
+      content: displayContent || content,
+      authorUserId: ctx.userId,
+      surface: { kind: "session", session },
+    });
 
     await ctx.db.insert("queuedMessages", {
       parentId: args.sessionId,

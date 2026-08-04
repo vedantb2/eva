@@ -2,11 +2,11 @@ import type { MouseEvent } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import {
   MentionText,
-  DataMentionChip,
   SkillMentionChip,
   isSkillTokenId,
   SKILL_CHIP_CLASS,
 } from "@/lib/components/mentions";
+import { AtMentionChip } from "@/lib/components/chat/MarkdownMentionText";
 import { useDataMentionNavigate } from "@/lib/useDataMentionNavigate";
 import { useRepo } from "@/lib/contexts/RepoContext";
 
@@ -39,13 +39,15 @@ export function MessageMentionText({
           e.stopPropagation();
           void navigateToData(match.id);
         };
+        // This renders the author's own draft/queued text, so a token may name
+        // either a teammate or a data entity — AtMentionChip resolves which.
         return (
-          <DataMentionChip
+          <AtMentionChip
             key={key}
-            entityId={match.id}
-            repoId={repo._id}
+            id={match.id}
             label={match.label}
-            onClick={onClick}
+            repoId={repo._id}
+            onNavigateToData={onClick}
           />
         );
       }}

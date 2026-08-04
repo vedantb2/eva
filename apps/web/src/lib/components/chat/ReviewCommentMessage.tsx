@@ -13,6 +13,10 @@ interface ReviewCommentMessageProps {
 
 const BODY_CLASS = `${MARKDOWN_PROSE_CLASS} text-sm leading-relaxed break-words`;
 
+// This component only ever renders user-authored chat messages, whose composer
+// offers both teammates and data entities, so every `@` token here needs its
+// kind resolved (`atKind="user"`) rather than assumed to be data.
+
 function ReviewCommentCard({
   filePath,
   rangeLabel,
@@ -38,6 +42,7 @@ function ReviewCommentCard({
           repoBasePath={repoBasePath}
           repoId={repo._id}
           className={BODY_CLASS}
+          atKind="user"
         />
       ) : null}
     </div>
@@ -61,6 +66,7 @@ export function ReviewCommentMessage({
         repoBasePath={repoBasePath}
         repoId={repo._id}
         className={BODY_CLASS}
+        atKind="user"
       />
     );
   }
@@ -76,6 +82,7 @@ export function ReviewCommentMessage({
               repoBasePath={repoBasePath}
               repoId={repo._id}
               className={BODY_CLASS}
+              atKind="user"
             />
           ) : null
         ) : (

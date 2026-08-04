@@ -32,6 +32,7 @@ import {
 } from "./_projects/helpers";
 import { buildCustomInstructionsBlock } from "./prompts";
 import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
+import { notifyChatMentions } from "./_mentions/notifyChatMentions";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 import type { Doc, Id } from "./_generated/dataModel";
 import { PROJECT_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
@@ -187,6 +188,12 @@ export const startExecute = authMutation({
 
     void args.providerAccountId;
 
+    await notifyChatMentions(ctx, {
+      content: args.message,
+      authorUserId: ctx.userId,
+      surface: { kind: "project", project },
+    });
+
     await ctx.db.insert("messages", {
       parentId: args.projectId,
       role: "assistant",
@@ -297,6 +304,12 @@ export const enqueueMessage = authMutation({
     if (!(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
+
+    await notifyChatMentions(ctx, {
+      content,
+      authorUserId: ctx.userId,
+      surface: { kind: "project", project },
+    });
 
     await ctx.db.insert("queuedMessages", {
       parentId: args.projectId,

@@ -75,7 +75,7 @@ function getRepoHref(
   return `/${owner}/${name}/${appName}`;
 }
 
-/** Creates a notification for a user, auto-generating an href from repo/project/task/doc context. */
+/** Creates a notification for a user, auto-generating an href from repo/project/task/doc/session context. */
 export async function createNotification(
   ctx: MutationCtx,
   params: {
@@ -88,45 +88,54 @@ export async function createNotification(
     projectId?: Id<"projects">;
     taskId?: Id<"agentTasks">;
     docId?: Id<"docs">;
+    sessionId?: Id<"sessions">;
   },
 ) {
+  const type = params.type ?? "system";
+
+  // Fetched once and shared: the href and the context label below are both
+  // derived from whichever entity the notification is about.
+  const doc = params.docId ? await ctx.db.get(params.docId) : null;
+  const task = params.taskId ? await ctx.db.get(params.taskId) : null;
+  const project = params.projectId ? await ctx.db.get(params.projectId) : null;
+  const session = params.sessionId ? await ctx.db.get(params.sessionId) : null;
+
   let href = params.href;
   if (!href && params.repoId) {
     const repo = await ctx.db.get(params.repoId);
     if (repo) {
       const baseHref = getRepoHref(repo.owner, repo.name, repo.rootDirectory);
-      if (params.docId) {
-        href = `${baseHref}/docs/${params.docId}/content`;
-      } else if (params.projectId && params.taskId) {
-        href = `${baseHref}/projects/${params.projectId}/${params.taskId}/activity`;
-      } else if (params.taskId) {
-        href = `${baseHref}/quick-tasks/${params.taskId}`;
-      } else if (params.projectId) {
-        href = `${baseHref}/projects/${params.projectId}`;
+      // Detail routes are keyed by per-repo numId, not by Convex id — a Convex
+      // id in the path fails `parseRouteNumId` and renders "not found". An
+      // entity still awaiting numId backfill falls through to its section list.
+      if (doc?.numId !== undefined) {
+        href = `${baseHref}/docs/${doc.numId}/content`;
+      } else if (project?.numId !== undefined && task?.numId !== undefined) {
+        href = `${baseHref}/projects/${project.numId}/${task.numId}/activity`;
+      } else if (task?.numId !== undefined) {
+        href = `${baseHref}/quick-tasks/${task.numId}`;
+      } else if (project?.numId !== undefined) {
+        href = `${baseHref}/projects/${project.numId}`;
+      } else if (session?.numId !== undefined) {
+        href = `${baseHref}/sessions/${session.numId}`;
       } else {
         href = `${baseHref}/quick-tasks`;
       }
     }
   }
-  const type = params.type ?? "system";
 
   // Snapshot a human-readable context label for the notification card, but only
   // for types whose title does not already name the entity.
   let contextLabel: string | undefined;
-  if (params.docId && CONTEXT_LABEL_TYPES.has(type)) {
-    const doc = await ctx.db.get(params.docId);
+  if (CONTEXT_LABEL_TYPES.has(type)) {
     if (doc) {
       contextLabel = doc.title;
-    }
-  } else if (params.taskId && CONTEXT_LABEL_TYPES.has(type)) {
-    const task = await ctx.db.get(params.taskId);
-    if (task) {
-      if (params.projectId) {
-        const project = await ctx.db.get(params.projectId);
-        contextLabel = project ? `${project.title}: ${task.title}` : task.title;
-      } else {
-        contextLabel = task.title;
-      }
+    } else if (task) {
+      contextLabel = project ? `${project.title}: ${task.title}` : task.title;
+    } else if (project) {
+      contextLabel = project.title;
+    } else if (session) {
+      contextLabel = session.title;
     }
   }
   await ctx.db.insert("notifications", {

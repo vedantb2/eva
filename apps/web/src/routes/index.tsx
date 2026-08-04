@@ -12,8 +12,10 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute("/")({
   validateSearch: searchSchema,
-  beforeLoad: ({ context, search }) => {
-    if (search.agent) {
+  // A preload must not navigate the whole page, so the agent-login hand-off
+  // only runs for a real visit.
+  beforeLoad: ({ context, search, preload }) => {
+    if (search.agent && !preload) {
       window.location.href = "/api/auth/agent-login";
     }
     if (context.isSignedIn) {

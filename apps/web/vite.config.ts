@@ -1,6 +1,5 @@
 import { defineConfig, loadEnv, type Plugin } from "vite";
-import react, { reactCompilerPreset } from "@vitejs/plugin-react";
-import babel from "@rolldown/plugin-babel";
+import react from "@vitejs/plugin-react";
 import tanstackRouter from "@tanstack/router-plugin/vite";
 import { visualizer } from "rollup-plugin-visualizer";
 import path from "path";
@@ -80,9 +79,6 @@ export default defineConfig({
       autoCodeSplitting: true,
     }),
     react(),
-    // React Compiler for both dev and build so local runtime matches production
-    // memoization (dev transforms are slower; worth it for responsive UI).
-    babel({ presets: [reactCompilerPreset()] }),
     agentLoginPlugin(),
     process.env.ANALYZE === "true" &&
       visualizer({

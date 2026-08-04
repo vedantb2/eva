@@ -2,9 +2,10 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@eva/backend";
-import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner, Switch } from "@eva/ui";
+import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsToggleRow } from "@/lib/components/settings/SettingsToggleRow";
 
 export function NotificationsSettingsClient() {
   const enabled = useQuery(api.auth.getEmailNotificationsEnabled);
@@ -20,20 +21,24 @@ export function NotificationsSettingsClient() {
 
   if (enabled === undefined) {
     return (
-      <PageWrapper title="Notifications" comfortable>
+      <SettingsPage title="Notifications">
         <div className="flex items-center justify-center py-12">
           <Spinner />
         </div>
-      </PageWrapper>
+      </SettingsPage>
     );
   }
 
   return (
-    <PageWrapper title="Notifications" comfortable>
-      <div className="space-y-4">
-        <SettingsSection
-          title="Email notifications"
-          description="Receive a daily summary of your unread notifications and the weekly changelog by email. Off by default."
+    <SettingsPage title="Notifications">
+      <SettingsSection
+        title="Email notifications"
+        description="How Eva reaches you outside the app."
+        bodyVariant="list"
+      >
+        <SettingsToggleRow
+          title="Send summary and changelog"
+          description="Receive a daily summary of unread notifications and the weekly changelog by email."
           action={
             <Switch
               checked={enabled}
@@ -42,7 +47,7 @@ export function NotificationsSettingsClient() {
             />
           }
         />
-      </div>
-    </PageWrapper>
+      </SettingsSection>
+    </SettingsPage>
   );
 }

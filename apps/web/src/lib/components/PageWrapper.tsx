@@ -9,6 +9,13 @@ interface PageWrapperProps {
   title?: React.ReactNode;
   headerCenter?: React.ReactNode;
   headerRight?: React.ReactNode;
+  /**
+   * Secondary refine row under the title (filters, search, segmented controls).
+   * Kept out of `headerRight` so the title row stays quiet.
+   */
+  toolbar?: React.ReactNode;
+  /** Route / view tabs under the title (and under toolbar when both exist). */
+  tabs?: React.ReactNode;
   showBack?: boolean;
   onBack?: () => void;
   fillHeight?: boolean;
@@ -21,6 +28,8 @@ export function PageWrapper({
   title,
   headerCenter,
   headerRight,
+  toolbar,
+  tabs,
   showBack = false,
   onBack,
   fillHeight = false,
@@ -31,6 +40,8 @@ export function PageWrapper({
   const { setPageTitle } = usePageTitle();
   const isStringTitle = typeof title === "string";
   const hasHeaderRight = headerRight != null;
+  const hasToolbar = toolbar != null;
+  const hasTabs = tabs != null;
 
   useEffect(() => {
     setPageTitle(isStringTitle ? title : "");
@@ -83,6 +94,18 @@ export function PageWrapper({
               {headerCenter}
             </div>
           )}
+          {hasToolbar || hasTabs ? (
+            <div
+              className={`mt-3 space-y-3 ${comfortable ? "mx-auto w-full max-w-5xl" : ""}`}
+            >
+              {hasToolbar ? (
+                <div className="flex min-h-9 flex-wrap items-center gap-1.5 sm:gap-2">
+                  {toolbar}
+                </div>
+              ) : null}
+              {hasTabs ? <div className="min-w-0">{tabs}</div> : null}
+            </div>
+          ) : null}
         </div>
         <div
           className={`flex-1 min-h-0 ${fillHeight ? "overflow-hidden flex flex-col" : "overflow-auto scrollbar"}`}

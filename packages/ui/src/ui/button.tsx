@@ -21,11 +21,18 @@ const buttonVariants = cva(
       },
       size: {
         default: "h-10 px-4 py-2",
+        // `xs` and `icon-xs` fall under the 40px comfortable-tap floor, so they
+        // carry `hit-target` — it grows the pressable area by 8px on every side
+        // via a pseudo-element, without touching layout. Row-level controls
+        // were being hand-sized to `size-6`/`size-7` precisely because these
+        // did not exist. (`.hit-target` must not override Tailwind `absolute` —
+        // see globals.css.)
+        xs: "h-7 rounded-md px-2 text-[11px] hit-target [&_svg]:size-3.5",
         sm: "h-8 rounded-lg px-3 text-xs",
         lg: "h-11 rounded-lg px-6",
         icon: "h-10 w-10",
         "icon-sm": "h-8 w-8",
-        "icon-xs": "h-7 w-7",
+        "icon-xs": "h-7 w-7 hit-target [&_svg]:size-3.5",
       },
     },
     defaultVariants: {

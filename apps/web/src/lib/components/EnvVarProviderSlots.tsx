@@ -180,7 +180,7 @@ export function EnvVarProviderSlots({
         return (
           <div
             key={entry.id}
-            className="rounded-surface border border-border bg-muted/40 px-3 py-2.5"
+            className="rounded-surface border border-border px-3 py-2.5"
           >
             <div className="flex items-start gap-3">
               <Logo size={20} className="mt-0.5 shrink-0" />
@@ -188,7 +188,7 @@ export function EnvVarProviderSlots({
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{entry.label}</span>
                   {configured && (
-                    <Badge variant="secondary" className="gap-1 text-xs">
+                    <Badge variant="outline" className="gap-1 text-xs">
                       <IconCheck size={10} /> Configured
                     </Badge>
                   )}

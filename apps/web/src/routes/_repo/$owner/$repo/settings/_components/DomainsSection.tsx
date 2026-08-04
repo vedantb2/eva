@@ -5,6 +5,7 @@ import { Input, Button } from "@eva/ui";
 import type { Id } from "@eva/backend";
 import { IconPlus, IconX } from "@tabler/icons-react";
 import { extractHostname } from "../_utils";
+import { SettingsField } from "@/lib/components/settings/SettingsField";
 
 type UpdateRepoConfig = (args: {
   repoId: Id<"githubRepos">;
@@ -36,59 +37,54 @@ export function DomainsSection({
   };
 
   return (
-    <div className="space-y-4">
-      <div>
-        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-          Domains
-        </label>
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          Hostnames where this app is deployed. The Chrome extension
-          auto-selects this repo when browsing these domains.
-        </p>
-      </div>
-
-      {domains.length > 0 ? (
-        <div className="flex flex-wrap gap-2">
-          {domains.map((domain) => (
-            <span
-              key={domain}
-              className="inline-flex items-center gap-1 rounded-lg border border-border bg-muted px-2 py-1 text-xs"
-            >
-              {domain}
-              <button
-                type="button"
-                onClick={() => removeDomain(domain)}
-                className="hit-target motion-press ml-0.5 rounded p-0.5 active:scale-[0.96] hover:bg-muted-foreground/20"
-                aria-label={`Remove ${domain}`}
+    <SettingsField
+      label="Domains"
+      description="Hostnames for this app. The Chrome extension picks this repo when you visit them."
+    >
+      <div className="space-y-2">
+        {domains.length > 0 ? (
+          <div className="flex flex-wrap gap-1.5">
+            {domains.map((domain) => (
+              <span
+                key={domain}
+                className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-foreground"
               >
-                <IconX size={12} />
-              </button>
-            </span>
-          ))}
-        </div>
-      ) : null}
+                {domain}
+                <button
+                  type="button"
+                  onClick={() => removeDomain(domain)}
+                  className="relative rounded-sm p-0.5 text-muted-foreground transition-colors after:absolute after:inset-[-6px] hover:bg-muted hover:text-foreground"
+                  aria-label={`Remove ${domain}`}
+                >
+                  <IconX size={12} />
+                </button>
+              </span>
+            ))}
+          </div>
+        ) : null}
 
-      <div className="flex gap-2">
-        <Input
-          className="h-8 text-xs flex-1"
-          placeholder="e.g. myapp.com or localhost:3000"
-          value={newDomain}
-          onChange={(e) => setNewDomain(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") addDomain();
-          }}
-        />
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-8"
-          onClick={addDomain}
-          disabled={!newDomain.trim()}
-        >
-          <IconPlus size={14} />
-          Add
-        </Button>
+        <div className="flex gap-2">
+          <Input
+            className="h-9 flex-1"
+            placeholder="myapp.com or localhost:3000"
+            value={newDomain}
+            onChange={(e) => setNewDomain(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") addDomain();
+            }}
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9"
+            onClick={addDomain}
+            disabled={!newDomain.trim()}
+          >
+            <IconPlus size={14} />
+            Add
+          </Button>
+        </div>
       </div>
-    </div>
+    </SettingsField>
   );
 }

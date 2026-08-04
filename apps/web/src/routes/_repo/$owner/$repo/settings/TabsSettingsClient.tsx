@@ -5,7 +5,7 @@ import { useQuery, useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import { Button, Input } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { PageWrapper } from "@/lib/components/PageWrapper";
+import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import {
   RESERVED_APP_TAB_SLUGS,
   slugifyAppTabName,
@@ -94,105 +94,99 @@ export function TabsSettingsClient() {
   const formError = validationError ?? submitError;
 
   return (
-    <PageWrapper title="Tabs" comfortable>
-      <div className="space-y-4">
-        <SettingsSection
-          title="Add a tab"
-          description={
-            <>
-              Tabs open a service running inside this app's sandbox on a given
-              port (for example Supabase Studio or the Convex dashboard), and
-              appear in every session for this app. The icon is a{" "}
-              <a
-                href="https://tabler.io/icons"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
-              >
-                Tabler icon
-              </a>{" "}
-              name such as <code>IconBolt</code>. Names must be unique (case
-              insensitive) and become the session URL slug (e.g.{" "}
-              <code>supabase</code>).
-            </>
-          }
-          bodyClassName="space-y-2"
-        >
-          {/* The three fields sit on one row on wide screens and stack on
-              mobile, so the icon preview trails the name it previews. */}
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-            <div className="flex flex-1 items-end gap-2">
-              <TabIconPreview icon={icon.trim()} />
-              <div className="flex-1">
-                <SettingsField label="Name">
-                  <Input
-                    value={name}
-                    onChange={(e) => {
-                      setName(e.target.value);
-                      setSubmitError(null);
-                    }}
-                    className="h-8 text-xs"
-                    placeholder="Supabase"
-                  />
-                </SettingsField>
-              </div>
-            </div>
-            <div className="sm:w-40">
-              <SettingsField label="Icon">
+    <SettingsPage title="Tabs">
+      <SettingsSection
+        title="Add a tab"
+        description="Expose a sandbox service as a session tab."
+      >
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <div className="flex flex-1 items-end gap-2">
+            <TabIconPreview icon={icon.trim()} />
+            <div className="flex-1">
+              <SettingsField label="Name" description="Becomes the URL slug.">
                 <Input
-                  value={icon}
-                  onChange={(e) => setIcon(e.target.value)}
-                  className="h-8 font-mono text-xs"
-                  placeholder="IconBolt"
+                  value={name}
+                  onChange={(e) => {
+                    setName(e.target.value);
+                    setSubmitError(null);
+                  }}
+                  className="h-9"
+                  placeholder="Supabase"
                 />
               </SettingsField>
             </div>
-            <div className="sm:w-24">
-              <SettingsField label="Port">
-                <Input
-                  type="number"
-                  value={port}
-                  onChange={(e) => setPort(e.target.value)}
-                  className="h-8 text-xs"
-                  placeholder="53432"
-                />
-              </SettingsField>
-            </div>
-            <Button
-              size="sm"
-              variant="secondary"
-              disabled={!canAdd}
-              onClick={handleAdd}
-            >
-              Add
-            </Button>
           </div>
-          {slug && !validationError ? (
-            <p className="text-xs text-muted-foreground">
-              URL slug: <code>{slug}</code>
-            </p>
-          ) : null}
-          {formError ? (
-            <p className="text-xs text-destructive">{formError}</p>
-          ) : null}
-        </SettingsSection>
+          <div className="sm:w-40">
+            <SettingsField
+              label="Icon"
+              description={
+                <>
+                  <a
+                    href="https://tabler.io/icons"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    Tabler
+                  </a>{" "}
+                  name
+                </>
+              }
+            >
+              <Input
+                value={icon}
+                onChange={(e) => setIcon(e.target.value)}
+                className="h-9 font-mono text-xs"
+                placeholder="IconBolt"
+              />
+            </SettingsField>
+          </div>
+          <div className="sm:w-24">
+            <SettingsField label="Port">
+              <Input
+                type="number"
+                value={port}
+                onChange={(e) => setPort(e.target.value)}
+                className="h-9"
+                placeholder="53432"
+              />
+            </SettingsField>
+          </div>
+          <Button
+            size="sm"
+            variant="secondary"
+            className="h-9"
+            disabled={!canAdd}
+            onClick={handleAdd}
+          >
+            Add
+          </Button>
+        </div>
+        {slug && !validationError ? (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Slug: <code>{slug}</code>
+          </p>
+        ) : null}
+        {formError ? (
+          <p className="mt-2 text-xs text-destructive">{formError}</p>
+        ) : null}
+      </SettingsSection>
 
-        <SettingsSection title="Custom tabs" bodyClassName="p-0">
-          {tabs && tabs.length > 0 ? (
-            <div className="divide-y divide-border">
-              {tabs.map((tab) => (
-                <CustomTabRow key={tab._id} tab={tab} takenSlugs={takenSlugs} />
-              ))}
-            </div>
-          ) : (
-            <SettingsEmptyState
-              icon={IconLayoutNavbar}
-              title="No custom tabs yet"
-              description="Add one above to open a sandbox service in its own tab."
-            />
-          )}
-        </SettingsSection>
-      </div>
-    </PageWrapper>
+      <SettingsSection title="Custom tabs" bodyVariant="list">
+        {tabs && tabs.length > 0 ? (
+          <div className="divide-y divide-border">
+            {tabs.map((tab) => (
+              <CustomTabRow key={tab._id} tab={tab} takenSlugs={takenSlugs} />
+            ))}
+          </div>
+        ) : (
+          <SettingsEmptyState
+            icon={IconLayoutNavbar}
+            title="No custom tabs yet"
+            description="Add one above to open a sandbox service in its own tab."
+          />
+        )}
+      </SettingsSection>
+    </SettingsPage>
   );
 }

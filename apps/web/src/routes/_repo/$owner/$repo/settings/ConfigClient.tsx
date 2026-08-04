@@ -4,7 +4,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { PageWrapper } from "@/lib/components/PageWrapper";
+import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { isMonorepoCodebase } from "./_utils";
 import { AppSettingsSection } from "./_components/AppSettingsSection";
 import { RepositorySettingsSection } from "./_components/RepositorySettingsSection";
@@ -35,23 +35,21 @@ export function ConfigClient() {
   });
 
   return (
-    <PageWrapper title="Repository" comfortable>
-      <div className="space-y-4">
-        <RepositorySettingsSection
+    <SettingsPage title="Repository">
+      <RepositorySettingsSection
           repoId={repoId}
           owner={owner}
           name={name}
           repo={repo}
           isMonorepo={isMonorepo}
           updateConfig={updateConfig}
-        />
-        <AppSettingsSection
+      />
+      <AppSettingsSection
           repoId={repoId}
           appLabel={appLabel}
           repo={repo}
           updateConfig={updateConfig}
-        />
-      </div>
-    </PageWrapper>
+      />
+    </SettingsPage>
   );
 }

@@ -30,7 +30,7 @@ export function ConfigModelField({
         options={state.options}
         disabled={disabled}
         onValueChange={onValueChange}
-        className="h-8 text-xs"
+        className="h-9"
       />
     </SettingsField>
   );

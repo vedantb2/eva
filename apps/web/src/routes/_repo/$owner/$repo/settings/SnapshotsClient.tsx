@@ -11,16 +11,15 @@ import {
   type SnapshotSettingsTab,
 } from "@/lib/search-params";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { PageWrapper } from "@/lib/components/PageWrapper";
+import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import {
   Button,
+  Skeleton,
   Spinner,
   Switch,
   Tabs,
-  TabsBar,
   TabsList,
   TabsTrigger,
-  TabsContent,
   Textarea,
 } from "@eva/ui";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
@@ -34,6 +33,7 @@ import {
 import {
   IconCamera,
   IconCheck,
+  IconFile,
   IconPlayerPlay,
   IconTrash,
   IconUpload,
@@ -52,7 +52,7 @@ const COMMAND_TEXTAREA_CLASS = "resize-y bg-background font-mono text-xs";
  */
 function NoSnapshotConfigured() {
   return (
-    <div className="rounded-surface border border-border bg-card shadow-sm">
+    <div className="rounded-surface border border-border bg-card">
       <SettingsEmptyState
         icon={IconCamera}
         title="No snapshot configured"
@@ -191,52 +191,67 @@ export function SnapshotsClient({
 
   if (snapshot === undefined) {
     return (
-      <PageWrapper title="Snapshots" comfortable>
+      <SettingsPage
+        title="Snapshots"
+        tabs={
+          <Tabs value={activeTab} onValueChange={handleSnapshotsTabChange}>
+            <TabsList>
+              <TabsTrigger value="configuration">Configuration</TabsTrigger>
+              <TabsTrigger value="status">Status</TabsTrigger>
+              <TabsTrigger value="builds">Builds</TabsTrigger>
+              <TabsTrigger value="config-files">Config Files</TabsTrigger>
+            </TabsList>
+          </Tabs>
+        }
+      >
         <div
-          className="min-h-[28rem] space-y-4"
+          className="flex min-h-[28rem] flex-col gap-4"
           aria-busy="true"
           aria-label="Loading snapshots"
         >
-          <div className="h-9 w-80 max-w-full animate-pulse rounded-md bg-muted" />
-          <div className="h-48 animate-pulse rounded-surface border border-border bg-muted/60" />
-          <div className="h-32 animate-pulse rounded-surface border border-border bg-muted/60" />
+          <Skeleton className="h-9 w-80 max-w-full" />
+          <Skeleton className="h-48 border border-border" />
+          <Skeleton className="h-32 border border-border" />
         </div>
-      </PageWrapper>
+      </SettingsPage>
     );
   }
 
   return (
-    <PageWrapper title="Snapshots" comfortable>
-      <Tabs
-        value={activeTab}
-        onValueChange={handleSnapshotsTabChange}
-        className="space-y-4"
-      >
-        <TabsBar className="px-0 pt-0">
+    <SettingsPage
+      title="Snapshots"
+      headerRight={
+        snapshot && activeTab === "configuration" ? (
+          <Button size="sm" variant="destructive" onClick={handleDelete}>
+            <IconTrash size={14} className="mr-1.5" />
+            Delete Config
+          </Button>
+        ) : null
+      }
+      tabs={
+        <Tabs value={activeTab} onValueChange={handleSnapshotsTabChange}>
           <TabsList>
             <TabsTrigger value="configuration">Configuration</TabsTrigger>
             <TabsTrigger value="status">Status</TabsTrigger>
             <TabsTrigger value="builds">Builds</TabsTrigger>
             <TabsTrigger value="config-files">Config Files</TabsTrigger>
           </TabsList>
-        </TabsBar>
+        </Tabs>
+      }
+    >
+      {activeTab === "configuration" ? (
+        <>
+          <CronScheduleCard
+            value={schedule}
+            onChange={handleScheduleChange}
+            allowManual
+          />
 
-        <TabsContent value="configuration" className="space-y-4">
-          {snapshot && (
-            <div className="flex justify-end">
-              <Button size="sm" variant="destructive" onClick={handleDelete}>
-                <IconTrash size={14} className="mr-1.5" />
-                Delete Config
-              </Button>
-            </div>
-          )}
-
-          {snapshot && (
-            // Header-only section: the label reads left, the switch sits right.
-            <SettingsSection
-              title="Enabled"
-              description="When off, scheduled rebuilds are paused. Manual rebuilds still work."
-              action={
+          <SettingsSection
+            title="Branch"
+            description="When disabled, scheduled rebuilds are paused. Manual rebuilds still work."
+            action={
+              snapshot ? (
                 <Switch
                   checked={isEnabled}
                   onCheckedChange={(enabled) =>
@@ -247,23 +262,15 @@ export function SnapshotsClient({
                   }
                   aria-label="Scheduled rebuilds enabled"
                 />
-              }
-            />
-          )}
-
-          <CronScheduleCard
-            value={schedule}
-            onChange={handleScheduleChange}
-            allowManual
-          />
-
-          <SettingsSection title="Clone Branch">
+              ) : null
+            }
+          >
             <SettingsField
               label="Branch"
               description={
                 <>
-                  Branch to clone into the snapshot for dependency pre-caching.
-                  Defaults to <code>main</code> if empty.
+                  Branch to clone for the snapshot. Defaults to <code>main</code>
+                  if empty.
                 </>
               }
             >
@@ -283,10 +290,9 @@ export function SnapshotsClient({
               label="Commands to run during snapshot build"
               description={
                 <>
-                  One command per line. Runs as user <code>eva</code> in{" "}
-                  <code>/tmp/repo</code> after <code>pnpm install</code>, before
-                  services start, baked permanently into the snapshot. Use for
-                  codegen and build steps.
+                  One command per line. Runs in <code>/tmp/repo</code> after{" "}
+                  <code>pnpm install</code> and before services start. Use for
+                  codegen and builds.
                 </>
               }
             >
@@ -305,11 +311,9 @@ export function SnapshotsClient({
               label="One-time data seeding, run with services up"
               description={
                 <>
-                  One command per line. Runs once per seeded snapshot build,
-                  after background daemons and startup commands, so services
-                  like <code>convex dev</code> are ready. Never re-runs on
-                  sandbox boot — unlike startup commands (repo settings), which
-                  run here and on every boot.
+                  One command per line. Runs once per seeded build after
+                  services start. Unlike startup commands, these do not run on
+                  every sandbox boot.
                 </>
               }
             >
@@ -329,15 +333,14 @@ export function SnapshotsClient({
             <code className="font-mono">VERCEL_TEAM_ID</code>, and{" "}
             <code className="font-mono">VERCEL_PROJECT_ID</code>.
           </p>
-        </TabsContent>
+        </>
+      ) : null}
 
-        <TabsContent value="status" className="space-y-4">
+      {activeTab === "status" ? (
+        <>
           {snapshot ? (
             <>
-              <SettingsSection
-                title="Current Status"
-                bodyClassName="space-y-4 px-4 py-4"
-              >
+              <SettingsSection title="Current Status">
                 <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 sm:gap-4">
                   <div>
                     <span className="text-muted-foreground">Snapshot Name</span>
@@ -414,105 +417,121 @@ export function SnapshotsClient({
                 </p>
               </SettingsSection>
               <SettingsSection
-                title="Base Image"
+                title="Images"
                 description={
                   <>
                     Base snapshot with toolchain, <code>pnpm install</code>, and
                     your build commands. Eva captures a running sandbox as{" "}
                     <code>snap_*</code>. This is what sandboxes boot from unless
-                    a seeded snapshot exists. Rebuild Now always refreshes this
-                    — no seed file needed.
+                    a seeded snapshot exists.
                   </>
                 }
               >
-                {baseImageReady ? (
-                  <div className="flex items-start gap-1 text-xs text-green-500">
-                    <IconCheck size={12} className="mt-0.5 shrink-0" />
-                    <span className="min-w-0">
-                      <span className="mr-1 text-muted-foreground">
-                        Active:
-                      </span>
-                      <span className="font-mono break-all text-foreground">
-                        {activeBaseSnapshotId}
-                      </span>
-                    </span>
-                  </div>
-                ) : isRunning ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-blue-500">
-                    <Spinner size="sm" />
-                    Building base Image…
-                  </span>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    {snapshot.baseSnapshotId ? (
-                      <>
-                        Last active:{" "}
-                        <span className="font-mono">
-                          {snapshot.baseSnapshotId}
-                        </span>
-                        {" — "}
-                      </>
-                    ) : null}
-                    Config name:{" "}
-                    <span className="font-mono">{snapshot.snapshotName}</span>
-                    {lastBuild?.status === "error"
-                      ? " — last build failed; click Rebuild Now to retry."
-                      : " — not built yet; click Rebuild Now."}
+                <div>
+                  <h4 className="text-xs font-medium text-foreground">
+                    Base Image
+                  </h4>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    Rebuild Now always refreshes this — no seed file needed.
                   </p>
-                )}
-              </SettingsSection>
-              <SettingsSection
-                title={
-                  <>
+                  <div className="mt-3">
+                    {baseImageReady ? (
+                      <div className="flex items-start gap-1 text-xs text-green-500">
+                        <IconCheck size={12} className="mt-0.5 shrink-0" />
+                        <span className="min-w-0">
+                          <span className="mr-1 text-muted-foreground">
+                            Active:
+                          </span>
+                          <span className="font-mono break-all text-foreground">
+                            {activeBaseSnapshotId}
+                          </span>
+                        </span>
+                      </div>
+                    ) : isRunning ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-blue-500">
+                        <Spinner size="sm" />
+                        Building base Image…
+                      </span>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        {snapshot.baseSnapshotId ? (
+                          <>
+                            Last active:{" "}
+                            <span className="font-mono">
+                              {snapshot.baseSnapshotId}
+                            </span>
+                            {" — "}
+                          </>
+                        ) : null}
+                        Config name:{" "}
+                        <span className="font-mono">{snapshot.snapshotName}</span>
+                        {lastBuild?.status === "error"
+                          ? " — last build failed; click Rebuild Now to retry."
+                          : " — not built yet; click Rebuild Now."}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-6">
+                  <h4 className="text-xs font-medium text-foreground">
                     Seeded snapshot{" "}
                     <span className="font-normal text-muted-foreground">
                       (optional)
                     </span>
-                  </>
-                }
-                description="Running-sandbox capture with DB and services already started. Only needed when cold boot is too slow. Configure Stop Commands on an app (Settings → App); upload seed files only if startup commands reference them."
-              >
-                {seededApps === undefined ? (
-                  <p className="text-xs text-muted-foreground">Loading…</p>
-                ) : isSeeding ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-blue-500">
-                    <Spinner size="sm" />
-                    Capturing seeded snapshot…
-                  </span>
-                ) : sharedSeededSnapshotName ? (
-                  <div className="flex items-start gap-1 text-xs text-green-500">
-                    <IconCheck size={12} className="mt-0.5 shrink-0" />
-                    <span className="min-w-0">
-                      <span className="mr-1 text-muted-foreground">
-                        Active:
+                  </h4>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    Running-sandbox capture with DB and services already
+                    started. Only needed when cold boot is too slow. Configure
+                    Stop Commands on an app (Settings → App); upload seed files
+                    only if startup commands reference them.
+                  </p>
+                  <div className="mt-3">
+                    {seededApps === undefined ? (
+                      <p className="text-xs text-muted-foreground">Loading…</p>
+                    ) : isSeeding ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-blue-500">
+                        <Spinner size="sm" />
+                        Capturing seeded snapshot…
                       </span>
-                      <span className="font-mono break-all">
-                        {sharedSeededSnapshotName}
-                      </span>
-                    </span>
+                    ) : sharedSeededSnapshotName ? (
+                      <div className="flex items-start gap-1 text-xs text-green-500">
+                        <IconCheck size={12} className="mt-0.5 shrink-0" />
+                        <span className="min-w-0">
+                          <span className="mr-1 text-muted-foreground">
+                            Active:
+                          </span>
+                          <span className="font-mono break-all">
+                            {sharedSeededSnapshotName}
+                          </span>
+                        </span>
+                      </div>
+                    ) : !hasSeedableApps ? (
+                      <p className="text-xs text-muted-foreground">
+                        Not configured — no apps have Stop Commands. Sandboxes
+                        use the base Image only, which is fine for most repos.
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Not captured yet — run Rebuild Now after configuring app
+                        startup/background/stop commands.
+                      </p>
+                    )}
                   </div>
-                ) : !hasSeedableApps ? (
-                  <p className="text-xs text-muted-foreground">
-                    Not configured — no apps have Stop Commands. Sandboxes use
-                    the base Image only, which is fine for most repos.
-                  </p>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Not captured yet — run Rebuild Now after configuring app
-                    startup/background/stop commands.
-                  </p>
-                )}
+                </div>
               </SettingsSection>
             </>
           ) : (
             <NoSnapshotConfigured />
           )}
-        </TabsContent>
+        </>
+      ) : null}
 
-        <TabsContent value="builds" className="space-y-4">
+      {activeTab === "builds" ? (
+        <>
           {snapshot && builds && builds.length > 0 ? (
             // Rows own their padding so the table spans the card's full width.
-            <SettingsSection title="Build History" bodyClassName="p-0">
+            <SettingsSection title="Build History" bodyVariant="list">
               <div className="overflow-x-auto">
                 <table className="w-full text-xs min-w-[320px] sm:min-w-[420px]">
                   <thead>
@@ -556,7 +575,7 @@ export function SnapshotsClient({
               </div>
             </SettingsSection>
           ) : snapshot && builds && builds.length === 0 ? (
-            <SettingsSection title="Build History" bodyClassName="p-0">
+            <SettingsSection title="Build History" bodyVariant="list">
               <SettingsEmptyState
                 icon={IconCamera}
                 title="No builds yet"
@@ -566,13 +585,13 @@ export function SnapshotsClient({
           ) : (
             <NoSnapshotConfigured />
           )}
-        </TabsContent>
+        </>
+      ) : null}
 
-        <TabsContent value="config-files" className="space-y-4">
-          <ConfigFilesSection repoId={repoId} snapshotId={snapshot?._id} />
-        </TabsContent>
-      </Tabs>
-    </PageWrapper>
+      {activeTab === "config-files" ? (
+        <ConfigFilesSection repoId={repoId} snapshotId={snapshot?._id} />
+      ) : null}
+    </SettingsPage>
   );
 }
 
@@ -840,9 +859,11 @@ function ConfigFilesSection({
             </table>
           </div>
         ) : files && files.length === 0 ? (
-          <p className="text-xs text-muted-foreground">
-            No config files uploaded yet.
-          </p>
+          <SettingsEmptyState
+            icon={IconFile}
+            title="No config files yet"
+            description="Upload files to include in snapshot builds."
+          />
         ) : (
           <div className="flex items-center justify-center py-4">
             <Spinner size="sm" />

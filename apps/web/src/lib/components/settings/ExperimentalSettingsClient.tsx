@@ -2,9 +2,10 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@eva/backend";
-import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner, Switch } from "@eva/ui";
+import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsToggleRow } from "@/lib/components/settings/SettingsToggleRow";
 
 export function ExperimentalSettingsClient() {
   const enabled = useQuery(api.auth.getExperimentalSessionTabsEnabled);
@@ -27,42 +28,48 @@ export function ExperimentalSettingsClient() {
 
   if (enabled === undefined || voiceDictation === undefined) {
     return (
-      <PageWrapper title="Experimental" comfortable>
+      <SettingsPage title="Experimental">
         <div className="flex items-center justify-center py-12">
           <Spinner />
         </div>
-      </PageWrapper>
+      </SettingsPage>
     );
   }
 
   return (
-    <PageWrapper title="Experimental" comfortable>
-      <div className="space-y-4">
-        <SettingsSection
-          title="Chrome-style session tabs"
-          description="Replace the sessions sidebar with a horizontal tab strip grouped by app. Active sessions stay as tabs; archived and merged/closed PRs move into an Archived menu. Off by default."
-          action={
-            <Switch
-              checked={enabled}
-              onCheckedChange={(checked) => setEnabled({ enabled: checked })}
-              aria-label="Chrome-style session tabs"
-            />
-          }
-        />
-        <SettingsSection
-          title="Voice dictation"
-          description="Live speech-to-text in chat composers and the quick-task description field via AI Gateway. Off by default. Requires microphone permission."
-          action={
-            <Switch
-              checked={voiceDictation}
-              onCheckedChange={(checked) =>
-                setVoiceDictation({ enabled: checked })
-              }
-              aria-label="Voice dictation"
-            />
-          }
-        />
-      </div>
-    </PageWrapper>
+    <SettingsPage title="Experimental">
+      <SettingsSection
+        title="Flags"
+        description="Optional features. Off by default until you turn them on."
+        bodyVariant="list"
+      >
+        <div className="divide-y divide-border">
+          <SettingsToggleRow
+            title="Chrome-style session tabs"
+            description="Use horizontal tabs grouped by app. Archived and merged PRs move into an Archived menu."
+            action={
+              <Switch
+                checked={enabled}
+                onCheckedChange={(checked) => setEnabled({ enabled: checked })}
+                aria-label="Chrome-style session tabs"
+              />
+            }
+          />
+          <SettingsToggleRow
+            title="Voice dictation"
+            description="Use speech-to-text in chat and quick tasks. Requires microphone permission."
+            action={
+              <Switch
+                checked={voiceDictation}
+                onCheckedChange={(checked) =>
+                  setVoiceDictation({ enabled: checked })
+                }
+                aria-label="Voice dictation"
+              />
+            }
+          />
+        </div>
+      </SettingsSection>
+    </SettingsPage>
   );
 }

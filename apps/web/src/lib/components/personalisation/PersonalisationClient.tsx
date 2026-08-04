@@ -2,10 +2,18 @@
 
 import { useQuery, useMutation } from "convex/react";
 import { api, PERSONALISATION_PRESETS } from "@eva/backend";
-import { PageWrapper } from "@/lib/components/PageWrapper";
+import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
-import { Textarea, Button, Spinner } from "@eva/ui";
+import {
+  Textarea,
+  Button,
+  Spinner,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@eva/ui";
 import { useEffect, useRef } from "react";
+import { IconChevronDown } from "@tabler/icons-react";
 import { RolePresetPicker } from "./RolePresetPicker";
 
 export function PersonalisationClient() {
@@ -49,7 +57,6 @@ export function PersonalisationClient() {
     await setCustomInstructions({ customInstructions: value });
   };
 
-  // Sync textarea value when server data loads
   useEffect(() => {
     if (textareaRef.current && personalisation) {
       textareaRef.current.value = personalisation.customInstructions ?? "";
@@ -58,63 +65,64 @@ export function PersonalisationClient() {
 
   if (!personalisation) {
     return (
-      <PageWrapper title="Personalisation" comfortable>
+      <SettingsPage title="Personalisation">
         <div className="flex items-center justify-center py-12">
           <Spinner />
         </div>
-      </PageWrapper>
+      </SettingsPage>
     );
   }
 
   const activeRole = personalisation.role;
 
   return (
-    <PageWrapper title="Personalisation" comfortable>
-      <div className="space-y-4">
-        <SettingsSection
-          title="Role Preset"
-          description="Controls how responses are communicated, not what code edits are made. Included in every session."
-        >
-          <div className="space-y-3">
-            <RolePresetPicker
-              activeRole={activeRole}
-              onSelect={(role) => setRole({ role })}
-            />
+    <SettingsPage title="Personalisation">
+      <SettingsSection
+        title="Role preset"
+        description="How Eva talks to you. Does not change what code it edits."
+      >
+        <div className="space-y-3">
+          <RolePresetPicker
+            activeRole={activeRole}
+            onSelect={(role) => setRole({ role })}
+          />
 
-            {activeRole ? (
-              <div className="rounded-surface border border-border bg-muted/40 p-3">
-                <p className="mb-2 text-xs font-medium text-muted-foreground">
-                  Active preset prompt
-                </p>
-                <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-foreground/80">
+          {activeRole ? (
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground">
+                View preset prompt
+                <IconChevronDown className="size-3.5" />
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <pre className="mt-2 whitespace-pre-wrap rounded-md border border-border bg-muted/40 p-3 font-mono text-xs leading-relaxed text-foreground/80">
                   {PERSONALISATION_PRESETS[activeRole].prompt}
                 </pre>
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                No role selected. Choose a preset above to activate it.
-              </p>
-            )}
-          </div>
-        </SettingsSection>
+              </CollapsibleContent>
+            </Collapsible>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              No preset selected.
+            </p>
+          )}
+        </div>
+      </SettingsSection>
 
-        <SettingsSection
-          title="Custom Instructions"
-          description="Additional instructions injected into every session. Use this to describe your preferences, role-specific context, or recurring guidance."
-          footer={
-            <Button size="sm" onClick={handleSave}>
-              Save
-            </Button>
-          }
-        >
-          <Textarea
-            ref={textareaRef}
-            className="min-h-[160px] font-mono text-xs"
-            placeholder="e.g. Always explain changes in plain English before showing code..."
-            defaultValue={savedValue}
-          />
-        </SettingsSection>
-      </div>
-    </PageWrapper>
+      <SettingsSection
+        title="Custom instructions"
+        description="Extra guidance included in every session."
+        footer={
+          <Button size="sm" onClick={handleSave}>
+            Save instructions
+          </Button>
+        }
+      >
+        <Textarea
+          ref={textareaRef}
+          className="min-h-[160px] font-mono text-xs"
+          placeholder="e.g. Explain changes in plain English before showing code"
+          defaultValue={savedValue}
+        />
+      </SettingsSection>
+    </SettingsPage>
   );
 }

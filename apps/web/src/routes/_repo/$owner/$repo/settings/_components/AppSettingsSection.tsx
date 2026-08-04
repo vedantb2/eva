@@ -33,19 +33,19 @@ export function AppSettingsSection({
       title="This app"
       description={
         <>
-          Settings for{" "}
-          <span className="font-medium text-foreground">{appLabel}</span> only.
+          Only for{" "}
+          <span className="font-medium text-foreground">{appLabel}</span>.
         </>
       }
     >
       <div className="grid gap-4">
         {isAppRepo(repo) ? (
           <SettingsField
-            label="Deployment Project Name"
-            description="Vercel or Netlify project name for this app. Used to match the correct preview deployment in monorepos."
+            label="Deployment project"
+            description="Vercel or Netlify project name. Matches the right preview in monorepos."
           >
             <Input
-              className="h-8 text-xs"
+              className="h-9"
               placeholder="e.g. my-vercel-project"
               defaultValue={repo.deploymentProjectName ?? ""}
               onBlur={(e) => {

@@ -61,7 +61,13 @@ function GlobalMainContent() {
           aria-hidden
           className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-primary/8 via-primary/3 to-transparent"
         />
-        <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-6 sm:px-6 lg:px-8">
+        <div
+          className={
+            isGlobalSettingsPath(pathname)
+              ? "relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col"
+              : "relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-6 sm:px-6 lg:px-8"
+          }
+        >
           <Outlet />
         </div>
       </div>

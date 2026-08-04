@@ -59,7 +59,7 @@ export function TeamEnvVarsClient() {
 
   if (!repo.teamId || !team) {
     return (
-      <div className="rounded-surface border border-border bg-card shadow-sm">
+      <div className="rounded-surface border border-border bg-card">
         <SettingsEmptyState
           icon={IconUsers}
           title="No team configured"
@@ -72,7 +72,7 @@ export function TeamEnvVarsClient() {
   return (
     <div className="space-y-4">
       {/* Which team these variables belong to reads before the variables. */}
-      <div className="flex flex-wrap items-center gap-2 rounded-control border border-border bg-muted px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2 rounded-control border border-border px-3 py-2">
         <IconUsers size={16} className="text-muted-foreground" />
         <p className="text-xs">
           Team:{" "}
@@ -91,7 +91,7 @@ export function TeamEnvVarsClient() {
       <EnvVarsTable
         vars={teamEnvVars}
         scope="team"
-        description="Team-level variables inherited by all codebases in this team. Add CODEX_AUTH_JSON to enable Codex, OPENCODE_CONFIG_JSON/OPENCODE_AUTH_JSON to enable Opencode, or CURSOR_API_KEY to enable Cursor across the team."
+        description="Team variables inherited by every codebase. Use known slots for shared agent credentials."
         onUpsert={async (key, value, sandboxExclude) => {
           if (!repo.teamId) return;
           await upsertTeamVar({

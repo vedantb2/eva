@@ -4,7 +4,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { PageWrapper } from "@/lib/components/PageWrapper";
+import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { Button, Checkbox } from "@eva/ui";
 import { IconShieldCheck, IconTrash } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
@@ -60,19 +60,46 @@ export function AuditsClient() {
     : [];
 
   return (
-    <PageWrapper title="Audits" comfortable>
-      <div className="space-y-4">
-        {/* Each scope is one list section plus its own add form, so it is
-            always clear which scope a new category lands in. */}
+    <SettingsPage title="Audits">
+      <SettingsSection
+        title="Repo audits"
+        description="Run on every task across this repo."
+        bodyVariant="list"
+      >
+        {repoCategories.length > 0 ? (
+          <div className="divide-y divide-border">
+            {repoCategories.map((category) => (
+              <CategoryRow
+                key={category._id}
+                category={category}
+                onToggle={(enabled) =>
+                  toggleEnabled({ id: category._id, enabled })
+                }
+                onRemove={() => removeCategory({ id: category._id })}
+              />
+            ))}
+          </div>
+        ) : (
+          <SettingsEmptyState
+            icon={IconShieldCheck}
+            title="No repo audits"
+            description="Add one below to check every task against it."
+          />
+        )}
+        <div className="border-t border-border px-4 py-3">
+          <AddCategoryForm repoId={repo.parentRepoId ?? repoId} />
+        </div>
+      </SettingsSection>
+
+      {isApp ? (
         <SettingsSection
-          title="Repo-level Audits"
-          description="These audits run for all tasks across the repo and all apps."
-          // Rows own their padding so the divider spans the card's full width.
-          bodyClassName="p-0"
+          title="App audits"
+          description="Only for this app."
+          bodyVariant="list"
         >
-          {repoCategories.length > 0 ? (
+          {appCategories.length > 0 ? (
             <div className="divide-y divide-border">
-              {repoCategories.map((category) => (
+              {appCategories.map((category) => (
                 <CategoryRow
                   key={category._id}
                   category={category}
@@ -86,52 +113,16 @@ export function AuditsClient() {
           ) : (
             <SettingsEmptyState
               icon={IconShieldCheck}
-              title="No audit categories yet"
-              description="Add one below to have every task audited against it."
+              title="No app audits"
+              description="This app only runs the repo audits above."
             />
           )}
+          <div className="border-t border-border px-4 py-3">
+            <AddCategoryForm repoId={repoId} appId={repoId} />
+          </div>
         </SettingsSection>
-
-        <SettingsSection title="Add a repo-level audit">
-          <AddCategoryForm repoId={repo.parentRepoId ?? repoId} />
-        </SettingsSection>
-
-        {isApp && (
-          <>
-            <SettingsSection
-              title="App-specific Audits"
-              description="Audits that only run for this app."
-              bodyClassName="p-0"
-            >
-              {appCategories.length > 0 ? (
-                <div className="divide-y divide-border">
-                  {appCategories.map((category) => (
-                    <CategoryRow
-                      key={category._id}
-                      category={category}
-                      onToggle={(enabled) =>
-                        toggleEnabled({ id: category._id, enabled })
-                      }
-                      onRemove={() => removeCategory({ id: category._id })}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <SettingsEmptyState
-                  icon={IconShieldCheck}
-                  title="No app-specific audits"
-                  description="This app runs the repo-level audits only."
-                />
-              )}
-            </SettingsSection>
-
-            <SettingsSection title="Add an app-specific audit">
-              <AddCategoryForm repoId={repoId} appId={repoId} />
-            </SettingsSection>
-          </>
-        )}
-      </div>
-    </PageWrapper>
+      ) : null}
+    </SettingsPage>
   );
 }
 
@@ -145,7 +136,6 @@ function CategoryRow({
   onRemove: () => void;
 }) {
   return (
-    // A row inside the audits list section, so the section owns the border.
     <div className="flex items-start gap-3 px-4 py-3 transition-colors hover:bg-muted/40">
       <Checkbox
         checked={category.enabled}

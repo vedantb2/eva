@@ -53,7 +53,7 @@ export function EmptyState({
   return (
     <m.div
       className={cn(
-        "mx-auto flex w-full max-w-xl flex-col items-center justify-center px-4 text-center",
+        "mx-auto flex w-full max-w-xl flex-col items-center justify-center px-4 py-16 text-center sm:py-20",
         className,
       )}
       variants={shouldAnimate ? containerVariants : undefined}
@@ -63,28 +63,28 @@ export function EmptyState({
       {icon ? (
         <m.div
           variants={shouldAnimate ? itemVariants : undefined}
-          className="mb-5 flex h-16 w-16 items-center justify-center rounded-full border border-primary/25 bg-primary/10 text-primary"
+          className="mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground"
         >
           {icon}
         </m.div>
       ) : null}
       <m.p
         variants={shouldAnimate ? itemVariants : undefined}
-        className="text-balance text-base font-semibold tracking-[-0.01em] text-foreground"
+        className="text-balance text-sm font-medium tracking-[-0.01em] text-foreground"
       >
         {title}
       </m.p>
       {description ? (
         <m.p
           variants={shouldAnimate ? itemVariants : undefined}
-          className="mt-2 max-w-sm text-pretty text-sm text-muted-foreground"
+          className="mt-2 max-w-sm text-pretty text-xs leading-relaxed text-muted-foreground"
         >
           {description}
         </m.p>
       ) : null}
       {actionLabel && onAction ? (
         <m.div variants={shouldAnimate ? itemVariants : undefined}>
-          <Button size="sm" onClick={onAction} className="mt-5">
+          <Button size="sm" onClick={onAction} className="mt-6">
             <IconPlus size={16} />
             {actionLabel}
           </Button>

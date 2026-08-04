@@ -32,6 +32,55 @@ html {
   scrollbar-gutter: stable;
 }
 
+/*
+ * Mask stops for `.scroll-fade` / `.scroll-fade-x` (defined in @layer
+ * utilities). Custom properties only interpolate once registered, so these
+ * cannot be plain `--vars`. Each is driven by its own range of the element's
+ * scroll timeline: the leading fade grows in over the first 1.5rem of scroll,
+ * the trailing fade shrinks out over the last 1.5rem. Content flush against an
+ * edge therefore never fades — only content that continues past it does.
+ */
+@property --scroll-fade-top {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --scroll-fade-bottom {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --scroll-fade-left {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@property --scroll-fade-right {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+@keyframes scroll-fade-top {
+  to {
+    --scroll-fade-top: 1.5rem;
+  }
+}
+@keyframes scroll-fade-bottom {
+  from {
+    --scroll-fade-bottom: 1.5rem;
+  }
+}
+@keyframes scroll-fade-left {
+  to {
+    --scroll-fade-left: 1.5rem;
+  }
+}
+@keyframes scroll-fade-right {
+  from {
+    --scroll-fade-right: 1.5rem;
+  }
+}
+
 @layer base {
   :root {
     color-scheme: light;
@@ -124,25 +173,23 @@ html {
 
   .dark {
     color-scheme: dark;
-    /* Neutral/surface tokens map 1:1 to the HeroUI dark palette (oklch→sRGB):
-     * --background = HeroUI background, --card/--popover = surface/overlay,
-     * --muted = surface-secondary, --secondary = default. app-shell/sidebar
-     * reuse HeroUI background as the deepest frame so the sidebar stays
-     * darker than content. Accent and font/radius stay user-defined. */
-    --background: 5 6 6;
-    --app-shell: 5 6 6;
+    /* Flatter near-black ladder: page ≈ pure black, cards one step up,
+     * hierarchy from hairline borders + surface steps (not shadows).
+     * Accent and font/radius stay user-defined. */
+    --background: 2 2 2;
+    --app-shell: 2 2 2;
     --foreground: 250 250 250;
-    --card: 23 24 26;
+    --card: 16 16 16;
     --card-foreground: 250 250 250;
-    --popover: 23 24 26;
+    --popover: 16 16 16;
     --popover-foreground: 250 250 250;
     --primary: 250 250 250;
     --primary-foreground: 9 9 11;
-    --secondary: 39 39 40;
+    --secondary: 32 32 32;
     --secondary-foreground: 252 252 252;
-    --muted: 34 35 36;
+    --muted: 26 26 26;
     --muted-foreground: 159 160 162;
-    --accent: 24 24 27;
+    --accent: 20 20 20;
     --accent-foreground: 244 244 245;
     --destructive: 219 59 62;
     --destructive-foreground: 252 252 252;
@@ -150,8 +197,8 @@ html {
     --success-foreground: 22 25 23;
     --warning: 247 183 80;
     --warning-foreground: 26 24 21;
-    --border: 40 41 42;
-    --input: 40 41 42;
+    --border: 36 36 36;
+    --input: 36 36 36;
     --ring: 250 250 250;
     --chart-1: 250 250 250;
     --chart-2: 56 189 248;
@@ -180,13 +227,13 @@ html {
     --status-cancelled-bg: 55 65 81;
     --status-cancelled-subtle: 31 41 55;
     --status-cancelled-bar: 107 114 128;
-    --sidebar: 5 6 6;
+    --sidebar: 2 2 2;
     --sidebar-foreground: 251 252 253;
     --sidebar-primary: 250 250 250;
     --sidebar-primary-foreground: 9 9 11;
-    --sidebar-accent: 39 39 42;
+    --sidebar-accent: 28 28 28;
     --sidebar-accent-foreground: 244 244 245;
-    --sidebar-border: 40 41 42;
+    --sidebar-border: 36 36 36;
     --sidebar-ring: 250 250 250;
     --font-sans: Inter, ui-sans-serif, system-ui, sans-serif;
     --font-mono: Menlo, monospace;
@@ -279,10 +326,10 @@ html {
 
 @layer components {
   .ui-surface {
-    @apply rounded-surface border border-border bg-card shadow-sm;
+    @apply rounded-surface border border-border bg-card;
   }
   .ui-surface-strong {
-    @apply rounded-surface border border-border bg-card shadow-sm;
+    @apply rounded-surface border border-border bg-card;
   }
   .ui-surface-interactive {
     @apply ui-surface motion-base hover:bg-muted/60;
@@ -329,7 +376,7 @@ html {
   }
 
   /* transitions.dev — tabs sliding pill. Carries the active tab's card
-   * background (bg-card/shadow-sm via the span) so it glides between tabs
+   * background (bg-card via the span) so it glides between tabs
    * instead of the background snapping. */
   .t-tabs-pill {
     position: absolute;
@@ -395,8 +442,12 @@ html {
     transition-timing-function: var(--motion-ease-out);
   }
 
-  /* Extends sub-40px controls to a 40×40px tap target without changing layout. */
-  .hit-target {
+  /* Extends sub-40px controls to a 40×40px tap target without changing layout.
+     Only force `relative` when the element is otherwise static — absolute /
+     fixed / sticky already form a containing block for ::after, and a blanket
+     `position: relative` would override Tailwind `absolute` (same specificity,
+     later rule wins), dropping absolutely-positioned icon-xs buttons into flow. */
+  .hit-target:not(.absolute):not(.fixed):not(.sticky) {
     position: relative;
   }
   .hit-target::after {
@@ -549,6 +600,75 @@ html {
 }
 
 /* ───────────────────────────────────────────────────────────────────
+ * Scroll edge fade — pair with `.scrollbar` on an inline scroll area so
+ * its content does not hard-cut at the boundary. The mask stops are the
+ * registered properties declared near the top of this file, each driven
+ * by its own range of the element's scroll timeline, so an edge only
+ * fades while there is more content past it.
+ *
+ * `.scroll-fade` is the vertical (block) axis; `.scroll-fade-x` is the
+ * horizontal (inline) axis — same recipe, used by the quick-task / project
+ * kanban column row.
+ *
+ * Gated on scroll-driven animation support: without it the fade could not
+ * follow the scroll position, and a permanently faded edge dims content
+ * that is already fully visible — worse than the hard cut. Unsupported
+ * browsers therefore get no mask at all.
+ *
+ * Do not use on page-level scroll, on a text input (it dims the caret), on
+ * a container with a `sticky` child (the pinned child sits inside the
+ * fade), or on an element that already sets `animation` (the shorthand
+ * here would replace it — Radix menu content is the usual case).
+ * ─────────────────────────────────────────────────────────────────── */
+@supports (animation-timeline: scroll()) {
+  .scroll-fade {
+    mask-image: linear-gradient(
+      to bottom,
+      transparent 0,
+      #000 var(--scroll-fade-top),
+      #000 calc(100% - var(--scroll-fade-bottom)),
+      transparent 100%
+    );
+    animation:
+      scroll-fade-top linear both,
+      scroll-fade-bottom linear both;
+    animation-timeline: scroll(self block);
+    animation-range:
+      0 1.5rem,
+      calc(100% - 1.5rem) 100%;
+  }
+
+  .scroll-fade-x {
+    mask-image: linear-gradient(
+      to right,
+      transparent 0,
+      #000 var(--scroll-fade-left),
+      #000 calc(100% - var(--scroll-fade-right)),
+      transparent 100%
+    );
+    animation:
+      scroll-fade-left linear both,
+      scroll-fade-right linear both;
+    animation-timeline: scroll(self inline);
+    animation-range:
+      0 1.5rem,
+      calc(100% - 1.5rem) 100%;
+  }
+}
+
+/* ───────────────────────────────────────────────────────────────────
+ * Blur PID — Settings → Experimental toggles `data-blur-pid` on <html>
+ * (see BlurPidEffect.tsx). Every element rendering a user name or email
+ * address carries `data-pii`, so one rule covers all of them, including
+ * portalled tooltips and hover cards. Stays blurred on hover by design:
+ * the point is that nothing leaks while screen recording.
+ * ─────────────────────────────────────────────────────────────────── */
+html[data-blur-pid] [data-pii] {
+  filter: blur(4px);
+  user-select: none;
+}
+
+/* ───────────────────────────────────────────────────────────────────
  * Segmented tabs — opt in with `tabs-segmented` on a Radix Tabs.List.
  * Renders a recessed neutral trough with a lighter, raised active pill,
  * correct in BOTH light and dark.
@@ -594,6 +714,8 @@ html {
 
 .qt-in-progress-border {
   --qt-border-angle: 0deg;
+  /* Outer = ListRow surface radius + 1px padding (concentric). */
+  border-radius: calc(clamp(0.75rem, var(--radius), 1.25rem) + 1px);
   animation: qt-border-spin 2.5s linear infinite;
   background-image: conic-gradient(
     from var(--qt-border-angle),
@@ -1168,6 +1290,20 @@ html {
 }
 */
 
+/*
+ * Exception: `.scroll-fade` / `.scroll-fade-x` are not motion. They track a
+ * scroll the user is already making, so there is nothing to reduce. The
+ * blanket reduced-motion rule above (when re-enabled) would give their scroll
+ * timeline a 0.01ms slice of the range and freeze the mask at its end state —
+ * leading edge permanently faded, trailing edge never.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-fade,
+  .scroll-fade-x {
+    animation-duration: auto !important;
+  }
+}
+
 /* ───────────────────────────────────────────────────────────────────
  * Eva logo draw-on (used by <LogoMark/> — plays on mount, replays on
  * hover via React remount). Each half strokes its outline, then fills.
@@ -1247,4 +1383,85 @@ html {
 }
 .doc-comment-highlight-active {
   background-color: rgb(var(--warning) / 0.34);
+}
+
+/* ───────────────────────────────────────────────────────────────────
+ * Agent browser lock — aurora ring around the sandbox viewport while
+ * agentBrowsingAt is fresh. Orbs chase along the edge; the view stays
+ * clear (padded-wrapper borders would resize the iframe). Colours are
+ * --primary at varied alpha so themes stay consistent.
+ * ─────────────────────────────────────────────────────────────────── */
+@property --aurora-angle {
+  syntax: "<angle>";
+  inherits: true;
+  initial-value: 0deg;
+}
+
+@keyframes aurora-spin {
+  to {
+    --aurora-angle: 360deg;
+  }
+}
+
+@keyframes aurora-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.agent-aurora-ring {
+  --aurora-angle: 0deg;
+  pointer-events: none;
+  animation: aurora-spin 7s linear infinite;
+}
+
+.agent-aurora-ring::before,
+.agent-aurora-ring::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: conic-gradient(
+    from var(--aurora-angle),
+    transparent 0deg,
+    rgb(var(--primary) / 0.9) 28deg,
+    transparent 70deg,
+    transparent 120deg,
+    rgb(var(--primary) / 0.55) 148deg,
+    transparent 190deg,
+    transparent 240deg,
+    rgb(var(--primary) / 0.75) 268deg,
+    transparent 310deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+}
+
+.agent-aurora-ring::before {
+  padding: 1.5px;
+}
+
+.agent-aurora-ring::after {
+  padding: 10px;
+  filter: blur(10px);
+  animation: aurora-breathe 4.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .agent-aurora-ring {
+    animation: none;
+  }
+  .agent-aurora-ring::after {
+    animation: none;
+    opacity: 0.4;
+  }
 }

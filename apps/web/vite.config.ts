@@ -151,6 +151,15 @@ export default defineConfig({
     rolldownOptions: {
       output: {
         codeSplitting: {
+          // Only group packages whose whole cost we are happy to load eagerly.
+          //
+          // A group's `test` claims EVERY module under the matched path,
+          // including third-party utilities the package bundles inside its own
+          // dist (dayjs inside mermaid, clsx inside streamdown). One eager
+          // import of such a utility pulls the entire group chunk into the
+          // entry graph, so index.html modulepreloads all of it. That is how
+          // mermaid/shiki/streamdown/katex were costing 1.2 MB gzip on first
+          // load — do not add groups for them.
           groups: [
             {
               name: "vendor-radix",
@@ -168,29 +177,9 @@ export default defineConfig({
               priority: 15,
             },
             {
-              name: "vendor-streamdown",
-              test: /node_modules[\\/](streamdown|@streamdown)/,
-              priority: 15,
-            },
-            {
               name: "vendor-motion",
               test: /node_modules[\\/](motion|framer-motion)/,
               priority: 15,
-            },
-            {
-              name: "vendor-shiki",
-              test: /node_modules[\\/]shiki/,
-              priority: 20,
-            },
-            {
-              name: "vendor-katex",
-              test: /node_modules[\\/]katex/,
-              priority: 20,
-            },
-            {
-              name: "vendor-mermaid",
-              test: /node_modules[\\/]mermaid/,
-              priority: 20,
             },
           ],
         },

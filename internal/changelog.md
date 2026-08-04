@@ -1,5 +1,8 @@
 # Changelog
 
+## Quick tasks get auto-tagged on create - 2026-08-02
+
+Tags existed on tasks — badges, filters, bulk edit, composer picker — but nothing ever wrote them, so the filters stayed empty. Creating or activating a task now schedules the same background gpt-5-nano path sessions already use for titles, picks up to three tags from a fixed vocabulary, and merges them after any tags the user already chose. The picker lists that vocabulary up front so manual picks stay on the same words the model uses.
 ## Paste-as-file for long chat pastes - 2026-08-02
 
 Pasting a wall of text into a composer flooded the input and made the draft hard to edit. Pastes over 2,000 characters now attach as a `.txt` file (Claude.ai-style) across sessions, new-session, quick tasks, and sandbox chats. Clicking the chip opens a modal with live word/char counts — editable before send, read-only on sent messages. Attachment accept lists are unified so every chat surface takes the same image + HTML/MD/TXT set; no backend changes because text attachments already materialize as `/tmp/eva-attachment-N.txt`.

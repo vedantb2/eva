@@ -144,7 +144,7 @@ export const create = authMutation({
         numDesigns: args.numDesigns,
       });
       // The first message queues directly rather than going through
-      // startExecute, so its mentions are notified here instead.
+      // `submitTurn`, so its mentions are notified here instead.
       const session = await ctx.db.get(sessionId);
       if (session) {
         await notifyChatMentions(ctx, {
@@ -157,16 +157,6 @@ export const create = authMutation({
         await ctx.scheduler.runAfter(0, internal.textGen.generateSessionTitle, {
           sessionId,
           message: content,
-        });
-      }
-      // The first message queues directly rather than going through
-      // `submitTurn`, so its mentions are notified here instead.
-      const session = await ctx.db.get(sessionId);
-      if (session) {
-        await notifyChatMentions(ctx, {
-          content,
-          authorUserId: ctx.userId,
-          surface: { kind: "session", session },
         });
       }
     }

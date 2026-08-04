@@ -6,7 +6,6 @@ import { EntityNumIdGate } from "@/lib/components/EntityNumIdGate";
 import { useSessionByNumId } from "@/lib/useResolveByNumId";
 import { SessionDetailClient } from "../SessionDetailClient";
 import { useSessionRouteSandboxTab } from "../_utils/useSessionRouteSandboxTab";
-import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 interface SessionRouteShellProps {
   numId: string;
@@ -21,16 +20,14 @@ export function SessionRouteShell({ numId }: SessionRouteShellProps) {
 
   const openFile = (path: string) => {
     void navigate({
-      to: toInternalRepoHref(`${basePath}/sessions/${numId}/files`),
+      to: `${basePath}/sessions/${numId}/files`,
       search: (prev) => ({ ...prev, file: path }),
     });
   };
 
   const openDiffs = (repoRelativePath?: string) => {
     void navigate({
-      to: toInternalRepoHref(
-        `${basePath}/sessions/${numId}/review/diffs/unified`,
-      ),
+      to: `${basePath}/sessions/${numId}/review/diffs/unified`,
       search: (prev) => ({
         ...prev,
         ...(repoRelativePath ? { diffFile: repoRelativePath } : {}),
@@ -41,15 +38,13 @@ export function SessionRouteShell({ numId }: SessionRouteShellProps) {
   const onSandboxTabChange = (next: string) => {
     if (next === "review") {
       void navigate({
-        to: toInternalRepoHref(
-          `${basePath}/sessions/${numId}/review/diffs/unified`,
-        ),
+        to: `${basePath}/sessions/${numId}/review/diffs/unified`,
         search: true,
       });
       return;
     }
     void navigate({
-      to: toInternalRepoHref(`${basePath}/sessions/${numId}/${next}`),
+      to: `${basePath}/sessions/${numId}/${next}`,
       search: true,
     });
   };

@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
   Input,
+  Skeleton,
 } from "@eva/ui";
 import { GlobalSessionGroup } from "@/lib/components/sidebar/_components/GlobalSessionGroup";
 import { SessionsListModeTabs } from "@/lib/components/sidebar/_components/SessionsListModeTabs";
@@ -116,10 +117,7 @@ export function GlobalSessionsSidebar({
             aria-label="Loading sessions"
           >
             {Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-9 animate-pulse rounded-md bg-muted/60"
-              />
+              <Skeleton key={i} className="h-9" />
             ))}
           </div>
         ) : orderedRepos.length === 0 ? (

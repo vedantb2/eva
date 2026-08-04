@@ -20,6 +20,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   Spinner,
+  Surface,
   Tabs,
   TabsBar,
   TabsContent,
@@ -240,7 +241,7 @@ export function DocRecapViewer({
       ) : null}
       {isRecapPending && !isRecapStalled && (
         <div className="px-4 pb-3">
-          <div className="rounded-surface border border-border bg-card p-3 space-y-2">
+          <Surface density="tight" className="space-y-2">
             <div className="flex items-center gap-2 text-sm font-medium">
               <Spinner size="sm" />
               <span className="flex-1">Generating recap...</span>
@@ -252,7 +253,7 @@ export function DocRecapViewer({
                 {streaming?.currentActivity ?? "Generating recap..."}
               </p>
             )}
-          </div>
+          </Surface>
         </div>
       )}
 

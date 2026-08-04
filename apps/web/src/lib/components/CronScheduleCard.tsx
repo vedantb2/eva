@@ -1,6 +1,6 @@
 import cronstrue from "cronstrue";
 import { CronExpressionParser } from "cron-parser";
-import { Input } from "@eva/ui";
+import { Input, Surface } from "@eva/ui";
 
 function getOffsetMinutes(): number {
   return -new Date().getTimezoneOffset();
@@ -89,7 +89,7 @@ export function CronScheduleCard({
   const schedule = allowManual ? value : value || "";
 
   return (
-    <div className="rounded-surface border border-border bg-card p-3 space-y-4 sm:p-4">
+    <Surface density="none" className="p-3 space-y-4 sm:p-4">
       <h3 className="text-sm font-medium">Cron Schedule</h3>
       <div>
         <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
@@ -126,7 +126,7 @@ export function CronScheduleCard({
         </p>
         <CronGuide />
       </div>
-    </div>
+    </Surface>
   );
 }
 

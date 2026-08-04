@@ -3,6 +3,7 @@ import { useQueryState } from "nuqs";
 import { timeRangeParser } from "@/lib/search-params";
 import { api } from "@eva/backend";
 import { useQuery } from "convex-helpers/react/cache/hooks";
+import { Skeleton } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Kpi, KpiGroup } from "@/lib/components/analytics/Kpi";
@@ -78,16 +79,13 @@ export function StatsClient() {
           aria-busy="true"
           aria-label="Loading stats"
         >
-          <div className="h-40 animate-pulse rounded-surface border border-border bg-muted/60" />
+          <Skeleton className="h-40 border border-border" />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 3 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-24 animate-pulse rounded-surface border border-border bg-muted/60"
-              />
+              <Skeleton key={i} className="h-24 border border-border" />
             ))}
           </div>
-          <div className="h-56 animate-pulse rounded-surface border border-border bg-muted/60" />
+          <Skeleton className="h-56 border border-border" />
         </div>
       ) : (
         <div className="space-y-6">
@@ -104,7 +102,7 @@ export function StatsClient() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
           >
-            <KpiGroup>
+            <KpiGroup className="lg:grid-cols-3">
               <Kpi
                 icon={IconGitPullRequest}
                 label="PRs Shipped"

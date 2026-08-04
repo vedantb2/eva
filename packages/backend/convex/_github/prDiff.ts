@@ -7,6 +7,7 @@ import { action, internalAction } from "../_generated/server";
 import { components, internal } from "../_generated/api";
 import { getInstallationOctokit } from "../githubAuth";
 import { extractPrNumber } from "./helpers";
+import { isPrDiffTooLargeError, listFileToUnifiedDiff } from "./prDiffFallback";
 
 /** Cap the diff we return to the client so huge PRs don't blow the payload. */
 const MAX_DIFF_BYTES = 500_000;
@@ -40,61 +41,6 @@ type PrDiffResult = {
 };
 
 type InstallationOctokit = Awaited<ReturnType<typeof getInstallationOctokit>>;
-
-/**
- * GitHub refuses `pulls.get` with the diff media type past ~300 files (HTTP 406,
- * `code: too_large`). Message matching survives Convex wrapping the HttpError.
- */
-function isPrDiffTooLargeError(error: Error): boolean {
-  return (
-    error.message.includes('"code":"too_large"') ||
-    error.message.includes("diff exceeded the maximum number of files") ||
-    error.message.includes("diff exceeded the maximum number of lines")
-  );
-}
-
-/**
- * Rebuild one file's unified-diff section from a `pulls.listFiles` entry so
- * `buildDiffFileEntries` / `@pierre/diffs` can parse the same shape as the
- * media-type endpoint.
- */
-function listFileToUnifiedDiff(file: {
-  filename: string;
-  previous_filename?: string;
-  status: string;
-  patch?: string;
-}): string {
-  const oldPath = file.previous_filename ?? file.filename;
-  const lines: string[] = [`diff --git a/${oldPath} b/${file.filename}`];
-
-  if (file.status === "added") {
-    lines.push("new file mode 100644");
-    lines.push("--- /dev/null");
-    lines.push(`+++ b/${file.filename}`);
-  } else if (file.status === "removed") {
-    lines.push("deleted file mode 100644");
-    lines.push(`--- a/${oldPath}`);
-    lines.push("+++ /dev/null");
-  } else if (file.status === "renamed") {
-    lines.push(`rename from ${oldPath}`);
-    lines.push(`rename to ${file.filename}`);
-    lines.push(`--- a/${oldPath}`);
-    lines.push(`+++ b/${file.filename}`);
-  } else {
-    lines.push(`--- a/${oldPath}`);
-    lines.push(`+++ b/${file.filename}`);
-  }
-
-  if (file.patch !== undefined && file.patch.length > 0) {
-    lines.push(file.patch);
-  } else {
-    // Binary blobs and individually oversized files omit `patch` — keep the
-    // path in the tree so the Diffs tab still lists them.
-    lines.push(`Binary files a/${oldPath} and b/${file.filename} differ`);
-  }
-
-  return lines.join("\n");
-}
 
 /**
  * Paginated fallback when the unified-diff media type is refused. GitHub's

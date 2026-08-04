@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, createElement } from "react";
+import { useState } from "react";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import type { Doc } from "@eva/backend";
@@ -10,7 +10,7 @@ import {
   RESERVED_APP_TAB_SLUGS,
   slugifyAppTabName,
 } from "@/lib/utils/appTabSlug";
-import { resolveTablerIcon } from "@/lib/utils/tablerIcon";
+import { TablerIconByName } from "@/lib/components/TablerIconByName";
 
 interface CustomTabRowProps {
   tab: Doc<"appTabs">;
@@ -19,9 +19,12 @@ interface CustomTabRowProps {
 }
 
 function CustomTabIcon({ icon }: { icon: string }) {
-  return createElement(resolveTablerIcon(icon), {
-    className: "h-4 w-4 shrink-0 text-muted-foreground",
-  });
+  return (
+    <TablerIconByName
+      name={icon}
+      className="h-4 w-4 shrink-0 text-muted-foreground"
+    />
+  );
 }
 
 /**

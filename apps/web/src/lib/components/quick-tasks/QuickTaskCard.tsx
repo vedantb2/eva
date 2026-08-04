@@ -65,7 +65,10 @@ interface QuickTaskCardProps {
   deploymentStatus?: DeploymentStatus;
   sandboxStatus?: SandboxStatus;
   groupedCodebases?: GroupedCodebase[];
-  /** Public (slash) path; rendered via router Link so rewrites own the href. */
+  /**
+   * In-app path for the stretched ListRow link. Plain clicks navigate via the
+   * router; call `event.preventDefault()` from onClick to cancel (selection).
+   */
   href?: string;
   /**
    * Plain-click handler. Call `event.preventDefault()` to cancel Link

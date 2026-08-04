@@ -25,7 +25,6 @@ interface QuickTasksKanbanBoardProps {
   isSelecting: boolean;
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
-  onOpenTask: (task: { numId?: number }) => void;
 }
 
 export function QuickTasksKanbanBoard({
@@ -34,7 +33,6 @@ export function QuickTasksKanbanBoard({
   isSelecting,
   selectedIds,
   onToggleSelect,
-  onOpenTask,
 }: QuickTasksKanbanBoardProps) {
   const { repoId, basePath } = useRepo();
   const currentUserId = useQuery(api.auth.me);
@@ -135,10 +133,10 @@ export function QuickTasksKanbanBoard({
         visibleStatuses={visibleStatuses}
         onStatusChange={handleStatusChange}
         onItemClick={(task) => {
+          // Selection is handled on the card (preventDefault on the Link).
+          // Plain opens go through the card's href Link — do not double-navigate.
           if (isSelecting) {
             onToggleSelect(task._id);
-          } else {
-            onOpenTask(task);
           }
         }}
         fillHeight
@@ -179,6 +177,14 @@ export function QuickTasksKanbanBoard({
               entityPathSegment(task)
                 ? `${basePath}/quick-tasks/${entityPathSegment(task)}`
                 : `${basePath}/quick-tasks`
+            }
+            onClick={
+              isSelecting
+                ? (event) => {
+                    event.preventDefault();
+                    onToggleSelect(task._id);
+                  }
+                : undefined
             }
             groupedCodebases={groupedCodebases ?? undefined}
             isSelecting={isSelecting}

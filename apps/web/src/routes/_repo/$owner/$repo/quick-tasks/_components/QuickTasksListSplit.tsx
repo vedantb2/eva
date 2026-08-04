@@ -21,7 +21,6 @@ interface QuickTasksListSplitProps {
   isSelecting: boolean;
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
-  onOpenTask: (task: { numId?: number }) => void;
   selectedTaskId?: Id<"agentTasks">;
   /** Resolve status of the numId in the URL; undefined when no task is selected. */
   selectedTaskStatus?: EntityResolveStatus;
@@ -47,7 +46,6 @@ export function QuickTasksListSplit({
   isSelecting,
   selectedIds,
   onToggleSelect,
-  onOpenTask,
   selectedTaskId,
   selectedTaskStatus,
   detailTab,
@@ -65,7 +63,6 @@ export function QuickTasksListSplit({
             isSelecting={isSelecting}
             selectedIds={selectedIds}
             onToggleSelect={onToggleSelect}
-            onOpenTask={onOpenTask}
             selectedTaskId={selectedTaskId}
           />
         </div>

@@ -1,8 +1,9 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
+import { Skeleton } from "@eva/ui";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -28,7 +29,6 @@ import {
 } from "./_components/QuickTasksBulkBar";
 import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "./_utils";
-import { entityPathSegment } from "@/lib/numId";
 import { useAgentTaskByNumId } from "@/lib/useResolveByNumId";
 import { TASK_TAGS } from "@eva/shared";
 
@@ -146,7 +146,7 @@ export function QuickTasksClient() {
   };
 
   const activeFilterLabels = (() => {
-    const labels: Array<{ key: string; label: string }> = [];
+    const labels: Array<{ key: string; label: ReactNode }> = [];
     if (project === "all") {
       labels.push({ key: "project", label: "All Projects" });
     } else if (project !== "none") {
@@ -155,9 +155,14 @@ export function QuickTasksClient() {
     }
     if (user !== "all") {
       const u = users?.find((u) => u._id === user);
+      const name = u?.fullName ?? u?.firstName ?? "User";
       labels.push({
         key: "user",
-        label: `Created by: ${u?.fullName ?? u?.firstName ?? "User"}`,
+        label: (
+          <>
+            Created by: <span data-pii>{name}</span>
+          </>
+        ),
       });
     }
     if (assignee !== "all") {
@@ -167,7 +172,17 @@ export function QuickTasksClient() {
           : (users?.find((u) => u._id === assignee)?.fullName ??
             users?.find((u) => u._id === assignee)?.firstName ??
             "Code Reviewer");
-      labels.push({ key: "assignee", label: `Code reviewer: ${name}` });
+      labels.push({
+        key: "assignee",
+        label:
+          assignee === "unassigned" ? (
+            `Code reviewer: ${name}`
+          ) : (
+            <>
+              Code reviewer: <span data-pii>{name}</span>
+            </>
+          ),
+      });
     }
     if (statuses.length !== TASK_STATUSES.length) {
       labels.push({
@@ -229,15 +244,6 @@ export function QuickTasksClient() {
     });
   };
 
-  const handleOpenTask = (task: { numId?: number }) => {
-    const segment = entityPathSegment(task);
-    if (!segment) return;
-    navigate({
-      to: `${basePath}/quick-tasks/${segment}`,
-      search: (prev) => prev,
-    });
-  };
-
   const closeBulkAction = () => setActiveBulkAction(null);
 
   useHotkey("Alt+N", (e) => {
@@ -282,10 +288,10 @@ export function QuickTasksClient() {
           aria-busy="true"
           aria-label="Loading quick tasks"
         >
-          <div className="h-10 w-full max-w-md animate-pulse rounded-md bg-muted" />
+          <Skeleton className="h-10 w-full max-w-md" />
           <div className="flex flex-1 gap-3">
-            <div className="w-72 shrink-0 animate-pulse rounded-surface border border-border bg-muted/60" />
-            <div className="min-w-0 flex-1 animate-pulse rounded-surface border border-border bg-muted/60" />
+            <Skeleton className="w-72 shrink-0 border border-border" />
+            <Skeleton className="min-w-0 flex-1 border border-border" />
           </div>
         </div>
       </PageWrapper>
@@ -307,10 +313,10 @@ export function QuickTasksClient() {
           aria-busy="true"
           aria-label="Loading task"
         >
-          <div className="h-10 w-full max-w-md animate-pulse rounded-md bg-muted" />
+          <Skeleton className="h-10 w-full max-w-md" />
           <div className="flex flex-1 gap-3">
-            <div className="w-72 shrink-0 animate-pulse rounded-surface border border-border bg-muted/60" />
-            <div className="min-w-0 flex-1 animate-pulse rounded-surface border border-border bg-muted/60" />
+            <Skeleton className="w-72 shrink-0 border border-border" />
+            <Skeleton className="min-w-0 flex-1 border border-border" />
           </div>
         </div>
       </PageWrapper>
@@ -416,10 +422,22 @@ export function QuickTasksClient() {
                       className="text-muted-foreground"
                     />
                   }
-                  title="No quick tasks"
-                  description="Quick tasks are standalone tasks not tied to a feature. Create one for small, one-off work."
-                  actionLabel="Create Quick Task"
-                  onAction={() => setIsCreating(true)}
+                  title={
+                    hasAnyTasks ? "No matching quick tasks" : "No quick tasks"
+                  }
+                  description={
+                    hasAnyTasks
+                      ? "Try clearing filters to see all tasks."
+                      : "Quick tasks are standalone tasks not tied to a feature. Create one for small, one-off work."
+                  }
+                  actionLabel={
+                    hasAnyTasks ? "Clear filters" : "Create Quick Task"
+                  }
+                  onAction={
+                    hasAnyTasks
+                      ? clearAllFilters
+                      : () => setIsCreating(true)
+                  }
                   animate={!hasAnyTasks}
                 />
               </m.div>
@@ -438,7 +456,6 @@ export function QuickTasksClient() {
                   isSelecting={isSelecting}
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
-                  onOpenTask={handleOpenTask}
                 />
               </m.div>
             ) : (
@@ -456,7 +473,6 @@ export function QuickTasksClient() {
                   isSelecting={isSelecting}
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
-                  onOpenTask={handleOpenTask}
                   selectedTaskId={selectedTaskId}
                   selectedTaskStatus={
                     numIdParam !== undefined ? taskResolve.status : undefined

@@ -2,7 +2,7 @@
 
 import type { Id, api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
-import { Separator, cn } from "@eva/ui";
+import { Separator, Surface, cn } from "@eva/ui";
 import { CommentActivityItem } from "./CommentActivityItem";
 import { CommentReplyComposer } from "./CommentReplyComposer";
 import type { TaskComment } from "../_utils/commentThread";
@@ -69,7 +69,7 @@ export function CommentThread({
 
   if (depth === 0) {
     return (
-      <div className="space-y-3 rounded-surface border border-border bg-card p-3">
+      <Surface density="tight" className="space-y-3">
         <CommentActivityItem
           comment={comment}
           taskId={taskId}
@@ -88,7 +88,7 @@ export function CommentThread({
           <Separator className={cn("mb-3", THREAD_SEPARATOR_CLASS)} />
           <CommentReplyComposer taskId={taskId} parentId={comment._id} />
         </div>
-      </div>
+      </Surface>
     );
   }
 

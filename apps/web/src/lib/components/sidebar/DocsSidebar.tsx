@@ -19,6 +19,7 @@ import {
   DialogTitle,
   Input,
   Spinner,
+  Surface,
   Textarea,
 } from "@eva/ui";
 import { IconFile, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
@@ -235,7 +236,10 @@ export function DocsSidebar({
       await removeDoc({ id: docToDelete.id });
       setDocToDelete(null);
       if (isViewing) {
-        navigate({ to: `${basePath}/docs`, search: (prev) => prev });
+        navigate({
+          to: `${basePath}/docs`,
+          search: (prev) => prev,
+        });
         if (onNavigate) onNavigate();
       }
     } catch (error) {
@@ -267,12 +271,15 @@ export function DocsSidebar({
             <Spinner size="sm" />
           </div>
         ) : filteredDocs.length === 0 ? (
-          <div className="p-4 text-center">
+          <div className="px-4 py-8 text-center">
             <IconFile
-              size={28}
-              className="mx-auto mb-2 text-muted-foreground"
+              size={20}
+              className="mx-auto mb-2 text-muted-foreground opacity-50"
             />
-            <p className="text-sm text-muted-foreground">No documents yet</p>
+            <p className="text-sm font-medium text-foreground">No documents yet</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Create one to get started.
+            </p>
           </div>
         ) : (
           <SharedLayoutNav layoutId="docs-nav" className="space-y-1">
@@ -348,7 +355,7 @@ export function DocsSidebar({
           </DialogHeader>
           {showUploadSection ? (
             <div className="space-y-4">
-              <div className="rounded-surface border border-border bg-card p-3">
+              <Surface density="tight">
                 <p className="text-sm font-medium">Upload a file</p>
                 <p className="mb-3 text-sm text-muted-foreground">
                   Supported formats: .md, .txt
@@ -365,7 +372,7 @@ export function DocsSidebar({
                   )}
                   Click to upload
                 </Button>
-              </div>
+              </Surface>
               <div className="space-y-1.5">
                 <label className="text-sm font-medium">Paste PRD content</label>
                 <Textarea

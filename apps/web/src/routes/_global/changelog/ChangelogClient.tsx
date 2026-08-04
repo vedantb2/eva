@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
-import { cn, STREAMDOWN_TABLE_RADIUS_CLASS } from "@eva/ui";
+import { cn, Skeleton, STREAMDOWN_TABLE_RADIUS_CLASS } from "@eva/ui";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { math } from "@streamdown/math";
@@ -10,6 +10,7 @@ import { mermaid } from "@streamdown/mermaid";
 import { IconSparkles } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { PageWrapper } from "@/lib/components/PageWrapper";
+import { EmptyState } from "@/lib/components/ui/EmptyState";
 
 /** Same plugin set as `ChangelogDialog`, so both surfaces render identically. */
 const changelogPlugins = { cjk, math, mermaid };
@@ -26,19 +27,15 @@ export function ChangelogClient() {
       {entries === undefined ? (
         <div className="space-y-3">
           {[0, 1, 2].map((i) => (
-            <div
-              key={i}
-              className="h-32 animate-pulse rounded-surface border border-border bg-card"
-            />
+            <Skeleton key={i} className="h-32 border border-border" />
           ))}
         </div>
       ) : entries.length === 0 ? (
-        <div className="flex flex-col items-center gap-2 rounded-surface border border-border bg-card py-16 text-center">
-          <IconSparkles size={20} className="text-muted-foreground" />
-          <p className="text-sm text-muted-foreground">
-            No changelog entries yet.
-          </p>
-        </div>
+        <EmptyState
+          icon={<IconSparkles size={24} />}
+          title="No changelog entries yet"
+          description="Published weekly changelog runs will show up here."
+        />
       ) : (
         // The rail is drawn on the list, not per entry, so it runs unbroken
         // between cards instead of restarting at each one.

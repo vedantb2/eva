@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, Spinner } from "@eva/ui";
+import { Button, Spinner, Surface } from "@eva/ui";
 import { IconCheck, IconFolder } from "@tabler/icons-react";
 
 export interface MonorepoApp {
@@ -52,9 +52,10 @@ export function MonorepoAppsPanel({
       {apps.map((app) => {
         const key = `${repoFullName}:${app.path}`;
         return (
-          <div
+          <Surface
             key={app.path}
-            className="flex items-center justify-between p-2 rounded-surface border border-border bg-card"
+            density="none"
+            className="flex items-center justify-between p-2"
           >
             <div className="flex items-center gap-2 min-w-0">
               <IconFolder className="w-4 h-4 text-muted-foreground flex-shrink-0" />
@@ -83,7 +84,7 @@ export function MonorepoAppsPanel({
                 Add
               </Button>
             )}
-          </div>
+          </Surface>
         );
       })}
       <div className="flex items-center gap-2 pt-2">

@@ -65,12 +65,33 @@ report screenshot.
    the field itself and nothing else (accepting an `@`-mention from an open picker) — if you can't be
    certain that's all it does, click the picker row instead.
 
-8. **Confidentiality.** Use the user's own repo `vvedantb/eva`. Never client repos
+8. **If the data is ugly, fix the data — don't reshoot around it.** Default 7 stops you _driving_
+   the app to produce state; it does not stop you _writing_ the state. Real dev data is the usual
+   reason a shot fails: error walls ("Failed to stop sandbox" ×8), `Untitled session` rows, a
+   half-migrated turn, one repo where the feature needs three. Editing the app's own dev data around
+   the shot beats hunting for a session that happens to look good, and beats restyling the app
+   (default 4 still holds — change the data, never the CSS).
+
+   Write directly to the dev deployment: a throwaway `internal/screenshotStaging.ts` mutation run
+   with `npx convex run`, or the Convex dashboard. Give sessions real readable titles, delete the
+   error/system messages in frame, seed the second and third row the feature needs.
+
+   Rules for this:
+   - **Dev deployment only.** Confirm the target before writing (`npx convex env get CONVEX_URL`, or
+     read `.env.local`) and never point a staging mutation at prod.
+   - **Additive and reversible first.** Prefer patching a title or inserting a demo row over
+     deleting real history. If you must delete, look at the rows first and say what you removed.
+   - **Plausible, not fabricated-specific.** Titles and prompts that read like real work. Never
+     invent metrics, customer names, or numbers the tweet then repeats as fact.
+   - **Delete the staging mutation when the shot is done** — same cleanup rule as any migration.
+   - Tell the user what you changed, in the handover.
+
+9. **Confidentiality.** Use the user's own repo `vvedantb/eva`. Never client repos
    (`evalucom/carepulse`, `eprocurement`) and never the "Codebases" home that lists them. Check
    doc/task/session lists in frame for client-named items — stage a clean demo row if the list is
-   dirty. **Don't raise personal-data concerns about the app's own users** — accounts are
-   first-name-only by design and the demo email is fake (confirmed twice; raising it again is noise).
-   Do flag third-party names, real customer data, and error panels leaking env var names or project ids.
+   dirty. **Never raise personal-data concerns about names or emails on screen** — Settings →
+   Experimental has a blur-PID toggle that blurs every `[data-pii]` element, so this is handled in
+   the product. Do flag error panels leaking env var names or project ids.
 
 ## Workflow
 
@@ -127,8 +148,11 @@ collapseSidebar, settle }`. Use `page.getByRole(...)` (Playwright) locators. To 
    - Any overlay/toolbar survived? Any skeleton, spinner, or `—` placeholder still on screen? (Bump
      the settle ms and reshoot.)
    - All four edges: clipped labels, half-rendered buttons, a cut-off column?
-   - Anything confidential per default 8?
+   - Anything confidential per default 9?
    - Empty states: an empty board proving "kanban tasks" is a bad shot. Populate or pick another view.
+
+   When the frame fails because of the _data_ — error walls, `Untitled session`, one row where the
+   feature needs three — stage the dev data (default 8) rather than hunting for a luckier screen.
 
 5. **Frame it.**
 

@@ -4,8 +4,10 @@
   rounded card, eva mark + wordmark above it. Rendered headless by scripts/frame.sh,
   which substitutes __IMG__ / __ICON__ / __TITLE__ and screenshots at 1600x900.
 
-  Canvas is 16:9 so X shows it in-timeline without cropping, and the shot sits at its
-  native 1280x720 (never scaled) so UI text stays as crisp as the capture.
+  Canvas is 16:9 so X shows it in-timeline without cropping. The shot fills 1440x810 of
+  it — a 1.125x upscale of the 1280x720 capture, which is still sharp because the capture
+  is taken at deviceScaleFactor 2 and this page renders at DPR 2. The shot is meant to
+  dominate the frame; the gradient is a border, not a backdrop.
 
   Colours mirror video/src/components/tokens.ts — background #050606, brand purple
   #8B3FB8, brand blue #3B7DD8. Never invent brand colours.
@@ -29,8 +31,11 @@
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
-        gap: 22px;
+        /* Top-anchored, not centred: the wordmark sits high and the shot takes the
+           rest, so the gradient shows as a thin border instead of dead space. */
+        justify-content: flex-start;
+        padding-top: 14px;
+        gap: 10px;
         background-image:
           radial-gradient(1020px 700px at 4% -14%, rgba(139, 63, 184, 0.78) 0%, rgba(139, 63, 184, 0.16) 46%, rgba(139, 63, 184, 0) 72%),
           radial-gradient(1080px 740px at 106% 114%, rgba(59, 125, 216, 0.72) 0%, rgba(59, 125, 216, 0.14) 44%, rgba(59, 125, 216, 0) 70%),
@@ -48,10 +53,10 @@
         align-self: center;
       }
 
-      .wordmark img { width: 34px; height: 34px; display: block; }
+      .wordmark img { width: 30px; height: 30px; display: block; }
 
       .wordmark span {
-        font-size: 25px;
+        font-size: 22px;
         font-weight: 600;
         letter-spacing: -0.02em;
         color: #fbfcfd;
@@ -60,8 +65,8 @@
       /* The shot: rounded, hairline-bordered, lifted off the canvas. overflow:hidden
          is what actually rounds the image corners. */
       .shot {
-        width: 1280px;
-        height: 720px;
+        width: 1440px;
+        height: 810px;
         border-radius: 14px;
         overflow: hidden;
         border: 1px solid rgba(255, 255, 255, 0.09);
@@ -71,7 +76,7 @@
           0 0 0 1px rgba(0, 0, 0, 0.4);
       }
 
-      .shot img { width: 1280px; height: 720px; display: block; }
+      .shot img { width: 1440px; height: 810px; display: block; }
     </style>
   </head>
   <body>

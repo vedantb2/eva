@@ -94,8 +94,7 @@ agent-browser screenshot .../captures/task-input.png
 
 - Use `vvedantb/eva` (the team's own repo). **Never** feature client repos
   (`evalucom/carepulse`, `eprocurement`) or the home "Codebases" screen that lists them.
-- **The app's own account names and the demo email are a settled non-issue.** Accounts are
-  first-name-only by design and the email is not real. Do not flag them, do not offer to mask or
-  crop them, and do not caveat the handover with them — the user has confirmed this twice.
-- Still worth flagging: third-party or client names in any list, real customer data, and error
-  panels that leak env var names or project ids.
+- **Names and emails on screen are a settled non-issue.** Settings → Experimental has a blur-PID
+  toggle that blurs every `[data-pii]` element, so the product handles it. Do not flag names or
+  emails, do not offer to mask or crop them, and do not caveat the handover with them.
+- Still worth flagging: error panels that leak env var names or project ids.

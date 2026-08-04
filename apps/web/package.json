@@ -98,6 +98,7 @@
   },
   "devDependencies": {
     "@rolldown/plugin-babel": "^0.2.2",
+    "@rolldown/plugin-transform-imports": "0.1.1",
     "@tailwindcss/typography": "^0.5.19",
     "@tanstack/router-plugin": "^1.120.0",
     "@types/node": "^24.10.1",

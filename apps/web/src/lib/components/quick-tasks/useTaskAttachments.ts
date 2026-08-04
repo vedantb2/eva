@@ -51,7 +51,7 @@ export function useTaskAttachments() {
       const accepted: TaskAttachment[] = [];
       for (const file of files) {
         const meta = { mediaType: file.type, filename: file.name };
-        if (!isAllowedAttachmentFile("sessionFiles", meta)) {
+        if (!isAllowedAttachmentFile(meta)) {
           rejections.add("accept");
           continue;
         }
@@ -78,7 +78,7 @@ export function useTaskAttachments() {
       return accepted.length > 0 ? [...current, ...accepted] : current;
     });
     for (const code of rejections) {
-      toast.error(chatAttachmentErrorMessage("sessionFiles", { code }));
+      toast.error(chatAttachmentErrorMessage({ code }));
     }
   };
 
@@ -88,6 +88,30 @@ export function useTaskAttachments() {
       if (target) revoke(target);
       return current.filter((item) => item.key !== key);
     });
+  };
+
+  /**
+   * Replace one local attachment's content in place. Clears storageId so the
+   * next upload() re-uploads the edited blob. Hydrated draft attachments
+   * (storageId set, file === null) should not call this — open read-only.
+   */
+  const replace = (key: string, file: File) => {
+    setAttachments((current) =>
+      current.map((item) => {
+        if (item.key !== key) return item;
+        revoke(item);
+        const isImage = isImageContentType(file.type);
+        return {
+          ...item,
+          name: item.name,
+          contentType: file.type || item.contentType,
+          url: isImage ? URL.createObjectURL(file) : null,
+          isObjectUrl: isImage,
+          storageId: null,
+          file,
+        };
+      }),
+    );
   };
 
   const reset = () => {
@@ -161,5 +185,5 @@ export function useTaskAttachments() {
       .filter((id): id is Id<"_storage"> => id !== null);
   };
 
-  return { attachments, add, remove, reset, hydrate, upload };
+  return { attachments, add, remove, replace, reset, hydrate, upload };
 }

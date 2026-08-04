@@ -178,7 +178,6 @@ export function NewSessionComposer() {
             skillMap: draftSkillMap,
             onSave: setDraft,
           }}
-          attachmentMode="sessionFiles"
           underCardLeading={
             <BranchSelect
               value={baseBranch}

@@ -44,6 +44,11 @@ interface DescriptionMentionEditorProps {
    * Omitting it drops pasted images, as before.
    */
   onImageFiles?: (files: File[]) => void;
+  /**
+   * Called for large plain-text pastes. Return true when handled as an
+   * attachment so the editor skips inline insert.
+   */
+  onLargeTextPaste?: (text: string) => boolean;
 }
 
 export const DescriptionMentionEditor = forwardRef<
@@ -63,6 +68,7 @@ export const DescriptionMentionEditor = forwardRef<
     disabled,
     completionContext,
     onImageFiles,
+    onLargeTextPaste,
   },
   ref,
 ) {
@@ -111,6 +117,7 @@ export const DescriptionMentionEditor = forwardRef<
       initialSkillMap={initialSkillMap}
       disabled={disabled}
       onImageFiles={onImageFiles}
+      onLargeTextPaste={onLargeTextPaste}
       suggestion={suggestion}
       onAcceptSuggestion={
         suggestion ? () => onValueChange(value + suggestion) : undefined

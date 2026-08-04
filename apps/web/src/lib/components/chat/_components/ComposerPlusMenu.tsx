@@ -22,8 +22,7 @@ import type { ReactNode, RefObject } from "react";
 import type { MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
 import {
   IMAGE_ATTACHMENT_ACCEPT,
-  chatAttachmentAccept,
-  type ChatAttachmentMode,
+  CHAT_ATTACHMENT_ACCEPT,
 } from "@/lib/components/chat/imageAttachments";
 
 function previewOneLine(text: string, maxLength = 72): string {
@@ -94,7 +93,6 @@ interface ComposerPlusMenuProps {
     available: boolean;
   }>;
   mentionRef: RefObject<MentionTextareaHandle | null>;
-  attachmentMode: ChatAttachmentMode;
   /** Optional "Options" submenu (e.g. session capture/audit toggles). */
   optionsSubmenu?: ReactNode;
 }
@@ -107,12 +105,10 @@ export function ComposerPlusMenu({
   dataItems,
   skills,
   mentionRef,
-  attachmentMode,
   optionsSubmenu,
 }: ComposerPlusMenuProps) {
   const attachments = usePromptInputAttachments();
   const availableSkills = skills.filter((skill) => skill.available);
-  const fileAccept = chatAttachmentAccept(attachmentMode);
 
   return (
     <PromptInputActionMenu>
@@ -124,7 +120,9 @@ export function ComposerPlusMenu({
         <DropdownMenuItem
           onSelect={(e) => {
             e.preventDefault();
-            openFilePicker(fileAccept, (files) => attachments.add(files));
+            openFilePicker(CHAT_ATTACHMENT_ACCEPT, (files) =>
+              attachments.add(files),
+            );
           }}
         >
           <IconFile className="mr-2 size-4" />

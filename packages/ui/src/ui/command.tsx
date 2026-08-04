@@ -3,7 +3,7 @@
 import * as React from "react";
 import { type DialogProps } from "@radix-ui/react-dialog";
 import { Command as CommandPrimitive } from "cmdk";
-import { Search } from "lucide-react";
+import { IconSearch } from "@tabler/icons-react";
 
 import { cn } from "../utils/cn";
 import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
@@ -45,7 +45,7 @@ const CommandInput = React.forwardRef<
     className="flex items-center gap-2 border-b border-border px-3.5"
     cmdk-input-wrapper=""
   >
-    <Search className="size-4 shrink-0 text-muted-foreground" />
+    <IconSearch className="size-4 shrink-0 text-muted-foreground" />
     <CommandPrimitive.Input
       ref={ref}
       className={cn(

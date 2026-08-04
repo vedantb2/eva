@@ -8,7 +8,7 @@ import {
   CollapsibleTrigger,
 } from "../ui/collapsible";
 import { cn } from "../utils/cn";
-import { ChevronDownIcon, FileIcon } from "lucide-react";
+import { IconChevronDown, IconFile } from "@tabler/icons-react";
 
 export type TaskProps = ComponentProps<typeof Collapsible> & {
   defaultOpen?: boolean;
@@ -40,7 +40,7 @@ export function TaskTrigger({
       {...props}
     >
       {title ?? children}
-      <ChevronDownIcon className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+      <IconChevronDown className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
     </CollapsibleTrigger>
   );
 }
@@ -92,7 +92,7 @@ export function TaskItemFile({
       )}
       {...props}
     >
-      <FileIcon className="size-3 shrink-0" />
+      <IconFile className="size-3 shrink-0" />
       <span className="truncate">{children}</span>
     </span>
   );

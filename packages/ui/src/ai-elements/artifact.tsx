@@ -1,8 +1,8 @@
 "use client";
 
 import type { ComponentProps, HTMLAttributes } from "react";
-import type { LucideIcon } from "lucide-react";
-import { XIcon } from "lucide-react";
+import type { Icon as TablerIconType } from "@tabler/icons-react";
+import { IconX } from "@tabler/icons-react";
 import { Button } from "../ui/button";
 import {
   Tooltip,
@@ -60,7 +60,7 @@ export const ArtifactClose = ({
     variant={variant}
     {...props}
   >
-    {children ?? <XIcon className="size-4" />}
+    {children ?? <IconX className="size-4" />}
     <span className="sr-only">Close</span>
   </Button>
 );
@@ -95,7 +95,7 @@ export const ArtifactActions = ({
 export type ArtifactActionProps = ComponentProps<typeof Button> & {
   tooltip?: string;
   label?: string;
-  icon?: LucideIcon;
+  icon?: TablerIconType;
 };
 
 export const ArtifactAction = ({

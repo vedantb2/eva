@@ -36,6 +36,7 @@ export function ResizableSidebar({
   minSidebarWidthPx = 160,
   minContentWidthPx = 320,
 }: ResizableSidebarProps) {
+  "use no memo";
   const { initialSize, onLayoutChanged } = usePersistentPanelSize({
     storageKey,
     panel: "left",

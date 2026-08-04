@@ -58,6 +58,7 @@ export function ResizablePanelLayout({
   defaultRightCollapsed = true,
   expandRightSignal,
 }: ResizablePanelLayoutProps) {
+  "use no memo";
   const rightPanelRef = usePanelRef();
   const [savedCollapsed, setSavedCollapsed] = useLocalStorage(
     storageKey,

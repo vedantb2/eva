@@ -32,6 +32,7 @@ interface DiffsPanelProps {
  * so every surface embedding this panel gets the same controls.
  */
 export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
+  "use no memo";
   const { resolvedTheme } = useThemeMode();
   const { diffView, setDiffView, diffFile, setDiffFile } =
     useDiffSearchParams();

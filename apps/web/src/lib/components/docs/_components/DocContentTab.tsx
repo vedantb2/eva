@@ -69,6 +69,7 @@ export function DocContentTab({
   onToggleSuggestions: () => void;
   onSuggestionCount: (count: number) => void;
 }) {
+  "use no memo";
   const [mode] = useQueryState("mode", docModeParser);
   const isPrRecap = doc.kind === "pr-recap";
   const effectiveMode: DocMode = isPrRecap ? "viewing" : mode;

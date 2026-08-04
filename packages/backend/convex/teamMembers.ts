@@ -1,7 +1,7 @@
 import type { GenericDatabaseReader } from "convex/server";
 import { v } from "convex/values";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, hasRepoAccess } from "./functions";
 import { teamMemberRoleValidator } from "./validators";
 
 /** Fetches a user's membership row for a team, or null if they aren't a member. */
@@ -47,12 +47,6 @@ export const list = authQuery({
           _id: v.id("users"),
           email: v.optional(v.string()),
           fullName: v.optional(v.string()),
-          firstName: v.optional(v.string()),
-          lastName: v.optional(v.string()),
-          // Presence, for the team page's Activity tab. Deliberately raw: only
-          // a client can re-evaluate "seen in the last two minutes" over time.
-          lastSeenAt: v.optional(v.number()),
-          lastSeenPath: v.optional(v.string()),
         }),
         v.null(),
       ),
@@ -82,16 +76,53 @@ export const list = authQuery({
               _id: user._id,
               email: user.email,
               fullName: user.fullName,
-              firstName: user.firstName,
-              lastName: user.lastName,
-              lastSeenAt: user.lastSeenAt,
-              lastSeenPath: user.lastSeenPath,
             }
           : null,
       });
     }
 
     return membersWithUsers;
+  },
+});
+
+/**
+ * Lists the user profiles that can be `@`-mentioned in a repo: the members of
+ * the repo's team. Takes a repoId rather than a teamId because mention pickers
+ * live on repo-scoped surfaces (chats, comments) that know the repo but not
+ * necessarily the team. Returns empty when the caller lacks repo access or the
+ * repo has no team (personal repo — nobody else to mention).
+ */
+export const listForRepo = authQuery({
+  args: { repoId: v.id("githubRepos") },
+  returns: v.array(
+    v.object({
+      _id: v.id("users"),
+      fullName: v.optional(v.string()),
+      email: v.optional(v.string()),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
+    const repo = await ctx.db.get(args.repoId);
+    const teamId = repo?.teamId;
+    if (!teamId) return [];
+
+    const members = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_team", (q) => q.eq("teamId", teamId))
+      .collect();
+
+    const users = [];
+    for (const member of members) {
+      const user = await ctx.db.get(member.userId);
+      if (!user) continue;
+      users.push({
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+      });
+    }
+    return users;
   },
 });
 

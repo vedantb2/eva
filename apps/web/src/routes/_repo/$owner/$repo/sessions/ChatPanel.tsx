@@ -340,10 +340,10 @@ export function ChatPanel({
   const placeholder = !isSandboxActive
     ? "Start the sandbox to begin chatting..."
     : mode === "plan"
-      ? "Describe what to plan... / for skills · @ for data"
+      ? "Describe what to plan... / for skills · @ to mention"
       : mode === "design"
-        ? "Describe the UI to design... / for skills · @ for data"
-        : "Ask Eva anything... / for skills · @ for data";
+        ? "Describe the UI to design... / for skills · @ to mention"
+        : "Ask Eva anything... / for skills · @ to mention";
 
   const readOnlyMessage = getSessionReadOnlyMessage({
     isArchived,

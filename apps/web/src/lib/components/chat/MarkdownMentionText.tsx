@@ -78,13 +78,13 @@ function childrenToText(children: ReactNode): string {
 }
 
 /**
- * Resolves an `@` token that could be either a Data mention or a User mention
- * (only possible in comments, where `CommentMentionInput` lets authors mix
- * both). Uses `mentions.getEntity` — the same lookup Data chips already use
- * for hover/navigate — as the single source of truth for what an opaque
- * mention id points to, rather than guessing from the id's shape.
+ * Resolves an `@` token that could be either a Data mention or a People
+ * mention — the case in every human-authored body (comments and chat messages),
+ * where the picker offers both. Uses `mentions.getEntity` — the same lookup Data
+ * chips already use for hover/navigate — as the single source of truth for what
+ * an opaque mention id points to, rather than guessing from the id's shape.
  */
-function AtMentionChip({
+export function AtMentionChip({
   id,
   label,
   repoId,

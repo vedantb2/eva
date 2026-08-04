@@ -29,6 +29,7 @@ import {
 import { buildAgentTaskChatPrompt } from "./_agentTasks/chatPrompt";
 import { buildCustomInstructionsBlock } from "./prompts";
 import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
+import { notifyChatMentions } from "./_mentions/notifyChatMentions";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 import type { Doc, Id } from "./_generated/dataModel";
 import { TASK_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
@@ -187,6 +188,12 @@ export const startExecute = authMutation({
     // picker overrides from collaborators (and from localStorage).
     void args.providerAccountId;
 
+    await notifyChatMentions(ctx, {
+      content: args.message,
+      authorUserId: ctx.userId,
+      surface: { kind: "task", task },
+    });
+
     await ctx.db.insert("messages", {
       parentId: args.taskId,
       role: "assistant",
@@ -299,6 +306,12 @@ export const enqueueMessage = authMutation({
     ) {
       throw new Error("Not authorized");
     }
+
+    await notifyChatMentions(ctx, {
+      content,
+      authorUserId: ctx.userId,
+      surface: { kind: "task", task },
+    });
 
     await ctx.db.insert("queuedMessages", {
       parentId: args.taskId,

@@ -27,7 +27,8 @@ import {
   getSelectionAnchorRect,
   type MentionPopupPlacement,
 } from "./mentionPopupPosition";
-import { UserProfileHoverCardBody } from "@eva/shared";
+import { UserInitials, UserProfileHoverCardBody } from "@eva/shared";
+import type { Id } from "@eva/backend";
 
 // The inline AI suggestion renders as an `::after` pseudo-element fed by
 // `data-suggestion`, mirroring how the placeholder uses `::before`. A pseudo-
@@ -42,6 +43,12 @@ export interface MentionItem<TId extends string = string> {
   description?: string;
   /** Type badge shown in the picker (e.g. Document, Session, Person). */
   badge?: string;
+  /**
+   * Set when this item is a teammate rather than a data entity, so the picker
+   * row shows their avatar. Same value as `id` for people items; kept separate
+   * so the renderer can tell the two kinds apart without re-deriving it.
+   */
+  personUserId?: Id<"users">;
 }
 
 export interface SlashItem<
@@ -184,6 +191,23 @@ function renderMenuItemRow(
 }
 
 function defaultRenderItem(item: MentionItem, _isSelected: boolean): ReactNode {
+  // People read better as an avatar + name than as an `@`-prefixed slug, and the
+  // name is PII so it carries `data-pii` for screenshot redaction.
+  if (item.personUserId !== undefined) {
+    return (
+      <span className="flex w-full min-w-0 items-center gap-2">
+        <UserInitials userId={item.personUserId} size="sm" hideLastSeen />
+        <span data-pii className="min-w-0 flex-1 truncate">
+          {item.label}
+        </span>
+        {item.badge ? (
+          <span className="shrink-0 rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
+            {item.badge}
+          </span>
+        ) : null}
+      </span>
+    );
+  }
   const detail = item.description ? previewOneLine(item.description) : null;
   return renderMenuItemRow("@", item.label, detail, item.badge);
 }
@@ -859,6 +883,8 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
           renderItem={renderSlashItem}
           onSelectItem={insertSlashItem}
           emptyContent={emptySlashContent}
+          query={trigger.query}
+          onRefocusEditor={() => editorRef.current?.focus()}
         />
       ) : (
         <MentionPickerPopup
@@ -868,6 +894,8 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
           selectedIndex={selectedIndex}
           renderItem={renderItem}
           onSelectItem={insertMentionItem}
+          query={trigger.query}
+          onRefocusEditor={() => editorRef.current?.focus()}
         />
       )
     ) : null;

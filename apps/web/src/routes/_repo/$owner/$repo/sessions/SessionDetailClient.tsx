@@ -10,7 +10,6 @@ import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PendingReviewCommentsProvider } from "@/lib/contexts/PendingReviewCommentsContext";
-import { isSessionPrReadOnly } from "./_utils/sessionReadOnly";
 import {
   normalizeMode,
   type SessionMode,
@@ -69,35 +68,9 @@ export function SessionDetailClient({
   useEffect(() => {
     if (!sandboxId) return;
     if (sandboxStatus === "closed" || sandboxStatus === "stopping") return;
-    // Don't prewarm (which resumes the VM) when the PR is already terminal —
-    // auto-stop below owns teardown for merged/closed sessions.
-    if (
-      session !== null &&
-      session !== undefined &&
-      isSessionPrReadOnly(session.prState)
-    ) {
-      return;
-    }
     void prewarmDaemon({ sessionId });
-  }, [sessionId, sandboxId, sandboxStatus, session, prewarmDaemon]);
+  }, [sessionId, sandboxId, sandboxStatus, prewarmDaemon]);
 
-  // Recover sandboxes left running after a PR merge/close (webhook may have
-  // only patched prState before auto-stop existed, or the stop raced).
-  const prAutoStopKey = useRef<string | null>(null);
-  useEffect(() => {
-    if (session === null || session === undefined) return;
-    if (!isSessionPrReadOnly(session.prState)) {
-      prAutoStopKey.current = null;
-      return;
-    }
-    if (session.status !== "active" && session.status !== "starting") {
-      return;
-    }
-    const key = `${sessionId}:${session.prState}:${session.status}`;
-    if (prAutoStopKey.current === key) return;
-    prAutoStopKey.current = key;
-    void stopSandboxMutation({ sessionId });
-  }, [session, sessionId, stopSandboxMutation]);
   const isSandboxStarting = session?.status === "starting";
   // `stopping` is a transient backend state set synchronously by `stopSandbox`,
   // cleared once the Vercel sandbox's stop call completes. Showing the spinner
@@ -165,8 +138,8 @@ export function SessionDetailClient({
 
   const isSandboxActive = session.status === "active";
   const isArchived = session.archived === true;
-  // Archive + PR terminal states share the same UI gates; PR reopen clears lock.
-  const isReadOnly = isArchived || isSessionPrReadOnly(session.prState);
+  // Only manual archive locks the session. PR merge/close updates prState only.
+  const isReadOnly = isArchived;
   const stickyMode: SessionMode = normalizeMode(session.lastMode ?? "edit");
   const selectedVariationIndex = session.selectedVariationIndex;
 

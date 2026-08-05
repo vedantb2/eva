@@ -83,7 +83,7 @@ export function ReviewTabsPanel({
       >
         {header}
         <TabsBar size={tabSize}>
-          <TabsList size={tabSize}>
+          <TabsList size={tabSize} className="tabs-line h-auto gap-0.5 shadow-none">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="diffs">Diffs</TabsTrigger>
             <TabsTrigger value="recap">Recap</TabsTrigger>

@@ -699,6 +699,31 @@ html[data-blur-pid] [data-pii] {
   ); /* dark: lighter pill (lighter than trough) */
 }
 
+/* ───────────────────────────────────────────────────────────────────
+ * Line tabs — opt in with `tabs-line` on a Radix Tabs.List inside
+ * `TabsBar`. Underline active state on the bar hairline; no pill trough.
+ * Hide the sliding pill — line tabs use border-bottom, not bg-card fill.
+ * ─────────────────────────────────────────────────────────────────── */
+.tabs-line {
+  border: none;
+  background-color: transparent;
+  padding: 0;
+}
+.tabs-line .t-tabs-pill {
+  display: none;
+}
+.tabs-line [role="tab"] {
+  border-radius: 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  background-color: transparent;
+}
+.tabs-line [role="tab"][data-state="active"] {
+  background-color: transparent;
+  border-bottom-color: rgb(var(--foreground));
+  color: rgb(var(--foreground));
+}
+
 /* Animated border for in-progress quick task cards */
 @property --qt-border-angle {
   syntax: "<angle>";

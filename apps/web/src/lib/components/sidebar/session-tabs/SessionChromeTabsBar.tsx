@@ -6,13 +6,13 @@ import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useMemo, useState } from "react";
 import { Skeleton } from "@eva/ui";
-import { repoMatchesPath } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import {
   sessionActivityAt,
   sortAppsForSidebar,
   sortSessionsForSidebar,
 } from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
 import { useSessionsSidebarSettings } from "@/lib/components/sidebar/useSessionsSidebarSettings";
+import { useSessionsAppGroupOpen } from "@/lib/components/sidebar/useSessionsAppGroupOpen";
 import { SessionChromeTabGroup } from "@/lib/components/sidebar/session-tabs/SessionChromeTabGroup";
 import {
   SessionTabsArchivedMenu,
@@ -47,20 +47,13 @@ interface SessionChromeTabsBarProps {
  */
 export function SessionChromeTabsBar({ pathname }: SessionChromeTabsBarProps) {
   const { settings } = useSessionsSidebarSettings();
+  const { isGroupOpen, setGroupOpen } = useSessionsAppGroupOpen(pathname);
   const repos = useQuery(api.githubRepos.list, {});
   const [sessionToRename, setSessionToRename] =
     useState<SessionRenameTarget | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [sessionToArchive, setSessionToArchive] =
     useState<SessionArchiveTarget | null>(null);
-  const [openByRepoId, setOpenByRepoId] = useState<Record<string, boolean>>({});
-
-  /** Same rule as the vertical sidebar: collapsed unless this app owns the URL. */
-  const isGroupOpen = (repo: RepoRow): boolean => {
-    const stored = openByRepoId[repo._id];
-    if (stored !== undefined) return stored;
-    return repoMatchesPath(repo, pathname) && pathname.includes("/sessions");
-  };
 
   const sessionListQueries = useMemo(() => {
     if (repos === undefined) return {};
@@ -174,7 +167,7 @@ export function SessionChromeTabsBar({ pathname }: SessionChromeTabsBarProps) {
                 pathname={pathname}
                 isOpen={isGroupOpen(repo)}
                 onOpenChange={(open) => {
-                  setOpenByRepoId((prev) => ({ ...prev, [repo._id]: open }));
+                  setGroupOpen(repo._id, open);
                 }}
                 hideWhenEmpty
                 onRenameRequest={(session, groupRepo) => {

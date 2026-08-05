@@ -1,6 +1,9 @@
 /** localStorage key for Sessions sidebar sort / preview prefs. */
 export const SESSIONS_SIDEBAR_SETTINGS_KEY = "eva:sessions-sidebar-settings:v1";
 
+/** Per-app expand/collapse in global Sessions sidebar + chrome tabs. */
+export const SESSIONS_APP_GROUPS_OPEN_KEY = "eva:sessions-app-groups-open:v1";
+
 export const APP_SORT_ORDERS = ["updated_at", "created_at", "manual"] as const;
 export type AppSortOrder = (typeof APP_SORT_ORDERS)[number];
 

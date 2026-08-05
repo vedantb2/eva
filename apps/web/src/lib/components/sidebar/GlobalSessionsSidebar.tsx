@@ -18,12 +18,12 @@ import {
 } from "@eva/ui";
 import { GlobalSessionGroup } from "@/lib/components/sidebar/_components/GlobalSessionGroup";
 import { SessionsListModeTabs } from "@/lib/components/sidebar/_components/SessionsListModeTabs";
-import { repoMatchesPath } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import {
   sessionActivityAt,
   sortAppsForSidebar,
 } from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
 import { useSessionsSidebarSettings } from "@/lib/components/sidebar/useSessionsSidebarSettings";
+import { useSessionsAppGroupOpen } from "@/lib/components/sidebar/useSessionsAppGroupOpen";
 import { entityPathSegment } from "@/lib/numId";
 
 type SessionListItem = FunctionReturnType<typeof api.sessions.list>[number];
@@ -44,8 +44,8 @@ export function GlobalSessionsSidebar({
 }: GlobalSessionsSidebarProps) {
   const navigate = useNavigate();
   const { settings, setListMode } = useSessionsSidebarSettings();
+  const { isGroupOpen, setGroupOpen } = useSessionsAppGroupOpen(pathname);
   const repos = useQuery(api.githubRepos.list, {});
-  const [openByRepoId, setOpenByRepoId] = useState<Record<string, boolean>>({});
   const [sessionToRename, setSessionToRename] = useState<{
     session: SessionListItem;
     repo: RepoRow;
@@ -94,13 +94,6 @@ export function GlobalSessionsSidebar({
       ? undefined
       : sortAppsForSidebar(repos, settings.appSortOrder, latestActivityByAppId);
 
-  const isGroupOpen = (repo: RepoRow): boolean => {
-    const stored = openByRepoId[repo._id];
-    if (stored !== undefined) return stored;
-    // Default: collapsed unless this app owns the active session URL.
-    return repoMatchesPath(repo, pathname) && pathname.includes("/sessions");
-  };
-
   return (
     <>
       <div className="flex-1 space-y-3 px-0 pb-1">
@@ -135,7 +128,7 @@ export function GlobalSessionsSidebar({
               pathname={pathname}
               open={isGroupOpen(repo)}
               onOpenChange={(open) => {
-                setOpenByRepoId((prev) => ({ ...prev, [repo._id]: open }));
+                setGroupOpen(repo._id, open);
               }}
               onNavigate={onNavigate}
               sessionSortOrder={settings.sessionSortOrder}

@@ -11,6 +11,8 @@ Fast browser automation CLI for AI agents. Chrome/Chromium via CDP with accessib
 
 Install: `npm i -g agent-browser && agent-browser install`
 
+Eva web app: navigate to `/?agent` first to auto sign in as the agent user.
+
 ## Start here
 
 This file is a discovery stub, not the usage guide. Before running any `agent-browser` command, load the actual workflow content from the CLI:

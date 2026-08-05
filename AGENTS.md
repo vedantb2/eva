@@ -1,106 +1,37 @@
 FOLLOW ALL OF THESE RULES
 
-Implementation:
+Same rules as `CLAUDE.md`. Domain details live in the two docs below — read them when relevant.
 
-- Always read the CLAUDE.md file (if it exists) first to understand the codebase's specific rules
-- Assume the project is greenfield - breaking changes are fine
-- If you are implementing from a plan, then you are allowed to just go ahead and implement - this is because the plan had already been carefully crafted so you don't need to spend time thinking about it - just go ahead and do as the plan says.
-- Have a deep think of the best solution, do not just jump into implementation
-- I want you to consider the simplest solution first, another engineer is likely to read it so it should be simple and easy to understand, and not overly bloated with features that they will need to maintain.
-- When unsure, ask for clarification before implementing.
-- If requirements are ambiguous, ask clarifying questions before implementing.
-- Feel free to ask AS MANY QUESTIONS AS YOU LIKE, you must have a complete end to end understand of how the user wants something to be implemented, even if the user may not know themselves.
-- Prefer making a detailed plan over a quick plan
-- Add comments especially for big functions and update comments (if needed) when modifying big functions- When done implementing, explain all your changes made to the user
-- Check web and docs for everything you do
-- When done implementing, explain all your changes made to the user
-- Never use `any`
-- Never use `unknown`
-- Never use `as` for type assertions
-- Never use the non-null assertion operator `!`.
-- If a type is difficult to express, rethink the design instead of bypassing the type system.
-- Prefer simplicity over cleverness.
-- With React Compiler on apps/web, do not add useMemo/useCallback by default; only for proven identity/perf needs the compiler cannot cover.
-- React Compiler bails on a whole file for `finally`, a catch-less `try`, or `throw`/`?:`/`&&`/`??`/`?.`/loops inside `try` (`eva/no-value-block-in-try`).
-- Minimize surface area of change.
-- Co-locate logic where it naturally belongs.
-- Avoid premature abstractions.
-- Prefer explicit over magical behaviour.
-- All decisions should optimize for long-term maintainability.
-- Do not run any dev / lint / build commands unless the user asks you to
-- Never add `Co-authored-by: Cursor`, `Made-with: Cursor`, or other Cursor git attribution to commits (husky prepare-commit-msg is disabled; `/preflight` reminds)
+## Git / ship
 
-Convex:
-
-- Never manually define interfaces for Convex documents.
-- Always import:
-  - `Doc<"tableName">`
-  - `Id<"fieldName">`
-  - `FunctionReturnType<typeof api.functionName>`
-- Convex types are the single source of truth.
-- If the schema changes, all consumers must update automatically.
-- Never duplicate schema types manually.
-- Run npx convex dev to start dev server/check for errors
-- Schema migration chicken-egg problem: When changing a field type with existing data, use v.union(oldType, newType) temporarily → deploy → run migration → change to only newType
-- Single source of truth for table fields: Define table fields as exported `const xxxFields = { ... }` in `validators.ts`. Use in both `schema.ts` (`defineTable(xxxFields)`) and return validators (`v.object({ _id: v.id("table"), _creationTime: v.number(), ...xxxFields })`). Never duplicate field definitions between schema and return validators.
-
-Next.js:
-
-- Default to Server Components.
-- Client Components are only allowed when:
-  - Using state
-  - Using effects
-  - Handling user interaction
-  - Using Convex live queries/mutations
-- Never move logic to the client unless strictly required.
-- Data fetching should live in Server Components unless Convex live data is required.
-- When using Convex:
-  - Keep `page.tsx` as a Server Component.
-  - Extract interactive/live logic into child Client Components.
-
-Nuqs:
-
-- If you are required to implement filters, or sort by methods, make sure nuqs is installed in the codebase and use it to create searchParams.ts and use the useQueryState/useQueryStates hook from nuqs to implement the filters / sorting methods. This is preferred over local state as it stores the state in the URL so can be shared with other users.
-
-Husky:
-
+- NEVER create a new branch, push, or open a PR unless the user asks.
+- If already on main and the user asks to ship: commit and push directly to main.
 - Prefer `/preflight` occasionally over husky commit/push gates (hooks under `.husky/` are commented out).
+- Plans: final step is `/ship` unless the user says not to.
 
-Internal:
+## Always
 
-- If an internal folder does not exist in the root, create it
-- Any time you make a big/medium/medium-small change, you should review the changes made in the conversation and add a new entry to internal/changelog.md in root. Basically you should add an entry until you are doing a refactor or like a very minor change.
-  Each changelog entry must include:
-- Title
-- Date (YYYY-MM-DD)
-- Summary of changes, focus on the WHY not the WHAT
-- Reason for change (if architectural)
+- Greenfield OK — breaking changes fine.
+- Implementing from an agreed plan: just implement.
+- Think first; simplest solution wins. Ask when unsure / ambiguous — as many questions as needed.
+- Prefer a detailed plan over a quick one. Plan mode: concise plans; list unresolved questions; use `grill-me` / AskUserQuestion to interview until shared understanding.
+- Explain changes when done. Check web/docs when needed.
+- Only edit `CLAUDE.md` / this file when the user explicitly asks. Entries: 1 sentence (~20 words max), not changelog paragraphs.
+- No `any`, `unknown`, `as`, or non-null `!`. No `isRecord(object: unknown)` — parse at the boundary (Zod). Hard types → rethink design.
+- Prefer simplicity, small diffs, co-location, explicit behavior, long-term maintainability. No premature abstractions. No new deps unless necessary.
+- Do not default to `useState`/`useRef` — pick the right state ownership first.
+- Do not run dev / lint / build unless the user asks.
+- After medium+ changes: no banned types; `tsc` where relevant; update `internal/changelog.md` (create `internal/` if missing). Changelog entry: Title, Date (YYYY-MM-DD), WHY summary, architectural reason if any.
 
-Verification Rules after implementation:
+## Domain docs (read when relevant)
 
-- Ensure no `any`, `unknown`, or `as` exists.
-- Run npx tsc in the appropriate codebase and fix any type issues (if related to your changes)
-- Ensure types are inferred where possible.
-- Ensure no unnecessary client components were introduced.
+- Frontend / UI work → `docs/eva-ui.md` (HeroUI, components, router, vite, nuqs)
+- Convex / schema / migrations → `docs/eva-convex.md`
+- agent-browser on eva app → navigate to `/?agent` to auto sign in as the agent user
 
-Implementation Process:
+## Product facts
 
-- Read CLAUDE.md first (if exists)
-- Understand existing architecture before changing anything.
-- Identify the simplest possible solution.
-- Avoid adding new dependencies unless absolutely necessary.
-- Update internal/changelog.md for medium/large changes.
+- This repo is a platform for managing other codebases and running them remotely (sandbox app ≠ this codebase).
+- Sandbox provider is Vercel; Daytona is legacy. Sandboxes: IPv4 only (no IPv6).
 
-Plan Mode
-
-- Make the plan extremely concise. Sacrifice grammar for the sake of concision.
-- At the end of each plan, give me a list of unresolved questions to answer, if any.
-- Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one
-- Use the AskUserQuestion tool
-
-Sandbox provider is Vercel; Daytona is legacy — prefer Vercel paths for sandbox/preview work.
-Sandboxes do not support IPv6 — all networking must use IPv4
-
-Philosophy
-This codebase will outlive you. Every shortcut becomes someone else's burden. Every ack compounds into technical debt that slows the whole team down.
-ou are not just writing code. You are shaping the future of this project. The atterns you establish will be copied. The corners you cut will be cut again. Fight entropy. Leave the codebase better than you found it.
+Fight entropy. Leave the codebase better than you found it.

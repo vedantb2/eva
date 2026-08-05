@@ -1,6 +1,25 @@
 # Changelog
 
 ## Another 1.2 MB off first load, and clicks that wait for nothing - 2026-08-04
+## Condensed agent rules into two domain docs - 2026-08-05
+
+- `CLAUDE.md` / `AGENTS.md` were duplicating ~150 lines of always-on + domain rules (and AGENTS still had stale Next.js guidance). Hard invariants stay in those files; HeroUI/component/router/vite/nuqs moved to `docs/eva-ui.md`, Convex conventions to `docs/eva-convex.md`, so agents only load domain detail when relevant.
+- Reason for change: cut always-applied context without spawning a skill zoo.
+
+## New notifications chime, background tabs included - 2026-08-01
+
+A backgrounded tab gave no sign that anything had arrived beyond the favicon count, which only helps if you happen to look. New unread notifications now play a short two-note chime, hung off the arrival detection `NotificationToastStream` already runs so it costs no extra subscription and can never disagree with the toasts. The tones are synthesised through the Web Audio API rather than loaded from a file: nothing to fetch or cache, and no silent first notification while a request is in flight. Scheduling goes through the audio clock, which browsers keep accurate in hidden tabs even while they throttle timers, so a chime queued by a background tab still plays on time. One chime per batch however many land together, and only for unread arrivals, so pruning an old notification into the 100-item window stays silent. Autoplay policy keeps a context suspended until the user has interacted with the page at least once, which signing in and navigating satisfies well before the first notification.
+
+## Voice dictation streams through AI Gateway - 2026-08-02
+
+Composer mic was a no-op (it queried a textarea that never existed), and browser Web Speech is uneven across browsers. An experimental switch now mints a short-lived Gateway STT token (`xai/grok-stt`) so chat composers and the quick-task description field can stream live transcription without exposing the server API key. Off by default; when off, chat still falls back to Web Speech where available.
+## Quick tasks get auto-tagged on create - 2026-08-02
+
+Tags existed on tasks — badges, filters, bulk edit, composer picker — but nothing ever wrote them, so the filters stayed empty. Creating or activating a task now schedules the same background gpt-5-nano path sessions already use for titles, picks up to three tags from a fixed vocabulary, and merges them after any tags the user already chose. The picker lists that vocabulary up front so manual picks stay on the same words the model uses.
+## Paste-as-file for long chat pastes - 2026-08-02
+
+Pasting a wall of text into a composer flooded the input and made the draft hard to edit. Pastes over 2,000 characters now attach as a `.txt` file (Claude.ai-style) across sessions, new-session, quick tasks, and sandbox chats. Clicking the chip opens a modal with live word/char counts — editable before send, read-only on sent messages. Attachment accept lists are unified so every chat surface takes the same image + HTML/MD/TXT set; no backend changes because text attachments already materialize as `/tmp/eva-attachment-N.txt`.
+## The app icon follows the theme, and its badge steps outside it - 2026-08-02
 
 - Four `codeSplitting.groups` entries were quietly forcing mermaid, shiki, streamdown, and katex into the eager module graph: a group's `test` claims every module under the matched path, including third-party utilities a package bundles inside its own dist, so one eager import of dayjs (bundled inside mermaid) or clsx (inside streamdown) dragged the entire group chunk into the entry. Dropping those groups cut the modulepreload set from 1585.6 kB to 347.6 kB gzip, and total output grew only 0.9%, which rules out the bytes simply having been duplicated elsewhere.
 - The changelog dialog was `lazy()`, but the root route mounted it unconditionally, so React fetched the chunk on every page load regardless. A small gate component now checks whether there is a changelog to show before it fetches the dialog, moving roughly 220 kB gzip of Streamdown, mermaid, and katex off first load and onto the moment the dialog actually opens.

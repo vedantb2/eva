@@ -35,13 +35,13 @@ import {
 export type SandboxTabBarSize = "default" | "compact";
 
 const TAB_TRIGGER_BASE =
-  "relative flex items-center rounded-none rounded-t-md border border-b-0 font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary";
+  "relative flex items-center rounded-none rounded-t-md border border-b-0 font-medium data-[state=active]:-mb-px data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary";
 
 const TAB_CLOSE_BUTTON_BASE =
   "ml-0.5 flex shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground";
 
 const TAB_ADD_BUTTON_BASE =
-  "mb-px flex shrink-0 items-center justify-center rounded-t-md text-muted-foreground transition-[transform,background-color] hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40";
+  "flex shrink-0 items-center justify-center rounded-t-md text-muted-foreground transition-[transform,background-color] hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40";
 
 function getSandboxTabBarStyles(size: SandboxTabBarSize) {
   if (size === "compact") {
@@ -51,7 +51,7 @@ function getSandboxTabBarStyles(size: SandboxTabBarSize) {
       icon: "size-3 shrink-0",
       closeButton: `${TAB_CLOSE_BUTTON_BASE} size-4`,
       closeIcon: "size-3",
-      addButton: `${TAB_ADD_BUTTON_BASE} h-[26px] w-7`,
+      addButton: `${TAB_ADD_BUTTON_BASE} mb-px h-[26px] w-7`,
       addIcon: "size-3.5",
       pulseDot: "ml-0.5 size-1.5 shrink-0 rounded-full bg-primary",
     };
@@ -62,7 +62,7 @@ function getSandboxTabBarStyles(size: SandboxTabBarSize) {
     icon: "size-3.5 shrink-0",
     closeButton: `${TAB_CLOSE_BUTTON_BASE} size-5`,
     closeIcon: "size-3.5",
-    addButton: `${TAB_ADD_BUTTON_BASE} h-[30px] w-8`,
+    addButton: `${TAB_ADD_BUTTON_BASE} mb-px h-[30px] w-8`,
     addIcon: "size-4",
     pulseDot: "ml-0.5 size-1.5 shrink-0 rounded-full bg-primary",
   };
@@ -193,7 +193,7 @@ export function SandboxTabBar({
         value={activeTab}
         onValueChange={onTabChange}
       >
-        <TabsList className="h-auto gap-0 rounded-none border-0 bg-transparent p-0 shadow-none">
+        <TabsList className="h-auto gap-0 rounded-none border-0 bg-transparent p-0 shadow-none [&_.t-tabs-pill]:hidden">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (

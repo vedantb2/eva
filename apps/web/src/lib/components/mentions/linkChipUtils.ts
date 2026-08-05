@@ -14,8 +14,6 @@ interface LinkMatcher {
   provider: LinkProvider;
   /** Regex source (no flags, no capturing groups) matching a full provider URL. */
   source: string;
-  /** Human display label for a matched URL. */
-  label: (url: string) => string;
 }
 
 function pathSegments(url: string): string[] {
@@ -28,74 +26,54 @@ function pathSegments(url: string): string[] {
   }
 }
 
-function humanize(segment: string): string {
+/**
+ * Chip label: host + path without protocol (e.g.
+ * `linear.app/evalucom/issue/DEV-7002`). Linear issue URLs drop the trailing
+ * slug so the chip stays readable.
+ */
+function linkDisplayPath(url: string, provider: LinkProvider): string {
   try {
-    return decodeURIComponent(segment).replace(/-/g, " ").trim();
-  } catch {
-    return segment.replace(/-/g, " ").trim();
-  }
-}
+    const parsed = new URL(url);
+    const host = parsed.hostname.replace(/^www\./, "");
+    const segments = pathSegments(url);
 
-/** Figma paths are `/{design|file|proto|board}/{KEY}/{File-Name}` → file name. */
-function figmaLabel(url: string): string {
-  const name = pathSegments(url)[2];
-  if (name !== undefined) {
-    const label = humanize(name);
-    if (label.length > 0) return label;
-  }
-  return "Figma";
-}
-
-/** `owner/repo`, or `repo#123` for a pull/issue URL. */
-function githubLabel(url: string): string {
-  const [owner, repo, type, number] = pathSegments(url);
-  if (owner !== undefined && repo !== undefined) {
-    if (
-      (type === "pull" || type === "issues") &&
-      number !== undefined &&
-      /^\d+$/.test(number)
-    ) {
-      return `${repo}#${number}`;
+    let displaySegments = segments;
+    if (provider === "linear") {
+      const issueIndex = segments.indexOf("issue");
+      const id = issueIndex >= 0 ? segments[issueIndex + 1] : undefined;
+      if (issueIndex >= 0 && id !== undefined && id.length > 0) {
+        displaySegments = segments.slice(0, issueIndex + 2);
+      }
     }
-    return `${owner}/${repo}`;
-  }
-  return "GitHub";
-}
 
-/** Linear issue URLs are `/{workspace}/issue/{ID}/{slug}` → the issue ID. */
-function linearLabel(url: string): string {
-  const segments = pathSegments(url);
-  const index = segments.indexOf("issue");
-  const id = index >= 0 ? segments[index + 1] : undefined;
-  if (id !== undefined && id.length > 0) return id.toUpperCase();
-  return "Linear";
+    const path =
+      displaySegments.length > 0 ? `/${displaySegments.join("/")}` : "";
+    return `${host}${path}`;
+  } catch {
+    return url;
+  }
 }
 
 const LINK_MATCHERS: readonly LinkMatcher[] = [
   {
     provider: "figma",
     source: "https?://(?:www\\.)?figma\\.com/[^\\s)]+",
-    label: figmaLabel,
   },
   {
     provider: "github",
     source: "https?://(?:www\\.)?github\\.com/[^\\s)]+",
-    label: githubLabel,
   },
   {
     provider: "linear",
     source: "https?://linear\\.app/[^\\s)]+",
-    label: linearLabel,
   },
   {
     provider: "sentry",
     source: "https?://(?:[a-z0-9-]+\\.)?sentry\\.io/[^\\s)]+",
-    label: () => "Sentry",
   },
   {
     provider: "posthog",
     source: "https?://(?:[a-z0-9-]+\\.)?posthog\\.com/[^\\s)]+",
-    label: () => "PostHog",
   },
 ];
 
@@ -110,7 +88,6 @@ export const LINK_URL_SOURCE = LINK_MATCHERS.map(
 
 const ANCHORED_MATCHERS = LINK_MATCHERS.map((matcher) => ({
   provider: matcher.provider,
-  label: matcher.label,
   regex: new RegExp(`^(?:${matcher.source})$`),
 }));
 
@@ -129,7 +106,7 @@ export function isChipLinkUrl(url: string): boolean {
 /** Chip label for any supported link URL (falls back to the URL itself). */
 export function linkLabel(url: string): string {
   for (const matcher of ANCHORED_MATCHERS) {
-    if (matcher.regex.test(url)) return matcher.label(url);
+    if (matcher.regex.test(url)) return linkDisplayPath(url, matcher.provider);
   }
   return url;
 }

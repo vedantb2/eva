@@ -3,6 +3,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
   internalMutation,
+  internalQuery,
   type MutationCtx,
 } from "./_generated/server";
 import { SANDBOX_DELETE_GRACE_MS } from "./_sandbox/vercelSnapshotOptions";
@@ -245,5 +246,156 @@ export const sweepDeadSandboxes = internalMutation({
       `[sandboxCleanup] sweepDeadSandboxes done: deleted=${deleted}`,
     );
     return { deleted, done: true, phase: "agentTasks" as const };
+  },
+});
+
+const CANDIDATE_BATCH = 10;
+
+const liveCandidateValidator = v.object({
+  kind: v.union(
+    v.literal("session"),
+    v.literal("project"),
+    v.literal("agentTask"),
+  ),
+  entityId: v.string(),
+  sandboxId: v.string(),
+  repoId: v.id("githubRepos"),
+});
+
+/**
+ * Paginated live sandboxes (survivors after death-signal deletes) for the
+ * one-off retention bulk pass.
+ */
+export const listLiveSandboxCandidates = internalQuery({
+  args: {
+    cursor: v.optional(v.string()),
+    phase: v.optional(
+      v.union(
+        v.literal("sessions"),
+        v.literal("projects"),
+        v.literal("agentTasks"),
+      ),
+    ),
+  },
+  returns: v.object({
+    candidates: v.array(liveCandidateValidator),
+    continueCursor: v.union(v.string(), v.null()),
+    isDone: v.boolean(),
+    phase: v.union(
+      v.literal("sessions"),
+      v.literal("projects"),
+      v.literal("agentTasks"),
+    ),
+    nextPhase: v.union(
+      v.literal("sessions"),
+      v.literal("projects"),
+      v.literal("agentTasks"),
+      v.null(),
+    ),
+  }),
+  handler: async (ctx, args) => {
+    const phase = args.phase ?? "sessions";
+    const candidates: Array<{
+      kind: "session" | "project" | "agentTask";
+      entityId: string;
+      sandboxId: string;
+      repoId: Id<"githubRepos">;
+    }> = [];
+
+    if (phase === "sessions") {
+      const page = await ctx.db.query("sessions").paginate({
+        cursor: args.cursor ?? null,
+        numItems: CANDIDATE_BATCH,
+      });
+      for (const session of page.page) {
+        if (!session.sandboxId) continue;
+        if (session.archived === true) continue;
+        candidates.push({
+          kind: "session",
+          entityId: session._id,
+          sandboxId: session.sandboxId,
+          repoId: session.repoId,
+        });
+      }
+      if (!page.isDone) {
+        return {
+          candidates,
+          continueCursor: page.continueCursor,
+          isDone: false,
+          phase: "sessions" as const,
+          nextPhase: "sessions" as const,
+        };
+      }
+      return {
+        candidates,
+        continueCursor: null,
+        isDone: false,
+        phase: "sessions" as const,
+        nextPhase: "projects" as const,
+      };
+    }
+
+    if (phase === "projects") {
+      const page = await ctx.db.query("projects").paginate({
+        cursor: args.cursor ?? null,
+        numItems: CANDIDATE_BATCH,
+      });
+      for (const project of page.page) {
+        if (!project.sandboxId) continue;
+        candidates.push({
+          kind: "project",
+          entityId: project._id,
+          sandboxId: project.sandboxId,
+          repoId: project.repoId,
+        });
+      }
+      if (!page.isDone) {
+        return {
+          candidates,
+          continueCursor: page.continueCursor,
+          isDone: false,
+          phase: "projects" as const,
+          nextPhase: "projects" as const,
+        };
+      }
+      return {
+        candidates,
+        continueCursor: null,
+        isDone: false,
+        phase: "projects" as const,
+        nextPhase: "agentTasks" as const,
+      };
+    }
+
+    const page = await ctx.db.query("agentTasks").paginate({
+      cursor: args.cursor ?? null,
+      numItems: CANDIDATE_BATCH,
+    });
+    for (const task of page.page) {
+      if (!task.sandboxId || !task.repoId) continue;
+      if (task.status === "done" || task.status === "cancelled") continue;
+      candidates.push({
+        kind: "agentTask",
+        entityId: task._id,
+        sandboxId: task.sandboxId,
+        repoId: task.repoId,
+      });
+    }
+    if (!page.isDone) {
+      return {
+        candidates,
+        continueCursor: page.continueCursor,
+        isDone: false,
+        phase: "agentTasks" as const,
+        nextPhase: "agentTasks" as const,
+      };
+    }
+    return {
+      candidates,
+      continueCursor: null,
+      isDone: true,
+      phase: "agentTasks" as const,
+      nextPhase: null,
+    };
   },
 });

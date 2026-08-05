@@ -11,6 +11,8 @@ export {
   getSnapshotSandboxProviderKind,
 } from "./_sandbox_runtime/lifecycle";
 
+export { bulkUpdateSnapshotRetention } from "./_sandbox_runtime/bulkSnapshotRetention";
+
 export {
   runSandboxCommand,
   restoreSeededRuntimeState,

@@ -1,5 +1,9 @@
 # Changelog
 
+## Bulk-pass never-expire retention on live sandboxes - 2026-08-05
+
+New sandboxes already create with TTL 0; existing live ones still carried 30d `expiresAt` until proven otherwise. `sandbox:bulkUpdateSnapshotRetention` PATCHes survivors and logs whether the update is retroactive (optional resume+stop cycle if not). Reason: verify the undocumented API and clear storage clocks on sandboxes that should stay forever.
+
 ## Never-expire snapshots; delete sandboxes 48h after death - 2026-08-05
 
 Persistent Vercel snaps used a 30-day TTL: dead sessions kept paying storage, and quiet live ones lost state after a month. Snapshots now never expire; archived sessions and done/cancelled quick tasks schedule sandbox delete after 48h (weekly sweep as backstop). Resume of a gone/unresumable sandbox falls through to a fresh create within ~3 minutes instead of hanging then failing. Reason: own snapshot lifecycle explicitly so storage tracks entity death, not a silent clock.

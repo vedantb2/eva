@@ -2,6 +2,10 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import { DEFAULT_SESSION_TITLE, sessionValidator } from "./helpers";
 import { deploymentStatusValidator } from "../validators";
+import {
+  cancelSessionSandboxGraceDelete,
+  scheduleSessionSandboxGraceDelete,
+} from "../sandboxCleanup";
 
 const prStateValidator = v.union(
   v.literal("draft"),
@@ -80,12 +84,23 @@ export const setPrState = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.id);
+    if (!session) return null;
     const isTerminal = args.prState === "merged" || args.prState === "closed";
     await ctx.db.patch(args.id, {
       prState: args.prState,
       ...(isTerminal ? { archived: true } : { archived: false }),
       updatedAt: Date.now(),
     });
+    if (isTerminal) {
+      await scheduleSessionSandboxGraceDelete(ctx, {
+        ...session,
+        archived: true,
+        prState: args.prState,
+      });
+    } else {
+      await cancelSessionSandboxGraceDelete(ctx, args.id);
+    }
     return null;
   },
 });
@@ -103,6 +118,7 @@ export const clearPrUrlIfMatches = internalMutation({
       archived: false,
       updatedAt: Date.now(),
     });
+    await cancelSessionSandboxGraceDelete(ctx, args.id);
     return null;
   },
 });

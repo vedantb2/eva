@@ -875,6 +875,7 @@ export const createOrResumeSandbox = internalAction({
   },
   returns: v.object({
     sandboxId: v.string(),
+    resumeFellBack: v.boolean(),
   }),
   handler: async (ctx, args) => {
     const completedSteps: Array<{
@@ -907,6 +908,7 @@ export const createOrResumeSandbox = internalAction({
     );
 
     let sandbox: SandboxHandle | undefined;
+    let resumeFellBack = false;
     let deleteSandboxOnFailure = false;
     let attempt = 1;
     const maxSetupAttempts = 3;
@@ -940,6 +942,7 @@ export const createOrResumeSandbox = internalAction({
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;
+          resumeFellBack = false;
         } else {
           const prepared = await getOrCreateSandbox(
             ctx,
@@ -956,6 +959,7 @@ export const createOrResumeSandbox = internalAction({
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = prepared.isNew;
+          resumeFellBack = prepared.resumeFellBack;
         }
 
         if (!args.ephemeral && args.attachRunId && sandbox) {
@@ -1022,6 +1026,7 @@ export const createOrResumeSandbox = internalAction({
     );
     return {
       sandboxId: sandbox.id,
+      resumeFellBack,
     };
   },
 });

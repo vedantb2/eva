@@ -31,4 +31,13 @@ crons.interval(
   {},
 );
 
+// Safety net: delete sandboxes for archived sessions / done|cancelled tasks
+// whose 48h grace has elapsed (or never got a grace schedule).
+crons.cron(
+  "dead sandbox sweep",
+  "0 3 * * 0",
+  internal.sandboxCleanup.sweepDeadSandboxes,
+  {},
+);
+
 export default crons;

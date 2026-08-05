@@ -93,6 +93,35 @@ export const SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS = 30;
 // stopped→started fast resume. The 60s default is fine for the fast-resume
 // case, but trips a noisy timeout on archived thaws.
 export const ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS = 600;
+/**
+ * Bound for an explicit resume attempt when the sandbox/snapshot may be gone.
+ * Healthy Vercel resumes take seconds; waiting the full archived 600s then
+ * hard-failing is worse than falling through to a fresh create.
+ */
+export const RESUME_READY_TIMEOUT_SECONDS = 180;
+
+/**
+ * True when a resume error means the sandbox/snapshot is unusable — safe to
+ * fall through to creating a replacement. Stay narrow: do not match bare
+ * "snapshot" (collides with the transient "snapshotting" stop state).
+ */
+export function isSandboxUnresumableMessage(message: string): boolean {
+  const msg = message.toLowerCase();
+  return (
+    msg.includes("not found") ||
+    msg.includes("does not exist") ||
+    msg.includes("no such") ||
+    msg.includes("404") ||
+    msg.includes("deleted") ||
+    msg.includes("archived") ||
+    msg.includes("snapshot not found") ||
+    msg.includes("snapshot_not_found") ||
+    msg.includes("invalid_snapshot") ||
+    msg.includes("snapshot does not exist") ||
+    (msg.includes("snapshot") && msg.includes("expired")) ||
+    msg.includes("did not reach running")
+  );
+}
 
 const EXEC_CLIENT_TIMEOUT_BUFFER_MS = 15_000;
 

@@ -186,6 +186,8 @@ export const agentTaskFields = {
   // across the task lifecycle so reviewers can resume in-sandbox state (DB,
   // generated fixtures) instead of re-bootstrapping from the branch.
   sandboxId: v.optional(v.string()),
+  /** Earliest time a dead task's sandbox may be deleted (grace after done/cancelled). */
+  sandboxDeleteAfter: v.optional(v.number()),
   // Separate from `activeWorkflowId` so a task can host an in-sandbox chat
   // (via the sandbox view) concurrently with — and without conflicting with —
   // its main run workflow.
@@ -283,6 +285,8 @@ export const sessionFields = {
     ),
   ),
   sandboxId: v.optional(v.string()),
+  /** Earliest time an archived session's sandbox may be deleted (48h grace). */
+  sandboxDeleteAfter: v.optional(v.number()),
   ptySessionId: v.optional(v.string()),
   updatedAt: v.optional(v.number()),
   status: sessionStatusValidator,

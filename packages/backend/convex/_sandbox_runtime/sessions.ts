@@ -11,7 +11,8 @@ import {
   resolveSandboxClientOnly,
   ensureSandboxRunning,
   ensureDockerDaemon,
-  ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+  RESUME_READY_TIMEOUT_SECONDS,
+  isSandboxUnresumableMessage,
   errorMessage,
   sleep,
   workspaceDirShell,
@@ -280,8 +281,21 @@ async function resumeReusedSandbox(
   };
   // Don't wake a VM the user has already asked to stop.
   await abortIfStopRequested();
+  try {
+    await handle.refresh();
+  } catch (refreshErr) {
+    const msg =
+      refreshErr instanceof Error ? refreshErr.message : String(refreshErr);
+    if (isSandboxUnresumableMessage(msg)) {
+      throw new Error(`sandbox gone on refresh: ${msg}`);
+    }
+    throw refreshErr;
+  }
+  if (handle.state === "gone" || handle.state === "error") {
+    throw new Error(`sandbox unresumable state: ${handle.state}`);
+  }
   await ensureSandboxRunning(handle, {
-    timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+    timeoutSeconds: RESUME_READY_TIMEOUT_SECONDS,
     skipDocker: true,
     // Skip the ~14s post-resume exec probe: start() already verified the
     // session reports running, and the git steps right after early-ready
@@ -456,14 +470,7 @@ async function lockfileDrifted(
 }
 
 function isSandboxGoneMessage(message: string): boolean {
-  const lower = message.toLowerCase();
-  return (
-    lower.includes("not found") ||
-    lower.includes("does not exist") ||
-    lower.includes("no such") ||
-    lower.includes("404") ||
-    lower.includes("deleted")
-  );
+  return isSandboxUnresumableMessage(message);
 }
 
 type TryReuseSandboxOptions = {
@@ -472,9 +479,10 @@ type TryReuseSandboxOptions = {
 
 /**
  * Attempts to reuse an existing sandbox by running a preparation function on it.
- * Only a missing/deleted sandbox should fall through to creating a replacement;
- * failed preparation on a found sandbox usually means the old filesystem is
- * still the user's source of truth and must not be silently abandoned.
+ * Only a missing/deleted/unresumable sandbox should fall through to creating a
+ * replacement; failed preparation on a found sandbox usually means the old
+ * filesystem is still the user's source of truth and must not be silently
+ * abandoned — except when the resume itself proves the snapshot is gone.
  *
  * `label` prefixes the diagnostic logs so different callers stay
  * distinguishable in the logs.
@@ -504,10 +512,18 @@ async function tryReuseSandboxWith<T>(
   try {
     await prepareFn(sandbox);
   } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    // Snapshot gone / resume deadline: fall through even when
+    // fallbackOnPrepareError is false — otherwise sessions hang then hard-fail.
+    if (isSandboxGoneMessage(message)) {
+      logSession(
+        `${label} found unresumable sandbox ${existingSandboxId}; creating replacement: ${message}`,
+      );
+      return null;
+    }
     if (options?.fallbackOnPrepareError === false) {
       throw error;
     }
-    const message = error instanceof Error ? error.message : String(error);
     logSession(
       `${label} preparation failed for ${existingSandboxId}; creating replacement: ${message}`,
     );
@@ -554,6 +570,8 @@ type PreparedSessionSandbox = {
   /** Present when startSessionServices completed; absent on early-ready soft keep. */
   devPort?: number;
   devCommand?: string;
+  /** True when an existing sandbox id was unresumable and we created fresh. */
+  resumeFellBack: boolean;
   /** The Vercel sandbox id (Vercel is the only sandbox provider). */
 };
 
@@ -843,6 +861,7 @@ async function prepareSessionSandboxInternal(
             branchName: args.branchName,
             devPort,
             devCommand,
+            resumeFellBack: false,
           };
         },
         // Never silently create a replacement when the existing sandbox is
@@ -870,12 +889,19 @@ async function prepareSessionSandboxInternal(
     () => resolveSandboxContext(ctx, args.repoId),
   );
 
-  await emitSessionProgress(
-    ctx,
-    args.sessionId,
-    completedSteps,
-    "Creating sandbox...",
-  );
+  if (reuseId) {
+    await emitSessionProgress(
+      ctx,
+      args.sessionId,
+      completedSteps,
+      "Previous sandbox expired — creating a fresh one...",
+    );
+    completedSteps.push({
+      type: "tool",
+      label: "Previous sandbox expired — creating a fresh one...",
+      status: "complete",
+    });
+  }
 
   await emitSessionProgress(
     ctx,
@@ -883,6 +909,7 @@ async function prepareSessionSandboxInternal(
     completedSteps,
     "Creating sandbox...",
   );
+
   // Mark the session active as soon as the sandbox exists so the UI can chat /
   // open tabs while branch checkout + services finish in the background.
   // Snapshot restore is sub-second; the remaining work is what used to make
@@ -913,6 +940,7 @@ async function prepareSessionSandboxInternal(
             branchName: args.branchName,
             isNew: true,
             usedSnapshot: Boolean(snapshotName),
+            resumeFellBack: reuseId !== undefined,
             // Snapshot restores keep a stale checkout + baked modules; gate the
             // queued first turn until the base pull + install below finish.
             markSetupPending: Boolean(snapshotName),
@@ -1256,6 +1284,7 @@ async function prepareSessionSandboxInternal(
       branchName: args.branchName,
       devPort,
       devCommand,
+      resumeFellBack: reuseId !== undefined,
     };
   } catch (setupError) {
     const setupMessage = errorMessage(setupError, "setup failed");
@@ -1305,6 +1334,7 @@ async function prepareSessionSandboxInternal(
         branchName: args.branchName,
         devPort: resolvedDevPort,
         devCommand: resolvedDevCommand,
+        resumeFellBack: reuseId !== undefined,
       };
     }
     console.warn(
@@ -1378,6 +1408,7 @@ export const startSessionSandbox = internalAction({
             sandboxId: prepared.sandbox.id,
             branchName: prepared.branchName,
             isNew: prepared.isNew,
+            resumeFellBack: prepared.resumeFellBack,
             usedSnapshot: prepared.isNew ? prepared.usedSnapshot : undefined,
             devPort: prepared.devPort,
             devCommand: prepared.devCommand,
@@ -1709,6 +1740,7 @@ async function prepareTaskPreviewSandboxInternal(
       branchName: args.branchName,
       devPort,
       devCommand,
+      resumeFellBack: false,
     };
   };
   const reused = await runLoggedSessionStep(
@@ -1935,6 +1967,7 @@ async function prepareTaskPreviewSandboxInternal(
       branchName: args.branchName,
       devPort,
       devCommand,
+      resumeFellBack: reuseId !== undefined,
     };
   } catch (setupError) {
     console.warn(
@@ -2178,6 +2211,7 @@ async function prepareProjectPreviewSandboxInternal(
       branchName: args.branchName,
       devPort,
       devCommand,
+      resumeFellBack: false,
     };
   };
   const reused = await runLoggedSessionStep(
@@ -2403,6 +2437,7 @@ async function prepareProjectPreviewSandboxInternal(
     branchName: args.branchName,
     devPort,
     devCommand,
+    resumeFellBack: reuseId !== undefined,
   };
 }
 

@@ -814,9 +814,12 @@ class VercelSandboxHandle implements SandboxHandle {
     await this.waitForStopConfirmation();
   }
 
-  /** Apply keepLastSnapshots=1 so stop/snapshot do not pile up snap_* objects. */
+  /** Apply keep-last-1 + never-expire so stop/snapshot do not pile up snap_* billing. */
   private async ensureSnapshotRetention(): Promise<void> {
-    await this.sandbox.update({ keepLastSnapshots: KEEP_LAST_SNAPSHOTS });
+    await this.sandbox.update({
+      snapshotExpiration: 0,
+      keepLastSnapshots: KEEP_LAST_SNAPSHOTS,
+    });
   }
   async archive(): Promise<void> {
     // No separate cold-storage archive on Vercel — stop() auto-snapshots.

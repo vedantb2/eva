@@ -50,6 +50,7 @@ async function emitSteps(
 
 type PrepareSandboxResult = {
   sandboxId: string;
+  resumeFellBack: boolean;
 };
 
 /** Orchestrates sandbox creation and local branch setup as a multi-step workflow. */
@@ -89,7 +90,7 @@ export async function prepareSandboxSteps(
     },
     args.createRetry ? { retry: args.createRetry } : undefined,
   );
-  const { sandboxId } = setupResult;
+  const { sandboxId, resumeFellBack } = setupResult;
 
   completedSteps.push({
     type: "tool",
@@ -318,5 +319,5 @@ export async function prepareSandboxSteps(
     }
   }
 
-  return { sandboxId };
+  return { sandboxId, resumeFellBack };
 }

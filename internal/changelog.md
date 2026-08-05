@@ -1,5 +1,9 @@
 # Changelog
 
+## Never-expire snapshots; delete sandboxes 48h after death - 2026-08-05
+
+Persistent Vercel snaps used a 30-day TTL: dead sessions kept paying storage, and quiet live ones lost state after a month. Snapshots now never expire; archived sessions and done/cancelled quick tasks schedule sandbox delete after 48h (weekly sweep as backstop). Resume of a gone/unresumable sandbox falls through to a fresh create within ~3 minutes instead of hanging then failing. Reason: own snapshot lifecycle explicitly so storage tracks entity death, not a silent clock.
+
 ## PR merge/close archives the session - 2026-08-05
 
 Merged/closed sessions only left Active because archive was a separate DB flag and the webhook never set it — the Archived tab only lists `archived === true`. Terminal PR events now set that flag (and clear it on reopen / false-positive detach); a one-off backfill covers already-merged rows. Reason: Active/Archived list modes and chrome-tab “archived” treatment need the same death signal.

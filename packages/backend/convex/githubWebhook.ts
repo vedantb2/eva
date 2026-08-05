@@ -13,6 +13,11 @@ import {
 } from "./_projects/prSync";
 import { isEvaOwnedPullRequest } from "./_github/evaPrOwnership";
 import { requestSessionSandboxStop } from "./_sessions/sandbox";
+import {
+  cancelSessionSandboxGraceDelete,
+  scheduleSessionSandboxGraceDelete,
+  scheduleTaskSandboxGraceDelete,
+} from "./sandboxCleanup";
 
 const QUICK_TASK_BRANCH_PREFIX = "eva/task-";
 const PROJECT_BRANCH_PREFIX = "eva/project-";
@@ -157,6 +162,16 @@ export const handleSessionPrEvent = internalMutation({
       await requestSessionSandboxStop(ctx, session._id);
     }
 
+    if (needsArchive) {
+      await scheduleSessionSandboxGraceDelete(ctx, {
+        ...session,
+        archived: true,
+        prState: nextState,
+      });
+    } else if (needsUnarchive) {
+      await cancelSessionSandboxGraceDelete(ctx, session._id);
+    }
+
     // A "merged" event can be a false positive: GitHub marks this session's PR
     // merged whenever its commit SHAs land on the base branch via ANY PR (a
     // "tip-copy" — e.g. a duplicate PR created from the same branch tip).
@@ -283,6 +298,16 @@ export const handlePrClosed = internalMutation({
         undefined,
         args.merged ? "merged" : "closed",
       );
+
+      // Quick tasks: grace-delete sandbox after death. Project tasks share the
+      // project sandbox (deleted immediately on merge below).
+      if (t.projectId === undefined && t.sandboxId) {
+        await scheduleTaskSandboxGraceDelete(ctx, {
+          ...t,
+          status: newStatus,
+          updatedAt: now,
+        });
+      }
     }
 
     if (task.projectId) {

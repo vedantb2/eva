@@ -26,6 +26,10 @@ import {
   normalizeStickyPreviewPath,
   truncateTerminalHistoryTail,
 } from "../_sandbox/stickyPreview";
+import {
+  cancelSessionSandboxGraceDelete,
+  scheduleSessionSandboxGraceDelete,
+} from "../sandboxCleanup";
 
 /** Loads a session by id, throwing if it does not exist. */
 async function getSessionOrThrow(
@@ -484,6 +488,12 @@ export const archive = authMutation({
     await ctx.db.patch(args.id, {
       archived: true,
       status: "closed",
+      updatedAt: Date.now(),
+    });
+    await scheduleSessionSandboxGraceDelete(ctx, {
+      ...session,
+      archived: true,
+      status: "closed",
     });
     return null;
   },
@@ -499,6 +509,7 @@ export const unarchive = authMutation({
       throw new Error("Not authorized");
     }
     await ctx.db.patch(args.id, { archived: false });
+    await cancelSessionSandboxGraceDelete(ctx, args.id);
     return null;
   },
 });

@@ -13,9 +13,10 @@ import {
   WORKSPACE_DIR,
   SNAPSHOT_SANDBOX_READY_TIMEOUT_SECONDS,
   DEFAULT_SANDBOX_READY_TIMEOUT_SECONDS,
-  ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+  RESUME_READY_TIMEOUT_SECONDS,
   bootstrapVercelDocker,
   ensureSandboxRunning,
+  isSandboxUnresumableMessage,
   sleep,
   withTimeout,
   workspaceDirShell,
@@ -1200,7 +1201,11 @@ export async function getOrCreateSandbox(
   snapshotName?: string,
   onProgress?: (label: string) => Promise<void>,
   syncStrategy: RepoSyncStrategy = { mode: "all" },
-): Promise<{ sandbox: SandboxHandle; isNew: boolean }> {
+): Promise<{
+  sandbox: SandboxHandle;
+  isNew: boolean;
+  resumeFellBack: boolean;
+}> {
   const details = `${owner}/${name}, existingSandboxId=${existingSandboxId ?? "none"}, snapshot=${snapshotName ?? "none"}, syncStrategy=${syncStrategy.mode}`;
   return await runLoggedGitStep("getOrCreateSandbox", details, async () => {
     if (existingSandboxId) {
@@ -1214,7 +1219,14 @@ export async function getOrCreateSandbox(
         syncStrategy,
         onProgress,
       );
-      if (resumed) return { sandbox: resumed, isNew: false };
+      if (resumed) {
+        return { sandbox: resumed, isNew: false, resumeFellBack: false };
+      }
+      if (onProgress) {
+        await onProgress(
+          "Previous sandbox expired — creating a fresh one...",
+        );
+      }
     }
     const { sandbox } = await createSandboxAndPrepareRepo(
       ctx,
@@ -1229,7 +1241,11 @@ export async function getOrCreateSandbox(
       onProgress,
       syncStrategy,
     );
-    return { sandbox, isNew: true };
+    return {
+      sandbox,
+      isNew: true,
+      resumeFellBack: existingSandboxId !== undefined,
+    };
   });
 }
 
@@ -1243,16 +1259,9 @@ export async function getOrCreateSandbox(
  * sandbox is in a transitional state, `start()` rejects, and we'd happily
  * burn a fresh sandbox + lose the old one's dev server / terminal state).
  */
-function isSandboxMissingError(err: unknown): boolean {
-  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
-  return (
-    msg.includes("not found") ||
-    msg.includes("does not exist") ||
-    msg.includes("no such") ||
-    msg.includes("404") ||
-    msg.includes("deleted") ||
-    msg.includes("archived")
-  );
+function isSandboxMissingError(err: Error | string): boolean {
+  const msg = err instanceof Error ? err.message : err;
+  return isSandboxUnresumableMessage(msg);
 }
 
 /**
@@ -1261,9 +1270,9 @@ function isSandboxMissingError(err: unknown): boolean {
  * or throws on persistent transient errors.
  *
  * Retries with backoff to ride through transitional sandbox states (e.g.
- * sandbox is mid-stop when Start is clicked). Only "missing" errors short-
- * circuit to a new sandbox; everything else surfaces, so we never silently
- * abandon a recoverable sandbox.
+ * sandbox is mid-stop when Start is clicked). Only "missing" / unresumable
+ * errors short-circuit to a new sandbox; everything else surfaces, so we
+ * never silently abandon a recoverable sandbox.
  */
 async function tryResumeSandbox(
   ctx: ActionCtx,
@@ -1281,8 +1290,25 @@ async function tryResumeSandbox(
     try {
       if (onProgress) await onProgress("Resuming sandbox...");
       const sandbox = await client.get(existingSandboxId);
+      try {
+        await sandbox.refresh();
+      } catch (refreshErr) {
+        if (isSandboxMissingError(refreshErr instanceof Error ? refreshErr : String(refreshErr))) {
+          logGit(
+            `getOrCreateSandbox: resume refresh says gone — will create new one (${refreshErr instanceof Error ? refreshErr.message : String(refreshErr)})`,
+          );
+          return null;
+        }
+        throw refreshErr;
+      }
+      if (sandbox.state === "gone" || sandbox.state === "error") {
+        logGit(
+          `getOrCreateSandbox: resume state=${sandbox.state} — will create new one`,
+        );
+        return null;
+      }
       await ensureSandboxRunning(sandbox, {
-        timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+        timeoutSeconds: RESUME_READY_TIMEOUT_SECONDS,
         // Explicit user start (Start clicked / new run on a reused sandbox):
         // wait out a stop still snapshotting and resume, instead of refusing.
         resumeAfterStop: true,
@@ -1300,10 +1326,11 @@ async function tryResumeSandbox(
       }
       return sandbox;
     } catch (err) {
-      if (isSandboxMissingError(err)) {
+      if (isSandboxMissingError(err instanceof Error ? err : String(err))) {
         logGit(
           `getOrCreateSandbox: resume failed because sandbox is gone — will create new one (${err instanceof Error ? err.message : String(err)})`,
         );
+        // Unresumable (missing snap / deadline): do not burn another 180s retry.
         return null;
       }
       if (attempt === maxAttempts) throw err;

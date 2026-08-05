@@ -373,6 +373,8 @@ export const sandboxReady = internalMutation({
     // queued first turn until the base pull + dependency install finish. Final-
     // ready never passes it (setup has by then cleared the flag explicitly).
     markSetupPending: v.optional(v.boolean()),
+    /** Existing sandbox id was unresumable; we created a fresh one. */
+    resumeFellBack: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -395,7 +397,11 @@ export const sandboxReady = internalMutation({
     if (!alreadyActive) {
       // Fresh boot / resume — prior VM processes are gone.
       await markAllRunningExited(ctx.db, args.sessionId);
-      const content = args.isNew ? "Sandbox started" : "Sandbox reconnected";
+      const content = args.resumeFellBack
+        ? "Previous sandbox expired — started a fresh one. Uncommitted changes from the old sandbox are gone."
+        : args.isNew
+          ? "Sandbox started"
+          : "Sandbox reconnected";
       await ctx.db.insert("messages", {
         parentId: args.sessionId,
         role: "assistant",

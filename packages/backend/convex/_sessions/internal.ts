@@ -80,8 +80,10 @@ export const setPrState = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const isTerminal = args.prState === "merged" || args.prState === "closed";
     await ctx.db.patch(args.id, {
       prState: args.prState,
+      ...(isTerminal ? { archived: true } : { archived: false }),
       updatedAt: Date.now(),
     });
     return null;
@@ -98,6 +100,7 @@ export const clearPrUrlIfMatches = internalMutation({
     await ctx.db.patch(args.id, {
       prUrl: undefined,
       prState: undefined,
+      archived: false,
       updatedAt: Date.now(),
     });
     return null;

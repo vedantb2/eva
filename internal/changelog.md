@@ -1,5 +1,9 @@
 # Changelog
 
+## PR merge/close archives the session - 2026-08-05
+
+Merged/closed sessions only left Active because archive was a separate DB flag and the webhook never set it — the Archived tab only lists `archived === true`. Terminal PR events now set that flag (and clear it on reopen / false-positive detach); a one-off backfill covers already-merged rows. Reason: Active/Archived list modes and chrome-tab “archived” treatment need the same death signal.
+
 ## Experimental flags live in one object - 2026-08-05
 
 Per-user experimental toggles were three separate columns plus get/set pairs on `users`. They now share `experimentalFlags` (`sessionTabs`, `blurPid`, `voiceDictation`) with `getExperimentalFlags` / `setExperimentalFlag`. Legacy booleans were backfilled and stripped on cloud + prod (`migrations:backfillExperimentalFlags`). Reason: adding more flags should not grow the user schema one column at a time.

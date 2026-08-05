@@ -130,17 +130,25 @@ export const handleSessionPrEvent = internalMutation({
       .first();
     if (!session) return null;
 
-    if (session.prState === nextState) return null;
+    const isTerminal = nextState === "merged" || nextState === "closed";
+    const needsArchive = isTerminal && session.archived !== true;
+    const needsUnarchive = !isTerminal && session.archived === true;
+
+    // Already in sync (including archived flag for terminal PRs).
+    if (session.prState === nextState && !needsArchive && !needsUnarchive) {
+      return null;
+    }
 
     await ctx.db.patch(session._id, {
       prState: nextState,
+      ...(isTerminal ? { archived: true } : { archived: false }),
       updatedAt: Date.now(),
     });
 
     // Merged/closed sessions are read-only — stop any live sandbox so VMs
     // aren't left running forever after the PR terminal event.
     if (
-      (nextState === "merged" || nextState === "closed") &&
+      isTerminal &&
       (session.status === "active" ||
         session.status === "starting" ||
         session.status === "stopping" ||

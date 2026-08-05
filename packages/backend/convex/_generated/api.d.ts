@@ -76,6 +76,7 @@ import type * as _mentions_resolveSkillMentions from "../_mentions/resolveSkillM
 import type * as _mentions_skillToken from "../_mentions/skillToken.js";
 import type * as _messages_media from "../_messages/media.js";
 import type * as _messages_preview from "../_messages/preview.js";
+import type * as _migrations_backfillArchivedFromPrState from "../_migrations/backfillArchivedFromPrState.js";
 import type * as _migrations_backfillEvaPrRecapOrigin from "../_migrations/backfillEvaPrRecapOrigin.js";
 import type * as _migrations_backfillExperimentalFlags from "../_migrations/backfillExperimentalFlags.js";
 import type * as _migrations_backfillNumIds from "../_migrations/backfillNumIds.js";
@@ -395,6 +396,7 @@ declare const fullApi: ApiFromModules<{
   "_mentions/skillToken": typeof _mentions_skillToken;
   "_messages/media": typeof _messages_media;
   "_messages/preview": typeof _messages_preview;
+  "_migrations/backfillArchivedFromPrState": typeof _migrations_backfillArchivedFromPrState;
   "_migrations/backfillEvaPrRecapOrigin": typeof _migrations_backfillEvaPrRecapOrigin;
   "_migrations/backfillExperimentalFlags": typeof _migrations_backfillExperimentalFlags;
   "_migrations/backfillNumIds": typeof _migrations_backfillNumIds;

@@ -156,6 +156,7 @@ export function ProjectSandboxPanel({
         editorTabOpen={editorTabOpen}
         onOpenEditor={openEditor}
         onCloseEditor={closeEditor}
+        tabSize="compact"
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div className={activeTab === "files" ? "h-full min-h-0" : "hidden"}>

@@ -171,6 +171,7 @@ export function SandboxPanel({
         onOpenEditor={openEditor}
         onCloseEditor={closeEditor}
         hotkeysEnabled={isRouteActive}
+        tabSize="compact"
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div

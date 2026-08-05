@@ -32,8 +32,41 @@ import {
   TooltipTrigger,
 } from "@eva/ui";
 
-const TAB_TRIGGER_CLASS =
-  "relative flex items-center gap-1.5 rounded-none rounded-t-md border border-b-0 px-4 py-1.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary";
+export type SandboxTabBarSize = "default" | "compact";
+
+const TAB_TRIGGER_BASE =
+  "relative flex items-center rounded-none rounded-t-md border border-b-0 font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary";
+
+const TAB_CLOSE_BUTTON_BASE =
+  "ml-0.5 flex shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground";
+
+const TAB_ADD_BUTTON_BASE =
+  "mb-px flex shrink-0 items-center justify-center rounded-t-md text-muted-foreground transition-[transform,background-color] hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40";
+
+function getSandboxTabBarStyles(size: SandboxTabBarSize) {
+  if (size === "compact") {
+    return {
+      bar: "relative flex items-end gap-1 px-2 pt-1",
+      trigger: `${TAB_TRIGGER_BASE} gap-1 px-2.5 py-1 text-xs`,
+      icon: "size-3 shrink-0",
+      closeButton: `${TAB_CLOSE_BUTTON_BASE} size-4`,
+      closeIcon: "size-3",
+      addButton: `${TAB_ADD_BUTTON_BASE} h-[26px] w-7`,
+      addIcon: "size-3.5",
+      pulseDot: "ml-0.5 size-1.5 shrink-0 rounded-full bg-primary",
+    };
+  }
+  return {
+    bar: "relative flex items-end gap-1 px-2 pt-1.5",
+    trigger: `${TAB_TRIGGER_BASE} gap-1.5 px-4 py-1.5 text-sm`,
+    icon: "size-3.5 shrink-0",
+    closeButton: `${TAB_CLOSE_BUTTON_BASE} size-5`,
+    closeIcon: "size-3.5",
+    addButton: `${TAB_ADD_BUTTON_BASE} h-[30px] w-8`,
+    addIcon: "size-4",
+    pulseDot: "ml-0.5 size-1.5 shrink-0 rounded-full bg-primary",
+  };
+}
 
 // Editor and Computer stay in the `+` menu until opened; then they pin as
 // closable tabs. Browser is first-class (sessions) for watching agent Chrome.
@@ -82,6 +115,8 @@ interface SandboxTabBarProps {
   onCloseEditor?: () => void;
   /** When false, view hotkeys are inert (inactive cached session shells). */
   hotkeysEnabled?: boolean;
+  /** Tab row density — `compact` for a shorter bar with smaller labels/icons. */
+  tabSize?: SandboxTabBarSize;
 }
 
 const AGENT_BROWSING_LOCK_TTL_MS = 30 * 60 * 1000;
@@ -114,7 +149,9 @@ export function SandboxTabBar({
   onOpenEditor,
   onCloseEditor,
   hotkeysEnabled = true,
+  tabSize = "default",
 }: SandboxTabBarProps) {
+  const styles = getSandboxTabBarStyles(tabSize);
   const tabs = enabledTabs
     ? allTabs.filter((tab) => enabledTabs.includes(tab.value))
     : allTabs.filter((tab) => tab.value !== "browser");
@@ -150,7 +187,7 @@ export function SandboxTabBar({
   });
 
   return (
-    <div className="relative flex items-end gap-1 px-2 pt-1.5">
+    <div className={styles.bar}>
       <Tabs
         className="min-w-0 flex-1"
         value={activeTab}
@@ -163,13 +200,13 @@ export function SandboxTabBar({
               <TabsTrigger
                 key={tab.value}
                 value={tab.value}
-                className={TAB_TRIGGER_CLASS}
+                className={styles.trigger}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className={styles.icon} />
                 {tab.label}
                 {tab.value === "browser" && showBrowserPulse ? (
                   <span
-                    className="ml-0.5 size-1.5 shrink-0 rounded-full bg-primary"
+                    className={styles.pulseDot}
                     aria-label="Agent is browsing"
                   />
                 ) : null}
@@ -177,13 +214,13 @@ export function SandboxTabBar({
             );
           })}
           {showEditorTab ? (
-            <TabsTrigger value="editor" className={TAB_TRIGGER_CLASS}>
-              <IconCode className="w-3.5 h-3.5" />
+            <TabsTrigger value="editor" className={styles.trigger}>
+              <IconCode className={styles.icon} />
               Editor
               <button
                 type="button"
                 aria-label="Close Editor tab"
-                className="ml-0.5 flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                className={styles.closeButton}
                 onClick={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -194,13 +231,13 @@ export function SandboxTabBar({
                   e.stopPropagation();
                 }}
               >
-                <IconX className="size-3.5" />
+                <IconX className={styles.closeIcon} />
               </button>
             </TabsTrigger>
           ) : null}
           {showComputerTab ? (
-            <TabsTrigger value="computer" className={TAB_TRIGGER_CLASS}>
-              <IconDeviceDesktop className="w-3.5 h-3.5" />
+            <TabsTrigger value="computer" className={styles.trigger}>
+              <IconDeviceDesktop className={styles.icon} />
               Computer
               {computerRunning ? (
                 <Tooltip>
@@ -210,9 +247,9 @@ export function SandboxTabBar({
                         type="button"
                         disabled
                         aria-label="Stop Computer before closing this tab"
-                        className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground opacity-40"
+                        className={`${styles.closeButton} opacity-40`}
                       >
-                        <IconX className="size-3.5" />
+                        <IconX className={styles.closeIcon} />
                       </button>
                     </span>
                   </TooltipTrigger>
@@ -224,7 +261,7 @@ export function SandboxTabBar({
                 <button
                   type="button"
                   aria-label="Close Computer tab"
-                  className="ml-0.5 flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                  className={styles.closeButton}
                   onClick={(e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -236,36 +273,36 @@ export function SandboxTabBar({
                     e.stopPropagation();
                   }}
                 >
-                  <IconX className="size-3.5" />
+                  <IconX className={styles.closeIcon} />
                 </button>
               )}
             </TabsTrigger>
           ) : null}
           {showFilesTab ? (
-            <TabsTrigger value="files" className={TAB_TRIGGER_CLASS}>
-              <IconFileText className="w-3.5 h-3.5" />
+            <TabsTrigger value="files" className={styles.trigger}>
+              <IconFileText className={styles.icon} />
               Files
             </TabsTrigger>
           ) : null}
           {showPrdTab ? (
-            <TabsTrigger value="prd" className={TAB_TRIGGER_CLASS}>
-              <IconClipboardList className="w-3.5 h-3.5" />
+            <TabsTrigger value="prd" className={styles.trigger}>
+              <IconClipboardList className={styles.icon} />
               Plan
               {hasPrdContent ? (
                 <span
-                  className="ml-0.5 size-1.5 shrink-0 rounded-full bg-primary"
+                  className={styles.pulseDot}
                   aria-label="Plan available"
                 />
               ) : null}
             </TabsTrigger>
           ) : null}
           {showDesignsTab ? (
-            <TabsTrigger value="designs" className={TAB_TRIGGER_CLASS}>
-              <IconPalette className="w-3.5 h-3.5" />
+            <TabsTrigger value="designs" className={styles.trigger}>
+              <IconPalette className={styles.icon} />
               Designs
               {hasDesignsContent ? (
                 <span
-                  className="ml-0.5 size-1.5 shrink-0 rounded-full bg-primary"
+                  className={styles.pulseDot}
                   aria-label="Design variations available"
                 />
               ) : null}
@@ -277,9 +314,9 @@ export function SandboxTabBar({
               <TabsTrigger
                 key={tab._id}
                 value={slug}
-                className={TAB_TRIGGER_CLASS}
+                className={styles.trigger}
               >
-                <TablerIconByName name={tab.icon} className="w-3.5 h-3.5" />
+                <TablerIconByName name={tab.icon} className={styles.icon} />
                 {tab.name}
               </TabsTrigger>
             );
@@ -291,10 +328,10 @@ export function SandboxTabBar({
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            className="mb-px flex h-[30px] w-8 shrink-0 items-center justify-center rounded-t-md text-muted-foreground transition-[transform,background-color] hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40"
+            className={styles.addButton}
             aria-label="Open tab menu"
           >
-            <IconPlus className="h-4 w-4" />
+            <IconPlus className={styles.addIcon} />
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="min-w-[10rem]">

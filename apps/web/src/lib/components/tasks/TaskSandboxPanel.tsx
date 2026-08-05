@@ -144,7 +144,6 @@ export function TaskSandboxPanel({
         editorTabOpen={editorTabOpen}
         onOpenEditor={openEditor}
         onCloseEditor={closeEditor}
-        tabSize="compact"
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div className={tabBarValue === "files" ? "h-full min-h-0" : "hidden"}>

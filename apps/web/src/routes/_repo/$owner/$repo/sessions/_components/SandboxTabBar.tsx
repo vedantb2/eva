@@ -35,7 +35,9 @@ import {
 export type SandboxTabBarSize = "default" | "compact";
 
 const TAB_TRIGGER_BASE =
-  "relative flex items-center rounded-none rounded-t-md border border-b-0 font-medium data-[state=active]:-mb-px data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary";
+  "relative flex items-center rounded-none rounded-t-md border border-b-0 font-medium data-[state=active]:-mb-px data-[state=active]:border-b data-[state=active]:border-b-card data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary";
+
+const TAB_BAR_BASE = "relative flex items-end gap-1 border-b border-border px-2";
 
 const TAB_CLOSE_BUTTON_BASE =
   "ml-0.5 flex shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground";
@@ -46,18 +48,18 @@ const TAB_ADD_BUTTON_BASE =
 function getSandboxTabBarStyles(size: SandboxTabBarSize) {
   if (size === "compact") {
     return {
-      bar: "relative flex items-end gap-1 px-2 pt-1",
-      trigger: `${TAB_TRIGGER_BASE} gap-1 px-2.5 py-1 text-xs`,
-      icon: "size-3 shrink-0",
+      bar: `${TAB_BAR_BASE} pt-1`,
+      trigger: `${TAB_TRIGGER_BASE} gap-1.5 px-3 py-1.5 text-sm`,
+      icon: "size-3.5 shrink-0",
       closeButton: `${TAB_CLOSE_BUTTON_BASE} size-4`,
-      closeIcon: "size-3",
-      addButton: `${TAB_ADD_BUTTON_BASE} mb-px h-[26px] w-7`,
+      closeIcon: "size-3.5",
+      addButton: `${TAB_ADD_BUTTON_BASE} mb-px h-[28px] w-7`,
       addIcon: "size-3.5",
       pulseDot: "ml-0.5 size-1.5 shrink-0 rounded-full bg-primary",
     };
   }
   return {
-    bar: "relative flex items-end gap-1 px-2 pt-1.5",
+    bar: `${TAB_BAR_BASE} pt-1.5`,
     trigger: `${TAB_TRIGGER_BASE} gap-1.5 px-4 py-1.5 text-sm`,
     icon: "size-3.5 shrink-0",
     closeButton: `${TAB_CLOSE_BUTTON_BASE} size-5`,
@@ -379,7 +381,6 @@ export function SandboxTabBar({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      <div className="absolute bottom-0 left-0 right-0 h-px bg-border" />
     </div>
   );
 }

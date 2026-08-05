@@ -30,6 +30,7 @@ import {
   runStaleChatHeartbeatCheck,
   runStaleChatLivenessProbe,
 } from "./_chat/stallWatchdog";
+import { buildStaleDocPatch } from "./_prRecapWorkflow/staleDoc";
 
 // Re-exported so existing importers (agentTaskChatWorkflow.ts,
 // projectChatWorkflow.ts, _queues/helpers.ts, and others — see
@@ -255,33 +256,7 @@ export const handleStaleDoc = internalMutation({
 
     await cancelStaleWorkflow(ctx, args.workflowId, [String(args.docId)]);
 
-    const patch: Record<
-      string,
-      undefined | string | number | typeof doc.interviewHistory
-    > = { activeWorkflowId: undefined };
-
-    if (doc.testGenStatus === "running") {
-      patch.testGenStatus = "error";
-    }
-
-    // A recap left "pending" is unrecoverable from the UI — the panel hides
-    // Generate while pending — so a timed-out workflow must land on "error".
-    if (doc.prRecapStatus === "pending") {
-      patch.prRecapStatus = "error";
-      patch.prRecapError = "Recap generation timed out";
-      patch.updatedAt = Date.now();
-    }
-
-    if (doc.interviewHistory && doc.interviewHistory.length > 0) {
-      const history = [...doc.interviewHistory];
-      const last = history[history.length - 1];
-      if (last && last.role === "assistant" && !last.content) {
-        last.content = JSON.stringify({ error: true });
-      }
-      patch.interviewHistory = history;
-    }
-
-    await ctx.db.patch(args.docId, patch);
+    await ctx.db.patch(args.docId, buildStaleDocPatch(doc, Date.now()));
 
     return null;
   },

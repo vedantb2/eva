@@ -60,6 +60,8 @@ interface SandboxPaneSlotsProps {
    */
   stickyTerminalHistoryTail?: string;
   onStickyTerminalHistoryTailChange?: (tail: string) => void;
+  /** When false, Mod+J console toggle is inert (inactive cached session shells). */
+  consoleHotkeyEnabled?: boolean;
 }
 
 /**
@@ -90,6 +92,7 @@ export function SandboxPaneSlots({
   onStickyPreviewPathChange,
   stickyTerminalHistoryTail,
   onStickyTerminalHistoryTailChange,
+  consoleHotkeyEnabled = true,
 }: SandboxPaneSlotsProps) {
   const {
     previewIds,
@@ -178,6 +181,14 @@ export function SandboxPaneSlots({
         <ConsoleDock
           storageKey={`eva:${owner.kind}:${cacheKey}:console`}
           preview={previewRegion}
+          consoleToggleHotkey={
+            consoleHotkeyEnabled
+              ? {
+                  isPreviewActive: activeTab === "preview",
+                  onShowPreview: () => panes.setActiveTab("preview"),
+                }
+              : undefined
+          }
           renderConsole={(visible) =>
             consolePane ? (
               <div className="flex h-full min-h-0 flex-col overflow-hidden">

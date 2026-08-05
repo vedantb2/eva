@@ -15,6 +15,7 @@ import {
 } from "@tabler/icons-react";
 import type { Doc } from "@eva/backend";
 import { useCycleSandboxTabHotkey } from "@/lib/components/sandbox/useCycleSandboxTabHotkey";
+import { useSandboxViewHotkeys } from "@/lib/components/sandbox/useSandboxViewHotkeys";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { TablerIconByName } from "@/lib/components/TablerIconByName";
 import type { SandboxTab } from "@/lib/search-params";
@@ -79,6 +80,8 @@ interface SandboxTabBarProps {
   editorTabOpen?: boolean;
   onOpenEditor?: () => void;
   onCloseEditor?: () => void;
+  /** When false, view hotkeys are inert (inactive cached session shells). */
+  hotkeysEnabled?: boolean;
 }
 
 const AGENT_BROWSING_LOCK_TTL_MS = 30 * 60 * 1000;
@@ -110,6 +113,7 @@ export function SandboxTabBar({
   editorTabOpen = false,
   onOpenEditor,
   onCloseEditor,
+  hotkeysEnabled = true,
 }: SandboxTabBarProps) {
   const tabs = enabledTabs
     ? allTabs.filter((tab) => enabledTabs.includes(tab.value))
@@ -134,6 +138,15 @@ export function SandboxTabBar({
     customTabSlugs,
     showComputerTab,
     showEditorTab,
+    enabled: hotkeysEnabled,
+  });
+
+  useSandboxViewHotkeys({
+    activeTab,
+    onTabChange,
+    showBrowserTab: tabs.some((tab) => tab.value === "browser"),
+    showFilesTab,
+    enabled: hotkeysEnabled,
   });
 
   return (

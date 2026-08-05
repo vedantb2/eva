@@ -170,6 +170,7 @@ export function SandboxPanel({
         editorTabOpen={editorTabOpen}
         onOpenEditor={openEditor}
         onCloseEditor={closeEditor}
+        hotkeysEnabled={isRouteActive}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div
@@ -260,6 +261,7 @@ export function SandboxPanel({
           onStickyTerminalHistoryTailChange={(tail) => {
             void setTerminalHistoryTail({ id: sessionId, tail });
           }}
+          consoleHotkeyEnabled={isRouteActive}
         />
       </div>
     </div>

@@ -455,6 +455,35 @@ export const listProtectedSnapshotIds = internalQuery({
   },
 });
 
+/** Union of seeded / base snap ids across every github repo (project-wide purge). */
+export const listAllProtectedSnapshotIds = internalQuery({
+  args: {},
+  returns: v.array(v.string()),
+  handler: async (ctx) => {
+    const protectedIds = new Set<string>();
+    const repos = await ctx.db.query("githubRepos").collect();
+    for (const repo of repos) {
+      if (repo.seededSnapshotName !== undefined) {
+        protectedIds.add(repo.seededSnapshotName);
+      }
+      const snapConfig = await ctx.db
+        .query("repoSnapshots")
+        .withIndex("by_repo", (q) => q.eq("repoId", repo._id))
+        .first();
+      if (snapConfig?.baseSnapshotId !== undefined) {
+        protectedIds.add(snapConfig.baseSnapshotId);
+      }
+      if (
+        snapConfig?.snapshotName !== undefined &&
+        snapConfig.snapshotName.startsWith("snap_")
+      ) {
+        protectedIds.add(snapConfig.snapshotName);
+      }
+    }
+    return [...protectedIds];
+  },
+});
+
 /** Stores the Vercel base Image snapshot id (`snap_*`) after a successful capture. */
 export const setBaseSnapshotId = internalMutation({
   args: {

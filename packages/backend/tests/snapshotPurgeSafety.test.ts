@@ -44,7 +44,7 @@ describe("purgeUnreferencedVercelSnapshots builds its protected set first", () =
 
   test("reads the persisted protected ids before deleting", () => {
     const readAt = body.indexOf(
-      "internal.repoSnapshots.listProtectedSnapshotIds",
+      "internal.repoSnapshots.listAllProtectedSnapshotIds",
     );
     expect(readAt, "protected-id query moved or was renamed").toBeGreaterThan(
       -1,
@@ -54,7 +54,8 @@ describe("purgeUnreferencedVercelSnapshots builds its protected set first", () =
 
   /**
    * A live sandbox's resume snap is not recorded anywhere in Convex, so the only
-   * way to know it matters is to enumerate the sandboxes that still exist.
+   * way to know it matters is to enumerate the sandboxes that still exist —
+   * filtered to ids Eva still references (ghosts in Sandbox.list are orphans).
    */
   test("enumerates live sandboxes before deleting", () => {
     const listAt = body.indexOf("await Sandbox.list(creds)");
@@ -62,18 +63,26 @@ describe("purgeUnreferencedVercelSnapshots builds its protected set first", () =
     expect(listAt).toBeLessThan(firstDeleteAt);
   });
 
+  test("only protects sandboxes Eva still references", () => {
+    expect(body).toContain(
+      "internal.repoSnapshots.listReferencedSandboxIds",
+    );
+    expect(body).toContain("knownSandboxIds.has(sandbox.name)");
+  });
+
   test.each([
     ["the sandbox's current snapshot", "protectedIds.add(currentId)"],
-    ["every snapshot named after the sandbox", "protectedIds.add(meta.id)"],
   ])("protects %s", (_label, call) => {
     const addAt = body.indexOf(call);
     expect(addAt, `${call} moved or was renamed`).toBeGreaterThan(-1);
     expect(addAt).toBeLessThan(firstDeleteAt);
   });
 
-  /** Per-sandbox listing is what finds older resume snaps, not just the current one. */
-  test("lists snapshots per live sandbox by name", () => {
-    expect(body).toContain("Snapshot.list({ ...creds, name: sandbox.name })");
+  /** Older snaps under a live sandbox name are orphans — only currentSnapshotId resumes. */
+  test("does not blanket-protect every snap listed by sandbox name", () => {
+    expect(body).not.toContain(
+      "Snapshot.list({ ...creds, name: sandbox.name })",
+    );
   });
 
   /** No `protectedIds.add` may run once deleting has begun. */
@@ -85,6 +94,10 @@ describe("purgeUnreferencedVercelSnapshots builds its protected set first", () =
     const guardAt = body.indexOf("if (protectedIds.has(meta.id))");
     expect(guardAt, "the protected-id guard moved").toBeGreaterThan(-1);
     expect(guardAt).toBeLessThan(firstDeleteAt);
+  });
+
+  test("only deletes created snapshots", () => {
+    expect(body).toContain('String(meta.status) !== "created"');
   });
 
   /**

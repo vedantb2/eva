@@ -822,15 +822,18 @@ export const deleteSeededSnapshot = internalAction({
 
 /**
  * One-shot / ops cleanup: delete every Vercel snap_* in the project that is not
- * (1) the current base Image / per-app seeded capture, or (2) still owned by an
- * existing sandbox (session / quick-task / project resume snaps). Use after
- * ephemeral automation sandboxes left never-expiring orphans behind.
+ * (1) a seeded / base Image capture, or (2) the currentSnapshotId of a sandbox
+ * Eva still references. Ghost sandboxes that only exist in Sandbox.list are
+ * not protected — their snaps are orphans.
+ *
+ *   npx convex run snapshotActions:purgeUnreferencedVercelSnapshots --prod '{"repoId":"…"}'
  */
 export const purgeUnreferencedVercelSnapshots = internalAction({
   args: { repoId: v.id("githubRepos") },
   returns: v.object({
     protectedCount: v.number(),
     liveSandboxCount: v.number(),
+    evaSandboxCount: v.number(),
     deletedCount: v.number(),
     skippedCount: v.number(),
   }),
@@ -840,6 +843,7 @@ export const purgeUnreferencedVercelSnapshots = internalAction({
   ): Promise<{
     protectedCount: number;
     liveSandboxCount: number;
+    evaSandboxCount: number;
     deletedCount: number;
     skippedCount: number;
   }> => {
@@ -850,24 +854,25 @@ export const purgeUnreferencedVercelSnapshots = internalAction({
       projectId: credentials.projectId,
     };
     const protectedIds = new Set(
-      await ctx.runQuery(internal.repoSnapshots.listProtectedSnapshotIds, {
-        repoId: args.repoId,
-      }),
+      await ctx.runQuery(internal.repoSnapshots.listAllProtectedSnapshotIds, {}),
+    );
+    const knownSandboxIds = new Set(
+      await ctx.runQuery(internal.repoSnapshots.listReferencedSandboxIds, {}),
     );
 
-    // Protect resume snaps for every sandbox that still exists — otherwise this
-    // purge would wipe session/task/project filesystem state.
+    // Only protect resume snaps for sandboxes Eva still points at. Vercel
+    // Sandbox.list also returns ghosts / stopped leftovers whose current snap
+    // would otherwise stay protected forever.
     let liveSandboxCount = 0;
+    let evaSandboxCount = 0;
     const sandboxes = await Sandbox.list(creds);
     for await (const sandbox of sandboxes) {
       liveSandboxCount += 1;
+      if (!knownSandboxIds.has(sandbox.name)) continue;
+      evaSandboxCount += 1;
       const currentId = sandbox.currentSnapshotId;
       if (typeof currentId === "string" && currentId.length > 0) {
         protectedIds.add(currentId);
-      }
-      const owned = await Snapshot.list({ ...creds, name: sandbox.name });
-      for await (const meta of owned) {
-        protectedIds.add(meta.id);
       }
     }
 
@@ -880,7 +885,7 @@ export const purgeUnreferencedVercelSnapshots = internalAction({
         skippedCount += 1;
         continue;
       }
-      if (String(meta.status) === "deleted") {
+      if (String(meta.status) !== "created") {
         skippedCount += 1;
         continue;
       }
@@ -889,6 +894,10 @@ export const purgeUnreferencedVercelSnapshots = internalAction({
           ...creds,
           snapshotId: meta.id,
         });
+        if (String(snap.status) !== "created") {
+          skippedCount += 1;
+          continue;
+        }
         await snap.delete();
         deletedCount += 1;
       } catch (error) {
@@ -900,13 +909,131 @@ export const purgeUnreferencedVercelSnapshots = internalAction({
       }
     }
     console.log(
-      `[snapshot] purgeUnreferencedVercelSnapshots: protected=${protectedIds.size} liveSandboxes=${liveSandboxCount} deleted=${deletedCount} skipped=${skippedCount}`,
+      `[snapshot] purgeUnreferencedVercelSnapshots: protected=${protectedIds.size} liveSandboxes=${liveSandboxCount} evaSandboxes=${evaSandboxCount} deleted=${deletedCount} skipped=${skippedCount}`,
     );
     return {
       protectedCount: protectedIds.size,
       liveSandboxCount,
+      evaSandboxCount,
       deletedCount,
       skippedCount,
+    };
+  },
+});
+
+/**
+ * Run {@link purgeUnreferencedVercelSnapshots} once per unique Vercel project
+ * (deduped across githubRepos that share credentials).
+ *
+ *   npx convex run snapshotActions:purgeUnreferencedVercelSnapshotsAll --prod
+ */
+export const purgeUnreferencedVercelSnapshotsAll = internalAction({
+  args: {
+    repoIndex: v.optional(v.number()),
+    deleted: v.optional(v.number()),
+    protected: v.optional(v.number()),
+    skipped: v.optional(v.number()),
+    projects: v.optional(v.number()),
+    projectsSeen: v.optional(v.array(v.string())),
+  },
+  returns: v.object({
+    deleted: v.number(),
+    protected: v.number(),
+    skipped: v.number(),
+    projects: v.number(),
+    done: v.boolean(),
+  }),
+  handler: async (ctx, args) => {
+    let deleted = args.deleted ?? 0;
+    let protectedCount = args.protected ?? 0;
+    let skipped = args.skipped ?? 0;
+    let projects = args.projects ?? 0;
+    const projectsSeen = new Set(args.projectsSeen ?? []);
+
+    const repoIds = await ctx.runQuery(
+      internal.sandboxCleanup.listGithubRepoIds,
+      {},
+    );
+    const repoIndex = args.repoIndex ?? 0;
+
+    if (repoIndex >= repoIds.length) {
+      console.log(
+        `[purgeUnreferencedVercelSnapshotsAll] done deleted=${deleted} protected=${protectedCount} skipped=${skipped} projects=${projects}`,
+      );
+      return {
+        deleted,
+        protected: protectedCount,
+        skipped,
+        projects,
+        done: true,
+      };
+    }
+
+    const repoId = repoIds[repoIndex];
+    if (repoId === undefined) {
+      return {
+        deleted,
+        protected: protectedCount,
+        skipped,
+        projects,
+        done: true,
+      };
+    }
+
+    try {
+      const { credentials } = await resolveSandboxCredentials(ctx, repoId);
+      const projectKey = `${credentials.teamId}:${credentials.projectId}`;
+      if (!projectsSeen.has(projectKey)) {
+        projectsSeen.add(projectKey);
+        const result = await ctx.runAction(
+          internal.snapshotActions.purgeUnreferencedVercelSnapshots,
+          { repoId },
+        );
+        deleted += result.deletedCount;
+        protectedCount += result.protectedCount;
+        skipped += result.skippedCount;
+        projects += 1;
+      }
+    } catch (err) {
+      console.warn(
+        `[purgeUnreferencedVercelSnapshotsAll] skip repo=${repoId}: ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      );
+    }
+
+    const nextIndex = repoIndex + 1;
+    if (nextIndex < repoIds.length) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.snapshotActions.purgeUnreferencedVercelSnapshotsAll,
+        {
+          repoIndex: nextIndex,
+          deleted,
+          protected: protectedCount,
+          skipped,
+          projects,
+          projectsSeen: [...projectsSeen],
+        },
+      );
+      return {
+        deleted,
+        protected: protectedCount,
+        skipped,
+        projects,
+        done: false,
+      };
+    }
+
+    console.log(
+      `[purgeUnreferencedVercelSnapshotsAll] done deleted=${deleted} protected=${protectedCount} skipped=${skipped} projects=${projects}`,
+    );
+    return {
+      deleted,
+      protected: protectedCount,
+      skipped,
+      projects,
+      done: true,
     };
   },
 });

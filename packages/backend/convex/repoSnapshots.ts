@@ -15,6 +15,7 @@ export {
   setBaseSnapshotId,
   setSeedCommandsInternal,
   listProtectedSnapshotIds,
+  listAllProtectedSnapshotIds,
   getPrimarySeedAppRepo,
 } from "./_repoSnapshots/config";
 

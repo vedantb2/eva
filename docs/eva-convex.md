@@ -2,6 +2,8 @@
 
 Read this when touching `packages/backend` / Convex schema, queries, mutations, or migrations.
 
+**Sandbox / Snapshot Storage lifecycle** (never-expire, 48h delete, resume fallthrough, orphan purge): [`docs/sandbox-snapshot-lifecycle.md`](./sandbox-snapshot-lifecycle.md).
+
 ## Types
 
 - Never manually define interfaces for Convex documents.

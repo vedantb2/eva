@@ -845,6 +845,7 @@ class VercelSandboxHandle implements SandboxHandle {
     let deleted = 0;
     for await (const meta of listed) {
       if (preserveSnapshotIds.has(meta.id)) continue;
+      // Already soft-deleted tombstones reject DELETE with 400 — skip them.
       if (String(meta.status) === "deleted") continue;
       try {
         const snap = await Snapshot.get({

@@ -11,7 +11,12 @@ export {
   getSnapshotSandboxProviderKind,
 } from "./_sandbox_runtime/lifecycle";
 
-export { bulkUpdateSnapshotRetention } from "./_sandbox_runtime/bulkSnapshotRetention";
+export {
+  bulkUpdateSnapshotRetention,
+  inspectSnapshotRetention,
+  inspectSnapshotsByIds,
+  purgeDeletedSnapshotTombstones,
+} from "./_sandbox_runtime/bulkSnapshotRetention";
 
 export {
   runSandboxCommand,

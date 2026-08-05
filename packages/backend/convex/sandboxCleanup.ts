@@ -143,12 +143,16 @@ export const maybeDeleteTaskSandbox = internalMutation({
 /**
  * One-off backlog sweep + weekly cron body. Deletes sandboxes for dead
  * sessions/tasks whose grace has elapsed.
+ *
+ * Pass `{ skipGrace: true }` for an immediate one-off backlog clear (ignores
+ * the 48h updatedAt / sandboxDeleteAfter guards). Weekly cron leaves it unset.
  */
 export const sweepDeadSandboxes = internalMutation({
   args: {
     cursor: v.optional(v.string()),
     phase: v.optional(v.union(v.literal("sessions"), v.literal("agentTasks"))),
     deleted: v.optional(v.number()),
+    skipGrace: v.optional(v.boolean()),
   },
   returns: v.object({
     deleted: v.number(),
@@ -159,6 +163,7 @@ export const sweepDeadSandboxes = internalMutation({
     const phase = args.phase ?? "sessions";
     let deleted = args.deleted ?? 0;
     const now = Date.now();
+    const skipGrace = args.skipGrace === true;
 
     if (phase === "sessions") {
       const page = await ctx.db.query("sessions").paginate({
@@ -169,9 +174,19 @@ export const sweepDeadSandboxes = internalMutation({
       let staggerIndex = 0;
       for (const session of page.page) {
         if (!session.sandboxId) continue;
-        if (session.status !== "closed") continue;
         if (!isSessionDead(session)) continue;
-        if (!pastGrace(now, session.sandboxDeleteAfter, session.updatedAt)) {
+        // Normal sweeps wait for closed (stop finished). skipGrace one-offs
+        // also clear stopping/active leftovers that still bill for snapshots.
+        if (
+          !skipGrace &&
+          session.status !== "closed"
+        ) {
+          continue;
+        }
+        if (
+          !skipGrace &&
+          !pastGrace(now, session.sandboxDeleteAfter, session.updatedAt)
+        ) {
           continue;
         }
 
@@ -194,6 +209,7 @@ export const sweepDeadSandboxes = internalMutation({
           cursor: page.continueCursor,
           phase: "sessions",
           deleted,
+          skipGrace,
         });
         return { deleted, done: false, phase: "sessions" as const };
       }
@@ -201,6 +217,7 @@ export const sweepDeadSandboxes = internalMutation({
       await ctx.scheduler.runAfter(0, internal.sandboxCleanup.sweepDeadSandboxes, {
         phase: "agentTasks",
         deleted,
+        skipGrace,
       });
       return { deleted, done: false, phase: "sessions" as const };
     }
@@ -214,7 +231,10 @@ export const sweepDeadSandboxes = internalMutation({
     for (const task of page.page) {
       if (!task.sandboxId || !task.repoId) continue;
       if (!isTaskDead(task)) continue;
-      if (!pastGrace(now, task.sandboxDeleteAfter, task.updatedAt)) {
+      if (
+        !skipGrace &&
+        !pastGrace(now, task.sandboxDeleteAfter, task.updatedAt)
+      ) {
         continue;
       }
 
@@ -238,18 +258,19 @@ export const sweepDeadSandboxes = internalMutation({
         cursor: page.continueCursor,
         phase: "agentTasks",
         deleted,
+        skipGrace,
       });
       return { deleted, done: false, phase: "agentTasks" as const };
     }
 
     console.log(
-      `[sandboxCleanup] sweepDeadSandboxes done: deleted=${deleted}`,
+      `[sandboxCleanup] sweepDeadSandboxes done: deleted=${deleted} skipGrace=${skipGrace}`,
     );
     return { deleted, done: true, phase: "agentTasks" as const };
   },
 });
 
-const CANDIDATE_BATCH = 10;
+const CANDIDATE_BATCH = 16;
 
 const liveCandidateValidator = v.object({
   kind: v.union(
@@ -397,5 +418,50 @@ export const listLiveSandboxCandidates = internalQuery({
       phase: "agentTasks" as const,
       nextPhase: null,
     };
+  },
+});
+
+/** Count dead entities that still hold a sandboxId (prod runbook / progress). */
+export const countDeadSandboxes = internalQuery({
+  args: {},
+  returns: v.object({
+    sessionDeadWithSandbox: v.number(),
+    taskDeadWithSandbox: v.number(),
+    sessionAnyWithSandbox: v.number(),
+    taskAnyWithSandbox: v.number(),
+  }),
+  handler: async (ctx) => {
+    let sessionDeadWithSandbox = 0;
+    let sessionAnyWithSandbox = 0;
+    const allSessions = await ctx.db.query("sessions").collect();
+    for (const session of allSessions) {
+      if (!session.sandboxId) continue;
+      sessionAnyWithSandbox++;
+      if (isSessionDead(session)) sessionDeadWithSandbox++;
+    }
+    let taskDeadWithSandbox = 0;
+    let taskAnyWithSandbox = 0;
+    const allTasks = await ctx.db.query("agentTasks").collect();
+    for (const task of allTasks) {
+      if (!task.sandboxId) continue;
+      taskAnyWithSandbox++;
+      if (isTaskDead(task)) taskDeadWithSandbox++;
+    }
+    return {
+      sessionDeadWithSandbox,
+      taskDeadWithSandbox,
+      sessionAnyWithSandbox,
+      taskAnyWithSandbox,
+    };
+  },
+});
+
+/** Repo ids for project-wide snapshot tombstone sweeps. */
+export const listGithubRepoIds = internalQuery({
+  args: {},
+  returns: v.array(v.id("githubRepos")),
+  handler: async (ctx) => {
+    const repos = await ctx.db.query("githubRepos").collect();
+    return repos.map((repo) => repo._id);
   },
 });

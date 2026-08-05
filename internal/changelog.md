@@ -1,5 +1,17 @@
 # Changelog
 
+## Document sandbox snapshot lifecycle - 2026-08-05
+
+Ops and resume behavior for never-expire snaps, grace delete, orphan purge, and tombstones lived only in chat. `docs/sandbox-snapshot-lifecycle.md` is the durable writeup (linked from `docs/eva-convex.md`). Reason: next person should not re-learn Vercel list ghosts vs `created` orphans from Convex logs.
+
+## Purge unreferenced created snapshot orphans - 2026-08-05
+
+Orphan `snap_*` rows (still `created`, old TTL) outlive deleted sandboxes and bill until expiry. `purgeUnreferencedVercelSnapshots` protects seeded ids + `currentSnapshotId` only for sandboxes Eva still references (ghosts in `Sandbox.list` are fair game); `purgeUnreferencedVercelSnapshotsAll` runs that once per Vercel project. Reason: 3-day ~6GB snaps were unprotected orphans; Vercel list ghosts were hiding more of the same.
+
+## Hard-delete soft-deleted snapshot tombstones - 2026-08-05
+
+keep-last left `status: "deleted"` snaps in `Snapshot.list` with old expiresAt clocks (dashboard noise / possible billing). `sandbox:purgeDeletedSnapshotTombstones` hard-deletes those only; sandbox delete and retention checks now treat tombstones the same way. Reason: never-expire live snaps were fine — the 3-day "automatic" rows were evicted ghosts.
+
 ## Bulk-pass never-expire retention on live sandboxes - 2026-08-05
 
 New sandboxes already create with TTL 0; existing live ones still carried 30d `expiresAt` until proven otherwise. `sandbox:bulkUpdateSnapshotRetention` PATCHes survivors and logs whether the update is retroactive (optional resume+stop cycle if not). Reason: verify the undocumented API and clear storage clocks on sandboxes that should stay forever.

@@ -1,50 +1,110 @@
 import { m } from "motion/react";
-import { Button } from "@eva/ui";
+import { Card, CardContent, Button } from "@eva/ui";
 import { IconBrandGithub } from "@tabler/icons-react";
 import { PLATFORM_SECTIONS } from "@/lib/content/platformSections";
 
 export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
+  const steps = [
+    { num: 1, label: "Connect GitHub", active: true },
+    { num: 2, label: "Select a repo", active: false },
+    { num: 3, label: "Start building", active: false },
+  ];
+
   return (
     <m.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.22 }}
-      className="mx-auto flex w-full max-w-md flex-col items-center px-4 py-16 text-center"
+      transition={{ duration: 0.25 }}
+      className="flex flex-col items-center px-4 py-12"
     >
-      <div className="mb-6 flex h-14 w-14 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground">
-        <IconBrandGithub size={24} />
-      </div>
-      <h2 className="text-balance text-base font-semibold tracking-[-0.01em] text-foreground">
-        Connect your GitHub
-      </h2>
-      <p className="mt-2 max-w-sm text-pretty text-sm text-muted-foreground">
-        Link a repo to plan, code, and ship with Eva.
-      </p>
-      <Button asChild size="sm" className="mt-6">
-        <a href={connectUrl}>
-          <IconBrandGithub size={16} />
-          Connect GitHub
-        </a>
-      </Button>
-      <ul className="mt-10 w-full space-y-2 text-left">
-        {PLATFORM_SECTIONS.map((section) => (
-          <li
-            key={section.label}
-            className="flex items-start gap-2.5 rounded-surface border border-border bg-card px-3 py-2.5"
-          >
-            <section.icon
-              size={16}
-              className="mt-0.5 shrink-0 text-muted-foreground"
-            />
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-foreground">
-                {section.label}
-              </p>
-              <p className="text-xs text-muted-foreground">{section.shortDesc}</p>
+      <div className="mb-12 flex flex-wrap items-center justify-center gap-2">
+        {steps.map((step, i) => (
+          <div key={step.num} className="flex items-center gap-2">
+            <div
+              className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-[background-color,color,box-shadow] ${
+                step.active
+                  ? "bg-primary text-background ring-2 ring-primary/25 ring-offset-1 ring-offset-background"
+                  : "bg-secondary text-muted-foreground"
+              }`}
+            >
+              {step.num}
             </div>
-          </li>
+            <span
+              className={`whitespace-nowrap text-xs ${
+                step.active
+                  ? "font-medium text-foreground"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {step.label}
+            </span>
+            {i < steps.length - 1 && (
+              <div
+                className={`mx-1 hidden h-px w-8 flex-shrink-0 sm:block ${
+                  i === 0
+                    ? "bg-gradient-to-r from-primary/40 to-border"
+                    : "bg-border"
+                }`}
+              />
+            )}
+          </div>
         ))}
-      </ul>
+      </div>
+
+      <div className="mb-10 flex max-w-sm flex-col items-center text-center">
+        <div className="relative mb-6 flex items-center justify-center">
+          <div className="absolute h-32 w-32 rounded-full bg-primary/5 blur-3xl" />
+          <div className="absolute h-20 w-20 rounded-full bg-primary/10 blur-xl" />
+          <div className="relative flex h-14 w-14 items-center justify-center rounded-surface border border-border bg-muted/40 ring-1 ring-primary/15">
+            <IconBrandGithub size={26} className="text-primary" />
+          </div>
+        </div>
+        <h2 className="mb-2 text-xl font-semibold tracking-tight text-foreground text-balance">
+          Connect your GitHub
+        </h2>
+        <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
+          Link your codebases to unlock Eva's AI tools for planning, coding, and
+          shipping features autonomously.
+        </p>
+        <Button
+          asChild
+          className="bg-foreground px-6 font-medium text-background active:scale-[0.96]"
+        >
+          <a href={connectUrl}>
+            <IconBrandGithub size={16} />
+            Connect GitHub
+          </a>
+        </Button>
+      </div>
+
+      <div className="w-full max-w-lg">
+        <p className="mb-3 text-center text-[11px] font-medium uppercase tracking-widest text-muted-foreground/60">
+          What you&apos;ll get access to
+        </p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {PLATFORM_SECTIONS.map((section, index) => (
+            <m.div
+              key={section.label}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.2, delay: 0.15 + index * 0.06 }}
+            >
+              <Card className="ui-surface-strong h-full overflow-hidden">
+                <div className="h-px bg-gradient-to-r from-primary/50 via-primary/20 to-transparent" />
+                <CardContent className="p-3">
+                  <section.icon size={16} className="mb-2 text-primary" />
+                  <p className="text-xs font-medium text-foreground">
+                    {section.label}
+                  </p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-muted-foreground">
+                    {section.longDesc}
+                  </p>
+                </CardContent>
+              </Card>
+            </m.div>
+          ))}
+        </div>
+      </div>
     </m.div>
   );
 }

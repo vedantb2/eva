@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  Badge,
   Button,
   Popover,
   PopoverContent,
@@ -59,18 +60,21 @@ export function BackgroundAgentsChip({
 
   const label =
     runningAgents.length === 1
-      ? "1 agent"
-      : `${runningAgents.length} agents`;
+      ? "1 background agent"
+      : `${runningAgents.length} background agents`;
 
   return (
     <Popover>
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="mb-2 inline-flex items-center gap-1.5 rounded-md border border-border bg-secondary px-2.5 py-1 text-xs text-foreground hover:bg-muted"
+          className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-1 text-xs text-foreground hover:bg-muted"
         >
           <IconRobot className="size-3.5 shrink-0 text-muted-foreground" />
           <span>{label}</span>
+          <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
+            {runningAgents.length}
+          </Badge>
         </button>
       </PopoverTrigger>
       <PopoverContent className="w-80 p-0" align="start">

@@ -99,14 +99,14 @@ export function TestingArenaSidebar({
             <Spinner size="sm" />
           </div>
         ) : docs.length === 0 ? (
-          <div className="px-4 py-8 text-center">
+          <div className="p-4 text-center">
             <IconFileText
-              size={20}
-              className="mx-auto mb-2 text-muted-foreground opacity-50"
+              size={28}
+              className="mx-auto mb-2 text-muted-foreground"
             />
-            <p className="text-sm font-medium text-foreground">No documents yet</p>
+            <p className="text-sm text-muted-foreground">No documents yet</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              Create docs to test against.
+              Create docs to test against
             </p>
           </div>
         ) : (

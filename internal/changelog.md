@@ -1,5 +1,9 @@
 # Changelog
 
+## Match HeroUI toast styling in the sonner Toaster - 2026-08-05
+
+Toast visuals were nominally "HeroUI-like" but sonner's `[data-sonner-toast][data-styled=true]` rules out-specify utility classes, so `bg-card` / `border-border` / `rounded-surface` never applied — dark toasts rendered `#000` on a hardcoded grey border. `packages/ui/src/ui/sonner.tsx` now opts into `unstyled: true` and restates HeroUI's `components/toast.ts` metrics: `p-3`, 16px icon gap, 24px HeroUI icons (info-filled / success / warning / danger), `text-sm` medium title over a muted description, `shadow-md`, 8px stack gap, and a circular close chip at the top-right that fades in on hover. Reason: matching HeroUI needed the specificity fight resolved first, and opting out is what makes the design tokens win.
+
 ## Document sandbox snapshot lifecycle - 2026-08-05
 
 Ops and resume behavior for never-expire snaps, grace delete, orphan purge, and tombstones lived only in chat. `docs/sandbox-snapshot-lifecycle.md` is the durable writeup (linked from `docs/eva-convex.md`). Reason: next person should not re-learn Vercel list ghosts vs `created` orphans from Convex logs.

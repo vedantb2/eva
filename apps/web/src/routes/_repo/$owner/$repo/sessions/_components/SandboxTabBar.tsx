@@ -31,10 +31,8 @@ import {
   TooltipTrigger,
 } from "@eva/ui";
 
-/** Sandbox tabs: active face is fill + type only — no folder stroke or bar
- *  hairline, so the strip blends into the panel instead of reading as chrome. */
 const TAB_TRIGGER_CLASS =
-  "relative flex items-center gap-1.5 rounded-none rounded-t-md border border-transparent px-3 py-1 text-xs font-medium data-[state=active]:z-10 data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground";
+  "relative flex items-center gap-1.5 rounded-none rounded-t-md border border-b-0 px-4 py-1.5 text-sm font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary";
 
 // Editor and Computer stay in the `+` menu until opened; then they pin as
 // closable tabs. Browser is first-class (sessions) for watching agent Chrome.

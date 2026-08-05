@@ -377,7 +377,7 @@ export function QuickTaskModal({
                 ref={editorRef}
                 value={description}
                 onValueChange={setDescription}
-                placeholder="Add description…"
+                placeholder="Add description... @ for data, / for skills."
                 minHeight="min-h-[160px]"
                 className="rounded-none border-0 px-0 py-2 shadow-none focus-visible:ring-0"
                 initialMentionMap={initialDescMaps.mentionMap}
@@ -403,7 +403,7 @@ export function QuickTaskModal({
             />
           </div>
 
-          <div className="flex flex-col gap-1.5 border-t border-border px-5 py-3">
+          <div className="flex flex-col gap-1.5 px-5 py-3 bg-muted/30">
             <div className="flex flex-wrap items-center gap-1.5">
               {voiceEnabled === true ? (
                 <Tooltip>
@@ -629,7 +629,7 @@ export function QuickTaskModal({
             </div>
           </div>
 
-          <DialogFooter className="flex-col-reverse gap-2 border-t border-border px-5 py-3 sm:flex-row sm:justify-between">
+          <DialogFooter className="flex-col-reverse gap-2 px-5 py-3 sm:flex-row sm:justify-between bg-muted/15">
             <div>
               {drafts && drafts.length > 0 && (
                 <Popover>

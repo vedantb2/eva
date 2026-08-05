@@ -74,7 +74,7 @@ const RAIL_TILE_CLASS =
 
 function railTileActive(active: boolean): string {
   return active
-    ? "border-border bg-sidebar-accent text-sidebar-primary"
+    ? "border-primary/40 bg-primary/15 text-primary"
     : "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground";
 }
 
@@ -165,7 +165,7 @@ function RepoRailView({
               className={cn(
                 RAIL_TILE_CLASS,
                 homeActive
-                  ? "border-border bg-sidebar-accent"
+                  ? "border-primary/40 bg-primary/15"
                   : "border-transparent opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100",
               )}
             >
@@ -249,7 +249,7 @@ function RepoRailView({
                       className={cn(
                         RAIL_TILE_CLASS,
                         active
-                          ? "border-border bg-sidebar-accent"
+                          ? "border-primary/40 bg-primary/15"
                           : "border-transparent opacity-50 hover:bg-sidebar-accent/50 hover:opacity-100",
                       )}
                     >

@@ -12,9 +12,9 @@ import {
 
 // shared-layout pill slide between sidebar rows
 const sidebarSharedLayoutTransition = {
-  type: "spring" as const,
-  stiffness: 800,
-  damping: 48,
+  type: "tween" as const,
+  duration: 0.08,
+  ease: "easeOut" as const,
 };
 
 interface SharedLayoutNavContextValue {

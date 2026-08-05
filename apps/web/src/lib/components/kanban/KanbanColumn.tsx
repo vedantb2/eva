@@ -64,7 +64,7 @@ export function KanbanColumn({
     <KanbanBoard
       id={id}
       disabled={!droppable}
-      className="flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-clip bg-muted"
+      className="flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-clip bg-muted/40"
     >
       <div className="flex flex-shrink-0 flex-row items-center justify-between p-2">
         <Badge
@@ -82,7 +82,7 @@ export function KanbanColumn({
         className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-y-contain p-1.5 pt-0 scrollbar scroll-fade md:p-1.5 md:pt-0"
       >
         {count === 0 ? (
-          <div className="m-1 flex flex-1 items-center justify-center rounded-md border border-dashed border-border px-3 py-8 text-xs text-muted-foreground/60">
+          <div className="flex flex-1 items-center justify-center py-6 text-xs text-muted-foreground/50">
             {emptyLabel}
           </div>
         ) : null}

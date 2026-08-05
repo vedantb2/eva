@@ -134,7 +134,7 @@ const ListRow = React.forwardRef<HTMLDivElement, ListRowProps>(function ListRow(
         interactive && "active:scale-[0.99]",
         selected
           ? "border-primary/30 bg-primary/5 ring-1 ring-primary/30"
-          : "bg-card hover:bg-muted/40",
+          : "bg-card hover:bg-muted",
         className,
       )}
     >

@@ -65,7 +65,7 @@ export function SessionChatHeader({
   const headerLeft = (
     <Button
       size="icon"
-      variant={isSandboxActive ? "destructive" : "outline"}
+      variant={isSandboxActive ? "destructive" : "secondary"}
       onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
       disabled={isSandboxToggling}
       className={`h-8 w-8 ${isSandboxActive ? "" : "text-success"}`}
@@ -86,7 +86,7 @@ export function SessionChatHeader({
       {branchName && (!prState || prState === "draft") && (
         <Button
           size="sm"
-          variant="outline"
+          variant="secondary"
           className="text-status-code-review"
           onClick={onOpenReviewModal}
         >
@@ -98,7 +98,7 @@ export function SessionChatHeader({
         <DropdownMenuTrigger asChild>
           <Button
             size="icon-sm"
-            variant="outline"
+            variant="secondary"
             aria-label="More"
           >
             <IconDots size={14} />

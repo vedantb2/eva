@@ -32,6 +32,7 @@ import { RailAppHotkeys } from "@/lib/components/sidebar/RailAppHotkeys";
 import { RailSettingsMenu } from "@/lib/components/sidebar/RailSettingsMenu";
 import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import { QueryErrorBoundary } from "@/lib/components/QueryErrorBoundary";
+import { railTileActiveClass } from "@/lib/components/sidebar/SharedLayoutNav";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { isHomePath } from "@/lib/components/sidebar/homePaths";
@@ -74,7 +75,7 @@ const RAIL_TILE_CLASS =
 
 function railTileActive(active: boolean): string {
   return active
-    ? "border-primary/40 bg-primary/15 text-primary"
+    ? railTileActiveClass
     : "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground";
 }
 
@@ -162,12 +163,7 @@ function RepoRailView({
               to="/home"
               onClick={onNavigate}
               aria-label="Eva home"
-              className={cn(
-                RAIL_TILE_CLASS,
-                homeActive
-                  ? "border-primary/40 bg-primary/15"
-                  : "border-transparent opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100",
-              )}
+              className={cn(RAIL_TILE_CLASS, railTileActive(homeActive))}
             >
               <span className="flex size-8 items-center justify-center rounded-full bg-white">
                 <LogoMark size={20} className="shrink-0" />
@@ -249,7 +245,7 @@ function RepoRailView({
                       className={cn(
                         RAIL_TILE_CLASS,
                         active
-                          ? "border-primary/40 bg-primary/15"
+                          ? cn(railTileActiveClass, "opacity-100")
                           : "border-transparent opacity-50 hover:bg-sidebar-accent/50 hover:opacity-100",
                       )}
                     >

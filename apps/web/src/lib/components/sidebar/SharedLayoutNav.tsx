@@ -36,6 +36,13 @@ function useSharedLayoutNav() {
   return context;
 }
 
+/** Active surface for vertical rail tiles — matches sidebar nav pill. */
+export const railTileActiveClass =
+  "border-border bg-sidebar-accent text-sidebar-primary";
+
+const sidebarNavPillClass =
+  "pointer-events-none absolute inset-0 rounded-menu-item border border-border bg-sidebar-accent";
+
 /** Animated nav list — shared `layoutId` background slides between items on hover/active. */
 export function SharedLayoutNav({
   layoutId,
@@ -79,8 +86,6 @@ export function SharedLayoutNavSurface({
   // parents (session rows) often fails to paint until hover remounts it.
   const showStaticActive = hoveredId === null && isActive;
   const showSlidingPill = hoveredId === itemId;
-  const pillClass =
-    "pointer-events-none absolute inset-0 rounded-menu-item border border-border bg-sidebar-accent";
 
   return (
     <div
@@ -88,12 +93,12 @@ export function SharedLayoutNavSurface({
       className={cn("relative", className)}
       onMouseEnter={() => setHoveredId(itemId)}
     >
-      {showStaticActive ? <div className={pillClass} /> : null}
+      {showStaticActive ? <div className={sidebarNavPillClass} /> : null}
       {showSlidingPill ? (
         <m.div
           layoutId={layoutId}
           transition={sidebarSharedLayoutTransition}
-          className={pillClass}
+          className={sidebarNavPillClass}
         />
       ) : null}
       <div className="relative z-10">{children}</div>

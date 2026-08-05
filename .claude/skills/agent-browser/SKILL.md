@@ -6,6 +6,10 @@ allowed-tools: Bash(agent-browser:*)
 
 # Browser Automation with agent-browser
 
+## Eva app
+
+When automating the eva web app, navigate to `/?agent` first to auto sign in as the agent user.
+
 ## Core Workflow
 
 Every browser automation follows this pattern:

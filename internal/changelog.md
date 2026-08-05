@@ -1,5 +1,10 @@
 # Changelog
 
+## Condensed agent rules into two domain docs - 2026-08-05
+
+- `CLAUDE.md` / `AGENTS.md` were duplicating ~150 lines of always-on + domain rules (and AGENTS still had stale Next.js guidance). Hard invariants stay in those files; HeroUI/component/router/vite/nuqs moved to `docs/eva-ui.md`, Convex conventions to `docs/eva-convex.md`, so agents only load domain detail when relevant.
+- Reason for change: cut always-applied context without spawning a skill zoo.
+
 ## New notifications chime, background tabs included - 2026-08-01
 
 A backgrounded tab gave no sign that anything had arrived beyond the favicon count, which only helps if you happen to look. New unread notifications now play a short two-note chime, hung off the arrival detection `NotificationToastStream` already runs so it costs no extra subscription and can never disagree with the toasts. The tones are synthesised through the Web Audio API rather than loaded from a file: nothing to fetch or cache, and no silent first notification while a request is in flight. Scheduling goes through the audio clock, which browsers keep accurate in hidden tabs even while they throttle timers, so a chime queued by a background tab still plays on time. One chime per batch however many land together, and only for unread arrivals, so pruning an old notification into the 100-item window stays silent. Autoplay policy keeps a context suspended until the user has interacted with the page at least once, which signing in and navigating satisfies well before the first notification.

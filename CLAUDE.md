@@ -1,149 +1,35 @@
 FOLLOW ALL OF THESE RULES
 
-NEVER CREATE NEW BRANCH AND PUSH AND OPEN PR UNLESS USER ASKS TO. IF YOU ARE ALREADY ON MAIN AND THE USER ASKS TO SHIP, YOU DIRECTLY COMMIT AND PUSH TO MAIN.
+## Git / ship
 
-UI Design System — HeroUI (border-based):
-
-Surface tokens map 1:1 to the HeroUI palette: `--background` (page canvas) → `--card`/`--popover` (surface, elevated) → `--muted` (surface-secondary) → `--secondary` (default). Accent (`--primary`/`--accent`/`--ring`/`--chart-1`/sidebar accent), `--radius`, and `--font-*` are user-defined via theme settings — never hardcode them.
-
-Borders:
-
-- Cards, surfaces, and content containers get a hairline `border border-border`. This is the primary way surfaces are defined (HeroUI look).
-- Layout regions (sidebar edge, list/detail dividers) are separated by a hairline `border-border`/`border-sidebar-border`, not tonal contrast.
-- Active/selected items use a surface fill + `border-border` chip; give inactive items `border border-transparent` to avoid layout shift.
-- Inputs/selects keep their form-affordance border.
-
-Shadows:
-
-- Cards and surfaces are border + tone only (no `shadow-sm`). Floating/overlay elements (popovers, tooltips, dropdowns, dialogs, sheets) keep larger shadows for layering.
-
-Layout & Surface Colors:
-
-- Sidebar shares the canvas tone (`--sidebar` = `--background`); it is distinguished by the region-divider border, not by being darker.
-- Hierarchy comes from: hairline borders + surface tone steps > whitespace > typography weight/size.
-
-Hover & Interaction States:
-
-- Hover: `hover:bg-*` (background shift). Active/selected: surface fill + `border-border` (and `ring-*` if extra emphasis is needed).
-
-Spacing:
-
-- Use whitespace/padding (Gestalt Law of Proximity) to group related elements; reach for borders/dividers for structural separation (HeroUI style).
-
-Implementation:
-
-- Always read the CLAUDE.md file (if it exists) first to understand the codebase's specific rules
-- Assume the project is greenfield - breaking changes are fine
-- If you are implementing from a plan, then you are allowed to just go ahead and implement - this is because the plan had already been carefully crafted so you don't need to spend time thinking about it - just go ahead and do as the plan says.
-- Have a deep think of the best solution, do not just jump into implementation
-- I want you to consider the simplest solution first, another engineer is likely to read it so it should be simple and easy to understand, and not overly bloated with features that they will need to maintain.
-- When unsure, ask for clarification before implementing.
-- If requirements are ambiguous, ask clarifying questions before implementing.
-- Feel free to ask AS MANY QUESTIONS AS YOU LIKE, you must have a complete end to end understand of how the user wants something to be implemented, even if the user may not know themselves.
-- Prefer making a detailed plan over a quick plan
-- Add comments especially for big functions and update comments (if needed) when modifying big functions- When done implementing, explain all your changes made to the user
-- Check web and docs for everything you do
-- Only add to CLAUDE.md when the user explicitly asks. Keep entries to 1 sentence (~20 words max), not changelog-style paragraphs
-- Never use `any`
-- Never use `unknown`
-- Never use `as` for type assertions
-- Never use the non-null assertion operator `!`.
-- NEVER use `isRecord(object: unknown)` type guards — an `unknown` reaching that point is the bug; parse at the boundary (Zod) instead.
-- If a type is difficult to express, rethink the design instead of bypassing the type system.
-- Prefer simplicity over cleverness.
-- With React Compiler on apps/web, do not add useMemo/useCallback by default; only for proven identity/perf needs the compiler cannot cover.
-- React Compiler bails on a whole file for `finally`, a catch-less `try`, or `throw`/`?:`/`&&`/`??`/`?.`/loops inside `try` (`eva/no-value-block-in-try`).
-- Minimize surface area of change.
-- Co-locate logic where it naturally belongs.
-- Avoid premature abstractions.
-- Prefer explicit over magical behaviour.
-- All decisions should optimize for long-term maintainability.
-- Do not run any dev / lint / build commands unless the user asks you to
-- If you are creating any plans, then make sure that running /ship skill is the final step (unless the user explicitly says not to)
-- Never create a new branch, push, or open a PR unless asked; if already on main and asked to ship, commit and push directly to main
-
-Convex:
-
-- Never manually define interfaces for Convex documents.
-- Always import:
-  - `Doc<"tableName">`
-  - `Id<"fieldName">`
-  - `FunctionReturnType<typeof api.functionName>`
-- Convex types are the single source of truth.
-- If the schema changes, all consumers must update automatically.
-- Never duplicate schema types manually.
-- To typecheck Convex: `cd packages/backend && npx convex codegen --typecheck enable` (no dev server needed)
-- Schema migration chicken-egg problem: When changing a field type with existing data, use v.union(oldType, newType) temporarily → deploy → run migration → change to only newType
-- Single source of truth for table fields: Define table fields as exported `const xxxFields = { ... }` in `validators.ts`. Use in both `schema.ts` (`defineTable(xxxFields)`) and return validators (`v.object({ _id: v.id("table"), _creationTime: v.number(), ...xxxFields })`). Never duplicate field definitions between schema and return validators.
-- Do not mirror Convex query data into `useState` for form inputs. Convex queries are live/reactive — bind the input's `value` directly to the query result and call the mutation directly in `onChange`. If the input needs instant feedback without waiting for a server round-trip (e.g. textareas, fast-typing fields), attach `.withOptimisticUpdate` to the mutation to patch the local query cache. No local state, no hydration `useEffect`, no debounce draft copy.
-- Avoid importing process.env helpers into Convex isolate workflow files. If something needs env vars, keep it in "use node" actions
-
-Component Structure:
-
-- Max ~250 lines per client component
-- Route-level `*Client.tsx` = thin orchestrator (queries, top-level state, layout composition)
-- Route-local child components go in `_components/` folder
-- Pure helper functions go in `_utils.ts` at route level
-- Presentational components (no hooks, no `"use client"`) stay as plain function components
-- Only add `"use client"` to child components that use hooks/interactivity
-- Inline sub-components defined in the same file should be extracted to `_components/`
-
-TanStack Router (eva web app):
-
-- Never use `window.location.href` for navigation. Always use `useNavigate` from `@tanstack/react-router` or the `<Link>` component.
-- `window.location.href` causes a full page reload, losing client-side state. TanStack Router navigation preserves SPA behavior.
-- Primary tabs = path segments + index redirect to default; avoid local-only Tabs when the view must be linkable.
-
-Vite (apps/web):
-
-- **Dedupe context-sensitive packages**: Any package using React Context must be in `resolve.dedupe` in vite.config.ts. pnpm can install multiple copies (different peer deps), causing "Context not found" runtime errors. Dedupe forces all imports to the same instance.
-- When adding a new dependency that provides React hooks/context (e.g., @tanstack/_, @clerk/_, state managers), add it to the dedupe array.
-
-Nuqs:
-
-- If you are required to implement filters, or sort by methods, make sure nuqs is installed in the codebase and use it to create searchParams.ts and use the useQueryState/useQueryStates hook from nuqs to implement the filters / sorting methods. This is preferred over local state as it stores the state in the URL so can be shared with other users.
-
-Husky:
-
+- NEVER create a new branch, push, or open a PR unless the user asks.
+- If already on main and the user asks to ship: commit and push directly to main.
 - Prefer `/preflight` occasionally over husky commit/push gates (hooks under `.husky/` are commented out).
+- Plans: final step is `/ship` unless the user says not to.
 
-Verification Rules after implementation:
+## Always
 
-- Ensure no `any`, `unknown`, or `as` exists.
-- Run npx tsc in the appropriate codebase and fix any type issues (if related to your changes)
-- Ensure types are inferred where possible.
-- Ensure no unnecessary client components were introduced.
-- Run `/changelog` after medium-large changes or new features to document what changed.
+- Greenfield OK — breaking changes fine.
+- Implementing from an agreed plan: just implement.
+- Think first; simplest solution wins. Ask when unsure / ambiguous — as many questions as needed.
+- Prefer a detailed plan over a quick one. Plan mode: concise plans; list unresolved questions; use `grill-me` / AskUserQuestion to interview until shared understanding.
+- Explain changes when done. Check web/docs when needed.
+- Only edit this file when the user explicitly asks. Entries: 1 sentence (~20 words max), not changelog paragraphs.
+- No `any`, `unknown`, `as`, or non-null `!`. No `isRecord(object: unknown)` — parse at the boundary (Zod). Hard types → rethink design.
+- Prefer simplicity, small diffs, co-location, explicit behavior, long-term maintainability. No premature abstractions. No new deps unless necessary.
+- Do not default to `useState`/`useRef` — pick the right state ownership first.
+- Do not run dev / lint / build unless the user asks.
+- After medium+ changes: no banned types; `tsc` where relevant; `/changelog` (or `internal/changelog.md`).
 
-Implementation Process:
+## Domain docs (read when relevant)
 
-- Read CLAUDE.md first (if exists)
-- Understand existing architecture before changing anything.
-- Identify the simplest possible solution.
-- Avoid adding new dependencies unless absolutely necessary.
+- Frontend / UI work → `docs/eva-ui.md` (HeroUI, components, router, vite, nuqs)
+- Convex / schema / migrations → `docs/eva-convex.md`
+- agent-browser on eva app → navigate to `/?agent` to auto sign in as the agent user
 
-Plan Mode
+## Product facts
 
-- Make the plan extremely concise. Sacrifice grammar for the sake of concision.
-- At the end of each plan, give me a list of unresolved questions to answer, if any.
-- Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one
-- Use the AskUserQuestion tool
+- This repo is a platform for managing other codebases and running them remotely (sandbox app ≠ this codebase).
+- Sandbox provider is Vercel; Daytona is legacy. Sandboxes: IPv4 only (no IPv6).
 
-Philosophy
-This codebase will outlive you. Every shortcut becomes someone else's burden. Every ack compounds into technical debt that slows the whole team down.
-ou are not just writing code. You are shaping the future of this project. The atterns you establish will be copied. The corners you cut will be cut again. Fight entropy. Leave the codebase better than you found it.
-
-the sandboxed app is a different codebase. this current codebase is a platform for managing other codebases and running them remotely.
-
-stop adding usestate's useref's for everything, this is the easy way out for every problem which is bad practice, first think of the best way to do this before resorting to those options
-
-if the user asks you to run a migration, you need to add a migration function to clear the documents with that field in the db, then you run it, then you can get rid of the fields from the schema, then cleanup the migration function
-
-if you are using the agent-browser skill, navigate to `/?agent` to auto sign in as the agent user.
-
-Sandbox provider is Vercel; Daytona is legacy — prefer Vercel paths for sandbox/preview work.
-Sandboxes do not support IPv6 — all networking must use IPv4
-
-## Claude Fable: token parsimony
-
-When running as Fable (expensive), plan and review; delegate implementation to subagents (`model: sonnet` for code, `haiku` for mechanical edits/searches), one task per subagent. Trivial single-file edits are fine to do directly.
+Fight entropy. Leave the codebase better than you found it.

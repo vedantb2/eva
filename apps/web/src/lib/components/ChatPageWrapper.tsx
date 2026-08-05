@@ -7,8 +7,8 @@ interface ChatPageWrapperProps {
   headerLeft?: React.ReactNode;
   headerRight?: React.ReactNode;
   /**
-   * When set, replaces the header with a read-only banner (manually archived
-   * session).
+   * When set, replaces the header with a read-only banner (archived session,
+   * or session whose PR is merged/closed).
    */
   readOnlyMessage?: string;
   /** Design sessions still pass this; prefer `readOnlyMessage` for custom copy. */

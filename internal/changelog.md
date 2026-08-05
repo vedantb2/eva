@@ -1,9 +1,5 @@
 # Changelog
 
-## Merged PRs no longer lock or stop sessions - 2026-08-05
-
-Closing or merging a session PR used to flip the chat read-only, stop the sandbox, and shove the tab into Archived. That now only updates `prState` (badge still shows merged/closed). Archive is manual only. Reason: users still need the session after ship; Eva was managing lifecycle they did not ask for.
-
 ## Experimental flags live in one object - 2026-08-05
 
 Per-user experimental toggles were three separate columns plus get/set pairs on `users`. They now share `experimentalFlags` (`sessionTabs`, `blurPid`, `voiceDictation`) with `getExperimentalFlags` / `setExperimentalFlag`. Legacy booleans were backfilled and stripped on cloud + prod (`migrations:backfillExperimentalFlags`). Reason: adding more flags should not grow the user schema one column at a time.

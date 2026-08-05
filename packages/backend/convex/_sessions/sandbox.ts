@@ -127,8 +127,8 @@ export const startSandbox = authMutation({
 });
 
 /**
- * Shared stop path for the user Stop button. Marks the session `"stopping"`
- * then schedules provider teardown.
+ * Shared stop path for the user Stop button and PR-terminal webhook auto-stop.
+ * Marks the session `"stopping"` then schedules provider teardown.
  */
 export async function requestSessionSandboxStop(
   ctx: MutationCtx,

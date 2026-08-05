@@ -47,7 +47,7 @@ export function ExperimentalSettingsClient() {
         <div className="divide-y divide-border">
           <SettingsToggleRow
             title="Chrome-style session tabs"
-            description="Use horizontal tabs grouped by app. Manually archived sessions move into an Archived menu."
+            description="Use horizontal tabs grouped by app. Archived and merged PRs move into an Archived menu."
             action={
               <Switch
                 checked={flags.sessionTabs}

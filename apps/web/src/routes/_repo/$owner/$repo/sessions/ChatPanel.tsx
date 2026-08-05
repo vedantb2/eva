@@ -347,6 +347,7 @@ export function ChatPanel({
 
   const readOnlyMessage = getSessionReadOnlyMessage({
     isArchived,
+    prState,
   });
 
   return (

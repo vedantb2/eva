@@ -11,6 +11,7 @@ import {
 } from "@eva/ui";
 import { IconCode, IconClipboardList } from "@tabler/icons-react";
 import { memo } from "react";
+import { m } from "motion/react";
 import dayjs from "@eva/shared/dates";
 import { formatDuration } from "@eva/shared/duration";
 import { findAIModelOption, getReasoningLevelLabel } from "@eva/backend";
@@ -99,12 +100,14 @@ interface ChatMessageProps {
   streamingActivity?: string;
   streamingContent?: string;
   blockingQuestions?: ParsedQuestion[] | null;
+  activePendingQuestion?: ParsedQuestion[] | null;
   /**
    * True only while an answer mutation/send is in flight. Must NOT mirror
    * turn `isExecuting` — AskUserQuestion keeps the turn executing while it
    * waits for the user, which would permanently disable the card.
    */
   isQuestionLoading?: boolean;
+  onQuestionAnswer: (answer: string) => Promise<void>;
   onBlockingAnswer: (answers: Record<string, string>) => Promise<void>;
   onOpenFile?: (path: string) => void;
   onViewDiff?: (repoRelativePath?: string) => void;
@@ -122,7 +125,9 @@ export const ChatMessage = memo(function ChatMessage({
   streamingActivity,
   streamingContent,
   blockingQuestions,
+  activePendingQuestion,
   isQuestionLoading = false,
+  onQuestionAnswer,
   onBlockingAnswer,
   onOpenFile,
   onViewDiff,
@@ -162,7 +167,12 @@ export const ChatMessage = memo(function ChatMessage({
 
   return (
     <ChatMessageContextMenu content={copySource}>
-      <div data-message-id={message._id}>
+      <m.div
+        data-message-id={message._id}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+      >
         <AIMessage
           from={message.role}
           className={
@@ -244,8 +254,16 @@ export const ChatMessage = memo(function ChatMessage({
                             .map((question) => question.question)
                             .join("\u0000")}
                           questions={blockingQuestions}
-                          onAnswer={() => undefined}
+                          onAnswer={onQuestionAnswer}
                           onAnswerStructured={onBlockingAnswer}
+                          isLoading={isQuestionLoading}
+                        />
+                      </div>
+                    ) : showQuestions && activePendingQuestion ? (
+                      <div className="mt-3">
+                        <MultipleChoiceQuestion
+                          questions={activePendingQuestion}
+                          onAnswer={onQuestionAnswer}
                           isLoading={isQuestionLoading}
                         />
                       </div>
@@ -287,6 +305,15 @@ export const ChatMessage = memo(function ChatMessage({
                     {imageMedia.length > 0 ? (
                       <ImageGalleryPreview images={imageMedia} />
                     ) : null}
+                    {showQuestions && activePendingQuestion ? (
+                      <div className="mt-3">
+                        <MultipleChoiceQuestion
+                          questions={activePendingQuestion}
+                          onAnswer={onQuestionAnswer}
+                          isLoading={isQuestionLoading}
+                        />
+                      </div>
+                    ) : null}
                   </>
                 )}
               </MessageContent>
@@ -317,7 +344,7 @@ export const ChatMessage = memo(function ChatMessage({
             </>
           )}
         </AIMessage>
-      </div>
+      </m.div>
     </ChatMessageContextMenu>
   );
 });

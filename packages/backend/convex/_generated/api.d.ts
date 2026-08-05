@@ -145,7 +145,6 @@ import type * as _sandbox_runtime_helpers from "../_sandbox_runtime/helpers.js";
 import type * as _sandbox_runtime_launch from "../_sandbox_runtime/launch.js";
 import type * as _sandbox_runtime_lifecycle from "../_sandbox_runtime/lifecycle.js";
 import type * as _sandbox_runtime_prepareSandboxSteps from "../_sandbox_runtime/prepareSandboxSteps.js";
-import type * as _sandbox_runtime_previewAnnotationScript from "../_sandbox_runtime/previewAnnotationScript.js";
 import type * as _sandbox_runtime_previewProxy from "../_sandbox_runtime/previewProxy.js";
 import type * as _sandbox_runtime_previewRecovery from "../_sandbox_runtime/previewRecovery.js";
 import type * as _sandbox_runtime_proof from "../_sandbox_runtime/proof.js";
@@ -467,7 +466,6 @@ declare const fullApi: ApiFromModules<{
   "_sandbox_runtime/launch": typeof _sandbox_runtime_launch;
   "_sandbox_runtime/lifecycle": typeof _sandbox_runtime_lifecycle;
   "_sandbox_runtime/prepareSandboxSteps": typeof _sandbox_runtime_prepareSandboxSteps;
-  "_sandbox_runtime/previewAnnotationScript": typeof _sandbox_runtime_previewAnnotationScript;
   "_sandbox_runtime/previewProxy": typeof _sandbox_runtime_previewProxy;
   "_sandbox_runtime/previewRecovery": typeof _sandbox_runtime_previewRecovery;
   "_sandbox_runtime/proof": typeof _sandbox_runtime_proof;

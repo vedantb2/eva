@@ -53,9 +53,9 @@ Pasting a wall of text into a composer flooded the input and made the draft hard
 - Rebuilt the Overview tab as GitHub's Conversation layout: description bubble, then a chronological timeline of comments, review verdicts with their inline comments nested underneath, and pushes grouped as "added N commits"; a merge box at the foot and a metadata sidebar for reviewers, assignees, and labels. This replaces the stat grid, ratio bar, and eight-card stack that read as generated filler. Narrow session panes stack the sidebar below the merge box.
 - Diffs toolbar and file headers follow GitHub conventions more closely: "N changed files", no chip on ordinary modified files, segmented Unified/Split control, and the viewed counter grouped with the review action on the right.
 
-## Agent browser lock aurora overlay - 2026-08-02
+## Agent browser soft-lock without aurora - 2026-08-05
 
-Replaced the full-panel grey scrim with a viewport aurora ring and floating “Take control” bar so users can watch the agent drive Chrome while still reaching the sandbox toolbar. Soft-lock TTL now clears the overlay on expiry without waiting for an unrelated re-render.
+Soft-lock keeps the viewport visible with a floating “Take control” bar (and click-anywhere catcher); dropped the animated aurora ring. Soft-lock TTL still clears the overlay on expiry without waiting for an unrelated re-render.
 
 ## Session chat + sandbox polish - 2026-08-02
 

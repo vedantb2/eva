@@ -5,15 +5,13 @@ interface AgentControlOverlayProps {
 }
 
 /**
- * Soft lock chrome while the agent drives the sandbox browser: aurora ring
- * on the viewport edge, invisible catcher (click anywhere takes control),
- * and a floating bottom bar with an explicit CTA. No scrim — the view stays
- * visible so the user can watch.
+ * Soft lock chrome while the agent drives the sandbox browser: invisible
+ * catcher (click anywhere takes control) and a floating bottom bar with an
+ * explicit CTA. No scrim — the view stays visible so the user can watch.
  */
 export function AgentControlOverlay({ onTakeControl }: AgentControlOverlayProps) {
   return (
     <div className="absolute inset-0">
-      <div className="agent-aurora-ring absolute inset-0 z-20" aria-hidden />
       <button
         type="button"
         onClick={onTakeControl}

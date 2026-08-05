@@ -142,75 +142,20 @@ export function opencodeToolToStep(part: JsonObject): ProgressStep {
   return step;
 }
 
-function resolveCursorToolCall(toolCall: JsonObject): {
-  kind: string;
-  args: JsonObject;
-  displayName: string;
-} {
-  for (const key of Object.keys(toolCall)) {
-    if (!key.endsWith("ToolCall")) continue;
-    const payload = toolCall[key];
-    if (!payload || typeof payload !== "object" || Array.isArray(payload))
-      continue;
-    const args =
-      "args" in payload &&
-      payload.args &&
-      typeof payload.args === "object" &&
-      !Array.isArray(payload.args)
-        ? payload.args
-        : "input" in payload &&
-            payload.input &&
-            typeof payload.input === "object" &&
-            !Array.isArray(payload.input)
-          ? payload.input
-          : "parameters" in payload &&
-              payload.parameters &&
-              typeof payload.parameters === "object" &&
-              !Array.isArray(payload.parameters)
-            ? payload.parameters
-            : payload;
-    return {
-      kind: key.slice(0, -"ToolCall".length).toLowerCase(),
-      args,
-      displayName: key,
-    };
-  }
-  const flatName =
-    typeof toolCall.name === "string"
-      ? toolCall.name
-      : typeof toolCall.tool === "string"
-        ? toolCall.tool
-        : typeof toolCall.type === "string"
-          ? toolCall.type
-          : "";
-  const flatArgs =
-    toolCall.args &&
-    typeof toolCall.args === "object" &&
-    !Array.isArray(toolCall.args)
-      ? toolCall.args
-      : toolCall.input &&
-          typeof toolCall.input === "object" &&
-          !Array.isArray(toolCall.input)
-        ? toolCall.input
-        : toolCall.parameters &&
-            typeof toolCall.parameters === "object" &&
-            !Array.isArray(toolCall.parameters)
-          ? toolCall.parameters
-          : {};
-  return {
-    kind: flatName.toLowerCase(),
-    args: flatArgs,
-    displayName: flatName,
-  };
-}
-
-/** Converts a Cursor tool_call event payload into a UI progress step object. */
-export function cursorToolToStep(toolCall: JsonObject): ProgressStep {
-  const { kind, args, displayName } = resolveCursorToolCall(toolCall);
+/**
+ * Converts a Cursor SDK tool_call event (flat `name` + `args`) into a UI
+ * progress step. Known SDK tool kinds map directly; a heuristic chain catches
+ * renamed/unknown tools since Cursor marks tool schemas as unstable.
+ */
+export function cursorSdkToolToStep(
+  name: string,
+  args: JsonObject,
+): ProgressStep {
   const pickString = (keys: string[]): string => {
     for (const key of keys) {
-      if (typeof args[key] === "string" && args[key].trim()) {
-        return args[key];
+      const value = args[key];
+      if (typeof value === "string" && value.trim()) {
+        return value;
       }
     }
     return "";
@@ -224,7 +169,7 @@ export function cursorToolToStep(toolCall: JsonObject): ProgressStep {
     "relativePath",
     "relative_path",
   ]);
-  const path = rawPath ? shortenPath(String(rawPath)) : "";
+  const path = rawPath ? shortenPath(rawPath) : "";
   const command = pickString(["command", "cmd"]);
   const query = pickString([
     "query",
@@ -233,32 +178,131 @@ export function cursorToolToStep(toolCall: JsonObject): ProgressStep {
     "glob_pattern",
     "globPattern",
   ]);
-  const tool = kind || displayName.toLowerCase();
-  let step: ProgressStep;
+
+  switch (name) {
+    case "read":
+      return {
+        type: "read",
+        label: "Reading file...",
+        detail: path || undefined,
+        path: rawPath || undefined,
+        status: "active",
+      };
+    case "write": {
+      const fileText = pickString([
+        "fileText",
+        "file_text",
+        "content",
+        "contents",
+      ]);
+      return {
+        type: "write",
+        label: "Creating file...",
+        detail: path || undefined,
+        path: rawPath || undefined,
+        contentPreview: fileText ? capContentPreview(fileText) : undefined,
+        status: "active",
+      };
+    }
+    case "edit":
+      return {
+        type: "edit",
+        label: "Editing file...",
+        detail: path || undefined,
+        path: rawPath || undefined,
+        edits: extractClaudeEdits(args),
+        status: "active",
+      };
+    case "delete":
+      return {
+        type: "edit",
+        label: "Deleting file...",
+        detail: path || undefined,
+        path: rawPath || undefined,
+        status: "active",
+      };
+    case "glob":
+      return {
+        type: "search_files",
+        label: "Searching files...",
+        detail: query || path || undefined,
+        status: "active",
+      };
+    case "ls":
+      return {
+        type: "search_files",
+        label: "Searching files...",
+        detail: path || undefined,
+        status: "active",
+      };
+    case "grep":
+    case "semSearch":
+      return {
+        type: "search_code",
+        label: "Searching code...",
+        detail: query || path || undefined,
+        status: "active",
+      };
+    case "shell":
+      return {
+        type: "bash",
+        label: "Running command...",
+        detail: command ? command.slice(0, 300) : undefined,
+        command: command ? capCommand(command) : undefined,
+        status: "active",
+      };
+    case "task":
+      return {
+        type: "subtask",
+        label: "Running agent...",
+        detail: pickString(["description", "prompt"]) || undefined,
+        status: "active",
+      };
+    case "createPlan":
+    case "updateTodos":
+      return { type: "tool", label: "Updating tasks...", status: "active" };
+    case "mcp": {
+      const server = pickString([
+        "server",
+        "serverName",
+        "server_name",
+        "toolName",
+        "tool_name",
+      ]);
+      return {
+        type: "tool",
+        label: server ? "Using MCP " + server + "..." : "Using MCP tool...",
+        status: "active",
+      };
+    }
+  }
+
+  const tool = name.toLowerCase();
   if (tool.includes("read")) {
-    step = {
+    return {
       type: "read",
       label: "Reading file...",
       detail: path || undefined,
       path: rawPath || undefined,
       status: "active",
     };
-  } else if (tool.includes("write") || tool.includes("create")) {
-    step = {
+  }
+  if (tool.includes("write") || tool.includes("create")) {
+    return {
       type: "write",
       label: "Creating file...",
       detail: path || undefined,
       path: rawPath || undefined,
       status: "active",
     };
-  } else if (
+  }
+  if (
     tool.includes("edit") ||
     tool.includes("patch") ||
     tool.includes("apply") ||
-    tool.includes("replace") ||
-    tool.includes("strreplace")
+    tool.includes("replace")
   ) {
-    step = {
+    return {
       type: "edit",
       label: "Editing file...",
       detail: path || undefined,
@@ -266,63 +310,71 @@ export function cursorToolToStep(toolCall: JsonObject): ProgressStep {
       status: "active",
       edits: extractClaudeEdits(args),
     };
-  } else if (tool.includes("delete") || tool.includes("remove")) {
-    step = {
+  }
+  if (tool.includes("delete") || tool.includes("remove")) {
+    return {
       type: "edit",
       label: "Deleting file...",
       detail: path || undefined,
       path: rawPath || undefined,
       status: "active",
     };
-  } else if (tool.includes("glob") || tool.includes("list") || tool === "ls") {
-    step = {
+  }
+  if (tool.includes("glob") || tool.includes("list")) {
+    return {
       type: "search_files",
       label: "Searching files...",
       detail: query || path || undefined,
       status: "active",
     };
-  } else if (tool.includes("grep") || tool.includes("search")) {
-    step = {
+  }
+  if (tool.includes("grep") || tool.includes("search")) {
+    return {
       type: tool.includes("file") ? "search_files" : "search_code",
       label: tool.includes("file") ? "Searching files..." : "Searching code...",
       detail: query || path || undefined,
       status: "active",
     };
-  } else if (
+  }
+  if (
     tool.includes("bash") ||
     tool.includes("shell") ||
     tool.includes("exec") ||
     tool.includes("command") ||
     tool.includes("terminal")
   ) {
-    step = {
+    return {
       type: "bash",
       label: "Running command...",
       detail: command ? command.slice(0, 300) : undefined,
       command: command ? capCommand(command) : undefined,
       status: "active",
     };
-  } else if (
+  }
+  if (
     tool.includes("webfetch") ||
     tool.includes("web_fetch") ||
     (tool.includes("fetch") && !tool.includes("search"))
   ) {
-    step = {
+    return {
       type: "web_fetch",
       label: "Fetching URL...",
       detail: query || undefined,
       status: "active",
     };
-  } else if (tool.includes("websearch") || tool.includes("web_search")) {
-    step = {
+  }
+  if (tool.includes("websearch") || tool.includes("web_search")) {
+    return {
       type: "web_search",
       label: "Searching web...",
       detail: query || undefined,
       status: "active",
     };
-  } else if (tool.includes("todo")) {
-    step = { type: "tool", label: "Updating tasks...", status: "active" };
-  } else if (tool.includes("mcp")) {
+  }
+  if (tool.includes("todo") || tool.includes("plan")) {
+    return { type: "tool", label: "Updating tasks...", status: "active" };
+  }
+  if (tool.includes("mcp")) {
     const server = pickString([
       "server",
       "serverName",
@@ -330,24 +382,17 @@ export function cursorToolToStep(toolCall: JsonObject): ProgressStep {
       "toolName",
       "tool_name",
     ]);
-    step = {
+    return {
       type: "tool",
       label: server ? "Using MCP " + server + "..." : "Using MCP tool...",
       status: "active",
     };
-  } else {
-    const fallbackName = displayName || kind || "tool";
-    step = {
-      type: "tool",
-      label: "Using " + fallbackName + "...",
-      status: "active",
-    };
   }
-  const toolUseId = pickToolCallId(toolCall);
-  if (toolUseId) {
-    step.toolUseId = toolUseId;
-  }
-  return step;
+  return {
+    type: "tool",
+    label: "Using " + (name || "tool") + "...",
+    status: "active",
+  };
 }
 
 /** Converts a Claude tool call into a UI progress step object. */

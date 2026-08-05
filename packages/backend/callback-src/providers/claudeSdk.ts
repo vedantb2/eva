@@ -99,7 +99,7 @@ export type SdkModule = {
 };
 
 /** Resolves the sandbox's global npm root once (e.g. /usr/lib/node_modules). */
-function globalNpmRoot(): string {
+export function globalNpmRoot(): string {
   return execSync("npm root -g", { encoding: "utf8" }).trim();
 }
 

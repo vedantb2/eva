@@ -149,6 +149,12 @@ type CallbackState = {
   heartbeatFailureStreakStartedAt: number;
   inFlightToolUses: number;
   codexToolItemIds: Set<string>;
+  /** Cursor SDK tool_call ids already pushed as steps (dedup for repeated
+   * `running` events and terminal-without-running pairs). */
+  cursorKnownToolIds: Set<string>;
+  /** Cursor SDK tool_call ids that reached a terminal status (dedup for
+   * repeated completed/error events). */
+  cursorTerminalToolIds: Set<string>;
   /** Current todo checklist for this turn, rebuilt from TodoWrite/TaskCreate/
    * TaskUpdate calls and mirrored into the single "todos" activity step. */
   todoState: TodoItem[];
@@ -201,6 +207,8 @@ export const callbackState: CallbackState = {
   heartbeatFailureStreakStartedAt: 0,
   inFlightToolUses: 0,
   codexToolItemIds: new Set<string>(),
+  cursorKnownToolIds: new Set<string>(),
+  cursorTerminalToolIds: new Set<string>(),
   todoState: [],
   awaitingQuestionAnswer: false,
   doneFileWritten: false,
@@ -269,6 +277,8 @@ export function resetStateForTests(): void {
   callbackState.claudeInitAt = 0;
   callbackState.resultEventSeen = false;
   callbackState.parsedStreamEventCount = 0;
+  callbackState.cursorKnownToolIds.clear();
+  callbackState.cursorTerminalToolIds.clear();
   callbackState.currentStreamedContent = "";
   callbackState.streamedAssistantTextThisMessage = false;
   callbackState.pendingParagraphBreak = false;

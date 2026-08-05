@@ -149,13 +149,14 @@ export const CURSOR_RUNTIME_HOME_DIR =
   process.env.CURSOR_RUNTIME_HOME_DIR || "/tmp/cursor-home";
 export const CURSOR_PERSIST_DIR =
   process.env.CURSOR_PERSIST_DIR || "/home/eva/.cursor-persist";
-const CURSOR_BIN_PATH =
-  process.env.CURSOR_BIN_PATH || "/home/eva/.local/bin/cursor-agent";
 const CURSOR_STATE_FILE = "session-state.json";
 export const CURSOR_LOCAL_STATE_FILE =
   CURSOR_RUNTIME_HOME_DIR + "/" + CURSOR_STATE_FILE;
 export const CURSOR_PERSIST_STATE_FILE =
   CURSOR_PERSIST_DIR + "/" + CURSOR_STATE_FILE;
+/** Cursor SDK JSONL agent store — on the persist volume so conversation state
+ * (agents/runs/checkpoints) survives sandbox stop/resume. */
+export const CURSOR_SDK_STORE_DIR = CURSOR_PERSIST_DIR + "/sdk";
 const CLAUDE_SESSION_PROJECT_DIR = WORK_DIR.replace(/\//g, "-");
 export const CLAUDE_LOCAL_PROJECT_DIR =
   CLAUDE_RUNTIME_CONFIG_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
@@ -244,9 +245,9 @@ export const normalizedCodexModel = MODEL.startsWith("codex:")
 export const normalizedOpencodeModel = MODEL.startsWith("opencode:")
   ? MODEL.slice("opencode:".length)
   : MODEL;
-// Cursor CLI renamed Grok slugs (Jul 2026): grok-4.5-* → cursor-grok-4.5-*.
-// Eva UI keeps cursor:grok-4.5-*; this map is what --model receives.
-const CURSOR_CLI_MODEL_IDS: Record<string, string> = {
+// Cursor renamed Grok slugs (Jul 2026): grok-4.5-* → cursor-grok-4.5-*.
+// Eva UI keeps cursor:grok-4.5-*; this map is what the SDK's model.id receives.
+const CURSOR_MODEL_IDS: Record<string, string> = {
   "grok-4.5-low": "cursor-grok-4.5-low",
   "grok-4.5-medium": "cursor-grok-4.5-medium",
   "grok-4.5-high": "cursor-grok-4.5-high",
@@ -260,16 +261,13 @@ const cursorModelRaw = MODEL.startsWith("cursor:")
   : MODEL;
 
 export const normalizedCursorModel =
-  CURSOR_CLI_MODEL_IDS[cursorModelRaw] ?? cursorModelRaw;
+  CURSOR_MODEL_IDS[cursorModelRaw] ?? cursorModelRaw;
 const codexCommand = existsSync(CODEX_BIN_PATH)
   ? JSON.stringify(CODEX_BIN_PATH)
   : "codex";
 const opencodeCommand = existsSync(OPENCODE_BIN_PATH)
   ? JSON.stringify(OPENCODE_BIN_PATH)
   : "opencode";
-const cursorCommand = existsSync(CURSOR_BIN_PATH)
-  ? JSON.stringify(CURSOR_BIN_PATH)
-  : "cursor-agent";
 export const codexPromptCmd = SYSTEM_PROMPT
   ? "(printf %s\\n\\n " +
     JSON.stringify(SYSTEM_PROMPT) +
@@ -284,20 +282,6 @@ export const opencodeExecBaseCmd =
   opencodeCommand +
   " run --format json --model " +
   JSON.stringify(normalizedOpencodeModel);
-const cursorPromptExpr = SYSTEM_PROMPT
-  ? '"$(printf %s\\n\\n ' +
-    JSON.stringify(SYSTEM_PROMPT) +
-    '; cat /tmp/design-prompt.txt)"'
-  : '"$(cat /tmp/design-prompt.txt)"';
-export const cursorExecBaseCmd =
-  cursorCommand +
-  " -p " +
-  cursorPromptExpr +
-  " --force --trust --workspace " +
-  JSON.stringify(WORK_DIR) +
-  " --model " +
-  JSON.stringify(normalizedCursorModel) +
-  " --output-format stream-json --approve-mcps";
 export const TOOL_STEP_TYPES = new Set([
   "read",
   "search_files",

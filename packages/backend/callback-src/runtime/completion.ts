@@ -126,7 +126,15 @@ export function extractResultEvent(output: string): ResultEvent | null {
     let isError = false;
     let sawResult = false;
     let durationMs = 0;
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let cacheReadTokens = 0;
+    let cacheWriteTokens = 0;
     const assistantParts: string[] = [];
+    const readTokenField = (usage: JsonObject, key: string): number => {
+      const value = usage[key];
+      return typeof value === "number" && Number.isFinite(value) ? value : 0;
+    };
     for (const line of output.split("\n")) {
       const clean = line.trim();
       if (!clean) continue;
@@ -142,6 +150,24 @@ export function extractResultEvent(output: string): ResultEvent | null {
             resultText = parsed.result;
           } else if (parsed.result !== undefined) {
             resultText = JSON.stringify(parsed.result);
+          }
+          // The SDK runner synthesizes this line from run.wait() with real
+          // token usage (the old CLI reported nothing here).
+          if (
+            parsed.usage &&
+            typeof parsed.usage === "object" &&
+            !Array.isArray(parsed.usage)
+          ) {
+            inputTokens = readTokenField(parsed.usage, "input_tokens");
+            outputTokens = readTokenField(parsed.usage, "output_tokens");
+            cacheReadTokens = readTokenField(
+              parsed.usage,
+              "cache_read_input_tokens",
+            );
+            cacheWriteTokens = readTokenField(
+              parsed.usage,
+              "cache_creation_input_tokens",
+            );
           }
           continue;
         }
@@ -176,10 +202,10 @@ export function extractResultEvent(output: string): ResultEvent | null {
           provider: "cursor",
           totalCostUsd: 0,
           durationMs: durationMs || attemptElapsedMs(),
-          inputTokens: 0,
-          outputTokens: 0,
-          cacheReadInputTokens: 0,
-          cacheCreationInputTokens: 0,
+          inputTokens,
+          outputTokens,
+          cacheReadInputTokens: cacheReadTokens,
+          cacheCreationInputTokens: cacheWriteTokens,
           model: normalizedCursorModel,
         }),
       };

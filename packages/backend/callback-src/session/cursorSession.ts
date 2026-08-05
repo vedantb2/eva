@@ -1,15 +1,12 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import {
   CURSOR_LOCAL_STATE_FILE,
   CURSOR_PERSIST_DIR,
   CURSOR_PERSIST_STATE_FILE,
   CURSOR_RUNTIME_HOME_DIR,
-  WORK_DIR,
 } from "../config.js";
 import { updateThinkingStep } from "../parse/canonical.js";
 import { callbackState as S } from "../runtime/state.js";
 import type { SessionMode } from "../types.js";
-import { tryParseJson } from "../utils.js";
 import { createSessionStore } from "./createSessionStore.js";
 
 const store = createSessionStore({
@@ -31,59 +28,9 @@ export function syncCursorStateToPersist(): void {
 }
 
 function hydratePersistedCursorState(): void {
+  // MCP config is no longer written to WORK_DIR/.cursor/mcp.json — the SDK
+  // runner passes /tmp/eva-mcp.json servers inline (readCursorSdkMcpServers).
   store.hydratePersistedState("hydratePersistedCursorState");
-  if (existsSync("/tmp/eva-mcp.json")) {
-    try {
-      const raw = readFileSync("/tmp/eva-mcp.json", "utf8");
-      const evaMcp = tryParseJson(raw);
-      const cursorDir = WORK_DIR + "/.cursor";
-      mkdirSync(cursorDir, { recursive: true });
-      const cursorMcp: {
-        mcpServers: Record<
-          string,
-          { url?: string; headers?: Record<string, string> }
-        >;
-      } = { mcpServers: {} };
-      if (
-        evaMcp &&
-        typeof evaMcp === "object" &&
-        !Array.isArray(evaMcp) &&
-        evaMcp.mcpServers &&
-        typeof evaMcp.mcpServers === "object" &&
-        !Array.isArray(evaMcp.mcpServers)
-      ) {
-        for (const [name, server] of Object.entries(evaMcp.mcpServers)) {
-          if (!server || typeof server !== "object" || Array.isArray(server))
-            continue;
-          const entry: { url?: string; headers?: Record<string, string> } = {};
-          if (typeof server.url === "string") entry.url = server.url;
-          if (
-            server.headers &&
-            typeof server.headers === "object" &&
-            !Array.isArray(server.headers)
-          ) {
-            const headers: Record<string, string> = {};
-            for (const [hk, hv] of Object.entries(server.headers)) {
-              if (typeof hv === "string") headers[hk] = hv;
-            }
-            if (Object.keys(headers).length > 0) entry.headers = headers;
-          }
-          if (Object.keys(entry).length > 0) {
-            cursorMcp.mcpServers[name] = entry;
-          }
-        }
-      }
-      writeFileSync(
-        cursorDir + "/mcp.json",
-        JSON.stringify(cursorMcp, null, 2),
-      );
-    } catch (error) {
-      console.error(
-        "Failed to translate MCP config for Cursor:",
-        String(error),
-      );
-    }
-  }
 }
 
 export function prepareCursorSessionState(): SessionMode {

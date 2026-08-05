@@ -1,0 +1,12 @@
+{"type":"system","subtype":"init","agent_id":"agent_cursor1","model":"composer-2.5"}
+{"type":"assistant","message":{"content":[{"type":"text","text":"Let me check the repo."}]}}
+{"type":"thinking","text":"planning the change"}
+{"type":"tool_call","call_id":"call_cursor1","name":"shell","status":"running","args":{"command":"ls -la"}}
+{"type":"tool_call","call_id":"call_cursor1","name":"shell","status":"running","args":{"command":"ls -la"}}
+{"type":"tool_call","call_id":"call_cursor1","name":"shell","status":"completed","args":{"command":"ls -la"},"result":{"status":"success","value":{"exitCode":0,"stdout":"total 12","stderr":"","executionTime":42}}}
+{"type":"tool_call","call_id":"call_cursor1","name":"shell","status":"completed","args":{"command":"ls -la"},"result":{"status":"success","value":{"exitCode":0,"stdout":"total 12"}}}
+{"type":"tool_call","call_id":"call_edit1","name":"edit","status":"running","args":{"path":"src/a.ts"}}
+{"type":"tool_call","call_id":"call_edit1","name":"edit","status":"completed","args":{"path":"src/a.ts"},"result":{"status":"success","value":{"diffString":"-const x = 1\n+const x = 2","linesAdded":1,"linesRemoved":1}}}
+{"type":"tool_call","call_id":"call_fail1","name":"shell","status":"error","args":{"command":"false"},"result":{"status":"error","error":"command exited with status 1"}}
+{"type":"usage","usage":{"inputTokens":1200,"outputTokens":300,"cacheReadTokens":100,"cacheWriteTokens":50,"totalTokens":1650}}
+{"type":"result","is_error":false,"result":"Done.","duration_ms":4200,"usage":{"input_tokens":1200,"output_tokens":300,"cache_read_input_tokens":100,"cache_creation_input_tokens":50}}

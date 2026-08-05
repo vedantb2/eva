@@ -81,7 +81,7 @@ export function SidebarSessionItem({
         <DynamicLink
           to={href}
           onClick={onNavigate}
-          className="block rounded-lg border border-transparent px-4 py-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+          className="block rounded-menu-item px-4 py-1.5 text-[13px] leading-[18px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
         >
           <div className="flex min-w-0 items-center gap-2">
             <span
@@ -90,7 +90,7 @@ export function SidebarSessionItem({
             />
             <MarqueeOnHover
               className={cn(
-                "min-w-0 flex-1 text-sm transition-colors duration-200",
+                "min-w-0 flex-1 transition-colors duration-200",
                 isSelected
                   ? "font-medium text-sidebar-primary"
                   : "text-sidebar-foreground/80 hover:text-sidebar-foreground",

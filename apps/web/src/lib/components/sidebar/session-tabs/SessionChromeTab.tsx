@@ -11,11 +11,14 @@ import {
   HoverCardContent,
   HoverCardTrigger,
   cn,
+  toast,
 } from "@eva/ui";
 import {
   IconArchive,
   IconClipboard,
   IconCopy,
+  IconExternalLink,
+  IconGitBranch,
   IconGitPullRequest,
   IconLink,
   IconPencil,
@@ -43,6 +46,7 @@ export interface ChromeTabSession {
   title: string;
   status: SandboxStatus;
   userId: Id<"users">;
+  branchName?: string;
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
   firstMessagePreview?: string | null;
@@ -245,6 +249,32 @@ export function SessionChromeTab({
             <IconLink size={16} />
             Copy link
           </ContextMenuItem>
+          {session.branchName ? (
+            <ContextMenuItem
+              onSelect={() => {
+                const branchName = session.branchName;
+                if (!branchName) return;
+                void navigator.clipboard.writeText(branchName).then(() => {
+                  toast.success("Branch name copied");
+                });
+              }}
+            >
+              <IconGitBranch size={16} />
+              Copy branch name
+            </ContextMenuItem>
+          ) : null}
+          {session.prUrl ? (
+            <ContextMenuItem
+              onSelect={() => {
+                const prUrl = session.prUrl;
+                if (!prUrl) return;
+                window.open(prUrl, "_blank", "noopener,noreferrer");
+              }}
+            >
+              <IconExternalLink size={16} />
+              Open PR
+            </ContextMenuItem>
+          ) : null}
           <ContextMenuSeparator />
           <ContextMenuItem className="text-warning" onSelect={onArchiveRequest}>
             <IconArchive size={16} />

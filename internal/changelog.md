@@ -1,5 +1,9 @@
 # Changelog
 
+## Experimental flags live in one object - 2026-08-05
+
+Per-user experimental toggles were three separate columns plus get/set pairs on `users`. They now share `experimentalFlags` (`sessionTabs`, `blurPid`, `voiceDictation`) with `getExperimentalFlags` / `setExperimentalFlag`. Legacy booleans were backfilled and stripped on cloud + prod (`migrations:backfillExperimentalFlags`). Reason: adding more flags should not grow the user schema one column at a time.
+
 ## Another 1.2 MB off first load, and clicks that wait for nothing - 2026-08-04
 ## Condensed agent rules into two domain docs - 2026-08-05
 

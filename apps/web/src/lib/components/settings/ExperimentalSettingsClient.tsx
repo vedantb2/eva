@@ -7,37 +7,27 @@ import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsToggleRow } from "@/lib/components/settings/SettingsToggleRow";
 
+type ExperimentalFlagKey = "sessionTabs" | "blurPid" | "voiceDictation";
+
 export function ExperimentalSettingsClient() {
-  const enabled = useQuery(api.auth.getExperimentalSessionTabsEnabled);
-  const setEnabled = useMutation(
-    api.auth.setExperimentalSessionTabsEnabled,
-  ).withOptimisticUpdate((localStore, args) => {
-    localStore.setQuery(
-      api.auth.getExperimentalSessionTabsEnabled,
-      {},
-      args.enabled,
-    );
-  });
+  const flags = useQuery(api.auth.getExperimentalFlags);
+  const setFlag = useMutation(api.auth.setExperimentalFlag).withOptimisticUpdate(
+    (localStore, args) => {
+      const current = localStore.getQuery(api.auth.getExperimentalFlags, {});
+      if (current === undefined) return;
+      localStore.setQuery(
+        api.auth.getExperimentalFlags,
+        {},
+        { ...current, [args.key]: args.enabled },
+      );
+    },
+  );
 
-  const blurPid = useQuery(api.auth.getBlurPidEnabled);
-  const setBlurPid = useMutation(
-    api.auth.setBlurPidEnabled,
-  ).withOptimisticUpdate((localStore, args) => {
-    localStore.setQuery(api.auth.getBlurPidEnabled, {}, args.enabled);
-  });
+  const toggle = (key: ExperimentalFlagKey, enabled: boolean) => {
+    void setFlag({ key, enabled });
+  };
 
-  const voiceDictation = useQuery(api.auth.getVoiceDictationEnabled);
-  const setVoiceDictation = useMutation(
-    api.auth.setVoiceDictationEnabled,
-  ).withOptimisticUpdate((localStore, args) => {
-    localStore.setQuery(api.auth.getVoiceDictationEnabled, {}, args.enabled);
-  });
-
-  if (
-    enabled === undefined ||
-    blurPid === undefined ||
-    voiceDictation === undefined
-  ) {
+  if (flags === undefined) {
     return (
       <SettingsPage title="Experimental">
         <div className="flex items-center justify-center py-12">
@@ -60,8 +50,8 @@ export function ExperimentalSettingsClient() {
             description="Use horizontal tabs grouped by app. Archived and merged PRs move into an Archived menu."
             action={
               <Switch
-                checked={enabled}
-                onCheckedChange={(checked) => setEnabled({ enabled: checked })}
+                checked={flags.sessionTabs}
+                onCheckedChange={(checked) => toggle("sessionTabs", checked)}
                 aria-label="Chrome-style session tabs"
               />
             }
@@ -71,8 +61,8 @@ export function ExperimentalSettingsClient() {
             description="Blur names and emails when screen recording. Avatars stay visible."
             action={
               <Switch
-                checked={blurPid}
-                onCheckedChange={(checked) => setBlurPid({ enabled: checked })}
+                checked={flags.blurPid}
+                onCheckedChange={(checked) => toggle("blurPid", checked)}
                 aria-label="Blur personal info"
               />
             }
@@ -82,9 +72,9 @@ export function ExperimentalSettingsClient() {
             description="Use speech-to-text in chat and quick tasks. Requires microphone permission."
             action={
               <Switch
-                checked={voiceDictation}
+                checked={flags.voiceDictation}
                 onCheckedChange={(checked) =>
-                  setVoiceDictation({ enabled: checked })
+                  toggle("voiceDictation", checked)
                 }
                 aria-label="Voice dictation"
               />

@@ -23,6 +23,7 @@ import { SharedLayoutNav } from "@/lib/components/sidebar/SharedLayoutNav";
 import {
   repoSessionBasePaths,
   repoSessionsIndexPath,
+  sessionMatchesPath,
 } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { previewSessions } from "@/lib/components/sidebar/_utils/sessionListPreview";
 import {
@@ -89,12 +90,9 @@ export function GlobalSessionGroup({
     sessionSortOrder,
   );
   const selectedSessionId =
-    sortedSessions.find((session) => {
-      const pathSegment = entityPathSegment(session);
-      if (!pathSegment) return false;
-      const href = `${baseUrl}/${pathSegment}`;
-      return pathname === href || pathname.startsWith(`${href}/`);
-    })?._id ?? null;
+    sortedSessions.find((session) =>
+      sessionMatchesPath(repo, entityPathSegment(session), pathname),
+    )?._id ?? null;
   const {
     visible: visibleSessions,
     hasOverflow,
@@ -116,7 +114,7 @@ export function GlobalSessionGroup({
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-lg border border-transparent px-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent/50"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-menu-item px-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent/50"
           >
             <RepoLogo
               logoUrl={repo.logoUrl}
@@ -157,7 +155,7 @@ export function GlobalSessionGroup({
             type="button"
             aria-label={`New session in ${label}`}
             title={`New session in ${label}`}
-            className="flex size-7 shrink-0 items-center justify-center rounded-lg border border-transparent text-muted-foreground transition-colors hover:border-border hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            className="flex size-7 shrink-0 items-center justify-center rounded-menu-item text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
@@ -195,12 +193,11 @@ export function GlobalSessionGroup({
             >
               <AnimatePresence initial={false}>
                 {visibleSessions.map((session) => {
-                  const pathSegment = entityPathSegment(session);
-                  const href = pathSegment
-                    ? `${baseUrl}/${pathSegment}`
-                    : baseUrl;
-                  const isSelected =
-                    pathname === href || pathname.startsWith(`${href}/`);
+                  const isSelected = sessionMatchesPath(
+                    repo,
+                    entityPathSegment(session),
+                    pathname,
+                  );
                   if (listMode === "archived") {
                     return (
                       <SidebarSessionRow

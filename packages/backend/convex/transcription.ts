@@ -2,6 +2,7 @@
 
 import { gateway } from "@ai-sdk/gateway";
 import { v } from "convex/values";
+import { resolveExperimentalFlags } from "./_auth/experimentalFlags";
 import { internal } from "./_generated/api";
 import { action } from "./_generated/server";
 
@@ -99,7 +100,7 @@ export const mintTranscriptionToken = action({
     if (!user) {
       throw new Error("User not found");
     }
-    if (user.voiceDictationEnabled !== true) {
+    if (resolveExperimentalFlags(user).voiceDictation !== true) {
       throw new Error("Voice dictation is not enabled");
     }
 

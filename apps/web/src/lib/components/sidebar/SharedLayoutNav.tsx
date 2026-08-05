@@ -75,7 +75,12 @@ export function SharedLayoutNavSurface({
   isActive: boolean;
 }) {
   const { layoutId, hoveredId, setHoveredId } = useSharedLayoutNav();
-  const highlighted = hoveredId !== null ? hoveredId === itemId : isActive;
+  // Resting active uses a static fill — `layoutId` inside AnimatePresence
+  // parents (session rows) often fails to paint until hover remounts it.
+  const showStaticActive = hoveredId === null && isActive;
+  const showSlidingPill = hoveredId === itemId;
+  const pillClass =
+    "pointer-events-none absolute inset-0 rounded-menu-item border border-border bg-sidebar-accent";
 
   return (
     <div
@@ -83,11 +88,12 @@ export function SharedLayoutNavSurface({
       className={cn("relative", className)}
       onMouseEnter={() => setHoveredId(itemId)}
     >
-      {highlighted ? (
+      {showStaticActive ? <div className={pillClass} /> : null}
+      {showSlidingPill ? (
         <m.div
           layoutId={layoutId}
           transition={sidebarSharedLayoutTransition}
-          className="pointer-events-none absolute inset-0 rounded-lg border border-border bg-sidebar-accent"
+          className={pillClass}
         />
       ) : null}
       <div className="relative z-10">{children}</div>
@@ -100,11 +106,30 @@ export function sidebarNavLinkClass(
   collapsed?: boolean,
 ): string {
   return cn(
-    "group motion-base flex w-full items-center gap-2 rounded-lg border border-transparent px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
+    "group motion-base flex w-full items-center gap-2 rounded-menu-item px-4 py-1.5 text-[13px] leading-[18px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
     collapsed && "lg:justify-center lg:px-0",
     isActive
       ? "font-medium text-sidebar-primary"
       : "text-sidebar-foreground/80 hover:text-sidebar-foreground",
+  );
+}
+
+/**
+ * Row geometry for a nav row that is a `Button` rather than a `Link`.
+ *
+ * Same shape as `sidebarNavLinkClass`, plus the button defaults a nav row does
+ * not want: the fixed control height, the semibold label, the press scale, and
+ * the ghost hover fill — hover is already drawn by the highlight pill in
+ * `SharedLayoutNavSurface`, so a second fill would stack.
+ */
+export function sidebarNavButtonClass(
+  isActive: boolean,
+  collapsed?: boolean,
+): string {
+  return cn(
+    "h-auto justify-start bg-transparent active:scale-100 hover:bg-transparent",
+    !isActive && "font-normal",
+    sidebarNavLinkClass(isActive, collapsed),
   );
 }
 
@@ -114,7 +139,7 @@ export const sidebarSectionLabelClass =
 
 export function sidebarNavLinkClassCompact(isActive: boolean): string {
   return cn(
-    "group flex w-full items-center gap-2.5 rounded-lg border border-transparent px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
+    "group flex w-full items-center gap-2.5 rounded-menu-item px-4 py-1.5 text-[13px] leading-[18px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
     isActive
       ? "font-medium text-sidebar-primary"
       : "text-sidebar-foreground/80 hover:text-sidebar-foreground",
@@ -123,7 +148,7 @@ export function sidebarNavLinkClassCompact(isActive: boolean): string {
 
 export function sidebarNavListItemClass(isActive: boolean): string {
   return cn(
-    "flex w-full items-center rounded-lg border border-transparent px-4 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
+    "flex w-full items-center rounded-menu-item px-4 py-1.5 text-[13px] leading-[18px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40",
     isActive
       ? "font-medium text-sidebar-primary"
       : "text-sidebar-foreground/80 hover:text-sidebar-foreground",

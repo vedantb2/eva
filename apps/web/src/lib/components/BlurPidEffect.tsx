@@ -11,11 +11,12 @@ import { api } from "@eva/backend";
  * every call site. Renders nothing.
  */
 export function BlurPidEffect() {
-  const enabled = useQuery(api.auth.getBlurPidEnabled);
+  const flags = useQuery(api.auth.getExperimentalFlags);
+  const enabled = flags?.blurPid === true;
 
   useEffect(() => {
     const root = document.documentElement;
-    if (enabled === true) {
+    if (enabled) {
       root.setAttribute("data-blur-pid", "");
     } else {
       root.removeAttribute("data-blur-pid");

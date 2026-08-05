@@ -12,8 +12,8 @@ export function isSessionsNavPath(pathname: string): boolean {
 
 /** Convex opt-in for Chrome-style session tabs (false while loading). */
 export function useExperimentalSessionTabsEnabled(): boolean {
-  const enabled = useQuery(api.auth.getExperimentalSessionTabsEnabled);
-  return enabled === true;
+  const flags = useQuery(api.auth.getExperimentalFlags);
+  return flags?.sessionTabs === true;
 }
 
 /**

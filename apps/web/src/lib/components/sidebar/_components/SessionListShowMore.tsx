@@ -18,7 +18,7 @@ export function SessionListShowMore({
     <button
       type="button"
       onClick={onToggle}
-      className="flex w-full items-center gap-2 rounded-lg border border-transparent px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
+      className="flex w-full items-center gap-2 rounded-menu-item px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-foreground"
     >
       <IconDots size={14} />
       {expanded

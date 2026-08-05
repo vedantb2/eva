@@ -25,3 +25,19 @@ export function repoMatchesPath(repo: RepoWithLogo, pathname: string): boolean {
     (base) => pathname === base || pathname.startsWith(`${base}/`),
   );
 }
+
+/**
+ * Whether `pathname` is this session under the app. Checks slash + `--`
+ * bases — `location.pathname` is the router-internal form.
+ */
+export function sessionMatchesPath(
+  repo: RepoWithLogo,
+  pathSegment: string | null | undefined,
+  pathname: string,
+): boolean {
+  if (!pathSegment) return false;
+  return repoSessionBasePaths(repo).some((base) => {
+    const href = `${base}/sessions/${pathSegment}`;
+    return pathname === href || pathname.startsWith(`${href}/`);
+  });
+}

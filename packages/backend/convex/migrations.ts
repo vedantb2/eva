@@ -28,3 +28,4 @@ export {
 export { backfillQueuedMessageOrder } from "./_migrations/backfillQueuedMessageOrder";
 export { backfillEvaPrRecapOrigin } from "./_migrations/backfillEvaPrRecapOrigin";
 export { excludeConvexUrlFromSandbox } from "./_migrations/excludeConvexUrlFromSandbox";
+export { backfillExperimentalFlags } from "./_migrations/backfillExperimentalFlags";

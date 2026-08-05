@@ -8,12 +8,15 @@ import {
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuTrigger,
+  toast,
 } from "@eva/ui";
 import {
   IconArchive,
   IconArchiveOff,
   IconClipboard,
   IconCopy,
+  IconExternalLink,
+  IconGitBranch,
   IconLink,
   IconPencil,
 } from "@tabler/icons-react";
@@ -32,6 +35,7 @@ interface SessionItem {
   status: SessionStatus;
   updatedAt?: number;
   sandboxId?: string;
+  branchName?: string;
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
   firstMessagePreview?: string | null;
@@ -71,6 +75,8 @@ export function SidebarSessionRow<T extends SessionItem>({
   const pathSegment = entityPathSegment(session);
   const href = pathSegment ? `${baseUrl}/${pathSegment}` : baseUrl;
   const isArchivedList = onUnarchive !== undefined;
+  const branchName = session.branchName;
+  const prUrl = session.prUrl;
 
   return (
     <ContextMenu>
@@ -84,7 +90,7 @@ export function SidebarSessionRow<T extends SessionItem>({
           <SharedLayoutNavSurface
             itemId={session._id}
             isActive={isSelected}
-            className="group mx-1 rounded-lg"
+            className="group mx-1 rounded-menu-item"
           >
             <SidebarSessionItem
               href={href}
@@ -95,7 +101,7 @@ export function SidebarSessionRow<T extends SessionItem>({
               status={session.status}
               isSelected={isSelected}
               onNavigate={onNavigate}
-              prUrl={session.prUrl}
+              prUrl={prUrl}
               prState={session.prState}
               firstMessagePreview={session.firstMessagePreview}
             />
@@ -137,6 +143,28 @@ export function SidebarSessionRow<T extends SessionItem>({
           <IconLink size={16} />
           Copy link
         </ContextMenuItem>
+        {branchName ? (
+          <ContextMenuItem
+            onSelect={() => {
+              void navigator.clipboard.writeText(branchName).then(() => {
+                toast.success("Branch name copied");
+              });
+            }}
+          >
+            <IconGitBranch size={16} />
+            Copy branch name
+          </ContextMenuItem>
+        ) : null}
+        {prUrl ? (
+          <ContextMenuItem
+            onSelect={() => {
+              window.open(prUrl, "_blank", "noopener,noreferrer");
+            }}
+          >
+            <IconExternalLink size={16} />
+            Open PR
+          </ContextMenuItem>
+        ) : null}
         {isArchivedList && onUnarchive ? (
           <>
             <ContextMenuSeparator />

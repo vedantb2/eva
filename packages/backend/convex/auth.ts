@@ -11,8 +11,12 @@ import {
   roleUserValidator,
   customThemeValidator,
   userFields,
+  experimentalFlagKeyValidator,
+  resolvedExperimentalFlagsValidator,
 } from "./validators";
 import { authQuery, authMutation } from "./functions";
+import { resolveExperimentalFlags } from "./_auth/experimentalFlags";
+import type { ExperimentalFlagKey } from "./_auth/experimentalFlags";
 
 /** Resolves the current authenticated user's ID from their Clerk identity, or returns null if unauthenticated. */
 export async function getCurrentUserId(
@@ -231,72 +235,37 @@ export const setEmailNotificationsEnabled = authMutation({
 });
 
 /**
- * Returns whether Chrome-style session tabs are enabled (replaces the sessions
- * sidebar). Defaults to false (opt-in experimental).
+ * All experimental opt-in flags for the current user. Missing / unset keys are
+ * false.
  */
-export const getExperimentalSessionTabsEnabled = authQuery({
+export const getExperimentalFlags = authQuery({
   args: {},
-  returns: v.boolean(),
+  returns: resolvedExperimentalFlagsValidator,
   handler: async (ctx) => {
     const user = await ctx.db.get(ctx.userId);
-    return user?.experimentalSessionTabsEnabled ?? false;
+    return resolveExperimentalFlags(user);
   },
 });
 
-/** Updates the current user's experimental session-tabs preference. */
-export const setExperimentalSessionTabsEnabled = authMutation({
-  args: { enabled: v.boolean() },
+/** Updates one experimental flag on the current user. */
+export const setExperimentalFlag = authMutation({
+  args: {
+    key: experimentalFlagKeyValidator,
+    enabled: v.boolean(),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const user = await ctx.db.get(ctx.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+    const key: ExperimentalFlagKey = args.key;
     await ctx.db.patch(ctx.userId, {
-      experimentalSessionTabsEnabled: args.enabled,
+      experimentalFlags: {
+        ...(user.experimentalFlags ?? {}),
+        [key]: args.enabled,
+      },
     });
-    return null;
-  },
-});
-
-/**
- * Returns whether personally identifiable text (user names, email addresses) is
- * blurred across the UI. Defaults to false.
- */
-export const getBlurPidEnabled = authQuery({
-  args: {},
-  returns: v.boolean(),
-  handler: async (ctx) => {
-    const user = await ctx.db.get(ctx.userId);
-    return user?.blurPidEnabled ?? false;
-  },
-});
-
-/** Updates the current user's blur-PID preference. */
-export const setBlurPidEnabled = authMutation({
-  args: { enabled: v.boolean() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.db.patch(ctx.userId, { blurPidEnabled: args.enabled });
-    return null;
-  },
-});
-
-/**
- * Returns whether live voice dictation is enabled. Defaults to false
- * (opt-in experimental). Model is hardcoded server-side.
- */
-export const getVoiceDictationEnabled = authQuery({
-  args: {},
-  returns: v.boolean(),
-  handler: async (ctx) => {
-    const user = await ctx.db.get(ctx.userId);
-    return user?.voiceDictationEnabled ?? false;
-  },
-});
-
-/** Updates the current user's voice-dictation preference. */
-export const setVoiceDictationEnabled = authMutation({
-  args: { enabled: v.boolean() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    await ctx.db.patch(ctx.userId, { voiceDictationEnabled: args.enabled });
     return null;
   },
 });

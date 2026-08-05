@@ -142,7 +142,8 @@ export function QuickTaskModal({
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
 
   const editorRef = useRef<DescriptionMentionEditorHandle>(null);
-  const voiceEnabled = useQuery(api.auth.getVoiceDictationEnabled);
+  const flags = useQuery(api.auth.getExperimentalFlags);
+  const voiceEnabled = flags?.voiceDictation;
   const { isListening, isConnecting, toggle } =
     useGatewayDictation(setDescription);
 

@@ -21,7 +21,8 @@ import { useGatewayDictation } from "@/lib/hooks/useGatewayDictation";
  * wired through the prompt controller (fixes the old textarea-query no-op).
  */
 export function ComposerSpeechButton({ disabled }: { disabled?: boolean }) {
-  const voiceEnabled = useQuery(api.auth.getVoiceDictationEnabled);
+  const flags = useQuery(api.auth.getExperimentalFlags);
+  const voiceEnabled = flags?.voiceDictation;
   const { textInput } = usePromptInputController();
 
   if (voiceEnabled === true) {

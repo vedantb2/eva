@@ -7,7 +7,10 @@ import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { Spinner, cn } from "@eva/ui";
 import { RepoLogo } from "@/lib/components/RepoLogo";
-import { repoSessionBasePaths } from "@/lib/components/sidebar/_utils/repoSessionPaths";
+import {
+  repoSessionBasePaths,
+  sessionMatchesPath,
+} from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { sortSessionsForSidebar } from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
 import {
   SessionChromeTab,
@@ -67,7 +70,7 @@ export function SessionChromeTabGroup({
     return {
       session,
       href,
-      isSelected: pathname === href || pathname.startsWith(`${href}/`),
+      isSelected: sessionMatchesPath(repo, pathSegment, pathname),
     };
   });
 

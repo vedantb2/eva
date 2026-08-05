@@ -119,3 +119,27 @@ export const taskProgressFields = {
 };
 
 export const taskProgressValidator = v.object(taskProgressFields);
+
+/** Known per-user experimental opt-in keys (settings → Experimental). */
+export const experimentalFlagKeyValidator = v.union(
+  v.literal("sessionTabs"),
+  v.literal("blurPid"),
+  v.literal("voiceDictation"),
+);
+
+/** Stored shape on `users.experimentalFlags` — missing key means off. */
+export const experimentalFlagsFields = {
+  sessionTabs: v.optional(v.boolean()),
+  blurPid: v.optional(v.boolean()),
+  voiceDictation: v.optional(v.boolean()),
+};
+
+export const experimentalFlagsValidator = v.object(experimentalFlagsFields);
+
+/** Fully resolved flags for clients (every key present, default false). */
+export const resolvedExperimentalFlagsValidator = v.object({
+  sessionTabs: v.boolean(),
+  blurPid: v.boolean(),
+  voiceDictation: v.boolean(),
+});
+

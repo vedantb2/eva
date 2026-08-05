@@ -338,7 +338,7 @@ export function ProjectDetailClient({
           </button>
           <IconChevronRight
             size={14}
-            className="text-muted-foreground/50 flex-shrink-0"
+            className="text-muted-foreground/50 shrink-0"
           />
           <MarqueeOnHover className="min-w-0 font-semibold">
             {project.title}

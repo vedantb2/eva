@@ -109,7 +109,7 @@ export function ReposClient() {
     <PageWrapper
       title="Codebases"
       headerRight={
-        <div className="flex min-w-[11rem] items-center justify-end gap-2">
+        <div className="flex min-w-44 items-center justify-end gap-2">
           {(repos === undefined || hasRepos) && (
             <>
               <DropdownMenu>
@@ -215,7 +215,7 @@ export function ReposClient() {
     >
       {repos === undefined || appSlug === undefined ? (
         <div
-          className="min-h-[28rem] space-y-6"
+          className="min-h-112 space-y-6"
           aria-busy="true"
           aria-label="Loading repositories"
         >

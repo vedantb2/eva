@@ -31,4 +31,4 @@ export const CONTROL_RADIUS_CLASS = "rounded-control";
 /** Streamdown table-wrapper uses rounded-lg; inner scroll div uses rounded-md. */
 
 export const STREAMDOWN_TABLE_RADIUS_CLASS =
-  "[&_[data-streamdown=table-wrapper]]:rounded-surface [&_[data-streamdown=table-wrapper]>div]:rounded-surface";
+  "**:data-[streamdown=table-wrapper]:rounded-surface [&_[data-streamdown=table-wrapper]>div]:rounded-surface";

@@ -147,7 +147,7 @@ export function DesignVariationsPanel({
             className="relative m-0 min-h-0 flex-1 bg-muted/30"
           >
             <div
-              className={`absolute inset-0 transition-[width,height,inset] duration-150 ${view === "mobile" ? "mx-auto my-auto aspect-[9/16] max-h-[100%] overflow-hidden rounded-surface border border-border bg-background" : ""}`}
+              className={`absolute inset-0 transition-[width,height,inset] duration-150 ${view === "mobile" ? "mx-auto my-auto aspect-9/16 max-h-full overflow-hidden rounded-surface border border-border bg-background" : ""}`}
             >
               {previewUrl ? (
                 <iframe

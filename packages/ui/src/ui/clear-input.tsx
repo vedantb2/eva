@@ -68,7 +68,7 @@ const ClearInput = React.forwardRef<HTMLInputElement, ClearInputProps>(
           }}
           placeholder={placeholder}
           className={cn(
-            "flex h-10 w-full border border-input bg-card px-3.5 py-2 text-sm transition-[border-color,box-shadow,background-color] placeholder:text-muted-foreground/90 focus-visible:border-ring/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/35 disabled:cursor-not-allowed disabled:opacity-50",
+            "flex h-10 w-full border border-input bg-card px-3.5 py-2 text-sm transition-[border-color,box-shadow,background-color] placeholder:text-muted-foreground/90 focus-visible:border-ring/60 focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring/35 disabled:cursor-not-allowed disabled:opacity-50",
             CONTROL_RADIUS_CLASS,
             value.length > 0 && "pr-9",
             className,
@@ -78,7 +78,7 @@ const ClearInput = React.forwardRef<HTMLInputElement, ClearInputProps>(
         {value.length > 0 ? (
           <button
             type="button"
-            className="absolute right-2 top-1/2 z-[4] inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color] hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring/35"
+            className="absolute right-2 top-1/2 z-4 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color] hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring/35"
             aria-label={clearLabel}
             onPointerDown={preventFocusSteal}
             onMouseDown={preventFocusSteal}

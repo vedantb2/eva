@@ -60,7 +60,7 @@ export function SessionTabsOverflowMenu({
           type="button"
           title="All sessions"
           aria-label="All sessions"
-          className="flex h-full w-10 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-foreground/[0.06] hover:text-foreground"
+          className="flex h-full w-10 shrink-0 items-center justify-center text-muted-foreground transition-colors hover:bg-foreground/6 hover:text-foreground"
         >
           <IconChevronDown size={16} />
         </button>

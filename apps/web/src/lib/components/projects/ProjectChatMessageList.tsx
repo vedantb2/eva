@@ -22,7 +22,7 @@ interface ProjectChatMessageListProps {
 const evaIcon = (
   <EvaIcon
     size={20}
-    className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
+    className="rounded-full outline-solid outline-1 outline-black/10 dark:outline-white/10"
   />
 );
 

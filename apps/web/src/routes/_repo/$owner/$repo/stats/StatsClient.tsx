@@ -75,7 +75,7 @@ export function StatsClient() {
     >
       {isLoading ? (
         <div
-          className="min-h-[36rem] space-y-6"
+          className="min-h-144 space-y-6"
           aria-busy="true"
           aria-label="Loading stats"
         >

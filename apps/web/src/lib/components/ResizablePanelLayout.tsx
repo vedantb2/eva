@@ -171,7 +171,7 @@ export function ResizablePanelLayout({
         {leftPanel(ctx)}
       </Panel>
       <Separator
-        className={`w-px bg-border hover:bg-primary/50 data-[resize-handle-active]:bg-primary transition-colors ${rightCollapsed ? "hidden" : ""}`}
+        className={`w-px bg-border hover:bg-primary/50 data-resize-handle-active:bg-primary transition-colors ${rightCollapsed ? "hidden" : ""}`}
       >
         <div className="flex items-center justify-center w-3 h-full -mx-1.5 relative z-10">
           <IconGripVertical className="w-4 h-4 text-muted-foreground/50" />

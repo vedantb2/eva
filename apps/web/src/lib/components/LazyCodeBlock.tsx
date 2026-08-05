@@ -31,7 +31,7 @@ export function LazyCodeBlock({
   return (
     <div
       dangerouslySetInnerHTML={{ __html: html }}
-      className="text-xs [&_pre]:p-3 [&_pre]:m-0 [&_pre]:overflow-x-auto [&_code]:whitespace-pre-wrap [&_code]:break-words"
+      className="text-xs [&_pre]:p-3 [&_pre]:m-0 [&_pre]:overflow-x-auto [&_code]:whitespace-pre-wrap [&_code]:wrap-break-word"
     />
   );
 }

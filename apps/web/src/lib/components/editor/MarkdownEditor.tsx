@@ -38,7 +38,7 @@ export function MarkdownEditor({
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm dark:prose-invert max-w-none min-h-[12rem] px-3 py-2 outline-none focus:outline-none",
+          "prose prose-sm dark:prose-invert max-w-none min-h-48 px-3 py-2 outline-hidden focus:outline-hidden",
       },
     },
   });
@@ -55,7 +55,7 @@ export function MarkdownEditor({
       <div className="scrollbar min-h-0 flex-1 overflow-y-auto rounded-control border border-border bg-muted/40">
         <EditorContent
           editor={editor}
-          className="[&_.tiptap]:min-h-[12rem] [&_.tiptap]:outline-none"
+          className="[&_.tiptap]:min-h-48 [&_.tiptap]:outline-hidden"
         />
       </div>
     </div>

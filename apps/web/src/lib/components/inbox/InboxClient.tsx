@@ -129,7 +129,7 @@ export function InboxClient() {
     >
       {filtered === undefined ? (
         <div
-          className="min-h-[20rem] space-y-2 rounded-surface border border-border bg-card p-4"
+          className="min-h-80 space-y-2 rounded-surface border border-border bg-card p-4"
           aria-busy="true"
           aria-label="Loading inbox"
         >

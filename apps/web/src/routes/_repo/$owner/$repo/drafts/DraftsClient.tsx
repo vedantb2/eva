@@ -20,7 +20,7 @@ export function DraftsClient() {
     return (
       <PageWrapper title="Drafts" comfortable>
         <div
-          className="grid min-h-[20rem] grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
+          className="grid min-h-80 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
           aria-busy="true"
           aria-label="Loading drafts"
         >

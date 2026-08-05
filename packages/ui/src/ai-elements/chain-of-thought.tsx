@@ -92,7 +92,7 @@ export const ChainOfThoughtHeader = memo(
               alt="Eva"
               width={16}
               height={16}
-              className="size-4 rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
+              className="size-4 rounded-full outline-solid outline-1 outline-black/10 dark:outline-white/10"
             />
           )}
           <span className="flex-1 text-left tabular-nums">
@@ -170,7 +170,7 @@ export const ChainOfThoughtContentArea = memo(
         <CollapsibleContent
           className={cn(
             "mt-2 space-y-3",
-            "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-popover-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
+            "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-popover-foreground outline-hidden data-[state=closed]:animate-out data-[state=open]:animate-in",
             className,
           )}
           {...props}

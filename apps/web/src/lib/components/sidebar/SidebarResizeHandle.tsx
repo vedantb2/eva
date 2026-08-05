@@ -76,7 +76,7 @@ export function SidebarResizeHandle({
       className={cn(
         "absolute inset-y-0 right-0 z-20 hidden w-1.5 cursor-col-resize touch-none lg:block",
         "after:absolute after:inset-y-0 after:right-0 after:w-px after:bg-transparent",
-        "hover:after:bg-border focus-visible:after:bg-ring focus-visible:outline-none",
+        "hover:after:bg-border focus-visible:after:bg-ring focus-visible:outline-hidden",
         className,
       )}
     />

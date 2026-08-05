@@ -71,7 +71,7 @@ function isRowActive(
 }
 
 const RAIL_TILE_CLASS =
-  "relative flex size-11 items-center justify-center rounded-lg border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/35";
+  "relative flex size-11 items-center justify-center rounded-lg border transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring/35";
 
 function railTileActive(active: boolean): string {
   return active

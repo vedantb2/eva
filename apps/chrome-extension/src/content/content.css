@@ -1,5 +1,15 @@
-@tailwind components;
-@tailwind utilities;
+/*
+  Tailwind CSS v4. The content script renders inside a shadow root on arbitrary
+  host pages, so Preflight is deliberately left out — the minimal reset below
+  does the job without restyling the page we are injected into. These two
+  imports are the v4 equivalent of the previous `@tailwind components;` and
+  `@tailwind utilities;` pair (v4 folded the components layer into utilities).
+*/
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+@config '../../tailwind.config.js';
 
 :host {
   font-family:

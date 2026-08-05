@@ -22,7 +22,7 @@ export function LandingCta() {
 
           <div className="mt-9 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
             <SignUpButton mode="modal">
-              <Button size="lg" className="w-full sm:w-auto sm:min-w-[10rem]">
+              <Button size="lg" className="w-full sm:w-auto sm:min-w-40">
                 Get started
                 <IconArrowRight size={16} aria-hidden />
               </Button>

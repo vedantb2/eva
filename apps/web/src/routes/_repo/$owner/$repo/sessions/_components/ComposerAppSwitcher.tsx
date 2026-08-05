@@ -37,7 +37,7 @@ export function ComposerAppSwitcher() {
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-sm text-primary underline decoration-primary/30 decoration-1 underline-offset-4 transition-colors hover:text-primary/60 hover:decoration-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+          className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-sm text-primary underline decoration-primary/30 decoration-1 underline-offset-4 transition-colors hover:text-primary/60 hover:decoration-primary/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40"
         >
           <RepoLogo
             logoUrl={logoUrl}

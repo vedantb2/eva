@@ -60,7 +60,7 @@ export function ResizableSidebar({
       </Panel>
       {/* Hairline divider that doubles as the drag handle; the library widens the
           pointer target beyond the visible pixel, so no grip affordance is needed. */}
-      <Separator className="w-px shrink-0 bg-border transition-colors hover:bg-primary/50 data-[resize-handle-active]:bg-primary" />
+      <Separator className="w-px shrink-0 bg-border transition-colors hover:bg-primary/50 data-resize-handle-active:bg-primary" />
       <Panel
         id={RIGHT_PANEL_ID}
         minSize={minContentWidthPx}

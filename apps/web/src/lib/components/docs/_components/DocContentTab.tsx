@@ -152,7 +152,7 @@ export function DocContentTab({
       editorProps: {
         attributes: {
           class:
-            "prose prose-sm dark:prose-invert max-w-none min-h-[12rem] px-4 py-3 outline-none focus:outline-none",
+            "prose prose-sm dark:prose-invert max-w-none min-h-48 px-4 py-3 outline-hidden focus:outline-hidden",
         },
       },
     },
@@ -362,7 +362,7 @@ export function DocContentTab({
             >
               <EditorContent
                 editor={editor}
-                className="[&_.tiptap]:min-h-[12rem] [&_.tiptap]:outline-none"
+                className="[&_.tiptap]:min-h-48 [&_.tiptap]:outline-hidden"
               />
               {editor && (
                 <BubbleMenu

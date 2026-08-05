@@ -66,7 +66,7 @@ export function KanbanColumn({
       disabled={!droppable}
       className="flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-clip bg-muted/40"
     >
-      <div className="flex flex-shrink-0 flex-row items-center justify-between p-2">
+      <div className="flex shrink-0 flex-row items-center justify-between p-2">
         <Badge
           variant="outline"
           className={`${config.bg} ${config.text} gap-1.5 border-border py-1`}

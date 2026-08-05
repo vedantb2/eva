@@ -50,7 +50,7 @@ export function TeamCard({
             <Link
               to="/teams/$teamId"
               params={{ teamId: team._id }}
-              className="block rounded-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+              className="block rounded-surface focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35"
             >
               <Card className="h-full transition-colors hover:bg-muted/50">
                 <CardHeader>

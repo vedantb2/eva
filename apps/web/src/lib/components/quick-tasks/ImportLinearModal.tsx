@@ -123,7 +123,7 @@ export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
               autoFocus
             />
             {identifiers.length > 0 && (
-              <p className="text-sm text-muted-foreground break-words">
+              <p className="text-sm text-muted-foreground wrap-break-word">
                 {identifiers.length} issue{identifiers.length === 1 ? "" : "s"}{" "}
                 detected: {identifiers.join(", ")}
               </p>

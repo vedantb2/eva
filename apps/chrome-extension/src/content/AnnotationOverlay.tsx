@@ -498,7 +498,7 @@ function InputCard({
           readOnly={locked}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={handleKeyDown}
-          className={`w-full rounded-lg border px-2.5 py-2 text-sm leading-snug outline-none resize-none ${inputClasses(appearance)}`}
+          className={`w-full rounded-lg border px-2.5 py-2 text-sm leading-snug outline-hidden resize-none ${inputClasses(appearance)}`}
           style={{ boxSizing: "border-box", display: "block" }}
         />
       </div>

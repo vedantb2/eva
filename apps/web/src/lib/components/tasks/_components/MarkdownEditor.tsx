@@ -61,7 +61,7 @@ export const MarkdownEditor = forwardRef<
         class: cn(
           "prose prose-sm dark:prose-invert max-w-none",
           "[&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
-          "outline-none",
+          "outline-hidden",
           "[&_p]:my-0 [&_ul]:list-disc [&_ul]:pl-6 [&_ol]:list-decimal [&_ol]:pl-6",
           minHeight,
         ),
@@ -114,7 +114,7 @@ export const MarkdownEditor = forwardRef<
       className={cn(
         className,
         placeholder &&
-          "[&_.tiptap.is-editor-empty:first-child]:before:content-[var(--placeholder-text)] [&_.tiptap.is-editor-empty:first-child]:before:text-muted-foreground [&_.tiptap.is-editor-empty:first-child]:before:pointer-events-none [&_.tiptap.is-editor-empty:first-child]:before:float-left [&_.tiptap.is-editor-empty:first-child]:before:h-0",
+          "[&_.tiptap.is-editor-empty:first-child]:before:content-(--placeholder-text) [&_.tiptap.is-editor-empty:first-child]:before:text-muted-foreground [&_.tiptap.is-editor-empty:first-child]:before:pointer-events-none [&_.tiptap.is-editor-empty:first-child]:before:float-left [&_.tiptap.is-editor-empty:first-child]:before:h-0",
       )}
     />
   );

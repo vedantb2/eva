@@ -105,7 +105,7 @@ export function GlobalSessionsSidebar({
         </div>
         {orderedRepos === undefined ? (
           <div
-            className="min-h-[12rem] space-y-2 px-3"
+            className="min-h-48 space-y-2 px-3"
             aria-busy="true"
             aria-label="Loading sessions"
           >

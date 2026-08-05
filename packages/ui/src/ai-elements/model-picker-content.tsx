@@ -371,7 +371,7 @@ export function ModelPickerContent<TModel extends string>({
                 value={search}
                 onValueChange={setSearch}
                 placeholder="Search models..."
-                className="h-auto w-full bg-transparent py-0 text-sm outline-none placeholder:text-muted-foreground"
+                className="h-auto w-full bg-transparent py-0 text-sm outline-hidden placeholder:text-muted-foreground"
                 onMouseDown={(event) => event.stopPropagation()}
                 onTouchStart={(event) => event.stopPropagation()}
               />
@@ -381,13 +381,13 @@ export function ModelPickerContent<TModel extends string>({
           <div className="relative min-h-0 flex-1">
             {showTopFade ? (
               <div
-                className="pointer-events-none absolute inset-x-0 top-0 z-10 h-6 bg-gradient-to-b from-muted/40 to-transparent"
+                className="pointer-events-none absolute inset-x-0 top-0 z-10 h-6 bg-linear-to-b from-muted/40 to-transparent"
                 aria-hidden
               />
             ) : null}
             {showBottomFade ? (
               <div
-                className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-6 bg-gradient-to-t from-muted/40 to-transparent"
+                className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-6 bg-linear-to-t from-muted/40 to-transparent"
                 aria-hidden
               />
             ) : null}

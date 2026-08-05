@@ -21,7 +21,7 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
         {steps.map((step, i) => (
           <div key={step.num} className="flex items-center gap-2">
             <div
-              className={`flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-[background-color,color,box-shadow] ${
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-[background-color,color,box-shadow] ${
                 step.active
                   ? "bg-primary text-background ring-2 ring-primary/25 ring-offset-1 ring-offset-background"
                   : "bg-secondary text-muted-foreground"
@@ -40,9 +40,9 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
             </span>
             {i < steps.length - 1 && (
               <div
-                className={`mx-1 hidden h-px w-8 flex-shrink-0 sm:block ${
+                className={`mx-1 hidden h-px w-8 shrink-0 sm:block ${
                   i === 0
-                    ? "bg-gradient-to-r from-primary/40 to-border"
+                    ? "bg-linear-to-r from-primary/40 to-border"
                     : "bg-border"
                 }`}
               />
@@ -90,7 +90,7 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
               transition={{ duration: 0.2, delay: 0.15 + index * 0.06 }}
             >
               <Card className="ui-surface-strong h-full overflow-hidden">
-                <div className="h-px bg-gradient-to-r from-primary/50 via-primary/20 to-transparent" />
+                <div className="h-px bg-linear-to-r from-primary/50 via-primary/20 to-transparent" />
                 <CardContent className="p-3">
                   <section.icon size={16} className="mb-2 text-primary" />
                   <p className="text-xs font-medium text-foreground">

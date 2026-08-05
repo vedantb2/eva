@@ -35,7 +35,7 @@ export function InboxFilterTabs({
             aria-pressed={isActive}
             className={cn(
               // Inactive keeps a transparent border so selecting does not shift layout.
-              "flex items-center gap-1.5 rounded-control border px-2.5 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35",
+              "flex items-center gap-1.5 rounded-control border px-2.5 py-1 text-xs transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35",
               isActive
                 ? "border-border bg-card font-medium text-foreground"
                 : "border-transparent text-muted-foreground hover:text-foreground",

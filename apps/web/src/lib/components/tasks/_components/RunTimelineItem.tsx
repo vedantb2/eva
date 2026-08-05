@@ -296,7 +296,7 @@ export function RunTimelineItem({
                             : "text-muted-foreground"
                       }`}
                     >
-                      <span className="flex-shrink-0 text-muted-foreground">
+                      <span className="shrink-0 text-muted-foreground">
                         {dayjs(log.timestamp).format("DD/MM/YYYY HH:mm")}
                       </span>
                       <span className="break-all">{log.message}</span>
@@ -349,7 +349,7 @@ function RunInlineComment({
         repoBasePath={basePath}
         repoId={repo._id}
         atKind="user"
-        className={`${MARKDOWN_PROSE_CLASS} text-sm break-words`}
+        className={`${MARKDOWN_PROSE_CLASS} text-sm wrap-break-word`}
       />
     </div>
   );

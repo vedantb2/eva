@@ -285,7 +285,7 @@ export function QuickTasksClient() {
     return (
       <PageWrapper title="Quick Tasks" fillHeight childPadding={false}>
         <div
-          className="flex h-full min-h-[24rem] flex-1 flex-col gap-3 p-3"
+          className="flex h-full min-h-96 flex-1 flex-col gap-3 p-3"
           aria-busy="true"
           aria-label="Loading quick tasks"
         >
@@ -310,7 +310,7 @@ export function QuickTasksClient() {
     return (
       <PageWrapper title="Quick Tasks" fillHeight childPadding={false}>
         <div
-          className="flex h-full min-h-[24rem] flex-1 flex-col gap-3 p-3"
+          className="flex h-full min-h-96 flex-1 flex-col gap-3 p-3"
           aria-busy="true"
           aria-label="Loading task"
         >

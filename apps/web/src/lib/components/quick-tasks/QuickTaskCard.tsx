@@ -207,7 +207,7 @@ export function QuickTaskCard({
             checked={isSelected}
             onCheckedChange={() => onToggleSelect?.()}
             onClick={(e) => e.stopPropagation()}
-            className={cn("mt-0.5 flex-shrink-0", LIST_ROW_CONTROL_CLASS)}
+            className={cn("mt-0.5 shrink-0", LIST_ROW_CONTROL_CLASS)}
           />
         ) : null}
         <MarqueeOnHover className="min-w-0 flex-1 text-[13px] font-medium leading-5 tracking-[-0.01em] text-foreground transition-colors duration-200 group-hover:text-primary">
@@ -284,7 +284,7 @@ export function QuickTaskCard({
             <Badge
               key={tag}
               variant="secondary"
-              className="max-w-[7rem] px-1.5 py-0 text-[10px] font-medium leading-4"
+              className="max-w-28 px-1.5 py-0 text-[10px] font-medium leading-4"
             >
               <span className="flex min-w-0 items-center gap-0.5">
                 <IconTag className="size-2.5 shrink-0" />
@@ -317,7 +317,7 @@ export function QuickTaskCard({
               <button
                 type="button"
                 className={cn(
-                  "relative flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] duration-150 ease-[var(--motion-ease-out)] after:absolute after:inset-[-8px] hover:bg-muted/80 hover:text-foreground active:scale-[0.96] sm:hidden",
+                  "relative flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] duration-150 ease-(--motion-ease-out) after:absolute after:inset-[-8px] hover:bg-muted/80 hover:text-foreground active:scale-[0.96] sm:hidden",
                   LIST_ROW_CONTROL_CLASS,
                 )}
                 onClick={(e) => e.stopPropagation()}

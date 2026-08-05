@@ -41,7 +41,7 @@ export function RepoStatsSummary({
   if (impactStats === undefined) {
     return collapsed ? (
       <div
-        className="flex min-h-[4.5rem] flex-col items-center gap-1.5"
+        className="flex min-h-18 flex-col items-center gap-1.5"
         aria-busy="true"
         aria-label="Loading stats"
       >
@@ -52,7 +52,7 @@ export function RepoStatsSummary({
       <div className="flex flex-col gap-2">
         <Skeleton className="h-8" />
         <div
-          className="min-h-[4.5rem] py-1"
+          className="min-h-18 py-1"
           aria-busy="true"
           aria-label="Loading stats"
         >

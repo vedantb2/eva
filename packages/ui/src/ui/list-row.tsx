@@ -9,7 +9,7 @@ import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
  * menu trigger, a dismiss button. It lifts the control above the row's stretched
  * click overlay so the control receives its own clicks instead of the row's.
  */
-export const LIST_ROW_CONTROL_CLASS = "relative z-[2]";
+export const LIST_ROW_CONTROL_CLASS = "relative z-2";
 
 /**
  * The shell every selectable list row shares: surface, hairline, accent stripe,
@@ -31,7 +31,7 @@ export const LIST_ROW_CONTROL_CLASS = "relative z-[2]";
  * guard to stop that handler firing twice.
  *
  * So the row body stays a plain `<div>`, and a real `<button>`, `<a>`, or router
- * `<Link>` (via {@link ListRowProps.link}) is stretched across it at `z-[1]`.
+ * `<Link>` (via {@link ListRowProps.link}) is stretched across it at `z-1`.
  * The native element supplies the keyboard behaviour, the accessible role, and
  * — for anchors/links — middle-click and Cmd-click. Nested controls opt above
  * the overlay with {@link LIST_ROW_CONTROL_CLASS}.
@@ -120,7 +120,7 @@ const ListRow = React.forwardRef<HTMLDivElement, ListRowProps>(function ListRow(
     link !== undefined || href !== undefined || onClick !== undefined;
 
   const overlayClasses =
-    "absolute inset-0 z-[1] cursor-pointer focus-visible:outline-none";
+    "absolute inset-0 z-1 cursor-pointer focus-visible:outline-hidden";
 
   return (
     <div
@@ -129,7 +129,7 @@ const ListRow = React.forwardRef<HTMLDivElement, ListRowProps>(function ListRow(
       className={cn(
         "group relative overflow-hidden",
         SURFACE_RADIUS_CLASS,
-        "border border-border transition-[transform,background-color] duration-200 ease-[var(--motion-ease-out)]",
+        "border border-border transition-[transform,background-color] duration-200 ease-(--motion-ease-out)",
         "has-[[data-slot=row-control]:focus-visible]:ring-2 has-[[data-slot=row-control]:focus-visible]:ring-ring/35",
         interactive && "active:scale-[0.99]",
         selected

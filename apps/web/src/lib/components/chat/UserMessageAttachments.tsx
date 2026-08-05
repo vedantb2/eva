@@ -57,7 +57,7 @@ export function UserMessageAttachments({
               <button
                 key={item.url}
                 type="button"
-                className="flex max-w-[14rem] items-center gap-2 rounded-surface border border-border bg-muted px-2.5 py-1.5 text-xs text-foreground hover:bg-muted/80"
+                className="flex max-w-56 items-center gap-2 rounded-surface border border-border bg-muted px-2.5 py-1.5 text-xs text-foreground hover:bg-muted/80"
                 onClick={() => {
                   void (async () => {
                     try {

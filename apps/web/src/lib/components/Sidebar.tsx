@@ -347,7 +347,7 @@ export function Sidebar() {
           showSidePanel
             ? cn(
                 "w-[min(20rem,calc(100vw-1.5rem))]",
-                collapsed ? "lg:w-16" : "lg:w-[var(--eva-sidebar-width,20rem)]",
+                collapsed ? "lg:w-16" : "lg:w-(--eva-sidebar-width,20rem)",
               )
             : "w-16",
         )}
@@ -396,7 +396,7 @@ export function Sidebar() {
                               "linear-gradient(to bottom, black 0%, black 45%, transparent 100%)",
                           }}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-b from-sidebar/40 via-sidebar/55 to-transparent" />
+                        <div className="absolute inset-0 bg-linear-to-b from-sidebar/40 via-sidebar/55 to-transparent" />
                       </>
                     ) : null}
                     <m.div
@@ -406,7 +406,7 @@ export function Sidebar() {
                         teamBackgroundUrl &&
                           !showContextSidebar &&
                           !isFlatPanel &&
-                          "[&_span]:text-sidebar-primary [&_button]:bg-sidebar/50 [&_button]:backdrop-blur-sm",
+                          "[&_span]:text-sidebar-primary [&_button]:bg-sidebar/50 [&_button]:backdrop-blur-xs",
                       )}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}

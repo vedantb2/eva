@@ -208,7 +208,7 @@ export function LogsClient() {
     >
       {isLoading ? (
         <div
-          className="min-h-[28rem] space-y-4"
+          className="min-h-112 space-y-4"
           aria-busy="true"
           aria-label="Loading logs"
         >

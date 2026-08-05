@@ -135,7 +135,7 @@ export function DiffFileAccordionItem({
       value={path}
       className="rounded-md border border-border bg-card last:border-b"
     >
-      <div className="sticky top-0 z-10 flex items-center gap-2 rounded-t-md border-b border-border bg-muted/95 px-2 backdrop-blur">
+      <div className="sticky top-0 z-10 flex items-center gap-2 rounded-t-md border-b border-border bg-muted/95 px-2 backdrop-blur-sm">
         <AccordionTrigger className="min-w-0 flex-1 py-2 hover:no-underline">
           <span className="mr-2 flex min-w-0 flex-1 items-baseline gap-1.5 text-left font-mono text-xs">
             {renamedFrom ? (

@@ -33,7 +33,7 @@ export function SkillMentionHoverCardBody({
 
   return (
     <MentionContentPreview title={skill.title}>
-      <pre className="whitespace-pre-wrap break-words font-mono text-[11px] leading-relaxed text-foreground">
+      <pre className="whitespace-pre-wrap wrap-break-word font-mono text-[11px] leading-relaxed text-foreground">
         {skill.content}
       </pre>
     </MentionContentPreview>

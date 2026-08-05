@@ -12,7 +12,7 @@ interface ReviewCommentMessageProps {
   repoBasePath: string;
 }
 
-const BODY_CLASS = `${MARKDOWN_PROSE_CLASS} text-sm leading-relaxed break-words`;
+const BODY_CLASS = `${MARKDOWN_PROSE_CLASS} text-sm leading-relaxed wrap-break-word`;
 
 // This component only ever renders user-authored chat messages, whose composer
 // offers both teammates and data entities, so every `@` token here needs its

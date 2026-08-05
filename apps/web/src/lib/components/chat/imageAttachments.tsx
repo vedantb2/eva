@@ -111,7 +111,7 @@ export function ChatAttachmentPreview() {
             return (
               <div
                 key={file.id}
-                className="group relative flex max-w-[12rem] items-center gap-2 rounded-surface border border-border bg-muted px-2 py-1.5"
+                className="group relative flex max-w-48 items-center gap-2 rounded-surface border border-border bg-muted px-2 py-1.5"
               >
                 <button
                   type="button"

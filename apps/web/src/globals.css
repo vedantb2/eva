@@ -1,38 +1,300 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
-/* transitions-dev — modal / tabs motion tokens
+@config '../tailwind.config.js';
+
+/* v4 changed the default border colour to `currentcolor`. The upgrade codemod
+ * adds a gray-200 compatibility shim here; it is not needed, because the base
+ * layer below already pins every element to `border-border`. */
+
+@utility ui-surface {
+  @apply rounded-surface border border-border bg-card;
+}
+
+@utility ui-surface-strong {
+  @apply rounded-surface border border-border bg-card;
+}
+
+@utility ui-surface-interactive {
+  @apply ui-surface motion-base hover:bg-muted/60;
+}
+
+@utility ui-panel {
+  @apply ui-surface p-5 md:p-6;
+}
+
+@utility t-modal {
+  /* transitions.dev — modal open / close. The dialog is always centered, so
+   * .t-modal owns the centering transform (translate -50%) plus scale/fade. */
+  transform-origin: center;
+  transform: translate(-50%, -50%) scale(var(--modal-scale));
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--modal-open-dur) var(--modal-ease),
+    opacity var(--modal-open-dur) var(--modal-ease);
+  will-change: transform, opacity;
+  &.is-open {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+    pointer-events: auto;
+  }
+  &.is-closing {
+    transform: translate(-50%, -50%) scale(var(--modal-scale-close));
+    opacity: 0;
+    pointer-events: none;
+    transition:
+      transform var(--modal-close-dur) var(--modal-ease),
+      opacity var(--modal-close-dur) var(--modal-ease);
+    /* Radix Presence waits on animationend, not transitionend */
+    animation: t-modal-presence-wait var(--modal-close-dur) linear forwards;
+  }
+}
+
+@utility t-tabs-pill {
+  /* transitions.dev — tabs sliding pill. Carries the active tab's card
+   * background (bg-card via the span) so it glides between tabs
+   * instead of the background snapping. */
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 0;
+  width: 0;
+  transform: translateX(0);
+  transition:
+    transform var(--tabs-dur) var(--tabs-ease),
+    width var(--tabs-dur) var(--tabs-ease),
+    top var(--tabs-dur) var(--tabs-ease),
+    height var(--tabs-dur) var(--tabs-ease);
+  z-index: 0;
+  pointer-events: none;
+  will-change: transform, width;
+}
+
+@utility rounded-surface {
+  border-radius: clamp(0.75rem, var(--radius), 1.25rem);
+}
+
+@utility rounded-b-surface {
+  border-radius: 0 0 clamp(0.75rem, var(--radius), 1.25rem)
+    clamp(0.75rem, var(--radius), 1.25rem);
+}
+
+@utility rounded-t-surface {
+  border-radius: clamp(0.75rem, var(--radius), 1.25rem)
+    clamp(0.75rem, var(--radius), 1.25rem) 0 0;
+}
+
+@utility rounded-menu-item {
+  border-radius: min(var(--radius), 0.75rem);
+}
+
+@utility rounded-control {
+  border-radius: min(var(--radius), 1.25rem);
+}
+
+@utility bg-app-shell {
+  background-color: rgb(var(--app-shell));
+}
+
+@utility motion-base {
+  transition-property:
+    color, background-color, border-color, box-shadow, transform, opacity;
+  transition-duration: var(--motion-base);
+  transition-timing-function: var(--motion-ease-out);
+}
+
+@utility motion-emphasized {
+  transition-property: transform, opacity, box-shadow;
+  transition-duration: var(--motion-base);
+  transition-timing-function: var(--motion-ease-emphasized);
+}
+
+@utility motion-press {
+  transition-property: transform;
+  transition-duration: var(--motion-fast);
+  transition-timing-function: var(--motion-ease-out);
+}
+
+@utility hit-target {
+  /* Extends sub-40px controls to a 40×40px tap target without changing layout.
+     Only force `relative` when the element is otherwise static — absolute /
+     fixed / sticky already form a containing block for ::after, and a blanket
+     `position: relative` would override Tailwind `absolute` (same specificity,
+     later rule wins), dropping absolutely-positioned icon-xs buttons into flow. */
+  &:not(.absolute):not(.fixed):not(.sticky) {
+    position: relative;
+  }
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -8px;
+  }
+}
+
+@utility media-outline {
+  @apply ring-1 ring-black/10 dark:ring-white/10;
+}
+
+@utility landing-atmosphere {
+  background-color: rgb(var(--background));
+  background-image:
+    radial-gradient(
+      ellipse 90% 55% at 50% -12%,
+      rgb(var(--primary) / 0.13),
+      transparent 58%
+    ),
+    radial-gradient(
+      ellipse 45% 35% at 100% 100%,
+      rgb(var(--primary) / 0.05),
+      transparent 55%
+    ),
+    linear-gradient(rgb(var(--foreground) / 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--foreground) / 0.04) 1px, transparent 1px);
+  background-size:
+    100% 100%,
+    100% 100%,
+    56px 56px,
+    56px 56px;
+
+  .dark & {
+    background-image:
+      radial-gradient(
+        ellipse 90% 55% at 50% -12%,
+        rgb(var(--primary) / 0.09),
+        transparent 58%
+      ),
+      radial-gradient(
+        ellipse 45% 35% at 100% 100%,
+        rgb(var(--primary) / 0.04),
+        transparent 55%
+      ),
+      linear-gradient(rgb(var(--foreground) / 0.055) 1px, transparent 1px),
+      linear-gradient(
+        90deg,
+        rgb(var(--foreground) / 0.055) 1px,
+        transparent 1px
+      );
+  }
+
+  .dark.neutral & {
+    background-image:
+      radial-gradient(
+        ellipse 90% 55% at 50% -12%,
+        rgb(var(--primary) / 0.1),
+        transparent 58%
+      ),
+      radial-gradient(
+        ellipse 45% 35% at 100% 100%,
+        rgb(var(--primary) / 0.045),
+        transparent 55%
+      ),
+      linear-gradient(rgb(var(--foreground) / 0.06) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(var(--foreground) / 0.06) 1px, transparent 1px);
+  }
+}
+
+@utility landing-grain {
+  &::after {
+    content: '';
+    pointer-events: none;
+    position: absolute;
+    inset: 0;
+    opacity: 0.4;
+    mix-blend-mode: soft-light;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  }
+
+  .dark &::after {
+    opacity: 0.22;
+    mix-blend-mode: overlay;
+  }
+
+  .dark.neutral &::after {
+    opacity: 0.28;
+    mix-blend-mode: overlay;
+  }
+}
+
+@utility landing-display {
+  font-family: 'Geist Sans', var(--font-sans);
+}
+
+@utility landing-mock-body {
+  max-height: min(32rem, 72vh);
+  overflow: hidden;
+  mask-image: linear-gradient(to bottom, black 88%, transparent 100%);
+}
+
+@utility landing-pulse-dot {
+  animation: landing-pulse-dot 2.4s ease-in-out infinite;
+}
+
+@utility scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--muted-foreground) / 0.35) transparent;
+  &:hover {
+    scrollbar-color: rgb(var(--muted-foreground) / 0.55) transparent;
+  }
+  &::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: rgb(var(--muted-foreground) / 0.32);
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--muted-foreground) / 0.52);
+    background-clip: padding-box;
+  }
+}
+
+@utility scrollbar-none {
+  /* Fully hides the scrollbar while keeping the element scrollable (wheel,
+     drag-to-pan, programmatic). Used by the canvas-style projects timeline. */
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer utilities {
+  /* transitions-dev — modal / tabs motion tokens
  * (see .agents/skills/transitions-dev/) */
-:root {
-  --modal-open-dur: 250ms;
-  --modal-close-dur: 150ms;
-  --modal-scale: 0.96;
-  --modal-scale-close: 0.96;
-  --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --tabs-dur: 200ms;
-  --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
-}
+  :root {
+    --modal-open-dur: 250ms;
+    --modal-close-dur: 150ms;
+    --modal-scale: 0.96;
+    --modal-scale-close: 0.96;
+    --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+    --tabs-dur: 200ms;
+    --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
 
-@font-face {
-  font-family: "Geist Sans";
-  font-style: normal;
-  font-display: swap;
-  /* Match system-ui metrics so swap does not reflow text (CLS). */
-  size-adjust: 100%;
-  ascent-override: 90%;
-  descent-override: 22%;
-  line-gap-override: 0%;
-  font-weight: 100 900;
-  src: url("/fonts/Geist-Variable.woff2") format("woff2");
-}
+  @font-face {
+    font-family: 'Geist Sans';
+    font-style: normal;
+    font-display: swap;
+    /* Match system-ui metrics so swap does not reflow text (CLS). */
+    size-adjust: 100%;
+    ascent-override: 90%;
+    descent-override: 22%;
+    line-gap-override: 0%;
+    font-weight: 100 900;
+    src: url('/fonts/Geist-Variable.woff2') format('woff2');
+  }
 
-html {
-  /* Reserve scrollbar space so appearing/disappearing overflow does not shift layout. */
-  scrollbar-gutter: stable;
-}
+  html {
+    /* Reserve scrollbar space so appearing/disappearing overflow does not shift layout. */
+    scrollbar-gutter: stable;
+  }
 
-/*
+  /*
  * Mask stops for `.scroll-fade` / `.scroll-fade-x` (defined in @layer
  * utilities). Custom properties only interpolate once registered, so these
  * cannot be plain `--vars`. Each is driven by its own range of the element's
@@ -40,44 +302,45 @@ html {
  * the trailing fade shrinks out over the last 1.5rem. Content flush against an
  * edge therefore never fades — only content that continues past it does.
  */
-@property --scroll-fade-top {
-  syntax: "<length>";
-  inherits: false;
-  initial-value: 0px;
-}
-@property --scroll-fade-bottom {
-  syntax: "<length>";
-  inherits: false;
-  initial-value: 0px;
-}
-@property --scroll-fade-left {
-  syntax: "<length>";
-  inherits: false;
-  initial-value: 0px;
-}
-@property --scroll-fade-right {
-  syntax: "<length>";
-  inherits: false;
-  initial-value: 0px;
-}
-@keyframes scroll-fade-top {
-  to {
-    --scroll-fade-top: 1.5rem;
+  @property --scroll-fade-top {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0px;
   }
-}
-@keyframes scroll-fade-bottom {
-  from {
-    --scroll-fade-bottom: 1.5rem;
+  @property --scroll-fade-bottom {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0px;
   }
-}
-@keyframes scroll-fade-left {
-  to {
-    --scroll-fade-left: 1.5rem;
+  @property --scroll-fade-left {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0px;
   }
-}
-@keyframes scroll-fade-right {
-  from {
-    --scroll-fade-right: 1.5rem;
+  @property --scroll-fade-right {
+    syntax: '<length>';
+    inherits: false;
+    initial-value: 0px;
+  }
+  @keyframes scroll-fade-top {
+    to {
+      --scroll-fade-top: 1.5rem;
+    }
+  }
+  @keyframes scroll-fade-bottom {
+    from {
+      --scroll-fade-bottom: 1.5rem;
+    }
+  }
+  @keyframes scroll-fade-left {
+    to {
+      --scroll-fade-left: 1.5rem;
+    }
+  }
+  @keyframes scroll-fade-right {
+    from {
+      --scroll-fade-right: 1.5rem;
+    }
   }
 }
 
@@ -325,47 +588,6 @@ html {
 }
 
 @layer components {
-  .ui-surface {
-    @apply rounded-surface border border-border bg-card;
-  }
-  .ui-surface-strong {
-    @apply rounded-surface border border-border bg-card;
-  }
-  .ui-surface-interactive {
-    @apply ui-surface motion-base hover:bg-muted/60;
-  }
-  .ui-panel {
-    @apply ui-surface p-5 md:p-6;
-  }
-
-  /* transitions.dev — modal open / close. The dialog is always centered, so
-   * .t-modal owns the centering transform (translate -50%) plus scale/fade. */
-  .t-modal {
-    transform-origin: center;
-    transform: translate(-50%, -50%) scale(var(--modal-scale));
-    opacity: 0;
-    pointer-events: none;
-    transition:
-      transform var(--modal-open-dur) var(--modal-ease),
-      opacity var(--modal-open-dur) var(--modal-ease);
-    will-change: transform, opacity;
-  }
-  .t-modal.is-open {
-    transform: translate(-50%, -50%) scale(1);
-    opacity: 1;
-    pointer-events: auto;
-  }
-  .t-modal.is-closing {
-    transform: translate(-50%, -50%) scale(var(--modal-scale-close));
-    opacity: 0;
-    pointer-events: none;
-    transition:
-      transform var(--modal-close-dur) var(--modal-ease),
-      opacity var(--modal-close-dur) var(--modal-ease);
-    /* Radix Presence waits on animationend, not transitionend */
-    animation: t-modal-presence-wait var(--modal-close-dur) linear forwards;
-  }
-
   @keyframes t-modal-presence-wait {
     from {
       clip-path: inset(0);
@@ -374,184 +596,9 @@ html {
       clip-path: inset(0);
     }
   }
-
-  /* transitions.dev — tabs sliding pill. Carries the active tab's card
-   * background (bg-card via the span) so it glides between tabs
-   * instead of the background snapping. */
-  .t-tabs-pill {
-    position: absolute;
-    top: 0;
-    left: 0;
-    height: 0;
-    width: 0;
-    transform: translateX(0);
-    transition:
-      transform var(--tabs-dur) var(--tabs-ease),
-      width var(--tabs-dur) var(--tabs-ease),
-      top var(--tabs-dur) var(--tabs-ease),
-      height var(--tabs-dur) var(--tabs-ease);
-    z-index: 0;
-    pointer-events: none;
-    will-change: transform, width;
-  }
 }
 
 @layer utilities {
-  .rounded-surface {
-    border-radius: clamp(0.75rem, var(--radius), 1.25rem);
-  }
-
-  .rounded-b-surface {
-    border-radius: 0 0 clamp(0.75rem, var(--radius), 1.25rem)
-      clamp(0.75rem, var(--radius), 1.25rem);
-  }
-
-  .rounded-t-surface {
-    border-radius: clamp(0.75rem, var(--radius), 1.25rem)
-      clamp(0.75rem, var(--radius), 1.25rem) 0 0;
-  }
-
-  .rounded-menu-item {
-    border-radius: min(var(--radius), 0.75rem);
-  }
-
-  .rounded-control {
-    border-radius: min(var(--radius), 1.25rem);
-  }
-
-  .bg-app-shell {
-    background-color: rgb(var(--app-shell));
-  }
-
-  .motion-base {
-    transition-property:
-      color, background-color, border-color, box-shadow, transform, opacity;
-    transition-duration: var(--motion-base);
-    transition-timing-function: var(--motion-ease-out);
-  }
-
-  .motion-emphasized {
-    transition-property: transform, opacity, box-shadow;
-    transition-duration: var(--motion-base);
-    transition-timing-function: var(--motion-ease-emphasized);
-  }
-
-  .motion-press {
-    transition-property: transform;
-    transition-duration: var(--motion-fast);
-    transition-timing-function: var(--motion-ease-out);
-  }
-
-  /* Extends sub-40px controls to a 40×40px tap target without changing layout.
-     Only force `relative` when the element is otherwise static — absolute /
-     fixed / sticky already form a containing block for ::after, and a blanket
-     `position: relative` would override Tailwind `absolute` (same specificity,
-     later rule wins), dropping absolutely-positioned icon-xs buttons into flow. */
-  .hit-target:not(.absolute):not(.fixed):not(.sticky) {
-    position: relative;
-  }
-  .hit-target::after {
-    content: "";
-    position: absolute;
-    inset: -8px;
-  }
-
-  .media-outline {
-    @apply ring-1 ring-black/10 dark:ring-white/10;
-  }
-
-  .landing-atmosphere {
-    background-color: rgb(var(--background));
-    background-image:
-      radial-gradient(
-        ellipse 90% 55% at 50% -12%,
-        rgb(var(--primary) / 0.13),
-        transparent 58%
-      ),
-      radial-gradient(
-        ellipse 45% 35% at 100% 100%,
-        rgb(var(--primary) / 0.05),
-        transparent 55%
-      ),
-      linear-gradient(rgb(var(--foreground) / 0.04) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(var(--foreground) / 0.04) 1px, transparent 1px);
-    background-size:
-      100% 100%,
-      100% 100%,
-      56px 56px,
-      56px 56px;
-  }
-
-  .dark .landing-atmosphere {
-    background-image:
-      radial-gradient(
-        ellipse 90% 55% at 50% -12%,
-        rgb(var(--primary) / 0.09),
-        transparent 58%
-      ),
-      radial-gradient(
-        ellipse 45% 35% at 100% 100%,
-        rgb(var(--primary) / 0.04),
-        transparent 55%
-      ),
-      linear-gradient(rgb(var(--foreground) / 0.055) 1px, transparent 1px),
-      linear-gradient(
-        90deg,
-        rgb(var(--foreground) / 0.055) 1px,
-        transparent 1px
-      );
-  }
-
-  .dark.neutral .landing-atmosphere {
-    background-image:
-      radial-gradient(
-        ellipse 90% 55% at 50% -12%,
-        rgb(var(--primary) / 0.1),
-        transparent 58%
-      ),
-      radial-gradient(
-        ellipse 45% 35% at 100% 100%,
-        rgb(var(--primary) / 0.045),
-        transparent 55%
-      ),
-      linear-gradient(rgb(var(--foreground) / 0.06) 1px, transparent 1px),
-      linear-gradient(90deg, rgb(var(--foreground) / 0.06) 1px, transparent 1px);
-  }
-
-  .landing-grain::after {
-    content: "";
-    pointer-events: none;
-    position: absolute;
-    inset: 0;
-    opacity: 0.4;
-    mix-blend-mode: soft-light;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-  }
-
-  .dark .landing-grain::after {
-    opacity: 0.22;
-    mix-blend-mode: overlay;
-  }
-
-  .dark.neutral .landing-grain::after {
-    opacity: 0.28;
-    mix-blend-mode: overlay;
-  }
-
-  .landing-display {
-    font-family: "Geist Sans", var(--font-sans);
-  }
-
-  .landing-mock-body {
-    max-height: min(32rem, 72vh);
-    overflow: hidden;
-    mask-image: linear-gradient(to bottom, black 88%, transparent 100%);
-  }
-
-  .landing-pulse-dot {
-    animation: landing-pulse-dot 2.4s ease-in-out infinite;
-  }
-
   @keyframes landing-pulse-dot {
     0%,
     100% {
@@ -562,40 +609,6 @@ html {
       opacity: 1;
       transform: scale(1.15);
     }
-  }
-
-  .scrollbar {
-    scrollbar-width: thin;
-    scrollbar-color: rgb(var(--muted-foreground) / 0.35) transparent;
-  }
-  .scrollbar:hover {
-    scrollbar-color: rgb(var(--muted-foreground) / 0.55) transparent;
-  }
-  .scrollbar::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-  }
-  .scrollbar::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .scrollbar::-webkit-scrollbar-thumb {
-    background: rgb(var(--muted-foreground) / 0.32);
-    border: 2px solid transparent;
-    border-radius: 999px;
-    background-clip: padding-box;
-  }
-  .scrollbar::-webkit-scrollbar-thumb:hover {
-    background: rgb(var(--muted-foreground) / 0.52);
-    background-clip: padding-box;
-  }
-
-  /* Fully hides the scrollbar while keeping the element scrollable (wheel,
-     drag-to-pan, programmatic). Used by the canvas-style projects timeline. */
-  .scrollbar-none {
-    scrollbar-width: none;
-  }
-  .scrollbar-none::-webkit-scrollbar {
-    display: none;
   }
 }
 

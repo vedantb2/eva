@@ -141,7 +141,7 @@ function Shell({ children }: { children: React.ReactNode }) {
       <div className="flex w-full max-w-sm flex-col items-center gap-6">
         <EvaIcon
           size={56}
-          className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
+          className="rounded-full outline-solid outline-1 outline-black/10 dark:outline-white/10"
         />
         {children}
       </div>

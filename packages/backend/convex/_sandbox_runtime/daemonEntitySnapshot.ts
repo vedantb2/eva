@@ -8,6 +8,56 @@ const emptyDaemonEntitySnapshot = {
   syntheticTurnMessageId: undefined,
 };
 
+// Long enough to cover a normal launch (token mint + upload + boot ≈ 5–15s),
+// short enough that a launcher that died without releasing never blocks the
+// next boot for long. Archived-sandbox resumes can outlive the lease — the
+// in-sandbox spawn flock still dedupes any launch that slips past it.
+const DAEMON_LAUNCH_LEASE_MS = 30_000;
+
+/**
+ * Single-flight claim for a warm-daemon launch. Convex mutations are
+ * serializable, so exactly one concurrent caller wins. Losers skip the launch
+ * entirely (no wasted token mint / bundle upload / node boot); the winner
+ * releases via releaseDaemonLaunchLease when its launch settles.
+ */
+export const claimDaemonLaunchLease = internalMutation({
+  args: { entityId: v.string() },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const now = Date.now();
+    const existing = await ctx.db
+      .query("daemonLaunchLeases")
+      .withIndex("by_entity", (q) => q.eq("entityId", args.entityId))
+      .unique();
+    if (existing && existing.expiresAt > now) return false;
+    if (existing) {
+      await ctx.db.patch(existing._id, {
+        expiresAt: now + DAEMON_LAUNCH_LEASE_MS,
+      });
+    } else {
+      await ctx.db.insert("daemonLaunchLeases", {
+        entityId: args.entityId,
+        expiresAt: now + DAEMON_LAUNCH_LEASE_MS,
+      });
+    }
+    return true;
+  },
+});
+
+/** Releases a launch lease once the launch settled (success or failure). */
+export const releaseDaemonLaunchLease = internalMutation({
+  args: { entityId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("daemonLaunchLeases")
+      .withIndex("by_entity", (q) => q.eq("entityId", args.entityId))
+      .unique();
+    if (existing) await ctx.db.delete(existing._id);
+    return null;
+  },
+});
+
 /** Reads daemon-relevant fields for mid-turn respawn deferral decisions. */
 export const readDaemonEntitySnapshot = internalQuery({
   args: {

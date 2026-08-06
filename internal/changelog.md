@@ -1,5 +1,9 @@
 # Changelog
 
+## Kernel flock + launch lease make duplicate daemons structurally impossible - 2026-08-06
+
+The pidfile fence converges duplicates after the fact; these two layers stop them existing. The runner now spawns under `flock -n` on a per-entity lockfile (flock execs node, so the lock rides the runner and the kernel releases it on death — racing launches exit instantly, and waitForRunnerReady treats a live lock-holder as success, failing open where flock is missing). Convex-side, `daemonLaunchLeases` single-flights the kill+launch section of prewarm (30s TTL, released on settle), so prewarm bursts stop paying wasted token-mint + upload + boot for launches that would lose the lock anyway. Reason: mutual exclusion belongs at the spawn syscall and the launch dispatcher, not in check-then-launch polling.
+
 ## Fence duplicate warm daemons; stop prewarm churn - 2026-08-06
 
 Concurrent daemon launches raced the multi-second gap between the launcher's alive-check and the daemon's pidfile write, and every kill path only killed the pidfile's last writer — prod session 35 (carepulse-ts) accumulated 5 daemons all resuming one Claude conversation and flip-flopping the shared streaming row. Daemons now boot-claim the pidfile (exit if a live rival owns it) and self-fence every 5s (deposed daemons exit once idle); the page-open prewarm forwards session traits so its opts sig matches the turn path (no more optsmismatch kill+respawn per page open); SessionDetailClient's prewarm effect depends on scalar fields, not the session doc identity, so doc patches no longer fire prewarm bursts. Reason: convergence must live in the daemon itself — launcher-side kills can never see more than one pid.

@@ -171,6 +171,15 @@ const schema = defineSchema({
     pendingQuestion: v.optional(v.string()),
     lastUpdatedAt: v.optional(v.number()),
   }).index("by_entity", ["entityId"]),
+  // Single-flight guard for warm-daemon launches (claimDaemonLaunchLease).
+  // Prewarm bursts (page opens, doc-patch refires) used to race the multi-
+  // second check-then-launch window and boot duplicate daemons; only the
+  // lease claimant launches, the rest no-op. Short TTL so a crashed launcher
+  // never blocks the next boot for long. One row per entity, upserted.
+  daemonLaunchLeases: defineTable({
+    entityId: v.string(),
+    expiresAt: v.number(),
+  }).index("by_entity", ["entityId"]),
   // Blocking AskUserQuestion round-trip. The paused sandbox turn posts a row
   // here (via canUseTool), the UI reads the unanswered one and writes the
   // answer, and the sandbox claims the answer to resume the turn. `entityId`

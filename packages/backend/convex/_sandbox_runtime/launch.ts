@@ -112,6 +112,11 @@ function ensureProviderCliAvailable(
   }
 }
 
+/** Per-entity spawn lock the runner holds for its lifetime (see launchScript). */
+function runnerFlockPath(entityIdField: string, entityId: string): string {
+  return `/tmp/eva-runner.${entityIdField}-${entityId}.lock`;
+}
+
 /** Uploads the bundled callback runner + fingerprint without starting a process. */
 export async function uploadCallbackScriptBundle(
   sandbox: SandboxHandle,
@@ -261,13 +266,25 @@ export async function launchScript(
   }
   envParts.push(`CALLBACK_SCRIPT_FP=${quote([CALLBACK_SCRIPT_FINGERPRINT])}`);
   const exportLines = envParts.map((part) => `export ${part}`);
+  // Kernel-enforced single-runner-per-entity: spawn under an exclusive flock
+  // held for the runner's lifetime (flock(1) execs node, so the lock fd rides
+  // the runner process itself and the kernel releases it on death — no stale
+  // pid or pid-reuse races). Concurrent launches for the same entity lose the
+  // lock instantly (exit 217, checked by waitForRunnerReady) instead of
+  // booting a duplicate daemon; the daemon's own pidfile fence remains as
+  // fallback for images without flock(1), where this fails open.
+  const runnerLockPath = runnerFlockPath(entityIdField, entityId);
   const runnerLaunchScript = [
     "#!/usr/bin/env bash",
     "set -euo pipefail",
     `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE}`,
     "rm -f /tmp/run-design.pid /tmp/run-design.ready",
     ...exportLines,
-    "nohup node /tmp/run-design.mjs >> /tmp/design.log 2>&1 &",
+    "if command -v flock >/dev/null 2>&1; then",
+    `  nohup flock -n -E 217 ${runnerLockPath} node /tmp/run-design.mjs >> /tmp/design.log 2>&1 &`,
+    "else",
+    "  nohup node /tmp/run-design.mjs >> /tmp/design.log 2>&1 &",
+    "fi",
     "echo $! > /tmp/run-design.pid",
     // Privileged half of the OOM bias: the callback lowers its own
     // oom_score_adj to -600 (callback-src/index.ts) but lowering needs root,
@@ -288,7 +305,7 @@ export async function launchScript(
     "chmod +x /tmp/eva-launch-runner.sh && /tmp/eva-launch-runner.sh",
     { timeoutSeconds: 15 },
   );
-  await waitForRunnerReady(sandbox, entityId);
+  await waitForRunnerReady(sandbox, entityId, runnerLockPath);
   console.log(
     `[sandbox][launchScript] runner ready in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
   );
@@ -298,6 +315,7 @@ export async function launchScript(
 async function waitForRunnerReady(
   sandbox: SandboxHandle,
   entityId: string,
+  runnerLockPath: string,
 ): Promise<void> {
   for (let attempt = 0; attempt < CALLBACK_READY_POLL_ATTEMPTS; attempt++) {
     const ready = (
@@ -319,6 +337,22 @@ async function waitForRunnerReady(
       )
     ).trim();
     if (alive === "dead") {
+      // A loser of the spawn flock exits immediately, before writing the
+      // ready file. When a live rival still holds the entity lock, the runner
+      // this launch wanted exists — success, not a boot failure.
+      const lock = (
+        await execHandle(
+          sandbox,
+          `if ! command -v flock >/dev/null 2>&1; then echo nolock; elif flock -n ${runnerLockPath} true 2>/dev/null; then echo free; else echo held; fi`,
+          5,
+        )
+      ).trim();
+      if (lock === "held") {
+        console.log(
+          `[sandbox][launchScript] spawn lock held by live rival runner — reusing it entityId=${entityId}`,
+        );
+        return;
+      }
       const log = await execHandle(
         sandbox,
         `tail -n 120 /tmp/design.log 2>/dev/null || true`,

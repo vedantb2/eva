@@ -1432,6 +1432,68 @@ export const extendSandboxDeadline = internalAction({
   },
 });
 
+// Reconcile sweep cap per tick: one provider GET per entity, so bound the
+// worst case. Anything past the cap is caught on the next interval.
+const RECONCILE_SWEEP_MAX_ENTITIES = 50;
+
+/**
+ * Periodic truth-sync between eva's "active" sandbox statuses and the
+ * provider. Vercel stops VMs on its own (hard session-timeout cap, platform
+ * stops) and nothing notifies eva — the only other reconcile trigger is a
+ * page-mount prewarm, so a session left open in a browser tab showed
+ * "active" + a dead Preview indefinitely (session 55). Runs on a cron; flips
+ * stale actives to closed via reconcileStoppedSandboxStatus so the UI offers
+ * Start. Handle reads are side-effect-free (no resume), and a mid-turn VM is
+ * "running" (and deadline-extended), so live work can never be flipped.
+ */
+export const reconcileStaleActiveSandboxes = internalAction({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const entities = await ctx.runQuery(
+      internal.sandboxDaemon.listActiveSandboxEntities,
+      {},
+    );
+    const batch = entities.slice(0, RECONCILE_SWEEP_MAX_ENTITIES);
+    let flipped = 0;
+    for (const entity of batch) {
+      try {
+        const sandbox = await getSandboxHandle(
+          ctx,
+          entity.repoId,
+          entity.sandboxId,
+        );
+        if (
+          sandbox.state === "stopped" ||
+          sandbox.state === "archived" ||
+          sandbox.state === "gone" ||
+          sandbox.state === "error"
+        ) {
+          await ctx.runMutation(
+            internal.sandboxDaemon.reconcileStoppedSandboxStatus,
+            {
+              entityTable: entity.entityTable,
+              entityId: entity.entityId,
+              sandboxId: entity.sandboxId,
+            },
+          );
+          flipped++;
+        }
+      } catch (error) {
+        console.log(
+          `[sandbox][reconcile-sweep] skipped ${entity.entityTable} ${entity.entityId}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    }
+    if (entities.length > 0) {
+      console.log(
+        `[sandbox][reconcile-sweep] checked=${batch.length}/${entities.length} flipped=${flipped}`,
+      );
+    }
+    return null;
+  },
+});
+
 /** Kills only the entity-scoped warm daemon (not the whole sandbox runner). */
 export const killEntityDaemon = internalAction({
   args: {

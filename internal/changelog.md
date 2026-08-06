@@ -1,5 +1,9 @@
 # Changelog
 
+## Cron reconciles stale "active" sandbox statuses - 2026-08-06
+
+Vercel stops VMs on its own (hard session-timeout cap, platform stops) and nothing notifies eva; the only reconcile trigger was a page-mount prewarm, so a session left open in a browser tab kept showing "active" with a dead Preview indefinitely (session 55). `reconcileStaleActiveSandboxes` now sweeps every 5 minutes: list DB-active sessions/tasks/projects (capped at 50 per tick), read each sandbox's provider state without resuming, and flip stopped/archived/gone/error ones to closed via the existing `reconcileStoppedSandboxStatus` — so the UI offers Start. A mid-turn VM is running (and deadline-extended), so live work can never be flipped. Reason: eva's status must track provider truth on its own clock, not wait for a lucky page remount.
+
 ## Turn work is committed and pushed before completion - 2026-08-06
 
 A completed turn's work previously became durable only in the workflow's post-completion push step — a VM death in that window (or any hard kill, which snapshots nothing) rolled the filesystem back and erased finished work, even committed-but-unpushed commits (session 53 lost a full implementation turn this way). The callback now runs `persistTurnWork` before posting the completion mutation: auto-commit any uncommitted changes (same media exclusions as the prompt convention) and push unpushed commits, on eva-owned branches only, best-effort. Task runs are exempt — the commit gate and the run workflow's push/PR steps own those semantics. Reason: "turn completed" must imply "work is on origin", not "work exists on a disk that may be about to vanish".

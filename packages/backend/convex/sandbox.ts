@@ -37,6 +37,7 @@ export {
   prewarmEntityDaemon,
   killEntityDaemon,
   extendSandboxDeadline,
+  reconcileStaleActiveSandboxes,
   validateSandbox,
 } from "./_sandbox_runtime/execution";
 

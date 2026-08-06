@@ -31,6 +31,17 @@ crons.interval(
   {},
 );
 
+// Truth-sync eva's "active" sandbox statuses against the provider. Vercel
+// stops VMs on its own (session-timeout cap, platform stops) with no webhook;
+// without this, a session page left open showed "active" + a dead Preview
+// until the next page-mount prewarm happened to probe it.
+crons.interval(
+  "stale active sandbox reconcile",
+  { minutes: 5 },
+  internal.sandbox.reconcileStaleActiveSandboxes,
+  {},
+);
+
 // Safety net: delete sandboxes for archived sessions / done|cancelled tasks
 // whose 48h grace has elapsed (or never got a grace schedule).
 crons.cron(

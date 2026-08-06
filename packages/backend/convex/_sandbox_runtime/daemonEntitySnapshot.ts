@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
 import { pendingTurnValidator } from "../_validators/tableFields";
 
 const emptyDaemonEntitySnapshot = {
@@ -105,6 +106,79 @@ export const readDaemonEntitySnapshot = internalQuery({
       activeWorkflow: doc.activeChatWorkflowId,
       syntheticTurnMessageId: doc.syntheticTurnMessageId,
     };
+  },
+});
+
+const activeSandboxEntityValidator = v.object({
+  entityTable: v.union(
+    v.literal("sessions"),
+    v.literal("agentTasks"),
+    v.literal("projects"),
+  ),
+  entityId: v.string(),
+  sandboxId: v.string(),
+  repoId: v.id("githubRepos"),
+});
+
+/**
+ * Every entity whose sandbox status says "active", with the fields the
+ * reconcile sweep needs to verify that against the provider. Full scan —
+ * these tables are small and the sweep runs on a coarse interval.
+ */
+export const listActiveSandboxEntities = internalQuery({
+  args: {},
+  returns: v.array(activeSandboxEntityValidator),
+  handler: async (ctx) => {
+    const [sessions, tasks, projects] = await Promise.all([
+      ctx.db.query("sessions").collect(),
+      ctx.db.query("agentTasks").collect(),
+      ctx.db.query("projects").collect(),
+    ]);
+    const out: Array<{
+      entityTable: "sessions" | "agentTasks" | "projects";
+      entityId: string;
+      sandboxId: string;
+      repoId: Id<"githubRepos">;
+    }> = [];
+    for (const s of sessions) {
+      if (s.status === "active" && typeof s.sandboxId === "string") {
+        out.push({
+          entityTable: "sessions",
+          entityId: String(s._id),
+          sandboxId: s.sandboxId,
+          repoId: s.repoId,
+        });
+      }
+    }
+    for (const t of tasks) {
+      if (
+        t.reviewTaskSandboxStatus === "active" &&
+        typeof t.sandboxId === "string" &&
+        t.repoId !== undefined
+      ) {
+        out.push({
+          entityTable: "agentTasks",
+          entityId: String(t._id),
+          sandboxId: t.sandboxId,
+          repoId: t.repoId,
+        });
+      }
+    }
+    for (const p of projects) {
+      if (
+        p.reviewProjectSandboxStatus === "active" &&
+        typeof p.sandboxId === "string" &&
+        p.repoId !== undefined
+      ) {
+        out.push({
+          entityTable: "projects",
+          entityId: String(p._id),
+          sandboxId: p.sandboxId,
+          repoId: p.repoId,
+        });
+      }
+    }
+    return out;
   },
 });
 

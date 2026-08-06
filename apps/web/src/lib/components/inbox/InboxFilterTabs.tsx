@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge, cn } from "@eva/ui";
+import { Badge, Tabs, TabsList, TabsTrigger } from "@eva/ui";
 import type { InboxFilter } from "@/lib/search-params";
 
 const OPTIONS: { value: InboxFilter; label: string }[] = [
@@ -8,38 +8,35 @@ const OPTIONS: { value: InboxFilter; label: string }[] = [
   { value: "unread", label: "Unread" },
 ];
 
+function isInboxFilter(value: string): value is InboxFilter {
+  return value === "all" || value === "unread";
+}
+
 interface InboxFilterTabsProps {
   filter: InboxFilter;
   unreadCount: number;
   onChange: (filter: InboxFilter) => void;
 }
 
-/**
- * Segmented All / Unread switch. One bordered control instead of two loose
- * buttons, so the pair reads as a single choice.
- */
+/** Segmented All / Unread switch for the inbox. */
 export function InboxFilterTabs({
   filter,
   unreadCount,
   onChange,
 }: InboxFilterTabsProps) {
   return (
-    <div className="flex items-center gap-0.5 rounded-control border border-border bg-muted p-0.5">
-      {OPTIONS.map((option) => {
-        const isActive = filter === option.value;
-        return (
-          <button
+    <Tabs
+      value={filter}
+      onValueChange={(value) => {
+        if (isInboxFilter(value)) onChange(value);
+      }}
+    >
+      <TabsList className="tabs-segmented h-8">
+        {OPTIONS.map((option) => (
+          <TabsTrigger
             key={option.value}
-            type="button"
-            onClick={() => onChange(option.value)}
-            aria-pressed={isActive}
-            className={cn(
-              // Inactive keeps a transparent border so selecting does not shift layout.
-              "flex items-center gap-1.5 rounded-control border px-2.5 py-1 text-xs transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35",
-              isActive
-                ? "border-border bg-card font-medium text-foreground"
-                : "border-transparent text-muted-foreground hover:text-foreground",
-            )}
+            value={option.value}
+            className="gap-1.5 px-2.5 py-1 text-xs"
           >
             {option.label}
             {option.value === "unread" && unreadCount > 0 ? (
@@ -47,9 +44,9 @@ export function InboxFilterTabs({
                 {unreadCount}
               </Badge>
             ) : null}
-          </button>
-        );
-      })}
-    </div>
+          </TabsTrigger>
+        ))}
+      </TabsList>
+    </Tabs>
   );
 }

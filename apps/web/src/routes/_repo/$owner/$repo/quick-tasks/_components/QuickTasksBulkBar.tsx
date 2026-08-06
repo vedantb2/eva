@@ -107,8 +107,8 @@ function BarButton({
       disabled={disabled}
       className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-30 ${
         action.destructive
-          ? "text-destructive hover:bg-destructive/20 hover:text-destructive"
-          : "text-background/80 hover:bg-background/10 hover:text-background"
+          ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
+          : "text-muted-foreground hover:bg-muted hover:text-foreground"
       }`}
     >
       <Icon size={17} />
@@ -140,20 +140,20 @@ export function QuickTasksBulkBar({
           transition={{ duration: 0.15, ease: "easeOut" }}
         >
           <TooltipProvider delayDuration={300}>
-            <div className="flex max-w-[calc(100vw-2rem)] items-center gap-1 overflow-x-auto rounded-surface bg-foreground px-2.5 py-2 shadow-lg scrollbar-none">
+            <div className="flex max-w-[calc(100vw-2rem)] items-center gap-1 overflow-x-auto rounded-surface bg-popover px-2.5 py-2 smooth-shadow-ring-lg scrollbar-none">
               {/* Prefix: selection count */}
               <div className="flex shrink-0 items-center gap-2 pl-1 pr-0.5">
-                <span className="rounded-md bg-background/15 px-2 py-0.5 text-xs font-semibold text-background tabular-nums">
+                <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-foreground tabular-nums">
                   {selectedCount}
                 </span>
-                <span className="hidden text-sm font-medium text-background/70 sm:inline">
+                <span className="hidden text-sm font-medium text-muted-foreground sm:inline">
                   selected
                 </span>
               </div>
 
               <Separator
                 orientation="vertical"
-                className="mx-1.5 h-5 shrink-0 bg-background/20"
+                className="mx-1.5 h-5 shrink-0 bg-border"
               />
 
               {/* Content: primary actions + More dropdown */}
@@ -172,7 +172,7 @@ export function QuickTasksBulkBar({
                     type="button"
                     aria-label="More actions"
                     disabled={!hasSelection}
-                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-background/80 transition-colors hover:bg-background/10 hover:text-background disabled:pointer-events-none disabled:opacity-30 data-[state=open]:bg-background/10 data-[state=open]:text-background"
+                    className="inline-flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:pointer-events-none disabled:opacity-30 data-[state=open]:bg-muted data-[state=open]:text-foreground"
                   >
                     <IconDots size={17} />
                   </button>
@@ -196,7 +196,7 @@ export function QuickTasksBulkBar({
 
               <Separator
                 orientation="vertical"
-                className="mx-1.5 h-5 shrink-0 bg-background/20"
+                className="mx-1.5 h-5 shrink-0 bg-border"
               />
 
               <BarButton
@@ -207,7 +207,7 @@ export function QuickTasksBulkBar({
 
               <Separator
                 orientation="vertical"
-                className="mx-1.5 h-5 shrink-0 bg-background/20"
+                className="mx-1.5 h-5 shrink-0 bg-border"
               />
 
               {/* Suffix: dismiss selection */}
@@ -216,7 +216,7 @@ export function QuickTasksBulkBar({
                   <button
                     type="button"
                     aria-label="Cancel selection"
-                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-background/70 transition-colors hover:bg-background/10 hover:text-background"
+                    className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                     onClick={onExitSelect}
                   >
                     <IconX size={17} />

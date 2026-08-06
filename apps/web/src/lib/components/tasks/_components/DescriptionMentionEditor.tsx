@@ -36,8 +36,8 @@ interface DescriptionMentionEditorProps {
   disabled?: boolean;
   /**
    * What this field is for, e.g. "description of a coding task for acme/web".
-   * Providing it turns on inline AI completion (Tab to accept); omitting it
-   * leaves the editor plain.
+   * Used for inline AI completion when the per-user experimental "Composer
+   * autocomplete" flag is on; otherwise ignored.
    */
   completionContext?: string;
   /**
@@ -74,9 +74,12 @@ export const DescriptionMentionEditor = forwardRef<
   ref,
 ) {
   const { repo, basePath } = useRepo();
+  const flags = useQuery(api.auth.getExperimentalFlags);
   const { suggestion, dismiss } = useInlineSuggestion(
     value,
-    disabled ? undefined : completionContext,
+    !disabled && flags?.composerAutocomplete === true
+      ? completionContext
+      : undefined,
   );
   const navigate = useNavigate();
   const items = useDataMentionItems(repo._id);

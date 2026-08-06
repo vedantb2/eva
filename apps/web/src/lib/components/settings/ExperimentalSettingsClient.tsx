@@ -7,7 +7,11 @@ import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsToggleRow } from "@/lib/components/settings/SettingsToggleRow";
 
-type ExperimentalFlagKey = "sessionTabs" | "blurPid" | "voiceDictation";
+type ExperimentalFlagKey =
+  | "sessionTabs"
+  | "blurPid"
+  | "voiceDictation"
+  | "composerAutocomplete";
 
 export function ExperimentalSettingsClient() {
   const flags = useQuery(api.auth.getExperimentalFlags);
@@ -77,6 +81,19 @@ export function ExperimentalSettingsClient() {
                   toggle("voiceDictation", checked)
                 }
                 aria-label="Voice dictation"
+              />
+            }
+          />
+          <SettingsToggleRow
+            title="Composer autocomplete"
+            description="Suggest inline completions while typing in chat and task composers. Press Tab to accept."
+            action={
+              <Switch
+                checked={flags.composerAutocomplete}
+                onCheckedChange={(checked) =>
+                  toggle("composerAutocomplete", checked)
+                }
+                aria-label="Composer autocomplete"
               />
             }
           />

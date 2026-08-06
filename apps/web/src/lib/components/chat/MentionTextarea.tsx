@@ -2,8 +2,9 @@
 
 import { forwardRef, useRef } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "convex/react";
 import { usePromptInputController, usePromptInputAttachments } from "@eva/ui";
-import type { Id } from "@eva/backend";
+import { api, type Id } from "@eva/backend";
 import { UserProfileHoverCardBody } from "@eva/shared";
 import { attachPastedTextIfLarge } from "@/lib/components/attachments/attachmentMeta";
 import {
@@ -50,8 +51,8 @@ interface MentionTextareaProps {
   enableAttachmentPaste?: boolean;
   /**
    * What this composer is for, e.g. "message to an AI coding agent working on
-   * acme/web". Providing it turns on inline AI completion (Tab to accept);
-   * omitting it leaves the composer plain.
+   * acme/web". Used for inline AI completion when the per-user experimental
+   * "Composer autocomplete" flag is on; otherwise ignored.
    */
   completionContext?: string;
 }
@@ -82,7 +83,11 @@ export const MentionTextarea = forwardRef<
   const dataItems = useDataMentionItems(repoId);
   const { items, peopleIds } = mergeMentionItems(peopleItems, dataItems);
   const navigateToData = useDataMentionNavigate(repoBasePath, repoId);
-  const { suggestion, dismiss } = useInlineSuggestion(value, completionContext);
+  const flags = useQuery(api.auth.getExperimentalFlags);
+  const { suggestion, dismiss } = useInlineSuggestion(
+    value,
+    flags?.composerAutocomplete === true ? completionContext : undefined,
+  );
 
   // Cursor into `history` (null = editing the live draft) and the draft stashed
   // when history navigation began, so Alt+ArrowDown past the newest entry restores it.

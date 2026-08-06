@@ -1,5 +1,9 @@
 # Changelog
 
+## Gate composer autocomplete behind experimental flag - 2026-08-06
+
+Inline Tab completions were on for every chat/task composer as soon as `completionContext` was set. They now require the per-user `composerAutocomplete` experimental flag (off by default) on Settings → Experimental; `MentionTextarea` and `DescriptionMentionEditor` only call `useInlineSuggestion` when the flag is on. Reason: Tab autocomplete is still settling and should be opt-in like the other experimental controls.
+
 ## A held spawn lock is only success when the incumbent daemon matches - 2026-08-06
 
 `waitForRunnerReady` treated any held flock as "the runner this launch wanted exists", so three cases passed as success while nothing usable was running: the kill+respawn window (both kill paths are fire-and-forget SIGTERM, so the loser's lock loss made an optsmismatch respawn silently keep the OLD model/tools), a stale lock fd held by an orphaned descendant of a dead runner (flock's fd is inherited without CLOEXEC), and a one-shot turn launch whose prompt a warm daemon will never run. Success now requires a live owner of the entity pidfile whose opts sig equals this launch's `EVA_DAEMON_OPTS`; anything else throws with `spawnLock=` in the message. Reason: the lock proves someone holds it, not that they are doing this launch's work — prewarm retries after the deposed daemon self-fences.

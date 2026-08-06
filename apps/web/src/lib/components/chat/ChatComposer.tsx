@@ -54,6 +54,7 @@ import {
   MentionTextarea,
   type MentionTextareaHandle,
 } from "@/lib/components/chat/MentionTextarea";
+import { useSkillSlashItems } from "@/lib/hooks/useSkillSlashItems";
 import { QueuedMessagesPanel } from "@/lib/components/QueuedMessagesPanel";
 import type { ChatBodyQueuedMessage } from "@/lib/components/chat/chatBodyUtils";
 import { useQueuedMessageMutations } from "@/lib/components/chat/useQueuedMessageMutations";
@@ -135,7 +136,7 @@ export function ChatComposer({
   isDraftLoading,
   hasPendingContext = false,
 }: ChatComposerProps) {
-  const skills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
+  const skillItems = useSkillSlashItems(repoId);
   const dataMentions = useDataMentionItems(repoId);
   const peopleMentions = usePeopleMentionItems(repoId);
   const { items: plusDataItems } = mergeMentionItems(
@@ -279,7 +280,7 @@ export function ChatComposer({
                 ref={mentionRef}
                 repoBasePath={repoBasePath}
                 repoId={repoId}
-                skills={skills}
+                skillItems={skillItems}
                 skillsSettingsHref={`${repoBasePath}/settings/skills`}
                 placeholder={isExecuting ? "Add a follow-up..." : placeholder}
                 initialMentionMap={seed?.mentionMap}
@@ -292,7 +293,7 @@ export function ChatComposer({
                 <PromptInputTools>
                   <ComposerPlusMenu
                     dataItems={plusDataItems}
-                    skills={skills}
+                    skillItems={skillItems}
                     mentionRef={mentionRef}
                     optionsSubmenu={optionsSubmenu}
                   />

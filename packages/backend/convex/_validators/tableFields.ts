@@ -364,6 +364,19 @@ export const repoSkillFields = {
   createdAt: v.number(),
 };
 
+/**
+ * One installed Eva system skill per canonical repo. The definition itself
+ * lives in `convex/_systemSkills/registry.ts`; this row only records that the
+ * repo opted in, so nothing is written to the user's codebase.
+ */
+export const repoSystemSkillFields = {
+  repoId: v.id("githubRepos"),
+  /** Registry key, e.g. "eva-capture". */
+  name: v.string(),
+  installedBy: v.id("users"),
+  installedAt: v.number(),
+};
+
 // Lifecycle of a single app's seeded-snapshot build within Step 5: actively
 // seeding, captured successfully, or fell back to the base Image.
 export const seededAppStatusValidator = v.union(

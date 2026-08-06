@@ -27,6 +27,7 @@ import { runSdkDaemon } from "./providers/claudeSdkDaemon.js";
 import { fetchWithTimeout, callConvexWithRetry } from "./http/convexClient.js";
 import { callbackState as S } from "./runtime/state.js";
 import { persistTurnWork } from "./runtime/turnPersist.js";
+import { materializeSystemSkills } from "./runtime/systemSkills.js";
 import {
   flushStreaming,
   runPreflightHeartbeat,
@@ -84,6 +85,10 @@ try {
 }
 
 S.lastStepType = "thinking";
+
+// Before either provider path starts — the CLI scans `.agents/skills` on
+// startup, so installed Eva skills must already be on disk.
+materializeSystemSkills();
 
 // Persistent warm-session daemon (Claude chat entities with CLAIM_MUTATION).
 // Job runs (tasks / automations / arena) omit CLAIM_MUTATION and use one-shot

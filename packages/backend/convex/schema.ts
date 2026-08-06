@@ -32,6 +32,7 @@ import {
   taskReactionFields,
   taskSubscriberFields,
   repoSkillFields,
+  repoSystemSkillFields,
   sandboxGitCredentialsFields,
   appSettingsFields,
   userFields,
@@ -242,6 +243,9 @@ const schema = defineSchema({
   repoSkills: defineTable(repoSkillFields)
     .index("by_repo", ["repoId"])
     .index("by_repo_and_source_path", ["repoId", "sourcePath"]),
+  repoSystemSkills: defineTable(repoSystemSkillFields)
+    .index("by_repo", ["repoId"])
+    .index("by_repo_and_name", ["repoId", "name"]),
   audits: defineTable({
     entityId: v.union(v.id("agentTasks"), v.id("sessions"), v.id("projects")),
     runId: v.optional(v.id("agentRuns")),

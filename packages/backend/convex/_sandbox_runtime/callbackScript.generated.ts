@@ -2,11 +2,11 @@
 
 export const CALLBACK_SCRIPT = `// callback-src/index.ts
 import {
-  existsSync as existsSync8,
-  mkdirSync as mkdirSync7,
-  readdirSync as readdirSync3,
+  existsSync as existsSync9,
+  mkdirSync as mkdirSync8,
+  readdirSync as readdirSync4,
   unlinkSync as unlinkSync3,
-  writeFileSync as writeFileSync10
+  writeFileSync as writeFileSync11
 } from "fs";
 
 // callback-src/config.ts
@@ -5712,9 +5712,150 @@ async function runSdkDaemon() {
   process.exit(0);
 }
 
+// callback-src/runtime/systemSkills.ts
+import {
+  existsSync as existsSync7,
+  mkdirSync as mkdirSync6,
+  readdirSync as readdirSync3,
+  readFileSync as readFileSync7,
+  rmSync,
+  writeFileSync as writeFileSync10
+} from "fs";
+var SYSTEM_SKILLS_STATE_FILE = "/tmp/eva-system-skills.json";
+var SYSTEM_SKILL_MARKER = "<!-- eva:system-skill -->";
+var EXCLUDE_BEGIN = "# >>> eva-system-skills >>>";
+var EXCLUDE_END = "# <<< eva-system-skills <<<";
+var SKILL_NAME_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}\$/;
+function parseSystemSkillsFile(raw) {
+  const parsed = tryParseJson(raw);
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return null;
+  }
+  const skills = parsed.skills;
+  if (!Array.isArray(skills)) return null;
+  const result = [];
+  for (const entry of skills) {
+    if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+      continue;
+    }
+    const name = entry.name;
+    const stub = entry.stub;
+    if (typeof name !== "string" || typeof stub !== "string") continue;
+    if (!SKILL_NAME_PATTERN.test(name)) continue;
+    result.push({ name, stub });
+  }
+  return result;
+}
+function renderExcludeContent(existing, names) {
+  const lines = existing.replace(/\\r\\n/g, "\\n").split("\\n");
+  const kept = [];
+  let insideBlock = false;
+  for (const line of lines) {
+    if (line.trim() === EXCLUDE_BEGIN) {
+      insideBlock = true;
+      continue;
+    }
+    if (line.trim() === EXCLUDE_END) {
+      insideBlock = false;
+      continue;
+    }
+    if (!insideBlock) kept.push(line);
+  }
+  while (kept.length > 0 && kept[kept.length - 1]?.trim() === "") kept.pop();
+  const preserved = kept.length > 0 ? \`\${kept.join("\\n")}
+\` : "";
+  if (names.length === 0) return preserved;
+  const block = [
+    EXCLUDE_BEGIN,
+    ...names.map((name) => \`/.agents/skills/\${name}/\`),
+    EXCLUDE_END,
+    ""
+  ].join("\\n");
+  return \`\${preserved}\${block}\`;
+}
+function skillsRoot() {
+  return \`\${WORK_DIR}/.agents/skills\`;
+}
+function isEvaStub(directoryName) {
+  const skillFile = \`\${skillsRoot()}/\${directoryName}/SKILL.md\`;
+  if (!existsSync7(skillFile)) return false;
+  try {
+    return readFileSync7(skillFile, "utf8").includes(SYSTEM_SKILL_MARKER);
+  } catch {
+    return false;
+  }
+}
+function writeStub(skill) {
+  const directory = \`\${skillsRoot()}/\${skill.name}\`;
+  if (existsSync7(\`\${directory}/SKILL.md\`) && !isEvaStub(skill.name)) {
+    log(\`[system-skills] \${skill.name} exists in the repo \\u2014 leaving it alone\`);
+    return false;
+  }
+  mkdirSync6(directory, { recursive: true });
+  writeFileSync10(\`\${directory}/SKILL.md\`, skill.stub);
+  return true;
+}
+function pruneStaleStubs(keep) {
+  const root = skillsRoot();
+  if (!existsSync7(root)) return;
+  for (const entry of readdirSync3(root, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    if (keep.has(entry.name)) continue;
+    if (!isEvaStub(entry.name)) continue;
+    try {
+      rmSync(\`\${root}/\${entry.name}\`, { recursive: true, force: true });
+      log(\`[system-skills] pruned \${entry.name}\`);
+    } catch (err) {
+      log(\`[system-skills] prune failed for \${entry.name}: \${String(err)}\`);
+    }
+  }
+}
+function updateGitExclude(names) {
+  const gitDir = \`\${WORK_DIR}/.git\`;
+  if (!existsSync7(gitDir)) return;
+  const infoDir = \`\${gitDir}/info\`;
+  const excludeFile = \`\${infoDir}/exclude\`;
+  const existing = existsSync7(excludeFile) ? readFileSync7(excludeFile, "utf8") : "";
+  const next = renderExcludeContent(existing, names);
+  if (next === existing) return;
+  mkdirSync6(infoDir, { recursive: true });
+  writeFileSync10(excludeFile, next);
+}
+function materializeSystemSkills() {
+  try {
+    if (!existsSync7(SYSTEM_SKILLS_STATE_FILE)) return;
+    if (!existsSync7(WORK_DIR)) {
+      log("[system-skills] no checkout yet \\u2014 skipping");
+      return;
+    }
+    const skills = parseSystemSkillsFile(
+      readFileSync7(SYSTEM_SKILLS_STATE_FILE, "utf8")
+    );
+    if (skills === null) {
+      log("[system-skills] state file unreadable \\u2014 skipping");
+      return;
+    }
+    const written = [];
+    for (const skill of skills) {
+      try {
+        if (writeStub(skill)) written.push(skill.name);
+      } catch (err) {
+        log(\`[system-skills] write failed for \${skill.name}: \${String(err)}\`);
+      }
+    }
+    pruneStaleStubs(new Set(written));
+    updateGitExclude(written);
+    log(
+      \`[system-skills] materialized \${written.length}/\${skills.length}\` + (written.length > 0 ? \` (\${written.join(", ")})\` : "")
+    );
+  } catch (err) {
+    log(\`[system-skills] materialize failed: \${String(err)}\`);
+  }
+}
+
 // callback-src/providers/cursorSdk.ts
 import { execSync as execSync2 } from "child_process";
-import { existsSync as existsSync7, mkdirSync as mkdirSync6, readFileSync as readFileSync7 } from "fs";
+import { existsSync as existsSync8, mkdirSync as mkdirSync7, readFileSync as readFileSync8 } from "fs";
 var SDK_PACKAGE2 = "@cursor/sdk";
 var SDK_VERSION2 = "1.0.26";
 var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
@@ -5723,11 +5864,11 @@ var SDK_LOCAL_PREFIX2 = "/home/eva/.eva-agent-sdk";
 async function loadCursorSdk() {
   const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE2 + SDK_ENTRY_RELPATH;
   const localEntry = SDK_LOCAL_PREFIX2 + "/node_modules/" + SDK_PACKAGE2 + SDK_ENTRY_RELPATH;
-  if (existsSync7(globalEntry)) {
+  if (existsSync8(globalEntry)) {
     const mod2 = await import(globalEntry);
     return mod2;
   }
-  if (!existsSync7(localEntry)) {
+  if (!existsSync8(localEntry)) {
     log(
       "cursor sdk not found in sandbox; installing " + SDK_PACKAGE2 + "@" + SDK_VERSION2 + " to " + SDK_LOCAL_PREFIX2 + " (one-time)"
     );
@@ -5764,15 +5905,15 @@ function parseCursorSdkMcpServers(raw) {
   return servers;
 }
 function readCursorSdkMcpServers() {
-  if (!existsSync7(MCP_CONFIG_PATH2)) return {};
+  if (!existsSync8(MCP_CONFIG_PATH2)) return {};
   try {
-    return parseCursorSdkMcpServers(readFileSync7(MCP_CONFIG_PATH2, "utf8"));
+    return parseCursorSdkMcpServers(readFileSync8(MCP_CONFIG_PATH2, "utf8"));
   } catch {
     return {};
   }
 }
 function readPromptText2() {
-  return readFileSync7("/tmp/design-prompt.txt", "utf8");
+  return readFileSync8("/tmp/design-prompt.txt", "utf8");
 }
 async function resolveCursorModelSelection(sdk) {
   const base = normalizedCursorModel;
@@ -5867,7 +6008,7 @@ async function runCursorSdkAttempt(sessionMode) {
   let lastStreamUsage = null;
   let activeRun = null;
   const sdk = await loadCursorSdk();
-  mkdirSync6(CURSOR_SDK_STORE_DIR, { recursive: true });
+  mkdirSync7(CURSOR_SDK_STORE_DIR, { recursive: true });
   const store4 = new sdk.JsonlLocalAgentStore(CURSOR_SDK_STORE_DIR);
   const mcpServers = readCursorSdkMcpServers();
   const options = {
@@ -6100,10 +6241,11 @@ try {
 } catch {
 }
 try {
-  writeFileSync10("/proc/self/oom_score_adj", "-600");
+  writeFileSync11("/proc/self/oom_score_adj", "-600");
 } catch {
 }
 callbackState.lastStepType = "thinking";
+materializeSystemSkills();
 if (PROVIDER === "claude" && CLAIM_MUTATION) {
   await runSdkDaemon();
 }
@@ -6114,8 +6256,8 @@ if (!preflightOk) {
 }
 startStreamingLoops();
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
-  if (existsSync8(d)) {
-    for (const f of readdirSync3(d)) {
+  if (existsSync9(d)) {
+    for (const f of readdirSync4(d)) {
       try {
         unlinkSync3(d + "/" + f);
       } catch {
@@ -6123,7 +6265,7 @@ for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
     }
   } else {
     try {
-      mkdirSync7(d, { recursive: true });
+      mkdirSync8(d, { recursive: true });
     } catch {
     }
   }

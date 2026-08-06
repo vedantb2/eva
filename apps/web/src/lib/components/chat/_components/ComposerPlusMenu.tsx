@@ -22,6 +22,7 @@ import {
 import { UserInitials } from "@eva/shared";
 import type { Id } from "@eva/backend";
 import type { MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
+import type { SlashItem } from "@/lib/components/mentions";
 import {
   IMAGE_ATTACHMENT_ACCEPT,
   CHAT_ATTACHMENT_ACCEPT,
@@ -146,12 +147,8 @@ interface DataMenuItem {
 
 interface ComposerPlusMenuProps {
   dataItems: DataMenuItem[];
-  skills: Array<{
-    _id: Id<"repoSkills">;
-    title: string;
-    description: string;
-    available: boolean;
-  }>;
+  /** Same `/` entries the editor's slash picker shows. */
+  skillItems: SlashItem[];
   mentionRef: RefObject<MentionTextareaHandle | null>;
   /** Optional "Options" submenu (e.g. session capture/audit toggles). */
   optionsSubmenu?: ReactNode;
@@ -163,17 +160,16 @@ interface ComposerPlusMenuProps {
  */
 export function ComposerPlusMenu({
   dataItems,
-  skills,
+  skillItems,
   mentionRef,
   optionsSubmenu,
 }: ComposerPlusMenuProps) {
   const attachments = usePromptInputAttachments();
-  const availableSkills = skills.filter((skill) => skill.available);
   const [skillsQuery, setSkillsQuery] = useState("");
   const [dataQuery, setDataQuery] = useState("");
 
-  const filteredSkills = availableSkills.filter((skill) =>
-    matchesQuery(skillsQuery, skill.title, skill.description),
+  const filteredSkills = skillItems.filter((skill) =>
+    matchesQuery(skillsQuery, skill.label, skill.description),
   );
   const filteredData = dataItems.filter((item) =>
     matchesQuery(dataQuery, item.label, item.description),
@@ -221,7 +217,7 @@ export function ComposerPlusMenu({
             Skills
           </DropdownMenuSubTrigger>
           <DropdownMenuSubContent className="flex max-h-72 min-w-56 max-w-72 flex-col overflow-hidden p-0">
-            {availableSkills.length === 0 ? (
+            {skillItems.length === 0 ? (
               <DropdownMenuItem disabled className="m-1.5">
                 No available skills
               </DropdownMenuItem>
@@ -238,20 +234,17 @@ export function ComposerPlusMenu({
                   ) : (
                     filteredSkills.map((skill) => (
                       <DropdownMenuItem
-                        key={skill._id}
+                        key={skill.id}
                         className="items-start py-2"
                         onSelect={() => {
-                          mentionRef.current?.insertSkill({
-                            id: skill._id,
-                            label: skill.title,
-                            description: skill.description,
-                          });
+                          mentionRef.current?.insertSkill(skill);
                         }}
                       >
                         <MentionMenuRow
                           prefix="/"
-                          label={skill.title}
+                          label={skill.label}
                           description={skill.description}
+                          badge={skill.badge}
                         />
                       </DropdownMenuItem>
                     ))

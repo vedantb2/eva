@@ -1221,4 +1221,62 @@ Do NOT use this instead of leaving files in recordings/ / screenshots/ for chat 
       return textResult({ locked: false });
     },
   );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // get_skill
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  server.tool(
+    "get_skill",
+    "Fetch the instructions for an Eva system skill (e.g. eva-capture, eva-audit). The stub SKILL.md in .agents/skills points here so the instructions stay current and are tailored to this repo.",
+    {
+      name: z
+        .string()
+        .describe('System skill name, e.g. "eva-capture" or "eva-audit".'),
+      repoName: z
+        .string()
+        .optional()
+        .describe(
+          'Repo name (e.g. "eva" or "vvedantb/eva"). Only needed outside an Eva sandbox — inside one the repo is taken from the token.',
+        ),
+      app: z
+        .string()
+        .optional()
+        .describe(
+          'App name within a monorepo (e.g. "web"). Matches against rootDirectory. Used with repoName when a repo has multiple apps.',
+        ),
+    },
+    async ({ name, repoName, app }) => {
+      const { userId } = await getContext();
+
+      let repoId = scopedRepoId;
+      if (!repoId) {
+        if (!repoName) {
+          return errorResult(
+            'get_skill needs a "repoName" when called outside an Eva sandbox.',
+          );
+        }
+        const resolved = await resolveRepoByName(repoName, app, userId);
+        if ("isError" in resolved) return resolved;
+        repoId = resolved.repo.id;
+      }
+      await assertRepoAccess(repoId, userId);
+
+      const result = await ctx.runQuery(
+        internal.repoSystemSkills.resolveForMcp,
+        { repoId, name },
+      );
+      if (result.status === "repo_not_found") {
+        return errorResult(`Repo ${repoId} was not found.`);
+      }
+      if (result.status === "not_installed") {
+        return errorResult(
+          `The skill "${name}" is not installed on this repo. Install it in Eva under Settings → Skills, then try again.`,
+        );
+      }
+      return {
+        content: [{ type: "text" as const, text: result.content }],
+      };
+    },
+  );
 }

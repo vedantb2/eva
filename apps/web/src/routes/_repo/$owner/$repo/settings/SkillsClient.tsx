@@ -1,10 +1,12 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useAction } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import type { OptimisticLocalStore } from "convex/browser";
 import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { SkillRow } from "./skills/_components/SkillRow";
+import { SystemSkillRow } from "./skills/_components/SystemSkillRow";
 import { Button } from "@eva/ui";
 import { IconRefresh, IconSparkles } from "@tabler/icons-react";
 import { useState } from "react";
@@ -15,6 +17,32 @@ import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState
 export function SkillsClient() {
   const { repoId } = useRepo();
   const skills = useQuery(api.repoSkills.listByRepo, { repoId });
+  const systemSkills = useQuery(api.repoSystemSkills.listForRepo, { repoId });
+  const setInstalled = (name: string, installed: boolean) => {
+    return (localStore: OptimisticLocalStore) => {
+      const current = localStore.getQuery(api.repoSystemSkills.listForRepo, {
+        repoId,
+      });
+      if (current === undefined) return;
+      localStore.setQuery(
+        api.repoSystemSkills.listForRepo,
+        { repoId },
+        current.map((skill) =>
+          skill.name === name ? { ...skill, installed } : skill,
+        ),
+      );
+    };
+  };
+  const installSystemSkill = useMutation(
+    api.repoSystemSkills.install,
+  ).withOptimisticUpdate((localStore, args) =>
+    setInstalled(args.name, true)(localStore),
+  );
+  const uninstallSystemSkill = useMutation(
+    api.repoSystemSkills.uninstall,
+  ).withOptimisticUpdate((localStore, args) =>
+    setInstalled(args.name, false)(localStore),
+  );
   const syncFromGithub = useAction(api.repoSkills.syncFromGithub);
   const [syncing, setSyncing] = useState(false);
   const [syncSummary, setSyncSummary] = useState<string | null>(null);
@@ -82,6 +110,24 @@ export function SkillsClient() {
           </div>
         </SettingsSection>
       ) : null}
+
+      <SettingsSection
+        title="Eva skills"
+        description="Built-in skills Eva maintains. Installing one makes it available to this repo's agents without committing anything to your codebase — the agent fetches the instructions from Eva when it runs the skill."
+        bodyVariant="list"
+      >
+        <div className="divide-y divide-border">
+          {(systemSkills ?? []).map((skill) => (
+            <SystemSkillRow
+              key={skill.name}
+              repoId={repoId}
+              skill={skill}
+              onInstall={(name) => void installSystemSkill({ repoId, name })}
+              onUninstall={(name) => void uninstallSystemSkill({ repoId, name })}
+            />
+          ))}
+        </div>
+      </SettingsSection>
 
       <SettingsSection
         title="Repo skills"

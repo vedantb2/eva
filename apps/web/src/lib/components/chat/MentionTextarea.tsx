@@ -27,12 +27,8 @@ interface MentionTextareaProps {
   /** Repo route prefix, e.g. `/owner/repo` or `/owner/repo--app`. */
   repoBasePath: string;
   repoId: Id<"githubRepos">;
-  skills?: Array<{
-    _id: Id<"repoSkills">;
-    title: string;
-    description: string;
-    available: boolean;
-  }>;
+  /** `/` menu entries — repo skills plus installed Eva skills. */
+  skillItems?: SlashItem[];
   skillsSettingsHref?: string;
   placeholder?: string;
   initialMentionMap?: Map<string, string>;
@@ -64,7 +60,7 @@ export const MentionTextarea = forwardRef<
   {
     repoBasePath,
     repoId,
-    skills = [],
+    skillItems = [],
     skillsSettingsHref,
     placeholder,
     initialMentionMap,
@@ -138,18 +134,6 @@ export const MentionTextarea = forwardRef<
     navigate({ to: `${repoBasePath}/settings/skills` });
   };
 
-  const slashItems: SlashItem[] = skills.flatMap((skill) =>
-    skill.available
-      ? [
-          {
-            id: skill._id,
-            label: skill.title,
-            description: skill.description,
-          },
-        ]
-      : [],
-  );
-
   return (
     <MentionEditor
       ref={ref}
@@ -165,7 +149,7 @@ export const MentionTextarea = forwardRef<
       }
       onDismissSuggestion={dismiss}
       items={items}
-      slashItems={slashItems}
+      slashItems={skillItems}
       mentionPopupTitle="Mentions"
       onMentionChipClick={handleMentionChipClick}
       onSkillChipClick={handleSkillChipClick}

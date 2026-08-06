@@ -10,12 +10,12 @@ import { cn } from "@eva/ui";
 import {
   MentionEditor,
   type MentionEditorHandle,
-  type SlashItem,
   DataMentionHoverCardBody,
   SkillMentionHoverCardBody,
   isSkillTokenId,
 } from "@/lib/components/mentions";
 import { useDataMentionItems } from "@/lib/hooks/useDataMentionItems";
+import { useSkillSlashItems } from "@/lib/hooks/useSkillSlashItems";
 import { useDataMentionNavigate } from "@/lib/useDataMentionNavigate";
 import { useInlineSuggestion } from "@/lib/hooks/useInlineSuggestion";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
@@ -92,20 +92,7 @@ export const DescriptionMentionEditor = forwardRef<
   const handleSkillChipClick = (_skillId: string) => {
     navigate({ to: toInternalRepoHref(`${basePath}/settings/skills`) });
   };
-  const skills =
-    useQuery(api.repoSkills.listByRepo, { repoId: repo._id }) ?? [];
-
-  const slashItems: SlashItem[] = skills.flatMap((skill) =>
-    skill.available
-      ? [
-          {
-            id: skill._id,
-            label: skill.title,
-            description: skill.description,
-          },
-        ]
-      : [],
-  );
+  const slashItems = useSkillSlashItems(repo._id);
 
   return (
     <MentionEditor

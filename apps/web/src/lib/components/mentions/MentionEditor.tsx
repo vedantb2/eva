@@ -218,7 +218,7 @@ function defaultRenderSlashItem(
   _isSelected: boolean,
 ): ReactNode {
   const detail = item.description ? previewOneLine(item.description) : null;
-  return renderMenuItemRow("/", item.label, detail);
+  return renderMenuItemRow("/", item.label, detail, item.badge);
 }
 
 function defaultFilterSlashItem(item: SlashItem, query: string): boolean {

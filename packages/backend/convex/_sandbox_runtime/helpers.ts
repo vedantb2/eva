@@ -590,6 +590,15 @@ export async function signAndLaunchScript(
 
   const mcpBaseUrl = mcpToken ? (process.env.CONVEX_SITE_URL ?? "") : "";
 
+  // System skills reach the agent as stub SKILL.md files in the checkout, and
+  // the stubs are useless without the eva MCP server — so a launch with MCP
+  // disabled (proof / audit) ships an empty list, which prunes any leftovers.
+  const systemSkillStubs = mcpToken
+    ? await ctx.runQuery(internal.repoSystemSkills.listStubsForLaunch, {
+        repoId,
+      })
+    : [];
+
   await launchScript(
     sandbox,
     prompt,
@@ -602,6 +611,7 @@ export async function signAndLaunchScript(
       extraEnvVars,
       mcpToken: mcpToken?.token,
       mcpBaseUrl,
+      systemSkillsJson: JSON.stringify({ skills: systemSkillStubs }),
     },
   );
   console.log(

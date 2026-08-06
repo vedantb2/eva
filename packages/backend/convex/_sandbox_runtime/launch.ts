@@ -131,6 +131,8 @@ export async function launchScript(
     claudeSessionId?: string;
     mcpToken?: string;
     mcpBaseUrl?: string;
+    /** Serialized installed system-skill stubs; see `systemSkills.ts` in the callback. */
+    systemSkillsJson?: string;
     claimMutation?: string;
     openSyntheticTurnMutation?: string;
     completeSyntheticTurnMutation?: string;
@@ -179,6 +181,19 @@ export async function launchScript(
     });
     uploadTasks.push(
       uploadWithTiming("/tmp/eva-mcp.json", mcpConfig, "MCP config"),
+    );
+  }
+
+  // Written on every launch, empty list included: the file persists on a reused
+  // sandbox, so an unconditional write is what lets the callback prune stubs
+  // for skills that have since been uninstalled.
+  if (opts.systemSkillsJson !== undefined) {
+    uploadTasks.push(
+      uploadWithTiming(
+        "/tmp/eva-system-skills.json",
+        opts.systemSkillsJson,
+        "system skills",
+      ),
     );
   }
 

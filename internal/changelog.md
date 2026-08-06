@@ -1,5 +1,9 @@
 # Changelog
 
+## Turn work is committed and pushed before completion - 2026-08-06
+
+A completed turn's work previously became durable only in the workflow's post-completion push step — a VM death in that window (or any hard kill, which snapshots nothing) rolled the filesystem back and erased finished work, even committed-but-unpushed commits (session 53 lost a full implementation turn this way). The callback now runs `persistTurnWork` before posting the completion mutation: auto-commit any uncommitted changes (same media exclusions as the prompt convention) and push unpushed commits, on eva-owned branches only, best-effort. Task runs are exempt — the commit gate and the run workflow's push/PR steps own those semantics. Reason: "turn completed" must imply "work is on origin", not "work exists on a disk that may be about to vanish".
+
 ## Watchdogs extend the sandbox deadline while a turn is alive - 2026-08-06
 
 Vercel's `timeout` is a hard per-session runtime cap; a turn that outlived it was killed mid-work with no snapshot, and the next resume rolled the filesystem back to the pre-turn snapshot (task 213: 59-minute cursor turn dead at the cap, work erased; session 53 this morning was the same failure). The chat stall watchdog and the task-run watchdog now schedule `sandbox.extendSandboxDeadline` (best-effort `extendTimeout`, 2× the 30s recheck tick) on every not-stale check, so live turns slide the deadline ahead of themselves while idle sandboxes still stop on their ordinary schedule. Reason: the platform cap should be a backstop against leaks, never the thing that kills healthy work.

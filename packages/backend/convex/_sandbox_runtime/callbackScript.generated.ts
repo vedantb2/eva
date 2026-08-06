@@ -4596,6 +4596,73 @@ async function runClaudeSdkAttempt(sessionMode) {
   };
 }
 
+// callback-src/runtime/turnPersist.ts
+import { spawnSync as spawnSync3 } from "child_process";
+var GIT_STEP_TIMEOUT_MS = 2e4;
+var PUSH_TIMEOUT_MS = 6e4;
+var COMMIT_ADD_ARGS = [
+  "add",
+  "-A",
+  "--",
+  ":!*.png",
+  ":!*.jpg",
+  ":!*.jpeg",
+  ":!*.gif",
+  ":!*.webp",
+  ":!*.webm",
+  ":!*.mp4",
+  ":!*.mov",
+  ":!screenshots/",
+  ":!recordings/"
+];
+function git(args, timeoutMs = GIT_STEP_TIMEOUT_MS) {
+  const result = spawnSync3("git", ["-C", WORK_DIR, ...args], {
+    encoding: "utf8",
+    timeout: timeoutMs,
+    env: { ...process.env, GIT_TERMINAL_PROMPT: "0" }
+  });
+  const out = ((result.stdout || "") + (result.stderr || "")).trim();
+  return { ok: result.status === 0, out };
+}
+function persistTurnWork() {
+  if (REQUIRE_TASK_COMMIT || RUN_ID) return;
+  const startedAt = Date.now();
+  const branch = git(["rev-parse", "--abbrev-ref", "HEAD"]);
+  if (!branch.ok || !branch.out.startsWith("eva/")) {
+    if (branch.ok && branch.out) {
+      log(\`persistTurnWork: skipped \\u2014 branch "\${branch.out}" is not eva-owned\`);
+    }
+    return;
+  }
+  const dirty = git(["status", "--porcelain"]);
+  if (dirty.ok && dirty.out.length > 0) {
+    git(COMMIT_ADD_ARGS);
+    const staged = git(["diff", "--cached", "--quiet"]);
+    if (!staged.ok) {
+      const commit = git([
+        "commit",
+        "-m",
+        "task: checkpoint uncommitted work at turn end"
+      ]);
+      log(
+        \`persistTurnWork: auto-commit \${commit.ok ? "created" : "failed: " + commit.out.slice(0, 200)}\`
+      );
+    }
+  }
+  const unpushed = git([
+    "rev-list",
+    "--count",
+    "HEAD",
+    "--not",
+    "--remotes=origin"
+  ]);
+  if (unpushed.ok && unpushed.out === "0") return;
+  const push = git(["push", "origin", "HEAD"], PUSH_TIMEOUT_MS);
+  log(
+    \`persistTurnWork: push \${push.ok ? "ok" : "failed: " + push.out.slice(0, 200)} branch=\${branch.out} in \${Date.now() - startedAt}ms\`
+  );
+}
+
 // callback-src/providers/claimPendingTurnParse.ts
 function readStopTaskToolUseIds(result) {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
@@ -4861,6 +4928,7 @@ async function finalizeTurn(output) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
   await setFinalizingState();
+  persistTurnWork();
   const completionSentAt = Date.now();
   await deliverCompletionWithMedia(completionArgs);
   log(
@@ -6188,6 +6256,7 @@ try {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
+  persistTurnWork();
   try {
     await deliverCompletionWithMedia(completionArgs);
     syncProviderStateToPersist("completion");

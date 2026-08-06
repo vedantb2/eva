@@ -46,6 +46,7 @@ import {
 } from "../session/claudeSession.js";
 import { buildSdkOptions, loadSdk, type SdkUserMessage } from "./claudeSdk.js";
 import { callbackState as S } from "../runtime/state.js";
+import { persistTurnWork } from "../runtime/turnPersist.js";
 import { log, readResponseJson } from "../utils.js";
 import type { JsonObject, JsonValue } from "../types.js";
 import {
@@ -446,6 +447,10 @@ async function finalizeTurn(output: string): Promise<void> {
   // setFinalizingState (not plain flushStreaming, which would early-return on
   // the already-drained buffer) pushes the now-complete steps and final text.
   await setFinalizingState();
+  // Durability BEFORE completion: commit + push the turn's work so a VM death
+  // after this point cannot erase it (a hard death snapshots nothing and the
+  // next resume rolls the filesystem back — see turnPersist.ts).
+  persistTurnWork();
   // Proof: media before completion so the workflow's hasMediaForRun check does
   // not spuriously retry. Chat/coding: completion first so attachMedia can patch
   // the assistant message that was just written.

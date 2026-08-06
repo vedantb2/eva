@@ -26,6 +26,7 @@ import {
 import { runSdkDaemon } from "./providers/claudeSdkDaemon.js";
 import { fetchWithTimeout, callConvexWithRetry } from "./http/convexClient.js";
 import { callbackState as S } from "./runtime/state.js";
+import { persistTurnWork } from "./runtime/turnPersist.js";
 import {
   flushStreaming,
   runPreflightHeartbeat,
@@ -337,6 +338,11 @@ try {
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
+
+  // Durability BEFORE completion: commit + push the turn's work so a VM death
+  // after this point cannot erase it (no-op for task runs — the commit gate
+  // and the run workflow's own push steps own those semantics).
+  persistTurnWork();
 
   try {
     await deliverCompletionWithMedia(completionArgs);

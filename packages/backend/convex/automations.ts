@@ -9,7 +9,6 @@ export {
 
 export {
   triggerAutomation,
-  triggerSystemAutomation,
   runNow,
 } from "./_automations/triggers";
 

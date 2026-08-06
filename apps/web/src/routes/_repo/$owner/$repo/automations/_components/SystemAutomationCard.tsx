@@ -1,13 +1,31 @@
 import { Link } from "@tanstack/react-router";
-import { Badge, Button, Surface } from "@eva/ui";
-import { IconCheck, IconDownload } from "@tabler/icons-react";
+import { Button, Surface, cn } from "@eva/ui";
+import {
+  IconArrowRight,
+  IconCheck,
+  IconClock,
+  IconEye,
+  IconFileText,
+  IconSparkles,
+} from "@tabler/icons-react";
+import type { Icon } from "@tabler/icons-react";
 import { describeCron } from "@/lib/components/CronScheduleCard";
 
+/**
+ * Per-entry glyph for the card's icon tile. Keyed by catalog key so the backend
+ * stays free of presentation; unknown keys fall back to the generic mark.
+ */
+const ENTRY_ICONS: Record<string, Icon> = {
+  "daily-changelog": IconFileText,
+};
+
 interface SystemAutomationCardProps {
+  entryKey: string;
   title: string;
   description: string;
   /** Cron expression in UTC; shown in the reader's local time. */
   cronSchedule: string;
+  readOnly: boolean;
   installed: boolean;
   /** Per-repo URL id once installed; null otherwise. */
   numId: number | null;
@@ -22,9 +40,11 @@ interface SystemAutomationCardProps {
  * enabled, disabled and run); uninstalling takes it back out.
  */
 export function SystemAutomationCard({
+  entryKey,
   title,
   description,
   cronSchedule,
+  readOnly,
   installed,
   numId,
   basePath,
@@ -32,61 +52,99 @@ export function SystemAutomationCard({
   onUninstall,
 }: SystemAutomationCardProps) {
   const schedule = describeCron(cronSchedule);
+  const EntryIcon = ENTRY_ICONS[entryKey] ?? IconSparkles;
   // Plain `string`: `<Link to>` is a union of known route paths.
   const href: string = `${basePath}/automations/${numId}`;
 
   return (
-    <Surface density="none" className="flex flex-col gap-3 p-3 sm:p-4">
-      <div className="min-w-0">
-        <div className="flex items-center gap-2">
-          <h3 className="truncate text-sm font-medium">{title}</h3>
-          <Badge
-            variant="outline"
-            className="shrink-0 border-border bg-transparent px-1.5 py-0 text-[10px] text-muted-foreground"
+    <Surface
+      density="none"
+      className={cn(
+        "group flex flex-col overflow-hidden transition-colors",
+        installed ? "bg-card" : "bg-card hover:bg-muted/40",
+      )}
+    >
+      <div className="flex flex-1 flex-col gap-3 p-4">
+        <div className="flex items-start gap-3">
+          <span
+            className={cn(
+              // rounded-lg, not rounded-surface: a 36px tile should read as a
+              // circle under the "Full" radius theme, like other compact chrome.
+              "flex size-9 shrink-0 items-center justify-center rounded-lg border transition-colors",
+              installed
+                ? "border-primary/30 bg-primary/10 text-primary"
+                : "border-border bg-muted text-muted-foreground",
+            )}
           >
-            System
-          </Badge>
+            <EntryIcon size={18} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="truncate text-sm font-medium leading-tight">
+              {title}
+            </h3>
+            <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+              {description}
+            </p>
+          </div>
         </div>
-        <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">
-          {description}
-        </p>
+
+        {/* Pre-install the schedule is only a seed value, so showing a clock
+            time would read as a fixed property of the automation. */}
+        {(installed || readOnly) && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {installed && (
+              <Chip icon={IconClock}>
+                {schedule.valid ? schedule.text : cronSchedule}
+              </Chip>
+            )}
+            {readOnly && <Chip icon={IconEye}>Report only</Chip>}
+          </div>
+        )}
       </div>
 
-      <p className="text-[11px] text-muted-foreground">
-        {schedule.valid ? schedule.text : cronSchedule}
-      </p>
-
-      <div className="mt-auto flex items-center gap-2">
+      <div className="flex items-center justify-between gap-2 border-t border-border bg-muted/30 px-4 py-2.5">
         {installed ? (
           <>
-            <span className="flex items-center gap-1 text-[11px] font-medium text-success">
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-success">
               <IconCheck size={13} />
               Installed
             </span>
-            {numId !== null && (
-              <Link
-                to={href}
-                className="text-[11px] font-medium text-primary hover:underline"
-              >
-                Open
-              </Link>
-            )}
-            <Button
-              size="sm"
-              variant="outline"
-              className="ml-auto"
-              onClick={onUninstall}
-            >
-              Uninstall
-            </Button>
+            <div className="flex items-center gap-1">
+              {numId !== null && (
+                <Link
+                  to={href}
+                  className="flex items-center gap-1 rounded-menu-item px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                >
+                  Open
+                  <IconArrowRight size={12} />
+                </Link>
+              )}
+              <Button size="sm" variant="ghost" onClick={onUninstall}>
+                Uninstall
+              </Button>
+            </div>
           </>
         ) : (
-          <Button size="sm" variant="outline" onClick={onInstall}>
-            <IconDownload size={14} />
-            Install
-          </Button>
+          <>
+            <span className="text-[11px] text-muted-foreground">
+              Not installed
+            </span>
+            <Button size="sm" onClick={onInstall}>
+              Install
+            </Button>
+          </>
         )}
       </div>
     </Surface>
+  );
+}
+
+/** Small metadata pill in the card body. */
+function Chip({ icon: ChipIcon, children }: { icon: Icon; children: string }) {
+  return (
+    <span className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+      <ChipIcon size={12} className="shrink-0" />
+      {children}
+    </span>
   );
 }

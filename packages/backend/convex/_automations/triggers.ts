@@ -5,9 +5,8 @@ import { internal } from "../_generated/api";
 import { DEFAULT_AI_MODEL, normalizeAIModel } from "../validators";
 import { authMutation, hasRepoAccess } from "../functions";
 import { workflow } from "../workflowManager";
-import { filterActiveEntities } from "../numId";
 import { buildAutomationRunBranchName } from "./helpers";
-import { getSystemAutomation, resolveAutomationDoc } from "./systemAutomations";
+import { resolveAutomationDoc } from "./systemAutomations";
 
 /** True when the automation already has a queued or running execution. */
 async function hasRunInFlight(
@@ -87,35 +86,6 @@ export const triggerAutomation = internalMutation({
     if (await hasRunInFlight(ctx, args.automationId)) return null;
 
     await startAutomationRun(ctx, automation, repo);
-
-    return null;
-  },
-});
-
-/**
- * Fan-out target for the static system-automation crons in crons.ts: one cron
- * per catalog entry triggers every repo that has that entry enabled.
- */
-export const triggerSystemAutomation = internalMutation({
-  args: { key: v.string() },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    // Entry removed from the catalog: leave existing installs untouched.
-    if (!getSystemAutomation(args.key)) return null;
-
-    const installs = await ctx.db
-      .query("automations")
-      .withIndex("by_systemKey_and_enabled", (q) =>
-        q.eq("systemKey", args.key).eq("enabled", true),
-      )
-      .collect();
-
-    for (const automation of filterActiveEntities(installs)) {
-      const repo = await ctx.db.get(automation.repoId);
-      if (!repo) continue;
-      if (await hasRunInFlight(ctx, automation._id)) continue;
-      await startAutomationRun(ctx, automation, repo);
-    }
 
     return null;
   },

@@ -389,8 +389,7 @@ const schema = defineSchema({
   automations: defineTable(automationFields)
     .index("by_repo", ["repoId"])
     .index("by_repo_and_enabled", ["repoId", "enabled"])
-    .index("by_repo_and_numId", ["repoId", "numId"])
-    .index("by_systemKey_and_enabled", ["systemKey", "enabled"]),
+    .index("by_repo_and_numId", ["repoId", "numId"]),
 
   automationRuns: defineTable(automationRunFields)
     .index("by_automation", ["automationId"])

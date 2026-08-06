@@ -134,27 +134,21 @@ export const update = authMutation({
       throw new Error("Not authorized");
     }
 
-    // System automations are code-owned: only the install-level toggles are
-    // writable, and they never carry a dynamic cron (crons.ts fans out instead).
+    // A system automation's definition is code-owned, but everything else —
+    // schedule, enabled, email — belongs to the install and takes the path below.
     if (automation.systemKey !== undefined) {
       const editsDefinition =
         args.title !== undefined ||
         args.description !== undefined ||
-        args.cronSchedule !== undefined ||
         args.model !== undefined ||
         args.readOnly !== undefined ||
         args.actionsEnabled !== undefined ||
         args.shared !== undefined;
       if (editsDefinition) {
         throw new Error(
-          "System automations only allow enabled and sendEmail changes",
+          "A system automation's title, prompt and mode are managed by eva",
         );
       }
-      const systemPatch: Partial<Doc<"automations">> = { updatedAt: Date.now() };
-      if (args.enabled !== undefined) systemPatch.enabled = args.enabled;
-      if (args.sendEmail !== undefined) systemPatch.sendEmail = args.sendEmail;
-      await ctx.db.patch(args.id, systemPatch);
-      return null;
     }
 
     const patch: Partial<Doc<"automations">> = { updatedAt: Date.now() };

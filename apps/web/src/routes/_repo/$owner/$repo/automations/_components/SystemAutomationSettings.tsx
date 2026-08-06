@@ -1,16 +1,17 @@
+import { useState } from "react";
 import { useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
 import { api } from "@eva/backend";
 import type { Doc } from "@eva/backend";
 import { Button, Surface, toast } from "@eva/ui";
-import { describeCron } from "@/lib/components/CronScheduleCard";
+import { CronScheduleCard } from "@/lib/components/CronScheduleCard";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { SettingToggle } from "./SettingToggle";
 
 /**
- * Settings tab for an installed system automation: the definition is code-owned
- * and shown read-only, so the only writable settings are the install-level
- * toggles plus uninstalling it from this app.
+ * Settings tab for an installed system automation. eva owns the title, prompt
+ * and mode; the schedule and the install-level toggles belong to the user, as
+ * does uninstalling it from this app.
  */
 export function SystemAutomationSettings({
   automation,
@@ -27,9 +28,15 @@ export function SystemAutomationSettings({
   const navigate = useNavigate();
   const updateAutomation = useMutation(api.automations.update);
   const uninstall = useMutation(api.automations.uninstallSystemAutomation);
-  const schedule = describeCron(automation.cronSchedule);
+  // Mirrors SettingsForm: the cron field is controlled with a live local-time
+  // preview, so it needs an editing buffer and saves on blur.
+  const [cronDraft, setCronDraft] = useState(automation.cronSchedule);
 
-  const commit = (fields: { enabled?: boolean; sendEmail?: boolean }) => {
+  const commit = (fields: {
+    enabled?: boolean;
+    sendEmail?: boolean;
+    cronSchedule?: string;
+  }) => {
     void updateAutomation({ id: automation._id, ...fields })
       .then(() => toast.success("Saved", { id: "automation-saved" }))
       .catch(() =>
@@ -39,15 +46,13 @@ export function SystemAutomationSettings({
 
   return (
     <div className="space-y-4">
-      <Surface density="none" className="p-3 space-y-2 sm:p-4">
-        <h3 className="text-sm font-medium">Schedule</h3>
-        <p className="text-xs text-muted-foreground">
-          {schedule.valid ? schedule.text : "No schedule"}
-        </p>
-        <code className="text-[11px] text-muted-foreground">
-          {automation.cronSchedule} (UTC)
-        </code>
-      </Surface>
+      <CronScheduleCard
+        value={cronDraft}
+        onChange={setCronDraft}
+        onBlurCommit={(v) => {
+          if (v !== automation.cronSchedule) commit({ cronSchedule: v });
+        }}
+      />
 
       <Surface density="none" className="p-3 space-y-2 sm:p-4">
         <h3 className="text-sm font-medium">Prompt</h3>
@@ -107,8 +112,8 @@ export function SystemAutomationSettings({
       </Surface>
 
       <p className="text-[11px] text-muted-foreground">
-        This automation is built into eva. Its title, prompt and schedule are
-        managed by eva and cannot be edited here.
+        This automation is built into eva. Its title, prompt and report-only
+        mode are managed by eva; the schedule is yours to change.
       </p>
     </div>
   );

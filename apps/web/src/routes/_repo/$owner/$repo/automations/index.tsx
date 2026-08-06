@@ -63,18 +63,36 @@ function AutomationsHubPage() {
     api.automations.uninstallSystemAutomation,
   ).withOptimisticUpdate(patchInstalled(false));
 
+  const installedCount =
+    systemAutomations?.filter((entry) => entry.installed).length ?? 0;
+
   return (
     <PageWrapper comfortable title="Automations">
-      <div className="flex flex-col gap-4">
-        <p className="text-xs text-muted-foreground">
-          Automations built into eva. Install one to add it to this app; its
-          prompt and schedule stay managed by eva.
-        </p>
+      <div className="flex flex-col gap-5">
+        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
+          <div className="max-w-prose">
+            <h2 className="text-sm font-medium">Automations Hub</h2>
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+              Automations built and maintained by eva. Install one to add it to
+              this app — set your own schedule, switch it off, run it on demand.
+              The prompt stays ours to improve, so every app gets the fix.
+            </p>
+          </div>
+          {systemAutomations !== undefined && (
+            <p className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+              {installedCount} of {systemAutomations.length} installed
+            </p>
+          )}
+        </div>
 
         {systemAutomations === undefined ? (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div
+            className="grid gap-3 sm:grid-cols-2"
+            aria-busy="true"
+            aria-label="Loading automations"
+          >
             {Array.from({ length: 2 }).map((_, i) => (
-              <Skeleton key={i} className="h-40" />
+              <Skeleton key={i} className="h-[164px] border border-border" />
             ))}
           </div>
         ) : (
@@ -82,6 +100,8 @@ function AutomationsHubPage() {
             {systemAutomations.map((entry) => (
               <SystemAutomationCard
                 key={entry.key}
+                entryKey={entry.key}
+                readOnly={entry.readOnly}
                 title={entry.title}
                 description={entry.description}
                 cronSchedule={entry.cronSchedule}

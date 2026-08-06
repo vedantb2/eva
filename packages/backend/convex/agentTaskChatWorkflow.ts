@@ -11,6 +11,7 @@ import {
   reasoningLevelValidator,
   workflowCompleteValidator,
   normalizeAIModel,
+  roleValidator,
   taskSandboxStatusValidator,
   getAIModelProvider,
 } from "./validators";
@@ -126,6 +127,9 @@ export const agentTaskChatCompleteEvent = defineEvent({
 export const addMessage = authMutation({
   args: {
     taskId: v.id("agentTasks"),
+    // Defaults to "user". "assistant" lets the client surface a failed send
+    // as a visible error message (same contract as sessions.addMessage).
+    role: v.optional(roleValidator),
     content: v.string(),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
@@ -142,20 +146,25 @@ export const addMessage = authMutation({
     ) {
       throw new Error("Not authorized");
     }
+    const role = args.role ?? "user";
     await ctx.db.insert("messages", {
       parentId: args.taskId,
-      role: "user",
+      role,
       content: args.content,
       timestamp: Date.now(),
       userId: ctx.userId,
       attachmentStorageIds: args.attachmentStorageIds,
-      credentialSourceLabel: await resolveCredentialSourceLabel(
-        ctx.db,
-        task.providerAccountId,
-        task.createdBy,
-      ),
-      model: args.model,
-      reasoningLevel: args.reasoningLevel,
+      ...(role === "user"
+        ? {
+            credentialSourceLabel: await resolveCredentialSourceLabel(
+              ctx.db,
+              task.providerAccountId,
+              task.createdBy,
+            ),
+            model: args.model,
+            reasoningLevel: args.reasoningLevel,
+          }
+        : {}),
     });
     await ctx.db.patch(args.taskId, { updatedAt: Date.now() });
     return null;
@@ -862,6 +871,16 @@ export const prewarmChatDaemon = authMutation({
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     if (!task?.sandboxId || !task.repoId) return null;
+    // Never prewarm a stopped/stopping sandbox. prewarmEntityDaemon execs on
+    // the sandbox, and on Vercel any exec lazily resumes a stopped VM —
+    // resurrecting a sandbox the user stopped, invisibly (same guard as
+    // sessions' prewarmDaemon).
+    if (
+      task.reviewTaskSandboxStatus === "closed" ||
+      task.reviewTaskSandboxStatus === "stopping"
+    ) {
+      return null;
+    }
     if (!(await hasRepoAccess(ctx.db, task.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
@@ -874,6 +893,12 @@ export const prewarmChatDaemon = authMutation({
       completionMutation: "agentTaskChatWorkflow:handleCompletion",
       ...TASK_CHAT_DAEMON_MUTATIONS,
       model: normalizeAIModel(task.lastChatModel ?? task.model),
+      // Forward the sticky traits so the prewarm's opts sig matches the turn
+      // path — omitting them makes every page-open prewarm mismatch a
+      // trait-launched daemon and kill+respawn it (see sessions' prewarmDaemon).
+      reasoningLevel: task.lastReasoningLevel,
+      thinkingEnabled: task.lastThinkingEnabled,
+      use1mContext: task.lastUse1mContext,
       allowedTools: CHAT_ALLOWED_TOOLS,
       providerAccountId: task.providerAccountId,
       credentialOwnerUserId: task.createdBy,

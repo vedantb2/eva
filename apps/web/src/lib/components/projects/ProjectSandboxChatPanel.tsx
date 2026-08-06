@@ -217,21 +217,34 @@ export function ProjectSandboxChatPanel({
       return;
     }
     const accountId = resolveAccountId(providerAccountId);
-    await addMessage({
-      projectId,
-      content,
-      attachmentStorageIds,
-      providerAccountId: accountId,
-      model,
-      reasoningLevel: displayTraits.effortLevel,
-    });
-    await startExecute({
-      projectId,
-      message: content,
-      model,
-      ...executionTraits,
-      providerAccountId: accountId,
-    });
+    try {
+      await addMessage({
+        projectId,
+        content,
+        attachmentStorageIds,
+        providerAccountId: accountId,
+        model,
+        reasoningLevel: displayTraits.effortLevel,
+      });
+      await startExecute({
+        projectId,
+        message: content,
+        model,
+        ...executionTraits,
+        providerAccountId: accountId,
+      });
+    } catch (error) {
+      // Surface the failure in chat — a thrown startExecute rolls back the
+      // whole turn (no placeholder, no workflow), so without this the send
+      // silently vanishes (same contract as useSessionSend).
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to send message";
+      await addMessage({
+        projectId,
+        role: "assistant",
+        content: `Error: ${errorMessage}`,
+      });
+    }
   };
 
   const handleCancel = async () => {

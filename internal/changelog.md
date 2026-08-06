@@ -1,5 +1,9 @@
 # Changelog
 
+## Task/project chat gets the sessions send-failure and prewarm fixes - 2026-08-06
+
+Quick-task and project sandbox chat had drifted behind two session-side fixes. (1) A thrown `startExecute` rolls back the whole turn (no placeholder, no workflow), and the task/project panels had no catch — the send silently vanished (task 219: two of Kezia's messages dropped with zero feedback). Both panels now catch and post a visible `Error: …` assistant message, via a new optional `role` arg on their `addMessage` (same contract as sessions). (2) Their page-open `prewarmChatDaemon` neither forwarded sticky traits (reasoning/thinking/1M — so every prewarm optsmismatch-killed and respawned a trait-launched daemon) nor guarded closed/stopping status (so opening a closed page could resume a stopped Vercel VM invisibly); both now mirror sessions' `prewarmDaemon`. Reason: the three chat surfaces share one architecture — a fix that lands on sessions only is a regression waiting on the other two.
+
 ## Fix git-lfs filters step that broke every seeded snapshot build - 2026-08-06
 
 Every seeded build since 1 Aug failed at `failed:git-lfs-filters`: the Vercel image's primary git is a custom build under /opt/git, so `git lfs install --system` targeted /opt/git/etc/gitconfig — a directory the image does not ship — and died with "could not lock config file" (hidden by a >/dev/null redirect). The seed now creates /opt/git/etc, registers the filters against the /opt/git git, and registers them again against /etc/gitconfig so the dnf /usr/bin/git resolves LFS pointers too; output stays visible in seedrun.log. Verified live on a fresh node24 sandbox (both gitconfigs carry the filters). Reason: a hidden stderr turned a one-line environment quirk into five days of silent nightly failures.

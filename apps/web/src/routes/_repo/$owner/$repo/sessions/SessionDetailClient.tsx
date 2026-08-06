@@ -66,20 +66,19 @@ export function SessionDetailClient({
   // prewarming resumes the stopped Vercel VM (server-side no-op now, but this
   // avoids the pointless round-trip on every closed-session page open).
   const sandboxStatus = session?.status;
+  // Depend on the scalar fields only — depending on the `session` doc identity
+  // re-fired this on every patch to the doc (status flips, updatedAt, PR
+  // state…), and a burst of prewarms can race the server's alive-check into
+  // launching duplicate daemons (observed in prod: 5 daemons on one session).
+  const sessionPrState = session?.prState;
   useEffect(() => {
     if (!sandboxId) return;
     if (sandboxStatus === "closed" || sandboxStatus === "stopping") return;
     // Don't prewarm (which resumes the VM) when the PR is already terminal —
     // auto-stop below owns teardown for merged/closed sessions.
-    if (
-      session !== null &&
-      session !== undefined &&
-      isSessionPrReadOnly(session.prState)
-    ) {
-      return;
-    }
+    if (isSessionPrReadOnly(sessionPrState)) return;
     void prewarmDaemon({ sessionId });
-  }, [sessionId, sandboxId, sandboxStatus, session, prewarmDaemon]);
+  }, [sessionId, sandboxId, sandboxStatus, sessionPrState, prewarmDaemon]);
 
   // Recover sandboxes left running after a PR merge/close (webhook may have
   // only patched prState before auto-stop existed, or the stop raced).

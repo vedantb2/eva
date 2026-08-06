@@ -4469,11 +4469,27 @@ function readCancelRequested(result) {
 function sleep2(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+function pidAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function readDaemonPidFile() {
+  try {
+    return Number(readFileSync7(DAEMON_PID_FILE, "utf8").trim());
+  } catch {
+    return Number.NaN;
+  }
+}
 var daemonPaths = resolveDaemonPaths();
 var DAEMON_PID_FILE = daemonPaths.pid;
 var DAEMON_ENTITY_FILE = daemonPaths.entity;
 var DAEMON_OPTS_FILE = daemonPaths.opts;
 var IDLE_EXIT_MS = 45 * 60 * 1e3;
+var FENCE_POLL_INTERVAL_MS = 5e3;
 var PROMPT_POLL_INTERVAL_MS = 50;
 var NO_MESSAGE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
 var WATCHDOG_TICK_MS = 5e3;
@@ -5379,9 +5395,36 @@ async function runSdkDaemon() {
     );
     process.exit(1);
   }
+  const rivalPid = readDaemonPidFile();
+  if (!Number.isNaN(rivalPid) && rivalPid !== process.pid && pidAlive(rivalPid)) {
+    log(
+      \`daemon: rival daemon pid=\${rivalPid} already owns \${DAEMON_PID_FILE} \\u2014 exiting\`
+    );
+    process.exit(0);
+  }
   writeFileSync10(DAEMON_PID_FILE, String(process.pid));
   writeFileSync10(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
   writeFileSync10(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
+  let deposedLogged = false;
+  setInterval(() => {
+    const owner = readDaemonPidFile();
+    if (owner === process.pid) {
+      deposedLogged = false;
+      return;
+    }
+    const ownerLabel = Number.isNaN(owner) ? "none" : String(owner);
+    if (turnActive) {
+      if (!deposedLogged) {
+        deposedLogged = true;
+        log(
+          \`daemon: deposed (pidfile owner=\${ownerLabel}) \\u2014 exiting after active turn\`
+        );
+      }
+      return;
+    }
+    log(\`daemon: deposed (pidfile owner=\${ownerLabel}) \\u2014 exiting\`);
+    process.exit(0);
+  }, FENCE_POLL_INTERVAL_MS);
   const preflightOk2 = await runPreflightHeartbeat();
   if (!preflightOk2) {
     log("daemon: preflight failed");
@@ -5416,26 +5459,28 @@ async function runSdkDaemon() {
     } catch {
     }
   } finally {
-    try {
-      unlinkSync2(DAEMON_PID_FILE);
-      unlinkSync2(DAEMON_ENTITY_FILE);
-      unlinkSync2(DAEMON_OPTS_FILE);
-      if (ENTITY_ID_FIELD === "sessionId") {
-        const legacy = resolveLegacySessionDaemonPaths();
-        try {
-          unlinkSync2(legacy.pid);
-        } catch {
+    if (readDaemonPidFile() === process.pid) {
+      try {
+        unlinkSync2(DAEMON_PID_FILE);
+        unlinkSync2(DAEMON_ENTITY_FILE);
+        unlinkSync2(DAEMON_OPTS_FILE);
+        if (ENTITY_ID_FIELD === "sessionId") {
+          const legacy = resolveLegacySessionDaemonPaths();
+          try {
+            unlinkSync2(legacy.pid);
+          } catch {
+          }
+          try {
+            unlinkSync2(legacy.entity);
+          } catch {
+          }
+          try {
+            unlinkSync2(legacy.opts);
+          } catch {
+          }
         }
-        try {
-          unlinkSync2(legacy.entity);
-        } catch {
-        }
-        try {
-          unlinkSync2(legacy.opts);
-        } catch {
-        }
+      } catch {
       }
-    } catch {
     }
     await stopStreamingLoops();
   }

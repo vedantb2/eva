@@ -57,6 +57,25 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** True when `pid` refers to a live process this user can signal. */
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Reads the entity daemon pidfile; NaN when missing or unreadable. */
+function readDaemonPidFile(): number {
+  try {
+    return Number(readFileSync(DAEMON_PID_FILE, "utf8").trim());
+  } catch {
+    return Number.NaN;
+  }
+}
+
 // Entity-scoped daemon marker paths (see daemonPaths.ts). Legacy session paths
 // are cleaned up on exit when this daemon is session-scoped.
 const daemonPaths = resolveDaemonPaths();
@@ -69,6 +88,11 @@ const DAEMON_OPTS_FILE = daemonPaths.opts;
 // respawn — re-upload + boot — is the ~20s "slow hi" users feel). Matches the
 // keep-warm window of comparable agents (t3code reaps at 30min).
 const IDLE_EXIT_MS = 45 * 60 * 1000;
+// How often a daemon re-checks that it still owns the entity pidfile. Concurrent
+// launches race the multi-second gap between the launcher's alive-check and the
+// pidfile write below, so several daemons can boot for one entity (observed in
+// prod: 5 daemons flip-flopping one streaming row). Deposed daemons exit here.
+const FENCE_POLL_INTERVAL_MS = 5000;
 // Poll interval for the claim mutation. Low enough to keep handoff→turn-start
 // latency to ~one poll; the turn itself dominates so this only trims the tail.
 const PROMPT_POLL_INTERVAL_MS = 50;
@@ -1324,9 +1348,52 @@ export async function runSdkDaemon(): Promise<void> {
     process.exit(1);
   }
 
+  // Single-daemon fence, part 1 (boot claim): if a live rival already owns the
+  // pidfile, exit without touching its marker files. First writer wins. A dead
+  // pid in the file (e.g. after KILL_PRIOR_AGENT_PROCESSES_CMD) is overwritten.
+  const rivalPid = readDaemonPidFile();
+  if (
+    !Number.isNaN(rivalPid) &&
+    rivalPid !== process.pid &&
+    pidAlive(rivalPid)
+  ) {
+    log(
+      `daemon: rival daemon pid=${rivalPid} already owns ${DAEMON_PID_FILE} — exiting`,
+    );
+    process.exit(0);
+  }
+
   writeFileSync(DAEMON_PID_FILE, String(process.pid));
   writeFileSync(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
   writeFileSync(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
+
+  // Single-daemon fence, part 2: a launch racing past the boot claim (or an
+  // optsmismatch respawn) overwrites the pidfile; the deposed daemon must exit
+  // or it lives forever, double-claiming turns and flip-flopping the shared
+  // streaming row. Deferred while a real turn is active so work is never
+  // killed mid-flight — the rival idles on claim polling meanwhile. A missing
+  // pidfile also means deposed (a kill+respawn removed it; the successor will
+  // claim it).
+  let deposedLogged = false;
+  setInterval(() => {
+    const owner = readDaemonPidFile();
+    if (owner === process.pid) {
+      deposedLogged = false;
+      return;
+    }
+    const ownerLabel = Number.isNaN(owner) ? "none" : String(owner);
+    if (turnActive) {
+      if (!deposedLogged) {
+        deposedLogged = true;
+        log(
+          `daemon: deposed (pidfile owner=${ownerLabel}) — exiting after active turn`,
+        );
+      }
+      return;
+    }
+    log(`daemon: deposed (pidfile owner=${ownerLabel}) — exiting`);
+    process.exit(0);
+  }, FENCE_POLL_INTERVAL_MS);
 
   const preflightOk = await runPreflightHeartbeat();
   if (!preflightOk) {
@@ -1375,30 +1442,35 @@ export async function runSdkDaemon(): Promise<void> {
       /* ignore */
     }
   } finally {
-    try {
-      unlinkSync(DAEMON_PID_FILE);
-      unlinkSync(DAEMON_ENTITY_FILE);
-      unlinkSync(DAEMON_OPTS_FILE);
-      if (ENTITY_ID_FIELD === "sessionId") {
-        const legacy = resolveLegacySessionDaemonPaths();
-        try {
-          unlinkSync(legacy.pid);
-        } catch {
-          /* ignore */
+    // Only tear down markers this daemon still owns — after a fence
+    // deposition a rival owns them (fence exits bypass this via
+    // process.exit, but an SDK failure can reach here deposed).
+    if (readDaemonPidFile() === process.pid) {
+      try {
+        unlinkSync(DAEMON_PID_FILE);
+        unlinkSync(DAEMON_ENTITY_FILE);
+        unlinkSync(DAEMON_OPTS_FILE);
+        if (ENTITY_ID_FIELD === "sessionId") {
+          const legacy = resolveLegacySessionDaemonPaths();
+          try {
+            unlinkSync(legacy.pid);
+          } catch {
+            /* ignore */
+          }
+          try {
+            unlinkSync(legacy.entity);
+          } catch {
+            /* ignore */
+          }
+          try {
+            unlinkSync(legacy.opts);
+          } catch {
+            /* ignore */
+          }
         }
-        try {
-          unlinkSync(legacy.entity);
-        } catch {
-          /* ignore */
-        }
-        try {
-          unlinkSync(legacy.opts);
-        } catch {
-          /* ignore */
-        }
+      } catch {
+        /* ignore */
       }
-    } catch {
-      /* ignore */
     }
     await stopStreamingLoops();
   }

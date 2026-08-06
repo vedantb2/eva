@@ -245,7 +245,10 @@ export const prewarmDaemon = authMutation({
       throw new Error("Not authorized");
     // Match edit-mode defaults so the first real message does not immediately
     // optsmismatch-kill this daemon (which races with claimPendingTurn and
-    // leaves the chat stuck on Working).
+    // leaves the chat stuck on Working). Traits must be forwarded for the same
+    // reason: the turn-path prewarm includes them in the opts sig, so omitting
+    // them here made every page-open prewarm mismatch a trait-launched daemon
+    // and kill+respawn it (each respawn window can duplicate daemons).
     const credentialOwnerUserId = session.createdBy ?? session.userId;
     const lastMode = session.lastMode ?? "edit";
     await ctx.scheduler.runAfter(0, internal.sandbox.prewarmSessionDaemon, {
@@ -254,6 +257,9 @@ export const prewarmDaemon = authMutation({
       repoId: session.repoId,
       userId: session.userId,
       model: normalizeAIModel(session.lastModel),
+      reasoningLevel: session.lastReasoningLevel,
+      thinkingEnabled: session.lastThinkingEnabled,
+      use1mContext: session.lastUse1mContext,
       allowedTools: MODE_TOOLS[resolveToolMode(lastMode)],
       providerAccountId: session.providerAccountId,
       credentialOwnerUserId,

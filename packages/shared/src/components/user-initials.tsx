@@ -199,7 +199,7 @@ function MailIcon({ className }: { className?: string }) {
 /** Floating glass shell shared by every profile-card state. */
 function ProfileCardShell({ children }: { children: ReactNode }) {
   return (
-    <div className="overflow-hidden rounded-surface border border-border bg-popover/95 text-popover-foreground shadow-lg backdrop-blur-md">
+    <div className="overflow-hidden rounded-surface bg-popover/95 text-popover-foreground smooth-shadow-ring-lg backdrop-blur-md">
       {children}
     </div>
   );

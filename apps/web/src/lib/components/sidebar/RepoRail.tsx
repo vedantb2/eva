@@ -128,10 +128,10 @@ function RepoRailLiveData(props: RepoRailProps) {
 
 /**
  * Far-left icon rail: global destinations (Eva, Inbox, Sessions), then repos,
- * then collapse / search / account / settings at the bottom. Teams and
- * Artifacts live in the workspace sidebar behind the Eva tile; Testing (dev)
- * lives in the Settings sidebar. The gear goes straight to the first Settings
- * route (Theme).
+ * then Automations / collapse / search / account / settings at the bottom.
+ * Teams and Artifacts live in the workspace sidebar behind the Eva tile;
+ * Testing (dev) lives in the Settings sidebar. The gear goes straight to the
+ * first Settings route (Theme).
  * App tiles are real Links (not buttons) so middle-click / cmd-click open a new tab.
  *
  * Live session/sandbox indicators sit behind QueryErrorBoundary so a missing
@@ -259,26 +259,6 @@ function RepoRailView({
             {sessionsLabel ? `Sessions (${sessionsLabel})` : "Sessions"}
           </TooltipContent>
         </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              to="/automations"
-              onClick={onNavigate}
-              aria-label="Automations"
-              className={cn(
-                RAIL_TILE_CLASS,
-                "group",
-                railTileActive(automationsActive),
-              )}
-            >
-              <AutomationsIcon size={22} className="shrink-0" />
-              <QueryErrorBoundary>
-                <AutomationsUnreadBadge />
-              </QueryErrorBoundary>
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent side="right">Automations</TooltipContent>
-        </Tooltip>
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />
       </div>
       <div className="scrollbar scroll-fade flex w-full flex-1 flex-col items-center gap-1.5 overflow-y-auto py-2">
@@ -374,6 +354,26 @@ function RepoRailView({
         />
       ) : null}
       <div className="flex w-full flex-col items-center gap-1.5 border-t border-sidebar-border py-3">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              to="/automations"
+              onClick={onNavigate}
+              aria-label="Automations"
+              className={cn(
+                RAIL_TILE_CLASS,
+                "group",
+                railTileActive(automationsActive),
+              )}
+            >
+              <AutomationsIcon size={22} className="shrink-0" />
+              <QueryErrorBoundary>
+                <AutomationsUnreadBadge />
+              </QueryErrorBoundary>
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right">Automations</TooltipContent>
+        </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
             <button

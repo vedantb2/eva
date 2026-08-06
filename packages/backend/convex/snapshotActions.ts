@@ -303,7 +303,17 @@ export const launchSeedRun = internalAction({
       // that makes checkout resolve pointers, so it must follow the binary; call
       // the absolute path because sudo's secure_path may exclude /usr/local/bin.
       `command -v git-lfs >/dev/null 2>&1 || { curl -fsSL https://github.com/git-lfs/git-lfs/releases/download/v${GIT_LFS_VERSION}/git-lfs-linux-amd64-v${GIT_LFS_VERSION}.tar.gz -o /tmp/lfs.tgz && sudo tar -xzf /tmp/lfs.tgz -C /tmp && sudo mv /tmp/git-lfs-${GIT_LFS_VERSION}/git-lfs /usr/local/bin/git-lfs && rm -rf /tmp/lfs.tgz /tmp/git-lfs-${GIT_LFS_VERSION}; } || { echo "SEEDRUN-FAILED:git-lfs"; exit 1; }`,
-      'sudo /usr/local/bin/git-lfs install --system >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:git-lfs-filters"; exit 1; }',
+      // The Image's primary git is a custom build under /opt/git, so its
+      // "system" config resolves to /opt/git/etc/gitconfig — a directory the
+      // image does not ship. `git lfs install --system` therefore failed with
+      // "could not lock config file" and broke EVERY seeded build from the day
+      // this step landed (the old >/dev/null redirect hid the message; keep
+      // output visible in seedrun.log). Create the dir, register the filters
+      // against the /opt/git git, then again against /etc/gitconfig so the
+      // dnf-installed /usr/bin/git resolves LFS pointers too.
+      "sudo mkdir -p /opt/git/etc",
+      'sudo /usr/local/bin/git-lfs install --system || { echo "SEEDRUN-FAILED:git-lfs-filters"; exit 1; }',
+      'sudo env GIT_CONFIG_SYSTEM=/etc/gitconfig /usr/local/bin/git-lfs install --system || { echo "SEEDRUN-FAILED:git-lfs-filters"; exit 1; }',
       'command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && command -v opencode >/dev/null 2>&1 && [ -d "$(npm root -g)/@cursor/sdk" ] || sudo npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0 @cursor/sdk@1.0.26 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
       'command -v code-server >/dev/null 2>&1 || curl -fsSL https://code-server.dev/install.sh | sh || { echo "SEEDRUN-FAILED:code-server"; exit 1; }',
       'command -v websockify >/dev/null 2>&1 || python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1 || { echo "SEEDRUN-FAILED:websockify"; exit 1; }',

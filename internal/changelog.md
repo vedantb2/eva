@@ -1,5 +1,9 @@
 # Changelog
 
+## Fix git-lfs filters step that broke every seeded snapshot build - 2026-08-06
+
+Every seeded build since 1 Aug failed at `failed:git-lfs-filters`: the Vercel image's primary git is a custom build under /opt/git, so `git lfs install --system` targeted /opt/git/etc/gitconfig — a directory the image does not ship — and died with "could not lock config file" (hidden by a >/dev/null redirect). The seed now creates /opt/git/etc, registers the filters against the /opt/git git, and registers them again against /etc/gitconfig so the dnf /usr/bin/git resolves LFS pointers too; output stays visible in seedrun.log. Verified live on a fresh node24 sandbox (both gitconfigs carry the filters). Reason: a hidden stderr turned a one-line environment quirk into five days of silent nightly failures.
+
 ## Cron reconciles stale "active" sandbox statuses - 2026-08-06
 
 Vercel stops VMs on its own (hard session-timeout cap, platform stops) and nothing notifies eva; the only reconcile trigger was a page-mount prewarm, so a session left open in a browser tab kept showing "active" with a dead Preview indefinitely (session 55). `reconcileStaleActiveSandboxes` now sweeps every 5 minutes: list DB-active sessions/tasks/projects (capped at 50 per tick), read each sandbox's provider state without resuming, and flip stopped/archived/gone/error ones to closed via the existing `reconcileStoppedSandboxStatus` — so the UI offers Start. A mid-turn VM is running (and deadline-extended), so live work can never be flipped. Reason: eva's status must track provider truth on its own clock, not wait for a lucky page remount.

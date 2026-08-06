@@ -18,6 +18,7 @@ import {
 } from "@eva/ui";
 import {
   IconAdjustmentsHorizontal,
+  IconLayoutList,
   IconList,
   IconMinus,
   IconPlus,
@@ -27,9 +28,12 @@ import {
   APP_SORT_LABELS,
   APP_SORT_ORDERS,
   isAppSortOrder,
+  isSessionLayout,
   isSessionSortOrder,
   MAX_SESSION_PREVIEW_COUNT,
   MIN_SESSION_PREVIEW_COUNT,
+  SESSION_LAYOUT_LABELS,
+  SESSION_LAYOUTS,
   SESSION_SORT_LABELS,
   SESSION_SORT_ORDERS,
 } from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
@@ -45,6 +49,7 @@ export function SessionsSidebarOptionsMenu() {
     setAppSortOrder,
     setSessionSortOrder,
     setSessionPreviewCount,
+    setLayout,
   } = useSessionsSidebarSettings();
 
   return (
@@ -65,6 +70,27 @@ export function SessionsSidebarOptionsMenu() {
         <TooltipContent>Sidebar options</TooltipContent>
       </Tooltip>
       <DropdownMenuContent align="end" className="w-52">
+        <DropdownMenuSub>
+          <DropdownMenuSubTrigger>
+            <IconLayoutList size={16} />
+            View
+          </DropdownMenuSubTrigger>
+          <DropdownMenuSubContent>
+            <DropdownMenuRadioGroup
+              value={settings.layout}
+              onValueChange={(value) => {
+                if (isSessionLayout(value)) setLayout(value);
+              }}
+            >
+              {SESSION_LAYOUTS.map((layout) => (
+                <DropdownMenuRadioItem key={layout} value={layout}>
+                  {SESSION_LAYOUT_LABELS[layout]}
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuSubContent>
+        </DropdownMenuSub>
+
         <DropdownMenuSub>
           <DropdownMenuSubTrigger>
             <IconSortDescending size={16} />

@@ -65,6 +65,32 @@ export function HoverCardAuthor({ userId }: { userId: Id<"users"> }) {
   );
 }
 
+/** Compact author for folder-layout session rows (smaller avatar + name). */
+export function SessionFolderAuthor({ userId }: { userId: Id<"users"> }) {
+  const user = useQuery(api.users.get, { id: userId });
+  return (
+    <div className="flex min-w-0 items-center gap-1">
+      <div className="origin-left shrink-0 scale-[0.75]">
+        <UserInitials
+          userId={userId}
+          user={user ?? undefined}
+          size="sm"
+          hideLastSeen
+          disableProfileCard
+        />
+      </div>
+      {user ? (
+        <span
+          data-pii
+          className="truncate text-[10px] leading-none text-muted-foreground"
+        >
+          {authorDisplayName(user)}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 interface SessionHoverCardBodyProps {
   title: string;
   preview?: string | null;

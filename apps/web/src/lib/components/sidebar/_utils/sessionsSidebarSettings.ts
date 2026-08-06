@@ -13,6 +13,15 @@ export type SessionSortOrder = (typeof SESSION_SORT_ORDERS)[number];
 export const SESSION_LIST_MODES = ["active", "archived"] as const;
 export type SessionListMode = (typeof SESSION_LIST_MODES)[number];
 
+/** Row density: single-line list vs two-line folder. */
+export const SESSION_LAYOUTS = ["list", "folder"] as const;
+export type SessionLayout = (typeof SESSION_LAYOUTS)[number];
+
+export const SESSION_LAYOUT_LABELS: Record<SessionLayout, string> = {
+  list: "List",
+  folder: "Folder",
+};
+
 export const MIN_SESSION_PREVIEW_COUNT = 2;
 export const MAX_SESSION_PREVIEW_COUNT = 10;
 export const DEFAULT_SESSION_PREVIEW_COUNT = 3;
@@ -33,6 +42,7 @@ export interface SessionsSidebarSettings {
   sessionSortOrder: SessionSortOrder;
   sessionPreviewCount: number;
   listMode: SessionListMode;
+  layout: SessionLayout;
 }
 
 export const DEFAULT_SESSIONS_SIDEBAR_SETTINGS: SessionsSidebarSettings = {
@@ -40,6 +50,7 @@ export const DEFAULT_SESSIONS_SIDEBAR_SETTINGS: SessionsSidebarSettings = {
   sessionSortOrder: "updated_at",
   sessionPreviewCount: DEFAULT_SESSION_PREVIEW_COUNT,
   listMode: "active",
+  layout: "list",
 };
 
 export function isAppSortOrder(value: string): value is AppSortOrder {
@@ -59,6 +70,13 @@ export function isSessionSortOrder(value: string): value is SessionSortOrder {
 export function isSessionListMode(value: string): value is SessionListMode {
   for (const mode of SESSION_LIST_MODES) {
     if (mode === value) return true;
+  }
+  return false;
+}
+
+export function isSessionLayout(value: string): value is SessionLayout {
+  for (const layout of SESSION_LAYOUTS) {
+    if (layout === value) return true;
   }
   return false;
 }

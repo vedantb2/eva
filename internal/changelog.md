@@ -1,5 +1,9 @@
 # Changelog
 
+## Sessions sidebar list / folder view - 2026-08-06
+
+Session rows were a single dense line with a hovercard for author context. Settings now persist `layout: list | folder` (default list) under the existing sidebar options key; View lives in the options menu next to Sort projects / threads. Folder is two rows — status + title, then avatar + name with PR and relative time on the right — and skips the hovercard since that meta is already visible. Chrome session tabs are unchanged. Reason: team sessions need author visible at a glance without hover.
+
 ## System automations and the Automations Hub - 2026-08-06
 
 Automations were entirely user-authored, so shipping a good one to every app meant asking each user to retype it. A hardcoded catalog now lives in `_automations/systemAutomations.ts` (first entry: Daily changelog, a read-only report on a daily cron), surfaced per app on the automations index page as an Automations Hub with a single enable toggle. Enabling lazily creates an ordinary `automations` row tagged `systemKey`, so run history, the workflow, the sidebar and unread badges all work unchanged; disabling keeps the row and its history. The definition is overlaid from code at read and run time, so editing the catalog updates every install at once, and `update`/`remove` reject anything beyond the `enabled` and `sendEmail` toggles. Scheduling is one static cron per catalog entry that fans out to every enabled install, rather than a dynamic cron per row. Reason: automations we consider good practice should ship with eva and stay ours to improve, not fork into hundreds of stale copies.

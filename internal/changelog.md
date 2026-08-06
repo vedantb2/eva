@@ -1,5 +1,9 @@
 # Changelog
 
+## Gate every daemon pidfile unlink on ownership - 2026-08-06
+
+Review of the fence commit found two exit paths it missed: `failTurnAndExit` and `exitWithoutCompletion` still unlinked the daemon pidfile unconditionally, so a deposed daemon finishing (and failing) its deferred turn deleted the rival's pidfile — the healthy rival's fence then read `owner=none` and exited, leaving zero daemons. Both paths now use the same `readDaemonPidFile() === process.pid` gate as the runSdkDaemon finally block. Reason: any unlink of a shared marker must prove ownership first, on every path.
+
 ## Gate composer autocomplete behind experimental flag - 2026-08-06
 
 Inline Tab completions were on for every chat/task composer as soon as `completionContext` was set. They now require the per-user `composerAutocomplete` experimental flag (off by default) on Settings → Experimental; `MentionTextarea` and `DescriptionMentionEditor` only call `useInlineSuggestion` when the flag is on. Reason: Tab autocomplete is still settling and should be opt-in like the other experimental controls.

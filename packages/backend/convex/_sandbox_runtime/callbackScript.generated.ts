@@ -4696,18 +4696,22 @@ async function failTurnAndExit(error) {
     });
   } catch {
   }
-  try {
-    unlinkSync2(DAEMON_PID_FILE);
-  } catch {
+  if (readDaemonPidFile() === process.pid) {
+    try {
+      unlinkSync2(DAEMON_PID_FILE);
+    } catch {
+    }
   }
   await stopStreamingLoops();
   process.exit(1);
 }
 async function exitWithoutCompletion(reason) {
   log("daemon: exiting without completion \\u2014 " + reason);
-  try {
-    unlinkSync2(DAEMON_PID_FILE);
-  } catch {
+  if (readDaemonPidFile() === process.pid) {
+    try {
+      unlinkSync2(DAEMON_PID_FILE);
+    } catch {
+    }
   }
   await stopStreamingLoops();
 }

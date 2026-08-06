@@ -218,10 +218,15 @@ async function failTurnAndExit(error: string): Promise<never> {
   } catch {
     /* best-effort: exit regardless so the daemon does not wedge */
   }
-  try {
-    unlinkSync(DAEMON_PID_FILE);
-  } catch {
-    /* ignore */
+  // Only unlink a pidfile this daemon still owns — a deposed daemon that
+  // deferred its fence exit through this failing turn would otherwise delete
+  // the rival's pidfile and take the healthy daemon down with it.
+  if (readDaemonPidFile() === process.pid) {
+    try {
+      unlinkSync(DAEMON_PID_FILE);
+    } catch {
+      /* ignore */
+    }
   }
   await stopStreamingLoops();
   process.exit(1);
@@ -238,10 +243,13 @@ async function failTurnAndExit(error: string): Promise<never> {
  */
 async function exitWithoutCompletion(reason: string): Promise<void> {
   log("daemon: exiting without completion — " + reason);
-  try {
-    unlinkSync(DAEMON_PID_FILE);
-  } catch {
-    /* ignore */
+  // Same ownership gate as failTurnAndExit: never delete a rival's pidfile.
+  if (readDaemonPidFile() === process.pid) {
+    try {
+      unlinkSync(DAEMON_PID_FILE);
+    } catch {
+      /* ignore */
+    }
   }
   await stopStreamingLoops();
 }

@@ -58,10 +58,6 @@ function GlobalMainContent() {
           <SessionChromeTabsBar pathname={pathname} />
         ) : null}
         <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-linear-to-b from-primary/8 via-primary/3 to-transparent"
-        />
-        <div
           className={
             isGlobalSettingsPath(pathname)
               ? "relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col"

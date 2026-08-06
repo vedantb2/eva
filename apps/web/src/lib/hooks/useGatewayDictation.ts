@@ -56,6 +56,15 @@ function stopMediaTracks(mediaStream: MediaStream) {
   }
 }
 
+// Module-level so the dynamic import() stays outside the hook body — the
+// React Compiler cannot lower import expressions and bails out of memoizing
+// the whole file when one appears inside a compiled function.
+function loadGatewayDictationSdk() {
+  return import(
+    /* webpackChunkName: "gateway-dictation" */ "./gatewayDictationSdk"
+  );
+}
+
 function dictationErrorMessage(
   error: object | string | number | boolean | null,
 ) {
@@ -119,7 +128,11 @@ export function useGatewayDictation(onText: (fullText: string) => void) {
   const mintToken = useAction(api.transcription.mintTranscriptionToken);
   const [status, setStatus] = useState<GatewayDictationStatus>("idle");
   const onTextRef = useRef(onText);
-  onTextRef.current = onText;
+  // Latest-ref via effect, not a render-time write — the React Compiler
+  // rejects ref writes during render and bails on the whole file.
+  useEffect(() => {
+    onTextRef.current = onText;
+  });
   const sessionRef = useRef<DictationSession | null>(null);
   const streamReaderCancelRef = useRef<(() => void) | null>(null);
   const generationRef = useRef(0);
@@ -275,9 +288,8 @@ export function useGatewayDictation(onText: (fullText: string) => void) {
           closeAudio();
         };
 
-        const { experimental_streamTranscribe, createGateway } = await import(
-          /* webpackChunkName: "gateway-dictation" */ "./gatewayDictationSdk"
-        );
+        const { experimental_streamTranscribe, createGateway } =
+          await loadGatewayDictationSdk();
 
         if (generationRef.current !== generation) {
           cleanup();

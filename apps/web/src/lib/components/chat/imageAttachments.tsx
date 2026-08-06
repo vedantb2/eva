@@ -117,6 +117,11 @@ export function ChatAttachmentPreview() {
                   type="button"
                   className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   onClick={() => {
+                    // Computed outside the try/catch — the React Compiler
+                    // bails on value blocks (??, ||) inside try/catch and
+                    // drops memoization for the whole file.
+                    const filename = file.filename ?? "pasted-text.txt";
+                    const mediaType = file.mediaType || "text/plain";
                     void (async () => {
                       try {
                         const response = await fetch(file.url);
@@ -129,8 +134,8 @@ export function ChatAttachmentPreview() {
                           title: label,
                           text,
                           fileId: file.id,
-                          filename: file.filename ?? "pasted-text.txt",
-                          mediaType: file.mediaType || "text/plain",
+                          filename,
+                          mediaType,
                         });
                       } catch {
                         toast.error("Could not load attachment.");

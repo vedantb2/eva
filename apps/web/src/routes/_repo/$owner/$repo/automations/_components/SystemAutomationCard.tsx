@@ -1,32 +1,35 @@
 import { Link } from "@tanstack/react-router";
-import { Badge, Surface } from "@eva/ui";
+import { Badge, Button, Surface } from "@eva/ui";
+import { IconCheck, IconDownload } from "@tabler/icons-react";
 import { describeCron } from "@/lib/components/CronScheduleCard";
-import { SettingToggle } from "./SettingToggle";
 
 interface SystemAutomationCardProps {
   title: string;
   description: string;
   /** Cron expression in UTC; shown in the reader's local time. */
   cronSchedule: string;
-  enabled: boolean;
-  /** Per-repo URL id once installed; null before the first enable. */
+  installed: boolean;
+  /** Per-repo URL id once installed; null otherwise. */
   numId: number | null;
   basePath: string;
-  onToggle: (next: boolean) => void;
+  onInstall: () => void;
+  onUninstall: () => void;
 }
 
 /**
- * One entry in the Automations Hub: an eva-managed automation the user can turn
- * on for this app but cannot edit.
+ * One entry in the Automations Hub: an eva-managed automation the user installs
+ * into this app. Installing adds it to the app's automations (where it can be
+ * enabled, disabled and run); uninstalling takes it back out.
  */
 export function SystemAutomationCard({
   title,
   description,
   cronSchedule,
-  enabled,
+  installed,
   numId,
   basePath,
-  onToggle,
+  onInstall,
+  onUninstall,
 }: SystemAutomationCardProps) {
   const schedule = describeCron(cronSchedule);
   // Plain `string`: `<Link to>` is a union of known route paths.
@@ -34,42 +37,56 @@ export function SystemAutomationCard({
 
   return (
     <Surface density="none" className="flex flex-col gap-3 p-3 sm:p-4">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h3 className="truncate text-sm font-medium">{title}</h3>
-            <Badge
-              variant="outline"
-              className="shrink-0 border-border bg-transparent px-1.5 py-0 text-[10px] text-muted-foreground"
-            >
-              System
-            </Badge>
-          </div>
-          <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">
-            {description}
-          </p>
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <h3 className="truncate text-sm font-medium">{title}</h3>
+          <Badge
+            variant="outline"
+            className="shrink-0 border-border bg-transparent px-1.5 py-0 text-[10px] text-muted-foreground"
+          >
+            System
+          </Badge>
         </div>
+        <p className="mt-1 line-clamp-2 text-[11px] text-muted-foreground">
+          {description}
+        </p>
       </div>
 
       <p className="text-[11px] text-muted-foreground">
         {schedule.valid ? schedule.text : cronSchedule}
       </p>
 
-      <SettingToggle
-        title="Enabled"
-        description="Run this automation on its schedule for this app"
-        checked={enabled}
-        onChange={onToggle}
-      />
-
-      {numId !== null && (
-        <Link
-          to={href}
-          className="text-[11px] font-medium text-primary hover:underline"
-        >
-          View runs
-        </Link>
-      )}
+      <div className="mt-auto flex items-center gap-2">
+        {installed ? (
+          <>
+            <span className="flex items-center gap-1 text-[11px] font-medium text-success">
+              <IconCheck size={13} />
+              Installed
+            </span>
+            {numId !== null && (
+              <Link
+                to={href}
+                className="text-[11px] font-medium text-primary hover:underline"
+              >
+                Open
+              </Link>
+            )}
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto"
+              onClick={onUninstall}
+            >
+              Uninstall
+            </Button>
+          </>
+        ) : (
+          <Button size="sm" variant="outline" onClick={onInstall}>
+            <IconDownload size={14} />
+            Install
+          </Button>
+        )}
+      </div>
     </Surface>
   );
 }

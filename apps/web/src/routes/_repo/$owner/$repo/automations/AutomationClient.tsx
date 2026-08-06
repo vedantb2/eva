@@ -150,7 +150,12 @@ export function AutomationClient({
               repoName={repoName}
             />
           ) : (
-            <SystemAutomationSettings automation={automation} />
+            <SystemAutomationSettings
+              automation={automation}
+              systemKey={automation.systemKey}
+              repoOwner={repoOwner}
+              repoName={repoName}
+            />
           ))}
       </div>
     </PageWrapper>

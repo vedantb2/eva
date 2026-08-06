@@ -209,10 +209,8 @@ export const remove = authMutation({
     if (!(await hasRepoAccess(ctx.db, automation.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
-    if (automation.systemKey !== undefined) {
-      throw new Error("System automations cannot be deleted, only disabled");
-    }
-
+    // System rows delete the same way: a soft delete is the uninstall, and
+    // reinstalling from the Hub revives this row with its run history intact.
     const cronName = `automation-${String(args.id)}`;
     await safeDeleteCron(ctx, cronName);
 

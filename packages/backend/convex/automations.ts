@@ -15,7 +15,8 @@ export {
 
 export {
   listSystemAutomations,
-  setSystemAutomationState,
+  installSystemAutomation,
+  uninstallSystemAutomation,
 } from "./_automations/systemInstall";
 
 export {

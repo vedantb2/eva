@@ -7,8 +7,12 @@ import {
 } from "@tabler/icons-react";
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 
-/** Show/hide the right sandbox panel (same control sessions use). */
-export const SANDBOX_PANEL_TOGGLE_HOTKEY = "Ctrl+Alt+B";
+/** Show/hide the right sandbox panel (same control sessions use). The
+ * registration string must use the canonical `Control` spelling — the
+ * library's `Hotkey` template type rejects `Ctrl` in compound hotkeys. */
+export const SANDBOX_PANEL_TOGGLE_HOTKEY = "Control+Alt+B" as const;
+/** Short form for tooltips/aria labels. */
+export const SANDBOX_PANEL_TOGGLE_HOTKEY_LABEL = "Ctrl+Alt+B";
 
 export function SandboxPanelToggleButton({
   collapsed,
@@ -29,13 +33,13 @@ export function SandboxPanelToggleButton({
       onClick={onToggle}
       title={
         collapsed
-          ? `${expandLabel} (${SANDBOX_PANEL_TOGGLE_HOTKEY})`
-          : `${collapseLabel} (${SANDBOX_PANEL_TOGGLE_HOTKEY})`
+          ? `${expandLabel} (${SANDBOX_PANEL_TOGGLE_HOTKEY_LABEL})`
+          : `${collapseLabel} (${SANDBOX_PANEL_TOGGLE_HOTKEY_LABEL})`
       }
       aria-label={
         collapsed
-          ? `${expandLabel} (${SANDBOX_PANEL_TOGGLE_HOTKEY})`
-          : `${collapseLabel} (${SANDBOX_PANEL_TOGGLE_HOTKEY})`
+          ? `${expandLabel} (${SANDBOX_PANEL_TOGGLE_HOTKEY_LABEL})`
+          : `${collapseLabel} (${SANDBOX_PANEL_TOGGLE_HOTKEY_LABEL})`
       }
     >
       <CrossfadeIcon

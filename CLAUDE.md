@@ -20,6 +20,7 @@ FOLLOW ALL OF THESE RULES
 - Do not default to `useState`/`useRef` — pick the right state ownership first.
 - Do not run dev / lint / build unless the user asks.
 - After medium+ changes: no banned types; `tsc` where relevant; `/changelog` (or `internal/changelog.md`).
+  Eliminate duplication, centralise your changes so its easier to update them
 
 ## Domain docs (read when relevant)
 

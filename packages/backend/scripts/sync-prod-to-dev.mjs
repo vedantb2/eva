@@ -1,18 +1,19 @@
 // TODO(vedant): run once and confirm end-to-end — zip in backups/,
-// dashboard table counts match prod on dev:good-mule-506, file-storage
-// records resolve, and the target's env vars are untouched.
+// dashboard table counts match prod on dev:good-mule-506, and the target's
+// env vars are untouched.
 //
 // Replaces the cloud dev deployment's data with a fresh prod snapshot.
 //
 // Two steps, both through the Convex CLI so authentication comes from the
 // logged-in `convex login` session (no deploy keys anywhere in the repo):
-//   1. `convex export --prod` writes a timestamped ZIP into backups/, which
-//      doubles as a real prod backup (documents + file storage).
+//   1. `convex export --prod` writes `backups/eva-prod-backup.zip`
+//      (documents only — no file storage / attachments).
 //   2. `convex import --replace-all` mirrors that ZIP into the dev deployment.
 //
-// Snapshot import preserves document `_id`s and storage IDs, and does not touch
-// the target deployment's environment variables.
-import { mkdirSync } from "fs";
+// Snapshot import preserves document `_id`s and does not touch the target
+// deployment's environment variables. Attachment / storageId refs in docs may
+// not resolve on the target.
+import { mkdirSync, unlinkSync, existsSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { spawnSync } from "child_process";
@@ -52,14 +53,15 @@ function convex(args, label) {
   }
 }
 
-// Colons and dots are illegal in Windows filenames, so flatten the ISO stamp.
-const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-const zipPath = join(backupsDir, `prod-${stamp}.zip`);
+const zipPath = join(backupsDir, "eva-prod-backup.zip");
 
 mkdirSync(backupsDir, { recursive: true });
+if (existsSync(zipPath)) {
+  unlinkSync(zipPath);
+}
 
 convex(
-  ["export", "--prod", "--include-file-storage", "--path", zipPath],
+  ["export", "--prod", "--path", zipPath],
   "export prod",
 );
 

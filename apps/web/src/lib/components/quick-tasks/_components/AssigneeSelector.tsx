@@ -17,6 +17,7 @@ import { Facehash } from "facehash";
 import type { FunctionReturnType } from "convex/server";
 import type { api, Id } from "@eva/backend";
 import { getUserDisplayName } from "@/lib/components/tasks/_components/task-detail-constants";
+import { QUICK_TASK_OPTION_BADGE_CLASS } from "@/lib/components/quick-tasks/_utils/optionBadge";
 
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 
@@ -38,10 +39,7 @@ export function AssigneeSelector({
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
-        >
+        <button type="button" className={QUICK_TASK_OPTION_BADGE_CLASS}>
           {assignedUser ? (
             <>
               <UserInitials user={assignedUser} size="sm" hideLastSeen />

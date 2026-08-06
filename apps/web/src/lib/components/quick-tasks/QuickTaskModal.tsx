@@ -64,13 +64,12 @@ import { attachPastedTextIfLarge } from "@/lib/components/attachments/attachment
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import type { Priority } from "@/lib/components/priority/priorityMeta";
-import { ScreenshotsToggle } from "./ScreenshotsToggle";
-import { AuditToggle } from "./AuditToggle";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 import { AssigneeSelector } from "./_components/AssigneeSelector";
 import { ProjectPicker } from "./_components/ProjectPicker";
 import { TaskFilesSection } from "./_components/TaskFilesSection";
 import { useTaskAttachments } from "./useTaskAttachments";
+import { QUICK_TASK_OPTION_BADGE_CLASS } from "./_utils/optionBadge";
 
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
@@ -136,9 +135,6 @@ export function QuickTaskModal({
   );
   const [tagSearch, setTagSearch] = useState("");
   const [priority, setPriority] = useState<Priority | undefined>(undefined);
-  const [screenshotsVideosEnabled, setScreenshotsVideosEnabled] =
-    useState(false);
-  const [runAuditEnabled, setRunAuditEnabled] = useState(false);
   const [isCreatingProject, setIsCreatingProject] = useState(false);
   const [projectPickerOpen, setProjectPickerOpen] = useState(false);
 
@@ -223,8 +219,6 @@ export function QuickTaskModal({
     setSelectedTags([]);
     setTagSearch("");
     setPriority(undefined);
-    setScreenshotsVideosEnabled(false);
-    setRunAuditEnabled(false);
     setHydratedDraftId(null);
     attachments.reset();
   };
@@ -273,8 +267,6 @@ export function QuickTaskModal({
           providerAccountId: taskAccountId,
           tags: taskTags,
           assignedTo,
-          screenshotsVideosEnabled,
-          runAuditEnabled,
           attachmentStorageIds: taskAttachmentIds,
         });
       } else {
@@ -289,8 +281,6 @@ export function QuickTaskModal({
           tags: taskTags,
           assignedTo,
           priority,
-          screenshotsVideosEnabled,
-          runAuditEnabled,
           attachmentStorageIds: taskAttachmentIds,
         });
       }
@@ -405,8 +395,7 @@ export function QuickTaskModal({
             />
           </div>
 
-          <div className="flex flex-col gap-1.5 px-5 py-3 bg-muted/30">
-            <div className="flex flex-wrap items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5 px-5 py-3 bg-muted/30">
               {voiceEnabled === true ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -447,7 +436,11 @@ export function QuickTaskModal({
                   </TooltipContent>
                 </Tooltip>
               ) : null}
-              <PriorityPicker value={priority} onChange={setPriority} />
+              <PriorityPicker
+                value={priority}
+                onChange={setPriority}
+                className={QUICK_TASK_OPTION_BADGE_CLASS}
+              />
 
               <AssigneeSelector
                 users={users}
@@ -455,28 +448,27 @@ export function QuickTaskModal({
                 setAssignedTo={setAssignedTo}
               />
 
-              <div className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs">
-                <ModelSelect
-                  value={model}
-                  options={modelOptions}
-                  onValueChange={(next) => {
-                    setModel(next);
-                    setProviderAccountId(
-                      defaultProviderAccountId(accounts, next),
-                    );
-                  }}
-                  accounts={accounts}
-                  accountId={providerAccountId}
-                  onAccountChange={setProviderAccountId}
-                />
-              </div>
+              <ModelSelect
+                value={model}
+                options={modelOptions}
+                onValueChange={(next) => {
+                  setModel(next);
+                  setProviderAccountId(
+                    defaultProviderAccountId(accounts, next),
+                  );
+                }}
+                accounts={accounts}
+                accountId={providerAccountId}
+                onAccountChange={setProviderAccountId}
+                className={QUICK_TASK_OPTION_BADGE_CLASS}
+              />
 
               {branchLockedToProject ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground"
+                      className={QUICK_TASK_OPTION_BADGE_CLASS}
                     >
                       <IconGitBranch size={14} />
                       <span className="text-foreground">
@@ -497,7 +489,7 @@ export function QuickTaskModal({
                   <PopoverTrigger asChild>
                     <button
                       type="button"
-                      className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+                      className={QUICK_TASK_OPTION_BADGE_CLASS}
                     >
                       <IconGitBranch size={14} />
                       <span className="text-foreground">{baseBranch}</span>
@@ -513,24 +505,11 @@ export function QuickTaskModal({
                   </PopoverContent>
                 </Popover>
               )}
-            </div>
-
-            <div className="flex flex-wrap items-center gap-1.5">
-              <ScreenshotsToggle
-                value={screenshotsVideosEnabled}
-                onChange={setScreenshotsVideosEnabled}
-              />
-
-              <AuditToggle
-                value={runAuditEnabled}
-                onChange={setRunAuditEnabled}
-              />
-
               <Popover>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
-                    className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+                    className={QUICK_TASK_OPTION_BADGE_CLASS}
                   >
                     <IconTag size={14} />
                     {selectedTags.length > 0 ? (
@@ -628,7 +607,6 @@ export function QuickTaskModal({
                 setOpen={setProjectPickerOpen}
                 onCreateProject={() => setIsCreatingProject(true)}
               />
-            </div>
           </div>
 
           <DialogFooter className="flex-col-reverse gap-2 px-5 py-3 sm:flex-row sm:justify-between bg-muted/15">

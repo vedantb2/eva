@@ -14,6 +14,7 @@ import {
 import { IconFolder, IconFolderPlus, IconCheck } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
 import type { api, Id } from "@eva/backend";
+import { QUICK_TASK_OPTION_BADGE_CLASS } from "@/lib/components/quick-tasks/_utils/optionBadge";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 
@@ -39,12 +40,9 @@ export function ProjectPicker({
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
-        >
+        <button type="button" className={QUICK_TASK_OPTION_BADGE_CLASS}>
           <IconFolder size={14} />
-          <span className={selectedProject ? "text-foreground" : ""}>
+          <span className={selectedProject ? "text-foreground" : undefined}>
             {selectedProject ? selectedProject.title : "Project"}
           </span>
         </button>

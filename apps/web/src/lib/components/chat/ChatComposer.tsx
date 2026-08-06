@@ -318,10 +318,6 @@ export function ChatComposer({
                       use1mContext={displayTraits.use1mContext}
                       getLevelLabel={getReasoningLevelLabel}
                       onEffortLevelChange={(level) => {
-                        if (level === undefined) {
-                          onTraitsChange({ effortLevel: undefined });
-                          return;
-                        }
                         const { reasoning } = getModelTraits(model);
                         if (!reasoning) return;
                         const match = reasoning.levels.find(

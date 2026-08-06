@@ -50,7 +50,7 @@ export interface TraitsMenuProps {
   thinkingEnabled: boolean;
   use1mContext: boolean;
   getLevelLabel: (level: string) => string;
-  onEffortLevelChange: (level: string | undefined) => void;
+  onEffortLevelChange: (level: string) => void;
   onThinkingEnabledChange: (enabled: boolean) => void;
   onUse1mContextChange: (use1m: boolean) => void;
   disabled?: boolean;
@@ -130,10 +130,9 @@ export function TraitsMenu({
       textInput.setInput(prompt.replace(/^Ultrathink:\s*/i, ""));
     }
 
-    if (value === config.reasoning.default) {
-      onEffortLevelChange(undefined);
-      return;
-    }
+    // Always persist the explicit level — including the model default.
+    // Mapping default → undefined made setTraits no-op (omit field), so
+    // High→Medium never cleared lastReasoningLevel and rapid picks raced.
     onEffortLevelChange(value);
   };
 

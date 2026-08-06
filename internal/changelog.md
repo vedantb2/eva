@@ -1,5 +1,13 @@
 # Changelog
 
+## A held spawn lock is only success when the incumbent daemon matches - 2026-08-06
+
+`waitForRunnerReady` treated any held flock as "the runner this launch wanted exists", so three cases passed as success while nothing usable was running: the kill+respawn window (both kill paths are fire-and-forget SIGTERM, so the loser's lock loss made an optsmismatch respawn silently keep the OLD model/tools), a stale lock fd held by an orphaned descendant of a dead runner (flock's fd is inherited without CLOEXEC), and a one-shot turn launch whose prompt a warm daemon will never run. Success now requires a live owner of the entity pidfile whose opts sig equals this launch's `EVA_DAEMON_OPTS`; anything else throws with `spawnLock=` in the message. Reason: the lock proves someone holds it, not that they are doing this launch's work — prewarm retries after the deposed daemon self-fences.
+
+## Traits menu: persist explicit reasoning levels + snappy open - 2026-08-06
+
+Picking the model-default effort (Medium on Grok) mapped to `undefined`, and `setTraits` treats undefined as “don’t patch” — so High→Low→Medium never cleared `lastReasoningLevel` and rapid clicks raced. The menu now always writes the chosen level; dropdown content drops zoom/fade animate-in so composer menus open instantly. Reason: sticky prefs need an explicit write for every radio pick, including defaults.
+
 ## Reinstate mid-stream silence kill (10 min) for CLI attempts - 2026-08-06
 
 Removing the 45s idle-stdout kill (c8bb7fb8) left no mid-turn stall guard at all — evaluateAttemptHealth's final tool-in-flight check guarded dead code, so a hung provider stream rode until the 90-minute max-runtime cap (observed: prod cursor:grok turn silent for 29 minutes, session 53 carepulse-ts). A silence kill returns at `CLAUDE_STREAM_SILENCE_TIMEOUT_MS` (default 10 min), still exempting in-flight tools and post-result states, flagging `timedOutForNoOutput` (+ `timedOutAfterFirstText` past first text) so the turn fails visibly with the timeout in its error. Reason: 10 minutes bounds a dead stream without resurrecting the false-kill regression the 45s timeout caused.

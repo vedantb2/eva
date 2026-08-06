@@ -39,7 +39,7 @@ export function TaskActivityComposer({
   });
 
   const editorClassName =
-    "min-h-9 max-h-44 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 transition-[background-color]";
+    "min-h-24 max-h-44 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 transition-[background-color]";
 
   // While draft is undefined (query not yet resolved), show a disabled
   // placeholder using the same chrome so layout doesn't shift.
@@ -54,13 +54,21 @@ export function TaskActivityComposer({
             disabled
             className={editorClassName}
           />
-          <div className="flex items-center justify-between gap-2 px-2 pb-2">
-            <span className="flex items-center gap-2">
-              <span className="relative h-6 w-10 shrink-0 rounded-full bg-muted" />
-              <span className="text-xs select-none text-muted-foreground">
-                Make changes
+          <div
+            className={
+              isProjectTask
+                ? "flex items-center justify-between gap-2 px-2 pb-2"
+                : "flex items-center justify-end gap-2 px-2 pb-2"
+            }
+          >
+            {isProjectTask ? (
+              <span className="flex items-center gap-2">
+                <span className="relative h-6 w-10 shrink-0 rounded-full bg-muted" />
+                <span className="text-xs select-none text-muted-foreground">
+                  Make changes
+                </span>
               </span>
-            </span>
+            ) : null}
             <CommentSendButton
               size="icon-sm"
               disabled

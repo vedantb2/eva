@@ -46,6 +46,9 @@ export interface TaskActivityComposerFormProps {
   initialContent: string | null;
 }
 
+const COMMENT_EDITOR_CLASS =
+  "min-h-24 max-h-44 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 transition-[background-color]";
+
 // Inner form — mounts only once the draft has resolved. Seeds text and maps
 // from the draft initializer so there is no hydration useEffect.
 export function TaskActivityComposerForm({
@@ -70,15 +73,14 @@ export function TaskActivityComposerForm({
 
   const [commentText, setCommentText] = useState(initialText);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Per-run proof/audit choice for this change request. Transient (default off,
-  // reset after submit) so a change request never repeats these steps unless
-  // explicitly asked for this run.
+  // Per-run proof/audit choice for project change requests. Transient (default
+  // off, reset after submit) so a change request never repeats these steps
+  // unless explicitly asked for this run.
   const [captureProof, setCaptureProof] = useState(false);
   const [runAudit, setRunAudit] = useState(false);
   const mentionRef = useRef<CommentMentionInputHandle>(null);
 
   const createComment = useMutation(api.taskComments.create);
-  const startExecution = useMutation(api.agentTasks.startExecution);
   const updateStatus = useMutation(api.agentTasks.updateStatus);
   const updateTask = useMutation(api.agentTasks.update);
 
@@ -139,6 +141,38 @@ export function TaskActivityComposerForm({
     setIsSubmitting(false);
   };
 
+  // Quick tasks: comment-only composer (no Make changes / model / options).
+  if (!isProjectTask) {
+    return (
+      <div className="relative space-y-3">
+        <TypingIndicator
+          users={typingUsers}
+          className="absolute bottom-full left-0 mb-1"
+        />
+        <div className="overflow-hidden rounded-surface border border-input bg-card transition-[border-color,box-shadow] focus-within:border-ring/60 focus-within:ring-2 focus-within:ring-ring/35">
+          <CommentMentionInput
+            ref={mentionRef}
+            value={commentText}
+            onValueChange={handleValueChange}
+            placeholder="Add a comment..."
+            initialMentionMap={initialMentionMap}
+            initialSkillMap={initialSkillMap}
+            className={COMMENT_EDITOR_CLASS}
+          />
+          <div className="flex items-center justify-end gap-2 px-2 pb-2">
+            <CommentSendButton
+              size="icon-sm"
+              disabled={!commentText.trim() || isSubmitting}
+              isSubmitting={isSubmitting}
+              onClick={handleAddComment}
+              ariaLabel="Add comment"
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const handleSubmitRequestChanges = async () => {
     const text = commentText.trim();
     if (!text || isSubmitting) return;
@@ -148,39 +182,25 @@ export function TaskActivityComposerForm({
     stopTyping();
     setIsSubmitting(true);
     try {
-      const commentId = await createComment({
+      await createComment({
         taskId,
         content,
         requestsChanges: true,
       });
-      if (isProjectTask) {
-        // No immediate run — persist proof/audit on the task so the next
-        // Build Project / ordered run picks them up (same resolution as
-        // TaskRunOptionsMenu defaults).
-        await updateTask({
-          id: taskId,
-          screenshotsVideosEnabled: captureProof,
-          runAuditEnabled: runAudit,
-        });
-        await updateStatus({ id: taskId, status: "todo" });
-      } else {
-        await startExecution({
-          id: taskId,
-          triggeringCommentId: commentId,
-          screenshotsVideosEnabled: captureProof,
-          runAuditEnabled: runAudit,
-        });
-      }
+      // No immediate run — persist proof/audit on the task so the next
+      // Build Project / ordered run picks them up.
+      await updateTask({
+        id: taskId,
+        screenshotsVideosEnabled: captureProof,
+        runAuditEnabled: runAudit,
+      });
+      await updateStatus({ id: taskId, status: "todo" });
       setCaptureProof(false);
       setRunAudit(false);
       onRequestChangesSubmitted();
     } catch (err) {
       const message =
-        err instanceof Error
-          ? err.message
-          : isProjectTask
-            ? "Failed to queue changes"
-            : "Failed to start execution";
+        err instanceof Error ? err.message : "Failed to queue changes";
       setExecutionError(message);
     }
     setIsSubmitting(false);
@@ -192,11 +212,7 @@ export function TaskActivityComposerForm({
   const isMakeChangesGated = requestingChanges && !canRequestChanges;
   const changeRequestOptionCount = (captureProof ? 1 : 0) + (runAudit ? 1 : 0);
 
-  // Mirror the sessions/sandbox chat composer (PromptInput): a bordered card
-  // wraps a borderless input with a footer row of controls, rather than
-  // floating controls over the textarea.
-  const editorClassName =
-    "min-h-9 max-h-44 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 transition-[background-color]";
+  const editorClassName = COMMENT_EDITOR_CLASS;
 
   return (
     <div className="relative space-y-3">
@@ -206,9 +222,8 @@ export function TaskActivityComposerForm({
       />
       {effectiveRequestingChanges && !executionError && (
         <p className="text-xs text-muted-foreground">
-          {isProjectTask
-            ? "Submitting will add your feedback and move this task to To Do. Use Build Project to run changes in order."
-            : "Submitting will create a comment and re-run Eva with your changes"}
+          Submitting will add your feedback and move this task to To Do. Use
+          Build Project to run changes in order.
         </p>
       )}
       <div
@@ -286,7 +301,6 @@ export function TaskActivityComposerForm({
                 <TooltipContent>{disabledReason}</TooltipContent>
               )}
             </Tooltip>
-            {/* Model + Options: same for quick and project tasks; disabled until Make changes. */}
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="inline-flex">
@@ -369,18 +383,12 @@ export function TaskActivityComposerForm({
                 </TooltipTrigger>
                 <TooltipContent>
                   {effectiveRequestingChanges
-                    ? isProjectTask
-                      ? "Extra steps for the next project build of this task"
-                      : "Extra steps for this change request"
+                    ? "Extra steps for the next project build of this task"
                     : "Turn on Make changes to set proof/audit"}
                 </TooltipContent>
               </Tooltip>
               <DropdownMenuContent align="start">
-                <DropdownMenuLabel>
-                  {isProjectTask
-                    ? "Extra steps on next build"
-                    : "Extra steps this run"}
-                </DropdownMenuLabel>
+                <DropdownMenuLabel>Extra steps on next build</DropdownMenuLabel>
                 <DropdownMenuCheckboxItem
                   checked={captureProof}
                   onCheckedChange={(checked) =>

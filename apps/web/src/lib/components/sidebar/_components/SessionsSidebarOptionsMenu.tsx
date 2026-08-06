@@ -36,8 +36,8 @@ import {
 import { useSessionsSidebarSettings } from "@/lib/components/sidebar/useSessionsSidebarSettings";
 
 /**
- * Sessions panel options — same control surface as Projects Options /
- * TaskRunOptionsMenu (Eva menu tokens + header icon button).
+ * Sessions panel options — same control surface as Projects Options
+ * (Eva menu tokens + header icon button).
  */
 export function SessionsSidebarOptionsMenu() {
   const {

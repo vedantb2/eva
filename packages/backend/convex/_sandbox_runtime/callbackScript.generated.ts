@@ -168,16 +168,21 @@ var claudeModelBase = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length
 var normalizedClaudeModel = PROVIDER === "claude" && AI_CONTEXT_1M === "1" ? \`\${claudeModelBase}[1m]\` : claudeModelBase;
 var normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
 var normalizedOpencodeModel = MODEL.startsWith("opencode:") ? MODEL.slice("opencode:".length) : MODEL;
-var CURSOR_MODEL_IDS = {
-  "grok-4.5-low": "cursor-grok-4.5-low",
-  "grok-4.5-medium": "cursor-grok-4.5-medium",
-  "grok-4.5-high": "cursor-grok-4.5-high",
-  "cursor-grok-4.5-low": "cursor-grok-4.5-low",
-  "cursor-grok-4.5-medium": "cursor-grok-4.5-medium",
-  "cursor-grok-4.5-high": "cursor-grok-4.5-high"
-};
+var CURSOR_REASONING_LEVELS = ["low", "medium", "high"];
+function splitCursorModel(raw) {
+  const unprefixed = raw.startsWith("cursor-grok-") ? raw.slice("cursor-".length) : raw;
+  for (const level of CURSOR_REASONING_LEVELS) {
+    const suffix = "-" + level;
+    if (unprefixed.endsWith(suffix)) {
+      return { base: unprefixed.slice(0, -suffix.length), level };
+    }
+  }
+  return { base: unprefixed, level: "" };
+}
 var cursorModelRaw = MODEL.startsWith("cursor:") ? MODEL.slice("cursor:".length) : MODEL;
-var normalizedCursorModel = CURSOR_MODEL_IDS[cursorModelRaw] ?? cursorModelRaw;
+var cursorModelParts = splitCursorModel(cursorModelRaw);
+var normalizedCursorModel = cursorModelParts.base;
+var cursorReasoningLevel = cursorModelParts.level;
 var codexCommand = existsSync(CODEX_BIN_PATH) ? JSON.stringify(CODEX_BIN_PATH) : "codex";
 var opencodeCommand = existsSync(OPENCODE_BIN_PATH) ? JSON.stringify(OPENCODE_BIN_PATH) : "opencode";
 var codexPromptCmd = SYSTEM_PROMPT ? "(printf %s\\\\n\\\\n " + JSON.stringify(SYSTEM_PROMPT) + "; cat /tmp/design-prompt.txt)" : "cat /tmp/design-prompt.txt";
@@ -2016,7 +2021,7 @@ function appendDiagnosticTail(message) {
   if (stderrTail) details.push("stderr tail:\\n" + stderrTail);
   if (details.length === 0) {
     details.push(
-      "(stdout and stderr were empty \\u2014 CLI likely hung before emitting stream-json, e.g. bad --model)"
+      "(stdout and stderr were empty \\u2014 the agent likely failed before emitting any events, e.g. invalid model or auth)"
     );
   }
   return message + "\\n\\n" + details.join("\\n\\n");
@@ -5632,6 +5637,53 @@ function readCursorSdkMcpServers() {
 function readPromptText2() {
   return readFileSync7("/tmp/design-prompt.txt", "utf8");
 }
+async function resolveCursorModelSelection(sdk) {
+  const base = normalizedCursorModel;
+  const level = cursorReasoningLevel;
+  if (!level) return { id: base };
+  try {
+    const list = sdk.Cursor?.models?.list;
+    if (!list) return { id: base };
+    const models = await list();
+    const model = Array.isArray(models) ? models.find(
+      (entry) => entry && typeof entry === "object" && entry.id === base
+    ) : void 0;
+    if (!model) {
+      log(
+        "resolveCursorModelSelection: model " + base + " not in Cursor.models.list \\u2014 sending base id"
+      );
+      return { id: base };
+    }
+    for (const definition of model.parameters ?? []) {
+      if (!definition || typeof definition.id !== "string") continue;
+      const values = Array.isArray(definition.values) ? definition.values : [];
+      if (values.some((entry) => entry && entry.value === level)) {
+        log(
+          "resolveCursorModelSelection: " + base + " reasoning level " + level + " via parameter " + definition.id
+        );
+        return { id: base, params: [{ id: definition.id, value: level }] };
+      }
+    }
+    for (const variant of model.variants ?? []) {
+      const params = Array.isArray(variant?.params) ? variant.params : [];
+      if (params.some((param) => param && param.value === level)) {
+        log(
+          "resolveCursorModelSelection: " + base + " reasoning level " + level + " via variant params"
+        );
+        return { id: base, params };
+      }
+    }
+    log(
+      "resolveCursorModelSelection: " + base + " exposes no parameter accepting '" + level + "' \\u2014 sending base id"
+    );
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    log(
+      "resolveCursorModelSelection: model list failed \\u2014 sending base id (" + messageText + ")"
+    );
+  }
+  return { id: base };
+}
 function errorCode(error) {
   const withCode = error;
   return typeof withCode.code === "string" ? withCode.code : "";
@@ -5683,7 +5735,7 @@ async function runCursorSdkAttempt(sessionMode) {
   const mcpServers = readCursorSdkMcpServers();
   const options = {
     apiKey: (process.env.CURSOR_API_KEY || "").trim(),
-    model: { id: normalizedCursorModel },
+    model: await resolveCursorModelSelection(sdk),
     local: { cwd: WORK_DIR, store: store4 },
     ...Object.keys(mcpServers).length > 0 ? { mcpServers } : {}
   };

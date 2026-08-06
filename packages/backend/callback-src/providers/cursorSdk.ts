@@ -7,6 +7,7 @@ import {
   NO_OUTPUT_TIMEOUT_MS,
   SYSTEM_PROMPT,
   WORK_DIR,
+  cursorReasoningLevel,
   normalizedCursorModel,
 } from "../config.js";
 import { updateThinkingStep } from "../parse/canonical.js";
@@ -51,9 +52,32 @@ type SdkLocalAgentStore = {
   readonly agents?: object;
 };
 
+type SdkModelParameterValue = { id: string; value: string };
+
+type SdkModelSelection = {
+  id: string;
+  params?: SdkModelParameterValue[];
+};
+
+type SdkModelParameterDefinition = {
+  id?: string;
+  values?: Array<{ value?: string }>;
+};
+
+type SdkModelVariant = {
+  params?: SdkModelParameterValue[];
+  displayName?: string;
+};
+
+type SdkModel = {
+  id?: string;
+  parameters?: SdkModelParameterDefinition[];
+  variants?: SdkModelVariant[];
+};
+
 type SdkAgentOptions = {
   apiKey: string;
-  model: { id: string };
+  model: SdkModelSelection;
   local: { cwd: string; store: SdkLocalAgentStore };
   mcpServers?: Record<string, SdkMcpServerConfig>;
 };
@@ -93,6 +117,11 @@ export type CursorSdkModule = {
     resume: (agentId: string, options: SdkAgentOptions) => Promise<SdkAgent>;
   };
   JsonlLocalAgentStore: new (rootDir: string) => SdkLocalAgentStore;
+  Cursor?: {
+    models?: {
+      list?: () => Promise<SdkModel[]>;
+    };
+  };
 };
 
 /**
@@ -197,6 +226,84 @@ function readPromptText(): string {
   return readFileSync("/tmp/design-prompt.txt", "utf8");
 }
 
+/**
+ * Builds the SDK ModelSelection for the configured eva model. Eva slugs bake a
+ * reasoning level into the id (grok-4.5-low); the SDK's model list carries the
+ * base id with reasoning exposed as a per-model parameter whose id is not
+ * documented — so discover it from Cursor.models.list() at runtime: first a
+ * parameter definition allowing the level value, then a variant carrying it.
+ * Any miss (no level, list unavailable, model/parameter absent) degrades to
+ * the base id.
+ */
+async function resolveCursorModelSelection(
+  sdk: CursorSdkModule,
+): Promise<SdkModelSelection> {
+  const base = normalizedCursorModel;
+  const level = cursorReasoningLevel;
+  if (!level) return { id: base };
+  try {
+    const list = sdk.Cursor?.models?.list;
+    if (!list) return { id: base };
+    const models = await list();
+    const model = Array.isArray(models)
+      ? models.find(
+          (entry) => entry && typeof entry === "object" && entry.id === base,
+        )
+      : undefined;
+    if (!model) {
+      log(
+        "resolveCursorModelSelection: model " +
+          base +
+          " not in Cursor.models.list — sending base id",
+      );
+      return { id: base };
+    }
+    for (const definition of model.parameters ?? []) {
+      if (!definition || typeof definition.id !== "string") continue;
+      const values = Array.isArray(definition.values) ? definition.values : [];
+      if (values.some((entry) => entry && entry.value === level)) {
+        log(
+          "resolveCursorModelSelection: " +
+            base +
+            " reasoning level " +
+            level +
+            " via parameter " +
+            definition.id,
+        );
+        return { id: base, params: [{ id: definition.id, value: level }] };
+      }
+    }
+    for (const variant of model.variants ?? []) {
+      const params = Array.isArray(variant?.params) ? variant.params : [];
+      if (params.some((param) => param && param.value === level)) {
+        log(
+          "resolveCursorModelSelection: " +
+            base +
+            " reasoning level " +
+            level +
+            " via variant params",
+        );
+        return { id: base, params };
+      }
+    }
+    log(
+      "resolveCursorModelSelection: " +
+        base +
+        " exposes no parameter accepting '" +
+        level +
+        "' — sending base id",
+    );
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    log(
+      "resolveCursorModelSelection: model list failed — sending base id (" +
+        messageText +
+        ")",
+    );
+  }
+  return { id: base };
+}
+
 /** Reads an SDK error's `code` field without assertions (Error → overlap via message). */
 function errorCode(error: Error): string {
   const withCode: { message: string; code?: string } = error;
@@ -289,7 +396,7 @@ export async function runCursorSdkAttempt(
   const mcpServers = readCursorSdkMcpServers();
   const options: SdkAgentOptions = {
     apiKey: (process.env.CURSOR_API_KEY || "").trim(),
-    model: { id: normalizedCursorModel },
+    model: await resolveCursorModelSelection(sdk),
     local: { cwd: WORK_DIR, store },
     ...(Object.keys(mcpServers).length > 0 ? { mcpServers } : {}),
   };

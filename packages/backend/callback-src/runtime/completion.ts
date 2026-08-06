@@ -515,7 +515,7 @@ export function appendDiagnosticTail(message: string): string {
   if (stderrTail) details.push("stderr tail:\n" + stderrTail);
   if (details.length === 0) {
     details.push(
-      "(stdout and stderr were empty — CLI likely hung before emitting stream-json, e.g. bad --model)",
+      "(stdout and stderr were empty — the agent likely failed before emitting any events, e.g. invalid model or auth)",
     );
   }
   return message + "\n\n" + details.join("\n\n");

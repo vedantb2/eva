@@ -1,7 +1,36 @@
 import { expect, test } from "vitest";
+import { splitCursorModel } from "../config.js";
 import { cursorSdkToolToStep } from "../parse/toolSteps.js";
 import { probeCursorSdkToolResult } from "../providers/cursor.js";
 import { parseCursorSdkMcpServers } from "../providers/cursorSdk.js";
+
+test("splitCursorModel separates base id and reasoning level", () => {
+  expect(splitCursorModel("grok-4.5-low")).toEqual({
+    base: "grok-4.5",
+    level: "low",
+  });
+  expect(splitCursorModel("grok-4.5-medium")).toEqual({
+    base: "grok-4.5",
+    level: "medium",
+  });
+  // Legacy CLI-era slug persisted from pre-migration sessions.
+  expect(splitCursorModel("cursor-grok-4.5-high")).toEqual({
+    base: "grok-4.5",
+    level: "high",
+  });
+  expect(splitCursorModel("gpt-5.5-low")).toEqual({
+    base: "gpt-5.5",
+    level: "low",
+  });
+  expect(splitCursorModel("composer-2.5")).toEqual({
+    base: "composer-2.5",
+    level: "",
+  });
+  expect(splitCursorModel("gemini-3.1-pro")).toEqual({
+    base: "gemini-3.1-pro",
+    level: "",
+  });
+});
 
 test("parseCursorSdkMcpServers maps eva-mcp.json to inline SDK config", () => {
   const raw = JSON.stringify({

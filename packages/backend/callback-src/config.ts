@@ -245,23 +245,33 @@ export const normalizedCodexModel = MODEL.startsWith("codex:")
 export const normalizedOpencodeModel = MODEL.startsWith("opencode:")
   ? MODEL.slice("opencode:".length)
   : MODEL;
-// Cursor renamed Grok slugs (Jul 2026): grok-4.5-* → cursor-grok-4.5-*.
-// Eva UI keeps cursor:grok-4.5-*; this map is what the SDK's model.id receives.
-const CURSOR_MODEL_IDS: Record<string, string> = {
-  "grok-4.5-low": "cursor-grok-4.5-low",
-  "grok-4.5-medium": "cursor-grok-4.5-medium",
-  "grok-4.5-high": "cursor-grok-4.5-high",
-  "cursor-grok-4.5-low": "cursor-grok-4.5-low",
-  "cursor-grok-4.5-medium": "cursor-grok-4.5-medium",
-  "cursor-grok-4.5-high": "cursor-grok-4.5-high",
-};
+// Eva's cursor model ids bake a reasoning level into the slug (grok-4.5-low,
+// gpt-5.5-low). The SDK rejects those: its model list carries base ids only
+// (grok-4.5, gpt-5.5), with reasoning exposed as a per-model parameter. Split
+// here; the runner discovers the parameter id at runtime and degrades to the
+// base id when the model has none (resolveCursorModelSelection).
+const CURSOR_REASONING_LEVELS = ["low", "medium", "high"];
+
+export function splitCursorModel(raw: string): { base: string; level: string } {
+  // Legacy CLI-era slugs: cursor-grok-4.5-* → grok-4.5-*.
+  const unprefixed = raw.startsWith("cursor-grok-")
+    ? raw.slice("cursor-".length)
+    : raw;
+  for (const level of CURSOR_REASONING_LEVELS) {
+    const suffix = "-" + level;
+    if (unprefixed.endsWith(suffix)) {
+      return { base: unprefixed.slice(0, -suffix.length), level };
+    }
+  }
+  return { base: unprefixed, level: "" };
+}
 
 const cursorModelRaw = MODEL.startsWith("cursor:")
   ? MODEL.slice("cursor:".length)
   : MODEL;
-
-export const normalizedCursorModel =
-  CURSOR_MODEL_IDS[cursorModelRaw] ?? cursorModelRaw;
+const cursorModelParts = splitCursorModel(cursorModelRaw);
+export const normalizedCursorModel = cursorModelParts.base;
+export const cursorReasoningLevel = cursorModelParts.level;
 const codexCommand = existsSync(CODEX_BIN_PATH)
   ? JSON.stringify(CODEX_BIN_PATH)
   : "codex";

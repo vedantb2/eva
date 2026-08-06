@@ -212,7 +212,7 @@ export const ChatMessage = memo(function ChatMessage({
                     "group px-3 py-2 text-foreground",
                     isOtherUser
                       ? "bg-secondary group-[.is-user]:ml-0 group-[.is-user]:bg-secondary"
-                      : "rounded-surface bg-primary/15 group-[.is-user]:bg-primary/15",
+                      : "rounded-surface bg-primary/10 group-[.is-user]:bg-primary/10",
                   )}
                   style={
                     isOtherUser

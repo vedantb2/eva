@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
@@ -95,6 +95,25 @@ function InboxUnreadBadge() {
   );
 }
 
+const EMPTY_SANDBOX_REPO_IDS = new Set<Id<"githubRepos">>();
+
+function RepoRailLiveData(props: RepoRailProps) {
+  const activeSessionCount = useQuery(api.githubRepos.countActiveSessions);
+  const sandboxRepoIds = useQuery(api.githubRepos.listReposWithActiveSandboxes);
+  const activeSandboxRepoIds = useMemo(
+    () => new Set(sandboxRepoIds ?? []),
+    [sandboxRepoIds],
+  );
+
+  return (
+    <RepoRailView
+      {...props}
+      activeSessionCount={activeSessionCount}
+      activeSandboxRepoIds={activeSandboxRepoIds}
+    />
+  );
+}
+
 /**
  * Far-left icon rail: global destinations (Eva, Inbox, Sessions), then repos,
  * then collapse / search / account / settings at the bottom. Teams and
@@ -103,17 +122,22 @@ function InboxUnreadBadge() {
  * route (Theme).
  * App tiles are real Links (not buttons) so middle-click / cmd-click open a new tab.
  *
- * Session-count / sandbox-dot queries are deferred: calling undeployed Convex
- * functions throws through the router CatchBoundary and swaps the whole shell
- * (severe CLS). Re-enable via RepoRailLiveIndicators once cloud is synced.
+ * Live session/sandbox indicators sit behind QueryErrorBoundary so a missing
+ * Convex function cannot swap the whole shell.
  */
 export function RepoRail(props: RepoRailProps) {
   return (
-    <RepoRailView
-      {...props}
-      activeSessionCount={undefined}
-      activeSandboxRepoIds={new Set()}
-    />
+    <QueryErrorBoundary
+      fallback={
+        <RepoRailView
+          {...props}
+          activeSessionCount={undefined}
+          activeSandboxRepoIds={EMPTY_SANDBOX_REPO_IDS}
+        />
+      }
+    >
+      <RepoRailLiveData {...props} />
+    </QueryErrorBoundary>
   );
 }
 

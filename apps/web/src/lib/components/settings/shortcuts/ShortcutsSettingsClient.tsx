@@ -12,10 +12,9 @@ import { EDITING_KEYS } from "@/lib/components/settings/shortcuts/editingKeys";
 import { Kbd } from "@/lib/components/ui/Kbd";
 import {
   SHORTCUT_DEFS,
-  SHORTCUT_GROUPS,
   SHORTCUT_IDS,
+  SHORTCUT_SECTIONS,
   resolveBinding,
-  shortcutIdsInGroup,
   type ShortcutId,
 } from "@/lib/hotkeys/registry";
 
@@ -84,10 +83,10 @@ export function ShortcutsSettingsClient() {
 
   return (
     <SettingsPage title="Shortcuts">
-      {SHORTCUT_GROUPS.map((group, index) => (
+      {SHORTCUT_SECTIONS.map((section, index) => (
         <SettingsSection
-          key={group}
-          title={group}
+          key={section.group}
+          title={section.group}
           description={
             index === 0
               ? "Click a combo, then press the keys you want."
@@ -108,7 +107,7 @@ export function ShortcutsSettingsClient() {
           }
         >
           <div className="divide-y divide-border">
-            {shortcutIdsInGroup(group).map((id) => (
+            {section.ids.map((id) => (
               <ShortcutRow
                 key={id}
                 id={id}

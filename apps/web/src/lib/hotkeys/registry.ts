@@ -1,126 +1,22 @@
 import { validateHotkey, type Hotkey } from "@tanstack/react-hotkeys";
-import { SHORTCUT_IDS, type ShortcutId } from "@eva/backend";
-
-export { SHORTCUT_IDS };
-export type { ShortcutId };
-
-/** Section headings on the Shortcuts settings page, in render order. */
-export const SHORTCUT_GROUPS = [
-  "Global",
-  "Navigation",
-  "Chat",
-  "Sandbox",
-] as const;
-
-export type ShortcutGroup = (typeof SHORTCUT_GROUPS)[number];
-
-export interface ShortcutDef {
-  /** Row title on the settings page. */
-  name: string;
-  /** Row subtitle: what pressing the key actually does. */
-  description: string;
-  group: ShortcutGroup;
-  /** The combo in force until the user rebinds it. */
-  defaultHotkey: Hotkey;
-  /**
-   * Set only for shortcuts that occupy a run of numbered slots (the rail's
-   * "jump to app N"). The binding's key must be a digit, and slots 2..N derive
-   * their combo by substituting that digit.
-   */
-  slots?: number;
-}
+import {
+  SHORTCUT_DEFS,
+  SHORTCUT_IDS,
+  SHORTCUT_SECTIONS,
+  shortcutDef,
+  type ShortcutDef,
+  type ShortcutId,
+} from "@eva/backend";
 
 /**
- * Every rebindable shortcut, keyed by the id declared in the backend
- * validator. Typing this as a total `Record<ShortcutId, …>` means TypeScript
- * fails the build if an id is added there without metadata here.
+ * The web app's view of the shortcut registry. Every shortcut is declared once,
+ * in `packages/backend/convex/_validators/shortcuts.ts`, so the server can
+ * validate writes against the same list the settings page renders. This module
+ * is the app's import surface for it, plus the helpers that need the hotkey
+ * library at runtime.
  */
-export const SHORTCUT_DEFS: Record<ShortcutId, ShortcutDef> = {
-  openSearch: {
-    name: "Open search",
-    description: "Toggle the spotlight search dialog.",
-    group: "Global",
-    defaultHotkey: "Mod+K",
-  },
-  toggleSidebar: {
-    name: "Toggle sidebar",
-    description: "Collapse or expand the left sidebar.",
-    group: "Global",
-    defaultHotkey: "Mod+I",
-  },
-  toggleSandboxPanel: {
-    name: "Toggle sandbox panel",
-    description: "Show or hide the right-hand sandbox panel.",
-    group: "Global",
-    defaultHotkey: "Control+Alt+B",
-  },
-  jumpToApp: {
-    name: "Jump to app 1–9",
-    description:
-      "Open the first to ninth app in the rail. The key must be a digit; the other eight slots follow the same modifiers.",
-    group: "Navigation",
-    defaultHotkey: "Alt+1",
-    slots: 9,
-  },
-  newQuickTask: {
-    name: "New quick task",
-    description: "Open the new quick task dialog.",
-    group: "Navigation",
-    defaultHotkey: "Alt+N",
-  },
-  cycleSessionMode: {
-    name: "Cycle session mode",
-    description: "Step the composer through edit, plan, and design.",
-    group: "Chat",
-    defaultHotkey: "Mod+Shift+Tab",
-  },
-  stashDraft: {
-    name: "Stash composer draft",
-    description:
-      "Stash the current draft. With an empty composer, opens the stash list.",
-    group: "Chat",
-    defaultHotkey: "Mod+S",
-  },
-  submitComposerForm: {
-    name: "Submit form",
-    description: "Submit the quick task and new project dialogs.",
-    group: "Chat",
-    defaultHotkey: "Mod+Enter",
-  },
-  toggleBrowserTab: {
-    name: "Toggle Browser tab",
-    description: "Switch to the Browser tab, or back to the previous one.",
-    group: "Sandbox",
-    defaultHotkey: "Mod+Shift+B",
-  },
-  toggleFilesTab: {
-    name: "Toggle Files tab",
-    description: "Switch to the Files tab, or back to the previous one.",
-    group: "Sandbox",
-    defaultHotkey: "Mod+P",
-  },
-  cycleSandboxTab: {
-    name: "Cycle sandbox tabs",
-    description:
-      "Step through the open sandbox tabs. Rebind to Shift+Tab to restore the old default.",
-    group: "Sandbox",
-    // Sits in the same Control+Alt family as the panel toggle. Shift+punctuation
-    // is deliberately unavailable — it is keyboard-layout dependent.
-    defaultHotkey: "Control+Alt+ArrowRight",
-  },
-  togglePreviewConsole: {
-    name: "Toggle preview console",
-    description:
-      "Open or close the console dock, switching to Preview if needed.",
-    group: "Sandbox",
-    defaultHotkey: "Mod+J",
-  },
-};
-
-/** Shortcut ids belonging to a group, in registry order. */
-export function shortcutIdsInGroup(group: ShortcutGroup): ShortcutId[] {
-  return SHORTCUT_IDS.filter((id) => SHORTCUT_DEFS[id].group === group);
-}
+export { SHORTCUT_DEFS, SHORTCUT_IDS, SHORTCUT_SECTIONS, shortcutDef };
+export type { ShortcutDef, ShortcutId };
 
 /**
  * Parses an arbitrary string into the library's `Hotkey` union. Convex stores
@@ -131,7 +27,13 @@ export function isHotkey(value: string): value is Hotkey {
   return validateHotkey(value).valid;
 }
 
-/** The combo currently in force for a shortcut: valid override, else default. */
+/**
+ * The combo currently in force for a shortcut: valid override, else default.
+ *
+ * The default is returned unguarded on purpose. `SHORTCUT_DEFS` is declared
+ * `as const`, so its defaults keep their literal types and this return is what
+ * proves, at compile time, that every one of them is a valid `Hotkey`.
+ */
 export function resolveBinding(
   id: ShortcutId,
   overrides: Record<string, string> | undefined,

@@ -4,8 +4,8 @@ import { cn } from "@eva/ui";
 import { formatForDisplay, type Hotkey } from "@tanstack/react-hotkeys";
 import { useShortcutBinding } from "@/lib/hotkeys/ShortcutsContext";
 import {
-  SHORTCUT_DEFS,
   deriveSlotHotkey,
+  shortcutDef,
   type ShortcutId,
 } from "@/lib/hotkeys/registry";
 
@@ -47,7 +47,7 @@ export function ShortcutKbd({
 }) {
   const binding = useShortcutBinding(id);
   const resolved =
-    slot === undefined || SHORTCUT_DEFS[id].slots === undefined
+    slot === undefined || shortcutDef(id).slots === undefined
       ? binding
       : deriveSlotHotkey(binding, slot);
 

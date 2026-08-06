@@ -13,7 +13,7 @@ import {
   userFields,
   experimentalFlagKeyValidator,
   resolvedExperimentalFlagsValidator,
-  shortcutIdValidator,
+  isShortcutId,
   shortcutOverridesValidator,
 } from "./validators";
 import { authQuery, authMutation } from "./functions";
@@ -291,11 +291,16 @@ export const getShortcutOverrides = authQuery({
  */
 export const setShortcutOverride = authMutation({
   args: {
-    id: shortcutIdValidator,
+    id: v.string(),
     hotkey: v.union(v.string(), v.null()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    // The id vocabulary is derived from SHORTCUT_DEFS rather than repeated as a
+    // validator union, so the check happens here instead of in `args`.
+    if (!isShortcutId(args.id)) {
+      throw new Error(`Unknown shortcut id: ${args.id}`);
+    }
     const user = await ctx.db.get(ctx.userId);
     if (!user) {
       throw new Error("User not found");

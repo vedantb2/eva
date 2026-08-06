@@ -4,7 +4,7 @@ import { Button } from "@eva/ui";
 import { type Hotkey } from "@tanstack/react-hotkeys";
 import { SettingsToggleRow } from "@/lib/components/settings/SettingsToggleRow";
 import { ShortcutRecorder } from "@/lib/components/settings/shortcuts/_components/ShortcutRecorder";
-import { SHORTCUT_DEFS, type ShortcutId } from "@/lib/hotkeys/registry";
+import { shortcutDef, type ShortcutId } from "@/lib/hotkeys/registry";
 
 /** One rebindable shortcut: what it does, its current combo, and how to change it. */
 export function ShortcutRow({
@@ -21,7 +21,7 @@ export function ShortcutRow({
   conflictsWith: ReadonlyArray<string>;
   onRecord: (hotkey: Hotkey | null) => void;
 }) {
-  const def = SHORTCUT_DEFS[id];
+  const def = shortcutDef(id);
 
   return (
     <SettingsToggleRow

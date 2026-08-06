@@ -46,6 +46,9 @@ export interface SandboxPanesApi {
   resolvedTermActive: string;
   setPreviewActive: (id: string) => void;
   setTermActive: (id: string) => void;
+  /** Switches the panel's main tab (passthrough of the caller's setter, for
+   * consumers that only receive this API — e.g. the console toggle hotkey). */
+  setActiveTab: (tab: SandboxTab) => void;
   handleNewPreview: () => void;
   handleNewTerminal: () => void;
   handleClosePreview: (id: string) => void;
@@ -237,6 +240,7 @@ export function useSandboxPanes({
     resolvedTermActive,
     setPreviewActive,
     setTermActive,
+    setActiveTab,
     handleNewPreview,
     handleNewTerminal,
     handleClosePreview,

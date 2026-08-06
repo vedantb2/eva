@@ -1,21 +1,20 @@
 "use client";
 
-import { useMemo } from "react";
-import { IconChevronDown } from "@tabler/icons-react";
-import { Button } from "../ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
 import { usePromptInputController } from "./prompt-input";
 import { cn } from "../utils/cn";
 
 const ULTRATHINK_PROMPT_PREFIX = "Ultrathink:\n";
+
+/** Same trigger chrome as SessionModeDropdown — plain button, no ghost Button. */
+const traitsTriggerClassName =
+  "flex h-7 items-center gap-1.5 rounded-md border border-border bg-muted px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground disabled:opacity-50";
 
 export function isUltrathinkPrompt(text: string | null | undefined): boolean {
   return typeof text === "string" && /\bultrathink\b/i.test(text);
@@ -69,42 +68,6 @@ export function TraitsMenu({
   disabled,
   className,
 }: TraitsMenuProps) {
-  const { textInput } = usePromptInputController();
-  const prompt = textInput.value;
-
-  const ultrathinkPromptControlled =
-    Boolean(config.reasoning?.ultrathink) && isUltrathinkPrompt(prompt);
-  const ultrathinkInBodyText =
-    ultrathinkPromptControlled &&
-    isUltrathinkPrompt(prompt.replace(/^Ultrathink:\s*/i, ""));
-
-  const resolvedEffort = effortLevel ?? config.reasoning?.default ?? "";
-
-  const triggerLabels = useMemo(() => {
-    const labels: string[] = [];
-    if (config.reasoning) {
-      labels.push(
-        ultrathinkPromptControlled
-          ? "Ultrathink"
-          : getLevelLabel(resolvedEffort),
-      );
-    }
-    if (config.thinkingToggle) {
-      labels.push(`Thinking ${thinkingEnabled ? "On" : "Off"}`);
-    }
-    if (config.contextWindow1m) {
-      labels.push(use1mContext ? "1M context" : "200K context");
-    }
-    return labels;
-  }, [
-    config,
-    getLevelLabel,
-    resolvedEffort,
-    thinkingEnabled,
-    ultrathinkPromptControlled,
-    use1mContext,
-  ]);
-
   const hasAnyControls = Boolean(
     config.reasoning || config.thinkingToggle || config.contextWindow1m,
   );
@@ -112,8 +75,89 @@ export function TraitsMenu({
     return null;
   }
 
+  return (
+    <div className={cn("flex min-w-0 items-center gap-1", className)}>
+      {config.reasoning ? (
+        config.reasoning.ultrathink ? (
+          <ReasoningDropdownWithUltrathink
+            config={config.reasoning}
+            effortLevel={effortLevel}
+            getLevelLabel={getLevelLabel}
+            onEffortLevelChange={onEffortLevelChange}
+            disabled={disabled}
+          />
+        ) : (
+          <SimpleTraitsDropdown
+            label={getLevelLabel(effortLevel ?? config.reasoning.default)}
+            value={effortLevel ?? config.reasoning.default}
+            disabled={disabled}
+            onValueChange={onEffortLevelChange}
+            options={config.reasoning.levels.map((level) => ({
+              value: level,
+              label:
+                getLevelLabel(level) +
+                (level === config.reasoning?.default ? " (default)" : ""),
+            }))}
+          />
+        )
+      ) : null}
+      {config.contextWindow1m ? (
+        <SimpleTraitsDropdown
+          label={use1mContext ? "1M" : "200K"}
+          value={use1mContext ? "1m" : "200k"}
+          disabled={disabled}
+          onValueChange={(value) => onUse1mContextChange(value === "1m")}
+          options={[
+            { value: "200k", label: "200K" },
+            { value: "1m", label: "1M" },
+          ]}
+        />
+      ) : null}
+      {config.thinkingToggle ? (
+        <SimpleTraitsDropdown
+          label={thinkingEnabled ? "Thinking" : "No thinking"}
+          value={thinkingEnabled ? "on" : "off"}
+          disabled={disabled}
+          onValueChange={(value) => onThinkingEnabledChange(value === "on")}
+          options={[
+            { value: "on", label: "Thinking on" },
+            { value: "off", label: "Thinking off" },
+          ]}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function ReasoningDropdownWithUltrathink({
+  config,
+  effortLevel,
+  getLevelLabel,
+  onEffortLevelChange,
+  disabled,
+}: {
+  config: TraitsReasoningConfig;
+  effortLevel: string | undefined;
+  getLevelLabel: (level: string) => string;
+  onEffortLevelChange: (level: string) => void;
+  disabled?: boolean;
+}) {
+  const { textInput } = usePromptInputController();
+  const prompt = textInput.value;
+
+  const ultrathinkPromptControlled = isUltrathinkPrompt(prompt);
+  const ultrathinkInBodyText =
+    ultrathinkPromptControlled &&
+    isUltrathinkPrompt(prompt.replace(/^Ultrathink:\s*/i, ""));
+
+  const resolvedEffort = effortLevel ?? config.default;
+  const triggerLabel = ultrathinkPromptControlled
+    ? "Ultrathink"
+    : getLevelLabel(resolvedEffort);
+  const radioValue = ultrathinkPromptControlled ? "ultrathink" : resolvedEffort;
+
   const handleEffortChange = (value: string) => {
-    if (!value || !config.reasoning) return;
+    if (!value) return;
 
     if (value === "ultrathink") {
       const nextPrompt =
@@ -130,106 +174,85 @@ export function TraitsMenu({
       textInput.setInput(prompt.replace(/^Ultrathink:\s*/i, ""));
     }
 
-    // Always persist the explicit level — including the model default.
-    // Mapping default → undefined made setTraits no-op (omit field), so
-    // High→Medium never cleared lastReasoningLevel and rapid picks raced.
     onEffortLevelChange(value);
   };
-
-  const effortRadioValue = ultrathinkPromptControlled
-    ? "ultrathink"
-    : resolvedEffort;
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button
+        <button
           type="button"
-          size="sm"
-          variant="ghost"
           disabled={disabled}
-          className={cn(
-            "shrink-0 whitespace-nowrap px-2 text-muted-foreground/70 hover:text-foreground/80 sm:px-3",
-            className,
-          )}
+          className={traitsTriggerClassName}
         >
-          <span>{triggerLabels.join(" · ")}</span>
-          <IconChevronDown aria-hidden="true" className="size-3 opacity-60" />
-        </Button>
+          {triggerLabel}
+        </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-44">
-        {config.reasoning ? (
-          <>
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Reasoning
-            </DropdownMenuLabel>
-            {ultrathinkInBodyText ? (
-              <p className="px-2 pb-1.5 text-muted-foreground/80 text-xs">
-                Your prompt contains &quot;ultrathink&quot; in the text. Remove
-                it to change this option.
-              </p>
-            ) : null}
-            <DropdownMenuRadioGroup
-              value={effortRadioValue}
-              onValueChange={handleEffortChange}
-            >
-              {config.reasoning.levels.map((level) => (
-                <DropdownMenuRadioItem
-                  key={level}
-                  value={level}
-                  disabled={ultrathinkInBodyText}
-                >
-                  {getLevelLabel(level)}
-                  {level === config.reasoning?.default ? " (default)" : ""}
-                </DropdownMenuRadioItem>
-              ))}
-              {config.reasoning.ultrathink ? (
-                <DropdownMenuRadioItem
-                  value="ultrathink"
-                  disabled={ultrathinkInBodyText}
-                >
-                  Ultrathink
-                </DropdownMenuRadioItem>
-              ) : null}
-            </DropdownMenuRadioGroup>
-          </>
+      <DropdownMenuContent align="start">
+        {ultrathinkInBodyText ? (
+          <p className="px-2 py-1.5 text-muted-foreground/80 text-xs">
+            Your prompt contains &quot;ultrathink&quot; in the text. Remove it
+            to change this option.
+          </p>
         ) : null}
-        {config.contextWindow1m ? (
-          <>
-            {config.reasoning ? <DropdownMenuSeparator /> : null}
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Context window
-            </DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={use1mContext ? "1m" : "200k"}
-              onValueChange={(value) => onUse1mContextChange(value === "1m")}
+        <DropdownMenuRadioGroup
+          value={radioValue}
+          onValueChange={handleEffortChange}
+        >
+          {config.levels.map((level) => (
+            <DropdownMenuRadioItem
+              key={level}
+              value={level}
+              disabled={ultrathinkInBodyText}
             >
-              <DropdownMenuRadioItem value="200k">
-                200K (default)
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="1m">1M</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </>
-        ) : null}
-        {config.thinkingToggle ? (
-          <>
-            {config.reasoning || config.contextWindow1m ? (
-              <DropdownMenuSeparator />
-            ) : null}
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Thinking
-            </DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={thinkingEnabled ? "on" : "off"}
-              onValueChange={(value) => onThinkingEnabledChange(value === "on")}
-            >
-              <DropdownMenuRadioItem value="on">
-                On (default)
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="off">Off</DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
-          </>
-        ) : null}
+              {getLevelLabel(level)}
+              {level === config.default ? " (default)" : ""}
+            </DropdownMenuRadioItem>
+          ))}
+          <DropdownMenuRadioItem
+            value="ultrathink"
+            disabled={ultrathinkInBodyText}
+          >
+            Ultrathink
+          </DropdownMenuRadioItem>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function SimpleTraitsDropdown({
+  label,
+  value,
+  options,
+  onValueChange,
+  disabled,
+}: {
+  label: string;
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  onValueChange: (value: string) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          className={traitsTriggerClassName}
+        >
+          {label}
+        </button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start">
+        <DropdownMenuRadioGroup value={value} onValueChange={onValueChange}>
+          {options.map((option) => (
+            <DropdownMenuRadioItem key={option.value} value={option.value}>
+              {option.label}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
       </DropdownMenuContent>
     </DropdownMenu>
   );

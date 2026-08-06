@@ -10,9 +10,10 @@ import {
   sessionActivityAt,
   sortAppsForSidebar,
   sortSessionsForSidebar,
+  SESSIONS_APP_GROUPS_OPEN_KEY,
 } from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
 import { useSessionsSidebarSettings } from "@/lib/components/sidebar/useSessionsSidebarSettings";
-import { useSessionsAppGroupOpen } from "@/lib/components/sidebar/useSessionsAppGroupOpen";
+import { useSidebarAppGroupOpen } from "@/lib/components/sidebar/useSidebarAppGroupOpen";
 import { SessionChromeTabGroup } from "@/lib/components/sidebar/session-tabs/SessionChromeTabGroup";
 import {
   SessionTabsArchivedMenu,
@@ -47,7 +48,10 @@ interface SessionChromeTabsBarProps {
  */
 export function SessionChromeTabsBar({ pathname }: SessionChromeTabsBarProps) {
   const { settings } = useSessionsSidebarSettings();
-  const { isGroupOpen, setGroupOpen } = useSessionsAppGroupOpen(pathname);
+  const { isGroupOpen, setGroupOpen } = useSidebarAppGroupOpen(pathname, {
+    storageKey: SESSIONS_APP_GROUPS_OPEN_KEY,
+    sectionSegment: "/sessions",
+  });
   const repos = useQuery(api.githubRepos.list, {});
   const [sessionToRename, setSessionToRename] =
     useState<SessionRenameTarget | null>(null);

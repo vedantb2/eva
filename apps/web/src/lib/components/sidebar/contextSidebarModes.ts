@@ -9,8 +9,7 @@ export type ContextSidebarMode =
   | "settings"
   | "docs"
   | "reviews"
-  | "testing-arena"
-  | "automations";
+  | "testing-arena";
 
 /** Nav items whose click swaps the whole sidebar into a focused drill-down view. */
 const CONTEXT_SIDEBAR_BY_NAV_NAME = new Map<string, ContextSidebarMode>([
@@ -18,7 +17,6 @@ const CONTEXT_SIDEBAR_BY_NAV_NAME = new Map<string, ContextSidebarMode>([
   ["Documents", "docs"],
   ["Reviews", "reviews"],
   ["Testing Arena", "testing-arena"],
-  ["Automations", "automations"],
 ]);
 
 /** Resolves the drill-down mode for a nav item name, or undefined for plain links. */

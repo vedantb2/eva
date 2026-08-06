@@ -22,6 +22,7 @@ import {
   IconSearch,
 } from "@tabler/icons-react";
 import {
+  AutomationsIcon,
   InboxIcon,
   SessionsIcon,
 } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
@@ -86,6 +87,17 @@ function formatCountLabel(count: number | undefined): string | null {
 
 function InboxUnreadBadge() {
   const unreadCount = useQuery(api.notifications.countUnread);
+  const unreadLabel = formatCountLabel(unreadCount);
+  if (!unreadLabel) return null;
+  return (
+    <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
+      {unreadLabel}
+    </span>
+  );
+}
+
+function AutomationsUnreadBadge() {
+  const unreadCount = useQuery(api.automations.countUnreadAll);
   const unreadLabel = formatCountLabel(unreadCount);
   if (!unreadLabel) return null;
   return (
@@ -174,6 +186,11 @@ function RepoRailView({
     pathname === "/sessions" ||
     pathname.startsWith("/sessions/") ||
     onRepoSessionsPath;
+  // Deep automation links belong to the root Automations rail entry too.
+  const automationsActive =
+    pathname === "/automations" ||
+    pathname.startsWith("/automations/") ||
+    (pathParts.includes("automations") && pathParts[0] !== "automations");
   const sessionsLabel = formatCountLabel(activeSessionCount);
   const [renameRepo, setRenameRepo] = useState<RepoWithLogo | null>(null);
 
@@ -224,7 +241,11 @@ function RepoRailView({
               aria-label={
                 sessionsLabel ? `Sessions, ${sessionsLabel} active` : "Sessions"
               }
-              className={cn(RAIL_TILE_CLASS, railTileActive(sessionsActive))}
+              className={cn(
+                RAIL_TILE_CLASS,
+                "group",
+                railTileActive(sessionsActive),
+              )}
             >
               <SessionsIcon size={22} className="shrink-0" />
               {sessionsLabel ? (
@@ -238,6 +259,26 @@ function RepoRailView({
             {sessionsLabel ? `Sessions (${sessionsLabel})` : "Sessions"}
           </TooltipContent>
         </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              to="/automations"
+              onClick={onNavigate}
+              aria-label="Automations"
+              className={cn(
+                RAIL_TILE_CLASS,
+                "group",
+                railTileActive(automationsActive),
+              )}
+            >
+              <AutomationsIcon size={22} className="shrink-0" />
+              <QueryErrorBoundary>
+                <AutomationsUnreadBadge />
+              </QueryErrorBoundary>
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right">Automations</TooltipContent>
+        </Tooltip>
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />
       </div>
       <div className="scrollbar scroll-fade flex w-full flex-1 flex-col items-center gap-1.5 overflow-y-auto py-2">
@@ -249,6 +290,7 @@ function RepoRailView({
           // light up a repo tile — the rail should show one active target.
           const active =
             !sessionsActive &&
+            !automationsActive &&
             isRowActive(row, currentOwner, currentName, currentAppName);
           const tooltip = `${displayName} · ${row.owner}/${row.name}`;
           const hasActiveSandbox = activeSandboxRepoIds.has(row._id);

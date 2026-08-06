@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useNavigate } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
@@ -8,7 +8,7 @@ import type { FunctionReturnType } from "convex/server";
 import { Spinner, cn } from "@eva/ui";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import {
-  repoSessionBasePaths,
+  repoBasePaths,
   sessionMatchesPath,
 } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { sortSessionsForSidebar } from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
@@ -39,7 +39,7 @@ interface SessionChromeTabGroupProps {
  * Chrome tab group: a group-name pill, that app's active session tabs, and the
  * coloured line Chrome draws underneath to tie them together. Selection is
  * resolved here rather than per tab so a tab knows whether its neighbour is
- * selected — Chrome drops the separator hairline next to the selected tab.
+ * selected â€” Chrome drops the separator hairline next to the selected tab.
  *
  * Clicking the pill collapses the group to a chip, as in Chrome. A collapsed
  * group still shows the selected tab: hiding the session you are reading would
@@ -58,7 +58,7 @@ export function SessionChromeTabGroup({
   const sessions = useQuery(api.sessions.list, { repoId: repo._id });
   const createSession = useMutation(api.sessions.create);
   const label = repoDisplayLabel(repo);
-  const baseUrl = `${repoSessionBasePaths(repo)[0]}/sessions`;
+  const baseUrl = `${repoBasePaths(repo)[0]}/sessions`;
   const colors = tabGroupColorForId(repo._id);
   const isLoading = sessions === undefined;
   const tabs = sortSessionsForSidebar(
@@ -81,7 +81,7 @@ export function SessionChromeTabGroup({
   const visibleTabs = isOpen ? tabs : tabs.filter((tab) => tab.isSelected);
 
   return (
-    // Only open groups give up width — their tabs shrink first, so a collapsed
+    // Only open groups give up width â€” their tabs shrink first, so a collapsed
     // chip never loses characters to someone else's tabs.
     <div
       className={cn(
@@ -92,7 +92,7 @@ export function SessionChromeTabGroup({
         isOpen ? "min-w-0" : "shrink-0",
       )}
     >
-      {/* Chrome marks a group with a coloured line beneath it — no tinted fill
+      {/* Chrome marks a group with a coloured line beneath it â€” no tinted fill
           behind the tabs. The selected tab's card covers the line it crosses.
           Collapsed chips are just the pill (+ selected tab), so no underline. */}
       {isOpen ? (
@@ -104,7 +104,7 @@ export function SessionChromeTabGroup({
           )}
         />
       ) : null}
-      {/* Group label pill — Chrome puts the name first, then its tabs. The row
+      {/* Group label pill â€” Chrome puts the name first, then its tabs. The row
           is tab-height so a collapsed chip lines up with expanded groups. */}
       <div className="flex h-9 shrink-0 items-center">
         <button

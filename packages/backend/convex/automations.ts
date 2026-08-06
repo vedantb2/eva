@@ -12,7 +12,7 @@ export { triggerAutomation, runNow } from "./_automations/triggers";
 export {
   listRuns,
   acknowledgeRun,
-  countUnreadByRepo,
+  countUnreadAll,
   getAutomationData,
   getRunForEmail,
   updateRunStatus,

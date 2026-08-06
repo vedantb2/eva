@@ -1,5 +1,17 @@
 # Changelog
 
+## Global Automations sidebar on the rail - 2026-08-06
+
+Automations lived only under each repo's second-column sidebar, so cross-repo ops meant hopping apps. The rail now has a global Automations entry (`/automations`) that lists every accessible app as a collapsible group (same open-state pattern as Sessions), with unread counts from `countUnreadAll` instead of per-repo badges. Repo-local AutomationsSidebar / UnreadAutomationsBadge are gone. Reason: automations are a cross-repo surface; the rail is where that discovery belongs.
+
+## Border beam on the composer while Eva replies - 2026-08-06
+
+While a turn is running the composer looked idle. `<BorderBeam>` wraps the input group with a spinning hairline (and soft glow) driven by `@property --beam-angle` / `beam-*` utilities in `globals.css` — named `beam-*` not `border-beam-*` so tailwind-merge does not strip the class as a border-color conflict. Toggle `active` rather than remounting so the subtree stays mounted. Reason: async work needs a continuous motion cue on the control the user is waiting on.
+
+## Traits menu matches SessionModeDropdown - 2026-08-06
+
+The traits control was a ghost Button mega-menu (reasoning + thinking + 1M in one panel) and still felt sticky to open. It is now one SessionModeDropdown-style bordered trigger per trait (plain `<button>`, simple radio list); ultrathink stays on a separate path that alone subscribes to the prompt controller. Reason: composer chrome should feel like the mode selector, not a settings sheet.
+
 ## Gate every daemon pidfile unlink on ownership - 2026-08-06
 
 Review of the fence commit found two exit paths it missed: `failTurnAndExit` and `exitWithoutCompletion` still unlinked the daemon pidfile unconditionally, so a deposed daemon finishing (and failing) its deferred turn deleted the rival's pidfile — the healthy rival's fence then read `owner=none` and exited, leaving zero daemons. Both paths now use the same `readDaemonPidFile() === process.pid` gate as the runSdkDaemon finally block. Reason: any unlink of a shared marker must prove ownership first, on every path.

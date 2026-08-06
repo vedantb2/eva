@@ -10,7 +10,10 @@ import {
 import { authQuery, authMutation, hasRepoAccess } from "../functions";
 import { cancelTrackedWorkflow } from "../workflowManager";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
-import { resolveSandboxRepoId } from "../_githubRepos/helpers";
+import {
+  gatherAccessibleRepos,
+  resolveSandboxRepoId,
+} from "../_githubRepos/helpers";
 
 /** Loads a run and its automation, throwing unless the user can access the repo. */
 async function loadRunWithAccess(
@@ -67,38 +70,49 @@ export const acknowledgeRun = authMutation({
 });
 
 /** Counts automations whose latest run is unacknowledged and completed. */
-export const countUnreadByRepo = authQuery({
-  args: { repoId: v.id("githubRepos") },
+async function countUnreadForAutomations(
+  db: GenericDatabaseReader<DataModel>,
+  automationIds: Array<Id<"automations">>,
+): Promise<number> {
+  const latestRuns = await Promise.all(
+    automationIds.map((automationId) =>
+      db
+        .query("automationRuns")
+        .withIndex("by_automation", (q) => q.eq("automationId", automationId))
+        .order("desc")
+        .first(),
+    ),
+  );
+
+  let count = 0;
+  for (const latestRun of latestRuns) {
+    if (
+      latestRun &&
+      !latestRun.acknowledged &&
+      (latestRun.status === "success" || latestRun.status === "error")
+    ) {
+      count++;
+    }
+  }
+  return count;
+}
+
+/** Unread automation runs across every repo the user can see (rail badge). */
+export const countUnreadAll = authQuery({
+  args: {},
   returns: v.number(),
-  handler: async (ctx, args) => {
-    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
-      return 0;
-    }
-    const automations = await listAutomationsForRepo(ctx.db, args.repoId);
-
-    const latestRuns = await Promise.all(
-      automations.map((automation) =>
-        ctx.db
-          .query("automationRuns")
-          .withIndex("by_automation", (q) =>
-            q.eq("automationId", automation._id),
-          )
-          .order("desc")
-          .first(),
-      ),
+  handler: async (ctx) => {
+    const repos = await gatherAccessibleRepos(ctx.db, ctx.userId, false);
+    const perRepo = await Promise.all(
+      repos.map((repo) => listAutomationsForRepo(ctx.db, repo._id)),
     );
-
-    let count = 0;
-    for (const latestRun of latestRuns) {
-      if (
-        latestRun &&
-        !latestRun.acknowledged &&
-        (latestRun.status === "success" || latestRun.status === "error")
-      ) {
-        count++;
-      }
+    // Shared monorepo automations surface into every child app, so dedupe
+    // before counting or one unread run is counted once per app.
+    const automationIds = new Set<Id<"automations">>();
+    for (const automations of perRepo) {
+      for (const automation of automations) automationIds.add(automation._id);
     }
-    return count;
+    return await countUnreadForAutomations(ctx.db, [...automationIds]);
   },
 });
 

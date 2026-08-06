@@ -19,6 +19,7 @@ import { Route as GlobalSessionsRouteImport } from './routes/_global/sessions'
 import { Route as GlobalInboxRouteImport } from './routes/_global/inbox'
 import { Route as GlobalHomeRouteImport } from './routes/_global/home'
 import { Route as GlobalChangelogRouteImport } from './routes/_global/changelog'
+import { Route as GlobalAutomationsRouteImport } from './routes/_global/automations'
 import { Route as GlobalTeamsIndexRouteImport } from './routes/_global/teams/index'
 import { Route as GlobalArtifactsIndexRouteImport } from './routes/_global/artifacts/index'
 import { Route as McpOauthAuthorizeRouteImport } from './routes/mcp/oauth/authorize'
@@ -164,6 +165,11 @@ const GlobalHomeRoute = GlobalHomeRouteImport.update({
 const GlobalChangelogRoute = GlobalChangelogRouteImport.update({
   id: '/changelog',
   path: '/changelog',
+  getParentRoute: () => GlobalRoute,
+} as any)
+const GlobalAutomationsRoute = GlobalAutomationsRouteImport.update({
+  id: '/automations',
+  path: '/automations',
   getParentRoute: () => GlobalRoute,
 } as any)
 const GlobalTeamsIndexRoute = GlobalTeamsIndexRouteImport.update({
@@ -748,6 +754,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agent-callback': typeof AgentCallbackRoute
   '/preview-auth': typeof PreviewAuthRoute
+  '/automations': typeof GlobalAutomationsRoute
   '/changelog': typeof GlobalChangelogRoute
   '/home': typeof GlobalHomeRoute
   '/inbox': typeof GlobalInboxRoute
@@ -856,6 +863,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/agent-callback': typeof AgentCallbackRoute
   '/preview-auth': typeof PreviewAuthRoute
+  '/automations': typeof GlobalAutomationsRoute
   '/changelog': typeof GlobalChangelogRoute
   '/home': typeof GlobalHomeRoute
   '/inbox': typeof GlobalInboxRoute
@@ -946,6 +954,7 @@ export interface FileRoutesById {
   '/_repo': typeof RepoRouteWithChildren
   '/agent-callback': typeof AgentCallbackRoute
   '/preview-auth': typeof PreviewAuthRoute
+  '/_global/automations': typeof GlobalAutomationsRoute
   '/_global/changelog': typeof GlobalChangelogRoute
   '/_global/home': typeof GlobalHomeRoute
   '/_global/inbox': typeof GlobalInboxRoute
@@ -1056,6 +1065,7 @@ export interface FileRouteTypes {
     | '/'
     | '/agent-callback'
     | '/preview-auth'
+    | '/automations'
     | '/changelog'
     | '/home'
     | '/inbox'
@@ -1164,6 +1174,7 @@ export interface FileRouteTypes {
     | '/'
     | '/agent-callback'
     | '/preview-auth'
+    | '/automations'
     | '/changelog'
     | '/home'
     | '/inbox'
@@ -1253,6 +1264,7 @@ export interface FileRouteTypes {
     | '/_repo'
     | '/agent-callback'
     | '/preview-auth'
+    | '/_global/automations'
     | '/_global/changelog'
     | '/_global/home'
     | '/_global/inbox'
@@ -1437,6 +1449,13 @@ declare module '@tanstack/react-router' {
       path: '/changelog'
       fullPath: '/changelog'
       preLoaderRoute: typeof GlobalChangelogRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/automations': {
+      id: '/_global/automations'
+      path: '/automations'
+      fullPath: '/automations'
+      preLoaderRoute: typeof GlobalAutomationsRouteImport
       parentRoute: typeof GlobalRoute
     }
     '/_global/teams/': {
@@ -2145,6 +2164,7 @@ const GlobalTeamsTeamIdRouteRouteWithChildren =
   )
 
 interface GlobalRouteChildren {
+  GlobalAutomationsRoute: typeof GlobalAutomationsRoute
   GlobalChangelogRoute: typeof GlobalChangelogRoute
   GlobalHomeRoute: typeof GlobalHomeRoute
   GlobalInboxRoute: typeof GlobalInboxRoute
@@ -2165,6 +2185,7 @@ interface GlobalRouteChildren {
 }
 
 const GlobalRouteChildren: GlobalRouteChildren = {
+  GlobalAutomationsRoute: GlobalAutomationsRoute,
   GlobalChangelogRoute: GlobalChangelogRoute,
   GlobalHomeRoute: GlobalHomeRoute,
   GlobalInboxRoute: GlobalInboxRoute,

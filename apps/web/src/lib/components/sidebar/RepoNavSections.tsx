@@ -5,7 +5,6 @@ import type { ComponentType } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { IconChevronRight } from "@tabler/icons-react";
 import {
-  AutomationsIcon,
   DocumentsIcon,
   ReviewsIcon,
   ProjectsIcon,
@@ -18,7 +17,6 @@ import { type api } from "@eva/backend";
 import { Button, Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";
 import { ActiveTasksBadge } from "@/lib/components/sidebar/ActiveTasksPopover";
 import { BuildingProjectsBadge } from "@/lib/components/sidebar/BuildingProjectsBadge";
-import { UnreadAutomationsBadge } from "@/lib/components/sidebar/UnreadAutomationsBadge";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
@@ -116,11 +114,6 @@ export function RepoNavSections({
         label: "More",
         items: [
           {
-            name: "Automations",
-            href: `${repoBasePath}/automations`,
-            icon: AutomationsIcon,
-          },
-          {
             name: "Stats",
             href: `${repoBasePath}/stats`,
             icon: StatsIcon,
@@ -172,9 +165,6 @@ export function RepoNavSections({
               )}
             />
             <span className="truncate">{item.name}</span>
-            {item.name === "Automations" && repo && (
-              <UnreadAutomationsBadge repoId={repo._id} />
-            )}
           </button>
           <Button
             size="icon-sm"

@@ -1,0 +1,219 @@
+"use client";
+
+import { useState } from "react";
+import { Link } from "@tanstack/react-router";
+import { api } from "@eva/backend";
+import type { FunctionReturnType } from "convex/server";
+import {
+  Badge,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  Spinner,
+  cn,
+} from "@eva/ui";
+import { IconChevronDown, IconPlus } from "@tabler/icons-react";
+import { RepoLogo } from "@/lib/components/RepoLogo";
+import { SessionListShowMore } from "@/lib/components/sidebar/_components/SessionListShowMore";
+import {
+  SharedLayoutNav,
+  SharedLayoutNavSurface,
+  sidebarNavLinkClass,
+} from "@/lib/components/sidebar/SharedLayoutNav";
+import {
+  SidebarListHoverCard,
+  sidebarTextPreview,
+} from "@/lib/components/sidebar/SidebarListHoverCard";
+import { repoBasePaths } from "@/lib/components/sidebar/_utils/repoSessionPaths";
+import { automationMatchesPath } from "@/lib/components/sidebar/_utils/repoAutomationPaths";
+import { previewSessions } from "@/lib/components/sidebar/_utils/sessionListPreview";
+import { sortSessionsForSidebar } from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
+import { AUTOMATION_PREVIEW_COUNT } from "@/lib/components/sidebar/_utils/automationsSidebarSettings";
+import { entityPathSegment } from "@/lib/numId";
+import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
+
+type AutomationListItem = FunctionReturnType<
+  typeof api.automations.list
+>[number];
+
+interface GlobalAutomationGroupProps {
+  repo: RepoWithLogo;
+  /** Deduped to this app by the parent panel. */
+  automations: AutomationListItem[];
+  isLoading: boolean;
+  pathname: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onNavigate?: () => void;
+  onCreateRequest: () => void;
+}
+
+/**
+ * One collapsible app group in the global Automations sidebar: logo + title,
+ * `+` → new automation in that app, then that app's automations (capped with
+ * Show more). Each row's dot shows whether the automation is enabled.
+ */
+export function GlobalAutomationGroup({
+  repo,
+  automations,
+  isLoading,
+  pathname,
+  open,
+  onOpenChange,
+  onNavigate,
+  onCreateRequest,
+}: GlobalAutomationGroupProps) {
+  const [isListExpanded, setIsListExpanded] = useState(false);
+  const label = repoDisplayLabel(repo);
+  const baseUrl = `${repoBasePaths(repo)[0]}/automations`;
+
+  const sorted = sortSessionsForSidebar(automations, "updated_at");
+  const selectedId =
+    sorted.find((automation) =>
+      automationMatchesPath(repo, entityPathSegment(automation), pathname),
+    )?._id ?? null;
+  const {
+    visible: visibleAutomations,
+    hasOverflow,
+    hiddenCount,
+  } = previewSessions(sorted, {
+    expanded: isListExpanded,
+    selectedId,
+    limit: AUTOMATION_PREVIEW_COUNT,
+  });
+  const hasNoResults = !isLoading && sorted.length === 0;
+
+  return (
+    <Collapsible open={open} onOpenChange={onOpenChange}>
+      <div className="flex items-center gap-0.5 px-1">
+        <CollapsibleTrigger asChild>
+          <button
+            type="button"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-menu-item px-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent/50"
+          >
+            <RepoLogo
+              logoUrl={repo.logoUrl}
+              size={18}
+              fallback={
+                <span className="flex size-[18px] items-center justify-center rounded-sm border border-border bg-muted text-[10px] font-semibold text-muted-foreground">
+                  {label.charAt(0).toUpperCase()}
+                </span>
+              }
+            />
+            <span className="flex min-w-0 items-center gap-1.5">
+              <span className="truncate text-xs font-medium text-muted-foreground">
+                {label}
+              </span>
+              {sorted.length > 0 ? (
+                <Badge
+                  variant="outline"
+                  className="shrink-0 border-border bg-transparent px-1.5 py-0"
+                >
+                  <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
+                    {sorted.length}
+                  </span>
+                </Badge>
+              ) : null}
+              <IconChevronDown
+                size={14}
+                className={cn(
+                  "shrink-0 text-muted-foreground transition-transform duration-200",
+                  !open && "-rotate-90",
+                )}
+              />
+            </span>
+          </button>
+        </CollapsibleTrigger>
+        <button
+          type="button"
+          aria-label={`New automation in ${label}`}
+          title={`New automation in ${label}`}
+          className="flex size-7 shrink-0 items-center justify-center rounded-menu-item text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onCreateRequest();
+          }}
+        >
+          <IconPlus size={14} />
+        </button>
+      </div>
+      <CollapsibleContent>
+        <div className="pb-1 pl-1">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-3">
+              <Spinner size="sm" />
+            </div>
+          ) : hasNoResults ? (
+            <div className="px-3 py-3 text-center">
+              <p className="text-xs font-medium text-foreground">
+                No automations yet
+              </p>
+              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                Press + to add one.
+              </p>
+            </div>
+          ) : (
+            <SharedLayoutNav
+              layoutId={`global-automations-${repo._id}`}
+              className="space-y-1"
+            >
+              {visibleAutomations.map((automation) => {
+                const segment = entityPathSegment(automation);
+                if (!segment) return null;
+                const isSelected = automationMatchesPath(
+                  repo,
+                  segment,
+                  pathname,
+                );
+                // Plain `string`, not a template-literal type: `<Link to>` is a
+                // union of known route paths and rejects the narrowed form.
+                const href: string = `${baseUrl}/${segment}`;
+                return (
+                  <SharedLayoutNavSurface
+                    key={automation._id}
+                    itemId={automation._id}
+                    isActive={isSelected}
+                    className="group"
+                  >
+                    <SidebarListHoverCard
+                      title={automation.title}
+                      preview={sidebarTextPreview(automation.description)}
+                      updatedAt={automation.updatedAt}
+                      userId={automation.createdBy}
+                    >
+                      <Link
+                        to={href}
+                        onClick={onNavigate}
+                        className={sidebarNavLinkClass(isSelected)}
+                      >
+                        <span
+                          className={cn(
+                            "h-2 w-2 shrink-0 rounded-full",
+                            automation.enabled
+                              ? "bg-success"
+                              : "bg-muted-foreground/30",
+                          )}
+                        />
+                        <span className="min-w-0 flex-1 truncate">
+                          {automation.title}
+                        </span>
+                      </Link>
+                    </SidebarListHoverCard>
+                  </SharedLayoutNavSurface>
+                );
+              })}
+              {hasOverflow ? (
+                <SessionListShowMore
+                  expanded={isListExpanded}
+                  hiddenCount={hiddenCount}
+                  onToggle={() => setIsListExpanded((prev) => !prev)}
+                />
+              ) : null}
+            </SharedLayoutNav>
+          )}
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}

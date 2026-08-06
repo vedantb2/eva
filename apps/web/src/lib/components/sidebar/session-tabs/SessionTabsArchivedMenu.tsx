@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
@@ -16,7 +16,7 @@ import {
 import { IconArchive, IconArchiveOff } from "@tabler/icons-react";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { RepoLogo } from "@/lib/components/RepoLogo";
-import { repoSessionBasePaths } from "@/lib/components/sidebar/_utils/repoSessionPaths";
+import { repoBasePaths } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { entityPathSegment } from "@/lib/numId";
 import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
 
@@ -76,7 +76,7 @@ export function SessionTabsArchivedMenu({
         ) : (
           nonEmpty.map((group) => {
             const label = repoDisplayLabel(group.repo);
-            const baseUrl = `${repoSessionBasePaths(group.repo)[0]}/sessions`;
+            const baseUrl = `${repoBasePaths(group.repo)[0]}/sessions`;
             return (
               <DropdownMenuSub key={group.repo._id}>
                 <DropdownMenuSubTrigger>

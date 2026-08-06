@@ -71,9 +71,9 @@ const TestingArenaSidebar = lazy(() =>
     default: m.TestingArenaSidebar,
   })),
 );
-const AutomationsSidebar = lazy(() =>
-  import("@/lib/components/sidebar/AutomationsSidebar").then((m) => ({
-    default: m.AutomationsSidebar,
+const GlobalAutomationsSidebar = lazy(() =>
+  import("@/lib/components/sidebar/GlobalAutomationsSidebar").then((m) => ({
+    default: m.GlobalAutomationsSidebar,
   })),
 );
 const GlobalSettingsSidebar = lazy(() =>
@@ -96,8 +96,7 @@ function getInitialContextSidebarMode(pathname: string): ContextSidebarMode {
       s === "settings" ||
       s === "docs" ||
       s === "reviews" ||
-      s === "testing-arena" ||
-      s === "automations"
+      s === "testing-arena"
     ) {
       return s;
     }
@@ -160,6 +159,7 @@ export function Sidebar() {
       "inbox",
       "artifacts",
       "sessions",
+      "automations",
       "api",
       "settings",
       "testing",
@@ -205,6 +205,13 @@ export function Sidebar() {
   // Experimental Chrome tabs replace the sessions second column (rail only).
   const useChromeSessionTabs = useChromeSessionTabsActive(pathname);
   const showGlobalSessionsPanel = isSessionsPath && !useChromeSessionTabs;
+  // Automations mirror Sessions: one cross-repo panel behind the rail entry,
+  // shown for the landing page and for every repo-scoped automation URL.
+  const isGlobalAutomationsLanding =
+    pathname === "/automations" || pathname === "/automations/";
+  const isRepoAutomationsPath = isRepoRoute && pathParts.includes("automations");
+  const showGlobalAutomationsPanel =
+    isGlobalAutomationsLanding || isRepoAutomationsPath;
   const showHomePanel = isHomePath(pathname);
   const showGlobalSettingsPanel =
     isGlobalSettingsPath(pathname) ||
@@ -213,6 +220,7 @@ export function Sidebar() {
   const showSidePanel =
     (isRepoRoute && !useChromeSessionTabs) ||
     (isGlobalSessionsLanding && !useChromeSessionTabs) ||
+    isGlobalAutomationsLanding ||
     showHomePanel ||
     showGlobalSettingsPanel;
 
@@ -223,7 +231,10 @@ export function Sidebar() {
   }, [isGlobalSessionsLanding, isRepoSessionsPath, setSessionsNavMode]);
 
   const showContextSidebar =
-    isRepoRoute && !showGlobalSessionsPanel && contextSidebarMode !== "main";
+    isRepoRoute &&
+    !showGlobalSessionsPanel &&
+    !showGlobalAutomationsPanel &&
+    contextSidebarMode !== "main";
 
   const repo = useQuery(
     api.githubRepos.getByOwnerAndName,
@@ -253,22 +264,29 @@ export function Sidebar() {
   // Global panels (Sessions, Home, Settings) are a plain title + list: no repo
   // header, no team background, no back button.
   const isFlatPanel =
-    showGlobalSessionsPanel || showHomePanel || showGlobalSettingsPanel;
+    showGlobalSessionsPanel ||
+    showGlobalAutomationsPanel ||
+    showHomePanel ||
+    showGlobalSettingsPanel;
   const flatPanelTitle = showGlobalSessionsPanel
     ? "Sessions"
-    : showGlobalSettingsPanel
-      ? "Settings"
-      : "Home";
+    : showGlobalAutomationsPanel
+      ? "Automations"
+      : showGlobalSettingsPanel
+        ? "Settings"
+        : "Home";
   // One key drives the header/nav enter animations and the header-action scope.
   const panelKey = showGlobalSessionsPanel
     ? "global-sessions"
-    : showGlobalSettingsPanel
-      ? "global-settings"
-      : showHomePanel
-        ? "home"
-        : showContextSidebar
-          ? contextSidebarMode
-          : "main";
+    : showGlobalAutomationsPanel
+      ? "global-automations"
+      : showGlobalSettingsPanel
+        ? "global-settings"
+        : showHomePanel
+          ? "home"
+          : showContextSidebar
+            ? contextSidebarMode
+            : "main";
 
   const contextSidebarTitle =
     contextSidebarMode === "settings"
@@ -279,9 +297,7 @@ export function Sidebar() {
           ? "Reviews"
           : contextSidebarMode === "testing-arena"
             ? "Testing Arena"
-            : contextSidebarMode === "automations"
-              ? "Automations"
-              : "";
+            : "";
 
   return (
     <>
@@ -523,7 +539,9 @@ export function Sidebar() {
                   >
                     <div
                       className={
-                        showGlobalSessionsPanel ? "space-y-0" : "space-y-4"
+                        showGlobalSessionsPanel || showGlobalAutomationsPanel
+                          ? "space-y-0"
+                          : "space-y-4"
                       }
                     >
                       <m.div
@@ -535,6 +553,11 @@ export function Sidebar() {
                         <Suspense fallback={sidebarPanelFallback}>
                           {showGlobalSessionsPanel ? (
                             <GlobalSessionsSidebar
+                              pathname={pathname}
+                              onNavigate={closeMobileSidebar}
+                            />
+                          ) : showGlobalAutomationsPanel ? (
+                            <GlobalAutomationsSidebar
                               pathname={pathname}
                               onNavigate={closeMobileSidebar}
                             />
@@ -570,15 +593,8 @@ export function Sidebar() {
                                   pathname={pathname}
                                   onNavigate={closeMobileSidebar}
                                 />
-                              ) : contextSidebarMode === "testing-arena" ? (
-                                <TestingArenaSidebar
-                                  repoId={repo._id}
-                                  basePath={repoBasePath}
-                                  pathname={pathname}
-                                  onNavigate={closeMobileSidebar}
-                                />
                               ) : (
-                                <AutomationsSidebar
+                                <TestingArenaSidebar
                                   repoId={repo._id}
                                   basePath={repoBasePath}
                                   pathname={pathname}
@@ -614,7 +630,10 @@ export function Sidebar() {
                     </div>
                   </nav>
 
-                  {isRepoRoute && repoBasePath && !showGlobalSessionsPanel ? (
+                  {isRepoRoute &&
+                  repoBasePath &&
+                  !showGlobalSessionsPanel &&
+                  !showGlobalAutomationsPanel ? (
                     <div className="px-6 py-3">
                       <RepoStatsSummary
                         repo={repo}

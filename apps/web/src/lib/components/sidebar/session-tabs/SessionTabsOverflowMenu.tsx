@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useNavigate } from "@tanstack/react-router";
 import {
@@ -16,7 +16,7 @@ import { IconChevronDown, IconPlus } from "@tabler/icons-react";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import {
-  repoSessionBasePaths,
+  repoBasePaths,
   repoSessionsIndexPath,
 } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { entityPathSegment } from "@/lib/numId";
@@ -37,7 +37,7 @@ export interface OverflowGroup {
 
 interface SessionTabsOverflowMenuProps {
   groups: OverflowGroup[];
-  /** All apps — so empty apps still get a New session entry. */
+  /** All apps â€” so empty apps still get a New session entry. */
   allRepos: RepoWithLogo[];
   pathname: string;
 }
@@ -76,7 +76,7 @@ export function SessionTabsOverflowMenu({
         ) : (
           allRepos.map((repo) => {
             const label = repoDisplayLabel(repo);
-            const baseUrl = `${repoSessionBasePaths(repo)[0]}/sessions`;
+            const baseUrl = `${repoBasePaths(repo)[0]}/sessions`;
             const sessions = sessionsByRepoId.get(repo._id) ?? [];
             return (
               <DropdownMenuSub key={repo._id}>

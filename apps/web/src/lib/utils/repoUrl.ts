@@ -29,6 +29,7 @@ export const NON_REPO_PATH_PREFIXES = new Set([
   "inbox",
   "artifacts",
   "sessions",
+  "automations",
   "api",
   "settings",
   "testing",

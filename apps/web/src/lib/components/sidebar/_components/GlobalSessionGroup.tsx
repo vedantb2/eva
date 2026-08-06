@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
@@ -21,7 +21,7 @@ import { SessionListShowMore } from "@/lib/components/sidebar/_components/Sessio
 import { SidebarSessionRow } from "@/lib/components/sidebar/SidebarSessionRow";
 import { SharedLayoutNav } from "@/lib/components/sidebar/SharedLayoutNav";
 import {
-  repoSessionBasePaths,
+  repoBasePaths,
   repoSessionsIndexPath,
   sessionMatchesPath,
 } from "@/lib/components/sidebar/_utils/repoSessionPaths";
@@ -52,7 +52,7 @@ interface GlobalSessionGroupProps {
 
 /**
  * One collapsible app group in the global Sessions sidebar: logo + title,
- * `+` → that app's sessions composer, then Active or Archived rows for the
+ * `+` â†’ that app's sessions composer, then Active or Archived rows for the
  * current list mode (capped with Show more).
  */
 export function GlobalSessionGroup({
@@ -80,7 +80,7 @@ export function GlobalSessionGroup({
   const createSession = useMutation(api.sessions.create);
   const unarchiveSession = useMutation(api.sessions.unarchive);
   const label = repoDisplayLabel(repo);
-  const baseUrl = `${repoSessionBasePaths(repo)[0]}/sessions`;
+  const baseUrl = `${repoBasePaths(repo)[0]}/sessions`;
 
   const sourceSessions =
     listMode === "archived" ? archivedSessions : activeSessions;

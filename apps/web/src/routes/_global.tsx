@@ -28,14 +28,17 @@ function GlobalMainContent() {
   const { collapsed } = useSidebar();
   const isSessionsLanding =
     pathname === "/sessions" || pathname === "/sessions/";
+  const isAutomationsLanding =
+    pathname === "/automations" || pathname === "/automations/";
   const chromeSessionTabs = useChromeSessionTabsActive(pathname);
   const onTesting =
     import.meta.env.DEV &&
     (pathname === "/testing" || pathname.startsWith("/testing/"));
-  // Sessions / home / root settings show the wide second column; collapsed =
-  // rail only. Chrome session tabs use rail-only (no sessions sidebar).
+  // Sessions / automations / home / root settings show the wide second column;
+  // collapsed = rail only. Chrome session tabs use rail-only (no sidebar).
   const hasSecondColumn =
     (isSessionsLanding && !chromeSessionTabs) ||
+    isAutomationsLanding ||
     isHomePath(pathname) ||
     isGlobalSettingsPath(pathname) ||
     onTesting;

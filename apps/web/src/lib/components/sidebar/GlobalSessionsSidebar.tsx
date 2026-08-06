@@ -21,9 +21,10 @@ import { SessionsListModeTabs } from "@/lib/components/sidebar/_components/Sessi
 import {
   sessionActivityAt,
   sortAppsForSidebar,
+  SESSIONS_APP_GROUPS_OPEN_KEY,
 } from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
 import { useSessionsSidebarSettings } from "@/lib/components/sidebar/useSessionsSidebarSettings";
-import { useSessionsAppGroupOpen } from "@/lib/components/sidebar/useSessionsAppGroupOpen";
+import { useSidebarAppGroupOpen } from "@/lib/components/sidebar/useSidebarAppGroupOpen";
 import { entityPathSegment } from "@/lib/numId";
 
 type SessionListItem = FunctionReturnType<typeof api.sessions.list>[number];
@@ -44,7 +45,10 @@ export function GlobalSessionsSidebar({
 }: GlobalSessionsSidebarProps) {
   const navigate = useNavigate();
   const { settings, setListMode } = useSessionsSidebarSettings();
-  const { isGroupOpen, setGroupOpen } = useSessionsAppGroupOpen(pathname);
+  const { isGroupOpen, setGroupOpen } = useSidebarAppGroupOpen(pathname, {
+    storageKey: SESSIONS_APP_GROUPS_OPEN_KEY,
+    sectionSegment: "/sessions",
+  });
   const repos = useQuery(api.githubRepos.list, {});
   const [sessionToRename, setSessionToRename] = useState<{
     session: SessionListItem;

@@ -11,25 +11,13 @@ import { v } from "convex/values";
  * Element-scoped editing keys (Enter to submit, Escape to cancel, arrow-key
  * navigation) are deliberately absent — rebinding those breaks form
  * accessibility and IME composition, so they stay fixed.
+ *
+ * To add a shortcut: add one `v.literal(...)` line below, then fill in the
+ * entry TypeScript will now demand in `SHORTCUT_DEFS`, then call
+ * `useShortcut("yourId", …)` where it fires. To remove one, delete the line and
+ * follow the same two type errors. Nothing else needs touching — the id array,
+ * the `ShortcutId` type, and the mutation arg all derive from this union.
  */
-export const SHORTCUT_IDS = [
-  "openSearch",
-  "toggleSidebar",
-  "toggleSandboxPanel",
-  "jumpToApp",
-  "newQuickTask",
-  "cycleSessionMode",
-  "stashDraft",
-  "submitComposerForm",
-  "toggleBrowserTab",
-  "toggleFilesTab",
-  "cycleSandboxTab",
-  "togglePreviewConsole",
-] as const;
-
-export type ShortcutId = (typeof SHORTCUT_IDS)[number];
-
-/** Mutation-arg validator: only a known shortcut id can be overridden. */
 export const shortcutIdValidator = v.union(
   v.literal("openSearch"),
   v.literal("toggleSidebar"),
@@ -44,6 +32,12 @@ export const shortcutIdValidator = v.union(
   v.literal("cycleSandboxTab"),
   v.literal("togglePreviewConsole"),
 );
+
+export type ShortcutId = (typeof shortcutIdValidator)["type"];
+
+/** The same ids as an iterable list, in declaration order. */
+export const SHORTCUT_IDS: ReadonlyArray<ShortcutId> =
+  shortcutIdValidator.members.map((member) => member.value);
 
 /**
  * Stored shape on `users.shortcutOverrides` — a sparse map of shortcut id to

@@ -46,7 +46,7 @@ export const GanttFeatureDragHelper: FC<GanttFeatureDragHelperProps> = ({
   return (
     <div
       className={cn(
-        "group -translate-y-1/2 cursor-col-resize absolute top-1/2 z-[3] h-full w-6 rounded-md outline-none",
+        "group -translate-y-1/2 cursor-col-resize absolute top-1/2 z-3 h-full w-6 rounded-md outline-hidden",
         direction === "left" ? "-left-2.5" : "-right-2.5",
       )}
       data-gantt-no-pan
@@ -231,7 +231,7 @@ export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
     ? `${dayjs(startAt).format("MMM D")} – ${dayjs(endAt).format("MMM D")}`
     : dayjs(startAt).format("MMM D");
   const indicatorClass =
-    "absolute top-1/2 z-[4] flex -translate-y-1/2 items-center gap-1 whitespace-nowrap rounded-control border border-border bg-background/95 px-2 py-0.5 text-[10px] font-medium text-muted-foreground backdrop-blur transition-colors hover:text-foreground";
+    "absolute top-1/2 z-4 flex -translate-y-1/2 items-center gap-1 whitespace-nowrap rounded-control border border-border bg-background/95 px-2 py-0.5 text-[10px] font-medium text-muted-foreground backdrop-blur-sm transition-colors hover:text-foreground";
 
   return (
     <div

@@ -69,7 +69,7 @@ export function LandingCompact() {
 
         <div className="mt-8">
           <SignInButton mode="modal">
-            <Button size="lg" className="w-full sm:w-auto sm:min-w-[10rem]">
+            <Button size="lg" className="w-full sm:w-auto sm:min-w-40">
               Sign in
               <IconArrowRight size={16} aria-hidden />
             </Button>

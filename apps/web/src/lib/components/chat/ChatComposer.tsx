@@ -182,7 +182,7 @@ export function ChatComposer({
   }));
 
   return (
-    <div className="p-2 md:p-3 max-w-3xl mx-auto w-full">
+    <div className="p-3 md:p-4 max-w-3xl mx-auto w-full">
       <AnimatePresence initial={false}>
         {beforeQueuedContent ? (
           <m.div
@@ -235,7 +235,7 @@ export function ChatComposer({
           <div
             aria-busy="true"
             aria-label="Loading draft..."
-            className="pointer-events-none rounded-surface border border-border shadow-lg bg-background opacity-50 min-h-[4.5rem]"
+            className="pointer-events-none rounded-surface border border-border shadow-lg bg-background opacity-50 min-h-18"
           />
         ) : (
           <PromptInputProvider initialInput={seed?.initialDisplay}>
@@ -285,7 +285,7 @@ export function ChatComposer({
                 enableAttachmentPaste
                 completionContext={`a message instructing an AI coding agent working on the repository ${repoBasePath.replace(/^\//, "")}`}
               />
-              <PromptInputFooter>
+              <PromptInputFooter className="px-4 pb-4">
                 <PromptInputTools>
                   <ComposerPlusMenu
                     dataItems={plusDataItems}
@@ -367,7 +367,7 @@ export function ChatComposer({
         )}
       </div>
       {underCardLeading ? (
-        <div className="mx-auto flex w-[calc(100%-1.5rem)] items-center rounded-b-surface border border-border bg-muted/50 px-1.5 py-1">
+        <div className="mx-auto flex w-[calc(100%-1.5rem)] md:w-[calc(100%-2rem)] items-center rounded-b-surface border border-border bg-muted/50 px-2 py-1.5">
           <div className="min-w-0">{underCardLeading}</div>
         </div>
       ) : null}

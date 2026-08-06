@@ -16,7 +16,7 @@ export function LandingNav() {
       <nav className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-6 px-5 sm:px-8 lg:px-10">
         <a
           href="#top"
-          className="flex shrink-0 items-center gap-2.5 rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="flex shrink-0 items-center gap-2.5 rounded-control focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <EvaIcon size={24} label={null} className="size-6 rounded-full" />
           <span className="text-sm font-semibold tracking-tight text-foreground">
@@ -29,7 +29,7 @@ export function LandingNav() {
             <li key={link.href}>
               <a
                 href={link.href}
-                className="motion-base rounded-control px-3 py-2 text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="motion-base rounded-control px-3 py-2 text-sm text-muted-foreground hover:bg-muted/60 hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {link.label}
               </a>

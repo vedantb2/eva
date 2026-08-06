@@ -110,7 +110,7 @@ export function BuildRow({
                     ) : (
                       <span className="inline-flex items-start gap-1 text-muted-foreground">
                         <IconX size={12} className="mt-0.5 shrink-0" />
-                        <span className="break-words">
+                        <span className="wrap-break-word">
                           {a.app ?? a.repoId} — fell back to base Image
                         </span>
                       </span>

@@ -1,8 +1,21 @@
 import { expect, test } from "vitest";
 import {
   getAIModelProvider,
+  getModelTraits,
+  modelHasTraits,
   normalizeAIModel,
 } from "../convex/_validators/aiModels";
+
+test("cursor base models expose reasoning traits for the composer menu", () => {
+  expect(modelHasTraits("cursor:grok-4.5")).toBe(true);
+  expect(getModelTraits("cursor:grok-4.5").reasoning).toEqual({
+    levels: ["low", "medium", "high"],
+    default: "medium",
+  });
+  expect(getModelTraits("cursor:gpt-5.5").reasoning?.default).toBe("low");
+  expect(modelHasTraits("cursor:composer-2.5")).toBe(false);
+  expect(modelHasTraits("cursor:gemini-3.1-pro")).toBe(false);
+});
 
 test("normalizeAIModel maps legacy cursor:composer-2 to composer-2.5", () => {
   // Existing sessions stored composer-2; without this they fail to load.
@@ -15,10 +28,20 @@ test("normalizeAIModel remaps retired cursor model ids", () => {
     "cursor:composer-2.5",
   );
   expect(normalizeAIModel("cursor:claude-4.6-sonnet-medium-thinking")).toBe(
-    "cursor:grok-4.5-medium",
+    "cursor:grok-4.5",
   );
-  expect(normalizeAIModel("cursor:gpt-5.5-high")).toBe("cursor:gpt-5.5-low");
-  expect(normalizeAIModel("cursor:gpt-5.5-low")).toBe("cursor:gpt-5.5-low");
+  expect(normalizeAIModel("cursor:gpt-5.5-high")).toBe("cursor:gpt-5.5");
+  expect(normalizeAIModel("cursor:gpt-5.5-low")).toBe("cursor:gpt-5.5");
+});
+
+test("normalizeAIModel collapses reasoning-suffixed cursor ids to base models", () => {
+  // Effort moved to the traits menu with the SDK migration; suffixed ids are
+  // legacy persisted values.
+  expect(normalizeAIModel("cursor:grok-4.5-low")).toBe("cursor:grok-4.5");
+  expect(normalizeAIModel("cursor:grok-4.5-medium")).toBe("cursor:grok-4.5");
+  expect(normalizeAIModel("cursor:grok-4.5-high")).toBe("cursor:grok-4.5");
+  expect(normalizeAIModel("cursor:grok-4.5")).toBe("cursor:grok-4.5");
+  expect(normalizeAIModel("cursor:gpt-5.5")).toBe("cursor:gpt-5.5");
 });
 
 test("normalizeAIModel remaps retired Codex models to gpt-5.5", () => {

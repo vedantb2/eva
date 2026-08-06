@@ -979,7 +979,7 @@ export const PromptInputTextarea = ({
   return (
     <InputGroupTextarea
       className={cn(
-        "[field-sizing:content] min-h-16 max-h-40 overflow-y-auto",
+        "field-sizing-content min-h-16 max-h-40 overflow-y-auto",
         className,
       )}
       name="message"

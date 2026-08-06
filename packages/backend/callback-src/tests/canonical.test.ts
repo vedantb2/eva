@@ -242,13 +242,10 @@ test("parseToCanonical opencode reasoning part routes to update_reasoning", () =
   });
 });
 
-test("parseToCanonical cursor thinking block routes to update_reasoning", () => {
+test("parseToCanonical cursor thinking event routes to update_reasoning", () => {
   resetStateForTests();
   const events = parseToCanonical(
-    {
-      type: "assistant",
-      message: { content: [{ type: "thinking", thinking: "hmm let me see" }] },
-    },
+    { type: "thinking", text: "hmm let me see" },
     "cursor",
   );
   expect(events.length).toBe(1);

@@ -31,14 +31,17 @@ export const aiModelValidator = v.union(
   v.literal("opencode:openai/gpt-5.3-codex"),
   v.literal("opencode:openai/gpt-5.4"),
   v.literal("opencode:openai/gpt-5.4-mini"),
+  v.literal("cursor:grok-4.5"),
+  v.literal("cursor:gpt-5.5"),
+  v.literal("cursor:gemini-3.1-pro"),
+  v.literal("cursor:composer-2.5"),
+  // Legacy — still accepted so existing sessions with these lastModel values
+  // can load; normalizeAIModel remaps them. The reasoning-suffixed cursor ids
+  // predate the SDK migration (effort now lives on the traits menu).
   v.literal("cursor:grok-4.5-low"),
   v.literal("cursor:grok-4.5-medium"),
   v.literal("cursor:grok-4.5-high"),
   v.literal("cursor:gpt-5.5-low"),
-  v.literal("cursor:gemini-3.1-pro"),
-  v.literal("cursor:composer-2.5"),
-  // Legacy — still accepted so existing sessions with these lastModel values
-  // can load; normalizeAIModel remaps them.
   v.literal("cursor:gpt-5.5-high"),
   v.literal("cursor:composer-2"),
 );
@@ -124,6 +127,22 @@ const CODEX_REASONING: ModelReasoningTraits = {
   default: "medium",
 };
 
+/**
+ * Cursor SDK models: the level is resolved to a per-model SDK parameter at
+ * runtime (resolveCursorModelSelection in callback-src) and degrades to the
+ * bare model when the model exposes no reasoning parameter.
+ */
+const CURSOR_REASONING: ModelReasoningTraits = {
+  levels: ["low", "medium", "high"],
+  default: "medium",
+};
+
+/** GPT-5.5 on cursor previously shipped as the "Low" variant — keep that default. */
+const CURSOR_REASONING_GPT55: ModelReasoningTraits = {
+  levels: ["low", "medium", "high"],
+  default: "low",
+};
+
 export type AIProvider = "claude" | "codex" | "opencode" | "cursor";
 export type LegacyClaudeModel = "opus" | "sonnet" | "haiku";
 export type AIModel =
@@ -140,10 +159,8 @@ export type AIModel =
   | "opencode:openai/gpt-5.3-codex"
   | "opencode:openai/gpt-5.4"
   | "opencode:openai/gpt-5.4-mini"
-  | "cursor:grok-4.5-low"
-  | "cursor:grok-4.5-medium"
-  | "cursor:grok-4.5-high"
-  | "cursor:gpt-5.5-low"
+  | "cursor:grok-4.5"
+  | "cursor:gpt-5.5"
   | "cursor:gemini-3.1-pro"
   | "cursor:composer-2.5";
 export type PersistedAIModel =
@@ -154,6 +171,10 @@ export type PersistedAIModel =
   | "codex:gpt-5.4-mini"
   | "codex:gpt-5.3-codex"
   | "codex:gpt-5.2-codex"
+  | "cursor:grok-4.5-low"
+  | "cursor:grok-4.5-medium"
+  | "cursor:grok-4.5-high"
+  | "cursor:gpt-5.5-low"
   | "cursor:gpt-5.5-high"
   | "cursor:composer-2";
 
@@ -267,28 +288,18 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     requiresAuth: true,
   },
   {
-    id: "cursor:grok-4.5-low",
+    id: "cursor:grok-4.5",
     provider: "cursor",
-    label: "Grok 4.5 Low",
+    label: "Grok 4.5",
     requiresAuth: true,
+    reasoning: CURSOR_REASONING,
   },
   {
-    id: "cursor:grok-4.5-medium",
+    id: "cursor:gpt-5.5",
     provider: "cursor",
-    label: "Grok 4.5 Medium",
+    label: "GPT-5.5",
     requiresAuth: true,
-  },
-  {
-    id: "cursor:grok-4.5-high",
-    provider: "cursor",
-    label: "Grok 4.5 High",
-    requiresAuth: true,
-  },
-  {
-    id: "cursor:gpt-5.5-low",
-    provider: "cursor",
-    label: "GPT-5.5 Low",
-    requiresAuth: true,
+    reasoning: CURSOR_REASONING_GPT55,
   },
   {
     id: "cursor:gemini-3.1-pro",
@@ -398,24 +409,24 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
       return "opencode:openai/gpt-5.4";
     case "opencode:openai/gpt-5.4-mini":
       return "opencode:openai/gpt-5.4-mini";
+    // Effort lives on the reasoning selector now — suffixed variants collapse
+    // to one base model (the stored reasoning level carries the distinction).
     case "cursor:claude-4.6-sonnet-medium-thinking":
-      return "cursor:grok-4.5-medium";
     case "cursor:claude-opus-4-7-thinking-high":
     case "cursor:claude-4.6-opus-high-thinking":
     case "cursor:claude-4.5-opus-high-thinking":
     case "cursor:gpt-5.4-high":
-      return "cursor:grok-4.5-high";
+    case "cursor:grok-4.5":
+    case "cursor:grok-4.5-low":
+    case "cursor:grok-4.5-medium":
+    case "cursor:grok-4.5-high":
+      return "cursor:grok-4.5";
     case "cursor:gpt-5.3-codex-high":
       return "cursor:composer-2.5";
-    case "cursor:grok-4.5-low":
-      return "cursor:grok-4.5-low";
-    case "cursor:grok-4.5-medium":
-      return "cursor:grok-4.5-medium";
-    case "cursor:grok-4.5-high":
-      return "cursor:grok-4.5-high";
+    case "cursor:gpt-5.5":
     case "cursor:gpt-5.5-high":
     case "cursor:gpt-5.5-low":
-      return "cursor:gpt-5.5-low";
+      return "cursor:gpt-5.5";
     case "cursor:gemini-3.1-pro":
       return "cursor:gemini-3.1-pro";
     case "cursor:composer-2":

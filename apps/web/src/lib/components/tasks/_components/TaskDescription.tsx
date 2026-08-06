@@ -128,7 +128,7 @@ export function TaskDescription({
             : undefined
         }
         className={cn(
-          "min-h-[1.5rem] overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1",
+          "min-h-6 overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1",
           !isEditing && canEditTaskText && "cursor-pointer hover:bg-muted/50",
         )}
       >
@@ -149,7 +149,7 @@ export function TaskDescription({
             text={desc}
             repoBasePath={basePath}
             repoId={repo._id}
-            className="text-sm text-muted-foreground break-words [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
+            className="text-sm text-muted-foreground wrap-break-word [&>*:first-child]:mt-0 [&>*:last-child]:mb-0"
           />
         ) : (
           <p className="text-sm text-muted-foreground/60">

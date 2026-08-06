@@ -336,7 +336,7 @@ export function SandboxTabBar({
             <IconPlus className={styles.addIcon} />
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="min-w-[10rem]">
+        <DropdownMenuContent align="start" className="min-w-40">
           {showEditorItem ? (
             <DropdownMenuItem
               onClick={() => {

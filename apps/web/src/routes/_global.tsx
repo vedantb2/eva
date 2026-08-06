@@ -42,7 +42,7 @@ function GlobalMainContent() {
   const paddingClass = hasSecondColumn
     ? collapsed
       ? "lg:pl-16"
-      : "lg:pl-[var(--eva-sidebar-width,20rem)]"
+      : "lg:pl-(--eva-sidebar-width,20rem)"
     : "lg:pl-16";
 
   return (
@@ -57,10 +57,6 @@ function GlobalMainContent() {
         {chromeSessionTabs && isSessionsLanding ? (
           <SessionChromeTabsBar pathname={pathname} />
         ) : null}
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-36 bg-gradient-to-b from-primary/8 via-primary/3 to-transparent"
-        />
         <div
           className={
             isGlobalSettingsPath(pathname)

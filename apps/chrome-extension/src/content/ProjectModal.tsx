@@ -122,7 +122,7 @@ export function ProjectModal() {
               setNewTitle(e.target.value);
               setSelectedId(null);
             }}
-            className={`w-full rounded-lg border px-2.5 py-2 text-sm outline-none ${inputClasses(appearance)}`}
+            className={`w-full rounded-lg border px-2.5 py-2 text-sm outline-hidden ${inputClasses(appearance)}`}
             style={{ boxSizing: "border-box" }}
           />
 

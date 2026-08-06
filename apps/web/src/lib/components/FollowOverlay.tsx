@@ -84,7 +84,7 @@ function FollowOverlayInner({
     <>
       <div className="fixed inset-0 z-50 cursor-not-allowed ring-[3px] ring-inset ring-primary/70" />
 
-      <div className="fixed top-3 left-1/2 z-[60] -translate-x-1/2">
+      <div className="fixed top-3 left-1/2 z-60 -translate-x-1/2">
         <div className="flex items-center gap-2 rounded-full bg-primary px-4 py-1.5 text-sm font-medium text-primary-foreground shadow-lg">
           <span>
             Following <span data-pii>{name}</span>

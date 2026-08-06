@@ -125,7 +125,7 @@ export function MentionText({
   return (
     <Tag
       className={
-        className ?? "text-sm text-foreground whitespace-pre-wrap break-words"
+        className ?? "text-sm text-foreground whitespace-pre-wrap wrap-break-word"
       }
     >
       {segments.map((segment, i) => {

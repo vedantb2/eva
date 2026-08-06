@@ -6,7 +6,7 @@ import {
   mkdirSync as mkdirSync7,
   readdirSync as readdirSync3,
   unlinkSync as unlinkSync3,
-  writeFileSync as writeFileSync11
+  writeFileSync as writeFileSync10
 } from "fs";
 
 // callback-src/config.ts
@@ -116,10 +116,10 @@ var OPENCODE_AUTH_JSON = process.env.OPENCODE_AUTH_JSON || "";
 var OPENCODE_AUTH_JSON_BASE64 = process.env.OPENCODE_AUTH_JSON_BASE64 || "";
 var CURSOR_RUNTIME_HOME_DIR = process.env.CURSOR_RUNTIME_HOME_DIR || "/tmp/cursor-home";
 var CURSOR_PERSIST_DIR = process.env.CURSOR_PERSIST_DIR || "/home/eva/.cursor-persist";
-var CURSOR_BIN_PATH = process.env.CURSOR_BIN_PATH || "/home/eva/.local/bin/cursor-agent";
 var CURSOR_STATE_FILE = "session-state.json";
 var CURSOR_LOCAL_STATE_FILE = CURSOR_RUNTIME_HOME_DIR + "/" + CURSOR_STATE_FILE;
 var CURSOR_PERSIST_STATE_FILE = CURSOR_PERSIST_DIR + "/" + CURSOR_STATE_FILE;
+var CURSOR_SDK_STORE_DIR = CURSOR_PERSIST_DIR + "/sdk";
 var CLAUDE_SESSION_PROJECT_DIR = WORK_DIR.replace(/\\//g, "-");
 var CLAUDE_LOCAL_PROJECT_DIR = CLAUDE_RUNTIME_CONFIG_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
 var CLAUDE_PERSIST_PROJECT_DIR = CLAUDE_PERSIST_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
@@ -171,25 +171,35 @@ var claudeModelBase = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length
 var normalizedClaudeModel = PROVIDER === "claude" && AI_CONTEXT_1M === "1" ? \`\${claudeModelBase}[1m]\` : claudeModelBase;
 var normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
 var normalizedOpencodeModel = MODEL.startsWith("opencode:") ? MODEL.slice("opencode:".length) : MODEL;
-var CURSOR_CLI_MODEL_IDS = {
-  "grok-4.5-low": "cursor-grok-4.5-low",
-  "grok-4.5-medium": "cursor-grok-4.5-medium",
-  "grok-4.5-high": "cursor-grok-4.5-high",
-  "cursor-grok-4.5-low": "cursor-grok-4.5-low",
-  "cursor-grok-4.5-medium": "cursor-grok-4.5-medium",
-  "cursor-grok-4.5-high": "cursor-grok-4.5-high"
-};
+var CURSOR_REASONING_LEVELS = ["low", "medium", "high"];
+function splitCursorModel(raw) {
+  const unprefixed = raw.startsWith("cursor-grok-") ? raw.slice("cursor-".length) : raw;
+  for (const level of CURSOR_REASONING_LEVELS) {
+    const suffix = "-" + level;
+    if (unprefixed.endsWith(suffix)) {
+      return { base: unprefixed.slice(0, -suffix.length), level };
+    }
+  }
+  return { base: unprefixed, level: "" };
+}
 var cursorModelRaw = MODEL.startsWith("cursor:") ? MODEL.slice("cursor:".length) : MODEL;
-var normalizedCursorModel = CURSOR_CLI_MODEL_IDS[cursorModelRaw] ?? cursorModelRaw;
+var cursorModelParts = splitCursorModel(cursorModelRaw);
+var normalizedCursorModel = cursorModelParts.base;
+var CURSOR_REASONING_EFFORT = {
+  off: "",
+  low: "low",
+  medium: "medium",
+  high: "high",
+  xhigh: "high",
+  max: "high"
+};
+var cursorReasoningLevel = PROVIDER === "cursor" && REASONING_EFFORT in CURSOR_REASONING_EFFORT ? CURSOR_REASONING_EFFORT[REASONING_EFFORT] : cursorModelParts.level;
 var codexCommand = existsSync(CODEX_BIN_PATH) ? JSON.stringify(CODEX_BIN_PATH) : "codex";
 var opencodeCommand = existsSync(OPENCODE_BIN_PATH) ? JSON.stringify(OPENCODE_BIN_PATH) : "opencode";
-var cursorCommand = existsSync(CURSOR_BIN_PATH) ? JSON.stringify(CURSOR_BIN_PATH) : "cursor-agent";
 var codexPromptCmd = SYSTEM_PROMPT ? "(printf %s\\\\n\\\\n " + JSON.stringify(SYSTEM_PROMPT) + "; cat /tmp/design-prompt.txt)" : "cat /tmp/design-prompt.txt";
 var opencodePromptCmd = codexPromptCmd;
 var codexExecBaseCmd = codexCommand + " exec --skip-git-repo-check --full-auto --json --model " + JSON.stringify(normalizedCodexModel);
 var opencodeExecBaseCmd = opencodeCommand + " run --format json --model " + JSON.stringify(normalizedOpencodeModel);
-var cursorPromptExpr = SYSTEM_PROMPT ? '"\$(printf %s\\\\n\\\\n ' + JSON.stringify(SYSTEM_PROMPT) + '; cat /tmp/design-prompt.txt)"' : '"\$(cat /tmp/design-prompt.txt)"';
-var cursorExecBaseCmd = cursorCommand + " -p " + cursorPromptExpr + " --force --trust --workspace " + JSON.stringify(WORK_DIR) + " --model " + JSON.stringify(normalizedCursorModel) + " --output-format stream-json --approve-mcps";
 var TOOL_STEP_TYPES = /* @__PURE__ */ new Set([
   "read",
   "search_files",
@@ -249,7 +259,7 @@ var completedLabels = {
 };
 
 // callback-src/providers/claudeSdkDaemon.ts
-import { unlinkSync as unlinkSync2, writeFileSync as writeFileSync10, readFileSync as readFileSync7 } from "fs";
+import { unlinkSync as unlinkSync2, writeFileSync as writeFileSync9, readFileSync as readFileSync6 } from "fs";
 
 // callback-src/providers/daemonPaths.ts
 var LEGACY_DAEMON_PID = "/tmp/eva-daemon.pid";
@@ -405,6 +415,8 @@ var callbackState = {
   heartbeatFailureStreakStartedAt: 0,
   inFlightToolUses: 0,
   codexToolItemIds: /* @__PURE__ */ new Set(),
+  cursorKnownToolIds: /* @__PURE__ */ new Set(),
+  cursorTerminalToolIds: /* @__PURE__ */ new Set(),
   todoState: [],
   awaitingQuestionAnswer: false,
   doneFileWritten: false,
@@ -1129,33 +1141,12 @@ function opencodeToolToStep(part) {
   }
   return step;
 }
-function resolveCursorToolCall(toolCall) {
-  for (const key of Object.keys(toolCall)) {
-    if (!key.endsWith("ToolCall")) continue;
-    const payload = toolCall[key];
-    if (!payload || typeof payload !== "object" || Array.isArray(payload))
-      continue;
-    const args = "args" in payload && payload.args && typeof payload.args === "object" && !Array.isArray(payload.args) ? payload.args : "input" in payload && payload.input && typeof payload.input === "object" && !Array.isArray(payload.input) ? payload.input : "parameters" in payload && payload.parameters && typeof payload.parameters === "object" && !Array.isArray(payload.parameters) ? payload.parameters : payload;
-    return {
-      kind: key.slice(0, -"ToolCall".length).toLowerCase(),
-      args,
-      displayName: key
-    };
-  }
-  const flatName = typeof toolCall.name === "string" ? toolCall.name : typeof toolCall.tool === "string" ? toolCall.tool : typeof toolCall.type === "string" ? toolCall.type : "";
-  const flatArgs = toolCall.args && typeof toolCall.args === "object" && !Array.isArray(toolCall.args) ? toolCall.args : toolCall.input && typeof toolCall.input === "object" && !Array.isArray(toolCall.input) ? toolCall.input : toolCall.parameters && typeof toolCall.parameters === "object" && !Array.isArray(toolCall.parameters) ? toolCall.parameters : {};
-  return {
-    kind: flatName.toLowerCase(),
-    args: flatArgs,
-    displayName: flatName
-  };
-}
-function cursorToolToStep(toolCall) {
-  const { kind, args, displayName } = resolveCursorToolCall(toolCall);
+function cursorSdkToolToStep(name, args) {
   const pickString = (keys) => {
     for (const key of keys) {
-      if (typeof args[key] === "string" && args[key].trim()) {
-        return args[key];
+      const value = args[key];
+      if (typeof value === "string" && value.trim()) {
+        return value;
       }
     }
     return "";
@@ -1169,7 +1160,7 @@ function cursorToolToStep(toolCall) {
     "relativePath",
     "relative_path"
   ]);
-  const path = rawPath ? shortenPath(String(rawPath)) : "";
+  const path = rawPath ? shortenPath(rawPath) : "";
   const command = pickString(["command", "cmd"]);
   const query = pickString([
     "query",
@@ -1178,26 +1169,124 @@ function cursorToolToStep(toolCall) {
     "glob_pattern",
     "globPattern"
   ]);
-  const tool = kind || displayName.toLowerCase();
-  let step;
+  switch (name) {
+    case "read":
+      return {
+        type: "read",
+        label: "Reading file...",
+        detail: path || void 0,
+        path: rawPath || void 0,
+        status: "active"
+      };
+    case "write": {
+      const fileText = pickString([
+        "fileText",
+        "file_text",
+        "content",
+        "contents"
+      ]);
+      return {
+        type: "write",
+        label: "Creating file...",
+        detail: path || void 0,
+        path: rawPath || void 0,
+        contentPreview: fileText ? capContentPreview(fileText) : void 0,
+        status: "active"
+      };
+    }
+    case "edit":
+      return {
+        type: "edit",
+        label: "Editing file...",
+        detail: path || void 0,
+        path: rawPath || void 0,
+        edits: extractClaudeEdits(args),
+        status: "active"
+      };
+    case "delete":
+      return {
+        type: "edit",
+        label: "Deleting file...",
+        detail: path || void 0,
+        path: rawPath || void 0,
+        status: "active"
+      };
+    case "glob":
+      return {
+        type: "search_files",
+        label: "Searching files...",
+        detail: query || path || void 0,
+        status: "active"
+      };
+    case "ls":
+      return {
+        type: "search_files",
+        label: "Searching files...",
+        detail: path || void 0,
+        status: "active"
+      };
+    case "grep":
+    case "semSearch":
+      return {
+        type: "search_code",
+        label: "Searching code...",
+        detail: query || path || void 0,
+        status: "active"
+      };
+    case "shell":
+      return {
+        type: "bash",
+        label: "Running command...",
+        detail: command ? command.slice(0, 300) : void 0,
+        command: command ? capCommand(command) : void 0,
+        status: "active"
+      };
+    case "task":
+      return {
+        type: "subtask",
+        label: "Running agent...",
+        detail: pickString(["description", "prompt"]) || void 0,
+        status: "active"
+      };
+    case "createPlan":
+    case "updateTodos":
+      return { type: "tool", label: "Updating tasks...", status: "active" };
+    case "mcp": {
+      const server = pickString([
+        "server",
+        "serverName",
+        "server_name",
+        "toolName",
+        "tool_name"
+      ]);
+      return {
+        type: "tool",
+        label: server ? "Using MCP " + server + "..." : "Using MCP tool...",
+        status: "active"
+      };
+    }
+  }
+  const tool = name.toLowerCase();
   if (tool.includes("read")) {
-    step = {
+    return {
       type: "read",
       label: "Reading file...",
       detail: path || void 0,
       path: rawPath || void 0,
       status: "active"
     };
-  } else if (tool.includes("write") || tool.includes("create")) {
-    step = {
+  }
+  if (tool.includes("write") || tool.includes("create")) {
+    return {
       type: "write",
       label: "Creating file...",
       detail: path || void 0,
       path: rawPath || void 0,
       status: "active"
     };
-  } else if (tool.includes("edit") || tool.includes("patch") || tool.includes("apply") || tool.includes("replace") || tool.includes("strreplace")) {
-    step = {
+  }
+  if (tool.includes("edit") || tool.includes("patch") || tool.includes("apply") || tool.includes("replace")) {
+    return {
       type: "edit",
       label: "Editing file...",
       detail: path || void 0,
@@ -1205,53 +1294,61 @@ function cursorToolToStep(toolCall) {
       status: "active",
       edits: extractClaudeEdits(args)
     };
-  } else if (tool.includes("delete") || tool.includes("remove")) {
-    step = {
+  }
+  if (tool.includes("delete") || tool.includes("remove")) {
+    return {
       type: "edit",
       label: "Deleting file...",
       detail: path || void 0,
       path: rawPath || void 0,
       status: "active"
     };
-  } else if (tool.includes("glob") || tool.includes("list") || tool === "ls") {
-    step = {
+  }
+  if (tool.includes("glob") || tool.includes("list")) {
+    return {
       type: "search_files",
       label: "Searching files...",
       detail: query || path || void 0,
       status: "active"
     };
-  } else if (tool.includes("grep") || tool.includes("search")) {
-    step = {
+  }
+  if (tool.includes("grep") || tool.includes("search")) {
+    return {
       type: tool.includes("file") ? "search_files" : "search_code",
       label: tool.includes("file") ? "Searching files..." : "Searching code...",
       detail: query || path || void 0,
       status: "active"
     };
-  } else if (tool.includes("bash") || tool.includes("shell") || tool.includes("exec") || tool.includes("command") || tool.includes("terminal")) {
-    step = {
+  }
+  if (tool.includes("bash") || tool.includes("shell") || tool.includes("exec") || tool.includes("command") || tool.includes("terminal")) {
+    return {
       type: "bash",
       label: "Running command...",
       detail: command ? command.slice(0, 300) : void 0,
       command: command ? capCommand(command) : void 0,
       status: "active"
     };
-  } else if (tool.includes("webfetch") || tool.includes("web_fetch") || tool.includes("fetch") && !tool.includes("search")) {
-    step = {
+  }
+  if (tool.includes("webfetch") || tool.includes("web_fetch") || tool.includes("fetch") && !tool.includes("search")) {
+    return {
       type: "web_fetch",
       label: "Fetching URL...",
       detail: query || void 0,
       status: "active"
     };
-  } else if (tool.includes("websearch") || tool.includes("web_search")) {
-    step = {
+  }
+  if (tool.includes("websearch") || tool.includes("web_search")) {
+    return {
       type: "web_search",
       label: "Searching web...",
       detail: query || void 0,
       status: "active"
     };
-  } else if (tool.includes("todo")) {
-    step = { type: "tool", label: "Updating tasks...", status: "active" };
-  } else if (tool.includes("mcp")) {
+  }
+  if (tool.includes("todo") || tool.includes("plan")) {
+    return { type: "tool", label: "Updating tasks...", status: "active" };
+  }
+  if (tool.includes("mcp")) {
     const server = pickString([
       "server",
       "serverName",
@@ -1259,24 +1356,17 @@ function cursorToolToStep(toolCall) {
       "toolName",
       "tool_name"
     ]);
-    step = {
+    return {
       type: "tool",
       label: server ? "Using MCP " + server + "..." : "Using MCP tool...",
       status: "active"
     };
-  } else {
-    const fallbackName = displayName || kind || "tool";
-    step = {
-      type: "tool",
-      label: "Using " + fallbackName + "...",
-      status: "active"
-    };
   }
-  const toolUseId = pickToolCallId(toolCall);
-  if (toolUseId) {
-    step.toolUseId = toolUseId;
-  }
-  return step;
+  return {
+    type: "tool",
+    label: "Using " + (name || "tool") + "...",
+    status: "active"
+  };
 }
 function toolCallToStep(name, input) {
   const rawPath = typeof input.file_path === "string" ? String(input.file_path) : "";
@@ -1673,7 +1763,15 @@ function extractResultEvent(output) {
     let isError = false;
     let sawResult = false;
     let durationMs = 0;
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let cacheReadTokens = 0;
+    let cacheWriteTokens = 0;
     const assistantParts = [];
+    const readTokenField = (usage, key) => {
+      const value = usage[key];
+      return typeof value === "number" && Number.isFinite(value) ? value : 0;
+    };
     for (const line of output.split("\\n")) {
       const clean = line.trim();
       if (!clean) continue;
@@ -1689,6 +1787,18 @@ function extractResultEvent(output) {
             resultText = parsed.result;
           } else if (parsed.result !== void 0) {
             resultText = JSON.stringify(parsed.result);
+          }
+          if (parsed.usage && typeof parsed.usage === "object" && !Array.isArray(parsed.usage)) {
+            inputTokens = readTokenField(parsed.usage, "input_tokens");
+            outputTokens = readTokenField(parsed.usage, "output_tokens");
+            cacheReadTokens = readTokenField(
+              parsed.usage,
+              "cache_read_input_tokens"
+            );
+            cacheWriteTokens = readTokenField(
+              parsed.usage,
+              "cache_creation_input_tokens"
+            );
           }
           continue;
         }
@@ -1710,10 +1820,10 @@ function extractResultEvent(output) {
           provider: "cursor",
           totalCostUsd: 0,
           durationMs: durationMs || attemptElapsedMs(),
-          inputTokens: 0,
-          outputTokens: 0,
-          cacheReadInputTokens: 0,
-          cacheCreationInputTokens: 0,
+          inputTokens,
+          outputTokens,
+          cacheReadInputTokens: cacheReadTokens,
+          cacheCreationInputTokens: cacheWriteTokens,
           model: normalizedCursorModel
         })
       };
@@ -1922,7 +2032,7 @@ function appendDiagnosticTail(message) {
   if (stderrTail) details.push("stderr tail:\\n" + stderrTail);
   if (details.length === 0) {
     details.push(
-      "(stdout and stderr were empty \\u2014 CLI likely hung before emitting stream-json, e.g. bad --model)"
+      "(stdout and stderr were empty \\u2014 the agent likely failed before emitting any events, e.g. invalid model or auth)"
     );
   }
   return message + "\\n\\n" + details.join("\\n\\n");
@@ -3193,7 +3303,6 @@ var codexAdapter = {
 };
 
 // callback-src/session/cursorSession.ts
-import { existsSync as existsSync6, mkdirSync as mkdirSync5, readFileSync as readFileSync5, writeFileSync as writeFileSync6 } from "fs";
 var store2 = createSessionStore({
   runtimeHomeDir: CURSOR_RUNTIME_HOME_DIR,
   persistDir: CURSOR_PERSIST_DIR,
@@ -3212,42 +3321,6 @@ function syncCursorStateToPersist() {
 }
 function hydratePersistedCursorState() {
   store2.hydratePersistedState("hydratePersistedCursorState");
-  if (existsSync6("/tmp/eva-mcp.json")) {
-    try {
-      const raw = readFileSync5("/tmp/eva-mcp.json", "utf8");
-      const evaMcp = tryParseJson(raw);
-      const cursorDir = WORK_DIR + "/.cursor";
-      mkdirSync5(cursorDir, { recursive: true });
-      const cursorMcp = { mcpServers: {} };
-      if (evaMcp && typeof evaMcp === "object" && !Array.isArray(evaMcp) && evaMcp.mcpServers && typeof evaMcp.mcpServers === "object" && !Array.isArray(evaMcp.mcpServers)) {
-        for (const [name, server] of Object.entries(evaMcp.mcpServers)) {
-          if (!server || typeof server !== "object" || Array.isArray(server))
-            continue;
-          const entry = {};
-          if (typeof server.url === "string") entry.url = server.url;
-          if (server.headers && typeof server.headers === "object" && !Array.isArray(server.headers)) {
-            const headers = {};
-            for (const [hk, hv] of Object.entries(server.headers)) {
-              if (typeof hv === "string") headers[hk] = hv;
-            }
-            if (Object.keys(headers).length > 0) entry.headers = headers;
-          }
-          if (Object.keys(entry).length > 0) {
-            cursorMcp.mcpServers[name] = entry;
-          }
-        }
-      }
-      writeFileSync6(
-        cursorDir + "/mcp.json",
-        JSON.stringify(cursorMcp, null, 2)
-      );
-    } catch (error) {
-      console.error(
-        "Failed to translate MCP config for Cursor:",
-        String(error)
-      );
-    }
-  }
 }
 function prepareCursorSessionState() {
   updateThinkingStep(
@@ -3268,13 +3341,93 @@ function prepareCursorSessionState() {
 }
 
 // callback-src/providers/cursor.ts
+function probeCursorSdkToolResult(status, result) {
+  const eventIsError = status === "error";
+  if (result === void 0 || result === null) {
+    return eventIsError ? { isError: true } : void 0;
+  }
+  let payload = result;
+  let envelopeIsError = false;
+  if (typeof result === "object" && !Array.isArray(result)) {
+    const envStatus = typeof result.status === "string" ? result.status : "";
+    if (envStatus === "success" && result.value !== void 0) {
+      payload = result.value;
+    } else if (envStatus === "error" && result.error !== void 0) {
+      payload = result.error;
+      envelopeIsError = true;
+    }
+  }
+  const isError = eventIsError || envelopeIsError;
+  if (typeof payload === "string") {
+    const output = buildStepOutput(payload);
+    if (!output && !isError) return void 0;
+    return { output, isError: isError ? true : void 0 };
+  }
+  if (isError && payload && typeof payload === "object" && !Array.isArray(payload) && typeof payload.message === "string" && payload.message.trim()) {
+    return {
+      output: buildStepOutput(payload.message),
+      isError: true
+    };
+  }
+  const probed = probeToolCompleteResult(payload) ?? {};
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+    if (!probed.output && typeof payload.diffString === "string" && payload.diffString.trim()) {
+      probed.output = buildStepOutput(payload.diffString);
+    }
+    if (typeof payload.executionTime === "number" && Number.isFinite(payload.executionTime)) {
+      probed.durationMs = payload.executionTime;
+    }
+  }
+  if (isError) probed.isError = true;
+  if (!probed.output && probed.isError === void 0 && !probed.files && probed.durationMs === void 0) {
+    return void 0;
+  }
+  return probed;
+}
+function cursorToolCallEvents(event) {
+  const callId = typeof event.call_id === "string" && event.call_id.trim() ? event.call_id.trim() : void 0;
+  const status = typeof event.status === "string" ? event.status : "";
+  const name = typeof event.name === "string" ? event.name : "";
+  const args = event.args && typeof event.args === "object" && !Array.isArray(event.args) ? event.args : {};
+  if (status === "running") {
+    if (callId && (callbackState.cursorKnownToolIds.has(callId) || callbackState.cursorTerminalToolIds.has(callId))) {
+      return [];
+    }
+    const step = cursorSdkToolToStep(name, args);
+    if (callId) {
+      step.toolUseId = callId;
+      callbackState.cursorKnownToolIds.add(callId);
+      return [{ kind: "push_step", step, trackingId: callId }];
+    }
+    return [{ kind: "push_step", step }];
+  }
+  if (status === "completed" || status === "error") {
+    const events = [];
+    if (callId) {
+      if (callbackState.cursorTerminalToolIds.has(callId)) return [];
+      if (!callbackState.cursorKnownToolIds.has(callId)) {
+        const step = cursorSdkToolToStep(name, args);
+        step.toolUseId = callId;
+        callbackState.cursorKnownToolIds.add(callId);
+        events.push({ kind: "push_step", step, trackingId: callId });
+      }
+      callbackState.cursorTerminalToolIds.add(callId);
+    }
+    const result = probeCursorSdkToolResult(status, event.result);
+    events.push(
+      result ? { kind: "complete_tool", trackingId: callId, result } : { kind: "complete_tool", trackingId: callId }
+    );
+    return events;
+  }
+  return [];
+}
 function cursorParseLine(event) {
   const events = [];
-  if (event.type === "system" && event.subtype === "init") {
+  if (event.type === "system") {
     events.push({
       kind: "update_thinking",
-      label: "Starting Cursor CLI...",
-      detail: "Cursor session initializing..."
+      label: "Starting Cursor agent...",
+      detail: "Cursor agent initializing..."
     });
     return events;
   }
@@ -3284,30 +3437,16 @@ function cursorParseLine(event) {
     for (const block of contentBlocks) {
       if (block && typeof block === "object" && !Array.isArray(block) && block.type === "text" && typeof block.text === "string" && block.text) {
         events.push({ kind: "append_text", text: block.text });
-      } else if (block && typeof block === "object" && !Array.isArray(block) && block.type === "thinking" && typeof block.thinking === "string" && block.thinking) {
-        events.push({ kind: "update_reasoning", text: block.thinking });
       }
     }
     return events;
   }
-  if (event.type === "tool_call" && event.subtype === "started" && event.tool_call && typeof event.tool_call === "object" && !Array.isArray(event.tool_call)) {
-    const step = cursorToolToStep(event.tool_call);
-    const trackingId = pickToolCallId(event) ?? step.toolUseId ?? pickToolCallId(event.tool_call);
-    if (trackingId) {
-      step.toolUseId = trackingId;
-      events.push({ kind: "push_step", step, trackingId });
-    } else {
-      events.push({ kind: "push_step", step });
-    }
+  if (event.type === "thinking" && typeof event.text === "string" && event.text) {
+    events.push({ kind: "update_reasoning", text: event.text });
     return events;
   }
-  if (event.type === "tool_call" && event.subtype === "completed") {
-    const trackingId = pickToolCallId(event) ?? (event.tool_call && typeof event.tool_call === "object" && !Array.isArray(event.tool_call) ? pickToolCallId(event.tool_call) : void 0);
-    const result = probeToolCompleteResult(event);
-    events.push(
-      result ? { kind: "complete_tool", trackingId, result } : { kind: "complete_tool", trackingId }
-    );
-    return events;
+  if (event.type === "tool_call") {
+    return cursorToolCallEvents(event);
   }
   if (event.type === "result") {
     events.push({ kind: "mark_last_complete" });
@@ -3316,10 +3455,10 @@ function cursorParseLine(event) {
   return events;
 }
 function onStreamLine3(parsed) {
-  if (parsed.type === "system" && parsed.subtype === "init" && typeof parsed.session_id === "string" && parsed.session_id.trim()) {
-    const sid = parsed.session_id.trim();
-    if (sid !== callbackState.activeCursorSessionId) {
-      callbackState.activeCursorSessionId = sid;
+  if (parsed.type === "system" && typeof parsed.agent_id === "string" && parsed.agent_id.trim()) {
+    const agentId = parsed.agent_id.trim();
+    if (agentId !== callbackState.activeCursorSessionId) {
+      callbackState.activeCursorSessionId = agentId;
       writeCursorSessionState();
       return { needsHeartbeat: true };
     }
@@ -3355,7 +3494,7 @@ var cursorAdapter = {
 };
 
 // callback-src/session/opencodeSession.ts
-import { mkdirSync as mkdirSync6, writeFileSync as writeFileSync7 } from "fs";
+import { mkdirSync as mkdirSync5, writeFileSync as writeFileSync6 } from "fs";
 var store3 = createSessionStore({
   runtimeHomeDir: OPENCODE_RUNTIME_HOME_DIR,
   persistDir: OPENCODE_PERSIST_DIR,
@@ -3383,10 +3522,10 @@ function hydratePersistedOpencodeState() {
   if (configJson) {
     process.env.OPENCODE_CONFIG_CONTENT = configJson;
   }
-  mkdirSync6(OPENCODE_AUTH_DIR, { recursive: true });
+  mkdirSync5(OPENCODE_AUTH_DIR, { recursive: true });
   const authJson = OPENCODE_AUTH_JSON || (OPENCODE_AUTH_JSON_BASE64 ? decodeBase64(OPENCODE_AUTH_JSON_BASE64) : "");
   if (authJson) {
-    writeFileSync7(OPENCODE_AUTH_FILE, authJson);
+    writeFileSync6(OPENCODE_AUTH_FILE, authJson);
   } else {
     copyFileIfPresent(
       OPENCODE_PERSIST_AUTH_FILE,
@@ -3687,7 +3826,7 @@ function appendStreamedContent(text, isBlockBoundary = false) {
 }
 
 // callback-src/runtime/heartbeats.ts
-import { writeFileSync as writeFileSync8 } from "fs";
+import { writeFileSync as writeFileSync7 } from "fs";
 
 // callback-src/runtime/processControl.ts
 import { spawnSync as spawnSync2 } from "child_process";
@@ -3905,7 +4044,7 @@ async function runPreflightHeartbeat() {
   try {
     await initialHeartbeat();
     try {
-      writeFileSync8(READY_FILE, String(Date.now()));
+      writeFileSync7(READY_FILE, String(Date.now()));
       log(
         "ready file written after " + String(Date.now() - SCRIPT_STARTED_AT) + "ms"
       );
@@ -3993,11 +4132,11 @@ function appendToRawLogFile(text) {
 
 // callback-src/providers/claudeSdk.ts
 import { execSync } from "child_process";
-import { existsSync as existsSync7, readFileSync as readFileSync6 } from "fs";
+import { existsSync as existsSync6, readFileSync as readFileSync5 } from "fs";
 
 // callback-src/runtime/cliAttempt.ts
 import { spawn } from "child_process";
-import { writeFileSync as writeFileSync9 } from "fs";
+import { writeFileSync as writeFileSync8 } from "fs";
 function evaluateAttemptHealth(input) {
   const result = {
     shouldTerminate: false,
@@ -4066,6 +4205,8 @@ function resetAttemptState() {
   callbackState.heartbeatFailureStreakStartedAt = 0;
   callbackState.inFlightToolUses = 0;
   callbackState.codexToolItemIds.clear();
+  callbackState.cursorKnownToolIds.clear();
+  callbackState.cursorTerminalToolIds.clear();
 }
 async function runCliAttempt(options) {
   resetAttemptState();
@@ -4086,7 +4227,7 @@ async function runCliAttempt(options) {
     callbackState.activeAttemptChild = child;
     if (child.pid) {
       try {
-        writeFileSync9("/proc/" + String(child.pid) + "/oom_score_adj", "300");
+        writeFileSync8("/proc/" + String(child.pid) + "/oom_score_adj", "300");
       } catch {
       }
     }
@@ -4258,11 +4399,11 @@ var SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
 async function loadSdk() {
   const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE + "/sdk.mjs";
   const localEntry = SDK_LOCAL_PREFIX + "/node_modules/" + SDK_PACKAGE + "/sdk.mjs";
-  if (existsSync7(globalEntry)) {
+  if (existsSync6(globalEntry)) {
     const mod2 = await import(globalEntry);
     return mod2;
   }
-  if (!existsSync7(localEntry)) {
+  if (!existsSync6(localEntry)) {
     log(
       "claude-agent-sdk not found in sandbox; installing " + SDK_PACKAGE + "@" + SDK_VERSION + " to " + SDK_LOCAL_PREFIX + " (one-time)"
     );
@@ -4279,15 +4420,15 @@ function claudeExecutablePath() {
     return execSync("command -v claude", { encoding: "utf8" }).trim();
   } catch {
     const fallback = process.env.CLAUDE_BIN_PATH || "";
-    return fallback && existsSync7(fallback) ? fallback : "claude";
+    return fallback && existsSync6(fallback) ? fallback : "claude";
   }
 }
 function readPromptText() {
-  return readFileSync6("/tmp/design-prompt.txt", "utf8");
+  return readFileSync5("/tmp/design-prompt.txt", "utf8");
 }
 function buildSdkOptions(sessionMode) {
   const extraArgs = { settings: settingsJson };
-  if (existsSync7(MCP_CONFIG_PATH)) {
+  if (existsSync6(MCP_CONFIG_PATH)) {
     extraArgs["mcp-config"] = MCP_CONFIG_PATH;
   }
   return buildSdkOptionsFromParts(sessionMode, extraArgs);
@@ -4491,7 +4632,7 @@ function pidAlive(pid) {
 }
 function readDaemonPidFile() {
   try {
-    return Number(readFileSync7(DAEMON_PID_FILE, "utf8").trim());
+    return Number(readFileSync6(DAEMON_PID_FILE, "utf8").trim());
   } catch {
     return Number.NaN;
   }
@@ -5333,7 +5474,7 @@ function createWarmAgentRunner(sdk, options) {
 function callbackScriptWentStaleOnDisk() {
   if (!CALLBACK_SCRIPT_FP) return false;
   try {
-    const onDisk = readFileSync7("/tmp/eva-callback-fp", "utf8").trim();
+    const onDisk = readFileSync6("/tmp/eva-callback-fp", "utf8").trim();
     return onDisk !== CALLBACK_SCRIPT_FP;
   } catch {
     return false;
@@ -5380,7 +5521,7 @@ async function materializeTurnAttachments(turn) {
         res.headers.get("content-type") ?? ""
       );
       const path = \`/tmp/eva-attachment-\${index}\${extension}\`;
-      writeFileSync10(path, bytes);
+      writeFileSync9(path, bytes);
       paths.push(path);
     } catch (error) {
       log(
@@ -5414,9 +5555,9 @@ async function runSdkDaemon() {
     );
     process.exit(0);
   }
-  writeFileSync10(DAEMON_PID_FILE, String(process.pid));
-  writeFileSync10(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
-  writeFileSync10(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
+  writeFileSync9(DAEMON_PID_FILE, String(process.pid));
+  writeFileSync9(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
+  writeFileSync9(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
   let deposedLogged = false;
   setInterval(() => {
     const owner = readDaemonPidFile();
@@ -5499,6 +5640,310 @@ async function runSdkDaemon() {
   process.exit(0);
 }
 
+// callback-src/providers/cursorSdk.ts
+import { execSync as execSync2 } from "child_process";
+import { existsSync as existsSync7, mkdirSync as mkdirSync6, readFileSync as readFileSync7 } from "fs";
+var SDK_PACKAGE2 = "@cursor/sdk";
+var SDK_VERSION2 = "1.0.26";
+var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
+var MCP_CONFIG_PATH2 = "/tmp/eva-mcp.json";
+var SDK_LOCAL_PREFIX2 = "/home/eva/.eva-agent-sdk";
+async function loadCursorSdk() {
+  const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE2 + SDK_ENTRY_RELPATH;
+  const localEntry = SDK_LOCAL_PREFIX2 + "/node_modules/" + SDK_PACKAGE2 + SDK_ENTRY_RELPATH;
+  if (existsSync7(globalEntry)) {
+    const mod2 = await import(globalEntry);
+    return mod2;
+  }
+  if (!existsSync7(localEntry)) {
+    log(
+      "cursor sdk not found in sandbox; installing " + SDK_PACKAGE2 + "@" + SDK_VERSION2 + " to " + SDK_LOCAL_PREFIX2 + " (one-time)"
+    );
+    execSync2(
+      "mkdir -p " + SDK_LOCAL_PREFIX2 + " && npm install --prefix " + SDK_LOCAL_PREFIX2 + " " + SDK_PACKAGE2 + "@" + SDK_VERSION2,
+      { encoding: "utf8", timeout: 18e4 }
+    );
+  }
+  const mod = await import(localEntry);
+  return mod;
+}
+function parseCursorSdkMcpServers(raw) {
+  const servers = {};
+  const parsed = tryParseJson(raw);
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !parsed.mcpServers || typeof parsed.mcpServers !== "object" || Array.isArray(parsed.mcpServers)) {
+    return servers;
+  }
+  for (const [name, server] of Object.entries(parsed.mcpServers)) {
+    if (!server || typeof server !== "object" || Array.isArray(server) || typeof server.url !== "string" || !server.url.trim()) {
+      continue;
+    }
+    const entry = { type: "http", url: server.url };
+    if (server.headers && typeof server.headers === "object" && !Array.isArray(server.headers)) {
+      const headers = {};
+      for (const [headerName, headerValue] of Object.entries(server.headers)) {
+        if (typeof headerValue === "string") {
+          headers[headerName] = headerValue;
+        }
+      }
+      if (Object.keys(headers).length > 0) entry.headers = headers;
+    }
+    servers[name] = entry;
+  }
+  return servers;
+}
+function readCursorSdkMcpServers() {
+  if (!existsSync7(MCP_CONFIG_PATH2)) return {};
+  try {
+    return parseCursorSdkMcpServers(readFileSync7(MCP_CONFIG_PATH2, "utf8"));
+  } catch {
+    return {};
+  }
+}
+function readPromptText2() {
+  return readFileSync7("/tmp/design-prompt.txt", "utf8");
+}
+async function resolveCursorModelSelection(sdk) {
+  const base = normalizedCursorModel;
+  const level = cursorReasoningLevel;
+  if (!level) return { id: base };
+  try {
+    const list = sdk.Cursor?.models?.list;
+    if (!list) return { id: base };
+    const models = await list();
+    const model = Array.isArray(models) ? models.find(
+      (entry) => entry && typeof entry === "object" && entry.id === base
+    ) : void 0;
+    if (!model) {
+      log(
+        "resolveCursorModelSelection: model " + base + " not in Cursor.models.list \\u2014 sending base id"
+      );
+      return { id: base };
+    }
+    for (const definition of model.parameters ?? []) {
+      if (!definition || typeof definition.id !== "string") continue;
+      const values = Array.isArray(definition.values) ? definition.values : [];
+      if (values.some((entry) => entry && entry.value === level)) {
+        log(
+          "resolveCursorModelSelection: " + base + " reasoning level " + level + " via parameter " + definition.id
+        );
+        return { id: base, params: [{ id: definition.id, value: level }] };
+      }
+    }
+    for (const variant of model.variants ?? []) {
+      const params = Array.isArray(variant?.params) ? variant.params : [];
+      if (params.some((param) => param && param.value === level)) {
+        log(
+          "resolveCursorModelSelection: " + base + " reasoning level " + level + " via variant params"
+        );
+        return { id: base, params };
+      }
+    }
+    log(
+      "resolveCursorModelSelection: " + base + " exposes no parameter accepting '" + level + "' \\u2014 sending base id"
+    );
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    log(
+      "resolveCursorModelSelection: model list failed \\u2014 sending base id (" + messageText + ")"
+    );
+  }
+  return { id: base };
+}
+function errorCode(error) {
+  const withCode = error;
+  return typeof withCode.code === "string" ? withCode.code : "";
+}
+function isAgentNotFound(error) {
+  return errorCode(error) === "agent_not_found" || error.message.includes("agent_not_found");
+}
+var ZERO_USAGE = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0
+};
+function readNum(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+function readUsageTokens(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const usage = value;
+  return {
+    inputTokens: readNum(usage.inputTokens),
+    outputTokens: readNum(usage.outputTokens),
+    cacheReadTokens: readNum(usage.cacheReadTokens),
+    cacheWriteTokens: readNum(usage.cacheWriteTokens)
+  };
+}
+async function runCursorSdkAttempt(sessionMode) {
+  resetAttemptState();
+  callbackState.activeAttemptStartedAt = Date.now();
+  updateThinkingStep(
+    "Starting Cursor agent...",
+    sessionMode.mode === "resume" ? "Restoring saved context..." : "Creating Cursor agent..."
+  );
+  log(
+    "runCursorSdkAttempt started (mode=" + sessionMode.mode + ", sessionId=" + (sessionMode.sessionId || "none") + ")"
+  );
+  let attemptOutput = "";
+  let lastMessageAt = Date.now();
+  let timedOutForNoOutput = false;
+  let timedOutForMaxRuntime = false;
+  let sawResult = false;
+  let resultIsError = false;
+  let attemptErrorMessage = "";
+  let lastStreamUsage = null;
+  let activeRun = null;
+  const sdk = await loadCursorSdk();
+  mkdirSync6(CURSOR_SDK_STORE_DIR, { recursive: true });
+  const store4 = new sdk.JsonlLocalAgentStore(CURSOR_SDK_STORE_DIR);
+  const mcpServers = readCursorSdkMcpServers();
+  const options = {
+    apiKey: (process.env.CURSOR_API_KEY || "").trim(),
+    model: await resolveCursorModelSelection(sdk),
+    local: { cwd: WORK_DIR, store: store4 },
+    ...Object.keys(mcpServers).length > 0 ? { mcpServers } : {}
+  };
+  const persistAgentId = (agentId) => {
+    callbackState.activeCursorSessionId = agentId;
+    writeCursorSessionState();
+    syncCursorStateToPersist();
+  };
+  const createFreshAgent = async () => {
+    const created = await sdk.Agent.create(options);
+    persistAgentId(created.agentId);
+    return created;
+  };
+  let resumedExistingAgent = false;
+  let agent;
+  if (sessionMode.mode === "resume" && sessionMode.sessionId) {
+    try {
+      agent = await sdk.Agent.resume(sessionMode.sessionId, options);
+      resumedExistingAgent = true;
+      persistAgentId(agent.agentId);
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      log(
+        "runCursorSdkAttempt: resume failed \\u2014 starting a fresh agent (" + messageText + ")"
+      );
+      appendToRawLogFile("[sdk-retry] resume failed: " + messageText + "\\n");
+      agent = await createFreshAgent();
+    }
+  } else {
+    agent = await createFreshAgent();
+  }
+  const promptText = readPromptText2();
+  const combinedPrompt = SYSTEM_PROMPT ? SYSTEM_PROMPT + "\\n\\n" + promptText : promptText;
+  const cancelRun = () => {
+    if (!activeRun) return;
+    activeRun.cancel().catch(() => {
+    });
+  };
+  const healthTimer = setInterval(() => {
+    const now = Date.now();
+    if (now - callbackState.activeAttemptStartedAt > MAX_TOTAL_RUNTIME_MS) {
+      timedOutForMaxRuntime = true;
+      log("runCursorSdkAttempt: max runtime exceeded \\u2014 cancelling run");
+      cancelRun();
+      return;
+    }
+    if (!sawResult && now - lastMessageAt > NO_OUTPUT_TIMEOUT_MS * 5) {
+      timedOutForNoOutput = true;
+      log("runCursorSdkAttempt: no SDK events \\u2014 cancelling run");
+      cancelRun();
+    }
+  }, NO_OUTPUT_CHECK_INTERVAL_MS);
+  const pushLine = (line) => {
+    appendToRawLogFile(line);
+    attemptOutput = trimBufferHead(attemptOutput + line);
+    appendToRawOutput(line);
+    processRealtimeStdoutChunk(line);
+  };
+  const runTurn = async (activeAgent) => {
+    const run = await activeAgent.send(combinedPrompt, {
+      local: { force: true }
+    });
+    activeRun = run;
+    for await (const message of run.stream()) {
+      lastMessageAt = Date.now();
+      pushLine(JSON.stringify(message) + "\\n");
+      if (message.type === "usage") {
+        lastStreamUsage = readUsageTokens(message.usage) ?? lastStreamUsage;
+      }
+      if (timedOutForMaxRuntime || timedOutForNoOutput) break;
+    }
+    const result = await run.wait();
+    const usage = readUsageTokens(result.usage) ?? lastStreamUsage ?? ZERO_USAGE;
+    const isError = result.status !== "finished";
+    const resultText = typeof result.result === "string" && result.result ? result.result : result.error && typeof result.error.message === "string" ? result.error.message : "";
+    const syntheticResult = {
+      type: "result",
+      is_error: isError,
+      result: resultText,
+      duration_ms: readNum(result.durationMs),
+      usage: {
+        input_tokens: usage.inputTokens,
+        output_tokens: usage.outputTokens,
+        cache_read_input_tokens: usage.cacheReadTokens,
+        cache_creation_input_tokens: usage.cacheWriteTokens
+      }
+    };
+    pushLine(JSON.stringify(syntheticResult) + "\\n");
+    sawResult = true;
+    resultIsError = isError;
+  };
+  try {
+    try {
+      await runTurn(agent);
+    } catch (error) {
+      if (resumedExistingAgent && error instanceof Error && isAgentNotFound(error)) {
+        log(
+          "runCursorSdkAttempt: resumed agent unusable \\u2014 retrying as a fresh agent"
+        );
+        appendToRawLogFile("[sdk-retry] " + error.message + "\\n");
+        sawResult = false;
+        resultIsError = false;
+        try {
+          agent.close();
+        } catch {
+        }
+        agent = await createFreshAgent();
+        await runTurn(agent);
+      } else {
+        throw error;
+      }
+    }
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    attemptErrorMessage = messageText;
+    log("runCursorSdkAttempt: run failed \\u2014 " + messageText);
+    appendToRawLogFile("[sdk-error] " + messageText + "\\n");
+    callbackState.stderrOutput = trimBufferHead(callbackState.stderrOutput + messageText + "\\n");
+  } finally {
+    clearInterval(healthTimer);
+    try {
+      agent.close();
+    } catch {
+    }
+  }
+  const code = sawResult && !resultIsError && !timedOutForMaxRuntime && !timedOutForNoOutput ? 0 : 1;
+  log(
+    "runCursorSdkAttempt finished in " + String(Date.now() - callbackState.activeAttemptStartedAt) + "ms (code=" + code + ", sawResult=" + sawResult + ", resultIsError=" + resultIsError + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", outputBytes=" + attemptOutput.length + (attemptErrorMessage ? ", runError=" + attemptErrorMessage : "") + ")"
+  );
+  return {
+    code,
+    terminatedBySignal: false,
+    output: attemptOutput,
+    timedOutForNoOutput,
+    timedOutForMaxRuntime,
+    timedOutForFirstEvent: false,
+    timedOutForFirstAssistant: false,
+    timedOutAfterFirstText: false,
+    timedOutForZombie: false,
+    toolStallErrorMessage: ""
+  };
+}
+
 // callback-src/providers/attempts.ts
 function prepareProviderSessionState() {
   if (PROVIDER === "codex") return prepareCodexSessionState();
@@ -5556,21 +6001,10 @@ async function runOpencodeAttempt(sessionMode) {
 async function runCursorAttempt(sessionMode) {
   if (!process.env.CURSOR_API_KEY?.trim()) {
     throw new Error(
-      "CURSOR_API_KEY is missing in the sandbox environment \\u2014 Cursor CLI cannot authenticate"
+      "CURSOR_API_KEY is missing in the sandbox environment \\u2014 the Cursor SDK cannot authenticate"
     );
   }
-  const sessionArg = sessionMode.mode === "resume" && sessionMode.sessionId ? " --resume " + JSON.stringify(sessionMode.sessionId) : "";
-  const cmd = cursorExecBaseCmd + sessionArg;
-  return await runCliAttempt({
-    cmd,
-    env: { ...process.env, HOME: CURSOR_RUNTIME_HOME_DIR },
-    processLabel: "cursor",
-    attemptLabel: "runCursorAttempt",
-    startupStep: {
-      label: "Starting Cursor CLI...",
-      detail: sessionMode.mode === "resume" ? "Restoring saved context..." : "Launching Cursor process..."
-    }
-  });
+  return await runCursorSdkAttempt(sessionMode);
 }
 async function runProviderAttempt(sessionMode) {
   if (PROVIDER === "codex") return await runCodexAttempt(sessionMode);
@@ -5594,7 +6028,7 @@ try {
 } catch {
 }
 try {
-  writeFileSync11("/proc/self/oom_score_adj", "-600");
+  writeFileSync10("/proc/self/oom_score_adj", "-600");
 } catch {
 }
 callbackState.lastStepType = "thinking";

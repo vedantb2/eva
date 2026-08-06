@@ -206,7 +206,7 @@ export function SnapshotsClient({
         }
       >
         <div
-          className="flex min-h-[28rem] flex-col gap-4"
+          className="flex min-h-112 flex-col gap-4"
           aria-busy="true"
           aria-label="Loading snapshots"
         >

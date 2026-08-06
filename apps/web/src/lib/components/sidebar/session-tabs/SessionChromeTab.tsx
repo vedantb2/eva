@@ -122,7 +122,7 @@ export function SessionChromeTab({
                 // makes the tab a query container for the detail ladder below,
                 // and drops its intrinsic width, so a long title cannot resist
                 // shrinking.
-                "group relative flex h-9 min-w-8 items-center rounded-t-[0.625rem] transition-colors [container-type:inline-size]",
+                "group relative flex h-9 min-w-8 items-center rounded-t-[0.625rem] transition-colors @container",
                 isSelected
                   ? // Chrome stroke: left/top/right in the group accent — bottom
                     // stays open so the tab merges into the page; the sides meet
@@ -131,7 +131,7 @@ export function SessionChromeTab({
                       "z-10 border-2 border-b-0 bg-background text-foreground",
                       groupColor.border,
                     )
-                  : "text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground",
+                  : "text-muted-foreground hover:bg-foreground/6 hover:text-foreground",
               )}
             >
               {showSeparator ? (
@@ -158,14 +158,14 @@ export function SessionChromeTab({
                   <span
                     aria-hidden
                     className={cn(
-                      "pointer-events-none absolute -left-2.5 bottom-0 h-2 w-2.5 [background-image:radial-gradient(circle_at_top_left,transparent_7.5px,currentColor_8px,currentColor_10px,rgb(var(--background))_10.5px)]",
+                      "pointer-events-none absolute -left-2.5 bottom-0 h-2 w-2.5 bg-[radial-gradient(circle_at_top_left,transparent_7.5px,currentColor_8px,currentColor_10px,rgb(var(--background))_10.5px)]",
                       groupColor.accent,
                     )}
                   />
                   <span
                     aria-hidden
                     className={cn(
-                      "pointer-events-none absolute -right-2.5 bottom-0 h-2 w-2.5 [background-image:radial-gradient(circle_at_top_right,transparent_7.5px,currentColor_8px,currentColor_10px,rgb(var(--background))_10.5px)]",
+                      "pointer-events-none absolute -right-2.5 bottom-0 h-2 w-2.5 bg-[radial-gradient(circle_at_top_right,transparent_7.5px,currentColor_8px,currentColor_10px,rgb(var(--background))_10.5px)]",
                       groupColor.accent,
                     )}
                   />

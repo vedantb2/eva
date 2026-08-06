@@ -66,16 +66,32 @@ test("codex sets toolUseId, file_change files, and failed isError", () => {
   expect(failed?.output?.exitCode).toBe(1);
 });
 
-test("cursor pairs call_id and attaches result output", () => {
-  applyFixture("cursor-tool-pair.jsonl", "cursor");
-  expect(S.accumulatedSteps).toHaveLength(1);
-  const step = S.accumulatedSteps[0];
-  expect(step?.toolUseId).toBe("call_cursor1");
-  expect(step?.type).toBe("bash");
-  expect(step?.command).toContain("ls -la");
-  expect(step?.output?.text).toContain("total 12");
-  expect(step?.output?.exitCode).toBe(0);
-  expect(step?.status).toBe("complete");
+test("cursor pairs call_id, unwraps result envelopes, and dedups transitions", () => {
+  applyFixture("cursor-sdk-events.jsonl", "cursor");
+  // 3 tools despite duplicate running/completed events and a
+  // terminal-without-running error (pushed then completed).
+  expect(S.accumulatedSteps).toHaveLength(3);
+  expect(S.inFlightToolUses).toBe(0);
+
+  const shell = S.accumulatedSteps.find((s) => s.toolUseId === "call_cursor1");
+  expect(shell?.type).toBe("bash");
+  expect(shell?.command).toContain("ls -la");
+  expect(shell?.output?.text).toContain("total 12");
+  expect(shell?.output?.exitCode).toBe(0);
+  expect(shell?.durationMs).toBe(42);
+  expect(shell?.status).toBe("complete");
+
+  const edit = S.accumulatedSteps.find((s) => s.toolUseId === "call_edit1");
+  expect(edit?.type).toBe("edit");
+  expect(edit?.path).toBe("src/a.ts");
+  expect(edit?.output?.text).toContain("+const x = 2");
+  expect(edit?.status).toBe("complete");
+
+  const failed = S.accumulatedSteps.find((s) => s.toolUseId === "call_fail1");
+  expect(failed?.type).toBe("bash");
+  expect(failed?.isError).toBe(true);
+  expect(failed?.output?.text).toContain("exited with status 1");
+  expect(failed?.status).toBe("complete");
 });
 
 test("opencode captures output, exit, error, and durationMs", () => {

@@ -155,7 +155,7 @@ export function PrMergeBox({
               if (next) setMethod(next.value);
             }}
           >
-            <SelectTrigger className="h-8 w-[13.5rem] text-xs">
+            <SelectTrigger className="h-8 w-54 text-xs">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>

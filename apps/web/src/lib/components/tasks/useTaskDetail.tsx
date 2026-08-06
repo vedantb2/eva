@@ -346,7 +346,7 @@ export function useTaskDetail(
   const latestPrError = runs?.find((r) => r.prError)?.prError;
   const latestDeployment = runs?.find((r) => r.deploymentStatus);
   const canCreatePr = !latestPrUrl && (runs?.length ?? 0) > 0 && !hasActiveRun;
-  const modalWidthClass = "max-w-[calc(100vw-2rem)] md:max-w-[72rem]";
+  const modalWidthClass = "max-w-[calc(100vw-2rem)] md:max-w-6xl";
   const layoutGridClass = "grid-cols-1 md:grid-cols-[1fr_1fr_200px]";
   const hasTabContent =
     (runs !== undefined && runs.length > 0) ||

@@ -182,7 +182,7 @@ function TimelineRow({
 }) {
   return (
     <li className="relative flex min-w-0 gap-3">
-      <span className="relative z-[1] shrink-0">{gutter}</span>
+      <span className="relative z-1 shrink-0">{gutter}</span>
       <div className="min-w-0 flex-1">{children}</div>
     </li>
   );

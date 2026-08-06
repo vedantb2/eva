@@ -23,7 +23,7 @@ export function ArtifactsGlobalClient() {
       </div>
       {artifacts === undefined ? (
         <div
-          className="grid min-h-[20rem] gap-3 sm:grid-cols-2"
+          className="grid min-h-80 gap-3 sm:grid-cols-2"
           aria-busy="true"
           aria-label="Loading artifacts"
         >

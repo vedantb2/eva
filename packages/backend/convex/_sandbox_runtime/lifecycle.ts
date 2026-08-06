@@ -16,9 +16,12 @@ const CALLBACK_LIVENESS_COMMAND = [
   'state="$(ps -p "$pid" -o stat= 2>/dev/null | tr -d " ")"',
   'case "$state" in Z*) exit 1 ;; *) exit 0 ;; esac',
 ].join(" && ");
-/** Agent CLI still running even if callback PID bookkeeping is stale. */
+/** Agent still running even if callback PID bookkeeping is stale. Cursor runs
+ * in-process inside the callback (run-design.mjs) since the SDK migration, so
+ * the callback process itself counts as agent liveness; cursor-agent stays for
+ * pre-migration sandboxes. */
 const AGENT_PROCESS_LIVENESS_COMMAND =
-  "pgrep -f 'claude-code|cursor-agent|codex run|opencode run|/\\.claude/' >/dev/null 2>&1";
+  "pgrep -f 'claude-code|cursor-agent|codex run|opencode run|/\\.claude/|run-design\\.mjs' >/dev/null 2>&1";
 
 /**
  * Verifies whether a sandbox and its callback runner are alive.

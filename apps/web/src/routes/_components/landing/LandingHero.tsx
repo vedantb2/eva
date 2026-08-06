@@ -45,7 +45,7 @@ export function LandingHero() {
     <div className="landing-atmosphere landing-grain relative overflow-hidden border-b border-border">
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-gradient-to-b from-transparent to-background"
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-40 bg-linear-to-b from-transparent to-background"
       />
 
       <m.div
@@ -89,7 +89,7 @@ export function LandingHero() {
             className="mt-9 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center"
           >
             <SignUpButton mode="modal">
-              <Button size="lg" className="w-full sm:w-auto sm:min-w-[10rem]">
+              <Button size="lg" className="w-full sm:w-auto sm:min-w-40">
                 Get started
                 <IconArrowRight size={16} aria-hidden />
               </Button>

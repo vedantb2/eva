@@ -81,7 +81,7 @@ export function SidebarSessionItem({
         <DynamicLink
           to={href}
           onClick={onNavigate}
-          className="block rounded-menu-item px-4 py-1.5 text-[13px] leading-[18px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
+          className="block rounded-menu-item px-4 py-1.5 text-[13px] leading-[18px] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring/40"
         >
           <div className="flex min-w-0 items-center gap-2">
             <span

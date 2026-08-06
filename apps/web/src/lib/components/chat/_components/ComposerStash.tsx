@@ -217,7 +217,7 @@ export function ComposerStash({
           ref={commandRef}
           shouldFilter={false}
           defaultValue={newestId}
-          className="border-0 outline-none"
+          className="border-0 outline-hidden"
           tabIndex={-1}
         >
           <CommandList className="max-h-72 p-1">

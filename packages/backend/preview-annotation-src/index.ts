@@ -1,10 +1,20 @@
 /**
- * Injected into previewed pages by the auth proxy (alongside nav-sync).
- * Must stay self-contained: embedded via `.toString()`, so no imports or
- * outer-scope references. Helpers nest inside the entry function.
+ * Select-element annotation tool injected into previewed pages by the sandbox
+ * auth proxy (alongside nav-sync).
+ *
+ * Lives outside `convex/` and is bundled by `scripts/build-annotation-script.mjs`
+ * into `convex/_sandbox_runtime/previewAnnotationScript.generated.ts`. It cannot
+ * be embedded via `Function.prototype.toString()` from a Convex module: Convex
+ * bundles `convex/` with esbuild `keepNames: true` + `minifyIdentifiers: true`,
+ * which rewrites nested functions into `<minified>(fn, "fn")` calls against a
+ * module-scope helper. Stringifying only the function body ships those calls
+ * without the helper, so the injected copy dies with a ReferenceError before
+ * installing a single listener.
+ *
+ * Runs in the previewed app's page, cross-origin from Eva. No imports.
  */
 
-export interface EvaAnnotationContext {
+interface EvaAnnotationContext {
   tagName: string;
   id: string;
   classNames: string[];
@@ -36,8 +46,7 @@ export interface EvaAnnotationContext {
   capturedAt: number;
 }
 
-/** Fully self-contained annotation tool for the preview iframe. */
-export function evaPreviewAnnotationScript(): void {
+function evaPreviewAnnotationScript(): void {
   const ATTR = "data-eva-annotate";
   const root = document.documentElement;
   if (root.getAttribute(ATTR) === "1") {
@@ -389,7 +398,10 @@ export function evaPreviewAnnotationScript(): void {
   post({ type: "eva-preview-annotate-ready" });
 }
 
-/** Source string injected into preview HTML by the sandbox proxy. */
-export function buildAnnotationScriptSource(): string {
-  return "(" + evaPreviewAnnotationScript.toString() + ")();";
+// A throw here would silently disable annotations, exactly the failure mode the
+// build step exists to prevent. Log loudly so the iframe console names it.
+try {
+  evaPreviewAnnotationScript();
+} catch (error) {
+  console.error("[eva] preview annotation script failed to start", error);
 }

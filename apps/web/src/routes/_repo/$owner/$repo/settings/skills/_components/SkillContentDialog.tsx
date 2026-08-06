@@ -52,7 +52,7 @@ export function SkillContentDialog({
               No stored contents yet. Run Sync from GitHub to fetch SKILL.md.
             </p>
           ) : (
-            <pre className="whitespace-pre-wrap break-words rounded-surface border border-border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed text-foreground">
+            <pre className="whitespace-pre-wrap wrap-break-word rounded-surface border border-border bg-muted/40 p-3 font-mono text-[11px] leading-relaxed text-foreground">
               {skillContent.content}
             </pre>
           )}

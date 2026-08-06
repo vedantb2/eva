@@ -245,7 +245,7 @@ export function CommentActivityItem({
           repoBasePath={basePath}
           repoId={repo._id}
           atKind="user"
-          className={`${MARKDOWN_PROSE_CLASS} pl-6 text-sm break-words`}
+          className={`${MARKDOWN_PROSE_CLASS} pl-6 text-sm wrap-break-word`}
         />
       )}
 

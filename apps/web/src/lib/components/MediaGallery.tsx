@@ -77,7 +77,7 @@ export function ImageGalleryPreview({ images }: { images: GalleryImage[] }) {
                 loading="lazy"
                 className={cn(
                   "h-full w-full object-cover transition-opacity hover:opacity-90",
-                  count === 3 && index === 0 ? "min-h-full" : "aspect-[4/3]",
+                  count === 3 && index === 0 ? "min-h-full" : "aspect-4/3",
                 )}
               />
               {overflow > 0 && index === tiles.length - 1 ? (

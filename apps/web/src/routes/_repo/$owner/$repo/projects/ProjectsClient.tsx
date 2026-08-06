@@ -364,7 +364,7 @@ export function ProjectsClient() {
           )}
           {projects === undefined ? (
             <div
-              className="flex flex-1 min-h-[24rem] flex-col gap-3"
+              className="flex flex-1 min-h-96 flex-col gap-3"
               aria-busy="true"
               aria-label="Loading projects"
             >

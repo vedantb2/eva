@@ -183,7 +183,7 @@ export function ChatJumpRail({ messages }: ChatJumpRailProps) {
 
   return (
     <div
-      className="pointer-events-none absolute inset-y-0 left-0 z-30 hidden w-14 lg:[@media(pointer:fine)]:block"
+      className="pointer-events-none absolute inset-y-0 left-0 z-30 hidden w-14 lg:pointer-fine:block"
       aria-label="Jump to message"
       data-testid="chat-jump-rail"
     >
@@ -191,7 +191,7 @@ export function ChatJumpRail({ messages }: ChatJumpRailProps) {
         <button
           type="button"
           aria-label={`Jump to message: ${activeTick?.userText ?? "User message"}`}
-          className="pointer-events-auto absolute top-1/2 left-2 w-10 -translate-y-1/2 cursor-pointer bg-transparent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+          className="pointer-events-auto absolute top-1/2 left-2 w-10 -translate-y-1/2 cursor-pointer bg-transparent focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/70"
           style={{ height: resolveRailHeightStyle(ticks.length) }}
           onBlur={() => setHoverIndex(null)}
           onFocus={() => setHoverIndex((current) => current ?? 0)}
@@ -240,7 +240,7 @@ export function ChatJumpRail({ messages }: ChatJumpRailProps) {
           })}
           {activeTick ? (
             <span
-              className="pointer-events-none absolute left-8 w-80 rounded-xl border border-border/70 bg-popover/95 p-3 text-left text-popover-foreground shadow-xl shadow-black/25 backdrop-blur"
+              className="pointer-events-none absolute left-8 w-80 rounded-xl border border-border/70 bg-popover/95 p-3 text-left text-popover-foreground shadow-xl shadow-black/25 backdrop-blur-sm"
               style={{
                 top: `${activeTopPercent}%`,
                 transform: `translateY(${activeTooltipTranslate})`,

@@ -1,7 +1,6 @@
 import { defineConfig, build as viteBuild, normalizePath } from "vite";
 import react from "@vitejs/plugin-react-swc";
-import tailwindcss from "tailwindcss";
-import autoprefixer from "autoprefixer";
+import tailwindcss from "@tailwindcss/postcss";
 import { resolve } from "path";
 import { copyFileSync, mkdirSync, existsSync, readdirSync } from "fs";
 
@@ -72,11 +71,11 @@ function runContentScriptBuild() {
       alias: { "@": resolve(__dirname, "src") },
     },
     css: {
+      // Tailwind v4 reads its config from `@config` inside content.css; `base`
+      // just anchors source scanning to the extension root. Prefixing is now
+      // handled by Lightning CSS, so autoprefixer is gone.
       postcss: {
-        plugins: [
-          tailwindcss({ config: resolve(__dirname, "tailwind.config.js") }),
-          autoprefixer(),
-        ],
+        plugins: [tailwindcss({ base: resolve(__dirname) })],
       },
     },
     esbuild: { charset: "ascii" },

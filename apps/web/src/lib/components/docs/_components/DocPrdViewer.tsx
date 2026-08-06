@@ -172,7 +172,7 @@ export function DocPrdViewer({
         <input
           value={doc.title}
           onChange={(e) => updateDoc({ id: doc._id, title: e.target.value })}
-          className="text-lg font-semibold bg-transparent border-none outline-none focus:ring-0 p-0 min-w-0 w-auto cursor-text placeholder:text-muted-foreground"
+          className="text-lg font-semibold bg-transparent border-none outline-hidden focus:ring-0 p-0 min-w-0 w-auto cursor-text placeholder:text-muted-foreground"
           placeholder="Document title"
           size={Math.max(doc.title.length, 12)}
         />

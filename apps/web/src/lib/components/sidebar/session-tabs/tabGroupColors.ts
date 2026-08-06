@@ -52,10 +52,10 @@ const GROUP_COLORS: TabGroupColor[] = [
     accent: "text-fuchsia-500",
   },
   {
-    underline: "bg-cyan-500",
-    pill: "bg-cyan-500 text-black",
-    border: "border-cyan-500",
-    accent: "text-cyan-500",
+    underline: "bg-lime-500",
+    pill: "bg-lime-500 text-black",
+    border: "border-lime-500",
+    accent: "text-lime-500",
   },
   {
     underline: "bg-orange-500",

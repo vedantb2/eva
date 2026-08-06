@@ -97,7 +97,7 @@ export const GanttSidebarHeader: FC<GanttSidebarHeaderProps> = ({
   metaLabel = "Duration",
 }) => (
   <div
-    className="sticky top-0 z-10 flex shrink-0 items-end justify-between gap-2.5 border-b border-border bg-background/95 p-2.5 font-medium text-muted-foreground text-xs backdrop-blur-sm"
+    className="sticky top-0 z-10 flex shrink-0 items-end justify-between gap-2.5 border-b border-border bg-background/95 p-2.5 font-medium text-muted-foreground text-xs backdrop-blur-xs"
     style={{ height: "var(--gantt-header-height)" }}
   >
     <p className="flex-1 truncate text-left">{title}</p>

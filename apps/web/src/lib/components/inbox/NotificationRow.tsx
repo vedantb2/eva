@@ -72,7 +72,7 @@ export function NotificationRow({
     <div className="group relative flex items-center gap-3 px-4 transition-colors hover:bg-muted/40">
       <button
         onClick={onOpen}
-        className="flex min-w-0 flex-1 items-center gap-3 py-3 text-left focus-visible:outline-none"
+        className="flex min-w-0 flex-1 items-center gap-3 py-3 text-left focus-visible:outline-hidden"
       >
         {/* Fixed-width dot slot so read and unread rows stay aligned. */}
         <span className="flex w-1.5 shrink-0 justify-center" aria-hidden>

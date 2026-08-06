@@ -173,7 +173,7 @@ export const KanbanCards = ({
   return (
     <SortableContext items={itemIds}>
       <div
-        className={cn("flex flex-grow flex-col gap-1.5", className)}
+        className={cn("flex grow flex-col gap-1.5", className)}
         {...props}
       >
         {filteredData.map(children)}

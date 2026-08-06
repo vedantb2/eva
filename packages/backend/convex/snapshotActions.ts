@@ -248,7 +248,7 @@ export const launchSeedRun = internalAction({
       "rm -f /tmp/.seedrun-done",
     ];
     // Daytona used to bake its whole agent-CLI toolchain (claude, codex,
-    // opencode, cursor-agent, supabase, docker, ...) into the sandbox's Image
+    // opencode, supabase, docker, ...) into the sandbox's Image
     // at build time — every fresh Daytona sandbox already had them.
     //
     // Vercel has NO equivalent custom Image: a fresh Vercel sandbox boots
@@ -258,7 +258,8 @@ export const launchSeedRun = internalAction({
     // below (triggerSeededSnapshot) bakes the whole filesystem into the
     // seeded `snap_*` snapshot. A session sandbox that boots from anything
     // OTHER than that seeded snapshot (i.e. bare node24, because no seed
-    // build has completed yet) will NOT have Claude/Codex/cursor-agent/etc.
+    // build has completed yet) will NOT have Claude/Codex/etc. (the Cursor
+    // SDK is installed via npm in the same global-install line).
     // — this is expected, not a bug; see getRepoSnapshotName.
     // Every install below must be idempotent: seed-prep often boots from a
     // warm base Image snap that already has the toolchain, and re-running
@@ -303,7 +304,7 @@ export const launchSeedRun = internalAction({
       // the absolute path because sudo's secure_path may exclude /usr/local/bin.
       `command -v git-lfs >/dev/null 2>&1 || { curl -fsSL https://github.com/git-lfs/git-lfs/releases/download/v${GIT_LFS_VERSION}/git-lfs-linux-amd64-v${GIT_LFS_VERSION}.tar.gz -o /tmp/lfs.tgz && sudo tar -xzf /tmp/lfs.tgz -C /tmp && sudo mv /tmp/git-lfs-${GIT_LFS_VERSION}/git-lfs /usr/local/bin/git-lfs && rm -rf /tmp/lfs.tgz /tmp/git-lfs-${GIT_LFS_VERSION}; } || { echo "SEEDRUN-FAILED:git-lfs"; exit 1; }`,
       'sudo /usr/local/bin/git-lfs install --system >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:git-lfs-filters"; exit 1; }',
-      'command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && command -v opencode >/dev/null 2>&1 || sudo npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
+      'command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && command -v opencode >/dev/null 2>&1 && [ -d "$(npm root -g)/@cursor/sdk" ] || sudo npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0 @cursor/sdk@1.0.26 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
       'command -v code-server >/dev/null 2>&1 || curl -fsSL https://code-server.dev/install.sh | sh || { echo "SEEDRUN-FAILED:code-server"; exit 1; }',
       'command -v websockify >/dev/null 2>&1 || python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1 || { echo "SEEDRUN-FAILED:websockify"; exit 1; }',
       "sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify 2>/dev/null || true",
@@ -311,9 +312,6 @@ export const launchSeedRun = internalAction({
       '[ -d /opt/novnc ] || { sudo rm -rf /opt/noVNC; sudo git clone --depth 1 https://github.com/novnc/noVNC.git /opt/novnc; } || { echo "SEEDRUN-FAILED:novnc"; exit 1; }',
       "sudo tee /etc/yum.repos.d/google-chrome.repo >/dev/null <<'EOF'\n[google-chrome]\nname=google-chrome\nbaseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64\nenabled=1\ngpgcheck=1\ngpgkey=https://dl.google.com/linux/linux_signing_key.pub\nEOF",
       'command -v google-chrome-stable >/dev/null 2>&1 || command -v chromium-browser >/dev/null 2>&1 || command -v chromium >/dev/null 2>&1 || sudo dnf install -y google-chrome-stable >/tmp/chrome-dnf.log 2>&1 || sudo dnf install -y chromium >/tmp/chromium-dnf.log 2>&1 || { echo "SEEDRUN-FAILED:chrome"; exit 1; }',
-      '[ -x /home/eva/.local/bin/cursor-agent ] || [ -x /home/eva/.local/bin/agent ] || { curl -fsS https://cursor.com/install -o /tmp/cursor-install.sh && HOME=/home/eva bash /tmp/cursor-install.sh >/tmp/cursor.log 2>&1; } || { echo "SEEDRUN-FAILED:cursor"; exit 1; }',
-      "if [ ! -x /home/eva/.local/bin/cursor-agent ] && [ -x /home/eva/.local/bin/agent ]; then ln -sf /home/eva/.local/bin/agent /home/eva/.local/bin/cursor-agent; fi",
-      "sudo ln -sf /home/eva/.local/bin/cursor-agent /usr/local/bin/cursor-agent || true",
       "mkdir -p /home/eva/.claude/plugins/marketplaces",
       '[ -d /home/eva/.claude/plugins/marketplaces/claude-plugins-official/.git ] || git clone --depth 1 https://github.com/anthropics/claude-plugins-official.git /home/eva/.claude/plugins/marketplaces/claude-plugins-official || { echo "SEEDRUN-FAILED:claude-plugins"; exit 1; }',
       '[ -d /home/eva/.claude/plugins/marketplaces/Dammyjay93/.git ] || git clone --depth 1 https://github.com/Dammyjay93/interface-design.git /home/eva/.claude/plugins/marketplaces/Dammyjay93 || { echo "SEEDRUN-FAILED:interface-design-plugin"; exit 1; }',

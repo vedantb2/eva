@@ -110,7 +110,7 @@ export const listReposWithActiveSandboxes = authQuery({
   },
 });
 
-/** Counts live sessions (status active, not archived, with a sandbox) the user can see. */
+/** Counts active sessions (status active, not archived, PR still open) the user can see. */
 export const countActiveSessions = authQuery({
   args: {},
   returns: v.number(),
@@ -127,7 +127,10 @@ export const countActiveSessions = authQuery({
             .take(64),
         );
         return sessions.filter(
-          (s) => s.archived !== true && s.sandboxId !== undefined,
+          (s) =>
+            s.archived !== true &&
+            s.prState !== "merged" &&
+            s.prState !== "closed",
         ).length;
       }),
     );

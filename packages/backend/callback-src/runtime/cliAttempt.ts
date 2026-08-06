@@ -133,6 +133,8 @@ export function resetAttemptState(): void {
   S.heartbeatFailureStreakStartedAt = 0;
   S.inFlightToolUses = 0;
   S.codexToolItemIds.clear();
+  S.cursorKnownToolIds.clear();
+  S.cursorTerminalToolIds.clear();
 }
 
 export async function runCliAttempt(

@@ -20,7 +20,7 @@ function accentToHex(accentColor: string): string {
   if (isAccentColorKey(accentColor)) {
     return ACCENT_COLORS[accentColor].preview;
   }
-  return ACCENT_COLORS.cyan.preview;
+  return ACCENT_COLORS.zinc.preview;
 }
 
 function RemoteCursorItem({ cursor }: { cursor: RemoteCursor }) {
@@ -65,7 +65,7 @@ function LiveCursorsInner({
   if (cursors.length === 0) return null;
 
   return (
-    <div className="pointer-events-none fixed inset-0 z-[60]">
+    <div className="pointer-events-none fixed inset-0 z-60">
       {cursors.map((cursor) => (
         <RemoteCursorItem key={cursor.userId} cursor={cursor} />
       ))}

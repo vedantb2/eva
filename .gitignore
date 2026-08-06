@@ -8,6 +8,7 @@ screenshots
 dist
 tsconfig.buildinfo
 packages/backend/callback-src/.build
+packages/backend/preview-annotation-src/.build
 mcp.json
 videoeva-staging-backup.zip
 video

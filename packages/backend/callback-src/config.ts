@@ -160,13 +160,14 @@ export const CURSOR_RUNTIME_HOME_DIR =
   process.env.CURSOR_RUNTIME_HOME_DIR || "/tmp/cursor-home";
 export const CURSOR_PERSIST_DIR =
   process.env.CURSOR_PERSIST_DIR || "/home/eva/.cursor-persist";
-const CURSOR_BIN_PATH =
-  process.env.CURSOR_BIN_PATH || "/home/eva/.local/bin/cursor-agent";
 const CURSOR_STATE_FILE = "session-state.json";
 export const CURSOR_LOCAL_STATE_FILE =
   CURSOR_RUNTIME_HOME_DIR + "/" + CURSOR_STATE_FILE;
 export const CURSOR_PERSIST_STATE_FILE =
   CURSOR_PERSIST_DIR + "/" + CURSOR_STATE_FILE;
+/** Cursor SDK JSONL agent store — on the persist volume so conversation state
+ * (agents/runs/checkpoints) survives sandbox stop/resume. */
+export const CURSOR_SDK_STORE_DIR = CURSOR_PERSIST_DIR + "/sdk";
 const CLAUDE_SESSION_PROJECT_DIR = WORK_DIR.replace(/\//g, "-");
 export const CLAUDE_LOCAL_PROJECT_DIR =
   CLAUDE_RUNTIME_CONFIG_DIR + "/projects/" + CLAUDE_SESSION_PROJECT_DIR;
@@ -255,32 +256,55 @@ export const normalizedCodexModel = MODEL.startsWith("codex:")
 export const normalizedOpencodeModel = MODEL.startsWith("opencode:")
   ? MODEL.slice("opencode:".length)
   : MODEL;
-// Cursor CLI renamed Grok slugs (Jul 2026): grok-4.5-* → cursor-grok-4.5-*.
-// Eva UI keeps cursor:grok-4.5-*; this map is what --model receives.
-const CURSOR_CLI_MODEL_IDS: Record<string, string> = {
-  "grok-4.5-low": "cursor-grok-4.5-low",
-  "grok-4.5-medium": "cursor-grok-4.5-medium",
-  "grok-4.5-high": "cursor-grok-4.5-high",
-  "cursor-grok-4.5-low": "cursor-grok-4.5-low",
-  "cursor-grok-4.5-medium": "cursor-grok-4.5-medium",
-  "cursor-grok-4.5-high": "cursor-grok-4.5-high",
-};
+// Eva's cursor model ids bake a reasoning level into the slug (grok-4.5-low,
+// gpt-5.5-low). The SDK rejects those: its model list carries base ids only
+// (grok-4.5, gpt-5.5), with reasoning exposed as a per-model parameter. Split
+// here; the runner discovers the parameter id at runtime and degrades to the
+// base id when the model has none (resolveCursorModelSelection).
+const CURSOR_REASONING_LEVELS = ["low", "medium", "high"];
+
+export function splitCursorModel(raw: string): { base: string; level: string } {
+  // Legacy CLI-era slugs: cursor-grok-4.5-* → grok-4.5-*.
+  const unprefixed = raw.startsWith("cursor-grok-")
+    ? raw.slice("cursor-".length)
+    : raw;
+  for (const level of CURSOR_REASONING_LEVELS) {
+    const suffix = "-" + level;
+    if (unprefixed.endsWith(suffix)) {
+      return { base: unprefixed.slice(0, -suffix.length), level };
+    }
+  }
+  return { base: unprefixed, level: "" };
+}
 
 const cursorModelRaw = MODEL.startsWith("cursor:")
   ? MODEL.slice("cursor:".length)
   : MODEL;
+const cursorModelParts = splitCursorModel(cursorModelRaw);
+export const normalizedCursorModel = cursorModelParts.base;
 
-export const normalizedCursorModel =
-  CURSOR_CLI_MODEL_IDS[cursorModelRaw] ?? cursorModelRaw;
+// Abstract traits-menu level → cursor reasoning level (xhigh/max clamp to
+// high; off sends the bare model). Falls back to the legacy id suffix for
+// pre-migration AI_MODEL values that carried the level in the slug.
+const CURSOR_REASONING_EFFORT: Record<string, string> = {
+  off: "",
+  low: "low",
+  medium: "medium",
+  high: "high",
+  xhigh: "high",
+  max: "high",
+};
+
+export const cursorReasoningLevel =
+  PROVIDER === "cursor" && REASONING_EFFORT in CURSOR_REASONING_EFFORT
+    ? CURSOR_REASONING_EFFORT[REASONING_EFFORT]
+    : cursorModelParts.level;
 const codexCommand = existsSync(CODEX_BIN_PATH)
   ? JSON.stringify(CODEX_BIN_PATH)
   : "codex";
 const opencodeCommand = existsSync(OPENCODE_BIN_PATH)
   ? JSON.stringify(OPENCODE_BIN_PATH)
   : "opencode";
-const cursorCommand = existsSync(CURSOR_BIN_PATH)
-  ? JSON.stringify(CURSOR_BIN_PATH)
-  : "cursor-agent";
 export const codexPromptCmd = SYSTEM_PROMPT
   ? "(printf %s\\n\\n " +
     JSON.stringify(SYSTEM_PROMPT) +
@@ -295,20 +319,6 @@ export const opencodeExecBaseCmd =
   opencodeCommand +
   " run --format json --model " +
   JSON.stringify(normalizedOpencodeModel);
-const cursorPromptExpr = SYSTEM_PROMPT
-  ? '"$(printf %s\\n\\n ' +
-    JSON.stringify(SYSTEM_PROMPT) +
-    '; cat /tmp/design-prompt.txt)"'
-  : '"$(cat /tmp/design-prompt.txt)"';
-export const cursorExecBaseCmd =
-  cursorCommand +
-  " -p " +
-  cursorPromptExpr +
-  " --force --trust --workspace " +
-  JSON.stringify(WORK_DIR) +
-  " --model " +
-  JSON.stringify(normalizedCursorModel) +
-  " --output-format stream-json --approve-mcps";
 export const TOOL_STEP_TYPES = new Set([
   "read",
   "search_files",

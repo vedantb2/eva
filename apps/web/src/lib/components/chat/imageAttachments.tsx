@@ -79,7 +79,7 @@ export function ChatAttachmentPreview() {
   return (
     <>
       {attachments.files.length > 0 ? (
-        <div className="flex flex-wrap gap-2 border-b border-border p-2">
+        <div className="flex flex-wrap gap-2 border-b border-border p-3">
           {attachments.files.map((file) => {
             const isImage = file.mediaType?.startsWith("image/");
             const FileIcon = iconForAttachment(file.filename, file.mediaType);
@@ -111,7 +111,7 @@ export function ChatAttachmentPreview() {
             return (
               <div
                 key={file.id}
-                className="group relative flex max-w-[12rem] items-center gap-2 rounded-surface border border-border bg-muted px-2 py-1.5"
+                className="group relative flex max-w-48 items-center gap-2 rounded-surface border border-border bg-muted px-2 py-1.5"
               >
                 <button
                   type="button"

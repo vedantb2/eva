@@ -172,7 +172,7 @@ export function SpotlightSearch() {
             onValueChange={setSearch}
           />
           <CommandList className="min-h-0 flex-1 max-h-none">
-            <CommandEmpty className="flex h-full min-h-[12rem] items-center justify-center py-0">
+            <CommandEmpty className="flex h-full min-h-48 items-center justify-center py-0">
               {results === undefined ? "Searching…" : "No results found"}
             </CommandEmpty>
             {groups.map((group) => (

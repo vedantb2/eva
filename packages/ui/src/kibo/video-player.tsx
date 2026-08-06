@@ -70,7 +70,7 @@ export const VideoPlayerControlBar = ({
 }: VideoPlayerControlBarProps) => (
   <MediaControlBar
     className={cn(
-      "bg-zinc-950/95 px-1 [&>*]:transition-colors [&>*]:duration-150",
+      "bg-zinc-950/95 px-1 *:transition-colors *:duration-150",
       className,
     )}
     {...props}

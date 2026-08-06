@@ -75,7 +75,7 @@ export function RepoCard({
           <div className="group/card relative">
             <Link
               to={repoHref(repo.owner, repo.name, repo.rootDirectory)}
-              className="block rounded-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/35"
+              className="block rounded-surface focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35"
             >
               <Card className="motion-emphasized ui-surface-interactive cursor-pointer">
                 <CardContent className="flex items-center gap-3 p-3">

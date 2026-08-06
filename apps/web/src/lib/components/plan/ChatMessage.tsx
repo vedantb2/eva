@@ -45,7 +45,7 @@ export function ChatMessage({
   const evaIcon = (
     <EvaIcon
       size={20}
-      className="rounded-full outline outline-1 outline-black/10 dark:outline-white/10"
+      className="rounded-full outline-solid outline-1 outline-black/10 dark:outline-white/10"
     />
   );
 
@@ -72,7 +72,7 @@ export function ChatMessage({
           ) : (
             <>
               {isUser ? (
-                <p className="text-sm whitespace-pre-wrap break-words">
+                <p className="text-sm whitespace-pre-wrap wrap-break-word">
                   {content}
                 </p>
               ) : (

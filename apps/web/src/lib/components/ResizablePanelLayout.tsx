@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import {
   Group,
   Panel,
@@ -23,6 +24,7 @@ import {
   RIGHT_PANEL_ID,
   usePersistentPanelSize,
 } from "@/lib/hooks/usePersistentPanelSize";
+import { SANDBOX_PANEL_TOGGLE_HOTKEY } from "@/lib/components/sandbox/SandboxPanelToggleButton";
 
 interface PanelContext {
   rightPanelCollapsed: boolean;
@@ -100,6 +102,11 @@ export function ResizablePanelLayout({
     }
   }, [isMobile, rightCollapsed, rightPanelRef, setSavedCollapsed]);
 
+  useHotkey(SANDBOX_PANEL_TOGGLE_HOTKEY, (e) => {
+    e.preventDefault();
+    handleToggle();
+  });
+
   useEffect(() => {
     if (expandRightSignal === undefined || expandRightSignal === 0) return;
     if (isMobile) {
@@ -171,7 +178,7 @@ export function ResizablePanelLayout({
         {leftPanel(ctx)}
       </Panel>
       <Separator
-        className={`w-px bg-border hover:bg-primary/50 data-[resize-handle-active]:bg-primary transition-colors ${rightCollapsed ? "hidden" : ""}`}
+        className={`w-px bg-border hover:bg-primary/50 data-resize-handle-active:bg-primary transition-colors ${rightCollapsed ? "hidden" : ""}`}
       >
         <div className="flex items-center justify-center w-3 h-full -mx-1.5 relative z-10">
           <IconGripVertical className="w-4 h-4 text-muted-foreground/50" />

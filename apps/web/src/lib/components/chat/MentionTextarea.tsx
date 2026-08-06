@@ -190,7 +190,7 @@ export const MentionTextarea = forwardRef<
           : undefined
       }
       dataSlot="input-group-control"
-      className="min-h-16 max-h-40 self-stretch overflow-y-auto rounded-none p-5 text-left focus-visible:outline-none"
+      className="min-h-16 max-h-40 self-stretch overflow-y-auto rounded-none p-6 text-left focus-visible:outline-hidden"
       emptySlashContent={
         skillsSettingsHref ? (
           <span>

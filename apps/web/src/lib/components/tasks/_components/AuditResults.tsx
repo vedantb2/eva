@@ -204,7 +204,7 @@ export function AuditResults({ auditData }: { auditData: AuditDoc }) {
                                 {item.passed ? (
                                   <IconCheck
                                     size={16}
-                                    className="text-success mt-0.5 flex-shrink-0"
+                                    className="text-success mt-0.5 shrink-0"
                                   />
                                 ) : isFixing ? (
                                   <SeverityBadge severity={severity} />
@@ -214,7 +214,7 @@ export function AuditResults({ auditData }: { auditData: AuditDoc }) {
                                     onCheckedChange={() =>
                                       toggleFailure(failure)
                                     }
-                                    className="mt-0.5 flex-shrink-0"
+                                    className="mt-0.5 shrink-0"
                                   />
                                 )}
                                 <div className="flex-1 min-w-0">

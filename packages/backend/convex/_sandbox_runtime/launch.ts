@@ -32,11 +32,6 @@ const CODEX_FALLBACK_BIN_PATH = `${CODEX_FALLBACK_INSTALL_DIR}/bin/codex`;
 const OPENCODE_INSTALL_TIMEOUT_SECONDS = 300;
 const OPENCODE_FALLBACK_INSTALL_DIR = "/tmp/opencode-cli";
 const OPENCODE_FALLBACK_BIN_PATH = `${OPENCODE_FALLBACK_INSTALL_DIR}/bin/opencode`;
-// Cursor CLI installs via curl to ~/.local/bin/cursor-agent (the `agent` binary
-// alias). We keep a fallback path under /tmp so repeated sandbox reuse doesn't
-// require re-downloading if the installer symlinks to /tmp.
-const CURSOR_INSTALL_TIMEOUT_SECONDS = 300;
-const CURSOR_FALLBACK_BIN_PATH = "/home/eva/.local/bin/cursor-agent";
 const CALLBACK_READY_POLL_ATTEMPTS = 60;
 const CALLBACK_READY_POLL_INTERVAL_MS = 1000;
 const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
@@ -84,15 +79,6 @@ async function ensureOpencodeCliAvailable(
   );
 }
 
-/** Installs the Cursor CLI if not already available on the sandbox. Cursor ships as a curl-bash installer (not npm) that drops the `cursor-agent` binary into ~/.local/bin. */
-async function ensureCursorCliAvailable(sandbox: SandboxHandle): Promise<void> {
-  await execHandle(
-    sandbox,
-    `if ! command -v cursor-agent >/dev/null 2>&1 && [ ! -x ${quote([CURSOR_FALLBACK_BIN_PATH])} ]; then curl -fsS https://cursor.com/install -o /tmp/cursor-install.sh && HOME=/home/eva bash /tmp/cursor-install.sh; fi; if [ ! -x ${quote([CURSOR_FALLBACK_BIN_PATH])} ] && [ -x /home/eva/.local/bin/agent ]; then ln -sf /home/eva/.local/bin/agent ${quote([CURSOR_FALLBACK_BIN_PATH])}; fi`,
-    CURSOR_INSTALL_TIMEOUT_SECONDS,
-  );
-}
-
 /** Installs the CLI for the selected provider, if any, before launch. */
 function ensureProviderCliAvailable(
   sandbox: SandboxHandle,
@@ -105,8 +91,9 @@ function ensureProviderCliAvailable(
       return ensureCodexCliAvailable(sandbox);
     case "opencode":
       return ensureOpencodeCliAvailable(sandbox);
-    case "cursor":
-      return ensureCursorCliAvailable(sandbox);
+    // "cursor" needs no provisioning: @cursor/sdk is installed globally in the
+    // seed snapshot, and the callback script self-installs it as a fallback on
+    // old snapshots.
     default:
       return Promise.resolve();
   }
@@ -223,7 +210,6 @@ export async function launchScript(
     `EVA_OPENCODE_BIN_PATH=${quote([OPENCODE_FALLBACK_BIN_PATH])}`,
     `CURSOR_RUNTIME_HOME_DIR=${quote([CURSOR_RUNTIME_HOME_DIR])}`,
     `CURSOR_PERSIST_DIR=${quote([CURSOR_PERSIST_VOLUME_MOUNT_PATH])}`,
-    `CURSOR_BIN_PATH=${quote([CURSOR_FALLBACK_BIN_PATH])}`,
   ];
   if (streamingHmac) {
     envParts.push(

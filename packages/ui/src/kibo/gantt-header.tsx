@@ -29,7 +29,7 @@ export const GanttContentHeader: FC<GanttContentHeaderProps> = ({
 
   return (
     <div
-      className="sticky top-0 z-20 grid w-full shrink-0 border-b border-border bg-background/95 backdrop-blur-sm"
+      className="sticky top-0 z-20 grid w-full shrink-0 border-b border-border bg-background/95 backdrop-blur-xs"
       style={{ height: "var(--gantt-header-height)" }}
     >
       <div>

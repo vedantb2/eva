@@ -197,7 +197,7 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
           className={cn(
             "flex h-full cursor-pointer flex-col gap-2 rounded-surface border border-border bg-card p-4",
             "hover:bg-muted/40 transition-colors duration-100",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
           )}
         >
           <div className="flex items-center gap-2">

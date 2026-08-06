@@ -61,7 +61,7 @@ export function ReviewOverviewPanel({
       {/* Container query, not a viewport breakpoint: the same panel renders both
           full-width on /reviews and in a narrow session pane, so the layout has
           to respond to its own width. */}
-      <div className="mx-auto max-w-7xl px-4 pb-4 [container-type:inline-size]">
+      <div className="mx-auto max-w-7xl px-4 pb-4 @container">
         {/* Pinned: the lifecycle line says what this pull request is, which stays
             relevant however far down the conversation you read. */}
         <div className="sticky top-0 z-10 -mx-4 mb-5 border-b border-border bg-background px-4 py-3">

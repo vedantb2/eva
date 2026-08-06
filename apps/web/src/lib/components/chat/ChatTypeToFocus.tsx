@@ -2,13 +2,12 @@
 
 import { useEffect, useRef } from "react";
 import { usePromptInputController } from "@eva/ui";
+import { isEditorValueEmpty } from "@/lib/components/mentions";
 import type { MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
 
 interface ChatTypeToFocusProps {
   /** Ref to the mention editor so a stray keystroke can focus it. */
   mentionRef: React.RefObject<MentionTextareaHandle | null>;
-  /** When true, type-to-focus is inert (e.g. sandbox not running). */
-  disabled: boolean;
 }
 
 /**
@@ -22,11 +21,12 @@ interface ChatTypeToFocusProps {
  * ChatDraftSync) so it can drive the shared text-input controller. It only
  * mounts when the composer itself is rendered, which naturally excludes the
  * archived / pending-question / draft-loading states.
+ *
+ * Deliberately not gated on the composer's send-disabled state: the editor stays
+ * contentEditable while a sandbox is stopped, so drafting must keep working
+ * there too — only the submit button is disabled.
  */
-export function ChatTypeToFocus({
-  mentionRef,
-  disabled,
-}: ChatTypeToFocusProps) {
+export function ChatTypeToFocus({ mentionRef }: ChatTypeToFocusProps) {
   const controller = usePromptInputController();
 
   // Hold the latest input value in a ref so the keydown listener always reads
@@ -42,8 +42,6 @@ export function ChatTypeToFocus({
   }, [inputValue]);
 
   useEffect(() => {
-    if (disabled) return;
-
     const handleKeyDown = (event: KeyboardEvent) => {
       // Only single printable characters. Modifier combos are shortcuts, and
       // keys like Enter / Tab / Backspace report multi-char `key` values.
@@ -57,14 +55,17 @@ export function ChatTypeToFocus({
 
       // Cancel the default insertion (which would land on <body> and be lost),
       // then append the character and focus so subsequent keys flow in order.
+      // A cleared composer reads back as "\n" (browser bogus <br>), so normalise
+      // it away first — otherwise the seeded character lands on a second line.
       event.preventDefault();
-      setInput(valueRef.current + event.key);
+      const current = valueRef.current;
+      setInput((isEditorValueEmpty(current) ? "" : current) + event.key);
       mentionRef.current?.focus();
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [disabled, setInput, mentionRef]);
+  }, [setInput, mentionRef]);
 
   return null;
 }

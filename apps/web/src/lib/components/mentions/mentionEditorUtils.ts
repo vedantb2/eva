@@ -153,6 +153,16 @@ export function renderEditorChipHtml(
     .join("");
 }
 
+/**
+ * True when an editor value renders as empty. Clearing a contentEditable leaves
+ * a browser-inserted bogus `<br>` behind, which round-trips through
+ * `extractEditableText` as "\n" — visually empty, so it must not be treated as
+ * existing text (e.g. when seeding the composer from a stray keystroke).
+ */
+export function isEditorValueEmpty(value: string): boolean {
+  return value === "" || value === "\n";
+}
+
 /** Strip the zero-width spaces injected around mention chips. */
 export function normalizeMentionText(text: string): string {
   return text.replace(/​/g, "");

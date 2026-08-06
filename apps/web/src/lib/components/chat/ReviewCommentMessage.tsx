@@ -12,7 +12,10 @@ interface ReviewCommentMessageProps {
   repoBasePath: string;
 }
 
-const BODY_CLASS = `${MARKDOWN_PROSE_CLASS} text-sm leading-relaxed wrap-break-word`;
+// `wrap-anywhere` rather than `wrap-break-word`: only the former shrinks the
+// min-content width, so an unbreakable token (JWT, long URL) wraps inside the
+// bubble instead of widening it. `pre` blocks are unaffected (white-space: pre).
+const BODY_CLASS = `${MARKDOWN_PROSE_CLASS} text-sm leading-relaxed wrap-anywhere`;
 
 // This component only ever renders user-authored chat messages, whose composer
 // offers both teammates and data entities, so every `@` token here needs its

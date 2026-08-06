@@ -198,7 +198,10 @@ export const ChatMessage = memo(function ChatMessage({
                   {senderFirstName}
                 </span>
               ) : null}
-              <div className="flex items-end gap-2">
+              {/* min-w-0 stops the default `min-width: auto` on this flex item
+                  from letting one unbreakable token (a JWT, a long URL) stretch
+                  the bubble past the message column. */}
+              <div className="flex min-w-0 max-w-full items-end gap-2">
                 {isOtherUser ? (
                   <div className="shrink-0">
                     <UserMessageAvatar userId={message.userId} />
@@ -243,7 +246,7 @@ export const ChatMessage = memo(function ChatMessage({
                       onOpenFile={onOpenFile}
                     />
                     {streamingContent ? (
-                      <MessageResponse className="prose prose-sm dark:prose-invert max-w-none mt-2">
+                      <MessageResponse className="prose prose-sm dark:prose-invert max-w-none mt-2 wrap-anywhere">
                         {streamingContent}
                       </MessageResponse>
                     ) : null}
@@ -282,7 +285,9 @@ export const ChatMessage = memo(function ChatMessage({
                         onOpenFile={onOpenFile}
                       />
                     )}
-                    <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                    {/* wrap-anywhere: without it a long unbreakable token is
+                        silently clipped by MessageContent's overflow-hidden. */}
+                    <MessageResponse className="prose prose-sm dark:prose-invert max-w-none wrap-anywhere">
                       {message.content}
                     </MessageResponse>
                     {changedFiles.length > 0 ? (

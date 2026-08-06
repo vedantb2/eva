@@ -15,6 +15,7 @@ import {
   buildMentionPattern,
   buildSkillPattern,
   extractEditableText,
+  isEditorValueEmpty,
   normalizeMentionText,
   placeCursorAtEnd,
   renderEditorChipHtml,
@@ -850,20 +851,27 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       e.preventDefault();
       return;
     }
+    // Keep plain-text-only paste (strip HTML), but join the browser undo stack.
+    // Manual range.insertNode bypasses undo, so Ctrl+Z undid prior typing
+    // instead of the paste.
     e.preventDefault();
-    const text = plainText;
+    if (plainText.length === 0) return;
+    if (document.execCommand("insertText", false, plainText)) {
+      handleInput();
+      return;
+    }
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0) return;
     const range = sel.getRangeAt(0);
     range.deleteContents();
-    range.insertNode(document.createTextNode(text));
+    range.insertNode(document.createTextNode(plainText));
     range.collapse(false);
     sel.removeAllRanges();
     sel.addRange(range);
     handleInput();
   };
 
-  const isEmpty = value === "" || value === "\n";
+  const isEmpty = isEditorValueEmpty(value);
 
   const showPopup =
     trigger.isOpen &&

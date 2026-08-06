@@ -5,15 +5,11 @@ import {
   IconLayoutSidebarRightCollapse,
   IconLayoutSidebarRightExpand,
 } from "@tabler/icons-react";
+import { formatForDisplay } from "@tanstack/react-hotkeys";
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
+import { useShortcutBinding } from "@/lib/hotkeys/ShortcutsContext";
 
-/** Show/hide the right sandbox panel (same control sessions use). The
- * registration string must use the canonical `Control` spelling — the
- * library's `Hotkey` template type rejects `Ctrl` in compound hotkeys. */
-export const SANDBOX_PANEL_TOGGLE_HOTKEY = "Control+Alt+B" as const;
-/** Short form for tooltips/aria labels. */
-export const SANDBOX_PANEL_TOGGLE_HOTKEY_LABEL = "Ctrl+Alt+B";
-
+/** Show/hide the right sandbox panel (same control sessions use). */
 export function SandboxPanelToggleButton({
   collapsed,
   onToggle,
@@ -25,22 +21,21 @@ export function SandboxPanelToggleButton({
   expandLabel?: string;
   collapseLabel?: string;
 }) {
+  const hotkeyLabel = formatForDisplay(
+    useShortcutBinding("toggleSandboxPanel"),
+  );
+  const label = collapsed
+    ? `${expandLabel} (${hotkeyLabel})`
+    : `${collapseLabel} (${hotkeyLabel})`;
+
   return (
     <Button
       size="icon-sm"
       variant="secondary"
       className="motion-press hover:scale-[1.01] active:scale-[0.96]"
       onClick={onToggle}
-      title={
-        collapsed
-          ? `${expandLabel} (${SANDBOX_PANEL_TOGGLE_HOTKEY_LABEL})`
-          : `${collapseLabel} (${SANDBOX_PANEL_TOGGLE_HOTKEY_LABEL})`
-      }
-      aria-label={
-        collapsed
-          ? `${expandLabel} (${SANDBOX_PANEL_TOGGLE_HOTKEY_LABEL})`
-          : `${collapseLabel} (${SANDBOX_PANEL_TOGGLE_HOTKEY_LABEL})`
-      }
+      title={label}
+      aria-label={label}
     >
       <CrossfadeIcon
         show={collapsed}

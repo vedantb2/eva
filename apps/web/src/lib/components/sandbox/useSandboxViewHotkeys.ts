@@ -1,14 +1,12 @@
 "use client";
 
 import { useRef } from "react";
-import { useHotkey } from "@tanstack/react-hotkeys";
+import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
 
 /**
- * Session/sandbox view shortcuts:
- * - Mod+Shift+B → toggle Browser tab
- * - Mod+P → toggle Files tab
+ * Session/sandbox view shortcuts: `toggleBrowserTab` and `toggleFilesTab`.
  *
- * (Mod+J for the Preview console lives in `ConsoleDock`.)
+ * (`togglePreviewConsole` lives in `ConsoleDock`.)
  */
 export function useSandboxViewHotkeys({
   activeTab,
@@ -26,8 +24,8 @@ export function useSandboxViewHotkeys({
   const tabBeforeBrowserRef = useRef("preview");
   const tabBeforeFilesRef = useRef("preview");
 
-  useHotkey(
-    "Mod+Shift+B",
+  useShortcut(
+    "toggleBrowserTab",
     (e) => {
       e.preventDefault();
       if (activeTab === "browser") {
@@ -40,8 +38,8 @@ export function useSandboxViewHotkeys({
     { enabled: enabled && showBrowserTab },
   );
 
-  useHotkey(
-    "Mod+P",
+  useShortcut(
+    "toggleFilesTab",
     (e) => {
       e.preventDefault();
       if (activeTab === "files") {

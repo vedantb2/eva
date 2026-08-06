@@ -33,6 +33,7 @@ import { RailAppHotkeys } from "@/lib/components/sidebar/RailAppHotkeys";
 import { RailSettingsMenu } from "@/lib/components/sidebar/RailSettingsMenu";
 import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import { QueryErrorBoundary } from "@/lib/components/QueryErrorBoundary";
+import { ShortcutKbd } from "@/lib/components/ui/Kbd";
 import { railTileActiveClass } from "@/lib/components/sidebar/SharedLayoutNav";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useSearch } from "@/lib/contexts/SearchContext";
@@ -264,8 +265,8 @@ function RepoRailView({
       <div className="scrollbar scroll-fade flex w-full flex-1 flex-col items-center gap-1.5 overflow-y-auto py-2">
         {repos.map((row, index) => {
           const displayName = repoDisplayLabel(row);
-          // Mirrors RailAppHotkeys: only the first nine tiles get Mod+N.
-          const hotkeyLabel = index < 9 ? `⌘${index + 1}` : null;
+          // Mirrors RailAppHotkeys: only the first nine tiles get a slot.
+          const hotkeySlot = index < 9 ? index + 1 : null;
           // While the global Sessions destination is highlighted, don't also
           // light up a repo tile — the rail should show one active target.
           const active =
@@ -325,10 +326,8 @@ function RepoRailView({
                   className="flex items-center gap-2"
                 >
                   {tooltip}
-                  {hotkeyLabel ? (
-                    <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
-                      {hotkeyLabel}
-                    </kbd>
+                  {hotkeySlot !== null ? (
+                    <ShortcutKbd id="jumpToApp" slot={hotkeySlot} />
                   ) : null}
                 </TooltipContent>
               </Tooltip>
@@ -417,9 +416,7 @@ function RepoRailView({
           </TooltipTrigger>
           <TooltipContent side="right" className="flex items-center gap-2">
             Search
-            <kbd className="rounded border border-border bg-muted px-1 py-0.5 font-mono text-[10px] text-muted-foreground">
-              ⌘K
-            </kbd>
+            <ShortcutKbd id="openSearch" />
           </TooltipContent>
         </Tooltip>
         <SidebarUserMenu name={userName} showSearch={showSearch} />

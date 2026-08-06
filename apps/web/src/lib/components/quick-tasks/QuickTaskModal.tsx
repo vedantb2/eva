@@ -53,7 +53,8 @@ import {
   IconPlayerStop,
   IconLoader2,
 } from "@tabler/icons-react";
-import { useHotkey } from "@tanstack/react-hotkeys";
+import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
+import { ShortcutKbd } from "@/lib/components/ui/Kbd";
 import { useGatewayDictation } from "@/lib/hooks/useGatewayDictation";
 import {
   DescriptionMentionEditor,
@@ -334,8 +335,8 @@ export function QuickTaskModal({
 
   const canSubmit = !isLoading && !!title.trim() && !!displayBaseBranch;
 
-  useHotkey(
-    "Mod+Enter",
+  useShortcut(
+    "submitComposerForm",
     (e) => {
       e.preventDefault();
       if (canSubmit) {
@@ -714,7 +715,10 @@ export function QuickTaskModal({
               <Button onClick={handleSubmit} disabled={!canSubmit}>
                 {isLoading && <Spinner size="sm" />}
                 Create Task
-                <kbd className="ml-1.5 text-xs opacity-60">⌘↵</kbd>
+                <ShortcutKbd
+                  id="submitComposerForm"
+                  className="ml-1.5 border-0 bg-transparent p-0 text-current opacity-60"
+                />
               </Button>
             </div>
           </DialogFooter>

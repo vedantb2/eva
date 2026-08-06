@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
-import { useHotkey } from "@tanstack/react-hotkeys";
+import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
 import { cn } from "@eva/ui";
 import {
   IconChevronDown,
@@ -64,8 +64,8 @@ export function ConsoleDock({
     setState((s) => ({ ...s, expanded: !s.expanded }));
   };
 
-  useHotkey(
-    "Mod+J",
+  useShortcut(
+    "togglePreviewConsole",
     (e) => {
       e.preventDefault();
       if (!consoleToggleHotkey) return;

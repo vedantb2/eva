@@ -193,6 +193,7 @@ import type * as _validators_aiModels from "../_validators/aiModels.js";
 import type * as _validators_enums from "../_validators/enums.js";
 import type * as _validators_personalisation from "../_validators/personalisation.js";
 import type * as _validators_shapes from "../_validators/shapes.js";
+import type * as _validators_shortcuts from "../_validators/shortcuts.js";
 import type * as _validators_tableFields from "../_validators/tableFields.js";
 import type * as agentRuns from "../agentRuns.js";
 import type * as agentTaskChatWorkflow from "../agentTaskChatWorkflow.js";
@@ -516,6 +517,7 @@ declare const fullApi: ApiFromModules<{
   "_validators/enums": typeof _validators_enums;
   "_validators/personalisation": typeof _validators_personalisation;
   "_validators/shapes": typeof _validators_shapes;
+  "_validators/shortcuts": typeof _validators_shortcuts;
   "_validators/tableFields": typeof _validators_tableFields;
   agentRuns: typeof agentRuns;
   agentTaskChatWorkflow: typeof agentTaskChatWorkflow;

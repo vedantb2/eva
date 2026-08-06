@@ -22,4 +22,6 @@ export {
   type StoredModelTraits,
   type ModelTraitsExecutionArgs,
   PERSONALISATION_PRESETS,
+  SHORTCUT_IDS,
+  type ShortcutId,
 } from "./convex/validators";

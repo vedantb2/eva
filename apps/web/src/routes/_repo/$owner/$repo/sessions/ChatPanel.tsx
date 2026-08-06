@@ -2,7 +2,7 @@ import { api, normalizeAIModel, type Doc, type Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { m, AnimatePresence } from "motion/react";
-import { useHotkey } from "@tanstack/react-hotkeys";
+import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -177,7 +177,7 @@ export function ChatPanel({
   const review = usePendingReviewComments();
   const hasPendingReviewComments = (review?.comments.length ?? 0) > 0;
 
-  useHotkey("Mod+Shift+Tab", (event) => {
+  useShortcut("cycleSessionMode", (event) => {
     event.preventDefault();
     const currentIndex = AVAILABLE_MODES.indexOf(mode);
     const nextIndex = (currentIndex + 1) % AVAILABLE_MODES.length;

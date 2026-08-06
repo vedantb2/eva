@@ -4,6 +4,7 @@ import {
   IconFlask,
   IconGitBranch,
   IconKey,
+  IconKeyboard,
   IconPalette,
   IconServerBolt,
   IconUserCog,
@@ -20,6 +21,11 @@ export const GLOBAL_SETTINGS_NAV = [
     name: "Personalisation",
     href: "/settings/personalisation",
     icon: IconUserCog,
+  },
+  {
+    name: "Shortcuts",
+    href: "/settings/shortcuts",
+    icon: IconKeyboard,
   },
   {
     name: "Accounts",

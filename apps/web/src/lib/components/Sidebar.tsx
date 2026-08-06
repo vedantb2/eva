@@ -1,7 +1,7 @@
 "use client";
 
 import { Link, useLocation } from "@tanstack/react-router";
-import { useHotkey } from "@tanstack/react-hotkeys";
+import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
 import { decodeRepoParam, KNOWN_REPO_SUB_PAGES } from "@/lib/utils/repoUrl";
 import { useUser } from "@clerk/clerk-react";
 import { lazy, Suspense, useEffect, useState } from "react";
@@ -117,7 +117,7 @@ export function Sidebar() {
   const { pageTitle } = usePageTitle();
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  useHotkey("Mod+I", (e) => {
+  useShortcut("toggleSidebar", (e) => {
     e.preventDefault();
     setCollapsed(!collapsed);
   });

@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect } from "react";
+import { createContext, useContext, useState } from "react";
+import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
 
 interface SearchContextValue {
   isOpen: boolean;
@@ -13,16 +14,10 @@ const SearchContext = createContext<SearchContextValue | null>(null);
 export function SearchProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
 
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setIsOpen((prev) => !prev);
-      }
-    };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, []);
+  useShortcut("openSearch", (e) => {
+    e.preventDefault();
+    setIsOpen((prev) => !prev);
+  });
 
   return (
     <SearchContext.Provider

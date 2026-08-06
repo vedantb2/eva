@@ -1,6 +1,6 @@
 "use client";
 
-import { useHotkey } from "@tanstack/react-hotkeys";
+import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
 import type { SandboxTab } from "@/lib/search-params";
 
 /**
@@ -41,7 +41,7 @@ function getCyclableSandboxTabs(
   return [...withDesigns, ...customTabSlugs];
 }
 
-/** Cycles sandbox tabs (Preview, Terminal, …, custom) with Shift+Tab. */
+/** Cycles sandbox tabs (Preview, Terminal, …, custom) with `cycleSandboxTab`. */
 export function useCycleSandboxTabHotkey({
   activeTab,
   onTabChange,
@@ -75,8 +75,8 @@ export function useCycleSandboxTabHotkey({
     showEditorTab,
   );
 
-  useHotkey(
-    "Shift+Tab",
+  useShortcut(
+    "cycleSandboxTab",
     (e) => {
       if (cyclableTabs.length === 0) return;
       e.preventDefault();

@@ -10,6 +10,7 @@ import { FollowProvider } from "@/lib/contexts/FollowContext";
 import { SidebarProvider } from "@/lib/contexts/SidebarContext";
 import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
 import { SearchProvider } from "@/lib/contexts/SearchContext";
+import { ShortcutsProvider } from "@/lib/hotkeys/ShortcutsContext";
 
 declare module "@tanstack/react-router" {
   interface StaticDataRouteOption {
@@ -37,16 +38,19 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="relative min-h-screen bg-app-shell">
         <SidebarProvider>
           <PageTitleProvider>
-            <SearchProvider>
-              <FollowProvider>
-                <Sidebar />
-                {children}
-                <SpotlightSearch />
-                <FollowOverlay />
-                <NotificationToastStream />
-                <UpdateAvailableToast />
-              </FollowProvider>
-            </SearchProvider>
+            {/* Above SearchProvider: its Mod+K registration is a consumer. */}
+            <ShortcutsProvider>
+              <SearchProvider>
+                <FollowProvider>
+                  <Sidebar />
+                  {children}
+                  <SpotlightSearch />
+                  <FollowOverlay />
+                  <NotificationToastStream />
+                  <UpdateAvailableToast />
+                </FollowProvider>
+              </SearchProvider>
+            </ShortcutsProvider>
           </PageTitleProvider>
         </SidebarProvider>
       </div>

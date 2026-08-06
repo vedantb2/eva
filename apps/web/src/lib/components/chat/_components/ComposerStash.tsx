@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, type RefObject } from "react";
-import { useHotkey } from "@tanstack/react-hotkeys";
+import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
+import { ShortcutKbd } from "@/lib/components/ui/Kbd";
 import { m } from "motion/react";
 import {
   Command,
@@ -150,8 +151,8 @@ export function ComposerStash({
 
   const hotkeyEnabled = !disabled && (composerFocused || open);
 
-  useHotkey(
-    "Mod+S",
+  useShortcut(
+    "stashDraft",
     (event) => {
       event.preventDefault();
       if (disabled) return;
@@ -222,7 +223,8 @@ export function ComposerStash({
         >
           <CommandList className="max-h-72 p-1">
             <CommandEmpty className="px-3 py-6 text-center text-sm text-muted-foreground">
-              Nothing stashed. Press ⌘S with a draft to stash it.
+              Nothing stashed. Press <ShortcutKbd id="stashDraft" /> with a
+              draft to stash it.
             </CommandEmpty>
             {entries.map((entry) => (
               <ComposerStashItem

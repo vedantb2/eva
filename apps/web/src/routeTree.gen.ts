@@ -27,6 +27,7 @@ import { Route as RepoOwnerRepoRouteImport } from './routes/_repo/$owner/$repo'
 import { Route as GlobalSetupIdRouteImport } from './routes/_global/setup/$id'
 import { Route as GlobalSettingsThemeRouteImport } from './routes/_global/settings/theme'
 import { Route as GlobalSettingsSyncRouteImport } from './routes/_global/settings/sync'
+import { Route as GlobalSettingsShortcutsRouteImport } from './routes/_global/settings/shortcuts'
 import { Route as GlobalSettingsSandboxesRouteImport } from './routes/_global/settings/sandboxes'
 import { Route as GlobalSettingsPersonalisationRouteImport } from './routes/_global/settings/personalisation'
 import { Route as GlobalSettingsNotificationsRouteImport } from './routes/_global/settings/notifications'
@@ -205,6 +206,11 @@ const GlobalSettingsThemeRoute = GlobalSettingsThemeRouteImport.update({
 const GlobalSettingsSyncRoute = GlobalSettingsSyncRouteImport.update({
   id: '/settings/sync',
   path: '/settings/sync',
+  getParentRoute: () => GlobalRoute,
+} as any)
+const GlobalSettingsShortcutsRoute = GlobalSettingsShortcutsRouteImport.update({
+  id: '/settings/shortcuts',
+  path: '/settings/shortcuts',
   getParentRoute: () => GlobalRoute,
 } as any)
 const GlobalSettingsSandboxesRoute = GlobalSettingsSandboxesRouteImport.update({
@@ -767,6 +773,7 @@ export interface FileRoutesByFullPath {
   '/settings/notifications': typeof GlobalSettingsNotificationsRoute
   '/settings/personalisation': typeof GlobalSettingsPersonalisationRoute
   '/settings/sandboxes': typeof GlobalSettingsSandboxesRoute
+  '/settings/shortcuts': typeof GlobalSettingsShortcutsRoute
   '/settings/sync': typeof GlobalSettingsSyncRoute
   '/settings/theme': typeof GlobalSettingsThemeRoute
   '/setup/$id': typeof GlobalSetupIdRoute
@@ -875,6 +882,7 @@ export interface FileRoutesByTo {
   '/settings/notifications': typeof GlobalSettingsNotificationsRoute
   '/settings/personalisation': typeof GlobalSettingsPersonalisationRoute
   '/settings/sandboxes': typeof GlobalSettingsSandboxesRoute
+  '/settings/shortcuts': typeof GlobalSettingsShortcutsRoute
   '/settings/sync': typeof GlobalSettingsSyncRoute
   '/settings/theme': typeof GlobalSettingsThemeRoute
   '/setup/$id': typeof GlobalSetupIdRoute
@@ -967,6 +975,7 @@ export interface FileRoutesById {
   '/_global/settings/notifications': typeof GlobalSettingsNotificationsRoute
   '/_global/settings/personalisation': typeof GlobalSettingsPersonalisationRoute
   '/_global/settings/sandboxes': typeof GlobalSettingsSandboxesRoute
+  '/_global/settings/shortcuts': typeof GlobalSettingsShortcutsRoute
   '/_global/settings/sync': typeof GlobalSettingsSyncRoute
   '/_global/settings/theme': typeof GlobalSettingsThemeRoute
   '/_global/setup/$id': typeof GlobalSetupIdRoute
@@ -1078,6 +1087,7 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/settings/personalisation'
     | '/settings/sandboxes'
+    | '/settings/shortcuts'
     | '/settings/sync'
     | '/settings/theme'
     | '/setup/$id'
@@ -1186,6 +1196,7 @@ export interface FileRouteTypes {
     | '/settings/notifications'
     | '/settings/personalisation'
     | '/settings/sandboxes'
+    | '/settings/shortcuts'
     | '/settings/sync'
     | '/settings/theme'
     | '/setup/$id'
@@ -1277,6 +1288,7 @@ export interface FileRouteTypes {
     | '/_global/settings/notifications'
     | '/_global/settings/personalisation'
     | '/_global/settings/sandboxes'
+    | '/_global/settings/shortcuts'
     | '/_global/settings/sync'
     | '/_global/settings/theme'
     | '/_global/setup/$id'
@@ -1505,6 +1517,13 @@ declare module '@tanstack/react-router' {
       path: '/settings/sync'
       fullPath: '/settings/sync'
       preLoaderRoute: typeof GlobalSettingsSyncRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/settings/shortcuts': {
+      id: '/_global/settings/shortcuts'
+      path: '/settings/shortcuts'
+      fullPath: '/settings/shortcuts'
+      preLoaderRoute: typeof GlobalSettingsShortcutsRouteImport
       parentRoute: typeof GlobalRoute
     }
     '/_global/settings/sandboxes': {
@@ -2177,6 +2196,7 @@ interface GlobalRouteChildren {
   GlobalSettingsNotificationsRoute: typeof GlobalSettingsNotificationsRoute
   GlobalSettingsPersonalisationRoute: typeof GlobalSettingsPersonalisationRoute
   GlobalSettingsSandboxesRoute: typeof GlobalSettingsSandboxesRoute
+  GlobalSettingsShortcutsRoute: typeof GlobalSettingsShortcutsRoute
   GlobalSettingsSyncRoute: typeof GlobalSettingsSyncRoute
   GlobalSettingsThemeRoute: typeof GlobalSettingsThemeRoute
   GlobalSetupIdRoute: typeof GlobalSetupIdRoute
@@ -2198,6 +2218,7 @@ const GlobalRouteChildren: GlobalRouteChildren = {
   GlobalSettingsNotificationsRoute: GlobalSettingsNotificationsRoute,
   GlobalSettingsPersonalisationRoute: GlobalSettingsPersonalisationRoute,
   GlobalSettingsSandboxesRoute: GlobalSettingsSandboxesRoute,
+  GlobalSettingsShortcutsRoute: GlobalSettingsShortcutsRoute,
   GlobalSettingsSyncRoute: GlobalSettingsSyncRoute,
   GlobalSettingsThemeRoute: GlobalSettingsThemeRoute,
   GlobalSetupIdRoute: GlobalSetupIdRoute,

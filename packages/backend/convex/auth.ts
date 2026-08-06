@@ -13,6 +13,8 @@ import {
   userFields,
   experimentalFlagKeyValidator,
   resolvedExperimentalFlagsValidator,
+  shortcutIdValidator,
+  shortcutOverridesValidator,
 } from "./validators";
 import { authQuery, authMutation } from "./functions";
 import { resolveExperimentalFlags } from "./_auth/experimentalFlags";
@@ -266,6 +268,55 @@ export const setExperimentalFlag = authMutation({
         [key]: args.enabled,
       },
     });
+    return null;
+  },
+});
+
+/**
+ * The current user's rebound keyboard shortcuts (settings → Shortcuts). Sparse:
+ * an absent id means the client default is in force.
+ */
+export const getShortcutOverrides = authQuery({
+  args: {},
+  returns: shortcutOverridesValidator,
+  handler: async (ctx) => {
+    const user = await ctx.db.get(ctx.userId);
+    return user?.shortcutOverrides ?? {};
+  },
+});
+
+/**
+ * Rebinds one shortcut for the current user. Passing `null` drops the override
+ * so the shortcut falls back to its default combo.
+ */
+export const setShortcutOverride = authMutation({
+  args: {
+    id: shortcutIdValidator,
+    hotkey: v.union(v.string(), v.null()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const user = await ctx.db.get(ctx.userId);
+    if (!user) {
+      throw new Error("User not found");
+    }
+    const next = { ...(user.shortcutOverrides ?? {}) };
+    if (args.hotkey === null) {
+      delete next[args.id];
+    } else {
+      next[args.id] = args.hotkey;
+    }
+    await ctx.db.patch(ctx.userId, { shortcutOverrides: next });
+    return null;
+  },
+});
+
+/** Clears every shortcut override, restoring all defaults. */
+export const resetShortcutOverrides = authMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    await ctx.db.patch(ctx.userId, { shortcutOverrides: {} });
     return null;
   },
 });

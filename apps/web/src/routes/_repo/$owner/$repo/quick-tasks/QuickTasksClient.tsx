@@ -4,7 +4,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { Skeleton } from "@eva/ui";
-import { useHotkey } from "@tanstack/react-hotkeys";
+import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
@@ -247,7 +247,7 @@ export function QuickTasksClient() {
 
   const closeBulkAction = () => setActiveBulkAction(null);
 
-  useHotkey("Alt+N", (e) => {
+  useShortcut("newQuickTask", (e) => {
     e.preventDefault();
     setIsCreating(true);
   });

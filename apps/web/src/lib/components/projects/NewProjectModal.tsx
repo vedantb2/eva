@@ -32,7 +32,8 @@ import {
   IconSparkles,
   IconCheck,
 } from "@tabler/icons-react";
-import { useHotkey } from "@tanstack/react-hotkeys";
+import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
+import { ShortcutKbd } from "@/lib/components/ui/Kbd";
 import type { MarkdownEditorHandle } from "@/lib/components/tasks/_components/MarkdownEditor";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import type { Priority } from "@/lib/components/priority/priorityMeta";
@@ -143,8 +144,8 @@ export function NewProjectModal({
     setIsLoading(false);
   };
 
-  useHotkey(
-    "Mod+Enter",
+  useShortcut(
+    "submitComposerForm",
     (e) => {
       e.preventDefault();
       if (canSubmit) {
@@ -281,7 +282,10 @@ export function NewProjectModal({
                 <Button onClick={handleSubmit} disabled={!canSubmit}>
                   {isLoading && <Spinner size="sm" />}
                   Create Project
-                  <kbd className="ml-1.5 text-xs opacity-60">⌘↵</kbd>
+                  <ShortcutKbd
+                    id="submitComposerForm"
+                    className="ml-1.5 border-0 bg-transparent p-0 text-current opacity-60"
+                  />
                 </Button>
               </span>
             </TooltipTrigger>

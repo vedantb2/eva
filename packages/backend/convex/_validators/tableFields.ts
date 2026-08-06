@@ -40,6 +40,7 @@ import {
   userFlowValidator,
   variationValidator,
 } from "./shapes";
+import { shortcutOverridesValidator } from "./shortcuts";
 
 export const userFields = {
   clerkId: v.optional(v.string()),
@@ -60,6 +61,8 @@ export const userFields = {
   emailNotificationsEnabled: v.optional(v.boolean()),
   /** Opt-in experimental features (settings → Experimental). */
   experimentalFlags: v.optional(experimentalFlagsValidator),
+  /** Rebound keyboard shortcuts (settings → Shortcuts). Sparse: missing = default. */
+  shortcutOverrides: v.optional(shortcutOverridesValidator),
 };
 
 // A user's own coding-agent login ("bring your own account"). Each row is one

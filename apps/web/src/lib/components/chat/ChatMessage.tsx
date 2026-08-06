@@ -209,10 +209,10 @@ export const ChatMessage = memo(function ChatMessage({
                 ) : null}
                 <MessageContent
                   className={cn(
-                    "group bg-secondary px-3 py-2 text-foreground",
+                    "group px-3 py-2 text-foreground",
                     isOtherUser
-                      ? "group-[.is-user]:ml-0"
-                      : "rounded-surface",
+                      ? "bg-secondary group-[.is-user]:ml-0 group-[.is-user]:bg-secondary"
+                      : "rounded-surface bg-primary/15 group-[.is-user]:bg-primary/15",
                   )}
                   style={
                     isOtherUser

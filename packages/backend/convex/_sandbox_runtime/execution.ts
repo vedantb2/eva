@@ -1403,6 +1403,35 @@ export const prewarmEntityDaemon = internalAction({
     runPrewarmEntityDaemon(ctx, args),
 });
 
+/**
+ * Pushes the sandbox's hard session deadline out by `durationMs`. Vercel's
+ * `timeout` is a hard per-session runtime cap — turns that outlive it are
+ * killed mid-work with no snapshot (filesystem rolls back to the pre-turn
+ * snapshot on the next resume). The stall watchdog schedules this on every
+ * not-stale tick of an active turn. Best-effort: a failed extension must
+ * never fail the turn, and it must not resume a stopped sandbox (getting a
+ * handle does not exec; extendTimeout on a stopped sandbox errors harmlessly).
+ */
+export const extendSandboxDeadline = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+    durationMs: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+      await sandbox.extendTimeout(args.durationMs);
+    } catch (error) {
+      console.log(
+        `[sandbox][execution] extendSandboxDeadline: skipped sandboxId=${args.sandboxId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+    return null;
+  },
+});
+
 /** Kills only the entity-scoped warm daemon (not the whole sandbox runner). */
 export const killEntityDaemon = internalAction({
   args: {

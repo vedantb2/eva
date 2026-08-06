@@ -156,6 +156,21 @@ export async function runStaleChatHeartbeatCheck<TId extends ChatId, TEntity>(
   });
 
   if (!decision.stale) {
+    // The turn is alive — push the sandbox's hard session deadline out so the
+    // provider's runtime cap can never kill live work (observed twice in
+    // prod: turns dead ~60min after resume, no snapshot, filesystem rolled
+    // back). 2× the tick keeps the deadline sliding ahead through missed or
+    // delayed checks; when the turn ends the checks stop and the sandbox
+    // stops on its ordinary schedule again.
+    const liveSandboxId = adapter.sandboxId(entity);
+    const liveRepoId = adapter.repoId(entity);
+    if (liveSandboxId && liveRepoId) {
+      await ctx.scheduler.runAfter(0, internal.sandbox.extendSandboxDeadline, {
+        sandboxId: liveSandboxId,
+        repoId: liveRepoId,
+        durationMs: STALE_RECHECK_MS * 2,
+      });
+    }
     await adapter.scheduleCheck(ctx, args.id, STALE_RECHECK_MS, {
       workflowId: args.workflowId,
       turnStartedAt: args.turnStartedAt,

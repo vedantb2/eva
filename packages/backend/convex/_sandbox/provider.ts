@@ -180,6 +180,16 @@ export interface SandboxHandle {
   stop(): Promise<void>;
   archive(): Promise<void>;
   /**
+   * Push the provider's hard session deadline out by `durationMs`. Vercel's
+   * `timeout` is a hard runtime cap per session — without extension a turn
+   * that outlives it is killed mid-work with no snapshot (observed twice in
+   * prod: turns dead ~60min after resume, filesystem rolled back). The chat
+   * stall watchdog calls this on every not-stale tick of an active turn, so a
+   * live turn keeps its VM alive while idle sandboxes still stop on schedule.
+   * Best-effort: callers must tolerate failure.
+   */
+  extendTimeout(durationMs: number): Promise<void>;
+  /**
    * Permanently remove the sandbox. On Vercel, also deletes snap_* objects for
    * this sandbox name (SDK delete does not reliably cascade). Pass
    * `preserveSnapshotIds` when a seed capture must survive prep-sandbox teardown.

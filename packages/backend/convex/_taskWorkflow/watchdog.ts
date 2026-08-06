@@ -133,6 +133,20 @@ export const checkStaleRuns = internalMutation({
     const isStale = streamingAgeMs > staleThresholdMs;
 
     if (!isStale) {
+      // The run is alive — push the sandbox's hard session deadline out so
+      // the provider's runtime cap can never kill live work mid-run (same
+      // contract as the chat stall watchdog; see extendSandboxDeadline).
+      if (run.repoId) {
+        await ctx.scheduler.runAfter(
+          0,
+          internal.sandbox.extendSandboxDeadline,
+          {
+            sandboxId: run.sandboxId,
+            repoId: run.repoId,
+            durationMs: STALE_RECHECK_MS * 2,
+          },
+        );
+      }
       await ctx.scheduler.runAfter(
         STALE_RECHECK_MS,
         internal.taskWorkflow.checkStaleRuns,

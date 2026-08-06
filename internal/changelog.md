@@ -1,5 +1,9 @@
 # Changelog
 
+## Watchdogs extend the sandbox deadline while a turn is alive - 2026-08-06
+
+Vercel's `timeout` is a hard per-session runtime cap; a turn that outlived it was killed mid-work with no snapshot, and the next resume rolled the filesystem back to the pre-turn snapshot (task 213: 59-minute cursor turn dead at the cap, work erased; session 53 this morning was the same failure). The chat stall watchdog and the task-run watchdog now schedule `sandbox.extendSandboxDeadline` (best-effort `extendTimeout`, 2× the 30s recheck tick) on every not-stale check, so live turns slide the deadline ahead of themselves while idle sandboxes still stop on their ordinary schedule. Reason: the platform cap should be a backstop against leaks, never the thing that kills healthy work.
+
 ## Global Automations sidebar on the rail - 2026-08-06
 
 Automations lived only under each repo's second-column sidebar, so cross-repo ops meant hopping apps. The rail now has a global Automations entry (`/automations`) that lists every accessible app as a collapsible group (same open-state pattern as Sessions), with unread counts from `countUnreadAll` instead of per-repo badges. Repo-local AutomationsSidebar / UnreadAutomationsBadge are gone. Reason: automations are a cross-repo surface; the rail is where that discovery belongs.

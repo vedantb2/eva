@@ -746,6 +746,13 @@ class VercelSandboxHandle implements SandboxHandle {
       `vercel start: sandbox ${this.sandbox.name} did not reach running within ${timeoutSeconds}s (state: ${observed}${lastError ? `, last error: ${lastError}` : ""})`,
     );
   }
+  async extendTimeout(durationMs: number): Promise<void> {
+    // Pushes the hard session deadline out (capped by the plan's max runtime).
+    // Called by the stall watchdog while a turn is active so live work is
+    // never killed by the create-time `timeout` cap. Best-effort by contract.
+    await this.sandbox.extendTimeout(durationMs);
+  }
+
   async stop(): Promise<void> {
     // Prefer the stop API (not runCommand) so a dead command stream cannot
     // block shutdown. Refresh first so we target the current session record.

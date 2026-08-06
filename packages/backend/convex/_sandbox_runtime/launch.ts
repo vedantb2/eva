@@ -5,6 +5,7 @@ import { quote } from "shell-quote";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
 import type { AIProvider } from "../validators";
 import { execHandle, requireEnv } from "./helpers";
+import { entityDaemonPaths } from "./daemonPaths";
 import type { SandboxHandle } from "../_sandbox/provider";
 import { CALLBACK_SCRIPT } from "./callbackScript";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
@@ -256,9 +257,10 @@ export async function launchScript(
   // held for the runner's lifetime (flock(1) execs node, so the lock fd rides
   // the runner process itself and the kernel releases it on death — no stale
   // pid or pid-reuse races). Concurrent launches for the same entity lose the
-  // lock instantly (exit 217, checked by waitForRunnerReady) instead of
-  // booting a duplicate daemon; the daemon's own pidfile fence remains as
-  // fallback for images without flock(1), where this fails open.
+  // lock instantly (exit 217) instead of booting a duplicate daemon, and
+  // waitForRunnerReady decides whether the lock holder is the runner this
+  // launch wanted; the daemon's own pidfile fence remains as fallback for
+  // images without flock(1), where this fails open.
   const runnerLockPath = runnerFlockPath(entityIdField, entityId);
   const runnerLaunchScript = [
     "#!/usr/bin/env bash",
@@ -291,7 +293,13 @@ export async function launchScript(
     "chmod +x /tmp/eva-launch-runner.sh && /tmp/eva-launch-runner.sh",
     { timeoutSeconds: 15 },
   );
-  await waitForRunnerReady(sandbox, entityId, runnerLockPath);
+  await waitForRunnerReady(sandbox, entityId, {
+    runnerLockPath,
+    daemonPaths: entityDaemonPaths(entityIdField, entityId),
+    // Only a daemon launch can be satisfied by an incumbent runner, and only
+    // one whose opts signature matches (see waitForRunnerReady).
+    expectedDaemonOptsSig: opts.extraEnvVars?.EVA_DAEMON_OPTS,
+  });
   console.log(
     `[sandbox][launchScript] runner ready in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
   );
@@ -301,7 +309,11 @@ export async function launchScript(
 async function waitForRunnerReady(
   sandbox: SandboxHandle,
   entityId: string,
-  runnerLockPath: string,
+  fence: {
+    runnerLockPath: string;
+    daemonPaths: { pid: string; opts: string };
+    expectedDaemonOptsSig: string | undefined;
+  },
 ): Promise<void> {
   for (let attempt = 0; attempt < CALLBACK_READY_POLL_ATTEMPTS; attempt++) {
     const ready = (
@@ -323,21 +335,39 @@ async function waitForRunnerReady(
       )
     ).trim();
     if (alive === "dead") {
-      // A loser of the spawn flock exits immediately, before writing the
-      // ready file. When a live rival still holds the entity lock, the runner
-      // this launch wanted exists — success, not a boot failure.
+      // A loser of the spawn flock exits immediately, before writing the ready
+      // file. A held lock alone is NOT success: the holder can be a stale
+      // subtree fd (children inherit the lock fd), a daemon with different
+      // model/tools than this launch asked for, or — for a one-shot turn — a
+      // warm daemon that will never run this launch's prompt. Only accept it
+      // when a live daemon owns the entity pidfile with our exact opts sig.
       const lock = (
         await execHandle(
           sandbox,
-          `if ! command -v flock >/dev/null 2>&1; then echo nolock; elif flock -n ${runnerLockPath} true 2>/dev/null; then echo free; else echo held; fi`,
+          `if ! command -v flock >/dev/null 2>&1; then echo nolock; elif flock -n ${quote([fence.runnerLockPath])} true 2>/dev/null; then echo free; else echo held; fi`,
           5,
         )
       ).trim();
-      if (lock === "held") {
+      if (lock === "held" && fence.expectedDaemonOptsSig !== undefined) {
+        const incumbent = (
+          await execHandle(
+            sandbox,
+            `pid=$(cat ${quote([fence.daemonPaths.pid])} 2>/dev/null || true); ` +
+              `if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then echo norunner; ` +
+              `elif [ "$(cat ${quote([fence.daemonPaths.opts])} 2>/dev/null)" = ${quote([fence.expectedDaemonOptsSig])} ]; then echo match; ` +
+              `else echo optsmismatch; fi`,
+            5,
+          )
+        ).trim();
+        if (incumbent === "match") {
+          console.log(
+            `[sandbox][launchScript] spawn lock held by a live daemon with matching opts — reusing it entityId=${entityId}`,
+          );
+          return;
+        }
         console.log(
-          `[sandbox][launchScript] spawn lock held by live rival runner — reusing it entityId=${entityId}`,
+          `[sandbox][launchScript] spawn lock held but incumbent unusable (${incumbent}) entityId=${entityId}`,
         );
-        return;
       }
       const log = await execHandle(
         sandbox,
@@ -345,7 +375,7 @@ async function waitForRunnerReady(
         10,
       );
       throw new Error(
-        `[sandbox][launchScript] runner died entityId=${entityId}: ${log}`,
+        `[sandbox][launchScript] runner died entityId=${entityId} spawnLock=${lock}: ${log}`,
       );
     }
 

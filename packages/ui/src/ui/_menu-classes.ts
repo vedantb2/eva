@@ -1,7 +1,7 @@
 import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 
 export const menuContentClass = [
-  "z-50 min-w-48 overflow-hidden border border-border bg-popover p-1.5 text-popover-foreground shadow-lg",
+  "z-50 min-w-48 overflow-hidden bg-popover p-1.5 text-popover-foreground smooth-shadow-ring-lg",
   SURFACE_RADIUS_CLASS,
   // No open/close animation — zoom+fade made composer menus (traits, model)
   // feel sticky on click; instant open matches the expected control feel.

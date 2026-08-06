@@ -11,11 +11,11 @@ Surface tokens map 1:1 to the HeroUI palette: `--background` (page canvas) → `
 - Cards, surfaces, and content containers are defined by tone (`bg-card` / `bg-muted`) — no decorative hairline. Prefer `<Surface>` / `<Card>` / `ui-surface` over hand-rolled classes.
 - Layout regions (sidebar edge, list/detail dividers) are separated by a hairline `border-border`/`border-sidebar-border`, not tonal contrast.
 - Active/selected items use a surface fill (and `ring-*` when emphasis is needed); avoid relying on a resting hairline.
-- Inputs/selects keep their form-affordance border. Floating overlays (dialogs, menus, popovers) keep their chrome borders.
+- Inputs/selects keep their form-affordance border. Floating overlays use `smooth-shadow-ring-*` (not a separate hairline).
 
 **Shadows**
 
-- Cards and surfaces are tone only (no `shadow-sm`). Floating/overlay elements (popovers, tooltips, dropdowns, dialogs, sheets) keep larger shadows for layering.
+- Cards and surfaces are tone only (no `shadow-sm`). Floating overlays (dialogs, popovers, menus, tooltips, toasts) use `smooth-shadow-ring-*` from `shadow-plugin` — one continuous edge, never `border` + `shadow` on the same element.
 
 **Layout & surface colors**
 

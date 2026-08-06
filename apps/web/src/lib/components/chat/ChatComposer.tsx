@@ -242,7 +242,7 @@ export function ChatComposer({
           <div
             aria-busy="true"
             aria-label="Loading draft..."
-            className="pointer-events-none rounded-surface border border-border shadow-lg bg-background opacity-50 min-h-18"
+            className="pointer-events-none rounded-surface smooth-shadow-ring-lg bg-background opacity-50 min-h-18"
           />
         ) : (
           <PromptInputProvider initialInput={seed?.initialDisplay}>

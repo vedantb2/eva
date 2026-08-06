@@ -175,7 +175,7 @@ function Toaster({ style, ...props }: ToasterProps) {
           toast: [
             "group flex w-full cursor-pointer items-center gap-x-4 p-3 font-sans text-sm",
             SURFACE_RADIUS_CLASS,
-            "border border-border bg-card text-foreground shadow-md",
+            "bg-card text-foreground smooth-shadow-ring-md",
             // Hides the content of collapsed toasts behind the front one.
             // Sonner's rule for this is gated on the styling we opt out of.
             "[&[data-expanded=false][data-front=false]>*]:opacity-0",

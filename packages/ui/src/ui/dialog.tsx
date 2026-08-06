@@ -69,7 +69,7 @@ const DialogContent = React.forwardRef<
         className={cn(
           "t-modal fixed left-[50%] top-[50%] z-50 flex flex-col w-[92vw] max-w-lg max-h-[90vh] gap-4",
           SURFACE_RADIUS_CLASS,
-          "border border-border bg-card p-6 shadow-xl overflow-hidden",
+          "bg-card p-6 smooth-shadow-ring-xl overflow-hidden",
           className,
         )}
         {...props}

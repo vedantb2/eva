@@ -402,6 +402,9 @@ importers:
       remark-breaks:
         specifier: ^4.0.0
         version: 4.0.0
+      shadow-plugin:
+        specifier: ^1.2.4
+        version: 1.2.4
       shiki:
         specifier: ^3.22.0
         version: 3.23.0
@@ -8198,6 +8201,9 @@ packages:
 
   setprototypeof@1.2.0:
     resolution: {integrity: sha512-E5LDX7Wrp85Kil5bhZv46j8jOeboKq5JMmYM3gVGdGH8xFpPWXUMsNrlODCrkoxMEeNi/XZIwuRvY4XNwYMJpw==}
+
+  shadow-plugin@1.2.4:
+    resolution: {integrity: sha512-A+Xuns08CYWNAfrAEEKok53Jy+emqo/6FdvGWfk6X4AF6vEJ9NAJ7EAlvPdfNNnabP/DC4Q4kofrdehvgY5Mug==}
 
   shallow-clone@3.0.1:
     resolution: {integrity: sha512-/6KqX+GVUdqPuPPd2LxDDxzX6CAbjJehAAOKlNpqqUpAqPM6HeL8f+o3a+JsyGjn2lv0WY8UsTgUJjU9Ok55NA==}
@@ -17311,6 +17317,8 @@ snapshots:
     optional: true
 
   setprototypeof@1.2.0: {}
+
+  shadow-plugin@1.2.4: {}
 
   shallow-clone@3.0.1:
     dependencies:

@@ -51,3 +51,35 @@ test("evaluateAttemptHealth allows long stdout silence while idle", () => {
   expect(result.shouldTerminate).toBe(false);
   resetStateForTests();
 });
+
+test("evaluateAttemptHealth kills a stream silent beyond the mid-stream cap", () => {
+  resetStateForTests();
+  const result = evaluateAttemptHealth({
+    childPid: 1234,
+    // Events already flowed this attempt, so the first-event guard is passed.
+    parsedEventsAtStart: S.parsedStreamEventCount - 1,
+    attemptStartedAt: Date.now() - 12 * 60 * 1000,
+    lastStdoutAt: Date.now() - 11 * 60 * 1000,
+    processLabel: "test",
+    toolStallErrorMessage: "",
+  });
+  expect(result.timedOutForNoOutput).toBe(true);
+  expect(result.shouldTerminate).toBe(true);
+  resetStateForTests();
+});
+
+test("evaluateAttemptHealth exempts in-flight tools from the mid-stream silence cap", () => {
+  resetStateForTests();
+  setInFlightToolUsesForTest(1);
+  const result = evaluateAttemptHealth({
+    childPid: 1234,
+    parsedEventsAtStart: S.parsedStreamEventCount - 1,
+    attemptStartedAt: Date.now() - 12 * 60 * 1000,
+    lastStdoutAt: Date.now() - 11 * 60 * 1000,
+    processLabel: "test",
+    toolStallErrorMessage: "",
+  });
+  expect(result.timedOutForNoOutput).toBe(false);
+  expect(result.shouldTerminate).toBe(false);
+  resetStateForTests();
+});

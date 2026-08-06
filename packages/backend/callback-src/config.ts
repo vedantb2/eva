@@ -60,6 +60,17 @@ export const WORK_DIR = existsSync("/tmp/repo")
 export const NO_OUTPUT_TIMEOUT_MS = Number(
   process.env.CLAUDE_NO_OUTPUT_TIMEOUT_MS || "60000",
 );
+/**
+ * Mid-stream silence cap for CLI attempts: kill when the provider stream emits
+ * nothing for this long with no tool in flight and no result yet. The original
+ * 45s idle-stdout kill was removed (c8bb7fb8) for murdering healthy quiet
+ * runs; that left hung provider streams riding until MAX_TOTAL_RUNTIME_MS —
+ * observed in prod as a cursor:grok turn silent for 29 minutes mid-turn.
+ * 10 minutes is far beyond any legitimate token gap but bounds a dead stream.
+ */
+export const STREAM_SILENCE_TIMEOUT_MS = Number(
+  process.env.CLAUDE_STREAM_SILENCE_TIMEOUT_MS || String(10 * 60 * 1000),
+);
 export const FIRST_EVENT_TIMEOUT_MS = Number(
   process.env.CLAUDE_FIRST_EVENT_TIMEOUT_MS || "90000",
 );

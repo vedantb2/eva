@@ -6,6 +6,7 @@ import {
   MAX_TOTAL_RUNTIME_MS,
   NO_OUTPUT_CHECK_INTERVAL_MS,
   SCRIPT_STARTED_AT,
+  STREAM_SILENCE_TIMEOUT_MS,
   WORK_DIR,
 } from "../config.js";
 import { updateThinkingStep } from "../parse/canonical.js";
@@ -96,6 +97,25 @@ export function evaluateAttemptHealth(
 
   if (S.inFlightToolUses > 0 || S.resultEventSeen) {
     return result;
+  }
+
+  // Mid-stream silence kill. Deliberately generous (10min default, vs the 45s
+  // idle kill removed in c8bb7fb8 for murdering healthy quiet runs): thinking
+  // models stream deltas and tools are exempted above, so silence this long
+  // means the provider stream is dead — without this it rides until the 90min
+  // max-runtime cap (observed: cursor:grok silent 29min mid-turn in prod).
+  const silenceMs = Date.now() - input.lastStdoutAt;
+  if (silenceMs > STREAM_SILENCE_TIMEOUT_MS) {
+    result.timedOutForNoOutput = true;
+    if (S.firstTextBlockAt > 0) {
+      result.timedOutAfterFirstText = true;
+    }
+    result.logMessage =
+      input.processLabel +
+      " stream silent for " +
+      String(silenceMs) +
+      "ms with no tool in flight; terminating process";
+    result.shouldTerminate = true;
   }
 
   return result;

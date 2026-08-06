@@ -4,16 +4,17 @@ Environment variables control watchdog and HTTP behavior for the sandbox callbac
 
 ## CLI stdout / lifecycle
 
-| Variable                                  | Default  | Purpose                                                  |
-| ----------------------------------------- | -------- | -------------------------------------------------------- |
-| `CLAUDE_NO_OUTPUT_TIMEOUT_MS`             | (unused) | Legacy env; idle stdout silence no longer kills the CLI. |
-| `CLAUDE_FIRST_EVENT_TIMEOUT_MS`           | 90000    | Kill if no parseable stream-json line before this.       |
-| `CLAUDE_FIRST_ASSISTANT_EVENT_TIMEOUT_MS` | 120000   | After Claude `system/init`, kill if no assistant event.  |
-| `CLAUDE_MAX_TOTAL_RUNTIME_MS`             | 5400000  | Absolute callback+CLI runtime cap (~90 min).             |
+| Variable                                  | Default  | Purpose                                                           |
+| ----------------------------------------- | -------- | ----------------------------------------------------------------- |
+| `CLAUDE_NO_OUTPUT_TIMEOUT_MS`             | 60000    | Daemon-path message watchdog base (×5 in claudeSdkDaemon).        |
+| `CLAUDE_STREAM_SILENCE_TIMEOUT_MS`        | 600000   | Kill a mid-turn stream silent this long with no tool in flight.   |
+| `CLAUDE_FIRST_EVENT_TIMEOUT_MS`           | 90000    | Kill if no parseable stream-json line before this.                |
+| `CLAUDE_FIRST_ASSISTANT_EVENT_TIMEOUT_MS` | 120000   | After Claude `system/init`, kill if no assistant event.           |
+| `CLAUDE_MAX_TOTAL_RUNTIME_MS`             | 5400000  | Absolute callback+CLI runtime cap (~90 min).                      |
 
 Watchdog interval: `NO_OUTPUT_CHECK_INTERVAL_MS` = 5000 (fixed in `config.ts`).
 
-While a tool is in flight, idle checks are skipped — only max runtime, zombie detection, and first-event/assistant guards apply. There is no per-tool stall kill and no idle stdout kill.
+While a tool is in flight, idle checks are skipped — only max runtime, zombie detection, and first-event/assistant guards apply. There is no per-tool stall kill. Idle stdout silence kills the CLI only past the generous `CLAUDE_STREAM_SILENCE_TIMEOUT_MS` cap (10 min — reinstated after a prod cursor:grok stream hung silently for 29 min; the old 45s kill removed in c8bb7fb8 stays dead).
 
 ## Convex HTTP
 

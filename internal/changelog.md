@@ -1,5 +1,9 @@
 # Changelog
 
+## Reinstate mid-stream silence kill (10 min) for CLI attempts - 2026-08-06
+
+Removing the 45s idle-stdout kill (c8bb7fb8) left no mid-turn stall guard at all — evaluateAttemptHealth's final tool-in-flight check guarded dead code, so a hung provider stream rode until the 90-minute max-runtime cap (observed: prod cursor:grok turn silent for 29 minutes, session 53 carepulse-ts). A silence kill returns at `CLAUDE_STREAM_SILENCE_TIMEOUT_MS` (default 10 min), still exempting in-flight tools and post-result states, flagging `timedOutForNoOutput` (+ `timedOutAfterFirstText` past first text) so the turn fails visibly with the timeout in its error. Reason: 10 minutes bounds a dead stream without resurrecting the false-kill regression the 45s timeout caused.
+
 ## Kernel flock + launch lease make duplicate daemons structurally impossible - 2026-08-06
 
 The pidfile fence converges duplicates after the fact; these two layers stop them existing. The runner now spawns under `flock -n` on a per-entity lockfile (flock execs node, so the lock rides the runner and the kernel releases it on death — racing launches exit instantly, and waitForRunnerReady treats a live lock-holder as success, failing open where flock is missing). Convex-side, `daemonLaunchLeases` single-flights the kill+launch section of prewarm (30s TTL, released on settle), so prewarm bursts stop paying wasted token-mint + upload + boot for launches that would lose the lock anyway. Reason: mutual exclusion belongs at the spawn syscall and the launch dispatcher, not in check-then-launch polling.

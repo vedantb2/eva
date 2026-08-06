@@ -41,6 +41,9 @@ var WORK_DIR = existsSync("/tmp/repo") ? "/tmp/repo" : existsSync("/workspace/re
 var NO_OUTPUT_TIMEOUT_MS = Number(
   process.env.CLAUDE_NO_OUTPUT_TIMEOUT_MS || "60000"
 );
+var STREAM_SILENCE_TIMEOUT_MS = Number(
+  process.env.CLAUDE_STREAM_SILENCE_TIMEOUT_MS || String(10 * 60 * 1e3)
+);
 var FIRST_EVENT_TIMEOUT_MS = Number(
   process.env.CLAUDE_FIRST_EVENT_TIMEOUT_MS || "90000"
 );
@@ -4039,6 +4042,15 @@ function evaluateAttemptHealth(input) {
   }
   if (callbackState.inFlightToolUses > 0 || callbackState.resultEventSeen) {
     return result;
+  }
+  const silenceMs = Date.now() - input.lastStdoutAt;
+  if (silenceMs > STREAM_SILENCE_TIMEOUT_MS) {
+    result.timedOutForNoOutput = true;
+    if (callbackState.firstTextBlockAt > 0) {
+      result.timedOutAfterFirstText = true;
+    }
+    result.logMessage = input.processLabel + " stream silent for " + String(silenceMs) + "ms with no tool in flight; terminating process";
+    result.shouldTerminate = true;
   }
   return result;
 }

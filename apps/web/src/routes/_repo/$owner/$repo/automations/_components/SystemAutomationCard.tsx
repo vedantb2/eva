@@ -70,10 +70,10 @@ export function SystemAutomationCard({
             className={cn(
               // rounded-lg, not rounded-surface: a 36px tile should read as a
               // circle under the "Full" radius theme, like other compact chrome.
-              "flex size-9 shrink-0 items-center justify-center rounded-lg border transition-colors",
+              "flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors",
               installed
-                ? "border-primary/30 bg-primary/10 text-primary"
-                : "border-border bg-muted text-muted-foreground",
+                ? "bg-primary/10 text-primary"
+                : "bg-muted text-muted-foreground",
             )}
           >
             <EntryIcon size={18} />
@@ -142,7 +142,7 @@ export function SystemAutomationCard({
 /** Small metadata pill in the card body. */
 function Chip({ icon: ChipIcon, children }: { icon: Icon; children: string }) {
   return (
-    <span className="flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11px] text-muted-foreground">
+    <span className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
       <ChipIcon size={12} className="shrink-0" />
       {children}
     </span>

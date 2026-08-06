@@ -2,33 +2,33 @@
 
 Read this when doing frontend / design work in `apps/web`.
 
-## HeroUI (border-based)
+## Surfaces (tone-based)
 
 Surface tokens map 1:1 to the HeroUI palette: `--background` (page canvas) → `--card`/`--popover` (surface, elevated) → `--muted` (surface-secondary) → `--secondary` (default). Accent (`--primary`/`--accent`/`--ring`/`--chart-1`/sidebar accent), `--radius`, and `--font-*` are user-defined via theme settings — never hardcode them.
 
 **Borders**
 
-- Cards, surfaces, and content containers get a hairline `border border-border`. This is the primary way surfaces are defined (HeroUI look).
+- Cards, surfaces, and content containers are defined by tone (`bg-card` / `bg-muted`) — no decorative hairline. Prefer `<Surface>` / `<Card>` / `ui-surface` over hand-rolled classes.
 - Layout regions (sidebar edge, list/detail dividers) are separated by a hairline `border-border`/`border-sidebar-border`, not tonal contrast.
-- Active/selected items use a surface fill + `border-border` chip; give inactive items `border border-transparent` to avoid layout shift.
-- Inputs/selects keep their form-affordance border.
+- Active/selected items use a surface fill (and `ring-*` when emphasis is needed); avoid relying on a resting hairline.
+- Inputs/selects keep their form-affordance border. Floating overlays (dialogs, menus, popovers) keep their chrome borders.
 
 **Shadows**
 
-- Cards and surfaces are border + tone only (no `shadow-sm`). Floating/overlay elements (popovers, tooltips, dropdowns, dialogs, sheets) keep larger shadows for layering.
+- Cards and surfaces are tone only (no `shadow-sm`). Floating/overlay elements (popovers, tooltips, dropdowns, dialogs, sheets) keep larger shadows for layering.
 
 **Layout & surface colors**
 
 - Sidebar shares the canvas tone (`--sidebar` = `--background`); it is distinguished by the region-divider border, not by being darker.
-- Hierarchy comes from: hairline borders + surface tone steps > whitespace > typography weight/size.
+- Hierarchy comes from: surface tone steps > whitespace > typography weight/size.
 
 **Hover & interaction**
 
-- Hover: `hover:bg-*` (background shift). Active/selected: surface fill + `border-border` (and `ring-*` if extra emphasis is needed).
+- Hover: `hover:bg-*` (background shift). Active/selected: surface fill (and `ring-*` if extra emphasis is needed).
 
 **Spacing**
 
-- Use whitespace/padding (Gestalt Law of Proximity) to group related elements; reach for borders/dividers for structural separation (HeroUI style).
+- Use whitespace/padding (Gestalt Law of Proximity) to group related elements; reach for borders/dividers only for structural separation (layout regions), not to outline soft surfaces.
 
 ## Component structure
 

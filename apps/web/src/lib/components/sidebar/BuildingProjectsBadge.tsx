@@ -147,7 +147,7 @@ interface SectionProps {
 
 function Section({ label, count, glyph, children }: SectionProps) {
   return (
-    <div className="rounded-surface border border-border bg-muted/40 p-1">
+    <div className="rounded-surface bg-muted/40 p-1">
       <div className="flex items-center gap-2 px-2 pb-1 pt-1.5">
         <span className="flex h-3 w-3 items-center justify-center">
           {glyph}

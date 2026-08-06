@@ -129,7 +129,7 @@ export function InboxClient() {
     >
       {filtered === undefined ? (
         <div
-          className="min-h-80 space-y-2 rounded-surface border border-border bg-card p-4"
+          className="min-h-80 space-y-2 rounded-surface bg-card p-4"
           aria-busy="true"
           aria-label="Loading inbox"
         >
@@ -152,7 +152,7 @@ export function InboxClient() {
           />
         </div>
       ) : (
-        <div className="overflow-hidden rounded-surface border border-border bg-card">
+        <div className="overflow-hidden rounded-surface bg-card">
           <AnimatePresence initial={false}>
             {groups.map((group) => (
               <m.div

@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge, KanbanBoard } from "@eva/ui";
+import { Badge, KanbanBoard, cn } from "@eva/ui";
 import { useCallback, type ReactNode, type RefCallback } from "react";
 
 import type { IconCircle } from "@tabler/icons-react";
@@ -23,7 +23,7 @@ export const KANBAN_COLUMN_WIDTH_CLASS =
 
 interface ColumnConfig {
   bg: string;
-  /** Kept for callers; columns use a flat muted wash + hairline border. */
+  /** Kept for callers; columns use a flat muted wash. */
   cardBg?: string;
   text: string;
   label: string;
@@ -39,6 +39,7 @@ interface KanbanColumnProps {
   headerExtra?: ReactNode;
   emptyLabel?: string;
   scrollRef?: RefCallback<HTMLDivElement>;
+  className?: string;
 }
 
 export function KanbanColumn({
@@ -50,6 +51,7 @@ export function KanbanColumn({
   headerExtra,
   emptyLabel = "No items",
   scrollRef,
+  className,
 }: KanbanColumnProps) {
   const Icon = config.icon;
 
@@ -64,12 +66,15 @@ export function KanbanColumn({
     <KanbanBoard
       id={id}
       disabled={!droppable}
-      className="flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-clip bg-muted/40"
+      className={cn(
+        "flex min-h-0 min-w-0 flex-1 self-stretch flex-col overflow-clip bg-muted/40",
+        className,
+      )}
     >
       <div className="flex shrink-0 flex-row items-center justify-between p-2">
         <Badge
           variant="outline"
-          className={`${config.bg} ${config.text} gap-1.5 border-border py-1`}
+          className={`${config.bg} ${config.text} gap-1.5 py-1`}
         >
           <Icon size={14} className={config.text} />
           {config.label}

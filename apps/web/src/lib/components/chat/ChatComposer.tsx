@@ -367,7 +367,7 @@ export function ChatComposer({
         )}
       </BorderBeam>
       {underCardLeading ? (
-        <div className="mx-auto flex w-[calc(100%-1.5rem)] md:w-[calc(100%-2rem)] items-center rounded-b-surface border border-border bg-muted/50 px-2 py-1.5">
+        <div className="mx-auto flex w-[calc(100%-1.5rem)] md:w-[calc(100%-2rem)] items-center rounded-b-surface bg-muted/70 px-2 py-1.5">
           <div className="min-w-0">{underCardLeading}</div>
         </div>
       ) : null}

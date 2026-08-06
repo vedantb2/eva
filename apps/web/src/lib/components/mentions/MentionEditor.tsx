@@ -179,7 +179,7 @@ function renderMenuItemRow(
           <span className="truncate">{label}</span>
         </span>
         {badge ? (
-          <span className="shrink-0 rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
+          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
             {badge}
           </span>
         ) : null}
@@ -202,7 +202,7 @@ function defaultRenderItem(item: MentionItem, _isSelected: boolean): ReactNode {
           {item.label}
         </span>
         {item.badge ? (
-          <span className="shrink-0 rounded-md border border-border bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
+          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
             {item.badge}
           </span>
         ) : null}

@@ -24,7 +24,7 @@ FOLLOW ALL OF THESE RULES
 
 ## Domain docs (read when relevant)
 
-- Frontend / UI work → `docs/eva-ui.md` (HeroUI, components, router, vite, nuqs)
+- Frontend / UI work → `docs/eva-ui.md` (tone-based surfaces, no decorative hairlines; components, router, vite, nuqs)
 - Convex / schema / migrations → `docs/eva-convex.md`
 - agent-browser on eva app → navigate to `/?agent` to auto sign in as the agent user
 

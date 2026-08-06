@@ -148,7 +148,7 @@ export function TeamDetailClient({
         </Tabs>
       }
     >
-      <div className="mb-4 flex items-center justify-between gap-3 rounded-surface border border-border bg-card px-4 py-3">
+      <div className="mb-4 flex items-center justify-between gap-3 rounded-surface bg-card px-4 py-3">
         <div className="flex min-w-0 items-center gap-3">
           <div className="relative size-10 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
             {team.backgroundUrl ? (

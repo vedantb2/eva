@@ -2,6 +2,9 @@
 
 import {
   Button,
+  Tabs,
+  TabsList,
+  TabsTrigger,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -18,6 +21,12 @@ const RANGE_OPTIONS: { value: Range; label: string }[] = [
   { value: "monthly", label: "Month" },
   { value: "daily", label: "Week" },
 ];
+
+function isRange(value: string): value is Range {
+  return (
+    value === "quarterly" || value === "monthly" || value === "daily"
+  );
+}
 
 const ZOOM_MIN = 50;
 const ZOOM_MAX = 200;
@@ -57,21 +66,26 @@ export function TimelineToolbar({
         <TooltipContent>Jump to today</TooltipContent>
       </Tooltip>
 
-      <div className="flex items-center overflow-hidden rounded-surface border border-border bg-muted/40">
-        {RANGE_OPTIONS.map((opt) => (
-          <Button
-            key={opt.value}
-            variant={range === opt.value ? "secondary" : "ghost"}
-            size="sm"
-            className="h-8 rounded-none px-3 text-xs"
-            onClick={() => onRangeChange(opt.value)}
-          >
-            {opt.label}
-          </Button>
-        ))}
-      </div>
+      <Tabs
+        value={range}
+        onValueChange={(value) => {
+          if (isRange(value)) onRangeChange(value);
+        }}
+      >
+        <TabsList className="tabs-segmented h-8">
+          {RANGE_OPTIONS.map((opt) => (
+            <TabsTrigger
+              key={opt.value}
+              value={opt.value}
+              className="px-3 py-1 text-xs"
+            >
+              {opt.label}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
 
-      <div className="flex items-center overflow-hidden rounded-surface border border-border bg-muted/40">
+      <div className="flex items-center overflow-hidden rounded-surface bg-muted/40">
         <Button
           variant="ghost"
           size="icon"

@@ -80,7 +80,7 @@ export function PrOverviewHeader({
 
 function BranchRef({ name }: { name: string }) {
   return (
-    <span className="rounded border border-border bg-muted/60 px-1 py-0.5 font-mono text-[0.8125rem] text-foreground">
+    <span className="rounded bg-muted/60 px-1 py-0.5 font-mono text-[0.8125rem] text-foreground">
       {name}
     </span>
   );

@@ -194,7 +194,7 @@ export function QuickTaskCard({
       contentClassName="flex flex-col gap-1.5 px-2.5 py-2 pl-3 sm:px-3 sm:py-2.5 sm:pl-3.5"
       className={cn(
         showError
-          ? "border-destructive/30 bg-destructive/5"
+          ? "border border-destructive/30 bg-destructive/5"
           : isInProgress
             ? "bg-card"
             : undefined,

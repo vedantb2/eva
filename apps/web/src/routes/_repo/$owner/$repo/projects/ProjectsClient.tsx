@@ -8,6 +8,9 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
+  Tabs,
+  TabsList,
+  TabsTrigger,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -64,6 +67,12 @@ const VIEW_OPTIONS: {
   { key: "timeline", icon: IconTimeline, label: "Timeline view" },
   { key: "list", icon: IconList, label: "List view" },
 ];
+
+function isProjectView(value: string): value is ProjectView {
+  return (
+    value === "kanban" || value === "timeline" || value === "list"
+  );
+}
 
 const SORT_FIELD_LABELS: Record<SortField, string> = {
   created: "Date Created",
@@ -228,23 +237,29 @@ export function ProjectsClient() {
         variant="large"
       />
       {hasProjects && (
-        <div className="flex items-center rounded-surface border border-border bg-muted/40 overflow-hidden">
-          {VIEW_OPTIONS.map((opt) => (
-            <Tooltip key={opt.key}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={view === opt.key ? "secondary" : "ghost"}
-                  size="icon"
-                  className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.96]"
-                  onClick={() => setParams({ view: opt.key })}
-                >
-                  <opt.icon size={16} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>{opt.label}</TooltipContent>
-            </Tooltip>
-          ))}
-        </div>
+        <Tabs
+          value={view}
+          onValueChange={(value) => {
+            if (isProjectView(value)) setParams({ view: value });
+          }}
+        >
+          <TabsList className="tabs-segmented h-8">
+            {VIEW_OPTIONS.map((opt) => (
+              <Tooltip key={opt.key}>
+                <TooltipTrigger asChild>
+                  <TabsTrigger
+                    value={opt.key}
+                    aria-label={opt.label}
+                    className="px-2.5 py-1"
+                  >
+                    <opt.icon size={16} />
+                  </TabsTrigger>
+                </TooltipTrigger>
+                <TooltipContent>{opt.label}</TooltipContent>
+              </Tooltip>
+            ))}
+          </TabsList>
+        </Tabs>
       )}
       {hasProjects && (
         <DropdownMenu>

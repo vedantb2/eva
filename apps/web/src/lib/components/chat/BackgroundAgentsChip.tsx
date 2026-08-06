@@ -68,7 +68,7 @@ export function BackgroundAgentsChip({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary px-2.5 py-1 text-xs text-foreground hover:bg-muted"
+          className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-secondary px-2.5 py-1 text-xs text-foreground hover:bg-muted"
         >
           <IconRobot className="size-3.5 shrink-0 text-muted-foreground" />
           <span>{label}</span>

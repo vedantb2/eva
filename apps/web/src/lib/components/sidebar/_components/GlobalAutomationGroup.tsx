@@ -95,7 +95,7 @@ export function GlobalAutomationGroup({
               logoUrl={repo.logoUrl}
               size={18}
               fallback={
-                <span className="flex size-[18px] items-center justify-center rounded-sm border border-border bg-muted text-[10px] font-semibold text-muted-foreground">
+                <span className="flex size-[18px] items-center justify-center rounded-sm bg-muted text-[10px] font-semibold text-muted-foreground">
                   {label.charAt(0).toUpperCase()}
                 </span>
               }
@@ -107,7 +107,7 @@ export function GlobalAutomationGroup({
               {sorted.length > 0 ? (
                 <Badge
                   variant="outline"
-                  className="shrink-0 border-border bg-transparent px-1.5 py-0"
+                  className="shrink-0 border-0 bg-transparent px-1.5 py-0"
                 >
                   <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
                     {sorted.length}
@@ -208,7 +208,7 @@ export function GlobalAutomationGroup({
                           {automation.title}
                         </span>
                         {automation.systemKey !== undefined && (
-                          <span className="shrink-0 rounded-full border border-border px-1.5 text-[10px] text-muted-foreground">
+                          <span className="shrink-0 rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground">
                             System
                           </span>
                         )}

@@ -38,10 +38,10 @@ function useSharedLayoutNav() {
 
 /** Active surface for vertical rail tiles — matches sidebar nav pill. */
 export const railTileActiveClass =
-  "border-border bg-sidebar-accent text-sidebar-primary";
+  "bg-sidebar-accent text-sidebar-primary";
 
 const sidebarNavPillClass =
-  "pointer-events-none absolute inset-0 rounded-menu-item border border-border bg-sidebar-accent";
+  "pointer-events-none absolute inset-0 rounded-menu-item bg-sidebar-accent";
 
 /** Animated nav list — shared `layoutId` background slides between items on hover/active. */
 export function SharedLayoutNav({

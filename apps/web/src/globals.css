@@ -7,11 +7,11 @@
  * layer below already pins every element to `border-border`. */
 
 @utility ui-surface {
-  @apply rounded-surface border border-border bg-card;
+  @apply rounded-surface bg-card;
 }
 
 @utility ui-surface-strong {
-  @apply rounded-surface border border-border bg-card;
+  @apply rounded-surface bg-card;
 }
 
 @utility ui-surface-interactive {

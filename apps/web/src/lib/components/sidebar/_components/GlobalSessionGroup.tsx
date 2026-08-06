@@ -120,7 +120,7 @@ export function GlobalSessionGroup({
               logoUrl={repo.logoUrl}
               size={18}
               fallback={
-                <span className="flex size-[18px] items-center justify-center rounded-sm border border-border bg-muted text-[10px] font-semibold text-muted-foreground">
+                <span className="flex size-[18px] items-center justify-center rounded-sm bg-muted text-[10px] font-semibold text-muted-foreground">
                   {label.charAt(0).toUpperCase()}
                 </span>
               }
@@ -132,7 +132,7 @@ export function GlobalSessionGroup({
               {listMode === "active" && runningCount > 0 ? (
                 <Badge
                   variant="outline"
-                  className="shrink-0 gap-1 border-border bg-transparent px-1.5 py-0"
+                  className="shrink-0 gap-1 border-0 bg-transparent px-1.5 py-0"
                 >
                   <span className="size-1.5 rounded-full bg-emerald-500" />
                   <span className="text-[11px] font-medium tabular-nums text-muted-foreground">

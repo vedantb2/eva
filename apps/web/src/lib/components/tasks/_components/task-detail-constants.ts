@@ -58,7 +58,7 @@ export function isTaskDetailTab(v: string): v is TaskDetailTab {
  * active-pill fills; inactive labels use muted-foreground so they read dimmed.
  */
 export const TASK_DETAIL_TAB_LIST_CLASS =
-  "sticky top-0 z-10 h-auto w-fit gap-0.5 border border-border p-1 shadow-none tabs-segmented";
+  "sticky top-0 z-10 h-auto w-fit gap-0.5 p-1 shadow-none tabs-segmented";
 
 export const TASK_DETAIL_TAB_TRIGGER_CLASS =
   "gap-1 px-3 py-1.5 text-xs font-medium sm:gap-1.5 sm:text-sm transition-[color,background-color] data-[state=active]:text-foreground data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-muted data-[state=inactive]:hover:text-foreground";

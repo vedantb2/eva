@@ -39,7 +39,7 @@ export function EmojiReactionPicker({
     "flex items-center justify-center text-muted-foreground transition-[opacity,background-color,color] hover:text-foreground focus-visible:opacity-100 data-[state=open]:text-foreground data-[state=open]:opacity-100",
     variant === "ghost"
       ? "size-7 rounded-md hover:bg-muted/60 data-[state=open]:bg-muted"
-      : "h-6 rounded-full border border-border bg-muted/40 px-2 hover:bg-muted data-[state=open]:bg-muted",
+      : "h-6 rounded-full bg-muted/40 px-2 hover:bg-muted data-[state=open]:bg-muted",
     !alwaysVisible &&
       "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
   );

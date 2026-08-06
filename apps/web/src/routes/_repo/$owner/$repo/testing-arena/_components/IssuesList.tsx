@@ -151,7 +151,7 @@ function IssueRow({
     taskSegment !== null ? `${basePath}/quick-tasks/${taskSegment}` : null;
 
   return (
-    <div className="rounded-surface border border-border bg-muted/40 overflow-hidden">
+    <div className="rounded-surface bg-muted/40 overflow-hidden">
       <div className="group flex items-center gap-3 px-3 py-2.5">
         <Checkbox
           checked={hasTaskCreated ? true : selected}

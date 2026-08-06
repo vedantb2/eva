@@ -1,6 +1,9 @@
 import { m, AnimatePresence } from "motion/react";
 import {
   Button,
+  Tabs,
+  TabsList,
+  TabsTrigger,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -46,6 +49,10 @@ import { QUICK_TASK_FILTER_DEFAULTS } from "@/lib/search-params";
 type QuickTaskView = "kanban" | "list";
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 type User = FunctionReturnType<typeof api.users.listAll>[number];
+
+function isQuickTaskView(value: string): value is QuickTaskView {
+  return value === "kanban" || value === "list";
+}
 
 const SORT_FIELDS = [
   "status",
@@ -208,34 +215,39 @@ export function QuickTasksToolbar({
         variant="large"
       />
       {hasQuickTasks && (
-        <div className="flex items-center rounded-surface border border-border bg-muted/40 overflow-hidden">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={view === "kanban" ? "secondary" : "ghost"}
-                size="icon"
-                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.96]"
-                onClick={() => onViewChange("kanban")}
-              >
-                <IconLayoutKanban size={16} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Kanban view</TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={view === "list" ? "secondary" : "ghost"}
-                size="icon"
-                className="motion-press h-8 w-8 rounded-none hover:scale-[1.03] active:scale-[0.96]"
-                onClick={() => onViewChange("list")}
-              >
-                <IconList size={16} />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>List view</TooltipContent>
-          </Tooltip>
-        </div>
+        <Tabs
+          value={view}
+          onValueChange={(value) => {
+            if (isQuickTaskView(value)) onViewChange(value);
+          }}
+        >
+          <TabsList className="tabs-segmented h-8">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <TabsTrigger
+                  value="kanban"
+                  aria-label="Kanban view"
+                  className="px-2.5 py-1"
+                >
+                  <IconLayoutKanban size={16} />
+                </TabsTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Kanban view</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <TabsTrigger
+                  value="list"
+                  aria-label="List view"
+                  className="px-2.5 py-1"
+                >
+                  <IconList size={16} />
+                </TabsTrigger>
+              </TooltipTrigger>
+              <TooltipContent>List view</TooltipContent>
+            </Tooltip>
+          </TabsList>
+        </Tabs>
       )}
       <AnimatePresence initial={false} mode="popLayout">
         {hasQuickTasks && !isSelecting ? (

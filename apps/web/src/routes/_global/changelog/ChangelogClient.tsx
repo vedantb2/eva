@@ -49,7 +49,7 @@ export function ChangelogClient() {
                 )}
                 aria-hidden
               />
-              <article className="rounded-surface border border-border bg-card">
+              <article className="rounded-surface bg-card">
                 <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
                   <h2 className="text-sm font-semibold">
                     Week of {dayjs(entry.publishedAt).format("MMM D, YYYY")}

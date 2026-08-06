@@ -63,7 +63,7 @@ export function EmptyState({
       {icon ? (
         <m.div
           variants={shouldAnimate ? itemVariants : undefined}
-          className="mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground"
+          className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground"
         >
           {icon}
         </m.div>

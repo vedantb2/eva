@@ -25,7 +25,7 @@ Same rules as `CLAUDE.md`. Domain details live in the two docs below — read th
 
 ## Domain docs (read when relevant)
 
-- Frontend / UI work → `docs/eva-ui.md` (HeroUI, components, router, vite, nuqs)
+- Frontend / UI work → `docs/eva-ui.md` (tone-based surfaces, no decorative hairlines; components, router, vite, nuqs)
 - Convex / schema / migrations → `docs/eva-convex.md`
 - agent-browser on eva app → navigate to `/?agent` to auto sign in as the agent user
 

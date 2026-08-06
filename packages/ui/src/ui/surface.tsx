@@ -5,20 +5,19 @@ import { cn } from "../utils/cn";
 import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 
 /**
- * A panel with the standard card edge and one of four paddings.
+ * A panel with the standard card fill and one of four paddings.
  *
  * `Card` already owns this recipe, but it splits padding across Header /
  * Content / Footer — which is right for a titled card and wrong for the thirty
  * places that just need one padded box. Those all re-typed
- * `rounded-surface border border-border bg-card p-N` by hand, landing on two
- * radii and five paddings.
+ * `rounded-surface bg-card p-N` by hand, landing on two radii and five paddings.
  *
  * Density is a prop rather than a `className` so the paddings stay a closed
  * set. Anything outside the set is a layout decision worth making deliberately,
  * and `className` still overrides when it genuinely is one.
  */
 const surfaceVariants = cva(
-  `${SURFACE_RADIUS_CLASS} border border-border bg-card text-card-foreground`,
+  `${SURFACE_RADIUS_CLASS} bg-card text-card-foreground`,
   {
     variants: {
       density: {

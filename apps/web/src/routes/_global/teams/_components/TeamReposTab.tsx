@@ -224,7 +224,7 @@ export function TeamReposTab({
       </div>
       <div className="space-y-2">
         {repos.length === 0 ? (
-          <div className="rounded-surface border border-border bg-card">
+          <div className="rounded-surface bg-card">
             <SettingsEmptyState
               icon={IconFolder}
               title="No codebases yet"

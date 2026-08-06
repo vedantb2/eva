@@ -169,7 +169,7 @@ export function TeamMembersTab({
       </div>
       <div className="space-y-2">
         {members.length === 0 ? (
-          <div className="rounded-surface border border-border bg-card">
+          <div className="rounded-surface bg-card">
             <SettingsEmptyState
               icon={IconUsers}
               title="No members yet"

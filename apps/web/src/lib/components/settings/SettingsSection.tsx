@@ -57,7 +57,7 @@ export function SettingsSection({
   return (
     <section
       className={cn(
-        "rounded-surface border border-border bg-card",
+        "rounded-surface bg-card",
         className,
       )}
     >

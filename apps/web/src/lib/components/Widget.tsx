@@ -59,7 +59,7 @@ export function Widget({
       )}
       <div
         className={cn(
-          "min-h-0 flex-1 rounded-surface border border-border bg-card p-4",
+          "min-h-0 flex-1 rounded-surface bg-card p-4",
           contentClassName,
         )}
       >

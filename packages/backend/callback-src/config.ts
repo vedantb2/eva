@@ -271,7 +271,23 @@ const cursorModelRaw = MODEL.startsWith("cursor:")
   : MODEL;
 const cursorModelParts = splitCursorModel(cursorModelRaw);
 export const normalizedCursorModel = cursorModelParts.base;
-export const cursorReasoningLevel = cursorModelParts.level;
+
+// Abstract traits-menu level → cursor reasoning level (xhigh/max clamp to
+// high; off sends the bare model). Falls back to the legacy id suffix for
+// pre-migration AI_MODEL values that carried the level in the slug.
+const CURSOR_REASONING_EFFORT: Record<string, string> = {
+  off: "",
+  low: "low",
+  medium: "medium",
+  high: "high",
+  xhigh: "high",
+  max: "high",
+};
+
+export const cursorReasoningLevel =
+  PROVIDER === "cursor" && REASONING_EFFORT in CURSOR_REASONING_EFFORT
+    ? CURSOR_REASONING_EFFORT[REASONING_EFFORT]
+    : cursorModelParts.level;
 const codexCommand = existsSync(CODEX_BIN_PATH)
   ? JSON.stringify(CODEX_BIN_PATH)
   : "codex";

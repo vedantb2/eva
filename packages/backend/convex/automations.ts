@@ -7,7 +7,16 @@ export {
   remove,
 } from "./_automations/crud";
 
-export { triggerAutomation, runNow } from "./_automations/triggers";
+export {
+  triggerAutomation,
+  triggerSystemAutomation,
+  runNow,
+} from "./_automations/triggers";
+
+export {
+  listSystemAutomations,
+  setSystemAutomationState,
+} from "./_automations/systemInstall";
 
 export {
   listRuns,

@@ -1,7 +1,19 @@
 import { cronJobs } from "convex/server";
 import { internal } from "./_generated/api";
+import { SYSTEM_AUTOMATIONS } from "./_automations/systemAutomations";
 
 const crons = cronJobs();
+
+// One cron per hardcoded system automation. Each fans out to every repo that
+// has that entry enabled, so installs need no per-row dynamic cron.
+for (const entry of SYSTEM_AUTOMATIONS) {
+  crons.cron(
+    `system-automation-${entry.key}`,
+    entry.cronSchedule,
+    internal.automations.triggerSystemAutomation,
+    { key: entry.key },
+  );
+}
 
 // Send the unread-notification digest at 08:00 UTC on weekdays (Mon-Fri).
 crons.cron(

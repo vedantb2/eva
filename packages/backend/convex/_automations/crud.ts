@@ -7,6 +7,7 @@ import { safeDeleteCron, safeReplaceCron } from "../cronManager";
 import type { Doc } from "../_generated/dataModel";
 import { listAutomationsForRepo, resolveAutomationRepoId } from "./helpers";
 import { resolveCanonicalRepoId } from "../_githubRepos/helpers";
+import { resolveAutomationDoc } from "./systemAutomations";
 
 /** Return validator for a full automation document. */
 const automationDoc = v.object({
@@ -14,6 +15,14 @@ const automationDoc = v.object({
   _creationTime: v.number(),
   ...automationFields,
 });
+
+/** Hides soft-deleted rows and applies the system-automation catalog overlay. */
+function visibleAutomation(
+  automation: Doc<"automations"> | null,
+): Doc<"automations"> | null {
+  const visible = entityVisible(automation);
+  return visible ? resolveAutomationDoc(visible) : null;
+}
 
 /** Lists all automations for a given repository. */
 export const list = authQuery({
@@ -37,7 +46,7 @@ export const get = authQuery({
     if (!(await hasRepoAccess(ctx.db, automation.repoId, ctx.userId))) {
       return null;
     }
-    return entityVisible(automation);
+    return visibleAutomation(automation);
   },
 });
 
@@ -58,7 +67,7 @@ export const getByNumId = authQuery({
         q.eq("repoId", args.repoId).eq("numId", args.numId),
       )
       .first();
-    if (automation) return entityVisible(automation);
+    if (automation) return visibleAutomation(automation);
 
     // Shared automations are stored on the canonical (parent) repo, so a
     // child-app lookup misses them; mirror listAutomationsForRepo's fallback.
@@ -71,7 +80,7 @@ export const getByNumId = authQuery({
       )
       .first();
     if (!sharedAutomation || sharedAutomation.shared !== true) return null;
-    return entityVisible(sharedAutomation);
+    return visibleAutomation(sharedAutomation);
   },
 });
 
@@ -125,6 +134,29 @@ export const update = authMutation({
       throw new Error("Not authorized");
     }
 
+    // System automations are code-owned: only the install-level toggles are
+    // writable, and they never carry a dynamic cron (crons.ts fans out instead).
+    if (automation.systemKey !== undefined) {
+      const editsDefinition =
+        args.title !== undefined ||
+        args.description !== undefined ||
+        args.cronSchedule !== undefined ||
+        args.model !== undefined ||
+        args.readOnly !== undefined ||
+        args.actionsEnabled !== undefined ||
+        args.shared !== undefined;
+      if (editsDefinition) {
+        throw new Error(
+          "System automations only allow enabled and sendEmail changes",
+        );
+      }
+      const systemPatch: Partial<Doc<"automations">> = { updatedAt: Date.now() };
+      if (args.enabled !== undefined) systemPatch.enabled = args.enabled;
+      if (args.sendEmail !== undefined) systemPatch.sendEmail = args.sendEmail;
+      await ctx.db.patch(args.id, systemPatch);
+      return null;
+    }
+
     const patch: Partial<Doc<"automations">> = { updatedAt: Date.now() };
     if (args.title !== undefined) patch.title = args.title;
     if (args.description !== undefined) patch.description = args.description;
@@ -176,6 +208,9 @@ export const remove = authMutation({
     if (!automation) return null;
     if (!(await hasRepoAccess(ctx.db, automation.repoId, ctx.userId))) {
       throw new Error("Not authorized");
+    }
+    if (automation.systemKey !== undefined) {
+      throw new Error("System automations cannot be deleted, only disabled");
     }
 
     const cronName = `automation-${String(args.id)}`;

@@ -538,6 +538,11 @@ export const automationFields = {
   // user with email notifications enabled (see automationEmail.sendAutomationEmail).
   sendEmail: v.optional(v.boolean()),
   cronJobId: v.optional(v.string()),
+  // Set when this row is a per-repo install of a hardcoded system automation
+  // (see _automations/systemAutomations.ts). Content fields hold placeholders;
+  // the catalog overlays title/description/cronSchedule/readOnly/actionsEnabled
+  // at read and run time, so editing the code updates every install at once.
+  systemKey: v.optional(v.string()),
   createdBy: v.id("users"),
   createdAt: v.number(),
   updatedAt: v.number(),

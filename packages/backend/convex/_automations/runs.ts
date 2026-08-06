@@ -14,6 +14,7 @@ import {
   gatherAccessibleRepos,
   resolveSandboxRepoId,
 } from "../_githubRepos/helpers";
+import { resolveAutomationDoc } from "./systemAutomations";
 
 /** Loads a run and its automation, throwing unless the user can access the repo. */
 async function loadRunWithAccess(
@@ -176,7 +177,7 @@ export const getRunForEmail = internalQuery({
       content: run.resultSummary,
       publishedAt: run.finishedAt,
       runNumber: successfulRuns.length,
-      automationTitle: automation.title,
+      automationTitle: resolveAutomationDoc(automation).title,
     };
   },
 });
@@ -289,7 +290,7 @@ export const handleCompletion = authMutation({
       await recordCompletionLog(ctx, {
         entityType: "automation",
         entityId: String(args.automationRunId),
-        entityTitle: automation.title,
+        entityTitle: resolveAutomationDoc(automation).title,
         repoId: run.repoId,
         rawResultEvent: args.rawResultEvent,
       });

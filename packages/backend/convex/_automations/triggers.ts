@@ -5,18 +5,38 @@ import { internal } from "../_generated/api";
 import { DEFAULT_AI_MODEL, normalizeAIModel } from "../validators";
 import { authMutation, hasRepoAccess } from "../functions";
 import { workflow } from "../workflowManager";
+import { filterActiveEntities } from "../numId";
 import { buildAutomationRunBranchName } from "./helpers";
+import { getSystemAutomation, resolveAutomationDoc } from "./systemAutomations";
+
+/** True when the automation already has a queued or running execution. */
+async function hasRunInFlight(
+  ctx: MutationCtx,
+  automationId: Doc<"automations">["_id"],
+): Promise<boolean> {
+  const lastRun = await ctx.db
+    .query("automationRuns")
+    .withIndex("by_automation", (q) => q.eq("automationId", automationId))
+    .order("desc")
+    .first();
+  return (
+    lastRun !== null &&
+    (lastRun.status === "queued" || lastRun.status === "running")
+  );
+}
 
 /**
  * Inserts a queued automation run and starts its execution workflow.
- * Shared by the cron trigger and the manual "run now" path — both enqueue an
- * identical run once their eligibility checks pass.
+ * Shared by the cron triggers and the manual "run now" path — both enqueue an
+ * identical run once their eligibility checks pass. The workflow never re-reads
+ * the row, so this is where the system-automation catalog overlay is applied.
  */
 async function startAutomationRun(
   ctx: MutationCtx,
-  automation: Doc<"automations">,
+  storedAutomation: Doc<"automations">,
   repo: Doc<"githubRepos">,
 ): Promise<void> {
+  const automation = resolveAutomationDoc(storedAutomation);
   const runId = await ctx.db.insert("automationRuns", {
     automationId: automation._id,
     repoId: automation.repoId,
@@ -64,22 +84,38 @@ export const triggerAutomation = internalMutation({
     const repo = await ctx.db.get(automation.repoId);
     if (!repo) return null;
 
-    const lastRun = await ctx.db
-      .query("automationRuns")
-      .withIndex("by_automation", (q) =>
-        q.eq("automationId", args.automationId),
-      )
-      .order("desc")
-      .first();
-
-    if (
-      lastRun &&
-      (lastRun.status === "queued" || lastRun.status === "running")
-    ) {
-      return null;
-    }
+    if (await hasRunInFlight(ctx, args.automationId)) return null;
 
     await startAutomationRun(ctx, automation, repo);
+
+    return null;
+  },
+});
+
+/**
+ * Fan-out target for the static system-automation crons in crons.ts: one cron
+ * per catalog entry triggers every repo that has that entry enabled.
+ */
+export const triggerSystemAutomation = internalMutation({
+  args: { key: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    // Entry removed from the catalog: leave existing installs untouched.
+    if (!getSystemAutomation(args.key)) return null;
+
+    const installs = await ctx.db
+      .query("automations")
+      .withIndex("by_systemKey_and_enabled", (q) =>
+        q.eq("systemKey", args.key).eq("enabled", true),
+      )
+      .collect();
+
+    for (const automation of filterActiveEntities(installs)) {
+      const repo = await ctx.db.get(automation.repoId);
+      if (!repo) continue;
+      if (await hasRunInFlight(ctx, automation._id)) continue;
+      await startAutomationRun(ctx, automation, repo);
+    }
 
     return null;
   },
@@ -90,11 +126,14 @@ export const runNow = authMutation({
   args: { automationId: v.id("automations") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const automation = await ctx.db.get(args.automationId);
-    if (!automation) throw new Error("Automation not found");
-    if (!(await hasRepoAccess(ctx.db, automation.repoId, ctx.userId))) {
+    const stored = await ctx.db.get(args.automationId);
+    if (!stored) throw new Error("Automation not found");
+    if (!(await hasRepoAccess(ctx.db, stored.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
+    // Resolved so the prompt guard sees the catalog definition, not the
+    // placeholder stored on a system install.
+    const automation = resolveAutomationDoc(stored);
     if (!automation.description) {
       throw new Error("Automation has no description/prompt configured");
     }
@@ -102,18 +141,7 @@ export const runNow = authMutation({
     const repo = await ctx.db.get(automation.repoId);
     if (!repo) throw new Error("Repo not found");
 
-    const lastRun = await ctx.db
-      .query("automationRuns")
-      .withIndex("by_automation", (q) =>
-        q.eq("automationId", args.automationId),
-      )
-      .order("desc")
-      .first();
-
-    if (
-      lastRun &&
-      (lastRun.status === "queued" || lastRun.status === "running")
-    ) {
+    if (await hasRunInFlight(ctx, args.automationId)) {
       throw new Error("A run is already in progress");
     }
 

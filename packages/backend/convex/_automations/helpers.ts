@@ -2,10 +2,14 @@ import type { GenericDatabaseReader } from "convex/server";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import { resolveCanonicalRepoId } from "../_githubRepos/helpers";
 import { filterActiveEntities } from "../numId";
+import { resolveAutomationDoc } from "./systemAutomations";
 
 export { buildAutomationRunBranchName } from "../_git/branchNames";
 
-/** Lists automations visible for a repo: app-specific plus shared monorepo automations. */
+/**
+ * Lists automations visible for a repo: app-specific plus shared monorepo
+ * automations. System installs come back with their catalog definition applied.
+ */
 export async function listAutomationsForRepo(
   db: GenericDatabaseReader<DataModel>,
   repoId: Id<"githubRepos">,
@@ -18,7 +22,7 @@ export async function listAutomationsForRepo(
     .collect();
 
   if (canonicalId === repoId) {
-    return filterActiveEntities(localAutomations);
+    return filterActiveEntities(localAutomations).map(resolveAutomationDoc);
   }
 
   const appAutomations = filterActiveEntities(localAutomations).filter(
@@ -34,7 +38,7 @@ export async function listAutomationsForRepo(
     (automation) => automation.shared === true,
   );
 
-  return [...sharedAutomations, ...appAutomations];
+  return [...sharedAutomations, ...appAutomations].map(resolveAutomationDoc);
 }
 
 /** Resolves repoId storage for an automation when toggling shared scope. */

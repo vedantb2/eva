@@ -12,7 +12,7 @@ import {
   Spinner,
   cn,
 } from "@eva/ui";
-import { IconChevronDown, IconPlus } from "@tabler/icons-react";
+import { IconChevronDown, IconLayoutGrid, IconPlus } from "@tabler/icons-react";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { SessionListShowMore } from "@/lib/components/sidebar/_components/SessionListShowMore";
 import {
@@ -124,6 +124,15 @@ export function GlobalAutomationGroup({
             </span>
           </button>
         </CollapsibleTrigger>
+        <Link
+          to={baseUrl}
+          aria-label={`Automations hub for ${label}`}
+          title={`Automations hub for ${label}`}
+          className="flex size-7 shrink-0 items-center justify-center rounded-menu-item text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          onClick={onNavigate}
+        >
+          <IconLayoutGrid size={14} />
+        </Link>
         <button
           type="button"
           aria-label={`New automation in ${label}`}
@@ -198,6 +207,11 @@ export function GlobalAutomationGroup({
                         <span className="min-w-0 flex-1 truncate">
                           {automation.title}
                         </span>
+                        {automation.systemKey !== undefined && (
+                          <span className="shrink-0 rounded-full border border-border px-1.5 text-[10px] text-muted-foreground">
+                            System
+                          </span>
+                        )}
                       </Link>
                     </SidebarListHoverCard>
                   </SharedLayoutNavSurface>

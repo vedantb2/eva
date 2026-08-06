@@ -30,6 +30,8 @@ import type * as _automations_crud from "../_automations/crud.js";
 import type * as _automations_findings from "../_automations/findings.js";
 import type * as _automations_helpers from "../_automations/helpers.js";
 import type * as _automations_runs from "../_automations/runs.js";
+import type * as _automations_systemAutomations from "../_automations/systemAutomations.js";
+import type * as _automations_systemInstall from "../_automations/systemInstall.js";
 import type * as _automations_triggers from "../_automations/triggers.js";
 import type * as _chat_cancelledMessage from "../_chat/cancelledMessage.js";
 import type * as _chat_projectChatDaemon from "../_chat/projectChatDaemon.js";
@@ -351,6 +353,8 @@ declare const fullApi: ApiFromModules<{
   "_automations/findings": typeof _automations_findings;
   "_automations/helpers": typeof _automations_helpers;
   "_automations/runs": typeof _automations_runs;
+  "_automations/systemAutomations": typeof _automations_systemAutomations;
+  "_automations/systemInstall": typeof _automations_systemInstall;
   "_automations/triggers": typeof _automations_triggers;
   "_chat/cancelledMessage": typeof _chat_cancelledMessage;
   "_chat/projectChatDaemon": typeof _chat_projectChatDaemon;

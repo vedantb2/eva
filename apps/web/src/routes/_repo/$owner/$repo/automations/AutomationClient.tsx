@@ -22,6 +22,7 @@ import { IconPlayerPlay, IconTrash } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
 import { AutomationDeleteDialog } from "./_components/AutomationDeleteDialog";
 import { SettingToggle } from "./_components/SettingToggle";
+import { SystemAutomationSettings } from "./_components/SystemAutomationSettings";
 import { LatestRun, RunHistory } from "./_components/RunAccordion";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -141,13 +142,16 @@ export function AutomationClient({
           />
         )}
 
-        {activeTab === "settings" && (
-          <SettingsForm
-            automation={automation}
-            repoOwner={repoOwner}
-            repoName={repoName}
-          />
-        )}
+        {activeTab === "settings" &&
+          (automation.systemKey === undefined ? (
+            <SettingsForm
+              automation={automation}
+              repoOwner={repoOwner}
+              repoName={repoName}
+            />
+          ) : (
+            <SystemAutomationSettings automation={automation} />
+          ))}
       </div>
     </PageWrapper>
   );

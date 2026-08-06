@@ -230,6 +230,7 @@
 }
 
 @utility scrollbar {
+  /* Matches global base scrollbar chrome; class kept for scroll-fade pairing. */
   scrollbar-width: thin;
   scrollbar-color: rgb(var(--muted-foreground) / 0.35) transparent;
   &:hover {
@@ -252,6 +253,10 @@
     background: rgb(var(--muted-foreground) / 0.52);
     background-clip: padding-box;
   }
+}
+
+@utility scrollbar-thin {
+  @apply scrollbar;
 }
 
 @utility scrollbar-none {
@@ -584,6 +589,35 @@
 
   [contenteditable="true"][role="textbox"] {
     border-radius: min(var(--radius), 1.25rem);
+  }
+
+  /*
+   * Global scrollbar chrome — thin, rounded thumbs using theme tokens.
+   * Opt out per element with `.scrollbar-none` (e.g. hidden canvas panes).
+   */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: rgb(var(--muted-foreground) / 0.35) transparent;
+  }
+  *:hover {
+    scrollbar-color: rgb(var(--muted-foreground) / 0.55) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: rgb(var(--muted-foreground) / 0.32);
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--muted-foreground) / 0.52);
+    background-clip: padding-box;
   }
 }
 

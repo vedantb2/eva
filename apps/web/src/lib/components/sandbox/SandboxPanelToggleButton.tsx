@@ -8,6 +8,8 @@ import {
 import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 
 /** Show/hide the right sandbox panel (same control sessions use). */
+export const SANDBOX_PANEL_TOGGLE_HOTKEY = "Ctrl+Alt+B";
+
 export function SandboxPanelToggleButton({
   collapsed,
   onToggle,
@@ -25,8 +27,16 @@ export function SandboxPanelToggleButton({
       variant="secondary"
       className="motion-press hover:scale-[1.01] active:scale-[0.96]"
       onClick={onToggle}
-      title={collapsed ? expandLabel : collapseLabel}
-      aria-label={collapsed ? expandLabel : collapseLabel}
+      title={
+        collapsed
+          ? `${expandLabel} (${SANDBOX_PANEL_TOGGLE_HOTKEY})`
+          : `${collapseLabel} (${SANDBOX_PANEL_TOGGLE_HOTKEY})`
+      }
+      aria-label={
+        collapsed
+          ? `${expandLabel} (${SANDBOX_PANEL_TOGGLE_HOTKEY})`
+          : `${collapseLabel} (${SANDBOX_PANEL_TOGGLE_HOTKEY})`
+      }
     >
       <CrossfadeIcon
         show={collapsed}

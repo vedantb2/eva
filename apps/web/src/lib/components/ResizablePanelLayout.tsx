@@ -7,6 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { useHotkey } from "@tanstack/react-hotkeys";
 import {
   Group,
   Panel,
@@ -23,6 +24,7 @@ import {
   RIGHT_PANEL_ID,
   usePersistentPanelSize,
 } from "@/lib/hooks/usePersistentPanelSize";
+import { SANDBOX_PANEL_TOGGLE_HOTKEY } from "@/lib/components/sandbox/SandboxPanelToggleButton";
 
 interface PanelContext {
   rightPanelCollapsed: boolean;
@@ -99,6 +101,11 @@ export function ResizablePanelLayout({
       rightPanelRef.current?.collapse();
     }
   }, [isMobile, rightCollapsed, rightPanelRef, setSavedCollapsed]);
+
+  useHotkey(SANDBOX_PANEL_TOGGLE_HOTKEY, (e) => {
+    e.preventDefault();
+    handleToggle();
+  });
 
   useEffect(() => {
     if (expandRightSignal === undefined || expandRightSignal === 0) return;

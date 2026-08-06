@@ -79,7 +79,7 @@ export function ChatAttachmentPreview() {
   return (
     <>
       {attachments.files.length > 0 ? (
-        <div className="flex flex-wrap gap-2 border-b border-border p-2">
+        <div className="flex flex-wrap gap-2 border-b border-border p-3">
           {attachments.files.map((file) => {
             const isImage = file.mediaType?.startsWith("image/");
             const FileIcon = iconForAttachment(file.filename, file.mediaType);

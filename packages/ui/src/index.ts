@@ -5,6 +5,7 @@ export * from "./ui/accordion";
 export * from "./ui/alert";
 export * from "./ui/avatar";
 export * from "./ui/badge";
+export * from "./ui/border-beam";
 export * from "./ui/button";
 export * from "./ui/button-group";
 export * from "./ui/calendar";

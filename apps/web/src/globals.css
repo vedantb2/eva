@@ -798,6 +798,93 @@ html[data-blur-pid] [data-pii] {
 }
 
 /* ───────────────────────────────────────────────────────────────────
+ * Border beam (<BorderBeam/>) — hairline of light that travels around a
+ * surface while an async task runs (chat composer while Eva replies).
+ * The beam is an overlay inset -1px: its wrapper owns the radius, the beam
+ * inherits it, and the child's opaque background hides the gradient's
+ * interior so only the ring reads. ::after is the same gradient, blurred,
+ * for the outward glow.
+ *
+ * Named `beam-*`, NOT `border-beam-*`: tailwind-merge (inside cn()) reads a
+ * `border-` prefix as a border-colour utility and drops `border-beam` as a
+ * conflict with `border-beam-colorful`, leaving an unstyled span.
+ * ─────────────────────────────────────────────────────────────────── */
+@property --beam-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes beam-spin {
+  to {
+    --beam-angle: 360deg;
+  }
+}
+
+.beam {
+  --beam-angle: 0deg;
+  --beam-duration: 3s;
+  --beam-spread: 12%;
+  --beam-glow: 8px;
+  --beam-image: conic-gradient(
+    from var(--beam-angle),
+    transparent 0%,
+    rgb(var(--foreground) / 0.75) var(--beam-spread),
+    transparent calc(var(--beam-spread) * 2)
+  );
+  position: absolute;
+  inset: -1px;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background-image: var(--beam-image);
+  animation: beam-spin var(--beam-duration) linear infinite;
+}
+
+.beam::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-image: var(--beam-image);
+  filter: blur(var(--beam-glow));
+  opacity: 0.5;
+  animation: beam-spin var(--beam-duration) linear infinite;
+}
+
+.beam-sm {
+  --beam-duration: 2.4s;
+  --beam-spread: 8%;
+  --beam-glow: 5px;
+}
+
+.beam-lg {
+  --beam-duration: 3.6s;
+  --beam-spread: 18%;
+  --beam-glow: 12px;
+}
+
+.beam-progress {
+  --beam-image: conic-gradient(
+    from var(--beam-angle),
+    transparent 0%,
+    rgb(var(--status-progress-bar) / 0.9) var(--beam-spread),
+    transparent calc(var(--beam-spread) * 2)
+  );
+}
+
+.beam-colorful {
+  --beam-image: conic-gradient(
+    from var(--beam-angle),
+    transparent 0%,
+    rgb(var(--chart-4) / 0.9) calc(var(--beam-spread) * 0.5),
+    rgb(var(--chart-2) / 0.95) var(--beam-spread),
+    rgb(var(--chart-5) / 0.75) calc(var(--beam-spread) * 1.5),
+    transparent calc(var(--beam-spread) * 2)
+  );
+}
+
+/* ───────────────────────────────────────────────────────────────────
  * Marquee-on-hover for truncated single-line labels (<MarqueeOnHover/>).
  * Idle = plain ellipsis. On hover (only when the text overflows), the inner
  * span scrolls left to reveal its hidden tail and holds, then eases back on

@@ -1,4 +1,5 @@
 import {
+  BorderBeam,
   Button,
   PromptInput,
   PromptInputProvider,
@@ -226,7 +227,12 @@ export function ChatComposer({
           await reorderQueuedMessages({ parentId, orderedIds });
         }}
       />
-      <div className="relative">
+      {/* Beam runs while the agent is replying — radius matches the input group. */}
+      <BorderBeam
+        active={isExecuting && !isDraftLoading}
+        colorVariant="colorful"
+        className="rounded-control"
+      >
         {isDraftLoading ? (
           // Placeholder that matches the input group's visual footprint.
           // Keeps the layout stable while the draft query resolves, and
@@ -243,10 +249,7 @@ export function ChatComposer({
               roomId={`typing:chat:${conversationId}`}
               userId={currentUserId}
             />
-            <ChatTypeToFocus
-              mentionRef={mentionRef}
-              disabled={isInputDisabled}
-            />
+            <ChatTypeToFocus mentionRef={mentionRef} />
             {draft && (
               <ChatDraftSync
                 target={draft.target}
@@ -361,7 +364,7 @@ export function ChatComposer({
             </PromptInput>
           </PromptInputProvider>
         )}
-      </div>
+      </BorderBeam>
       {underCardLeading ? (
         <div className="mx-auto flex w-[calc(100%-1.5rem)] md:w-[calc(100%-2rem)] items-center rounded-b-surface border border-border bg-muted/50 px-2 py-1.5">
           <div className="min-w-0">{underCardLeading}</div>

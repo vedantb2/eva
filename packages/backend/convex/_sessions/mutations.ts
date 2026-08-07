@@ -6,6 +6,8 @@ import { authMutation, hasRepoAccess } from "../functions";
 import { allocateNumId } from "../numId";
 import {
   aiModelValidator,
+  assertModelMatchesLockedProvider,
+  getAIModelProvider,
   reasoningLevelValidator,
   roleValidator,
   sessionModeValidator,
@@ -97,6 +99,8 @@ export const create = authMutation({
       numId,
       baseBranch,
       providerAccountId,
+      // Pins the session to this provider for its whole life.
+      provider: getAIModelProvider(model),
       lastModel: model,
       ...(args.mode !== undefined ? { lastMode: args.mode } : {}),
       ...(args.reasoningLevel !== undefined
@@ -223,7 +227,8 @@ export const addMessage = authMutation({
  * source of truth for the picker, so this is called directly on change (with a
  * client-side optimistic update) rather than only when a message is sent. Does
  * not touch `updatedAt` — changing the model is not conversation activity and
- * must not reorder the session list.
+ * must not reorder the session list. The model must stay on the session's
+ * pinned provider.
  */
 export const setModel = authMutation({
   args: {
@@ -236,6 +241,7 @@ export const setModel = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
+    assertModelMatchesLockedProvider(session.provider, args.model);
     await ctx.db.patch(args.id, { lastModel: args.model });
     return null;
   },
@@ -262,9 +268,14 @@ export const setMode = authMutation({
 });
 
 /**
- * Sets the sticky provider account for a session (owner-only). Same contract as
- * `setModel`: write on change (optimistic on the client), do not bump
- * `updatedAt`. Pass `null` to clear back to Team.
+ * Sets the sticky provider account for a session. Same contract as `setModel`:
+ * write on change (optimistic on the client), do not bump `updatedAt`. Pass
+ * `null` to clear back to Team.
+ *
+ * Anyone with repo access may pick, but only from accounts owned by the session
+ * owner — a session always runs on one person's credentials, and a collaborator
+ * must never be able to attach their own. Without this, a collaborator who
+ * changed the model could never get back to the owner's account.
  */
 export const setProviderAccountId = authMutation({
   args: {
@@ -278,9 +289,6 @@ export const setProviderAccountId = authMutation({
       throw new Error("Not authorized");
     }
     const ownerUserId = session.createdBy ?? session.userId;
-    if (ctx.userId !== ownerUserId) {
-      throw new Error("Only the session owner can change the provider account");
-    }
     const providerAccountId = await assertProviderAccountOwnedBy(
       ctx.db,
       args.providerAccountId,

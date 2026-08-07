@@ -1,6 +1,13 @@
 import { v } from "convex/values";
+import type { QueryCtx } from "./_generated/server";
 import { internalQuery, internalMutation } from "./_generated/server";
-import { authQuery, authMutation, hasTaskAccess } from "./functions";
+import {
+  authQuery,
+  authMutation,
+  hasRepoAccess,
+  hasTaskAccess,
+} from "./functions";
+import type { Id } from "./_generated/dataModel";
 import { aiProviderValidator } from "./validators";
 import { resolveUserDisplayFirstName } from "./_userProviderAccounts/defaults";
 
@@ -16,6 +23,31 @@ const accountListItemValidator = v.object({
 });
 
 /**
+ * One user's accounts with credential values masked, labelled with that user's
+ * first name. Shared by every picker query so owner-scoped lists and the
+ * viewer's own list cannot drift apart.
+ */
+async function listAccountsFor(ctx: QueryCtx, userId: Id<"users">) {
+  const displayName =
+    (await resolveUserDisplayFirstName(ctx.db, userId)) ?? "Personal";
+  const rows = await ctx.db
+    .query("userProviderAccounts")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  return rows.map((row) => ({
+    _id: row._id,
+    _creationTime: row._creationTime,
+    provider: row.provider,
+    label: displayName,
+    credentials: row.credentials.map((entry) => ({
+      key: entry.key,
+      value: "••••••",
+    })),
+    updatedAt: row.updatedAt,
+  }));
+}
+
+/**
  * Lists the authenticated user's provider accounts, masking credential values.
  * Powers both the Accounts settings page and the model picker's account groups.
  * `label` is always the user's first name (derived), not a free-text field.
@@ -23,25 +55,7 @@ const accountListItemValidator = v.object({
 export const list = authQuery({
   args: {},
   returns: v.array(accountListItemValidator),
-  handler: async (ctx) => {
-    const displayName =
-      (await resolveUserDisplayFirstName(ctx.db, ctx.userId)) ?? "Personal";
-    const rows = await ctx.db
-      .query("userProviderAccounts")
-      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
-      .collect();
-    return rows.map((row) => ({
-      _id: row._id,
-      _creationTime: row._creationTime,
-      provider: row.provider,
-      label: displayName,
-      credentials: row.credentials.map((entry) => ({
-        key: entry.key,
-        value: "••••••",
-      })),
-      updatedAt: row.updatedAt,
-    }));
-  },
+  handler: async (ctx) => await listAccountsFor(ctx, ctx.userId),
 });
 
 /**
@@ -57,23 +71,27 @@ export const listForTaskOwner = authQuery({
     if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) {
       return [];
     }
-    const displayName =
-      (await resolveUserDisplayFirstName(ctx.db, task.createdBy)) ?? "Personal";
-    const rows = await ctx.db
-      .query("userProviderAccounts")
-      .withIndex("by_user", (q) => q.eq("userId", task.createdBy))
-      .collect();
-    return rows.map((row) => ({
-      _id: row._id,
-      _creationTime: row._creationTime,
-      provider: row.provider,
-      label: displayName,
-      credentials: row.credentials.map((entry) => ({
-        key: entry.key,
-        value: "••••••",
-      })),
-      updatedAt: row.updatedAt,
-    }));
+    return await listAccountsFor(ctx, task.createdBy);
+  },
+});
+
+/**
+ * Lists the session owner's personal provider accounts (masked) for the model
+ * picker. A session runs on its owner's credentials whoever sends the turn, so
+ * collaborators see — and pick from — the owner's accounts, never their own.
+ */
+export const listForSessionOwner = authQuery({
+  args: { sessionId: v.id("sessions") },
+  returns: v.array(accountListItemValidator),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (
+      !session ||
+      !(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))
+    ) {
+      return [];
+    }
+    return await listAccountsFor(ctx, session.createdBy ?? session.userId);
   },
 });
 

@@ -157,6 +157,7 @@ import type * as _sandbox_runtime_sessions from "../_sandbox_runtime/sessions.js
 import type * as _sandbox_runtime_snapshotStates from "../_sandbox_runtime/snapshotStates.js";
 import type * as _sandbox_runtime_vercelAppPorts from "../_sandbox_runtime/vercelAppPorts.js";
 import type * as _sessions_backgroundAgents from "../_sessions/backgroundAgents.js";
+import type * as _sessions_baseBranch from "../_sessions/baseBranch.js";
 import type * as _sessions_execution from "../_sessions/execution.js";
 import type * as _sessions_helpers from "../_sessions/helpers.js";
 import type * as _sessions_internal from "../_sessions/internal.js";
@@ -485,6 +486,7 @@ declare const fullApi: ApiFromModules<{
   "_sandbox_runtime/snapshotStates": typeof _sandbox_runtime_snapshotStates;
   "_sandbox_runtime/vercelAppPorts": typeof _sandbox_runtime_vercelAppPorts;
   "_sessions/backgroundAgents": typeof _sessions_backgroundAgents;
+  "_sessions/baseBranch": typeof _sessions_baseBranch;
   "_sessions/execution": typeof _sessions_execution;
   "_sessions/helpers": typeof _sessions_helpers;
   "_sessions/internal": typeof _sessions_internal;

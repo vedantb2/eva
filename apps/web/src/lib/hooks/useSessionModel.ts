@@ -4,6 +4,7 @@ import {
   api,
   normalizeAIModel,
   type AIModel,
+  type AIProvider,
   type Id,
   type ReasoningLevel,
   type StoredModelTraits,
@@ -41,6 +42,13 @@ export function useSessionModel(
   setProviderAccountId: (
     providerAccountId: Id<"userProviderAccounts"> | null,
   ) => void;
+  /**
+   * Provider this session is pinned to; undefined while loading and on
+   * sessions created before the lock. Feed it to
+   * `getLockedProviderModelOptions` so the picker cannot offer a model the
+   * session mutations will reject.
+   */
+  lockedProvider: AIProvider | undefined;
 } {
   const session = useQuery(api.sessions.get, { id: sessionId });
   const setModelMutation = useMutation(
@@ -153,5 +161,6 @@ export function useSessionModel(
     providerAccountId:
       session === undefined ? undefined : (session?.providerAccountId ?? null),
     setProviderAccountId,
+    lockedProvider: session?.provider,
   };
 }

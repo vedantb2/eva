@@ -4,6 +4,7 @@ import { workflow, cancelTrackedWorkflow } from "../workflowManager";
 import { authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
+  assertModelMatchesLockedProvider,
   getAIModelProvider,
   normalizeAIModel,
   reasoningLevelValidator,
@@ -76,29 +77,28 @@ export const startExecute = authMutation({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
 
+    assertModelMatchesLockedProvider(session.provider, args.model);
+
     const credentialOwnerUserId = session.createdBy ?? session.userId;
-    const isOwner = ctx.userId === credentialOwnerUserId;
-    // Owner-sticky: only the session owner may change the personal account.
-    // Collaborators always use the sticky account already on the session.
-    let stickyProviderAccountId = session.providerAccountId;
-    if (isOwner) {
-      stickyProviderAccountId = await assertProviderAccountOwnedBy(
-        ctx.db,
-        args.providerAccountId,
-        credentialOwnerUserId,
-      );
-      // If the chosen account no longer matches the model provider, fall back
-      // to the owner's default for that provider (or Team). Explicit Team
-      // (undefined) stays Team.
-      if (stickyProviderAccountId) {
-        const account = await ctx.db.get(stickyProviderAccountId);
-        if (!account || account.provider !== getAIModelProvider(args.model)) {
-          stickyProviderAccountId = await resolveDefaultProviderAccountId(
-            ctx.db,
-            credentialOwnerUserId,
-            args.model,
-          );
-        }
+    // A session runs on its owner's credentials whoever sends the turn, so the
+    // account must belong to the owner — collaborators pick from that same pool
+    // and can never attach their own.
+    let stickyProviderAccountId = await assertProviderAccountOwnedBy(
+      ctx.db,
+      args.providerAccountId,
+      credentialOwnerUserId,
+    );
+    // If the chosen account no longer matches the model provider, fall back
+    // to the owner's default for that provider (or Team). Explicit Team
+    // (undefined) stays Team.
+    if (stickyProviderAccountId) {
+      const account = await ctx.db.get(stickyProviderAccountId);
+      if (!account || account.provider !== getAIModelProvider(args.model)) {
+        stickyProviderAccountId = await resolveDefaultProviderAccountId(
+          ctx.db,
+          credentialOwnerUserId,
+          args.model,
+        );
       }
     }
 
@@ -296,6 +296,8 @@ export const enqueueMessage = authMutation({
     if (!session) throw new Error("Session not found");
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
+
+    assertModelMatchesLockedProvider(session.provider, args.model);
 
     await notifyChatMentions(ctx, {
       content: displayContent || content,

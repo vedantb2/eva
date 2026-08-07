@@ -92,3 +92,23 @@ export function useTaskOwnerProviderAccounts(
   );
   return toModelAccounts(accounts);
 }
+
+/**
+ * Session owner's personal accounts for the model picker (same shape as
+ * `useProviderAccounts`). A session runs on its owner's credentials whoever
+ * sends the turn, so collaborators pick from the owner's accounts — showing
+ * their own would list accounts the session can never use.
+ */
+export function useSessionOwnerProviderAccounts(
+  sessionId: Id<"sessions"> | null | undefined,
+): {
+  options: ReadonlyArray<ModelAccount>;
+  resolveId: (id: string | null) => Id<"userProviderAccounts"> | undefined;
+  ready: boolean;
+} {
+  const accounts = useQuery(
+    api.userProviderAccounts.listForSessionOwner,
+    sessionId ? { sessionId } : "skip",
+  );
+  return toModelAccounts(accounts);
+}

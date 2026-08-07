@@ -1,4 +1,10 @@
-import { api, normalizeAIModel, type Doc, type Id } from "@eva/backend";
+import {
+  api,
+  getLockedProviderModelOptions,
+  normalizeAIModel,
+  type Doc,
+  type Id,
+} from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { m, AnimatePresence } from "motion/react";
@@ -31,7 +37,7 @@ import {
 import { useSessionModel } from "@/lib/hooks/useSessionModel";
 import {
   useAvailableAiModels,
-  useProviderAccounts,
+  useSessionOwnerProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { PendingReviewCommentChips } from "@/lib/components/chat/PendingReviewCommentChips";
@@ -115,10 +121,11 @@ export function ChatPanel({
     useState<Id<"designPersonas">>();
   const [numDesigns, setNumDesigns] = useState(3);
 
-  const session = useQuery(api.sessions.get, { id: sessionId });
   const defaultModel = normalizeAIModel(repo.defaultModel);
+  // The picker lists the session owner's accounts, not the viewer's — the turn
+  // always runs on the owner's credentials.
   const { options: accounts, resolveId: resolveAccountId } =
-    useProviderAccounts();
+    useSessionOwnerProviderAccounts(sessionId);
   // Model + mode + traits + account are owned by Convex.
   const {
     model,
@@ -129,6 +136,7 @@ export function ChatPanel({
     setTraits,
     providerAccountId: stickyProviderAccountId,
     setProviderAccountId: setStickyProviderAccountId,
+    lockedProvider,
   } = useSessionModel(sessionId, defaultModel);
   const {
     mode,
@@ -153,13 +161,14 @@ export function ChatPanel({
       );
     },
   });
-  const { options: modelOptions } = useAvailableAiModels(repo._id, model);
-  const currentUserId = useQuery(api.auth.me);
-  const isOwner =
-    currentUserId !== undefined &&
-    session !== undefined &&
-    session !== null &&
-    currentUserId === (session.createdBy ?? session.userId);
+  const { options: visibleModels } = useAvailableAiModels(repo._id, model);
+  // A session stays on the provider it started on, so the picker offers only
+  // that provider's models — and, since the rail derives its instances from
+  // these options, only that provider's accounts.
+  const modelOptions = getLockedProviderModelOptions(
+    visibleModels,
+    lockedProvider,
+  );
 
   const draftSeed = useChatDraftSeed({
     kind: "sessionChat" as const,
@@ -389,10 +398,7 @@ export function ChatPanel({
         modelOptions={modelOptions}
         accounts={accounts}
         accountId={providerAccountId}
-        onAccountChange={(next) => {
-          if (!isOwner) return;
-          setProviderAccountId(next);
-        }}
+        onAccountChange={setProviderAccountId}
         displayTraits={displayTraits}
         onTraitsChange={onTraitsChange}
         onSend={handleSend}

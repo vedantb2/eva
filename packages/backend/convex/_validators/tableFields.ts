@@ -303,6 +303,11 @@ export const sessionFields = {
   // has no per-message context — still injects the right account. Absent = team
   // credential. Set by startExecute from the composer's picker.
   providerAccountId: v.optional(v.id("userProviderAccounts")),
+  // The AI provider this session is pinned to, taken from the model chosen at
+  // creation. The composer only offers this provider's models and every model
+  // write asserts against it — see `assertModelMatchesLockedProvider`. Absent
+  // on sessions created before the lock; those keep the old free choice.
+  provider: v.optional(aiProviderValidator),
   // Last model the user sent on this session. Page-open prewarm uses this so
   // the warm daemon matches the composer's picker instead of defaulting to sonnet.
   lastModel: v.optional(aiModelValidator),

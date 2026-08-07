@@ -4,7 +4,7 @@ import { api, normalizeAIModel, type Id } from "@eva/backend";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { useProviderAccounts } from "@/lib/hooks/useAvailableAiModels";
+import { useSessionOwnerProviderAccounts } from "@/lib/hooks/useAvailableAiModels";
 import { useSessionModel } from "@/lib/hooks/useSessionModel";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
@@ -33,7 +33,10 @@ export function useSessionAnnotationSend(
       traits,
       providerAccountId: stickyProviderAccountId,
     });
-  const { resolveId: resolveAccountId } = useProviderAccounts();
+  // Owner-scoped, matching the composer picker — resolving against the
+  // viewer's own accounts would drop the sticky account to Team.
+  const { resolveId: resolveAccountId } =
+    useSessionOwnerProviderAccounts(sessionId);
 
   const messages = useQuery(api.messages.listByParent, {
     parentId: sessionId,

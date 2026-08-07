@@ -6,7 +6,7 @@ import { decodeRepoParam, KNOWN_REPO_SUB_PAGES } from "@/lib/utils/repoUrl";
 import { useUser } from "@clerk/clerk-react";
 import { lazy, Suspense, useEffect, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { m, AnimatePresence } from "motion/react";
+import { m, AnimatePresence, type PanInfo } from "motion/react";
 import {
   IconChevronLeft,
   IconMenu2,
@@ -36,7 +36,18 @@ import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useThemeContext } from "@/lib/contexts/ThemeContext";
 import { usePageTitle } from "@/lib/contexts/PageTitleContext";
 import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
+import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
+
+/** Apple momentum projection (Designing Fluid Interfaces). */
+function projectVelocity(
+  initialVelocity: number,
+  decelerationRate = 0.998,
+): number {
+  return (
+    ((initialVelocity / 1000) * decelerationRate) / (1 - decelerationRate)
+  );
+}
 
 const KNOWN_SUB_PAGES = KNOWN_REPO_SUB_PAGES;
 
@@ -118,6 +129,7 @@ export function Sidebar() {
   } = useSidebar();
   const { pageTitle } = usePageTitle();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const isDesktop = useMediaQuery("(min-width: 1024px)");
 
   useShortcut("toggleSidebar", (e) => {
     e.preventDefault();
@@ -263,6 +275,17 @@ export function Sidebar() {
 
   const closeMobileSidebar = () => setMobileOpen(false);
 
+  const handleMobileDrawerDragEnd = (
+    _event: MouseEvent | TouchEvent | PointerEvent,
+    info: PanInfo,
+  ) => {
+    if (isDesktop || !mobileOpen) return;
+    const projected = info.offset.x + projectVelocity(info.velocity.x);
+    if (info.offset.x < -72 || info.velocity.x < -500 || projected < -120) {
+      closeMobileSidebar();
+    }
+  };
+
   // Global panels (Sessions, Home, Settings) are a plain title + list: no repo
   // header, no team background, no back button.
   const isFlatPanel =
@@ -356,10 +379,9 @@ export function Sidebar() {
         )}
       </AnimatePresence>
 
-      <aside
+      <m.aside
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex motion-base transition-transform duration-300 lg:translate-x-0",
-          mobileOpen ? "translate-x-0" : "-translate-x-full",
+          "fixed inset-y-0 left-0 z-50 flex",
           // Global pages are rail-only except Sessions (grouped cross-repo list).
           // Collapsed = hide the secondary panel entirely (rail only on lg+).
           showSidePanel
@@ -369,6 +391,14 @@ export function Sidebar() {
               )
             : "w-16",
         )}
+        initial={false}
+        animate={{ x: isDesktop || mobileOpen ? 0 : "-100%" }}
+        transition={{ type: "spring", bounce: 0, duration: 0.35 }}
+        drag={!isDesktop && mobileOpen ? "x" : false}
+        dragDirectionLock
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={{ left: 0.45, right: 0.08 }}
+        onDragEnd={handleMobileDrawerDragEnd}
       >
         <RepoRail
           repos={repos ?? []}
@@ -657,7 +687,7 @@ export function Sidebar() {
             </ContextSidebarHeaderActionProvider>
           </div>
         ) : null}
-      </aside>
+      </m.aside>
     </>
   );
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## Mobile drawer spring + gallery 1:1 swipe - 2026-08-07
+
+The mobile sidebar used a fixed CSS translate and the image lightbox only jumped after a touch-end threshold — neither tracked the finger or handed off velocity. The drawer now opens/closes on a critically damped spring and can be flicked shut with momentum projection; the lightbox follows the pointer 1:1 and springs to the next/prev image (or back) from release velocity. Reason: gesture-driven surfaces must stay glued to the finger and continue at the same speed when the hand lifts.
+
 ## Resize rubberband on sidebar and console dock - 2026-08-07
 
 Dragging the sidebar width or console split hard-stopped at min/max, which reads as frozen rather than "nothing more here." Live drag now rubberbands past the bound and clamps only on release (keyboard still clamps immediately); persisted width stays in range. Reason: soft boundaries keep 1:1 tracking continuous at the edge.

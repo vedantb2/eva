@@ -8,24 +8,25 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import {
   Button,
-  Tabs,
-  TabsList,
-  TabsTrigger,
   DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
   DropdownMenuCheckboxItem,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
+  DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
-  DropdownMenuItem,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+  motionBase,
   Skeleton,
+  Tabs,
+  TabsList,
+  TabsTrigger,
   Tooltip,
-  TooltipTrigger,
   TooltipContent,
+  TooltipTrigger,
 } from "@eva/ui";
 import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
@@ -69,9 +70,7 @@ const VIEW_OPTIONS: {
 ];
 
 function isProjectView(value: string): value is ProjectView {
-  return (
-    value === "kanban" || value === "timeline" || value === "list"
-  );
+  return value === "kanban" || value === "timeline" || value === "list";
 }
 
 const SORT_FIELD_LABELS: Record<SortField, string> = {
@@ -432,7 +431,7 @@ export function ProjectsClient() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 8 }}
-                  transition={{ duration: 0.2 }}
+                  transition={motionBase}
                 >
                   <div className="flex h-full min-h-0 min-w-0 flex-1 items-stretch gap-2 overflow-x-auto overflow-y-hidden scrollbar scroll-fade-x snap-x snap-mandatory sm:gap-3 sm:snap-none">
                     <ProjectsKanbanView
@@ -454,7 +453,7 @@ export function ProjectsClient() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 8 }}
-                  transition={{ duration: 0.2 }}
+                  transition={motionBase}
                 >
                   <ProjectsTimeline
                     projects={filteredSorted}
@@ -472,7 +471,7 @@ export function ProjectsClient() {
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: 8 }}
-                  transition={{ duration: 0.2 }}
+                  transition={motionBase}
                 >
                   <ProjectsListView
                     projectsByPhase={projectsByPhase}

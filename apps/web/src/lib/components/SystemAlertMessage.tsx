@@ -6,9 +6,10 @@ import {
   Button,
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
+  motionBase,
 } from "@eva/ui";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
@@ -31,7 +32,7 @@ export function SystemAlertMessage({
       <m.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.2 }}
+        transition={motionBase}
         className="flex items-center gap-3 py-1"
       >
         <div className="h-px flex-1 bg-border" />

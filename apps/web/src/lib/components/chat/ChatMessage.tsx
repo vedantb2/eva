@@ -1,13 +1,14 @@
 import {
+  cn,
+  formatModelDisplayLabel,
   Message as AIMessage,
   MessageContent,
   MessageResponse,
+  motionFast,
   ProviderIcon,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
-  cn,
-  formatModelDisplayLabel,
 } from "@eva/ui";
 import { IconCode, IconClipboardList } from "@tabler/icons-react";
 import { memo } from "react";
@@ -171,7 +172,7 @@ export const ChatMessage = memo(function ChatMessage({
         data-message-id={message._id}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+        transition={motionFast}
       >
         <AIMessage
           from={message.role}

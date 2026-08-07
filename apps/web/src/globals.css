@@ -293,6 +293,13 @@
 
 @utility scrollbar {
   /* Matches global base scrollbar chrome; class kept for scroll-fade pairing. */
+
+  /* Every element carrying this class is an inner pane, so a wheel or swipe that
+     reaches its end should stop there rather than scrolling whatever is behind
+     it. Chaining is why flicking a sidebar list or a kanban column to the bottom
+     used to drag the page with it. Only three of the app's 78 scroll containers
+     opted into this by hand; putting it here covers 36 of them at once. */
+  overscroll-behavior: contain;
   scrollbar-width: thin;
   scrollbar-color: rgb(var(--muted-foreground) / 0.35) transparent;
   &:hover {

@@ -1,5 +1,19 @@
 # Changelog
 
+## House motion presets for motion/react, timeline bar onto transform, contained overscroll - 2026-08-07
+
+Three fixes from an eighth Apple-design pass over `apps/web` and `packages/ui`.
+
+`globals.css` has defined `--motion-fast` / `--motion-base` / `--motion-slow` and `--motion-ease-out` for several passes, and every CSS transition in the app now resolves to them. The JS side had no equivalent, so 44 `transition={{ … }}` props on `m.*` elements carried raw numbers and had drifted: seven distinct durations from 0.15 to 0.35, and five different eases for the same job — `motion`'s implicit default, a hand-copied `[0.22, 1, 0.36, 1]`, `"easeOut"`, and two ad-hoc springs with different stiffness. A row fading in beside a row sliding in eased differently for no reason a reader could name. A new `packages/ui/src/utils/motion.ts` exports `motionFast`, `motionBase`, `motionSlow`, `motionSpring` and a `motionStagger(index)` helper, and all 44 sites now use them across 26 files. `motionSpring` is critically damped — `bounce: 0` — because none of those 44 are gesture-driven, so overshoot there would be decoration rather than momentum the user put in. The two `ease: "linear"` sites are deliberately untouched: the infinite shimmer and the landing carousel's autoplay bar are both timers, and linear is what a timer looks like.
+
+The projects timeline bar was the third bar in two passes to animate `width`, which relayouts the row on every frame. It is now a full-width layer scaled from the left edge, and it stays mounted rather than being conditional on a non-zero value, so the first value scales up from nothing instead of popping in at its final length.
+
+`overscroll-behavior` was set on exactly three of the app's 79 scroll containers, so flicking a sidebar list, a kanban column or a picker to its end dragged the page behind it with the leftover momentum. Rather than touch 79 elements, `@utility scrollbar` now carries `overscroll-behavior: contain`, which covers 36 of them at once — including `scrollbar-thin`, which `@apply`s it. Every element carrying that class is an inner pane; the one page-level user is a flex child rather than the document scroller, so containing it is safe. The two hand-rolled `overscroll-contain` classes it makes redundant (`KanbanColumn`, `MentionPickerPopup`) are removed. `scrollbar-none` is left alone — those are hidden-chrome canvas panes with their own scroll handling.
+
+Verified: `tsc --noEmit` clean in both packages, `vite build` clean in 49s, and the built CSS confirmed to emit `overscroll-behavior:contain` inside `.scrollbar`, `.scrollbar-thin` and `.md\:scrollbar`. No live browser check — the local Convex backend and Clerk agent sign-in are still down, so the timeline bar, the 44 motion configs and the overscroll change are verified by the compiler, the build and the compiled CSS rather than by watching them move.
+
+Not done: `TestingArenaSidebar` animates `max-width,opacity,padding` and `DesignVariationsPanel` animates `width,height,inset` — both layout animations whose replacements need eyes on the result — and `gantt-timeline` has a `max-height` hover reveal. The 43 scroll containers without the `scrollbar` class still chain overscroll. Hit padding is still hand-rolled four ways alongside the existing `hit-target` utility, with `PendingReviewCommentChips` a `size-5` button with none. The 24 hover-only reveals across 21 files, the un-animated desktop right-panel collapse, and gantt drag being `MouseSensor`-only all remain open.
+
 ## Progress bars onto transform, tokenised durations, dead ease classes removed - 2026-08-07
 
 Three fixes from a seventh Apple-design pass over `apps/web` and `packages/ui`, plus a fourth found while verifying the third.

@@ -5,6 +5,7 @@ import { IconDeviceDesktop, IconMoon, IconSun } from "@tabler/icons-react";
 import { motion } from "motion/react";
 import { useCallback, useEffect, useState } from "react";
 import { cn } from "../utils/cn";
+import { motionSpring } from "../utils/motion";
 
 const themes = [
   {
@@ -83,7 +84,7 @@ export const ThemeSwitcher = ({
               <motion.div
                 className="absolute inset-0 rounded-full bg-secondary"
                 layoutId="activeTheme"
-                transition={{ type: "spring", bounce: 0, duration: 0.35 }}
+                transition={motionSpring}
               />
             )}
             <Icon

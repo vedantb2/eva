@@ -17,12 +17,13 @@ import { SortableContext } from "@dnd-kit/sortable";
 import { m, AnimatePresence } from "motion/react";
 import { Virtuoso } from "react-virtuoso";
 import {
-  KanbanProvider,
-  KanbanCard,
   cn,
   DRAG_ACTIVATION_DISTANCE_PX,
-  type KanbanItem,
+  KanbanCard,
+  KanbanProvider,
+  motionBase,
   type KanbanColumnDef,
+  type KanbanItem,
 } from "@eva/ui";
 import {
   KanbanColumn,
@@ -209,7 +210,7 @@ export function KanbanBoard<T extends BaseTask>({
                       initial={{ opacity: 0, y: 8 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: 8 }}
-                      transition={{ duration: 0.2 }}
+                      transition={motionBase}
                     >
                       <VirtualKanbanColumn
                         status={status}

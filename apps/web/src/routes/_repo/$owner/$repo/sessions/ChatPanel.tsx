@@ -43,6 +43,7 @@ import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { PendingReviewCommentChips } from "@/lib/components/chat/PendingReviewCommentChips";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
 import { getSessionReadOnlyMessage } from "./_utils/sessionReadOnly";
+import { motionBase } from "@eva/ui";
 
 type QueuedSessionMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
@@ -298,7 +299,7 @@ export function ChatPanel({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
-            transition={{ duration: 0.2 }}
+            transition={motionBase}
           >
             <SessionPrdPlanView
               sessionId={sessionId}

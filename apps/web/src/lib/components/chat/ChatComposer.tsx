@@ -1,18 +1,19 @@
 import {
   BorderBeam,
   Button,
-  PromptInput,
-  PromptInputProvider,
-  PromptInputFooter,
-  PromptInputTools,
-  PromptInputSubmit,
   ModelSelect,
-  TraitsMenu,
-  usePromptInputController,
+  motionBase,
+  PromptInput,
+  PromptInputFooter,
+  PromptInputProvider,
+  PromptInputSubmit,
+  PromptInputTools,
   toast,
-  type PromptInputMessage,
-  type ModelOption,
+  TraitsMenu,
   type ModelAccount,
+  type ModelOption,
+  type PromptInputMessage,
+  usePromptInputController,
 } from "@eva/ui";
 import { ComposerSpeechButton } from "@/lib/components/chat/_components/ComposerSpeechButton";
 import {
@@ -191,7 +192,7 @@ export function ChatComposer({
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
-            transition={{ duration: 0.2 }}
+            transition={motionBase}
           >
             {beforeQueuedContent}
           </m.div>
@@ -271,9 +272,7 @@ export function ChatComposer({
               multiple
               maxFiles={MAX_CHAT_ATTACHMENTS}
               maxFileSize={MAX_CHAT_ATTACHMENT_BYTES}
-              onError={(err) =>
-                toast.error(chatAttachmentErrorMessage(err))
-              }
+              onError={(err) => toast.error(chatAttachmentErrorMessage(err))}
             >
               <ChatAttachmentPreview />
               <MentionTextarea

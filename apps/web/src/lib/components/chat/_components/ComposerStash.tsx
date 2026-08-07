@@ -9,6 +9,7 @@ import {
   CommandEmpty,
   CommandItem,
   CommandList,
+  motionSpring,
   Popover,
   PopoverAnchor,
   PopoverContent,
@@ -17,9 +18,7 @@ import {
 import { IconBookmark, IconX } from "@tabler/icons-react";
 import type { Id } from "@eva/backend";
 import { relativeTime } from "@/lib/components/artifacts/_format";
-import {
-  isImageContentType,
-} from "@/lib/components/attachments/attachmentMeta";
+import { isImageContentType } from "@/lib/components/attachments/attachmentMeta";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import type { MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
 import {
@@ -190,7 +189,7 @@ export function ComposerStash({
               type="button"
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 420, damping: 32 }}
+              transition={motionSpring}
               className="inline-flex h-7 items-center gap-1 rounded-md bg-muted px-2 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground"
               onClick={() => setOpen((prev) => !prev)}
               title="Prompt stash"

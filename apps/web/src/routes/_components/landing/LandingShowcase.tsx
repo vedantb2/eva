@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { IconCheck } from "@tabler/icons-react";
 import { m } from "motion/react";
-import { cn } from "@eva/ui";
+import { cn, motionSlow } from "@eva/ui";
 import type { LandingFeature } from "./landingContent";
 import { LANDING_PREVIEWS } from "./previews";
 
@@ -203,7 +203,7 @@ function SwapIn({
       key={swapKey}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      transition={motionSlow}
     >
       {children}
     </m.div>

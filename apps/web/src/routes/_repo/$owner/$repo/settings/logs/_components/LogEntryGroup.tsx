@@ -6,8 +6,9 @@ import type { api } from "@eva/backend";
 import {
   Badge,
   Collapsible,
-  CollapsibleTrigger,
   CollapsibleContent,
+  CollapsibleTrigger,
+  motionBase,
 } from "@eva/ui";
 import { ProviderIcon } from "@eva/ui/ai";
 import { IconChevronRight, IconCode } from "@tabler/icons-react";
@@ -56,7 +57,7 @@ function RawEventViewer({ raw }: { raw: string | undefined }) {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+            transition={motionBase}
             className="overflow-hidden"
           >
             <pre className="mt-2 max-h-48 overflow-auto scroll-fade rounded-surface bg-muted/50 p-3 font-mono text-xs leading-relaxed text-muted-foreground">

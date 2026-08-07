@@ -8,7 +8,7 @@ import { useQueryState } from "nuqs";
 import { m, AnimatePresence } from "motion/react";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
-import { Button, Skeleton } from "@eva/ui";
+import { Button, motionFast, motionStagger, Skeleton } from "@eva/ui";
 import { IconChecks, IconInbox } from "@tabler/icons-react";
 import dayjs from "@eva/shared/dates";
 import { inboxFilterParser } from "@/lib/search-params";
@@ -162,7 +162,7 @@ export function InboxClient() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                transition={{ duration: 0.15 }}
+                transition={motionFast}
               >
                 <div className="border-b border-border bg-muted px-4 py-1.5">
                   <span className="text-xs font-medium text-muted-foreground">
@@ -177,8 +177,8 @@ export function InboxClient() {
                       animate={{ opacity: 1 }}
                       exit={{ opacity: 0 }}
                       transition={{
-                        duration: 0.15,
-                        delay: Math.min(index * 0.02, 0.1),
+                        ...motionFast,
+                        delay: motionStagger(index, 0.02, 0.1),
                       }}
                     >
                       <NotificationRow

@@ -13,9 +13,11 @@ import {
   Card,
   CardContent,
   ContextMenu,
-  ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuTrigger,
+  motionBase,
+  motionStagger,
 } from "@eva/ui";
 import {
   IconBrandGithub,
@@ -65,10 +67,7 @@ export function RepoCard({
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: 10 }}
-      transition={{
-        duration: 0.2,
-        delay: Math.min(index * 0.03, 0.2),
-      }}
+      transition={{ ...motionBase, delay: motionStagger(index) }}
     >
       <ContextMenu>
         <ContextMenuTrigger asChild>

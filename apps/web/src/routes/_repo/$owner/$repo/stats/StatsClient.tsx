@@ -3,7 +3,7 @@ import { useQueryState } from "nuqs";
 import { timeRangeParser } from "@/lib/search-params";
 import { api } from "@eva/backend";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { Skeleton } from "@eva/ui";
+import { motionSlow, Skeleton } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Kpi, KpiGroup } from "@/lib/components/analytics/Kpi";
@@ -92,7 +92,7 @@ export function StatsClient() {
           <m.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
+            transition={motionSlow}
           >
             <ActivityHeatmap data={heatmap} />
           </m.div>
@@ -100,7 +100,7 @@ export function StatsClient() {
           <m.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.1 }}
+            transition={{ ...motionSlow, delay: 0.1 }}
           >
             <KpiGroup className="lg:grid-cols-3">
               <Kpi
@@ -144,7 +144,7 @@ export function StatsClient() {
             className="grid grid-cols-1 gap-4 lg:grid-cols-3"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.2 }}
+            transition={{ ...motionSlow, delay: 0.2 }}
           >
             <div className="lg:col-span-2">
               <PRsOverTimeChart timeline={timeline} />
@@ -159,7 +159,7 @@ export function StatsClient() {
             className="grid grid-cols-1 gap-4 lg:grid-cols-3"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.35 }}
+            transition={{ ...motionSlow, delay: 0.35 }}
           >
             <div className="lg:col-span-2">
               <ActivityTimelineChart timeline={timeline} />

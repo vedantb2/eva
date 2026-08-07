@@ -1,14 +1,15 @@
 ﻿import { m, AnimatePresence } from "motion/react";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  motionFast,
+  Separator,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-  Separator,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
 } from "@eva/ui";
 import {
   IconFolders,
@@ -137,7 +138,7 @@ export function QuickTasksBulkBar({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
-          transition={{ duration: 0.15, ease: "easeOut" }}
+          transition={motionFast}
         >
           <TooltipProvider>
             <div className="flex max-w-[calc(100vw-2rem)] items-center gap-1 overflow-x-auto rounded-surface bg-popover/95 px-2.5 py-2 backdrop-blur-md smooth-shadow-ring-lg scrollbar-none">

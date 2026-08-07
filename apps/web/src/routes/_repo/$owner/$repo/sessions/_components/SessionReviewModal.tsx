@@ -7,6 +7,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  motionBase,
+  motionSlow,
+  motionSpring,
   Spinner,
 } from "@eva/ui";
 import { IconCircleCheck } from "@tabler/icons-react";
@@ -116,7 +119,7 @@ export function SessionReviewModal({
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
+              transition={motionBase}
             >
               <DialogHeader>
                 <DialogTitle>Send for Code Review</DialogTitle>
@@ -146,7 +149,7 @@ export function SessionReviewModal({
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
-              transition={{ duration: 0.2 }}
+              transition={motionBase}
             >
               <DialogHeader>
                 <DialogTitle>Auditing in Progress</DialogTitle>
@@ -163,18 +166,14 @@ export function SessionReviewModal({
                       className="flex items-center gap-3"
                       initial={{ opacity: 0, x: -8 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.1, duration: 0.2 }}
+                      transition={{ ...motionBase, delay: index * 0.1 }}
                     >
                       <div className="flex h-5 w-5 items-center justify-center">
                         {isComplete ? (
                           <m.div
                             initial={{ scale: 0.6, opacity: 0 }}
                             animate={{ scale: 1, opacity: 1 }}
-                            transition={{
-                              type: "spring",
-                              stiffness: 400,
-                              damping: 32,
-                            }}
+                            transition={motionSpring}
                           >
                             <IconCircleCheck
                               size={20}
@@ -204,7 +203,7 @@ export function SessionReviewModal({
               className="space-y-4"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3 }}
+              transition={motionSlow}
             >
               <DialogHeader>
                 <DialogTitle>Review Sent</DialogTitle>
@@ -212,7 +211,7 @@ export function SessionReviewModal({
               <m.div
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: 0.1 }}
+                transition={{ ...motionSlow, delay: 0.1 }}
                 className="rounded-surface bg-status-code-review-bg p-4 text-center"
               >
                 <IconCircleCheck

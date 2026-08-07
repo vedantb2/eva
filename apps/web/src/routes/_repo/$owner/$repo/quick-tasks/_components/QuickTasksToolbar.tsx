@@ -1,23 +1,24 @@
 import { m, AnimatePresence } from "motion/react";
 import {
   Button,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuTrigger,
+  motionFast,
   Tabs,
   TabsList,
   TabsTrigger,
   Tooltip,
-  TooltipTrigger,
   TooltipContent,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubTrigger,
-  DropdownMenuSubContent,
-  DropdownMenuCheckboxItem,
+  TooltipTrigger,
 } from "@eva/ui";
 import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
 import {
@@ -256,7 +257,7 @@ export function QuickTasksToolbar({
             initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -6 }}
-            transition={{ duration: 0.18 }}
+            transition={motionFast}
           >
             <Tooltip>
               <TooltipTrigger asChild>

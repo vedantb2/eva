@@ -18,7 +18,14 @@ import {
 import { LogoMark } from "@/lib/components/LogoMark";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { api } from "@eva/backend";
-import { Button, Spinner, cn, projectVelocity } from "@eva/ui";
+import {
+  Button,
+  cn,
+  motionBase,
+  motionSpring,
+  projectVelocity,
+  Spinner,
+} from "@eva/ui";
 import { RepoRail } from "@/lib/components/sidebar/RepoRail";
 import { RepoNavSections } from "@/lib/components/sidebar/RepoNavSections";
 import { RepoTopNav } from "@/lib/components/sidebar/RepoTopNav";
@@ -213,7 +220,8 @@ export function Sidebar() {
   // shown for the landing page and for every repo-scoped automation URL.
   const isGlobalAutomationsLanding =
     pathname === "/automations" || pathname === "/automations/";
-  const isRepoAutomationsPath = isRepoRoute && pathParts.includes("automations");
+  const isRepoAutomationsPath =
+    isRepoRoute && pathParts.includes("automations");
   const showGlobalAutomationsPanel =
     isGlobalAutomationsLanding || isRepoAutomationsPath;
   const showHomePanel = isHomePath(pathname);
@@ -364,7 +372,7 @@ export function Sidebar() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={motionBase}
           />
         )}
       </AnimatePresence>
@@ -383,7 +391,7 @@ export function Sidebar() {
         )}
         initial={false}
         animate={{ x: isDesktop || mobileOpen ? 0 : "-100%" }}
-        transition={{ type: "spring", bounce: 0, duration: 0.35 }}
+        transition={motionSpring}
         drag={!isDesktop && mobileOpen ? "x" : false}
         dragDirectionLock
         dragConstraints={{ left: 0, right: 0 }}
@@ -448,7 +456,7 @@ export function Sidebar() {
                       )}
                       initial={{ opacity: 0, x: -10 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ duration: 0.2 }}
+                      transition={motionBase}
                     >
                       {isFlatPanel ? (
                         <>
@@ -570,7 +578,7 @@ export function Sidebar() {
                         key={`${panelKey}-nav`}
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.2 }}
+                        transition={motionBase}
                       >
                         <Suspense fallback={sidebarPanelFallback}>
                           {showGlobalSessionsPanel ? (

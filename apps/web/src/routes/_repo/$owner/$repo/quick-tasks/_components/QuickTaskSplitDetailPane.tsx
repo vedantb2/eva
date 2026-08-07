@@ -11,6 +11,7 @@ import { useQuickTaskNeighbors } from "../_utils/useQuickTaskNeighbors";
 import type { QuickTaskRouteState } from "../_utils/useQuickTaskRouteState";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
+import { motionFast } from "@eva/ui";
 
 interface QuickTaskSplitDetailPaneProps {
   taskId: Id<"agentTasks">;
@@ -85,7 +86,7 @@ export function QuickTaskSplitDetailPane({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+          transition={motionFast}
         >
           <QuickTaskTaskPageContent taskId={taskId} routeState={routeState} />
         </m.div>

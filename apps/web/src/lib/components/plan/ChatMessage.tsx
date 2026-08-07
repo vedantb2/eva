@@ -6,6 +6,7 @@ import {
   Message as AIMessage,
   MessageContent,
   MessageResponse,
+  motionFast,
 } from "@eva/ui";
 import { UserInitials } from "@eva/shared";
 import { EvaIcon } from "@/lib/components/EvaIcon";
@@ -53,7 +54,7 @@ export function ChatMessage({
     <m.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+      transition={motionFast}
     >
       <AIMessage from={role}>
         <MessageContent

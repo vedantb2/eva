@@ -1,5 +1,5 @@
 import { m } from "motion/react";
-import { Card, CardContent, Button } from "@eva/ui";
+import { Button, Card, CardContent, motionBase } from "@eva/ui";
 import { IconX, IconSparkles } from "@tabler/icons-react";
 import { PLATFORM_SECTIONS } from "@/lib/content/platformSections";
 
@@ -9,7 +9,7 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.2 }}
+      transition={motionBase}
     >
       <Card className="ui-surface-strong mb-6 overflow-hidden">
         <CardContent className="p-4 sm:p-5">

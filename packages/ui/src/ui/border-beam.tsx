@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { AnimatePresence, m } from "motion/react";
 
 import { cn } from "../utils/cn";
+import { motionSlow } from "../utils/motion";
 
 export type BorderBeamSize = "sm" | "md" | "lg";
 
@@ -63,7 +64,7 @@ export function BorderBeam({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeOut" }}
+            transition={motionSlow}
           />
         ) : null}
       </AnimatePresence>

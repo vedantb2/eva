@@ -3,7 +3,7 @@ import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { Skeleton } from "@eva/ui";
+import { motionBase, Skeleton } from "@eva/ui";
 import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -414,7 +414,7 @@ export function QuickTasksClient() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.2 }}
+                transition={motionBase}
               >
                 <EmptyState
                   icon={
@@ -435,9 +435,7 @@ export function QuickTasksClient() {
                     hasAnyTasks ? "Clear filters" : "Create Quick Task"
                   }
                   onAction={
-                    hasAnyTasks
-                      ? clearAllFilters
-                      : () => setIsCreating(true)
+                    hasAnyTasks ? clearAllFilters : () => setIsCreating(true)
                   }
                   animate={!hasAnyTasks}
                 />
@@ -449,7 +447,7 @@ export function QuickTasksClient() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.2 }}
+                transition={motionBase}
               >
                 <QuickTasksKanbanBoard
                   tasks={quickTasks}
@@ -466,7 +464,7 @@ export function QuickTasksClient() {
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: 8 }}
-                transition={{ duration: 0.2 }}
+                transition={motionBase}
               >
                 <QuickTasksListSplit
                   tasks={quickTasks}

@@ -1,4 +1,11 @@
 export { cn } from "./utils/cn";
+export {
+  motionBase,
+  motionFast,
+  motionSlow,
+  motionSpring,
+  motionStagger,
+} from "./utils/motion";
 export { STREAMDOWN_TABLE_RADIUS_CLASS } from "./utils/surface-radius";
 export {
   rubberband,

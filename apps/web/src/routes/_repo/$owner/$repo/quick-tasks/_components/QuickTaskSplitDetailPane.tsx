@@ -62,7 +62,7 @@ export function QuickTaskSplitDetailPane({
             <button
               onClick={handleNavigatePrev}
               disabled={!prevTaskId}
-              className="hit-target motion-press rounded p-1 active:scale-[0.96] transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
+              className="hit-target motion-press rounded p-1 active:scale-[0.96] hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
               title="Previous task"
             >
               <IconChevronLeft size={16} />
@@ -70,7 +70,7 @@ export function QuickTaskSplitDetailPane({
             <button
               onClick={handleNavigateNext}
               disabled={!nextTaskId}
-              className="hit-target motion-press rounded p-1 active:scale-[0.96] transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
+              className="hit-target motion-press rounded p-1 active:scale-[0.96] hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
               title="Next task"
             >
               <IconChevronRight size={16} />

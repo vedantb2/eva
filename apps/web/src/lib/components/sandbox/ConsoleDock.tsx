@@ -22,14 +22,10 @@ const MAX_PREVIEW_PCT = 85;
 
 function rubberbandPreviewPct(pct: number): number {
   if (pct < MIN_PREVIEW_PCT) {
-    return (
-      MIN_PREVIEW_PCT - rubberband(MIN_PREVIEW_PCT - pct, 100)
-    );
+    return MIN_PREVIEW_PCT - rubberband(MIN_PREVIEW_PCT - pct, 100);
   }
   if (pct > MAX_PREVIEW_PCT) {
-    return (
-      MAX_PREVIEW_PCT + rubberband(pct - MAX_PREVIEW_PCT, 100)
-    );
+    return MAX_PREVIEW_PCT + rubberband(pct - MAX_PREVIEW_PCT, 100);
   }
   return pct;
 }
@@ -168,7 +164,7 @@ export function ConsoleDock({
         type="button"
         aria-expanded={expanded}
         onClick={toggle}
-        className="flex h-9 shrink-0 items-center justify-between border-t border-border px-3 text-muted-foreground transition-colors motion-press active:scale-[0.99] hover:bg-secondary"
+        className="flex h-9 shrink-0 items-center justify-between border-t border-border px-3 text-muted-foreground motion-press active:scale-[0.99] hover:bg-secondary"
       >
         <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
           <IconTerminal2 className="size-3.5" />

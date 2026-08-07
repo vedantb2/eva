@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { m, AnimatePresence, type Transition } from "motion/react";
 
 const DEFAULT_TRANSITION: Transition = {
@@ -31,8 +32,8 @@ const SOFT_ICON_MOTION = {
 
 interface CrossfadeIconProps {
   show: boolean;
-  whenTrue: React.ReactNode;
-  whenFalse: React.ReactNode;
+  whenTrue: ReactNode;
+  whenFalse: ReactNode;
   trueKey?: string;
   falseKey?: string;
   className?: string;
@@ -78,6 +79,46 @@ export function CrossfadeIcon({
             {whenFalse}
           </m.span>
         )}
+      </AnimatePresence>
+    </span>
+  );
+}
+
+/**
+ * Cross-fades between any number of keyed icons in the same slot.
+ *
+ * `CrossfadeIcon` covers the two-state case, which is most of them. A control
+ * that cycles through three or more states (the composer's submit button:
+ * send, submitting, streaming, error) needs the key to come from the state
+ * rather than from a boolean.
+ */
+export function CrossfadeIconSlot({
+  iconKey,
+  children,
+  className = "relative flex size-4 items-center justify-center",
+  variant = "soft",
+}: {
+  /** Identity of the icon currently shown; a change triggers the swap. */
+  iconKey: string;
+  children: ReactNode;
+  className?: string;
+  variant?: "default" | "soft";
+}) {
+  const motion = variant === "soft" ? SOFT_ICON_MOTION : DEFAULT_ICON_MOTION;
+
+  return (
+    <span className={className}>
+      <AnimatePresence initial={false}>
+        <m.span
+          key={iconKey}
+          className="absolute inset-0 flex items-center justify-center"
+          initial={motion.initial}
+          animate={motion.animate}
+          exit={motion.exit}
+          transition={motion.transition}
+        >
+          {children}
+        </m.span>
       </AnimatePresence>
     </span>
   );

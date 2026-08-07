@@ -48,6 +48,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import { CrossfadeIconSlot } from "../ui/crossfade-icon";
 import { Spinner } from "../ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "../utils/cn";
@@ -425,6 +426,10 @@ export const PromptInput = ({
   // Refs
   const inputRef = useRef<HTMLInputElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
+  const dragEnterDepth = useRef(0);
+
+  /** Highlights the composer while a file drag is over the drop target. */
+  const [isDragOver, setIsDragOver] = useState(false);
 
   // ----- Local attachments (only used when no provider)
   const [items, setItems] = useState<(FileUIPart & { id: string })[]>([]);
@@ -619,9 +624,7 @@ export const PromptInput = ({
 
   const add = usingProvider ? addWithProviderValidation : addLocal;
   const remove = usingProvider ? controller.attachments.remove : removeLocal;
-  const replace = usingProvider
-    ? controller.attachments.replace
-    : replaceLocal;
+  const replace = usingProvider ? controller.attachments.replace : replaceLocal;
   const openFileDialog = usingProvider
     ? controller.attachments.openFileDialog
     : openFileDialogLocal;
@@ -647,61 +650,68 @@ export const PromptInput = ({
     }
   }, [files, syncHiddenInput]);
 
-  // Attach drop handlers on nearest form and document (opt-in)
+  /**
+   * Drop handling binds to the nearest form, or to the document when
+   * `globalDrop` lets a drag anywhere in the page land here. One effect covers
+   * both, because only the event target differs.
+   *
+   * `dragEnterDepth` counts enter/leave pairs instead of using a plain boolean:
+   * `dragleave` also fires when the pointer crosses from the form onto one of
+   * its own children, which would flicker the highlight off mid-drag.
+   */
   useEffect(() => {
-    const form = formRef.current;
-    if (!form) {
-      return;
-    }
-    if (globalDrop) {
-      // when global drop is on, let the document-level handler own drops
+    const target: EventTarget | null = globalDrop ? document : formRef.current;
+    if (!target) {
       return;
     }
 
-    const onDragOver = (e: DragEvent) => {
-      if (e.dataTransfer?.types?.includes("Files")) {
-        e.preventDefault();
+    const carriesFiles = (event: DragEvent) =>
+      event.dataTransfer?.types?.includes("Files") === true;
+
+    const onDragEnter = (event: Event) => {
+      if (!(event instanceof DragEvent) || !carriesFiles(event)) {
+        return;
+      }
+      dragEnterDepth.current += 1;
+      setIsDragOver(true);
+    };
+    const onDragOver = (event: Event) => {
+      if (event instanceof DragEvent && carriesFiles(event)) {
+        event.preventDefault();
       }
     };
-    const onDrop = (e: DragEvent) => {
-      if (e.dataTransfer?.types?.includes("Files")) {
-        e.preventDefault();
+    const onDragLeave = (event: Event) => {
+      if (!(event instanceof DragEvent) || !carriesFiles(event)) {
+        return;
       }
-      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-        add(e.dataTransfer.files);
+      dragEnterDepth.current = Math.max(0, dragEnterDepth.current - 1);
+      if (dragEnterDepth.current === 0) {
+        setIsDragOver(false);
       }
     };
-    form.addEventListener("dragover", onDragOver);
-    form.addEventListener("drop", onDrop);
+    const onDrop = (event: Event) => {
+      if (!(event instanceof DragEvent)) {
+        return;
+      }
+      if (carriesFiles(event)) {
+        event.preventDefault();
+      }
+      dragEnterDepth.current = 0;
+      setIsDragOver(false);
+      if (event.dataTransfer?.files && event.dataTransfer.files.length > 0) {
+        add(event.dataTransfer.files);
+      }
+    };
+
+    target.addEventListener("dragenter", onDragEnter);
+    target.addEventListener("dragover", onDragOver);
+    target.addEventListener("dragleave", onDragLeave);
+    target.addEventListener("drop", onDrop);
     return () => {
-      form.removeEventListener("dragover", onDragOver);
-      form.removeEventListener("drop", onDrop);
-    };
-  }, [add, globalDrop]);
-
-  useEffect(() => {
-    if (!globalDrop) {
-      return;
-    }
-
-    const onDragOver = (e: DragEvent) => {
-      if (e.dataTransfer?.types?.includes("Files")) {
-        e.preventDefault();
-      }
-    };
-    const onDrop = (e: DragEvent) => {
-      if (e.dataTransfer?.types?.includes("Files")) {
-        e.preventDefault();
-      }
-      if (e.dataTransfer?.files && e.dataTransfer.files.length > 0) {
-        add(e.dataTransfer.files);
-      }
-    };
-    document.addEventListener("dragover", onDragOver);
-    document.addEventListener("drop", onDrop);
-    return () => {
-      document.removeEventListener("dragover", onDragOver);
-      document.removeEventListener("drop", onDrop);
+      target.removeEventListener("dragenter", onDragEnter);
+      target.removeEventListener("dragover", onDragOver);
+      target.removeEventListener("dragleave", onDragLeave);
+      target.removeEventListener("drop", onDrop);
     };
   }, [add, globalDrop]);
 
@@ -842,7 +852,16 @@ export const PromptInput = ({
         ref={formRef}
         {...props}
       >
-        <InputGroup className="overflow-hidden border-border shadow-none">
+        {/* The drop target is the only feedback a file drag gets, so it has to
+            be unmistakable: the composer border takes the accent and the field
+            tints. Colour only, on the fast token — a drag is already in motion,
+            and moving the composer would fight the pointer. */}
+        <InputGroup
+          className={cn(
+            "overflow-hidden shadow-none transition-colors duration-[var(--motion-fast)]",
+            isDragOver ? "border-primary bg-primary/5" : "border-border",
+          )}
+        >
           {children}
         </InputGroup>
       </form>
@@ -1151,6 +1170,14 @@ export const PromptInputSubmit = ({
 }: PromptInputSubmitProps) => {
   const isGenerating = status === "submitted" || status === "streaming";
 
+  // Four states on the button the user presses most in the app. Keyed by state
+  // so the swap cross-fades rather than hard-cutting: send -> spinner ->
+  // stop -> error all happen while the eye is already on the button.
+  const iconKey =
+    status === "submitted" || status === "streaming" || status === "error"
+      ? status
+      : "send";
+
   let Icon = <IconArrowUp className="size-4" />;
 
   if (status === "submitted") {
@@ -1183,7 +1210,9 @@ export const PromptInputSubmit = ({
       variant={variant}
       {...props}
     >
-      {children ?? Icon}
+      {children ?? (
+        <CrossfadeIconSlot iconKey={iconKey}>{Icon}</CrossfadeIconSlot>
+      )}
     </InputGroupButton>
   );
 };

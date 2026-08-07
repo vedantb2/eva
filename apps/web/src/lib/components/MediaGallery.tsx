@@ -210,7 +210,7 @@ export function ImageGalleryPreview({ images }: { images: GalleryImage[] }) {
                     type="button"
                     aria-label="Previous image"
                     onClick={() => step(-1)}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white transition-colors motion-press active:scale-[0.94] hover:bg-black/70"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white motion-press active:scale-[0.94] hover:bg-black/70"
                   >
                     <IconChevronLeft size={22} />
                   </button>
@@ -218,7 +218,7 @@ export function ImageGalleryPreview({ images }: { images: GalleryImage[] }) {
                     type="button"
                     aria-label="Next image"
                     onClick={() => step(1)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white transition-colors motion-press active:scale-[0.94] hover:bg-black/70"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white motion-press active:scale-[0.94] hover:bg-black/70"
                   >
                     <IconChevronRight size={22} />
                   </button>

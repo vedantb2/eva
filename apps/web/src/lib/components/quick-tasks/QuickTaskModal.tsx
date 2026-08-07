@@ -179,6 +179,11 @@ export function QuickTaskModal({
     null,
   );
   const [accountDefaulted, setAccountDefaulted] = useState(false);
+
+  // Drop-target highlight for the description pane. Depth-counted because
+  // dragleave also fires when the pointer crosses onto a child of the pane.
+  const [isDragOver, setIsDragOver] = useState(false);
+  const dragEnterDepth = useRef(0);
   const { options: modelOptions } = useAvailableAiModels(repo._id, model);
   const {
     options: accounts,
@@ -356,8 +361,23 @@ export function QuickTaskModal({
           </div>
 
           <div
+            className={`transition-colors duration-[var(--motion-fast)] ${
+              isDragOver ? "bg-primary/5" : ""
+            }`}
+            onDragEnter={(e) => {
+              if (!e.dataTransfer.types.includes("Files")) return;
+              dragEnterDepth.current += 1;
+              setIsDragOver(true);
+            }}
             onDragOver={(e) => e.preventDefault()}
+            onDragLeave={(e) => {
+              if (!e.dataTransfer.types.includes("Files")) return;
+              dragEnterDepth.current = Math.max(0, dragEnterDepth.current - 1);
+              if (dragEnterDepth.current === 0) setIsDragOver(false);
+            }}
             onDrop={(e) => {
+              dragEnterDepth.current = 0;
+              setIsDragOver(false);
               const dropped = Array.from(e.dataTransfer.files);
               if (dropped.length === 0) return;
               e.preventDefault();
@@ -396,217 +416,208 @@ export function QuickTaskModal({
           </div>
 
           <div className="flex flex-wrap items-center gap-1.5 px-5 py-3 bg-muted/30">
-              {voiceEnabled === true ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant={
-                        isListening && !isConnecting
-                          ? "destructive"
-                          : "secondary"
-                      }
-                      onClick={() => toggle(description)}
-                      disabled={isLoading || isConnecting}
-                      className="h-8 w-8"
-                      aria-label={
-                        isConnecting
-                          ? "Connecting microphone"
-                          : isListening
-                            ? "Stop voice input"
-                            : "Voice input"
-                      }
-                    >
-                      {isConnecting ? (
-                        <IconLoader2 size={14} className="animate-spin" />
-                      ) : isListening ? (
-                        <IconPlayerStop size={14} />
-                      ) : (
-                        <IconMicrophone size={14} />
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    {isConnecting
-                      ? "Connecting…"
-                      : isListening
-                        ? "Stop recording"
-                        : "Voice input"}
-                  </TooltipContent>
-                </Tooltip>
-              ) : null}
-              <PriorityPicker
-                value={priority}
-                onChange={setPriority}
-                className={QUICK_TASK_OPTION_BADGE_CLASS}
-              />
+            {voiceEnabled === true ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant={
+                      isListening && !isConnecting ? "destructive" : "secondary"
+                    }
+                    onClick={() => toggle(description)}
+                    disabled={isLoading || isConnecting}
+                    className="h-8 w-8"
+                    aria-label={
+                      isConnecting
+                        ? "Connecting microphone"
+                        : isListening
+                          ? "Stop voice input"
+                          : "Voice input"
+                    }
+                  >
+                    {isConnecting ? (
+                      <IconLoader2 size={14} className="animate-spin" />
+                    ) : isListening ? (
+                      <IconPlayerStop size={14} />
+                    ) : (
+                      <IconMicrophone size={14} />
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  {isConnecting
+                    ? "Connecting…"
+                    : isListening
+                      ? "Stop recording"
+                      : "Voice input"}
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
+            <PriorityPicker
+              value={priority}
+              onChange={setPriority}
+              className={QUICK_TASK_OPTION_BADGE_CLASS}
+            />
 
-              <AssigneeSelector
-                users={users}
-                assignedTo={assignedTo}
-                setAssignedTo={setAssignedTo}
-              />
+            <AssigneeSelector
+              users={users}
+              assignedTo={assignedTo}
+              setAssignedTo={setAssignedTo}
+            />
 
-              <ModelSelect
-                value={model}
-                options={modelOptions}
-                onValueChange={(next) => {
-                  setModel(next);
-                  setProviderAccountId(
-                    defaultProviderAccountId(accounts, next),
-                  );
-                }}
-                accounts={accounts}
-                accountId={providerAccountId}
-                onAccountChange={setProviderAccountId}
-                className={QUICK_TASK_OPTION_BADGE_CLASS}
-              />
+            <ModelSelect
+              value={model}
+              options={modelOptions}
+              onValueChange={(next) => {
+                setModel(next);
+                setProviderAccountId(defaultProviderAccountId(accounts, next));
+              }}
+              accounts={accounts}
+              accountId={providerAccountId}
+              onAccountChange={setProviderAccountId}
+              className={QUICK_TASK_OPTION_BADGE_CLASS}
+            />
 
-              {branchLockedToProject ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <button
-                      type="button"
-                      className={QUICK_TASK_OPTION_BADGE_CLASS}
-                    >
-                      <IconGitBranch size={14} />
-                      <span className="text-foreground">
-                        {displayBaseBranch}
-                      </span>
-                      <IconInfoCircle
-                        size={12}
-                        className="cursor-help text-muted-foreground"
-                      />
-                    </button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    Inherited from the project&apos;s base branch
-                  </TooltipContent>
-                </Tooltip>
-              ) : (
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className={QUICK_TASK_OPTION_BADGE_CLASS}
-                    >
-                      <IconGitBranch size={14} />
-                      <span className="text-foreground">{baseBranch}</span>
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent align="start" className="w-56 p-2">
-                    <BranchSelect
-                      value={baseBranch}
-                      onValueChange={setBaseBranch}
-                      placeholder="Select a base branch"
-                      className="h-8 w-full"
+            {branchLockedToProject ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className={QUICK_TASK_OPTION_BADGE_CLASS}
+                  >
+                    <IconGitBranch size={14} />
+                    <span className="text-foreground">{displayBaseBranch}</span>
+                    <IconInfoCircle
+                      size={12}
+                      className="cursor-help text-muted-foreground"
                     />
-                  </PopoverContent>
-                </Popover>
-              )}
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  Inherited from the project&apos;s base branch
+                </TooltipContent>
+              </Tooltip>
+            ) : (
               <Popover>
                 <PopoverTrigger asChild>
                   <button
                     type="button"
                     className={QUICK_TASK_OPTION_BADGE_CLASS}
                   >
-                    <IconTag size={14} />
-                    {selectedTags.length > 0 ? (
-                      <span className="text-foreground">
-                        {selectedTags.length} tag
-                        {selectedTags.length !== 1 ? "s" : ""}
-                      </span>
-                    ) : (
-                      <span>Tags</span>
-                    )}
+                    <IconGitBranch size={14} />
+                    <span className="text-foreground">{baseBranch}</span>
                   </button>
                 </PopoverTrigger>
-                <PopoverContent align="start" className="w-56 p-0">
-                  <Command>
-                    <CommandInput
-                      placeholder="Search or create tag..."
-                      value={tagSearch}
-                      onValueChange={setTagSearch}
-                      onKeyDown={(e) => {
-                        if (
-                          (e.key === "Enter" || e.key === ",") &&
-                          tagSearch.trim()
-                        ) {
-                          e.preventDefault();
-                          addCustomTag(tagSearch);
-                        }
-                      }}
-                    />
-                    <CommandList>
-                      <CommandEmpty>
-                        {tagSearch.trim() ? (
-                          <button
-                            type="button"
-                            className="w-full px-2 py-1.5 text-sm text-left hover:bg-muted rounded-sm"
-                            onClick={() => addCustomTag(tagSearch)}
-                          >
-                            Create &quot;{tagSearch.trim()}&quot;
-                          </button>
-                        ) : (
-                          "No tags"
-                        )}
-                      </CommandEmpty>
-                      <CommandGroup>
-                        {(() => {
-                          const selected = new Set(selectedTags);
-                          return (allTags ?? []).map((tag) => (
-                            <CommandItem
-                              key={tag}
-                              value={tag}
-                              onSelect={() => toggleTag(tag)}
-                            >
-                              <IconTag
-                                size={14}
-                                className="text-muted-foreground"
-                              />
-                              {tag}
-                              {selected.has(tag) && (
-                                <IconCheck size={14} className="ml-auto" />
-                              )}
-                            </CommandItem>
-                          ));
-                        })()}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
+                <PopoverContent align="start" className="w-56 p-2">
+                  <BranchSelect
+                    value={baseBranch}
+                    onValueChange={setBaseBranch}
+                    placeholder="Select a base branch"
+                    className="h-8 w-full"
+                  />
                 </PopoverContent>
               </Popover>
+            )}
+            <Popover>
+              <PopoverTrigger asChild>
+                <button type="button" className={QUICK_TASK_OPTION_BADGE_CLASS}>
+                  <IconTag size={14} />
+                  {selectedTags.length > 0 ? (
+                    <span className="text-foreground">
+                      {selectedTags.length} tag
+                      {selectedTags.length !== 1 ? "s" : ""}
+                    </span>
+                  ) : (
+                    <span>Tags</span>
+                  )}
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" className="w-56 p-0">
+                <Command>
+                  <CommandInput
+                    placeholder="Search or create tag..."
+                    value={tagSearch}
+                    onValueChange={setTagSearch}
+                    onKeyDown={(e) => {
+                      if (
+                        (e.key === "Enter" || e.key === ",") &&
+                        tagSearch.trim()
+                      ) {
+                        e.preventDefault();
+                        addCustomTag(tagSearch);
+                      }
+                    }}
+                  />
+                  <CommandList>
+                    <CommandEmpty>
+                      {tagSearch.trim() ? (
+                        <button
+                          type="button"
+                          className="w-full px-2 py-1.5 text-sm text-left hover:bg-muted rounded-sm"
+                          onClick={() => addCustomTag(tagSearch)}
+                        >
+                          Create &quot;{tagSearch.trim()}&quot;
+                        </button>
+                      ) : (
+                        "No tags"
+                      )}
+                    </CommandEmpty>
+                    <CommandGroup>
+                      {(() => {
+                        const selected = new Set(selectedTags);
+                        return (allTags ?? []).map((tag) => (
+                          <CommandItem
+                            key={tag}
+                            value={tag}
+                            onSelect={() => toggleTag(tag)}
+                          >
+                            <IconTag
+                              size={14}
+                              className="text-muted-foreground"
+                            />
+                            {tag}
+                            {selected.has(tag) && (
+                              <IconCheck size={14} className="ml-auto" />
+                            )}
+                          </CommandItem>
+                        ));
+                      })()}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
 
-              {selectedTags.length > 0 && (
-                <div className="flex flex-wrap gap-1 ml-1">
-                  {selectedTags.map((tag) => (
-                    <Badge
-                      key={tag}
-                      variant="secondary"
-                      className="text-[10px] h-5 gap-0.5 pr-0.5"
+            {selectedTags.length > 0 && (
+              <div className="flex flex-wrap gap-1 ml-1">
+                {selectedTags.map((tag) => (
+                  <Badge
+                    key={tag}
+                    variant="secondary"
+                    className="text-[10px] h-5 gap-0.5 pr-0.5"
+                  >
+                    {tag}
+                    <button
+                      type="button"
+                      className="rounded-sm opacity-50 hover:opacity-100 transition-opacity ml-0.5 px-0.5"
+                      onClick={() => toggleTag(tag)}
                     >
-                      {tag}
-                      <button
-                        type="button"
-                        className="rounded-sm opacity-50 hover:opacity-100 transition-opacity ml-0.5 px-0.5"
-                        onClick={() => toggleTag(tag)}
-                      >
-                        <IconX size={10} />
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              )}
+                      <IconX size={10} />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
 
-              <ProjectPicker
-                projects={projects}
-                selectedProjectId={selectedProjectId}
-                setSelectedProjectId={setSelectedProjectId}
-                open={projectPickerOpen}
-                setOpen={setProjectPickerOpen}
-                onCreateProject={() => setIsCreatingProject(true)}
-              />
+            <ProjectPicker
+              projects={projects}
+              selectedProjectId={selectedProjectId}
+              setSelectedProjectId={setSelectedProjectId}
+              open={projectPickerOpen}
+              setOpen={setProjectPickerOpen}
+              onCreateProject={() => setIsCreatingProject(true)}
+            />
           </div>
 
           <DialogFooter className="flex-col-reverse gap-2 px-5 py-3 sm:flex-row sm:justify-between bg-muted/15">

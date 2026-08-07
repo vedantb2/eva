@@ -159,7 +159,7 @@ const TabsTrigger = React.forwardRef<
   <TabsPrimitive.Trigger
     ref={ref}
     className={cn(
-      "t-tab relative z-1 inline-flex cursor-pointer items-center justify-center whitespace-nowrap px-3 py-1.5 text-sm font-medium ring-offset-background transition-[color,transform] motion-press active:scale-[0.98] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground",
+      "t-tab relative z-1 inline-flex cursor-pointer items-center justify-center whitespace-nowrap px-3 py-1.5 text-sm font-medium ring-offset-background motion-press active:scale-[0.98] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=active]:text-foreground",
       "rounded-lg",
       className,
     )}

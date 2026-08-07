@@ -56,10 +56,15 @@ export const GanttFeatureDragHelper: FC<GanttFeatureDragHelperProps> = ({
     >
       <div
         className={cn(
-          "-translate-y-1/2 absolute top-1/2 h-[80%] w-1 rounded-sm bg-muted-foreground opacity-0 transition-all",
-          direction === "left" ? "left-2.5" : "right-2.5",
-          direction === "left" ? "group-hover:left-0" : "group-hover:right-0",
-          isPressed && (direction === "left" ? "left-0" : "right-0"),
+          // The handle slides out on hover via translate, not `left`/`right`:
+          // an inset animation relayouts every frame, a transform does not.
+          // Only opacity and transform transition, so this stays on the
+          // compositor while the user is mid-drag.
+          "-translate-y-1/2 absolute top-1/2 h-[80%] w-1 rounded-sm bg-muted-foreground opacity-0 transition-[opacity,transform] duration-[var(--motion-fast)] ease-(--motion-ease-out)",
+          direction === "left" ? "left-0" : "right-0",
+          direction === "left" ? "translate-x-2.5" : "-translate-x-2.5",
+          "group-hover:translate-x-0",
+          isPressed && "translate-x-0",
           "group-hover:opacity-100",
           isPressed && "opacity-100",
         )}

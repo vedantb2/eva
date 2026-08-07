@@ -3,6 +3,7 @@
 import { useState } from "react";
 import {
   Button,
+  CrossfadeIcon,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -32,7 +33,6 @@ import {
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
-import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 import { EnvVarProviderSlots } from "@/lib/components/EnvVarProviderSlots";

@@ -1,5 +1,21 @@
 # Changelog
 
+## Drop-zone feedback, submit icon crossfade, motion-press override repaired - 2026-08-07
+
+Three fixes from a fifth Apple-design pass over `apps/web` and `packages/ui`. The third one turned out to be much larger than the audit described — see below.
+
+Dragging a file over the composer produced no feedback at all. `PromptInputBody` bound `dragover` and `drop` and nothing else, so the only signal a drag was landing anywhere useful was the cursor. The composer now takes the accent border and a faint tint the moment a file drag enters, on `--motion-fast` and colour only: a drag is already in motion, and moving the composer would fight the pointer. The quick-task modal's description pane got the same treatment. Both count enter/leave pairs rather than flipping a boolean, because `dragleave` also fires when the pointer crosses from the drop target onto one of its own children, which flickers the highlight off mid-drag. The two near-identical drag effects in `prompt-input.tsx` (one for the form, one for `globalDrop` on the document) collapsed into one parameterised by event target.
+
+The composer submit button hard-cut between its four states — send, submitting, streaming, error — which is the button the user presses most in the app. It now cross-fades. `CrossfadeIcon` moved from `apps/web` into `packages/ui` (which already depends on `motion`) so `prompt-input` could reach it, and gained a `CrossfadeIconSlot` sibling keyed by state string rather than by boolean, because the two-state API does not stretch to four. Five importers updated.
+
+The `motion-press` utility was silently doing nothing on 27 of its 57 call sites, including `packages/ui/src/ui/button.tsx` — every button in the app. Tailwind v4 emits custom `@utility` blocks earlier in the generated sheet than the core `transition-*` utilities, so at equal specificity a `transition-colors` or `transition-all` on the same element replaces the whole `transition-property` / `duration` / `timing-function` declaration of `motion-press`. Confirmed by byte offset in the built CSS: `.motion-press{` at 129290, `.transition-all{` at 136967, `.transition-colors{` at 137165. Everywhere the two were paired, `active:scale-*` was snapping with no transition. Fixed once in the utility rather than at 27 sites: `motion-press` now owns colour as well as transform, with a comma-aligned per-property `transition-duration` list so the house rule survives (transform on `--motion-fast`, colour and the rest on `--motion-base`). The redundant `transition-*` token, and any `duration-*` attached to it, is stripped from 25 lines across 20 files. `checkbox.tsx` was carrying an invalid `transition-[colors,transform]` — `colors` is not a CSS property — so it had no transform transition either way.
+
+Three `transition-all` usages fixed while in there. The gantt resize handle animated `left`/`right`, which relayouts every frame during a drag; it now slides on `translate` with only `opacity` and `transform` transitioning, so it stays on the compositor. The gantt "Today" pill transitioned `all` to animate `max-height`, dragging inherited colour along with it. The inline attachment chip only changes colour.
+
+Verified: `tsc --noEmit` clean in both packages, `vite build` clean in 57s, and the built CSS confirmed to emit the full `motion-press` property list against the eight-value duration list. No live browser check — the local Convex backend and Clerk agent sign-in are still down, so the authenticated composer and gantt routes would not render.
+
+Not done: the carousel dot's 10px width step and the gantt "Today" pill's height reveal are both layout animations left as they are, because judging them needs eyes on the result. The 21 hover-only reveal affordances against one pointer-capability guard, the un-animated desktop right-panel collapse, and gantt drag being `MouseSensor`-only all remain open.
+
 ## Collapsible motion, reduced-motion support removed, hover delay defaults - 2026-08-07
 
 Five fixes from a fourth Apple-design pass over `apps/web` and `packages/ui`.

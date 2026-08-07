@@ -21,6 +21,7 @@ export * from "./ui/clear-input";
 export * from "./ui/collapsible";
 export * from "./ui/command";
 export * from "./ui/context-menu";
+export * from "./ui/crossfade-icon";
 export * from "./ui/dialog";
 export * from "./ui/dropdown-menu";
 export * from "./ui/hover-card";

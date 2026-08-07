@@ -183,7 +183,9 @@ export const Attachment = ({
           variant === "inline" && [
             "flex h-8 cursor-pointer select-none items-center gap-1.5",
             "rounded-surface border border-border px-1.5",
-            "font-medium text-sm transition-all",
+            // Only colour changes here, so `transition-all` was both wrong and
+            // a standing invitation to animate a layout property by accident.
+            "font-medium text-sm transition-colors",
             "hover:bg-accent hover:text-accent-foreground dark:hover:bg-accent/50",
           ],
           variant === "list" && [

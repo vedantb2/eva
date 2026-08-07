@@ -1,12 +1,11 @@
 "use client";
 
-import { Button } from "@eva/ui";
+import { Button, CrossfadeIcon } from "@eva/ui";
 import {
   IconLayoutSidebarRightCollapse,
   IconLayoutSidebarRightExpand,
 } from "@tabler/icons-react";
 import { formatForDisplay } from "@tanstack/react-hotkeys";
-import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 import { useShortcutBinding } from "@/lib/hotkeys/ShortcutsContext";
 
 /** Show/hide the right sandbox panel (same control sessions use). */

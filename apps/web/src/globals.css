@@ -144,8 +144,22 @@
 }
 
 @utility motion-press {
-  transition-property: transform;
-  transition-duration: var(--motion-fast);
+  /* Covers colour as well as transform, because Tailwind's own
+   * `transition-colors` sits later in the generated sheet at the same
+   * specificity — pairing the two silently replaced this whole declaration and
+   * left `active:scale-*` snapping with no transition at all. A control that
+   * presses almost always shifts colour on hover too, so one utility owns both
+   * and call sites carry no separate `transition-*`.
+   *
+   * Per-property durations keep the house rule that colour trails the press:
+   * transform on `--motion-fast`, everything else on `--motion-base`. */
+  transition-property:
+    transform, color, background-color, border-color, box-shadow, opacity, fill,
+    stroke;
+  transition-duration:
+    var(--motion-fast), var(--motion-base), var(--motion-base),
+    var(--motion-base), var(--motion-base), var(--motion-base),
+    var(--motion-base), var(--motion-base);
   transition-timing-function: var(--motion-ease-out);
 }
 

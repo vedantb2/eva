@@ -4,6 +4,7 @@ import { useState } from "react";
 import {
   Badge,
   Button,
+  CrossfadeIcon,
   Dialog,
   DialogContent,
   DialogFooter,
@@ -21,7 +22,6 @@ import {
   IconTrash,
   IconX,
 } from "@tabler/icons-react";
-import { CrossfadeIcon } from "@/lib/components/ui/CrossfadeIcon";
 import type { EnvVar } from "@/lib/components/EnvVarsTable";
 import type { EnvVarSlotEntry } from "@/lib/components/_utils/envVarSlotTypes";
 

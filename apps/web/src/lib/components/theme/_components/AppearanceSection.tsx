@@ -56,7 +56,7 @@ export function AppearanceSection({
             className={cn(
               // The border carries the selected state, so inactive tiles keep a
               // transparent one to hold their size.
-              "relative flex flex-col items-center rounded-surface border font-medium motion-press transition-[background-color,border-color,color,transform] active:scale-[0.96]",
+              "relative flex flex-col items-center rounded-surface border font-medium motion-press active:scale-[0.96]",
               compact
                 ? "gap-1 p-2 text-[11px]"
                 : "gap-2 p-3 text-xs sm:gap-3 sm:p-4 sm:text-sm",

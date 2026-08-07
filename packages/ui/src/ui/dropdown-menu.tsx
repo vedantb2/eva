@@ -18,6 +18,10 @@ import {
   menuShortcutClass,
 } from "./_menu-classes";
 
+const DROPDOWN_MENU_CONTENT_CLASS = menuContentClass(
+  "origin-(--radix-dropdown-menu-content-transform-origin)",
+);
+
 const DropdownMenu = DropdownMenuPrimitive.Root;
 const DropdownMenuGroup = DropdownMenuPrimitive.Group;
 const DropdownMenuPortal = DropdownMenuPrimitive.Portal;
@@ -61,7 +65,7 @@ const DropdownMenuSubContent = React.forwardRef<
   <DropdownMenuPrimitive.Portal>
     <DropdownMenuPrimitive.SubContent
       ref={ref}
-      className={cn(menuContentClass, className)}
+      className={cn(DROPDOWN_MENU_CONTENT_CLASS, className)}
       {...props}
     />
   </DropdownMenuPrimitive.Portal>
@@ -77,7 +81,7 @@ const DropdownMenuContent = React.forwardRef<
     <DropdownMenuPrimitive.Content
       ref={ref}
       sideOffset={sideOffset}
-      className={cn(menuContentClass, className)}
+      className={cn(DROPDOWN_MENU_CONTENT_CLASS, className)}
       {...props}
     />
   </DropdownMenuPrimitive.Portal>

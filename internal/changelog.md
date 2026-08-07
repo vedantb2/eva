@@ -1,5 +1,17 @@
 # Changelog
 
+## Menu motion restored, size-specific tracking, drag off the storage path - 2026-08-07
+
+Three fixes from an Apple-design audit of `apps/web` and `packages/ui`.
+
+The Console dock divider wrote through `useLocalStorage` on every `pointermove`, so each drag frame paid a `JSON.stringify` + `localStorage.setItem` + storage-event dispatch synchronously on the input path. `ConsoleDock` now writes the live height straight to the preview node via a ref and commits to state once on `pointerup`, matching the preview/commit split `SidebarResizeHandle` already uses; the rubberband is settled to its clamped value before the re-render so React's style write agrees with the DOM instead of racing it. The existing `rubberband()` and `clampPreviewPct()` behaviour is unchanged.
+
+Dropdown and context menus had all open/close animation stripped, while `Popover`, `HoverCard` and `Select` — the same class of non-modal overlay — scale and fade from their Radix transform origin. `menuContentClass` becomes `menuContentClass(origin)` so each primitive passes its own `origin-(--radix-*-content-transform-origin)` literally (Tailwind cannot see a computed class name), and both menus now share the popover's `zoom-in-95` + `fade-in-0`. The enter is 150ms and the exit 75ms: the earlier removal was blamed on menus feeling "sticky on click", but the cost was the menu lingering *after* a selection, so the fix is a quick outbound path rather than no motion. Verified live — a dropdown resolves `transform-origin` to its trigger corner (`100% 0`), not the menu centre.
+
+Tracking was a single global `--tracking-normal: -0.006em` on `body`, inherited by 532 `text-xs`, 98 `text-[11px]` and 92 `text-[10px]` call sites. Negative tracking at those sizes is backwards — small text needs more letter-spacing, not less. `theme.fontSize` now ships a per-tier ladder from `+0.005em` at `text-xs` to `-0.03em` at `text-7xl`, repeating Tailwind's default line-heights so only tracking changes; Tailwind emits it as `var(--tw-tracking, …)`, so an explicit `tracking-*` utility still wins. The arbitrary `text-[Npx]` sizes bypass the theme, so a small base-layer block covers the 7–15px tiers still in the codebase. Sub-10px badges were left at their current sizes — all eleven are initials or counts inside fixed `size-3`–`size-6` boxes that resizing would overflow.
+
+Not done: `prefers-contrast` and the partial `prefers-reduced-transparency` coverage stay as they are, and reduced-motion gating for the nav-icon loops was declined.
+
 ## Session list Drive grid while AI is working - 2026-08-07
 
 The sidebar session status mark always showed the sandbox color dot (and briefly both a Drive loader and the dot while testing). Rows now swap: when `sessions.list` reports `isExecuting` (`activeWorkflowId` set — the list-safe stand-in for composer BorderBeam / unfinished assistant turn), the Drive pixel grid replaces the sandbox dot; otherwise the status dot renders alone. Chrome session tabs use the same swap. Reason: awaiting a reply already implies the sandbox is live, so the leading mark should signal agent work, not duplicate sandbox liveness.

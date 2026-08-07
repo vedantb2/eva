@@ -18,6 +18,10 @@ import {
   menuShortcutClass,
 } from "./_menu-classes";
 
+const CONTEXT_MENU_CONTENT_CLASS = menuContentClass(
+  "origin-(--radix-context-menu-content-transform-origin)",
+);
+
 const ContextMenu = ContextMenuPrimitive.Root;
 const ContextMenuTrigger = ContextMenuPrimitive.Trigger;
 const ContextMenuGroup = ContextMenuPrimitive.Group;
@@ -49,7 +53,7 @@ const ContextMenuSubContent = React.forwardRef<
   <ContextMenuPrimitive.Portal>
     <ContextMenuPrimitive.SubContent
       ref={ref}
-      className={cn(menuContentClass, className)}
+      className={cn(CONTEXT_MENU_CONTENT_CLASS, className)}
       {...props}
     />
   </ContextMenuPrimitive.Portal>
@@ -63,7 +67,7 @@ const ContextMenuContent = React.forwardRef<
   <ContextMenuPrimitive.Portal>
     <ContextMenuPrimitive.Content
       ref={ref}
-      className={cn(menuContentClass, className)}
+      className={cn(CONTEXT_MENU_CONTENT_CLASS, className)}
       {...props}
     />
   </ContextMenuPrimitive.Portal>

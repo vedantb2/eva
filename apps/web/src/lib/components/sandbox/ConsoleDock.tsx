@@ -88,6 +88,7 @@ export function ConsoleDock({
   );
   const [dragging, setDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const rawPctRef = useRef(DEFAULT_STATE.previewPct);
   const { expanded, previewPct } = state;
 
@@ -117,21 +118,29 @@ export function ConsoleDock({
     setDragging(true);
   };
 
+  // Live drag writes the preview height straight to the node. Routing it through
+  // `setState` would run a JSON.stringify + localStorage.setItem + storage-event
+  // dispatch on every pointermove — synchronous main-thread work on the input path.
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragging || !containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
     if (rect.height === 0) return;
     const pct = ((e.clientY - rect.top) / rect.height) * 100;
     rawPctRef.current = pct;
-    setState((s) => ({ ...s, previewPct: rubberbandPreviewPct(pct) }));
+    if (previewRef.current) {
+      previewRef.current.style.height = `${rubberbandPreviewPct(pct)}%`;
+    }
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     e.currentTarget.releasePointerCapture(e.pointerId);
-    setState((s) => ({
-      ...s,
-      previewPct: clampPreviewPct(rawPctRef.current),
-    }));
+    const committed = clampPreviewPct(rawPctRef.current);
+    // Settle the rubberband before the re-render so React's style write agrees
+    // with the DOM instead of racing it.
+    if (previewRef.current) {
+      previewRef.current.style.height = `${committed}%`;
+    }
+    setState((s) => ({ ...s, previewPct: committed }));
     setDragging(false);
   };
 
@@ -141,6 +150,7 @@ export function ConsoleDock({
       className={cn("flex h-full min-h-0 flex-col", dragging && "select-none")}
     >
       <div
+        ref={previewRef}
         className={cn(
           "min-h-0",
           expanded ? "shrink-0 grow-0" : "flex-1",

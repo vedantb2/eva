@@ -24,6 +24,7 @@ export * from "./ui/input-group";
 export * from "./ui/search-input";
 export * from "./ui/label";
 export * from "./ui/list-row";
+export * from "./ui/loading-state";
 export * from "./ui/popover";
 export * from "./ui/progress";
 export * from "./ui/select";

@@ -10,6 +10,7 @@ import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
+  LoadingState,
   cn,
   toast,
 } from "@eva/ui";
@@ -45,6 +46,7 @@ export interface ChromeTabSession {
   numId?: number;
   title: string;
   status: SandboxStatus;
+  isExecuting?: boolean;
   userId: Id<"users">;
   branchName?: string;
   prUrl?: string;
@@ -174,15 +176,29 @@ export function SessionChromeTab({
                 to={href}
                 className="flex h-full min-w-0 flex-1 items-center gap-2.5 pl-3 pr-1 text-[0.8125rem] [@container(max-width:4.5rem)]:justify-center [@container(max-width:4.5rem)]:px-0"
               >
-                {/* Sandbox status fills Chrome's favicon slot — stays visible when
-                    the tab is fully squeezed. App logo lives on the group pill. */}
-                <span
-                  className={cn(
-                    "size-1.5 shrink-0 rounded-full",
-                    statusStyle.dot,
-                  )}
-                  title={statusStyle.label}
-                />
+                {/* Favicon slot: Drive grid while a turn is in flight; else
+                    sandbox status. Stays visible when the tab is fully squeezed. */}
+                {session.isExecuting === true ? (
+                  <span
+                    className="flex shrink-0 items-center"
+                    title="Working"
+                  >
+                    <LoadingState
+                      label="Working"
+                      variant="Drive"
+                      size="sm"
+                      iconOnly
+                    />
+                  </span>
+                ) : (
+                  <span
+                    className={cn(
+                      "size-1.5 shrink-0 rounded-full",
+                      statusStyle.dot,
+                    )}
+                    title={statusStyle.label}
+                  />
+                )}
                 <span className="min-w-0 flex-1 truncate font-medium [@container(max-width:4.5rem)]:hidden">
                   {session.title}
                 </span>

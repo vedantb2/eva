@@ -41,6 +41,21 @@ function authorDisplayName(user: {
   return "Unknown";
 }
 
+/** Folder rows are tight — first name only (or first token of fullName / email). */
+function authorFirstName(user: {
+  firstName?: string | null;
+  fullName?: string | null;
+  email?: string | null;
+}): string {
+  const first = user.firstName?.trim();
+  if (first) return first;
+  const fromFull = user.fullName?.trim().split(/\s+/)[0];
+  if (fromFull) return fromFull;
+  const email = user.email?.trim();
+  if (email) return email.split("@")[0] ?? email;
+  return "Unknown";
+}
+
 /** Avatar + display name for sidebar hover footers (sessions, docs, automations). */
 export function HoverCardAuthor({ userId }: { userId: Id<"users"> }) {
   const user = useQuery(api.users.get, { id: userId });
@@ -84,7 +99,7 @@ export function SessionFolderAuthor({ userId }: { userId: Id<"users"> }) {
           data-pii
           className="truncate text-[10px] leading-none text-muted-foreground"
         >
-          {authorDisplayName(user)}
+          {authorFirstName(user)}
         </span>
       ) : null}
     </div>

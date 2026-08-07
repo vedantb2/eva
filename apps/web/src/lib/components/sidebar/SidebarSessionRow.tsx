@@ -33,6 +33,7 @@ interface SessionItem {
   userId: Id<"users">;
   title: string;
   status: SessionStatus;
+  isExecuting?: boolean;
   updatedAt?: number;
   sandboxId?: string;
   branchName?: string;
@@ -99,6 +100,7 @@ export function SidebarSessionRow<T extends SessionItem>({
               createdAt={session._creationTime}
               updatedAt={session.updatedAt}
               status={session.status}
+              isExecuting={session.isExecuting === true}
               isSelected={isSelected}
               onNavigate={onNavigate}
               prUrl={prUrl}

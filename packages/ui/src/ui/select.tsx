@@ -90,7 +90,7 @@ const SelectContent = React.forwardRef<
       <SelectScrollUpButton />
       <SelectPrimitive.Viewport
         className={cn(
-          "p-0.5",
+          "p-1.5",
           position === "popper" &&
             "h-(--radix-select-trigger-height) w-full min-w-(--radix-select-trigger-width)",
         )}
@@ -147,7 +147,7 @@ const SelectSeparator = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Separator
     ref={ref}
-    className={cn("-mx-0.5 my-1.5 h-px bg-border", className)}
+    className={cn("-mx-1.5 my-1.5 h-px bg-border", className)}
     {...props}
   />
 ));

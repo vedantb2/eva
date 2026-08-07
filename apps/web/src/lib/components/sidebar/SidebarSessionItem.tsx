@@ -3,7 +3,13 @@
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import type { Id } from "@eva/backend";
-import { cn, HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
+import {
+  cn,
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+  LoadingState,
+} from "@eva/ui";
 import { IconGitPullRequest } from "@tabler/icons-react";
 import {
   SANDBOX_STATUS_STYLES,
@@ -57,6 +63,8 @@ interface SidebarSessionItemProps {
   createdAt: number;
   updatedAt?: number;
   status: SandboxStatus;
+  /** When true, Drive grid replaces the sandbox status dot (agent turn in flight). */
+  isExecuting?: boolean;
   isSelected: boolean;
   onNavigate?: () => void;
   prUrl?: string;
@@ -80,6 +88,34 @@ function SessionPrIcon({
   );
 }
 
+/**
+ * Leading mark: Drive pixel grid while the assistant turn is in flight
+ * (replaces sandbox status — awaiting a reply already implies sandbox active).
+ * Otherwise the sandbox status color dot.
+ */
+function SessionStatusLeading({
+  label,
+  dotClassName,
+  isExecuting,
+}: {
+  label: string;
+  dotClassName: string;
+  isExecuting: boolean;
+}) {
+  if (isExecuting) {
+    return (
+      <span className="flex shrink-0 items-center" title="Working">
+        <LoadingState label="Working" variant="Drive" size="sm" iconOnly />
+      </span>
+    );
+  }
+  return (
+    <span className="flex shrink-0 items-center" title={label}>
+      <span className={cn("size-2 shrink-0 rounded-full", dotClassName)} />
+    </span>
+  );
+}
+
 export function SidebarSessionItem({
   href,
   title,
@@ -88,6 +124,7 @@ export function SidebarSessionItem({
   createdAt,
   updatedAt,
   status,
+  isExecuting = false,
   isSelected,
   onNavigate,
   prUrl,
@@ -105,6 +142,14 @@ export function SidebarSessionItem({
       : "text-sidebar-foreground/80 hover:text-sidebar-foreground",
   );
 
+  const statusLeading = (
+    <SessionStatusLeading
+      label={statusStyle.label}
+      dotClassName={statusStyle.dot}
+      isExecuting={isExecuting}
+    />
+  );
+
   const link = (
     <DynamicLink
       to={href}
@@ -114,10 +159,7 @@ export function SidebarSessionItem({
       {isFolder ? (
         <div className="flex min-w-0 flex-col gap-1.5">
           <div className="flex min-w-0 items-center gap-2">
-            <span
-              className={cn("size-2 shrink-0 rounded-full", statusStyle.dot)}
-              title={statusStyle.label}
-            />
+            {statusLeading}
             <MarqueeOnHover className={titleClass}>{title}</MarqueeOnHover>
           </div>
           <div className="flex min-w-0 items-center gap-2 pl-4 opacity-60">
@@ -135,10 +177,7 @@ export function SidebarSessionItem({
         </div>
       ) : (
         <div className="flex min-w-0 items-center gap-2">
-          <span
-            className={cn("size-2 shrink-0 rounded-full", statusStyle.dot)}
-            title={statusStyle.label}
-          />
+          {statusLeading}
           <MarqueeOnHover className={titleClass}>{title}</MarqueeOnHover>
           <SessionPrIcon prUrl={prUrl} prState={prState} />
           <RelativeDateTime

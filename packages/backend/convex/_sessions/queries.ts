@@ -50,6 +50,12 @@ const sessionListItemValidator = v.object({
   lastMode: v.optional(sessionModeValidator),
   deploymentStatus: v.optional(deploymentStatusValidator),
   deploymentUrl: v.optional(v.string()),
+  /**
+   * True while a chat turn workflow is tracked on the session. Same window as
+   * composer BorderBeam in practice (message-level isExecuting needs the open
+   * thread; list rows use this field instead of N+1 into messages).
+   */
+  isExecuting: v.boolean(),
 });
 
 /** Maps a full session doc to the slim list payload. */
@@ -78,6 +84,7 @@ function toSessionListItem(session: Doc<"sessions">) {
     lastMode: session.lastMode,
     deploymentStatus: session.deploymentStatus,
     deploymentUrl: session.deploymentUrl,
+    isExecuting: session.activeWorkflowId !== undefined,
   };
 }
 

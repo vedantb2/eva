@@ -1442,6 +1442,26 @@ html[data-blur-pid] [data-pii] {
   animation: nav-icon-gear-core-pulse 0.6s ease-in-out infinite;
 }
 
+/* LoadingState (packages/ui) — pixel wavefront + label shimmer */
+@keyframes pixel-on {
+  0%,
+  100% {
+    opacity: 0.12;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer-text {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
 /*
  * NEVER uncomment this block.
  * The blanket `prefers-reduced-motion` kill-switch freezes scroll-fade masks,

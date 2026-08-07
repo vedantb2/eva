@@ -431,7 +431,7 @@ export function ProjectsClient() {
                   className="flex min-h-0 min-w-0 flex-1 flex-col"
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
+                  exit={{ opacity: 0, y: 8 }}
                   transition={{ duration: 0.2 }}
                 >
                   <div className="flex h-full min-h-0 min-w-0 flex-1 items-stretch gap-2 overflow-x-auto overflow-y-hidden scrollbar scroll-fade-x snap-x snap-mandatory sm:gap-3 sm:snap-none">
@@ -453,7 +453,7 @@ export function ProjectsClient() {
                   className="flex flex-1 min-h-0 min-w-0"
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
+                  exit={{ opacity: 0, y: 8 }}
                   transition={{ duration: 0.2 }}
                 >
                   <ProjectsTimeline
@@ -471,7 +471,7 @@ export function ProjectsClient() {
                   className="flex flex-1 min-h-0"
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
+                  exit={{ opacity: 0, y: 8 }}
                   transition={{ duration: 0.2 }}
                 >
                   <ProjectsListView

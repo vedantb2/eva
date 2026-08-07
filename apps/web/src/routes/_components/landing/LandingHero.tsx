@@ -2,7 +2,7 @@
 
 import { SignUpButton } from "@clerk/clerk-react";
 import { IconArrowRight, IconBrandGithub } from "@tabler/icons-react";
-import { m, type Variants } from "motion/react";
+import { m, useReducedMotion, type Variants } from "motion/react";
 import { Button } from "@eva/ui";
 import { LandingTaskDetailMock } from "../LandingTaskDetailMock";
 import { EVA_GITHUB_URL, LANDING_HERO_CAPABILITIES } from "./landingContent";
@@ -26,6 +26,14 @@ const HERO_ITEM: Variants = {
   },
 };
 
+const HERO_ITEM_FADE: Variants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { duration: 0.3, ease: LANDING_EASE },
+  },
+};
+
 const MOCK_ITEM: Variants = {
   hidden: { opacity: 0, y: 28 },
   show: {
@@ -35,12 +43,24 @@ const MOCK_ITEM: Variants = {
   },
 };
 
+const MOCK_ITEM_FADE: Variants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { duration: 0.35, ease: LANDING_EASE, delay: 0.1 },
+  },
+};
+
 /**
  * Centred hero with the product mock underneath. The mock is the real
  * task-detail UI rendered from fixtures, not a screenshot, so it stays in step
  * with the design system and both themes.
  */
 export function LandingHero() {
+  const prefersReducedMotion = useReducedMotion();
+  const item = prefersReducedMotion ? HERO_ITEM_FADE : HERO_ITEM;
+  const mock = prefersReducedMotion ? MOCK_ITEM_FADE : MOCK_ITEM;
+
   return (
     <div className="landing-atmosphere landing-grain relative overflow-hidden border-b border-border">
       <div
@@ -56,7 +76,7 @@ export function LandingHero() {
       >
         <div className="flex flex-col items-center text-center">
           <m.a
-            variants={HERO_ITEM}
+            variants={item}
             href={EVA_GITHUB_URL}
             target="_blank"
             rel="noreferrer"
@@ -68,14 +88,14 @@ export function LandingHero() {
           </m.a>
 
           <m.h1
-            variants={HERO_ITEM}
-            className="landing-display mt-7 max-w-3xl text-balance text-4xl font-semibold leading-[1.05] tracking-tight text-foreground sm:text-5xl lg:text-6xl"
+            variants={item}
+            className="landing-display mt-7 max-w-3xl text-balance text-4xl font-semibold leading-[1.05] text-foreground sm:text-5xl lg:text-6xl"
           >
             Your AI coworker ships pull requests.
           </m.h1>
 
           <m.p
-            variants={HERO_ITEM}
+            variants={item}
             className="mt-6 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg"
           >
             Eva gives coding agents a real cloud dev environment — your
@@ -85,7 +105,7 @@ export function LandingHero() {
           </m.p>
 
           <m.div
-            variants={HERO_ITEM}
+            variants={item}
             className="mt-9 flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center"
           >
             <SignUpButton mode="modal">
@@ -108,7 +128,7 @@ export function LandingHero() {
           </m.div>
 
           <m.ul
-            variants={HERO_ITEM}
+            variants={item}
             className="mt-10 flex flex-wrap items-center justify-center gap-x-2 gap-y-2"
           >
             {LANDING_HERO_CAPABILITIES.map((capability) => (
@@ -122,7 +142,7 @@ export function LandingHero() {
           </m.ul>
         </div>
 
-        <m.div variants={MOCK_ITEM} className="mx-auto mt-16 max-w-3xl">
+        <m.div variants={mock} className="mx-auto mt-16 max-w-3xl">
           <LandingTaskDetailMock />
         </m.div>
       </m.div>

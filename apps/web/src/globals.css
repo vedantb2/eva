@@ -218,6 +218,7 @@
 
 @utility landing-display {
   font-family: 'Geist Sans', var(--font-sans);
+  letter-spacing: -0.02em;
 }
 
 @utility landing-mock-body {
@@ -432,7 +433,7 @@
     --shadow-xl:
       0 1px 3px 0px hsl(0 0% 0% / 0.1), 0 8px 10px -1px hsl(0 0% 0% / 0.1);
     --shadow-2xl: 0 1px 3px 0px hsl(0 0% 0% / 0.25);
-    --tracking-normal: -0.012em;
+    --tracking-normal: -0.006em;
     --motion-fast: 150ms;
     --motion-base: 220ms;
     --motion-slow: 320ms;
@@ -936,10 +937,12 @@ html[data-blur-pid] [data-pii] {
 /* The SVG itself scales up on hover for an extra prominence boost */
 .nav-icon-root {
   transform-origin: center;
-  transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: transform 0.25s var(--motion-ease-out);
 }
-.group:hover .nav-icon-root {
-  transform: scale(1.2);
+@media (prefers-reduced-motion: no-preference) {
+  .group:hover .nav-icon-root {
+    transform: scale(1.12);
+  }
 }
 
 /* Common: SVG transforms need an explicit box + origin */
@@ -1439,28 +1442,41 @@ html[data-blur-pid] [data-pii] {
   animation: nav-icon-gear-core-pulse 0.6s ease-in-out infinite;
 }
 
-/* Temporarily disabled to allow full animations during development.
+/*
+ * NEVER uncomment this block.
+ * The blanket `prefers-reduced-motion` kill-switch freezes scroll-fade masks,
+ * nukes intentional press/transition feedback, and fights per-component
+ * `useReducedMotion` gates. Leave it off permanently — honor reduced motion
+ * only at the call site (fade instead of travel), never with a global hammer.
+ *
 @media (prefers-reduced-motion: reduce) {
-  * {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-}
-*/
 
-/*
- * Exception: `.scroll-fade` / `.scroll-fade-x` are not motion. They track a
- * scroll the user is already making, so there is nothing to reduce. The
- * blanket reduced-motion rule above (when re-enabled) would give their scroll
- * timeline a 0.01ms slice of the range and freeze the mask at its end state —
- * leading edge permanently faded, trailing edge never.
- */
-@media (prefers-reduced-motion: reduce) {
   .scroll-fade,
   .scroll-fade-x {
     animation-duration: auto !important;
+  }
+
+  .group:hover [class*='nav-icon-'] {
+    animation: none !important;
+  }
+}
+*/
+
+@media (prefers-reduced-transparency: reduce) {
+  [class*='backdrop-blur'] {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  [class*='bg-popover/95'] {
+    background-color: rgb(var(--popover)) !important;
   }
 }
 

@@ -16,6 +16,7 @@ Surface tokens map 1:1 to the HeroUI palette: `--background` (page canvas) → `
 **Shadows**
 
 - Cards and surfaces are tone only (no `shadow-sm`). Floating overlays (dialogs, popovers, menus, tooltips, toasts) use `smooth-shadow-ring-*` from `shadow-plugin` — one continuous edge, never `border` + `shadow` on the same element.
+- Non-modal overlays (popover, menu, tooltip, hover-card, select) use light glass (`bg-popover/95 backdrop-blur-md`) and Radix `origin-(--radix-*-transform-origin)`. Modal dialogs stay opaque with a scrim.
 
 **Layout & surface colors**
 
@@ -25,7 +26,8 @@ Surface tokens map 1:1 to the HeroUI palette: `--background` (page canvas) → `
 **Hover & interaction**
 
 - Hover: `hover:bg-*` (background shift). Active/selected: surface fill (and `ring-*` if extra emphasis is needed).
-
+- Press: respond on pointer-down with `motion-press` + `active:scale-[0.9x]` on controls (buttons, tabs, selects, switches, menu items). Keep color transitions slower than the press transform.
+- Enter/exit along the same path; default UI springs critically damped (`bounce: 0` / high damping). Gate decorative travel with `useReducedMotion`.
 **Spacing**
 
 - Use whitespace/padding (Gestalt Law of Proximity) to group related elements; reach for borders/dividers only for structural separation (layout regions), not to outline soft surfaces.

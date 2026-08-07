@@ -71,7 +71,7 @@ export function EmojiReactionPicker({
         </div>
         <EmojiPicker.Root
           onEmojiSelect={({ emoji }) => choose(emoji)}
-          className="isolate flex h-75 w-72 flex-col bg-popover text-popover-foreground"
+          className="isolate flex h-75 w-72 flex-col bg-popover/95 text-popover-foreground backdrop-blur-md"
         >
           <EmojiPicker.Search className="z-10 mx-2 mt-2 appearance-none rounded-control border border-input bg-popover px-2.5 py-2 text-sm outline-hidden focus-visible:ring-2 focus-visible:ring-ring/45" />
           <EmojiPicker.Viewport className="relative flex-1 outline-hidden">

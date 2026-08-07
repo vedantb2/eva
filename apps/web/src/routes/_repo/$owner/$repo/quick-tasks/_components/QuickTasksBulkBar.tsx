@@ -1,4 +1,4 @@
-import { m, AnimatePresence } from "motion/react";
+import { m, AnimatePresence, useReducedMotion } from "motion/react";
 import {
   Tooltip,
   TooltipContent,
@@ -127,6 +127,7 @@ export function QuickTasksBulkBar({
   onSetBulkAction,
 }: QuickTasksBulkBarProps) {
   const hasSelection = selectedCount > 0;
+  const reduceMotion = useReducedMotion();
 
   return (
     <AnimatePresence initial={false}>
@@ -134,13 +135,13 @@ export function QuickTasksBulkBar({
         <m.div
           key="quick-tasks-bulk-bar"
           className="absolute inset-x-0 bottom-3 z-20 flex justify-center px-4 pb-[env(safe-area-inset-bottom)]"
-          initial={{ opacity: 0, y: 20 }}
+          initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 20 }}
+          exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
           transition={{ duration: 0.15, ease: "easeOut" }}
         >
           <TooltipProvider delayDuration={300}>
-            <div className="flex max-w-[calc(100vw-2rem)] items-center gap-1 overflow-x-auto rounded-surface bg-popover px-2.5 py-2 smooth-shadow-ring-lg scrollbar-none">
+            <div className="flex max-w-[calc(100vw-2rem)] items-center gap-1 overflow-x-auto rounded-surface bg-popover/95 px-2.5 py-2 backdrop-blur-md smooth-shadow-ring-lg scrollbar-none">
               {/* Prefix: selection count */}
               <div className="flex shrink-0 items-center gap-2 pl-1 pr-0.5">
                 <span className="rounded-md bg-muted px-2 py-0.5 text-xs font-semibold text-foreground tabular-nums">

@@ -172,8 +172,8 @@ export function SessionReviewModal({
                             animate={{ scale: 1, opacity: 1 }}
                             transition={{
                               type: "spring",
-                              stiffness: 300,
-                              damping: 20,
+                              stiffness: 400,
+                              damping: 32,
                             }}
                           >
                             <IconCircleCheck

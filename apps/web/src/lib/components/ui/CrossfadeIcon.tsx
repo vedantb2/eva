@@ -1,6 +1,11 @@
 "use client";
 
-import { m, AnimatePresence, type Transition } from "motion/react";
+import {
+  m,
+  AnimatePresence,
+  useReducedMotion,
+  type Transition,
+} from "motion/react";
 
 const DEFAULT_TRANSITION: Transition = {
   type: "spring",
@@ -29,6 +34,13 @@ const SOFT_ICON_MOTION = {
   transition: SOFT_TRANSITION,
 };
 
+const REDUCED_ICON_MOTION = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
+  transition: { duration: 0.12 },
+};
+
 interface CrossfadeIconProps {
   show: boolean;
   whenTrue: React.ReactNode;
@@ -50,7 +62,12 @@ export function CrossfadeIcon({
   className = "relative flex size-5 items-center justify-center",
   variant = "default",
 }: CrossfadeIconProps) {
-  const motion = variant === "soft" ? SOFT_ICON_MOTION : DEFAULT_ICON_MOTION;
+  const reduceMotion = useReducedMotion();
+  const motion = reduceMotion
+    ? REDUCED_ICON_MOTION
+    : variant === "soft"
+      ? SOFT_ICON_MOTION
+      : DEFAULT_ICON_MOTION;
 
   return (
     <span className={className}>

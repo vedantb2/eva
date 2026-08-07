@@ -190,7 +190,7 @@ export function ComposerStash({
               type="button"
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 420, damping: 22 }}
+              transition={{ type: "spring", stiffness: 420, damping: 32 }}
               className="inline-flex h-7 items-center gap-1 rounded-md bg-muted px-2 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground"
               onClick={() => setOpen((prev) => !prev)}
               title="Prompt stash"

@@ -11,7 +11,7 @@ import {
 } from "@eva/ui";
 import { IconCode, IconClipboardList } from "@tabler/icons-react";
 import { memo } from "react";
-import { m } from "motion/react";
+import { m, useReducedMotion } from "motion/react";
 import dayjs from "@eva/shared/dates";
 import { formatDuration } from "@eva/shared/duration";
 import { findAIModelOption, getReasoningLevelLabel } from "@eva/backend";
@@ -132,6 +132,8 @@ export const ChatMessage = memo(function ChatMessage({
   onOpenFile,
   onViewDiff,
 }: ChatMessageProps) {
+  const reduceMotion = useReducedMotion();
+
   if (message.isSystemAlert) {
     return (
       <SystemAlertMessage
@@ -169,7 +171,7 @@ export const ChatMessage = memo(function ChatMessage({
     <ChatMessageContextMenu content={copySource}>
       <m.div
         data-message-id={message._id}
-        initial={{ opacity: 0, y: 10 }}
+        initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
       >

@@ -73,7 +73,7 @@ function isRowActive(
 }
 
 const RAIL_TILE_CLASS =
-  "relative flex size-11 items-center justify-center rounded-lg border transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring/35";
+  "relative flex size-11 items-center justify-center rounded-lg border transition-colors motion-press active:scale-[0.96] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring/35";
 
 function railTileActive(active: boolean): string {
   return active
@@ -220,7 +220,7 @@ function RepoRailView({
               to="/inbox"
               onClick={onNavigate}
               aria-label="Inbox"
-              className={cn(RAIL_TILE_CLASS, railTileActive(inboxActive))}
+              className={cn(RAIL_TILE_CLASS, "group", railTileActive(inboxActive))}
             >
               <InboxIcon size={22} className="shrink-0" />
               <QueryErrorBoundary>

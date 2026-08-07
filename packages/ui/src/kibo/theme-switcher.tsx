@@ -74,7 +74,7 @@ export const ThemeSwitcher = ({
         return (
           <button
             aria-label={label}
-            className="relative h-6 w-6 rounded-full after:absolute after:inset-[-8px]"
+            className="relative h-6 w-6 rounded-full motion-press active:scale-[0.94] after:absolute after:inset-[-8px]"
             key={key}
             onClick={() => handleThemeClick(key)}
             type="button"
@@ -83,7 +83,7 @@ export const ThemeSwitcher = ({
               <motion.div
                 className="absolute inset-0 rounded-full bg-secondary"
                 layoutId="activeTheme"
-                transition={{ type: "spring", duration: 0.5 }}
+                transition={{ type: "spring", bounce: 0, duration: 0.35 }}
               />
             )}
             <Icon

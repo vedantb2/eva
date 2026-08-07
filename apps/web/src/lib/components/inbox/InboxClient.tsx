@@ -175,7 +175,7 @@ export function InboxClient() {
                       key={n._id}
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
-                      exit={{ opacity: 0, height: 0 }}
+                      exit={{ opacity: 0 }}
                       transition={{
                         duration: 0.15,
                         delay: Math.min(index * 0.02, 0.1),

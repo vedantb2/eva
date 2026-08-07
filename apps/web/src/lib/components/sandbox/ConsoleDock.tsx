@@ -134,7 +134,7 @@ export function ConsoleDock({
         type="button"
         aria-expanded={expanded}
         onClick={toggle}
-        className="flex h-9 shrink-0 items-center justify-between border-t border-border px-3 text-muted-foreground transition-colors hover:bg-secondary"
+        className="flex h-9 shrink-0 items-center justify-between border-t border-border px-3 text-muted-foreground transition-colors motion-press active:scale-[0.99] hover:bg-secondary"
       >
         <span className="flex items-center gap-1.5 text-xs font-medium text-foreground">
           <IconTerminal2 className="size-3.5" />

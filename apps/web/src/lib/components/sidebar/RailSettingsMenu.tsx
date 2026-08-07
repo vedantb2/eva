@@ -31,7 +31,7 @@ export function RailSettingsMenu({ onNavigate }: { onNavigate?: () => void }) {
           title="Settings"
           aria-label="Settings"
           className={cn(
-            "relative flex size-11 items-center justify-center rounded-lg border transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
+            "relative flex size-11 items-center justify-center rounded-lg border transition-colors motion-press active:scale-[0.96] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
             isActive
               ? railTileActiveClass
               : "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground",

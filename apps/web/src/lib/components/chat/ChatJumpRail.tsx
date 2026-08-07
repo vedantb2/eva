@@ -225,7 +225,7 @@ export function ChatJumpRail({ messages }: ChatJumpRailProps) {
                 aria-hidden="true"
                 data-in-view={inView ? "true" : "false"}
                 className={cn(
-                  "pointer-events-none absolute left-0 h-0.5 -translate-y-1/2 rounded-full bg-muted-foreground/35 transition-[background-color,width] duration-150 data-[in-view=true]:bg-foreground/90",
+                  "pointer-events-none absolute left-0 h-0.5 -translate-y-1/2 rounded-full bg-muted-foreground/35 transition-colors data-[in-view=true]:bg-foreground/90",
                   activeDistance === 0
                     ? "w-6 bg-muted-foreground/75"
                     : activeDistance === 1

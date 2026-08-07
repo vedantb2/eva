@@ -209,7 +209,7 @@ const CarouselPrevious = React.forwardRef<
     <button
       ref={ref}
       className={cn(
-        "absolute h-8 w-8 rounded-full border bg-card flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted transition-colors",
+        "absolute h-8 w-8 rounded-full border bg-card/95 backdrop-blur-sm flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted transition-colors motion-press active:scale-[0.94]",
         orientation === "horizontal"
           ? "-left-3 top-1/2 -translate-y-1/2"
           : "-top-3 left-1/2 -translate-x-1/2 rotate-90",
@@ -249,7 +249,7 @@ const CarouselNext = React.forwardRef<
     <button
       ref={ref}
       className={cn(
-        "absolute h-8 w-8 rounded-full border bg-card flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted transition-colors",
+        "absolute h-8 w-8 rounded-full border bg-card/95 backdrop-blur-sm flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted transition-colors motion-press active:scale-[0.94]",
         orientation === "horizontal"
           ? "-right-3 top-1/2 -translate-y-1/2"
           : "-bottom-3 left-1/2 -translate-x-1/2 rotate-90",
@@ -291,7 +291,7 @@ function CarouselDots({ className }: { className?: string }) {
           key={index}
           type="button"
           className={cn(
-            "h-1.5 rounded-full transition-all",
+            "h-1.5 rounded-full transition-all motion-press active:scale-90",
             index === selectedIndex
               ? "w-4 bg-primary"
               : "w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50",

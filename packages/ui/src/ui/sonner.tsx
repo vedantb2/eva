@@ -175,7 +175,7 @@ function Toaster({ style, ...props }: ToasterProps) {
           toast: [
             "group flex w-full cursor-pointer items-center gap-x-4 p-3 font-sans text-sm",
             SURFACE_RADIUS_CLASS,
-            "bg-card text-foreground smooth-shadow-ring-md",
+            "bg-card/95 text-foreground backdrop-blur-md smooth-shadow-ring-md",
             // Hides the content of collapsed toasts behind the front one.
             // Sonner's rule for this is gated on the styling we opt out of.
             "[&[data-expanded=false][data-front=false]>*]:opacity-0",
@@ -195,7 +195,7 @@ function Toaster({ style, ...props }: ToasterProps) {
           cancelButton:
             "h-7 shrink-0 rounded-control bg-muted px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/80",
           closeButton:
-            "pointer-events-none absolute -right-2 -top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 transition-opacity duration-200 ease-out hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:pointer-events-auto group-hover:opacity-100",
+            "pointer-events-none absolute -right-2 -top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card/95 text-muted-foreground opacity-0 transition-opacity duration-200 ease-out hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:pointer-events-auto group-hover:opacity-100",
         },
       }}
       {...props}

@@ -367,7 +367,7 @@ export function DocContentTab({
               {editor && (
                 <BubbleMenu
                   editor={editor}
-                  className="rounded-menu-item bg-popover p-1 smooth-shadow-ring-md"
+                  className="rounded-menu-item bg-popover/95 p-1 backdrop-blur-md smooth-shadow-ring-md"
                 >
                   <Button
                     size="sm"

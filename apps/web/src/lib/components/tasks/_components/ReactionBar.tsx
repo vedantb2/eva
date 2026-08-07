@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { cn, HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
 import { UserInitials } from "@eva/shared";
@@ -12,7 +12,7 @@ interface ReactionBarProps {
 
 /**
  * Grouped reaction chips for a comment. Renders nothing until the comment has
- * at least one reaction — the primary "add reaction" entry point lives in the
+ * at least one reaction â€” the primary "add reaction" entry point lives in the
  * comment header. Once reactions exist, an inline picker trigger is kept
  * alongside the chips for convenience (so it's available in both places). Chips
  * the current user picked are highlighted; click any chip to toggle that emoji.
@@ -23,7 +23,7 @@ export function ReactionBar({ groups, toggle }: ReactionBarProps) {
   return (
     <div className="flex flex-wrap items-center gap-1">
       {groups.map((group) => (
-        <HoverCard key={group.emoji} openDelay={200} closeDelay={80}>
+        <HoverCard key={group.emoji}>
           <HoverCardTrigger asChild>
             <button
               type="button"

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { HoverCard, HoverCardTrigger, HoverCardContent, Badge } from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -39,7 +39,7 @@ export function BuildingProjectsBadge({
     summaryParts.push(`${sandboxProjects.length} active`);
 
   return (
-    <HoverCard openDelay={200} closeDelay={100}>
+    <HoverCard>
       <HoverCardTrigger asChild>
         <Badge
           variant="secondary"
@@ -81,7 +81,7 @@ export function BuildingProjectsBadge({
                 <span key={part} className="flex items-center gap-1.5">
                   {i > 0 && (
                     <span aria-hidden className="text-muted-foreground/40">
-                      ·
+                      Â·
                     </span>
                   )}
                   <span>{part}</span>

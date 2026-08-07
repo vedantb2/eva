@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { ReactNode } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -25,7 +25,7 @@ export function sidebarTextPreview(
     .trim();
   if (cleaned.length === 0) return null;
   if (cleaned.length <= PREVIEW_SOFT_MAX) return cleaned;
-  return `${cleaned.slice(0, PREVIEW_SOFT_MAX - 1)}…`;
+  return `${cleaned.slice(0, PREVIEW_SOFT_MAX - 1)}â€¦`;
 }
 
 function authorDisplayName(user: {
@@ -41,7 +41,7 @@ function authorDisplayName(user: {
   return "Unknown";
 }
 
-/** Folder rows are tight — first name only (or first token of fullName / email). */
+/** Folder rows are tight â€” first name only (or first token of fullName / email). */
 function authorFirstName(user: {
   firstName?: string | null;
   fullName?: string | null;
@@ -110,7 +110,7 @@ interface SessionHoverCardBodyProps {
   title: string;
   /** When set, loads the first user-message preview from messages (SoT). */
   sessionId?: Id<"sessions">;
-  /** Precomputed preview — prefer sessionId so list queries stay join-free. */
+  /** Precomputed preview â€” prefer sessionId so list queries stay join-free. */
   preview?: string | null;
   createdAt: number;
   userId: Id<"users">;
@@ -132,9 +132,7 @@ export function SessionHoverCardBody({
     sessionId ? { id: sessionId } : "skip",
   );
   const preview =
-    sessionId !== undefined
-      ? (fetchedPreview ?? null)
-      : (previewProp ?? null);
+    sessionId !== undefined ? (fetchedPreview ?? null) : (previewProp ?? null);
 
   return (
     <>
@@ -172,7 +170,7 @@ export function SidebarListHoverCard({
   children,
 }: SidebarListHoverCardProps) {
   return (
-    <HoverCard openDelay={250} closeDelay={100}>
+    <HoverCard>
       <HoverCardTrigger asChild>{children}</HoverCardTrigger>
       <HoverCardContent
         side="right"

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
@@ -90,7 +90,7 @@ function SessionPrIcon({
 
 /**
  * Leading mark: Drive pixel grid while the assistant turn is in flight
- * (replaces sandbox status — awaiting a reply already implies sandbox active).
+ * (replaces sandbox status â€” awaiting a reply already implies sandbox active).
  * Otherwise the sandbox status color dot.
  */
 function SessionStatusLeading({
@@ -192,7 +192,7 @@ export function SidebarSessionItem({
   if (isFolder) return link;
 
   return (
-    <HoverCard openDelay={250} closeDelay={100}>
+    <HoverCard>
       <HoverCardTrigger asChild>{link}</HoverCardTrigger>
       <HoverCardContent
         side="right"

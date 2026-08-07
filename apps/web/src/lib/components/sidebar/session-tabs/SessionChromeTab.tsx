@@ -110,8 +110,10 @@ export function SessionChromeTab({
 }: SessionChromeTabProps) {
   const statusStyle = SANDBOX_STATUS_STYLES[session.status];
 
+  // Longer open delay than the house default on purpose: tabs sit shoulder to
+  // shoulder, so the pointer crosses several on its way to the one it wants.
   return (
-    <HoverCard openDelay={400} closeDelay={100}>
+    <HoverCard openDelay={400}>
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <HoverCardTrigger asChild>
@@ -179,10 +181,7 @@ export function SessionChromeTab({
                 {/* Favicon slot: Drive grid while a turn is in flight; else
                     sandbox status. Stays visible when the tab is fully squeezed. */}
                 {session.isExecuting === true ? (
-                  <span
-                    className="flex shrink-0 items-center"
-                    title="Working"
-                  >
+                  <span className="flex shrink-0 items-center" title="Working">
                     <LoadingState
                       label="Working"
                       variant="Drive"

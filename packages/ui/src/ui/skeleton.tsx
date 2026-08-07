@@ -13,9 +13,6 @@ import { cn } from "../utils/cn";
  * shape of the content being waited on. A skeleton that does not match its
  * content's dimensions causes a layout jump the moment data arrives, which is
  * worse than no skeleton at all.
- *
- * The pulse is an infinite animation, so it is capped by the
- * `prefers-reduced-motion` block in globals.css rather than opting out here.
  */
 const Skeleton = React.forwardRef<
   HTMLDivElement,

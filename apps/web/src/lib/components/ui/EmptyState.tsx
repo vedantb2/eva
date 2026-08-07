@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { IconPlus } from "@tabler/icons-react";
 import { Button, cn } from "@eva/ui";
-import { m, useReducedMotion, type Variants } from "motion/react";
+import { m, type Variants } from "motion/react";
 
 interface EmptyStateProps {
   icon?: React.ReactNode;
@@ -31,9 +31,6 @@ export function EmptyState({
   animate = true,
   className,
 }: EmptyStateProps) {
-  const reduceMotion = useReducedMotion();
-  const shouldAnimate = animate && !reduceMotion;
-
   const containerVariants: Variants = {
     hidden: {},
     show: {
@@ -56,34 +53,34 @@ export function EmptyState({
         "mx-auto flex w-full max-w-xl flex-col items-center justify-center px-4 py-16 text-center sm:py-20",
         className,
       )}
-      variants={shouldAnimate ? containerVariants : undefined}
-      initial={shouldAnimate ? "hidden" : false}
-      animate={shouldAnimate ? "show" : undefined}
+      variants={animate ? containerVariants : undefined}
+      initial={animate ? "hidden" : false}
+      animate={animate ? "show" : undefined}
     >
       {icon ? (
         <m.div
-          variants={shouldAnimate ? itemVariants : undefined}
+          variants={animate ? itemVariants : undefined}
           className="mb-5 flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground"
         >
           {icon}
         </m.div>
       ) : null}
       <m.p
-        variants={shouldAnimate ? itemVariants : undefined}
+        variants={animate ? itemVariants : undefined}
         className="text-balance text-sm font-medium tracking-[-0.01em] text-foreground"
       >
         {title}
       </m.p>
       {description ? (
         <m.p
-          variants={shouldAnimate ? itemVariants : undefined}
+          variants={animate ? itemVariants : undefined}
           className="mt-2 max-w-sm text-pretty text-xs leading-relaxed text-muted-foreground"
         >
           {description}
         </m.p>
       ) : null}
       {actionLabel && onAction ? (
-        <m.div variants={shouldAnimate ? itemVariants : undefined}>
+        <m.div variants={animate ? itemVariants : undefined}>
           <Button size="sm" onClick={onAction} className="mt-6">
             <IconPlus size={16} />
             {actionLabel}
@@ -91,9 +88,7 @@ export function EmptyState({
         </m.div>
       ) : null}
       {action ? (
-        <m.div variants={shouldAnimate ? itemVariants : undefined}>
-          {action}
-        </m.div>
+        <m.div variants={animate ? itemVariants : undefined}>{action}</m.div>
       ) : null}
     </m.div>
   );

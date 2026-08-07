@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { UserProfileHoverCardBody } from "@eva/shared";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
@@ -13,7 +13,7 @@ interface UserMentionChipProps {
 /** @mention pill with a Linear-style profile card on hover. */
 export function UserMentionChip({ userId, label }: UserMentionChipProps) {
   return (
-    <HoverCard openDelay={250} closeDelay={100}>
+    <HoverCard>
       <HoverCardTrigger asChild>
         <span className={`${MENTION_CHIP_CLASS} cursor-default`} tabIndex={0}>
           @{label}

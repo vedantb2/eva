@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { useState, type ReactNode } from "react";
 import { IconCheck } from "@tabler/icons-react";
-import { m, useReducedMotion } from "motion/react";
+import { m } from "motion/react";
 import { cn } from "@eva/ui";
 import type { LandingFeature } from "./landingContent";
 import { LANDING_PREVIEWS } from "./previews";
@@ -14,7 +14,7 @@ interface ShowcaseState {
   index: number;
   /** Cleared for good once the visitor picks a tab themselves. */
   auto: boolean;
-  /** Whether the showcase is on screen — timers should not run out of sight. */
+  /** Whether the showcase is on screen â€” timers should not run out of sight. */
   visible: boolean;
 }
 
@@ -24,8 +24,7 @@ interface ShowcaseState {
  * The countdown is the progress bar itself: it animates across the active tab
  * over `AUTO_ADVANCE_SECONDS` and advances the index when it lands, so there is
  * no interval to keep in sync with what is drawn. Auto-advance stops when the
- * strip scrolls out of view, when the visitor prefers reduced motion, and
- * permanently once they choose a tab — nothing should slide out from under
+ * strip scrolls out of view, and permanently once they choose a tab â€” nothing should slide out from under
  * someone who is reading it.
  *
  * Each tab carries `group` so the animated sidebar icons play the same hover
@@ -39,7 +38,6 @@ export function LandingShowcase({
   idPrefix: string;
   features: readonly LandingFeature[];
 }) {
-  const prefersReducedMotion = useReducedMotion();
   const [tab, setTab] = useState<ShowcaseState>({
     index: 0,
     auto: true,
@@ -49,7 +47,7 @@ export function LandingShowcase({
   const active = features[tab.index];
   if (!active) return null;
 
-  const autoRunning = tab.auto && tab.visible && !prefersReducedMotion;
+  const autoRunning = tab.auto && tab.visible;
   const Preview = LANDING_PREVIEWS[active.preview];
 
   const advance = () => {
@@ -127,10 +125,7 @@ export function LandingShowcase({
         aria-labelledby={`${idPrefix}-tab-${active.preview}`}
         className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,0.78fr)_minmax(0,1.22fr)] lg:gap-10"
       >
-        <SwapIn
-          swapKey={`copy-${active.preview}`}
-          reduced={prefersReducedMotion}
-        >
+        <SwapIn swapKey={`copy-${active.preview}`}>
           <h3 className="text-lg font-medium text-foreground">{active.name}</h3>
           <p className="mt-2 text-pretty text-sm leading-relaxed text-muted-foreground">
             {active.summary}
@@ -151,10 +146,7 @@ export function LandingShowcase({
           </ul>
         </SwapIn>
 
-        <SwapIn
-          swapKey={`preview-${active.preview}`}
-          reduced={prefersReducedMotion}
-        >
+        <SwapIn swapKey={`preview-${active.preview}`}>
           <Preview />
         </SwapIn>
       </div>
@@ -201,19 +193,17 @@ function TabUnderline({
 /** Fades new panel content in on tab change. Keyed, so it replays each swap. */
 function SwapIn({
   swapKey,
-  reduced,
   children,
 }: {
   swapKey: string;
-  reduced: boolean | null;
   children: ReactNode;
 }) {
   return (
     <m.div
       key={swapKey}
-      initial={{ opacity: 0, y: reduced ? 0 : 8 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: reduced ? 0.2 : 0.35, ease: [0.22, 1, 0.36, 1] }}
+      transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
     >
       {children}
     </m.div>

@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import type { ReactNode } from "react";
-import { m, useReducedMotion, type Variants } from "motion/react";
+import { m, type Variants } from "motion/react";
 import { cn } from "@eva/ui";
 
 const LANDING_EASE: [number, number, number, number] = [0.22, 1, 0.36, 1];
@@ -15,15 +15,9 @@ const REVEAL_VARIANTS: Variants = {
   },
 };
 
-/** Same fade without the rise, for `prefers-reduced-motion`. */
-const FADE_VARIANTS: Variants = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { duration: 0.3, ease: LANDING_EASE } },
-};
-
 /**
  * Fades a whole section in once as it enters the viewport. Applied per section
- * rather than per card — staggering every tile on a page this long reads as
+ * rather than per card â€” staggering every tile on a page this long reads as
  * noise and costs a subscription per element.
  */
 export function LandingReveal({
@@ -33,12 +27,10 @@ export function LandingReveal({
   children: ReactNode;
   className?: string;
 }) {
-  const prefersReducedMotion = useReducedMotion();
-
   return (
     <m.div
       className={className}
-      variants={prefersReducedMotion ? FADE_VARIANTS : REVEAL_VARIANTS}
+      variants={REVEAL_VARIANTS}
       initial="hidden"
       whileInView="show"
       viewport={{ once: true, margin: "-64px" }}
@@ -101,7 +93,7 @@ export function LandingSectionHeading({
 /**
  * Hairline lattice: a border-coloured background showing through 1px grid gaps,
  * so adjacent cells share a single rule instead of stacking two borders. The
- * caller is responsible for a column count that divides its children exactly —
+ * caller is responsible for a column count that divides its children exactly â€”
  * a ragged final row exposes the background as a solid block.
  */
 export function LandingLattice({

@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import { m, useReducedMotion, type Variants } from "motion/react";
+import { m, type Variants } from "motion/react";
 import { cn } from "@eva/ui";
 import {
   LANDING_SANDBOX_BOOT,
@@ -24,12 +24,6 @@ const BOOT_LINE: Variants = {
 };
 
 /** No stagger and no slide when the visitor asks for less movement. */
-const BOOT_CONTAINER_STILL: Variants = { hidden: {}, show: {} };
-const BOOT_LINE_STILL: Variants = {
-  hidden: { opacity: 1 },
-  show: { opacity: 1 },
-};
-
 const BOOT_TONE: Record<LandingBootKind, string> = {
   command: "text-foreground",
   info: "text-muted-foreground",
@@ -90,8 +84,6 @@ export function LandingSandbox() {
 
 /** Boot log that types itself out once, the first time it scrolls into view. */
 function SandboxTerminal() {
-  const prefersReducedMotion = useReducedMotion();
-
   return (
     <div className="overflow-hidden rounded-surface bg-card">
       <div className="flex items-center gap-2.5 border-b border-border px-4 py-2.5">
@@ -101,7 +93,7 @@ function SandboxTerminal() {
           <span className="size-2 rounded-full bg-border" />
         </span>
         <p className="font-mono text-[11px] text-muted-foreground">
-          acme/web — sandbox
+          acme/web â€” sandbox
         </p>
         <span className="ml-auto flex items-center gap-1.5">
           <span
@@ -114,7 +106,7 @@ function SandboxTerminal() {
 
       <m.div
         className="space-y-1.5 p-4 font-mono text-[11.5px] leading-relaxed sm:p-5"
-        variants={prefersReducedMotion ? BOOT_CONTAINER_STILL : BOOT_CONTAINER}
+        variants={BOOT_CONTAINER}
         initial="hidden"
         whileInView="show"
         viewport={{ once: true, amount: 0.4 }}
@@ -122,7 +114,7 @@ function SandboxTerminal() {
         {LANDING_SANDBOX_BOOT.map((line) => (
           <m.p
             key={line.text}
-            variants={prefersReducedMotion ? BOOT_LINE_STILL : BOOT_LINE}
+            variants={BOOT_LINE}
             className={cn("truncate", BOOT_TONE[line.kind])}
           >
             {line.kind === "command" ? (

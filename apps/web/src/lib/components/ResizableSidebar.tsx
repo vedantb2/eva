@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { ReactNode } from "react";
 import { Group, Panel, Separator } from "react-resizable-panels";
@@ -59,8 +59,10 @@ export function ResizableSidebar({
         {sidebar}
       </Panel>
       {/* Hairline divider that doubles as the drag handle; the library widens the
-          pointer target beyond the visible pixel, so no grip affordance is needed. */}
-      <Separator className="w-px shrink-0 bg-border transition-colors hover:bg-primary/50 data-resize-handle-active:bg-primary" />
+          pointer target beyond the visible pixel, so no grip affordance is needed.
+          The grab colour is exempt from the transition so it lands on
+          pointer-down rather than fading in behind the drag. */}
+      <Separator className="w-px shrink-0 bg-border transition-colors hover:bg-primary/50 data-resize-handle-active:bg-primary data-resize-handle-active:transition-none" />
       <Panel
         id={RIGHT_PANEL_ID}
         minSize={minContentWidthPx}

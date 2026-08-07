@@ -90,6 +90,20 @@
   }
 }
 
+@utility t-collapsible-content {
+  /* Same mechanism as `t-accordion-content`, against the collapsible
+   * primitive's own measured-height var. Kept separate rather than shared
+   * because the two Radix primitives publish different var names, and a
+   * collapsible panel is not always inside an accordion. */
+  overflow: hidden;
+  &[data-state="open"] {
+    animation: t-collapsible-down var(--motion-base) var(--motion-ease-out);
+  }
+  &[data-state="closed"] {
+    animation: t-collapsible-up var(--motion-base) var(--motion-ease-out);
+  }
+}
+
 @utility rounded-surface {
   border-radius: clamp(0.75rem, var(--radius), 1.25rem);
 }
@@ -616,10 +630,8 @@
    * Smooth anchor scrolling for the marketing page only — `#top` is the
    * landing page root, so in-app routes keep instant scrolling.
    */
-  @media (prefers-reduced-motion: no-preference) {
-    html:has(#top) {
-      scroll-behavior: smooth;
-    }
+  html:has(#top) {
+    scroll-behavior: smooth;
   }
   ::selection {
     background: rgb(var(--primary) / 0.22);
@@ -691,6 +703,24 @@
   @keyframes t-accordion-up {
     from {
       height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+
+  @keyframes t-collapsible-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-collapsible-content-height);
+    }
+  }
+
+  @keyframes t-collapsible-up {
+    from {
+      height: var(--radix-collapsible-content-height);
     }
     to {
       height: 0;
@@ -984,13 +1014,6 @@ html[data-blur-pid] [data-pii] {
   transform: translateX(calc(-1 * var(--mq-shift, 0px)));
   transition: transform var(--mq-dur, 0s) linear var(--mq-delay, 400ms);
 }
-@media (prefers-reduced-motion: reduce) {
-  .mq-host:hover .mq-inner,
-  .group:hover .mq-host .mq-inner {
-    transform: none;
-    transition: none;
-  }
-}
 
 /* ───────────────────────────────────────────────────────────────────
  * Animated sidebar nav icons
@@ -1003,10 +1026,8 @@ html[data-blur-pid] [data-pii] {
   transform-origin: center;
   transition: transform 0.25s var(--motion-ease-out);
 }
-@media (prefers-reduced-motion: no-preference) {
-  .group:hover .nav-icon-root {
-    transform: scale(1.12);
-  }
+.group:hover .nav-icon-root {
+  transform: scale(1.12);
 }
 
 /* Common: SVG transforms need an explicit box + origin */
@@ -1527,32 +1548,12 @@ html[data-blur-pid] [data-pii] {
 }
 
 /*
- * NEVER uncomment this block.
- * The blanket `prefers-reduced-motion` kill-switch freezes scroll-fade masks,
- * nukes intentional press/transition feedback, and fights per-component
- * `useReducedMotion` gates. Leave it off permanently — honor reduced motion
- * only at the call site (fade instead of travel), never with a global hammer.
- *
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-
-  .scroll-fade,
-  .scroll-fade-x {
-    animation-duration: auto !important;
-  }
-
-  .group:hover [class*='nav-icon-'] {
-    animation: none !important;
-  }
-}
-*/
+ * This app does not implement `prefers-reduced-motion`, globally or per
+ * component. Motion here is feedback rather than decoration — press states,
+ * scroll-fade masks and panel travel all carry meaning — and the per-component
+ * gates that used to exist only produced a second code path nobody exercised.
+ * Do not reintroduce the media query or `useReducedMotion`.
+ */
 
 @media (prefers-reduced-transparency: reduce) {
   [class*="backdrop-blur"] {

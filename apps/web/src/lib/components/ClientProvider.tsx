@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
@@ -42,10 +42,10 @@ let wasEverSignedIn = false;
  * When Vercel deploys a new version, stale JS can break Clerk's internals,
  * causing it to report isSignedIn:false even though the user has a valid session.
  * ConvexProviderWithClerk then clears the auth token, and the Convex server
- * re-evaluates every active subscription without auth — producing a burst of
+ * re-evaluates every active subscription without auth â€” producing a burst of
  * "Not authenticated" errors in the Convex logs.
  *
- * To prevent this: when auth drops from signed-in → not-signed-in, we tell
+ * To prevent this: when auth drops from signed-in â†’ not-signed-in, we tell
  * Convex "auth is still loading" for 2 seconds. During that window:
  * - Stale deployment: page reloads, WebSocket closes, subscriptions drop cleanly
  * - Real logout: routes unmount via InnerApp/router (which reads Clerk directly),
@@ -64,7 +64,7 @@ function useStableAuth() {
       return;
     }
 
-    // Was signed in and now not — debounce to avoid Convex auth cascade
+    // Was signed in and now not â€” debounce to avoid Convex auth cascade
     if (wasEverSignedIn && auth.isLoaded && !auth.isSignedIn) {
       setOverrideLoading(true);
       const timer = setTimeout(() => {
@@ -145,7 +145,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
       </Unauthenticated>
       <Authenticated>
         <ThemeProvider>
-          <TooltipProvider delayDuration={300}>
+          <TooltipProvider>
             {children}
             <BlurPidEffect />
             <PresenceHeartbeat />

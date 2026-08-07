@@ -1,8 +1,8 @@
-"use client";
+﻿"use client";
 
 import { SignUpButton } from "@clerk/clerk-react";
 import { IconArrowRight, IconBrandGithub } from "@tabler/icons-react";
-import { m, useReducedMotion, type Variants } from "motion/react";
+import { m, type Variants } from "motion/react";
 import { Button } from "@eva/ui";
 import { LandingTaskDetailMock } from "../LandingTaskDetailMock";
 import { EVA_GITHUB_URL, LANDING_HERO_CAPABILITIES } from "./landingContent";
@@ -26,14 +26,6 @@ const HERO_ITEM: Variants = {
   },
 };
 
-const HERO_ITEM_FADE: Variants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { duration: 0.3, ease: LANDING_EASE },
-  },
-};
-
 const MOCK_ITEM: Variants = {
   hidden: { opacity: 0, y: 28 },
   show: {
@@ -43,23 +35,14 @@ const MOCK_ITEM: Variants = {
   },
 };
 
-const MOCK_ITEM_FADE: Variants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { duration: 0.35, ease: LANDING_EASE, delay: 0.1 },
-  },
-};
-
 /**
  * Centred hero with the product mock underneath. The mock is the real
  * task-detail UI rendered from fixtures, not a screenshot, so it stays in step
  * with the design system and both themes.
  */
 export function LandingHero() {
-  const prefersReducedMotion = useReducedMotion();
-  const item = prefersReducedMotion ? HERO_ITEM_FADE : HERO_ITEM;
-  const mock = prefersReducedMotion ? MOCK_ITEM_FADE : MOCK_ITEM;
+  const item = HERO_ITEM;
+  const mock = MOCK_ITEM;
 
   return (
     <div className="landing-atmosphere landing-grain relative overflow-hidden border-b border-border">
@@ -98,7 +81,7 @@ export function LandingHero() {
             variants={item}
             className="mt-6 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground sm:text-lg"
           >
-            Eva gives coding agents a real cloud dev environment — your
+            Eva gives coding agents a real cloud dev environment â€” your
             repository cloned, dependencies installed, a dev server running and
             a browser they can drive. They run the tests, capture proof it
             works, and open the pull request.

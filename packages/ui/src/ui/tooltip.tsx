@@ -1,11 +1,24 @@
 "use client";
 
 import * as React from "react";
+import type { ComponentProps } from "react";
 import * as TooltipPrimitive from "@radix-ui/react-tooltip";
 import { cn } from "../utils/cn";
 import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 
-const TooltipProvider = TooltipPrimitive.Provider;
+/**
+ * Radix defaults to a 700ms open delay. On a desktop tool with a precise
+ * pointer that reads as lag, and most providers in the app never passed a
+ * value — so the house default is set here rather than at 23 call sites.
+ */
+export const TOOLTIP_DELAY_MS = 300;
+
+const TooltipProvider = ({
+  delayDuration = TOOLTIP_DELAY_MS,
+  ...props
+}: ComponentProps<typeof TooltipPrimitive.Provider>) => (
+  <TooltipPrimitive.Provider delayDuration={delayDuration} {...props} />
+);
 const Tooltip = TooltipPrimitive.Root;
 const TooltipTrigger = TooltipPrimitive.Trigger;
 

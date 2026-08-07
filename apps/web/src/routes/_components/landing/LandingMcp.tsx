@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import { IconArrowRight, IconBrowser, IconCheck } from "@tabler/icons-react";
-import { m, useReducedMotion, type Variants } from "motion/react";
+import { m, type Variants } from "motion/react";
 import { LANDING_MCP_CALLS, LANDING_MCP_CARDS } from "./landingContent";
 import {
   LandingLattice,
@@ -19,8 +19,6 @@ const CALL_ROW: Variants = {
   hidden: { opacity: 0, y: 6 },
   show: { opacity: 1, y: 0, transition: { duration: 0.25 } },
 };
-
-const STILL: Variants = { hidden: { opacity: 1 }, show: { opacity: 1 } };
 
 /** MCP in both directions, plus the Chrome extension as a closing note. */
 export function LandingMcp() {
@@ -94,8 +92,6 @@ export function LandingMcp() {
 
 /** Tool calls arriving from an external MCP client, revealed one at a time. */
 function McpCallPanel() {
-  const prefersReducedMotion = useReducedMotion();
-
   return (
     <div className="overflow-hidden rounded-surface bg-card">
       <div className="flex items-center gap-2 border-b border-border bg-muted/40 px-4 py-2.5">
@@ -115,7 +111,7 @@ function McpCallPanel() {
 
       <m.div
         className="divide-y divide-border"
-        variants={prefersReducedMotion ? STILL : CALLS_CONTAINER}
+        variants={CALLS_CONTAINER}
         initial="hidden"
         whileInView="show"
         viewport={{ once: true, amount: 0.5 }}
@@ -123,7 +119,7 @@ function McpCallPanel() {
         {LANDING_MCP_CALLS.map((call) => (
           <m.div
             key={call.tool}
-            variants={prefersReducedMotion ? STILL : CALL_ROW}
+            variants={CALL_ROW}
             className="flex items-center gap-3 px-4 py-2.5"
           >
             <IconCheck

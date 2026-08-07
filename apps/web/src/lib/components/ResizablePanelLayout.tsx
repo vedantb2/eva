@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   type ReactNode,
@@ -16,7 +16,7 @@ import {
   usePanelRef,
 } from "react-resizable-panels";
 import { IconGripVertical } from "@tabler/icons-react";
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { useLocalStorage } from "usehooks-ts";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import {
@@ -77,15 +77,14 @@ export function ResizablePanelLayout({
   });
   const [rightCollapsed, setRightCollapsed] = useState(savedCollapsed);
   const isMobile = useMediaQuery("(max-width: 767px)");
-  const reduceMotion = useReducedMotion();
   // Seeded from storage so expanding after a reload returns to the dragged
   // width instead of the 60% default.
   const lastExpandedSize = useRef<string>(savedRightSize);
-  // Captured once for defaultSize — the stored flag does not change after mount
+  // Captured once for defaultSize â€” the stored flag does not change after mount
   const [initialCollapsed] = useState(savedCollapsed);
 
   const handleToggle = useCallback(() => {
-    // Mobile layout has no Panel ref — toggle local state directly.
+    // Mobile layout has no Panel ref â€” toggle local state directly.
     if (isMobile) {
       setRightCollapsed((prev) => {
         const next = !prev;
@@ -131,12 +130,10 @@ export function ResizablePanelLayout({
   };
 
   if (isMobile) {
-    const panelTransition = reduceMotion
-      ? { duration: 0.15 }
-      : { duration: 0.22, ease: MOBILE_PANEL_EASE };
-    const panelEnter = reduceMotion ? { opacity: 0 } : { opacity: 0, y: "8%" };
-    const panelRest = reduceMotion ? { opacity: 1 } : { opacity: 1, y: "0%" };
-    const panelExit = reduceMotion ? { opacity: 0 } : { opacity: 0, y: "8%" };
+    const panelTransition = { duration: 0.22, ease: MOBILE_PANEL_EASE };
+    const panelEnter = { opacity: 0, y: "8%" };
+    const panelRest = { opacity: 1, y: "0%" };
+    const panelExit = { opacity: 0, y: "8%" };
 
     return (
       <div className="flex h-full flex-col">
@@ -176,8 +173,10 @@ export function ResizablePanelLayout({
       >
         {leftPanel(ctx)}
       </Panel>
+      {/* The grab colour skips the transition so it lands on pointer-down
+          instead of fading in 150ms behind the drag. */}
       <Separator
-        className={`w-px bg-border hover:bg-primary/50 data-resize-handle-active:bg-primary transition-colors ${rightCollapsed ? "hidden" : ""}`}
+        className={`w-px bg-border transition-colors hover:bg-primary/50 data-resize-handle-active:bg-primary data-resize-handle-active:transition-none ${rightCollapsed ? "hidden" : ""}`}
       >
         <div className="flex items-center justify-center w-3 h-full -mx-1.5 relative z-10">
           <IconGripVertical className="w-4 h-4 text-muted-foreground/50" />

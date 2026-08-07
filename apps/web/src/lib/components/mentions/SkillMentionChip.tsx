@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import type { MouseEvent } from "react";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
@@ -18,7 +18,7 @@ export function SkillMentionChip({
   onClick,
 }: SkillMentionChipProps) {
   return (
-    <HoverCard openDelay={250} closeDelay={100}>
+    <HoverCard>
       <HoverCardTrigger asChild>
         <button
           type="button"

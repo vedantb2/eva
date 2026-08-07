@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Command as CommandPrimitive } from "cmdk";
@@ -117,13 +117,13 @@ function InstanceIcon({
 function rowFooter(instance: ModelPickerInstance): string {
   const providerLabel = getProviderLabel(instance.provider);
   if (instance.accountId === null) return providerLabel;
-  return `${providerLabel} · ${instance.label}`;
+  return `${providerLabel} Â· ${instance.label}`;
 }
 
 /**
  * Searchable model + account list used by `ModelSelect` and by menu embeds
  * (context/dropdown submenus). Do not reimplement provider/account radios
- * elsewhere — pass the same options/accounts hooks the modal uses.
+ * elsewhere â€” pass the same options/accounts hooks the modal uses.
  */
 export function ModelPickerContent<TModel extends string>({
   value,
@@ -236,7 +236,7 @@ export function ModelPickerContent<TModel extends string>({
     };
   }, []);
 
-  // Measure the active rail button — hardcoded spacing drifts vs real layout.
+  // Measure the active rail button â€” hardcoded spacing drifts vs real layout.
   useLayoutEffect(() => {
     if (isSearching) {
       setIndicatorTop(null);
@@ -280,7 +280,7 @@ export function ModelPickerContent<TModel extends string>({
   }, [instances]);
 
   return (
-    <TooltipProvider delayDuration={300}>
+    <TooltipProvider>
       <div
         className="flex h-96 max-h-[min(24rem,var(--radix-popover-content-available-height))] w-full overflow-hidden rounded-lg bg-popover smooth-shadow-ring-lg"
         data-model-picker-content
@@ -351,7 +351,7 @@ export function ModelPickerContent<TModel extends string>({
         ) : null}
 
         {/*
-        Key only on the rail instance — NOT on isSearching. Remounting when the
+        Key only on the rail instance â€” NOT on isSearching. Remounting when the
         first search character lands unmounts the input and drops focus (the
         "click twice" bug). Row filtering already switches search vs rail views.
       */}

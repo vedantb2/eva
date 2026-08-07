@@ -27,8 +27,8 @@ Surface tokens map 1:1 to the HeroUI palette: `--background` (page canvas) → `
 
 - Hover: `hover:bg-*` (background shift). Active/selected: surface fill (and `ring-*` if extra emphasis is needed).
 - Press: respond on pointer-down with `motion-press` + `active:scale-[0.9x]` on controls (buttons, tabs, selects, switches, menu items). Keep color transitions slower than the press transform.
-- Enter/exit along the same path; default UI springs critically damped (`bounce: 0` / high damping). Gate decorative travel with `useReducedMotion`.
-**Spacing**
+- Enter/exit along the same path; default UI springs critically damped (`bounce: 0` / high damping). No `prefers-reduced-motion` support — never add `useReducedMotion` gates.
+  **Spacing**
 
 - Use whitespace/padding (Gestalt Law of Proximity) to group related elements; reach for borders/dividers only for structural separation (layout regions), not to outline soft surfaces.
 

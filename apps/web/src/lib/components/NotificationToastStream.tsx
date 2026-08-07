@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -7,7 +7,7 @@ import { api, type Id } from "@eva/backend";
 import { useNavigate } from "@tanstack/react-router";
 import { Badge, Button, Card, CardContent } from "@eva/ui";
 import { IconX } from "@tabler/icons-react";
-import { AnimatePresence, m, useReducedMotion } from "motion/react";
+import { AnimatePresence, m } from "motion/react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { playNotificationChime } from "@/lib/utils/notificationChime";
 import {
@@ -21,7 +21,6 @@ const TOAST_TTL_MS = 9000;
 
 /** Matches `--motion-base` / `--motion-ease-out` in globals.css. */
 const TOAST_DURATION_S = 0.22;
-const TOAST_REDUCED_DURATION_S = 0.15;
 
 type ToastEntry = {
   notification: Notification;
@@ -51,7 +50,6 @@ export function NotificationToastStream() {
     }
   });
   const navigate = useNavigate();
-  const reduceMotion = useReducedMotion();
   const seenNotificationIdsRef = useRef<Set<Id<"notifications">> | null>(null);
   const [toasts, setToasts] = useState<ToastEntry[]>([]);
 
@@ -79,7 +77,7 @@ export function NotificationToastStream() {
 
     // One chime per batch, however many landed together, and only for unread
     // arrivals. `list` returns the newest 100, so pruning an old notification
-    // pulls the next one into the window and it reads as newly arrived — but
+    // pulls the next one into the window and it reads as newly arrived â€” but
     // anything resurfacing that way is long since read.
     if (newlyArrived.some((notification) => !notification.read)) {
       playNotificationChime();
@@ -138,12 +136,10 @@ export function NotificationToastStream() {
 
   // Keep the fixed host mounted so AnimatePresence can play exit animations.
   const toastEase: [number, number, number, number] = [0.22, 1, 0.36, 1];
-  const toastTransition = reduceMotion
-    ? { duration: TOAST_REDUCED_DURATION_S }
-    : { duration: TOAST_DURATION_S, ease: toastEase };
-  const toastEnter = reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 };
-  const toastRest = reduceMotion ? { opacity: 1 } : { opacity: 1, y: 0 };
-  const toastExit = reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 };
+  const toastTransition = { duration: TOAST_DURATION_S, ease: toastEase };
+  const toastEnter = { opacity: 0, y: -8 };
+  const toastRest = { opacity: 1, y: 0 };
+  const toastExit = { opacity: 0, y: -8 };
 
   return (
     <div
@@ -158,7 +154,7 @@ export function NotificationToastStream() {
           return (
             <m.div
               key={notification._id}
-              layout={!reduceMotion}
+              layout
               initial={toastEnter}
               animate={toastRest}
               exit={toastExit}

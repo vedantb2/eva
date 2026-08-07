@@ -6,7 +6,26 @@ import * as HoverCardPrimitive from "@radix-ui/react-hover-card";
 import { cn } from "../utils/cn";
 import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 
-const HoverCard = HoverCardPrimitive.Root;
+/**
+ * Radix defaults to 700ms open / 300ms close. Call sites had drifted to 0, 200,
+ * 250 and 400 — the same gesture felt different depending on which chip you
+ * hovered. One pair of values here; sites only override to opt out (0) or to
+ * ask for a longer wait where the card is easy to trip over.
+ */
+export const HOVER_CARD_OPEN_DELAY_MS = 250;
+export const HOVER_CARD_CLOSE_DELAY_MS = 100;
+
+const HoverCard = ({
+  openDelay = HOVER_CARD_OPEN_DELAY_MS,
+  closeDelay = HOVER_CARD_CLOSE_DELAY_MS,
+  ...props
+}: React.ComponentProps<typeof HoverCardPrimitive.Root>) => (
+  <HoverCardPrimitive.Root
+    openDelay={openDelay}
+    closeDelay={closeDelay}
+    {...props}
+  />
+);
 
 const HoverCardTrigger = HoverCardPrimitive.Trigger;
 

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import { Toaster as SonnerToaster, type ToasterProps } from "sonner";
@@ -98,7 +98,7 @@ function LoadingIcon() {
   );
 }
 
-/** HeroUI's `CloseIcon` — 2px round-capped cross. */
+/** HeroUI's `CloseIcon` â€” 2px round-capped cross. */
 function CloseIcon() {
   return (
     <svg
@@ -146,7 +146,7 @@ const TOASTER_STYLE: React.CSSProperties & Record<`--${string}`, string> = {
 
 /**
  * Thin wrapper around sonner's Toaster, styled to match HeroUI's `Toast`
- * (`@heroui/theme` → `components/toast.ts`, variant `flat`, colour `default`):
+ * (`@heroui/theme` â†’ `components/toast.ts`, variant `flat`, colour `default`):
  * 12px padding, a 24px icon 16px from the text, `text-sm` medium title over a
  * muted description, and a circular close chip at the top-right that fades in
  * on hover. HeroUI's fixed `rounded-medium` / `shadow-small` are mapped onto
@@ -155,7 +155,7 @@ const TOASTER_STYLE: React.CSSProperties & Record<`--${string}`, string> = {
  *
  * `unstyled` is required, not cosmetic: sonner's built-in rules are keyed on
  * `[data-sonner-toast][data-styled=true]`, whose specificity beats every
- * utility class below. Opting out of them is what lets these classes apply —
+ * utility class below. Opting out of them is what lets these classes apply â€”
  * and it also means the layout sonner normally supplies (flex, width, close
  * button positioning) has to be declared here.
  *
@@ -191,9 +191,9 @@ function Toaster({ style, ...props }: ToasterProps) {
           // utilities without being gated on `data-styled`.
           description: "me-4 wrap-break-word text-muted-foreground!",
           actionButton:
-            "h-7 shrink-0 rounded-control bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90",
+            "h-7 shrink-0 rounded-control bg-primary px-2.5 text-xs font-medium text-primary-foreground transition-[background-color,transform] motion-press active:scale-[0.96] hover:bg-primary/90",
           cancelButton:
-            "h-7 shrink-0 rounded-control bg-muted px-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/80",
+            "h-7 shrink-0 rounded-control bg-muted px-2.5 text-xs font-medium text-muted-foreground transition-[background-color,transform] motion-press active:scale-[0.96] hover:bg-muted/80",
           closeButton:
             "pointer-events-none absolute -right-2 -top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card/95 text-muted-foreground opacity-0 transition-opacity duration-200 ease-out hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:pointer-events-auto group-hover:opacity-100",
         },

@@ -113,6 +113,8 @@ export function Sidebar() {
     setSessionsNavMode,
     sidebarWidth,
     setSidebarWidth,
+    previewSidebarWidth,
+    commitSidebarWidth,
   } = useSidebar();
   const { pageTitle } = usePageTitle();
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -645,6 +647,8 @@ export function Sidebar() {
                   {!collapsed ? (
                     <SidebarResizeHandle
                       width={sidebarWidth}
+                      onWidthPreview={previewSidebarWidth}
+                      onWidthCommit={commitSidebarWidth}
                       onWidthChange={setSidebarWidth}
                     />
                   ) : null}

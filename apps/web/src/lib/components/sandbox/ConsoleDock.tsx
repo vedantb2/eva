@@ -20,6 +20,36 @@ const DEFAULT_STATE: ConsoleDockState = { expanded: false, previewPct: 60 };
 const MIN_PREVIEW_PCT = 15;
 const MAX_PREVIEW_PCT = 85;
 
+/** Apple-style progressive resistance past a bound. */
+function rubberband(
+  overshoot: number,
+  dimension: number,
+  constant = 0.55,
+): number {
+  return (
+    (overshoot * dimension * constant) /
+    (dimension + constant * Math.abs(overshoot))
+  );
+}
+
+function rubberbandPreviewPct(pct: number): number {
+  if (pct < MIN_PREVIEW_PCT) {
+    return (
+      MIN_PREVIEW_PCT - rubberband(MIN_PREVIEW_PCT - pct, 100)
+    );
+  }
+  if (pct > MAX_PREVIEW_PCT) {
+    return (
+      MAX_PREVIEW_PCT + rubberband(pct - MAX_PREVIEW_PCT, 100)
+    );
+  }
+  return pct;
+}
+
+function clampPreviewPct(pct: number): number {
+  return Math.min(MAX_PREVIEW_PCT, Math.max(MIN_PREVIEW_PCT, pct));
+}
+
 interface ConsoleDockProps {
   /** Full localStorage key for the expanded state + split ratio. */
   storageKey: string;
@@ -58,6 +88,7 @@ export function ConsoleDock({
   );
   const [dragging, setDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const rawPctRef = useRef(DEFAULT_STATE.previewPct);
   const { expanded, previewPct } = state;
 
   const toggle = () => {
@@ -82,6 +113,7 @@ export function ConsoleDock({
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.currentTarget.setPointerCapture(e.pointerId);
+    rawPctRef.current = previewPct;
     setDragging(true);
   };
 
@@ -90,12 +122,16 @@ export function ConsoleDock({
     const rect = containerRef.current.getBoundingClientRect();
     if (rect.height === 0) return;
     const pct = ((e.clientY - rect.top) / rect.height) * 100;
-    const clamped = Math.min(MAX_PREVIEW_PCT, Math.max(MIN_PREVIEW_PCT, pct));
-    setState((s) => ({ ...s, previewPct: clamped }));
+    rawPctRef.current = pct;
+    setState((s) => ({ ...s, previewPct: rubberbandPreviewPct(pct) }));
   };
 
   const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
     e.currentTarget.releasePointerCapture(e.pointerId);
+    setState((s) => ({
+      ...s,
+      previewPct: clampPreviewPct(rawPctRef.current),
+    }));
     setDragging(false);
   };
 

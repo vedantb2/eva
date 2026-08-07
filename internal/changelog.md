@@ -1,5 +1,13 @@
 # Changelog
 
+## Resize rubberband on sidebar and console dock - 2026-08-07
+
+Dragging the sidebar width or console split hard-stopped at min/max, which reads as frozen rather than "nothing more here." Live drag now rubberbands past the bound and clamps only on release (keyboard still clamps immediately); persisted width stays in range. Reason: soft boundaries keep 1:1 tracking continuous at the edge.
+
+## Apple-design quick wins — press, glass, scrub - 2026-08-07
+
+High-frequency controls still felt dead on press or solid next to glass menus: Command/Select items, rail tiles, list rows, carousel chrome and the console toggle now use `motion-press`; toasts, mention previews and the doc bubble menu match overlay glass; inbox exits mirror enter; theme pill travel is critically damped; jump-rail tick width tracks 1:1 during scrub. Reason: press and materials should be consistent across every control family, not only the shared Button/Popover primitives.
+
 ## Native Convex readiness — no more grep loops in startupCommands - 2026-08-07
 
 Session 37 (eProcurement) showed "Sandbox startup unfinished" with an opaque `Error: terminated ... onAborted (undici)`: the repo's startupCommands carried a hand-rolled 400s `grep -q "Convex functions ready"` loop, but any single Vercel exec dies at ~300s — the SDK's HTTP client disables `bodyTimeout` yet keeps undici's default 300s `headersTimeout`, and a long-poll exec sends no headers until it finishes. Eva now owns Convex readiness natively: `runBackgroundCommands` schedules a fire-and-forget `watchConvexReadiness` action for any Convex daemon it launches, which polls the bg log with short execs (each its own HTTP call, so no ceiling) for up to 6 minutes and surfaces a non-fatal session warning with the daemon log tail only on timeout — the session unlocks immediately instead of blocking on the wait. Seeded-snapshot builds get the same gate injected into their detached seed script (plain bash there, no exec ceiling) so `npx convex env set` / `import` still run against a ready backend once repos drop their custom loops. Repos with a Convex background command can now clear their readiness startupCommands entirely. Reason: readiness detection is infrastructure — it belongs in eva, not escaped bash in a DB config field, and it must never ride a single exec that the transport kills at 300s.

@@ -9,6 +9,11 @@ import { cn } from "@eva/ui";
 
 interface SidebarResizeHandleProps {
   width: number;
+  /** Live drag — may rubberband past min/max. */
+  onWidthPreview: (width: number) => void;
+  /** Pointer-up — clamp and persist. */
+  onWidthCommit: (width: number) => void;
+  /** Keyboard nudge — clamp immediately. */
   onWidthChange: (width: number) => void;
   className?: string;
 }
@@ -16,9 +21,12 @@ interface SidebarResizeHandleProps {
 /**
  * Drag handle on the secondary sidebar’s right edge (repo nav + sessions list).
  * Keyboard: ArrowLeft/ArrowRight nudge by 8px within min/max.
+ * Drag: 1:1 with rubberband past bounds; commit clamps on release.
  */
 export function SidebarResizeHandle({
   width,
+  onWidthPreview,
+  onWidthCommit,
   onWidthChange,
   className,
 }: SidebarResizeHandleProps) {
@@ -31,10 +39,12 @@ export function SidebarResizeHandle({
     handle.setPointerCapture(event.pointerId);
 
     const onPointerMove = (moveEvent: globalThis.PointerEvent) => {
-      onWidthChange(startWidth + (moveEvent.clientX - startX));
+      onWidthPreview(startWidth + (moveEvent.clientX - startX));
     };
 
     const onPointerUp = (upEvent: globalThis.PointerEvent) => {
+      const raw = startWidth + (upEvent.clientX - startX);
+      onWidthCommit(raw);
       handle.releasePointerCapture(upEvent.pointerId);
       handle.removeEventListener("pointermove", onPointerMove);
       handle.removeEventListener("pointerup", onPointerUp);
@@ -67,7 +77,7 @@ export function SidebarResizeHandle({
       role="separator"
       aria-orientation="vertical"
       aria-label="Resize sidebar"
-      aria-valuenow={width}
+      aria-valuenow={Math.round(width)}
       aria-valuemin={SIDEBAR_MIN_WIDTH_PX}
       aria-valuemax={SIDEBAR_MAX_WIDTH_PX}
       tabIndex={0}

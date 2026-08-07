@@ -39,6 +39,34 @@ function clampSidebarWidth(width: number): number {
   );
 }
 
+/** Apple-style progressive resistance past a bound (Designing Fluid Interfaces). */
+function rubberband(
+  overshoot: number,
+  dimension: number,
+  constant = 0.55,
+): number {
+  return (
+    (overshoot * dimension * constant) /
+    (dimension + constant * Math.abs(overshoot))
+  );
+}
+
+function rubberbandSidebarWidth(width: number): number {
+  if (width < SIDEBAR_MIN_WIDTH_PX) {
+    return (
+      SIDEBAR_MIN_WIDTH_PX -
+      rubberband(SIDEBAR_MIN_WIDTH_PX - width, SIDEBAR_MIN_WIDTH_PX)
+    );
+  }
+  if (width > SIDEBAR_MAX_WIDTH_PX) {
+    return (
+      SIDEBAR_MAX_WIDTH_PX +
+      rubberband(width - SIDEBAR_MAX_WIDTH_PX, SIDEBAR_MAX_WIDTH_PX)
+    );
+  }
+  return Math.round(width);
+}
+
 interface SidebarContextType {
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
@@ -48,9 +76,15 @@ interface SidebarContextType {
   /**
    * Desktop width (px) of the fixed left chrome when the secondary panel is
    * open — icon rail + app/repo or sessions column. Persisted across routes.
+   * During a live drag this may briefly overshoot min/max (rubberband).
    */
   sidebarWidth: number;
+  /** Keyboard / non-drag updates — always clamped and persisted. */
   setSidebarWidth: (width: number) => void;
+  /** Live drag preview — rubberbands past bounds, not persisted. */
+  previewSidebarWidth: (width: number) => void;
+  /** End of drag — clamp, persist, clear preview. */
+  commitSidebarWidth: (width: number) => void;
 }
 
 const SidebarContext = createContext<SidebarContextType | undefined>(undefined);
@@ -63,6 +97,7 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
     SIDEBAR_WIDTH_KEY,
     SIDEBAR_DEFAULT_WIDTH_PX,
   );
+  const [dragWidth, setDragWidth] = useState<number | null>(null);
 
   const setCollapsed = (value: boolean) => {
     setCollapsedState(value);
@@ -70,13 +105,24 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
   };
 
   const clampedWidth = clampSidebarWidth(sidebarWidth);
+  const displayWidth = dragWidth ?? clampedWidth;
 
   const setSidebarWidth = (width: number) => {
     setSidebarWidthState(clampSidebarWidth(width));
+    setDragWidth(null);
+  };
+
+  const previewSidebarWidth = (width: number) => {
+    setDragWidth(rubberbandSidebarWidth(width));
+  };
+
+  const commitSidebarWidth = (width: number) => {
+    setSidebarWidthState(clampSidebarWidth(width));
+    setDragWidth(null);
   };
 
   const cssVars: CSSProperties & Record<`--${string}`, string> = {
-    "--eva-sidebar-width": `${clampedWidth}px`,
+    "--eva-sidebar-width": `${displayWidth}px`,
   };
 
   return (
@@ -86,8 +132,10 @@ export function SidebarProvider({ children }: { children: ReactNode }) {
         setCollapsed,
         sessionsNavMode,
         setSessionsNavMode,
-        sidebarWidth: clampedWidth,
+        sidebarWidth: displayWidth,
         setSidebarWidth,
+        previewSidebarWidth,
+        commitSidebarWidth,
       }}
     >
       <div className="contents" style={cssVars}>

@@ -357,6 +357,12 @@ try {
       exitCode: finalCode,
       error: errorValue,
     });
+    // Hard-exit: a tool step can leave a background child holding our stdio
+    // fds, which keeps the event loop alive forever. A lingering runner keeps
+    // holding the per-entity spawn flock, so every later one-shot launch for
+    // this entity loses the lock and the chat sticks on "Working…" (its
+    // heartbeat also keeps fooling the stall watchdog's liveness probe).
+    process.exit(0);
   } catch (e) {
     console.error("Failed to send completion:", e);
     syncProviderStateToPersist("completion-error");

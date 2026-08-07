@@ -6407,6 +6407,7 @@ try {
       exitCode: finalCode,
       error: errorValue
     });
+    process.exit(0);
   } catch (e) {
     console.error("Failed to send completion:", e);
     syncProviderStateToPersist("completion-error");

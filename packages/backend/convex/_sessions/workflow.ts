@@ -405,25 +405,43 @@ export const sessionExecuteWorkflow = workflow.define({
         sessionPersistenceId: args.sessionId,
       });
     } else {
-      await step.runAction(internal.sandbox.launchOnExistingSandbox, {
-        sandboxId,
-        entityId: String(args.sessionId),
-        prompt: data.prompt,
-        userId: args.userId,
-        completionMutation: "sessionWorkflow:handleCompletion",
-        entityIdField: "sessionId",
-        model: data.model,
-        reasoningLevel: args.reasoningLevel,
-        thinkingEnabled: args.thinkingEnabled,
-        use1mContext: args.use1mContext,
-        allowedTools: data.allowedTools,
-        repoId: data.repoId,
-        streamingEntityId: String(args.sessionId),
-        sessionPersistenceId: args.sessionId,
-        providerAccountId: args.providerAccountId,
-        credentialOwnerUserId: args.credentialOwnerUserId,
-        attachmentStorageIds: data.attachmentStorageIds,
-      });
+      // A failed launch must finalize the turn: without this catch the
+      // workflow dies after its step retries with no saveResult, leaving the
+      // empty placeholder (and activeWorkflowId) stuck on "Working…" until
+      // the 2-hour backstop.
+      try {
+        await step.runAction(internal.sandbox.launchOnExistingSandbox, {
+          sandboxId,
+          entityId: String(args.sessionId),
+          prompt: data.prompt,
+          userId: args.userId,
+          completionMutation: "sessionWorkflow:handleCompletion",
+          entityIdField: "sessionId",
+          model: data.model,
+          reasoningLevel: args.reasoningLevel,
+          thinkingEnabled: args.thinkingEnabled,
+          use1mContext: args.use1mContext,
+          allowedTools: data.allowedTools,
+          repoId: data.repoId,
+          streamingEntityId: String(args.sessionId),
+          sessionPersistenceId: args.sessionId,
+          providerAccountId: args.providerAccountId,
+          credentialOwnerUserId: args.credentialOwnerUserId,
+          attachmentStorageIds: data.attachmentStorageIds,
+        });
+      } catch (error) {
+        await step.runMutation(internal.sessionWorkflow.saveResult, {
+          sessionId: args.sessionId,
+          success: false,
+          result: null,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to launch the agent on the sandbox. Please retry.",
+          activityLog: null,
+        });
+        return;
+      }
     }
 
     const result = await step.awaitEvent(sessionCompleteEvent);

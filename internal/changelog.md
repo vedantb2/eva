@@ -1,6 +1,8 @@
 # Changelog
 
-## Smooth overlay elevation (no double edge) - 2026-08-07
+## One-shot runner hard-exits; failed session launches surface as errors - 2026-08-07
+
+Session 53 stuck on "Working…" for two hours while Zuza's messages went unanswered. A completed cursor turn's runner never exited — the one-shot success path in `callback-src/index.ts` was the only callback path without a `process.exit`, relying on the event loop draining, and a tool step's background child kept stdio fds open (the `[shell-exec] Close event did not fire` warning). The zombie held the per-entity spawn flock so every later launch lost the lock and died; `sessionExecuteWorkflow` had no catch around `launchOnExistingSandbox`, so the workflow died silently with the placeholder stuck open; and the stall watchdog's liveness probe saw the zombie's PID as alive, touched the streaming row each cycle (resetting its own staleness clock) and kept extending the sandbox deadline — a self-immortalizing loop. Fixes: the callback now hard-exits after writing the done file, and the session workflow catches launch failures into `saveResult(success:false)` (error bubble, orphan placeholder cleanup, activeWorkflowId cleared, queue drained). Reason: a runner that has delivered its completion has no legitimate reason to keep the process — or the lock — alive.
 
 Resting surfaces no longer use decorative hairlines, but dialogs, menus, popovers, tooltips and toasts still paired `border` with `shadow-*`, which draws two stacked edges. Overlays now use `shadow-plugin`'s `smooth-shadow-ring-*` so the hairline dissolves into the shadow as one stroke; sheets keep their structural side border and get plain `smooth-shadow-xl`. Documented in `docs/eva-ui.md`. Reason: floating chrome should elevate with a continuous soft edge, not a border-then-shadow double line.
 

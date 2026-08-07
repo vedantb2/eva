@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { authMutation, hasRepoAccess } from "../functions";
@@ -11,9 +10,10 @@ import {
 import { backgroundAgentEntryValidator } from "../_validators/tableFields";
 import { mergeBackgroundAgents } from "../_sessions/backgroundAgents";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
-import { finalizeCancelledAssistantMessage } from "../streaming";
 import { startNextQueuedTaskChatMessage } from "../_queues/helpers";
 import { TASK_CHAT_STREAM_PREFIX } from "../workflowWatchdog";
+import { closeOpenTurn, findOpenTurn } from "./turnStore";
+import { openChatTurn, taskChatAdapter } from "./surfaceAdapters";
 
 function taskChatStreamEntityId(taskId: Id<"agentTasks">): string {
   return `${TASK_CHAT_STREAM_PREFIX}${String(taskId)}`;
@@ -24,11 +24,13 @@ const emptyClaimReturn = {
   attachmentUrls: [],
   stopTaskToolUseIds: [],
   cancelRequested: false,
+  turnId: null,
 } satisfies {
   prompt: null;
   attachmentUrls: string[];
   stopTaskToolUseIds: string[];
   cancelRequested: boolean;
+  turnId: null;
 };
 
 /** Daemon-pull turn claim for task sandbox chat (never the main run workflow). */
@@ -42,6 +44,9 @@ export const claimPendingTurn = authMutation({
     attachmentUrls: v.array(v.string()),
     stopTaskToolUseIds: v.array(v.string()),
     cancelRequested: v.boolean(),
+    // See the session claim: a warm daemon spans turns, so the turn it must
+    // renew is handed over with the prompt rather than baked into its env.
+    turnId: v.union(v.string(), v.null()),
   }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
@@ -97,7 +102,14 @@ export const claimPendingTurn = authMutation({
       (url): url is string => url !== null,
     );
     await ctx.db.patch(args.taskId, { pendingTurn: undefined });
-    return { prompt, attachmentUrls, stopTaskToolUseIds, cancelRequested };
+    const openTurn = await findOpenTurn(ctx, "taskChat", String(args.taskId));
+    return {
+      prompt,
+      attachmentUrls,
+      stopTaskToolUseIds,
+      cancelRequested,
+      turnId: openTurn ? String(openTurn._id) : null,
+    };
   },
 });
 
@@ -153,9 +165,10 @@ export const requestStopBackgroundAgent = authMutation({
   },
 });
 
+/** See the session equivalent: a continuation is a turn, so it gets a turn row. */
 export const openSyntheticTurn = authMutation({
   args: { taskId: v.id("agentTasks") },
-  returns: v.object({ messageId: v.id("messages") }),
+  returns: v.object({ messageId: v.id("messages"), turnId: v.id("turns") }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     if (!task) throw new Error("Task not found");
@@ -177,12 +190,10 @@ export const openSyntheticTurn = authMutation({
       syntheticTurnMessageId: messageId,
       updatedAt: Date.now(),
     });
-    await ctx.scheduler.runAfter(
-      10 * 60 * 1000,
-      internal.agentTaskChatWorkflow.handleStaleSyntheticTurn,
-      { taskId: args.taskId, messageId },
-    );
-    return { messageId };
+    const turnId = await openChatTurn(ctx, taskChatAdapter, args.taskId, {
+      placeholderMessageId: messageId,
+    });
+    return { messageId, turnId };
   },
 });
 
@@ -199,6 +210,13 @@ export const completeSyntheticTurn = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     await clearStreamingActivity(ctx, taskChatStreamEntityId(args.taskId));
+    await closeOpenTurn(
+      ctx,
+      "taskChat",
+      String(args.taskId),
+      args.success ? "done" : "error",
+      { ...(args.error ? { error: args.error } : {}) },
+    );
 
     const message = await ctx.db.get(args.messageId);
     if (
@@ -229,52 +247,6 @@ export const completeSyntheticTurn = authMutation({
     if (args.pendingQuestion) patch.pendingQuestion = args.pendingQuestion;
     await ctx.db.patch(args.messageId, patch);
 
-    await ctx.db.patch(args.taskId, {
-      syntheticTurnMessageId: undefined,
-      updatedAt: Date.now(),
-    });
-    await startNextQueuedTaskChatMessage(ctx, args.taskId);
-    return null;
-  },
-});
-
-export const handleStaleSyntheticTurn = internalMutation({
-  args: {
-    taskId: v.id("agentTasks"),
-    messageId: v.id("messages"),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const task = await ctx.db.get(args.taskId);
-    if (!task || task.syntheticTurnMessageId !== args.messageId) {
-      return null;
-    }
-    const message = await ctx.db.get(args.messageId);
-    if (!message || message.finishedAt !== undefined) {
-      await ctx.db.patch(args.taskId, {
-        syntheticTurnMessageId: undefined,
-        updatedAt: Date.now(),
-      });
-      return null;
-    }
-    const streamingEntityId = taskChatStreamEntityId(args.taskId);
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", streamingEntityId))
-      .first();
-    const streamingStale =
-      streaming === null ||
-      Date.now() - (streaming.lastUpdatedAt ?? 0) > 2 * 60 * 1000;
-    if (!streamingStale) {
-      await ctx.scheduler.runAfter(
-        10 * 60 * 1000,
-        internal.agentTaskChatWorkflow.handleStaleSyntheticTurn,
-        { taskId: args.taskId, messageId: args.messageId },
-      );
-      return null;
-    }
-    await finalizeCancelledAssistantMessage(ctx, message, streaming);
-    await clearStreamingActivity(ctx, streamingEntityId);
     await ctx.db.patch(args.taskId, {
       syntheticTurnMessageId: undefined,
       updatedAt: Date.now(),

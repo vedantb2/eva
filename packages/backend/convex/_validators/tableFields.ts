@@ -248,6 +248,11 @@ export const agentRunFields = {
   errorType: v.optional(errorTypeValidator),
   limitResetAt: v.optional(v.number()),
   exitReason: v.optional(v.string()),
+  // The run's liveness lease, the same contract chat turns use: the runner
+  // renews it on every heartbeat, and a lapsed lease — not an inferred
+  // staleness age — is what lets the reconciler declare the run dead. Absent on
+  // runs that started before leases existed; those are ignored by the sweep.
+  leaseExpiresAt: v.optional(v.number()),
   sandboxId: v.optional(v.string()),
   repoId: v.optional(v.id("githubRepos")),
   deploymentStatus: v.optional(deploymentStatusValidator),

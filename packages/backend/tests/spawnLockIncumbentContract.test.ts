@@ -17,7 +17,9 @@ const launchSource = readFileSync(
  */
 const waitForRunnerReadyBody = (() => {
   const startAt = launchSource.indexOf("async function waitForRunnerReady(");
-  expect(startAt, "waitForRunnerReady moved or was renamed").toBeGreaterThan(-1);
+  expect(startAt, "waitForRunnerReady moved or was renamed").toBeGreaterThan(
+    -1,
+  );
   const nextAt = launchSource.indexOf("\nasync function ", startAt + 1);
   return launchSource
     .slice(startAt, nextAt < 0 ? undefined : nextAt)
@@ -104,7 +106,11 @@ describe("a held spawn lock is only success when the incumbent matches", () => {
    */
   test("every interpolated value is shell-quoted", () => {
     for (const value of [
-      "fence.runnerLockPath",
+      "runnerLockPath",
+      // The launcher's own record of the pid it spawned, which is what the
+      // dead-runner check reads — the runner's self-declared pidfile is
+      // written later and says nothing about a spawn that never booted.
+      "fence.runnerPaths.launchPid",
       "fence.daemonPaths.pid",
       "fence.daemonPaths.opts",
       "fence.expectedDaemonOptsSig",

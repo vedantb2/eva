@@ -17,6 +17,7 @@ import {
 import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { ProjectChatOptionsSubmenu } from "@/lib/components/chat/ChatOptionsSubmenu";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
+import { useTurnInProgress } from "@/lib/components/chat/useTurnInProgress";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
 import { BackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -193,11 +194,7 @@ export function ProjectSandboxChatPanel({
     });
   };
 
-  const lastMessage = messages?.[messages.length - 1];
-  const lastAssistantHasNoContent =
-    !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
-  const isExecuting =
-    Boolean(project?.activeChatWorkflowId) || lastAssistantHasNoContent;
+  const isExecuting = useTurnInProgress("projectChat", projectId);
 
   const handleSend = async (
     content: string,

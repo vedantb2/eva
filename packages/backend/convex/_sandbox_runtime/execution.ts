@@ -1713,6 +1713,8 @@ export const launchOnExistingSandbox = internalAction({
     repoId: v.id("githubRepos"),
     streamingEntityId: v.optional(v.string()),
     runId: v.optional(v.string()),
+    /** Turn this one-shot runner owns; its heartbeats renew that turn's lease. */
+    turnId: v.optional(v.string()),
     sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
     taskProofCaptureEnabled: v.optional(v.boolean()),
     requireTaskCommit: v.optional(v.boolean()),
@@ -1758,6 +1760,9 @@ export const launchOnExistingSandbox = internalAction({
     }
     if (args.runId) {
       extraEnvVars.RUN_ID = args.runId;
+    }
+    if (args.turnId) {
+      extraEnvVars.TURN_ID = args.turnId;
     }
     if (args.taskProofCaptureEnabled !== undefined) {
       extraEnvVars.TASK_PROOF_CAPTURE_ENABLED = args.taskProofCaptureEnabled

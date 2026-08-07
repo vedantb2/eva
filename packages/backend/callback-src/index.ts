@@ -14,6 +14,7 @@ import {
   ENTITY_ID,
   ENTITY_ID_FIELD,
   MODEL,
+  PID_FILE,
   PROVIDER,
   READY_FILE,
   REPO_ID,
@@ -69,6 +70,15 @@ process.on("exit", (code) => {
 
 try {
   unlinkSync(READY_FILE);
+} catch {
+  /* ignore */
+}
+
+// The runner's own pidfile. The launcher records the pid it spawned separately;
+// this file is the process asserting "I am the runner", which is what interrupt
+// and liveness read — so neither can ever kill a pid nobody confirmed booted.
+try {
+  writeFileSync(PID_FILE, String(process.pid));
 } catch {
   /* ignore */
 }

@@ -66,17 +66,21 @@ function toModelAccounts(
   return { options, resolveId, ready: accounts !== undefined };
 }
 
+/**
+ * The accounts the current user can run on — their own plus teammates' shared
+ * ones — for pickers with no session or task yet.
+ */
 export function useProviderAccounts(): {
   options: ReadonlyArray<ModelAccount>;
   resolveId: (id: string | null) => Id<"userProviderAccounts"> | undefined;
   ready: boolean;
 } {
-  const accounts = useQuery(api.userProviderAccounts.list, {});
+  const accounts = useQuery(api.userProviderAccounts.listSelectable, {});
   return toModelAccounts(accounts);
 }
 
 /**
- * Task owner's personal accounts for the model picker (same shape as
+ * Accounts the task owner can run on, for the model picker (same shape as
  * `useProviderAccounts`). Used so teammates see the sticky owner's groups.
  */
 export function useTaskOwnerProviderAccounts(
@@ -94,7 +98,7 @@ export function useTaskOwnerProviderAccounts(
 }
 
 /**
- * Session owner's personal accounts for the model picker (same shape as
+ * Accounts the session owner can run on, for the model picker (same shape as
  * `useProviderAccounts`). A session runs on its owner's credentials whoever
  * sends the turn, so collaborators pick from the owner's accounts — showing
  * their own would list accounts the session can never use.

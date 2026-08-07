@@ -1,10 +1,13 @@
 import type { GenericDatabaseReader } from "convex/server";
 import type { DataModel, Id } from "../_generated/dataModel";
 import { getAIModelProvider } from "../validators";
+import { isAccountUsableBy } from "./sharing";
 
 /**
- * Picks the creator's personal account for `model`'s provider (most recently
- * updated wins), or undefined for Team when none match.
+ * Picks the creator's own account for `model`'s provider (most recently updated
+ * wins), or undefined for Team when none match. Deliberately never considers a
+ * teammate's shared account: those bill to their owner, so they are explicit
+ * picks only.
  */
 export async function resolveDefaultProviderAccountId(
   db: GenericDatabaseReader<DataModel>,
@@ -25,10 +28,11 @@ export async function resolveDefaultProviderAccountId(
 }
 
 /**
- * Validates that `providerAccountId` is either unset or owned by `ownerUserId`.
- * Returns the id to store, or undefined for Team.
+ * Validates that `providerAccountId` is either unset or usable by
+ * `ownerUserId` — owned by them, or shared with them by a teammate. Returns the
+ * id to store, or undefined for Team.
  */
-export async function assertProviderAccountOwnedBy(
+export async function assertProviderAccountUsableBy(
   db: GenericDatabaseReader<DataModel>,
   providerAccountId: Id<"userProviderAccounts"> | null | undefined,
   ownerUserId: Id<"users">,
@@ -37,7 +41,7 @@ export async function assertProviderAccountOwnedBy(
     return undefined;
   }
   const account = await db.get(providerAccountId);
-  if (!account || account.userId !== ownerUserId) {
+  if (!account || !(await isAccountUsableBy(db, account, ownerUserId))) {
     throw new Error("Provider account not found");
   }
   return providerAccountId;
@@ -57,8 +61,8 @@ export async function reconcileProviderAccountForModel(
     const account = await db.get(currentAccountId);
     if (
       account &&
-      account.userId === ownerUserId &&
-      account.provider === getAIModelProvider(model)
+      account.provider === getAIModelProvider(model) &&
+      (await isAccountUsableBy(db, account, ownerUserId))
     ) {
       return currentAccountId;
     }

@@ -17,7 +17,7 @@ import { workflow } from "../workflowManager";
 import { resolveSessionBaseBranch } from "./baseBranch";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 import {
-  assertProviderAccountOwnedBy,
+  assertProviderAccountUsableBy,
   resolveDefaultProviderAccountId,
 } from "../_userProviderAccounts/defaults";
 import { schedulePrTitleSync } from "../_github/prTitleSync";
@@ -84,7 +84,7 @@ export const create = authMutation({
     const providerAccountId =
       args.providerAccountId === undefined
         ? await resolveDefaultProviderAccountId(ctx.db, ctx.userId, model)
-        : await assertProviderAccountOwnedBy(
+        : await assertProviderAccountUsableBy(
             ctx.db,
             args.providerAccountId,
             ctx.userId,
@@ -289,7 +289,7 @@ export const setProviderAccountId = authMutation({
       throw new Error("Not authorized");
     }
     const ownerUserId = session.createdBy ?? session.userId;
-    const providerAccountId = await assertProviderAccountOwnedBy(
+    const providerAccountId = await assertProviderAccountUsableBy(
       ctx.db,
       args.providerAccountId,
       ownerUserId,

@@ -14,6 +14,7 @@ import {
   PROVIDER_PRIMARY_AUTH_KEY,
 } from "../validators";
 import { filterActiveEntities } from "../numId";
+import { listTeammateUserIds } from "../_userProviderAccounts/sharing";
 
 /** True when the user connected the repo or shares its team. */
 async function userCanAccessRepo(
@@ -223,15 +224,27 @@ export const getProviderAvailability = authQuery({
       keys.add(entry.key);
     }
 
-    // A user's own provider account makes that provider available even when the
-    // team has no key for it — the account's credentials are injected at launch.
-    // Each account contributes its provider's canonical auth key.
+    // A provider account the viewer can run on makes that provider available
+    // even when the team has no key for it — the account's credentials are
+    // injected at launch. Their own accounts count, as do teammates' shared
+    // ones, matching exactly what the model picker offers.
     const accounts = await ctx.db
       .query("userProviderAccounts")
       .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
       .collect();
     for (const account of accounts) {
       keys.add(PROVIDER_PRIMARY_AUTH_KEY[account.provider]);
+    }
+    for (const teammateId of await listTeammateUserIds(ctx.db, ctx.userId)) {
+      const teammateAccounts = await ctx.db
+        .query("userProviderAccounts")
+        .withIndex("by_user", (q) => q.eq("userId", teammateId))
+        .collect();
+      for (const account of teammateAccounts) {
+        if (account.shared === true) {
+          keys.add(PROVIDER_PRIMARY_AUTH_KEY[account.provider]);
+        }
+      }
     }
 
     return getAIProviderAvailability(keys);

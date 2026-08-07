@@ -24,7 +24,7 @@ import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { logTaskActivity } from "../taskActivity";
 import { schedulePrTitleSync } from "../_github/prTitleSync";
 import {
-  assertProviderAccountOwnedBy,
+  assertProviderAccountUsableBy,
   reconcileProviderAccountForModel,
   resolveDefaultProviderAccountId,
 } from "../_userProviderAccounts/defaults";
@@ -121,7 +121,7 @@ export const update = authMutation({
       if (ctx.userId !== task.createdBy) {
         throw new Error("Only the task owner can change the provider account");
       }
-      nextProviderAccountId = await assertProviderAccountOwnedBy(
+      nextProviderAccountId = await assertProviderAccountUsableBy(
         ctx.db,
         args.providerAccountId,
         task.createdBy,
@@ -534,7 +534,7 @@ export const createQuickTask = authMutation({
     const providerAccountId =
       args.providerAccountId === undefined
         ? await resolveDefaultProviderAccountId(ctx.db, ctx.userId, model)
-        : await assertProviderAccountOwnedBy(
+        : await assertProviderAccountUsableBy(
             ctx.db,
             args.providerAccountId,
             ctx.userId,

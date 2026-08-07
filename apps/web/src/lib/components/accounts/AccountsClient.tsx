@@ -15,6 +15,7 @@ import {
   DialogTitle,
   DialogFooter,
   Spinner,
+  Switch,
 } from "@eva/ui";
 import { IconKey, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { PROVIDER_LABELS } from "./_credentialSpec";
@@ -31,6 +32,7 @@ import { AddAccountDialog, type EditingAccount } from "./AddAccountDialog";
 export function AccountsClient() {
   const accounts = useQuery(api.userProviderAccounts.list, {});
   const remove = useMutation(api.userProviderAccounts.remove);
+  const setShared = useMutation(api.userProviderAccounts.setShared);
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<EditingAccount | null>(null);
@@ -93,6 +95,21 @@ export function AccountsClient() {
                     {account.credentials.length} credential
                     {account.credentials.length !== 1 ? "s" : ""}
                   </p>
+                </div>
+                {/* Not a <label>: it would re-dispatch the click to the switch
+                    and toggle it twice. */}
+                <div
+                  className="flex items-center gap-2 text-xs text-muted-foreground"
+                  title="Teammates can run sessions and tasks on this account. They can never see the credentials."
+                >
+                  Share with team
+                  <Switch
+                    checked={account.shared}
+                    onCheckedChange={(shared) =>
+                      setShared({ accountId: account._id, shared })
+                    }
+                    aria-label={`Share ${PROVIDER_LABELS[account.provider]} account with team`}
+                  />
                 </div>
                 <Button
                   size="icon-sm"

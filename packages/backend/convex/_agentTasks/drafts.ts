@@ -17,7 +17,7 @@ import {
 } from "./helpers";
 import { resolveNewTaskBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
 import {
-  assertProviderAccountOwnedBy,
+  assertProviderAccountUsableBy,
   resolveDefaultProviderAccountId,
 } from "../_userProviderAccounts/defaults";
 
@@ -143,7 +143,7 @@ export const activateDraft = authMutation({
     const providerAccountId =
       args.providerAccountId === undefined
         ? await resolveDefaultProviderAccountId(ctx.db, ctx.userId, args.model)
-        : await assertProviderAccountOwnedBy(
+        : await assertProviderAccountUsableBy(
             ctx.db,
             args.providerAccountId,
             ctx.userId,

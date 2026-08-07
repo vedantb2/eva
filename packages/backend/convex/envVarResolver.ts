@@ -161,9 +161,10 @@ export async function resolveSandboxCredentials(
  * provider account, used to override the shared team credential at launch.
  *
  * Returns an empty map (caller falls back to the team credential) when the
- * account is missing, not owned by `ownerUserId`, or does not match the
- * selected model's provider. A mismatch must never break the run, so these
- * cases log and degrade rather than throw.
+ * account is missing, not usable by `ownerUserId` (neither owned nor shared
+ * with them by a teammate), or does not match the selected model's provider. A
+ * mismatch must never break the run, so these cases log and degrade rather than
+ * throw.
  */
 export async function resolveProviderAccountCredentials(
   ctx: GenericActionCtx<DataModel>,
@@ -172,12 +173,12 @@ export async function resolveProviderAccountCredentials(
   model: string | undefined,
 ): Promise<Record<string, string>> {
   const account = await ctx.runQuery(
-    internal.userProviderAccounts.getByIdInternal,
-    { accountId },
+    internal.userProviderAccounts.getForLaunchInternal,
+    { accountId, ownerUserId },
   );
-  if (!account || account.userId !== ownerUserId) {
+  if (!account) {
     console.warn(
-      `[env] resolveProviderAccountCredentials: account ${accountId} missing or not owned by entity owner ${ownerUserId} — falling back to team credential`,
+      `[env] resolveProviderAccountCredentials: account ${accountId} missing or not usable by entity owner ${ownerUserId} — falling back to team credential`,
     );
     return {};
   }

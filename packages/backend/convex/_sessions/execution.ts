@@ -16,7 +16,7 @@ import { finalizeCancelledAssistantMessage } from "../streaming";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
 import { buildSessionPrompt, MODE_TOOLS, resolveToolMode } from "./workflow";
 import {
-  assertProviderAccountOwnedBy,
+  assertProviderAccountUsableBy,
   resolveDefaultProviderAccountId,
 } from "../_userProviderAccounts/defaults";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -83,7 +83,7 @@ export const startExecute = authMutation({
     // A session runs on its owner's credentials whoever sends the turn, so the
     // account must belong to the owner — collaborators pick from that same pool
     // and can never attach their own.
-    let stickyProviderAccountId = await assertProviderAccountOwnedBy(
+    let stickyProviderAccountId = await assertProviderAccountUsableBy(
       ctx.db,
       args.providerAccountId,
       credentialOwnerUserId,

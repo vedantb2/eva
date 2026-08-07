@@ -10,6 +10,10 @@ import {
 import type { Id } from "./_generated/dataModel";
 import { aiProviderValidator } from "./validators";
 import { resolveUserDisplayFirstName } from "./_userProviderAccounts/defaults";
+import {
+  isAccountUsableBy,
+  listTeammateUserIds,
+} from "./_userProviderAccounts/sharing";
 
 const credentialValidator = v.object({ key: v.string(), value: v.string() });
 
@@ -19,6 +23,7 @@ const accountListItemValidator = v.object({
   provider: aiProviderValidator,
   label: v.string(),
   credentials: v.array(credentialValidator),
+  shared: v.boolean(),
   updatedAt: v.number(),
 });
 
@@ -43,14 +48,32 @@ async function listAccountsFor(ctx: QueryCtx, userId: Id<"users">) {
       key: entry.key,
       value: "••••••",
     })),
+    shared: row.shared === true,
     updatedAt: row.updatedAt,
   }));
 }
 
 /**
- * Lists the authenticated user's provider accounts, masking credential values.
- * Powers both the Accounts settings page and the model picker's account groups.
- * `label` is always the user's first name (derived), not a free-text field.
+ * The accounts `ownerUserId` may run on: their own, then every teammate's
+ * shared accounts. Own accounts come first so nothing downstream prefers a
+ * teammate's credential by accident.
+ */
+async function listSelectableAccountsFor(ctx: QueryCtx, ownerUserId: Id<"users">) {
+  const own = await listAccountsFor(ctx, ownerUserId);
+  const teammates = await listTeammateUserIds(ctx.db, ownerUserId);
+  const shared = [];
+  for (const teammateId of teammates) {
+    const rows = await listAccountsFor(ctx, teammateId);
+    shared.push(...rows.filter((row) => row.shared));
+  }
+  return [...own, ...shared];
+}
+
+/**
+ * Lists the authenticated user's own provider accounts, masking credential
+ * values. Powers the Accounts settings page, so it stays owner-only: every row
+ * here is editable and deletable. `label` is always the user's first name
+ * (derived), not a free-text field.
  */
 export const list = authQuery({
   args: {},
@@ -59,8 +82,18 @@ export const list = authQuery({
 });
 
 /**
- * Lists the task owner's personal provider accounts (masked) for the model
- * picker. Teammates with task access can see which accounts power the sticky
+ * Lists the accounts the viewer can run on — their own plus teammates' shared
+ * ones — for pickers with no session or task context yet.
+ */
+export const listSelectable = authQuery({
+  args: {},
+  returns: v.array(accountListItemValidator),
+  handler: async (ctx) => await listSelectableAccountsFor(ctx, ctx.userId),
+});
+
+/**
+ * Lists the accounts the task owner can run on (masked) for the model picker.
+ * Teammates with task access can see which accounts power the sticky
  * credential; only the owner can change the selection.
  */
 export const listForTaskOwner = authQuery({
@@ -71,12 +104,12 @@ export const listForTaskOwner = authQuery({
     if (!task || !(await hasTaskAccess(ctx.db, task, ctx.userId))) {
       return [];
     }
-    return await listAccountsFor(ctx, task.createdBy);
+    return await listSelectableAccountsFor(ctx, task.createdBy);
   },
 });
 
 /**
- * Lists the session owner's personal provider accounts (masked) for the model
+ * Lists the accounts the session owner can run on (masked) for the model
  * picker. A session runs on its owner's credentials whoever sends the turn, so
  * collaborators see — and pick from — the owner's accounts, never their own.
  */
@@ -91,7 +124,10 @@ export const listForSessionOwner = authQuery({
     ) {
       return [];
     }
-    return await listAccountsFor(ctx, session.createdBy ?? session.userId);
+    return await listSelectableAccountsFor(
+      ctx,
+      session.createdBy ?? session.userId,
+    );
   },
 });
 
@@ -118,6 +154,32 @@ export const getByIdInternal = internalQuery({
       provider: doc.provider,
       credentials: doc.credentials,
     };
+  },
+});
+
+/**
+ * Returns an account's raw (encrypted) credentials for launch-time injection,
+ * but only when `ownerUserId` may run on it — they own it, or it is shared and
+ * they are teammates. Returns null otherwise so the caller degrades to the team
+ * credential. Internal only.
+ */
+export const getForLaunchInternal = internalQuery({
+  args: {
+    accountId: v.id("userProviderAccounts"),
+    ownerUserId: v.id("users"),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      provider: aiProviderValidator,
+      credentials: v.array(credentialValidator),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.accountId);
+    if (!doc) return null;
+    if (!(await isAccountUsableBy(ctx.db, doc, args.ownerUserId))) return null;
+    return { provider: doc.provider, credentials: doc.credentials };
   },
 });
 
@@ -166,6 +228,27 @@ export const updateInternal = internalMutation({
       credentials: args.credentials,
       updatedAt: Date.now(),
     });
+    return null;
+  },
+});
+
+/**
+ * Shares or unshares one of the authenticated user's own accounts with their
+ * teammates. Does not touch `updatedAt`: that drives picker order and the
+ * most-recently-updated default, which sharing must not disturb.
+ */
+export const setShared = authMutation({
+  args: {
+    accountId: v.id("userProviderAccounts"),
+    shared: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.accountId);
+    if (!doc || doc.userId !== ctx.userId) {
+      throw new Error("Account not found");
+    }
+    await ctx.db.patch(args.accountId, { shared: args.shared });
     return null;
   },
 });

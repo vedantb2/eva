@@ -76,6 +76,9 @@ export const userProviderAccountFields = {
   provider: aiProviderValidator,
   label: v.string(),
   credentials: v.array(v.object({ key: v.string(), value: v.string() })),
+  // When true, teammates (anyone sharing a team with the owner) can select this
+  // account and run on its credentials. They never see or edit the values.
+  shared: v.optional(v.boolean()),
   createdAt: v.number(),
   updatedAt: v.number(),
 };

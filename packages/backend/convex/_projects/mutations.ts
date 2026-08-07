@@ -25,7 +25,7 @@ import {
 import { scheduleProjectPrSync } from "./prSync";
 import { schedulePrTitleSync } from "../_github/prTitleSync";
 import {
-  assertProviderAccountOwnedBy,
+  assertProviderAccountUsableBy,
   reconcileProviderAccountForModel,
   resolveDefaultProviderAccountId,
 } from "../_userProviderAccounts/defaults";
@@ -66,7 +66,7 @@ export const create = authMutation({
     const providerAccountId =
       args.providerAccountId === undefined
         ? await resolveDefaultProviderAccountId(ctx.db, ctx.userId, model)
-        : await assertProviderAccountOwnedBy(
+        : await assertProviderAccountUsableBy(
             ctx.db,
             args.providerAccountId,
             ctx.userId,
@@ -172,7 +172,7 @@ export const update = authMutation({
           "Only the project owner can change the provider account",
         );
       }
-      nextProviderAccountId = await assertProviderAccountOwnedBy(
+      nextProviderAccountId = await assertProviderAccountUsableBy(
         ctx.db,
         providerAccountId,
         project.userId,

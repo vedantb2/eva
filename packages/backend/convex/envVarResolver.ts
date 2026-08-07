@@ -189,6 +189,18 @@ export async function resolveProviderAccountCredentials(
     );
     return {};
   }
+  // Bookkeeping only — never let it break a launch that has its credentials.
+  try {
+    await ctx.runMutation(internal.userProviderAccounts.recordUsageInternal, {
+      accountId,
+      userId: ownerUserId,
+    });
+  } catch (error) {
+    console.warn(
+      `[env] resolveProviderAccountCredentials: could not record usage of account ${accountId}`,
+      error,
+    );
+  }
   const resolved: Record<string, string> = {};
   for (const entry of account.credentials) {
     resolved[entry.key] = decryptValue(entry.value);

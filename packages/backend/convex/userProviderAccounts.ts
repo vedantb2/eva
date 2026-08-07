@@ -24,6 +24,9 @@ const accountListItemValidator = v.object({
   label: v.string(),
   credentials: v.array(credentialValidator),
   shared: v.boolean(),
+  lastUsedAt: v.optional(v.number()),
+  // First name of whoever last ran on it, omitted when that was the owner.
+  lastUsedByName: v.optional(v.string()),
   updatedAt: v.number(),
 });
 
@@ -39,18 +42,31 @@ async function listAccountsFor(ctx: QueryCtx, userId: Id<"users">) {
     .query("userProviderAccounts")
     .withIndex("by_user", (q) => q.eq("userId", userId))
     .collect();
-  return rows.map((row) => ({
-    _id: row._id,
-    _creationTime: row._creationTime,
-    provider: row.provider,
-    label: displayName,
-    credentials: row.credentials.map((entry) => ({
-      key: entry.key,
-      value: "••••••",
-    })),
-    shared: row.shared === true,
-    updatedAt: row.updatedAt,
-  }));
+  // Teammates repeat across rows, so resolve each name once.
+  const names = new Map<Id<"users">, string | undefined>();
+  const items = [];
+  for (const row of rows) {
+    const usedBy = row.lastUsedByUserId;
+    if (usedBy && usedBy !== userId && !names.has(usedBy)) {
+      names.set(usedBy, await resolveUserDisplayFirstName(ctx.db, usedBy));
+    }
+    items.push({
+      _id: row._id,
+      _creationTime: row._creationTime,
+      provider: row.provider,
+      label: displayName,
+      credentials: row.credentials.map((entry) => ({
+        key: entry.key,
+        value: "••••••",
+      })),
+      shared: row.shared === true,
+      lastUsedAt: row.lastUsedAt,
+      lastUsedByName:
+        usedBy && usedBy !== userId ? names.get(usedBy) : undefined,
+      updatedAt: row.updatedAt,
+    });
+  }
+  return items;
 }
 
 /**
@@ -180,6 +196,29 @@ export const getForLaunchInternal = internalQuery({
     if (!doc) return null;
     if (!(await isAccountUsableBy(ctx.db, doc, args.ownerUserId))) return null;
     return { provider: doc.provider, credentials: doc.credentials };
+  },
+});
+
+/**
+ * Stamps an account as used at launch, so its owner can see a share still being
+ * spent on. Called only after `getForLaunchInternal` has cleared the account, so
+ * it does not re-check usability. Silently no-ops on a deleted account, and
+ * leaves `updatedAt` alone: that drives picker order. Internal only.
+ */
+export const recordUsageInternal = internalMutation({
+  args: {
+    accountId: v.id("userProviderAccounts"),
+    userId: v.id("users"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const doc = await ctx.db.get(args.accountId);
+    if (!doc) return null;
+    await ctx.db.patch(args.accountId, {
+      lastUsedAt: Date.now(),
+      lastUsedByUserId: args.userId,
+    });
+    return null;
   },
 });
 

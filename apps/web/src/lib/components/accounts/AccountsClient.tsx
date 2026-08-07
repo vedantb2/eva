@@ -18,6 +18,7 @@ import {
   Switch,
 } from "@eva/ui";
 import { IconKey, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
+import { relativeTime } from "@/lib/components/artifacts/_format";
 import { PROVIDER_LABELS } from "./_credentialSpec";
 import { AddAccountDialog, type EditingAccount } from "./AddAccountDialog";
 
@@ -95,6 +96,19 @@ export function AccountsClient() {
                     {account.credentials.length} credential
                     {account.credentials.length !== 1 ? "s" : ""}
                   </p>
+                  {/* A standing share is only safe if its owner can see it
+                      being spent on, so surface who ran on it last. */}
+                  {account.lastUsedAt !== undefined && (
+                    <p className="truncate text-xs text-muted-foreground">
+                      Last used{" "}
+                      {account.lastUsedByName
+                        ? `by ${account.lastUsedByName} `
+                        : ""}
+                      {/* Stamped by the server, so a few seconds of clock skew
+                          would otherwise read as "in a few seconds". */}
+                      {relativeTime(Math.min(account.lastUsedAt, Date.now()))}
+                    </p>
+                  )}
                 </div>
                 {/* Not a <label>: it would re-dispatch the click to the switch
                     and toggle it twice. */}

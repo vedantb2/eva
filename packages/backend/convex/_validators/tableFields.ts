@@ -79,6 +79,10 @@ export const userProviderAccountFields = {
   // When true, teammates (anyone sharing a team with the owner) can select this
   // account and run on its credentials. They never see or edit the values.
   shared: v.optional(v.boolean()),
+  // Last time these credentials were actually injected into a sandbox, and who
+  // for. Written at launch so the owner can see a forgotten share being used.
+  lastUsedAt: v.optional(v.number()),
+  lastUsedByUserId: v.optional(v.id("users")),
   createdAt: v.number(),
   updatedAt: v.number(),
 };

@@ -6,11 +6,6 @@ import {
   type DragEndEvent,
   type DragStartEvent,
   type DragCancelEvent,
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
   pointerWithin,
 } from "@dnd-kit/core";
 import { SortableContext } from "@dnd-kit/sortable";
@@ -18,7 +13,6 @@ import { m, AnimatePresence } from "motion/react";
 import { Virtuoso } from "react-virtuoso";
 import {
   cn,
-  DRAG_ACTIVATION_DISTANCE_PX,
   KanbanCard,
   KanbanProvider,
   motionBase,
@@ -72,23 +66,6 @@ export function KanbanBoard<T extends BaseTask>({
   const [activeItem, setActiveItem] = useState<T | null>(null);
   const [activeOverlayWidth, setActiveOverlayWidth] = useState<number | null>(
     null,
-  );
-
-  // Split by input type instead of one PointerSensor, because the right
-  // activation differs. Mouse arms on distance: dnd-kit's `delay` constraint
-  // cancels activation outright when the pointer travels past `tolerance`
-  // before the timer fires, so a fast, decisive drag never picked the card up
-  // at all — and the card gave no feedback for the whole hold. Touch keeps a
-  // hold, because distance-based activation there would swallow the vertical
-  // scroll inside a column.
-  const sensors = useSensors(
-    useSensor(MouseSensor, {
-      activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE_PX },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 10 },
-    }),
-    useSensor(KeyboardSensor),
   );
 
   const itemsById = new Map(items.map((item) => [item._id, item]));
@@ -172,7 +149,6 @@ export function KanbanBoard<T extends BaseTask>({
       <KanbanProvider
         columns={COLUMNS}
         data={kanbanData}
-        sensors={sensors}
         collisionDetection={pointerWithin}
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}

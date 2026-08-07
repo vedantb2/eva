@@ -1,5 +1,17 @@
 # Changelog
 
+## Touch drag for the quick-tasks list, one sensor split for every drag surface - 2026-08-07
+
+A tenth Apple-design pass over `apps/web` and `packages/ui` found one real defect left in the drag layer, and fixing it properly meant collapsing three copies of the same configuration into one.
+
+The quick-tasks list view could not be reordered by touch. `ListProvider` armed a single `PointerSensor` on `distance: 8`, and `ListItem` spreads the drag listeners over the whole row rather than a handle. The drag is restricted to the vertical axis — the same axis the finger scrolls on — so the browser claimed the gesture and cancelled the pointer before the drag could commit. On a phone the rows simply would not move. This is the same defect the gantt bars had in the ninth pass, in a different shape: one sensor cannot serve both input types.
+
+Rather than write the split a third time, `useDragSensors` in `packages/ui/src/utils/useDragSensors.ts` now holds it once, with the reasoning that was previously duplicated in two comment blocks: mouse arms on distance, because dnd-kit's `delay` constraint cancels activation outright when the pointer travels past `tolerance` before the timer fires; touch keeps a hold, because distance-based activation competes with the scroll the finger is also describing, and the browser wins. Keyboard is included so a drag is reachable without a pointer. `ListProvider`, `KanbanProvider` and `gantt-features` all use it. The gantt's mouse threshold moves from a literal `10` to the shared `DRAG_ACTIVATION_DISTANCE_PX` of 8, which is the only behaviour change beyond the fix itself.
+
+That also removed a redundancy: `KanbanBoard` built its own sensors and passed them to `KanbanProvider` as an override, and they were byte-for-byte the provider's own default. The local copy is gone, and with no caller left the `sensors` prop is gone from `KanbanProvider` too — the house split is no longer overridable, which is the point of having one.
+
+Verified: `tsc --noEmit` clean, `vite build` clean in 52s. No live browser check — the local Convex backend and Clerk agent sign-in are still down — so the touch behaviour is verified by reading the sensor configuration against the kanban precedent that works, not by dragging a row with a finger.
+
 ## Hover-only controls reachable on touch, gantt touch drag, hit padding deduplicated - 2026-08-07
 
 Three fixes from a ninth Apple-design pass over `apps/web` and `packages/ui`, all of them things that only exist for a pointer.

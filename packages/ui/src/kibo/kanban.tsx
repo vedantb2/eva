@@ -12,12 +12,7 @@ import {
   closestCenter,
   DndContext,
   DragOverlay,
-  KeyboardSensor,
-  MouseSensor,
-  TouchSensor,
   useDroppable,
-  useSensor,
-  useSensors,
 } from "@dnd-kit/core";
 import { SortableContext, useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -30,8 +25,8 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../utils/cn";
-import { DRAG_ACTIVATION_DISTANCE_PX } from "../utils/gesture";
 import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
+import { useDragSensors } from "../utils/useDragSensors";
 import { resolveOverColumnId } from "./kanbanDropTarget";
 
 export type KanbanItem = {
@@ -203,7 +198,6 @@ export type KanbanProviderProps = {
   onDragEnd?: (event: DragEndEvent) => void;
   onDragOver?: (event: DragOverEvent) => void;
   onDragCancel?: (event: DragCancelEvent) => void;
-  sensors?: ReturnType<typeof useSensors>;
   collisionDetection?: CollisionDetection;
 };
 
@@ -217,24 +211,12 @@ export const KanbanProvider = ({
   onDragEnd,
   onDragOver,
   onDragCancel,
-  sensors: sensorsProp,
   collisionDetection = closestCenter,
 }: KanbanProviderProps) => {
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
 
-  // Mouse arms on distance so a sloppy click is not read as a drag; touch keeps
-  // a hold so a drag does not swallow scrolling. Bare sensors activated on the
-  // first pixel, which made both mistakes. See `utils/gesture.ts`.
-  const defaultSensors = useSensors(
-    useSensor(MouseSensor, {
-      activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE_PX },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 10 },
-    }),
-    useSensor(KeyboardSensor),
-  );
+  const sensors = useDragSensors();
 
   const handleDragStart = (event: DragStartEvent) => {
     const card = data.find((item) => item.id === event.active.id);
@@ -295,7 +277,7 @@ export const KanbanProvider = ({
         onDragOver={handleDragOver}
         onDragStart={handleDragStart}
         onDragCancel={handleDragCancel}
-        sensors={sensorsProp ?? defaultSensors}
+        sensors={sensors}
       >
         {className ? <div className={className}>{children}</div> : children}
         {typeof window !== "undefined" &&

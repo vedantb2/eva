@@ -12,6 +12,7 @@ export {
   projectVelocity,
   DRAG_ACTIVATION_DISTANCE_PX,
 } from "./utils/gesture";
+export { useDragSensors } from "./utils/useDragSensors";
 
 export * from "./ui/accordion";
 export * from "./ui/alert";

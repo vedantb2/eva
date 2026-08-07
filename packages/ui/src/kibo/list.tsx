@@ -3,16 +3,14 @@
 import {
   DndContext,
   type DragEndEvent,
-  PointerSensor,
   rectIntersection,
   useDraggable,
   useDroppable,
-  useSensor,
-  useSensors,
 } from "@dnd-kit/core";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import type { ReactNode } from "react";
 import { cn } from "../utils/cn";
+import { useDragSensors } from "../utils/useDragSensors";
 
 export type { DragEndEvent as ListDragEndEvent } from "@dnd-kit/core";
 
@@ -129,11 +127,12 @@ export const ListProvider = ({
   onDragEnd,
   className,
 }: ListProviderProps) => {
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 8 },
-    }),
-  );
+  // A lone `PointerSensor` armed on distance meant the list could not be
+  // reordered by touch at all: the whole row is the drag handle, the drag is
+  // restricted to the vertical axis, and that is the same axis the finger
+  // scrolls on — so the browser claimed the gesture and cancelled the pointer
+  // every time.
+  const sensors = useDragSensors();
 
   return (
     <DndContext

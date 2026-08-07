@@ -1,14 +1,7 @@
 ﻿"use client";
 
 import dayjs from "../utils/dayjs";
-import {
-  DndContext,
-  MouseSensor,
-  TouchSensor,
-  useDraggable,
-  useSensor,
-  useSensors,
-} from "@dnd-kit/core";
+import { DndContext, useDraggable } from "@dnd-kit/core";
 import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
 import type { FC, ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -24,6 +17,7 @@ import {
   getWidth,
   type GanttFeature,
 } from "./gantt-provider";
+import { useDragSensors } from "../utils/useDragSensors";
 
 export type GanttFeatureDragHelperProps = {
   featureId: GanttFeature["id"];
@@ -176,17 +170,8 @@ export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
 
   // A `MouseSensor` alone meant a gantt bar could not be moved or resized by
   // touch or pen at all — the three `DndContext`s below never armed off a
-  // finger. Split by input type the same way `KanbanBoard` does: mouse arms on
-  // distance, because dnd-kit's `delay` cancels outright when the pointer
-  // travels past `tolerance` before the timer fires, so a fast drag would never
-  // pick the bar up. Touch keeps a hold, because distance-based activation
-  // there would swallow the horizontal scroll of the timeline underneath.
-  const sensors = useSensors(
-    useSensor(MouseSensor, { activationConstraint: { distance: 10 } }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 200, tolerance: 10 },
-    }),
-  );
+  // finger.
+  const sensors = useDragSensors();
 
   const handleItemDragStart = useCallback(() => {
     const mouseX = gantt.scrollX;

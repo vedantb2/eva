@@ -1699,3 +1699,26 @@ html[data-blur-pid] [data-pii] {
 .doc-comment-highlight-active {
   background-color: rgb(var(--warning) / 0.34);
 }
+
+/* ───────────────────────────────────────────────────────────────────
+ * Touch reachability for hover-only reveals.
+ *
+ * Twenty-four controls across the app are hidden at `opacity-0` and revealed
+ * by `group-hover:opacity-100` — row action buttons, tab close buttons, the
+ * sidebar's section affordances. On a device with no hover there is no way to
+ * make them appear, so those controls simply do not exist on a phone or
+ * tablet. Rather than rewrite twenty-four call sites, reveal them wherever
+ * hover is not available.
+ *
+ * This rule is deliberately unlayered: `.opacity-0` lives in `@layer
+ * utilities` and both selectors are a single class, so a layered rule would
+ * tie on specificity and lose. Unlayered CSS beats every layer.
+ *
+ * It does not touch the hover path — Tailwind's own `group-hover` rule carries
+ * the extra `:is(:where(.group):hover *)` and still wins on pointer devices.
+ * ─────────────────────────────────────────────────────────────────── */
+@media (hover: none) {
+  .group-hover\:opacity-100 {
+    opacity: 1;
+  }
+}

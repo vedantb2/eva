@@ -211,7 +211,7 @@ export function ProjectCard({
             <TooltipTrigger asChild>
               <span
                 className={cn(
-                  "relative mt-1.5 size-2 shrink-0 rounded-full after:absolute after:inset-[-8px]",
+                  "relative mt-1.5 size-2 shrink-0 rounded-full hit-target",
                   SANDBOX_STATUS_STYLES[sandboxStatus].dot,
                 )}
               />

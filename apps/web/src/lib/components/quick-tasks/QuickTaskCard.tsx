@@ -223,7 +223,7 @@ export function QuickTaskCard({
           {priority ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="relative flex items-center after:absolute after:inset-[-8px]">
+                <span className="relative flex items-center hit-target">
                   <PriorityIcon level={priority} size={14} />
                 </span>
               </TooltipTrigger>
@@ -235,7 +235,7 @@ export function QuickTaskCard({
               <TooltipTrigger asChild>
                 <span
                   className={cn(
-                    "relative size-2 shrink-0 rounded-full after:absolute after:inset-[-8px]",
+                    "relative size-2 shrink-0 rounded-full hit-target",
                     SANDBOX_STATUS_STYLES[sandboxStatus].dot,
                   )}
                 />
@@ -248,7 +248,7 @@ export function QuickTaskCard({
           {scheduledAt ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <span className="relative flex items-center text-primary after:absolute after:inset-[-8px]">
+                <span className="relative flex items-center text-primary hit-target">
                   <IconClock className="size-3.5" />
                 </span>
               </TooltipTrigger>
@@ -317,7 +317,7 @@ export function QuickTaskCard({
               <button
                 type="button"
                 className={cn(
-                  "relative flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] duration-[var(--motion-fast)] after:absolute after:inset-[-8px] hover:bg-muted/80 hover:text-foreground active:scale-[0.96] sm:hidden",
+                  "relative flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] duration-[var(--motion-fast)] hit-target hover:bg-muted/80 hover:text-foreground active:scale-[0.96] sm:hidden",
                   LIST_ROW_CONTROL_CLASS,
                 )}
                 onClick={(e) => e.stopPropagation()}

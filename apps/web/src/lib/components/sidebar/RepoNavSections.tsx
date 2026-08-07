@@ -169,7 +169,7 @@ export function RepoNavSections({
           <Button
             size="icon-sm"
             variant="ghost"
-            className="absolute right-2 top-1/2 z-20 h-6 w-6 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-sidebar-foreground after:absolute after:inset-[-8px]"
+            className="absolute right-2 top-1/2 z-20 h-6 w-6 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-sidebar-foreground hit-target"
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();

@@ -1,5 +1,19 @@
 # Changelog
 
+## Hover-only controls reachable on touch, gantt touch drag, hit padding deduplicated - 2026-08-07
+
+Three fixes from a ninth Apple-design pass over `apps/web` and `packages/ui`, all of them things that only exist for a pointer.
+
+Twenty-four controls across twenty-one files sit at `opacity-0` and are revealed by `group-hover:opacity-100` — row action buttons, tab close buttons, the sidebar's section affordances, the gantt resize handles. The repo had no `hover` or `pointer` capability guard anywhere, so on a phone or tablet none of those controls could be made to appear: they were not hidden, they were absent. One rule in `globals.css` reveals them wherever hover is unavailable. It is deliberately unlayered, because `.opacity-0` lives in `@layer utilities` and both selectors are a single class, so a layered rule would tie on specificity and lose — unlayered CSS beats every layer. Confirmed in the built sheet: the rule lands at byte 214378, well after `.opacity-0` at 115732, with no `@layer` following it. The hover path is untouched, because Tailwind's own `group-hover` rule carries an extra `:is(:where(.group):hover *)` and still wins on pointer devices.
+
+Gantt bars could not be moved or resized by touch or pen at all. `gantt-features.tsx` built a single `MouseSensor` and handed it to all three `DndContext`s, so nothing ever armed off a finger. It now uses the same split `KanbanBoard` already documented: mouse arms on distance, because dnd-kit's `delay` constraint cancels activation outright when the pointer travels past `tolerance` before the timer fires, so a fast, decisive drag would never pick the bar up; touch keeps a 200ms hold, because distance-based activation there would swallow the horizontal scroll of the timeline underneath.
+
+Six call sites hand-rolled `after:absolute after:inset-[-8px]`, which is exactly what the existing `hit-target` utility does — including the conditional `relative` each of them re-declared, and which `hit-target` gets right by skipping absolutely-positioned elements. All six now use the utility. `PendingReviewCommentChips` had a `size-5` remove button with no hit padding at all: 20px painted against a 40px minimum, the smallest control in the chat composer. It gets `hit-target` too.
+
+Verified: `tsc --noEmit` clean in both packages, `vite build` clean in 47s, and the built CSS inspected to confirm the touch-reveal rule's position and that Tailwind's hover rule still outranks it. No live browser check — the local Convex backend and Clerk agent sign-in are still down — and in particular the gantt touch drag is verified by reading the sensor configuration against the working kanban precedent rather than by dragging a bar with a finger.
+
+Not done: the `-6px`, `-7px` and `-10px` hit-padding variants are left as they are. Converging them on `hit-target` would change each target by 2–4px and could have an invisible overlay swallow a neighbour's clicks, so that wants eyes on the result rather than a sweep. `TestingArenaSidebar` animates `max-width,opacity,padding` and `DesignVariationsPanel` animates `width,height,inset`; `gantt-timeline` has a `max-height` hover reveal. Forty-three scroll containers still lack the `scrollbar` class and so still chain overscroll to the page. The un-animated desktop right-panel collapse remains open.
+
 ## House motion presets for motion/react, timeline bar onto transform, contained overscroll - 2026-08-07
 
 Three fixes from an eighth Apple-design pass over `apps/web` and `packages/ui`.

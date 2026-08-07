@@ -75,7 +75,7 @@ export const ThemeSwitcher = ({
         return (
           <button
             aria-label={label}
-            className="relative h-6 w-6 rounded-full motion-press active:scale-[0.94] after:absolute after:inset-[-8px]"
+            className="relative h-6 w-6 rounded-full motion-press active:scale-[0.94] hit-target"
             key={key}
             onClick={() => handleThemeClick(key)}
             type="button"

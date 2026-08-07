@@ -4,8 +4,10 @@ import dayjs from "../utils/dayjs";
 import {
   DndContext,
   MouseSensor,
+  TouchSensor,
   useDraggable,
   useSensor,
+  useSensors,
 } from "@dnd-kit/core";
 import { restrictToHorizontalAxis } from "@dnd-kit/modifiers";
 import type { FC, ReactNode } from "react";
@@ -172,9 +174,19 @@ export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
   const [previousStartAt, setPreviousStartAt] = useState(startAt);
   const [previousEndAt, setPreviousEndAt] = useState(endAt);
 
-  const mouseSensor = useSensor(MouseSensor, {
-    activationConstraint: { distance: 10 },
-  });
+  // A `MouseSensor` alone meant a gantt bar could not be moved or resized by
+  // touch or pen at all — the three `DndContext`s below never armed off a
+  // finger. Split by input type the same way `KanbanBoard` does: mouse arms on
+  // distance, because dnd-kit's `delay` cancels outright when the pointer
+  // travels past `tolerance` before the timer fires, so a fast drag would never
+  // pick the bar up. Touch keeps a hold, because distance-based activation
+  // there would swallow the horizontal scroll of the timeline underneath.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 10 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 10 },
+    }),
+  );
 
   const handleItemDragStart = useCallback(() => {
     const mouseX = gantt.scrollX;
@@ -256,7 +268,7 @@ export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
             modifiers={[restrictToHorizontalAxis]}
             onDragEnd={onDragEnd}
             onDragMove={handleLeftDragMove}
-            sensors={[mouseSensor]}
+            sensors={sensors}
           >
             <GanttFeatureDragHelper
               date={startAt}
@@ -270,7 +282,7 @@ export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
           onDragEnd={onDragEnd}
           onDragMove={handleItemDragMove}
           onDragStart={handleItemDragStart}
-          sensors={[mouseSensor]}
+          sensors={sensors}
         >
           <GanttFeatureItemCard id={feature.id} onClick={onClick}>
             {children ?? (
@@ -285,7 +297,7 @@ export const GanttFeatureItem: FC<GanttFeatureItemProps> = ({
             modifiers={[restrictToHorizontalAxis]}
             onDragEnd={onDragEnd}
             onDragMove={handleRightDragMove}
-            sensors={[mouseSensor]}
+            sensors={sensors}
           >
             <GanttFeatureDragHelper
               date={endAt ?? addRange(startAt, 2)}

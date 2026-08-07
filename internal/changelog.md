@@ -1,5 +1,21 @@
 # Changelog
 
+## Progress bars onto transform, tokenised durations, dead ease classes removed - 2026-08-07
+
+Three fixes from a seventh Apple-design pass over `apps/web` and `packages/ui`, plus a fourth found while verifying the third.
+
+Two progress bars animated `width`, which relayouts the whole track on every frame of a value change. The diffs toolbar's "viewed" bar was a hand-rolled div that duplicated `Progress`, so it was deleted and replaced with `<Progress className="h-1.5 w-16" />` — the component already moves its fill on `translateX`. The test-results bar is two-tone, so it could not reuse `Progress` directly; its two flex siblings sized by `width` became two absolutely-positioned layers scaled from the left edge, with the failed layer spanning passed+failed underneath and the passed layer painted over it. Same two-tone bar, `transform` only.
+
+The model picker's selection indicator moved by transitioning `top`, which relayouted the rail on every frame of a slide that happens while the pointer is still travelling down the list. It is now pinned at `top: 0` and moved by `translateY`, the same way the tabs pill lands on its tab.
+
+Twenty-six transition `duration-*` values were raw numbers — `duration-150`, `duration-200`, one `duration-300`, one `duration-100` — sitting alongside surfaces that used `--motion-fast` / `--motion-base` / `--motion-slow`. All twenty-six now use the tokens. The seventeen `duration-*` values that sit on a line with `animate-*` are `animation-duration` for `tailwindcss-animate`, not transition timings, and are left alone: the page and sheet enter animations are a separate concern and stripping them would break the animation outright.
+
+Verifying that sweep in the built CSS turned up a fourth problem. `ease-(--motion-ease-out)` and `ease-[var(--motion-ease-out)]` never applied to a transition at all. `tailwindcss-animate` registers its own `ease` namespace, and for an arbitrary value its rule is the only one emitted, so the class set `animation-timing-function` on elements that have no animation. Seven call sites — the progress indicator, the accordion chevron, both gantt sites, `list-row`, `QuickTaskCard` and the sonner close button — were relying on a class that did nothing. They are removed rather than rewritten: the transition default is already `--motion-ease-out` as of the previous pass, so the curve is what those sites always meant. `globals.css` now carries the reason next to the default so the classes do not come back. The bracket `duration-*` form was checked the same way and is fine — the core rule and the animate plugin's rule set different properties, so both survive.
+
+Verified: `tsc --noEmit` clean in both packages, `vite build` clean in 55s, and the built CSS confirmed to emit `transition-duration` for all three `duration-[var(--motion-*)]` selectors and to no longer emit the `ease-(--motion-ease-out)` selector at all. No live browser check — the local Convex backend and Clerk agent sign-in are still down, so the two rebuilt progress bars and the picker indicator are verified by reading the compiled CSS rather than by watching them move.
+
+Not done: `TestingArenaSidebar` still animates `max-width` and `padding` on collapse, which is a layout animation whose replacement needs eyes on the result. The 75 of 79 scroll containers that chain overscroll to the page, hit padding hand-rolled three ways alongside the existing `hit-target` utility (`PendingReviewCommentChips` has a `size-5` button with none), the 24 hover-only reveals across 21 files, the un-animated desktop right-panel collapse, and gantt drag being `MouseSensor`-only all remain open.
+
 ## House transition defaults, switch thumb motion, focus-visible rings - 2026-08-07
 
 Three fixes from a sixth Apple-design pass over `apps/web` and `packages/ui`.

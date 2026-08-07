@@ -190,7 +190,7 @@ export function ProjectCard({
     >
       <div className="flex min-w-0 items-start gap-2">
         <div className="min-w-0 flex-1">
-          <MarqueeOnHover className="min-w-0 text-[13px] font-medium leading-5 tracking-[-0.01em] text-foreground transition-colors duration-200 group-hover:text-primary">
+          <MarqueeOnHover className="min-w-0 text-[13px] font-medium leading-5 tracking-[-0.01em] text-foreground transition-colors duration-[var(--motion-base)] group-hover:text-primary">
             {title}
           </MarqueeOnHover>
           {previewText ? (

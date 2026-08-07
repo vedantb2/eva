@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import dayjs from "../utils/dayjs";
 import {
@@ -60,7 +60,7 @@ export const GanttFeatureDragHelper: FC<GanttFeatureDragHelperProps> = ({
           // an inset animation relayouts every frame, a transform does not.
           // Only opacity and transform transition, so this stays on the
           // compositor while the user is mid-drag.
-          "-translate-y-1/2 absolute top-1/2 h-[80%] w-1 rounded-sm bg-muted-foreground opacity-0 transition-[opacity,transform] duration-[var(--motion-fast)] ease-(--motion-ease-out)",
+          "-translate-y-1/2 absolute top-1/2 h-[80%] w-1 rounded-sm bg-muted-foreground opacity-0 transition-[opacity,transform] duration-[var(--motion-fast)]",
           direction === "left" ? "left-0" : "right-0",
           direction === "left" ? "translate-x-2.5" : "-translate-x-2.5",
           "group-hover:translate-x-0",

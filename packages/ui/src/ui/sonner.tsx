@@ -195,7 +195,7 @@ function Toaster({ style, ...props }: ToasterProps) {
           cancelButton:
             "h-7 shrink-0 rounded-control bg-muted px-2.5 text-xs font-medium text-muted-foreground motion-press active:scale-[0.96] hover:bg-muted/80",
           closeButton:
-            "pointer-events-none absolute -right-2 -top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card/95 text-muted-foreground opacity-0 transition-opacity duration-200 ease-out hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:pointer-events-auto group-hover:opacity-100",
+            "pointer-events-none absolute -right-2 -top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card/95 text-muted-foreground opacity-0 transition-opacity duration-[var(--motion-base)] hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:pointer-events-auto group-hover:opacity-100",
         },
       }}
       {...props}

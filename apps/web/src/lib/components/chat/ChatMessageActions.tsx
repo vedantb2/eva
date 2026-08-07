@@ -66,7 +66,7 @@ export function ChatMessageActions({
       className={cn(
         "gap-0.5",
         revealOnHover &&
-          "opacity-0 transition-opacity duration-150 focus-within:opacity-100 group-hover:opacity-100",
+          "opacity-0 transition-opacity duration-[var(--motion-fast)] focus-within:opacity-100 group-hover:opacity-100",
         className,
       )}
     >

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   Badge,
@@ -210,7 +210,7 @@ export function QuickTaskCard({
             className={cn("mt-0.5 shrink-0", LIST_ROW_CONTROL_CLASS)}
           />
         ) : null}
-        <MarqueeOnHover className="min-w-0 flex-1 text-[13px] font-medium leading-5 tracking-[-0.01em] text-foreground transition-colors duration-200 group-hover:text-primary">
+        <MarqueeOnHover className="min-w-0 flex-1 text-[13px] font-medium leading-5 tracking-[-0.01em] text-foreground transition-colors duration-[var(--motion-base)] group-hover:text-primary">
           {taskNumber !== undefined ? (
             <span className="mr-1.5 font-mono text-[11px] font-normal tabular-nums text-muted-foreground/55">
               #{taskNumber}
@@ -317,7 +317,7 @@ export function QuickTaskCard({
               <button
                 type="button"
                 className={cn(
-                  "relative flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] duration-150 ease-(--motion-ease-out) after:absolute after:inset-[-8px] hover:bg-muted/80 hover:text-foreground active:scale-[0.96] sm:hidden",
+                  "relative flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] duration-[var(--motion-fast)] after:absolute after:inset-[-8px] hover:bg-muted/80 hover:text-foreground active:scale-[0.96] sm:hidden",
                   LIST_ROW_CONTROL_CLASS,
                 )}
                 onClick={(e) => e.stopPropagation()}

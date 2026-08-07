@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import * as React from "react";
 import * as AccordionPrimitive from "@radix-ui/react-accordion";
@@ -37,7 +37,7 @@ const AccordionTrigger = React.forwardRef<
         size={16}
         // Same duration and easing as the panel it points at, so the chevron
         // and the content finish together.
-        className="shrink-0 text-muted-foreground transition-transform duration-[var(--motion-base)] ease-[var(--motion-ease-out)] group-hover:text-foreground"
+        className="shrink-0 text-muted-foreground transition-transform duration-[var(--motion-base)] group-hover:text-foreground"
       />
     </AccordionPrimitive.Trigger>
   </AccordionPrimitive.Header>

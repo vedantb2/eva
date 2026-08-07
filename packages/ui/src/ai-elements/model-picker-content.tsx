@@ -292,9 +292,13 @@ export function ModelPickerContent<TModel extends string>({
               className="relative flex flex-col gap-1 px-1 pb-1 pt-0.5"
             >
               {indicatorTop !== null ? (
+                // Pinned at `top: 0` and moved by `translateY`, the same way the
+                // tabs pill lands on its tab. Transitioning `top` relayouted the
+                // rail on every frame of a slide that happens while the pointer
+                // is still moving down the list.
                 <div
-                  className="pointer-events-none absolute right-0 z-10 h-5 w-[3px] rounded-l-full bg-primary transition-[top] duration-200 ease-out"
-                  style={{ top: indicatorTop }}
+                  className="pointer-events-none absolute top-0 right-0 z-10 h-5 w-[3px] rounded-l-full bg-primary transition-transform duration-[var(--motion-base)]"
+                  style={{ transform: `translateY(${indicatorTop}px)` }}
                   aria-hidden
                 />
               ) : null}

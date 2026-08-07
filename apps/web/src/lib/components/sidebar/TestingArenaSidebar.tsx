@@ -142,7 +142,7 @@ export function TestingArenaSidebar({
                     </MarqueeOnHover>
                     <span
                       className={cn(
-                        "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-[max-width,opacity,padding] duration-150",
+                        "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-[max-width,opacity,padding] duration-[var(--motion-fast)]",
                         isSelected
                           ? "max-w-[80px] pl-2 opacity-100"
                           : "max-w-0 pl-0 opacity-0 group-hover:max-w-[80px] group-hover:pl-2 group-hover:opacity-100",

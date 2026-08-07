@@ -176,7 +176,7 @@ export function MultipleChoiceQuestion({
           return (
             <Card
               key={`${option.label}-${optIdx}`}
-              className={`cursor-pointer shadow-none transition-[background-color,border-color,box-shadow] duration-150 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35 ${
+              className={`cursor-pointer shadow-none transition-[background-color,border-color,box-shadow] duration-[var(--motion-fast)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35 ${
                 isSelected
                   ? "border-primary bg-accent ring-1 ring-primary"
                   : "border-transparent bg-secondary hover:bg-muted"
@@ -198,7 +198,7 @@ export function MultipleChoiceQuestion({
                 <span
                   className={`
                     w-6 h-6 rounded-md flex items-center justify-center shrink-0 mt-0.5
-                    text-[11px] font-bold tracking-wide transition-[background-color,border-color,box-shadow] duration-150
+                    text-[11px] font-bold tracking-wide transition-[background-color,border-color,box-shadow] duration-[var(--motion-fast)]
                     ${
                       isSelected
                         ? "bg-primary text-primary-foreground"
@@ -228,7 +228,7 @@ export function MultipleChoiceQuestion({
         })}
 
         <Card
-          className={`cursor-pointer shadow-none transition-[background-color,border-color,box-shadow] duration-150 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35 ${
+          className={`cursor-pointer shadow-none transition-[background-color,border-color,box-shadow] duration-[var(--motion-fast)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35 ${
             otherActive[currentStep]
               ? "border-primary bg-accent ring-1 ring-primary"
               : "border-transparent bg-secondary hover:bg-muted"
@@ -248,7 +248,7 @@ export function MultipleChoiceQuestion({
             <div className="flex items-center gap-3">
               <span
                 className={`
-                  w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-[background-color,border-color,box-shadow] duration-150
+                  w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-[background-color,border-color,box-shadow] duration-[var(--motion-fast)]
                   ${
                     otherActive[currentStep]
                       ? "bg-primary text-primary-foreground"

@@ -136,7 +136,7 @@ export function SidebarSessionItem({
   const activityAt = updatedAt ?? createdAt;
 
   const titleClass = cn(
-    "min-w-0 flex-1 transition-colors duration-200",
+    "min-w-0 flex-1 transition-colors duration-[var(--motion-base)]",
     isSelected
       ? "font-medium text-sidebar-primary"
       : "text-sidebar-foreground/80 hover:text-sidebar-foreground",

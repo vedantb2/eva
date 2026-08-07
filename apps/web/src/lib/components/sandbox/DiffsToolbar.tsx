@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import {
   Button,
+  Progress,
   SearchInput,
   Tabs,
   TabsList,
@@ -160,12 +161,10 @@ export function DiffsToolbar({
               {viewedCount}/{fileCount} viewed
             </span>
             {viewedCount > 0 ? (
-              <span className="h-1.5 w-16 overflow-hidden rounded-full bg-muted">
-                <span
-                  className="block h-full bg-primary transition-[width]"
-                  style={{ width: `${viewedShare}%` }}
-                />
-              </span>
+              // Was a hand-rolled bar transitioning `width`, which relayouts on
+              // every frame. `Progress` is the same shape and moves the fill on
+              // `transform`, so it stays on the compositor.
+              <Progress className="h-1.5 w-16" value={viewedShare} />
             ) : null}
           </span>
         ) : null}

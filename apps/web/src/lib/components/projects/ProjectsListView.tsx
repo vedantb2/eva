@@ -71,7 +71,7 @@ export function ProjectsListView({
               <button className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left transition-colors hover:bg-muted/50 sticky top-0 z-10 bg-background">
                 <IconChevronRight
                   size={14}
-                  className={`text-muted-foreground transition-transform duration-200 ${
+                  className={`text-muted-foreground transition-transform duration-[var(--motion-base)] ${
                     openSections.has(phase) ? "rotate-90" : ""
                   }`}
                 />

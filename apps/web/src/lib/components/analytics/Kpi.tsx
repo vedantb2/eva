@@ -96,7 +96,7 @@ export function Kpi({
 
   if (layout === "row") {
     return (
-      <Card className="h-full transition-[background-color] duration-200 hover:bg-muted/40">
+      <Card className="h-full transition-[background-color] duration-[var(--motion-base)] hover:bg-muted/40">
         <CardContent className="flex h-full flex-row items-center gap-2.5 p-3 sm:gap-3 sm:p-4">
           {Icon && (
             <div className="motion-base rounded-lg bg-secondary p-1.5 text-muted-foreground sm:p-2">

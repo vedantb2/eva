@@ -1,4 +1,4 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { Slot } from "@radix-ui/react-slot";
 
 import { cn } from "../utils/cn";
@@ -129,7 +129,7 @@ const ListRow = React.forwardRef<HTMLDivElement, ListRowProps>(function ListRow(
       className={cn(
         "group relative overflow-hidden",
         SURFACE_RADIUS_CLASS,
-        "transition-[background-color] duration-200 ease-(--motion-ease-out)",
+        "transition-[background-color] duration-[var(--motion-base)]",
         "has-[[data-slot=row-control]:focus-visible]:ring-2 has-[[data-slot=row-control]:focus-visible]:ring-ring/35",
         interactive && "motion-press active:scale-[0.99]",
         selected

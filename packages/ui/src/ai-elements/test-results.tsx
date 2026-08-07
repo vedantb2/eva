@@ -160,14 +160,21 @@ export const TestResultsProgress = ({
     <div className={cn("space-y-2", className)} {...props}>
       {children ?? (
         <>
-          <div className="flex h-2 overflow-hidden rounded-full bg-muted">
+          {/* Two full-width layers scaled from the left edge rather than two
+              flex siblings sized by `width`: the flex version relayouted the
+              track on every frame. The failed layer spans passed+failed and sits
+              underneath, so the passed layer painted over it leaves the same
+              two-tone bar while both segments only ever scale. */}
+          <div className="relative h-2 overflow-hidden rounded-full bg-muted">
             <div
-              className="bg-success transition-[width]"
-              style={{ width: `${passedPercent}%` }}
+              className="absolute inset-0 origin-left bg-destructive transition-transform duration-[var(--motion-base)]"
+              style={{
+                transform: `scaleX(${(passedPercent + failedPercent) / 100})`,
+              }}
             />
             <div
-              className="bg-destructive transition-[width]"
-              style={{ width: `${failedPercent}%` }}
+              className="absolute inset-0 origin-left bg-success transition-transform duration-[var(--motion-base)]"
+              style={{ transform: `scaleX(${passedPercent / 100})` }}
             />
           </div>
           <div className="flex justify-between text-muted-foreground text-xs tabular-nums">

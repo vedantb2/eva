@@ -143,7 +143,7 @@ export const KanbanCard = ({
         // Press feedback on pointer-down, not on release — the card has to
         // acknowledge the grab before the drag threshold is crossed, or the
         // first few pixels of every drag read as a dead control.
-        "cursor-grab transition-[opacity,transform] duration-150 active:scale-[0.98]",
+        "cursor-grab transition-[opacity,transform] duration-[var(--motion-fast)] active:scale-[0.98]",
         SURFACE_RADIUS_CLASS,
         isDragging && "pointer-events-none cursor-grabbing opacity-30",
         className,
@@ -176,10 +176,7 @@ export const KanbanCards = ({
 
   return (
     <SortableContext items={itemIds}>
-      <div
-        className={cn("flex grow flex-col gap-1.5", className)}
-        {...props}
-      >
+      <div className={cn("flex grow flex-col gap-1.5", className)} {...props}>
         {filteredData.map(children)}
       </div>
     </SortableContext>

@@ -41,7 +41,7 @@ export function TimelineBar({ name, phase, progress }: TimelineBarProps) {
           <div className={`absolute inset-0 ${config.bg}`} />
           {pct > 0 && (
             <div
-              className={`absolute inset-y-0 left-0 opacity-80 transition-[width] duration-300 ${config.bar}`}
+              className={`absolute inset-y-0 left-0 opacity-80 transition-[width] duration-[var(--motion-slow)] ${config.bar}`}
               style={{ width: `${pct}%` }}
             />
           )}

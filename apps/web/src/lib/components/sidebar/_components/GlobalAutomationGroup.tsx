@@ -117,7 +117,7 @@ export function GlobalAutomationGroup({
               <IconChevronDown
                 size={14}
                 className={cn(
-                  "shrink-0 text-muted-foreground transition-transform duration-200",
+                  "shrink-0 text-muted-foreground transition-transform duration-[var(--motion-base)]",
                   !open && "-rotate-90",
                 )}
               />

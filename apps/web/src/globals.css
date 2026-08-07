@@ -504,11 +504,19 @@
      * Tailwind's own values are 150ms and `cubic-bezier(0.4, 0, 0.2, 1)`, so the
      * 184 call sites that never reached for a token eased differently from every
      * surface that did. Repointing the two variables fixes all of them without
-     * touching a class name, and an explicit `duration-*` / `ease-*` still wins
-     * because both utilities set `--tw-duration` / `--tw-ease` ahead of these.
+     * touching a class name, and an explicit `duration-*` still wins because that
+     * utility sets `--tw-duration` ahead of this.
      *
-     * These must be overridden here rather than via `transitionDuration.DEFAULT`
-     * in `tailwind.config.js` — see the note there. */
+     * `ease-*` is different: `tailwindcss-animate` registers its own `ease`
+     * namespace, and for an arbitrary value — `ease-(--motion-ease-out)`,
+     * `ease-[var(--motion-ease-out)]` — its rule is the only one emitted, so the
+     * class sets `animation-timing-function` and never touches the transition. Do
+     * not write those; rely on this default, which is the same curve. Only the
+     * keyword eases (`ease-out`, `ease-in-out`) still reach a transition, and
+     * they are Tailwind's curves rather than the house one.
+     *
+     * The durations must be overridden here rather than via
+     * `transitionDuration.DEFAULT` in `tailwind.config.js` — see the note there. */
     --default-transition-duration: var(--motion-fast);
     --default-transition-timing-function: var(--motion-ease-out);
   }

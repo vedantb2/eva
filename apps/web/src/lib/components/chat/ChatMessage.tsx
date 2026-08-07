@@ -331,7 +331,7 @@ export const ChatMessage = memo(function ChatMessage({
                   />
                 ) : null}
                 {copyPlain ? (
-                  <div className="flex items-center gap-2 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100">
+                  <div className="flex items-center gap-2 opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover:opacity-100 focus-within:opacity-100">
                     <ChatMessageActions
                       copyText={copyPlain}
                       className="ml-0.5"
@@ -400,7 +400,7 @@ function UserMessageMeta({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 opacity-0 transition-opacity duration-150 group-hover:opacity-100 focus-within:opacity-100",
+        "flex items-center gap-3 opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover:opacity-100 focus-within:opacity-100",
         align === "start" ? "justify-start" : "justify-end",
         className,
       )}

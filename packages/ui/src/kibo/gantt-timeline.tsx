@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import dayjs from "../utils/dayjs";
 import type { FC, ReactNode } from "react";
@@ -135,7 +135,7 @@ export const GanttToday: FC<GanttTodayProps> = ({ className }) => {
             parent, so `transition-all` also dragged those along. The height
             animation relayouts nothing outside the marker, which is absolutely
             positioned at zero width. */}
-        <span className="max-h-0 overflow-hidden opacity-90 transition-[max-height] duration-[var(--motion-base)] ease-(--motion-ease-out) group-hover:max-h-8">
+        <span className="max-h-0 overflow-hidden opacity-90 transition-[max-height] duration-[var(--motion-base)] group-hover:max-h-8">
           {dayjs(date).format("MMM DD, YYYY")}
         </span>
       </div>

@@ -385,7 +385,7 @@ function SplitRunButton({
   const iconSize = size === "sm" ? 16 : 18;
 
   return (
-    <div className="group/split flex items-center transition-[transform,background-color] duration-200 active:scale-[0.96]">
+    <div className="group/split flex items-center transition-[transform,background-color] duration-[var(--motion-base)] active:scale-[0.96]">
       <Tooltip>
         <TooltipTrigger asChild>
           <div>

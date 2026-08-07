@@ -163,6 +163,19 @@
   transition-timing-function: var(--motion-ease-out);
 }
 
+@utility t-switch-thumb {
+  /* The knob's travel is the whole feedback for a toggle, so it leaves fast and
+     decelerates hard into the far wall on the emphasized curve, rather than
+     easing symmetrically the way Tailwind's default does. No overshoot: a tap
+     carries no momentum into the gesture, so a bounce here would be decoration.
+     Colour trails on `--motion-base` and the plain out-curve — the knob should
+     arrive before it finishes changing colour, not with it. */
+  transition-property: transform, background-color;
+  transition-duration: var(--motion-fast), var(--motion-base);
+  transition-timing-function:
+    var(--motion-ease-emphasized), var(--motion-ease-out);
+}
+
 @utility hit-target {
   /* Extends sub-40px controls to a 40×40px tap target without changing layout.
      Only force `relative` when the element is otherwise static — absolute /
@@ -486,6 +499,18 @@
     --motion-slow: 320ms;
     --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
     --motion-ease-emphasized: cubic-bezier(0.2, 0.8, 0.2, 1);
+
+    /* What a bare `transition-colors` / `transition-transform` resolves to.
+     * Tailwind's own values are 150ms and `cubic-bezier(0.4, 0, 0.2, 1)`, so the
+     * 184 call sites that never reached for a token eased differently from every
+     * surface that did. Repointing the two variables fixes all of them without
+     * touching a class name, and an explicit `duration-*` / `ease-*` still wins
+     * because both utilities set `--tw-duration` / `--tw-ease` ahead of these.
+     *
+     * These must be overridden here rather than via `transitionDuration.DEFAULT`
+     * in `tailwind.config.js` — see the note there. */
+    --default-transition-duration: var(--motion-fast);
+    --default-transition-timing-function: var(--motion-ease-out);
   }
 
   .dark {

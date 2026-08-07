@@ -137,6 +137,12 @@ export const themeExtend = {
     sans: ["var(--font-sans)"],
     mono: ["var(--font-mono)"],
   },
+  // Do NOT add `transitionDuration.DEFAULT` / `transitionTimingFunction.DEFAULT`
+  // here. A v3-config override of either one makes Tailwind v4 drop its own
+  // `--default-transition-duration` / `--default-transition-timing-function`
+  // definitions from the sheet while still emitting the 29 `var()` references to
+  // them, so every bare `transition-*` falls back to `0s` and stops animating.
+  // The house defaults live in the `@theme` block in `globals.css` instead.
   // Optical sizing: tracking is size-specific, never one global value. Small UI
   // text needs *more* letter-spacing to stay legible; display text needs less,
   // because letters read as drifting apart the larger they get. `body` still

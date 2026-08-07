@@ -13,6 +13,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuCheckboxItem,
   ModelSelect,
+  Switch,
 } from "@eva/ui";
 import { IconAdjustmentsHorizontal } from "@tabler/icons-react";
 import { api, normalizeAIModel } from "@eva/backend";
@@ -262,29 +263,18 @@ export function TaskActivityComposerForm({
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={effectiveRequestingChanges}
+                  {/* Was a hand-rolled toggle whose knob moved via `left` while
+                      transitioning `transform`, so it snapped. `Switch` is the
+                      same size and colours, animates, and presses. */}
+                  <Switch
                     aria-label="Make changes"
+                    checked={effectiveRequestingChanges}
                     disabled={!canRequestChanges}
-                    onClick={() => {
+                    onCheckedChange={() => {
                       setRequestingChanges(!requestingChanges);
                       clearExecutionError();
                     }}
-                    className={cn(
-                      "relative h-6 w-10 shrink-0 rounded-full transition-[background-color] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
-                      effectiveRequestingChanges ? "bg-primary" : "bg-muted",
-                      !canRequestChanges && "cursor-not-allowed opacity-50",
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "absolute top-0.5 size-5 rounded-full bg-white transition-transform",
-                        effectiveRequestingChanges ? "left-[18px]" : "left-0.5",
-                      )}
-                    />
-                  </button>
+                  />
                   <span
                     className={cn(
                       "text-xs select-none",

@@ -1,5 +1,21 @@
 # Changelog
 
+## House transition defaults, switch thumb motion, focus-visible rings - 2026-08-07
+
+Three fixes from a sixth Apple-design pass over `apps/web` and `packages/ui`.
+
+A bare `transition-colors`, `transition-opacity` or `transition-transform` resolved to Tailwind's own 150ms and `cubic-bezier(0.4, 0, 0.2, 1)`, so the 184 lines that never reached for a token eased differently from every surface that did — every hover row, chip, filter bar and picker in the app against the house `--motion-ease-out`. `--default-transition-duration` and `--default-transition-timing-function` now point at `--motion-fast` and `--motion-ease-out`, which fixes all 184 without touching a class name. An explicit `duration-*` or `ease-*` still wins, because both utilities set `--tw-duration` / `--tw-ease` ahead of these.
+
+The obvious route — `transitionDuration.DEFAULT` in `tailwind.config.js` — is a trap and is now commented as one. Overriding either DEFAULT from the v3-style config makes Tailwind v4 drop its own `--default-transition-*` definitions from the sheet while still emitting the 29 `var()` references to them, so the fallback resolves to nothing and every bare `transition-*` collapses to `0s`. Caught by building both ways and grepping the output rather than trusting the first version to work.
+
+The switch thumb slid on a bare `transition-[transform,background-color]`, so the one control in the app that reads as a physical flip eased symmetrically to a stop. A `t-switch-thumb` utility now leaves fast and decelerates hard into the far wall on `--motion-ease-emphasized`, with colour trailing on `--motion-base` so the knob arrives before it finishes changing colour. No overshoot: a tap carries no momentum into the gesture, so a bounce there would be decoration. The task activity composer had a hand-rolled copy of the whole switch whose knob moved via `left` while transitioning `transform` — it never animated at all, and `left` would have relayouted every frame — replaced with `Switch`. The landing mock's third copy is `aria-hidden` and permanently in one state, so it is left as the still image it is.
+
+Four `focus:` rings became `focus-visible:`: the `Dialog` and `Sheet` close buttons, the `Select` trigger and `Badge`. Clicking a close button with a mouse left a ring burning on a surface that was already animating out. The paired `focus:outline-hidden` stays on plain `focus:` — suppressing the native outline on any focus is correct, since a ring replaces it. Three sites were checked and deliberately left alone: `SelectItem`'s `focus:bg-muted` is Radix moving DOM focus to the highlighted item, so `focus-visible` would kill the pointer highlight, and the two `focus:ring-0` suppressions in `DocPrdViewer` and `ProjectMetadataBar` cancel a ring by variant rather than by numeric order, which converting would break.
+
+Verified: `tsc --noEmit` clean in both packages, `vite build` clean in 44s, and the built CSS confirmed to carry `--default-transition-duration:var(--motion-fast)` in `@layer base` overriding Tailwind's `.15s` in `@layer theme`, plus the full `t-switch-thumb` declaration. No live browser check — the local Convex backend and Clerk agent sign-in are still down.
+
+Not done: the 75 of 79 scroll containers that chain overscroll to the page, and hit padding hand-rolled three ways alongside the existing `hit-target` utility. The 24 hover-only reveals across 21 files, the un-animated desktop right-panel collapse, and gantt drag being `MouseSensor`-only remain open.
+
 ## Drop-zone feedback, submit icon crossfade, motion-press override repaired - 2026-08-07
 
 Three fixes from a fifth Apple-design pass over `apps/web` and `packages/ui`. The third one turned out to be much larger than the audit described — see below.

@@ -4,6 +4,7 @@ import {
   resolveNewTaskBaseBranch,
   resolveTaskWorkflowBaseBranch,
 } from "../convex/_taskWorkflow/resolveBaseBranch";
+import { resolveSessionBaseBranch } from "../convex/_sessions/baseBranch";
 
 test("resolveTaskWorkflowBaseBranch prefers project base when task is in a project", () => {
   // Child tasks must inherit the project's base, not drift to the repo default.
@@ -60,4 +61,26 @@ test("resolveNewTaskBaseBranch prefers explicit then project then repo", () => {
   expect(
     resolveNewTaskBaseBranch(undefined, { defaultBaseBranch: "main" }),
   ).toBe("main");
+});
+
+test("resolveSessionBaseBranch prefers the branch chosen at session creation", () => {
+  // The session PR must target the chosen base, not the repo default.
+  expect(
+    resolveSessionBaseBranch(
+      { baseBranch: "main" },
+      { defaultBaseBranch: "staging" },
+    ),
+  ).toBe("main");
+});
+
+test("resolveSessionBaseBranch falls back to repo default then constant", () => {
+  expect(
+    resolveSessionBaseBranch(
+      { baseBranch: undefined },
+      { defaultBaseBranch: "staging" },
+    ),
+  ).toBe("staging");
+  expect(resolveSessionBaseBranch({ baseBranch: "  " }, null)).toBe(
+    FALLBACK_GIT_BASE_BRANCH,
+  );
 });

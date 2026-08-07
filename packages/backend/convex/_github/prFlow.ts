@@ -5,6 +5,7 @@ import { action, internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { buildPrBody } from "../prBody";
 import { buildEvaSessionUrl } from "../_taskWorkflow/urls";
+import { resolveSessionBaseBranch } from "../_sessions/baseBranch";
 import { extractPrNumber } from "./helpers";
 import { isBranchNotAheadError } from "./prErrors";
 
@@ -121,7 +122,7 @@ export const createDraftSessionPr = internalAction({
           repoOwner: repo.owner,
           repoName: repo.name,
           branchName: session.branchName,
-          baseBranch: repo.defaultBaseBranch,
+          baseBranch: resolveSessionBaseBranch(session, repo),
           title: session.title,
           body: buildPrBody(
             [{ heading: "Summary", content: summaryContent }],

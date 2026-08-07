@@ -8,7 +8,7 @@ import {
 import type { Id } from "../_generated/dataModel";
 import { authMutation } from "../functions";
 import { workflow } from "../workflowManager";
-import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
+import { resolveSessionBaseBranch } from "./baseBranch";
 import {
   seedSandboxStartupActivity,
   clearSandboxStartupActivity,
@@ -81,8 +81,7 @@ export const startSandbox = authMutation({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
     const branchName = session.branchName || `eva/session-${args.sessionId}`;
-    const baseBranch =
-      session.baseBranch ?? repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
+    const baseBranch = resolveSessionBaseBranch(session, repo);
     await ctx.db.patch(args.sessionId, {
       status: "starting",
       updatedAt: Date.now(),

@@ -13,7 +13,7 @@ import {
   normalizeAIModel,
   sessionStatusValidator,
 } from "../validators";
-import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
+import { resolveSessionBaseBranch } from "./baseBranch";
 import {
   recordCompletionLog,
   sendCompletionEvent,
@@ -213,7 +213,7 @@ export async function buildSessionPrompt(
       {
         owner: repo.owner,
         name: repo.name,
-        baseBranch: session.baseBranch ?? repo.defaultBaseBranch,
+        baseBranch: resolveSessionBaseBranch(session, repo),
       },
       branchName,
       session.planContent || "",
@@ -795,10 +795,7 @@ export const getSessionData = internalQuery({
       repoId: session.repoId,
       prompt,
       branchName,
-      baseBranch:
-        session.baseBranch ??
-        repo.defaultBaseBranch ??
-        FALLBACK_GIT_BASE_BRANCH,
+      baseBranch: resolveSessionBaseBranch(session, repo),
       allowedTools: MODE_TOOLS[resolveToolMode(args.mode)],
       model: normalizeAIModel(args.model),
       deploymentProjectName: repo.deploymentProjectName,

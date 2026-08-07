@@ -12,7 +12,7 @@ import {
   sessionStatusValidator,
 } from "../validators";
 import { workflow } from "../workflowManager";
-import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
+import { resolveSessionBaseBranch } from "./baseBranch";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 import {
   assertProviderAccountOwnedBy,
@@ -73,10 +73,10 @@ export const create = authMutation({
     const repo = await ctx.db.get(args.repoId);
     if (!repo) throw new Error("Repository not found");
     const title = args.title?.trim() || DEFAULT_SESSION_TITLE;
-    const baseBranch =
-      args.baseBranch?.trim() ||
-      repo.defaultBaseBranch ||
-      FALLBACK_GIT_BASE_BRANCH;
+    const baseBranch = resolveSessionBaseBranch(
+      { baseBranch: args.baseBranch },
+      repo,
+    );
     const numId = await allocateNumId(ctx.db, args.repoId, "sessions");
     const model = args.model ?? repo.defaultModel;
     const providerAccountId =

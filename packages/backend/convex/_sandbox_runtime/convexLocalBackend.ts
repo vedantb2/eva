@@ -31,6 +31,13 @@ export function isConvexBackendCommand(command: string): boolean {
 export const CONVEX_LOCAL_BACKEND_HEALTH_URL = "http://127.0.0.1:3210/version";
 
 /**
+ * Log line `convex dev` prints once functions are deployed and serving — the
+ * readiness signal eva's native watcher greps for in `/tmp/bg-<i>.log`, so
+ * repos no longer need hand-rolled grep loops in their startupCommands.
+ */
+export const CONVEX_FUNCTIONS_READY_LOG_LINE = "Convex functions ready";
+
+/**
  * Wedge signature `convex dev` prints while it cannot reach the local backend.
  * Cloud-mode `convex dev` never prints this, so its presence in the bg log
  * confirms the command runs a LOCAL backend before the supervisor kills it.

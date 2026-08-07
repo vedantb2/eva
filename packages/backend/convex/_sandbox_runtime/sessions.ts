@@ -809,7 +809,11 @@ async function prepareSessionSandboxInternal(
             async () => {
               const result = await ctx.runAction(
                 internal.sandbox.runBackgroundCommands,
-                { sandboxId: handle.id, repoId: args.repoId },
+                {
+                  sandboxId: handle.id,
+                  repoId: args.repoId,
+                  sessionId: args.sessionId,
+                },
               );
               reuseBgRan = result.ran;
               if (result.ran && result.commandCount > 0) {
@@ -1196,7 +1200,11 @@ async function prepareSessionSandboxInternal(
       async () => {
         const result = await ctx.runAction(
           internal.sandbox.runBackgroundCommands,
-          { sandboxId: handle.id, repoId: args.repoId },
+          {
+            sandboxId: handle.id,
+            repoId: args.repoId,
+            sessionId: args.sessionId,
+          },
         );
         bgRan = result.ran;
         if (result.ran && result.commandCount > 0) {

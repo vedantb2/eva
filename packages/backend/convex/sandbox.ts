@@ -24,6 +24,7 @@ export {
   runStartupCommands,
   startupCommandsMarkerExists,
   runBackgroundCommands,
+  watchConvexReadiness,
   runStopCommands,
   getPreviewUrl,
   prepareSandbox,

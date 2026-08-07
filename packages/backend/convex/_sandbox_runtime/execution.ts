@@ -39,6 +39,7 @@ import { resolveSandboxCredentials } from "../envVarResolver";
 import {
   buildConvexBackgroundScriptBody,
   isConvexBackendCommand,
+  CONVEX_FUNCTIONS_READY_LOG_LINE,
 } from "./convexLocalBackend";
 import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
@@ -300,6 +301,12 @@ export const runBackgroundCommands = internalAction({
      * Used before proof capture so we do not double-start Convex.
      */
     onlyRestartDead: v.optional(v.boolean()),
+    /**
+     * When set, a fire-and-forget readiness watcher is scheduled for any
+     * Convex daemon launched here, surfacing a non-fatal warning on the
+     * session if `convex dev` never becomes ready.
+     */
+    sessionId: v.optional(v.id("sessions")),
   },
   returns: v.object({
     ran: v.boolean(),
@@ -327,6 +334,7 @@ export const runBackgroundCommands = internalAction({
 
     const errors: string[] = [];
     let launched = 0;
+    let launchedConvex = false;
     for (let i = 0; i < commands.length; i++) {
       const command = commands[i];
       const isConvexCommand = isConvexBackendCommand(command);
@@ -400,6 +408,7 @@ export const runBackgroundCommands = internalAction({
         // Short timeout — we only wait for the shell to fork the daemon.
         await execHandle(sandbox, launchCmd, 10);
         launched += 1;
+        if (isConvexCommand) launchedConvex = true;
       } catch (e) {
         const msg = errorMessage(e, "command failed");
         console.error(
@@ -410,11 +419,109 @@ export const runBackgroundCommands = internalAction({
       }
     }
 
+    // Fire-and-forget readiness watcher: the session unlocks immediately, and
+    // if `convex dev` never becomes ready the watcher surfaces a warning
+    // instead of blocking startup on a grep loop (which also used to die at
+    // undici's 300s headersTimeout when run as a single long exec).
+    if (launchedConvex) {
+      await ctx.scheduler.runAfter(0, internal.sandbox.watchConvexReadiness, {
+        sandboxId: args.sandboxId,
+        repoId: args.repoId,
+        sessionId: args.sessionId,
+      });
+    }
+
     return {
       ran: launched > 0 || !args.onlyRestartDead,
       commandCount: launched,
       errors,
     };
+  },
+});
+
+/** Poll cadence / budget for the fire-and-forget Convex readiness watcher. */
+const CONVEX_READY_POLL_INTERVAL_MS = 10_000;
+const CONVEX_READY_TIMEOUT_MS = 360_000;
+
+/**
+ * Fire-and-forget watcher for Convex background daemons. Polls each Convex
+ * `/tmp/bg-<i>.log` for the CLI's ready line with short execs (each its own
+ * HTTP call, so no per-exec ceiling applies), then either logs success or
+ * surfaces a non-fatal session warning with the daemon log tail.
+ */
+export const watchConvexReadiness = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+    sessionId: v.optional(v.id("sessions")),
+  },
+  returns: v.null(),
+  handler: async (ctx, args): Promise<null> => {
+    const commands: string[] | null = await ctx.runQuery(
+      internal.repoSnapshots.getBackgroundCommands,
+      { repoId: args.repoId },
+    );
+    const convexIndexes = (commands ?? [])
+      .map((command, i) => (isConvexBackendCommand(command) ? i : -1))
+      .filter((i) => i >= 0);
+    if (convexIndexes.length === 0) return null;
+
+    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    const logPaths = convexIndexes.map((i) => `/tmp/bg-${i}.log`);
+    // One short exec per poll: ready only when every Convex log has the line.
+    const probeCmd = [
+      "ok=yes",
+      ...logPaths.map(
+        (p) =>
+          `grep -q "${CONVEX_FUNCTIONS_READY_LOG_LINE}" ${p} 2>/dev/null || ok=no`,
+      ),
+      "echo $ok",
+    ].join("; ");
+
+    const startedAt = Date.now();
+    while (Date.now() - startedAt < CONVEX_READY_TIMEOUT_MS) {
+      try {
+        const result = (await execHandle(sandbox, probeCmd, 10)).trim();
+        if (result === "yes") {
+          console.log(
+            `[sandbox] watchConvexReadiness: ready after ${Math.round((Date.now() - startedAt) / 1000)}s (${args.sandboxId})`,
+          );
+          return null;
+        }
+      } catch (e) {
+        // Transient exec failures (resume races, stream closes) — keep polling.
+        console.log(
+          `[sandbox] watchConvexReadiness: probe failed, retrying: ${errorMessage(e, "probe failed")}`,
+        );
+      }
+      await sleep(CONVEX_READY_POLL_INTERVAL_MS);
+    }
+
+    let logTail = "";
+    try {
+      logTail = await execHandle(
+        sandbox,
+        logPaths.map((p) => `echo "== ${p} =="; tail -n 40 ${p} 2>/dev/null`).join("; "),
+        10,
+      );
+    } catch {
+      // Tail is best-effort context only.
+    }
+    const detail =
+      `Convex dev was not ready after ${Math.round(CONVEX_READY_TIMEOUT_MS / 60000)} minutes.\n${logTail}`.slice(
+        0,
+        4000,
+      );
+    console.error(
+      `[sandbox] watchConvexReadiness: timed out (${args.sandboxId}): ${detail}`,
+    );
+    if (args.sessionId) {
+      await ctx.runMutation(internal.sessions.sandboxStartupWarning, {
+        sessionId: args.sessionId,
+        error: detail,
+      });
+    }
+    return null;
   },
 });
 

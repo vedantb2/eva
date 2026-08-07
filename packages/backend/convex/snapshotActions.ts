@@ -21,6 +21,7 @@ import { getSandboxClient } from "./_sandbox/factory";
 import {
   buildConvexBackgroundScriptBody,
   isConvexBackendCommand,
+  CONVEX_FUNCTIONS_READY_LOG_LINE,
 } from "./_sandbox_runtime/convexLocalBackend";
 import { Sandbox, Snapshot } from "@vercel/sandbox";
 import { SANDBOX_TAG } from "./_sandbox/tags";
@@ -429,6 +430,18 @@ export const launchSeedRun = internalAction({
       const cb64 = Buffer.from(scriptBody, "utf8").toString("base64");
       lines.push(
         `echo ${cb64} | base64 -d > /tmp/bg-cmd-${i}.sh && chmod +x /tmp/bg-cmd-${i}.sh && setsid nohup bash -l /tmp/bg-cmd-${i}.sh </dev/null > /tmp/bg-${i}.log 2>&1 &`,
+      );
+    });
+    // Native Convex readiness gate: seed commands (`npx convex env set`,
+    // `npx convex import`) need a ready backend, and repos no longer carry
+    // hand-rolled grep loops in startupCommands. Detached script — a plain
+    // bash wait has no exec ceiling here. 900s covers cold binary plants.
+    (backgroundCommands ?? []).forEach((command, i) => {
+      if (!isConvexBackendCommand(command)) return;
+      lines.push(
+        `echo "SEEDRUN-STAGE:convex-ready-${i}"`,
+        `for s in $(seq 1 180); do grep -q "${CONVEX_FUNCTIONS_READY_LOG_LINE}" /tmp/bg-${i}.log 2>/dev/null && break; sleep 5; done`,
+        `grep -q "${CONVEX_FUNCTIONS_READY_LOG_LINE}" /tmp/bg-${i}.log 2>/dev/null || { echo "SEEDRUN-FAILED:convex-ready-${i}"; tail -n 60 /tmp/bg-${i}.log 2>/dev/null; exit 1; }`,
       );
     });
     // ---- seed (post-daemon) ----

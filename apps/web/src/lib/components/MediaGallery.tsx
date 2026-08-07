@@ -7,19 +7,15 @@ import {
   IconExternalLink,
 } from "@tabler/icons-react";
 import { animate, m, useMotionValue } from "motion/react";
-import { cn, Dialog, DialogContent, DialogTitle } from "@eva/ui";
+import {
+  cn,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  projectVelocity,
+} from "@eva/ui";
 
 export type GalleryImage = { url: string; alt?: string };
-
-/** Apple momentum projection (Designing Fluid Interfaces). */
-function projectVelocity(
-  initialVelocity: number,
-  decelerationRate = 0.998,
-): number {
-  return (
-    ((initialVelocity / 1000) * decelerationRate) / (1 - decelerationRate)
-  );
-}
 
 /**
  * Twitter-style image gallery for chat messages: up to a 2x2 grid of cropped

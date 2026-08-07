@@ -1,6 +1,7 @@
 "use client";
 
 import type { ComponentProps } from "react";
+import { AnimatePresence, m } from "motion/react";
 
 import { Button } from "../ui/button";
 import { cn } from "../utils/cn";
@@ -128,28 +129,38 @@ export const ConversationScrollButton = ({
     void scrollToBottom();
   }, [clearShowTimer, scrollToBottom]);
 
-  if (!showScrollToEnd) {
-    return null;
-  }
-
   return (
     <div className="pointer-events-none absolute bottom-4 left-1/2 z-30 flex -translate-x-1/2 justify-center">
-      <Button
-        className={cn(
-          "pointer-events-auto h-7 gap-1.5 rounded-full border border-border/60 bg-card px-3 text-xs font-normal text-muted-foreground hover:border-border hover:bg-card hover:text-foreground",
-          className,
-        )}
-        onClick={handleScrollToEnd}
-        size="sm"
-        type="button"
-        variant="outline"
-        aria-label="Scroll to end"
-        title="Scroll to end"
-        {...props}
-      >
-        <IconChevronDown className="size-3.5" />
-        Scroll to end
-      </Button>
+      <AnimatePresence>
+        {showScrollToEnd ? (
+          <m.div
+            // Rises from, and sinks back toward, the bottom edge it points at —
+            // the same path in both directions. Unmounting outright made the
+            // most-seen control in the app pop in and out on a hard cut.
+            initial={{ opacity: 0, y: 8, scale: 0.94 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.94 }}
+            transition={{ type: "spring", bounce: 0, duration: 0.3 }}
+          >
+            <Button
+              className={cn(
+                "pointer-events-auto h-7 gap-1.5 rounded-full border border-border/60 bg-card px-3 text-xs font-normal text-muted-foreground hover:border-border hover:bg-card hover:text-foreground",
+                className,
+              )}
+              onClick={handleScrollToEnd}
+              size="sm"
+              type="button"
+              variant="outline"
+              aria-label="Scroll to end"
+              title="Scroll to end"
+              {...props}
+            >
+              <IconChevronDown className="size-3.5" />
+              Scroll to end
+            </Button>
+          </m.div>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 };

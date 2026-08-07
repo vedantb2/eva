@@ -1,5 +1,10 @@
 export { cn } from "./utils/cn";
 export { STREAMDOWN_TABLE_RADIUS_CLASS } from "./utils/surface-radius";
+export {
+  rubberband,
+  projectVelocity,
+  DRAG_ACTIVATION_DISTANCE_PX,
+} from "./utils/gesture";
 
 export * from "./ui/accordion";
 export * from "./ui/alert";

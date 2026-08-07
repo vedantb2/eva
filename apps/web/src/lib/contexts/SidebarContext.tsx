@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { useLocalStorage, useSessionStorage } from "usehooks-ts";
+import { rubberband } from "@eva/ui";
 
 const COOKIE_NAME = "sidebar-collapsed";
 const ONE_YEAR = 60 * 60 * 24 * 365;
@@ -36,18 +37,6 @@ function clampSidebarWidth(width: number): number {
   return Math.min(
     SIDEBAR_MAX_WIDTH_PX,
     Math.max(SIDEBAR_MIN_WIDTH_PX, Math.round(width)),
-  );
-}
-
-/** Apple-style progressive resistance past a bound (Designing Fluid Interfaces). */
-function rubberband(
-  overshoot: number,
-  dimension: number,
-  constant = 0.55,
-): number {
-  return (
-    (overshoot * dimension * constant) /
-    (dimension + constant * Math.abs(overshoot))
   );
 }
 

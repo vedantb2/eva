@@ -6,7 +6,9 @@ import {
   type DragEndEvent,
   type DragStartEvent,
   type DragCancelEvent,
-  PointerSensor,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
   useSensor,
   useSensors,
   pointerWithin,
@@ -18,6 +20,7 @@ import {
   KanbanProvider,
   KanbanCard,
   cn,
+  DRAG_ACTIVATION_DISTANCE_PX,
   type KanbanItem,
   type KanbanColumnDef,
 } from "@eva/ui";
@@ -70,13 +73,21 @@ export function KanbanBoard<T extends BaseTask>({
     null,
   );
 
+  // Split by input type instead of one PointerSensor, because the right
+  // activation differs. Mouse arms on distance: dnd-kit's `delay` constraint
+  // cancels activation outright when the pointer travels past `tolerance`
+  // before the timer fires, so a fast, decisive drag never picked the card up
+  // at all — and the card gave no feedback for the whole hold. Touch keeps a
+  // hold, because distance-based activation there would swallow the vertical
+  // scroll inside a column.
   const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        delay: 200,
-        tolerance: 10,
-      },
+    useSensor(MouseSensor, {
+      activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE_PX },
     }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 10 },
+    }),
+    useSensor(KeyboardSensor),
   );
 
   const itemsById = new Map(items.map((item) => [item._id, item]));

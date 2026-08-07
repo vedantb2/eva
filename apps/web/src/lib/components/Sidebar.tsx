@@ -18,7 +18,7 @@ import {
 import { LogoMark } from "@/lib/components/LogoMark";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { api } from "@eva/backend";
-import { Button, Spinner, cn } from "@eva/ui";
+import { Button, Spinner, cn, projectVelocity } from "@eva/ui";
 import { RepoRail } from "@/lib/components/sidebar/RepoRail";
 import { RepoNavSections } from "@/lib/components/sidebar/RepoNavSections";
 import { RepoTopNav } from "@/lib/components/sidebar/RepoTopNav";
@@ -38,16 +38,6 @@ import { usePageTitle } from "@/lib/contexts/PageTitleContext";
 import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
-
-/** Apple momentum projection (Designing Fluid Interfaces). */
-function projectVelocity(
-  initialVelocity: number,
-  decelerationRate = 0.998,
-): number {
-  return (
-    ((initialVelocity / 1000) * decelerationRate) / (1 - decelerationRate)
-  );
-}
 
 const KNOWN_SUB_PAGES = KNOWN_REPO_SUB_PAGES;
 

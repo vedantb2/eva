@@ -2,7 +2,7 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
-import { cn } from "@eva/ui";
+import { cn, rubberband } from "@eva/ui";
 import {
   IconChevronDown,
   IconChevronUp,
@@ -19,18 +19,6 @@ interface ConsoleDockState {
 const DEFAULT_STATE: ConsoleDockState = { expanded: false, previewPct: 60 };
 const MIN_PREVIEW_PCT = 15;
 const MAX_PREVIEW_PCT = 85;
-
-/** Apple-style progressive resistance past a bound. */
-function rubberband(
-  overshoot: number,
-  dimension: number,
-  constant = 0.55,
-): number {
-  return (
-    (overshoot * dimension * constant) /
-    (dimension + constant * Math.abs(overshoot))
-  );
-}
 
 function rubberbandPreviewPct(pct: number): number {
   if (pct < MIN_PREVIEW_PCT) {

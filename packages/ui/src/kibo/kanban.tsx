@@ -30,6 +30,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import { cn } from "../utils/cn";
+import { DRAG_ACTIVATION_DISTANCE_PX } from "../utils/gesture";
 import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 import { resolveOverColumnId } from "./kanbanDropTarget";
 
@@ -139,7 +140,10 @@ export const KanbanCard = ({
       ref={setNodeRef}
       onClick={onClick}
       className={cn(
-        "cursor-grab transition-opacity duration-150",
+        // Press feedback on pointer-down, not on release — the card has to
+        // acknowledge the grab before the drag threshold is crossed, or the
+        // first few pixels of every drag read as a dead control.
+        "cursor-grab transition-[opacity,transform] duration-150 active:scale-[0.98]",
         SURFACE_RADIUS_CLASS,
         isDragging && "pointer-events-none cursor-grabbing opacity-30",
         className,
@@ -222,9 +226,16 @@ export const KanbanProvider = ({
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
 
+  // Mouse arms on distance so a sloppy click is not read as a drag; touch keeps
+  // a hold so a drag does not swallow scrolling. Bare sensors activated on the
+  // first pixel, which made both mistakes. See `utils/gesture.ts`.
   const defaultSensors = useSensors(
-    useSensor(MouseSensor),
-    useSensor(TouchSensor),
+    useSensor(MouseSensor, {
+      activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE_PX },
+    }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 10 },
+    }),
     useSensor(KeyboardSensor),
   );
 

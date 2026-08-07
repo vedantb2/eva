@@ -1,5 +1,19 @@
 # Changelog
 
+## Kanban drag activation, shared gesture physics, animated scroll pill - 2026-08-07
+
+Three fixes from a second Apple-design pass over `apps/web` and `packages/ui`.
+
+Kanban cards used a `delay: 200, tolerance: 10` activation constraint, which is the wrong shape for a mouse twice over: dnd-kit cancels activation outright when the pointer travels past `tolerance` before the timer fires, so a fast, decisive drag never picked the card up, and the card gave no feedback at all during the 200ms hold. `KanbanBoard` and the `kibo` defaults now split by input type — `MouseSensor` arms on 8px of travel with no delay, `TouchSensor` keeps the hold because distance-based activation there would swallow the vertical scroll inside a column — and `KanbanCard` presses to `scale(0.98)` on pointer-down so the grab is acknowledged before the threshold is crossed. Reason: activation should follow the pointer's intent, and feedback belongs on the press, not the release.
+
+`rubberband()` and `projectVelocity()` were byte-identical copies in four files (`SidebarContext` and `ConsoleDock`; `Sidebar` and `MediaGallery`). Both are verbatim Apple *Designing Fluid Interfaces* functions with no React or DOM dependency, so they move to `packages/ui/src/utils/gesture.ts` alongside a shared `DRAG_ACTIVATION_DISTANCE_PX`. The surface-specific wrappers (`rubberbandSidebarWidth`, `rubberbandPreviewPct`) stay where they are, since the bounds are local to each surface.
+
+`ConversationScrollButton` returned `null` when hidden, so the most-seen control in the app popped in and out on a hard cut while every other overlay animated. It now stays mounted inside `AnimatePresence` and rises from — and sinks back toward — the bottom edge it points at, on the same `bounce: 0` spring the sidebar and theme switcher already use. Reason: enter and exit should follow the same path, and the control's motion should point at what it does.
+
+Verified: `tsc --noEmit` clean in both packages, `vite build` clean, and the new `scale(.98)` and `transition-property:opacity,transform` rules present in the built CSS. The live browser check was not possible — the local Convex backend and Clerk agent sign-in were both down, so the authenticated kanban and chat routes would not render.
+
+Not done: the 21 files using hover-only reveal affordances (`opacity-0 group-hover:opacity-100`) against exactly one pointer-capability guard in the codebase, and four `transition-all` usages that animate layout properties off the compositor.
+
 ## Menu motion restored, size-specific tracking, drag off the storage path - 2026-08-07
 
 Three fixes from an Apple-design audit of `apps/web` and `packages/ui`.

@@ -7,6 +7,12 @@ export const STREAMING_HMAC = process.env.STREAMING_HMAC || "";
 export const ENTITY_ID = process.env.ENTITY_ID;
 export const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 export const RUN_ID = process.env.RUN_ID || null;
+/**
+ * The turn this process owns, for one-shot launches. Warm daemons span many
+ * turns, so they ignore this and take the id from each `claimPendingTurn`
+ * instead — see `runtime/turnLease.ts`.
+ */
+export const TURN_ID = process.env.TURN_ID || null;
 export const ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
 export const TASK_PROOF_CAPTURE_ENABLED =
   process.env.TASK_PROOF_CAPTURE_ENABLED !== "false";
@@ -110,9 +116,19 @@ export const HEARTBEAT_ABSOLUTE_MAX_FAILURES = Number(
 export const OUTPUT_BUFFER_MAX_BYTES = Number(
   process.env.CALLBACK_OUTPUT_BUFFER_MAX_BYTES || "2000000",
 );
-export const READY_FILE = "/tmp/run-design.ready";
+/**
+ * Runner markers, entity-scoped by the launcher (`_sandbox_runtime/daemonPaths.ts`
+ * owns the naming; it is passed in rather than recomputed here so there is one
+ * definition). The legacy shared paths remain as the fallback for a runner
+ * launched by a pre-Phase-3 deployment.
+ */
+export const PID_FILE = process.env.RUNNER_PID_FILE || "/tmp/run-design.pid";
+export const READY_FILE =
+  process.env.RUNNER_READY_FILE || "/tmp/run-design.ready";
+export const DONE_FILE = process.env.RUNNER_DONE_FILE || "/tmp/run-design.done";
+/** Written into the ready file so the launcher can tell its own runner from a predecessor's. */
+export const LAUNCH_ID = process.env.RUNNER_LAUNCH_ID || "";
 export const RAW_LOG_FILE = "/tmp/run-design.raw.jsonl";
-export const DONE_FILE = "/tmp/run-design.done";
 export const CLAUDE_BASE_CONFIG_DIR =
   process.env.CLAUDE_BASE_CONFIG_DIR || "/home/eva/.claude";
 export const CLAUDE_RUNTIME_CONFIG_DIR =

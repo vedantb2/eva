@@ -8,8 +8,17 @@ const backendDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 const workflowWatchdog = readSource("convex/workflowWatchdog.ts");
 const stallWatchdog = readSource("convex/_chat/stallWatchdog.ts");
 const surfaceAdapters = readSource("convex/_chat/surfaceAdapters.ts");
+const turns = readSource("convex/turns.ts");
 
-const CHAT_WRAPPER_NAMES = [
+/**
+ * The nine per-surface wrappers each armed their own scheduler chain — check,
+ * probe, re-check, 2-hour backstop — for one turn. A chain only converges if
+ * every link is scheduled and every link runs, and prod kept losing links: a
+ * turn whose entry never got created sat on "Working…" forever. The reconciler
+ * cron replaced all nine, so they must stay gone rather than creep back
+ * alongside it and give liveness two disagreeing owners again.
+ */
+const DELETED_CHAT_WRAPPERS = [
   "handleStaleSession",
   "checkStaleSessionHeartbeat",
   "probeStaleSessionLiveness",
@@ -21,32 +30,42 @@ const CHAT_WRAPPER_NAMES = [
   "probeStaleAgentTaskChatLiveness",
 ];
 
-/**
- * workflowWatchdog.ts used to hold three near-identical copies of the chat
- * stall-watchdog machinery (sessions, task chat, project chat) — a fix (e.g.
- * the salvage-read-before-clear ordering) landed on one surface and had to be
- * manually ported to the other two by hand. The refactor moved the one true
- * implementation into `_chat/stallWatchdog.ts` (shared logic) and
- * `_chat/surfaceAdapters.ts` (per-surface adapters); these rules exist to
- * catch a regression back toward duplicated logic in the thin wrappers.
- */
-describe("the nine chat wrappers in workflowWatchdog.ts only delegate", () => {
-  test.each(CHAT_WRAPPER_NAMES)(
-    "%s does not itself patch the entity, insert a message, or finalize a cancelled message",
-    (name) => {
-      const body = definitionBody(workflowWatchdog, name);
-      expect(body, `${name} writes ctx.db.patch directly`).not.toContain(
-        "ctx.db.patch(",
-      );
-      expect(body, `${name} inserts a message directly`).not.toContain(
-        'insert("messages"',
-      );
-      expect(
-        body,
-        `${name} finalizes a cancelled message directly`,
-      ).not.toContain("finalizeCancelledAssistantMessage(");
-    },
-  );
+describe("the per-turn chat watchdog chains stay deleted", () => {
+  test.each(DELETED_CHAT_WRAPPERS)("%s is gone", (name) => {
+    expect(
+      workflowWatchdog,
+      `${name} is back — the lease reconciler is the only chat liveness owner`,
+    ).not.toContain(`export const ${name} =`);
+  });
+
+  /**
+   * The shared implementation still exists and still owns every write; the
+   * reconciler is a thin caller of it, exactly as the wrappers were. Logic
+   * drifting back up into the caller is how the three surfaces diverged before.
+   */
+  test("the reconciler delegates rather than writing the teardown itself", () => {
+    const body = definitionBody(turns, "finalizeExpired");
+    expect(body).toContain("finalizeExpiredTurn(");
+    expect(body, "the reconciler patches the entity directly").not.toContain(
+      "ctx.db.patch(",
+    );
+    expect(body, "the reconciler inserts a message directly").not.toContain(
+      'insert("messages"',
+    );
+  });
+
+  /**
+   * The probe survives only to word the alert. Letting it renew is the exact
+   * bug that kept session 53 alive: the check sent to kill a zombie reset the
+   * clock it was being judged against.
+   */
+  test("the reconciler's liveness probe cannot renew a lease", () => {
+    const body = definitionBody(turns, "reconcile");
+    expect(body).toContain("verifySandboxLiveness");
+    expect(body, "the probe renews the lease it is judging").not.toContain(
+      "renew",
+    );
+  });
 });
 
 /**

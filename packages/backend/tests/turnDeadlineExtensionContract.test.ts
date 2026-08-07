@@ -9,9 +9,8 @@ function convexSource(path: string): string {
   return readFileSync(join(testsDir, "../convex", path), "utf8");
 }
 
-const chatWatchdog = convexSource("_chat/stallWatchdog.ts");
-const taskWatchdog = convexSource("_taskWorkflow/watchdog.ts");
-const staleness = convexSource("_taskWorkflow/staleness.ts");
+const turnStore = convexSource("_chat/turnStore.ts");
+const runLease = convexSource("_taskWorkflow/runLease.ts");
 const execution = convexSource("_sandbox_runtime/execution.ts");
 const provider = convexSource("_sandbox/provider.ts");
 const vercelProvider = convexSource("_sandbox/vercelProvider.ts");
@@ -23,67 +22,43 @@ const vercelProvider = convexSource("_sandbox/vercelProvider.ts");
  * the work AND the evidence (observed twice in prod on 2026-08-06: a 59-minute
  * cursor turn on task 213, and session 53 the same morning).
  *
- * The guard is that both watchdogs slide the deadline forward on every tick of
- * a live turn. It is invisible until a turn runs long, which is exactly when it
- * is most expensive to get wrong, so the arithmetic is pinned here.
+ * The guard is that lease renewal slides the deadline forward. Hanging it off
+ * renewal rather than a watchdog tick is what ties the VM's life to a live
+ * owner: a dead turn stops renewing, so it stops extending. It is invisible
+ * until a turn runs long, which is exactly when it is most expensive to get
+ * wrong, so the arithmetic is pinned here.
  */
-describe("a live turn keeps its sandbox deadline ahead of the watchdog tick", () => {
-  const watchdogs = [
-    { name: "chat stall watchdog", source: chatWatchdog, gate: "if (!decision.stale) {" },
-    { name: "task run watchdog", source: taskWatchdog, gate: "if (!isStale) {" },
+describe("a live turn keeps its sandbox deadline ahead of its own lease", () => {
+  const renewals = [
+    { name: "chat turn renewal", source: turnStore },
+    { name: "task run renewal", source: runLease },
   ];
-
-  test.each(watchdogs)(
-    "$name extends the deadline only while the turn is alive",
-    ({ source, gate }) => {
-      const gateAt = source.indexOf(gate);
-      expect(gateAt, `the not-stale branch moved: ${gate}`).toBeGreaterThan(-1);
-      const extendAt = source.indexOf(
-        "internal.sandbox.extendSandboxDeadline",
-        gateAt,
-      );
-      expect(
-        extendAt,
-        "a live turn must push the provider's hard runtime cap out or it is killed mid-work",
-      ).toBeGreaterThan(-1);
-      // Inside the not-stale branch, ahead of the reschedule that ends it.
-      const rescheduleAt = source.indexOf("STALE_RECHECK_MS,", gateAt);
-      expect(rescheduleAt).toBeGreaterThan(-1);
-      expect(
-        extendAt,
-        "the extension must sit in the not-stale branch, not on the stale/kill path",
-      ).toBeLessThan(rescheduleAt);
-    },
-  );
 
   /**
    * The single number that decides whether this works. Extending by exactly one
-   * tick leaves zero slack, so any delayed or missed check lets the deadline
-   * pass while the turn is still running — the same silent kill this fixed. Two
-   * ticks keeps the deadline sliding ahead through a skipped cycle.
+   * lease leaves zero slack, so any delayed or missed heartbeat lets the
+   * deadline pass while the turn is still running — the same silent kill this
+   * fixed. Two keeps the deadline sliding ahead through a skipped cycle.
    */
-  test.each(watchdogs)(
-    "$name extends by more than one recheck interval",
+  test.each(renewals)(
+    "$name extends by more than one lease duration",
     ({ source }) => {
       const args = source.slice(
         source.indexOf("internal.sandbox.extendSandboxDeadline"),
       );
-      const duration = args.slice(0, args.indexOf("}")).match(
-        /durationMs:\s*STALE_RECHECK_MS\s*\*\s*(\d+)/,
-      );
+      const duration = args
+        .slice(0, args.indexOf("}"))
+        .match(/durationMs:\s*durationMs\s*\*\s*(\d+)/);
       expect(
         duration,
-        "the extension must be expressed in ticks, so retuning the tick cannot silently outrun it",
+        "the extension must be expressed in lease durations, so retuning a lease cannot silently outrun it",
       ).not.toBeNull();
-      expect(Number(duration?.[1]), "one tick of slack is none").toBeGreaterThan(
-        1,
-      );
+      expect(
+        Number(duration?.[1]),
+        "one lease of slack is none",
+      ).toBeGreaterThan(1);
     },
   );
-
-  test("the recheck interval is short relative to any plausible extension", () => {
-    expect(staleness).toContain("export const STALE_RECHECK_MS = 30_000;");
-  });
 
   /**
    * Best-effort by contract: this runs on the hot path of every live turn, and
@@ -91,15 +66,16 @@ describe("a live turn keeps its sandbox deadline ahead of the watchdog tick", ()
    */
   test("extendSandboxDeadline swallows its own failures", () => {
     const startAt = execution.indexOf("export const extendSandboxDeadline");
-    expect(startAt, "extendSandboxDeadline moved or was renamed").toBeGreaterThan(
-      -1,
-    );
+    expect(
+      startAt,
+      "extendSandboxDeadline moved or was renamed",
+    ).toBeGreaterThan(-1);
     const nextAt = execution.indexOf("\nexport ", startAt + 1);
     const body = execution.slice(startAt, nextAt < 0 ? undefined : nextAt);
     expect(body).toContain("try {");
     expect(
       body,
-      "a failed extension must not propagate into the watchdog tick",
+      "a failed extension must not propagate into the renewal",
     ).toContain("} catch (error) {");
     expect(body).toContain("sandbox.extendTimeout(args.durationMs)");
     // Getting a handle does not exec, so this must not be able to wake a
@@ -108,7 +84,9 @@ describe("a live turn keeps its sandbox deadline ahead of the watchdog tick", ()
   });
 
   test("extendTimeout is part of the provider contract", () => {
-    expect(provider).toContain("extendTimeout(durationMs: number): Promise<void>");
+    expect(provider).toContain(
+      "extendTimeout(durationMs: number): Promise<void>",
+    );
     expect(vercelProvider).toContain("async extendTimeout(durationMs: number)");
   });
 });

@@ -5,7 +5,13 @@ import { quote } from "shell-quote";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
 import type { AIProvider } from "../validators";
 import { execHandle, requireEnv } from "./helpers";
-import { entityDaemonPaths } from "./daemonPaths";
+import {
+  entityDaemonPaths,
+  entityRunnerPaths,
+  LEGACY_RUNNER_PID_FILE,
+  LEGACY_RUNNER_READY_FILE,
+  type RunnerPaths,
+} from "./daemonPaths";
 import type { SandboxHandle } from "../_sandbox/provider";
 import { CALLBACK_SCRIPT } from "./callbackScript";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
@@ -98,11 +104,6 @@ function ensureProviderCliAvailable(
     default:
       return Promise.resolve();
   }
-}
-
-/** Per-entity spawn lock the runner holds for its lifetime (see launchScript). */
-function runnerFlockPath(entityIdField: string, entityId: string): string {
-  return `/tmp/eva-runner.${entityIdField}-${entityId}.lock`;
 }
 
 /** Uploads the bundled callback runner + fingerprint without starting a process. */
@@ -267,6 +268,18 @@ export async function launchScript(
     }
   }
   envParts.push(`CALLBACK_SCRIPT_FP=${quote([CALLBACK_SCRIPT_FINGERPRINT])}`);
+  // Marker paths are computed here, not in the callback, so `daemonPaths.ts`
+  // stays the single definition — the callback bundle cannot import from
+  // convex/. The launch id lets waitForRunnerReady tell this launch's ready
+  // file from one a previous runner wrote moments after the rm below.
+  const runnerPaths = entityRunnerPaths(entityIdField, entityId);
+  const launchId = `${launchStartedAt}`;
+  envParts.push(
+    `RUNNER_PID_FILE=${quote([runnerPaths.pid])}`,
+    `RUNNER_READY_FILE=${quote([runnerPaths.ready])}`,
+    `RUNNER_DONE_FILE=${quote([runnerPaths.done])}`,
+    `RUNNER_LAUNCH_ID=${quote([launchId])}`,
+  );
   const exportLines = envParts.map((part) => `export ${part}`);
   // Kernel-enforced single-runner-per-entity: spawn under an exclusive flock
   // held for the runner's lifetime (flock(1) execs node, so the lock fd rides
@@ -276,19 +289,25 @@ export async function launchScript(
   // waitForRunnerReady decides whether the lock holder is the runner this
   // launch wanted; the daemon's own pidfile fence remains as fallback for
   // images without flock(1), where this fails open.
-  const runnerLockPath = runnerFlockPath(entityIdField, entityId);
+  const runnerLockPath = runnerPaths.lock;
   const runnerLaunchScript = [
     "#!/usr/bin/env bash",
     "set -euo pipefail",
     `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE}`,
-    "rm -f /tmp/run-design.pid /tmp/run-design.ready",
+    // Clear this entity's markers only. The legacy shared pair goes too, so a
+    // sandbox carried over from before Phase 3 cannot leave a file that the
+    // old-path readers would still find.
+    `rm -f ${runnerPaths.pid} ${runnerPaths.launchPid} ${runnerPaths.ready} ${runnerPaths.done} ${LEGACY_RUNNER_PID_FILE} ${LEGACY_RUNNER_READY_FILE}`,
     ...exportLines,
     "if command -v flock >/dev/null 2>&1; then",
     `  nohup flock -n -E 217 ${runnerLockPath} node /tmp/run-design.mjs >> /tmp/design.log 2>&1 &`,
     "else",
     "  nohup node /tmp/run-design.mjs >> /tmp/design.log 2>&1 &",
     "fi",
-    "echo $! > /tmp/run-design.pid",
+    // The launcher's own fact: the pid it spawned. The runner writes its real
+    // pidfile itself at boot; this one exists so a spawn that dies before that
+    // (flock loser, node missing) is still detected as dead rather than pending.
+    `echo $! > ${runnerPaths.launchPid}`,
     // Privileged half of the OOM bias: the callback lowers its own
     // oom_score_adj to -600 (callback-src/index.ts) but lowering needs root,
     // so that write no-ops unprivileged — observed in prod as the callback
@@ -298,7 +317,7 @@ export async function launchScript(
     // dev servers and agent work first (both recover — preview self-heal and
     // turn error reporting), the heartbeat/reporting callback last. Fail open
     // on images without passwordless sudo.
-    'echo -600 | sudo -n tee "/proc/$(cat /tmp/run-design.pid)/oom_score_adj" >/dev/null 2>&1 || true',
+    `echo -600 | sudo -n tee "/proc/$(cat ${runnerPaths.launchPid})/oom_score_adj" >/dev/null 2>&1 || true`,
   ].join("\n");
   await sandbox.writeFile("/tmp/eva-launch-runner.sh", runnerLaunchScript);
   // Use the provider-native detached path; waitForRunnerReady confirms the
@@ -309,7 +328,8 @@ export async function launchScript(
     { timeoutSeconds: 15 },
   );
   await waitForRunnerReady(sandbox, entityId, {
-    runnerLockPath,
+    runnerPaths,
+    launchId,
     daemonPaths: entityDaemonPaths(entityIdField, entityId),
     // Only a daemon launch can be satisfied by an incumbent runner, and only
     // one whose opts signature matches (see waitForRunnerReady).
@@ -320,32 +340,41 @@ export async function launchScript(
   );
 }
 
-/** Polls for /tmp/run-design.ready after a detached runner launch. */
+/**
+ * Polls for this launch's ready marker.
+ *
+ * The ready file must carry this launch's id: a file left by the previous
+ * runner — written in the window between the launch script's `rm -f` and the
+ * new runner booting — would otherwise read as success and hand the caller a
+ * runner that is executing the wrong prompt (I5).
+ */
 async function waitForRunnerReady(
   sandbox: SandboxHandle,
   entityId: string,
   fence: {
-    runnerLockPath: string;
+    runnerPaths: RunnerPaths;
+    launchId: string;
     daemonPaths: { pid: string; opts: string };
     expectedDaemonOptsSig: string | undefined;
   },
 ): Promise<void> {
+  const runnerLockPath = fence.runnerPaths.lock;
   for (let attempt = 0; attempt < CALLBACK_READY_POLL_ATTEMPTS; attempt++) {
     const ready = (
       await execHandle(
         sandbox,
-        `test -f /tmp/run-design.ready && echo yes || echo no`,
+        `cat ${quote([fence.runnerPaths.ready])} 2>/dev/null || true`,
         5,
       )
     ).trim();
-    if (ready === "yes") {
+    if (ready === fence.launchId) {
       return;
     }
 
     const alive = (
       await execHandle(
         sandbox,
-        `pid=$(cat /tmp/run-design.pid 2>/dev/null || true); if [ -z "$pid" ]; then echo pending; elif kill -0 "$pid" 2>/dev/null; then echo alive; else echo dead; fi`,
+        `pid=$(cat ${quote([fence.runnerPaths.launchPid])} 2>/dev/null || true); if [ -z "$pid" ]; then echo pending; elif kill -0 "$pid" 2>/dev/null; then echo alive; else echo dead; fi`,
         5,
       )
     ).trim();
@@ -359,7 +388,7 @@ async function waitForRunnerReady(
       const lock = (
         await execHandle(
           sandbox,
-          `if ! command -v flock >/dev/null 2>&1; then echo nolock; elif flock -n ${quote([fence.runnerLockPath])} true 2>/dev/null; then echo free; else echo held; fi`,
+          `if ! command -v flock >/dev/null 2>&1; then echo nolock; elif flock -n ${quote([runnerLockPath])} true 2>/dev/null; then echo free; else echo held; fi`,
           5,
         )
       ).trim();
@@ -406,7 +435,7 @@ async function waitForRunnerReady(
   );
   await execHandle(
     sandbox,
-    `pid=$(cat /tmp/run-design.pid 2>/dev/null || true); if [ -n "$pid" ]; then kill "$pid" 2>/dev/null || true; fi`,
+    `pid=$(cat ${quote([fence.runnerPaths.launchPid])} 2>/dev/null || true); if [ -n "$pid" ]; then kill "$pid" 2>/dev/null || true; fi`,
     5,
   );
   throw new Error(

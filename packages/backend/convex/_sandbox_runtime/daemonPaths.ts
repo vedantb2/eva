@@ -1,5 +1,59 @@
 /** Entity-scoped warm-daemon marker paths on the sandbox filesystem. */
 
+/**
+ * Entity-scoped runner markers (I5 of the turn-lease design).
+ *
+ * The old markers were a single shared set — `/tmp/run-design.pid`,
+ * `.ready`, `.done` — so a launch for one entity overwrote another's, and a
+ * marker left by a previous turn read as if it belonged to the current one.
+ * Scoping by entity plus a per-launch nonce in the ready payload means a marker
+ * can only ever be believed by the launch that asked for it.
+ *
+ * Ownership is split deliberately: `launchPid` is the launcher's fact (the pid
+ * it spawned), `pid` is the runner's own (written by the callback at boot).
+ * Interrupt and liveness read `pid`, so they can never kill a pid nobody
+ * confirmed was the runner.
+ */
+export type RunnerPaths = {
+  /** Written by the callback at boot — the authoritative runner pid. */
+  pid: string;
+  /** Written by the launch script (`$!`) — used for OOM bias and dead-detection. */
+  launchPid: string;
+  /** Written by the callback once it is serving; payload is the launch id. */
+  ready: string;
+  /** Written by the callback's exit handler; absent means it was SIGKILLed. */
+  done: string;
+  /** Spawn flock held for the runner's lifetime (see launchScript). */
+  lock: string;
+};
+
+export function entityRunnerPaths(
+  entityIdField: string,
+  entityId: string,
+): RunnerPaths {
+  const suffix = `${entityIdField}-${entityId}`;
+  return {
+    pid: `/tmp/eva-runner.${suffix}.pid`,
+    launchPid: `/tmp/eva-runner.${suffix}.launchpid`,
+    ready: `/tmp/eva-runner.${suffix}.ready`,
+    done: `/tmp/eva-runner.${suffix}.done`,
+    lock: `/tmp/eva-runner.${suffix}.lock`,
+  };
+}
+
+/**
+ * Matches every entity's runner pidfile. Callers holding only a sandbox id
+ * (interrupt, liveness probes, post-mortem capture) use this — a sandbox
+ * belongs to exactly one entity, so the glob resolves to at most one file.
+ */
+export const RUNNER_PID_GLOB = "/tmp/eva-runner.*.pid";
+export const RUNNER_DONE_GLOB = "/tmp/eva-runner.*.done";
+
+/** Pre-Phase-3 shared markers, still cleaned up on launch for old sandboxes. */
+export const LEGACY_RUNNER_PID_FILE = "/tmp/run-design.pid";
+export const LEGACY_RUNNER_READY_FILE = "/tmp/run-design.ready";
+export const LEGACY_RUNNER_DONE_FILE = "/tmp/run-design.done";
+
 export type DaemonPaths = {
   pid: string;
   entity: string;

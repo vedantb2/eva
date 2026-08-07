@@ -14,8 +14,6 @@ import {
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 
-const QUEUE_RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
-
 /** Outcome of a queue config's pre-start guard: `ok: false` aborts before anything is cleared or inserted. */
 type ChatQueueGuardResult<TPrepared> =
   | { ok: true; data: TPrepared }
@@ -206,7 +204,7 @@ const sessionQueueConfig: ChatQueueConfig<
     }),
   onStarted: async (ctx, id, workflowId, now) => {
     await ctx.db.patch(id, { updatedAt: now });
-    await trackSessionWorkflow(ctx, id, workflowId, QUEUE_RUN_TIMEOUT_MS);
+    await trackSessionWorkflow(ctx, id, workflowId);
   },
   recordError: async (ctx, id, content) => {
     await ctx.db.insert("messages", {
@@ -265,7 +263,7 @@ const projectChatQueueConfig: ChatQueueConfig<
     ),
   onStarted: async (ctx, id, workflowId, now) => {
     await ctx.db.patch(id, { updatedAt: now });
-    await trackProjectChatWorkflow(ctx, id, workflowId, QUEUE_RUN_TIMEOUT_MS);
+    await trackProjectChatWorkflow(ctx, id, workflowId);
   },
   recordError: async (ctx, id, content) => {
     await ctx.db.insert("messages", {
@@ -324,7 +322,7 @@ const taskChatQueueConfig: ChatQueueConfig<
     ),
   onStarted: async (ctx, id, workflowId, now) => {
     await ctx.db.patch(id, { updatedAt: now });
-    await trackAgentTaskChatWorkflow(ctx, id, workflowId, QUEUE_RUN_TIMEOUT_MS);
+    await trackAgentTaskChatWorkflow(ctx, id, workflowId);
   },
   recordError: async (ctx, id, content) => {
     await ctx.db.insert("messages", {

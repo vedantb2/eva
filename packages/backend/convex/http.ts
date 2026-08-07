@@ -91,9 +91,7 @@ http.route({
       return new Response("Invalid heartbeat signature", { status: 401 });
     }
 
-    if (touchOnly) {
-      await ctx.runMutation(internal.streaming.internalTouch, { entityId });
-    } else {
+    if (!touchOnly) {
       if (!currentActivity) {
         return new Response("Missing required heartbeat fields", {
           status: 400,
@@ -106,6 +104,28 @@ http.route({
         pendingQuestion: params.get("pendingQuestion") ?? undefined,
       });
     }
+
+    // The same request renews the lease. Piggybacking on the heartbeat the
+    // runner already sends means liveness has exactly one wire signal, and the
+    // reply is how a superseded runner learns to stop: `terminal` is an order
+    // to exit, not advice. A touch-only ping carries no activity but still
+    // renews — that is the whole point of sending it during a silent tool run.
+    //
+    // Chat turns present a turnId; task runs have no turn row, so their lease
+    // hangs off the run the streaming entity already names. Both answer with
+    // the same verdict shape, so the callback needs one branch, not two.
+    const turnId = params.get("turnId");
+    const lease = turnId
+      ? await ctx.runMutation(internal.turns.renew, {
+          turnId,
+          streamingEntityId: entityId,
+          ...(currentActivity ? { currentActivity } : {}),
+        })
+      : await ctx.runMutation(internal.taskWorkflow.renewRunLeaseForEntity, {
+          streamingEntityId: entityId,
+          ...(currentActivity ? { currentActivity } : {}),
+        });
+    if (lease) return Response.json({ ok: true, lease });
 
     return Response.json({ ok: true });
   }),

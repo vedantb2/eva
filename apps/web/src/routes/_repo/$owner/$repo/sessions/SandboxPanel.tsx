@@ -28,7 +28,7 @@ import {
   getLatestVariations,
   type SessionDesignMessage,
 } from "./_utils/designVariations";
-import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
+import { useTurnInProgress } from "@/lib/components/chat/useTurnInProgress";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 interface SandboxPanelProps {
   sessionId: Id<"sessions">;
@@ -92,7 +92,7 @@ export function SandboxPanel({
   const latestVariations = getLatestVariations(messages);
   const showDesignsTab = lastMode === "design" || latestVariations.length > 0;
   const hasDesignsContent = latestVariations.length > 0;
-  const isDesignExecuting = isAssistantTurnInProgress(messages);
+  const isDesignExecuting = useTurnInProgress("session", sessionId);
   // Sticky Preview path/port + console tail, keyed by the sandbox owner so all
   // three surfaces read and write this state through the same functions.
   const viewState = useQuery(api.sandboxPanes.getViewState, { owner });

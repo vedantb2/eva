@@ -9,14 +9,37 @@ import {
   KILL_PRIOR_AGENT_PROCESSES_CMD,
 } from "./helpers";
 import { releaseSwapFile } from "./swap";
+import {
+  LEGACY_RUNNER_DONE_FILE,
+  LEGACY_RUNNER_PID_FILE,
+  RUNNER_DONE_GLOB,
+  RUNNER_PID_GLOB,
+} from "./daemonPaths";
+
+/**
+ * Exits 0 while some runner in this sandbox is still alive.
+ *
+ * Markers are entity-scoped now, and this probe only knows a sandbox id, so it
+ * sweeps every runner pidfile and pairs each with its own done file — a done
+ * file from a different entity must not retire a live runner. Zombies count as
+ * dead: a reaped-but-unwaited process answers `kill -0` and would otherwise
+ * hold the watchdog off forever.
+ */
 const CALLBACK_LIVENESS_COMMAND = [
-  "test -f /tmp/run-design.pid",
-  "test ! -f /tmp/run-design.done",
-  'pid="$(cat /tmp/run-design.pid)"',
-  'kill -0 "$pid" 2>/dev/null',
-  'state="$(ps -p "$pid" -o stat= 2>/dev/null | tr -d " ")"',
-  'case "$state" in Z*) exit 1 ;; *) exit 0 ;; esac',
-].join(" && ");
+  "alive=1",
+  `for f in ${RUNNER_PID_GLOB} ${LEGACY_RUNNER_PID_FILE}; do`,
+  '  [ -f "$f" ] || continue',
+  `  case "$f" in ${LEGACY_RUNNER_PID_FILE}) done_file=${LEGACY_RUNNER_DONE_FILE} ;; *) done_file="\${f%.pid}.done" ;; esac`,
+  '  [ -f "$done_file" ] && continue',
+  '  pid="$(cat "$f" 2>/dev/null || true)"',
+  '  [ -n "$pid" ] || continue',
+  '  kill -0 "$pid" 2>/dev/null || continue',
+  '  state="$(ps -p "$pid" -o stat= 2>/dev/null | tr -d " ")"',
+  '  case "$state" in Z*) continue ;; esac',
+  "  alive=0",
+  "done",
+  "exit $alive",
+].join("\n");
 /** Agent still running even if callback PID bookkeeping is stale. Cursor runs
  * in-process inside the callback (run-design.mjs) since the SDK migration, so
  * the callback process itself counts as agent liveness; cursor-agent stays for
@@ -27,16 +50,16 @@ const AGENT_PROCESS_LIVENESS_COMMAND =
 /**
  * Verifies whether a sandbox and its callback runner are alive.
  *
- * Used as a pre-kill liveness gate by the watchdog. When the streaming heartbeat
- * has gone stale but the sandbox + callback PID are still demonstrably alive,
- * the caller can grant a single grace cycle instead of killing immediately. This
- * protects against transient heartbeat transport failures (Convex auth flaps,
- * brief network issues) where the run itself is still healthy.
+ * Used by the lease reconcilers to word the alert, never to spare the turn. A
+ * lapsed lease is already the verdict; all this answers is whether the sandbox
+ * is gone ("its sandbox was stopped") or merely silent ("lease expired"). It
+ * deliberately cannot grant a reprieve: the old probe touched the streaming row
+ * when a pid looked alive, which reset the staleness clock of the very check
+ * sent to kill it and let a zombie run indefinitely.
  *
- * Conservative failure handling: if we cannot reach the sandbox to determine state,
- * we report `alive: true` with reason `probe_unreachable` so the watchdog does
- * NOT kill on our inability to verify. The hard 2-hour timeout (`handleStaleRun`)
- * remains a backstop.
+ * Conservative failure handling: if we cannot reach the sandbox to determine
+ * state, we report `alive: true` with reason `probe_unreachable`, which reads as
+ * "not demonstrably stopped" and leaves the wording generic.
  */
 export const verifySandboxLiveness = internalAction({
   args: {
@@ -199,7 +222,7 @@ const KILL_DIAGNOSTICS_COMMAND = [
   "echo '--- oom (dmesg) ---'",
   "(dmesg 2>/dev/null | grep -iE 'out of memory|oom[-_ ]kill|killed process' | tail -n 12) || true",
   "echo '--- done file ---'",
-  "cat /tmp/run-design.done 2>/dev/null || echo '(missing: callback died without running its exit handler, e.g. SIGKILL/OOM)'",
+  `cat ${RUNNER_DONE_GLOB} ${LEGACY_RUNNER_DONE_FILE} 2>/dev/null || echo '(missing: callback died without running its exit handler, e.g. SIGKILL/OOM)'`,
   "echo; echo '--- callback log tail ---'",
   "tail -n 30 /tmp/design.log 2>/dev/null || true",
 ].join("; ");

@@ -23,6 +23,8 @@ import {
 } from "./_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "./streaming";
 import { startNextQueuedTaskChatMessage } from "./_queues/helpers";
+import { closeOpenTurn } from "./_chat/turnStore";
+import { markChatTurnFinalizing } from "./_chat/surfaceAdapters";
 import {
   trackAgentTaskChatWorkflow,
   TASK_CHAT_STREAM_PREFIX,
@@ -472,6 +474,12 @@ export const cancelExecution = authMutation({
 
     await ctx.db.patch(args.taskId, taskPatch);
 
+    // Only when this cancel still owns the turn — if a newer one was staged
+    // meanwhile, the open row is that newer turn and must be left alone.
+    if (!newerTurnStaged && !newerWorkflowTracked) {
+      await closeOpenTurn(ctx, "taskChat", String(args.taskId), "cancelled");
+    }
+
     await startNextQueuedTaskChatMessage(ctx, args.taskId);
     return null;
   },
@@ -579,6 +587,12 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       return;
     }
 
+    const turnId = await step.runMutation(internal.turns.markLaunching, {
+      surface: "taskChat",
+      entityId: String(args.taskId),
+      sandboxId: activeSandboxId,
+    });
+
     if (getAIModelProvider(data.model) === "claude") {
       await step.runMutation(internal.agentTaskChatWorkflow.ensurePendingTurn, {
         taskId: args.taskId,
@@ -627,6 +641,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
         repoId: data.repoId,
         sessionPersistenceId: args.taskId,
         streamingEntityId,
+        ...(turnId !== null ? { turnId } : {}),
         attachmentStorageIds: data.attachmentStorageIds,
       });
     }
@@ -819,6 +834,15 @@ export const saveResult = internalMutation({
       updatedAt: Date.now(),
     });
 
+    // Before draining the queue — the next queued message opens its own turn.
+    await closeOpenTurn(
+      ctx,
+      "taskChat",
+      String(args.taskId),
+      args.success ? "done" : "error",
+      { ...(args.error !== null ? { error: args.error } : {}) },
+    );
+
     await startNextQueuedTaskChatMessage(ctx, args.taskId);
     return null;
   },
@@ -847,6 +871,10 @@ export const handleCompletion = authMutation({
     if (task.pendingTurn !== undefined) {
       await ctx.db.patch(args.taskId, { pendingTurn: undefined });
     }
+
+    // The runner stops heartbeating once it has reported; the lease switches to
+    // the finishing allowance that covers saveResult.
+    await markChatTurnFinalizing(ctx, "taskChat", String(args.taskId));
 
     await sendCompletionEvent(
       ctx,
@@ -926,7 +954,6 @@ export {
   claimPendingTurn,
   completeSyntheticTurn,
   ensurePendingTurn,
-  handleStaleSyntheticTurn,
   openSyntheticTurn,
   requestStopBackgroundAgent,
   updateBackgroundAgents,

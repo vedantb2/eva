@@ -9,6 +9,10 @@ import {
   STREAMING_HEARTBEAT_MAX_RETRIES,
 } from "../config.js";
 import type { ConvexCallType, JsonObject, JsonValue } from "../types.js";
+import {
+  getCurrentTurnId,
+  noteHeartbeatResponse,
+} from "../runtime/turnLease.js";
 import { readResponseJson } from "../utils.js";
 
 /** Wraps fetch with an AbortController timeout. */
@@ -88,33 +92,56 @@ export async function callConvexWithRetry(
   }
 }
 
-/** Lightweight heartbeat that only bumps streamingActivity.lastUpdatedAt in Convex. */
+/**
+ * POSTs one signed heartbeat. Every heartbeat carries the turn id this process
+ * owns and every reply is fed to the lease reader, so no caller can forget
+ * either half of the protocol.
+ */
+async function postStreamingHeartbeat(
+  siteUrl: string,
+  body: URLSearchParams,
+  label: string,
+): Promise<string> {
+  const turnId = getCurrentTurnId();
+  if (turnId) body.set("turnId", turnId);
+  const res = await fetchWithTimeout(siteUrl + "/api/streaming/heartbeat", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(label + " failed: " + res.status + " " + text);
+  }
+  const text = await res.text();
+  noteHeartbeatResponse(text);
+  return text;
+}
+
+/**
+ * Payload-free heartbeat sent during long silent tool runs. It carries no
+ * activity, so its only job is to renew the lease — which is why there is no
+ * mutation fallback any more: `streaming:touch` bumped a timestamp that nothing
+ * reads now, and a runner that cannot reach the signed route cannot hold its
+ * lease. Failing here is the truth, and the retry/fatal-burst logic acts on it.
+ */
 async function callStreamingHeartbeatTouchOnce(
   entityId: string,
 ): Promise<string | JsonValue> {
-  if (CONVEX_SITE_URL && STREAMING_HMAC) {
-    const body = new URLSearchParams();
-    body.set("entityId", entityId);
-    body.set("hmac", STREAMING_HMAC);
-    body.set("touchOnly", "1");
-    const res = await fetchWithTimeout(
-      CONVEX_SITE_URL + "/api/streaming/heartbeat",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body,
-      },
+  if (!CONVEX_SITE_URL || !STREAMING_HMAC) {
+    throw new Error(
+      "Streaming heartbeat touch needs CONVEX_SITE_URL and the streaming HMAC",
     );
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(
-        "Streaming heartbeat touch failed: " + res.status + " " + text,
-      );
-    }
-    return res.text();
   }
-
-  return await callConvex("mutation", "streaming:touch", { entityId });
+  const body = new URLSearchParams();
+  body.set("entityId", entityId);
+  body.set("hmac", STREAMING_HMAC);
+  body.set("touchOnly", "1");
+  return await postStreamingHeartbeat(
+    CONVEX_SITE_URL,
+    body,
+    "Streaming heartbeat touch",
+  );
 }
 
 /** Sends one streaming heartbeat request through the scoped HMAC endpoint or legacy mutation fallback. */
@@ -133,19 +160,11 @@ async function callStreamingHeartbeatOnce(
     if (pendingQuestion) {
       body.set("pendingQuestion", pendingQuestion);
     }
-    const res = await fetchWithTimeout(
-      CONVEX_SITE_URL + "/api/streaming/heartbeat",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body,
-      },
+    return await postStreamingHeartbeat(
+      CONVEX_SITE_URL,
+      body,
+      "Streaming heartbeat",
     );
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error("Streaming heartbeat failed: " + res.status + " " + text);
-    }
-    return res.text();
   }
 
   const args: JsonObject = {

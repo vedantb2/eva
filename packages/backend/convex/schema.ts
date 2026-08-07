@@ -92,6 +92,7 @@ const schema = defineSchema({
     .index("by_task", ["taskId"])
     .index("by_task_and_status", ["taskId", "status"])
     .index("by_status", ["status"])
+    .index("by_status_lease", ["status", "leaseExpiresAt"])
     .index("by_pr_url", ["prUrl"]),
 
   agentRunActivityLogs: defineTable({
@@ -175,6 +176,51 @@ const schema = defineSchema({
     pendingQuestion: v.optional(v.string()),
     lastUpdatedAt: v.optional(v.number()),
   }).index("by_entity", ["entityId"]),
+  // The one source of truth for "a chat turn is running". A turn is running
+  // iff an open row here holds an unexpired lease; every other signal
+  // (activeWorkflowId, streamingActivity.lastUpdatedAt, sandbox pidfiles) is
+  // an inference that can disagree with reality. Only the actor holding the
+  // current turnId may renew, so a zombie runner cannot keep its own turn
+  // alive, and the 60s reconciler cron converges anything whose lease lapsed.
+  turns: defineTable({
+    surface: v.union(
+      v.literal("session"),
+      v.literal("taskChat"),
+      v.literal("projectChat"),
+    ),
+    // String(entity._id) — the same basis as adapter.streamingEntityId, minus
+    // the per-surface prefix (surface is its own column here).
+    entityId: v.string(),
+    // adapter.streamingEntityId(id), stored so lease renewal can classify the
+    // turn phase from the activity row without dispatching on surface.
+    streamingEntityId: v.string(),
+    state: v.union(
+      v.literal("staged"), // staged by startExecute; workflow not confirmed
+      v.literal("launching"), // sandbox resume/thaw/prepare steps running
+      v.literal("running"), // callback claimed the turn (heartbeat with turnId)
+      v.literal("finalizing"), // completion received; push/save still to do
+      v.literal("done"),
+      v.literal("error"),
+      v.literal("cancelled"),
+    ),
+    // Denormalised `state not in {done,error,cancelled}` so the reconciler can
+    // scan by index instead of filtering every terminal row ever written.
+    open: v.boolean(),
+    leaseExpiresAt: v.number(),
+    turnStartedAt: v.number(),
+    finishedAt: v.optional(v.number()),
+    error: v.optional(v.string()),
+    workflowId: v.optional(v.string()),
+    placeholderMessageId: v.optional(v.id("messages")),
+    model: v.string(),
+    sandboxId: v.optional(v.string()),
+    // Needed by the renewal handler to push the provider's runtime cap out
+    // (extendSandboxDeadline), which used to be a watchdog-chain side effect.
+    repoId: v.optional(v.id("githubRepos")),
+    cancelRequestedAt: v.optional(v.number()),
+  })
+    .index("by_entity_open", ["surface", "entityId", "open"])
+    .index("by_open_lease", ["open", "leaseExpiresAt"]),
   // Single-flight guard for warm-daemon launches (claimDaemonLaunchLease).
   // Prewarm bursts (page opens, doc-patch refires) used to race the multi-
   // second check-then-launch window and boot duplicate daemons; only the

@@ -40,7 +40,7 @@ import type { TabGroupColor } from "@/lib/components/sidebar/session-tabs/tabGro
 export const TAB_PREFERRED_WIDTH_REM = 14;
 
 export interface ChromeTabSession {
-  _id: string;
+  _id: Id<"sessions">;
   _creationTime: number;
   numId?: number;
   title: string;
@@ -49,7 +49,6 @@ export interface ChromeTabSession {
   branchName?: string;
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
-  firstMessagePreview?: string | null;
 }
 
 interface SessionChromeTabProps {
@@ -290,7 +289,7 @@ export function SessionChromeTab({
       >
         <SessionHoverCardBody
           title={session.title}
-          preview={session.firstMessagePreview}
+          sessionId={session._id}
           createdAt={session._creationTime}
           userId={session.userId}
         />

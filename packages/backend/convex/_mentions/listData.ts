@@ -54,6 +54,10 @@ function docDescriptionPreview(doc: {
 /**
  * Lists Data `@` mention candidates for a repo: documents, sessions, projects,
  * and quick tasks (agentTasks). Lightweight fields only for the picker.
+ *
+ * Caps each source at 200 most-recent rows so a large repo cannot stream every
+ * historical doc/session (full `docs.content` bodies especially) into every
+ * composer subscription.
  */
 export const listData = authQuery({
   args: { repoId: v.id("githubRepos") },
@@ -62,14 +66,20 @@ export const listData = authQuery({
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
 
     const items: DataMentionItem[] = [];
+    const MENTION_LIST_CAP = 200;
 
     const docs = await ctx.db
       .query("docs")
       .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
+      .order("desc")
+      .take(MENTION_LIST_CAP);
     for (const doc of docs) {
       if (isEntityDeleted(doc)) continue;
-      const description = docDescriptionPreview(doc);
+      // Prefer stored description — avoid pulling the whole body into the
+      // picker payload even though the document read already paid for it.
+      const description = doc.description?.trim()
+        ? previewOneLine(doc.description)
+        : undefined;
       items.push({
         kind: "document",
         id: doc._id,
@@ -85,7 +95,8 @@ export const listData = authQuery({
         .query("sessions")
         .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
         .filter((q) => q.neq(q.field("archived"), true))
-        .collect(),
+        .order("desc")
+        .take(MENTION_LIST_CAP),
     );
     for (const session of sessions) {
       items.push({
@@ -101,7 +112,8 @@ export const listData = authQuery({
       await ctx.db
         .query("projects")
         .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-        .collect(),
+        .order("desc")
+        .take(MENTION_LIST_CAP),
     );
     for (const project of projects) {
       const description = project.description?.trim();
@@ -115,9 +127,10 @@ export const listData = authQuery({
       });
     }
 
+    // Open work only — done tasks rarely need @-mention and dominate large repos.
     const taskStatuses: Array<
-      "todo" | "in_progress" | "code_review" | "business_review" | "done"
-    > = ["todo", "in_progress", "code_review", "business_review", "done"];
+      "todo" | "in_progress" | "code_review" | "business_review"
+    > = ["todo", "in_progress", "code_review", "business_review"];
     const taskArrays = await Promise.all(
       taskStatuses.map((status) =>
         ctx.db
@@ -125,7 +138,7 @@ export const listData = authQuery({
           .withIndex("by_repo_and_status", (q) =>
             q.eq("repoId", args.repoId).eq("status", status),
           )
-          .collect(),
+          .take(MENTION_LIST_CAP),
       ),
     );
     for (const task of filterActiveEntities(taskArrays.flat())) {

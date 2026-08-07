@@ -3,6 +3,7 @@ export {
   listArchived,
   get,
   getByNumId,
+  getFirstMessagePreview,
   countActive,
 } from "./_sessions/queries";
 

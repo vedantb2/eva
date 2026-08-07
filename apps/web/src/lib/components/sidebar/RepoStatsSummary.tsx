@@ -30,7 +30,7 @@ export function RepoStatsSummary({
   collapsed,
 }: RepoStatsSummaryProps) {
   const impactStats = useQuery(
-    api.analytics.getImpactStats,
+    api.analytics.getShipRateStats,
     repo ? { repoId: repo._id } : "skip",
   );
 

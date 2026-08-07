@@ -93,6 +93,9 @@ export function SessionFolderAuthor({ userId }: { userId: Id<"users"> }) {
 
 interface SessionHoverCardBodyProps {
   title: string;
+  /** When set, loads the first user-message preview from messages (SoT). */
+  sessionId?: Id<"sessions">;
+  /** Precomputed preview — prefer sessionId so list queries stay join-free. */
   preview?: string | null;
   createdAt: number;
   userId: Id<"users">;
@@ -104,10 +107,20 @@ interface SessionHoverCardBodyProps {
  */
 export function SessionHoverCardBody({
   title,
-  preview,
+  sessionId,
+  preview: previewProp,
   createdAt,
   userId,
 }: SessionHoverCardBodyProps) {
+  const fetchedPreview = useQuery(
+    api.sessions.getFirstMessagePreview,
+    sessionId ? { id: sessionId } : "skip",
+  );
+  const preview =
+    sessionId !== undefined
+      ? (fetchedPreview ?? null)
+      : (previewProp ?? null);
+
   return (
     <>
       <p className="text-sm font-medium text-foreground">{title}</p>

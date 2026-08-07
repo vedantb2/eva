@@ -1,6 +1,50 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { authQuery, hasRepoAccess } from "./functions";
+import { filterActiveEntities } from "./numId";
+
+/**
+ * Sidebar cook-rate strip: done + cancelled task counts only.
+ *
+ * RepoStatsSummary used to subscribe to `getImpactStats` with no time window,
+ * which collected every session, project, task, and fat agentRun (logs) for
+ * the repo on every sidebar mount. This query only needs two status indexes.
+ */
+export const getShipRateStats = authQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.object({
+    tasksRan: v.number(),
+    shipRate: v.number(),
+  }),
+  handler: async (ctx, args) => {
+    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+      return { tasksRan: 0, shipRate: 0 };
+    }
+    const [doneDocs, cancelledDocs] = await Promise.all([
+      ctx.db
+        .query("agentTasks")
+        .withIndex("by_repo_and_status", (q) =>
+          q.eq("repoId", args.repoId).eq("status", "done"),
+        )
+        .collect(),
+      ctx.db
+        .query("agentTasks")
+        .withIndex("by_repo_and_status", (q) =>
+          q.eq("repoId", args.repoId).eq("status", "cancelled"),
+        )
+        .collect(),
+    ]);
+    const done = filterActiveEntities(doneDocs).length;
+    const cancelled = filterActiveEntities(cancelledDocs).length;
+    const tasksRan = done + cancelled;
+    return {
+      tasksRan,
+      shipRate: tasksRan > 0 ? Math.round((done / tasksRan) * 100) : 0,
+    };
+  },
+});
 
 /**
  * Returns aggregate impact metrics for a repo, with optional period comparison.
@@ -43,33 +87,53 @@ export const getImpactStats = authQuery({
       };
     }
     const startTime = args.startTime;
-
-    const sessions = await ctx.db
-      .query("sessions")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
-    const allTasks = await ctx.db
-      .query("agentTasks")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
-    const projects = await ctx.db
-      .query("projects")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-      .collect();
-
-    // Runs are only consulted for tasks that can appear in either the current
-    // or previous window (filter is task.updatedAt). Skip older tasks' runs —
-    // agentRuns documents carry large `logs` arrays.
-    const runsWindowStart =
+    const rangeStart =
       args.previousStartTime !== undefined
         ? args.previousStartTime
         : args.startTime;
-    const tasksNeedingRuns = (
-      runsWindowStart === undefined
-        ? allTasks
-        : allTasks.filter((task) => task.updatedAt >= runsWindowStart)
-    ).filter((task) => task.status !== "draft");
 
+    const sessions =
+      rangeStart === undefined
+        ? await ctx.db
+            .query("sessions")
+            .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+            .collect()
+        : await ctx.db
+            .query("sessions")
+            .withIndex("by_repo", (q) =>
+              q.eq("repoId", args.repoId).gte("_creationTime", rangeStart),
+            )
+            .collect();
+
+    const allTasks =
+      rangeStart === undefined
+        ? await ctx.db
+            .query("agentTasks")
+            .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+            .collect()
+        : await ctx.db
+            .query("agentTasks")
+            .withIndex("by_repo_and_updatedAt", (q) =>
+              q.eq("repoId", args.repoId).gte("updatedAt", rangeStart),
+            )
+            .collect();
+
+    const projects =
+      rangeStart === undefined
+        ? await ctx.db
+            .query("projects")
+            .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+            .collect()
+        : await ctx.db
+            .query("projects")
+            .withIndex("by_repo", (q) =>
+              q.eq("repoId", args.repoId).gte("_creationTime", rangeStart),
+            )
+            .collect();
+
+    // Runs are only consulted for tasks that can appear in either the current
+    // or previous window. Skip older tasks' runs — agentRuns carry large logs.
+    const tasksNeedingRuns = allTasks.filter((task) => task.status !== "draft");
     const runsByTaskId = new Map<string, Array<{ prUrl?: string }>>();
     await Promise.all(
       tasksNeedingRuns.map(async (task) => {

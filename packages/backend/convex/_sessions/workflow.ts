@@ -998,8 +998,12 @@ export const claimPendingTurn = authMutation({
     };
     const session = await ctx.db.get(args.sessionId);
     if (!session) return emptyClaim;
-    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
-      throw new Error("Not authorized");
+    // Daemon polls this ~20×/s; skip the repo+membership join when the token
+    // is already the session owner (the normal sandbox CONVEX_TOKEN case).
+    if (session.userId !== ctx.userId) {
+      if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+        throw new Error("Not authorized");
+    }
 
     // Withhold the turn while a new session's sandbox is still pulling the
     // latest base branch and reinstalling drifted deps (flag set at early-ready,

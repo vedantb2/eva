@@ -52,6 +52,7 @@ function prStateIconColor(
 interface SidebarSessionItemProps {
   href: string;
   title: string;
+  sessionId: Id<"sessions">;
   userId: Id<"users">;
   createdAt: number;
   updatedAt?: number;
@@ -60,7 +61,6 @@ interface SidebarSessionItemProps {
   onNavigate?: () => void;
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
-  firstMessagePreview?: string | null;
 }
 
 function SessionPrIcon({
@@ -83,6 +83,7 @@ function SessionPrIcon({
 export function SidebarSessionItem({
   href,
   title,
+  sessionId,
   userId,
   createdAt,
   updatedAt,
@@ -91,7 +92,6 @@ export function SidebarSessionItem({
   onNavigate,
   prUrl,
   prState,
-  firstMessagePreview,
 }: SidebarSessionItemProps) {
   const { settings } = useSessionsSidebarSettings();
   const isFolder = settings.layout === "folder";
@@ -163,7 +163,7 @@ export function SidebarSessionItem({
       >
         <SessionHoverCardBody
           title={title}
-          preview={firstMessagePreview}
+          sessionId={sessionId}
           createdAt={createdAt}
           userId={userId}
         />

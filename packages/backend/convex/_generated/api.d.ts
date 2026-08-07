@@ -155,6 +155,7 @@ import type * as _sandbox_runtime_runDevServer from "../_sandbox_runtime/runDevS
 import type * as _sandbox_runtime_services from "../_sandbox_runtime/services.js";
 import type * as _sandbox_runtime_sessions from "../_sandbox_runtime/sessions.js";
 import type * as _sandbox_runtime_snapshotStates from "../_sandbox_runtime/snapshotStates.js";
+import type * as _sandbox_runtime_swap from "../_sandbox_runtime/swap.js";
 import type * as _sandbox_runtime_vercelAppPorts from "../_sandbox_runtime/vercelAppPorts.js";
 import type * as _sessions_backgroundAgents from "../_sessions/backgroundAgents.js";
 import type * as _sessions_baseBranch from "../_sessions/baseBranch.js";
@@ -484,6 +485,7 @@ declare const fullApi: ApiFromModules<{
   "_sandbox_runtime/services": typeof _sandbox_runtime_services;
   "_sandbox_runtime/sessions": typeof _sandbox_runtime_sessions;
   "_sandbox_runtime/snapshotStates": typeof _sandbox_runtime_snapshotStates;
+  "_sandbox_runtime/swap": typeof _sandbox_runtime_swap;
   "_sandbox_runtime/vercelAppPorts": typeof _sandbox_runtime_vercelAppPorts;
   "_sessions/backgroundAgents": typeof _sessions_backgroundAgents;
   "_sessions/baseBranch": typeof _sessions_baseBranch;

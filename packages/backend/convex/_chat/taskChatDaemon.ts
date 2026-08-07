@@ -46,11 +46,12 @@ export const claimPendingTurn = authMutation({
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
     if (!task) return emptyClaimReturn;
-    if (
-      !task.repoId ||
-      !(await hasRepoAccess(ctx.db, task.repoId, ctx.userId))
-    ) {
-      throw new Error("Not authorized");
+    if (!task.repoId) throw new Error("Not authorized");
+    // Daemon polls ~20×/s — skip team-membership join for the task creator.
+    if (task.createdBy !== ctx.userId) {
+      if (!(await hasRepoAccess(ctx.db, task.repoId, ctx.userId))) {
+        throw new Error("Not authorized");
+      }
     }
     // Stops must drain unconditionally: a backgrounded agent outlives the chat
     // turn, and saveResult clears activeChatWorkflowId the moment the visible

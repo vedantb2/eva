@@ -16,6 +16,9 @@ import { sessionValidator } from "./helpers";
 /**
  * Sidebar list shape: omit heavy session fields (planContent, terminal tail,
  * pendingTurn, etc.) so list subscriptions stay small. Detail views use `get`.
+ *
+ * First-message hover preview is not included — that would N+1 into messages
+ * for every row. Hover cards fetch `getFirstMessagePreview` on demand.
  */
 const sessionListItemValidator = v.object({
   _id: v.id("sessions"),
@@ -47,14 +50,10 @@ const sessionListItemValidator = v.object({
   lastMode: v.optional(sessionModeValidator),
   deploymentStatus: v.optional(deploymentStatusValidator),
   deploymentUrl: v.optional(v.string()),
-  firstMessagePreview: v.union(v.string(), v.null()),
 });
 
 /** Maps a full session doc to the slim list payload. */
-function toSessionListItem(
-  session: Doc<"sessions">,
-  firstMessagePreview: string | null,
-) {
+function toSessionListItem(session: Doc<"sessions">) {
   return {
     _id: session._id,
     _creationTime: session._creationTime,
@@ -79,28 +78,12 @@ function toSessionListItem(
     lastMode: session.lastMode,
     deploymentStatus: session.deploymentStatus,
     deploymentUrl: session.deploymentUrl,
-    firstMessagePreview,
   };
 }
 
 /** Sorts sessions by most recently updated (falling back to creation time). */
 function byMostRecentlyUpdated(a: Doc<"sessions">, b: Doc<"sessions">): number {
   return (b.updatedAt ?? b._creationTime) - (a.updatedAt ?? a._creationTime);
-}
-
-/** Attaches a short first-user-message preview for sidebar hover cards. */
-async function withFirstMessagePreviews(
-  db: Parameters<typeof firstUserMessagePreview>[0],
-  sessions: Doc<"sessions">[],
-) {
-  return await Promise.all(
-    sessions.map(async (session) =>
-      toSessionListItem(
-        session,
-        await firstUserMessagePreview(db, session._id),
-      ),
-    ),
-  );
 }
 
 /** Lists all non-archived sessions for a repo, sorted by most recently updated. */
@@ -116,10 +99,7 @@ export const list = authQuery({
         .filter((q) => q.neq(q.field("archived"), true))
         .collect(),
     );
-    return await withFirstMessagePreviews(
-      ctx.db,
-      sessions.sort(byMostRecentlyUpdated),
-    );
+    return sessions.sort(byMostRecentlyUpdated).map(toSessionListItem);
   },
 });
 
@@ -137,10 +117,22 @@ export const listArchived = authQuery({
         )
         .collect(),
     );
-    return await withFirstMessagePreviews(
-      ctx.db,
-      sessions.sort(byMostRecentlyUpdated),
-    );
+    return sessions.sort(byMostRecentlyUpdated).map(toSessionListItem);
+  },
+});
+
+/**
+ * Point-in-time first user-message preview for sidebar hover cards.
+ * Messages stay the only source of truth — list subscriptions never join them.
+ */
+export const getFirstMessagePreview = authQuery({
+  args: { id: v.id("sessions") },
+  returns: v.union(v.string(), v.null()),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.id);
+    if (!session) return null;
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) return null;
+    return await firstUserMessagePreview(ctx.db, args.id);
   },
 });
 

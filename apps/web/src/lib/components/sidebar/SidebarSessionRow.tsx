@@ -27,7 +27,7 @@ import { SharedLayoutNavSurface } from "@/lib/components/sidebar/SharedLayoutNav
 type SessionStatus = "active" | "starting" | "stopping" | "closed";
 
 interface SessionItem {
-  _id: string;
+  _id: Id<"sessions">;
   numId?: number;
   _creationTime: number;
   userId: Id<"users">;
@@ -38,7 +38,6 @@ interface SessionItem {
   branchName?: string;
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
-  firstMessagePreview?: string | null;
 }
 
 interface SidebarSessionRowProps<T extends SessionItem> {
@@ -95,6 +94,7 @@ export function SidebarSessionRow<T extends SessionItem>({
             <SidebarSessionItem
               href={href}
               title={session.title}
+              sessionId={session._id}
               userId={session.userId}
               createdAt={session._creationTime}
               updatedAt={session.updatedAt}
@@ -103,7 +103,6 @@ export function SidebarSessionRow<T extends SessionItem>({
               onNavigate={onNavigate}
               prUrl={prUrl}
               prState={session.prState}
-              firstMessagePreview={session.firstMessagePreview}
             />
           </SharedLayoutNavSurface>
         </m.div>

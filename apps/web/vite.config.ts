@@ -6,6 +6,7 @@ import tanstackRouter from "@tanstack/router-plugin/vite";
 import { visualizer } from "rollup-plugin-visualizer";
 import path from "path";
 import { tablerDeepImports } from "./vite/deepImports";
+import { tablerIconData } from "./vite/tablerIconData";
 import { originHints } from "./vite/originHints";
 
 function agentLoginPlugin(): Plugin {
@@ -87,9 +88,11 @@ export default defineConfig({
     // React Compiler for both dev and build so local runtime matches production
     // memoization (dev transforms are slower; worth it for responsive UI).
     babel({ presets: [reactCompilerPreset()] }),
-    // Only `tablerIcon.ts` still reaches the icon barrel, behind a dynamic
-    // import — see lib/components/TablerIconByName.tsx.
+    // Nothing imports the icon barrel anymore: static imports are rewritten to
+    // deep paths here, and icon-by-name resolution reads raw path data from
+    // the virtual module below — see lib/components/TablerIconByName.tsx.
     tablerDeepImports(),
+    tablerIconData(),
     originHints(),
     agentLoginPlugin(),
     process.env.ANALYZE === "true" &&

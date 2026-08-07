@@ -3,6 +3,7 @@
 import type { SandboxHandle } from "../_sandbox/provider";
 import { defaultTerminalPtyId } from "../_sandbox_runtime/devServer";
 import { workspaceDirShell } from "../_sandbox_runtime/helpers";
+import { ensureSwapFile } from "../_sandbox_runtime/swap";
 import {
   EVA_ENV_FILE,
   tmuxNewSessionWithEvaEnv,
@@ -48,6 +49,14 @@ export async function launchDevServerInVercelConsole(
     );
     return;
   }
+
+  // The single Console launcher for sessions, quick tasks and project chats —
+  // and the only dev-server gate on paths that never booted through
+  // ensureSandboxRunning (preview self-heal on a lazily resumed VM, which comes
+  // up with no swap because stop released it). A cold `next dev` compile is the
+  // second half of the stack that OOM-killed the Convex backend, so make sure
+  // there is swap before starting one. No-op exec when swap is already active.
+  await ensureSwapFile(handle);
 
   const script = [
     "#!/usr/bin/env bash",

@@ -8,6 +8,7 @@ import {
   bootstrapVercelDocker,
   workspaceDirShell,
 } from "./helpers";
+import { ensureSwapFile } from "./swap";
 
 const SUPABASE_DUMP_PATH =
   "/home/eva/.eva-snapshot-state/supabase-db-web.pg_dump.sql.gz";
@@ -281,6 +282,12 @@ export async function launchDevServerInBackground(
   if (launchState !== "launch") {
     return;
   }
+
+  // Detached launcher used by the task-only dev server re-run
+  // (runDevServerInTaskSandbox), which reaches a running sandbox without a boot
+  // step. Guarded like the Console launcher so a cold compile cannot spike into
+  // a swapless VM. Placed after the lock check: no-op relaunches pay nothing.
+  await ensureSwapFile(sandbox);
 
   const script = [
     "#!/usr/bin/env bash",

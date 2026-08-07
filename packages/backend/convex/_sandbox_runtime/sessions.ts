@@ -27,6 +27,7 @@ import {
   SESSION_LIFECYCLE,
 } from "./git";
 import { ensureGitCredentialHelper } from "./gitCredentials";
+import { ensureSwapFile } from "./swap";
 import type { SandboxClient, SandboxHandle } from "../_sandbox/provider";
 import {
   detectPackageManager,
@@ -312,6 +313,9 @@ async function resumeReusedSandbox(
   await abortIfStopRequested();
   // Unlock chat/tabs as soon as the VM is up — docker/git/services continue.
   await opts.onEarlyReady();
+  // ensureSandboxRunning skipped the per-boot bootstrap to unlock sooner; pay
+  // it here, swap first, before any service can spike memory.
+  await ensureSwapFile(handle);
   await ensureDockerDaemon(handle);
   await abortIfStopRequested();
   // Self-heal: rotate the per-sandbox secret + reinstall the helper every

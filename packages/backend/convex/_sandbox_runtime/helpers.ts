@@ -11,6 +11,7 @@ import {
 import type { SandboxClient, SandboxHandle } from "../_sandbox/provider";
 import { getSandboxClient } from "../_sandbox/factory";
 import { launchScript } from "./launch";
+import { ensureSwapFile } from "./swap";
 
 export const WORKSPACE_DIR = "/tmp/repo";
 export const LEGACY_WORKSPACE_DIR = "/workspace/repo";
@@ -281,7 +282,11 @@ export async function ensureSandboxRunning(
   options: {
     timeoutSeconds?: number;
     onRestoring?: () => Promise<void>;
-    /** When true, skip dockerd bootstrap — caller runs it after unlocking the UI. */
+    /**
+     * When true, skip the per-boot bootstrap (swap + dockerd) — either the
+     * caller runs it itself after unlocking the UI (session reuse early-ready),
+     * or the sandbox runs no workload at all (snapshot retention start/stop).
+     */
     skipDocker?: boolean;
     /**
      * When true, skip the post-start `echo 1` exec probe. start() already
@@ -331,6 +336,7 @@ export async function ensureSandboxRunning(
         `[sandbox] ensureSandboxRunning: sandbox ${sandbox.id} already running (${Date.now() - startedAt}ms)`,
       );
       if (!options.skipDocker) {
+        await ensureSwapFile(sandbox);
         await ensureDockerDaemon(sandbox);
       }
       return;
@@ -382,10 +388,12 @@ export async function ensureSandboxRunning(
     `[sandbox] ensureSandboxRunning: sandbox ${sandbox.id} now running (total ${Date.now() - startedAt}ms${options.skipExecProbe ? ", exec probe skipped" : ""})`,
   );
 
-  // dockerd doesn't run as a system service, so it's lost on auto-stop/resume.
-  // Re-check (and restart if needed) on every ensureSandboxRunning call unless
+  // Neither swap nor dockerd runs as a system service, so both are lost on
+  // auto-stop/resume. Re-provision on every ensureSandboxRunning call unless
   // the caller wants to unlock the UI first (session reuse early-ready).
+  // Swap goes first: it is what keeps the next memory spike from OOM-killing.
   if (!options.skipDocker) {
+    await ensureSwapFile(sandbox);
     await ensureDockerDaemon(sandbox);
   }
 }

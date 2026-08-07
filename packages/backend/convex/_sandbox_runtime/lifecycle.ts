@@ -8,6 +8,7 @@ import {
   getSandboxHandle,
   KILL_PRIOR_AGENT_PROCESSES_CMD,
 } from "./helpers";
+import { releaseSwapFile } from "./swap";
 const CALLBACK_LIVENESS_COMMAND = [
   "test -f /tmp/run-design.pid",
   "test ! -f /tmp/run-design.done",
@@ -161,6 +162,9 @@ export const stopSandbox = internalAction({
   handler: async (ctx, args) => {
     try {
       const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+      // Stop auto-snapshots the filesystem — drop the swapfile first so the
+      // resume image does not carry GBs the next boot recreates for free.
+      await releaseSwapFile(sandbox);
       await sandbox.stop();
       console.log(`[sandbox] stopSandbox ok sandboxId=${args.sandboxId}`);
     } catch (error) {
@@ -283,6 +287,7 @@ export const archiveSandbox = internalAction({
 
       // Stop first if currently running (archive requires stopped state)
       if (state === "running") {
+        await releaseSwapFile(sandbox);
         await sandbox.stop();
         console.log(`[sandbox] Stopped sandbox ${args.sandboxId}`);
       }

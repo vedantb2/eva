@@ -23,6 +23,11 @@ import {
   isConvexBackendCommand,
   CONVEX_FUNCTIONS_READY_LOG_LINE,
 } from "./_sandbox_runtime/convexLocalBackend";
+import {
+  buildEnsureSwapScript,
+  releaseSwapFile,
+  resolveSwapConfig,
+} from "./_sandbox_runtime/swap";
 import { Sandbox, Snapshot } from "@vercel/sandbox";
 import { SANDBOX_TAG } from "./_sandbox/tags";
 
@@ -356,6 +361,15 @@ export const launchSeedRun = internalAction({
         });
       });
     }
+    // Swap before install/build/daemons: the seed run is the single most
+    // memory-hungry stretch a sandbox ever sees (dep install, then a full
+    // Convex import validated against every restored doc). Same script as the
+    // per-boot provisioning so there is one source of truth; base64 keeps its
+    // quoting intact inside this generated script.
+    lines.push(
+      'echo "SEEDRUN-STAGE:swap"',
+      `echo ${Buffer.from(buildEnsureSwapScript(resolveSwapConfig()), "utf8").toString("base64")} | base64 -d > /tmp/eva-ensure-swap.sh && bash /tmp/eva-ensure-swap.sh || true`,
+    );
     // ---- update: latest code + fresh deps/artifacts ----
     lines.push(
       'echo "SEEDRUN-STAGE:update"',
@@ -704,6 +718,9 @@ export const triggerSeededSnapshot = internalAction({
     const { credentials } = await resolveSandboxCredentials(ctx, args.repoId);
     const client = getSandboxClient(credentials);
     const handle = await client.get(args.sandboxId);
+    // The seeded snapshot is the base image for every sandbox of this repo —
+    // never bake the swapfile into it. Each boot recreates swap in seconds.
+    await releaseSwapFile(handle);
     const { snapshotId } = await handle.createSnapshot({
       name: args.seededName,
     });

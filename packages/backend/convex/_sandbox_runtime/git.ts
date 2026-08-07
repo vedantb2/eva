@@ -26,6 +26,7 @@ import {
   installPythonDependenciesBestEffort,
 } from "./devServer";
 import { ensureGitCredentialHelper } from "./gitCredentials";
+import { ensureSwapFile } from "./swap";
 import {
   EVA_ENV_FILE,
   ensureEvaEnvInteractiveHookScript,
@@ -414,6 +415,15 @@ export async function createSandbox(
           // a default is set. Rebase keeps session history linear when they do.
           await execHandle(sandbox, "git config --global pull.rebase true", 10);
         },
+      );
+
+      // Every sandbox eva creates — session, quick task, project chat or seed
+      // prep — starts here, and the memory-hungry stages that follow (snapshot
+      // dependency install, `next build`, the first Convex backend open) all run
+      // before any resume path could provision swap. ensureSandboxRunning covers
+      // later boots; this covers the first one.
+      await runLoggedGitStep("createSandbox.ensureSwap", sandbox.id, () =>
+        ensureSwapFile(sandbox),
       );
 
       // Start Docker daemon if available (for Docker-in-Docker / Supabase local
@@ -1224,9 +1234,7 @@ export async function getOrCreateSandbox(
         return { sandbox: resumed, isNew: false, resumeFellBack: false };
       }
       if (onProgress) {
-        await onProgress(
-          "Previous sandbox expired — creating a fresh one...",
-        );
+        await onProgress("Previous sandbox expired — creating a fresh one...");
       }
     }
     const { sandbox } = await createSandboxAndPrepareRepo(
@@ -1294,7 +1302,11 @@ async function tryResumeSandbox(
       try {
         await sandbox.refresh();
       } catch (refreshErr) {
-        if (isSandboxMissingError(refreshErr instanceof Error ? refreshErr : String(refreshErr))) {
+        if (
+          isSandboxMissingError(
+            refreshErr instanceof Error ? refreshErr : String(refreshErr),
+          )
+        ) {
           logGit(
             `getOrCreateSandbox: resume refresh says gone — will create new one (${refreshErr instanceof Error ? refreshErr.message : String(refreshErr)})`,
           );

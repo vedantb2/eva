@@ -41,6 +41,7 @@ import {
   isConvexBackendCommand,
   CONVEX_FUNCTIONS_READY_LOG_LINE,
 } from "./convexLocalBackend";
+import { ensureSwapFile } from "./swap";
 import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
 
@@ -331,6 +332,13 @@ export const runBackgroundCommands = internalAction({
     console.log(
       `[sandbox] runBackgroundCommands: launching ${commands.length} background command(s)${args.onlyRestartDead ? " (onlyRestartDead)" : ""}`,
     );
+
+    // Last gate before the memory-hungry daemons (`convex dev` restoring a
+    // large snapshot, `next dev` cold compile). ensureSandboxRunning normally
+    // provisioned swap already, so this is a single cheap no-op exec — but it
+    // also covers relaunch paths that reach here without a fresh boot
+    // (onlyRestartDead heal, preview repair).
+    await ensureSwapFile(sandbox);
 
     const errors: string[] = [];
     let launched = 0;

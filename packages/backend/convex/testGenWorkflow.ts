@@ -120,32 +120,43 @@ export const testGenWorkflow = workflow.define({
 
       if (result.success) {
         try {
-          await step.runAction(internal.sandbox.pushSandboxBranch, {
-            sandboxId,
-            installationId: args.installationId,
-            repoOwner: docData.repoOwner,
-            repoName: docData.repoName,
-            repoId: docData.repoId,
-            branchName: docData.branchName,
-          });
-
-          prUrl = await step.runAction(
-            internal.taskWorkflowActions.createPullRequest,
+          const pushResult = await step.runAction(
+            internal.sandbox.pushSandboxBranch,
             {
+              sandboxId,
               installationId: args.installationId,
               repoOwner: docData.repoOwner,
               repoName: docData.repoName,
+              repoId: docData.repoId,
               branchName: docData.branchName,
-              title: `Add tests for ${docData.docTitle}`,
-              body: buildPrBody([
-                {
-                  heading: "Summary",
-                  content: `Auto-generated tests for the **${docData.docTitle}** document.`,
-                },
-              ]),
-              labels: ["tests", "eva"],
             },
           );
+
+          if (pushResult.pushed) {
+            prUrl = await step.runAction(
+              internal.taskWorkflowActions.createPullRequest,
+              {
+                installationId: args.installationId,
+                repoOwner: docData.repoOwner,
+                repoName: docData.repoName,
+                branchName: docData.branchName,
+                title: `Add tests for ${docData.docTitle}`,
+                body: buildPrBody([
+                  {
+                    heading: "Summary",
+                    content: `Auto-generated tests for the **${docData.docTitle}** document.`,
+                  },
+                ]),
+                labels: ["tests", "eva"],
+              },
+            );
+          } else {
+            // No commits pushed → the agent wrote no tests; fail cleanly
+            // instead of letting a PR attempt 404 against a missing branch.
+            workflowSuccess = false;
+            workflowError =
+              "Test generation completed without committing any code changes";
+          }
         } catch (error) {
           workflowSuccess = false;
           workflowError = `Test generation completed locally, but Eva could not publish the branch or create a PR. ${error instanceof Error ? error.message : String(error)}`;

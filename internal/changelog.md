@@ -1,5 +1,9 @@
 # Changelog
 
+## Draft PRs only open on turns that pushed commits - 2026-08-07
+
+Chat-only session turns posted "Failed to create draft PR" (session 37, twice): `pushBranchToOrigin`'s ahead-of-remote gate correctly skipped the push, but it returned void, so the workflow's `pushSucceeded` flag could not tell "pushed" from "nothing to push" and ran `createDraftSessionPr` against a branch that never existed on origin — GitHub's compare 404s through every retry, which `isBranchNotAheadError` deliberately does not match (a 404 after a real push is a genuine publish failure). `pushBranchToOrigin` and `pushSandboxBranch` now return `{ pushed }`, and every workflow with a PR step after its push gates on it: sessions (draft PR), the task workflow (create/refresh), automations, eval fixes and test-gen (the last two record a clear "completed without committing any code changes" failure instead of the 404). Transient PR-create failures still self-heal on the next commit-pushing turn, and "Send for Review" / "Create PR" create on demand. Push-only callers (task/project chat, audit-fix) ignore the new return value. Reason: a PR is a review surface for a diff — a run that published no commits has nothing to open one for.
+
 ## Mobile drawer spring + gallery 1:1 swipe - 2026-08-07
 
 The mobile sidebar used a fixed CSS translate and the image lightbox only jumped after a touch-end threshold — neither tracked the finger or handed off velocity. The drawer now opens/closes on a critically damped spring and can be flicked shut with momentum projection; the lightbox follows the pointer 1:1 and springs to the next/prev image (or back) from release velocity. Reason: gesture-driven surfaces must stay glued to the finger and continue at the same speed when the hand lifts.

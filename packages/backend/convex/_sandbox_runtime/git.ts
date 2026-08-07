@@ -977,9 +977,9 @@ export async function pushBranchToOrigin(
     timeoutSeconds?: number;
     retryAttempts?: number;
   },
-): Promise<void> {
+): Promise<{ pushed: boolean }> {
   const details = `${owner}/${name}, branch=${branchName}`;
-  await runLoggedGitStep("pushBranchToOrigin", details, async () => {
+  return await runLoggedGitStep("pushBranchToOrigin", details, async () => {
     const workspaceDir = workspaceDirShell();
     // Ahead-of-remote gate: a turn that made no commits (chat/Q&A) has nothing
     // to publish, and its first push would CREATE the remote branch — a ref
@@ -1008,7 +1008,7 @@ export async function pushBranchToOrigin(
       logGit(
         `pushBranchToOrigin: skipped — HEAD has no commits origin lacks (${details})`,
       );
-      return;
+      return { pushed: false };
     }
     const quotedBranch = quote([branchName]);
     const repoUrl = bareGitHubRepoUrl(owner, name);
@@ -1024,6 +1024,7 @@ export async function pushBranchToOrigin(
       },
       opts?.retryAttempts ?? 2,
     );
+    return { pushed: true };
   });
 }
 

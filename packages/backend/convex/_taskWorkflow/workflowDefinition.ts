@@ -166,16 +166,21 @@ export const taskExecutionWorkflow = workflow.define({
         `[task-workflow] run=${args.runId} taskId=${args.taskId} projectId=${args.projectId ?? "none"} agentSuccess=${finalSuccess} isFirstTaskOnBranch=${args.isFirstTaskOnBranch} branchName=${data.branchName} baseBranch=${args.baseBranch ?? "(default)"}`,
       );
 
+      let pushedCommits = false;
       if (finalSuccess && sandboxId) {
         try {
-          await step.runAction(internal.sandbox.pushSandboxBranch, {
-            sandboxId,
-            installationId: args.installationId,
-            repoOwner: data.repoOwner,
-            repoName: data.repoName,
-            repoId: args.repoId,
-            branchName: data.branchName,
-          });
+          const pushResult = await step.runAction(
+            internal.sandbox.pushSandboxBranch,
+            {
+              sandboxId,
+              installationId: args.installationId,
+              repoOwner: data.repoOwner,
+              repoName: data.repoName,
+              repoId: args.repoId,
+              branchName: data.branchName,
+            },
+          );
+          pushedCommits = pushResult.pushed;
         } catch (error) {
           preserveSandboxOnFailure = true;
           finalSuccess = false;
@@ -306,7 +311,12 @@ export const taskExecutionWorkflow = workflow.define({
         }
       }
 
-      if (finalSuccess) {
+      // PR create/refresh only when this run actually pushed commits: a run
+      // that published nothing has no diff to open or refresh a PR for, and
+      // attempting one against a branch origin may not even have burned
+      // compare retries into a spurious "PR creation failed" (404). Transient
+      // failures still recover via the next pushing run or the Create PR button.
+      if (finalSuccess && pushedCommits) {
         const createPrAsDraft = true;
         try {
           let changeRequests: PrEnrichmentData["changeRequests"] = [];

@@ -115,45 +115,51 @@ export const automationExecutionWorkflow = workflow.define({
       const result = await step.awaitEvent(taskCompleteEvent);
 
       if (result.success && !isReadOnly) {
-        await step.runAction(internal.sandbox.pushSandboxBranch, {
-          sandboxId,
-          installationId: args.installationId,
-          repoOwner: data.repoOwner,
-          repoName: data.repoName,
-          repoId: sandboxRepoId,
-          branchName: args.branchName,
-        });
-
-        completionPrUrl = await step.runAction(
-          internal.taskWorkflowActions.createPullRequest,
+        const pushResult = await step.runAction(
+          internal.sandbox.pushSandboxBranch,
           {
+            sandboxId,
             installationId: args.installationId,
             repoOwner: data.repoOwner,
             repoName: data.repoName,
+            repoId: sandboxRepoId,
             branchName: args.branchName,
-            baseBranch: data.defaultBaseBranch,
-            title: args.title,
-            body: buildPrBody([
-              {
-                heading: "Automation",
-                content: args.description || "No description",
-              },
-              {
-                heading: "Summary",
-                content: result.result ?? "No summary provided",
-              },
-            ]),
-            labels: [
-              "eva",
-              "automation",
-              ...(args.rootDirectory
-                ? [args.rootDirectory.split("/").pop()].filter(
-                    (l): l is string => l !== undefined && l !== "",
-                  )
-                : []),
-            ],
           },
         );
+
+        // No commits pushed (ahead-of-remote gate) → no diff, no PR to open.
+        if (pushResult.pushed) {
+          completionPrUrl = await step.runAction(
+            internal.taskWorkflowActions.createPullRequest,
+            {
+              installationId: args.installationId,
+              repoOwner: data.repoOwner,
+              repoName: data.repoName,
+              branchName: args.branchName,
+              baseBranch: data.defaultBaseBranch,
+              title: args.title,
+              body: buildPrBody([
+                {
+                  heading: "Automation",
+                  content: args.description || "No description",
+                },
+                {
+                  heading: "Summary",
+                  content: result.result ?? "No summary provided",
+                },
+              ]),
+              labels: [
+                "eva",
+                "automation",
+                ...(args.rootDirectory
+                  ? [args.rootDirectory.split("/").pop()].filter(
+                      (l): l is string => l !== undefined && l !== "",
+                    )
+                  : []),
+              ],
+            },
+          );
+        }
       }
 
       const rawResult = result.result ?? "";

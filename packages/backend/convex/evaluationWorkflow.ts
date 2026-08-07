@@ -173,14 +173,27 @@ export const fixWorkflow = workflow.define({
       const fixResult = await step.awaitEvent(fixCompleteEvent);
 
       if (fixResult.success) {
-        await step.runAction(internal.sandbox.pushSandboxBranch, {
-          sandboxId: fixSandboxId,
-          installationId: args.installationId,
-          repoOwner: fixData.repoOwner,
-          repoName: fixData.repoName,
-          repoId: fixData.repoId,
-          branchName: args.fixBranchName,
-        });
+        const pushResult = await step.runAction(
+          internal.sandbox.pushSandboxBranch,
+          {
+            sandboxId: fixSandboxId,
+            installationId: args.installationId,
+            repoOwner: fixData.repoOwner,
+            repoName: fixData.repoName,
+            repoId: fixData.repoId,
+            branchName: args.fixBranchName,
+          },
+        );
+
+        // No commits pushed → the fix agent changed nothing; a PR attempt
+        // would only 404 against a branch origin never received.
+        if (!pushResult.pushed) {
+          await step.runMutation(internal.evaluationWorkflow.saveFixError, {
+            reportId: args.reportId,
+            error: "Fix agent completed without committing any code changes",
+          });
+          return;
+        }
 
         const prUrl = await step.runAction(
           internal.taskWorkflowActions.createPullRequest,

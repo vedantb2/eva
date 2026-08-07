@@ -1201,11 +1201,13 @@ export const pushSandboxBranch = internalAction({
     branchName: v.string(),
     repoId: v.id("githubRepos"),
   },
-  returns: v.null(),
-  handler: async (ctx, args) => {
+  // `pushed: false` = the ahead-of-remote gate skipped the push (no commits
+  // origin lacks). Callers use it to skip diff-dependent follow-ups (draft PR).
+  returns: v.object({ pushed: v.boolean() }),
+  handler: async (ctx, args): Promise<{ pushed: boolean }> => {
     const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     try {
-      await pushBranchToOrigin(
+      return await pushBranchToOrigin(
         sandbox,
         args.repoOwner,
         args.repoName,
@@ -1220,7 +1222,6 @@ export const pushSandboxBranch = internalAction({
       // recovery. Swallowing here made every caller's error handling dead code.
       throw error;
     }
-    return null;
   },
 });
 

@@ -482,17 +482,22 @@ export const sessionExecuteWorkflow = workflow.define({
     // sandbox. pushBranchToOrigin itself skips when HEAD has no commits
     // origin lacks, so chat-only turns publish nothing.
     let pushSucceeded = false;
+    let pushedCommits = false;
     if (args.mode !== "plan" && result.success && data.branchName) {
       try {
-        await step.runAction(internal.sandbox.pushSandboxBranch, {
-          sandboxId,
-          installationId: args.installationId,
-          repoOwner: data.repoOwner,
-          repoName: data.repoName,
-          repoId: data.repoId,
-          branchName: data.branchName,
-        });
+        const pushResult = await step.runAction(
+          internal.sandbox.pushSandboxBranch,
+          {
+            sandboxId,
+            installationId: args.installationId,
+            repoOwner: data.repoOwner,
+            repoName: data.repoName,
+            repoId: data.repoId,
+            branchName: data.branchName,
+          },
+        );
         pushSucceeded = true;
+        pushedCommits = pushResult.pushed;
       } catch (error) {
         const publishError = `Session completed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${error instanceof Error ? error.message : String(error)}`;
         console.error(
@@ -524,43 +529,49 @@ export const sessionExecuteWorkflow = workflow.define({
         },
       );
 
-      // Open a draft PR after the first successful push (no-op if one exists
-      // on the session or on GitHub for this branch, or if not ahead of base).
-      // Retried on later turns so a transient GitHub failure self-heals.
-      try {
-        const sessionPrUrl = await step.runAction(
-          internal.github.createDraftSessionPr,
-          {
-            sessionId: args.sessionId,
-          },
-        );
-        if (sessionPrUrl) {
-          try {
-            await step.runMutation(
-              internal._prRecapWorkflow.evaTrigger.scheduleEvaPrRecap,
-              {
-                repoId: data.repoId,
-                userId: args.userId,
-                prUrl: sessionPrUrl,
-              },
-            );
-          } catch (recapError) {
-            console.error(
-              `[sessionWorkflow] scheduleEvaPrRecap failed sessionId=${args.sessionId}: ${recapError instanceof Error ? recapError.message : String(recapError)}`,
-            );
+      // Open a draft PR only when this turn actually pushed commits (no-op if
+      // one exists on the session or on GitHub for this branch). Chat-only
+      // turns skip the push, so the branch may not exist on origin at all —
+      // attempting the PR then burned compare retries and alerted "Failed to
+      // create draft PR" on a 404. Transient failures still self-heal: the
+      // next turn that pushes commits retries, and "Send for Review" creates
+      // on demand.
+      if (pushedCommits) {
+        try {
+          const sessionPrUrl = await step.runAction(
+            internal.github.createDraftSessionPr,
+            {
+              sessionId: args.sessionId,
+            },
+          );
+          if (sessionPrUrl) {
+            try {
+              await step.runMutation(
+                internal._prRecapWorkflow.evaTrigger.scheduleEvaPrRecap,
+                {
+                  repoId: data.repoId,
+                  userId: args.userId,
+                  prUrl: sessionPrUrl,
+                },
+              );
+            } catch (recapError) {
+              console.error(
+                `[sessionWorkflow] scheduleEvaPrRecap failed sessionId=${args.sessionId}: ${recapError instanceof Error ? recapError.message : String(recapError)}`,
+              );
+            }
           }
+        } catch (error) {
+          const errorDetail =
+            error instanceof Error ? error.message : String(error);
+          console.error(
+            `[sessionWorkflow] createDraftSessionPr failed sessionId=${args.sessionId}: ${errorDetail}`,
+          );
+          await step.runMutation(internal.sessionWorkflow.postSystemAlert, {
+            sessionId: args.sessionId,
+            content: "Failed to create draft PR",
+            errorDetail,
+          });
         }
-      } catch (error) {
-        const errorDetail =
-          error instanceof Error ? error.message : String(error);
-        console.error(
-          `[sessionWorkflow] createDraftSessionPr failed sessionId=${args.sessionId}: ${errorDetail}`,
-        );
-        await step.runMutation(internal.sessionWorkflow.postSystemAlert, {
-          sessionId: args.sessionId,
-          content: "Failed to create draft PR",
-          errorDetail,
-        });
       }
     }
 

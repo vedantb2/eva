@@ -32,7 +32,26 @@ type BuildOnlyPlugin = ReturnType<typeof transformImports> & {
 export function buildOnlyDeepImports(
   options: TransformImportsOptions,
 ): BuildOnlyPlugin {
-  return { ...transformImports(options), apply: "build" };
+  const plugin = transformImports(options);
+  // The plugin's built-in hook filter is `/\.[jt]sx?$/`, anchored at the end
+  // of the id — which misses TanStack Router's code-split virtual modules
+  // (`route.tsx?tsr-split=component`). Icons imported inside split route
+  // components would silently keep the barrel import, dragging its 6095
+  // re-exports back into resolution. Widen the filter to tolerate a query.
+  if (
+    typeof plugin.transform !== "object" ||
+    plugin.transform === null ||
+    !("filter" in plugin.transform)
+  ) {
+    throw new Error(
+      "transform-imports no longer uses an object transform hook; revisit the id-filter patch",
+    );
+  }
+  plugin.transform.filter = {
+    ...plugin.transform.filter,
+    id: /\.[jt]sx?(?:\?.*)?$/,
+  };
+  return { ...plugin, apply: "build" };
 }
 
 /**

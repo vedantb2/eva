@@ -1,6 +1,15 @@
 # Changelog
 
 ## One sandbox owner contract for sessions, tasks, and projects - 2026-08-10
+## Icon-by-name resolution without the 6,095-export barrel - 2026-08-08
+
+`TablerIconByName` (custom app tabs store free-text icon names like "IconBolt") used to resolve names through a dynamic import of the whole `@tabler/icons-react` namespace. That one import dragged ~6,100 modules into every build — 56% of the module graph, ~7s of a 23–31s Vercel build — and emitted a 2.5 MB / 484 kB gzip lazy chunk of React components, of which the data was the only part actually needed.
+
+A new vite plugin (`apps/web/vite/tablerIconData.ts`) now extracts each icon's `__iconNode` array from Tabler's generated per-icon modules and exposes the full set as one virtual module, `virtual:tabler-icon-data` — `{ name: [variant, nodes] }`, spliced together textually (parsing and re-serialising 6,000 literals dominated the build when tried; verbatim splicing costs ~0.4s). `TablerIconByName` lazy-imports that module and renders the SVG itself with Tabler's own default attributes, so icons are pixel-identical. `lib/utils/tablerIcon.ts` and its barrel import are deleted.
+
+Two build bugs surfaced and were fixed on the way. `index.mjs` in Tabler's icons directory is a barrel, not an icon, and crashed extraction until filtered. More interestingly, the deep-import rewrite (`transform-imports`) never ran on TanStack Router's code-split virtual modules — their ids end in `?tsr-split=component`, which the plugin's `/\.[jt]sx?$/` filter rejects — so seven split routes were silently re-importing the barrel. `buildOnlyDeepImports` now widens the filter to tolerate query strings and throws loudly if the plugin's hook shape ever changes.
+
+Result: module graph 10,893 → 5,090, the `LARGE_BARREL_MODULES` warnings are gone, the icon data chunk shrank to 1.79 MB / 338 kB gzip, and babel's share of plugin time fell from 45% to 16%. Verified: `tsc` clean, production build green, generated module evaluated standalone — 6,092 icons, zero malformed entries, `IconBolt`/`IconBoltFilled`/`IconLayoutGrid` spot-checked. Local walls are too noisy to quote (loaded machine); the next Vercel deploy's `PLUGIN_TIMINGS` block is the honest before/after.
 
 Sessions, quick tasks, and projects each carried their own copy of the sandbox view-state API. Twelve near-identical mutations — `setPreviewPath`, `setPreviewPort`, `setTerminalHistoryTail`, and `releaseBrowserLock`, once per owner table — differed only in which id they took and which access helper they called. The PTY layer had a fourth copy of the owner union of its own.
 

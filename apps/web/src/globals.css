@@ -1,5 +1,5 @@
-@import 'tailwindcss';
-@import 'shadow-plugin';
+@import "tailwindcss";
+@import "shadow-plugin";
 
 @config '../tailwind.config.js';
 
@@ -61,14 +61,33 @@
   height: 0;
   width: 0;
   transform: translateX(0);
+  /* `top` and `height` are set, not transitioned: every tab in a list shares
+   * the same height and vertical position, so animating them only cost a
+   * layout pass per frame and could smear on resize. `width` stays — the pill
+   * has to match the tab it lands on, and scaling a rounded rect instead would
+   * distort the corner radius. */
   transition:
     transform var(--tabs-dur) var(--tabs-ease),
-    width var(--tabs-dur) var(--tabs-ease),
-    top var(--tabs-dur) var(--tabs-ease),
-    height var(--tabs-dur) var(--tabs-ease);
+    width var(--tabs-dur) var(--tabs-ease);
   z-index: 0;
   pointer-events: none;
   will-change: transform, width;
+}
+
+@utility t-accordion-content {
+  /* Radix measures the collapsed panel and publishes its height as a CSS var;
+   * the keyframes run between 0 and that measured height. Enter and exit are
+   * the same path reversed, so a panel closes back the way it opened.
+   * `height` is not a compositor property, but it is the one that has to
+   * change — a transform would squash or clip the content instead of
+   * revealing it. */
+  overflow: hidden;
+  &[data-state="open"] {
+    animation: t-accordion-down var(--motion-base) var(--motion-ease-out);
+  }
+  &[data-state="closed"] {
+    animation: t-accordion-up var(--motion-base) var(--motion-ease-out);
+  }
 }
 
 @utility rounded-surface {
@@ -126,7 +145,7 @@
     position: relative;
   }
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     inset: -8px;
   }
@@ -196,7 +215,7 @@
 
 @utility landing-grain {
   &::after {
-    content: '';
+    content: "";
     pointer-events: none;
     position: absolute;
     inset: 0;
@@ -217,7 +236,7 @@
 }
 
 @utility landing-display {
-  font-family: 'Geist Sans', var(--font-sans);
+  font-family: "Geist Sans", var(--font-sans);
   letter-spacing: -0.02em;
 }
 
@@ -284,7 +303,7 @@
   }
 
   @font-face {
-    font-family: 'Geist Sans';
+    font-family: "Geist Sans";
     font-style: normal;
     font-display: swap;
     /* Match system-ui metrics so swap does not reflow text (CLS). */
@@ -293,7 +312,7 @@
     descent-override: 22%;
     line-gap-override: 0%;
     font-weight: 100 900;
-    src: url('/fonts/Geist-Variable.woff2') format('woff2');
+    src: url("/fonts/Geist-Variable.woff2") format("woff2");
   }
 
   html {
@@ -310,22 +329,22 @@
  * edge therefore never fades — only content that continues past it does.
  */
   @property --scroll-fade-top {
-    syntax: '<length>';
+    syntax: "<length>";
     inherits: false;
     initial-value: 0px;
   }
   @property --scroll-fade-bottom {
-    syntax: '<length>';
+    syntax: "<length>";
     inherits: false;
     initial-value: 0px;
   }
   @property --scroll-fade-left {
-    syntax: '<length>';
+    syntax: "<length>";
     inherits: false;
     initial-value: 0px;
   }
   @property --scroll-fade-right {
-    syntax: '<length>';
+    syntax: "<length>";
     inherits: false;
     initial-value: 0px;
   }
@@ -657,6 +676,24 @@
     }
     to {
       clip-path: inset(0);
+    }
+  }
+
+  @keyframes t-accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+
+  @keyframes t-accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
     }
   }
 }
@@ -1518,11 +1555,11 @@ html[data-blur-pid] [data-pii] {
 */
 
 @media (prefers-reduced-transparency: reduce) {
-  [class*='backdrop-blur'] {
+  [class*="backdrop-blur"] {
     backdrop-filter: none !important;
     -webkit-backdrop-filter: none !important;
   }
-  [class*='bg-popover/95'] {
+  [class*="bg-popover/95"] {
     background-color: rgb(var(--popover)) !important;
   }
 }

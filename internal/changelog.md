@@ -1,5 +1,21 @@
 # Changelog
 
+## Accordion motion restored, cached modal token, animated attachment chips - 2026-08-07
+
+Four fixes from a third Apple-design pass over `apps/web` and `packages/ui`.
+
+`AccordionContent` asked for `animate-accordion-up` / `animate-accordion-down`, and neither animation existed: not in `tailwind.config.js` (which has no `keyframes` block at all), not in `globals.css`, and not in `tailwindcss-animate@1.0.7`. Tailwind emitted nothing for either class, so every panel snapped open across eight surfaces, including the sandbox diff file list, the session summary, audit results, and the run and proof timelines. A `t-accordion-content` utility now owns both directions against `--radix-accordion-content-height`, and the chevron moves on the same `--motion-base` duration and `--motion-ease-out` easing as the panel it points at. Reason: a panel should open and close along one path, and the disclosure arrow should finish when the content does.
+
+`readModalCloseMs()` called `getComputedStyle(document.documentElement)` on every dialog close, forcing a style flush at the exact moment the surface starts moving. The token is a fixed design value, so it is read once per session and cached.
+
+Composer attachment chips mounted and unmounted with no transition — `ChatAttachmentPreview` had none, so attaching or removing a file was a hard cut in the busiest control in the app. Both the image thumbnail and the file chip now grow in and shrink back out on a shared critically-damped spring inside `AnimatePresence`. Reason: no momentum precedes picking a file, so the motion settles rather than overshoots.
+
+The tabs sliding pill transitioned `transform`, `width`, `top` and `height`. Every tab in a list shares the same height and vertical position, so `top` and `height` never actually changed between tabs — transitioning them bought a layout pass per frame and nothing else. They are now set outright. `width` stays: the pill has to match the tab it lands on, and animating `scaleX` instead would distort the corner radius.
+
+Verified: `tsc --noEmit` clean in both packages, `vite build` clean, and the built CSS confirmed to contain both `@keyframes t-accordion-down` / `-up` referencing `--radix-accordion-content-height`, and the pill transition reduced to `transform` and `width`. The live browser check was not possible — the local Convex backend and Clerk agent sign-in are still down, so the authenticated chat and diff routes would not render.
+
+Not done: the accordion's `border-b border-border` was flagged as a decorative hairline and then left alone, because `docs/eva-ui.md` explicitly permits a hairline for list dividers, which is what it is. The 21 hover-only reveal affordances and four `transition-all` usages from the previous pass remain open.
+
 ## Kanban drag activation, shared gesture physics, animated scroll pill - 2026-08-07
 
 Three fixes from a second Apple-design pass over `apps/web` and `packages/ui`.

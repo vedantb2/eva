@@ -1,11 +1,22 @@
 const closeTimers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
 
+/**
+ * Cached because this used to run on every close, and `getComputedStyle`
+ * forces a style flush right as the dialog starts moving. The token is a fixed
+ * design value, so one read covers the session.
+ */
+let modalCloseMs: number | null = null;
+
 function readModalCloseMs(): number {
+  if (modalCloseMs !== null) {
+    return modalCloseMs;
+  }
   const raw = getComputedStyle(document.documentElement).getPropertyValue(
     "--modal-close-dur",
   );
   const parsed = parseFloat(raw);
-  return Number.isFinite(parsed) ? parsed : 150;
+  modalCloseMs = Number.isFinite(parsed) ? parsed : 150;
+  return modalCloseMs;
 }
 
 function clearCloseTimer(el: HTMLElement): void {

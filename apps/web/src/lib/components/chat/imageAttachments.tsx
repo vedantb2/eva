@@ -5,6 +5,7 @@ import {
   type PromptInputMessage,
 } from "@eva/ui";
 import { IconX } from "@tabler/icons-react";
+import { AnimatePresence, m } from "motion/react";
 import { useState } from "react";
 import {
   contentTypeForUpload,
@@ -57,6 +58,18 @@ export function useUploadChatAttachments() {
   };
 }
 
+/**
+ * Chips grow in and shrink back out along the same path. Attaching or removing
+ * a file used to be a hard cut in the busiest control in the app. Critically
+ * damped — picking a file carries no momentum, so there is nothing to overshoot.
+ */
+const CHIP_MOTION = {
+  initial: { opacity: 0, scale: 0.9 },
+  animate: { opacity: 1, scale: 1 },
+  exit: { opacity: 0, scale: 0.9 },
+  transition: { type: "spring", bounce: 0, duration: 0.22 },
+} as const;
+
 type OpenTextAttachment = {
   title: string;
   text: string;
@@ -80,22 +93,77 @@ export function ChatAttachmentPreview() {
     <>
       {attachments.files.length > 0 ? (
         <div className="flex flex-wrap gap-2 border-b border-border p-3">
-          {attachments.files.map((file) => {
-            const isImage = file.mediaType?.startsWith("image/");
-            const FileIcon = iconForAttachment(file.filename, file.mediaType);
-            const label = labelForAttachment(file.filename, file.mediaType);
+          <AnimatePresence initial={false}>
+            {attachments.files.map((file) => {
+              const isImage = file.mediaType?.startsWith("image/");
+              const FileIcon = iconForAttachment(file.filename, file.mediaType);
+              const label = labelForAttachment(file.filename, file.mediaType);
 
-            if (isImage) {
+              if (isImage) {
+                return (
+                  <m.div
+                    key={file.id}
+                    {...CHIP_MOTION}
+                    className="group relative size-16 overflow-hidden rounded-surface border border-border bg-muted"
+                  >
+                    <img
+                      src={file.url}
+                      alt={file.filename ?? "Attached image"}
+                      className="size-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      aria-label="Remove attachment"
+                      onClick={() => attachments.remove(file.id)}
+                      className="absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-foreground opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-background"
+                    >
+                      <IconX className="size-3" />
+                    </button>
+                  </m.div>
+                );
+              }
+
               return (
-                <div
+                <m.div
                   key={file.id}
-                  className="group relative size-16 overflow-hidden rounded-surface border border-border bg-muted"
+                  {...CHIP_MOTION}
+                  className="group relative flex max-w-48 items-center gap-2 rounded-surface border border-border bg-muted px-2 py-1.5"
                 >
-                  <img
-                    src={file.url}
-                    alt={file.filename ?? "Attached image"}
-                    className="size-full object-cover"
-                  />
+                  <button
+                    type="button"
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    onClick={() => {
+                      // Computed outside the try/catch — the React Compiler
+                      // bails on value blocks (??, ||) inside try/catch and
+                      // drops memoization for the whole file.
+                      const filename = file.filename ?? "pasted-text.txt";
+                      const mediaType = file.mediaType || "text/plain";
+                      void (async () => {
+                        try {
+                          const response = await fetch(file.url);
+                          if (!response.ok) {
+                            toast.error("Could not load attachment.");
+                            return;
+                          }
+                          const text = await response.text();
+                          setOpen({
+                            title: label,
+                            text,
+                            fileId: file.id,
+                            filename,
+                            mediaType,
+                          });
+                        } catch {
+                          toast.error("Could not load attachment.");
+                        }
+                      })();
+                    }}
+                  >
+                    <FileIcon className="size-4 shrink-0 text-muted-foreground" />
+                    <span className="truncate text-xs text-foreground">
+                      {label}
+                    </span>
+                  </button>
                   <button
                     type="button"
                     aria-label="Remove attachment"
@@ -104,61 +172,10 @@ export function ChatAttachmentPreview() {
                   >
                     <IconX className="size-3" />
                   </button>
-                </div>
+                </m.div>
               );
-            }
-
-            return (
-              <div
-                key={file.id}
-                className="group relative flex max-w-48 items-center gap-2 rounded-surface border border-border bg-muted px-2 py-1.5"
-              >
-                <button
-                  type="button"
-                  className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                  onClick={() => {
-                    // Computed outside the try/catch — the React Compiler
-                    // bails on value blocks (??, ||) inside try/catch and
-                    // drops memoization for the whole file.
-                    const filename = file.filename ?? "pasted-text.txt";
-                    const mediaType = file.mediaType || "text/plain";
-                    void (async () => {
-                      try {
-                        const response = await fetch(file.url);
-                        if (!response.ok) {
-                          toast.error("Could not load attachment.");
-                          return;
-                        }
-                        const text = await response.text();
-                        setOpen({
-                          title: label,
-                          text,
-                          fileId: file.id,
-                          filename,
-                          mediaType,
-                        });
-                      } catch {
-                        toast.error("Could not load attachment.");
-                      }
-                    })();
-                  }}
-                >
-                  <FileIcon className="size-4 shrink-0 text-muted-foreground" />
-                  <span className="truncate text-xs text-foreground">
-                    {label}
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  aria-label="Remove attachment"
-                  onClick={() => attachments.remove(file.id)}
-                  className="absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-foreground opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100 hover:bg-background"
-                >
-                  <IconX className="size-3" />
-                </button>
-              </div>
-            );
-          })}
+            })}
+          </AnimatePresence>
         </div>
       ) : null}
 

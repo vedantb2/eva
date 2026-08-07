@@ -35,7 +35,9 @@ const AccordionTrigger = React.forwardRef<
       {children}
       <IconChevronDown
         size={16}
-        className="shrink-0 text-muted-foreground transition-transform duration-200 group-hover:text-foreground"
+        // Same duration and easing as the panel it points at, so the chevron
+        // and the content finish together.
+        className="shrink-0 text-muted-foreground transition-transform duration-[var(--motion-base)] ease-[var(--motion-ease-out)] group-hover:text-foreground"
       />
     </AccordionPrimitive.Trigger>
   </AccordionPrimitive.Header>
@@ -48,7 +50,11 @@ const AccordionContent = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <AccordionPrimitive.Content
     ref={ref}
-    className="overflow-hidden text-sm data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down"
+    // `animate-accordion-up` / `-down` were referenced here for a long time
+    // but never defined — not in tailwind.config.js, not in globals.css, and
+    // not in tailwindcss-animate — so every panel snapped open. `t-accordion-content`
+    // owns both directions; see globals.css.
+    className="t-accordion-content text-sm"
     {...props}
   >
     <div className={cn("pb-3 pt-0", className)}>{children}</div>

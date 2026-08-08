@@ -21,9 +21,14 @@ import {
   extractFirstJsonValue,
 } from "../_taskWorkflow/helpers";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
-import { closeOpenTurn, findOpenTurn } from "../_chat/turnStore";
 import {
-  markChatTurnFinalizing,
+  advanceTurn,
+  closeOpenTurn,
+  closeTurn,
+  findOpenTurn,
+  resolveCompletionTurn,
+} from "../_chat/turnStore";
+import {
   openChatTurn,
   sessionChatAdapter,
 } from "../_chat/surfaceAdapters";
@@ -1346,30 +1351,38 @@ export const completeSyntheticTurn = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     pendingQuestion: v.optional(v.string()),
+    turnId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await clearStreamingActivity(ctx, String(args.sessionId));
-    await closeOpenTurn(
-      ctx,
-      "session",
-      String(args.sessionId),
-      args.success ? "done" : "error",
-      { ...(args.error ? { error: args.error } : {}) },
-    );
-
     const message = await ctx.db.get(args.messageId);
+    const session = await ctx.db.get(args.sessionId);
     if (
       !message ||
       message.parentId !== args.sessionId ||
-      message.finishedAt !== undefined
+      message.finishedAt !== undefined ||
+      !session ||
+      session.syntheticTurnMessageId !== args.messageId
     ) {
-      await ctx.db.patch(args.sessionId, {
-        syntheticTurnMessageId: undefined,
-        updatedAt: Date.now(),
-      });
-      await startNextQueuedSessionMessage(ctx, args.sessionId);
       return null;
+    }
+
+    const completion = await resolveCompletionTurn(ctx, {
+      surface: "session",
+      entityId: String(args.sessionId),
+      turnId: args.turnId,
+      placeholderMessageId: args.messageId,
+    });
+    if (completion.status === "stale") return null;
+
+    await clearStreamingActivity(ctx, String(args.sessionId));
+    if (completion.status === "current") {
+      await closeTurn(
+        ctx,
+        completion.turn,
+        args.success ? "done" : "error",
+        { ...(args.error ? { error: args.error } : {}) },
+      );
     }
 
     const patch: {
@@ -1411,6 +1424,7 @@ export const handleCompletion = authMutation({
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
+    turnId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1420,8 +1434,26 @@ export const handleCompletion = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
 
+    const completion = await resolveCompletionTurn(ctx, {
+      surface: "session",
+      entityId: String(args.sessionId),
+      turnId: args.turnId,
+    });
+    if (completion.status === "stale") return null;
+    if (
+      completion.status === "current" &&
+      completion.turn.state === "finalizing"
+    ) {
+      return null;
+    }
+    const workflowId =
+      completion.status === "current"
+        ? completion.turn.workflowId
+        : session.activeWorkflowId;
+    if (!workflowId || workflowId !== session.activeWorkflowId) return null;
+
     console.log(
-      `[sessionWorkflow] handleCompletion received sessionId=${args.sessionId} success=${args.success} workflowId=${session.activeWorkflowId}`,
+      `[sessionWorkflow] handleCompletion received sessionId=${args.sessionId} success=${args.success} workflowId=${workflowId}`,
     );
 
     // One-shot providers (Cursor/Codex/Opencode) never claimPendingTurn, so
@@ -1432,12 +1464,14 @@ export const handleCompletion = authMutation({
 
     // The runner stops heartbeating once it has reported; the lease switches to
     // the finishing allowance that covers push / PR-create / saveResult.
-    await markChatTurnFinalizing(ctx, "session", String(args.sessionId));
+    if (completion.status === "current") {
+      await advanceTurn(ctx, completion.turn, "finalizing");
+    }
 
     await sendCompletionEvent(
       ctx,
       sessionCompleteEvent,
-      session.activeWorkflowId,
+      workflowId,
       {
         success: args.success,
         result: args.result,

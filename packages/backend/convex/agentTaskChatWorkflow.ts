@@ -23,8 +23,11 @@ import {
 } from "./_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "./streaming";
 import { startNextQueuedTaskChatMessage } from "./_queues/helpers";
-import { closeOpenTurn } from "./_chat/turnStore";
-import { markChatTurnFinalizing } from "./_chat/surfaceAdapters";
+import {
+  advanceTurn,
+  closeOpenTurn,
+  resolveCompletionTurn,
+} from "./_chat/turnStore";
 import {
   trackAgentTaskChatWorkflow,
   TASK_CHAT_STREAM_PREFIX,
@@ -858,6 +861,7 @@ export const handleCompletion = authMutation({
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
+    turnId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -868,18 +872,38 @@ export const handleCompletion = authMutation({
       throw new Error("Not authorized");
     }
 
+    const completion = await resolveCompletionTurn(ctx, {
+      surface: "taskChat",
+      entityId: String(args.taskId),
+      turnId: args.turnId,
+    });
+    if (completion.status === "stale") return null;
+    if (
+      completion.status === "current" &&
+      completion.turn.state === "finalizing"
+    ) {
+      return null;
+    }
+    const workflowId =
+      completion.status === "current"
+        ? completion.turn.workflowId
+        : task.activeChatWorkflowId;
+    if (!workflowId || workflowId !== task.activeChatWorkflowId) return null;
+
     if (task.pendingTurn !== undefined) {
       await ctx.db.patch(args.taskId, { pendingTurn: undefined });
     }
 
     // The runner stops heartbeating once it has reported; the lease switches to
     // the finishing allowance that covers saveResult.
-    await markChatTurnFinalizing(ctx, "taskChat", String(args.taskId));
+    if (completion.status === "current") {
+      await advanceTurn(ctx, completion.turn, "finalizing");
+    }
 
     await sendCompletionEvent(
       ctx,
       agentTaskChatCompleteEvent,
-      task.activeChatWorkflowId,
+      workflowId,
       {
         success: args.success,
         result: args.result,

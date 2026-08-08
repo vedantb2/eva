@@ -4090,7 +4090,8 @@ async function initialHeartbeat() {
 }
 function enforceTurnLease() {
   const reason = getLeaseTerminalReason();
-  if (reason === null || leaseExitScheduled) return;
+  if (reason === null) return false;
+  if (leaseExitScheduled) return true;
   leaseExitScheduled = true;
   log("exiting: turn lease terminal (" + reason + ")");
   if (callbackState.activeAttemptChild) {
@@ -4100,6 +4101,7 @@ function enforceTurnLease() {
   if (heartbeatInterval) clearInterval(heartbeatInterval);
   callbackState.streamingLoopsStopped = true;
   setTimeout(() => process.exit(0), LEASE_EXIT_GRACE_MS).unref();
+  return true;
 }
 var LEASE_EXIT_GRACE_MS = 500;
 var leaseExitScheduled = false;
@@ -4125,6 +4127,7 @@ async function setFinalizingState() {
     await sendStreamingHeartbeatUpdate(buildStreamingPayload());
   } catch {
   }
+  return enforceTurnLease();
 }
 async function runPreflightHeartbeat() {
   try {
@@ -4836,6 +4839,10 @@ function noteWatchedMessage() {
 function endWatchedTurn() {
   turnActive = false;
 }
+function currentTurnArgs() {
+  const turnId = getCurrentTurnId();
+  return turnId ? { turnId } : {};
+}
 async function failTurnAndExit(error) {
   log("daemon: failing turn \\u2014 " + error);
   try {
@@ -4845,7 +4852,8 @@ async function failTurnAndExit(error) {
       result: null,
       error,
       activityLog: serializeSteps(callbackState.accumulatedSteps),
-      ...RUN_ID ? { runId: RUN_ID } : {}
+      ...RUN_ID ? { runId: RUN_ID } : {},
+      ...currentTurnArgs()
     });
   } catch {
   }
@@ -5014,10 +5022,12 @@ async function finalizeTurn(output) {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
-  await setFinalizingState();
+  if (await setFinalizingState()) return false;
+  Object.assign(completionArgs, currentTurnArgs());
   persistTurnWork();
   const completionSentAt = Date.now();
   await deliverCompletionWithMedia(completionArgs);
+  setCurrentTurnId(null);
   log(
     "daemon: turn finalized success=" + success + " steps=" + activityLog.length + " (completion mutation " + (Date.now() - completionSentAt) + "ms)"
   );
@@ -5026,6 +5036,7 @@ async function finalizeTurn(output) {
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
   );
+  return true;
 }
 function readClaimedPrompt(result) {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
@@ -5301,7 +5312,8 @@ async function failSyntheticTurn(error) {
         success: false,
         result: null,
         error,
-        activityLog: serializeSteps(callbackState.accumulatedSteps)
+        activityLog: serializeSteps(callbackState.accumulatedSteps),
+        ...currentTurnArgs()
       })
     );
   } catch {
@@ -5343,7 +5355,7 @@ async function ensureSyntheticTurn() {
 }
 async function finalizeSyntheticTurn(output) {
   if (daemonTurn?.kind !== "synthetic") {
-    return;
+    return false;
   }
   const messageId = daemonTurn.messageId;
   await flushStreaming();
@@ -5363,6 +5375,8 @@ async function finalizeSyntheticTurn(output) {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
+  if (await setFinalizingState()) return false;
+  Object.assign(completionArgs, currentTurnArgs());
   await callConvexWithRetry(
     "mutation",
     COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
@@ -5374,6 +5388,7 @@ async function finalizeSyntheticTurn(output) {
   daemonTurn = null;
   agentTurnOutput = "";
   log("daemon: synthetic turn finalized success=" + success);
+  return true;
 }
 function startRealAgentTurn(turn, agentRunner) {
   resetTurnState();
@@ -5538,14 +5553,19 @@ async function runDaemonMessagePump(agentRunner) {
     log(
       "daemon[timing]: result message +" + (resultAt - agentTurnStartedAt) + "ms after turn start"
     );
+    let completionAccepted;
     if (daemonTurn?.kind === "synthetic") {
-      await finalizeSyntheticTurn(agentTurnOutput);
+      completionAccepted = await finalizeSyntheticTurn(agentTurnOutput);
     } else {
-      await finalizeTurn(agentTurnOutput);
+      completionAccepted = await finalizeTurn(agentTurnOutput);
       log(
         "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms"
       );
       daemonTurn = null;
+    }
+    if (!completionAccepted) {
+      daemonExiting = true;
+      return;
     }
     if (pendingClaimedTurn !== null && daemonTurn === null) {
       const parked = pendingClaimedTurn;
@@ -5774,7 +5794,8 @@ async function runSdkDaemon() {
         success: false,
         result: null,
         error: "Agent SDK daemon failed: " + messageText,
-        activityLog: serializeSteps(callbackState.accumulatedSteps)
+        activityLog: serializeSteps(callbackState.accumulatedSteps),
+        ...currentTurnArgs()
       });
     } catch {
     }
@@ -6475,7 +6496,9 @@ try {
   } else {
     log("skipping post-attempt sync because result-event sync already ran");
   }
-  await setFinalizingState();
+  if (await setFinalizingState()) {
+    process.exit(0);
+  }
   const agentWasInterrupted = finalTerminatedBySignal || finalCode === 137 || finalCode === 143;
   const attemptEndedDueToTimeout = finalTimedOutAfterFirstText || finalTimedOutForNoOutput || finalTimedOutForMaxRuntime || finalTimedOutForFirstEvent || finalTimedOutForFirstAssistant || finalTimedOutForZombie || Boolean(finalToolStallErrorMessage);
   const runSucceededWithResult = finalResultEvent != null && !finalResultEvent.isError && !agentWasInterrupted;
@@ -6538,6 +6561,8 @@ try {
     activityLog
   };
   if (RUN_ID) completionArgs.runId = RUN_ID;
+  const turnId = getCurrentTurnId();
+  if (turnId) completionArgs.turnId = turnId;
   if (finalResultEvent?.rawResultEvent) {
     completionArgs.rawResultEvent = finalResultEvent.rawResultEvent;
   }
@@ -6580,6 +6605,8 @@ try {
     activityLog: serializeSteps(callbackState.accumulatedSteps)
   };
   if (RUN_ID) errorArgs.runId = RUN_ID;
+  const turnId = getCurrentTurnId();
+  if (turnId) errorArgs.turnId = turnId;
   try {
     await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", errorArgs);
   } catch {

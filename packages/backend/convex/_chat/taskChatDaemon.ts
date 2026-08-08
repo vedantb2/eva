@@ -12,7 +12,11 @@ import { mergeBackgroundAgents } from "../_sessions/backgroundAgents";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { startNextQueuedTaskChatMessage } from "../_queues/helpers";
 import { TASK_CHAT_STREAM_PREFIX } from "../workflowWatchdog";
-import { closeOpenTurn, findOpenTurn } from "./turnStore";
+import {
+  closeTurn,
+  findOpenTurn,
+  resolveCompletionTurn,
+} from "./turnStore";
 import { openChatTurn, taskChatAdapter } from "./surfaceAdapters";
 
 function taskChatStreamEntityId(taskId: Id<"agentTasks">): string {
@@ -206,30 +210,38 @@ export const completeSyntheticTurn = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     pendingQuestion: v.optional(v.string()),
+    turnId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await clearStreamingActivity(ctx, taskChatStreamEntityId(args.taskId));
-    await closeOpenTurn(
-      ctx,
-      "taskChat",
-      String(args.taskId),
-      args.success ? "done" : "error",
-      { ...(args.error ? { error: args.error } : {}) },
-    );
-
     const message = await ctx.db.get(args.messageId);
+    const task = await ctx.db.get(args.taskId);
     if (
       !message ||
       message.parentId !== args.taskId ||
-      message.finishedAt !== undefined
+      message.finishedAt !== undefined ||
+      !task ||
+      task.syntheticTurnMessageId !== args.messageId
     ) {
-      await ctx.db.patch(args.taskId, {
-        syntheticTurnMessageId: undefined,
-        updatedAt: Date.now(),
-      });
-      await startNextQueuedTaskChatMessage(ctx, args.taskId);
       return null;
+    }
+
+    const completion = await resolveCompletionTurn(ctx, {
+      surface: "taskChat",
+      entityId: String(args.taskId),
+      turnId: args.turnId,
+      placeholderMessageId: args.messageId,
+    });
+    if (completion.status === "stale") return null;
+
+    await clearStreamingActivity(ctx, taskChatStreamEntityId(args.taskId));
+    if (completion.status === "current") {
+      await closeTurn(
+        ctx,
+        completion.turn,
+        args.success ? "done" : "error",
+        { ...(args.error ? { error: args.error } : {}) },
+      );
     }
 
     const patch: {

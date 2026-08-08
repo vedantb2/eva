@@ -11,21 +11,18 @@ const surfaceAdapters = readSource("convex/_chat/surfaceAdapters.ts");
 const turns = readSource("convex/turns.ts");
 
 /**
- * The nine per-surface wrappers each armed their own scheduler chain — check,
- * probe, re-check, 2-hour backstop — for one turn. A chain only converges if
+ * The per-surface check/probe wrappers each armed their own scheduler chain.
+ * A chain only converges if
  * every link is scheduled and every link runs, and prod kept losing links: a
  * turn whose entry never got created sat on "Working…" forever. The reconciler
- * cron replaced all nine, so they must stay gone rather than creep back
+ * cron replaced those recurring chains, so they must stay gone rather than creep back
  * alongside it and give liveness two disagreeing owners again.
  */
 const DELETED_CHAT_WRAPPERS = [
-  "handleStaleSession",
   "checkStaleSessionHeartbeat",
   "probeStaleSessionLiveness",
-  "handleStaleProjectChat",
   "checkStaleProjectChatHeartbeat",
   "probeStaleProjectChatLiveness",
-  "handleStaleAgentTaskChat",
   "checkStaleAgentTaskChatHeartbeat",
   "probeStaleAgentTaskChatLiveness",
 ];
@@ -36,6 +33,18 @@ describe("the per-turn chat watchdog chains stay deleted", () => {
       workflowWatchdog,
       `${name} is back — the lease reconciler is the only chat liveness owner`,
     ).not.toContain(`export const ${name} =`);
+  });
+
+  test.each([
+    "handleStaleSession",
+    "handleStaleProjectChat",
+    "handleStaleAgentTaskChat",
+  ])("%s remains only as a no-row deployment backstop", (name) => {
+    const body = definitionBody(workflowWatchdog, name);
+    expect(body).toContain("findOpenTurn(");
+    expect(body).toContain("finalizeStaleChatTurn(");
+    expect(body).not.toContain("scheduleCheck");
+    expect(body).not.toContain("internalTouch");
   });
 
   /**

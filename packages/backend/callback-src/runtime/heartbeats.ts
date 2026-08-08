@@ -241,9 +241,10 @@ async function initialHeartbeat(): Promise<void> {
  * over anyway, and the warm daemon is respawned on the next turn, the same way
  * it is after an idle timeout or a script update.
  */
-function enforceTurnLease(): void {
+function enforceTurnLease(): boolean {
   const reason = getLeaseTerminalReason();
-  if (reason === null || leaseExitScheduled) return;
+  if (reason === null) return false;
+  if (leaseExitScheduled) return true;
   leaseExitScheduled = true;
   log("exiting: turn lease terminal (" + reason + ")");
   if (S.activeAttemptChild) {
@@ -254,6 +255,7 @@ function enforceTurnLease(): void {
   S.streamingLoopsStopped = true;
   // Brief grace so the SIGTERM above lands before the parent goes away.
   setTimeout(() => process.exit(0), LEASE_EXIT_GRACE_MS).unref();
+  return true;
 }
 
 const LEASE_EXIT_GRACE_MS = 500;
@@ -276,7 +278,7 @@ export async function stopStreamingLoops(): Promise<void> {
   await flushStreaming();
 }
 
-export async function setFinalizingState(): Promise<void> {
+export async function setFinalizingState(): Promise<boolean> {
   // No "Finalizing response..." step — status filler isn't shown in the
   // activity flow; the response text itself is the signal.
   markLastComplete();
@@ -286,6 +288,9 @@ export async function setFinalizingState(): Promise<void> {
   } catch {
     /* ignore final heartbeat errors */
   }
+  // The final heartbeat is a fencing check, not a best-effort status update.
+  // Do not let a superseded runner report into the workflow that replaced it.
+  return enforceTurnLease();
 }
 
 export async function runPreflightHeartbeat(): Promise<boolean> {

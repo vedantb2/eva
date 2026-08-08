@@ -13,12 +13,19 @@ import { recomputeProjectPhase } from "./functions";
 import {
   PROJECT_CHAT_STREAM_PREFIX,
   TASK_CHAT_STREAM_PREFIX,
+  projectChatAdapter,
+  sessionChatAdapter,
+  taskChatAdapter,
   trackAgentTaskChatWorkflow,
   trackProjectChatWorkflow,
   trackSessionWorkflow,
 } from "./_chat/surfaceAdapters";
-import { cancelStaleWorkflow } from "./_chat/stallWatchdog";
+import {
+  cancelStaleWorkflow,
+  finalizeStaleChatTurn,
+} from "./_chat/stallWatchdog";
 import { buildStaleDocPatch } from "./_prRecapWorkflow/staleDoc";
+import { findOpenTurn } from "./_chat/turnStore";
 
 // Re-exported so existing importers (agentTaskChatWorkflow.ts,
 // projectChatWorkflow.ts, _queues/helpers.ts, and others — see
@@ -33,6 +40,83 @@ export {
   trackProjectChatWorkflow,
   trackSessionWorkflow,
 };
+
+/**
+ * Compatibility targets for two-hour scheduler entries created before turn
+ * leases shipped. They act only when the entity has no turn row, so new turns
+ * remain exclusively lease-driven and the retired heartbeat/probe chains stay
+ * retired.
+ */
+export const handleStaleSession = internalMutation({
+  args: { sessionId: v.id("sessions"), workflowId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (await findOpenTurn(ctx, "session", String(args.sessionId))) return null;
+    const session = await sessionChatAdapter.getEntity(ctx, args.sessionId);
+    if (
+      !session ||
+      sessionChatAdapter.activeWorkflowId(session) !== args.workflowId
+    ) {
+      return null;
+    }
+    await finalizeStaleChatTurn(
+      ctx,
+      sessionChatAdapter,
+      args.sessionId,
+      session,
+      args.workflowId,
+      sessionChatAdapter.alerts.timeout,
+    );
+    return null;
+  },
+});
+
+export const handleStaleProjectChat = internalMutation({
+  args: { projectId: v.id("projects"), workflowId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (await findOpenTurn(ctx, "projectChat", String(args.projectId))) {
+      return null;
+    }
+    const project = await projectChatAdapter.getEntity(ctx, args.projectId);
+    if (
+      !project ||
+      projectChatAdapter.activeWorkflowId(project) !== args.workflowId
+    ) {
+      return null;
+    }
+    await finalizeStaleChatTurn(
+      ctx,
+      projectChatAdapter,
+      args.projectId,
+      project,
+      args.workflowId,
+      projectChatAdapter.alerts.timeout,
+    );
+    return null;
+  },
+});
+
+export const handleStaleAgentTaskChat = internalMutation({
+  args: { taskId: v.id("agentTasks"), workflowId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    if (await findOpenTurn(ctx, "taskChat", String(args.taskId))) return null;
+    const task = await taskChatAdapter.getEntity(ctx, args.taskId);
+    if (!task || taskChatAdapter.activeWorkflowId(task) !== args.workflowId) {
+      return null;
+    }
+    await finalizeStaleChatTurn(
+      ctx,
+      taskChatAdapter,
+      args.taskId,
+      task,
+      args.workflowId,
+      taskChatAdapter.alerts.timeout,
+    );
+    return null;
+  },
+});
 
 /** Records a workflow as the active workflow for a doc and schedules a stale handler. */
 export async function trackDocWorkflow(

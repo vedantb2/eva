@@ -1,6 +1,11 @@
 # Changelog
 
 ## One sandbox owner contract for sessions, tasks, and projects - 2026-08-10
+## Fence turn completion to its lease owner - 2026-08-08
+
+Completion callbacks now carry and validate the exact `turnId` before changing streaming state, closing a row, or resuming a workflow. This makes retries idempotent and prevents a superseded callback from completing the next queued turn. Final heartbeat terminal verdicts stop completion synchronously, task finalization grants its ten-minute lease atomically, and session summaries use a distinct renewable lease surface instead of borrowing chat liveness.
+
+## Mouse wheel dead-zones from blanket overscroll contain - 2026-08-08
 
 Sessions, quick tasks, and projects each carried their own copy of the sandbox view-state API. Twelve near-identical mutations — `setPreviewPath`, `setPreviewPort`, `setTerminalHistoryTail`, and `releaseBrowserLock`, once per owner table — differed only in which id they took and which access helper they called. The PTY layer had a fourth copy of the owner union of its own.
 

@@ -1,6 +1,11 @@
 # Changelog
 
 ## One sandbox owner contract for sessions, tasks, and projects - 2026-08-10
+## Mouse wheel dead-zones from blanket overscroll contain - 2026-08-08
+
+Putting `overscroll-behavior: contain` on `@utility scrollbar` made every `overflow:auto` pane a contain target, including ones with no overflow and horizontal boards with `overflow-y-hidden`. Chrome treats those as scroll containers at their boundary, so the wheel was swallowed while dragging the ancestor scrollbar still worked. Removed contain from the utility; restored `overscroll-y-contain` / `overscroll-contain` on the kanban column and mention picker that had opted in before.
+
+## Anonymous landing no longer waits for Clerk - 2026-08-08
 
 Sessions, quick tasks, and projects each carried their own copy of the sandbox view-state API. Twelve near-identical mutations — `setPreviewPath`, `setPreviewPort`, `setTerminalHistoryTail`, and `releaseBrowserLock`, once per owner table — differed only in which id they took and which access helper they called. The PTY layer had a fourth copy of the owner union of its own.
 

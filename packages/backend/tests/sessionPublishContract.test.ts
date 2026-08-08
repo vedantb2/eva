@@ -169,6 +169,82 @@ describe("an empty turn publishes nothing", () => {
   });
 });
 
+/**
+ * The gate above is only half of it. `pushBranchToOrigin` returned `void`, so a
+ * skipped push was indistinguishable from a real one and every workflow ran its
+ * PR step against a branch origin never received — GitHub's compare 404s
+ * through all retries and posts a spurious "Failed to create PR" alert (fix
+ * 06963e8e, prod session 37, twice). The skip has to reach the callers, and
+ * every PR step has to be gated on it.
+ */
+describe("a turn that pushed nothing opens no pull request", () => {
+  /** Matches createPullRequest, createTaskPullRequest, refreshTaskPullRequestBody, createDraftSessionPr. */
+  const PR_STEP = /internal\.[A-Za-z_.]*(?:PullRequest|SessionPr)[A-Za-z]*/;
+
+  const pushBody = () =>
+    functionBody(sandboxGit, "export async function pushBranchToOrigin(");
+
+  test("pushBranchToOrigin reports which of the two paths it took", () => {
+    const body = pushBody();
+    const skipAt = body.indexOf("return { pushed: false };");
+    const pushAt = body.indexOf("git push");
+    const pushedAt = body.indexOf("return { pushed: true };");
+    expect(skipAt, "the skip no longer reports itself").toBeGreaterThan(-1);
+    expect(pushedAt, "the push no longer reports itself").toBeGreaterThan(-1);
+    expect(skipAt, "the skip belongs before the push").toBeLessThan(pushAt);
+    expect(pushAt).toBeLessThan(pushedAt);
+  });
+
+  /**
+   * Both returns sit inside the logged step's callback, so awaiting that step
+   * without returning its value hands every caller `undefined` — which reads as
+   * "did not push" to an `if (result.pushed)` and as a crash to `result.pushed`.
+   */
+  test("the logged step's value is returned, not just awaited", () => {
+    expect(
+      pushBody(),
+      "an awaited-but-unreturned step drops the outcome",
+    ).toContain("return await runLoggedGitStep(");
+  });
+
+  /**
+   * Convex strips anything the `returns` validator does not describe, so a
+   * stale `v.null()` here would hand every caller `null` back — the original
+   * bug, reintroduced with the function above still correct.
+   */
+  test("pushSandboxBranch declares the object it returns", () => {
+    const returns = definitionBody(sandboxExecution, "pushSandboxBranch").match(
+      /returns:\s*([^\n]+)/,
+    );
+    expect(returns, "the returns validator moved").not.toBeNull();
+    expect(returns?.[1] ?? "").toContain("v.object({ pushed: v.boolean() })");
+  });
+
+  /**
+   * The fan-out that actually regresses: a sixth workflow, or a refactor that
+   * stops threading the result through, silently brings the 404 alerts back.
+   * Push-only callers have no PR step and are left alone.
+   */
+  test("every workflow that pushes and opens a PR gates on the result", () => {
+    const gated: string[] = [];
+    const ungated: string[] = [];
+    for (const path of convexFiles()) {
+      const source = readSource(path);
+      const prAt = source.search(PR_STEP);
+      if (!source.includes(PUSH_ACTION) || prAt < 0) continue;
+      const pushedAt = source.indexOf(".pushed");
+      if (pushedAt > -1 && pushedAt < prAt) gated.push(path);
+      else ungated.push(path);
+    }
+    // A scan that found nothing would satisfy the assertion below for free.
+    expect(gated.length + ungated.length, "the push action moved").toBe(5);
+    expect(
+      ungated,
+      "open the PR only when the push reported pushed: true",
+    ).toEqual([]);
+  });
+});
+
 /** Comments name the very calls these rules rule out, so they have to go first. */
 function readSource(relativePath: string): string {
   return stripComments(

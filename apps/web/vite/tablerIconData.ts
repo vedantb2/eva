@@ -59,16 +59,26 @@ function buildModuleSource(): string {
 
 export function tablerIconData(): Plugin {
   let cache: string | undefined;
+  // Hook filters are load-bearing: without them rolldown calls these hooks in
+  // JS for EVERY module resolution/load in the build (measured at ~71% of
+  // plugin time on Vercel — the same trap as a filterless debug hook, which
+  // clocked 85%). With them, native code skips JS except for this exact id.
   return {
     name: "eva-tabler-icon-data",
-    resolveId(id) {
-      if (id === VIRTUAL_ID) return RESOLVED_ID;
+    resolveId: {
+      filter: { id: /^virtual:tabler-icon-data$/ },
+      handler(id) {
+        if (id === VIRTUAL_ID) return RESOLVED_ID;
+      },
     },
-    load(id) {
-      if (id === RESOLVED_ID) {
-        cache ??= buildModuleSource();
-        return cache;
-      }
+    load: {
+      filter: { id: /^\0virtual:tabler-icon-data$/ },
+      handler(id) {
+        if (id === RESOLVED_ID) {
+          cache ??= buildModuleSource();
+          return cache;
+        }
+      },
     },
   };
 }

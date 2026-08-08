@@ -1,4 +1,4 @@
-import { StrictMode } from "react";
+import { StrictMode, useEffect } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider, createRouter } from "@tanstack/react-router";
@@ -13,6 +13,7 @@ import { DeploymentErrorFallback } from "./lib/components/DeploymentErrorFallbac
 import { AuthLoadingScreen } from "./lib/components/AuthLoadingScreen";
 import { MotionProvider } from "./lib/components/MotionProvider";
 import { isChunkLoadError } from "./lib/utils/isChunkLoadError";
+import { readSignedInHint, writeSignedInHint } from "./lib/authHint";
 import { saveMcpOauthParamsFromUrl } from "./lib/mcpOauthStorage";
 import { migrateLegacyStorageKeys } from "./lib/migrateLegacyStorageKeys";
 import "./fonts";
@@ -92,10 +93,29 @@ declare module "@tanstack/react-router" {
   }
 }
 
+// Read once at boot: whether the LAST visit ended signed in. Clerk's session
+// handshake costs ~200 kB of clerk-js plus a network round trip, and holding
+// first paint on it makes anonymous visitors stare at a blank screen for
+// nothing — they have no session to restore.
+const hadSession = readSignedInHint();
+
 function InnerApp() {
   const { isLoaded, isSignedIn } = useAuth();
 
-  if (!isLoaded) {
+  useEffect(() => {
+    if (!isLoaded) return;
+    writeSignedInHint(isSignedIn ?? false);
+    // The early anonymous render below was a guess. If Clerk disagrees (hint
+    // cleared but a session exists), re-run route guards so `/` redirects to
+    // /home the way a blocking boot would have.
+    if (!hadSession && isSignedIn) {
+      void router.invalidate();
+    }
+  }, [isLoaded, isSignedIn]);
+
+  // Returning signed-in users keep the previous behavior: hold paint until
+  // the session is restored, so protected routes never flash the landing.
+  if (!isLoaded && hadSession) {
     return <AuthLoadingScreen />;
   }
 

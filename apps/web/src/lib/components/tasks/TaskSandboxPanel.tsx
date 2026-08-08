@@ -14,6 +14,7 @@ import {
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
+import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
 
@@ -96,6 +97,7 @@ export function TaskSandboxPanel({
     setActiveTab: onTabChange,
     terminalPanes,
   });
+  const fileList = useSandboxFileList({ sandboxId, repoId, isActive });
 
   useEffect(() => {
     if (activeTab !== "prd") return;
@@ -144,6 +146,8 @@ export function TaskSandboxPanel({
         editorTabOpen={editorTabOpen}
         onOpenEditor={openEditor}
         onCloseEditor={closeEditor}
+        fileList={fileList}
+        consoleDock={panes.consoleDock}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div className={tabBarValue === "files" ? "h-full min-h-0" : "hidden"}>
@@ -151,6 +155,7 @@ export function TaskSandboxPanel({
             sandboxId={sandboxId}
             repoId={repoId}
             isActive={isActive}
+            fileList={fileList}
           />
         </div>
         <SandboxPaneSlots

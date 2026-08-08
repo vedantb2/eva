@@ -179,7 +179,7 @@ export function SandboxPaneSlots({
         }
       >
         <ConsoleDock
-          storageKey={`eva:${owner.kind}:${cacheKey}:console`}
+          controller={panes.consoleDock}
           preview={previewRegion}
           consoleToggleHotkey={
             consoleHotkeyEnabled

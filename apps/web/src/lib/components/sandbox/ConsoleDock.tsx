@@ -8,15 +8,9 @@ import {
   IconChevronUp,
   IconTerminal2,
 } from "@tabler/icons-react";
-import { useLocalStorage } from "usehooks-ts";
+import type { ConsoleDockApi } from "./useConsoleDock";
 
-interface ConsoleDockState {
-  expanded: boolean;
-  /** Preview height as a percentage of the dock; the console fills the rest. */
-  previewPct: number;
-}
-
-const DEFAULT_STATE: ConsoleDockState = { expanded: false, previewPct: 60 };
+const DEFAULT_PREVIEW_PCT = 60;
 const MIN_PREVIEW_PCT = 15;
 const MAX_PREVIEW_PCT = 85;
 
@@ -35,8 +29,7 @@ function clampPreviewPct(pct: number): number {
 }
 
 interface ConsoleDockProps {
-  /** Full localStorage key for the expanded state + split ratio. */
-  storageKey: string;
+  controller: ConsoleDockApi;
   /** Top region — the web preview. */
   preview: ReactNode;
   /**
@@ -61,24 +54,16 @@ interface ConsoleDockProps {
  * preview iframe and the console PTY never remount.
  */
 export function ConsoleDock({
-  storageKey,
+  controller,
   preview,
   renderConsole,
   consoleToggleHotkey,
 }: ConsoleDockProps) {
-  const [state, setState] = useLocalStorage<ConsoleDockState>(
-    storageKey,
-    DEFAULT_STATE,
-  );
   const [dragging, setDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
-  const rawPctRef = useRef(DEFAULT_STATE.previewPct);
-  const { expanded, previewPct } = state;
-
-  const toggle = () => {
-    setState((s) => ({ ...s, expanded: !s.expanded }));
-  };
+  const rawPctRef = useRef(DEFAULT_PREVIEW_PCT);
+  const { expanded, previewPct, toggle, expand, setPreviewPct } = controller;
 
   useShortcut(
     "togglePreviewConsole",
@@ -87,7 +72,7 @@ export function ConsoleDock({
       if (!consoleToggleHotkey) return;
       if (!consoleToggleHotkey.isPreviewActive) {
         consoleToggleHotkey.onShowPreview();
-        setState((s) => ({ ...s, expanded: true }));
+        expand();
         return;
       }
       toggle();
@@ -124,7 +109,7 @@ export function ConsoleDock({
     if (previewRef.current) {
       previewRef.current.style.height = `${committed}%`;
     }
-    setState((s) => ({ ...s, previewPct: committed }));
+    setPreviewPct(committed);
     setDragging(false);
   };
 

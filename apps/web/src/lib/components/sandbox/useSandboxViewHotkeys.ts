@@ -4,25 +4,23 @@ import { useRef } from "react";
 import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
 
 /**
- * Session/sandbox view shortcuts: `toggleBrowserTab` and `toggleFilesTab`.
+ * Session/sandbox view shortcut for toggling the Browser tab.
  *
- * (`togglePreviewConsole` lives in `ConsoleDock`.)
+ * File quick-open and the action palette live in `SandboxQuickOpenDialogs`;
+ * `togglePreviewConsole` lives in `ConsoleDock`.
  */
 export function useSandboxViewHotkeys({
   activeTab,
   onTabChange,
   showBrowserTab,
-  showFilesTab,
   enabled = true,
 }: {
   activeTab: string;
   onTabChange: (tab: string) => void;
   showBrowserTab: boolean;
-  showFilesTab: boolean;
   enabled?: boolean;
 }) {
   const tabBeforeBrowserRef = useRef("preview");
-  const tabBeforeFilesRef = useRef("preview");
 
   useShortcut(
     "toggleBrowserTab",
@@ -36,19 +34,5 @@ export function useSandboxViewHotkeys({
       onTabChange("browser");
     },
     { enabled: enabled && showBrowserTab },
-  );
-
-  useShortcut(
-    "toggleFilesTab",
-    (e) => {
-      e.preventDefault();
-      if (activeTab === "files") {
-        onTabChange(tabBeforeFilesRef.current);
-        return;
-      }
-      tabBeforeFilesRef.current = activeTab;
-      onTabChange("files");
-    },
-    { enabled: enabled && showFilesTab },
   );
 }

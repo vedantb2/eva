@@ -21,6 +21,7 @@ import {
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
+import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
@@ -115,6 +116,7 @@ export function ProjectSandboxPanel({
     setActiveTab: navigateToSandboxTab,
     terminalPanes,
   });
+  const fileList = useSandboxFileList({ sandboxId, repoId, isActive });
 
   // This surface has no custom tabs, so the tab bar only emits builtin ids.
   const handleTabChange = (tab: string) => {
@@ -156,6 +158,8 @@ export function ProjectSandboxPanel({
         editorTabOpen={editorTabOpen}
         onOpenEditor={openEditor}
         onCloseEditor={closeEditor}
+        fileList={fileList}
+        consoleDock={panes.consoleDock}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div className={activeTab === "files" ? "h-full min-h-0" : "hidden"}>
@@ -163,6 +167,7 @@ export function ProjectSandboxPanel({
             sandboxId={sandboxId}
             repoId={repoId}
             isActive={isActive}
+            fileList={fileList}
           />
         </div>
         <SandboxPaneSlots

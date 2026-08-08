@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { encryptValue, decryptValue } from "./encryption";
+import { getActionRepoWithAccess } from "./functions";
 
 /** Decrypts and reveals the plaintext value of a specific repo env var. */
 export const revealValue = action({
@@ -17,6 +18,7 @@ export const revealValue = action({
     if (!identity) {
       throw new Error("Not authenticated");
     }
+    await getActionRepoWithAccess(ctx, args.repoId);
     const vars: Array<{ key: string; value: string }> = await ctx.runQuery(
       internal.repoEnvVars.getAllInternal,
       { repoId: args.repoId },
@@ -40,6 +42,7 @@ export const upsertVar = action({
     if (!identity) {
       throw new Error("Not authenticated");
     }
+    await getActionRepoWithAccess(ctx, args.repoId);
     const stored = encryptValue(args.value);
     await ctx.runMutation(internal.repoEnvVars.upsertVarInternal, {
       repoId: args.repoId,

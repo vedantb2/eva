@@ -1,8 +1,28 @@
 import { v } from "convex/values";
 import type { MutationCtx } from "./_generated/server";
 import { internalQuery } from "./_generated/server";
-import { authMutation, authQuery } from "./functions";
+import { authMutation, authQuery, hasRepoAccess } from "./functions";
 import { syncSettingFields } from "./validators";
+import type { Id } from "./_generated/dataModel";
+
+/** Throws unless the user can access at least one app row for the codebase. */
+async function assertCodebaseAccess(
+  ctx: MutationCtx,
+  owner: string,
+  name: string,
+  userId: Id<"users">,
+): Promise<void> {
+  const repos = await ctx.db
+    .query("githubRepos")
+    .withIndex("by_owner_and_name", (q) =>
+      q.eq("owner", owner).eq("name", name),
+    )
+    .collect();
+  for (const repo of repos) {
+    if (await hasRepoAccess(ctx.db, repo._id, userId)) return;
+  }
+  throw new Error("Not authorized");
+}
 
 /** Creates the sync setting for an owner/name pair, or patches its enabled flag if it already exists. */
 async function upsertSyncSetting(
@@ -56,7 +76,32 @@ export const list = authQuery({
     }),
   ),
   handler: async (ctx) => {
-    return await ctx.db.query("syncSettings").collect();
+    const memberships = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
+      .collect();
+    const teamIds = new Set(memberships.map((membership) => membership.teamId));
+    const connected = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_connected_by", (q) => q.eq("connectedBy", ctx.userId))
+      .collect();
+    const teamRepos = await Promise.all(
+      [...teamIds].map((teamId) =>
+        ctx.db
+          .query("githubRepos")
+          .withIndex("by_team", (q) => q.eq("teamId", teamId))
+          .collect(),
+      ),
+    );
+    const allowed = new Set(
+      [...connected, ...teamRepos.flat()].map(
+        (repo) => `${repo.owner}/${repo.name}`,
+      ),
+    );
+    const settings = await ctx.db.query("syncSettings").collect();
+    return settings.filter((setting) =>
+      allowed.has(`${setting.owner}/${setting.name}`),
+    );
   },
 });
 
@@ -69,6 +114,7 @@ export const set = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await assertCodebaseAccess(ctx, args.owner, args.name, ctx.userId);
     await upsertSyncSetting(ctx, args.owner, args.name, args.enabled);
     return null;
   },
@@ -83,6 +129,7 @@ export const bulkSet = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     for (const repo of args.repos) {
+      await assertCodebaseAccess(ctx, args.owner, repo.name, ctx.userId);
       await upsertSyncSetting(ctx, args.owner, repo.name, repo.enabled);
     }
     return null;

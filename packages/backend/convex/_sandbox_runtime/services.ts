@@ -11,6 +11,7 @@ import { resolveSandboxCredentials } from "../envVarResolver";
 import { execHandle, getSandboxHandle, workspaceDirShell } from "./helpers";
 import { launchChrome, startDesktopWithChrome } from "./desktop";
 import { VERCEL_EDITOR_INTERNAL_PORT } from "./previewProxy";
+import { assertActionSandboxAccess } from "../functions";
 
 /** Starts or stops a code-server instance inside a sandbox. */
 export const toggleCodeServer = action({
@@ -27,6 +28,7 @@ export const toggleCodeServer = action({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    await assertActionSandboxAccess(ctx, args.repoId, args.sandboxId);
 
     console.log(
       `[code-server] ${args.action} requested for sandbox ${args.sandboxId}`,
@@ -129,6 +131,7 @@ export const toggleDesktopServer = action({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    await assertActionSandboxAccess(ctx, args.repoId, args.sandboxId);
 
     const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     if (!handle.desktop) {
@@ -157,6 +160,7 @@ export const launchChromeInDesktop = action({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    await assertActionSandboxAccess(ctx, args.repoId, args.sandboxId);
 
     const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     await launchChrome(handle);

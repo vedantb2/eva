@@ -20,20 +20,22 @@ describe("isAllowedOAuthRedirectUri", () => {
     ).toBe(true);
   });
 
-  it("rejects javascript and invalid URIs", () => {
+  it("rejects unsafe schemes, non-loopback http, and invalid URIs", () => {
     expect(isAllowedOAuthRedirectUri("javascript:alert(1)")).toBe(false);
+    expect(isAllowedOAuthRedirectUri("file:///tmp/token")).toBe(false);
+    expect(isAllowedOAuthRedirectUri("http://attacker.example/cb")).toBe(false);
     expect(isAllowedOAuthRedirectUri("not a url")).toBe(false);
   });
 });
 
 describe("redirectUriMatchesRegistered", () => {
-  it("allows any redirect when nothing was registered", () => {
+  it("rejects redirects when nothing was registered", () => {
     expect(
       redirectUriMatchesRegistered(
         "cursor://anysphere.cursor-mcp/oauth/callback",
         [],
       ),
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("matches cursor scheme when registered", () => {

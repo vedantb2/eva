@@ -5,7 +5,7 @@ import {
   type DatabaseReader,
 } from "./_generated/server";
 import { type Id } from "./_generated/dataModel";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, getRepoWithAccess } from "./functions";
 import { MASKED_ENV_VAR_VALUE } from "./_envVars/listDisplay";
 
 /** Loads the single env var document for a repo, or null if none exists. */
@@ -27,6 +27,7 @@ export const list = authQuery({
     }),
   ),
   handler: async (ctx, args) => {
+    await getRepoWithAccess(ctx.db, args.repoId, ctx.userId);
     const doc = await findByRepo(ctx.db, args.repoId);
     if (!doc) return [];
     return doc.vars.map((entry) => ({
@@ -106,6 +107,7 @@ export const removeVar = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await getRepoWithAccess(ctx.db, args.repoId, ctx.userId);
     const doc = await findByRepo(ctx.db, args.repoId);
     if (!doc) return null;
     const vars = doc.vars.filter((entry) => entry.key !== args.key);

@@ -103,6 +103,7 @@ const schema = defineSchema({
 
   githubRepos: defineTable(githubRepoFields)
     .index("by_github_id", ["githubId"])
+    .index("by_installation", ["installationId"])
     .index("by_owner_and_name", ["owner", "name"])
     .index("by_team", ["teamId"])
     .index("by_connected_by", ["connectedBy"]),

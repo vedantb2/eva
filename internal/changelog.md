@@ -1,5 +1,17 @@
 # Changelog
 
+## Harden backend tenant boundaries, OAuth, and vulnerable dependencies - 2026-08-08
+
+A backend security audit found that authentication was often enforced without verifying ownership of the requested repository, session, task, team, sandbox, snapshot, or GitHub installation. A signed-in attacker who learned another tenant's Convex IDs could therefore reach privileged actions, including GitHub operations, environment-variable reads and writes, PTY controls, preview grants, snapshot controls, Linear lookups, and session mutations.
+
+Repository, task, session, team, message-parent, and sandbox-binding guards now live in shared backend helpers and are applied before those sensitive reads, mutations, and external API calls. GitHub discovery and synchronization are limited to installations or codebases the caller owns, task/project PR creation verifies repository access, global sync settings are filtered per user, and cross-tenant dependency and audit-category operations are rejected.
+
+MCP OAuth now requires explicit user consent, safe registered redirect URIs, S256 PKCE, authorization-code client binding, and client-bound refresh tokens. Access-token verification fails closed when the Clerk user no longer exists. Preview-key lookup also fails closed instead of silently disabling grant validation.
+
+Production dependency auditing initially reported 2 critical and 48 high advisories. Patched direct versions and narrow transitive overrides reduce that to 0 critical and 2 high; the two remaining advisories are unpatched `image-size` parser denial-of-service issues in the Chrome extension's React Native toolchain, not the deployed backend.
+
+Verified: backend and web TypeScript checks pass; 16 focused authorization and redirect tests pass. The wider backend suite still has 10 unrelated pre-existing contract failures in desktop ffmpeg, URL formatting, sandbox prewarm, and snapshot-retention tests.
+
 ## Touch drag for the quick-tasks list, one sensor split for every drag surface - 2026-08-07
 
 A tenth Apple-design pass over `apps/web` and `packages/ui` found one real defect left in the drag layer, and fixing it properly meant collapsing three copies of the same configuration into one.

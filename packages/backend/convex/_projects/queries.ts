@@ -173,6 +173,7 @@ export const getProjectPrCreationData = internalQuery({
     projectId: v.id("projects"),
   },
   returns: v.object({
+    repoId: v.id("githubRepos"),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -217,6 +218,7 @@ export const getProjectPrCreationData = internalQuery({
       .map((t) => ({ title: t.title, description: t.description }));
 
     return {
+      repoId: repo._id,
       installationId: repo.installationId,
       repoOwner: repo.owner,
       repoName: repo.name,

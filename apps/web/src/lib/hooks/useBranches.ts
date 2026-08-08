@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useAction } from "convex/react";
 import { api } from "@eva/backend";
+import type { Id } from "@eva/backend";
 
 interface Branch {
   name: string;
@@ -32,9 +33,9 @@ function getCached(key: string): Branch[] | null {
 }
 
 export function useBranches(
+  repoId: Id<"githubRepos">,
   owner: string,
   repoName: string,
-  installationId: number,
   enabled: boolean = true,
 ) {
   const cacheKey = getCacheKey(owner, repoName);
@@ -48,9 +49,7 @@ export function useBranches(
   const load = async () => {
     try {
       const result = await fetchBranches({
-        installationId,
-        owner,
-        repo: repoName,
+        repoId,
       });
       branchCache.set(cacheKey, { branches: result, timestamp: Date.now() });
       setBranches(result);

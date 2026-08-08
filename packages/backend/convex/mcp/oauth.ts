@@ -4,7 +4,10 @@ import {
   internalQuery,
   mutation,
 } from "../_generated/server";
-import { redirectUriMatchesRegistered } from "../_mcp/redirectUri";
+import {
+  isAllowedOAuthRedirectUri,
+  redirectUriMatchesRegistered,
+} from "../_mcp/redirectUri";
 
 const CODE_TTL_MS = 5 * 60 * 1000;
 const CLIENT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -38,6 +41,15 @@ export const authorize = mutation({
       .first();
     if (!client) {
       throw new Error("Unknown client_id");
+    }
+    if (Date.now() - client.registeredAt > CLIENT_TTL_MS) {
+      throw new Error("Client registration expired");
+    }
+    if (args.codeChallengeMethod !== "S256") {
+      throw new Error("Only S256 PKCE is supported");
+    }
+    if (!isAllowedOAuthRedirectUri(args.redirectUri)) {
+      throw new Error("Unsafe redirect_uri");
     }
     if (!redirectUriMatchesRegistered(args.redirectUri, client.redirectUris)) {
       throw new Error("redirect_uri does not match registered URIs");

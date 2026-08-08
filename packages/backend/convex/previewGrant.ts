@@ -9,6 +9,7 @@ import {
   PREVIEW_GRANT_ISSUER,
   PREVIEW_GRANT_TTL_SECONDS,
 } from "./previewGrantConfig";
+import { assertActionSandboxAccess } from "./functions";
 
 /**
  * Reads the ES256 preview-grant keypair from the env. The grant is asymmetric
@@ -27,12 +28,12 @@ function readPrivateJwk(): JWK {
 
 /**
  * Returns the public half of the preview-grant keypair (private `d` removed),
- * safe to embed in the sandbox proxy. Returns null when no key is configured,
- * which disables gating (legacy behaviour) rather than breaking previews.
+ * safe to embed in the sandbox proxy. Missing key material fails closed so a
+ * deployment mistake cannot silently publish unauthenticated previews.
  */
-export function getPreviewGrantPublicJwk(): JWK | null {
+export function getPreviewGrantPublicJwk(): JWK {
   const json = process.env.PREVIEW_GRANT_PRIVATE_KEY;
-  if (!json) return null;
+  if (!json) throw new Error("Missing PREVIEW_GRANT_PRIVATE_KEY env var");
   const jwk: JWK = JSON.parse(json);
   const publicJwk: JWK = { ...jwk };
   delete publicJwk.d;
@@ -86,6 +87,7 @@ export const mintPreviewGrant = action({
     if (!repo) {
       throw new Error("Not authorized to access this repository");
     }
+    await assertActionSandboxAccess(ctx, repo._id, args.sandboxId);
 
     return await signPreviewGrant({
       sandboxId: args.sandboxId,

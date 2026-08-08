@@ -6,8 +6,12 @@ import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
-import { trackSessionWorkflow } from "./workflowWatchdog";
-import { closeOpenTurn } from "./_chat/turnStore";
+import {
+  advanceTurn,
+  closeTurn,
+  openTurn,
+  resolveCompletionTurn,
+} from "./_chat/turnStore";
 import {
   clearStreamingActivity,
   extractFirstJsonValue,
@@ -49,6 +53,12 @@ export const summarizeSessionWorkflow = workflow.define({
       ephemeral: false,
     });
 
+    const turnId = await step.runMutation(internal.turns.markLaunching, {
+      surface: "summary",
+      entityId: String(args.sessionId),
+      sandboxId,
+    });
+
     await step.runAction(internal.sandbox.launchOnExistingSandbox, {
       sandboxId,
       entityId: args.sessionId,
@@ -61,6 +71,7 @@ export const summarizeSessionWorkflow = workflow.define({
       allowedTools: "",
       repoId: sessionData.repoId,
       sessionPersistenceId: args.sessionId,
+      ...(turnId !== null ? { turnId } : {}),
     });
 
     const result = await step.awaitEvent(summarizeCompleteEvent);
@@ -70,6 +81,7 @@ export const summarizeSessionWorkflow = workflow.define({
       success: result.success,
       result: result.result,
       error: result.error,
+      ...(turnId !== null ? { turnId } : {}),
     });
   },
 });
@@ -126,9 +138,17 @@ export const saveResult = internalMutation({
     success: v.boolean(),
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
+    turnId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const completion = await resolveCompletionTurn(ctx, {
+      surface: "summary",
+      entityId: String(args.sessionId),
+      turnId: args.turnId,
+    });
+    if (completion.status === "stale") return null;
+
     await clearStreamingActivity(ctx, `summary:${args.sessionId}`);
 
     let summary: string[] = ["No summary available"];
@@ -146,15 +166,14 @@ export const saveResult = internalMutation({
       summary,
       activeWorkflowId: undefined,
     });
-    // Summarize blocks the session the same way a chat turn does, so it opens
-    // and closes a turn row through the same path.
-    await closeOpenTurn(
-      ctx,
-      "session",
-      String(args.sessionId),
-      args.success ? "done" : "error",
-      { ...(args.error !== null ? { error: args.error } : {}) },
-    );
+    if (completion.status === "current") {
+      await closeTurn(
+        ctx,
+        completion.turn,
+        args.success ? "done" : "error",
+        { ...(args.error !== null ? { error: args.error } : {}) },
+      );
+    }
     return null;
   },
 });
@@ -168,6 +187,7 @@ export const handleCompletion = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
+    turnId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -175,10 +195,31 @@ export const handleCompletion = authMutation({
     if (!session || !session.activeWorkflowId) return null;
     if (session.userId !== ctx.userId) throw new Error("Not authorized");
 
+    const completion = await resolveCompletionTurn(ctx, {
+      surface: "summary",
+      entityId: String(args.sessionId),
+      turnId: args.turnId,
+    });
+    if (completion.status === "stale") return null;
+    if (
+      completion.status === "current" &&
+      completion.turn.state === "finalizing"
+    ) {
+      return null;
+    }
+    const workflowId =
+      completion.status === "current"
+        ? completion.turn.workflowId
+        : session.activeWorkflowId;
+    if (!workflowId || workflowId !== session.activeWorkflowId) return null;
+    if (completion.status === "current") {
+      await advanceTurn(ctx, completion.turn, "finalizing");
+    }
+
     await sendCompletionEvent(
       ctx,
       summarizeCompleteEvent,
-      session.activeWorkflowId,
+      workflowId,
       {
         success: args.success,
         result: args.result,
@@ -209,6 +250,7 @@ export const startSummarize = authMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
     if (session.userId !== ctx.userId) throw new Error("Not authorized");
+    if (session.activeWorkflowId !== undefined) return null;
 
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
@@ -223,7 +265,18 @@ export const startSummarize = authMutation({
       },
     );
 
-    await trackSessionWorkflow(ctx, args.sessionId, workflowId);
+    await openTurn(ctx, {
+      surface: "summary",
+      entityId: String(args.sessionId),
+      streamingEntityId: `summary:${String(args.sessionId)}`,
+      workflowId: String(workflowId),
+      model: "haiku",
+      sandboxId: session.sandboxId,
+      repoId: session.repoId,
+    });
+    await ctx.db.patch(args.sessionId, {
+      activeWorkflowId: String(workflowId),
+    });
 
     return null;
   },

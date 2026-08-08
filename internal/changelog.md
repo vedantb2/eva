@@ -1,5 +1,9 @@
 # Changelog
 
+## Fence turn completion to its lease owner - 2026-08-08
+
+Completion callbacks now carry and validate the exact `turnId` before changing streaming state, closing a row, or resuming a workflow. This makes retries idempotent and prevents a superseded callback from completing the next queued turn. Final heartbeat terminal verdicts stop completion synchronously, task finalization grants its ten-minute lease atomically, and session summaries use a distinct renewable lease surface instead of borrowing chat liveness.
+
 ## Mouse wheel dead-zones from blanket overscroll contain - 2026-08-08
 
 Putting `overscroll-behavior: contain` on `@utility scrollbar` made every `overflow:auto` pane a contain target, including ones with no overflow and horizontal boards with `overflow-y-hidden`. Chrome treats those as scroll containers at their boundary, so the wheel was swallowed while dragging the ancestor scrollbar still worked. Removed contain from the utility; restored `overscroll-y-contain` / `overscroll-contain` on the kanban column and mention picker that had opted in before.

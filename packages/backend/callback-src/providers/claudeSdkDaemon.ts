@@ -47,7 +47,10 @@ import {
 import { buildSdkOptions, loadSdk, type SdkUserMessage } from "./claudeSdk.js";
 import { callbackState as S } from "../runtime/state.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
-import { setCurrentTurnId } from "../runtime/turnLease.js";
+import {
+  getCurrentTurnId,
+  setCurrentTurnId,
+} from "../runtime/turnLease.js";
 import { log, readResponseJson } from "../utils.js";
 import type { JsonObject, JsonValue } from "../types.js";
 import {
@@ -203,6 +206,11 @@ function endWatchedTurn(): void {
   turnActive = false;
 }
 
+function currentTurnArgs(): { turnId?: string } {
+  const turnId = getCurrentTurnId();
+  return turnId ? { turnId } : {};
+}
+
 /**
  * Sends a failure completion for the current turn (resolving the workflow's
  * awaitEvent so the UI stops spinning) and exits the process. Exiting abandons a
@@ -218,6 +226,7 @@ async function failTurnAndExit(error: string): Promise<never> {
       error,
       activityLog: serializeSteps(S.accumulatedSteps),
       ...(RUN_ID ? { runId: RUN_ID } : {}),
+      ...currentTurnArgs(),
     });
   } catch {
     /* best-effort: exit regardless so the daemon does not wedge */
@@ -415,7 +424,7 @@ function resetTurnState(): void {
 }
 
 /** Reports one finished turn to the session workflow (mirrors the one-shot completion). */
-async function finalizeTurn(output: string): Promise<void> {
+async function finalizeTurn(output: string): Promise<boolean> {
   // Drain the buffered turn output into S.accumulatedSteps before building the
   // completion payload — exactly like the one-shot path (index.ts) flushes after
   // its attempt loop. processRealtimeStdoutChunk only runs the streaming
@@ -452,7 +461,8 @@ async function finalizeTurn(output: string): Promise<void> {
   // as its response until the real reply arrived (stale-reply bug).
   // setFinalizingState (not plain flushStreaming, which would early-return on
   // the already-drained buffer) pushes the now-complete steps and final text.
-  await setFinalizingState();
+  if (await setFinalizingState()) return false;
+  Object.assign(completionArgs, currentTurnArgs());
   // Durability BEFORE completion: commit + push the turn's work so a VM death
   // after this point cannot erase it (a hard death snapshots nothing and the
   // next resume rolls the filesystem back — see turnPersist.ts).
@@ -462,6 +472,9 @@ async function finalizeTurn(output: string): Promise<void> {
   // the assistant message that was just written.
   const completionSentAt = Date.now();
   await deliverCompletionWithMedia(completionArgs);
+  // The server now owns the finalizing lease. The warm daemon is between turns
+  // and must not shorten or revive that lease with its background heartbeat.
+  setCurrentTurnId(null);
   log(
     "daemon: turn finalized success=" +
       success +
@@ -481,6 +494,7 @@ async function finalizeTurn(output: string): Promise<void> {
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms",
   );
+  return true;
 }
 
 /**
@@ -832,6 +846,7 @@ async function failSyntheticTurn(error: string): Promise<void> {
         result: null,
         error,
         activityLog: serializeSteps(S.accumulatedSteps),
+        ...currentTurnArgs(),
       }),
     );
   } catch {
@@ -876,9 +891,9 @@ async function ensureSyntheticTurn(): Promise<void> {
   }
 }
 
-async function finalizeSyntheticTurn(output: string): Promise<void> {
+async function finalizeSyntheticTurn(output: string): Promise<boolean> {
   if (daemonTurn?.kind !== "synthetic") {
-    return;
+    return false;
   }
   const messageId = daemonTurn.messageId;
   await flushStreaming();
@@ -898,6 +913,8 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
+  if (await setFinalizingState()) return false;
+  Object.assign(completionArgs, currentTurnArgs());
   await callConvexWithRetry(
     "mutation",
     COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
@@ -909,6 +926,7 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
   daemonTurn = null;
   agentTurnOutput = "";
   log("daemon: synthetic turn finalized success=" + success);
+  return true;
 }
 
 function startRealAgentTurn(turn: ClaimedTurn, agentRunner: WarmRunner): void {
@@ -1138,14 +1156,19 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
         "ms after turn start",
     );
 
+    let completionAccepted: boolean;
     if (daemonTurn?.kind === "synthetic") {
-      await finalizeSyntheticTurn(agentTurnOutput);
+      completionAccepted = await finalizeSyntheticTurn(agentTurnOutput);
     } else {
-      await finalizeTurn(agentTurnOutput);
+      completionAccepted = await finalizeTurn(agentTurnOutput);
       log(
         "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms",
       );
       daemonTurn = null;
+    }
+    if (!completionAccepted) {
+      daemonExiting = true;
+      return;
     }
     // Leave any already-queued SDK messages in the pump. The next loop
     // iteration will ensureSyntheticTurn() / handle them — draining here
@@ -1471,6 +1494,7 @@ export async function runSdkDaemon(): Promise<void> {
         result: null,
         error: "Agent SDK daemon failed: " + messageText,
         activityLog: serializeSteps(S.accumulatedSteps),
+        ...currentTurnArgs(),
       });
     } catch {
       /* ignore */

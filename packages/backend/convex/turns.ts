@@ -18,11 +18,15 @@ import type { ChatSurfaceAdapter } from "./_chat/surfaceAdapters";
 import { finalizeStaleChatTurn } from "./_chat/stallWatchdog";
 import { closeTurn, renewTurnLease } from "./_chat/turnStore";
 import { isPastRunTimeout, leaseDurationMs } from "./_chat/turnLease";
+import { clearStreamingActivity } from "./_taskWorkflow/helpers";
+import { cancelTrackedWorkflow } from "./workflowManager";
+import { normalizeAIModel } from "./validators";
 
 const surfaceValidator = v.union(
   v.literal("session"),
   v.literal("taskChat"),
   v.literal("projectChat"),
+  v.literal("summary"),
 );
 
 const turnStateValidator = v.union(
@@ -34,6 +38,13 @@ const turnStateValidator = v.union(
   v.literal("error"),
   v.literal("cancelled"),
 );
+
+function legacyOpenTurn(
+  turnStartedAt: number,
+  model: string,
+): { state: "running"; turnStartedAt: number; model: string } {
+  return { state: "running", turnStartedAt, model };
+}
 
 /**
  * The one signal the UI uses for "Working…" (I1). An open row means a turn is
@@ -62,12 +73,57 @@ export const getOpen = authQuery({
           .eq("open", true),
       )
       .first();
-    if (!turn) return null;
-    return {
-      state: turn.state,
-      turnStartedAt: turn.turnStartedAt,
-      model: turn.model,
-    };
+    if (turn) {
+      return {
+        state: turn.state,
+        turnStartedAt: turn.turnStartedAt,
+        model: turn.model,
+      };
+    }
+
+    // Deployment compatibility: workflows launched before the turns table
+    // have an active workflow field but no row. Fall back only when this entity
+    // has no turn history at all; every post-migration start writes a row in the
+    // same mutation as the active field, so a closed new turn can never revive
+    // through this path.
+    const hasTurnHistory = await ctx.db
+      .query("turns")
+      .withIndex("by_entity_open", (q) =>
+        q.eq("surface", args.surface).eq("entityId", args.entityId),
+      )
+      .first();
+    if (hasTurnHistory) return null;
+
+    switch (args.surface) {
+      case "session":
+      case "summary": {
+        const id = ctx.db.normalizeId("sessions", args.entityId);
+        const session = id ? await ctx.db.get(id) : null;
+        if (!session?.activeWorkflowId) return null;
+        return legacyOpenTurn(
+          session._creationTime,
+          normalizeAIModel(session.lastModel),
+        );
+      }
+      case "taskChat": {
+        const id = ctx.db.normalizeId("agentTasks", args.entityId);
+        const task = id ? await ctx.db.get(id) : null;
+        if (!task?.activeChatWorkflowId) return null;
+        return legacyOpenTurn(
+          task._creationTime,
+          normalizeAIModel(task.lastChatModel ?? task.model),
+        );
+      }
+      case "projectChat": {
+        const id = ctx.db.normalizeId("projects", args.entityId);
+        const project = id ? await ctx.db.get(id) : null;
+        if (!project?.activeChatWorkflowId) return null;
+        return legacyOpenTurn(
+          project._creationTime,
+          normalizeAIModel(project.lastChatModel ?? project.model),
+        );
+      }
+    }
   },
 });
 
@@ -211,6 +267,29 @@ async function finalizeExpiredTurn<
   await closeTurn(ctx, turn, "error", { error: alert.text });
 }
 
+/** Finalizes a summary without applying chat-message salvage semantics. */
+async function finalizeExpiredSummary(
+  ctx: MutationCtx,
+  turn: Doc<"turns">,
+): Promise<void> {
+  const sessionId = ctx.db.normalizeId("sessions", turn.entityId);
+  const session = sessionId ? await ctx.db.get(sessionId) : null;
+  if (
+    sessionId &&
+    session &&
+    turn.workflowId !== undefined &&
+    session.activeWorkflowId === turn.workflowId
+  ) {
+    await cancelTrackedWorkflow(ctx, turn.workflowId);
+    await clearStreamingActivity(ctx, turn.streamingEntityId);
+    await sessionChatAdapter.interrupt(ctx, session);
+    await ctx.db.patch(sessionId, { activeWorkflowId: undefined });
+  }
+  await closeTurn(ctx, turn, "error", {
+    error: "Summary generation lease expired",
+  });
+}
+
 /**
  * Converges one expired turn. Re-reads the row inside the mutation so a lease
  * renewed between the reconciler's query and this write is respected — the
@@ -248,6 +327,9 @@ export const finalizeExpired = internalMutation({
           turn,
           args.sandboxStopped,
         );
+        break;
+      case "summary":
+        await finalizeExpiredSummary(ctx, turn);
         break;
     }
     return null;

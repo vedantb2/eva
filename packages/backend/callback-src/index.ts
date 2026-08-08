@@ -56,6 +56,7 @@ import {
   readResponseJson,
 } from "./utils.js";
 import { serializeSteps } from "./parse/stepBudget.js";
+import { getCurrentTurnId } from "./runtime/turnLease.js";
 
 process.on("exit", (code) => {
   writeDoneFile("unexpected-exit", {
@@ -225,7 +226,9 @@ try {
     log("skipping post-attempt sync because result-event sync already ran");
   }
 
-  await setFinalizingState();
+  if (await setFinalizingState()) {
+    process.exit(0);
+  }
 
   // Cursor can flush partial assistant text while a SIGTERM/SIGKILL is tearing
   // down the process. extractResultEvent deliberately falls back to that text,
@@ -347,6 +350,8 @@ try {
     activityLog,
   };
   if (RUN_ID) completionArgs.runId = RUN_ID;
+  const turnId = getCurrentTurnId();
+  if (turnId) completionArgs.turnId = turnId;
   if (finalResultEvent?.rawResultEvent) {
     completionArgs.rawResultEvent = finalResultEvent.rawResultEvent;
   }
@@ -409,6 +414,8 @@ try {
     activityLog: serializeSteps(S.accumulatedSteps),
   };
   if (RUN_ID) errorArgs.runId = RUN_ID;
+  const turnId = getCurrentTurnId();
+  if (turnId) errorArgs.turnId = turnId;
   try {
     await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", errorArgs);
   } catch {

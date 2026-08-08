@@ -34,12 +34,15 @@ const FINALIZE_HEADER = "export async function finalizeStaleChatTurn<";
  * a stalled turn is a UI that looks busy, and nothing throws.
  */
 describe("I1: an open turn row is the only 'Working…' signal", () => {
-  test("getOpen answers from row presence alone", () => {
+  test("getOpen uses entity fields only for pre-lease rows with no history", () => {
     const body = definitionBody(turns, "getOpen");
     expect(body).toContain('withIndex("by_entity_open"');
-    // Not activeWorkflowId, not a placeholder message, not the age of a
-    // streaming row — each of those was a signal that could disagree.
-    expect(body).not.toContain("activeWorkflowId");
+    // A legacy active field is consulted only before any row has ever existed;
+    // post-migration rows remain the sole liveness signal.
+    const historyGuardAt = body.indexOf("if (hasTurnHistory) return null");
+    const legacySignalAt = body.indexOf("activeWorkflowId", historyGuardAt);
+    expect(historyGuardAt).toBeGreaterThan(-1);
+    expect(legacySignalAt).toBeGreaterThan(historyGuardAt);
     expect(body).not.toContain("streamingActivity");
   });
 
@@ -84,6 +87,16 @@ describe("I2: only the actor holding the current turn may renew", () => {
     // A payload-free touch still renews: that is what carries a turn through a
     // long silent tool run.
     expect(http).not.toContain("internal.streaming.internalTouch");
+  });
+
+  test("a heartbeat racing with completion preserves the finalizing lease", () => {
+    const body = functionBody(
+      turnStore,
+      "export async function renewTurnLease(",
+    );
+    expect(body).toContain('turn.state === "finalizing"');
+    expect(body).toContain("leaseDurationMs(renewedState, phase)");
+    expect(body).toContain("state: renewedState");
   });
 });
 

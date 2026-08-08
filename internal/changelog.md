@@ -1,6 +1,14 @@
 # Changelog
 
 ## One sandbox owner contract for sessions, tasks, and projects - 2026-08-10
+## Anonymous landing no longer waits for Clerk - 2026-08-08
+
+Boot held first paint on Clerk's `isLoaded` for everyone. For a returning signed-in user that is correct — protected routes need the restored session and the alternative is a landing-page flash. For an anonymous visitor it means a blank screen while ~210 kB of clerk-js downloads from Clerk's CDN and completes a handshake, to restore a session that does not exist. Measured on production: clerk-js is 30% of the 700 kB cold landing payload, and FCP (~500 ms) was gated on it.
+
+`main.tsx` now reads a persisted hint (`eva:signed-in-hint`, written whenever Clerk resolves) at boot. Hint says signed-in → previous behavior, unchanged. Hint absent or signed-out → the router renders immediately with `isSignedIn: false`; when Clerk finishes loading and disagrees, `router.invalidate()` re-runs the route guards and the `/` → `/home` redirect fires as if boot had blocked. All auth gating already flowed through router context (`_global`/`_repo` layouts, `/` beforeLoad), so no route changes.
+
+Verified in the running app: signed-in + hint → loading screen → `/home`; signed-in + cleared hint → landing paints, then auto-redirects to `/home`; anonymous with clerk-js blocked at the network layer → full landing renders (previously: infinite loading screen). Also shipped alongside: `/assets/*` now served `immutable` on Vercel — production was revalidating all ~61 hashed assets on every repeat visit (`max-age=0, must-revalidate`), measured as 61 conditional round-trips gating warm loads.
+
 ## Icon-by-name resolution without the 6,095-export barrel - 2026-08-08
 
 `TablerIconByName` (custom app tabs store free-text icon names like "IconBolt") used to resolve names through a dynamic import of the whole `@tabler/icons-react` namespace. That one import dragged ~6,100 modules into every build — 56% of the module graph, ~7s of a 23–31s Vercel build — and emitted a 2.5 MB / 484 kB gzip lazy chunk of React components, of which the data was the only part actually needed.

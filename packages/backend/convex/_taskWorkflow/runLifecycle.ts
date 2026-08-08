@@ -9,14 +9,10 @@ import {
   isSupersededTaskRun,
   recomputeProjectPhase,
 } from "../functions";
-import { RUN_TIMEOUT_MS } from "../workflowWatchdog";
+import { leaseExpiryFor } from "../_chat/turnLease";
 import { buildWorkflowRunNotificationMessage } from "./prompts";
 import { buildTaskDoneEvent } from "./events";
-import {
-  STALE_CHECK_DELAY_MS,
-  isUsageLimitError,
-  parseUsageLimitResetTime,
-} from "./recovery";
+import { isUsageLimitError, parseUsageLimitResetTime } from "./recovery";
 import {
   clearStreamingActivity,
   getTaskRunStreamingEntityId,
@@ -26,7 +22,7 @@ import {
   sendCompletionEvent,
 } from "./helpers";
 
-/** Transitions a queued run to running, sets streaming activity, and schedules watchdog timers. */
+/** Transitions a queued run to running, sets streaming activity, and grants the startup lease. */
 export const updateRunToRunning = internalMutation({
   args: {
     runId: v.id("agentRuns"),
@@ -42,6 +38,17 @@ export const updateRunToRunning = internalMutation({
       repoId: args.repoId,
       startedAt,
       finalizingAt: undefined,
+      // The startup lease covers sandbox resume, clone and install — the
+      // stretch with no callback yet to renew on the run's behalf. From here
+      // the run's own heartbeats hold it open, and the 60s reconciler converges
+      // it the moment they stop. Nothing is scheduled: a lease that is never
+      // renewed expires by itself, which is what the old `checkStaleRuns` and
+      // `handleStaleRun` timers were reaching for and kept losing.
+      leaseExpiresAt: leaseExpiryFor({
+        state: "launching",
+        turnStartedAt: startedAt,
+        now: startedAt,
+      }),
     });
     await ctx.db.patch(args.taskId, {
       status: "in_progress",
@@ -57,24 +64,6 @@ export const updateRunToRunning = internalMutation({
           status: "active",
         },
       ]),
-    );
-
-    await ctx.scheduler.runAfter(
-      RUN_TIMEOUT_MS,
-      internal.taskWorkflow.handleStaleRun,
-      {
-        taskId: args.taskId,
-        runId: args.runId,
-      },
-    );
-
-    await ctx.scheduler.runAfter(
-      STALE_CHECK_DELAY_MS,
-      internal.taskWorkflow.checkStaleRuns,
-      {
-        runId: args.runId,
-        taskId: args.taskId,
-      },
     );
 
     return null;

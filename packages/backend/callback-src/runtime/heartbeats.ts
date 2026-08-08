@@ -3,6 +3,7 @@ import {
   HEARTBEAT_FATAL_BURST,
   HEARTBEAT_FATAL_SLOW_COUNT,
   HEARTBEAT_FATAL_SLOW_WINDOW_MS,
+  LAUNCH_ID,
   READY_FILE,
   SCRIPT_STARTED_AT,
   STREAMING_ENTITY_ID,
@@ -22,6 +23,7 @@ import { writeFileSync } from "fs";
 import { callbackState as S } from "./state.js";
 import { terminateAttemptProcess } from "./processControl.js";
 import { flushBackgroundShellQueue } from "./backgroundShells.js";
+import { getLeaseTerminalReason } from "./turnLease.js";
 import { serializeSteps } from "../parse/stepBudget.js";
 
 let flushInterval: ReturnType<typeof setInterval> | null = null;
@@ -231,12 +233,38 @@ async function initialHeartbeat(): Promise<void> {
   }
 }
 
+/**
+ * I2 enforcement. Once the server has answered a heartbeat with `terminal`,
+ * this process no longer owns the turn: another turn may already be running on
+ * this sandbox, so reporting a result would close *its* row. Kill the agent
+ * process and exit instead. Exiting is safe on both paths — one-shot runs are
+ * over anyway, and the warm daemon is respawned on the next turn, the same way
+ * it is after an idle timeout or a script update.
+ */
+function enforceTurnLease(): void {
+  const reason = getLeaseTerminalReason();
+  if (reason === null || leaseExitScheduled) return;
+  leaseExitScheduled = true;
+  log("exiting: turn lease terminal (" + reason + ")");
+  if (S.activeAttemptChild) {
+    terminateAttemptProcess(S.activeAttemptChild);
+  }
+  if (flushInterval) clearInterval(flushInterval);
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  S.streamingLoopsStopped = true;
+  // Brief grace so the SIGTERM above lands before the parent goes away.
+  setTimeout(() => process.exit(0), LEASE_EXIT_GRACE_MS).unref();
+}
+
+const LEASE_EXIT_GRACE_MS = 500;
+let leaseExitScheduled = false;
+
 export function startStreamingLoops(): void {
   flushInterval = setInterval(() => {
-    void flushStreaming();
+    void flushStreaming().then(enforceTurnLease);
   }, 150);
   heartbeatInterval = setInterval(() => {
-    void heartbeatPing();
+    void heartbeatPing().then(enforceTurnLease);
   }, 10000);
 }
 
@@ -264,7 +292,10 @@ export async function runPreflightHeartbeat(): Promise<boolean> {
   try {
     await initialHeartbeat();
     try {
-      writeFileSync(READY_FILE, String(Date.now()));
+      // The payload is this launch's id, not a timestamp: the launcher accepts
+      // the ready file only when it names the launch it started, so a marker
+      // left by the previous runner cannot be read as this one's success.
+      writeFileSync(READY_FILE, LAUNCH_ID || String(Date.now()));
       log(
         "ready file written after " +
           String(Date.now() - SCRIPT_STARTED_AT) +

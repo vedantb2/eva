@@ -164,6 +164,42 @@ export type StaleTurnDecision = {
 };
 
 /**
+ * How long one turn phase is allowed to go without a sign of life. Also the
+ * lease duration granted for that phase (`_chat/turnLease.ts`), so the
+ * watchdog's old thresholds and the lease protocol can never drift apart.
+ */
+export function thresholdForPhase(phase: StaleTurnPhase): number {
+  switch (phase) {
+    case "startup":
+      return STALE_NO_SANDBOX_THRESHOLD_MS;
+    case "tool":
+      return STALE_TOOL_ACTIVE_THRESHOLD_MS;
+    case "finishing":
+      return STALE_FINISHING_THRESHOLD_MS;
+    case "idle":
+      return STALE_THRESHOLD_MS;
+  }
+}
+
+/** Classifies the turn phase from the activity JSON the callback last reported. */
+export function turnPhaseFromActivity(input: {
+  currentActivity: string | undefined;
+  turnStartedAt: number;
+  hasSandbox: boolean;
+  now: number;
+}): StaleTurnPhase {
+  const startup = isSandboxStartupActivity(input.currentActivity, {
+    hasSandbox: input.hasSandbox,
+    runStartedAt: input.turnStartedAt,
+    now: input.now,
+  });
+  if (startup) return "startup";
+  if (isFinalizingActivity(input.currentActivity)) return "finishing";
+  if (hasActiveAgentToolStep(input.currentActivity)) return "tool";
+  return "idle";
+}
+
+/**
  * Staleness decision for one agent turn. Sandbox startup steps (clone,
  * install) legitimately go minutes between streaming writes, long silent
  * tools leave only the transport ping, finalization gets a middle allowance,
@@ -178,29 +214,8 @@ export function staleTurnDecision(input: {
   hasSandbox: boolean;
   now: number;
 }): StaleTurnDecision {
-  const startup = isSandboxStartupActivity(input.currentActivity, {
-    hasSandbox: input.hasSandbox,
-    runStartedAt: input.turnStartedAt,
-    now: input.now,
-  });
-  const finishing = !startup && isFinalizingActivity(input.currentActivity);
-  const tool =
-    !startup && !finishing && hasActiveAgentToolStep(input.currentActivity);
-  const phase: StaleTurnPhase = startup
-    ? "startup"
-    : tool
-      ? "tool"
-      : finishing
-        ? "finishing"
-        : "idle";
-  const thresholdMs =
-    phase === "startup"
-      ? STALE_NO_SANDBOX_THRESHOLD_MS
-      : phase === "tool"
-        ? STALE_TOOL_ACTIVE_THRESHOLD_MS
-        : phase === "finishing"
-          ? STALE_FINISHING_THRESHOLD_MS
-          : STALE_THRESHOLD_MS;
+  const phase = turnPhaseFromActivity(input);
+  const thresholdMs = thresholdForPhase(phase);
   const ageMs =
     input.now - Math.max(input.lastUpdatedAt ?? 0, input.turnStartedAt);
   return { stale: ageMs > thresholdMs, phase, thresholdMs, ageMs };

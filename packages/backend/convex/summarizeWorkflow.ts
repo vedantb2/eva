@@ -7,6 +7,7 @@ import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
 import { workflowCompleteValidator } from "./validators";
 import { trackSessionWorkflow } from "./workflowWatchdog";
+import { closeOpenTurn } from "./_chat/turnStore";
 import {
   clearStreamingActivity,
   extractFirstJsonValue,
@@ -145,6 +146,15 @@ export const saveResult = internalMutation({
       summary,
       activeWorkflowId: undefined,
     });
+    // Summarize blocks the session the same way a chat turn does, so it opens
+    // and closes a turn row through the same path.
+    await closeOpenTurn(
+      ctx,
+      "session",
+      String(args.sessionId),
+      args.success ? "done" : "error",
+      { ...(args.error !== null ? { error: args.error } : {}) },
+    );
     return null;
   },
 });

@@ -9,7 +9,7 @@ import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { resolveCredentialSourceLabel } from "@/lib/utils/credentialSourceLabel";
 import { appendReviewCommentsToPrompt } from "@/lib/reviewComments";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
-import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
+import { useTurnInProgress } from "@/lib/components/chat/useTurnInProgress";
 export type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
 >[number];
@@ -71,6 +71,14 @@ function applyAddMessageOptimistically(
     userMsg,
     assistantPlaceholder,
   ]);
+  // The composer reads "working" from the turn row, so the optimistic send has
+  // to open one locally too — otherwise the stop button and the queue-instead-
+  // of-send branch would both wait a round-trip behind the bubble they belong to.
+  localStore.setQuery(
+    api.turns.getOpen,
+    { surface: "session", entityId: args.id },
+    { state: "staged", turnStartedAt: now, model: args.model ?? "unknown" },
+  );
 }
 
 interface UseSessionSendParams {
@@ -85,7 +93,6 @@ interface UseSessionSendParams {
     id: string | null,
   ) => Id<"userProviderAccounts"> | undefined;
   accounts: ReadonlyArray<ModelAccount>;
-  messages: SessionMessage[];
   personaId?: Id<"designPersonas">;
   numDesigns?: number;
 }
@@ -99,7 +106,6 @@ export function useSessionSend({
   providerAccountId,
   resolveAccountId,
   accounts,
-  messages,
   personaId,
   numDesigns,
 }: UseSessionSendParams) {
@@ -114,7 +120,7 @@ export function useSessionSend({
     api.sessionWorkflow.cancelExecution,
   );
 
-  const isExecuting = isAssistantTurnInProgress(messages);
+  const isExecuting = useTurnInProgress("session", sessionId);
 
   const designArgs =
     mode === "design"

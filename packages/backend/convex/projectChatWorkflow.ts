@@ -22,6 +22,8 @@ import {
 } from "./_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "./streaming";
 import { startNextQueuedProjectChatMessage } from "./_queues/helpers";
+import { closeOpenTurn } from "./_chat/turnStore";
+import { markChatTurnFinalizing } from "./_chat/surfaceAdapters";
 import {
   trackProjectChatWorkflow,
   PROJECT_CHAT_STREAM_PREFIX,
@@ -461,6 +463,17 @@ export const cancelExecution = authMutation({
 
     await ctx.db.patch(args.projectId, projectPatch);
 
+    // Only when this cancel still owns the turn — if a newer one was staged
+    // meanwhile, the open row is that newer turn and must be left alone.
+    if (!newerTurnStaged && !newerWorkflowTracked) {
+      await closeOpenTurn(
+        ctx,
+        "projectChat",
+        String(args.projectId),
+        "cancelled",
+      );
+    }
+
     await startNextQueuedProjectChatMessage(ctx, args.projectId);
     return null;
   },
@@ -555,6 +568,12 @@ export const projectChatExecuteWorkflow = workflow.define({
       return;
     }
 
+    const turnId = await step.runMutation(internal.turns.markLaunching, {
+      surface: "projectChat",
+      entityId: String(args.projectId),
+      sandboxId: activeSandboxId,
+    });
+
     if (getAIModelProvider(data.model) === "claude") {
       await step.runMutation(internal.projectChatWorkflow.ensurePendingTurn, {
         projectId: args.projectId,
@@ -601,6 +620,7 @@ export const projectChatExecuteWorkflow = workflow.define({
         repoId: data.repoId,
         sessionPersistenceId: args.projectId,
         streamingEntityId,
+        ...(turnId !== null ? { turnId } : {}),
         attachmentStorageIds: data.attachmentStorageIds,
       });
     }
@@ -794,6 +814,15 @@ export const saveResult = internalMutation({
       lastSandboxActivity: Date.now(),
     });
 
+    // Before draining the queue — the next queued message opens its own turn.
+    await closeOpenTurn(
+      ctx,
+      "projectChat",
+      String(args.projectId),
+      args.success ? "done" : "error",
+      { ...(args.error !== null ? { error: args.error } : {}) },
+    );
+
     await startNextQueuedProjectChatMessage(ctx, args.projectId);
     return null;
   },
@@ -821,6 +850,10 @@ export const handleCompletion = authMutation({
     if (project.pendingTurn !== undefined) {
       await ctx.db.patch(args.projectId, { pendingTurn: undefined });
     }
+
+    // The runner stops heartbeating once it has reported; the lease switches to
+    // the finishing allowance that covers saveResult.
+    await markChatTurnFinalizing(ctx, "projectChat", String(args.projectId));
 
     await sendCompletionEvent(
       ctx,
@@ -899,7 +932,6 @@ export {
   claimPendingTurn,
   completeSyntheticTurn,
   ensurePendingTurn,
-  handleStaleSyntheticTurn,
   openSyntheticTurn,
   requestStopBackgroundAgent,
   updateBackgroundAgents,

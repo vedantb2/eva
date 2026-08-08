@@ -14,6 +14,7 @@ import { trackSessionWorkflow } from "../workflowWatchdog";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "../streaming";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
+import { closeOpenTurn } from "../_chat/turnStore";
 import { buildSessionPrompt, MODE_TOOLS, resolveToolMode } from "./workflow";
 import {
   assertProviderAccountUsableBy,
@@ -438,6 +439,12 @@ export const cancelExecution = authMutation({
     }
 
     await ctx.db.patch(args.sessionId, sessionPatch);
+
+    // Only when this cancel still owns the turn — if a newer one was staged
+    // meanwhile, the open row is that newer turn and must be left alone.
+    if (!newerTurnStaged && !newerWorkflowTracked) {
+      await closeOpenTurn(ctx, "session", String(args.sessionId), "cancelled");
+    }
 
     await startNextQueuedSessionMessage(ctx, args.sessionId);
 

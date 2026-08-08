@@ -18,6 +18,7 @@ var STREAMING_HMAC = process.env.STREAMING_HMAC || "";
 var ENTITY_ID = process.env.ENTITY_ID;
 var STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 var RUN_ID = process.env.RUN_ID || null;
+var TURN_ID = process.env.TURN_ID || null;
 var ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
 var TASK_PROOF_CAPTURE_ENABLED = process.env.TASK_PROOF_CAPTURE_ENABLED !== "false";
 var ROOT_DIRECTORY = process.env.ROOT_DIRECTORY || "";
@@ -83,9 +84,11 @@ var HEARTBEAT_ABSOLUTE_MAX_FAILURES = Number(
 var OUTPUT_BUFFER_MAX_BYTES = Number(
   process.env.CALLBACK_OUTPUT_BUFFER_MAX_BYTES || "2000000"
 );
-var READY_FILE = "/tmp/run-design.ready";
+var PID_FILE = process.env.RUNNER_PID_FILE || "/tmp/run-design.pid";
+var READY_FILE = process.env.RUNNER_READY_FILE || "/tmp/run-design.ready";
+var DONE_FILE = process.env.RUNNER_DONE_FILE || "/tmp/run-design.done";
+var LAUNCH_ID = process.env.RUNNER_LAUNCH_ID || "";
 var RAW_LOG_FILE = "/tmp/run-design.raw.jsonl";
-var DONE_FILE = "/tmp/run-design.done";
 var CLAUDE_BASE_CONFIG_DIR = process.env.CLAUDE_BASE_CONFIG_DIR || "/home/eva/.claude";
 var CLAUDE_RUNTIME_CONFIG_DIR = process.env.CLAUDE_RUNTIME_CONFIG_DIR || "/tmp/claude-config";
 var CLAUDE_PERSIST_DIR = process.env.CLAUDE_PERSIST_DIR || "/home/eva/.claude-persist";
@@ -636,6 +639,66 @@ function elapsedAttemptMs() {
   return attemptElapsedMs();
 }
 
+// callback-src/runtime/turnLease.ts
+var TERMINAL_REASONS = [
+  "unknown_turn",
+  "closed",
+  "superseded",
+  "timeout",
+  "cancelled"
+];
+var currentTurnId = TURN_ID;
+var terminalReason = null;
+function getCurrentTurnId() {
+  return currentTurnId;
+}
+function setCurrentTurnId(turnId) {
+  if (currentTurnId === turnId) return;
+  currentTurnId = turnId;
+  terminalReason = null;
+}
+function getLeaseTerminalReason() {
+  return terminalReason;
+}
+function isTerminalReason(value) {
+  return TERMINAL_REASONS.some((reason) => reason === value);
+}
+function parseLeaseTerminalReason(body) {
+  if (typeof body !== "object" || body === null || Array.isArray(body)) {
+    return null;
+  }
+  const lease = body.lease;
+  if (typeof lease !== "object" || lease === null || Array.isArray(lease)) {
+    return null;
+  }
+  if (lease.status !== "terminal") return null;
+  const reason = lease.reason;
+  if (typeof reason !== "string" || !isTerminalReason(reason)) {
+    return "closed";
+  }
+  return reason;
+}
+function noteHeartbeatResponse(body) {
+  if (terminalReason !== null) return true;
+  let parsed;
+  if (typeof body === "string") {
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      return false;
+    }
+  } else {
+    parsed = body;
+  }
+  const reason = parseLeaseTerminalReason(parsed);
+  if (reason === null) return false;
+  terminalReason = reason;
+  log(
+    "turn lease terminal (" + reason + ") for turnId=" + String(currentTurnId) + " \\u2014 this runner no longer owns the turn"
+  );
+  return true;
+}
+
 // callback-src/http/convexClient.ts
 async function fetchWithTimeout(url, options, timeoutMs = CALLBACK_HTTP_TIMEOUT_MS) {
   const controller = new AbortController();
@@ -687,29 +750,37 @@ async function callConvexWithRetry(type, path, args, maxRetries = CALLBACK_HTTP_
     }
   }
 }
-async function callStreamingHeartbeatTouchOnce(entityId) {
-  if (CONVEX_SITE_URL && STREAMING_HMAC) {
-    const body = new URLSearchParams();
-    body.set("entityId", entityId);
-    body.set("hmac", STREAMING_HMAC);
-    body.set("touchOnly", "1");
-    const res = await fetchWithTimeout(
-      CONVEX_SITE_URL + "/api/streaming/heartbeat",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body
-      }
-    );
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(
-        "Streaming heartbeat touch failed: " + res.status + " " + text
-      );
-    }
-    return res.text();
+async function postStreamingHeartbeat(siteUrl, body, label) {
+  const turnId = getCurrentTurnId();
+  if (turnId) body.set("turnId", turnId);
+  const res = await fetchWithTimeout(siteUrl + "/api/streaming/heartbeat", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body
+  });
+  if (!res.ok) {
+    const text2 = await res.text();
+    throw new Error(label + " failed: " + res.status + " " + text2);
   }
-  return await callConvex("mutation", "streaming:touch", { entityId });
+  const text = await res.text();
+  noteHeartbeatResponse(text);
+  return text;
+}
+async function callStreamingHeartbeatTouchOnce(entityId) {
+  if (!CONVEX_SITE_URL || !STREAMING_HMAC) {
+    throw new Error(
+      "Streaming heartbeat touch needs CONVEX_SITE_URL and the streaming HMAC"
+    );
+  }
+  const body = new URLSearchParams();
+  body.set("entityId", entityId);
+  body.set("hmac", STREAMING_HMAC);
+  body.set("touchOnly", "1");
+  return await postStreamingHeartbeat(
+    CONVEX_SITE_URL,
+    body,
+    "Streaming heartbeat touch"
+  );
 }
 async function callStreamingHeartbeatOnce(entityId, currentActivity, currentContent, pendingQuestion) {
   if (CONVEX_SITE_URL && STREAMING_HMAC) {
@@ -721,19 +792,11 @@ async function callStreamingHeartbeatOnce(entityId, currentActivity, currentCont
     if (pendingQuestion) {
       body.set("pendingQuestion", pendingQuestion);
     }
-    const res = await fetchWithTimeout(
-      CONVEX_SITE_URL + "/api/streaming/heartbeat",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body
-      }
+    return await postStreamingHeartbeat(
+      CONVEX_SITE_URL,
+      body,
+      "Streaming heartbeat"
     );
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error("Streaming heartbeat failed: " + res.status + " " + text);
-    }
-    return res.text();
   }
   const args = {
     entityId,
@@ -4017,12 +4080,27 @@ async function initialHeartbeat() {
     }
   }
 }
+function enforceTurnLease() {
+  const reason = getLeaseTerminalReason();
+  if (reason === null || leaseExitScheduled) return;
+  leaseExitScheduled = true;
+  log("exiting: turn lease terminal (" + reason + ")");
+  if (callbackState.activeAttemptChild) {
+    terminateAttemptProcess(callbackState.activeAttemptChild);
+  }
+  if (flushInterval) clearInterval(flushInterval);
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  callbackState.streamingLoopsStopped = true;
+  setTimeout(() => process.exit(0), LEASE_EXIT_GRACE_MS).unref();
+}
+var LEASE_EXIT_GRACE_MS = 500;
+var leaseExitScheduled = false;
 function startStreamingLoops() {
   flushInterval = setInterval(() => {
-    void flushStreaming();
+    void flushStreaming().then(enforceTurnLease);
   }, 150);
   heartbeatInterval = setInterval(() => {
-    void heartbeatPing();
+    void heartbeatPing().then(enforceTurnLease);
   }, 1e4);
 }
 async function stopStreamingLoops() {
@@ -4044,7 +4122,7 @@ async function runPreflightHeartbeat() {
   try {
     await initialHeartbeat();
     try {
-      writeFileSync7(READY_FILE, String(Date.now()));
+      writeFileSync7(READY_FILE, LAUNCH_ID || String(Date.now()));
       log(
         "ready file written after " + String(Date.now() - SCRIPT_STARTED_AT) + "ms"
       );
@@ -4906,6 +4984,7 @@ function resetTurnState() {
   callbackState.todoState.length = 0;
   callbackState.awaitingQuestionAnswer = false;
   callbackState.lastStepType = "thinking";
+  setCurrentTurnId(null);
 }
 async function finalizeTurn(output) {
   await flushStreaming();
@@ -4962,23 +5041,28 @@ function readClaimedTurn(result) {
     return null;
   }
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return { prompt, attachmentUrls: [] };
+    return { prompt, attachmentUrls: [], turnId: null };
   }
   const inner = result.value;
   const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
   return {
     prompt,
-    attachmentUrls: readClaimedAttachmentUrls(payload)
+    attachmentUrls: readClaimedAttachmentUrls(payload),
+    turnId: typeof payload.turnId === "string" ? payload.turnId : null
   };
 }
-function readSyntheticTurnMessageId(result) {
+function readOpenedSyntheticTurn(result) {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
     return null;
   }
   const inner = result.value;
   const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
   const messageId = payload.messageId;
-  return typeof messageId === "string" ? messageId : null;
+  if (typeof messageId !== "string") return null;
+  return {
+    messageId,
+    turnId: typeof payload.turnId === "string" ? payload.turnId : null
+  };
 }
 function readParentToolUseId(message) {
   const parentField = message.parent_tool_use_id;
@@ -5230,13 +5314,15 @@ async function ensureSyntheticTurn() {
       OPEN_SYNTHETIC_TURN_MUTATION ?? "",
       entityMutationArgs({})
     );
-    const messageId = readSyntheticTurnMessageId(result);
-    if (messageId === null) {
+    const opened = readOpenedSyntheticTurn(result);
+    if (opened === null) {
       log("daemon: openSyntheticTurn returned no messageId");
       return;
     }
+    const { messageId } = opened;
     resetTurnState();
     daemonTurn = { kind: "synthetic", messageId };
+    setCurrentTurnId(opened.turnId);
     agentTurnStartedAt = Date.now();
     sawFirstMessageThisTurn = { value: false };
     sawAssistantThisTurn = { value: false };
@@ -5284,6 +5370,7 @@ async function finalizeSyntheticTurn(output) {
 function startRealAgentTurn(turn, agentRunner) {
   resetTurnState();
   daemonTurn = { kind: "real" };
+  setCurrentTurnId(turn.turnId);
   agentTurnStartedAt = Date.now();
   sawFirstMessageThisTurn = { value: false };
   sawAssistantThisTurn = { value: false };
@@ -5291,7 +5378,7 @@ function startRealAgentTurn(turn, agentRunner) {
   agentRunner.push(turn.prompt);
   callbackState.activeAttemptStartedAt = agentTurnStartedAt;
   agentTurnOutput = "";
-  log("daemon: real turn started");
+  log("daemon: real turn started turnId=" + String(turn.turnId));
 }
 function handleCancelRequested(agentRunner) {
   if (daemonTurn === null) {
@@ -6238,6 +6325,10 @@ process.on("exit", (code) => {
 });
 try {
   unlinkSync3(READY_FILE);
+} catch {
+}
+try {
+  writeFileSync11(PID_FILE, String(process.pid));
 } catch {
 }
 try {

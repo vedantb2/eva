@@ -203,7 +203,6 @@ export function ChatPanel({
     providerAccountId,
     resolveAccountId,
     accounts,
-    messages,
     personaId: selectedPersonaId,
     numDesigns,
   });

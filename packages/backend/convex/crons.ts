@@ -3,6 +3,27 @@ import { internal } from "./_generated/api";
 
 const crons = cronJobs();
 
+// Converge every chat turn whose lease has lapsed. This one level-triggered
+// job replaces the per-turn watchdog chains: it does not need to have been
+// armed by the turn it kills, so a turn whose scheduler entry was never
+// created — or was created and then lost — still reaches a terminal state.
+crons.interval(
+  "turn lease reconcile",
+  { seconds: 60 },
+  internal.turns.reconcile,
+  {},
+);
+
+// The same contract for task runs, which lease `agentRuns` rather than `turns`
+// because a run carries record semantics (retries, exit reasons) a turn does
+// not. Replaces `checkStaleRuns` and the 2-hour `handleStaleRun` backstop.
+crons.interval(
+  "run lease reconcile",
+  { seconds: 60 },
+  internal.taskWorkflow.reconcileRuns,
+  {},
+);
+
 // Send the unread-notification digest at 08:00 UTC on weekdays (Mon-Fri).
 crons.cron(
   "daily notification digest",

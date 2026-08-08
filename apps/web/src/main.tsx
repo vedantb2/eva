@@ -99,6 +99,13 @@ declare module "@tanstack/react-router" {
 // nothing — they have no session to restore.
 const hadSession = readSignedInHint();
 
+// The app chrome (sidebar, spotlight search, hotkeys) is a lazy chunk so the
+// anonymous landing never downloads it. Returning users need it immediately,
+// so start fetching now — it downloads in parallel with Clerk's handshake.
+if (hadSession) {
+  void import("@/lib/components/AppShellChrome");
+}
+
 function InnerApp() {
   const { isLoaded, isSignedIn } = useAuth();
 

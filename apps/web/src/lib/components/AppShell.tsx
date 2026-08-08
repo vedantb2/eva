@@ -1,22 +1,23 @@
-import type { ReactNode } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import { useMatches } from "@tanstack/react-router";
-import { AuthGate } from "@/lib/components/ClientProvider";
-import { FollowOverlay } from "@/lib/components/FollowOverlay";
-import { Sidebar } from "@/lib/components/Sidebar";
-import { SpotlightSearch } from "@/lib/components/SpotlightSearch";
-import { NotificationToastStream } from "@/lib/components/NotificationToastStream";
-import { UpdateAvailableToast } from "@/lib/components/UpdateAvailableToast";
-import { FollowProvider } from "@/lib/contexts/FollowContext";
-import { SidebarProvider } from "@/lib/contexts/SidebarContext";
-import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
-import { SearchProvider } from "@/lib/contexts/SearchContext";
-import { ShortcutsProvider } from "@/lib/hotkeys/ShortcutsContext";
 
 declare module "@tanstack/react-router" {
   interface StaticDataRouteOption {
     appShell?: boolean;
   }
 }
+
+/**
+ * Chrome is a lazy chunk so the entry (which the anonymous landing also
+ * loads) stays free of the sidebar, spotlight search, hotkeys and their
+ * dependencies. `main.tsx` prefetches it at boot for returning signed-in
+ * users, so in practice the Suspense fallback only shows on a cold cache.
+ */
+const AppShellChrome = lazy(() =>
+  import("@/lib/components/AppShellChrome").then((m) => ({
+    default: m.AppShellChrome,
+  })),
+);
 
 /**
  * Hoists the app chrome (sidebar, search, follow overlay, toasts) above the
@@ -34,26 +35,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthGate>
-      <div className="relative min-h-screen bg-app-shell">
-        <SidebarProvider>
-          <PageTitleProvider>
-            {/* Above SearchProvider: its Mod+K registration is a consumer. */}
-            <ShortcutsProvider>
-              <SearchProvider>
-                <FollowProvider>
-                  <Sidebar />
-                  {children}
-                  <SpotlightSearch />
-                  <FollowOverlay />
-                  <NotificationToastStream />
-                  <UpdateAvailableToast />
-                </FollowProvider>
-              </SearchProvider>
-            </ShortcutsProvider>
-          </PageTitleProvider>
-        </SidebarProvider>
-      </div>
-    </AuthGate>
+    <Suspense fallback={<div className="min-h-screen bg-app-shell" />}>
+      <AppShellChrome>{children}</AppShellChrome>
+    </Suspense>
   );
 }

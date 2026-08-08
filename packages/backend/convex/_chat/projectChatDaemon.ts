@@ -1,5 +1,4 @@
 import { v } from "convex/values";
-import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { authMutation, hasRepoAccess } from "../functions";
@@ -11,9 +10,10 @@ import {
 import { backgroundAgentEntryValidator } from "../_validators/tableFields";
 import { mergeBackgroundAgents } from "../_sessions/backgroundAgents";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
-import { finalizeCancelledAssistantMessage } from "../streaming";
 import { startNextQueuedProjectChatMessage } from "../_queues/helpers";
 import { PROJECT_CHAT_STREAM_PREFIX } from "../workflowWatchdog";
+import { closeOpenTurn, findOpenTurn } from "./turnStore";
+import { openChatTurn, projectChatAdapter } from "./surfaceAdapters";
 
 function projectChatStreamEntityId(projectId: Id<"projects">): string {
   return `${PROJECT_CHAT_STREAM_PREFIX}${String(projectId)}`;
@@ -24,11 +24,13 @@ const emptyClaimReturn = {
   attachmentUrls: [],
   stopTaskToolUseIds: [],
   cancelRequested: false,
+  turnId: null,
 } satisfies {
   prompt: null;
   attachmentUrls: string[];
   stopTaskToolUseIds: string[];
   cancelRequested: boolean;
+  turnId: null;
 };
 
 /** Daemon-pull turn claim for project sandbox chat. */
@@ -42,6 +44,9 @@ export const claimPendingTurn = authMutation({
     attachmentUrls: v.array(v.string()),
     stopTaskToolUseIds: v.array(v.string()),
     cancelRequested: v.boolean(),
+    // See the session claim: a warm daemon spans turns, so the turn it must
+    // renew is handed over with the prompt rather than baked into its env.
+    turnId: v.union(v.string(), v.null()),
   }),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -96,7 +101,18 @@ export const claimPendingTurn = authMutation({
       (url): url is string => url !== null,
     );
     await ctx.db.patch(args.projectId, { pendingTurn: undefined });
-    return { prompt, attachmentUrls, stopTaskToolUseIds, cancelRequested };
+    const openTurn = await findOpenTurn(
+      ctx,
+      "projectChat",
+      String(args.projectId),
+    );
+    return {
+      prompt,
+      attachmentUrls,
+      stopTaskToolUseIds,
+      cancelRequested,
+      turnId: openTurn ? String(openTurn._id) : null,
+    };
   },
 });
 
@@ -147,9 +163,10 @@ export const requestStopBackgroundAgent = authMutation({
   },
 });
 
+/** See the session equivalent: a continuation is a turn, so it gets a turn row. */
 export const openSyntheticTurn = authMutation({
   args: { projectId: v.id("projects") },
-  returns: v.object({ messageId: v.id("messages") }),
+  returns: v.object({ messageId: v.id("messages"), turnId: v.id("turns") }),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
@@ -169,12 +186,10 @@ export const openSyntheticTurn = authMutation({
       updatedAt: Date.now(),
       lastSandboxActivity: Date.now(),
     });
-    await ctx.scheduler.runAfter(
-      10 * 60 * 1000,
-      internal.projectChatWorkflow.handleStaleSyntheticTurn,
-      { projectId: args.projectId, messageId },
-    );
-    return { messageId };
+    const turnId = await openChatTurn(ctx, projectChatAdapter, args.projectId, {
+      placeholderMessageId: messageId,
+    });
+    return { messageId, turnId };
   },
 });
 
@@ -193,6 +208,13 @@ export const completeSyntheticTurn = authMutation({
     await clearStreamingActivity(
       ctx,
       projectChatStreamEntityId(args.projectId),
+    );
+    await closeOpenTurn(
+      ctx,
+      "projectChat",
+      String(args.projectId),
+      args.success ? "done" : "error",
+      { ...(args.error ? { error: args.error } : {}) },
     );
 
     const message = await ctx.db.get(args.messageId);
@@ -228,52 +250,6 @@ export const completeSyntheticTurn = authMutation({
       syntheticTurnMessageId: undefined,
       updatedAt: Date.now(),
       lastSandboxActivity: Date.now(),
-    });
-    await startNextQueuedProjectChatMessage(ctx, args.projectId);
-    return null;
-  },
-});
-
-export const handleStaleSyntheticTurn = internalMutation({
-  args: {
-    projectId: v.id("projects"),
-    messageId: v.id("messages"),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const project = await ctx.db.get(args.projectId);
-    if (!project || project.syntheticTurnMessageId !== args.messageId) {
-      return null;
-    }
-    const message = await ctx.db.get(args.messageId);
-    if (!message || message.finishedAt !== undefined) {
-      await ctx.db.patch(args.projectId, {
-        syntheticTurnMessageId: undefined,
-        updatedAt: Date.now(),
-      });
-      return null;
-    }
-    const streamingEntityId = projectChatStreamEntityId(args.projectId);
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", streamingEntityId))
-      .first();
-    const streamingStale =
-      streaming === null ||
-      Date.now() - (streaming.lastUpdatedAt ?? 0) > 2 * 60 * 1000;
-    if (!streamingStale) {
-      await ctx.scheduler.runAfter(
-        10 * 60 * 1000,
-        internal.projectChatWorkflow.handleStaleSyntheticTurn,
-        { projectId: args.projectId, messageId: args.messageId },
-      );
-      return null;
-    }
-    await finalizeCancelledAssistantMessage(ctx, message, streaming);
-    await clearStreamingActivity(ctx, streamingEntityId);
-    await ctx.db.patch(args.projectId, {
-      syntheticTurnMessageId: undefined,
-      updatedAt: Date.now(),
     });
     await startNextQueuedProjectChatMessage(ctx, args.projectId);
     return null;

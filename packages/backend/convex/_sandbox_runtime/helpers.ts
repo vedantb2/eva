@@ -11,14 +11,24 @@ import {
 import type { SandboxClient, SandboxHandle } from "../_sandbox/provider";
 import { getSandboxClient } from "../_sandbox/factory";
 import { launchScript } from "./launch";
+import { LEGACY_RUNNER_PID_FILE, RUNNER_PID_GLOB } from "./daemonPaths";
 import { ensureSwapFile } from "./swap";
 
 export const WORKSPACE_DIR = "/tmp/repo";
 export const LEGACY_WORKSPACE_DIR = "/workspace/repo";
 
-/** Kills prior agent runners without matching the current shell wrapper. */
+/**
+ * Kills prior agent runners without matching the current shell wrapper.
+ *
+ * Callers here hold only a sandbox id, and a sandbox belongs to one entity, so
+ * the pidfile glob resolves to at most one runner. An unmatched glob expands to
+ * itself in sh, which `cat` then fails on — hence the empty-pid guard rather
+ * than a `-f` test. The `comm`/cmdline check stays: a pid file is a claim, and
+ * only a node process actually running the callback may be killed on it.
+ */
 export const KILL_PRIOR_AGENT_PROCESSES_CMD =
-  'pid=$(cat /tmp/run-design.pid 2>/dev/null || true); if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then comm=$(cat "/proc/$pid/comm" 2>/dev/null || true); cmdline=$(tr "\\0" " " < "/proc/$pid/cmdline" 2>/dev/null || true); if [ "$comm" = "node" ]; then case "$cmdline" in *"/tmp/run-design.mjs"*) kill "$pid" 2>/dev/null || true;; esac; fi; fi; ' +
+  `for f in ${RUNNER_PID_GLOB} ${LEGACY_RUNNER_PID_FILE}; do ` +
+  'pid=$(cat "$f" 2>/dev/null || true); if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then comm=$(cat "/proc/$pid/comm" 2>/dev/null || true); cmdline=$(tr "\\0" " " < "/proc/$pid/cmdline" 2>/dev/null || true); if [ "$comm" = "node" ]; then case "$cmdline" in *"/tmp/run-design.mjs"*) kill "$pid" 2>/dev/null || true;; esac; fi; fi; done; ' +
   "pkill -x claude 2>/dev/null || true; " +
   "pkill -x claude-code 2>/dev/null || true; " +
   "pkill -x codex 2>/dev/null || true; " +

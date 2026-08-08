@@ -24,9 +24,12 @@ export {
   publishAuditFixBranch,
 } from "./_taskWorkflow/audit";
 
-export { checkStaleRuns, handleStaleRun } from "./_taskWorkflow/watchdog";
-
-export { probeStaleRunLiveness } from "./_taskWorkflow/livenessProbe";
+export {
+  renewRunLeaseForEntity,
+  listExpiredRuns,
+  finalizeExpiredRun,
+  reconcileRuns,
+} from "./_taskWorkflow/runReconcile";
 
 export {
   maybeScheduleQuickTaskRetry,

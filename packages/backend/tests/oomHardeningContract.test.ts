@@ -26,7 +26,9 @@ const taskDevServer = readSource("convex/_sandbox_runtime/devServer.ts");
  */
 describe("the OOM kill order protects the reporter", () => {
   test("the launcher lowers the callback score with privilege, fail-open", () => {
-    const pidWriteAt = launch.indexOf('"echo $! > /tmp/run-design.pid"');
+    // The launcher records the pid it spawned in its own file (`launchPid`);
+    // the runner's self-declared pidfile is written later, by the callback.
+    const pidWriteAt = launch.indexOf("echo $! > ${runnerPaths.launchPid}");
     const lowerAt = launch.indexOf("sudo -n tee");
     expect(pidWriteAt, "the pid write moved").toBeGreaterThan(-1);
     expect(lowerAt, "the privileged lowering moved").toBeGreaterThan(-1);

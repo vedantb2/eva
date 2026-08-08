@@ -12,6 +12,7 @@ import {
   reasoningLevelValidator,
 } from "../validators";
 import { sessionValidator } from "./helpers";
+import { listOpenTurnEntityIds } from "../_chat/turnStore";
 
 /**
  * Sidebar list shape: omit heavy session fields (planContent, terminal tail,
@@ -51,15 +52,15 @@ const sessionListItemValidator = v.object({
   deploymentStatus: v.optional(deploymentStatusValidator),
   deploymentUrl: v.optional(v.string()),
   /**
-   * True while a chat turn workflow is tracked on the session. Same window as
-   * composer BorderBeam in practice (message-level isExecuting needs the open
-   * thread; list rows use this field instead of N+1 into messages).
+   * True while the session has an open turn row — the same signal the composer
+   * uses (I1). Reading the row rather than `activeWorkflowId` is what stops a
+   * sidebar row spinning forever after the turn's owner died.
    */
   isExecuting: v.boolean(),
 });
 
 /** Maps a full session doc to the slim list payload. */
-function toSessionListItem(session: Doc<"sessions">) {
+function toSessionListItem(session: Doc<"sessions">, openTurns: Set<string>) {
   return {
     _id: session._id,
     _creationTime: session._creationTime,
@@ -84,7 +85,7 @@ function toSessionListItem(session: Doc<"sessions">) {
     lastMode: session.lastMode,
     deploymentStatus: session.deploymentStatus,
     deploymentUrl: session.deploymentUrl,
-    isExecuting: session.activeWorkflowId !== undefined,
+    isExecuting: openTurns.has(String(session._id)),
   };
 }
 
@@ -106,7 +107,10 @@ export const list = authQuery({
         .filter((q) => q.neq(q.field("archived"), true))
         .collect(),
     );
-    return sessions.sort(byMostRecentlyUpdated).map(toSessionListItem);
+    const openTurns = await listOpenTurnEntityIds(ctx, "session");
+    return sessions
+      .sort(byMostRecentlyUpdated)
+      .map((session) => toSessionListItem(session, openTurns));
   },
 });
 
@@ -124,7 +128,10 @@ export const listArchived = authQuery({
         )
         .collect(),
     );
-    return sessions.sort(byMostRecentlyUpdated).map(toSessionListItem);
+    const openTurns = await listOpenTurnEntityIds(ctx, "session");
+    return sessions
+      .sort(byMostRecentlyUpdated)
+      .map((session) => toSessionListItem(session, openTurns));
   },
 });
 

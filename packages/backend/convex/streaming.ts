@@ -131,41 +131,11 @@ export const internalGet = internalQuery({
   handler: async (ctx, args) => readStreamingActivity(ctx, args.entityId),
 });
 
-async function touchStreamingEntity(
-  ctx: MutationCtx,
-  entityId: string,
-): Promise<boolean> {
-  const now = Date.now();
-  const existing = await ctx.db
-    .query("streamingActivity")
-    .withIndex("by_entity", (q) => q.eq("entityId", entityId))
-    .first();
-  if (!existing) {
-    await ctx.db.insert("streamingActivity", {
-      entityId,
-      currentActivity: "[]",
-      currentContent: "",
-      lastUpdatedAt: now,
-    });
-    return true;
-  }
-  await ctx.db.patch(existing._id, { lastUpdatedAt: now });
-  return true;
-}
-
-/** Bumps lastUpdatedAt only — used for lightweight watchdog heartbeats (callback token). */
-export const touch = authMutation({
-  args: { entityId: v.string() },
-  returns: v.boolean(),
-  handler: async (ctx, args) => touchStreamingEntity(ctx, args.entityId),
-});
-
-/** Internal touch for HTTP heartbeat route and liveness probe refresh. */
-export const internalTouch = internalMutation({
-  args: { entityId: v.string() },
-  returns: v.boolean(),
-  handler: async (ctx, args) => touchStreamingEntity(ctx, args.entityId),
-});
+// `touch` / `internalTouch` are gone. Bumping `lastUpdatedAt` was how liveness
+// used to be asserted, and anything holding the mutation could assert it —
+// including the probe sent to check whether a run had died, which reset the
+// staleness clock of its own kill. Liveness is now a lease renewal, and only
+// the actor holding the current turn or run may renew one.
 
 /** Updates or creates streaming activity state (internal use, no auth check). */
 export const internalSet = internalMutation({

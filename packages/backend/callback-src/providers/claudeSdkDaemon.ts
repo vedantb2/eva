@@ -47,6 +47,7 @@ import {
 import { buildSdkOptions, loadSdk, type SdkUserMessage } from "./claudeSdk.js";
 import { callbackState as S } from "../runtime/state.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
+import { setCurrentTurnId } from "../runtime/turnLease.js";
 import { log, readResponseJson } from "../utils.js";
 import type { JsonObject, JsonValue } from "../types.js";
 import {
@@ -122,6 +123,8 @@ let lastMessageAtMs = 0;
 type ClaimedTurn = {
   prompt: string;
   attachmentUrls: string[];
+  /** The turn row this prompt belongs to; heartbeats renew its lease. */
+  turnId: string | null;
 };
 
 type DaemonMessage = Record<string, JsonValue>;
@@ -406,6 +409,9 @@ function resetTurnState(): void {
   S.todoState.length = 0;
   S.awaitingQuestionAnswer = false;
   S.lastStepType = "thinking";
+  // Between turns this daemon owns no turn, so it must renew nothing.
+  // `startRealAgentTurn` re-points the lease immediately after calling this.
+  setCurrentTurnId(null);
 }
 
 /** Reports one finished turn to the session workflow (mirrors the one-shot completion). */
@@ -512,7 +518,7 @@ function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
     return null;
   }
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return { prompt, attachmentUrls: [] };
+    return { prompt, attachmentUrls: [], turnId: null };
   }
   const inner = result.value;
   const payload =
@@ -522,10 +528,13 @@ function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
   return {
     prompt,
     attachmentUrls: readClaimedAttachmentUrls(payload),
+    turnId: typeof payload.turnId === "string" ? payload.turnId : null,
   };
 }
 
-function readSyntheticTurnMessageId(result: JsonValue): string | null {
+function readOpenedSyntheticTurn(
+  result: JsonValue,
+): { messageId: string; turnId: string | null } | null {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
     return null;
   }
@@ -535,7 +544,11 @@ function readSyntheticTurnMessageId(result: JsonValue): string | null {
       ? inner
       : result;
   const messageId = payload.messageId;
-  return typeof messageId === "string" ? messageId : null;
+  if (typeof messageId !== "string") return null;
+  return {
+    messageId,
+    turnId: typeof payload.turnId === "string" ? payload.turnId : null,
+  };
 }
 
 function readParentToolUseId(message: DaemonMessage): string | null {
@@ -841,13 +854,17 @@ async function ensureSyntheticTurn(): Promise<void> {
       OPEN_SYNTHETIC_TURN_MUTATION ?? "",
       entityMutationArgs({}),
     );
-    const messageId = readSyntheticTurnMessageId(result);
-    if (messageId === null) {
+    const opened = readOpenedSyntheticTurn(result);
+    if (opened === null) {
       log("daemon: openSyntheticTurn returned no messageId");
       return;
     }
+    const { messageId } = opened;
     resetTurnState();
     daemonTurn = { kind: "synthetic", messageId };
+    // A continuation owns a turn row exactly like a claimed turn does, so the
+    // lease has to be pointed at it or the reconciler would tear it down.
+    setCurrentTurnId(opened.turnId);
     agentTurnStartedAt = Date.now();
     sawFirstMessageThisTurn = { value: false };
     sawAssistantThisTurn = { value: false };
@@ -900,6 +917,10 @@ function startRealAgentTurn(turn: ClaimedTurn, agentRunner: WarmRunner): void {
   // attribute them into this real turn once it is live).
   resetTurnState();
   daemonTurn = { kind: "real" };
+  // The daemon outlives every turn it runs, so the lease has to be re-pointed
+  // here rather than read once from the environment. Heartbeats renew this id
+  // until the turn settles.
+  setCurrentTurnId(turn.turnId);
   agentTurnStartedAt = Date.now();
   sawFirstMessageThisTurn = { value: false };
   sawAssistantThisTurn = { value: false };
@@ -907,7 +928,7 @@ function startRealAgentTurn(turn: ClaimedTurn, agentRunner: WarmRunner): void {
   agentRunner.push(turn.prompt);
   S.activeAttemptStartedAt = agentTurnStartedAt;
   agentTurnOutput = "";
-  log("daemon: real turn started");
+  log("daemon: real turn started turnId=" + String(turn.turnId));
 }
 
 /**

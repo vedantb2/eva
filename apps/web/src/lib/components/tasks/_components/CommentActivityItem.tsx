@@ -14,6 +14,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  toast,
 } from "@eva/ui";
 import { IconDots, IconPencil, IconTrash } from "@tabler/icons-react";
 import { mentionTokensToEditableText } from "@/lib/components/mentions/mentionToken";
@@ -148,6 +149,7 @@ export function CommentActivityItem({
       setEditText("");
     } catch (err) {
       console.error("Failed to update comment:", err);
+      toast.error("Could not save the comment. Try again.");
     }
     setIsSaving(false);
   };

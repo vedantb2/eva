@@ -16,6 +16,7 @@ import {
   KanbanCard,
   KanbanProvider,
   motionBase,
+  toast,
   type KanbanColumnDef,
   type KanbanItem,
 } from "@eva/ui";
@@ -118,6 +119,7 @@ export function KanbanBoard<T extends BaseTask>({
           await onStatusChange(activeId, targetStatus);
         } catch (err) {
           console.error("Failed to update status:", err);
+          toast.error("Could not move the card. Try again.");
         }
       }
       return;
@@ -129,6 +131,7 @@ export function KanbanBoard<T extends BaseTask>({
         await onStatusChange(activeId, overItemData.status);
       } catch (err) {
         console.error("Failed to update status:", err);
+        toast.error("Could not move the card. Try again.");
       }
     }
   };

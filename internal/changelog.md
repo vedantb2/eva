@@ -1,5 +1,13 @@
 # Changelog
 
+## Unified Claude skills, quieter diff summaries, opt-in model modes - 2026-08-09
+
+Repo skill sync now discovers both `.agents/skills` and `.claude/skills`. Claude-specific skills stay in the existing `/` picker, carry a Claude badge, and are filtered by the active provider; a Claude copy shadows a generic skill of the same name only in Claude chats.
+
+Assistant changed-file summaries now expand only for small latest turns, show a diverse three-file preview for large latest turns, and collapse historical turns. Per-message disclosure choices persist locally for each conversation, which keeps long chats readable without hiding access to the full list or diff view.
+
+Fast and 1M are explicit model capabilities and remain off by default. Codex strips account-level `service_tier` unless Fast is selected, while Cursor sends `fast=false` for Grok 4.5 and Composer 2.5 so their provider defaults cannot silently opt users into the higher-priced tier; Cursor GPT-5.5 also exposes its supported 1M context option.
+
 ## Touch drag for the quick-tasks list, one sensor split for every drag surface - 2026-08-07
 
 A tenth Apple-design pass over `apps/web` and `packages/ui` found one real defect left in the drag layer, and fixing it properly meant collapsing three copies of the same configuration into one.

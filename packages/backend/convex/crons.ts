@@ -21,7 +21,7 @@ crons.interval(
   {},
 );
 
-// Rescan `.agents/skills` on every connected codebase every 6 hours. Push
+// Rescan supported skill roots on every connected codebase every 6 hours. Push
 // webhooks also trigger an immediate sync when the base branch changes skills;
 // this cron is the backup when push events are not subscribed or a sync fails.
 crons.interval(

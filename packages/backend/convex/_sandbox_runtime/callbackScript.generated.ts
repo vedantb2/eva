@@ -143,6 +143,7 @@ var REPO_ID = process.env.REPO_ID;
 var REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
 var AI_THINKING_ENABLED = process.env.AI_THINKING_ENABLED || "";
 var AI_CONTEXT_1M = process.env.AI_CONTEXT_1M || "";
+var AI_FAST_MODE = process.env.AI_FAST_MODE || "";
 var CLAUDE_EFFORT_LEVELS = /* @__PURE__ */ new Set(["low", "medium", "high", "xhigh", "max"]);
 var claudeEffort = PROVIDER === "claude" && CLAUDE_EFFORT_LEVELS.has(REASONING_EFFORT) ? REASONING_EFFORT : "";
 var CODEX_REASONING_EFFORT = {
@@ -155,6 +156,9 @@ var CODEX_REASONING_EFFORT = {
   max: "xhigh"
 };
 var codexReasoningEffort = PROVIDER === "codex" ? CODEX_REASONING_EFFORT[REASONING_EFFORT] ?? "" : "";
+var codexFastMode = PROVIDER === "codex" && AI_FAST_MODE === "1";
+var cursorFastMode = PROVIDER === "cursor" && AI_FAST_MODE === "1";
+var cursorUse1mContext = PROVIDER === "cursor" && AI_CONTEXT_1M === "1";
 function buildSettingsJson() {
   const settings = {
     attribution: { commit: "", pr: "" }
@@ -3146,11 +3150,11 @@ function writeCodexFileIfConfigured(fileName, rawValue, encodedValue) {
   mkdirSync4(CODEX_RUNTIME_HOME_DIR, { recursive: true });
   writeFileSync5(CODEX_RUNTIME_HOME_DIR + "/" + fileName, value);
 }
-function buildCodexRuntimeConfig(rawValue, encodedValue) {
+function buildCodexRuntimeConfig(rawValue, encodedValue, fastMode = codexFastMode) {
   const configuredValue = rawValue || (encodedValue ? decodeBase64(encodedValue) : "");
   const preservedLines = configuredValue ? configuredValue.split(/\\r?\\n/).filter((line) => {
     const trimmed = line.trim().toLowerCase();
-    return !trimmed.startsWith("sandbox_mode") && !trimmed.startsWith("approval_policy") && // Drop any configured reasoning effort; the session lever wins when set.
+    return !trimmed.startsWith("sandbox_mode") && !trimmed.startsWith("approval_policy") && !trimmed.startsWith("service_tier") && // Drop any configured reasoning effort; the session lever wins when set.
     !(codexReasoningEffort && trimmed.startsWith("model_reasoning_effort"));
   }) : [];
   const normalizedPreservedLines = preservedLines.filter((line) => line.trim());
@@ -3160,6 +3164,9 @@ function buildCodexRuntimeConfig(rawValue, encodedValue) {
   ];
   if (codexReasoningEffort) {
     runtimeLines.push(\`model_reasoning_effort = "\${codexReasoningEffort}"\`);
+  }
+  if (fastMode) {
+    runtimeLines.push('service_tier = "fast"');
   }
   if (normalizedPreservedLines.length > 0) {
     runtimeLines.push(...normalizedPreservedLines);
@@ -5915,13 +5922,24 @@ function readCursorSdkMcpServers() {
 function readPromptText2() {
   return readFileSync8("/tmp/design-prompt.txt", "utf8");
 }
+function cursorModeParams(model, fastMode, use1mContext) {
+  const params = [];
+  if (model === "grok-4.5" || model === "composer-2.5") {
+    params.push({ id: "fast", value: fastMode ? "true" : "false" });
+  }
+  if (use1mContext) {
+    params.push({ id: "context", value: "1m" });
+  }
+  return params;
+}
 async function resolveCursorModelSelection(sdk) {
   const base = normalizedCursorModel;
   const level = cursorReasoningLevel;
-  if (!level) return { id: base };
+  const params = cursorModeParams(base, cursorFastMode, cursorUse1mContext);
+  if (!level) return params.length > 0 ? { id: base, params } : { id: base };
   try {
     const list = sdk.Cursor?.models?.list;
-    if (!list) return { id: base };
+    if (!list) return params.length > 0 ? { id: base, params } : { id: base };
     const models = await list();
     const model = Array.isArray(models) ? models.find(
       (entry) => entry && typeof entry === "object" && entry.id === base
@@ -5930,7 +5948,7 @@ async function resolveCursorModelSelection(sdk) {
       log(
         "resolveCursorModelSelection: model " + base + " not in Cursor.models.list \\u2014 sending base id"
       );
-      return { id: base };
+      return params.length > 0 ? { id: base, params } : { id: base };
     }
     for (const definition of model.parameters ?? []) {
       if (!definition || typeof definition.id !== "string") continue;
@@ -5939,16 +5957,20 @@ async function resolveCursorModelSelection(sdk) {
         log(
           "resolveCursorModelSelection: " + base + " reasoning level " + level + " via parameter " + definition.id
         );
-        return { id: base, params: [{ id: definition.id, value: level }] };
+        params.push({ id: definition.id, value: level });
+        return { id: base, params };
       }
     }
     for (const variant of model.variants ?? []) {
-      const params = Array.isArray(variant?.params) ? variant.params : [];
-      if (params.some((param) => param && param.value === level)) {
+      const variantParams = Array.isArray(variant?.params) ? variant.params : [];
+      if (variantParams.some((param) => param && param.value === level)) {
         log(
           "resolveCursorModelSelection: " + base + " reasoning level " + level + " via variant params"
         );
-        return { id: base, params };
+        const remainingVariantParams = variantParams.filter(
+          (variantParam) => !params.some((param) => param.id === variantParam.id)
+        );
+        return { id: base, params: [...params, ...remainingVariantParams] };
       }
     }
     log(
@@ -5960,7 +5982,7 @@ async function resolveCursorModelSelection(sdk) {
       "resolveCursorModelSelection: model list failed \\u2014 sending base id (" + messageText + ")"
     );
   }
-  return { id: base };
+  return params.length > 0 ? { id: base, params } : { id: base };
 }
 function errorCode(error) {
   const withCode = error;

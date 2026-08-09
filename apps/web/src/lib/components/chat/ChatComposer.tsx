@@ -40,6 +40,7 @@ import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   api,
+  getAIModelProvider,
   getModelTraits,
   getReasoningLevelLabel,
   modelHasTraits,
@@ -87,6 +88,7 @@ interface ChatComposerProps {
     effortLevel: ReasoningLevel | undefined;
     thinkingEnabled: boolean;
     use1mContext: boolean;
+    fastMode: boolean;
   };
   onTraitsChange?: (partial: Partial<StoredModelTraits>) => void;
   onSend: (
@@ -137,7 +139,7 @@ export function ChatComposer({
   isDraftLoading,
   hasPendingContext = false,
 }: ChatComposerProps) {
-  const skillItems = useSkillSlashItems(repoId);
+  const skillItems = useSkillSlashItems(repoId, getAIModelProvider(model));
   const dataMentions = useDataMentionItems(repoId);
   const peopleMentions = usePeopleMentionItems(repoId);
   const { items: plusDataItems } = mergeMentionItems(
@@ -319,6 +321,7 @@ export function ChatComposer({
                       effortLevel={displayTraits.effortLevel}
                       thinkingEnabled={displayTraits.thinkingEnabled}
                       use1mContext={displayTraits.use1mContext}
+                      fastMode={displayTraits.fastMode}
                       getLevelLabel={getReasoningLevelLabel}
                       onEffortLevelChange={(level) => {
                         const { reasoning } = getModelTraits(model);
@@ -337,7 +340,12 @@ export function ChatComposer({
                       }
                       onUse1mContextChange={(use1m) =>
                         onTraitsChange({
-                          use1mContext: use1m ? true : undefined,
+                          use1mContext: use1m,
+                        })
+                      }
+                      onFastModeChange={(enabled) =>
+                        onTraitsChange({
+                          fastMode: enabled,
                         })
                       }
                     />

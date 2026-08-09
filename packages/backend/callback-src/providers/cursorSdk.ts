@@ -7,7 +7,9 @@ import {
   NO_OUTPUT_TIMEOUT_MS,
   SYSTEM_PROMPT,
   WORK_DIR,
+  cursorFastMode,
   cursorReasoningLevel,
+  cursorUse1mContext,
   normalizedCursorModel,
 } from "../config.js";
 import { updateThinkingStep } from "../parse/canonical.js";
@@ -58,6 +60,21 @@ type SdkModelSelection = {
   id: string;
   params?: SdkModelParameterValue[];
 };
+
+export function cursorModeParams(
+  model: string,
+  fastMode: boolean,
+  use1mContext: boolean,
+): SdkModelParameterValue[] {
+  const params: SdkModelParameterValue[] = [];
+  if (model === "grok-4.5" || model === "composer-2.5") {
+    params.push({ id: "fast", value: fastMode ? "true" : "false" });
+  }
+  if (use1mContext) {
+    params.push({ id: "context", value: "1m" });
+  }
+  return params;
+}
 
 type SdkModelParameterDefinition = {
   id?: string;
@@ -232,18 +249,23 @@ function readPromptText(): string {
  * base id with reasoning exposed as a per-model parameter whose id is not
  * documented — so discover it from Cursor.models.list() at runtime: first a
  * parameter definition allowing the level value, then a variant carrying it.
- * Any miss (no level, list unavailable, model/parameter absent) degrades to
- * the base id.
+ * A reasoning miss (no level, list unavailable, model/parameter absent) keeps
+ * the base id and any explicitly selected Fast or context parameters.
  */
-async function resolveCursorModelSelection(
+export async function resolveCursorModelSelection(
   sdk: CursorSdkModule,
 ): Promise<SdkModelSelection> {
   const base = normalizedCursorModel;
   const level = cursorReasoningLevel;
-  if (!level) return { id: base };
+  // Cursor first-party models can default to their higher-priced Fast variant,
+  // so always send the explicit boolean. Context stays opt-in.
+  const params = cursorModeParams(base, cursorFastMode, cursorUse1mContext);
+  if (!level) {
+    return params.length > 0 ? { id: base, params } : { id: base };
+  }
   try {
     const list = sdk.Cursor?.models?.list;
-    if (!list) return { id: base };
+    if (!list) return params.length > 0 ? { id: base, params } : { id: base };
     const models = await list();
     const model = Array.isArray(models)
       ? models.find(
@@ -256,7 +278,7 @@ async function resolveCursorModelSelection(
           base +
           " not in Cursor.models.list — sending base id",
       );
-      return { id: base };
+      return params.length > 0 ? { id: base, params } : { id: base };
     }
     for (const definition of model.parameters ?? []) {
       if (!definition || typeof definition.id !== "string") continue;
@@ -270,12 +292,15 @@ async function resolveCursorModelSelection(
             " via parameter " +
             definition.id,
         );
-        return { id: base, params: [{ id: definition.id, value: level }] };
+        params.push({ id: definition.id, value: level });
+        return { id: base, params };
       }
     }
     for (const variant of model.variants ?? []) {
-      const params = Array.isArray(variant?.params) ? variant.params : [];
-      if (params.some((param) => param && param.value === level)) {
+      const variantParams = Array.isArray(variant?.params)
+        ? variant.params
+        : [];
+      if (variantParams.some((param) => param && param.value === level)) {
         log(
           "resolveCursorModelSelection: " +
             base +
@@ -283,7 +308,11 @@ async function resolveCursorModelSelection(
             level +
             " via variant params",
         );
-        return { id: base, params };
+        const remainingVariantParams = variantParams.filter(
+          (variantParam) =>
+            !params.some((param) => param.id === variantParam.id),
+        );
+        return { id: base, params: [...params, ...remainingVariantParams] };
       }
     }
     log(
@@ -301,7 +330,7 @@ async function resolveCursorModelSelection(
         ")",
     );
   }
-  return { id: base };
+  return params.length > 0 ? { id: base, params } : { id: base };
 }
 
 /** Reads an SDK error's `code` field without assertions (Error → overlap via message). */
@@ -559,7 +588,10 @@ export async function runCursorSdkAttempt(
   }
 
   const code =
-    sawResult && !resultIsError && !timedOutForMaxRuntime && !timedOutForNoOutput
+    sawResult &&
+    !resultIsError &&
+    !timedOutForMaxRuntime &&
+    !timedOutForNoOutput
       ? 0
       : 1;
   log(

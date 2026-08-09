@@ -2,7 +2,10 @@ import { expect, test } from "vitest";
 import { splitCursorModel } from "../config.js";
 import { cursorSdkToolToStep } from "../parse/toolSteps.js";
 import { probeCursorSdkToolResult } from "../providers/cursor.js";
-import { parseCursorSdkMcpServers } from "../providers/cursorSdk.js";
+import {
+  cursorModeParams,
+  parseCursorSdkMcpServers,
+} from "../providers/cursorSdk.js";
 
 test("splitCursorModel separates base id and reasoning level", () => {
   expect(splitCursorModel("grok-4.5-low")).toEqual({
@@ -30,6 +33,18 @@ test("splitCursorModel separates base id and reasoning level", () => {
     base: "gemini-3.1-pro",
     level: "",
   });
+});
+
+test("cursorModeParams explicitly keeps first-party models on Standard", () => {
+  expect(cursorModeParams("grok-4.5", false, false)).toEqual([
+    { id: "fast", value: "false" },
+  ]);
+  expect(cursorModeParams("composer-2.5", true, false)).toEqual([
+    { id: "fast", value: "true" },
+  ]);
+  expect(cursorModeParams("gpt-5.5", false, true)).toEqual([
+    { id: "context", value: "1m" },
+  ]);
 });
 
 test("parseCursorSdkMcpServers maps eva-mcp.json to inline SDK config", () => {

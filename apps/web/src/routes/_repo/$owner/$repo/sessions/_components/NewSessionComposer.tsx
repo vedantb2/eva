@@ -104,6 +104,7 @@ export function NewSessionComposer() {
         reasoningLevel: displayTraits.effortLevel,
         thinkingEnabled: displayTraits.thinkingEnabled,
         use1mContext: displayTraits.use1mContext,
+        fastMode: displayTraits.fastMode,
         providerAccountId: accountId,
         attachmentStorageIds,
       });

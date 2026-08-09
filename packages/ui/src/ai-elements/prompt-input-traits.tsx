@@ -41,6 +41,8 @@ export interface TraitsMenuConfig {
   reasoning?: TraitsReasoningConfig;
   thinkingToggle?: boolean;
   contextWindow1m?: boolean;
+  contextWindowDefaultLabel?: string;
+  fastMode?: boolean;
 }
 
 export interface TraitsMenuProps {
@@ -48,10 +50,12 @@ export interface TraitsMenuProps {
   effortLevel: string | undefined;
   thinkingEnabled: boolean;
   use1mContext: boolean;
+  fastMode: boolean;
   getLevelLabel: (level: string) => string;
   onEffortLevelChange: (level: string) => void;
   onThinkingEnabledChange: (enabled: boolean) => void;
   onUse1mContextChange: (use1m: boolean) => void;
+  onFastModeChange: (enabled: boolean) => void;
   disabled?: boolean;
   className?: string;
 }
@@ -61,15 +65,20 @@ export function TraitsMenu({
   effortLevel,
   thinkingEnabled,
   use1mContext,
+  fastMode,
   getLevelLabel,
   onEffortLevelChange,
   onThinkingEnabledChange,
   onUse1mContextChange,
+  onFastModeChange,
   disabled,
   className,
 }: TraitsMenuProps) {
   const hasAnyControls = Boolean(
-    config.reasoning || config.thinkingToggle || config.contextWindow1m,
+    config.reasoning ||
+    config.thinkingToggle ||
+    config.contextWindow1m ||
+    config.fastMode,
   );
   if (!hasAnyControls) {
     return null;
@@ -101,14 +110,31 @@ export function TraitsMenu({
           />
         )
       ) : null}
+      {config.fastMode ? (
+        <SimpleTraitsDropdown
+          label={fastMode ? "Fast" : "Standard"}
+          value={fastMode ? "fast" : "standard"}
+          disabled={disabled}
+          onValueChange={(value) => onFastModeChange(value === "fast")}
+          options={[
+            { value: "standard", label: "Standard (default)" },
+            { value: "fast", label: "Fast" },
+          ]}
+        />
+      ) : null}
       {config.contextWindow1m ? (
         <SimpleTraitsDropdown
-          label={use1mContext ? "1M" : "200K"}
-          value={use1mContext ? "1m" : "200k"}
+          label={
+            use1mContext ? "1M" : (config.contextWindowDefaultLabel ?? "200K")
+          }
+          value={use1mContext ? "1m" : "standard"}
           disabled={disabled}
           onValueChange={(value) => onUse1mContextChange(value === "1m")}
           options={[
-            { value: "200k", label: "200K" },
+            {
+              value: "standard",
+              label: `${config.contextWindowDefaultLabel ?? "200K"} (default)`,
+            },
             { value: "1m", label: "1M" },
           ]}
         />

@@ -16,19 +16,19 @@ const css = readFileSync(
  * reads as a darker panel — are invisible to every other kind of test.
  */
 function tokensFor(selector: string): Map<string, number[]> {
-  const start = css.indexOf(`${selector} {`);
-  expect(
-    start,
-    `${selector} block is missing from globals.css`,
-  ).toBeGreaterThan(-1);
-  const block = css.slice(start, css.indexOf("\n  }", start));
-  const tokens = new Map<string, number[]>();
-  for (const [, name, triple] of block.matchAll(
-    /--([\w-]+):\s*(\d+ \d+ \d+);/g,
-  )) {
-    tokens.set(name, triple.split(" ").map(Number));
+  let start = css.indexOf(`${selector} {`);
+  while (start >= 0) {
+    const block = css.slice(start, css.indexOf("\n  }", start));
+    const tokens = new Map<string, number[]>();
+    for (const [, name, triple] of block.matchAll(
+      /--([\w-]+):\s*(\d+ \d+ \d+);/g,
+    )) {
+      tokens.set(name, triple.split(" ").map(Number));
+    }
+    if (tokens.has("background")) return tokens;
+    start = css.indexOf(`${selector} {`, start + selector.length + 2);
   }
-  return tokens;
+  expect.fail(`${selector} has no surface-token block in globals.css`);
 }
 
 /** Mean channel value, as a stand-in for how light a surface reads. */

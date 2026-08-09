@@ -175,6 +175,8 @@ describe("resumeAfterStop call sites", () => {
     "_sandbox_runtime/sessions.ts",
     // ensureSandboxRunning itself: forwards the caller's option.
     "_sandbox_runtime/helpers.ts",
+    // Explicit retention repair cycles a live sandbox to mint a policy-compliant snap.
+    "_sandbox_runtime/bulkSnapshotRetention.ts",
   ];
 
   test("all sit in a file on the allow-list", () => {

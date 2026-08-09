@@ -1,5 +1,11 @@
 # Changelog
 
+## Two-week regression hardening - 2026-08-09
+
+Audited 472 commits from July 27 through August 9, grouped 183 fix-like commits into regression families, repaired all 18 stale tests on `main`, and added 79 deterministic cases for auth rebinding, PR/archive lifecycle, automation reinstall, callback termination, preview annotation bundling, slash-form URLs, snapshot policy, session navigation/state, and desktop media tooling.
+
+The test strategy now separates deterministic Vitest contracts from browser interaction, disposable GitHub integration, executable Linux runtime checks, and live Vercel chaos scenarios so provider and visual regressions are tested at the layer that can actually observe them.
+
 ## Touch drag for the quick-tasks list, one sensor split for every drag surface - 2026-08-07
 
 A tenth Apple-design pass over `apps/web` and `packages/ui` found one real defect left in the drag layer, and fixing it properly meant collapsing three copies of the same configuration into one.

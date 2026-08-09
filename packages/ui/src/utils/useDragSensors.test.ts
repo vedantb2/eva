@@ -111,7 +111,8 @@ describe("every shared drag surface uses the split", () => {
 function sensorCall(sensor: string): string {
   const startAt = hook.indexOf(`useSensor(${sensor}`);
   expect(startAt, `${sensor} is no longer armed`).toBeGreaterThan(-1);
-  return hook.slice(startAt, hook.indexOf("),\n", startAt));
+  const nextAt = hook.indexOf("useSensor(", startAt + 1);
+  return hook.slice(startAt, nextAt < 0 ? undefined : nextAt);
 }
 
 function stripComments(source: string): string {

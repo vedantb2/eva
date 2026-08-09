@@ -11,12 +11,16 @@ import { useLocalStorage } from "usehooks-ts";
  */
 export const LEFT_PANEL_ID = "left";
 export const RIGHT_PANEL_ID = "right";
+export const TOP_PANEL_ID = "top";
+export const BOTTOM_PANEL_ID = "bottom";
+
+type PanelPlacement = "left" | "right" | "top" | "bottom";
 
 interface PersistentPanelSizeOptions {
   /** localStorage namespace. The size is stored under `${storageKey}:size`. */
   storageKey: string;
   /** Which of the two panels the stored size describes. */
-  panel: "left" | "right";
+  panel: PanelPlacement;
   /** Size used until the user drags, e.g. `"60%"` or `"256px"`. */
   defaultSize: string;
 }
@@ -86,12 +90,17 @@ export function usePersistentPanelSize({
  */
 export function panelPercentage(
   layout: Layout,
-  panel: "left" | "right",
+  panel: PanelPlacement,
 ): number | null {
-  const left = layout[LEFT_PANEL_ID];
-  const right = layout[RIGHT_PANEL_ID];
-  if (left === undefined || right === undefined) return null;
-  const total = left + right;
+  const primaryId =
+    panel === "left" || panel === "right" ? LEFT_PANEL_ID : TOP_PANEL_ID;
+  const secondaryId =
+    panel === "left" || panel === "right" ? RIGHT_PANEL_ID : BOTTOM_PANEL_ID;
+  const primary = layout[primaryId];
+  const secondary = layout[secondaryId];
+  if (primary === undefined || secondary === undefined) return null;
+  const total = primary + secondary;
   if (total <= 0) return null;
-  return ((panel === "left" ? left : right) / total) * 100;
+  const selected = panel === "left" || panel === "top" ? primary : secondary;
+  return (selected / total) * 100;
 }

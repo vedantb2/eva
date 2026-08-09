@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
@@ -14,10 +13,8 @@ import { entityPathSegment } from "@/lib/numId";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
-import {
-  useSandboxPanes,
-  type SharedTerminalPane,
-} from "@/lib/components/sandbox/useSandboxPanes";
+import { type SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
+import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
@@ -34,7 +31,8 @@ interface ProjectSandboxPanelProps {
   prUrl?: string;
   devPort?: number;
   devCommand?: string;
-  terminalPanes?: SharedTerminalPane[];
+  owner: PtyOwner;
+  panes: SandboxPanesApi;
   sandboxTab: TaskRouteSandboxTab;
   onStartSandbox?: () => void;
   isSandboxStarting?: boolean;
@@ -49,7 +47,8 @@ export function ProjectSandboxPanel({
   prUrl,
   devPort,
   devCommand,
-  terminalPanes,
+  owner,
+  panes,
   sandboxTab,
   onStartSandbox,
   isSandboxStarting,
@@ -68,14 +67,6 @@ export function ProjectSandboxPanel({
   const releaseBrowserLock = useMutation(api.projects.releaseBrowserLock);
 
   const activeTab: SandboxTab = sandboxTab;
-
-  // Stable identity: a fresh literal each render would re-run TerminalPanel's
-  // connect effect, flashing the spinner and dropping the dev-server auto-start
-  // (the reconnect sees an existing PTY, so isNewPty is false).
-  const owner = useMemo(
-    () => ({ kind: "project" as const, projectId }),
-    [projectId],
-  );
 
   const navigateToSandboxTab = (tab: SandboxTab) => {
     if (tab === "prd" || !projectPathSegment) return;
@@ -107,15 +98,6 @@ export function ProjectSandboxPanel({
     },
   });
 
-  const panes = useSandboxPanes({
-    owner,
-    storageScope: `project:${projectIdStr}`,
-    isActive,
-    activeTab,
-    setActiveTab: navigateToSandboxTab,
-    terminalPanes,
-  });
-
   // This surface has no custom tabs, so the tab bar only emits builtin ids.
   const handleTabChange = (tab: string) => {
     if (!isSessionSandboxTab(tab) || tab === "prd") return;
@@ -142,10 +124,11 @@ export function ProjectSandboxPanel({
       <SandboxTabBar
         activeTab={activeTab}
         onTabChange={handleTabChange}
-        onNewPreview={panes.handleNewPreview}
-        onNewTerminal={panes.handleNewTerminal}
+        onNewPreview={() => {
+          panes.handleNewPreview();
+          navigateToSandboxTab("preview");
+        }}
         newPreviewDisabled={panes.newPreviewDisabled}
-        newTerminalDisabled={panes.newTerminalDisabled}
         enabledTabs={enabledTabs}
         showFilesTab
         agentBrowsingAt={project?.agentBrowsingAt}

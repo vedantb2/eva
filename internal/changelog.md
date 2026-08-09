@@ -1,5 +1,11 @@
 # Changelog
 
+## Workspace-wide terminal bottom panel - 2026-08-09
+
+Interactive terminals now open beneath both chat and sandbox content in Sessions, Projects, and Quick Tasks. The Mod+J shortcut expands or collapses the panel, creates the first terminal when needed, and the panel remembers both its visibility and dragged height per entity. Its tab row provides direct terminal creation, an adjacent terminal picker, closable terminal tabs, and a close control at the far right. The Preview dev-server console remains in its existing dock and is still controlled from its own row.
+
+Terminal pane ownership moved above the existing horizontal chat/sandbox split so one shared vertical layout can span both columns without portals or duplicated PTY state. The right sandbox tab vocabulary no longer includes Terminal, and legacy terminal URLs return to Preview; the existing shortcut storage id remains unchanged so custom user bindings continue to work.
+
 ## Touch drag for the quick-tasks list, one sensor split for every drag surface - 2026-08-07
 
 A tenth Apple-design pass over `apps/web` and `packages/ui` found one real defect left in the drag layer, and fixing it properly meant collapsing three copies of the same configuration into one.

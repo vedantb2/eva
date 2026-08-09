@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api, normalizeAIModel, type Id } from "@eva/backend";
 import { isSessionSandboxTab } from "@/lib/search-params";
@@ -9,10 +9,8 @@ import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { DesignVariationsPanel } from "./_components/DesignVariationsPanel";
 import { FilesPanel } from "./FilesPanel";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
-import {
-  useSandboxPanes,
-  type SharedTerminalPane,
-} from "@/lib/components/sandbox/useSandboxPanes";
+import { type SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
+import type { PtyOwner } from "./TerminalPanel";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
@@ -39,7 +37,8 @@ interface SandboxPanelProps {
   prUrl?: string;
   devPort?: number;
   devCommand?: string;
-  terminalPanes?: SharedTerminalPane[];
+  owner: PtyOwner;
+  panes: SandboxPanesApi;
   planContent?: string;
   messages?: SessionDesignMessage[];
   lastMode?: SessionMode;
@@ -61,7 +60,8 @@ export function SandboxPanel({
   prUrl,
   devPort,
   devCommand,
-  terminalPanes,
+  owner,
+  panes,
   planContent,
   messages = [],
   lastMode,
@@ -93,13 +93,6 @@ export function SandboxPanel({
     api.sessions.setTerminalHistoryTail,
   );
   const releaseBrowserLock = useMutation(api.sessions.releaseBrowserLock);
-  // Stable identity: a fresh literal each render would re-run TerminalPanel's
-  // connect effect, flashing the spinner and dropping the dev-server auto-start
-  // (the reconnect sees an existing PTY, so isNewPty is false).
-  const owner = useMemo(
-    () => ({ kind: "session" as const, sessionId }),
-    [sessionId],
-  );
   const preview = useSandboxPreview({
     sandboxId,
     isActive,
@@ -109,14 +102,6 @@ export function SandboxPanel({
     onPortPersist: (port) => {
       void setPreviewPort({ id: sessionId, port });
     },
-  });
-  const panes = useSandboxPanes({
-    owner,
-    storageScope: `session:${sessionIdStr}`,
-    isActive,
-    activeTab: isSessionSandboxTab(activeTab) ? activeTab : null,
-    setActiveTab: onTabChange,
-    terminalPanes,
   });
   const {
     computerTabOpen,
@@ -136,6 +121,10 @@ export function SandboxPanel({
   // If the URL points at a custom tab that no longer exists (deleted / disabled /
   // renamed), fall back to preview. Wait for the query to load before deciding.
   useEffect(() => {
+    if (activeTab === "terminal") {
+      onTabChange("preview");
+      return;
+    }
     if (isSessionSandboxTab(activeTab)) return;
     if (allCustomTabs === undefined) return;
     if (!customTabs.some((tab) => slugifyAppTabName(tab.name) === activeTab)) {
@@ -149,10 +138,11 @@ export function SandboxPanel({
       <SandboxTabBar
         activeTab={activeTab}
         onTabChange={onTabChange}
-        onNewPreview={panes.handleNewPreview}
-        onNewTerminal={panes.handleNewTerminal}
+        onNewPreview={() => {
+          panes.handleNewPreview();
+          onTabChange("preview");
+        }}
         newPreviewDisabled={panes.newPreviewDisabled}
-        newTerminalDisabled={panes.newTerminalDisabled}
         enabledTabs={enabledTabs}
         showPrdTab
         hasPrdContent={
@@ -261,7 +251,6 @@ export function SandboxPanel({
           onStickyTerminalHistoryTailChange={(tail) => {
             void setTerminalHistoryTail({ id: sessionId, tail });
           }}
-          consoleHotkeyEnabled={isRouteActive}
         />
       </div>
     </div>

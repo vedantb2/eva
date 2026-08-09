@@ -24,6 +24,9 @@ import { RunDevServerConfirmDialog } from "./_components/RunDevServerConfirmDial
 import { TaskSandboxPanel } from "./TaskSandboxPanel";
 import { TaskSandboxChatPanel } from "./TaskSandboxChatPanel";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
+import { SandboxWorkspace } from "@/lib/components/sandbox/SandboxWorkspace";
+import type { SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
+import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import {
   fileViewerPathParser,
   isTaskRouteSandboxTab,
@@ -195,7 +198,7 @@ export function TaskDetailInline({
   // (Diffs, etc.) stay reachable while stopped — same as sessions. Panes
   // self-gate with their own inactive empty states. Tasks that never ran
   // still get the honest empty message.
-  const sandboxRightPanel =
+  const sandboxRightPanel = (panes: SandboxPanesApi, owner: PtyOwner) =>
     task?.repoId && canViewSandbox ? (
       <TaskSandboxPanel
         taskId={taskId}
@@ -204,7 +207,8 @@ export function TaskDetailInline({
         repoId={task.repoId}
         devPort={task.devPort}
         devCommand={task.devCommand}
-        terminalPanes={task.terminalPanes}
+        owner={owner}
+        panes={panes}
         prUrl={latestPrUrl}
         activeTab={activeSandboxTab}
         onTabChange={handleSandboxTabChange}
@@ -225,24 +229,35 @@ export function TaskDetailInline({
     );
 
   const sandboxContent = (
-    <ResizablePanelLayout
-      storageKey="task-sandbox-panel"
-      leftDefaultSize="40%"
-      leftMinWidthPx={350}
-      rightMinWidthPx={300}
-      defaultRightCollapsed={false}
-      expandRightSignal={expandRightSignal}
-      leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
-        <TaskSandboxChatPanel
-          taskId={taskId}
-          isSandboxActive={isSandboxActive}
-          onOpenFile={openFile}
-          sandboxCollapsed={rightPanelCollapsed}
-          onToggleSandbox={onToggleRightPanel}
+    <SandboxWorkspace
+      ownerKind="task"
+      ownerId={taskId}
+      storageScope={`task:${taskId}`}
+      sandboxId={sandboxId}
+      isActive={isSandboxActive}
+      terminalPanes={task.terminalPanes}
+    >
+      {(panes, owner) => (
+        <ResizablePanelLayout
+          storageKey="task-sandbox-panel"
+          leftDefaultSize="40%"
+          leftMinWidthPx={350}
+          rightMinWidthPx={300}
+          defaultRightCollapsed={false}
+          expandRightSignal={expandRightSignal}
+          leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
+            <TaskSandboxChatPanel
+              taskId={taskId}
+              isSandboxActive={isSandboxActive}
+              onOpenFile={openFile}
+              sandboxCollapsed={rightPanelCollapsed}
+              onToggleSandbox={onToggleRightPanel}
+            />
+          )}
+          rightPanel={sandboxRightPanel(panes, owner)}
         />
       )}
-      rightPanel={sandboxRightPanel}
-    />
+    </SandboxWorkspace>
   );
 
   const detailContent = (

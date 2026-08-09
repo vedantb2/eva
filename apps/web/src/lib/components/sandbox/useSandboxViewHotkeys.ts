@@ -6,7 +6,7 @@ import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
 /**
  * Session/sandbox view shortcuts: `toggleBrowserTab` and `toggleFilesTab`.
  *
- * (`togglePreviewConsole` lives in `ConsoleDock`.)
+ * The terminal-panel shortcut lives in `SandboxWorkspace`.
  */
 export function useSandboxViewHotkeys({
   activeTab,

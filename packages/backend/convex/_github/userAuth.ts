@@ -1,7 +1,7 @@
 "use node";
 
 import { v } from "convex/values";
-import { Octokit } from "octokit";
+import { App, Octokit } from "octokit";
 import { z } from "zod";
 import { internal } from "../_generated/api";
 import { internalAction } from "../_generated/server";
@@ -14,24 +14,10 @@ import { GITHUB_AUTH_REQUIRED } from "./authErrors";
 /** Refresh once the access token is this close to expiring. */
 const EXPIRY_SKEW_MS = 60 * 1000;
 
-// GitHub omits `expires_in` when the App has user-token expiry switched off. The
+// Octokit omits `expiresAt` when the App has user-token expiry switched off. The
 // token then lasts until revoked, so park the stored expiry far enough out that
 // the refresh path never triggers for it.
 const NON_EXPIRING_MS = 10 * 365 * 24 * 60 * 60 * 1000;
-
-const tokenResponseSchema = z.object({
-  access_token: z.string().min(1),
-  expires_in: z.number().optional(),
-  refresh_token: z.string().optional(),
-  refresh_token_expires_in: z.number().optional(),
-});
-
-// GitHub answers OAuth failures with HTTP 200 and an error body, so the error
-// shape has to be parsed rather than inferred from the status code.
-const tokenErrorSchema = z.object({
-  error: z.string(),
-  error_description: z.string().optional(),
-});
 
 /** Octokit throws RequestError, which carries the HTTP status as a property. */
 const octokitErrorSchema = z.object({ status: z.number() });
@@ -43,56 +29,55 @@ interface ResolvedToken {
   refreshTokenExpiresAt: number | null;
 }
 
-/** Posts to GitHub's OAuth token endpoint and normalises the response. */
-async function postTokenRequest(
-  body: Record<string, string>,
-): Promise<ResolvedToken> {
-  const { clientId, clientSecret } = getGitHubCredentials();
+/**
+ * The OAuth client for this GitHub App's user-authorization flow.
+ *
+ * Octokit owns the token endpoint: it signs requests with the client secret and
+ * raises GitHub's OAuth failures, which arrive as HTTP 200 with an error body
+ * rather than as an error status.
+ *
+ * Reached through `App` rather than the top-level `OAuthApp` export because that
+ * export is typed for OAuth Apps, whose tokens never expire; `App.oauth` is the
+ * GitHub-App-flavoured client, so `createToken` reports expiry and refresh.
+ */
+function getOAuthApp() {
+  const { appId, privateKey, clientId, clientSecret } = getGitHubCredentials();
   if (!clientId || !clientSecret) {
     throw new Error(
       "GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be set in Convex env",
     );
   }
-  const response = await fetch("https://github.com/login/oauth/access_token", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({
-      client_id: clientId,
-      client_secret: clientSecret,
-      ...body,
-    }),
-  });
-  if (!response.ok) {
-    throw new Error(`GitHub OAuth request failed: ${response.status}`);
+  return new App({ appId, privateKey, oauth: { clientId, clientSecret } })
+    .oauth;
+}
+
+/** Parses an ISO expiry, refusing anything that would store as NaN. */
+function parseExpiry(iso: string): number {
+  const parsed = Date.parse(iso);
+  if (Number.isNaN(parsed)) {
+    throw new Error(`GitHub returned an unreadable token expiry: ${iso}`);
   }
-  const payload: unknown = await response.json();
-  const failure = tokenErrorSchema.safeParse(payload);
-  if (failure.success) {
-    throw new Error(
-      `GitHub OAuth error: ${failure.data.error_description ?? failure.data.error}`,
-    );
-  }
-  const parsed = tokenResponseSchema.safeParse(payload);
-  if (!parsed.success) {
-    throw new Error("Unexpected response from GitHub OAuth token endpoint");
-  }
-  const now = Date.now();
-  const { data } = parsed;
+  return parsed;
+}
+
+/** Converts Octokit's ISO expiry strings into the epoch millis we store. */
+function toResolvedToken(authentication: {
+  token: string;
+  expiresAt?: string;
+  refreshToken?: string;
+  refreshTokenExpiresAt?: string;
+}): ResolvedToken {
   return {
-    accessToken: data.access_token,
+    accessToken: authentication.token,
     accessTokenExpiresAt:
-      now +
-      (data.expires_in === undefined
-        ? NON_EXPIRING_MS
-        : data.expires_in * 1000),
-    refreshToken: data.refresh_token ?? null,
+      authentication.expiresAt === undefined
+        ? Date.now() + NON_EXPIRING_MS
+        : parseExpiry(authentication.expiresAt),
+    refreshToken: authentication.refreshToken ?? null,
     refreshTokenExpiresAt:
-      data.refresh_token_expires_in === undefined
+      authentication.refreshTokenExpiresAt === undefined
         ? null
-        : now + data.refresh_token_expires_in * 1000,
+        : parseExpiry(authentication.refreshTokenExpiresAt),
   };
 }
 
@@ -123,8 +108,8 @@ export async function exchangeCodeForUserToken(
   userId: Id<"users">,
   code: string,
 ): Promise<void> {
-  const token = await postTokenRequest({ code });
-  await storeToken(ctx, userId, token);
+  const { authentication } = await getOAuthApp().createToken({ code });
+  await storeToken(ctx, userId, toResolvedToken(authentication));
 }
 
 /**
@@ -168,10 +153,10 @@ async function resolveUserAccessToken(
     return null;
   }
 
-  const refreshed = await postTokenRequest({
-    grant_type: "refresh_token",
-    refresh_token: decryptValue(stored.refreshToken),
+  const { authentication } = await getOAuthApp().refreshToken({
+    refreshToken: decryptValue(stored.refreshToken),
   });
+  const refreshed = toResolvedToken(authentication);
   await storeToken(ctx, userId, refreshed);
   return refreshed.accessToken;
 }

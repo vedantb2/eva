@@ -64,6 +64,15 @@ describe("backend authorization boundaries", () => {
     );
   });
 
+  // GitHub answers OAuth failures with HTTP 200 and an error body, so a
+  // hand-rolled fetch reads a failure as a success unless it parses for that.
+  // Octokit already handles it; keep the exchange there.
+  it("the OAuth token exchange goes through Octokit, not a raw fetch", () => {
+    const userAuth = convexSource("_github/userAuth.ts");
+    expect(userAuth).toContain("createToken");
+    expect(userAuth).not.toContain("login/oauth/access_token");
+  });
+
   it("GitHub user tokens stay server-side and are stored encrypted", () => {
     const tokens = convexSource("_github/userTokens.ts");
     expect(tokens).toContain("export const getStoredToken = internalQuery");

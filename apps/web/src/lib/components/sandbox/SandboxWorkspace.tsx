@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import {
   Group,
@@ -108,14 +108,25 @@ export function SandboxWorkspace(props: SandboxWorkspaceProps) {
   const collapsedRef = useRef(!expanded);
 
   const setPanelExpanded = (next: boolean) => {
-    collapsedRef.current = !next;
     setExpanded(next);
-    if (next) {
+  };
+
+  // Imperative resize/collapse runs after the state commit rather than inside
+  // setPanelExpanded: its closure flows through the children() render call
+  // (terminalPanel), and a ref read reachable from render bails the whole file
+  // out of React Compiler memoization. The collapsedRef guard skips the sync
+  // when the change originated from a drag (handleResize already saw it), so
+  // no resize fires mid-drag. This also covers `expanded` flips from other
+  // tabs via the shared localStorage key.
+  useEffect(() => {
+    if (collapsedRef.current === !expanded) return;
+    collapsedRef.current = !expanded;
+    if (expanded) {
       bottomPanelRef.current?.resize(savedBottomSize);
       return;
     }
     bottomPanelRef.current?.collapse();
-  };
+  }, [expanded, savedBottomSize, bottomPanelRef]);
 
   const handleResize = (size: PanelSize) => {
     const collapsed = size.asPercentage === 0;

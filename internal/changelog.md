@@ -1,6 +1,11 @@
 # Changelog
 
 ## One sandbox owner contract for sessions, tasks, and projects - 2026-08-10
+## Mouse wheel dead-zones from blanket overscroll contain - 2026-08-08
+
+Putting `overscroll-behavior: contain` on `@utility scrollbar` made every `overflow:auto` pane a contain target, including ones with no overflow and horizontal boards with `overflow-y-hidden`. Chrome treats those as scroll containers at their boundary, so the wheel was swallowed while dragging the ancestor scrollbar still worked. Removed contain from the utility; restored `overscroll-y-contain` / `overscroll-contain` on the kanban column and mention picker that had opted in before.
+
+## Anonymous landing no longer waits for Clerk - 2026-08-08
 ## Anonymous landing no longer waits for Clerk - 2026-08-08
 
 Boot held first paint on Clerk's `isLoaded` for everyone. For a returning signed-in user that is correct — protected routes need the restored session and the alternative is a landing-page flash. For an anonymous visitor it means a blank screen while ~210 kB of clerk-js downloads from Clerk's CDN and completes a handshake, to restore a session that does not exist. Measured on production: clerk-js is 30% of the 700 kB cold landing payload, and FCP (~500 ms) was gated on it.

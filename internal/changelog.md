@@ -7,6 +7,11 @@ A sweep of `apps/web/src` for user-facing async work whose failure path ended in
 Every site now calls `toast.error` with a specific message alongside the existing log. Control flow is untouched — nothing is swallowed differently and nothing new is rethrown — because the bug was never the handling, it was that the handling was invisible. Reason: an action the user initiated and that failed must say so; a console line is not a user interface.
 
 Deliberately left alone: polling loops, `useEffect` background subscriptions, websocket reconnects and PTY resize retries all swallow errors on purpose, and a toast there would fire repeatedly. Paths that already show the failure inline — the artifact upload dialog, the Linear import modal, the resolve-conflicts execution error — keep their existing text rather than gaining a second channel. The bulk task modals (delete, assign, label, status, group) rethrow from an async click handler, which no error boundary can catch, so they are still effectively silent and want a separate fix.
+## Two-week regression hardening - 2026-08-09
+
+Audited 472 commits from July 27 through August 9, grouped 183 fix-like commits into regression families, repaired all 18 stale tests on `main`, and added 79 deterministic cases for auth rebinding, PR/archive lifecycle, automation reinstall, callback termination, preview annotation bundling, slash-form URLs, snapshot policy, session navigation/state, and desktop media tooling.
+
+The test strategy now separates deterministic Vitest contracts from browser interaction, disposable GitHub integration, executable Linux runtime checks, and live Vercel chaos scenarios so provider and visual regressions are tested at the layer that can actually observe them.
 
 ## Touch drag for the quick-tasks list, one sensor split for every drag surface - 2026-08-07
 

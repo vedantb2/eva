@@ -3154,7 +3154,8 @@ function buildCodexRuntimeConfig(rawValue, encodedValue, fastMode = codexFastMod
   const configuredValue = rawValue || (encodedValue ? decodeBase64(encodedValue) : "");
   const preservedLines = configuredValue ? configuredValue.split(/\\r?\\n/).filter((line) => {
     const trimmed = line.trim().toLowerCase();
-    return !trimmed.startsWith("sandbox_mode") && !trimmed.startsWith("approval_policy") && !trimmed.startsWith("service_tier") && // Drop any configured reasoning effort; the session lever wins when set.
+    return !trimmed.startsWith("sandbox_mode") && !trimmed.startsWith("approval_policy") && // Eva owns the Fast toggle; account config must not silently opt in.
+    !trimmed.startsWith("service_tier") && // Drop any configured reasoning effort; the session lever wins when set.
     !(codexReasoningEffort && trimmed.startsWith("model_reasoning_effort"));
   }) : [];
   const normalizedPreservedLines = preservedLines.filter((line) => line.trim());
@@ -5868,6 +5869,31 @@ var SDK_VERSION2 = "1.0.26";
 var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
 var MCP_CONFIG_PATH2 = "/tmp/eva-mcp.json";
 var SDK_LOCAL_PREFIX2 = "/home/eva/.eva-agent-sdk";
+function cursorModeParams(model, fastMode, use1mContext) {
+  const params = [];
+  if (model === "grok-4.5" || model === "composer-2.5") {
+    params.push({ id: "fast", value: fastMode ? "true" : "false" });
+  }
+  if (use1mContext) {
+    params.push({ id: "context", value: "1m" });
+  }
+  return params;
+}
+function filterModeParamsByModel(candidates, model, opted) {
+  if (!model) {
+    return candidates.filter(
+      (param) => param.id === "fast" ? opted.fastMode : opted.use1mContext
+    );
+  }
+  const definitions = Array.isArray(model.parameters) ? model.parameters : [];
+  return candidates.filter(
+    (param) => definitions.some((definition) => {
+      if (!definition || definition.id !== param.id) return false;
+      const values = Array.isArray(definition.values) ? definition.values : [];
+      return values.length === 0 || values.some((entry) => entry && entry.value === param.value);
+    })
+  );
+}
 async function loadCursorSdk() {
   const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE2 + SDK_ENTRY_RELPATH;
   const localEntry = SDK_LOCAL_PREFIX2 + "/node_modules/" + SDK_PACKAGE2 + SDK_ENTRY_RELPATH;
@@ -5922,66 +5948,73 @@ function readCursorSdkMcpServers() {
 function readPromptText2() {
   return readFileSync8("/tmp/design-prompt.txt", "utf8");
 }
-function cursorModeParams(model, fastMode, use1mContext) {
-  const params = [];
-  if (model === "grok-4.5" || model === "composer-2.5") {
-    params.push({ id: "fast", value: fastMode ? "true" : "false" });
-  }
-  if (use1mContext) {
-    params.push({ id: "context", value: "1m" });
-  }
-  return params;
-}
 async function resolveCursorModelSelection(sdk) {
   const base = normalizedCursorModel;
   const level = cursorReasoningLevel;
-  const params = cursorModeParams(base, cursorFastMode, cursorUse1mContext);
-  if (!level) return params.length > 0 ? { id: base, params } : { id: base };
+  const candidates = cursorModeParams(base, cursorFastMode, cursorUse1mContext);
+  const opted = { fastMode: cursorFastMode, use1mContext: cursorUse1mContext };
+  if (candidates.length === 0 && !level) {
+    return { id: base };
+  }
+  let model;
+  let listUnavailable = false;
   try {
     const list = sdk.Cursor?.models?.list;
-    if (!list) return params.length > 0 ? { id: base, params } : { id: base };
-    const models = await list();
-    const model = Array.isArray(models) ? models.find(
-      (entry) => entry && typeof entry === "object" && entry.id === base
-    ) : void 0;
-    if (!model) {
-      log(
-        "resolveCursorModelSelection: model " + base + " not in Cursor.models.list \\u2014 sending base id"
-      );
-      return params.length > 0 ? { id: base, params } : { id: base };
-    }
-    for (const definition of model.parameters ?? []) {
-      if (!definition || typeof definition.id !== "string") continue;
-      const values = Array.isArray(definition.values) ? definition.values : [];
-      if (values.some((entry) => entry && entry.value === level)) {
+    if (list) {
+      const models = await list();
+      model = Array.isArray(models) ? models.find(
+        (entry) => entry && typeof entry === "object" && entry.id === base
+      ) : void 0;
+      if (!model) {
         log(
-          "resolveCursorModelSelection: " + base + " reasoning level " + level + " via parameter " + definition.id
+          "resolveCursorModelSelection: model " + base + " not in Cursor.models.list \\u2014 keeping opted-in params only"
         );
-        params.push({ id: definition.id, value: level });
-        return { id: base, params };
       }
+    } else {
+      listUnavailable = true;
     }
-    for (const variant of model.variants ?? []) {
-      const variantParams = Array.isArray(variant?.params) ? variant.params : [];
-      if (variantParams.some((param) => param && param.value === level)) {
-        log(
-          "resolveCursorModelSelection: " + base + " reasoning level " + level + " via variant params"
-        );
-        const remainingVariantParams = variantParams.filter(
-          (variantParam) => !params.some((param) => param.id === variantParam.id)
-        );
-        return { id: base, params: [...params, ...remainingVariantParams] };
-      }
-    }
-    log(
-      "resolveCursorModelSelection: " + base + " exposes no parameter accepting '" + level + "' \\u2014 sending base id"
-    );
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
+    listUnavailable = true;
     log(
-      "resolveCursorModelSelection: model list failed \\u2014 sending base id (" + messageText + ")"
+      "resolveCursorModelSelection: model list failed \\u2014 keeping opted-in params only (" + messageText + ")"
     );
   }
+  const params = filterModeParamsByModel(candidates, model, opted);
+  if (params.length < candidates.length && model) {
+    log(
+      "resolveCursorModelSelection: " + base + " does not declare " + candidates.filter((candidate) => !params.some((p) => p.id === candidate.id)).map((candidate) => candidate.id).join(", ") + " \\u2014 dropped"
+    );
+  }
+  if (!level || listUnavailable || !model) {
+    return params.length > 0 ? { id: base, params } : { id: base };
+  }
+  for (const definition of model.parameters ?? []) {
+    if (!definition || typeof definition.id !== "string") continue;
+    const values = Array.isArray(definition.values) ? definition.values : [];
+    if (values.some((entry) => entry && entry.value === level)) {
+      log(
+        "resolveCursorModelSelection: " + base + " reasoning level " + level + " via parameter " + definition.id
+      );
+      params.push({ id: definition.id, value: level });
+      return { id: base, params };
+    }
+  }
+  for (const variant of model.variants ?? []) {
+    const variantParams = Array.isArray(variant?.params) ? variant.params : [];
+    if (variantParams.some((param) => param && param.value === level)) {
+      log(
+        "resolveCursorModelSelection: " + base + " reasoning level " + level + " via variant params"
+      );
+      const remainingVariantParams = variantParams.filter(
+        (variantParam) => !params.some((param) => param.id === variantParam.id)
+      );
+      return { id: base, params: [...params, ...remainingVariantParams] };
+    }
+  }
+  log(
+    "resolveCursorModelSelection: " + base + " exposes no parameter accepting '" + level + "' \\u2014 sending base id"
+  );
   return params.length > 0 ? { id: base, params } : { id: base };
 }
 function errorCode(error) {

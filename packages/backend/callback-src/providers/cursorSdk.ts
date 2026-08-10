@@ -92,6 +92,37 @@ type SdkModel = {
   variants?: SdkModelVariant[];
 };
 
+/**
+ * The `fast`/`context` parameter ids are not documented, so never trust them
+ * blindly: with the model's Cursor.models.list() entry in hand, keep only the
+ * params the model declares (matching id, and value when values are listed).
+ * Without an entry (list failed, model absent) keep only the params the user
+ * explicitly opted into — a wrong id then breaks the run the user asked for,
+ * never the default runs of users who touched nothing.
+ */
+export function filterModeParamsByModel(
+  candidates: SdkModelParameterValue[],
+  model: SdkModel | undefined,
+  opted: { fastMode: boolean; use1mContext: boolean },
+): SdkModelParameterValue[] {
+  if (!model) {
+    return candidates.filter((param) =>
+      param.id === "fast" ? opted.fastMode : opted.use1mContext,
+    );
+  }
+  const definitions = Array.isArray(model.parameters) ? model.parameters : [];
+  return candidates.filter((param) =>
+    definitions.some((definition) => {
+      if (!definition || definition.id !== param.id) return false;
+      const values = Array.isArray(definition.values) ? definition.values : [];
+      return (
+        values.length === 0 ||
+        values.some((entry) => entry && entry.value === param.value)
+      );
+    }),
+  );
+}
+
 type SdkAgentOptions = {
   apiKey: string;
   model: SdkModelSelection;
@@ -258,78 +289,101 @@ export async function resolveCursorModelSelection(
   const base = normalizedCursorModel;
   const level = cursorReasoningLevel;
   // Cursor first-party models can default to their higher-priced Fast variant,
-  // so always send the explicit boolean. Context stays opt-in.
-  const params = cursorModeParams(base, cursorFastMode, cursorUse1mContext);
-  if (!level) {
-    return params.length > 0 ? { id: base, params } : { id: base };
+  // so send the explicit boolean — but only once the model's parameter list
+  // confirms the undocumented id (filterModeParamsByModel). Context is opt-in.
+  const candidates = cursorModeParams(base, cursorFastMode, cursorUse1mContext);
+  const opted = { fastMode: cursorFastMode, use1mContext: cursorUse1mContext };
+  if (candidates.length === 0 && !level) {
+    return { id: base };
   }
+
+  let model: SdkModel | undefined;
+  let listUnavailable = false;
   try {
     const list = sdk.Cursor?.models?.list;
-    if (!list) return params.length > 0 ? { id: base, params } : { id: base };
-    const models = await list();
-    const model = Array.isArray(models)
-      ? models.find(
-          (entry) => entry && typeof entry === "object" && entry.id === base,
-        )
-      : undefined;
-    if (!model) {
-      log(
-        "resolveCursorModelSelection: model " +
-          base +
-          " not in Cursor.models.list — sending base id",
-      );
-      return params.length > 0 ? { id: base, params } : { id: base };
-    }
-    for (const definition of model.parameters ?? []) {
-      if (!definition || typeof definition.id !== "string") continue;
-      const values = Array.isArray(definition.values) ? definition.values : [];
-      if (values.some((entry) => entry && entry.value === level)) {
+    if (list) {
+      const models = await list();
+      model = Array.isArray(models)
+        ? models.find(
+            (entry) => entry && typeof entry === "object" && entry.id === base,
+          )
+        : undefined;
+      if (!model) {
         log(
-          "resolveCursorModelSelection: " +
+          "resolveCursorModelSelection: model " +
             base +
-            " reasoning level " +
-            level +
-            " via parameter " +
-            definition.id,
+            " not in Cursor.models.list — keeping opted-in params only",
         );
-        params.push({ id: definition.id, value: level });
-        return { id: base, params };
       }
+    } else {
+      listUnavailable = true;
     }
-    for (const variant of model.variants ?? []) {
-      const variantParams = Array.isArray(variant?.params)
-        ? variant.params
-        : [];
-      if (variantParams.some((param) => param && param.value === level)) {
-        log(
-          "resolveCursorModelSelection: " +
-            base +
-            " reasoning level " +
-            level +
-            " via variant params",
-        );
-        const remainingVariantParams = variantParams.filter(
-          (variantParam) =>
-            !params.some((param) => param.id === variantParam.id),
-        );
-        return { id: base, params: [...params, ...remainingVariantParams] };
-      }
-    }
-    log(
-      "resolveCursorModelSelection: " +
-        base +
-        " exposes no parameter accepting '" +
-        level +
-        "' — sending base id",
-    );
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
+    listUnavailable = true;
     log(
-      "resolveCursorModelSelection: model list failed — sending base id (" +
+      "resolveCursorModelSelection: model list failed — keeping opted-in params only (" +
         messageText +
         ")",
     );
   }
+
+  const params = filterModeParamsByModel(candidates, model, opted);
+  if (params.length < candidates.length && model) {
+    log(
+      "resolveCursorModelSelection: " +
+        base +
+        " does not declare " +
+        candidates
+          .filter((candidate) => !params.some((p) => p.id === candidate.id))
+          .map((candidate) => candidate.id)
+          .join(", ") +
+        " — dropped",
+    );
+  }
+  if (!level || listUnavailable || !model) {
+    return params.length > 0 ? { id: base, params } : { id: base };
+  }
+
+  for (const definition of model.parameters ?? []) {
+    if (!definition || typeof definition.id !== "string") continue;
+    const values = Array.isArray(definition.values) ? definition.values : [];
+    if (values.some((entry) => entry && entry.value === level)) {
+      log(
+        "resolveCursorModelSelection: " +
+          base +
+          " reasoning level " +
+          level +
+          " via parameter " +
+          definition.id,
+      );
+      params.push({ id: definition.id, value: level });
+      return { id: base, params };
+    }
+  }
+  for (const variant of model.variants ?? []) {
+    const variantParams = Array.isArray(variant?.params) ? variant.params : [];
+    if (variantParams.some((param) => param && param.value === level)) {
+      log(
+        "resolveCursorModelSelection: " +
+          base +
+          " reasoning level " +
+          level +
+          " via variant params",
+      );
+      const remainingVariantParams = variantParams.filter(
+        (variantParam) => !params.some((param) => param.id === variantParam.id),
+      );
+      return { id: base, params: [...params, ...remainingVariantParams] };
+    }
+  }
+  log(
+    "resolveCursorModelSelection: " +
+      base +
+      " exposes no parameter accepting '" +
+      level +
+      "' — sending base id",
+  );
   return params.length > 0 ? { id: base, params } : { id: base };
 }
 

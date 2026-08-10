@@ -3,9 +3,11 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
+  BOTTOM_PANEL_ID,
   LEFT_PANEL_ID,
   panelPercentage,
   RIGHT_PANEL_ID,
+  TOP_PANEL_ID,
 } from "./usePersistentPanelSize";
 
 describe("panelPercentage", () => {
@@ -13,6 +15,12 @@ describe("panelPercentage", () => {
     const layout = { [LEFT_PANEL_ID]: 40, [RIGHT_PANEL_ID]: 60 };
     expect(panelPercentage(layout, "left")).toBe(40);
     expect(panelPercentage(layout, "right")).toBe(60);
+  });
+
+  it("reads vertical panel shares from the same ratio", () => {
+    const layout = { [TOP_PANEL_ID]: 65, [BOTTOM_PANEL_ID]: 35 };
+    expect(panelPercentage(layout, "top")).toBe(65);
+    expect(panelPercentage(layout, "bottom")).toBe(35);
   });
 
   /**
@@ -85,6 +93,8 @@ it("persists from onLayoutChanged, not a per-frame onResize", () => {
 it("exports stable panel ids for the saved layout to key on", () => {
   expect(LEFT_PANEL_ID).toBe("left");
   expect(RIGHT_PANEL_ID).toBe("right");
+  expect(TOP_PANEL_ID).toBe("top");
+  expect(BOTTOM_PANEL_ID).toBe("bottom");
 });
 
 /**

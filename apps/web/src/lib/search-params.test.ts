@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  isSessionSandboxTab,
   isTaskRouteSandboxTab,
   parseDiffSearchFields,
   splitCorruptedSandboxTabParam,
@@ -11,6 +12,7 @@ describe("isTaskRouteSandboxTab", () => {
     expect(isTaskRouteSandboxTab("pr")).toBe(false);
     expect(isTaskRouteSandboxTab("browser")).toBe(true);
     expect(isTaskRouteSandboxTab("files")).toBe(true);
+    expect(isTaskRouteSandboxTab("terminal")).toBe(false);
   });
 
   it("rejects legacy diffs and corrupted segments", () => {
@@ -21,6 +23,13 @@ describe("isTaskRouteSandboxTab", () => {
       ),
     ).toBe(false);
     expect(isTaskRouteSandboxTab("diffs?diffView=split")).toBe(false);
+  });
+});
+
+describe("isSessionSandboxTab", () => {
+  it("keeps terminals out of the right-panel route vocabulary", () => {
+    expect(isSessionSandboxTab("preview")).toBe(true);
+    expect(isSessionSandboxTab("terminal")).toBe(false);
   });
 });
 

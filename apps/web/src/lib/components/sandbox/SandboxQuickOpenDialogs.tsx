@@ -227,7 +227,7 @@ export function SandboxQuickOpenDialogs({
                 {commands.map((command) => {
                   const Icon = command.icon;
                   const shortcut =
-                    command.id === "toggle-console"
+                    command.id === "toggle-terminal-panel"
                       ? formatForDisplay(toggleConsoleBinding)
                       : command.shortcut;
                   return (

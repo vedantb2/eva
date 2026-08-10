@@ -13,6 +13,7 @@ import {
 import type { SandboxTab } from "@/lib/search-params";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import type { ConsoleDockApi } from "./useConsoleDock";
+import type { TerminalPanelApi } from "./SandboxWorkspace";
 import type { SandboxPaletteCommand } from "./SandboxQuickOpenDialogs";
 
 export interface SandboxCommandTab {
@@ -31,13 +32,12 @@ interface BuildSandboxPaletteCommandsArgs {
   showDesktopItem: boolean;
   customTabs: ReadonlyArray<Doc<"appTabs">>;
   consoleDock: ConsoleDockApi;
+  terminalPanel: TerminalPanelApi;
   onTabChange: (tab: string) => void;
   onOpenEditor: (() => void) | undefined;
   onOpenComputer: (() => void) | undefined;
   onNewPreview: () => void;
-  onNewTerminal: () => void;
   newPreviewDisabled: boolean;
-  newTerminalDisabled: boolean;
 }
 
 /** Builds the shared, context-aware command palette vocabulary. */
@@ -51,13 +51,12 @@ export function buildSandboxPaletteCommands({
   showDesktopItem,
   customTabs,
   consoleDock,
+  terminalPanel,
   onTabChange,
   onOpenEditor,
   onOpenComputer,
   onNewPreview,
-  onNewTerminal,
   newPreviewDisabled,
-  newTerminalDisabled,
 }: BuildSandboxPaletteCommandsArgs): SandboxPaletteCommand[] {
   const commands: SandboxPaletteCommand[] = tabs.map((tab) => ({
     id: `show-${tab.value}`,
@@ -138,7 +137,7 @@ export function buildSandboxPaletteCommands({
     {
       id: "toggle-console",
       label: "Toggle Preview Console",
-      keywords: "show hide logs terminal dev server",
+      keywords: "show hide logs dev server",
       icon: IconTerminal2,
       run: () => {
         if (activeTab !== "preview") {
@@ -148,6 +147,13 @@ export function buildSandboxPaletteCommands({
         }
         consoleDock.toggle();
       },
+    },
+    {
+      id: "toggle-terminal-panel",
+      label: "Toggle Terminal Panel",
+      keywords: "show hide shell pty bottom terminal",
+      icon: IconTerminal2,
+      run: terminalPanel.toggle,
     },
     {
       id: "new-preview",
@@ -162,8 +168,8 @@ export function buildSandboxPaletteCommands({
       label: "New Terminal",
       keywords: "create add shell pty console",
       icon: IconTerminal2,
-      run: onNewTerminal,
-      disabled: newTerminalDisabled,
+      run: terminalPanel.newTerminal,
+      disabled: terminalPanel.newTerminalDisabled,
     },
   );
 

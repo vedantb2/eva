@@ -1,5 +1,11 @@
 # Changelog
 
+## Workspace-wide terminal bottom panel - 2026-08-09
+
+Interactive terminals now open beneath both chat and sandbox content in Sessions, Projects, and Quick Tasks. The Mod+J shortcut expands or collapses the panel, creates the first terminal when needed, and the panel remembers both its visibility and dragged height per entity. Its tab row provides direct terminal creation, an adjacent terminal picker, closable terminal tabs, and a close control at the far right. The Preview dev-server console remains in its existing dock and is still controlled from its own row.
+
+Terminal pane ownership moved above the existing horizontal chat/sandbox split so one shared vertical layout can span both columns without portals or duplicated PTY state. The right sandbox tab vocabulary no longer includes Terminal, and legacy terminal URLs return to Preview; the existing shortcut storage id remains unchanged so custom user bindings continue to work.
+
 ## VS Code-style sandbox quick open, action palette, and terminal scrollback - 2026-08-09
 
 Sandbox navigation now mirrors the two VS Code workflows users already know: `Mod+P` opens a fuzzy file picker over the running sandbox, and `Mod+Shift+P` opens a context-aware action palette for available tabs, custom apps, the preview console, and new preview or terminal panes. Selecting a file reuses the existing `?file=` deep link and Files viewer rather than introducing a second viewer path. Both bindings live in the rebindable shortcut registry and resolve to Ctrl on Windows/Linux and Command on macOS.

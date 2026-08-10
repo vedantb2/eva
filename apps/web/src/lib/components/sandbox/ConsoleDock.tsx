@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
-import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
 import { cn, rubberband } from "@eva/ui";
 import {
   IconChevronDown,
@@ -37,14 +36,6 @@ interface ConsoleDockProps {
    * mid-drag, so the caller can gate the terminal's foreground fit/resize.
    */
   renderConsole: (visible: boolean) => ReactNode;
-  /**
-   * When set, Mod+J toggles the console. If Preview isn't active, switches to
-   * it and expands; if already on Preview, toggles expanded.
-   */
-  consoleToggleHotkey?: {
-    isPreviewActive: boolean;
-    onShowPreview: () => void;
-  };
 }
 
 /**
@@ -57,28 +48,12 @@ export function ConsoleDock({
   controller,
   preview,
   renderConsole,
-  consoleToggleHotkey,
 }: ConsoleDockProps) {
   const [dragging, setDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
   const rawPctRef = useRef(DEFAULT_PREVIEW_PCT);
-  const { expanded, previewPct, toggle, expand, setPreviewPct } = controller;
-
-  useShortcut(
-    "togglePreviewConsole",
-    (e) => {
-      e.preventDefault();
-      if (!consoleToggleHotkey) return;
-      if (!consoleToggleHotkey.isPreviewActive) {
-        consoleToggleHotkey.onShowPreview();
-        expand();
-        return;
-      }
-      toggle();
-    },
-    { enabled: consoleToggleHotkey !== undefined },
-  );
+  const { expanded, previewPct, toggle, setPreviewPct } = controller;
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();

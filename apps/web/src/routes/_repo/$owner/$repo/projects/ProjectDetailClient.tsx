@@ -33,6 +33,12 @@ import { ProjectSandboxPanel } from "@/lib/components/projects/ProjectSandboxPan
 import { ProjectSandboxChatPanel } from "@/lib/components/projects/ProjectSandboxChatPanel";
 import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
+import {
+  SandboxWorkspace,
+  type TerminalPanelApi,
+} from "@/lib/components/sandbox/SandboxWorkspace";
+import type { SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
+import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import { ProjectContextUsage } from "@/lib/components/context-usage";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
@@ -272,7 +278,11 @@ export function ProjectDetailClient({
   const tab = sandboxTab ?? "preview";
   // Always mount the sandbox panel when the project can have one so tabs
   // stay reachable while stopped — same as sessions. Panes self-gate.
-  const projectSandboxPanel =
+  const projectSandboxPanel = (
+    panes: SandboxPanesApi,
+    owner: PtyOwner,
+    terminalPanel: TerminalPanelApi,
+  ) =>
     canStartSandbox ||
     projectSandboxId ||
     isSandboxActive ||
@@ -287,7 +297,9 @@ export function ProjectDetailClient({
         prUrl={project.prUrl}
         devPort={project.devPort}
         devCommand={project.devCommand}
-        terminalPanes={project.terminalPanes}
+        owner={owner}
+        panes={panes}
+        terminalPanel={terminalPanel}
         sandboxTab={tab}
         onStartSandbox={
           canStartSandbox && !isSandboxStopping ? handleStartSandbox : undefined
@@ -306,24 +318,35 @@ export function ProjectDetailClient({
     );
 
   const projectSandboxContent = (
-    <ResizablePanelLayout
-      storageKey="project-sandbox-panel"
-      leftDefaultSize="40%"
-      leftMinWidthPx={350}
-      rightMinWidthPx={300}
-      defaultRightCollapsed={false}
-      expandRightSignal={expandRightSignal}
-      leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
-        <ProjectSandboxChatPanel
-          projectId={projectId}
-          isSandboxActive={isSandboxActive}
-          onOpenFile={openFile}
-          sandboxCollapsed={rightPanelCollapsed}
-          onToggleSandbox={onToggleRightPanel}
+    <SandboxWorkspace
+      ownerKind="project"
+      ownerId={projectId}
+      storageScope={`project:${projectId}`}
+      sandboxId={projectSandboxId}
+      isActive={isSandboxActive}
+      terminalPanes={project.terminalPanes}
+    >
+      {(panes, owner, terminalPanel) => (
+        <ResizablePanelLayout
+          storageKey="project-sandbox-panel"
+          leftDefaultSize="40%"
+          leftMinWidthPx={350}
+          rightMinWidthPx={300}
+          defaultRightCollapsed={false}
+          expandRightSignal={expandRightSignal}
+          leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
+            <ProjectSandboxChatPanel
+              projectId={projectId}
+              isSandboxActive={isSandboxActive}
+              onOpenFile={openFile}
+              sandboxCollapsed={rightPanelCollapsed}
+              onToggleSandbox={onToggleRightPanel}
+            />
+          )}
+          rightPanel={projectSandboxPanel(panes, owner, terminalPanel)}
         />
       )}
-      rightPanel={projectSandboxPanel}
-    />
+    </SandboxWorkspace>
   );
 
   return (

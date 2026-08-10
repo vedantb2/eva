@@ -7,7 +7,8 @@ import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
  * Session/sandbox view shortcut for toggling the Browser tab.
  *
  * File quick-open and the action palette live in `SandboxQuickOpenDialogs`;
- * `togglePreviewConsole` lives in `ConsoleDock`.
+ * the terminal-panel shortcut (`togglePreviewConsole`) lives in
+ * `SandboxWorkspace`.
  */
 export function useSandboxViewHotkeys({
   activeTab,

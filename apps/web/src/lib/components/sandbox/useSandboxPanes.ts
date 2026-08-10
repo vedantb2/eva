@@ -21,13 +21,6 @@ const ALL_SANDBOX_TABS: ReadonlyArray<SandboxTab> = [
   "preview",
   "computer",
   "editor",
-  "terminal",
-  "review",
-];
-const SANDBOX_TABS_WITHOUT_TERMINAL: ReadonlyArray<SandboxTab> = [
-  "preview",
-  "computer",
-  "editor",
   "review",
 ];
 
@@ -45,22 +38,19 @@ export interface SandboxPanesApi {
   previewIds: string[];
   /** The default dev-server pane (index 0), rendered as the preview Console. */
   consolePane: SharedTerminalPane | undefined;
-  /** User-created terminals (index 1..N), shown in the Terminal tab. */
+  /** User-created terminals (index 1..N), shown in the bottom panel. */
   userTermPanes: SharedTerminalPane[];
   resolvedPreviewActive: string;
   resolvedTermActive: string;
   setPreviewActive: (id: string) => void;
   setTermActive: (id: string) => void;
-  /** Switches the panel's main tab (passthrough of the caller's setter, for
-   * consumers that only receive this API — e.g. the console toggle hotkey). */
-  setActiveTab: (tab: SandboxTab) => void;
   handleNewPreview: () => void;
-  handleNewTerminal: () => void;
+  handleNewTerminal: () => Promise<void>;
   handleClosePreview: (id: string) => void;
   handleCloseTerminal: (id: string) => Promise<void>;
   newPreviewDisabled: boolean;
   newTerminalDisabled: boolean;
-  /** Base tabs to render — hides "terminal" when there are no user terminals. */
+  /** Base tabs rendered in the right sandbox panel. */
   enabledTabs: ReadonlyArray<SandboxTab>;
 }
 
@@ -73,8 +63,6 @@ interface UseSandboxPanesArgs {
    */
   storageScope: string;
   isActive: boolean;
-  activeTab: SandboxTab | null;
-  setActiveTab: (tab: SandboxTab) => void;
   terminalPanes: SharedTerminalPane[] | undefined;
 }
 
@@ -89,8 +77,6 @@ export function useSandboxPanes({
   owner,
   storageScope,
   isActive,
-  activeTab,
-  setActiveTab,
   terminalPanes,
 }: UseSandboxPanesArgs): SandboxPanesApi {
   const disconnectPtyAction = useAction(api.pty.disconnectPty);
@@ -121,7 +107,7 @@ export function useSandboxPanes({
   const termPanes = terminalPanes ?? [];
   const termIds = termPanes.map((pane) => pane.id);
   // Pane 0 is the shared dev-server pane (rendered as the preview Console);
-  // panes 1..N are the user-created terminals shown in the Terminal tab.
+  // panes 1..N are user-created terminals shown in the bottom panel.
   const consolePane = termPanes[0];
   const userTermPanes = termPanes.slice(1);
   const userTermIds = userTermPanes.map((pane) => pane.id);
@@ -138,14 +124,6 @@ export function useSandboxPanes({
     if (termIds.length > 0) return;
     void ensureDefaultTerminalPane({ owner });
   }, [termIds.length, ensureDefaultTerminalPane, owner]);
-
-  // The Terminal tab is hidden when there are no user terminals; if we land on
-  // it anyway (last one closed, collaborator closed it, or a direct URL), fall
-  // back to the preview tab.
-  useEffect(() => {
-    if (activeTab !== "terminal" || userTermPanes.length > 0) return;
-    setActiveTab("preview");
-  }, [activeTab, userTermPanes.length, setActiveTab]);
 
   // Ensure a default preview pane exists even before the Preview tab is
   // selected, so the iframe can mount (hidden) and stay cached across tab
@@ -190,15 +168,12 @@ export function useSandboxPanes({
     const next = previewIds.length === 0 ? [id] : [...previewIds, id];
     setPreviewIds(next);
     setPreviewActive(id);
-    void setActiveTab("preview");
   };
 
-  const handleNewTerminal = () => {
+  const handleNewTerminal = async () => {
     if (!isActive || termIds.length >= MAX_TERMINAL_PANES) return;
-    void createTerminalPane({ owner }).then((pane) => {
-      setTermActive(pane.id);
-      void setActiveTab("terminal");
-    });
+    const pane = await createTerminalPane({ owner });
+    setTermActive(pane.id);
   };
 
   const handleCloseTerminal = async (ptyId: string) => {
@@ -235,9 +210,6 @@ export function useSandboxPanes({
   const newPreviewDisabled =
     !isActive || previewIds.length >= MAX_PREVIEW_PANES;
 
-  const enabledTabs =
-    userTermPanes.length > 0 ? ALL_SANDBOX_TABS : SANDBOX_TABS_WITHOUT_TERMINAL;
-
   return {
     consoleDock,
     previewIds,
@@ -247,13 +219,12 @@ export function useSandboxPanes({
     resolvedTermActive,
     setPreviewActive,
     setTermActive,
-    setActiveTab,
     handleNewPreview,
     handleNewTerminal,
     handleClosePreview,
     handleCloseTerminal,
     newPreviewDisabled,
     newTerminalDisabled,
-    enabledTabs,
+    enabledTabs: ALL_SANDBOX_TABS,
   };
 }

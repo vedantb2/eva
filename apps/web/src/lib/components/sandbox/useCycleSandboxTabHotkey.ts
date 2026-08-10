@@ -4,15 +4,10 @@ import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
 import type { SandboxTab } from "@/lib/search-params";
 
 /**
- * Tab order matches `SandboxTabBar`'s always-visible row (preview → browser →
- * terminal → Review). Editor / Computer are only cyclable when pinned from `+`.
+ * Tab order matches `SandboxTabBar`'s always-visible row (Preview, Browser,
+ * Review). Editor / Computer are only cyclable when pinned from `+`.
  */
-const SANDBOX_TAB_BAR_ORDER: SandboxTab[] = [
-  "preview",
-  "browser",
-  "terminal",
-  "review",
-];
+const SANDBOX_TAB_BAR_ORDER: SandboxTab[] = ["preview", "browser", "review"];
 
 /**
  * Returns the Shift+Tab cycle order: enabled builtins, then Editor/Computer
@@ -41,7 +36,7 @@ function getCyclableSandboxTabs(
   return [...withDesigns, ...customTabSlugs];
 }
 
-/** Cycles sandbox tabs (Preview, Terminal, …, custom) with `cycleSandboxTab`. */
+/** Cycles the visible right-panel tabs with `cycleSandboxTab`. */
 export function useCycleSandboxTabHotkey({
   activeTab,
   onTabChange,

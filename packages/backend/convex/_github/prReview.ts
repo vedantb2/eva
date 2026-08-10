@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { action } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { getInstallationOctokit } from "../githubAuth";
+import { getActionRepoWithAccess } from "../functions";
 
 const reviewSideValidator = v.union(v.literal("LEFT"), v.literal("RIGHT"));
 
@@ -52,6 +53,7 @@ export const submitPrReview = action({
   ): Promise<{ reviewId: number; htmlUrl: string; state: string }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    await getActionRepoWithAccess(ctx, args.repoId);
 
     const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
       id: args.repoId,
@@ -106,6 +108,7 @@ export const addPrComment = action({
   handler: async (ctx, args): Promise<{ id: number; htmlUrl: string }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    await getActionRepoWithAccess(ctx, args.repoId);
 
     const body = args.body.trim();
     if (body.length === 0) throw new Error("Comment cannot be empty");

@@ -7,6 +7,7 @@ import { components, internal } from "../_generated/api";
 import { getInstallationOctokit } from "../githubAuth";
 import { invalidatePrHeaderCache } from "./pullRequests";
 import type { Id } from "../_generated/dataModel";
+import { getActionRepoWithAccess } from "../functions";
 
 const MAX_ISSUE_COMMENTS = 100;
 const MAX_REVIEW_COMMENTS = 100;
@@ -521,6 +522,7 @@ export const getPullRequestOverview = action({
   handler: async (ctx, args): Promise<PullRequestOverview> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    await getActionRepoWithAccess(ctx, args.repoId);
 
     return await prOverviewCache.fetch(
       ctx,
@@ -548,6 +550,7 @@ export const updatePullRequest = action({
   handler: async (ctx, args): Promise<{ title: string; body: string | null }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    await getActionRepoWithAccess(ctx, args.repoId);
 
     const title = args.title?.trim();
     if (title !== undefined && title.length === 0) {
@@ -646,6 +649,7 @@ export const getPullRequestCommits = action({
   handler: async (ctx, args): Promise<PullRequestCommits> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    await getActionRepoWithAccess(ctx, args.repoId);
 
     return await prCommitsCache.fetch(ctx, {
       repoId: args.repoId,
@@ -680,6 +684,7 @@ export const mergePullRequest = action({
   ): Promise<{ merged: boolean; sha: string | null; message: string }> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    await getActionRepoWithAccess(ctx, args.repoId);
 
     const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
       id: args.repoId,

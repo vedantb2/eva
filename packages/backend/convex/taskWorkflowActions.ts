@@ -8,6 +8,7 @@ import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { getInstallationOctokit } from "./githubAuth";
 import { extractPrNumber } from "./_github/helpers";
 import { isPullRequestAlreadyExistsError } from "./_github/prErrors";
+import { getActionRepoWithAccess } from "./functions";
 import {
   buildPrBody,
   buildTaskPrSections,
@@ -287,6 +288,7 @@ export const createTaskPr = action({
       internal.taskWorkflow.getTaskPrCreationData,
       { taskId: args.taskId },
     );
+    await getActionRepoWithAccess(ctx, data.repoId);
 
     if (data.existingPrUrl) {
       return { url: data.existingPrUrl };
@@ -353,6 +355,7 @@ export const createProjectPr = action({
       internal.projects.getProjectPrCreationData,
       { projectId: args.projectId },
     );
+    await getActionRepoWithAccess(ctx, data.repoId);
 
     if (data.existingPrUrl) {
       return { url: data.existingPrUrl };

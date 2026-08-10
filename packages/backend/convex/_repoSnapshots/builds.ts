@@ -14,7 +14,7 @@ import {
   seededAppResultValidator,
   seededAppStatusValidator,
 } from "../validators";
-import { authQuery, authMutation } from "../functions";
+import { authQuery, authMutation, getRepoWithAccess } from "../functions";
 import { workflow } from "../workflowManager";
 import { sanitizeSeededApps } from "./sanitizeSeededApps";
 
@@ -111,6 +111,9 @@ export const listBuilds = authQuery({
     }),
   ),
   handler: async (ctx, args) => {
+    const config = await ctx.db.get(args.repoSnapshotId);
+    if (!config) throw new Error("Snapshot config not found");
+    await getRepoWithAccess(ctx.db, config.repoId, ctx.userId);
     const builds = await ctx.db
       .query("snapshotBuilds")
       .withIndex("by_repo_snapshot", (q) =>
@@ -152,6 +155,9 @@ export const getBuild = authQuery({
     if (!build) {
       return null;
     }
+    const config = await ctx.db.get(build.repoSnapshotId);
+    if (!config) return null;
+    await getRepoWithAccess(ctx.db, config.repoId, ctx.userId);
     return {
       ...sanitizeBuildForReturn(build),
       provider: resolveBuildProvider(build),
@@ -264,11 +270,13 @@ export const startBuild = authMutation({
   handler: async (ctx, args) => {
     const sharedConfig = await ctx.db.get(args.repoSnapshotId);
     if (!sharedConfig) throw new Error("Snapshot config not found");
+    await getRepoWithAccess(ctx.db, sharedConfig.repoId, ctx.userId);
 
     // Lazy-migrate shared monorepo configs onto the triggering app so
     // eprocurement builds don't share history / baseSnapshotId with apps/web.
     let config = sharedConfig;
     const effectiveAppRepoId = args.appRepoId ?? sharedConfig.repoId;
+    await getRepoWithAccess(ctx.db, effectiveAppRepoId, ctx.userId);
     if (effectiveAppRepoId !== sharedConfig.repoId) {
       const appSpecific = await ctx.db
         .query("repoSnapshots")

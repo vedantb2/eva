@@ -4,6 +4,7 @@ import { v } from "convex/values";
 import { z } from "zod";
 import { action } from "./_generated/server";
 import { resolveAllEnvVars } from "./envVarResolver";
+import { getActionRepoWithAccess } from "./functions";
 
 const LINEAR_API_URL = "https://api.linear.app/graphql";
 
@@ -44,6 +45,7 @@ export const fetchIssues = action({
     if (!identity) {
       throw new Error("Not authenticated");
     }
+    await getActionRepoWithAccess(ctx, args.repoId);
     const envVars = await resolveAllEnvVars(ctx, args.repoId);
     const apiKey = envVars.LINEAR_API_KEY;
 
@@ -56,13 +58,26 @@ export const fetchIssues = action({
     if (args.identifiers.length === 0) {
       return [];
     }
+    if (args.identifiers.length > 50) {
+      throw new Error("At most 50 Linear issues can be fetched at once");
+    }
+    if (args.identifiers.some((identifier) => identifier.length > 100)) {
+      throw new Error("Linear issue identifiers must be 100 characters or less");
+    }
+
+    const variables = Object.fromEntries(
+      args.identifiers.map((identifier, index) => [`issue${index}`, identifier]),
+    );
+    const variableDeclarations = args.identifiers
+      .map((_identifier, index) => `$issue${index}: String!`)
+      .join(", ");
 
     const fieldsQuery = `
-      query {
+      query (${variableDeclarations}) {
         ${args.identifiers
           .map(
-            (id, idx) => `
-          issue${idx}: issue(id: "${id}") {
+            (_identifier, idx) => `
+          issue${idx}: issue(id: $issue${idx}) {
             identifier
             title
             description
@@ -79,7 +94,7 @@ export const fetchIssues = action({
         "Content-Type": "application/json",
         Authorization: apiKey,
       },
-      body: JSON.stringify({ query: fieldsQuery }),
+      body: JSON.stringify({ query: fieldsQuery, variables }),
     });
 
     if (!response.ok) {

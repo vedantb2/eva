@@ -354,6 +354,7 @@ export const getTaskPrCreationData = internalQuery({
     taskId: v.id("agentTasks"),
   },
   returns: v.object({
+    repoId: v.id("githubRepos"),
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
@@ -399,6 +400,7 @@ export const getTaskPrCreationData = internalQuery({
     const proofs = await getTaskProofSummaries(ctx, args.taskId);
 
     return {
+      repoId: repo._id,
       installationId: repo.installationId,
       repoOwner: repo.owner,
       repoName: repo.name,

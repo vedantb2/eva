@@ -5,7 +5,7 @@ import type { SandboxHandle } from "../_sandbox/provider";
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { action, internalAction } from "../_generated/server";
-import { api, internal } from "../_generated/api";
+import { internal } from "../_generated/api";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import {
   getAIModelProvider,
@@ -44,6 +44,7 @@ import {
 import { ensureSwapFile } from "./swap";
 import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
+import { assertActionSandboxAccess } from "../functions";
 
 /** True if anything is LISTEN on `port` (Vercel images often lack `ss`). */
 function portListenProbeCmd(port: number): string {
@@ -605,13 +606,7 @@ export const getPreviewUrl = action({
       throw new Error("Not authenticated");
     }
 
-    // Authorize: the caller must have access to the repo this sandbox belongs to.
-    // `githubRepos.get` returns the repo only for the connector or a team member,
-    // otherwise null — so a null result means the user is not allowed to preview it.
-    const repo = await ctx.runQuery(api.githubRepos.get, { id: args.repoId });
-    if (!repo) {
-      throw new Error("Not authorized to access this repository");
-    }
+    await assertActionSandboxAccess(ctx, args.repoId, args.sandboxId);
 
     // Validates that the repo has Vercel sandbox credentials configured;
     // throws before touching the sandbox if it does not.

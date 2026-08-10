@@ -73,6 +73,19 @@ test("normalizeAIModel remaps retired Codex models to gpt-5.5", () => {
   expect(normalizeAIModel("codex:gpt-5.5-pro")).toBe("codex:gpt-5.5");
 });
 
+test("normalizeAIModel keeps GPT-5.6 Sol/Terra/Luna and aliases bare gpt-5.6 to Sol", () => {
+  expect(normalizeAIModel("codex:gpt-5.6-sol")).toBe("codex:gpt-5.6-sol");
+  expect(normalizeAIModel("codex:gpt-5.6-terra")).toBe("codex:gpt-5.6-terra");
+  expect(normalizeAIModel("codex:gpt-5.6-luna")).toBe("codex:gpt-5.6-luna");
+  expect(normalizeAIModel("codex:gpt-5.6")).toBe("codex:gpt-5.6-sol");
+  expect(getModelTraits("codex:gpt-5.6-sol").reasoning?.levels).toContain(
+    "max",
+  );
+  expect(getModelTraits("codex:gpt-5.5").reasoning?.levels).not.toContain(
+    "max",
+  );
+});
+
 test("normalizeAIModel upgrades bare legacy claude aliases", () => {
   expect(normalizeAIModel("opus")).toBe("claude:opus");
   expect(normalizeAIModel("haiku")).toBe("claude:haiku");

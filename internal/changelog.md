@@ -1,5 +1,9 @@
 # Changelog
 
+## Codex GPT-5.6 Sol / Terra / Luna - 2026-08-10
+
+OpenAI shipped GPT-5.6 coding tiers (Sol / Terra / Luna) while Eva’s Codex picker still only offered GPT-5.5. Added `codex:gpt-5.6-sol`, `codex:gpt-5.6-terra`, and `codex:gpt-5.6-luna` (CLI slugs `gpt-5.6-*`), kept GPT-5.5, aliased bare `codex:gpt-5.6` → Sol, exposed `max` reasoning for 5.6, and updated Codex token pricing.
+
 ## One sandbox owner contract for sessions, tasks, and projects - 2026-08-10
 ## Mouse wheel dead-zones from blanket overscroll contain - 2026-08-08
 

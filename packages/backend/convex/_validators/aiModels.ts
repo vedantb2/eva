@@ -18,9 +18,13 @@ export const aiModelValidator = v.union(
   v.literal("claude:claude-opus-4-5-20251101"),
   v.literal("claude:claude-opus-4-6"),
   v.literal("claude:claude-fable-5"),
+  v.literal("codex:gpt-5.6-sol"),
+  v.literal("codex:gpt-5.6-terra"),
+  v.literal("codex:gpt-5.6-luna"),
   v.literal("codex:gpt-5.5"),
   // Legacy Codex — still accepted so existing sessions can load;
-  // normalizeAIModel maps them to gpt-5.5.
+  // normalizeAIModel maps them to gpt-5.5 (or gpt-5.6-sol for the bare 5.6 alias).
+  v.literal("codex:gpt-5.6"),
   v.literal("codex:gpt-5.5-pro"),
   v.literal("codex:gpt-5.4"),
   v.literal("codex:gpt-5.4-mini"),
@@ -132,6 +136,12 @@ const CODEX_REASONING: ModelReasoningTraits = {
   default: "medium",
 };
 
+/** GPT-5.6 Sol/Terra/Luna also support `max` above xhigh. */
+const CODEX_REASONING_56: ModelReasoningTraits = {
+  levels: ["off", "low", "medium", "high", "xhigh", "max"],
+  default: "medium",
+};
+
 /**
  * Cursor SDK models: the level is resolved to a per-model SDK parameter at
  * runtime (resolveCursorModelSelection in callback-src) and degrades to the
@@ -158,6 +168,9 @@ export type AIModel =
   | "claude:claude-opus-4-5-20251101"
   | "claude:claude-opus-4-6"
   | "claude:claude-fable-5"
+  | "codex:gpt-5.6-sol"
+  | "codex:gpt-5.6-terra"
+  | "codex:gpt-5.6-luna"
   | "codex:gpt-5.5"
   | "opencode:openai/gpt-5-codex"
   | "opencode:openai/gpt-5.2"
@@ -171,6 +184,7 @@ export type AIModel =
 export type PersistedAIModel =
   | AIModel
   | LegacyClaudeModel
+  | "codex:gpt-5.6"
   | "codex:gpt-5.5-pro"
   | "codex:gpt-5.4"
   | "codex:gpt-5.4-mini"
@@ -256,6 +270,30 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     requiresAuth: true,
     reasoning: CLAUDE_REASONING_FULL,
     contextWindow1m: true,
+  },
+  {
+    id: "codex:gpt-5.6-sol",
+    provider: "codex",
+    label: "GPT-5.6 Sol",
+    requiresAuth: true,
+    reasoning: CODEX_REASONING_56,
+    fastMode: true,
+  },
+  {
+    id: "codex:gpt-5.6-terra",
+    provider: "codex",
+    label: "GPT-5.6 Terra",
+    requiresAuth: true,
+    reasoning: CODEX_REASONING_56,
+    fastMode: true,
+  },
+  {
+    id: "codex:gpt-5.6-luna",
+    provider: "codex",
+    label: "GPT-5.6 Luna",
+    requiresAuth: true,
+    reasoning: CODEX_REASONING_56,
+    fastMode: true,
   },
   {
     id: "codex:gpt-5.5",
@@ -404,6 +442,15 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
     case "claude-fable-5":
     case "claude:claude-fable-5":
       return "claude:claude-fable-5";
+    case "codex:gpt-5.6-sol":
+      return "codex:gpt-5.6-sol";
+    case "codex:gpt-5.6-terra":
+      return "codex:gpt-5.6-terra";
+    case "codex:gpt-5.6-luna":
+      return "codex:gpt-5.6-luna";
+    // Bare gpt-5.6 alias routes to Sol (OpenAI's flagship alias).
+    case "codex:gpt-5.6":
+      return "codex:gpt-5.6-sol";
     case "codex:gpt-5.5":
     case "codex:gpt-5.5-pro":
     case "codex:gpt-5.4":

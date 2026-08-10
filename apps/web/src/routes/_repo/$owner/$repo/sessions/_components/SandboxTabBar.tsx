@@ -40,7 +40,7 @@ import {
 export type SandboxTabBarSize = "default" | "compact";
 
 const TAB_TRIGGER_BASE =
-  "relative flex items-center rounded-none rounded-t-md border border-b-0 font-medium data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary";
+  "relative flex items-center rounded-none rounded-t-md border border-b-0 font-medium data-[state=active]:-mb-px data-[state=active]:border-b data-[state=active]:border-b-card data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary";
 
 const TAB_BAR_BASE =
   "relative flex items-end gap-1 border-b border-border px-2";

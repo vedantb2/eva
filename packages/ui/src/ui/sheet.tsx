@@ -6,9 +6,20 @@ import { IconX } from "@tabler/icons-react";
 import { cn } from "../utils/cn";
 
 const Sheet = DialogPrimitive.Root;
-const SheetTrigger = DialogPrimitive.Trigger;
 const SheetClose = DialogPrimitive.Close;
 const SheetPortal = DialogPrimitive.Portal;
+
+const SheetTrigger = React.forwardRef<
+  React.ComponentRef<typeof DialogPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Trigger>
+>(({ className, ...props }, ref) => (
+  <DialogPrimitive.Trigger
+    ref={ref}
+    className={cn("cursor-pointer", className)}
+    {...props}
+  />
+));
+SheetTrigger.displayName = DialogPrimitive.Trigger.displayName;
 
 const SheetOverlay = React.forwardRef<
   React.ComponentRef<typeof DialogPrimitive.Overlay>,
@@ -48,7 +59,7 @@ const SheetContent = React.forwardRef<
     >
       {children}
       {!hideCloseButton && (
-        <DialogPrimitive.Close className="absolute right-3 top-3 inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground motion-press active:scale-[0.94] hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35 after:absolute after:inset-[-6px]">
+        <DialogPrimitive.Close className="absolute right-3 top-3 inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground motion-press active:scale-[0.94] hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35 after:absolute after:inset-[-6px]">
           <IconX className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>

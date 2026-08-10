@@ -7,7 +7,17 @@ import { cn } from "../utils/cn";
 
 const Collapsible = CollapsiblePrimitive.Root;
 
-const CollapsibleTrigger = CollapsiblePrimitive.CollapsibleTrigger;
+function CollapsibleTrigger({
+  className,
+  ...props
+}: ComponentProps<typeof CollapsiblePrimitive.CollapsibleTrigger>) {
+  return (
+    <CollapsiblePrimitive.CollapsibleTrigger
+      className={cn("cursor-pointer", className)}
+      {...props}
+    />
+  );
+}
 
 export type CollapsibleContentProps = ComponentProps<
   typeof CollapsiblePrimitive.CollapsibleContent

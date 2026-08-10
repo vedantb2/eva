@@ -691,6 +691,34 @@
     color: rgb(var(--foreground));
   }
 
+  /*
+   * Interactive cursor — Tailwind v4 preflight dropped `cursor: pointer` on
+   * buttons to match UA defaults. We want the hand everywhere clickable
+   * controls appear (raw <button>, Radix triggers, listbox options, etc.),
+   * not only when a component remembered to add `cursor-pointer`.
+   * https://tailwindcss.com/docs/upgrade-guide#buttons-use-the-default-cursor
+   */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="option"]:not([aria-disabled="true"]),
+  [role="menuitem"]:not([aria-disabled="true"]),
+  [role="menuitemcheckbox"]:not([aria-disabled="true"]),
+  [role="menuitemradio"]:not([aria-disabled="true"]),
+  [role="tab"]:not([aria-disabled="true"]),
+  [role="checkbox"]:not([aria-disabled="true"]),
+  [role="radio"]:not([aria-disabled="true"]),
+  [role="switch"]:not([aria-disabled="true"]),
+  [role="combobox"]:not([aria-disabled="true"]),
+  summary,
+  label[for] {
+    cursor: pointer;
+  }
+  button:disabled,
+  [role="button"][aria-disabled="true"],
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+
   /* Cap radius on form controls when theme radius is "full" (9999px). */
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
       [type="hidden"]

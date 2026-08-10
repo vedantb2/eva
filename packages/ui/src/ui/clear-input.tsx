@@ -78,7 +78,7 @@ const ClearInput = React.forwardRef<HTMLInputElement, ClearInputProps>(
         {value.length > 0 ? (
           <button
             type="button"
-            className="absolute right-2 top-1/2 z-4 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color] hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring/35"
+            className="absolute right-2 top-1/2 z-4 inline-flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-[background-color,color] hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring/35"
             aria-label={clearLabel}
             onPointerDown={preventFocusSteal}
             onMouseDown={preventFocusSteal}

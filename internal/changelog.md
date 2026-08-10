@@ -1,5 +1,9 @@
 # Changelog
 
+## Restore pointer cursor on buttons after Tailwind v4 - 2026-08-10
+
+Tailwind v4’s preflight switched buttons to `cursor: default` (browser UA). Interactive controls that weren’t going through the Button class (composer stash pill, many Radix triggers, raw `<button>`s) lost the hand cursor. Restored pointer on `button` / common ARIA roles / `summary` / `label[for]` in `@layer base`, with `not-allowed` when disabled. Flipped shadcn leftovers that forced `cursor-default` on Command/Select items, and set `cursor-pointer` on Accordion/Collapsible/Select/Checkbox/Dialog/Sheet/Carousel/Label/ClearInput.
+
 ## Codex GPT-5.6 Sol / Terra / Luna - 2026-08-10
 
 OpenAI shipped GPT-5.6 coding tiers (Sol / Terra / Luna) while Eva’s Codex picker still only offered GPT-5.5. Added `codex:gpt-5.6-sol`, `codex:gpt-5.6-terra`, and `codex:gpt-5.6-luna` (CLI slugs `gpt-5.6-*`), kept GPT-5.5, aliased bare `codex:gpt-5.6` → Sol, exposed `max` reasoning for 5.6, and updated Codex token pricing.

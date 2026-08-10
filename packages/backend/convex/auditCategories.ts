@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, getRepoWithAccess } from "./functions";
 import { internalQuery } from "./_generated/server";
 import { resolveCanonicalRepoId } from "./_githubRepos/helpers";
 
@@ -19,6 +19,7 @@ export const listByRepo = authQuery({
     }),
   ),
   handler: async (ctx, args) => {
+    await getRepoWithAccess(ctx.db, args.repoId, ctx.userId);
     const canonicalId = await resolveCanonicalRepoId(ctx.db, args.repoId);
     const rows = await ctx.db
       .query("auditCategories")
@@ -42,6 +43,7 @@ export const hasEnabledCategories = authQuery({
   args: { repoId: v.id("githubRepos") },
   returns: v.boolean(),
   handler: async (ctx, args) => {
+    await getRepoWithAccess(ctx.db, args.repoId, ctx.userId);
     const canonicalId = await resolveCanonicalRepoId(ctx.db, args.repoId);
     const category = await ctx.db
       .query("auditCategories")
@@ -90,6 +92,10 @@ export const create = authMutation({
   },
   returns: v.id("auditCategories"),
   handler: async (ctx, args) => {
+    await getRepoWithAccess(ctx.db, args.repoId, ctx.userId);
+    if (args.appId) {
+      await getRepoWithAccess(ctx.db, args.appId, ctx.userId);
+    }
     const canonicalId = await resolveCanonicalRepoId(ctx.db, args.repoId);
     return await ctx.db.insert("auditCategories", {
       repoId: canonicalId,
@@ -113,6 +119,7 @@ export const update = authMutation({
   handler: async (ctx, args) => {
     const category = await ctx.db.get(args.id);
     if (!category) throw new Error("Category not found");
+    await getRepoWithAccess(ctx.db, category.repoId, ctx.userId);
 
     await ctx.db.patch(args.id, {
       name: args.name,
@@ -132,6 +139,7 @@ export const toggleEnabled = authMutation({
   handler: async (ctx, args) => {
     const category = await ctx.db.get(args.id);
     if (!category) throw new Error("Category not found");
+    await getRepoWithAccess(ctx.db, category.repoId, ctx.userId);
 
     await ctx.db.patch(args.id, { enabled: args.enabled });
     return null;
@@ -145,6 +153,7 @@ export const remove = authMutation({
   handler: async (ctx, args) => {
     const category = await ctx.db.get(args.id);
     if (!category) throw new Error("Category not found");
+    await getRepoWithAccess(ctx.db, category.repoId, ctx.userId);
 
     await ctx.db.delete(args.id);
     return null;

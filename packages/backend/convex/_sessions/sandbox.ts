@@ -6,7 +6,7 @@ import {
   type MutationCtx,
 } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
-import { authMutation } from "../functions";
+import { authMutation, getSessionWithAccess } from "../functions";
 import { workflow } from "../workflowManager";
 import { resolveSessionBaseBranch } from "./baseBranch";
 import {
@@ -32,10 +32,7 @@ export const updateSandbox = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.id);
-    if (!session) {
-      throw new Error("Session not found");
-    }
+    await getSessionWithAccess(ctx.db, args.id, ctx.userId);
     const updates: {
       sandboxId?: string;
       branchName?: string;
@@ -55,10 +52,7 @@ export const clearSandbox = authMutation({
   args: { id: v.id("sessions") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.id);
-    if (!session) {
-      throw new Error("Session not found");
-    }
+    await getSessionWithAccess(ctx.db, args.id, ctx.userId);
     await markAllRunningExited(ctx.db, args.id);
     await ctx.db.patch(args.id, {
       sandboxId: undefined,
@@ -76,8 +70,11 @@ export const startSandbox = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) throw new Error("Session not found");
+    const session = await getSessionWithAccess(
+      ctx.db,
+      args.sessionId,
+      ctx.userId,
+    );
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
     const branchName = session.branchName || `eva/session-${args.sessionId}`;
@@ -210,8 +207,7 @@ export const stopSandbox = authMutation({
   args: { sessionId: v.id("sessions") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) throw new Error("Session not found");
+    await getSessionWithAccess(ctx.db, args.sessionId, ctx.userId);
     await requestSessionSandboxStop(ctx, args.sessionId);
     return null;
   },

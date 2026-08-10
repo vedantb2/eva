@@ -43,9 +43,9 @@ export function BranchSelect({
   const [shouldFetch, setShouldFetch] = useState(false);
   const [searchValue, setSearchValue] = useState("");
   const { branches, isLoading } = useBranches(
+    repo._id,
     repo.owner,
     repo.name,
-    repo.installationId,
     shouldFetch,
   );
   const listRef = useRef<HTMLDivElement>(null);

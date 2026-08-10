@@ -104,6 +104,79 @@ describe("hover-only controls are reachable without hover", () => {
   });
 });
 
+/**
+ * Four bars and indicators animated a geometry property — two progress bars and
+ * the projects timeline bar on `width`, the model picker's selection indicator
+ * on `top` — so the browser relayouted the row on every frame of an animation
+ * that runs while the user is still moving (fixes 88ad508e, faa1e251). Each now
+ * paints at full size and moves with `transform`.
+ *
+ * Nothing looks broken when this regresses: the bar still fills, it just janks
+ * on the machines least able to afford it, which is why it wants a test rather
+ * than an eye.
+ */
+describe("bars animate transform, not geometry", () => {
+  const bars = [
+    { file: "ui/progress.tsx", root: uiSrc, transform: "translateX(" },
+    { file: "ai-elements/test-results.tsx", root: uiSrc, transform: "scaleX(" },
+    {
+      file: "ai-elements/model-picker-content.tsx",
+      root: uiSrc,
+      transform: "translateY(",
+    },
+    {
+      file: "lib/components/projects/_components/TimelineBar.tsx",
+      root: webSrc,
+      transform: "scaleX(",
+    },
+  ];
+
+  it.each(bars)("$file moves with $transform", ({ file, root, transform }) => {
+    const source = stripComments(readFileSync(join(root, file), "utf8"));
+    expect(source).toContain(transform);
+    expect(source).toContain("transition-transform");
+    expect(
+      source,
+      "transitioning a geometry property relayouts every frame",
+    ).not.toMatch(/transition-\[[^\]]*\b(?:width|height|top|left)\b/);
+    expect(
+      source,
+      "size or offset it once in CSS, then move it with transform",
+    ).not.toMatch(/style=\{\{[^}]*\b(?:width|height|top|left)\s*:/);
+  });
+
+  /**
+   * The scaled layers are anchored, not centred: without `origin-left` a
+   * `scaleX` bar grows from its middle in both directions and reads as a
+   * loading shimmer rather than a fill.
+   */
+  it.each(bars.filter((bar) => bar.transform === "scaleX("))(
+    "$file scales from the left edge",
+    ({ file, root }) => {
+      expect(stripComments(readFileSync(join(root, file), "utf8"))).toContain(
+        "origin-left",
+      );
+    },
+  );
+
+  /**
+   * The diffs toolbar's bar was a hand-rolled duplicate of `Progress` and had to
+   * be fixed separately from it. Reusing the primitive is what keeps it fixed.
+   */
+  it("the diffs toolbar reuses the Progress primitive", () => {
+    const source = stripComments(
+      readFileSync(
+        join(webSrc, "lib/components/sandbox/DiffsToolbar.tsx"),
+        "utf8",
+      ),
+    );
+    expect(source, "a hand-rolled bar drifts from the primitive").toContain(
+      "<Progress",
+    );
+    expect(source).not.toMatch(/style=\{\{[^}]*\bwidth\s*:/);
+  });
+});
+
 /** The preludes of the blocks open at `index`, outermost first. */
 function enclosingBlocks(source: string, index: number): string[] {
   const stack: string[] = [];

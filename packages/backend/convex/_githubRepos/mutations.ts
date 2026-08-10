@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import type { GenericDatabaseReader } from "convex/server";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import { internalMutation } from "../_generated/server";
-import { authMutation } from "../functions";
+import { authMutation, getRepoWithAccess, hasTeamAccess } from "../functions";
 import { normalizePath } from "../repoUtils";
 import { aiModelValidator } from "../validators";
 import { findAllSiblingRepoIds } from "./helpers";
@@ -44,10 +44,7 @@ export const assignToTeam = authMutation({
       throw new Error("Only team owners can add repositories");
     }
 
-    const repo = await ctx.db.get(args.repoId);
-    if (!repo) {
-      throw new Error("Repository not found");
-    }
+    const repo = await getRepoWithAccess(ctx.db, args.repoId, ctx.userId);
 
     if (repo.teamId === args.teamId) {
       throw new Error("Repository is already assigned to this team");
@@ -103,6 +100,19 @@ export const create = authMutation({
   },
   returns: v.id("githubRepos"),
   handler: async (ctx, args) => {
+    const installationRepos = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_installation", (q) =>
+        q.eq("installationId", args.installationId),
+      )
+      .collect();
+    if (
+      installationRepos.length > 0 &&
+      !installationRepos.some((repo) => repo.connectedBy === ctx.userId)
+    ) {
+      throw new Error("Not authorized to add repositories from this installation");
+    }
+
     const normalizedRoot = args.rootDirectory
       ? normalizePath(args.rootDirectory)
       : undefined;
@@ -116,13 +126,7 @@ export const create = authMutation({
         (r) => (r.rootDirectory ?? undefined) === (normalizedRoot ?? undefined),
       );
       if (match) {
-        if (match.owner !== args.owner || match.name !== args.name) {
-          await ctx.db.patch(match._id, {
-            owner: args.owner,
-            name: args.name,
-          });
-          return match._id;
-        }
+        await getRepoWithAccess(ctx.db, match._id, ctx.userId);
         throw new Error("Repository already exists");
       }
     }
@@ -138,6 +142,7 @@ export const create = authMutation({
       (r) => (r.rootDirectory ?? undefined) === (normalizedRoot ?? undefined),
     );
     if (duplicate) {
+      await getRepoWithAccess(ctx.db, duplicate._id, ctx.userId);
       if (args.githubId !== undefined && duplicate.githubId === undefined) {
         await ctx.db.patch(duplicate._id, { githubId: args.githubId });
       }
@@ -145,6 +150,9 @@ export const create = authMutation({
     }
 
     let teamId = args.teamId;
+    if (teamId && !(await hasTeamAccess(ctx.db, teamId, ctx.userId))) {
+      throw new Error("Not authorized to add repositories to this team");
+    }
     if (!teamId) {
       const teams = await ctx.db
         .query("teams")
@@ -157,6 +165,7 @@ export const create = authMutation({
     if (normalizedRoot) {
       const rootEntry = candidates.find((r) => !r.rootDirectory);
       if (rootEntry) {
+        await getRepoWithAccess(ctx.db, rootEntry._id, ctx.userId);
         await ctx.db.delete(rootEntry._id);
       }
     }

@@ -2,7 +2,11 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { DatabaseReader } from "../_generated/server";
-import { authMutation, hasRepoAccess } from "../functions";
+import {
+  authMutation,
+  getSessionWithAccess,
+  hasRepoAccess,
+} from "../functions";
 import { allocateNumId } from "../numId";
 import {
   aiModelValidator,
@@ -192,7 +196,7 @@ export const addMessage = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const session = await getSessionOrThrow(ctx.db, args.id);
+    const session = await getSessionWithAccess(ctx.db, args.id, ctx.userId);
     const credentialSourceLabel =
       args.role === "user"
         ? await resolveCredentialSourceLabel(
@@ -417,7 +421,7 @@ export const updateStatus = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getSessionOrThrow(ctx.db, args.id);
+    await getSessionWithAccess(ctx.db, args.id, ctx.userId);
     await ctx.db.patch(args.id, { status: args.status });
     return null;
   },
@@ -435,7 +439,7 @@ export const update = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const session = await getSessionOrThrow(ctx.db, args.id);
+    const session = await getSessionWithAccess(ctx.db, args.id, ctx.userId);
     const updates: {
       title?: string;
       branchName?: string;
@@ -475,6 +479,7 @@ export const updateSummary = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await getSessionWithAccess(ctx.db, args.id, ctx.userId);
     await ctx.db.patch(args.id, { summary: args.summary });
     return null;
   },
@@ -596,7 +601,7 @@ export const updateLastMessage = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getSessionOrThrow(ctx.db, args.id);
+    await getSessionWithAccess(ctx.db, args.id, ctx.userId);
     const last = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.id))

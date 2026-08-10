@@ -6,6 +6,7 @@ import { action, internalAction, type ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { components, internal } from "../_generated/api";
 import { getInstallationOctokit } from "../githubAuth";
+import { getActionRepoWithAccess } from "../functions";
 
 const MAX_LIST_PAGES = 3;
 
@@ -63,6 +64,7 @@ export const listPullRequests = action({
   handler: async (ctx, args): Promise<PullRequestListItem[]> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    await getActionRepoWithAccess(ctx, args.repoId);
 
     const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
       id: args.repoId,
@@ -153,6 +155,7 @@ export const getPullRequestHeader = action({
   handler: async (ctx, args): Promise<PullRequestHeader> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    await getActionRepoWithAccess(ctx, args.repoId);
 
     return await prHeaderCache.fetch(
       ctx,

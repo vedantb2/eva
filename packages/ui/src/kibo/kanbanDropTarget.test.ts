@@ -72,7 +72,7 @@ test("KanbanBoard applies the drop highlight after the caller's className", () =
   );
   const classNameAt = source.indexOf("        className,");
   const highlightAt = source.indexOf(
-    'isDropTarget && "border-primary/40 bg-primary/10"',
+    'isDropTarget && "border border-primary/40 bg-primary/10"',
   );
   expect(classNameAt, "KanbanBoard's cn() call moved").toBeGreaterThan(-1);
   expect(

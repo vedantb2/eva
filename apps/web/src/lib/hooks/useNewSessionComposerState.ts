@@ -25,6 +25,7 @@ export interface NewSessionComposerState {
   effortLevel?: ReasoningLevel;
   thinkingEnabled?: boolean;
   use1mContext?: boolean;
+  fastMode?: boolean;
   providerAccountId: string | null;
   numDesigns?: number;
 }
@@ -45,6 +46,7 @@ const composerStateSchema = z.object({
   effortLevel: reasoningLevelSchema.optional(),
   thinkingEnabled: z.boolean().optional(),
   use1mContext: z.boolean().optional(),
+  fastMode: z.boolean().optional(),
   providerAccountId: z.string().nullable().optional(),
   numDesigns: z.number().int().min(1).max(5).optional(),
 });
@@ -85,6 +87,7 @@ function normalizeStored(
     effortLevel: value.effortLevel,
     thinkingEnabled: value.thinkingEnabled,
     use1mContext: value.use1mContext,
+    fastMode: value.fastMode,
     providerAccountId:
       value.providerAccountId === undefined
         ? defaults.providerAccountId
@@ -152,6 +155,7 @@ function loadOrMigrate(
       effortLevel: legacySettings?.effortLevel,
       thinkingEnabled: legacySettings?.thinkingEnabled,
       use1mContext: legacySettings?.use1mContext,
+      fastMode: legacySettings?.fastMode,
       providerAccountId: legacySettings?.providerAccountId,
     },
     defaultModel,
@@ -195,6 +199,7 @@ export function useNewSessionComposerState(
     effortLevel: normalized.effortLevel,
     thinkingEnabled: normalized.thinkingEnabled,
     use1mContext: normalized.use1mContext,
+    fastMode: normalized.fastMode,
   };
   const displayTraits = resolveTraitsForDisplay(normalized.model, storedTraits);
   const executionTraits = buildTraitsExecutionPayload(

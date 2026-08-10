@@ -45,6 +45,7 @@ export const startExecute = authMutation({
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
+    fastMode: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
     personaId: v.optional(v.id("designPersonas")),
@@ -172,6 +173,7 @@ export const startExecute = authMutation({
       ...(args.use1mContext !== undefined
         ? { lastUse1mContext: args.use1mContext }
         : {}),
+      ...(args.fastMode !== undefined ? { lastFastMode: args.fastMode } : {}),
       updatedAt: Date.now(),
     });
 
@@ -188,6 +190,7 @@ export const startExecute = authMutation({
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
+        fastMode: args.fastMode,
         allowedTools: MODE_TOOLS[resolveToolMode(args.mode)],
         providerAccountId: stickyProviderAccountId,
         credentialOwnerUserId,
@@ -206,6 +209,7 @@ export const startExecute = authMutation({
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
+        fastMode: args.fastMode,
         providerAccountId: stickyProviderAccountId,
         credentialOwnerUserId,
         personaId: args.personaId,
@@ -260,6 +264,7 @@ export const prewarmDaemon = authMutation({
       reasoningLevel: session.lastReasoningLevel,
       thinkingEnabled: session.lastThinkingEnabled,
       use1mContext: session.lastUse1mContext,
+      fastMode: session.lastFastMode,
       allowedTools: MODE_TOOLS[resolveToolMode(lastMode)],
       providerAccountId: session.providerAccountId,
       credentialOwnerUserId,
@@ -281,6 +286,7 @@ export const enqueueMessage = authMutation({
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
+    fastMode: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
     personaId: v.optional(v.id("designPersonas")),
@@ -317,6 +323,7 @@ export const enqueueMessage = authMutation({
       reasoningLevel: args.reasoningLevel,
       thinkingEnabled: args.thinkingEnabled,
       use1mContext: args.use1mContext,
+      fastMode: args.fastMode,
       providerAccountId: args.providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
       personaId: args.personaId,
@@ -334,6 +341,7 @@ export const enqueueMessage = authMutation({
       ...(args.use1mContext !== undefined
         ? { lastUse1mContext: args.use1mContext }
         : {}),
+      ...(args.fastMode !== undefined ? { lastFastMode: args.fastMode } : {}),
       updatedAt: Date.now(),
     });
     return null;

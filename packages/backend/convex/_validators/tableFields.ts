@@ -229,6 +229,7 @@ export const agentTaskFields = {
   lastReasoningLevel: v.optional(reasoningLevelValidator),
   lastThinkingEnabled: v.optional(v.boolean()),
   lastUse1mContext: v.optional(v.boolean()),
+  lastFastMode: v.optional(v.boolean()),
   // Soft UX lock while the agent drives the shared desktop Chrome via
   // browser_lock/browser_unlock MCP tools (mirrors sessions.agentBrowsingAt).
   agentBrowsingAt: v.optional(v.number()),
@@ -322,9 +323,10 @@ export const sessionFields = {
   // effort only lived in localStorage and reloads fell back to the model
   // default (Claude → high), silently undoing a Medium pick.
   lastReasoningLevel: v.optional(reasoningLevelValidator),
-  // Sticky thinking / 1M context toggles (same contract as lastReasoningLevel).
+  // Sticky thinking / 1M context / Fast toggles (same contract as lastReasoningLevel).
   lastThinkingEnabled: v.optional(v.boolean()),
   lastUse1mContext: v.optional(v.boolean()),
+  lastFastMode: v.optional(v.boolean()),
   // Sticky composer mode (edit / plan). Absent → client default "edit".
   lastMode: v.optional(sessionModeValidator),
   // Sticky Preview URL path for this session (e.g. "/dashboard"). Device
@@ -540,6 +542,7 @@ export const projectFields = {
   lastReasoningLevel: v.optional(reasoningLevelValidator),
   lastThinkingEnabled: v.optional(v.boolean()),
   lastUse1mContext: v.optional(v.boolean()),
+  lastFastMode: v.optional(v.boolean()),
   // Soft UX lock while the agent drives the shared desktop Chrome via
   // browser_lock/browser_unlock MCP tools (mirrors sessions.agentBrowsingAt).
   agentBrowsingAt: v.optional(v.number()),
@@ -650,6 +653,7 @@ export const queuedMessageFields = {
   reasoningLevel: v.optional(reasoningLevelValidator),
   thinkingEnabled: v.optional(v.boolean()),
   use1mContext: v.optional(v.boolean()),
+  fastMode: v.optional(v.boolean()),
   responseLength: v.optional(v.string()),
   personaId: v.optional(v.id("designPersonas")),
   numDesigns: v.optional(v.number()),

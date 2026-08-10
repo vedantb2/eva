@@ -89,6 +89,7 @@ export function ProjectSandboxChatPanel({
         ...(args.use1mContext !== undefined
           ? { lastUse1mContext: args.use1mContext }
           : {}),
+        ...(args.fastMode !== undefined ? { lastFastMode: args.fastMode } : {}),
       },
     );
   });
@@ -103,6 +104,7 @@ export function ProjectSandboxChatPanel({
     effortLevel: project?.lastReasoningLevel,
     thinkingEnabled: project?.lastThinkingEnabled,
     use1mContext: project?.lastUse1mContext,
+    fastMode: project?.lastFastMode,
   };
   const displayTraits = resolveTraitsForDisplay(model, storedTraits);
   const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
@@ -182,6 +184,7 @@ export function ProjectSandboxChatPanel({
       ...(partial.use1mContext !== undefined
         ? { use1mContext: partial.use1mContext }
         : {}),
+      ...(partial.fastMode !== undefined ? { fastMode: partial.fastMode } : {}),
     });
   };
 

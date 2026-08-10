@@ -107,6 +107,7 @@ export function useSessionModel(
         ...(args.use1mContext !== undefined
           ? { lastUse1mContext: args.use1mContext }
           : {}),
+        ...(args.fastMode !== undefined ? { lastFastMode: args.fastMode } : {}),
       },
     );
   });
@@ -135,6 +136,7 @@ export function useSessionModel(
       ...(partial.use1mContext !== undefined
         ? { use1mContext: partial.use1mContext }
         : {}),
+      ...(partial.fastMode !== undefined ? { fastMode: partial.fastMode } : {}),
     });
   };
 
@@ -156,6 +158,7 @@ export function useSessionModel(
       effortLevel: session?.lastReasoningLevel,
       thinkingEnabled: session?.lastThinkingEnabled,
       use1mContext: session?.lastUse1mContext,
+      fastMode: session?.lastFastMode,
     },
     setTraits,
     providerAccountId:

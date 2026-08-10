@@ -10,6 +10,7 @@ import {
   CODEX_PERSIST_STATE_FILE,
   CODEX_PERSIST_DIR,
   CODEX_RUNTIME_HOME_DIR,
+  codexFastMode,
   codexReasoningEffort,
 } from "../config.js";
 import { updateThinkingStep } from "../parse/canonical.js";
@@ -54,9 +55,10 @@ function writeCodexFileIfConfigured(
   writeFileSync(CODEX_RUNTIME_HOME_DIR + "/" + fileName, value);
 }
 
-function buildCodexRuntimeConfig(
+export function buildCodexRuntimeConfig(
   rawValue: string,
   encodedValue: string,
+  fastMode = codexFastMode,
 ): string {
   const configuredValue =
     rawValue || (encodedValue ? decodeBase64(encodedValue) : "");
@@ -66,6 +68,8 @@ function buildCodexRuntimeConfig(
         return (
           !trimmed.startsWith("sandbox_mode") &&
           !trimmed.startsWith("approval_policy") &&
+          // Eva owns the Fast toggle; account config must not silently opt in.
+          !trimmed.startsWith("service_tier") &&
           // Drop any configured reasoning effort; the session lever wins when set.
           !(
             codexReasoningEffort && trimmed.startsWith("model_reasoning_effort")
@@ -80,6 +84,9 @@ function buildCodexRuntimeConfig(
   ];
   if (codexReasoningEffort) {
     runtimeLines.push(`model_reasoning_effort = "${codexReasoningEffort}"`);
+  }
+  if (fastMode) {
+    runtimeLines.push('service_tier = "fast"');
   }
   if (normalizedPreservedLines.length > 0) {
     runtimeLines.push(...normalizedPreservedLines);

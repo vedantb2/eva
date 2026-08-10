@@ -203,6 +203,7 @@ export const REPO_ID = process.env.REPO_ID;
 const REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
 const AI_THINKING_ENABLED = process.env.AI_THINKING_ENABLED || "";
 const AI_CONTEXT_1M = process.env.AI_CONTEXT_1M || "";
+const AI_FAST_MODE = process.env.AI_FAST_MODE || "";
 
 const CLAUDE_EFFORT_LEVELS = new Set(["low", "medium", "high", "xhigh", "max"]);
 
@@ -223,6 +224,10 @@ const CODEX_REASONING_EFFORT: Record<string, string> = {
 
 export const codexReasoningEffort =
   PROVIDER === "codex" ? (CODEX_REASONING_EFFORT[REASONING_EFFORT] ?? "") : "";
+export const codexFastMode = PROVIDER === "codex" && AI_FAST_MODE === "1";
+export const cursorFastMode = PROVIDER === "cursor" && AI_FAST_MODE === "1";
+export const cursorUse1mContext =
+  PROVIDER === "cursor" && AI_CONTEXT_1M === "1";
 
 function buildSettingsJson(): string {
   const settings: {

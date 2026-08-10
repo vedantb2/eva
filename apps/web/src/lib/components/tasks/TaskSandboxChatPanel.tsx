@@ -76,6 +76,7 @@ export function TaskSandboxChatPanel({
         ...(args.use1mContext !== undefined
           ? { lastUse1mContext: args.use1mContext }
           : {}),
+        ...(args.fastMode !== undefined ? { lastFastMode: args.fastMode } : {}),
       },
     );
   });
@@ -92,6 +93,7 @@ export function TaskSandboxChatPanel({
     effortLevel: task?.lastReasoningLevel,
     thinkingEnabled: task?.lastThinkingEnabled,
     use1mContext: task?.lastUse1mContext,
+    fastMode: task?.lastFastMode,
   };
   const displayTraits = resolveTraitsForDisplay(model, storedTraits);
   const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
@@ -149,6 +151,7 @@ export function TaskSandboxChatPanel({
       ...(partial.use1mContext !== undefined
         ? { use1mContext: partial.use1mContext }
         : {}),
+      ...(partial.fastMode !== undefined ? { fastMode: partial.fastMode } : {}),
     });
   };
 

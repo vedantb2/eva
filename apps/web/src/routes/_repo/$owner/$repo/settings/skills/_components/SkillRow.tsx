@@ -30,6 +30,11 @@ export function SkillRow({ skill }: { skill: Skill }) {
                   Stale
                 </Badge>
               ) : null}
+              {skill.sourcePath?.startsWith(".claude/skills/") ? (
+                <Badge variant="secondary" className="text-xs">
+                  Claude
+                </Badge>
+              ) : null}
             </div>
             {skill.sourcePath ? (
               <p className="mt-0.5 truncate font-mono text-xs text-muted-foreground">

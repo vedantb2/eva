@@ -351,8 +351,8 @@ const RECAP_BOT_LOGIN_PREFIXES = ["dependabot", "renovate"];
 
 /**
  * On push to a repo's configured base branch, schedule a skill sync when the
- * commit set touches `.agents/skills` (or when path lists are empty — e.g.
- * some force-pushes — so we still converge).
+ * commit set touches `.agents/skills` or `.claude/skills` (or when path lists
+ * are empty — e.g. some force-pushes — so we still converge).
  */
 export const handlePushForSkillSync = internalMutation({
   args: {

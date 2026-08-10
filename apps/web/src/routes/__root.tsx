@@ -1,5 +1,10 @@
 import { lazy, Suspense } from "react";
-import { createRootRouteWithContext, Outlet } from "@tanstack/react-router";
+import {
+  createRootRouteWithContext,
+  Outlet,
+  useRouterState,
+} from "@tanstack/react-router";
+import { useAuth } from "@clerk/clerk-react";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import { Analytics } from "@vercel/analytics/react";
 import { ClientProvider } from "@/lib/components/ClientProvider";
@@ -27,15 +32,24 @@ const DevAgentation = import.meta.env.DEV
 
 function RootComponent() {
   useDocumentTitle();
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { isSignedIn } = useAuth();
 
-  return (
-    <ClientProvider>
+  // The anonymous landing is the one route that needs no Convex. Skipping the
+  // provider there keeps marketing visitors from opening a WebSocket to the
+  // production deployment (ClientProvider's presence/user bootstrapping and
+  // ChangelogDialogGate each subscribe immediately on mount). Every other
+  // public route (preview-auth, mcp/oauth/authorize) calls Convex hooks
+  // unconditionally, so they keep the provider even when signed out.
+  const anonymousLanding = pathname === "/" && isSignedIn !== true;
+
+  const app = (
+    <>
       <NuqsAdapter>
         <AppShell>
           <Outlet />
         </AppShell>
       </NuqsAdapter>
-      <ChangelogDialogGate />
       <AppToaster />
       <Analytics />
       {DevAgentation ? (
@@ -43,6 +57,17 @@ function RootComponent() {
           <DevAgentation />
         </Suspense>
       ) : null}
+    </>
+  );
+
+  if (anonymousLanding) {
+    return app;
+  }
+
+  return (
+    <ClientProvider>
+      {app}
+      <ChangelogDialogGate />
     </ClientProvider>
   );
 }

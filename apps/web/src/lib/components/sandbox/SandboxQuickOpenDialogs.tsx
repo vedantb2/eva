@@ -87,10 +87,10 @@ export function SandboxQuickOpenDialogs({
     (event) => {
       event.preventDefault();
       setActionsOpen(false);
-      setFileOpen((current) => {
-        if (!current) fileList.refresh();
-        return !current;
-      });
+      // Refresh outside the updater: updaters must stay pure, and StrictMode
+      // double-invokes them, which fired two list execs per open.
+      if (!fileOpen) fileList.refresh();
+      setFileOpen(!fileOpen);
     },
     { enabled: hotkeysEnabled && filesEnabled },
   );

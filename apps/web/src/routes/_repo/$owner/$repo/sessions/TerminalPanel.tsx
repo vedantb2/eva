@@ -3,7 +3,7 @@ import { Button, Spinner } from "@eva/ui";
 import { IconRefresh, IconTerminal2 } from "@tabler/icons-react";
 import { useAction } from "convex/react";
 import { api } from "@eva/backend";
-import type { Id } from "@eva/backend";
+import type { SandboxOwner } from "@eva/backend";
 import { useSessionStorage } from "usehooks-ts";
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -27,13 +27,8 @@ import {
  * or a project. The PTY backend resolves the sandbox and repo from whichever
  * is provided.
  */
-export type PtyOwner =
-  | { kind: "session"; sessionId: Id<"sessions"> }
-  | { kind: "task"; taskId: Id<"agentTasks"> }
-  | { kind: "project"; projectId: Id<"projects"> };
-
 interface TerminalPanelProps {
-  owner: PtyOwner;
+  owner: SandboxOwner;
   sandboxId: string | undefined;
   isActive: boolean;
   ptyInstanceId: string;

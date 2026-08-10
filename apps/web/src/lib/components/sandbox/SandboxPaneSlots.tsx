@@ -1,11 +1,10 @@
 "use client";
 
-import type { Doc, Id } from "@eva/backend";
+import type { Doc, Id, SandboxOwner } from "@eva/backend";
 import { cn } from "@eva/ui";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { CustomTabPanel } from "./CustomTabPanel";
 import { TerminalPanel } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
-import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import { WebPreviewPanel } from "@/routes/_repo/$owner/$repo/sessions/WebPreviewPanel";
 import { EditorPanel } from "@/routes/_repo/$owner/$repo/sessions/EditorPanel";
 import { DesktopPanel } from "@/routes/_repo/$owner/$repo/sessions/DesktopPanel";
@@ -21,7 +20,7 @@ interface SandboxPaneSlotsProps {
   activeTab: string;
   panes: SandboxPanesApi;
   preview: SandboxPreviewApi;
-  owner: PtyOwner;
+  owner: SandboxOwner;
   sandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;

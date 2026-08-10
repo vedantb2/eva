@@ -3,19 +3,10 @@
 import { useEffect, useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@eva/backend";
-import type { Id } from "@eva/backend";
+import type { Id, SandboxOwner } from "@eva/backend";
 import { isSessionSandboxTab, type SandboxTab } from "@/lib/search-params";
-import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
-import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
-import {
-  useSandboxPanes,
-  type SharedTerminalPane,
-} from "@/lib/components/sandbox/useSandboxPanes";
-import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
-import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
-import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
-import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
-import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
+import { SandboxWorkspace } from "@/lib/components/sandbox/SandboxWorkspace";
+import type { SharedTerminalPane } from "@/lib/components/sandbox/useSandboxPanes";
 
 interface TaskSandboxPanelProps {
   taskId: Id<"agentTasks">;
@@ -65,37 +56,20 @@ export function TaskSandboxPanel({
 }: TaskSandboxPanelProps) {
   const taskIdStr = String(taskId);
 
-  const task = useQuery(api.agentTasks.get, { id: taskId });
-  const setPreviewPath = useMutation(api.agentTasks.setPreviewPath);
-  const setPreviewPort = useMutation(api.agentTasks.setPreviewPort);
-  const setTerminalHistoryTail = useMutation(
-    api.agentTasks.setTerminalHistoryTail,
+  // Deliberate identity memo: terminal connection effects key off this object.
+  const owner = useMemo<SandboxOwner>(
+    () => ({ kind: "task", taskId }),
+    [taskId],
   );
-  const releaseBrowserLock = useMutation(api.agentTasks.releaseBrowserLock);
-
-  // Stable identity: a fresh literal each render would re-run TerminalPanel's
-  // connect effect, flashing the spinner and dropping the dev-server auto-start
-  // (the reconnect sees an existing PTY, so isNewPty is false).
-  const owner = useMemo(() => ({ kind: "task" as const, taskId }), [taskId]);
-
-  const preview = useSandboxPreview({
-    sandboxId,
-    isActive,
-    repoId,
-    devPort,
-    onPortPersist: (port) => {
-      void setPreviewPort({ id: taskId, port });
-    },
-  });
-
-  const panes = useSandboxPanes({
-    owner,
-    storageScope: `task:${taskIdStr}`,
-    isActive,
-    activeTab,
-    setActiveTab: onTabChange,
-    terminalPanes,
-  });
+  const viewState = useQuery(api.sandboxPanes.getViewState, { owner });
+  const setPreviewPath = useMutation(api.sandboxPanes.setPreviewPath);
+  const setPreviewPort = useMutation(api.sandboxPanes.setPreviewPort);
+  const setTerminalHistoryTail = useMutation(
+    api.sandboxPanes.setTerminalHistoryTail,
+  );
+  const releaseBrowserLock = useMutation(
+    api.sandboxPanes.releaseBrowserLock,
+  );
 
   useEffect(() => {
     if (activeTab !== "prd") return;
@@ -110,79 +84,39 @@ export function TaskSandboxPanel({
     onTabChange(tab);
   };
 
-  const {
-    computerTabOpen,
-    computerRunning,
-    setComputerRunning,
-    openComputer,
-    closeComputer,
-  } = useComputerTab(`task:${taskIdStr}`, tabBarValue, handleTabChange);
-  const { editorTabOpen, openEditor, closeEditor } = useEditorTab(
-    `task:${taskIdStr}`,
-    tabBarValue,
-    handleTabChange,
-  );
-
-  const enabledTabs = withBrowserTab(panes.enabledTabs);
-
   return (
-    <div className="h-full flex flex-col">
-      <SandboxTabBar
-        activeTab={tabBarValue}
-        onTabChange={handleTabChange}
-        onNewPreview={panes.handleNewPreview}
-        onNewTerminal={panes.handleNewTerminal}
-        newPreviewDisabled={panes.newPreviewDisabled}
-        newTerminalDisabled={panes.newTerminalDisabled}
-        enabledTabs={enabledTabs}
-        showFilesTab
-        agentBrowsingAt={task?.agentBrowsingAt}
-        computerTabOpen={computerTabOpen}
-        computerRunning={computerRunning}
-        onOpenComputer={openComputer}
-        onCloseComputer={closeComputer}
-        editorTabOpen={editorTabOpen}
-        onOpenEditor={openEditor}
-        onCloseEditor={closeEditor}
-      />
-      <div className="flex-1 overflow-hidden bg-card">
-        <div className={tabBarValue === "files" ? "h-full min-h-0" : "hidden"}>
-          <FilesPanel
-            sandboxId={sandboxId}
-            repoId={repoId}
-            isActive={isActive}
-          />
-        </div>
-        <SandboxPaneSlots
-          activeTab={tabBarValue}
-          panes={panes}
-          preview={preview}
-          owner={owner}
-          sandboxId={sandboxId}
-          isActive={isActive}
-          repoId={repoId}
-          cacheKey={taskIdStr}
-          devCommand={devCommand}
-          prUrl={prUrl}
-          agentBrowsingAt={task?.agentBrowsingAt}
-          onReleaseBrowserLock={() => void releaseBrowserLock({ id: taskId })}
-          // Backend starts the app in the Console tmux session after startup.
-          runConsoleDevCommandOnConnect={false}
-          onComputerRunningChange={setComputerRunning}
-          onStartSandbox={onStartSandbox}
-          isSandboxStarting={isSandboxStarting}
-          stickyPreviewPath={task?.previewPath}
-          onStickyPreviewPathChange={(path) => {
-            void setPreviewPath({ id: taskId, path });
-          }}
-          stickyTerminalHistoryTail={
-            task === undefined ? undefined : (task?.terminalHistoryTail ?? "")
-          }
-          onStickyTerminalHistoryTailChange={(tail) => {
-            void setTerminalHistoryTail({ id: taskId, tail });
-          }}
-        />
-      </div>
-    </div>
+    <SandboxWorkspace
+      owner={owner}
+      storageScope={`task:${taskIdStr}`}
+      cacheKey={taskIdStr}
+      sandboxId={sandboxId}
+      isActive={isActive}
+      repoId={repoId}
+      devPort={devPort}
+      devCommand={devCommand}
+      terminalPanes={terminalPanes}
+      prUrl={prUrl}
+      activeTab={tabBarValue}
+      onTabChange={handleTabChange}
+      agentBrowsingAt={viewState?.agentBrowsingAt}
+      onReleaseBrowserLock={() => void releaseBrowserLock({ owner })}
+      onStartSandbox={onStartSandbox}
+      isSandboxStarting={isSandboxStarting}
+      stickyPreviewPath={viewState?.previewPath}
+      onStickyPreviewPathChange={(path) => {
+        void setPreviewPath({ owner, path });
+      }}
+      onPreviewPortPersist={(port) => {
+        void setPreviewPort({ owner, port });
+      }}
+      stickyTerminalHistoryTail={
+        viewState === undefined
+          ? undefined
+          : (viewState?.terminalHistoryTail ?? "")
+      }
+      onStickyTerminalHistoryTailChange={(tail) => {
+        void setTerminalHistoryTail({ owner, tail });
+      }}
+    />
   );
 }

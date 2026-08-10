@@ -3,9 +3,8 @@
 import { useEffect } from "react";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@eva/backend";
-import type { Doc } from "@eva/backend";
+import type { Doc, SandboxOwner } from "@eva/backend";
 import { useLocalStorage } from "usehooks-ts";
-import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import type { SandboxTab } from "@/lib/search-params";
 
 const MAX_TERMINAL_PANES = 8;
@@ -60,7 +59,7 @@ export interface SandboxPanesApi {
 }
 
 interface UseSandboxPanesArgs {
-  owner: PtyOwner;
+  owner: SandboxOwner;
   /**
    * Full localStorage namespace for pane state — e.g. `session:<id>` or
    * `task:<id>`. Final keys: `eva:<storageScope>:previews` and

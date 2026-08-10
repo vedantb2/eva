@@ -399,6 +399,33 @@ class VercelSandboxHandle implements SandboxHandle {
   }
 
   /**
+   * See {@link SandboxHandle.classifyForReconcile}. Uses listSessions when the
+   * attached session is missing so a hard-timeouted VM is "dead", not the
+   * fake "starting" {@link state} reports on throw.
+   */
+  async classifyForReconcile(): Promise<"alive" | "dead" | "transient"> {
+    const resolved = await this.resolveSessionStatus();
+    if (resolved.kind === "unknown") return "transient";
+    if (resolved.kind === "empty") return "dead";
+    const status = resolved.status;
+    if (status === "running") return "alive";
+    if (this.isTerminalStopStatus(status)) return "dead";
+    if (this.isStopInFlightStatus(status)) return "transient";
+    if (status === "pending" || status === "starting") return "transient";
+    const normalized = normalizeState(status);
+    if (normalized === "running") return "alive";
+    if (
+      normalized === "stopped" ||
+      normalized === "archived" ||
+      normalized === "gone" ||
+      normalized === "error"
+    ) {
+      return "dead";
+    }
+    return "transient";
+  }
+
+  /**
    * Returns Vercel's un-normalized session status, or `null` when the SDK
    * throws (common for `resume: false` mid-transition). Never invent
    * `"stopped"` from a throw — that made stop confirmation exit while Vercel

@@ -1310,16 +1310,16 @@ async function runPrewarmEntityDaemon(
     // (services only launch in the startup workflow). Prewarm is best-effort:
     // skip instead, and flip a stale "active" status to "closed" so the UI
     // offers Start — which also stops connectPty from resurrecting it.
-    if (sandbox.state !== "running") {
+    //
+    // Use classifyForReconcile (not sandbox.state): a hard-timeouted Vercel VM
+    // makes status throw and state reports "starting", which would skip the
+    // flip forever while the UI still says active.
+    const classification = await sandbox.classifyForReconcile();
+    if (classification !== "alive") {
       console.log(
-        `[sandbox][execution] prewarmEntityDaemon: sandbox ${args.sandboxId} state=${sandbox.state} — skipping prewarm entityId=${args.entityId}`,
+        `[sandbox][execution] prewarmEntityDaemon: sandbox ${args.sandboxId} classify=${classification} — skipping prewarm entityId=${args.entityId}`,
       );
-      if (
-        sandbox.state === "stopped" ||
-        sandbox.state === "archived" ||
-        sandbox.state === "gone" ||
-        sandbox.state === "error"
-      ) {
+      if (classification === "dead") {
         await ctx.runMutation(
           internal.sandboxDaemon.reconcileStoppedSandboxStatus,
           {
@@ -1566,8 +1566,13 @@ const RECONCILE_SWEEP_MAX_ENTITIES = 50;
  * page-mount prewarm, so a session left open in a browser tab showed
  * "active" + a dead Preview indefinitely (session 55). Runs on a cron; flips
  * stale actives to closed via reconcileStoppedSandboxStatus so the UI offers
- * Start. Handle reads are side-effect-free (no resume), and a mid-turn VM is
- * "running" (and deadline-extended), so live work can never be flipped.
+ * Start.
+ *
+ * Uses classifyForReconcile (not sandbox.state): after a hard timeout Vercel's
+ * attached status throws and state maps to "starting", which is intentionally
+ * transient for start/stop races — but left the sweep never flipping those
+ * rows. classifyForReconcile falls back to listSessions so empty/terminal
+ * sessions count as dead. Mid-turn VMs are "alive" (and deadline-extended).
  */
 export const reconcileStaleActiveSandboxes = internalAction({
   args: {},
@@ -1586,12 +1591,8 @@ export const reconcileStaleActiveSandboxes = internalAction({
           entity.repoId,
           entity.sandboxId,
         );
-        if (
-          sandbox.state === "stopped" ||
-          sandbox.state === "archived" ||
-          sandbox.state === "gone" ||
-          sandbox.state === "error"
-        ) {
+        const classification = await sandbox.classifyForReconcile();
+        if (classification === "dead") {
           await ctx.runMutation(
             internal.sandboxDaemon.reconcileStoppedSandboxStatus,
             {

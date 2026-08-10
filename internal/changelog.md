@@ -1,5 +1,9 @@
 # Changelog
 
+## Stale-active sandbox reconcile sees through fake "starting" - 2026-08-10
+
+Vercel hard-timeouts kill the VM with no webhook. `sandbox.status` then throws, and our adapter maps that throw to `state: "starting"` so mid-stop Start paths do not treat it as idle-stopped. The 5-minute reconcile sweep (and prewarm) trusted `sandbox.state` and therefore never flipped those rows — UI stayed "active" with a dead sandbox. Added `SandboxHandle.classifyForReconcile()` which falls back to `listSessions` and reports alive/dead/transient; prewarm + reconcile now flip only on `"dead"`.
+
 ## Restore pointer cursor on buttons after Tailwind v4 - 2026-08-10
 
 Tailwind v4’s preflight switched buttons to `cursor: default` (browser UA). Interactive controls that weren’t going through the Button class (composer stash pill, many Radix triggers, raw `<button>`s) lost the hand cursor. Restored pointer on `button` / common ARIA roles / `summary` / `label[for]` in `@layer base`, with `not-allowed` when disabled. Flipped shadcn leftovers that forced `cursor-default` on Command/Select items, and set `cursor-pointer` on Accordion/Collapsible/Select/Checkbox/Dialog/Sheet/Carousel/Label/ClearInput.

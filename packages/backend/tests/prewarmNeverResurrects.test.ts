@@ -12,6 +12,7 @@ function convexSource(path: string): string {
 const executionSource = convexSource("_sandbox_runtime/execution.ts");
 const snapshotSource = convexSource("_sandbox_runtime/daemonEntitySnapshot.ts");
 const providerSource = convexSource("_sandbox/provider.ts");
+const vercelSource = convexSource("_sandbox/vercelProvider.ts");
 
 /**
  * Opening a page fires prewarmDaemon, and on Vercel *any* exec — including the
@@ -28,12 +29,17 @@ describe("prewarm never resurrects a stopped sandbox", () => {
     "async function runPrewarmEntityDaemon(",
   );
 
-  test("bails on a non-running sandbox before any exec", () => {
-    const guardAt = prewarm.indexOf('if (sandbox.state !== "running")');
+  test("bails via classifyForReconcile before any exec", () => {
+    const classifyAt = prewarm.indexOf("classifyForReconcile()");
+    expect(
+      classifyAt,
+      "runPrewarmEntityDaemon must probe liveness via classifyForReconcile",
+    ).toBeGreaterThan(-1);
+    const guardAt = prewarm.indexOf('if (classification !== "alive")');
     expect(
       guardAt,
-      "runPrewarmEntityDaemon must gate on live provider state",
-    ).toBeGreaterThan(-1);
+      "prewarm must skip when classifyForReconcile is not alive",
+    ).toBeGreaterThan(classifyAt);
     // Every way this file reaches into a sandbox. The first one must come after
     // the guard, since the first is the one that does the waking.
     for (const call of ["execHandle(", "sandbox.exec(", "execDetached("]) {
@@ -41,7 +47,7 @@ describe("prewarm never resurrects a stopped sandbox", () => {
       if (callAt < 0) continue;
       expect(
         callAt,
-        `${call} runs before the state guard, so it can wake a stopped VM`,
+        `${call} runs before the classify guard, so it can wake a stopped VM`,
       ).toBeGreaterThan(guardAt);
     }
   });
@@ -54,51 +60,50 @@ describe("prewarm never resurrects a stopped sandbox", () => {
     expect(prewarm).not.toContain("resumeAfterStop");
   });
 
-  /**
-   * The states prewarm treats as definitely dead, read straight out of the
-   * guard's condition.
-   */
-  const reconciledStates = [
-    ...prewarm
-      .slice(prewarm.indexOf('if (sandbox.state !== "running")'))
-      .matchAll(/sandbox\.state === "(\w+)"/g),
-  ].map(([, state]) => state);
-
-  /**
-   * A transient state means "ask again later", not "the sandbox is dead". Marking
-   * one closed would strand a sandbox that is mid-resume behind a Start button.
-   */
-  test.each(["restoring", "starting", "unknown"])(
-    "does not treat %s as dead",
-    (state) => {
-      expect(reconciledStates).not.toContain(state);
-    },
-  );
-
-  /**
-   * Fails when a new state joins SandboxState without a prewarm decision. That is
-   * the point: a state nobody classified silently gets the "leave it alone"
-   * branch, which is how a stale "active" status survives in the first place.
-   */
-  test("classifies every non-running state", () => {
-    const union = providerSource.slice(
-      providerSource.indexOf("export type SandboxState ="),
+  test("only flips status when classification is dead", () => {
+    expect(prewarm).toContain('if (classification === "dead")');
+    expect(prewarm).toContain(
+      "internal.sandboxDaemon.reconcileStoppedSandboxStatus",
     );
-    const states = [
-      ...union.slice(0, union.indexOf(";")).matchAll(/"(\w+)"/g),
-    ].map(([, state]) => state);
-    expect(states).toContain("running");
-    const transient = ["restoring", "starting", "unknown"];
-    for (const state of states) {
-      if (state === "running" || transient.includes(state)) continue;
-      expect(
-        reconciledStates,
-        `${state} is neither running nor transient, so prewarm must reconcile it`,
-      ).toContain(state);
-    }
+    // Must not reconcile off the coarse sandbox.state buckets — those miss
+    // hard-timeouted VMs whose state getter invents "starting".
+    expect(prewarm).not.toContain('sandbox.state === "stopped"');
   });
 });
 
+/**
+ * Hard-timeouted Vercel VMs throw from sandbox.status; the state getter maps
+ * that to "starting" so start/stop races stay safe. Reconcile/prewarm must
+ * not trust that mapping — they have to listSessions and treat empty/terminal
+ * as dead, or the UI stays "active" forever (the bug this fix targets).
+ */
+describe("classifyForReconcile sees through fake starting", () => {
+  test("SandboxHandle requires classifyForReconcile", () => {
+    expect(providerSource).toContain("classifyForReconcile(): Promise<");
+  });
+
+  test("Vercel implementation falls back to resolveSessionStatus", () => {
+    const body = functionBody(
+      vercelSource,
+      "async classifyForReconcile(): Promise<",
+    );
+    expect(body).toContain("resolveSessionStatus()");
+    expect(body).toContain('if (resolved.kind === "empty") return "dead"');
+    expect(body).toContain('if (status === "running") return "alive"');
+    expect(body).toContain("isTerminalStopStatus");
+    expect(body).toContain("isStopInFlightStatus");
+  });
+
+  test("reconcile sweep flips on dead, not on coarse sandbox.state", () => {
+    const body = functionBody(
+      executionSource,
+      "export const reconcileStaleActiveSandboxes =",
+    );
+    expect(body).toContain("classifyForReconcile()");
+    expect(body).toContain('if (classification === "dead")');
+    expect(body).not.toContain('sandbox.state === "stopped"');
+  });
+});
 /**
  * The self-heal half of the same fix: a stopped VM whose entity status still
  * reads "active" is what let the Console/PTY path resume it. Flipping to

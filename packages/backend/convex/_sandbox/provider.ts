@@ -147,6 +147,22 @@ export interface SandboxHandle {
   readonly state: SandboxState;
   readonly errorReason: string | null;
 
+  /**
+   * Liveness class for stale-active reconcile / prewarm.
+   *
+   * Unlike {@link state}, this may call the provider (e.g. listSessions) when
+   * the attached session is missing. On Vercel a hard-timeouted VM makes
+   * `status` throw and {@link state} reports `"starting"` (so mid-stop start
+   * paths do not treat it as idle-stopped) — that same mapping left the
+   * reconcile sweep treating dead sandboxes as transient forever. Use this
+   * when deciding whether to flip eva's "active" status to "closed".
+   *
+   * - `"alive"` — session is running; leave status alone
+   * - `"dead"` — definitely stopped / gone / empty; safe to flip
+   * - `"transient"` — mid-start, mid-stop, or unknown; ask again later
+   */
+  classifyForReconcile(): Promise<"alive" | "dead" | "transient">;
+
   exec(cmd: string, opts?: SandboxExecOptions): Promise<SandboxExecResult>;
 
   /**

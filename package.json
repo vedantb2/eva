@@ -26,9 +26,28 @@
   },
   "pnpm": {
     "overrides": {
+      "@clerk/clerk-js": "5.125.10",
+      "@clerk/clerk-react": "5.61.6",
+      "@clerk/shared": "3.47.5",
       "@types/react": "19.0.10",
       "@types/react-dom": "19.0.4",
-      "convex-helpers": "0.1.114"
+      "axios": "1.18.0",
+      "brace-expansion@1.1.15": "1.1.18",
+      "convex-helpers": "0.1.114",
+      "fast-uri": "3.1.5",
+      "form-data": "4.0.6",
+      "hono": "4.12.25",
+      "ip-address": "10.3.1",
+      "js-cookie": "3.0.7",
+      "js-yaml@3.14.2": "3.15.1",
+      "linkify-it": "5.0.2",
+      "react-router": "7.18.2",
+      "react-router-dom": "7.18.2",
+      "seroval": "1.5.3",
+      "undici": "7.29.0",
+      "ws@8.18.0": "8.21.0",
+      "ws@8.18.3": "8.21.0",
+      "ws@8.20.1": "8.21.0"
     },
     "patchedDependencies": {
       "@convex-dev/presence@0.3.0": "patches/@convex-dev__presence@0.3.0.patch"

@@ -1,6 +1,11 @@
 import type { ActivityStep } from "@eva/ui";
-import { IconFileText } from "@tabler/icons-react";
+import { IconChevronDown, IconFileText } from "@tabler/icons-react";
 import { cn, Surface } from "@eva/ui";
+import {
+  selectChangedFilePreview,
+  shouldAutoExpandChangedFiles,
+  shouldPreviewChangedFiles,
+} from "@/lib/components/chat/changedFilesPresentation";
 
 export interface ChangedFile {
   path: string;
@@ -77,28 +82,55 @@ export function collectChangedFiles(steps: ActivityStep[]): ChangedFile[] {
 
 interface ChangedFilesCardProps {
   files: ChangedFile[];
+  isLatestAssistantTurn: boolean;
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
   onOpenFile?: (path: string) => void;
   onViewDiff?: (repoRelativePath?: string) => void;
 }
 
 export function ChangedFilesCard({
   files,
+  isLatestAssistantTurn,
+  expanded,
+  onExpandedChange,
   onOpenFile,
   onViewDiff,
 }: ChangedFilesCardProps) {
   if (files.length === 0) return null;
+
+  const isExpanded =
+    expanded ?? shouldAutoExpandChangedFiles(files, isLatestAssistantTurn);
+  const visibleFiles = isExpanded
+    ? files
+    : shouldPreviewChangedFiles(files, isLatestAssistantTurn)
+      ? selectChangedFilePreview(files)
+      : [];
 
   const handleViewDiff = () => {
     const firstPath = files[0]?.path;
     onViewDiff?.(firstPath ? toRepoRelativePath(firstPath) : undefined);
   };
 
+  const toggleExpanded = () => onExpandedChange?.(!isExpanded);
+
   return (
     <Surface density="none" className="mt-2">
-      <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <span className="text-xs font-medium text-foreground">
-          Changed files ({files.length})
-        </span>
+      <div className="flex items-center justify-between gap-2 px-3 py-2">
+        <button
+          type="button"
+          aria-expanded={isExpanded}
+          onClick={toggleExpanded}
+          className="flex min-w-0 items-center gap-1.5 text-left text-xs font-medium text-foreground"
+        >
+          <IconChevronDown
+            className={cn(
+              "size-3.5 shrink-0 text-muted-foreground transition-transform duration-[var(--motion-fast)]",
+              !isExpanded && "-rotate-90",
+            )}
+          />
+          <span>Changed files ({files.length})</span>
+        </button>
         {onViewDiff ? (
           <button
             type="button"
@@ -109,25 +141,38 @@ export function ChangedFilesCard({
           </button>
         ) : null}
       </div>
-      <ul className="divide-y divide-border">
-        {files.map((file) => (
-          <li key={file.path}>
-            {onOpenFile ? (
+      {visibleFiles.length > 0 ? (
+        <ul className="grid gap-0.5 px-1.5 pb-1.5">
+          {visibleFiles.map((file) => (
+            <li key={file.path}>
+              {onOpenFile ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenFile(file.path)}
+                  className="flex w-full items-center gap-2 rounded-md px-1.5 py-1.5 text-left transition-colors hover:bg-muted"
+                >
+                  <FileRow file={file} />
+                </button>
+              ) : (
+                <div className="flex items-center gap-2 px-1.5 py-1.5">
+                  <FileRow file={file} />
+                </div>
+              )}
+            </li>
+          ))}
+          {!isExpanded && visibleFiles.length < files.length ? (
+            <li>
               <button
                 type="button"
-                onClick={() => onOpenFile(file.path)}
-                className="flex w-full items-center gap-2 px-3 py-2 text-left transition-colors hover:bg-muted"
+                onClick={toggleExpanded}
+                className="w-full rounded-md px-1.5 py-1.5 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
               >
-                <FileRow file={file} />
+                Show all {files.length} files
               </button>
-            ) : (
-              <div className="flex items-center gap-2 px-3 py-2">
-                <FileRow file={file} />
-              </div>
-            )}
-          </li>
-        ))}
-      </ul>
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
     </Surface>
   );
 }

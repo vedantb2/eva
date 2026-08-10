@@ -2,7 +2,11 @@ import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { DatabaseReader } from "../_generated/server";
-import { authMutation, hasRepoAccess } from "../functions";
+import {
+  authMutation,
+  getSessionWithAccess,
+  hasRepoAccess,
+} from "../functions";
 import { allocateNumId } from "../numId";
 import {
   aiModelValidator,
@@ -56,6 +60,7 @@ export const create = authMutation({
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
+    fastMode: v.optional(v.boolean()),
     providerAccountId: v.optional(
       v.union(v.id("userProviderAccounts"), v.null()),
     ),
@@ -112,6 +117,7 @@ export const create = authMutation({
       ...(args.use1mContext !== undefined
         ? { lastUse1mContext: args.use1mContext }
         : {}),
+      ...(args.fastMode !== undefined ? { lastFastMode: args.fastMode } : {}),
     });
     const branchName = `eva/session-${sessionId}`;
     await ctx.db.patch(sessionId, { branchName });
@@ -145,6 +151,7 @@ export const create = authMutation({
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
+        fastMode: args.fastMode,
         providerAccountId,
         attachmentStorageIds: args.attachmentStorageIds,
         personaId: args.personaId,
@@ -189,7 +196,7 @@ export const addMessage = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const session = await getSessionOrThrow(ctx.db, args.id);
+    const session = await getSessionWithAccess(ctx.db, args.id, ctx.userId);
     const credentialSourceLabel =
       args.role === "user"
         ? await resolveCredentialSourceLabel(
@@ -300,7 +307,7 @@ export const setProviderAccountId = authMutation({
 });
 
 /**
- * Sets sticky composer traits for a session (effort / thinking / 1M). Same
+ * Sets sticky composer traits for a session (effort / thinking / 1M / Fast). Same
  * contract as `setModel`: write on change (optimistic on the client), do not
  * bump `updatedAt`. Only provided fields are patched.
  */
@@ -310,6 +317,7 @@ export const setTraits = authMutation({
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
+    fastMode: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -320,7 +328,8 @@ export const setTraits = authMutation({
     if (
       args.reasoningLevel === undefined &&
       args.thinkingEnabled === undefined &&
-      args.use1mContext === undefined
+      args.use1mContext === undefined &&
+      args.fastMode === undefined
     ) {
       return null;
     }
@@ -334,6 +343,7 @@ export const setTraits = authMutation({
       ...(args.use1mContext !== undefined
         ? { lastUse1mContext: args.use1mContext }
         : {}),
+      ...(args.fastMode !== undefined ? { lastFastMode: args.fastMode } : {}),
     });
     return null;
   },
@@ -411,7 +421,7 @@ export const updateStatus = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getSessionOrThrow(ctx.db, args.id);
+    await getSessionWithAccess(ctx.db, args.id, ctx.userId);
     await ctx.db.patch(args.id, { status: args.status });
     return null;
   },
@@ -429,7 +439,7 @@ export const update = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const session = await getSessionOrThrow(ctx.db, args.id);
+    const session = await getSessionWithAccess(ctx.db, args.id, ctx.userId);
     const updates: {
       title?: string;
       branchName?: string;
@@ -469,6 +479,7 @@ export const updateSummary = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await getSessionWithAccess(ctx.db, args.id, ctx.userId);
     await ctx.db.patch(args.id, { summary: args.summary });
     return null;
   },
@@ -590,7 +601,7 @@ export const updateLastMessage = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getSessionOrThrow(ctx.db, args.id);
+    await getSessionWithAccess(ctx.db, args.id, ctx.userId);
     const last = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.id))

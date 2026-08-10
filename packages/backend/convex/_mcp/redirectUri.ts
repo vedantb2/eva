@@ -1,4 +1,5 @@
-const BLOCKED_PROTOCOLS = new Set(["javascript:", "data:"]);
+const LOOPBACK_HOSTS = new Set(["127.0.0.1", "[::1]", "localhost"]);
+const CURSOR_CALLBACK = "cursor://anysphere.cursor-mcp/oauth/callback";
 
 /** Whether a redirect URI is safe to accept during dynamic client registration. */
 export function isAllowedOAuthRedirectUri(uri: string): boolean {
@@ -9,11 +10,11 @@ export function isAllowedOAuthRedirectUri(uri: string): boolean {
     return false;
   }
 
-  if (BLOCKED_PROTOCOLS.has(parsed.protocol)) {
-    return false;
+  if (parsed.protocol === "https:") return true;
+  if (parsed.protocol === "http:") {
+    return LOOPBACK_HOSTS.has(parsed.hostname);
   }
-
-  return true;
+  return parsed.toString() === CURSOR_CALLBACK;
 }
 
 /** Canonical form for comparing redirect URIs during authorize / token exchange. */
@@ -25,9 +26,7 @@ export function redirectUriMatchesRegistered(
   redirectUri: string,
   registeredUris: string[],
 ): boolean {
-  if (registeredUris.length === 0) {
-    return true;
-  }
+  if (registeredUris.length === 0) return false;
 
   let normalized: string;
   try {

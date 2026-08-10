@@ -64,9 +64,7 @@ describe("purgeUnreferencedVercelSnapshots builds its protected set first", () =
   });
 
   test("only protects sandboxes Eva still references", () => {
-    expect(body).toContain(
-      "internal.repoSnapshots.listReferencedSandboxIds",
-    );
+    expect(body).toContain("internal.repoSnapshots.listReferencedSandboxIds");
     expect(body).toContain("knownSandboxIds.has(sandbox.name)");
   });
 
@@ -124,9 +122,8 @@ describe("keepLastSnapshots is applied wherever a snapshot is written", () => {
     expect(KEEP_LAST_SNAPSHOTS.deleteEvicted).toBe(true);
   });
 
-  test("gives evicted snapshots an explicit TTL", () => {
-    // Inheriting a seed snap's expiration:0 means never-expire storage.
-    expect(KEEP_LAST_SNAPSHOTS.expiration).toBeGreaterThan(0);
+  test("keeps the surviving persistent snapshot alive until entity cleanup", () => {
+    expect(KEEP_LAST_SNAPSHOTS.expiration).toBe(0);
   });
 
   test("only persistent sandboxes get retention at create time", () => {
@@ -139,13 +136,13 @@ describe("keepLastSnapshots is applied wherever a snapshot is written", () => {
   });
 
   /** Vercel rejects any snapshotExpiration between 0 and one day. */
-  test("every create-time TTL is zero or at least a day", () => {
+  test("persistent TTL is zero and every non-zero TTL is at least a day", () => {
     const day = 24 * 60 * 60 * 1000;
     expect(EPHEMERAL_SNAPSHOT_TTL_MS).toBeGreaterThanOrEqual(day);
     for (const persistent of [true, false]) {
-      expect(
-        vercelSnapshotCreateOptions(persistent).snapshotExpiration,
-      ).toBeGreaterThanOrEqual(day);
+      const expiration =
+        vercelSnapshotCreateOptions(persistent).snapshotExpiration;
+      expect(expiration === 0 || expiration >= day).toBe(true);
     }
   });
 
@@ -188,9 +185,9 @@ describe("keepLastSnapshots is applied wherever a snapshot is written", () => {
       providerSource,
       "  private async ensureSnapshotRetention(): Promise<void> {",
     );
-    expect(body).toContain(
-      "this.sandbox.update({ keepLastSnapshots: KEEP_LAST_SNAPSHOTS })",
-    );
+    expect(body).toContain("this.sandbox.update({");
+    expect(body).toContain("snapshotExpiration: 0");
+    expect(body).toContain("keepLastSnapshots: KEEP_LAST_SNAPSHOTS");
   });
 });
 

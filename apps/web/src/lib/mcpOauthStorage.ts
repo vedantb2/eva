@@ -16,11 +16,13 @@ const STORAGE_KEY = "mcp_oauth_pending";
 const MAX_ATTEMPTS = 2;
 
 export const mcpOauthParamsSchema = z.object({
-  client_id: z.string(),
-  redirect_uri: z.string(),
-  state: z.string(),
-  code_challenge: z.string(),
-  code_challenge_method: z.string(),
+  client_id: z.string().min(1),
+  redirect_uri: z
+    .string()
+    .refine((value) => URL.canParse(value), "Invalid redirect URI"),
+  state: z.string().min(1),
+  code_challenge: z.string().min(43).max(128),
+  code_challenge_method: z.literal("S256"),
 });
 
 export type McpOauthParams = z.infer<typeof mcpOauthParamsSchema>;

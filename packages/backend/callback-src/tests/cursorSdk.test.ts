@@ -2,7 +2,11 @@ import { expect, test } from "vitest";
 import { splitCursorModel } from "../config.js";
 import { cursorSdkToolToStep } from "../parse/toolSteps.js";
 import { probeCursorSdkToolResult } from "../providers/cursor.js";
-import { parseCursorSdkMcpServers } from "../providers/cursorSdk.js";
+import {
+  cursorModeParams,
+  filterModeParamsByModel,
+  parseCursorSdkMcpServers,
+} from "../providers/cursorSdk.js";
 
 test("splitCursorModel separates base id and reasoning level", () => {
   expect(splitCursorModel("grok-4.5-low")).toEqual({
@@ -31,6 +35,80 @@ test("splitCursorModel separates base id and reasoning level", () => {
     level: "",
   });
 });
+
+test("cursorModeParams explicitly keeps first-party models on Standard", () => {
+  expect(cursorModeParams("grok-4.5", false, false)).toEqual([
+    { id: "fast", value: "false" },
+  ]);
+  expect(cursorModeParams("composer-2.5", true, false)).toEqual([
+    { id: "fast", value: "true" },
+  ]);
+  expect(cursorModeParams("gpt-5.5", false, true)).toEqual([
+    { id: "context", value: "1m" },
+  ]);
+});
+
+test("filterModeParamsByModel keeps params the model declares", () => {
+  const candidates = cursorModeParams("grok-4.5", false, true);
+  const model = {
+    id: "grok-4.5",
+    parameters: [
+      { id: "fast", values: [{ value: "true" }, { value: "false" }] },
+      { id: "context", values: [{ value: "1m" }] },
+    ],
+  };
+  expect(filterModeParamsByModel(candidates, model, opted(false, true))).toEqual([
+    { id: "fast", value: "false" },
+    { id: "context", value: "1m" },
+  ]);
+});
+
+test("filterModeParamsByModel drops params the model does not declare", () => {
+  const candidates = cursorModeParams("grok-4.5", false, true);
+  const model = { id: "grok-4.5", parameters: [{ id: "reasoning" }] };
+  expect(filterModeParamsByModel(candidates, model, opted(false, true))).toEqual(
+    [],
+  );
+  // Declared id but undeclared value drops too.
+  const wrongValue = {
+    id: "grok-4.5",
+    parameters: [{ id: "context", values: [{ value: "500k" }] }],
+  };
+  expect(
+    filterModeParamsByModel(candidates, wrongValue, opted(false, true)),
+  ).toEqual([]);
+  // A declared id with an empty values list accepts any value.
+  const openValues = { id: "grok-4.5", parameters: [{ id: "fast" }] };
+  expect(
+    filterModeParamsByModel(candidates, openValues, opted(false, true)),
+  ).toEqual([{ id: "fast", value: "false" }]);
+});
+
+test("filterModeParamsByModel without a model entry keeps only opted-in params", () => {
+  // Not opted in: the protective fast=false is dropped rather than sent blind.
+  expect(
+    filterModeParamsByModel(
+      cursorModeParams("grok-4.5", false, false),
+      undefined,
+      opted(false, false),
+    ),
+  ).toEqual([]);
+  // Opted in: best-effort send of exactly what the user asked for.
+  expect(
+    filterModeParamsByModel(
+      cursorModeParams("grok-4.5", true, true),
+      undefined,
+      opted(true, true),
+    ),
+  ).toEqual([
+    { id: "fast", value: "true" },
+    { id: "context", value: "1m" },
+  ]);
+});
+
+function opted(fastMode: boolean, use1mContext: boolean) {
+  return { fastMode, use1mContext };
+}
 
 test("parseCursorSdkMcpServers maps eva-mcp.json to inline SDK config", () => {
   const raw = JSON.stringify({

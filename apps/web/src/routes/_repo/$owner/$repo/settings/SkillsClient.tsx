@@ -123,7 +123,9 @@ export function SkillsClient() {
               repoId={repoId}
               skill={skill}
               onInstall={(name) => void installSystemSkill({ repoId, name })}
-              onUninstall={(name) => void uninstallSystemSkill({ repoId, name })}
+              onUninstall={(name) =>
+                void uninstallSystemSkill({ repoId, name })
+              }
             />
           ))}
         </div>
@@ -133,8 +135,9 @@ export function SkillsClient() {
         title="Repo skills"
         description={
           <>
-            Synced from <code>.agents/skills</code> on the base branch. Type{" "}
-            <code>/</code> in chat to invoke.
+            Synced from <code>.agents/skills</code> and{" "}
+            <code>.claude/skills</code> on the base branch. Claude-only skills
+            are labelled in the <code>/</code> picker.
           </>
         }
         bodyVariant="list"
@@ -152,7 +155,7 @@ export function SkillsClient() {
           <SettingsEmptyState
             icon={IconSparkles}
             title="No skills synced yet"
-            description="Add a SKILL.md under .agents/skills on the base branch, then select Sync from GitHub."
+            description="Add a SKILL.md under .agents/skills or .claude/skills on the base branch, then select Sync from GitHub."
           />
         )}
       </SettingsSection>

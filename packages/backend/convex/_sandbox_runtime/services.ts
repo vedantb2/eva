@@ -6,11 +6,12 @@ import type { GenericActionCtx } from "convex/server";
 import { action, internalAction } from "../_generated/server";
 import type { DataModel, Id } from "../_generated/dataModel";
 import type { SandboxHandle } from "../_sandbox/provider";
-import { api, internal } from "../_generated/api";
+import { internal } from "../_generated/api";
 import { resolveSandboxCredentials } from "../envVarResolver";
 import { execHandle, getSandboxHandle, workspaceDirShell } from "./helpers";
 import { launchChrome, startDesktopWithChrome } from "./desktop";
 import { VERCEL_EDITOR_INTERNAL_PORT } from "./previewProxy";
+import { assertActionSandboxAccess } from "../functions";
 
 /** Starts or stops a code-server instance inside a sandbox. */
 export const toggleCodeServer = action({
@@ -27,6 +28,7 @@ export const toggleCodeServer = action({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    await assertActionSandboxAccess(ctx, args.repoId, args.sandboxId);
 
     console.log(
       `[code-server] ${args.action} requested for sandbox ${args.sandboxId}`,
@@ -129,6 +131,7 @@ export const toggleDesktopServer = action({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    await assertActionSandboxAccess(ctx, args.repoId, args.sandboxId);
 
     const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     if (!handle.desktop) {
@@ -157,6 +160,7 @@ export const launchChromeInDesktop = action({
   handler: async (ctx, args) => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
+    await assertActionSandboxAccess(ctx, args.repoId, args.sandboxId);
 
     const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     await launchChrome(handle);
@@ -267,8 +271,10 @@ const TOO_LARGE_MARKER = "__EVA_TOO_LARGE__";
 
 /**
  * Resolves the sandbox handle for a File Viewer read, or null when the sandbox
- * is not running. Throws when the caller is unauthenticated or has no access to
- * the sandbox's repo.
+ * is not running. Throws when the caller is unauthenticated, has no access to
+ * the claimed repo, or the sandbox is not bound to that repo — the binding
+ * check stops a caller from pairing their own repoId with another tenant's
+ * sandboxId (same guard as getPreviewUrl).
  *
  * Never resumes a stopped sandbox: on Vercel any exec on a stopped VM revives
  * it (see getPreviewUrl in execution.ts), so we check `handle.state` — which is
@@ -282,10 +288,7 @@ async function authorizedRunningHandle(
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) throw new Error("Not authenticated");
 
-  // Authorize against the sandbox's repo, same as getPreviewUrl: a null repo
-  // means the caller is neither the connector nor a team member.
-  const repo = await ctx.runQuery(api.githubRepos.get, { id: repoId });
-  if (!repo) throw new Error("Not authorized to access this repository");
+  await assertActionSandboxAccess(ctx, repoId, sandboxId);
 
   const handle = await getSandboxHandle(ctx, repoId, sandboxId);
   return handle.state === "running" ? handle : null;
@@ -453,14 +456,12 @@ export const listSandboxFiles = action({
     v.object({ status: v.literal("not_running") }),
   ),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) throw new Error("Not authenticated");
-
-    const repo = await ctx.runQuery(api.githubRepos.get, { id: args.repoId });
-    if (!repo) throw new Error("Not authorized to access this repository");
-
-    const handle = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
-    if (handle.state !== "running") {
+    const handle = await authorizedRunningHandle(
+      ctx,
+      args.repoId,
+      args.sandboxId,
+    );
+    if (!handle) {
       return { status: "not_running" as const };
     }
 

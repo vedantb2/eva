@@ -6,6 +6,7 @@ import { resolveSandboxCredentials } from "./envVarResolver";
 import { getSandboxHandle } from "./_sandbox_runtime/helpers";
 import { unwrapVercelSandbox } from "./_sandbox/vercelProvider";
 import { ownerArg, resolveOwner } from "./_pty/owners";
+import { getActionRepoWithAccess } from "./functions";
 import {
   connectVercelInteractive,
   ensureVercelSharedTerminal,
@@ -44,6 +45,7 @@ export const connectPty = action({
     if (!identity) throw new Error("Not authenticated");
 
     const resolved = await resolveOwner(ctx, args.owner);
+    await getActionRepoWithAccess(ctx, resolved.repoId);
     // Never open a terminal against a stopping/closed sandbox: the setup exec
     // (ensureVercelSharedTerminal) would lazily resume a stopped Vercel VM,
     // resurrecting a sandbox the user stopped and defeating a manual stop. A
@@ -94,7 +96,8 @@ export const resizePty = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    await resolveOwner(ctx, args.owner);
+    const resolved = await resolveOwner(ctx, args.owner);
+    await getActionRepoWithAccess(ctx, resolved.repoId);
     return null;
   },
 });
@@ -114,7 +117,8 @@ export const disconnectPty = action({
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) throw new Error("Not authenticated");
 
-    await resolveOwner(ctx, args.owner);
+    const resolved = await resolveOwner(ctx, args.owner);
+    await getActionRepoWithAccess(ctx, resolved.repoId);
     return null;
   },
 });

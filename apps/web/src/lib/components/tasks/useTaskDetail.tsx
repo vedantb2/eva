@@ -1,6 +1,6 @@
 "use client";
 
-import { useElapsedSeconds } from "@eva/ui";
+import { toast, useElapsedSeconds } from "@eva/ui";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@eva/backend";
@@ -206,6 +206,7 @@ export function useTaskDetail(
       await cancelExecution({ taskId });
     } catch (err) {
       console.error("Failed to stop execution:", err);
+      toast.error("Could not stop the run. Try again.");
     }
     setIsStopping(false);
   };
@@ -248,6 +249,7 @@ export function useTaskDetail(
       openSandboxAfterStart();
     } catch (err) {
       console.error("Failed to start sandbox:", err);
+      toast.error("Could not start the sandbox. Try again.");
     }
     setIsSandboxStarting(false);
   };
@@ -258,6 +260,7 @@ export function useTaskDetail(
       await stopTaskSandboxMutation({ taskId });
     } catch (err) {
       console.error("Failed to stop sandbox:", err);
+      toast.error("Could not stop the sandbox. Try again.");
     }
     setIsSandboxStopping(false);
   };
@@ -269,6 +272,7 @@ export function useTaskDetail(
       openSandboxAfterStart();
     } catch (err) {
       console.error("Failed to retry startup commands:", err);
+      toast.error("Could not rerun the startup commands. Try again.");
     }
     setIsRetryingStartupCommands(false);
   };

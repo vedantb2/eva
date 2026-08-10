@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogFooter,
   Skeleton,
+  toast,
 } from "@eva/ui";
 import {
   IconDots,
@@ -74,6 +75,7 @@ export function ReposClient() {
       await syncRepos();
     } catch (err) {
       console.error("Sync failed:", err);
+      toast.error("Could not sync your repositories. Try again.");
     }
     setSyncing(false);
   };

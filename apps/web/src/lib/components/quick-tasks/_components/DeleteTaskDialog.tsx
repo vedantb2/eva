@@ -4,6 +4,7 @@ import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { useMutation } from "convex/react";
 import { useState } from "react";
+import { toast } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { ConfirmDialog } from "./ConfirmDialog";
 
@@ -42,6 +43,7 @@ export function DeleteTaskDialog({
       onClose();
     } catch (err) {
       console.error("Failed to delete task:", err);
+      toast.error("Could not delete the task. Try again.");
     }
     setIsDeleting(false);
   };

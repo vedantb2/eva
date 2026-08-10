@@ -14,6 +14,7 @@ import {
   DropdownMenuCheckboxItem,
   ModelSelect,
   Switch,
+  toast,
 } from "@eva/ui";
 import { IconAdjustmentsHorizontal } from "@tabler/icons-react";
 import { api, normalizeAIModel } from "@eva/backend";
@@ -138,6 +139,7 @@ export function TaskActivityComposerForm({
       await createComment({ taskId, content });
     } catch (err) {
       console.error("Failed to add comment:", err);
+      toast.error("Could not post the comment. Try again.");
     }
     setIsSubmitting(false);
   };

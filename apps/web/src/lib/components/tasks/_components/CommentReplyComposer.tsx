@@ -6,6 +6,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { UserInitials } from "@eva/shared";
+import { toast } from "@eva/ui";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import {
   CommentMentionInput,
@@ -88,6 +89,7 @@ function CommentReplyComposerForm({
       if (mention) mention.focus();
     } catch (err) {
       console.error("Failed to post reply:", err);
+      toast.error("Could not post the reply. Your text has been kept.");
     }
     setIsSubmitting(false);
   };

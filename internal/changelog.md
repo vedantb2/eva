@@ -1,5 +1,12 @@
 # Changelog
 
+## Silent failures in apps/web now surface as error toasts - 2026-08-09
+
+A sweep of `apps/web/src` for user-facing async work whose failure path ended in a `console.error` or an empty `catch` found 26 of them, and on every one the interface simply carried on as if nothing had happened. Deleting a task, moving it to another app, posting or editing a comment, uploading a PRD, dragging a card between kanban columns, starting or stopping a sandbox, stopping a build, syncing repositories, adding a monorepo app — each of these could fail against the backend and leave the user looking at an unchanged screen with no way to tell whether the click registered. Two of them lose typed text on the way: the task composer clears the comment box before the mutation resolves, and Run All reported a partial failure only to the console, so a batch that started three of eight tasks looked identical to one that started all eight.
+
+Every site now calls `toast.error` with a specific message alongside the existing log. Control flow is untouched — nothing is swallowed differently and nothing new is rethrown — because the bug was never the handling, it was that the handling was invisible. Reason: an action the user initiated and that failed must say so; a console line is not a user interface.
+
+Deliberately left alone: polling loops, `useEffect` background subscriptions, websocket reconnects and PTY resize retries all swallow errors on purpose, and a toast there would fire repeatedly. Paths that already show the failure inline — the artifact upload dialog, the Linear import modal, the resolve-conflicts execution error — keep their existing text rather than gaining a second channel. The bulk task modals (delete, assign, label, status, group) rethrow from an async click handler, which no error boundary can catch, so they are still effectively silent and want a separate fix.
 ## Workspace-wide terminal bottom panel - 2026-08-09
 
 Interactive terminals now open beneath both chat and sandbox content in Sessions, Projects, and Quick Tasks. The Mod+J shortcut expands or collapses the panel, creates the first terminal when needed, and the panel remembers both its visibility and dragged height per entity. Its tab row provides direct terminal creation, an adjacent terminal picker, closable terminal tabs, and a close control at the far right. The Preview dev-server console remains in its existing dock and is still controlled from its own row.

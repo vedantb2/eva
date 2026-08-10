@@ -120,6 +120,7 @@ export function TaskSandboxPanel({
   return (
     <div className="h-full flex flex-col">
       <SandboxTabBar
+        compact
         activeTab={tabBarValue}
         onTabChange={handleTabChange}
         onNewPreview={() => {

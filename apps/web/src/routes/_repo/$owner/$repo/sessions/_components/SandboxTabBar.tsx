@@ -54,14 +54,14 @@ const TAB_ADD_BUTTON_BASE =
 function getSandboxTabBarStyles(size: SandboxTabBarSize) {
   if (size === "compact") {
     return {
-      bar: `${TAB_BAR_BASE} pt-1`,
-      trigger: `${TAB_TRIGGER_BASE} gap-1.5 px-3 py-1.5 text-sm`,
-      icon: "size-3.5 shrink-0",
-      closeButton: `${TAB_CLOSE_BUTTON_BASE} size-4`,
-      closeIcon: "size-3.5",
-      addButton: `${TAB_ADD_BUTTON_BASE} mb-px h-[28px] w-7`,
-      addIcon: "size-3.5",
-      pulseDot: "ml-0.5 size-1.5 shrink-0 rounded-full bg-primary",
+      bar: `${TAB_BAR_BASE} px-1.5 pt-0.5`,
+      trigger: `${TAB_TRIGGER_BASE} gap-1 px-2.5 py-1 text-xs`,
+      icon: "size-3 shrink-0",
+      closeButton: `${TAB_CLOSE_BUTTON_BASE} size-3.5`,
+      closeIcon: "size-3",
+      addButton: `${TAB_ADD_BUTTON_BASE} mb-px h-6 w-6`,
+      addIcon: "size-3",
+      pulseDot: "ml-0.5 size-1 shrink-0 rounded-full bg-primary",
     };
   }
   return {
@@ -122,6 +122,8 @@ interface SandboxTabBarProps {
   hotkeysEnabled?: boolean;
   /** Tab row density — `compact` for a shorter bar with smaller labels/icons. */
   tabSize?: SandboxTabBarSize;
+  /** Shorthand for `tabSize="compact"`. */
+  compact?: boolean;
   fileList: SandboxFileListApi;
   consoleDock: ConsoleDockApi;
   terminalPanel: TerminalPanelApi;
@@ -156,11 +158,12 @@ export function SandboxTabBar({
   onCloseEditor,
   hotkeysEnabled = true,
   tabSize = "default",
+  compact = false,
   fileList,
   consoleDock,
   terminalPanel,
 }: SandboxTabBarProps) {
-  const styles = getSandboxTabBarStyles(tabSize);
+  const styles = getSandboxTabBarStyles(compact ? "compact" : tabSize);
   const tabs = enabledTabs
     ? allTabs.filter((tab) => enabledTabs.includes(tab.value))
     : allTabs.filter((tab) => tab.value !== "browser");

@@ -141,6 +141,7 @@ export function SandboxPanel({
   return (
     <div className="h-full flex flex-col">
       <SandboxTabBar
+        compact
         activeTab={activeTab}
         onTabChange={onTabChange}
         onNewPreview={() => {

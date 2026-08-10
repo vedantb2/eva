@@ -19,11 +19,7 @@ export {
   assignToProject,
   reorderProjectTasks,
   deleteCascade,
-  setPreviewPath,
-  setPreviewPort,
-  setTerminalHistoryTail,
   setTraits,
-  releaseBrowserLock,
 } from "./_agentTasks/mutations";
 
 export {

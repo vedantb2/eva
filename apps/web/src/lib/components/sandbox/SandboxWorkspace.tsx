@@ -10,9 +10,8 @@ import {
   usePanelRef,
 } from "react-resizable-panels";
 import { IconGripHorizontal } from "@tabler/icons-react";
-import type { Id } from "@eva/backend";
+import type { Id, SandboxOwner } from "@eva/backend";
 import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
-import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import {
   BOTTOM_PANEL_ID,
   TOP_PANEL_ID,
@@ -46,7 +45,7 @@ interface SandboxWorkspaceCommonProps {
   hotkeyEnabled?: boolean;
   children: (
     panes: SandboxPanesApi,
-    owner: PtyOwner,
+    owner: SandboxOwner,
     terminalPanel: TerminalPanelApi,
   ) => ReactNode;
 }
@@ -78,7 +77,7 @@ export function SandboxWorkspace(props: SandboxWorkspaceProps) {
     hotkeyEnabled = true,
     children,
   } = props;
-  const owner: PtyOwner =
+  const owner: SandboxOwner =
     props.ownerKind === "session"
       ? { kind: "session", sessionId: props.ownerId }
       : props.ownerKind === "project"

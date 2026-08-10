@@ -1,6 +1,11 @@
 import { useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api, normalizeAIModel, type Id } from "@eva/backend";
+import {
+  api,
+  normalizeAIModel,
+  type Id,
+  type SandboxOwner,
+} from "@eva/backend";
 import { isSessionSandboxTab } from "@/lib/search-params";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
@@ -11,7 +16,6 @@ import { FilesPanel } from "./FilesPanel";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import { type SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace";
-import type { PtyOwner } from "./TerminalPanel";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
@@ -39,7 +43,7 @@ interface SandboxPanelProps {
   prUrl?: string;
   devPort?: number;
   devCommand?: string;
-  owner: PtyOwner;
+  owner: SandboxOwner;
   panes: SandboxPanesApi;
   terminalPanel: TerminalPanelApi;
   planContent?: string;
@@ -89,14 +93,15 @@ export function SandboxPanel({
   const showDesignsTab = lastMode === "design" || latestVariations.length > 0;
   const hasDesignsContent = latestVariations.length > 0;
   const isDesignExecuting = isAssistantTurnInProgress(messages);
-  // Sticky Preview path/port + console tail (same sessions.get as the shell).
-  const session = useQuery(api.sessions.get, { id: sessionId });
-  const setPreviewPath = useMutation(api.sessions.setPreviewPath);
-  const setPreviewPort = useMutation(api.sessions.setPreviewPort);
+  // Sticky Preview path/port + console tail, keyed by the sandbox owner so all
+  // three surfaces read and write this state through the same functions.
+  const viewState = useQuery(api.sandboxPanes.getViewState, { owner });
+  const setPreviewPath = useMutation(api.sandboxPanes.setPreviewPath);
+  const setPreviewPort = useMutation(api.sandboxPanes.setPreviewPort);
   const setTerminalHistoryTail = useMutation(
-    api.sessions.setTerminalHistoryTail,
+    api.sandboxPanes.setTerminalHistoryTail,
   );
-  const releaseBrowserLock = useMutation(api.sessions.releaseBrowserLock);
+  const releaseBrowserLock = useMutation(api.sandboxPanes.releaseBrowserLock);
   const preview = useSandboxPreview({
     sandboxId,
     isActive,
@@ -104,7 +109,7 @@ export function SandboxPanel({
     repoId,
     devPort,
     onPortPersist: (port) => {
-      void setPreviewPort({ id: sessionId, port });
+      void setPreviewPort({ owner, port });
     },
   });
   const fileList = useSandboxFileList({ sandboxId, repoId, isActive });
@@ -242,24 +247,24 @@ export function SandboxPanel({
           prUrl={prUrl}
           customTabs={customTabs}
           agentBrowsingAt={agentBrowsingAt}
-          onReleaseBrowserLock={() => void releaseBrowserLock({ sessionId })}
+          onReleaseBrowserLock={() => void releaseBrowserLock({ owner })}
           // Backend starts the app in the Console tmux session after startup.
           runConsoleDevCommandOnConnect={false}
           onComputerRunningChange={setComputerRunning}
           onStartSandbox={onStartSandbox}
           isSandboxStarting={isSandboxStarting}
           onAnnotationSubmit={submitAnnotation}
-          stickyPreviewPath={session?.previewPath}
+          stickyPreviewPath={viewState?.previewPath}
           onStickyPreviewPathChange={(path) => {
-            void setPreviewPath({ id: sessionId, path });
+            void setPreviewPath({ owner, path });
           }}
           stickyTerminalHistoryTail={
-            session === undefined
+            viewState === undefined
               ? undefined
-              : (session?.terminalHistoryTail ?? "")
+              : (viewState?.terminalHistoryTail ?? "")
           }
           onStickyTerminalHistoryTailChange={(tail) => {
-            void setTerminalHistoryTail({ id: sessionId, tail });
+            void setTerminalHistoryTail({ owner, tail });
           }}
         />
       </div>

@@ -3,13 +3,12 @@
 import { useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@eva/backend";
-import type { Id } from "@eva/backend";
+import type { Id, SandboxOwner } from "@eva/backend";
 import { isSessionSandboxTab, type SandboxTab } from "@/lib/search-params";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import { type SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace";
-import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
@@ -33,7 +32,7 @@ interface TaskSandboxPanelProps {
    * pane so it auto-starts the dev server with the resolved PORT.
    */
   devCommand?: string;
-  owner: PtyOwner;
+  owner: SandboxOwner;
   panes: SandboxPanesApi;
   terminalPanel: TerminalPanelApi;
   prUrl?: string;
@@ -69,13 +68,13 @@ export function TaskSandboxPanel({
 }: TaskSandboxPanelProps) {
   const taskIdStr = String(taskId);
 
-  const task = useQuery(api.agentTasks.get, { id: taskId });
-  const setPreviewPath = useMutation(api.agentTasks.setPreviewPath);
-  const setPreviewPort = useMutation(api.agentTasks.setPreviewPort);
+  const viewState = useQuery(api.sandboxPanes.getViewState, { owner });
+  const setPreviewPath = useMutation(api.sandboxPanes.setPreviewPath);
+  const setPreviewPort = useMutation(api.sandboxPanes.setPreviewPort);
   const setTerminalHistoryTail = useMutation(
-    api.agentTasks.setTerminalHistoryTail,
+    api.sandboxPanes.setTerminalHistoryTail,
   );
-  const releaseBrowserLock = useMutation(api.agentTasks.releaseBrowserLock);
+  const releaseBrowserLock = useMutation(api.sandboxPanes.releaseBrowserLock);
 
   const preview = useSandboxPreview({
     sandboxId,
@@ -83,7 +82,7 @@ export function TaskSandboxPanel({
     repoId,
     devPort,
     onPortPersist: (port) => {
-      void setPreviewPort({ id: taskId, port });
+      void setPreviewPort({ owner, port });
     },
   });
 
@@ -130,7 +129,7 @@ export function TaskSandboxPanel({
         newPreviewDisabled={panes.newPreviewDisabled}
         enabledTabs={enabledTabs}
         showFilesTab
-        agentBrowsingAt={task?.agentBrowsingAt}
+        agentBrowsingAt={viewState?.agentBrowsingAt}
         computerTabOpen={computerTabOpen}
         computerRunning={computerRunning}
         onOpenComputer={openComputer}
@@ -162,22 +161,24 @@ export function TaskSandboxPanel({
           cacheKey={taskIdStr}
           devCommand={devCommand}
           prUrl={prUrl}
-          agentBrowsingAt={task?.agentBrowsingAt}
-          onReleaseBrowserLock={() => void releaseBrowserLock({ id: taskId })}
+          agentBrowsingAt={viewState?.agentBrowsingAt}
+          onReleaseBrowserLock={() => void releaseBrowserLock({ owner })}
           // Backend starts the app in the Console tmux session after startup.
           runConsoleDevCommandOnConnect={false}
           onComputerRunningChange={setComputerRunning}
           onStartSandbox={onStartSandbox}
           isSandboxStarting={isSandboxStarting}
-          stickyPreviewPath={task?.previewPath}
+          stickyPreviewPath={viewState?.previewPath}
           onStickyPreviewPathChange={(path) => {
-            void setPreviewPath({ id: taskId, path });
+            void setPreviewPath({ owner, path });
           }}
           stickyTerminalHistoryTail={
-            task === undefined ? undefined : (task?.terminalHistoryTail ?? "")
+            viewState === undefined
+              ? undefined
+              : (viewState?.terminalHistoryTail ?? "")
           }
           onStickyTerminalHistoryTailChange={(tail) => {
-            void setTerminalHistoryTail({ id: taskId, tail });
+            void setTerminalHistoryTail({ owner, tail });
           }}
         />
       </div>

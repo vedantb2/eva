@@ -24,7 +24,7 @@ import {
 } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
-import type { Id } from "@eva/backend";
+import type { Id, SandboxOwner } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
@@ -39,7 +39,6 @@ import {
   type TerminalPanelApi,
 } from "@/lib/components/sandbox/SandboxWorkspace";
 import type { SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
-import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import { ProjectContextUsage } from "@/lib/components/context-usage";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
@@ -282,7 +281,7 @@ export function ProjectDetailClient({
   // stay reachable while stopped — same as sessions. Panes self-gate.
   const projectSandboxPanel = (
     panes: SandboxPanesApi,
-    owner: PtyOwner,
+    owner: SandboxOwner,
     terminalPanel: TerminalPanelApi,
   ) =>
     canStartSandbox ||

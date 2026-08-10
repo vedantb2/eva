@@ -16,15 +16,11 @@ export {
   setMode,
   setProviderAccountId,
   setTraits,
-  setPreviewPath,
-  setPreviewPort,
-  setTerminalHistoryTail,
   updateSummary,
   archive,
   unarchive,
   updatePlanContent,
   updateLastMessage,
-  releaseBrowserLock,
   selectVariation,
 } from "./_sessions/mutations";
 

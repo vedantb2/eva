@@ -1,27 +1,14 @@
-import { v } from "convex/values";
 import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import type { Id } from "../_generated/dataModel";
+import { sandboxOwnerValidator, type SandboxOwner } from "../_sandbox/owner";
 
 /**
  * Discriminated owner — a PTY belongs to a session, a quick task, or a project.
  * All expose a sandbox and a repo; sessions additionally track a default
  * `ptySessionId` for the legacy single-terminal flow.
  */
-export const ownerArg = v.union(
-  v.object({
-    kind: v.literal("session"),
-    sessionId: v.id("sessions"),
-  }),
-  v.object({
-    kind: v.literal("task"),
-    taskId: v.id("agentTasks"),
-  }),
-  v.object({
-    kind: v.literal("project"),
-    projectId: v.id("projects"),
-  }),
-);
+export const ownerArg = sandboxOwnerValidator;
 
 export interface ResolvedOwner {
   sandboxId: string;
@@ -48,10 +35,7 @@ function isStoppingOrClosed(status: string | undefined): boolean {
 
 export async function resolveOwner(
   ctx: ActionCtx,
-  owner:
-    | { kind: "session"; sessionId: Id<"sessions"> }
-    | { kind: "task"; taskId: Id<"agentTasks"> }
-    | { kind: "project"; projectId: Id<"projects"> },
+  owner: SandboxOwner,
 ): Promise<ResolvedOwner> {
   if (owner.kind === "session") {
     const session = await ctx.runQuery(internal.sessions.getInternal, {

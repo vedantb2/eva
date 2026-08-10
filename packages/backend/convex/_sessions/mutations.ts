@@ -28,11 +28,6 @@ import { schedulePrTitleSync } from "../_github/prTitleSync";
 import { DEFAULT_SESSION_TITLE } from "./helpers";
 import { notifyChatMentions } from "../_mentions/notifyChatMentions";
 import {
-  assertStickyPreviewPort,
-  normalizeStickyPreviewPath,
-  truncateTerminalHistoryTail,
-} from "../_sandbox/stickyPreview";
-import {
   cancelSessionSandboxGraceDelete,
   scheduleSessionSandboxGraceDelete,
 } from "../sandboxCleanup";
@@ -349,70 +344,6 @@ export const setTraits = authMutation({
   },
 });
 
-/**
- * Sticky Preview path for a session. No `updatedAt` bump — navigation is not
- * conversation activity.
- */
-export const setPreviewPath = authMutation({
-  args: {
-    id: v.id("sessions"),
-    path: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const session = await getSessionOrThrow(ctx.db, args.id);
-    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
-      throw new Error("Not authorized");
-    }
-    await ctx.db.patch(args.id, {
-      previewPath: normalizeStickyPreviewPath(args.path),
-    });
-    return null;
-  },
-});
-
-/**
- * Sticky Preview port for a session (stored as `devPort`). No `updatedAt` bump.
- */
-export const setPreviewPort = authMutation({
-  args: {
-    id: v.id("sessions"),
-    port: v.number(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const session = await getSessionOrThrow(ctx.db, args.id);
-    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
-      throw new Error("Not authorized");
-    }
-    assertStickyPreviewPort(args.port);
-    await ctx.db.patch(args.id, { devPort: args.port });
-    return null;
-  },
-});
-
-/**
- * Debounced Preview Console scrollback tail (last ~500 lines). No `updatedAt`
- * bump. Server re-truncates so a buggy client cannot inflate the session doc.
- */
-export const setTerminalHistoryTail = authMutation({
-  args: {
-    id: v.id("sessions"),
-    tail: v.string(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const session = await getSessionOrThrow(ctx.db, args.id);
-    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
-      throw new Error("Not authorized");
-    }
-    await ctx.db.patch(args.id, {
-      terminalHistoryTail: truncateTerminalHistoryTail(args.tail),
-    });
-    return null;
-  },
-});
-
 /** Updates the status of a session. */
 export const updateStatus = authMutation({
   args: {
@@ -613,23 +544,6 @@ export const updateLastMessage = authMutation({
     if (args.activityLog !== undefined) patch.activityLog = args.activityLog;
     await ctx.db.patch(last._id, patch);
     await ctx.db.patch(args.id, { updatedAt: Date.now() });
-    return null;
-  },
-});
-
-/** Clears the agent-browsing soft lock so the user can take over the shared browser. */
-export const releaseBrowserLock = authMutation({
-  args: { sessionId: v.id("sessions") },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const session = await getSessionOrThrow(ctx.db, args.sessionId);
-    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
-      throw new Error("Not authorized");
-    }
-    await ctx.db.patch(args.sessionId, {
-      agentBrowsingAt: undefined,
-      updatedAt: Date.now(),
-    });
     return null;
   },
 });

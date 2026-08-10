@@ -1,5 +1,15 @@
 # Changelog
 
+## One sandbox owner contract for sessions, tasks, and projects - 2026-08-10
+
+Sessions, quick tasks, and projects each carried their own copy of the sandbox view-state API. Twelve near-identical mutations — `setPreviewPath`, `setPreviewPort`, `setTerminalHistoryTail`, and `releaseBrowserLock`, once per owner table — differed only in which id they took and which access helper they called. The PTY layer had a fourth copy of the owner union of its own.
+
+The backend now derives one `SandboxOwner` validator and one `resolveSandboxOwnerForUser` resolver in `convex/_sandbox/owner.ts`, and `sandboxPanes.ts` exposes the view state through it: `getViewState` plus the four setters, each resolving and authorizing the owner in one place before it patches. `_pty/owners.ts` takes its `ownerArg` from the same validator, so a PTY, a terminal pane, and sticky preview state cannot disagree about what an owner is or who may reach one. The twelve per-owner mutations and their re-exports are deleted, not deprecated; the three panels now call the owner-aware functions. On the web side the local `PtyOwner` type is gone in favour of the validator-derived `SandboxOwner` exported from `@eva/backend`, which removes the chance of the two drifting.
+
+The wider frontend restructure this change was proposed alongside — folding the three owner panels into a single tab-owning `SandboxWorkspace` — was not taken. That work predated the workspace-wide terminal panel and the sandbox quick-open/action-palette releases, and its version of the component knows nothing about the shared file-list controller, the console dock, or the bottom terminal panel; adopting it would have regressed all three. The panels stay as they are, and `SandboxWorkspace` keeps owning the vertical terminal split alone.
+
+Verified: TypeScript checks pass for `@eva/backend` and `@eva/web`, the backend and web suites pass, and compiler-check reports no new bailouts. Sticky preview path, preview port, console tail, and browser-lock takeover are unchanged in behaviour and read the same document fields as before, so no data migration is involved. No dev server, lint, or build was run.
+
 ## Verify new GitHub installations against the caller's own token - 2026-08-10
 
 Connecting a codebase from an installation Eva has never seen now requires the user to authorize the GitHub App for their own account. `github:listRepos` and `github:detectMonorepoApps` previously accepted any `installationId` from the browser when no repository row referenced it, so a signed-in user could enumerate a stranger's private repository names through Eva's installation token. GitHub documents that `installation_id` in a setup redirect can be spoofed, so the id is now resolved against a user access token, which returns 403/404 for installations the caller has no claim to. Installations Eva already knows the caller can use keep the existing installation-token path, so team members are unaffected and repeat visits do not re-prompt.

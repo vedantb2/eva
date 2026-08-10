@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@eva/backend";
-import type { Id } from "@eva/backend";
+import type { Id, SandboxOwner } from "@eva/backend";
 import {
   isSessionSandboxTab,
   type SandboxTab,
@@ -15,7 +15,6 @@ import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import { type SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace";
-import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
@@ -33,7 +32,7 @@ interface ProjectSandboxPanelProps {
   prUrl?: string;
   devPort?: number;
   devCommand?: string;
-  owner: PtyOwner;
+  owner: SandboxOwner;
   panes: SandboxPanesApi;
   terminalPanel: TerminalPanelApi;
   sandboxTab: TaskRouteSandboxTab;
@@ -62,13 +61,13 @@ export function ProjectSandboxPanel({
   const projectPathSegment = entityPathSegment({ numId: projectNumId });
   const projectIdStr = String(projectId);
 
-  const project = useQuery(api.projects.get, { id: projectId });
-  const setPreviewPath = useMutation(api.projects.setPreviewPath);
-  const setPreviewPort = useMutation(api.projects.setPreviewPort);
+  const viewState = useQuery(api.sandboxPanes.getViewState, { owner });
+  const setPreviewPath = useMutation(api.sandboxPanes.setPreviewPath);
+  const setPreviewPort = useMutation(api.sandboxPanes.setPreviewPort);
   const setTerminalHistoryTail = useMutation(
-    api.projects.setTerminalHistoryTail,
+    api.sandboxPanes.setTerminalHistoryTail,
   );
-  const releaseBrowserLock = useMutation(api.projects.releaseBrowserLock);
+  const releaseBrowserLock = useMutation(api.sandboxPanes.releaseBrowserLock);
 
   const activeTab: SandboxTab = sandboxTab;
 
@@ -98,7 +97,7 @@ export function ProjectSandboxPanel({
     repoId,
     devPort,
     onPortPersist: (port) => {
-      void setPreviewPort({ id: projectId, port });
+      void setPreviewPort({ owner, port });
     },
   });
 
@@ -138,7 +137,7 @@ export function ProjectSandboxPanel({
         newPreviewDisabled={panes.newPreviewDisabled}
         enabledTabs={enabledTabs}
         showFilesTab
-        agentBrowsingAt={project?.agentBrowsingAt}
+        agentBrowsingAt={viewState?.agentBrowsingAt}
         computerTabOpen={computerTabOpen}
         computerRunning={computerRunning}
         onOpenComputer={openComputer}
@@ -170,26 +169,24 @@ export function ProjectSandboxPanel({
           cacheKey={projectIdStr}
           devCommand={devCommand}
           prUrl={prUrl}
-          agentBrowsingAt={project?.agentBrowsingAt}
-          onReleaseBrowserLock={() =>
-            void releaseBrowserLock({ id: projectId })
-          }
+          agentBrowsingAt={viewState?.agentBrowsingAt}
+          onReleaseBrowserLock={() => void releaseBrowserLock({ owner })}
           // Backend starts the app in the Console tmux session after startup.
           runConsoleDevCommandOnConnect={false}
           onComputerRunningChange={setComputerRunning}
           onStartSandbox={onStartSandbox}
           isSandboxStarting={isSandboxStarting}
-          stickyPreviewPath={project?.previewPath}
+          stickyPreviewPath={viewState?.previewPath}
           onStickyPreviewPathChange={(path) => {
-            void setPreviewPath({ id: projectId, path });
+            void setPreviewPath({ owner, path });
           }}
           stickyTerminalHistoryTail={
-            project === undefined
+            viewState === undefined
               ? undefined
-              : (project?.terminalHistoryTail ?? "")
+              : (viewState?.terminalHistoryTail ?? "")
           }
           onStickyTerminalHistoryTailChange={(tail) => {
-            void setTerminalHistoryTail({ id: projectId, tail });
+            void setTerminalHistoryTail({ owner, tail });
           }}
         />
       </div>

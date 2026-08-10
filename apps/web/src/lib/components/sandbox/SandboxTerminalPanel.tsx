@@ -15,12 +15,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@eva/ui";
+import type { SandboxOwner } from "@eva/backend";
 import { TerminalPanel } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
-import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import type { SandboxPanesApi } from "./useSandboxPanes";
 
 interface SandboxTerminalPanelProps {
-  owner: PtyOwner;
+  owner: SandboxOwner;
   sandboxId: string | undefined;
   isActive: boolean;
   expanded: boolean;

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useQueryState } from "nuqs";
 import { useMutation } from "convex/react";
-import { api, type Id } from "@eva/backend";
+import { api, type Id, type SandboxOwner } from "@eva/backend";
 import { Badge } from "@eva/ui";
 import { IconLoader2, IconClock } from "@tabler/icons-react";
 import dayjs from "@eva/shared/dates";
@@ -29,7 +29,6 @@ import {
   type TerminalPanelApi,
 } from "@/lib/components/sandbox/SandboxWorkspace";
 import type { SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
-import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import {
   fileViewerPathParser,
   isTaskRouteSandboxTab,
@@ -203,7 +202,7 @@ export function TaskDetailInline({
   // still get the honest empty message.
   const sandboxRightPanel = (
     panes: SandboxPanesApi,
-    owner: PtyOwner,
+    owner: SandboxOwner,
     terminalPanel: TerminalPanelApi,
   ) =>
     task?.repoId && canViewSandbox ? (

@@ -1,5 +1,15 @@
 # Changelog
 
+## One sandbox workspace for sessions, quick tasks, and projects - 2026-08-08
+
+Sessions, quick tasks, and projects rendered the same sandbox tabs through three separate orchestrators, and each surface called its own copies of the sticky preview, terminal-history, and browser-lock APIs. The shared hooks prevented some drift, but a feature or correctness fix still had to be wired through every panel independently.
+
+\SandboxWorkspace\ now owns Preview, Browser, Editor, Terminal, Computer, Review, Files, pane persistence, preview resolution, and console policy once. The three owner panels are thin compositions; sessions supply Plan, Designs, custom app tabs, annotations, and kept-alive behavior through typed extensions rather than a second sandbox implementation.
+
+The backend now exports one validator-derived \SandboxOwner\ contract and one authorization resolver for sessions, tasks, and projects. PTYs, terminal panes, sticky view state, and browser takeover share it. Existing entity-specific mutations remain available as compatibility APIs, so this release centralizes behavior without changing URLs or migrating persisted sandbox fields. Moving those fields into a dedicated table remains a later widen/backfill/cutover/narrow deployment.
+
+Verified: backend and web TypeScript checks clean; focused web and backend centralization contracts pass. React Doctor scored the changed web files 85/100; its three manual-memoization warnings are intentional identity guarantees for owner objects consumed by connection effects, while the restricted-import and effect-dependency findings predate this change. The full web test command still has the six pre-existing light \surfaceTokens.test.ts\ failures on \main\. Convex codegen also remains blocked by the pre-existing \pty.js: l is not a function\ deployment analysis failure.
+
 ## Two-week regression hardening - 2026-08-09
 
 Audited 472 commits from July 27 through August 9, grouped 183 fix-like commits into regression families, repaired all 18 stale tests on `main`, and added 79 deterministic cases for auth rebinding, PR/archive lifecycle, automation reinstall, callback termination, preview annotation bundling, slash-form URLs, snapshot policy, session navigation/state, and desktop media tooling.

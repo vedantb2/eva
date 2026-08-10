@@ -86,6 +86,9 @@ interface ChatMessageProps {
   message: ChatBodyMessage;
   repoBasePath: string;
   isLast: boolean;
+  isLatestAssistantTurn: boolean;
+  changedFilesExpanded?: boolean;
+  onChangedFilesExpandedChange: (messageId: string, expanded: boolean) => void;
   /** True when this user turn belongs to a teammate (left-aligned). */
   isOtherUser?: boolean;
   /** First name shown above teammate bubbles. */
@@ -118,6 +121,9 @@ export const ChatMessage = memo(function ChatMessage({
   message,
   repoBasePath,
   isLast,
+  isLatestAssistantTurn,
+  changedFilesExpanded,
+  onChangedFilesExpandedChange,
   isOtherUser = false,
   senderFirstName,
   turnModel,
@@ -294,6 +300,14 @@ export const ChatMessage = memo(function ChatMessage({
                     {changedFiles.length > 0 ? (
                       <ChangedFilesCard
                         files={changedFiles}
+                        isLatestAssistantTurn={isLatestAssistantTurn}
+                        expanded={changedFilesExpanded}
+                        onExpandedChange={(nextExpanded) =>
+                          onChangedFilesExpandedChange(
+                            message._id,
+                            nextExpanded,
+                          )
+                        }
                         onOpenFile={onOpenFile}
                         onViewDiff={onViewDiff}
                       />

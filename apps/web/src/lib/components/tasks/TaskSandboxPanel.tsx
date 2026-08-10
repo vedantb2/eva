@@ -8,10 +8,12 @@ import { isSessionSandboxTab, type SandboxTab } from "@/lib/search-params";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import { type SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
+import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace";
 import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
+import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
 
@@ -33,6 +35,7 @@ interface TaskSandboxPanelProps {
   devCommand?: string;
   owner: PtyOwner;
   panes: SandboxPanesApi;
+  terminalPanel: TerminalPanelApi;
   prUrl?: string;
   activeTab: SandboxTab;
   onTabChange: (tab: SandboxTab) => void;
@@ -57,6 +60,7 @@ export function TaskSandboxPanel({
   devCommand,
   owner,
   panes,
+  terminalPanel,
   prUrl,
   activeTab,
   onTabChange,
@@ -82,6 +86,8 @@ export function TaskSandboxPanel({
       void setPreviewPort({ id: taskId, port });
     },
   });
+
+  const fileList = useSandboxFileList({ sandboxId, repoId, isActive });
 
   useEffect(() => {
     if (activeTab !== "prd") return;
@@ -131,6 +137,9 @@ export function TaskSandboxPanel({
         editorTabOpen={editorTabOpen}
         onOpenEditor={openEditor}
         onCloseEditor={closeEditor}
+        fileList={fileList}
+        consoleDock={panes.consoleDock}
+        terminalPanel={terminalPanel}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div className={tabBarValue === "files" ? "h-full min-h-0" : "hidden"}>
@@ -138,6 +147,7 @@ export function TaskSandboxPanel({
             sandboxId={sandboxId}
             repoId={repoId}
             isActive={isActive}
+            fileList={fileList}
           />
         </div>
         <SandboxPaneSlots

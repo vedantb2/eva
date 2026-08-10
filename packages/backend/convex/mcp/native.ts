@@ -46,13 +46,15 @@ export const register = httpAction(async (ctx, request) => {
     const clientId = crypto.randomUUID();
 
     const rawUris = body.redirect_uris;
+    if (!Array.isArray(rawUris) || rawUris.length === 0) {
+      throw new Error("At least one redirect_uri is required");
+    }
     const redirectUris: string[] = [];
-    if (Array.isArray(rawUris)) {
-      for (const uri of rawUris) {
-        if (typeof uri === "string" && isAllowedOAuthRedirectUri(uri)) {
-          redirectUris.push(uri);
-        }
+    for (const uri of rawUris) {
+      if (typeof uri !== "string" || !isAllowedOAuthRedirectUri(uri)) {
+        throw new Error("redirect_uris contains an unsafe URI");
       }
+      redirectUris.push(uri);
     }
 
     await ctx.runMutation(internal.mcp.oauth.registerClient, {
@@ -86,7 +88,7 @@ const authorizeQuerySchema = z.object({
   redirect_uri: z.string(),
   state: z.string(),
   code_challenge: z.string(),
-  code_challenge_method: z.string(),
+  code_challenge_method: z.literal("S256"),
 });
 
 /**
@@ -179,6 +181,7 @@ export const token = httpAction(async (ctx, request) => {
   if (refreshParse.success) {
     const result = await ctx.runAction(internal.mcp.nodeActions.refreshToken, {
       refreshToken: refreshParse.data.refresh_token,
+      clientId: refreshParse.data.client_id,
     });
     if (!result.success) {
       console.error("[MCP][token] refresh failed:", result.error);
@@ -237,6 +240,19 @@ export const token = httpAction(async (ctx, request) => {
     );
   }
 
+  if (entry.clientId !== params.client_id) {
+    return Response.json(
+      { error: "invalid_grant", error_description: "Client mismatch" },
+      { status: 400 },
+    );
+  }
+  if (entry.codeChallengeMethod !== "S256") {
+    return Response.json(
+      { error: "invalid_grant", error_description: "Unsupported PKCE method" },
+      { status: 400 },
+    );
+  }
+
   // Verify PKCE using Web Crypto
   const encoder = new TextEncoder();
   const data = encoder.encode(params.code_verifier);
@@ -263,6 +279,7 @@ export const token = httpAction(async (ctx, request) => {
   // Issue tokens (runs in Node.js)
   const tokens = await ctx.runAction(internal.mcp.nodeActions.issueTokens, {
     clerkUserId: entry.clerkUserId,
+    clientId: entry.clientId,
   });
 
   return Response.json(tokens);

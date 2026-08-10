@@ -14,10 +14,12 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import { type SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
+import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace";
 import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
+import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
@@ -33,6 +35,7 @@ interface ProjectSandboxPanelProps {
   devCommand?: string;
   owner: PtyOwner;
   panes: SandboxPanesApi;
+  terminalPanel: TerminalPanelApi;
   sandboxTab: TaskRouteSandboxTab;
   onStartSandbox?: () => void;
   isSandboxStarting?: boolean;
@@ -49,6 +52,7 @@ export function ProjectSandboxPanel({
   devCommand,
   owner,
   panes,
+  terminalPanel,
   sandboxTab,
   onStartSandbox,
   isSandboxStarting,
@@ -98,6 +102,8 @@ export function ProjectSandboxPanel({
     },
   });
 
+  const fileList = useSandboxFileList({ sandboxId, repoId, isActive });
+
   // This surface has no custom tabs, so the tab bar only emits builtin ids.
   const handleTabChange = (tab: string) => {
     if (!isSessionSandboxTab(tab) || tab === "prd") return;
@@ -139,6 +145,9 @@ export function ProjectSandboxPanel({
         editorTabOpen={editorTabOpen}
         onOpenEditor={openEditor}
         onCloseEditor={closeEditor}
+        fileList={fileList}
+        consoleDock={panes.consoleDock}
+        terminalPanel={terminalPanel}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div className={activeTab === "files" ? "h-full min-h-0" : "hidden"}>
@@ -146,6 +155,7 @@ export function ProjectSandboxPanel({
             sandboxId={sandboxId}
             repoId={repoId}
             isActive={isActive}
+            fileList={fileList}
           />
         </div>
         <SandboxPaneSlots

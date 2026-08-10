@@ -24,7 +24,10 @@ import { RunDevServerConfirmDialog } from "./_components/RunDevServerConfirmDial
 import { TaskSandboxPanel } from "./TaskSandboxPanel";
 import { TaskSandboxChatPanel } from "./TaskSandboxChatPanel";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
-import { SandboxWorkspace } from "@/lib/components/sandbox/SandboxWorkspace";
+import {
+  SandboxWorkspace,
+  type TerminalPanelApi,
+} from "@/lib/components/sandbox/SandboxWorkspace";
 import type { SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import {
@@ -198,7 +201,11 @@ export function TaskDetailInline({
   // (Diffs, etc.) stay reachable while stopped — same as sessions. Panes
   // self-gate with their own inactive empty states. Tasks that never ran
   // still get the honest empty message.
-  const sandboxRightPanel = (panes: SandboxPanesApi, owner: PtyOwner) =>
+  const sandboxRightPanel = (
+    panes: SandboxPanesApi,
+    owner: PtyOwner,
+    terminalPanel: TerminalPanelApi,
+  ) =>
     task?.repoId && canViewSandbox ? (
       <TaskSandboxPanel
         taskId={taskId}
@@ -209,6 +216,7 @@ export function TaskDetailInline({
         devCommand={task.devCommand}
         owner={owner}
         panes={panes}
+        terminalPanel={terminalPanel}
         prUrl={latestPrUrl}
         activeTab={activeSandboxTab}
         onTabChange={handleSandboxTabChange}
@@ -237,7 +245,7 @@ export function TaskDetailInline({
       isActive={isSandboxActive}
       terminalPanes={task.terminalPanes}
     >
-      {(panes, owner) => (
+      {(panes, owner, terminalPanel) => (
         <ResizablePanelLayout
           storageKey="task-sandbox-panel"
           leftDefaultSize="40%"
@@ -254,7 +262,7 @@ export function TaskDetailInline({
               onToggleSandbox={onToggleRightPanel}
             />
           )}
-          rightPanel={sandboxRightPanel(panes, owner)}
+          rightPanel={sandboxRightPanel(panes, owner, terminalPanel)}
         />
       )}
     </SandboxWorkspace>

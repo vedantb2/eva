@@ -25,13 +25,30 @@ import {
 } from "./useSandboxPanes";
 import { SandboxTerminalPanel } from "./SandboxTerminalPanel";
 
+/**
+ * Imperative surface for the bottom terminal panel, shared by the Mod+J
+ * shortcut, the tab-bar toggle button, and the action palette.
+ */
+export interface TerminalPanelApi {
+  expanded: boolean;
+  /** Expands (creating the first terminal when none exist) or collapses. */
+  toggle: () => void;
+  /** Creates a terminal pane and reveals the panel. */
+  newTerminal: () => void;
+  newTerminalDisabled: boolean;
+}
+
 interface SandboxWorkspaceCommonProps {
   storageScope: string;
   sandboxId: string | undefined;
   isActive: boolean;
   terminalPanes: SharedTerminalPane[] | undefined;
   hotkeyEnabled?: boolean;
-  children: (panes: SandboxPanesApi, owner: PtyOwner) => ReactNode;
+  children: (
+    panes: SandboxPanesApi,
+    owner: PtyOwner,
+    terminalPanel: TerminalPanelApi,
+  ) => ReactNode;
 }
 
 type SandboxWorkspaceProps = SandboxWorkspaceCommonProps &
@@ -107,10 +124,9 @@ export function SandboxWorkspace(props: SandboxWorkspaceProps) {
     setExpanded(!collapsed);
   };
 
-  useShortcut(
-    "togglePreviewConsole",
-    (event) => {
-      event.preventDefault();
+  const terminalPanel: TerminalPanelApi = {
+    expanded,
+    toggle: () => {
       if (expanded) {
         setPanelExpanded(false);
         return;
@@ -119,6 +135,19 @@ export function SandboxWorkspace(props: SandboxWorkspaceProps) {
       if (panes.userTermPanes.length > 0) return;
       if (panes.newTerminalDisabled) return;
       void panes.handleNewTerminal();
+    },
+    newTerminal: () => {
+      setPanelExpanded(true);
+      void panes.handleNewTerminal();
+    },
+    newTerminalDisabled: panes.newTerminalDisabled,
+  };
+
+  useShortcut(
+    "togglePreviewConsole",
+    (event) => {
+      event.preventDefault();
+      terminalPanel.toggle();
     },
     { enabled: hotkeyEnabled },
   );
@@ -136,7 +165,7 @@ export function SandboxWorkspace(props: SandboxWorkspaceProps) {
       onLayoutChanged={onLayoutChanged}
     >
       <Panel id={TOP_PANEL_ID} defaultSize={topDefaultSize} minSize={240}>
-        {children(panes, owner)}
+        {children(panes, owner, terminalPanel)}
       </Panel>
       <Separator
         className={`relative h-px bg-border transition-colors hover:bg-primary/50 data-resize-handle-active:bg-primary data-resize-handle-active:transition-none ${expanded ? "" : "hidden"}`}

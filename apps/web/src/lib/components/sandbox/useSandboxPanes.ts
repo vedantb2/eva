@@ -7,6 +7,10 @@ import type { Doc } from "@eva/backend";
 import { useLocalStorage } from "usehooks-ts";
 import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import type { SandboxTab } from "@/lib/search-params";
+import {
+  useConsoleDock,
+  type ConsoleDockApi,
+} from "@/lib/components/sandbox/useConsoleDock";
 
 const MAX_TERMINAL_PANES = 8;
 const MAX_PREVIEW_PANES = 8;
@@ -30,6 +34,7 @@ export type SharedTerminalPane = NonNullable<
 >[number];
 
 export interface SandboxPanesApi {
+  consoleDock: ConsoleDockApi;
   previewIds: string[];
   /** The default dev-server pane (index 0), rendered as the preview Console. */
   consolePane: SharedTerminalPane | undefined;
@@ -80,6 +85,7 @@ export function useSandboxPanes({
   );
   const createTerminalPane = useMutation(api.sandboxPanes.createTerminalPane);
   const closeTerminalPane = useMutation(api.sandboxPanes.closeTerminalPane);
+  const consoleDock = useConsoleDock(storageScope);
 
   const [previewState, setPreviewState] = useLocalStorage<PaneStorageState>(
     `eva:${storageScope}:previews`,
@@ -205,6 +211,7 @@ export function useSandboxPanes({
     !isActive || previewIds.length >= MAX_PREVIEW_PANES;
 
   return {
+    consoleDock,
     previewIds,
     consolePane,
     userTermPanes,

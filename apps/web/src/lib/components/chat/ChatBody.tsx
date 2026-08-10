@@ -10,6 +10,7 @@ import { ChatLastTurn } from "@/lib/components/chat/ChatLastTurn";
 import { ChatJumpRail } from "@/lib/components/chat/ChatJumpRail";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { ChatMessage } from "@/lib/components/chat/ChatMessage";
+import { useChangedFilesExpansion } from "@/lib/components/chat/useChangedFilesExpansion";
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -25,6 +26,7 @@ import {
   buildJumpRailTicks,
   buildMessageHistory,
   findLastUserMessageIndex,
+  findLastAssistantMessageId,
   findPrecedingUserTurn,
   firstNameFromUser,
   isOtherUserChatMessage,
@@ -74,7 +76,7 @@ interface ChatBodyProps {
   accountId?: string | null;
   onAccountChange?: (accountId: string | null) => void;
   /**
-   * Model trait controls (reasoning effort, thinking toggle, 1M context). When
+   * Model trait controls (reasoning effort, thinking toggle, Fast, 1M context). When
    * provided, a traits menu is shown after the model selector for capable models.
    */
   displayTraits?: ReturnType<typeof resolveTraitsForDisplay>;
@@ -186,6 +188,9 @@ export function ChatBody({
     return undefined;
   })();
   const activeAssistantTurnId = activeAssistantTurn?._id;
+  const latestAssistantMessageId = findLastAssistantMessageId(messages);
+  const { expandedByMessageId, setMessageExpanded } =
+    useChangedFilesExpansion(conversationId);
 
   const [dismissedQuestionKey, setDismissedQuestionKey] = useState<
     string | null
@@ -289,6 +294,11 @@ export function ChatBody({
         message={message}
         repoBasePath={repoBasePath}
         isLast={isLast}
+        isLatestAssistantTurn={message._id === latestAssistantMessageId}
+        {...(expandedByMessageId[message._id] !== undefined
+          ? { changedFilesExpanded: expandedByMessageId[message._id] }
+          : {})}
+        onChangedFilesExpandedChange={setMessageExpanded}
         isOtherUser={isOtherUser}
         senderFirstName={senderFirstName}
         turnModel={precedingUser?.model}

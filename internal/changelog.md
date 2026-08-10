@@ -6,6 +6,42 @@ Interactive terminals now open beneath both chat and sandbox content in Sessions
 
 Terminal pane ownership moved above the existing horizontal chat/sandbox split so one shared vertical layout can span both columns without portals or duplicated PTY state. The right sandbox tab vocabulary no longer includes Terminal, and legacy terminal URLs return to Preview; the existing shortcut storage id remains unchanged so custom user bindings continue to work.
 
+## VS Code-style sandbox quick open, action palette, and terminal scrollback - 2026-08-09
+
+Sandbox navigation now mirrors the two VS Code workflows users already know: `Mod+P` opens a fuzzy file picker over the running sandbox, and `Mod+Shift+P` opens a context-aware action palette for available tabs, custom apps, the preview console, and new preview or terminal panes. Selecting a file reuses the existing `?file=` deep link and Files viewer rather than introducing a second viewer path. Both bindings live in the rebindable shortcut registry and resolve to Ctrl on Windows/Linux and Command on macOS.
+
+The file tree and quick picker now share one cached, discriminated file-list controller per sandbox, so opening either surface does not issue duplicate listing actions or drift into separate loading/error behavior. The Preview console's persisted state was similarly lifted into the shared pane controller, allowing the existing button, `Mod+J`, and the action palette to operate the same dock state. File ranking is bounded to 100 rendered matches over the existing 20,000-file backend cap to keep the dialog responsive in large repositories.
+
+Console and Terminal scrolling failed because tmux put its outer client in the terminal alternate screen; disabling alternate screens only for programs inside tmux did not give xterm a normal-buffer history. The Vercel PTY launch now removes tmux's outer `smcup`/`rmcup` capabilities as well, while retaining mouse-off, status-off, and the 50,000-line tmux history limit. Both terminal surfaces inherit the fix from their shared launch path.
+
+Verified: focused Vitest regressions pass (6 tests), and TypeScript checks pass for `@eva/web` and `@eva/backend`. React Doctor changed-scope score: 86/100; one warning is the documented effect required to synchronize the imperative sandbox-list action, and the remaining eight point to unchanged pre-existing lines. The broader web suite was also invoked accidentally and exposed only the existing light-theme surface-token failures plus an initial file-ranking tie that was fixed before the focused rerun. No dev server, lint, or build was run per repository instructions.
+
+## Unified Claude skills, quieter diff summaries, opt-in model modes - 2026-08-09
+
+Repo skill sync now discovers both `.agents/skills` and `.claude/skills`. Claude-specific skills stay in the existing `/` picker, carry a Claude badge, and are filtered by the active provider; a Claude copy shadows a generic skill of the same name only in Claude chats.
+
+Assistant changed-file summaries now expand only for small latest turns, show a diverse three-file preview for large latest turns, and collapse historical turns. Per-message disclosure choices persist locally for each conversation, which keeps long chats readable without hiding access to the full list or diff view.
+
+Fast and 1M are explicit model capabilities and remain off by default. Codex strips account-level `service_tier` unless Fast is selected, while Cursor sends `fast=false` for Grok 4.5 and Composer 2.5 so their provider defaults cannot silently opt users into the higher-priced tier; Cursor GPT-5.5 also exposes its supported 1M context option. This also fixes the composer's 1M toggle, which previously never persisted turning the mode off.
+
+## Harden backend tenant boundaries, OAuth, and vulnerable dependencies - 2026-08-08
+
+A backend security audit found that authentication was often enforced without verifying ownership of the requested repository, session, task, team, sandbox, snapshot, or GitHub installation. A signed-in attacker who learned another tenant's Convex IDs could therefore reach privileged actions, including GitHub operations, environment-variable reads and writes, PTY controls, preview grants, snapshot controls, Linear lookups, and session mutations.
+
+Repository, task, session, team, message-parent, and sandbox-binding guards now live in shared backend helpers and are applied before those sensitive reads, mutations, and external API calls. GitHub discovery and synchronization are limited to installations or codebases the caller owns, task/project PR creation verifies repository access, global sync settings are filtered per user, and cross-tenant dependency and audit-category operations are rejected.
+
+MCP OAuth now requires explicit user consent, safe registered redirect URIs, S256 PKCE, authorization-code client binding, and client-bound refresh tokens. Access-token verification fails closed when the Clerk user no longer exists. Preview-key lookup also fails closed instead of silently disabling grant validation.
+
+Production dependency auditing initially reported 2 critical and 48 high advisories. Patched direct versions and narrow transitive overrides reduce that to 0 critical and 2 high; the two remaining advisories are unpatched `image-size` parser denial-of-service issues in the Chrome extension's React Native toolchain, not the deployed backend.
+
+Verified: backend and web TypeScript checks pass; 16 focused authorization and redirect tests pass. The wider backend suite still has 10 unrelated pre-existing contract failures in desktop ffmpeg, URL formatting, sandbox prewarm, and snapshot-retention tests.
+
+## Two-week regression hardening - 2026-08-09
+
+Audited 472 commits from July 27 through August 9, grouped 183 fix-like commits into regression families, repaired all 18 stale tests on `main`, and added 79 deterministic cases for auth rebinding, PR/archive lifecycle, automation reinstall, callback termination, preview annotation bundling, slash-form URLs, snapshot policy, session navigation/state, and desktop media tooling.
+
+The test strategy now separates deterministic Vitest contracts from browser interaction, disposable GitHub integration, executable Linux runtime checks, and live Vercel chaos scenarios so provider and visual regressions are tested at the layer that can actually observe them.
+
 ## Touch drag for the quick-tasks list, one sensor split for every drag surface - 2026-08-07
 
 A tenth Apple-design pass over `apps/web` and `packages/ui` found one real defect left in the drag layer, and fixing it properly meant collapsing three copies of the same configuration into one.

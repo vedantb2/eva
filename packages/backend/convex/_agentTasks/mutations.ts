@@ -910,6 +910,7 @@ export const setTraits = authMutation({
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
+    fastMode: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -920,7 +921,8 @@ export const setTraits = authMutation({
     if (
       args.reasoningLevel === undefined &&
       args.thinkingEnabled === undefined &&
-      args.use1mContext === undefined
+      args.use1mContext === undefined &&
+      args.fastMode === undefined
     ) {
       return null;
     }
@@ -934,6 +936,7 @@ export const setTraits = authMutation({
       ...(args.use1mContext !== undefined
         ? { lastUse1mContext: args.use1mContext }
         : {}),
+      ...(args.fastMode !== undefined ? { lastFastMode: args.fastMode } : {}),
     });
     return null;
   },

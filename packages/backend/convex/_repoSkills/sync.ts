@@ -13,7 +13,7 @@ import {
 } from "./skillMarkdown";
 import { decodeGitHubContent } from "./decodeGitHubContent";
 
-const SKILLS_ROOT_PATH = ".agents/skills";
+const SKILLS_ROOT_PATHS = [".agents/skills", ".claude/skills"];
 
 type SkillDirectory = {
   path: string;
@@ -54,12 +54,13 @@ async function fetchSkillDirectories(
   owner: string,
   name: string,
   ref: string,
+  rootPath: string,
 ): Promise<SkillDirectory[] | null> {
   try {
     const response = await octokit.rest.repos.getContent({
       owner,
       repo: name,
-      path: SKILLS_ROOT_PATH,
+      path: rootPath,
       ref,
     });
 
@@ -156,19 +157,25 @@ async function syncSkillsForTarget(
   target: SyncTarget,
 ): Promise<SyncOutcome> {
   const octokit = await getInstallationOctokit(target.installationId);
-  const directories = await fetchSkillDirectories(
-    octokit,
-    target.owner,
-    target.name,
-    target.ref,
+  const directoriesByRoot = await Promise.all(
+    SKILLS_ROOT_PATHS.map((rootPath) =>
+      fetchSkillDirectories(
+        octokit,
+        target.owner,
+        target.name,
+        target.ref,
+        rootPath,
+      ),
+    ),
   );
+  const directories = directoriesByRoot.flatMap((entries) => entries ?? []);
 
   const warnings: string[] = [];
   let skipped = 0;
 
-  if (directories === null) {
+  if (directoriesByRoot.every((entries) => entries === null)) {
     warnings.push(
-      `No ${SKILLS_ROOT_PATH} directory found on ${target.ref}. Existing skills were marked stale.`,
+      `No ${SKILLS_ROOT_PATHS.join(" or ")} directory found on ${target.ref}. Existing skills were marked stale.`,
     );
     const result = await ctx.runMutation(internal.repoSkills.applyGithubSync, {
       repoId: target.canonicalRepoId,
@@ -179,7 +186,7 @@ async function syncSkillsForTarget(
   }
 
   const skills: SyncedSkill[] = [];
-  const seenTitles = new Set<string>();
+  const seenSourcePaths = new Set<string>();
   for (const directory of directories) {
     const fetchResult = await fetchSkill(
       octokit,
@@ -194,14 +201,12 @@ async function syncSkillsForTarget(
       continue;
     }
     const skill = fetchResult.skill;
-    if (seenTitles.has(skill.title)) {
+    if (seenSourcePaths.has(skill.sourcePath)) {
       skipped++;
-      warnings.push(
-        `Skipped ${skill.sourcePath}: duplicate skill name "${skill.title}".`,
-      );
+      warnings.push(`Skipped duplicate skill source ${skill.sourcePath}.`);
       continue;
     }
-    seenTitles.add(skill.title);
+    seenSourcePaths.add(skill.sourcePath);
     skills.push(skill);
   }
 

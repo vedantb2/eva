@@ -1,9 +1,11 @@
 import { expect, test } from "vitest";
 import {
+  buildTraitsExecutionPayload,
   getAIModelProvider,
   getModelTraits,
   modelHasTraits,
   normalizeAIModel,
+  resolveTraitsForDisplay,
 } from "../convex/_validators/aiModels";
 
 test("cursor base models expose reasoning traits for the composer menu", () => {
@@ -13,8 +15,26 @@ test("cursor base models expose reasoning traits for the composer menu", () => {
     default: "medium",
   });
   expect(getModelTraits("cursor:gpt-5.5").reasoning?.default).toBe("low");
-  expect(modelHasTraits("cursor:composer-2.5")).toBe(false);
+  expect(getModelTraits("cursor:gpt-5.5").contextWindow1m).toBe(true);
+  expect(getModelTraits("cursor:grok-4.5").fastMode).toBe(true);
+  expect(modelHasTraits("cursor:composer-2.5")).toBe(true);
   expect(modelHasTraits("cursor:gemini-3.1-pro")).toBe(false);
+});
+
+test("Fast and 1M modes are opt-in", () => {
+  expect(resolveTraitsForDisplay("cursor:grok-4.5", {})).toMatchObject({
+    fastMode: false,
+    use1mContext: false,
+  });
+  expect(buildTraitsExecutionPayload("cursor:grok-4.5", {})).toMatchObject({
+    fastMode: false,
+  });
+  expect(
+    buildTraitsExecutionPayload("cursor:grok-4.5", { fastMode: true }),
+  ).toMatchObject({ fastMode: true });
+  expect(buildTraitsExecutionPayload("cursor:gpt-5.5", {})).not.toHaveProperty(
+    "use1mContext",
+  );
 });
 
 test("normalizeAIModel maps legacy cursor:composer-2 to composer-2.5", () => {

@@ -409,6 +409,42 @@ export const getInternal = internalQuery({
   },
 });
 
+/** Gets an accessible repo for server actions, including hidden app rows. */
+export const getAccessibleForAction = authQuery({
+  args: { id: v.id("githubRepos") },
+  returns: v.union(githubRepoValidator, v.null()),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db.get(args.id);
+    if (!repo) return null;
+    return (await userCanAccessRepo(ctx.db, ctx.userId, repo)) ? repo : null;
+  },
+});
+
+/** Describes whether the caller owns, merely shares, or cannot use an installation. */
+export const getInstallationAccessState = authQuery({
+  args: { installationId: v.number() },
+  returns: v.union(
+    v.literal("unclaimed"),
+    v.literal("owner"),
+    v.literal("member"),
+    v.literal("denied"),
+  ),
+  handler: async (ctx, args) => {
+    const repos = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_installation", (q) =>
+        q.eq("installationId", args.installationId),
+      )
+      .collect();
+    if (repos.length === 0) return "unclaimed";
+    if (repos.some((repo) => repo.connectedBy === ctx.userId)) return "owner";
+    for (const repo of repos) {
+      if (await userCanAccessRepo(ctx.db, ctx.userId, repo)) return "member";
+    }
+    return "denied";
+  },
+});
+
 /** Lists all repos grouped by codebase (owner/name). Each codebase shows root repo + sub-apps. */
 export const listGroupedByCodebase = authQuery({
   args: {},

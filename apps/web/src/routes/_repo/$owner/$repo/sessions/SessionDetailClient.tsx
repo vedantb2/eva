@@ -181,7 +181,7 @@ export function SessionDetailClient({
         terminalPanes={session.terminalPanes}
         hotkeyEnabled={isRouteActive}
       >
-        {(panes, owner) => (
+        {(panes, owner, terminalPanel) => (
           <ResizablePanelLayout
             leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
               <ChatPanel
@@ -233,6 +233,7 @@ export function SessionDetailClient({
                 devCommand={session.devCommand ?? repo.devCommand}
                 owner={owner}
                 panes={panes}
+                terminalPanel={terminalPanel}
                 planContent={session.planContent}
                 messages={messages ?? []}
                 lastMode={stickyMode}

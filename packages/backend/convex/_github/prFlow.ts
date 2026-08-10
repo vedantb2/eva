@@ -2,12 +2,13 @@
 
 import { v } from "convex/values";
 import { action, internalAction } from "../_generated/server";
-import { internal } from "../_generated/api";
+import { api, internal } from "../_generated/api";
 import { buildPrBody } from "../prBody";
 import { buildEvaSessionUrl } from "../_taskWorkflow/urls";
 import { resolveSessionBaseBranch } from "../_sessions/baseBranch";
 import { extractPrNumber } from "./helpers";
 import { isBranchNotAheadError } from "./prErrors";
+import { getActionRepoWithAccess } from "../functions";
 
 /**
  * Promotes a session's draft PR to ready-for-review. Called when the user
@@ -25,7 +26,7 @@ export const createSessionPr = action({
     if (!identity) {
       throw new Error("Not authenticated");
     }
-    const session = await ctx.runQuery(internal.sessions.getInternal, {
+    const session = await ctx.runQuery(api.sessions.get, {
       id: args.sessionId,
     });
     if (!session) throw new Error("Session not found");
@@ -33,10 +34,7 @@ export const createSessionPr = action({
       throw new Error("No branch associated with this session");
     }
 
-    const repo = await ctx.runQuery(internal.githubRepos.getInternal, {
-      id: session.repoId,
-    });
-    if (!repo) throw new Error("Repository not found");
+    const repo = await getActionRepoWithAccess(ctx, session.repoId);
 
     let prUrl = session.prUrl;
     if (prUrl === undefined) {

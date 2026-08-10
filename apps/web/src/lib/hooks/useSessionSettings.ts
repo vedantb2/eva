@@ -48,6 +48,7 @@ export function useSessionSettings(overrides: {
     effortLevel: overrides.traits?.effortLevel,
     thinkingEnabled: overrides.traits?.thinkingEnabled,
     use1mContext: overrides.traits?.use1mContext,
+    fastMode: overrides.traits?.fastMode,
   };
 
   const displayTraits = resolveTraitsForDisplay(model, storedTraits);

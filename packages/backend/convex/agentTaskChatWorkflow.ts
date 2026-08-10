@@ -180,6 +180,7 @@ export const startExecute = authMutation({
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
+    fastMode: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
   },
   returns: v.null(),
@@ -243,6 +244,7 @@ export const startExecute = authMutation({
       ...(args.use1mContext !== undefined
         ? { lastUse1mContext: args.use1mContext }
         : {}),
+      ...(args.fastMode !== undefined ? { lastFastMode: args.fastMode } : {}),
       updatedAt: Date.now(),
     });
 
@@ -259,6 +261,7 @@ export const startExecute = authMutation({
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
+        fastMode: args.fastMode,
         allowedTools: CHAT_ALLOWED_TOOLS,
         providerAccountId: task.providerAccountId,
         credentialOwnerUserId: task.createdBy,
@@ -279,6 +282,7 @@ export const startExecute = authMutation({
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
+        fastMode: args.fastMode,
         providerAccountId: task.providerAccountId,
         credentialOwnerUserId: task.createdBy,
         userId: ctx.userId,
@@ -299,6 +303,7 @@ export const enqueueMessage = authMutation({
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
+    fastMode: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
@@ -332,6 +337,7 @@ export const enqueueMessage = authMutation({
       reasoningLevel: args.reasoningLevel,
       thinkingEnabled: args.thinkingEnabled,
       use1mContext: args.use1mContext,
+      fastMode: args.fastMode,
       providerAccountId: task.providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
     });
@@ -346,6 +352,7 @@ export const enqueueMessage = authMutation({
       ...(args.use1mContext !== undefined
         ? { lastUse1mContext: args.use1mContext }
         : {}),
+      ...(args.fastMode !== undefined ? { lastFastMode: args.fastMode } : {}),
       updatedAt: Date.now(),
     });
     return null;
@@ -481,6 +488,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
+    fastMode: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     credentialOwnerUserId: v.optional(v.id("users")),
     userId: v.id("users"),
@@ -591,6 +599,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
+        fastMode: args.fastMode,
         allowedTools: CHAT_ALLOWED_TOOLS,
         providerAccountId: args.providerAccountId,
         credentialOwnerUserId: args.credentialOwnerUserId,
@@ -611,6 +620,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
+        fastMode: args.fastMode,
         providerAccountId: args.providerAccountId,
         credentialOwnerUserId: args.credentialOwnerUserId,
         allowedTools: CHAT_ALLOWED_TOOLS,
@@ -899,6 +909,7 @@ export const prewarmChatDaemon = authMutation({
       reasoningLevel: task.lastReasoningLevel,
       thinkingEnabled: task.lastThinkingEnabled,
       use1mContext: task.lastUse1mContext,
+      fastMode: task.lastFastMode,
       allowedTools: CHAT_ALLOWED_TOOLS,
       providerAccountId: task.providerAccountId,
       credentialOwnerUserId: task.createdBy,

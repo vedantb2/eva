@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { authQuery, authMutation } from "./functions";
+import { authQuery, authMutation, getTaskWithAccess } from "./functions";
 
 const dependencyValidator = v.object({
   _id: v.id("taskDependencies"),
@@ -13,6 +13,7 @@ export const getForTask = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(dependencyValidator),
   handler: async (ctx, args) => {
+    await getTaskWithAccess(ctx.db, args.taskId, ctx.userId);
     return await ctx.db
       .query("taskDependencies")
       .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
@@ -25,6 +26,7 @@ export const getDependents = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.array(dependencyValidator),
   handler: async (ctx, args) => {
+    await getTaskWithAccess(ctx.db, args.taskId, ctx.userId);
     return await ctx.db
       .query("taskDependencies")
       .withIndex("by_dependency", (q) => q.eq("dependsOnId", args.taskId))
@@ -44,6 +46,7 @@ export const getDependencies = authQuery({
     }),
   ),
   handler: async (ctx, args) => {
+    await getTaskWithAccess(ctx.db, args.taskId, ctx.userId);
     const dependencies = await ctx.db
       .query("taskDependencies")
       .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
@@ -69,6 +72,7 @@ export const isBlocked = authQuery({
   args: { taskId: v.id("agentTasks") },
   returns: v.boolean(),
   handler: async (ctx, args) => {
+    await getTaskWithAccess(ctx.db, args.taskId, ctx.userId);
     const dependencies = await ctx.db
       .query("taskDependencies")
       .withIndex("by_task", (q) => q.eq("taskId", args.taskId))
@@ -94,6 +98,10 @@ export const add = authMutation({
     if (args.taskId === args.dependsOnId) {
       throw new Error("A task cannot depend on itself");
     }
+    await Promise.all([
+      getTaskWithAccess(ctx.db, args.taskId, ctx.userId),
+      getTaskWithAccess(ctx.db, args.dependsOnId, ctx.userId),
+    ]);
     const existing = await ctx.db
       .query("taskDependencies")
       .withIndex("by_task_and_depends_on", (q) =>
@@ -119,6 +127,10 @@ export const remove = authMutation({
     if (!dep) {
       throw new Error("Dependency not found");
     }
+    await Promise.all([
+      getTaskWithAccess(ctx.db, dep.taskId, ctx.userId),
+      getTaskWithAccess(ctx.db, dep.dependsOnId, ctx.userId),
+    ]);
     await ctx.db.delete(args.id);
     return null;
   },
@@ -132,6 +144,10 @@ export const removeByTasks = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    await Promise.all([
+      getTaskWithAccess(ctx.db, args.taskId, ctx.userId),
+      getTaskWithAccess(ctx.db, args.dependsOnId, ctx.userId),
+    ]);
     const dep = await ctx.db
       .query("taskDependencies")
       .withIndex("by_task_and_depends_on", (q) =>

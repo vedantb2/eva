@@ -33,7 +33,10 @@ import { ProjectSandboxPanel } from "@/lib/components/projects/ProjectSandboxPan
 import { ProjectSandboxChatPanel } from "@/lib/components/projects/ProjectSandboxChatPanel";
 import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
-import { SandboxWorkspace } from "@/lib/components/sandbox/SandboxWorkspace";
+import {
+  SandboxWorkspace,
+  type TerminalPanelApi,
+} from "@/lib/components/sandbox/SandboxWorkspace";
 import type { SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import { ProjectContextUsage } from "@/lib/components/context-usage";
@@ -275,7 +278,11 @@ export function ProjectDetailClient({
   const tab = sandboxTab ?? "preview";
   // Always mount the sandbox panel when the project can have one so tabs
   // stay reachable while stopped — same as sessions. Panes self-gate.
-  const projectSandboxPanel = (panes: SandboxPanesApi, owner: PtyOwner) =>
+  const projectSandboxPanel = (
+    panes: SandboxPanesApi,
+    owner: PtyOwner,
+    terminalPanel: TerminalPanelApi,
+  ) =>
     canStartSandbox ||
     projectSandboxId ||
     isSandboxActive ||
@@ -292,6 +299,7 @@ export function ProjectDetailClient({
         devCommand={project.devCommand}
         owner={owner}
         panes={panes}
+        terminalPanel={terminalPanel}
         sandboxTab={tab}
         onStartSandbox={
           canStartSandbox && !isSandboxStopping ? handleStartSandbox : undefined
@@ -318,7 +326,7 @@ export function ProjectDetailClient({
       isActive={isSandboxActive}
       terminalPanes={project.terminalPanes}
     >
-      {(panes, owner) => (
+      {(panes, owner, terminalPanel) => (
         <ResizablePanelLayout
           storageKey="project-sandbox-panel"
           leftDefaultSize="40%"
@@ -335,7 +343,7 @@ export function ProjectDetailClient({
               onToggleSandbox={onToggleRightPanel}
             />
           )}
-          rightPanel={projectSandboxPanel(panes, owner)}
+          rightPanel={projectSandboxPanel(panes, owner, terminalPanel)}
         />
       )}
     </SandboxWorkspace>

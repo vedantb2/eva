@@ -10,10 +10,12 @@ import { DesignVariationsPanel } from "./_components/DesignVariationsPanel";
 import { FilesPanel } from "./FilesPanel";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import { type SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
+import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace";
 import type { PtyOwner } from "./TerminalPanel";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
+import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { useSessionModel } from "@/lib/hooks/useSessionModel";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -39,6 +41,7 @@ interface SandboxPanelProps {
   devCommand?: string;
   owner: PtyOwner;
   panes: SandboxPanesApi;
+  terminalPanel: TerminalPanelApi;
   planContent?: string;
   messages?: SessionDesignMessage[];
   lastMode?: SessionMode;
@@ -62,6 +65,7 @@ export function SandboxPanel({
   devCommand,
   owner,
   panes,
+  terminalPanel,
   planContent,
   messages = [],
   lastMode,
@@ -103,6 +107,7 @@ export function SandboxPanel({
       void setPreviewPort({ id: sessionId, port });
     },
   });
+  const fileList = useSandboxFileList({ sandboxId, repoId, isActive });
   const {
     computerTabOpen,
     computerRunning,
@@ -161,6 +166,9 @@ export function SandboxPanel({
         onOpenEditor={openEditor}
         onCloseEditor={closeEditor}
         hotkeysEnabled={isRouteActive}
+        fileList={fileList}
+        consoleDock={panes.consoleDock}
+        terminalPanel={terminalPanel}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div
@@ -217,6 +225,7 @@ export function SandboxPanel({
             sandboxId={sandboxId}
             repoId={repoId}
             isActive={isActive}
+            fileList={fileList}
           />
         </div>
         <SandboxPaneSlots

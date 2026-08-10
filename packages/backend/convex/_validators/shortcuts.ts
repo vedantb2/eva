@@ -104,11 +104,17 @@ export const SHORTCUT_DEFS = {
     group: "Sandbox",
     defaultHotkey: "Mod+Shift+B",
   },
-  toggleFilesTab: {
-    name: "Toggle Files tab",
-    description: "Switch to the Files tab, or back to the previous one.",
+  openSandboxFile: {
+    name: "Open sandbox file",
+    description: "Search sandbox files and open one in the file viewer.",
     group: "Sandbox",
     defaultHotkey: "Mod+P",
+  },
+  openSandboxActions: {
+    name: "Open sandbox actions",
+    description: "Search the actions available in the current sandbox view.",
+    group: "Sandbox",
+    defaultHotkey: "Mod+Shift+P",
   },
   cycleSandboxTab: {
     name: "Cycle sandbox tabs",

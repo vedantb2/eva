@@ -415,7 +415,7 @@ export function QuickTaskModal({
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-1.5 px-5 py-3 bg-muted/30">
+          <div className="flex flex-wrap items-center gap-1.5 px-5 py-3">
             {voiceEnabled === true ? (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -620,7 +620,7 @@ export function QuickTaskModal({
             />
           </div>
 
-          <DialogFooter className="flex-col-reverse gap-2 px-5 py-3 sm:flex-row sm:justify-between bg-muted/15">
+          <DialogFooter className="flex-col-reverse gap-2 px-5 py-3 sm:flex-row sm:justify-between">
             <div>
               {drafts && drafts.length > 0 && (
                 <Popover>

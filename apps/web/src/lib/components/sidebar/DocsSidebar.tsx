@@ -21,7 +21,6 @@ import {
   Spinner,
   Surface,
   Textarea,
-  toast,
 } from "@eva/ui";
 import { IconFile, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
 import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
@@ -196,7 +195,6 @@ export function DocsSidebar({
       if (onNavigate) onNavigate();
     } catch (error) {
       console.error("PRD upload failed", error);
-      toast.error("Could not create the document. Try again.");
     }
     setIsUploading(false);
   };
@@ -213,7 +211,6 @@ export function DocsSidebar({
       await createDocFromPrd({ title, prdContent });
     } catch (error) {
       console.error("PRD upload failed", error);
-      toast.error("Could not read that file. Pick a plain text file.");
     }
   };
 

@@ -6,7 +6,7 @@ import { api } from "@eva/backend";
 import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
-import { Button, Checkbox, Spinner, toast } from "@eva/ui";
+import { Button, Checkbox, Spinner } from "@eva/ui";
 import { IconGitBranch, IconRefresh } from "@tabler/icons-react";
 
 type RepoEntry = {
@@ -93,7 +93,6 @@ function SyncSettingsRoute() {
       setGithubRepos(repos);
     } catch (err) {
       console.error("Failed to fetch repos:", err);
-      toast.error("Could not load repositories from GitHub. Try again.");
     }
     setFetching(false);
   };

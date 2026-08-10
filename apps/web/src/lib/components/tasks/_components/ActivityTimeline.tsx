@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
   Spinner,
-  toast,
 } from "@eva/ui";
 import { IconLoader2 } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
@@ -165,7 +164,6 @@ export function ActivityTimeline({
       setDeletingCommentId(null);
     } catch (err) {
       console.error("Failed to delete comment:", err);
-      toast.error("Could not delete the comment. Try again.");
     }
     setIsDeletingComment(false);
   };

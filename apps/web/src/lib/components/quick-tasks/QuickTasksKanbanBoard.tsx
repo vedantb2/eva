@@ -9,7 +9,7 @@ import { useState } from "react";
 import { KanbanBoard } from "@/lib/components/kanban/KanbanBoard";
 import { QuickTaskCard } from "./QuickTaskCard";
 import { RunAllDialog } from "./RunAllDialog";
-import { Button, Spinner, toast } from "@eva/ui";
+import { Button, Spinner } from "@eva/ui";
 import { IconPlayerPlay } from "@tabler/icons-react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
@@ -118,9 +118,6 @@ export function QuickTasksKanbanBoard({
       if (failedCount > 0) {
         console.error(
           `Run All started ${ownedTodoTasks.length - failedCount} of ${ownedTodoTasks.length} tasks`,
-        );
-        toast.error(
-          `Could not start ${failedCount} of ${ownedTodoTasks.length} tasks.`,
         );
       }
     } catch (err) {

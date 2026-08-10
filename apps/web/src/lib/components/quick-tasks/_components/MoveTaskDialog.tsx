@@ -4,7 +4,6 @@ import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { useMutation } from "convex/react";
 import { useState } from "react";
-import { toast } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { ConfirmDialog } from "./ConfirmDialog";
 
@@ -51,7 +50,6 @@ export function MoveTaskDialog({
       onClose();
     } catch (err) {
       console.error("Failed to move task:", err);
-      toast.error("Could not move the task. Try again.");
     }
     setIsMoving(false);
   };

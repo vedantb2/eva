@@ -3,7 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useAction, useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import { Container } from "@/lib/components/ui/Container";
-import { Button, Spinner, toast } from "@eva/ui";
+import { Button, Spinner } from "@eva/ui";
 import { RepoSetupCard } from "./_components/RepoSetupCard";
 import { MonorepoAppsPanel } from "./_components/MonorepoAppsPanel";
 import type { GitHubRepo } from "./_components/RepoSetupCard";
@@ -122,9 +122,7 @@ export function RepoSetupClient({
         rootDirectory,
       });
       setAddedRepos((prev) => new Set([...prev, key]));
-    } catch {
-      toast.error(`Could not add ${repo.fullName}. Try again.`);
-    }
+    } catch {}
   };
 
   if (loading || syncing) {

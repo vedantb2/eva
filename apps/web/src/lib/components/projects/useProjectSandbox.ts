@@ -5,7 +5,6 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { toast } from "@eva/ui";
 
 const PREVIEW_SANDBOX_ALLOWED_PHASES = [
   "in_progress",
@@ -58,7 +57,6 @@ export function useProjectSandbox(
       await startProjectSandboxMutation({ projectId });
     } catch (err) {
       console.error("Failed to start project sandbox:", err);
-      toast.error("Could not start the sandbox. Try again.");
     }
     setIsStartingLocal(false);
   };
@@ -69,7 +67,6 @@ export function useProjectSandbox(
       await stopProjectSandboxMutation({ projectId });
     } catch (err) {
       console.error("Failed to stop project sandbox:", err);
-      toast.error("Could not stop the sandbox. Try again.");
     }
     setIsStoppingLocal(false);
   };
@@ -80,7 +77,6 @@ export function useProjectSandbox(
       await retryStartupCommandsMutation({ projectId });
     } catch (err) {
       console.error("Failed to retry project startup commands:", err);
-      toast.error("Could not rerun the startup commands. Try again.");
     }
     setIsRetryingStartupCommands(false);
   };
@@ -91,7 +87,6 @@ export function useProjectSandbox(
       await runBackgroundCommandsMutation({ projectId });
     } catch (err) {
       console.error("Failed to run project background commands:", err);
-      toast.error("Could not run the background commands. Try again.");
     }
     setIsRunningBackgroundCommands(false);
   };

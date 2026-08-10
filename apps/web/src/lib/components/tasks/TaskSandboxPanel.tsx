@@ -1,19 +1,19 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { isSessionSandboxTab, type SandboxTab } from "@/lib/search-params";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
-import {
-  useSandboxPanes,
-  type SharedTerminalPane,
-} from "@/lib/components/sandbox/useSandboxPanes";
+import { type SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
+import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace";
+import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
+import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
 
@@ -33,7 +33,9 @@ interface TaskSandboxPanelProps {
    * pane so it auto-starts the dev server with the resolved PORT.
    */
   devCommand?: string;
-  terminalPanes?: SharedTerminalPane[];
+  owner: PtyOwner;
+  panes: SandboxPanesApi;
+  terminalPanel: TerminalPanelApi;
   prUrl?: string;
   activeTab: SandboxTab;
   onTabChange: (tab: SandboxTab) => void;
@@ -43,7 +45,7 @@ interface TaskSandboxPanelProps {
 
 /**
  * Right-side sandbox panel for a quick task — mirrors the session sandbox
- * panel (Preview, Browser, Terminal, Diffs, Files, Editor/Computer via +).
+ * panel (Preview, Browser, Diffs, Files, Editor/Computer via +).
  * PRD stays session-only.
  *
  * All shared multi-pane / preview / PTY logic lives in the `sandbox/` module
@@ -56,7 +58,9 @@ export function TaskSandboxPanel({
   repoId,
   devPort,
   devCommand,
-  terminalPanes,
+  owner,
+  panes,
+  terminalPanel,
   prUrl,
   activeTab,
   onTabChange,
@@ -73,11 +77,6 @@ export function TaskSandboxPanel({
   );
   const releaseBrowserLock = useMutation(api.agentTasks.releaseBrowserLock);
 
-  // Stable identity: a fresh literal each render would re-run TerminalPanel's
-  // connect effect, flashing the spinner and dropping the dev-server auto-start
-  // (the reconnect sees an existing PTY, so isNewPty is false).
-  const owner = useMemo(() => ({ kind: "task" as const, taskId }), [taskId]);
-
   const preview = useSandboxPreview({
     sandboxId,
     isActive,
@@ -88,14 +87,7 @@ export function TaskSandboxPanel({
     },
   });
 
-  const panes = useSandboxPanes({
-    owner,
-    storageScope: `task:${taskIdStr}`,
-    isActive,
-    activeTab,
-    setActiveTab: onTabChange,
-    terminalPanes,
-  });
+  const fileList = useSandboxFileList({ sandboxId, repoId, isActive });
 
   useEffect(() => {
     if (activeTab !== "prd") return;
@@ -130,10 +122,11 @@ export function TaskSandboxPanel({
       <SandboxTabBar
         activeTab={tabBarValue}
         onTabChange={handleTabChange}
-        onNewPreview={panes.handleNewPreview}
-        onNewTerminal={panes.handleNewTerminal}
+        onNewPreview={() => {
+          panes.handleNewPreview();
+          onTabChange("preview");
+        }}
         newPreviewDisabled={panes.newPreviewDisabled}
-        newTerminalDisabled={panes.newTerminalDisabled}
         enabledTabs={enabledTabs}
         showFilesTab
         agentBrowsingAt={task?.agentBrowsingAt}
@@ -144,6 +137,9 @@ export function TaskSandboxPanel({
         editorTabOpen={editorTabOpen}
         onOpenEditor={openEditor}
         onCloseEditor={closeEditor}
+        fileList={fileList}
+        consoleDock={panes.consoleDock}
+        terminalPanel={terminalPanel}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div className={tabBarValue === "files" ? "h-full min-h-0" : "hidden"}>
@@ -151,6 +147,7 @@ export function TaskSandboxPanel({
             sandboxId={sandboxId}
             repoId={repoId}
             isActive={isActive}
+            fileList={fileList}
           />
         </div>
         <SandboxPaneSlots

@@ -5,12 +5,12 @@ import {
   IconBrowser,
   IconDeviceDesktop,
   IconCode,
-  IconTerminal2,
   IconClipboardList,
   IconGitPullRequest,
   IconFileText,
   IconPalette,
   IconPlus,
+  IconTerminal2,
   IconX,
 } from "@tabler/icons-react";
 import type { Doc } from "@eva/backend";
@@ -19,6 +19,11 @@ import { useSandboxViewHotkeys } from "@/lib/components/sandbox/useSandboxViewHo
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { TablerIconByName } from "@/lib/components/TablerIconByName";
 import type { SandboxTab } from "@/lib/search-params";
+import type { SandboxFileListApi } from "@/lib/components/sandbox/useSandboxFileList";
+import type { ConsoleDockApi } from "@/lib/components/sandbox/useConsoleDock";
+import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace";
+import { SandboxQuickOpenDialogs } from "@/lib/components/sandbox/SandboxQuickOpenDialogs";
+import { buildSandboxPaletteCommands } from "@/lib/components/sandbox/sandboxPaletteCommands";
 import {
   Tabs,
   TabsList,
@@ -37,7 +42,8 @@ export type SandboxTabBarSize = "default" | "compact";
 const TAB_TRIGGER_BASE =
   "relative flex items-center rounded-none rounded-t-md border border-b-0 font-medium data-[state=active]:-mb-px data-[state=active]:border-b data-[state=active]:border-b-card data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary";
 
-const TAB_BAR_BASE = "relative flex items-end gap-1 border-b border-border px-2";
+const TAB_BAR_BASE =
+  "relative flex items-end gap-1 border-b border-border px-2";
 
 const TAB_CLOSE_BUTTON_BASE =
   "ml-0.5 flex shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground";
@@ -79,7 +85,6 @@ const allTabs: Array<{
 }> = [
   { value: "preview", label: "Preview", icon: IconWorld },
   { value: "browser", label: "Browser", icon: IconBrowser },
-  { value: "terminal", label: "Terminal", icon: IconTerminal2 },
   { value: "review", label: "Review", icon: IconGitPullRequest },
 ];
 
@@ -88,9 +93,7 @@ interface SandboxTabBarProps {
   activeTab: string;
   onTabChange: (tab: string) => void;
   onNewPreview: () => void;
-  onNewTerminal: () => void;
   newPreviewDisabled?: boolean;
-  newTerminalDisabled?: boolean;
   showPrdTab?: boolean;
   /** When true, shows a content indicator on the Plan tab. */
   hasPrdContent?: boolean;
@@ -119,6 +122,9 @@ interface SandboxTabBarProps {
   hotkeysEnabled?: boolean;
   /** Tab row density — `compact` for a shorter bar with smaller labels/icons. */
   tabSize?: SandboxTabBarSize;
+  fileList: SandboxFileListApi;
+  consoleDock: ConsoleDockApi;
+  terminalPanel: TerminalPanelApi;
 }
 
 const AGENT_BROWSING_LOCK_TTL_MS = 30 * 60 * 1000;
@@ -132,9 +138,7 @@ export function SandboxTabBar({
   activeTab,
   onTabChange,
   onNewPreview,
-  onNewTerminal,
   newPreviewDisabled = false,
-  newTerminalDisabled = false,
   showPrdTab = false,
   hasPrdContent = false,
   showDesignsTab = false,
@@ -152,6 +156,9 @@ export function SandboxTabBar({
   onCloseEditor,
   hotkeysEnabled = true,
   tabSize = "default",
+  fileList,
+  consoleDock,
+  terminalPanel,
 }: SandboxTabBarProps) {
   const styles = getSandboxTabBarStyles(tabSize);
   const tabs = enabledTabs
@@ -184,12 +191,30 @@ export function SandboxTabBar({
     activeTab,
     onTabChange,
     showBrowserTab: tabs.some((tab) => tab.value === "browser"),
-    showFilesTab,
     enabled: hotkeysEnabled,
   });
 
+  const commands = buildSandboxPaletteCommands({
+    activeTab,
+    tabs,
+    showFilesTab,
+    showPrdTab,
+    showDesignsTab,
+    showEditorItem,
+    showDesktopItem,
+    customTabs: customTabs ?? [],
+    consoleDock,
+    terminalPanel,
+    onTabChange,
+    onOpenEditor,
+    onOpenComputer,
+    onNewPreview,
+    newPreviewDisabled,
+  });
+
   return (
-    <div className={styles.bar}>
+    <>
+      <div className={styles.bar}>
       <Tabs
         className="min-w-0 flex-1"
         value={activeTab}
@@ -291,10 +316,7 @@ export function SandboxTabBar({
               <IconClipboardList className={styles.icon} />
               Plan
               {hasPrdContent ? (
-                <span
-                  className={styles.pulseDot}
-                  aria-label="Plan available"
-                />
+                <span className={styles.pulseDot} aria-label="Plan available" />
               ) : null}
             </TabsTrigger>
           ) : null}
@@ -372,15 +394,32 @@ export function SandboxTabBar({
             <IconWorld size={14} />
             New Preview
           </DropdownMenuItem>
-          <DropdownMenuItem
-            onClick={onNewTerminal}
-            disabled={newTerminalDisabled}
-          >
-            <IconTerminal2 size={14} />
-            New Terminal
-          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-    </div>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            aria-label="Toggle terminal panel"
+            aria-pressed={terminalPanel.expanded}
+            className={`${styles.addButton} hit-target`}
+            onClick={terminalPanel.toggle}
+          >
+            <IconTerminal2 className={styles.addIcon} />
+          </button>
+        </TooltipTrigger>
+        <TooltipContent side="bottom" className="text-xs">
+          Toggle terminal panel
+        </TooltipContent>
+      </Tooltip>
+      </div>
+      <SandboxQuickOpenDialogs
+        fileList={fileList}
+        commands={commands}
+        onShowFiles={() => onTabChange("files")}
+        hotkeysEnabled={hotkeysEnabled}
+        filesEnabled={showFilesTab}
+      />
+    </>
   );
 }

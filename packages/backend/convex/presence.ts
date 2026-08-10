@@ -3,7 +3,7 @@ import { v } from "convex/values";
 import { mutation } from "./_generated/server";
 import { Presence } from "@convex-dev/presence";
 import { authQuery, authMutation } from "./functions";
-import { getCurrentUserId } from "./auth";
+import { getCurrentUserId } from "./_auth/currentUser";
 
 const presence = new Presence(components.presence);
 

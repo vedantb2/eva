@@ -1,6 +1,5 @@
 "use client";
 
-import { useMemo } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
@@ -14,13 +13,13 @@ import { entityPathSegment } from "@/lib/numId";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
-import {
-  useSandboxPanes,
-  type SharedTerminalPane,
-} from "@/lib/components/sandbox/useSandboxPanes";
+import { type SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
+import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace";
+import type { PtyOwner } from "@/routes/_repo/$owner/$repo/sessions/TerminalPanel";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
+import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
@@ -34,7 +33,9 @@ interface ProjectSandboxPanelProps {
   prUrl?: string;
   devPort?: number;
   devCommand?: string;
-  terminalPanes?: SharedTerminalPane[];
+  owner: PtyOwner;
+  panes: SandboxPanesApi;
+  terminalPanel: TerminalPanelApi;
   sandboxTab: TaskRouteSandboxTab;
   onStartSandbox?: () => void;
   isSandboxStarting?: boolean;
@@ -49,7 +50,9 @@ export function ProjectSandboxPanel({
   prUrl,
   devPort,
   devCommand,
-  terminalPanes,
+  owner,
+  panes,
+  terminalPanel,
   sandboxTab,
   onStartSandbox,
   isSandboxStarting,
@@ -68,14 +71,6 @@ export function ProjectSandboxPanel({
   const releaseBrowserLock = useMutation(api.projects.releaseBrowserLock);
 
   const activeTab: SandboxTab = sandboxTab;
-
-  // Stable identity: a fresh literal each render would re-run TerminalPanel's
-  // connect effect, flashing the spinner and dropping the dev-server auto-start
-  // (the reconnect sees an existing PTY, so isNewPty is false).
-  const owner = useMemo(
-    () => ({ kind: "project" as const, projectId }),
-    [projectId],
-  );
 
   const navigateToSandboxTab = (tab: SandboxTab) => {
     if (tab === "prd" || !projectPathSegment) return;
@@ -107,14 +102,7 @@ export function ProjectSandboxPanel({
     },
   });
 
-  const panes = useSandboxPanes({
-    owner,
-    storageScope: `project:${projectIdStr}`,
-    isActive,
-    activeTab,
-    setActiveTab: navigateToSandboxTab,
-    terminalPanes,
-  });
+  const fileList = useSandboxFileList({ sandboxId, repoId, isActive });
 
   // This surface has no custom tabs, so the tab bar only emits builtin ids.
   const handleTabChange = (tab: string) => {
@@ -142,10 +130,11 @@ export function ProjectSandboxPanel({
       <SandboxTabBar
         activeTab={activeTab}
         onTabChange={handleTabChange}
-        onNewPreview={panes.handleNewPreview}
-        onNewTerminal={panes.handleNewTerminal}
+        onNewPreview={() => {
+          panes.handleNewPreview();
+          navigateToSandboxTab("preview");
+        }}
         newPreviewDisabled={panes.newPreviewDisabled}
-        newTerminalDisabled={panes.newTerminalDisabled}
         enabledTabs={enabledTabs}
         showFilesTab
         agentBrowsingAt={project?.agentBrowsingAt}
@@ -156,6 +145,9 @@ export function ProjectSandboxPanel({
         editorTabOpen={editorTabOpen}
         onOpenEditor={openEditor}
         onCloseEditor={closeEditor}
+        fileList={fileList}
+        consoleDock={panes.consoleDock}
+        terminalPanel={terminalPanel}
       />
       <div className="flex-1 overflow-hidden bg-card">
         <div className={activeTab === "files" ? "h-full min-h-0" : "hidden"}>
@@ -163,6 +155,7 @@ export function ProjectSandboxPanel({
             sandboxId={sandboxId}
             repoId={repoId}
             isActive={isActive}
+            fileList={fileList}
           />
         </div>
         <SandboxPaneSlots

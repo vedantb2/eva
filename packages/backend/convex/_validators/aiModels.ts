@@ -76,6 +76,7 @@ export const modelTraitsExecutionFields = {
   reasoningLevel: v.optional(reasoningLevelValidator),
   thinkingEnabled: v.optional(v.boolean()),
   use1mContext: v.optional(v.boolean()),
+  fastMode: v.optional(v.boolean()),
 };
 
 export const DEFAULT_REASONING_LEVEL: ReasoningLevel = "medium";
@@ -90,18 +91,22 @@ export interface ModelTraits {
   reasoning?: ModelReasoningTraits;
   thinkingToggle?: boolean;
   contextWindow1m?: boolean;
+  contextWindowDefaultLabel?: string;
+  fastMode?: boolean;
 }
 
 export interface StoredModelTraits {
   effortLevel?: ReasoningLevel;
   thinkingEnabled?: boolean;
   use1mContext?: boolean;
+  fastMode?: boolean;
 }
 
 export interface ModelTraitsExecutionArgs {
   reasoningLevel?: ReasoningLevel;
   thinkingEnabled?: boolean;
   use1mContext?: boolean;
+  fastMode?: boolean;
 }
 
 const CLAUDE_REASONING_FULL: ModelReasoningTraits = {
@@ -186,6 +191,8 @@ export interface AIModelOption {
   reasoning?: ModelReasoningTraits;
   thinkingToggle?: boolean;
   contextWindow1m?: boolean;
+  contextWindowDefaultLabel?: string;
+  fastMode?: boolean;
 }
 
 export interface AIProviderAvailability {
@@ -256,6 +263,7 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     label: "GPT 5.5",
     requiresAuth: true,
     reasoning: CODEX_REASONING,
+    fastMode: true,
   },
   {
     id: "opencode:openai/gpt-5-codex",
@@ -293,6 +301,7 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     label: "Grok 4.5",
     requiresAuth: true,
     reasoning: CURSOR_REASONING,
+    fastMode: true,
   },
   {
     id: "cursor:gpt-5.5",
@@ -300,6 +309,8 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     label: "GPT-5.5",
     requiresAuth: true,
     reasoning: CURSOR_REASONING_GPT55,
+    contextWindow1m: true,
+    contextWindowDefaultLabel: "272K",
   },
   {
     id: "cursor:gemini-3.1-pro",
@@ -312,6 +323,7 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     provider: "cursor",
     label: "Composer 2.5",
     requiresAuth: true,
+    fastMode: true,
   },
 ];
 
@@ -459,6 +471,10 @@ export function getModelTraits(model: string | null | undefined): ModelTraits {
     ...(option.reasoning ? { reasoning: option.reasoning } : {}),
     ...(option.thinkingToggle ? { thinkingToggle: true } : {}),
     ...(option.contextWindow1m ? { contextWindow1m: true } : {}),
+    ...(option.contextWindowDefaultLabel
+      ? { contextWindowDefaultLabel: option.contextWindowDefaultLabel }
+      : {}),
+    ...(option.fastMode ? { fastMode: true } : {}),
   };
 }
 
@@ -476,7 +492,10 @@ export function resolveReasoningLevel(
 export function modelHasTraits(model: string | null | undefined): boolean {
   const traits = getModelTraits(model);
   return Boolean(
-    traits.reasoning || traits.thinkingToggle || traits.contextWindow1m,
+    traits.reasoning ||
+    traits.thinkingToggle ||
+    traits.contextWindow1m ||
+    traits.fastMode,
   );
 }
 
@@ -507,6 +526,7 @@ export function resolveTraitsForDisplay(
   effortLevel: ReasoningLevel | undefined;
   thinkingEnabled: boolean;
   use1mContext: boolean;
+  fastMode: boolean;
 } {
   const traits = getModelTraits(model);
   return {
@@ -515,6 +535,7 @@ export function resolveTraitsForDisplay(
       : undefined,
     thinkingEnabled: stored.thinkingEnabled ?? true,
     use1mContext: stored.use1mContext ?? false,
+    fastMode: stored.fastMode ?? false,
   };
 }
 
@@ -545,6 +566,12 @@ export function buildTraitsExecutionPayload(
 
   if (traits.contextWindow1m && stored.use1mContext === true) {
     payload.use1mContext = true;
+  }
+
+  // Fast is deliberately explicit: Cursor first-party models can otherwise
+  // resolve a bare model id to their higher-priced Fast variant.
+  if (traits.fastMode) {
+    payload.fastMode = stored.fastMode === true;
   }
 
   return payload;

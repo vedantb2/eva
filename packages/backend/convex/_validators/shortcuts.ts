@@ -104,11 +104,17 @@ export const SHORTCUT_DEFS = {
     group: "Sandbox",
     defaultHotkey: "Mod+Shift+B",
   },
-  toggleFilesTab: {
-    name: "Toggle Files tab",
-    description: "Switch to the Files tab, or back to the previous one.",
+  openSandboxFile: {
+    name: "Open sandbox file",
+    description: "Search sandbox files and open one in the file viewer.",
     group: "Sandbox",
     defaultHotkey: "Mod+P",
+  },
+  openSandboxActions: {
+    name: "Open sandbox actions",
+    description: "Search the actions available in the current sandbox view.",
+    group: "Sandbox",
+    defaultHotkey: "Mod+Shift+P",
   },
   cycleSandboxTab: {
     name: "Cycle sandbox tabs",
@@ -120,9 +126,9 @@ export const SHORTCUT_DEFS = {
     defaultHotkey: "Control+Alt+ArrowRight",
   },
   togglePreviewConsole: {
-    name: "Toggle preview console",
-    description:
-      "Open or close the console dock, switching to Preview if needed.",
+    // Keep the stored id stable so existing user overrides continue to work.
+    name: "Toggle terminal panel",
+    description: "Open or close the terminal panel beneath the workspace.",
     group: "Sandbox",
     defaultHotkey: "Mod+J",
   },

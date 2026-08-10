@@ -2,7 +2,11 @@ import { v } from "convex/values";
 import { internalMutation } from "./_generated/server";
 import type { QueryCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
-import { authQuery, authMutation } from "./functions";
+import {
+  assertMessageParentAccess,
+  authQuery,
+  authMutation,
+} from "./functions";
 import { variationValidator, messageFields } from "./validators";
 import {
   appendMediaStorageIds,
@@ -102,7 +106,10 @@ async function resolveMessageUrls(
 export const listByParent = authQuery({
   args: { parentId: parentIdValidator },
   returns: v.array(messageValidator),
-  handler: async (ctx, args) => resolveMessageUrls(ctx, args.parentId),
+  handler: async (ctx, args) => {
+    await assertMessageParentAccess(ctx.db, args.parentId, ctx.userId);
+    return await resolveMessageUrls(ctx, args.parentId);
+  },
 });
 
 /** Updates the most recent message for a parent (internal use, for streaming updates). */

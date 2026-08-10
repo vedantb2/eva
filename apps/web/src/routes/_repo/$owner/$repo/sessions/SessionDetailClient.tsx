@@ -7,6 +7,7 @@ import { ChatPanel } from "./ChatPanel";
 import { SandboxPanel } from "./SandboxPanel";
 import { Spinner } from "@eva/ui";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
+import { SandboxWorkspace } from "@/lib/components/sandbox/SandboxWorkspace";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PendingReviewCommentsProvider } from "@/lib/contexts/PendingReviewCommentsContext";
@@ -171,80 +172,94 @@ export function SessionDetailClient({
 
   return (
     <PendingReviewCommentsProvider onOpenDiffsTab={openDiffsTab}>
-      <ResizablePanelLayout
-        leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
-          <ChatPanel
-            sessionId={sessionId}
-            title={session.title}
-            branchName={session.branchName}
-            prUrl={session.prUrl}
-            prState={session.prState}
-            summary={session.summary}
-            messages={messages ?? []}
-            queuedMessages={queuedMessages ?? []}
-            planContent={session.planContent}
-            streamingActivity={streaming?.currentActivity}
-            streamingContent={streaming?.currentContent}
-            streamingPendingQuestion={streaming?.pendingQuestion}
-            summaryStreamingActivity={summaryStreaming?.currentActivity}
-            startupStreamingActivity={startupStreaming?.currentActivity}
-            isSandboxActive={isSandboxActive}
-            isSandboxToggling={
-              isSandboxStarting || isSandboxStopping || isStopPending
+      <SandboxWorkspace
+        ownerKind="session"
+        ownerId={sessionId}
+        storageScope={`session:${sessionId}`}
+        sandboxId={session.sandboxId}
+        isActive={isSandboxActive}
+        terminalPanes={session.terminalPanes}
+        hotkeyEnabled={isRouteActive}
+      >
+        {(panes, owner, terminalPanel) => (
+          <ResizablePanelLayout
+            leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
+              <ChatPanel
+                sessionId={sessionId}
+                title={session.title}
+                branchName={session.branchName}
+                prUrl={session.prUrl}
+                prState={session.prState}
+                summary={session.summary}
+                messages={messages ?? []}
+                queuedMessages={queuedMessages ?? []}
+                planContent={session.planContent}
+                streamingActivity={streaming?.currentActivity}
+                streamingContent={streaming?.currentContent}
+                streamingPendingQuestion={streaming?.pendingQuestion}
+                summaryStreamingActivity={summaryStreaming?.currentActivity}
+                startupStreamingActivity={startupStreaming?.currentActivity}
+                isSandboxActive={isSandboxActive}
+                isSandboxToggling={
+                  isSandboxStarting || isSandboxStopping || isStopPending
+                }
+                isSandboxStopping={isSandboxStopping || isStopPending}
+                onSandboxToggle={handleSandboxToggle}
+                isArchived={isArchived}
+                isReadOnly={isReadOnly}
+                deploymentStatus={session.deploymentStatus}
+                sandboxCollapsed={rightPanelCollapsed}
+                onToggleSandbox={onToggleRightPanel}
+                onOpenFile={onOpenFile}
+                onViewDiff={onViewDiff}
+                onOpenPrdTab={() => {
+                  onSandboxTabChange("prd");
+                  setExpandRightSignal((n) => n + 1);
+                }}
+                backgroundAgents={session.backgroundAgents}
+              />
+            )}
+            rightPanel={
+              <SandboxPanel
+                sessionId={sessionId}
+                sandboxId={session.sandboxId}
+                isActive={isSandboxActive}
+                isRouteActive={isRouteActive}
+                repoId={session.repoId}
+                prUrl={session.prUrl}
+                // Prefer session (set after services start); fall back to app
+                // settings so preview doesn't default to 3000 before that lands.
+                devPort={session.devPort ?? repo.devPort}
+                devCommand={session.devCommand ?? repo.devCommand}
+                owner={owner}
+                panes={panes}
+                terminalPanel={terminalPanel}
+                planContent={session.planContent}
+                messages={messages ?? []}
+                lastMode={stickyMode}
+                selectedVariationIndex={selectedVariationIndex}
+                isArchived={isReadOnly}
+                activeTab={activeSandboxTab}
+                onTabChange={onSandboxTabChange}
+                agentBrowsingAt={session.agentBrowsingAt}
+                onStartSandbox={
+                  isReadOnly || isSandboxStopping || isStopPending
+                    ? undefined
+                    : () => {
+                        void handleSandboxToggle("start");
+                      }
+                }
+                isSandboxStarting={isSandboxStarting}
+              />
             }
-            isSandboxStopping={isSandboxStopping || isStopPending}
-            onSandboxToggle={handleSandboxToggle}
-            isArchived={isArchived}
-            isReadOnly={isReadOnly}
-            deploymentStatus={session.deploymentStatus}
-            sandboxCollapsed={rightPanelCollapsed}
-            onToggleSandbox={onToggleRightPanel}
-            onOpenFile={onOpenFile}
-            onViewDiff={onViewDiff}
-            onOpenPrdTab={() => {
-              onSandboxTabChange("prd");
-              setExpandRightSignal((n) => n + 1);
-            }}
-            backgroundAgents={session.backgroundAgents}
+            leftDefaultSize="40%"
+            leftMinWidthPx={350}
+            rightMinWidthPx={300}
+            storageKey="sandbox-collapsed"
+            expandRightSignal={expandRightSignal}
           />
         )}
-        rightPanel={
-          <SandboxPanel
-            sessionId={sessionId}
-            sandboxId={session.sandboxId}
-            isActive={isSandboxActive}
-            isRouteActive={isRouteActive}
-            repoId={session.repoId}
-            prUrl={session.prUrl}
-            // Prefer session (set after services start); fall back to app
-            // settings so preview doesn't default to 3000 before that lands.
-            devPort={session.devPort ?? repo.devPort}
-            devCommand={session.devCommand ?? repo.devCommand}
-            terminalPanes={session.terminalPanes}
-            planContent={session.planContent}
-            messages={messages ?? []}
-            lastMode={stickyMode}
-            selectedVariationIndex={selectedVariationIndex}
-            isArchived={isReadOnly}
-            activeTab={activeSandboxTab}
-            onTabChange={onSandboxTabChange}
-            agentBrowsingAt={session.agentBrowsingAt}
-            onStartSandbox={
-              isReadOnly || isSandboxStopping || isStopPending
-                ? undefined
-                : () => {
-                    void handleSandboxToggle("start");
-                  }
-            }
-            isSandboxStarting={isSandboxStarting}
-          />
-        }
-        leftDefaultSize="40%"
-        leftMinWidthPx={350}
-        rightMinWidthPx={300}
-        storageKey="sandbox-collapsed"
-        expandRightSignal={expandRightSignal}
-      />
+      </SandboxWorkspace>
     </PendingReviewCommentsProvider>
   );
 }

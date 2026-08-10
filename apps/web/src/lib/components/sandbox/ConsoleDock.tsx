@@ -1,22 +1,15 @@
 "use client";
 
 import { useRef, useState, type ReactNode } from "react";
-import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
 import { cn, rubberband } from "@eva/ui";
 import {
   IconChevronDown,
   IconChevronUp,
   IconTerminal2,
 } from "@tabler/icons-react";
-import { useLocalStorage } from "usehooks-ts";
+import type { ConsoleDockApi } from "./useConsoleDock";
 
-interface ConsoleDockState {
-  expanded: boolean;
-  /** Preview height as a percentage of the dock; the console fills the rest. */
-  previewPct: number;
-}
-
-const DEFAULT_STATE: ConsoleDockState = { expanded: false, previewPct: 60 };
+const DEFAULT_PREVIEW_PCT = 60;
 const MIN_PREVIEW_PCT = 15;
 const MAX_PREVIEW_PCT = 85;
 
@@ -35,8 +28,7 @@ function clampPreviewPct(pct: number): number {
 }
 
 interface ConsoleDockProps {
-  /** Full localStorage key for the expanded state + split ratio. */
-  storageKey: string;
+  controller: ConsoleDockApi;
   /** Top region — the web preview. */
   preview: ReactNode;
   /**
@@ -44,14 +36,6 @@ interface ConsoleDockProps {
    * mid-drag, so the caller can gate the terminal's foreground fit/resize.
    */
   renderConsole: (visible: boolean) => ReactNode;
-  /**
-   * When set, Mod+J toggles the console. If Preview isn't active, switches to
-   * it and expands; if already on Preview, toggles expanded.
-   */
-  consoleToggleHotkey?: {
-    isPreviewActive: boolean;
-    onShowPreview: () => void;
-  };
 }
 
 /**
@@ -61,39 +45,15 @@ interface ConsoleDockProps {
  * preview iframe and the console PTY never remount.
  */
 export function ConsoleDock({
-  storageKey,
+  controller,
   preview,
   renderConsole,
-  consoleToggleHotkey,
 }: ConsoleDockProps) {
-  const [state, setState] = useLocalStorage<ConsoleDockState>(
-    storageKey,
-    DEFAULT_STATE,
-  );
   const [dragging, setDragging] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const previewRef = useRef<HTMLDivElement>(null);
-  const rawPctRef = useRef(DEFAULT_STATE.previewPct);
-  const { expanded, previewPct } = state;
-
-  const toggle = () => {
-    setState((s) => ({ ...s, expanded: !s.expanded }));
-  };
-
-  useShortcut(
-    "togglePreviewConsole",
-    (e) => {
-      e.preventDefault();
-      if (!consoleToggleHotkey) return;
-      if (!consoleToggleHotkey.isPreviewActive) {
-        consoleToggleHotkey.onShowPreview();
-        setState((s) => ({ ...s, expanded: true }));
-        return;
-      }
-      toggle();
-    },
-    { enabled: consoleToggleHotkey !== undefined },
-  );
+  const rawPctRef = useRef(DEFAULT_PREVIEW_PCT);
+  const { expanded, previewPct, toggle, setPreviewPct } = controller;
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -124,7 +84,7 @@ export function ConsoleDock({
     if (previewRef.current) {
       previewRef.current.style.height = `${committed}%`;
     }
-    setState((s) => ({ ...s, previewPct: committed }));
+    setPreviewPct(committed);
     setDragging(false);
   };
 

@@ -10,7 +10,6 @@ import { WebPreviewPanel } from "@/routes/_repo/$owner/$repo/sessions/WebPreview
 import { EditorPanel } from "@/routes/_repo/$owner/$repo/sessions/EditorPanel";
 import { DesktopPanel } from "@/routes/_repo/$owner/$repo/sessions/DesktopPanel";
 import { PrPanel } from "./PrPanel";
-import { TerminalPaneTabs } from "@/routes/_repo/$owner/$repo/sessions/_components/TerminalPaneTabs";
 import { PreviewPaneTabs } from "@/routes/_repo/$owner/$repo/sessions/_components/PreviewPaneTabs";
 import { ConsoleDock } from "./ConsoleDock";
 import type { SandboxPanesApi } from "./useSandboxPanes";
@@ -60,12 +59,10 @@ interface SandboxPaneSlotsProps {
    */
   stickyTerminalHistoryTail?: string;
   onStickyTerminalHistoryTailChange?: (tail: string) => void;
-  /** When false, Mod+J console toggle is inert (inactive cached session shells). */
-  consoleHotkeyEnabled?: boolean;
 }
 
 /**
- * Renders the standard sandbox tab slots (preview, terminal, editor, desktop,
+ * Renders the standard sandbox tab slots (preview, editor, desktop,
  * Review) as a fragment. Callers wrap this in their own flex container and may
  * add their own slots alongside (e.g. session PRD slot).
  */
@@ -92,18 +89,13 @@ export function SandboxPaneSlots({
   onStickyPreviewPathChange,
   stickyTerminalHistoryTail,
   onStickyTerminalHistoryTailChange,
-  consoleHotkeyEnabled = true,
 }: SandboxPaneSlotsProps) {
   const {
     previewIds,
     consolePane,
-    userTermPanes,
     resolvedPreviewActive,
-    resolvedTermActive,
     setPreviewActive,
-    setTermActive,
     handleClosePreview,
-    handleCloseTerminal,
   } = panes;
 
   // Keep Preview chrome + iframes mounted while the Preview tab is hidden so
@@ -179,16 +171,8 @@ export function SandboxPaneSlots({
         }
       >
         <ConsoleDock
-          storageKey={`eva:${owner.kind}:${cacheKey}:console`}
+          controller={panes.consoleDock}
           preview={previewRegion}
-          consoleToggleHotkey={
-            consoleHotkeyEnabled
-              ? {
-                  isPreviewActive: activeTab === "preview",
-                  onShowPreview: () => panes.setActiveTab("preview"),
-                }
-              : undefined
-          }
           renderConsole={(visible) =>
             consolePane ? (
               <div className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -215,42 +199,6 @@ export function SandboxPaneSlots({
           isActive={isActive}
           repoId={repoId}
         />
-      </div>
-      <div
-        className={activeTab === "terminal" ? "h-full flex flex-col" : "hidden"}
-      >
-        <div className={activeTab === "terminal" ? undefined : "hidden"}>
-          <TerminalPaneTabs
-            termIds={userTermPanes.map((pane) => pane.id)}
-            activeId={resolvedTermActive}
-            onSelect={setTermActive}
-            onClose={handleCloseTerminal}
-          />
-        </div>
-        <div className="flex min-h-0 flex-1 flex-col">
-          {userTermPanes.map((pane) => (
-            <div
-              key={pane.id}
-              className={cn(
-                resolvedTermActive === pane.id
-                  ? "flex min-h-0 flex-1 flex-col"
-                  : "hidden",
-              )}
-            >
-              <TerminalPanel
-                owner={owner}
-                sandboxId={sandboxId}
-                isActive={isActive}
-                ptyInstanceId={pane.id}
-                isForeground={
-                  resolvedTermActive === pane.id && activeTab === "terminal"
-                }
-                runDevCommandOnConnect={false}
-                devCommand={devCommand}
-              />
-            </div>
-          ))}
-        </div>
       </div>
       <div
         className={

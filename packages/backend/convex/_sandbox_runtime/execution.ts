@@ -5,7 +5,7 @@ import type { SandboxHandle } from "../_sandbox/provider";
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { action, internalAction } from "../_generated/server";
-import { api, internal } from "../_generated/api";
+import { internal } from "../_generated/api";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import {
   getAIModelProvider,
@@ -44,6 +44,7 @@ import {
 import { ensureSwapFile } from "./swap";
 import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
+import { assertActionSandboxAccess } from "../functions";
 
 /** True if anything is LISTEN on `port` (Vercel images often lack `ss`). */
 function portListenProbeCmd(port: number): string {
@@ -509,7 +510,9 @@ export const watchConvexReadiness = internalAction({
     try {
       logTail = await execHandle(
         sandbox,
-        logPaths.map((p) => `echo "== ${p} =="; tail -n 40 ${p} 2>/dev/null`).join("; "),
+        logPaths
+          .map((p) => `echo "== ${p} =="; tail -n 40 ${p} 2>/dev/null`)
+          .join("; "),
         10,
       );
     } catch {
@@ -605,13 +608,7 @@ export const getPreviewUrl = action({
       throw new Error("Not authenticated");
     }
 
-    // Authorize: the caller must have access to the repo this sandbox belongs to.
-    // `githubRepos.get` returns the repo only for the connector or a team member,
-    // otherwise null — so a null result means the user is not allowed to preview it.
-    const repo = await ctx.runQuery(api.githubRepos.get, { id: args.repoId });
-    if (!repo) {
-      throw new Error("Not authorized to access this repository");
-    }
+    await assertActionSandboxAccess(ctx, args.repoId, args.sandboxId);
 
     // Validates that the repo has Vercel sandbox credentials configured;
     // throws before touching the sandbox if it does not.
@@ -1237,6 +1234,7 @@ type TraitEnvInput = {
   reasoningLevel?: string;
   thinkingEnabled?: boolean;
   use1mContext?: boolean;
+  fastMode?: boolean;
 };
 
 function buildDaemonOptsSig(
@@ -1245,7 +1243,9 @@ function buildDaemonOptsSig(
   providerAccountId: string | undefined,
   traits: TraitEnvInput,
 ): string {
-  return `${normalizedModel}|${allowedTools ?? ""}|${traits.reasoningLevel ?? ""}|${traits.thinkingEnabled === false ? "0" : ""}|${traits.use1mContext === true ? "1" : ""}|${providerAccountId ?? ""}`;
+  const fastMode =
+    traits.fastMode === undefined ? "" : traits.fastMode ? "1" : "0";
+  return `${normalizedModel}|${allowedTools ?? ""}|${traits.reasoningLevel ?? ""}|${traits.thinkingEnabled === false ? "0" : ""}|${traits.use1mContext === true ? "1" : ""}|${fastMode}|${providerAccountId ?? ""}`;
 }
 
 function buildTraitEnvVars(traits: TraitEnvInput): Record<string, string> {
@@ -1258,6 +1258,9 @@ function buildTraitEnvVars(traits: TraitEnvInput): Record<string, string> {
   }
   if (traits.use1mContext === true) {
     env.AI_CONTEXT_1M = "1";
+  }
+  if (traits.fastMode !== undefined) {
+    env.AI_FAST_MODE = traits.fastMode ? "1" : "0";
   }
   return env;
 }
@@ -1277,6 +1280,7 @@ type PrewarmEntityDaemonBaseParams = {
   reasoningLevel?: Infer<typeof reasoningLevelValidator>;
   thinkingEnabled?: boolean;
   use1mContext?: boolean;
+  fastMode?: boolean;
   allowedTools?: string;
   providerAccountId?: Id<"userProviderAccounts">;
   credentialOwnerUserId?: Id<"users">;
@@ -1344,6 +1348,7 @@ async function runPrewarmEntityDaemon(
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
+        fastMode: args.fastMode,
       },
     );
     const alive = await execHandle(
@@ -1453,6 +1458,7 @@ async function runPrewarmEntityDaemon(
               reasoningLevel: args.reasoningLevel,
               thinkingEnabled: args.thinkingEnabled,
               use1mContext: args.use1mContext,
+              fastMode: args.fastMode,
             }),
           },
           claudeSessionId,
@@ -1499,6 +1505,7 @@ export const prewarmEntityDaemon = internalAction({
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
+    fastMode: v.optional(v.boolean()),
     allowedTools: v.optional(v.string()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     credentialOwnerUserId: v.optional(v.id("users")),
@@ -1657,6 +1664,7 @@ export const prewarmSessionDaemon = internalAction({
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
+    fastMode: v.optional(v.boolean()),
     allowedTools: v.optional(v.string()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     credentialOwnerUserId: v.optional(v.id("users")),
@@ -1684,6 +1692,7 @@ export const prewarmSessionDaemon = internalAction({
       reasoningLevel: args.reasoningLevel,
       thinkingEnabled: args.thinkingEnabled,
       use1mContext: args.use1mContext,
+      fastMode: args.fastMode,
       allowedTools: args.allowedTools,
       providerAccountId: args.providerAccountId,
       credentialOwnerUserId: args.credentialOwnerUserId,
@@ -1708,6 +1717,7 @@ export const launchOnExistingSandbox = internalAction({
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
     use1mContext: v.optional(v.boolean()),
+    fastMode: v.optional(v.boolean()),
     allowedTools: v.optional(v.string()),
     systemPrompt: v.optional(v.string()),
     repoId: v.id("githubRepos"),
@@ -1775,6 +1785,7 @@ export const launchOnExistingSandbox = internalAction({
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
+        fastMode: args.fastMode,
       }),
     );
     extraEnvVars.CLAUDE_MAX_TOTAL_RUNTIME_MS = QUICK_TASK_MAX_TOTAL_RUNTIME_MS;

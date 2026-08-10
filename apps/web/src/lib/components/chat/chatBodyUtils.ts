@@ -122,6 +122,20 @@ export function findLastUserMessageIndex(messages: ChatBodyMessage[]): number {
   return -1;
 }
 
+/** Latest non-alert assistant turn, used for adaptive changed-file disclosure. */
+export function findLastAssistantMessageId(
+  messages: ReadonlyArray<
+    Pick<ChatBodyMessage, "_id" | "role" | "isSystemAlert">
+  >,
+): string | undefined {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (!message || message.isSystemAlert) continue;
+    if (message.role === "assistant") return message._id;
+  }
+  return undefined;
+}
+
 /**
  * Model / account snapshot for an assistant row: walks back to the preceding
  * user turn (where send/dequeue stores model + credentialSourceLabel).

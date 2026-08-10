@@ -66,7 +66,9 @@ export const Route = createFileRoute(
       }
       const sandboxTab = isLegacyDesktopSandboxTab(corrupted.tab)
         ? "computer"
-        : corrupted.tab;
+        : corrupted.tab === "terminal"
+          ? "preview"
+          : corrupted.tab;
       throw redirect({
         to: "/$owner/$repo/sessions/$numId/$sandboxTab",
         params: {
@@ -90,6 +92,18 @@ export const Route = createFileRoute(
           repo: params.repo,
           numId: params.numId,
           sandboxTab: "computer",
+        },
+        replace: true,
+      });
+    }
+    if (params.sandboxTab === "terminal") {
+      throw redirect({
+        to: "/$owner/$repo/sessions/$numId/$sandboxTab",
+        params: {
+          owner: params.owner,
+          repo: params.repo,
+          numId: params.numId,
+          sandboxTab: "preview",
         },
         replace: true,
       });

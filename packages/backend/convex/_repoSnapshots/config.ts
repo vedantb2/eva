@@ -4,7 +4,7 @@ import { internal } from "../_generated/api";
 import type { GenericDatabaseReader } from "convex/server";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import { snapshotScheduleValidator } from "../validators";
-import { authQuery, authMutation } from "../functions";
+import { authQuery, authMutation, getRepoWithAccess } from "../functions";
 import { safeDeleteCron, safeReplaceCron } from "../cronManager";
 
 /** Converts a schedule string to a cron expression, returning null for "manual". */
@@ -73,6 +73,7 @@ export const getRepoSnapshot = authQuery({
     v.null(),
   ),
   handler: async (ctx, args) => {
+    await getRepoWithAccess(ctx.db, args.repoId, ctx.userId);
     return await findSnapshotForRepo(ctx.db, args.repoId);
   },
 });
@@ -526,6 +527,7 @@ export const saveRepoSnapshot = authMutation({
   },
   returns: v.id("repoSnapshots"),
   handler: async (ctx, args) => {
+    await getRepoWithAccess(ctx.db, args.repoId, ctx.userId);
     // Check for an app-specific config first (per-app model).
     // During transition, fall back to a shared root config and create an app-scoped row from it.
     const appSpecific = await ctx.db
@@ -668,6 +670,7 @@ export const setSnapshotEnabled = authMutation({
   handler: async (ctx, args) => {
     const config = await ctx.db.get(args.repoSnapshotId);
     if (!config) throw new Error("Snapshot config not found");
+    await getRepoWithAccess(ctx.db, config.repoId, ctx.userId);
 
     const cronName = `snapshot-rebuild-${config.repoId}`;
     const cronJobId = await safeReplaceCron(ctx, {
@@ -693,6 +696,7 @@ export const deleteRepoSnapshot = authMutation({
   handler: async (ctx, args) => {
     const config = await ctx.db.get(args.repoSnapshotId);
     if (!config) return null;
+    await getRepoWithAccess(ctx.db, config.repoId, ctx.userId);
 
     const cronName = `snapshot-rebuild-${config.repoId}`;
     await safeDeleteCron(ctx, cronName);

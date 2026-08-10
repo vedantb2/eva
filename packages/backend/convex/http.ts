@@ -354,9 +354,9 @@ const pushWebhookSchema = z.object({
   commits: z.array(pushCommitPathsSchema).optional().default([]),
 });
 
-const SKILLS_ROOT_PREFIX = ".agents/skills";
+const SKILLS_ROOT_PREFIXES = [".agents/skills", ".claude/skills"];
 
-/** True when any commit path is under `.agents/skills`, or when GitHub sent no
+/** True when a commit touches a supported skill root, or when GitHub sent no
  * path lists (force-push / truncated payloads) so we still resync. */
 function pushTouchesSkills(
   commits: Array<{
@@ -375,8 +375,9 @@ function pushTouchesSkills(
     ]) {
       sawAnyPath = true;
       if (
-        path === SKILLS_ROOT_PREFIX ||
-        path.startsWith(`${SKILLS_ROOT_PREFIX}/`)
+        SKILLS_ROOT_PREFIXES.some(
+          (prefix) => path === prefix || path.startsWith(`${prefix}/`),
+        )
       ) {
         return true;
       }

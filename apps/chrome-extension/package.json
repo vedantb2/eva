@@ -11,7 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@clerk/chrome-extension": "^2.8.20",
+    "@clerk/chrome-extension": "^2.9.15",
     "@eva/backend": "workspace:*",
     "@eva/ui": "workspace:*",
     "@radix-ui/react-collapsible": "^1.1.12",
@@ -36,7 +36,7 @@
     "facehash": "^0.0.7",
     "highlight.js": "^11.11.1",
     "motion": "^12.33.0",
-    "nanoid": "^5.1.6",
+    "nanoid": "^5.1.16",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "streamdown": "^2.1.0",

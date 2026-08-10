@@ -15,20 +15,18 @@ import {
   internalAction,
 } from "./_generated/server";
 import type { ActionCtx, MutationCtx } from "./_generated/server";
-import { internal } from "./_generated/api";
-import { getCurrentUserId } from "./auth";
+import { api, internal } from "./_generated/api";
+import { getCurrentUserId } from "./_auth/currentUser";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
 import { scheduleProjectPrSync } from "./_projects/prSync";
 import { isEntityDeleted } from "./numId";
 
-/** Checks if a user has access to a repo — either as the connector or via team membership. */
-export async function hasRepoAccess(
+/** Checks a loaded repo against connector ownership or team membership. */
+async function userCanAccessRepo(
   db: GenericDatabaseReader<DataModel>,
-  repoId: Id<"githubRepos">,
+  repo: Doc<"githubRepos">,
   userId: Id<"users">,
 ): Promise<boolean> {
-  const repo = await db.get(repoId);
-  if (!repo) return false;
   if (repo.connectedBy === userId) return true;
   const teamId = repo.teamId;
   if (!teamId) return false;
@@ -39,6 +37,65 @@ export async function hasRepoAccess(
     )
     .first();
   return membership !== null;
+}
+
+/** Checks if a user has access to a repo — either as the connector or via team membership. */
+export async function hasRepoAccess(
+  db: GenericDatabaseReader<DataModel>,
+  repoId: Id<"githubRepos">,
+  userId: Id<"users">,
+): Promise<boolean> {
+  const repo = await db.get(repoId);
+  return repo ? await userCanAccessRepo(db, repo, userId) : false;
+}
+
+/** Loads a repo and throws unless the user may access it. */
+export async function getRepoWithAccess(
+  db: GenericDatabaseReader<DataModel>,
+  repoId: Id<"githubRepos">,
+  userId: Id<"users">,
+): Promise<Doc<"githubRepos">> {
+  const repo = await db.get(repoId);
+  if (!repo) throw new Error("Repository not found");
+  if (!(await userCanAccessRepo(db, repo, userId))) {
+    throw new Error("Not authorized");
+  }
+  return repo;
+}
+
+/** Loads a repo from an action through an access-controlled query. */
+export async function getActionRepoWithAccess(
+  ctx: Pick<ActionCtx, "runQuery">,
+  repoId: Id<"githubRepos">,
+): Promise<Doc<"githubRepos">> {
+  const repo = await ctx.runQuery(api.githubRepos.getAccessibleForAction, {
+    id: repoId,
+  });
+  if (!repo) throw new Error("Not authorized to access this repository");
+  return repo;
+}
+
+/** Verifies both repository access and the repository-to-sandbox binding. */
+export async function assertActionSandboxAccess(
+  ctx: Pick<ActionCtx, "runQuery">,
+  repoId: Id<"githubRepos">,
+  sandboxId: string,
+): Promise<void> {
+  await getActionRepoWithAccess(ctx, repoId);
+  const isBound = await ctx.runQuery(internal.sandboxHeal.isBoundToRepo, {
+    repoId,
+    sandboxId,
+  });
+  if (!isBound) throw new Error("Not authorized to access this sandbox");
+}
+
+/** Verifies team membership from an action through the access-controlled public query. */
+export async function assertActionTeamAccess(
+  ctx: Pick<ActionCtx, "runQuery">,
+  teamId: Id<"teams">,
+): Promise<void> {
+  const team = await ctx.runQuery(api.teams.get, { id: String(teamId) });
+  if (!team) throw new Error("Not authorized to access this team");
 }
 
 /** Checks if a user has access to a team — i.e. is a member of it. */
@@ -68,6 +125,62 @@ export async function hasTaskAccess(
     return project ? hasRepoAccess(db, project.repoId, userId) : false;
   }
   return false;
+}
+
+/** Loads a task and verifies access through its repository or project. */
+export async function getTaskWithAccess(
+  db: GenericDatabaseReader<DataModel>,
+  taskId: Id<"agentTasks">,
+  userId: Id<"users">,
+): Promise<Doc<"agentTasks">> {
+  const task = await db.get(taskId);
+  if (!task) throw new Error("Task not found");
+  if (!(await hasTaskAccess(db, task, userId))) {
+    throw new Error("Not authorized");
+  }
+  return task;
+}
+
+/** Loads a session and verifies access through its repository. */
+export async function getSessionWithAccess(
+  db: GenericDatabaseReader<DataModel>,
+  sessionId: Id<"sessions">,
+  userId: Id<"users">,
+): Promise<Doc<"sessions">> {
+  const session = await db.get(sessionId);
+  if (!session) throw new Error("Session not found");
+  if (!(await hasRepoAccess(db, session.repoId, userId))) {
+    throw new Error("Not authorized");
+  }
+  return session;
+}
+
+/** Verifies access to a message parent regardless of its entity kind. */
+export async function assertMessageParentAccess(
+  db: GenericDatabaseReader<DataModel>,
+  parentId: Id<"sessions"> | Id<"projects"> | Id<"agentTasks">,
+  userId: Id<"users">,
+): Promise<void> {
+  const rawId = String(parentId);
+  const sessionId = db.normalizeId("sessions", rawId);
+  if (sessionId) {
+    await getSessionWithAccess(db, sessionId, userId);
+    return;
+  }
+
+  const projectId = db.normalizeId("projects", rawId);
+  if (projectId) {
+    await getProjectWithAccess(db, projectId, userId);
+    return;
+  }
+
+  const taskId = db.normalizeId("agentTasks", rawId);
+  if (taskId) {
+    const task = await db.get(taskId);
+    if (task && (await hasTaskAccess(db, task, userId))) return;
+  }
+
+  throw new Error("Not authorized");
 }
 
 /** Patches a project's phase and fires PR sync for the transition. */

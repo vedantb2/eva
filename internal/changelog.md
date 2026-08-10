@@ -5,6 +5,8 @@
 
 Completion callbacks now carry and validate the exact `turnId` before changing streaming state, closing a row, or resuming a workflow. This makes retries idempotent and prevents a superseded callback from completing the next queued turn. Final heartbeat terminal verdicts stop completion synchronously, task finalization grants its ten-minute lease atomically, and session summaries use a distinct renewable lease surface instead of borrowing chat liveness.
 
+Two consequences of that new surface are handled here. `getOpen` no longer falls back to `activeWorkflowId` for `summary`: summaries have only ever run as turn rows, so there is nothing pre-migration to be compatible with, and session chat writes the same field — the fallback would have reported a summary as running for any plain chat turn on a session with no summary row yet. And a summary still holds `activeWorkflowId` while it runs, so a message sent during one is queued rather than started; both paths that release the field, `saveResult` and the lease-expiry finalizer, now drain the session queue instead of leaving that message waiting for an unrelated event.
+
 ## Mouse wheel dead-zones from blanket overscroll contain - 2026-08-08
 
 Sessions, quick tasks, and projects each carried their own copy of the sandbox view-state API. Twelve near-identical mutations — `setPreviewPath`, `setPreviewPort`, `setTerminalHistoryTail`, and `releaseBrowserLock`, once per owner table — differed only in which id they took and which access helper they called. The PTY layer had a fourth copy of the owner union of its own.

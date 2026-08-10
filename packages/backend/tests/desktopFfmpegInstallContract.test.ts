@@ -34,7 +34,7 @@ const desktopStartBody = (() => {
  * The install has to come before either gate.
  */
 test("desktop start installs ffmpeg before the health gate and install guard", () => {
-  const ffmpegAt = desktopStartBody.indexOf("command -v ffmpeg");
+  const ffmpegAt = desktopStartBody.indexOf("ffmpeg -version");
   expect(ffmpegAt, "desktop start must install ffmpeg").toBeGreaterThan(-1);
 
   const gates = [
@@ -55,7 +55,7 @@ test("desktop start installs ffmpeg before the health gate and install guard", (
 
 /** Soft-failing and idempotent, so a dnf hiccup cannot block desktop startup. */
 test("the ffmpeg install is idempotent and cannot block startup", () => {
-  const installAt = desktopStartBody.indexOf("if ! command -v ffmpeg");
+  const installAt = desktopStartBody.indexOf("if ! ffmpeg -version");
   expect(
     installAt,
     "the install must be gated on `command -v` so re-running is a no-op",
@@ -64,5 +64,20 @@ test("the ffmpeg install is idempotent and cannot block startup", () => {
   expect(
     installBlock,
     "a failing dnf must not throw out of desktop startup",
+  ).toContain("|| true");
+});
+
+test("the health probe catches a present but unloadable ffmpeg binary", () => {
+  expect(desktopStartBody).not.toContain("command -v ffmpeg");
+  expect(desktopStartBody.match(/if ! ffmpeg -version/g)).toHaveLength(2);
+});
+
+test("the repair installs ffmpeg before its missing libjack dependency", () => {
+  const ffmpegInstallAt = desktopStartBody.indexOf("ffmpeg-free");
+  const libjackInstallAt = desktopStartBody.indexOf("libjack.so.0");
+  expect(ffmpegInstallAt).toBeGreaterThan(-1);
+  expect(libjackInstallAt).toBeGreaterThan(ffmpegInstallAt);
+  expect(
+    desktopStartBody.slice(libjackInstallAt, libjackInstallAt + 500),
   ).toContain("|| true");
 });

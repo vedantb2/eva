@@ -23,6 +23,7 @@ import {
 } from "./helpers";
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
+import { leaseExpiryFor } from "../_chat/turnLease";
 
 /** Retrieves the active workflow ID for a task, or null if none exists. */
 async function getActiveWorkflowId(
@@ -125,8 +126,15 @@ export const handleCompletion = authMutation({
       );
     }
 
+    const finalizingAt = Date.now();
     await ctx.db.patch(latestRunningRun._id, {
-      finalizingAt: Date.now(),
+      finalizingAt,
+      leaseExpiresAt: leaseExpiryFor({
+        state: "finalizing",
+        turnStartedAt:
+          latestRunningRun.startedAt ?? latestRunningRun._creationTime,
+        now: finalizingAt,
+      }),
     });
 
     try {

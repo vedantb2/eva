@@ -14,7 +14,16 @@ import {
 } from "./turnLease";
 
 /** The chat surfaces that own turn rows — mirrors `ChatSurfaceAdapter.kind`. */
-export type TurnSurface = "session" | "taskChat" | "projectChat";
+export type TurnSurface =
+  | "session"
+  | "taskChat"
+  | "projectChat"
+  | "summary";
+
+export type CompletionTurnResolution =
+  | { status: "current"; turn: Doc<"turns"> }
+  | { status: "legacy" }
+  | { status: "stale" };
 
 /**
  * Every write to the `turns` table lives here. Turn rows are the only thing
@@ -34,6 +43,46 @@ export async function findOpenTurn(
       q.eq("surface", surface).eq("entityId", entityId).eq("open", true),
     )
     .first();
+}
+
+/**
+ * Resolves the exact turn allowed to report completion.
+ *
+ * New callbacks always present a turn id. A callback from a deployment that
+ * predates turn leases may omit it, but is accepted only when no open row
+ * exists; once a newer turn has been staged, an unfenced legacy callback can
+ * no longer mutate the entity.
+ */
+export async function resolveCompletionTurn(
+  ctx: MutationCtx,
+  params: {
+    surface: TurnSurface;
+    entityId: string;
+    turnId?: string;
+    placeholderMessageId?: Id<"messages">;
+  },
+): Promise<CompletionTurnResolution> {
+  const current = await findOpenTurn(ctx, params.surface, params.entityId);
+  if (params.turnId === undefined) {
+    return current ? { status: "stale" } : { status: "legacy" };
+  }
+
+  const id = ctx.db.normalizeId("turns", params.turnId);
+  if (!id) return { status: "stale" };
+  const turn = await ctx.db.get(id);
+  if (
+    !turn ||
+    !turn.open ||
+    turn.surface !== params.surface ||
+    turn.entityId !== params.entityId ||
+    !current ||
+    current._id !== turn._id ||
+    (params.placeholderMessageId !== undefined &&
+      turn.placeholderMessageId !== params.placeholderMessageId)
+  ) {
+    return { status: "stale" };
+  }
+  return { status: "current", turn };
 }
 
 /**
@@ -246,15 +295,20 @@ export async function renewTurnLease(
     now,
   });
 
-  const durationMs = leaseDurationMs("running", phase);
+  // A heartbeat that races with completion must preserve the finalizing state
+  // and its longer push/save allowance instead of shortening it back to idle.
+  const renewedState = turn.state === "finalizing" ? "finalizing" : "running";
+  const durationMs = leaseDurationMs(renewedState, phase);
   const leaseExpiresAt = leaseExpiryFor({
-    state: "running",
+    state: renewedState,
     phase,
     turnStartedAt: turn.turnStartedAt,
     now,
   });
   await ctx.db.patch(turn._id, {
-    ...(canTransitionTurn(turn.state, "running") ? { state: "running" } : {}),
+    ...(renewedState === "running" && canTransitionTurn(turn.state, "running")
+      ? { state: "running" }
+      : {}),
     leaseExpiresAt,
   });
 

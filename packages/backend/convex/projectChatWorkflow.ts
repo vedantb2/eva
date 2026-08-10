@@ -22,8 +22,11 @@ import {
 } from "./_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "./streaming";
 import { startNextQueuedProjectChatMessage } from "./_queues/helpers";
-import { closeOpenTurn } from "./_chat/turnStore";
-import { markChatTurnFinalizing } from "./_chat/surfaceAdapters";
+import {
+  advanceTurn,
+  closeOpenTurn,
+  resolveCompletionTurn,
+} from "./_chat/turnStore";
 import {
   trackProjectChatWorkflow,
   PROJECT_CHAT_STREAM_PREFIX,
@@ -838,6 +841,7 @@ export const handleCompletion = authMutation({
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
+    turnId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -847,18 +851,38 @@ export const handleCompletion = authMutation({
       throw new Error("Not authorized");
     }
 
+    const completion = await resolveCompletionTurn(ctx, {
+      surface: "projectChat",
+      entityId: String(args.projectId),
+      turnId: args.turnId,
+    });
+    if (completion.status === "stale") return null;
+    if (
+      completion.status === "current" &&
+      completion.turn.state === "finalizing"
+    ) {
+      return null;
+    }
+    const workflowId =
+      completion.status === "current"
+        ? completion.turn.workflowId
+        : project.activeChatWorkflowId;
+    if (!workflowId || workflowId !== project.activeChatWorkflowId) return null;
+
     if (project.pendingTurn !== undefined) {
       await ctx.db.patch(args.projectId, { pendingTurn: undefined });
     }
 
     // The runner stops heartbeating once it has reported; the lease switches to
     // the finishing allowance that covers saveResult.
-    await markChatTurnFinalizing(ctx, "projectChat", String(args.projectId));
+    if (completion.status === "current") {
+      await advanceTurn(ctx, completion.turn, "finalizing");
+    }
 
     await sendCompletionEvent(
       ctx,
       projectChatCompleteEvent,
-      project.activeChatWorkflowId,
+      workflowId,
       {
         success: args.success,
         result: args.result,

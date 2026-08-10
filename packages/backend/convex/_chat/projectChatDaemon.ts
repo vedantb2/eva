@@ -12,7 +12,11 @@ import { mergeBackgroundAgents } from "../_sessions/backgroundAgents";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { startNextQueuedProjectChatMessage } from "../_queues/helpers";
 import { PROJECT_CHAT_STREAM_PREFIX } from "../workflowWatchdog";
-import { closeOpenTurn, findOpenTurn } from "./turnStore";
+import {
+  closeTurn,
+  findOpenTurn,
+  resolveCompletionTurn,
+} from "./turnStore";
 import { openChatTurn, projectChatAdapter } from "./surfaceAdapters";
 
 function projectChatStreamEntityId(projectId: Id<"projects">): string {
@@ -202,33 +206,41 @@ export const completeSyntheticTurn = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     pendingQuestion: v.optional(v.string()),
+    turnId: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const message = await ctx.db.get(args.messageId);
+    const project = await ctx.db.get(args.projectId);
+    if (
+      !message ||
+      message.parentId !== args.projectId ||
+      message.finishedAt !== undefined ||
+      !project ||
+      project.syntheticTurnMessageId !== args.messageId
+    ) {
+      return null;
+    }
+
+    const completion = await resolveCompletionTurn(ctx, {
+      surface: "projectChat",
+      entityId: String(args.projectId),
+      turnId: args.turnId,
+      placeholderMessageId: args.messageId,
+    });
+    if (completion.status === "stale") return null;
+
     await clearStreamingActivity(
       ctx,
       projectChatStreamEntityId(args.projectId),
     );
-    await closeOpenTurn(
-      ctx,
-      "projectChat",
-      String(args.projectId),
-      args.success ? "done" : "error",
-      { ...(args.error ? { error: args.error } : {}) },
-    );
-
-    const message = await ctx.db.get(args.messageId);
-    if (
-      !message ||
-      message.parentId !== args.projectId ||
-      message.finishedAt !== undefined
-    ) {
-      await ctx.db.patch(args.projectId, {
-        syntheticTurnMessageId: undefined,
-        updatedAt: Date.now(),
-      });
-      await startNextQueuedProjectChatMessage(ctx, args.projectId);
-      return null;
+    if (completion.status === "current") {
+      await closeTurn(
+        ctx,
+        completion.turn,
+        args.success ? "done" : "error",
+        { ...(args.error ? { error: args.error } : {}) },
+      );
     }
 
     const patch: {

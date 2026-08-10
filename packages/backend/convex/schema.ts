@@ -184,6 +184,7 @@ const schema = defineSchema({
       v.literal("session"),
       v.literal("taskChat"),
       v.literal("projectChat"),
+      v.literal("summary"),
     ),
     // String(entity._id) — the same basis as adapter.streamingEntityId, minus
     // the per-surface prefix (surface is its own column here).

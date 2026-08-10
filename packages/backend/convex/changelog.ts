@@ -2,7 +2,7 @@ import { v } from "convex/values";
 import type { GenericDatabaseReader } from "convex/server";
 import type { DataModel, Doc } from "./_generated/dataModel";
 import { query } from "./_generated/server";
-import { getCurrentUserId } from "./auth";
+import { getCurrentUserId } from "./_auth/currentUser";
 import { authMutation } from "./functions";
 
 export const CHANGELOG_AUTOMATION_TITLE = "Eva Weekly Changelog";

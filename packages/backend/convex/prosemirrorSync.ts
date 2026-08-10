@@ -2,7 +2,7 @@ import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 import { ProsemirrorSync } from "@convex-dev/prosemirror-sync";
-import { getCurrentUserId } from "./auth";
+import { getCurrentUserId } from "./_auth/currentUser";
 import { hasRepoAccess } from "./functions";
 
 const prosemirrorSync = new ProsemirrorSync(components.prosemirrorSync);

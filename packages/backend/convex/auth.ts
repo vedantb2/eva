@@ -1,11 +1,5 @@
-import {
-  mutation,
-  type QueryCtx,
-  type MutationCtx,
-  internalQuery,
-} from "./_generated/server";
+import { mutation, internalQuery } from "./_generated/server";
 import { v } from "convex/values";
-import type { Id } from "./_generated/dataModel";
 import {
   themeValidator,
   roleUserValidator,
@@ -17,25 +11,9 @@ import {
   shortcutOverridesValidator,
 } from "./validators";
 import { authQuery, authMutation } from "./functions";
+import { getCurrentUserId } from "./_auth/currentUser";
 import { resolveExperimentalFlags } from "./_auth/experimentalFlags";
 import type { ExperimentalFlagKey } from "./_auth/experimentalFlags";
-
-/** Resolves the current authenticated user's ID from their Clerk identity, or returns null if unauthenticated. */
-export async function getCurrentUserId(
-  ctx: QueryCtx | MutationCtx,
-): Promise<Id<"users"> | null> {
-  const identity = await ctx.auth.getUserIdentity();
-  if (!identity) return null;
-
-  const clerkUserId = identity.subject;
-  if (!clerkUserId) return null;
-  const user = await ctx.db
-    .query("users")
-    .withIndex("by_clerk_id", (q) => q.eq("clerkId", clerkUserId))
-    .first();
-
-  return user?._id ?? null;
-}
 
 /** Returns the Clerk ID for a given user, or null if the user doesn't exist. */
 export const getUserClerkId = internalQuery({

@@ -7,7 +7,7 @@ import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { SettingsPage } from "@/lib/components/settings/SettingsPage";
-import { Button, Input, Spinner, Badge } from "@eva/ui";
+import { Button, Input, Spinner, Badge, toast } from "@eva/ui";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 import {
@@ -93,6 +93,7 @@ export function MonorepoClient() {
       });
     } catch (err) {
       console.error("Failed to add app:", err);
+      toast.error("Could not add the app. Try again.");
     }
     setAddingPath(null);
   };

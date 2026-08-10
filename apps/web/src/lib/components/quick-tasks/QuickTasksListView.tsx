@@ -21,6 +21,7 @@ import {
   ListHeader,
   ListItems,
   ListItem,
+  toast,
   type ListDragEndEvent,
 } from "@eva/ui";
 import { IconChevronRight, IconPlayerPlay } from "@tabler/icons-react";
@@ -153,6 +154,7 @@ export function QuickTasksListView({
       await updateStatus({ id: task._id, status: targetStatus });
     } catch (err) {
       console.error("Failed to update status:", err);
+      toast.error("Could not change the task status. Try again.");
     }
   };
 
@@ -175,6 +177,9 @@ export function QuickTasksListView({
       if (failedCount > 0) {
         console.error(
           `Run All started ${ownedTodoTasks.length - failedCount} of ${ownedTodoTasks.length} tasks`,
+        );
+        toast.error(
+          `Could not start ${failedCount} of ${ownedTodoTasks.length} tasks.`,
         );
       }
     } catch (err) {

@@ -20,6 +20,7 @@ import {
   DropdownMenuSeparator,
   DialogBody,
   Spinner,
+  toast,
 } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
@@ -194,6 +195,7 @@ export function ProjectDetailClient({
       await cancelBuild({ projectId: projectId });
     } catch (err) {
       console.error("Failed to stop build:", err);
+      toast.error("Could not stop the build. Try again.");
     }
     setIsStoppingBuild(false);
   };

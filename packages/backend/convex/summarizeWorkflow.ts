@@ -19,6 +19,7 @@ import {
   sendCompletionEvent,
 } from "./_taskWorkflow/helpers";
 import { prepareSandboxSteps } from "./_sandbox_runtime/prepareSandboxSteps";
+import { startNextQueuedSessionMessage } from "./_queues/helpers";
 
 const summarizeCompleteEvent = defineEvent({
   name: "summarizeComplete",
@@ -174,6 +175,10 @@ export const saveResult = internalMutation({
         { ...(args.error !== null ? { error: args.error } : {}) },
       );
     }
+    // A message sent while the summary held `activeWorkflowId` was queued, not
+    // started. Releasing the field above is what makes it startable, so drain
+    // here or it waits for an unrelated event.
+    await startNextQueuedSessionMessage(ctx, args.sessionId);
     return null;
   },
 });

@@ -95,8 +95,13 @@ export const getOpen = authQuery({
     if (hasTurnHistory) return null;
 
     switch (args.surface) {
-      case "session":
-      case "summary": {
+      // Summaries only ever ran as turn rows, so there is no pre-migration
+      // state to fall back to. They must not read `activeWorkflowId`: session
+      // chat writes the same field, so a plain chat turn would report a summary
+      // as running on any session with no summary row yet.
+      case "summary":
+        return null;
+      case "session": {
         const id = ctx.db.normalizeId("sessions", args.entityId);
         const session = id ? await ctx.db.get(id) : null;
         if (!session?.activeWorkflowId) return null;
@@ -284,6 +289,10 @@ async function finalizeExpiredSummary(
     await clearStreamingActivity(ctx, turn.streamingEntityId);
     await sessionChatAdapter.interrupt(ctx, session);
     await ctx.db.patch(sessionId, { activeWorkflowId: undefined });
+    // A message sent while the summary held `activeWorkflowId` was queued, not
+    // started. Releasing the field is what makes it startable, so drain here or
+    // it waits for an unrelated event.
+    await sessionChatAdapter.drainQueue(ctx, sessionId);
   }
   await closeTurn(ctx, turn, "error", {
     error: "Summary generation lease expired",

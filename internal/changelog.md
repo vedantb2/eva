@@ -4,6 +4,8 @@
 
 Completion callbacks now carry and validate the exact `turnId` before changing streaming state, closing a row, or resuming a workflow. This makes retries idempotent and prevents a superseded callback from completing the next queued turn. Final heartbeat terminal verdicts stop completion synchronously, task finalization grants its ten-minute lease atomically, and session summaries use a distinct renewable lease surface instead of borrowing chat liveness.
 
+Two consequences of that new surface are handled here. `getOpen` no longer falls back to `activeWorkflowId` for `summary`: summaries have only ever run as turn rows, so there is nothing pre-migration to be compatible with, and session chat writes the same field — the fallback would have reported a summary as running for any plain chat turn on a session with no summary row yet. And a summary still holds `activeWorkflowId` while it runs, so a message sent during one is queued rather than started; both paths that release the field, `saveResult` and the lease-expiry finalizer, now drain the session queue instead of leaving that message waiting for an unrelated event.
+
 ## Mouse wheel dead-zones from blanket overscroll contain - 2026-08-08
 
 Putting `overscroll-behavior: contain` on `@utility scrollbar` made every `overflow:auto` pane a contain target, including ones with no overflow and horizontal boards with `overflow-y-hidden`. Chrome treats those as scroll containers at their boundary, so the wheel was swallowed while dragging the ancestor scrollbar still worked. Removed contain from the utility; restored `overscroll-y-contain` / `overscroll-contain` on the kanban column and mention picker that had opted in before.

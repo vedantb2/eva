@@ -1,5 +1,15 @@
 # Changelog
 
+## VS Code-style sandbox quick open, action palette, and terminal scrollback - 2026-08-09
+
+Sandbox navigation now mirrors the two VS Code workflows users already know: `Mod+P` opens a fuzzy file picker over the running sandbox, and `Mod+Shift+P` opens a context-aware action palette for available tabs, custom apps, the preview console, and new preview or terminal panes. Selecting a file reuses the existing `?file=` deep link and Files viewer rather than introducing a second viewer path. Both bindings live in the rebindable shortcut registry and resolve to Ctrl on Windows/Linux and Command on macOS.
+
+The file tree and quick picker now share one cached, discriminated file-list controller per sandbox, so opening either surface does not issue duplicate listing actions or drift into separate loading/error behavior. The Preview console's persisted state was similarly lifted into the shared pane controller, allowing the existing button, `Mod+J`, and the action palette to operate the same dock state. File ranking is bounded to 100 rendered matches over the existing 20,000-file backend cap to keep the dialog responsive in large repositories.
+
+Console and Terminal scrolling failed because tmux put its outer client in the terminal alternate screen; disabling alternate screens only for programs inside tmux did not give xterm a normal-buffer history. The Vercel PTY launch now removes tmux's outer `smcup`/`rmcup` capabilities as well, while retaining mouse-off, status-off, and the 50,000-line tmux history limit. Both terminal surfaces inherit the fix from their shared launch path.
+
+Verified: focused Vitest regressions pass (6 tests), and TypeScript checks pass for `@eva/web` and `@eva/backend`. React Doctor changed-scope score: 86/100; one warning is the documented effect required to synchronize the imperative sandbox-list action, and the remaining eight point to unchanged pre-existing lines. The broader web suite was also invoked accidentally and exposed only the existing light-theme surface-token failures plus an initial file-ranking tie that was fixed before the focused rerun. No dev server, lint, or build was run per repository instructions.
+
 ## Unified Claude skills, quieter diff summaries, opt-in model modes - 2026-08-09
 
 Repo skill sync now discovers both `.agents/skills` and `.claude/skills`. Claude-specific skills stay in the existing `/` picker, carry a Claude badge, and are filtered by the active provider; a Claude copy shadows a generic skill of the same name only in Claude chats.

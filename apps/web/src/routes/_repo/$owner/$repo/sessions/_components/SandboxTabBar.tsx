@@ -19,6 +19,10 @@ import { useSandboxViewHotkeys } from "@/lib/components/sandbox/useSandboxViewHo
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { TablerIconByName } from "@/lib/components/TablerIconByName";
 import type { SandboxTab } from "@/lib/search-params";
+import type { SandboxFileListApi } from "@/lib/components/sandbox/useSandboxFileList";
+import type { ConsoleDockApi } from "@/lib/components/sandbox/useConsoleDock";
+import { SandboxQuickOpenDialogs } from "@/lib/components/sandbox/SandboxQuickOpenDialogs";
+import { buildSandboxPaletteCommands } from "@/lib/components/sandbox/sandboxPaletteCommands";
 import {
   Tabs,
   TabsList,
@@ -119,6 +123,8 @@ interface SandboxTabBarProps {
   hotkeysEnabled?: boolean;
   /** Tab row density — `compact` for a shorter bar with smaller labels/icons. */
   tabSize?: SandboxTabBarSize;
+  fileList: SandboxFileListApi;
+  consoleDock: ConsoleDockApi;
 }
 
 const AGENT_BROWSING_LOCK_TTL_MS = 30 * 60 * 1000;
@@ -152,6 +158,8 @@ export function SandboxTabBar({
   onCloseEditor,
   hotkeysEnabled = true,
   tabSize = "default",
+  fileList,
+  consoleDock,
 }: SandboxTabBarProps) {
   const styles = getSandboxTabBarStyles(tabSize);
   const tabs = enabledTabs
@@ -184,12 +192,31 @@ export function SandboxTabBar({
     activeTab,
     onTabChange,
     showBrowserTab: tabs.some((tab) => tab.value === "browser"),
-    showFilesTab,
     enabled: hotkeysEnabled,
   });
 
+  const commands = buildSandboxPaletteCommands({
+    activeTab,
+    tabs,
+    showFilesTab,
+    showPrdTab,
+    showDesignsTab,
+    showEditorItem,
+    showDesktopItem,
+    customTabs: customTabs ?? [],
+    consoleDock,
+    onTabChange,
+    onOpenEditor,
+    onOpenComputer,
+    onNewPreview,
+    onNewTerminal,
+    newPreviewDisabled,
+    newTerminalDisabled,
+  });
+
   return (
-    <div className={styles.bar}>
+    <>
+      <div className={styles.bar}>
       <Tabs
         className="min-w-0 flex-1"
         value={activeTab}
@@ -381,6 +408,14 @@ export function SandboxTabBar({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-    </div>
+      </div>
+      <SandboxQuickOpenDialogs
+        fileList={fileList}
+        commands={commands}
+        onShowFiles={() => onTabChange("files")}
+        hotkeysEnabled={hotkeysEnabled}
+        filesEnabled={showFilesTab}
+      />
+    </>
   );
 }

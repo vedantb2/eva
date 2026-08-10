@@ -133,6 +133,9 @@ export function startVercelPty(
   // Newlines (not ";") so `if/then/fi` is valid bash. Prefer attach to an
   // existing session so reconnects don't thrash create/destroy.
   // alternate-screen off: keep output in xterm scrollback (Console scrollbar).
+  // terminal-overrides disables tmux's own outer alternate screen. The
+  // alternate-screen window option below only affects programs inside tmux;
+  // without both, xterm's normal buffer has no history for wheel/drag scroll.
   // status off: the status bar shrinks tmux's scroll region by one row, and
   // xterm only pushes lines into scrollback when a scroll spans the FULL
   // viewport — with the bar on, nothing ever reaches scrollback (no scrollbar).
@@ -150,6 +153,7 @@ export function startVercelPty(
         `  tmux has-session -t ${sessionName} 2>/dev/null || tmux new-session -d -s ${sessionName} -c ${cwd} -- bash -c '${EVA_ENV_SOURCE_CMD}; exec bash -i'`,
         `  tmux set-option -g mouse off`,
         `  tmux set-option -t ${sessionName} mouse off`,
+        `  tmux show-options -sv terminal-overrides | grep -q 'xterm.*smcup@.*rmcup@' || tmux set-option -as terminal-overrides ',xterm*:smcup@:rmcup@'`,
         `  tmux set-option -t ${sessionName} alternate-screen off`,
         `  tmux set-option -t ${sessionName} status off`,
         `  tmux set-option -t ${sessionName} history-limit 50000`,

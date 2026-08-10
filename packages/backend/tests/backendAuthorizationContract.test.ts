@@ -36,6 +36,62 @@ describe("backend authorization boundaries", () => {
     );
   });
 
+  // A client-supplied installation id can be any number GitHub ever issued, so
+  // installations Eva has no row for must be proven against the caller's own
+  // GitHub token rather than an installation token (which authenticates as the
+  // App, across every installation it belongs to).
+  it("unclaimed installations are verified with the caller's GitHub token", () => {
+    const api = convexSource("_github/api.ts");
+    expect(api).toContain("listInstallationReposForUser");
+    expect(api).toContain("assertUserCanUseRepo");
+    const userAuth = convexSource("_github/userAuth.ts");
+    expect(userAuth).toContain("listInstallationReposForAuthenticatedUser");
+    expect(userAuth).not.toContain("getInstallationOctokit");
+  });
+
+  it("connectRepo verifies GitHub access before binding a repo row", () => {
+    const api = convexSource("_github/api.ts");
+    const connect = api.slice(api.indexOf("export const connectRepo"));
+    expect(connect.indexOf("assertUserCanUseRepo")).toBeLessThan(
+      connect.indexOf("createForInstallation"),
+    );
+  });
+
+  it("the repo create mutation refuses installations Eva does not know", () => {
+    const mutations = convexSource("_githubRepos/mutations.ts");
+    expect(mutations).toContain(
+      "if (!installationRepos.some((repo) => repo.connectedBy === ctx.userId))",
+    );
+  });
+
+  it("GitHub user tokens stay server-side and are stored encrypted", () => {
+    const tokens = convexSource("_github/userTokens.ts");
+    expect(tokens).toContain("export const getStoredToken = internalQuery");
+    expect(tokens).toContain("export const putStoredToken = internalMutation");
+    const userAuth = convexSource("_github/userAuth.ts");
+    expect(userAuth).toContain("encryptValue(token.accessToken)");
+  });
+
+  it("authorize-hop nonces are single-use", () => {
+    const tokens = convexSource("_github/userTokens.ts");
+    const consume = tokens.slice(
+      tokens.indexOf("export const consumeOauthState"),
+    );
+    // Deleting before the expiry check is what makes a replay fail.
+    expect(consume.indexOf("ctx.db.delete(row._id)")).toBeLessThan(
+      consume.indexOf("row.expiresAt < Date.now()"),
+    );
+  });
+
+  it("the GitHub OAuth callback identifies the user from the nonce alone", () => {
+    const http = convexSource("http.ts");
+    const callback = http.slice(
+      http.indexOf('path: "/api/github/oauth/callback"'),
+    );
+    expect(callback).toContain("consumeOauthState");
+    expect(callback).toContain("userId: claim.userId");
+  });
+
   it("OAuth token exchange binds authorization codes to clients and S256", () => {
     const native = convexSource("mcp/native.ts");
     expect(native).toContain("entry.clientId !== params.client_id");

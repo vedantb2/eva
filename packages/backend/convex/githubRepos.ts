@@ -23,6 +23,7 @@ export {
   assignToTeam,
   removeFromTeam,
   create,
+  createForInstallation,
   updateConfig,
   updateMcpRootPrompt,
   toggleHidden,

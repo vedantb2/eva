@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useAction, useMutation } from "convex/react";
-import { api } from "@eva/backend";
+import { api, GITHUB_AUTH_REQUIRED } from "@eva/backend";
 import { Container } from "@/lib/components/ui/Container";
 import { Button, Spinner, toast } from "@eva/ui";
 import { RepoSetupCard } from "./_components/RepoSetupCard";
@@ -24,6 +24,8 @@ export function RepoSetupClient({
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [needsGitHubAuth, setNeedsGitHubAuth] = useState(false);
+  const [authorizing, setAuthorizing] = useState(false);
   const [addedRepos, setAddedRepos] = useState<Set<string>>(new Set());
   const [expandedRepo, setExpandedRepo] = useState<string | null>(null);
   const [monorepoApps, setMonorepoApps] = useState<
@@ -34,9 +36,12 @@ export function RepoSetupClient({
   );
   const syncedRef = useRef(false);
 
-  const createRepo = useMutation(api.githubRepos.create);
+  const connectRepo = useAction(api.github.connectRepo);
   const fetchRepos = useAction(api.github.listRepos);
   const detectMonorepo = useAction(api.github.detectMonorepoApps);
+  const startGitHubAuthorization = useMutation(
+    api.githubUserAuth.startUserAuthorization,
+  );
 
   useEffect(() => {
     fetchRepos({ installationId: Number(installationId) })
@@ -45,10 +50,37 @@ export function RepoSetupClient({
         setLoading(false);
       })
       .catch((err) => {
-        setError(err instanceof Error ? err.message : "Failed to fetch repos");
+        const message =
+          err instanceof Error ? err.message : "Failed to fetch repos";
+        // A brand-new installation is only verifiable through the user's own
+        // GitHub token, so send them through the authorize hop instead of
+        // showing a dead end.
+        if (message.includes(GITHUB_AUTH_REQUIRED)) {
+          setNeedsGitHubAuth(true);
+        } else {
+          setError(message);
+        }
         setLoading(false);
       });
   }, [installationId, fetchRepos]);
+
+  const handleAuthorizeGitHub = async () => {
+    if (authorizing) return;
+    setAuthorizing(true);
+    try {
+      const url = await startGitHubAuthorization({
+        installationId: Number(installationId),
+      });
+      window.location.href = url;
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to start GitHub authorization",
+      );
+      setAuthorizing(false);
+    }
+  };
 
   const handleAddAll = async () => {
     if (syncing) return;
@@ -57,7 +89,7 @@ export function RepoSetupClient({
     const pending = repos.filter((repo) => !addedRepos.has(repo.fullName));
     const results = await Promise.allSettled(
       pending.map((repo) =>
-        createRepo({
+        connectRepo({
           owner: repo.owner,
           name: repo.name,
           installationId: Number(installationId),
@@ -72,6 +104,12 @@ export function RepoSetupClient({
       }
       return next;
     });
+    const failed = results.filter((result) => result.status === "rejected");
+    if (failed.length > 0) {
+      toast.error(
+        `Could not add ${failed.length} of ${pending.length} repositories.`,
+      );
+    }
 
     setSyncing(false);
     navigate({ to: "/home" });
@@ -114,7 +152,7 @@ export function RepoSetupClient({
       : repo.fullName;
     if (addedRepos.has(key)) return;
     try {
-      await createRepo({
+      await connectRepo({
         owner: repo.owner,
         name: repo.name,
         installationId: Number(installationId),
@@ -135,6 +173,34 @@ export function RepoSetupClient({
           <p className="text-muted-foreground">
             {syncing ? "Adding codebases..." : "Loading codebases..."}
           </p>
+        </div>
+      </Container>
+    );
+  }
+
+  if (needsGitHubAuth) {
+    return (
+      <Container>
+        <div className="max-w-md mx-auto py-20 text-center">
+          <h1 className="text-xl font-bold text-foreground mb-2">
+            Connect your GitHub account
+          </h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            Eva needs to confirm you can access this installation before adding
+            its codebases.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-2 justify-center">
+            <Button onClick={handleAuthorizeGitHub} disabled={authorizing}>
+              {authorizing ? "Redirecting..." : "Continue with GitHub"}
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => navigate({ to: "/home" })}
+            >
+              Cancel
+            </Button>
+          </div>
+          {error && <p className="text-destructive text-sm mt-4">{error}</p>}
         </div>
       </Container>
     );

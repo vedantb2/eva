@@ -87,6 +87,36 @@ export const userProviderAccountFields = {
   updatedAt: v.number(),
 };
 
+// A user's own GitHub App user access token, obtained by sending them through
+// the App's OAuth authorize step. Used to answer "is this person really in
+// installation N?" — GitHub's docs are explicit that a client-supplied
+// `installation_id` cannot be trusted, and only a user token can verify the
+// caller's own entitlement. `accessToken`/`refreshToken` hold ciphertext (see
+// `encryption.ts`); plaintext exists only inside a node action. One row per user.
+export const githubUserTokenFields = {
+  userId: v.id("users"),
+  accessToken: v.string(),
+  /** Epoch ms. GitHub App user tokens last 8h when the App expires them. */
+  accessTokenExpiresAt: v.number(),
+  // Both absent when the App has token expiry turned off: the access token then
+  // never expires and GitHub issues no refresh token.
+  refreshToken: v.optional(v.string()),
+  refreshTokenExpiresAt: v.optional(v.number()),
+  createdAt: v.number(),
+  updatedAt: v.number(),
+};
+
+// Short-lived CSRF nonce for the GitHub OAuth authorize hop. The callback is a
+// plain browser redirect with no Convex auth, so the row is what ties the
+// returned `code` back to the user who started the flow. Consumed on first use.
+export const githubOauthStateFields = {
+  nonce: v.string(),
+  userId: v.id("users"),
+  /** Installation the user was mid-connecting, restored after the redirect. */
+  installationId: v.optional(v.number()),
+  expiresAt: v.number(),
+};
+
 export const repoEntityTypeValidator = v.union(
   v.literal("sessions"),
   v.literal("docs"),

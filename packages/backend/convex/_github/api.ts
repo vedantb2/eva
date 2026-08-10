@@ -3,13 +3,12 @@
 import { v } from "convex/values";
 import { makeFunctionReference } from "convex/server";
 import { action } from "../_generated/server";
-import type { Doc } from "../_generated/dataModel";
-import {
-  getInstallationOctokit,
-  getInstallationToken,
-} from "../githubAuth";
+import { internal } from "../_generated/api";
+import type { Doc, Id } from "../_generated/dataModel";
+import { getInstallationOctokit, getInstallationToken } from "../githubAuth";
 import { detectAppsForRepo } from "./helpers";
-import { getActionRepoWithAccess } from "../functions";
+import { authAction, getActionRepoWithAccess } from "../functions";
+import { assertUserCanUseRepo, listInstallationReposForUser } from "./userAuth";
 
 const listAccessibleReposRef = makeFunctionReference<
   "query",
@@ -64,7 +63,7 @@ export const listBranches = action({
 });
 
 /** Lists all repositories accessible to a specific GitHub App installation. */
-export const listRepos = action({
+export const listRepos = authAction({
   args: { installationId: v.number() },
   returns: v.array(
     v.object({
@@ -77,16 +76,22 @@ export const listRepos = action({
     }),
   ),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-    const accessState = await ctx.runQuery(
-      installationAccessStateRef,
-      { installationId: args.installationId },
-    );
-    if (accessState !== "owner" && accessState !== "unclaimed") {
+    const accessState = await ctx.runQuery(installationAccessStateRef, {
+      installationId: args.installationId,
+    });
+    if (accessState === "denied") {
       throw new Error("Not authorized to inspect this installation");
+    }
+    // No Eva row for this installation yet, so there is nothing on our side that
+    // could have authorized the caller. `installationId` arrives from the
+    // browser and GitHub warns it can be spoofed, so the only sound check is to
+    // ask GitHub what *this user's* token can see in that installation.
+    if (accessState === "unclaimed") {
+      return await listInstallationReposForUser(
+        ctx,
+        ctx.userId,
+        args.installationId,
+      );
     }
     const octokit = await getInstallationOctokit(args.installationId);
     const repos = await octokit.rest.apps.listReposAccessibleToInstallation({
@@ -104,7 +109,7 @@ export const listRepos = action({
 });
 
 /** Detects monorepo sub-applications in a repository's apps/ directory. */
-export const detectMonorepoApps = action({
+export const detectMonorepoApps = authAction({
   args: {
     installationId: v.number(),
     owner: v.string(),
@@ -118,19 +123,74 @@ export const detectMonorepoApps = action({
     }),
   ),
   handler: async (ctx, args) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
-    const accessState = await ctx.runQuery(
-      installationAccessStateRef,
-      { installationId: args.installationId },
-    );
-    if (accessState !== "owner" && accessState !== "unclaimed") {
+    const accessState = await ctx.runQuery(installationAccessStateRef, {
+      installationId: args.installationId,
+    });
+    if (accessState === "denied") {
       throw new Error("Not authorized to inspect this installation");
+    }
+    // Same reasoning as listRepos: with no Eva row backing the installation, the
+    // caller's own GitHub token is the only thing that can vouch for them.
+    if (accessState === "unclaimed") {
+      await assertUserCanUseRepo(
+        ctx,
+        ctx.userId,
+        args.installationId,
+        args.owner,
+        args.name,
+      );
     }
     const octokit = await getInstallationOctokit(args.installationId);
     return detectAppsForRepo(octokit, args.owner, args.name);
+  },
+});
+
+/**
+ * Adds a repo to Eva, verifying against GitHub when the installation is new.
+ *
+ * The GitHub-side check happens here rather than in the mutation because it
+ * needs a network call: `assertUserCanUseRepo` asks GitHub whether *this user's*
+ * token can see `owner/name` inside the installation. Without that, any signed-in
+ * user could bind a row to an arbitrary installation id and then mint
+ * installation tokens for it through `getInstallationTokenAction`.
+ *
+ * Installations Eva already knows the caller can use skip the round trip, so
+ * adding a second repo from an installation never re-prompts for authorization.
+ */
+export const connectRepo = authAction({
+  args: {
+    owner: v.string(),
+    name: v.string(),
+    installationId: v.number(),
+    githubId: v.optional(v.number()),
+    rootDirectory: v.optional(v.string()),
+    teamId: v.optional(v.id("teams")),
+  },
+  returns: v.id("githubRepos"),
+  // Explicit annotation: the handler reaches back into `internal`, so inference
+  // would have to resolve this action's own type to type itself.
+  handler: async (ctx, args): Promise<Id<"githubRepos">> => {
+    const accessState = await ctx.runQuery(installationAccessStateRef, {
+      installationId: args.installationId,
+    });
+    if (accessState === "denied") {
+      throw new Error(
+        "Not authorized to add repositories from this installation",
+      );
+    }
+    if (accessState === "unclaimed") {
+      await assertUserCanUseRepo(
+        ctx,
+        ctx.userId,
+        args.installationId,
+        args.owner,
+        args.name,
+      );
+    }
+    return await ctx.runMutation(
+      internal._githubRepos.mutations.createForInstallation,
+      { ...args, userId: ctx.userId },
+    );
   },
 });
 

@@ -1,6 +1,7 @@
 export type { Id, Doc } from "./convex/_generated/dataModel";
 export type { BackgroundAgentEntry } from "./convex/_validators/tableFields";
 export { api } from "./convex/_generated/api";
+export { GITHUB_AUTH_REQUIRED } from "./convex/_github/authErrors";
 export {
   AI_MODEL_OPTIONS,
   DEFAULT_AI_MODEL,

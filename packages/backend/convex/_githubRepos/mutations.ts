@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { GenericDatabaseReader } from "convex/server";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import { internalMutation } from "../_generated/server";
+import type { DatabaseWriter } from "../_generated/server";
 import { authMutation, getRepoWithAccess, hasTeamAccess } from "../functions";
 import { normalizePath } from "../repoUtils";
 import { aiModelValidator } from "../validators";
@@ -88,16 +89,116 @@ export const removeFromTeam = authMutation({
   },
 });
 
-/** Creates a new GitHub repo entry, handling deduplication and monorepo sub-app setup. */
+interface CreateRepoArgs {
+  owner: string;
+  name: string;
+  installationId: number;
+  githubId?: number;
+  rootDirectory?: string;
+  teamId?: Id<"teams">;
+}
+
+/**
+ * Inserts a repo row, handling deduplication and monorepo sub-app setup.
+ *
+ * Callers own the installation authorization decision before calling this — see
+ * `create` (Eva-side: the installation is already claimed by this user) and
+ * `createForInstallation` (GitHub-side: the user's own token proved access).
+ */
+async function insertRepo(
+  ctx: { db: DatabaseWriter },
+  args: CreateRepoArgs,
+  userId: Id<"users">,
+): Promise<Id<"githubRepos">> {
+  const normalizedRoot = args.rootDirectory
+    ? normalizePath(args.rootDirectory)
+    : undefined;
+
+  if (args.githubId !== undefined) {
+    const byGithubId = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_github_id", (q) => q.eq("githubId", args.githubId))
+      .collect();
+    const match = byGithubId.find(
+      (r) => (r.rootDirectory ?? undefined) === (normalizedRoot ?? undefined),
+    );
+    if (match) {
+      await getRepoWithAccess(ctx.db, match._id, userId);
+      throw new Error("Repository already exists");
+    }
+  }
+
+  const candidates = await ctx.db
+    .query("githubRepos")
+    .withIndex("by_owner_and_name", (q) =>
+      q.eq("owner", args.owner).eq("name", args.name),
+    )
+    .collect();
+
+  const duplicate = candidates.find(
+    (r) => (r.rootDirectory ?? undefined) === (normalizedRoot ?? undefined),
+  );
+  if (duplicate) {
+    await getRepoWithAccess(ctx.db, duplicate._id, userId);
+    if (args.githubId !== undefined && duplicate.githubId === undefined) {
+      await ctx.db.patch(duplicate._id, { githubId: args.githubId });
+    }
+    throw new Error("Repository already exists");
+  }
+
+  let teamId = args.teamId;
+  if (teamId && !(await hasTeamAccess(ctx.db, teamId, userId))) {
+    throw new Error("Not authorized to add repositories to this team");
+  }
+  if (!teamId) {
+    const teams = await ctx.db
+      .query("teams")
+      .withIndex("by_created_by", (q) => q.eq("createdBy", userId))
+      .collect();
+    const personalTeam = teams.find((t) => t.isPersonal === true);
+    teamId = personalTeam?._id;
+  }
+
+  if (normalizedRoot) {
+    const rootEntry = candidates.find((r) => !r.rootDirectory);
+    if (rootEntry) {
+      await getRepoWithAccess(ctx.db, rootEntry._id, userId);
+      await ctx.db.delete(rootEntry._id);
+    }
+  }
+
+  return await ctx.db.insert("githubRepos", {
+    owner: args.owner,
+    name: args.name,
+    installationId: args.installationId,
+    githubId: args.githubId,
+    connectedBy: userId,
+    teamId,
+    rootDirectory: normalizedRoot,
+    defaultBaseBranch: "staging",
+  });
+}
+
+const createRepoArgs = {
+  owner: v.string(),
+  name: v.string(),
+  installationId: v.number(),
+  githubId: v.optional(v.number()),
+  rootDirectory: v.optional(v.string()),
+  teamId: v.optional(v.id("teams")),
+};
+
+/**
+ * Adds a repo from an installation this user already connected.
+ *
+ * Deliberately refuses installations with no Eva rows: for those, nothing here
+ * can tell whether the caller has any GitHub-side claim to the id they passed,
+ * and binding a row to an installation is what unlocks `getInstallationToken`
+ * for it. Fresh installations go through `github:connectRepo`, which verifies
+ * against the user's own GitHub token first.
+ */
 export const create = authMutation({
-  args: {
-    owner: v.string(),
-    name: v.string(),
-    installationId: v.number(),
-    githubId: v.optional(v.number()),
-    rootDirectory: v.optional(v.string()),
-    teamId: v.optional(v.id("teams")),
-  },
+  args: createRepoArgs,
   returns: v.id("githubRepos"),
   handler: async (ctx, args) => {
     const installationRepos = await ctx.db
@@ -106,80 +207,27 @@ export const create = authMutation({
         q.eq("installationId", args.installationId),
       )
       .collect();
-    if (
-      installationRepos.length > 0 &&
-      !installationRepos.some((repo) => repo.connectedBy === ctx.userId)
-    ) {
-      throw new Error("Not authorized to add repositories from this installation");
-    }
-
-    const normalizedRoot = args.rootDirectory
-      ? normalizePath(args.rootDirectory)
-      : undefined;
-
-    if (args.githubId !== undefined) {
-      const byGithubId = await ctx.db
-        .query("githubRepos")
-        .withIndex("by_github_id", (q) => q.eq("githubId", args.githubId))
-        .collect();
-      const match = byGithubId.find(
-        (r) => (r.rootDirectory ?? undefined) === (normalizedRoot ?? undefined),
+    if (!installationRepos.some((repo) => repo.connectedBy === ctx.userId)) {
+      throw new Error(
+        "Not authorized to add repositories from this installation",
       );
-      if (match) {
-        await getRepoWithAccess(ctx.db, match._id, ctx.userId);
-        throw new Error("Repository already exists");
-      }
     }
+    return await insertRepo(ctx, args, ctx.userId);
+  },
+});
 
-    const candidates = await ctx.db
-      .query("githubRepos")
-      .withIndex("by_owner_and_name", (q) =>
-        q.eq("owner", args.owner).eq("name", args.name),
-      )
-      .collect();
-
-    const duplicate = candidates.find(
-      (r) => (r.rootDirectory ?? undefined) === (normalizedRoot ?? undefined),
-    );
-    if (duplicate) {
-      await getRepoWithAccess(ctx.db, duplicate._id, ctx.userId);
-      if (args.githubId !== undefined && duplicate.githubId === undefined) {
-        await ctx.db.patch(duplicate._id, { githubId: args.githubId });
-      }
-      throw new Error("Repository already exists");
-    }
-
-    let teamId = args.teamId;
-    if (teamId && !(await hasTeamAccess(ctx.db, teamId, ctx.userId))) {
-      throw new Error("Not authorized to add repositories to this team");
-    }
-    if (!teamId) {
-      const teams = await ctx.db
-        .query("teams")
-        .withIndex("by_created_by", (q) => q.eq("createdBy", ctx.userId))
-        .collect();
-      const personalTeam = teams.find((t) => t.isPersonal === true);
-      teamId = personalTeam?._id;
-    }
-
-    if (normalizedRoot) {
-      const rootEntry = candidates.find((r) => !r.rootDirectory);
-      if (rootEntry) {
-        await getRepoWithAccess(ctx.db, rootEntry._id, ctx.userId);
-        await ctx.db.delete(rootEntry._id);
-      }
-    }
-
-    return await ctx.db.insert("githubRepos", {
-      owner: args.owner,
-      name: args.name,
-      installationId: args.installationId,
-      githubId: args.githubId,
-      connectedBy: ctx.userId,
-      teamId,
-      rootDirectory: normalizedRoot,
-      defaultBaseBranch: "staging",
-    });
+/**
+ * Adds a repo on behalf of a user whose GitHub token already proved access.
+ *
+ * Internal-only, and only sound when the caller ran `assertUserCanUseRepo`
+ * first — it performs no installation check of its own.
+ */
+export const createForInstallation = internalMutation({
+  args: { ...createRepoArgs, userId: v.id("users") },
+  returns: v.id("githubRepos"),
+  handler: async (ctx, args) => {
+    const { userId, ...repoArgs } = args;
+    return await insertRepo(ctx, repoArgs, userId);
   },
 });
 

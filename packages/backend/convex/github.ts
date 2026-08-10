@@ -6,6 +6,7 @@ export {
   listRepos,
   detectMonorepoApps,
   listAllAvailableRepos,
+  connectRepo,
 } from "./_github/api";
 
 export { createSessionPr, createDraftSessionPr } from "./_github/prFlow";

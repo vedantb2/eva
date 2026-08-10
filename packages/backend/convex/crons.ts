@@ -42,6 +42,15 @@ crons.interval(
   {},
 );
 
+// Drop GitHub authorize-hop nonces nobody came back with. They expire after 10
+// minutes regardless; this only stops the table growing.
+crons.interval(
+  "github oauth state purge",
+  { hours: 1 },
+  internal._github.userTokens.purgeExpiredOauthStates,
+  {},
+);
+
 // Safety net: delete sandboxes for archived sessions / done|cancelled tasks
 // whose 48h grace has elapsed (or never got a grace schedule).
 crons.cron(

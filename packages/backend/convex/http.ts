@@ -568,6 +568,85 @@ http.route({
   }),
 });
 
+/**
+ * Where to send the browser back to after the GitHub authorize hop. Known
+ * installations resume setup; anything else lands on the codebase list.
+ */
+function githubAuthReturnUrl(installationId: number | null): string {
+  const webAppUrl = process.env.WEB_APP_URL ?? "";
+  return installationId === null
+    ? `${webAppUrl}/home`
+    : `${webAppUrl}/setup/${installationId}`;
+}
+
+/** Reads a positive integer query parameter, or null when absent/malformed. */
+function integerParam(params: URLSearchParams, key: string): number | null {
+  const raw = params.get(key);
+  if (raw === null) return null;
+  const parsed = Number.parseInt(raw, 10);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+// The GitHub App's Setup URL. GitHub appends `?installation_id=` to whatever is
+// configured, which a path-parameter route in the SPA cannot read, so the hop
+// happens here and hands the id to /setup/:id.
+http.route({
+  path: "/api/github/setup",
+  method: "GET",
+  handler: httpAction(async (_ctx, request) => {
+    const params = new URL(request.url).searchParams;
+    return Response.redirect(
+      githubAuthReturnUrl(integerParam(params, "installation_id")),
+      302,
+    );
+  }),
+});
+
+http.route({
+  path: "/api/github/oauth/callback",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const params = new URL(request.url).searchParams;
+    const state = params.get("state");
+    if (!state) {
+      return new Response("Missing state", { status: 400 });
+    }
+
+    // The nonce is the only thing tying this request to an Eva account, and it
+    // is single-use: redeeming it here means a replayed callback cannot attach a
+    // second token to somebody else's account.
+    const claim = await ctx.runMutation(
+      internal._github.userTokens.consumeOauthState,
+      { nonce: state },
+    );
+    if (!claim) {
+      return new Response("Authorization request expired. Start again.", {
+        status: 400,
+      });
+    }
+
+    // GitHub sends `error` instead of `code` when the user declines. Nothing to
+    // store, so return them to the page that asked and let it re-prompt.
+    const code = params.get("code");
+    if (!code) {
+      return Response.redirect(githubAuthReturnUrl(claim.installationId), 302);
+    }
+
+    try {
+      await ctx.runAction(internal._github.userAuth.completeUserAuthorization, {
+        userId: claim.userId,
+        code,
+      });
+    } catch {
+      // The redirect target re-checks authorization, so a failed exchange shows
+      // the connect prompt again rather than a raw error page.
+      return Response.redirect(githubAuthReturnUrl(claim.installationId), 302);
+    }
+
+    return Response.redirect(githubAuthReturnUrl(claim.installationId), 302);
+  }),
+});
+
 // ─────────────────────────────────────────────────────────────────────────────
 // MCP OAuth State Endpoints
 // ─────────────────────────────────────────────────────────────────────────────

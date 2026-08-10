@@ -6,22 +6,18 @@ import { expect, test } from "vitest";
 const here = dirname(fileURLToPath(import.meta.url));
 
 /**
- * Backend owns Preview Console launch. The shared workspace must keep that
- * policy centralized so one owner surface cannot drift from the others.
+ * Backend owns Preview Console launch; panels must not re-enable connect-time
+ * auto-type (reconnect sees an existing tmux session and skips forever).
  */
-test("the shared sandbox workspace disables console auto-type once", () => {
-  const workspace = readFileSync(join(here, "SandboxWorkspace.tsx"), "utf8");
-  expect(workspace).toContain("runConsoleDevCommandOnConnect={false}");
-
+test("session, task, and project sandbox panels disable console auto-type", () => {
   const panels = [
     join(here, "../../../routes/_repo/$owner/$repo/sessions/SandboxPanel.tsx"),
     join(here, "../tasks/TaskSandboxPanel.tsx"),
     join(here, "../projects/ProjectSandboxPanel.tsx"),
   ];
   for (const path of panels) {
-    const panel = readFileSync(path, "utf8");
-    expect(panel).toContain("<SandboxWorkspace");
-    expect(panel).not.toContain("<SandboxPaneSlots");
-    expect(panel).not.toContain("<SandboxTabBar");
+    expect(readFileSync(path, "utf8")).toContain(
+      "runConsoleDevCommandOnConnect={false}",
+    );
   }
 });

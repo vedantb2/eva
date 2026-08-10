@@ -1,6 +1,5 @@
 export type { Id, Doc } from "./convex/_generated/dataModel";
 export type { BackgroundAgentEntry } from "./convex/_validators/tableFields";
-export type { SandboxOwner } from "./convex/_sandbox/owner";
 export { api } from "./convex/_generated/api";
 export {
   AI_MODEL_OPTIONS,

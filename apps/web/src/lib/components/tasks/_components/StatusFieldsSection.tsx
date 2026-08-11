@@ -49,7 +49,7 @@ import {
 } from "@/lib/components/priority/priorityMeta";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ModelTraitsMenu } from "@/lib/components/ModelTraitsMenu";
-import { taskRunTraits, toRunTraitArgs } from "@/lib/utils/runTraits";
+import { storedRunTraits, toRunTraitArgs } from "@/lib/utils/runTraits";
 import {
   FieldsSection,
   FIELD_ROW_CLASS,
@@ -421,7 +421,7 @@ export function StatusFieldsSection({
           />
           <ModelTraitsMenu
             model={currentModel}
-            traits={taskRunTraits(task)}
+            traits={storedRunTraits(task)}
             onChange={(partial) =>
               updateTask({ id: taskId, ...toRunTraitArgs(partial) })
             }

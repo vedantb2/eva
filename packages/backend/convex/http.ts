@@ -455,7 +455,7 @@ http.route({
         return new Response("OK", { status: 200 });
       }
 
-      const { action, pull_request: pullRequest, repository } = parsed.data;
+      const { action, pull_request: pullRequest } = parsed.data;
       const prUrl = pullRequest.html_url;
       if (!action || !prUrl) {
         return new Response("OK", { status: 200 });
@@ -508,42 +508,6 @@ http.route({
           merged,
           branchName: branchName ?? undefined,
         });
-      }
-
-      const RECAP_ACTIONS = new Set([
-        "opened",
-        "synchronize",
-        "reopened",
-        "ready_for_review",
-      ]);
-      if (RECAP_ACTIONS.has(action)) {
-        const prNumber = pullRequest.number;
-        const prTitle = pullRequest.title;
-        const headSha = pullRequest.head?.sha ?? null;
-        const authorLogin = pullRequest.user?.login ?? null;
-
-        if (repository && prNumber !== null && prTitle && headSha) {
-          const repoName = repository.name;
-          const owner = repository.owner?.login ?? null;
-
-          if (repoName && owner) {
-            await ctx.scheduler.runAfter(
-              0,
-              internal.githubWebhook.handlePrRecapEvent,
-              {
-                owner,
-                name: repoName,
-                prUrl,
-                prNumber,
-                prTitle,
-                headSha,
-                draft: draft ?? undefined,
-                authorLogin: authorLogin ?? undefined,
-                branchName: branchName ?? undefined,
-              },
-            );
-          }
-        }
       }
     }
 

@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import {
   aiModelValidator,
   aiProviderValidator,
+  modelTraitsExecutionFields,
   reasoningLevelValidator,
 } from "./aiModels";
 import {
@@ -750,6 +751,10 @@ export const docFields = {
   prRecapStatus: v.optional(prRecapStatusValidator),
   prRecapOrigin: v.optional(prRecapOriginValidator),
   prRecapError: v.optional(v.string()),
+  // Model and traits that produced the current recap. Written by `startPrRecap`
+  // on every run: shown in the panel badge and reused when revising.
+  prRecapModel: v.optional(aiModelValidator),
+  ...modelTraitsExecutionFields,
   pendingAgentCommentIds: v.optional(v.array(v.id("docComments"))),
   description: v.optional(v.string()),
   userFlows: v.optional(v.array(userFlowValidator)),

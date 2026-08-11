@@ -2,27 +2,21 @@
 
 import { normalizeAIModel, type AIModel, type Id } from "@eva/backend";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
-import { Switch } from "@eva/ui";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsField } from "@/lib/components/settings/SettingsField";
-import { SettingsToggleRow } from "@/lib/components/settings/SettingsToggleRow";
 import { ConfigModelField } from "./ConfigModelField";
 
 type RepoConfigFields = {
   defaultBaseBranch?: string;
   defaultModel?: string;
-  prRecapsEnabled?: boolean;
-  prRecapModel?: string;
 };
 
 type UpdateRepoConfig = (args: {
   repoId: Id<"githubRepos">;
   defaultBaseBranch?: string;
   defaultModel?: AIModel;
-  prRecapsEnabled?: boolean;
-  prRecapModel?: AIModel;
 }) => void;
 
 export function RepositorySettingsSection({
@@ -41,14 +35,6 @@ export function RepositorySettingsSection({
   updateConfig: UpdateRepoConfig;
 }) {
   const defaultModels = useAvailableAiModels(repoId, repo.defaultModel);
-  const prRecapModels = useAvailableAiModels(
-    repoId,
-    repo.prRecapModel ?? repo.defaultModel ?? "sonnet",
-  );
-  const claudeAvailable = prRecapModels.options.some(
-    (option) => option.provider === "claude",
-  );
-  const prRecapsOn = (repo.prRecapsEnabled ?? false) && claudeAvailable;
 
   const monorepoHint = isMonorepo ? (
     <>
@@ -61,78 +47,34 @@ export function RepositorySettingsSection({
   ) : undefined;
 
   return (
-    <>
-      <SettingsSection title="Defaults" description={monorepoHint}>
-        <div className="grid gap-4">
-          <SettingsField
-            label="Base branch"
-            description="Used when creating quick tasks. Falls back to main."
-          >
-            <BranchSelect
-              value={repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH}
-              onValueChange={(val) =>
-                updateConfig({ repoId, defaultBaseBranch: val || undefined })
-              }
-              className="h-9"
-              placeholder="Select a branch"
-            />
-          </SettingsField>
-
-          <ConfigModelField
-            label="Default model"
-            description="Provider and model for new tasks."
-            state={defaultModels}
-            onValueChange={(nextModel) => {
-              updateConfig({
-                repoId,
-                defaultModel: normalizeAIModel(nextModel),
-              });
-            }}
-          />
-        </div>
-      </SettingsSection>
-
-      <SettingsSection
-        title="PR recaps"
-        description="Recap doc and GitHub comment on each PR update. Needs team Claude Code OAuth."
-        bodyVariant="list"
-      >
-        <div className="divide-y divide-border">
-          <SettingsToggleRow
-            title="Enabled"
-            description={
-              claudeAvailable
-                ? "Uses your team CLAUDE_CODE_OAUTH_TOKEN."
-                : "Add CLAUDE_CODE_OAUTH_TOKEN in team env vars first."
+    <SettingsSection title="Defaults" description={monorepoHint}>
+      <div className="grid gap-4">
+        <SettingsField
+          label="Base branch"
+          description="Used when creating quick tasks. Falls back to main."
+        >
+          <BranchSelect
+            value={repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH}
+            onValueChange={(val) =>
+              updateConfig({ repoId, defaultBaseBranch: val || undefined })
             }
-            action={
-              <Switch
-                checked={repo.prRecapsEnabled ?? false}
-                disabled={!claudeAvailable}
-                onCheckedChange={(checked) =>
-                  updateConfig({ repoId, prRecapsEnabled: checked })
-                }
-                aria-label="PR recaps"
-              />
-            }
+            className="h-9"
+            placeholder="Select a branch"
           />
-          {prRecapsOn ? (
-            <div className="px-4 py-3">
-              <ConfigModelField
-                label="Recap model"
-                description="Model used to write the recap."
-                state={prRecapModels}
-                onValueChange={(nextModel) => {
-                  updateConfig({
-                    repoId,
-                    prRecapModel: normalizeAIModel(nextModel),
-                  });
-                }}
-              />
-            </div>
-          ) : null}
-        </div>
-      </SettingsSection>
-    </>
+        </SettingsField>
+
+        <ConfigModelField
+          label="Default model"
+          description="Provider and model for new tasks."
+          state={defaultModels}
+          onValueChange={(nextModel) => {
+            updateConfig({
+              repoId,
+              defaultModel: normalizeAIModel(nextModel),
+            });
+          }}
+        />
+      </div>
+    </SettingsSection>
   );
 }

@@ -4,7 +4,11 @@ import { internalQuery } from "./_generated/server";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { workflowCompleteValidator, aiModelValidator } from "./validators";
+import {
+  workflowCompleteValidator,
+  aiModelValidator,
+  modelTraitsExecutionFields,
+} from "./validators";
 import {
   clearStreamingActivity,
   recordCompletionLog,
@@ -19,7 +23,7 @@ import {
   finalizePrRecapOutcome,
   type PrRecapOutcome,
 } from "./_prRecapWorkflow/finalizeOutcome";
-import { normalizeAIModel } from "./_validators/aiModels";
+import { buildTraitsExecutionPayload } from "./_validators/aiModels";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import {
   findSiblingRepos,
@@ -52,15 +56,14 @@ export const prRecapWorkflow = workflow.define({
     headSha: v.string(),
     reviewerFeedback: v.optional(v.array(reviewerFeedbackItemValidator)),
     consumeAgentCommentIds: v.optional(v.array(v.id("docComments"))),
+    /** Already resolved by `startPrRecap`, which records it on the recap doc. */
+    model: aiModelValidator,
+    ...modelTraitsExecutionFields,
   },
   handler: async (step, args): Promise<void> => {
     const repoData = await step.runQuery(internal.prRecapWorkflow.getRepoData, {
       repoId: args.repoId,
     });
-
-    const model = normalizeAIModel(
-      repoData.prRecapModel ?? repoData.defaultModel ?? "sonnet",
-    );
 
     function finalize(outcome: PrRecapOutcome): Promise<void> {
       return finalizePrRecapOutcome(step, {
@@ -74,7 +77,7 @@ export const prRecapWorkflow = workflow.define({
 
     const authCheck = await step.runAction(
       internal._github.prRecapService.checkProviderAuth,
-      { repoId: args.repoId, model },
+      { repoId: args.repoId, model: args.model },
     );
     if (!authCheck.ok) {
       await finalize({ kind: "error", message: authCheck.message });
@@ -139,7 +142,13 @@ export const prRecapWorkflow = workflow.define({
           userId: args.userId,
           completionMutation: "prRecapWorkflow:handleCompletion",
           entityIdField: "docId",
-          model,
+          model: args.model,
+          ...buildTraitsExecutionPayload(args.model, {
+            effortLevel: args.reasoningLevel,
+            thinkingEnabled: args.thinkingEnabled,
+            use1mContext: args.use1mContext,
+            fastMode: args.fastMode,
+          }),
           allowedTools: "",
           repoId: sandboxRepoId,
         });
@@ -196,8 +205,6 @@ export const getRepoData = internalQuery({
     repoOwner: v.string(),
     repoName: v.string(),
     defaultBaseBranch: v.optional(v.string()),
-    defaultModel: v.optional(aiModelValidator),
-    prRecapModel: v.optional(aiModelValidator),
     linkRootDirectory: v.optional(v.string()),
     /** App row used for sandbox credentials (VERCEL_PROJECT_ID lives here). */
     sandboxRepoId: v.id("githubRepos"),
@@ -216,8 +223,6 @@ export const getRepoData = internalQuery({
       repoOwner: repo.owner,
       repoName: repo.name,
       defaultBaseBranch: repo.defaultBaseBranch,
-      defaultModel: repo.defaultModel,
-      prRecapModel: repo.prRecapModel,
       linkRootDirectory: linkRepo?.rootDirectory,
       sandboxRepoId,
     };

@@ -15,6 +15,10 @@ import {
 import { components, internal } from "./_generated/api";
 import { extractPrNumberFromUrl } from "./_projects/prSync";
 import {
+  aiModelValidator,
+  DEFAULT_AI_MODEL,
+  modelTraitsExecutionFields,
+  normalizeAIModel,
   prRecapOriginValidator,
   prRecapStatusValidator,
   roleValidator,
@@ -516,7 +520,7 @@ async function upsertPrRecapDocImpl(
     prRecapStatus: "pending" | "ready" | "error";
     prRecapError?: string;
     clearActiveWorkflowId?: boolean;
-    /** Set only when provided — never clear on refresh so Eva origin survives webhook. */
+    /** Set only when provided — never cleared on refresh, so Eva origin survives a regen. */
     prRecapOrigin?: "eva";
   },
 ): Promise<Id<"docs">> {
@@ -620,7 +624,6 @@ export const upsertPrRecapDoc = internalMutation({
     prRecapStatus: prRecapStatusValidator,
     prRecapError: v.optional(v.string()),
     clearActiveWorkflowId: v.optional(v.boolean()),
-    prRecapOrigin: v.optional(prRecapOriginValidator),
   },
   returns: v.id("docs"),
   handler: async (ctx, args) => upsertPrRecapDocImpl(ctx, args),
@@ -676,8 +679,8 @@ const reviewerFeedbackItemValidator = v.object({
 });
 
 /**
- * Upserts a pending recap doc and starts prRecapWorkflow. Shared by the GitHub
- * webhook, MCP trigger, and manual "Revise recap" from agent-targeted comments.
+ * Upserts a pending recap doc and starts prRecapWorkflow. Shared by the panel
+ * Generate button and "Revise recap" from agent-targeted comments.
  */
 export const startPrRecap = internalMutation({
   args: {
@@ -693,7 +696,9 @@ export const startPrRecap = internalMutation({
     pendingPlaceholder: v.optional(v.string()),
     reviewerFeedback: v.optional(v.array(reviewerFeedbackItemValidator)),
     consumeAgentCommentIds: v.optional(v.array(v.id("docComments"))),
-    prRecapOrigin: v.optional(prRecapOriginValidator),
+    /** Absent falls back to the repo default; resolved here so the doc records the real model. */
+    model: v.optional(aiModelValidator),
+    ...modelTraitsExecutionFields,
   },
   returns: v.object({
     docId: v.id("docs"),
@@ -719,10 +724,15 @@ export const startPrRecap = internalMutation({
         ? "_Revising recap from feedback…_"
         : "_Generating recap…_");
 
-    // Explicit origin wins; otherwise tag Eva-managed PRs so docs Reviews hides them.
-    const prRecapOrigin =
-      args.prRecapOrigin ??
-      ((await isEvaOwnedPullRequest(ctx, args.prUrl)) ? "eva" : undefined);
+    // Tag Eva-managed PRs so the docs Reviews sidebar hides them; those recaps
+    // belong on the sandbox Review tab instead.
+    const prRecapOrigin = (await isEvaOwnedPullRequest(ctx, args.prUrl))
+      ? "eva"
+      : undefined;
+
+    const model = normalizeAIModel(
+      args.model ?? workflowRepo.defaultModel ?? DEFAULT_AI_MODEL,
+    );
 
     const docId: Id<"docs"> = await upsertPrRecapDocImpl(ctx, {
       repoId: docsRepoId,
@@ -733,6 +743,15 @@ export const startPrRecap = internalMutation({
       content: placeholder,
       prRecapStatus: "pending",
       ...(prRecapOrigin !== undefined ? { prRecapOrigin } : {}),
+    });
+
+    // Written unconditionally so unsetting a trait clears it from the doc.
+    await ctx.db.patch(docId, {
+      prRecapModel: model,
+      reasoningLevel: args.reasoningLevel,
+      thinkingEnabled: args.thinkingEnabled,
+      use1mContext: args.use1mContext,
+      fastMode: args.fastMode,
     });
 
     const workflowId = await workflow.start(
@@ -749,6 +768,11 @@ export const startPrRecap = internalMutation({
         headSha: args.headSha,
         reviewerFeedback: args.reviewerFeedback,
         consumeAgentCommentIds: args.consumeAgentCommentIds,
+        model,
+        reasoningLevel: args.reasoningLevel,
+        thinkingEnabled: args.thinkingEnabled,
+        use1mContext: args.use1mContext,
+        fastMode: args.fastMode,
       },
     );
 
@@ -817,19 +841,25 @@ export const reviseRecapFromFeedback = authMutation({
       headSha: doc.headSha,
       reviewerFeedback,
       consumeAgentCommentIds: pendingIds,
+      // A revision reruns on the setup that produced the recap being revised.
+      model: doc.prRecapModel,
+      reasoningLevel: doc.reasoningLevel,
+      thinkingEnabled: doc.thinkingEnabled,
+      use1mContext: doc.use1mContext,
+      fastMode: doc.fastMode,
     });
 
     return null;
   },
 });
 
-/**
- * Panel Generate/Regenerate — allows drafts, skips prRecapsEnabled (explicit intent).
- */
+/** Panel Generate/Regenerate — the only path to a recap. Allows drafts (explicit intent). */
 export const generatePrRecap = authAction({
   args: {
     repoId: v.id("githubRepos"),
     prUrl: v.string(),
+    model: v.optional(aiModelValidator),
+    ...modelTraitsExecutionFields,
   },
   returns: v.object({
     docId: v.id("docs"),
@@ -881,7 +911,11 @@ export const generatePrRecap = authAction({
         prNumber: metadata.prNumber,
         prTitle: metadata.prTitle,
         headSha: metadata.headSha,
-        prRecapOrigin: "eva",
+        model: args.model,
+        reasoningLevel: args.reasoningLevel,
+        thinkingEnabled: args.thinkingEnabled,
+        use1mContext: args.use1mContext,
+        fastMode: args.fastMode,
       });
     return result;
   },

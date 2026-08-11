@@ -11,7 +11,6 @@ import {
   deriveProjectPhaseFromPrEvent,
   isProjectReviewPhase,
 } from "./_projects/prSync";
-import { isEvaOwnedPullRequest } from "./_github/evaPrOwnership";
 import { requestSessionSandboxStop } from "./_sessions/sandbox";
 import {
   cancelSessionSandboxGraceDelete,
@@ -347,8 +346,6 @@ export const handlePrClosed = internalMutation({
   },
 });
 
-const RECAP_BOT_LOGIN_PREFIXES = ["dependabot", "renovate"];
-
 /**
  * On push to a repo's configured base branch, schedule a skill sync when the
  * commit set touches `.agents/skills` or `.claude/skills` (or when path lists
@@ -390,71 +387,6 @@ export const handlePushForSkillSync = internalMutation({
       internal._repoSkills.sync.syncRepoInternal,
       { repoId: workflowRepo._id },
     );
-    return null;
-  },
-});
-
-/** Starts or refreshes a PR recap doc + workflow when a pull request is updated. */
-export const handlePrRecapEvent = internalMutation({
-  args: {
-    owner: v.string(),
-    name: v.string(),
-    prUrl: v.string(),
-    prNumber: v.number(),
-    prTitle: v.string(),
-    headSha: v.string(),
-    draft: v.optional(v.boolean()),
-    authorLogin: v.optional(v.string()),
-    branchName: v.optional(v.string()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    if (args.draft === true) return null;
-
-    const authorLogin = args.authorLogin?.toLowerCase() ?? "";
-    if (
-      RECAP_BOT_LOGIN_PREFIXES.some((prefix) => authorLogin.startsWith(prefix))
-    ) {
-      return null;
-    }
-
-    const siblings = await ctx.db
-      .query("githubRepos")
-      .withIndex("by_owner_and_name", (q) =>
-        q.eq("owner", args.owner).eq("name", args.name),
-      )
-      .collect();
-
-    if (!siblings.some((repo) => repo.prRecapsEnabled === true)) return null;
-
-    const connectedRepo = siblings.find(
-      (repo) => repo.connectedBy !== undefined,
-    );
-    if (!connectedRepo?.connectedBy) return null;
-
-    const workflowRepo =
-      siblings.find((repo) => repo.rootDirectory === undefined) ??
-      connectedRepo;
-
-    const evaOwned = await isEvaOwnedPullRequest(
-      ctx,
-      args.prUrl,
-      args.branchName,
-    );
-
-    await ctx.runMutation(internal.docs.startPrRecap, {
-      repoId: workflowRepo._id,
-      userId: connectedRepo.connectedBy,
-      installationId: workflowRepo.installationId,
-      owner: args.owner,
-      name: args.name,
-      prUrl: args.prUrl,
-      prNumber: args.prNumber,
-      prTitle: args.prTitle,
-      headSha: args.headSha,
-      ...(evaOwned ? { prRecapOrigin: "eva" } : {}),
-    });
-
     return null;
   },
 });

@@ -1,5 +1,17 @@
 # Changelog
 
+## PR recaps are generated on demand, on a model you pick - 2026-08-11
+
+A recap was governed by a repo-wide switch: `prRecapsEnabled` turned it on for every pull request, and `prRecapModel` pinned one model for all of them. Neither matches how recaps are actually wanted. A small refactor and a schema migration do not deserve the same model or the same reasoning effort, and most pushes do not deserve a recap at all. The Generate button in the Review tab is now the only way a recap comes into existence.
+
+Every other trigger is gone: the GitHub webhook handler that recapped each non-draft push, the hook that fired after Eva opened a draft PR from a task or session, and the three MCP tools `trigger_pr_recap`, `get_pr_recap` and `publish_pr_recap`. The MCP tools were not replaced with an agent-authored `write_pr_recap`, which would have made the server a pipe publishing unverified agent text to a public GitHub comment. The server still owns the prompt and fetches the diff itself, and the recap sandbox still runs with no tools, so nothing in the button path depended on them.
+
+The button gained a model selector and the standard traits menu, so the model, reasoning effort, thinking, 1M context and fast mode can all change between one generation and the next. `startPrRecap` resolves the model once — the explicit pick, then the repo default, then Sonnet — and writes it and the four traits onto the recap document, so the panel states what produced the recap on screen with the provider icon, and "Revise recap" reruns on that same setup rather than the repo default. All four surfaces (quick task, project and session Review tabs, and the Reviews page) mount the same panel, so they all get this.
+
+Removing the button's own trigger also had to fix `prRecapOrigin`. It is a presence flag meaning "Eva authored this pull request", read only to keep Eva's own recaps out of the Documents sidebar, where they would duplicate the sandbox Review tab. The webhook was the one caller deriving it correctly and `generatePrRecap` hardcoded `"eva"` on everything; leaving both would have hidden every recap from the sidebar forever. `startPrRecap` now always derives it from `isEvaOwnedPullRequest` and no caller passes it.
+
+This ships in two deploys, because Convex will not drop a field while documents still carry it. The first removes all code, adds the recap document fields, and adds a `clearPrRecapConfig` sweep on the `@convex-dev/migrations` component. After that runs on dev and production, the second drops `prRecapsEnabled` and `prRecapModel` from `githubRepoFields` and deletes the migration.
+
 ## Proof capture and audit subsystems removed - 2026-08-11
 
 Proof capture and audits were built as pipeline UI: workflow steps, streaming state, timeline items, per-run toggles and repo model pickers, all of which had to stay correct across quick tasks, project tasks, sessions and sandbox chat. The replacement already shipped as the `eva-capture` and `eva-audit` system skills, served over the `get_skill` MCP tool, so a user who wants either now asks for it in the sandbox chat and the agent invokes the skill. The platform pipeline was pure duplication and is gone.

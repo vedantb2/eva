@@ -299,23 +299,6 @@ export const taskExecutionWorkflow = workflow.define({
         }
       }
 
-      if (completionPrUrl) {
-        try {
-          await step.runMutation(
-            internal._prRecapWorkflow.evaTrigger.scheduleEvaPrRecap,
-            {
-              repoId: args.repoId,
-              userId: args.userId,
-              prUrl: completionPrUrl,
-            },
-          );
-        } catch (recapError) {
-          console.error(
-            `[task-workflow] run=${args.runId} scheduleEvaPrRecap failed: ${recapError instanceof Error ? recapError.message : String(recapError)}`,
-          );
-        }
-      }
-
       // Surface a PR-step failure to the user even though the run is otherwise
       // successful — the commits are already on GitHub, so we keep success: true
       // (no auto-retry, no sandbox-preserve), but record the error in the

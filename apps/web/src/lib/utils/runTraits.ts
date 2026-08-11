@@ -1,22 +1,22 @@
 import type { ReasoningLevel, StoredModelTraits } from "@eva/backend";
 
-/** The run-trait fields as they are stored on (and written to) a task. */
-interface TaskRunTraits {
+/** The run-trait fields as they are stored on (and written to) a task, recap doc or project. */
+interface RunTraitFields {
   reasoningLevel?: ReasoningLevel;
   thinkingEnabled?: boolean;
   use1mContext?: boolean;
   fastMode?: boolean;
 }
 
-/** Task run traits in the shape the traits menu reads. */
-export function taskRunTraits(
-  task: TaskRunTraits | undefined,
+/** Stored run traits in the shape the traits menu reads. */
+export function storedRunTraits(
+  record: RunTraitFields | undefined | null,
 ): StoredModelTraits {
   return {
-    effortLevel: task?.reasoningLevel,
-    thinkingEnabled: task?.thinkingEnabled,
-    use1mContext: task?.use1mContext,
-    fastMode: task?.fastMode,
+    effortLevel: record?.reasoningLevel,
+    thinkingEnabled: record?.thinkingEnabled,
+    use1mContext: record?.use1mContext,
+    fastMode: record?.fastMode,
   };
 }
 
@@ -26,7 +26,7 @@ export function taskRunTraits(
  * one-trait change writes (and optimistically patches) that trait alone and
  * leaves the rest of the record untouched.
  */
-export function toRunTraitArgs(traits: StoredModelTraits): TaskRunTraits {
+export function toRunTraitArgs(traits: StoredModelTraits): RunTraitFields {
   return {
     ...(traits.effortLevel !== undefined
       ? { reasoningLevel: traits.effortLevel }

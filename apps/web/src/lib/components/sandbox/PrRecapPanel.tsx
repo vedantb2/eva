@@ -4,11 +4,17 @@ import { useState } from "react";
 import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction } from "convex/react";
-import { api, type Id } from "@eva/backend";
+import {
+  api,
+  DEFAULT_AI_MODEL,
+  normalizeAIModel,
+  type AIModel,
+  type Id,
+  type StoredModelTraits,
+} from "@eva/backend";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import {
   ActivityTasks,
-  Button,
   Spinner,
   Surface,
   Tabs,
@@ -20,14 +26,16 @@ import {
   IconAlertTriangle,
   IconExternalLink,
   IconGitPullRequest,
-  IconRefresh,
 } from "@tabler/icons-react";
 import { Streamdown } from "streamdown";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { HtmlPreviewFrame } from "@/lib/components/docs/_components/HtmlPreviewFrame";
+import { RecapGenerateControls } from "@/lib/components/sandbox/_components/RecapGenerateControls";
+import { RecapRunBadge } from "@/lib/components/sandbox/_components/RecapRunBadge";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import { storedRunTraits, toRunTraitArgs } from "@/lib/utils/runTraits";
 
 type RecapDoc = FunctionReturnType<typeof api.docs.getRecapByPrUrl>;
 
@@ -42,11 +50,23 @@ interface PrRecapPanelProps {
  * Eva-origin (and any) PR recaps keyed by prUrl.
  */
 export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
-  const { basePath } = useRepo();
+  const { basePath, repo } = useRepo();
   const generatePrRecap = useAction(api.docs.generatePrRecap);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [view, setView] = useState<"recap" | "summary">("recap");
+  // Only the pending override lives in state; the last run's setup is read off
+  // the recap doc, so a reload shows what actually produced the recap.
+  const [pendingModel, setPendingModel] = useState<AIModel>();
+  const [pendingTraits, setPendingTraits] = useState<StoredModelTraits>();
+
+  const model = normalizeAIModel(
+    pendingModel ??
+      recapDoc?.prRecapModel ??
+      repo.defaultModel ??
+      DEFAULT_AI_MODEL,
+  );
+  const traits = pendingTraits ?? storedRunTraits(recapDoc);
 
   const streamingEntityId =
     recapDoc !== null && recapDoc !== undefined
@@ -63,7 +83,12 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
     setIsGenerating(true);
     setGenerateError(null);
     try {
-      await generatePrRecap({ repoId, prUrl });
+      await generatePrRecap({
+        repoId,
+        prUrl,
+        model,
+        ...toRunTraitArgs(traits),
+      });
     } catch (error) {
       setGenerateError(
         error instanceof Error ? error.message : "Couldn't generate recap",
@@ -107,22 +132,20 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
           {generateError ? (
             <p className="text-sm text-destructive">{generateError}</p>
           ) : null}
-          <Button
-            size="sm"
-            onClick={() => {
+          <RecapGenerateControls
+            repoId={repoId}
+            model={model}
+            onModelChange={setPendingModel}
+            traits={traits}
+            onTraitsChange={(partial) =>
+              setPendingTraits({ ...traits, ...partial })
+            }
+            onGenerate={() => {
               void handleGenerate();
             }}
-            disabled={isGenerating}
-          >
-            {isGenerating ? (
-              <>
-                <Spinner size="sm" />
-                Generating…
-              </>
-            ) : (
-              "Generate recap"
-            )}
-          </Button>
+            isGenerating={isGenerating}
+            label={isGenerating ? "Generating…" : "Generate recap"}
+          />
         </div>
       </div>
     );
@@ -149,6 +172,12 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
         actions={
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
             {shortSha ? <span className="font-mono">{shortSha}</span> : null}
+            {recapDoc.prRecapModel !== undefined ? (
+              <RecapRunBadge
+                model={normalizeAIModel(recapDoc.prRecapModel)}
+                traits={storedRunTraits(recapDoc)}
+              />
+            ) : null}
             <a
               href={prUrl}
               target="_blank"
@@ -175,18 +204,24 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
                 Open in Documents
               </DynamicLink>
             ) : null}
-            <Button
-              size="sm"
-              variant="ghost"
-              className="h-7 px-2"
-              onClick={() => {
+            <RecapGenerateControls
+              repoId={repoId}
+              model={model}
+              onModelChange={setPendingModel}
+              traits={traits}
+              onTraitsChange={(partial) =>
+                setPendingTraits({ ...traits, ...partial })
+              }
+              onGenerate={() => {
                 void handleGenerate();
               }}
-              disabled={isGenerating || (isPending && !isStalled)}
-            >
-              {isGenerating ? <Spinner size="sm" /> : <IconRefresh size={14} />}
-              {recapDoc.prRecapStatus === "ready" ? "Regenerate" : "Generate"}
-            </Button>
+              isGenerating={isGenerating}
+              disabled={isPending && !isStalled}
+              variant="ghost"
+              label={
+                recapDoc.prRecapStatus === "ready" ? "Regenerate" : "Generate"
+              }
+            />
           </div>
         }
       >

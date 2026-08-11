@@ -541,28 +541,9 @@ export const sessionExecuteWorkflow = workflow.define({
       // false and still avoids the old compare-404 alerts.
       if (pushedCommits || (branchPublished && data.prUrl === undefined)) {
         try {
-          const sessionPrUrl = await step.runAction(
-            internal.github.createDraftSessionPr,
-            {
-              sessionId: args.sessionId,
-            },
-          );
-          if (sessionPrUrl) {
-            try {
-              await step.runMutation(
-                internal._prRecapWorkflow.evaTrigger.scheduleEvaPrRecap,
-                {
-                  repoId: data.repoId,
-                  userId: args.userId,
-                  prUrl: sessionPrUrl,
-                },
-              );
-            } catch (recapError) {
-              console.error(
-                `[sessionWorkflow] scheduleEvaPrRecap failed sessionId=${args.sessionId}: ${recapError instanceof Error ? recapError.message : String(recapError)}`,
-              );
-            }
-          }
+          await step.runAction(internal.github.createDraftSessionPr, {
+            sessionId: args.sessionId,
+          });
         } catch (error) {
           const errorDetail =
             error instanceof Error ? error.message : String(error);

@@ -20,15 +20,15 @@ import { useEffect, useState } from "react";
  * ───────────────────────────────────────────────────────── */
 
 export type LoadingStateVariant = "Drive" | "Dots" | "Orbit";
-/** `default` = shipped 4px cells (~15px). `sm` ≈ status-dot footprint (8px). */
+/** `default` = shipped 4px cells (~15px). `sm` ≈ ~11px (a bit larger than the status dot). */
 export type LoadingStateSize = "default" | "sm";
 
 const SIZE_TOKENS: Record<
   LoadingStateSize,
   { cellPx: number; gapPx: number; radiusClass: string }
 > = {
-  // 3×2px + 2×1px gaps = 8px — matches the session status `size-2` dot.
-  sm: { cellPx: 2, gapPx: 1, radiusClass: "rounded-[0.5px]" },
+  // 3×3px + 2×1px gaps = 11px — readable in session rows without matching `default`.
+  sm: { cellPx: 3, gapPx: 1, radiusClass: "rounded-[0.5px]" },
   default: { cellPx: 4, gapPx: 1.5, radiusClass: "rounded-[1px]" },
 };
 
@@ -52,6 +52,13 @@ const PATTERNS: Record<
   Dots: { delays: chevron, dur: 650, round: true },
   Orbit: { delays: orbit, dur: 950, round: false },
 };
+
+/** Same violet→sky→cyan sweep as composer `BorderBeam` `colorful`. */
+const COLORFUL_COLUMNS = [
+  "rgb(var(--chart-4))",
+  "rgb(var(--chart-2))",
+  "rgb(var(--chart-5))",
+] as const;
 
 function useElapsed(enabled: boolean) {
   const [ds, setDs] = useState(0);
@@ -93,10 +100,11 @@ export function LoadingState({
       {delays.map((d, i) => (
         <span
           key={i}
-          className={`bg-foreground ${round ? "rounded-full" : radiusClass}`}
+          className={round ? "rounded-full" : radiusClass}
           style={{
             width: cellPx,
             height: cellPx,
+            backgroundColor: COLORFUL_COLUMNS[i % 3],
             opacity: d === null ? 0.07 : 0.15,
             animation:
               d === null

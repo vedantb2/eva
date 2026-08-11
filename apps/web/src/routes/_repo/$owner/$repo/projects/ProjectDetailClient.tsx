@@ -378,6 +378,16 @@ export function ProjectDetailClient({
       }
       fillHeight
       childPadding={false}
+      /* Tab strip is detail-only — sandbox stays flush like sessions. */
+      tabs={
+        isSandboxSurface || !projectPathSegment ? undefined : (
+          <ProjectMainTabs
+            projectHref={`${basePath}/projects/${projectPathSegment}`}
+            activeTab={mainTab}
+            workTabLabel={isDraftOrFinalized ? "Plan" : "Tasks"}
+          />
+        )
+      }
       headerRight={
         !isDraftOrFinalized ? (
           <div className="flex flex-col items-end gap-1">
@@ -572,14 +582,6 @@ export function ProjectDetailClient({
         ) : null
       }
     >
-      {/* Tab strip is detail-only — sandbox stays flush like sessions. */}
-      {isSandboxSurface || !projectPathSegment ? null : (
-        <ProjectMainTabs
-          projectHref={`${basePath}/projects/${projectPathSegment}`}
-          activeTab={mainTab}
-          workTabLabel={isDraftOrFinalized ? "Plan" : "Tasks"}
-        />
-      )}
       <div className="flex min-h-0 flex-1 flex-col">
         {isSandboxSurface ? (
           <div className="min-h-0 flex-1 overflow-hidden">

@@ -31,8 +31,9 @@ export function ProjectMainTabs({
         })
       }
     >
-      <TabsBar size="sm" className="px-3 sm:px-4">
-        <TabsList size="sm">
+      {/* Lives in the page header, so no hairline and no padding of its own. */}
+      <TabsBar className="border-b-0 p-0">
+        <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="work">{workTabLabel}</TabsTrigger>
         </TabsList>

@@ -90,11 +90,11 @@ export const listData = authQuery({
       });
     }
 
+    // Include archived sessions — soft-deleted only are excluded below.
     const sessions = filterActiveEntities(
       await ctx.db
         .query("sessions")
         .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-        .filter((q) => q.neq(q.field("archived"), true))
         .order("desc")
         .take(MENTION_LIST_CAP),
     );

@@ -1206,10 +1206,13 @@ export const pushSandboxBranch = internalAction({
     branchName: v.string(),
     repoId: v.id("githubRepos"),
   },
-  // `pushed: false` = the ahead-of-remote gate skipped the push (no commits
-  // origin lacks). Callers use it to skip diff-dependent follow-ups (draft PR).
-  returns: v.object({ pushed: v.boolean() }),
-  handler: async (ctx, args): Promise<{ pushed: boolean }> => {
+  // `pushed` records whether this action moved the ref. `published` also
+  // recognises a matching remote branch written by the pre-completion callback.
+  returns: v.object({ pushed: v.boolean(), published: v.boolean() }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ pushed: boolean; published: boolean }> => {
     const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     try {
       return await pushBranchToOrigin(

@@ -9,6 +9,10 @@ const sessionWorkflow = readSource("_sessions/workflow.ts");
 const resultTarget = readSource("_sessions/resultTarget.ts");
 const sandboxExecution = readSource("_sandbox_runtime/execution.ts");
 const sandboxGit = readSource("_sandbox_runtime/git.ts");
+const turnPersist = readSource("../callback-src/runtime/turnPersist.ts");
+const claudeSdkDaemon = readSource(
+  "../callback-src/providers/claudeSdkDaemon.ts",
+);
 
 const PUSH_ACTION = "internal.sandbox.pushSandboxBranch";
 
@@ -186,9 +190,11 @@ describe("a turn that pushed nothing opens no pull request", () => {
 
   test("pushBranchToOrigin reports which of the two paths it took", () => {
     const body = pushBody();
-    const skipAt = body.indexOf("return { pushed: false };");
+    const skipAt = body.indexOf("return { pushed: false, published };");
     const pushAt = body.indexOf("git push");
-    const pushedAt = body.indexOf("return { pushed: true };");
+    const pushedAt = body.indexOf(
+      "return { pushed: true, published: true };",
+    );
     expect(skipAt, "the skip no longer reports itself").toBeGreaterThan(-1);
     expect(pushedAt, "the push no longer reports itself").toBeGreaterThan(-1);
     expect(skipAt, "the skip belongs before the push").toBeLessThan(pushAt);
@@ -217,7 +223,9 @@ describe("a turn that pushed nothing opens no pull request", () => {
       /returns:\s*([^\n]+)/,
     );
     expect(returns, "the returns validator moved").not.toBeNull();
-    expect(returns?.[1] ?? "").toContain("v.object({ pushed: v.boolean() })");
+    expect(returns?.[1] ?? "").toContain(
+      "v.object({ pushed: v.boolean(), published: v.boolean() })",
+    );
   });
 
   /**
@@ -242,6 +250,40 @@ describe("a turn that pushed nothing opens no pull request", () => {
       ungated,
       "open the PR only when the push reported pushed: true",
     ).toEqual([]);
+  });
+});
+
+/**
+ * Session callbacks push work before completion so a VM death cannot erase a
+ * finished turn. The later workflow push must recognise that exact remote head
+ * or it suppresses the automatic draft PR (prod session 38).
+ */
+describe("a callback-published session still opens its first pull request", () => {
+  test("the Claude callback persists work before reporting completion", () => {
+    const persistAt = claudeSdkDaemon.indexOf("persistTurnWork();");
+    const completionAt = claudeSdkDaemon.indexOf(
+      "await deliverCompletionWithMedia(completionArgs);",
+    );
+    expect(persistAt, "the durability push moved").toBeGreaterThan(-1);
+    expect(completionAt, "the completion call moved").toBeGreaterThan(-1);
+    expect(persistAt).toBeLessThan(completionAt);
+    expect(turnPersist).toContain('git(["push", "origin", "HEAD"]');
+  });
+
+  test("the post-completion push reports an already-published branch", () => {
+    const body = functionBody(
+      sandboxGit,
+      "export async function pushBranchToOrigin(",
+    );
+    expect(body).toContain("refs/remotes/origin/${branchName}");
+    expect(body).toContain("return { pushed: false, published };");
+    expect(body).toContain("return { pushed: true, published: true };");
+  });
+
+  test("a published branch recovers only a missing session PR", () => {
+    expect(sessionWorkflow).toContain(
+      "pushedCommits || (branchPublished && data.prUrl === undefined)",
+    );
   });
 });
 

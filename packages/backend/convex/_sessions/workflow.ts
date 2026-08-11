@@ -486,6 +486,7 @@ export const sessionExecuteWorkflow = workflow.define({
     // origin lacks, so chat-only turns publish nothing.
     let pushSucceeded = false;
     let pushedCommits = false;
+    let branchPublished = false;
     if (args.mode !== "plan" && result.success && data.branchName) {
       try {
         const pushResult = await step.runAction(
@@ -501,6 +502,7 @@ export const sessionExecuteWorkflow = workflow.define({
         );
         pushSucceeded = true;
         pushedCommits = pushResult.pushed;
+        branchPublished = pushResult.published;
       } catch (error) {
         const publishError = `Session completed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${error instanceof Error ? error.message : String(error)}`;
         console.error(
@@ -532,14 +534,13 @@ export const sessionExecuteWorkflow = workflow.define({
         },
       );
 
-      // Open a draft PR only when this turn actually pushed commits (no-op if
-      // one exists on the session or on GitHub for this branch). Chat-only
-      // turns skip the push, so the branch may not exist on origin at all —
-      // attempting the PR then burned compare retries and alerted "Failed to
-      // create draft PR" on a 404. Transient failures still self-heal: the
-      // next turn that pushes commits retries, and "Send for Review" creates
-      // on demand.
-      if (pushedCommits) {
+      // The callback normally pushes before posting completion so the work is
+      // durable even if the sandbox dies immediately afterwards. In that path
+      // this workflow's redundant push reports `pushed: false`; recover a
+      // missing PR when it confirms the session branch already contains HEAD.
+      // A chat-only first turn has no remote session branch, so `published` is
+      // false and still avoids the old compare-404 alerts.
+      if (pushedCommits || (branchPublished && data.prUrl === undefined)) {
         try {
           const sessionPrUrl = await step.runAction(
             internal.github.createDraftSessionPr,
@@ -767,6 +768,7 @@ export const getSessionData = internalQuery({
     repoId: v.id("githubRepos"),
     prompt: v.string(),
     branchName: v.optional(v.string()),
+    prUrl: v.optional(v.string()),
     baseBranch: v.string(),
     allowedTools: v.string(),
     model: aiModelValidator,
@@ -809,6 +811,7 @@ export const getSessionData = internalQuery({
       repoId: session.repoId,
       prompt,
       branchName,
+      prUrl: session.prUrl,
       baseBranch: resolveSessionBaseBranch(session, repo),
       allowedTools: MODE_TOOLS[resolveToolMode(args.mode)],
       model: normalizeAIModel(args.model),

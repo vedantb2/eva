@@ -987,7 +987,7 @@ export async function pushBranchToOrigin(
     timeoutSeconds?: number;
     retryAttempts?: number;
   },
-): Promise<{ pushed: boolean }> {
+): Promise<{ pushed: boolean; published: boolean }> {
   const details = `${owner}/${name}, branch=${branchName}`;
   return await runLoggedGitStep("pushBranchToOrigin", details, async () => {
     const workspaceDir = workspaceDirShell();
@@ -1015,10 +1015,28 @@ export async function pushBranchToOrigin(
       );
     }
     if (unpushedCount === "0") {
+      // The sandbox callback may already have pushed HEAD before posting the
+      // completion event. Distinguish that durable path from a chat-only turn,
+      // whose HEAD is reachable from origin/base but has no session branch.
+      let published = false;
+      try {
+        const remoteBranch = quote([`refs/remotes/origin/${branchName}`]);
+        published =
+          (
+            await execGitCommand(
+              sandbox,
+              `cd ${workspaceDir} && git rev-list --count HEAD --not ${remoteBranch}`,
+              15,
+            )
+          ).trim() === "0";
+      } catch {
+        // A missing remote-tracking ref is the expected chat-only first-turn
+        // case. The workflow must not attempt a PR for it.
+      }
       logGit(
         `pushBranchToOrigin: skipped — HEAD has no commits origin lacks (${details})`,
       );
-      return { pushed: false };
+      return { pushed: false, published };
     }
     const quotedBranch = quote([branchName]);
     const repoUrl = bareGitHubRepoUrl(owner, name);
@@ -1034,7 +1052,7 @@ export async function pushBranchToOrigin(
       },
       opts?.retryAttempts ?? 2,
     );
-    return { pushed: true };
+    return { pushed: true, published: true };
   });
 }
 

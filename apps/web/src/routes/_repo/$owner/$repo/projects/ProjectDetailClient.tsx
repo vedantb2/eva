@@ -24,6 +24,7 @@ import {
 } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
+import { convexErrorMessage } from "@/lib/utils/convexErrorMessage";
 import type { Id, SandboxOwner } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
@@ -218,9 +219,7 @@ export function ProjectDetailClient({
     try {
       await createProjectPrAction({ projectId: projectId });
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to create PR";
-      setPrError(message);
+      setPrError(convexErrorMessage(err, "Failed to create PR"));
     }
     setIsCreatingPr(false);
   };

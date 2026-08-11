@@ -1,6 +1,6 @@
 "use node";
 
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -256,7 +256,7 @@ async function waitForPullRequestHead(params: {
       // Compare succeeded: GitHub sees both tips and head is not ahead.
       // Retrying won't create commits — fail immediately (plan-only turns).
       throw new Error(
-        `${params.branchName} is not ahead of ${params.baseBranch}`,
+        `${params.branchName} is not ahead of ${params.baseBranch}: every commit on it is already in ${params.baseBranch}, or the run committed locally and its push to GitHub failed`,
       );
     } catch (error) {
       if (error instanceof Error && error.message.includes("is not ahead of")) {
@@ -272,68 +272,91 @@ async function waitForPullRequestHead(params: {
   );
 }
 
+/**
+ * Runs a manual PR attempt and rethrows its failure as a `ConvexError`.
+ *
+ * Production Convex redacts plain `Error` messages, so every reason a manual
+ * "Create PR" can fail — branch not ahead, missing base branch, GitHub
+ * rejection — reached the user as a bare "Server Error" with nothing to act on.
+ * `ConvexError` data crosses the wire, so the UI shows the reason. The original
+ * is logged first, because the rethrow drops its stack.
+ */
+async function withVisiblePrFailure<T>(
+  label: string,
+  attempt: () => Promise<T>,
+): Promise<T> {
+  try {
+    return await attempt();
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[pr] ${label} failed: ${message}`);
+    throw new ConvexError(message);
+  }
+}
+
 /** Manually creates the PR for a task branch — used when the workflow's auto
  * PR step failed. Idempotent: returns the existing PR URL if one is already
  * tracked on a run. The body matches the format the workflow would produce. */
 export const createTaskPr = action({
   args: { taskId: v.id("agentTasks") },
   returns: v.object({ url: v.string() }),
-  handler: async (ctx, args): Promise<{ url: string }> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
+  handler: async (ctx, args): Promise<{ url: string }> =>
+    withVisiblePrFailure(`createTaskPr task=${args.taskId}`, async () => {
+      const identity = await ctx.auth.getUserIdentity();
+      if (!identity) {
+        throw new Error("Not authenticated");
+      }
 
-    const data = await ctx.runQuery(
-      internal.taskWorkflow.getTaskPrCreationData,
-      { taskId: args.taskId },
-    );
-    await getActionRepoWithAccess(ctx, data.repoId);
+      const data = await ctx.runQuery(
+        internal.taskWorkflow.getTaskPrCreationData,
+        { taskId: args.taskId },
+      );
+      await getActionRepoWithAccess(ctx, data.repoId);
 
-    if (data.existingPrUrl) {
-      return { url: data.existingPrUrl };
-    }
+      if (data.existingPrUrl) {
+        return { url: data.existingPrUrl };
+      }
 
-    const body = buildTaskPullRequestBody({
-      repoOwner: data.repoOwner,
-      repoName: data.repoName,
-      taskId: args.taskId,
-      projectId: data.projectId,
-      taskDescription: data.taskDescription,
-      rootDirectory: data.rootDirectory,
-      changeRequests: data.changeRequests,
-      proofs: data.proofs,
-    });
-
-    const labels = buildTaskPullRequestLabels({
-      rootDirectory: data.rootDirectory,
-      isQuickTask: data.isQuickTask,
-    });
-
-    const prUrl: string = await ctx.runAction(
-      internal.taskWorkflowActions.createPullRequest,
-      {
-        installationId: data.installationId,
+      const body = buildTaskPullRequestBody({
         repoOwner: data.repoOwner,
         repoName: data.repoName,
-        branchName: data.branchName,
-        baseBranch: data.baseBranch,
-        title: data.taskTitle,
-        body,
-        labels,
-        draft: data.isQuickTask,
-      },
-    );
-
-    if (data.latestRunId) {
-      await ctx.runMutation(internal.taskWorkflow.setRunPrUrl, {
-        runId: data.latestRunId,
-        prUrl,
+        taskId: args.taskId,
+        projectId: data.projectId,
+        taskDescription: data.taskDescription,
+        rootDirectory: data.rootDirectory,
+        changeRequests: data.changeRequests,
+        proofs: data.proofs,
       });
-    }
 
-    return { url: prUrl };
-  },
+      const labels = buildTaskPullRequestLabels({
+        rootDirectory: data.rootDirectory,
+        isQuickTask: data.isQuickTask,
+      });
+
+      const prUrl: string = await ctx.runAction(
+        internal.taskWorkflowActions.createPullRequest,
+        {
+          installationId: data.installationId,
+          repoOwner: data.repoOwner,
+          repoName: data.repoName,
+          branchName: data.branchName,
+          baseBranch: data.baseBranch,
+          title: data.taskTitle,
+          body,
+          labels,
+          draft: data.isQuickTask,
+        },
+      );
+
+      if (data.latestRunId) {
+        await ctx.runMutation(internal.taskWorkflow.setRunPrUrl, {
+          runId: data.latestRunId,
+          prUrl,
+        });
+      }
+
+      return { url: prUrl };
+    }),
 });
 
 /** Manually creates the PR for a project branch — used when the workflow's
@@ -345,62 +368,66 @@ export const createTaskPr = action({
 export const createProjectPr = action({
   args: { projectId: v.id("projects") },
   returns: v.object({ url: v.string() }),
-  handler: async (ctx, args): Promise<{ url: string }> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw new Error("Not authenticated");
-    }
+  handler: async (ctx, args): Promise<{ url: string }> =>
+    withVisiblePrFailure(
+      `createProjectPr project=${args.projectId}`,
+      async () => {
+        const identity = await ctx.auth.getUserIdentity();
+        if (!identity) {
+          throw new Error("Not authenticated");
+        }
 
-    const data = await ctx.runQuery(
-      internal.projects.getProjectPrCreationData,
-      { projectId: args.projectId },
-    );
-    await getActionRepoWithAccess(ctx, data.repoId);
+        const data = await ctx.runQuery(
+          internal.projects.getProjectPrCreationData,
+          { projectId: args.projectId },
+        );
+        await getActionRepoWithAccess(ctx, data.repoId);
 
-    if (data.existingPrUrl) {
-      return { url: data.existingPrUrl };
-    }
+        if (data.existingPrUrl) {
+          return { url: data.existingPrUrl };
+        }
 
-    const sections = buildProjectPrSections(
-      data.projectTitle,
-      data.projectDescription,
-      data.completedTasks,
-    );
-    const evaUrl = buildEvaProjectUrl(
-      data.repoOwner,
-      data.repoName,
-      args.projectId,
-      data.rootDirectory || undefined,
-    );
-    const body = buildPrBody(sections, evaUrl);
+        const sections = buildProjectPrSections(
+          data.projectTitle,
+          data.projectDescription,
+          data.completedTasks,
+        );
+        const evaUrl = buildEvaProjectUrl(
+          data.repoOwner,
+          data.repoName,
+          args.projectId,
+          data.rootDirectory || undefined,
+        );
+        const body = buildPrBody(sections, evaUrl);
 
-    const labels = buildTaskPullRequestLabels({
-      rootDirectory: data.rootDirectory,
-      isQuickTask: false,
-    });
+        const labels = buildTaskPullRequestLabels({
+          rootDirectory: data.rootDirectory,
+          isQuickTask: false,
+        });
 
-    const prUrl: string = await ctx.runAction(
-      internal.taskWorkflowActions.createPullRequest,
-      {
-        installationId: data.installationId,
-        repoOwner: data.repoOwner,
-        repoName: data.repoName,
-        branchName: data.branchName,
-        baseBranch: data.baseBranch,
-        title: data.projectTitle,
-        body,
-        labels,
-        draft: false,
+        const prUrl: string = await ctx.runAction(
+          internal.taskWorkflowActions.createPullRequest,
+          {
+            installationId: data.installationId,
+            repoOwner: data.repoOwner,
+            repoName: data.repoName,
+            branchName: data.branchName,
+            baseBranch: data.baseBranch,
+            title: data.projectTitle,
+            body,
+            labels,
+            draft: false,
+          },
+        );
+
+        await ctx.runMutation(internal.projects.setProjectPrUrl, {
+          projectId: args.projectId,
+          prUrl,
+        });
+
+        return { url: prUrl };
       },
-    );
-
-    await ctx.runMutation(internal.projects.setProjectPrUrl, {
-      projectId: args.projectId,
-      prUrl,
-    });
-
-    return { url: prUrl };
-  },
+    ),
 });
 
 /** Creates a GitHub pull request via the installation Octokit and optionally adds labels. */

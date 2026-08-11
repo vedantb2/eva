@@ -7,6 +7,7 @@ import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { useState } from "react";
+import { convexErrorMessage } from "@/lib/utils/convexErrorMessage";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "./_components/task-detail-constants";
 
@@ -316,9 +317,7 @@ export function useTaskDetail(
     try {
       await createTaskPrAction({ taskId });
     } catch (err) {
-      const message =
-        err instanceof Error ? err.message : "Failed to create PR";
-      setExecutionError(message);
+      setExecutionError(convexErrorMessage(err, "Failed to create PR"));
     }
     setIsCreatingPr(false);
   };

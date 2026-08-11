@@ -10,7 +10,7 @@ import {
 } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { DiffCountBar } from "@/lib/components/sandbox/DiffFileBadges";
-import { mergeBlocker } from "./prMergeState";
+import { headerBlocker } from "./prMergeState";
 import { PrRemedyButton } from "./PrRemedyButton";
 import {
   PrStatusPill,
@@ -49,7 +49,7 @@ export function ReviewHeader({
   /** The surface's own block above this one — the standalone page's PR title. */
   title?: ReactNode;
 }) {
-  const blocker = mergeBlocker(overview);
+  const blocker = headerBlocker(overview);
   const commits = overview.commitCount;
 
   return (
@@ -98,8 +98,11 @@ export function ReviewHeader({
         {/* Target on the left, as the arrow reads: this branch goes into that
             one. The sentence this replaced wrapped to three lines in a session
             pane and could not share a row with the change totals. */}
-        <span className="flex min-w-0 items-center gap-1.5">
-          <BranchChip name={overview.baseRef} />
+        <span className="flex min-w-0 flex-1 items-center gap-1.5">
+          {/* Base refs are short and always worth reading in full; head refs are
+              generated (`eva/task-m57569wftd7p63r0mrc53…`), so the head is the
+              one that gives up width when the row is tight. */}
+          <BranchChip name={overview.baseRef} className="shrink-0" />
           <IconArrowNarrowLeft
             size={14}
             className="shrink-0 text-muted-foreground"
@@ -151,10 +154,13 @@ export function ReviewHeader({
   );
 }
 
-function BranchChip({ name }: { name: string }) {
+function BranchChip({ name, className }: { name: string; className?: string }) {
   return (
     <span
-      className="min-w-0 max-w-56 truncate rounded bg-muted/60 px-1.5 py-0.5 font-mono text-xs text-foreground"
+      className={cn(
+        "min-w-0 truncate rounded bg-muted/60 px-1.5 py-0.5 font-mono text-xs text-foreground",
+        className,
+      )}
       title={name}
     >
       {name}

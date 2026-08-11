@@ -9,6 +9,7 @@ import {
   IconGitMerge,
   IconGitPullRequest,
   IconGitPullRequestClosed,
+  IconGitPullRequestDraft,
   IconLoader2,
   IconMessageCircle,
   IconMinus,
@@ -133,6 +134,11 @@ export function PrStatusPill({
         <IconGitMerge size={13} aria-hidden />
       ) : status === "closed" ? (
         <IconGitPullRequestClosed size={13} aria-hidden />
+      ) : draft ? (
+        // Its own glyph, as GitHub does: the pill is the only thing on the header
+        // that says a branch is not ready, now that the blocker row does not
+        // repeat it.
+        <IconGitPullRequestDraft size={13} aria-hidden />
       ) : (
         <IconGitPullRequest size={13} aria-hidden />
       )}

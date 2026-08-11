@@ -80,7 +80,17 @@ export interface PrRemedy {
   prompt: string;
 }
 
+export type PrBlockerKind =
+  | "draft"
+  | "checking"
+  | "conflicts"
+  | "unmergeable"
+  | "protected"
+  | "behind";
+
 export interface PrBlocker {
+  /** Discriminant, so a caller can filter a case without matching on wording. */
+  kind: PrBlockerKind;
   tone: StatusTone;
   /** Badge wording for the header, at GitHub's brevity. */
   label: string;
@@ -97,6 +107,7 @@ export function mergeBlocker(overview: PrOverview): PrBlocker | null {
 
   if (overview.draft) {
     return {
+      kind: "draft",
       tone: "neutral",
       label: "Draft",
       headline: "This pull request is still a draft",
@@ -107,6 +118,7 @@ export function mergeBlocker(overview: PrOverview): PrBlocker | null {
 
   if (overview.mergeable === null) {
     return {
+      kind: "checking",
       tone: "pending",
       label: "Checking mergeability",
       headline: "Checking whether this can be merged",
@@ -119,6 +131,7 @@ export function mergeBlocker(overview: PrOverview): PrBlocker | null {
   if (overview.mergeable === false) {
     if (overview.mergeableState === "dirty") {
       return {
+        kind: "conflicts",
         tone: "failure",
         label: "Merge conflicts",
         headline: "This branch has conflicts that must be resolved",
@@ -131,6 +144,7 @@ export function mergeBlocker(overview: PrOverview): PrBlocker | null {
       };
     }
     return {
+      kind: "unmergeable",
       tone: "failure",
       label: "Cannot merge",
       headline: "This branch cannot be merged yet",
@@ -141,6 +155,7 @@ export function mergeBlocker(overview: PrOverview): PrBlocker | null {
 
   if (overview.mergeableState === "blocked") {
     return {
+      kind: "protected",
       tone: "failure",
       label: "Merge blocked",
       headline: "Merging is blocked",
@@ -152,6 +167,7 @@ export function mergeBlocker(overview: PrOverview): PrBlocker | null {
 
   if (overview.mergeableState === "behind") {
     return {
+      kind: "behind",
       tone: "pending",
       label: "Behind base",
       headline: "This branch is behind the base branch",
@@ -166,6 +182,22 @@ export function mergeBlocker(overview: PrOverview): PrBlocker | null {
   }
 
   return null;
+}
+
+/**
+ * The blocker worth a badge of its own in the header, which is not every blocker
+ * the merge box lists.
+ *
+ * `draft` is already the lifecycle pill's job — saying "Draft" twice in one header
+ * is noise, not emphasis. `checking` is GitHub's own bookkeeping, true for a second
+ * or two after a push and nothing the reader can act on. What is left is exactly
+ * the set that needs work doing, which is why the remedy button lives beside it.
+ */
+export function headerBlocker(overview: PrOverview): PrBlocker | null {
+  const blocker = mergeBlocker(overview);
+  if (blocker === null) return null;
+  if (blocker.kind === "draft" || blocker.kind === "checking") return null;
+  return blocker;
 }
 
 /** The merge box's top line: the blocker's headline, or the all-clear. */

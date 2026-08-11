@@ -1,5 +1,13 @@
 # Changelog
 
+## A draft pull request no longer says "Draft" twice - 2026-08-11
+
+The new review header stated the lifecycle in two places at once. `PrStatusPill` renders "Draft" on the first row, and `mergeBlocker` also treats `draft` as a blocker, so the badge row below repeated it — the same word, twice, three rows apart.
+
+`PrBlocker` gained a `kind` discriminant and `prMergeState.ts` a `headerBlocker()` that filters the two cases the header should not badge: `draft`, which the pill already owns, and `checking`, which is GitHub's own bookkeeping for a second after a push and nothing a reader can act on. The merge box still lists both — there the sentence is the reason Merge is disabled, not a duplicate label. The draft pill also picked up its own glyph (`IconGitPullRequestDraft`) now that it is the only thing saying a branch is not ready.
+
+Also on that header: the head ref chip no longer truncates at `max-w-56` while the row has free space. The base chip is `shrink-0` (base refs are short) and the head chip takes what is left, so `eva/task-m57569wftd7p63r0mrc53…` reads in full at normal widths.
+
 ## Persistent review header, checks pill, and a button for merge conflicts - 2026-08-11
 
 Everything that says what a pull request *is* lived inside the Overview tab: lifecycle pill, author, a prose sentence ("X wants to merge 3 commits into main from eva/foo"), and — at the foot of a long scroll — the merge box with CI and mergeability. From Diffs or Recap there was no way to tell a mergeable pull request from a conflicted one, and the sentence wrapped to three lines in a session pane.

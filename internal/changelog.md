@@ -1,5 +1,13 @@
 # Changelog
 
+## Auth config no longer blocks the first push on an unseeded backend - 2026-08-11
+
+`sandboxAuthConfig.ts` threw at module scope when `SANDBOX_JWT_JWKS` was unset. `auth.config.ts` is evaluated at push time, so that throw failed module analysis and killed the whole push, and `auth.config.ts` separately handed the CLI a provider whose `domain` was `undefined` when `CLERK_JWT_ISSUER_DOMAIN` was missing, which the CLI also rejects.
+
+On a cloud deployment both variables are always set, so neither mattered. On a freshly created local backend they are both absent, and the only thing that sets them is the snapshot seed — which runs after the readiness gate that waits for the push to land. The push could never succeed, so the gate burned its full fifteen minutes and failed the build. Every scheduled snapshot build hit this.
+
+Both providers are now omitted rather than half-configured when their variables are missing, and the absence is logged instead of thrown. The first push lands with no auth providers, the seed copies the variables in, and a `convex dev --once` seed command re-pushes so the baked snapshot carries the providers rather than leaving the next boot to repair it.
+
 ## A cloud Convex deployment can be pulled into a local backend - 2026-08-11
 
 `sync:prod-to-dev` mirrors production into the cloud dev deployment and depends on a `convex login` session. It cannot help someone working against a Convex backend running on their own machine, and it cannot run at all without CLI authentication. `pnpm sync:prod-to-local` is the local counterpart: it exports a snapshot from whichever cloud deployment the deploy key you pass belongs to, then imports it into the local backend with `--replace-all`.

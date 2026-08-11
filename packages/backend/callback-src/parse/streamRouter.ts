@@ -1,6 +1,7 @@
 import { PROVIDER } from "../config.js";
 import {
   buildStreamingPayload,
+  flushStreaming,
   sendStreamingHeartbeatUpdate,
 } from "../runtime/heartbeats.js";
 import { getProviderAdapter } from "../providers/index.js";
@@ -21,6 +22,11 @@ export function processRealtimeStdoutChunk(text: string): void {
       continue;
     }
     handleRealtimeStreamLine(line);
+    // SDK providers run in-process. Drain their complete event lines now so
+    // live tool activity does not depend on a timer getting scheduled while
+    // the SDK is producing a busy stream. The interval remains the recovery
+    // path for partial lines and events arriving during an in-flight flush.
+    void flushStreaming();
   }
 }
 

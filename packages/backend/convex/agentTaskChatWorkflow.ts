@@ -49,6 +49,11 @@ async function finalizeOpenSyntheticTurnOnCancel(
 
 const CHAT_ALLOWED_TOOLS = "Read,Write,Edit,Bash,Glob,Grep";
 
+/** Streaming-activity entity id for a task chat. */
+function chatStreamEntityId(taskId: Id<"agentTasks">): string {
+  return `${TASK_CHAT_STREAM_PREFIX}${String(taskId)}`;
+}
+
 async function buildTaskChatTurnPrompt(
   ctx: QueryCtx,
   args: {
@@ -254,6 +259,7 @@ export const startExecute = authMutation({
         repoId: task.repoId,
         userId: ctx.userId,
         entityId: String(args.taskId),
+        streamingEntityId: chatStreamEntityId(args.taskId),
         entityIdField: "taskId",
         completionMutation: "agentTaskChatWorkflow:handleCompletion",
         ...TASK_CHAT_DAEMON_MUTATIONS,
@@ -407,7 +413,7 @@ export const cancelExecution = authMutation({
       }
     }
 
-    const streamingEntityId = `${TASK_CHAT_STREAM_PREFIX}${String(args.taskId)}`;
+    const streamingEntityId = chatStreamEntityId(args.taskId);
     const streaming = await ctx.db
       .query("streamingActivity")
       .withIndex("by_entity", (q) => q.eq("entityId", streamingEntityId))
@@ -521,7 +527,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       return;
     }
 
-    const streamingEntityId = `${TASK_CHAT_STREAM_PREFIX}${String(args.taskId)}`;
+    const streamingEntityId = chatStreamEntityId(args.taskId);
 
     // Bring an archived/stopped sandbox back to "started" via durable polling
     // steps before validating, so a multi-minute cold-storage thaw doesn't blow
@@ -592,6 +598,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
         repoId: data.repoId,
         userId: args.userId,
         entityId: String(args.taskId),
+        streamingEntityId,
         entityIdField: "taskId",
         completionMutation: "agentTaskChatWorkflow:handleCompletion",
         ...TASK_CHAT_DAEMON_MUTATIONS,
@@ -786,7 +793,7 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const streamingEntityId = `${TASK_CHAT_STREAM_PREFIX}${String(args.taskId)}`;
+    const streamingEntityId = chatStreamEntityId(args.taskId);
     await clearStreamingActivity(ctx, streamingEntityId);
 
     const task = await ctx.db.get(args.taskId);
@@ -899,6 +906,7 @@ export const prewarmChatDaemon = authMutation({
       repoId: task.repoId,
       userId: ctx.userId,
       entityId: String(args.taskId),
+      streamingEntityId: chatStreamEntityId(args.taskId),
       entityIdField: "taskId",
       completionMutation: "agentTaskChatWorkflow:handleCompletion",
       ...TASK_CHAT_DAEMON_MUTATIONS,

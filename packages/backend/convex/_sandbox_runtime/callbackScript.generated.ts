@@ -4090,6 +4090,7 @@ function processRealtimeStdoutChunk(text) {
       continue;
     }
     handleRealtimeStreamLine(line);
+    void flushStreaming();
   }
 }
 function handleRealtimeStreamLine(line) {

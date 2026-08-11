@@ -1244,11 +1244,12 @@ function buildDaemonOptsSig(
   normalizedModel: string,
   allowedTools: string | undefined,
   providerAccountId: string | undefined,
+  streamingEntityId: string,
   traits: TraitEnvInput,
 ): string {
   const fastMode =
     traits.fastMode === undefined ? "" : traits.fastMode ? "1" : "0";
-  return `${normalizedModel}|${allowedTools ?? ""}|${traits.reasoningLevel ?? ""}|${traits.thinkingEnabled === false ? "0" : ""}|${traits.use1mContext === true ? "1" : ""}|${fastMode}|${providerAccountId ?? ""}`;
+  return `${normalizedModel}|${allowedTools ?? ""}|${traits.reasoningLevel ?? ""}|${traits.thinkingEnabled === false ? "0" : ""}|${traits.use1mContext === true ? "1" : ""}|${fastMode}|${providerAccountId ?? ""}|${streamingEntityId}`;
 }
 
 function buildTraitEnvVars(traits: TraitEnvInput): Record<string, string> {
@@ -1288,6 +1289,7 @@ type PrewarmEntityDaemonBaseParams = {
   providerAccountId?: Id<"userProviderAccounts">;
   credentialOwnerUserId?: Id<"users">;
   sessionPersistenceId?: Infer<typeof sessionPersistenceIdValidator>;
+  streamingEntityId?: string;
   activeWorkflowField: "activeWorkflowId" | "activeChatWorkflowId";
   skipPrewarm?: boolean;
 };
@@ -1335,6 +1337,7 @@ async function runPrewarmEntityDaemon(
       return { prewarmed: false };
     }
     const entityIdStr = args.entityId;
+    const streamingEntityId = args.streamingEntityId ?? entityIdStr;
     const fp = CALLBACK_SCRIPT_FINGERPRINT;
     const normalizedModel = normalizeAIModel(args.model);
     if (getAIModelProvider(normalizedModel) !== "claude") {
@@ -1347,6 +1350,7 @@ async function runPrewarmEntityDaemon(
       normalizedModel,
       args.allowedTools,
       args.providerAccountId,
+      streamingEntityId,
       {
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
@@ -1457,6 +1461,7 @@ async function runPrewarmEntityDaemon(
           updateBackgroundAgentsMutation: args.updateBackgroundAgentsMutation,
           extraEnvVars: {
             EVA_DAEMON_OPTS: optsSig,
+            STREAMING_ENTITY_ID: streamingEntityId,
             ...buildTraitEnvVars({
               reasoningLevel: args.reasoningLevel,
               thinkingEnabled: args.thinkingEnabled,
@@ -1513,6 +1518,7 @@ export const prewarmEntityDaemon = internalAction({
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     credentialOwnerUserId: v.optional(v.id("users")),
     sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
+    streamingEntityId: v.optional(v.string()),
     activeWorkflowField: v.union(
       v.literal("activeWorkflowId"),
       v.literal("activeChatWorkflowId"),

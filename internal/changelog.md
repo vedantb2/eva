@@ -1,5 +1,13 @@
 # Changelog
 
+## Live activity follows task, project, and Cursor work - 2026-08-11
+
+Quick-task chat 227 worked for almost six minutes while its preview only showed “Working…”. The warm Claude daemon was launched with the bare task document ID, but task chat subscribes to `task-chat-<id>`; its heartbeats were healthy and detailed, just written to a row the UI never reads. Project chat had the same split contract with `project-chat-<id>`. The shared prewarm action now accepts an explicit streaming entity ID, uses it for both the scoped heartbeat HMAC and `STREAMING_ENTITY_ID`, and includes it in the daemon options signature. Every task/project prewarm entry point passes its prefixed key, so already-warm daemons with the old destination are treated as mismatches and replaced instead of being reused.
+
+Session 53 exposed a second path: Cursor completed a 223-second turn with 26 short tool steps, yet the browser stayed on the empty-activity fallback. Cursor SDK events were appended to the raw buffer immediately, but canonical activity parsing and Convex delivery depended on the 150ms interval getting scheduled while the in-process SDK was producing events. Every complete realtime line now requests a drain synchronously; the interval remains as recovery for partial lines and events arriving during an in-flight heartbeat.
+
+Regression coverage pins the daemon stream destination, makes it part of daemon identity, checks every task/project prewarm call, and requires complete provider events to request an immediate activity drain.
+
 ## Session branches stop tracking the base branch - 2026-08-11
 
 A session, quick task or project run that committed locally could fail to publish, and the failure pointed at the base branch. The cause was one git default. `git checkout -B eva/task-123 origin/staging` sets the upstream to the START POINT, so the new branch was left with `branch.eva/task-123.merge = refs/heads/staging`. With `push.default=simple` a bare `git push` then fataled — "the upstream branch of your current branch does not match the name of your current branch" — and the hint git prints in that situation, `git push origin HEAD:staging`, is exactly the push that lands session commits on the shared branch. `git pull` with no arguments quietly rebased onto the base branch for the same reason.

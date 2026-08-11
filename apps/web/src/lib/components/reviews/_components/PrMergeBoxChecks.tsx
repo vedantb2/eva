@@ -8,36 +8,8 @@ import {
   CollapsibleTrigger,
 } from "@eva/ui";
 import { IconExternalLink } from "@tabler/icons-react";
-import {
-  checkTone,
-  ToneIcon,
-  type PrCheck,
-  type StatusTone,
-} from "./prOverviewMeta";
-
-/**
- * The worst outcome wins: one failing check matters more than twenty passing
- * ones, and anything still running outranks a clean result that is not final.
- */
-function overallTone(counts: Record<StatusTone, number>): StatusTone {
-  if (counts.failure > 0) return "failure";
-  if (counts.pending > 0) return "pending";
-  if (counts.success > 0) return "success";
-  return "neutral";
-}
-
-function headline(counts: Record<StatusTone, number>): string {
-  if (counts.failure === 0 && counts.pending === 0 && counts.success > 0) {
-    return "All checks have passed";
-  }
-  const parts = [
-    counts.failure > 0 ? `${counts.failure} failing` : null,
-    counts.pending > 0 ? `${counts.pending} in progress` : null,
-    counts.success > 0 ? `${counts.success} passing` : null,
-    counts.neutral > 0 ? `${counts.neutral} skipped` : null,
-  ].filter((part) => part !== null);
-  return parts.join(" · ");
-}
+import { checksHeadline, checksOverallTone, countChecks } from "./prMergeState";
+import { checkTone, ToneIcon, type PrCheck } from "./prOverviewMeta";
 
 /**
  * The checks row of the merge box: a single verdict line, with the full list of
@@ -52,16 +24,7 @@ export function PrMergeBoxChecks({
   truncated: boolean;
 }) {
   const [open, setOpen] = useState(false);
-
-  const counts: Record<StatusTone, number> = {
-    success: 0,
-    failure: 0,
-    pending: 0,
-    neutral: 0,
-  };
-  for (const check of checks) {
-    counts[checkTone(check)] += 1;
-  }
+  const counts = countChecks(checks);
 
   if (checks.length === 0) {
     return (
@@ -75,9 +38,9 @@ export function PrMergeBoxChecks({
   return (
     <Collapsible open={open} onOpenChange={setOpen}>
       <div className="flex items-center gap-2 px-3 py-2">
-        <ToneIcon tone={overallTone(counts)} size={16} />
+        <ToneIcon tone={checksOverallTone(counts)} size={16} />
         <span className="min-w-0 flex-1 truncate text-sm">
-          {headline(counts)}
+          {checksHeadline(counts)}
         </span>
         <CollapsibleTrigger asChild>
           <Button size="sm" variant="ghost" className="text-muted-foreground">

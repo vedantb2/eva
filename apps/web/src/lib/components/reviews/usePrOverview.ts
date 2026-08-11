@@ -14,6 +14,8 @@ import {
 import type { PrOverview } from "./_components/prOverviewMeta";
 
 export type PrOverviewState =
+  // No pull request to load — the work being reviewed has not opened one yet.
+  | { status: "idle" }
   | { status: "loading" }
   | { status: "error"; message: string }
   // `refreshing` keeps the panel on screen during a refetch instead of
@@ -25,10 +27,14 @@ export type PrOverviewState =
  * this session (or warmed by hovering the reviews list) paints immediately and
  * revalidates behind the scenes. `reload` refetches with both the client cache
  * and the server ActionCache bypassed.
+ *
+ * Read once per review surface, above the tabs, because the header and the
+ * Overview tab are two views of this one payload; the query key is shared, so
+ * even a second reader would cost no extra request.
  */
 export function usePrOverview(
   repoId: Id<"githubRepos">,
-  prNumber: number,
+  prNumber: number | undefined,
 ): { state: PrOverviewState; reload: () => void } {
   const getOverview = useAction(api.github.getPullRequestOverview);
   const queryClient = useQueryClient();
@@ -39,11 +45,19 @@ export function usePrOverview(
   // Forced because the point of Reload is to get past the server-side
   // ActionCache as well; the result lands in the same cache entry.
   const reload = useMutation({
-    mutationFn: () => getOverview({ repoId, prNumber, force: true }),
-    onSuccess: (overview) => queryClient.setQueryData(options.queryKey, overview),
+    mutationFn: () =>
+      prNumber === undefined
+        ? Promise.resolve(undefined)
+        : getOverview({ repoId, prNumber, force: true }),
+    onSuccess: (overview) => {
+      if (overview !== undefined) {
+        queryClient.setQueryData(options.queryKey, overview);
+      }
+    },
   });
 
   const state = ((): PrOverviewState => {
+    if (prNumber === undefined) return { status: "idle" };
     if (query.data !== undefined) {
       return {
         status: "ready",

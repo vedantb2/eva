@@ -2,9 +2,13 @@
 
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@eva/backend";
+import { cn } from "@eva/ui";
 import {
   IconCircleCheck,
   IconCircleX,
+  IconGitMerge,
+  IconGitPullRequest,
+  IconGitPullRequestClosed,
   IconLoader2,
   IconMessageCircle,
   IconMinus,
@@ -104,6 +108,37 @@ export function statusMeta(
     className:
       "border-border bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
   };
+}
+
+/**
+ * The lifecycle pill itself. Rendered from `statusMeta` rather than beside it, so
+ * a surface cannot pair one status's wording with another's colour.
+ */
+export function PrStatusPill({
+  status,
+  draft,
+}: {
+  status: PrOverview["status"];
+  draft: boolean;
+}) {
+  const meta = statusMeta(status, draft);
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium",
+        meta.className,
+      )}
+    >
+      {status === "merged" ? (
+        <IconGitMerge size={13} aria-hidden />
+      ) : status === "closed" ? (
+        <IconGitPullRequestClosed size={13} aria-hidden />
+      ) : (
+        <IconGitPullRequest size={13} aria-hidden />
+      )}
+      {meta.label}
+    </span>
+  );
 }
 
 /** Shared idiom for a quiet, non-blocking notice (truncation, empty states). */

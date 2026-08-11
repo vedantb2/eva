@@ -1,5 +1,17 @@
 # Changelog
 
+## Persistent review header, checks pill, and a button for merge conflicts - 2026-08-11
+
+Everything that says what a pull request *is* lived inside the Overview tab: lifecycle pill, author, a prose sentence ("X wants to merge 3 commits into main from eva/foo"), and — at the foot of a long scroll — the merge box with CI and mergeability. From Diffs or Recap there was no way to tell a mergeable pull request from a conflicted one, and the sentence wrapped to three lines in a session pane.
+
+`ReviewTabsPanel` now reads `usePrOverview` itself and renders a shared `ReviewHeader` above the tab row, so both review surfaces (`/reviews/$prNumber`, sandbox Review tab) get one header from one query: status pill, author and last-updated, `base ← head` as monospace chips, commits/files/±diffstat, and a blocker badge. The prose sentence and `PrOverviewHeader` are deleted; `ReviewOverviewPanel` takes the payload as props instead of fetching a second time, and the standalone page's title block became the header's first row (`headerOwnsRefresh` still keeps Refresh to one control).
+
+CI standing moved to a pill on the tab row's right edge, worded for one glance — "1 of 17 failing", "All checks passed" — and clicking it jumps to Overview for the detail. Check aggregation and the merge verdict now live in one pure module, `prMergeState.ts`; `PrMergeBoxChecks` and `PrMergeBox` dropped their private copies of `overallTone` / `headline` / `blockedReason`, so the compact and verbose registers of the same verdict cannot drift.
+
+Two blockers are now actionable rather than informational. A `dirty` branch offers "Resolve in a new session" and a `behind` one "Update in a new session": both create a session **on the head branch** (not the base) prefilled with the rebase-and-resolve or merge-forward prompt, then navigate to it — conflicts are an ordinary agent task and eva already knows how to run one.
+
+Finally the description left the timeline. Agents write long ones, and as the first row on the rail it pushed every human comment below the fold — the thing a reviewer came for was the hardest to reach. `PrDescriptionSection` is a collapsible section above the timeline (open by default, Edit unchanged, same `Streamdown` renderer); `PrDescriptionBubble` and its timeline row are gone. Verified: `tsc` clean, compiler-check reports no new bailouts.
+
 ## Model traits on quick tasks and task Properties - 2026-08-11
 
 The traits menu (reasoning effort, thinking, 1M context, Fast mode) only existed on the chat composers, and those picks were sticky chat state — a task run always used each model's own defaults, with no way to change them. Added four run-level trait fields to `agentTasks` (`reasoningLevel`, `thinkingEnabled`, `use1mContext`, `fastMode`), threaded through `update` / `createQuickTask` / `activateDraft` via one shared `runTraitFields` validator set. `getTaskData` now returns a ready-made `traits` payload (`buildTraitsExecutionPayload`, so only non-default overrides travel) and `workflowDefinition` hands it to `launchOnExistingSandbox`, which already turned traits into `AI_*` env vars — so every run entry point honours the picks.

@@ -7,7 +7,6 @@ import { IconGitCommit } from "@tabler/icons-react";
 import { usePrCommits } from "../usePrOverview";
 import { PrCommentBubble } from "./PrCommentBubble";
 import { PrCommitGroup } from "./PrCommitGroup";
-import { PrDescriptionBubble } from "./PrDescriptionBubble";
 import { PrReviewEventItem } from "./PrReviewEventItem";
 import {
   NOTICE_CLASS,
@@ -17,9 +16,12 @@ import {
 import { buildPrTimeline } from "./prTimelineItems";
 
 /**
- * The conversation: the description, then everything that happened to the pull
- * request in order. The vertical rail and the 32px gutter are owned here, so
- * comments, review verdicts, and commits all line up however they are composed.
+ * The conversation: everything that happened to the pull request, in order. The
+ * vertical rail and the 32px gutter are owned here, so comments, review verdicts,
+ * and commits all line up however they are composed.
+ *
+ * The description is not a row on this rail — it sits above the timeline in its
+ * own collapsible section, so a long agent-written one cannot bury the replies.
  */
 export function PrTimeline({
   repoId,
@@ -54,17 +56,6 @@ export function PrTimeline({
       />
 
       <ol className="relative flex min-w-0 flex-col gap-4">
-        <TimelineRow
-          gutter={
-            <TimelineAvatar
-              login={overview.authorLogin}
-              avatarUrl={overview.authorAvatarUrl}
-            />
-          }
-        >
-          <PrDescriptionBubble repoId={repoId} overview={overview} />
-        </TimelineRow>
-
         {items.map((item) => {
           if (item.kind === "commits") {
             return (

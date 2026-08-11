@@ -22,6 +22,7 @@ import {
 } from "@eva/ui";
 import { IconGitMerge, IconGitPullRequestClosed } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
+import { mergeBlocker, mergeStateHeadline } from "./prMergeState";
 import { PrMergeBoxChecks } from "./PrMergeBoxChecks";
 import { ToneIcon, type PrOverview, type StatusTone } from "./prOverviewMeta";
 
@@ -32,55 +33,6 @@ const MERGE_METHODS: { value: MergeMethod; label: string }[] = [
   { value: "merge", label: "Create a merge commit" },
   { value: "rebase", label: "Rebase and merge" },
 ];
-
-/** Plain-English reason a merge cannot proceed, or null when it can. */
-function blockedReason(overview: PrOverview): string | null {
-  if (overview.draft) return "Mark the pull request ready for review to merge.";
-  if (overview.mergeable === null) {
-    return "GitHub is still working out whether this can merge. Refresh in a moment.";
-  }
-  if (overview.mergeable === false) {
-    return overview.mergeableState === "dirty"
-      ? "There are conflicts with the base branch."
-      : `GitHub reports this branch as ${overview.mergeableState}.`;
-  }
-  if (overview.mergeableState === "blocked") {
-    return "Branch protection still has unmet requirements, so GitHub may reject the merge.";
-  }
-  if (overview.mergeableState === "behind") {
-    return "The branch is behind the base branch and may need updating first.";
-  }
-  return null;
-}
-
-/** Headline for the open states, worded the way GitHub words them. */
-function mergeStateHeadline(overview: PrOverview): {
-  tone: StatusTone;
-  text: string;
-} {
-  if (overview.draft) {
-    return { tone: "neutral", text: "This pull request is still a draft" };
-  }
-  if (overview.mergeable === null) {
-    return { tone: "pending", text: "Checking whether this can be merged" };
-  }
-  if (overview.mergeable === false) {
-    return {
-      tone: "failure",
-      text:
-        overview.mergeableState === "dirty"
-          ? "This branch has conflicts that must be resolved"
-          : "This branch cannot be merged yet",
-    };
-  }
-  if (overview.mergeableState === "blocked") {
-    return { tone: "failure", text: "Merging is blocked" };
-  }
-  return {
-    tone: "success",
-    text: "This branch has no conflicts with the base branch",
-  };
-}
 
 /**
  * The box GitHub puts at the foot of a conversation: whether the branch can
@@ -106,7 +58,7 @@ export function PrMergeBox({
 
   const isOpen = overview.status === "open";
   const canMerge = !overview.draft && overview.mergeable === true;
-  const reason = blockedReason(overview);
+  const reason = mergeBlocker(overview)?.detail ?? null;
   const methodLabel =
     MERGE_METHODS.find((entry) => entry.value === method)?.label ?? "Merge";
 

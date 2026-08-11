@@ -68,12 +68,14 @@ export function ReviewDetailClient({
     );
   }
 
+  // Padding is owned by the header slot in `ReviewTabsPanel`, so this block sits
+  // flush with the status and branch rows below it.
   const header = (
-    <div className="shrink-0 px-3 pt-3">
+    <>
       {prHeader !== undefined ? (
-        // Author and last-updated live on the Overview tab's lifecycle line and
-        // in the reviews list, so the page chrome carries the title and the two
-        // controls that act on the whole pull request.
+        // Author and last-updated sit on the shared header's status row just
+        // below, so the page chrome carries the title and the two controls that
+        // act on the whole pull request.
         <div className="flex flex-wrap items-start gap-2">
           <h1 className="min-w-0 flex-1 text-lg font-semibold tracking-tight">
             {prHeader.title}{" "}
@@ -116,7 +118,7 @@ export function ReviewDetailClient({
           <Spinner size="sm" />
         </div>
       )}
-    </div>
+    </>
   );
 
   return (

@@ -14,6 +14,9 @@ import {
 } from "@/lib/components/sandbox/diffWorkerPool";
 import { PrRecapPanel } from "@/lib/components/sandbox/PrRecapPanel";
 import { ReviewOverviewPanel } from "./ReviewOverviewPanel";
+import { usePrOverview } from "./usePrOverview";
+import { PrChecksPill } from "./_components/PrChecksPill";
+import { ReviewHeader } from "./_components/ReviewHeader";
 
 interface ReviewTabsPanelProps {
   repoId: Id<"githubRepos">;
@@ -22,11 +25,14 @@ interface ReviewTabsPanelProps {
   prNumber?: number;
   activeTab: ReviewTab;
   onTabChange: (tab: ReviewTab) => void;
-  /** Rendered above the tab row — the standalone page puts the PR title here. */
+  /**
+   * Rendered as the first row of the shared header — the standalone page puts the
+   * PR title here. Padding is supplied here, so pass an unwrapped block.
+   */
   header?: ReactNode;
   /**
-   * True where `header` already carries a Refresh control, so Overview drops
-   * its own rather than showing two.
+   * True where `header` already carries a Refresh control, so the shared header
+   * drops its own rather than showing two.
    */
   headerOwnsRefresh?: boolean;
   /**
@@ -63,6 +69,11 @@ export function ReviewTabsPanel({
     api.docs.getRecapByPrUrl,
     prUrl ? { repoId, prUrl } : "skip",
   );
+  // Read here rather than inside Overview: the header above the tab row and the
+  // Overview tab are two views of one payload, and the header has to stay true
+  // while the reader is in Diffs or Recap.
+  const { state, reload } = usePrOverview(repoId, prNumber);
+  const overview = state.status === "ready" ? state.overview : null;
   const tabSize = compact ? "sm" : "default";
 
   return (
@@ -81,9 +92,35 @@ export function ReviewTabsPanel({
         }}
         className="flex h-full min-h-0 flex-col"
       >
-        {header}
-        <TabsBar size={tabSize}>
-          <TabsList size={tabSize} className="tabs-line h-auto gap-0.5 shadow-none">
+        {/* Until the overview lands, the surface's own block stands in for the
+            header — same padding, so the title does not shift when it arrives. */}
+        {overview === null ? (
+          header === undefined ? null : (
+            <div className="shrink-0 px-3 pt-3">{header}</div>
+          )
+        ) : (
+          <ReviewHeader
+            overview={overview}
+            refreshing={state.status === "ready" && state.refreshing}
+            onRefresh={headerOwnsRefresh ? undefined : reload}
+            title={header}
+          />
+        )}
+        <TabsBar
+          size={tabSize}
+          actions={
+            overview === null ? null : (
+              <PrChecksPill
+                checks={overview.checks}
+                onSelect={() => onTabChange("overview")}
+              />
+            )
+          }
+        >
+          <TabsList
+            size={tabSize}
+            className="tabs-line h-auto gap-0.5 shadow-none"
+          >
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="diffs">Diffs</TabsTrigger>
             <TabsTrigger value="recap">Recap</TabsTrigger>
@@ -99,7 +136,8 @@ export function ReviewTabsPanel({
             <ReviewOverviewPanel
               repoId={repoId}
               prNumber={prNumber}
-              showRefresh={!headerOwnsRefresh}
+              state={state}
+              reload={reload}
             />
           )}
         </ReviewTabContent>

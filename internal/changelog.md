@@ -1,5 +1,13 @@
 # Changelog
 
+## Projects get an Overview tab, and their fields get a column - 2026-08-11
+
+Every project field lived in one horizontal strip above the task list: phase, priority, lead, reviewer, members, model, base branch, two toggles, two dates, tags — eleven controls in a row that scrolled sideways on anything narrower than a desktop, each one a bare icon with no label to say what it set. The task detail page had already solved this: a Properties column, one field per row, labels above groups. Projects now use the same idea.
+
+The metadata strip is replaced by a tab row — **Overview** and **Tasks** — in the space it used to occupy. Tasks is the index route (`/projects/3`), so every existing deep link, including `/projects/3/117/activity`, lands exactly where it did before; Overview is a new `overview` segment, a static sibling that outranks `$taskNumId` in matching. Draft and finalised projects get the same row with the second tab labelled **Plan**, so the interview and the generated plan are reachable the same way. Overview itself is the task page's layout: title and project context on the left, `ProjectFieldsPanel` on the right in a `14fr/6fr` grid, each column scrolling on its own.
+
+The description stays editable in both places. `ProjectDescription` took a `className` and a `clamp` prop rather than being forked — the narrow Tasks rail still caps at `20vh`, Overview lets it run. Three pieces of duplication went with the strip. The field row styling is now one module, `components/fields/FieldsSection.tsx` (`FieldsSection`, `FIELD_TRIGGER_CLASS`, `FIELD_ROW_CLASS`), shared by the project and task columns, so `StatusFieldsSection` dropped its private `FieldsSection` and `task-detail-constants` its `GHOST_TRIGGER_CLASS`. The optimistic `projects.update` patch existed in three copies with three slightly different sets of nullable fields; it is now `useUpdateProject`, and the copy that silently skipped the two toggles is gone. `ProjectMetadataBar` is deleted, its phase select and date picker extracted as `ProjectPhaseSelect` and `ProjectDateField`. Verified in the browser on an active and a draft project — tab switching, deep links, and field editing all behave; `tsc` clean.
+
 ## The review tab is one quiet column, not six cards - 2026-08-11
 
 The Overview tab read as clutter because it was clutter: six outlined cards of equal weight (description, timeline, comment composer, merge box with four divided rows) beside a sidebar of three headed sections, each with its own prose empty state. `docs/eva-ui.md` says hierarchy comes from surface tone, whitespace, and type — not hairlines — and the tab had been ignoring that with hand-rolled `rounded-md border border-border bg-card` on every block.

@@ -1,17 +1,27 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Badge, Input, Popover, PopoverTrigger, PopoverContent } from "@eva/ui";
+import {
+  Badge,
+  Input,
+  Popover,
+  PopoverTrigger,
+  PopoverContent,
+  cn,
+} from "@eva/ui";
 import { IconTags } from "@tabler/icons-react";
 
 interface ProjectTagsPopoverProps {
   tags: string[] | undefined;
   onUpdate: (tags: string[]) => void;
+  /** Trigger classes — lets a field-row caller swap the inline bar sizing. */
+  className?: string;
 }
 
 export function ProjectTagsPopover({
   tags,
   onUpdate,
+  className,
 }: ProjectTagsPopoverProps) {
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -42,7 +52,11 @@ export function ProjectTagsPopover({
     <Popover>
       <PopoverTrigger asChild>
         <button
-          className={`flex items-center h-8 rounded-lg hover:bg-muted/60 transition-colors px-2 gap-1.5 text-[13px] shrink-0 ${currentTags.length === 0 ? "text-muted-foreground" : ""}`}
+          className={cn(
+            "flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2 text-[13px] transition-colors hover:bg-muted/60",
+            currentTags.length === 0 && "text-muted-foreground",
+            className,
+          )}
         >
           <IconTags size={14} className="text-muted-foreground shrink-0" />
           <span>

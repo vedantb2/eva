@@ -84,6 +84,7 @@ import { Route as RepoOwnerRepoSettingsEnvVariablesScopeRouteImport } from './ro
 import { Route as RepoOwnerRepoSessionsNumIdSandboxTabRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/$sandboxTab'
 import { Route as RepoOwnerRepoReviewsPrNumberReviewTabRouteImport } from './routes/_repo/$owner/$repo/reviews/$prNumber/$reviewTab'
 import { Route as RepoOwnerRepoQuickTasksNumIdDetailTabRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$numId/$detailTab'
+import { Route as RepoOwnerRepoProjectsNumIdOverviewRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/overview'
 import { Route as RepoOwnerRepoDocsNumIdDocTabRouteImport } from './routes/_repo/$owner/$repo/docs/$numId/$docTab'
 import { Route as RepoOwnerRepoAutomationsNumIdAutomationTabRouteImport } from './routes/_repo/$owner/$repo/automations/$numId/$automationTab'
 import { Route as RepoOwnerRepoSessionsNumIdReviewRouteRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/review/route'
@@ -541,6 +542,12 @@ const RepoOwnerRepoQuickTasksNumIdDetailTabRoute =
     path: '/$detailTab',
     getParentRoute: () => RepoOwnerRepoQuickTasksNumIdRouteRoute,
   } as any)
+const RepoOwnerRepoProjectsNumIdOverviewRoute =
+  RepoOwnerRepoProjectsNumIdOverviewRouteImport.update({
+    id: '/overview',
+    path: '/overview',
+    getParentRoute: () => RepoOwnerRepoProjectsNumIdRouteRoute,
+  } as any)
 const RepoOwnerRepoDocsNumIdDocTabRoute =
   RepoOwnerRepoDocsNumIdDocTabRouteImport.update({
     id: '/$docTab',
@@ -821,6 +828,7 @@ export interface FileRoutesByFullPath {
   '/$owner/$repo/sessions/$numId/review': typeof RepoOwnerRepoSessionsNumIdReviewRouteRouteWithChildren
   '/$owner/$repo/automations/$numId/$automationTab': typeof RepoOwnerRepoAutomationsNumIdAutomationTabRoute
   '/$owner/$repo/docs/$numId/$docTab': typeof RepoOwnerRepoDocsNumIdDocTabRoute
+  '/$owner/$repo/projects/$numId/overview': typeof RepoOwnerRepoProjectsNumIdOverviewRoute
   '/$owner/$repo/quick-tasks/$numId/$detailTab': typeof RepoOwnerRepoQuickTasksNumIdDetailTabRoute
   '/$owner/$repo/reviews/$prNumber/$reviewTab': typeof RepoOwnerRepoReviewsPrNumberReviewTabRoute
   '/$owner/$repo/sessions/$numId/$sandboxTab': typeof RepoOwnerRepoSessionsNumIdSandboxTabRoute
@@ -916,6 +924,7 @@ export interface FileRoutesByTo {
   '/$owner/$repo/projects/$numId/sandbox': typeof RepoOwnerRepoProjectsNumIdSandboxRouteRouteWithChildren
   '/$owner/$repo/automations/$numId/$automationTab': typeof RepoOwnerRepoAutomationsNumIdAutomationTabRoute
   '/$owner/$repo/docs/$numId/$docTab': typeof RepoOwnerRepoDocsNumIdDocTabRoute
+  '/$owner/$repo/projects/$numId/overview': typeof RepoOwnerRepoProjectsNumIdOverviewRoute
   '/$owner/$repo/quick-tasks/$numId/$detailTab': typeof RepoOwnerRepoQuickTasksNumIdDetailTabRoute
   '/$owner/$repo/reviews/$prNumber/$reviewTab': typeof RepoOwnerRepoReviewsPrNumberReviewTabRoute
   '/$owner/$repo/sessions/$numId/$sandboxTab': typeof RepoOwnerRepoSessionsNumIdSandboxTabRoute
@@ -1023,6 +1032,7 @@ export interface FileRoutesById {
   '/_repo/$owner/$repo/sessions/$numId/review': typeof RepoOwnerRepoSessionsNumIdReviewRouteRouteWithChildren
   '/_repo/$owner/$repo/automations/$numId/$automationTab': typeof RepoOwnerRepoAutomationsNumIdAutomationTabRoute
   '/_repo/$owner/$repo/docs/$numId/$docTab': typeof RepoOwnerRepoDocsNumIdDocTabRoute
+  '/_repo/$owner/$repo/projects/$numId/overview': typeof RepoOwnerRepoProjectsNumIdOverviewRoute
   '/_repo/$owner/$repo/quick-tasks/$numId/$detailTab': typeof RepoOwnerRepoQuickTasksNumIdDetailTabRoute
   '/_repo/$owner/$repo/reviews/$prNumber/$reviewTab': typeof RepoOwnerRepoReviewsPrNumberReviewTabRoute
   '/_repo/$owner/$repo/sessions/$numId/$sandboxTab': typeof RepoOwnerRepoSessionsNumIdSandboxTabRoute
@@ -1135,6 +1145,7 @@ export interface FileRouteTypes {
     | '/$owner/$repo/sessions/$numId/review'
     | '/$owner/$repo/automations/$numId/$automationTab'
     | '/$owner/$repo/docs/$numId/$docTab'
+    | '/$owner/$repo/projects/$numId/overview'
     | '/$owner/$repo/quick-tasks/$numId/$detailTab'
     | '/$owner/$repo/reviews/$prNumber/$reviewTab'
     | '/$owner/$repo/sessions/$numId/$sandboxTab'
@@ -1230,6 +1241,7 @@ export interface FileRouteTypes {
     | '/$owner/$repo/projects/$numId/sandbox'
     | '/$owner/$repo/automations/$numId/$automationTab'
     | '/$owner/$repo/docs/$numId/$docTab'
+    | '/$owner/$repo/projects/$numId/overview'
     | '/$owner/$repo/quick-tasks/$numId/$detailTab'
     | '/$owner/$repo/reviews/$prNumber/$reviewTab'
     | '/$owner/$repo/sessions/$numId/$sandboxTab'
@@ -1336,6 +1348,7 @@ export interface FileRouteTypes {
     | '/_repo/$owner/$repo/sessions/$numId/review'
     | '/_repo/$owner/$repo/automations/$numId/$automationTab'
     | '/_repo/$owner/$repo/docs/$numId/$docTab'
+    | '/_repo/$owner/$repo/projects/$numId/overview'
     | '/_repo/$owner/$repo/quick-tasks/$numId/$detailTab'
     | '/_repo/$owner/$repo/reviews/$prNumber/$reviewTab'
     | '/_repo/$owner/$repo/sessions/$numId/$sandboxTab'
@@ -1917,6 +1930,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/$owner/$repo/quick-tasks/$numId/$detailTab'
       preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdDetailTabRouteImport
       parentRoute: typeof RepoOwnerRepoQuickTasksNumIdRouteRoute
+    }
+    '/_repo/$owner/$repo/projects/$numId/overview': {
+      id: '/_repo/$owner/$repo/projects/$numId/overview'
+      path: '/overview'
+      fullPath: '/$owner/$repo/projects/$numId/overview'
+      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdOverviewRouteImport
+      parentRoute: typeof RepoOwnerRepoProjectsNumIdRouteRoute
     }
     '/_repo/$owner/$repo/docs/$numId/$docTab': {
       id: '/_repo/$owner/$repo/docs/$numId/$docTab'
@@ -2548,6 +2568,7 @@ const RepoOwnerRepoProjectsNumIdSandboxRouteRouteWithChildren =
 interface RepoOwnerRepoProjectsNumIdRouteRouteChildren {
   RepoOwnerRepoProjectsNumIdTaskNumIdRouteRoute: typeof RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteWithChildren
   RepoOwnerRepoProjectsNumIdSandboxRouteRoute: typeof RepoOwnerRepoProjectsNumIdSandboxRouteRouteWithChildren
+  RepoOwnerRepoProjectsNumIdOverviewRoute: typeof RepoOwnerRepoProjectsNumIdOverviewRoute
   RepoOwnerRepoProjectsNumIdIndexRoute: typeof RepoOwnerRepoProjectsNumIdIndexRoute
 }
 
@@ -2557,6 +2578,8 @@ const RepoOwnerRepoProjectsNumIdRouteRouteChildren: RepoOwnerRepoProjectsNumIdRo
       RepoOwnerRepoProjectsNumIdTaskNumIdRouteRouteWithChildren,
     RepoOwnerRepoProjectsNumIdSandboxRouteRoute:
       RepoOwnerRepoProjectsNumIdSandboxRouteRouteWithChildren,
+    RepoOwnerRepoProjectsNumIdOverviewRoute:
+      RepoOwnerRepoProjectsNumIdOverviewRoute,
     RepoOwnerRepoProjectsNumIdIndexRoute: RepoOwnerRepoProjectsNumIdIndexRoute,
   }
 

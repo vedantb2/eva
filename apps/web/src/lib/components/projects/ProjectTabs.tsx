@@ -6,6 +6,7 @@ import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import { ProjectChatTab, type ConversationMessage } from "./ProjectChatTab";
 import { ProjectPlanTab } from "./ProjectPlanTab";
+import { useUpdateProject } from "./useUpdateProject";
 import type { ProjectPhase } from "@/lib/components/projects/ProjectPhaseBadge";
 
 interface ProjectTabsProps {
@@ -34,45 +35,7 @@ export function ProjectTabs({
   repoId,
 }: ProjectTabsProps) {
   const [pendingSpec, setPendingSpec] = useState<string | null>(null);
-  const updateProject = useMutation(api.projects.update).withOptimisticUpdate(
-    (localStore, args) => {
-      const current = localStore.getQuery(api.projects.get, { id: projectId });
-      if (current !== undefined && current !== null) {
-        const {
-          id: _id,
-          priority,
-          projectLead,
-          codeReviewer,
-          model,
-          providerAccountId,
-          screenshotsVideosEnabled: _screenshotsVideosEnabled,
-          runAuditEnabled: _runAuditEnabled,
-          ...safeFields
-        } = args;
-        localStore.setQuery(
-          api.projects.get,
-          { id: projectId },
-          {
-            ...current,
-            ...safeFields,
-            ...(priority !== undefined
-              ? { priority: priority ?? undefined }
-              : {}),
-            ...(projectLead !== undefined
-              ? { projectLead: projectLead ?? undefined }
-              : {}),
-            ...(codeReviewer !== undefined
-              ? { codeReviewer: codeReviewer ?? undefined }
-              : {}),
-            ...(model !== undefined ? { model: model ?? undefined } : {}),
-            ...(providerAccountId !== undefined
-              ? { providerAccountId: providerAccountId ?? undefined }
-              : {}),
-          },
-        );
-      }
-    },
-  );
+  const updateProject = useUpdateProject(projectId);
   const clearMessagesDb = useMutation(api.projects.clearMessages);
   const addMessageDb = useMutation(api.projects.addMessage);
   const startProjectInterview = useMutation(

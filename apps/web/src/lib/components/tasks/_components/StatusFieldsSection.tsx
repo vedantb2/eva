@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useRef, useState } from "react";
 import { useMutation } from "convex/react";
 import { api, normalizeAIModel } from "@eva/backend";
 import type { Doc, Id } from "@eva/backend";
@@ -51,7 +51,11 @@ import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ModelTraitsMenu } from "@/lib/components/ModelTraitsMenu";
 import { taskRunTraits, toRunTraitArgs } from "@/lib/utils/runTraits";
 import {
-  GHOST_TRIGGER_CLASS,
+  FieldsSection,
+  FIELD_ROW_CLASS,
+  FIELD_TRIGGER_CLASS,
+} from "@/lib/components/fields/FieldsSection";
+import {
   DEPLOYMENT_STATUS_CONFIG,
   getUserDisplayName,
   NO_PROJECT_VALUE,
@@ -265,7 +269,7 @@ export function StatusFieldsSection({
             }
           }}
         >
-          <SelectTrigger className={GHOST_TRIGGER_CLASS}>
+          <SelectTrigger className={FIELD_TRIGGER_CLASS}>
             <SelectValue placeholder="Status">
               {status
                 ? (() => {
@@ -320,7 +324,7 @@ export function StatusFieldsSection({
             }
           }}
         >
-          <SelectTrigger className={GHOST_TRIGGER_CLASS}>
+          <SelectTrigger className={FIELD_TRIGGER_CLASS}>
             <SelectValue>
               <div
                 className={`flex items-center gap-1.5 ${task?.priority ? "" : "text-muted-foreground"}`}
@@ -364,7 +368,7 @@ export function StatusFieldsSection({
             }
           }}
         >
-          <SelectTrigger className={GHOST_TRIGGER_CLASS}>
+          <SelectTrigger className={FIELD_TRIGGER_CLASS}>
             <SelectValue>
               <div
                 className={`flex items-center gap-1.5 ${!task?.assignedTo ? "text-muted-foreground" : ""}`}
@@ -400,7 +404,7 @@ export function StatusFieldsSection({
           </SelectContent>
         </Select>
 
-        <div className="flex items-center min-h-[40px] rounded-lg px-2 transition-colors hover:bg-muted/50">
+        <div className={FIELD_ROW_CLASS}>
           <ModelSelect
             value={currentModel}
             options={modelOptions}
@@ -446,7 +450,7 @@ export function StatusFieldsSection({
         </div>
 
         {!task?.projectId && (
-          <div className="flex items-center min-h-[40px] rounded-lg hover:bg-muted/50 transition-colors px-2">
+          <div className={FIELD_ROW_CLASS}>
             {status === "todo" ? (
               <BranchSelect
                 value={baseBranch}
@@ -477,7 +481,7 @@ export function StatusFieldsSection({
         )}
 
         {latestDeployment?.deploymentStatus && (
-          <div className="flex items-center h-10 rounded-lg hover:bg-muted/50 transition-colors px-2 gap-1.5 text-[13px]">
+          <div className={`${FIELD_ROW_CLASS} gap-1.5 text-[13px]`}>
             <IconBrandVercelFilled
               size={14}
               className={
@@ -495,7 +499,7 @@ export function StatusFieldsSection({
 
       <FieldsSection title="Labels">
         <div
-          className="group/tags flex items-center min-h-[40px] rounded-lg hover:bg-muted/50 transition-colors px-2 gap-1 flex-wrap cursor-text"
+          className={`${FIELD_ROW_CLASS} group/tags flex-wrap gap-1 cursor-text`}
           onClick={() => tagDraftRef.current?.focus()}
         >
           <IconTags size={14} className="text-muted-foreground shrink-0" />
@@ -592,7 +596,7 @@ export function StatusFieldsSection({
             }
           }}
         >
-          <SelectTrigger className={GHOST_TRIGGER_CLASS}>
+          <SelectTrigger className={FIELD_TRIGGER_CLASS}>
             <SelectValue placeholder="Project">
               <div
                 className={`flex items-center gap-1.5 ${selectedProjectValue === NO_PROJECT_VALUE ? "text-muted-foreground" : ""}`}
@@ -638,23 +642,6 @@ export function StatusFieldsSection({
           defaultSkipPlanning
         />
       </FieldsSection>
-    </div>
-  );
-}
-
-function FieldsSection({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <div className="space-y-0.5">
-      <p className="px-2 pb-1 text-xs font-medium text-muted-foreground">
-        {title}
-      </p>
-      {children}
     </div>
   );
 }

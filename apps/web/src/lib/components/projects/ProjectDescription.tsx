@@ -2,58 +2,25 @@
 
 import { useState } from "react";
 import { cn } from "@eva/ui";
-import { useMutation } from "convex/react";
-import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { MarkdownEditor } from "@/lib/components/tasks/_components/MarkdownEditor";
+import { useUpdateProject } from "./useUpdateProject";
 
 export function ProjectDescription({
   description,
   projectId,
+  className,
+  clamp = true,
 }: {
   description: string | undefined;
   projectId: Id<"projects">;
+  /** Overrides the wrapper padding (the task rail needs it, Overview does not). */
+  className?: string;
+  /** Rail height cap. Off on Overview, where the description owns the column. */
+  clamp?: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);
-  const updateProject = useMutation(api.projects.update).withOptimisticUpdate(
-    (localStore, args) => {
-      const current = localStore.getQuery(api.projects.get, { id: projectId });
-      if (current !== undefined && current !== null) {
-        const {
-          id: _id,
-          priority,
-          projectLead,
-          codeReviewer,
-          model,
-          providerAccountId,
-          screenshotsVideosEnabled: _screenshotsVideosEnabled,
-          runAuditEnabled: _runAuditEnabled,
-          ...safeFields
-        } = args;
-        localStore.setQuery(
-          api.projects.get,
-          { id: projectId },
-          {
-            ...current,
-            ...safeFields,
-            ...(priority !== undefined
-              ? { priority: priority ?? undefined }
-              : {}),
-            ...(projectLead !== undefined
-              ? { projectLead: projectLead ?? undefined }
-              : {}),
-            ...(codeReviewer !== undefined
-              ? { codeReviewer: codeReviewer ?? undefined }
-              : {}),
-            ...(model !== undefined ? { model: model ?? undefined } : {}),
-            ...(providerAccountId !== undefined
-              ? { providerAccountId: providerAccountId ?? undefined }
-              : {}),
-          },
-        );
-      }
-    },
-  );
+  const updateProject = useUpdateProject(projectId);
 
   const desc = description ?? "";
 
@@ -70,7 +37,7 @@ export function ProjectDescription({
   };
 
   return (
-    <div className="px-3 pt-3 pb-2">
+    <div className={cn("px-3 pt-3 pb-2", className)}>
       <div className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground mb-1">
         Project context
       </div>
@@ -83,8 +50,8 @@ export function ProjectDescription({
         }
         className={cn(
           "min-h-6 overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1",
-          !isEditing &&
-            "max-h-[20vh] overflow-y-auto scrollbar cursor-pointer hover:bg-muted/50",
+          !isEditing && "cursor-pointer hover:bg-muted/50",
+          !isEditing && clamp && "max-h-[20vh] overflow-y-auto scrollbar",
         )}
       >
         <MarkdownEditor

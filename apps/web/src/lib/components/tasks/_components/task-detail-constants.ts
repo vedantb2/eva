@@ -10,9 +10,6 @@ export function canEditTaskModel(status: TaskStatus | undefined): boolean {
   return status !== "done" && status !== "cancelled";
 }
 
-export const GHOST_TRIGGER_CLASS =
-  "h-10 border-0 shadow-none bg-transparent px-2 focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded-lg text-[13px] [&>svg:last-child]:hidden";
-
 export const DEPLOYMENT_STATUS_CONFIG: Record<
   string,
   { iconColor: string; label: string }

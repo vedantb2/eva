@@ -29,7 +29,11 @@ import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { ProjectTabs } from "@/lib/components/projects/ProjectTabs";
 import { ProjectActiveLayout } from "@/lib/components/projects/ProjectActiveLayout";
-import { ProjectMetadataBar } from "@/lib/components/projects/ProjectMetadataBar";
+import {
+  ProjectMainTabs,
+  type ProjectMainTab,
+} from "@/lib/components/projects/ProjectMainTabs";
+import { ProjectOverviewTab } from "@/lib/components/projects/ProjectOverviewTab";
 import { ProjectSandboxPanel } from "@/lib/components/projects/ProjectSandboxPanel";
 import { ProjectSandboxChatPanel } from "@/lib/components/projects/ProjectSandboxChatPanel";
 import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
@@ -78,11 +82,14 @@ export function ProjectDetailClient({
   selectedTaskId,
   selectedTaskStatus,
   detailTab,
+  mainTab = "work",
 }: {
   projectId: Id<"projects">;
   projectNumId?: number;
   surface: "main" | "sandbox";
   sandboxTab?: TaskRouteSandboxTab;
+  /** Primary tab. `work` is the index route, so deep links keep working. */
+  mainTab?: ProjectMainTab;
   selectedTaskId?: Id<"agentTasks">;
   /** Resolve status of selectedTaskId's numId; undefined when no task is selected. */
   selectedTaskStatus?: EntityResolveStatus;
@@ -565,13 +572,25 @@ export function ProjectDetailClient({
         ) : null
       }
     >
-      {/* Status/metadata bar is detail-only — sandbox stays flush like sessions. */}
-      {isSandboxSurface ? null : <ProjectMetadataBar projectId={projectId} />}
+      {/* Tab strip is detail-only — sandbox stays flush like sessions. */}
+      {isSandboxSurface || !projectPathSegment ? null : (
+        <ProjectMainTabs
+          projectHref={`${basePath}/projects/${projectPathSegment}`}
+          activeTab={mainTab}
+          workTabLabel={isDraftOrFinalized ? "Plan" : "Tasks"}
+        />
+      )}
       <div className="flex min-h-0 flex-1 flex-col">
         {isSandboxSurface ? (
           <div className="min-h-0 flex-1 overflow-hidden">
             {projectSandboxContent}
           </div>
+        ) : mainTab === "overview" ? (
+          <ProjectOverviewTab
+            projectId={projectId}
+            title={project.title}
+            description={project.description}
+          />
         ) : isDraftOrFinalized ? (
           <ProjectTabs
             projectId={projectId}

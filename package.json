@@ -18,7 +18,9 @@
     "test:oxlint-plugin": "node --test scripts/oxlint-plugin-eva/test/rules.test.mjs",
     "deadcode": "knip",
     "prepare": "husky",
-    "doctor": "npx react-doctor@latest"
+    "doctor": "npx react-doctor@latest",
+    "sync:prod-to-dev": "pnpm --filter @eva/backend run sync:prod-to-dev",
+    "sync:prod-to-local": "pnpm --filter @eva/backend run sync:prod-to-local"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,md}": "prettier --write",

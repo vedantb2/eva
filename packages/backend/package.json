@@ -16,6 +16,7 @@
     "build:callback": "node scripts/build-callback-script.mjs",
     "build:annotation": "node scripts/build-annotation-script.mjs",
     "sync:prod-to-dev": "node scripts/sync-prod-to-dev.mjs",
+    "sync:prod-to-local": "node scripts/sync-to-local.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "predeploy": "pnpm run build:callback && pnpm run build:annotation",

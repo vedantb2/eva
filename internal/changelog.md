@@ -1,5 +1,15 @@
 # Changelog
 
+## A cloud Convex deployment can be pulled into a local backend - 2026-08-11
+
+`sync:prod-to-dev` mirrors production into the cloud dev deployment and depends on a `convex login` session. It cannot help someone working against a Convex backend running on their own machine, and it cannot run at all without CLI authentication. `pnpm sync:prod-to-local` is the local counterpart: it exports a snapshot from whichever cloud deployment the deploy key you pass belongs to, then imports it into the local backend with `--replace-all`.
+
+Neither half uses the CLI login. The source is selected by the deployment-scoped deploy key alone, injected as `CONVEX_DEPLOY_KEY` into the export child process, where it outranks anything `.env.local` sets. The target is addressed with `--url` and `--admin-key` read off the local deployment's `config.json`, a pair of flags that makes the CLI skip every environment variable including auth. Because the key names its own deployment, no deployment name is hardcoded and no selector flag can redirect the export, so a project or preview key is refused rather than silently guessed at.
+
+The import is destructive, so the target is guarded twice: the resolved URL must be loopback, and the backend must already answer on `/instance_name` before a potentially long export starts. Three flags make the run configurable — `--include-storage` adds file storage to the export, `--include-env` copies the source deployment's environment variables onto the local one over stdin so no value is written to disk or logged, and `--keep-snapshot` retains the zip, which is otherwise deleted after a successful import. Deploy keys are read from a file by default and never printed.
+
+The same script ships in carepulse-ts as `pnpm sync:staging-to-local`, where `--app` picks between the web and eprocurement Convex projects. Cross-repo sharing would need a published package, so the two files are a deliberate near-copy differing only in their app map.
+
 ## PR recaps are generated on demand, on a model you pick - 2026-08-11
 
 A recap was governed by a repo-wide switch: `prRecapsEnabled` turned it on for every pull request, and `prRecapModel` pinned one model for all of them. Neither matches how recaps are actually wanted. A small refactor and a schema migration do not deserve the same model or the same reasoning effort, and most pushes do not deserve a recap at all. The Generate button in the Review tab is now the only way a recap comes into existence.

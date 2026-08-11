@@ -1,5 +1,11 @@
 # Changelog
 
+## Model traits on quick tasks and task Properties - 2026-08-11
+
+The traits menu (reasoning effort, thinking, 1M context, Fast mode) only existed on the chat composers, and those picks were sticky chat state — a task run always used each model's own defaults, with no way to change them. Added four run-level trait fields to `agentTasks` (`reasoningLevel`, `thinkingEnabled`, `use1mContext`, `fastMode`), threaded through `update` / `createQuickTask` / `activateDraft` via one shared `runTraitFields` validator set. `getTaskData` now returns a ready-made `traits` payload (`buildTraitsExecutionPayload`, so only non-default overrides travel) and `workflowDefinition` hands it to `launchOnExistingSandbox`, which already turned traits into `AI_*` env vars — so every run entry point honours the picks.
+
+UI: `TraitsMenu` no longer requires a composer (it used the throwing controller hook; Ultrathink, which writes into the prompt, is hidden when no `PromptInputProvider` is in scope). New `ModelTraitsMenu` holds the wiring once and is used by the quick task modal, the task Properties panel (sharing the model picker's lock and tooltip), and the chat composer, which drops ~35 lines of duplicate wiring.
+
 ## Model picker back in task Properties, locked once a task has run - 2026-08-11
 
 Unifying the composers on 23 Jul dropped the model row from the task detail Properties panel entirely, so a quick task's model could only be changed from the Make-changes composer — invisible until you started composing. Restored `ModelSelect` in Properties for every task (quick and project), writing `model` + `providerAccountId` through the same owner-aware mutation as the composer. Disabled with an info tooltip once the task has any run ("Cannot be changed after the task has run") or reaches a terminal status.

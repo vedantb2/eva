@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
-import { usePromptInputController } from "./prompt-input";
+import { useOptionalPromptInputController } from "./prompt-input";
 import { cn } from "../utils/cn";
 
 const ULTRATHINK_PROMPT_PREFIX = "Ultrathink:\n";
@@ -64,8 +64,12 @@ export interface TraitsMenuProps {
 }
 
 /**
- * One composer dropdown for every model trait (reasoning, Fast, context, thinking).
+ * One dropdown for every model trait (reasoning, Fast, context, thinking).
  * Sections are only rendered when the active model supports them.
+ *
+ * Renders inside a composer or standalone (task Properties, quick task modal).
+ * Ultrathink is prompt-driven, so it only appears when a PromptInputProvider
+ * is in scope.
  */
 export function TraitsMenu({
   config,
@@ -81,8 +85,8 @@ export function TraitsMenu({
   disabled,
   className,
 }: TraitsMenuProps) {
-  const { textInput } = usePromptInputController();
-  const prompt = textInput.value;
+  const controller = useOptionalPromptInputController();
+  const prompt = controller?.textInput.value ?? "";
 
   const hasAnyControls = Boolean(
     config.reasoning ||
@@ -94,8 +98,11 @@ export function TraitsMenu({
     return null;
   }
 
+  // Ultrathink is written into the prompt, so it needs a composer to write to.
+  const ultrathinkAvailable =
+    Boolean(config.reasoning?.ultrathink) && controller !== null;
   const ultrathinkPromptControlled =
-    Boolean(config.reasoning?.ultrathink) && isUltrathinkPrompt(prompt);
+    ultrathinkAvailable && isUltrathinkPrompt(prompt);
   const ultrathinkInBodyText =
     ultrathinkPromptControlled &&
     isUltrathinkPrompt(prompt.replace(/^Ultrathink:\s*/i, ""));
@@ -125,18 +132,19 @@ export function TraitsMenu({
     if (!value || !config.reasoning) return;
 
     if (value === "ultrathink") {
+      if (!controller) return;
       const nextPrompt =
         prompt.trim().length === 0
           ? ULTRATHINK_PROMPT_PREFIX
           : applyUltrathinkPrefix(prompt);
-      textInput.setInput(nextPrompt);
+      controller.textInput.setInput(nextPrompt);
       return;
     }
 
     if (ultrathinkInBodyText) return;
 
-    if (ultrathinkPromptControlled) {
-      textInput.setInput(prompt.replace(/^Ultrathink:\s*/i, ""));
+    if (ultrathinkPromptControlled && controller) {
+      controller.textInput.setInput(prompt.replace(/^Ultrathink:\s*/i, ""));
     }
 
     onEffortLevelChange(value);
@@ -192,7 +200,7 @@ export function TraitsMenu({
                   {level === config.reasoning?.default ? " (default)" : ""}
                 </DropdownMenuRadioItem>
               ))}
-              {config.reasoning.ultrathink ? (
+              {ultrathinkAvailable ? (
                 <DropdownMenuRadioItem
                   value="ultrathink"
                   disabled={ultrathinkInBodyText}

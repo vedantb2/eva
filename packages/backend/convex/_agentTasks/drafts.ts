@@ -14,6 +14,7 @@ import {
   agentTaskValidator,
   normalizeTaskTags,
   buildTaskNotificationMessage,
+  runTraitFields,
 } from "./helpers";
 import { resolveNewTaskBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
 import {
@@ -125,6 +126,7 @@ export const activateDraft = authMutation({
     providerAccountId: v.optional(
       v.union(v.id("userProviderAccounts"), v.null()),
     ),
+    ...runTraitFields,
     tags: v.optional(v.array(v.string())),
     assignedTo: v.optional(v.id("users")),
     screenshotsVideosEnabled: v.optional(v.boolean()),
@@ -155,6 +157,10 @@ export const activateDraft = authMutation({
       baseBranch: resolveNewTaskBaseBranch(args.baseBranch, repo, project),
       model: args.model,
       providerAccountId,
+      reasoningLevel: args.reasoningLevel,
+      thinkingEnabled: args.thinkingEnabled,
+      use1mContext: args.use1mContext,
+      fastMode: args.fastMode,
       status: "todo",
       updatedAt: Date.now(),
       tags: normalizeTaskTags(args.tags),

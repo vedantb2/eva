@@ -2,7 +2,12 @@ import { v } from "convex/values";
 import { internalQuery } from "../_generated/server";
 import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
-import { aiModelValidator, runModeValidator } from "../validators";
+import {
+  aiModelValidator,
+  buildTraitsExecutionPayload,
+  reasoningLevelValidator,
+  runModeValidator,
+} from "../validators";
 import {
   resolveTaskWorkflowBaseBranch,
   resolveTaskWorkflowBaseBranchForTask,
@@ -105,6 +110,14 @@ export const getTaskData = internalQuery({
     // Files the user attached when creating the task; materialized into the
     // sandbox at launch so the agent can read them.
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    // Trait overrides for the run, already reduced to the non-default ones so
+    // the runner falls back to each model's own behaviour otherwise.
+    traits: v.object({
+      reasoningLevel: v.optional(reasoningLevelValidator),
+      thinkingEnabled: v.optional(v.boolean()),
+      use1mContext: v.optional(v.boolean()),
+      fastMode: v.optional(v.boolean()),
+    }),
     projectSandboxId: v.optional(v.string()),
     taskSandboxId: v.optional(v.string()),
     keepTaskSandboxActiveAfterRun: v.boolean(),
@@ -331,6 +344,12 @@ export const getTaskData = internalQuery({
       taskTitle: task.title,
       taskDescription: resolvedTaskDescription ?? task.description,
       attachmentStorageIds: task.attachmentStorageIds,
+      traits: buildTraitsExecutionPayload(task.model, {
+        effortLevel: task.reasoningLevel,
+        thinkingEnabled: task.thinkingEnabled,
+        use1mContext: task.use1mContext,
+        fastMode: task.fastMode,
+      }),
       projectSandboxId,
       taskSandboxId,
       keepTaskSandboxActiveAfterRun,

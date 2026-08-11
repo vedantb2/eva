@@ -31,6 +31,7 @@ import {
   normalizeAIModel,
   type AIModel,
   type Id,
+  type StoredModelTraits,
 } from "@eva/backend";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import type { FunctionReturnType } from "convex/server";
@@ -40,7 +41,9 @@ import {
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
+import { toRunTraitArgs } from "@/lib/utils/runTraits";
 import { BranchSelect } from "@/lib/components/BranchSelect";
+import { ModelTraitsMenu } from "@/lib/components/ModelTraitsMenu";
 import {
   IconFileText,
   IconTrash,
@@ -175,6 +178,9 @@ export function QuickTaskModal({
 
   const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
   const [model, setModel] = useState<AIModel>(defaultModel);
+  // Absent traits fall back to each model's own defaults, so an untouched menu
+  // sends nothing and the task runs exactly as it does today.
+  const [traits, setTraits] = useState<StoredModelTraits>({});
   const [providerAccountId, setProviderAccountId] = useState<string | null>(
     null,
   );
@@ -216,6 +222,7 @@ export function QuickTaskModal({
     setDescription("");
     setBaseBranch(defaultBranch);
     setModel(defaultModel);
+    setTraits({});
     setProviderAccountId(defaultProviderAccountId(accounts, defaultModel));
     setAccountDefaulted(accounts.length > 0);
     setActiveDraftId(null);
@@ -258,6 +265,7 @@ export function QuickTaskModal({
     const taskDescription = desc || undefined;
     const taskAccountId = resolveAccountId(providerAccountId) ?? null;
     const taskTags = undefinedIfEmpty(selectedTags);
+    const taskTraits = toRunTraitArgs(traits);
     setIsLoading(true);
     try {
       const attachmentStorageIds = await attachments.upload();
@@ -270,6 +278,7 @@ export function QuickTaskModal({
           baseBranch: taskBaseBranch,
           model,
           providerAccountId: taskAccountId,
+          ...taskTraits,
           tags: taskTags,
           assignedTo,
           attachmentStorageIds: taskAttachmentIds,
@@ -282,6 +291,7 @@ export function QuickTaskModal({
           baseBranch: taskBaseBranch,
           model,
           providerAccountId: taskAccountId,
+          ...taskTraits,
           projectId: selectedProjectId,
           tags: taskTags,
           assignedTo,
@@ -476,6 +486,15 @@ export function QuickTaskModal({
               accounts={accounts}
               accountId={providerAccountId}
               onAccountChange={setProviderAccountId}
+              className={QUICK_TASK_OPTION_BADGE_CLASS}
+            />
+
+            <ModelTraitsMenu
+              model={model}
+              traits={traits}
+              onChange={(partial) =>
+                setTraits((prev) => ({ ...prev, ...partial }))
+              }
               className={QUICK_TASK_OPTION_BADGE_CLASS}
             />
 

@@ -120,6 +120,12 @@ export const taskExecutionWorkflow = workflow.define({
         completionMutation: "taskWorkflow:handleCompletion",
         entityIdField: "taskId",
         model: args.model ?? DEFAULT_AI_MODEL,
+        // Traits come off the task doc for the same reason as attachments
+        // below: every entry point then honours the user's picks.
+        reasoningLevel: data.traits.reasoningLevel,
+        thinkingEnabled: data.traits.thinkingEnabled,
+        use1mContext: data.traits.use1mContext,
+        fastMode: data.traits.fastMode,
         allowedTools: "Read,Write,Edit,Bash,Glob,Grep",
         repoId: args.repoId,
         streamingEntityId: getTaskRunStreamingEntityId(args.runId),

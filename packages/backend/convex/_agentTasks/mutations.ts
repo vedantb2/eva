@@ -17,7 +17,11 @@ import {
   recomputeProjectPhase,
 } from "../functions";
 import { allocateNumId } from "../numId";
-import { normalizeTaskTags, buildTaskNotificationMessage } from "./helpers";
+import {
+  normalizeTaskTags,
+  buildTaskNotificationMessage,
+  runTraitFields,
+} from "./helpers";
 import { buildProjectBranchName } from "../_projects/helpers";
 import { resolveNewTaskBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
@@ -72,6 +76,7 @@ export const update = authMutation({
     providerAccountId: v.optional(
       v.union(v.id("userProviderAccounts"), v.null()),
     ),
+    ...runTraitFields,
     baseBranch: v.optional(v.string()),
     priority: v.optional(v.union(priorityValidator, v.null())),
     // null = clear the override (fall back to repo setting). undefined = no change.
@@ -139,6 +144,13 @@ export const update = authMutation({
       );
       updates.providerAccountId = nextProviderAccountId;
     }
+    if (args.reasoningLevel !== undefined)
+      updates.reasoningLevel = args.reasoningLevel;
+    if (args.thinkingEnabled !== undefined)
+      updates.thinkingEnabled = args.thinkingEnabled;
+    if (args.use1mContext !== undefined)
+      updates.use1mContext = args.use1mContext;
+    if (args.fastMode !== undefined) updates.fastMode = args.fastMode;
     if (args.baseBranch !== undefined) updates.baseBranch = args.baseBranch;
     if (args.priority !== undefined)
       updates.priority = args.priority ?? undefined;
@@ -500,6 +512,7 @@ export const createQuickTask = authMutation({
     providerAccountId: v.optional(
       v.union(v.id("userProviderAccounts"), v.null()),
     ),
+    ...runTraitFields,
     projectId: v.optional(v.id("projects")),
     tags: v.optional(v.array(v.string())),
     assignedTo: v.optional(v.id("users")),
@@ -545,6 +558,10 @@ export const createQuickTask = authMutation({
       baseBranch: resolveNewTaskBaseBranch(args.baseBranch, repo, project),
       model,
       providerAccountId,
+      reasoningLevel: args.reasoningLevel,
+      thinkingEnabled: args.thinkingEnabled,
+      use1mContext: args.use1mContext,
+      fastMode: args.fastMode,
       projectId: args.projectId,
       taskNumber,
       tags: normalizeTaskTags(args.tags),

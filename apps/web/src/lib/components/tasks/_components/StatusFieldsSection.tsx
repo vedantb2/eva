@@ -48,6 +48,8 @@ import {
   type Priority,
 } from "@/lib/components/priority/priorityMeta";
 import { BranchSelect } from "@/lib/components/BranchSelect";
+import { ModelTraitsMenu } from "@/lib/components/ModelTraitsMenu";
+import { taskRunTraits, toRunTraitArgs } from "@/lib/utils/runTraits";
 import {
   GHOST_TRIGGER_CLASS,
   DEPLOYMENT_STATUS_CONFIG,
@@ -420,6 +422,15 @@ export function StatusFieldsSection({
             canSelectTeamWhilePersonal={isOwner}
             disabled={modelLockReason !== undefined}
             className="px-0"
+          />
+          <ModelTraitsMenu
+            model={currentModel}
+            traits={taskRunTraits(task)}
+            onChange={(partial) =>
+              updateTask({ id: taskId, ...toRunTraitArgs(partial) })
+            }
+            disabled={modelLockReason !== undefined}
+            className="ml-1"
           />
           {modelLockReason ? (
             <Tooltip>

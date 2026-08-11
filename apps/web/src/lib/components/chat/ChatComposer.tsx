@@ -9,12 +9,12 @@ import {
   PromptInputSubmit,
   PromptInputTools,
   toast,
-  TraitsMenu,
   type ModelAccount,
   type ModelOption,
   type PromptInputMessage,
   usePromptInputController,
 } from "@eva/ui";
+import { ModelTraitsMenu } from "@/lib/components/ModelTraitsMenu";
 import { ComposerSpeechButton } from "@/lib/components/chat/_components/ComposerSpeechButton";
 import {
   MAX_CHAT_ATTACHMENTS,
@@ -41,9 +41,6 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   api,
   getAIModelProvider,
-  getModelTraits,
-  getReasoningLevelLabel,
-  modelHasTraits,
   type AIModel,
   type Id,
   type ReasoningLevel,
@@ -315,39 +312,14 @@ export function ChatComposer({
                     onAccountChange={onAccountChange}
                     className="max-w-48 truncate sm:max-w-none"
                   />
-                  {onTraitsChange && displayTraits && modelHasTraits(model) ? (
-                    <TraitsMenu
-                      config={getModelTraits(model)}
-                      effortLevel={displayTraits.effortLevel}
-                      thinkingEnabled={displayTraits.thinkingEnabled}
-                      use1mContext={displayTraits.use1mContext}
-                      fastMode={displayTraits.fastMode}
-                      getLevelLabel={getReasoningLevelLabel}
-                      onEffortLevelChange={(level) => {
-                        const { reasoning } = getModelTraits(model);
-                        if (!reasoning) return;
-                        const match = reasoning.levels.find(
-                          (entry) => entry === level,
-                        );
-                        if (match) {
-                          onTraitsChange({ effortLevel: match });
-                        }
-                      }}
-                      onThinkingEnabledChange={(enabled) =>
-                        onTraitsChange({
-                          thinkingEnabled: enabled ? undefined : false,
-                        })
-                      }
-                      onUse1mContextChange={(use1m) =>
-                        onTraitsChange({
-                          use1mContext: use1m,
-                        })
-                      }
-                      onFastModeChange={(enabled) =>
-                        onTraitsChange({
-                          fastMode: enabled,
-                        })
-                      }
+                  {onTraitsChange && displayTraits ? (
+                    // Already-resolved traits round-trip through
+                    // resolveTraitsForDisplay unchanged, so they double as the
+                    // stored values the shared menu expects.
+                    <ModelTraitsMenu
+                      model={model}
+                      traits={displayTraits}
+                      onChange={onTraitsChange}
                     />
                   ) : null}
                   <ComposerSpeechButton disabled={isInputDisabled} />

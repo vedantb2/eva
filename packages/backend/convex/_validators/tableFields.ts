@@ -203,6 +203,13 @@ export const agentTaskFields = {
   // team credential). Absent = use the shared team credential. Resolved at
   // launch in `signAndLaunchScript`.
   providerAccountId: v.optional(v.id("userProviderAccounts")),
+  // Model traits for this task's runs (the sandbox chat keeps its own sticky
+  // `last*` copies below). Absent = the model's own default. Turned into
+  // AI_* env vars in `getTaskData` -> `launchOnExistingSandbox`.
+  reasoningLevel: v.optional(reasoningLevelValidator),
+  thinkingEnabled: v.optional(v.boolean()),
+  use1mContext: v.optional(v.boolean()),
+  fastMode: v.optional(v.boolean()),
   baseBranch: v.optional(v.string()),
   // Per-task proof capture. undefined = inherit project -> default (off).
   // true = force on. false = force off. Resolved at run time in

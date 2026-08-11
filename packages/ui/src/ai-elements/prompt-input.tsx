@@ -143,8 +143,9 @@ export const usePromptInputController = () => {
   return ctx;
 };
 
-// Optional variants (do NOT throw). Useful for dual-mode components.
-const useOptionalPromptInputController = () =>
+// Optional variants (do NOT throw). Useful for dual-mode components — e.g.
+// TraitsMenu, which also renders outside a composer (task Properties).
+export const useOptionalPromptInputController = () =>
   useContext(PromptInputController);
 
 export const useProviderAttachments = () => {

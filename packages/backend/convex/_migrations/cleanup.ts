@@ -58,26 +58,11 @@ export const cleanupStaleRuns = internalMutation({
       });
       tasksFixed++;
 
-      const audits = await ctx.db
-        .query("audits")
-        .withIndex("by_entity", (q) => q.eq("entityId", task._id))
-        .collect();
-      for (const audit of audits) {
-        if (audit.status === "running") {
-          await ctx.db.patch(audit._id, {
-            status: "error",
-            error: "Cleaned up stale audit",
-          });
-        }
-      }
-
-      for (const entityId of [String(task._id), `audit-${String(task._id)}`]) {
-        const streaming = await ctx.db
-          .query("streamingActivity")
-          .withIndex("by_entity", (q) => q.eq("entityId", entityId))
-          .first();
-        if (streaming) await ctx.db.delete(streaming._id);
-      }
+      const streaming = await ctx.db
+        .query("streamingActivity")
+        .withIndex("by_entity", (q) => q.eq("entityId", String(task._id)))
+        .first();
+      if (streaming) await ctx.db.delete(streaming._id);
     }
 
     return { tasksFixed, runsFixed };

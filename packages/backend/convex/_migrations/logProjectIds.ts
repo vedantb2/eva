@@ -1,11 +1,7 @@
 import { internalMutation } from "../_generated/server";
 import { v } from "convex/values";
 
-const TASK_SCOPED_ENTITY_TYPES = new Set([
-  "quickTask",
-  "taskAudit",
-  "task-chat",
-]);
+const TASK_SCOPED_ENTITY_TYPES = new Set(["quickTask", "task-chat"]);
 
 /**
  * Persists projectId on historical task logs that were written before project

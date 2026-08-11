@@ -2,9 +2,8 @@ import type { SystemSkillHydration } from "./registry";
 
 /**
  * Content served by the `get_skill` MCP tool for `eva-capture`. Mirrors the
- * platform proof-capture prompt (`_taskWorkflow/prompts.ts`) and the session
- * browser rules (`_sessions/prompts.ts`) so a skill invoke and a proof run
- * produce the same evidence.
+ * session browser rules (`_sessions/prompts.ts`) so an invoked capture lands
+ * its files where the runtime already looks for them.
  */
 export function buildEvaCaptureContent(
   hydration: SystemSkillHydration,

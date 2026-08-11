@@ -109,30 +109,12 @@ export const deleteRepoStep = internalMutation({
             deleted++;
           }
 
-          const proofs = await ctx.db
-            .query("taskProof")
-            .withIndex("by_task", (q) => q.eq("taskId", task._id))
-            .collect();
-          for (const p of proofs) {
-            await ctx.db.delete(p._id);
-            deleted++;
-          }
-
           const deps = await ctx.db
             .query("taskDependencies")
             .withIndex("by_task", (q) => q.eq("taskId", task._id))
             .collect();
           for (const d of deps) {
             await ctx.db.delete(d._id);
-            deleted++;
-          }
-
-          const audits = await ctx.db
-            .query("audits")
-            .withIndex("by_entity", (q) => q.eq("entityId", task._id))
-            .collect();
-          for (const a of audits) {
-            await ctx.db.delete(a._id);
             deleted++;
           }
 
@@ -172,15 +154,6 @@ export const deleteRepoStep = internalMutation({
             .collect();
           for (const m of messages) {
             await ctx.db.delete(m._id);
-            deleted++;
-          }
-
-          const audits = await ctx.db
-            .query("audits")
-            .withIndex("by_entity", (q) => q.eq("entityId", session._id))
-            .collect();
-          for (const a of audits) {
-            await ctx.db.delete(a._id);
             deleted++;
           }
 
@@ -257,7 +230,6 @@ export const deleteRepoStep = internalMutation({
       case "flatTables": {
         const tables = [
           "designPersonas",
-          "auditCategories",
           "repoSkills",
           "notifications",
           "repoEnvVars",

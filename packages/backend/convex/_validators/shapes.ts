@@ -40,19 +40,6 @@ export const evalIssueValidator = v.object({
   taskId: v.optional(v.id("agentTasks")),
 });
 
-export const auditSectionValidator = v.object({
-  name: v.string(),
-  results: v.array(evalResultValidator),
-});
-
-/** A single failed audit requirement selected for the fix flow. */
-export const auditFailureValidator = v.object({
-  section: v.string(),
-  requirement: v.string(),
-  detail: v.string(),
-  severity: auditSeverityValidator,
-});
-
 export const userFlowValidator = v.object({
   name: v.string(),
   steps: v.array(v.string()),

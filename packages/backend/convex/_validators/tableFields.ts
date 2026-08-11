@@ -211,20 +211,6 @@ export const agentTaskFields = {
   use1mContext: v.optional(v.boolean()),
   fastMode: v.optional(v.boolean()),
   baseBranch: v.optional(v.string()),
-  // Per-task proof capture. undefined = inherit project -> default (off).
-  // true = force on. false = force off. Resolved at run time in
-  // `_taskWorkflow/queries.ts` (`getTaskData`) where the agent prompt and
-  // sandbox env var are computed.
-  screenshotsVideosEnabled: v.optional(v.boolean()),
-  // Per-task override for whether an audit runs after a successful run.
-  // undefined = inherit project -> default. true = force on. false = force
-  // off. Resolved in `getTaskData` (`runAuditEnabled`).
-  runAuditEnabled: v.optional(v.boolean()),
-  // Per-task-sandbox-chat switches, separate from the run-level proof/audit
-  // above. Absent = off. Toggled from the sandbox chat composer options menu;
-  // read when a chat turn runs (proof prompt) / completes (audit).
-  chatCaptureProofEnabled: v.optional(v.boolean()),
-  chatRunAuditEnabled: v.optional(v.boolean()),
   activeWorkflowId: v.optional(v.string()),
   scheduledRetryAt: v.optional(v.number()),
   scheduledAt: v.optional(v.number()),
@@ -305,11 +291,6 @@ export const agentRunFields = {
   // Snapshot of the model used for this run. Absent on runs created before
   // this field existed.
   model: v.optional(aiModelValidator),
-  // Per-run proof/audit override. Set when a run trigger passes an explicit
-  // choice (the request-changes composer, default off). Absent = fall back to
-  // the task/project default. Resolved in `getTaskData`.
-  screenshotsVideosEnabled: v.optional(v.boolean()),
-  runAuditEnabled: v.optional(v.boolean()),
 };
 
 export const sessionFields = {
@@ -377,11 +358,6 @@ export const sessionFields = {
   terminalPanes: v.optional(v.array(terminalPaneValidator)),
   deploymentStatus: v.optional(deploymentStatusValidator),
   deploymentUrl: v.optional(v.string()),
-  // Per-session switches toggled from the chat composer options menu. Absent =
-  // off. captureProofEnabled adds a proof-capture section to the agent-turn
-  // prompt; runAuditEnabled fires an audit after each successful agent turn.
-  captureProofEnabled: v.optional(v.boolean()),
-  runAuditEnabled: v.optional(v.boolean()),
   ...chatDaemonEntityFields,
   // Soft UX lock while the agent drives the shared desktop Chrome via
   agentBrowsingAt: v.optional(v.number()),
@@ -460,9 +436,6 @@ export const githubRepoFields = {
   parentRepoId: v.optional(v.id("githubRepos")),
   defaultBaseBranch: v.optional(v.string()),
   defaultModel: v.optional(aiModelValidator),
-  auditReviewModel: v.optional(aiModelValidator),
-  auditFixModel: v.optional(aiModelValidator),
-  proofModel: v.optional(aiModelValidator),
   sessionsVncEnabled: v.optional(v.boolean()),
   sessionsVscodeEnabled: v.optional(v.boolean()),
   hidden: v.optional(v.boolean()),
@@ -541,14 +514,6 @@ export const projectFields = {
     v.union(v.literal("interview"), v.literal("tasks_only")),
   ),
   priority: v.optional(priorityValidator),
-  // Per-project tri-state defaults inherited by member tasks (task override
-  // wins). undefined = inherit default (off). Resolved in `getTaskData`.
-  screenshotsVideosEnabled: v.optional(v.boolean()),
-  runAuditEnabled: v.optional(v.boolean()),
-  // Per-project-sandbox-chat switches, separate from the task defaults above.
-  // Absent = off. Toggled from the project sandbox chat composer options menu.
-  chatCaptureProofEnabled: v.optional(v.boolean()),
-  chatRunAuditEnabled: v.optional(v.boolean()),
   rawInput: v.string(),
   projectLead: v.optional(v.id("users")),
   members: v.optional(v.array(v.id("users"))),

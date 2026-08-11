@@ -2,9 +2,6 @@ import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import {
   activityLogTypeValidator,
-  evaluationStatusValidator,
-  evalFixStatusValidator,
-  auditSectionValidator,
   notificationTypeValidator,
   snapshotScheduleValidator,
   snapshotBuildStatusValidator,
@@ -125,15 +122,6 @@ const schema = defineSchema({
     .index("by_task", ["taskId"])
     .index("by_task_and_user", ["taskId", "userId"]),
 
-  taskProof: defineTable({
-    taskId: v.id("agentTasks"),
-    storageId: v.optional(v.id("_storage")),
-    fileName: v.optional(v.string()),
-    message: v.optional(v.string()),
-    runId: v.optional(v.id("agentRuns")),
-    createdAt: v.number(),
-  }).index("by_task", ["taskId"]),
-
   taskDependencies: defineTable({
     taskId: v.id("agentTasks"),
     dependsOnId: v.id("agentTasks"),
@@ -232,37 +220,12 @@ const schema = defineSchema({
     prompt: v.string(),
   }).index("by_repo", ["repoId"]),
   appTabs: defineTable(appTabFields).index("by_repo", ["repoId"]),
-  auditCategories: defineTable({
-    repoId: v.id("githubRepos"),
-    name: v.string(),
-    description: v.string(),
-    enabled: v.boolean(),
-    appId: v.optional(v.id("githubRepos")),
-    disabledForAppIds: v.optional(v.array(v.id("githubRepos"))),
-    createdAt: v.number(),
-  })
-    .index("by_repo", ["repoId"])
-    .index("by_repo_and_enabled", ["repoId", "enabled"]),
   repoSkills: defineTable(repoSkillFields)
     .index("by_repo", ["repoId"])
     .index("by_repo_and_source_path", ["repoId", "sourcePath"]),
   repoSystemSkills: defineTable(repoSystemSkillFields)
     .index("by_repo", ["repoId"])
     .index("by_repo_and_name", ["repoId", "name"]),
-  audits: defineTable({
-    entityId: v.union(v.id("agentTasks"), v.id("sessions"), v.id("projects")),
-    runId: v.optional(v.id("agentRuns")),
-    status: evaluationStatusValidator,
-    sections: v.optional(v.array(auditSectionValidator)),
-    summary: v.optional(v.string()),
-    error: v.optional(v.string()),
-    fixStatus: v.optional(evalFixStatusValidator),
-    createdAt: v.number(),
-    completedAt: v.optional(v.number()),
-    fixCompletedAt: v.optional(v.number()),
-  })
-    .index("by_entity", ["entityId"])
-    .index("by_entity_created", ["entityId", "createdAt"]),
   notifications: defineTable({
     userId: v.id("users"),
     type: notificationTypeValidator,

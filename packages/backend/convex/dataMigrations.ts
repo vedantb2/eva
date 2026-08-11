@@ -1,6 +1,7 @@
 import { Migrations } from "@convex-dev/migrations";
 import { components, internal } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
+import schema from "./schema";
 
 /**
  * Convex Migrations component — batched online migrations with progress,
@@ -28,9 +29,17 @@ import type { DataModel } from "./_generated/dataModel";
  *   npx convex run --component migrations lib:getStatus --watch
  *   npx convex run --component migrations lib:cancel '{name: "dataMigrations:setDefault"}'
  */
-export const dataMigrations = new Migrations<DataModel>(components.migrations, {
-  migrationsLocationPrefix: "dataMigrations:",
-});
+// The second type argument is not optional here: `Migrations` defaults it to
+// `void`, and `customRange` resolves its index field types through it.
+export const dataMigrations = new Migrations<DataModel, typeof schema>(
+  components.migrations,
+  {
+    migrationsLocationPrefix: "dataMigrations:",
+    // Required by any `define` that sets `customRange` — the paginator needs
+    // the schema to resolve the index it ranges over.
+    schema,
+  },
+);
 
 /** Generic runner: `npx convex run dataMigrations:run '{fn:"dataMigrations:…"}'`. */
 export const run = dataMigrations.runner();
@@ -53,12 +62,16 @@ export const run = dataMigrations.runner();
  * Proof rows own uploaded screenshots and recordings, so each one costs a
  * storage delete as well as a document delete. Smaller batches keep that
  * inside a single transaction's budget.
+ *
+ * Rows outlive their blobs — repo deletes cleared storage without clearing
+ * the row — and `ctx.storage.delete` throws on an id that is already gone, so
+ * check `_storage` first rather than deleting blind.
  */
 export const removeProofAndAuditTaskProof = dataMigrations.define({
   table: "taskProof",
   batchSize: 25,
   migrateOne: async (ctx, doc) => {
-    if (doc.storageId) {
+    if (doc.storageId && (await ctx.db.system.get(doc.storageId))) {
       await ctx.storage.delete(doc.storageId);
     }
     await ctx.db.delete(doc._id);

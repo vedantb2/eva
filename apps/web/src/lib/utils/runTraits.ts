@@ -21,9 +21,10 @@ export function taskRunTraits(
 }
 
 /**
- * Menu traits in the shape the task mutations take. Only set traits are
- * included, so a one-trait change writes (and optimistically patches) that
- * trait alone and leaves the rest on the task untouched.
+ * Menu traits in the shape the task mutations take — and `projects.setTraits`,
+ * which takes the same four fields. Only set traits are included, so a
+ * one-trait change writes (and optimistically patches) that trait alone and
+ * leaves the rest of the record untouched.
  */
 export function toRunTraitArgs(traits: StoredModelTraits): TaskRunTraits {
   return {

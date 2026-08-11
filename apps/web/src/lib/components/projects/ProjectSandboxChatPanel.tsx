@@ -11,8 +11,6 @@ import {
   resolveTraitsForDisplay,
   type AIModel,
   type Id,
-  type ReasoningLevel,
-  type StoredModelTraits,
 } from "@eva/backend";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { ProjectChatOptionsSubmenu } from "@/lib/components/chat/ChatOptionsSubmenu";
@@ -24,6 +22,7 @@ import {
   useAvailableAiModels,
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
+import { projectStoredTraits, useSetProjectTraits } from "./useProjectTraits";
 
 interface ProjectSandboxChatPanelProps {
   projectId: Id<"projects">;
@@ -70,29 +69,7 @@ export function ProjectSandboxChatPanel({
       { ...current, lastChatModel: args.model },
     );
   });
-  const setTraitsMutation = useMutation(
-    api.projects.setTraits,
-  ).withOptimisticUpdate((localStore, args) => {
-    const current = localStore.getQuery(api.projects.get, { id: args.id });
-    if (!current) return;
-    localStore.setQuery(
-      api.projects.get,
-      { id: args.id },
-      {
-        ...current,
-        ...(args.reasoningLevel !== undefined
-          ? { lastReasoningLevel: args.reasoningLevel }
-          : {}),
-        ...(args.thinkingEnabled !== undefined
-          ? { lastThinkingEnabled: args.thinkingEnabled }
-          : {}),
-        ...(args.use1mContext !== undefined
-          ? { lastUse1mContext: args.use1mContext }
-          : {}),
-        ...(args.fastMode !== undefined ? { lastFastMode: args.fastMode } : {}),
-      },
-    );
-  });
+  const setTraits = useSetProjectTraits(projectId);
 
   const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
   // Sandbox chat model is `lastChatModel` (sticky); falls back to metadata
@@ -100,12 +77,7 @@ export function ProjectSandboxChatPanel({
   const model = normalizeAIModel(
     project?.lastChatModel ?? project?.model ?? defaultModel,
   );
-  const storedTraits: StoredModelTraits = {
-    effortLevel: project?.lastReasoningLevel,
-    thinkingEnabled: project?.lastThinkingEnabled,
-    use1mContext: project?.lastUse1mContext,
-    fastMode: project?.lastFastMode,
-  };
+  const storedTraits = projectStoredTraits(project);
   const displayTraits = resolveTraitsForDisplay(model, storedTraits);
   const executionTraits = buildTraitsExecutionPayload(model, storedTraits);
   const providerAccountId = project?.providerAccountId ?? null;
@@ -170,21 +142,6 @@ export function ProjectSandboxChatPanel({
     void setChatModelMutation({
       id: projectId,
       model: normalizeAIModel(next),
-    });
-  };
-
-  const onTraitsChange = (partial: Partial<StoredModelTraits>) => {
-    const reasoningLevel: ReasoningLevel | undefined = partial.effortLevel;
-    void setTraitsMutation({
-      id: projectId,
-      ...(reasoningLevel !== undefined ? { reasoningLevel } : {}),
-      ...(partial.thinkingEnabled !== undefined
-        ? { thinkingEnabled: partial.thinkingEnabled }
-        : {}),
-      ...(partial.use1mContext !== undefined
-        ? { use1mContext: partial.use1mContext }
-        : {}),
-      ...(partial.fastMode !== undefined ? { fastMode: partial.fastMode } : {}),
     });
   };
 
@@ -300,7 +257,7 @@ export function ProjectSandboxChatPanel({
         accountId={providerAccountId}
         onAccountChange={setProviderAccountId}
         displayTraits={displayTraits}
-        onTraitsChange={onTraitsChange}
+        onTraitsChange={setTraits}
         onSend={handleSend}
         onCancel={handleCancel}
         draft={draftBundle}

@@ -1,5 +1,15 @@
 # Changelog
 
+## Project Overview gets the traits menu, and loses two toggles - 2026-08-11
+
+The Overview column showed a project's model with nothing next to it, while every other model picker in the app — the chat composers, the quick task modal, task Properties — carries a traits menu for reasoning, thinking, 1M context and Fast. The model row now carries it too, so a project's reasoning level is visible where the project is configured rather than only inside the sandbox chat composer.
+
+A project has one trait set, the sticky `last*` fields written by `projects.setTraits`, and the sandbox chat resolves `lastChatModel ?? model` against it. Wiring the Overview row to the same mutation therefore adds a second view of one value, not a second value: pick Medium in Properties and the composer shows Medium. That wiring is now `useProjectTraits` (`projectStoredTraits` for reading, `useSetProjectTraits` for writing, both with the optimistic `projects.get` patch), and `ProjectSandboxChatPanel` was moved onto it — the panel had the mutation, the optimistic patch, the stored-trait mapping and the partial-to-args mapping inline, about forty lines that are now shared.
+
+The Screenshots and Audit toggle rows are removed from the column. Note that they were the only editor for the two project-level defaults, so `projects.screenshotsVideosEnabled` and `projects.runAuditEnabled` keep whatever value they hold and are inherited by tasks as before, but can no longer be changed from the UI; per-task overrides in task Properties are untouched.
+
+Verified in the browser on project 3: both toggle rows are gone, the traits pill renders beside the model, and picking Medium survives a full reload before being set back to High. `tsc` clean.
+
 ## The project header stops flashing on every navigation - 2026-08-11
 
 Switching Overview to Tasks re-faded the whole page: breadcrumb, action buttons, tab strip and body all animated in again. The cause was structural. `ProjectDetailClient` renders the header, so whichever leaf route was matched — `index`, `overview`, `$taskNumId/$detailTab`, `sandbox` — mounted its own copy. Changing tab changed the matched route, React unmounted one subtree and mounted another, and `PageWrapper`'s `animate-in` played from the top. Opening a task from the list did the same thing, which the code had already tried to avoid one level down.

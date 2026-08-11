@@ -51,9 +51,9 @@ import {
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 import { ProjectTagsPopover } from "./_components/ProjectTagsPopover";
-import { ScreenshotsToggle } from "@/lib/components/quick-tasks/ScreenshotsToggle";
-import { AuditToggle } from "@/lib/components/quick-tasks/AuditToggle";
+import { ModelTraitsMenu } from "@/lib/components/ModelTraitsMenu";
 import { useUpdateProject } from "./useUpdateProject";
+import { projectStoredTraits, useSetProjectTraits } from "./useProjectTraits";
 
 /**
  * Project fields as a single column, one row per field — the Overview tab's
@@ -69,6 +69,7 @@ export function ProjectFieldsPanel({
   const users = useQuery(api.users.listAll);
   const currentUserId = useQuery(api.auth.me);
   const updateProject = useUpdateProject(projectId);
+  const setProjectTraits = useSetProjectTraits(projectId);
 
   const displayName = (user: NonNullable<typeof users>[number]) =>
     user.fullName ||
@@ -286,6 +287,13 @@ export function ProjectFieldsPanel({
             }}
             className="px-0"
           />
+          {/* Same trait set the project sandbox chat composer edits. */}
+          <ModelTraitsMenu
+            model={currentModel}
+            traits={projectStoredTraits(project)}
+            onChange={setProjectTraits}
+            className="ml-1"
+          />
         </div>
 
         <div className={`${FIELD_ROW_CLASS} gap-1.5 text-[13px]`}>
@@ -302,24 +310,6 @@ export function ProjectFieldsPanel({
               Base branch for all tasks in this project
             </TooltipContent>
           </Tooltip>
-        </div>
-
-        <div className={FIELD_ROW_CLASS}>
-          <ScreenshotsToggle
-            value={project.screenshotsVideosEnabled === true}
-            onChange={(next) =>
-              updateProject({ id: projectId, screenshotsVideosEnabled: next })
-            }
-          />
-        </div>
-
-        <div className={FIELD_ROW_CLASS}>
-          <AuditToggle
-            value={project.runAuditEnabled === true}
-            onChange={(next) =>
-              updateProject({ id: projectId, runAuditEnabled: next })
-            }
-          />
         </div>
       </FieldsSection>
 

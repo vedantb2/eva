@@ -1,5 +1,13 @@
 # Changelog
 
+## The project header stops flashing on every navigation - 2026-08-11
+
+Switching Overview to Tasks re-faded the whole page: breadcrumb, action buttons, tab strip and body all animated in again. The cause was structural. `ProjectDetailClient` renders the header, so whichever leaf route was matched — `index`, `overview`, `$taskNumId/$detailTab`, `sandbox` — mounted its own copy. Changing tab changed the matched route, React unmounted one subtree and mounted another, and `PageWrapper`'s `animate-in` played from the top. Opening a task from the list did the same thing, which the code had already tried to avoid one level down.
+
+The shell now lives in the `$numId` layout route. It resolves the project once, derives `surface`, `mainTab`, `sandboxTab`, `selectedTaskId` and `detailTab` from the matched route ids and loose params, and renders `ProjectDetailClient` itself. Every child renders `null` and exists only for its params and `beforeLoad` redirects — the pattern sessions already use, and the one the project sandbox subtree used internally to keep Preview iframes alive. `ProjectDetailClient` is unchanged; it simply stops remounting.
+
+Verified in the browser by stamping the header `h1` with a data attribute and navigating: the same node survives Overview → Tasks, Tasks → Overview and opening a task (`/projects/3/100/activity`), so the header no longer remounts. The sandbox surface could not be exercised — this dev Convex deployment is missing `sandboxPanes:getViewState`, so `ProjectSandboxPanel` hits its error boundary regardless of routing. `tsc` clean.
+
 ## Projects get an Overview tab, and their fields get a column - 2026-08-11
 
 Every project field lived in one horizontal strip above the task list: phase, priority, lead, reviewer, members, model, base branch, two toggles, two dates, tags — eleven controls in a row that scrolled sideways on anything narrower than a desktop, each one a bare icon with no label to say what it set. The task detail page had already solved this: a Properties column, one field per row, labels above groups. Projects now use the same idea.

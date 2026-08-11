@@ -1,7 +1,8 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 
 export const Route = createFileRoute(
   "/_repo/$owner/$repo/projects/$numId/sandbox/review",
 )({
-  component: () => <Outlet />,
+  // Shell is rendered by the `$numId` layout so Preview/Console stay mounted.
+  component: () => null,
 });

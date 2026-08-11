@@ -36,6 +36,97 @@ describe("backend authorization boundaries", () => {
     );
   });
 
+  /**
+   * Repo access alone is not enough for these: the caller supplies both repoId
+   * and sandboxId, so checking only the repo lets them pair a repo they own
+   * with another tenant's sandbox and read its files. The File Viewer readers
+   * shipped exactly that gap (fix d8eb560c9), and a file-level `toContain`
+   * cannot see a *new* action that forgets the guard — so assert per export.
+   */
+  describe("every public action in _sandbox_runtime/services.ts", () => {
+    const source = convexSource("_sandbox_runtime/services.ts");
+    // Public `action({…})` only. internalAction is unreachable from a client.
+    const exports = [...source.matchAll(/export const (\w+) = action\(\{/g)].map(
+      (match) => ({ name: match[1], at: match.index }),
+    );
+
+    it("has public actions to check", () => {
+      expect(exports.length).toBeGreaterThan(0);
+    });
+
+    for (const [index, entry] of exports.entries()) {
+      const body = source.slice(entry.at, exports[index + 1]?.at ?? undefined);
+
+      it(`${entry.name} asserts sandbox access before touching the sandbox`, () => {
+        // authorizedRunningHandle is the shared wrapper; it calls the assert.
+        const guardAt = Math.min(
+          ...["assertActionSandboxAccess(", "authorizedRunningHandle("]
+            .map((call) => body.indexOf(call))
+            .filter((at) => at >= 0),
+        );
+        expect(
+          Number.isFinite(guardAt),
+          `${entry.name} never calls assertActionSandboxAccess — a caller ` +
+            "can pair their own repoId with another tenant's sandboxId",
+        ).toBe(true);
+
+        // Repo access on its own is the weaker guard this replaced.
+        expect(
+          body,
+          `${entry.name} authorizes off githubRepos.get, which does not bind ` +
+            "the sandbox to the repo",
+        ).not.toContain("api.githubRepos.get");
+
+        for (const reach of ["getSandboxHandle(", "execHandle(", "sandbox.exec("]) {
+          const reachAt = body.indexOf(reach);
+          if (reachAt < 0) continue;
+          expect(
+            reachAt,
+            `${entry.name} calls ${reach} before asserting sandbox access`,
+          ).toBeGreaterThan(guardAt);
+        }
+      });
+    }
+  });
+
+  /**
+   * toggleSandboxExclude shipped without the guard its list/removeVar siblings
+   * carry, so any signed-in user could flip whether another repo's env vars
+   * reach its sandboxes (fix d8eb560c9). authMutation only proves a user is
+   * signed in; the repoId still has to be checked against them.
+   */
+  describe("every repo-scoped env var function", () => {
+    const source = convexSource("repoEnvVars.ts");
+    const exports = [
+      ...source.matchAll(/export const (\w+) = (authQuery|authMutation)\(\{/g),
+    ].map((match) => ({ name: match[1], at: match.index }));
+
+    it("has repo-scoped functions to check", () => {
+      expect(exports.length).toBeGreaterThan(0);
+    });
+
+    for (const [index, entry] of exports.entries()) {
+      const body = source.slice(entry.at, exports[index + 1]?.at ?? undefined);
+
+      it(`${entry.name} resolves repo access before reading or writing`, () => {
+        expect(body).toContain('repoId: v.id("githubRepos")');
+        const guardAt = body.indexOf("getRepoWithAccess(ctx.db, args.repoId");
+        expect(
+          guardAt,
+          `${entry.name} never calls getRepoWithAccess — being signed in is ` +
+            "not access to this repo's env vars",
+        ).toBeGreaterThan(-1);
+        const readAt = body.indexOf("findByRepo(ctx.db, args.repoId)");
+        if (readAt >= 0) {
+          expect(
+            readAt,
+            `${entry.name} loads the env var document before the access check`,
+          ).toBeGreaterThan(guardAt);
+        }
+      });
+    }
+  });
+
   // A client-supplied installation id can be any number GitHub ever issued, so
   // installations Eva has no row for must be proven against the caller's own
   // GitHub token rather than an installation token (which authenticates as the

@@ -1,5 +1,15 @@
 # Changelog
 
+## Proof capture and audit subsystems removed - 2026-08-11
+
+Proof capture and audits were built as pipeline UI: workflow steps, streaming state, timeline items, per-run toggles and repo model pickers, all of which had to stay correct across quick tasks, project tasks, sessions and sandbox chat. The replacement already shipped as the `eva-capture` and `eva-audit` system skills, served over the `get_skill` MCP tool, so a user who wants either now asks for it in the sandbox chat and the agent invokes the skill. The platform pipeline was pure duplication and is gone.
+
+Removed everywhere: the proof and audit workflow steps and their completion events, Run Fixes (`auditFixWorkflow`), the four run-level toggles on tasks, runs and projects, the session and sandbox-chat toggles, the three repo model pickers, Settings → Audits, the proof and audit timeline items, the audit stage in the session review modal, and the audit and proof marketing content on the landing page. The always-on chat media pipeline stays: the agent still writes to `recordings/` and `screenshots/` and the runtime still uploads and attaches whatever it finds, which is what `eva-capture` depends on.
+
+`eva-audit` no longer reads per-repo audit categories. It always reports against its four built-in categories, so repos with custom categories lose them.
+
+The removal shipped in two deploys, because Convex cannot drop a field while documents still carry it. The first removed all code and added a thirteen-step sweep built on the `@convex-dev/migrations` component, which deleted 566 proof rows (288 with stored media), 139 audits, 5 category rows, 27 activity logs, 97 log rows and 74 orphaned audit streaming rows on production, and cleared the fields from 2,197 documents. The second dropped the `taskProof`, `audits` and `auditCategories` tables, the fifteen fields, `auditSectionValidator` and `auditFailureValidator`, narrowed `activityLogTypeValidator` to `run`, and deleted the migration definitions. `auditSeverityValidator`, `evaluationStatusValidator` and `evalFixStatusValidator` remain: they belong to the testing arena, not to audits.
+
 ## Session publishing reconciles the remote branch - 2026-08-11
 
 Session 55 completed its local work but the final push was rejected with `fetch first`. Its preserved sandbox had an older view of the stable `eva/session-…` branch while GitHub already contained commits from another callback or sandbox. Both publish paths only retried the same push; neither refreshed and reconciled that exact branch, so a non-fast-forward rejection could never recover by retrying.

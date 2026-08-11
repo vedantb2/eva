@@ -40,15 +40,21 @@ test("applyCanonicalEvents sets pending question", () => {
   expect(getPendingQuestionForTest()).toBe('{"questions":[]}');
 });
 
-test("parseToCanonical cursor assistant text appends", () => {
-  const events = parseToCanonical(
-    {
-      type: "assistant",
-      message: { content: [{ type: "text", text: "hello" }] },
-    },
-    "cursor",
-  );
-  expect(events.some((e) => e.kind === "append_text")).toBeTruthy();
+test("Cursor assistant deltas concatenate without paragraph breaks", () => {
+  resetStateForTests();
+  for (const text of ["Wid", "ening", " the", " Sent to column."]) {
+    applyCanonicalEvents(
+      parseToCanonical(
+        {
+          type: "assistant",
+          message: { content: [{ type: "text", text }] },
+        },
+        "cursor",
+      ),
+    );
+  }
+  expect(S.currentStreamedContent).toBe("Widening the Sent to column.");
+  resetStateForTests();
 });
 
 test("tool_result clears in-flight tool by tool_use_id", () => {

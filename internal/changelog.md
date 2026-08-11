@@ -6,7 +6,9 @@ Quick-task chat 227 worked for almost six minutes while its preview only showed 
 
 Session 53 exposed a second path: Cursor completed a 223-second turn with 26 short tool steps, yet the browser stayed on the empty-activity fallback. Cursor SDK events were appended to the raw buffer immediately, but canonical activity parsing and Convex delivery depended on the 150ms interval getting scheduled while the in-process SDK was producing events. Every complete realtime line now requests a drain synchronously; the interval remains as recovery for partial lines and events arriving during an in-flight heartbeat.
 
-Regression coverage pins the daemon stream destination, makes it part of daemon identity, checks every task/project prewarm call, and requires complete provider events to request an immediate activity drain.
+Cursor's SDK also emits each assistant event as a text delta, while the callback classified it as a complete assistant block. The shared assembler deliberately separates complete blocks with blank lines, so Streamdown rendered token fragments as individual paragraphs and produced the tall, broken output shown while streaming. Cursor assistant text now uses the delta event path and concatenates exactly as emitted; complete-block separation for other provider events is unchanged.
+
+Regression coverage pins the daemon stream destination, makes it part of daemon identity, checks every task/project prewarm call, requires complete provider events to request an immediate activity drain, and reconstructs a fragmented Cursor sentence without inserted paragraph breaks.
 
 ## Session branches stop tracking the base branch - 2026-08-11
 

@@ -195,10 +195,10 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         appendStreamedContent(ev.text, true);
         break;
       case "stream_text_delta":
-        // Live token delta from an Anthropic partial message. Appends exactly
-        // like append_text but marks the flag so the FINAL assistant message's
-        // duplicate text block is skipped (see claudeParseLine dedup). The break
-        // is applied only on the first delta after a message boundary.
+        // Live provider token delta. Appends exactly like append_text but marks
+        // the flag so Claude's FINAL assistant message duplicate is skipped
+        // (see claudeParseLine dedup). The break is applied only on the first
+        // delta after an explicit message boundary.
         appendStreamedContent(ev.text, S.pendingParagraphBreak);
         S.pendingParagraphBreak = false;
         S.streamedAssistantTextThisMessage = true;

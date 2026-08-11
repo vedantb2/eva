@@ -3447,7 +3447,7 @@ function cursorParseLine(event) {
     const contentBlocks = message && Array.isArray(message.content) ? message.content : [];
     for (const block of contentBlocks) {
       if (block && typeof block === "object" && !Array.isArray(block) && block.type === "text" && typeof block.text === "string" && block.text) {
-        events.push({ kind: "append_text", text: block.text });
+        events.push({ kind: "stream_text_delta", text: block.text });
       }
     }
     return events;

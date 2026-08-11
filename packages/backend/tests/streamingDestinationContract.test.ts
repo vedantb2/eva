@@ -63,6 +63,19 @@ test("complete provider events request an immediate activity drain", () => {
   );
 });
 
+test("the generated callback preserves Cursor text delta semantics", () => {
+  const cursorParser = functionBody(
+    generatedCallbackSource,
+    "function cursorParseLine(",
+  );
+  expect(cursorParser).toContain(
+    'events.push({ kind: "stream_text_delta", text: block.text });',
+  );
+  expect(cursorParser).not.toContain(
+    'events.push({ kind: "append_text", text: block.text });',
+  );
+});
+
 function readSource(relativePath: string): string {
   return readFileSync(join(testsDir, relativePath), "utf8").replaceAll(
     "\r\n",

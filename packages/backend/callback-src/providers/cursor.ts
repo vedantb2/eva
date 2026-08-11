@@ -190,7 +190,10 @@ export function cursorParseLine(event: JsonObject): CanonicalEvent[] {
         typeof block.text === "string" &&
         block.text
       ) {
-        events.push({ kind: "append_text", text: block.text });
+        // The Cursor SDK emits one assistant event per text delta. Treating
+        // each event as a complete block inserts a Markdown paragraph between
+        // token fragments in the shared canonical assembler.
+        events.push({ kind: "stream_text_delta", text: block.text });
       }
       // tool_use blocks are ignored — tool lifecycle comes from tool_call events.
     }

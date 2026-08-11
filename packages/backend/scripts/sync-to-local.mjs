@@ -17,6 +17,10 @@
 //
 // A snapshot carries documents, plus file storage with --include-storage. It does
 // not carry env vars (hence --include-env), pending scheduled functions, or code.
+// It DOES carry component tables under `_components/<name>/` (checked 11 August
+// 2026 against a dev export: actionCache, actionRetrier, crons, migrations,
+// presence, prosemirrorSync, timeline, workflow), so the target must have the same
+// components installed or the import will not find a home for those rows.
 //
 // Snapshots hold real client data. The zip is deleted after a successful import
 // unless --keep-snapshot, and backups/ is gitignored. Never commit or share one.
@@ -56,6 +60,7 @@ Sync a cloud Convex deployment into the local Convex backend.
   --include-env             Copy the source deployment's env vars onto the local one.
   --local-url <url>         Override the target URL (must be loopback).
   --local-admin-key <key>   Override the target admin key. Required with --local-url.
+  --out <path>              Where to write the snapshot zip (default: backups/).
   --keep-snapshot           Keep the snapshot zip instead of deleting it.
 `;
 
@@ -75,6 +80,7 @@ try {
       "include-env": { type: "boolean", default: false },
       "local-url": { type: "string" },
       "local-admin-key": { type: "string" },
+      out: { type: "string" },
       "keep-snapshot": { type: "boolean", default: false },
       help: { type: "boolean", default: false },
     },
@@ -316,7 +322,10 @@ function runConvex(args, options) {
   return capture ? (result.stdout ?? "") : "";
 }
 
-const zipPath = join(appDir, "backups", `${appName}-${sourceName}.zip`);
+const zipPath =
+  values.out === undefined
+    ? join(appDir, "backups", `${appName}-${sourceName}.zip`)
+    : resolve(values.out);
 
 console.log(`Syncing ${appName}`);
 console.log(`  source: ${sourceName} (from the deploy key)`);
@@ -355,38 +364,58 @@ runConvex(
 );
 
 if (values["include-env"]) {
-  // `env list` prints dotenv-formatted lines and `env set` reads that format back,
-  // so this is a pipe. It goes over stdin so no value is written to disk or logged,
-  // and `env set` drops the CLI-managed CONVEX_* names itself.
+  // There is no bulk env import: `env set` takes one `<name>` and reads its value
+  // from stdin (convex/src/cli/env.ts). `env list` prints `NAME=value` with values
+  // raw and unquoted, so a multi-line value — eva's PEM keys — spans lines and
+  // cannot be split back out of that dump reliably. Take only the names from it,
+  // then read each value with `env get`, whose entire stdout is the value.
+  // Values move over stdin, so none is written to disk, logged, or put in argv.
   const dump = runConvex(["env", "list"], {
     label: `env list ${sourceName}`,
     env: { CONVEX_DEPLOY_KEY: sourceKey },
     secrets: [sourceKey],
     capture: true,
   });
-  const names = dump.split(/\r?\n/).flatMap((line) => {
-    const match = /^([A-Z_][A-Za-z0-9_]*)=/.exec(line);
-    return match === null ? [] : [match[1]];
-  });
+  const names = [
+    ...new Set(
+      dump.split(/\r?\n/).flatMap((line) => {
+        const match = /^([A-Z_][A-Za-z0-9_]*)=/.exec(line);
+        // CONVEX_* are backend-managed and cannot be set.
+        return match === null || match[1].startsWith("CONVEX_")
+          ? []
+          : [match[1]];
+      }),
+    ),
+  ];
   if (names.length === 0) {
     console.log("\nSource has no environment variables; nothing to copy.");
   } else {
-    runConvex(
-      [
-        "env",
-        "set",
-        "--force",
-        "--url",
-        target.url,
-        "--admin-key",
-        target.adminKey,
-      ],
-      {
-        label: `env set on ${target.name}`,
-        secrets: [target.adminKey],
-        input: dump,
-      },
-    );
+    for (const name of names) {
+      // `env get` prints the value then a newline, so one trailing newline is the
+      // CLI's, not the value's. A value that genuinely ends in a newline loses it.
+      const value = runConvex(["env", "get", name], {
+        label: `env get ${name}`,
+        env: { CONVEX_DEPLOY_KEY: sourceKey },
+        secrets: [sourceKey],
+        capture: true,
+      }).replace(/\r?\n$/, "");
+      runConvex(
+        [
+          "env",
+          "set",
+          "--url",
+          target.url,
+          "--admin-key",
+          target.adminKey,
+          name,
+        ],
+        {
+          label: `env set ${name} on ${target.name}`,
+          secrets: [target.adminKey],
+          input: value,
+        },
+      );
+    }
     console.log(`\nCopied ${names.length} env var(s): ${names.join(", ")}`);
     console.log(
       "These are the source deployment's secrets; they now live on this machine.",

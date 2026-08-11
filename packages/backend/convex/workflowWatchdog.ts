@@ -292,25 +292,6 @@ export const handleStaleProject = internalMutation({
   },
 });
 
-/** Marks a stale audit as errored if it is still running. */
-export const handleStaleAudit = internalMutation({
-  args: {
-    auditId: v.id("audits"),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const audit = await ctx.db.get(args.auditId);
-    if (!audit || audit.status !== "running") return null;
-
-    await ctx.db.patch(args.auditId, {
-      status: "error",
-      error: "Audit timed out",
-    });
-
-    return null;
-  },
-});
-
 /** Cancels a stale project chat workflow via the 2-hour workflow-timeout backstop. */
 export const handleStaleProjectChat = internalMutation({
   args: {

@@ -7,16 +7,10 @@ import {
   TooltipTrigger,
   TooltipContent,
   cn,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuCheckboxItem,
   ModelSelect,
   Switch,
   toast,
 } from "@eva/ui";
-import { IconAdjustmentsHorizontal } from "@tabler/icons-react";
 import { api, normalizeAIModel } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { tokenizedToEditable } from "@/lib/components/mentions";
@@ -75,11 +69,6 @@ export function TaskActivityComposerForm({
 
   const [commentText, setCommentText] = useState(initialText);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Per-run proof/audit choice for project change requests. Transient (default
-  // off, reset after submit) so a change request never repeats these steps
-  // unless explicitly asked for this run.
-  const [captureProof, setCaptureProof] = useState(false);
-  const [runAudit, setRunAudit] = useState(false);
   const mentionRef = useRef<CommentMentionInputHandle>(null);
 
   const createComment = useMutation(api.taskComments.create);
@@ -190,16 +179,8 @@ export function TaskActivityComposerForm({
         content,
         requestsChanges: true,
       });
-      // No immediate run — persist proof/audit on the task so the next
-      // Build Project / ordered run picks them up.
-      await updateTask({
-        id: taskId,
-        screenshotsVideosEnabled: captureProof,
-        runAuditEnabled: runAudit,
-      });
+      // No immediate run — Build Project / ordered run picks the task up.
       await updateStatus({ id: taskId, status: "todo" });
-      setCaptureProof(false);
-      setRunAudit(false);
       onRequestChangesSubmitted();
     } catch (err) {
       const message =
@@ -213,7 +194,6 @@ export function TaskActivityComposerForm({
   const canRequestChanges = disabledReason === undefined;
   const effectiveRequestingChanges = canRequestChanges && requestingChanges;
   const isMakeChangesGated = requestingChanges && !canRequestChanges;
-  const changeRequestOptionCount = (captureProof ? 1 : 0) + (runAudit ? 1 : 0);
 
   const editorClassName = COMMENT_EDITOR_CLASS;
 
@@ -333,72 +313,6 @@ export function TaskActivityComposerForm({
                     : "Turn on Make changes to pick a model"}
               </TooltipContent>
             </Tooltip>
-            <DropdownMenu>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span className="inline-flex">
-                    <DropdownMenuTrigger
-                      asChild
-                      disabled={!effectiveRequestingChanges}
-                    >
-                      <button
-                        type="button"
-                        disabled={!effectiveRequestingChanges}
-                        className={cn(
-                          "relative flex h-6 items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors",
-                          !effectiveRequestingChanges
-                            ? "cursor-not-allowed text-muted-foreground opacity-50"
-                            : "hover:bg-muted hover:text-foreground",
-                          effectiveRequestingChanges &&
-                            (captureProof || runAudit)
-                            ? "text-foreground"
-                            : effectiveRequestingChanges
-                              ? "text-muted-foreground"
-                              : null,
-                        )}
-                        aria-label={
-                          changeRequestOptionCount > 0
-                            ? `Change-request options, ${changeRequestOptionCount} enabled`
-                            : "Change-request options"
-                        }
-                      >
-                        <IconAdjustmentsHorizontal className="size-3.5" />
-                        Options
-                        {changeRequestOptionCount > 0 ? (
-                          <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none text-primary-foreground">
-                            {changeRequestOptionCount}
-                          </span>
-                        ) : null}
-                      </button>
-                    </DropdownMenuTrigger>
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent>
-                  {effectiveRequestingChanges
-                    ? "Extra steps for the next project build of this task"
-                    : "Turn on Make changes to set proof/audit"}
-                </TooltipContent>
-              </Tooltip>
-              <DropdownMenuContent align="start">
-                <DropdownMenuLabel>Extra steps on next build</DropdownMenuLabel>
-                <DropdownMenuCheckboxItem
-                  checked={captureProof}
-                  onCheckedChange={(checked) =>
-                    setCaptureProof(checked === true)
-                  }
-                  onSelect={(e) => e.preventDefault()}
-                >
-                  Capture proof
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={runAudit}
-                  onCheckedChange={(checked) => setRunAudit(checked === true)}
-                  onSelect={(e) => e.preventDefault()}
-                >
-                  Run audit
-                </DropdownMenuCheckboxItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
           <Tooltip>
             <TooltipTrigger asChild>

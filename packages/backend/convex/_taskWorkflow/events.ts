@@ -17,30 +17,3 @@ export const buildTaskDoneEvent = defineEvent({
   }),
 });
 
-/** Workflow event emitted when the post-run audit step completes. */
-export const auditCompleteEvent = defineEvent({
-  name: "auditComplete",
-  validator: v.object({
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  }),
-});
-
-/** Workflow event emitted when the post-implementation proof capture step completes. */
-export const proofCompleteEvent = defineEvent({
-  name: "proofComplete",
-  validator: v.object({
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-  }),
-});
-
-/** Workflow event emitted when an audit fix attempt completes. */
-export const auditFixCompleteEvent = defineEvent({
-  name: "auditFixComplete",
-  validator: workflowCompleteValidator,
-});

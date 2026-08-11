@@ -48,8 +48,6 @@ export function ProjectPlanTab({
           codeReviewer,
           model,
           providerAccountId,
-          screenshotsVideosEnabled: _screenshotsVideosEnabled,
-          runAuditEnabled: _runAuditEnabled,
           ...safeFields
         } = args;
         localStore.setQuery(

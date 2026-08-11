@@ -122,8 +122,6 @@ export function ProjectCard({
           codeReviewer,
           model,
           providerAccountId,
-          screenshotsVideosEnabled: _screenshotsVideosEnabled,
-          runAuditEnabled: _runAuditEnabled,
           ...safeFields
         } = args;
         localStore.setQuery(

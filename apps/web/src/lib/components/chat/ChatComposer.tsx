@@ -35,7 +35,7 @@ import { usePeopleMentionItems } from "@/lib/hooks/usePeopleMentionItems";
 import { useDataMentionItems } from "@/lib/hooks/useDataMentionItems";
 import { mergeMentionItems } from "@/lib/components/mentions";
 import { IconPlayerStop } from "@tabler/icons-react";
-import { useRef, type ReactNode } from "react";
+import { useRef } from "react";
 import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
@@ -98,8 +98,6 @@ interface ChatComposerProps {
   /** Optional left-side control on the under-input card (e.g. base branch). */
   underCardLeading?: React.ReactNode;
   toolsBefore?: React.ReactNode;
-  /** Optional "Options" submenu inside the composer "+" menu. */
-  optionsSubmenu?: ReactNode;
   draft?: ChatDraftSeed;
   /** Persist draft in localStorage when no Convex conversation exists yet. */
   localDraft?: LocalChatDraft;
@@ -130,7 +128,6 @@ export function ChatComposer({
   preInputContent,
   underCardLeading,
   toolsBefore,
-  optionsSubmenu,
   draft,
   localDraft,
   isDraftLoading,
@@ -293,7 +290,6 @@ export function ChatComposer({
                     dataItems={plusDataItems}
                     skillItems={skillItems}
                     mentionRef={mentionRef}
-                    optionsSubmenu={optionsSubmenu}
                   />
                   {toolsBefore}
                   <ComposerStash

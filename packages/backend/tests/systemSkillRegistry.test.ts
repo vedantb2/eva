@@ -18,7 +18,6 @@ const hydration: SystemSkillHydration = {
   devCommand: "pnpm run start",
   startupCommands: ["pnpm convex dev"],
   baseBranch: "staging",
-  categories: [{ name: "Accessibility", description: "Keyboard and ARIA." }],
 };
 
 describe("system skill registry", () => {
@@ -88,7 +87,6 @@ describe("eva-capture content", () => {
       owner: "acme",
       name: "web",
       baseBranch: "main",
-      categories: [],
     });
     expect(bare).toContain("http://localhost:3000");
     expect(bare).toContain("pnpm run dev");
@@ -97,20 +95,13 @@ describe("eva-capture content", () => {
 });
 
 describe("eva-audit content", () => {
-  it("hydrates the base branch and configured categories", () => {
+  it("hydrates the base branch and renders the standard categories", () => {
     const content = SYSTEM_SKILLS["eva-audit"].buildContent(hydration);
     expect(content).toContain("origin/staging");
-    expect(content).toContain("**Accessibility**");
-    expect(content).not.toContain("no audit categories configured");
-  });
-
-  it("falls back to default categories and says so", () => {
-    const content = SYSTEM_SKILLS["eva-audit"].buildContent({
-      ...hydration,
-      categories: [],
-    });
     expect(content).toContain("**Correctness**");
-    expect(content).toContain("no audit categories configured");
+    expect(content).toContain("**Security**");
+    expect(content).toContain("**Performance**");
+    expect(content).toContain("**Code quality**");
   });
 
   it("reports markdown in chat rather than JSON", () => {

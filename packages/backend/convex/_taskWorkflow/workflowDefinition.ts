@@ -7,16 +7,7 @@ import {
   DEFAULT_AI_MODEL,
   runModeValidator,
 } from "../validators";
-import {
-  taskCompleteEvent,
-  auditCompleteEvent,
-  proofCompleteEvent,
-} from "./events";
-import {
-  buildAuditPrompt,
-  buildProofPrompt,
-  buildProofRetryPrompt,
-} from "./prompts";
+import { taskCompleteEvent } from "./events";
 import { buildQuickTaskRetryDelayMs } from "./recovery";
 import { getTaskRunStreamingEntityId } from "./helpers";
 import { prepareSandboxSteps } from "../_sandbox_runtime/prepareSandboxSteps";
@@ -29,7 +20,7 @@ type PrEnrichmentData = FunctionReturnType<
   typeof internal.taskWorkflow.getPrEnrichmentData
 >;
 
-/** Main durable workflow that orchestrates sandbox setup, task execution, audit, PR creation, and cleanup. */
+/** Main durable workflow that orchestrates sandbox setup, task execution, PR creation, and cleanup. */
 export const taskExecutionWorkflow = workflow.define({
   args: {
     runId: v.id("agentRuns"),
@@ -110,8 +101,6 @@ export const taskExecutionWorkflow = workflow.define({
         sessionPersistenceKind: args.projectId ? "projects" : undefined,
       }));
 
-      // Always run implementation on the task's selected model. Proof capture
-      // is a separate post-push step that uses repo.proofModel.
       await step.runAction(internal.sandbox.launchOnExistingSandbox, {
         sandboxId,
         entityId: String(args.taskId),
@@ -130,7 +119,6 @@ export const taskExecutionWorkflow = workflow.define({
         repoId: args.repoId,
         streamingEntityId: getTaskRunStreamingEntityId(args.runId),
         runId: String(args.runId),
-        taskProofCaptureEnabled: false,
         requireTaskCommit: true,
         providerAccountId: args.providerAccountId,
         credentialOwnerUserId: args.credentialOwnerUserId,
@@ -218,105 +206,6 @@ export const taskExecutionWorkflow = workflow.define({
         }
       }
 
-      // Proof capture runs after push so PR enrichment can include media,
-      // and uses repo.proofModel (falls back to the task model). Soft-fail
-      // like audit. Retry once if the first turn left no media file.
-      if (
-        finalSuccess &&
-        sandboxId &&
-        data.screenshotsVideosEnabled &&
-        args.mode !== "resolve_conflicts"
-      ) {
-        const proofModel = data.proofModel ?? args.model;
-        const proofRuntime = {
-          devPort: data.devPort,
-          devCommand: data.devCommand,
-        };
-        try {
-          // Revive Convex/etc. + start the app so proof does not screenshot
-          // "function not found" / connection errors from a cold backend.
-          await step.runAction(internal.sandbox.prepareProofSandbox, {
-            sandboxId,
-            repoId: args.repoId,
-            taskId: args.taskId,
-          });
-          await step.runAction(internal.sandbox.launchProof, {
-            sandboxId,
-            prompt: buildProofPrompt(
-              {
-                title: data.taskTitle,
-                description: data.taskDescription,
-              },
-              data.rootDirectory,
-              completionResult,
-              undefined,
-              proofRuntime,
-            ),
-            taskId: String(args.taskId),
-            runId: args.runId,
-            userId: args.userId,
-            repoId: args.repoId,
-            model: proofModel,
-            rootDirectory: data.rootDirectory,
-          });
-          const proofResult = await step.awaitEvent(proofCompleteEvent);
-          if (!proofResult.success) {
-            console.error(
-              `[task-workflow] run=${args.runId} proof step failed: ${proofResult.error ?? "unknown"}`,
-            );
-          }
-
-          // Prefer waiting briefly over an immediate retry — media used to land
-          // after handleProofCompletion (race), which spuriously launched a
-          // second full proof capture.
-          const hasMedia = await step.runAction(
-            internal.sandbox.waitForProofMedia,
-            { taskId: args.taskId, runId: args.runId },
-          );
-          if (!hasMedia) {
-            console.error(
-              `[task-workflow] run=${args.runId} proof left no media; retrying once with hard capture prompt`,
-            );
-            await step.runMutation(
-              internal.taskProof.clearMessageProofsForRun,
-              { taskId: args.taskId, runId: args.runId },
-            );
-            await step.runAction(internal.sandbox.prepareProofSandbox, {
-              sandboxId,
-              repoId: args.repoId,
-              taskId: args.taskId,
-            });
-            await step.runAction(internal.sandbox.launchProof, {
-              sandboxId,
-              prompt: buildProofRetryPrompt(
-                {
-                  title: data.taskTitle,
-                  description: data.taskDescription,
-                },
-                data.rootDirectory,
-                proofRuntime,
-              ),
-              taskId: String(args.taskId),
-              runId: args.runId,
-              userId: args.userId,
-              repoId: args.repoId,
-              model: proofModel,
-              rootDirectory: data.rootDirectory,
-            });
-            const retryResult = await step.awaitEvent(proofCompleteEvent);
-            if (!retryResult.success) {
-              console.error(
-                `[task-workflow] run=${args.runId} proof retry failed: ${retryResult.error ?? "unknown"}`,
-              );
-            }
-          }
-        } catch (proofError) {
-          console.error(
-            `[task-workflow] run=${args.runId} proof step failed: ${proofError instanceof Error ? proofError.message : String(proofError)}`,
-          );
-        }
-      }
-
       // PR create/refresh only when this run actually pushed commits: a run
       // that published nothing has no diff to open or refresh a PR for, and
       // attempting one against a branch origin may not even have burned
@@ -326,14 +215,12 @@ export const taskExecutionWorkflow = workflow.define({
         const createPrAsDraft = true;
         try {
           let changeRequests: PrEnrichmentData["changeRequests"] = [];
-          let proofs: PrEnrichmentData["proofs"] = [];
           try {
             const enrichment = await step.runQuery(
               internal.taskWorkflow.getPrEnrichmentData,
               { taskId: args.taskId },
             );
             changeRequests = enrichment.changeRequests;
-            proofs = enrichment.proofs;
           } catch (enrichmentError) {
             console.error(
               `[task-workflow] run=${args.runId} PR enrichment failed; creating PR with base body: ${enrichmentError instanceof Error ? enrichmentError.message : String(enrichmentError)}`,
@@ -361,7 +248,6 @@ export const taskExecutionWorkflow = workflow.define({
             taskDescription: data.taskDescription,
             rootDirectory: data.rootDirectory,
             changeRequests,
-            proofs,
             draft: createPrAsDraft,
           };
           if (args.isFirstTaskOnBranch) {
@@ -390,7 +276,6 @@ export const taskExecutionWorkflow = workflow.define({
                   taskDescription: data.taskDescription,
                   rootDirectory: data.rootDirectory,
                   changeRequests,
-                  proofs,
                 },
                 PR_STEP_RETRY,
               );
@@ -449,63 +334,6 @@ export const taskExecutionWorkflow = workflow.define({
         claudeResult: result.result ?? undefined,
       });
       runCompletionRecorded = true;
-
-      const auditCategories = data.auditCategories;
-
-      if (
-        finalSuccess &&
-        sandboxId &&
-        auditCategories.length > 0 &&
-        data.runAuditEnabled
-      ) {
-        try {
-          const auditId = await step.runMutation(
-            internal.taskWorkflow.createAudit,
-            {
-              taskId: args.taskId,
-              runId: args.runId,
-            },
-          );
-
-          await step.runAction(internal.sandbox.launchAudit, {
-            sandboxId,
-            prompt: buildAuditPrompt(auditCategories),
-            taskId: String(args.taskId),
-            runId: args.runId,
-            userId: args.userId,
-            repoId: args.repoId,
-          });
-
-          const auditResult = await step.awaitEvent(auditCompleteEvent);
-
-          await step.runMutation(internal.taskWorkflow.saveAuditResult, {
-            auditId,
-            result: auditResult.result,
-            error: auditResult.success
-              ? undefined
-              : (auditResult.error ?? "Audit failed"),
-            activityLog: auditResult.activityLog,
-          });
-
-          if (completionPrUrl) {
-            await step.runAction(
-              internal.taskWorkflowActions.appendAuditToPullRequest,
-              {
-                installationId: args.installationId,
-                repoOwner: data.repoOwner,
-                repoName: data.repoName,
-                branchName: data.branchName,
-                auditResult: auditResult.result,
-                auditError: auditResult.success
-                  ? null
-                  : (auditResult.error ?? "Audit failed"),
-              },
-            );
-          }
-        } catch (err) {
-          console.error("Audit step failed:", err);
-        }
-      }
 
       await step.runMutation(internal.taskWorkflow.completeRun, {
         runId: args.runId,

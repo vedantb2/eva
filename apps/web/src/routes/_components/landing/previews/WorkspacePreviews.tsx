@@ -151,7 +151,7 @@ const NOTIFICATIONS = [
   },
   {
     icon: IconShieldCheck,
-    title: "Audit found 1 accessibility issue",
+    title: "Task run finished with 1 failing check",
     meta: "acme/web · 22m ago",
     unread: true,
   },

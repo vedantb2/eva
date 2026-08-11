@@ -29,8 +29,6 @@ const ENTITY_TYPE_ICONS: Record<
   evaluation: IconFlask,
   testGen: IconTestPipe,
   automation: IconPlayerPlay,
-  sessionAudit: IconTerminal2,
-  taskAudit: IconChecklist,
   summarize: IconFileText,
 };
 
@@ -48,8 +46,6 @@ const ENTITY_TYPE_LABELS: Record<string, string> = {
   "task-chat": "Task Chats",
   doc: "Docs",
   evaluation: "Evaluations",
-  sessionAudit: "Session Audits",
-  taskAudit: "Task Audits",
   summarize: "Summaries",
   testGen: "Test Generation",
   automation: "Automations",
@@ -60,8 +56,8 @@ export function labelFor(entityType: string): string {
 }
 
 // Group key used by the "By Type" log view. Project-tagged entries (chats,
-// tasks, audits, interviews) collapse into a single "project" group so projects
-// are billed as one line instead of split across project-chat + quickTask etc.
+// tasks, interviews) collapse into a single "project" group so projects are
+// billed as one line instead of split across project-chat + quickTask etc.
 const PROJECT_GROUP_KEY = "project";
 
 export function groupKeyFor(log: {

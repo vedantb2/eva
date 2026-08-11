@@ -19,16 +19,12 @@ var ENTITY_ID = process.env.ENTITY_ID;
 var STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 var RUN_ID = process.env.RUN_ID || null;
 var ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
-var TASK_PROOF_CAPTURE_ENABLED = process.env.TASK_PROOF_CAPTURE_ENABLED !== "false";
 var ROOT_DIRECTORY = process.env.ROOT_DIRECTORY || "";
 var COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
 var CLAIM_MUTATION = process.env.CLAIM_MUTATION;
 var OPEN_SYNTHETIC_TURN_MUTATION = process.env.OPEN_SYNTHETIC_TURN_MUTATION;
 var COMPLETE_SYNTHETIC_TURN_MUTATION = process.env.COMPLETE_SYNTHETIC_TURN_MUTATION;
 var UPDATE_BACKGROUND_AGENTS_MUTATION = process.env.UPDATE_BACKGROUND_AGENTS_MUTATION;
-function isProofCompletionMutation(mutation = COMPLETION_MUTATION) {
-  return (mutation ?? "").includes("handleProofCompletion");
-}
 var REQUIRE_TASK_COMMIT = process.env.REQUIRE_TASK_COMMIT === "true";
 var PROVIDER = process.env.AI_PROVIDER || "claude";
 var MODEL = process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
@@ -1681,9 +1677,8 @@ function codexItemToStep(item) {
   });
 }
 
-// callback-src/runtime/proofMedia.ts
-var PROOF_NO_MEDIA_MESSAGE = "Eva decided not to capture.";
-function proofMediaCandidateRoots(workDir, rootDirectory) {
+// callback-src/runtime/sandboxMedia.ts
+function mediaCandidateRoots(workDir, rootDirectory) {
   const roots = [workDir];
   const trimmed = rootDirectory?.trim() ?? "";
   if (trimmed.length > 0 && trimmed !== "." && !trimmed.startsWith("/") && !trimmed.includes("..")) {
@@ -1694,8 +1689,8 @@ function proofMediaCandidateRoots(workDir, rootDirectory) {
   }
   return roots;
 }
-function proofMediaSearchDirs(workDir, rootDirectory) {
-  const roots = proofMediaCandidateRoots(workDir, rootDirectory);
+function mediaSearchDirs(workDir, rootDirectory) {
+  const roots = mediaCandidateRoots(workDir, rootDirectory);
   return {
     recordings: roots.map((root) => \`\${root}/recordings\`),
     screenshots: roots.map((root) => \`\${root}/screenshots\`)
@@ -2072,64 +2067,24 @@ async function uploadMediaFile(filePath, mimeType) {
   }
   throw new Error("Missing storageId in upload response");
 }
-async function persistTaskProofIfNeeded(uploaded) {
-  if (uploaded.length > 0) {
-    if (ENTITY_ID_FIELD === "taskId" && RUN_ID) {
-      for (const item of uploaded) {
-        const saveArgs = {
-          taskId: ENTITY_ID ?? "",
-          storageId: item.storageId,
-          fileName: item.fileName
-        };
-        if (RUN_ID) saveArgs.runId = RUN_ID;
-        await callConvexWithRetry("mutation", "taskProof:save", saveArgs, 3);
-      }
-      return;
-    }
-    const mediaArgs = {
-      parentId: ENTITY_ID ?? "",
-      mediaStorageIds: uploaded.map((item) => item.storageId)
-    };
-    await callConvexWithRetry(
-      "action",
-      "screenshots:attachMedia",
-      mediaArgs,
-      3
-    );
-    return;
-  }
-  if (ENTITY_ID_FIELD === "taskId") {
-    if (!TASK_PROOF_CAPTURE_ENABLED) return;
-    if (!RUN_ID) return;
-    const messageArgs = {
-      taskId: ENTITY_ID ?? "",
-      message: PROOF_NO_MEDIA_MESSAGE,
-      runId: RUN_ID
-    };
-    await callConvexWithRetry(
-      "mutation",
-      "taskProof:saveMessage",
-      messageArgs,
-      3
-    );
-  }
+async function attachChatMediaIfAny(uploaded) {
+  if (uploaded.length === 0) return;
+  const mediaArgs = {
+    parentId: ENTITY_ID ?? "",
+    mediaStorageIds: uploaded.map((item) => item.storageId)
+  };
+  await callConvexWithRetry("action", "screenshots:attachMedia", mediaArgs, 3);
 }
 async function deliverCompletionWithMedia(completionArgs) {
-  const uploadFirst = isProofCompletionMutation(COMPLETION_MUTATION);
-  if (uploadFirst) {
-    await uploadAndAttachSandboxMedia();
-  }
   await callConvexWithRetry(
     "mutation",
     COMPLETION_MUTATION ?? "",
     completionArgs
   );
-  if (!uploadFirst) {
-    await uploadAndAttachSandboxMedia();
-  }
+  await uploadAndAttachSandboxMedia();
 }
 async function uploadAndAttachSandboxMedia() {
-  if (RUN_ID && !TASK_PROOF_CAPTURE_ENABLED) return;
+  if (RUN_ID) return;
   const uploaded = [];
   const seenDigests = /* @__PURE__ */ new Set();
   const isDuplicate = (filePath) => {
@@ -2138,10 +2093,7 @@ async function uploadAndAttachSandboxMedia() {
     seenDigests.add(digest);
     return false;
   };
-  const { recordings, screenshots } = proofMediaSearchDirs(
-    WORK_DIR,
-    ROOT_DIRECTORY
-  );
+  const { recordings, screenshots } = mediaSearchDirs(WORK_DIR, ROOT_DIRECTORY);
   for (const recDir of recordings) {
     if (!existsSync3(recDir)) continue;
     for (const file of readdirSync2(recDir)) {
@@ -2189,33 +2141,9 @@ async function uploadAndAttachSandboxMedia() {
     }
   }
   try {
-    await persistTaskProofIfNeeded(uploaded);
+    await attachChatMediaIfAny(uploaded);
   } catch (e) {
-    console.error("Failed to persist task proof:", e);
-    const proofError = e instanceof Error ? e.message : String(e);
-    await saveProofFailureMessageIfNeeded(
-      "Proof capture failed after completion: " + proofError
-    );
-  }
-}
-async function saveProofFailureMessageIfNeeded(message) {
-  if (ENTITY_ID_FIELD !== "taskId") return;
-  if (!TASK_PROOF_CAPTURE_ENABLED) return;
-  if (!RUN_ID) return;
-  try {
-    const failureArgs = {
-      taskId: ENTITY_ID ?? "",
-      message
-    };
-    if (RUN_ID) failureArgs.runId = RUN_ID;
-    await callConvexWithRetry(
-      "mutation",
-      "taskProof:saveMessage",
-      failureArgs,
-      2
-    );
-  } catch (error) {
-    console.error("Failed to record proof persistence error:", error);
+    console.error("Failed to attach sandbox media:", e);
   }
 }
 function hasToolActivity() {
@@ -4646,7 +4574,7 @@ function isNonFastForwardPush(message) {
 }
 function synchronizeForPush(branch) {
   const remoteRef = \`refs/remotes/origin/\${branch}\`;
-  const fetch = git(
+  const fetch2 = git(
     [
       "fetch",
       "--no-tags",
@@ -4655,12 +4583,12 @@ function synchronizeForPush(branch) {
     ],
     PUSH_TIMEOUT_MS
   );
-  if (!fetch.ok) {
-    if (isMissingRemoteRef(fetch.out)) {
+  if (!fetch2.ok) {
+    if (isMissingRemoteRef(fetch2.out)) {
       git(["update-ref", "-d", remoteRef]);
       return { status: "ready", remoteExists: false };
     }
-    log(\`persistTurnWork: fetch failed: \${fetch.out.slice(0, 200)}\`);
+    log(\`persistTurnWork: fetch failed: \${fetch2.out.slice(0, 200)}\`);
     return { status: "failed" };
   }
   const divergence = git([
@@ -4675,10 +4603,10 @@ function synchronizeForPush(branch) {
     );
     return { status: "failed" };
   }
-  if (/^0\\s+\\d+$/.test(divergence.out)) {
+  if (/^0\\s+\\d+\$/.test(divergence.out)) {
     return { status: "ready", remoteExists: true };
   }
-  if (/^[1-9]\\d*\\s+0$/.test(divergence.out)) {
+  if (/^[1-9]\\d*\\s+0\$/.test(divergence.out)) {
     const fastForward = git(["merge", "--ff-only", remoteRef]);
     if (fastForward.ok) {
       return { status: "ready", remoteExists: true };
@@ -4688,7 +4616,7 @@ function synchronizeForPush(branch) {
     );
     return { status: "failed" };
   }
-  if (/^[1-9]\\d*\\s+[1-9]\\d*$/.test(divergence.out)) {
+  if (/^[1-9]\\d*\\s+[1-9]\\d*\$/.test(divergence.out)) {
     const rebase = git(["rebase", remoteRef], PUSH_TIMEOUT_MS);
     if (rebase.ok) {
       return { status: "ready", remoteExists: true };

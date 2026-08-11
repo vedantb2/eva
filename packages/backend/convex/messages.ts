@@ -19,7 +19,7 @@ const messageValidator = v.object({
   _id: v.id("messages"),
   _creationTime: v.number(),
   ...messageFields,
-  // Resolved agent proof media (recordings/screenshots), in capture order.
+  // Resolved agent media (recordings/screenshots), in capture order.
   media: v.optional(
     v.array(
       v.object({

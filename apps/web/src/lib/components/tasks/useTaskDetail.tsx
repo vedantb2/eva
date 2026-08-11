@@ -65,29 +65,6 @@ export function useTaskDetail(
     api.streaming.get,
     activeRun ? { entityId: `task-run-${activeRun._id}` } : "skip",
   );
-  const allAudits = useQuery(api.audits.listByTask, { taskId });
-  const hasEnabledAuditCategories =
-    useQuery(
-      api.auditCategories.hasEnabledCategories,
-      task?.repoId ? { repoId: task.repoId } : "skip",
-    ) ?? true;
-  const latestAudit = allAudits?.[0] ?? null;
-  const auditStreaming = useQuery(
-    api.streaming.get,
-    (latestAudit?.status === "running" ||
-      latestAudit?.fixStatus === "fixing") &&
-      latestAudit?.runId
-      ? { entityId: `task-audit-run-${latestAudit.runId}` }
-      : "skip",
-  );
-  const auditElapsed = useElapsedSeconds(
-    latestAudit?.createdAt,
-    latestAudit?.status === "running",
-  );
-  const fixElapsed = useElapsedSeconds(
-    latestAudit?.fixStatus === "fixing" ? latestAudit.createdAt : undefined,
-    latestAudit?.fixStatus === "fixing",
-  );
   const users = useQuery(api.users.listAll);
   const projects = useQuery(
     api.projects.list,
@@ -95,13 +72,6 @@ export function useTaskDetail(
   );
   const allComments = useQuery(api.taskComments.listByTask, { taskId });
   const comments = allComments?.filter((c) => c.authorId);
-  const auditCategories = useQuery(
-    api.auditCategories.listByRepo,
-    task?.repoId ? { repoId: task.repoId } : "skip",
-  );
-  const enabledAuditCount =
-    auditCategories?.filter((c) => c.enabled).length ?? 0;
-  const proofs = useQuery(api.taskProof.listByTask, { taskId });
   const taskActivity = useQuery(api.taskActivity.listByTask, { taskId });
   const repoForTask = useQuery(
     api.githubRepos.get,
@@ -353,8 +323,6 @@ export function useTaskDetail(
   const layoutGridClass = "grid-cols-1 md:grid-cols-[1fr_1fr_200px]";
   const hasTabContent =
     (runs !== undefined && runs.length > 0) ||
-    (proofs !== undefined && proofs.length > 0) ||
-    latestAudit !== null ||
     (comments !== undefined && comments.length > 0);
   const showTabsColumn = status !== "todo" || hasTabContent;
   const creatorUser = task?.createdBy
@@ -368,15 +336,12 @@ export function useTaskDetail(
     task,
     status,
     runs,
-    allAudits,
     comments,
-    proofs,
     taskActivity,
     users,
     creatorUser,
     projects,
     streaming,
-    auditStreaming,
 
     isOwner,
     isBlocked,
@@ -386,20 +351,13 @@ export function useTaskDetail(
     hasRuns,
     canEditTaskText,
     showTabsColumn,
-    hasEnabledAuditCategories,
-    isActivityBusy:
-      Boolean(hasActiveRun) ||
-      latestAudit?.status === "running" ||
-      latestAudit?.fixStatus === "fixing",
+    isActivityBusy: Boolean(hasActiveRun),
 
     activeRun,
     activeRunElapsed,
-    auditElapsed,
-    fixElapsed,
     latestPrUrl,
     latestPrError,
     latestDeployment,
-    enabledAuditCount,
 
     activeTab,
     setActiveTab,

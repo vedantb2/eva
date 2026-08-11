@@ -7,7 +7,6 @@ import {
   IconFolders,
   IconSettings2,
   IconReceipt2,
-  IconShieldCheck,
   IconPlug,
   IconTerminal2,
   IconSparkles,
@@ -58,7 +57,6 @@ export function SettingsSidebar({
     {
       label: "Review",
       items: [
-        { name: "Audits", href: `${baseUrl}/audits`, icon: IconShieldCheck },
         { name: "MCP Config", href: `${baseUrl}/mcp-config`, icon: IconPlug },
         { name: "Logs", href: `${baseUrl}/logs`, icon: IconReceipt2 },
       ],

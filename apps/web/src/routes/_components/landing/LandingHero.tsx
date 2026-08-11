@@ -83,8 +83,8 @@ export function LandingHero() {
           >
             Eva gives coding agents a real cloud dev environment â€” your
             repository cloned, dependencies installed, a dev server running and
-            a browser they can drive. They run the tests, capture proof it
-            works, and open the pull request.
+            a browser they can drive. They run the tests and open the pull
+            request.
           </m.p>
 
           <m.div

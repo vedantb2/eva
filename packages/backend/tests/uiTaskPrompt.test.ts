@@ -3,7 +3,6 @@ import { isUiImplementationTask } from "@eva/shared/uiTaskPrompt";
 import {
   buildImplementationSteps,
   buildSummarySection,
-  buildUiProofCaptureHint,
   detectUiImplementationTask,
 } from "../convex/_taskWorkflow/uiImplementationPrompt";
 
@@ -72,13 +71,13 @@ describe("ui implementation prompt sections", () => {
     expect(summary).not.toMatch(/specific control you changed/);
   });
 
-  it("adds UI proof hint when description has route/control sections", () => {
-    const uiTask = detectUiImplementationTask({
-      title: "Minor tweak",
-      description:
-        "## Route\n/domcare/users-may\n\n## Control\nProfile type filter",
-    });
-    expect(uiTask).toBe(true);
-    expect(buildUiProofCaptureHint(uiTask)).toMatch(/exact control/);
+  it("detects UI work from route/control description sections", () => {
+    expect(
+      detectUiImplementationTask({
+        title: "Minor tweak",
+        description:
+          "## Route\n/domcare/users-may\n\n## Control\nProfile type filter",
+      }),
+    ).toBe(true);
   });
 });

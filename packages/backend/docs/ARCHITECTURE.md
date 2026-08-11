@@ -28,7 +28,7 @@ This avoids:
 - Tying action time to agent turn time (would require hand-offs mid-turn or abandoning step-based architecture)
 - Long-lived sockets that must survive deployment cycles
 
-**See also:** `convex/_daytona/resumeSandboxSteps.ts`, `convex/_sessions/workflow.ts` (`awaitEvent`), `convex/workflowWatchdog.ts`, and the header comments in `convex/auditFixWorkflow.ts` for the rationale repeated across workflows.
+**See also:** `convex/_sandbox_runtime/resumeSandboxSteps.ts`, `convex/_sessions/workflow.ts` (`awaitEvent`), `convex/workflowWatchdog.ts`, and the header comments in `convex/taskWorkflow.ts` for the rationale repeated across workflows.
 
 ## The Callback Bundle
 

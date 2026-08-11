@@ -8,9 +8,7 @@ export const ENTITY_ID = process.env.ENTITY_ID;
 export const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 export const RUN_ID = process.env.RUN_ID || null;
 export const ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
-export const TASK_PROOF_CAPTURE_ENABLED =
-  process.env.TASK_PROOF_CAPTURE_ENABLED !== "false";
-/** App subdirectory (e.g. apps/eprocurement) — also scanned for proof media. */
+/** App subdirectory (e.g. apps/eprocurement) — also scanned for agent media. */
 export const ROOT_DIRECTORY = process.env.ROOT_DIRECTORY || "";
 export const COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
 /** Public mutation the warm daemon polls to claim staged turns. */
@@ -22,12 +20,6 @@ export const COMPLETE_SYNTHETIC_TURN_MUTATION =
   process.env.COMPLETE_SYNTHETIC_TURN_MUTATION;
 export const UPDATE_BACKGROUND_AGENTS_MUTATION =
   process.env.UPDATE_BACKGROUND_AGENTS_MUTATION;
-/** Proof workflow resumes on completion — media must be saved before that mutation. */
-export function isProofCompletionMutation(
-  mutation: string | undefined = COMPLETION_MUTATION,
-): boolean {
-  return (mutation ?? "").includes("handleProofCompletion");
-}
 export const REQUIRE_TASK_COMMIT = process.env.REQUIRE_TASK_COMMIT === "true";
 export const PROVIDER = process.env.AI_PROVIDER || "claude";
 export const MODEL =

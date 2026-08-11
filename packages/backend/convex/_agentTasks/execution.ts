@@ -22,10 +22,6 @@ export const startExecution = authMutation({
     id: v.id("agentTasks"),
     mode: v.optional(runModeValidator),
     triggeringCommentId: v.optional(v.id("taskComments")),
-    // Per-run proof/audit override (request-changes composer). Explicit
-    // true/false wins for this run; omitted = fall back to the task default.
-    screenshotsVideosEnabled: v.optional(v.boolean()),
-    runAuditEnabled: v.optional(v.boolean()),
   },
   returns: v.object({
     runId: v.id("agentRuns"),
@@ -130,8 +126,6 @@ export const startExecution = authMutation({
         task.createdBy,
       ),
       model: normalizeAIModel(task.model),
-      screenshotsVideosEnabled: args.screenshotsVideosEnabled,
-      runAuditEnabled: args.runAuditEnabled,
     });
     await ctx.db.patch(args.id, {
       status: "in_progress",

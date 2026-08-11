@@ -79,7 +79,7 @@ export const getByEntityId = authQuery({
 });
 
 /** Gets all log entries that belong to a project. Covers project chats and
- *  any project-scoped tasks (quickTask, task-chat, audits) tagged with this
+ *  any project-scoped tasks (quickTask, task-chat) tagged with this
  *  projectId, so callers can aggregate the project's full usage. */
 export const getByProjectId = authQuery({
   args: {

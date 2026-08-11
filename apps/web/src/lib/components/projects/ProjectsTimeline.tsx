@@ -127,8 +127,6 @@ export function ProjectsTimeline({
           codeReviewer,
           model,
           providerAccountId,
-          screenshotsVideosEnabled: _screenshotsVideosEnabled,
-          runAuditEnabled: _runAuditEnabled,
           ...safeFields
         } = args;
         localStore.setQuery(

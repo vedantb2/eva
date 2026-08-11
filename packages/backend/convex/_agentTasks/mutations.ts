@@ -79,13 +79,6 @@ export const update = authMutation({
     ...runTraitFields,
     baseBranch: v.optional(v.string()),
     priority: v.optional(v.union(priorityValidator, v.null())),
-    // null = clear the override (fall back to repo setting). undefined = no change.
-    screenshotsVideosEnabled: v.optional(v.union(v.boolean(), v.null())),
-    // null = clear the override (inherit project/default). undefined = no change.
-    runAuditEnabled: v.optional(v.union(v.boolean(), v.null())),
-    // Per-task-sandbox-chat switches (plain on/off, no inherit). Absent = no change.
-    chatCaptureProofEnabled: v.optional(v.boolean()),
-    chatRunAuditEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -154,15 +147,6 @@ export const update = authMutation({
     if (args.baseBranch !== undefined) updates.baseBranch = args.baseBranch;
     if (args.priority !== undefined)
       updates.priority = args.priority ?? undefined;
-    if (args.screenshotsVideosEnabled !== undefined)
-      updates.screenshotsVideosEnabled =
-        args.screenshotsVideosEnabled ?? undefined;
-    if (args.runAuditEnabled !== undefined)
-      updates.runAuditEnabled = args.runAuditEnabled ?? undefined;
-    if (args.chatCaptureProofEnabled !== undefined)
-      updates.chatCaptureProofEnabled = args.chatCaptureProofEnabled;
-    if (args.chatRunAuditEnabled !== undefined)
-      updates.chatRunAuditEnabled = args.chatRunAuditEnabled;
     await ctx.db.patch(args.id, updates);
 
     if (args.title !== undefined && args.title !== task.title) {
@@ -517,8 +501,6 @@ export const createQuickTask = authMutation({
     tags: v.optional(v.array(v.string())),
     assignedTo: v.optional(v.id("users")),
     priority: v.optional(priorityValidator),
-    screenshotsVideosEnabled: v.optional(v.boolean()),
-    runAuditEnabled: v.optional(v.boolean()),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.id("agentTasks"),
@@ -567,8 +549,6 @@ export const createQuickTask = authMutation({
       tags: normalizeTaskTags(args.tags),
       assignedTo: args.assignedTo,
       priority: args.priority,
-      screenshotsVideosEnabled: args.screenshotsVideosEnabled,
-      runAuditEnabled: args.runAuditEnabled,
       attachmentStorageIds: args.attachmentStorageIds,
       numId,
     });

@@ -3,7 +3,6 @@ import { internalQuery } from "../_generated/server";
 import type { QueryCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
-  aiModelValidator,
   buildTraitsExecutionPayload,
   reasoningLevelValidator,
   runModeValidator,
@@ -62,35 +61,7 @@ async function getChangeRequestContents(
     .map((c) => c.content);
 }
 
-/** Fetches a task's proof attachments with resolved storage URLs and content types. */
-async function getTaskProofSummaries(ctx: QueryCtx, taskId: Id<"agentTasks">) {
-  const taskProofs = await ctx.db
-    .query("taskProof")
-    .withIndex("by_task", (q) => q.eq("taskId", taskId))
-    .collect();
-
-  return Promise.all(
-    taskProofs.map(async (p) => {
-      if (!p.storageId) {
-        return {
-          fileName: p.fileName ?? null,
-          message: p.message ?? null,
-          url: null,
-          contentType: null,
-        };
-      }
-      const meta = await ctx.db.system.get("_storage", p.storageId);
-      return {
-        fileName: p.fileName ?? null,
-        message: p.message ?? null,
-        url: (await ctx.storage.getUrl(p.storageId)) ?? null,
-        contentType: meta?.contentType ?? null,
-      };
-    }),
-  );
-}
-
-/** Fetches task, repo, and audit config to build the prompt and sandbox parameters for a run. */
+/** Fetches task and repo config to build the prompt and sandbox parameters for a run. */
 export const getTaskData = internalQuery({
   args: {
     taskId: v.id("agentTasks"),
@@ -125,12 +96,6 @@ export const getTaskData = internalQuery({
     rootDirectory: v.string(),
     devPort: v.optional(v.number()),
     devCommand: v.optional(v.string()),
-    screenshotsVideosEnabled: v.boolean(),
-    runAuditEnabled: v.boolean(),
-    proofModel: v.optional(aiModelValidator),
-    auditCategories: v.array(
-      v.object({ name: v.string(), description: v.string() }),
-    ),
   }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
@@ -264,34 +229,6 @@ export const getTaskData = internalQuery({
 
     const rootDirectory = repo.rootDirectory ?? "";
 
-    // Resolve proof/audit defaults from the task's project when set, even for a
-    // quick task assigned to a project (args.projectId is only passed for the
-    // project-build path, so fall back to task.projectId here). Sandbox-reuse
-    // logic above stays keyed off args.projectId only — no behavior change.
-    const defaultsProjectId = args.projectId ?? task.projectId;
-    const defaultsProject =
-      defaultsProjectId === args.projectId
-        ? project
-        : defaultsProjectId
-          ? await ctx.db.get(defaultsProjectId)
-          : null;
-
-    // Proof/audit resolution: a per-run override (set by the request-changes
-    // composer, default off) wins for this run; otherwise fall back to the task
-    // default, then the project default, else off. There is no repo default.
-    const run = await ctx.db.get(args.runId);
-    const screenshotsVideosEnabled =
-      run?.screenshotsVideosEnabled ??
-      task.screenshotsVideosEnabled ??
-      defaultsProject?.screenshotsVideosEnabled ??
-      false;
-
-    const runAuditEnabled =
-      run?.runAuditEnabled ??
-      task.runAuditEnabled ??
-      defaultsProject?.runAuditEnabled ??
-      false;
-
     const prompt =
       args.mode === "resolve_conflicts"
         ? buildConflictResolutionPrompt(
@@ -319,23 +256,6 @@ export const getTaskData = internalQuery({
             previousRunSummary,
           );
 
-    const canonicalRepoId = repo.parentRepoId ?? args.repoId;
-    const appId = repo.parentRepoId ? args.repoId : undefined;
-
-    const categories = await ctx.db
-      .query("auditCategories")
-      .withIndex("by_repo", (q) => q.eq("repoId", canonicalRepoId))
-      .collect();
-
-    const enabledCategories = categories
-      .filter((c) => {
-        if (!c.enabled) return false;
-        const isRepoLevel = c.appId === undefined;
-        const isForThisApp = c.appId !== undefined && c.appId === appId;
-        return isRepoLevel || isForThisApp;
-      })
-      .map((c) => ({ name: c.name, description: c.description }));
-
     return {
       prompt,
       repoOwner: repo.owner,
@@ -357,17 +277,13 @@ export const getTaskData = internalQuery({
       rootDirectory,
       devPort: repo.devPort,
       devCommand: repo.devCommand,
-      screenshotsVideosEnabled,
-      runAuditEnabled,
-      proofModel: repo.proofModel,
-      auditCategories: enabledCategories,
     };
   },
 });
 
 /** Fetches everything the manual Create PR action needs in one round-trip:
  * task/repo metadata for the GitHub call, the latest run to attach the
- * resulting URL to, and the change-request/proof enrichment for the body. */
+ * resulting URL to, and the change-request enrichment for the body. */
 export const getTaskPrCreationData = internalQuery({
   args: {
     taskId: v.id("agentTasks"),
@@ -387,14 +303,6 @@ export const getTaskPrCreationData = internalQuery({
     latestRunId: v.union(v.id("agentRuns"), v.null()),
     existingPrUrl: v.union(v.string(), v.null()),
     changeRequests: v.array(v.string()),
-    proofs: v.array(
-      v.object({
-        fileName: v.union(v.string(), v.null()),
-        message: v.union(v.string(), v.null()),
-        url: v.union(v.string(), v.null()),
-        contentType: v.union(v.string(), v.null()),
-      }),
-    ),
   }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
@@ -416,7 +324,6 @@ export const getTaskPrCreationData = internalQuery({
     const existingPrUrl = sortedRuns.find((r) => r.prUrl)?.prUrl ?? null;
 
     const changeRequests = await getChangeRequestContents(ctx, args.taskId);
-    const proofs = await getTaskProofSummaries(ctx, args.taskId);
 
     return {
       repoId: repo._id,
@@ -437,31 +344,21 @@ export const getTaskPrCreationData = internalQuery({
       latestRunId: latestRun ? latestRun._id : null,
       existingPrUrl,
       changeRequests,
-      proofs,
     };
   },
 });
 
-/** Fetches task comments and proof attachments for enriching PR descriptions. */
+/** Fetches task comments for enriching PR descriptions. */
 export const getPrEnrichmentData = internalQuery({
   args: {
     taskId: v.id("agentTasks"),
   },
   returns: v.object({
     changeRequests: v.array(v.string()),
-    proofs: v.array(
-      v.object({
-        fileName: v.union(v.string(), v.null()),
-        message: v.union(v.string(), v.null()),
-        url: v.union(v.string(), v.null()),
-        contentType: v.union(v.string(), v.null()),
-      }),
-    ),
   }),
   handler: async (ctx, args) => {
     const changeRequests = await getChangeRequestContents(ctx, args.taskId);
-    const proofs = await getTaskProofSummaries(ctx, args.taskId);
 
-    return { changeRequests, proofs };
+    return { changeRequests };
   },
 });

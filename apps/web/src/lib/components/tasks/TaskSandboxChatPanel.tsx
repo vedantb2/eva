@@ -14,7 +14,6 @@ import {
   type StoredModelTraits,
 } from "@eva/backend";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
-import { TaskChatOptionsSubmenu } from "@/lib/components/chat/ChatOptionsSubmenu";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
 import { BackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
@@ -275,7 +274,6 @@ export function TaskSandboxChatPanel({
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}
-        optionsSubmenu={<TaskChatOptionsSubmenu taskId={taskId} />}
       />
     </div>
   );

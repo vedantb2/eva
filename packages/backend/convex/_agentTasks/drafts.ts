@@ -129,8 +129,6 @@ export const activateDraft = authMutation({
     ...runTraitFields,
     tags: v.optional(v.array(v.string())),
     assignedTo: v.optional(v.id("users")),
-    screenshotsVideosEnabled: v.optional(v.boolean()),
-    runAuditEnabled: v.optional(v.boolean()),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   },
   returns: v.null(),
@@ -165,8 +163,6 @@ export const activateDraft = authMutation({
       updatedAt: Date.now(),
       tags: normalizeTaskTags(args.tags),
       assignedTo: args.assignedTo,
-      screenshotsVideosEnabled: args.screenshotsVideosEnabled,
-      runAuditEnabled: args.runAuditEnabled,
       attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.scheduler.runAfter(0, internal.textGen.generateTaskTags, {

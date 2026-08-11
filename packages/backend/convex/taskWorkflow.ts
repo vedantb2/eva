@@ -16,14 +16,6 @@ export {
   setRunPrUrl,
 } from "./_taskWorkflow/runLifecycle";
 
-export {
-  createAudit,
-  saveAuditResult,
-  setFixStatus,
-  getAuditFixPushData,
-  publishAuditFixBranch,
-} from "./_taskWorkflow/audit";
-
 export { checkStaleRuns, handleStaleRun } from "./_taskWorkflow/watchdog";
 
 export { probeStaleRunLiveness } from "./_taskWorkflow/livenessProbe";
@@ -42,9 +34,6 @@ export {
 
 export {
   handleCompletion,
-  handleAuditCompletion,
-  handleProofCompletion,
-  handleAuditFixCompletion,
   cancelExecution,
   triggerExecution,
 } from "./_taskWorkflow/publicMutations";

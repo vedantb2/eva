@@ -17,9 +17,7 @@ import { IconLoader2 } from "@tabler/icons-react";
 import type { FunctionReturnType } from "convex/server";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { AuditTimelineItem } from "./AuditTimelineItem";
 import { CreatedTimelineItem } from "./CreatedTimelineItem";
-import { ProofTimelineItem } from "./ProofTimelineItem";
 import { TaskActivityItem } from "./TaskActivityItem";
 import { TaskActivityComposer } from "./TaskActivityComposer";
 import { CommentThread } from "./CommentThread";
@@ -34,7 +32,6 @@ const RunTimelineItem = lazy(() =>
 );
 
 type Runs = FunctionReturnType<typeof api.agentRuns.listByTask>;
-type Audits = FunctionReturnType<typeof api.audits.listByTask>;
 type Comments = FunctionReturnType<typeof api.taskComments.listByTask>;
 type Comment = NonNullable<Comments>[number];
 type Streaming = FunctionReturnType<typeof api.streaming.get>;
@@ -42,8 +39,6 @@ type TaskActivity = FunctionReturnType<typeof api.taskActivity.listByTask>;
 type TaskActivityEvent = NonNullable<TaskActivity>[number];
 type Users = FunctionReturnType<typeof api.users.listAll>;
 type User = NonNullable<Users>[number];
-type Proofs = FunctionReturnType<typeof api.taskProof.listByTask>;
-type Proof = NonNullable<Proofs>[number];
 
 type ActivityItem =
   | {
@@ -51,19 +46,9 @@ type ActivityItem =
       timestamp: number;
     }
   | {
-      kind: "audit";
-      timestamp: number;
-      audit: NonNullable<Audits>[number];
-    }
-  | {
       kind: "run";
       timestamp: number;
       run: NonNullable<Runs>[number];
-    }
-  | {
-      kind: "proof";
-      timestamp: number;
-      proofs: Proof[];
     }
   | {
       kind: "taskActivity";
@@ -81,16 +66,11 @@ export function ActivityTimeline({
   createdAt,
   creatorUser,
   runs,
-  allAudits,
   comments,
   taskActivity,
-  proofs,
   users,
   streaming,
-  auditStreaming,
   activeRunElapsed,
-  auditElapsed,
-  fixElapsed,
   isStopping,
   onStopConfirm,
   hasActiveRun: _hasActiveRun,
@@ -109,16 +89,11 @@ export function ActivityTimeline({
   creatorUser: User | undefined;
   isProjectTask: boolean;
   runs: Runs | undefined;
-  allAudits: Audits | undefined;
   comments: Comments | undefined;
   taskActivity: TaskActivity | undefined;
-  proofs: Proofs | undefined;
   users: Users | undefined;
   streaming: Streaming | undefined;
-  auditStreaming: Streaming | undefined;
   activeRunElapsed: number;
-  auditElapsed: number;
-  fixElapsed: number;
   isStopping: boolean;
   onStopConfirm: () => void;
   hasActiveRun: boolean;
@@ -189,22 +164,6 @@ export function ActivityTimeline({
     [...runCommentMap.values()].map((comment) => comment._id),
   );
 
-  // Proofs are top-level timeline events. Media for the same run collapses into
-  // one row so the proof-capture accordion (and gallery) is not duplicated when
-  // a retry saved a second screenshot.
-  const timelineProofs = (proofs ?? []).filter(
-    (proof) => proof.url || proof.message,
-  );
-  const proofGroups = new Map<string, Proof[]>();
-  for (const proof of timelineProofs) {
-    const key =
-      proof.runId !== undefined ? `run:${proof.runId}` : `proof:${proof._id}`;
-    const group = proofGroups.get(key) ?? [];
-    group.push(proof);
-    proofGroups.set(key, group);
-  }
-  const latestAuditId = allAudits?.[0]?._id;
-
   const sortedRunsDesc = [...(runs ?? [])].sort(
     (a, b) =>
       (b.startedAt ?? b._creationTime) - (a.startedAt ?? a._creationTime),
@@ -214,11 +173,6 @@ export function ActivityTimeline({
     ...(createdAt !== undefined
       ? [{ kind: "created" as const, timestamp: createdAt }]
       : []),
-    ...(allAudits ?? []).map((audit) => ({
-      kind: "audit" as const,
-      timestamp: audit.createdAt,
-      audit,
-    })),
     ...sortedRunsDesc.map((run) => ({
       kind: "run" as const,
       timestamp: run.startedAt ?? run._creationTime,
@@ -228,11 +182,6 @@ export function ActivityTimeline({
       kind: "taskActivity" as const,
       timestamp: activity.createdAt,
       activity,
-    })),
-    ...[...proofGroups.values()].map((group) => ({
-      kind: "proof" as const,
-      timestamp: Math.max(...group.map((p) => p.createdAt)),
-      proofs: group,
     })),
     ...topLevelComments.flatMap((comment) =>
       commentsShownWithRuns.has(comment._id)
@@ -277,34 +226,12 @@ export function ActivityTimeline({
         />
       );
     }
-    if (item.kind === "audit") {
-      const audit = item.audit;
-      const isLatest = audit._id === latestAuditId;
-      return (
-        <AuditTimelineItem
-          key={`audit-${audit._id}`}
-          audit={audit}
-          isLatest={isLatest}
-          auditStreaming={auditStreaming}
-          auditElapsed={auditElapsed}
-          fixElapsed={fixElapsed}
-        />
-      );
-    }
     if (item.kind === "taskActivity") {
       return (
         <TaskActivityItem
           key={`activity-${item.activity._id}`}
           event={item.activity}
           users={users}
-        />
-      );
-    }
-    if (item.kind === "proof") {
-      return (
-        <ProofTimelineItem
-          key={`proof-${item.proofs.map((p) => p._id).join("-")}`}
-          proofs={item.proofs}
         />
       );
     }

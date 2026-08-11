@@ -451,9 +451,8 @@ async function finalizeTurn(output: string): Promise<void> {
   // after this point cannot erase it (a hard death snapshots nothing and the
   // next resume rolls the filesystem back — see turnPersist.ts).
   persistTurnWork();
-  // Proof: media before completion so the workflow's hasMediaForRun check does
-  // not spuriously retry. Chat/coding: completion first so attachMedia can patch
-  // the assistant message that was just written.
+  // Completion first, then media: attachMedia patches the assistant message
+  // that was just written.
   const completionSentAt = Date.now();
   await deliverCompletionWithMedia(completionArgs);
   log(

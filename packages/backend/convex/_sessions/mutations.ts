@@ -365,8 +365,6 @@ export const update = authMutation({
     title: v.optional(v.string()),
     branchName: v.optional(v.string()),
     prUrl: v.optional(v.string()),
-    captureProofEnabled: v.optional(v.boolean()),
-    runAuditEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -375,16 +373,10 @@ export const update = authMutation({
       title?: string;
       branchName?: string;
       prUrl?: string;
-      captureProofEnabled?: boolean;
-      runAuditEnabled?: boolean;
     } = {};
     if (args.title !== undefined) updates.title = args.title;
     if (args.branchName !== undefined) updates.branchName = args.branchName;
     if (args.prUrl !== undefined) updates.prUrl = args.prUrl;
-    if (args.captureProofEnabled !== undefined)
-      updates.captureProofEnabled = args.captureProofEnabled;
-    if (args.runAuditEnabled !== undefined)
-      updates.runAuditEnabled = args.runAuditEnabled;
     await ctx.db.patch(args.id, updates);
 
     if (

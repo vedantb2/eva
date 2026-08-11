@@ -106,7 +106,6 @@ async function buildTaskChatTurnPrompt(
     rootDirectory: repo.rootDirectory ?? "",
     customInstructionsBlock,
     systemPrompt: repo.systemPrompt,
-    captureProof: task.chatCaptureProofEnabled === true,
     devPort: task.devPort ?? repo.devPort,
   });
   if (prefixBlock) {
@@ -670,22 +669,6 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       activityLog: result.activityLog,
       pendingQuestion: result.pendingQuestion,
     });
-
-    // Fire a detached audit when the task has chat audit enabled. No-ops when
-    // off / no sandbox / no categories / an audit is already running. Wrapped
-    // so an audit failure never fails the chat turn.
-    if (savedSuccess) {
-      try {
-        await step.runMutation(internal.audits.maybeStartTaskChatAudit, {
-          taskId: args.taskId,
-          userId: args.userId,
-        });
-      } catch (error) {
-        console.error(
-          `[agentTaskChatWorkflow] maybeStartTaskChatAudit failed taskId=${String(args.taskId)}: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-    }
   },
 });
 

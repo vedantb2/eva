@@ -2,12 +2,10 @@ import {
   CODEX_PRICING_PER_MILLION,
   COMPLETION_MUTATION,
   ENTITY_ID,
-  ENTITY_ID_FIELD,
   PROVIDER,
   ROOT_DIRECTORY,
   RUN_ID,
   SCRIPT_STARTED_AT,
-  TASK_PROOF_CAPTURE_ENABLED,
   TOOL_STEP_TYPES,
   DONE_FILE,
   FIRST_ASSISTANT_EVENT_TIMEOUT_MS,
@@ -16,7 +14,6 @@ import {
   NO_OUTPUT_TIMEOUT_MS,
   POST_TEXT_STALL_TIMEOUT_MS,
   WORK_DIR,
-  isProofCompletionMutation,
   normalizedCodexModel,
   normalizedCursorModel,
   normalizedOpencodeModel,
@@ -24,10 +21,7 @@ import {
 import { callConvexWithRetry, fetchWithTimeout } from "../http/convexClient.js";
 import { getCodexAgentMessageText } from "../parse/toolSteps.js";
 import { callbackState as S } from "../runtime/state.js";
-import {
-  PROOF_NO_MEDIA_MESSAGE,
-  proofMediaSearchDirs,
-} from "../runtime/proofMedia.js";
+import { mediaSearchDirs } from "../runtime/sandboxMedia.js";
 import type { JsonObject, ResultEvent } from "../types.js";
 import { attemptElapsedMs, readResponseJson, tryParseJson } from "../utils.js";
 import {
@@ -565,102 +559,50 @@ async function uploadMediaFile(
   throw new Error("Missing storageId in upload response");
 }
 
-async function persistTaskProofIfNeeded(
+/** Attaches uploaded media to the chat message the turn just wrote. */
+async function attachChatMediaIfAny(
   uploaded: { storageId: string; fileName: string }[],
 ): Promise<void> {
-  if (uploaded.length > 0) {
-    // Only formal proof/coding runs (RUN_ID set) persist to the task proof
-    // timeline. Task chat turns fall through to attachMedia so recordings
-    // render inline on the last chat message, like session chat.
-    if (ENTITY_ID_FIELD === "taskId" && RUN_ID) {
-      for (const item of uploaded) {
-        const saveArgs: JsonObject = {
-          taskId: ENTITY_ID ?? "",
-          storageId: item.storageId,
-          fileName: item.fileName,
-        };
-        if (RUN_ID) saveArgs.runId = RUN_ID;
-        await callConvexWithRetry("mutation", "taskProof:save", saveArgs, 3);
-      }
-      return;
-    }
-    const mediaArgs: JsonObject = {
-      parentId: ENTITY_ID ?? "",
-      mediaStorageIds: uploaded.map((item) => item.storageId),
-    };
-    await callConvexWithRetry(
-      "action",
-      "screenshots:attachMedia",
-      mediaArgs,
-      3,
-    );
-    return;
-  }
-  if (ENTITY_ID_FIELD === "taskId") {
-    if (!TASK_PROOF_CAPTURE_ENABLED) return;
-    // Sandbox chat launches with entityIdField=taskId but no RUN_ID. Without
-    // this guard every chat turn with no screenshot spam the timeline with
-    // "Eva decided not to capture." stubs. Only formal proof/coding runs
-    // (which set RUN_ID) should record a no-media proof message.
-    if (!RUN_ID) return;
-    const messageArgs: JsonObject = {
-      taskId: ENTITY_ID ?? "",
-      message: PROOF_NO_MEDIA_MESSAGE,
-      runId: RUN_ID,
-    };
-    await callConvexWithRetry(
-      "mutation",
-      "taskProof:saveMessage",
-      messageArgs,
-      3,
-    );
-  }
+  if (uploaded.length === 0) return;
+  const mediaArgs: JsonObject = {
+    parentId: ENTITY_ID ?? "",
+    mediaStorageIds: uploaded.map((item) => item.storageId),
+  };
+  await callConvexWithRetry("action", "screenshots:attachMedia", mediaArgs, 3);
 }
 
 /**
- * Sends the completion mutation and attaches sandbox media.
+ * Sends the completion mutation, then attaches sandbox media.
  *
- * Chat/coding: completion first so `screenshots:attachMedia` can patch the
- * assistant message that was just written.
- *
- * Proof: media first. `handleProofCompletion` resumes the workflow, which
- * immediately checks `hasMediaForRun` and retries if empty — uploading after
- * completion caused duplicate proof captures whenever the upload lagged.
+ * Completion runs first so `screenshots:attachMedia` can patch the assistant
+ * message that was just written.
  */
 export async function deliverCompletionWithMedia(
   completionArgs: Record<string, string | boolean | null>,
 ): Promise<void> {
-  const uploadFirst = isProofCompletionMutation(COMPLETION_MUTATION);
-  if (uploadFirst) {
-    await uploadAndAttachSandboxMedia();
-  }
   await callConvexWithRetry(
     "mutation",
     COMPLETION_MUTATION ?? "",
     completionArgs,
   );
-  if (!uploadFirst) {
-    await uploadAndAttachSandboxMedia();
-  }
+  await uploadAndAttachSandboxMedia();
 }
 
 /**
  * Scans sandbox `recordings/` then `screenshots/` under the repo root and the
  * app rootDirectory, uploads all captured media (videos first, in capture
- * order), and attaches it to the last session message (or task proof).
+ * order), and attaches it to the last chat message.
  * Shared by the one-shot callback and the Claude sdk-daemon finalize path —
  * daemon turns previously skipped this, so chat never showed agent
  * recordings.
  *
- * Prefer calling via `deliverCompletionWithMedia` so proof runs persist media
- * before the workflow resumes; chat still completes first for attachMedia.
+ * Prefer calling via `deliverCompletionWithMedia` so the message exists before
+ * attachMedia patches it.
  */
 async function uploadAndAttachSandboxMedia(): Promise<void> {
-  // The capture flag only gates formal proof/coding runs (RUN_ID set). Chat
-  // turns always attach media: task daemons inherit env from whichever run
-  // launched them (the coding run sets the flag false), so gating chat on the
-  // flag silently stranded recordings in the sandbox.
-  if (RUN_ID && !TASK_PROOF_CAPTURE_ENABLED) return;
+  // Task runs (RUN_ID set) have no chat message to attach to — only chat turns
+  // scan. Anything a run leaves behind is picked up by the next chat turn.
+  if (RUN_ID) return;
 
   const uploaded: { storageId: string; fileName: string }[] = [];
   // Agents re-capture the same frame more than once (a retried screenshot, a
@@ -677,10 +619,7 @@ async function uploadAndAttachSandboxMedia(): Promise<void> {
     return false;
   };
 
-  const { recordings, screenshots } = proofMediaSearchDirs(
-    WORK_DIR,
-    ROOT_DIRECTORY,
-  );
+  const { recordings, screenshots } = mediaSearchDirs(WORK_DIR, ROOT_DIRECTORY);
 
   for (const recDir of recordings) {
     if (!existsSync(recDir)) continue;
@@ -735,35 +674,9 @@ async function uploadAndAttachSandboxMedia(): Promise<void> {
   }
 
   try {
-    await persistTaskProofIfNeeded(uploaded);
+    await attachChatMediaIfAny(uploaded);
   } catch (e) {
-    console.error("Failed to persist task proof:", e);
-    const proofError = e instanceof Error ? e.message : String(e);
-    await saveProofFailureMessageIfNeeded(
-      "Proof capture failed after completion: " + proofError,
-    );
-  }
-}
-
-async function saveProofFailureMessageIfNeeded(message: string): Promise<void> {
-  if (ENTITY_ID_FIELD !== "taskId") return;
-  if (!TASK_PROOF_CAPTURE_ENABLED) return;
-  // Chat turns (no RUN_ID) never write to the proof timeline, including failures.
-  if (!RUN_ID) return;
-  try {
-    const failureArgs: JsonObject = {
-      taskId: ENTITY_ID ?? "",
-      message,
-    };
-    if (RUN_ID) failureArgs.runId = RUN_ID;
-    await callConvexWithRetry(
-      "mutation",
-      "taskProof:saveMessage",
-      failureArgs,
-      2,
-    );
-  } catch (error) {
-    console.error("Failed to record proof persistence error:", error);
+    console.error("Failed to attach sandbox media:", e);
   }
 }
 

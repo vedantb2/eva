@@ -120,13 +120,6 @@ export const update = authMutation({
     providerAccountId: v.optional(
       v.union(v.id("userProviderAccounts"), v.null()),
     ),
-    // Tri-state proof/audit defaults for member tasks. null clears the override.
-    screenshotsVideosEnabled: v.optional(v.union(v.boolean(), v.null())),
-    runAuditEnabled: v.optional(v.union(v.boolean(), v.null())),
-    // Per-project-sandbox-chat switches (plain on/off). Flow through the generic
-    // spread below since they are never null.
-    chatCaptureProofEnabled: v.optional(v.boolean()),
-    chatRunAuditEnabled: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -142,8 +135,6 @@ export const update = authMutation({
       model,
       providerAccountId,
       phase,
-      screenshotsVideosEnabled,
-      runAuditEnabled,
       ...fields
     } = args;
     void _projectId;
@@ -189,12 +180,6 @@ export const update = authMutation({
       updates.providerAccountId = nextProviderAccountId;
     }
     if (phase !== undefined) updates.phase = phase;
-    // null -> undefined: these must not flow through the generic spread, which
-    // would write null into the doc instead of clearing the field.
-    if (screenshotsVideosEnabled !== undefined)
-      updates.screenshotsVideosEnabled = screenshotsVideosEnabled ?? undefined;
-    if (runAuditEnabled !== undefined)
-      updates.runAuditEnabled = runAuditEnabled ?? undefined;
     if (Object.keys(updates).length > 0) {
       await ctx.db.patch(args.id, updates);
     }

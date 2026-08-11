@@ -1,12 +1,10 @@
 /**
- * Shared helpers for finding proof media left by agent-browser.
+ * Shared helpers for finding media left by agent-browser.
  * Agents often write under the app rootDirectory; the uploader must check both.
  */
 
-export const PROOF_NO_MEDIA_MESSAGE = "Eva decided not to capture.";
-
 /** Repo-root + optional app subdirectory (e.g. apps/eprocurement). */
-export function proofMediaCandidateRoots(
+export function mediaCandidateRoots(
   workDir: string,
   rootDirectory: string | null | undefined,
 ): string[] {
@@ -26,11 +24,11 @@ export function proofMediaCandidateRoots(
   return roots;
 }
 
-export function proofMediaSearchDirs(
+export function mediaSearchDirs(
   workDir: string,
   rootDirectory: string | null | undefined,
 ): { recordings: string[]; screenshots: string[] } {
-  const roots = proofMediaCandidateRoots(workDir, rootDirectory);
+  const roots = mediaCandidateRoots(workDir, rootDirectory);
   return {
     recordings: roots.map((root) => `${root}/recordings`),
     screenshots: roots.map((root) => `${root}/screenshots`),

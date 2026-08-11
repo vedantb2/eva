@@ -221,7 +221,6 @@ export async function buildSessionPrompt(
       rootDirectory,
       customInstructionsBlock,
       repo.systemPrompt,
-      session.captureProofEnabled === true,
       session.devPort ?? repo.devPort,
     );
   }
@@ -579,23 +578,6 @@ export const sessionExecuteWorkflow = workflow.define({
       }
     }
 
-    // Fire an audit after a successful agent turn when "Run audit" is on for
-    // the session. maybeStartTurnAudit is idempotent and no-ops when the toggle
-    // is off / no sandbox / no categories / an audit is already running. The
-    // audit runs detached (scheduled action) so the workflow completes now;
-    // wrapped so an audit failure never fails the turn.
-    if (args.mode !== "plan" && result.success) {
-      try {
-        await step.runMutation(internal.audits.maybeStartTurnAudit, {
-          sessionId: args.sessionId,
-          userId: args.userId,
-        });
-      } catch (error) {
-        console.error(
-          `[sessionWorkflow] maybeStartTurnAudit failed sessionId=${args.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
-        );
-      }
-    }
   },
 });
 

@@ -13,7 +13,6 @@ import {
 } from "./recovery";
 import {
   clearStreamingActivity,
-  getTaskAuditStreamingEntityId,
   getTaskRunStreamingEntityId,
   sendCompletionEvent,
   snapshotStreamingActivityToLog,
@@ -251,19 +250,6 @@ export const handleStaleRun = internalMutation({
       });
     }
 
-    const audits = await ctx.db
-      .query("audits")
-      .withIndex("by_entity", (q) => q.eq("entityId", args.taskId))
-      .collect();
-    for (const audit of audits) {
-      if (audit.status === "running") {
-        await ctx.db.patch(audit._id, {
-          status: "error",
-          error: "Run timed out",
-        });
-      }
-    }
-
     await snapshotStreamingActivityToLog(
       ctx,
       getTaskRunStreamingEntityId(args.runId),
@@ -271,11 +257,6 @@ export const handleStaleRun = internalMutation({
     );
     await clearStreamingActivity(ctx, getTaskRunStreamingEntityId(args.runId));
     await clearStreamingActivity(ctx, String(args.taskId));
-    await clearStreamingActivity(
-      ctx,
-      getTaskAuditStreamingEntityId(args.runId),
-    );
-    await clearStreamingActivity(ctx, `audit-${String(args.taskId)}`);
 
     if (task.projectId) {
       const project = await ctx.db.get(task.projectId);

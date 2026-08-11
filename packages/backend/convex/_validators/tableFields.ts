@@ -651,7 +651,7 @@ export const messageFields = {
   variations: v.optional(v.array(variationValidator)),
   imageStorageId: v.optional(v.id("_storage")),
   videoStorageId: v.optional(v.id("_storage")),
-  // Agent-captured proof media (recordings/screenshots), in capture order.
+  // Agent-captured media (recordings/screenshots), in capture order.
   // Supersedes imageStorageId/videoStorageId, which remain only for
   // pre-migration docs.
   mediaStorageIds: v.optional(v.array(v.id("_storage"))),

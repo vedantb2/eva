@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode, type RefObject } from "react";
+import { useState, type RefObject } from "react";
 import {
   PromptInputActionMenu,
   PromptInputActionMenuContent,
@@ -150,19 +150,16 @@ interface ComposerPlusMenuProps {
   /** Same `/` entries the editor's slash picker shows. */
   skillItems: SlashItem[];
   mentionRef: RefObject<MentionTextareaHandle | null>;
-  /** Optional "Options" submenu (e.g. session capture/audit toggles). */
-  optionsSubmenu?: ReactNode;
 }
 
 /**
- * Composer "+" action menu: optional session Options, attach/photos, and
- * Skills / Data submenus that insert mention chips into the draft.
+ * Composer "+" action menu: attach/photos, and Skills / Data submenus that
+ * insert mention chips into the draft.
  */
 export function ComposerPlusMenu({
   dataItems,
   skillItems,
   mentionRef,
-  optionsSubmenu,
 }: ComposerPlusMenuProps) {
   const attachments = usePromptInputAttachments();
   const [skillsQuery, setSkillsQuery] = useState("");
@@ -179,9 +176,6 @@ export function ComposerPlusMenu({
     <PromptInputActionMenu>
       <PromptInputActionMenuTrigger aria-label="Add to message" />
       <PromptInputActionMenuContent className="min-w-52">
-        {optionsSubmenu}
-        {optionsSubmenu ? <DropdownMenuSeparator /> : null}
-
         <DropdownMenuItem
           onSelect={(e) => {
             e.preventDefault();

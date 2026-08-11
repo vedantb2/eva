@@ -15,8 +15,8 @@ import {
 
 /**
  * Per-repo values baked into the served skill content. Runtime fields come from
- * the scoped repo row (the app being worked on in a monorepo); audit categories
- * and the base branch come from the canonical codebase.
+ * the scoped repo row (the app being worked on in a monorepo); the base branch
+ * comes from the canonical codebase.
  */
 async function buildHydration(
   db: GenericDatabaseReader<DataModel>,
@@ -27,14 +27,6 @@ async function buildHydration(
 
   const canonicalId = await resolveCanonicalRepoId(db, repoId);
   const canonical = canonicalId === repoId ? repo : await db.get(canonicalId);
-  const appId = canonicalId === repoId ? undefined : repoId;
-
-  const enabledCategories = await db
-    .query("auditCategories")
-    .withIndex("by_repo_and_enabled", (q) =>
-      q.eq("repoId", canonicalId).eq("enabled", true),
-    )
-    .collect();
 
   return {
     owner: repo.owner,
@@ -47,12 +39,6 @@ async function buildHydration(
       canonical?.defaultBaseBranch ??
       repo.defaultBaseBranch ??
       FALLBACK_GIT_BASE_BRANCH,
-    categories: enabledCategories
-      .filter((category) => category.appId === undefined || category.appId === appId)
-      .map((category) => ({
-        name: category.name,
-        description: category.description,
-      })),
   };
 }
 

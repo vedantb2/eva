@@ -40,7 +40,6 @@ After committing, output 3–5 bullet lines (plain text, each starting with "- "
 ## Rules:
 - Do NOT create .md plan files or run lint/test/dev servers (except typecheck in step 3)
 - Do NOT use agent-browser, take screenshots, or record videos
-- Do NOT run audits
 - Do NOT run git push or gh pr commands
 - Use lockfile for package manager.
 - Prefix shell commands with timeouts: \`timeout 120 npm install\`, \`timeout 30 gh ...\`
@@ -81,7 +80,6 @@ Deliverable rules:
 - Do NOT edit, write, or create any files
 - Do NOT run git add, git commit, git push, or any git commands that modify state
 - Do NOT use agent-browser, take screenshots, or record videos
-- Do NOT run audits
 - Prefix shell commands with timeouts: \`timeout 60 npm test\`
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`
 ${buildRootDirectoryInstruction(rootDirectory)}`;
@@ -134,7 +132,6 @@ You may include narrative text before the JSON block for context, but the JSON b
 - Do NOT edit, write, or create any files
 - Do NOT run git add, git commit, git push, or any git commands that modify state
 - Do NOT use agent-browser, take screenshots, or record videos
-- Do NOT run audits
 - Prefix shell commands with timeouts: \`timeout 60 npm test\`
 - NEVER use \`sleep\` or \`2>/dev/null\` without \`|| echo "fallback"\`
 ${buildRootDirectoryInstruction(rootDirectory)}`;

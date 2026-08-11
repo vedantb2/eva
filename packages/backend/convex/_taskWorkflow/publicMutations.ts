@@ -8,18 +8,12 @@ import {
 } from "../workflowManager";
 import { authMutation, hasTaskAccess } from "../functions";
 import { aiModelValidator } from "../validators";
-import {
-  taskCompleteEvent,
-  auditCompleteEvent,
-  proofCompleteEvent,
-} from "./events";
+import { taskCompleteEvent } from "./events";
 import {
   clearStreamingActivity,
-  getTaskAuditStreamingEntityId,
   getTaskRunStreamingEntityId,
   recordCompletionLog,
   sendCompletionEvent,
-  upsertActivityLog,
 } from "./helpers";
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -47,22 +41,6 @@ async function getLatestRunningTaskRun(
     runs
       .filter((run) => run.status === "running")
       .sort((a, b) => (b.startedAt ?? 0) - (a.startedAt ?? 0))[0] ?? null
-  );
-}
-
-/** Returns the most recently created running audit for a task, or null if none remain. */
-async function getLatestRunningAudit(
-  ctx: MutationCtx,
-  taskId: Id<"agentTasks">,
-): Promise<Doc<"audits"> | null> {
-  const audits = await ctx.db
-    .query("audits")
-    .withIndex("by_entity", (q) => q.eq("entityId", taskId))
-    .collect();
-  return (
-    audits
-      .filter((audit) => audit.status === "running")
-      .sort((a, b) => b.createdAt - a.createdAt)[0] ?? null
   );
 }
 
@@ -162,222 +140,6 @@ export const handleCompletion = authMutation({
   },
 });
 
-/** Receives the audit completion callback and forwards the event to the workflow. */
-export const handleAuditCompletion = authMutation({
-  args: {
-    taskId: v.id("agentTasks"),
-    runId: v.optional(v.id("agentRuns")),
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-    rawResultEvent: v.optional(v.string()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    if (!args.runId) {
-      return ignoreStaleCompletionCallback(
-        `audit completion for task ${String(args.taskId)} arrived without runId`,
-      );
-    }
-    const workflowId = await getActiveWorkflowId(ctx, args.taskId);
-    if (!workflowId) {
-      return ignoreStaleCompletionCallback(
-        `task ${String(args.taskId)} has no active workflow for audit completion`,
-      );
-    }
-    const latestRunningAudit = await getLatestRunningAudit(ctx, args.taskId);
-    if (!latestRunningAudit) {
-      return ignoreStaleCompletionCallback(
-        `task ${String(args.taskId)} no longer has a running audit`,
-      );
-    }
-    if (latestRunningAudit.runId !== args.runId) {
-      return ignoreStaleCompletionCallback(
-        `audit completion run ${String(args.runId)} does not match active audit run ${String(latestRunningAudit.runId)}`,
-      );
-    }
-
-    try {
-      await sendCompletionEvent(ctx, auditCompleteEvent, workflowId, {
-        success: args.success,
-        result: args.result,
-        error: args.error,
-        activityLog: args.activityLog,
-      });
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      console.error(
-        `[taskWorkflow] handleAuditCompletion: workflow.sendEvent failed task=${String(args.taskId)} runId=${String(args.runId)}: ${detail}`,
-      );
-      throw new Error(`Failed to deliver audit completion event: ${detail}`);
-    }
-
-    const task = await ctx.db.get(args.taskId);
-    if (task?.repoId) {
-      await recordCompletionLog(ctx, {
-        entityType: "taskAudit",
-        entityId: String(args.taskId),
-        entityTitle: `Audit: ${task.title}`,
-        repoId: task.repoId,
-        rawResultEvent: args.rawResultEvent,
-        projectId: task.projectId,
-      });
-    }
-
-    return null;
-  },
-});
-
-/** Receives the proof-capture completion callback and forwards the event to the workflow. */
-export const handleProofCompletion = authMutation({
-  args: {
-    taskId: v.id("agentTasks"),
-    runId: v.optional(v.id("agentRuns")),
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-    rawResultEvent: v.optional(v.string()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    if (!args.runId) {
-      return ignoreStaleCompletionCallback(
-        `proof completion for task ${String(args.taskId)} arrived without runId`,
-      );
-    }
-    const workflowId = await getActiveWorkflowId(ctx, args.taskId);
-    if (!workflowId) {
-      return ignoreStaleCompletionCallback(
-        `task ${String(args.taskId)} has no active workflow for proof completion`,
-      );
-    }
-    const callbackRun = await ctx.db.get(args.runId);
-    if (!callbackRun || callbackRun.taskId !== args.taskId) {
-      return ignoreStaleCompletionCallback(
-        `proof run ${String(args.runId)} is missing or belongs to another task`,
-      );
-    }
-    if (callbackRun.status !== "running") {
-      return ignoreStaleCompletionCallback(
-        `proof run ${String(args.runId)} is already ${callbackRun.status}`,
-      );
-    }
-
-    try {
-      await sendCompletionEvent(ctx, proofCompleteEvent, workflowId, {
-        success: args.success,
-        result: args.result,
-        error: args.error,
-        activityLog: args.activityLog,
-      });
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      console.error(
-        `[taskWorkflow] handleProofCompletion: workflow.sendEvent failed task=${String(args.taskId)} runId=${String(args.runId)}: ${detail}`,
-      );
-      throw new Error(`Failed to deliver proof completion event: ${detail}`);
-    }
-
-    if (args.activityLog) {
-      await upsertActivityLog(ctx, args.runId, args.activityLog, "proof");
-    }
-
-    const task = await ctx.db.get(args.taskId);
-    if (task?.repoId) {
-      await recordCompletionLog(ctx, {
-        entityType: "taskProof",
-        entityId: String(args.taskId),
-        entityTitle: `Proof: ${task.title}`,
-        repoId: task.repoId,
-        rawResultEvent: args.rawResultEvent,
-        projectId: task.projectId,
-      });
-    }
-
-    return null;
-  },
-});
-
-/** Receives the audit fix completion callback and updates the audit fix status. */
-export const handleAuditFixCompletion = authMutation({
-  args: {
-    taskId: v.id("agentTasks"),
-    runId: v.optional(v.id("agentRuns")),
-    success: v.boolean(),
-    result: v.union(v.string(), v.null()),
-    error: v.union(v.string(), v.null()),
-    activityLog: v.union(v.string(), v.null()),
-    rawResultEvent: v.optional(v.string()),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const audit = await ctx.db
-      .query("audits")
-      .withIndex("by_entity", (q) => q.eq("entityId", args.taskId))
-      .order("desc")
-      .first();
-
-    if (!audit || audit.fixStatus !== "fixing") return null;
-
-    if (!args.success) {
-      await ctx.db.patch(audit._id, {
-        fixStatus: "fix_error",
-        fixCompletedAt: Date.now(),
-      });
-    } else if (args.runId) {
-      await ctx.scheduler.runAfter(
-        0,
-        internal.taskWorkflow.publishAuditFixBranch,
-        {
-          auditId: audit._id,
-          taskId: args.taskId,
-          runId: args.runId,
-        },
-      );
-    } else {
-      await ctx.db.patch(audit._id, {
-        fixStatus: "fix_error",
-        fixCompletedAt: Date.now(),
-      });
-    }
-
-    if (args.runId && args.activityLog) {
-      const runId = args.runId;
-      const existing = await ctx.db
-        .query("agentRunActivityLogs")
-        .withIndex("by_run_and_type", (q) =>
-          q.eq("runId", runId).eq("type", "fix"),
-        )
-        .first();
-
-      if (existing) {
-        await ctx.db.patch(existing._id, {
-          activityLog: args.activityLog,
-          updatedAt: Date.now(),
-        });
-      } else {
-        await ctx.db.insert("agentRunActivityLogs", {
-          runId: args.runId,
-          type: "fix",
-          activityLog: args.activityLog,
-          updatedAt: Date.now(),
-        });
-      }
-    }
-
-    if (args.runId) {
-      await clearStreamingActivity(
-        ctx,
-        getTaskAuditStreamingEntityId(args.runId),
-      );
-    }
-
-    return null;
-  },
-});
-
 /** Cancels the active workflow and run for a task, resetting it to todo status. */
 export const cancelExecution = authMutation({
   args: { taskId: v.id("agentTasks") },
@@ -409,7 +171,6 @@ export const cancelExecution = authMutation({
         finishedAt: Date.now(),
       });
       await clearStreamingActivity(ctx, getTaskRunStreamingEntityId(run._id));
-      await clearStreamingActivity(ctx, getTaskAuditStreamingEntityId(run._id));
 
       // workflow.cancel() aborts execution before the workflow's own sandbox
       // cleanup step runs, so we stop the execution sandbox here.
@@ -422,7 +183,6 @@ export const cancelExecution = authMutation({
     }
 
     await clearStreamingActivity(ctx, String(args.taskId));
-    await clearStreamingActivity(ctx, `audit-${String(args.taskId)}`);
 
     await ctx.db.patch(args.taskId, {
       status: "todo",

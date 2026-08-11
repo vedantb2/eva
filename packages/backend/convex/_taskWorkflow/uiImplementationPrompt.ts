@@ -45,10 +45,3 @@ export function buildSummarySection(uiTask: boolean): string {
 After committing, output 3–5 bullet lines for a non-technical reader (plain text, each line starting with "- "). Max ~12 words per line. Outcomes only — no headings, code, jargon, file paths, or function names. Say what users can do differently, not how it was built.
 ${uiTask ? uiRules : defaultRules}`;
 }
-
-export function buildUiProofCaptureHint(uiTask: boolean): string {
-  if (!uiTask) {
-    return "";
-  }
-  return "- **UI task:** Open the route and control identified in step 1. Proof must show that exact control — not a different page or modal with a similar label.";
-}

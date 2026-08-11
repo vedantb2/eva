@@ -4,8 +4,6 @@ import type { Doc, Id } from "../_generated/dataModel";
 /** Log entity types whose entityId is an agentTasks document id. */
 const TASK_SCOPED_ENTITY_TYPES = new Set([
   "quickTask",
-  "taskAudit",
-  "taskProof",
   "task-chat",
 ]);
 

@@ -299,8 +299,8 @@ export const runBackgroundCommands = internalAction({
     sandboxId: v.string(),
     repoId: v.id("githubRepos"),
     /**
-     * When true, skip daemons whose `/tmp/bg-<i>.pid` is still alive.
-     * Used before proof capture so we do not double-start Convex.
+     * When true, skip daemons whose `/tmp/bg-<i>.pid` is still alive. Used by
+     * the preview heal path so we do not double-start Convex.
      */
     onlyRestartDead: v.optional(v.boolean()),
     /**
@@ -1734,7 +1734,6 @@ export const launchOnExistingSandbox = internalAction({
     streamingEntityId: v.optional(v.string()),
     runId: v.optional(v.string()),
     sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
-    taskProofCaptureEnabled: v.optional(v.boolean()),
     requireTaskCommit: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     /** Entity owner for personal-credential decrypt; defaults to `userId`. */
@@ -1778,11 +1777,6 @@ export const launchOnExistingSandbox = internalAction({
     }
     if (args.runId) {
       extraEnvVars.RUN_ID = args.runId;
-    }
-    if (args.taskProofCaptureEnabled !== undefined) {
-      extraEnvVars.TASK_PROOF_CAPTURE_ENABLED = args.taskProofCaptureEnabled
-        ? "true"
-        : "false";
     }
     if (args.requireTaskCommit === true) {
       extraEnvVars.REQUIRE_TASK_COMMIT = "true";

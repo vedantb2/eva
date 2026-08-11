@@ -1,19 +1,11 @@
 type PrSection = { heading: string; content: string };
 
-type ProofItem = {
-  fileName: string | null;
-  message: string | null;
-  url: string | null;
-  contentType: string | null;
-};
-
-/** Builds the Task / Change Requests / Proof sections used in task PR bodies.
+/** Builds the Task / Change Requests sections used in task PR bodies.
  * Shared between the workflow's auto PR step and the manual Create PR action
  * so both produce identical output. */
 export function buildTaskPrSections(
   taskDescription: string | undefined,
   changeRequests: string[],
-  proofs: ProofItem[],
 ): PrSection[] {
   const sections: PrSection[] = [
     {
@@ -26,25 +18,6 @@ export function buildTaskPrSections(
     sections.push({
       heading: "Change Requests",
       content: changeRequests.map((cr, i) => `${i + 1}. ${cr}`).join("\n"),
-    });
-  }
-
-  if (proofs.length > 0) {
-    const proofLines = proofs.map((p) => {
-      if (p.message) return `- ${p.message}`;
-      if (p.url) {
-        const isImage = p.contentType?.startsWith("image/") ?? false;
-        const isVideo = p.contentType?.startsWith("video/") ?? false;
-        const name = p.fileName ?? "Proof";
-        if (isImage) return `![${name}](${p.url})`;
-        if (isVideo) return `- [${name}](${p.url}) (video)`;
-        return `- [${name}](${p.url})`;
-      }
-      return `- ${p.fileName ?? "Proof attached"}`;
-    });
-    sections.push({
-      heading: "Proof",
-      content: proofLines.join("\n"),
     });
   }
 

@@ -62,20 +62,6 @@ export {
 } from "./_sandbox_runtime/backgroundProcesses";
 
 export {
-  launchAudit,
-  launchAuditFix,
-  launchSelectedAuditFixes,
-  runSessionAudit,
-  runChatAudit,
-} from "./_sandbox_runtime/audit";
-
-export {
-  launchProof,
-  prepareProofSandbox,
-  waitForProofMedia,
-} from "./_sandbox_runtime/proof";
-
-export {
   startSessionSandbox,
   prepareSessionSandbox,
   startTaskPreviewSandbox,

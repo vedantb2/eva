@@ -160,28 +160,12 @@ export function buildEditPrompt(
   rootDirectory: string,
   customInstructionsBlock: string,
   systemPrompt: string | undefined,
-  captureProof: boolean,
   devPort?: number,
 ): string {
   const commitMessage = message.slice(0, 50).replace(/"/g, '\\"');
   const baseBranch = repo.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
   const planContext = planContent
     ? `\n\nApproved plan:\n${planContent}\n\nFollow this plan when implementing.`
-    : "";
-  // When the session has "Capture proof" enabled, ask the agent to record
-  // visual proof after committing. The sandbox callback runtime scans
-  // recordings/ and screenshots/ after the run and attaches the media to the
-  // assistant message automatically — so this is prompt-only.
-  const proofSection = captureProof
-    ? `
-
-## Proof of Completion:
-After committing, capture visual proof with agent-browser:
-1. Start the dev server in the background and wait until it is ready.
-2. Navigate to the affected route: \`agent-browser open http://localhost:3000/<relevant-route>\` and wait 5s for it to render.
-3. Record a walkthrough: \`agent-browser record start /tmp/repo/recordings/proof.webm\` (ALWAYS absolute paths — relative paths resolve against the agent-browser daemon's cwd, not your shell's, and the file can land where Eva never finds it), step through each affected page (wait 5s per page, scroll to show the change), then \`agent-browser record stop\`. A few seconds after \`record start\`, verify the .webm exists and is growing (\`ls -la /tmp/repo/recordings/\`) — ffmpeg writes it progressively, so a missing/0-byte file means recording is broken (usually no ffmpeg); do NOT keep retrying, fall back to \`agent-browser screenshot /tmp/repo/screenshots/proof.png\`. Use screenshots only for a trivial change with nothing to demonstrate.
-4. The capture must show the SPECIFIC change, not a generic page load. If it shows an error or the old state, debug once and re-capture. Kill the dev server when done.
-Do NOT commit the recordings/ or screenshots/ files. Do NOT use create_artifact — Eva attaches the file to chat automatically.`
     : "";
   const devPortText =
     devPort !== undefined ? String(devPort) : "its configured dev port";
@@ -212,7 +196,7 @@ When the user asks for a recording, walkthrough video, or screenshot:
 6. For "each" or "all features" requests, first make a checklist naming every feature, then create one isolated deliverable per checklist item unless the user asks for a combined walkthrough. Do not finish until every checklist item has a non-empty file in the deliverable folder.
 7. A status update such as "recording now" is not a final answer. Finish the captures before replying, then list which attached file demonstrates each feature. If capture is impossible, report the concrete failure instead of promising future work.
 8. To embed a capture in a PR comment or Linear issue (GitHub/Linear cannot see chat attachments): eva MCP \`upload_media\` → curl the file to the returned uploadUrl → \`get_media_url\` for a permanent public link.`;
-  return `${message}${planContext}${proofSection}${devServerSection}${browserSection}
+  return `${message}${planContext}${devServerSection}${browserSection}
 
 Eva session (${repo.owner}/${repo.name}, branch "${branchName}"):
 - Do all work on "${branchName}". Do not commit or push to "${baseBranch}" or main unless the user asks for that explicitly. Fetching/merging/rebasing/pulling from "${baseBranch}" into this branch is allowed when the user asks.

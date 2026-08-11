@@ -52,8 +52,7 @@ export function LandingCompact() {
         <p className="mt-5 max-w-2xl text-pretty text-base leading-relaxed text-muted-foreground">
           Eva gives coding agents a real cloud dev environment — your repository
           cloned, dependencies installed, a dev server running and a browser
-          they can drive. They run the tests, capture proof it works, and open
-          the pull request.
+          they can drive. They run the tests and open the pull request.
         </p>
 
         <ul className="mt-6 flex flex-wrap items-center gap-1.5">

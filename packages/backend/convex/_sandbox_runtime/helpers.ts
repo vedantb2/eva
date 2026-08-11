@@ -600,7 +600,7 @@ export async function signAndLaunchScript(
 
   // System skills reach the agent as stub SKILL.md files in the checkout, and
   // the stubs are useless without the eva MCP server — so a launch with MCP
-  // disabled (proof / audit) ships an empty list, which prunes any leftovers.
+  // disabled ships an empty list, which prunes any leftovers.
   const systemSkillStubs = mcpToken
     ? await ctx.runQuery(internal.repoSystemSkills.listStubsForLaunch, {
         repoId,

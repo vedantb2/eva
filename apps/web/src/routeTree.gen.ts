@@ -59,7 +59,6 @@ import { Route as RepoOwnerRepoSettingsMonorepoRouteImport } from './routes/_rep
 import { Route as RepoOwnerRepoSettingsMcpConfigRouteImport } from './routes/_repo/$owner/$repo/settings/mcp-config'
 import { Route as RepoOwnerRepoSettingsLogsRouteImport } from './routes/_repo/$owner/$repo/settings/logs'
 import { Route as RepoOwnerRepoSettingsConfigRouteImport } from './routes/_repo/$owner/$repo/settings/config'
-import { Route as RepoOwnerRepoSettingsAuditsRouteImport } from './routes/_repo/$owner/$repo/settings/audits'
 import { Route as RepoOwnerRepoSettingsAppRouteImport } from './routes/_repo/$owner/$repo/settings/app'
 import { Route as RepoOwnerRepoTestingArenaNumIdRouteRouteImport } from './routes/_repo/$owner/$repo/testing-arena/$numId/route'
 import { Route as RepoOwnerRepoSettingsSnapshotsRouteRouteImport } from './routes/_repo/$owner/$repo/settings/snapshots/route'
@@ -390,12 +389,6 @@ const RepoOwnerRepoSettingsConfigRoute =
   RepoOwnerRepoSettingsConfigRouteImport.update({
     id: '/settings/config',
     path: '/settings/config',
-    getParentRoute: () => RepoOwnerRepoRoute,
-  } as any)
-const RepoOwnerRepoSettingsAuditsRoute =
-  RepoOwnerRepoSettingsAuditsRouteImport.update({
-    id: '/settings/audits',
-    path: '/settings/audits',
     getParentRoute: () => RepoOwnerRepoRoute,
   } as any)
 const RepoOwnerRepoSettingsAppRoute =
@@ -804,7 +797,6 @@ export interface FileRoutesByFullPath {
   '/$owner/$repo/settings/snapshots': typeof RepoOwnerRepoSettingsSnapshotsRouteRouteWithChildren
   '/$owner/$repo/testing-arena/$numId': typeof RepoOwnerRepoTestingArenaNumIdRouteRouteWithChildren
   '/$owner/$repo/settings/app': typeof RepoOwnerRepoSettingsAppRoute
-  '/$owner/$repo/settings/audits': typeof RepoOwnerRepoSettingsAuditsRoute
   '/$owner/$repo/settings/config': typeof RepoOwnerRepoSettingsConfigRoute
   '/$owner/$repo/settings/logs': typeof RepoOwnerRepoSettingsLogsRoute
   '/$owner/$repo/settings/mcp-config': typeof RepoOwnerRepoSettingsMcpConfigRoute
@@ -903,7 +895,6 @@ export interface FileRoutesByTo {
   '/teams/$teamId': typeof GlobalTeamsTeamIdIndexRoute
   '/$owner/$repo': typeof RepoOwnerRepoIndexRoute
   '/$owner/$repo/settings/app': typeof RepoOwnerRepoSettingsAppRoute
-  '/$owner/$repo/settings/audits': typeof RepoOwnerRepoSettingsAuditsRoute
   '/$owner/$repo/settings/config': typeof RepoOwnerRepoSettingsConfigRoute
   '/$owner/$repo/settings/logs': typeof RepoOwnerRepoSettingsLogsRoute
   '/$owner/$repo/settings/mcp-config': typeof RepoOwnerRepoSettingsMcpConfigRoute
@@ -1008,7 +999,6 @@ export interface FileRoutesById {
   '/_repo/$owner/$repo/settings/snapshots': typeof RepoOwnerRepoSettingsSnapshotsRouteRouteWithChildren
   '/_repo/$owner/$repo/testing-arena/$numId': typeof RepoOwnerRepoTestingArenaNumIdRouteRouteWithChildren
   '/_repo/$owner/$repo/settings/app': typeof RepoOwnerRepoSettingsAppRoute
-  '/_repo/$owner/$repo/settings/audits': typeof RepoOwnerRepoSettingsAuditsRoute
   '/_repo/$owner/$repo/settings/config': typeof RepoOwnerRepoSettingsConfigRoute
   '/_repo/$owner/$repo/settings/logs': typeof RepoOwnerRepoSettingsLogsRoute
   '/_repo/$owner/$repo/settings/mcp-config': typeof RepoOwnerRepoSettingsMcpConfigRoute
@@ -1121,7 +1111,6 @@ export interface FileRouteTypes {
     | '/$owner/$repo/settings/snapshots'
     | '/$owner/$repo/testing-arena/$numId'
     | '/$owner/$repo/settings/app'
-    | '/$owner/$repo/settings/audits'
     | '/$owner/$repo/settings/config'
     | '/$owner/$repo/settings/logs'
     | '/$owner/$repo/settings/mcp-config'
@@ -1220,7 +1209,6 @@ export interface FileRouteTypes {
     | '/teams/$teamId'
     | '/$owner/$repo'
     | '/$owner/$repo/settings/app'
-    | '/$owner/$repo/settings/audits'
     | '/$owner/$repo/settings/config'
     | '/$owner/$repo/settings/logs'
     | '/$owner/$repo/settings/mcp-config'
@@ -1324,7 +1312,6 @@ export interface FileRouteTypes {
     | '/_repo/$owner/$repo/settings/snapshots'
     | '/_repo/$owner/$repo/testing-arena/$numId'
     | '/_repo/$owner/$repo/settings/app'
-    | '/_repo/$owner/$repo/settings/audits'
     | '/_repo/$owner/$repo/settings/config'
     | '/_repo/$owner/$repo/settings/logs'
     | '/_repo/$owner/$repo/settings/mcp-config'
@@ -1754,13 +1741,6 @@ declare module '@tanstack/react-router' {
       path: '/settings/config'
       fullPath: '/$owner/$repo/settings/config'
       preLoaderRoute: typeof RepoOwnerRepoSettingsConfigRouteImport
-      parentRoute: typeof RepoOwnerRepoRoute
-    }
-    '/_repo/$owner/$repo/settings/audits': {
-      id: '/_repo/$owner/$repo/settings/audits'
-      path: '/settings/audits'
-      fullPath: '/$owner/$repo/settings/audits'
-      preLoaderRoute: typeof RepoOwnerRepoSettingsAuditsRouteImport
       parentRoute: typeof RepoOwnerRepoRoute
     }
     '/_repo/$owner/$repo/settings/app': {
@@ -2655,7 +2635,6 @@ interface RepoOwnerRepoRouteChildren {
   RepoOwnerRepoSettingsSnapshotsRouteRoute: typeof RepoOwnerRepoSettingsSnapshotsRouteRouteWithChildren
   RepoOwnerRepoTestingArenaNumIdRouteRoute: typeof RepoOwnerRepoTestingArenaNumIdRouteRouteWithChildren
   RepoOwnerRepoSettingsAppRoute: typeof RepoOwnerRepoSettingsAppRoute
-  RepoOwnerRepoSettingsAuditsRoute: typeof RepoOwnerRepoSettingsAuditsRoute
   RepoOwnerRepoSettingsConfigRoute: typeof RepoOwnerRepoSettingsConfigRoute
   RepoOwnerRepoSettingsLogsRoute: typeof RepoOwnerRepoSettingsLogsRoute
   RepoOwnerRepoSettingsMcpConfigRoute: typeof RepoOwnerRepoSettingsMcpConfigRoute
@@ -2695,7 +2674,6 @@ const RepoOwnerRepoRouteChildren: RepoOwnerRepoRouteChildren = {
   RepoOwnerRepoTestingArenaNumIdRouteRoute:
     RepoOwnerRepoTestingArenaNumIdRouteRouteWithChildren,
   RepoOwnerRepoSettingsAppRoute: RepoOwnerRepoSettingsAppRoute,
-  RepoOwnerRepoSettingsAuditsRoute: RepoOwnerRepoSettingsAuditsRoute,
   RepoOwnerRepoSettingsConfigRoute: RepoOwnerRepoSettingsConfigRoute,
   RepoOwnerRepoSettingsLogsRoute: RepoOwnerRepoSettingsLogsRoute,
   RepoOwnerRepoSettingsMcpConfigRoute: RepoOwnerRepoSettingsMcpConfigRoute,

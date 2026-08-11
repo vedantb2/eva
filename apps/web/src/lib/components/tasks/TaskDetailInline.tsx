@@ -65,15 +65,12 @@ export function TaskDetailInline({
     task,
     status,
     runs,
-    allAudits,
     comments,
-    proofs,
     taskActivity,
     users,
     creatorUser,
     projects,
     streaming,
-    auditStreaming,
     isOwner,
     isBlocked,
     hasActiveRun,
@@ -83,8 +80,6 @@ export function TaskDetailInline({
     canEditTaskText,
     isActivityBusy,
     activeRunElapsed,
-    auditElapsed,
-    fixElapsed,
     latestPrUrl,
     latestPrError,
     latestDeployment,
@@ -323,16 +318,11 @@ export function TaskDetailInline({
                       createdAt={task.createdAt}
                       creatorUser={creatorUser}
                       runs={runs}
-                      allAudits={allAudits}
                       comments={comments}
                       taskActivity={taskActivity}
-                      proofs={proofs}
                       users={users}
                       streaming={streaming}
-                      auditStreaming={auditStreaming}
                       activeRunElapsed={activeRunElapsed}
-                      auditElapsed={auditElapsed}
-                      fixElapsed={fixElapsed}
                       isStopping={isStopping}
                       onStopConfirm={() => setShowStopConfirm(true)}
                       hasActiveRun={hasActiveRun}

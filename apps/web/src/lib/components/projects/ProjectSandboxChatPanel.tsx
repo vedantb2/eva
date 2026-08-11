@@ -13,7 +13,6 @@ import {
   type Id,
 } from "@eva/backend";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
-import { ProjectChatOptionsSubmenu } from "@/lib/components/chat/ChatOptionsSubmenu";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
 import { BackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
@@ -265,7 +264,6 @@ export function ProjectSandboxChatPanel({
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}
-        optionsSubmenu={<ProjectChatOptionsSubmenu projectId={projectId} />}
       />
     </div>
   );

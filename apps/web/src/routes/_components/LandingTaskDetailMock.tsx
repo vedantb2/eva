@@ -106,20 +106,6 @@ export function LandingTaskDetailMock() {
             >
               Activity
             </TabsTrigger>
-            <TabsTrigger
-              value="proof"
-              className={TASK_DETAIL_TAB_TRIGGER_CLASS}
-              disabled
-            >
-              Proof
-            </TabsTrigger>
-            <TabsTrigger
-              value="audit"
-              className={TASK_DETAIL_TAB_TRIGGER_CLASS}
-              disabled
-            >
-              Audit
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="activity" className="mt-4 space-y-4">

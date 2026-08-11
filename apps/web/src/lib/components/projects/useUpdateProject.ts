@@ -8,9 +8,9 @@ import type { Id } from "@eva/backend";
  * `projects.update` with an optimistic patch of `projects.get`, so field edits
  * land instantly wherever a project is shown.
  *
- * Nullable args (priority, leads, model, provider account, proof/audit) mean
- * "clear" on the wire but `undefined` in the document, so they cannot ride the
- * plain spread — each is mapped back to `undefined` here.
+ * Nullable args (priority, leads, model, provider account) mean "clear" on the
+ * wire but `undefined` in the document, so they cannot ride the plain spread —
+ * each is mapped back to `undefined` here.
  */
 export function useUpdateProject(projectId: Id<"projects">) {
   return useMutation(api.projects.update).withOptimisticUpdate(
@@ -24,8 +24,6 @@ export function useUpdateProject(projectId: Id<"projects">) {
         codeReviewer,
         model,
         providerAccountId,
-        screenshotsVideosEnabled,
-        runAuditEnabled,
         ...safeFields
       } = args;
       localStore.setQuery(
@@ -46,14 +44,6 @@ export function useUpdateProject(projectId: Id<"projects">) {
           ...(model !== undefined ? { model: model ?? undefined } : {}),
           ...(providerAccountId !== undefined
             ? { providerAccountId: providerAccountId ?? undefined }
-            : {}),
-          ...(screenshotsVideosEnabled !== undefined
-            ? {
-                screenshotsVideosEnabled: screenshotsVideosEnabled ?? undefined,
-              }
-            : {}),
-          ...(runAuditEnabled !== undefined
-            ? { runAuditEnabled: runAuditEnabled ?? undefined }
             : {}),
         },
       );

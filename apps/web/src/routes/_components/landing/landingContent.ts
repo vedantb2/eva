@@ -1,11 +1,9 @@
 import type { ComponentType } from "react";
 import {
   IconBrowser,
-  IconCamera,
   IconLayoutDashboard,
   IconPlug,
   IconRobot,
-  IconShieldCheck,
   IconSparkles,
   IconStack2,
   IconUsers,
@@ -48,8 +46,6 @@ export type LandingPreviewKey =
   | "agents"
   | "reviews"
   | "arena"
-  | "audits"
-  | "proof"
   | "automations"
   | "snapshots"
   | "skills"
@@ -200,10 +196,10 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
     id: "verify",
     step: "03",
     label: "Verify",
-    tagline: "A diff, a recap and proof it runs.",
-    heading: "Proof before merge.",
+    tagline: "A diff and a recap for every change.",
+    heading: "Review before merge.",
     intro:
-      "Every change arrives with a diff, a written recap, a screenshot of the app running, and whatever checks you have configured.",
+      "Every change arrives with a diff, a written recap, and whatever checks you have configured.",
     features: [
       {
         icon: ReviewsIcon,
@@ -226,28 +222,6 @@ export const LANDING_PILLARS: readonly LandingPillar[] = [
           "Turn a gap into a task in one step",
         ],
         preview: "arena",
-      },
-      {
-        icon: IconShieldCheck,
-        name: "Audits",
-        summary: "Your review checklist, enforced.",
-        points: [
-          "Configurable categories appended to each PR",
-          "Findings go back to an agent to fix",
-          "Configured per repository",
-        ],
-        preview: "audits",
-      },
-      {
-        icon: IconCamera,
-        name: "Proof",
-        summary: "See it running before you merge.",
-        points: [
-          "Screenshots and video captured in the sandbox",
-          "Attached to the task and to the pull request",
-          "Recorded from a real Chrome instance",
-        ],
-        preview: "proof",
       },
     ],
   },

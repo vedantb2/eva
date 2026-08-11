@@ -10,11 +10,6 @@ export const SYSTEM_SKILL_NAMES = ["eva-capture", "eva-audit"] as const;
 
 export type SystemSkillName = (typeof SYSTEM_SKILL_NAMES)[number];
 
-export type SystemSkillCategory = {
-  name: string;
-  description: string;
-};
-
 /** Per-repo values baked into the content served by the `get_skill` MCP tool. */
 export type SystemSkillHydration = {
   owner: string;
@@ -24,7 +19,6 @@ export type SystemSkillHydration = {
   devCommand?: string;
   startupCommands?: string[];
   baseBranch: string;
-  categories: SystemSkillCategory[];
 };
 
 export type SystemSkillDefinition = {
@@ -51,7 +45,7 @@ export const SYSTEM_SKILLS: Record<SystemSkillName, SystemSkillDefinition> = {
   "eva-audit": {
     name: "eva-audit",
     description:
-      "Audit this branch against the repo's configured audit categories and report the findings in chat. Use when the user asks for a code audit, a review of this branch, or a quality check before shipping.",
+      "Audit this branch against Eva's standard review categories and report the findings in chat. Use when the user asks for a code audit, a review of this branch, or a quality check before shipping.",
     buildContent: buildEvaAuditContent,
   },
 };

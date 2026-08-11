@@ -17,7 +17,6 @@ import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { ComposerPlanReadyBanner } from "./_components/ComposerPlanReadyBanner";
-import { SessionOptionsMenu } from "./_components/SessionOptionsMenu";
 import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
 import { BackgroundAgentsChip } from "./_components/BackgroundAgentsChip";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
@@ -337,8 +336,6 @@ export function ChatPanel({
       ) : null}
     </>
   );
-  const optionsSubmenu = <SessionOptionsMenu sessionId={sessionId} />;
-
   const emptyStateTitle = isSandboxActive
     ? "No messages yet. Start the conversation!"
     : isSandboxStopping
@@ -393,7 +390,6 @@ export function ChatPanel({
           />
         }
         toolsBefore={toolsBefore}
-        optionsSubmenu={optionsSubmenu}
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}

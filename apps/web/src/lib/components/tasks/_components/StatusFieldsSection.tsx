@@ -118,8 +118,6 @@ export function StatusFieldsSection({
         priority,
         projectId,
         assignedTo,
-        screenshotsVideosEnabled,
-        runAuditEnabled,
         providerAccountId,
         ...safeFields
       } = args;
@@ -131,12 +129,6 @@ export function StatusFieldsSection({
           : {}),
         ...(assignedTo !== undefined
           ? { assignedTo: assignedTo ?? undefined }
-          : {}),
-        ...(screenshotsVideosEnabled !== undefined
-          ? { screenshotsVideosEnabled: screenshotsVideosEnabled ?? undefined }
-          : {}),
-        ...(runAuditEnabled !== undefined
-          ? { runAuditEnabled: runAuditEnabled ?? undefined }
           : {}),
         ...(providerAccountId !== undefined
           ? { providerAccountId: providerAccountId ?? undefined }

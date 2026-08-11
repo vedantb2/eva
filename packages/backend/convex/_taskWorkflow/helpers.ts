@@ -24,7 +24,7 @@ export async function resolveTaskBranchName(
   return `eva/task-${String(task._id)}`;
 }
 
-/** Resolves the sandbox id to use for a task run (push / audit-fix). */
+/** Resolves the sandbox id to use for a task run (push). */
 export async function resolveTaskSandboxIdForRun(
   db: GenericDatabaseReader<DataModel>,
   task: Doc<"agentTasks">,
@@ -44,11 +44,6 @@ export async function resolveTaskSandboxIdForRun(
 /** Returns the streaming entity ID used for a task run's activity stream. */
 export function getTaskRunStreamingEntityId(runId: Id<"agentRuns">): string {
   return `task-run-${String(runId)}`;
-}
-
-/** Returns the streaming entity ID used for a task audit's activity stream. */
-export function getTaskAuditStreamingEntityId(runId: Id<"agentRuns">): string {
-  return `task-audit-run-${String(runId)}`;
 }
 
 /** Deletes the streaming activity record for a given entity ID. */
@@ -92,11 +87,10 @@ export async function upsertActivityLog(
   ctx: MutationCtx,
   runId: Id<"agentRuns">,
   activityLog: string,
-  type: "run" | "audit" | "fix" | "proof" = "run",
 ): Promise<void> {
   const existing = await ctx.db
     .query("agentRunActivityLogs")
-    .withIndex("by_run_and_type", (q) => q.eq("runId", runId).eq("type", type))
+    .withIndex("by_run_and_type", (q) => q.eq("runId", runId).eq("type", "run"))
     .first();
   const now = Date.now();
   if (existing) {
@@ -105,7 +99,7 @@ export async function upsertActivityLog(
     await ctx.db.insert("agentRunActivityLogs", {
       runId,
       activityLog,
-      type,
+      type: "run",
       updatedAt: now,
     });
   }

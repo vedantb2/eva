@@ -133,7 +133,7 @@ interface ProjectContextUsageProps {
 }
 
 // Aggregates usage across every log tagged with the projectId — project chats,
-// project tasks, audits, interviews — so the project header reflects total spend.
+// project tasks, interviews — so the project header reflects total spend.
 export function ProjectContextUsage({
   repoId,
   projectId,

@@ -10,12 +10,7 @@ import {
   QuickTasksPreview,
   SessionsPreview,
 } from "./BuildPreviews";
-import {
-  ArenaPreview,
-  AuditsPreview,
-  ProofPreview,
-  ReviewsPreview,
-} from "./VerifyPreviews";
+import { ArenaPreview, ReviewsPreview } from "./VerifyPreviews";
 import {
   AutomationsPreview,
   SkillsPreview,
@@ -37,8 +32,6 @@ export const LANDING_PREVIEWS: Record<LandingPreviewKey, ComponentType> = {
   agents: AgentsPreview,
   reviews: ReviewsPreview,
   arena: ArenaPreview,
-  audits: AuditsPreview,
-  proof: ProofPreview,
   automations: AutomationsPreview,
   snapshots: SnapshotsPreview,
   skills: SkillsPreview,

@@ -13,9 +13,6 @@ import { ConfigModelField } from "./ConfigModelField";
 type RepoConfigFields = {
   defaultBaseBranch?: string;
   defaultModel?: string;
-  auditReviewModel?: string;
-  auditFixModel?: string;
-  proofModel?: string;
   prRecapsEnabled?: boolean;
   prRecapModel?: string;
 };
@@ -24,9 +21,6 @@ type UpdateRepoConfig = (args: {
   repoId: Id<"githubRepos">;
   defaultBaseBranch?: string;
   defaultModel?: AIModel;
-  auditReviewModel?: AIModel;
-  auditFixModel?: AIModel;
-  proofModel?: AIModel;
   prRecapsEnabled?: boolean;
   prRecapModel?: AIModel;
 }) => void;
@@ -47,18 +41,6 @@ export function RepositorySettingsSection({
   updateConfig: UpdateRepoConfig;
 }) {
   const defaultModels = useAvailableAiModels(repoId, repo.defaultModel);
-  const auditReviewModels = useAvailableAiModels(
-    repoId,
-    repo.auditReviewModel ?? "haiku",
-  );
-  const auditFixModels = useAvailableAiModels(
-    repoId,
-    repo.auditFixModel ?? "sonnet",
-  );
-  const proofModels = useAvailableAiModels(
-    repoId,
-    repo.proofModel ?? repo.defaultModel ?? "sonnet",
-  );
   const prRecapModels = useAvailableAiModels(
     repoId,
     repo.prRecapModel ?? repo.defaultModel ?? "sonnet",
@@ -104,49 +86,6 @@ export function RepositorySettingsSection({
               updateConfig({
                 repoId,
                 defaultModel: normalizeAIModel(nextModel),
-              });
-            }}
-          />
-        </div>
-      </SettingsSection>
-
-      <SettingsSection
-        title="Audits"
-        description="Models used when reviewing and fixing work."
-      >
-        <div className="grid gap-4">
-          <ConfigModelField
-            label="Review"
-            description="Reads changes during an audit. Haiku by default."
-            state={auditReviewModels}
-            onValueChange={(nextModel) => {
-              updateConfig({
-                repoId,
-                auditReviewModel: normalizeAIModel(nextModel),
-              });
-            }}
-          />
-
-          <ConfigModelField
-            label="Fix"
-            description="Applies fixes found in an audit. Sonnet by default."
-            state={auditFixModels}
-            onValueChange={(nextModel) => {
-              updateConfig({
-                repoId,
-                auditFixModel: normalizeAIModel(nextModel),
-              });
-            }}
-          />
-
-          <ConfigModelField
-            label="Proof capture"
-            description="Post-implementation screenshots and videos. Uses the task model when unset."
-            state={proofModels}
-            onValueChange={(nextModel) => {
-              updateConfig({
-                repoId,
-                proofModel: normalizeAIModel(nextModel),
               });
             }}
           />

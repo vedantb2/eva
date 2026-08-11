@@ -1,5 +1,5 @@
 /**
- * Ordering rules for a message's agent proof media (recordings, screenshots).
+ * Ordering rules for a message's agent media (recordings, screenshots).
  *
  * Generic over the id type: this is list logic over opaque ids, so call sites
  * keep their `Id<"_storage">` by inference and tests can use plain strings.

@@ -24,19 +24,13 @@ const DEFAULT_CATEGORIES = [
 ];
 
 /**
- * Content served by the `get_skill` MCP tool for `eva-audit`. Same review shape
- * as the platform audit run (`buildAuditPrompt`) but reports in chat as
- * markdown instead of emitting JSON for the audits table.
+ * Content served by the `get_skill` MCP tool for `eva-audit`. Reviews the branch
+ * against `DEFAULT_CATEGORIES` and reports in chat as markdown.
  */
 export function buildEvaAuditContent(hydration: SystemSkillHydration): string {
-  const usingDefaults = hydration.categories.length === 0;
-  const categories = usingDefaults ? DEFAULT_CATEGORIES : hydration.categories;
-  const categoryList = categories
-    .map((category, index) => `${index + 1}. **${category.name}** — ${category.description}`)
-    .join("\n");
-  const categorySource = usingDefaults
-    ? `\nThis repo has no audit categories configured, so these are Eva's defaults. Say so in your summary — the user can add categories in Settings.\n`
-    : "";
+  const categoryList = DEFAULT_CATEGORIES.map(
+    (category, index) => `${index + 1}. **${category.name}** — ${category.description}`,
+  ).join("\n");
   const rootDirectoryLine = hydration.rootDirectory
     ? `\n- App directory: \`/tmp/repo/${hydration.rootDirectory}\``
     : "";
@@ -58,7 +52,7 @@ Audit ONLY what this branch changed. Read the surrounding files for context — 
 
 ## Step 2 — Review each category
 ${categoryList}
-${categorySource}
+
 For each category, decide pass or fail and list the findings that justify it. Every finding needs a file reference (\`path/to/file.ts:42\`), one sentence of explanation, and a severity:
 
 - **critical** — security holes, data loss, broken core functionality

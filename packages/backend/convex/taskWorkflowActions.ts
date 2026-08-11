@@ -16,11 +16,6 @@ import {
 } from "./prBody";
 import { buildEvaTaskUrl, buildEvaProjectUrl } from "./_taskWorkflow/urls";
 import {
-  AUDIT_SECTION_REGEX,
-  buildAuditSection,
-  mergeBodyWithAuditSection,
-} from "./_taskWorkflow/prAudit";
-import {
   MAX_POLL_ATTEMPTS,
   POLL_INTERVAL_MS,
   mapGitHubDeploymentState,
@@ -32,20 +27,6 @@ import {
 export { buildEvaTaskUrl, buildEvaSessionUrl } from "./_taskWorkflow/urls";
 
 const PR_READY_WAIT_DELAYS_MS = [0, 1000, 2000, 4000, 8000, 12000, 16000];
-
-const taskPrProofValidator = v.object({
-  fileName: v.union(v.string(), v.null()),
-  message: v.union(v.string(), v.null()),
-  url: v.union(v.string(), v.null()),
-  contentType: v.union(v.string(), v.null()),
-});
-
-type TaskPrProof = {
-  fileName: string | null;
-  message: string | null;
-  url: string | null;
-  contentType: string | null;
-};
 
 type PullRequestCreateParams = {
   installationId: number;
@@ -81,12 +62,10 @@ function buildTaskPullRequestBody(params: {
   taskDescription: string | undefined;
   rootDirectory: string;
   changeRequests: string[];
-  proofs: TaskPrProof[];
 }): string {
   const sections = buildTaskPrSections(
     params.taskDescription,
     params.changeRequests,
-    params.proofs,
   );
   const evaUrl = buildEvaTaskUrl(
     params.repoOwner,
@@ -217,15 +196,11 @@ async function refreshPullRequestBodyWithGitHub(
     );
   }
 
-  const existingBody = pr.body ?? "";
-  const auditMatch = existingBody.match(AUDIT_SECTION_REGEX);
-  const newBody = auditMatch ? `${args.body}\n\n${auditMatch[0]}` : args.body;
-
   await octokit.rest.pulls.update({
     owner: args.repoOwner,
     repo: args.repoName,
     pull_number: pr.number,
-    body: newBody,
+    body: args.body,
   });
   return pr.url;
 }
@@ -325,7 +300,6 @@ export const createTaskPr = action({
         taskDescription: data.taskDescription,
         rootDirectory: data.rootDirectory,
         changeRequests: data.changeRequests,
-        proofs: data.proofs,
       });
 
       const labels = buildTaskPullRequestLabels({
@@ -462,7 +436,6 @@ export const createTaskPullRequest = internalAction({
     taskDescription: v.optional(v.string()),
     rootDirectory: v.string(),
     changeRequests: v.array(v.string()),
-    proofs: v.array(taskPrProofValidator),
     draft: v.optional(v.boolean()),
   },
   returns: v.string(),
@@ -483,7 +456,6 @@ export const createTaskPullRequest = internalAction({
         taskDescription: args.taskDescription,
         rootDirectory: args.rootDirectory,
         changeRequests: args.changeRequests,
-        proofs: args.proofs,
       }),
       labels: buildTaskPullRequestLabels({
         rootDirectory: args.rootDirectory,
@@ -505,7 +477,6 @@ export const refreshTaskPullRequestBody = internalAction({
     taskDescription: v.optional(v.string()),
     rootDirectory: v.string(),
     changeRequests: v.array(v.string()),
-    proofs: v.array(taskPrProofValidator),
   },
   returns: v.string(),
   handler: async (_ctx, args): Promise<string> => {
@@ -522,7 +493,6 @@ export const refreshTaskPullRequestBody = internalAction({
         taskDescription: args.taskDescription,
         rootDirectory: args.rootDirectory,
         changeRequests: args.changeRequests,
-        proofs: args.proofs,
       }),
     });
   },
@@ -755,52 +725,7 @@ export const markPrReadyForReview = internalAction({
   },
 });
 
-/** Appends or updates the audit section in an existing pull request body. */
-export const appendAuditToPullRequest = internalAction({
-  args: {
-    installationId: v.number(),
-    repoOwner: v.string(),
-    repoName: v.string(),
-    branchName: v.string(),
-    auditResult: v.union(v.string(), v.null()),
-    auditError: v.union(v.string(), v.null()),
-  },
-  returns: v.null(),
-  handler: async (_ctx, args) => {
-    try {
-      const octokit = await getInstallationOctokit(args.installationId);
-      const pulls = await octokit.rest.pulls.list({
-        owner: args.repoOwner,
-        repo: args.repoName,
-        state: "open",
-        head: `${args.repoOwner}:${args.branchName}`,
-        per_page: 1,
-      });
-      const pr = pulls.data[0];
-      if (!pr) return null;
-
-      const auditSection = buildAuditSection(args.auditResult, args.auditError);
-      const updatedBody = mergeBodyWithAuditSection(
-        pr.body ?? "",
-        auditSection,
-      );
-
-      await octokit.rest.pulls.update({
-        owner: args.repoOwner,
-        repo: args.repoName,
-        pull_number: pr.number,
-        body: updatedBody,
-      });
-    } catch (error) {
-      console.error(
-        `Failed to append audit to PR: ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-    return null;
-  },
-});
-
-/** Updates an existing PR body while preserving any audit section. */
+/** Updates an existing PR body. */
 export const refreshPullRequestBody = internalAction({
   args: {
     installationId: v.number(),

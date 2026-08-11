@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Surface } from "@eva/ui";
 import { IconExternalLink } from "@tabler/icons-react";
 import { Streamdown } from "streamdown";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
@@ -23,10 +24,15 @@ interface PrCommentBubbleProps {
 }
 
 /**
- * One speech bubble on the conversation: a header strip naming the author and
- * what they did, then their markdown. Used for the pull request description,
- * standalone comments, and review summaries alike, so every piece of authored
- * text on the tab reads the same way.
+ * One speech bubble on the conversation: a line naming the author and what they
+ * did, then their markdown. Used for standalone comments and review summaries
+ * alike, so every piece of authored text on the tab reads the same way.
+ *
+ * A tonal fill and nothing else. A bubble is the one place on this surface that
+ * genuinely needs a container — it is how one person's words are told from the
+ * next — but it needs exactly one device to do it, where this had three: an
+ * outline, a second tone for the header, and a rule between them. On a thread of
+ * fifty comments those rules were most of what was on screen.
  *
  * The avatar is not here — the timeline owns the gutter so bubbles line up on a
  * single rail whatever kind of event they belong to.
@@ -45,14 +51,14 @@ export function PrCommentBubble({
   const hasBody = body.trim().length > 0;
 
   return (
-    <div className="overflow-hidden rounded-md border border-border bg-card">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+    <Surface density="tight" className="group/bubble space-y-1.5">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">
           {authorLogin ?? "unknown"}
         </span>
         <span>{action}</span>
         {path ? (
-          <span className="min-w-0 truncate rounded border border-border bg-card px-1 py-0.5 font-mono">
+          <span className="min-w-0 truncate rounded bg-muted/60 px-1 py-0.5 font-mono">
             {path}
             {line === undefined || line === null ? "" : `:${line}`}
           </span>
@@ -64,7 +70,7 @@ export function PrCommentBubble({
             href={htmlUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-foreground"
+            className="opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/bubble:opacity-100"
             aria-label="View on GitHub"
           >
             <IconExternalLink size={12} aria-hidden />
@@ -72,15 +78,13 @@ export function PrCommentBubble({
         </span>
       </div>
 
-      <div className="px-3 py-2.5">
-        {hasBody ? (
-          <Streamdown className={MARKDOWN_CLASS}>{body}</Streamdown>
-        ) : (
-          <p className="text-sm italic text-muted-foreground">
-            {emptyLabel ?? "No description provided."}
-          </p>
-        )}
-      </div>
-    </div>
+      {hasBody ? (
+        <Streamdown className={MARKDOWN_CLASS}>{body}</Streamdown>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          {emptyLabel ?? "Nothing written."}
+        </p>
+      )}
+    </Surface>
   );
 }

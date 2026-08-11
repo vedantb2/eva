@@ -43,47 +43,45 @@ export function PrCommentComposer({
   return (
     // Aligned with the bubbles above (32px gutter + 12px gap), so the thread
     // still reads as one column.
-    <div className="ml-11 overflow-hidden rounded-md border border-border bg-card">
-      <div className="border-b border-border bg-muted/40 px-3 py-2 text-xs font-medium text-foreground">
-        Add a comment
-      </div>
+    //
+    // No card and no "Add a comment" heading: the textarea's own border is the
+    // affordance, and its placeholder already says what the box is for. A heading
+    // above it would be the third thing on screen naming the same control.
+    <div className="ml-11 space-y-2">
+      <Textarea
+        className="min-h-20 text-sm"
+        value={body}
+        placeholder="Leave a comment"
+        aria-label="Comment on this pull request"
+        onChange={(event) => setBody(event.target.value)}
+        onKeyDown={(event) => {
+          if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
+            event.preventDefault();
+            submit();
+          }
+        }}
+      />
 
-      <div className="space-y-3 p-3">
-        <Textarea
-          className="min-h-20 text-sm"
-          value={body}
-          placeholder="Leave a comment"
-          aria-label="Comment on this pull request"
-          onChange={(event) => setBody(event.target.value)}
-          onKeyDown={(event) => {
-            if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
-              event.preventDefault();
-              submit();
-            }
-          }}
-        />
+      {post.isError ? (
+        <p className="text-xs text-destructive">
+          {prErrorMessage(post.error, "Couldn't post the comment")}
+        </p>
+      ) : null}
 
-        {post.isError ? (
-          <p className="text-xs text-destructive">
-            {prErrorMessage(post.error, "Couldn't post the comment")}
-          </p>
-        ) : null}
-
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          {/* eva authenticates as its GitHub App, so the comment carries the
-              app's identity rather than the reader's account. */}
-          <p className="text-xs text-muted-foreground">
-            Posted to GitHub as the eva app.
-          </p>
-          <Button
-            size="sm"
-            onClick={submit}
-            disabled={trimmed.length === 0 || post.isPending}
-          >
-            {post.isPending ? <Spinner size="sm" /> : null}
-            Comment
-          </Button>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        {/* eva authenticates as its GitHub App, so the comment carries the
+            app's identity rather than the reader's account. */}
+        <p className="text-xs text-muted-foreground">
+          Posted to GitHub as the eva app.
+        </p>
+        <Button
+          size="sm"
+          onClick={submit}
+          disabled={trimmed.length === 0 || post.isPending}
+        >
+          {post.isPending ? <Spinner size="sm" /> : null}
+          Comment
+        </Button>
       </div>
     </div>
   );

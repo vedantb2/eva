@@ -7,7 +7,6 @@ import {
   IconCircleCheck,
   IconCircleX,
   IconGitMerge,
-  IconGitPullRequest,
   IconGitPullRequestClosed,
   IconGitPullRequestDraft,
   IconLoader2,
@@ -77,43 +76,37 @@ export function ToneIcon({
 }
 
 /**
- * The lifecycle pill, worded and coloured as GitHub does: open is green, merged
- * is violet, closed-without-merging is red, and a draft is deliberately grey so
- * it does not read as ready.
+ * The lifecycle, when it is worth stating. Null for a plain open pull request:
+ * that is the case nine times in ten, so a pill saying so is a label that carries
+ * almost nothing while taking the first position on the header. Draft, merged, and
+ * closed are news, and only they get the pixels.
  */
 export function statusMeta(
   status: PrOverview["status"],
   draft: boolean,
-): { label: string; className: string } {
+): { label: string; className: string } | null {
   if (status === "merged") {
     return {
       label: "Merged",
-      className:
-        "border-border bg-violet-500/10 text-violet-700 dark:text-violet-300",
+      className: "bg-violet-500/10 text-violet-700 dark:text-violet-300",
     };
   }
   if (status === "closed") {
     return {
       label: "Closed",
-      className: "border-border bg-destructive/10 text-destructive",
+      className: "bg-destructive/10 text-destructive",
     };
   }
   if (draft) {
-    return {
-      label: "Draft",
-      className: "border-border bg-muted text-muted-foreground",
-    };
+    return { label: "Draft", className: "bg-muted text-muted-foreground" };
   }
-  return {
-    label: "Open",
-    className:
-      "border-border bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
-  };
+  return null;
 }
 
 /**
  * The lifecycle pill itself. Rendered from `statusMeta` rather than beside it, so
- * a surface cannot pair one status's wording with another's colour.
+ * a surface cannot pair one status's wording with another's colour — and so the
+ * "open needs no pill" rule is decided once rather than at each call site.
  */
 export function PrStatusPill({
   status,
@@ -123,33 +116,37 @@ export function PrStatusPill({
   draft: boolean;
 }) {
   const meta = statusMeta(status, draft);
+  if (meta === null) return null;
   return (
     <span
       className={cn(
-        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium",
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium",
         meta.className,
       )}
     >
       {status === "merged" ? (
-        <IconGitMerge size={13} aria-hidden />
+        <IconGitMerge size={12} aria-hidden />
       ) : status === "closed" ? (
-        <IconGitPullRequestClosed size={13} aria-hidden />
-      ) : draft ? (
-        // Its own glyph, as GitHub does: the pill is the only thing on the header
-        // that says a branch is not ready, now that the blocker row does not
-        // repeat it.
-        <IconGitPullRequestDraft size={13} aria-hidden />
+        <IconGitPullRequestClosed size={12} aria-hidden />
       ) : (
-        <IconGitPullRequest size={13} aria-hidden />
+        <IconGitPullRequestDraft size={12} aria-hidden />
       )}
       {meta.label}
     </span>
   );
 }
 
+/**
+ * The one structural device on the review surface: a quiet uppercase label naming
+ * a region of the document. Regions are separated by this plus whitespace, never
+ * by a box — a review reads as one page, not a stack of cards.
+ */
+export const SECTION_LABEL_CLASS =
+  "text-[11px] font-medium uppercase tracking-wider text-muted-foreground";
+
 /** Shared idiom for a quiet, non-blocking notice (truncation, empty states). */
 export const NOTICE_CLASS =
-  "rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground";
+  "rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground";
 
 /**
  * Review states as GitHub words them, plus the tone that drives the icon.

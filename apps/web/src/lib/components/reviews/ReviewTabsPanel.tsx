@@ -96,7 +96,7 @@ export function ReviewTabsPanel({
             header — same padding, so the title does not shift when it arrives. */}
         {overview === null ? (
           header === undefined ? null : (
-            <div className="shrink-0 px-3 pt-3">{header}</div>
+            <div className="shrink-0 px-4 pt-3">{header}</div>
           )
         ) : (
           <ReviewHeader
@@ -106,8 +106,14 @@ export function ReviewTabsPanel({
             title={header}
           />
         )}
+        {/* Zeroed left padding so the first tab's label lands on the same 16px
+            edge as the header and the panel below it — TabsList adds 4px and the
+            trigger 12px (10px when small), which is the whole inset. A left edge
+            that steps in and out between three stacked rows is most of what reads
+            as clutter on a surface this dense. */}
         <TabsBar
           size={tabSize}
+          className={cn("pr-4", compact ? "pl-0.5" : "pl-0")}
           actions={
             overview === null ? null : (
               <PrChecksPill

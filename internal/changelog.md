@@ -1,5 +1,15 @@
 # Changelog
 
+## The review tab is one quiet column, not six cards - 2026-08-11
+
+The Overview tab read as clutter because it was clutter: six outlined cards of equal weight (description, timeline, comment composer, merge box with four divided rows) beside a sidebar of three headed sections, each with its own prose empty state. `docs/eva-ui.md` says hierarchy comes from surface tone, whitespace, and type — not hairlines — and the tab had been ignoring that with hand-rolled `rounded-md border border-border bg-card` on every block.
+
+The pass is a subtraction. The metadata column stays where GitHub puts it — Reviewers, Assignees, Labels on the right — but `PrMetaSidebar` replaces `PrSidebar`: headings and whitespace instead of a card and rules between sections, one-word empty states instead of three sentences about things that have not happened, and a container query rather than a viewport one, so the narrow sandbox pane lays the same sections out as a band across the top instead of squeezing two columns. Every card fill dropped its outline and its rules: `PrCommentBubble`, `PrCommitGroup`, and the description edit box now use the house `Surface`; the merge box, composer, and description read mode carry no container at all. Colour is rationed to one thing — the merge verdict — so the one alarming state actually reads as alarming.
+
+The description toggle is now the house `Collapsible` rather than a hand-rolled `useState` + conditional render, so it animates its measured height like the other fifty panels in the app instead of snapping (`Accordion` would have been wrong here: an accordion item carries a bottom rule and a row-height trigger, which is a list register, not one region of body copy). `PrMergeBoxChecks` already used it, so the folder no longer has two ways to open a panel.
+
+Two more duplications went with it. The "Open" status pill is deleted (`statusMeta` returns `null` for a plain open PR; only draft, merged, and closed still get a pill), and `MergeHeaderRow` no longer restates a blocker the header above the tabs already shows in colour. Rows that have nothing to say now render nothing rather than a prose placeholder (`ReviewsRow`, `PrMergeBoxChecks`). Tabs, header, and panel content now share one 16px optical left edge. Verified: `tsc` clean, compiler-check reports no new bailouts.
+
 ## A draft pull request no longer says "Draft" twice - 2026-08-11
 
 The new review header stated the lifecycle in two places at once. `PrStatusPill` renders "Draft" on the first row, and `mergeBlocker` also treats `draft` as a blocker, so the badge row below repeated it — the same word, twice, three rows apart.

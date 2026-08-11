@@ -69,29 +69,35 @@ export function ReviewDetailClient({
   }
 
   // Padding is owned by the header slot in `ReviewTabsPanel`, so this block sits
-  // flush with the status and branch rows below it.
+  // flush with the author and branch rows below it.
   const header = (
     <>
       {prHeader !== undefined ? (
-        // Author and last-updated sit on the shared header's status row just
-        // below, so the page chrome carries the title and the two controls that
-        // act on the whole pull request.
+        // The title is the only large type on the surface, so its two controls are
+        // icons: spelled out, "View on GitHub" and "Refresh" put 180px of button
+        // chrome at the same weight as the sentence they sit beside.
         <div className="flex flex-wrap items-start gap-2">
-          <h1 className="min-w-0 flex-1 text-lg font-semibold tracking-tight">
+          <h1 className="min-w-0 flex-1 text-xl font-semibold leading-tight tracking-tight">
             {prHeader.title}{" "}
             <span className="font-normal text-muted-foreground">
               #{prHeader.number}
             </span>
           </h1>
-          <div className="flex shrink-0 items-center gap-1">
-            <Button size="sm" variant="ghost" asChild>
+          <div className="flex shrink-0 items-center gap-0.5 text-muted-foreground">
+            <Button
+              size="sm"
+              variant="ghost"
+              asChild
+              className="size-7 p-0"
+              aria-label="View on GitHub"
+            >
               <a
                 href={prHeader.htmlUrl}
                 target="_blank"
                 rel="noopener noreferrer"
+                title="View on GitHub"
               >
-                View on GitHub
-                <IconExternalLink size={14} aria-hidden />
+                <IconExternalLink size={15} aria-hidden />
               </a>
             </Button>
             <Button
@@ -99,13 +105,15 @@ export function ReviewDetailClient({
               variant="ghost"
               onClick={refresh}
               disabled={refreshing}
+              className="size-7 p-0"
+              aria-label="Refresh"
+              title="Refresh"
             >
               {refreshing ? (
                 <Spinner size="sm" />
               ) : (
-                <IconRefresh size={14} aria-hidden />
+                <IconRefresh size={15} aria-hidden />
               )}
-              Refresh
             </Button>
           </div>
         </div>
@@ -114,7 +122,7 @@ export function ReviewDetailClient({
           {prErrorMessage(headerQuery.error, "Couldn't load pull request")}
         </p>
       ) : (
-        <div className="flex h-10 items-center">
+        <div className="flex h-7 items-center">
           <Spinner size="sm" />
         </div>
       )}

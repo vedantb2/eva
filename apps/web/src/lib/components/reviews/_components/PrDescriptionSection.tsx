@@ -2,7 +2,16 @@
 
 import { useState } from "react";
 import type { Id } from "@eva/backend";
-import { Button, Spinner, Textarea, cn } from "@eva/ui";
+import {
+  Button,
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+  Spinner,
+  Surface,
+  Textarea,
+  cn,
+} from "@eva/ui";
 import {
   IconChevronRight,
   IconExternalLink,
@@ -10,15 +19,23 @@ import {
 } from "@tabler/icons-react";
 import { Streamdown } from "streamdown";
 import { usePrEdit } from "../usePrEdit";
-import { MARKDOWN_CLASS, type PrOverview } from "./prOverviewMeta";
+import {
+  MARKDOWN_CLASS,
+  SECTION_LABEL_CLASS,
+  type PrOverview,
+} from "./prOverviewMeta";
 
 /**
- * The pull request description, as its own collapsible section above the
+ * The pull request description, as its own collapsible region above the
  * conversation rather than the first bubble inside it.
  *
  * eva's agents write long descriptions, and as a timeline row that pushed every
  * human comment below the fold — the thing a reviewer came to read was the thing
  * hardest to reach. Collapsing it here puts the choice with the reader.
+ *
+ * A label and whitespace, not a card: this is the body copy of the page, and a box
+ * around body copy makes the page look like a form. Edit and the GitHub link only
+ * appear on hover or focus, so the resting state is the heading and the prose.
  *
  * One piece of state holds both halves of the editor: a string is the draft being
  * written, `null` means the description is being read rather than edited.
@@ -41,12 +58,10 @@ export function PrDescriptionSection({
 
   if (draft !== null) {
     return (
-      <section className="overflow-hidden rounded-md border border-border bg-card">
-        <div className="border-b border-border bg-muted/40 px-3 py-2 text-xs font-medium text-foreground">
-          Edit description
-        </div>
+      <section className="space-y-2">
+        <p className={SECTION_LABEL_CLASS}>Edit description</p>
 
-        <div className="space-y-3 p-3">
+        <Surface density="tight" className="space-y-3">
           <Textarea
             className="min-h-40 text-sm"
             value={draft}
@@ -84,29 +99,40 @@ export function PrDescriptionSection({
               </Button>
             </span>
           </div>
-        </div>
+        </Surface>
       </section>
     );
   }
 
   return (
-    <section className="overflow-hidden rounded-md border border-border bg-card">
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
-        <button
-          type="button"
-          onClick={() => setOpen(!open)}
-          aria-expanded={open}
-          className="motion-press flex min-w-0 items-center gap-1.5 font-medium text-foreground active:scale-[0.98]"
+    <Collapsible
+      open={open}
+      onOpenChange={setOpen}
+      className="group/description space-y-2"
+    >
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        {/* The house Collapsible, not Accordion: an accordion item carries a
+            bottom rule and a row-height trigger, which is the wrong register for
+            one region of body copy — and this way the panel animates its measured
+            height (`t-collapsible-content`) instead of snapping. */}
+        <CollapsibleTrigger
+          className={cn(
+            SECTION_LABEL_CLASS,
+            "motion-press flex min-w-0 items-center gap-1.5 hover:text-foreground active:scale-[0.98] [&[data-state=open]>svg]:rotate-90",
+          )}
         >
           <IconChevronRight
             size={13}
             aria-hidden
-            className={cn("shrink-0 transition-transform", open && "rotate-90")}
+            // Same duration as the panel, so glyph and content settle together.
+            className="shrink-0 transition-transform duration-[var(--motion-base)]"
           />
           Description
-        </button>
+        </CollapsibleTrigger>
 
-        <span className="ml-auto flex shrink-0 items-center gap-2">
+        {/* Held back until the reader is in this region: two controls sitting
+            permanently beside a heading read as chrome to skip past. */}
+        <span className="ml-auto flex shrink-0 items-center gap-3 text-xs text-muted-foreground opacity-0 transition-opacity focus-within:opacity-100 group-hover/description:opacity-100">
           <button
             type="button"
             className="inline-flex items-center gap-1 hover:text-foreground"
@@ -127,17 +153,15 @@ export function PrDescriptionSection({
         </span>
       </div>
 
-      {open ? (
-        <div className="px-3 py-2.5">
-          {hasBody ? (
-            <Streamdown className={MARKDOWN_CLASS}>{body}</Streamdown>
-          ) : (
-            <p className="text-sm italic text-muted-foreground">
-              No description provided.
-            </p>
-          )}
-        </div>
-      ) : null}
-    </section>
+      <CollapsibleContent>
+        {hasBody ? (
+          <Streamdown className={MARKDOWN_CLASS}>{body}</Streamdown>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            No description yet. Add one to say what changed and why.
+          </p>
+        )}
+      </CollapsibleContent>
+    </Collapsible>
   );
 }

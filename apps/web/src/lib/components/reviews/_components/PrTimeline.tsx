@@ -63,7 +63,9 @@ export function PrTimeline({
                 key={item.key}
                 gutter={
                   <span className="flex size-8 items-center justify-center">
-                    <span className="flex size-6 items-center justify-center rounded-full border border-border bg-muted text-muted-foreground ring-2 ring-background">
+                    {/* `ring-background` is the mask that breaks the rail behind
+                        the glyph, so the fill needs no outline of its own. */}
+                    <span className="flex size-6 items-center justify-center rounded-full bg-muted text-muted-foreground ring-2 ring-background">
                       <IconGitCommit size={13} aria-hidden />
                     </span>
                   </span>
@@ -196,7 +198,7 @@ function TimelineAvatar({
     );
   }
   return (
-    <span className="flex size-8 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-[10px] font-medium uppercase text-muted-foreground ring-2 ring-background">
+    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium uppercase text-muted-foreground ring-2 ring-background">
       {login === null ? "?" : login.slice(0, 2)}
     </span>
   );

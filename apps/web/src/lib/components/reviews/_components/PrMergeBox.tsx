@@ -22,9 +22,14 @@ import {
 } from "@eva/ui";
 import { IconGitMerge, IconGitPullRequestClosed } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
-import { mergeBlocker, mergeStateHeadline } from "./prMergeState";
+import { mergeBlocker } from "./prMergeState";
 import { PrMergeBoxChecks } from "./PrMergeBoxChecks";
-import { ToneIcon, type PrOverview, type StatusTone } from "./prOverviewMeta";
+import {
+  SECTION_LABEL_CLASS,
+  ToneIcon,
+  type PrOverview,
+  type StatusTone,
+} from "./prOverviewMeta";
 
 type MergeMethod = "merge" | "squash" | "rebase";
 
@@ -35,8 +40,16 @@ const MERGE_METHODS: { value: MergeMethod; label: string }[] = [
 ];
 
 /**
- * The box GitHub puts at the foot of a conversation: whether the branch can
- * merge, who has reviewed, what CI says, and the merge control itself.
+ * The merge decision at the foot of the conversation: who has reviewed, what CI
+ * says, and the control itself.
+ *
+ * Named by a label and not drawn as a box. The filled Merge button is the loudest
+ * control on the page, which is enough to find it after a long scroll; an outline
+ * and four divider rules around it were emphasis spent twice.
+ *
+ * Every line here renders only when it has something to report — a branch nobody
+ * has reviewed shows no reviews line, because "No reviews yet" is a sentence the
+ * blank space already says.
  *
  * Merging is irreversible and lands on the base branch, so it stays behind an
  * explicit confirmation, and any GitHub rejection is surfaced verbatim rather
@@ -88,18 +101,20 @@ export function PrMergeBox({
   };
 
   return (
-    <section className="divide-y divide-border overflow-hidden rounded-md border border-border bg-card">
-      <MergeHeaderRow overview={overview} />
+    <section className="space-y-2">
+      <p className={SECTION_LABEL_CLASS}>Merge</p>
 
-      <ReviewsRow overview={overview} />
-
-      <PrMergeBoxChecks
-        checks={overview.checks}
-        truncated={overview.checksTruncated}
-      />
+      <div className="space-y-1.5">
+        <MergeHeaderRow overview={overview} />
+        <ReviewsRow overview={overview} />
+        <PrMergeBoxChecks
+          checks={overview.checks}
+          truncated={overview.checksTruncated}
+        />
+      </div>
 
       {isOpen ? (
-        <div className="flex flex-wrap items-center gap-2 bg-muted/30 px-3 py-2.5">
+        <div className="flex flex-wrap items-center gap-2 pt-1">
           <Select
             value={method}
             onValueChange={(value) => {
@@ -167,11 +182,17 @@ export function PrMergeBox({
   );
 }
 
+/**
+ * What happened, or the all-clear. Null while a blocker is in play: the header
+ * above the tabs states that in colour, and repeating it here would be the same
+ * sentence twice on one screen. The reason the Merge button is disabled still sits
+ * beside the button, where it answers the question the reader is actually asking.
+ */
 function MergeHeaderRow({ overview }: { overview: PrOverview }) {
   if (overview.status === "merged") {
     return (
-      <p className="flex items-center gap-2 px-3 py-2.5 text-sm text-violet-700 dark:text-violet-300">
-        <IconGitMerge size={16} className="shrink-0" aria-hidden />
+      <p className="flex items-center gap-2 text-sm text-violet-700 dark:text-violet-300">
+        <IconGitMerge size={15} className="shrink-0" aria-hidden />
         <span>
           Merged
           {overview.mergedByLogin ? ` by ${overview.mergedByLogin}` : ""}
@@ -186,9 +207,9 @@ function MergeHeaderRow({ overview }: { overview: PrOverview }) {
 
   if (overview.status === "closed") {
     return (
-      <p className="flex items-center gap-2 px-3 py-2.5 text-sm text-muted-foreground">
+      <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <IconGitPullRequestClosed
-          size={16}
+          size={15}
           className="shrink-0 text-destructive"
           aria-hidden
         />
@@ -197,18 +218,21 @@ function MergeHeaderRow({ overview }: { overview: PrOverview }) {
     );
   }
 
-  const { tone, text } = mergeStateHeadline(overview);
+  if (mergeBlocker(overview) !== null) return null;
+
   return (
-    <p className="flex items-center gap-2 px-3 py-2.5 text-sm">
-      <ToneIcon tone={tone} size={16} />
-      {text}
+    <p className="flex items-center gap-2 text-sm">
+      <ToneIcon tone="success" size={15} />
+      No conflicts with{" "}
+      <span className="font-mono text-xs">{overview.baseRef}</span>
     </p>
   );
 }
 
 /**
- * Review standing in one line. Reviews arrive already collapsed to the latest
- * verdict per reviewer, so this counts people rather than review events.
+ * Review standing in one line, and nothing at all when nobody has reviewed or been
+ * asked to. Reviews arrive already collapsed to the latest verdict per reviewer, so
+ * this counts people rather than review events.
  */
 function ReviewsRow({ overview }: { overview: PrOverview }) {
   const approvals = overview.reviews.filter(
@@ -229,15 +253,14 @@ function ReviewsRow({ overview }: { overview: PrOverview }) {
     awaiting > 0 ? `${awaiting} awaiting review` : null,
   ].filter((part) => part !== null);
 
-  const tone: StatusTone =
-    changesRequested > 0 ? "failure" : approvals > 0 ? "success" : "neutral";
+  if (parts.length === 0) return null;
+
+  const tone: StatusTone = changesRequested > 0 ? "failure" : "success";
 
   return (
-    <p className="flex items-center gap-2 px-3 py-2.5 text-sm">
-      <ToneIcon tone={tone} size={16} />
-      <span className="min-w-0 truncate">
-        {parts.length === 0 ? "No reviews yet" : parts.join(" · ")}
-      </span>
+    <p className="flex items-center gap-2 text-sm">
+      <ToneIcon tone={tone} size={15} />
+      <span className="min-w-0 truncate">{parts.join(" · ")}</span>
     </p>
   );
 }

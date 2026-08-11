@@ -362,6 +362,8 @@ export function TaskDetailInline({
                 setBaseBranch={setBaseBranch}
                 latestDeployment={latestDeployment}
                 hasActiveRun={hasActiveRun}
+                hasRuns={hasRuns}
+                isOwner={isOwner}
                 allTags={allTags}
                 requestingChanges={requestingChanges}
               />

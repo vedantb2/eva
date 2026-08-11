@@ -2,7 +2,7 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { useMutation } from "convex/react";
-import { api } from "@eva/backend";
+import { api, normalizeAIModel } from "@eva/backend";
 import type { Doc, Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
@@ -14,6 +14,7 @@ import {
   SelectLabel,
   SelectGroup,
   Input,
+  ModelSelect,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -55,7 +56,12 @@ import {
   NEW_PROJECT_VALUE,
   NO_PRIORITY_VALUE,
   UNASSIGNED_VALUE,
+  canEditTaskModel,
 } from "./task-detail-constants";
+import {
+  useAvailableAiModels,
+  useTaskOwnerProviderAccounts,
+} from "@/lib/hooks/useAvailableAiModels";
 import { NewProjectModal } from "@/lib/components/projects/NewProjectModal";
 
 type RunDoc = NonNullable<
@@ -73,6 +79,10 @@ interface StatusFieldsSectionProps {
   setBaseBranch: (v: string) => void;
   latestDeployment: RunDoc | undefined;
   hasActiveRun: boolean;
+  /** Locks the model picker — the model that ran must stay on the record. */
+  hasRuns: boolean;
+  /** Only the task owner can move it onto their own provider account. */
+  isOwner: boolean;
   allTags: string[];
   requestingChanges: boolean;
 }
@@ -88,6 +98,8 @@ export function StatusFieldsSection({
   setBaseBranch,
   latestDeployment,
   hasActiveRun: _hasActiveRun,
+  hasRuns,
+  isOwner,
   allTags,
   requestingChanges: _requestingChanges,
 }: StatusFieldsSectionProps) {
@@ -226,6 +238,18 @@ export function StatusFieldsSection({
     ? getUserDisplayName(assignedUser)
     : "Unnamed User";
   const reviewers = (users ?? []).filter((u) => u.role === "dev");
+  const currentModel = normalizeAIModel(task?.model);
+  const { options: modelOptions } = useAvailableAiModels(
+    task?.repoId,
+    currentModel,
+  );
+  const { options: accounts, resolveId: resolveAccountId } =
+    useTaskOwnerProviderAccounts(taskId);
+  const modelLockReason = hasRuns
+    ? "Cannot be changed after the task has run"
+    : !canEditTaskModel(status)
+      ? "Locked when the task is done or cancelled"
+      : undefined;
 
   return (
     <div className="space-y-4">
@@ -374,7 +398,41 @@ export function StatusFieldsSection({
           </SelectContent>
         </Select>
 
-        {/* Model lives in the Make-changes composer (quick + project). */}
+        <div className="flex items-center min-h-[40px] rounded-lg px-2 transition-colors hover:bg-muted/50">
+          <ModelSelect
+            value={currentModel}
+            options={modelOptions}
+            onValueChange={() => undefined}
+            accounts={accounts}
+            accountId={task?.providerAccountId ?? null}
+            onSelectionChange={(nextModel, nextAccountId) => {
+              if (modelLockReason) return;
+              if (isOwner) {
+                updateTask({
+                  id: taskId,
+                  model: nextModel,
+                  providerAccountId: resolveAccountId(nextAccountId) ?? null,
+                });
+                return;
+              }
+              updateTask({ id: taskId, model: nextModel });
+            }}
+            canSelectTeamWhilePersonal={isOwner}
+            disabled={modelLockReason !== undefined}
+            className="px-0"
+          />
+          {modelLockReason ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <IconInfoCircle
+                  size={12}
+                  className="cursor-help text-muted-foreground"
+                />
+              </TooltipTrigger>
+              <TooltipContent>{modelLockReason}</TooltipContent>
+            </Tooltip>
+          ) : null}
+        </div>
 
         {!task?.projectId && (
           <div className="flex items-center min-h-[40px] rounded-lg hover:bg-muted/50 transition-colors px-2">

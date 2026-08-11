@@ -1,5 +1,9 @@
 # Changelog
 
+## Model picker back in task Properties, locked once a task has run - 2026-08-11
+
+Unifying the composers on 23 Jul dropped the model row from the task detail Properties panel entirely, so a quick task's model could only be changed from the Make-changes composer — invisible until you started composing. Restored `ModelSelect` in Properties for every task (quick and project), writing `model` + `providerAccountId` through the same owner-aware mutation as the composer. Disabled with an info tooltip once the task has any run ("Cannot be changed after the task has run") or reaches a terminal status.
+
 ## Stale-active sandbox reconcile sees through fake "starting" - 2026-08-10
 
 Vercel hard-timeouts kill the VM with no webhook. `sandbox.status` then throws, and our adapter maps that throw to `state: "starting"` so mid-stop Start paths do not treat it as idle-stopped. The 5-minute reconcile sweep (and prewarm) trusted `sandbox.state` and therefore never flipped those rows — UI stayed "active" with a dead sandbox. Added `SandboxHandle.classifyForReconcile()` which falls back to `listSessions` and reports alive/dead/transient; prewarm + reconcile now flip only on `"dead"`.

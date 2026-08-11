@@ -39,6 +39,11 @@ export function QuickTasksKanbanBoard({
   const groupedCodebases = useQuery(api.githubRepos.listGroupedByCodebase);
   const users = useQuery(api.users.listAll);
   const projects = useQuery(api.projects.list, { repoId });
+  const projectNumIds = new Map(
+    (projects ?? []).flatMap((project) =>
+      project.numId === undefined ? [] : [[project._id, project.numId] as const],
+    ),
+  );
   const updateStatus = useMutation(
     api.agentTasks.updateStatus,
   ).withOptimisticUpdate((localStore, args) => {
@@ -159,6 +164,10 @@ export function QuickTasksKanbanBoard({
             description={task.description}
             status={task.status}
             priority={task.priority}
+            numId={task.numId}
+            projectNumId={
+              task.projectId ? projectNumIds.get(task.projectId) : undefined
+            }
             hasError={errorTaskIdSet.has(task._id)}
             deploymentStatus={deploymentStatusMap.get(task._id)}
             sandboxStatus={task.reviewTaskSandboxStatus}
@@ -203,6 +212,10 @@ export function QuickTasksKanbanBoard({
             description={task.description}
             status={task.status}
             priority={task.priority}
+            numId={task.numId}
+            projectNumId={
+              task.projectId ? projectNumIds.get(task.projectId) : undefined
+            }
             hasError={errorTaskIdSet.has(task._id)}
             deploymentStatus={deploymentStatusMap.get(task._id)}
             sandboxStatus={task.reviewTaskSandboxStatus}

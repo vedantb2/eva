@@ -38,6 +38,7 @@ import dayjs, { compactRelativeTime } from "@eva/shared/dates";
 import { useState, type MouseEvent } from "react";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import { EntityNumLabel } from "@/lib/components/ui/EntityNumLabel";
 import { DeleteTaskDialog } from "./_components/DeleteTaskDialog";
 import { MoveTaskDialog } from "./_components/MoveTaskDialog";
 import { TaskCardMenuItems } from "./_components/TaskCardMenuItems";
@@ -56,7 +57,8 @@ interface QuickTaskCardProps {
   description?: string;
   status: TaskStatus;
   priority?: Priority;
-  taskNumber?: number;
+  numId?: number;
+  projectNumId?: number;
   scheduledAt?: number;
   tags?: string[];
   createdByUser?: User;
@@ -95,7 +97,8 @@ export function QuickTaskCard({
   title,
   status,
   priority,
-  taskNumber,
+  numId,
+  projectNumId,
   scheduledAt,
   tags,
   createdByUser,
@@ -210,14 +213,12 @@ export function QuickTaskCard({
             className={cn("mt-0.5 shrink-0", LIST_ROW_CONTROL_CLASS)}
           />
         ) : null}
-        <MarqueeOnHover className="min-w-0 flex-1 text-[13px] font-medium leading-5 tracking-[-0.01em] text-foreground transition-colors duration-[var(--motion-base)] group-hover:text-primary">
-          {taskNumber !== undefined ? (
-            <span className="mr-1.5 font-mono text-[11px] font-normal tabular-nums text-muted-foreground/55">
-              #{taskNumber}
-            </span>
-          ) : null}
-          {title}
-        </MarqueeOnHover>
+        <div className="flex min-w-0 flex-1 items-baseline gap-1.5">
+          <EntityNumLabel numId={numId} projectNumId={projectNumId} />
+          <MarqueeOnHover className="min-w-0 flex-1 text-[13px] font-medium leading-5 tracking-[-0.01em] text-foreground transition-colors duration-[var(--motion-base)] group-hover:text-primary">
+            {title}
+          </MarqueeOnHover>
+        </div>
 
         <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
           {priority ? (

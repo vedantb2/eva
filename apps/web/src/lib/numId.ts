@@ -7,6 +7,21 @@ export function parseRouteNumId(value: string): number | null {
   return parsed;
 }
 
+/** Human label for entity num ids: `#12` or `#12/34` when nested under a project. */
+export function formatEntityNumLabel(options: {
+  numId?: number;
+  projectNumId?: number;
+}): string | null {
+  const { numId, projectNumId } = options;
+  if (numId === undefined) {
+    return null;
+  }
+  if (projectNumId !== undefined) {
+    return `#${projectNumId}/${numId}`;
+  }
+  return `#${numId}`;
+}
+
 /** URL path segment for an entity with a per-repo numId. */
 export function entityPathSegment(entity: { numId?: number }): string | null {
   if (entity.numId === undefined) {

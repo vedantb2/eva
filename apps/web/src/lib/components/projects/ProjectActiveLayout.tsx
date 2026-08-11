@@ -147,6 +147,7 @@ export function ProjectActiveLayout({
             selectedTaskId={selectedTaskId}
             onSelectTask={handleSelectTask}
             onCreateTask={() => setCreateTaskOpen(true)}
+            projectNumId={project.numId}
           />
         </div>
         <ProjectProgressBar projectId={projectId} className="mx-3 mt-2 mb-3" />

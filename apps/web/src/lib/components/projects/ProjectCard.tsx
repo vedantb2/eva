@@ -56,6 +56,7 @@ import {
   type SandboxStatus,
 } from "@/lib/components/sandbox/sandboxStatusStyles";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
+import { EntityNumLabel } from "@/lib/components/ui/EntityNumLabel";
 import { ProjectProgressBar } from "./ProjectProgressBar";
 
 interface ProjectCardProps {
@@ -65,6 +66,7 @@ interface ProjectCardProps {
   description?: string;
   rawInput?: string;
   branchName?: string;
+  numId?: number;
   repoFullName: string;
   createdAt: number;
   accentColor: string;
@@ -92,6 +94,7 @@ export function ProjectCard({
   description,
   rawInput,
   branchName,
+  numId,
   repoFullName,
   accentColor,
   members,
@@ -190,9 +193,12 @@ export function ProjectCard({
     >
       <div className="flex min-w-0 items-start gap-2">
         <div className="min-w-0 flex-1">
-          <MarqueeOnHover className="min-w-0 text-[13px] font-medium leading-5 tracking-[-0.01em] text-foreground transition-colors duration-[var(--motion-base)] group-hover:text-primary">
-            {title}
-          </MarqueeOnHover>
+          <div className="flex min-w-0 items-baseline gap-1.5">
+            <EntityNumLabel numId={numId} />
+            <MarqueeOnHover className="min-w-0 flex-1 text-[13px] font-medium leading-5 tracking-[-0.01em] text-foreground transition-colors duration-[var(--motion-base)] group-hover:text-primary">
+              {title}
+            </MarqueeOnHover>
+          </div>
           {previewText ? (
             <p
               className={cn(
@@ -251,7 +257,7 @@ export function ProjectCard({
           projectId={projectId}
           className="h-1 bg-secondary/80"
         />
-        <div className="mt-2 flex items-center justify-between gap-2">
+        <div className="mt-2 flex items-center gap-2">
           <div className="flex min-w-0 items-center gap-1.5">
             <AvatarStack size={18} className="-space-x-0.5">
               {shownAvatarIds.map((id) => (
@@ -264,11 +270,6 @@ export function ProjectCard({
               </span>
             ) : null}
           </div>
-          {branchName ? (
-            <span className="max-w-[45%] truncate font-mono text-[10px] tabular-nums text-muted-foreground/65">
-              {branchName}
-            </span>
-          ) : null}
         </div>
       </div>
 

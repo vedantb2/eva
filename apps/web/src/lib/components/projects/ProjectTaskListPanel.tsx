@@ -49,12 +49,14 @@ function SortableTaskWrapper({
   onSelectTask,
   hasError,
   basePath,
+  projectNumId,
 }: {
   task: Task;
   selectedTaskId: Id<"agentTasks"> | null;
   onSelectTask: (id: Id<"agentTasks">) => void;
   hasError: boolean;
   basePath: string;
+  projectNumId?: number;
 }) {
   const {
     attributes,
@@ -92,7 +94,8 @@ function SortableTaskWrapper({
           status={task.status}
           hasError={hasError}
           sandboxStatus={task.reviewTaskSandboxStatus}
-          taskNumber={task.taskNumber ?? 0}
+          numId={task.numId}
+          projectNumId={projectNumId}
           tags={task.tags}
           createdAt={task._creationTime}
           scheduledAt={task.scheduledAt}
@@ -122,6 +125,7 @@ interface ProjectTaskListPanelProps {
   selectedTaskId: Id<"agentTasks"> | null;
   onSelectTask: (id: Id<"agentTasks">) => void;
   onCreateTask: () => void;
+  projectNumId?: number;
 }
 
 export function ProjectTaskListPanel({
@@ -129,6 +133,7 @@ export function ProjectTaskListPanel({
   selectedTaskId,
   onSelectTask,
   onCreateTask,
+  projectNumId,
 }: ProjectTaskListPanelProps) {
   const { repoId, basePath } = useRepo();
   const [localTodoOrder, setLocalTodoOrder] = useState<
@@ -283,6 +288,7 @@ export function ProjectTaskListPanel({
                           onSelectTask={onSelectTask}
                           hasError={errorTaskIdSet.has(task._id)}
                           basePath={basePath}
+                          projectNumId={projectNumId}
                         />
                       ))}
                     </SortableContext>
@@ -341,7 +347,8 @@ export function ProjectTaskListPanel({
                             status={task.status}
                             hasError={errorTaskIdSet.has(task._id)}
                             sandboxStatus={task.reviewTaskSandboxStatus}
-                            taskNumber={task.taskNumber ?? 0}
+                            numId={task.numId}
+                            projectNumId={projectNumId}
                             tags={task.tags}
                             createdAt={task._creationTime}
                             scheduledAt={task.scheduledAt}

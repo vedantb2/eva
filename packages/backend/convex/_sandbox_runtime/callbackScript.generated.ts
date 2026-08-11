@@ -4636,6 +4636,70 @@ function git(args, timeoutMs = GIT_STEP_TIMEOUT_MS) {
   const out = ((result.stdout || "") + (result.stderr || "")).trim();
   return { ok: result.status === 0, out };
 }
+function isMissingRemoteRef(message) {
+  const lower = message.toLowerCase();
+  return lower.includes("couldn't find remote ref") || lower.includes("could not find remote ref");
+}
+function isNonFastForwardPush(message) {
+  const lower = message.toLowerCase();
+  return lower.includes("non-fast-forward") || lower.includes("fetch first") || lower.includes("[rejected]") && lower.includes("failed to push");
+}
+function synchronizeForPush(branch) {
+  const remoteRef = \`refs/remotes/origin/\${branch}\`;
+  const fetch = git(
+    [
+      "fetch",
+      "--no-tags",
+      "origin",
+      \`+refs/heads/\${branch}:\${remoteRef}\`
+    ],
+    PUSH_TIMEOUT_MS
+  );
+  if (!fetch.ok) {
+    if (isMissingRemoteRef(fetch.out)) {
+      git(["update-ref", "-d", remoteRef]);
+      return { status: "ready", remoteExists: false };
+    }
+    log(\`persistTurnWork: fetch failed: \${fetch.out.slice(0, 200)}\`);
+    return { status: "failed" };
+  }
+  const divergence = git([
+    "rev-list",
+    "--left-right",
+    "--count",
+    \`\${remoteRef}...refs/heads/\${branch}\`
+  ]);
+  if (!divergence.ok) {
+    log(
+      \`persistTurnWork: divergence check failed: \${divergence.out.slice(0, 200)}\`
+    );
+    return { status: "failed" };
+  }
+  if (/^0\\s+\\d+$/.test(divergence.out)) {
+    return { status: "ready", remoteExists: true };
+  }
+  if (/^[1-9]\\d*\\s+0$/.test(divergence.out)) {
+    const fastForward = git(["merge", "--ff-only", remoteRef]);
+    if (fastForward.ok) {
+      return { status: "ready", remoteExists: true };
+    }
+    log(
+      \`persistTurnWork: fast-forward failed: \${fastForward.out.slice(0, 200)}\`
+    );
+    return { status: "failed" };
+  }
+  if (/^[1-9]\\d*\\s+[1-9]\\d*$/.test(divergence.out)) {
+    const rebase = git(["rebase", remoteRef], PUSH_TIMEOUT_MS);
+    if (rebase.ok) {
+      return { status: "ready", remoteExists: true };
+    }
+    git(["rebase", "--abort"]);
+    log(\`persistTurnWork: rebase failed: \${rebase.out.slice(0, 200)}\`);
+    return { status: "failed" };
+  }
+  log(\`persistTurnWork: unexpected divergence: \${divergence.out}\`);
+  return { status: "failed" };
+}
 function persistTurnWork() {
   if (REQUIRE_TASK_COMMIT || RUN_ID) return;
   const startedAt = Date.now();
@@ -4661,19 +4725,37 @@ function persistTurnWork() {
       );
     }
   }
-  const unpushed = git([
-    "rev-list",
-    "--count",
-    "HEAD",
-    "--not",
-    "--remotes=origin"
-  ]);
-  if (unpushed.ok && unpushed.out === "0") return;
   const refspec = \`refs/heads/\${branch.out}:refs/heads/\${branch.out}\`;
-  const push = git(["push", "origin", refspec], PUSH_TIMEOUT_MS);
-  log(
-    \`persistTurnWork: push \${push.ok ? "ok" : "failed: " + push.out.slice(0, 200)} branch=\${branch.out} in \${Date.now() - startedAt}ms\`
-  );
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const sync = synchronizeForPush(branch.out);
+    if (sync.status === "failed") return;
+    const exclusion = sync.remoteExists ? [\`refs/remotes/origin/\${branch.out}\`] : ["--remotes=origin"];
+    const unpushed = git([
+      "rev-list",
+      "--count",
+      "HEAD",
+      "--not",
+      ...exclusion
+    ]);
+    if (unpushed.ok && unpushed.out === "0") return;
+    const push = git(["push", "origin", refspec], PUSH_TIMEOUT_MS);
+    if (push.ok) {
+      log(
+        \`persistTurnWork: push ok branch=\${branch.out} in \${Date.now() - startedAt}ms\`
+      );
+      return;
+    }
+    if (attempt < 2 && isNonFastForwardPush(push.out)) {
+      log(
+        \`persistTurnWork: remote moved during push; refetching branch=\${branch.out}\`
+      );
+      continue;
+    }
+    log(
+      \`persistTurnWork: push failed: \${push.out.slice(0, 200)} branch=\${branch.out} in \${Date.now() - startedAt}ms\`
+    );
+    return;
+  }
 }
 
 // callback-src/providers/claimPendingTurnParse.ts

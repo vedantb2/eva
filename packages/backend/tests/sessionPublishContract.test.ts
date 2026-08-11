@@ -163,13 +163,80 @@ describe("an empty turn publishes nothing", () => {
       "export async function pushBranchToOrigin(",
     );
     const gateAt = body.indexOf(
-      "git rev-list --count HEAD --not --remotes=origin",
+      "git rev-list --count HEAD --not ${exclusion}",
     );
     const pushAt = body.indexOf("git push");
     expect(gateAt, "the ahead-of-remote gate moved").toBeGreaterThan(-1);
     expect(pushAt, "the push moved").toBeGreaterThan(-1);
     expect(gateAt).toBeLessThan(pushAt);
+    expect(body).toContain('const exclusion = remoteExists');
+    expect(body).toContain(': "--remotes=origin";');
     expect(body).not.toContain("porcelain");
+  });
+});
+
+/**
+ * A preserved or resumed sandbox can have local-only commits while another
+ * callback/sandbox has advanced the same stable session branch. A blind push
+ * is then rejected with "fetch first". Publication must refresh that exact
+ * ref, preserve local work, and retry after incorporating the remote tip.
+ */
+describe("session branch publication reconciles concurrent remote work", () => {
+  test("the backend fetches and reconciles before its ahead gate and push", () => {
+    const sync = functionBody(
+      sandboxGit,
+      "async function synchronizeBranchForPublish(",
+    );
+    const fetchAt = sync.indexOf("fetchBranchRefs(");
+    const divergenceAt = sync.indexOf("git rev-list --left-right --count");
+    expect(fetchAt).toBeGreaterThan(-1);
+    expect(divergenceAt).toBeGreaterThan(fetchAt);
+    expect(sync).toContain("git merge --ff-only");
+    expect(sync).toContain("git rebase ${quotedRemoteRef}");
+    expect(sync).toContain("git rebase --abort");
+    expect(sync).toContain("git update-ref -d");
+
+    const push = functionBody(
+      sandboxGit,
+      "export async function pushBranchToOrigin(",
+    );
+    const syncAt = push.indexOf("synchronizeBranchForPublish(");
+    const gateAt = push.indexOf("git rev-list --count HEAD --not");
+    const pushAt = push.indexOf("git push");
+    expect(syncAt).toBeGreaterThan(-1);
+    expect(syncAt).toBeLessThan(gateAt);
+    expect(gateAt).toBeLessThan(pushAt);
+    expect(push).toContain("isNonFastForwardPushError(message)");
+  });
+
+  test("resuming prefers a preserved local branch over a stale remote ref", () => {
+    const resolveAt = sandboxGit.indexOf(
+      "async function resolveBranchStartTarget(",
+    );
+    const localAt = sandboxGit.indexOf(
+      'return { ref: branchName, source: "localBranch" };',
+      resolveAt,
+    );
+    const remoteAt = sandboxGit.indexOf(
+      'return { ref: `origin/${branchName}`, source: "remoteBranch" };',
+      resolveAt,
+    );
+    expect(resolveAt).toBeGreaterThan(-1);
+    expect(localAt).toBeGreaterThan(-1);
+    expect(remoteAt).toBeGreaterThan(localAt);
+  });
+
+  test("the pre-completion durability push follows the same protocol", () => {
+    const syncAt = turnPersist.indexOf("synchronizeForPush(branch.out)");
+    const gateAt = turnPersist.indexOf('"rev-list",\n      "--count"');
+    const pushAt = turnPersist.indexOf('git(["push", "origin", refspec]');
+    expect(turnPersist).toContain('"fetch",\n      "--no-tags"');
+    expect(turnPersist).toContain('git(["rebase", remoteRef]');
+    expect(turnPersist).toContain('git(["rebase", "--abort"]');
+    expect(syncAt).toBeGreaterThan(-1);
+    expect(syncAt).toBeLessThan(gateAt);
+    expect(gateAt).toBeLessThan(pushAt);
+    expect(turnPersist).toContain("isNonFastForwardPush(push.out)");
   });
 });
 
@@ -190,7 +257,9 @@ describe("a turn that pushed nothing opens no pull request", () => {
 
   test("pushBranchToOrigin reports which of the two paths it took", () => {
     const body = pushBody();
-    const skipAt = body.indexOf("return { pushed: false, published };");
+    const skipAt = body.indexOf(
+      "return { pushed: false, published: remoteExists };",
+    );
     const pushAt = body.indexOf("git push");
     const pushedAt = body.indexOf(
       "return { pushed: true, published: true };",
@@ -321,7 +390,9 @@ describe("a callback-published session still opens its first pull request", () =
       "export async function pushBranchToOrigin(",
     );
     expect(body).toContain("refs/remotes/origin/${branchName}");
-    expect(body).toContain("return { pushed: false, published };");
+    expect(body).toContain(
+      "return { pushed: false, published: remoteExists };",
+    );
     expect(body).toContain("return { pushed: true, published: true };");
   });
 

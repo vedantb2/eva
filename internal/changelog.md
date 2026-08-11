@@ -1,5 +1,13 @@
 # Changelog
 
+## Session publishing reconciles the remote branch - 2026-08-11
+
+Session 55 completed its local work but the final push was rejected with `fetch first`. Its preserved sandbox had an older view of the stable `eva/session-…` branch while GitHub already contained commits from another callback or sandbox. Both publish paths only retried the same push; neither refreshed and reconciled that exact branch, so a non-fast-forward rejection could never recover by retrying.
+
+The callback durability push and the Convex post-completion push now fetch the exact remote branch before their ahead check. A remote-only advance fast-forwards locally; genuinely divergent histories rebase local-only commits onto the fetched tip; a conflict aborts the rebase so the sandbox retains its original recoverable commits. If another writer advances the branch between fetch and push, publication refetches and reconciles again. A missing remote branch also clears any stale snapshot tracking ref before the chat-only-turn gate runs.
+
+Branch setup now prefers an existing local session branch over a remote-tracking ref. This prevents a resumed or preserved sandbox from resetting away unpushed local work before the new publication reconciliation can make it durable. Regression coverage fixes the ordering and conflict-abort behavior for both publication paths. The 21 session publish contract tests pass, and TypeScript is clean for both the Convex and callback projects.
+
 ## Background agents stay with the composer - 2026-08-11
 
 Quick-task and project sandbox chats rendered `BackgroundAgentsChip` before the entire shared `ChatBody`, while sessions passed the same control through the composer's `preInputContent` slot. That made the chip appear above the conversation instead of above the composer. Both chat surfaces now use the same slot as sessions, so the control has one consistent location.

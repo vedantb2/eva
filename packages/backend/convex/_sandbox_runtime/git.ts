@@ -247,6 +247,16 @@ function isRetryableGitNetworkError(message: string): boolean {
   );
 }
 
+/** A concurrent writer moved the same branch after our last fetch. */
+function isNonFastForwardPushError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("non-fast-forward") ||
+    lower.includes("fetch first") ||
+    (lower.includes("[rejected]") && lower.includes("failed to push"))
+  );
+}
+
 /** Retries transient git network operations with short backoff. */
 async function retryGitNetworkOperation<T>(
   label: string,
@@ -655,9 +665,6 @@ async function resolveBranchStartTarget(
   ref: string;
   source: "localBranch" | "remoteBranch" | "base";
 }> {
-  if (await remoteTrackingBranchExists(sandbox, branchName)) {
-    return { ref: `origin/${branchName}`, source: "remoteBranch" };
-  }
   // Check local branches via SDK
   const branchList = await execSdkGitOperation(
     sandbox,
@@ -667,6 +674,9 @@ async function resolveBranchStartTarget(
   );
   if (branchList.branches.includes(branchName)) {
     return { ref: branchName, source: "localBranch" };
+  }
+  if (await remoteTrackingBranchExists(sandbox, branchName)) {
+    return { ref: `origin/${branchName}`, source: "remoteBranch" };
   }
   const { ref } = await resolveBaseTarget(sandbox, baseBranch);
   return { ref, source: "base" };
@@ -1019,6 +1029,91 @@ export async function setupBranch(
 }
 
 /**
+ * Refreshes the exact remote branch and makes the checked-out local branch a
+ * safe fast-forward of it before publication.
+ *
+ * Local-only commits are never reset away. When both sides moved, Git rebases
+ * the local-only commits onto the fetched remote tip; a conflict is aborted so
+ * the preserved sandbox remains in its original recoverable state.
+ */
+async function synchronizeBranchForPublish(
+  sandbox: SandboxHandle,
+  owner: string,
+  name: string,
+  branchName: string,
+): Promise<{ remoteExists: boolean }> {
+  if (!isSafeBranchName(branchName)) {
+    throw new Error(`Unsafe branch name: ${branchName}`);
+  }
+
+  const workspaceDir = workspaceDirShell();
+  const currentBranch = (
+    await execGitCommand(
+      sandbox,
+      `cd ${workspaceDir} && git branch --show-current`,
+      10,
+    )
+  ).trim();
+  if (currentBranch !== branchName) {
+    throw new Error(
+      `Refusing to publish ${branchName}: sandbox is on ${currentBranch || "detached HEAD"}`,
+    );
+  }
+
+  const fetched = await fetchBranchRefs(
+    sandbox,
+    owner,
+    name,
+    [branchName],
+    { prune: false, timeoutSeconds: 60, retryAttempts: 2 },
+  );
+  const remoteRefName = `refs/remotes/origin/${branchName}`;
+  const quotedRemoteRef = quote([remoteRefName]);
+  const quotedLocalRef = quote([`refs/heads/${branchName}`]);
+  if (!fetched.includes(branchName)) {
+    // An exact fetch that reports the branch missing is authoritative. Remove
+    // a snapshot's stale tracking ref so the empty-turn gate cannot mistake a
+    // deleted remote branch for a published one.
+    await execGitCommand(
+      sandbox,
+      `cd ${workspaceDir} && git update-ref -d ${quotedRemoteRef}`,
+      10,
+    );
+    return { remoteExists: false };
+  }
+
+  const divergence = (
+    await execGitCommand(
+      sandbox,
+      `cd ${workspaceDir} && git rev-list --left-right --count ${quotedRemoteRef}...${quotedLocalRef}`,
+      15,
+    )
+  ).trim();
+  if (/^0\s+\d+$/.test(divergence)) {
+    return { remoteExists: true };
+  }
+  if (/^[1-9]\d*\s+0$/.test(divergence)) {
+    await execGitCommand(
+      sandbox,
+      `cd ${workspaceDir} && git merge --ff-only ${quotedRemoteRef}`,
+      30,
+    );
+    return { remoteExists: true };
+  }
+  if (/^[1-9]\d*\s+[1-9]\d*$/.test(divergence)) {
+    await execGitCommand(
+      sandbox,
+      `cd ${workspaceDir} && if ! git rebase ${quotedRemoteRef}; then git rebase --abort; exit 1; fi`,
+      120,
+    );
+    return { remoteExists: true };
+  }
+  throw new Error(
+    `Could not classify branch divergence for ${branchName}: ${divergence}`,
+  );
+}
+
+/**
  * Pushes the current branch to origin with retry logic.
  *
  * Auth comes from the eva git credential helper installed at sandbox
@@ -1037,53 +1132,6 @@ export async function pushBranchToOrigin(
   const details = `${owner}/${name}, branch=${branchName}`;
   return await runLoggedGitStep("pushBranchToOrigin", details, async () => {
     const workspaceDir = workspaceDirShell();
-    // Ahead-of-remote gate: a turn that made no commits (chat/Q&A) has nothing
-    // to publish, and its first push would CREATE the remote branch — a ref
-    // update that runs the target repo's pre-push hooks inside a fresh sandbox
-    // where generated artefacts (Next.js route types, say) don't exist, so
-    // chat-only sessions spammed publish-failure alerts. Deliberately not a
-    // dirty-tree check — committed work leaves the tree clean (see
-    // sessionPublishContract); this asks whether HEAD carries any commit
-    // origin does not already have. Fail open: publishing is the critical
-    // path, so a broken gate pushes rather than blocks.
-    let unpushedCount = "unknown";
-    try {
-      unpushedCount = (
-        await execGitCommand(
-          sandbox,
-          `cd ${workspaceDir} && git rev-list --count HEAD --not --remotes=origin`,
-          15,
-        )
-      ).trim();
-    } catch (error) {
-      logGit(
-        `pushBranchToOrigin: ahead-of-remote gate failed, pushing anyway (${details}): ${error instanceof Error ? error.message : String(error)}`,
-      );
-    }
-    if (unpushedCount === "0") {
-      // The sandbox callback may already have pushed HEAD before posting the
-      // completion event. Distinguish that durable path from a chat-only turn,
-      // whose HEAD is reachable from origin/base but has no session branch.
-      let published = false;
-      try {
-        const remoteBranch = quote([`refs/remotes/origin/${branchName}`]);
-        published =
-          (
-            await execGitCommand(
-              sandbox,
-              `cd ${workspaceDir} && git rev-list --count HEAD --not ${remoteBranch}`,
-              15,
-            )
-          ).trim() === "0";
-      } catch {
-        // A missing remote-tracking ref is the expected chat-only first-turn
-        // case. The workflow must not attempt a PR for it.
-      }
-      logGit(
-        `pushBranchToOrigin: skipped — HEAD has no commits origin lacks (${details})`,
-      );
-      return { pushed: false, published };
-    }
     // Fully-qualified refspec, both sides. A bare branch name, `HEAD` or `@{u}`
     // can each resolve somewhere else (stale upstream, detached HEAD, a tag of
     // the same name); `refs/heads/x:refs/heads/x` names the exact ref to update.
@@ -1091,19 +1139,69 @@ export async function pushBranchToOrigin(
       `refs/heads/${branchName}:refs/heads/${branchName}`,
     ]);
     const repoUrl = bareGitHubRepoUrl(owner, name);
-    await retryGitNetworkOperation(
-      "pushBranchToOrigin",
-      details,
-      async () => {
+    const maxAttempts = opts?.retryAttempts ?? 2;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const { remoteExists } = await synchronizeBranchForPublish(
+        sandbox,
+        owner,
+        name,
+        branchName,
+      );
+
+      // A chat/Q&A turn has nothing to publish. Once the remote session branch
+      // exists, compare to that exact ref; otherwise compare to all fetched
+      // refs so the first chat turn does not create an empty branch. Fail open
+      // if the count itself fails: durability remains the critical path.
+      let unpushedCount: string | undefined;
+      try {
+        const exclusion = remoteExists
+          ? quote([`refs/remotes/origin/${branchName}`])
+          : "--remotes=origin";
+        unpushedCount = (
+          await execGitCommand(
+            sandbox,
+            `cd ${workspaceDir} && git rev-list --count HEAD --not ${exclusion}`,
+            15,
+          )
+        ).trim();
+      } catch (error) {
+        logGit(
+          `pushBranchToOrigin: ahead-of-remote gate failed, pushing anyway (${details}): ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      if (unpushedCount === "0") {
+        logGit(
+          `pushBranchToOrigin: skipped — HEAD has no commits origin lacks (${details})`,
+        );
+        return { pushed: false, published: remoteExists };
+      }
+
+      try {
         await execGitCommand(
           sandbox,
           `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push -u origin ${quotedRefspec}`,
           opts?.timeoutSeconds ?? 60,
         );
-      },
-      opts?.retryAttempts ?? 2,
-    );
-    return { pushed: true, published: true };
+        return { pushed: true, published: true };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        const shouldRetry =
+          attempt < maxAttempts &&
+          (isRetryableGitNetworkError(message) ||
+            isNonFastForwardPushError(message));
+        if (!shouldRetry) {
+          throw error;
+        }
+        const delayMs = 1000 * attempt;
+        logGit(
+          `pushBranchToOrigin: remote moved or push was transient; refetching in ${delayMs}ms after attempt ${attempt}/${maxAttempts} (${details}): ${message}`,
+        );
+        await new Promise<void>((resolve) => {
+          setTimeout(resolve, delayMs);
+        });
+      }
+    }
+    throw new Error(`pushBranchToOrigin exhausted retries (${details})`);
   });
 }
 

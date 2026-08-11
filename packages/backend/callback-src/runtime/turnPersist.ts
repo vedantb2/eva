@@ -36,6 +36,86 @@ function git(
   return { ok: result.status === 0, out };
 }
 
+type BranchSyncResult =
+  | { status: "ready"; remoteExists: boolean }
+  | { status: "failed" };
+
+function isMissingRemoteRef(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("couldn't find remote ref") ||
+    lower.includes("could not find remote ref")
+  );
+}
+
+function isNonFastForwardPush(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("non-fast-forward") ||
+    lower.includes("fetch first") ||
+    (lower.includes("[rejected]") && lower.includes("failed to push"))
+  );
+}
+
+/** Refreshes and safely incorporates the exact branch tip before pushing. */
+function synchronizeForPush(branch: string): BranchSyncResult {
+  const remoteRef = `refs/remotes/origin/${branch}`;
+  const fetch = git(
+    [
+      "fetch",
+      "--no-tags",
+      "origin",
+      `+refs/heads/${branch}:${remoteRef}`,
+    ],
+    PUSH_TIMEOUT_MS,
+  );
+  if (!fetch.ok) {
+    if (isMissingRemoteRef(fetch.out)) {
+      git(["update-ref", "-d", remoteRef]);
+      return { status: "ready", remoteExists: false };
+    }
+    log(`persistTurnWork: fetch failed: ${fetch.out.slice(0, 200)}`);
+    return { status: "failed" };
+  }
+
+  const divergence = git([
+    "rev-list",
+    "--left-right",
+    "--count",
+    `${remoteRef}...refs/heads/${branch}`,
+  ]);
+  if (!divergence.ok) {
+    log(
+      `persistTurnWork: divergence check failed: ${divergence.out.slice(0, 200)}`,
+    );
+    return { status: "failed" };
+  }
+  if (/^0\s+\d+$/.test(divergence.out)) {
+    return { status: "ready", remoteExists: true };
+  }
+  if (/^[1-9]\d*\s+0$/.test(divergence.out)) {
+    const fastForward = git(["merge", "--ff-only", remoteRef]);
+    if (fastForward.ok) {
+      return { status: "ready", remoteExists: true };
+    }
+    log(
+      `persistTurnWork: fast-forward failed: ${fastForward.out.slice(0, 200)}`,
+    );
+    return { status: "failed" };
+  }
+  if (/^[1-9]\d*\s+[1-9]\d*$/.test(divergence.out)) {
+    const rebase = git(["rebase", remoteRef], PUSH_TIMEOUT_MS);
+    if (rebase.ok) {
+      return { status: "ready", remoteExists: true };
+    }
+    git(["rebase", "--abort"]);
+    log(`persistTurnWork: rebase failed: ${rebase.out.slice(0, 200)}`);
+    return { status: "failed" };
+  }
+  log(`persistTurnWork: unexpected divergence: ${divergence.out}`);
+  return { status: "failed" };
+}
+
 /**
  * Makes the turn's work durable BEFORE the completion mutation is posted:
  * commits any uncommitted changes (safety net for agents that skipped the
@@ -82,25 +162,47 @@ export function persistTurnWork(): void {
     }
   }
 
-  // Ahead-of-remote gate (mirrors pushBranchToOrigin): chat-only turns have
-  // nothing to publish and their push would create the remote branch. Fail
-  // open — durability is the point, so an unreadable count still pushes.
-  const unpushed = git([
-    "rev-list",
-    "--count",
-    "HEAD",
-    "--not",
-    "--remotes=origin",
-  ]);
-  if (unpushed.ok && unpushed.out === "0") return;
-
+  // The exact remote branch is refreshed below before the ahead-of-remote gate
+  // and push, so a resumed sandbox cannot publish from a stale tracking ref.
   // Fully-qualified refspec, both sides. `HEAD` resolves through whatever the
   // branch currently points at and a bare name goes through the upstream, so
   // either could aim at the base branch; this names the exact ref to update and
   // cannot resolve anywhere else.
   const refspec = `refs/heads/${branch.out}:refs/heads/${branch.out}`;
-  const push = git(["push", "origin", refspec], PUSH_TIMEOUT_MS);
-  log(
-    `persistTurnWork: push ${push.ok ? "ok" : "failed: " + push.out.slice(0, 200)} branch=${branch.out} in ${Date.now() - startedAt}ms`,
-  );
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    const sync = synchronizeForPush(branch.out);
+    if (sync.status === "failed") return;
+
+    // Chat-only turns have nothing to publish. Once the branch exists, compare
+    // to that exact ref; otherwise compare against all fetched origin refs.
+    const exclusion = sync.remoteExists
+      ? [`refs/remotes/origin/${branch.out}`]
+      : ["--remotes=origin"];
+    const unpushed = git([
+      "rev-list",
+      "--count",
+      "HEAD",
+      "--not",
+      ...exclusion,
+    ]);
+    if (unpushed.ok && unpushed.out === "0") return;
+
+    const push = git(["push", "origin", refspec], PUSH_TIMEOUT_MS);
+    if (push.ok) {
+      log(
+        `persistTurnWork: push ok branch=${branch.out} in ${Date.now() - startedAt}ms`,
+      );
+      return;
+    }
+    if (attempt < 2 && isNonFastForwardPush(push.out)) {
+      log(
+        `persistTurnWork: remote moved during push; refetching branch=${branch.out}`,
+      );
+      continue;
+    }
+    log(
+      `persistTurnWork: push failed: ${push.out.slice(0, 200)} branch=${branch.out} in ${Date.now() - startedAt}ms`,
+    );
+    return;
+  }
 }

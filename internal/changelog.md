@@ -1,5 +1,11 @@
 # Changelog
 
+## Background agents stay with the composer - 2026-08-11
+
+Quick-task and project sandbox chats rendered `BackgroundAgentsChip` before the entire shared `ChatBody`, while sessions passed the same control through the composer's `preInputContent` slot. That made the chip appear above the conversation instead of above the composer. Both chat surfaces now use the same slot as sessions, so the control has one consistent location.
+
+The chip also treated every running SDK subagent as a background agent. Production logs during quick task 222 showed three background-agent document updates in roughly 3.5 seconds as the agent was discovered, marked backgrounded, and settled; rendering from the first update made ordinary foreground subagents briefly flash the control. Visibility now requires both `status: "running"` and `backgrounded: true`, while settled background agents still disappear normally.
+
 ## Live activity follows task, project, and Cursor work - 2026-08-11
 
 Quick-task chat 227 worked for almost six minutes while its preview only showed “Working…”. The warm Claude daemon was launched with the bare task document ID, but task chat subscribes to `task-chat-<id>`; its heartbeats were healthy and detailed, just written to a row the UI never reads. Project chat had the same split contract with `project-chat-<id>`. The shared prewarm action now accepts an explicit streaming entity ID, uses it for both the scoped heartbeat HMAC and `STREAMING_ENTITY_ID`, and includes it in the daemon options signature. Every task/project prewarm entry point passes its prefixed key, so already-warm daemons with the old destination are treated as mismatches and replaced instead of being reused.

@@ -231,12 +231,6 @@ export function TaskSandboxChatPanel({
           />
         </div>
       ) : null}
-      <BackgroundAgentsChip
-        backgroundAgents={task?.backgroundAgents}
-        onRequestStop={async (toolUseId) => {
-          await requestStopBackgroundAgent({ taskId, toolUseId });
-        }}
-      />
       <ChatBody
         repoId={repo._id}
         repoBasePath={basePath}
@@ -270,6 +264,14 @@ export function TaskSandboxChatPanel({
         onTraitsChange={onTraitsChange}
         onSend={handleSend}
         onCancel={handleCancel}
+        preInputContent={
+          <BackgroundAgentsChip
+            backgroundAgents={task?.backgroundAgents}
+            onRequestStop={async (toolUseId) => {
+              await requestStopBackgroundAgent({ taskId, toolUseId });
+            }}
+          />
+        }
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}

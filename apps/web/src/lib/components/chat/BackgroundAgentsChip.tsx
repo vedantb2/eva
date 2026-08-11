@@ -10,12 +10,9 @@ import {
 import type { BackgroundAgentEntry } from "@eva/backend";
 import { IconLoader2, IconPlayerStop, IconRobot } from "@tabler/icons-react";
 import { useState } from "react";
+import { isVisibleBackgroundAgent } from "./backgroundAgentVisibility";
 
 type BackgroundAgent = BackgroundAgentEntry;
-
-function isRunningAgent(agent: BackgroundAgent): boolean {
-  return agent.status === "running";
-}
 
 function formatStatus(status: string): string {
   return status.replaceAll("_", " ");
@@ -34,7 +31,9 @@ export function BackgroundAgentsChip({
     () => new Set(),
   );
 
-  const runningAgents = (backgroundAgents ?? []).filter(isRunningAgent);
+  const runningAgents = (backgroundAgents ?? []).filter(
+    isVisibleBackgroundAgent,
+  );
   if (runningAgents.length === 0) {
     return null;
   }

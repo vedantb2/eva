@@ -253,9 +253,11 @@ if (!LOOPBACK_HOSTS.has(targetHost)) {
 }
 
 // A storage export can take a long time; check the target is up before starting.
+// 15s rather than 5s: a backend under load — a sandbox VM, or `convex dev` in the
+// middle of a push — can be slow to answer without being down.
 try {
   const response = await fetch(`${target.url}/instance_name`, {
-    signal: AbortSignal.timeout(5000),
+    signal: AbortSignal.timeout(15_000),
   });
   if (!response.ok) {
     fail(`${target.url}/instance_name returned ${response.status}.`);

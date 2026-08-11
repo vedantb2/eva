@@ -207,6 +207,11 @@ function normalizeBranchNames(branchNames: string[]): string[] {
   return normalized;
 }
 
+/** Git refuses whitespace in ref names; anything else is unsafe to inject. */
+function isSafeBranchName(branchName: string): boolean {
+  return /^[^\s\\:?*[~^]+$/.test(branchName) && !branchName.includes("..");
+}
+
 /** Checks if an error message indicates a missing remote ref. */
 function isMissingRemoteRefError(message: string): boolean {
   const lower = message.toLowerCase();
@@ -667,6 +672,39 @@ async function resolveBranchStartTarget(
   return { ref, source: "base" };
 }
 
+/**
+ * Pins the working branch's upstream to `origin/<branchName>`.
+ *
+ * `git checkout -B <branch> origin/<base>` tracks the START POINT, so the branch
+ * was left tracking `origin/<base>` — a bare `git push` then either fataled
+ * (push.default=simple, names differ) or, with push.default=upstream, aimed
+ * straight at the base branch, and `git pull` silently rebased onto it.
+ *
+ * Written as config rather than `git branch --set-upstream-to`, which needs the
+ * remote-tracking ref to exist — the remote branch is deliberately not created
+ * until there is a commit to publish (see `pushBranchToOrigin`).
+ *
+ * Best-effort: never fails branch setup.
+ */
+async function pinBranchUpstream(
+  sandbox: SandboxHandle,
+  branchName: string,
+): Promise<void> {
+  if (!isSafeBranchName(branchName)) return;
+  const workspaceDir = workspaceDirShell();
+  try {
+    await execGitCommand(
+      sandbox,
+      `cd ${workspaceDir} && git config ${quote([`branch.${branchName}.remote`])} origin && git config ${quote([`branch.${branchName}.merge`])} ${quote([`refs/heads/${branchName}`])}`,
+      15,
+    );
+  } catch (error) {
+    logGit(
+      `pinBranchUpstream: failed for ${branchName} (continuing): ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+}
+
 /** Checks out a session branch, creating it from a remote or base ref if needed. */
 export async function checkoutSessionBranch(
   sandbox: SandboxHandle,
@@ -692,23 +730,27 @@ export async function checkoutSessionBranch(
           5,
         )
       ).trim();
-      if (currentBranch === branchName) {
-        // Already on the branch — nothing to do
+      if (currentBranch !== branchName) {
+        // Checkout using git command (more reliable than SDK for existing branches)
+        const quotedBranch = quote([branchName]);
+        await execGitCommand(
+          sandbox,
+          `cd ${workspaceDir} && git checkout ${quotedBranch}`,
+          20,
+        );
+      } else {
         logGit(
           `checkoutSessionBranch: already on ${branchName}, skipping checkout`,
         );
-        return;
       }
-      // Checkout using git command (more reliable than SDK for existing branches)
-      const quotedBranch = quote([branchName]);
-      await execGitCommand(
-        sandbox,
-        `cd ${workspaceDir} && git checkout ${quotedBranch}`,
-        20,
-      );
+      // Also self-heals branches created before the upstream pin existed.
+      await pinBranchUpstream(sandbox, branchName);
       return;
     }
-    // Branch doesn't exist locally — create from remote tracking or base ref
+    // Branch doesn't exist locally — create from remote tracking or base ref.
+    // `--no-track` on the base fallback: tracking the START POINT is what left
+    // the branch pointing at origin/<base>; pinBranchUpstream then pins the
+    // upstream to origin/<branchName> on both arms.
     const { ref: baseTarget } = await resolveBaseTarget(sandbox, baseBranch);
     const quotedBranch = quote([branchName]);
     const quotedRemoteBranch = quote([`origin/${branchName}`]);
@@ -716,9 +758,10 @@ export async function checkoutSessionBranch(
     const workspaceDir = workspaceDirShell();
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && (git checkout -b ${quotedBranch} ${quotedRemoteBranch} || git checkout -b ${quotedBranch} ${quotedBase})`,
+      `cd ${workspaceDir} && (git checkout -b ${quotedBranch} ${quotedRemoteBranch} || git checkout --no-track -b ${quotedBranch} ${quotedBase})`,
       30,
     );
+    await pinBranchUpstream(sandbox, branchName);
   });
 }
 
@@ -964,11 +1007,14 @@ export async function setupBranch(
     const quotedBranch = quote([branchName]);
     const quotedStartTarget = quote([startTarget]);
     const workspaceDir = workspaceDirShell();
+    // `--no-track`: `-B <branch> origin/<base>` would track the start point,
+    // leaving the working branch pointing at the base branch.
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && git checkout -B ${quotedBranch} ${quotedStartTarget}`,
+      `cd ${workspaceDir} && git checkout --no-track -B ${quotedBranch} ${quotedStartTarget}`,
       15,
     );
+    await pinBranchUpstream(sandbox, branchName);
   });
 }
 
@@ -1038,7 +1084,12 @@ export async function pushBranchToOrigin(
       );
       return { pushed: false, published };
     }
-    const quotedBranch = quote([branchName]);
+    // Fully-qualified refspec, both sides. A bare branch name, `HEAD` or `@{u}`
+    // can each resolve somewhere else (stale upstream, detached HEAD, a tag of
+    // the same name); `refs/heads/x:refs/heads/x` names the exact ref to update.
+    const quotedRefspec = quote([
+      `refs/heads/${branchName}:refs/heads/${branchName}`,
+    ]);
     const repoUrl = bareGitHubRepoUrl(owner, name);
     await retryGitNetworkOperation(
       "pushBranchToOrigin",
@@ -1046,7 +1097,7 @@ export async function pushBranchToOrigin(
       async () => {
         await execGitCommand(
           sandbox,
-          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push -u origin ${quotedBranch}`,
+          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push -u origin ${quotedRefspec}`,
           opts?.timeoutSeconds ?? 60,
         );
       },

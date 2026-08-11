@@ -94,7 +94,12 @@ export function persistTurnWork(): void {
   ]);
   if (unpushed.ok && unpushed.out === "0") return;
 
-  const push = git(["push", "origin", "HEAD"], PUSH_TIMEOUT_MS);
+  // Fully-qualified refspec, both sides. `HEAD` resolves through whatever the
+  // branch currently points at and a bare name goes through the upstream, so
+  // either could aim at the base branch; this names the exact ref to update and
+  // cannot resolve anywhere else.
+  const refspec = `refs/heads/${branch.out}:refs/heads/${branch.out}`;
+  const push = git(["push", "origin", refspec], PUSH_TIMEOUT_MS);
   log(
     `persistTurnWork: push ${push.ok ? "ok" : "failed: " + push.out.slice(0, 200)} branch=${branch.out} in ${Date.now() - startedAt}ms`,
   );

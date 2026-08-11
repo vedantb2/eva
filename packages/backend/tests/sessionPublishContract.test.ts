@@ -267,7 +267,52 @@ describe("a callback-published session still opens its first pull request", () =
     expect(persistAt, "the durability push moved").toBeGreaterThan(-1);
     expect(completionAt, "the completion call moved").toBeGreaterThan(-1);
     expect(persistAt).toBeLessThan(completionAt);
-    expect(turnPersist).toContain('git(["push", "origin", "HEAD"]');
+    expect(turnPersist).toContain('git(["push", "origin", refspec]');
+  });
+
+  /**
+   * `HEAD` and a bare branch name both resolve through repo state (the branch a
+   * detached HEAD sits on, the configured upstream), so a session whose upstream
+   * was left as `origin/<base>` could aim its publish at the base branch. Both
+   * push paths name the exact ref instead.
+   */
+  test("both push paths push a fully-qualified refspec", () => {
+    expect(turnPersist).toContain(
+      "const refspec = `refs/heads/${branch.out}:refs/heads/${branch.out}`",
+    );
+    const body = functionBody(
+      sandboxGit,
+      "export async function pushBranchToOrigin(",
+    );
+    expect(body).toContain(
+      "`refs/heads/${branchName}:refs/heads/${branchName}`",
+    );
+    expect(body, "HEAD resolves through repo state").not.toMatch(
+      /git push[^`\n]*\bHEAD\b/,
+    );
+  });
+
+  /**
+   * `git checkout -B <branch> origin/<base>` tracks the START POINT, which left
+   * the working branch's upstream as `origin/<base>` — the shape that made a
+   * bare `git push` fatal (or aim at the base branch) and `git pull` rebase onto
+   * it. Both branch-setup paths must create with `--no-track` and pin the
+   * upstream to the branch's own name.
+   */
+  test("branch setup pins the upstream to the working branch", () => {
+    for (const entry of [
+      "export async function checkoutSessionBranch(",
+      "export async function setupBranch(",
+    ]) {
+      const body = functionBody(sandboxGit, entry);
+      expect(body, `${entry} lost --no-track`).toContain("--no-track");
+      expect(body, `${entry} lost the upstream pin`).toContain(
+        "pinBranchUpstream(sandbox, branchName)",
+      );
+    }
+    const pin = functionBody(sandboxGit, "async function pinBranchUpstream(");
+    expect(pin).toContain("branch.${branchName}.remote");
+    expect(pin).toContain("refs/heads/${branchName}");
   });
 
   test("the post-completion push reports an already-published branch", () => {

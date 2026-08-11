@@ -4668,7 +4668,8 @@ function persistTurnWork() {
     "--remotes=origin"
   ]);
   if (unpushed.ok && unpushed.out === "0") return;
-  const push = git(["push", "origin", "HEAD"], PUSH_TIMEOUT_MS);
+  const refspec = \`refs/heads/\${branch.out}:refs/heads/\${branch.out}\`;
+  const push = git(["push", "origin", refspec], PUSH_TIMEOUT_MS);
   log(
     \`persistTurnWork: push \${push.ok ? "ok" : "failed: " + push.out.slice(0, 200)} branch=\${branch.out} in \${Date.now() - startedAt}ms\`
   );

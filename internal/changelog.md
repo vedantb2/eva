@@ -1,5 +1,15 @@
 # Changelog
 
+## Session branches stop tracking the base branch - 2026-08-11
+
+A session, quick task or project run that committed locally could fail to publish, and the failure pointed at the base branch. The cause was one git default. `git checkout -B eva/task-123 origin/staging` sets the upstream to the START POINT, so the new branch was left with `branch.eva/task-123.merge = refs/heads/staging`. With `push.default=simple` a bare `git push` then fataled — "the upstream branch of your current branch does not match the name of your current branch" — and the hint git prints in that situation, `git push origin HEAD:staging`, is exactly the push that lands session commits on the shared branch. `git pull` with no arguments quietly rebased onto the base branch for the same reason.
+
+Both branch-setup paths in `_sandbox_runtime/git.ts` now create with `--no-track` and pin the upstream themselves: `pinBranchUpstream` writes `branch.<name>.remote = origin` and `branch.<name>.merge = refs/heads/<name>`. Raw config rather than `git branch --set-upstream-to`, which needs the remote-tracking ref to exist — eva deliberately does not create the remote branch until there is a commit to publish, so the ref is usually absent at setup time. `checkoutSessionBranch` calls it on the already-exists arm too, which self-heals branches created before this change. Best-effort: a failed pin logs and continues rather than failing branch setup.
+
+Both push paths now name the ref on both sides of the refspec — `refs/heads/<branch>:refs/heads/<branch>` — in `pushBranchToOrigin` and in the callback's pre-completion durability push (`callback-src/runtime/turnPersist.ts`, previously `git push origin HEAD`). `HEAD` resolves through whatever the branch currently points at and a bare name resolves through the upstream, so either could aim somewhere the caller did not intend; a fully-qualified refspec cannot. The agent prompt's duplicate-PR recipe was updated to the same form.
+
+Reproduced and fixed locally in a throwaway repo: with `-B origin/staging` the bare push fatals, and with `--no-track` plus the pinned config it creates `origin/eva/task-N` correctly even with no remote-tracking ref present. One cosmetic side effect: `git status -sb` shows `[gone]` for the upstream until the first push, and `git pull` with no arguments now fails with "couldn't find remote ref" instead of silently rebasing onto the base branch — the safer failure. The publish contract test gained a case for the pin and one for the refspecs; 18 tests pass, and `tsc` is clean for both the convex and callback projects.
+
 ## Project Overview gets the traits menu, and loses two toggles - 2026-08-11
 
 The Overview column showed a project's model with nothing next to it, while every other model picker in the app — the chat composers, the quick task modal, task Properties — carries a traits menu for reasoning, thinking, 1M context and Fast. The model row now carries it too, so a project's reasoning level is visible where the project is configured rather than only inside the sandbox chat composer.

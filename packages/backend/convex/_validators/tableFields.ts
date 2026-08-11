@@ -461,8 +461,6 @@ export const githubRepoFields = {
   devPort: v.optional(v.number()),
   devCommand: v.optional(v.string()),
   systemPrompt: v.optional(v.string()),
-  prRecapsEnabled: v.optional(v.boolean()),
-  prRecapModel: v.optional(aiModelValidator),
   // Convex storage id of an uploaded logo image shown next to the repo in repo
   // lists. Per-app (not shared across monorepo siblings). Resolved to a URL by
   // list/listByTeam via ctx.storage.getUrl.

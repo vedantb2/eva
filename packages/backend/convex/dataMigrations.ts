@@ -43,20 +43,3 @@ export const dataMigrations = new Migrations<DataModel, typeof schema>(
 
 /** Generic runner: `npx convex run dataMigrations:run '{fn:"dataMigrations:…"}'`. */
 export const run = dataMigrations.runner();
-
-/**
- * Recaps are generated on demand from the panel button, so the repo-level
- * toggle and pinned model are gone. Clears both values so the fields can leave
- * `githubRepoFields` — Convex rejects a schema that drops a field still held by
- * documents. Delete this once it has run on dev and prod.
- */
-export const clearPrRecapConfig = dataMigrations.define({
-  table: "githubRepos",
-  parallelize: true,
-  migrateOne: (_ctx, repo) => {
-    if (repo.prRecapsEnabled === undefined && repo.prRecapModel === undefined) {
-      return;
-    }
-    return { prRecapsEnabled: undefined, prRecapModel: undefined };
-  },
-});

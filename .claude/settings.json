@@ -1,4 +1,27 @@
 {
+  "permissions": {
+    "allow": [
+      "mcp__inngest-dev__get_app",
+      "mcp__inngest-dev__get_apps",
+      "mcp__inngest-dev__get_event_runs",
+      "mcp__inngest-dev__get_function",
+      "mcp__inngest-dev__get_run",
+      "mcp__inngest-dev__get_run_trace",
+      "mcp__inngest-dev__health",
+      "mcp__inngest-dev__list_function_runs",
+      "mcp__inngest-dev__list_functions",
+      "mcp__inngest-dev__list_runs",
+      "mcp__inngest-dev__grep_docs",
+      "mcp__inngest-dev__list_docs",
+      "mcp__inngest-dev__read_doc"
+    ],
+    "deny": [
+      "mcp__inngest-dev__cancel_run",
+      "mcp__inngest-dev__invoke_function",
+      "mcp__inngest-dev__rerun",
+      "mcp__inngest-dev__send_event"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {

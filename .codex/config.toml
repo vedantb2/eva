@@ -23,3 +23,23 @@ env_vars = ["FIGMA_API_KEY"]
 [mcp_servers.linear]
 url = "https://mcp.linear.app/mcp"
 bearer_token_env_var = "LINEAR_API_KEY"
+
+[mcp_servers.inngest-dev]
+url = "http://127.0.0.1:8288/mcp"
+required = false
+default_tools_approval_mode = "approve"
+enabled_tools = [
+    "get_app",
+    "get_apps",
+    "get_event_runs",
+    "get_function",
+    "get_run",
+    "get_run_trace",
+    "health",
+    "list_function_runs",
+    "list_functions",
+    "list_runs",
+    "grep_docs",
+    "list_docs",
+    "read_doc",
+]

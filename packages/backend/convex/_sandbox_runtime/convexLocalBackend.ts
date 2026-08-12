@@ -61,8 +61,14 @@ export function buildConvexPostSeedPushLines(repoDir: string): string[] {
   return [
     'echo "SEEDRUN-STAGE:convex-push"',
     `eva_cfg=$(${findConfig} 2>/dev/null | head -1)`,
+    // A repo that runs a Convex daemon always leaves this config behind, so its
+    // absence means the daemon never got a backend up. Failing here is the
+    // point: a build that quietly skipped the push would go green with a
+    // snapshot whose functions were never deployed.
     'if [ -z "$eva_cfg" ]; then',
-    `  echo "convex-push: no local deployment config under ${repoDir} — nothing to push"`,
+    `  echo "convex-push: no local deployment config under ${repoDir}"`,
+    '  echo "SEEDRUN-FAILED:convex-push"',
+    "  exit 1",
     "else",
     `  eva_app=$(cd "$(dirname "$eva_cfg")/../../.." && pwd)`,
     `  eva_port=$(${readField('["ports"]["cloud"]')})`,

@@ -26,12 +26,35 @@ test("interactive Codex surfaces route through the persistent App Server daemon"
   );
 });
 
-test("one-shot provider attempts remain available for non-chat Codex jobs", () => {
+test("non-chat Codex jobs route through the official SDK without a direct exec path", () => {
   const callbackEntry = source("callback-src/index.ts");
   expect(callbackEntry).toContain(
     "const firstAttempt = await runProviderAttempt(initialSessionMode)",
   );
-  expect(source("callback-src/providers/attempts.ts")).toContain(
-    'if (PROVIDER === "codex") return await runCodexAttempt(sessionMode)',
+  const attempts = source("callback-src/providers/attempts.ts");
+  expect(attempts).toContain(
+    'import { runCodexSdkAttempt } from "./codexSdk.js"',
   );
+  expect(attempts).toContain("return await runCodexSdkAttempt(sessionMode)");
+
+  const sdkRunner = source("callback-src/providers/codexSdk.ts");
+  expect(sdkRunner).toContain(
+    'import { Codex, type ThreadEvent, type ThreadOptions } from "@openai/codex-sdk"',
+  );
+  expect(sdkRunner).toContain("await thread.runStreamed(");
+
+  const config = source("callback-src/config.ts");
+  expect(config).not.toContain("codexExecBaseCmd");
+  expect(config).not.toContain("codexPromptCmd");
+  expect(attempts).not.toContain("codexExecBaseCmd");
+  expect(attempts).not.toContain("codexPromptCmd");
+  expect(source("package.json")).toContain('"@openai/codex-sdk"');
+
+  const deployedCallback = source(
+    "convex/_sandbox_runtime/callbackScript.generated.ts",
+  );
+  expect(deployedCallback).toContain("runCodexSdkAttempt");
+  expect(deployedCallback).toContain('"codex_sdk_ts"');
+  expect(deployedCallback).not.toContain("codexExecBaseCmd");
+  expect(deployedCallback).not.toContain("codexPromptCmd");
 });

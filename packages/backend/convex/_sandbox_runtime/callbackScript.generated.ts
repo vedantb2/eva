@@ -2,7 +2,7 @@
 
 export const CALLBACK_SCRIPT = `// callback-src/index.ts
 import {
-  existsSync as existsSync10,
+  existsSync as existsSync11,
   mkdirSync as mkdirSync8,
   readdirSync as readdirSync4,
   unlinkSync as unlinkSync4,
@@ -194,11 +194,8 @@ var CURSOR_REASONING_EFFORT = {
   max: "high"
 };
 var cursorReasoningLevel = PROVIDER === "cursor" && REASONING_EFFORT in CURSOR_REASONING_EFFORT ? CURSOR_REASONING_EFFORT[REASONING_EFFORT] : cursorModelParts.level;
-var codexCommand = existsSync(CODEX_BIN_PATH) ? JSON.stringify(CODEX_BIN_PATH) : "codex";
 var opencodeCommand = existsSync(OPENCODE_BIN_PATH) ? JSON.stringify(OPENCODE_BIN_PATH) : "opencode";
-var codexPromptCmd = SYSTEM_PROMPT ? "(printf %s\\\\n\\\\n " + JSON.stringify(SYSTEM_PROMPT) + "; cat /tmp/design-prompt.txt)" : "cat /tmp/design-prompt.txt";
-var opencodePromptCmd = codexPromptCmd;
-var codexExecBaseCmd = codexCommand + " exec --skip-git-repo-check --full-auto --json --model " + JSON.stringify(normalizedCodexModel);
+var opencodePromptCmd = SYSTEM_PROMPT ? "(printf %s\\\\n\\\\n " + JSON.stringify(SYSTEM_PROMPT) + "; cat /tmp/design-prompt.txt)" : "cat /tmp/design-prompt.txt";
 var opencodeExecBaseCmd = opencodeCommand + " run --format json --model " + JSON.stringify(normalizedOpencodeModel);
 var TOOL_STEP_TYPES = /* @__PURE__ */ new Set([
   "read",
@@ -235,7 +232,7 @@ var completedLabels = {
   "Preparing Opencode session...": "Prepared Opencode session",
   "Preparing Cursor session...": "Prepared Cursor session",
   "Starting Claude CLI...": "Started Claude CLI",
-  "Starting Codex CLI...": "Started Codex CLI",
+  "Starting Codex SDK...": "Started Codex SDK",
   "Starting Opencode CLI...": "Started Opencode CLI",
   "Starting Cursor CLI...": "Started Cursor CLI",
   "Restoring Claude session...": "Restored Claude session",
@@ -312,12 +309,12 @@ function parsePriorStep(value) {
     return null;
   }
   const detail = value.detail;
-  const path = value.path;
+  const path3 = value.path;
   const step = {
     type,
     label,
     detail: typeof detail === "string" ? detail : void 0,
-    path: typeof path === "string" ? path : void 0,
+    path: typeof path3 === "string" ? path3 : void 0,
     status: "complete"
   };
   if (typeof value.toolUseId === "string" && value.toolUseId.trim()) {
@@ -654,7 +651,7 @@ function buildRetryDelayMs(attempt) {
   const jitter = Math.floor(Math.random() * 500);
   return exponential + jitter;
 }
-async function callConvex(type, path, args) {
+async function callConvex(type, path3, args) {
   const endpoint = type === "mutation" ? "/api/mutation" : "/api/action";
   const headers = {
     "Content-Type": "application/json"
@@ -663,21 +660,21 @@ async function callConvex(type, path, args) {
   const res = await fetchWithTimeout(CONVEX_URL + endpoint, {
     method: "POST",
     headers,
-    body: JSON.stringify({ path, args, format: "json" })
+    body: JSON.stringify({ path: path3, args, format: "json" })
   });
   if (!res.ok) {
     const text = await res.text();
     throw new Error(
-      "Convex " + type + " " + path + " failed: " + res.status + " " + text
+      "Convex " + type + " " + path3 + " failed: " + res.status + " " + text
     );
   }
   return await readResponseJson(res) ?? null;
 }
-async function callConvexWithRetry(type, path, args, maxRetries = CALLBACK_HTTP_MAX_RETRIES) {
+async function callConvexWithRetry(type, path3, args, maxRetries = CALLBACK_HTTP_MAX_RETRIES) {
   let attempt = 0;
   while (true) {
     try {
-      return await callConvex(type, path, args);
+      return await callConvex(type, path3, args);
     } catch (e) {
       attempt++;
       if (attempt > maxRetries) throw e;
@@ -977,8 +974,8 @@ function probeToolCompleteResult(source) {
 function extractFilePaths(obj) {
   const paths2 = [];
   const seen = /* @__PURE__ */ new Set();
-  const add = (path) => {
-    const trimmed = path.trim();
+  const add = (path3) => {
+    const trimmed = path3.trim();
     if (!trimmed || seen.has(trimmed)) return;
     if (paths2.length >= STEP_FIELD_CAPS.filesMax) return;
     seen.add(trimmed);
@@ -1042,7 +1039,7 @@ function opencodeToolToStep(part) {
   const stateObj = part.state && typeof part.state === "object" && !Array.isArray(part.state) ? part.state : null;
   const input = stateObj && "input" in stateObj && stateObj.input && typeof stateObj.input === "object" && !Array.isArray(stateObj.input) ? stateObj.input : {};
   const rawPath = typeof input.filePath === "string" ? input.filePath : typeof input.file_path === "string" ? input.file_path : typeof input.path === "string" ? input.path : "";
-  const path = rawPath ? shortenPath(rawPath) : "";
+  const path3 = rawPath ? shortenPath(rawPath) : "";
   const toolUseId = pickToolCallId(part) ?? (typeof part.callID === "string" && part.callID.trim() ? part.callID.trim() : void 0);
   let step;
   switch (tool) {
@@ -1050,7 +1047,7 @@ function opencodeToolToStep(part) {
       step = {
         type: "read",
         label: "Reading file...",
-        detail: path || void 0,
+        detail: path3 || void 0,
         path: rawPath || void 0,
         status: "active"
       };
@@ -1076,7 +1073,7 @@ function opencodeToolToStep(part) {
       step = {
         type: "write",
         label: "Creating file...",
-        detail: path || void 0,
+        detail: path3 || void 0,
         path: rawPath || void 0,
         contentPreview: content ? capContentPreview(content) : void 0,
         status: "active"
@@ -1087,7 +1084,7 @@ function opencodeToolToStep(part) {
       step = {
         type: "edit",
         label: "Editing file...",
-        detail: path || void 0,
+        detail: path3 || void 0,
         path: rawPath || void 0,
         edits: extractClaudeEdits(input),
         status: "active"
@@ -1164,7 +1161,7 @@ function cursorSdkToolToStep(name, args) {
     "relativePath",
     "relative_path"
   ]);
-  const path = rawPath ? shortenPath(rawPath) : "";
+  const path3 = rawPath ? shortenPath(rawPath) : "";
   const command = pickString(["command", "cmd"]);
   const query = pickString([
     "query",
@@ -1178,7 +1175,7 @@ function cursorSdkToolToStep(name, args) {
       return {
         type: "read",
         label: "Reading file...",
-        detail: path || void 0,
+        detail: path3 || void 0,
         path: rawPath || void 0,
         status: "active"
       };
@@ -1192,7 +1189,7 @@ function cursorSdkToolToStep(name, args) {
       return {
         type: "write",
         label: "Creating file...",
-        detail: path || void 0,
+        detail: path3 || void 0,
         path: rawPath || void 0,
         contentPreview: fileText ? capContentPreview(fileText) : void 0,
         status: "active"
@@ -1202,7 +1199,7 @@ function cursorSdkToolToStep(name, args) {
       return {
         type: "edit",
         label: "Editing file...",
-        detail: path || void 0,
+        detail: path3 || void 0,
         path: rawPath || void 0,
         edits: extractClaudeEdits(args),
         status: "active"
@@ -1211,7 +1208,7 @@ function cursorSdkToolToStep(name, args) {
       return {
         type: "edit",
         label: "Deleting file...",
-        detail: path || void 0,
+        detail: path3 || void 0,
         path: rawPath || void 0,
         status: "active"
       };
@@ -1219,14 +1216,14 @@ function cursorSdkToolToStep(name, args) {
       return {
         type: "search_files",
         label: "Searching files...",
-        detail: query || path || void 0,
+        detail: query || path3 || void 0,
         status: "active"
       };
     case "ls":
       return {
         type: "search_files",
         label: "Searching files...",
-        detail: path || void 0,
+        detail: path3 || void 0,
         status: "active"
       };
     case "grep":
@@ -1234,7 +1231,7 @@ function cursorSdkToolToStep(name, args) {
       return {
         type: "search_code",
         label: "Searching code...",
-        detail: query || path || void 0,
+        detail: query || path3 || void 0,
         status: "active"
       };
     case "shell":
@@ -1275,7 +1272,7 @@ function cursorSdkToolToStep(name, args) {
     return {
       type: "read",
       label: "Reading file...",
-      detail: path || void 0,
+      detail: path3 || void 0,
       path: rawPath || void 0,
       status: "active"
     };
@@ -1284,7 +1281,7 @@ function cursorSdkToolToStep(name, args) {
     return {
       type: "write",
       label: "Creating file...",
-      detail: path || void 0,
+      detail: path3 || void 0,
       path: rawPath || void 0,
       status: "active"
     };
@@ -1293,7 +1290,7 @@ function cursorSdkToolToStep(name, args) {
     return {
       type: "edit",
       label: "Editing file...",
-      detail: path || void 0,
+      detail: path3 || void 0,
       path: rawPath || void 0,
       status: "active",
       edits: extractClaudeEdits(args)
@@ -1303,7 +1300,7 @@ function cursorSdkToolToStep(name, args) {
     return {
       type: "edit",
       label: "Deleting file...",
-      detail: path || void 0,
+      detail: path3 || void 0,
       path: rawPath || void 0,
       status: "active"
     };
@@ -1312,7 +1309,7 @@ function cursorSdkToolToStep(name, args) {
     return {
       type: "search_files",
       label: "Searching files...",
-      detail: query || path || void 0,
+      detail: query || path3 || void 0,
       status: "active"
     };
   }
@@ -1320,7 +1317,7 @@ function cursorSdkToolToStep(name, args) {
     return {
       type: tool.includes("file") ? "search_files" : "search_code",
       label: tool.includes("file") ? "Searching files..." : "Searching code...",
-      detail: query || path || void 0,
+      detail: query || path3 || void 0,
       status: "active"
     };
   }
@@ -1374,13 +1371,13 @@ function cursorSdkToolToStep(name, args) {
 }
 function toolCallToStep(name, input) {
   const rawPath = typeof input.file_path === "string" ? String(input.file_path) : "";
-  const path = rawPath ? shortenPath(rawPath) : "";
+  const path3 = rawPath ? shortenPath(rawPath) : "";
   switch (name) {
     case "Read":
       return {
         type: "read",
         label: "Reading file...",
-        detail: path || void 0,
+        detail: path3 || void 0,
         path: rawPath || void 0,
         status: "active"
       };
@@ -1403,7 +1400,7 @@ function toolCallToStep(name, input) {
       return {
         type: "write",
         label: "Creating file...",
-        detail: path || void 0,
+        detail: path3 || void 0,
         path: rawPath || void 0,
         contentPreview: content ? capContentPreview(content) : void 0,
         status: "active"
@@ -1414,7 +1411,7 @@ function toolCallToStep(name, input) {
       return {
         type: "edit",
         label: "Editing file...",
-        detail: path || void 0,
+        detail: path3 || void 0,
         path: rawPath || void 0,
         edits,
         status: "active"
@@ -1930,6 +1927,7 @@ function extractResultEvent(output) {
     let finalText2 = "";
     let lastInputTokens = 0;
     let lastCachedInputTokens = 0;
+    let lastCacheWriteInputTokens = 0;
     let lastOutputTokens = 0;
     for (const line of output.split("\\n")) {
       const clean = line.trim();
@@ -1942,16 +1940,19 @@ function extractResultEvent(output) {
           if (messageText) finalText2 = messageText;
           continue;
         }
-        if (parsed.type === "token_count" && parsed.info) {
-          const info = typeof parsed.info === "object" && !Array.isArray(parsed.info) ? parsed.info : null;
-          const total = info && info.total_token_usage;
-          if (total && typeof total === "object" && !Array.isArray(total)) {
-            if (typeof total.input_tokens === "number")
-              lastInputTokens = total.input_tokens;
-            if (typeof total.cached_input_tokens === "number")
-              lastCachedInputTokens = total.cached_input_tokens;
-            if (typeof total.output_tokens === "number")
-              lastOutputTokens = total.output_tokens;
+        if (parsed.type === "turn.completed" && parsed.usage && typeof parsed.usage === "object" && !Array.isArray(parsed.usage)) {
+          const usage = parsed.usage;
+          if (typeof usage.input_tokens === "number") {
+            lastInputTokens = usage.input_tokens;
+          }
+          if (typeof usage.cached_input_tokens === "number") {
+            lastCachedInputTokens = usage.cached_input_tokens;
+          }
+          if (typeof usage.cache_write_input_tokens === "number") {
+            lastCacheWriteInputTokens = usage.cache_write_input_tokens;
+          }
+          if (typeof usage.output_tokens === "number") {
+            lastOutputTokens = usage.output_tokens;
           }
         }
       } catch {
@@ -1974,7 +1975,7 @@ function extractResultEvent(output) {
         inputTokens: nonCachedInput,
         outputTokens: lastOutputTokens,
         cacheReadInputTokens: lastCachedInputTokens,
-        cacheCreationInputTokens: 0,
+        cacheCreationInputTokens: lastCacheWriteInputTokens,
         model: normalizedCodexModel
       })
     };
@@ -2001,31 +2002,31 @@ function extractResultEvent(output) {
   return resultEvent;
 }
 function buildErrorMessage(code, fatalHeartbeatError, toolStallError, timedOutForMaxRuntime, timedOutForNoOutput, timedOutForFirstEvent, timedOutForFirstAssistant, timedOutAfterFirstText, timedOutForZombie) {
-  const cliName = PROVIDER === "codex" ? "Codex CLI" : PROVIDER === "opencode" ? "Opencode CLI" : PROVIDER === "cursor" ? "Cursor CLI" : "Claude CLI";
+  const agentName = PROVIDER === "codex" ? "Codex SDK" : PROVIDER === "opencode" ? "Opencode CLI" : PROVIDER === "cursor" ? "Cursor CLI" : "Claude CLI";
   if (fatalHeartbeatError) return fatalHeartbeatError;
   if (toolStallError) return toolStallError;
   if (timedOutForZombie) {
-    return cliName + " terminated because the CLI process entered zombie state (likely a grandchild held stdio open after the CLI exited)";
+    return agentName + " terminated because the agent process entered zombie state (likely a grandchild held stdio open after the agent exited)";
   }
   if (timedOutForMaxRuntime) {
-    return cliName + " terminated after max runtime of " + MAX_TOTAL_RUNTIME_MS + "ms";
+    return agentName + " terminated after max runtime of " + MAX_TOTAL_RUNTIME_MS + "ms";
   }
   if (timedOutForFirstEvent) {
-    return cliName + " produced no parseable stream-json events within " + FIRST_EVENT_TIMEOUT_MS + "ms";
+    return agentName + " produced no parseable stream-json events within " + FIRST_EVENT_TIMEOUT_MS + "ms";
   }
   if (timedOutForFirstAssistant) {
-    return cliName + " initialized but produced no assistant response within " + FIRST_ASSISTANT_EVENT_TIMEOUT_MS + "ms \\u2014 likely MCP initialization or API congestion";
+    return agentName + " initialized but produced no assistant response within " + FIRST_ASSISTANT_EVENT_TIMEOUT_MS + "ms \\u2014 likely MCP initialization or API congestion";
   }
   if (timedOutAfterFirstText) {
-    return cliName + " stalled after first text block for " + POST_TEXT_STALL_TIMEOUT_MS + "ms";
+    return agentName + " stalled after first text block for " + POST_TEXT_STALL_TIMEOUT_MS + "ms";
   }
   if (timedOutForNoOutput) {
-    return cliName + " terminated after no stdout for " + NO_OUTPUT_TIMEOUT_MS + "ms";
+    return agentName + " terminated after no stdout for " + NO_OUTPUT_TIMEOUT_MS + "ms";
   }
   if (code === 137 || code === 143) {
-    return cliName + (code === 137 ? " was killed before it finished \\u2014 the sandbox ran out of memory." : " was stopped before it finished \\u2014 the run was interrupted.") + " This usually means the sandbox was stopped or a new message cancelled the run, so nothing was completed. Send the request again on a running sandbox.";
+    return agentName + (code === 137 ? " was killed before it finished \\u2014 the sandbox ran out of memory." : " was stopped before it finished \\u2014 the run was interrupted.") + " This usually means the sandbox was stopped or a new message cancelled the run, so nothing was completed. Send the request again on a running sandbox.";
   }
-  return cliName + " exited with code " + code;
+  return agentName + " exited with code " + code;
 }
 function appendDiagnosticTail(message) {
   const details = [];
@@ -3148,7 +3149,7 @@ function codexParseLine(event) {
     events.push({ kind: "set_codex_thread", threadId });
     events.push({
       kind: "update_thinking",
-      label: "Starting Codex CLI...",
+      label: "Starting Codex SDK...",
       detail: "Restoring saved context..."
     });
     return events;
@@ -3156,7 +3157,7 @@ function codexParseLine(event) {
   if (event.type === "turn.started") {
     events.push({
       kind: "update_thinking",
-      label: "Starting Codex CLI...",
+      label: "Starting Codex SDK...",
       detail: "Codex is reasoning..."
     });
     return events;
@@ -3220,19 +3221,6 @@ function codexParseLine(event) {
   }
   return events;
 }
-function inspectCodexStdout(text) {
-  for (const line of text.split("\\n")) {
-    const clean = line.trim();
-    if (!clean) continue;
-    try {
-      const parsed = tryParseJson(clean);
-      if (parsed && typeof parsed === "object" && !Array.isArray(parsed) && parsed.type === "item.completed" && parsed.item && typeof parsed.item === "object" && !Array.isArray(parsed.item) && parsed.item.type === "agent_message" && getCodexAgentMessageText(parsed.item) && callbackState.firstTextBlockAt === 0) {
-        callbackState.firstTextBlockAt = Date.now();
-      }
-    } catch {
-    }
-  }
-}
 function onStreamLine2(parsed) {
   const threadId = getCodexThreadId(parsed);
   if (parsed.type === "thread.started" && threadId) {
@@ -3250,8 +3238,7 @@ var codexAdapter = {
   parseLine: codexParseLine,
   onStreamLine(_line, parsed) {
     return onStreamLine2(parsed);
-  },
-  onStdoutText: inspectCodexStdout
+  }
 };
 
 // callback-src/session/cursorSession.ts
@@ -4229,9 +4216,6 @@ async function runCliAttempt(options) {
       appendToRawOutput(text);
       lastStdoutAt = Date.now();
       processRealtimeStdoutChunk(text);
-      if (options.onStdoutText) {
-        options.onStdoutText(text);
-      }
     });
     child.stderr.on("data", (chunk) => {
       const text = chunk.toString();
@@ -5628,9 +5612,9 @@ async function materializeTurnAttachments(turn) {
       const extension = attachmentExtensionForMimeType(
         res.headers.get("content-type") ?? ""
       );
-      const path = \`/tmp/eva-attachment-\${index}\${extension}\`;
-      writeFileSync9(path, bytes);
-      paths2.push(path);
+      const path3 = \`/tmp/eva-attachment-\${index}\${extension}\`;
+      writeFileSync9(path3, bytes);
+      paths2.push(path3);
     } catch (error) {
       log(
         \`daemon: attachment download error \${error instanceof Error ? error.message : String(error)}\`
@@ -5981,9 +5965,9 @@ async function materializeAttachments(turn) {
     try {
       const response = await fetchWithTimeout(url, { method: "GET" });
       if (!response.ok) continue;
-      const path = \`/tmp/eva-attachment-\${index}\${attachmentExtension(response.headers.get("content-type") ?? "")}\`;
-      writeFileSync10(path, new Uint8Array(await response.arrayBuffer()));
-      localPaths.push(path);
+      const path3 = \`/tmp/eva-attachment-\${index}\${attachmentExtension(response.headers.get("content-type") ?? "")}\`;
+      writeFileSync10(path3, new Uint8Array(await response.arrayBuffer()));
+      localPaths.push(path3);
     } catch (error) {
       log(
         "codex daemon: attachment download failed: " + (error instanceof Error ? error.message : String(error))
@@ -5991,7 +5975,7 @@ async function materializeAttachments(turn) {
     }
   }
   if (localPaths.length > 0) {
-    turn.prompt += "\\n\\n---\\nThe user attached the following file(s). Read them with your file-reading tool before responding:\\n" + localPaths.map((path) => \`- \${path}\`).join("\\n");
+    turn.prompt += "\\n\\n---\\nThe user attached the following file(s). Read them with your file-reading tool before responding:\\n" + localPaths.map((path3) => \`- \${path3}\`).join("\\n");
   }
 }
 function emitEvent(event) {
@@ -6151,17 +6135,17 @@ async function startTurn(client, turn) {
 }
 function cleanMarkers() {
   if (readOwnerPid() !== process.pid) return;
-  for (const path of [paths.pid, paths.entity, paths.opts]) {
+  for (const path3 of [paths.pid, paths.entity, paths.opts]) {
     try {
-      unlinkSync3(path);
+      unlinkSync3(path3);
     } catch {
     }
   }
   if (ENTITY_ID_FIELD === "sessionId") {
     const legacy = resolveLegacySessionDaemonPaths();
-    for (const path of [legacy.pid, legacy.entity, legacy.opts]) {
+    for (const path3 of [legacy.pid, legacy.entity, legacy.opts]) {
       try {
-        unlinkSync3(path);
+        unlinkSync3(path3);
       } catch {
       }
     }
@@ -6390,9 +6374,679 @@ function materializeSystemSkills() {
   }
 }
 
+// ../../node_modules/.pnpm/@openai+codex-sdk@0.146.0/node_modules/@openai/codex-sdk/dist/index.js
+import { promises as fs } from "fs";
+import os from "os";
+import path from "path";
+import { spawn as spawn3 } from "child_process";
+import { statSync as statSync2 } from "fs";
+import path2 from "path";
+import readline from "readline";
+import { createRequire } from "module";
+async function createOutputSchemaFile(schema) {
+  if (schema === void 0) {
+    return { cleanup: async () => {
+    } };
+  }
+  if (!isJsonObject(schema)) {
+    throw new Error("outputSchema must be a plain JSON object");
+  }
+  const schemaDir = await fs.mkdtemp(path.join(os.tmpdir(), "codex-output-schema-"));
+  const schemaPath = path.join(schemaDir, "schema.json");
+  const cleanup = async () => {
+    try {
+      await fs.rm(schemaDir, { recursive: true, force: true });
+    } catch {
+    }
+  };
+  try {
+    await fs.writeFile(schemaPath, JSON.stringify(schema), "utf8");
+    return { schemaPath, cleanup };
+  } catch (error) {
+    await cleanup();
+    throw error;
+  }
+}
+function isJsonObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+var Thread = class {
+  _exec;
+  _options;
+  _id;
+  _threadOptions;
+  /** Returns the ID of the thread. Populated after the first turn starts. */
+  get id() {
+    return this._id;
+  }
+  /* @internal */
+  constructor(exec, options, threadOptions, id = null) {
+    this._exec = exec;
+    this._options = options;
+    this._id = id;
+    this._threadOptions = threadOptions;
+  }
+  /** Provides the input to the agent and streams events as they are produced during the turn. */
+  async runStreamed(input, turnOptions = {}) {
+    return { events: this.runStreamedInternal(input, turnOptions) };
+  }
+  async *runStreamedInternal(input, turnOptions = {}) {
+    const { schemaPath, cleanup } = await createOutputSchemaFile(turnOptions.outputSchema);
+    const options = this._threadOptions;
+    const { prompt, images } = normalizeInput(input);
+    const generator = this._exec.run({
+      input: prompt,
+      baseUrl: this._options.baseUrl,
+      apiKey: this._options.apiKey,
+      threadId: this._id,
+      images,
+      model: options?.model,
+      sandboxMode: options?.sandboxMode,
+      workingDirectory: options?.workingDirectory,
+      skipGitRepoCheck: options?.skipGitRepoCheck,
+      outputSchemaFile: schemaPath,
+      modelReasoningEffort: options?.modelReasoningEffort,
+      signal: turnOptions.signal,
+      networkAccessEnabled: options?.networkAccessEnabled,
+      webSearchMode: options?.webSearchMode,
+      webSearchEnabled: options?.webSearchEnabled,
+      approvalPolicy: options?.approvalPolicy,
+      additionalDirectories: options?.additionalDirectories
+    });
+    try {
+      for await (const item of generator) {
+        let parsed;
+        try {
+          parsed = JSON.parse(item);
+        } catch (error) {
+          throw new Error(\`Failed to parse item: \${item}\`, { cause: error });
+        }
+        if (parsed.type === "thread.started") {
+          this._id = parsed.thread_id;
+        } else if (parsed.type === "turn.completed") {
+          parsed.usage.cache_write_input_tokens ??= 0;
+        }
+        yield parsed;
+      }
+    } finally {
+      await cleanup();
+    }
+  }
+  /** Provides the input to the agent and returns the completed turn. */
+  async run(input, turnOptions = {}) {
+    const generator = this.runStreamedInternal(input, turnOptions);
+    const items = [];
+    let finalResponse = "";
+    let usage = null;
+    let turnFailure = null;
+    for await (const event of generator) {
+      if (event.type === "item.completed") {
+        if (event.item.type === "agent_message") {
+          finalResponse = event.item.text;
+        }
+        items.push(event.item);
+      } else if (event.type === "turn.completed") {
+        usage = event.usage;
+      } else if (event.type === "turn.failed") {
+        turnFailure = event.error;
+        break;
+      }
+    }
+    if (turnFailure) {
+      throw new Error(turnFailure.message);
+    }
+    return { items, finalResponse, usage };
+  }
+};
+function normalizeInput(input) {
+  if (typeof input === "string") {
+    return { prompt: input, images: [] };
+  }
+  const promptParts = [];
+  const images = [];
+  for (const item of input) {
+    if (item.type === "text") {
+      promptParts.push(item.text);
+    } else if (item.type === "local_image") {
+      images.push(item.path);
+    }
+  }
+  return { prompt: promptParts.join("\\n\\n"), images };
+}
+var INTERNAL_ORIGINATOR_ENV = "CODEX_INTERNAL_ORIGINATOR_OVERRIDE";
+var TYPESCRIPT_SDK_ORIGINATOR = "codex_sdk_ts";
+var CODEX_NPM_NAME = "@openai/codex";
+var PLATFORM_PACKAGE_BY_TARGET = {
+  "x86_64-unknown-linux-musl": "@openai/codex-linux-x64",
+  "aarch64-unknown-linux-musl": "@openai/codex-linux-arm64",
+  "x86_64-apple-darwin": "@openai/codex-darwin-x64",
+  "aarch64-apple-darwin": "@openai/codex-darwin-arm64",
+  "x86_64-pc-windows-msvc": "@openai/codex-win32-x64",
+  "aarch64-pc-windows-msvc": "@openai/codex-win32-arm64"
+};
+var moduleRequire = createRequire(import.meta.url);
+var CodexExec = class {
+  executablePath;
+  pathDirs;
+  envOverride;
+  configOverrides;
+  constructor(executablePath = null, env, configOverrides) {
+    if (executablePath) {
+      this.executablePath = executablePath;
+      this.pathDirs = [];
+    } else {
+      const resolved = findCodexPath();
+      this.executablePath = resolved.executablePath;
+      this.pathDirs = resolved.pathDirs;
+    }
+    this.envOverride = env;
+    this.configOverrides = configOverrides;
+  }
+  async *run(args) {
+    const commandArgs = ["exec", "--experimental-json"];
+    if (this.configOverrides) {
+      for (const override of serializeConfigOverrides(this.configOverrides)) {
+        commandArgs.push("--config", override);
+      }
+    }
+    if (args.baseUrl) {
+      commandArgs.push(
+        "--config",
+        \`openai_base_url=\${toTomlValue(args.baseUrl, "openai_base_url")}\`
+      );
+    }
+    if (args.model) {
+      commandArgs.push("--model", args.model);
+    }
+    if (args.sandboxMode) {
+      commandArgs.push("--sandbox", args.sandboxMode);
+    }
+    if (args.workingDirectory) {
+      commandArgs.push("--cd", args.workingDirectory);
+    }
+    if (args.additionalDirectories?.length) {
+      for (const dir of args.additionalDirectories) {
+        commandArgs.push("--add-dir", dir);
+      }
+    }
+    if (args.skipGitRepoCheck) {
+      commandArgs.push("--skip-git-repo-check");
+    }
+    if (args.outputSchemaFile) {
+      commandArgs.push("--output-schema", args.outputSchemaFile);
+    }
+    if (args.modelReasoningEffort) {
+      commandArgs.push("--config", \`model_reasoning_effort="\${args.modelReasoningEffort}"\`);
+    }
+    if (args.networkAccessEnabled !== void 0) {
+      commandArgs.push(
+        "--config",
+        \`sandbox_workspace_write.network_access=\${args.networkAccessEnabled}\`
+      );
+    }
+    if (args.webSearchMode) {
+      commandArgs.push("--config", \`web_search="\${args.webSearchMode}"\`);
+    } else if (args.webSearchEnabled === true) {
+      commandArgs.push("--config", \`web_search="live"\`);
+    } else if (args.webSearchEnabled === false) {
+      commandArgs.push("--config", \`web_search="disabled"\`);
+    }
+    if (args.approvalPolicy) {
+      commandArgs.push("--config", \`approval_policy="\${args.approvalPolicy}"\`);
+    }
+    if (args.threadId) {
+      commandArgs.push("resume", args.threadId);
+    }
+    if (args.images?.length) {
+      for (const image of args.images) {
+        commandArgs.push("--image", image);
+      }
+    }
+    const env = {};
+    if (this.envOverride) {
+      Object.assign(env, this.envOverride);
+    } else {
+      for (const [key, value] of Object.entries(process.env)) {
+        if (value !== void 0) {
+          env[key] = value;
+        }
+      }
+    }
+    if (!env[INTERNAL_ORIGINATOR_ENV]) {
+      env[INTERNAL_ORIGINATOR_ENV] = TYPESCRIPT_SDK_ORIGINATOR;
+    }
+    if (args.apiKey) {
+      env.CODEX_API_KEY = args.apiKey;
+    }
+    if (this.pathDirs.length > 0) {
+      prependPathDirs(env, this.pathDirs);
+    }
+    const child = spawn3(this.executablePath, commandArgs, {
+      env,
+      signal: args.signal
+    });
+    let spawnError = null;
+    child.once("error", (err) => spawnError = err);
+    if (!child.stdin) {
+      child.kill();
+      throw new Error("Child process has no stdin");
+    }
+    child.stdin.write(args.input);
+    child.stdin.end();
+    if (!child.stdout) {
+      child.kill();
+      throw new Error("Child process has no stdout");
+    }
+    const stderrChunks = [];
+    if (child.stderr) {
+      child.stderr.on("data", (data) => {
+        stderrChunks.push(data);
+      });
+    }
+    const exitPromise = new Promise(
+      (resolve) => {
+        child.once("exit", (code, signal) => {
+          resolve({ code, signal });
+        });
+      }
+    );
+    const rl = readline.createInterface({
+      input: child.stdout,
+      crlfDelay: Infinity
+    });
+    try {
+      for await (const line of rl) {
+        yield line;
+      }
+      if (spawnError) throw spawnError;
+      const { code, signal } = await exitPromise;
+      if (code !== 0 || signal) {
+        const stderrBuffer = Buffer.concat(stderrChunks);
+        const detail = signal ? \`signal \${signal}\` : \`code \${code ?? 1}\`;
+        throw new Error(\`Codex Exec exited with \${detail}: \${stderrBuffer.toString("utf8")}\`);
+      }
+    } finally {
+      rl.close();
+      child.removeAllListeners();
+      try {
+        if (!child.killed) child.kill();
+      } catch {
+      }
+    }
+  }
+};
+function serializeConfigOverrides(configOverrides) {
+  const overrides = [];
+  flattenConfigOverrides(configOverrides, "", overrides);
+  return overrides;
+}
+function flattenConfigOverrides(value, prefix, overrides) {
+  if (!isPlainObject(value)) {
+    if (prefix) {
+      overrides.push(\`\${prefix}=\${toTomlValue(value, prefix)}\`);
+      return;
+    } else {
+      throw new Error("Codex config overrides must be a plain object");
+    }
+  }
+  const entries = Object.entries(value);
+  if (!prefix && entries.length === 0) {
+    return;
+  }
+  if (prefix && entries.length === 0) {
+    overrides.push(\`\${prefix}={}\`);
+    return;
+  }
+  for (const [key, child] of entries) {
+    if (!key) {
+      throw new Error("Codex config override keys must be non-empty strings");
+    }
+    if (child === void 0) {
+      continue;
+    }
+    const path3 = prefix ? \`\${prefix}.\${key}\` : key;
+    if (isPlainObject(child)) {
+      flattenConfigOverrides(child, path3, overrides);
+    } else {
+      overrides.push(\`\${path3}=\${toTomlValue(child, path3)}\`);
+    }
+  }
+}
+function toTomlValue(value, path3) {
+  if (typeof value === "string") {
+    return JSON.stringify(value);
+  } else if (typeof value === "number") {
+    if (!Number.isFinite(value)) {
+      throw new Error(\`Codex config override at \${path3} must be a finite number\`);
+    }
+    return \`\${value}\`;
+  } else if (typeof value === "boolean") {
+    return value ? "true" : "false";
+  } else if (Array.isArray(value)) {
+    const rendered = value.map((item, index) => toTomlValue(item, \`\${path3}[\${index}]\`));
+    return \`[\${rendered.join(", ")}]\`;
+  } else if (isPlainObject(value)) {
+    const parts = [];
+    for (const [key, child] of Object.entries(value)) {
+      if (!key) {
+        throw new Error("Codex config override keys must be non-empty strings");
+      }
+      if (child === void 0) {
+        continue;
+      }
+      parts.push(\`\${formatTomlKey(key)} = \${toTomlValue(child, \`\${path3}.\${key}\`)}\`);
+    }
+    return \`{\${parts.join(", ")}}\`;
+  } else if (value === null) {
+    throw new Error(\`Codex config override at \${path3} cannot be null\`);
+  } else {
+    const typeName = typeof value;
+    throw new Error(\`Unsupported Codex config override value at \${path3}: \${typeName}\`);
+  }
+}
+var TOML_BARE_KEY = /^[A-Za-z0-9_-]+\$/;
+function formatTomlKey(key) {
+  return TOML_BARE_KEY.test(key) ? key : JSON.stringify(key);
+}
+function isPlainObject(value) {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+function findCodexPath() {
+  const { platform, arch } = process;
+  let targetTriple = null;
+  switch (platform) {
+    case "linux":
+    case "android":
+      switch (arch) {
+        case "x64":
+          targetTriple = "x86_64-unknown-linux-musl";
+          break;
+        case "arm64":
+          targetTriple = "aarch64-unknown-linux-musl";
+          break;
+        default:
+          break;
+      }
+      break;
+    case "darwin":
+      switch (arch) {
+        case "x64":
+          targetTriple = "x86_64-apple-darwin";
+          break;
+        case "arm64":
+          targetTriple = "aarch64-apple-darwin";
+          break;
+        default:
+          break;
+      }
+      break;
+    case "win32":
+      switch (arch) {
+        case "x64":
+          targetTriple = "x86_64-pc-windows-msvc";
+          break;
+        case "arm64":
+          targetTriple = "aarch64-pc-windows-msvc";
+          break;
+        default:
+          break;
+      }
+      break;
+    default:
+      break;
+  }
+  if (!targetTriple) {
+    throw new Error(\`Unsupported platform: \${platform} (\${arch})\`);
+  }
+  const platformPackage = PLATFORM_PACKAGE_BY_TARGET[targetTriple];
+  if (!platformPackage) {
+    throw new Error(\`Unsupported target triple: \${targetTriple}\`);
+  }
+  let vendorRoot;
+  try {
+    const codexPackageJsonPath = moduleRequire.resolve(\`\${CODEX_NPM_NAME}/package.json\`);
+    const codexRequire = createRequire(codexPackageJsonPath);
+    const platformPackageJsonPath = codexRequire.resolve(\`\${platformPackage}/package.json\`);
+    vendorRoot = path2.join(path2.dirname(platformPackageJsonPath), "vendor");
+  } catch {
+    throw new Error(
+      \`Unable to locate Codex CLI binaries. Ensure \${CODEX_NPM_NAME} is installed with optional dependencies.\`
+    );
+  }
+  const codexBinaryName = process.platform === "win32" ? "codex.exe" : "codex";
+  const nativePackage = resolveNativePackage(vendorRoot, targetTriple, codexBinaryName);
+  if (!nativePackage) {
+    throw new Error(
+      \`Unable to locate Codex CLI binaries for \${targetTriple}. Ensure \${CODEX_NPM_NAME} is installed with optional dependencies.\`
+    );
+  }
+  return nativePackage;
+}
+function resolveNativePackage(vendorRoot, targetTriple, codexBinaryName) {
+  const packageRoot = path2.join(vendorRoot, targetTriple);
+  const packageBinaryPath = path2.join(packageRoot, "bin", codexBinaryName);
+  if (isFile(packageBinaryPath) && isFile(path2.join(packageRoot, "codex-package.json"))) {
+    return {
+      executablePath: packageBinaryPath,
+      pathDirs: existingDirs(path2.join(packageRoot, "codex-path"))
+    };
+  }
+  const legacyBinaryPath = path2.join(packageRoot, "codex", codexBinaryName);
+  if (isFile(legacyBinaryPath)) {
+    return {
+      executablePath: legacyBinaryPath,
+      pathDirs: existingDirs(path2.join(packageRoot, "path"))
+    };
+  }
+  return null;
+}
+function existingDirs(...dirs) {
+  return dirs.filter(isDirectory);
+}
+function prependPathDirs(env, pathDirs, platform = process.platform) {
+  const pathKey = pathEnvKey(env, platform);
+  if (platform === "win32") {
+    for (const key of Object.keys(env)) {
+      if (key.toLowerCase() === "path" && key !== pathKey) {
+        delete env[key];
+      }
+    }
+  }
+  const existingEntries = (env[pathKey] ?? "").split(path2.delimiter).filter((entry) => entry.length > 0 && !pathDirs.includes(entry));
+  env[pathKey] = [...pathDirs, ...existingEntries].join(path2.delimiter);
+}
+function pathEnvKey(env, platform) {
+  if (platform !== "win32") {
+    return "PATH";
+  }
+  const matchingKeys = Object.keys(env).filter((key) => key.toLowerCase() === "path");
+  return matchingKeys.includes("Path") ? "Path" : matchingKeys.at(-1) ?? "PATH";
+}
+function isFile(filePath) {
+  try {
+    return statSync2(filePath).isFile();
+  } catch {
+    return false;
+  }
+}
+function isDirectory(filePath) {
+  try {
+    return statSync2(filePath).isDirectory();
+  } catch {
+    return false;
+  }
+}
+var Codex = class {
+  exec;
+  options;
+  constructor(options = {}) {
+    const { codexPathOverride, env, config } = options;
+    this.exec = new CodexExec(codexPathOverride, env, config);
+    this.options = options;
+  }
+  /**
+   * Starts a new conversation with an agent.
+   * @returns A new thread instance.
+   */
+  startThread(options = {}) {
+    return new Thread(this.exec, this.options, options);
+  }
+  /**
+   * Resumes a conversation with an agent based on the thread id.
+   * Threads are persisted in ~/.codex/sessions.
+   *
+   * @param id The id of the thread to resume.
+   * @returns A new thread instance.
+   */
+  resumeThread(id, options = {}) {
+    return new Thread(this.exec, this.options, options, id);
+  }
+};
+
+// callback-src/providers/codexSdk.ts
+import { existsSync as existsSync9, readFileSync as readFileSync9 } from "fs";
+function readPromptText2() {
+  const prompt = readFileSync9("/tmp/design-prompt.txt", "utf8");
+  return SYSTEM_PROMPT ? SYSTEM_PROMPT + "\\n\\n" + prompt : prompt;
+}
+function codexEnvironment() {
+  const env = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== void 0) env[key] = value;
+  }
+  env.CODEX_HOME = CODEX_RUNTIME_HOME_DIR;
+  return env;
+}
+function buildCodexSdkThreadOptions() {
+  return {
+    model: normalizedCodexModel,
+    sandboxMode: "danger-full-access",
+    workingDirectory: WORK_DIR,
+    skipGitRepoCheck: true,
+    approvalPolicy: "never"
+  };
+}
+function agentMessageDelta(event, priorTextByItem) {
+  if (event.type !== "item.updated" && event.type !== "item.completed" || event.item.type !== "agent_message") {
+    return "";
+  }
+  const previous = priorTextByItem.get(event.item.id) ?? "";
+  const current = event.item.text;
+  priorTextByItem.set(event.item.id, current);
+  if (!current || current === previous) return "";
+  return current.startsWith(previous) ? current.slice(previous.length) : current;
+}
+async function runCodexSdkAttempt(sessionMode) {
+  resetAttemptState();
+  callbackState.activeAttemptStartedAt = Date.now();
+  updateThinkingStep(
+    "Starting Codex SDK...",
+    sessionMode.mode === "resume" ? "Restoring saved context..." : "Creating Codex thread..."
+  );
+  log(
+    "runCodexSdkAttempt started (mode=" + sessionMode.mode + ", sessionId=" + (sessionMode.sessionId || "none") + ")"
+  );
+  let attemptOutput = "";
+  let lastEventAt2 = Date.now();
+  let timedOutForNoOutput = false;
+  let timedOutForMaxRuntime = false;
+  let sawCompletedTurn = false;
+  let turnFailed = false;
+  let attemptErrorMessage = "";
+  const abortController = new AbortController();
+  const agentTextByItem = /* @__PURE__ */ new Map();
+  const codex = new Codex({
+    codexPathOverride: existsSync9(CODEX_BIN_PATH) ? CODEX_BIN_PATH : "codex",
+    env: codexEnvironment()
+  });
+  const threadOptions = buildCodexSdkThreadOptions();
+  const thread = sessionMode.mode === "resume" && sessionMode.sessionId ? codex.resumeThread(sessionMode.sessionId, threadOptions) : codex.startThread(threadOptions);
+  const healthTimer = setInterval(() => {
+    const now = Date.now();
+    if (callbackState.fatalHeartbeatErrorMessage) {
+      attemptErrorMessage = callbackState.fatalHeartbeatErrorMessage;
+      abortController.abort();
+      return;
+    }
+    if (now - callbackState.activeAttemptStartedAt > MAX_TOTAL_RUNTIME_MS) {
+      timedOutForMaxRuntime = true;
+      log("runCodexSdkAttempt: max runtime exceeded \\u2014 aborting turn");
+      abortController.abort();
+      return;
+    }
+    if (!sawCompletedTurn && now - lastEventAt2 > NO_OUTPUT_TIMEOUT_MS * 5) {
+      timedOutForNoOutput = true;
+      log("runCodexSdkAttempt: no SDK events \\u2014 aborting turn");
+      abortController.abort();
+    }
+  }, NO_OUTPUT_CHECK_INTERVAL_MS);
+  const emitLine = (line) => {
+    appendToRawLogFile(line);
+    attemptOutput = trimBufferHead(attemptOutput + line);
+    appendToRawOutput(line);
+    processRealtimeStdoutChunk(line);
+  };
+  try {
+    const streamed = await thread.runStreamed(readPromptText2(), {
+      signal: abortController.signal
+    });
+    for await (const event of streamed.events) {
+      lastEventAt2 = Date.now();
+      const delta = agentMessageDelta(event, agentTextByItem);
+      if (delta) {
+        emitLine(
+          JSON.stringify({ type: "item.agent_message.delta", delta }) + "\\n"
+        );
+        if (callbackState.firstTextBlockAt === 0) callbackState.firstTextBlockAt = Date.now();
+      }
+      emitLine(JSON.stringify(event) + "\\n");
+      if (event.type === "turn.completed") sawCompletedTurn = true;
+      if (event.type === "turn.failed") {
+        turnFailed = true;
+        attemptErrorMessage = event.error.message;
+      }
+      if (event.type === "error") {
+        turnFailed = true;
+        attemptErrorMessage = event.message;
+      }
+      if (timedOutForMaxRuntime || timedOutForNoOutput) break;
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!abortController.signal.aborted || !attemptErrorMessage) {
+      attemptErrorMessage = message;
+    }
+    log("runCodexSdkAttempt: turn failed \\u2014 " + message);
+  } finally {
+    clearInterval(healthTimer);
+  }
+  if (attemptErrorMessage) {
+    appendToRawLogFile("[sdk-error] " + attemptErrorMessage + "\\n");
+    callbackState.stderrOutput = trimBufferHead(
+      callbackState.stderrOutput + attemptErrorMessage + "\\n"
+    );
+  }
+  const code = sawCompletedTurn && !turnFailed && !attemptErrorMessage && !timedOutForMaxRuntime && !timedOutForNoOutput ? 0 : 1;
+  log(
+    "runCodexSdkAttempt finished in " + String(Date.now() - callbackState.activeAttemptStartedAt) + "ms (code=" + code + ", sawCompletedTurn=" + sawCompletedTurn + ", turnFailed=" + turnFailed + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", outputBytes=" + attemptOutput.length + (attemptErrorMessage ? ", error=" + attemptErrorMessage : "") + ")"
+  );
+  return {
+    code,
+    terminatedBySignal: false,
+    output: attemptOutput,
+    timedOutForNoOutput,
+    timedOutForMaxRuntime,
+    timedOutForFirstEvent: false,
+    timedOutForFirstAssistant: false,
+    timedOutAfterFirstText: false,
+    timedOutForZombie: false,
+    toolStallErrorMessage: ""
+  };
+}
+
 // callback-src/providers/cursorSdk.ts
 import { execSync as execSync2 } from "child_process";
-import { existsSync as existsSync9, mkdirSync as mkdirSync7, readFileSync as readFileSync9 } from "fs";
+import { existsSync as existsSync10, mkdirSync as mkdirSync7, readFileSync as readFileSync10 } from "fs";
 var SDK_PACKAGE2 = "@cursor/sdk";
 var SDK_VERSION2 = "1.0.26";
 var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
@@ -6426,11 +7080,11 @@ function filterModeParamsByModel(candidates, model, opted) {
 async function loadCursorSdk() {
   const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE2 + SDK_ENTRY_RELPATH;
   const localEntry = SDK_LOCAL_PREFIX2 + "/node_modules/" + SDK_PACKAGE2 + SDK_ENTRY_RELPATH;
-  if (existsSync9(globalEntry)) {
+  if (existsSync10(globalEntry)) {
     const mod2 = await import(globalEntry);
     return mod2;
   }
-  if (!existsSync9(localEntry)) {
+  if (!existsSync10(localEntry)) {
     log(
       "cursor sdk not found in sandbox; installing " + SDK_PACKAGE2 + "@" + SDK_VERSION2 + " to " + SDK_LOCAL_PREFIX2 + " (one-time)"
     );
@@ -6467,15 +7121,15 @@ function parseCursorSdkMcpServers(raw) {
   return servers;
 }
 function readCursorSdkMcpServers() {
-  if (!existsSync9(MCP_CONFIG_PATH2)) return {};
+  if (!existsSync10(MCP_CONFIG_PATH2)) return {};
   try {
-    return parseCursorSdkMcpServers(readFileSync9(MCP_CONFIG_PATH2, "utf8"));
+    return parseCursorSdkMcpServers(readFileSync10(MCP_CONFIG_PATH2, "utf8"));
   } catch {
     return {};
   }
 }
-function readPromptText2() {
-  return readFileSync9("/tmp/design-prompt.txt", "utf8");
+function readPromptText3() {
+  return readFileSync10("/tmp/design-prompt.txt", "utf8");
 }
 async function resolveCursorModelSelection(sdk) {
   const base = normalizedCursorModel;
@@ -6629,7 +7283,7 @@ async function runCursorSdkAttempt(sessionMode) {
   } else {
     agent = await createFreshAgent();
   }
-  const promptText = readPromptText2();
+  const promptText = readPromptText3();
   const combinedPrompt = SYSTEM_PROMPT ? SYSTEM_PROMPT + "\\n\\n" + promptText : promptText;
   const cancelRun = () => {
     if (!activeRun) return;
@@ -6767,19 +7421,7 @@ async function runClaudeAttempt(sessionMode) {
   return await runClaudeSdkAttempt(sessionMode);
 }
 async function runCodexAttempt(sessionMode) {
-  const sessionArg = sessionMode.mode === "resume" && sessionMode.sessionId ? " resume " + JSON.stringify(sessionMode.sessionId) : "";
-  const cmd = codexPromptCmd + " | " + codexExecBaseCmd + sessionArg + " -";
-  return await runCliAttempt({
-    cmd,
-    env: { ...process.env, CODEX_HOME: CODEX_RUNTIME_HOME_DIR },
-    processLabel: "codex",
-    attemptLabel: "runCodexAttempt",
-    startupStep: {
-      label: "Starting Codex CLI...",
-      detail: sessionMode.mode === "resume" ? "Restoring saved context..." : "Launching Codex process..."
-    },
-    onStdoutText: codexAdapter.onStdoutText
-  });
+  return await runCodexSdkAttempt(sessionMode);
 }
 async function runOpencodeAttempt(sessionMode) {
   const sessionArg = sessionMode.mode === "resume" && sessionMode.sessionId ? " -s " + JSON.stringify(sessionMode.sessionId) : "";
@@ -6845,7 +7487,7 @@ if (!preflightOk) {
 }
 startStreamingLoops();
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
-  if (existsSync10(d)) {
+  if (existsSync11(d)) {
     for (const f of readdirSync4(d)) {
       try {
         unlinkSync4(d + "/" + f);
@@ -7018,7 +7660,7 @@ try {
     success: false,
     result: null,
     error: appendDiagnosticTail(
-      err instanceof Error ? err.message : "Failed to run " + (PROVIDER === "codex" ? "Codex" : PROVIDER === "opencode" ? "Opencode" : PROVIDER === "cursor" ? "Cursor" : "Claude") + " CLI"
+      err instanceof Error ? err.message : "Failed to run " + (PROVIDER === "codex" ? "Codex SDK" : PROVIDER === "opencode" ? "Opencode CLI" : PROVIDER === "cursor" ? "Cursor CLI" : "Claude CLI")
     ),
     activityLog: serializeSteps(callbackState.accumulatedSteps)
   };

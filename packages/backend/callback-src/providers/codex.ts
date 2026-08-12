@@ -10,7 +10,6 @@ import {
 } from "../session/codexSession.js";
 import { callbackState as S } from "../runtime/state.js";
 import type { CanonicalEvent, JsonObject, StreamLineResult } from "../types.js";
-import { tryParseJson } from "../utils.js";
 import type { ProviderAdapter } from "./types.js";
 
 export function codexParseLine(event: JsonObject): CanonicalEvent[] {
@@ -20,7 +19,7 @@ export function codexParseLine(event: JsonObject): CanonicalEvent[] {
     events.push({ kind: "set_codex_thread", threadId });
     events.push({
       kind: "update_thinking",
-      label: "Starting Codex CLI...",
+      label: "Starting Codex SDK...",
       detail: "Restoring saved context...",
     });
     return events;
@@ -28,7 +27,7 @@ export function codexParseLine(event: JsonObject): CanonicalEvent[] {
   if (event.type === "turn.started") {
     events.push({
       kind: "update_thinking",
-      label: "Starting Codex CLI...",
+      label: "Starting Codex SDK...",
       detail: "Codex is reasoning...",
     });
     return events;
@@ -147,32 +146,6 @@ export function codexParseLine(event: JsonObject): CanonicalEvent[] {
   return events;
 }
 
-function inspectCodexStdout(text: string): void {
-  for (const line of text.split("\n")) {
-    const clean = line.trim();
-    if (!clean) continue;
-    try {
-      const parsed = tryParseJson(clean);
-      if (
-        parsed &&
-        typeof parsed === "object" &&
-        !Array.isArray(parsed) &&
-        parsed.type === "item.completed" &&
-        parsed.item &&
-        typeof parsed.item === "object" &&
-        !Array.isArray(parsed.item) &&
-        parsed.item.type === "agent_message" &&
-        getCodexAgentMessageText(parsed.item) &&
-        S.firstTextBlockAt === 0
-      ) {
-        S.firstTextBlockAt = Date.now();
-      }
-    } catch {
-      /* ignore non-json lines */
-    }
-  }
-}
-
 function onStreamLine(parsed: JsonObject): StreamLineResult {
   const threadId = getCodexThreadId(parsed);
   if (parsed.type === "thread.started" && threadId) {
@@ -192,5 +165,4 @@ export const codexAdapter: ProviderAdapter = {
   onStreamLine(_line: string, parsed: JsonObject): StreamLineResult {
     return onStreamLine(parsed);
   },
-  onStdoutText: inspectCodexStdout,
 };

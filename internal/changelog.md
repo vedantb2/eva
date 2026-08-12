@@ -1,10 +1,10 @@
 # Changelog
 
-## Codex chats now run through App Server - 2026-08-12
+## Codex uses App Server for chats and the SDK for jobs - 2026-08-12
 
 Codex sessions, quick-task chats, and project-sandbox chats previously spawned `codex exec --json` for every message and reconstructed conversation state from its JSONL output. That one-shot CLI contract made interactive features such as durable threads, interruption, and live item deltas harder to support and repeatedly paid process startup costs.
 
-Interactive Codex entities now keep one sandbox-local `codex app-server` process alive, communicate over its typed JSONL protocol, persist and resume App Server thread IDs, stream item deltas through Eva's existing activity pipeline, and interrupt active turns through `turn/interrupt`. The same atomic pending-turn and daemon-prewarm architecture used by Claude now covers Codex across all three chat surfaces. Non-interactive attempts, automations, and arena jobs intentionally remain on `codex exec --json`, where one-shot execution is still the simpler contract.
+Interactive Codex entities now keep one sandbox-local `codex app-server` process alive, communicate over its typed JSONL protocol, persist and resume App Server thread IDs, stream item deltas through Eva's existing activity pipeline, and interrupt active turns through `turn/interrupt`. The same atomic pending-turn and daemon-prewarm architecture used by Claude now covers Codex across all three chat surfaces. Non-interactive attempts, automations, and arena jobs now run through the official TypeScript Codex SDK with structured events, SDK cancellation, thread persistence, and SDK usage accounting; Eva no longer constructs or parses a direct `codex exec` command.
 
 ## The seed script pushes Convex functions, and chunk downloads drop to HTTP/1.1 - 2026-08-12
 
@@ -154,7 +154,7 @@ Also on that header: the head ref chip no longer truncates at `max-w-56` while t
 
 ## Persistent review header, checks pill, and a button for merge conflicts - 2026-08-11
 
-Everything that says what a pull request *is* lived inside the Overview tab: lifecycle pill, author, a prose sentence ("X wants to merge 3 commits into main from eva/foo"), and — at the foot of a long scroll — the merge box with CI and mergeability. From Diffs or Recap there was no way to tell a mergeable pull request from a conflicted one, and the sentence wrapped to three lines in a session pane.
+Everything that says what a pull request _is_ lived inside the Overview tab: lifecycle pill, author, a prose sentence ("X wants to merge 3 commits into main from eva/foo"), and — at the foot of a long scroll — the merge box with CI and mergeability. From Diffs or Recap there was no way to tell a mergeable pull request from a conflicted one, and the sentence wrapped to three lines in a session pane.
 
 `ReviewTabsPanel` now reads `usePrOverview` itself and renders a shared `ReviewHeader` above the tab row, so both review surfaces (`/reviews/$prNumber`, sandbox Review tab) get one header from one query: status pill, author and last-updated, `base ← head` as monospace chips, commits/files/±diffstat, and a blocker badge. The prose sentence and `PrOverviewHeader` are deleted; `ReviewOverviewPanel` takes the payload as props instead of fetching a second time, and the standalone page's title block became the header's first row (`headerOwnsRefresh` still keeps Refresh to one control).
 
@@ -187,11 +187,13 @@ Tailwind v4’s preflight switched buttons to `cursor: default` (browser UA). In
 OpenAI shipped GPT-5.6 coding tiers (Sol / Terra / Luna) while Eva’s Codex picker still only offered GPT-5.5. Added `codex:gpt-5.6-sol`, `codex:gpt-5.6-terra`, and `codex:gpt-5.6-luna` (CLI slugs `gpt-5.6-*`), kept GPT-5.5, aliased bare `codex:gpt-5.6` → Sol, exposed `max` reasoning for 5.6, and updated Codex token pricing.
 
 ## One sandbox owner contract for sessions, tasks, and projects - 2026-08-10
+
 ## Mouse wheel dead-zones from blanket overscroll contain - 2026-08-08
 
 Putting `overscroll-behavior: contain` on `@utility scrollbar` made every `overflow:auto` pane a contain target, including ones with no overflow and horizontal boards with `overflow-y-hidden`. Chrome treats those as scroll containers at their boundary, so the wheel was swallowed while dragging the ancestor scrollbar still worked. Removed contain from the utility; restored `overscroll-y-contain` / `overscroll-contain` on the kanban column and mention picker that had opted in before.
 
 ## Anonymous landing no longer waits for Clerk - 2026-08-08
+
 ## Anonymous landing no longer waits for Clerk - 2026-08-08
 
 Boot held first paint on Clerk's `isLoaded` for everyone. For a returning signed-in user that is correct — protected routes need the restored session and the alternative is a landing-page flash. For an anonymous visitor it means a blank screen while ~210 kB of clerk-js downloads from Clerk's CDN and completes a handshake, to restore a session that does not exist. Measured on production: clerk-js is 30% of the 700 kB cold landing payload, and FCP (~500 ms) was gated on it.

@@ -75,9 +75,9 @@ try {
 }
 
 // Bias the kernel OOM killer away from this callback. If the sandbox runs out
-// of memory during a heavy tool step (e.g. `npx tsc`), the CLI subtree should
+// of memory during a heavy tool step (e.g. `npx tsc`), the agent subtree should
 // die — not the process responsible for heartbeats and failure reporting.
-// Lowering our own score requires privilege, so this is best-effort; the CLI
+// Lowering our own score requires privilege, so this is best-effort; a spawned
 // child's score is raised at spawn time in cliAttempt.ts as the portable half.
 try {
   writeFileSync("/proc/self/oom_score_adj", "-600");
@@ -87,7 +87,7 @@ try {
 
 S.lastStepType = "thinking";
 
-// Before either provider path starts — the CLI scans `.agents/skills` on
+// Before either provider path starts — the agent scans `.agents/skills` on
 // startup, so installed Eva skills must already be on disk.
 materializeSystemSkills();
 
@@ -393,13 +393,12 @@ try {
         ? err.message
         : "Failed to run " +
             (PROVIDER === "codex"
-              ? "Codex"
+              ? "Codex SDK"
               : PROVIDER === "opencode"
-                ? "Opencode"
+                ? "Opencode CLI"
                 : PROVIDER === "cursor"
-                  ? "Cursor"
-                  : "Claude") +
-            " CLI",
+                  ? "Cursor CLI"
+                  : "Claude CLI"),
     ),
     activityLog: serializeSteps(S.accumulatedSteps),
   };

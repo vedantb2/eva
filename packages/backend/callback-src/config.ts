@@ -297,22 +297,14 @@ export const cursorReasoningLevel =
   PROVIDER === "cursor" && REASONING_EFFORT in CURSOR_REASONING_EFFORT
     ? CURSOR_REASONING_EFFORT[REASONING_EFFORT]
     : cursorModelParts.level;
-const codexCommand = existsSync(CODEX_BIN_PATH)
-  ? JSON.stringify(CODEX_BIN_PATH)
-  : "codex";
 const opencodeCommand = existsSync(OPENCODE_BIN_PATH)
   ? JSON.stringify(OPENCODE_BIN_PATH)
   : "opencode";
-export const codexPromptCmd = SYSTEM_PROMPT
+export const opencodePromptCmd = SYSTEM_PROMPT
   ? "(printf %s\\n\\n " +
     JSON.stringify(SYSTEM_PROMPT) +
     "; cat /tmp/design-prompt.txt)"
   : "cat /tmp/design-prompt.txt";
-export const opencodePromptCmd = codexPromptCmd;
-export const codexExecBaseCmd =
-  codexCommand +
-  " exec --skip-git-repo-check --full-auto --json --model " +
-  JSON.stringify(normalizedCodexModel);
 export const opencodeExecBaseCmd =
   opencodeCommand +
   " run --format json --model " +
@@ -358,7 +350,7 @@ export const completedLabels: Record<string, string> = {
   "Preparing Opencode session...": "Prepared Opencode session",
   "Preparing Cursor session...": "Prepared Cursor session",
   "Starting Claude CLI...": "Started Claude CLI",
-  "Starting Codex CLI...": "Started Codex CLI",
+  "Starting Codex SDK...": "Started Codex SDK",
   "Starting Opencode CLI...": "Started Opencode CLI",
   "Starting Cursor CLI...": "Started Cursor CLI",
   "Restoring Claude session...": "Restored Claude session",

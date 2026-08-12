@@ -40,8 +40,14 @@ const SEED_PREP_LABEL_VALUE = "snapshot-seed-prep";
 // toolchain baked in).
 const SUPABASE_CLI_VERSION = "2.90.0";
 // Pinned GitHub CLI for Vercel seeds. Amazon Linux dnf repos don't ship it,
-// so we install the official release tarball.
+// so we install the official release tarball, then the gh yum repo if that
+// download dies.
 const GH_CLI_VERSION = "2.72.0";
+// GitHub Releases over HTTP/2 from a Vercel sandbox dies mid-transfer
+// (`curl: (56) Connection died, tried 5 times`). HTTP/1.1 has no stream
+// layer to fail; `--retry-all-errors` covers 56, which `--retry` alone skips.
+const GITHUB_RELEASE_CURL =
+  "curl -fSL --http1.1 --retry 5 --retry-delay 5 --retry-all-errors";
 // Search and VCS tooling the agent CLIs shell out to. Like gh, none of these
 // are in the AL2023 repos, so each comes from its pinned upstream tarball.
 // Note the differing tag conventions: ripgrep tags have no `v` prefix, and
@@ -297,24 +303,25 @@ export const launchSeedRun = internalAction({
       // Classic yarn for yarn.lock repos. Soft-fail: yarn installs are best-effort.
       "corepack prepare yarn@1.22.22 --activate || true",
       "git config --global --add safe.directory '*'",
-      `command -v supabase >/dev/null 2>&1 || { curl -fsSL https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_amd64.tar.gz -o /tmp/sb.tgz && sudo tar -xzf /tmp/sb.tgz -C /usr/local/bin supabase; } || { echo "SEEDRUN-FAILED:supabase-cli"; exit 1; }`,
+      `command -v supabase >/dev/null 2>&1 || { ${GITHUB_RELEASE_CURL} -o /tmp/sb.tgz https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_amd64.tar.gz && sudo tar -xzf /tmp/sb.tgz -C /usr/local/bin supabase; } || { echo "SEEDRUN-FAILED:supabase-cli"; exit 1; }`,
       // We install to /usr/local/bin, but repo seed scripts may invoke the CLI by
       // its absolute /usr/bin/supabase path (to avoid a node_modules/.bin shim).
       // Symlink so both paths resolve to the one binary.
       '[ -e /usr/bin/supabase ] || sudo ln -sf "$(command -v supabase)" /usr/bin/supabase || { echo "SEEDRUN-FAILED:supabase-cli-symlink"; exit 1; }',
       // GitHub CLI — Daytona Image installs via apt; Vercel AL2023 needs the
-      // release tarball (dnf has no `gh` package by default).
-      `command -v gh >/dev/null 2>&1 || { curl -fsSL https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz -o /tmp/gh.tgz && sudo tar -xzf /tmp/gh.tgz -C /tmp && sudo mv /tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh /usr/local/bin/gh && rm -rf /tmp/gh.tgz /tmp/gh_${GH_CLI_VERSION}_linux_amd64; } || { echo "SEEDRUN-FAILED:gh-cli"; exit 1; }`,
+      // release tarball (dnf has no `gh` package by default). Tarball first
+      // (pinned); official gh yum repo if GitHub Releases still flakes.
+      `command -v gh >/dev/null 2>&1 || { ${GITHUB_RELEASE_CURL} -o /tmp/gh.tgz https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz && sudo tar -xzf /tmp/gh.tgz -C /tmp && sudo mv /tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh /usr/local/bin/gh && rm -rf /tmp/gh.tgz /tmp/gh_${GH_CLI_VERSION}_linux_amd64; } || { sudo dnf install -y 'dnf-command(config-manager)' && sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo && sudo dnf install -y gh --repo gh-cli; } || { echo "SEEDRUN-FAILED:gh-cli"; exit 1; }`,
       // ripgrep and fd — every agent CLI reaches for these to search a repo, and
       // fall back to far slower `grep -r`/`find` when they are missing.
-      `command -v rg >/dev/null 2>&1 || { curl -fsSL https://github.com/BurntSushi/ripgrep/releases/download/${RIPGREP_VERSION}/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl.tar.gz -o /tmp/rg.tgz && sudo tar -xzf /tmp/rg.tgz -C /tmp && sudo mv /tmp/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl/rg /usr/local/bin/rg && rm -rf /tmp/rg.tgz /tmp/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl; } || { echo "SEEDRUN-FAILED:ripgrep"; exit 1; }`,
-      `command -v fd >/dev/null 2>&1 || { curl -fsSL https://github.com/sharkdp/fd/releases/download/v${FD_VERSION}/fd-v${FD_VERSION}-x86_64-unknown-linux-musl.tar.gz -o /tmp/fd.tgz && sudo tar -xzf /tmp/fd.tgz -C /tmp && sudo mv /tmp/fd-v${FD_VERSION}-x86_64-unknown-linux-musl/fd /usr/local/bin/fd && rm -rf /tmp/fd.tgz /tmp/fd-v${FD_VERSION}-x86_64-unknown-linux-musl; } || { echo "SEEDRUN-FAILED:fd"; exit 1; }`,
+      `command -v rg >/dev/null 2>&1 || { ${GITHUB_RELEASE_CURL} -o /tmp/rg.tgz https://github.com/BurntSushi/ripgrep/releases/download/${RIPGREP_VERSION}/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl.tar.gz && sudo tar -xzf /tmp/rg.tgz -C /tmp && sudo mv /tmp/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl/rg /usr/local/bin/rg && rm -rf /tmp/rg.tgz /tmp/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl; } || { echo "SEEDRUN-FAILED:ripgrep"; exit 1; }`,
+      `command -v fd >/dev/null 2>&1 || { ${GITHUB_RELEASE_CURL} -o /tmp/fd.tgz https://github.com/sharkdp/fd/releases/download/v${FD_VERSION}/fd-v${FD_VERSION}-x86_64-unknown-linux-musl.tar.gz && sudo tar -xzf /tmp/fd.tgz -C /tmp && sudo mv /tmp/fd-v${FD_VERSION}-x86_64-unknown-linux-musl/fd /usr/local/bin/fd && rm -rf /tmp/fd.tgz /tmp/fd-v${FD_VERSION}-x86_64-unknown-linux-musl; } || { echo "SEEDRUN-FAILED:fd"; exit 1; }`,
       // Git LFS. Without it a clone of an LFS repo succeeds but leaves pointer
       // stubs where the real files should be, which reads as corrupt content
       // rather than a missing tool. Registering the --system filters is the half
       // that makes checkout resolve pointers, so it must follow the binary; call
       // the absolute path because sudo's secure_path may exclude /usr/local/bin.
-      `command -v git-lfs >/dev/null 2>&1 || { curl -fsSL https://github.com/git-lfs/git-lfs/releases/download/v${GIT_LFS_VERSION}/git-lfs-linux-amd64-v${GIT_LFS_VERSION}.tar.gz -o /tmp/lfs.tgz && sudo tar -xzf /tmp/lfs.tgz -C /tmp && sudo mv /tmp/git-lfs-${GIT_LFS_VERSION}/git-lfs /usr/local/bin/git-lfs && rm -rf /tmp/lfs.tgz /tmp/git-lfs-${GIT_LFS_VERSION}; } || { echo "SEEDRUN-FAILED:git-lfs"; exit 1; }`,
+      `command -v git-lfs >/dev/null 2>&1 || { ${GITHUB_RELEASE_CURL} -o /tmp/lfs.tgz https://github.com/git-lfs/git-lfs/releases/download/v${GIT_LFS_VERSION}/git-lfs-linux-amd64-v${GIT_LFS_VERSION}.tar.gz && sudo tar -xzf /tmp/lfs.tgz -C /tmp && sudo mv /tmp/git-lfs-${GIT_LFS_VERSION}/git-lfs /usr/local/bin/git-lfs && rm -rf /tmp/lfs.tgz /tmp/git-lfs-${GIT_LFS_VERSION}; } || { echo "SEEDRUN-FAILED:git-lfs"; exit 1; }`,
       // The Image's primary git is a custom build under /opt/git, so its
       // "system" config resolves to /opt/git/etc/gitconfig — a directory the
       // image does not ship. `git lfs install --system` therefore failed with

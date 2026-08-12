@@ -1,5 +1,11 @@
 # Changelog
 
+## Snapshot seed GitHub tarball installs survive HTTP/2 drops - 2026-08-12
+
+A carepulse-ts web snapshot failed at toolchain install with `curl: (56) Connection died, tried 5 times` while fetching the GitHub CLI tarball. Plain `curl -fsSL` speaks HTTP/2, and GitHub Releases from a Vercel sandbox drops that stream; `--retry` does not cover error 56.
+
+Every GitHub release tarball the seed installs (gh, supabase CLI, ripgrep, fd, git-lfs) now uses HTTP/1.1 with `--retry-all-errors`. gh also falls back to the official yum repo if the tarball still fails, so one flaky download does not fail the whole seeded snapshot.
+
 ## Component data survives a sync to a local backend - 2026-08-12
 
 `sync:prod-to-local` imported the snapshot zip whole, and a zip that holds component tables cannot be imported that way. The import failed with "New table `X` in '\<component\>' has IDs that conflict with existing system table", because the CLI addresses a component namespace by name through `--component`, not by the `_components/` directories inside the zip. Every namespace also numbers its user tables from 10001, so a single whole-zip import puts two namespaces on the same numbers.

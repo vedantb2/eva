@@ -65,11 +65,18 @@ function legacySettingsKey(repoId: Id<"githubRepos">) {
   return `eva:session-settings:new-session-${repoId}`;
 }
 
-function defaultState(defaultModel?: string | null): NewSessionComposerState {
+function defaultState(
+  defaultModel?: string | null,
+  defaultTraits?: StoredModelTraits,
+): NewSessionComposerState {
   return {
     draft: "",
     model: normalizeAIModel(defaultModel ?? DEFAULT_AI_MODEL),
     mode: "edit",
+    effortLevel: defaultTraits?.effortLevel,
+    thinkingEnabled: defaultTraits?.thinkingEnabled,
+    use1mContext: defaultTraits?.use1mContext,
+    fastMode: defaultTraits?.fastMode,
     providerAccountId: null,
     numDesigns: 3,
   };
@@ -78,16 +85,17 @@ function defaultState(defaultModel?: string | null): NewSessionComposerState {
 function normalizeStored(
   value: z.infer<typeof composerStateSchema>,
   defaultModel?: string | null,
+  defaultTraits?: StoredModelTraits,
 ): NewSessionComposerState {
-  const defaults = defaultState(defaultModel);
+  const defaults = defaultState(defaultModel, defaultTraits);
   return {
     draft: value.draft ?? defaults.draft,
     model: normalizeAIModel(value.model ?? defaults.model),
     mode: normalizeMode(value.mode ?? defaults.mode),
-    effortLevel: value.effortLevel,
-    thinkingEnabled: value.thinkingEnabled,
-    use1mContext: value.use1mContext,
-    fastMode: value.fastMode,
+    effortLevel: value.effortLevel ?? defaults.effortLevel,
+    thinkingEnabled: value.thinkingEnabled ?? defaults.thinkingEnabled,
+    use1mContext: value.use1mContext ?? defaults.use1mContext,
+    fastMode: value.fastMode ?? defaults.fastMode,
     providerAccountId:
       value.providerAccountId === undefined
         ? defaults.providerAccountId
@@ -99,14 +107,18 @@ function normalizeStored(
 function parseComposerState(
   raw: string,
   defaultModel?: string | null,
+  defaultTraits?: StoredModelTraits,
 ): NewSessionComposerState | null {
   try {
     const result = storedOrLegacyDraftSchema.safeParse(JSON.parse(raw));
     if (!result.success) return null;
     if (typeof result.data === "string") {
-      return { ...defaultState(defaultModel), draft: result.data };
+      return {
+        ...defaultState(defaultModel, defaultTraits),
+        draft: result.data,
+      };
     }
-    return normalizeStored(result.data, defaultModel);
+    return normalizeStored(result.data, defaultModel, defaultTraits);
   } catch {
     return null;
   }
@@ -127,24 +139,27 @@ function readRaw(key: string): string | null {
 function loadOrMigrate(
   repoId: Id<"githubRepos">,
   defaultModel?: string | null,
+  defaultTraits?: StoredModelTraits,
 ): NewSessionComposerState {
-  const defaults = defaultState(defaultModel);
+  const defaults = defaultState(defaultModel, defaultTraits);
   if (typeof window === "undefined") return defaults;
 
   const existingRaw = readRaw(storageKey(repoId));
   if (existingRaw !== null) {
-    return parseComposerState(existingRaw, defaultModel) ?? defaults;
+    return (
+      parseComposerState(existingRaw, defaultModel, defaultTraits) ?? defaults
+    );
   }
 
   const legacyDraftRaw = readRaw(legacyDraftKey(repoId));
   const legacySettingsRaw = readRaw(legacySettingsKey(repoId));
   const legacyDraft =
     legacyDraftRaw !== null
-      ? parseComposerState(legacyDraftRaw, defaultModel)
+      ? parseComposerState(legacyDraftRaw, defaultModel, defaultTraits)
       : null;
   const legacySettings =
     legacySettingsRaw !== null
-      ? parseComposerState(legacySettingsRaw, defaultModel)
+      ? parseComposerState(legacySettingsRaw, defaultModel, defaultTraits)
       : null;
 
   const migrated = normalizeStored(
@@ -159,6 +174,7 @@ function loadOrMigrate(
       providerAccountId: legacySettings?.providerAccountId,
     },
     defaultModel,
+    defaultTraits,
   );
 
   try {
@@ -174,10 +190,12 @@ function loadOrMigrate(
 function coerceState(
   value: NewSessionComposerState,
   defaultModel?: string | null,
+  defaultTraits?: StoredModelTraits,
 ): NewSessionComposerState {
   return normalizeStored(
     composerStateSchema.catch({}).parse(value),
     defaultModel,
+    defaultTraits,
   );
 }
 
@@ -188,13 +206,14 @@ function coerceState(
 export function useNewSessionComposerState(
   repoId: Id<"githubRepos">,
   defaultModel?: string | null,
+  defaultTraits?: StoredModelTraits,
 ) {
   const [state, setState] = useLocalStorage(
     storageKey(repoId),
-    loadOrMigrate(repoId, defaultModel),
+    loadOrMigrate(repoId, defaultModel, defaultTraits),
   );
 
-  const normalized = coerceState(state, defaultModel);
+  const normalized = coerceState(state, defaultModel, defaultTraits);
   const storedTraits: StoredModelTraits = {
     effortLevel: normalized.effortLevel,
     thinkingEnabled: normalized.thinkingEnabled,
@@ -209,7 +228,7 @@ export function useNewSessionComposerState(
 
   const patch = (partial: Partial<NewSessionComposerState>) => {
     setState((prev) => ({
-      ...coerceState(prev, defaultModel),
+      ...coerceState(prev, defaultModel, defaultTraits),
       ...partial,
     }));
   };

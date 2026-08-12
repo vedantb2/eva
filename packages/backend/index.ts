@@ -19,6 +19,7 @@ export {
   modelHasTraits,
   getReasoningLevelLabel,
   normalizeAIModel,
+  storedTraitsFromRepoDefaults,
   type AIModel,
   type AIProvider,
   type ReasoningLevel,

@@ -1,5 +1,9 @@
 # Changelog
 
+## Repo default model includes traits - 2026-08-12
+
+The repository default model on settings/config only stored the model id, so new tasks and sessions always used each model's own reasoning/Fast defaults. The picker now has the same traits menu as composers, and those values persist on the repo and apply when a task or session is created without an override.
+
 ## Cursor picker includes Grok 4.6 - 2026-08-12
 
 Grok 4.6 is in the Cursor model list with its real traits: reasoning low / medium / high (default) / xhigh, plus Fast. The runner sends `xhigh` through instead of clamping it to high, and still pins Fast off unless the user turns it on so a bare model id does not land on Cursor's 2× Fast tier.

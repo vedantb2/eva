@@ -81,6 +81,10 @@ export const create = authMutation({
     );
     const numId = await allocateNumId(ctx.db, args.repoId, "sessions");
     const model = args.model ?? repo.defaultModel;
+    const reasoningLevel = args.reasoningLevel ?? repo.defaultReasoningLevel;
+    const thinkingEnabled = args.thinkingEnabled ?? repo.defaultThinkingEnabled;
+    const use1mContext = args.use1mContext ?? repo.defaultUse1mContext;
+    const fastMode = args.fastMode ?? repo.defaultFastMode;
     const providerAccountId =
       args.providerAccountId === undefined
         ? await resolveDefaultProviderAccountId(ctx.db, ctx.userId, model)
@@ -103,16 +107,14 @@ export const create = authMutation({
       provider: getAIModelProvider(model),
       lastModel: model,
       ...(args.mode !== undefined ? { lastMode: args.mode } : {}),
-      ...(args.reasoningLevel !== undefined
-        ? { lastReasoningLevel: args.reasoningLevel }
+      ...(reasoningLevel !== undefined
+        ? { lastReasoningLevel: reasoningLevel }
         : {}),
-      ...(args.thinkingEnabled !== undefined
-        ? { lastThinkingEnabled: args.thinkingEnabled }
+      ...(thinkingEnabled !== undefined
+        ? { lastThinkingEnabled: thinkingEnabled }
         : {}),
-      ...(args.use1mContext !== undefined
-        ? { lastUse1mContext: args.use1mContext }
-        : {}),
-      ...(args.fastMode !== undefined ? { lastFastMode: args.fastMode } : {}),
+      ...(use1mContext !== undefined ? { lastUse1mContext: use1mContext } : {}),
+      ...(fastMode !== undefined ? { lastFastMode: fastMode } : {}),
     });
     const branchName = `eva/session-${sessionId}`;
     await ctx.db.patch(sessionId, { branchName });
@@ -143,10 +145,10 @@ export const create = authMutation({
         userId: ctx.userId,
         mode: args.mode,
         model: args.model,
-        reasoningLevel: args.reasoningLevel,
-        thinkingEnabled: args.thinkingEnabled,
-        use1mContext: args.use1mContext,
-        fastMode: args.fastMode,
+        reasoningLevel,
+        thinkingEnabled,
+        use1mContext,
+        fastMode,
         providerAccountId,
         attachmentStorageIds: args.attachmentStorageIds,
         personaId: args.personaId,

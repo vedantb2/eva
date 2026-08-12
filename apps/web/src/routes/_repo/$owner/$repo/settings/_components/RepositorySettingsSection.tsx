@@ -1,6 +1,12 @@
 "use client";
 
-import { normalizeAIModel, type AIModel, type Id } from "@eva/backend";
+import {
+  normalizeAIModel,
+  storedTraitsFromRepoDefaults,
+  type AIModel,
+  type Id,
+  type StoredModelTraits,
+} from "@eva/backend";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
@@ -11,12 +17,20 @@ import { ConfigModelField } from "./ConfigModelField";
 type RepoConfigFields = {
   defaultBaseBranch?: string;
   defaultModel?: string;
+  defaultReasoningLevel?: StoredModelTraits["effortLevel"];
+  defaultThinkingEnabled?: boolean;
+  defaultUse1mContext?: boolean;
+  defaultFastMode?: boolean;
 };
 
 type UpdateRepoConfig = (args: {
   repoId: Id<"githubRepos">;
   defaultBaseBranch?: string;
   defaultModel?: AIModel;
+  defaultReasoningLevel?: StoredModelTraits["effortLevel"];
+  defaultThinkingEnabled?: boolean;
+  defaultUse1mContext?: boolean;
+  defaultFastMode?: boolean;
 }) => void;
 
 export function RepositorySettingsSection({
@@ -65,12 +79,30 @@ export function RepositorySettingsSection({
 
         <ConfigModelField
           label="Default model"
-          description="Provider and model for new tasks."
+          description="Provider, model, and traits for new tasks and sessions."
           state={defaultModels}
+          traits={storedTraitsFromRepoDefaults(repo)}
           onValueChange={(nextModel) => {
             updateConfig({
               repoId,
               defaultModel: normalizeAIModel(nextModel),
+            });
+          }}
+          onTraitsChange={(partial) => {
+            updateConfig({
+              repoId,
+              ...(partial.effortLevel !== undefined
+                ? { defaultReasoningLevel: partial.effortLevel }
+                : {}),
+              ...(partial.thinkingEnabled !== undefined
+                ? { defaultThinkingEnabled: partial.thinkingEnabled }
+                : {}),
+              ...(partial.use1mContext !== undefined
+                ? { defaultUse1mContext: partial.use1mContext }
+                : {}),
+              ...(partial.fastMode !== undefined
+                ? { defaultFastMode: partial.fastMode }
+                : {}),
             });
           }}
         />

@@ -6,6 +6,7 @@ import {
   modelHasTraits,
   normalizeAIModel,
   resolveTraitsForDisplay,
+  storedTraitsFromRepoDefaults,
 } from "../convex/_validators/aiModels";
 
 test("cursor base models expose reasoning traits for the composer menu", () => {
@@ -114,4 +115,18 @@ test("getAIModelProvider follows normalized model prefix", () => {
   expect(getAIModelProvider("cursor:composer-2")).toBe("cursor");
   expect(getAIModelProvider("opus")).toBe("claude");
   expect(getAIModelProvider("codex:gpt-5.4")).toBe("codex");
+});
+
+test("storedTraitsFromRepoDefaults maps repo config fields", () => {
+  expect(
+    storedTraitsFromRepoDefaults({
+      defaultReasoningLevel: "xhigh",
+      defaultFastMode: true,
+    }),
+  ).toEqual({
+    effortLevel: "xhigh",
+    thinkingEnabled: undefined,
+    use1mContext: undefined,
+    fastMode: true,
+  });
 });

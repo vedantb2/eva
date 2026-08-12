@@ -4,7 +4,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import { useUser } from "@clerk/clerk-react";
 import { useMutation } from "convex/react";
-import { api, normalizeAIModel, type Id } from "@eva/backend";
+import {
+  api,
+  normalizeAIModel,
+  storedTraitsFromRepoDefaults,
+  type Id,
+} from "@eva/backend";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { toast } from "@eva/ui";
 import { BranchSelect } from "@/lib/components/BranchSelect";
@@ -53,7 +58,11 @@ export function NewSessionComposer() {
     clearDraft,
     numDesigns,
     setNumDesigns,
-  } = useNewSessionComposerState(repo._id, defaultModel);
+  } = useNewSessionComposerState(
+    repo._id,
+    defaultModel,
+    storedTraitsFromRepoDefaults(repo),
+  );
   const [selectedPersonaId, setSelectedPersonaId] =
     useState<Id<"designPersonas">>();
   const {

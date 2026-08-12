@@ -5,7 +5,7 @@ import { internalMutation } from "../_generated/server";
 import type { DatabaseWriter } from "../_generated/server";
 import { authMutation, getRepoWithAccess, hasTeamAccess } from "../functions";
 import { normalizePath } from "../repoUtils";
-import { aiModelValidator } from "../validators";
+import { aiModelValidator, reasoningLevelValidator } from "../validators";
 import { findAllSiblingRepoIds } from "./helpers";
 
 /** Throws unless the user connected the repo or shares its team. */
@@ -237,6 +237,10 @@ export const updateConfig = authMutation({
     repoId: v.id("githubRepos"),
     defaultBaseBranch: v.optional(v.string()),
     defaultModel: v.optional(aiModelValidator),
+    defaultReasoningLevel: v.optional(reasoningLevelValidator),
+    defaultThinkingEnabled: v.optional(v.boolean()),
+    defaultUse1mContext: v.optional(v.boolean()),
+    defaultFastMode: v.optional(v.boolean()),
     sessionsVncEnabled: v.optional(v.boolean()),
     sessionsVscodeEnabled: v.optional(v.boolean()),
     deploymentProjectName: v.optional(v.string()),
@@ -261,6 +265,14 @@ export const updateConfig = authMutation({
       sharedPatch.defaultBaseBranch = args.defaultBaseBranch;
     if (args.defaultModel !== undefined)
       sharedPatch.defaultModel = args.defaultModel;
+    if (args.defaultReasoningLevel !== undefined)
+      sharedPatch.defaultReasoningLevel = args.defaultReasoningLevel;
+    if (args.defaultThinkingEnabled !== undefined)
+      sharedPatch.defaultThinkingEnabled = args.defaultThinkingEnabled;
+    if (args.defaultUse1mContext !== undefined)
+      sharedPatch.defaultUse1mContext = args.defaultUse1mContext;
+    if (args.defaultFastMode !== undefined)
+      sharedPatch.defaultFastMode = args.defaultFastMode;
     if (args.sessionsVncEnabled !== undefined)
       sharedPatch.sessionsVncEnabled = args.sessionsVncEnabled;
     if (args.sessionsVscodeEnabled !== undefined)

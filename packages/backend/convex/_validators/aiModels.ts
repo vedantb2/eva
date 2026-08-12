@@ -654,6 +654,21 @@ export function buildTraitsExecutionPayload(
   return payload;
 }
 
+/** Repo-config default traits, shaped for the composer traits menu. */
+export function storedTraitsFromRepoDefaults(repo: {
+  defaultReasoningLevel?: ReasoningLevel;
+  defaultThinkingEnabled?: boolean;
+  defaultUse1mContext?: boolean;
+  defaultFastMode?: boolean;
+}): StoredModelTraits {
+  return {
+    effortLevel: repo.defaultReasoningLevel,
+    thinkingEnabled: repo.defaultThinkingEnabled,
+    use1mContext: repo.defaultUse1mContext,
+    fastMode: repo.defaultFastMode,
+  };
+}
+
 /** Finds the full AIModelOption metadata for a given model string, falling back to the default. */
 export function findAIModelOption(
   model: string | null | undefined,

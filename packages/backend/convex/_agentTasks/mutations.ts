@@ -540,10 +540,10 @@ export const createQuickTask = authMutation({
       baseBranch: resolveNewTaskBaseBranch(args.baseBranch, repo, project),
       model,
       providerAccountId,
-      reasoningLevel: args.reasoningLevel,
-      thinkingEnabled: args.thinkingEnabled,
-      use1mContext: args.use1mContext,
-      fastMode: args.fastMode,
+      reasoningLevel: args.reasoningLevel ?? repo.defaultReasoningLevel,
+      thinkingEnabled: args.thinkingEnabled ?? repo.defaultThinkingEnabled,
+      use1mContext: args.use1mContext ?? repo.defaultUse1mContext,
+      fastMode: args.fastMode ?? repo.defaultFastMode,
       projectId: args.projectId,
       taskNumber,
       tags: normalizeTaskTags(args.tags),
@@ -611,6 +611,10 @@ export const createQuickTasksBatch = authMutation({
         createdBy: ctx.userId,
         baseBranch: repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
         model: repo.defaultModel,
+        reasoningLevel: repo.defaultReasoningLevel,
+        thinkingEnabled: repo.defaultThinkingEnabled,
+        use1mContext: repo.defaultUse1mContext,
+        fastMode: repo.defaultFastMode,
         numId,
       });
       await ensureSubscribed(ctx, taskId, ctx.userId);
@@ -710,6 +714,10 @@ export const createBatchWithDependencies = authMutation({
         createdBy: ctx.userId,
         baseBranch,
         model,
+        reasoningLevel: repo.defaultReasoningLevel,
+        thinkingEnabled: repo.defaultThinkingEnabled,
+        use1mContext: repo.defaultUse1mContext,
+        fastMode: repo.defaultFastMode,
         numId,
       });
       await ensureSubscribed(ctx, taskId, ctx.userId);

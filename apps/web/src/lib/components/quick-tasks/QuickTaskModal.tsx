@@ -29,6 +29,7 @@ import {
   api,
   DEFAULT_AI_MODEL,
   normalizeAIModel,
+  storedTraitsFromRepoDefaults,
   type AIModel,
   type Id,
   type StoredModelTraits,
@@ -177,10 +178,11 @@ export function QuickTaskModal({
   }
 
   const defaultModel = normalizeAIModel(repo.defaultModel ?? DEFAULT_AI_MODEL);
+  const defaultTraits = storedTraitsFromRepoDefaults(repo);
   const [model, setModel] = useState<AIModel>(defaultModel);
   // Absent traits fall back to each model's own defaults, so an untouched menu
   // sends nothing and the task runs exactly as it does today.
-  const [traits, setTraits] = useState<StoredModelTraits>({});
+  const [traits, setTraits] = useState<StoredModelTraits>(defaultTraits);
   const [providerAccountId, setProviderAccountId] = useState<string | null>(
     null,
   );
@@ -222,7 +224,7 @@ export function QuickTaskModal({
     setDescription("");
     setBaseBranch(defaultBranch);
     setModel(defaultModel);
-    setTraits({});
+    setTraits(defaultTraits);
     setProviderAccountId(defaultProviderAccountId(accounts, defaultModel));
     setAccountDefaulted(accounts.length > 0);
     setActiveDraftId(null);

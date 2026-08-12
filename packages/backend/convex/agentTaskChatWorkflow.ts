@@ -54,12 +54,13 @@ function chatStreamEntityId(taskId: Id<"agentTasks">): string {
   return `${TASK_CHAT_STREAM_PREFIX}${String(taskId)}`;
 }
 
-async function buildTaskChatTurnPrompt(
+export async function buildTaskChatTurnPrompt(
   ctx: QueryCtx,
   args: {
     taskId: Id<"agentTasks">;
     message: string;
     userId: Id<"users">;
+    messageParentId?: Id<"chats">;
   },
 ): Promise<{
   prompt: string;
@@ -67,14 +68,18 @@ async function buildTaskChatTurnPrompt(
 }> {
   const task = await ctx.db.get(args.taskId);
   if (!task) throw new Error("Task not found");
-  if (!task.repoId) throw new Error("Task is not associated with a repo");
+  const project = task.projectId ? await ctx.db.get(task.projectId) : null;
+  const repoId = task.repoId ?? project?.repoId;
+  if (!repoId) throw new Error("Task is not associated with a repo");
 
-  const repo = await ctx.db.get(task.repoId);
+  const repo = await ctx.db.get(repoId);
   if (!repo) throw new Error("Repository not found");
 
   const triggeringUserMessage = await ctx.db
     .query("messages")
-    .withIndex("by_parent", (q) => q.eq("parentId", args.taskId))
+    .withIndex("by_parent", (q) =>
+      q.eq("parentId", args.messageParentId ?? args.taskId),
+    )
     .order("desc")
     .filter((q) => q.eq(q.field("role"), "user"))
     .first();
@@ -88,7 +93,7 @@ async function buildTaskChatTurnPrompt(
   const { resolvedMessage, prefixBlock } = await resolveMessageTokens(
     ctx,
     args.message,
-    task.repoId,
+    repoId,
   );
 
   const branchName = await resolveTaskBranchName(ctx.db, task);
@@ -408,6 +413,7 @@ export const cancelExecution = authMutation({
         await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
           sandboxId: task.sandboxId,
           repoId: task.repoId,
+          laneKey: null,
         });
       }
     }

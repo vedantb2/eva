@@ -2,6 +2,7 @@
 
 export {
   killSandboxProcess,
+  killAllSandboxLanes,
   stopSandbox,
   deleteSandbox,
   captureDiagnosticsAndStopSandbox,

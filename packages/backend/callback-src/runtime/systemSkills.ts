@@ -15,11 +15,11 @@ import {
   rmSync,
   writeFileSync,
 } from "fs";
-import { WORK_DIR } from "../config.js";
+import { SYSTEM_SKILLS_STATE_FILE, WORK_DIR } from "../config.js";
 import { log, tryParseJson } from "../utils.js";
 
 /** Written by `launch.ts` on every launch, empty list included. */
-export const SYSTEM_SKILLS_STATE_FILE = "/tmp/eva-system-skills.json";
+export { SYSTEM_SKILLS_STATE_FILE };
 
 /**
  * Marks a SKILL.md as Eva-materialized. A same-named skill without it is the
@@ -64,7 +64,10 @@ export function parseSystemSkillsFile(raw: string): SystemSkillStub[] | null {
 }
 
 /** Replaces (or removes) the Eva sentinel block in a `.git/info/exclude` body. */
-export function renderExcludeContent(existing: string, names: string[]): string {
+export function renderExcludeContent(
+  existing: string,
+  names: string[],
+): string {
   const lines = existing.replace(/\r\n/g, "\n").split("\n");
   const kept: string[] = [];
   let insideBlock = false;

@@ -6,10 +6,12 @@ import {
   CLAIM_MUTATION,
   CLAUDE_RUNTIME_CONFIG_DIR,
   ENTITY_ID_FIELD,
+  MCP_CONFIG_PATH,
   MAX_TOTAL_RUNTIME_MS,
   NO_OUTPUT_CHECK_INTERVAL_MS,
   NO_OUTPUT_TIMEOUT_MS,
   SYSTEM_PROMPT,
+  PROMPT_FILE,
   WORK_DIR,
   claudeEffort,
   normalizedClaudeModel,
@@ -31,7 +33,6 @@ import { log } from "../utils.js";
 
 const SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 const SDK_VERSION = "0.3.201";
-const MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
 
 /**
  * The subset of the Agent SDK `query()` surface this runner uses. The SDK is
@@ -162,7 +163,7 @@ function claudeExecutablePath(): string {
 }
 
 function readPromptText(): string {
-  return readFileSync("/tmp/design-prompt.txt", "utf8");
+  return readFileSync(PROMPT_FILE, "utf8");
 }
 
 export function buildSdkOptions(sessionMode: SessionMode): SdkOptions {

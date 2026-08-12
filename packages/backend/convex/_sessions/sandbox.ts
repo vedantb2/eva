@@ -136,6 +136,9 @@ export async function requestSessionSandboxStop(
   // Stopping kills the paused turn, so any blocking AskUserQuestion can never
   // be claimed — clear it or it hides the composer forever.
   await clearPendingQuestionsForEntity(ctx.db, String(sessionId));
+  await ctx.scheduler.runAfter(0, internal.chatLifecycle.cleanupParentChats, {
+    parentId: sessionId,
+  });
 
   // Allow stop from closed when a sandboxId remains — start can early-ready
   // then fail and leave a live Vercel VM while UI shows inactive.

@@ -9,6 +9,7 @@ import { entityDaemonPaths } from "./daemonPaths";
 import type { SandboxHandle } from "../_sandbox/provider";
 import { CALLBACK_SCRIPT } from "./callbackScript";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
+import { runnerPaths } from "./lanePaths";
 
 // Paths baked into the callback script env for each CLI's config directory.
 // These originated as Daytona persistence-volume mount paths; the *_RUNTIME_*
@@ -137,6 +138,8 @@ export async function launchScript(
     openSyntheticTurnMutation?: string;
     completeSyntheticTurnMutation?: string;
     updateBackgroundAgentsMutation?: string;
+    /** Side-chat lane. Omitted keeps the legacy/default lane paths. */
+    laneKey?: string;
   } = {},
 ): Promise<void> {
   const launchStartedAt = Date.now();
@@ -145,6 +148,14 @@ export async function launchScript(
   );
   const normalizedModel = normalizeAIModel(opts.model);
   const provider = getAIModelProvider(normalizedModel);
+  const paths = runnerPaths(opts.laneKey);
+  if (paths.laneDir !== undefined) {
+    await execHandle(
+      sandbox,
+      `mkdir -p ${quote([paths.laneDir])} ${quote([paths.attachmentsDir])}`,
+      10,
+    );
+  }
   const providerPrep = ensureProviderCliAvailable(sandbox, provider);
   function uploadWithTiming(
     path: string,
@@ -158,7 +169,7 @@ export async function launchScript(
     });
   }
   const uploadTasks: Array<Promise<void>> = [
-    uploadWithTiming("/tmp/design-prompt.txt", prompt, "prompt"),
+    uploadWithTiming(paths.prompt, prompt, "prompt"),
     uploadWithTiming("/tmp/run-design.mjs", CALLBACK_SCRIPT, "callback script"),
     uploadWithTiming(
       "/tmp/eva-callback-fp",
@@ -180,7 +191,7 @@ export async function launchScript(
       },
     });
     uploadTasks.push(
-      uploadWithTiming("/tmp/eva-mcp.json", mcpConfig, "MCP config"),
+      uploadWithTiming(paths.mcpConfig, mcpConfig, "MCP config"),
     );
   }
 
@@ -190,7 +201,7 @@ export async function launchScript(
   if (opts.systemSkillsJson !== undefined) {
     uploadTasks.push(
       uploadWithTiming(
-        "/tmp/eva-system-skills.json",
+        paths.systemSkills,
         opts.systemSkillsJson,
         "system skills",
       ),
@@ -217,16 +228,19 @@ export async function launchScript(
     // SDK `result` event, so a backgrounded sub-agent can never report back.
     // Force synchronous tools so sub-agent work stays inside the same turn.
     `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`,
-    `CODEX_RUNTIME_HOME_DIR=${quote([CODEX_RUNTIME_HOME_DIR])}`,
-    `CODEX_PERSIST_DIR=${quote([CODEX_PERSIST_VOLUME_MOUNT_PATH])}`,
+    `CODEX_RUNTIME_HOME_DIR=${quote([paths.codexRuntimeDir])}`,
+    `CODEX_PERSIST_DIR=${quote([opts.laneKey === undefined ? CODEX_PERSIST_VOLUME_MOUNT_PATH : `${CODEX_PERSIST_VOLUME_MOUNT_PATH}/lanes/${opts.laneKey}`])}`,
     `CODEX_BIN_PATH=${quote([CODEX_FALLBACK_BIN_PATH])}`,
     `CLAUDE_BIN_PATH=${quote([CLAUDE_FALLBACK_BIN_PATH])}`,
-    `OPENCODE_RUNTIME_HOME_DIR=${quote([OPENCODE_RUNTIME_HOME_DIR])}`,
-    `OPENCODE_PERSIST_DIR=${quote([OPENCODE_PERSIST_VOLUME_MOUNT_PATH])}`,
+    `OPENCODE_RUNTIME_HOME_DIR=${quote([paths.opencodeRuntimeDir])}`,
+    `OPENCODE_PERSIST_DIR=${quote([opts.laneKey === undefined ? OPENCODE_PERSIST_VOLUME_MOUNT_PATH : `${OPENCODE_PERSIST_VOLUME_MOUNT_PATH}/lanes/${opts.laneKey}`])}`,
     `EVA_OPENCODE_BIN_PATH=${quote([OPENCODE_FALLBACK_BIN_PATH])}`,
-    `CURSOR_RUNTIME_HOME_DIR=${quote([CURSOR_RUNTIME_HOME_DIR])}`,
-    `CURSOR_PERSIST_DIR=${quote([CURSOR_PERSIST_VOLUME_MOUNT_PATH])}`,
+    `CURSOR_RUNTIME_HOME_DIR=${quote([paths.cursorRuntimeDir])}`,
+    `CURSOR_PERSIST_DIR=${quote([opts.laneKey === undefined ? CURSOR_PERSIST_VOLUME_MOUNT_PATH : `${CURSOR_PERSIST_VOLUME_MOUNT_PATH}/lanes/${opts.laneKey}`])}`,
   ];
+  if (paths.laneDir !== undefined) {
+    envParts.push(`EVA_LANE_DIR=${quote([paths.laneDir])}`);
+  }
   if (streamingHmac) {
     envParts.push(
       `CONVEX_SITE_URL=${quote([resolveConvexSiteUrl(convexUrl)])}`,
@@ -237,10 +251,10 @@ export async function launchScript(
     envParts.push(`CLAUDE_SESSION_ID=${quote([opts.claudeSessionId])}`);
     envParts.push(`CLAUDE_BASE_CONFIG_DIR=${quote([CLAUDE_BASE_CONFIG_DIR])}`);
     envParts.push(
-      `CLAUDE_RUNTIME_CONFIG_DIR=${quote([CLAUDE_RUNTIME_CONFIG_DIR])}`,
+      `CLAUDE_RUNTIME_CONFIG_DIR=${quote([paths.claudeRuntimeDir])}`,
     );
     envParts.push(
-      `CLAUDE_PERSIST_DIR=${quote([CLAUDE_PERSIST_VOLUME_MOUNT_PATH])}`,
+      `CLAUDE_PERSIST_DIR=${quote([opts.laneKey === undefined ? CLAUDE_PERSIST_VOLUME_MOUNT_PATH : `${CLAUDE_PERSIST_VOLUME_MOUNT_PATH}/lanes/${opts.laneKey}`])}`,
     );
   }
   if (opts.claimMutation) {
@@ -281,14 +295,15 @@ export async function launchScript(
     "#!/usr/bin/env bash",
     "set -euo pipefail",
     `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE}`,
-    "rm -f /tmp/run-design.pid /tmp/run-design.ready",
+    `mkdir -p ${quote([paths.attachmentsDir])}`,
+    `rm -f ${quote([paths.pid])} ${quote([paths.ready])} ${quote([paths.done])}`,
     ...exportLines,
     "if command -v flock >/dev/null 2>&1; then",
-    `  nohup flock -n -E 217 ${runnerLockPath} node /tmp/run-design.mjs >> /tmp/design.log 2>&1 &`,
+    `  nohup setsid flock -n -E 217 ${quote([runnerLockPath])} node /tmp/run-design.mjs >> ${quote([paths.log])} 2>&1 &`,
     "else",
-    "  nohup node /tmp/run-design.mjs >> /tmp/design.log 2>&1 &",
+    `  nohup setsid node /tmp/run-design.mjs >> ${quote([paths.log])} 2>&1 &`,
     "fi",
-    "echo $! > /tmp/run-design.pid",
+    `echo $! > ${quote([paths.pid])}`,
     // Privileged half of the OOM bias: the callback lowers its own
     // oom_score_adj to -600 (callback-src/index.ts) but lowering needs root,
     // so that write no-ops unprivileged — observed in prod as the callback
@@ -298,19 +313,20 @@ export async function launchScript(
     // dev servers and agent work first (both recover — preview self-heal and
     // turn error reporting), the heartbeat/reporting callback last. Fail open
     // on images without passwordless sudo.
-    'echo -600 | sudo -n tee "/proc/$(cat /tmp/run-design.pid)/oom_score_adj" >/dev/null 2>&1 || true',
+    `echo -600 | sudo -n tee "/proc/$(cat ${paths.pid})/oom_score_adj" >/dev/null 2>&1 || true`,
   ].join("\n");
-  await sandbox.writeFile("/tmp/eva-launch-runner.sh", runnerLaunchScript);
+  await sandbox.writeFile(paths.launchScript, runnerLaunchScript);
   // Use the provider-native detached path; waitForRunnerReady confirms the
   // backgrounded runner actually started.
   // Use handle.exec (not execHandle) so cwd stays at the Vercel default — the script
   await sandbox.execDetached(
-    "chmod +x /tmp/eva-launch-runner.sh && /tmp/eva-launch-runner.sh",
+    `chmod +x ${quote([paths.launchScript])} && ${quote([paths.launchScript])}`,
     { timeoutSeconds: 15 },
   );
   await waitForRunnerReady(sandbox, entityId, {
     runnerLockPath,
-    daemonPaths: entityDaemonPaths(entityIdField, entityId),
+    daemonPaths: entityDaemonPaths(entityIdField, entityId, opts.laneKey),
+    paths,
     // Only a daemon launch can be satisfied by an incumbent runner, and only
     // one whose opts signature matches (see waitForRunnerReady).
     expectedDaemonOptsSig: opts.extraEnvVars?.EVA_DAEMON_OPTS,
@@ -328,13 +344,14 @@ async function waitForRunnerReady(
     runnerLockPath: string;
     daemonPaths: { pid: string; opts: string };
     expectedDaemonOptsSig: string | undefined;
+    paths: ReturnType<typeof runnerPaths>;
   },
 ): Promise<void> {
   for (let attempt = 0; attempt < CALLBACK_READY_POLL_ATTEMPTS; attempt++) {
     const ready = (
       await execHandle(
         sandbox,
-        `test -f /tmp/run-design.ready && echo yes || echo no`,
+        `test -f ${quote([fence.paths.ready])} && echo yes || echo no`,
         5,
       )
     ).trim();
@@ -345,7 +362,7 @@ async function waitForRunnerReady(
     const alive = (
       await execHandle(
         sandbox,
-        `pid=$(cat /tmp/run-design.pid 2>/dev/null || true); if [ -z "$pid" ]; then echo pending; elif kill -0 "$pid" 2>/dev/null; then echo alive; else echo dead; fi`,
+        `pid=$(cat ${quote([fence.paths.pid])} 2>/dev/null || true); if [ -z "$pid" ]; then echo pending; elif kill -0 "$pid" 2>/dev/null; then echo alive; else echo dead; fi`,
         5,
       )
     ).trim();
@@ -386,7 +403,7 @@ async function waitForRunnerReady(
       }
       const log = await execHandle(
         sandbox,
-        `tail -n 120 /tmp/design.log 2>/dev/null || true`,
+        `tail -n 120 ${quote([fence.paths.log])} 2>/dev/null || true`,
         10,
       );
       throw new Error(
@@ -401,12 +418,12 @@ async function waitForRunnerReady(
 
   const log = await execHandle(
     sandbox,
-    `tail -n 120 /tmp/design.log 2>/dev/null || true`,
+    `tail -n 120 ${quote([fence.paths.log])} 2>/dev/null || true`,
     10,
   );
   await execHandle(
     sandbox,
-    `pid=$(cat /tmp/run-design.pid 2>/dev/null || true); if [ -n "$pid" ]; then kill "$pid" 2>/dev/null || true; fi`,
+    `pid=$(cat ${quote([fence.paths.pid])} 2>/dev/null || true); if [ -n "$pid" ]; then kill -TERM -- "-$pid" 2>/dev/null || kill "$pid" 2>/dev/null || true; fi`,
     5,
   );
   throw new Error(

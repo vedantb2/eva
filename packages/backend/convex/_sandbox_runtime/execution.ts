@@ -21,7 +21,6 @@ import {
   sleep,
   errorMessage,
   signAndLaunchScript,
-  KILL_PRIOR_AGENT_PROCESSES_CMD,
   sessionClaudeUuid,
 } from "./helpers";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
@@ -45,6 +44,7 @@ import { ensureSwapFile } from "./swap";
 import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
 import { assertActionSandboxAccess } from "../functions";
+import { buildKillLaneCommand, runnerPaths } from "./lanePaths";
 
 /** True if anything is LISTEN on `port` (Vercel images often lack `ss`). */
 function portListenProbeCmd(port: number): string {
@@ -107,12 +107,20 @@ const sessionPersistenceKindValidator = v.union(
   v.literal("sessions"),
   v.literal("projects"),
   v.literal("agentTasks"),
+  v.literal("chats"),
 );
 
 const sessionPersistenceIdValidator = v.union(
   v.id("sessions"),
   v.id("projects"),
   v.id("agentTasks"),
+  v.id("chats"),
+);
+
+const mcpEntityKindValidator = v.union(
+  v.literal("session"),
+  v.literal("task"),
+  v.literal("project"),
 );
 
 /** Checks whether a sandbox is healthy, starting it if stopped. */
@@ -1214,7 +1222,21 @@ export const pushSandboxBranch = internalAction({
     args,
   ): Promise<{ pushed: boolean; published: boolean }> => {
     const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    const leaseOwner = `${Date.now()}-${Math.random()}`;
+    const waitDeadline = Date.now() + 90_000;
+    let claimed = false;
     try {
+      while (!claimed && Date.now() < waitDeadline) {
+        claimed = await ctx.runMutation(internal.sandboxGitOperation.claim, {
+          sandboxId: args.sandboxId,
+          owner: leaseOwner,
+          leaseMs: 3 * 60 * 1000,
+        });
+        if (!claimed) await sleep(500);
+      }
+      if (!claimed) {
+        throw new Error("Timed out waiting for another sandbox git operation");
+      }
       return await pushBranchToOrigin(
         sandbox,
         args.repoOwner,
@@ -1229,6 +1251,13 @@ export const pushSandboxBranch = internalAction({
       // Rethrow so callers can surface the failure and preserve the sandbox for
       // recovery. Swallowing here made every caller's error handling dead code.
       throw error;
+    } finally {
+      if (claimed) {
+        await ctx.runMutation(internal.sandboxGitOperation.release, {
+          sandboxId: args.sandboxId,
+          owner: leaseOwner,
+        });
+      }
     }
   },
 });
@@ -1292,10 +1321,13 @@ type PrewarmEntityDaemonBaseParams = {
   streamingEntityId?: string;
   activeWorkflowField: "activeWorkflowId" | "activeChatWorkflowId";
   skipPrewarm?: boolean;
+  laneKey?: string;
+  mcpEntityId?: string;
+  mcpEntityKind?: "session" | "task" | "project";
 };
 
 type PrewarmEntityDaemonParams = PrewarmEntityDaemonBaseParams & {
-  entityTable: "sessions" | "agentTasks" | "projects";
+  entityTable: "sessions" | "agentTasks" | "projects" | "chats";
 };
 
 /** Shared implementation for prewarmEntityDaemon and prewarmSessionDaemon. */
@@ -1325,14 +1357,16 @@ async function runPrewarmEntityDaemon(
         `[sandbox][execution] prewarmEntityDaemon: sandbox ${args.sandboxId} classify=${classification} — skipping prewarm entityId=${args.entityId}`,
       );
       if (classification === "dead") {
-        await ctx.runMutation(
-          internal.sandboxDaemon.reconcileStoppedSandboxStatus,
-          {
-            entityTable: args.entityTable,
-            entityId: args.entityId,
-            sandboxId: args.sandboxId,
-          },
-        );
+        if (args.entityTable !== "chats") {
+          await ctx.runMutation(
+            internal.sandboxDaemon.reconcileStoppedSandboxStatus,
+            {
+              entityTable: args.entityTable,
+              entityId: args.entityId,
+              sandboxId: args.sandboxId,
+            },
+          );
+        }
       }
       return { prewarmed: false };
     }
@@ -1360,7 +1394,13 @@ async function runPrewarmEntityDaemon(
     );
     const alive = await execHandle(
       sandbox,
-      buildDaemonAliveCheckCmd(args.entityIdField, entityIdStr, fp, optsSig),
+      buildDaemonAliveCheckCmd(
+        args.entityIdField,
+        entityIdStr,
+        fp,
+        optsSig,
+        args.laneKey,
+      ),
       10,
     );
     const aliveState = alive.trim().split("\n").pop()?.trim() ?? "cold";
@@ -1428,7 +1468,11 @@ async function runPrewarmEntityDaemon(
         );
         await execHandle(
           sandbox,
-          buildKillEntityDaemonCmd(args.entityIdField, entityIdStr),
+          buildKillEntityDaemonCmd(
+            args.entityIdField,
+            entityIdStr,
+            args.laneKey,
+          ),
           10,
         );
       }
@@ -1473,6 +1517,15 @@ async function runPrewarmEntityDaemon(
           providerAccountId: args.providerAccountId,
           credentialOwnerUserId: args.credentialOwnerUserId,
           enableMcp: true,
+          laneKey: args.laneKey,
+          ...(args.mcpEntityId !== undefined && args.mcpEntityKind !== undefined
+            ? {
+                mcpEntityOverride: {
+                  entityId: args.mcpEntityId,
+                  entityKind: args.mcpEntityKind,
+                },
+              }
+            : {}),
         },
       );
       console.log(
@@ -1524,10 +1577,14 @@ export const prewarmEntityDaemon = internalAction({
       v.literal("activeChatWorkflowId"),
     ),
     skipPrewarm: v.optional(v.boolean()),
+    laneKey: v.optional(v.string()),
+    mcpEntityId: v.optional(v.string()),
+    mcpEntityKind: v.optional(mcpEntityKindValidator),
     entityTable: v.union(
       v.literal("sessions"),
       v.literal("agentTasks"),
       v.literal("projects"),
+      v.literal("chats"),
     ),
   },
   returns: v.object({ prewarmed: v.boolean() }),
@@ -1634,6 +1691,7 @@ export const killEntityDaemon = internalAction({
     repoId: v.id("githubRepos"),
     entityIdField: v.string(),
     entityId: v.string(),
+    laneKey: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1641,7 +1699,11 @@ export const killEntityDaemon = internalAction({
       const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
       await execHandle(
         sandbox,
-        buildKillEntityDaemonCmd(args.entityIdField, args.entityId),
+        buildKillEntityDaemonCmd(
+          args.entityIdField,
+          args.entityId,
+          args.laneKey,
+        ),
         10,
       );
     } catch {
@@ -1739,6 +1801,9 @@ export const launchOnExistingSandbox = internalAction({
     /** Entity owner for personal-credential decrypt; defaults to `userId`. */
     credentialOwnerUserId: v.optional(v.id("users")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    laneKey: v.optional(v.string()),
+    mcpEntityId: v.optional(v.string()),
+    mcpEntityKind: v.optional(mcpEntityKindValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1751,16 +1816,25 @@ export const launchOnExistingSandbox = internalAction({
     // Download any user-attached input images into the sandbox and point the
     // agent at them via a prompt note (the CLI providers read files by path).
     let prompt = args.prompt;
+    const paths = runnerPaths(args.laneKey);
+    if (paths.laneDir !== undefined) {
+      await execHandle(
+        sandbox,
+        `mkdir -p ${JSON.stringify(paths.attachmentsDir)}`,
+        10,
+      );
+    }
     if (args.attachmentStorageIds && args.attachmentStorageIds.length > 0) {
-      const paths = await materializeAttachmentsToSandbox(
+      const materializedPaths = await materializeAttachmentsToSandbox(
         ctx,
         sandbox,
         args.attachmentStorageIds,
+        paths.attachmentsDir,
       );
-      prompt += buildAttachmentPromptNote(paths);
+      prompt += buildAttachmentPromptNote(materializedPaths);
     }
 
-    await execHandle(sandbox, KILL_PRIOR_AGENT_PROCESSES_CMD, 10);
+    await execHandle(sandbox, buildKillLaneCommand(args.laneKey), 10);
     console.log(
       `[sandbox][execution] cleaned prior runner in ${Date.now() - launchStartedAt}ms entityId=${args.entityId}`,
     );
@@ -1820,6 +1894,15 @@ export const launchOnExistingSandbox = internalAction({
         providerAccountId: args.providerAccountId,
         credentialOwnerUserId: args.credentialOwnerUserId,
         enableMcp: true,
+        laneKey: args.laneKey,
+        ...(args.mcpEntityId !== undefined && args.mcpEntityKind !== undefined
+          ? {
+              mcpEntityOverride: {
+                entityId: args.mcpEntityId,
+                entityKind: args.mcpEntityKind,
+              },
+            }
+          : {}),
       },
     );
     console.log(

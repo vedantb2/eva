@@ -6,6 +6,7 @@ import {
   authMutation,
   hasRepoAccess,
   hasTaskAccess,
+  getChatWithAccess,
 } from "./functions";
 import type { Id } from "./_generated/dataModel";
 import { aiProviderValidator } from "./validators";
@@ -74,7 +75,10 @@ async function listAccountsFor(ctx: QueryCtx, userId: Id<"users">) {
  * shared accounts. Own accounts come first so nothing downstream prefers a
  * teammate's credential by accident.
  */
-async function listSelectableAccountsFor(ctx: QueryCtx, ownerUserId: Id<"users">) {
+async function listSelectableAccountsFor(
+  ctx: QueryCtx,
+  ownerUserId: Id<"users">,
+) {
   const own = await listAccountsFor(ctx, ownerUserId);
   const teammates = await listTeammateUserIds(ctx.db, ownerUserId);
   const shared = [];
@@ -144,6 +148,16 @@ export const listForSessionOwner = authQuery({
       ctx,
       session.createdBy ?? session.userId,
     );
+  },
+});
+
+/** Lists the isolated chat creator's selectable accounts for its sticky picker. */
+export const listForChatOwner = authQuery({
+  args: { chatId: v.id("chats") },
+  returns: v.array(accountListItemValidator),
+  handler: async (ctx, args) => {
+    const chat = await getChatWithAccess(ctx.db, args.chatId, ctx.userId);
+    return await listSelectableAccountsFor(ctx, chat.createdBy);
   },
 });
 

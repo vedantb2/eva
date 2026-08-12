@@ -1,6 +1,7 @@
-import { unlinkSync, writeFileSync, readFileSync } from "fs";
+import { mkdirSync, unlinkSync, writeFileSync, readFileSync } from "fs";
 import {
   CLAIM_MUTATION,
+  ATTACHMENT_DIR,
   COMPLETE_SYNTHETIC_TURN_MUTATION,
   COMPLETION_MUTATION,
   CONVEX_TOKEN,
@@ -1311,6 +1312,7 @@ function attachmentExtensionForMimeType(mimeType: string): string {
  */
 async function materializeTurnAttachments(turn: ClaimedTurn): Promise<void> {
   if (turn.attachmentUrls.length === 0) return;
+  mkdirSync(ATTACHMENT_DIR, { recursive: true });
   const paths: string[] = [];
   for (let index = 0; index < turn.attachmentUrls.length; index++) {
     const url = turn.attachmentUrls[index];
@@ -1325,7 +1327,7 @@ async function materializeTurnAttachments(turn: ClaimedTurn): Promise<void> {
       const extension = attachmentExtensionForMimeType(
         res.headers.get("content-type") ?? "",
       );
-      const path = `/tmp/eva-attachment-${index}${extension}`;
+      const path = `${ATTACHMENT_DIR}/eva-attachment-${index}${extension}`;
       writeFileSync(path, bytes);
       paths.push(path);
     } catch (error) {

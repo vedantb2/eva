@@ -10,6 +10,7 @@ import {
   startNextQueuedProjectChatMessage,
   startNextQueuedSessionMessage,
   startNextQueuedTaskChatMessage,
+  startNextQueuedChatLaneMessage,
 } from "../_queues/helpers";
 import type { WorkflowId } from "@convex-dev/workflow";
 
@@ -31,10 +32,10 @@ export type ChatAlert = { text: string; detail?: string };
  * instead of writing table-specific patches itself.
  */
 export type ChatSurfaceAdapter<
-  TId extends Id<"sessions"> | Id<"agentTasks"> | Id<"projects">,
+  TId extends Id<"sessions"> | Id<"agentTasks"> | Id<"projects"> | Id<"chats">,
   TEntity,
 > = {
-  kind: "session" | "taskChat" | "projectChat";
+  kind: "session" | "taskChat" | "projectChat" | "chat";
   /** Console-log prefix, e.g. "session", "task-chat", "project-chat". */
   logLabel: string;
   /** Console-log key for the id, e.g. "sessionId". */
@@ -48,6 +49,8 @@ export type ChatSurfaceAdapter<
   syntheticTurnMessageId: (entity: TEntity) => Id<"messages"> | undefined;
   sandboxId: (entity: TEntity) => string | undefined;
   repoId: (entity: TEntity) => Id<"githubRepos"> | undefined;
+  /** Side chats scope PID/marker probes to their lane; main chats omit this. */
+  livenessLaneKey: (id: TId) => string | undefined;
   /** Interrupts a still-alive agent process the way cancelExecution does. */
   interrupt: (ctx: MutationCtx, entity: TEntity) => Promise<void>;
   /** Clears the active workflow + synthetic turn, and closes the sandbox status field if `sandboxStopped`. */
@@ -125,6 +128,7 @@ const sessionChatAdapter: ChatSurfaceAdapter<
   syntheticTurnMessageId: (session) => session.syntheticTurnMessageId,
   sandboxId: (session) => session.sandboxId,
   repoId: (session) => session.repoId,
+  livenessLaneKey: () => undefined,
   interrupt: async (ctx, session) => {
     if (getAIModelProvider(normalizeAIModel(session.lastModel)) === "claude") {
       await ctx.db.patch(session._id, { cancelRequestedAt: Date.now() });
@@ -132,6 +136,7 @@ const sessionChatAdapter: ChatSurfaceAdapter<
       await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
         sandboxId: session.sandboxId,
         repoId: session.repoId,
+        laneKey: null,
       });
     }
   },
@@ -201,6 +206,7 @@ const taskChatAdapter: ChatSurfaceAdapter<
   syntheticTurnMessageId: (task) => task.syntheticTurnMessageId,
   sandboxId: (task) => task.sandboxId,
   repoId: (task) => task.repoId,
+  livenessLaneKey: () => undefined,
   interrupt: async (ctx, task) => {
     if (
       getAIModelProvider(normalizeAIModel(task.lastChatModel ?? task.model)) ===
@@ -219,6 +225,7 @@ const taskChatAdapter: ChatSurfaceAdapter<
         await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
           sandboxId: task.sandboxId,
           repoId: task.repoId,
+          laneKey: null,
         });
       }
     }
@@ -292,6 +299,7 @@ const projectChatAdapter: ChatSurfaceAdapter<
   syntheticTurnMessageId: (project) => project.syntheticTurnMessageId,
   sandboxId: (project) => project.sandboxId,
   repoId: (project) => project.repoId,
+  livenessLaneKey: () => undefined,
   interrupt: async (ctx, project) => {
     if (
       getAIModelProvider(
@@ -311,6 +319,7 @@ const projectChatAdapter: ChatSurfaceAdapter<
         await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
           sandboxId: project.sandboxId,
           repoId: project.repoId,
+          laneKey: null,
         });
       }
     }
@@ -370,6 +379,101 @@ const projectChatAdapter: ChatSurfaceAdapter<
   },
 };
 
+type IsolatedChatEntity = {
+  chat: Doc<"chats">;
+  sandboxId: string | undefined;
+};
+
+const isolatedChatAdapter: ChatSurfaceAdapter<
+  Id<"chats">,
+  IsolatedChatEntity
+> = {
+  kind: "chat",
+  logLabel: "chat",
+  idLogLabel: "chatId",
+  getEntity: async (ctx, id) => {
+    const chat = await ctx.db.get(id);
+    if (!chat) return null;
+    const rawId = String(chat.parentId);
+    const sessionId = ctx.db.normalizeId("sessions", rawId);
+    if (sessionId) {
+      const session = await ctx.db.get(sessionId);
+      return { chat, sandboxId: session?.sandboxId };
+    }
+    const projectId = ctx.db.normalizeId("projects", rawId);
+    if (projectId) {
+      const project = await ctx.db.get(projectId);
+      return { chat, sandboxId: project?.sandboxId };
+    }
+    const taskId = ctx.db.normalizeId("agentTasks", rawId);
+    if (!taskId) return { chat, sandboxId: undefined };
+    const task = await ctx.db.get(taskId);
+    if (task?.projectId) {
+      const project = await ctx.db.get(task.projectId);
+      return { chat, sandboxId: project?.sandboxId };
+    }
+    return { chat, sandboxId: task?.sandboxId };
+  },
+  activeWorkflowId: (entity) => entity.chat.activeWorkflowId,
+  streamingEntityId: (id) => String(id),
+  extraStreamingClears: () => [],
+  syntheticTurnMessageId: (entity) => entity.chat.syntheticTurnMessageId,
+  sandboxId: (entity) => entity.sandboxId,
+  repoId: (entity) => entity.chat.repoId,
+  livenessLaneKey: (id) => String(id),
+  interrupt: async (ctx, entity) => {
+    if (
+      getAIModelProvider(normalizeAIModel(entity.chat.lastModel)) === "claude"
+    ) {
+      await ctx.db.patch(entity.chat._id, { cancelRequestedAt: Date.now() });
+    } else if (entity.sandboxId) {
+      await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
+        sandboxId: entity.sandboxId,
+        repoId: entity.chat.repoId,
+        laneKey: String(entity.chat._id),
+      });
+    }
+  },
+  release: async (ctx, id) => {
+    await ctx.db.patch(id, {
+      activeWorkflowId: undefined,
+      pendingTurn: undefined,
+      syntheticTurnMessageId: undefined,
+      updatedAt: Date.now(),
+    });
+  },
+  drainQueue: (ctx, id) => startNextQueuedChatLaneMessage(ctx, id),
+  scheduleCheck: (ctx, id, delayMs, args) =>
+    ctx.scheduler
+      .runAfter(delayMs, internal.workflowWatchdog.checkStaleChatHeartbeat, {
+        chatId: id,
+        workflowId: args.workflowId,
+        turnStartedAt: args.turnStartedAt,
+        skipLivenessProbe: args.skipLivenessProbe,
+        sandboxStopped: args.sandboxStopped,
+      })
+      .then(() => undefined),
+  scheduleProbe: (ctx, id, args) =>
+    ctx.scheduler
+      .runAfter(0, internal.workflowWatchdog.probeStaleChatLiveness, {
+        chatId: id,
+        workflowId: args.workflowId,
+        turnStartedAt: args.turnStartedAt,
+        sandboxId: args.sandboxId,
+        repoId: args.repoId,
+        streamingAgeMs: args.streamingAgeMs,
+      })
+      .then(() => undefined),
+  alerts: {
+    timeout: timeoutAlert,
+    sandboxStopped: (staleSeconds) => ({
+      text: "Sandbox stopped while this turn was running.",
+      detail: `The parent sandbox VM is no longer running (no heartbeat for ${staleSeconds}s). Committed work is preserved; restart the sandbox to continue.`,
+    }),
+    stalled: stalledAlert,
+  },
+};
+
 /**
  * Every chat surface's adapter, registered once. The drift-guard test
  * (`tests/chatSurfaceUnificationContract.test.ts`) pins that a fourth surface
@@ -379,9 +483,15 @@ export const chatSurfaceAdapters = [
   sessionChatAdapter,
   taskChatAdapter,
   projectChatAdapter,
+  isolatedChatAdapter,
 ] as const;
 
-export { sessionChatAdapter, taskChatAdapter, projectChatAdapter };
+export {
+  sessionChatAdapter,
+  taskChatAdapter,
+  projectChatAdapter,
+  isolatedChatAdapter,
+};
 
 /** Records a workflow as the active workflow for a session and schedules a stale handler. */
 export async function trackSessionWorkflow(
@@ -449,5 +559,26 @@ export async function trackAgentTaskChatWorkflow(
     STALE_CHECK_DELAY_MS,
     internal.workflowWatchdog.checkStaleAgentTaskChatHeartbeat,
     { taskId, workflowId: id, turnStartedAt: Date.now() },
+  );
+}
+
+/** Records a side-chat workflow and arms both timeout and heartbeat guards. */
+export async function trackIsolatedChatWorkflow(
+  ctx: MutationCtx,
+  chatId: Id<"chats">,
+  workflowId: WorkflowId,
+  timeoutMs: number = RUN_TIMEOUT_MS,
+): Promise<void> {
+  const id = String(workflowId);
+  await ctx.db.patch(chatId, { activeWorkflowId: id });
+  await ctx.scheduler.runAfter(
+    timeoutMs,
+    internal.workflowWatchdog.handleStaleChat,
+    { chatId, workflowId: id },
+  );
+  await ctx.scheduler.runAfter(
+    STALE_CHECK_DELAY_MS,
+    internal.workflowWatchdog.checkStaleChatHeartbeat,
+    { chatId, workflowId: id, turnStartedAt: Date.now() },
   );
 }

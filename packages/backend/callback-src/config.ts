@@ -1,5 +1,22 @@
 import { existsSync } from "fs";
 
+export const LANE_DIR = process.env.EVA_LANE_DIR || "";
+function lanePath(name: string, legacy: string): string {
+  return LANE_DIR ? `${LANE_DIR}/${name}` : legacy;
+}
+
+export const PROMPT_FILE = lanePath("prompt.txt", "/tmp/design-prompt.txt");
+export const MCP_CONFIG_PATH = lanePath("eva-mcp.json", "/tmp/eva-mcp.json");
+export const ATTACHMENT_DIR = lanePath("attachments", "/tmp");
+export const SYSTEM_SKILLS_STATE_FILE = lanePath(
+  "system-skills.json",
+  "/tmp/eva-system-skills.json",
+);
+export const DEBUG_LOG_FILE = lanePath(
+  "callback-debug.log",
+  "/tmp/callback-debug.log",
+);
+
 export const CONVEX_URL = process.env.CONVEX_URL;
 export const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
 export const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
@@ -34,7 +51,8 @@ export const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
  * tool except AskUserQuestion (which waits for the user's answer via Convex).
  */
 export const BLOCKING_QUESTIONS_ENABLED =
-  process.env.ENTITY_ID_FIELD === "sessionId";
+  process.env.ENTITY_ID_FIELD === "sessionId" ||
+  process.env.ENTITY_ID_FIELD === "chatId";
 /** Fingerprint of the callback bundle this daemon was started with; exit when disk fp differs. */
 export const CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
 /**
@@ -102,9 +120,9 @@ export const HEARTBEAT_ABSOLUTE_MAX_FAILURES = Number(
 export const OUTPUT_BUFFER_MAX_BYTES = Number(
   process.env.CALLBACK_OUTPUT_BUFFER_MAX_BYTES || "2000000",
 );
-export const READY_FILE = "/tmp/run-design.ready";
-export const RAW_LOG_FILE = "/tmp/run-design.raw.jsonl";
-export const DONE_FILE = "/tmp/run-design.done";
+export const READY_FILE = lanePath("ready", "/tmp/run-design.ready");
+export const RAW_LOG_FILE = lanePath("raw.jsonl", "/tmp/run-design.raw.jsonl");
+export const DONE_FILE = lanePath("done", "/tmp/run-design.done");
 export const CLAUDE_BASE_CONFIG_DIR =
   process.env.CLAUDE_BASE_CONFIG_DIR || "/home/eva/.claude";
 export const CLAUDE_RUNTIME_CONFIG_DIR =
@@ -239,7 +257,7 @@ function buildSettingsJson(): string {
 
 export const settingsJson = buildSettingsJson();
 /** True when the sandbox MCP config file is present (used for startup logging). */
-export const hasMcpConfig = existsSync("/tmp/eva-mcp.json");
+export const hasMcpConfig = existsSync(MCP_CONFIG_PATH);
 const claudeModelBase = MODEL.startsWith("claude:")
   ? MODEL.slice("claude:".length)
   : MODEL;
@@ -305,8 +323,10 @@ const opencodeCommand = existsSync(OPENCODE_BIN_PATH)
 export const codexPromptCmd = SYSTEM_PROMPT
   ? "(printf %s\\n\\n " +
     JSON.stringify(SYSTEM_PROMPT) +
-    "; cat /tmp/design-prompt.txt)"
-  : "cat /tmp/design-prompt.txt";
+    "; cat " +
+    JSON.stringify(PROMPT_FILE) +
+    ")"
+  : "cat " + JSON.stringify(PROMPT_FILE);
 export const opencodePromptCmd = codexPromptCmd;
 export const codexExecBaseCmd =
   codexCommand +

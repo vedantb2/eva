@@ -41,7 +41,7 @@ test("queuedMessages.remove deletes the row's attachment blobs", () => {
  * The other half of the invariant: dequeuing deletes the queued row too, but it
  * hands the same storage ids to the `messages` row, so it must NOT delete the
  * blobs. The row-delete now lives once in the shared dequeue
- * (`startNextQueuedChatMessage`) that all three surfaces call through, so a
+ * (`startNextQueuedChatMessage`) that all four surfaces call through, so a
  * regression back to a per-surface copy (or a dropped delete) would move this
  * count away from exactly one.
  */
@@ -69,6 +69,7 @@ test.each([
   "sessionQueueConfig",
   "projectChatQueueConfig",
   "taskChatQueueConfig",
+  "chatQueueConfig",
 ])(
   "%s hands attachmentStorageIds to the messages row instead of dropping them",
   (name) => {

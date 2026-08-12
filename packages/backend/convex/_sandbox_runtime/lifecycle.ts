@@ -3,20 +3,25 @@
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
-import {
-  execHandle,
-  getSandboxHandle,
-  KILL_PRIOR_AGENT_PROCESSES_CMD,
-} from "./helpers";
+import { execHandle, getSandboxHandle } from "./helpers";
 import { releaseSwapFile } from "./swap";
-const CALLBACK_LIVENESS_COMMAND = [
-  "test -f /tmp/run-design.pid",
-  "test ! -f /tmp/run-design.done",
-  'pid="$(cat /tmp/run-design.pid)"',
-  'kill -0 "$pid" 2>/dev/null',
-  'state="$(ps -p "$pid" -o stat= 2>/dev/null | tr -d " ")"',
-  'case "$state" in Z*) exit 1 ;; *) exit 0 ;; esac',
-].join(" && ");
+import {
+  buildKillLaneCommand,
+  KILL_ALL_LANES_COMMAND,
+  runnerPaths,
+} from "./lanePaths";
+
+function callbackLivenessCommand(laneKey?: string): string {
+  const paths = runnerPaths(laneKey);
+  return [
+    `test -f ${JSON.stringify(paths.pid)}`,
+    `test ! -f ${JSON.stringify(paths.done)}`,
+    `pid="$(cat ${JSON.stringify(paths.pid)})"`,
+    'kill -0 "$pid" 2>/dev/null',
+    'state="$(ps -p "$pid" -o stat= 2>/dev/null | tr -d " ")"',
+    'case "$state" in Z*) exit 1 ;; *) exit 0 ;; esac',
+  ].join(" && ");
+}
 /** Agent still running even if callback PID bookkeeping is stale. Cursor runs
  * in-process inside the callback (run-design.mjs) since the SDK migration, so
  * the callback process itself counts as agent liveness; cursor-agent stays for
@@ -42,6 +47,7 @@ export const verifySandboxLiveness = internalAction({
   args: {
     sandboxId: v.string(),
     repoId: v.id("githubRepos"),
+    laneKey: v.optional(v.string()),
   },
   returns: v.object({
     alive: v.boolean(),
@@ -97,7 +103,11 @@ export const verifySandboxLiveness = internalAction({
 
     // Sandbox is started — verify the callback runner PID is still alive.
     // Short timeout so we never block the watchdog path on exec hangs.
-    const pidAlive = await execHandle(sandbox, CALLBACK_LIVENESS_COMMAND, 5)
+    const pidAlive = await execHandle(
+      sandbox,
+      callbackLivenessCommand(args.laneKey),
+      5,
+    )
       .then(() => true)
       .catch(() => false);
 
@@ -107,6 +117,15 @@ export const verifySandboxLiveness = internalAction({
         reason: "sandbox_started_pid_alive",
         sandboxState: state,
         pidAlive: true,
+      };
+    }
+
+    if (args.laneKey !== undefined) {
+      return {
+        alive: false,
+        reason: "lane_pid_dead",
+        sandboxState: state,
+        pidAlive: false,
       };
     }
 
@@ -142,14 +161,38 @@ export const killSandboxProcess = internalAction({
   args: {
     sandboxId: v.string(),
     repoId: v.id("githubRepos"),
+    /** Absent = recovery kill-all; null = default lane; string = side lane. */
+    laneKey: v.optional(v.union(v.string(), v.null())),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
       const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
-      await execHandle(sandbox, KILL_PRIOR_AGENT_PROCESSES_CMD, 10);
+      const command =
+        args.laneKey === undefined
+          ? KILL_ALL_LANES_COMMAND
+          : buildKillLaneCommand(args.laneKey ?? undefined);
+      await execHandle(sandbox, command, 10);
     } catch {
       // Sandbox may already be stopped/deleted
+    }
+    return null;
+  },
+});
+
+/** Explicit recovery/stop helper that tears down every callback lane. */
+export const killAllSandboxLanes = internalAction({
+  args: {
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+      await execHandle(sandbox, KILL_ALL_LANES_COMMAND, 10);
+    } catch {
+      // Sandbox may already be stopped/deleted.
     }
     return null;
   },

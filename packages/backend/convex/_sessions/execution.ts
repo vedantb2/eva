@@ -380,6 +380,7 @@ export const cancelExecution = authMutation({
       await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
         sandboxId: session.sandboxId,
         repoId: session.repoId,
+        laneKey: null,
       });
     }
 

@@ -353,6 +353,9 @@ export const stopProjectSandbox = authMutation({
     // Stopping kills the paused turn, so any blocking AskUserQuestion can
     // never be claimed — clear it or it hides the composer forever.
     await clearPendingQuestionsForEntity(ctx.db, String(args.projectId));
+    await ctx.scheduler.runAfter(0, internal.chatLifecycle.cleanupParentChats, {
+      parentId: args.projectId,
+    });
 
     // Keep sandboxId so we can resume the stopped sandbox later.
     await ctx.db.patch(args.projectId, {

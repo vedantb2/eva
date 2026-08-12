@@ -2,7 +2,7 @@ import type {
   GenericDatabaseReader,
   GenericDatabaseWriter,
 } from "convex/server";
-import { hasRepoAccess } from "../functions";
+import { getChatWithAccess, hasRepoAccess } from "../functions";
 import type { DataModel, Doc, Id } from "../_generated/dataModel";
 import type { Infer } from "convex/values";
 import { type draftTarget } from "../validators";
@@ -161,6 +161,23 @@ export async function resolveTarget(
           .query("drafts")
           .withIndex("by_user_and_session", (q) =>
             q.eq("userId", userId).eq("sessionId", sessionId),
+          )
+          .collect();
+        return rows[0] ?? null;
+      },
+    };
+  }
+
+  if (target.kind === "chat") {
+    const chat = await getChatWithAccess(db, target.chatId, userId);
+    const chatId = target.chatId;
+    return {
+      repoId: chat.repoId,
+      findExisting: async () => {
+        const rows = await db
+          .query("drafts")
+          .withIndex("by_user_and_chat", (q) =>
+            q.eq("userId", userId).eq("chatId", chatId),
           )
           .collect();
         return rows[0] ?? null;

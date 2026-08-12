@@ -43,6 +43,9 @@ import { PendingReviewCommentChips } from "@/lib/components/chat/PendingReviewCo
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
 import { getSessionReadOnlyMessage } from "./_utils/sessionReadOnly";
 import { motionBase } from "@eva/ui";
+import { ChatTabBar } from "@/lib/components/chat/ChatTabBar";
+import { SideChatPanel } from "@/lib/components/chat/SideChatPanel";
+import { useChatTabs } from "@/lib/components/chat/useChatTabs";
 
 type QueuedSessionMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
@@ -81,11 +84,13 @@ interface ChatPanelProps {
   /** Opens the PRD sandbox tab (used by the Plan Ready banner). */
   onOpenPrdTab?: () => void;
   backgroundAgents?: Doc<"sessions">["backgroundAgents"];
+  /** False for hidden kept-alive session shells; freezes URL ownership. */
+  isRouteActive?: boolean;
 }
 
 const AVAILABLE_MODES: SessionMode[] = ["edit", "plan", "design"];
 
-export function ChatPanel({
+function MainChatPanel({
   sessionId,
   title,
   branchName,
@@ -418,5 +423,33 @@ export function ChatPanel({
         onClose={() => setShowReviewModal(false)}
       />
     </ChatPageWrapper>
+  );
+}
+
+export function ChatPanel(props: ChatPanelProps) {
+  const tabs = useChatTabs(props.sessionId, props.isRouteActive ?? true);
+  return (
+    <div className="flex h-full min-h-0 w-full flex-col">
+      <ChatTabBar
+        chats={tabs.chats}
+        activeChat={tabs.activeChat}
+        onSelect={tabs.selectChat}
+        onAdd={tabs.addChat}
+        disabled={props.isReadOnly}
+      />
+      <div className="min-h-0 flex-1">
+        {tabs.activeChat ? (
+          <SideChatPanel
+            chat={tabs.activeChat}
+            isSandboxActive={props.isSandboxActive}
+            isReadOnly={props.isReadOnly}
+            onOpenFile={props.onOpenFile}
+            onViewDiff={props.onViewDiff}
+          />
+        ) : (
+          <MainChatPanel {...props} />
+        )}
+      </div>
+    </div>
   );
 }

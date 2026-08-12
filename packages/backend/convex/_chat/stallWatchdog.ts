@@ -26,7 +26,7 @@ export async function cancelStaleWorkflow(
   }
 }
 
-type ChatId = Id<"sessions"> | Id<"agentTasks"> | Id<"projects">;
+type ChatId = Id<"sessions"> | Id<"agentTasks"> | Id<"projects"> | Id<"chats">;
 
 /**
  * Tears down one tracked chat turn (session, task chat, or project chat):
@@ -247,6 +247,7 @@ export async function runStaleChatLivenessProbe<TId extends ChatId, TEntity>(
   const liveness = await ctx.runAction(internal.sandbox.verifySandboxLiveness, {
     sandboxId: args.sandboxId,
     repoId: args.repoId,
+    laneKey: adapter.livenessLaneKey(args.id),
   });
 
   console.log(

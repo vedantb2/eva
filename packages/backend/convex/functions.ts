@@ -155,13 +155,33 @@ export async function getSessionWithAccess(
   return session;
 }
 
+/** Loads a side chat and verifies access through its owning surface. */
+export async function getChatWithAccess(
+  db: GenericDatabaseReader<DataModel>,
+  chatId: Id<"chats">,
+  userId: Id<"users">,
+): Promise<Doc<"chats">> {
+  const chat = await db.get(chatId);
+  if (!chat) throw new Error("Chat not found");
+  await assertMessageParentAccess(db, chat.parentId, userId);
+  return chat;
+}
+
 /** Verifies access to a message parent regardless of its entity kind. */
 export async function assertMessageParentAccess(
   db: GenericDatabaseReader<DataModel>,
-  parentId: Id<"sessions"> | Id<"projects"> | Id<"agentTasks">,
+  parentId: Id<"sessions"> | Id<"projects"> | Id<"agentTasks"> | Id<"chats">,
   userId: Id<"users">,
 ): Promise<void> {
   const rawId = String(parentId);
+  const chatId = db.normalizeId("chats", rawId);
+  if (chatId) {
+    const chat = await db.get(chatId);
+    if (!chat) throw new Error("Chat not found");
+    await assertMessageParentAccess(db, chat.parentId, userId);
+    return;
+  }
+
   const sessionId = db.normalizeId("sessions", rawId);
   if (sessionId) {
     await getSessionWithAccess(db, sessionId, userId);

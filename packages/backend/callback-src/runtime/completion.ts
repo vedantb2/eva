@@ -2,6 +2,7 @@ import {
   CODEX_PRICING_PER_MILLION,
   COMPLETION_MUTATION,
   ENTITY_ID,
+  LANE_DIR,
   PROVIDER,
   ROOT_DIRECTORY,
   RUN_ID,
@@ -602,7 +603,7 @@ export async function deliverCompletionWithMedia(
 async function uploadAndAttachSandboxMedia(): Promise<void> {
   // Task runs (RUN_ID set) have no chat message to attach to — only chat turns
   // scan. Anything a run leaves behind is picked up by the next chat turn.
-  if (RUN_ID) return;
+  if (RUN_ID || LANE_DIR) return;
 
   const uploaded: { storageId: string; fileName: string }[] = [];
   // Agents re-capture the same frame more than once (a retried screenshot, a

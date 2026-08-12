@@ -20,6 +20,7 @@ import {
   projectChatAdapter,
   sessionChatAdapter,
   taskChatAdapter,
+  isolatedChatAdapter,
   trackAgentTaskChatWorkflow,
   trackProjectChatWorkflow,
   trackSessionWorkflow,
@@ -443,6 +444,74 @@ export const probeStaleAgentTaskChatLiveness = internalAction({
   handler: async (ctx, args) => {
     await runStaleChatLivenessProbe(ctx, taskChatAdapter, {
       id: args.taskId,
+      workflowId: args.workflowId,
+      turnStartedAt: args.turnStartedAt,
+      sandboxId: args.sandboxId,
+      repoId: args.repoId,
+      streamingAgeMs: args.streamingAgeMs,
+    });
+    return null;
+  },
+});
+
+/** Two-hour timeout backstop for one isolated side-chat workflow. */
+export const handleStaleChat = internalMutation({
+  args: { chatId: v.id("chats"), workflowId: v.string() },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const entity = await isolatedChatAdapter.getEntity(ctx, args.chatId);
+    if (
+      !entity ||
+      isolatedChatAdapter.activeWorkflowId(entity) !== args.workflowId
+    ) {
+      return null;
+    }
+    await finalizeStaleChatTurn(
+      ctx,
+      isolatedChatAdapter,
+      args.chatId,
+      entity,
+      args.workflowId,
+      isolatedChatAdapter.alerts.timeout,
+    );
+    return null;
+  },
+});
+
+export const checkStaleChatHeartbeat = internalMutation({
+  args: {
+    chatId: v.id("chats"),
+    workflowId: v.string(),
+    turnStartedAt: v.number(),
+    skipLivenessProbe: v.optional(v.boolean()),
+    sandboxStopped: v.optional(v.boolean()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await runStaleChatHeartbeatCheck(ctx, isolatedChatAdapter, {
+      id: args.chatId,
+      workflowId: args.workflowId,
+      turnStartedAt: args.turnStartedAt,
+      skipLivenessProbe: args.skipLivenessProbe,
+      sandboxStopped: args.sandboxStopped,
+    });
+    return null;
+  },
+});
+
+export const probeStaleChatLiveness = internalAction({
+  args: {
+    chatId: v.id("chats"),
+    workflowId: v.string(),
+    turnStartedAt: v.number(),
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+    streamingAgeMs: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await runStaleChatLivenessProbe(ctx, isolatedChatAdapter, {
+      id: args.chatId,
       workflowId: args.workflowId,
       turnStartedAt: args.turnStartedAt,
       sandboxId: args.sandboxId,

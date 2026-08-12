@@ -97,6 +97,21 @@ export function useTaskOwnerProviderAccounts(
   return toModelAccounts(accounts);
 }
 
+/** Provider accounts owned by the creator of an isolated side chat. */
+export function useChatOwnerProviderAccounts(
+  chatId: Id<"chats"> | null | undefined,
+): {
+  options: ReadonlyArray<ModelAccount>;
+  resolveId: (id: string | null) => Id<"userProviderAccounts"> | undefined;
+  ready: boolean;
+} {
+  const accounts = useQuery(
+    api.userProviderAccounts.listForChatOwner,
+    chatId ? { chatId } : "skip",
+  );
+  return toModelAccounts(accounts);
+}
+
 /**
  * Accounts the session owner can run on, for the model picker (same shape as
  * `useProviderAccounts`). A session runs on its owner's credentials whoever

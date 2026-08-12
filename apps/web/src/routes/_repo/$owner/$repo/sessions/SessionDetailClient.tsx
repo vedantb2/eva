@@ -73,13 +73,21 @@ export function SessionDetailClient({
   // launching duplicate daemons (observed in prod: 5 daemons on one session).
   const sessionPrState = session?.prState;
   useEffect(() => {
+    if (!isRouteActive) return;
     if (!sandboxId) return;
     if (sandboxStatus === "closed" || sandboxStatus === "stopping") return;
     // Don't prewarm (which resumes the VM) when the PR is already terminal —
     // auto-stop below owns teardown for merged/closed sessions.
     if (isSessionPrReadOnly(sessionPrState)) return;
     void prewarmDaemon({ sessionId });
-  }, [sessionId, sandboxId, sandboxStatus, sessionPrState, prewarmDaemon]);
+  }, [
+    sessionId,
+    sandboxId,
+    sandboxStatus,
+    sessionPrState,
+    prewarmDaemon,
+    isRouteActive,
+  ]);
 
   // Recover sandboxes left running after a PR merge/close (webhook may have
   // only patched prState before auto-stop existed, or the stop raced).
@@ -217,6 +225,7 @@ export function SessionDetailClient({
                   setExpandRightSignal((n) => n + 1);
                 }}
                 backgroundAgents={session.backgroundAgents}
+                isRouteActive={isRouteActive}
               />
             )}
             rightPanel={

@@ -10,6 +10,7 @@ import {
   trackAgentTaskChatWorkflow,
   trackProjectChatWorkflow,
   trackSessionWorkflow,
+  trackIsolatedChatWorkflow,
 } from "../_chat/surfaceAdapters";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
@@ -30,7 +31,7 @@ type ChatQueueGuardResult<TPrepared> =
  * itself.
  */
 type ChatQueueConfig<
-  TId extends Id<"sessions"> | Id<"agentTasks"> | Id<"projects">,
+  TId extends Id<"sessions"> | Id<"agentTasks"> | Id<"projects"> | Id<"chats">,
   TEntity,
   TPrepared,
 > = {
@@ -82,7 +83,7 @@ type ChatQueueConfig<
  * fix here reaches all three surfaces by construction.
  */
 async function startNextQueuedChatMessage<
-  TId extends Id<"sessions"> | Id<"agentTasks"> | Id<"projects">,
+  TId extends Id<"sessions"> | Id<"agentTasks"> | Id<"projects"> | Id<"chats">,
   TEntity,
   TPrepared,
 >(
@@ -338,6 +339,61 @@ const taskChatQueueConfig: ChatQueueConfig<
   defaultStartErrorMessage: "Failed to start queued chat message.",
 };
 
+const chatQueueConfig: ChatQueueConfig<Id<"chats">, Doc<"chats">, undefined> = {
+  getEntity: (ctx, id) => ctx.db.get(id),
+  hasActiveWorkflow: (chat) => chat.activeWorkflowId !== undefined,
+  streamingEntityId: (id) => String(id),
+  prepareGuard: async (_ctx, chat) =>
+    chat.archived
+      ? { ok: false, error: "Error: This chat is archived." }
+      : { ok: true, data: undefined },
+  insertUserMessage: async (ctx, id, chat, next, _prepared, now) => {
+    await ctx.db.insert("messages", {
+      parentId: id,
+      role: "user",
+      content: next.content,
+      timestamp: now,
+      userId: next.userId,
+      attachmentStorageIds: next.attachmentStorageIds,
+      credentialSourceLabel: await resolveCredentialSourceLabel(
+        ctx.db,
+        chat.providerAccountId,
+        chat.createdBy,
+      ),
+      model: next.model,
+      reasoningLevel: next.reasoningLevel,
+    });
+  },
+  startWorkflow: (ctx, id, chat, next) =>
+    workflow.start(ctx, internal.chatWorkflow.chatExecuteWorkflow, {
+      chatId: id,
+      message: next.content,
+      model: next.model ?? DEFAULT_AI_MODEL,
+      reasoningLevel: next.reasoningLevel,
+      thinkingEnabled: next.thinkingEnabled,
+      use1mContext: next.use1mContext,
+      fastMode: next.fastMode,
+      providerAccountId: chat.providerAccountId,
+      credentialOwnerUserId: chat.createdBy,
+      userId: next.userId,
+    }),
+  onStarted: async (ctx, id, workflowId, now) => {
+    await ctx.db.patch(id, { updatedAt: now });
+    await trackIsolatedChatWorkflow(ctx, id, workflowId, QUEUE_RUN_TIMEOUT_MS);
+  },
+  recordError: async (ctx, id, content) => {
+    await ctx.db.insert("messages", {
+      parentId: id,
+      role: "assistant",
+      content,
+      timestamp: Date.now(),
+      finishedAt: Date.now(),
+    });
+    await ctx.db.patch(id, { updatedAt: Date.now() });
+  },
+  defaultStartErrorMessage: "Failed to start queued chat message.",
+};
+
 /** Dequeues and starts the next pending message for a session, launching its workflow. */
 export function startNextQueuedSessionMessage(
   ctx: MutationCtx,
@@ -360,4 +416,12 @@ export function startNextQueuedTaskChatMessage(
   taskId: Id<"agentTasks">,
 ): Promise<boolean> {
   return startNextQueuedChatMessage(ctx, taskId, taskChatQueueConfig);
+}
+
+/** Dequeues and starts the next pending message for an isolated side chat. */
+export function startNextQueuedChatLaneMessage(
+  ctx: MutationCtx,
+  chatId: Id<"chats">,
+): Promise<boolean> {
+  return startNextQueuedChatMessage(ctx, chatId, chatQueueConfig);
 }

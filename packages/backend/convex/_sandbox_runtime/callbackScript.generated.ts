@@ -3,7 +3,7 @@
 export const CALLBACK_SCRIPT = `// callback-src/index.ts
 import {
   existsSync as existsSync9,
-  mkdirSync as mkdirSync8,
+  mkdirSync as mkdirSync9,
   readdirSync as readdirSync4,
   unlinkSync as unlinkSync3,
   writeFileSync as writeFileSync11
@@ -11,6 +11,21 @@ import {
 
 // callback-src/config.ts
 import { existsSync } from "fs";
+var LANE_DIR = process.env.EVA_LANE_DIR || "";
+function lanePath(name, legacy) {
+  return LANE_DIR ? \`\${LANE_DIR}/\${name}\` : legacy;
+}
+var PROMPT_FILE = lanePath("prompt.txt", "/tmp/design-prompt.txt");
+var MCP_CONFIG_PATH = lanePath("eva-mcp.json", "/tmp/eva-mcp.json");
+var ATTACHMENT_DIR = lanePath("attachments", "/tmp");
+var SYSTEM_SKILLS_STATE_FILE = lanePath(
+  "system-skills.json",
+  "/tmp/eva-system-skills.json"
+);
+var DEBUG_LOG_FILE = lanePath(
+  "callback-debug.log",
+  "/tmp/callback-debug.log"
+);
 var CONVEX_URL = process.env.CONVEX_URL;
 var CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
 var CONVEX_TOKEN = process.env.CONVEX_TOKEN;
@@ -29,7 +44,7 @@ var REQUIRE_TASK_COMMIT = process.env.REQUIRE_TASK_COMMIT === "true";
 var PROVIDER = process.env.AI_PROVIDER || "claude";
 var MODEL = process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 var ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
-var BLOCKING_QUESTIONS_ENABLED = process.env.ENTITY_ID_FIELD === "sessionId";
+var BLOCKING_QUESTIONS_ENABLED = process.env.ENTITY_ID_FIELD === "sessionId" || process.env.ENTITY_ID_FIELD === "chatId";
 var CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
 var DAEMON_OPTS_SIG = process.env.EVA_DAEMON_OPTS || "";
 var SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
@@ -79,9 +94,9 @@ var HEARTBEAT_ABSOLUTE_MAX_FAILURES = Number(
 var OUTPUT_BUFFER_MAX_BYTES = Number(
   process.env.CALLBACK_OUTPUT_BUFFER_MAX_BYTES || "2000000"
 );
-var READY_FILE = "/tmp/run-design.ready";
-var RAW_LOG_FILE = "/tmp/run-design.raw.jsonl";
-var DONE_FILE = "/tmp/run-design.done";
+var READY_FILE = lanePath("ready", "/tmp/run-design.ready");
+var RAW_LOG_FILE = lanePath("raw.jsonl", "/tmp/run-design.raw.jsonl");
+var DONE_FILE = lanePath("done", "/tmp/run-design.done");
 var CLAUDE_BASE_CONFIG_DIR = process.env.CLAUDE_BASE_CONFIG_DIR || "/home/eva/.claude";
 var CLAUDE_RUNTIME_CONFIG_DIR = process.env.CLAUDE_RUNTIME_CONFIG_DIR || "/tmp/claude-config";
 var CLAUDE_PERSIST_DIR = process.env.CLAUDE_PERSIST_DIR || "/home/eva/.claude-persist";
@@ -166,7 +181,7 @@ function buildSettingsJson() {
   return JSON.stringify(settings);
 }
 var settingsJson = buildSettingsJson();
-var hasMcpConfig = existsSync("/tmp/eva-mcp.json");
+var hasMcpConfig = existsSync(MCP_CONFIG_PATH);
 var claudeModelBase = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length) : MODEL;
 var normalizedClaudeModel = PROVIDER === "claude" && AI_CONTEXT_1M === "1" ? \`\${claudeModelBase}[1m]\` : claudeModelBase;
 var normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
@@ -196,7 +211,7 @@ var CURSOR_REASONING_EFFORT = {
 var cursorReasoningLevel = PROVIDER === "cursor" && REASONING_EFFORT in CURSOR_REASONING_EFFORT ? CURSOR_REASONING_EFFORT[REASONING_EFFORT] : cursorModelParts.level;
 var codexCommand = existsSync(CODEX_BIN_PATH) ? JSON.stringify(CODEX_BIN_PATH) : "codex";
 var opencodeCommand = existsSync(OPENCODE_BIN_PATH) ? JSON.stringify(OPENCODE_BIN_PATH) : "opencode";
-var codexPromptCmd = SYSTEM_PROMPT ? "(printf %s\\\\n\\\\n " + JSON.stringify(SYSTEM_PROMPT) + "; cat /tmp/design-prompt.txt)" : "cat /tmp/design-prompt.txt";
+var codexPromptCmd = SYSTEM_PROMPT ? "(printf %s\\\\n\\\\n " + JSON.stringify(SYSTEM_PROMPT) + "; cat " + JSON.stringify(PROMPT_FILE) + ")" : "cat " + JSON.stringify(PROMPT_FILE);
 var opencodePromptCmd = codexPromptCmd;
 var codexExecBaseCmd = codexCommand + " exec --skip-git-repo-check --full-auto --json --model " + JSON.stringify(normalizedCodexModel);
 var opencodeExecBaseCmd = opencodeCommand + " run --format json --model " + JSON.stringify(normalizedOpencodeModel);
@@ -262,13 +277,20 @@ var completedLabels = {
 };
 
 // callback-src/providers/claudeSdkDaemon.ts
-import { unlinkSync as unlinkSync2, writeFileSync as writeFileSync9, readFileSync as readFileSync6 } from "fs";
+import { mkdirSync as mkdirSync6, unlinkSync as unlinkSync2, writeFileSync as writeFileSync9, readFileSync as readFileSync6 } from "fs";
 
 // callback-src/providers/daemonPaths.ts
 var LEGACY_DAEMON_PID = "/tmp/eva-daemon.pid";
 var LEGACY_DAEMON_ENTITY = "/tmp/eva-daemon.entity";
 var LEGACY_DAEMON_OPTS = "/tmp/eva-daemon.opts";
 function resolveDaemonPaths(entityIdField = ENTITY_ID_FIELD, entityId = ENTITY_ID) {
+  if (LANE_DIR) {
+    return {
+      pid: \`\${LANE_DIR}/daemon.pid\`,
+      entity: \`\${LANE_DIR}/daemon.entity\`,
+      opts: \`\${LANE_DIR}/daemon.opts\`
+    };
+  }
   const field = entityIdField ?? "sessionId";
   const id = entityId ?? "";
   const suffix = \`\${field}-\${id}\`;
@@ -500,7 +522,7 @@ function log(msg) {
   const line = "[callback " + (/* @__PURE__ */ new Date()).toISOString() + "] " + msg + "\\n";
   console.error(line.trim());
   try {
-    writeFileSync("/tmp/callback-debug.log", line, { flag: "a" });
+    writeFileSync(DEBUG_LOG_FILE, line, { flag: "a" });
   } catch {
   }
 }
@@ -2084,7 +2106,7 @@ async function deliverCompletionWithMedia(completionArgs) {
   await uploadAndAttachSandboxMedia();
 }
 async function uploadAndAttachSandboxMedia() {
-  if (RUN_ID) return;
+  if (RUN_ID || LANE_DIR) return;
   const uploaded = [];
   const seenDigests = /* @__PURE__ */ new Set();
   const isDuplicate = (filePath) => {
@@ -4331,7 +4353,6 @@ function buildCanUseTool() {
 // callback-src/providers/claudeSdk.ts
 var SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 var SDK_VERSION = "0.3.201";
-var MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
 function globalNpmRoot() {
   return execSync("npm root -g", { encoding: "utf8" }).trim();
 }
@@ -4364,7 +4385,7 @@ function claudeExecutablePath() {
   }
 }
 function readPromptText() {
-  return readFileSync5("/tmp/design-prompt.txt", "utf8");
+  return readFileSync5(PROMPT_FILE, "utf8");
 }
 function buildSdkOptions(sessionMode) {
   const extraArgs = { settings: settingsJson };
@@ -5601,6 +5622,7 @@ function attachmentExtensionForMimeType(mimeType) {
 }
 async function materializeTurnAttachments(turn) {
   if (turn.attachmentUrls.length === 0) return;
+  mkdirSync6(ATTACHMENT_DIR, { recursive: true });
   const paths = [];
   for (let index = 0; index < turn.attachmentUrls.length; index++) {
     const url = turn.attachmentUrls[index];
@@ -5615,7 +5637,7 @@ async function materializeTurnAttachments(turn) {
       const extension = attachmentExtensionForMimeType(
         res.headers.get("content-type") ?? ""
       );
-      const path = \`/tmp/eva-attachment-\${index}\${extension}\`;
+      const path = \`\${ATTACHMENT_DIR}/eva-attachment-\${index}\${extension}\`;
       writeFileSync9(path, bytes);
       paths.push(path);
     } catch (error) {
@@ -5738,13 +5760,12 @@ async function runSdkDaemon() {
 // callback-src/runtime/systemSkills.ts
 import {
   existsSync as existsSync7,
-  mkdirSync as mkdirSync6,
+  mkdirSync as mkdirSync7,
   readdirSync as readdirSync3,
   readFileSync as readFileSync7,
   rmSync,
   writeFileSync as writeFileSync10
 } from "fs";
-var SYSTEM_SKILLS_STATE_FILE = "/tmp/eva-system-skills.json";
 var SYSTEM_SKILL_MARKER = "<!-- eva:system-skill -->";
 var EXCLUDE_BEGIN = "# >>> eva-system-skills >>>";
 var EXCLUDE_END = "# <<< eva-system-skills <<<";
@@ -5814,7 +5835,7 @@ function writeStub(skill) {
     log(\`[system-skills] \${skill.name} exists in the repo \\u2014 leaving it alone\`);
     return false;
   }
-  mkdirSync6(directory, { recursive: true });
+  mkdirSync7(directory, { recursive: true });
   writeFileSync10(\`\${directory}/SKILL.md\`, skill.stub);
   return true;
 }
@@ -5841,7 +5862,7 @@ function updateGitExclude(names) {
   const existing = existsSync7(excludeFile) ? readFileSync7(excludeFile, "utf8") : "";
   const next = renderExcludeContent(existing, names);
   if (next === existing) return;
-  mkdirSync6(infoDir, { recursive: true });
+  mkdirSync7(infoDir, { recursive: true });
   writeFileSync10(excludeFile, next);
 }
 function materializeSystemSkills() {
@@ -5878,11 +5899,10 @@ function materializeSystemSkills() {
 
 // callback-src/providers/cursorSdk.ts
 import { execSync as execSync2 } from "child_process";
-import { existsSync as existsSync8, mkdirSync as mkdirSync7, readFileSync as readFileSync8 } from "fs";
+import { existsSync as existsSync8, mkdirSync as mkdirSync8, readFileSync as readFileSync8 } from "fs";
 var SDK_PACKAGE2 = "@cursor/sdk";
 var SDK_VERSION2 = "1.0.26";
 var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
-var MCP_CONFIG_PATH2 = "/tmp/eva-mcp.json";
 var SDK_LOCAL_PREFIX2 = "/home/eva/.eva-agent-sdk";
 function cursorModeParams(model, fastMode, use1mContext) {
   const params = [];
@@ -5953,15 +5973,15 @@ function parseCursorSdkMcpServers(raw) {
   return servers;
 }
 function readCursorSdkMcpServers() {
-  if (!existsSync8(MCP_CONFIG_PATH2)) return {};
+  if (!existsSync8(MCP_CONFIG_PATH)) return {};
   try {
-    return parseCursorSdkMcpServers(readFileSync8(MCP_CONFIG_PATH2, "utf8"));
+    return parseCursorSdkMcpServers(readFileSync8(MCP_CONFIG_PATH, "utf8"));
   } catch {
     return {};
   }
 }
 function readPromptText2() {
-  return readFileSync8("/tmp/design-prompt.txt", "utf8");
+  return readFileSync8(PROMPT_FILE, "utf8");
 }
 async function resolveCursorModelSelection(sdk) {
   const base = normalizedCursorModel;
@@ -6078,7 +6098,7 @@ async function runCursorSdkAttempt(sessionMode) {
   let lastStreamUsage = null;
   let activeRun = null;
   const sdk = await loadCursorSdk();
-  mkdirSync7(CURSOR_SDK_STORE_DIR, { recursive: true });
+  mkdirSync8(CURSOR_SDK_STORE_DIR, { recursive: true });
   const store4 = new sdk.JsonlLocalAgentStore(CURSOR_SDK_STORE_DIR);
   const mcpServers = readCursorSdkMcpServers();
   const options = {
@@ -6325,7 +6345,7 @@ if (!preflightOk) {
   process.exit(1);
 }
 startStreamingLoops();
-for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
+for (const d of LANE_DIR ? [] : [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
   if (existsSync9(d)) {
     for (const f of readdirSync4(d)) {
       try {
@@ -6335,7 +6355,7 @@ for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
     }
   } else {
     try {
-      mkdirSync8(d, { recursive: true });
+      mkdirSync9(d, { recursive: true });
     } catch {
     }
   }

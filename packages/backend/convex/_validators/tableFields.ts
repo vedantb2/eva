@@ -185,6 +185,31 @@ export const chatDaemonEntityFields = {
   cancelRequestedAt: v.optional(v.number()),
 };
 
+export const chatParentIdValidator = v.union(
+  v.id("sessions"),
+  v.id("projects"),
+  v.id("agentTasks"),
+);
+
+/** An independently executing chat lane hosted by a session, project, or task. */
+export const chatFields = {
+  parentId: chatParentIdValidator,
+  repoId: v.id("githubRepos"),
+  createdBy: v.id("users"),
+  title: v.optional(v.string()),
+  archived: v.optional(v.boolean()),
+  updatedAt: v.number(),
+  activeWorkflowId: v.optional(v.string()),
+  providerAccountId: v.optional(v.id("userProviderAccounts")),
+  provider: v.optional(aiProviderValidator),
+  lastModel: v.optional(aiModelValidator),
+  lastReasoningLevel: v.optional(reasoningLevelValidator),
+  lastThinkingEnabled: v.optional(v.boolean()),
+  lastUse1mContext: v.optional(v.boolean()),
+  lastFastMode: v.optional(v.boolean()),
+  ...chatDaemonEntityFields,
+};
+
 export const agentTaskFields = {
   ...entityNumIdFields,
   title: v.string(),
@@ -630,7 +655,12 @@ export const messageFields = {
   finishedAt: v.optional(v.number()),
   activityLog: v.optional(v.string()),
   userId: v.optional(v.id("users")),
-  parentId: v.union(v.id("sessions"), v.id("projects"), v.id("agentTasks")),
+  parentId: v.union(
+    v.id("sessions"),
+    v.id("projects"),
+    v.id("agentTasks"),
+    v.id("chats"),
+  ),
   mode: v.optional(sessionModeValidator),
   // Client-generated id (crypto.randomUUID) set when a user message is sent
   // optimistically. Lets the client dedup its local pending row against the
@@ -663,7 +693,12 @@ export const messageFields = {
 };
 
 export const queuedMessageFields = {
-  parentId: v.union(v.id("sessions"), v.id("projects"), v.id("agentTasks")),
+  parentId: v.union(
+    v.id("sessions"),
+    v.id("projects"),
+    v.id("agentTasks"),
+    v.id("chats"),
+  ),
   content: v.string(),
   /** Compact chat-display text; `content` remains the full agent message. */
   displayContent: v.optional(v.string()),
@@ -860,11 +895,13 @@ export const draftFields = {
     v.literal("taskChat"),
     v.literal("projectChat"),
     v.literal("sessionChat"),
+    v.literal("chat"),
   ),
   taskId: v.optional(v.id("agentTasks")),
   parentCommentId: v.optional(v.id("taskComments")),
   projectId: v.optional(v.id("projects")),
   sessionId: v.optional(v.id("sessions")),
+  chatId: v.optional(v.id("chats")),
   content: v.string(),
   updatedAt: v.number(),
 };
@@ -915,6 +952,10 @@ export const draftTarget = v.union(
   v.object({
     kind: v.literal("sessionChat"),
     sessionId: v.id("sessions"),
+  }),
+  v.object({
+    kind: v.literal("chat"),
+    chatId: v.id("chats"),
   }),
 );
 

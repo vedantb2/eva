@@ -66,6 +66,7 @@ export const readDaemonEntitySnapshot = internalQuery({
       v.literal("sessions"),
       v.literal("agentTasks"),
       v.literal("projects"),
+      v.literal("chats"),
     ),
     entityId: v.string(),
   },
@@ -97,13 +98,24 @@ export const readDaemonEntitySnapshot = internalQuery({
         syntheticTurnMessageId: doc.syntheticTurnMessageId,
       };
     }
-    const id = ctx.db.normalizeId("projects", args.entityId);
+    if (args.entityTable === "projects") {
+      const id = ctx.db.normalizeId("projects", args.entityId);
+      if (!id) return emptyDaemonEntitySnapshot;
+      const doc = await ctx.db.get(id);
+      if (!doc) return emptyDaemonEntitySnapshot;
+      return {
+        pendingTurn: doc.pendingTurn,
+        activeWorkflow: doc.activeChatWorkflowId,
+        syntheticTurnMessageId: doc.syntheticTurnMessageId,
+      };
+    }
+    const id = ctx.db.normalizeId("chats", args.entityId);
     if (!id) return emptyDaemonEntitySnapshot;
     const doc = await ctx.db.get(id);
     if (!doc) return emptyDaemonEntitySnapshot;
     return {
       pendingTurn: doc.pendingTurn,
-      activeWorkflow: doc.activeChatWorkflowId,
+      activeWorkflow: doc.activeWorkflowId,
       syntheticTurnMessageId: doc.syntheticTurnMessageId,
     };
   },
@@ -236,18 +248,20 @@ export const reconcileStoppedSandboxStatus = internalMutation({
       );
       return null;
     }
-    const id = ctx.db.normalizeId("projects", args.entityId);
-    if (!id) return null;
-    const doc = await ctx.db.get(id);
-    if (!doc) return null;
-    if (doc.sandboxId !== args.sandboxId) {
-      return null;
+    if (args.entityTable === "projects") {
+      const id = ctx.db.normalizeId("projects", args.entityId);
+      if (!id) return null;
+      const doc = await ctx.db.get(id);
+      if (!doc) return null;
+      if (doc.sandboxId !== args.sandboxId) {
+        return null;
+      }
+      if (doc.reviewProjectSandboxStatus !== "active") return null;
+      await ctx.db.patch(id, { reviewProjectSandboxStatus: "closed" });
+      console.log(
+        `[sandbox] reconcileStoppedSandboxStatus: projects ${id} active → closed (sandbox ${args.sandboxId} not running)`,
+      );
     }
-    if (doc.reviewProjectSandboxStatus !== "active") return null;
-    await ctx.db.patch(id, { reviewProjectSandboxStatus: "closed" });
-    console.log(
-      `[sandbox] reconcileStoppedSandboxStatus: projects ${id} active → closed (sandbox ${args.sandboxId} not running)`,
-    );
     return null;
   },
 });

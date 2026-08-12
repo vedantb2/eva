@@ -17,6 +17,9 @@ import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
 import { BackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
+import { ChatTabBar } from "@/lib/components/chat/ChatTabBar";
+import { SideChatPanel } from "@/lib/components/chat/SideChatPanel";
+import { useChatTabs } from "@/lib/components/chat/useChatTabs";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,
@@ -32,7 +35,7 @@ interface TaskSandboxChatPanelProps {
   onToggleSandbox?: () => void;
 }
 
-export function TaskSandboxChatPanel({
+function MainTaskSandboxChatPanel({
   taskId,
   isSandboxActive,
   onOpenFile,
@@ -275,6 +278,31 @@ export function TaskSandboxChatPanel({
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}
       />
+    </div>
+  );
+}
+
+export function TaskSandboxChatPanel(props: TaskSandboxChatPanelProps) {
+  const tabs = useChatTabs(props.taskId);
+  return (
+    <div className="flex h-full min-h-0 w-full flex-col">
+      <ChatTabBar
+        chats={tabs.chats}
+        activeChat={tabs.activeChat}
+        onSelect={tabs.selectChat}
+        onAdd={tabs.addChat}
+      />
+      <div className="min-h-0 flex-1">
+        {tabs.activeChat ? (
+          <SideChatPanel
+            chat={tabs.activeChat}
+            isSandboxActive={props.isSandboxActive}
+            onOpenFile={props.onOpenFile}
+          />
+        ) : (
+          <MainTaskSandboxChatPanel {...props} />
+        )}
+      </div>
     </div>
   );
 }

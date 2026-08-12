@@ -12,19 +12,13 @@ import type { SandboxClient, SandboxHandle } from "../_sandbox/provider";
 import { getSandboxClient } from "../_sandbox/factory";
 import { launchScript } from "./launch";
 import { ensureSwapFile } from "./swap";
+import { KILL_ALL_LANES_COMMAND } from "./lanePaths";
 
 export const WORKSPACE_DIR = "/tmp/repo";
 export const LEGACY_WORKSPACE_DIR = "/workspace/repo";
 
 /** Kills prior agent runners without matching the current shell wrapper. */
-export const KILL_PRIOR_AGENT_PROCESSES_CMD =
-  'pid=$(cat /tmp/run-design.pid 2>/dev/null || true); if [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then comm=$(cat "/proc/$pid/comm" 2>/dev/null || true); cmdline=$(tr "\\0" " " < "/proc/$pid/cmdline" 2>/dev/null || true); if [ "$comm" = "node" ]; then case "$cmdline" in *"/tmp/run-design.mjs"*) kill "$pid" 2>/dev/null || true;; esac; fi; fi; ' +
-  "pkill -x claude 2>/dev/null || true; " +
-  "pkill -x claude-code 2>/dev/null || true; " +
-  "pkill -x codex 2>/dev/null || true; " +
-  "pkill -x opencode 2>/dev/null || true; " +
-  "pkill -x cursor-agent 2>/dev/null || true; " +
-  "true";
+export const KILL_PRIOR_AGENT_PROCESSES_CMD = KILL_ALL_LANES_COMMAND;
 
 /** Config file shape returned by getConfigFilesForSnapshot. */
 export type SandboxConfigFile = {
@@ -554,6 +548,11 @@ export async function signAndLaunchScript(
     openSyntheticTurnMutation?: string;
     completeSyntheticTurnMutation?: string;
     updateBackgroundAgentsMutation?: string;
+    laneKey?: string;
+    mcpEntityOverride?: {
+      entityId: string;
+      entityKind: "session" | "task" | "project";
+    };
   } = {},
 ): Promise<void> {
   const launchStartedAt = Date.now();
@@ -590,14 +589,16 @@ export async function signAndLaunchScript(
       userId,
       repoId,
       enableMcp: opts.enableMcp !== false,
-      entityId,
-      ...(entityIdField === "sessionId"
-        ? { entityKind: "session" as const }
-        : entityIdField === "taskId"
-          ? { entityKind: "task" as const }
-          : entityIdField === "projectId"
-            ? { entityKind: "project" as const }
-            : {}),
+      entityId: opts.mcpEntityOverride?.entityId ?? entityId,
+      ...(opts.mcpEntityOverride !== undefined
+        ? { entityKind: opts.mcpEntityOverride.entityKind }
+        : entityIdField === "sessionId"
+          ? { entityKind: "session" }
+          : entityIdField === "taskId"
+            ? { entityKind: "task" }
+            : entityIdField === "projectId"
+              ? { entityKind: "project" }
+              : {}),
     },
   );
   console.log(
@@ -636,7 +637,11 @@ export async function signAndLaunchScript(
 }
 
 /** Owner id types that can derive a stable per-owner Claude session UUID. */
-type PersistableSessionId = Id<"sessions"> | Id<"projects"> | Id<"agentTasks">;
+type PersistableSessionId =
+  | Id<"sessions">
+  | Id<"projects">
+  | Id<"agentTasks">
+  | Id<"chats">;
 
 /** Derives a deterministic UUID v4 from a session ID hash for Claude session identification. */
 export function sessionClaudeUuid(sessionId: PersistableSessionId): string {

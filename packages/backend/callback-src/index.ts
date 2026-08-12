@@ -13,6 +13,7 @@ import {
   CONVEX_URL,
   ENTITY_ID,
   ENTITY_ID_FIELD,
+  LANE_DIR,
   MODEL,
   PROVIDER,
   READY_FILE,
@@ -106,7 +107,9 @@ if (!preflightOk) {
 
 startStreamingLoops();
 
-for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
+for (const d of LANE_DIR
+  ? []
+  : [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
   if (existsSync(d)) {
     for (const f of readdirSync(d)) {
       try {

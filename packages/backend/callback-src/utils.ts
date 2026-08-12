@@ -14,6 +14,7 @@ import {
   CLAUDE_RUNTIME_CONFIG_DIR,
   CLAUDE_SYNC_PER_FILE_TIMEOUT_SECONDS,
   CLAUDE_SYNC_TIMEOUT_MS,
+  DEBUG_LOG_FILE,
   WORK_DIR,
 } from "./config.js";
 import { callbackState as S } from "./runtime/state.js";
@@ -72,7 +73,7 @@ export function log(msg: string): void {
   const line = "[callback " + new Date().toISOString() + "] " + msg + "\n";
   console.error(line.trim());
   try {
-    writeFileSync("/tmp/callback-debug.log", line, { flag: "a" });
+    writeFileSync(DEBUG_LOG_FILE, line, { flag: "a" });
   } catch {
     /* ignore log write failures */
   }

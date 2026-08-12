@@ -19,6 +19,9 @@ const CHAT_WRAPPER_NAMES = [
   "handleStaleAgentTaskChat",
   "checkStaleAgentTaskChatHeartbeat",
   "probeStaleAgentTaskChatLiveness",
+  "handleStaleChat",
+  "checkStaleChatHeartbeat",
+  "probeStaleChatLiveness",
 ];
 
 /**
@@ -30,7 +33,7 @@ const CHAT_WRAPPER_NAMES = [
  * `_chat/surfaceAdapters.ts` (per-surface adapters); these rules exist to
  * catch a regression back toward duplicated logic in the thin wrappers.
  */
-describe("the nine chat wrappers in workflowWatchdog.ts only delegate", () => {
+describe("the chat wrappers in workflowWatchdog.ts only delegate", () => {
   test.each(CHAT_WRAPPER_NAMES)(
     "%s does not itself patch the entity, insert a message, or finalize a cancelled message",
     (name) => {
@@ -63,9 +66,9 @@ test("finalizeStaleChatTurn inserts the isSystemAlert message exactly once", () 
 /**
  * chatSurfaceAdapters is the single registration point for every chat
  * surface the shared watchdog knows about. A fourth surface — or one of the
- * existing three quietly dropped — must show up here.
+ * existing four quietly dropped — must show up here.
  */
-test("all three chat surface adapters are registered together in chatSurfaceAdapters", () => {
+test("all four chat surface adapters are registered together in chatSurfaceAdapters", () => {
   const startAt = surfaceAdapters.indexOf(
     "export const chatSurfaceAdapters = [",
   );
@@ -80,6 +83,7 @@ test("all three chat surface adapters are registered together in chatSurfaceAdap
   expect(body).toContain("sessionChatAdapter");
   expect(body).toContain("taskChatAdapter");
   expect(body).toContain("projectChatAdapter");
+  expect(body).toContain("isolatedChatAdapter");
 });
 
 /** Comments name the very calls these rules rule out, so they have to go first. */

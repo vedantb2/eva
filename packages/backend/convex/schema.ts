@@ -44,6 +44,7 @@ import {
   appTabFields,
   backgroundProcessFields,
   snapshotBuildFields,
+  chatFields,
 } from "./validators";
 
 const schema = defineSchema({
@@ -141,6 +142,9 @@ const schema = defineSchema({
     .index("by_pr_url", ["prUrl"])
     .index("by_repo_and_numId", ["repoId", "numId"])
     .index("by_sandbox", ["sandboxId"]),
+  chats: defineTable(chatFields)
+    .index("by_parent", ["parentId"])
+    .index("by_parent_and_archived", ["parentId", "archived"]),
   backgroundProcesses: defineTable(backgroundProcessFields)
     .index("by_session_and_status", ["sessionId", "status"])
     .index("by_session_and_key", ["sessionId", "key"]),
@@ -168,6 +172,11 @@ const schema = defineSchema({
     entityId: v.string(),
     expiresAt: v.number(),
   }).index("by_entity", ["entityId"]),
+  sandboxGitOperationLeases: defineTable({
+    sandboxId: v.string(),
+    owner: v.string(),
+    expiresAt: v.number(),
+  }).index("by_sandbox", ["sandboxId"]),
   // Blocking AskUserQuestion round-trip. The paused sandbox turn posts a row
   // here (via canUseTool), the UI reads the unanswered one and writes the
   // answer, and the sandbox claims the answer to resume the turn. `entityId`
@@ -408,6 +417,7 @@ const schema = defineSchema({
     .index("by_user_and_task", ["userId", "taskId"])
     .index("by_user_and_project", ["userId", "projectId"])
     .index("by_user_and_session", ["userId", "sessionId"])
+    .index("by_user_and_chat", ["userId", "chatId"])
     .index("by_user_and_repo", ["userId", "repoId"]),
 
   // Explicit ⌘S queue of frozen composer snapshots (text + attachment blobs),

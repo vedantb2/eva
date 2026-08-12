@@ -1,5 +1,13 @@
 # Changelog
 
+## Sessions, projects, and tasks can run parallel chat lanes - 2026-08-12
+
+A sandbox chat used to have exactly one conversation and one callback process. Starting a second line of inquiry meant interrupting the first, while trying to run two callbacks would make them overwrite the same prompt, PID, ready marker, logs, MCP configuration, attachments, and provider state under `/tmp`.
+
+Each session, project, and task now has an always-visible Main tab plus independently persisted side chats. The active side chat is addressable with `?chat=`, invalid links fall back to Main, titles are derived from the first message and remain editable, drafts and model traits are per chat, and archived chats reopen read-only. Hidden cached session shells no longer react to another session's chat URL.
+
+Side chats are full workflow entities with their own queue, warm daemon, cancellation signal, background-agent state, provider lock, watchdog, streaming row, and conversation persistence identity. Their mutable runner files and provider homes live under `/tmp/eva-lanes/<chatId>`, and cancellation targets that lane's process group instead of broad provider-name kills. Main keeps its legacy paths for compatibility. Parent stop/archive performs bounded child cleanup, and sandbox git publication is serialized with a short lease so concurrent lanes can work in parallel without racing fetch/rebase/push. Agent-captured media remains Main-only because capture files live in the shared workspace and cannot be attributed safely to a lane yet.
+
 ## anti-slop Oxlint rules - 2026-08-12
 
 Copied [dmmulroy/anti-slop](https://github.com/dmmulroy/anti-slop) into `scripts/oxlint-plugin-anti-slop` and enabled all ten rules at error. Oxlint and `@oxlint/plugins` move to 1.77.0 (newest pair that meets the 7-day release-age gate; 1.78.0 is too new). Node 20 cannot load the plugin's `.ts` entry, so it is bundled to `index.mjs`. The vendored plugin directory is ignored so it does not lint itself.

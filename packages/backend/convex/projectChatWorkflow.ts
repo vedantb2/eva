@@ -52,12 +52,13 @@ async function finalizeOpenSyntheticTurnOnCancel(
 
 const CHAT_ALLOWED_TOOLS = "Read,Write,Edit,Bash,Glob,Grep";
 
-async function buildProjectChatTurnPrompt(
+export async function buildProjectChatTurnPrompt(
   ctx: QueryCtx,
   args: {
     projectId: Id<"projects">;
     message: string;
     userId: Id<"users">;
+    messageParentId?: Id<"chats">;
   },
 ): Promise<{
   prompt: string;
@@ -71,7 +72,9 @@ async function buildProjectChatTurnPrompt(
 
   const triggeringUserMessage = await ctx.db
     .query("messages")
-    .withIndex("by_parent", (q) => q.eq("parentId", args.projectId))
+    .withIndex("by_parent", (q) =>
+      q.eq("parentId", args.messageParentId ?? args.projectId),
+    )
     .order("desc")
     .filter((q) => q.eq(q.field("role"), "user"))
     .first();
@@ -399,6 +402,7 @@ export const cancelExecution = authMutation({
         await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
           sandboxId: project.sandboxId,
           repoId: project.repoId,
+          laneKey: null,
         });
       }
     }

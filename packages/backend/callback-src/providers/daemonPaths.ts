@@ -1,4 +1,4 @@
-import { ENTITY_ID, ENTITY_ID_FIELD } from "../config.js";
+import { ENTITY_ID, ENTITY_ID_FIELD, LANE_DIR } from "../config.js";
 
 const LEGACY_DAEMON_PID = "/tmp/eva-daemon.pid";
 const LEGACY_DAEMON_ENTITY = "/tmp/eva-daemon.entity";
@@ -15,6 +15,13 @@ export function resolveDaemonPaths(
   entityIdField: string | undefined = ENTITY_ID_FIELD,
   entityId: string | undefined = ENTITY_ID,
 ): DaemonPaths {
+  if (LANE_DIR) {
+    return {
+      pid: `${LANE_DIR}/daemon.pid`,
+      entity: `${LANE_DIR}/daemon.entity`,
+      opts: `${LANE_DIR}/daemon.opts`,
+    };
+  }
   const field = entityIdField ?? "sessionId";
   const id = entityId ?? "";
   const suffix = `${field}-${id}`;

@@ -426,6 +426,9 @@ export const archive = authMutation({
         repoId: session.repoId,
       });
     }
+    await ctx.scheduler.runAfter(0, internal.chatLifecycle.cleanupParentChats, {
+      parentId: args.id,
+    });
 
     await ctx.db.patch(args.id, {
       archived: true,

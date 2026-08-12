@@ -70,6 +70,10 @@ export const listForRepo = authQuery({
         const session = await ctx.db.get(draft.sessionId);
         if (!session) continue;
         contextTitle = session.title || "Untitled";
+      } else if (draft.kind === "chat" && draft.chatId) {
+        const chat = await ctx.db.get(draft.chatId);
+        if (!chat) continue;
+        contextTitle = chat.title || "New chat";
       }
 
       results.push({

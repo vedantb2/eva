@@ -1,5 +1,7 @@
 /** Entity-scoped warm-daemon marker paths on the sandbox filesystem. */
 
+import { runnerPaths } from "./lanePaths";
+
 export type DaemonPaths = {
   pid: string;
   entity: string;
@@ -9,7 +11,16 @@ export type DaemonPaths = {
 export function entityDaemonPaths(
   entityIdField: string,
   entityId: string,
+  laneKey?: string,
 ): DaemonPaths {
+  const laneDir = runnerPaths(laneKey).laneDir;
+  if (laneDir !== undefined) {
+    return {
+      pid: `${laneDir}/daemon.pid`,
+      entity: `${laneDir}/daemon.entity`,
+      opts: `${laneDir}/daemon.opts`,
+    };
+  }
   const suffix = `${entityIdField}-${entityId}`;
   return {
     pid: `/tmp/eva-daemon.${suffix}.pid`,
@@ -34,6 +45,7 @@ export function buildDaemonAliveCheckCmd(
   entityId: string,
   fp: string,
   optsSig: string,
+  laneKey?: string,
 ): string {
   const fpLit = shellQuote(fp);
   const optsLit = shellQuote(optsSig);
@@ -57,8 +69,8 @@ export function buildDaemonAliveCheckCmd(
     return `if ${condition(paths)}; then ${branchBody}`;
   }
 
-  const scoped = entityDaemonPaths(entityIdField, entityId);
-  if (entityIdField === "sessionId") {
+  const scoped = entityDaemonPaths(entityIdField, entityId, laneKey);
+  if (entityIdField === "sessionId" && laneKey === undefined) {
     return `${branch(scoped)}; ${branch(LEGACY_SESSION_DAEMON_PATHS).replace(/^if /, "elif ")}; else echo cold; fi`;
   }
   return `${branch(scoped)}; else echo cold; fi`;
@@ -68,13 +80,14 @@ export function buildDaemonAliveCheckCmd(
 export function buildKillEntityDaemonCmd(
   entityIdField: string,
   entityId: string,
+  laneKey?: string,
 ): string {
-  const scoped = entityDaemonPaths(entityIdField, entityId);
+  const scoped = entityDaemonPaths(entityIdField, entityId, laneKey);
   const parts = [
     `kill "$(cat ${shellQuote(scoped.pid)} 2>/dev/null)" 2>/dev/null || true`,
     `rm -f ${shellQuote(scoped.pid)} ${shellQuote(scoped.opts)} ${shellQuote(scoped.entity)}`,
   ];
-  if (entityIdField === "sessionId") {
+  if (entityIdField === "sessionId" && laneKey === undefined) {
     const legacy = LEGACY_SESSION_DAEMON_PATHS;
     parts.push(
       `kill "$(cat ${shellQuote(legacy.pid)} 2>/dev/null)" 2>/dev/null || true`,
@@ -112,4 +125,11 @@ export const PROJECT_CHAT_DAEMON_MUTATIONS: DaemonMutationEnv = {
   openSyntheticTurnMutation: "projectChatWorkflow:openSyntheticTurn",
   completeSyntheticTurnMutation: "projectChatWorkflow:completeSyntheticTurn",
   updateBackgroundAgentsMutation: "projectChatWorkflow:updateBackgroundAgents",
+};
+
+export const CHAT_DAEMON_MUTATIONS: DaemonMutationEnv = {
+  claimMutation: "chatWorkflow:claimPendingTurn",
+  openSyntheticTurnMutation: "chatWorkflow:openSyntheticTurn",
+  completeSyntheticTurnMutation: "chatWorkflow:completeSyntheticTurn",
+  updateBackgroundAgentsMutation: "chatWorkflow:updateBackgroundAgents",
 };

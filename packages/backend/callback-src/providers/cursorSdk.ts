@@ -2,10 +2,12 @@ import { execSync } from "child_process";
 import { existsSync, mkdirSync, readFileSync } from "fs";
 import {
   CURSOR_SDK_STORE_DIR,
+  MCP_CONFIG_PATH,
   MAX_TOTAL_RUNTIME_MS,
   NO_OUTPUT_CHECK_INTERVAL_MS,
   NO_OUTPUT_TIMEOUT_MS,
   SYSTEM_PROMPT,
+  PROMPT_FILE,
   WORK_DIR,
   cursorFastMode,
   cursorReasoningLevel,
@@ -33,7 +35,6 @@ const SDK_PACKAGE = "@cursor/sdk";
 const SDK_VERSION = "1.0.26";
 /** ESM entry inside the package (its exports map's `import` target). */
 const SDK_ENTRY_RELPATH = "/dist/esm/index.js";
-const MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
 
 /** User-writable fallback install location (persists in home across resumes). */
 const SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
@@ -271,7 +272,7 @@ function readCursorSdkMcpServers(): Record<string, SdkMcpServerConfig> {
 }
 
 function readPromptText(): string {
-  return readFileSync("/tmp/design-prompt.txt", "utf8");
+  return readFileSync(PROMPT_FILE, "utf8");
 }
 
 /**

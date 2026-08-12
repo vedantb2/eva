@@ -47,8 +47,9 @@ export function attachmentExtensionForMimeType(mimeType: string): string {
 export function attachmentSandboxPath(
   index: number,
   extension: string,
+  attachmentDir: string = "/tmp",
 ): string {
-  return `/tmp/eva-attachment-${index}${extension}`;
+  return `${attachmentDir}/eva-attachment-${index}${extension}`;
 }
 
 /** The prompt suffix that tells the agent where the attached files live. */
@@ -66,6 +67,7 @@ export async function materializeAttachmentsToSandbox(
   ctx: ActionCtx,
   sandbox: SandboxHandle,
   storageIds: readonly Id<"_storage">[],
+  attachmentDir: string = "/tmp",
 ): Promise<string[]> {
   const paths: string[] = [];
   for (let index = 0; index < storageIds.length; index++) {
@@ -76,6 +78,7 @@ export async function materializeAttachmentsToSandbox(
     const path = attachmentSandboxPath(
       index,
       attachmentExtensionForMimeType(blob.type),
+      attachmentDir,
     );
     await sandbox.writeFile(path, bytes);
     paths.push(path);

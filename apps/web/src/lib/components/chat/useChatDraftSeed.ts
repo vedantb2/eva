@@ -19,10 +19,16 @@ type ProjectChatTarget = {
   projectId: Id<"projects">;
 };
 
+type IsolatedChatTarget = {
+  kind: "chat";
+  chatId: Id<"chats">;
+};
+
 export type ChatDraftTarget =
   | SessionChatTarget
   | TaskChatTarget
-  | ProjectChatTarget;
+  | ProjectChatTarget
+  | IsolatedChatTarget;
 
 /** Seed bundle passed to ChatBody. */
 export type ChatDraftSeed = {

@@ -1,5 +1,15 @@
 # Changelog
 
+## Component data survives a sync to a local backend - 2026-08-12
+
+`sync:prod-to-local` imported the snapshot zip whole, and a zip that holds component tables cannot be imported that way. The import failed with "New table `X` in '\<component\>' has IDs that conflict with existing system table", because the CLI addresses a component namespace by name through `--component`, not by the `_components/` directories inside the zip. Every namespace also numbers its user tables from 10001, so a single whole-zip import puts two namespaces on the same numbers.
+
+The zip is now split before the import. Root tables stay in the original zip and each component subtree becomes its own zip, imported with `--component <path>` where the path is the component tree the CLI expects, such as `workflow` or `workflow/workpool` for a component that installs another. Shallowest first, so a parent is installed before its children, and the root import runs first because `--replace-all` deletes any table the import file does not carry. `--skip-components` drops component data instead, as an escape hatch.
+
+A component's tables only exist once its code is installed, so the first component import on a backend that has never seen that namespace fails. The script then pushes the repo's functions with `--url` and `--admin-key`, which installs every component, and retries. The push is lazy and happens once: a backend that a `convex dev` daemon has already pushed to needs nothing, and addressing the running backend directly avoids fighting the daemon for the port. Environment variables are copied before this point, because a repo whose `auth.config.ts` reads one cannot be pushed until it exists.
+
+The split reports what it found. A snapshot that holds component entries but yields no component zips fails the run rather than importing silently, and `--include-storage` warns when the export carried no `_storage` entries. Both matter because a caller such as a snapshot build keeps no log on success, so a silent no-op would read as a clean sync.
+
 ## The seed script pushes Convex functions, and chunk downloads drop to HTTP/1.1 - 2026-08-12
 
 A repo cannot push its own functions from a seed command. Both snapshot configs ended their seed list with `npx convex dev --once`, and the CLI refused it every time: the daemon already owns port 3210, so a second `convex dev` stops at "A local backend is still running on port 3210" before it does anything. The push has to happen after the seed commands, because that is when the environment variables its auth config reads finally exist, and it cannot be another attempt to start a backend.

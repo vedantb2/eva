@@ -1,5 +1,13 @@
 # Changelog
 
+## The snapshot readiness gate waits for the backend, not the push - 2026-08-12
+
+Seed commands need a Convex backend that answers HTTP. They do not need one that has already accepted a push. The gate conflated the two: it waited for the `Convex functions ready` line that only appears after a successful deploy, so any repo whose `auth.config.ts` reads a deployment environment variable deadlocked. The daemon's first push failed for the missing value, the seed commands that set that value ran after the gate, and the gate polled for fifteen minutes before failing the build. Omitting the providers when their variables are missing did not help: the Convex CLI rejects a push for a variable the auth config merely reads, whatever the code does with it.
+
+The fatal wait is now on the local backend health endpoint, satisfied as soon as the backend serves, with the functions-ready line still accepted as an alternative signal. Seed commands then set the environment variables and import the data, and the repo's own `npx convex dev --once` seed command performs the push with everything in place. A push that genuinely fails still fails the build, at that command, where the log says why.
+
+The gate also gave up its whole window to a daemon that had already exited. The launcher records each background command's process id, and the wait ends as soon as that process is gone, so a dead daemon costs seconds rather than a quarter of an hour.
+
 ## Auth config no longer blocks the first push on an unseeded backend - 2026-08-11
 
 `sandboxAuthConfig.ts` threw at module scope when `SANDBOX_JWT_JWKS` was unset. `auth.config.ts` is evaluated at push time, so that throw failed module analysis and killed the whole push, and `auth.config.ts` separately handed the CLI a provider whose `domain` was `undefined` when `CLERK_JWT_ISSUER_DOMAIN` was missing, which the CLI also rejects.

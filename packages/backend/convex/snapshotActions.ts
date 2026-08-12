@@ -22,6 +22,7 @@ import {
   buildConvexBackgroundScriptBody,
   isConvexBackendCommand,
   CONVEX_FUNCTIONS_READY_LOG_LINE,
+  CONVEX_LOCAL_BACKEND_HEALTH_URL,
 } from "./_sandbox_runtime/convexLocalBackend";
 import {
   buildEnsureSwapScript,
@@ -443,19 +444,31 @@ export const launchSeedRun = internalAction({
         : command;
       const cb64 = Buffer.from(scriptBody, "utf8").toString("base64");
       lines.push(
-        `echo ${cb64} | base64 -d > /tmp/bg-cmd-${i}.sh && chmod +x /tmp/bg-cmd-${i}.sh && setsid nohup bash -l /tmp/bg-cmd-${i}.sh </dev/null > /tmp/bg-${i}.log 2>&1 &`,
+        `echo ${cb64} | base64 -d > /tmp/bg-cmd-${i}.sh && chmod +x /tmp/bg-cmd-${i}.sh && setsid nohup bash -l /tmp/bg-cmd-${i}.sh </dev/null > /tmp/bg-${i}.log 2>&1 & echo $! > /tmp/bg-${i}.pid`,
       );
     });
     // Native Convex readiness gate: seed commands (`npx convex env set`,
-    // `npx convex import`) need a ready backend, and repos no longer carry
-    // hand-rolled grep loops in startupCommands. Detached script — a plain
-    // bash wait has no exec ceiling here. 900s covers cold binary plants.
+    // `npx convex import`) need a *running backend* — not a completed push.
+    // Gating on the functions-ready line deadlocks every repo whose
+    // auth.config.ts reads a deployment env var: the daemon's first push fails
+    // for the missing value, and the seed commands that would set it run after
+    // this gate. So the fatal wait is on the backend health endpoint, and the
+    // push is left to the repo's own `npx convex dev --once` seed command,
+    // which runs once the env vars are in place. Detached script — a plain bash
+    // wait has no exec ceiling here. 900s covers cold binary plants; a daemon
+    // that exits early ends the wait instead of burning the full window.
     (backgroundCommands ?? []).forEach((command, i) => {
       if (!isConvexBackendCommand(command)) return;
+      const backendUp = `{ curl -sf -m 3 ${CONVEX_LOCAL_BACKEND_HEALTH_URL} >/dev/null 2>&1 || grep -q "${CONVEX_FUNCTIONS_READY_LOG_LINE}" /tmp/bg-${i}.log 2>/dev/null; }`;
       lines.push(
         `echo "SEEDRUN-STAGE:convex-ready-${i}"`,
-        `for s in $(seq 1 180); do grep -q "${CONVEX_FUNCTIONS_READY_LOG_LINE}" /tmp/bg-${i}.log 2>/dev/null && break; sleep 5; done`,
-        `grep -q "${CONVEX_FUNCTIONS_READY_LOG_LINE}" /tmp/bg-${i}.log 2>/dev/null || { echo "SEEDRUN-FAILED:convex-ready-${i}"; tail -n 60 /tmp/bg-${i}.log 2>/dev/null; exit 1; }`,
+        `for s in $(seq 1 180); do`,
+        `  ${backendUp} && break`,
+        `  if [ -f /tmp/bg-${i}.pid ] && ! kill -0 "$(cat /tmp/bg-${i}.pid)" 2>/dev/null; then echo "convex-ready-${i}: daemon exited"; break; fi`,
+        "  sleep 5",
+        "done",
+        `${backendUp} || { echo "SEEDRUN-FAILED:convex-ready-${i}"; tail -n 60 /tmp/bg-${i}.log 2>/dev/null; exit 1; }`,
+        `grep -q "${CONVEX_FUNCTIONS_READY_LOG_LINE}" /tmp/bg-${i}.log 2>/dev/null || echo "convex-ready-${i}: backend up, functions not pushed yet — seed commands run next"`,
       );
     });
     // ---- seed (post-daemon) ----

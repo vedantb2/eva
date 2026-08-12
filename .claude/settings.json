@@ -1,4 +1,26 @@
 {
+  "permissions": {
+    "allow": [
+      "mcp__axiom__listDatasets",
+      "mcp__axiom__getDatasetSchema",
+      "mcp__axiom__queryApl",
+      "mcp__axiom__getSavedQueries",
+      "mcp__axiom__checkMonitors",
+      "mcp__axiom__getMonitorHistory"
+    ],
+    "deny": [
+      "mcp__axiom__createDashboard",
+      "mcp__axiom__createMonitor",
+      "mcp__axiom__createNotifier",
+      "mcp__axiom__deleteDashboard",
+      "mcp__axiom__deleteMonitor",
+      "mcp__axiom__deleteNotifier",
+      "mcp__axiom__updateDashboard",
+      "mcp__axiom__updateDashboardChart",
+      "mcp__axiom__updateMonitor",
+      "mcp__axiom__updateNotifier"
+    ]
+  },
   "hooks": {
     "SessionStart": [
       {

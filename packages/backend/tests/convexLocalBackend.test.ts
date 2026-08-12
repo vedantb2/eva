@@ -4,6 +4,7 @@ import {
   EXPECTED_LATEST_CONVEX_LOCAL_BACKEND_VERSION,
   PINNED_CONVEX_LOCAL_BACKEND_VERSION,
   buildConvexBackgroundScriptBody,
+  buildConvexPostSeedPushLines,
   isConvexBackendCommand,
 } from "../convex/_sandbox_runtime/convexLocalBackend";
 
@@ -35,5 +36,48 @@ describe("buildConvexBackgroundScriptBody", () => {
     expect(body).toContain(CONVEX_LOCAL_BACKEND_HEALTH_URL);
     expect(body).toContain("Unable to pull deployment config");
     expect(body).toContain("pkill -KILL -f '[c]onvex-local-backend'");
+  });
+});
+
+/**
+ * This push is the only thing that puts a repo's functions on the snapshot's
+ * local backend. Every way it can fail has to end the seed run, because the
+ * alternative is worse than a red build: a green one whose snapshot boots a
+ * backend with no functions on it, which every sandbox restored from that
+ * snapshot then inherits (fix 2abf5bc5).
+ */
+describe("buildConvexPostSeedPushLines", () => {
+  const script = () => buildConvexPostSeedPushLines("/tmp/repo").join("\n");
+
+  it("fails the seed when the daemon left no local deployment config", () => {
+    const lines = buildConvexPostSeedPushLines("/tmp/repo");
+    const guardAt = lines.indexOf('if [ -z "$eva_cfg" ]; then');
+    const elseAt = lines.indexOf("else");
+    expect(guardAt, "the missing-config guard moved").toBeGreaterThan(-1);
+    expect(elseAt).toBeGreaterThan(guardAt);
+    const guardBody = lines.slice(guardAt, elseAt);
+    expect(guardBody).toContain('  echo "SEEDRUN-FAILED:convex-push"');
+    expect(guardBody).toContain("  exit 1");
+  });
+
+  it("never treats a missing config as nothing to do", () => {
+    // The warn-and-continue wording this replaced is the regression itself.
+    expect(script()).not.toContain("nothing to push");
+  });
+
+  it("fails the seed when every push attempt fails", () => {
+    expect(script()).toContain(
+      '[ "$eva_pushed" = 1 ] || { echo "SEEDRUN-FAILED:convex-push"; exit 1; }',
+    );
+  });
+
+  it("marks its stage and keeps the admin key out of the trace", () => {
+    const body = script();
+    expect(body).toContain('echo "SEEDRUN-STAGE:convex-push"');
+    const traceOffAt = body.indexOf("{ set +x; } 2>/dev/null");
+    const keyReadAt = body.indexOf("eva_key=$(");
+    expect(traceOffAt, "the trace guard moved").toBeGreaterThan(-1);
+    expect(keyReadAt, "the admin key read moved").toBeGreaterThan(traceOffAt);
+    expect(body.indexOf("unset eva_key")).toBeGreaterThan(keyReadAt);
   });
 });

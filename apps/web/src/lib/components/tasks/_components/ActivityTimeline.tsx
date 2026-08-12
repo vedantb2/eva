@@ -73,15 +73,6 @@ export function ActivityTimeline({
   activeRunElapsed,
   isStopping,
   onStopConfirm,
-  hasActiveRun: _hasActiveRun,
-  requestChangesBlockedReason,
-  hasRuns: _hasRuns,
-  isOwner: _isOwner,
-  requestingChanges,
-  setRequestingChanges,
-  executionError,
-  setExecutionError,
-  onRequestChangesSubmitted,
   isProjectTask,
 }: {
   taskId: Id<"agentTasks">;
@@ -96,15 +87,6 @@ export function ActivityTimeline({
   activeRunElapsed: number;
   isStopping: boolean;
   onStopConfirm: () => void;
-  hasActiveRun: boolean;
-  requestChangesBlockedReason: string | undefined;
-  hasRuns: boolean;
-  isOwner: boolean;
-  requestingChanges: boolean;
-  setRequestingChanges: (v: boolean) => void;
-  executionError: string | null;
-  setExecutionError: (v: string | null) => void;
-  onRequestChangesSubmitted: () => void;
 }) {
   const [deletingCommentId, setDeletingCommentId] =
     useState<Id<"taskComments"> | null>(null);
@@ -297,16 +279,7 @@ export function ActivityTimeline({
           })
         )}
 
-        <TaskActivityComposer
-          taskId={taskId}
-          isProjectTask={isProjectTask}
-          requestingChanges={requestingChanges}
-          setRequestingChanges={setRequestingChanges}
-          executionError={executionError}
-          setExecutionError={setExecutionError}
-          requestChangesBlockedReason={requestChangesBlockedReason}
-          onRequestChangesSubmitted={onRequestChangesSubmitted}
-        />
+        <TaskActivityComposer taskId={taskId} />
       </div>
 
       <Dialog

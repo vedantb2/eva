@@ -121,7 +121,6 @@ export function useTaskDetail(
   const [internalActiveTab, setInternalActiveTab] =
     useState<TaskDetailTab>("activity");
   const [executionError, setExecutionError] = useState<string | null>(null);
-  const [requestingChanges, setRequestingChanges] = useState(false);
 
   const activeTab: TaskDetailTab =
     routing?.mode === "quick-detail"
@@ -305,15 +304,6 @@ export function useTaskDetail(
   };
 
   const status = task?.status;
-  const isRunWrappingUp =
-    status === "in_progress" && hasActiveRun !== true && hasRuns;
-  const requestChangesBlockedReason: string | undefined = hasActiveRun
-    ? "Wait for the current run to finish"
-    : isRunWrappingUp
-      ? "Wait for the previous run to finish wrapping up"
-      : !hasRuns
-        ? "Run Eva on this task before requesting changes"
-        : undefined;
   const canEditTaskText = status === "todo" && !hasActiveRun;
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
   const latestPrError = runs?.find((r) => r.prError)?.prError;
@@ -347,7 +337,6 @@ export function useTaskDetail(
     isBlocked,
     hasActiveRun: Boolean(hasActiveRun),
     isProjectTask,
-    requestChangesBlockedReason,
     hasRuns,
     canEditTaskText,
     showTabsColumn,
@@ -363,8 +352,6 @@ export function useTaskDetail(
     setActiveTab,
     baseBranch,
     setBaseBranch,
-    requestingChanges,
-    setRequestingChanges,
     executionError,
     setExecutionError,
     showStopConfirm,

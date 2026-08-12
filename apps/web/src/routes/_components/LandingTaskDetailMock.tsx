@@ -166,13 +166,7 @@ function LandingMockComposer() {
       >
         Add a comment…
       </div>
-      <div className="flex items-center justify-between gap-2 px-2 pb-2">
-        <span className="flex items-center gap-2">
-          <span className="relative h-6 w-10 shrink-0 rounded-full bg-primary">
-            <span className="absolute left-[18px] top-0.5 size-5 rounded-full bg-white" />
-          </span>
-          <span className="text-xs text-foreground">Make changes</span>
-        </span>
+      <div className="flex items-center justify-end gap-2 px-2 pb-2">
         <Button
           size="icon"
           className="size-8 rounded-full"

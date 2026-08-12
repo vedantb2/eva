@@ -90,7 +90,6 @@ interface StatusFieldsSectionProps {
   /** Only the task owner can move it onto their own provider account. */
   isOwner: boolean;
   allTags: string[];
-  requestingChanges: boolean;
 }
 
 export function StatusFieldsSection({
@@ -107,7 +106,6 @@ export function StatusFieldsSection({
   hasRuns,
   isOwner,
   allTags,
-  requestingChanges: _requestingChanges,
 }: StatusFieldsSectionProps) {
   const updateTask = useMutation(api.agentTasks.update).withOptimisticUpdate(
     (localStore, args) => {

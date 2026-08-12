@@ -17,7 +17,6 @@ import {
 import {
   IconGitPullRequest,
   IconBrandVercel,
-  IconMessagePlus,
   IconHammer,
   IconPlayerPlay,
   IconPlayerStop,
@@ -67,7 +66,6 @@ interface TaskFooterProps {
   onRunBackgroundCommands: () => void;
   onStartExecution: () => void;
   onResolveConfirm: () => void;
-  onRequestChanges: () => void;
   variant?: "footer" | "header";
 }
 
@@ -100,7 +98,6 @@ export function TaskFooter({
   onRunBackgroundCommands,
   onStartExecution,
   onResolveConfirm,
-  onRequestChanges,
   variant = "footer",
 }: TaskFooterProps) {
   const isHeader = variant === "header";
@@ -113,8 +110,6 @@ export function TaskFooter({
   const showStopSandbox = isSandboxActive && !isSandboxStopping;
   const showResolveConflicts =
     !hasActiveRun && (status === "code_review" || status === "business_review");
-  const showRequestChanges =
-    status !== "todo" && status !== "in_progress" && status !== undefined;
   const showRunDevServer = isSandboxActive && canStartSandbox;
   const showRunBackgroundCommands = isSandboxActive && canStartSandbox;
   const hasSandboxCommandItems =
@@ -128,7 +123,6 @@ export function TaskFooter({
     canStartSandbox ||
     canCreatePr ||
     showResolveConflicts ||
-    showRequestChanges ||
     Boolean(latestDeployment?.deploymentStatus) ||
     Boolean(latestPrUrl);
   const hasSecondaryContent =
@@ -290,24 +284,11 @@ export function TaskFooter({
                     </TooltipContent>
                   </Tooltip>
                 )}
-                {(showResolveConflicts ||
-                  hasSandboxCommandItems ||
-                  hasPrLinkItems) &&
-                showRequestChanges ? (
-                  <DropdownMenuSeparator />
-                ) : null}
-                {showRequestChanges && (
-                  <DropdownMenuItem onClick={onRequestChanges}>
-                    <IconMessagePlus size={14} />
-                    Request Changes
-                  </DropdownMenuItem>
-                )}
                 {isHeader ? (
                   <>
                     {(showResolveConflicts ||
                       hasSandboxCommandItems ||
-                      hasPrLinkItems ||
-                      showRequestChanges) && <DropdownMenuSeparator />}
+                      hasPrLinkItems) && <DropdownMenuSeparator />}
                     <CopyLinkMenuItem iconSize={14} />
                   </>
                 ) : null}

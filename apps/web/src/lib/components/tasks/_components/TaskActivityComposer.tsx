@@ -9,13 +9,6 @@ import { TaskActivityComposerForm } from "./TaskActivityComposerForm";
 
 interface TaskActivityComposerProps {
   taskId: Id<"agentTasks">;
-  isProjectTask: boolean;
-  requestingChanges: boolean;
-  setRequestingChanges: (value: boolean) => void;
-  executionError: string | null;
-  setExecutionError: (value: string | null) => void;
-  requestChangesBlockedReason: string | undefined;
-  onRequestChangesSubmitted: () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -23,17 +16,8 @@ interface TaskActivityComposerProps {
 // mounts the inner form exactly once when the draft resolves.
 // ---------------------------------------------------------------------------
 
-/** Comment / request-changes input pinned below the task activity timeline. */
-export function TaskActivityComposer({
-  taskId,
-  isProjectTask,
-  requestingChanges,
-  setRequestingChanges,
-  executionError,
-  setExecutionError,
-  requestChangesBlockedReason,
-  onRequestChangesSubmitted,
-}: TaskActivityComposerProps) {
+/** Comment input pinned below the task activity timeline. */
+export function TaskActivityComposer({ taskId }: TaskActivityComposerProps) {
   const draft = useQuery(api.drafts.getForTarget, {
     target: { kind: "taskComment", taskId },
   });
@@ -54,21 +38,7 @@ export function TaskActivityComposer({
             disabled
             className={editorClassName}
           />
-          <div
-            className={
-              isProjectTask
-                ? "flex items-center justify-between gap-2 px-2 pb-2"
-                : "flex items-center justify-end gap-2 px-2 pb-2"
-            }
-          >
-            {isProjectTask ? (
-              <span className="flex items-center gap-2">
-                <span className="relative h-6 w-10 shrink-0 rounded-full bg-muted" />
-                <span className="text-xs select-none text-muted-foreground">
-                  Make changes
-                </span>
-              </span>
-            ) : null}
+          <div className="flex items-center justify-end gap-2 px-2 pb-2">
             <CommentSendButton
               size="icon-sm"
               disabled
@@ -86,13 +56,6 @@ export function TaskActivityComposer({
     <TaskActivityComposerForm
       key="ready"
       taskId={taskId}
-      isProjectTask={isProjectTask}
-      requestingChanges={requestingChanges}
-      setRequestingChanges={setRequestingChanges}
-      executionError={executionError}
-      setExecutionError={setExecutionError}
-      requestChangesBlockedReason={requestChangesBlockedReason}
-      onRequestChangesSubmitted={onRequestChangesSubmitted}
       initialContent={draft}
     />
   );

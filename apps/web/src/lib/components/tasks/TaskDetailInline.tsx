@@ -74,7 +74,6 @@ export function TaskDetailInline({
     isOwner,
     isBlocked,
     hasActiveRun,
-    requestChangesBlockedReason,
     isProjectTask,
     hasRuns,
     canEditTaskText,
@@ -83,13 +82,9 @@ export function TaskDetailInline({
     latestPrUrl,
     latestPrError,
     latestDeployment,
-    setActiveTab,
     baseBranch,
     setBaseBranch,
-    requestingChanges,
-    setRequestingChanges,
     executionError,
-    setExecutionError,
     showStopConfirm,
     setShowStopConfirm,
     showResolveConfirm,
@@ -325,16 +320,7 @@ export function TaskDetailInline({
                       activeRunElapsed={activeRunElapsed}
                       isStopping={isStopping}
                       onStopConfirm={() => setShowStopConfirm(true)}
-                      hasActiveRun={hasActiveRun}
-                      requestChangesBlockedReason={requestChangesBlockedReason}
                       isProjectTask={isProjectTask}
-                      hasRuns={hasRuns}
-                      isOwner={isOwner}
-                      requestingChanges={requestingChanges}
-                      setRequestingChanges={setRequestingChanges}
-                      executionError={executionError}
-                      setExecutionError={setExecutionError}
-                      onRequestChangesSubmitted={() => setActiveTab("activity")}
                     />
                   </div>
                 </div>
@@ -355,7 +341,6 @@ export function TaskDetailInline({
                 hasRuns={hasRuns}
                 isOwner={isOwner}
                 allTags={allTags}
-                requestingChanges={requestingChanges}
               />
             </div>
           </div>
@@ -396,10 +381,6 @@ export function TaskDetailInline({
         isRunningBackgroundCommands={isRunningBackgroundCommands}
         onStartExecution={handleStartExecution}
         onResolveConfirm={() => setShowResolveConfirm(true)}
-        onRequestChanges={() => {
-          setRequestingChanges(true);
-          if (executionError) setExecutionError(null);
-        }}
       />
     ) : null;
 

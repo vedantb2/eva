@@ -1,5 +1,9 @@
 # Changelog
 
+## Project tasks drop Make changes from the activity composer - 2026-08-12
+
+Quick-task Activity was already comment-only; project tasks still showed the Make changes toggle, model picker, and Request Changes menu item. Both surfaces now share the same comment composer. Change-request backend (`requestsChanges`) is unchanged for later cleanup.
+
 ## Anti-slop lint keeps only high-signal gates - 2026-08-12
 
 Enabling every vendored anti-slop rule made lint fail on 1,082 existing expressions, including correct JSON boundary guards, `unknown` error handling, Zod shape terminology, explicit owner contracts, and omission-preserving object spreads. The three rules that identify concrete assertion/type-alias escapes remain errors; seven syntax-only rules are explicitly disabled until they can distinguish those valid patterns without pushing application code toward weaker semantics.

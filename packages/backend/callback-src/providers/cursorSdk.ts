@@ -67,7 +67,11 @@ export function cursorModeParams(
   use1mContext: boolean,
 ): SdkModelParameterValue[] {
   const params: SdkModelParameterValue[] = [];
-  if (model === "grok-4.5" || model === "composer-2.5") {
+  if (
+    model === "grok-4.6" ||
+    model === "grok-4.5" ||
+    model === "composer-2.5"
+  ) {
     params.push({ id: "fast", value: fastMode ? "true" : "false" });
   }
   if (use1mContext) {

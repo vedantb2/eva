@@ -9,6 +9,14 @@ import {
 } from "../providers/cursorSdk.js";
 
 test("splitCursorModel separates base id and reasoning level", () => {
+  expect(splitCursorModel("grok-4.6-xhigh")).toEqual({
+    base: "grok-4.6",
+    level: "xhigh",
+  });
+  expect(splitCursorModel("grok-4.6-high")).toEqual({
+    base: "grok-4.6",
+    level: "high",
+  });
   expect(splitCursorModel("grok-4.5-low")).toEqual({
     base: "grok-4.5",
     level: "low",
@@ -37,6 +45,9 @@ test("splitCursorModel separates base id and reasoning level", () => {
 });
 
 test("cursorModeParams explicitly keeps first-party models on Standard", () => {
+  expect(cursorModeParams("grok-4.6", false, false)).toEqual([
+    { id: "fast", value: "false" },
+  ]);
   expect(cursorModeParams("grok-4.5", false, false)).toEqual([
     { id: "fast", value: "false" },
   ]);

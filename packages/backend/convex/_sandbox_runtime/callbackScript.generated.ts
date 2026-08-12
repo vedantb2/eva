@@ -171,7 +171,7 @@ var claudeModelBase = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length
 var normalizedClaudeModel = PROVIDER === "claude" && AI_CONTEXT_1M === "1" ? \`\${claudeModelBase}[1m]\` : claudeModelBase;
 var normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
 var normalizedOpencodeModel = MODEL.startsWith("opencode:") ? MODEL.slice("opencode:".length) : MODEL;
-var CURSOR_REASONING_LEVELS = ["low", "medium", "high"];
+var CURSOR_REASONING_LEVELS = ["xhigh", "medium", "low", "high"];
 function splitCursorModel(raw) {
   const unprefixed = raw.startsWith("cursor-grok-") ? raw.slice("cursor-".length) : raw;
   for (const level of CURSOR_REASONING_LEVELS) {
@@ -190,7 +190,7 @@ var CURSOR_REASONING_EFFORT = {
   low: "low",
   medium: "medium",
   high: "high",
-  xhigh: "high",
+  xhigh: "xhigh",
   max: "high"
 };
 var cursorReasoningLevel = PROVIDER === "cursor" && REASONING_EFFORT in CURSOR_REASONING_EFFORT ? CURSOR_REASONING_EFFORT[REASONING_EFFORT] : cursorModelParts.level;
@@ -5886,7 +5886,7 @@ var MCP_CONFIG_PATH2 = "/tmp/eva-mcp.json";
 var SDK_LOCAL_PREFIX2 = "/home/eva/.eva-agent-sdk";
 function cursorModeParams(model, fastMode, use1mContext) {
   const params = [];
-  if (model === "grok-4.5" || model === "composer-2.5") {
+  if (model === "grok-4.6" || model === "grok-4.5" || model === "composer-2.5") {
     params.push({ id: "fast", value: fastMode ? "true" : "false" });
   }
   if (use1mContext) {

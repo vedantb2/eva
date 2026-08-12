@@ -1,5 +1,9 @@
 # Changelog
 
+## Cursor picker includes Grok 4.6 - 2026-08-12
+
+Grok 4.6 is in the Cursor model list with its real traits: reasoning low / medium / high (default) / xhigh, plus Fast. The runner sends `xhigh` through instead of clamping it to high, and still pins Fast off unless the user turns it on so a bare model id does not land on Cursor's 2× Fast tier.
+
 ## Snapshot seed installs gcc/make before agentation-mcp - 2026-08-12
 
 A carepulse-ts web snapshot died at `SEEDRUN-FAILED:agent-clis` on a fresh Vercel node24 sandbox: `agentation-mcp` compiles `better-sqlite3` via node-gyp, and the image has no `make`. gcc, gcc-c++, and make now install with the rest of the toolchain dnf packages, before the global npm install.

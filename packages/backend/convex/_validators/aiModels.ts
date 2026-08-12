@@ -35,6 +35,7 @@ export const aiModelValidator = v.union(
   v.literal("opencode:openai/gpt-5.3-codex"),
   v.literal("opencode:openai/gpt-5.4"),
   v.literal("opencode:openai/gpt-5.4-mini"),
+  v.literal("cursor:grok-4.6"),
   v.literal("cursor:grok-4.5"),
   v.literal("cursor:gpt-5.5"),
   v.literal("cursor:gemini-3.1-pro"),
@@ -42,6 +43,10 @@ export const aiModelValidator = v.union(
   // Legacy — still accepted so existing sessions with these lastModel values
   // can load; normalizeAIModel remaps them. The reasoning-suffixed cursor ids
   // predate the SDK migration (effort now lives on the traits menu).
+  v.literal("cursor:grok-4.6-low"),
+  v.literal("cursor:grok-4.6-medium"),
+  v.literal("cursor:grok-4.6-high"),
+  v.literal("cursor:grok-4.6-xhigh"),
   v.literal("cursor:grok-4.5-low"),
   v.literal("cursor:grok-4.5-medium"),
   v.literal("cursor:grok-4.5-high"),
@@ -152,6 +157,12 @@ const CURSOR_REASONING: ModelReasoningTraits = {
   default: "medium",
 };
 
+/** Grok 4.6: low, medium, high (default), xhigh. Fast is a separate trait. */
+const CURSOR_REASONING_GROK46: ModelReasoningTraits = {
+  levels: ["low", "medium", "high", "xhigh"],
+  default: "high",
+};
+
 /** GPT-5.5 on cursor previously shipped as the "Low" variant — keep that default. */
 const CURSOR_REASONING_GPT55: ModelReasoningTraits = {
   levels: ["low", "medium", "high"],
@@ -177,6 +188,7 @@ export type AIModel =
   | "opencode:openai/gpt-5.3-codex"
   | "opencode:openai/gpt-5.4"
   | "opencode:openai/gpt-5.4-mini"
+  | "cursor:grok-4.6"
   | "cursor:grok-4.5"
   | "cursor:gpt-5.5"
   | "cursor:gemini-3.1-pro"
@@ -190,6 +202,10 @@ export type PersistedAIModel =
   | "codex:gpt-5.4-mini"
   | "codex:gpt-5.3-codex"
   | "codex:gpt-5.2-codex"
+  | "cursor:grok-4.6-low"
+  | "cursor:grok-4.6-medium"
+  | "cursor:grok-4.6-high"
+  | "cursor:grok-4.6-xhigh"
   | "cursor:grok-4.5-low"
   | "cursor:grok-4.5-medium"
   | "cursor:grok-4.5-high"
@@ -332,6 +348,14 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     provider: "opencode",
     label: "GPT-5.2",
     requiresAuth: true,
+  },
+  {
+    id: "cursor:grok-4.6",
+    provider: "cursor",
+    label: "Grok 4.6",
+    requiresAuth: true,
+    reasoning: CURSOR_REASONING_GROK46,
+    fastMode: true,
   },
   {
     id: "cursor:grok-4.5",
@@ -480,6 +504,12 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
     case "cursor:grok-4.5-medium":
     case "cursor:grok-4.5-high":
       return "cursor:grok-4.5";
+    case "cursor:grok-4.6":
+    case "cursor:grok-4.6-low":
+    case "cursor:grok-4.6-medium":
+    case "cursor:grok-4.6-high":
+    case "cursor:grok-4.6-xhigh":
+      return "cursor:grok-4.6";
     case "cursor:gpt-5.3-codex-high":
       return "cursor:composer-2.5";
     case "cursor:gpt-5.5":

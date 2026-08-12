@@ -9,6 +9,12 @@ import {
 } from "../convex/_validators/aiModels";
 
 test("cursor base models expose reasoning traits for the composer menu", () => {
+  expect(modelHasTraits("cursor:grok-4.6")).toBe(true);
+  expect(getModelTraits("cursor:grok-4.6").reasoning).toEqual({
+    levels: ["low", "medium", "high", "xhigh"],
+    default: "high",
+  });
+  expect(getModelTraits("cursor:grok-4.6").fastMode).toBe(true);
   expect(modelHasTraits("cursor:grok-4.5")).toBe(true);
   expect(getModelTraits("cursor:grok-4.5").reasoning).toEqual({
     levels: ["low", "medium", "high"],
@@ -22,6 +28,14 @@ test("cursor base models expose reasoning traits for the composer menu", () => {
 });
 
 test("Fast and 1M modes are opt-in", () => {
+  expect(resolveTraitsForDisplay("cursor:grok-4.6", {})).toMatchObject({
+    effortLevel: "high",
+    fastMode: false,
+    use1mContext: false,
+  });
+  expect(buildTraitsExecutionPayload("cursor:grok-4.6", {})).toMatchObject({
+    fastMode: false,
+  });
   expect(resolveTraitsForDisplay("cursor:grok-4.5", {})).toMatchObject({
     fastMode: false,
     use1mContext: false,
@@ -57,6 +71,10 @@ test("normalizeAIModel remaps retired cursor model ids", () => {
 test("normalizeAIModel collapses reasoning-suffixed cursor ids to base models", () => {
   // Effort moved to the traits menu with the SDK migration; suffixed ids are
   // legacy persisted values.
+  expect(normalizeAIModel("cursor:grok-4.6")).toBe("cursor:grok-4.6");
+  expect(normalizeAIModel("cursor:grok-4.6-low")).toBe("cursor:grok-4.6");
+  expect(normalizeAIModel("cursor:grok-4.6-high")).toBe("cursor:grok-4.6");
+  expect(normalizeAIModel("cursor:grok-4.6-xhigh")).toBe("cursor:grok-4.6");
   expect(normalizeAIModel("cursor:grok-4.5-low")).toBe("cursor:grok-4.5");
   expect(normalizeAIModel("cursor:grok-4.5-medium")).toBe("cursor:grok-4.5");
   expect(normalizeAIModel("cursor:grok-4.5-high")).toBe("cursor:grok-4.5");

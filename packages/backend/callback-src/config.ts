@@ -258,7 +258,8 @@ export const normalizedOpencodeModel = MODEL.startsWith("opencode:")
 // (grok-4.5, gpt-5.5), with reasoning exposed as a per-model parameter. Split
 // here; the runner discovers the parameter id at runtime and degrades to the
 // base id when the model has none (resolveCursorModelSelection).
-const CURSOR_REASONING_LEVELS = ["low", "medium", "high"];
+// xhigh before high: "grok-4.6-xhigh".endsWith("-high") is also true.
+const CURSOR_REASONING_LEVELS = ["xhigh", "medium", "low", "high"];
 
 export function splitCursorModel(raw: string): { base: string; level: string } {
   // Legacy CLI-era slugs: cursor-grok-4.5-* → grok-4.5-*.
@@ -280,15 +281,16 @@ const cursorModelRaw = MODEL.startsWith("cursor:")
 const cursorModelParts = splitCursorModel(cursorModelRaw);
 export const normalizedCursorModel = cursorModelParts.base;
 
-// Abstract traits-menu level → cursor reasoning level (xhigh/max clamp to
-// high; off sends the bare model). Falls back to the legacy id suffix for
-// pre-migration AI_MODEL values that carried the level in the slug.
+// Abstract traits-menu level → cursor reasoning level. Grok 4.6 accepts
+// xhigh; max still clamps to high (no Cursor model exposes max). Off sends
+// the bare model. Falls back to the legacy id suffix for pre-migration
+// AI_MODEL values that carried the level in the slug.
 const CURSOR_REASONING_EFFORT: Record<string, string> = {
   off: "",
   low: "low",
   medium: "medium",
   high: "high",
-  xhigh: "high",
+  xhigh: "xhigh",
   max: "high",
 };
 

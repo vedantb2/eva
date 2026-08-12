@@ -1,5 +1,25 @@
 # Changelog
 
+## Snapshot seed pins OpenCode to a complete npm release - 2026-08-12
+
+`opencode-ai@latest` advanced to 1.18.17 before its Linux packages were published, making the combined global agent install fail with `ETARGET`. OpenCode now installs separately at the newest complete Linux release, 1.18.16, so its publication race cannot roll back the other agent CLIs.
+
+## Convex seed pin survives GitHub drops and fails closed - 2026-08-12
+
+The glibc-compatible Convex backend pin used a one-shot Python GitHub download, then continued into `convex dev` after that download failed; the CLI fetched an incompatible latest binary requiring GLIBC_2.35. Pin download now retries through the GitHub release-asset API and aborts before daemon startup if the compatible binary cannot be planted.
+
+## Snapshot seed retries GitHub downloads through the release API - 2026-08-12
+
+Vercel's IPv4-only sandboxes can exhaust HTTP/1.1 retries with empty replies from direct GitHub release URLs. Every pinned seed-tool artifact now retries through GitHub's official release-asset API path before failing, covering Supabase, gh, ripgrep, fd, git-lfs, and code-server without an untrusted mirror.
+
+## Snapshot seed installs code-server via HTTP/1.1 GitHub curl - 2026-08-12
+
+The code-server install script fetches the GitHub rpm over HTTP/2, which dies mid-transfer from a Vercel sandbox (`curl: (56)`). Seed now downloads the pinned rpm with the same HTTP/1.1 retry curl as gh/rg/fd.
+
+## Convex seed supervisor retries a dead `convex dev` - 2026-08-12
+
+CarePulse web snapshot 2 of 3 died at convex-ready-1: `npx convex dev` hit `TypeError: fetch failed` and the supervisor treated that as a clean exit, so the seed aborted instead of retrying. It now restarts up to 3 times when the CLI exits before the local backend is healthy.
+
 ## Repo default model includes traits - 2026-08-12
 
 The repository default model on settings/config only stored the model id, so new tasks and sessions always used each model's own reasoning/Fast defaults. The picker now has the same traits menu as composers, and those values persist on the repo and apply when a task or session is created without an override.

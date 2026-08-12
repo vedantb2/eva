@@ -48,6 +48,19 @@ const GH_CLI_VERSION = "2.72.0";
 // layer to fail; `--retry-all-errors` covers 56, which `--retry` alone skips.
 const GITHUB_RELEASE_CURL =
   "curl -fSL --http1.1 --retry 5 --retry-delay 5 --retry-all-errors";
+// A direct github.com release URL and the release-asset API take different
+// request paths before reaching the artifact CDN. Vercel's IPv4-only
+// sandboxes intermittently receive an empty reply from the direct path, so
+// retry every pinned artifact through GitHub's official asset API before
+// declaring the toolchain stage failed.
+const GITHUB_RELEASE_DOWNLOAD_FUNCTION = `github_release_download() {
+  local repo="$1" tag="$2" asset="$3" output="$4" asset_url
+  ${GITHUB_RELEASE_CURL} -o "$output" "https://github.com/$repo/releases/download/$tag/$asset" && return 0
+  echo "Direct GitHub release download failed; retrying through release asset API"
+  asset_url=$(${GITHUB_RELEASE_CURL} "https://api.github.com/repos/$repo/releases/tags/$tag" | jq -r --arg asset "$asset" '.assets[] | select(.name == $asset) | .url' | head -n 1)
+  [ -n "$asset_url" ] && [ "$asset_url" != "null" ] || return 1
+  ${GITHUB_RELEASE_CURL} -H "Accept: application/octet-stream" -H "X-GitHub-Api-Version: 2022-11-28" -o "$output" "$asset_url"
+}`;
 // Search and VCS tooling the agent CLIs shell out to. Like gh, none of these
 // are in the AL2023 repos, so each comes from its pinned upstream tarball.
 // Note the differing tag conventions: ripgrep tags have no `v` prefix, and
@@ -55,6 +68,11 @@ const GITHUB_RELEASE_CURL =
 const RIPGREP_VERSION = "15.2.0";
 const FD_VERSION = "10.4.2";
 const GIT_LFS_VERSION = "3.7.1";
+const CODE_SERVER_VERSION = "4.132.0";
+// Keep the launcher and its platform package in lockstep. npm briefly exposed
+// opencode-ai 1.18.17 before any matching linux package existed, so `latest`
+// made every fresh snapshot fail deterministically during postinstall.
+const OPENCODE_VERSION = "1.18.16";
 
 function shouldCaptureSupabaseState(commands: string[]): boolean {
   return commands.some((command) => {
@@ -259,6 +277,7 @@ export const launchSeedRun = internalAction({
       // Yarn Berry / packageManager pins may prompt Corepack to download —
       // non-interactive seed must not hang on that prompt.
       "export COREPACK_ENABLE_DOWNLOAD_PROMPT=0",
+      GITHUB_RELEASE_DOWNLOAD_FUNCTION,
       "rm -f /tmp/.seedrun-done",
     ];
     // Daytona used to bake its whole agent-CLI toolchain (claude, codex,
@@ -306,7 +325,7 @@ export const launchSeedRun = internalAction({
       // Classic yarn for yarn.lock repos. Soft-fail: yarn installs are best-effort.
       "corepack prepare yarn@1.22.22 --activate || true",
       "git config --global --add safe.directory '*'",
-      `command -v supabase >/dev/null 2>&1 || { ${GITHUB_RELEASE_CURL} -o /tmp/sb.tgz https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_amd64.tar.gz && sudo tar -xzf /tmp/sb.tgz -C /usr/local/bin supabase; } || { echo "SEEDRUN-FAILED:supabase-cli"; exit 1; }`,
+      `command -v supabase >/dev/null 2>&1 || { github_release_download supabase/cli v${SUPABASE_CLI_VERSION} supabase_linux_amd64.tar.gz /tmp/sb.tgz && sudo tar -xzf /tmp/sb.tgz -C /usr/local/bin supabase; } || { echo "SEEDRUN-FAILED:supabase-cli"; exit 1; }`,
       // We install to /usr/local/bin, but repo seed scripts may invoke the CLI by
       // its absolute /usr/bin/supabase path (to avoid a node_modules/.bin shim).
       // Symlink so both paths resolve to the one binary.
@@ -314,17 +333,17 @@ export const launchSeedRun = internalAction({
       // GitHub CLI — Daytona Image installs via apt; Vercel AL2023 needs the
       // release tarball (dnf has no `gh` package by default). Tarball first
       // (pinned); official gh yum repo if GitHub Releases still flakes.
-      `command -v gh >/dev/null 2>&1 || { ${GITHUB_RELEASE_CURL} -o /tmp/gh.tgz https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz && sudo tar -xzf /tmp/gh.tgz -C /tmp && sudo mv /tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh /usr/local/bin/gh && rm -rf /tmp/gh.tgz /tmp/gh_${GH_CLI_VERSION}_linux_amd64; } || { sudo dnf install -y 'dnf-command(config-manager)' && sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo && sudo dnf install -y gh --repo gh-cli; } || { echo "SEEDRUN-FAILED:gh-cli"; exit 1; }`,
+      `command -v gh >/dev/null 2>&1 || { github_release_download cli/cli v${GH_CLI_VERSION} gh_${GH_CLI_VERSION}_linux_amd64.tar.gz /tmp/gh.tgz && sudo tar -xzf /tmp/gh.tgz -C /tmp && sudo mv /tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh /usr/local/bin/gh && rm -rf /tmp/gh.tgz /tmp/gh_${GH_CLI_VERSION}_linux_amd64; } || { sudo dnf install -y 'dnf-command(config-manager)' && sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo && sudo dnf install -y gh --repo gh-cli; } || { echo "SEEDRUN-FAILED:gh-cli"; exit 1; }`,
       // ripgrep and fd — every agent CLI reaches for these to search a repo, and
       // fall back to far slower `grep -r`/`find` when they are missing.
-      `command -v rg >/dev/null 2>&1 || { ${GITHUB_RELEASE_CURL} -o /tmp/rg.tgz https://github.com/BurntSushi/ripgrep/releases/download/${RIPGREP_VERSION}/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl.tar.gz && sudo tar -xzf /tmp/rg.tgz -C /tmp && sudo mv /tmp/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl/rg /usr/local/bin/rg && rm -rf /tmp/rg.tgz /tmp/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl; } || { echo "SEEDRUN-FAILED:ripgrep"; exit 1; }`,
-      `command -v fd >/dev/null 2>&1 || { ${GITHUB_RELEASE_CURL} -o /tmp/fd.tgz https://github.com/sharkdp/fd/releases/download/v${FD_VERSION}/fd-v${FD_VERSION}-x86_64-unknown-linux-musl.tar.gz && sudo tar -xzf /tmp/fd.tgz -C /tmp && sudo mv /tmp/fd-v${FD_VERSION}-x86_64-unknown-linux-musl/fd /usr/local/bin/fd && rm -rf /tmp/fd.tgz /tmp/fd-v${FD_VERSION}-x86_64-unknown-linux-musl; } || { echo "SEEDRUN-FAILED:fd"; exit 1; }`,
+      `command -v rg >/dev/null 2>&1 || { github_release_download BurntSushi/ripgrep ${RIPGREP_VERSION} ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl.tar.gz /tmp/rg.tgz && sudo tar -xzf /tmp/rg.tgz -C /tmp && sudo mv /tmp/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl/rg /usr/local/bin/rg && rm -rf /tmp/rg.tgz /tmp/ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl; } || { echo "SEEDRUN-FAILED:ripgrep"; exit 1; }`,
+      `command -v fd >/dev/null 2>&1 || { github_release_download sharkdp/fd v${FD_VERSION} fd-v${FD_VERSION}-x86_64-unknown-linux-musl.tar.gz /tmp/fd.tgz && sudo tar -xzf /tmp/fd.tgz -C /tmp && sudo mv /tmp/fd-v${FD_VERSION}-x86_64-unknown-linux-musl/fd /usr/local/bin/fd && rm -rf /tmp/fd.tgz /tmp/fd-v${FD_VERSION}-x86_64-unknown-linux-musl; } || { echo "SEEDRUN-FAILED:fd"; exit 1; }`,
       // Git LFS. Without it a clone of an LFS repo succeeds but leaves pointer
       // stubs where the real files should be, which reads as corrupt content
       // rather than a missing tool. Registering the --system filters is the half
       // that makes checkout resolve pointers, so it must follow the binary; call
       // the absolute path because sudo's secure_path may exclude /usr/local/bin.
-      `command -v git-lfs >/dev/null 2>&1 || { ${GITHUB_RELEASE_CURL} -o /tmp/lfs.tgz https://github.com/git-lfs/git-lfs/releases/download/v${GIT_LFS_VERSION}/git-lfs-linux-amd64-v${GIT_LFS_VERSION}.tar.gz && sudo tar -xzf /tmp/lfs.tgz -C /tmp && sudo mv /tmp/git-lfs-${GIT_LFS_VERSION}/git-lfs /usr/local/bin/git-lfs && rm -rf /tmp/lfs.tgz /tmp/git-lfs-${GIT_LFS_VERSION}; } || { echo "SEEDRUN-FAILED:git-lfs"; exit 1; }`,
+      `command -v git-lfs >/dev/null 2>&1 || { github_release_download git-lfs/git-lfs v${GIT_LFS_VERSION} git-lfs-linux-amd64-v${GIT_LFS_VERSION}.tar.gz /tmp/lfs.tgz && sudo tar -xzf /tmp/lfs.tgz -C /tmp && sudo mv /tmp/git-lfs-${GIT_LFS_VERSION}/git-lfs /usr/local/bin/git-lfs && rm -rf /tmp/lfs.tgz /tmp/git-lfs-${GIT_LFS_VERSION}; } || { echo "SEEDRUN-FAILED:git-lfs"; exit 1; }`,
       // The Image's primary git is a custom build under /opt/git, so its
       // "system" config resolves to /opt/git/etc/gitconfig — a directory the
       // image does not ship. `git lfs install --system` therefore failed with
@@ -336,8 +355,9 @@ export const launchSeedRun = internalAction({
       "sudo mkdir -p /opt/git/etc",
       'sudo /usr/local/bin/git-lfs install --system || { echo "SEEDRUN-FAILED:git-lfs-filters"; exit 1; }',
       'sudo env GIT_CONFIG_SYSTEM=/etc/gitconfig /usr/local/bin/git-lfs install --system || { echo "SEEDRUN-FAILED:git-lfs-filters"; exit 1; }',
-      'command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && command -v opencode >/dev/null 2>&1 && [ -d "$(npm root -g)/@cursor/sdk" ] || sudo npm install -g @anthropic-ai/claude-code @openai/codex opencode-ai agent-browser convex agentation-mcp@1.2.0 @cursor/sdk@1.0.26 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
-      'command -v code-server >/dev/null 2>&1 || curl -fsSL https://code-server.dev/install.sh | sh || { echo "SEEDRUN-FAILED:code-server"; exit 1; }',
+      'command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && [ -d "$(npm root -g)/@cursor/sdk" ] || sudo npm install -g @anthropic-ai/claude-code @openai/codex agent-browser convex agentation-mcp@1.2.0 @cursor/sdk@1.0.26 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
+      `command -v opencode >/dev/null 2>&1 || sudo npm install -g opencode-ai@${OPENCODE_VERSION} || { echo "SEEDRUN-FAILED:opencode-cli"; exit 1; }`,
+      `command -v code-server >/dev/null 2>&1 || { github_release_download coder/code-server v${CODE_SERVER_VERSION} code-server-${CODE_SERVER_VERSION}-amd64.rpm /tmp/code-server.rpm && sudo rpm -Uvh /tmp/code-server.rpm && rm -f /tmp/code-server.rpm; } || { echo "SEEDRUN-FAILED:code-server"; exit 1; }`,
       'command -v websockify >/dev/null 2>&1 || python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1 || { echo "SEEDRUN-FAILED:websockify"; exit 1; }',
       "sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify 2>/dev/null || true",
       // Canonical path matches vercel-sandbox-gui + VercelDesktop (/opt/novnc).

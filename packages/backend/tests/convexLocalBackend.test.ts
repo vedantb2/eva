@@ -20,6 +20,13 @@ describe("buildConvexBackgroundScriptBody", () => {
     );
     expect(body).toContain("curl");
     expect(body).toContain("version.convex.dev/v1/local_backend_version");
+    expect(body).toContain(
+      "https://api.github.com/repos/{repo}/releases/tags/{tag}",
+    );
+    expect(body).toContain("Accept: application/octet-stream");
+    expect(body).toContain(
+      "failed to plant glibc-compatible Convex backend",
+    );
     expect(body).toContain(command);
     expect(body).not.toContain("--local-backend-version");
     expect(isConvexBackendCommand(command)).toBe(true);
@@ -36,6 +43,9 @@ describe("buildConvexBackgroundScriptBody", () => {
     expect(body).toContain(CONVEX_LOCAL_BACKEND_HEALTH_URL);
     expect(body).toContain("Unable to pull deployment config");
     expect(body).toContain("pkill -KILL -f '[c]onvex-local-backend'");
+    expect(body).toContain(
+      "convex dev exited before backend healthy — restarting",
+    );
   });
 });
 

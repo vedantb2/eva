@@ -36,13 +36,28 @@ const githubReleaseCurl = (() => {
   return value;
 })();
 
+const githubReleaseDownloadFunction = (() => {
+  const source = readFileSync(
+    join(testsDir, "../convex/snapshotActions.ts"),
+    "utf8",
+  );
+  const match = /const GITHUB_RELEASE_DOWNLOAD_FUNCTION = `([\s\S]*?)`;/m.exec(
+    source,
+  );
+  const value = match === null ? undefined : match[1];
+  if (value === undefined) {
+    throw new Error("GITHUB_RELEASE_DOWNLOAD_FUNCTION moved or was renamed");
+  }
+  return value;
+})();
+
 /**
  * A carepulse-ts web snapshot died at toolchain install with
  * `curl: (56) Connection died, tried 5 times` fetching the gh tarball over
  * HTTP/2. `--retry` does not cover that; HTTP/1.1 plus `--retry-all-errors`
  * does, matching the config-file chunk download fix.
  */
-describe("seed run GitHub release downloads survive HTTP/2 drops", () => {
+describe("seed run GitHub release downloads survive direct-path failures", () => {
   test("the shared curl uses HTTP/1.1 and retries error 56", () => {
     expect(githubReleaseCurl).toContain("--http1.1");
     expect(githubReleaseCurl).toContain("--retry 5");
@@ -50,15 +65,25 @@ describe("seed run GitHub release downloads survive HTTP/2 drops", () => {
     expect(githubReleaseCurl).not.toContain("-fsSL");
   });
 
-  test("every GitHub tarball install uses that curl", () => {
-    const interpolations = seedRunCommands.match(
-      /\$\{GITHUB_RELEASE_CURL\}/g,
-    );
+  test("every GitHub artifact install uses the shared downloader", () => {
+    const calls = seedRunCommands.match(/github_release_download\s+\S+/g);
     expect(
-      interpolations?.length,
-      "supabase, gh, rg, fd, and git-lfs each interpolate GITHUB_RELEASE_CURL",
-    ).toBe(5);
+      calls?.length,
+      "supabase, gh, rg, fd, git-lfs, and code-server each call github_release_download",
+    ).toBe(6);
     expect(seedRunCommands).not.toMatch(/curl -fsSL https:\/\/github\.com/);
+  });
+
+  test("the downloader falls back to GitHub's release asset API", () => {
+    expect(githubReleaseDownloadFunction).toContain(
+      "https://api.github.com/repos/$repo/releases/tags/$tag",
+    );
+    expect(githubReleaseDownloadFunction).toContain(
+      ".assets[] | select(.name == $asset)",
+    );
+    expect(githubReleaseDownloadFunction).toContain(
+      '-H "Accept: application/octet-stream"',
+    );
   });
 
   test("gh falls back to the official yum repo if the tarball fails", () => {
@@ -68,9 +93,20 @@ describe("seed run GitHub release downloads survive HTTP/2 drops", () => {
     if (ghLine === undefined) {
       throw new Error("the gh-cli failure marker moved");
     }
-    expect(ghLine).toContain("${GITHUB_RELEASE_CURL}");
+    expect(ghLine).toContain("github_release_download cli/cli");
     expect(ghLine).toContain("cli.github.com/packages/rpm/gh-cli.repo");
     expect(ghLine).toContain("dnf install -y gh --repo gh-cli");
     expect(ghLine).toContain("exit 1");
+  });
+
+  test("OpenCode is pinned separately from the other agent CLIs", () => {
+    expect(seedRunCommands).toContain(
+      "sudo npm install -g opencode-ai@${OPENCODE_VERSION}",
+    );
+    const sharedAgentInstall = seedRunCommands
+      .split("\n")
+      .find((line) => line.includes("@anthropic-ai/claude-code"));
+    expect(sharedAgentInstall).toBeDefined();
+    expect(sharedAgentInstall).not.toContain("opencode-ai");
   });
 });

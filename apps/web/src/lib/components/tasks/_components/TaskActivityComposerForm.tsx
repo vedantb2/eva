@@ -22,7 +22,7 @@ export interface TaskActivityComposerFormProps {
 }
 
 const COMMENT_EDITOR_CLASS =
-  "min-h-24 max-h-44 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 transition-[background-color]";
+  "min-h-14 max-h-44 rounded-none border-0 bg-transparent px-3 py-2.5 shadow-none focus-visible:ring-0 transition-[background-color]";
 
 // Inner form — mounts only once the draft has resolved. Seeds text and maps
 // from the draft initializer so there is no hydration useEffect.

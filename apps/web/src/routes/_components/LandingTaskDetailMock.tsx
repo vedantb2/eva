@@ -162,7 +162,7 @@ function LandingMockComposer() {
     <div className="overflow-hidden rounded-surface border border-input bg-card">
       <div
         aria-hidden
-        className="min-h-20 px-3 py-2.5 text-sm text-muted-foreground"
+        className="min-h-14 px-3 py-2.5 text-sm text-muted-foreground"
       >
         Add a comment…
       </div>

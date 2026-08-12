@@ -36,7 +36,7 @@ const MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
 /**
  * The subset of the Agent SDK `query()` surface this runner uses. The SDK is
  * dynamically imported from the sandbox's global npm root (it is installed in
- * the base Image alongside the claude CLI), so these local types stand in for
+ * the seed snapshot alongside the Claude CLI), so these local types stand in for
  * the SDK's own — kept intentionally narrow.
  */
 type SdkQueryHandle = AsyncIterable<Record<string, JsonLike>> & {

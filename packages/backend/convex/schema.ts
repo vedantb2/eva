@@ -300,6 +300,9 @@ const schema = defineSchema({
     logs: v.string(),
     error: v.optional(v.string()),
     workflowRunId: v.optional(v.number()),
+    // Workflow driving this build, so a cancel can stop the run rather than
+    // only relabelling the row. Optional: rows predating the field have none.
+    workflowId: v.optional(v.string()),
     startedAt: v.number(),
     completedAt: v.optional(v.number()),
     retryCount: v.optional(v.number()),

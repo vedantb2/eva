@@ -15,7 +15,7 @@ import {
   seededAppStatusValidator,
 } from "../validators";
 import { authQuery, authMutation, getRepoWithAccess } from "../functions";
-import { workflow } from "../workflowManager";
+import { workflow, cancelTrackedWorkflow } from "../workflowManager";
 import { sanitizeSeededApps } from "./sanitizeSeededApps";
 
 const STALE_BUILD_MS = 30 * 60 * 1000;
@@ -212,12 +212,17 @@ export const triggerScheduledBuild = internalMutation({
       startedAt: now,
     });
 
-    await workflow.start(ctx, internal.snapshotWorkflow.snapshotBuildWorkflow, {
-      buildId,
-      repoSnapshotId: args.repoSnapshotId,
-      forceImageRebuild: args.forceImageRebuild,
-      forceBaseSeed: args.forceBaseSeed,
-    });
+    const workflowId = await workflow.start(
+      ctx,
+      internal.snapshotWorkflow.snapshotBuildWorkflow,
+      {
+        buildId,
+        repoSnapshotId: args.repoSnapshotId,
+        forceImageRebuild: args.forceImageRebuild,
+        forceBaseSeed: args.forceBaseSeed,
+      },
+    );
+    await ctx.db.patch(buildId, { workflowId });
 
     return null;
   },
@@ -325,11 +330,16 @@ export const startBuild = authMutation({
       startedAt: now,
     });
 
-    await workflow.start(ctx, internal.snapshotWorkflow.snapshotBuildWorkflow, {
-      buildId,
-      repoSnapshotId: config._id,
-      appRepoId: effectiveAppRepoId,
-    });
+    const workflowId = await workflow.start(
+      ctx,
+      internal.snapshotWorkflow.snapshotBuildWorkflow,
+      {
+        buildId,
+        repoSnapshotId: config._id,
+        appRepoId: effectiveAppRepoId,
+      },
+    );
+    await ctx.db.patch(buildId, { workflowId });
 
     return buildId;
   },
@@ -407,11 +417,16 @@ export const startBuildForRepo = internalMutation({
       startedAt: now,
     });
 
-    await workflow.start(ctx, internal.snapshotWorkflow.snapshotBuildWorkflow, {
-      buildId,
-      repoSnapshotId,
-      appRepoId: args.repoId,
-    });
+    const workflowId = await workflow.start(
+      ctx,
+      internal.snapshotWorkflow.snapshotBuildWorkflow,
+      {
+        buildId,
+        repoSnapshotId,
+        appRepoId: args.repoId,
+      },
+    );
+    await ctx.db.patch(buildId, { workflowId });
 
     return buildId;
   },
@@ -456,7 +471,7 @@ export const completeBuild = internalMutation({
         startedAt: now,
         retryCount,
       });
-      await workflow.start(
+      const retryWorkflowId = await workflow.start(
         ctx,
         internal.snapshotWorkflow.snapshotBuildWorkflow,
         {
@@ -464,8 +479,49 @@ export const completeBuild = internalMutation({
           repoSnapshotId: build.repoSnapshotId,
         },
       );
+      await ctx.db.patch(retryBuildId, { workflowId: retryWorkflowId });
     }
     return null;
+  },
+});
+
+/**
+ * Cancels the running build for a snapshot: stops the workflow (so the sandbox
+ * work ends rather than continuing unwatched) and marks the row errored, which
+ * also unblocks `triggerScheduledBuild` before the 30-minute stale window.
+ *
+ * Pass a buildId to target one build, or a repoSnapshotId to take whichever
+ * build is currently running for it. Returns the cancelled build id, or null
+ * when nothing was running.
+ */
+export const cancelBuild = internalMutation({
+  args: {
+    buildId: v.optional(v.id("snapshotBuilds")),
+    repoSnapshotId: v.optional(v.id("repoSnapshots")),
+    reason: v.optional(v.string()),
+  },
+  returns: v.union(v.id("snapshotBuilds"), v.null()),
+  handler: async (ctx, args) => {
+    const snapshotId = args.repoSnapshotId;
+    let build: Doc<"snapshotBuilds"> | null = null;
+    if (args.buildId) {
+      build = await ctx.db.get(args.buildId);
+    } else if (snapshotId) {
+      build = await ctx.db
+        .query("snapshotBuilds")
+        .withIndex("by_repo_snapshot", (q) => q.eq("repoSnapshotId", snapshotId))
+        .order("desc")
+        .first();
+    }
+    if (!build || build.status !== "running") return null;
+
+    await cancelTrackedWorkflow(ctx, build.workflowId);
+    await ctx.db.patch(build._id, {
+      status: "error",
+      error: args.reason ?? "Build cancelled",
+      completedAt: Date.now(),
+    });
+    return build._id;
   },
 });
 

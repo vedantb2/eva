@@ -50,6 +50,14 @@ export function filterDownloadableConfigFiles(
 }
 
 /**
+ * `--http1.1` is deliberate: multi-hundred-megabyte chunks over HTTP/2 die
+ * partway through with `curl: (92) stream not closed cleanly: INTERNAL_ERROR`,
+ * which `--retry` does not cover because it is a protocol error rather than a
+ * transient HTTP status. HTTP/1.1 has no stream layer to fail.
+ */
+const CONFIG_FILE_CURL_OPTS = "-fSL --http1.1 --retry 5 --retry-delay 5";
+
+/**
  * Builds shell commands to download a config file. Single-chunk files use a
  * straight `curl -o`. Multi-chunk files download each chunk to /tmp, concatenate
  * with `cat` into the destination, then remove the chunk temp files.
@@ -67,12 +75,12 @@ export function buildConfigFileDownloadCommands(
     : file.fileName;
   if (file.chunkUrls.length === 1) {
     return [
-      `curl -fSL --retry 3 --retry-delay 5 -o '${destPath}' '${file.chunkUrls[0]}'`,
+      `curl ${CONFIG_FILE_CURL_OPTS} -o '${destPath}' '${file.chunkUrls[0]}'`,
     ];
   }
   const downloadCmds = file.chunkUrls.map(
     (url, i) =>
-      `curl -fSL --retry 3 --retry-delay 5 -o '/tmp/${file.fileName}.chunk-${i}' '${url}'`,
+      `curl ${CONFIG_FILE_CURL_OPTS} -o '/tmp/${file.fileName}.chunk-${i}' '${url}'`,
   );
   const chunkPaths = file.chunkUrls
     .map((_, i) => `'/tmp/${file.fileName}.chunk-${i}'`)

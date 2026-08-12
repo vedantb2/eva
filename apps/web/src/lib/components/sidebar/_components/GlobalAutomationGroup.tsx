@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { api } from "@eva/backend";
+import type { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
   Badge,

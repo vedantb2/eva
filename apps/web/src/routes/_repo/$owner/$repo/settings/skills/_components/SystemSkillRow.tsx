@@ -1,7 +1,6 @@
 "use client";
 
-import { type api } from "@eva/backend";
-import type { Id } from "@eva/backend";
+import type { api, Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { Badge, Button } from "@eva/ui";

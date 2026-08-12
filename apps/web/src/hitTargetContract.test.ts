@@ -118,7 +118,7 @@ function sourceFiles(): string[] {
   return [webSrc, uiSrc].flatMap((root) =>
     readdirSync(root, { recursive: true })
       .map((entry) => join(root, String(entry)))
-      .filter((path) => /\.tsx$/.test(path)),
+      .filter((path) => path.endsWith(".tsx")),
   );
 }
 

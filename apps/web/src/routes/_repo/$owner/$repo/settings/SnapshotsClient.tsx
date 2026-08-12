@@ -170,9 +170,11 @@ export function SnapshotsClient({
     setCancelling(true);
     try {
       await cancelBuild({ buildId });
-    } finally {
+    } catch (error) {
       setCancelling(false);
+      throw error;
     }
+    setCancelling(false);
   };
 
   const isRunning =

@@ -1,5 +1,9 @@
 # Changelog
 
+## Anti-slop lint keeps only high-signal gates - 2026-08-12
+
+Enabling every vendored anti-slop rule made lint fail on 1,082 existing expressions, including correct JSON boundary guards, `unknown` error handling, Zod shape terminology, explicit owner contracts, and omission-preserving object spreads. The three rules that identify concrete assertion/type-alias escapes remain errors; seven syntax-only rules are explicitly disabled until they can distinguish those valid patterns without pushing application code toward weaker semantics.
+
 ## Snapshot seed pins OpenCode to a complete npm release - 2026-08-12
 
 `opencode-ai@latest` advanced to 1.18.17 before its Linux packages were published, making the combined global agent install fail with `ETARGET`. OpenCode now installs separately at the newest complete Linux release, 1.18.16, so its publication race cannot roll back the other agent CLIs.

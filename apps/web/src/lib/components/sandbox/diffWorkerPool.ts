@@ -3,6 +3,7 @@ import type {
   WorkerInitializationRenderOptions,
   WorkerPoolOptions,
 } from "@pierre/diffs/react";
+// oxlint-disable-next-line import/default -- Vite's ?worker transform provides the generated default constructor.
 import DiffsWorker from "@pierre/diffs/worker/worker.js?worker";
 
 /**

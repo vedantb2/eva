@@ -242,7 +242,7 @@ export const setExperimentalFlag = authMutation({
     const key: ExperimentalFlagKey = args.key;
     await ctx.db.patch(ctx.userId, {
       experimentalFlags: {
-        ...(user.experimentalFlags ?? {}),
+        ...user.experimentalFlags,
         [key]: args.enabled,
       },
     });
@@ -283,7 +283,7 @@ export const setShortcutOverride = authMutation({
     if (!user) {
       throw new Error("User not found");
     }
-    const next = { ...(user.shortcutOverrides ?? {}) };
+    const next = { ...user.shortcutOverrides };
     if (args.hotkey === null) {
       delete next[args.id];
     } else {

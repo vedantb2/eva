@@ -33,7 +33,10 @@ import { ComposerPlusMenu } from "@/lib/components/chat/_components/ComposerPlus
 import { ComposerStash } from "@/lib/components/chat/_components/ComposerStash";
 import { usePeopleMentionItems } from "@/lib/hooks/usePeopleMentionItems";
 import { useDataMentionItems } from "@/lib/hooks/useDataMentionItems";
-import { mergeMentionItems } from "@/lib/components/mentions";
+import {
+  mergeMentionItems,
+  tokenizedToEditable,
+} from "@/lib/components/mentions";
 import { IconPlayerStop } from "@tabler/icons-react";
 import { useRef } from "react";
 import { m, AnimatePresence } from "motion/react";
@@ -48,7 +51,6 @@ import {
 } from "@eva/backend";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
 import { stripReviewCommentBlocks } from "@/lib/reviewComments";
-import { tokenizedToEditable } from "@/lib/components/mentions";
 import {
   MentionTextarea,
   type MentionTextareaHandle,

@@ -39,7 +39,7 @@ export const backfillExperimentalFlags = internalMutation({
       }
 
       const experimentalFlags = {
-        ...(parsed.experimentalFlags ?? {}),
+        ...parsed.experimentalFlags,
       };
       if (
         experimentalFlags.sessionTabs === undefined &&

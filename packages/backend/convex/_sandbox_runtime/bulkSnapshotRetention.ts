@@ -1,6 +1,6 @@
 "use node";
 
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import { Snapshot, Sandbox } from "@vercel/sandbox";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
@@ -30,6 +30,21 @@ const snapMetaValidator = v.object({
   sizeBytes: v.number(),
   creationMethod: v.union(v.string(), v.null()),
 });
+
+const snapshotLookupRowValidator = v.object({
+  snapshotId: v.string(),
+  found: v.boolean(),
+  projectId: v.union(v.string(), v.null()),
+  status: v.union(v.string(), v.null()),
+  sizeBytes: v.union(v.number(), v.null()),
+  expiresAt: v.union(v.number(), v.null()),
+  daysUntilExpire: v.union(v.number(), v.null()),
+  protectedBySandbox: v.union(v.string(), v.null()),
+  deleted: v.boolean(),
+  error: v.union(v.string(), v.null()),
+});
+
+type SnapshotLookupRow = Infer<typeof snapshotLookupRowValidator>;
 
 /**
  * Diagnostic: dump sandbox retention policy + raw Snapshot.list metas for a
@@ -606,41 +621,14 @@ export const inspectSnapshotsByIds = internalAction({
     tryDelete: v.optional(v.boolean()),
   },
   returns: v.object({
-    results: v.array(
-      v.object({
-        snapshotId: v.string(),
-        found: v.boolean(),
-        projectId: v.union(v.string(), v.null()),
-        status: v.union(v.string(), v.null()),
-        sizeBytes: v.union(v.number(), v.null()),
-        expiresAt: v.union(v.number(), v.null()),
-        daysUntilExpire: v.union(v.number(), v.null()),
-        protectedBySandbox: v.union(v.string(), v.null()),
-        deleted: v.boolean(),
-        error: v.union(v.string(), v.null()),
-      }),
-    ),
+    results: v.array(snapshotLookupRowValidator),
   }),
   handler: async (ctx, args) => {
     const tryDelete = args.tryDelete === true;
     const now = Date.now();
     const uniqueIds = [...new Set(args.snapshotIds.filter((id) => id.length > 0))];
     const remaining = new Set(uniqueIds);
-    const byId = new Map<
-      string,
-      {
-        snapshotId: string;
-        found: boolean;
-        projectId: string | null;
-        status: string | null;
-        sizeBytes: number | null;
-        expiresAt: number | null;
-        daysUntilExpire: number | null;
-        protectedBySandbox: string | null;
-        deleted: boolean;
-        error: string | null;
-      }
-    >();
+    const byId = new Map<string, SnapshotLookupRow>();
     for (const snapshotId of uniqueIds) {
       byId.set(snapshotId, {
         snapshotId,
@@ -700,7 +688,7 @@ export const inspectSnapshotsByIds = internalAction({
         );
       }
 
-      for (const snapshotId of [...remaining]) {
+      for (const snapshotId of remaining) {
         try {
           const snap = await Snapshot.get({
             token: credentials.token,
@@ -713,7 +701,7 @@ export const inspectSnapshotsByIds = internalAction({
               ? null
               : snap.expiresAt.getTime();
           const protector = protectedBy.get(snapshotId) ?? null;
-          const row = {
+          const row: SnapshotLookupRow = {
             snapshotId,
             found: true,
             projectId: credentials.projectId,
@@ -726,7 +714,7 @@ export const inspectSnapshotsByIds = internalAction({
                 : Math.round((expiresAt - now) / (24 * 60 * 60 * 1000)),
             protectedBySandbox: protector,
             deleted: false,
-            error: null as string | null,
+            error: null,
           };
           if (tryDelete && String(snap.status) === "created") {
             if (protector !== null) {

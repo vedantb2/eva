@@ -298,6 +298,10 @@ export const launchSeedRun = internalAction({
       "corepack prepare yarn@1.22.22 --activate || true",
       "git config --global --add safe.directory '*'",
       `command -v supabase >/dev/null 2>&1 || { curl -fsSL https://github.com/supabase/cli/releases/download/v${SUPABASE_CLI_VERSION}/supabase_linux_amd64.tar.gz -o /tmp/sb.tgz && sudo tar -xzf /tmp/sb.tgz -C /usr/local/bin supabase; } || { echo "SEEDRUN-FAILED:supabase-cli"; exit 1; }`,
+      // We install to /usr/local/bin, but repo seed scripts may invoke the CLI by
+      // its absolute /usr/bin/supabase path (to avoid a node_modules/.bin shim).
+      // Symlink so both paths resolve to the one binary.
+      '[ -e /usr/bin/supabase ] || sudo ln -sf "$(command -v supabase)" /usr/bin/supabase || { echo "SEEDRUN-FAILED:supabase-cli-symlink"; exit 1; }',
       // GitHub CLI — Daytona Image installs via apt; Vercel AL2023 needs the
       // release tarball (dnf has no `gh` package by default).
       `command -v gh >/dev/null 2>&1 || { curl -fsSL https://github.com/cli/cli/releases/download/v${GH_CLI_VERSION}/gh_${GH_CLI_VERSION}_linux_amd64.tar.gz -o /tmp/gh.tgz && sudo tar -xzf /tmp/gh.tgz -C /tmp && sudo mv /tmp/gh_${GH_CLI_VERSION}_linux_amd64/bin/gh /usr/local/bin/gh && rm -rf /tmp/gh.tgz /tmp/gh_${GH_CLI_VERSION}_linux_amd64; } || { echo "SEEDRUN-FAILED:gh-cli"; exit 1; }`,

@@ -1,5 +1,11 @@
 # Changelog
 
+## Codex chats now run through App Server - 2026-08-12
+
+Codex sessions, quick-task chats, and project-sandbox chats previously spawned `codex exec --json` for every message and reconstructed conversation state from its JSONL output. That one-shot CLI contract made interactive features such as durable threads, interruption, and live item deltas harder to support and repeatedly paid process startup costs.
+
+Interactive Codex entities now keep one sandbox-local `codex app-server` process alive, communicate over its typed JSONL protocol, persist and resume App Server thread IDs, stream item deltas through Eva's existing activity pipeline, and interrupt active turns through `turn/interrupt`. The same atomic pending-turn and daemon-prewarm architecture used by Claude now covers Codex across all three chat surfaces. Non-interactive attempts, automations, and arena jobs intentionally remain on `codex exec --json`, where one-shot execution is still the simpler contract.
+
 ## The seed script pushes Convex functions, and chunk downloads drop to HTTP/1.1 - 2026-08-12
 
 A repo cannot push its own functions from a seed command. Both snapshot configs ended their seed list with `npx convex dev --once`, and the CLI refused it every time: the daemon already owns port 3210, so a second `convex dev` stops at "A local backend is still running on port 3210" before it does anything. The push has to happen after the seed commands, because that is when the environment variables its auth config reads finally exist, and it cannot be another attempt to start a backend.

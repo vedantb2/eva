@@ -33,6 +33,32 @@ export function codexParseLine(event: JsonObject): CanonicalEvent[] {
     });
     return events;
   }
+  if (
+    event.type === "item.agent_message.delta" &&
+    typeof event.delta === "string" &&
+    event.delta
+  ) {
+    events.push({ kind: "stream_text_delta", text: event.delta });
+    return events;
+  }
+  if (
+    event.type === "item.reasoning.delta" &&
+    typeof event.delta === "string" &&
+    event.delta
+  ) {
+    events.push({ kind: "update_reasoning", text: event.delta });
+    return events;
+  }
+  if (
+    event.type === "item.started" &&
+    event.item &&
+    typeof event.item === "object" &&
+    !Array.isArray(event.item) &&
+    (event.item.type === "agent_message" || event.item.type === "agentMessage")
+  ) {
+    events.push({ kind: "mark_message_start" });
+    return events;
+  }
   // Reasoning items carry the model's actual thinking text. Skip on start
   // (no tool step) and route the text on completion; without this they'd be
   // misclassified as a generic "Using reasoning..." tool step.
@@ -56,7 +82,8 @@ export function codexParseLine(event: JsonObject): CanonicalEvent[] {
     typeof event.item === "object" &&
     !Array.isArray(event.item) &&
     typeof event.item.type === "string" &&
-    event.item.type !== "agent_message"
+    event.item.type !== "agent_message" &&
+    event.item.type !== "agentMessage"
   ) {
     const step = codexItemToStep(event.item);
     const trackingId =
@@ -75,10 +102,10 @@ export function codexParseLine(event: JsonObject): CanonicalEvent[] {
     event.item &&
     typeof event.item === "object" &&
     !Array.isArray(event.item) &&
-    event.item.type === "agent_message"
+    (event.item.type === "agent_message" || event.item.type === "agentMessage")
   ) {
     const messageText = getCodexAgentMessageText(event.item);
-    if (messageText) {
+    if (messageText && !S.streamedAssistantTextThisMessage) {
       events.push({ kind: "append_text", text: messageText });
     }
     return events;
@@ -89,7 +116,8 @@ export function codexParseLine(event: JsonObject): CanonicalEvent[] {
     typeof event.item === "object" &&
     !Array.isArray(event.item) &&
     typeof event.item.type === "string" &&
-    event.item.type !== "agent_message"
+    event.item.type !== "agent_message" &&
+    event.item.type !== "agentMessage"
   ) {
     const result = probeCodexItemResult(
       event.item,

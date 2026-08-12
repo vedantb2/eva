@@ -9,9 +9,9 @@ import {
   aiModelValidator,
   reasoningLevelValidator,
   workflowCompleteValidator,
-  getAIModelProvider,
   normalizeAIModel,
   sessionStatusValidator,
+  usesChatDaemon,
 } from "../validators";
 import { resolveSessionBaseBranch } from "./baseBranch";
 import {
@@ -374,9 +374,9 @@ export const sessionExecuteWorkflow = workflow.define({
       throw new Error("sessionExecuteWorkflow: sandbox was not resolved");
     }
 
-    // Claude only: cancel can race with startExecute and wipe pendingTurn while
-    // this workflow waits. One-shot providers never use claimPendingTurn.
-    if (getAIModelProvider(data.model) === "claude") {
+    // A cancel can race with startExecute and wipe pendingTurn while a daemon
+    // workflow waits, so restage it before ensuring the warm process.
+    if (usesChatDaemon(data.model)) {
       await step.runMutation(internal.sessionWorkflow.ensurePendingTurn, {
         sessionId: args.sessionId,
         prompt: data.prompt,
@@ -385,11 +385,8 @@ export const sessionExecuteWorkflow = workflow.define({
       });
     }
 
-    // Claude sessions use the sdk-daemon pull path (prewarm + claimPendingTurn).
-    // Cursor/Codex/Opencode have no pull daemon — push the prompt via one-shot
-    // launch, otherwise a Cursor prewarm would run with an empty prompt and die
-    // as "no parseable stream-json events within 90000ms".
-    if (getAIModelProvider(data.model) === "claude") {
+    // Persistent chat providers use prewarm + claimPendingTurn.
+    if (usesChatDaemon(data.model)) {
       await step.runAction(internal.sandbox.prewarmSessionDaemon, {
         sandboxId,
         sessionId: args.sessionId,
@@ -558,7 +555,6 @@ export const sessionExecuteWorkflow = workflow.define({
         }
       }
     }
-
   },
 });
 
@@ -1095,11 +1091,8 @@ export const ensurePendingTurn = internalMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
     // One-shot providers push the prompt; restaging would only spam a leftover
-    // Claude daemon with claimPendingTurn model-mismatch logs.
-    if (
-      args.model !== undefined &&
-      getAIModelProvider(normalizeAIModel(args.model)) !== "claude"
-    ) {
+    // A leftover daemon would otherwise emit claimPendingTurn mismatch logs.
+    if (args.model !== undefined && !usesChatDaemon(args.model)) {
       return null;
     }
 
@@ -1187,11 +1180,11 @@ export const restageOpenTurn = internalMutation({
 
     const repo = await ctx.db.get(session.repoId);
     if (!repo) return { restaged: false as const, reason: "repo not found" };
-    // Daemon-pull recovery only — Cursor/Codex/Opencode push via launch.
-    if (getAIModelProvider(normalizeAIModel(session.lastModel)) !== "claude") {
+    // Daemon-pull recovery only — one-shot providers push via launch.
+    if (!usesChatDaemon(session.lastModel)) {
       return {
         restaged: false as const,
-        reason: "not a Claude daemon-pull session",
+        reason: "not a daemon-pull session",
       };
     }
     const user = await ctx.db.get(session.userId);
@@ -1396,8 +1389,8 @@ export const handleCompletion = authMutation({
       `[sessionWorkflow] handleCompletion received sessionId=${args.sessionId} success=${args.success} workflowId=${session.activeWorkflowId}`,
     );
 
-    // One-shot providers (Cursor/Codex/Opencode) never claimPendingTurn, so
-    // clear any leftover staged prompt here. Claude already cleared on claim.
+    // One-shot providers never claimPendingTurn, so clear any leftover staged
+    // prompt here. Persistent chat daemons already cleared it on claim.
     if (session.pendingTurn !== undefined) {
       await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
     }

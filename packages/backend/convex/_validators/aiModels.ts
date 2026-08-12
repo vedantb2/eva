@@ -509,6 +509,12 @@ export function getAIModelProvider(
   return "claude";
 }
 
+/** Interactive chat providers that keep one sandbox-local process alive across turns. */
+export function usesChatDaemon(model: string | null | undefined): boolean {
+  const provider = getAIModelProvider(model);
+  return provider === "claude" || provider === "codex";
+}
+
 /**
  * Per-model trait capabilities (reasoning levels, thinking toggle, 1M context).
  */

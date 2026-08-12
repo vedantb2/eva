@@ -1,0 +1,513 @@
+import { readFileSync, unlinkSync, writeFileSync } from "fs";
+import {
+  CALLBACK_SCRIPT_FP,
+  CLAIM_MUTATION,
+  COMPLETION_MUTATION,
+  CONVEX_TOKEN,
+  CONVEX_URL,
+  DAEMON_OPTS_SIG,
+  ENTITY_ID,
+  ENTITY_ID_FIELD,
+  MAX_TOTAL_RUNTIME_MS,
+  MODEL,
+  REPO_ID,
+  RUN_ID,
+  SYSTEM_PROMPT,
+  WORK_DIR,
+  codexReasoningEffort,
+  normalizedCodexModel,
+} from "../config.js";
+import { callConvexWithRetry, fetchWithTimeout } from "../http/convexClient.js";
+import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
+import { serializeSteps } from "../parse/stepBudget.js";
+import { getCodexAgentMessageText } from "../parse/toolSteps.js";
+import { appendToRawLogFile, appendToRawOutput } from "../runtime/buffers.js";
+import { deliverCompletionWithMedia } from "../runtime/completion.js";
+import {
+  flushStreaming,
+  runPreflightHeartbeat,
+  setFinalizingState,
+  startStreamingLoops,
+  stopStreamingLoops,
+} from "../runtime/heartbeats.js";
+import { callbackState as S } from "../runtime/state.js";
+import { persistTurnWork } from "../runtime/turnPersist.js";
+import {
+  prepareCodexSessionState,
+  syncCodexStateToPersist,
+  writeCodexSessionState,
+} from "../session/codexSession.js";
+import type { JsonObject, JsonValue, SessionMode } from "../types.js";
+import { log, readResponseJson } from "../utils.js";
+import { readCancelRequested } from "./claimPendingTurnParse.js";
+import {
+  CodexAppServerClient,
+  type AppServerNotification,
+} from "./codexAppServerClient.js";
+import {
+  resolveDaemonPaths,
+  resolveLegacySessionDaemonPaths,
+} from "./daemonPaths.js";
+
+const IDLE_EXIT_MS = 45 * 60 * 1000;
+const POLL_INTERVAL_MS = 50;
+const FENCE_POLL_INTERVAL_MS = 5000;
+const NO_EVENT_TIMEOUT_MS = 5 * 60 * 1000;
+
+type ClaimedTurn = { prompt: string; attachmentUrls: string[] };
+
+const paths = resolveDaemonPaths();
+let activeTurnId = "";
+let activeTurnStartedAt = 0;
+let lastEventAt = 0;
+let lastIdleActivityAt = Date.now();
+let finalText = "";
+let cancelInFlight = false;
+let pendingTurn: ClaimedTurn | null = null;
+let exiting = false;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function objectValue(value: JsonValue | undefined): JsonObject {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : {};
+}
+
+function stringField(value: JsonValue | undefined, field: string): string {
+  const object = objectValue(value);
+  return typeof object[field] === "string" ? object[field] : "";
+}
+
+function nestedId(value: JsonValue, field: string): string {
+  return stringField(objectValue(value)[field], "id");
+}
+
+function entityArgs(
+  fields: Record<string, JsonValue>,
+): Record<string, JsonValue> {
+  return { [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "", ...fields };
+}
+
+function pidAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function readOwnerPid(): number {
+  try {
+    return Number(readFileSync(paths.pid, "utf8").trim());
+  } catch {
+    return Number.NaN;
+  }
+}
+
+function callbackWentStale(): boolean {
+  if (!CALLBACK_SCRIPT_FP) return false;
+  try {
+    return (
+      readFileSync("/tmp/eva-callback-fp", "utf8").trim() !== CALLBACK_SCRIPT_FP
+    );
+  } catch {
+    return false;
+  }
+}
+
+function resetTurnState(): void {
+  S.accumulatedSteps.length = 0;
+  S.currentStreamedContent = "";
+  S.streamedAssistantTextThisMessage = false;
+  S.pendingParagraphBreak = false;
+  S.resultEventSeen = false;
+  S.rawOutput = "";
+  S.lastProcessed = 0;
+  S.realtimeOutputBuffer = "";
+  S.inFlightToolUses = 0;
+  S.codexToolItemIds.clear();
+  S.pendingQuestionData = "";
+  S.todoState.length = 0;
+  S.lastStepType = "thinking";
+  activeTurnStartedAt = 0;
+  finalText = "";
+}
+
+function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
+  const root = objectValue(result);
+  const payload =
+    Object.keys(objectValue(root.value)).length > 0
+      ? objectValue(root.value)
+      : root;
+  if (typeof payload.prompt !== "string") return null;
+  const attachmentUrls = Array.isArray(payload.attachmentUrls)
+    ? payload.attachmentUrls.filter(
+        (url): url is string => typeof url === "string",
+      )
+    : [];
+  return { prompt: payload.prompt, attachmentUrls };
+}
+
+function attachmentExtension(mimeType: string): string {
+  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+  switch (type) {
+    case "image/jpeg":
+      return ".jpg";
+    case "image/gif":
+      return ".gif";
+    case "image/webp":
+      return ".webp";
+    case "image/svg+xml":
+      return ".svg";
+    case "image/png":
+      return ".png";
+    case "text/html":
+      return ".html";
+    case "text/markdown":
+      return ".md";
+    case "text/plain":
+      return ".txt";
+    default:
+      return type.startsWith("image/") ? ".png" : ".bin";
+  }
+}
+
+async function materializeAttachments(turn: ClaimedTurn): Promise<void> {
+  const localPaths: string[] = [];
+  for (let index = 0; index < turn.attachmentUrls.length; index++) {
+    const url = turn.attachmentUrls[index];
+    if (!url) continue;
+    try {
+      const response = await fetchWithTimeout(url, { method: "GET" });
+      if (!response.ok) continue;
+      const path = `/tmp/eva-attachment-${index}${attachmentExtension(response.headers.get("content-type") ?? "")}`;
+      writeFileSync(path, new Uint8Array(await response.arrayBuffer()));
+      localPaths.push(path);
+    } catch (error) {
+      log(
+        "codex daemon: attachment download failed: " +
+          (error instanceof Error ? error.message : String(error)),
+      );
+    }
+  }
+  if (localPaths.length > 0) {
+    turn.prompt +=
+      "\n\n---\nThe user attached the following file(s). Read them with your file-reading tool before responding:\n" +
+      localPaths.map((path) => `- ${path}`).join("\n");
+  }
+}
+
+function emitEvent(event: JsonObject): void {
+  const line = JSON.stringify(event) + "\n";
+  appendToRawLogFile(line);
+  appendToRawOutput(line);
+  processRealtimeStdoutChunk(line);
+}
+
+export function normalizeAppServerNotification(
+  notification: AppServerNotification,
+): JsonObject | null {
+  const { method, params } = notification;
+  if (method === "turn/started") return { type: "turn.started" };
+  if (method === "turn/completed") return { type: "turn.completed" };
+  if (method === "item/started") {
+    return { type: "item.started", item: objectValue(params.item) };
+  }
+  if (method === "item/completed") {
+    return { type: "item.completed", item: objectValue(params.item) };
+  }
+  if (
+    method === "item/agentMessage/delta" &&
+    typeof params.delta === "string"
+  ) {
+    return { type: "item.agent_message.delta", delta: params.delta };
+  }
+  if (
+    method === "item/reasoning/textDelta" &&
+    typeof params.delta === "string"
+  ) {
+    return { type: "item.reasoning.delta", delta: params.delta };
+  }
+  if (
+    method === "item/reasoning/summaryTextDelta" &&
+    typeof params.delta === "string"
+  ) {
+    return { type: "item.reasoning.delta", delta: params.delta };
+  }
+  return null;
+}
+
+function turnError(params: JsonObject): string | null {
+  const turn = objectValue(params.turn);
+  const error = objectValue(turn.error);
+  return typeof error.message === "string" ? error.message : null;
+}
+
+async function finalizeTurn(
+  success: boolean,
+  error: string | null,
+): Promise<void> {
+  await flushStreaming();
+  for (const step of S.accumulatedSteps) step.status = "complete";
+  const result = finalText || S.currentStreamedContent || S.rawOutput;
+  await setFinalizingState();
+  persistTurnWork();
+  await deliverCompletionWithMedia({
+    [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+    success,
+    result,
+    error,
+    activityLog: serializeSteps(S.accumulatedSteps),
+    ...(RUN_ID ? { runId: RUN_ID } : {}),
+  });
+  syncCodexStateToPersist();
+  log("codex daemon: turn finalized success=" + success);
+}
+
+async function failActiveTurn(error: string): Promise<void> {
+  if (!activeTurnId && activeTurnStartedAt === 0) return;
+  try {
+    await finalizeTurn(false, error);
+  } catch {
+    /* best effort */
+  }
+  exiting = true;
+}
+
+function processNotification(
+  notification: AppServerNotification,
+): Promise<void> | null {
+  lastEventAt = Date.now();
+  const event = normalizeAppServerNotification(notification);
+  if (event) emitEvent(event);
+  if (notification.method === "item/completed") {
+    const item = objectValue(notification.params.item);
+    const text = getCodexAgentMessageText(item);
+    if (text) finalText = text;
+  }
+  if (notification.method !== "turn/completed") return null;
+  const turn = objectValue(notification.params.turn);
+  const status = typeof turn.status === "string" ? turn.status : "failed";
+  activeTurnId = "";
+  lastIdleActivityAt = Date.now();
+  if (cancelInFlight || status === "interrupted") {
+    cancelInFlight = false;
+    resetTurnState();
+    return null;
+  }
+  return finalizeTurn(
+    status === "completed",
+    turnError(notification.params),
+  ).then(() => {
+    resetTurnState();
+  });
+}
+
+async function ensureGithubToken(): Promise<void> {
+  if (!REPO_ID || !CONVEX_URL || !CONVEX_TOKEN) return;
+  try {
+    const response = await fetchWithTimeout(CONVEX_URL + "/api/action", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + CONVEX_TOKEN,
+      },
+      body: JSON.stringify({
+        path: "github:getInstallationTokenAction",
+        args: { repoId: REPO_ID },
+        format: "json",
+      }),
+    });
+    if (!response.ok) return;
+    const payload = objectValue((await readResponseJson(response)) ?? null);
+    const token = stringField(payload.value, "token");
+    if (token) {
+      process.env.GITHUB_TOKEN = token;
+      process.env.GH_TOKEN = token;
+    }
+  } catch {
+    /* non-fatal */
+  }
+}
+
+async function establishThread(
+  client: CodexAppServerClient,
+  sessionMode: SessionMode,
+): Promise<string> {
+  if (sessionMode.sessionId) {
+    try {
+      const resumed = await client.request("thread/resume", {
+        threadId: sessionMode.sessionId,
+      });
+      const resumedId = nestedId(resumed, "thread") || sessionMode.sessionId;
+      log("codex daemon: resumed thread " + resumedId);
+      return resumedId;
+    } catch (error) {
+      log(
+        "codex daemon: resume failed, starting fresh: " +
+          (error instanceof Error ? error.message : String(error)),
+      );
+    }
+  }
+  const started = await client.request("thread/start", {
+    model: normalizedCodexModel,
+    cwd: WORK_DIR,
+    approvalPolicy: "never",
+    serviceName: "eva",
+  });
+  const threadId = nestedId(started, "thread");
+  if (!threadId) throw new Error("Codex App Server did not return a thread id");
+  return threadId;
+}
+
+async function startTurn(
+  client: CodexAppServerClient,
+  turn: ClaimedTurn,
+): Promise<void> {
+  resetTurnState();
+  await materializeAttachments(turn);
+  const text = SYSTEM_PROMPT
+    ? SYSTEM_PROMPT + "\n\n" + turn.prompt
+    : turn.prompt;
+  activeTurnStartedAt = Date.now();
+  lastEventAt = activeTurnStartedAt;
+  const result = await client.request("turn/start", {
+    threadId: S.activeCodexThreadId,
+    input: [{ type: "text", text }],
+    cwd: WORK_DIR,
+    model: normalizedCodexModel,
+    approvalPolicy: "never",
+    sandboxPolicy: { type: "externalSandbox", networkAccess: "enabled" },
+    ...(codexReasoningEffort ? { effort: codexReasoningEffort } : {}),
+  });
+  activeTurnId = nestedId(result, "turn");
+  if (!activeTurnId)
+    throw new Error("Codex App Server did not return a turn id");
+  lastIdleActivityAt = activeTurnStartedAt;
+  S.activeAttemptStartedAt = activeTurnStartedAt;
+  log("codex daemon: turn started " + activeTurnId);
+}
+
+function cleanMarkers(): void {
+  if (readOwnerPid() !== process.pid) return;
+  for (const path of [paths.pid, paths.entity, paths.opts]) {
+    try {
+      unlinkSync(path);
+    } catch {
+      /* ignore */
+    }
+  }
+  if (ENTITY_ID_FIELD === "sessionId") {
+    const legacy = resolveLegacySessionDaemonPaths();
+    for (const path of [legacy.pid, legacy.entity, legacy.opts]) {
+      try {
+        unlinkSync(path);
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+}
+
+export async function runCodexAppServerDaemon(): Promise<void> {
+  if (!CLAIM_MUTATION)
+    throw new Error("CLAIM_MUTATION is required for Codex App Server mode");
+  const rivalPid = readOwnerPid();
+  if (
+    !Number.isNaN(rivalPid) &&
+    rivalPid !== process.pid &&
+    pidAlive(rivalPid)
+  ) {
+    log("codex daemon: live rival already owns entity; exiting");
+    process.exit(0);
+  }
+  writeFileSync(paths.pid, String(process.pid));
+  writeFileSync(paths.entity, ENTITY_ID ?? "");
+  writeFileSync(paths.opts, DAEMON_OPTS_SIG);
+
+  const fence = setInterval(() => {
+    if (readOwnerPid() !== process.pid && !activeTurnId) exiting = true;
+  }, FENCE_POLL_INTERVAL_MS);
+  fence.unref?.();
+
+  const preflightOk = await runPreflightHeartbeat();
+  if (!preflightOk) process.exit(1);
+  startStreamingLoops();
+  await ensureGithubToken();
+
+  const client = new CodexAppServerClient();
+  try {
+    // App Server reads CODEX_HOME during startup, so hydrate credentials and
+    // runtime config before spawning it rather than immediately before resume.
+    const sessionMode = prepareCodexSessionState();
+    client.start();
+    await client.initialize();
+    S.activeCodexThreadId = await establishThread(client, sessionMode);
+    writeCodexSessionState();
+    syncCodexStateToPersist();
+    emitEvent({ type: "thread.started", thread_id: S.activeCodexThreadId });
+    log("codex daemon: app-server ready thread=" + S.activeCodexThreadId);
+
+    while (!exiting) {
+      if (callbackWentStale() && !activeTurnId) break;
+      const terminalError = client.getError();
+      if (terminalError) throw terminalError;
+
+      for (const notification of client.drainNotifications()) {
+        const completion = processNotification(notification);
+        if (completion) await completion;
+      }
+
+      const claimed = await callConvexWithRetry(
+        "mutation",
+        CLAIM_MUTATION,
+        entityArgs({ model: MODEL }),
+      );
+      if (readCancelRequested(claimed) && activeTurnId && !cancelInFlight) {
+        cancelInFlight = true;
+        await client.request("turn/interrupt", {
+          threadId: S.activeCodexThreadId,
+          turnId: activeTurnId,
+        });
+      }
+      const claimedTurn = readClaimedTurn(claimed);
+      if (claimedTurn) pendingTurn = claimedTurn;
+      if (!activeTurnId && pendingTurn) {
+        const next = pendingTurn;
+        pendingTurn = null;
+        await startTurn(client, next);
+      }
+
+      const now = Date.now();
+      if (activeTurnId && now - activeTurnStartedAt > MAX_TOTAL_RUNTIME_MS) {
+        await failActiveTurn(
+          "The assistant exceeded the maximum turn runtime.",
+        );
+      } else if (activeTurnId && now - lastEventAt > NO_EVENT_TIMEOUT_MS) {
+        await failActiveTurn(
+          "The assistant stopped responding. Please try again.",
+        );
+      } else if (
+        !activeTurnId &&
+        !pendingTurn &&
+        now - lastIdleActivityAt > IDLE_EXIT_MS
+      ) {
+        break;
+      }
+      await sleep(POLL_INTERVAL_MS);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log("codex daemon failed: " + message);
+    await failActiveTurn("Codex App Server failed: " + message);
+  } finally {
+    client.stop();
+    cleanMarkers();
+    await stopStreamingLoops();
+  }
+  process.exit(exiting ? 1 : 0);
+}

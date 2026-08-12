@@ -11,6 +11,7 @@ import {
   getAIModelProvider,
   normalizeAIModel,
   reasoningLevelValidator,
+  usesChatDaemon,
 } from "../validators";
 import {
   execHandle,
@@ -1340,9 +1341,9 @@ async function runPrewarmEntityDaemon(
     const streamingEntityId = args.streamingEntityId ?? entityIdStr;
     const fp = CALLBACK_SCRIPT_FINGERPRINT;
     const normalizedModel = normalizeAIModel(args.model);
-    if (getAIModelProvider(normalizedModel) !== "claude") {
+    if (!usesChatDaemon(normalizedModel)) {
       console.log(
-        `[sandbox][execution] prewarmEntityDaemon: skip non-claude entityId=${entityIdStr} model=${normalizedModel}`,
+        `[sandbox][execution] prewarmEntityDaemon: skip one-shot provider entityId=${entityIdStr} model=${normalizedModel}`,
       );
       return { prewarmed: false };
     }
@@ -1493,9 +1494,9 @@ async function runPrewarmEntityDaemon(
 }
 
 /**
- * Pre-warm a warm Claude daemon for any entity (session, task chat, project chat).
- * No-op if provider is non-Claude, or a matching daemon
- * is already alive. Best-effort: failures are swallowed.
+ * Pre-warm a provider chat daemon for any entity (session, task chat, project
+ * chat). No-op for one-shot providers or when a matching daemon is already
+ * alive. Best-effort: failures are swallowed.
  */
 export const prewarmEntityDaemon = internalAction({
   args: {
@@ -1652,14 +1653,13 @@ export const killEntityDaemon = internalAction({
 });
 
 /**
- * Pre-warm a session's Claude daemon so the user's FIRST message is warm.
+ * Pre-warm a session's provider daemon so the user's FIRST message is warm.
  *
  * The ~20s "slow hi" is a cold respawn: after the daemon idle-exits (or a
  * fresh/resumed sandbox), the first message pays token mint + 132KB script
  * upload + node/CLI boot before any token. This action, fired when the session
- * page opens, does that boot ahead of time: it launches the daemon early
- * (create the warm query() — spawning + warming the claude CLI/MCP/API —
- * then wait for the first prompt via the handoff protocol). By
+ * page opens, does that boot ahead of time: it launches the provider runtime
+ * and waits for the first prompt via the handoff protocol. By
  * the time the user types, tryWarmDaemonHandoff finds a live daemon and the turn
  * skips the boot entirely. No-op if a daemon is already alive for this session.
  * Best-effort: any failure is swallowed (the normal path still works).

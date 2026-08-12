@@ -13,7 +13,7 @@ import {
   normalizeAIModel,
   roleValidator,
   taskSandboxStatusValidator,
-  getAIModelProvider,
+  usesChatDaemon,
 } from "./validators";
 import {
   recordCompletionLog,
@@ -221,7 +221,7 @@ export const startExecute = authMutation({
     );
 
     const normalizedModel = normalizeAIModel(args.model);
-    const usesDaemonPull = getAIModelProvider(normalizedModel) === "claude";
+    const usesDaemonPull = usesChatDaemon(normalizedModel);
     await ctx.db.patch(args.projectId, {
       ...(usesDaemonPull
         ? {
@@ -359,10 +359,9 @@ export const enqueueMessage = authMutation({
 
 /**
  * Cancels the active project chat workflow and starts any queued message. For
- * a Claude daemon turn, sets `cancelRequestedAt` so the warm daemon interrupts
- * its own in-flight SDK query on its next `claimPendingTurn` poll, instead of
- * killing the sandbox process — Cursor/Codex/Opencode have no daemon to
- * observe the flag, so they keep the pkill-style kill.
+ * a daemon-backed turn, sets `cancelRequestedAt` so the warm provider process
+ * interrupts its own in-flight turn on its next `claimPendingTurn` poll.
+ * One-shot providers retain the process-kill path.
  */
 export const cancelExecution = authMutation({
   args: {
@@ -381,11 +380,7 @@ export const cancelExecution = authMutation({
     const workflowIdToCancel = project.activeChatWorkflowId;
     const pendingRequestedAt = project.pendingTurn?.requestedAt;
 
-    if (
-      getAIModelProvider(
-        normalizeAIModel(project.lastChatModel ?? project.model),
-      ) === "claude"
-    ) {
+    if (usesChatDaemon(project.lastChatModel ?? project.model)) {
       await ctx.db.patch(args.projectId, { cancelRequestedAt: Date.now() });
     } else if (project.sandboxId) {
       if (project.activeWorkflowId || project.activeBuildWorkflowId) {
@@ -563,7 +558,7 @@ export const projectChatExecuteWorkflow = workflow.define({
       return;
     }
 
-    if (getAIModelProvider(data.model) === "claude") {
+    if (usesChatDaemon(data.model)) {
       await step.runMutation(internal.projectChatWorkflow.ensurePendingTurn, {
         projectId: args.projectId,
         prompt: data.prompt,

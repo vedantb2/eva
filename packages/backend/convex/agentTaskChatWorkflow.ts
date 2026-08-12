@@ -13,7 +13,7 @@ import {
   normalizeAIModel,
   roleValidator,
   taskSandboxStatusValidator,
-  getAIModelProvider,
+  usesChatDaemon,
 } from "./validators";
 import {
   recordCompletionLog,
@@ -226,7 +226,7 @@ export const startExecute = authMutation({
     );
 
     const normalizedModel = normalizeAIModel(args.model);
-    const usesDaemonPull = getAIModelProvider(normalizedModel) === "claude";
+    const usesDaemonPull = usesChatDaemon(normalizedModel);
     await ctx.db.patch(args.taskId, {
       ...(usesDaemonPull
         ? {
@@ -366,10 +366,9 @@ export const enqueueMessage = authMutation({
 
 /**
  * Cancels the active task chat workflow and starts any queued message. For a
- * Claude daemon turn, sets `cancelRequestedAt` so the warm daemon interrupts
- * its own in-flight SDK query on its next `claimPendingTurn` poll, instead of
- * killing the sandbox process — Cursor/Codex/Opencode have no daemon to
- * observe the flag, so they keep the pkill-style kill.
+ * daemon-backed turn, sets `cancelRequestedAt` so the warm provider process
+ * interrupts its own in-flight turn on its next `claimPendingTurn` poll.
+ * One-shot providers retain the process-kill path.
  */
 export const cancelExecution = authMutation({
   args: {
@@ -391,10 +390,7 @@ export const cancelExecution = authMutation({
     const workflowIdToCancel = task.activeChatWorkflowId;
     const pendingRequestedAt = task.pendingTurn?.requestedAt;
 
-    if (
-      getAIModelProvider(normalizeAIModel(task.lastChatModel ?? task.model)) ===
-      "claude"
-    ) {
+    if (usesChatDaemon(task.lastChatModel ?? task.model)) {
       await ctx.db.patch(args.taskId, { cancelRequestedAt: Date.now() });
     } else if (task.sandboxId && task.repoId) {
       if (task.activeWorkflowId) {
@@ -584,7 +580,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       return;
     }
 
-    if (getAIModelProvider(data.model) === "claude") {
+    if (usesChatDaemon(data.model)) {
       await step.runMutation(internal.agentTaskChatWorkflow.ensurePendingTurn, {
         taskId: args.taskId,
         prompt: data.prompt,

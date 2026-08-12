@@ -2,11 +2,11 @@
 
 export const CALLBACK_SCRIPT = `// callback-src/index.ts
 import {
-  existsSync as existsSync9,
+  existsSync as existsSync10,
   mkdirSync as mkdirSync8,
   readdirSync as readdirSync4,
-  unlinkSync as unlinkSync3,
-  writeFileSync as writeFileSync11
+  unlinkSync as unlinkSync4,
+  writeFileSync as writeFileSync12
 } from "fs";
 
 // callback-src/config.ts
@@ -946,6 +946,7 @@ function probeToolCompleteResult(source) {
     }
   };
   pushText(obj.aggregated_output);
+  pushText(obj.aggregatedOutput);
   pushText(obj.output);
   pushText(obj.stdout);
   pushText(obj.stderr);
@@ -974,14 +975,14 @@ function probeToolCompleteResult(source) {
   };
 }
 function extractFilePaths(obj) {
-  const paths = [];
+  const paths2 = [];
   const seen = /* @__PURE__ */ new Set();
   const add = (path) => {
     const trimmed = path.trim();
     if (!trimmed || seen.has(trimmed)) return;
-    if (paths.length >= STEP_FIELD_CAPS.filesMax) return;
+    if (paths2.length >= STEP_FIELD_CAPS.filesMax) return;
     seen.add(trimmed);
-    paths.push(trimmed);
+    paths2.push(trimmed);
   };
   if (Array.isArray(obj.files)) {
     for (const item of obj.files) {
@@ -997,7 +998,7 @@ function extractFilePaths(obj) {
       if (typeof change.file_path === "string") add(change.file_path);
     }
   }
-  return paths;
+  return paths2;
 }
 function probeCodexItemResult(item, failed) {
   const probed = probeToolCompleteResult(item);
@@ -1519,7 +1520,7 @@ function getCodexThreadId(event) {
   return "";
 }
 function getCodexAgentMessageText(item) {
-  if (item.type !== "agent_message") {
+  if (item.type !== "agent_message" && item.type !== "agentMessage") {
     return "";
   }
   if (typeof item.text === "string" && item.text) {
@@ -1577,7 +1578,7 @@ function codexItemToStep(item) {
       status: "active"
     });
   }
-  if (normalizedType === "mcp_tool_call") {
+  if (normalizedType === "mcp_tool_call" || normalizedType === "mcptoolcall") {
     if (normalizedDescription.includes("fetch_file")) {
       return withId({
         type: "read",
@@ -1661,7 +1662,7 @@ function codexItemToStep(item) {
       status: "active"
     });
   }
-  if (normalizedType.includes("agent")) {
+  if (normalizedType.includes("agent") || normalizedType === "collabtoolcall") {
     return withId({
       type: "subtask",
       label: "Running agent...",
@@ -1926,7 +1927,7 @@ function extractResultEvent(output) {
     return null;
   }
   if (PROVIDER === "codex") {
-    let finalText = "";
+    let finalText2 = "";
     let lastInputTokens = 0;
     let lastCachedInputTokens = 0;
     let lastOutputTokens = 0;
@@ -1938,7 +1939,7 @@ function extractResultEvent(output) {
         if (!parsed) continue;
         if (parsed.type === "item.completed" && parsed.item && typeof parsed.item === "object" && !Array.isArray(parsed.item) && parsed.item.type === "agent_message") {
           const messageText = getCodexAgentMessageText(parsed.item);
-          if (messageText) finalText = messageText;
+          if (messageText) finalText2 = messageText;
           continue;
         }
         if (parsed.type === "token_count" && parsed.info) {
@@ -1956,10 +1957,10 @@ function extractResultEvent(output) {
       } catch {
       }
     }
-    if (!finalText) return null;
+    if (!finalText2) return null;
     const nonCachedInput = Math.max(0, lastInputTokens - lastCachedInputTokens);
     return {
-      result: finalText,
+      result: finalText2,
       isError: false,
       rawResultEvent: buildClaudeShapedResult({
         provider: "codex",
@@ -3160,13 +3161,25 @@ function codexParseLine(event) {
     });
     return events;
   }
+  if (event.type === "item.agent_message.delta" && typeof event.delta === "string" && event.delta) {
+    events.push({ kind: "stream_text_delta", text: event.delta });
+    return events;
+  }
+  if (event.type === "item.reasoning.delta" && typeof event.delta === "string" && event.delta) {
+    events.push({ kind: "update_reasoning", text: event.delta });
+    return events;
+  }
+  if (event.type === "item.started" && event.item && typeof event.item === "object" && !Array.isArray(event.item) && (event.item.type === "agent_message" || event.item.type === "agentMessage")) {
+    events.push({ kind: "mark_message_start" });
+    return events;
+  }
   if ((event.type === "item.started" || event.type === "item.updated" || event.type === "item.completed") && event.item && typeof event.item === "object" && !Array.isArray(event.item) && event.item.type === "reasoning") {
     if (typeof event.item.text === "string" && event.item.text.trim()) {
       events.push({ kind: "update_reasoning", text: event.item.text });
     }
     return events;
   }
-  if (event.type === "item.started" && event.item && typeof event.item === "object" && !Array.isArray(event.item) && typeof event.item.type === "string" && event.item.type !== "agent_message") {
+  if (event.type === "item.started" && event.item && typeof event.item === "object" && !Array.isArray(event.item) && typeof event.item.type === "string" && event.item.type !== "agent_message" && event.item.type !== "agentMessage") {
     const step = codexItemToStep(event.item);
     const trackingId = step.type !== "thinking" && typeof event.item.id === "string" ? event.item.id : void 0;
     events.push(
@@ -3174,14 +3187,14 @@ function codexParseLine(event) {
     );
     return events;
   }
-  if (event.type === "item.completed" && event.item && typeof event.item === "object" && !Array.isArray(event.item) && event.item.type === "agent_message") {
+  if (event.type === "item.completed" && event.item && typeof event.item === "object" && !Array.isArray(event.item) && (event.item.type === "agent_message" || event.item.type === "agentMessage")) {
     const messageText = getCodexAgentMessageText(event.item);
-    if (messageText) {
+    if (messageText && !callbackState.streamedAssistantTextThisMessage) {
       events.push({ kind: "append_text", text: messageText });
     }
     return events;
   }
-  if ((event.type === "item.completed" || event.type === "item.failed") && event.item && typeof event.item === "object" && !Array.isArray(event.item) && typeof event.item.type === "string" && event.item.type !== "agent_message") {
+  if ((event.type === "item.completed" || event.type === "item.failed") && event.item && typeof event.item === "object" && !Array.isArray(event.item) && typeof event.item.type === "string" && event.item.type !== "agent_message" && event.item.type !== "agentMessage") {
     const result = probeCodexItemResult(
       event.item,
       event.type === "item.failed"
@@ -5601,7 +5614,7 @@ function attachmentExtensionForMimeType(mimeType) {
 }
 async function materializeTurnAttachments(turn) {
   if (turn.attachmentUrls.length === 0) return;
-  const paths = [];
+  const paths2 = [];
   for (let index = 0; index < turn.attachmentUrls.length; index++) {
     const url = turn.attachmentUrls[index];
     if (!url) continue;
@@ -5617,15 +5630,15 @@ async function materializeTurnAttachments(turn) {
       );
       const path = \`/tmp/eva-attachment-\${index}\${extension}\`;
       writeFileSync9(path, bytes);
-      paths.push(path);
+      paths2.push(path);
     } catch (error) {
       log(
         \`daemon: attachment download error \${error instanceof Error ? error.message : String(error)}\`
       );
     }
   }
-  if (paths.length === 0) return;
-  const list = paths.map((p) => \`- \${p}\`).join("\\n");
+  if (paths2.length === 0) return;
+  const list = paths2.map((p) => \`- \${p}\`).join("\\n");
   turn.prompt += \`
 
 ---
@@ -5735,14 +5748,515 @@ async function runSdkDaemon() {
   process.exit(0);
 }
 
+// callback-src/providers/codexAppServerDaemon.ts
+import { readFileSync as readFileSync7, unlinkSync as unlinkSync3, writeFileSync as writeFileSync10 } from "fs";
+
+// callback-src/providers/codexAppServerClient.ts
+import { spawn as spawn2 } from "child_process";
+import { existsSync as existsSync7 } from "fs";
+import { createInterface } from "readline";
+function objectValue(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+function responseErrorMessage(message) {
+  const error = objectValue(message.error);
+  return typeof error.message === "string" ? error.message : "Codex App Server request failed";
+}
+var CodexAppServerClient = class {
+  child = null;
+  nextId = 1;
+  pending = /* @__PURE__ */ new Map();
+  notifications = [];
+  terminalError = null;
+  start() {
+    const command = existsSync7(CODEX_BIN_PATH) ? CODEX_BIN_PATH : "codex";
+    this.child = spawn2(command, ["app-server"], {
+      cwd: WORK_DIR,
+      env: { ...process.env, CODEX_HOME: CODEX_RUNTIME_HOME_DIR },
+      stdio: ["pipe", "pipe", "pipe"]
+    });
+    const stdout = createInterface({ input: this.child.stdout });
+    stdout.on("line", (line) => this.handleLine(line));
+    this.child.stderr.on("data", (chunk) => {
+      const text = chunk.toString("utf8").trim();
+      if (text) log("codex app-server stderr: " + text);
+    });
+    this.child.on("error", (error) => this.fail(error));
+    this.child.on("exit", (code, signal) => {
+      this.fail(
+        new Error(
+          "Codex App Server exited (code=" + String(code) + ", signal=" + String(signal ?? "none") + ")"
+        )
+      );
+    });
+  }
+  async initialize() {
+    await this.request("initialize", {
+      clientInfo: { name: "eva", title: "Eva", version: "1.0.0" }
+    });
+    this.notify("initialized", {});
+  }
+  request(method, params) {
+    if (this.terminalError) return Promise.reject(this.terminalError);
+    const id = this.nextId++;
+    return new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error("Codex App Server request timed out: " + method));
+      }, 9e4);
+      this.pending.set(id, { resolve, reject, timeout });
+      this.write({ id, method, params });
+    });
+  }
+  notify(method, params) {
+    this.write({ method, params });
+  }
+  drainNotifications() {
+    const drained = this.notifications;
+    this.notifications = [];
+    return drained;
+  }
+  getError() {
+    return this.terminalError;
+  }
+  stop() {
+    this.child?.kill("SIGTERM");
+  }
+  write(message) {
+    if (!this.child || !this.child.stdin.writable) {
+      throw this.terminalError ?? new Error("Codex App Server is not running");
+    }
+    this.child.stdin.write(JSON.stringify(message) + "\\n");
+  }
+  handleLine(line) {
+    const parsed = tryParseJson(line);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return;
+    const message = parsed;
+    if (typeof message.id === "number" && typeof message.method !== "string") {
+      const pending = this.pending.get(message.id);
+      if (!pending) return;
+      this.pending.delete(message.id);
+      clearTimeout(pending.timeout);
+      if (message.error !== void 0) {
+        pending.reject(new Error(responseErrorMessage(message)));
+      } else {
+        pending.resolve(message.result ?? null);
+      }
+      return;
+    }
+    if (typeof message.method !== "string") return;
+    if (typeof message.id === "number") {
+      this.write({
+        id: message.id,
+        error: {
+          code: -32601,
+          message: "Eva does not handle App Server requests: " + message.method
+        }
+      });
+      return;
+    }
+    this.notifications.push({
+      method: message.method,
+      params: objectValue(message.params)
+    });
+  }
+  fail(error) {
+    if (this.terminalError) return;
+    this.terminalError = error;
+    for (const request of this.pending.values()) {
+      clearTimeout(request.timeout);
+      request.reject(error);
+    }
+    this.pending.clear();
+  }
+};
+
+// callback-src/providers/codexAppServerDaemon.ts
+var IDLE_EXIT_MS2 = 45 * 60 * 1e3;
+var POLL_INTERVAL_MS2 = 50;
+var FENCE_POLL_INTERVAL_MS2 = 5e3;
+var NO_EVENT_TIMEOUT_MS = 5 * 60 * 1e3;
+var paths = resolveDaemonPaths();
+var activeTurnId = "";
+var activeTurnStartedAt = 0;
+var lastEventAt = 0;
+var lastIdleActivityAt = Date.now();
+var finalText = "";
+var cancelInFlight = false;
+var pendingTurn = null;
+var exiting = false;
+function sleep3(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+function objectValue2(value) {
+  return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+}
+function stringField(value, field) {
+  const object = objectValue2(value);
+  return typeof object[field] === "string" ? object[field] : "";
+}
+function nestedId(value, field) {
+  return stringField(objectValue2(value)[field], "id");
+}
+function entityArgs(fields) {
+  return { [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "", ...fields };
+}
+function pidAlive2(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function readOwnerPid() {
+  try {
+    return Number(readFileSync7(paths.pid, "utf8").trim());
+  } catch {
+    return Number.NaN;
+  }
+}
+function callbackWentStale() {
+  if (!CALLBACK_SCRIPT_FP) return false;
+  try {
+    return readFileSync7("/tmp/eva-callback-fp", "utf8").trim() !== CALLBACK_SCRIPT_FP;
+  } catch {
+    return false;
+  }
+}
+function resetTurnState2() {
+  callbackState.accumulatedSteps.length = 0;
+  callbackState.currentStreamedContent = "";
+  callbackState.streamedAssistantTextThisMessage = false;
+  callbackState.pendingParagraphBreak = false;
+  callbackState.resultEventSeen = false;
+  callbackState.rawOutput = "";
+  callbackState.lastProcessed = 0;
+  callbackState.realtimeOutputBuffer = "";
+  callbackState.inFlightToolUses = 0;
+  callbackState.codexToolItemIds.clear();
+  callbackState.pendingQuestionData = "";
+  callbackState.todoState.length = 0;
+  callbackState.lastStepType = "thinking";
+  activeTurnStartedAt = 0;
+  finalText = "";
+}
+function readClaimedTurn2(result) {
+  const root = objectValue2(result);
+  const payload = Object.keys(objectValue2(root.value)).length > 0 ? objectValue2(root.value) : root;
+  if (typeof payload.prompt !== "string") return null;
+  const attachmentUrls = Array.isArray(payload.attachmentUrls) ? payload.attachmentUrls.filter(
+    (url) => typeof url === "string"
+  ) : [];
+  return { prompt: payload.prompt, attachmentUrls };
+}
+function attachmentExtension(mimeType) {
+  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+  switch (type) {
+    case "image/jpeg":
+      return ".jpg";
+    case "image/gif":
+      return ".gif";
+    case "image/webp":
+      return ".webp";
+    case "image/svg+xml":
+      return ".svg";
+    case "image/png":
+      return ".png";
+    case "text/html":
+      return ".html";
+    case "text/markdown":
+      return ".md";
+    case "text/plain":
+      return ".txt";
+    default:
+      return type.startsWith("image/") ? ".png" : ".bin";
+  }
+}
+async function materializeAttachments(turn) {
+  const localPaths = [];
+  for (let index = 0; index < turn.attachmentUrls.length; index++) {
+    const url = turn.attachmentUrls[index];
+    if (!url) continue;
+    try {
+      const response = await fetchWithTimeout(url, { method: "GET" });
+      if (!response.ok) continue;
+      const path = \`/tmp/eva-attachment-\${index}\${attachmentExtension(response.headers.get("content-type") ?? "")}\`;
+      writeFileSync10(path, new Uint8Array(await response.arrayBuffer()));
+      localPaths.push(path);
+    } catch (error) {
+      log(
+        "codex daemon: attachment download failed: " + (error instanceof Error ? error.message : String(error))
+      );
+    }
+  }
+  if (localPaths.length > 0) {
+    turn.prompt += "\\n\\n---\\nThe user attached the following file(s). Read them with your file-reading tool before responding:\\n" + localPaths.map((path) => \`- \${path}\`).join("\\n");
+  }
+}
+function emitEvent(event) {
+  const line = JSON.stringify(event) + "\\n";
+  appendToRawLogFile(line);
+  appendToRawOutput(line);
+  processRealtimeStdoutChunk(line);
+}
+function normalizeAppServerNotification(notification) {
+  const { method, params } = notification;
+  if (method === "turn/started") return { type: "turn.started" };
+  if (method === "turn/completed") return { type: "turn.completed" };
+  if (method === "item/started") {
+    return { type: "item.started", item: objectValue2(params.item) };
+  }
+  if (method === "item/completed") {
+    return { type: "item.completed", item: objectValue2(params.item) };
+  }
+  if (method === "item/agentMessage/delta" && typeof params.delta === "string") {
+    return { type: "item.agent_message.delta", delta: params.delta };
+  }
+  if (method === "item/reasoning/textDelta" && typeof params.delta === "string") {
+    return { type: "item.reasoning.delta", delta: params.delta };
+  }
+  if (method === "item/reasoning/summaryTextDelta" && typeof params.delta === "string") {
+    return { type: "item.reasoning.delta", delta: params.delta };
+  }
+  return null;
+}
+function turnError(params) {
+  const turn = objectValue2(params.turn);
+  const error = objectValue2(turn.error);
+  return typeof error.message === "string" ? error.message : null;
+}
+async function finalizeTurn2(success, error) {
+  await flushStreaming();
+  for (const step of callbackState.accumulatedSteps) step.status = "complete";
+  const result = finalText || callbackState.currentStreamedContent || callbackState.rawOutput;
+  await setFinalizingState();
+  persistTurnWork();
+  await deliverCompletionWithMedia({
+    [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+    success,
+    result,
+    error,
+    activityLog: serializeSteps(callbackState.accumulatedSteps),
+    ...RUN_ID ? { runId: RUN_ID } : {}
+  });
+  syncCodexStateToPersist();
+  log("codex daemon: turn finalized success=" + success);
+}
+async function failActiveTurn(error) {
+  if (!activeTurnId && activeTurnStartedAt === 0) return;
+  try {
+    await finalizeTurn2(false, error);
+  } catch {
+  }
+  exiting = true;
+}
+function processNotification(notification) {
+  lastEventAt = Date.now();
+  const event = normalizeAppServerNotification(notification);
+  if (event) emitEvent(event);
+  if (notification.method === "item/completed") {
+    const item = objectValue2(notification.params.item);
+    const text = getCodexAgentMessageText(item);
+    if (text) finalText = text;
+  }
+  if (notification.method !== "turn/completed") return null;
+  const turn = objectValue2(notification.params.turn);
+  const status = typeof turn.status === "string" ? turn.status : "failed";
+  activeTurnId = "";
+  lastIdleActivityAt = Date.now();
+  if (cancelInFlight || status === "interrupted") {
+    cancelInFlight = false;
+    resetTurnState2();
+    return null;
+  }
+  return finalizeTurn2(
+    status === "completed",
+    turnError(notification.params)
+  ).then(() => {
+    resetTurnState2();
+  });
+}
+async function ensureGithubToken2() {
+  if (!REPO_ID || !CONVEX_URL || !CONVEX_TOKEN) return;
+  try {
+    const response = await fetchWithTimeout(CONVEX_URL + "/api/action", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + CONVEX_TOKEN
+      },
+      body: JSON.stringify({
+        path: "github:getInstallationTokenAction",
+        args: { repoId: REPO_ID },
+        format: "json"
+      })
+    });
+    if (!response.ok) return;
+    const payload = objectValue2(await readResponseJson(response) ?? null);
+    const token = stringField(payload.value, "token");
+    if (token) {
+      process.env.GITHUB_TOKEN = token;
+      process.env.GH_TOKEN = token;
+    }
+  } catch {
+  }
+}
+async function establishThread(client, sessionMode) {
+  if (sessionMode.sessionId) {
+    try {
+      const resumed = await client.request("thread/resume", {
+        threadId: sessionMode.sessionId
+      });
+      const resumedId = nestedId(resumed, "thread") || sessionMode.sessionId;
+      log("codex daemon: resumed thread " + resumedId);
+      return resumedId;
+    } catch (error) {
+      log(
+        "codex daemon: resume failed, starting fresh: " + (error instanceof Error ? error.message : String(error))
+      );
+    }
+  }
+  const started = await client.request("thread/start", {
+    model: normalizedCodexModel,
+    cwd: WORK_DIR,
+    approvalPolicy: "never",
+    serviceName: "eva"
+  });
+  const threadId = nestedId(started, "thread");
+  if (!threadId) throw new Error("Codex App Server did not return a thread id");
+  return threadId;
+}
+async function startTurn(client, turn) {
+  resetTurnState2();
+  await materializeAttachments(turn);
+  const text = SYSTEM_PROMPT ? SYSTEM_PROMPT + "\\n\\n" + turn.prompt : turn.prompt;
+  activeTurnStartedAt = Date.now();
+  lastEventAt = activeTurnStartedAt;
+  const result = await client.request("turn/start", {
+    threadId: callbackState.activeCodexThreadId,
+    input: [{ type: "text", text }],
+    cwd: WORK_DIR,
+    model: normalizedCodexModel,
+    approvalPolicy: "never",
+    sandboxPolicy: { type: "externalSandbox", networkAccess: "enabled" },
+    ...codexReasoningEffort ? { effort: codexReasoningEffort } : {}
+  });
+  activeTurnId = nestedId(result, "turn");
+  if (!activeTurnId)
+    throw new Error("Codex App Server did not return a turn id");
+  lastIdleActivityAt = activeTurnStartedAt;
+  callbackState.activeAttemptStartedAt = activeTurnStartedAt;
+  log("codex daemon: turn started " + activeTurnId);
+}
+function cleanMarkers() {
+  if (readOwnerPid() !== process.pid) return;
+  for (const path of [paths.pid, paths.entity, paths.opts]) {
+    try {
+      unlinkSync3(path);
+    } catch {
+    }
+  }
+  if (ENTITY_ID_FIELD === "sessionId") {
+    const legacy = resolveLegacySessionDaemonPaths();
+    for (const path of [legacy.pid, legacy.entity, legacy.opts]) {
+      try {
+        unlinkSync3(path);
+      } catch {
+      }
+    }
+  }
+}
+async function runCodexAppServerDaemon() {
+  if (!CLAIM_MUTATION)
+    throw new Error("CLAIM_MUTATION is required for Codex App Server mode");
+  const rivalPid = readOwnerPid();
+  if (!Number.isNaN(rivalPid) && rivalPid !== process.pid && pidAlive2(rivalPid)) {
+    log("codex daemon: live rival already owns entity; exiting");
+    process.exit(0);
+  }
+  writeFileSync10(paths.pid, String(process.pid));
+  writeFileSync10(paths.entity, ENTITY_ID ?? "");
+  writeFileSync10(paths.opts, DAEMON_OPTS_SIG);
+  const fence = setInterval(() => {
+    if (readOwnerPid() !== process.pid && !activeTurnId) exiting = true;
+  }, FENCE_POLL_INTERVAL_MS2);
+  fence.unref?.();
+  const preflightOk2 = await runPreflightHeartbeat();
+  if (!preflightOk2) process.exit(1);
+  startStreamingLoops();
+  await ensureGithubToken2();
+  const client = new CodexAppServerClient();
+  try {
+    const sessionMode = prepareCodexSessionState();
+    client.start();
+    await client.initialize();
+    callbackState.activeCodexThreadId = await establishThread(client, sessionMode);
+    writeCodexSessionState();
+    syncCodexStateToPersist();
+    emitEvent({ type: "thread.started", thread_id: callbackState.activeCodexThreadId });
+    log("codex daemon: app-server ready thread=" + callbackState.activeCodexThreadId);
+    while (!exiting) {
+      if (callbackWentStale() && !activeTurnId) break;
+      const terminalError = client.getError();
+      if (terminalError) throw terminalError;
+      for (const notification of client.drainNotifications()) {
+        const completion = processNotification(notification);
+        if (completion) await completion;
+      }
+      const claimed = await callConvexWithRetry(
+        "mutation",
+        CLAIM_MUTATION,
+        entityArgs({ model: MODEL })
+      );
+      if (readCancelRequested(claimed) && activeTurnId && !cancelInFlight) {
+        cancelInFlight = true;
+        await client.request("turn/interrupt", {
+          threadId: callbackState.activeCodexThreadId,
+          turnId: activeTurnId
+        });
+      }
+      const claimedTurn = readClaimedTurn2(claimed);
+      if (claimedTurn) pendingTurn = claimedTurn;
+      if (!activeTurnId && pendingTurn) {
+        const next = pendingTurn;
+        pendingTurn = null;
+        await startTurn(client, next);
+      }
+      const now = Date.now();
+      if (activeTurnId && now - activeTurnStartedAt > MAX_TOTAL_RUNTIME_MS) {
+        await failActiveTurn(
+          "The assistant exceeded the maximum turn runtime."
+        );
+      } else if (activeTurnId && now - lastEventAt > NO_EVENT_TIMEOUT_MS) {
+        await failActiveTurn(
+          "The assistant stopped responding. Please try again."
+        );
+      } else if (!activeTurnId && !pendingTurn && now - lastIdleActivityAt > IDLE_EXIT_MS2) {
+        break;
+      }
+      await sleep3(POLL_INTERVAL_MS2);
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    log("codex daemon failed: " + message);
+    await failActiveTurn("Codex App Server failed: " + message);
+  } finally {
+    client.stop();
+    cleanMarkers();
+    await stopStreamingLoops();
+  }
+  process.exit(exiting ? 1 : 0);
+}
+
 // callback-src/runtime/systemSkills.ts
 import {
-  existsSync as existsSync7,
+  existsSync as existsSync8,
   mkdirSync as mkdirSync6,
   readdirSync as readdirSync3,
-  readFileSync as readFileSync7,
+  readFileSync as readFileSync8,
   rmSync,
-  writeFileSync as writeFileSync10
+  writeFileSync as writeFileSync11
 } from "fs";
 var SYSTEM_SKILLS_STATE_FILE = "/tmp/eva-system-skills.json";
 var SYSTEM_SKILL_MARKER = "<!-- eva:system-skill -->";
@@ -5801,26 +6315,26 @@ function skillsRoot() {
 }
 function isEvaStub(directoryName) {
   const skillFile = \`\${skillsRoot()}/\${directoryName}/SKILL.md\`;
-  if (!existsSync7(skillFile)) return false;
+  if (!existsSync8(skillFile)) return false;
   try {
-    return readFileSync7(skillFile, "utf8").includes(SYSTEM_SKILL_MARKER);
+    return readFileSync8(skillFile, "utf8").includes(SYSTEM_SKILL_MARKER);
   } catch {
     return false;
   }
 }
 function writeStub(skill) {
   const directory = \`\${skillsRoot()}/\${skill.name}\`;
-  if (existsSync7(\`\${directory}/SKILL.md\`) && !isEvaStub(skill.name)) {
+  if (existsSync8(\`\${directory}/SKILL.md\`) && !isEvaStub(skill.name)) {
     log(\`[system-skills] \${skill.name} exists in the repo \\u2014 leaving it alone\`);
     return false;
   }
   mkdirSync6(directory, { recursive: true });
-  writeFileSync10(\`\${directory}/SKILL.md\`, skill.stub);
+  writeFileSync11(\`\${directory}/SKILL.md\`, skill.stub);
   return true;
 }
 function pruneStaleStubs(keep) {
   const root = skillsRoot();
-  if (!existsSync7(root)) return;
+  if (!existsSync8(root)) return;
   for (const entry of readdirSync3(root, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     if (keep.has(entry.name)) continue;
@@ -5835,24 +6349,24 @@ function pruneStaleStubs(keep) {
 }
 function updateGitExclude(names) {
   const gitDir = \`\${WORK_DIR}/.git\`;
-  if (!existsSync7(gitDir)) return;
+  if (!existsSync8(gitDir)) return;
   const infoDir = \`\${gitDir}/info\`;
   const excludeFile = \`\${infoDir}/exclude\`;
-  const existing = existsSync7(excludeFile) ? readFileSync7(excludeFile, "utf8") : "";
+  const existing = existsSync8(excludeFile) ? readFileSync8(excludeFile, "utf8") : "";
   const next = renderExcludeContent(existing, names);
   if (next === existing) return;
   mkdirSync6(infoDir, { recursive: true });
-  writeFileSync10(excludeFile, next);
+  writeFileSync11(excludeFile, next);
 }
 function materializeSystemSkills() {
   try {
-    if (!existsSync7(SYSTEM_SKILLS_STATE_FILE)) return;
-    if (!existsSync7(WORK_DIR)) {
+    if (!existsSync8(SYSTEM_SKILLS_STATE_FILE)) return;
+    if (!existsSync8(WORK_DIR)) {
       log("[system-skills] no checkout yet \\u2014 skipping");
       return;
     }
     const skills = parseSystemSkillsFile(
-      readFileSync7(SYSTEM_SKILLS_STATE_FILE, "utf8")
+      readFileSync8(SYSTEM_SKILLS_STATE_FILE, "utf8")
     );
     if (skills === null) {
       log("[system-skills] state file unreadable \\u2014 skipping");
@@ -5878,7 +6392,7 @@ function materializeSystemSkills() {
 
 // callback-src/providers/cursorSdk.ts
 import { execSync as execSync2 } from "child_process";
-import { existsSync as existsSync8, mkdirSync as mkdirSync7, readFileSync as readFileSync8 } from "fs";
+import { existsSync as existsSync9, mkdirSync as mkdirSync7, readFileSync as readFileSync9 } from "fs";
 var SDK_PACKAGE2 = "@cursor/sdk";
 var SDK_VERSION2 = "1.0.26";
 var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
@@ -5912,11 +6426,11 @@ function filterModeParamsByModel(candidates, model, opted) {
 async function loadCursorSdk() {
   const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE2 + SDK_ENTRY_RELPATH;
   const localEntry = SDK_LOCAL_PREFIX2 + "/node_modules/" + SDK_PACKAGE2 + SDK_ENTRY_RELPATH;
-  if (existsSync8(globalEntry)) {
+  if (existsSync9(globalEntry)) {
     const mod2 = await import(globalEntry);
     return mod2;
   }
-  if (!existsSync8(localEntry)) {
+  if (!existsSync9(localEntry)) {
     log(
       "cursor sdk not found in sandbox; installing " + SDK_PACKAGE2 + "@" + SDK_VERSION2 + " to " + SDK_LOCAL_PREFIX2 + " (one-time)"
     );
@@ -5953,15 +6467,15 @@ function parseCursorSdkMcpServers(raw) {
   return servers;
 }
 function readCursorSdkMcpServers() {
-  if (!existsSync8(MCP_CONFIG_PATH2)) return {};
+  if (!existsSync9(MCP_CONFIG_PATH2)) return {};
   try {
-    return parseCursorSdkMcpServers(readFileSync8(MCP_CONFIG_PATH2, "utf8"));
+    return parseCursorSdkMcpServers(readFileSync9(MCP_CONFIG_PATH2, "utf8"));
   } catch {
     return {};
   }
 }
 function readPromptText2() {
-  return readFileSync8("/tmp/design-prompt.txt", "utf8");
+  return readFileSync9("/tmp/design-prompt.txt", "utf8");
 }
 async function resolveCursorModelSelection(sdk) {
   const base = normalizedCursorModel;
@@ -6307,17 +6821,22 @@ process.on("exit", (code) => {
   }
 });
 try {
-  unlinkSync3(READY_FILE);
+  unlinkSync4(READY_FILE);
 } catch {
 }
 try {
-  writeFileSync11("/proc/self/oom_score_adj", "-600");
+  writeFileSync12("/proc/self/oom_score_adj", "-600");
 } catch {
 }
 callbackState.lastStepType = "thinking";
 materializeSystemSkills();
-if (PROVIDER === "claude" && CLAIM_MUTATION) {
-  await runSdkDaemon();
+if (CLAIM_MUTATION) {
+  if (PROVIDER === "claude") {
+    await runSdkDaemon();
+  }
+  if (PROVIDER === "codex") {
+    await runCodexAppServerDaemon();
+  }
 }
 var preflightOk = await runPreflightHeartbeat();
 if (!preflightOk) {
@@ -6326,10 +6845,10 @@ if (!preflightOk) {
 }
 startStreamingLoops();
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
-  if (existsSync9(d)) {
+  if (existsSync10(d)) {
     for (const f of readdirSync4(d)) {
       try {
-        unlinkSync3(d + "/" + f);
+        unlinkSync4(d + "/" + f);
       } catch {
       }
     }

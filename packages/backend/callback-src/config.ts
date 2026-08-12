@@ -115,7 +115,8 @@ export const CODEX_RUNTIME_HOME_DIR =
   process.env.CODEX_RUNTIME_HOME_DIR || "/tmp/codex-home";
 export const CODEX_PERSIST_DIR =
   process.env.CODEX_PERSIST_DIR || "/home/eva/.codex-persist";
-const CODEX_BIN_PATH = process.env.CODEX_BIN_PATH || "/tmp/codex-cli/bin/codex";
+export const CODEX_BIN_PATH =
+  process.env.CODEX_BIN_PATH || "/tmp/codex-cli/bin/codex";
 const CODEX_STATE_FILE = "session-state.json";
 export const CODEX_LOCAL_STATE_FILE =
   CODEX_RUNTIME_HOME_DIR + "/" + CODEX_STATE_FILE;

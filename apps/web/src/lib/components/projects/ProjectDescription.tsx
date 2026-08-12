@@ -14,9 +14,9 @@ export function ProjectDescription({
 }: {
   description: string | undefined;
   projectId: Id<"projects">;
-  /** Overrides the wrapper padding (the task rail needs it, Overview does not). */
+  /** Overrides the wrapper padding (Overview passes `px-0`). */
   className?: string;
-  /** Rail height cap. Off on Overview, where the description owns the column. */
+  /** Height cap. Off on Overview, where the description owns the column. */
   clamp?: boolean;
 }) {
   const [isEditing, setIsEditing] = useState(false);

@@ -1,5 +1,9 @@
 # Changelog
 
+## Tasks tab left rail is the task list only - 2026-08-12
+
+Project context and the progress bar sat above and below the task list on the Tasks tab, crowding the rail when a task was open. Both stay on Overview; Tasks now shows only the list.
+
 ## Project tasks drop Make changes from the activity composer - 2026-08-12
 
 Quick-task Activity was already comment-only; project tasks still showed the Make changes toggle, model picker, and Request Changes menu item. Both surfaces now share the same comment composer. Change-request backend (`requestsChanges`) is unchanged for later cleanup.

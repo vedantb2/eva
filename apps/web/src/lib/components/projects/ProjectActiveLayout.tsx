@@ -9,8 +9,6 @@ import type { Id } from "@eva/backend";
 import { Spinner } from "@eva/ui";
 import { entityPathSegment } from "@/lib/numId";
 import { ProjectTaskListPanel } from "./ProjectTaskListPanel";
-import { ProjectProgressBar } from "./ProjectProgressBar";
-import { ProjectDescription } from "./ProjectDescription";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { IconChecklist } from "@tabler/icons-react";
@@ -26,7 +24,6 @@ interface Project {
   _id: Id<"projects">;
   numId?: number;
   title: string;
-  description?: string;
   branchName?: string;
   sandboxId?: string;
   phase: ProjectPhase;
@@ -137,20 +134,13 @@ export function ProjectActiveLayout({
   return (
     <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden bg-background">
       <div className="w-full md:w-1/3 lg:w-1/4 h-1/3 md:h-full flex flex-col overflow-hidden shrink-0">
-        <ProjectDescription
-          description={project.description}
-          projectId={projectId}
+        <ProjectTaskListPanel
+          tasks={tasks ?? []}
+          selectedTaskId={selectedTaskId}
+          onSelectTask={handleSelectTask}
+          onCreateTask={() => setCreateTaskOpen(true)}
+          projectNumId={project.numId}
         />
-        <div className="flex-1 min-h-0 overflow-hidden">
-          <ProjectTaskListPanel
-            tasks={tasks ?? []}
-            selectedTaskId={selectedTaskId}
-            onSelectTask={handleSelectTask}
-            onCreateTask={() => setCreateTaskOpen(true)}
-            projectNumId={project.numId}
-          />
-        </div>
-        <ProjectProgressBar projectId={projectId} className="mx-3 mt-2 mb-3" />
       </div>
       <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
         {selectedTaskStatus === "loading" ? (

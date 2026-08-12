@@ -281,7 +281,10 @@ export const launchSeedRun = internalAction({
     lines.push(
       'echo "SEEDRUN-STAGE:toolchain"',
       "sudo mkdir -p /home/eva/sandbox-config /home/eva/.eva-snapshot-state && sudo chmod -R 777 /home/eva",
-      'sudo dnf install -y docker git jq gzip tar procps-ng psmisc tigervnc-server python3 python3-pip xorg-x11-utils xterm dbus-x11 || { echo "SEEDRUN-FAILED:toolchain-dnf"; exit 1; }',
+      // gcc/make: agentation-mcp → better-sqlite3 node-gyp rebuild. A fresh
+      // node24 sandbox has none of these; without them the global npm install
+      // dies with `gyp ERR! not found: make`.
+      'sudo dnf install -y docker git jq gzip tar procps-ng psmisc tigervnc-server python3 python3-pip xorg-x11-utils xterm dbus-x11 gcc gcc-c++ make || { echo "SEEDRUN-FAILED:toolchain-dnf"; exit 1; }',
       "sudo dnf install -y gtk3 nss alsa-lib libXtst at-spi2-core libdrm mesa-libgbm libxkbcommon libXdamage libXcomposite libXrandr libXcursor libXinerama cups-libs >/tmp/desktop-gui-dnf.log 2>&1 || true",
       // ffmpeg for agent-browser WebM recording. Not in core AL2023 repos —
       // enable SPAL then install ffmpeg-free (VP8/WebM). Soft-fail so seed

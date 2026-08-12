@@ -1,5 +1,9 @@
 # Changelog
 
+## Snapshot seed installs gcc/make before agentation-mcp - 2026-08-12
+
+A carepulse-ts web snapshot died at `SEEDRUN-FAILED:agent-clis` on a fresh Vercel node24 sandbox: `agentation-mcp` compiles `better-sqlite3` via node-gyp, and the image has no `make`. gcc, gcc-c++, and make now install with the rest of the toolchain dnf packages, before the global npm install.
+
 ## anti-slop Oxlint rules - 2026-08-12
 
 Copied [dmmulroy/anti-slop](https://github.com/dmmulroy/anti-slop) into `scripts/oxlint-plugin-anti-slop` and enabled all ten rules at error. Oxlint and `@oxlint/plugins` move to 1.77.0 (newest pair that meets the 7-day release-age gate; 1.78.0 is too new). Node 20 cannot load the plugin's `.ts` entry, so it is bundled to `index.mjs`. The vendored plugin directory is ignored so it does not lint itself.

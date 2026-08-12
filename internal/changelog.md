@@ -1,10 +1,18 @@
 # Changelog
 
+## The seed script pushes Convex functions, and chunk downloads drop to HTTP/1.1 - 2026-08-12
+
+A repo cannot push its own functions from a seed command. Both snapshot configs ended their seed list with `npx convex dev --once`, and the CLI refused it every time: the daemon already owns port 3210, so a second `convex dev` stops at "A local backend is still running on port 3210" before it does anything. The push has to happen after the seed commands, because that is when the environment variables its auth config reads finally exist, and it cannot be another attempt to start a backend.
+
+The seed script now performs the push itself. It finds the local deployment config the daemon wrote, reads the port and admin key from it, and pushes with `--url` and `--admin-key`, which makes the CLI address the running backend instead of managing one. The app directory comes from where that config file sits, so the stage is repo-agnostic and no snapshot config carries a push command any more. Three attempts cover a push that races the daemon's own retry, and shell tracing is off around the admin key so it stays out of the stored build log.
+
+Config file chunks now download over HTTP/1.1. A 2.4 GB file arrives as twenty-four chunks of roughly 100 MB, and one of them died mid-transfer with `curl: (92) HTTP/2 stream 1 was not closed cleanly: INTERNAL_ERROR`. The retry flag never covered it, because that is a protocol error rather than a transient HTTP status. HTTP/1.1 has no stream layer to fail, and the retry budget rises from three to five.
+
 ## The snapshot readiness gate waits for the backend, not the push - 2026-08-12
 
 Seed commands need a Convex backend that answers HTTP. They do not need one that has already accepted a push. The gate conflated the two: it waited for the `Convex functions ready` line that only appears after a successful deploy, so any repo whose `auth.config.ts` reads a deployment environment variable deadlocked. The daemon's first push failed for the missing value, the seed commands that set that value ran after the gate, and the gate polled for fifteen minutes before failing the build. Omitting the providers when their variables are missing did not help: the Convex CLI rejects a push for a variable the auth config merely reads, whatever the code does with it.
 
-The fatal wait is now on the local backend health endpoint, satisfied as soon as the backend serves, with the functions-ready line still accepted as an alternative signal. Seed commands then set the environment variables and import the data, and the repo's own `npx convex dev --once` seed command performs the push with everything in place. A push that genuinely fails still fails the build, at that command, where the log says why.
+The fatal wait is now on the local backend health endpoint, satisfied as soon as the backend serves, with the functions-ready line still accepted as an alternative signal. Seed commands then set the environment variables and import the data, and the push follows once everything is in place. A push that genuinely fails still fails the build, at that stage, where the log says why.
 
 The gate also gave up its whole window to a daemon that had already exited. The launcher records each background command's process id, and the wait ends as soon as that process is gone, so a dead daemon costs seconds rather than a quarter of an hour.
 

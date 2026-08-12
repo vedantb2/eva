@@ -387,8 +387,17 @@ export const setChatModel = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
-    await ctx.db.patch(args.id, { lastChatModel: args.model });
+    const project = await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    const providerAccountId = await reconcileProviderAccountForModel(
+      ctx.db,
+      project.userId,
+      args.model,
+      project.providerAccountId,
+    );
+    await ctx.db.patch(args.id, {
+      lastChatModel: args.model,
+      providerAccountId,
+    });
     return null;
   },
 });

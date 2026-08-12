@@ -1,10 +1,4 @@
-import {
-  api,
-  getLockedProviderModelOptions,
-  normalizeAIModel,
-  type Doc,
-  type Id,
-} from "@eva/backend";
+import { api, normalizeAIModel, type Doc, type Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { m, AnimatePresence } from "motion/react";
@@ -136,7 +130,6 @@ export function ChatPanel({
     setTraits,
     providerAccountId: stickyProviderAccountId,
     setProviderAccountId: setStickyProviderAccountId,
-    lockedProvider,
   } = useSessionModel(sessionId, defaultModel);
   const {
     mode,
@@ -162,13 +155,7 @@ export function ChatPanel({
     },
   });
   const { options: visibleModels } = useAvailableAiModels(repo._id, model);
-  // A session stays on the provider it started on, so the picker offers only
-  // that provider's models — and, since the rail derives its instances from
-  // these options, only that provider's accounts.
-  const modelOptions = getLockedProviderModelOptions(
-    visibleModels,
-    lockedProvider,
-  );
+  const modelOptions = visibleModels;
 
   const draftSeed = useChatDraftSeed({
     kind: "sessionChat" as const,

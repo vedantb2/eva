@@ -4,7 +4,6 @@ import { workflow, cancelTrackedWorkflow } from "../workflowManager";
 import { authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
-  assertModelMatchesLockedProvider,
   getAIModelProvider,
   normalizeAIModel,
   reasoningLevelValidator,
@@ -15,13 +14,11 @@ import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "../streaming";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
 import { buildSessionPrompt, MODE_TOOLS, resolveToolMode } from "./workflow";
-import {
-  assertProviderAccountUsableBy,
-  resolveDefaultProviderAccountId,
-} from "../_userProviderAccounts/defaults";
+import { resolveTurnProviderAccount } from "../_userProviderAccounts/defaults";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { notifyChatMentions } from "../_mentions/notifyChatMentions";
+import { detectModelHandoff } from "../_shared/modelHandoff";
 
 async function finalizeOpenSyntheticTurnOnCancel(
   ctx: MutationCtx,
@@ -78,30 +75,16 @@ export const startExecute = authMutation({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
 
-    assertModelMatchesLockedProvider(session.provider, args.model);
-
     const credentialOwnerUserId = session.createdBy ?? session.userId;
     // A session runs on its owner's credentials whoever sends the turn, so the
     // account must belong to the owner — collaborators pick from that same pool
     // and can never attach their own.
-    let stickyProviderAccountId = await assertProviderAccountUsableBy(
+    const stickyProviderAccountId = await resolveTurnProviderAccount(
       ctx.db,
-      args.providerAccountId,
       credentialOwnerUserId,
+      args.model,
+      args.providerAccountId,
     );
-    // If the chosen account no longer matches the model provider, fall back
-    // to the owner's default for that provider (or Team). Explicit Team
-    // (undefined) stays Team.
-    if (stickyProviderAccountId) {
-      const account = await ctx.db.get(stickyProviderAccountId);
-      if (!account || account.provider !== getAIModelProvider(args.model)) {
-        stickyProviderAccountId = await resolveDefaultProviderAccountId(
-          ctx.db,
-          credentialOwnerUserId,
-          args.model,
-        );
-      }
-    }
 
     // Wipe any stale streaming row before staging the placeholder. The daemon
     // sends its final reconcile heartbeat BEFORE the completion mutation (see
@@ -120,6 +103,17 @@ export const startExecute = authMutation({
     // it. The workflow still starts below (for cold-resume, completion,
     // post-turn push/save, and cancellation); it simply no longer pushes the
     // prompt (see sessionExecuteWorkflow), so the turn is never double-executed.
+    const handoff = await detectModelHandoff(ctx, args.sessionId, args.model);
+    if (handoff.kind === "handoff") {
+      await ctx.db.insert("messages", {
+        parentId: args.sessionId,
+        role: "assistant",
+        content: handoff.alertContent,
+        timestamp: Date.now(),
+        isSystemAlert: true,
+      });
+    }
+
     await ctx.db.insert("messages", {
       parentId: args.sessionId,
       role: "assistant",
@@ -136,6 +130,7 @@ export const startExecute = authMutation({
       user,
       message: args.message,
       mode: args.mode,
+      model: args.model,
       personaId: args.personaId,
       numDesigns: args.numDesigns,
     });
@@ -302,8 +297,6 @@ export const enqueueMessage = authMutation({
     if (!session) throw new Error("Session not found");
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
-
-    assertModelMatchesLockedProvider(session.provider, args.model);
 
     await notifyChatMentions(ctx, {
       content: displayContent || content,

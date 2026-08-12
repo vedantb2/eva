@@ -36,6 +36,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { finalizeCancelledAssistantMessage } from "../streaming";
 import { backgroundAgentEntryValidator } from "../_validators/tableFields";
 import { mergeBackgroundAgents } from "./backgroundAgents";
+import { prependModelHandoffContext } from "../_shared/modelHandoff";
 
 // --- Completion event ---
 
@@ -133,6 +134,7 @@ export async function buildSessionPrompt(
     repo: Doc<"githubRepos">;
     user: Doc<"users"> | null;
     message: string;
+    model: string;
     mode: SessionPromptMode;
     personaId?: Id<"designPersonas">;
     numDesigns?: number;
@@ -227,6 +229,12 @@ export async function buildSessionPrompt(
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;
   }
+  prompt = await prependModelHandoffContext(
+    ctx,
+    session._id,
+    args.model,
+    prompt,
+  );
   return { prompt, branchName };
 }
 
@@ -285,8 +293,8 @@ export const sessionExecuteWorkflow = workflow.define({
     const data = await step.runQuery(internal.sessionWorkflow.getSessionData, {
       sessionId: args.sessionId,
       message: args.message,
-      mode: args.mode,
       model: args.model,
+      mode: args.mode,
       userId: args.userId,
       personaId: args.personaId,
       numDesigns: args.numDesigns,
@@ -472,6 +480,7 @@ export const sessionExecuteWorkflow = workflow.define({
       result: result.result,
       error: result.error,
       activityLog: result.activityLog,
+      model: args.model,
       planContent,
       pendingQuestion: result.pendingQuestion,
     });
@@ -558,7 +567,6 @@ export const sessionExecuteWorkflow = workflow.define({
         }
       }
     }
-
   },
 });
 
@@ -751,6 +759,7 @@ export const getSessionData = internalQuery({
       repo,
       user,
       message: args.message,
+      model: args.model,
       mode: args.mode,
       personaId: args.personaId,
       numDesigns: args.numDesigns,
@@ -817,6 +826,7 @@ export const saveResult = internalMutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    model: v.optional(aiModelValidator),
     planContent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
   },
@@ -862,6 +872,7 @@ export const saveResult = internalMutation({
       activityLog?: string;
       finishedAt?: number;
       pendingQuestion?: string;
+      model?: Doc<"messages">["model"];
       isSystemAlert?: boolean;
       errorDetail?: string;
       variations?: Array<{
@@ -896,6 +907,9 @@ export const saveResult = internalMutation({
     }
     if (args.activityLog) {
       patch.activityLog = args.activityLog;
+    }
+    if (args.success && args.model !== undefined) {
+      patch.model = normalizeAIModel(args.model);
     }
     if (args.pendingQuestion) {
       patch.pendingQuestion = args.pendingQuestion;
@@ -1209,6 +1223,7 @@ export const restageOpenTurn = internalMutation({
       repo,
       user,
       message: lastUser.content,
+      model: session.lastModel ?? lastUser.model ?? "claude:sonnet",
       mode,
       personaId: lastUser.personaId,
     });

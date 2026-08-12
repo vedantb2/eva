@@ -13,6 +13,8 @@ import {
 } from "../_chat/surfaceAdapters";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
+import { detectModelHandoff } from "../_shared/modelHandoff";
+import { resolveTurnProviderAccount } from "../_userProviderAccounts/defaults";
 
 const QUEUE_RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
@@ -122,6 +124,20 @@ async function startNextQueuedChatMessage<
 
   const now = Date.now();
   await config.insertUserMessage(ctx, id, entity, nextMessage, guard.data, now);
+  const handoff = await detectModelHandoff(
+    ctx,
+    id,
+    nextMessage.model ?? DEFAULT_AI_MODEL,
+  );
+  if (handoff.kind === "handoff") {
+    await ctx.db.insert("messages", {
+      parentId: id,
+      role: "assistant",
+      content: handoff.alertContent,
+      timestamp: Date.now(),
+      isSystemAlert: true,
+    });
+  }
 
   try {
     const workflowId = await config.startWorkflow(
@@ -145,6 +161,7 @@ type SessionQueuePrepared = {
   repo: Doc<"githubRepos">;
   mode: NonNullable<Doc<"queuedMessages">["mode"]>;
   model: NonNullable<Doc<"queuedMessages">["model"]>;
+  providerAccountId: Id<"userProviderAccounts"> | undefined;
 };
 
 const sessionQueueConfig: ChatQueueConfig<
@@ -166,7 +183,16 @@ const sessionQueueConfig: ChatQueueConfig<
         error: "Error: Repository not found for queued message.",
       };
     }
-    return { ok: true, data: { repo, mode: next.mode, model: next.model } };
+    const providerAccountId = await resolveTurnProviderAccount(
+      ctx.db,
+      session.createdBy ?? session.userId,
+      next.model,
+      next.providerAccountId,
+    );
+    return {
+      ok: true,
+      data: { repo, mode: next.mode, model: next.model, providerAccountId },
+    };
   },
   insertUserMessage: async (ctx, id, session, next, prepared, now) => {
     await ctx.db.insert("messages", {
@@ -180,7 +206,7 @@ const sessionQueueConfig: ChatQueueConfig<
       personaId: next.personaId,
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
-        session.providerAccountId,
+        prepared.providerAccountId,
         session.createdBy ?? session.userId,
       ),
       model: prepared.model,
@@ -197,7 +223,7 @@ const sessionQueueConfig: ChatQueueConfig<
       thinkingEnabled: next.thinkingEnabled,
       use1mContext: next.use1mContext,
       fastMode: next.fastMode,
-      providerAccountId: session.providerAccountId,
+      providerAccountId: prepared.providerAccountId,
       credentialOwnerUserId: session.createdBy ?? session.userId,
       personaId: next.personaId,
       numDesigns: next.numDesigns,
@@ -223,13 +249,23 @@ const sessionQueueConfig: ChatQueueConfig<
 const projectChatQueueConfig: ChatQueueConfig<
   Id<"projects">,
   Doc<"projects">,
-  undefined
+  { providerAccountId: Id<"userProviderAccounts"> | undefined }
 > = {
   getEntity: (ctx, id) => ctx.db.get(id),
   hasActiveWorkflow: (project) => project.activeChatWorkflowId !== undefined,
   streamingEntityId: (id) => `${PROJECT_CHAT_STREAM_PREFIX}${String(id)}`,
-  prepareGuard: async () => ({ ok: true, data: undefined }),
-  insertUserMessage: async (ctx, id, project, next, _prepared, now) => {
+  prepareGuard: async (ctx, project, next) => ({
+    ok: true,
+    data: {
+      providerAccountId: await resolveTurnProviderAccount(
+        ctx.db,
+        project.userId,
+        next.model,
+        next.providerAccountId,
+      ),
+    },
+  }),
+  insertUserMessage: async (ctx, id, project, next, prepared, now) => {
     await ctx.db.insert("messages", {
       parentId: id,
       role: "user",
@@ -239,14 +275,14 @@ const projectChatQueueConfig: ChatQueueConfig<
       attachmentStorageIds: next.attachmentStorageIds,
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
-        project.providerAccountId,
+        prepared.providerAccountId,
         project.userId,
       ),
       model: next.model,
       reasoningLevel: next.reasoningLevel,
     });
   },
-  startWorkflow: (ctx, id, project, next) =>
+  startWorkflow: (ctx, id, project, next, prepared) =>
     workflow.start(
       ctx,
       internal.projectChatWorkflow.projectChatExecuteWorkflow,
@@ -258,7 +294,7 @@ const projectChatQueueConfig: ChatQueueConfig<
         thinkingEnabled: next.thinkingEnabled,
         use1mContext: next.use1mContext,
         fastMode: next.fastMode,
-        providerAccountId: project.providerAccountId,
+        providerAccountId: prepared.providerAccountId,
         credentialOwnerUserId: project.userId,
         userId: next.userId,
       },
@@ -282,13 +318,23 @@ const projectChatQueueConfig: ChatQueueConfig<
 const taskChatQueueConfig: ChatQueueConfig<
   Id<"agentTasks">,
   Doc<"agentTasks">,
-  undefined
+  { providerAccountId: Id<"userProviderAccounts"> | undefined }
 > = {
   getEntity: (ctx, id) => ctx.db.get(id),
   hasActiveWorkflow: (task) => task.activeChatWorkflowId !== undefined,
   streamingEntityId: (id) => `${TASK_CHAT_STREAM_PREFIX}${String(id)}`,
-  prepareGuard: async () => ({ ok: true, data: undefined }),
-  insertUserMessage: async (ctx, id, task, next, _prepared, now) => {
+  prepareGuard: async (ctx, task, next) => ({
+    ok: true,
+    data: {
+      providerAccountId: await resolveTurnProviderAccount(
+        ctx.db,
+        task.createdBy,
+        next.model,
+        next.providerAccountId,
+      ),
+    },
+  }),
+  insertUserMessage: async (ctx, id, task, next, prepared, now) => {
     await ctx.db.insert("messages", {
       parentId: id,
       role: "user",
@@ -298,14 +344,14 @@ const taskChatQueueConfig: ChatQueueConfig<
       attachmentStorageIds: next.attachmentStorageIds,
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
-        task.providerAccountId,
+        prepared.providerAccountId,
         task.createdBy,
       ),
       model: next.model,
       reasoningLevel: next.reasoningLevel,
     });
   },
-  startWorkflow: (ctx, id, task, next) =>
+  startWorkflow: (ctx, id, task, next, prepared) =>
     workflow.start(
       ctx,
       internal.agentTaskChatWorkflow.agentTaskChatExecuteWorkflow,
@@ -317,7 +363,7 @@ const taskChatQueueConfig: ChatQueueConfig<
         thinkingEnabled: next.thinkingEnabled,
         use1mContext: next.use1mContext,
         fastMode: next.fastMode,
-        providerAccountId: task.providerAccountId,
+        providerAccountId: prepared.providerAccountId,
         credentialOwnerUserId: task.createdBy,
         userId: next.userId,
       },

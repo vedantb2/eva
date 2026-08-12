@@ -70,6 +70,31 @@ export async function reconcileProviderAccountForModel(
   return await resolveDefaultProviderAccountId(db, ownerUserId, model);
 }
 
+/**
+ * Resolves the account snapshotted on a concrete turn. Team stays Team; a
+ * personal account that belongs to another provider falls back to the owner's
+ * default account for the selected model provider.
+ */
+export async function resolveTurnProviderAccount(
+  db: GenericDatabaseReader<DataModel>,
+  ownerUserId: Id<"users">,
+  model: string | undefined,
+  requestedAccountId: Id<"userProviderAccounts"> | undefined,
+): Promise<Id<"userProviderAccounts"> | undefined> {
+  const accountId = await assertProviderAccountUsableBy(
+    db,
+    requestedAccountId,
+    ownerUserId,
+  );
+  if (accountId === undefined) return undefined;
+  return await reconcileProviderAccountForModel(
+    db,
+    ownerUserId,
+    model,
+    accountId,
+  );
+}
+
 /** Display name for credential badges: first name, then full name. */
 export async function resolveUserDisplayFirstName(
   db: GenericDatabaseReader<DataModel>,

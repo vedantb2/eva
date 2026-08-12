@@ -93,6 +93,8 @@ interface ChatMessageProps {
   isOtherUser?: boolean;
   /** First name shown above teammate bubbles. */
   senderFirstName?: string;
+  /** This user turn switches to a different model provider. */
+  isHandoffBoundary?: boolean;
   /**
    * Preceding user turn's model snapshot — shown under the assistant reply
    * (model lives on the user message at send/dequeue time).
@@ -126,6 +128,7 @@ export const ChatMessage = memo(function ChatMessage({
   onChangedFilesExpandedChange,
   isOtherUser = false,
   senderFirstName,
+  isHandoffBoundary = false,
   turnModel,
   turnReasoningLevel,
   turnCredentialSourceLabel,
@@ -233,6 +236,9 @@ export const ChatMessage = memo(function ChatMessage({
                   />
                 </MessageContent>
               </div>
+              {isHandoffBoundary && message.model !== undefined ? (
+                <HandoffModelChip model={message.model} />
+              ) : null}
               <UserMessageMeta
                 align={isOtherUser ? "start" : "end"}
                 copyPlain={copyPlain}
@@ -368,6 +374,16 @@ export const ChatMessage = memo(function ChatMessage({
     </ChatMessageContextMenu>
   );
 });
+
+function HandoffModelChip({ model }: { model: string }) {
+  const option = findAIModelOption(model);
+  return (
+    <span className="inline-flex items-center gap-1 rounded-surface bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+      <ProviderIcon provider={option.provider} size={10} />
+      {formatModelDisplayLabel(option.provider, option.label)}
+    </span>
+  );
+}
 
 function UserMessageBody({
   message,

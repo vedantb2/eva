@@ -10,7 +10,6 @@ import {
 import { allocateNumId } from "../numId";
 import {
   aiModelValidator,
-  assertModelMatchesLockedProvider,
   getAIModelProvider,
   reasoningLevelValidator,
   roleValidator,
@@ -22,7 +21,9 @@ import { resolveSessionBaseBranch } from "./baseBranch";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 import {
   assertProviderAccountUsableBy,
+  reconcileProviderAccountForModel,
   resolveDefaultProviderAccountId,
+  resolveTurnProviderAccount,
 } from "../_userProviderAccounts/defaults";
 import { schedulePrTitleSync } from "../_github/prTitleSync";
 import { DEFAULT_SESSION_TITLE } from "./helpers";
@@ -99,7 +100,7 @@ export const create = authMutation({
       numId,
       baseBranch,
       providerAccountId,
-      // Pins the session to this provider for its whole life.
+      // Creation-provider snapshot retained for existing reporting/history.
       provider: getAIModelProvider(model),
       lastModel: model,
       ...(args.mode !== undefined ? { lastMode: args.mode } : {}),
@@ -192,13 +193,21 @@ export const addMessage = authMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const session = await getSessionWithAccess(ctx.db, args.id, ctx.userId);
+    const ownerUserId = session.createdBy ?? session.userId;
+    const turnAccountId =
+      args.role === "user"
+        ? await resolveTurnProviderAccount(
+            ctx.db,
+            ownerUserId,
+            args.model ?? session.lastModel,
+            args.model !== undefined
+              ? args.providerAccountId
+              : session.providerAccountId,
+          )
+        : undefined;
     const credentialSourceLabel =
       args.role === "user"
-        ? await resolveCredentialSourceLabel(
-            ctx.db,
-            args.providerAccountId ?? session.providerAccountId,
-            session.createdBy ?? session.userId,
-          )
+        ? await resolveCredentialSourceLabel(ctx.db, turnAccountId, ownerUserId)
         : undefined;
     await ctx.db.insert("messages", {
       parentId: args.id,
@@ -229,8 +238,8 @@ export const addMessage = authMutation({
  * source of truth for the picker, so this is called directly on change (with a
  * client-side optimistic update) rather than only when a message is sent. Does
  * not touch `updatedAt` — changing the model is not conversation activity and
- * must not reorder the session list. The model must stay on the session's
- * pinned provider.
+ * must not reorder the session list. Cross-provider picks also reconcile the
+ * owner's sticky account to the selected provider.
  */
 export const setModel = authMutation({
   args: {
@@ -243,8 +252,14 @@ export const setModel = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
-    assertModelMatchesLockedProvider(session.provider, args.model);
-    await ctx.db.patch(args.id, { lastModel: args.model });
+    const ownerUserId = session.createdBy ?? session.userId;
+    const providerAccountId = await reconcileProviderAccountForModel(
+      ctx.db,
+      ownerUserId,
+      args.model,
+      session.providerAccountId,
+    );
+    await ctx.db.patch(args.id, { lastModel: args.model, providerAccountId });
     return null;
   },
 });

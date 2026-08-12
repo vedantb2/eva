@@ -148,30 +148,30 @@ export function useSessionSend({
       return;
     }
     const accountId = resolveAccountId(providerAccountId);
-    void Promise.all([
-      addMessage({
-        id: sessionId,
-        role: "user",
-        content: finalContent,
-        mode,
-        attachmentStorageIds,
-        providerAccountId: accountId,
-        model,
-        reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
-        ...designArgs,
-      }),
-      startExecution({
-        sessionId,
-        message: finalContent,
-        mode,
-        model,
-        ...executionTraits,
-        reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
-        providerAccountId: accountId,
-        attachmentStorageIds,
-        ...designArgs,
-      }),
-    ])
+    void addMessage({
+      id: sessionId,
+      role: "user",
+      content: finalContent,
+      mode,
+      attachmentStorageIds,
+      providerAccountId: accountId,
+      model,
+      reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
+      ...designArgs,
+    })
+      .then(() =>
+        startExecution({
+          sessionId,
+          message: finalContent,
+          mode,
+          model,
+          ...executionTraits,
+          reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
+          providerAccountId: accountId,
+          attachmentStorageIds,
+          ...designArgs,
+        }),
+      )
       .catch(async (error) => {
         const errorMessage =
           error instanceof Error ? error.message : "Failed to send message";

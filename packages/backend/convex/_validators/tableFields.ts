@@ -334,10 +334,8 @@ export const sessionFields = {
   // has no per-message context — still injects the right account. Absent = team
   // credential. Set by startExecute from the composer's picker.
   providerAccountId: v.optional(v.id("userProviderAccounts")),
-  // The AI provider this session is pinned to, taken from the model chosen at
-  // creation. The composer only offers this provider's models and every model
-  // write asserts against it — see `assertModelMatchesLockedProvider`. Absent
-  // on sessions created before the lock; those keep the old free choice.
+  // Legacy snapshot of the provider chosen at session creation. Retained for
+  // existing documents; turns may now hand off to another provider.
   provider: v.optional(aiProviderValidator),
   // Last model the user sent on this session. Page-open prewarm uses this so
   // the warm daemon matches the composer's picker instead of defaulting to sonnet.
@@ -656,8 +654,8 @@ export const messageFields = {
   // Snapshot of which credential powered this chat turn ("Team" or the
   // account label). Set on user messages at send/dequeue time.
   credentialSourceLabel: v.optional(v.string()),
-  // Model + effort chosen in the composer for this user turn. Snapshotted at
-  // send/dequeue so the chat can show a provider icon + tooltip later.
+  // User rows snapshot the composer selection. Successfully completed assistant
+  // rows snapshot the provider checkpoint used for cross-provider catch-up.
   model: v.optional(aiModelValidator),
   reasoningLevel: v.optional(reasoningLevelValidator),
 };

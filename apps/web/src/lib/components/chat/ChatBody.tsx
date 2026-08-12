@@ -27,6 +27,7 @@ import {
   buildMessageHistory,
   findLastUserMessageIndex,
   findLastAssistantMessageId,
+  findHandoffBoundaryIds,
   findPrecedingUserTurn,
   firstNameFromUser,
   isOtherUserChatMessage,
@@ -256,6 +257,7 @@ export function ChatBody({
   const lastUserMessageIndex = findLastUserMessageIndex(messages);
 
   const jumpRailMessages = buildJumpRailTicks(messages);
+  const handoffBoundaryIds = findHandoffBoundaryIds(messages);
 
   const currentUserId = useQuery(api.auth.me);
   const users = useQuery(api.users.listAll);
@@ -298,6 +300,7 @@ export function ChatBody({
         onChangedFilesExpandedChange={setMessageExpanded}
         isOtherUser={isOtherUser}
         senderFirstName={senderFirstName}
+        isHandoffBoundary={handoffBoundaryIds.has(message._id)}
         turnModel={precedingUser?.model}
         turnReasoningLevel={precedingUser?.reasoningLevel}
         turnCredentialSourceLabel={precedingUser?.credentialSourceLabel}

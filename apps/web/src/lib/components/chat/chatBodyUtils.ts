@@ -1,4 +1,4 @@
-import { type Doc, type Id } from "@eva/backend";
+import { getAIModelProvider, type Doc, type Id } from "@eva/backend";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import { stripReviewCommentBlocks } from "@/lib/reviewComments";
@@ -17,6 +17,37 @@ export type ChatBodyMessage = Doc<"messages"> & {
     contentType: string | null;
   }[];
 };
+
+/** User rows whose provider differs from the preceding known user provider. */
+export function findHandoffBoundaryIds(
+  messages: ReadonlyArray<{
+    _id: string;
+    content: string;
+    isSystemAlert?: boolean;
+    model?: ChatBodyMessage["model"];
+    role: ChatBodyMessage["role"];
+  }>,
+): Set<string> {
+  const boundaries = new Set<string>();
+  let previousProvider: string | undefined;
+  let sawEarlierConversation = false;
+
+  for (const message of messages) {
+    if (message.isSystemAlert) continue;
+    if (message.role === "user" && message.model !== undefined) {
+      const provider = getAIModelProvider(message.model);
+      if (
+        (previousProvider !== undefined && previousProvider !== provider) ||
+        (previousProvider === undefined && sawEarlierConversation)
+      ) {
+        boundaries.add(message._id);
+      }
+      previousProvider = provider;
+    }
+    if (message.content.trim().length > 0) sawEarlierConversation = true;
+  }
+  return boundaries;
+}
 
 export type ChatBodyQueuedMessage = Doc<"queuedMessages">;
 

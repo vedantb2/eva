@@ -37,6 +37,11 @@ import { notifyChatMentions } from "./_mentions/notifyChatMentions";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 import type { Doc, Id } from "./_generated/dataModel";
 import { PROJECT_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
+import {
+  detectModelHandoff,
+  prependModelHandoffContext,
+} from "./_shared/modelHandoff";
+import { resolveTurnProviderAccount } from "./_userProviderAccounts/defaults";
 
 async function finalizeOpenSyntheticTurnOnCancel(
   ctx: MutationCtx,
@@ -57,6 +62,7 @@ async function buildProjectChatTurnPrompt(
   args: {
     projectId: Id<"projects">;
     message: string;
+    model: string;
     userId: Id<"users">;
   },
 ): Promise<{
@@ -109,6 +115,12 @@ async function buildProjectChatTurnPrompt(
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;
   }
+  prompt = await prependModelHandoffContext(
+    ctx,
+    args.projectId,
+    args.model,
+    prompt,
+  );
 
   return {
     prompt,
@@ -151,6 +163,17 @@ export const addMessage = authMutation({
       throw new Error("Not authorized");
     }
     const role = args.role ?? "user";
+    const turnAccountId =
+      role === "user"
+        ? await resolveTurnProviderAccount(
+            ctx.db,
+            project.userId,
+            args.model ?? project.lastChatModel ?? project.model,
+            args.model !== undefined
+              ? args.providerAccountId
+              : project.providerAccountId,
+          )
+        : undefined;
     await ctx.db.insert("messages", {
       parentId: args.projectId,
       role,
@@ -162,7 +185,7 @@ export const addMessage = authMutation({
         ? {
             credentialSourceLabel: await resolveCredentialSourceLabel(
               ctx.db,
-              project.providerAccountId,
+              turnAccountId,
               project.userId,
             ),
             model: args.model,
@@ -195,13 +218,29 @@ export const startExecute = authMutation({
       throw new Error("Not authorized");
     }
 
-    void args.providerAccountId;
+    const turnAccountId = await resolveTurnProviderAccount(
+      ctx.db,
+      project.userId,
+      args.model,
+      args.providerAccountId,
+    );
 
     await notifyChatMentions(ctx, {
       content: args.message,
       authorUserId: ctx.userId,
       surface: { kind: "project", project },
     });
+
+    const handoff = await detectModelHandoff(ctx, args.projectId, args.model);
+    if (handoff.kind === "handoff") {
+      await ctx.db.insert("messages", {
+        parentId: args.projectId,
+        role: "assistant",
+        content: handoff.alertContent,
+        timestamp: Date.now(),
+        isSystemAlert: true,
+      });
+    }
 
     await ctx.db.insert("messages", {
       parentId: args.projectId,
@@ -216,6 +255,7 @@ export const startExecute = authMutation({
       {
         projectId: args.projectId,
         message: args.message,
+        model: args.model,
         userId: ctx.userId,
       },
     );
@@ -234,6 +274,7 @@ export const startExecute = authMutation({
           }
         : { pendingTurn: undefined }),
       lastChatModel: normalizedModel,
+      providerAccountId: turnAccountId,
       ...(args.reasoningLevel !== undefined
         ? { lastReasoningLevel: args.reasoningLevel }
         : {}),
@@ -263,7 +304,7 @@ export const startExecute = authMutation({
         use1mContext: args.use1mContext,
         fastMode: args.fastMode,
         allowedTools: CHAT_ALLOWED_TOOLS,
-        providerAccountId: project.providerAccountId,
+        providerAccountId: turnAccountId,
         credentialOwnerUserId: project.userId,
         sessionPersistenceId: args.projectId,
         activeWorkflowField: "activeChatWorkflowId",
@@ -283,7 +324,7 @@ export const startExecute = authMutation({
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
         fastMode: args.fastMode,
-        providerAccountId: project.providerAccountId,
+        providerAccountId: turnAccountId,
         credentialOwnerUserId: project.userId,
         userId: ctx.userId,
       },
@@ -336,7 +377,7 @@ export const enqueueMessage = authMutation({
       thinkingEnabled: args.thinkingEnabled,
       use1mContext: args.use1mContext,
       fastMode: args.fastMode,
-      providerAccountId: project.providerAccountId,
+      providerAccountId: args.providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.patch(args.projectId, {
@@ -646,6 +687,7 @@ export const projectChatExecuteWorkflow = workflow.define({
       result: result.result,
       error: savedError,
       activityLog: result.activityLog,
+      model: args.model,
       pendingQuestion: result.pendingQuestion,
     });
   },
@@ -721,6 +763,7 @@ export const getChatData = internalQuery({
       {
         projectId: args.projectId,
         message: args.message,
+        model: args.model,
         userId: args.userId,
       },
     );
@@ -752,6 +795,7 @@ export const saveResult = internalMutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    model: v.optional(aiModelValidator),
     pendingQuestion: v.optional(v.string()),
   },
   returns: v.null(),
@@ -773,6 +817,7 @@ export const saveResult = internalMutation({
         activityLog?: string;
         finishedAt: number;
         pendingQuestion?: string;
+        model?: Doc<"messages">["model"];
       } = {
         content: args.success
           ? args.result || "I couldn't process your message."
@@ -781,6 +826,9 @@ export const saveResult = internalMutation({
       };
       if (args.activityLog) patch.activityLog = args.activityLog;
       if (args.pendingQuestion) patch.pendingQuestion = args.pendingQuestion;
+      if (args.success && args.model !== undefined) {
+        patch.model = normalizeAIModel(args.model);
+      }
       await ctx.db.patch(last._id, patch);
     }
 

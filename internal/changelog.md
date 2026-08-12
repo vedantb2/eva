@@ -1,5 +1,13 @@
 # Changelog
 
+## Chat models can hand off without losing conversation context - 2026-08-12
+
+Chat sessions, quick tasks, and projects were pinned to the provider selected at creation because each provider daemon keeps an independent native session. Changing from Claude to Codex, Cursor, or OpenCode therefore either failed validation or started a provider that had never seen the intervening conversation. Provider-account selection could also retain an account belonging to the previous provider.
+
+Turns can now select any visible model. A provider change inserts a visible handoff marker and prepends only the conversation unseen by the incoming provider, using successful assistant turns as provider checkpoints. The transcript is escaped, bounded, and conservative for failed or historical unstamped turns, while model changes within one provider keep the native session untouched. The selected owner account is reconciled to the turn's provider across direct and queued session, task, and project paths.
+
+Successful assistant rows now store the model that consumed the turn. User rows remain immutable composer snapshots, so handoff detection and the UI boundary chip derive from message history instead of mutable session defaults.
+
 ## Component data survives a sync to a local backend - 2026-08-12
 
 `sync:prod-to-local` imported the snapshot zip whole, and a zip that holds component tables cannot be imported that way. The import failed with "New table `X` in '\<component\>' has IDs that conflict with existing system table", because the CLI addresses a component namespace by name through `--component`, not by the `_components/` directories inside the zip. Every namespace also numbers its user tables from 10001, so a single whole-zip import puts two namespaces on the same numbers.
@@ -158,7 +166,7 @@ Also on that header: the head ref chip no longer truncates at `max-w-56` while t
 
 ## Persistent review header, checks pill, and a button for merge conflicts - 2026-08-11
 
-Everything that says what a pull request *is* lived inside the Overview tab: lifecycle pill, author, a prose sentence ("X wants to merge 3 commits into main from eva/foo"), and — at the foot of a long scroll — the merge box with CI and mergeability. From Diffs or Recap there was no way to tell a mergeable pull request from a conflicted one, and the sentence wrapped to three lines in a session pane.
+Everything that says what a pull request _is_ lived inside the Overview tab: lifecycle pill, author, a prose sentence ("X wants to merge 3 commits into main from eva/foo"), and — at the foot of a long scroll — the merge box with CI and mergeability. From Diffs or Recap there was no way to tell a mergeable pull request from a conflicted one, and the sentence wrapped to three lines in a session pane.
 
 `ReviewTabsPanel` now reads `usePrOverview` itself and renders a shared `ReviewHeader` above the tab row, so both review surfaces (`/reviews/$prNumber`, sandbox Review tab) get one header from one query: status pill, author and last-updated, `base ← head` as monospace chips, commits/files/±diffstat, and a blocker badge. The prose sentence and `PrOverviewHeader` are deleted; `ReviewOverviewPanel` takes the payload as props instead of fetching a second time, and the standalone page's title block became the header's first row (`headerOwnsRefresh` still keeps Refresh to one control).
 
@@ -191,11 +199,13 @@ Tailwind v4’s preflight switched buttons to `cursor: default` (browser UA). In
 OpenAI shipped GPT-5.6 coding tiers (Sol / Terra / Luna) while Eva’s Codex picker still only offered GPT-5.5. Added `codex:gpt-5.6-sol`, `codex:gpt-5.6-terra`, and `codex:gpt-5.6-luna` (CLI slugs `gpt-5.6-*`), kept GPT-5.5, aliased bare `codex:gpt-5.6` → Sol, exposed `max` reasoning for 5.6, and updated Codex token pricing.
 
 ## One sandbox owner contract for sessions, tasks, and projects - 2026-08-10
+
 ## Mouse wheel dead-zones from blanket overscroll contain - 2026-08-08
 
 Putting `overscroll-behavior: contain` on `@utility scrollbar` made every `overflow:auto` pane a contain target, including ones with no overflow and horizontal boards with `overflow-y-hidden`. Chrome treats those as scroll containers at their boundary, so the wheel was swallowed while dragging the ancestor scrollbar still worked. Removed contain from the utility; restored `overscroll-y-contain` / `overscroll-contain` on the kanban column and mention picker that had opted in before.
 
 ## Anonymous landing no longer waits for Clerk - 2026-08-08
+
 ## Anonymous landing no longer waits for Clerk - 2026-08-08
 
 Boot held first paint on Clerk's `isLoaded` for everyone. For a returning signed-in user that is correct — protected routes need the restored session and the alternative is a landing-page flash. For an anonymous visitor it means a blank screen while ~210 kB of clerk-js downloads from Clerk's CDN and completes a handshake, to restore a session that does not exist. Measured on production: clerk-js is 30% of the 700 kB cold landing payload, and FCP (~500 ms) was gated on it.

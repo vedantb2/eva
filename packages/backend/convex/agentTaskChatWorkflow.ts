@@ -34,6 +34,11 @@ import { notifyChatMentions } from "./_mentions/notifyChatMentions";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 import type { Doc, Id } from "./_generated/dataModel";
 import { TASK_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
+import {
+  detectModelHandoff,
+  prependModelHandoffContext,
+} from "./_shared/modelHandoff";
+import { resolveTurnProviderAccount } from "./_userProviderAccounts/defaults";
 
 async function finalizeOpenSyntheticTurnOnCancel(
   ctx: MutationCtx,
@@ -59,6 +64,7 @@ async function buildTaskChatTurnPrompt(
   args: {
     taskId: Id<"agentTasks">;
     message: string;
+    model: string;
     userId: Id<"users">;
   },
 ): Promise<{
@@ -111,6 +117,12 @@ async function buildTaskChatTurnPrompt(
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;
   }
+  prompt = await prependModelHandoffContext(
+    ctx,
+    args.taskId,
+    args.model,
+    prompt,
+  );
 
   return {
     prompt,
@@ -151,6 +163,17 @@ export const addMessage = authMutation({
       throw new Error("Not authorized");
     }
     const role = args.role ?? "user";
+    const turnAccountId =
+      role === "user"
+        ? await resolveTurnProviderAccount(
+            ctx.db,
+            task.createdBy,
+            args.model ?? task.lastChatModel ?? task.model,
+            args.model !== undefined
+              ? args.providerAccountId
+              : task.providerAccountId,
+          )
+        : undefined;
     await ctx.db.insert("messages", {
       parentId: args.taskId,
       role,
@@ -162,7 +185,7 @@ export const addMessage = authMutation({
         ? {
             credentialSourceLabel: await resolveCredentialSourceLabel(
               ctx.db,
-              task.providerAccountId,
+              turnAccountId,
               task.createdBy,
             ),
             model: args.model,
@@ -198,15 +221,29 @@ export const startExecute = authMutation({
       throw new Error("Not authorized");
     }
 
-    // Owner-sticky: always bill the task owner's account, ignoring per-message
-    // picker overrides from collaborators (and from localStorage).
-    void args.providerAccountId;
+    const turnAccountId = await resolveTurnProviderAccount(
+      ctx.db,
+      task.createdBy,
+      args.model,
+      args.providerAccountId,
+    );
 
     await notifyChatMentions(ctx, {
       content: args.message,
       authorUserId: ctx.userId,
       surface: { kind: "task", task },
     });
+
+    const handoff = await detectModelHandoff(ctx, args.taskId, args.model);
+    if (handoff.kind === "handoff") {
+      await ctx.db.insert("messages", {
+        parentId: args.taskId,
+        role: "assistant",
+        content: handoff.alertContent,
+        timestamp: Date.now(),
+        isSystemAlert: true,
+      });
+    }
 
     await ctx.db.insert("messages", {
       parentId: args.taskId,
@@ -221,6 +258,7 @@ export const startExecute = authMutation({
       {
         taskId: args.taskId,
         message: args.message,
+        model: args.model,
         userId: ctx.userId,
       },
     );
@@ -239,6 +277,7 @@ export const startExecute = authMutation({
           }
         : { pendingTurn: undefined }),
       lastChatModel: normalizedModel,
+      providerAccountId: turnAccountId,
       ...(args.reasoningLevel !== undefined
         ? { lastReasoningLevel: args.reasoningLevel }
         : {}),
@@ -268,7 +307,7 @@ export const startExecute = authMutation({
         use1mContext: args.use1mContext,
         fastMode: args.fastMode,
         allowedTools: CHAT_ALLOWED_TOOLS,
-        providerAccountId: task.providerAccountId,
+        providerAccountId: turnAccountId,
         credentialOwnerUserId: task.createdBy,
         sessionPersistenceId: args.taskId,
         activeWorkflowField: "activeChatWorkflowId",
@@ -288,7 +327,7 @@ export const startExecute = authMutation({
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
         fastMode: args.fastMode,
-        providerAccountId: task.providerAccountId,
+        providerAccountId: turnAccountId,
         credentialOwnerUserId: task.createdBy,
         userId: ctx.userId,
       },
@@ -343,7 +382,7 @@ export const enqueueMessage = authMutation({
       thinkingEnabled: args.thinkingEnabled,
       use1mContext: args.use1mContext,
       fastMode: args.fastMode,
-      providerAccountId: task.providerAccountId,
+      providerAccountId: args.providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.patch(args.taskId, {
@@ -667,6 +706,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       result: result.result,
       error: savedError,
       activityLog: result.activityLog,
+      model: args.model,
       pendingQuestion: result.pendingQuestion,
     });
   },
@@ -743,6 +783,7 @@ export const getChatData = internalQuery({
       {
         taskId: args.taskId,
         message: args.message,
+        model: args.model,
         userId: args.userId,
       },
     );
@@ -772,6 +813,7 @@ export const saveResult = internalMutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    model: v.optional(aiModelValidator),
     pendingQuestion: v.optional(v.string()),
   },
   returns: v.null(),
@@ -793,6 +835,7 @@ export const saveResult = internalMutation({
         activityLog?: string;
         finishedAt: number;
         pendingQuestion?: string;
+        model?: Doc<"messages">["model"];
       } = {
         content: args.success
           ? args.result || "I couldn't process your message."
@@ -801,6 +844,9 @@ export const saveResult = internalMutation({
       };
       if (args.activityLog) patch.activityLog = args.activityLog;
       if (args.pendingQuestion) patch.pendingQuestion = args.pendingQuestion;
+      if (args.success && args.model !== undefined) {
+        patch.model = normalizeAIModel(args.model);
+      }
       await ctx.db.patch(last._id, patch);
     }
 

@@ -8,15 +8,21 @@ import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
 import {
   snapshotBuildStatusValidator,
-  snapshotBuildTriggerValidator,
-  snapshotBuildKindValidator,
   sandboxProviderKindValidator,
-  seededAppResultValidator,
   seededAppStatusValidator,
+  snapshotBuildFields,
 } from "../validators";
 import { authQuery, authMutation, getRepoWithAccess } from "../functions";
 import { workflow, cancelTrackedWorkflow } from "../workflowManager";
 import { sanitizeSeededApps } from "./sanitizeSeededApps";
+
+/** Full snapshot build doc as returned to the client (provider always resolved). */
+const snapshotBuildReturnValidator = v.object({
+  _id: v.id("snapshotBuilds"),
+  _creationTime: v.number(),
+  ...snapshotBuildFields,
+  provider: sandboxProviderKindValidator,
+});
 
 const STALE_BUILD_MS = 30 * 60 * 1000;
 const MAX_CRON_RETRIES = 2;
@@ -92,25 +98,7 @@ export const setBuildProvider = internalMutation({
 /** Lists the most recent 20 snapshot builds for a given snapshot config. */
 export const listBuilds = authQuery({
   args: { repoSnapshotId: v.id("repoSnapshots") },
-  returns: v.array(
-    v.object({
-      _id: v.id("snapshotBuilds"),
-      _creationTime: v.number(),
-      repoSnapshotId: v.id("repoSnapshots"),
-      status: snapshotBuildStatusValidator,
-      triggeredBy: snapshotBuildTriggerValidator,
-      kind: v.optional(snapshotBuildKindValidator),
-      provider: sandboxProviderKindValidator,
-      logs: v.string(),
-      error: v.optional(v.string()),
-      workflowRunId: v.optional(v.number()),
-      workflowId: v.optional(v.string()),
-      startedAt: v.number(),
-      completedAt: v.optional(v.number()),
-      retryCount: v.optional(v.number()),
-      seededApps: v.optional(v.array(seededAppResultValidator)),
-    }),
-  ),
+  returns: v.array(snapshotBuildReturnValidator),
   handler: async (ctx, args) => {
     const config = await ctx.db.get(args.repoSnapshotId);
     if (!config) throw new Error("Snapshot config not found");
@@ -132,26 +120,7 @@ export const listBuilds = authQuery({
 /** Retrieves a single snapshot build by ID. */
 export const getBuild = authQuery({
   args: { buildId: v.id("snapshotBuilds") },
-  returns: v.union(
-    v.object({
-      _id: v.id("snapshotBuilds"),
-      _creationTime: v.number(),
-      repoSnapshotId: v.id("repoSnapshots"),
-      status: snapshotBuildStatusValidator,
-      triggeredBy: snapshotBuildTriggerValidator,
-      kind: v.optional(snapshotBuildKindValidator),
-      provider: sandboxProviderKindValidator,
-      logs: v.string(),
-      error: v.optional(v.string()),
-      workflowRunId: v.optional(v.number()),
-      workflowId: v.optional(v.string()),
-      startedAt: v.number(),
-      completedAt: v.optional(v.number()),
-      retryCount: v.optional(v.number()),
-      seededApps: v.optional(v.array(seededAppResultValidator)),
-    }),
-    v.null(),
-  ),
+  returns: v.union(snapshotBuildReturnValidator, v.null()),
   handler: async (ctx, args) => {
     const build = await ctx.db.get(args.buildId);
     if (!build) {

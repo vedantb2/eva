@@ -22,8 +22,12 @@ import {
   roleValidator,
   runModeValidator,
   runStatusValidator,
+  sandboxProviderKindValidator,
   sessionModeValidator,
   sessionStatusValidator,
+  snapshotBuildKindValidator,
+  snapshotBuildStatusValidator,
+  snapshotBuildTriggerValidator,
   taskActivityFieldValidator,
   taskSandboxEventValidator,
   taskSandboxStatusValidator,
@@ -424,6 +428,29 @@ export const seededAppResultValidator = v.object({
   status: v.optional(seededAppStatusValidator),
   seededSnapshotName: v.union(v.string(), v.null()),
 });
+
+/** Fields for `snapshotBuilds` — schema and query returns share this. */
+export const snapshotBuildFields = {
+  repoSnapshotId: v.id("repoSnapshots"),
+  status: snapshotBuildStatusValidator,
+  triggeredBy: snapshotBuildTriggerValidator,
+  // "base" (image only) vs "seeded" (boots + seeds DB before capture).
+  // Optional: legacy rows predate this field and render without a type.
+  kind: v.optional(snapshotBuildKindValidator),
+  // Sandbox provider used for this build (set at workflow start).
+  provider: v.optional(sandboxProviderKindValidator),
+  logs: v.string(),
+  error: v.optional(v.string()),
+  workflowRunId: v.optional(v.number()),
+  // Workflow driving this build, so a cancel can stop the run rather than
+  // only relabelling the row. Optional: rows predating the field have none.
+  workflowId: v.optional(v.string()),
+  startedAt: v.number(),
+  completedAt: v.optional(v.number()),
+  retryCount: v.optional(v.number()),
+  // Per-app seeding outcomes captured during Step 5 of the build workflow.
+  seededApps: v.optional(v.array(seededAppResultValidator)),
+};
 
 export const githubRepoFields = {
   owner: v.string(),

@@ -4,11 +4,6 @@ import {
   activityLogTypeValidator,
   notificationTypeValidator,
   snapshotScheduleValidator,
-  snapshotBuildStatusValidator,
-  snapshotBuildTriggerValidator,
-  snapshotBuildKindValidator,
-  sandboxProviderKindValidator,
-  seededAppResultValidator,
   teamMemberRoleValidator,
   webhookEventStatusValidator,
   messageFields,
@@ -48,6 +43,7 @@ import {
   repoEntityCounterFields,
   appTabFields,
   backgroundProcessFields,
+  snapshotBuildFields,
 } from "./validators";
 
 const schema = defineSchema({
@@ -288,27 +284,7 @@ const schema = defineSchema({
     createdAt: v.number(),
     updatedAt: v.number(),
   }).index("by_repo", ["repoId"]),
-  snapshotBuilds: defineTable({
-    repoSnapshotId: v.id("repoSnapshots"),
-    status: snapshotBuildStatusValidator,
-    triggeredBy: snapshotBuildTriggerValidator,
-    // "base" (image only) vs "seeded" (boots + seeds DB before capture).
-    // Optional: legacy rows predate this field and render without a type.
-    kind: v.optional(snapshotBuildKindValidator),
-    // Sandbox provider used for this build (set at workflow start).
-    provider: v.optional(sandboxProviderKindValidator),
-    logs: v.string(),
-    error: v.optional(v.string()),
-    workflowRunId: v.optional(v.number()),
-    // Workflow driving this build, so a cancel can stop the run rather than
-    // only relabelling the row. Optional: rows predating the field have none.
-    workflowId: v.optional(v.string()),
-    startedAt: v.number(),
-    completedAt: v.optional(v.number()),
-    retryCount: v.optional(v.number()),
-    // Per-app seeding outcomes captured during Step 5 of the build workflow.
-    seededApps: v.optional(v.array(seededAppResultValidator)),
-  })
+  snapshotBuilds: defineTable(snapshotBuildFields)
     .index("by_repo_snapshot", ["repoSnapshotId"])
     .index("by_repo_snapshot_and_status", ["repoSnapshotId", "status"])
     .index("by_status", ["status"]),

@@ -1,5 +1,9 @@
 # Changelog
 
+## anti-slop Oxlint rules - 2026-08-12
+
+Copied [dmmulroy/anti-slop](https://github.com/dmmulroy/anti-slop) into `scripts/oxlint-plugin-anti-slop` and enabled all ten rules at error. Oxlint and `@oxlint/plugins` move to 1.77.0 (newest pair that meets the 7-day release-age gate; 1.78.0 is too new). Node 20 cannot load the plugin's `.ts` entry, so it is bundled to `index.mjs`. The vendored plugin directory is ignored so it does not lint itself.
+
 ## Snapshot seed GitHub tarball installs survive HTTP/2 drops - 2026-08-12
 
 A carepulse-ts web snapshot failed at toolchain install with `curl: (56) Connection died, tried 5 times` while fetching the GitHub CLI tarball. Plain `curl -fsSL` speaks HTTP/2, and GitHub Releases from a Vercel sandbox drops that stream; `--retry` does not cover error 56.

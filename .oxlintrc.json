@@ -2,7 +2,11 @@
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["eslint", "typescript", "react", "unicorn", "oxc", "import"],
   "jsPlugins": [
-    { "name": "eva", "specifier": "./scripts/oxlint-plugin-eva/index.mjs" }
+    { "name": "eva", "specifier": "./scripts/oxlint-plugin-eva/index.mjs" },
+    {
+      "name": "anti-slop",
+      "specifier": "./scripts/oxlint-plugin-anti-slop/index.mjs"
+    }
   ],
   "categories": {
     "correctness": "error",
@@ -13,6 +17,16 @@
     "react/rules-of-hooks": "error",
     "react/exhaustive-deps": "warn",
     "import/no-duplicates": "error",
+    "anti-slop/no-chained-type-assertions": "error",
+    "anti-slop/no-conditional-empty-object-spread": "error",
+    "anti-slop/no-known-value-widening": "error",
+    "anti-slop/no-object-parameters": "error",
+    "anti-slop/no-runtime-typeof": "error",
+    "anti-slop/no-shape-in-symbol-names": "error",
+    "anti-slop/no-unknown-parameters": "error",
+    "anti-slop/no-unknown-type-aliases": "error",
+    "anti-slop/no-unsafe-dictionary-type": "error",
+    "anti-slop/no-widen-then-assert": "error",
     "eva/no-is-record": "error",
     "eva/no-json-parse": "warn",
     "eva/no-double-cast": "warn",
@@ -70,6 +84,7 @@
     "**/.output/**",
     "**/.vite/**",
     "**/.wxt/**",
-    "video/**"
+    "video/**",
+    "scripts/oxlint-plugin-anti-slop/**"
   ]
 }

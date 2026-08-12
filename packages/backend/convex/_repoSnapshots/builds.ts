@@ -104,6 +104,7 @@ export const listBuilds = authQuery({
       logs: v.string(),
       error: v.optional(v.string()),
       workflowRunId: v.optional(v.number()),
+      workflowId: v.optional(v.string()),
       startedAt: v.number(),
       completedAt: v.optional(v.number()),
       retryCount: v.optional(v.number()),
@@ -143,6 +144,7 @@ export const getBuild = authQuery({
       logs: v.string(),
       error: v.optional(v.string()),
       workflowRunId: v.optional(v.number()),
+      workflowId: v.optional(v.string()),
       startedAt: v.number(),
       completedAt: v.optional(v.number()),
       retryCount: v.optional(v.number()),
@@ -486,42 +488,33 @@ export const completeBuild = internalMutation({
 });
 
 /**
- * Cancels the running build for a snapshot: stops the workflow (so the sandbox
- * work ends rather than continuing unwatched) and marks the row errored, which
- * also unblocks `triggerScheduledBuild` before the 30-minute stale window.
- *
- * Pass a buildId to target one build, or a repoSnapshotId to take whichever
- * build is currently running for it. Returns the cancelled build id, or null
- * when nothing was running.
+ * Cancels a running snapshot build: stops the workflow (so sandbox work ends
+ * rather than continuing unwatched) and marks the row errored, which also
+ * unblocks `startBuild` / `triggerScheduledBuild` before the stale window.
  */
-export const cancelBuild = internalMutation({
+export const cancelBuild = authMutation({
   args: {
-    buildId: v.optional(v.id("snapshotBuilds")),
-    repoSnapshotId: v.optional(v.id("repoSnapshots")),
-    reason: v.optional(v.string()),
+    buildId: v.id("snapshotBuilds"),
   },
-  returns: v.union(v.id("snapshotBuilds"), v.null()),
+  returns: v.null(),
   handler: async (ctx, args) => {
-    const snapshotId = args.repoSnapshotId;
-    let build: Doc<"snapshotBuilds"> | null = null;
-    if (args.buildId) {
-      build = await ctx.db.get(args.buildId);
-    } else if (snapshotId) {
-      build = await ctx.db
-        .query("snapshotBuilds")
-        .withIndex("by_repo_snapshot", (q) => q.eq("repoSnapshotId", snapshotId))
-        .order("desc")
-        .first();
+    const build = await ctx.db.get(args.buildId);
+    if (!build) throw new Error("Build not found");
+    const config = await ctx.db.get(build.repoSnapshotId);
+    if (!config) throw new Error("Snapshot config not found");
+    await getRepoWithAccess(ctx.db, config.repoId, ctx.userId);
+
+    if (build.status !== "running") {
+      throw new Error("Build is not running");
     }
-    if (!build || build.status !== "running") return null;
 
     await cancelTrackedWorkflow(ctx, build.workflowId);
     await ctx.db.patch(build._id, {
       status: "error",
-      error: args.reason ?? "Build cancelled",
+      error: "Cancelled by user",
       completedAt: Date.now(),
     });
-    return build._id;
+    return null;
   },
 });
 

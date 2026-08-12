@@ -27,6 +27,7 @@ export {
   startBuild,
   startBuildForRepo,
   completeBuild,
+  cancelBuild,
   appendLogs,
   recordSeededApp,
   setBuildProvider,

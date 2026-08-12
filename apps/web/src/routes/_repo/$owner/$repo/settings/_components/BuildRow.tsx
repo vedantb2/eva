@@ -1,10 +1,12 @@
 import type { Id } from "@eva/backend";
+import { Button, Spinner } from "@eva/ui";
 import {
   IconCheck,
   IconChevronDown,
   IconChevronRight,
   IconClock,
   IconLoader2,
+  IconPlayerStop,
   IconX,
 } from "@tabler/icons-react";
 
@@ -24,6 +26,8 @@ export function BuildRow({
   build,
   isExpanded,
   duration,
+  cancelling = false,
+  onCancel,
   onToggle,
 }: {
   build: {
@@ -40,6 +44,8 @@ export function BuildRow({
   };
   isExpanded: boolean;
   duration: string;
+  cancelling?: boolean;
+  onCancel?: () => void;
   onToggle: () => void;
 }) {
   return (
@@ -72,7 +78,28 @@ export function BuildRow({
           <BuildStatusBadge status={build.status} />
         </td>
         <td className="px-2 py-2 sm:px-4">
-          <SeededSummary seededApps={build.seededApps} />
+          <div className="flex items-center gap-2">
+            <SeededSummary seededApps={build.seededApps} />
+            {onCancel ? (
+              <Button
+                size="sm"
+                variant="destructive"
+                className="h-6 px-2 text-[10px]"
+                disabled={cancelling}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onCancel();
+                }}
+              >
+                {cancelling ? (
+                  <Spinner size="sm" className="mr-1" />
+                ) : (
+                  <IconPlayerStop size={12} className="mr-1" />
+                )}
+                Cancel
+              </Button>
+            ) : null}
+          </div>
         </td>
       </tr>
       {isExpanded && (

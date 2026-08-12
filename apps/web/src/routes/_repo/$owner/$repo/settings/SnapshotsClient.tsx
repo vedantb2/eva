@@ -35,6 +35,7 @@ import {
   IconCheck,
   IconFile,
   IconPlayerPlay,
+  IconPlayerStop,
   IconTrash,
   IconUpload,
 } from "@tabler/icons-react";
@@ -82,10 +83,12 @@ export function SnapshotsClient({
   const saveRepoSnapshot = useMutation(api.repoSnapshots.saveRepoSnapshot);
   const deleteRepoSnapshot = useMutation(api.repoSnapshots.deleteRepoSnapshot);
   const startBuild = useMutation(api.repoSnapshots.startBuild);
+  const cancelBuild = useMutation(api.repoSnapshots.cancelBuild);
   const setSnapshotEnabled = useMutation(api.repoSnapshots.setSnapshotEnabled);
 
   // UI-only state (not data)
   const [building, setBuilding] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [expandedBuild, setExpandedBuild] = useState<string | null>(null);
 
   // Derive values directly from Convex
@@ -161,6 +164,15 @@ export function SnapshotsClient({
       // Error already shown in UI via build status
     }
     setBuilding(false);
+  };
+
+  const handleCancelBuild = async (buildId: Id<"snapshotBuilds">) => {
+    setCancelling(true);
+    try {
+      await cancelBuild({ buildId });
+    } finally {
+      setCancelling(false);
+    }
   };
 
   const isRunning =
@@ -394,22 +406,39 @@ export function SnapshotsClient({
                     </>
                   )}
                 </div>
-                <Button
-                  size="sm"
-                  onClick={handleRebuild}
-                  disabled={building || isRunning || isSeeding}
-                >
-                  {building || isRunning || isSeeding ? (
-                    <Spinner size="sm" className="mr-1.5" />
-                  ) : (
-                    <IconPlayerPlay size={14} className="mr-1.5" />
-                  )}
-                  {building || isRunning
-                    ? "Building..."
-                    : isSeeding
-                      ? "Seeding..."
-                      : "Rebuild Now"}
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleRebuild}
+                    disabled={building || isRunning || isSeeding}
+                  >
+                    {building || isRunning || isSeeding ? (
+                      <Spinner size="sm" className="mr-1.5" />
+                    ) : (
+                      <IconPlayerPlay size={14} className="mr-1.5" />
+                    )}
+                    {building || isRunning
+                      ? "Building..."
+                      : isSeeding
+                        ? "Seeding..."
+                        : "Rebuild Now"}
+                  </Button>
+                  {isRunning && lastBuild ? (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      onClick={() => handleCancelBuild(lastBuild._id)}
+                      disabled={cancelling}
+                    >
+                      {cancelling ? (
+                        <Spinner size="sm" className="mr-1.5" />
+                      ) : (
+                        <IconPlayerStop size={14} className="mr-1.5" />
+                      )}
+                      Cancel Build
+                    </Button>
+                  ) : null}
+                </div>
                 <p className="text-xs leading-relaxed text-muted-foreground">
                   Always rebuilds the base Image below.
                   {hasSeedableApps
@@ -565,6 +594,12 @@ export function SnapshotsClient({
                           build={build}
                           isExpanded={isExpanded}
                           duration={duration}
+                          cancelling={cancelling}
+                          onCancel={
+                            build.status === "running"
+                              ? () => handleCancelBuild(build._id)
+                              : undefined
+                          }
                           onToggle={() =>
                             setExpandedBuild(isExpanded ? null : build._id)
                           }

@@ -1,5 +1,10 @@
 import { execSync } from "child_process";
 import { existsSync, readFileSync } from "fs";
+import type {
+  CanUseTool,
+  Options,
+  SDKUserMessage,
+} from "@anthropic-ai/claude-agent-sdk";
 import {
   ALLOWED_TOOLS,
   BLOCKING_QUESTIONS_ENABLED,
@@ -33,17 +38,6 @@ const SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 const SDK_VERSION = "0.3.201";
 const MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
 
-/**
- * The subset of the Agent SDK `query()` surface this runner uses. The SDK is
- * dynamically imported from the sandbox's global npm root (it is installed in
- * the seed snapshot alongside the Claude CLI), so these local types stand in for
- * the SDK's own — kept intentionally narrow.
- */
-type SdkQueryHandle = AsyncIterable<Record<string, JsonLike>> & {
-  interrupt?: () => Promise<void>;
-  stopTask?: (taskId: string) => Promise<void>;
-};
-
 export type JsonLike =
   | string
   | number
@@ -52,51 +46,14 @@ export type JsonLike =
   | JsonLike[]
   | { [key: string]: JsonLike };
 
-/** Result the SDK expects from `canUseTool` (matches the Agent SDK's PermissionResult). */
-type SdkPermissionResult =
-  | { behavior: "allow"; updatedInput: Record<string, JsonLike> }
-  | { behavior: "deny"; message: string };
-
-/** The `canUseTool` permission callback passed to `query()`. */
-export type SdkCanUseTool = (
-  toolName: string,
-  input: Record<string, JsonLike>,
-  options: { signal: AbortSignal; toolUseID?: string },
-) => Promise<SdkPermissionResult>;
-
-export type SdkOptions = {
-  cwd: string;
-  model: string;
-  pathToClaudeCodeExecutable: string;
-  systemPrompt:
-    | { type: "preset"; preset: "claude_code"; append?: string }
-    | string;
-  permissionMode: string;
-  allowDangerouslySkipPermissions: boolean;
-  allowedTools?: string[];
-  env: Record<string, string | undefined>;
-  sessionId?: string;
-  resume?: string;
-  extraArgs?: Record<string, string>;
-  includePartialMessages?: boolean;
-  effort?: "low" | "medium" | "high" | "xhigh" | "max";
-  /** Per-tool permission gate. Set only when blocking questions are enabled. */
-  canUseTool?: SdkCanUseTool;
-};
-
-export type SdkUserMessage = {
-  type: "user";
-  message: { role: "user"; content: string };
-  parent_tool_use_id: string | null;
-  session_id: string;
-};
-
-export type SdkModule = {
-  query: (args: {
-    prompt: string | AsyncIterable<SdkUserMessage>;
-    options: SdkOptions;
-  }) => SdkQueryHandle;
-};
+/** Official SDK types are erased from the standalone callback bundle. */
+export type SdkCanUseTool = CanUseTool;
+export type SdkOptions = Options;
+export type SdkUserMessage = SDKUserMessage;
+export type SdkModule = Pick<
+  typeof import("@anthropic-ai/claude-agent-sdk"),
+  "query"
+>;
 
 /** Resolves the sandbox's global npm root once (e.g. /usr/lib/node_modules). */
 export function globalNpmRoot(): string {
@@ -193,11 +150,10 @@ function buildSdkOptionsFromParts(
   // `bypassPermissions`. When enabled we switch to `default` mode and let the
   // gate auto-allow every tool except AskUserQuestion (which waits for the user).
   // Otherwise keep the original bypass behaviour (no per-tool gating).
-  const permissionOption: {
-    permissionMode: string;
-    allowDangerouslySkipPermissions: boolean;
-    canUseTool?: SdkCanUseTool;
-  } =
+  const permissionOption: Pick<
+    SdkOptions,
+    "permissionMode" | "allowDangerouslySkipPermissions" | "canUseTool"
+  > =
     tools === "agent" && BLOCKING_QUESTIONS_ENABLED
       ? {
           permissionMode: "default",
@@ -233,7 +189,7 @@ function buildSdkOptionsFromParts(
     delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
   }
 
-  const effortOption: { effort?: "low" | "medium" | "high" | "xhigh" | "max" } =
+  const effortOption: Pick<SdkOptions, "effort"> =
     claudeEffort === "low" ||
     claudeEffort === "medium" ||
     claudeEffort === "high" ||

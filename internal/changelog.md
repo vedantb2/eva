@@ -4,7 +4,7 @@
 
 The Claude Agent SDK and Cursor SDK were loaded by exact version inside sandbox callbacks, but neither version was declared in the backend workspace. That left local installs without the official packages and allowed the handwritten callback boundary types to drift without an inspectable, locked SDK beside them. New snapshots also preinstalled only Cursor's SDK, so the first Claude SDK task paid for a user-local fallback install.
 
-Both SDKs are now exact backend dependencies and are locked at the same versions used by the callback loaders. Snapshot seeding preinstalls both packages and verifies both directories before skipping the agent-tool install. The user-local dynamic loader remains for older snapshots; Cursor's package cannot be safely folded into the standalone callback bundle because its published ESM graph includes Bun-only and declaration-map imports.
+Both SDKs are now exact backend dependencies and are locked at the same versions used by the callback loaders. The provider boundaries import their official query, permission, agent, run, model, store, MCP, and usage types instead of restating those public APIs. Snapshot seeding preinstalls both packages and verifies both directories before skipping the agent-tool install. The user-local dynamic loader remains for older snapshots; the imports are type-only because Cursor's package cannot be safely folded into the standalone callback bundle—its published ESM graph includes Bun-only and declaration-map imports.
 
 ## Component data survives a sync to a local backend - 2026-08-12
 

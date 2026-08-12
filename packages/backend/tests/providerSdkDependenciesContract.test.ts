@@ -42,6 +42,17 @@ test("provider SDK dependencies match the callback loader versions", () => {
   }
 });
 
+test("provider boundaries use official SDK declarations", () => {
+  expect(claudeLoader).toContain(
+    'from "@anthropic-ai/claude-agent-sdk"',
+  );
+  expect(claudeLoader).toContain(
+    'typeof import("@anthropic-ai/claude-agent-sdk")',
+  );
+  expect(cursorLoader).toContain('from "@cursor/sdk"');
+  expect(cursorLoader).toContain('typeof import("@cursor/sdk")');
+});
+
 test("new snapshots preinstall both provider SDKs at the loader versions", () => {
   for (const sdk of sdkVersions) {
     expect(snapshotActions).toContain(

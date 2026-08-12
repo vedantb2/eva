@@ -1,5 +1,9 @@
 # Changelog
 
+## MCP auth stays in callback memory - 2026-08-12
+
+Eva's bearer token previously lived in `/tmp/eva-mcp.json`, so reused sandboxes could retain stale authorization and filesystem snapshots captured a live credential. Launches now deliver the token through reserved environment variables, the callback immediately converts and scrubs them, and both Claude and Cursor receive one shared typed MCP descriptor directly through their SDK options. The one-time runner also removes legacy MCP files and unlinks its credential-bearing launch script before the long-lived callback starts.
+
 ## Repo default model includes traits - 2026-08-12
 
 The repository default model on settings/config only stored the model id, so new tasks and sessions always used each model's own reasoning/Fast defaults. The picker now has the same traits menu as composers, and those values persist on the repo and apply when a task or session is created without an override.

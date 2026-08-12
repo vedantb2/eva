@@ -15,6 +15,7 @@ import {
   normalizedClaudeModel,
   settingsJson,
 } from "../config.js";
+import { evaMcpServers, type HttpMcpServers } from "../evaMcp.js";
 import { buildClaudeStartupStep } from "../session/claudeSession.js";
 import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
 import { updateThinkingStep } from "../parse/canonical.js";
@@ -31,7 +32,6 @@ import { log } from "../utils.js";
 
 const SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 const SDK_VERSION = "0.3.201";
-const MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
 
 /**
  * The subset of the Agent SDK `query()` surface this runner uses. The SDK is
@@ -80,6 +80,7 @@ export type SdkOptions = {
   extraArgs?: Record<string, string>;
   includePartialMessages?: boolean;
   effort?: "low" | "medium" | "high" | "xhigh" | "max";
+  mcpServers?: HttpMcpServers;
   /** Per-tool permission gate. Set only when blocking questions are enabled. */
   canUseTool?: SdkCanUseTool;
 };
@@ -170,9 +171,6 @@ export function buildSdkOptions(sessionMode: SessionMode): SdkOptions {
   // allowed tools, MCP, permissions, session resume). Formerly mirrored
   // Claude CLI flags; those builders are gone.
   const extraArgs: Record<string, string> = { settings: settingsJson };
-  if (existsSync(MCP_CONFIG_PATH)) {
-    extraArgs["mcp-config"] = MCP_CONFIG_PATH;
-  }
   return buildSdkOptionsFromParts(sessionMode, extraArgs);
 }
 
@@ -270,6 +268,9 @@ function buildSdkOptionsFromParts(
       ? { resume: sessionMode.sessionId }
       : {}),
     extraArgs,
+    ...(Object.keys(evaMcpServers).length > 0
+      ? { mcpServers: evaMcpServers }
+      : {}),
     ...effortOption,
   };
 }

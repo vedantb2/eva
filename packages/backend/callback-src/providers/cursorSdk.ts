@@ -12,6 +12,7 @@ import {
   cursorUse1mContext,
   normalizedCursorModel,
 } from "../config.js";
+import { evaMcpServers, type HttpMcpServers } from "../evaMcp.js";
 import { updateThinkingStep } from "../parse/canonical.js";
 import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
 import {
@@ -26,14 +27,13 @@ import {
   writeCursorSessionState,
 } from "../session/cursorSession.js";
 import type { CliAttemptResult, JsonValue, SessionMode } from "../types.js";
-import { log, tryParseJson } from "../utils.js";
+import { log } from "../utils.js";
 import { globalNpmRoot, type JsonLike } from "./claudeSdk.js";
 
 const SDK_PACKAGE = "@cursor/sdk";
 const SDK_VERSION = "1.0.26";
 /** ESM entry inside the package (its exports map's `import` target). */
 const SDK_ENTRY_RELPATH = "/dist/esm/index.js";
-const MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
 
 /** User-writable fallback install location (persists in home across resumes). */
 const SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
@@ -43,12 +43,6 @@ const SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
  * The SDK is dynamically imported from the sandbox's global npm root (installed
  * in the seed snapshot), so these stand in for the SDK's own types.
  */
-export type SdkMcpServerConfig = {
-  type: "http";
-  url: string;
-  headers?: Record<string, string>;
-};
-
 /** Opaque store handle — constructed, passed back to the SDK, never inspected. */
 type SdkLocalAgentStore = {
   readonly agents?: object;
@@ -131,7 +125,7 @@ type SdkAgentOptions = {
   apiKey: string;
   model: SdkModelSelection;
   local: { cwd: string; store: SdkLocalAgentStore };
-  mcpServers?: Record<string, SdkMcpServerConfig>;
+  mcpServers?: HttpMcpServers;
 };
 
 type SdkTokenUsage = {
@@ -214,64 +208,6 @@ export async function loadCursorSdk(): Promise<CursorSdkModule> {
   }
   const mod: CursorSdkModule = await import(localEntry);
   return mod;
-}
-
-/**
- * Parses Eva's generated HTTP MCP descriptors into the SDK's inline mcpServers
- * shape (remote HTTP servers only, matching the old .cursor/mcp.json
- * translation). Header values are forwarded but never logged.
- */
-export function parseCursorSdkMcpServers(
-  raw: string,
-): Record<string, SdkMcpServerConfig> {
-  const servers: Record<string, SdkMcpServerConfig> = {};
-  const parsed = tryParseJson(raw);
-  if (
-    !parsed ||
-    typeof parsed !== "object" ||
-    Array.isArray(parsed) ||
-    !parsed.mcpServers ||
-    typeof parsed.mcpServers !== "object" ||
-    Array.isArray(parsed.mcpServers)
-  ) {
-    return servers;
-  }
-  for (const [name, server] of Object.entries(parsed.mcpServers)) {
-    if (
-      !server ||
-      typeof server !== "object" ||
-      Array.isArray(server) ||
-      typeof server.url !== "string" ||
-      !server.url.trim()
-    ) {
-      continue;
-    }
-    const entry: SdkMcpServerConfig = { type: "http", url: server.url };
-    if (
-      server.headers &&
-      typeof server.headers === "object" &&
-      !Array.isArray(server.headers)
-    ) {
-      const headers: Record<string, string> = {};
-      for (const [headerName, headerValue] of Object.entries(server.headers)) {
-        if (typeof headerValue === "string") {
-          headers[headerName] = headerValue;
-        }
-      }
-      if (Object.keys(headers).length > 0) entry.headers = headers;
-    }
-    servers[name] = entry;
-  }
-  return servers;
-}
-
-function readCursorSdkMcpServers(): Record<string, SdkMcpServerConfig> {
-  if (!existsSync(MCP_CONFIG_PATH)) return {};
-  try {
-    return parseCursorSdkMcpServers(readFileSync(MCP_CONFIG_PATH, "utf8"));
-  } catch {
-    return {};
-  }
 }
 
 function readPromptText(): string {
@@ -480,12 +416,13 @@ export async function runCursorSdkAttempt(
   const sdk = await loadCursorSdk();
   mkdirSync(CURSOR_SDK_STORE_DIR, { recursive: true });
   const store = new sdk.JsonlLocalAgentStore(CURSOR_SDK_STORE_DIR);
-  const mcpServers = readCursorSdkMcpServers();
   const options: SdkAgentOptions = {
     apiKey: (process.env.CURSOR_API_KEY || "").trim(),
     model: await resolveCursorModelSelection(sdk),
     local: { cwd: WORK_DIR, store },
-    ...(Object.keys(mcpServers).length > 0 ? { mcpServers } : {}),
+    ...(Object.keys(evaMcpServers).length > 0
+      ? { mcpServers: evaMcpServers }
+      : {}),
   };
 
   const persistAgentId = (agentId: string): void => {

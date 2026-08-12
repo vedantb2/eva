@@ -28,8 +28,8 @@ export function syncCursorStateToPersist(): void {
 }
 
 function hydratePersistedCursorState(): void {
-  // MCP config is no longer written to WORK_DIR/.cursor/mcp.json — the SDK
-  // runner passes /tmp/eva-mcp.json servers inline (readCursorSdkMcpServers).
+  // MCP configuration is supplied directly to the Cursor SDK; no workspace
+  // file participates in session hydration.
   store.hydratePersistedState("hydratePersistedCursorState");
 }
 

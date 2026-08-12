@@ -1,4 +1,5 @@
 import { existsSync } from "fs";
+import { hasEvaMcpConfig } from "./evaMcp.js";
 
 export const CONVEX_URL = process.env.CONVEX_URL;
 export const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
@@ -238,8 +239,8 @@ function buildSettingsJson(): string {
 }
 
 export const settingsJson = buildSettingsJson();
-/** True when the sandbox MCP config file is present (used for startup logging). */
-export const hasMcpConfig = existsSync("/tmp/eva-mcp.json");
+/** True when Eva MCP auth was supplied at callback startup. */
+export const hasMcpConfig = hasEvaMcpConfig;
 const claudeModelBase = MODEL.startsWith("claude:")
   ? MODEL.slice("claude:".length)
   : MODEL;

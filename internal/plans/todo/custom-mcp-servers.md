@@ -4,10 +4,10 @@ Goal: let a repo register external MCP servers (Linear, Figma, PostHog, …) tha
 
 ## Current state (anchors)
 
-- Single MCP config written at launch: [launch.ts:172-187](../../packages/backend/convex/_daytona/launch.ts) — hardcoded `mcpServers: { eva: { type: "http", url, headers } }` → `/tmp/eva-mcp.json`.
-- All providers consume that one file: claude sdk (`--mcp-config /tmp/eva-mcp.json`, [claudeSdk.ts:34](../../packages/backend/callback-src/providers/claudeSdk.ts)), claude one-shot ([config.ts:252](../../packages/backend/callback-src/config.ts)), cursor (translates file → `~/.cursor/mcp.json` + `--approve-mcps`, [cursorSession.ts:35-77](../../packages/backend/callback-src/session/cursorSession.ts)).
+- Eva MCP auth reaches the callback through reserved launch environment variables; [evaMcp.ts](../../packages/backend/callback-src/evaMcp.ts) consumes them into one typed in-memory server record and removes them before agent tools spawn.
+- Claude and Cursor pass that record directly through their SDK `mcpServers` options; no MCP JSON file is written.
 - Secrets already resolvable per repo/team: `resolveAllEnvVars(ctx, repoId)` ([envVarResolver.ts](../../packages/backend/convex/envVarResolver.ts)).
-- `signAndLaunchScript` ([helpers.ts](../../packages/backend/convex/_daytona/helpers.ts)) has `ctx` + `repoId`; `launchScript` does not — custom servers must resolve there and pass through opts.
+- `signAndLaunchScript` ([helpers.ts](../../packages/backend/convex/_sandbox_runtime/helpers.ts)) has `ctx` + `repoId`; `launchScript` does not — custom servers must resolve there and pass through opts.
 
 ## Design
 
@@ -26,14 +26,13 @@ New table `repoMcpServers` (fields in `_validators/tableFields.ts` per conventio
 1. CRUD in new `convex/repoMcpServers.ts`: `listByRepo` (authQuery, repo access check), `upsert`, `remove` (authMutations). Mask nothing — header values are templates, not secrets.
 2. Internal `resolveForLaunch(repoId)` internalQuery: enabled servers for repo.
 3. `signAndLaunchScript`: when `opts.enableMcp !== false`, fetch servers + `resolveAllEnvVars`, substitute `${VAR}` in header values (missing var → skip server + console.warn, do not fail launch), pass `customMcpServers` through to `launchScript` opts.
-4. `launchScript` (launch.ts:172): merge into the JSON — `mcpServers: { eva: {...}, ...custom }`. Written only when mcp enabled (keep current gate).
+4. Merge future servers into the callback's in-memory `mcpServers` record for each SDK, not a JSON file.
 5. Prompt: append one line to session/task/project chat prompts listing connected server names ("Connected MCP servers: eva, linear, figma") so agents discover them. Optional v1.
 
-### Callback (verify, likely zero changes)
+### Callback
 
-- claude: `--mcp-config` passes whole file — works as-is.
-- cursor: confirm cursorSession.ts translation copies ALL entries (it parses the file; check it doesn't cherry-pick `eva`). `--approve-mcps` already auto-approves.
-- codex/opencode: check whether they consume `/tmp/eva-mcp.json` at all; if not, note gap in tool descriptions (out of scope to add).
+- Extend the shared in-memory MCP boundary so Claude and Cursor receive every resolved server in their SDK-native shapes.
+- Codex/OpenCode do not consume Eva MCP today; adding them remains out of scope.
 - If any callback change needed → rebuild `callbackScript.generated.ts` (`node scripts/build-callback-script.mjs`).
 
 ### Web UI
@@ -43,7 +42,7 @@ New table `repoMcpServers` (fields in `_validators/tableFields.ts` per conventio
 
 ### Security notes
 
-- Substituted secrets land in `/tmp/eva-mcp.json` inside the sandbox — same trust level as existing provider keys/mcpToken already in sandbox env. Acceptable.
+- Substituted secrets must remain in callback memory and be removed from inherited child-process environments after consumption.
 - OAuth-flow MCP servers (e.g. Linear's hosted OAuth mode) NOT supported v1 — header/API-key auth only. Document in UI hint.
 - Data minimisation: header templates in Convex, real values only in team/repo env vars.
 

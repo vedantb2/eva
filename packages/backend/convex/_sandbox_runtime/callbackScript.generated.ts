@@ -1,6 +1,6 @@
 "use node";
 
-export const CALLBACK_SCRIPT = `// callback-src/index.ts
+export const CALLBACK_SCRIPT = `// packages/backend/callback-src/index.ts
 import {
   existsSync as existsSync9,
   mkdirSync as mkdirSync8,
@@ -9,8 +9,36 @@ import {
   writeFileSync as writeFileSync11
 } from "fs";
 
-// callback-src/config.ts
+// packages/backend/callback-src/config.ts
 import { existsSync } from "fs";
+
+// packages/backend/callback-src/evaMcp.ts
+function buildEvaMcpServers({
+  auth,
+  baseUrl
+}) {
+  if (!auth || !baseUrl) return {};
+  return {
+    eva: {
+      type: "http",
+      url: \`\${baseUrl}/mcp\`,
+      headers: { Authorization: \`Bearer \${auth}\` }
+    }
+  };
+}
+function consumeEvaMcpEnvironment(env) {
+  const servers = buildEvaMcpServers({
+    auth: env.EVA_MCP_AUTH,
+    baseUrl: env.EVA_MCP_BASE_URL
+  });
+  delete env.EVA_MCP_AUTH;
+  delete env.EVA_MCP_BASE_URL;
+  return servers;
+}
+var evaMcpServers = consumeEvaMcpEnvironment(process.env);
+var hasEvaMcpConfig = Object.keys(evaMcpServers).length > 0;
+
+// packages/backend/callback-src/config.ts
 var CONVEX_URL = process.env.CONVEX_URL;
 var CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
 var CONVEX_TOKEN = process.env.CONVEX_TOKEN;
@@ -166,7 +194,7 @@ function buildSettingsJson() {
   return JSON.stringify(settings);
 }
 var settingsJson = buildSettingsJson();
-var hasMcpConfig = existsSync("/tmp/eva-mcp.json");
+var hasMcpConfig = hasEvaMcpConfig;
 var claudeModelBase = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length) : MODEL;
 var normalizedClaudeModel = PROVIDER === "claude" && AI_CONTEXT_1M === "1" ? \`\${claudeModelBase}[1m]\` : claudeModelBase;
 var normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
@@ -261,10 +289,10 @@ var completedLabels = {
   "Asking a question...": "Asked a question"
 };
 
-// callback-src/providers/claudeSdkDaemon.ts
+// packages/backend/callback-src/providers/claudeSdkDaemon.ts
 import { unlinkSync as unlinkSync2, writeFileSync as writeFileSync9, readFileSync as readFileSync6 } from "fs";
 
-// callback-src/providers/daemonPaths.ts
+// packages/backend/callback-src/providers/daemonPaths.ts
 var LEGACY_DAEMON_PID = "/tmp/eva-daemon.pid";
 var LEGACY_DAEMON_ENTITY = "/tmp/eva-daemon.entity";
 var LEGACY_DAEMON_OPTS = "/tmp/eva-daemon.opts";
@@ -286,7 +314,7 @@ function resolveLegacySessionDaemonPaths() {
   };
 }
 
-// callback-src/utils.ts
+// packages/backend/callback-src/utils.ts
 import { spawnSync } from "child_process";
 import {
   cpSync,
@@ -298,7 +326,7 @@ import {
   writeFileSync
 } from "fs";
 
-// callback-src/runtime/state.ts
+// packages/backend/callback-src/runtime/state.ts
 function parsePriorStep(value) {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return null;
@@ -468,7 +496,7 @@ function assignRawLogStream(stream) {
   callbackState.rawLogStream = stream;
 }
 
-// callback-src/utils.ts
+// packages/backend/callback-src/utils.ts
 function narrowJsonValue(value) {
   if (value === null || typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
     return value;
@@ -639,7 +667,7 @@ function elapsedAttemptMs() {
   return attemptElapsedMs();
 }
 
-// callback-src/http/convexClient.ts
+// packages/backend/callback-src/http/convexClient.ts
 async function fetchWithTimeout(url, options, timeoutMs = CALLBACK_HTTP_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -788,7 +816,7 @@ async function callStreamingHeartbeatTouch(entityId) {
   }
 }
 
-// callback-src/parse/stepBudget.ts
+// packages/backend/callback-src/parse/stepBudget.ts
 var STEP_FIELD_CAPS = {
   command: 600,
   output: 1200,
@@ -852,7 +880,7 @@ function serializeSteps(steps) {
   return JSON.stringify(enforceStepBudget(steps));
 }
 
-// callback-src/parse/toolResultCapture.ts
+// packages/backend/callback-src/parse/toolResultCapture.ts
 function capCommand(command) {
   return headCap(command, STEP_FIELD_CAPS.command).text;
 }
@@ -1035,7 +1063,7 @@ function probeOpencodeStateResult(state) {
   };
 }
 
-// callback-src/parse/toolSteps.ts
+// packages/backend/callback-src/parse/toolSteps.ts
 function opencodeToolToStep(part) {
   const tool = typeof part.tool === "string" ? part.tool : "tool";
   const stateObj = part.state && typeof part.state === "object" && !Array.isArray(part.state) ? part.state : null;
@@ -1677,7 +1705,7 @@ function codexItemToStep(item) {
   });
 }
 
-// callback-src/runtime/sandboxMedia.ts
+// packages/backend/callback-src/runtime/sandboxMedia.ts
 function mediaCandidateRoots(workDir, rootDirectory) {
   const roots = [workDir];
   const trimmed = rootDirectory?.trim() ?? "";
@@ -1697,7 +1725,7 @@ function mediaSearchDirs(workDir, rootDirectory) {
   };
 }
 
-// callback-src/runtime/completion.ts
+// packages/backend/callback-src/runtime/completion.ts
 import {
   existsSync as existsSync3,
   readFileSync as readFileSync2,
@@ -2150,7 +2178,7 @@ function hasToolActivity() {
   return callbackState.accumulatedSteps.some((step) => TOOL_STEP_TYPES.has(step.type));
 }
 
-// callback-src/session/claudeSession.ts
+// packages/backend/callback-src/session/claudeSession.ts
 import { existsSync as existsSync4, mkdirSync as mkdirSync2, readFileSync as readFileSync3, writeFileSync as writeFileSync3 } from "fs";
 function buildClaudeStartupStep() {
   if (callbackState.waitingForFirstAssistantEvent && callbackState.claudeInitAt > 0) {
@@ -2355,7 +2383,7 @@ function prepareClaudeSessionState() {
   return sessionMode;
 }
 
-// callback-src/runtime/backgroundShells.ts
+// packages/backend/callback-src/runtime/backgroundShells.ts
 var PENDING_CAP = 200;
 var QUEUE_CAP = 20;
 var FLUSH_FAILURE_COOLDOWN_MS = 1e4;
@@ -2468,7 +2496,7 @@ async function flushBackgroundShellQueue() {
   }
 }
 
-// callback-src/parse/sdkTaxonomy.ts
+// packages/backend/callback-src/parse/sdkTaxonomy.ts
 var loggedUnknownKinds = /* @__PURE__ */ new Set();
 var knownBackgroundTaskIds = /* @__PURE__ */ new Set();
 function readString(value) {
@@ -2751,7 +2779,7 @@ function completeStatusOnNonStatusMessage(event) {
   completeActiveStatusStep();
 }
 
-// callback-src/providers/claude.ts
+// packages/backend/callback-src/providers/claude.ts
 function claudeToolCompleteResult(resultText, isError) {
   const output = buildStepOutput(resultText);
   if (!output && !isError) {
@@ -2974,10 +3002,10 @@ var claudeAdapter = {
   }
 };
 
-// callback-src/session/codexSession.ts
+// packages/backend/callback-src/session/codexSession.ts
 import { mkdirSync as mkdirSync4, writeFileSync as writeFileSync5 } from "fs";
 
-// callback-src/session/createSessionStore.ts
+// packages/backend/callback-src/session/createSessionStore.ts
 import { existsSync as existsSync5, mkdirSync as mkdirSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync4 } from "fs";
 function createSessionStore(config) {
   const readSessionState = () => {
@@ -3051,7 +3079,7 @@ function createSessionStore(config) {
   };
 }
 
-// callback-src/session/codexSession.ts
+// packages/backend/callback-src/session/codexSession.ts
 var store = createSessionStore({
   runtimeHomeDir: CODEX_RUNTIME_HOME_DIR,
   persistDir: CODEX_PERSIST_DIR,
@@ -3139,7 +3167,7 @@ function prepareCodexSessionState() {
   return persistedState && persistedState.resumeThreadId ? { mode: "resume", sessionId: persistedState.resumeThreadId } : { mode: "none", sessionId: null };
 }
 
-// callback-src/providers/codex.ts
+// packages/backend/callback-src/providers/codex.ts
 function codexParseLine(event) {
   const events = [];
   const threadId = getCodexThreadId(event);
@@ -3241,7 +3269,7 @@ var codexAdapter = {
   onStdoutText: inspectCodexStdout
 };
 
-// callback-src/session/cursorSession.ts
+// packages/backend/callback-src/session/cursorSession.ts
 var store2 = createSessionStore({
   runtimeHomeDir: CURSOR_RUNTIME_HOME_DIR,
   persistDir: CURSOR_PERSIST_DIR,
@@ -3279,7 +3307,7 @@ function prepareCursorSessionState() {
   return { mode: "none", sessionId: null };
 }
 
-// callback-src/providers/cursor.ts
+// packages/backend/callback-src/providers/cursor.ts
 function probeCursorSdkToolResult(status, result) {
   const eventIsError = status === "error";
   if (result === void 0 || result === null) {
@@ -3432,7 +3460,7 @@ var cursorAdapter = {
   }
 };
 
-// callback-src/session/opencodeSession.ts
+// packages/backend/callback-src/session/opencodeSession.ts
 import { mkdirSync as mkdirSync5, writeFileSync as writeFileSync6 } from "fs";
 var store3 = createSessionStore({
   runtimeHomeDir: OPENCODE_RUNTIME_HOME_DIR,
@@ -3493,7 +3521,7 @@ function prepareOpencodeSessionState() {
   return { mode: "none", sessionId: null };
 }
 
-// callback-src/providers/opencode.ts
+// packages/backend/callback-src/providers/opencode.ts
 function opencodeParseLine(event) {
   const events = [];
   if (event.type === "reasoning" && event.part && typeof event.part === "object" && !Array.isArray(event.part) && typeof event.part.text === "string" && event.part.text) {
@@ -3572,7 +3600,7 @@ var opencodeAdapter = {
   }
 };
 
-// callback-src/parse/canonical.ts
+// packages/backend/callback-src/parse/canonical.ts
 var stepStartedAt = /* @__PURE__ */ new WeakMap();
 function mergeToolResult(step, result) {
   if (result.output) {
@@ -3764,10 +3792,10 @@ function appendStreamedContent(text, isBlockBoundary = false) {
   callbackState.currentStreamedContent += nextText;
 }
 
-// callback-src/runtime/heartbeats.ts
+// packages/backend/callback-src/runtime/heartbeats.ts
 import { writeFileSync as writeFileSync7 } from "fs";
 
-// callback-src/runtime/processControl.ts
+// packages/backend/callback-src/runtime/processControl.ts
 import { spawnSync as spawnSync2 } from "child_process";
 function terminateAttemptProcess(child) {
   try {
@@ -3795,7 +3823,7 @@ function isChildZombie(pid) {
   }
 }
 
-// callback-src/runtime/heartbeats.ts
+// packages/backend/callback-src/runtime/heartbeats.ts
 var flushInterval = null;
 var heartbeatInterval = null;
 function buildStreamingPayload() {
@@ -3996,7 +4024,7 @@ async function runPreflightHeartbeat() {
   }
 }
 
-// callback-src/providers/index.ts
+// packages/backend/callback-src/providers/index.ts
 function getProviderAdapter(provider = PROVIDER) {
   if (provider === "codex") return codexAdapter;
   if (provider === "opencode") return opencodeAdapter;
@@ -4004,7 +4032,7 @@ function getProviderAdapter(provider = PROVIDER) {
   return claudeAdapter;
 }
 
-// callback-src/parse/streamRouter.ts
+// packages/backend/callback-src/parse/streamRouter.ts
 function processRealtimeStdoutChunk(text) {
   callbackState.realtimeOutputBuffer += text;
   while (true) {
@@ -4032,7 +4060,7 @@ function handleRealtimeStreamLine(line) {
   }
 }
 
-// callback-src/runtime/buffers.ts
+// packages/backend/callback-src/runtime/buffers.ts
 import { createWriteStream } from "fs";
 function trimBufferHead(buf) {
   if (buf.length <= OUTPUT_BUFFER_MAX_BYTES) return buf;
@@ -4070,11 +4098,11 @@ function appendToRawLogFile(text) {
   }
 }
 
-// callback-src/providers/claudeSdk.ts
+// packages/backend/callback-src/providers/claudeSdk.ts
 import { execSync } from "child_process";
 import { existsSync as existsSync6, readFileSync as readFileSync5 } from "fs";
 
-// callback-src/runtime/cliAttempt.ts
+// packages/backend/callback-src/runtime/cliAttempt.ts
 import { spawn } from "child_process";
 import { writeFileSync as writeFileSync8 } from "fs";
 function evaluateAttemptHealth(input) {
@@ -4254,7 +4282,7 @@ async function runCliAttempt(options) {
   });
 }
 
-// callback-src/runtime/pendingQuestion.ts
+// packages/backend/callback-src/runtime/pendingQuestion.ts
 var POLL_INTERVAL_MS = 300;
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -4328,10 +4356,9 @@ function buildCanUseTool() {
   };
 }
 
-// callback-src/providers/claudeSdk.ts
+// packages/backend/callback-src/providers/claudeSdk.ts
 var SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 var SDK_VERSION = "0.3.201";
-var MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
 function globalNpmRoot() {
   return execSync("npm root -g", { encoding: "utf8" }).trim();
 }
@@ -4368,9 +4395,6 @@ function readPromptText() {
 }
 function buildSdkOptions(sessionMode) {
   const extraArgs = { settings: settingsJson };
-  if (existsSync6(MCP_CONFIG_PATH)) {
-    extraArgs["mcp-config"] = MCP_CONFIG_PATH;
-  }
   return buildSdkOptionsFromParts(sessionMode, extraArgs);
 }
 var EVA_SDK_SYSTEM_APPEND = "You are running inside Eva, a platform that runs coding agents in remote sandboxes against GitHub repos. Treat the workspace as the active repo checkout.";
@@ -4423,6 +4447,7 @@ function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
     ...sessionMode.mode === "session" && sessionMode.sessionId ? { sessionId: sessionMode.sessionId } : {},
     ...sessionMode.mode === "resume" && sessionMode.sessionId ? { resume: sessionMode.sessionId } : {},
     extraArgs,
+    ...Object.keys(evaMcpServers).length > 0 ? { mcpServers: evaMcpServers } : {},
     ...effortOption
   };
 }
@@ -4536,7 +4561,7 @@ async function runClaudeSdkAttempt(sessionMode) {
   };
 }
 
-// callback-src/runtime/turnPersist.ts
+// packages/backend/callback-src/runtime/turnPersist.ts
 import { spawnSync as spawnSync3 } from "child_process";
 var GIT_STEP_TIMEOUT_MS = 2e4;
 var PUSH_TIMEOUT_MS = 6e4;
@@ -4686,7 +4711,7 @@ function persistTurnWork() {
   }
 }
 
-// callback-src/providers/claimPendingTurnParse.ts
+// packages/backend/callback-src/providers/claimPendingTurnParse.ts
 function readStopTaskToolUseIds(result) {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
     return [];
@@ -4708,7 +4733,7 @@ function readCancelRequested(result) {
   return payload.cancelRequested === true;
 }
 
-// callback-src/providers/claudeSdkDaemon.ts
+// packages/backend/callback-src/providers/claudeSdkDaemon.ts
 function sleep2(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -5735,7 +5760,7 @@ async function runSdkDaemon() {
   process.exit(0);
 }
 
-// callback-src/runtime/systemSkills.ts
+// packages/backend/callback-src/runtime/systemSkills.ts
 import {
   existsSync as existsSync7,
   mkdirSync as mkdirSync6,
@@ -5876,13 +5901,12 @@ function materializeSystemSkills() {
   }
 }
 
-// callback-src/providers/cursorSdk.ts
+// packages/backend/callback-src/providers/cursorSdk.ts
 import { execSync as execSync2 } from "child_process";
 import { existsSync as existsSync8, mkdirSync as mkdirSync7, readFileSync as readFileSync8 } from "fs";
 var SDK_PACKAGE2 = "@cursor/sdk";
 var SDK_VERSION2 = "1.0.26";
 var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
-var MCP_CONFIG_PATH2 = "/tmp/eva-mcp.json";
 var SDK_LOCAL_PREFIX2 = "/home/eva/.eva-agent-sdk";
 function cursorModeParams(model, fastMode, use1mContext) {
   const params = [];
@@ -5927,38 +5951,6 @@ async function loadCursorSdk() {
   }
   const mod = await import(localEntry);
   return mod;
-}
-function parseCursorSdkMcpServers(raw) {
-  const servers = {};
-  const parsed = tryParseJson(raw);
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !parsed.mcpServers || typeof parsed.mcpServers !== "object" || Array.isArray(parsed.mcpServers)) {
-    return servers;
-  }
-  for (const [name, server] of Object.entries(parsed.mcpServers)) {
-    if (!server || typeof server !== "object" || Array.isArray(server) || typeof server.url !== "string" || !server.url.trim()) {
-      continue;
-    }
-    const entry = { type: "http", url: server.url };
-    if (server.headers && typeof server.headers === "object" && !Array.isArray(server.headers)) {
-      const headers = {};
-      for (const [headerName, headerValue] of Object.entries(server.headers)) {
-        if (typeof headerValue === "string") {
-          headers[headerName] = headerValue;
-        }
-      }
-      if (Object.keys(headers).length > 0) entry.headers = headers;
-    }
-    servers[name] = entry;
-  }
-  return servers;
-}
-function readCursorSdkMcpServers() {
-  if (!existsSync8(MCP_CONFIG_PATH2)) return {};
-  try {
-    return parseCursorSdkMcpServers(readFileSync8(MCP_CONFIG_PATH2, "utf8"));
-  } catch {
-    return {};
-  }
 }
 function readPromptText2() {
   return readFileSync8("/tmp/design-prompt.txt", "utf8");
@@ -6080,12 +6072,11 @@ async function runCursorSdkAttempt(sessionMode) {
   const sdk = await loadCursorSdk();
   mkdirSync7(CURSOR_SDK_STORE_DIR, { recursive: true });
   const store4 = new sdk.JsonlLocalAgentStore(CURSOR_SDK_STORE_DIR);
-  const mcpServers = readCursorSdkMcpServers();
   const options = {
     apiKey: (process.env.CURSOR_API_KEY || "").trim(),
     model: await resolveCursorModelSelection(sdk),
     local: { cwd: WORK_DIR, store: store4 },
-    ...Object.keys(mcpServers).length > 0 ? { mcpServers } : {}
+    ...Object.keys(evaMcpServers).length > 0 ? { mcpServers: evaMcpServers } : {}
   };
   const persistAgentId = (agentId) => {
     callbackState.activeCursorSessionId = agentId;
@@ -6227,7 +6218,7 @@ async function runCursorSdkAttempt(sessionMode) {
   };
 }
 
-// callback-src/providers/attempts.ts
+// packages/backend/callback-src/providers/attempts.ts
 function prepareProviderSessionState() {
   if (PROVIDER === "codex") return prepareCodexSessionState();
   if (PROVIDER === "opencode") return prepareOpencodeSessionState();
@@ -6296,7 +6287,7 @@ async function runProviderAttempt(sessionMode) {
   return await runClaudeAttempt(sessionMode);
 }
 
-// callback-src/index.ts
+// packages/backend/callback-src/index.ts
 process.on("exit", (code) => {
   writeDoneFile("unexpected-exit", {
     exitCode: typeof code === "number" ? code : null

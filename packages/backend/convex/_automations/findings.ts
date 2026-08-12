@@ -10,6 +10,10 @@ import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { resolveTaskWorkflowBaseBranchForTask } from "../_taskWorkflow/resolveBaseBranch";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 import { normalizeAIModel } from "../validators";
+import {
+  createTaskRunSummary,
+  setTaskLastRunStartedAt,
+} from "../_agentTasks/runSummary";
 
 /** Creates agent tasks from selected automation findings and optionally auto-starts them. */
 export const createTasksFromFindings = authMutation({
@@ -62,6 +66,7 @@ export const createTasksFromFindings = authMutation({
         model: automation.model ?? repo.defaultModel,
         numId: await allocateNumId(ctx.db, automation.repoId, "agentTasks"),
       });
+      await createTaskRunSummary(ctx, taskId, automation.repoId);
       await ensureSubscribed(ctx, taskId, ctx.userId);
 
       updatedFindings[i] = { ...finding, taskId };
@@ -108,11 +113,12 @@ export const autoStartTask = internalMutation({
       return null;
     }
 
+    const startedAt = Date.now();
     const runId = await ctx.db.insert("agentRuns", {
       taskId: args.taskId,
       status: "queued",
       logs: [],
-      startedAt: Date.now(),
+      startedAt,
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
         task.providerAccountId,
@@ -120,6 +126,7 @@ export const autoStartTask = internalMutation({
       ),
       model: normalizeAIModel(task.model),
     });
+    await setTaskLastRunStartedAt(ctx, args.taskId, task.repoId, startedAt);
 
     await ctx.db.patch(args.taskId, {
       status: "in_progress",

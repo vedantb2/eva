@@ -10,6 +10,10 @@ import { workflow } from "./workflowManager";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { resolveTaskWorkflowBaseBranchForTask } from "./_taskWorkflow/resolveBaseBranch";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
+import {
+  createTaskRunSummary,
+  setTaskLastRunStartedAt,
+} from "./_agentTasks/runSummary";
 
 const reportValidator = v.object({
   _id: v.id("evaluationReports"),
@@ -83,6 +87,7 @@ export const createTasksFromIssues = authMutation({
         model: repo.defaultModel,
         numId: await allocateNumId(ctx.db, report.repoId, "agentTasks"),
       });
+      await createTaskRunSummary(ctx, taskId, report.repoId);
       await ensureSubscribed(ctx, taskId, ctx.userId);
 
       updatedIssues[i] = { ...issue, taskId };
@@ -130,11 +135,12 @@ export const autoStartTask = internalMutation({
       return null;
     }
 
+    const startedAt = Date.now();
     const runId = await ctx.db.insert("agentRuns", {
       taskId: args.taskId,
       status: "queued",
       logs: [],
-      startedAt: Date.now(),
+      startedAt,
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
         task.providerAccountId,
@@ -142,6 +148,7 @@ export const autoStartTask = internalMutation({
       ),
       model: normalizeAIModel(task.model),
     });
+    await setTaskLastRunStartedAt(ctx, args.taskId, task.repoId, startedAt);
 
     await ctx.db.patch(args.taskId, {
       status: "in_progress",

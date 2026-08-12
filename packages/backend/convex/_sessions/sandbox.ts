@@ -18,6 +18,7 @@ import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "../streaming";
 import { clearPendingQuestionsForEntity } from "../pendingQuestions";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
+import { syncSessionDaemonState } from "./daemonState";
 
 /** How long to wait before re-issuing stop if finalize died with a Convex transient error. */
 const STUCK_STOPPING_RECOVER_MS = 20_000;
@@ -414,6 +415,11 @@ export const sandboxReady = internalMutation({
       ...(args.devCommand !== undefined ? { devCommand: args.devCommand } : {}),
       ...(args.markSetupPending ? { sandboxSetupPending: true } : {}),
     });
+    if (args.markSetupPending) {
+      await syncSessionDaemonState(ctx, session, {
+        sandboxSetupPending: true,
+      });
+    }
     // Drain first-message (and any other) queued turns now that chat can run.
     // Early + final ready both call this; second no-ops while activeWorkflowId is set.
     await startNextQueuedSessionMessage(ctx, args.sessionId);
@@ -434,6 +440,9 @@ export const clearSandboxSetupPending = internalMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session || session.sandboxSetupPending !== true) return null;
     await ctx.db.patch(args.sessionId, { sandboxSetupPending: undefined });
+    await syncSessionDaemonState(ctx, session, {
+      sandboxSetupPending: undefined,
+    });
     return null;
   },
 });

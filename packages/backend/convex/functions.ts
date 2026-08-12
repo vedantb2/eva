@@ -406,6 +406,13 @@ export async function deleteTaskRelatedData(
   for (const event of activityEvents) {
     await ctx.db.delete(event._id);
   }
+  const runSummary = await ctx.db
+    .query("agentTaskRunSummaries")
+    .withIndex("by_task", (q) => q.eq("taskId", taskId))
+    .unique();
+  if (runSummary) {
+    await ctx.db.delete(runSummary._id);
+  }
   await ctx.db.delete(taskId);
 }
 
@@ -430,6 +437,13 @@ export async function softDeleteAgentTask(
       sandboxId: task.sandboxId,
       repoId: task.repoId,
     });
+  }
+  const runSummary = await ctx.db
+    .query("agentTaskRunSummaries")
+    .withIndex("by_task", (q) => q.eq("taskId", taskId))
+    .unique();
+  if (runSummary) {
+    await ctx.db.delete(runSummary._id);
   }
   await ctx.db.patch(taskId, { deletedAt: Date.now() });
 }

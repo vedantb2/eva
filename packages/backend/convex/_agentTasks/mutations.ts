@@ -32,6 +32,7 @@ import {
   reconcileProviderAccountForModel,
   resolveDefaultProviderAccountId,
 } from "../_userProviderAccounts/defaults";
+import { createTaskRunSummary, moveTaskRunSummary } from "./runSummary";
 
 /** Extracts the PR number from a GitHub PR URL. */
 function extractPrNumber(prUrl: string): number | null {
@@ -148,6 +149,9 @@ export const update = authMutation({
     if (args.priority !== undefined)
       updates.priority = args.priority ?? undefined;
     await ctx.db.patch(args.id, updates);
+    if (args.repoId !== undefined && args.repoId !== task.repoId) {
+      await moveTaskRunSummary(ctx, args.id, args.repoId);
+    }
 
     if (args.title !== undefined && args.title !== task.title) {
       await logTaskActivity(
@@ -552,6 +556,7 @@ export const createQuickTask = authMutation({
       attachmentStorageIds: args.attachmentStorageIds,
       numId,
     });
+    await createTaskRunSummary(ctx, taskId, args.repoId);
     await ensureSubscribed(ctx, taskId, ctx.userId);
     await ctx.scheduler.runAfter(0, internal.textGen.generateTaskTags, {
       taskId,
@@ -613,6 +618,7 @@ export const createQuickTasksBatch = authMutation({
         model: repo.defaultModel,
         numId,
       });
+      await createTaskRunSummary(ctx, taskId, args.repoId);
       await ensureSubscribed(ctx, taskId, ctx.userId);
       taskIds.push(taskId);
     }
@@ -712,6 +718,7 @@ export const createBatchWithDependencies = authMutation({
         model,
         numId,
       });
+      await createTaskRunSummary(ctx, taskId, args.repoId);
       await ensureSubscribed(ctx, taskId, ctx.userId);
       taskIds.push(taskId);
     }

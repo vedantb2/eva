@@ -24,6 +24,7 @@ import {
   taskReactionFields,
   taskSubscriberFields,
   repoSkillFields,
+  repoSkillContentFields,
   repoSystemSkillFields,
   sandboxGitCredentialsFields,
   appSettingsFields,
@@ -44,6 +45,7 @@ import {
   appTabFields,
   backgroundProcessFields,
   snapshotBuildFields,
+  sessionDaemonStateFields,
 } from "./validators";
 
 const schema = defineSchema({
@@ -57,6 +59,7 @@ const schema = defineSchema({
 
   projects: defineTable(projectFields)
     .index("by_repo", ["repoId"])
+    .index("by_repo_and_deleted", ["repoId", "deletedAt"])
     .index("by_user", ["userId"])
     .index("by_repo_and_phase", ["repoId", "phase"])
     .index("by_pr_url", ["prUrl"])
@@ -74,6 +77,7 @@ const schema = defineSchema({
   agentTasks: defineTable(agentTaskFields)
     .index("by_repo", ["repoId"])
     .index("by_repo_and_status", ["repoId", "status"])
+    .index("by_repo_status_and_deleted", ["repoId", "status", "deletedAt"])
     .index("by_repo_and_updatedAt", ["repoId", "updatedAt"])
     .index("by_project", ["projectId"])
     .index("by_project_and_status", ["projectId", "status"])
@@ -86,6 +90,14 @@ const schema = defineSchema({
     .index("by_task_and_status", ["taskId", "status"])
     .index("by_status", ["status"])
     .index("by_pr_url", ["prUrl"]),
+
+  agentTaskRunSummaries: defineTable({
+    taskId: v.id("agentTasks"),
+    repoId: v.id("githubRepos"),
+    lastRunStartedAt: v.optional(v.number()),
+  })
+    .index("by_task", ["taskId"])
+    .index("by_repo", ["repoId"]),
 
   agentRunActivityLogs: defineTable({
     runId: v.id("agentRuns"),
@@ -135,12 +147,18 @@ const schema = defineSchema({
     .index("by_parent_and_order", ["parentId", "order"]),
   sessions: defineTable(sessionFields)
     .index("by_repo", ["repoId"])
+    .index("by_repo_and_deleted", ["repoId", "deletedAt"])
     .index("by_user", ["userId"])
     .index("by_repo_and_status", ["repoId", "status"])
     .index("by_repo_and_archived", ["repoId", "archived"])
+    .index("by_repo_archived_and_deleted", ["repoId", "archived", "deletedAt"])
     .index("by_pr_url", ["prUrl"])
     .index("by_repo_and_numId", ["repoId", "numId"])
     .index("by_sandbox", ["sandboxId"]),
+  sessionDaemonStates: defineTable(sessionDaemonStateFields).index(
+    "by_session",
+    ["sessionId"],
+  ),
   backgroundProcesses: defineTable(backgroundProcessFields)
     .index("by_session_and_status", ["sessionId", "status"])
     .index("by_session_and_key", ["sessionId", "key"]),
@@ -184,6 +202,7 @@ const schema = defineSchema({
     .index("by_entity_tool", ["entityId", "toolUseId"]),
   docs: defineTable(docFields)
     .index("by_repo", ["repoId"])
+    .index("by_repo_and_deleted", ["repoId", "deletedAt"])
     .index("by_session", ["sessionId"])
     .index("by_repo_and_pr_url", ["repoId", "prUrl"])
     .index("by_repo_and_numId", ["repoId", "numId"]),
@@ -219,6 +238,9 @@ const schema = defineSchema({
   repoSkills: defineTable(repoSkillFields)
     .index("by_repo", ["repoId"])
     .index("by_repo_and_source_path", ["repoId", "sourcePath"]),
+  repoSkillContents: defineTable(repoSkillContentFields).index("by_skill", [
+    "skillId",
+  ]),
   repoSystemSkills: defineTable(repoSystemSkillFields)
     .index("by_repo", ["repoId"])
     .index("by_repo_and_name", ["repoId", "name"]),

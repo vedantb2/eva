@@ -17,6 +17,7 @@ import type * as _agentTasks_helpers from "../_agentTasks/helpers.js";
 import type * as _agentTasks_internal from "../_agentTasks/internal.js";
 import type * as _agentTasks_mutations from "../_agentTasks/mutations.js";
 import type * as _agentTasks_queries from "../_agentTasks/queries.js";
+import type * as _agentTasks_runSummary from "../_agentTasks/runSummary.js";
 import type * as _agentTasks_sandbox from "../_agentTasks/sandbox.js";
 import type * as _auth_currentUser from "../_auth/currentUser.js";
 import type * as _auth_experimentalFlags from "../_auth/experimentalFlags.js";
@@ -112,6 +113,7 @@ import type * as _pty_launchDevServerInVercelConsole from "../_pty/launchDevServ
 import type * as _pty_owners from "../_pty/owners.js";
 import type * as _pty_vercel from "../_pty/vercel.js";
 import type * as _queues_helpers from "../_queues/helpers.js";
+import type * as _repoSkills_content from "../_repoSkills/content.js";
 import type * as _repoSkills_decodeGitHubContent from "../_repoSkills/decodeGitHubContent.js";
 import type * as _repoSkills_skillMarkdown from "../_repoSkills/skillMarkdown.js";
 import type * as _repoSkills_sync from "../_repoSkills/sync.js";
@@ -157,6 +159,7 @@ import type * as _sandbox_runtime_swap from "../_sandbox_runtime/swap.js";
 import type * as _sandbox_runtime_vercelAppPorts from "../_sandbox_runtime/vercelAppPorts.js";
 import type * as _sessions_backgroundAgents from "../_sessions/backgroundAgents.js";
 import type * as _sessions_baseBranch from "../_sessions/baseBranch.js";
+import type * as _sessions_daemonState from "../_sessions/daemonState.js";
 import type * as _sessions_execution from "../_sessions/execution.js";
 import type * as _sessions_helpers from "../_sessions/helpers.js";
 import type * as _sessions_internal from "../_sessions/internal.js";
@@ -340,6 +343,7 @@ declare const fullApi: ApiFromModules<{
   "_agentTasks/internal": typeof _agentTasks_internal;
   "_agentTasks/mutations": typeof _agentTasks_mutations;
   "_agentTasks/queries": typeof _agentTasks_queries;
+  "_agentTasks/runSummary": typeof _agentTasks_runSummary;
   "_agentTasks/sandbox": typeof _agentTasks_sandbox;
   "_auth/currentUser": typeof _auth_currentUser;
   "_auth/experimentalFlags": typeof _auth_experimentalFlags;
@@ -435,6 +439,7 @@ declare const fullApi: ApiFromModules<{
   "_pty/owners": typeof _pty_owners;
   "_pty/vercel": typeof _pty_vercel;
   "_queues/helpers": typeof _queues_helpers;
+  "_repoSkills/content": typeof _repoSkills_content;
   "_repoSkills/decodeGitHubContent": typeof _repoSkills_decodeGitHubContent;
   "_repoSkills/skillMarkdown": typeof _repoSkills_skillMarkdown;
   "_repoSkills/sync": typeof _repoSkills_sync;
@@ -480,6 +485,7 @@ declare const fullApi: ApiFromModules<{
   "_sandbox_runtime/vercelAppPorts": typeof _sandbox_runtime_vercelAppPorts;
   "_sessions/backgroundAgents": typeof _sessions_backgroundAgents;
   "_sessions/baseBranch": typeof _sessions_baseBranch;
+  "_sessions/daemonState": typeof _sessions_daemonState;
   "_sessions/execution": typeof _sessions_execution;
   "_sessions/helpers": typeof _sessions_helpers;
   "_sessions/internal": typeof _sessions_internal;

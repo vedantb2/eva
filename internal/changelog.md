@@ -1,5 +1,15 @@
 # Changelog
 
+## Convex hot lists stop rereading heavyweight documents - 2026-08-12
+
+Nine days of production traffic consumed 125 GB of Convex database I/O, led by `sessions.list`, `sessionWorkflow.claimPendingTurn`, `mentions.listData`, `agentTasks.getAllTasks`, and `repoSkills.listByRepo`. Their return values were already fairly small, but Convex charges for the source documents a function reads: projecting a few fields after `collect()` did not avoid loading session terminal state, task run logs, document bodies, or complete SKILL.md files.
+
+The 50 ms session daemon poll now reads a small `sessionDaemonStates` row containing only the staged turn and interrupt/setup signals. Existing sessions create that row on their first poll, and every signal writer mirrors the old session fields during the rollout, so in-flight daemons and rollback-safe code keep the same claim, cancellation, attachment, stop-agent, and setup-gate behavior. This also removes the hot poll from the large session document's contention set.
+
+Task lists now read one compact latest-run summary set per repo instead of joining every task to its newest full `agentRuns` document, whose logs and result data grow throughout execution. Every task and run creation path maintains the summary, while a per-task live-read fallback preserves exact results until the online backfill reaches that row. Repo skill metadata similarly keeps new SKILL.md bodies in `repoSkillContents`; the content viewer falls back to legacy inline content while the migration moves old bodies, so `listByRepo` stops paying for bodies it never returns.
+
+Session, mention, and task list predicates now use compound indexes that include archive/status and soft-delete state. This moves exclusion into Convex's index range instead of scanning documents and filtering afterward, while retaining the existing caps, ordering, authorization, return validators, archived-session semantics, and open-task mention set.
+
 ## Component data survives a sync to a local backend - 2026-08-12
 
 `sync:prod-to-local` imported the snapshot zip whole, and a zip that holds component tables cannot be imported that way. The import failed with "New table `X` in '\<component\>' has IDs that conflict with existing system table", because the CLI addresses a component namespace by name through `--component`, not by the `_components/` directories inside the zip. Every namespace also numbers its user tables from 10001, so a single whole-zip import puts two namespaces on the same numbers.
@@ -158,7 +168,7 @@ Also on that header: the head ref chip no longer truncates at `max-w-56` while t
 
 ## Persistent review header, checks pill, and a button for merge conflicts - 2026-08-11
 
-Everything that says what a pull request *is* lived inside the Overview tab: lifecycle pill, author, a prose sentence ("X wants to merge 3 commits into main from eva/foo"), and — at the foot of a long scroll — the merge box with CI and mergeability. From Diffs or Recap there was no way to tell a mergeable pull request from a conflicted one, and the sentence wrapped to three lines in a session pane.
+Everything that says what a pull request _is_ lived inside the Overview tab: lifecycle pill, author, a prose sentence ("X wants to merge 3 commits into main from eva/foo"), and — at the foot of a long scroll — the merge box with CI and mergeability. From Diffs or Recap there was no way to tell a mergeable pull request from a conflicted one, and the sentence wrapped to three lines in a session pane.
 
 `ReviewTabsPanel` now reads `usePrOverview` itself and renders a shared `ReviewHeader` above the tab row, so both review surfaces (`/reviews/$prNumber`, sandbox Review tab) get one header from one query: status pill, author and last-updated, `base ← head` as monospace chips, commits/files/±diffstat, and a blocker badge. The prose sentence and `PrOverviewHeader` are deleted; `ReviewOverviewPanel` takes the payload as props instead of fetching a second time, and the standalone page's title block became the header's first row (`headerOwnsRefresh` still keeps Refresh to one control).
 
@@ -191,11 +201,13 @@ Tailwind v4’s preflight switched buttons to `cursor: default` (browser UA). In
 OpenAI shipped GPT-5.6 coding tiers (Sol / Terra / Luna) while Eva’s Codex picker still only offered GPT-5.5. Added `codex:gpt-5.6-sol`, `codex:gpt-5.6-terra`, and `codex:gpt-5.6-luna` (CLI slugs `gpt-5.6-*`), kept GPT-5.5, aliased bare `codex:gpt-5.6` → Sol, exposed `max` reasoning for 5.6, and updated Codex token pricing.
 
 ## One sandbox owner contract for sessions, tasks, and projects - 2026-08-10
+
 ## Mouse wheel dead-zones from blanket overscroll contain - 2026-08-08
 
 Putting `overscroll-behavior: contain` on `@utility scrollbar` made every `overflow:auto` pane a contain target, including ones with no overflow and horizontal boards with `overflow-y-hidden`. Chrome treats those as scroll containers at their boundary, so the wheel was swallowed while dragging the ancestor scrollbar still worked. Removed contain from the utility; restored `overscroll-y-contain` / `overscroll-contain` on the kanban column and mention picker that had opted in before.
 
 ## Anonymous landing no longer waits for Clerk - 2026-08-08
+
 ## Anonymous landing no longer waits for Clerk - 2026-08-08
 
 Boot held first paint on Clerk's `isLoaded` for everyone. For a returning signed-in user that is correct — protected routes need the restored session and the alternative is a landing-page flash. For an anonymous visitor it means a blank screen while ~210 kB of clerk-js downloads from Clerk's CDN and completes a handshake, to restore a session that does not exist. Measured on production: clerk-js is 30% of the 700 kB cold landing payload, and FCP (~500 ms) was gated on it.

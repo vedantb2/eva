@@ -38,6 +38,51 @@ export const CONVEX_LOCAL_BACKEND_HEALTH_URL = "http://127.0.0.1:3210/version";
 export const CONVEX_FUNCTIONS_READY_LOG_LINE = "Convex functions ready";
 
 /**
+ * Shell lines that push the repo's functions onto the already-running local
+ * backend, for the seed script to run *after* its seed commands.
+ *
+ * The daemon's own first push fails on any repo whose `auth.config.ts` reads a
+ * deployment env var: a fresh anonymous backend holds none until the seed
+ * commands copy them across, and the CLI fails on the reference, not the read.
+ * A repo cannot fix that with a second `npx convex dev --once` either — the CLI
+ * refuses to start while the daemon owns the port ("A local backend is still
+ * running on port 3210"). Pointing `--url`/`--admin-key` at the live backend
+ * skips local-deployment management altogether, so the push just lands.
+ *
+ * The app directory is discovered from the local deployment config the daemon
+ * wrote, which keeps this repo-agnostic. Tracing is off around the admin key so
+ * it stays out of the stored build log; it is a loopback-only key, but free to
+ * withhold. `repoDir` is the seed script's cwd.
+ */
+export function buildConvexPostSeedPushLines(repoDir: string): string[] {
+  const findConfig = `find ${repoDir} -name node_modules -prune -o -path "*/.convex/local/*/config.json" -print`;
+  const readField = (field: string) =>
+    `python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))${field})' "$eva_cfg"`;
+  return [
+    'echo "SEEDRUN-STAGE:convex-push"',
+    `eva_cfg=$(${findConfig} 2>/dev/null | head -1)`,
+    'if [ -z "$eva_cfg" ]; then',
+    `  echo "convex-push: no local deployment config under ${repoDir} — nothing to push"`,
+    "else",
+    `  eva_app=$(cd "$(dirname "$eva_cfg")/../../.." && pwd)`,
+    `  eva_port=$(${readField('["ports"]["cloud"]')})`,
+    "  { set +x; } 2>/dev/null",
+    `  eva_key=$(${readField('["adminKey"]')})`,
+    '  echo "convex-push: $eva_app -> http://127.0.0.1:$eva_port"',
+    "  eva_pushed=0",
+    "  for eva_try in 1 2 3; do",
+    '    ( cd "$eva_app" && env -u CONVEX_AGENT_MODE npx convex dev --once --typecheck disable --url "http://127.0.0.1:$eva_port" --admin-key "$eva_key" ) && { eva_pushed=1; break; }',
+    '    echo "convex-push: attempt $eva_try failed"',
+    "    sleep 15",
+    "  done",
+    "  unset eva_key",
+    "  set -x",
+    '  [ "$eva_pushed" = 1 ] || { echo "SEEDRUN-FAILED:convex-push"; exit 1; }',
+    "fi",
+  ];
+}
+
+/**
  * Wedge signature `convex dev` prints while it cannot reach the local backend.
  * Cloud-mode `convex dev` never prints this, so its presence in the bg log
  * confirms the command runs a LOCAL backend before the supervisor kills it.

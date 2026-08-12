@@ -20,6 +20,7 @@ import {
 import { getSandboxClient } from "./_sandbox/factory";
 import {
   buildConvexBackgroundScriptBody,
+  buildConvexPostSeedPushLines,
   isConvexBackendCommand,
   CONVEX_FUNCTIONS_READY_LOG_LINE,
   CONVEX_LOCAL_BACKEND_HEALTH_URL,
@@ -453,8 +454,8 @@ export const launchSeedRun = internalAction({
     // auth.config.ts reads a deployment env var: the daemon's first push fails
     // for the missing value, and the seed commands that would set it run after
     // this gate. So the fatal wait is on the backend health endpoint, and the
-    // push is left to the repo's own `npx convex dev --once` seed command,
-    // which runs once the env vars are in place. Detached script — a plain bash
+    // push happens after the seed commands instead (convex-push stage below).
+    // Detached script — a plain bash
     // wait has no exec ceiling here. 900s covers cold binary plants; a daemon
     // that exits early ends the wait instead of burning the full window.
     (backgroundCommands ?? []).forEach((command, i) => {
@@ -486,6 +487,11 @@ export const launchSeedRun = internalAction({
         `( ${command} ) || { echo "SEEDRUN-FAILED:seed-${i}"; exit 1; }`,
       );
     });
+    // Functions land on the local backend only now, once the seeds have set the
+    // env vars its auth config needs — see buildConvexPostSeedPushLines.
+    if ((backgroundCommands ?? []).some(isConvexBackendCommand)) {
+      lines.push(...buildConvexPostSeedPushLines("/tmp/repo"));
+    }
     lines.push(...seededRuntimeStateCaptureLines(requireSupabaseDump));
     // Marker so a sandbox booting from the captured snapshot skips the seed.
     lines.push("touch /tmp/.startup-commands-done");

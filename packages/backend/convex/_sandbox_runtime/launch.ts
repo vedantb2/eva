@@ -100,6 +100,27 @@ function ensureProviderCliAvailable(
   }
 }
 
+/**
+ * Points pnpm at the sandbox user's store for shells whose HOME is an agent
+ * runtime dir. Cursor's agent runs its shell with HOME=/tmp/cursor-home, so a
+ * pnpm install there silently builds a second multi-GB store; the per-home
+ * .npmrc makes every home resolve the same store. Existing duplicate stores
+ * are deleted — installed node_modules keep their content via hard links.
+ */
+function ensureSharedPnpmStore(sandbox: SandboxHandle): Promise<void> {
+  const storeDir = "/home/vercel-sandbox/.local/share/pnpm";
+  const homes = [
+    CODEX_RUNTIME_HOME_DIR,
+    OPENCODE_RUNTIME_HOME_DIR,
+    CURSOR_RUNTIME_HOME_DIR,
+  ];
+  const perHome = homes.map(
+    (home) =>
+      `mkdir -p ${home} && { grep -qs '^store-dir=' ${home}/.npmrc || echo 'store-dir=${storeDir}' >> ${home}/.npmrc; } && rm -rf ${home}/.local/share/pnpm`,
+  );
+  return execHandle(sandbox, `${perHome.join("; ")}; true`, 30).then(() => {});
+}
+
 /** Per-entity spawn lock the runner holds for its lifetime (see launchScript). */
 function runnerFlockPath(entityIdField: string, entityId: string): string {
   return `/tmp/eva-runner.${entityIdField}-${entityId}.lock`;
@@ -145,7 +166,10 @@ export async function launchScript(
   );
   const normalizedModel = normalizeAIModel(opts.model);
   const provider = getAIModelProvider(normalizedModel);
-  const providerPrep = ensureProviderCliAvailable(sandbox, provider);
+  const providerPrep = Promise.all([
+    ensureProviderCliAvailable(sandbox, provider),
+    ensureSharedPnpmStore(sandbox),
+  ]);
   function uploadWithTiming(
     path: string,
     content: string,

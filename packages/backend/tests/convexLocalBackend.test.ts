@@ -32,6 +32,32 @@ describe("buildConvexBackgroundScriptBody", () => {
     expect(isConvexBackendCommand(command)).toBe(true);
   });
 
+  it("only downloads when no valid planted binary exists", () => {
+    const body = buildConvexBackgroundScriptBody("npx convex dev");
+    const lines = body.split("\n");
+    // The download must be gated behind the planted-marker checks: a resume on
+    // a long-lived sandbox cannot afford a 58MB zip + ~250MB extract per boot.
+    const neededAt = lines.findIndex((l) =>
+      l.includes("needed = [d for d in dests if not planted(d)]"),
+    );
+    const reuseAt = lines.findIndex((l) => l.includes("reuse = next("));
+    const downloadAt = lines.findIndex((l) =>
+      l.includes("download_release_asset('get-convex/convex-backend'"),
+    );
+    expect(neededAt, "the marker precheck moved").toBeGreaterThan(-1);
+    expect(reuseAt).toBeGreaterThan(neededAt);
+    expect(downloadAt).toBeGreaterThan(reuseAt);
+    expect(body).toContain("skipping download");
+    expect(body).toContain("reusing planted binary");
+  });
+
+  it("sweeps stale Convex CLI bundle staging dirs, age-gated", () => {
+    const body = buildConvexBackgroundScriptBody("npx convex dev");
+    expect(body).toContain(
+      "find /tmp -maxdepth 1 -type d -name '.tmp*' -mmin +60 -exec rm -rf {} +",
+    );
+  });
+
   it("wraps the command in the self-heal supervisor", () => {
     const command =
       "cd apps/eprocurement && CONVEX_LOCAL_BACKEND_STARTUP_TIMEOUT_SECS=240 npx convex dev";

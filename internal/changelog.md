@@ -1,5 +1,9 @@
 # Changelog
 
+## Archive closes an open session PR - 2026-08-13
+
+Archiving a session now closes its GitHub PR when that PR is still open or draft, and remembers which it was. Unarchive reopens it in the same state. Merged PRs, and PRs closed on GitHub rather than in Eva, are left alone.
+
 ## Mutation toasts across sessions, tasks, docs, and settings - 2026-08-13
 
 High-impact mutations app-wide now use shared `mutationToast` helpers: sandbox start/stop, session tab rename/archive/duplicate, persona and plan saves, task/project create/delete/schedule/bulk ops, env vars, teams, snapshots, skills, theme, docs comments, findings-to-tasks, PR refresh failures, and draft/artifact deletes.

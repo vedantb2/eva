@@ -236,7 +236,8 @@ export function GlobalSessionsSidebar({
             <span className="font-medium text-foreground">
               {sessionToArchive?.session.title}
             </span>{" "}
-            from the active list.
+            from the active list. An open or draft PR will be closed, and
+            reopened if you unarchive.
           </p>
           <DialogFooter>
             <Button

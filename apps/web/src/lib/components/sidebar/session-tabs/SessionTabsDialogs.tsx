@@ -136,7 +136,8 @@ export function SessionTabsDialogs({
             <span className="font-medium text-foreground">
               {archiveTarget?.session.title}
             </span>{" "}
-            from the active tabs.
+            from the active tabs. An open or draft PR will be closed, and
+            reopened if you unarchive.
           </p>
           <DialogFooter>
             <Button

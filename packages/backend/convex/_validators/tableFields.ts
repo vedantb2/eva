@@ -318,6 +318,8 @@ export const sessionFields = {
       v.literal("closed"),
     ),
   ),
+  /** Live PR status (open/draft) Eva closed when archiving. Unarchive reopens it. */
+  prStateOnArchive: v.optional(v.union(v.literal("draft"), v.literal("open"))),
   sandboxId: v.optional(v.string()),
   /** Earliest time an archived session's sandbox may be deleted (48h grace). */
   sandboxDeleteAfter: v.optional(v.number()),

@@ -24,12 +24,10 @@ describe("session pull-request lifecycle", () => {
   });
 
   test("archives both terminal states and unarchives every live state", () => {
-    expect(handler).toContain(
-      'const isTerminal = nextState === "merged" || nextState === "closed"',
-    );
-    expect(handler).toContain(
-      "...(isTerminal ? { archived: true } : { archived: false })",
-    );
+    expect(handler).toContain("const isTerminal = nextState === \"merged\" || nextState === \"closed\"");
+    expect(handler).toContain("archived: true");
+    expect(handler).toContain("archived: false");
+    expect(handler).toContain("prStateOnArchive: undefined");
   });
 
   test("stops a terminal session before scheduling its grace deletion", () => {
@@ -60,6 +58,34 @@ describe("session pull-request lifecycle", () => {
     expect(gate).toContain('nextState === "merged"');
     expect(gate).toContain("args.prNumber !== undefined");
     expect(gate).toContain("args.mergeCommitSha !== undefined");
+  });
+});
+
+describe("session archive closes a live PR", () => {
+  const mutations = stripComments(
+    readFileSync(
+      join(
+        dirname(fileURLToPath(import.meta.url)),
+        "../convex/_sessions/mutations.ts",
+      ),
+      "utf8",
+    ),
+  );
+  const archive = definitionBody(mutations, "archive");
+  const unarchive = definitionBody(mutations, "unarchive");
+
+  test("archive closes open/draft PRs and remembers that state", () => {
+    expect(archive).toContain("livePrState(session.prState)");
+    expect(archive).toContain('kind: "close"');
+    expect(archive).toContain("prStateOnArchive: restorePrState");
+    expect(archive).not.toContain("reopenPullRequest");
+  });
+
+  test("unarchive reopens only a PR Eva closed, skipping merged", () => {
+    expect(unarchive).toContain("livePrState(session.prStateOnArchive)");
+    expect(unarchive).toContain('session.prState !== "merged"');
+    expect(unarchive).toContain('kind: "reopen"');
+    expect(unarchive).toContain('asReady: restorePrState === "open"');
   });
 });
 

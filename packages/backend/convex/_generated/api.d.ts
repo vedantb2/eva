@@ -162,6 +162,7 @@ import type * as _sessions_helpers from "../_sessions/helpers.js";
 import type * as _sessions_internal from "../_sessions/internal.js";
 import type * as _sessions_mutations from "../_sessions/mutations.js";
 import type * as _sessions_pendingTurnRecovery from "../_sessions/pendingTurnRecovery.js";
+import type * as _sessions_prArchive from "../_sessions/prArchive.js";
 import type * as _sessions_prompts from "../_sessions/prompts.js";
 import type * as _sessions_pty from "../_sessions/pty.js";
 import type * as _sessions_queries from "../_sessions/queries.js";
@@ -485,6 +486,7 @@ declare const fullApi: ApiFromModules<{
   "_sessions/internal": typeof _sessions_internal;
   "_sessions/mutations": typeof _sessions_mutations;
   "_sessions/pendingTurnRecovery": typeof _sessions_pendingTurnRecovery;
+  "_sessions/prArchive": typeof _sessions_prArchive;
   "_sessions/prompts": typeof _sessions_prompts;
   "_sessions/pty": typeof _sessions_pty;
   "_sessions/queries": typeof _sessions_queries;

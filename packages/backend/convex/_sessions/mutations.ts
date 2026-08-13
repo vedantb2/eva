@@ -31,6 +31,7 @@ import {
   cancelSessionSandboxGraceDelete,
   scheduleSessionSandboxGraceDelete,
 } from "../sandboxCleanup";
+import { livePrState, scheduleSessionPrSync } from "./prArchive";
 
 /** Loads a session by id, throwing if it does not exist. */
 async function getSessionOrThrow(
@@ -411,7 +412,8 @@ export const updateSummary = authMutation({
 });
 
 /** Archives a session so it no longer appears in the active list.
- * Also archives the sandbox (moves to cold storage for cost savings). */
+ * Also archives the sandbox (moves to cold storage for cost savings).
+ * Closes an open/draft GitHub PR; merged PRs are left alone. */
 export const archive = authMutation({
   args: { id: v.id("sessions") },
   returns: v.null(),
@@ -429,11 +431,23 @@ export const archive = authMutation({
       });
     }
 
-    await ctx.db.patch(args.id, {
-      archived: true,
-      status: "closed",
-      updatedAt: Date.now(),
-    });
+    const restorePrState = livePrState(session.prState);
+    if (restorePrState) {
+      await scheduleSessionPrSync(ctx, session, { kind: "close" });
+      await ctx.db.patch(args.id, {
+        archived: true,
+        status: "closed",
+        updatedAt: Date.now(),
+        prState: "closed",
+        prStateOnArchive: restorePrState,
+      });
+    } else {
+      await ctx.db.patch(args.id, {
+        archived: true,
+        status: "closed",
+        updatedAt: Date.now(),
+      });
+    }
     await scheduleSessionSandboxGraceDelete(ctx, {
       ...session,
       archived: true,
@@ -443,7 +457,8 @@ export const archive = authMutation({
   },
 });
 
-/** Unarchives a session, restoring it to the active list. */
+/** Unarchives a session, restoring it to the active list.
+ * Reopens a PR Eva closed on archive, as draft or ready to match that state. */
 export const unarchive = authMutation({
   args: { id: v.id("sessions") },
   returns: v.null(),
@@ -452,7 +467,26 @@ export const unarchive = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
-    await ctx.db.patch(args.id, { archived: false });
+
+    const restorePrState = livePrState(session.prStateOnArchive);
+    if (restorePrState !== undefined && session.prState !== "merged") {
+      await ctx.db.patch(args.id, {
+        archived: false,
+        prStateOnArchive: undefined,
+        prState: restorePrState,
+      });
+      await cancelSessionSandboxGraceDelete(ctx, args.id);
+      await scheduleSessionPrSync(ctx, session, {
+        kind: "reopen",
+        asReady: restorePrState === "open",
+      });
+      return null;
+    }
+
+    await ctx.db.patch(args.id, {
+      archived: false,
+      prStateOnArchive: undefined,
+    });
     await cancelSessionSandboxGraceDelete(ctx, args.id);
     return null;
   },

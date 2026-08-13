@@ -145,7 +145,9 @@ export const handleSessionPrEvent = internalMutation({
 
     await ctx.db.patch(session._id, {
       prState: nextState,
-      ...(isTerminal ? { archived: true } : { archived: false }),
+      ...(isTerminal
+        ? { archived: true }
+        : { archived: false, prStateOnArchive: undefined }),
       updatedAt: Date.now(),
     });
 

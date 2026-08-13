@@ -2,7 +2,6 @@ import { readFileSync, unlinkSync, writeFileSync } from "fs";
 import {
   CALLBACK_SCRIPT_FP,
   CLAIM_MUTATION,
-  COMPLETION_MUTATION,
   CONVEX_TOKEN,
   CONVEX_URL,
   DAEMON_OPTS_SIG,

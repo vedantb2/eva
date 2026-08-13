@@ -243,11 +243,14 @@ export function buildConvexBackgroundScriptBody(command: string): string {
     "latest = fetched or EXPECTED_LATEST",
     "print(f'convex local backend: fetched={fetched} plant_as={latest} pin_binary={PIN}')",
     "labels = {PIN, EXPECTED_LATEST, latest}",
+    // Cursor once ran the convex CLI with HOME=/tmp/cursor-home and needed the
+    // pinned binary planted there too; since the in-process SDK migration it
+    // runs under the sandbox home, so /tmp/cursor-home is no longer a convex
+    // cache and planting there only leaks ~250MB per label onto the disk.
     "cache_roots = []",
     "for root in (",
     "  os.path.expanduser('~/.cache/convex/binaries'),",
     "  '/home/vercel-sandbox/.cache/convex/binaries',",
-    "  '/tmp/cursor-home/.cache/convex/binaries',",
     "):",
     "  if root not in cache_roots:",
     "    cache_roots.append(root)",

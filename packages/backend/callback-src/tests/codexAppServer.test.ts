@@ -1,6 +1,9 @@
 import { expect, test } from "vitest";
 import { codexParseLine } from "../providers/codex.js";
-import { normalizeAppServerNotification } from "../providers/codexAppServerDaemon.js";
+import {
+  computeTurnUsageDelta,
+  normalizeAppServerNotification,
+} from "../providers/codexAppServerDaemon.js";
 
 test("normalizes App Server item notifications into the existing Codex stream", () => {
   expect(
@@ -65,4 +68,62 @@ test("maps App Server command and collaboration items to progress steps", () => 
       step: { type: "subtask" },
     },
   ]);
+});
+
+test("computes per-turn usage as the delta of cumulative thread totals", () => {
+  expect(computeTurnUsageDelta(null, null)).toBeNull();
+  expect(
+    computeTurnUsageDelta(
+      { inputTokens: 100, cachedInputTokens: 40, outputTokens: 25 },
+      null,
+    ),
+  ).toBeNull();
+  // First turn of a fresh thread: no baseline yet, totals count in full.
+  expect(
+    computeTurnUsageDelta(null, {
+      inputTokens: 100,
+      cachedInputTokens: 40,
+      cacheWriteInputTokens: 10,
+      outputTokens: 25,
+    }),
+  ).toEqual({
+    inputTokens: 100,
+    cachedInputTokens: 40,
+    cacheWriteInputTokens: 10,
+    outputTokens: 25,
+  });
+  // Later turn: only the growth since the turn-start snapshot counts.
+  expect(
+    computeTurnUsageDelta(
+      {
+        inputTokens: 100,
+        cachedInputTokens: 40,
+        cacheWriteInputTokens: 10,
+        outputTokens: 25,
+      },
+      {
+        inputTokens: 350,
+        cachedInputTokens: 240,
+        cacheWriteInputTokens: 10,
+        outputTokens: 95,
+      },
+    ),
+  ).toEqual({
+    inputTokens: 250,
+    cachedInputTokens: 200,
+    cacheWriteInputTokens: 0,
+    outputTokens: 70,
+  });
+  // Resumed thread replaying lower totals, or malformed fields: clamp to 0.
+  expect(
+    computeTurnUsageDelta(
+      { inputTokens: 500, outputTokens: 90 },
+      { inputTokens: 350, cachedInputTokens: "bad", outputTokens: 95 },
+    ),
+  ).toEqual({
+    inputTokens: 0,
+    cachedInputTokens: 0,
+    cacheWriteInputTokens: 0,
+    outputTokens: 5,
+  });
 });

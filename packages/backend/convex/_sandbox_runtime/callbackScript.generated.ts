@@ -5922,6 +5922,8 @@ var finalText = "";
 var cancelInFlight = false;
 var pendingTurn = null;
 var exiting = false;
+var threadTotalUsage = null;
+var turnStartUsage = null;
 function sleep3(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -6058,6 +6060,20 @@ function normalizeAppServerNotification(notification) {
   }
   return null;
 }
+function readTokenCount(source, key) {
+  const value = source ? source[key] : 0;
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+function computeTurnUsageDelta(start, end) {
+  if (!end) return null;
+  const delta = (key) => Math.max(0, readTokenCount(end, key) - readTokenCount(start, key));
+  return {
+    inputTokens: delta("inputTokens"),
+    cachedInputTokens: delta("cachedInputTokens"),
+    cacheWriteInputTokens: delta("cacheWriteInputTokens"),
+    outputTokens: delta("outputTokens")
+  };
+}
 function turnError(params) {
   const turn = objectValue2(params.turn);
   const error = objectValue2(turn.error);
@@ -6069,13 +6085,34 @@ async function finalizeTurn2(success, error) {
   const result = finalText || callbackState.currentStreamedContent || callbackState.rawOutput;
   await setFinalizingState();
   persistTurnWork();
+  const usage = computeTurnUsageDelta(turnStartUsage, threadTotalUsage);
   await deliverCompletionWithMedia({
     [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
     success,
     result,
     error,
     activityLog: serializeSteps(callbackState.accumulatedSteps),
-    ...RUN_ID ? { runId: RUN_ID } : {}
+    ...RUN_ID ? { runId: RUN_ID } : {},
+    ...usage ? {
+      rawResultEvent: buildClaudeShapedResult({
+        provider: "codex",
+        totalCostUsd: computeCodexCostUsd(
+          normalizedCodexModel,
+          usage.inputTokens,
+          usage.cachedInputTokens,
+          usage.outputTokens
+        ),
+        durationMs: attemptElapsedMs(),
+        inputTokens: Math.max(
+          0,
+          usage.inputTokens - usage.cachedInputTokens
+        ),
+        outputTokens: usage.outputTokens,
+        cacheReadInputTokens: usage.cachedInputTokens,
+        cacheCreationInputTokens: usage.cacheWriteInputTokens,
+        model: normalizedCodexModel
+      })
+    } : {}
   });
   syncCodexStateToPersist();
   log("codex daemon: turn finalized success=" + success);
@@ -6090,6 +6127,11 @@ async function failActiveTurn(error) {
 }
 function processNotification(notification) {
   lastEventAt = Date.now();
+  if (notification.method === "thread/tokenUsage/updated") {
+    threadTotalUsage = objectValue2(
+      objectValue2(notification.params.tokenUsage).total
+    );
+  }
   const event = normalizeAppServerNotification(notification);
   if (event) emitEvent(event);
   if (notification.method === "item/completed") {
@@ -6170,6 +6212,7 @@ async function startTurn(client, turn) {
   const text = SYSTEM_PROMPT ? SYSTEM_PROMPT + "\\n\\n" + turn.prompt : turn.prompt;
   activeTurnStartedAt = Date.now();
   lastEventAt = activeTurnStartedAt;
+  turnStartUsage = threadTotalUsage;
   const result = await client.request("turn/start", {
     threadId: callbackState.activeCodexThreadId,
     input: [{ type: "text", text }],
@@ -6248,13 +6291,24 @@ async function runCodexAppServerDaemon() {
       );
       if (readCancelRequested(claimed) && activeTurnId && !cancelInFlight) {
         cancelInFlight = true;
-        await client.request("turn/interrupt", {
+        void client.request("turn/interrupt", {
           threadId: callbackState.activeCodexThreadId,
           turnId: activeTurnId
+        }).catch((error) => {
+          const message = error instanceof Error ? error.message : String(error);
+          log("codex daemon: interrupt failed \\u2014 " + message);
         });
       }
       const claimedTurn = readClaimedTurn2(claimed);
-      if (claimedTurn) pendingTurn = claimedTurn;
+      if (claimedTurn) {
+        if (!activeTurnId || cancelInFlight) {
+          pendingTurn = claimedTurn;
+        } else {
+          log(
+            "codex daemon: claim discarded while real turn active (prompt lost; pendingTurn was already cleared)"
+          );
+        }
+      }
       if (!activeTurnId && pendingTurn) {
         const next = pendingTurn;
         pendingTurn = null;

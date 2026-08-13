@@ -21,7 +21,11 @@ import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
 import { serializeSteps } from "../parse/stepBudget.js";
 import { getCodexAgentMessageText } from "../parse/toolSteps.js";
 import { appendToRawLogFile, appendToRawOutput } from "../runtime/buffers.js";
-import { deliverCompletionWithMedia } from "../runtime/completion.js";
+import {
+  buildClaudeShapedResult,
+  computeCodexCostUsd,
+  deliverCompletionWithMedia,
+} from "../runtime/completion.js";
 import {
   flushStreaming,
   runPreflightHeartbeat,
@@ -37,7 +41,7 @@ import {
   writeCodexSessionState,
 } from "../session/codexSession.js";
 import type { JsonObject, JsonValue, SessionMode } from "../types.js";
-import { log, readResponseJson } from "../utils.js";
+import { attemptElapsedMs, log, readResponseJson } from "../utils.js";
 import { readCancelRequested } from "./claimPendingTurnParse.js";
 import {
   CodexAppServerClient,
@@ -64,6 +68,11 @@ let finalText = "";
 let cancelInFlight = false;
 let pendingTurn: ClaimedTurn | null = null;
 let exiting = false;
+// Cumulative thread usage from `thread/tokenUsage/updated`; per-turn usage is
+// the delta of this total across the turn boundary (the protocol reports no
+// per-turn usage on `turn/completed`).
+let threadTotalUsage: JsonObject | null = null;
+let turnStartUsage: JsonObject | null = null;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -240,6 +249,35 @@ export function normalizeAppServerNotification(
   return null;
 }
 
+/**
+ * Per-turn usage as the delta of cumulative thread totals (codex 0.146.0
+ * `thread/tokenUsage/updated` reports `TokenUsageBreakdown` fields, camelCase).
+ */
+function readTokenCount(source: JsonObject | null, key: string): number {
+  const value = source ? source[key] : 0;
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+export function computeTurnUsageDelta(
+  start: JsonObject | null,
+  end: JsonObject | null,
+): {
+  inputTokens: number;
+  cachedInputTokens: number;
+  cacheWriteInputTokens: number;
+  outputTokens: number;
+} | null {
+  if (!end) return null;
+  const delta = (key: string): number =>
+    Math.max(0, readTokenCount(end, key) - readTokenCount(start, key));
+  return {
+    inputTokens: delta("inputTokens"),
+    cachedInputTokens: delta("cachedInputTokens"),
+    cacheWriteInputTokens: delta("cacheWriteInputTokens"),
+    outputTokens: delta("outputTokens"),
+  };
+}
+
 function turnError(params: JsonObject): string | null {
   const turn = objectValue(params.turn);
   const error = objectValue(turn.error);
@@ -255,6 +293,7 @@ async function finalizeTurn(
   const result = finalText || S.currentStreamedContent || S.rawOutput;
   await setFinalizingState();
   persistTurnWork();
+  const usage = computeTurnUsageDelta(turnStartUsage, threadTotalUsage);
   await deliverCompletionWithMedia({
     [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
     success,
@@ -262,6 +301,28 @@ async function finalizeTurn(
     error,
     activityLog: serializeSteps(S.accumulatedSteps),
     ...(RUN_ID ? { runId: RUN_ID } : {}),
+    ...(usage
+      ? {
+          rawResultEvent: buildClaudeShapedResult({
+            provider: "codex",
+            totalCostUsd: computeCodexCostUsd(
+              normalizedCodexModel,
+              usage.inputTokens,
+              usage.cachedInputTokens,
+              usage.outputTokens,
+            ),
+            durationMs: attemptElapsedMs(),
+            inputTokens: Math.max(
+              0,
+              usage.inputTokens - usage.cachedInputTokens,
+            ),
+            outputTokens: usage.outputTokens,
+            cacheReadInputTokens: usage.cachedInputTokens,
+            cacheCreationInputTokens: usage.cacheWriteInputTokens,
+            model: normalizedCodexModel,
+          }),
+        }
+      : {}),
   });
   syncCodexStateToPersist();
   log("codex daemon: turn finalized success=" + success);
@@ -281,6 +342,11 @@ function processNotification(
   notification: AppServerNotification,
 ): Promise<void> | null {
   lastEventAt = Date.now();
+  if (notification.method === "thread/tokenUsage/updated") {
+    threadTotalUsage = objectValue(
+      objectValue(notification.params.tokenUsage).total,
+    );
+  }
   const event = normalizeAppServerNotification(notification);
   if (event) emitEvent(event);
   if (notification.method === "item/completed") {
@@ -374,6 +440,9 @@ async function startTurn(
     : turn.prompt;
   activeTurnStartedAt = Date.now();
   lastEventAt = activeTurnStartedAt;
+  // Snapshot before the request: tokenUsage notifications for this turn can
+  // arrive ahead of the turn/start response on the same stream.
+  turnStartUsage = threadTotalUsage;
   const result = await client.request("turn/start", {
     threadId: S.activeCodexThreadId,
     input: [{ type: "text", text }],
@@ -468,13 +537,36 @@ export async function runCodexAppServerDaemon(): Promise<void> {
       );
       if (readCancelRequested(claimed) && activeTurnId && !cancelInFlight) {
         cancelInFlight = true;
-        await client.request("turn/interrupt", {
-          threadId: S.activeCodexThreadId,
-          turnId: activeTurnId,
-        });
+        // Fire-and-forget like the claude daemon: an awaited interrupt can
+        // stall claiming for the full request timeout, and its failure must
+        // not tear the daemon down — the turn settles via `turn/completed`.
+        void client
+          .request("turn/interrupt", {
+            threadId: S.activeCodexThreadId,
+            turnId: activeTurnId,
+          })
+          .catch((error) => {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            log("codex daemon: interrupt failed — " + message);
+          });
       }
       const claimedTurn = readClaimedTurn(claimed);
-      if (claimedTurn) pendingTurn = claimedTurn;
+      if (claimedTurn) {
+        if (!activeTurnId || cancelInFlight) {
+          // A cancel response can carry the next queued prompt in the same
+          // mutation; claimPendingTurn already cleared it server-side, so
+          // parking is the only lossless option.
+          pendingTurn = claimedTurn;
+        } else {
+          // Mid-turn claims are the workflow's per-turn re-stage of the
+          // prompt this turn is already running — parking and replaying it
+          // after the turn would execute the same prompt twice.
+          log(
+            "codex daemon: claim discarded while real turn active (prompt lost; pendingTurn was already cleared)",
+          );
+        }
+      }
       if (!activeTurnId && pendingTurn) {
         const next = pendingTurn;
         pendingTurn = null;

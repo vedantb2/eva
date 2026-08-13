@@ -72,7 +72,7 @@ export function writeDoneFile(
   }
 }
 
-function computeCodexCostUsd(
+export function computeCodexCostUsd(
   model: string,
   inputTokens: number,
   cachedInputTokens: number,
@@ -88,7 +88,7 @@ function computeCodexCostUsd(
   );
 }
 
-function buildClaudeShapedResult(args: {
+export function buildClaudeShapedResult(args: {
   provider: string;
   totalCostUsd: number;
   durationMs: number;

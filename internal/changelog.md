@@ -87,6 +87,9 @@ The code-server install script fetches the GitHub rpm over HTTP/2, which dies mi
 ## Convex seed supervisor retries a dead `convex dev` - 2026-08-12
 
 CarePulse web snapshot 2 of 3 died at convex-ready-1: `npx convex dev` hit `TypeError: fetch failed` and the supervisor treated that as a clean exit, so the seed aborted instead of retrying. It now restarts up to 3 times when the CLI exits before the local backend is healthy.
+## MCP auth stays in callback memory - 2026-08-12
+
+Eva's bearer token previously lived in `/tmp/eva-mcp.json`, so reused sandboxes could retain stale authorization and filesystem snapshots captured a live credential. Launches now deliver the token through reserved environment variables, the callback immediately converts and scrubs them, and both Claude and Cursor receive one shared typed MCP descriptor directly through their SDK options. The one-time runner also removes legacy MCP files and unlinks its credential-bearing launch script before the long-lived callback starts.
 
 ## Repo default model includes traits - 2026-08-12
 

@@ -5,7 +5,6 @@ import { probeCursorSdkToolResult } from "../providers/cursor.js";
 import {
   cursorModeParams,
   filterModeParamsByModel,
-  parseCursorSdkMcpServers,
 } from "../providers/cursorSdk.js";
 
 test("splitCursorModel separates base id and reasoning level", () => {
@@ -120,32 +119,6 @@ test("filterModeParamsByModel without a model entry keeps only opted-in params",
 function opted(fastMode: boolean, use1mContext: boolean) {
   return { fastMode, use1mContext };
 }
-
-test("parseCursorSdkMcpServers maps eva-mcp.json to inline SDK config", () => {
-  const raw = JSON.stringify({
-    mcpServers: {
-      eva: {
-        url: "https://example.convex.site/mcp",
-        headers: { Authorization: "Bearer abc", "X-Num": 5 },
-      },
-      broken: { command: "npx" },
-      empty: { url: "   " },
-    },
-  });
-  const servers = parseCursorSdkMcpServers(raw);
-  expect(Object.keys(servers)).toEqual(["eva"]);
-  expect(servers.eva).toEqual({
-    type: "http",
-    url: "https://example.convex.site/mcp",
-    headers: { Authorization: "Bearer abc" },
-  });
-});
-
-test("parseCursorSdkMcpServers tolerates malformed input", () => {
-  expect(parseCursorSdkMcpServers("not json")).toEqual({});
-  expect(parseCursorSdkMcpServers("[]")).toEqual({});
-  expect(parseCursorSdkMcpServers('{"mcpServers":[]}')).toEqual({});
-});
 
 test("cursorSdkToolToStep maps known SDK tool kinds", () => {
   const read = cursorSdkToolToStep("read", { path: "/tmp/repo/src/a.ts" });

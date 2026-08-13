@@ -20,6 +20,7 @@ import {
   normalizedClaudeModel,
   settingsJson,
 } from "../config.js";
+import { evaMcpServers } from "../evaMcp.js";
 import { buildClaudeStartupStep } from "../session/claudeSession.js";
 import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
 import { updateThinkingStep } from "../parse/canonical.js";
@@ -36,7 +37,6 @@ import { log } from "../utils.js";
 
 const SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 const SDK_VERSION = "0.3.201";
-const MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
 
 export type JsonLike =
   | string
@@ -127,9 +127,6 @@ export function buildSdkOptions(sessionMode: SessionMode): SdkOptions {
   // allowed tools, MCP, permissions, session resume). Formerly mirrored
   // Claude CLI flags; those builders are gone.
   const extraArgs: Record<string, string> = { settings: settingsJson };
-  if (existsSync(MCP_CONFIG_PATH)) {
-    extraArgs["mcp-config"] = MCP_CONFIG_PATH;
-  }
   return buildSdkOptionsFromParts(sessionMode, extraArgs);
 }
 
@@ -226,6 +223,9 @@ function buildSdkOptionsFromParts(
       ? { resume: sessionMode.sessionId }
       : {}),
     extraArgs,
+    ...(Object.keys(evaMcpServers).length > 0
+      ? { mcpServers: evaMcpServers }
+      : {}),
     ...effortOption,
   };
 }

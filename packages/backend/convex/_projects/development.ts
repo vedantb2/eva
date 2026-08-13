@@ -10,6 +10,7 @@ import {
   buildProjectBranchName,
 } from "./helpers";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
+import { createTaskRunSummary } from "../_agentTasks/runSummary";
 
 /** Converts a finalized project spec into tasks with dependencies and sets the project to business_review. */
 export const startDevelopment = authMutation({
@@ -54,6 +55,7 @@ export const startDevelopment = authMutation({
         baseBranch: projectBaseBranch,
         numId,
       });
+      await createTaskRunSummary(ctx, taskId, project.repoId);
       await ensureSubscribed(ctx, taskId, ctx.userId);
       taskIdMap.set(taskNumber, taskId);
     }

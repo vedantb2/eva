@@ -131,6 +131,14 @@ export const deleteRepoStep = internalMutation({
       }
 
       case "tasks": {
+        const summaries = await ctx.db
+          .query("agentTaskRunSummaries")
+          .withIndex("by_repo", (q) => q.eq("repoId", repoId))
+          .collect();
+        for (const summary of summaries) {
+          await ctx.db.delete(summary._id);
+          deleted++;
+        }
         const tasks = await ctx.db
           .query("agentTasks")
           .withIndex("by_repo", (q) => q.eq("repoId", repoId))
@@ -148,6 +156,14 @@ export const deleteRepoStep = internalMutation({
           .withIndex("by_repo", (q) => q.eq("repoId", repoId))
           .collect();
         for (const session of sessions) {
+          const daemonState = await ctx.db
+            .query("sessionDaemonStates")
+            .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+            .unique();
+          if (daemonState) {
+            await ctx.db.delete(daemonState._id);
+            deleted++;
+          }
           const messages = await ctx.db
             .query("messages")
             .withIndex("by_parent", (q) => q.eq("parentId", session._id))
@@ -228,6 +244,20 @@ export const deleteRepoStep = internalMutation({
       }
 
       case "flatTables": {
+        const repoSkills = await ctx.db
+          .query("repoSkills")
+          .withIndex("by_repo", (q) => q.eq("repoId", repoId))
+          .collect();
+        for (const skill of repoSkills) {
+          const content = await ctx.db
+            .query("repoSkillContents")
+            .withIndex("by_skill", (q) => q.eq("skillId", skill._id))
+            .unique();
+          if (content) {
+            await ctx.db.delete(content._id);
+            deleted++;
+          }
+        }
         const tables = [
           "designPersonas",
           "repoSkills",

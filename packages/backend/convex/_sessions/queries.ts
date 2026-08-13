@@ -101,13 +101,20 @@ export const list = authQuery({
   returns: v.array(sessionListItemValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const sessions = filterActiveEntities(
-      await ctx.db
-        .query("sessions")
-        .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-        .filter((q) => q.neq(q.field("archived"), true))
-        .collect(),
+    const sessionGroups = await Promise.all(
+      [undefined, false].map((archived) =>
+        ctx.db
+          .query("sessions")
+          .withIndex("by_repo_archived_and_deleted", (q) =>
+            q
+              .eq("repoId", args.repoId)
+              .eq("archived", archived)
+              .eq("deletedAt", undefined),
+          )
+          .collect(),
+      ),
     );
+    const sessions = sessionGroups.flat();
     return sessions.sort(byMostRecentlyUpdated).map(toSessionListItem);
   },
 });
@@ -118,14 +125,15 @@ export const listArchived = authQuery({
   returns: v.array(sessionListItemValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const sessions = filterActiveEntities(
-      await ctx.db
-        .query("sessions")
-        .withIndex("by_repo_and_archived", (q) =>
-          q.eq("repoId", args.repoId).eq("archived", true),
-        )
-        .collect(),
-    );
+    const sessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_repo_archived_and_deleted", (q) =>
+        q
+          .eq("repoId", args.repoId)
+          .eq("archived", true)
+          .eq("deletedAt", undefined),
+      )
+      .collect();
     return sessions.sort(byMostRecentlyUpdated).map(toSessionListItem);
   },
 });

@@ -17,8 +17,32 @@ async function enrichTasksWithLastRun(
   db: QueryCtx["db"],
   tasks: Array<Doc<"agentTasks">>,
 ) {
+  const repoIds = new Set<Id<"githubRepos">>();
+  for (const task of tasks) {
+    if (task.repoId) repoIds.add(task.repoId);
+  }
+  const summaryGroups = await Promise.all(
+    [...repoIds].map((repoId) =>
+      db
+        .query("agentTaskRunSummaries")
+        .withIndex("by_repo", (q) => q.eq("repoId", repoId))
+        .collect(),
+    ),
+  );
+  const summariesByTask = new Map(
+    summaryGroups.flat().map((summary) => [String(summary.taskId), summary]),
+  );
+
   return Promise.all(
     tasks.map(async (task) => {
+      const summary = summariesByTask.get(String(task._id));
+      if (summary) {
+        return {
+          ...task,
+          lastRunStartedAt: summary.lastRunStartedAt,
+        };
+      }
+      // Migration-safe fallback for tasks whose summary row is not backfilled.
       const latestRun = await db
         .query("agentRuns")
         .withIndex("by_task", (q) => q.eq("taskId", task._id))
@@ -195,15 +219,16 @@ export const getAllTasks = authQuery({
       nonDraftStatuses.map((status) =>
         ctx.db
           .query("agentTasks")
-          .withIndex("by_repo_and_status", (q) =>
-            q.eq("repoId", args.repoId).eq("status", status),
+          .withIndex("by_repo_status_and_deleted", (q) =>
+            q
+              .eq("repoId", args.repoId)
+              .eq("status", status)
+              .eq("deletedAt", undefined),
           )
           .collect(),
       ),
     );
-    const tasks = filterActiveEntities(taskArrays.flat()).sort(
-      (a, b) => a.createdAt - b.createdAt,
-    );
+    const tasks = taskArrays.flat().sort((a, b) => a.createdAt - b.createdAt);
     return enrichTasksWithLastRun(ctx.db, tasks);
   },
 });

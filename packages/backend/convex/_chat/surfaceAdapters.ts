@@ -12,6 +12,7 @@ import {
   startNextQueuedTaskChatMessage,
 } from "../_queues/helpers";
 import type { WorkflowId } from "@convex-dev/workflow";
+import { syncSessionDaemonState } from "../_sessions/daemonState";
 
 /** Streaming entityId prefix for project chat workflows. */
 export const PROJECT_CHAT_STREAM_PREFIX = "project-chat-";
@@ -127,7 +128,9 @@ const sessionChatAdapter: ChatSurfaceAdapter<
   repoId: (session) => session.repoId,
   interrupt: async (ctx, session) => {
     if (getAIModelProvider(normalizeAIModel(session.lastModel)) === "claude") {
-      await ctx.db.patch(session._id, { cancelRequestedAt: Date.now() });
+      const cancelRequestedAt = Date.now();
+      await ctx.db.patch(session._id, { cancelRequestedAt });
+      await syncSessionDaemonState(ctx, session, { cancelRequestedAt });
     } else if (session.sandboxId) {
       await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
         sandboxId: session.sandboxId,

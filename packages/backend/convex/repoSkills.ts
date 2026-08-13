@@ -3,6 +3,7 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
 import { authQuery, hasRepoAccess } from "./functions";
 import { resolveCanonicalRepoId } from "./_githubRepos/helpers";
+import { upsertRepoSkillContent } from "./_repoSkills/content";
 
 export { syncFromGithub } from "./_repoSkills/sync";
 
@@ -79,12 +80,17 @@ export const getContentById = authQuery({
     if (!(await hasRepoAccess(ctx.db, skill.repoId, ctx.userId))) {
       return null;
     }
-    if (!skill.content) return null;
+    const splitContent = await ctx.db
+      .query("repoSkillContents")
+      .withIndex("by_skill", (q) => q.eq("skillId", skill._id))
+      .unique();
+    const content = splitContent?.content ?? skill.content;
+    if (!content) return null;
 
     return {
       title: skill.title,
       sourcePath: skill.sourcePath,
-      content: skill.content,
+      content,
     };
   },
 });
@@ -211,10 +217,11 @@ export const applyGithubSync = internalMutation({
       syncedPaths.add(skill.sourcePath);
       const existingSkill = existingBySourcePath.get(skill.sourcePath);
       if (existingSkill) {
+        await upsertRepoSkillContent(ctx, existingSkill._id, skill.content);
         await ctx.db.patch(existingSkill._id, {
           title: skill.title,
           description: skill.description,
-          content: skill.content,
+          content: undefined,
           sourceSha: skill.sourceSha,
           available: true,
           lastSyncedAt: args.syncedAt,
@@ -222,17 +229,17 @@ export const applyGithubSync = internalMutation({
           prompt: undefined,
         });
       } else {
-        await ctx.db.insert("repoSkills", {
+        const skillId = await ctx.db.insert("repoSkills", {
           repoId: args.repoId,
           title: skill.title,
           description: skill.description,
-          content: skill.content,
           sourcePath: skill.sourcePath,
           sourceSha: skill.sourceSha,
           available: true,
           lastSyncedAt: args.syncedAt,
           createdAt: args.syncedAt,
         });
+        await upsertRepoSkillContent(ctx, skillId, skill.content);
       }
     }
 

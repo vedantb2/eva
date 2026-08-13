@@ -43,3 +43,50 @@ export const dataMigrations = new Migrations<DataModel, typeof schema>(
 
 /** Generic runner: `npx convex run dataMigrations:run '{fn:"dataMigrations:…"}'`. */
 export const run = dataMigrations.runner();
+
+/** Backfills compact task latest-run rows so list queries stop reading run logs. */
+export const backfillAgentTaskRunSummaries = dataMigrations.define({
+  table: "agentTasks",
+  migrateOne: async (ctx, task) => {
+    if (!task.repoId) return;
+    const existing = await ctx.db
+      .query("agentTaskRunSummaries")
+      .withIndex("by_task", (q) => q.eq("taskId", task._id))
+      .unique();
+    if (existing) return;
+
+    const latestRun = await ctx.db
+      .query("agentRuns")
+      .withIndex("by_task", (q) => q.eq("taskId", task._id))
+      .order("desc")
+      .first();
+    await ctx.db.insert("agentTaskRunSummaries", {
+      taskId: task._id,
+      repoId: task.repoId,
+      lastRunStartedAt: latestRun?.startedAt,
+    });
+  },
+});
+
+/** Moves large SKILL.md bodies out of rows read by repoSkills.listByRepo. */
+export const splitRepoSkillContent = dataMigrations.define({
+  table: "repoSkills",
+  migrateOne: async (ctx, skill) => {
+    if (!skill.content) return;
+    const existing = await ctx.db
+      .query("repoSkillContents")
+      .withIndex("by_skill", (q) => q.eq("skillId", skill._id))
+      .unique();
+    if (existing) {
+      if (existing.content !== skill.content) {
+        await ctx.db.patch(existing._id, { content: skill.content });
+      }
+    } else {
+      await ctx.db.insert("repoSkillContents", {
+        skillId: skill._id,
+        content: skill.content,
+      });
+    }
+    await ctx.db.patch(skill._id, { content: undefined });
+  },
+});

@@ -109,6 +109,11 @@ Copied [dmmulroy/anti-slop](https://github.com/dmmulroy/anti-slop) into `scripts
 A carepulse-ts web snapshot failed at toolchain install with `curl: (56) Connection died, tried 5 times` while fetching the GitHub CLI tarball. Plain `curl -fsSL` speaks HTTP/2, and GitHub Releases from a Vercel sandbox drops that stream; `--retry` does not cover error 56.
 
 Every GitHub release tarball the seed installs (gh, supabase CLI, ripgrep, fd, git-lfs) now uses HTTP/1.1 with `--retry-all-errors`. gh also falls back to the official yum repo if the tarball still fails, so one flaky download does not fail the whole seeded snapshot.
+## Claude and Cursor SDK versions now match their sandbox runtimes - 2026-08-12
+
+The Claude Agent SDK and Cursor SDK were loaded by exact version inside sandbox callbacks, but neither version was declared in the backend workspace. That left local installs without the official packages and allowed the handwritten callback boundary types to drift without an inspectable, locked SDK beside them. New snapshots also preinstalled only Cursor's SDK, so the first Claude SDK task paid for a user-local fallback install.
+
+Both SDKs are now exact backend dependencies and are locked at the same versions used by the callback loaders. The provider boundaries import their official query, permission, agent, run, model, store, MCP, and usage types instead of restating those public APIs. Snapshot seeding preinstalls both packages and verifies both directories before skipping the agent-tool install. The user-local dynamic loader remains for older snapshots; the imports are type-only because Cursor's package cannot be safely folded into the standalone callback bundle—its published ESM graph includes Bun-only and declaration-map imports.
 
 ## Component data survives a sync to a local backend - 2026-08-12
 

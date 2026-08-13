@@ -796,6 +796,9 @@ var STEP_FIELD_CAPS = {
   editsMax: 4,
   filesMax: 10,
   contentPreview: 1e3,
+  /** Reasoning prose per burst; head-capped so one turn's thinking cannot
+   * dominate the payload. Prose rides \`detail\` (see applyReasoningSnapshot). */
+  reasoning: 6e3,
   /** Soft ceiling for the whole steps JSON payload (under Convex 1 MiB). */
   jsonBytes: 600 * 1024
 };
@@ -3645,6 +3648,31 @@ function applyTodosSnapshot(todos) {
   });
   callbackState.lastStepType = "tool";
 }
+function appendReasoningDetail(step, next) {
+  const current = step.detail ?? "";
+  const merged = next.startsWith(current) ? next : current + next;
+  step.detail = headCap(merged, STEP_FIELD_CAPS.reasoning).text;
+}
+function applyReasoningSnapshot(text) {
+  const next = String(text);
+  if (!next) return;
+  const last = callbackState.accumulatedSteps[callbackState.accumulatedSteps.length - 1];
+  if (last && last.type === "reasoning" && last.status === "active") {
+    appendReasoningDetail(last, next);
+    callbackState.lastStepType = "thinking";
+    return;
+  }
+  markLastComplete();
+  const step = {
+    type: "reasoning",
+    label: "Thinking...",
+    status: "active",
+    detail: headCap(next, STEP_FIELD_CAPS.reasoning).text
+  };
+  callbackState.accumulatedSteps.push(step);
+  stepStartedAt.set(step, Date.now());
+  callbackState.lastStepType = "thinking";
+}
 function updateThinkingStep(label, detail) {
   void label;
   void detail;
@@ -3715,7 +3743,7 @@ function applyCanonicalEvents(events) {
         callbackState.pendingParagraphBreak = true;
         break;
       case "update_reasoning":
-        callbackState.lastStepType = "thinking";
+        applyReasoningSnapshot(ev.text);
         break;
       case "set_pending_question":
         callbackState.pendingQuestionData = ev.data;

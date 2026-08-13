@@ -29,6 +29,10 @@ import {
 import { SidebarListHoverCard } from "@/lib/components/sidebar/SidebarListHoverCard";
 import { entityPathSegment } from "@/lib/numId";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
+import {
+  mutationError,
+  mutationSuccess,
+} from "@/lib/utils/mutationToast";
 
 interface TestingArenaSidebarProps {
   repoId: Id<"githubRepos">;
@@ -78,9 +82,11 @@ export function TestingArenaSidebar({
           }),
         ),
       );
-    } catch (error) {
+      mutationSuccess("Tests started", "testing-arena-run-all");
+    } catch {
+      mutationError("Couldn't start tests", "testing-arena-run-all");
       setIsTestingAll(false);
-      throw error;
+      return;
     }
     setIsTestingAll(false);
   };

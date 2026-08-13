@@ -13,6 +13,7 @@ import { useState } from "react";
 import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 export function SkillsClient() {
   const { repoId } = useRepo();
@@ -122,9 +123,21 @@ export function SkillsClient() {
               key={skill.name}
               repoId={repoId}
               skill={skill}
-              onInstall={(name) => void installSystemSkill({ repoId, name })}
+              onInstall={(name) =>
+                void withMutationToast(
+                  installSystemSkill({ repoId, name }),
+                  "Skill installed",
+                  "Couldn't install skill",
+                  "skill-install",
+                )
+              }
               onUninstall={(name) =>
-                void uninstallSystemSkill({ repoId, name })
+                void withMutationToast(
+                  uninstallSystemSkill({ repoId, name }),
+                  "Skill uninstalled",
+                  "Couldn't uninstall skill",
+                  "skill-uninstall",
+                )
               }
             />
           ))}

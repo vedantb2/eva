@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@eva/ui";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 interface AssignTasksModalProps {
   isOpen: boolean;
@@ -78,15 +79,20 @@ export function AssignTasksModal({
   const handleAssign = async (userId: Id<"users">) => {
     setIsLoading(true);
     try {
-      await Promise.all(
-        taskIds.map((id) => updateTask({ id, assignedTo: userId })),
+      await withMutationToast(
+        Promise.all(
+          taskIds.map((id) => updateTask({ id, assignedTo: userId })),
+        ),
+        `Assigned ${count} task${count === 1 ? "" : "s"}`,
+        "Couldn't assign tasks",
+        "tasks-bulk-assign",
       );
       setSelectedUserId("");
       onSuccess();
       onClose();
-    } catch (error) {
+    } catch {
       setIsLoading(false);
-      throw error;
+      return;
     }
     setIsLoading(false);
   };

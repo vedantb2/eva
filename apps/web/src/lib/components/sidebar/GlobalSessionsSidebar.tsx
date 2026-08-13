@@ -26,6 +26,10 @@ import {
 import { useSessionsSidebarSettings } from "@/lib/components/sidebar/useSessionsSidebarSettings";
 import { useSidebarAppGroupOpen } from "@/lib/components/sidebar/useSidebarAppGroupOpen";
 import { entityPathSegment } from "@/lib/numId";
+import {
+  mutationError,
+  mutationSuccess,
+} from "@/lib/utils/mutationToast";
 
 type SessionListItem = FunctionReturnType<typeof api.sessions.list>[number];
 type RepoRow = FunctionReturnType<typeof api.githubRepos.list>[number];
@@ -64,6 +68,24 @@ export function GlobalSessionsSidebar({
   const [isArchiving, setIsArchiving] = useState(false);
 
   const archiveSession = useMutation(api.sessions.archive);
+
+  const saveSessionRename = async () => {
+    if (!sessionToRename || !renameValue.trim()) return;
+    setIsRenaming(true);
+    try {
+      await updateSession({
+        id: sessionToRename.session._id,
+        title: renameValue.trim(),
+      });
+      mutationSuccess("Session renamed", "session-rename");
+      setSessionToRename(null);
+    } catch {
+      mutationError("Couldn't rename session", "session-rename");
+      setIsRenaming(false);
+      return;
+    }
+    setIsRenaming(false);
+  };
   const stopSandboxMutation = useMutation(api.sessions.stopSandbox);
   const updateSession = useMutation(api.sessions.update);
 
@@ -176,22 +198,7 @@ export function GlobalSessionsSidebar({
             onKeyDown={(e) => {
               if (e.key === "Enter" && renameValue.trim() && sessionToRename) {
                 e.preventDefault();
-                void (async () => {
-                  setIsRenaming(true);
-                  // Reset duplicated into the catch instead of `finally`:
-                  // React Compiler bails on the whole file for a `finally`.
-                  try {
-                    await updateSession({
-                      id: sessionToRename.session._id,
-                      title: renameValue.trim(),
-                    });
-                    setSessionToRename(null);
-                  } catch (error) {
-                    setIsRenaming(false);
-                    throw error;
-                  }
-                  setIsRenaming(false);
-                })();
+                void saveSessionRename();
               }
             }}
             autoFocus
@@ -206,25 +213,7 @@ export function GlobalSessionsSidebar({
             </Button>
             <Button
               disabled={!renameValue.trim() || isRenaming}
-              onClick={() => {
-                if (!sessionToRename || !renameValue.trim()) return;
-                void (async () => {
-                  setIsRenaming(true);
-                  // Reset duplicated into the catch instead of `finally`:
-                  // React Compiler bails on the whole file for a `finally`.
-                  try {
-                    await updateSession({
-                      id: sessionToRename.session._id,
-                      title: renameValue.trim(),
-                    });
-                    setSessionToRename(null);
-                  } catch (error) {
-                    setIsRenaming(false);
-                    throw error;
-                  }
-                  setIsRenaming(false);
-                })();
-              }}
+              onClick={() => void saveSessionRename()}
             >
               {isRenaming ? "Saving…" : "Save"}
             </Button>
@@ -273,6 +262,7 @@ export function GlobalSessionsSidebar({
                     await archiveSession({
                       id: sessionToArchive.session._id,
                     });
+                    mutationSuccess("Session archived", "session-archive");
                     if (
                       pathname.includes(
                         `/sessions/${sessionToArchive.pathSegment}`,
@@ -285,9 +275,10 @@ export function GlobalSessionsSidebar({
                     // catch rather than a `finally`: React Compiler bails on
                     // the whole file for either.
                     if (onNavigate) onNavigate();
-                  } catch (error) {
+                  } catch {
+                    mutationError("Couldn't archive session", "session-archive");
                     setIsArchiving(false);
-                    throw error;
+                    return;
                   }
                   setIsArchiving(false);
                 })();

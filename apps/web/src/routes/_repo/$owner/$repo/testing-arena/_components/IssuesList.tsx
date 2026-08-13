@@ -14,6 +14,7 @@ import {
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 type EvaluationReport = FunctionReturnType<
   typeof api.evaluationReports.listByDoc
@@ -62,19 +63,25 @@ export function IssuesList({ report }: { report: EvaluationReport }) {
 
   async function handleCreate(autoRun: boolean) {
     if (selected.size === 0) return;
+    const count = selected.size;
     setIsCreating(true);
     try {
-      await createTasks({
-        reportId: report._id,
-        issueIds: Array.from(selected),
-        autoRun,
-      });
+      await withMutationToast(
+        createTasks({
+          reportId: report._id,
+          issueIds: Array.from(selected),
+          autoRun,
+        }),
+        autoRun
+          ? `Created and started ${count} task${count === 1 ? "" : "s"}`
+          : `Created ${count} task${count === 1 ? "" : "s"}`,
+        autoRun ? "Couldn't create and run tasks" : "Couldn't create tasks",
+        autoRun ? "issues-create-run" : "issues-create-tasks",
+      );
       setSelected(new Set());
-    } catch (error) {
+    } finally {
       setIsCreating(false);
-      throw error;
     }
-    setIsCreating(false);
   }
 
   if (issues.length === 0) {

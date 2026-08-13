@@ -15,6 +15,10 @@ import { useMutation, useAction } from "convex/react";
 import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { IconAlertCircle } from "@tabler/icons-react";
+import {
+  mutationError,
+  withMutationToast,
+} from "@/lib/utils/mutationToast";
 
 interface ImportLinearModalProps {
   isOpen: boolean;
@@ -81,15 +85,21 @@ export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
         description: issue.description || undefined,
       }));
 
-      await createQuickTasksBatch({
-        repoId: repo._id,
-        tasks,
-      });
+      await withMutationToast(
+        createQuickTasksBatch({
+          repoId: repo._id,
+          tasks,
+        }),
+        `Imported ${issues.length} task${issues.length === 1 ? "" : "s"}`,
+        "Couldn't import from Linear",
+        "linear-import",
+      );
 
       setInput("");
       setError(null);
       onClose();
     } catch (err) {
+      mutationError("Couldn't import from Linear", "linear-import");
       setError(err instanceof Error ? err.message : String(err));
     }
     setIsLoading(false);

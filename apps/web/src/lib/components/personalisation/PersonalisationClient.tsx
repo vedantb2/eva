@@ -15,6 +15,10 @@ import {
 import { useEffect, useRef } from "react";
 import { IconChevronDown } from "@tabler/icons-react";
 import { RolePresetPicker } from "./RolePresetPicker";
+import {
+  catchMutationError,
+  withMutationToast,
+} from "@/lib/utils/mutationToast";
 
 export function PersonalisationClient() {
   const personalisation = useQuery(api.auth.getPersonalisation);
@@ -54,7 +58,16 @@ export function PersonalisationClient() {
 
   const handleSave = async () => {
     const value = textareaRef.current?.value ?? "";
-    await setCustomInstructions({ customInstructions: value });
+    try {
+      await withMutationToast(
+        setCustomInstructions({ customInstructions: value }),
+        "Instructions saved",
+        "Couldn't save instructions",
+        "personalisation-instructions",
+      );
+    } catch {
+      // Toast already shown.
+    }
   };
 
   useEffect(() => {
@@ -84,7 +97,13 @@ export function PersonalisationClient() {
         <div className="space-y-3">
           <RolePresetPicker
             activeRole={activeRole}
-            onSelect={(role) => setRole({ role })}
+            onSelect={(role) =>
+              catchMutationError(
+                setRole({ role }),
+                "Couldn't update role preset",
+                "personalisation-role",
+              )
+            }
           />
 
           {activeRole ? (

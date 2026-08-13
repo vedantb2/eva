@@ -19,6 +19,7 @@ import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { entityPathSegment } from "@/lib/numId";
 import type { DraftCardModel } from "../_utils";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 interface DraftCardProps {
   model: DraftCardModel;
@@ -100,11 +101,16 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
   const removeTaskDraft = useMutation(api.agentTasks.remove);
 
   const handleDelete = () => {
-    if (model.source === "comment") {
-      void removeCommentDraft({ id: model.row._id });
-    } else {
-      void removeTaskDraft({ id: model.row._id });
-    }
+    const promise =
+      model.source === "comment"
+        ? removeCommentDraft({ id: model.row._id })
+        : removeTaskDraft({ id: model.row._id });
+    void withMutationToast(
+      promise,
+      "Draft deleted",
+      "Couldn't delete draft",
+      "draft-delete",
+    );
   };
 
   const handleClick = () => {

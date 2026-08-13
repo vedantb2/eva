@@ -74,6 +74,7 @@ import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-deta
 import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
 import { parseSpec } from "@/lib/utils/parseSpec";
 import { ProjectChatMessageList } from "@/lib/components/projects/ProjectChatMessageList";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 export function ProjectDetailClient({
   projectId,
@@ -647,13 +648,18 @@ export function ProjectDetailClient({
               onClick={async () => {
                 setIsStartingBuild(true);
                 try {
-                  await startBuild({
-                    projectId: projectId,
-                  });
+                  await withMutationToast(
+                    startBuild({
+                      projectId: projectId,
+                    }),
+                    "Build started",
+                    "Couldn't start build",
+                    "project-build-start",
+                  );
                   setIsBuildModalOpen(false);
-                } catch (error) {
+                } catch {
                   setIsStartingBuild(false);
-                  throw error;
+                  return;
                 }
                 setIsStartingBuild(false);
               }}

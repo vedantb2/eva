@@ -8,6 +8,7 @@ import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 import { Button, Checkbox, Spinner, toast } from "@eva/ui";
 import { IconGitBranch, IconRefresh } from "@tabler/icons-react";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 
 type RepoEntry = {
   owner: string;
@@ -110,7 +111,11 @@ function SyncSettingsRoute() {
     !disabledSet.has(`${owner}/${name}`);
 
   const handleToggleRepo = (owner: string, name: string, enabled: boolean) => {
-    void setSyncSetting({ owner, name, enabled });
+    void catchMutationError(
+      setSyncSetting({ owner, name, enabled }),
+      "Couldn't update sync setting",
+      "sync-repo-toggle",
+    );
   };
 
   const groupedRepos = repos.reduce<Record<string, Array<RepoEntry>>>(
@@ -135,13 +140,17 @@ function SyncSettingsRoute() {
   const handleToggleOwner = (owner: string) => {
     const allEnabled = isOwnerAllEnabled(owner);
     const newEnabled = !allEnabled;
-    void bulkSetSyncSettings({
-      owner,
-      repos: groupedRepos[owner].map((r) => ({
-        name: r.name,
-        enabled: newEnabled,
-      })),
-    });
+    void catchMutationError(
+      bulkSetSyncSettings({
+        owner,
+        repos: groupedRepos[owner].map((r) => ({
+          name: r.name,
+          enabled: newEnabled,
+        })),
+      }),
+      "Couldn't update sync settings",
+      "sync-owner-toggle",
+    );
   };
 
   return (

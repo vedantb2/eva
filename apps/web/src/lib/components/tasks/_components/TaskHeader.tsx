@@ -5,6 +5,7 @@ import { Input } from "@eva/ui";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 
 export function TaskHeader({
   taskNumber,
@@ -69,7 +70,11 @@ export function TaskHeader({
           onBlur={() => {
             const trimmed = editTitle.trim();
             if (canEditTaskText && trimmed && trimmed !== title) {
-              updateTask({ id: taskId, title: trimmed });
+              void catchMutationError(
+                updateTask({ id: taskId, title: trimmed }),
+                "Couldn't save title",
+                "task-title-save",
+              );
             }
             setIsEditingTitle(false);
           }}

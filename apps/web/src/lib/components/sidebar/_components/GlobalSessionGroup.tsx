@@ -32,6 +32,11 @@ import {
   type SessionSortOrder,
 } from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
 import { entityPathSegment } from "@/lib/numId";
+import {
+  catchMutationError,
+  mutationError,
+  mutationSuccess,
+} from "@/lib/utils/mutationToast";
 import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
 import { isSessionSidebarActive } from "@/routes/_repo/$owner/$repo/sessions/_utils/sessionReadOnly";
 
@@ -207,7 +212,18 @@ export function GlobalSessionGroup({
                         baseUrl={baseUrl}
                         onNavigate={onNavigate}
                         onUnarchive={async (s) => {
-                          await unarchiveSession({ id: s._id });
+                          try {
+                            await unarchiveSession({ id: s._id });
+                            mutationSuccess(
+                              "Session restored",
+                              "session-unarchive",
+                            );
+                          } catch {
+                            mutationError(
+                              "Couldn't restore session",
+                              "session-unarchive",
+                            );
+                          }
                         }}
                       />
                     );
@@ -221,10 +237,14 @@ export function GlobalSessionGroup({
                       onNavigate={onNavigate}
                       onRename={async () => {}}
                       onDuplicate={async (s) => {
-                        const { numId } = await createSession({
-                          repoId: repo._id,
-                          title: `${s.title} (copy)`,
-                        });
+                        const { numId } = await catchMutationError(
+                          createSession({
+                            repoId: repo._id,
+                            title: `${s.title} (copy)`,
+                          }),
+                          "Couldn't duplicate session",
+                          "session-duplicate",
+                        );
                         return String(numId);
                       }}
                       onRenameRequest={(s) => onRenameRequest(s, repo)}

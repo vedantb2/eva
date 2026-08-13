@@ -21,6 +21,10 @@ import { IconKey, IconPencil, IconPlus, IconTrash } from "@tabler/icons-react";
 import { relativeTime } from "@/lib/components/artifacts/_format";
 import { PROVIDER_LABELS } from "./_credentialSpec";
 import { AddAccountDialog, type EditingAccount } from "./AddAccountDialog";
+import {
+  catchMutationError,
+  withMutationToast,
+} from "@/lib/utils/mutationToast";
 
 /**
  * Per-user "bring your own account" management. A user adds their own coding
@@ -120,7 +124,11 @@ export function AccountsClient() {
                   <Switch
                     checked={account.shared}
                     onCheckedChange={(shared) =>
-                      setShared({ accountId: account._id, shared })
+                      catchMutationError(
+                        setShared({ accountId: account._id, shared }),
+                        "Couldn't update sharing",
+                        "account-share",
+                      )
                     }
                     aria-label={`Share ${PROVIDER_LABELS[account.provider]} account with team`}
                   />
@@ -179,9 +187,14 @@ export function AccountsClient() {
             <Button
               size="sm"
               variant="destructive"
-              onClick={async () => {
-                if (deleteId) await remove({ accountId: deleteId });
-                setDeleteId(null);
+              onClick={() => {
+                if (!deleteId) return;
+                void withMutationToast(
+                  remove({ accountId: deleteId }),
+                  "Account deleted",
+                  "Couldn't delete account",
+                  "account-delete",
+                ).then(() => setDeleteId(null));
               }}
             >
               Delete

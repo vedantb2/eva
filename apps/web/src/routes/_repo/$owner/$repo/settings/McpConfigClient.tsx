@@ -19,6 +19,7 @@ import {
 } from "@eva/ui";
 import { IconPencil } from "@tabler/icons-react";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 export function McpConfigClient() {
   const { repo, repoId } = useRepo();
@@ -41,14 +42,19 @@ export function McpConfigClient() {
     // logical expression sits inside a try/catch.
     const trimmedPrompt = draft.trim() || undefined;
     try {
-      await updateMcpRootPrompt({
-        repoId,
-        mcpRootPrompt: trimmedPrompt,
-      });
+      await withMutationToast(
+        updateMcpRootPrompt({
+          repoId,
+          mcpRootPrompt: trimmedPrompt,
+        }),
+        "Root prompt saved",
+        "Couldn't save root prompt",
+        "mcp-root-prompt-save",
+      );
       setOpen(false);
-    } catch (error) {
+    } catch {
       setSaving(false);
-      throw error;
+      return;
     }
     setSaving(false);
   };

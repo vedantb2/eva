@@ -44,6 +44,7 @@ import { parseCommandLines, formatFileSize } from "./_utils";
 import { RebuildRequiredWarning } from "./_components/RebuildRequiredWarning";
 import { BuildRow, BuildStatusBadge } from "./_components/BuildRow";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 /** Every command box on this page is a monospace, resizable textarea. */
 const COMMAND_TEXTAREA_CLASS = "resize-y bg-background font-mono text-xs";
@@ -152,7 +153,16 @@ export function SnapshotsClient({
 
   const handleDelete = async () => {
     if (!snapshot) return;
-    await deleteRepoSnapshot({ repoSnapshotId: snapshot._id });
+    try {
+      await withMutationToast(
+        deleteRepoSnapshot({ repoSnapshotId: snapshot._id }),
+        "Snapshot config deleted",
+        "Couldn't delete snapshot config",
+        "snapshot-config-delete",
+      );
+    } catch {
+      // Toast already shown.
+    }
   };
 
   const handleRebuild = async () => {
@@ -885,7 +895,14 @@ function ConfigFilesSection({
                       <Button
                         size="sm"
                         variant="ghost"
-                        onClick={() => removeFile({ id: file._id })}
+                        onClick={() =>
+                          void withMutationToast(
+                            removeFile({ id: file._id }),
+                            "File removed",
+                            "Couldn't remove file",
+                            "snapshot-config-file-delete",
+                          )
+                        }
                         className="h-6 w-6 p-0"
                       >
                         <IconTrash size={14} />

@@ -7,6 +7,7 @@ import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsToggleRow } from "@/lib/components/settings/SettingsToggleRow";
 import { SettingsField } from "@/lib/components/settings/SettingsField";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 
 /**
  * App-wide setting for the daily sandbox auto-stop sweep. The entered time is
@@ -37,9 +38,18 @@ export function SandboxAutoStopSettingsClient() {
     );
   }
 
-  // The browser's IANA zone, stored on save so the entered time stays correct
-  // across daylight-saving transitions.
   const browserTimeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+  const saveSettings = (args: {
+    enabled: boolean;
+    time: string;
+    timeZone: string;
+  }) =>
+    catchMutationError(
+      save(args),
+      "Couldn't save sandbox settings",
+      "sandbox-autostop",
+    );
 
   return (
     <SettingsPage title="Sandboxes">
@@ -55,7 +65,7 @@ export function SandboxAutoStopSettingsClient() {
             <Switch
               checked={settings.enabled}
               onCheckedChange={(checked) =>
-                save({
+                saveSettings({
                   enabled: checked,
                   time: settings.time,
                   timeZone: browserTimeZone,
@@ -76,7 +86,7 @@ export function SandboxAutoStopSettingsClient() {
                 className="w-40"
                 value={settings.time}
                 onChange={(event) =>
-                  save({
+                  saveSettings({
                     enabled: settings.enabled,
                     time: event.target.value,
                     timeZone: browserTimeZone,

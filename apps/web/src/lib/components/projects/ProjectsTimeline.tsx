@@ -33,6 +33,10 @@ import { TimelineSidebarMeta } from "./_components/TimelineSidebarMeta";
 import { TimelineToolbar } from "./_components/TimelineToolbar";
 import { UnscheduledProjectsSection } from "./_components/UnscheduledProjectsSection";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import {
+  catchMutationError,
+  withMutationToast,
+} from "@/lib/utils/mutationToast";
 
 type Project = FunctionReturnType<typeof api.projects.list>[number];
 type ProjectProgress = FunctionReturnType<
@@ -197,15 +201,24 @@ export function ProjectsTimeline({
     if (!endAt) return;
     const project = scheduledProjectMap.get(id);
     if (!project) return;
-    updateProject({
-      id: project._id,
-      projectStartDate: startAt.getTime(),
-      projectEndDate: endAt.getTime(),
-    });
+    void catchMutationError(
+      updateProject({
+        id: project._id,
+        projectStartDate: startAt.getTime(),
+        projectEndDate: endAt.getTime(),
+      }),
+      "Couldn't update project dates",
+      "project-timeline-move",
+    );
   };
 
   const handleSchedule = (id: Id<"projects">, start: number, end: number) => {
-    updateProject({ id, projectStartDate: start, projectEndDate: end });
+    void withMutationToast(
+      updateProject({ id, projectStartDate: start, projectEndDate: end }),
+      "Project scheduled",
+      "Couldn't schedule project",
+      "project-schedule",
+    );
   };
 
   if (projects.length === 0) return null;

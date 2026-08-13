@@ -5,6 +5,7 @@ import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { Button, Textarea } from "@eva/ui";
 import { useState } from "react";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 
 export function DocNewCommentComposer({
   docId,
@@ -29,20 +30,26 @@ export function DocNewCommentComposer({
     if (!content.trim()) return;
     setIsSubmitting(true);
     try {
-      await createComment({
-        docId,
-        content: content.trim(),
-        anchorId,
-        anchorText,
-        resolutionTarget,
-      });
+      await catchMutationError(
+        createComment({
+          docId,
+          content: content.trim(),
+          anchorId,
+          anchorText,
+          resolutionTarget,
+        }),
+        resolutionTarget === "agent"
+          ? "Couldn't ask Eva"
+          : "Couldn't add comment",
+        resolutionTarget === "agent"
+          ? "doc-comment-ask-eva"
+          : "doc-comment-create",
+      );
       setContent("");
       onCreated();
-    } catch (error) {
+    } finally {
       setIsSubmitting(false);
-      throw error;
     }
-    setIsSubmitting(false);
   };
 
   return (

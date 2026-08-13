@@ -46,6 +46,7 @@ import { DocPresenceFacepile } from "./DocPresenceFacepile";
 import { DocTestGenDialog } from "./DocTestGenDialog";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
@@ -144,23 +145,29 @@ export function DocPrdViewer({
     if (isTriggeringTestGen || doc.testGenStatus === "running") return;
     setIsTriggeringTestGen(true);
     try {
-      await startTestGenMutation({ docId: doc._id });
-    } catch (error) {
+      await withMutationToast(
+        startTestGenMutation({ docId: doc._id }),
+        "Test generation started",
+        "Couldn't start test generation",
+        "doc-test-gen-start",
+      );
+    } finally {
       setIsTriggeringTestGen(false);
-      throw error;
     }
-    setIsTriggeringTestGen(false);
   };
 
   const handleStopTestGen = async () => {
     setIsStopping(true);
     try {
-      await cancelTestGenMutation({ docId: doc._id });
-    } catch (error) {
+      await withMutationToast(
+        cancelTestGenMutation({ docId: doc._id }),
+        "Test generation stopped",
+        "Couldn't stop test generation",
+        "doc-test-gen-stop",
+      );
+    } finally {
       setIsStopping(false);
-      throw error;
     }
-    setIsStopping(false);
   };
 
   const isGeneratingTests =

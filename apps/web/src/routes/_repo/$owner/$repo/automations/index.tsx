@@ -4,10 +4,11 @@ import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import type { OptimisticLocalStore } from "convex/browser";
-import { Skeleton, toast } from "@eva/ui";
+import { Skeleton } from "@eva/ui";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { SystemAutomationCard } from "./_components/SystemAutomationCard";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 /**
  * Flips `installed` in the Hub list so the card switches over before the server
@@ -109,17 +110,19 @@ function AutomationsHubPage() {
                 numId={entry.numId}
                 basePath={basePath}
                 onInstall={() => {
-                  void install({ repoId, key: entry.key }).catch(() =>
-                    toast.error("Couldn't install automation", {
-                      id: "system-automation-install",
-                    }),
+                  void withMutationToast(
+                    install({ repoId, key: entry.key }),
+                    "Automation installed",
+                    "Couldn't install automation",
+                    "system-automation-install",
                   );
                 }}
                 onUninstall={() => {
-                  void uninstall({ repoId, key: entry.key }).catch(() =>
-                    toast.error("Couldn't uninstall automation", {
-                      id: "system-automation-install",
-                    }),
+                  void withMutationToast(
+                    uninstall({ repoId, key: entry.key }),
+                    "Automation removed",
+                    "Couldn't uninstall automation",
+                    "system-automation-uninstall",
                   );
                 }}
               />

@@ -23,6 +23,7 @@ import {
 import dayjs from "@eva/shared/dates";
 import { formatDuration } from "@eva/shared/duration";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { math } from "@streamdown/math";
@@ -229,7 +230,12 @@ function RunAccordion({
             className="shrink-0 h-7 text-xs"
             onClick={(e) => {
               e.stopPropagation();
-              cancelRun({ runId: run._id });
+              void withMutationToast(
+                cancelRun({ runId: run._id }),
+                "Run stopped",
+                "Couldn't stop run",
+                "automation-run-stop",
+              );
             }}
           >
             <IconPlayerStop size={12} />

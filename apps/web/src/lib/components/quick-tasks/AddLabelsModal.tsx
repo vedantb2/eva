@@ -17,6 +17,7 @@ import {
   Input,
   Badge,
 } from "@eva/ui";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 interface TaskForLabel {
   _id: Id<"agentTasks">;
@@ -73,19 +74,24 @@ export function AddLabelsModal({
     if (newLabels.length === 0) return;
     setIsLoading(true);
     try {
-      await Promise.all(
-        selectedTasks.map((task) => {
-          const existingTags = task.tags ?? [];
-          const merged = [...new Set([...existingTags, ...newLabels])];
-          return updateTask({ id: task._id, tags: merged });
-        }),
+      await withMutationToast(
+        Promise.all(
+          selectedTasks.map((task) => {
+            const existingTags = task.tags ?? [];
+            const merged = [...new Set([...existingTags, ...newLabels])];
+            return updateTask({ id: task._id, tags: merged });
+          }),
+        ),
+        `Added labels to ${count} task${count === 1 ? "" : "s"}`,
+        "Couldn't add labels",
+        "tasks-bulk-labels",
       );
       setLabelsInput("");
       onSuccess();
       onClose();
-    } catch (error) {
+    } catch {
       setIsLoading(false);
-      throw error;
+      return;
     }
     setIsLoading(false);
   };

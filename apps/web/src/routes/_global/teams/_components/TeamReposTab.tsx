@@ -21,6 +21,7 @@ import {
 import { IconPlus, IconFolder } from "@tabler/icons-react";
 import { TeamRepoCard } from "./TeamRepoCard";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 
 type Repo = FunctionReturnType<typeof api.githubRepos.listByTeam>[number];
 
@@ -238,7 +239,13 @@ export function TeamReposTab({
               repo={repo}
               teamId={teamId}
               isOwner={isOwner}
-              onRemove={(repoId) => removeRepo({ teamId, repoId })}
+              onRemove={(repoId) =>
+                void catchMutationError(
+                  removeRepo({ teamId, repoId }),
+                  "Couldn't remove repository",
+                  "team-repo-remove",
+                )
+              }
             />
           ))
         )}

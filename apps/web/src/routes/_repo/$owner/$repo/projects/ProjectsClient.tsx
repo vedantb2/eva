@@ -52,6 +52,7 @@ import { ProjectsListView } from "@/lib/components/projects/ProjectsListView";
 import { ProjectsKanbanView } from "./_components/ProjectsKanbanView";
 import { ProjectDeleteDialog } from "./_components/ProjectDeleteDialog";
 import { ActiveFiltersBar } from "./_components/ActiveFiltersBar";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 import {
   useProjectFilters,
   SORT_FIELDS,
@@ -163,11 +164,16 @@ export function ProjectsClient() {
     if (!projectToDelete) return;
     setIsDeleting(true);
     try {
-      await deleteProject({ id: projectToDelete.id });
+      await withMutationToast(
+        deleteProject({ id: projectToDelete.id }),
+        "Project deleted",
+        "Couldn't delete project",
+        "project-delete",
+      );
       setProjectToDelete(null);
-    } catch (error) {
+    } catch {
       setIsDeleting(false);
-      throw error;
+      return;
     }
     setIsDeleting(false);
   };

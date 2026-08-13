@@ -13,6 +13,7 @@ import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { useMutation } from "convex/react";
 import { useState } from "react";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 
 interface SessionSummaryModalProps {
   sessionId: Id<"sessions">;
@@ -33,11 +34,15 @@ export function SessionSummaryModal({
   const handleConfirm = async () => {
     setIsSummarizing(true);
     try {
-      await startSummarize({ sessionId });
+      await catchMutationError(
+        startSummarize({ sessionId }),
+        "Couldn't generate summary",
+        "session-summarize",
+      );
       onClose();
-    } catch (error) {
+    } catch {
       setIsSummarizing(false);
-      throw error;
+      return;
     }
     setIsSummarizing(false);
   };

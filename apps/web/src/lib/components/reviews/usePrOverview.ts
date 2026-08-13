@@ -12,6 +12,7 @@ import {
   type PrCommitsData,
 } from "@/lib/prReviewQueries";
 import type { PrOverview } from "./_components/prOverviewMeta";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 
 export type PrOverviewState =
   // No pull request to load — the work being reviewed has not opened one yet.
@@ -48,7 +49,11 @@ export function usePrOverview(
     mutationFn: () =>
       prNumber === undefined
         ? Promise.resolve(undefined)
-        : getOverview({ repoId, prNumber, force: true }),
+        : catchMutationError(
+            getOverview({ repoId, prNumber, force: true }),
+            "Couldn't reload pull request",
+            "pr-overview-reload",
+          ),
     onSuccess: (overview) => {
       if (overview !== undefined) {
         queryClient.setQueryData(options.queryKey, overview);
@@ -140,10 +145,14 @@ export function usePrRefresh(
 
   const refresh = useMutation({
     mutationFn: () =>
-      Promise.all([
-        getOverview({ repoId, prNumber, force: true }),
-        getHeader({ repoId, prNumber, force: true }),
-      ]),
+      catchMutationError(
+        Promise.all([
+          getOverview({ repoId, prNumber, force: true }),
+          getHeader({ repoId, prNumber, force: true }),
+        ]),
+        "Couldn't refresh pull request",
+        "pr-refresh",
+      ),
     onSuccess: ([overview, header]) => {
       queryClient.setQueryData(overviewOptions.queryKey, overview);
       queryClient.setQueryData(headerOptions.queryKey, header);

@@ -14,6 +14,10 @@ import {
   Button,
   Spinner,
 } from "@eva/ui";
+import {
+  mutationError,
+  mutationSuccess,
+} from "@/lib/utils/mutationToast";
 
 interface RunTasksModalProps {
   isOpen: boolean;
@@ -52,12 +56,17 @@ export function RunTasksModal({
       );
       const startedCount = results.filter((started) => started).length;
       if (startedCount === count) {
+        mutationSuccess(
+          `Started ${count} task${count === 1 ? "" : "s"}`,
+          "tasks-bulk-run",
+        );
         setIsLoading(false);
         onSuccess();
         onClose();
         return;
       }
       if (startedCount === 0) {
+        mutationError("Couldn't start tasks", "tasks-bulk-run");
         setRunError(
           "Failed to start any selected tasks. Check task state and try again.",
         );

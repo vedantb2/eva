@@ -17,6 +17,10 @@ import {
   resolveBinding,
   type ShortcutId,
 } from "@/lib/hotkeys/registry";
+import {
+  catchMutationError,
+  withMutationToast,
+} from "@/lib/utils/mutationToast";
 
 /**
  * The other shortcuts bound to the same combo, keyed by id. A warning only:
@@ -78,7 +82,11 @@ export function ShortcutsSettingsClient() {
   const hasOverrides = Object.keys(overrides).length > 0;
 
   const record = (id: ShortcutId, hotkey: Hotkey | null) => {
-    void setOverride({ id, hotkey });
+    void catchMutationError(
+      setOverride({ id, hotkey }),
+      "Couldn't save shortcut",
+      `shortcut-${id}`,
+    );
   };
 
   return (
@@ -99,7 +107,14 @@ export function ShortcutsSettingsClient() {
                 size="sm"
                 variant="ghost"
                 disabled={!hasOverrides}
-                onClick={() => void resetAll({})}
+                onClick={() =>
+                  void withMutationToast(
+                    resetAll({}),
+                    "Shortcuts reset to defaults",
+                    "Couldn't reset shortcuts",
+                    "shortcuts-reset",
+                  )
+                }
               >
                 Reset all to defaults
               </Button>

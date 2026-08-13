@@ -20,6 +20,7 @@ import { tabGroupColorForId } from "@/lib/components/sidebar/session-tabs/tabGro
 import { entityPathSegment } from "@/lib/numId";
 import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
 import { isSessionSidebarActive } from "@/routes/_repo/$owner/$repo/sessions/_utils/sessionReadOnly";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 
 type SessionListItem = FunctionReturnType<typeof api.sessions.list>[number];
 
@@ -163,10 +164,14 @@ export function SessionChromeTabGroup({
               onRenameRequest={() => onRenameRequest(session, repo)}
               onArchiveRequest={() => onArchiveRequest(session, repo)}
               onDuplicate={async () => {
-                const { numId } = await createSession({
-                  repoId: repo._id,
-                  title: `${session.title} (copy)`,
-                });
+                const { numId } = await catchMutationError(
+                  createSession({
+                    repoId: repo._id,
+                    title: `${session.title} (copy)`,
+                  }),
+                  "Couldn't duplicate session",
+                  "session-duplicate",
+                );
                 return String(numId);
               }}
               onDuplicateNavigate={(segment) => {

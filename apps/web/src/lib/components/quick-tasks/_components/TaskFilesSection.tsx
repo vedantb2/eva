@@ -14,6 +14,7 @@ import {
 import { TextAttachmentModal } from "@/lib/components/attachments/TextAttachmentModal";
 import type { TaskAttachment } from "../useTaskAttachments";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 interface TaskFilesSectionProps {
   attachments: TaskAttachment[];
@@ -80,15 +81,20 @@ export function TaskFilesSection({
     // Reset is duplicated into the catch instead of using `finally`: React
     // Compiler bails on the whole file when it meets a `finally` clause.
     try {
-      await removeAttachment({
-        taskId: draftTaskId,
-        storageId: pending.storageId,
-      });
+      await withMutationToast(
+        removeAttachment({
+          taskId: draftTaskId,
+          storageId: pending.storageId,
+        }),
+        "File removed",
+        "Couldn't remove file",
+        "draft-file-remove",
+      );
       onRemove(pending.key);
       setPending(null);
-    } catch (error) {
+    } catch {
       setIsRemoving(false);
-      throw error;
+      return;
     }
     setIsRemoving(false);
   };

@@ -7,7 +7,7 @@ import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { SettingsPage } from "@/lib/components/settings/SettingsPage";
-import { Button, Input, Spinner, Badge, toast } from "@eva/ui";
+import { Button, Input, Spinner, Badge } from "@eva/ui";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 import {
@@ -20,6 +20,10 @@ import {
   IconEye,
   IconEyeOff,
 } from "@tabler/icons-react";
+import {
+  catchMutationError,
+  withMutationToast,
+} from "@/lib/utils/mutationToast";
 
 type DetectedApp = FunctionReturnType<
   typeof api.github.detectMonorepoApps
@@ -83,17 +87,21 @@ export function MonorepoClient() {
   const handleAdd = async (path: string) => {
     setAddingPath(path);
     try {
-      await createRepo({
-        owner: repo.owner,
-        name: repo.name,
-        installationId: repo.installationId,
-        githubId: repo.githubId,
-        rootDirectory: path,
-        teamId: repo.teamId,
-      });
-    } catch (err) {
-      console.error("Failed to add app:", err);
-      toast.error("Could not add the app. Try again.");
+      await withMutationToast(
+        createRepo({
+          owner: repo.owner,
+          name: repo.name,
+          installationId: repo.installationId,
+          githubId: repo.githubId,
+          rootDirectory: path,
+          teamId: repo.teamId,
+        }),
+        "App added",
+        "Couldn't add app",
+        "monorepo-add-app",
+      );
+    } catch {
+      // Toast already shown.
     }
     setAddingPath(null);
   };
@@ -150,10 +158,14 @@ export function MonorepoClient() {
                   size="sm"
                   variant={app.hidden ? "outline" : "ghost"}
                   onClick={() =>
-                    toggleHidden({
-                      repoId: app._id,
-                      hidden: app.hidden !== true,
-                    })
+                    void catchMutationError(
+                      toggleHidden({
+                        repoId: app._id,
+                        hidden: app.hidden !== true,
+                      }),
+                      "Couldn't update app visibility",
+                      "monorepo-toggle-hidden",
+                    )
                   }
                   className="motion-press gap-1.5 text-muted-foreground hover:text-foreground"
                 >

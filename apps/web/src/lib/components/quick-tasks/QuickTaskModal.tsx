@@ -74,6 +74,7 @@ import { ProjectPicker } from "./_components/ProjectPicker";
 import { TaskFilesSection } from "./_components/TaskFilesSection";
 import { useTaskAttachments } from "./useTaskAttachments";
 import { QUICK_TASK_OPTION_BADGE_CLASS } from "./_utils/optionBadge";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 type User = FunctionReturnType<typeof api.users.listAll>[number];
 type Project = FunctionReturnType<typeof api.projects.list>[number];
@@ -273,39 +274,49 @@ export function QuickTaskModal({
       const attachmentStorageIds = await attachments.upload();
       const taskAttachmentIds = undefinedIfEmpty(attachmentStorageIds);
       if (activeDraftId) {
-        await activateDraft({
-          id: activeDraftId,
-          title: title.trim(),
-          description: taskDescription,
-          baseBranch: taskBaseBranch,
-          model,
-          providerAccountId: taskAccountId,
-          ...taskTraits,
-          tags: taskTags,
-          assignedTo,
-          attachmentStorageIds: taskAttachmentIds,
-        });
+        await withMutationToast(
+          activateDraft({
+            id: activeDraftId,
+            title: title.trim(),
+            description: taskDescription,
+            baseBranch: taskBaseBranch,
+            model,
+            providerAccountId: taskAccountId,
+            ...taskTraits,
+            tags: taskTags,
+            assignedTo,
+            attachmentStorageIds: taskAttachmentIds,
+          }),
+          "Task created",
+          "Couldn't create task",
+          "task-create",
+        );
       } else {
-        await createQuickTask({
-          repoId: repo._id,
-          title: title.trim(),
-          description: taskDescription,
-          baseBranch: taskBaseBranch,
-          model,
-          providerAccountId: taskAccountId,
-          ...taskTraits,
-          projectId: selectedProjectId,
-          tags: taskTags,
-          assignedTo,
-          priority,
-          attachmentStorageIds: taskAttachmentIds,
-        });
+        await withMutationToast(
+          createQuickTask({
+            repoId: repo._id,
+            title: title.trim(),
+            description: taskDescription,
+            baseBranch: taskBaseBranch,
+            model,
+            providerAccountId: taskAccountId,
+            ...taskTraits,
+            projectId: selectedProjectId,
+            tags: taskTags,
+            assignedTo,
+            priority,
+            attachmentStorageIds: taskAttachmentIds,
+          }),
+          "Task created",
+          "Couldn't create task",
+          "task-create",
+        );
       }
       resetForm();
       onClose();
-    } catch (error) {
+    } catch {
       setIsLoading(false);
-      throw error;
+      return;
     }
     setIsLoading(false);
   };

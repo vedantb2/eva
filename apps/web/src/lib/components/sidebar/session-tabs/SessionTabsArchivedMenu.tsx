@@ -19,6 +19,10 @@ import { RepoLogo } from "@/lib/components/RepoLogo";
 import { repoBasePaths } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { entityPathSegment } from "@/lib/numId";
 import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
+import {
+  mutationError,
+  mutationSuccess,
+} from "@/lib/utils/mutationToast";
 
 export interface ArchivedMenuSession {
   _id: Id<"sessions">;
@@ -137,7 +141,20 @@ export function SessionTabsArchivedMenu({
                             aria-label={`Unarchive ${session.title}`}
                             className="flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                             onClick={() => {
-                              void unarchiveSession({ id: session._id });
+                              void (async () => {
+                                try {
+                                  await unarchiveSession({ id: session._id });
+                                  mutationSuccess(
+                                    "Session restored",
+                                    "session-unarchive",
+                                  );
+                                } catch {
+                                  mutationError(
+                                    "Couldn't restore session",
+                                    "session-unarchive",
+                                  );
+                                }
+                              })();
                             }}
                           >
                             <IconArchiveOff size={14} />

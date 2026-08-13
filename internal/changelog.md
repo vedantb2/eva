@@ -1,5 +1,17 @@
 # Changelog
 
+## Mutation toasts across sessions, tasks, docs, and settings - 2026-08-13
+
+High-impact mutations app-wide now use shared `mutationToast` helpers: sandbox start/stop, session tab rename/archive/duplicate, persona and plan saves, task/project create/delete/schedule/bulk ops, env vars, teams, snapshots, skills, theme, docs comments, findings-to-tasks, PR refresh failures, and draft/artifact deletes.
+
+## Mutation toasts on env vars, teams, repos, and settings - 2026-08-13
+
+Env var CRUD, team/repo management, snapshots, skills, theme, sync toggles, and app config saves now use the shared `mutationToast` helpers for deduped success and error feedback.
+
+## High-impact actions show success and error toasts - 2026-08-13
+
+Create, delete, archive, run, install, and settings saves across sessions, automations, docs, accounts, and tabs now toast on success and failure instead of failing quietly.
+
 ## Automation settings use the shared Switch - 2026-08-13
 
 The settings-tab toggles were a second hand-rolled knob with a hardcoded white thumb, so they vanished on Neutral the same way the title control did. They now render `Switch`.

@@ -7,6 +7,7 @@ import { api, type Id } from "@eva/backend";
 import { AttachmentCard } from "@/lib/components/attachments/AttachmentCard";
 import { labelForAttachment } from "@/lib/components/attachments/attachmentMeta";
 import { ConfirmDialog } from "@/lib/components/quick-tasks/_components/ConfirmDialog";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 /**
  * "Files" section for a task's attachments. Each card opens the stored blob in a
@@ -30,11 +31,16 @@ export function TaskAttachments({ taskId }: { taskId: Id<"agentTasks"> }) {
     // Reset is duplicated into the catch instead of using `finally`: React
     // Compiler bails on the whole file when it meets a `finally` clause.
     try {
-      await removeAttachment({ taskId, storageId: pending.storageId });
+      await withMutationToast(
+        removeAttachment({ taskId, storageId: pending.storageId }),
+        "File removed",
+        "Couldn't remove file",
+        "task-file-remove",
+      );
       setPending(null);
-    } catch (error) {
+    } catch {
       setIsRemoving(false);
-      throw error;
+      return;
     }
     setIsRemoving(false);
   }

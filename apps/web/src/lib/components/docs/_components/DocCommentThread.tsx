@@ -10,6 +10,7 @@ import { Button, cn, Textarea } from "@eva/ui";
 import { IconCheck, IconArrowBackUp } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { useState, useEffect, useRef } from "react";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 
 type DocComment = FunctionReturnType<typeof api.docComments.listByDoc>[number];
 
@@ -45,13 +46,21 @@ export function DocCommentThread({
 
   const handleReply = async () => {
     if (!replyContent.trim()) return;
-    await createComment({
-      docId,
-      content: replyContent.trim(),
-      parentId: root._id,
-    });
-    setReplyContent("");
-    setIsReplying(false);
+    try {
+      await catchMutationError(
+        createComment({
+          docId,
+          content: replyContent.trim(),
+          parentId: root._id,
+        }),
+        "Couldn't post reply",
+        "doc-comment-reply",
+      );
+      setReplyContent("");
+      setIsReplying(false);
+    } catch {
+      // toast already shown
+    }
   };
 
   return (
@@ -98,7 +107,11 @@ export function DocCommentThread({
             className="h-6 px-1.5 text-xs"
             onClick={(e) => {
               e.stopPropagation();
-              setResolved({ id: root._id, resolved: true });
+              catchMutationError(
+                setResolved({ id: root._id, resolved: true }),
+                "Couldn't resolve comment",
+                "doc-comment-resolve",
+              );
             }}
           >
             <IconCheck size={12} />
@@ -111,7 +124,11 @@ export function DocCommentThread({
             className="h-6 px-1.5 text-xs"
             onClick={(e) => {
               e.stopPropagation();
-              setResolved({ id: root._id, resolved: false });
+              catchMutationError(
+                setResolved({ id: root._id, resolved: false }),
+                "Couldn't reopen comment",
+                "doc-comment-reopen",
+              );
             }}
           >
             <IconArrowBackUp size={12} />

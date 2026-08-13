@@ -10,6 +10,7 @@ import {
   Surface,
 } from "@eva/ui";
 import { IconEye, IconBrandGithub } from "@tabler/icons-react";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 
 interface HiddenReposSheetProps {
   open: boolean;
@@ -78,7 +79,11 @@ export function HiddenReposSheet({
                   size="sm"
                   variant="ghost"
                   onClick={() =>
-                    toggleHidden({ repoId: repo._id, hidden: false })
+                    void catchMutationError(
+                      toggleHidden({ repoId: repo._id, hidden: false }),
+                      "Couldn't show codebase",
+                      "repo-unhide",
+                    )
                   }
                   className="shrink-0 text-muted-foreground hover:text-foreground"
                 >

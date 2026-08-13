@@ -14,6 +14,10 @@ import {
   DialogTitle,
   Input,
 } from "@eva/ui";
+import {
+  mutationError,
+  mutationSuccess,
+} from "@/lib/utils/mutationToast";
 
 type SessionListItem = FunctionReturnType<typeof api.sessions.list>[number];
 type RepoRow = FunctionReturnType<typeof api.githubRepos.list>[number];
@@ -65,10 +69,12 @@ export function SessionTabsDialogs({
           id: renameTarget.session._id,
           title: renameValue.trim(),
         });
+        mutationSuccess("Session renamed", "session-rename");
         onCloseRename();
-      } catch (error) {
+      } catch {
+        mutationError("Couldn't rename session", "session-rename");
         setIsRenaming(false);
-        throw error;
+        return;
       }
       setIsRenaming(false);
     })();
@@ -154,6 +160,7 @@ export function SessionTabsDialogs({
                       });
                     }
                     await archiveSession({ id: archiveTarget.session._id });
+                    mutationSuccess("Session archived", "session-archive");
                     if (
                       pathname.includes(
                         `/sessions/${archiveTarget.pathSegment}`,
@@ -162,9 +169,10 @@ export function SessionTabsDialogs({
                       navigate({ to: "/sessions" });
                     }
                     onCloseArchive();
-                  } catch (error) {
+                  } catch {
+                    mutationError("Couldn't archive session", "session-archive");
                     setIsArchiving(false);
-                    throw error;
+                    return;
                   }
                   setIsArchiving(false);
                 })();

@@ -24,6 +24,10 @@ import { AUTOMATIONS_APP_GROUPS_OPEN_KEY } from "@/lib/components/sidebar/_utils
 import { useSidebarAppGroupOpen } from "@/lib/components/sidebar/useSidebarAppGroupOpen";
 import { entityPathSegment } from "@/lib/numId";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import {
+  mutationError,
+  mutationSuccess,
+} from "@/lib/utils/mutationToast";
 
 type AutomationListItem = FunctionReturnType<
   typeof api.automations.list
@@ -144,13 +148,15 @@ export function GlobalAutomationsSidebar({
       }
       setNewTitle("");
       setCreateTarget(null);
+      mutationSuccess("Automation created", "automation-create");
       navigate({
         to: toInternalRepoHref(`${basePath}/automations/${segment}`),
       });
       if (onNavigate) onNavigate();
-    } catch (error) {
+    } catch {
+      mutationError("Couldn't create automation", "automation-create");
       setIsCreating(false);
-      throw error;
+      return;
     }
     setIsCreating(false);
   };

@@ -16,6 +16,7 @@ import { type Notification } from "@/lib/components/notifications/notification-c
 import { InboxFilterTabs } from "@/lib/components/inbox/InboxFilterTabs";
 import { NotificationRow } from "@/lib/components/inbox/NotificationRow";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 
 function groupByDate(notifications: Notification[]) {
   const groups: { label: string; items: Notification[] }[] = [];
@@ -108,7 +109,13 @@ export function InboxClient() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => markAllAsRead()}
+            onClick={() => {
+              void catchMutationError(
+                markAllAsRead(),
+                "Couldn't mark all as read",
+                "inbox-mark-all-read",
+              );
+            }}
             title="Mark all as read"
             aria-label="Mark all as read"
             className="h-7 text-xs text-muted-foreground"

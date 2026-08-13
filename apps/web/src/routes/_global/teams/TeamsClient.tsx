@@ -18,6 +18,7 @@ import {
 import { IconPlus, IconUsers } from "@tabler/icons-react";
 import { TeamDeleteDialog } from "./_components/TeamDeleteDialog";
 import { TeamCard } from "./_components/TeamCard";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 export function TeamsClient() {
   const teams = useQuery(api.teams.list);
@@ -45,7 +46,12 @@ export function TeamsClient() {
     if (!deleteTarget) return;
     setIsDeleting(true);
     try {
-      await deleteTeam({ id: deleteTarget.id });
+      await withMutationToast(
+        deleteTeam({ id: deleteTarget.id }),
+        "Team deleted",
+        "Couldn't delete team",
+        "team-delete",
+      );
       setDeleteTarget(null);
     } catch {
       setDeleteTarget(null);

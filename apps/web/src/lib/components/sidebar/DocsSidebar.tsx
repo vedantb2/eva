@@ -21,7 +21,6 @@ import {
   Spinner,
   Surface,
   Textarea,
-  toast,
 } from "@eva/ui";
 import { IconFile, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
 import { compactRelativeTime } from "@eva/shared/dates";
@@ -34,6 +33,10 @@ import {
 } from "@/lib/components/sidebar/SharedLayoutNav";
 import { SidebarListHoverCard } from "@/lib/components/sidebar/SidebarListHoverCard";
 import { entityPathSegment, routeNumIdFromPath } from "@/lib/numId";
+import {
+  mutationError,
+  mutationSuccess,
+} from "@/lib/utils/mutationToast";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 interface DocsSidebarProps {
@@ -131,9 +134,11 @@ export function DocsSidebar({
         search: (prev) => prev,
       });
       if (onNavigate) onNavigate();
-    } catch (error) {
+      mutationSuccess("Document created", "doc-create");
+    } catch {
+      mutationError("Couldn't create document", "doc-create");
       setIsCreating(false);
-      throw error;
+      return;
     }
     setIsCreating(false);
   };
@@ -195,9 +200,10 @@ export function DocsSidebar({
         search: (prev) => prev,
       });
       if (onNavigate) onNavigate();
+      mutationSuccess("Document created", "doc-create");
     } catch (error) {
       console.error("PRD upload failed", error);
-      toast.error("Could not create the document. Try again.");
+      mutationError("Couldn't create the document. Try again.", "doc-create");
     }
     setIsUploading(false);
   };
@@ -214,7 +220,7 @@ export function DocsSidebar({
       await createDocFromPrd({ title, prdContent });
     } catch (error) {
       console.error("PRD upload failed", error);
-      toast.error("Could not read that file. Pick a plain text file.");
+      mutationError("Couldn't read that file. Pick a plain text file.", "doc-upload");
     }
   };
 
@@ -243,6 +249,7 @@ export function DocsSidebar({
     setIsDeleting(true);
     try {
       await removeDoc({ id: docToDelete.id });
+      mutationSuccess("Document deleted", "doc-delete");
       setDocToDelete(null);
       if (isViewing) {
         navigate({
@@ -251,9 +258,10 @@ export function DocsSidebar({
         });
         if (onNavigate) onNavigate();
       }
-    } catch (error) {
+    } catch {
+      mutationError("Couldn't delete document", "doc-delete");
       setIsDeleting(false);
-      throw error;
+      return;
     }
     setIsDeleting(false);
   };

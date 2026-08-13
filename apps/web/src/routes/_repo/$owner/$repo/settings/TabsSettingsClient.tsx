@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "convex/react";
 import { api } from "@eva/backend";
-import { Button, Input } from "@eva/ui";
+import { Button, Input, toast } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import {
@@ -16,6 +16,7 @@ import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 import { SettingsField } from "@/lib/components/settings/SettingsField";
 import { IconLayoutNavbar } from "@tabler/icons-react";
+import { mutationSuccess } from "@/lib/utils/mutationToast";
 
 function TabIconPreview({ icon }: { icon: string }) {
   return (
@@ -86,8 +87,10 @@ export function TabsSettingsClient() {
       setName("");
       setIcon("");
       setPort("");
+      mutationSuccess("Tab added", "app-tab-create");
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Failed to add tab");
+      toast.error("Couldn't add tab", { id: "app-tab-create" });
     }
   }
 

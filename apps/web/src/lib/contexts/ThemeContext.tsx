@@ -15,6 +15,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import { writeCustomThemeHint } from "@/lib/contexts/themeHint";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 
 /** Next Light → Neutral → Dark → Light. System uses resolved appearance as the start. */
 function nextCycledTheme(
@@ -824,7 +825,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setTheme = (next: ThemeMode) => {
     setNextTheme(next);
     if (isPersistedTheme(next)) {
-      setThemeMutation({ theme: next });
+      void catchMutationError(
+        setThemeMutation({ theme: next }),
+        "Couldn't save theme",
+        "theme-mode",
+      );
     }
   };
 
@@ -833,8 +838,12 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const setCustomTheme = (customTheme: CustomTheme) => {
-    setCustomThemeMutation({ customTheme });
     applyCustomThemeVars(customTheme, appearance !== "light");
+    void catchMutationError(
+      setCustomThemeMutation({ customTheme }),
+      "Couldn't save theme",
+      "theme-custom",
+    );
   };
 
   const customTheme: CustomTheme = syncedCustomTheme ?? {};

@@ -16,6 +16,7 @@ import {
   normalizeMode,
   type SessionMode,
 } from "@/lib/hooks/useSessionSettings";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 export function SessionDetailClient({
   sessionId,
@@ -107,16 +108,24 @@ export function SessionDetailClient({
   const [isStopPending, setIsStopPending] = useState(false);
   const handleSandboxToggle = async (action: "start" | "stop") => {
     if (action === "start") {
-      await startSandboxMutation({
-        sessionId,
-      });
+      await withMutationToast(
+        startSandboxMutation({ sessionId }),
+        "Sandbox started",
+        "Couldn't start sandbox",
+        "session-sandbox-start",
+      );
     } else {
       setIsStopPending(true);
       try {
-        await stopSandboxMutation({ sessionId });
-      } catch (error) {
+        await withMutationToast(
+          stopSandboxMutation({ sessionId }),
+          "Sandbox stopped",
+          "Couldn't stop sandbox",
+          "session-sandbox-stop",
+        );
+      } catch {
         setIsStopPending(false);
-        throw error;
+        return;
       }
       setIsStopPending(false);
     }

@@ -10,6 +10,7 @@ import { resolveCredentialSourceLabel } from "@/lib/utils/credentialSourceLabel"
 import { appendReviewCommentsToPrompt } from "@/lib/reviewComments";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
 import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 export type SessionMessage = NonNullable<
   FunctionReturnType<typeof api.messages.listByParent>
 >[number];
@@ -188,7 +189,11 @@ export function useSessionSend({
   };
 
   const handleCancel = async () => {
-    await cancelExecutionMutation({ sessionId });
+    await catchMutationError(
+      cancelExecutionMutation({ sessionId }),
+      "Couldn't cancel execution",
+      "session-cancel-execution",
+    );
   };
 
   return { isExecuting, handleSend, handleCancel };

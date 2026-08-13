@@ -9,6 +9,7 @@ import { parseCommandLines } from "./_utils";
 import { LogoSettingsSection } from "./_components/LogoSettingsSection";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsField } from "@/lib/components/settings/SettingsField";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 
 const COMMAND_TEXTAREA_CLASS = "resize-y bg-background font-mono text-xs";
 
@@ -37,24 +38,34 @@ export function AppClient() {
   const backgroundCommands = repo.backgroundCommands?.join("\n") ?? "";
   const stopCommands = repo.stopCommands?.join("\n") ?? "";
 
+  const saveConfig = (
+    args: Parameters<typeof updateConfig>[0],
+  ) => {
+    void catchMutationError(
+      updateConfig(args),
+      "Couldn't save app settings",
+      "app-config-save",
+    );
+  };
+
   const handleDevPortBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const raw = e.target.value.trim();
     if (raw === "") {
       if (repo.devPort !== undefined) {
-        updateConfig({ repoId, devPort: null });
+        saveConfig({ repoId, devPort: null });
       }
       return;
     }
     const port = parseInt(raw, 10);
     if (Number.isNaN(port) || port <= 0 || port > 65535) return;
     if (port === repo.devPort) return;
-    updateConfig({ repoId, devPort: port });
+    saveConfig({ repoId, devPort: port });
   };
 
   const handleDevCommandBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const next = e.target.value;
     if (next === (repo.devCommand ?? "")) return;
-    updateConfig({ repoId, devCommand: next });
+    saveConfig({ repoId, devCommand: next });
   };
 
   const handleStartupCommandsBlur = (
@@ -62,7 +73,7 @@ export function AppClient() {
   ) => {
     const next = e.target.value;
     if (next === startupCommands) return;
-    updateConfig({ repoId, startupCommands: parseCommandLines(next) });
+    saveConfig({ repoId, startupCommands: parseCommandLines(next) });
   };
 
   const handleBackgroundCommandsBlur = (
@@ -70,19 +81,19 @@ export function AppClient() {
   ) => {
     const next = e.target.value;
     if (next === backgroundCommands) return;
-    updateConfig({ repoId, backgroundCommands: parseCommandLines(next) });
+    saveConfig({ repoId, backgroundCommands: parseCommandLines(next) });
   };
 
   const handleStopCommandsBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
     const next = e.target.value;
     if (next === stopCommands) return;
-    updateConfig({ repoId, stopCommands: parseCommandLines(next) });
+    saveConfig({ repoId, stopCommands: parseCommandLines(next) });
   };
 
   const handleSystemPromptBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
     const next = e.target.value;
     if (next === (repo.systemPrompt ?? "")) return;
-    updateConfig({ repoId, systemPrompt: next });
+    saveConfig({ repoId, systemPrompt: next });
   };
 
   return (

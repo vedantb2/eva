@@ -29,6 +29,7 @@ import {
   useSessionSend,
   type SessionMessage,
 } from "./_components/useSessionSend";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 import {
   useSessionSettings,
   type SessionMode,
@@ -215,11 +216,15 @@ export function ChatPanel({
     toolUseId: string,
     answers: Record<string, string>,
   ) => {
-    await answerPendingQuestion({
-      entityId: sessionId,
-      toolUseId,
-      answer: JSON.stringify(answers),
-    });
+    await catchMutationError(
+      answerPendingQuestion({
+        entityId: sessionId,
+        toolUseId,
+        answer: JSON.stringify(answers),
+      }),
+      "Couldn't submit answer",
+      "session-pending-answer",
+    );
   };
 
   const hasSummary = Boolean(summary && summary.length > 0);

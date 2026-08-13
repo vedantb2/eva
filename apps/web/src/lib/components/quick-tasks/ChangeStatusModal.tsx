@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@eva/ui";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 import {
   type DisplayTaskStatus,
   statusConfig,
@@ -71,15 +72,20 @@ export function ChangeStatusModal({
     if (!selectedStatus) return;
     setIsLoading(true);
     try {
-      await Promise.all(
-        taskIds.map((id) => updateStatus({ id, status: selectedStatus })),
+      await withMutationToast(
+        Promise.all(
+          taskIds.map((id) => updateStatus({ id, status: selectedStatus })),
+        ),
+        `Updated ${count} task${count === 1 ? "" : "s"}`,
+        "Couldn't update status",
+        "tasks-bulk-status",
       );
       setSelectedStatus("");
       onSuccess();
       onClose();
-    } catch (error) {
+    } catch {
       setIsLoading(false);
-      throw error;
+      return;
     }
     setIsLoading(false);
   };

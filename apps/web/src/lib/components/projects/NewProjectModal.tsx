@@ -38,6 +38,7 @@ import type { MarkdownEditorHandle } from "@/lib/components/tasks/_components/Ma
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import type { Priority } from "@/lib/components/priority/priorityMeta";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 const MarkdownEditor = lazy(() =>
   import("@/lib/components/tasks/_components/MarkdownEditor").then((m) => ({
@@ -119,14 +120,19 @@ export function NewProjectModal({
 
     setIsLoading(true);
     try {
-      const projectId = await createProject({
-        repoId: repo._id,
-        title: title.trim(),
-        rawInput: desc,
-        baseBranch,
-        priority,
-        skipPlanning,
-      });
+      const projectId = await withMutationToast(
+        createProject({
+          repoId: repo._id,
+          title: title.trim(),
+          rawInput: desc,
+          baseBranch,
+          priority,
+          skipPlanning,
+        }),
+        "Project created",
+        "Couldn't create project",
+        "project-create",
+      );
 
       resetForm();
       onClose();
@@ -137,9 +143,9 @@ export function NewProjectModal({
           to: toInternalRepoHref(basePath + "/projects/" + projectId),
         });
       }
-    } catch (error) {
+    } catch {
       setIsLoading(false);
-      throw error;
+      return;
     }
     setIsLoading(false);
   };

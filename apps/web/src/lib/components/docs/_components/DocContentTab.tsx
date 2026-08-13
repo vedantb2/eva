@@ -38,6 +38,7 @@ import {
   setCommentHighlightState,
   scrollToAnchor,
 } from "../_utils/docCommentAnchors";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
@@ -304,24 +305,30 @@ export function DocContentTab({
     setComposingAnchorText(null);
   };
 
-  const handleRestoreVersion = (pmContent: string) => {
+  const handleRestoreVersion = async (pmContent: string) => {
     if (!editor) return;
     // Snapshot the current state first so the restore is itself reversible
     // (dedupe in saveVersion makes this free when nothing changed).
-    saveVersion({
-      docId: doc._id,
-      content: editor.getMarkdown(),
-      pmContent: JSON.stringify(editor.state.doc.toJSON()),
-    });
-    try {
-      const json = JSON.parse(pmContent);
-      // Apply with skip meta so the restore is not turned into a tracked
-      // suggestion while in Suggesting mode.
-      setContentUntracked(editor, json);
-    } catch {
-      // ignore malformed snapshots
-    }
-    setSelectedVersionId(null);
+    await withMutationToast(
+      saveVersion({
+        docId: doc._id,
+        content: editor.getMarkdown(),
+        pmContent: JSON.stringify(editor.state.doc.toJSON()),
+      }).then(() => {
+        try {
+          const json = JSON.parse(pmContent);
+          // Apply with skip meta so the restore is not turned into a tracked
+          // suggestion while in Suggesting mode.
+          setContentUntracked(editor, json);
+        } catch {
+          // ignore malformed snapshots
+        }
+        setSelectedVersionId(null);
+      }),
+      "Version restored",
+      "Couldn't restore version",
+      "doc-restore-version",
+    );
   };
 
   if (sync.isLoading || (!sync.extension && sync.initialContent === null)) {

@@ -10,6 +10,7 @@ import {
   useConsoleDock,
   type ConsoleDockApi,
 } from "@/lib/components/sandbox/useConsoleDock";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 
 const MAX_TERMINAL_PANES = 8;
 const MAX_PREVIEW_PANES = 8;
@@ -171,8 +172,16 @@ export function useSandboxPanes({
 
   const handleNewTerminal = async () => {
     if (!isActive || termIds.length >= MAX_TERMINAL_PANES) return;
-    const pane = await createTerminalPane({ owner });
-    setTermActive(pane.id);
+    try {
+      const pane = await catchMutationError(
+        createTerminalPane({ owner }),
+        "Couldn't create terminal",
+        "sandbox-terminal-create",
+      );
+      setTermActive(pane.id);
+    } catch {
+      // toast shown
+    }
   };
 
   const handleCloseTerminal = async (ptyId: string) => {
@@ -186,7 +195,15 @@ export function useSandboxPanes({
     } catch {
       // still remove from UI
     }
-    await closeTerminalPane({ owner, paneId: ptyId });
+    try {
+      await catchMutationError(
+        closeTerminalPane({ owner, paneId: ptyId }),
+        "Couldn't close terminal",
+        "sandbox-terminal-close",
+      );
+    } catch {
+      return;
+    }
     if (termActive === ptyId) {
       const pick = next[removedIdx - 1] ?? next[0] ?? "";
       setTermActive(pick);

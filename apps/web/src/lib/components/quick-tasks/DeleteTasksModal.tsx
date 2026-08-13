@@ -15,6 +15,7 @@ import {
   Button,
   Spinner,
 } from "@eva/ui";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 interface DeleteTasksModalProps {
   isOpen: boolean;
@@ -51,12 +52,17 @@ export function DeleteTasksModal({
   const handleDelete = async () => {
     setIsLoading(true);
     try {
-      await Promise.all([...selectedTaskIds].map((id) => removeTask({ id })));
+      await withMutationToast(
+        Promise.all([...selectedTaskIds].map((id) => removeTask({ id }))),
+        `Deleted ${count} task${count === 1 ? "" : "s"}`,
+        "Couldn't delete tasks",
+        "tasks-bulk-delete",
+      );
       onSuccess();
       onClose();
-    } catch (error) {
+    } catch {
       setIsLoading(false);
-      throw error;
+      return;
     }
     setIsLoading(false);
   };

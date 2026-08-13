@@ -41,6 +41,10 @@ import {
   proposedPlanTitle,
 } from "./planExport";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import {
+  catchMutationError,
+  withMutationToast,
+} from "@/lib/utils/mutationToast";
 
 interface SessionPrdPlanViewProps {
   sessionId: Id<"sessions">;
@@ -115,14 +119,19 @@ export function SessionPrdPlanView({
     if (markdown === null) return;
     setIsSaving(true);
     try {
-      await updatePlanContent({
-        id: sessionId,
-        planContent: markdown,
-      });
+      await withMutationToast(
+        updatePlanContent({
+          id: sessionId,
+          planContent: markdown,
+        }),
+        "Plan saved",
+        "Couldn't save plan",
+        "session-plan-save",
+      );
       setEditingSnapshot(null);
-    } catch (error) {
+    } catch {
       setIsSaving(false);
-      throw error;
+      return;
     }
     setIsSaving(false);
   };
@@ -131,7 +140,11 @@ export function SessionPrdPlanView({
     if (!planContent.trim()) return;
     setIsSavingDoc(true);
     try {
-      const docId = await createDocFromSession({ sessionId });
+      const docId = await catchMutationError(
+        createDocFromSession({ sessionId }),
+        "Couldn't save document",
+        "session-plan-doc",
+      );
       const doc = await convex.query(api.docs.get, { id: docId });
       // Nested ifs rather than a ternary or early returns: React Compiler bails
       // on the whole file for a conditional expression inside a try, and an
@@ -148,9 +161,9 @@ export function SessionPrdPlanView({
           });
         }
       }
-    } catch (error) {
+    } catch {
       setIsSavingDoc(false);
-      throw error;
+      return;
     }
     setIsSavingDoc(false);
   };

@@ -38,6 +38,7 @@ import {
   useDevPreviewSearchKey,
   useDevWelcomeSetupPreview,
 } from "@/lib/dev/preview";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 
 const TOTAL_STEPS = 5;
 
@@ -125,7 +126,11 @@ export function WelcomeSetupDialog() {
       setDismissedPreviewKey(previewSearchKey);
       return;
     }
-    void completeOnboarding({});
+    void catchMutationError(
+      completeOnboarding({}),
+      "Couldn't complete onboarding",
+      "onboarding-complete",
+    );
   };
 
   const handleNext = () => {

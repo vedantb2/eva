@@ -24,6 +24,7 @@ import {
   IconTrash,
 } from "@tabler/icons-react";
 import { relativeTime } from "./_format";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 type ArtifactRow = FunctionReturnType<typeof api.artifacts.listAll>[number];
 
@@ -37,7 +38,12 @@ export function ArtifactCard({ artifact }: { artifact: ArtifactRow }) {
     window.open(`/artifacts/${artifact._id}`, "_blank", "noopener");
 
   const onDelete = async () => {
-    await remove({ id: artifact._id });
+    await withMutationToast(
+      remove({ id: artifact._id }),
+      "Artifact deleted",
+      "Couldn't delete artifact",
+      "artifact-delete",
+    );
     setConfirmDeleteOpen(false);
   };
 

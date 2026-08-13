@@ -40,6 +40,7 @@ import {
   type TaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
 import { canEditTaskModel } from "@/lib/components/tasks/_components/task-detail-constants";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 import {
   useAvailableAiModels,
   useTaskOwnerProviderAccounts,
@@ -177,7 +178,11 @@ export function TaskCardMenuItems({
           <Item
             disabled={!canRun}
             onSelect={() => {
-              void startExecution({ id });
+              void catchMutationError(
+                startExecution({ id }),
+                "Couldn't start task",
+                "task-run",
+              );
             }}
           >
             <IconPlayerPlay size={16} />

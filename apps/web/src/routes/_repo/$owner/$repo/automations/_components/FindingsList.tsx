@@ -13,6 +13,7 @@ import {
 } from "@tabler/icons-react";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { entityPathSegment } from "@/lib/numId";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 type AutomationRun = Doc<"automationRuns">;
 type Finding = NonNullable<AutomationRun["findings"]>[number];
@@ -60,19 +61,25 @@ export function FindingsList({ run, repoOwner, repoName }: FindingsListProps) {
 
   async function handleCreate(autoRun: boolean) {
     if (selected.size === 0) return;
+    const count = selected.size;
     setIsCreating(true);
     try {
-      await createTasks({
-        runId: run._id,
-        findingIds: Array.from(selected),
-        autoRun,
-      });
+      await withMutationToast(
+        createTasks({
+          runId: run._id,
+          findingIds: Array.from(selected),
+          autoRun,
+        }),
+        autoRun
+          ? `Created and started ${count} task${count === 1 ? "" : "s"}`
+          : `Created ${count} task${count === 1 ? "" : "s"}`,
+        autoRun ? "Couldn't create and run tasks" : "Couldn't create tasks",
+        autoRun ? "findings-create-run" : "findings-create-tasks",
+      );
       setSelected(new Set());
-    } catch (error) {
+    } finally {
       setIsCreating(false);
-      throw error;
     }
-    setIsCreating(false);
   }
 
   return (

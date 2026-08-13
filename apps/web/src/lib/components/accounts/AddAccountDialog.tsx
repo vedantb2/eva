@@ -17,6 +17,7 @@ import {
   cn,
 } from "@eva/ui";
 import { PROVIDER_CREDENTIAL_FIELDS, PROVIDER_LABELS } from "./_credentialSpec";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 const PROVIDERS: ReadonlyArray<AIProvider> = [
   "claude",
@@ -117,13 +118,23 @@ function AddAccountForm({
       const value = values[field.key]?.trim() ?? "";
       return value.length > 0 ? [{ key: field.key, value }] : [];
     });
-    await upsert({
-      accountId: editing?._id,
-      provider,
-      credentials,
-    });
+    try {
+      await withMutationToast(
+        upsert({
+          accountId: editing?._id,
+          provider,
+          credentials,
+        }),
+        editing ? "Account updated" : "Account added",
+        editing ? "Couldn't update account" : "Couldn't add account",
+        "account-upsert",
+      );
+      onOpenChange(false);
+    } catch {
+      setSaving(false);
+      return;
+    }
     setSaving(false);
-    onOpenChange(false);
   };
 
   return (

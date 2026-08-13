@@ -24,6 +24,10 @@ import {
 import { IconTrash, IconUserPlus, IconUsers } from "@tabler/icons-react";
 import { UserInitials } from "@eva/shared";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
+import {
+  catchMutationError,
+  withMutationToast,
+} from "@/lib/utils/mutationToast";
 
 type Member = FunctionReturnType<typeof api.teamMembers.list>[number];
 
@@ -199,7 +203,11 @@ export function TeamMembersTab({
                     <Select
                       value={member.role}
                       onValueChange={(role: "owner" | "member") =>
-                        updateRole({ teamId, userId: member.userId, role })
+                        void catchMutationError(
+                          updateRole({ teamId, userId: member.userId, role }),
+                          "Couldn't update member role",
+                          "team-member-role",
+                        )
                       }
                     >
                       <SelectTrigger className="h-7 w-[100px] border-0 bg-secondary text-xs">
@@ -220,7 +228,12 @@ export function TeamMembersTab({
                       size="icon"
                       variant="ghost"
                       onClick={() =>
-                        removeMember({ teamId, userId: member.userId })
+                        void withMutationToast(
+                          removeMember({ teamId, userId: member.userId }),
+                          "Member removed",
+                          "Couldn't remove member",
+                          "team-member-remove",
+                        )
                       }
                     >
                       <IconTrash size={14} />

@@ -29,6 +29,10 @@ import { entityPathSegment } from "@/lib/numId";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { isAutomationTab, type AutomationTab } from "@/lib/search-params";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import {
+  catchMutationError,
+  withMutationToast,
+} from "@/lib/utils/mutationToast";
 
 type Automation = Doc<"automations">;
 
@@ -67,7 +71,11 @@ export function AutomationClient({
           <Switch
             checked={automation.enabled}
             onCheckedChange={(enabled) =>
-              updateAutomation({ id: automation._id, enabled })
+              catchMutationError(
+                updateAutomation({ id: automation._id, enabled }),
+                "Couldn't update automation",
+                "automation-enabled",
+              )
             }
             aria-label={
               automation.enabled ? "Disable automation" : "Enable automation"
@@ -80,7 +88,14 @@ export function AutomationClient({
           size="sm"
           variant="outline"
           disabled={hasActiveRun === true || !automation.description}
-          onClick={() => runNow({ automationId: automation._id })}
+          onClick={() =>
+            withMutationToast(
+              runNow({ automationId: automation._id }),
+              "Run started",
+              "Couldn't start run",
+              "automation-run-now",
+            )
+          }
         >
           <IconPlayerPlay size={14} />
           Run Now
@@ -214,14 +229,19 @@ function SettingsForm({
   const handleDelete = async () => {
     setIsDeleting(true);
     try {
-      await removeAutomation({ id: automation._id });
+      await withMutationToast(
+        removeAutomation({ id: automation._id }),
+        "Automation deleted",
+        "Couldn't delete automation",
+        "automation-delete",
+      );
       navigate({
         to: "/$owner/$repo/automations",
         params: { owner: repoOwner, repo: repoName },
       });
-    } catch (error) {
+    } catch {
       setIsDeleting(false);
-      throw error;
+      return;
     }
     setIsDeleting(false);
   };

@@ -19,6 +19,7 @@ import {
   Textarea,
 } from "@eva/ui";
 import { IconEdit, IconTrash, IconUsers } from "@tabler/icons-react";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 export function PersonaDropdown({
   repoId,
@@ -111,24 +112,39 @@ export function ManagePersonasModal({
   const handleSave = async () => {
     if (!formName.trim() || !formPrompt.trim()) return;
     if (editingId) {
-      await updatePersona({
-        id: editingId,
-        name: formName.trim(),
-        prompt: formPrompt.trim(),
-      });
+      await withMutationToast(
+        updatePersona({
+          id: editingId,
+          name: formName.trim(),
+          prompt: formPrompt.trim(),
+        }),
+        "Persona saved",
+        "Couldn't save persona",
+        "persona-save",
+      );
     } else {
-      await createPersona({
-        repoId,
-        name: formName.trim(),
-        prompt: formPrompt.trim(),
-      });
+      await withMutationToast(
+        createPersona({
+          repoId,
+          name: formName.trim(),
+          prompt: formPrompt.trim(),
+        }),
+        "Persona created",
+        "Couldn't create persona",
+        "persona-save",
+      );
     }
     resetForm();
   };
 
   const handleConfirmDelete = async () => {
     if (!deletingId) return;
-    await removePersona({ id: deletingId });
+    await withMutationToast(
+      removePersona({ id: deletingId }),
+      "Persona deleted",
+      "Couldn't delete persona",
+      "persona-delete",
+    );
     if (selectedPersonaId === deletingId) {
       onClearPersona();
     }

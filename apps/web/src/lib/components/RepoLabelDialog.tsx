@@ -13,6 +13,7 @@ import {
   Spinner,
 } from "@eva/ui";
 import { useSetRepoLabel } from "@/lib/hooks/useSetRepoLabel";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 interface RepoLabelDialogProps {
   open: boolean;
@@ -74,10 +75,14 @@ function RepoLabelForm({
   const save = async () => {
     setSaving(true);
     try {
-      await setLabel({ repoId, label: value });
+      await withMutationToast(
+        setLabel({ repoId, label: value }),
+        "Display name saved",
+        "Couldn't save display name",
+        "repo-label-save",
+      );
       onOpenChange(false);
-    } catch (err) {
-      console.error("Failed to update repo label:", err);
+    } catch {
       setSaving(false);
       return;
     }

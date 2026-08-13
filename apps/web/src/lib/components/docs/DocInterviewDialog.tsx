@@ -28,6 +28,7 @@ import {
 import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
@@ -194,7 +195,12 @@ export function DocInterviewDialog({
   };
 
   const handleClear = async () => {
-    await clearInterview({ id: doc._id });
+    await withMutationToast(
+      clearInterview({ id: doc._id }),
+      "Interview cleared",
+      "Couldn't clear interview",
+      "doc-interview-clear",
+    );
     setIsLoading(false);
     hasTriggeredRef.current = false;
     setConfirmClear(false);

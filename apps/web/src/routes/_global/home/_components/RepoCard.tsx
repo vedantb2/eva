@@ -9,6 +9,7 @@ import { RepoLogo } from "@/lib/components/RepoLogo";
 import { RepoLabelDialog } from "@/lib/components/RepoLabelDialog";
 import { useRepoLogoUpload } from "@/lib/hooks/useRepoLogoUpload";
 import { appLeafName, repoDisplayLabel } from "@/lib/utils/repoGrouping";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 import {
   Card,
   CardContent,
@@ -133,7 +134,13 @@ export function RepoCard({
             </ContextMenuItem>
           )}
           <ContextMenuItem
-            onClick={() => toggleHidden({ repoId: repo._id, hidden: true })}
+            onClick={() =>
+              void catchMutationError(
+                toggleHidden({ repoId: repo._id, hidden: true }),
+                "Couldn't hide codebase",
+                "repo-hide",
+              )
+            }
           >
             <IconEyeOff size={16} />
             Hide

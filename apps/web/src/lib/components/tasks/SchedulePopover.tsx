@@ -12,6 +12,7 @@ import {
   ScheduleDateTimeActions,
   useScheduleDateTime,
 } from "@/lib/components/ScheduleDateTimePicker";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 interface SchedulePopoverProps {
   taskId: Id<"agentTasks">;
@@ -38,17 +39,40 @@ export function SchedulePopover({
 
   async function handleSchedule() {
     if (!timestamp) return;
-    if (isScheduled) {
-      await updateSchedule({ id: taskId, scheduledAt: timestamp });
-    } else {
-      await schedule({ id: taskId, scheduledAt: timestamp });
+    try {
+      if (isScheduled) {
+        await withMutationToast(
+          updateSchedule({ id: taskId, scheduledAt: timestamp }),
+          "Schedule updated",
+          "Couldn't update schedule",
+          "task-schedule-update",
+        );
+      } else {
+        await withMutationToast(
+          schedule({ id: taskId, scheduledAt: timestamp }),
+          "Task scheduled",
+          "Couldn't schedule task",
+          "task-schedule",
+        );
+      }
+      setOpen(false);
+    } catch {
+      // error toast already shown
     }
-    setOpen(false);
   }
 
   async function handleRemove() {
-    await cancelSchedule({ id: taskId });
-    setOpen(false);
+    try {
+      await withMutationToast(
+        cancelSchedule({ id: taskId }),
+        "Schedule removed",
+        "Couldn't remove schedule",
+        "task-schedule-remove",
+      );
+      setOpen(false);
+    } catch {
+      // error toast already shown
+    }
   }
 
   function handleOpenChange(next: boolean) {

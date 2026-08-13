@@ -45,6 +45,7 @@ import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { entityPathSegment } from "@/lib/numId";
 import { IconGripVertical } from "@tabler/icons-react";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 type Task = FunctionReturnType<typeof api.agentTasks.getAllTasks>[number];
 
@@ -149,11 +150,16 @@ export function GroupTasksModal({
     if (!title.trim() || taskIds.length === 0) return;
     setIsLoading(true);
     try {
-      const projectId = await createFromTasks({
-        repoId: repo._id,
-        title: title.trim(),
-        taskIds,
-      });
+      const projectId = await withMutationToast(
+        createFromTasks({
+          repoId: repo._id,
+          title: title.trim(),
+          taskIds,
+        }),
+        "Project created",
+        "Couldn't create project",
+        "project-create-from-tasks",
+      );
       const created = await convex.query(api.projects.get, { id: projectId });
       setTitle("");
       onSuccess();
@@ -168,9 +174,9 @@ export function GroupTasksModal({
           });
         }
       }
-    } catch (error) {
+    } catch {
       setIsLoading(false);
-      throw error;
+      return;
     }
     setIsLoading(false);
   };
@@ -179,16 +185,21 @@ export function GroupTasksModal({
     if (!selectedProjectId || taskIds.length === 0) return;
     setIsLoading(true);
     try {
-      await assignToProject({
-        taskIds,
-        projectId: selectedProjectId,
-      });
+      await withMutationToast(
+        assignToProject({
+          taskIds,
+          projectId: selectedProjectId,
+        }),
+        `Added ${taskIds.length} task${taskIds.length === 1 ? "" : "s"} to project`,
+        "Couldn't add tasks to project",
+        "tasks-add-to-project",
+      );
       setSelectedProjectId(null);
       onSuccess();
       onClose();
-    } catch (error) {
+    } catch {
       setIsLoading(false);
-      throw error;
+      return;
     }
     setIsLoading(false);
   };

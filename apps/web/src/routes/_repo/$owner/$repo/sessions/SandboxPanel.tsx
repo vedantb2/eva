@@ -24,6 +24,7 @@ import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { useSessionModel } from "@/lib/hooks/useSessionModel";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useSessionAnnotationSend } from "./_components/useSessionAnnotationSend";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 import {
   getLatestVariations,
   type SessionDesignMessage,
@@ -247,7 +248,13 @@ export function SandboxPanel({
           prUrl={prUrl}
           customTabs={customTabs}
           agentBrowsingAt={agentBrowsingAt}
-          onReleaseBrowserLock={() => void releaseBrowserLock({ owner })}
+          onReleaseBrowserLock={() =>
+            void catchMutationError(
+              releaseBrowserLock({ owner }),
+              "Couldn't unlock browser",
+              "sandbox-browser-unlock",
+            )
+          }
           // Backend starts the app in the Console tmux session after startup.
           runConsoleDevCommandOnConnect={false}
           onComputerRunningChange={setComputerRunning}

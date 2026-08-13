@@ -3,6 +3,9 @@ import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { parseStorageId } from "@/lib/components/artifacts/_meta";
+import {
+  withMutationToast,
+} from "@/lib/utils/mutationToast";
 
 /**
  * Shared logo upload/remove logic for repo cards and the settings page. Owns the
@@ -17,11 +20,8 @@ export function useRepoLogoUpload() {
 
   const uploadLogo = async (repoId: Id<"githubRepos">, file: File) => {
     setUploading(true);
-    let uploadError: Error | undefined;
-    // Built outside the try: React Compiler bails on the whole file when a
-    // logical expression sits inside a try/catch.
     const contentType = file.type || "application/octet-stream";
-    try {
+    const uploadAndSave = async () => {
       const uploadUrl = await generateUploadUrl({ repoId });
       const result = await fetch(uploadUrl, {
         method: "POST",
@@ -30,29 +30,35 @@ export function useRepoLogoUpload() {
       });
       const responseText = await result.text();
       if (!result.ok) {
-        uploadError = new Error(
+        throw new Error(
           `Logo upload failed (status ${result.status}): ${responseText}`,
         );
-      } else {
-        const storageId = parseStorageId(responseText);
-        if (!storageId) {
-          uploadError = new Error("Invalid response from storage");
-        } else {
-          await setLogo({ repoId, storageId });
-        }
       }
-    } catch (error) {
+      const storageId = parseStorageId(responseText);
+      if (!storageId) {
+        throw new Error("Invalid response from storage");
+      }
+      await setLogo({ repoId, storageId });
+    };
+    try {
+      await withMutationToast(
+        uploadAndSave(),
+        "Logo updated",
+        "Couldn't upload logo",
+        "repo-logo-upload",
+      );
+    } finally {
       setUploading(false);
-      throw error;
-    }
-    setUploading(false);
-    if (uploadError) {
-      throw uploadError;
     }
   };
 
   const removeLogo = async (repoId: Id<"githubRepos">) => {
-    await setLogo({ repoId, storageId: null });
+    await withMutationToast(
+      setLogo({ repoId, storageId: null }),
+      "Logo removed",
+      "Couldn't remove logo",
+      "repo-logo-remove",
+    );
   };
 
   return { uploadLogo, removeLogo, uploading };

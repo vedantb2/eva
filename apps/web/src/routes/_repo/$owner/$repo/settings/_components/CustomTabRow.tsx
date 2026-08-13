@@ -11,6 +11,11 @@ import {
   slugifyAppTabName,
 } from "@/lib/utils/appTabSlug";
 import { TablerIconByName } from "@/lib/components/TablerIconByName";
+import {
+  catchMutationError,
+  mutationError,
+  withMutationToast,
+} from "@/lib/utils/mutationToast";
 
 interface CustomTabRowProps {
   tab: Doc<"appTabs">;
@@ -67,6 +72,7 @@ export function CustomTabRow({ tab, takenSlugs }: CustomTabRowProps) {
       await update({ id: tab._id, name, icon: tab.icon, port: tab.port });
       setNameError(null);
     } catch (err) {
+      mutationError("Couldn't update tab", "app-tab-update");
       setNameError(
         err instanceof Error ? err.message : "Failed to update name",
       );
@@ -77,7 +83,11 @@ export function CustomTabRow({ tab, takenSlugs }: CustomTabRowProps) {
   const handleIconBlur = (e: React.FocusEvent<HTMLInputElement>) => {
     const icon = e.target.value.trim();
     if (!icon || icon === tab.icon) return;
-    update({ id: tab._id, name: tab.name, icon, port: tab.port });
+    void catchMutationError(
+      update({ id: tab._id, name: tab.name, icon, port: tab.port }),
+      "Couldn't update tab",
+      "app-tab-update",
+    );
   };
 
   const handlePortBlur = (e: React.FocusEvent<HTMLInputElement>) => {
@@ -85,7 +95,11 @@ export function CustomTabRow({ tab, takenSlugs }: CustomTabRowProps) {
     if (Number.isNaN(port) || port <= 0 || port > 65535 || port === tab.port) {
       return;
     }
-    update({ id: tab._id, name: tab.name, icon: tab.icon, port });
+    void catchMutationError(
+      update({ id: tab._id, name: tab.name, icon: tab.icon, port }),
+      "Couldn't update tab",
+      "app-tab-update",
+    );
   };
 
   return (
@@ -117,7 +131,13 @@ export function CustomTabRow({ tab, takenSlugs }: CustomTabRowProps) {
         />
         <Switch
           checked={tab.enabled}
-          onCheckedChange={(enabled) => toggleEnabled({ id: tab._id, enabled })}
+          onCheckedChange={(enabled) =>
+            catchMutationError(
+              toggleEnabled({ id: tab._id, enabled }),
+              "Couldn't update tab",
+              "app-tab-update",
+            )
+          }
           aria-label={tab.enabled ? "Disable tab" : "Enable tab"}
         />
         <Button
@@ -125,7 +145,14 @@ export function CustomTabRow({ tab, takenSlugs }: CustomTabRowProps) {
           variant="ghost"
           className="size-8 text-destructive hover:bg-destructive/10"
           aria-label="Delete tab"
-          onClick={() => remove({ id: tab._id })}
+          onClick={() =>
+            void withMutationToast(
+              remove({ id: tab._id }),
+              "Tab deleted",
+              "Couldn't delete tab",
+              "app-tab-delete",
+            )
+          }
         >
           <IconTrash className="h-4 w-4" />
         </Button>

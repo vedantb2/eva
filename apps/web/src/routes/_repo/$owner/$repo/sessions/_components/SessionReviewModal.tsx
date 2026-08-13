@@ -17,6 +17,7 @@ import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { m, AnimatePresence } from "motion/react";
 import { useState } from "react";
+import { catchMutationError } from "@/lib/utils/mutationToast";
 
 interface SessionReviewModalProps {
   sessionId: Id<"sessions">;
@@ -44,7 +45,11 @@ export function SessionReviewModal({
   const handleCreatePr = async () => {
     setIsCreatingPr(true);
     try {
-      await createPr({ sessionId });
+      await catchMutationError(
+        createPr({ sessionId }),
+        "Couldn't create pull request",
+        "session-create-pr",
+      );
       setReviewStep("complete");
     } catch {
       setReviewStep("confirm");

@@ -45,6 +45,10 @@ import {
   filterSlotsForScope,
   type EnvVarScope,
 } from "./_utils/knownEnvVars";
+import {
+  catchMutationError,
+  withMutationToast,
+} from "@/lib/utils/mutationToast";
 
 export interface EnvVar {
   key: string;
@@ -116,11 +120,20 @@ export function EnvVarsTable({
   const handleAdd = async () => {
     if (!keyInput.trim() || !valueInput.trim() || !onUpsert) return;
     setSaving(true);
-    await onUpsert(keyInput.trim(), valueInput, false);
+    try {
+      await withMutationToast(
+        onUpsert(keyInput.trim(), valueInput, false),
+        "Variable added",
+        "Couldn't add variable",
+        "env-var-add",
+      );
+      setAdding(false);
+      setKeyInput("");
+      setValueInput("");
+    } catch {
+      // Toast already shown.
+    }
     setSaving(false);
-    setAdding(false);
-    setKeyInput("");
-    setValueInput("");
   };
 
   const startEdit = (key: string) => {
@@ -137,26 +150,44 @@ export function EnvVarsTable({
     if (!editingKey || !editValue.trim() || !onUpsert) return;
     const existing = vars?.find((v) => v.key === editingKey);
     setSaving(true);
-    await onUpsert(editingKey, editValue, existing?.sandboxExclude ?? false);
+    try {
+      await withMutationToast(
+        onUpsert(editingKey, editValue, existing?.sandboxExclude ?? false),
+        "Variable saved",
+        "Couldn't save variable",
+        "env-var-save",
+      );
+      setEditingKey(null);
+      setEditValue("");
+      setRevealedValues((prev) => {
+        const next = { ...prev };
+        delete next[editingKey];
+        return next;
+      });
+    } catch {
+      // Toast already shown.
+    }
     setSaving(false);
-    setEditingKey(null);
-    setEditValue("");
-    setRevealedValues((prev) => {
-      const next = { ...prev };
-      delete next[editingKey];
-      return next;
-    });
   };
 
   const confirmDelete = async () => {
     if (!deleteKey || !onRemove) return;
-    await onRemove(deleteKey);
-    setRevealedValues((prev) => {
-      const next = { ...prev };
-      delete next[deleteKey];
-      return next;
-    });
-    setDeleteKey(null);
+    try {
+      await withMutationToast(
+        onRemove(deleteKey),
+        "Variable deleted",
+        "Couldn't delete variable",
+        "env-var-delete",
+      );
+      setRevealedValues((prev) => {
+        const next = { ...prev };
+        delete next[deleteKey];
+        return next;
+      });
+      setDeleteKey(null);
+    } catch {
+      // Toast already shown.
+    }
   };
 
   const toggleReveal = async (key: string) => {
@@ -205,12 +236,21 @@ export function EnvVarsTable({
     const parsed = parseEnvVars(bulkText);
     if (parsed.length === 0) return;
     setBulkSaving(true);
-    await Promise.all(
-      parsed.map(({ key, value }) => onUpsert(key, value, false)),
-    );
+    try {
+      await withMutationToast(
+        Promise.all(
+          parsed.map(({ key, value }) => onUpsert(key, value, false)),
+        ),
+        `Imported ${parsed.length} variable${parsed.length !== 1 ? "s" : ""}`,
+        "Couldn't import variables",
+        "env-var-bulk-import",
+      );
+      setShowBulkPaste(false);
+      setBulkText("");
+    } catch {
+      // Toast already shown.
+    }
     setBulkSaving(false);
-    setShowBulkPaste(false);
-    setBulkText("");
   };
 
   const parsedPreview = parseEnvVars(bulkText);
@@ -319,7 +359,11 @@ export function EnvVarsTable({
                     size="icon-sm"
                     variant="ghost"
                     onClick={() =>
-                      onToggleSandboxExclude(v.key, !v.sandboxExclude)
+                      void catchMutationError(
+                        onToggleSandboxExclude(v.key, !v.sandboxExclude),
+                        "Couldn't update sandbox setting",
+                        "env-var-sandbox-exclude",
+                      )
                     }
                     title={
                       v.sandboxExclude

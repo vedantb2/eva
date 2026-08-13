@@ -42,6 +42,7 @@ import { HtmlPreviewFrame } from "./HtmlPreviewFrame";
 import { DocPresenceFacepile } from "./DocPresenceFacepile";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
@@ -139,12 +140,15 @@ export function DocRecapViewer({
   const handleReviseRecap = async () => {
     setIsRevising(true);
     try {
-      await reviseRecap({ docId: doc._id });
-    } catch (error) {
+      await withMutationToast(
+        reviseRecap({ docId: doc._id }),
+        "Recap revision started",
+        "Couldn't revise recap",
+        "doc-revise-recap",
+      );
+    } finally {
       setIsRevising(false);
-      throw error;
     }
-    setIsRevising(false);
   };
 
   return (

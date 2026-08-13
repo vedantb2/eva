@@ -191,23 +191,6 @@ export async function launchScript(
     ),
   ];
 
-  if (opts.mcpBaseUrl && opts.mcpToken) {
-    const mcpConfig = JSON.stringify({
-      mcpServers: {
-        eva: {
-          type: "http",
-          url: `${opts.mcpBaseUrl}/mcp`,
-          headers: {
-            Authorization: `Bearer ${opts.mcpToken}`,
-          },
-        },
-      },
-    });
-    uploadTasks.push(
-      uploadWithTiming("/tmp/eva-mcp.json", mcpConfig, "MCP config"),
-    );
-  }
-
   // Written on every launch, empty list included: the file persists on a reused
   // sandbox, so an unconditional write is what lets the callback prune stubs
   // for skills that have since been uninstalled.
@@ -290,6 +273,12 @@ export async function launchScript(
       envParts.push(`${key}=${quote([val])}`);
     }
   }
+  // Reserved Eva values are appended after repo/user env so they cannot be
+  // shadowed. The callback consumes and removes them before agent tools spawn.
+  if (opts.mcpBaseUrl && opts.mcpToken) {
+    envParts.push(`EVA_MCP_AUTH=${quote([opts.mcpToken])}`);
+    envParts.push(`EVA_MCP_BASE_URL=${quote([opts.mcpBaseUrl])}`);
+  }
   envParts.push(`CALLBACK_SCRIPT_FP=${quote([CALLBACK_SCRIPT_FINGERPRINT])}`);
   const exportLines = envParts.map((part) => `export ${part}`);
   // Kernel-enforced single-runner-per-entity: spawn under an exclusive flock
@@ -305,8 +294,11 @@ export async function launchScript(
     "#!/usr/bin/env bash",
     "set -euo pipefail",
     `[ -f ${EVA_ENV_FILE} ] && . ${EVA_ENV_FILE}`,
-    "rm -f /tmp/run-design.pid /tmp/run-design.ready",
+    "rm -f /tmp/run-design.pid /tmp/run-design.ready /tmp/eva-mcp.json",
     ...exportLines,
+    // The script carries per-launch credentials, so unlink it once this shell
+    // has loaded the exports and before the long-lived callback is spawned.
+    'rm -f "$0"',
     "if command -v flock >/dev/null 2>&1; then",
     `  nohup flock -n -E 217 ${runnerLockPath} node /tmp/run-design.mjs >> /tmp/design.log 2>&1 &`,
     "else",

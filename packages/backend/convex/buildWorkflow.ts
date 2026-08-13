@@ -13,6 +13,7 @@ import { buildProjectBranchName } from "./_projects/helpers";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 import { normalizeAIModel } from "./validators";
+import { setTaskLastRunStartedAt } from "./_agentTasks/runSummary";
 
 // --- Workflow ---
 
@@ -145,11 +146,12 @@ export const startTaskForBuild = internalMutation({
     // Create the run. When this build picks up a task a reviewer sent back via
     // "Make changes", link the parked change-request comment so the timeline
     // labels this run "made changes" rather than a bare "success".
+    const startedAt = Date.now();
     const runId = await ctx.db.insert("agentRuns", {
       taskId: args.taskId,
       status: "queued",
       logs: [],
-      startedAt: Date.now(),
+      startedAt,
       triggeringCommentId: task.pendingChangeRequestCommentId,
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
@@ -158,6 +160,7 @@ export const startTaskForBuild = internalMutation({
       ),
       model: normalizeAIModel(task.model),
     });
+    await setTaskLastRunStartedAt(ctx, args.taskId, task.repoId, startedAt);
 
     await ctx.db.patch(args.taskId, {
       status: "in_progress",

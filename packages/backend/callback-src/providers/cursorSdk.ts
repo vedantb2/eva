@@ -1,5 +1,18 @@
 import { execSync } from "child_process";
 import { existsSync, mkdirSync, readFileSync } from "fs";
+import type {
+  Agent,
+  AgentOptions,
+  Cursor,
+  JsonlLocalAgentStore,
+  McpServerConfig,
+  ModelListItem,
+  ModelParameterValue,
+  ModelSelection,
+  Run,
+  SDKAgent,
+  TokenUsage,
+} from "@cursor/sdk";
 import {
   CURSOR_SDK_STORE_DIR,
   MAX_TOTAL_RUNTIME_MS,
@@ -12,6 +25,7 @@ import {
   cursorUse1mContext,
   normalizedCursorModel,
 } from "../config.js";
+import { evaMcpServers } from "../evaMcp.js";
 import { updateThinkingStep } from "../parse/canonical.js";
 import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
 import {
@@ -26,40 +40,21 @@ import {
   writeCursorSessionState,
 } from "../session/cursorSession.js";
 import type { CliAttemptResult, JsonValue, SessionMode } from "../types.js";
-import { log, tryParseJson } from "../utils.js";
+import { log } from "../utils.js";
 import { globalNpmRoot, type JsonLike } from "./claudeSdk.js";
 
 const SDK_PACKAGE = "@cursor/sdk";
 const SDK_VERSION = "1.0.26";
 /** ESM entry inside the package (its exports map's `import` target). */
 const SDK_ENTRY_RELPATH = "/dist/esm/index.js";
-const MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
 
 /** User-writable fallback install location (persists in home across resumes). */
 const SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
 
-/**
- * Narrow structural types for the subset of the Cursor SDK this runner uses.
- * The SDK is dynamically imported from the sandbox's global npm root (installed
- * in the seed snapshot), so these stand in for the SDK's own types.
- */
-export type SdkMcpServerConfig = {
-  type: "http";
-  url: string;
-  headers?: Record<string, string>;
-};
-
-/** Opaque store handle — constructed, passed back to the SDK, never inspected. */
-type SdkLocalAgentStore = {
-  readonly agents?: object;
-};
-
-type SdkModelParameterValue = { id: string; value: string };
-
-type SdkModelSelection = {
-  id: string;
-  params?: SdkModelParameterValue[];
-};
+/** Official SDK types are erased from the standalone callback bundle. */
+export type SdkMcpServerConfig = McpServerConfig;
+type SdkModelParameterValue = ModelParameterValue;
+type SdkModelSelection = ModelSelection;
 
 export function cursorModeParams(
   model: string,
@@ -80,21 +75,7 @@ export function cursorModeParams(
   return params;
 }
 
-type SdkModelParameterDefinition = {
-  id?: string;
-  values?: Array<{ value?: string }>;
-};
-
-type SdkModelVariant = {
-  params?: SdkModelParameterValue[];
-  displayName?: string;
-};
-
-type SdkModel = {
-  id?: string;
-  parameters?: SdkModelParameterDefinition[];
-  variants?: SdkModelVariant[];
-};
+type SdkModel = ModelListItem;
 
 /**
  * The `fast`/`context` parameter ids are not documented, so never trust them
@@ -127,53 +108,15 @@ export function filterModeParamsByModel(
   );
 }
 
-type SdkAgentOptions = {
-  apiKey: string;
-  model: SdkModelSelection;
-  local: { cwd: string; store: SdkLocalAgentStore };
-  mcpServers?: Record<string, SdkMcpServerConfig>;
-};
-
-type SdkTokenUsage = {
-  inputTokens?: number;
-  outputTokens?: number;
-  cacheReadTokens?: number;
-  cacheWriteTokens?: number;
-};
-
-type SdkRunResult = {
-  status?: string;
-  result?: string;
-  error?: { message?: string; code?: string };
-  durationMs?: number;
-  usage?: SdkTokenUsage;
-};
-
-type SdkRun = {
-  stream: () => AsyncIterable<Record<string, JsonLike>>;
-  wait: () => Promise<SdkRunResult>;
-  cancel: () => Promise<void>;
-};
-
-type SdkSendOptions = { local?: { force?: boolean } };
-
-type SdkAgent = {
-  agentId: string;
-  send: (message: string, options?: SdkSendOptions) => Promise<SdkRun>;
-  close: () => void;
-};
+type SdkAgentOptions = AgentOptions;
+type SdkTokenUsage = TokenUsage;
+type SdkRun = Run;
+type SdkAgent = SDKAgent;
 
 export type CursorSdkModule = {
-  Agent: {
-    create: (options: SdkAgentOptions) => Promise<SdkAgent>;
-    resume: (agentId: string, options: SdkAgentOptions) => Promise<SdkAgent>;
-  };
-  JsonlLocalAgentStore: new (rootDir: string) => SdkLocalAgentStore;
-  Cursor?: {
-    models?: {
-      list?: () => Promise<SdkModel[]>;
-    };
-  };
+  Agent: typeof Agent;
+  Cursor: typeof Cursor;
+  JsonlLocalAgentStore: typeof JsonlLocalAgentStore;
 };
 
 /**
@@ -214,64 +157,6 @@ export async function loadCursorSdk(): Promise<CursorSdkModule> {
   }
   const mod: CursorSdkModule = await import(localEntry);
   return mod;
-}
-
-/**
- * Parses Eva's generated HTTP MCP descriptors into the SDK's inline mcpServers
- * shape (remote HTTP servers only, matching the old .cursor/mcp.json
- * translation). Header values are forwarded but never logged.
- */
-export function parseCursorSdkMcpServers(
-  raw: string,
-): Record<string, SdkMcpServerConfig> {
-  const servers: Record<string, SdkMcpServerConfig> = {};
-  const parsed = tryParseJson(raw);
-  if (
-    !parsed ||
-    typeof parsed !== "object" ||
-    Array.isArray(parsed) ||
-    !parsed.mcpServers ||
-    typeof parsed.mcpServers !== "object" ||
-    Array.isArray(parsed.mcpServers)
-  ) {
-    return servers;
-  }
-  for (const [name, server] of Object.entries(parsed.mcpServers)) {
-    if (
-      !server ||
-      typeof server !== "object" ||
-      Array.isArray(server) ||
-      typeof server.url !== "string" ||
-      !server.url.trim()
-    ) {
-      continue;
-    }
-    const entry: SdkMcpServerConfig = { type: "http", url: server.url };
-    if (
-      server.headers &&
-      typeof server.headers === "object" &&
-      !Array.isArray(server.headers)
-    ) {
-      const headers: Record<string, string> = {};
-      for (const [headerName, headerValue] of Object.entries(server.headers)) {
-        if (typeof headerValue === "string") {
-          headers[headerName] = headerValue;
-        }
-      }
-      if (Object.keys(headers).length > 0) entry.headers = headers;
-    }
-    servers[name] = entry;
-  }
-  return servers;
-}
-
-function readCursorSdkMcpServers(): Record<string, SdkMcpServerConfig> {
-  if (!existsSync(MCP_CONFIG_PATH)) return {};
-  try {
-    return parseCursorSdkMcpServers(readFileSync(MCP_CONFIG_PATH, "utf8"));
-  } catch {
-    return {};
-  }
 }
 
 function readPromptText(): string {
@@ -427,12 +312,11 @@ function readUsageTokens(
   value: JsonLike | SdkTokenUsage | undefined,
 ): UsageTokens | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const usage: SdkTokenUsage = value;
   return {
-    inputTokens: readNum(usage.inputTokens),
-    outputTokens: readNum(usage.outputTokens),
-    cacheReadTokens: readNum(usage.cacheReadTokens),
-    cacheWriteTokens: readNum(usage.cacheWriteTokens),
+    inputTokens: readNum(value.inputTokens),
+    outputTokens: readNum(value.outputTokens),
+    cacheReadTokens: readNum(value.cacheReadTokens),
+    cacheWriteTokens: readNum(value.cacheWriteTokens),
   };
 }
 
@@ -480,12 +364,13 @@ export async function runCursorSdkAttempt(
   const sdk = await loadCursorSdk();
   mkdirSync(CURSOR_SDK_STORE_DIR, { recursive: true });
   const store = new sdk.JsonlLocalAgentStore(CURSOR_SDK_STORE_DIR);
-  const mcpServers = readCursorSdkMcpServers();
   const options: SdkAgentOptions = {
     apiKey: (process.env.CURSOR_API_KEY || "").trim(),
     model: await resolveCursorModelSelection(sdk),
     local: { cwd: WORK_DIR, store },
-    ...(Object.keys(mcpServers).length > 0 ? { mcpServers } : {}),
+    ...(Object.keys(evaMcpServers).length > 0
+      ? { mcpServers: evaMcpServers }
+      : {}),
   };
 
   const persistAgentId = (agentId: string): void => {

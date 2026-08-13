@@ -173,6 +173,17 @@ export const pendingTurnFields = {
 
 export const pendingTurnValidator = v.optional(v.object(pendingTurnFields));
 
+/** Small daemon-poll row kept separate from heavyweight session documents. */
+export const sessionDaemonStateFields = {
+  sessionId: v.id("sessions"),
+  repoId: v.id("githubRepos"),
+  userId: v.id("users"),
+  pendingTurn: pendingTurnValidator,
+  pendingTaskStops: v.optional(v.array(v.string())),
+  cancelRequestedAt: v.optional(v.number()),
+  sandboxSetupPending: v.optional(v.boolean()),
+};
+
 export const chatDaemonEntityFields = {
   pendingTurn: pendingTurnValidator,
   syntheticTurnMessageId: v.optional(v.id("messages")),
@@ -396,6 +407,12 @@ export const repoSkillFields = {
   unavailableSince: v.optional(v.number()),
   prompt: v.optional(v.string()),
   createdAt: v.number(),
+};
+
+/** Large SKILL.md body split from repoSkills so list queries read metadata only. */
+export const repoSkillContentFields = {
+  skillId: v.id("repoSkills"),
+  content: v.string(),
 };
 
 /**

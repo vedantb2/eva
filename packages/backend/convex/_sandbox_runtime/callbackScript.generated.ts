@@ -11,6 +11,34 @@ import {
 
 // callback-src/config.ts
 import { existsSync } from "fs";
+
+// callback-src/evaMcp.ts
+function buildEvaMcpServers({
+  auth,
+  baseUrl
+}) {
+  if (!auth || !baseUrl) return {};
+  return {
+    eva: {
+      type: "http",
+      url: \`\${baseUrl}/mcp\`,
+      headers: { Authorization: \`Bearer \${auth}\` }
+    }
+  };
+}
+function consumeEvaMcpEnvironment(env) {
+  const servers = buildEvaMcpServers({
+    auth: env.EVA_MCP_AUTH,
+    baseUrl: env.EVA_MCP_BASE_URL
+  });
+  delete env.EVA_MCP_AUTH;
+  delete env.EVA_MCP_BASE_URL;
+  return servers;
+}
+var evaMcpServers = consumeEvaMcpEnvironment(process.env);
+var hasEvaMcpConfig = Object.keys(evaMcpServers).length > 0;
+
+// callback-src/config.ts
 var CONVEX_URL = process.env.CONVEX_URL;
 var CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
 var CONVEX_TOKEN = process.env.CONVEX_TOKEN;
@@ -166,7 +194,7 @@ function buildSettingsJson() {
   return JSON.stringify(settings);
 }
 var settingsJson = buildSettingsJson();
-var hasMcpConfig = existsSync("/tmp/eva-mcp.json");
+var hasMcpConfig = hasEvaMcpConfig;
 var claudeModelBase = MODEL.startsWith("claude:") ? MODEL.slice("claude:".length) : MODEL;
 var normalizedClaudeModel = PROVIDER === "claude" && AI_CONTEXT_1M === "1" ? \`\${claudeModelBase}[1m]\` : claudeModelBase;
 var normalizedCodexModel = MODEL.startsWith("codex:") ? MODEL.slice("codex:".length) : MODEL;
@@ -4359,7 +4387,6 @@ function buildCanUseTool() {
 // callback-src/providers/claudeSdk.ts
 var SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 var SDK_VERSION = "0.3.201";
-var MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
 function globalNpmRoot() {
   return execSync("npm root -g", { encoding: "utf8" }).trim();
 }
@@ -4396,9 +4423,6 @@ function readPromptText() {
 }
 function buildSdkOptions(sessionMode) {
   const extraArgs = { settings: settingsJson };
-  if (existsSync6(MCP_CONFIG_PATH)) {
-    extraArgs["mcp-config"] = MCP_CONFIG_PATH;
-  }
   return buildSdkOptionsFromParts(sessionMode, extraArgs);
 }
 var EVA_SDK_SYSTEM_APPEND = "You are running inside Eva, a platform that runs coding agents in remote sandboxes against GitHub repos. Treat the workspace as the active repo checkout.";
@@ -4451,6 +4475,7 @@ function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
     ...sessionMode.mode === "session" && sessionMode.sessionId ? { sessionId: sessionMode.sessionId } : {},
     ...sessionMode.mode === "resume" && sessionMode.sessionId ? { resume: sessionMode.sessionId } : {},
     extraArgs,
+    ...Object.keys(evaMcpServers).length > 0 ? { mcpServers: evaMcpServers } : {},
     ...effortOption
   };
 }
@@ -5910,7 +5935,6 @@ import { existsSync as existsSync8, mkdirSync as mkdirSync7, readFileSync as rea
 var SDK_PACKAGE2 = "@cursor/sdk";
 var SDK_VERSION2 = "1.0.26";
 var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
-var MCP_CONFIG_PATH2 = "/tmp/eva-mcp.json";
 var SDK_LOCAL_PREFIX2 = "/home/eva/.eva-agent-sdk";
 function cursorModeParams(model, fastMode, use1mContext) {
   const params = [];
@@ -5955,38 +5979,6 @@ async function loadCursorSdk() {
   }
   const mod = await import(localEntry);
   return mod;
-}
-function parseCursorSdkMcpServers(raw) {
-  const servers = {};
-  const parsed = tryParseJson(raw);
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed) || !parsed.mcpServers || typeof parsed.mcpServers !== "object" || Array.isArray(parsed.mcpServers)) {
-    return servers;
-  }
-  for (const [name, server] of Object.entries(parsed.mcpServers)) {
-    if (!server || typeof server !== "object" || Array.isArray(server) || typeof server.url !== "string" || !server.url.trim()) {
-      continue;
-    }
-    const entry = { type: "http", url: server.url };
-    if (server.headers && typeof server.headers === "object" && !Array.isArray(server.headers)) {
-      const headers = {};
-      for (const [headerName, headerValue] of Object.entries(server.headers)) {
-        if (typeof headerValue === "string") {
-          headers[headerName] = headerValue;
-        }
-      }
-      if (Object.keys(headers).length > 0) entry.headers = headers;
-    }
-    servers[name] = entry;
-  }
-  return servers;
-}
-function readCursorSdkMcpServers() {
-  if (!existsSync8(MCP_CONFIG_PATH2)) return {};
-  try {
-    return parseCursorSdkMcpServers(readFileSync8(MCP_CONFIG_PATH2, "utf8"));
-  } catch {
-    return {};
-  }
 }
 function readPromptText2() {
   return readFileSync8("/tmp/design-prompt.txt", "utf8");
@@ -6078,12 +6070,11 @@ function readNum(value) {
 }
 function readUsageTokens(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const usage = value;
   return {
-    inputTokens: readNum(usage.inputTokens),
-    outputTokens: readNum(usage.outputTokens),
-    cacheReadTokens: readNum(usage.cacheReadTokens),
-    cacheWriteTokens: readNum(usage.cacheWriteTokens)
+    inputTokens: readNum(value.inputTokens),
+    outputTokens: readNum(value.outputTokens),
+    cacheReadTokens: readNum(value.cacheReadTokens),
+    cacheWriteTokens: readNum(value.cacheWriteTokens)
   };
 }
 async function runCursorSdkAttempt(sessionMode) {
@@ -6108,12 +6099,11 @@ async function runCursorSdkAttempt(sessionMode) {
   const sdk = await loadCursorSdk();
   mkdirSync7(CURSOR_SDK_STORE_DIR, { recursive: true });
   const store4 = new sdk.JsonlLocalAgentStore(CURSOR_SDK_STORE_DIR);
-  const mcpServers = readCursorSdkMcpServers();
   const options = {
     apiKey: (process.env.CURSOR_API_KEY || "").trim(),
     model: await resolveCursorModelSelection(sdk),
     local: { cwd: WORK_DIR, store: store4 },
-    ...Object.keys(mcpServers).length > 0 ? { mcpServers } : {}
+    ...Object.keys(evaMcpServers).length > 0 ? { mcpServers: evaMcpServers } : {}
   };
   const persistAgentId = (agentId) => {
     callbackState.activeCursorSessionId = agentId;

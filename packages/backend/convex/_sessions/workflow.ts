@@ -36,6 +36,10 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { finalizeCancelledAssistantMessage } from "../streaming";
 import { backgroundAgentEntryValidator } from "../_validators/tableFields";
 import { mergeBackgroundAgents } from "./backgroundAgents";
+import {
+  ensureSessionDaemonState,
+  syncSessionDaemonState,
+} from "./daemonState";
 
 // --- Completion event ---
 
@@ -558,7 +562,6 @@ export const sessionExecuteWorkflow = workflow.define({
         }
       }
     }
-
   },
 });
 
@@ -659,6 +662,9 @@ export const clearStuckWorkingState = internalMutation({
       syntheticTurnMessageId: undefined,
       updatedAt: Date.now(),
     });
+    if (session) {
+      await syncSessionDaemonState(ctx, session, { pendingTurn: undefined });
+    }
     return { deletedPlaceholders, clearedStreaming: true };
   },
 });
@@ -965,12 +971,24 @@ export const claimPendingTurn = authMutation({
       stopTaskToolUseIds: string[];
       cancelRequested: boolean;
     };
-    const session = await ctx.db.get(args.sessionId);
-    if (!session) return emptyClaim;
-    // Daemon polls this ~20×/s; skip the repo+membership join when the token
-    // is already the session owner (the normal sandbox CONVEX_TOKEN case).
-    if (session.userId !== ctx.userId) {
-      if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
+    let daemonState = await ctx.db
+      .query("sessionDaemonStates")
+      .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+      .unique();
+    if (!daemonState) {
+      const session = await ctx.db.get(args.sessionId);
+      if (!session) return emptyClaim;
+      await ensureSessionDaemonState(ctx, session);
+      daemonState = await ctx.db
+        .query("sessionDaemonStates")
+        .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
+        .unique();
+      if (!daemonState) return emptyClaim;
+    }
+    // The normal owner path now reads only this small row, not the session's
+    // plan, terminal history, panes, and other UI state on every 50ms poll.
+    if (daemonState.userId !== ctx.userId) {
+      if (!(await hasRepoAccess(ctx.db, daemonState.repoId, ctx.userId)))
         throw new Error("Not authorized");
     }
 
@@ -979,28 +997,30 @@ export const claimPendingTurn = authMutation({
     // cleared when setup finishes). Returning an empty claim leaves pendingTurn
     // intact; the daemon keeps polling (45m idle budget) and claims the moment
     // the gate clears, so the agent never executes against a stale checkout.
-    if (session.sandboxSetupPending === true) {
+    if (daemonState.sandboxSetupPending === true) {
       return emptyClaim;
     }
 
-    const stopTaskToolUseIds = session.pendingTaskStops ?? [];
+    const stopTaskToolUseIds = daemonState.pendingTaskStops ?? [];
     if (stopTaskToolUseIds.length > 0) {
+      await ctx.db.patch(daemonState._id, { pendingTaskStops: undefined });
       await ctx.db.patch(args.sessionId, { pendingTaskStops: undefined });
     }
 
     // Cancel must drain the same way as stopTaskToolUseIds above: the daemon
     // polls this mutation continuously, including mid-turn, specifically to
     // notice an interrupt — gating the drain on pendingTurn would strand it.
-    const cancelRequested = session.cancelRequestedAt !== undefined;
+    const cancelRequested = daemonState.cancelRequestedAt !== undefined;
     if (cancelRequested) {
+      await ctx.db.patch(daemonState._id, { cancelRequestedAt: undefined });
       await ctx.db.patch(args.sessionId, { cancelRequestedAt: undefined });
     }
 
-    if (!session.pendingTurn) {
+    if (!daemonState.pendingTurn) {
       return { ...emptyClaim, stopTaskToolUseIds, cancelRequested };
     }
 
-    const pendingModel = session.pendingTurn.model;
+    const pendingModel = daemonState.pendingTurn.model;
     if (pendingModel !== undefined) {
       const claimModel = normalizeAIModel(args.model);
       if (normalizeAIModel(pendingModel) !== claimModel) {
@@ -1011,16 +1031,17 @@ export const claimPendingTurn = authMutation({
       }
     }
 
-    const prompt = session.pendingTurn.prompt;
-    const claimWaitMs = Date.now() - session.pendingTurn.requestedAt;
+    const prompt = daemonState.pendingTurn.prompt;
+    const claimWaitMs = Date.now() - daemonState.pendingTurn.requestedAt;
     const resolvedUrls = await Promise.all(
-      (session.pendingTurn.attachmentStorageIds ?? []).map((id) =>
+      (daemonState.pendingTurn.attachmentStorageIds ?? []).map((id) =>
         ctx.storage.getUrl(id),
       ),
     );
     const attachmentUrls = resolvedUrls.filter(
       (url): url is string => url !== null,
     );
+    await ctx.db.patch(daemonState._id, { pendingTurn: undefined });
     await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
     console.log(
       `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} claimWaitMs=${claimWaitMs} attachments=${attachmentUrls.length}`,
@@ -1074,6 +1095,9 @@ export const requestStopBackgroundAgent = authMutation({
       pendingTaskStops: [...pending, args.toolUseId],
       updatedAt: Date.now(),
     });
+    await syncSessionDaemonState(ctx, session, {
+      pendingTaskStops: [...pending, args.toolUseId],
+    });
     return null;
   },
 });
@@ -1117,17 +1141,19 @@ export const ensurePendingTurn = internalMutation({
       return null;
     }
 
+    const pendingTurn = {
+      prompt: args.prompt,
+      requestedAt: Date.now(),
+      attachmentStorageIds: args.attachmentStorageIds,
+      ...(args.model !== undefined
+        ? { model: normalizeAIModel(args.model) }
+        : {}),
+    };
     await ctx.db.patch(args.sessionId, {
-      pendingTurn: {
-        prompt: args.prompt,
-        requestedAt: Date.now(),
-        attachmentStorageIds: args.attachmentStorageIds,
-        ...(args.model !== undefined
-          ? { model: normalizeAIModel(args.model) }
-          : {}),
-      },
+      pendingTurn,
       updatedAt: Date.now(),
     });
+    await syncSessionDaemonState(ctx, session, { pendingTurn });
     console.log(
       `[sessionWorkflow] ensurePendingTurn restaged sessionId=${args.sessionId}`,
     );
@@ -1213,17 +1239,17 @@ export const restageOpenTurn = internalMutation({
       personaId: lastUser.personaId,
     });
 
+    const pendingTurn = {
+      prompt,
+      requestedAt: Date.now(),
+      attachmentStorageIds: lastUser.attachmentStorageIds,
+      ...(session.lastModel !== undefined ? { model: session.lastModel } : {}),
+    };
     await ctx.db.patch(args.sessionId, {
-      pendingTurn: {
-        prompt,
-        requestedAt: Date.now(),
-        attachmentStorageIds: lastUser.attachmentStorageIds,
-        ...(session.lastModel !== undefined
-          ? { model: session.lastModel }
-          : {}),
-      },
+      pendingTurn,
       updatedAt: Date.now(),
     });
+    await syncSessionDaemonState(ctx, session, { pendingTurn });
     console.log(
       `[sessionWorkflow] restageOpenTurn sessionId=${args.sessionId}`,
     );
@@ -1400,6 +1426,7 @@ export const handleCompletion = authMutation({
     // clear any leftover staged prompt here. Claude already cleared on claim.
     if (session.pendingTurn !== undefined) {
       await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
+      await syncSessionDaemonState(ctx, session, { pendingTurn: undefined });
     }
 
     await sendCompletionEvent(

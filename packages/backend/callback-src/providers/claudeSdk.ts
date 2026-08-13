@@ -1,5 +1,11 @@
 import { execSync } from "child_process";
 import { existsSync, readFileSync } from "fs";
+import type {
+  CanUseTool,
+  Options,
+  SDKUserMessage,
+  query,
+} from "@anthropic-ai/claude-agent-sdk";
 import {
   ALLOWED_TOOLS,
   BLOCKING_QUESTIONS_ENABLED,
@@ -15,6 +21,7 @@ import {
   normalizedClaudeModel,
   settingsJson,
 } from "../config.js";
+import { evaMcpServers } from "../evaMcp.js";
 import { buildClaudeStartupStep } from "../session/claudeSession.js";
 import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
 import { updateThinkingStep } from "../parse/canonical.js";
@@ -31,18 +38,6 @@ import { log } from "../utils.js";
 
 const SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 const SDK_VERSION = "0.3.201";
-const MCP_CONFIG_PATH = "/tmp/eva-mcp.json";
-
-/**
- * The subset of the Agent SDK `query()` surface this runner uses. The SDK is
- * dynamically imported from the sandbox's global npm root (it is installed in
- * the base Image alongside the claude CLI), so these local types stand in for
- * the SDK's own — kept intentionally narrow.
- */
-type SdkQueryHandle = AsyncIterable<Record<string, JsonLike>> & {
-  interrupt?: () => Promise<void>;
-  stopTask?: (taskId: string) => Promise<void>;
-};
 
 export type JsonLike =
   | string
@@ -52,51 +47,11 @@ export type JsonLike =
   | JsonLike[]
   | { [key: string]: JsonLike };
 
-/** Result the SDK expects from `canUseTool` (matches the Agent SDK's PermissionResult). */
-type SdkPermissionResult =
-  | { behavior: "allow"; updatedInput: Record<string, JsonLike> }
-  | { behavior: "deny"; message: string };
-
-/** The `canUseTool` permission callback passed to `query()`. */
-export type SdkCanUseTool = (
-  toolName: string,
-  input: Record<string, JsonLike>,
-  options: { signal: AbortSignal; toolUseID?: string },
-) => Promise<SdkPermissionResult>;
-
-export type SdkOptions = {
-  cwd: string;
-  model: string;
-  pathToClaudeCodeExecutable: string;
-  systemPrompt:
-    | { type: "preset"; preset: "claude_code"; append?: string }
-    | string;
-  permissionMode: string;
-  allowDangerouslySkipPermissions: boolean;
-  allowedTools?: string[];
-  env: Record<string, string | undefined>;
-  sessionId?: string;
-  resume?: string;
-  extraArgs?: Record<string, string>;
-  includePartialMessages?: boolean;
-  effort?: "low" | "medium" | "high" | "xhigh" | "max";
-  /** Per-tool permission gate. Set only when blocking questions are enabled. */
-  canUseTool?: SdkCanUseTool;
-};
-
-export type SdkUserMessage = {
-  type: "user";
-  message: { role: "user"; content: string };
-  parent_tool_use_id: string | null;
-  session_id: string;
-};
-
-export type SdkModule = {
-  query: (args: {
-    prompt: string | AsyncIterable<SdkUserMessage>;
-    options: SdkOptions;
-  }) => SdkQueryHandle;
-};
+/** Official SDK types are erased from the standalone callback bundle. */
+export type SdkCanUseTool = CanUseTool;
+export type SdkOptions = Options;
+export type SdkUserMessage = SDKUserMessage;
+export type SdkModule = { query: typeof query };
 
 /** Resolves the sandbox's global npm root once (e.g. /usr/lib/node_modules). */
 export function globalNpmRoot(): string {
@@ -170,9 +125,6 @@ export function buildSdkOptions(sessionMode: SessionMode): SdkOptions {
   // allowed tools, MCP, permissions, session resume). Formerly mirrored
   // Claude CLI flags; those builders are gone.
   const extraArgs: Record<string, string> = { settings: settingsJson };
-  if (existsSync(MCP_CONFIG_PATH)) {
-    extraArgs["mcp-config"] = MCP_CONFIG_PATH;
-  }
   return buildSdkOptionsFromParts(sessionMode, extraArgs);
 }
 
@@ -193,11 +145,10 @@ function buildSdkOptionsFromParts(
   // `bypassPermissions`. When enabled we switch to `default` mode and let the
   // gate auto-allow every tool except AskUserQuestion (which waits for the user).
   // Otherwise keep the original bypass behaviour (no per-tool gating).
-  const permissionOption: {
-    permissionMode: string;
-    allowDangerouslySkipPermissions: boolean;
-    canUseTool?: SdkCanUseTool;
-  } =
+  const permissionOption: Pick<
+    SdkOptions,
+    "permissionMode" | "allowDangerouslySkipPermissions" | "canUseTool"
+  > =
     tools === "agent" && BLOCKING_QUESTIONS_ENABLED
       ? {
           permissionMode: "default",
@@ -233,7 +184,7 @@ function buildSdkOptionsFromParts(
     delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
   }
 
-  const effortOption: { effort?: "low" | "medium" | "high" | "xhigh" | "max" } =
+  const effortOption: Pick<SdkOptions, "effort"> =
     claudeEffort === "low" ||
     claudeEffort === "medium" ||
     claudeEffort === "high" ||
@@ -270,6 +221,9 @@ function buildSdkOptionsFromParts(
       ? { resume: sessionMode.sessionId }
       : {}),
     extraArgs,
+    ...(Object.keys(evaMcpServers).length > 0
+      ? { mcpServers: evaMcpServers }
+      : {}),
     ...effortOption,
   };
 }

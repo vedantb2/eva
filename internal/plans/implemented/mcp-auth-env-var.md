@@ -1,6 +1,8 @@
 # MCP rework: token via EVA_MCP_AUTH env var (no eva-mcp.json)
 
-**Status:** todo
+**Status:** implemented (2026-08-12)
+
+Implementation note: Cursor had migrated from ACP to `@cursor/sdk` before this landed, so the final change centralizes both SDK shapes in `callback-src/evaMcp.ts`. It also scrubs the transport variables from `process.env` and unlinks the credential-bearing launch script before spawning the callback.
 
 ## Context
 

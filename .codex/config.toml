@@ -23,3 +23,18 @@ env_vars = ["FIGMA_API_KEY"]
 [mcp_servers.linear]
 url = "https://mcp.linear.app/mcp"
 bearer_token_env_var = "LINEAR_API_KEY"
+
+[mcp_servers.axiom]
+url = "https://mcp.axiom.co/mcp"
+bearer_token_env_var = "AXIOM_MCP_PAT"
+env_http_headers = { "x-axiom-org-id" = "AXIOM_ORG_ID" }
+required = false
+default_tools_approval_mode = "approve"
+enabled_tools = [
+    "listDatasets",
+    "getDatasetSchema",
+    "queryApl",
+    "getSavedQueries",
+    "checkMonitors",
+    "getMonitorHistory",
+]

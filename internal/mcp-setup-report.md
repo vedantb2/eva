@@ -74,6 +74,33 @@ Get key: **PostHog > Settings > Personal API Keys** (use "MCP Server" preset)
 
 **Note:** Does not work on PostHog EU cloud (`eu.posthog.com`).
 
+## Axiom
+
+Official hosted MCP over Streamable HTTP, configured non-interactively with a
+dedicated user's personal access token and organization ID. Codex exposes only
+the log investigation tools; Claude Code automatically permits those tools and
+denies Axiom's dashboard, monitor, and notifier mutation tools.
+
+### Required setup
+
+1. Create a dedicated Axiom user for Eva agents and assign Axiom's **Read-only**
+   role, restricted to the Convex log datasets where your plan supports it.
+2. While signed in as that user, create a personal access token under
+   **Axiom > Settings > Profile > Personal tokens**.
+3. Copy the organization ID from **Axiom > Settings > General**.
+4. In Eva, open this repo's **Settings > Environment Variables** and add:
+   - `AXIOM_MCP_PAT` — the dedicated read-only user's personal access token.
+   - `AXIOM_ORG_ID` — the Axiom organization ID.
+5. Leave **Exclude from sandboxes** disabled for both variables. The MCP clients
+   read these values from the sandbox environment; excluding them prevents the
+   non-interactive connection from authenticating.
+
+Never commit either value. Axiom personal access tokens inherit the owning
+user's access, which is why the dedicated read-only user is required. Axiom's
+hosted MCP routes query results through its US infrastructure.
+
+Server URL: `https://mcp.axiom.co/mcp`
+
 ## Headless Mode (`-p`)
 
 MCP servers configured via `claude mcp add` persist in `~/.claude.json` and are available in `-p` mode automatically. No extra flags needed.

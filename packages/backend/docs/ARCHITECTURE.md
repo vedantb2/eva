@@ -67,10 +67,11 @@ The callback owns seven core capabilities:
 
 ### 5. MCP-Config Injection
 
-- `/tmp/eva-mcp.json` written at launch (contains Convex-native HTTP MCP endpoint + auth token)
-- Passed to the Agent SDK via `extraArgs["mcp-config"]` as a `--mcp-config` CLI flag
-- Used because eva's MCP server is HTTP-based and requires authentication
-- **File:** `callback-src/index.ts:100`, `convex/_daytona/launch.ts:98`
+- The launcher exports `EVA_MCP_AUTH` and `EVA_MCP_BASE_URL` only to the callback process
+- The callback converts them into one typed in-memory HTTP server descriptor, then removes the variables before agent tools spawn
+- Claude and Cursor receive the same descriptor through their SDK `mcpServers` options; no MCP config file is written
+- The credential-bearing launch script unlinks itself before spawning the long-lived callback
+- **Files:** `callback-src/evaMcp.ts`, `callback-src/providers/claudeSdk.ts`, `callback-src/providers/cursorSdk.ts`, `convex/_sandbox_runtime/launch.ts`
 
 ### 6. Background-Task Disabling
 

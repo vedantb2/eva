@@ -13,6 +13,7 @@ import {
 import { trackSessionWorkflow } from "../workflowWatchdog";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "../streaming";
+import { syncSessionDaemonState } from "./daemonState";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
 import { buildSessionPrompt, MODE_TOOLS, resolveToolMode } from "./workflow";
 import {
@@ -145,17 +146,16 @@ export const startExecute = authMutation({
     // leftover Claude daemon mismatch-spam while launchOnExistingSandbox runs.
     const normalizedModel = normalizeAIModel(args.model);
     const usesDaemonPull = getAIModelProvider(normalizedModel) === "claude";
+    const pendingTurn = usesDaemonPull
+      ? {
+          prompt,
+          requestedAt: Date.now(),
+          attachmentStorageIds: args.attachmentStorageIds,
+          model: normalizedModel,
+        }
+      : undefined;
     await ctx.db.patch(args.sessionId, {
-      ...(usesDaemonPull
-        ? {
-            pendingTurn: {
-              prompt,
-              requestedAt: Date.now(),
-              attachmentStorageIds: args.attachmentStorageIds,
-              model: normalizedModel,
-            },
-          }
-        : { pendingTurn: undefined }),
+      pendingTurn,
       // Deliberately no cancelRequestedAt clear here: staging must never wipe
       // an undrained cancel for a still-running turn (the daemon drains the
       // flag via claimPendingTurn, and ignores it when no turn is active, so a
@@ -176,6 +176,7 @@ export const startExecute = authMutation({
       ...(args.fastMode !== undefined ? { lastFastMode: args.fastMode } : {}),
       updatedAt: Date.now(),
     });
+    await syncSessionDaemonState(ctx, session, { pendingTurn });
 
     // Ensure a Claude daemon exists to claim the staged prompt. Skip for
     // one-shot providers (prewarmSessionDaemon already no-ops, but scheduling
@@ -375,7 +376,9 @@ export const cancelExecution = authMutation({
     await cancelTrackedWorkflow(ctx, workflowIdToCancel);
 
     if (getAIModelProvider(normalizeAIModel(session.lastModel)) === "claude") {
-      await ctx.db.patch(args.sessionId, { cancelRequestedAt: Date.now() });
+      const cancelRequestedAt = Date.now();
+      await ctx.db.patch(args.sessionId, { cancelRequestedAt });
+      await syncSessionDaemonState(ctx, session, { cancelRequestedAt });
     } else if (session.sandboxId) {
       await ctx.scheduler.runAfter(0, internal.sandbox.killSandboxProcess, {
         sandboxId: session.sandboxId,
@@ -435,10 +438,10 @@ export const cancelExecution = authMutation({
     ) {
       sessionPatch.activeWorkflowId = undefined;
     }
-    if (
+    const clearsPendingTurn =
       pendingRequestedAt !== undefined &&
-      latest.pendingTurn?.requestedAt === pendingRequestedAt
-    ) {
+      latest.pendingTurn?.requestedAt === pendingRequestedAt;
+    if (clearsPendingTurn) {
       sessionPatch.pendingTurn = undefined;
     }
     if (!newerTurnStaged && !newerWorkflowTracked) {
@@ -446,6 +449,9 @@ export const cancelExecution = authMutation({
     }
 
     await ctx.db.patch(args.sessionId, sessionPatch);
+    if (clearsPendingTurn) {
+      await syncSessionDaemonState(ctx, latest, { pendingTurn: undefined });
+    }
 
     await startNextQueuedSessionMessage(ctx, args.sessionId);
 

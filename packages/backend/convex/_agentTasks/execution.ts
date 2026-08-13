@@ -15,6 +15,7 @@ import { workflow } from "../workflowManager";
 import { buildProjectBranchName } from "../_projects/helpers";
 import { resolveTaskWorkflowBaseBranch } from "../_taskWorkflow/resolveBaseBranch";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
+import { setTaskLastRunStartedAt } from "./runSummary";
 
 /** Starts task execution by creating a run and launching the workflow. */
 export const startExecution = authMutation({
@@ -109,11 +110,12 @@ export const startExecution = authMutation({
       project ?? undefined,
     );
 
+    const startedAt = Date.now();
     const runId = await ctx.db.insert("agentRuns", {
       taskId: args.id,
       status: "queued",
       logs: [],
-      startedAt: Date.now(),
+      startedAt,
       mode: args.mode,
       triggeredBy: ctx.userId,
       // Explicit comment (quick-task "Make changes") wins; otherwise consume any
@@ -127,6 +129,7 @@ export const startExecution = authMutation({
       ),
       model: normalizeAIModel(task.model),
     });
+    await setTaskLastRunStartedAt(ctx, args.id, task.repoId, startedAt);
     await ctx.db.patch(args.id, {
       status: "in_progress",
       updatedAt: Date.now(),

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { authQuery, hasRepoAccess } from "../functions";
-import { entityVisible, filterActiveEntities, isEntityDeleted } from "../numId";
+import { entityVisible } from "../numId";
 import {
   DATA_MENTION_BADGE,
   DATA_MENTION_KINDS,
@@ -70,11 +70,12 @@ export const listData = authQuery({
 
     const docs = await ctx.db
       .query("docs")
-      .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
+      .withIndex("by_repo_and_deleted", (q) =>
+        q.eq("repoId", args.repoId).eq("deletedAt", undefined),
+      )
       .order("desc")
       .take(MENTION_LIST_CAP);
     for (const doc of docs) {
-      if (isEntityDeleted(doc)) continue;
       // Prefer stored description — avoid pulling the whole body into the
       // picker payload even though the document read already paid for it.
       const description = doc.description?.trim()
@@ -91,13 +92,13 @@ export const listData = authQuery({
     }
 
     // Include archived sessions — soft-deleted only are excluded below.
-    const sessions = filterActiveEntities(
-      await ctx.db
-        .query("sessions")
-        .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-        .order("desc")
-        .take(MENTION_LIST_CAP),
-    );
+    const sessions = await ctx.db
+      .query("sessions")
+      .withIndex("by_repo_and_deleted", (q) =>
+        q.eq("repoId", args.repoId).eq("deletedAt", undefined),
+      )
+      .order("desc")
+      .take(MENTION_LIST_CAP);
     for (const session of sessions) {
       items.push({
         kind: "session",
@@ -108,13 +109,13 @@ export const listData = authQuery({
       });
     }
 
-    const projects = filterActiveEntities(
-      await ctx.db
-        .query("projects")
-        .withIndex("by_repo", (q) => q.eq("repoId", args.repoId))
-        .order("desc")
-        .take(MENTION_LIST_CAP),
-    );
+    const projects = await ctx.db
+      .query("projects")
+      .withIndex("by_repo_and_deleted", (q) =>
+        q.eq("repoId", args.repoId).eq("deletedAt", undefined),
+      )
+      .order("desc")
+      .take(MENTION_LIST_CAP);
     for (const project of projects) {
       const description = project.description?.trim();
       items.push({
@@ -135,13 +136,16 @@ export const listData = authQuery({
       taskStatuses.map((status) =>
         ctx.db
           .query("agentTasks")
-          .withIndex("by_repo_and_status", (q) =>
-            q.eq("repoId", args.repoId).eq("status", status),
+          .withIndex("by_repo_status_and_deleted", (q) =>
+            q
+              .eq("repoId", args.repoId)
+              .eq("status", status)
+              .eq("deletedAt", undefined),
           )
           .take(MENTION_LIST_CAP),
       ),
     );
-    for (const task of filterActiveEntities(taskArrays.flat())) {
+    for (const task of taskArrays.flat()) {
       const description = task.description?.trim();
       items.push({
         kind: "quickTask",

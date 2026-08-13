@@ -12,6 +12,7 @@ import {
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 import { clearPendingQuestionsForEntity } from "../pendingQuestions";
 import { normalizeAIModel } from "../validators";
+import { setTaskLastRunStartedAt } from "../_agentTasks/runSummary";
 
 const PREVIEW_ALLOWED_PHASES = [
   "in_progress",
@@ -244,11 +245,12 @@ export const resolveProjectConflicts = authMutation({
       project.baseBranch ?? repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
 
     const previousStatus = carrier.status;
+    const startedAt = Date.now();
     const runId = await ctx.db.insert("agentRuns", {
       taskId: carrier._id,
       status: "queued",
       logs: [],
-      startedAt: Date.now(),
+      startedAt,
       mode: "resolve_conflicts",
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
@@ -257,6 +259,7 @@ export const resolveProjectConflicts = authMutation({
       ),
       model: normalizeAIModel(carrier.model),
     });
+    await setTaskLastRunStartedAt(ctx, carrier._id, project.repoId, startedAt);
     await ctx.db.patch(carrier._id, {
       status: "in_progress",
       updatedAt: Date.now(),

@@ -87,6 +87,9 @@ The code-server install script fetches the GitHub rpm over HTTP/2, which dies mi
 ## Convex seed supervisor retries a dead `convex dev` - 2026-08-12
 
 CarePulse web snapshot 2 of 3 died at convex-ready-1: `npx convex dev` hit `TypeError: fetch failed` and the supervisor treated that as a clean exit, so the seed aborted instead of retrying. It now restarts up to 3 times when the CLI exits before the local backend is healthy.
+## MCP auth stays in callback memory - 2026-08-12
+
+Eva's bearer token previously lived in `/tmp/eva-mcp.json`, so reused sandboxes could retain stale authorization and filesystem snapshots captured a live credential. Launches now deliver the token through reserved environment variables, the callback immediately converts and scrubs them, and both Claude and Cursor receive one shared typed MCP descriptor directly through their SDK options. The one-time runner also removes legacy MCP files and unlinks its credential-bearing launch script before the long-lived callback starts.
 
 ## Repo default model includes traits - 2026-08-12
 
@@ -109,6 +112,20 @@ Copied [dmmulroy/anti-slop](https://github.com/dmmulroy/anti-slop) into `scripts
 A carepulse-ts web snapshot failed at toolchain install with `curl: (56) Connection died, tried 5 times` while fetching the GitHub CLI tarball. Plain `curl -fsSL` speaks HTTP/2, and GitHub Releases from a Vercel sandbox drops that stream; `--retry` does not cover error 56.
 
 Every GitHub release tarball the seed installs (gh, supabase CLI, ripgrep, fd, git-lfs) now uses HTTP/1.1 with `--retry-all-errors`. gh also falls back to the official yum repo if the tarball still fails, so one flaky download does not fail the whole seeded snapshot.
+## Claude and Cursor SDK versions now match their sandbox runtimes - 2026-08-12
+
+The Claude Agent SDK and Cursor SDK were loaded by exact version inside sandbox callbacks, but neither version was declared in the backend workspace. That left local installs without the official packages and allowed the handwritten callback boundary types to drift without an inspectable, locked SDK beside them. New snapshots also preinstalled only Cursor's SDK, so the first Claude SDK task paid for a user-local fallback install.
+
+Both SDKs are now exact backend dependencies and are locked at the same versions used by the callback loaders. The provider boundaries import their official query, permission, agent, run, model, store, MCP, and usage types instead of restating those public APIs. Snapshot seeding preinstalls both packages and verifies both directories before skipping the agent-tool install. The user-local dynamic loader remains for older snapshots; the imports are type-only because Cursor's package cannot be safely folded into the standalone callback bundle—its published ESM graph includes Bun-only and declaration-map imports.
+## Convex hot lists stop rereading heavyweight documents - 2026-08-12
+
+Nine days of production traffic consumed 125 GB of Convex database I/O, led by `sessions.list`, `sessionWorkflow.claimPendingTurn`, `mentions.listData`, `agentTasks.getAllTasks`, and `repoSkills.listByRepo`. Their return values were already fairly small, but Convex charges for the source documents a function reads: projecting a few fields after `collect()` did not avoid loading session terminal state, task run logs, document bodies, or complete SKILL.md files.
+
+The 50 ms session daemon poll now reads a small `sessionDaemonStates` row containing only the staged turn and interrupt/setup signals. Existing sessions create that row on their first poll, and every signal writer mirrors the old session fields during the rollout, so in-flight daemons and rollback-safe code keep the same claim, cancellation, attachment, stop-agent, and setup-gate behavior. This also removes the hot poll from the large session document's contention set.
+
+Task lists now read one compact latest-run summary set per repo instead of joining every task to its newest full `agentRuns` document, whose logs and result data grow throughout execution. Every task and run creation path maintains the summary, while a per-task live-read fallback preserves exact results until the online backfill reaches that row. Repo skill metadata similarly keeps new SKILL.md bodies in `repoSkillContents`; the content viewer falls back to legacy inline content while the migration moves old bodies, so `listByRepo` stops paying for bodies it never returns.
+
+Session, mention, and task list predicates now use compound indexes that include archive/status and soft-delete state. This moves exclusion into Convex's index range instead of scanning documents and filtering afterward, while retaining the existing caps, ordering, authorization, return validators, archived-session semantics, and open-task mention set.
 
 ## Component data survives a sync to a local backend - 2026-08-12
 
@@ -268,7 +285,7 @@ Also on that header: the head ref chip no longer truncates at `max-w-56` while t
 
 ## Persistent review header, checks pill, and a button for merge conflicts - 2026-08-11
 
-Everything that says what a pull request *is* lived inside the Overview tab: lifecycle pill, author, a prose sentence ("X wants to merge 3 commits into main from eva/foo"), and — at the foot of a long scroll — the merge box with CI and mergeability. From Diffs or Recap there was no way to tell a mergeable pull request from a conflicted one, and the sentence wrapped to three lines in a session pane.
+Everything that says what a pull request _is_ lived inside the Overview tab: lifecycle pill, author, a prose sentence ("X wants to merge 3 commits into main from eva/foo"), and — at the foot of a long scroll — the merge box with CI and mergeability. From Diffs or Recap there was no way to tell a mergeable pull request from a conflicted one, and the sentence wrapped to three lines in a session pane.
 
 `ReviewTabsPanel` now reads `usePrOverview` itself and renders a shared `ReviewHeader` above the tab row, so both review surfaces (`/reviews/$prNumber`, sandbox Review tab) get one header from one query: status pill, author and last-updated, `base ← head` as monospace chips, commits/files/±diffstat, and a blocker badge. The prose sentence and `PrOverviewHeader` are deleted; `ReviewOverviewPanel` takes the payload as props instead of fetching a second time, and the standalone page's title block became the header's first row (`headerOwnsRefresh` still keeps Refresh to one control).
 
@@ -301,11 +318,13 @@ Tailwind v4’s preflight switched buttons to `cursor: default` (browser UA). In
 OpenAI shipped GPT-5.6 coding tiers (Sol / Terra / Luna) while Eva’s Codex picker still only offered GPT-5.5. Added `codex:gpt-5.6-sol`, `codex:gpt-5.6-terra`, and `codex:gpt-5.6-luna` (CLI slugs `gpt-5.6-*`), kept GPT-5.5, aliased bare `codex:gpt-5.6` → Sol, exposed `max` reasoning for 5.6, and updated Codex token pricing.
 
 ## One sandbox owner contract for sessions, tasks, and projects - 2026-08-10
+
 ## Mouse wheel dead-zones from blanket overscroll contain - 2026-08-08
 
 Putting `overscroll-behavior: contain` on `@utility scrollbar` made every `overflow:auto` pane a contain target, including ones with no overflow and horizontal boards with `overflow-y-hidden`. Chrome treats those as scroll containers at their boundary, so the wheel was swallowed while dragging the ancestor scrollbar still worked. Removed contain from the utility; restored `overscroll-y-contain` / `overscroll-contain` on the kanban column and mention picker that had opted in before.
 
 ## Anonymous landing no longer waits for Clerk - 2026-08-08
+
 ## Anonymous landing no longer waits for Clerk - 2026-08-08
 
 Boot held first paint on Clerk's `isLoaded` for everyone. For a returning signed-in user that is correct — protected routes need the restored session and the alternative is a landing-page flash. For an anonymous visitor it means a blank screen while ~210 kB of clerk-js downloads from Clerk's CDN and completes a handshake, to restore a session that does not exist. Measured on production: clerk-js is 30% of the 700 kB cold landing payload, and FCP (~500 ms) was gated on it.

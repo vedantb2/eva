@@ -21,6 +21,7 @@ import {
   assertProviderAccountUsableBy,
   resolveDefaultProviderAccountId,
 } from "../_userProviderAccounts/defaults";
+import { createTaskRunSummary } from "./runSummary";
 
 /** Lists all draft tasks for the current user in a given repo, sorted by most recently updated. */
 export const listDrafts = authQuery({
@@ -110,6 +111,7 @@ export const saveDraft = authMutation({
       projectId: args.projectId,
       numId: await allocateNumId(ctx.db, args.repoId, "agentTasks"),
     });
+    await createTaskRunSummary(ctx, draftId, args.repoId);
     await ensureSubscribed(ctx, draftId, ctx.userId);
     return draftId;
   },

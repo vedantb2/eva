@@ -33,7 +33,7 @@ import {
 import { resetAttemptState } from "../runtime/cliAttempt.js";
 import { buildCanUseTool } from "../runtime/pendingQuestion.js";
 import { callbackState as S } from "../runtime/state.js";
-import type { CliAttemptResult, SessionMode } from "../types.js";
+import type { ProviderAttemptResult, SessionMode } from "../types.js";
 import { log } from "../utils.js";
 
 const SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
@@ -239,7 +239,7 @@ function buildSdkOptionsFromParts(
  */
 export async function runClaudeSdkAttempt(
   sessionMode: SessionMode,
-): Promise<CliAttemptResult> {
+): Promise<ProviderAttemptResult> {
   resetAttemptState();
   S.activeAttemptStartedAt = Date.now();
   const startupStep = buildClaudeStartupStep();

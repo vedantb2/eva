@@ -136,6 +136,11 @@ The zip is now split before the import. Root tables stay in the original zip and
 A component's tables only exist once its code is installed, so the first component import on a backend that has never seen that namespace fails. The script then pushes the repo's functions with `--url` and `--admin-key`, which installs every component, and retries. The push is lazy and happens once: a backend that a `convex dev` daemon has already pushed to needs nothing, and addressing the running backend directly avoids fighting the daemon for the port. Environment variables are copied before this point, because a repo whose `auth.config.ts` reads one cannot be pushed until it exists.
 
 The split reports what it found. A snapshot that holds component entries but yields no component zips fails the run rather than importing silently, and `--include-storage` warns when the export carried no `_storage` entries. Both matter because a caller such as a snapshot build keeps no log on success, so a silent no-op would read as a clean sync.
+## Codex uses App Server for chats and the SDK for jobs - 2026-08-12
+
+Codex sessions, quick-task chats, and project-sandbox chats previously spawned `codex exec --json` for every message and reconstructed conversation state from its JSONL output. That one-shot CLI contract made interactive features such as durable threads, interruption, and live item deltas harder to support and repeatedly paid process startup costs.
+
+Interactive Codex entities now keep one sandbox-local `codex app-server` process alive, communicate over its typed JSONL protocol, persist and resume App Server thread IDs, stream item deltas through Eva's existing activity pipeline, and interrupt active turns through `turn/interrupt`. The same atomic pending-turn and daemon-prewarm architecture used by Claude now covers Codex across all three chat surfaces. Non-interactive attempts, automations, and arena jobs now run through the official TypeScript Codex SDK with structured events, SDK cancellation, thread persistence, and SDK usage accounting; Eva no longer constructs or parses a direct `codex exec` command.
 
 ## The seed script pushes Convex functions, and chunk downloads drop to HTTP/1.1 - 2026-08-12
 

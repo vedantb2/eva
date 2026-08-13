@@ -1,0 +1,216 @@
+import { Codex, type ThreadEvent, type ThreadOptions } from "@openai/codex-sdk";
+import { existsSync, readFileSync } from "fs";
+import {
+  CODEX_BIN_PATH,
+  CODEX_RUNTIME_HOME_DIR,
+  MAX_TOTAL_RUNTIME_MS,
+  NO_OUTPUT_CHECK_INTERVAL_MS,
+  NO_OUTPUT_TIMEOUT_MS,
+  SYSTEM_PROMPT,
+  WORK_DIR,
+  normalizedCodexModel,
+} from "../config.js";
+import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
+import { updateThinkingStep } from "../parse/canonical.js";
+import {
+  appendToRawLogFile,
+  appendToRawOutput,
+  trimBufferHead,
+} from "../runtime/buffers.js";
+import { resetAttemptState } from "../runtime/cliAttempt.js";
+import { callbackState as S } from "../runtime/state.js";
+import type { ProviderAttemptResult, SessionMode } from "../types.js";
+import { log } from "../utils.js";
+
+function readPromptText(): string {
+  const prompt = readFileSync("/tmp/design-prompt.txt", "utf8");
+  return SYSTEM_PROMPT ? SYSTEM_PROMPT + "\n\n" + prompt : prompt;
+}
+
+function codexEnvironment(): Record<string, string> {
+  const env: Record<string, string> = {};
+  for (const [key, value] of Object.entries(process.env)) {
+    if (value !== undefined) env[key] = value;
+  }
+  env.CODEX_HOME = CODEX_RUNTIME_HOME_DIR;
+  return env;
+}
+
+export function buildCodexSdkThreadOptions(): ThreadOptions {
+  return {
+    model: normalizedCodexModel,
+    sandboxMode: "danger-full-access",
+    workingDirectory: WORK_DIR,
+    skipGitRepoCheck: true,
+    approvalPolicy: "never",
+  };
+}
+
+function agentMessageDelta(
+  event: ThreadEvent,
+  priorTextByItem: Map<string, string>,
+): string {
+  if (
+    (event.type !== "item.updated" && event.type !== "item.completed") ||
+    event.item.type !== "agent_message"
+  ) {
+    return "";
+  }
+  const previous = priorTextByItem.get(event.item.id) ?? "";
+  const current = event.item.text;
+  priorTextByItem.set(event.item.id, current);
+  if (!current || current === previous) return "";
+  return current.startsWith(previous)
+    ? current.slice(previous.length)
+    : current;
+}
+
+/** Runs one non-interactive Codex turn through the official TypeScript SDK. */
+export async function runCodexSdkAttempt(
+  sessionMode: SessionMode,
+): Promise<ProviderAttemptResult> {
+  resetAttemptState();
+  S.activeAttemptStartedAt = Date.now();
+  updateThinkingStep(
+    "Starting Codex SDK...",
+    sessionMode.mode === "resume"
+      ? "Restoring saved context..."
+      : "Creating Codex thread...",
+  );
+  log(
+    "runCodexSdkAttempt started (mode=" +
+      sessionMode.mode +
+      ", sessionId=" +
+      (sessionMode.sessionId || "none") +
+      ")",
+  );
+
+  let attemptOutput = "";
+  let lastEventAt = Date.now();
+  let timedOutForNoOutput = false;
+  let timedOutForMaxRuntime = false;
+  let sawCompletedTurn = false;
+  let turnFailed = false;
+  let attemptErrorMessage = "";
+  const abortController = new AbortController();
+  const agentTextByItem = new Map<string, string>();
+
+  const codex = new Codex({
+    codexPathOverride: existsSync(CODEX_BIN_PATH) ? CODEX_BIN_PATH : "codex",
+    env: codexEnvironment(),
+  });
+  const threadOptions = buildCodexSdkThreadOptions();
+  const thread =
+    sessionMode.mode === "resume" && sessionMode.sessionId
+      ? codex.resumeThread(sessionMode.sessionId, threadOptions)
+      : codex.startThread(threadOptions);
+
+  const healthTimer = setInterval(() => {
+    const now = Date.now();
+    if (S.fatalHeartbeatErrorMessage) {
+      attemptErrorMessage = S.fatalHeartbeatErrorMessage;
+      abortController.abort();
+      return;
+    }
+    if (now - S.activeAttemptStartedAt > MAX_TOTAL_RUNTIME_MS) {
+      timedOutForMaxRuntime = true;
+      log("runCodexSdkAttempt: max runtime exceeded — aborting turn");
+      abortController.abort();
+      return;
+    }
+    if (!sawCompletedTurn && now - lastEventAt > NO_OUTPUT_TIMEOUT_MS * 5) {
+      timedOutForNoOutput = true;
+      log("runCodexSdkAttempt: no SDK events — aborting turn");
+      abortController.abort();
+    }
+  }, NO_OUTPUT_CHECK_INTERVAL_MS);
+
+  const emitLine = (line: string): void => {
+    appendToRawLogFile(line);
+    attemptOutput = trimBufferHead(attemptOutput + line);
+    appendToRawOutput(line);
+    processRealtimeStdoutChunk(line);
+  };
+
+  try {
+    const streamed = await thread.runStreamed(readPromptText(), {
+      signal: abortController.signal,
+    });
+    for await (const event of streamed.events) {
+      lastEventAt = Date.now();
+      const delta = agentMessageDelta(event, agentTextByItem);
+      if (delta) {
+        emitLine(
+          JSON.stringify({ type: "item.agent_message.delta", delta }) + "\n",
+        );
+        if (S.firstTextBlockAt === 0) S.firstTextBlockAt = Date.now();
+      }
+      emitLine(JSON.stringify(event) + "\n");
+      if (event.type === "turn.completed") sawCompletedTurn = true;
+      if (event.type === "turn.failed") {
+        turnFailed = true;
+        attemptErrorMessage = event.error.message;
+      }
+      if (event.type === "error") {
+        turnFailed = true;
+        attemptErrorMessage = event.message;
+      }
+      if (timedOutForMaxRuntime || timedOutForNoOutput) break;
+    }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (!abortController.signal.aborted || !attemptErrorMessage) {
+      attemptErrorMessage = message;
+    }
+    log("runCodexSdkAttempt: turn failed — " + message);
+  } finally {
+    clearInterval(healthTimer);
+  }
+
+  if (attemptErrorMessage) {
+    appendToRawLogFile("[sdk-error] " + attemptErrorMessage + "\n");
+    S.stderrOutput = trimBufferHead(
+      S.stderrOutput + attemptErrorMessage + "\n",
+    );
+  }
+
+  const code =
+    sawCompletedTurn &&
+    !turnFailed &&
+    !attemptErrorMessage &&
+    !timedOutForMaxRuntime &&
+    !timedOutForNoOutput
+      ? 0
+      : 1;
+  log(
+    "runCodexSdkAttempt finished in " +
+      String(Date.now() - S.activeAttemptStartedAt) +
+      "ms (code=" +
+      code +
+      ", sawCompletedTurn=" +
+      sawCompletedTurn +
+      ", turnFailed=" +
+      turnFailed +
+      ", timedOutForNoOutput=" +
+      timedOutForNoOutput +
+      ", timedOutForMaxRuntime=" +
+      timedOutForMaxRuntime +
+      ", outputBytes=" +
+      attemptOutput.length +
+      (attemptErrorMessage ? ", error=" + attemptErrorMessage : "") +
+      ")",
+  );
+
+  return {
+    code,
+    terminatedBySignal: false,
+    output: attemptOutput,
+    timedOutForNoOutput,
+    timedOutForMaxRuntime,
+    timedOutForFirstEvent: false,
+    timedOutForFirstAssistant: false,
+    timedOutAfterFirstText: false,
+    timedOutForZombie: false,
+    toolStallErrorMessage: "",
+  };
+}

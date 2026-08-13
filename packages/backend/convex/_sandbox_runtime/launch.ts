@@ -60,8 +60,10 @@ async function ensureClaudeCliAvailable(sandbox: SandboxHandle): Promise<void> {
   );
 }
 
-/** Installs the Codex CLI globally if not already available on the sandbox. */
-async function ensureCodexCliAvailable(sandbox: SandboxHandle): Promise<void> {
+/** Installs the Codex runtime used by App Server and the SDK when absent. */
+async function ensureCodexRuntimeAvailable(
+  sandbox: SandboxHandle,
+): Promise<void> {
   await execHandle(
     sandbox,
     `if ! command -v codex >/dev/null 2>&1 && [ ! -x ${quote([CODEX_FALLBACK_BIN_PATH])} ]; then npm install -g --prefix ${quote([CODEX_FALLBACK_INSTALL_DIR])} @openai/codex; fi`,
@@ -89,7 +91,7 @@ function ensureProviderCliAvailable(
     case "claude":
       return ensureClaudeCliAvailable(sandbox);
     case "codex":
-      return ensureCodexCliAvailable(sandbox);
+      return ensureCodexRuntimeAvailable(sandbox);
     case "opencode":
       return ensureOpencodeCliAvailable(sandbox);
     // "cursor" needs no provisioning: @cursor/sdk is installed globally in the

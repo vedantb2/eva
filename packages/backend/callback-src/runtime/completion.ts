@@ -113,7 +113,7 @@ function buildClaudeShapedResult(args: {
   });
 }
 
-/** Extracts the final result event from CLI output. */
+/** Extracts the final result event from a provider attempt's event stream. */
 export function extractResultEvent(output: string): ResultEvent | null {
   if (PROVIDER === "cursor") {
     let resultText = "";
@@ -337,6 +337,7 @@ export function extractResultEvent(output: string): ResultEvent | null {
     let finalText = "";
     let lastInputTokens = 0;
     let lastCachedInputTokens = 0;
+    let lastCacheWriteInputTokens = 0;
     let lastOutputTokens = 0;
     for (const line of output.split("\n")) {
       const clean = line.trim();
@@ -355,19 +356,24 @@ export function extractResultEvent(output: string): ResultEvent | null {
           if (messageText) finalText = messageText;
           continue;
         }
-        if (parsed.type === "token_count" && parsed.info) {
-          const info =
-            typeof parsed.info === "object" && !Array.isArray(parsed.info)
-              ? parsed.info
-              : null;
-          const total = info && info.total_token_usage;
-          if (total && typeof total === "object" && !Array.isArray(total)) {
-            if (typeof total.input_tokens === "number")
-              lastInputTokens = total.input_tokens;
-            if (typeof total.cached_input_tokens === "number")
-              lastCachedInputTokens = total.cached_input_tokens;
-            if (typeof total.output_tokens === "number")
-              lastOutputTokens = total.output_tokens;
+        if (
+          parsed.type === "turn.completed" &&
+          parsed.usage &&
+          typeof parsed.usage === "object" &&
+          !Array.isArray(parsed.usage)
+        ) {
+          const usage = parsed.usage;
+          if (typeof usage.input_tokens === "number") {
+            lastInputTokens = usage.input_tokens;
+          }
+          if (typeof usage.cached_input_tokens === "number") {
+            lastCachedInputTokens = usage.cached_input_tokens;
+          }
+          if (typeof usage.cache_write_input_tokens === "number") {
+            lastCacheWriteInputTokens = usage.cache_write_input_tokens;
+          }
+          if (typeof usage.output_tokens === "number") {
+            lastOutputTokens = usage.output_tokens;
           }
         }
       } catch {
@@ -391,7 +397,7 @@ export function extractResultEvent(output: string): ResultEvent | null {
         inputTokens: nonCachedInput,
         outputTokens: lastOutputTokens,
         cacheReadInputTokens: lastCachedInputTokens,
-        cacheCreationInputTokens: 0,
+        cacheCreationInputTokens: lastCacheWriteInputTokens,
         model: normalizedCodexModel,
       }),
     };
@@ -431,9 +437,9 @@ export function buildErrorMessage(
   timedOutAfterFirstText: boolean,
   timedOutForZombie: boolean,
 ): string {
-  const cliName =
+  const agentName =
     PROVIDER === "codex"
-      ? "Codex CLI"
+      ? "Codex SDK"
       : PROVIDER === "opencode"
         ? "Opencode CLI"
         : PROVIDER === "cursor"
@@ -443,13 +449,13 @@ export function buildErrorMessage(
   if (toolStallError) return toolStallError;
   if (timedOutForZombie) {
     return (
-      cliName +
-      " terminated because the CLI process entered zombie state (likely a grandchild held stdio open after the CLI exited)"
+      agentName +
+      " terminated because the agent process entered zombie state (likely a grandchild held stdio open after the agent exited)"
     );
   }
   if (timedOutForMaxRuntime) {
     return (
-      cliName +
+      agentName +
       " terminated after max runtime of " +
       MAX_TOTAL_RUNTIME_MS +
       "ms"
@@ -457,7 +463,7 @@ export function buildErrorMessage(
   }
   if (timedOutForFirstEvent) {
     return (
-      cliName +
+      agentName +
       " produced no parseable stream-json events within " +
       FIRST_EVENT_TIMEOUT_MS +
       "ms"
@@ -465,7 +471,7 @@ export function buildErrorMessage(
   }
   if (timedOutForFirstAssistant) {
     return (
-      cliName +
+      agentName +
       " initialized but produced no assistant response within " +
       FIRST_ASSISTANT_EVENT_TIMEOUT_MS +
       "ms — likely MCP initialization or API congestion"
@@ -473,7 +479,7 @@ export function buildErrorMessage(
   }
   if (timedOutAfterFirstText) {
     return (
-      cliName +
+      agentName +
       " stalled after first text block for " +
       POST_TEXT_STALL_TIMEOUT_MS +
       "ms"
@@ -481,7 +487,10 @@ export function buildErrorMessage(
   }
   if (timedOutForNoOutput) {
     return (
-      cliName + " terminated after no stdout for " + NO_OUTPUT_TIMEOUT_MS + "ms"
+      agentName +
+      " terminated after no stdout for " +
+      NO_OUTPUT_TIMEOUT_MS +
+      "ms"
     );
   }
   // Signal kills (128 + signal number) reached here only when no timeout flag
@@ -491,14 +500,14 @@ export function buildErrorMessage(
   // exit code — an interrupted turn is never a success.
   if (code === 137 || code === 143) {
     return (
-      cliName +
+      agentName +
       (code === 137
         ? " was killed before it finished — the sandbox ran out of memory."
         : " was stopped before it finished — the run was interrupted.") +
       " This usually means the sandbox was stopped or a new message cancelled the run, so nothing was completed. Send the request again on a running sandbox."
     );
   }
-  return cliName + " exited with code " + code;
+  return agentName + " exited with code " + code;
 }
 
 export function appendDiagnosticTail(message: string): string {

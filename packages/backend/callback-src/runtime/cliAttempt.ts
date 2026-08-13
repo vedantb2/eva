@@ -23,7 +23,7 @@ import type {
   AttemptHealthInput,
   AttemptHealthResult,
   CliAttemptOptions,
-  CliAttemptResult,
+  ProviderAttemptResult,
 } from "../types.js";
 
 export function evaluateAttemptHealth(
@@ -139,7 +139,7 @@ export function resetAttemptState(): void {
 
 export async function runCliAttempt(
   options: CliAttemptOptions,
-): Promise<CliAttemptResult> {
+): Promise<ProviderAttemptResult> {
   resetAttemptState();
   S.activeAttemptStartedAt = Date.now();
   updateThinkingStep(options.startupStep.label, options.startupStep.detail);
@@ -217,9 +217,6 @@ export async function runCliAttempt(
       appendToRawOutput(text);
       lastStdoutAt = Date.now();
       processRealtimeStdoutChunk(text);
-      if (options.onStdoutText) {
-        options.onStdoutText(text);
-      }
     });
     child.stderr.on("data", (chunk: Buffer) => {
       const text = chunk.toString();

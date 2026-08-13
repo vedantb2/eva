@@ -150,6 +150,7 @@ export function probeToolCompleteResult(
   };
 
   pushText(obj.aggregated_output);
+  pushText(obj.aggregatedOutput);
   pushText(obj.output);
   pushText(obj.stdout);
   pushText(obj.stderr);

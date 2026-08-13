@@ -6128,9 +6128,10 @@ async function failActiveTurn(error) {
 function processNotification(notification) {
   lastEventAt = Date.now();
   if (notification.method === "thread/tokenUsage/updated") {
-    threadTotalUsage = objectValue2(
+    const total = objectValue2(
       objectValue2(notification.params.tokenUsage).total
     );
+    if (Object.keys(total).length > 0) threadTotalUsage = total;
   }
   const event = normalizeAppServerNotification(notification);
   if (event) emitEvent(event);

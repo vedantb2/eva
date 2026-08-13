@@ -343,9 +343,12 @@ function processNotification(
 ): Promise<void> | null {
   lastEventAt = Date.now();
   if (notification.method === "thread/tokenUsage/updated") {
-    threadTotalUsage = objectValue(
+    const total = objectValue(
       objectValue(notification.params.tokenUsage).total,
     );
+    // Keep the last known totals on a malformed notification: an empty object
+    // here would turn into an all-zeros usage event at finalize.
+    if (Object.keys(total).length > 0) threadTotalUsage = total;
   }
   const event = normalizeAppServerNotification(notification);
   if (event) emitEvent(event);

@@ -24,6 +24,17 @@ const MAX_SEED_SNAPSHOT_POLLS = 240; // ~60 minutes at 15s intervals — capture
 // a bad day because exhausting it costs the app its seeded refresh for this
 // build.
 
+// Approximate wall-clock into the seed run at poll N. Each iteration is the
+// runAfter delay plus the poll exec itself (~1s), so the delay dominates;
+// Date.now() is unavailable in a deterministic workflow body.
+function formatPollElapsed(pollAttempt: number): string {
+  const totalSeconds = Math.round(
+    (pollAttempt * SEED_RUN_POLL_DELAY_MS) / 1000,
+  );
+  if (totalSeconds < 90) return `${totalSeconds}s`;
+  return `${Math.round(totalSeconds / 60)}m`;
+}
+
 /**
  * Snapshot build workflow — app-specific seeded snapshot model.
  *
@@ -166,16 +177,27 @@ export const snapshotBuildWorkflow = workflow.define({
           );
 
           let seedState = "running";
+          let lastStage: string | null = null;
           for (
             let pollAttempt = 1;
             pollAttempt <= MAX_SEED_RUN_POLLS && seedState === "running";
             pollAttempt++
           ) {
-            seedState = await step.runAction(
+            const poll = await step.runAction(
               internal.snapshotActions.pollSeedRun,
               { sandboxId: prepSandboxId, repoId: appRepoId },
               { runAfter: SEED_RUN_POLL_DELAY_MS },
             );
+            seedState = poll.state;
+            // Stream stage transitions so the build page shows live progress
+            // instead of staying silent until the terminal status.
+            if (poll.stage !== null && poll.stage !== lastStage) {
+              lastStage = poll.stage;
+              await step.runMutation(internal.repoSnapshots.appendLogs, {
+                buildId: args.buildId,
+                chunk: `[base image] stage: ${poll.stage} (~${formatPollElapsed(pollAttempt)} in)\n`,
+              });
+            }
           }
           if (seedState !== "done") {
             const diagnostics = await step.runAction(
@@ -200,6 +222,11 @@ export const snapshotBuildWorkflow = workflow.define({
             return;
           }
 
+          await step.runMutation(internal.repoSnapshots.appendLogs, {
+            buildId: args.buildId,
+            chunk:
+              "[base image] prep complete; capturing the sandbox filesystem into a snapshot (usually ~6m)...\n",
+          });
           const { snapshotId: effectiveBaseId } = await step.runAction(
             internal.snapshotActions.triggerSeededSnapshot,
             {
@@ -402,16 +429,27 @@ export const snapshotBuildWorkflow = workflow.define({
       );
 
       let seedState = "running";
+      let lastStage: string | null = null;
       for (
         let pollAttempt = 1;
         pollAttempt <= MAX_SEED_RUN_POLLS && seedState === "running";
         pollAttempt++
       ) {
-        seedState = await step.runAction(
+        const poll = await step.runAction(
           internal.snapshotActions.pollSeedRun,
           { sandboxId: prepSandboxId, repoId: appRepoId },
           { runAfter: SEED_RUN_POLL_DELAY_MS },
         );
+        seedState = poll.state;
+        // Stream stage transitions so the build page shows live progress
+        // instead of staying silent until the terminal status.
+        if (poll.stage !== null && poll.stage !== lastStage) {
+          lastStage = poll.stage;
+          await step.runMutation(internal.repoSnapshots.appendLogs, {
+            buildId: args.buildId,
+            chunk: `[seed] stage: ${poll.stage} (~${formatPollElapsed(pollAttempt)} in)\n`,
+          });
+        }
       }
       if (seedState !== "done") {
         // Grab the seed-run + daemon logs into the build record BEFORE the
@@ -447,6 +485,11 @@ export const snapshotBuildWorkflow = workflow.define({
       // - Vercel: a generated `snap_*` id distinct from seededName
       // All subsequent steps must use effectiveSeededName so that the right
       // id is polled and written to seededSnapshotName on every app repo.
+      await step.runMutation(internal.repoSnapshots.appendLogs, {
+        buildId: args.buildId,
+        chunk:
+          "[seed] seed run complete; capturing the sandbox filesystem into a snapshot (usually ~6m)...\n",
+      });
       const { snapshotId: effectiveSeededName } = await step.runAction(
         internal.snapshotActions.triggerSeededSnapshot,
         { repoId: appRepoId, sandboxId: prepSandboxId, seededName },

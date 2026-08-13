@@ -611,33 +611,45 @@ export const fetchSeedDiagnostics = internalAction({
 });
 
 /**
- * Seeded-snapshot build — SEED POLL step. Returns "done" when the detached
+ * Seeded-snapshot build — SEED POLL step. `state` is "done" when the detached
  * seed script finished cleanly, "failed:<stage>" when it aborted (stage names
- * the command index, e.g. startup-3), and "running" otherwise.
+ * the command index, e.g. startup-3), and "running" otherwise. `stage` is the
+ * latest SEEDRUN-STAGE marker so the workflow can stream progress into the
+ * build record. Only the stage marker is surfaced, never raw log lines: the
+ * log is written under `set -x` and the seed commands carry live deploy keys.
  */
 export const pollSeedRun = internalAction({
   args: {
     sandboxId: v.string(),
     repoId: v.id("githubRepos"),
   },
-  returns: v.string(),
-  handler: async (ctx, args): Promise<string> => {
+  returns: v.object({
+    state: v.string(),
+    stage: v.union(v.string(), v.null()),
+  }),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<{ state: string; stage: string | null }> => {
     const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
     const out = await execHandle(
       sandbox,
       [
         "test -f /tmp/.seedrun-done && echo DONE",
         'grep -aoE "SEEDRUN-FAILED:[a-z0-9-]+" /tmp/seedrun.log 2>/dev/null | tail -1',
+        'echo "STAGE=$(grep -aoE "SEEDRUN-STAGE:[a-z0-9-]+" /tmp/seedrun.log 2>/dev/null | tail -1)"',
         "test -f /tmp/seedrun.sh || echo NO-SCRIPT",
         'pgrep -f "[s]eedrun.sh" >/dev/null || echo NO-PROC',
         "true",
       ].join("; "),
       30,
     );
-    if (out.includes("DONE")) return "done";
+    const stageMatch = out.match(/STAGE=SEEDRUN-STAGE:([a-z0-9-]+)/);
+    const stage = stageMatch ? stageMatch[1] : null;
+    if (out.includes("DONE")) return { state: "done", stage };
     const failed = out.match(/SEEDRUN-FAILED:([a-z0-9-]+)/);
-    if (failed) return `failed:${failed[1]}`;
-    if (out.includes("NO-SCRIPT")) return "failed:no-script";
+    if (failed) return { state: `failed:${failed[1]}`, stage };
+    if (out.includes("NO-SCRIPT")) return { state: "failed:no-script", stage };
     // Script file exists but process died without writing done/failed markers.
     if (out.includes("NO-PROC") && !out.includes("DONE")) {
       const hasLog = await execHandle(
@@ -645,9 +657,11 @@ export const pollSeedRun = internalAction({
         "test -s /tmp/seedrun.log && echo HAS-LOG || echo NO-LOG",
         15,
       );
-      if (hasLog.includes("NO-LOG")) return "failed:exited-no-log";
+      if (hasLog.includes("NO-LOG")) {
+        return { state: "failed:exited-no-log", stage };
+      }
     }
-    return "running";
+    return { state: "running", stage };
   },
 });
 
@@ -945,7 +959,10 @@ export const purgeUnreferencedVercelSnapshots = internalAction({
       projectId: credentials.projectId,
     };
     const protectedIds = new Set(
-      await ctx.runQuery(internal.repoSnapshots.listAllProtectedSnapshotIds, {}),
+      await ctx.runQuery(
+        internal.repoSnapshots.listAllProtectedSnapshotIds,
+        {},
+      ),
     );
     const knownSandboxIds = new Set(
       await ctx.runQuery(internal.repoSnapshots.listReferencedSandboxIds, {}),

@@ -66,7 +66,7 @@ async function ensureCodexRuntimeAvailable(
 ): Promise<void> {
   await execHandle(
     sandbox,
-    `if ! command -v codex >/dev/null 2>&1 && [ ! -x ${quote([CODEX_FALLBACK_BIN_PATH])} ]; then npm install -g --prefix ${quote([CODEX_FALLBACK_INSTALL_DIR])} @openai/codex; fi`,
+    `if ! command -v codex >/dev/null 2>&1 && [ ! -x ${quote([CODEX_FALLBACK_BIN_PATH])} ]; then npm install -g --prefix ${quote([CODEX_FALLBACK_INSTALL_DIR])} @openai/codex@0.146.0; fi`,
     CODEX_INSTALL_TIMEOUT_SECONDS,
   );
 }

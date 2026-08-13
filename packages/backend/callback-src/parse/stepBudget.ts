@@ -8,6 +8,9 @@ export const STEP_FIELD_CAPS = {
   editsMax: 4,
   filesMax: 10,
   contentPreview: 1000,
+  /** Reasoning prose per burst; head-capped so one turn's thinking cannot
+   * dominate the payload. Prose rides `detail` (see applyReasoningSnapshot). */
+  reasoning: 6000,
   /** Soft ceiling for the whole steps JSON payload (under Convex 1 MiB). */
   jsonBytes: 600 * 1024,
 } as const;

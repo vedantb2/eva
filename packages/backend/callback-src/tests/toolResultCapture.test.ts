@@ -69,8 +69,13 @@ test("codex sets toolUseId, file_change files, and failed isError", () => {
 test("cursor pairs call_id, unwraps result envelopes, and dedups transitions", () => {
   applyFixture("cursor-sdk-events.jsonl", "cursor");
   // 3 tools despite duplicate running/completed events and a
-  // terminal-without-running error (pushed then completed).
-  expect(S.accumulatedSteps).toHaveLength(3);
+  // terminal-without-running error (pushed then completed). The stream also
+  // carries a thinking event, which now lands as its own reasoning step.
+  const toolSteps = S.accumulatedSteps.filter((s) => s.type !== "reasoning");
+  expect(toolSteps).toHaveLength(3);
+  expect(S.accumulatedSteps.filter((s) => s.type === "reasoning")).toHaveLength(
+    1,
+  );
   expect(S.inFlightToolUses).toBe(0);
 
   const shell = S.accumulatedSteps.find((s) => s.toolUseId === "call_cursor1");

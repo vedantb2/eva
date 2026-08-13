@@ -1,5 +1,9 @@
 # Changelog
 
+## Agent reasoning shows again as one evolving activity row - 2026-08-13
+
+Reasoning was suppressed as a transient liveness signal, so the model's thinking never reached the timeline. It now streams into a single evolving `reasoning` step, updated in place across deltas the way the todo checklist is, so a turn's thousands of reasoning events never flood the stream. The prose rides the existing `detail` field (no schema change) and is head-capped at 6000 chars per burst so one burst cannot dominate the payload. A tool call between two reasoning bursts closes the first row and opens a second, keeping thinking interleaved with tools in timeline order. The frontend renders the row as the collapsible `Reasoning` block (auto-open while streaming, "Thought for N seconds" once done); only `thinking` and `response` stay hidden.
+
 ## Sandbox disk: reuse planted Convex backend, sweep leaked bundle dirs, share one pnpm store - 2026-08-13
 
 Three fixes stop a long-lived sandbox filling its 32GB disk. The Convex local-backend plant script now checks its `.eva-glibc-pin` marker before doing anything: if every cache label is already planted it skips the download, and when a new "latest" label appears it copies an already-planted binary instead of re-fetching the 58MB zip and re-extracting ~250MB. The convex background script sweeps stale `/tmp/.tmp*` CLI bundle-staging dirs (age-gated one hour so a live push is never touched). Agent runtime homes (`codex`/`opencode`/`cursor`) now get a per-home `.npmrc` pointing pnpm at one shared store, and duplicate stores are removed, so cursor's `HOME=/tmp/cursor-home` no longer builds a second multi-GB store.

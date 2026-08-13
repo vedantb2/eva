@@ -36,6 +36,7 @@ import {
   type CommandVisualKind,
 } from "./activity-step-label";
 import { ActivityStepDetail } from "./activity-step-detail";
+import { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning";
 import { Task, TaskContent, TaskItem, TaskItemFile, TaskTrigger } from "./task";
 
 /** Max activity rows shown before the overflow toggle appears. */
@@ -44,11 +45,7 @@ const MAX_VISIBLE_ROWS = 8;
 /** Max nested child rows shown under a subtask before "+N more". */
 const MAX_VISIBLE_CHILDREN = 8;
 
-const HIDDEN_TYPES = new Set<ActivityStep["type"]>([
-  "thinking",
-  "reasoning",
-  "response",
-]);
+const HIDDEN_TYPES = new Set<ActivityStep["type"]>(["thinking", "response"]);
 
 /** Nearest ancestor that actually scrolls — used to keep the overflow toggle pinned. */
 function findScrollParent(el: HTMLElement): HTMLElement | null {
@@ -196,6 +193,24 @@ function ActivityStepRow({
           />
         </TaskContent>
       </Task>
+    );
+  }
+
+  if (step.type === "reasoning") {
+    const thoughts = step.detail?.trim() ?? "";
+    const seconds = step.durationMs
+      ? Math.max(1, Math.round(step.durationMs / 1000))
+      : undefined;
+    return (
+      <Reasoning
+        className="mb-0"
+        isStreaming={isActive}
+        defaultOpen={isActive}
+        duration={isActive ? undefined : seconds}
+      >
+        <ReasoningTrigger />
+        {thoughts ? <ReasoningContent>{thoughts}</ReasoningContent> : null}
+      </Reasoning>
     );
   }
 

@@ -163,11 +163,68 @@ test("append_text replaces streamed content on cumulative snapshots", () => {
   resetStateForTests();
 });
 
-test("update_reasoning is transient and does not add activity steps", () => {
+test("update_reasoning opens one evolving reasoning step with prose in detail", () => {
   resetStateForTests();
   applyCanonicalEvents([{ kind: "update_reasoning", text: "pondering" }]);
-  expect(S.accumulatedSteps.length).toBe(0);
+  expect(S.accumulatedSteps.length).toBe(1);
+  expect(S.accumulatedSteps[0]?.type).toBe("reasoning");
+  expect(S.accumulatedSteps[0]?.label).toBe("Thinking...");
+  expect(S.accumulatedSteps[0]?.status).toBe("active");
+  expect(S.accumulatedSteps[0]?.detail).toBe("pondering");
   expect(S.lastStepType).toBe("thinking");
+  resetStateForTests();
+});
+
+test("consecutive reasoning deltas coalesce into a single step", () => {
+  resetStateForTests();
+  for (const text of ["Read", "ing the ", "callback."]) {
+    applyCanonicalEvents([{ kind: "update_reasoning", text }]);
+  }
+  expect(S.accumulatedSteps.length).toBe(1);
+  expect(S.accumulatedSteps[0]?.detail).toBe("Reading the callback.");
+  resetStateForTests();
+});
+
+test("a growing reasoning snapshot supersedes rather than concatenating", () => {
+  resetStateForTests();
+  applyCanonicalEvents([{ kind: "update_reasoning", text: "Step one" }]);
+  applyCanonicalEvents([{ kind: "update_reasoning", text: "Step one, step two" }]);
+  expect(S.accumulatedSteps.length).toBe(1);
+  expect(S.accumulatedSteps[0]?.detail).toBe("Step one, step two");
+  resetStateForTests();
+});
+
+test("a tool call between reasoning bursts opens a second reasoning step", () => {
+  resetStateForTests();
+  applyCanonicalEvents([{ kind: "update_reasoning", text: "first burst" }]);
+  applyCanonicalEvents([
+    {
+      kind: "push_step",
+      trackingId: "toolu_r",
+      step: {
+        type: "bash",
+        label: "Running command...",
+        toolUseId: "toolu_r",
+        status: "active",
+      },
+    },
+  ]);
+  applyCanonicalEvents([{ kind: "complete_tool", trackingId: "toolu_r" }]);
+  applyCanonicalEvents([{ kind: "update_reasoning", text: "second burst" }]);
+  const reasoning = S.accumulatedSteps.filter((s) => s.type === "reasoning");
+  expect(reasoning.length).toBe(2);
+  expect(reasoning[0]?.status).toBe("complete");
+  expect(reasoning[0]?.label).toBe("Thought");
+  expect(reasoning[0]?.detail).toBe("first burst");
+  expect(reasoning[1]?.status).toBe("active");
+  expect(reasoning[1]?.detail).toBe("second burst");
+  resetStateForTests();
+});
+
+test("reasoning prose is head-capped so one burst cannot dominate the payload", () => {
+  resetStateForTests();
+  applyCanonicalEvents([{ kind: "update_reasoning", text: "x".repeat(10_000) }]);
+  expect(S.accumulatedSteps[0]?.detail?.length).toBe(6000);
   resetStateForTests();
 });
 

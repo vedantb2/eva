@@ -12,6 +12,7 @@ import type {
   ToolCompleteResult,
 } from "../types.js";
 import { tryParseJson } from "../utils.js";
+import { headCap, STEP_FIELD_CAPS } from "./stepBudget.js";
 import {
   completeStatusOnNonStatusMessage,
   consumesClaudeSdkTaxonomyMessage,
@@ -113,6 +114,44 @@ function applyTodosSnapshot(todos: TodoItem[]): void {
     status: "active",
   });
   S.lastStepType = "tool";
+}
+
+/** Appends a reasoning delta, or supersedes with a fuller snapshot; head-capped. */
+function appendReasoningDetail(step: ProgressStep, next: string): void {
+  const current = step.detail ?? "";
+  // Snapshot providers resend the whole thought (prefix of `current`); delta
+  // providers send only the new fragment. Same heuristic as streamed text.
+  const merged = next.startsWith(current) ? next : current + next;
+  step.detail = headCap(merged, STEP_FIELD_CAPS.reasoning).text;
+}
+
+/**
+ * Streams the model's reasoning into ONE evolving "reasoning" step. Reasoning
+ * fires many times per turn (thousands of deltas); like the todos snapshot we
+ * keep a single live row updated in place rather than one row per delta. A new
+ * burst after any tool step opens a fresh row (the tool push completes the
+ * prior reasoning row), so thinking interleaves with tools in timeline order.
+ * The prose rides `detail`, matching the frontend's reasoning-block convention.
+ */
+function applyReasoningSnapshot(text: string): void {
+  const next = String(text);
+  if (!next) return;
+  const last = S.accumulatedSteps[S.accumulatedSteps.length - 1];
+  if (last && last.type === "reasoning" && last.status === "active") {
+    appendReasoningDetail(last, next);
+    S.lastStepType = "thinking";
+    return;
+  }
+  markLastComplete();
+  const step: ProgressStep = {
+    type: "reasoning",
+    label: "Thinking...",
+    status: "active",
+    detail: headCap(next, STEP_FIELD_CAPS.reasoning).text,
+  };
+  S.accumulatedSteps.push(step);
+  stepStartedAt.set(step, Date.now());
+  S.lastStepType = "thinking";
 }
 
 /** Thinking is a transient liveness signal, not a durable activity row. */
@@ -219,7 +258,7 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         S.pendingParagraphBreak = true;
         break;
       case "update_reasoning":
-        S.lastStepType = "thinking";
+        applyReasoningSnapshot(ev.text);
         break;
       case "set_pending_question":
         S.pendingQuestionData = ev.data;

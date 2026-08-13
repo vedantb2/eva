@@ -4,6 +4,7 @@ import type {
   CanUseTool,
   Options,
   SDKUserMessage,
+  query,
 } from "@anthropic-ai/claude-agent-sdk";
 import {
   ALLOWED_TOOLS,
@@ -50,10 +51,7 @@ export type JsonLike =
 export type SdkCanUseTool = CanUseTool;
 export type SdkOptions = Options;
 export type SdkUserMessage = SDKUserMessage;
-export type SdkModule = Pick<
-  typeof import("@anthropic-ai/claude-agent-sdk"),
-  "query"
->;
+export type SdkModule = { query: typeof query };
 
 /** Resolves the sandbox's global npm root once (e.g. /usr/lib/node_modules). */
 export function globalNpmRoot(): string {

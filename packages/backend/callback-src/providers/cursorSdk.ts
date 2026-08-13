@@ -1,7 +1,10 @@
 import { execSync } from "child_process";
 import { existsSync, mkdirSync, readFileSync } from "fs";
 import type {
+  Agent,
   AgentOptions,
+  Cursor,
+  JsonlLocalAgentStore,
   McpServerConfig,
   ModelListItem,
   ModelParameterValue,
@@ -110,10 +113,11 @@ type SdkTokenUsage = TokenUsage;
 type SdkRun = Run;
 type SdkAgent = SDKAgent;
 
-export type CursorSdkModule = Pick<
-  typeof import("@cursor/sdk"),
-  "Agent" | "Cursor" | "JsonlLocalAgentStore"
->;
+export type CursorSdkModule = {
+  Agent: typeof Agent;
+  Cursor: typeof Cursor;
+  JsonlLocalAgentStore: typeof JsonlLocalAgentStore;
+};
 
 /**
  * Imports the Cursor SDK, preferring the base Image's global install (seeded in

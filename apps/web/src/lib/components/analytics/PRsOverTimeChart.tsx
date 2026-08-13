@@ -74,7 +74,10 @@ export function PRsOverTimeChart({ timeline }: PRsOverTimeChartProps) {
   };
 
   return (
-    <Widget title="PRs Shipped Over Time">
+    <Widget
+      title="PRs shipped over time"
+      subtitle="Pull requests opened in this range."
+    >
       <div className="h-48 sm:h-64">
         <Suspense fallback={null}>
           <PRsBarChart chartData={chartData} options={options} />

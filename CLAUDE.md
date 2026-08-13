@@ -18,6 +18,8 @@ FOLLOW ALL OF THESE RULES
 - No `any`, `unknown`, `as`, or non-null `!`. No `isRecord(object: unknown)` — parse at the boundary (Zod). Hard types → rethink design.
 - Prefer simplicity, small diffs, co-location, explicit behavior, long-term maintainability. No premature abstractions. No new deps unless necessary.
 - Do not default to `useState`/`useRef` — pick the right state ownership first.
+- useCallback and useMemo are banned as React Compiler is enabled
+- useEffect is banned as it introduces performance regressions
 - Do not run dev / lint / build unless the user asks.
 - After medium+ changes: no banned types; `tsc` where relevant; `/changelog` (or `internal/changelog.md`).
   Eliminate duplication, centralise your changes so its easier to update them

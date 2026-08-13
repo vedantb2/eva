@@ -1131,10 +1131,13 @@ html[data-blur-pid] [data-pii] {
 .nav-icon-play,
 .nav-icon-sparks,
 .nav-icon-gear,
-.nav-icon-gear-core,
 .nav-icon-flask,
 .nav-icon-traveler,
-.nav-icon-trend {
+.nav-icon-trend,
+.nav-icon-search,
+.nav-icon-search-glint,
+.nav-icon-sidebar-panel,
+.nav-icon-sidebar-chevron {
   transform-box: fill-box;
   transform-origin: center;
 }
@@ -1586,26 +1589,110 @@ html[data-blur-pid] [data-pii] {
   animation: nav-icon-trend-loop 1.6s var(--motion-ease-out) 0.4s infinite;
 }
 
-/* ── Settings — gear whips around fast, core dot pulses huge. */
-@keyframes nav-icon-gear-spin {
-  to {
+/* ── Settings — six-tooth cog clicks one notch at a time. */
+@keyframes nav-icon-gear-turn {
+  0% {
+    transform: rotate(0deg);
+  }
+  10%,
+  16.66% {
+    transform: rotate(60deg);
+  }
+  26.66%,
+  33.33% {
+    transform: rotate(120deg);
+  }
+  43.33%,
+  50% {
+    transform: rotate(180deg);
+  }
+  60%,
+  66.66% {
+    transform: rotate(240deg);
+  }
+  76.66%,
+  83.33% {
+    transform: rotate(300deg);
+  }
+  93.33%,
+  100% {
     transform: rotate(360deg);
   }
 }
-@keyframes nav-icon-gear-core-pulse {
+.group:hover .nav-icon-gear {
+  animation: nav-icon-gear-turn 2.4s var(--motion-ease-emphasized) infinite;
+}
+
+/* ── Search — glass scans, handle wags, lens glint pops. */
+.nav-icon-search-glint {
+  opacity: 0;
+}
+@keyframes nav-icon-search-scan {
   0%,
   100% {
-    transform: scale(0.6);
+    transform: rotate(-8deg) translate(0, 0);
   }
   50% {
-    transform: scale(2.2);
+    transform: rotate(8deg) translate(0.6px, -0.8px);
   }
 }
-.group:hover .nav-icon-gear {
-  animation: nav-icon-gear-spin 1.4s linear infinite;
+@keyframes nav-icon-search-glint {
+  0%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1.6);
+  }
 }
-.group:hover .nav-icon-gear-core {
-  animation: nav-icon-gear-core-pulse 0.6s ease-in-out infinite;
+.group:hover .nav-icon-search {
+  animation: nav-icon-search-scan 1.2s ease-in-out infinite;
+}
+.group:hover .nav-icon-search-glint {
+  animation: nav-icon-search-glint 1.2s ease-in-out infinite;
+}
+
+/* ── Sidebar collapse — rail squeezes, chevron nudges the collapse direction. */
+.nav-icon-sidebar-panel {
+  transform-origin: left center;
+}
+@keyframes nav-icon-sidebar-squeeze {
+  0%,
+  100% {
+    transform: scaleX(1);
+  }
+  50% {
+    transform: scaleX(0.7);
+  }
+}
+@keyframes nav-icon-sidebar-nudge {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(-2.5px);
+  }
+}
+@keyframes nav-icon-sidebar-nudge-out {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  50% {
+    transform: translateX(2.5px);
+  }
+}
+.group:hover .nav-icon-sidebar-panel {
+  animation: nav-icon-sidebar-squeeze 0.9s ease-in-out infinite;
+}
+.group:hover .nav-icon-sidebar-chevron {
+  animation: nav-icon-sidebar-nudge 0.8s ease-in-out infinite;
+}
+.group:hover .nav-icon-sidebar-collapsed .nav-icon-sidebar-chevron {
+  animation: nav-icon-sidebar-nudge-out 0.8s ease-in-out infinite;
 }
 
 /* LoadingState (packages/ui) — pixel wavefront + label shimmer */

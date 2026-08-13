@@ -22,6 +22,7 @@ import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import {
   LEFT_PANEL_ID,
   RIGHT_PANEL_ID,
+  complementaryPercentage,
   usePersistentPanelSize,
 } from "@/lib/hooks/usePersistentPanelSize";
 
@@ -65,6 +66,10 @@ export function ResizablePanelLayout({
     storageKey,
     defaultRightCollapsed,
   );
+  const defaultRightSize = complementaryPercentage(
+    leftDefaultSize,
+    DEFAULT_RIGHT_PANEL_SIZE,
+  );
   // Where the user last dragged the handle.
   const {
     initialSize: initialRightSize,
@@ -73,15 +78,19 @@ export function ResizablePanelLayout({
   } = usePersistentPanelSize({
     storageKey,
     panel: "right",
-    defaultSize: DEFAULT_RIGHT_PANEL_SIZE,
+    defaultSize: defaultRightSize,
   });
   const [rightCollapsed, setRightCollapsed] = useState(savedCollapsed);
   const isMobile = useMediaQuery("(max-width: 767px)");
   // Seeded from storage so expanding after a reload returns to the dragged
-  // width instead of the 60% default.
+  // width instead of the layout default.
   const lastExpandedSize = useRef<string>(savedRightSize);
-  // Captured once for defaultSize â€” the stored flag does not change after mount
+  // Captured once for defaultSize — the stored flag does not change after mount
   const [initialCollapsed] = useState(savedCollapsed);
+  const rightDefaultSize = initialCollapsed ? "0%" : initialRightSize;
+  const restoredLeftSize = initialCollapsed
+    ? "100%"
+    : complementaryPercentage(initialRightSize, leftDefaultSize);
 
   const handleToggle = useCallback(() => {
     // Mobile layout has no Panel ref â€” toggle local state directly.
@@ -168,7 +177,7 @@ export function ResizablePanelLayout({
     >
       <Panel
         id={LEFT_PANEL_ID}
-        defaultSize={leftDefaultSize}
+        defaultSize={restoredLeftSize}
         minSize={leftMinWidthPx}
       >
         {leftPanel(ctx)}
@@ -186,7 +195,7 @@ export function ResizablePanelLayout({
         id={RIGHT_PANEL_ID}
         collapsible
         collapsedSize={0}
-        defaultSize={initialCollapsed ? 0 : initialRightSize}
+        defaultSize={rightDefaultSize}
         minSize={rightMinWidthPx}
         panelRef={rightPanelRef}
         onResize={handleResize}

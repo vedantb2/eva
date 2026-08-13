@@ -15,6 +15,7 @@ import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
 import {
   BOTTOM_PANEL_ID,
   TOP_PANEL_ID,
+  complementaryPercentage,
   usePersistentPanelSize,
 } from "@/lib/hooks/usePersistentPanelSize";
 import {
@@ -59,13 +60,6 @@ type SandboxWorkspaceProps = SandboxWorkspaceCommonProps &
 
 const DEFAULT_BOTTOM_SIZE = "35%";
 const DEFAULT_TOP_SIZE = "65%";
-
-function complementaryPercentage(size: string): string {
-  if (!size.endsWith("%")) return DEFAULT_TOP_SIZE;
-  const percentage = Number(size.slice(0, -1));
-  if (!Number.isFinite(percentage)) return DEFAULT_TOP_SIZE;
-  return `${100 - percentage}%`;
-}
 
 /** Adds the shared terminal bottom panel around a sandbox's two-column shell. */
 export function SandboxWorkspace(props: SandboxWorkspaceProps) {
@@ -164,7 +158,7 @@ export function SandboxWorkspace(props: SandboxWorkspaceProps) {
 
   const bottomDefaultSize = initialExpanded ? initialBottomSize : "0%";
   const topDefaultSize = initialExpanded
-    ? complementaryPercentage(initialBottomSize)
+    ? complementaryPercentage(initialBottomSize, DEFAULT_TOP_SIZE)
     : "100%";
 
   return (

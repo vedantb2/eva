@@ -106,20 +106,18 @@ export function ShortcutsSettingsClient() {
             ) : undefined
           }
         >
-          <div className="divide-y divide-border">
-            {section.ids.map((id) => (
-              <ShortcutRow
-                key={id}
-                id={id}
-                binding={resolveBinding(id, overrides)}
-                isOverridden={overrides[id] !== undefined}
-                conflictsWith={(conflicts[id] ?? []).map(
-                  (other) => SHORTCUT_DEFS[other].name,
-                )}
-                onRecord={(hotkey) => record(id, hotkey)}
-              />
-            ))}
-          </div>
+          {section.ids.map((id) => (
+            <ShortcutRow
+              key={id}
+              id={id}
+              binding={resolveBinding(id, overrides)}
+              isOverridden={overrides[id] !== undefined}
+              conflictsWith={(conflicts[id] ?? []).map(
+                (other) => SHORTCUT_DEFS[other].name,
+              )}
+              onRecord={(hotkey) => record(id, hotkey)}
+            />
+          ))}
         </SettingsSection>
       ))}
 
@@ -128,21 +126,19 @@ export function ShortcutsSettingsClient() {
         description="Handled by whatever is focused, so they cannot be rebound."
         bodyVariant="list"
       >
-        <div className="divide-y divide-border">
-          {EDITING_KEYS.map((entry) => (
-            <SettingsToggleRow
-              key={entry.keys.join("+")}
-              title={entry.description}
-              action={
-                <div className="flex items-center gap-1">
-                  {entry.keys.map((key) => (
-                    <Kbd key={key} hotkey={key} />
-                  ))}
-                </div>
-              }
-            />
-          ))}
-        </div>
+        {EDITING_KEYS.map((entry) => (
+          <SettingsToggleRow
+            key={entry.keys.join("+")}
+            title={entry.description}
+            action={
+              <div className="flex items-center gap-1">
+                {entry.keys.map((key) => (
+                  <Kbd key={key} hotkey={key} />
+                ))}
+              </div>
+            }
+          />
+        ))}
       </SettingsSection>
     </SettingsPage>
   );

@@ -62,7 +62,7 @@ export function RepositorySettingsSection({
 
   return (
     <SettingsSection title="Defaults" description={monorepoHint}>
-      <div className="grid gap-4">
+      <div className="grid gap-5">
         <SettingsField
           label="Base branch"
           description="Used when creating quick tasks. Falls back to main."

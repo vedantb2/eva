@@ -15,16 +15,13 @@ import {
   TooltipTrigger,
   cn,
 } from "@eva/ui";
-import {
-  IconLayoutSidebarLeftCollapse,
-  IconLayoutSidebarLeftCollapseFilled,
-  IconPencil,
-  IconSearch,
-} from "@tabler/icons-react";
+import { IconPencil } from "@tabler/icons-react";
 import {
   AutomationsIcon,
   InboxIcon,
+  SearchIcon,
   SessionsIcon,
+  SidebarCollapseIcon,
 } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
 import { LogoMark } from "@/lib/components/LogoMark";
 import { RepoLogo } from "@/lib/components/RepoLogo";
@@ -386,17 +383,14 @@ function RepoRailView({
               title={collapsed ? "Show sidebar" : "Hide sidebar"}
               className={cn(
                 RAIL_TILE_CLASS,
-                "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground",
+                "group border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground",
               )}
             >
-              {collapsed ? (
-                <IconLayoutSidebarLeftCollapseFilled
-                  size={22}
-                  className="shrink-0"
-                />
-              ) : (
-                <IconLayoutSidebarLeftCollapse size={22} className="shrink-0" />
-              )}
+              <SidebarCollapseIcon
+                size={22}
+                collapsed={collapsed}
+                className="shrink-0"
+              />
             </button>
           </TooltipTrigger>
           <TooltipContent side="right">
@@ -412,10 +406,10 @@ function RepoRailView({
               title="Search"
               className={cn(
                 RAIL_TILE_CLASS,
-                "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground",
+                "group border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground",
               )}
             >
-              <IconSearch size={22} className="shrink-0" />
+              <SearchIcon size={22} className="shrink-0" />
             </button>
           </TooltipTrigger>
           <TooltipContent side="right" className="flex items-center gap-2">

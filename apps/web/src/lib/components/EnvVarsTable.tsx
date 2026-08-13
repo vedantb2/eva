@@ -440,7 +440,7 @@ export function EnvVarsTable({
   );
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
       <p className="text-xs leading-relaxed text-muted-foreground">
         {description}
       </p>

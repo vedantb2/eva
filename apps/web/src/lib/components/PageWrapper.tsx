@@ -52,7 +52,7 @@ export function PageWrapper({
     <div className="flex-1 h-full min-h-0 overflow-hidden animate-in fade-in duration-300">
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <div
-          className={`motion-base relative ${comfortable ? "p-4 sm:px-6" : "p-3 sm:px-4"}`}
+          className={`motion-base relative ${comfortable ? "px-4 py-6 sm:px-6" : "p-3 sm:px-4"}`}
         >
           <div
             className={`grid items-center gap-2 sm:gap-3 ${hasHeaderRight ? "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]" : "grid-cols-1"} ${comfortable ? "mx-auto w-full max-w-5xl" : ""}`}
@@ -111,7 +111,7 @@ export function PageWrapper({
           className={`flex-1 min-h-0 ${fillHeight ? "overflow-hidden flex flex-col" : "overflow-auto scrollbar"}`}
         >
           <div
-            className={`flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ${childPadding ? (comfortable ? "p-4 pt-0 sm:px-6" : "p-3 pt-0") : ""} ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
+            className={`flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ${childPadding ? (comfortable ? "p-4 pt-0 sm:px-6" : "p-3 pt-0 sm:px-4") : ""} ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
           >
             {comfortable ? (
               <div

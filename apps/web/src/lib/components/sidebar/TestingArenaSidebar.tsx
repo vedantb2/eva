@@ -26,6 +26,7 @@ import {
   SharedLayoutNavSurface,
   sidebarNavLinkClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
+import { SidebarListHoverCard } from "@/lib/components/sidebar/SidebarListHoverCard";
 import { entityPathSegment } from "@/lib/numId";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 
@@ -123,34 +124,34 @@ export function TestingArenaSidebar({
                   isActive={isSelected}
                   className="group"
                 >
-                  <Link
-                    to={href}
-                    onClick={onNavigate}
-                    className={sidebarNavLinkClass(isSelected)}
+                  <SidebarListHoverCard
+                    title={doc.title}
+                    preview={doc.contentPreview}
+                    createdAt={doc.createdAt}
+                    userId={doc.createdBy}
                   >
-                    <IconFileText
-                      size={16}
-                      className={cn(
-                        "shrink-0",
-                        isSelected
-                          ? "text-sidebar-primary"
-                          : "text-muted-foreground",
-                      )}
-                    />
-                    <MarqueeOnHover className="min-w-0 flex-1">
-                      {doc.title}
-                    </MarqueeOnHover>
-                    <span
-                      className={cn(
-                        "shrink-0 overflow-hidden whitespace-nowrap text-xs tabular-nums text-muted-foreground transition-[max-width,opacity,padding] duration-[var(--motion-fast)]",
-                        isSelected
-                          ? "max-w-[80px] pl-2 opacity-100"
-                          : "max-w-0 pl-0 opacity-0 group-hover:max-w-[80px] group-hover:pl-2 group-hover:opacity-100",
-                      )}
+                    <Link
+                      to={href}
+                      onClick={onNavigate}
+                      className={sidebarNavLinkClass(isSelected)}
                     >
-                      {compactRelativeTime(doc.updatedAt ?? doc._creationTime)}
-                    </span>
-                  </Link>
+                      <IconFileText
+                        size={16}
+                        className={cn(
+                          "shrink-0",
+                          isSelected
+                            ? "text-sidebar-primary"
+                            : "text-muted-foreground",
+                        )}
+                      />
+                      <MarqueeOnHover className="min-w-0 flex-1">
+                        {doc.title}
+                      </MarqueeOnHover>
+                      <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                        {compactRelativeTime(doc.updatedAt)}
+                      </span>
+                    </Link>
+                  </SidebarListHoverCard>
                 </SharedLayoutNavSurface>
               );
             })}

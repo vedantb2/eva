@@ -105,16 +105,14 @@ export function ActivityHeatmap({ data }: ActivityHeatmapProps) {
   const { currentStreak, longestStreak } = computeStreak(data);
 
   return (
-    <Widget contentClassName="p-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between mb-4">
-        <div>
-          <p className="text-3xl font-bold tabular-nums text-foreground">
-            {totalCount}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            tasks completed in the last year
-          </p>
-        </div>
+    <Widget
+      title="Activity"
+      subtitle="Tasks completed over the last year."
+    >
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <p className="text-3xl font-bold tabular-nums text-foreground">
+          {totalCount}
+        </p>
         <div className="flex items-center gap-4">
           {currentStreak > 0 && (
             <div className="flex items-center gap-1.5">

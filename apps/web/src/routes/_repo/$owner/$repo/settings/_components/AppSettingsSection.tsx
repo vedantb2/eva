@@ -38,7 +38,7 @@ export function AppSettingsSection({
         </>
       }
     >
-      <div className="grid gap-4">
+      <div className="grid gap-5">
         {isAppRepo(repo) ? (
           <SettingsField
             label="Deployment project"

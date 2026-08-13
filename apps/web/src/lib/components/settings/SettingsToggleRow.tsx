@@ -9,7 +9,7 @@ interface SettingsToggleRowProps {
 
 /**
  * One preference row inside a `SettingsSection` with `bodyVariant="list"`.
- * Stack several with `divide-y divide-border` on the parent.
+ * Put rows as direct children — the section owns the dividers.
  */
 export function SettingsToggleRow({
   title,
@@ -20,19 +20,19 @@ export function SettingsToggleRow({
   return (
     <div
       className={cn(
-        "flex items-start justify-between gap-4 px-4 py-3",
+        "flex items-center justify-between gap-4 px-4 py-3",
         className,
       )}
     >
       <div className="min-w-0">
         <p className="text-sm font-medium text-foreground">{title}</p>
         {description ? (
-          <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+          <p className="mt-1 text-pretty text-xs leading-relaxed text-muted-foreground">
             {description}
           </p>
         ) : null}
       </div>
-      <div className="shrink-0 pt-0.5">{action}</div>
+      <div className="flex min-h-10 shrink-0 items-center">{action}</div>
     </div>
   );
 }

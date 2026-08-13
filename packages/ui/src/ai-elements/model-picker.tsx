@@ -109,6 +109,9 @@ export function ModelSelect<TModel extends string>({
       <PopoverTrigger asChild>
         <button
           type="button"
+          role="combobox"
+          aria-expanded={open}
+          data-slot="select-trigger"
           className={cn(
             "flex h-7 min-w-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50",
             className,

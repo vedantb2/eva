@@ -155,17 +155,17 @@ export function SessionHoverCardBody({
 interface SidebarListHoverCardProps {
   title: string;
   preview?: string | null;
-  updatedAt: number;
+  createdAt: number;
   /** Author when known (new docs / automations). Omitted for legacy docs. */
   userId?: Id<"users">;
   children: ReactNode;
 }
 
-/** Whole-row hover card: title, optional preview (3 lines), author + updated time. */
+/** Whole-row hover card: title, optional preview (3 lines), author + created time. */
 export function SidebarListHoverCard({
   title,
   preview,
-  updatedAt,
+  createdAt,
   userId,
   children,
 }: SidebarListHoverCardProps) {
@@ -187,7 +187,7 @@ export function SidebarListHoverCard({
         <div className="mt-3 flex items-center justify-between gap-2">
           {userId ? <HoverCardAuthor userId={userId} /> : <span />}
           <span className="shrink-0 text-xs text-muted-foreground">
-            {compactRelativeTime(updatedAt)}
+            {compactRelativeTime(createdAt)}
           </span>
         </div>
       </HoverCardContent>

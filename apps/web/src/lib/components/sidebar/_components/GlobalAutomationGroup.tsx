@@ -85,11 +85,11 @@ export function GlobalAutomationGroup({
 
   return (
     <Collapsible open={open} onOpenChange={onOpenChange}>
-      <div className="flex items-center gap-0.5 px-1">
+      <div className="flex items-center gap-0.5">
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-menu-item px-2 py-1.5 text-left transition-colors hover:bg-sidebar-accent/50"
+            className="flex min-w-0 flex-1 items-center gap-2 rounded-menu-item px-4 py-1.5 text-left transition-colors hover:bg-sidebar-accent/50"
           >
             <RepoLogo
               logoUrl={repo.logoUrl}
@@ -148,7 +148,7 @@ export function GlobalAutomationGroup({
         </button>
       </div>
       <CollapsibleContent>
-        <div className="pb-1 pl-1">
+        <div className="pb-1">
           {isLoading ? (
             <div className="flex items-center justify-center py-3">
               <Spinner size="sm" />
@@ -188,7 +188,7 @@ export function GlobalAutomationGroup({
                     <SidebarListHoverCard
                       title={automation.title}
                       preview={sidebarTextPreview(automation.description)}
-                      updatedAt={automation.updatedAt}
+                      createdAt={automation.createdAt}
                       userId={automation.createdBy}
                     >
                       <Link

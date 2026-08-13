@@ -1,5 +1,37 @@
 # Changelog
 
+## Automation settings use the shared Switch - 2026-08-13
+
+The settings-tab toggles were a second hand-rolled knob with a hardcoded white thumb, so they vanished on Neutral the same way the title control did. They now render `Switch`.
+
+## Automation detail drops decorative hairlines and the custom enable switch - 2026-08-13
+
+Run rows were outlined cards and the tab strip sat on a `border-b`. Both are tone now: one card with quiet row dividers, and the same pill tabs as logs. The title toggle was a white knob that vanished on Neutral zinc; it uses the shared `Switch`.
+
+## Rail search, collapse, and settings icons animate on hover again - 2026-08-13
+
+Those three tiles had been swapped to static Tabler glyphs, so they sat still while Inbox / Sessions / Automations still played. They use the same hover SVG set as the rest of the rail. Settings is a six-tooth cog that clicks a notch on hover — not a sun with spinning rays.
+
+## Source-list sidebars keep a compact title row - 2026-08-13
+
+The rail names the destination; the column still needs a list title, like nested Sandboxes. Sessions / Automations / Home / Settings use a compact title in the theme accent (options trailing on Sessions), not a 64px page heading and not an empty column. The title sits on the list’s outer edge — same Apple indent as a page title flush with its card — and group labels / row text stay one step in (`px-4`). Nested lists (Documents, Testing Arena) center the title between the back chevron and the trailing action, with a hover fill on the row; Sessions stays left-aligned. The Sessions header and Active/Archived row match the rail’s `pt-3` / 44px tile / `gap-1.5` rhythm so they line up across the divider. The segmented control stays `h-8`; the padding around it is what matches the tile.
+
+## Sessions options menu matches Mail's preview picker - 2026-08-13
+
+Menu rows used 8px between icon and title, and Visible threads was an uppercase label plus a stepper. Icon gap is tighter, section labels are sentence case, and the count is a checked submenu like Mail's message preview.
+
+## Logs settings reads as Screen Time, not a dashboard - 2026-08-13
+
+The logs page stacked a six-stat grid, a hairline view toggle, a type filter, and indented accordions on the canvas. Spend is now one number for the selected range, Type/Project is a segmented control, and completions live in caption/card list sections like the rest of settings.
+
+## Home codebase titles indent with the card - 2026-08-13
+
+Home group titles sat on the card edge while settings captions sit on the inner text. They now share the same `px-4` indent, and the home Teams nav lists each team indented under a collapsible.
+
+## Settings and stats section titles sit above the card - 2026-08-13
+
+Title and description lived inside the same surface as the content, so they read as another row instead of a section caption. They now sit on the canvas above the card — settings fields and stats charts alike. Inside the card, field labels are primary, inputs sit inset on muted, list dividers are quieter, and the footer is a muted bar instead of a hairline. Stats no longer slide in on load.
+
 ## Tasks tab left rail is the task list only - 2026-08-12
 
 Project context and the progress bar sat above and below the task list on the Tasks tab, crowding the rail when a task was open. Both stay on Overview; Tasks now shows only the list.

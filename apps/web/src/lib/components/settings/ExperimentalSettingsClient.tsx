@@ -48,56 +48,52 @@ export function ExperimentalSettingsClient() {
         description="Optional features. Off by default until you turn them on."
         bodyVariant="list"
       >
-        <div className="divide-y divide-border">
-          <SettingsToggleRow
-            title="Chrome-style session tabs"
-            description="Use horizontal tabs grouped by app. Archived and merged PRs move into an Archived menu."
-            action={
-              <Switch
-                checked={flags.sessionTabs}
-                onCheckedChange={(checked) => toggle("sessionTabs", checked)}
-                aria-label="Chrome-style session tabs"
-              />
-            }
-          />
-          <SettingsToggleRow
-            title="Blur personal info"
-            description="Blur names and emails when screen recording. Avatars stay visible."
-            action={
-              <Switch
-                checked={flags.blurPid}
-                onCheckedChange={(checked) => toggle("blurPid", checked)}
-                aria-label="Blur personal info"
-              />
-            }
-          />
-          <SettingsToggleRow
-            title="Voice dictation"
-            description="Use speech-to-text in chat and quick tasks. Requires microphone permission."
-            action={
-              <Switch
-                checked={flags.voiceDictation}
-                onCheckedChange={(checked) =>
-                  toggle("voiceDictation", checked)
-                }
-                aria-label="Voice dictation"
-              />
-            }
-          />
-          <SettingsToggleRow
-            title="Composer autocomplete"
-            description="Suggest inline completions while typing in chat and task composers. Press Tab to accept."
-            action={
-              <Switch
-                checked={flags.composerAutocomplete}
-                onCheckedChange={(checked) =>
-                  toggle("composerAutocomplete", checked)
-                }
-                aria-label="Composer autocomplete"
-              />
-            }
-          />
-        </div>
+        <SettingsToggleRow
+          title="Chrome-style session tabs"
+          description="Use horizontal tabs grouped by app. Archived and merged PRs move into an Archived menu."
+          action={
+            <Switch
+              checked={flags.sessionTabs}
+              onCheckedChange={(checked) => toggle("sessionTabs", checked)}
+              aria-label="Chrome-style session tabs"
+            />
+          }
+        />
+        <SettingsToggleRow
+          title="Blur personal info"
+          description="Blur names and emails when screen recording. Avatars stay visible."
+          action={
+            <Switch
+              checked={flags.blurPid}
+              onCheckedChange={(checked) => toggle("blurPid", checked)}
+              aria-label="Blur personal info"
+            />
+          }
+        />
+        <SettingsToggleRow
+          title="Voice dictation"
+          description="Use speech-to-text in chat and quick tasks. Requires microphone permission."
+          action={
+            <Switch
+              checked={flags.voiceDictation}
+              onCheckedChange={(checked) => toggle("voiceDictation", checked)}
+              aria-label="Voice dictation"
+            />
+          }
+        />
+        <SettingsToggleRow
+          title="Composer autocomplete"
+          description="Suggest inline completions while typing in chat and task composers. Press Tab to accept."
+          action={
+            <Switch
+              checked={flags.composerAutocomplete}
+              onCheckedChange={(checked) =>
+                toggle("composerAutocomplete", checked)
+              }
+              aria-label="Composer autocomplete"
+            />
+          }
+        />
       </SettingsSection>
     </SettingsPage>
   );

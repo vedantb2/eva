@@ -285,13 +285,14 @@ export function Sidebar() {
     }
   };
 
-  // Global panels (Sessions, Home, Settings) are a plain title + list: no repo
-  // header, no team background, no back button.
+  // Global panels are a source list: compact title row (like nested Sandboxes),
+  // not a 64px page heading and not an empty column.
   const isFlatPanel =
     showGlobalSessionsPanel ||
     showGlobalAutomationsPanel ||
     showHomePanel ||
     showGlobalSettingsPanel;
+  const isSourceListHeader = isFlatPanel || showContextSidebar;
   const flatPanelTitle = showGlobalSessionsPanel
     ? "Sessions"
     : showGlobalAutomationsPanel
@@ -422,10 +423,10 @@ export function Sidebar() {
                 <>
                   <div
                     className={cn(
-                      // Always reserve tall header on main repo panel so team
-                      // background resolving later does not shift the nav list (CLS).
-                      "relative flex items-center overflow-hidden px-3",
-                      !showContextSidebar && !isFlatPanel ? "h-24" : "h-16",
+                      "relative flex items-center overflow-hidden",
+                      // Repo identity keeps a reserved tall slot so team art
+                      // resolving later does not shift the nav list (CLS).
+                      isSourceListHeader ? "px-2 pt-3" : "h-24 px-3",
                     )}
                   >
                     {teamBackgroundUrl &&
@@ -449,7 +450,8 @@ export function Sidebar() {
                     <m.div
                       key={`${panelKey}-header`}
                       className={cn(
-                        "relative z-10 flex w-full items-center justify-between",
+                        "relative z-10 flex w-full items-center",
+                        isSourceListHeader && "h-11 px-2",
                         teamBackgroundUrl &&
                           !showContextSidebar &&
                           !isFlatPanel &&
@@ -461,7 +463,7 @@ export function Sidebar() {
                     >
                       {isFlatPanel ? (
                         <>
-                          <span className="min-w-0 flex-1 truncate text-sm font-semibold tracking-[-0.02em] text-sidebar-primary">
+                          <span className="min-w-0 flex-1 truncate text-base font-semibold tracking-[-0.02em] text-sidebar-primary">
                             {flatPanelTitle}
                           </span>
                           <div className="flex shrink-0 items-center gap-0.5">
@@ -469,13 +471,13 @@ export function Sidebar() {
                               <SessionsSidebarOptionsMenu />
                             ) : null}
                             <Button
-                              size="icon"
+                              size="icon-sm"
                               variant="ghost"
-                              className="motion-press shrink-0 lg:hidden hover:scale-[1.03] active:scale-[0.96]"
+                              className="motion-press h-8 w-8 shrink-0 lg:hidden hover:scale-[1.03] active:scale-[0.96]"
                               onClick={closeMobileSidebar}
                             >
                               <IconX
-                                size={18}
+                                size={16}
                                 className="text-muted-foreground"
                               />
                             </Button>
@@ -483,28 +485,33 @@ export function Sidebar() {
                         </>
                       ) : showContextSidebar ? (
                         <>
-                          <Button
-                            size="icon-sm"
-                            variant="ghost"
+                          <button
+                            type="button"
                             onClick={() => setContextSidebarMode("main")}
-                            className="motion-press h-8 w-8 shrink-0 hover:scale-[1.03] active:scale-[0.96]"
                             title="Back to main sidebar"
-                          >
-                            <IconChevronLeft size={16} />
-                          </Button>
-                          <span className="min-w-0 flex-1 truncate text-center text-sm font-medium text-sidebar-primary">
-                            {contextSidebarTitle}
+                            className="absolute inset-0 rounded-menu-item hover:bg-sidebar-accent/50"
+                          />
+                          <span className="pointer-events-none relative z-10 flex size-8 shrink-0 items-center justify-center">
+                            <IconChevronLeft
+                              size={16}
+                              className="text-muted-foreground"
+                            />
                           </span>
-                          <div className="flex shrink-0 items-center">
+                          <span className="pointer-events-none absolute inset-x-10 inset-y-0 flex items-center justify-center">
+                            <span className="max-w-full truncate text-base font-semibold tracking-[-0.02em] text-sidebar-primary">
+                              {contextSidebarTitle}
+                            </span>
+                          </span>
+                          <div className="relative z-10 ml-auto flex shrink-0 items-center">
                             {headerAction}
                             <Button
-                              size="icon"
+                              size="icon-sm"
                               variant="ghost"
-                              className="motion-press shrink-0 lg:hidden hover:scale-[1.03] active:scale-[0.96]"
+                              className="motion-press h-8 w-8 shrink-0 lg:hidden hover:scale-[1.03] active:scale-[0.96]"
                               onClick={closeMobileSidebar}
                             >
                               <IconX
-                                size={18}
+                                size={16}
                                 className="text-muted-foreground"
                               />
                             </Button>
@@ -566,7 +573,10 @@ export function Sidebar() {
 
                   <nav
                     ref={sidebarScrollRef}
-                    className="scrollbar scroll-fade flex min-h-0 flex-1 flex-col justify-between overflow-y-auto px-2 py-2"
+                    className={cn(
+                      "scrollbar scroll-fade flex min-h-0 flex-1 flex-col justify-between overflow-y-auto px-2",
+                      isSourceListHeader ? "pb-2 pt-1.5" : "py-2",
+                    )}
                   >
                     <div
                       className={

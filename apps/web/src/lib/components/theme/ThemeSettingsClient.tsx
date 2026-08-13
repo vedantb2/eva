@@ -67,7 +67,6 @@ export function ThemeSettingsClient() {
       <SettingsSection
         title="Appearance"
         description="Choose light, dark, or system."
-        // Capped so the three mode tiles stay a readable size on wide screens.
         bodyClassName="max-w-2xl"
       >
         <AppearanceSection currentMode={theme} onModeChange={handleModeChange} />

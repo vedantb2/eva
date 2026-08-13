@@ -19,6 +19,7 @@ const SelectTrigger = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <SelectPrimitive.Trigger
     ref={ref}
+    data-slot="select-trigger"
     className={cn(
       "flex h-10 w-full cursor-pointer items-center justify-between whitespace-nowrap border border-input bg-card px-3.5 py-2 text-sm ring-offset-background motion-press active:scale-[0.98] placeholder:text-muted-foreground focus:outline-hidden focus-visible:ring-1 focus-visible:ring-ring/35 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
       CONTROL_RADIUS_CLASS,

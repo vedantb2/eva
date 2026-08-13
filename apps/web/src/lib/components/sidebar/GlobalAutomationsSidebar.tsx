@@ -157,7 +157,7 @@ export function GlobalAutomationsSidebar({
 
   return (
     <>
-      <div className="flex-1 space-y-3 px-0 pb-1 pt-1">
+      <div className="flex-1 space-y-3 px-0 pb-1">
         {orderedRepos === undefined ? (
           <div
             className="min-h-48 space-y-2 px-3"

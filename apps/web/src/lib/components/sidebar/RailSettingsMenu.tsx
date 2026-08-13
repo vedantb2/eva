@@ -2,7 +2,7 @@
 
 import { Link, useLocation } from "@tanstack/react-router";
 import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";
-import { IconSettings } from "@tabler/icons-react";
+import { SettingsIcon } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
 import { GLOBAL_SETTINGS_NAV } from "@/lib/components/sidebar/globalSettingsNav";
 import { isGlobalSettingsPath } from "@/lib/components/sidebar/homePaths";
 import { railTileActiveClass } from "@/lib/components/sidebar/SharedLayoutNav";
@@ -31,13 +31,13 @@ export function RailSettingsMenu({ onNavigate }: { onNavigate?: () => void }) {
           title="Settings"
           aria-label="Settings"
           className={cn(
-            "relative flex size-11 items-center justify-center rounded-lg border motion-press active:scale-[0.96] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
+            "group relative flex size-11 items-center justify-center rounded-lg border motion-press active:scale-[0.96] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-sidebar-ring/35",
             isActive
               ? railTileActiveClass
               : "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground",
           )}
         >
-          <IconSettings size={22} className="shrink-0" />
+          <SettingsIcon size={22} className="shrink-0" />
         </Link>
       </TooltipTrigger>
       <TooltipContent side="right">Settings</TooltipContent>

@@ -111,7 +111,7 @@ export function AppClient() {
           </>
         }
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        <div className="grid gap-5 sm:grid-cols-2">
           <SettingsField label="Port" description="Empty = auto-detect.">
             <Input
               key={`port-${repoId}`}

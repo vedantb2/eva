@@ -94,7 +94,7 @@ export function PersonalisationClient() {
                 <IconChevronDown className="size-3.5" />
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <pre className="mt-2 whitespace-pre-wrap rounded-md border border-border bg-muted/40 p-3 font-mono text-xs leading-relaxed text-foreground/80">
+                <pre className="mt-2 whitespace-pre-wrap rounded-control bg-muted p-3 font-mono text-xs leading-relaxed text-foreground/80">
                   {PERSONALISATION_PRESETS[activeRole].prompt}
                 </pre>
               </CollapsibleContent>

@@ -24,8 +24,8 @@ export function RepoGroup({
   );
 
   return (
-    <div>
-      <h2 className="mb-3 text-balance text-sm font-semibold text-foreground">
+    <div className="flex flex-col gap-2">
+      <h2 className="px-4 text-balance text-sm font-semibold text-foreground">
         {groupName}
       </h2>
       <div className="space-y-4">
@@ -33,8 +33,8 @@ export function RepoGroup({
           const isMonorepo =
             items.length > 1 || items.some((r) => r.rootDirectory);
           return (
-            <div key={repoKey}>
-              <div className="mb-2 flex items-center gap-2">
+            <div key={repoKey} className="flex flex-col gap-2">
+              <div className="flex items-center gap-2 px-4">
                 {isMonorepo && (
                   <IconFolders size={14} className="text-muted-foreground/60" />
                 )}

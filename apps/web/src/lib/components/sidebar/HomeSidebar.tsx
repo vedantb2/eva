@@ -5,24 +5,18 @@ import {
   IconLayoutDashboard,
   IconSparkles,
   IconStack2,
-  IconUsers,
 } from "@tabler/icons-react";
 import {
   SharedLayoutNav,
   SharedLayoutNavSurface,
   sidebarNavLinkClassCompact,
 } from "@/lib/components/sidebar/SharedLayoutNav";
+import { HomeTeamsNav } from "@/lib/components/sidebar/_components/HomeTeamsNav";
 
-/**
- * Home destinations. These used to be rail tiles; they live here so the
- * rail carries only Eva / Inbox / Sessions plus the repo tiles.
- */
 const HOME_NAV = [
-  { name: "Codebases", href: "/home", icon: IconStack2 },
-  { name: "Teams", href: "/teams", icon: IconUsers },
   { name: "Artifacts", href: "/artifacts", icon: IconLayoutDashboard },
   { name: "Changelog", href: "/changelog", icon: IconSparkles },
-];
+] as const;
 
 interface HomeSidebarProps {
   pathname: string;
@@ -31,8 +25,22 @@ interface HomeSidebarProps {
 
 /** Second sidebar column for the global home routes (see `HOME_ROOTS`). */
 export function HomeSidebar({ pathname, onNavigate }: HomeSidebarProps) {
+  const codebasesActive =
+    pathname === "/home" || pathname.startsWith("/home/");
+
   return (
     <SharedLayoutNav layoutId="home-nav" className="space-y-1">
+      <SharedLayoutNavSurface itemId="Codebases" isActive={codebasesActive}>
+        <Link
+          to="/home"
+          onClick={onNavigate}
+          className={sidebarNavLinkClassCompact(codebasesActive)}
+        >
+          <IconStack2 size={14} />
+          <span>Codebases</span>
+        </Link>
+      </SharedLayoutNavSurface>
+      <HomeTeamsNav pathname={pathname} onNavigate={onNavigate} />
       {HOME_NAV.map((item) => {
         const isActive =
           pathname === item.href || pathname.startsWith(`${item.href}/`);

@@ -66,14 +66,16 @@ export function LatestRun({
   }
 
   return (
-    <RunAccordion
-      run={run}
-      actionsEnabled={actionsEnabled}
-      repoOwner={repoOwner}
-      repoName={repoName}
-      onAcknowledge={() => acknowledgeRun({ runId: run._id })}
-      defaultExpanded
-    />
+    <Surface density="none" className="overflow-hidden">
+      <RunAccordion
+        run={run}
+        actionsEnabled={actionsEnabled}
+        repoOwner={repoOwner}
+        repoName={repoName}
+        onAcknowledge={() => acknowledgeRun({ runId: run._id })}
+        defaultExpanded
+      />
+    </Surface>
   );
 }
 
@@ -110,7 +112,7 @@ export function RunHistory({
   }
 
   return (
-    <div className="space-y-2">
+    <Surface density="none" className="overflow-hidden divide-y divide-border/50">
       {runs.map((run) => (
         <RunAccordion
           key={run._id}
@@ -121,7 +123,7 @@ export function RunHistory({
           onAcknowledge={() => acknowledgeRun({ runId: run._id })}
         />
       ))}
-    </div>
+    </Surface>
   );
 }
 
@@ -181,7 +183,7 @@ function RunAccordion({
   );
 
   return (
-    <div className="rounded-surface border border-border bg-muted/40 overflow-hidden">
+    <div>
       <button
         type="button"
         onClick={() => {
@@ -191,7 +193,7 @@ function RunAccordion({
             onAcknowledge();
           }
         }}
-        className="flex w-full flex-wrap items-center gap-2 px-3 py-3 text-left hover:bg-muted/30 transition-colors sm:flex-nowrap sm:gap-3 sm:px-4"
+        className="flex w-full flex-wrap items-center gap-2 px-3 py-3 text-left transition-colors hover:bg-muted/50 sm:flex-nowrap sm:gap-3 sm:px-4"
       >
         {expanded ? (
           <IconChevronDown

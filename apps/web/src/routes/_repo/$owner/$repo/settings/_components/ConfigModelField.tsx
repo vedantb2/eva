@@ -30,19 +30,20 @@ export function ConfigModelField({
 }) {
   return (
     <SettingsField label={label} description={description}>
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex items-center gap-2">
         <ModelSelect
           value={state.model}
           options={state.options}
           disabled={disabled}
           onValueChange={onValueChange}
-          className="h-9"
+          className="h-9 min-w-0 flex-1 rounded-control border border-input px-3.5 text-sm font-normal text-foreground hover:bg-muted hover:text-foreground"
         />
         <ModelTraitsMenu
           model={state.model}
           traits={traits}
           onChange={onTraitsChange}
           disabled={disabled}
+          className="h-9 shrink-0"
         />
       </div>
     </SettingsField>

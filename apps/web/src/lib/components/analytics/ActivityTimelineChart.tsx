@@ -101,7 +101,8 @@ export function ActivityTimelineChart({
 
   return (
     <Widget
-      title="Activity Over Time"
+      title="Activity over time"
+      subtitle="Sessions and runs by day."
       actions={
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           <span className="flex items-center gap-1.5">

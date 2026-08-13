@@ -24,6 +24,7 @@ import {
   toast,
 } from "@eva/ui";
 import { IconFile, IconPlus, IconTrash, IconUpload } from "@tabler/icons-react";
+import { compactRelativeTime } from "@eva/shared/dates";
 import { DOC_VIEWER_DEFAULT_TAB } from "@/lib/search-params";
 import { ContextSidebarHeaderIconButton } from "@/lib/components/sidebar/ContextSidebarHeaderAction";
 import {
@@ -309,7 +310,7 @@ export function DocsSidebar({
                       <SidebarListHoverCard
                         title={doc.title}
                         preview={doc.contentPreview}
-                        updatedAt={doc.updatedAt ?? doc._creationTime}
+                        createdAt={doc.createdAt}
                         userId={doc.createdBy}
                       >
                         <Link
@@ -320,6 +321,9 @@ export function DocsSidebar({
                         >
                           <span className="min-w-0 flex-1 truncate">
                             {doc.title}
+                          </span>
+                          <span className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                            {compactRelativeTime(doc.updatedAt)}
                           </span>
                         </Link>
                       </SidebarListHoverCard>

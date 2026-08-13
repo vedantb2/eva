@@ -1,42 +1,10 @@
 import {
-  IconChecklist,
-  IconTerminal2,
-  IconFileText,
-  IconLayoutKanban,
-  IconFlask,
-  IconTestPipe,
-  IconPlayerPlay,
-} from "@tabler/icons-react";
-import type { ComponentType } from "react";
-
-// Re-export shared utils
-export {
-  GBP_TO_USD,
   parseResultEvent,
-  getTotalInputTokens,
   formatCost,
   formatTokens,
 } from "@/lib/utils/logs";
 
-const ENTITY_TYPE_ICONS: Record<
-  string,
-  ComponentType<{ size?: number; className?: string }>
-> = {
-  quickTask: IconChecklist,
-  session: IconTerminal2,
-  doc: IconFileText,
-  project: IconLayoutKanban,
-  evaluation: IconFlask,
-  testGen: IconTestPipe,
-  automation: IconPlayerPlay,
-  summarize: IconFileText,
-};
-
-export function iconFor(
-  entityType: string,
-): ComponentType<{ size?: number; className?: string }> {
-  return ENTITY_TYPE_ICONS[entityType] ?? IconFileText;
-}
+export { parseResultEvent, formatCost, formatTokens };
 
 const ENTITY_TYPE_LABELS: Record<string, string> = {
   quickTask: "Quick Tasks",
@@ -62,7 +30,57 @@ const PROJECT_GROUP_KEY = "project";
 
 export function groupKeyFor(log: {
   entityType: string;
-  projectId: string | undefined;
+  projectId?: string;
 }): string {
   return log.projectId !== undefined ? PROJECT_GROUP_KEY : log.entityType;
+}
+
+interface LogCostFields {
+  entityType: string;
+  projectId?: string;
+  rawResultEvent?: string;
+}
+
+export interface LogTotals {
+  totalCost: number;
+  totalInput: number;
+  totalOutput: number;
+  totalDuration: number;
+}
+
+/** Cost, tokens, and duration for a set of completions. */
+export function logTotals(logs: ReadonlyArray<LogCostFields>): LogTotals {
+  let totalCost = 0;
+  let totalInput = 0;
+  let totalOutput = 0;
+  let totalDuration = 0;
+  for (const log of logs) {
+    const parsed = parseResultEvent(log.rawResultEvent);
+    totalCost += parsed.costUsd;
+    totalInput += parsed.inputTokens;
+    totalOutput += parsed.outputTokens;
+    totalDuration += parsed.durationMs;
+  }
+  return { totalCost, totalInput, totalOutput, totalDuration };
+}
+
+/** Completions rolled up by type, spend-desc. */
+export function groupLogsByType<T extends LogCostFields>(
+  logs: T[],
+): Array<{ type: string; logs: T[]; total: number }> {
+  const groups = new Map<string, { logs: T[]; total: number }>();
+  for (const log of logs) {
+    const key = groupKeyFor(log);
+    const cost = parseResultEvent(log.rawResultEvent).costUsd;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.logs.push(log);
+      existing.total += cost;
+    } else {
+      groups.set(key, { logs: [log], total: cost });
+    }
+  }
+  return Array.from(groups.entries())
+    .sort((a, b) => b[1].total - a[1].total)
+    .map(([type, data]) => ({ type, ...data }));
 }

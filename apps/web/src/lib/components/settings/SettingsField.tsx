@@ -11,7 +11,7 @@ interface SettingsFieldProps {
  *
  * Every settings form repeats the same label / control / help-text stack, so it
  * lives here rather than being re-spaced per field. Stack several inside a
- * section body with `grid gap-4`.
+ * section body with `grid gap-5`.
  */
 export function SettingsField({
   label,
@@ -20,12 +20,12 @@ export function SettingsField({
 }: SettingsFieldProps) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+      <label className="mb-2 block text-sm font-medium text-foreground">
         {label}
       </label>
       {children}
       {description ? (
-        <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">
+        <p className="mt-1.5 text-pretty text-xs leading-relaxed text-muted-foreground">
           {description}
         </p>
       ) : null}

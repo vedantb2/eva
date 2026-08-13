@@ -28,7 +28,10 @@ export function AppearanceSection({
 }) {
   return (
     <div
-      className={cn("grid grid-cols-2", compact ? "gap-1.5" : "gap-2 sm:gap-3")}
+      className={cn(
+        "grid",
+        compact ? "grid-cols-2 gap-1.5" : "grid-cols-4 gap-2",
+      )}
     >
       {MODES.map((mode) => {
         const isActive = currentMode === mode;

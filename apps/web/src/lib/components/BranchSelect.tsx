@@ -86,6 +86,7 @@ export function BranchSelect({
           variant="outline"
           role="combobox"
           aria-expanded={open}
+          data-slot="select-trigger"
           disabled={disabled}
           className={cn("w-full justify-between", className ?? "h-8 text-sm")}
         >

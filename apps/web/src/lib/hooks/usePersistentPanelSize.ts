@@ -104,3 +104,18 @@ export function panelPercentage(
   const selected = panel === "left" || panel === "top" ? primary : secondary;
   return (selected / total) * 100;
 }
+
+/**
+ * The other panel's share when both `defaultSize`s must add to 100%. Passing
+ * two independent defaults (e.g. left `33%` and a saved right `75%`) makes the
+ * group ignore the stored width on reload.
+ */
+export function complementaryPercentage(
+  size: string,
+  fallback: string,
+): string {
+  if (!size.endsWith("%")) return fallback;
+  const percentage = Number(size.slice(0, -1));
+  if (!Number.isFinite(percentage)) return fallback;
+  return `${100 - percentage}%`;
+}

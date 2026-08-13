@@ -60,7 +60,7 @@ export function LogoSettingsSection({ repoId }: { repoId: Id<"githubRepos"> }) {
       title="Identity"
       description="Name and logo in the sidebar for this app."
     >
-      <div className="grid gap-4">
+      <div className="grid gap-5">
         <SettingsField
           label="Display name"
           description={
@@ -80,7 +80,7 @@ export function LogoSettingsSection({ repoId }: { repoId: Id<"githubRepos"> }) {
         </SettingsField>
 
         <div className="flex items-center gap-3">
-          <div className="flex size-14 items-center justify-center overflow-hidden rounded-md border border-border bg-background">
+          <div className="flex size-14 items-center justify-center overflow-hidden rounded-control bg-muted outline outline-1 outline-black/10 dark:outline-white/10">
             {logoUrl ? (
               <img src={logoUrl} alt="" className="size-full object-cover" />
             ) : (

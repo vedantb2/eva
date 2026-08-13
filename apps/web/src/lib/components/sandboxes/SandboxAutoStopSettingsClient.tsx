@@ -48,46 +48,44 @@ export function SandboxAutoStopSettingsClient() {
         description="Stop running sandboxes every day."
         bodyVariant="list"
       >
-        <div className="divide-y divide-border">
-          <SettingsToggleRow
-            title="Enabled"
-            description="Applies to all sandboxes across the app."
-            action={
-              <Switch
-                checked={settings.enabled}
-                onCheckedChange={(checked) =>
+        <SettingsToggleRow
+          title="Enabled"
+          description="Applies to all sandboxes across the app."
+          action={
+            <Switch
+              checked={settings.enabled}
+              onCheckedChange={(checked) =>
+                save({
+                  enabled: checked,
+                  time: settings.time,
+                  timeZone: browserTimeZone,
+                })
+              }
+              aria-label="Daily auto-stop"
+            />
+          }
+        />
+        {settings.enabled ? (
+          <div className="px-4 py-3">
+            <SettingsField
+              label="Stop time"
+              description={`Uses ${settings.timeZone}. The sweep runs within 15 minutes of this time.`}
+            >
+              <Input
+                type="time"
+                className="w-40"
+                value={settings.time}
+                onChange={(event) =>
                   save({
-                    enabled: checked,
-                    time: settings.time,
+                    enabled: settings.enabled,
+                    time: event.target.value,
                     timeZone: browserTimeZone,
                   })
                 }
-                aria-label="Daily auto-stop"
               />
-            }
-          />
-          {settings.enabled ? (
-            <div className="px-4 py-3">
-              <SettingsField
-                label="Stop time"
-                description={`Uses ${settings.timeZone}. The sweep runs within 15 minutes of this time.`}
-              >
-                <Input
-                  type="time"
-                  className="w-40"
-                  value={settings.time}
-                  onChange={(event) =>
-                    save({
-                      enabled: settings.enabled,
-                      time: event.target.value,
-                      timeZone: browserTimeZone,
-                    })
-                  }
-                />
-              </SettingsField>
-            </div>
-          ) : null}
-        </div>
+            </SettingsField>
+          </div>
+        ) : null}
       </SettingsSection>
     </SettingsPage>
   );

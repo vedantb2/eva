@@ -2,28 +2,22 @@ import type { ReactNode } from "react";
 import { cn } from "@eva/ui";
 
 interface WidgetProps {
-  /** Header title (left side). Omit for a header-less widget. */
+  /** Section heading on the canvas above the card. */
   title?: ReactNode;
-  /** Supporting text shown under the title. */
+  /** Short supporting copy under the title. */
   subtitle?: ReactNode;
   /** Header content aligned to the right (filters, legends, menus). */
   actions?: ReactNode;
   children: ReactNode;
-  /** Classes for the outer muted shell. */
+  /** Classes for the outer section. */
   className?: string;
-  /** Classes for the elevated inner content area. */
+  /** Classes for the card. */
   contentClassName?: string;
 }
 
 /**
- * Dashboard container modelled on the HeroUI Widget: a muted outer shell
- * (surface-secondary) holding an optional title/actions header above an
- * elevated inner content area (the card surface). Use it to give charts,
- * tables, and KPI groups a consistent layered treatment.
- *
- * Pass `contentClassName="border-0 bg-transparent p-0 shadow-none"` when the
- * children already provide their own surfaces (e.g. a grid of cards) so they
- * sit directly on the shell instead of double-stacking surfaces.
+ * Dashboard section: title and description on the canvas, card underneath.
+ * Same caption/card split as SettingsSection.
  */
 export function Widget({
   title,
@@ -36,27 +30,26 @@ export function Widget({
   const hasHeader = title !== undefined || actions !== undefined;
 
   return (
-    <div
-      className={cn(
-        "flex h-full flex-col rounded-surface border border-border bg-muted/50 p-1.5",
-        className,
-      )}
-    >
-      {hasHeader && (
-        <div className="flex items-center justify-between gap-3 px-3 pb-3 pt-2.5">
+    <section className={cn("flex h-full flex-col gap-2", className)}>
+      {hasHeader ? (
+        <header className="flex shrink-0 items-start justify-between gap-4 px-4">
           <div className="min-w-0">
-            {title !== undefined && (
-              <div className="text-base font-semibold tracking-tight text-foreground">
+            {title !== undefined ? (
+              <h3 className="text-balance text-sm font-semibold text-foreground">
                 {title}
-              </div>
-            )}
-            {subtitle !== undefined && (
-              <p className="mt-0.5 text-sm text-muted-foreground">{subtitle}</p>
-            )}
+              </h3>
+            ) : null}
+            {subtitle !== undefined ? (
+              <p className="mt-0.5 text-sm leading-relaxed text-pretty text-muted-foreground">
+                {subtitle}
+              </p>
+            ) : null}
           </div>
-          {actions !== undefined && <div className="shrink-0">{actions}</div>}
-        </div>
-      )}
+          {actions !== undefined ? (
+            <div className="shrink-0">{actions}</div>
+          ) : null}
+        </header>
+      ) : null}
       <div
         className={cn(
           "min-h-0 flex-1 rounded-surface bg-card p-4",
@@ -65,6 +58,6 @@ export function Widget({
       >
         {children}
       </div>
-    </div>
+    </section>
   );
 }

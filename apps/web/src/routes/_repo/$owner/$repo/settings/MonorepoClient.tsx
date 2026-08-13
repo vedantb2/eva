@@ -128,7 +128,7 @@ export function MonorepoClient() {
           // Rows own their padding so the row divider spans the full width.
           bodyVariant="list"
         >
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-border/50">
             {connectedApps.map((app) => (
               <div
                 key={app._id}
@@ -215,7 +215,7 @@ export function MonorepoClient() {
             description="This repository has no monorepo workspace configuration (package.json workspaces or pnpm-workspace.yaml)."
           />
         ) : (
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-border/50">
             {detected.map((app) => {
               const isConnected = connectedPaths.has(app.path);
               const isAdding = addingPath === app.path;

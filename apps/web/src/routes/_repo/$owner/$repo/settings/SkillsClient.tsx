@@ -116,7 +116,7 @@ export function SkillsClient() {
         description="Built-in skills Eva maintains. Installing one makes it available to this repo's agents without committing anything to your codebase — the agent fetches the instructions from Eva when it runs the skill."
         bodyVariant="list"
       >
-        <div className="divide-y divide-border">
+        <div className="divide-y divide-border/50">
           {(systemSkills ?? []).map((skill) => (
             <SystemSkillRow
               key={skill.name}
@@ -143,7 +143,7 @@ export function SkillsClient() {
         bodyVariant="list"
       >
         {skills.length > 0 ? (
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-border/50">
             {availableSkills.map((skill) => (
               <SkillRow key={skill._id} skill={skill} />
             ))}

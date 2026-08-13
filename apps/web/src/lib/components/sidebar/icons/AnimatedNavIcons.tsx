@@ -429,15 +429,61 @@ export function SettingsIcon({ size = 24, className }: IconProps) {
     <svg {...baseSvgProps(size, className)}>
       <g className="nav-icon-gear">
         <circle cx="12" cy="12" r="3" />
-        <path d="M12 2v2.6M12 19.4V22M22 12h-2.6M4.6 12H2M19.07 4.93l-1.84 1.84M6.77 17.23l-1.84 1.84M19.07 19.07l-1.84-1.84M6.77 6.77L4.93 4.93" />
+        <path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 0 0 2.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 0 0 1.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 0 0-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 0 0-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 0 0-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 0 0-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 0 0 1.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065" />
       </g>
-      <circle
-        cx="12"
-        cy="12"
-        r="0.85"
+    </svg>
+  );
+}
+
+export function SearchIcon({ size = 24, className }: IconProps) {
+  return (
+    <svg {...baseSvgProps(size, className)}>
+      <g className="nav-icon-search">
+        <circle cx="10.5" cy="10.5" r="6.5" />
+        <line x1="15.2" y1="15.2" x2="20.5" y2="20.5" />
+        <circle
+          cx="8.6"
+          cy="8.6"
+          r="1.1"
+          fill="currentColor"
+          stroke="none"
+          className="nav-icon-search-glint"
+        />
+      </g>
+    </svg>
+  );
+}
+
+export function SidebarCollapseIcon({
+  size = 24,
+  className,
+  collapsed = false,
+}: IconProps & { collapsed?: boolean }) {
+  return (
+    <svg
+      {...baseSvgProps(
+        size,
+        collapsed
+          ? className
+            ? `nav-icon-sidebar-collapsed ${className}`
+            : "nav-icon-sidebar-collapsed"
+          : className,
+      )}
+    >
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <rect
+        x="3.5"
+        y="4.5"
+        width="5.5"
+        height="15"
+        rx="1.2"
         fill="currentColor"
         stroke="none"
-        className="nav-icon-gear-core"
+        className="nav-icon-sidebar-panel"
+      />
+      <path
+        d={collapsed ? "M13 9l3 3-3 3" : "M16 9l-3 3 3 3"}
+        className="nav-icon-sidebar-chevron"
       />
     </svg>
   );

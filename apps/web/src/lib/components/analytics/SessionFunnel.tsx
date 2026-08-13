@@ -15,7 +15,10 @@ export function SessionFunnel({
   const sessionPrRate =
     totalSessions > 0 ? Math.round((sessionsWithPr / totalSessions) * 100) : 0;
   return (
-    <Widget title="Session to PR Funnel">
+    <Widget
+      title="Session to PR"
+      subtitle="How many sessions produced a pull request."
+    >
       <div className="space-y-3">
         <div>
           <div className="flex justify-between text-sm mb-1">

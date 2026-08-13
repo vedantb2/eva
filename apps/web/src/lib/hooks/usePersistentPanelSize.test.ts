@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   BOTTOM_PANEL_ID,
   LEFT_PANEL_ID,
+  complementaryPercentage,
   panelPercentage,
   RIGHT_PANEL_ID,
   TOP_PANEL_ID,
@@ -52,6 +53,18 @@ describe("panelPercentage", () => {
     expect(
       panelPercentage({ [LEFT_PANEL_ID]: 100, [RIGHT_PANEL_ID]: 0 }, "right"),
     ).toBe(0);
+  });
+});
+
+describe("complementaryPercentage", () => {
+  it("returns the other panel's share so both defaultSizes add to 100%", () => {
+    expect(complementaryPercentage("33%", "60%")).toBe("67%");
+    expect(complementaryPercentage("75%", "40%")).toBe("25%");
+  });
+
+  it("falls back when the size is not a percentage", () => {
+    expect(complementaryPercentage("256px", "60%")).toBe("60%");
+    expect(complementaryPercentage("nope", "40%")).toBe("40%");
   });
 });
 

@@ -100,13 +100,14 @@ export function GlobalSessionsSidebar({
 
   return (
     <>
-      <div className="flex-1 space-y-3 px-0 pb-1">
-        <div className="px-2">
+      <div className="flex-1 px-0 pb-1">
+        <div className="flex h-11 w-full items-center">
           <SessionsListModeTabs
             mode={settings.listMode}
             onChange={setListMode}
           />
         </div>
+        <div className="pt-1.5">
         {orderedRepos === undefined ? (
           <div
             className="min-h-48 space-y-2 px-3"
@@ -125,35 +126,38 @@ export function GlobalSessionsSidebar({
             </p>
           </div>
         ) : (
-          orderedRepos.map((repo) => (
-            <GlobalSessionGroup
-              key={repo._id}
-              repo={repo}
-              pathname={pathname}
-              open={isGroupOpen(repo)}
-              onOpenChange={(open) => {
-                setGroupOpen(repo._id, open);
-              }}
-              onNavigate={onNavigate}
-              sessionSortOrder={settings.sessionSortOrder}
-              sessionPreviewCount={settings.sessionPreviewCount}
-              listMode={settings.listMode}
-              onRenameRequest={(session, groupRepo) => {
-                setSessionToRename({ session, repo: groupRepo });
-                setRenameValue(session.title);
-              }}
-              onArchiveRequest={(session, groupRepo) => {
-                const pathSegment = entityPathSegment(session);
-                if (!pathSegment) return;
-                setSessionToArchive({
-                  session,
-                  repo: groupRepo,
-                  pathSegment,
-                });
-              }}
-            />
-          ))
+          <div className="space-y-3">
+            {orderedRepos.map((repo) => (
+              <GlobalSessionGroup
+                key={repo._id}
+                repo={repo}
+                pathname={pathname}
+                open={isGroupOpen(repo)}
+                onOpenChange={(open) => {
+                  setGroupOpen(repo._id, open);
+                }}
+                onNavigate={onNavigate}
+                sessionSortOrder={settings.sessionSortOrder}
+                sessionPreviewCount={settings.sessionPreviewCount}
+                listMode={settings.listMode}
+                onRenameRequest={(session, groupRepo) => {
+                  setSessionToRename({ session, repo: groupRepo });
+                  setRenameValue(session.title);
+                }}
+                onArchiveRequest={(session, groupRepo) => {
+                  const pathSegment = entityPathSegment(session);
+                  if (!pathSegment) return;
+                  setSessionToArchive({
+                    session,
+                    repo: groupRepo,
+                    pathSegment,
+                  });
+                }}
+              />
+            ))}
+          </div>
         )}
+        </div>
       </div>
 
       <Dialog

@@ -1,9 +1,8 @@
-import { m } from "motion/react";
 import { useQueryState } from "nuqs";
 import { timeRangeParser } from "@/lib/search-params";
 import { api } from "@eva/backend";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { motionSlow, Skeleton } from "@eva/ui";
+import { Skeleton } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Kpi, KpiGroup } from "@/lib/components/analytics/Kpi";
@@ -75,7 +74,7 @@ export function StatsClient() {
     >
       {isLoading ? (
         <div
-          className="min-h-144 space-y-6"
+          className="min-h-144 space-y-8"
           aria-busy="true"
           aria-label="Loading stats"
         >
@@ -88,64 +87,47 @@ export function StatsClient() {
           <Skeleton className="h-56 border border-border" />
         </div>
       ) : (
-        <div className="space-y-6">
-          <m.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={motionSlow}
-          >
-            <ActivityHeatmap data={heatmap} />
-          </m.div>
+        <div className="space-y-8">
+          <ActivityHeatmap data={heatmap} />
 
-          <m.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ...motionSlow, delay: 0.1 }}
-          >
-            <KpiGroup className="lg:grid-cols-3">
-              <Kpi
-                icon={IconGitPullRequest}
-                label="PRs Shipped"
-                value={impactStats.prsShipped}
-                currentValue={impactStats.prsShipped}
-                previousValue={
-                  "prevPrsShipped" in impactStats
-                    ? impactStats.prevPrsShipped
-                    : undefined
-                }
-              />
-              <Kpi
-                icon={IconPercentage}
-                label="Cook Rate"
-                value={`${impactStats.shipRate}%`}
-                subtitle={`${impactStats.tasksCompleted} of ${impactStats.tasksRan} settled tasks`}
-                currentValue={impactStats.shipRate}
-                previousValue={
-                  "prevShipRate" in impactStats
-                    ? impactStats.prevShipRate
-                    : undefined
-                }
-              />
-              <Kpi
-                icon={IconChecklist}
-                label="Tasks Completed"
-                value={impactStats.tasksCompleted}
-                currentValue={impactStats.tasksCompleted}
-                previousValue={
-                  "prevTasksCompleted" in impactStats
-                    ? impactStats.prevTasksCompleted
-                    : undefined
-                }
-              />
-            </KpiGroup>
-          </m.div>
+          <KpiGroup className="lg:grid-cols-3">
+            <Kpi
+              icon={IconGitPullRequest}
+              label="PRs Shipped"
+              value={impactStats.prsShipped}
+              currentValue={impactStats.prsShipped}
+              previousValue={
+                "prevPrsShipped" in impactStats
+                  ? impactStats.prevPrsShipped
+                  : undefined
+              }
+            />
+            <Kpi
+              icon={IconPercentage}
+              label="Cook Rate"
+              value={`${impactStats.shipRate}%`}
+              subtitle={`${impactStats.tasksCompleted} of ${impactStats.tasksRan} settled tasks`}
+              currentValue={impactStats.shipRate}
+              previousValue={
+                "prevShipRate" in impactStats
+                  ? impactStats.prevShipRate
+                  : undefined
+              }
+            />
+            <Kpi
+              icon={IconChecklist}
+              label="Tasks Completed"
+              value={impactStats.tasksCompleted}
+              currentValue={impactStats.tasksCompleted}
+              previousValue={
+                "prevTasksCompleted" in impactStats
+                  ? impactStats.prevTasksCompleted
+                  : undefined
+              }
+            />
+          </KpiGroup>
 
-          <m.div
-            className="grid grid-cols-1 gap-4 lg:grid-cols-3"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ...motionSlow, delay: 0.2 }}
-          >
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <PRsOverTimeChart timeline={timeline} />
             </div>
@@ -153,19 +135,14 @@ export function StatsClient() {
               totalSessions={impactStats.totalSessions}
               sessionsWithPr={impactStats.sessionsWithPr}
             />
-          </m.div>
+          </div>
 
-          <m.div
-            className="grid grid-cols-1 gap-4 lg:grid-cols-3"
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ ...motionSlow, delay: 0.35 }}
-          >
+          <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="lg:col-span-2">
               <ActivityTimelineChart timeline={timeline} />
             </div>
             <Leaderboard entries={leaderboard} />
-          </m.div>
+          </div>
         </div>
       )}
     </PageWrapper>

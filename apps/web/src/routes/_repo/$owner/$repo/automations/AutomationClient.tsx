@@ -8,12 +8,11 @@ import { CronScheduleCard } from "@/lib/components/CronScheduleCard";
 import {
   Button,
   Input,
+  Switch,
   Tabs,
-  TabsBar,
   TabsList,
   TabsTrigger,
   Textarea,
-  cn,
   ModelSelect,
   toast,
   Surface,
@@ -65,26 +64,15 @@ export function AutomationClient({
           <MarqueeOnHover className="min-w-0">
             {automation.title}
           </MarqueeOnHover>
-          <button
-            type="button"
-            onClick={() =>
-              updateAutomation({
-                id: automation._id,
-                enabled: !automation.enabled,
-              })
+          <Switch
+            checked={automation.enabled}
+            onCheckedChange={(enabled) =>
+              updateAutomation({ id: automation._id, enabled })
             }
-            className={cn(
-              "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
-              automation.enabled ? "bg-primary" : "bg-muted-foreground/30",
-            )}
-          >
-            <span
-              className={cn(
-                "pointer-events-none block h-5 w-5 rounded-full bg-white transition-transform",
-                automation.enabled ? "translate-x-5" : "translate-x-0",
-              )}
-            />
-          </button>
+            aria-label={
+              automation.enabled ? "Disable automation" : "Enable automation"
+            }
+          />
         </div>
       }
       headerRight={
@@ -114,13 +102,11 @@ export function AutomationClient({
             }
           }}
         >
-          <TabsBar className="px-0 pt-0">
-            <TabsList>
-              <TabsTrigger value="latest">Latest</TabsTrigger>
-              <TabsTrigger value="run-history">Run History</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
-            </TabsList>
-          </TabsBar>
+          <TabsList>
+            <TabsTrigger value="latest">Latest</TabsTrigger>
+            <TabsTrigger value="run-history">Run History</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
         </Tabs>
 
         {activeTab === "latest" && (

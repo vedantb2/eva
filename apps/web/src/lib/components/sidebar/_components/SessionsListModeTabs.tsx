@@ -22,6 +22,7 @@ export function SessionsListModeTabs({
       onValueChange={(value) => {
         if (isSessionListMode(value)) onChange(value);
       }}
+      className="w-full"
     >
       <TabsList className="tabs-segmented h-8 w-full">
         <TabsTrigger value="active" className="flex-1 px-2.5 py-1 text-xs">

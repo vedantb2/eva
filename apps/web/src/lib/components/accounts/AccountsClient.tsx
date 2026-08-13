@@ -81,7 +81,7 @@ export function AccountsClient() {
             description="Add one to run agents on your own credentials instead of the team's."
           />
         ) : (
-          <div className="divide-y divide-border">
+          <div className="divide-y divide-border/50">
             {accounts.map((account) => (
               <div
                 key={account._id}

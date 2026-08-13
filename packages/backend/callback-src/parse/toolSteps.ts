@@ -583,7 +583,7 @@ export function getCodexThreadId(event: JsonObject): string {
 }
 
 export function getCodexAgentMessageText(item: JsonObject): string {
-  if (item.type !== "agent_message") {
+  if (item.type !== "agent_message" && item.type !== "agentMessage") {
     return "";
   }
   if (typeof item.text === "string" && item.text) {
@@ -652,7 +652,7 @@ export function codexItemToStep(item: JsonObject): ProgressStep {
     });
   }
 
-  if (normalizedType === "mcp_tool_call") {
+  if (normalizedType === "mcp_tool_call" || normalizedType === "mcptoolcall") {
     if (normalizedDescription.includes("fetch_file")) {
       return withId({
         type: "read",
@@ -754,7 +754,7 @@ export function codexItemToStep(item: JsonObject): ProgressStep {
       status: "active",
     });
   }
-  if (normalizedType.includes("agent")) {
+  if (normalizedType.includes("agent") || normalizedType === "collabtoolcall") {
     return withId({
       type: "subtask",
       label: "Running agent...",

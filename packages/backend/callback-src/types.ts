@@ -104,10 +104,9 @@ export type CliAttemptOptions = {
   attemptLabel: string;
   startupStep: StartupStep;
   onStart?: () => void;
-  onStdoutText?: (text: string) => void;
 };
 
-export type CliAttemptResult = {
+export type ProviderAttemptResult = {
   code: number;
   terminatedBySignal: boolean;
   output: string;

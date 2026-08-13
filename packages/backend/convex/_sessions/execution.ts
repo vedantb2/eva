@@ -9,6 +9,7 @@ import {
   normalizeAIModel,
   reasoningLevelValidator,
   sessionModeValidator,
+  usesChatDaemon,
 } from "../validators";
 import { trackSessionWorkflow } from "../workflowWatchdog";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
@@ -141,11 +142,10 @@ export const startExecute = authMutation({
       numDesigns: args.numDesigns,
     });
 
-    // Claude uses daemon-pull (`pendingTurn` + claimPendingTurn). Cursor/Codex/
-    // Opencode are one-shot launch — staging pendingTurn for them only feeds a
-    // leftover Claude daemon mismatch-spam while launchOnExistingSandbox runs.
+    // One-shot providers receive the prompt in their launch payload; persistent
+    // chat providers atomically stage it for their sandbox-local daemon.
     const normalizedModel = normalizeAIModel(args.model);
-    const usesDaemonPull = getAIModelProvider(normalizedModel) === "claude";
+    const usesDaemonPull = usesChatDaemon(normalizedModel);
     const pendingTurn = usesDaemonPull
       ? {
           prompt,
@@ -178,9 +178,7 @@ export const startExecute = authMutation({
     });
     await syncSessionDaemonState(ctx, session, { pendingTurn });
 
-    // Ensure a Claude daemon exists to claim the staged prompt. Skip for
-    // one-shot providers (prewarmSessionDaemon already no-ops, but scheduling
-    // still races a warm Sonnet daemon against Cursor launches).
+    // Ensure the provider's chat daemon exists to claim the staged prompt.
     if (usesDaemonPull && session.sandboxId) {
       await ctx.scheduler.runAfter(0, internal.sandbox.prewarmSessionDaemon, {
         sandboxId: session.sandboxId,
@@ -227,9 +225,9 @@ export const startExecute = authMutation({
 });
 
 /**
- * Fired when a session page opens: boot the Claude daemon ahead of the user's
+ * Fired when a session page opens: boot its chat daemon ahead of the user's
  * first message so that message is warm instead of paying a ~20s cold respawn.
- * No-op unless the session already has a sandbox (Claude warm-daemon path).
+ * No-op unless the session already has a sandbox and uses a daemon provider.
  * Best-effort and cheap to call repeatedly (the action skips if already warm).
  */
 export const prewarmDaemon = authMutation({
@@ -351,10 +349,9 @@ export const enqueueMessage = authMutation({
 
 /**
  * Cancels the active session workflow and starts queued messages. For a
- * Claude daemon turn, sets `cancelRequestedAt` so the warm daemon interrupts
- * its own in-flight SDK query on its next `claimPendingTurn` poll, instead of
- * killing the sandbox process — Cursor/Codex/Opencode have no daemon to
- * observe the flag, so they keep the pkill-style kill.
+ * daemon-backed turn, sets `cancelRequestedAt` so the warm provider process
+ * interrupts its own in-flight turn on its next `claimPendingTurn` poll.
+ * One-shot providers retain the process-kill path.
  */
 export const cancelExecution = authMutation({
   args: {
@@ -375,7 +372,7 @@ export const cancelExecution = authMutation({
 
     await cancelTrackedWorkflow(ctx, workflowIdToCancel);
 
-    if (getAIModelProvider(normalizeAIModel(session.lastModel)) === "claude") {
+    if (usesChatDaemon(normalizeAIModel(session.lastModel))) {
       const cancelRequestedAt = Date.now();
       await ctx.db.patch(args.sessionId, { cancelRequestedAt });
       await syncSessionDaemonState(ctx, session, { cancelRequestedAt });

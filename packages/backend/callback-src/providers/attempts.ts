@@ -1,11 +1,4 @@
-import {
-  CODEX_RUNTIME_HOME_DIR,
-  PROVIDER,
-  codexExecBaseCmd,
-  codexPromptCmd,
-  opencodeExecBaseCmd,
-  opencodePromptCmd,
-} from "../config.js";
+import { PROVIDER, opencodeExecBaseCmd, opencodePromptCmd } from "../config.js";
 import {
   prepareClaudeSessionState,
   syncClaudeStateToPersist,
@@ -22,8 +15,8 @@ import {
   prepareCursorSessionState,
   syncCursorStateToPersist,
 } from "../session/cursorSession.js";
-import { codexAdapter } from "./codex.js";
 import { runClaudeSdkAttempt } from "./claudeSdk.js";
+import { runCodexSdkAttempt } from "./codexSdk.js";
 import { runCursorSdkAttempt } from "./cursorSdk.js";
 import { runCliAttempt } from "../runtime/cliAttempt.js";
 import type { SessionMode } from "../types.js";
@@ -61,25 +54,7 @@ async function runClaudeAttempt(sessionMode: SessionMode) {
 }
 
 async function runCodexAttempt(sessionMode: SessionMode) {
-  const sessionArg =
-    sessionMode.mode === "resume" && sessionMode.sessionId
-      ? " resume " + JSON.stringify(sessionMode.sessionId)
-      : "";
-  const cmd = codexPromptCmd + " | " + codexExecBaseCmd + sessionArg + " -";
-  return await runCliAttempt({
-    cmd,
-    env: { ...process.env, CODEX_HOME: CODEX_RUNTIME_HOME_DIR },
-    processLabel: "codex",
-    attemptLabel: "runCodexAttempt",
-    startupStep: {
-      label: "Starting Codex CLI...",
-      detail:
-        sessionMode.mode === "resume"
-          ? "Restoring saved context..."
-          : "Launching Codex process...",
-    },
-    onStdoutText: codexAdapter.onStdoutText,
-  });
+  return await runCodexSdkAttempt(sessionMode);
 }
 
 async function runOpencodeAttempt(sessionMode: SessionMode) {

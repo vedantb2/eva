@@ -39,7 +39,11 @@ import {
   syncCursorStateToPersist,
   writeCursorSessionState,
 } from "../session/cursorSession.js";
-import type { CliAttemptResult, JsonValue, SessionMode } from "../types.js";
+import type {
+  JsonValue,
+  ProviderAttemptResult,
+  SessionMode,
+} from "../types.js";
 import { log } from "../utils.js";
 import { globalNpmRoot, type JsonLike } from "./claudeSdk.js";
 
@@ -334,7 +338,7 @@ function readUsageTokens(
  */
 export async function runCursorSdkAttempt(
   sessionMode: SessionMode,
-): Promise<CliAttemptResult> {
+): Promise<ProviderAttemptResult> {
   resetAttemptState();
   S.activeAttemptStartedAt = Date.now();
   updateThinkingStep(

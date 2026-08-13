@@ -5,8 +5,8 @@ import type { Id } from "../_generated/dataModel";
 import { authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
-  getAIModelProvider,
   normalizeAIModel,
+  usesChatDaemon,
 } from "../validators";
 import { backgroundAgentEntryValidator } from "../_validators/tableFields";
 import { mergeBackgroundAgents } from "../_sessions/backgroundAgents";
@@ -293,7 +293,7 @@ export const ensurePendingTurn = internalMutation({
     if (!project || project.pendingTurn) return null;
     if (
       args.model !== undefined &&
-      getAIModelProvider(normalizeAIModel(args.model)) !== "claude"
+      !usesChatDaemon(normalizeAIModel(args.model))
     ) {
       return null;
     }

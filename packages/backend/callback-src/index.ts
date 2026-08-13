@@ -24,6 +24,7 @@ import {
   hasMcpConfig,
 } from "./config.js";
 import { runSdkDaemon } from "./providers/claudeSdkDaemon.js";
+import { runCodexAppServerDaemon } from "./providers/codexAppServerDaemon.js";
 import { fetchWithTimeout, callConvexWithRetry } from "./http/convexClient.js";
 import { callbackState as S } from "./runtime/state.js";
 import { persistTurnWork } from "./runtime/turnPersist.js";
@@ -74,9 +75,9 @@ try {
 }
 
 // Bias the kernel OOM killer away from this callback. If the sandbox runs out
-// of memory during a heavy tool step (e.g. `npx tsc`), the CLI subtree should
+// of memory during a heavy tool step (e.g. `npx tsc`), the agent subtree should
 // die — not the process responsible for heartbeats and failure reporting.
-// Lowering our own score requires privilege, so this is best-effort; the CLI
+// Lowering our own score requires privilege, so this is best-effort; a spawned
 // child's score is raised at spawn time in cliAttempt.ts as the portable half.
 try {
   writeFileSync("/proc/self/oom_score_adj", "-600");
@@ -86,15 +87,19 @@ try {
 
 S.lastStepType = "thinking";
 
-// Before either provider path starts — the CLI scans `.agents/skills` on
+// Before either provider path starts — the agent scans `.agents/skills` on
 // startup, so installed Eva skills must already be on disk.
 materializeSystemSkills();
 
-// Persistent warm-session daemon (Claude chat entities with CLAIM_MUTATION).
-// Job runs (tasks / automations / arena) omit CLAIM_MUTATION and use one-shot
-// SDK below. Keeps one warm query() across turns instead of respawning per turn.
-if (PROVIDER === "claude" && CLAIM_MUTATION) {
-  await runSdkDaemon();
+// Interactive chats keep one provider process warm and claim staged turns.
+// Jobs (tasks / automations / arena) omit CLAIM_MUTATION and stay one-shot.
+if (CLAIM_MUTATION) {
+  if (PROVIDER === "claude") {
+    await runSdkDaemon();
+  }
+  if (PROVIDER === "codex") {
+    await runCodexAppServerDaemon();
+  }
 }
 
 const preflightOk = await runPreflightHeartbeat();
@@ -388,13 +393,12 @@ try {
         ? err.message
         : "Failed to run " +
             (PROVIDER === "codex"
-              ? "Codex"
+              ? "Codex SDK"
               : PROVIDER === "opencode"
-                ? "Opencode"
+                ? "Opencode CLI"
                 : PROVIDER === "cursor"
-                  ? "Cursor"
-                  : "Claude") +
-            " CLI",
+                  ? "Cursor CLI"
+                  : "Claude CLI"),
     ),
     activityLog: serializeSteps(S.accumulatedSteps),
   };

@@ -7,7 +7,15 @@ import {
   normalizeAIModel,
   resolveTraitsForDisplay,
   storedTraitsFromRepoDefaults,
+  usesChatDaemon,
 } from "../convex/_validators/aiModels";
+
+test("interactive Claude and Codex models use persistent chat daemons", () => {
+  expect(usesChatDaemon("claude:sonnet")).toBe(true);
+  expect(usesChatDaemon("codex:gpt-5.6-sol")).toBe(true);
+  expect(usesChatDaemon("cursor:gpt-5.5")).toBe(false);
+  expect(usesChatDaemon("opencode:openai/gpt-5.4")).toBe(false);
+});
 
 test("cursor base models expose reasoning traits for the composer menu", () => {
   expect(modelHasTraits("cursor:grok-4.6")).toBe(true);

@@ -201,6 +201,7 @@ export const search = authQuery({
       if (query.length > 0 && repoPagesAdded < 8) {
         for (const page of REPO_PAGES) {
           if (simpleView && page.path === "/reviews") continue;
+          if (simpleView && page.path === "/automations") continue;
           const pagePath =
             simpleView && page.path === "/settings/config"
               ? "/settings/skills"
@@ -348,20 +349,22 @@ export const search = authQuery({
             );
           }
 
-          for (const automation of filterActiveEntities(automations)) {
-            if (automation.numId === undefined) continue;
-            if (!matchesQuery(automation.title, query)) continue;
-            pushHit(
-              hits,
-              {
-                type: "automation",
-                title: automation.title,
-                subtitle: label,
-                href: `${base}/automations/${automation.numId}`,
-                rank: rankMatch(automation.title, query) + 20,
-              },
-              limit,
-            );
+          if (!simpleView) {
+            for (const automation of filterActiveEntities(automations)) {
+              if (automation.numId === undefined) continue;
+              if (!matchesQuery(automation.title, query)) continue;
+              pushHit(
+                hits,
+                {
+                  type: "automation",
+                  title: automation.title,
+                  subtitle: label,
+                  href: `${base}/automations/${automation.numId}`,
+                  rank: rankMatch(automation.title, query) + 20,
+                },
+                limit,
+              );
+            }
           }
         }),
       );

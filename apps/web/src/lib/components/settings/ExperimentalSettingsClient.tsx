@@ -102,7 +102,7 @@ export function ExperimentalSettingsClient() {
         />
         <SettingsToggleRow
           title="Simple view"
-          description="Hide reviews, diffs, context usage, sandbox Files / Console / Editor / Computer, and repo settings for Repository, Monorepo, App, Tabs, Env, and Snapshots. Chat plus Preview, Browser, Plan, and Designs."
+          description="Hide reviews, diffs, context usage, automations, sandbox Files / Console / Editor / Computer / New Preview, repo settings for Repository through Logs, and global Sandboxes / Sync. Chat plus Preview, Browser, Plan, and Designs."
           action={
             <Switch
               checked={flags.simpleView === true}

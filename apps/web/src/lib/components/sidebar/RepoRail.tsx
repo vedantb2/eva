@@ -35,6 +35,7 @@ import { railTileActiveClass } from "@/lib/components/sidebar/SharedLayoutNav";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { isHomePath } from "@/lib/components/sidebar/homePaths";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 import { repoHref } from "@/lib/utils/repoUrl";
 import { repoTileColor } from "@/lib/utils/repoTileColor";
 import {
@@ -170,6 +171,7 @@ function RepoRailView({
 }: RepoRailViewProps) {
   const { collapsed, setCollapsed, setSessionsNavMode } = useSidebar();
   const { openSearch } = useSearch();
+  const simpleView = useSimpleView();
   // The Eva tile owns the home panel (Codebases / Teams / Artifacts),
   // so it stays lit on any of those routes.
   const homeActive =
@@ -354,6 +356,7 @@ function RepoRailView({
         />
       ) : null}
       <div className="flex w-full flex-col items-center gap-1.5 border-t border-sidebar-border py-3">
+        {simpleView ? null : (
         <Tooltip>
           <TooltipTrigger asChild>
             <Link
@@ -374,6 +377,7 @@ function RepoRailView({
           </TooltipTrigger>
           <TooltipContent side="right">Automations</TooltipContent>
         </Tooltip>
+        )}
         <Tooltip>
           <TooltipTrigger asChild>
             <button

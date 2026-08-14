@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Navigate } from "@tanstack/react-router";
 import { IconPlayerPlay } from "@tabler/icons-react";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 export const Route = createFileRoute("/_global/automations")({
   staticData: { title: "Automations" },
@@ -9,6 +10,11 @@ export const Route = createFileRoute("/_global/automations")({
 
 /** Landing for the rail Automations entry — pick an automation from the sidebar. */
 function AutomationsGlobalPage() {
+  const simpleView = useSimpleView();
+  if (simpleView) {
+    return <Navigate to="/home" replace />;
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-6">
       <EmptyState

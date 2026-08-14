@@ -230,7 +230,7 @@ export function Sidebar() {
   const isRepoAutomationsPath =
     isRepoRoute && pathParts.includes("automations");
   const showGlobalAutomationsPanel =
-    isGlobalAutomationsLanding || isRepoAutomationsPath;
+    !simpleView && (isGlobalAutomationsLanding || isRepoAutomationsPath);
   const showHomePanel = isHomePath(pathname);
   const showGlobalSettingsPanel =
     isGlobalSettingsPath(pathname) ||

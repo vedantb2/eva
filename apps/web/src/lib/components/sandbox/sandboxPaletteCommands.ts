@@ -135,16 +135,15 @@ export function buildSandboxPaletteCommands({
     });
   }
 
-  commands.push({
-    id: "new-preview",
-    label: "New Preview",
-    keywords: "create add browser port",
-    icon: IconWorld,
-    run: onNewPreview,
-    disabled: newPreviewDisabled,
-  });
-
   if (!simpleView) {
+    commands.push({
+      id: "new-preview",
+      label: "New Preview",
+      keywords: "create add browser port",
+      icon: IconWorld,
+      run: onNewPreview,
+      disabled: newPreviewDisabled,
+    });
     commands.push(
       {
         id: "toggle-console",

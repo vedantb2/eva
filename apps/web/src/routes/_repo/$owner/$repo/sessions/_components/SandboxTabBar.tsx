@@ -365,6 +365,7 @@ export function SandboxTabBar({
         </TabsList>
       </Tabs>
       {/* Outside Tabs so the menu isn't part of Radix tab focus/value sync. */}
+      {simpleView ? null : (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
@@ -413,6 +414,7 @@ export function SandboxTabBar({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      )}
       {simpleView ? null : (
       <Tooltip>
         <TooltipTrigger asChild>

@@ -15,7 +15,7 @@ import {
 } from "@eva/backend";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
-import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
+import { SandboxChatHeaderActions } from "@/lib/components/sandbox/SandboxStartStopButton";
 import { BackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
@@ -26,18 +26,22 @@ import {
 interface TaskSandboxChatPanelProps {
   taskId: Id<"agentTasks">;
   isSandboxActive: boolean;
+  isSandboxToggling?: boolean;
   /** Opens the Files tab and loads this sandbox path in the file viewer. */
   onOpenFile?: (path: string) => void;
   sandboxCollapsed?: boolean;
   onToggleSandbox?: () => void;
+  onSandboxToggle?: (action: "start" | "stop") => void;
 }
 
 export function TaskSandboxChatPanel({
   taskId,
   isSandboxActive,
+  isSandboxToggling = false,
   onOpenFile,
   sandboxCollapsed,
   onToggleSandbox,
+  onSandboxToggle,
 }: TaskSandboxChatPanelProps) {
   const { repo, basePath } = useRepo();
   const task = useQuery(api.agentTasks.get, { id: taskId });
@@ -222,14 +226,13 @@ export function TaskSandboxChatPanel({
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
-      {onToggleSandbox ? (
-        <div className="flex shrink-0 items-center justify-end px-2 py-1">
-          <SandboxPanelToggleButton
-            collapsed={sandboxCollapsed === true}
-            onToggle={onToggleSandbox}
-          />
-        </div>
-      ) : null}
+      <SandboxChatHeaderActions
+        isSandboxActive={isSandboxActive}
+        isSandboxToggling={isSandboxToggling}
+        onSandboxToggle={onSandboxToggle}
+        sandboxCollapsed={sandboxCollapsed}
+        onToggleSandbox={onToggleSandbox}
+      />
       <ChatBody
         repoId={repo._id}
         repoBasePath={basePath}

@@ -249,9 +249,18 @@ export function TaskDetailInline({
             <TaskSandboxChatPanel
               taskId={taskId}
               isSandboxActive={isSandboxActive}
+              isSandboxToggling={isSandboxStarting || isSandboxStopping}
               onOpenFile={openFile}
               sandboxCollapsed={rightPanelCollapsed}
               onToggleSandbox={onToggleRightPanel}
+              onSandboxToggle={
+                canStartSandbox || isSandboxActive
+                  ? (action) => {
+                      if (action === "start") void handleStartSandbox();
+                      else void handleStopSandbox();
+                    }
+                  : undefined
+              }
             />
           )}
           rightPanel={sandboxRightPanel(panes, owner, terminalPanel)}

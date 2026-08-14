@@ -7,7 +7,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Spinner,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -17,14 +16,13 @@ import {
   IconDots,
   IconEye,
   IconGitPullRequest,
-  IconPlayerPlay,
-  IconPlayerStop,
   IconSparkles,
 } from "@tabler/icons-react";
 import type { Id } from "@eva/backend";
 import { EntityContextUsage } from "@/lib/components/context-usage";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
+import { SandboxStartStopButton } from "@/lib/components/sandbox/SandboxStartStopButton";
 import { SessionSwitcher } from "./SessionSwitcher";
 import { prStateIconClass } from "../_utils/-prStateIconClass";
 
@@ -74,22 +72,11 @@ export function SessionChatHeader({
   const headerRight = (
     <>
       <EntityContextUsage repoId={repoId} entityId={sessionId} />
-      <Button
-        size="icon-sm"
-        variant={isSandboxActive ? "destructive" : "secondary"}
-        onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
-        disabled={isSandboxToggling}
-        className={isSandboxActive ? undefined : "text-success"}
-        aria-label={isSandboxActive ? "Stop sandbox" : "Start sandbox"}
-      >
-        {isSandboxToggling ? (
-          <Spinner size="sm" />
-        ) : isSandboxActive ? (
-          <IconPlayerStop className="w-4 h-4" />
-        ) : (
-          <IconPlayerPlay className="w-4 h-4" />
-        )}
-      </Button>
+      <SandboxStartStopButton
+        isActive={isSandboxActive}
+        isToggling={isSandboxToggling}
+        onToggle={onSandboxToggle}
+      />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button

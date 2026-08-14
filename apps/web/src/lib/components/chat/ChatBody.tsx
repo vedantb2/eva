@@ -28,6 +28,7 @@ import {
   buildMessageHistory,
   findLastUserMessageIndex,
   findLastAssistantMessageId,
+  findStreamingTargetMessage,
   findPrecedingUserTurn,
   firstNameFromUser,
   isOtherUserChatMessage,
@@ -172,24 +173,11 @@ export function ChatBody({
 }: ChatBodyProps) {
   const lastMessage = messages[messages.length - 1];
   const lastMessageId = lastMessage?._id;
-  // Prefer the unfinished Working bubble over a newer system alert so streamed
-  // tokens / pending questions stay attached to the live turn.
-  const activeAssistantTurn = (() => {
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const message = messages[i];
-      if (!message || message.isSystemAlert) continue;
-      if (
-        message.role === "assistant" &&
-        !message.content &&
-        message.finishedAt === undefined
-      ) {
-        return message;
-      }
-      return undefined;
-    }
-    return undefined;
-  })();
-  const activeAssistantTurnId = activeAssistantTurn?._id;
+  // The oldest unfinished Working bubble owns the session-scoped streaming
+  // row — turns run FIFO, so a newer queued placeholder must not steal a
+  // still-streaming older turn's tokens (see findStreamingTargetMessage).
+  const streamingTarget = findStreamingTargetMessage(messages);
+  const streamingTargetId = streamingTarget?._id;
   const latestAssistantMessageId = findLastAssistantMessageId(messages);
   const { expandedByMessageId, setMessageExpanded } =
     useChangedFilesExpansion(conversationId);
@@ -202,7 +190,7 @@ export function ChatBody({
   const [isAnsweringQuestion, setIsAnsweringQuestion] = useState(false);
   const pendingQuestionRaw =
     streamingPendingQuestion ??
-    activeAssistantTurn?.pendingQuestion ??
+    streamingTarget?.pendingQuestion ??
     lastMessage?.pendingQuestion;
   const questionDismissed =
     pendingQuestionRaw !== undefined &&
@@ -217,16 +205,11 @@ export function ChatBody({
   const blockingQuestions = blockingQuestion
     ? parsePendingQuestion(blockingQuestion.payload)
     : null;
-  // The blocking card is normally hosted by the streaming placeholder message.
-  // If that placeholder is gone (run died, sandbox restarted) the unanswered
+  // The blocking card is normally hosted by the streaming target message.
+  // If no placeholder exists (run died, sandbox restarted) the unanswered
   // question would otherwise be unrenderable while still hiding the composer —
   // render it standalone so the user can always answer and unblock the chat.
-  const hasStreamingPlaceholder = messages.some(
-    (message) =>
-      message.role === "assistant" &&
-      !message.content &&
-      message.finishedAt === undefined,
-  );
+  const hasStreamingPlaceholder = streamingTargetId !== undefined;
 
   const handleQuestionAnswer = async (answer: string) => {
     if (pendingQuestionRaw) {
@@ -275,11 +258,7 @@ export function ChatBody({
 
   const renderMessage = (message: ChatBodyMessage) => {
     const isLast = message._id === lastMessageId;
-    const isActiveAssistantTurn = message._id === activeAssistantTurnId;
-    const isStreamingPlaceholder =
-      message.role === "assistant" &&
-      !message.content &&
-      message.finishedAt === undefined;
+    const isStreamingTarget = message._id === streamingTargetId;
     const isOtherUser = isOtherUserChatMessage(message, currentUserId);
     const senderFirstName =
       isOtherUser && message.userId
@@ -306,17 +285,13 @@ export function ChatBody({
         turnModel={precedingUser?.model}
         turnReasoningLevel={precedingUser?.reasoningLevel}
         turnCredentialSourceLabel={precedingUser?.credentialSourceLabel}
-        streamingActivity={
-          isStreamingPlaceholder ? streamingActivity : undefined
-        }
-        streamingContent={
-          isActiveAssistantTurn || isLast ? streamingContent : undefined
-        }
-        blockingQuestions={
-          isStreamingPlaceholder ? blockingQuestions : undefined
-        }
+        streamingActivity={isStreamingTarget ? streamingActivity : undefined}
+        streamingContent={isStreamingTarget ? streamingContent : undefined}
+        blockingQuestions={isStreamingTarget ? blockingQuestions : undefined}
         activePendingQuestion={
-          isStreamingPlaceholder || isActiveAssistantTurn || isLast
+          // The streaming target hosts live questions; a finished last message
+          // hosts its own saved question only while no turn is streaming.
+          isStreamingTarget || (isLast && streamingTargetId === undefined)
             ? activePendingQuestion
             : undefined
         }

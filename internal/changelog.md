@@ -1,5 +1,9 @@
 # Changelog
 
+## Streamed tokens stay on the turn that owns them - 2026-08-14
+
+A still-streaming turn's text jumped under the user's newer message, then vanished when the turn finalised (session 62: a `/loop` synthetic continuation was streaming when a queued message inserted its own placeholder — the old stream re-attached to the new bubble, "deleted" itself on finalise, and the real reply appeared above). Streaming state is one session-scoped row, and `ChatBody` attached it to the *newest* bubble (`isLast`); turns execute FIFO, so it now attaches to the *oldest* empty unfinished assistant bubble via `findStreamingTargetMessage`, handing over to the queued turn's placeholder only when the older turn finishes. Live activity, streamed content, and blocking/pending question cards all follow the same target (previously activity and question cards duplicated onto every placeholder); a finished last message still hosts its own saved question when nothing is streaming.
+
 ## Preview iframes survive session-tab switches - 2026-08-14
 
 Returning to a cached session tab reloaded the preview even though the shell keep-alive (last 3 sessions stay mounted, hidden) never unmounted the iframe: re-activation revalidates via `getPreviewUrl`, which mints a fresh `__eva_grant` on every call, so the full-URL dedupe in `useSandboxPreview` always saw a "new" URL and bumped `iframeKey` — remounting an iframe that was already authenticated via the proxy's 24h session cookie. Revalidation now compares grant-stripped targets (the underlying Vercel domain is stable per sandbox+port) and keeps both `iframeKey` and `previewInfo` untouched when the target is unchanged, so tab switches behave like switching Chrome tabs. The nav-bar refresh/retry button moves to a new `reloadPreview` that forgets the loaded target first, so a user-initiated refresh still always remounts with a fresh grant — also the recovery path if a proxy restart orphans the session cookie.

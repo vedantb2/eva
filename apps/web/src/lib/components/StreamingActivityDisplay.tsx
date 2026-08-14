@@ -1,12 +1,47 @@
+"use client";
+
 import type { ReactNode } from "react";
 import {
   ActivityTasks,
   Reasoning,
   ReasoningTrigger,
   CollapsibleContent,
+  Shimmer,
+  Spinner,
+  formatElapsed,
+  useElapsedSeconds,
 } from "@eva/ui";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import { formatDuration } from "@eva/shared/duration";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
+
+function SimpleViewActivityStatus({
+  isStreaming,
+  startedAt,
+  duration,
+}: {
+  isStreaming: boolean;
+  startedAt?: number;
+  duration?: string;
+}) {
+  const elapsed = useElapsedSeconds(startedAt, isStreaming);
+  if (isStreaming) {
+    return (
+      <div className="flex items-center gap-2 text-muted-foreground text-sm">
+        <Spinner size="sm" />
+        <Shimmer as="span" duration={2.5} spread={1.5}>
+          Working for {formatElapsed(elapsed)}
+        </Shimmer>
+      </div>
+    );
+  }
+  if (!duration) {
+    return null;
+  }
+  return (
+    <p className="text-muted-foreground text-sm">Worked for {duration}</p>
+  );
+}
 
 export function StreamingActivityDisplay({
   activity,
@@ -25,6 +60,16 @@ export function StreamingActivityDisplay({
   startedAt?: number;
   onOpenFile?: (path: string) => void;
 }) {
+  const simpleView = useSimpleView();
+  if (simpleView) {
+    return (
+      <SimpleViewActivityStatus
+        isStreaming={isStreaming}
+        startedAt={startedAt}
+      />
+    );
+  }
+
   const steps = parseActivitySteps(activity);
 
   return (
@@ -58,9 +103,21 @@ export function ActivityLogDisplay({
   finalText?: string;
   onOpenFile?: (path: string) => void;
 }) {
-  const steps = parseActivitySteps(activityLog);
+  const simpleView = useSimpleView();
   const duration =
     startedAt && finishedAt ? formatDuration(startedAt, finishedAt) : undefined;
+
+  if (simpleView) {
+    const trimmedLog = activityLog.trim();
+    if (trimmedLog === "" || trimmedLog === "[]") {
+      return null;
+    }
+    return (
+      <SimpleViewActivityStatus isStreaming={false} duration={duration} />
+    );
+  }
+
+  const steps = parseActivitySteps(activityLog);
 
   if (steps) {
     return (

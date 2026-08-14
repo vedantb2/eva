@@ -6,6 +6,7 @@ import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { useQueryState } from "nuqs";
 import { previewPortParser } from "@/lib/search-params";
+import { stripPreviewGrant } from "@/lib/utils/previewGrant";
 
 interface PreviewInfo {
   url: string;
@@ -17,7 +18,10 @@ export interface SandboxPreviewApi {
   isLoading: boolean;
   error: string | null;
   iframeKey: number;
+  /** Revalidates the URL; keeps the loaded iframe when the target is unchanged. */
   fetchPreview: () => Promise<void>;
+  /** User-initiated refresh: always remounts the iframe with a fresh URL. */
+  reloadPreview: () => Promise<void>;
   effectivePort: number;
   setPort: (next: number | null) => Promise<URLSearchParams>;
 }
@@ -122,11 +126,18 @@ export function useSandboxPreview({
       if (generation !== generationRef.current) return;
       if (data.ready) {
         if (generation !== generationRef.current) return;
-        if (loadedUrlRef.current !== data.url) {
-          loadedUrlRef.current = data.url;
+        // getPreviewUrl mints a fresh __eva_grant on every call, so raw URLs
+        // never compare equal. Compare grant-stripped targets instead: when
+        // the sandbox+port URL is unchanged, the loaded iframe is already
+        // authenticated via the proxy's 24h session cookie and must be kept —
+        // updating previewInfo here would rebuild iframeSrc and reload the
+        // app on every return to a cached session tab.
+        const target = stripPreviewGrant(data.url);
+        if (loadedUrlRef.current !== target) {
+          loadedUrlRef.current = target;
+          setPreviewInfo(data);
           setIframeKey((k) => k + 1);
         }
-        setPreviewInfo(data);
         setIsLoading(false);
       } else {
         pollingRef.current = setTimeout(() => {
@@ -138,6 +149,14 @@ export function useSandboxPreview({
       setError(err instanceof Error ? err.message : "Failed to load preview");
       setIsLoading(false);
     }
+  };
+
+  // The Preview nav-bar refresh button: forget the loaded target so the fetch
+  // always takes the remount path (fresh grant, new iframe). Also the recovery
+  // path when the in-sandbox proxy restarted and orphaned the session cookie.
+  const reloadPreview = async () => {
+    loadedUrlRef.current = null;
+    await fetchPreview();
   };
 
   useEffect(() => {
@@ -179,6 +198,7 @@ export function useSandboxPreview({
     error,
     iframeKey,
     fetchPreview,
+    reloadPreview,
     effectivePort,
     setPort,
   };

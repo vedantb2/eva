@@ -146,7 +146,7 @@ export function SandboxPaneSlots({
               isLoading={preview.isLoading}
               error={preview.error}
               iframeKey={preview.iframeKey}
-              onRefresh={preview.fetchPreview}
+              onRefresh={preview.reloadPreview}
               port={preview.effectivePort}
               onPortChange={preview.setPort}
               pathStorageKey={[

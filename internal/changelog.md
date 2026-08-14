@@ -1,5 +1,9 @@
 # Changelog
 
+## Preview iframes survive session-tab switches - 2026-08-14
+
+Returning to a cached session tab reloaded the preview even though the shell keep-alive (last 3 sessions stay mounted, hidden) never unmounted the iframe: re-activation revalidates via `getPreviewUrl`, which mints a fresh `__eva_grant` on every call, so the full-URL dedupe in `useSandboxPreview` always saw a "new" URL and bumped `iframeKey` — remounting an iframe that was already authenticated via the proxy's 24h session cookie. Revalidation now compares grant-stripped targets (the underlying Vercel domain is stable per sandbox+port) and keeps both `iframeKey` and `previewInfo` untouched when the target is unchanged, so tab switches behave like switching Chrome tabs. The nav-bar refresh/retry button moves to a new `reloadPreview` that forgets the loaded target first, so a user-initiated refresh still always remounts with a fresh grant — also the recovery path if a proxy restart orphans the session cookie.
+
 ## Preview proxy streams HTML instead of buffering it - 2026-08-14
 
 The in-sandbox preview proxy collected the entire HTML response before injecting the navigation-sync script, so upstream streaming never reached the browser: a Next.js app that flushes its static shell in ~0.5s showed nothing until the full render finished (TTFB = total, 10–16s on a heavy dashboard). Dev-server HTML now buffers only until `</head>`, injects there, and forwards every later byte as it arrives — TTFB is the shell flush again. Desktop (noVNC) and editor (code-server) proxies keep whole-document buffering because their rewrites must see the end of `<body>` (vnc_lite.html imports RFB there); documents with no `</head>` fall back to the old whole-document path. Verified with a harness that runs the real generated script against a streaming upstream (shell-first TTFB, split-tag injection, noVNC CDN rewrite intact); script version bumped to `stream-v15` so running proxies relaunch.

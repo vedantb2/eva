@@ -337,30 +337,37 @@ export const ChatMessage = memo(function ChatMessage({
                   </>
                 )}
               </MessageContent>
-              <div className="mt-0.5 flex items-center gap-2">
-                {turnModel ? (
-                  <MessageModelIcon
-                    model={turnModel}
-                    reasoningLevel={turnReasoningLevel}
-                    credentialSourceLabel={turnCredentialSourceLabel}
-                  />
-                ) : null}
-                {copyPlain ? (
-                  <div className="flex items-center gap-2 opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover:opacity-100 focus-within:opacity-100">
-                    <ChatMessageActions
-                      copyText={copyPlain}
-                      className="ml-0.5"
-                      revealOnHover={false}
+              {turnModel || copyPlain ? (
+                <div
+                  className="mt-0.5 flex items-center gap-2 opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover:opacity-100 focus-within:opacity-100"
+                >
+                  {turnModel ? (
+                    <MessageModelIcon
+                      model={turnModel}
+                      reasoningLevel={turnReasoningLevel}
+                      credentialSourceLabel={turnCredentialSourceLabel}
                     />
-                    {message.finishedAt && message.timestamp ? (
-                      <span className="text-[11px] tabular-nums text-muted-foreground/60">
-                        {dayjs(message.timestamp).format("h:mm A")} ·{" "}
-                        {formatDuration(message.timestamp, message.finishedAt)}
-                      </span>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
+                  ) : null}
+                  {copyPlain ? (
+                    <>
+                      <ChatMessageActions
+                        copyText={copyPlain}
+                        className="ml-0.5"
+                        revealOnHover={false}
+                      />
+                      {message.finishedAt && message.timestamp ? (
+                        <span className="text-[11px] tabular-nums text-muted-foreground/60">
+                          {dayjs(message.timestamp).format("h:mm A")} ·{" "}
+                          {formatDuration(
+                            message.timestamp,
+                            message.finishedAt,
+                          )}
+                        </span>
+                      ) : null}
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
             </>
           )}
         </AIMessage>

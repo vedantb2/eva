@@ -1,7 +1,7 @@
 "use client";
 
 import { Link, useLocation } from "@tanstack/react-router";
-import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
+import { useShortcut } from "@/lib/hotkeys/useShortcut";
 import { decodeRepoParam, KNOWN_REPO_SUB_PAGES } from "@/lib/utils/repoUrl";
 import { useUser } from "@clerk/clerk-react";
 import { lazy, Suspense, useEffect, useState } from "react";
@@ -41,10 +41,11 @@ import {
 } from "@/lib/components/sidebar/homePaths";
 import { useChromeSessionTabsActive } from "@/lib/components/sidebar/session-tabs/useChromeSessionTabs";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
-import { useThemeContext } from "@/lib/contexts/ThemeContext";
+import { useThemeContext } from "@/lib/contexts/useThemeContext";
 import { usePageTitle } from "@/lib/contexts/PageTitleContext";
 import { usePersistedScrollParent } from "@/lib/hooks/usePersistedScrollParent";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
 
 const KNOWN_SUB_PAGES = KNOWN_REPO_SUB_PAGES;
@@ -133,8 +134,13 @@ export function Sidebar() {
     e.preventDefault();
     setCollapsed(!collapsed);
   });
-  const [contextSidebarMode, setContextSidebarMode] =
+  const simpleView = useSimpleView();
+  const [storedContextSidebarMode, setContextSidebarMode] =
     useState<ContextSidebarMode>(() => getInitialContextSidebarMode(pathname));
+  const contextSidebarMode =
+    simpleView && storedContextSidebarMode === "reviews"
+      ? "main"
+      : storedContextSidebarMode;
 
   // Sidebar now persists across sections, so re-derive the context sidebar mode on navigation.
   useEffect(() => {

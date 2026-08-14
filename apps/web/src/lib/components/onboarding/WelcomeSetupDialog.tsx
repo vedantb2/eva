@@ -18,13 +18,13 @@ import {
   TooltipTrigger,
 } from "@eva/ui";
 import { LogoMark } from "@/lib/components/LogoMark";
-import {
-  useThemeContext,
-  resolveCustomTheme,
-  type AccentColor,
-  type FontFamily,
-  type LetterSpacing,
-  type RadiusSize,
+import { useThemeContext } from "@/lib/contexts/useThemeContext";
+import { resolveCustomTheme } from "@/lib/contexts/themeTokens";
+import type {
+  AccentColor,
+  FontFamily,
+  LetterSpacing,
+  RadiusSize,
 } from "@/lib/contexts/ThemeContext";
 import { type ThemeMode } from "@/lib/hooks/useThemeMode";
 import type { RolePresetKey } from "@/lib/components/personalisation/RolePresetPicker";

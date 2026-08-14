@@ -3,7 +3,7 @@
 import {
   FONT_FAMILIES,
   LETTER_SPACING_VALUES,
-} from "@/lib/contexts/ThemeContext";
+} from "@/lib/contexts/themeTokens";
 import type {
   RadiusSize,
   FontFamily,

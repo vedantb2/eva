@@ -2,7 +2,6 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
-  ConvexReactClient,
   useConvexAuth,
   useMutation,
   AuthLoading,
@@ -22,15 +21,9 @@ import { ThemeProvider } from "../contexts/ThemeContext";
 import { TooltipProvider } from "@eva/ui";
 import { AuthLoadingScreen } from "./AuthLoadingScreen";
 import { WelcomeSetupDialog } from "./onboarding/WelcomeSetupDialog";
-import { clientEnv } from "@/env/client";
+import { convex } from "@/lib/convex";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-
-if (!clientEnv.VITE_CONVEX_URL) {
-  throw new Error("Missing VITE_CONVEX_URL in your .env file");
-}
-
-export const convex = new ConvexReactClient(clientEnv.VITE_CONVEX_URL);
 
 // Tracks whether the user has been signed in during this page session.
 // Used by useStableAuth to detect unexpected auth loss (stale deployment).

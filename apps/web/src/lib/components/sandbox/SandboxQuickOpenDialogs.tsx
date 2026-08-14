@@ -24,7 +24,7 @@ import { fileViewerPathParser } from "@/lib/search-params";
 import {
   useShortcut,
   useShortcutBinding,
-} from "@/lib/hotkeys/ShortcutsContext";
+} from "@/lib/hotkeys/useShortcut";
 import type { SandboxFileListApi } from "./useSandboxFileList";
 import {
   rankSandboxFiles,

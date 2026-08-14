@@ -32,7 +32,7 @@ import {
   IconSparkles,
   IconCheck,
 } from "@tabler/icons-react";
-import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
+import { useShortcut } from "@/lib/hotkeys/useShortcut";
 import { ShortcutKbd } from "@/lib/components/ui/Kbd";
 import type { MarkdownEditorHandle } from "@/lib/components/tasks/_components/MarkdownEditor";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";

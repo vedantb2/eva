@@ -2,10 +2,8 @@
 
 import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
-import {
-  useThemeContext,
-  resolveCustomTheme,
-} from "@/lib/contexts/ThemeContext";
+import { useThemeContext } from "@/lib/contexts/useThemeContext";
+import { resolveCustomTheme } from "@/lib/contexts/themeTokens";
 import type {
   AccentColor,
   CustomTheme,

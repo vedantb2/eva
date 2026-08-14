@@ -27,6 +27,7 @@ import {
   contextSidebarModeForNav,
   type ContextSidebarMode,
 } from "@/lib/components/sidebar/contextSidebarModes";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 type RepoDoc = FunctionReturnType<typeof api.githubRepos.getByOwnerAndName>;
 
@@ -72,6 +73,7 @@ export function RepoNavSections({
   onNavigate,
 }: RepoNavSectionsProps) {
   const isDev = import.meta.env.DEV;
+  const simpleView = useSimpleView();
 
   const repoNavigation = (() => {
     const allGroups: RepoMainNavGroup[] = [
@@ -98,11 +100,15 @@ export function RepoNavSections({
             href: `${repoBasePath}/docs`,
             icon: DocumentsIcon,
           },
-          {
-            name: "Reviews",
-            href: `${repoBasePath}/reviews`,
-            icon: ReviewsIcon,
-          },
+          ...(simpleView
+            ? []
+            : [
+                {
+                  name: "Reviews",
+                  href: `${repoBasePath}/reviews`,
+                  icon: ReviewsIcon,
+                } satisfies RepoMainNavItem,
+              ]),
           {
             name: "Testing Arena",
             href: `${repoBasePath}/testing-arena`,
@@ -120,7 +126,9 @@ export function RepoNavSections({
           },
           {
             name: "Settings",
-            href: `${repoBasePath}/settings/config`,
+            href: simpleView
+              ? `${repoBasePath}/settings/skills`
+              : `${repoBasePath}/settings/config`,
             icon: SettingsIcon,
           },
         ],
@@ -139,7 +147,10 @@ export function RepoNavSections({
     sidebarNavLinkClass(isActive, collapsed);
 
   const renderRepoNavItem = (item: RepoMainNavItem) => {
-    const isActive = pathname.startsWith(item.href);
+    const isActive =
+      item.name === "Settings"
+        ? pathname.startsWith(`${repoBasePath}/settings`)
+        : pathname.startsWith(item.href);
     const contextMode = contextSidebarModeForNav(item.name);
 
     if (contextMode && !collapsed) {

@@ -25,6 +25,10 @@ import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace
 import { SandboxQuickOpenDialogs } from "@/lib/components/sandbox/SandboxQuickOpenDialogs";
 import { buildSandboxPaletteCommands } from "@/lib/components/sandbox/sandboxPaletteCommands";
 import {
+  isSimpleViewHiddenSandboxTab,
+  useSimpleView,
+} from "@/lib/hooks/useSimpleView";
+import {
   Tabs,
   TabsList,
   TabsTrigger,
@@ -163,27 +167,36 @@ export function SandboxTabBar({
   consoleDock,
   terminalPanel,
 }: SandboxTabBarProps) {
+  const simpleView = useSimpleView();
   const styles = getSandboxTabBarStyles(compact ? "compact" : tabSize);
   const tabs = enabledTabs
     ? allTabs.filter((tab) => enabledTabs.includes(tab.value))
     : allTabs.filter((tab) => tab.value !== "browser");
-  const showDesktopItem = !enabledTabs || enabledTabs.includes("computer");
-  const showEditorItem = !enabledTabs || enabledTabs.includes("editor");
+  const showDesktopItem =
+    !simpleView && (!enabledTabs || enabledTabs.includes("computer"));
+  const showEditorItem =
+    !simpleView && (!enabledTabs || enabledTabs.includes("editor"));
+  const resolvedTab =
+    simpleView && isSimpleViewHiddenSandboxTab(activeTab)
+      ? "preview"
+      : activeTab;
   const showBrowserPulse = isAgentBrowsingActive(agentBrowsingAt);
   const showComputerTab = showDesktopItem && computerTabOpen;
   const showEditorTab = showEditorItem && editorTabOpen;
 
-  const customTabSlugs = (customTabs ?? []).map((tab) =>
+  const showFiles = showFilesTab && !simpleView;
+  const visibleCustomTabs = simpleView ? [] : (customTabs ?? []);
+  const customTabSlugs = visibleCustomTabs.map((tab) =>
     slugifyAppTabName(tab.name),
   );
 
   useCycleSandboxTabHotkey({
-    activeTab,
+    activeTab: resolvedTab,
     onTabChange,
     enabledTabs,
     showPrdTab,
     showDesignsTab,
-    showFilesTab,
+    showFilesTab: showFiles,
     customTabSlugs,
     showComputerTab,
     showEditorTab,
@@ -191,21 +204,21 @@ export function SandboxTabBar({
   });
 
   useSandboxViewHotkeys({
-    activeTab,
+    activeTab: resolvedTab,
     onTabChange,
     showBrowserTab: tabs.some((tab) => tab.value === "browser"),
     enabled: hotkeysEnabled,
   });
 
   const commands = buildSandboxPaletteCommands({
-    activeTab,
+    activeTab: resolvedTab,
     tabs,
-    showFilesTab,
+    showFilesTab: showFiles,
     showPrdTab,
     showDesignsTab,
     showEditorItem,
     showDesktopItem,
-    customTabs: customTabs ?? [],
+    customTabs: visibleCustomTabs,
     consoleDock,
     terminalPanel,
     onTabChange,
@@ -213,6 +226,7 @@ export function SandboxTabBar({
     onOpenComputer,
     onNewPreview,
     newPreviewDisabled,
+    simpleView,
   });
 
   return (
@@ -220,7 +234,7 @@ export function SandboxTabBar({
       <div className={styles.bar}>
       <Tabs
         className="min-w-0 flex-1"
-        value={activeTab}
+        value={resolvedTab}
         onValueChange={onTabChange}
       >
         <TabsList className="h-auto gap-0 rounded-none border-0 bg-transparent p-0 shadow-none [&_.t-tabs-pill]:hidden">
@@ -308,7 +322,7 @@ export function SandboxTabBar({
               )}
             </TabsTrigger>
           ) : null}
-          {showFilesTab ? (
+          {showFiles ? (
             <TabsTrigger value="files" className={styles.trigger}>
               <IconFileText className={styles.icon} />
               Files
@@ -335,7 +349,7 @@ export function SandboxTabBar({
               ) : null}
             </TabsTrigger>
           ) : null}
-          {customTabs?.map((tab) => {
+          {visibleCustomTabs.map((tab) => {
             const slug = slugifyAppTabName(tab.name);
             return (
               <TabsTrigger
@@ -399,6 +413,7 @@ export function SandboxTabBar({
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+      {simpleView ? null : (
       <Tooltip>
         <TooltipTrigger asChild>
           <button
@@ -415,13 +430,14 @@ export function SandboxTabBar({
           Toggle terminal panel
         </TooltipContent>
       </Tooltip>
+      )}
       </div>
       <SandboxQuickOpenDialogs
         fileList={fileList}
         commands={commands}
         onShowFiles={() => onTabChange("files")}
         hotkeysEnabled={hotkeysEnabled}
-        filesEnabled={showFilesTab}
+        filesEnabled={showFiles}
       />
     </>
   );

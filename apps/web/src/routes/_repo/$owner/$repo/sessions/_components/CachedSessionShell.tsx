@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { EntityNumIdGate } from "@/lib/components/EntityNumIdGate";
 import { useSessionByNumId } from "@/lib/useResolveByNumId";
 import { SessionDetailClient } from "../SessionDetailClient";
 import { useSessionRouteSandboxTab } from "../_utils/useSessionRouteSandboxTab";
+import { SimpleViewSandboxRedirect } from "@/lib/components/sandbox/SimpleViewSandboxRedirect";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 interface CachedSessionShellProps {
   numId: string;
@@ -25,6 +27,8 @@ export function CachedSessionShell({
 }: CachedSessionShellProps) {
   const navigate = useNavigate();
   const { basePath, repoId } = useRepo();
+  const { owner, repo } = useParams({ strict: false });
+  const simpleView = useSimpleView();
   const { status, convexId } = useSessionByNumId(numId, repoId);
   const urlSandboxTab = useSessionRouteSandboxTab();
   const [sandboxTab, setSandboxTab] = useState(urlSandboxTab);
@@ -35,6 +39,7 @@ export function CachedSessionShell({
   }, [isActiveRoute, urlSandboxTab]);
 
   const openFile = (path: string) => {
+    if (simpleView) return;
     void navigate({
       to: `${basePath}/sessions/${numId}/files`,
       search: (prev) => ({ ...prev, file: path }),
@@ -42,6 +47,7 @@ export function CachedSessionShell({
   };
 
   const openDiffs = (repoRelativePath?: string) => {
+    if (simpleView) return;
     void navigate({
       to: `${basePath}/sessions/${numId}/review/diffs/unified`,
       search: (prev) => ({
@@ -66,6 +72,14 @@ export function CachedSessionShell({
   };
 
   return (
+    <>
+      {typeof owner === "string" && typeof repo === "string" ? (
+        <SimpleViewSandboxRedirect
+          activeTab={sandboxTab}
+          to="/$owner/$repo/sessions/$numId/$sandboxTab"
+          params={{ owner, repo, numId }}
+        />
+      ) : null}
     <EntityNumIdGate
       status={status}
       convexId={convexId}
@@ -78,10 +92,11 @@ export function CachedSessionShell({
           activeSandboxTab={sandboxTab}
           onSandboxTabChange={onSandboxTabChange}
           onOpenFile={openFile}
-          onViewDiff={openDiffs}
+          onViewDiff={simpleView ? undefined : openDiffs}
           isRouteActive={isActiveRoute}
         />
       )}
     </EntityNumIdGate>
+    </>
   );
 }

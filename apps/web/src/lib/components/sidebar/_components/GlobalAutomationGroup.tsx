@@ -20,10 +20,8 @@ import {
   SharedLayoutNavSurface,
   sidebarNavLinkClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
-import {
-  SidebarListHoverCard,
-  sidebarTextPreview,
-} from "@/lib/components/sidebar/SidebarListHoverCard";
+import { SidebarListHoverCard } from "@/lib/components/sidebar/SidebarListHoverCard";
+import { sidebarTextPreview } from "@/lib/components/sidebar/sidebarTextPreview";
 import { repoBasePaths } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { automationMatchesPath } from "@/lib/components/sidebar/_utils/repoAutomationPaths";
 import { previewSessions } from "@/lib/components/sidebar/_utils/sessionListPreview";

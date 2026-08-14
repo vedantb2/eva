@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState } from "react";
-import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
+import { useShortcut } from "@/lib/hotkeys/useShortcut";
 
 interface SearchContextValue {
   isOpen: boolean;

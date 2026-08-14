@@ -45,6 +45,7 @@ import {
 } from "@/lib/components/sandbox/SandboxWorkspace";
 import type { SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import { ProjectContextUsage } from "@/lib/components/context-usage";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { RepoSectionBreadcrumb } from "@/lib/components/RepoSectionBreadcrumb";
 
@@ -98,6 +99,7 @@ export function ProjectDetailClient({
 }) {
   const navigate = useNavigate();
   const { basePath, repo } = useRepo();
+  const simpleView = useSimpleView();
   const [isBuildModalOpen, setIsBuildModalOpen] = useState(false);
   const [isStartingBuild, setIsStartingBuild] = useState(false);
   const [isStoppingBuild, setIsStoppingBuild] = useState(false);
@@ -171,6 +173,7 @@ export function ProjectDetailClient({
 
   // Chat file chips → Files tab + `?file=` (same pattern as sessions).
   const openFile = (path: string) => {
+    if (simpleView) return;
     if (!projectPathSegment) return;
     void navigate({
       to: `${basePath}/projects/${projectPathSegment}/sandbox/files`,

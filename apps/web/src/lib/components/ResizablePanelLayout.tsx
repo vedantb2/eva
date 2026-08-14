@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   type ReactNode,
@@ -7,7 +7,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
+import { useShortcut } from "@/lib/hotkeys/useShortcut";
 import {
   Group,
   Panel,

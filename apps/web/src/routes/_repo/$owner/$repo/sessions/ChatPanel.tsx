@@ -8,7 +8,7 @@ import {
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { m, AnimatePresence } from "motion/react";
-import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
+import { useShortcut } from "@/lib/hotkeys/useShortcut";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { useRepo } from "@/lib/contexts/RepoContext";

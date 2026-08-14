@@ -6,7 +6,7 @@ import {
   ACCENT_COLORS,
   lookupAccent,
   type AccentColor,
-} from "@/lib/contexts/ThemeContext";
+} from "@/lib/contexts/themeTokens";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
 import {
   SHELL_COLOR,

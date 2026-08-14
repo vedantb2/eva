@@ -2,7 +2,7 @@ import {
   FONT_FAMILIES,
   LETTER_SPACING_VALUES,
   lookupAccent,
-} from "@/lib/contexts/ThemeContext";
+} from "@/lib/contexts/themeTokens";
 import type {
   AccentColor,
   RadiusSize,

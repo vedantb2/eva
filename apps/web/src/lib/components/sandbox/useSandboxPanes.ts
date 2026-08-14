@@ -11,6 +11,7 @@ import {
   type ConsoleDockApi,
 } from "@/lib/components/sandbox/useConsoleDock";
 import { catchMutationError } from "@/lib/utils/mutationToast";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 const MAX_TERMINAL_PANES = 8;
 const MAX_PREVIEW_PANES = 8;
@@ -23,6 +24,7 @@ const ALL_SANDBOX_TABS: ReadonlyArray<SandboxTab> = [
   "editor",
   "review",
 ];
+const SIMPLE_VIEW_SANDBOX_TABS: ReadonlyArray<SandboxTab> = ["preview"];
 
 interface PaneStorageState {
   ids: string[];
@@ -79,6 +81,7 @@ export function useSandboxPanes({
   isActive,
   terminalPanes,
 }: UseSandboxPanesArgs): SandboxPanesApi {
+  const simpleView = useSimpleView();
   const disconnectPtyAction = useAction(api.pty.disconnectPty);
   const ensureDefaultTerminalPane = useMutation(
     api.sandboxPanes.ensureDefaultTerminalPane,
@@ -241,6 +244,6 @@ export function useSandboxPanes({
     handleCloseTerminal,
     newPreviewDisabled,
     newTerminalDisabled,
-    enabledTabs: ALL_SANDBOX_TABS,
+    enabledTabs: simpleView ? SIMPLE_VIEW_SANDBOX_TABS : ALL_SANDBOX_TABS,
   };
 }

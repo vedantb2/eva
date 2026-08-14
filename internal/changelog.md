@@ -1,12 +1,20 @@
 # Changelog
 
+## Fast Refresh no longer full-reloads the app on provider edits - 2026-08-14
+
+Editing a provider file (Convex client, theme tokens, shortcuts, avatars) was forcing a full page reload because those modules exported both React components and non-components. Constants and hooks now live next to the providers instead of inside them, so Vite can patch the UI in place. Cursor's TypeScript server is also pointed at workspace TypeScript 5.9 with a 4 GB heap cap — the editor was previously aimed at the native TS 7 preview, which is not a language service, and tsserver was sitting on ~7 GB.
+
+## Simple view hides power-user chrome - 2026-08-14
+
+Eva's default UI still shows reviews, diffs, token meters, and sandbox Console/Editor/Computer, which is a lot if you just want to chat and watch Preview. Settings → Experimental now has a Simple view flag (off by default). When it's on, those surfaces are hidden: context usage, the Reviews sidebar and `/reviews` routes (deep links bounce to Projects, Spotlight drops the Reviews command), the sandbox is Preview, Browser, Plan, and Designs — Files, custom tabs, Review/Editor/Computer, and the Console dock bounce away or stay hidden — and repo Settings hides Repository, Monorepo, App, Tabs, Env Variables, and Snapshots (Settings lands on Skills; those URLs bounce there).
+
 ## Turn watchdog no longer kills long-running tools - 2026-08-14
 
 A silent tool call longer than 5 minutes (a bash script, a subagent measuring page performance) was killed by the SDK no-message watchdog as "The assistant stopped responding", losing the turn's chat (seen in prod, carepulse-ts session 62). The SDK emits nothing between a tool_use and its tool_result, so tool silence looked identical to a hang. Both SDK paths (daemon and one-shot) now keep the silence clock fresh while `S.inFlightToolUses > 0` — the same exemption the legacy CLI path has had all along — leaving the 90-minute hard runtime cap as the backstop for a genuinely wedged tool.
 
 ## Model and traits share one picker menu - 2026-08-14
 
-Two adjacent dropdowns (model, then traits) made switching either feel like two controls for one decision. The model picker now hosts trait pills above the list and stays open until you click outside, so model and traits can be set in one pass. The trigger shows the provider icon plus the short model name (Sonnet, not Claude Sonnet), a bolt when Fast is on, and the active reasoning level. The popover is anchored to the trigger's position at open, so changing reasoning (or Fast) does not shift the menu.
+Two adjacent dropdowns (model, then traits) made switching either feel like two controls for one decision. The model picker now hosts trait pills above the list and stays open until you click outside, so model and traits can be set in one pass. The trigger shows the provider icon plus the short model name (Sonnet, not Claude Sonnet), a bolt when Fast is on, and the active reasoning level. The popover stays attached to the trigger; the trigger width is locked while open so changing reasoning (or Fast) does not shift the menu.
 
 
 ## Agent reasoning shows again as one evolving activity row - 2026-08-13

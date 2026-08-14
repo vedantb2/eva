@@ -13,6 +13,10 @@ import { PreviewPaneTabs } from "@/routes/_repo/$owner/$repo/sessions/_component
 import { ConsoleDock } from "./ConsoleDock";
 import type { SandboxPanesApi } from "./useSandboxPanes";
 import type { SandboxPreviewApi } from "./useSandboxPreview";
+import {
+  isSimpleViewHiddenSandboxTab,
+  useSimpleView,
+} from "@/lib/hooks/useSimpleView";
 
 interface SandboxPaneSlotsProps {
   /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
@@ -89,6 +93,11 @@ export function SandboxPaneSlots({
   stickyTerminalHistoryTail,
   onStickyTerminalHistoryTailChange,
 }: SandboxPaneSlotsProps) {
+  const simpleView = useSimpleView();
+  const resolvedTab =
+    simpleView && isSimpleViewHiddenSandboxTab(activeTab)
+      ? "preview"
+      : activeTab;
   const {
     previewIds,
     consolePane,
@@ -101,7 +110,7 @@ export function SandboxPaneSlots({
   // switching away (Editor / Review / …) does not remount the running app.
   const previewRegion = (
     <div className="flex h-full min-h-0 flex-col">
-      <div className={activeTab === "preview" ? undefined : "hidden"}>
+      <div className={resolvedTab === "preview" ? undefined : "hidden"}>
         <PreviewPaneTabs
           previewIds={previewIds}
           activeId={resolvedPreviewActive}
@@ -113,7 +122,7 @@ export function SandboxPaneSlots({
         {previewIds.length === 0 ? (
           <div
             className={
-              activeTab === "preview"
+              resolvedTab === "preview"
                 ? "flex flex-1 items-center justify-center text-sm text-muted-foreground"
                 : "hidden"
             }
@@ -164,11 +173,14 @@ export function SandboxPaneSlots({
     <>
       <div
         className={
-          activeTab === "preview"
+          resolvedTab === "preview"
             ? "flex h-full min-h-0 flex-col overflow-hidden"
             : "hidden"
         }
       >
+        {simpleView ? (
+          previewRegion
+        ) : (
         <ConsoleDock
           controller={panes.consoleDock}
           preview={previewRegion}
@@ -180,7 +192,7 @@ export function SandboxPaneSlots({
                   sandboxId={sandboxId}
                   isActive={isActive}
                   ptyInstanceId={consolePane.id}
-                  isForeground={activeTab === "preview" && visible}
+                  isForeground={resolvedTab === "preview" && visible}
                   runDevCommandOnConnect={runConsoleDevCommandOnConnect}
                   devCommand={devCommand}
                   stickyHistoryTail={stickyTerminalHistoryTail}
@@ -190,8 +202,9 @@ export function SandboxPaneSlots({
             ) : null
           }
         />
+        )}
       </div>
-      <div className={activeTab === "editor" ? "h-full" : "hidden"}>
+      <div className={resolvedTab === "editor" ? "h-full" : "hidden"}>
         <EditorPanel
           cacheKey={cacheKey}
           sandboxId={sandboxId}
@@ -201,7 +214,7 @@ export function SandboxPaneSlots({
       </div>
       <div
         className={
-          activeTab === "browser" || activeTab === "computer"
+          resolvedTab === "browser" || resolvedTab === "computer"
             ? "h-full"
             : "hidden"
         }
@@ -211,32 +224,34 @@ export function SandboxPaneSlots({
           sandboxId={sandboxId}
           isActive={isActive}
           repoId={repoId}
-          surface={activeTab === "browser" ? "browser" : "desktop"}
+          surface={resolvedTab === "browser" ? "browser" : "desktop"}
           agentBrowsingAt={agentBrowsingAt}
           onReleaseLock={onReleaseBrowserLock}
           onRunningChange={onComputerRunningChange}
         />
       </div>
-      <div className={activeTab === "review" ? "h-full" : "hidden"}>
+      <div className={resolvedTab === "review" ? "h-full" : "hidden"}>
         <PrPanel
           prUrl={prUrl}
           repoId={repoId}
-          isActive={activeTab === "review"}
+          isActive={resolvedTab === "review"}
         />
       </div>
-      {customTabs?.map((tab) => {
+      {simpleView
+        ? null
+        : customTabs?.map((tab) => {
         const slug = slugifyAppTabName(tab.name);
         return (
           <div
             key={tab._id}
-            className={activeTab === slug ? "h-full" : "hidden"}
+            className={resolvedTab === slug ? "h-full" : "hidden"}
           >
             <CustomTabPanel
               name={tab.name}
               port={tab.port}
               sandboxId={sandboxId}
               isActive={isActive}
-              isForeground={activeTab === slug}
+              isForeground={resolvedTab === slug}
               repoId={repoId}
             />
           </div>

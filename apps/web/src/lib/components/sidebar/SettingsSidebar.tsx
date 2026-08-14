@@ -18,6 +18,10 @@ import {
   sidebarNavLinkClassCompact,
   sidebarSectionLabelClass,
 } from "@/lib/components/sidebar/SharedLayoutNav";
+import {
+  isSimpleViewHiddenSettingsPath,
+  useSimpleView,
+} from "@/lib/hooks/useSimpleView";
 
 interface SettingsSidebarProps {
   basePath: string;
@@ -30,6 +34,7 @@ export function SettingsSidebar({
   pathname,
   onNavigate,
 }: SettingsSidebarProps) {
+  const simpleView = useSimpleView();
   const baseUrl = `${basePath}/settings`;
 
   const navigationGroups = [
@@ -61,7 +66,15 @@ export function SettingsSidebar({
         { name: "Logs", href: `${baseUrl}/logs`, icon: IconReceipt2 },
       ],
     },
-  ];
+  ].flatMap((group) => {
+    const items = simpleView
+      ? group.items.filter(
+          (item) => !isSimpleViewHiddenSettingsPath(item.href),
+        )
+      : group.items;
+    if (items.length === 0) return [];
+    return [{ ...group, items }];
+  });
 
   return (
     <SharedLayoutNav layoutId="settings-nav" className="space-y-4">

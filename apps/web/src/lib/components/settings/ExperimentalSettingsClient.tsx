@@ -12,7 +12,8 @@ type ExperimentalFlagKey =
   | "sessionTabs"
   | "blurPid"
   | "voiceDictation"
-  | "composerAutocomplete";
+  | "composerAutocomplete"
+  | "simpleView";
 
 export function ExperimentalSettingsClient() {
   const flags = useQuery(api.auth.getExperimentalFlags);
@@ -96,6 +97,17 @@ export function ExperimentalSettingsClient() {
                 toggle("composerAutocomplete", checked)
               }
               aria-label="Composer autocomplete"
+            />
+          }
+        />
+        <SettingsToggleRow
+          title="Simple view"
+          description="Hide reviews, diffs, context usage, sandbox Files / Console / Editor / Computer, and repo settings for Repository, Monorepo, App, Tabs, Env, and Snapshots. Chat plus Preview, Browser, Plan, and Designs."
+          action={
+            <Switch
+              checked={flags.simpleView === true}
+              onCheckedChange={(checked) => toggle("simpleView", checked)}
+              aria-label="Simple view"
             />
           }
         />

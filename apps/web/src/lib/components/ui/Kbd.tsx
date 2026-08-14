@@ -2,7 +2,7 @@
 
 import { cn } from "@eva/ui";
 import { formatForDisplay, type Hotkey } from "@tanstack/react-hotkeys";
-import { useShortcutBinding } from "@/lib/hotkeys/ShortcutsContext";
+import { useShortcutBinding } from "@/lib/hotkeys/useShortcut";
 import {
   deriveSlotHotkey,
   shortcutDef,

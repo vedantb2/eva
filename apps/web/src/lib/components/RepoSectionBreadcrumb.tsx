@@ -1,0 +1,36 @@
+"use client";
+
+import { IconChevronRight } from "@tabler/icons-react";
+import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
+
+interface RepoSectionBreadcrumbProps {
+  sectionLabel: string;
+  onSectionClick: () => void;
+  entityLabel: string;
+}
+
+/** Single-line section breadcrumb: Section > entity (truncates / marquees on overflow). */
+export function RepoSectionBreadcrumb({
+  sectionLabel,
+  onSectionClick,
+  entityLabel,
+}: RepoSectionBreadcrumbProps) {
+  return (
+    <div className="flex min-w-0 w-full items-center gap-1.5 overflow-hidden text-base sm:text-lg md:text-xl">
+      <button
+        type="button"
+        onClick={onSectionClick}
+        className="shrink-0 whitespace-nowrap font-semibold text-muted-foreground transition-colors hover:text-foreground"
+      >
+        {sectionLabel}
+      </button>
+      <IconChevronRight
+        size={14}
+        className="shrink-0 text-muted-foreground/50"
+      />
+      <MarqueeOnHover className="min-w-0 flex-1 font-semibold">
+        {entityLabel}
+      </MarqueeOnHover>
+    </div>
+  );
+}

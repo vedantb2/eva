@@ -72,7 +72,7 @@ export function PageWrapper({
               )}
               {title && (
                 <h1
-                  className={`min-w-0 flex-1 text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300 text-balance ${isStringTitle ? "hidden whitespace-nowrap lg:block" : ""}`}
+                  className={`min-w-0 flex-1 text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300 ${isStringTitle ? "hidden whitespace-nowrap text-balance lg:block" : "overflow-hidden"}`}
                 >
                   {title}
                 </h1>

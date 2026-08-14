@@ -46,7 +46,7 @@ import {
 import type { SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import { ProjectContextUsage } from "@/lib/components/context-usage";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
-import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
+import { RepoSectionBreadcrumb } from "@/lib/components/RepoSectionBreadcrumb";
 
 import {
   IconGitPullRequest,
@@ -54,7 +54,6 @@ import {
   IconPlayerStop,
   IconTerminal2,
   IconLoader2,
-  IconChevronRight,
   IconChevronDown,
   IconCalendarClock,
   IconBrandVercel,
@@ -360,21 +359,11 @@ export function ProjectDetailClient({
   return (
     <PageWrapper
       title={
-        <div className="flex items-center gap-1.5 text-base sm:text-lg md:text-xl">
-          <button
-            onClick={() => navigate({ to: `${basePath}/projects` })}
-            className="text-muted-foreground hover:text-foreground transition-colors font-semibold"
-          >
-            Projects
-          </button>
-          <IconChevronRight
-            size={14}
-            className="text-muted-foreground/50 shrink-0"
-          />
-          <MarqueeOnHover className="min-w-0 font-semibold">
-            {project.title}
-          </MarqueeOnHover>
-        </div>
+        <RepoSectionBreadcrumb
+          sectionLabel="Projects"
+          onSectionClick={() => navigate({ to: `${basePath}/projects` })}
+          entityLabel={project.title}
+        />
       }
       fillHeight
       childPadding={false}

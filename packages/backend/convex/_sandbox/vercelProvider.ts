@@ -1015,11 +1015,10 @@ class VercelSandboxClient implements SandboxClient {
       ...this.creds,
       // Vercel `timeout` is a HARD session cap, not Daytona's idle-stop timer.
       // Mapping a small autoStop (e.g. WARMING's 10 min) straight through would
-      // hard-kill a long seed build or agent turn mid-run. Floor it to 4 hours
-      // so builds and resumes have headroom; eva stops sandboxes explicitly
-      // (snapshot/stop), and Vercel bills only active CPU + provisioned memory
-      // while running.
-      timeout: Math.max(params.lifecycle.autoStopMinutes, 4 * 60) * 60 * 1000,
+      // hard-kill a long seed build or agent turn mid-run. Floor it to the Pro
+      // plan max (24h) so Start/Stop own the lifecycle; this cap is only a leak
+      // backstop. Vercel bills active CPU + provisioned memory while running.
+      timeout: Math.max(params.lifecycle.autoStopMinutes, 24 * 60) * 60 * 1000,
       persistent,
       ...vercelSnapshotCreateOptions(persistent),
       resources: { vcpus: DEFAULT_VCPUS },

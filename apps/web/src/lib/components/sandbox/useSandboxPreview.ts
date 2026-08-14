@@ -110,7 +110,12 @@ export function useSandboxPreview({
   const fetchPreview = async () => {
     if (!sandboxId || !isActive) return;
     const generation = generationRef.current;
-    setIsLoading(true);
+    // Revalidation with an iframe already on screen is silent — flipping
+    // isLoading here would spin the nav-bar reload button on every return to a
+    // cached session tab even though the preview never reloads.
+    if (loadedUrlRef.current === null) {
+      setIsLoading(true);
+    }
     setError(null);
     stopPolling();
     try {
@@ -140,6 +145,9 @@ export function useSandboxPreview({
         }
         setIsLoading(false);
       } else {
+        // Dev server not reachable (sandbox resuming / server restarting):
+        // the on-screen iframe is stale, so surface the spinner while polling.
+        setIsLoading(true);
         pollingRef.current = setTimeout(() => {
           void fetchPreview();
         }, 3000);

@@ -4516,6 +4516,9 @@ async function runClaudeSdkAttempt(sessionMode) {
       void interrupt();
       return;
     }
+    if (callbackState.inFlightToolUses > 0) {
+      lastMessageAt = now;
+    }
     if (!sawResult && now - lastMessageAt > NO_OUTPUT_TIMEOUT_MS * 5) {
       timedOutForNoOutput = true;
       log("runClaudeSdkAttempt: no SDK messages \\u2014 interrupting");
@@ -4870,6 +4873,9 @@ function startTurnWatchdog() {
       turnStartedAtMs = now;
       lastMessageAtMs = now;
       return;
+    }
+    if (callbackState.inFlightToolUses > 0) {
+      lastMessageAtMs = now;
     }
     if (now - turnStartedAtMs > MAX_TOTAL_RUNTIME_MS) {
       turnActive = false;

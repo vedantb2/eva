@@ -14,7 +14,7 @@ Environment variables control watchdog and HTTP behavior for the sandbox callbac
 
 Watchdog interval: `NO_OUTPUT_CHECK_INTERVAL_MS` = 5000 (fixed in `config.ts`).
 
-While a tool is in flight, idle checks are skipped — only max runtime, zombie detection, and first-event/assistant guards apply. There is no per-tool stall kill. Idle stdout silence kills the CLI only past the generous `CLAUDE_STREAM_SILENCE_TIMEOUT_MS` cap (10 min — reinstated after a prod cursor:grok stream hung silently for 29 min; the old 45s kill removed in c8bb7fb8 stays dead).
+While a tool is in flight (`S.inFlightToolUses > 0`), idle checks are skipped on ALL paths — CLI (`cliAttempt.ts`), SDK one-shot (`claudeSdk.ts`), and SDK daemon (`claudeSdkDaemon.ts`) — only max runtime, zombie detection, and first-event/assistant guards apply. There is no per-tool stall kill. Idle stdout silence kills the CLI only past the generous `CLAUDE_STREAM_SILENCE_TIMEOUT_MS` cap (10 min — reinstated after a prod cursor:grok stream hung silently for 29 min; the old 45s kill removed in c8bb7fb8 stays dead).
 
 ## Convex HTTP
 

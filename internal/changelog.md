@@ -1,5 +1,9 @@
 # Changelog
 
+## Turn watchdog no longer kills long-running tools - 2026-08-14
+
+A silent tool call longer than 5 minutes (a bash script, a subagent measuring page performance) was killed by the SDK no-message watchdog as "The assistant stopped responding", losing the turn's chat (seen in prod, carepulse-ts session 62). The SDK emits nothing between a tool_use and its tool_result, so tool silence looked identical to a hang. Both SDK paths (daemon and one-shot) now keep the silence clock fresh while `S.inFlightToolUses > 0` — the same exemption the legacy CLI path has had all along — leaving the 90-minute hard runtime cap as the backstop for a genuinely wedged tool.
+
 ## Model and traits share one picker menu - 2026-08-14
 
 Two adjacent dropdowns (model, then traits) made switching either feel like two controls for one decision. The model picker now hosts trait pills above the list and stays open until you click outside, so model and traits can be set in one pass. The trigger shows the provider icon plus the short model name (Sonnet, not Claude Sonnet), a bolt when Fast is on, and the active reasoning level. The popover is anchored to the trigger's position at open, so changing reasoning (or Fast) does not shift the menu.

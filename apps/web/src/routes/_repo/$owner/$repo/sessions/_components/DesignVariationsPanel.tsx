@@ -184,7 +184,7 @@ export function DesignVariationsPanel({
                             <IconPlayerPlay size={14} />
                             {isSandboxStarting
                               ? "Starting..."
-                              : "Start sandbox"}
+                              : "Wake up Eva"}
                           </Button>
                         )}
                       </>

@@ -521,7 +521,7 @@ export function ProjectDetailClient({
                   disabled={isSandboxStopping}
                 >
                   <IconPlayerStop size={16} />
-                  <span className="hidden sm:inline">Stop Sandbox</span>
+                  <span className="hidden sm:inline">Put Eva to sleep</span>
                 </Button>
               ) : null}
               {canStartSandbox ? (

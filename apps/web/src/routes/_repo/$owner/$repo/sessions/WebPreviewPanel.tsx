@@ -40,7 +40,7 @@ interface WebPreviewPanelProps {
    */
   stickyPath?: string;
   onStickyPathChange?: (path: string) => void;
-  /** When set (sessions), Preview empty state shows a Start sandbox button. */
+  /** When set (sessions), Preview empty state shows a Wake up Eva button. */
   onStartSandbox?: () => void;
   isSandboxStarting?: boolean;
   /**
@@ -138,7 +138,7 @@ export function WebPreviewPanel({
               disabled={isSandboxStarting}
             >
               <IconPlayerPlay size={14} />
-              {isSandboxStarting ? "Starting..." : "Start sandbox"}
+              {isSandboxStarting ? "Starting..." : "Wake up Eva"}
             </Button>
           ) : null}
         </div>

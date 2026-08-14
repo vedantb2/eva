@@ -303,7 +303,7 @@ export function TaskFooter({
               disabled={isSandboxStopping}
             >
               <IconPlayerStop size={iconSize} />
-              <span className="hidden sm:inline">Stop Sandbox</span>
+              <span className="hidden sm:inline">Put Eva to sleep</span>
             </Button>
           ) : null}
           {showViewSandbox && (

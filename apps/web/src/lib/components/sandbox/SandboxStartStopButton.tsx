@@ -21,7 +21,7 @@ export function SandboxStartStopButton({
       onClick={() => onToggle(isActive ? "stop" : "start")}
       disabled={isToggling}
       className={isActive ? undefined : "text-success"}
-      aria-label={isActive ? "Stop sandbox" : "Start sandbox"}
+      aria-label={isActive ? "Put Eva to sleep" : "Wake up Eva"}
     >
       {isToggling ? (
         <Spinner size="sm" />

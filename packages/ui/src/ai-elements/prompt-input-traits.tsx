@@ -17,7 +17,7 @@ const ULTRATHINK_PROMPT_PREFIX = "Ultrathink:\n";
 
 /** Same trigger chrome as SessionModeDropdown — plain button, no ghost Button. */
 const traitsTriggerClassName =
-  "flex h-7 max-w-56 items-center gap-1.5 rounded-md bg-muted px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground disabled:opacity-50";
+  "flex h-7 max-w-56 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50";
 
 export function isUltrathinkPrompt(text: string | null | undefined): boolean {
   return typeof text === "string" && /\bultrathink\b/i.test(text);

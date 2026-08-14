@@ -2,7 +2,13 @@
 
 Environment variables control watchdog and HTTP behavior for the sandbox callback script (`callback-src/`).
 
-## CLI stdout / lifecycle
+## Agent stream / lifecycle
+
+Every provider now runs through its SDK in-process. `runCliAttempt` (and with it
+the zombie / first-event / first-assistant guards and
+`CLAUDE_STREAM_SILENCE_TIMEOUT_MS`) has no callers left; SDK runners use an
+inline `setInterval` that enforces max runtime plus a no-event silence kill at
+`CLAUDE_NO_OUTPUT_TIMEOUT_MS × 5`, exempting in-flight tools.
 
 | Variable                                  | Default  | Purpose                                                           |
 | ----------------------------------------- | -------- | ----------------------------------------------------------------- |
@@ -14,7 +20,9 @@ Environment variables control watchdog and HTTP behavior for the sandbox callbac
 
 Watchdog interval: `NO_OUTPUT_CHECK_INTERVAL_MS` = 5000 (fixed in `config.ts`).
 
-While a tool is in flight, idle checks are skipped — only max runtime, zombie detection, and first-event/assistant guards apply. There is no per-tool stall kill. Idle stdout silence kills the CLI only past the generous `CLAUDE_STREAM_SILENCE_TIMEOUT_MS` cap (10 min — reinstated after a prod cursor:grok stream hung silently for 29 min; the old 45s kill removed in c8bb7fb8 stays dead).
+While a tool is in flight, idle checks are skipped — a tool call emits nothing between its start and its result, so silence there means work, not a hang. Only max runtime applies until the result lands. There is no per-tool stall kill.
+
+OpenCode adds one more timer of its own: after 60 s without events it polls the opencode server's session status, and two consecutive idle answers end the turn. This recovers turns whose SSE connection was dropped by undici's 300 s body timeout during a long silent tool, where the reconnect misses the events that would have ended the turn.
 
 ## Convex HTTP
 

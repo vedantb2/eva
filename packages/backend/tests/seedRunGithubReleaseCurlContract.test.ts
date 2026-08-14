@@ -103,6 +103,11 @@ describe("seed run GitHub release downloads survive direct-path failures", () =>
     expect(seedRunCommands).toContain(
       "sudo npm install -g opencode-ai@${OPENCODE_VERSION}",
     );
+    // CLI and SDK are one release: the SDK is a generated client for the
+    // server the CLI serves, so they must never drift apart.
+    expect(seedRunCommands).toContain(
+      "opencode-ai@${OPENCODE_VERSION} @opencode-ai/sdk@${OPENCODE_VERSION}",
+    );
     const sharedAgentInstall = seedRunCommands
       .split("\n")
       .find((line) => line.includes("@anthropic-ai/claude-code"));

@@ -20,10 +20,11 @@ const bundledScript = readSource(
  * preamble can otherwise look like a successful final answer.
  */
 describe("a signal-killed one-shot turn is never reported as success", () => {
-  test.each([
-    ["callback source", cliAttemptSource],
-    ["deployed bundle", bundledScript],
-  ])(
+  // Source only, not the bundle: since the OpenCode SDK migration no provider
+  // spawns an agent CLI, so esbuild tree-shakes runCliAttempt out of the
+  // deployed script. The rule still guards the source until cliAttempt.ts is
+  // shrunk to its shared helpers.
+  test.each([["callback source", cliAttemptSource]])(
     "the child close signal survives result parsing (%s)",
     (_label, source) => {
       const closeAt = source.indexOf('child.on("close", (code, signal)');

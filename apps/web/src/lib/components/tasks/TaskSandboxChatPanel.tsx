@@ -248,13 +248,13 @@ export function TaskSandboxChatPanel({
         isInputDisabled={!isSandboxActive}
         placeholder={
           !isSandboxActive
-            ? "Sandbox must be running to chat..."
+            ? "Wake Eva up to chat..."
             : "Ask Eva anything... / for skills · @ to mention"
         }
         emptyStateTitle={
           isSandboxActive
             ? "Ask Eva anything about this task's running sandbox."
-            : "Sandbox is inactive. Start it to begin chatting."
+            : "Wake Eva up to begin chatting."
         }
         model={model}
         setModel={setModel}

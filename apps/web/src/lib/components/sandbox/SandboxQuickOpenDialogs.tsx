@@ -58,7 +58,7 @@ function fileListMessage(fileList: SandboxFileListApi): string {
     case "loading":
       return "Loading files…";
     case "not_running":
-      return "Start the sandbox to search files";
+      return "Wake Eva up to search files";
     case "error":
       return fileList.state.message;
     case "loaded":

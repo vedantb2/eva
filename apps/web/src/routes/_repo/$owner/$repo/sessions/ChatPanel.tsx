@@ -343,10 +343,10 @@ export function ChatPanel({
       ? "Stopping sandbox..."
       : isSandboxToggling
         ? "Starting sandbox..."
-        : "Sandbox is inactive. Start the sandbox to begin chatting.";
+        : "Wake Eva up to begin chatting.";
 
   const placeholder = !isSandboxActive
-    ? "Start the sandbox to begin chatting..."
+    ? "Wake Eva up to begin chatting..."
     : mode === "plan"
       ? "Describe what to plan... / for skills · @ to mention"
       : mode === "design"

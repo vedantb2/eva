@@ -127,7 +127,7 @@ export function WebPreviewPanel({
           <IconWorld className="w-12 h-12 opacity-50" />
           <p className="text-sm">
             {!isActive
-              ? "Start the sandbox to preview your app"
+              ? "Wake Eva up to preview your app"
               : "Waiting for sandbox..."}
           </p>
           {!isActive && onStartSandbox ? (

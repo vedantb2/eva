@@ -201,7 +201,7 @@ export function FileViewerPanel({
     return <ViewerNotice message="Select a file to view it" />;
   }
   if (state.kind === "not_running") {
-    return <ViewerNotice message="Start the sandbox to view files" />;
+    return <ViewerNotice message="Wake Eva up to view files" />;
   }
 
   const isMarkdown = isMarkdownPath(filePath);

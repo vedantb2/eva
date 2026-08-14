@@ -152,7 +152,7 @@ export function SandboxTerminalPanel({
             <p className="text-sm text-muted-foreground">
               {isActive
                 ? "Create a terminal to start working"
-                : "Start the sandbox to use a terminal"}
+                : "Wake Eva up to use a terminal"}
             </p>
           </div>
         ) : null}

@@ -530,7 +530,7 @@ export function TerminalPanel({
         <IconTerminal2 className="h-12 w-12 opacity-50" />
         <p className="text-sm">
           {!isActive
-            ? "Start the sandbox to use the terminal"
+            ? "Wake Eva up to use the terminal"
             : "Waiting for sandbox..."}
         </p>
       </div>

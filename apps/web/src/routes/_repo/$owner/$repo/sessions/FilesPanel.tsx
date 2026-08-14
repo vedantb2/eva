@@ -47,7 +47,7 @@ export function FilesPanel({
   };
 
   if (!sandboxId || !isActive) {
-    return <ViewerNotice message="Start the sandbox to browse files" />;
+    return <ViewerNotice message="Wake Eva up to browse files" />;
   }
 
   return (
@@ -59,7 +59,7 @@ export function FilesPanel({
             <Spinner size="sm" />
           </div>
         ) : listState.kind === "not_running" ? (
-          <ViewerNotice message="Start the sandbox to browse files" />
+          <ViewerNotice message="Wake Eva up to browse files" />
         ) : listState.kind === "error" ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-4">
             <pre className="max-h-48 max-w-full overflow-auto scroll-fade whitespace-pre-wrap rounded-lg bg-destructive/5 p-3 text-sm text-destructive">

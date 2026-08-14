@@ -170,7 +170,7 @@ export function CustomTabPanel({
   if (!isActive || !sandboxId) {
     return (
       <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-        Start the sandbox to use {name}.
+        Wake Eva up to use {name}.
       </div>
     );
   }

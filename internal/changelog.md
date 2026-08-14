@@ -1,5 +1,9 @@
 # Changelog
 
+## Posted captures are archived, not deleted - 2026-08-14
+
+The end-of-turn media harvest deleted every file in `screenshots/` and `recordings/` after posting to chat, so an agent asked to reuse a capture next turn (session 42: "attach these screenshots to the Linear comments") had to recapture it. It also deleted files whose upload had failed — silently destroying the only copy. Posted files now move into `.posted/` inside the same folder (same-name overwrites keep the latest); failed uploads stay at the top level and the next turn's harvest retries them, so the turn-start sweep in the callback no longer clears the folders either. The session prompt and the eva-capture skill tell agents to reuse `.posted/` copies (and never `rm -rf` the deliverable folders); a contract test pins archive-not-unlink in both the callback source and the deployed bundle.
+
 ## Startup warning names a failed branch checkout - 2026-08-14
 
 The "Sandbox startup unfinished — some services may still be starting" banner misdescribed the session-65/66 failure: services were fine, the session branch had failed to be created. `sandboxStartupWarning` now routes on the step label prefixed onto the error (`*.checkoutSessionBranch:` / `*.checkoutBranch:`) and says what actually happened — the session is running on its base branch and publish will recover the branch. Generic copy stays for genuinely generic failures; a contract test pins the routing regex to all three checkout step labels.

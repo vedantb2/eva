@@ -76,6 +76,29 @@ describe("the harvest deduplicates identical captures", () => {
   });
 });
 
+/**
+ * Posted deliverables must survive the harvest: agents reuse them in later
+ * turns (PR/Linear embeds) instead of recapturing. Posted files move into
+ * `.posted/`; only failed uploads stay at the top level so the next turn's
+ * harvest retries them — deleting on failure destroyed the only copy.
+ */
+describe("the harvest archives posted files instead of deleting them", () => {
+  test.each([
+    ["callback source", completion],
+    ["deployed bundle", bundledScript],
+  ])("posted files move to .posted, none are unlinked (%s)", (_label, source) => {
+    const at = source.indexOf("async function uploadAndAttachSandboxMedia(");
+    expect(at, "the harvest moved").toBeGreaterThan(-1);
+    const body = source.slice(at, source.indexOf("\n}", at));
+    expect(body).toContain("archivePostedFile(");
+    expect(body).not.toContain("unlinkSync(");
+  });
+
+  test("the session prompt tells agents where posted captures live", () => {
+    expect(sessionPrompts).toContain(".posted/");
+  });
+});
+
 function readSource(relativePath: string): string {
   return stripComments(
     readFileSync(join(backendDir, relativePath), "utf8").replaceAll(

@@ -25,11 +25,13 @@ import type { Id } from "@eva/backend";
 import { EntityContextUsage } from "@/lib/components/context-usage";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
+import { SessionSwitcher } from "./SessionSwitcher";
 import { prStateIconClass } from "../_utils/-prStateIconClass";
 
 interface SessionChatHeaderProps {
   repoId: Id<"githubRepos">;
   sessionId: Id<"sessions">;
+  title: string;
   branchName?: string;
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
@@ -48,6 +50,7 @@ interface SessionChatHeaderProps {
 export function SessionChatHeader({
   repoId,
   sessionId,
+  title,
   branchName,
   prUrl,
   prState,
@@ -65,26 +68,28 @@ export function SessionChatHeader({
   const showSendForReview = branchName && (!prState || prState === "draft");
 
   const headerLeft = (
-    <Button
-      size="icon"
-      variant={isSandboxActive ? "destructive" : "secondary"}
-      onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
-      disabled={isSandboxToggling}
-      className={`h-8 w-8 ${isSandboxActive ? "" : "text-success"}`}
-    >
-      {isSandboxToggling ? (
-        <Spinner size="sm" />
-      ) : isSandboxActive ? (
-        <IconPlayerStop className="w-4 h-4" />
-      ) : (
-        <IconPlayerPlay className="w-4 h-4" />
-      )}
-    </Button>
+    <SessionSwitcher sessionId={sessionId} title={title} />
   );
 
   const headerRight = (
     <>
       <EntityContextUsage repoId={repoId} entityId={sessionId} />
+      <Button
+        size="icon-sm"
+        variant={isSandboxActive ? "destructive" : "secondary"}
+        onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
+        disabled={isSandboxToggling}
+        className={isSandboxActive ? undefined : "text-success"}
+        aria-label={isSandboxActive ? "Stop sandbox" : "Start sandbox"}
+      >
+        {isSandboxToggling ? (
+          <Spinner size="sm" />
+        ) : isSandboxActive ? (
+          <IconPlayerStop className="w-4 h-4" />
+        ) : (
+          <IconPlayerPlay className="w-4 h-4" />
+        )}
+      </Button>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button

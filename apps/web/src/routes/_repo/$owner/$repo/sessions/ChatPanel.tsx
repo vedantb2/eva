@@ -233,6 +233,7 @@ export function ChatPanel({
   const { headerLeft, headerRight } = SessionChatHeader({
     repoId: repo._id,
     sessionId,
+    title,
     branchName,
     prUrl,
     prState,

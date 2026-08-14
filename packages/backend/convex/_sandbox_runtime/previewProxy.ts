@@ -27,7 +27,7 @@ const HEALTH_PATH = "/__eva_preview_proxy/health";
 const SCRIPT_MARKER = "EVA_PREVIEW_PROXY_SCRIPT";
 // Bump when the generated proxy script changes so already-running proxies from
 // an older deploy are detected as stale (via the health response) and relaunched.
-const SCRIPT_VERSION = "annotate-v14";
+const SCRIPT_VERSION = "stream-v15";
 
 /** Values injected into the generated proxy script to drive the auth gate. */
 interface PreviewProxyAuthParams {
@@ -175,6 +175,12 @@ const GATE_ENABLED = PUBLIC_KEY_JWK !== null && WEB_APP_URL.length > 0;
 // Port shown to /preview-auth and matched against grant claims. May differ from
 // targetPort when the proxy fronts an internal-only upstream (Vercel desktop).
 const AUTH_PORT = ${params.authPort ?? "targetPort"};
+// Desktop (noVNC) and editor (code-server) HTML needs whole-document rewrites;
+// dev-server HTML is streamed with head-only injection so upstream streaming
+// (e.g. Next.js partial prerendering) reaches the browser incrementally.
+const BUFFER_WHOLE_HTML =
+  targetPort === ${VERCEL_DESKTOP_INTERNAL_PORT} ||
+  targetPort === ${VERCEL_EDITOR_INTERNAL_PORT};
 
 let PUBLIC_KEY = null;
 if (GATE_ENABLED) {
@@ -729,13 +735,72 @@ const server = http.createServer(function handleRequest(clientReq, clientRes) {
         return;
       }
 
-      const chunks = [];
+      // noVNC / code-server HTML must be rewritten as a whole document
+      // (vnc_lite.html imports RFB at the END of <body>, so the module
+      // rewrites cannot stop at </head>). Those pages are tiny static files,
+      // so buffering them is free.
+      if (BUFFER_WHOLE_HTML) {
+        const chunks = [];
+        upstreamRes.on("data", function handleData(chunk) {
+          chunks.push(chunk);
+        });
+        upstreamRes.on("end", function handleEnd() {
+          const html = Buffer.concat(chunks).toString("utf8");
+          clientRes.end(rewriteHtml(html, injectsHtml));
+        });
+        return;
+      }
+
+      // Dev-server HTML streams. Buffering the full document here destroyed
+      // upstream streaming (Next.js flushes a static shell in ~0.5s, then
+      // streams the rest): TTFB became equal to total render time. Instead,
+      // buffer only until </head>, inject the script there, then pass every
+      // later byte straight through as it arrives.
+      const HEAD_CLOSE = "</head>";
+      let pending = Buffer.alloc(0);
+      let injected = false;
+
+      function writeWithBackpressure(chunk) {
+        if (!clientRes.write(chunk)) {
+          upstreamRes.pause();
+          clientRes.once("drain", function handleDrain() {
+            upstreamRes.resume();
+          });
+        }
+      }
+
       upstreamRes.on("data", function handleData(chunk) {
-        chunks.push(chunk);
+        if (injected) {
+          writeWithBackpressure(chunk);
+          return;
+        }
+        pending =
+          pending.length === 0 ? chunk : Buffer.concat([pending, chunk]);
+        const idx = pending.indexOf(HEAD_CLOSE);
+        if (idx === -1) return;
+        injected = true;
+        // Split on the byte offset right after </head> (ASCII, so the prefix
+        // is always a complete UTF-8 sequence); the tail is forwarded as raw
+        // bytes and never decoded.
+        const headEnd = idx + HEAD_CLOSE.length;
+        clientRes.write(
+          rewriteHtml(pending.slice(0, headEnd).toString("utf8"), injectsHtml),
+        );
+        const rest = pending.slice(headEnd);
+        pending = Buffer.alloc(0);
+        if (rest.length > 0) {
+          writeWithBackpressure(rest);
+        }
       });
       upstreamRes.on("end", function handleEnd() {
-        const html = Buffer.concat(chunks).toString("utf8");
-        clientRes.end(rewriteHtml(html, injectsHtml));
+        if (injected) {
+          clientRes.end();
+          return;
+        }
+        // No </head> in the document: fall back to the whole-document rewrite
+        // (injectHtml handles </body> and prepend). Everything is already
+        // buffered in "pending", so nothing was lost by waiting.
+        clientRes.end(rewriteHtml(pending.toString("utf8"), injectsHtml));
       });
     },
   );

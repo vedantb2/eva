@@ -1,5 +1,9 @@
 # Changelog
 
+## Preview proxy streams HTML instead of buffering it - 2026-08-14
+
+The in-sandbox preview proxy collected the entire HTML response before injecting the navigation-sync script, so upstream streaming never reached the browser: a Next.js app that flushes its static shell in ~0.5s showed nothing until the full render finished (TTFB = total, 10–16s on a heavy dashboard). Dev-server HTML now buffers only until `</head>`, injects there, and forwards every later byte as it arrives — TTFB is the shell flush again. Desktop (noVNC) and editor (code-server) proxies keep whole-document buffering because their rewrites must see the end of `<body>` (vnc_lite.html imports RFB there); documents with no `</head>` fall back to the old whole-document path. Verified with a harness that runs the real generated script against a streaming upstream (shell-first TTFB, split-tag injection, noVNC CDN rewrite intact); script version bumped to `stream-v15` so running proxies relaunch.
+
 ## Posted captures are archived, not deleted - 2026-08-14
 
 The end-of-turn media harvest deleted every file in `screenshots/` and `recordings/` after posting to chat, so an agent asked to reuse a capture next turn (session 42: "attach these screenshots to the Linear comments") had to recapture it. It also deleted files whose upload had failed — silently destroying the only copy. Posted files now move into `.posted/` inside the same folder (same-name overwrites keep the latest); failed uploads stay at the top level and the next turn's harvest retries them, so the turn-start sweep in the callback no longer clears the folders either. The session prompt and the eva-capture skill tell agents to reuse `.posted/` copies (and never `rm -rf` the deliverable folders); a contract test pins archive-not-unlink in both the callback source and the deployed bundle.

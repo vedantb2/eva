@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { createFileRoute, Outlet, useParams } from "@tanstack/react-router";
-import { cn } from "@eva/ui";
 import { CachedSessionShell } from "./_components/CachedSessionShell";
 
 /** Cap mounted session shells so Preview iframes / PTYs stay bounded. */
@@ -75,7 +74,12 @@ function SessionsLayout() {
         return (
           <div
             key={entry.key}
-            className={cn("h-full min-h-0", !isActive && "hidden")}
+            // Flex column: the shell's per-entry RepoGate sizes itself with
+            // `flex-1`, which is inert in a block parent (height collapses and
+            // the composer falls below the fold).
+            className={
+              isActive ? "flex h-full min-h-0 flex-col" : "hidden"
+            }
             // Keep inactive shells out of the a11y tree while mounted.
             aria-hidden={!isActive}
           >

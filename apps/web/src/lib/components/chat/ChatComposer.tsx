@@ -315,7 +315,6 @@ export function ChatComposer({
                     accounts={accounts}
                     accountId={accountId}
                     onAccountChange={onAccountChange}
-                    className="max-w-56 truncate sm:max-w-none"
                     traits={displayTraits}
                     onTraitsChange={onTraitsChange}
                   />

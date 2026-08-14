@@ -3,7 +3,6 @@
 import {
   getModelTraits,
   getReasoningLevelLabel,
-  modelHasTraits,
   resolveTraitsForDisplay,
   type AIModel,
   type StoredModelTraits,
@@ -17,18 +16,20 @@ function triggerTraitUi(
 ): { suffix: string | undefined; showFastIcon: boolean } {
   const config = getModelTraits(model);
   const display = resolveTraitsForDisplay(model, traits);
-  let suffix: string | undefined;
+  const parts: string[] = [];
   if (config.reasoning) {
-    suffix = getReasoningLevelLabel(
-      display.effortLevel ?? config.reasoning.default,
+    parts.push(
+      getReasoningLevelLabel(display.effortLevel ?? config.reasoning.default),
     );
-  } else if (config.contextWindow1m && display.use1mContext) {
-    suffix = "1M";
-  } else if (config.thinkingToggle && !display.thinkingEnabled) {
-    suffix = "No thinking";
+  }
+  if (config.contextWindow1m && display.use1mContext) {
+    parts.push("1M");
+  }
+  if (config.thinkingToggle && !display.thinkingEnabled) {
+    parts.push("No thinking");
   }
   return {
-    suffix,
+    suffix: parts.length > 0 ? parts.join(" · ") : undefined,
     showFastIcon: Boolean(config.fastMode && display.fastMode),
   };
 }
@@ -53,9 +54,7 @@ export function ModelSelectWithTraits({
   ...selectProps
 }: ModelSelectWithTraitsProps) {
   const traitsUi =
-    onTraitsChange !== undefined &&
-    traits !== undefined &&
-    modelHasTraits(value)
+    onTraitsChange !== undefined && traits !== undefined
       ? {
           ...triggerTraitUi(value, traits),
           header: (

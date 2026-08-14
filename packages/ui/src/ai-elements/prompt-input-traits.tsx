@@ -72,43 +72,49 @@ function TraitSegment({
       <span className="w-[4.75rem] shrink-0 pt-1 text-[11px] font-medium text-muted-foreground">
         {label}
       </span>
-      <div
-        className="flex min-w-0 flex-1 flex-wrap gap-0.5"
-        role="radiogroup"
-        aria-label={label}
-      >
-        {options.map((option) => {
-          const selected = option.value === value;
-          return (
-            <button
-              key={option.value}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              disabled={disabled}
-              onMouseDown={(event) => event.preventDefault()}
-              onClick={() => onChange(option.value)}
-              className={cn(
-                "h-6 rounded-md px-2 text-[11px] font-medium motion-press transition-colors active:scale-[0.96]",
-                selected
-                  ? "bg-background text-foreground"
-                  : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
-                disabled && "pointer-events-none opacity-50",
-              )}
-            >
-              {option.label}
-            </button>
-          );
-        })}
-      </div>
+      {options.length === 0 ? (
+        <span className="flex h-6 items-center text-[11px] text-muted-foreground/70">
+          No options available
+        </span>
+      ) : (
+        <div
+          className="flex min-w-0 flex-1 flex-wrap gap-0.5"
+          role="radiogroup"
+          aria-label={label}
+        >
+          {options.map((option) => {
+            const selected = option.value === value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                disabled={disabled}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => onChange(option.value)}
+                className={cn(
+                  "h-6 rounded-md px-2 text-[11px] font-medium motion-press transition-colors active:scale-[0.96]",
+                  selected
+                    ? "bg-background text-foreground"
+                    : "text-muted-foreground hover:bg-muted/80 hover:text-foreground",
+                  disabled && "pointer-events-none opacity-50",
+                )}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
 /**
- * Compact trait controls for embedding in the model picker. Sections render
- * only when the active model supports them. Ultrathink is prompt-driven, so it
- * only appears when a PromptInputProvider is in scope.
+ * Compact trait controls for embedding in the model picker. Every section
+ * stays mounted so switching models cannot collapse the header; unsupported
+ * traits show a muted empty state.
  */
 export function TraitsPanel({
   config,
@@ -126,16 +132,6 @@ export function TraitsPanel({
 }: TraitsMenuProps) {
   const controller = useOptionalPromptInputController();
   const prompt = controller?.textInput.value ?? "";
-
-  const hasAnyControls = Boolean(
-    config.reasoning ||
-      config.thinkingToggle ||
-      config.contextWindow1m ||
-      config.fastMode,
-  );
-  if (!hasAnyControls) {
-    return null;
-  }
 
   const ultrathinkAvailable =
     Boolean(config.reasoning?.ultrathink) && controller !== null;
@@ -188,59 +184,63 @@ export function TraitsPanel({
 
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
-      {config.reasoning ? (
-        <div className="flex flex-col gap-1">
-          <TraitSegment
-            label="Reasoning"
-            value={effortRadioValue}
-            options={reasoningOptions}
-            onChange={handleEffortChange}
-            disabled={disabled || ultrathinkInBodyText}
-          />
-          {ultrathinkInBodyText ? (
-            <p className="pl-[5.375rem] text-[11px] leading-snug text-muted-foreground/80">
-              Your prompt contains &quot;ultrathink&quot; in the text. Remove it
-              to change this option.
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-      {config.fastMode ? (
+      <div className="flex min-h-6 flex-col gap-1">
         <TraitSegment
-          label="Speed"
-          value={fastMode ? "fast" : "standard"}
-          options={[
-            { value: "standard", label: "Standard" },
-            { value: "fast", label: "Fast" },
-          ]}
-          onChange={(value) => onFastModeChange(value === "fast")}
-          disabled={disabled}
+          label="Reasoning"
+          value={effortRadioValue}
+          options={reasoningOptions}
+          onChange={handleEffortChange}
+          disabled={disabled || ultrathinkInBodyText}
         />
-      ) : null}
-      {config.contextWindow1m ? (
-        <TraitSegment
-          label="Context"
-          value={use1mContext ? "1m" : "standard"}
-          options={[
-            { value: "standard", label: contextDefaultLabel },
-            { value: "1m", label: "1M" },
-          ]}
-          onChange={(value) => onUse1mContextChange(value === "1m")}
-          disabled={disabled}
-        />
-      ) : null}
-      {config.thinkingToggle ? (
-        <TraitSegment
-          label="Thinking"
-          value={thinkingEnabled ? "on" : "off"}
-          options={[
-            { value: "on", label: "On" },
-            { value: "off", label: "Off" },
-          ]}
-          onChange={(value) => onThinkingEnabledChange(value === "on")}
-          disabled={disabled}
-        />
-      ) : null}
+        {ultrathinkInBodyText ? (
+          <p className="pl-[5.375rem] text-[11px] leading-snug text-muted-foreground/80">
+            Your prompt contains &quot;ultrathink&quot; in the text. Remove it
+            to change this option.
+          </p>
+        ) : null}
+      </div>
+      <TraitSegment
+        label="Speed"
+        value={fastMode ? "fast" : "standard"}
+        options={
+          config.fastMode
+            ? [
+                { value: "standard", label: "Standard" },
+                { value: "fast", label: "Fast" },
+              ]
+            : []
+        }
+        onChange={(value) => onFastModeChange(value === "fast")}
+        disabled={disabled}
+      />
+      <TraitSegment
+        label="Context"
+        value={use1mContext ? "1m" : "standard"}
+        options={
+          config.contextWindow1m
+            ? [
+                { value: "standard", label: contextDefaultLabel },
+                { value: "1m", label: "1M" },
+              ]
+            : []
+        }
+        onChange={(value) => onUse1mContextChange(value === "1m")}
+        disabled={disabled}
+      />
+      <TraitSegment
+        label="Thinking"
+        value={thinkingEnabled ? "on" : "off"}
+        options={
+          config.thinkingToggle
+            ? [
+                { value: "on", label: "On" },
+                { value: "off", label: "Off" },
+              ]
+            : []
+        }
+        onChange={(value) => onThinkingEnabledChange(value === "on")}
+        disabled={disabled}
+      />
     </div>
   );
 }

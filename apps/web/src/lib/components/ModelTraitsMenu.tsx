@@ -3,7 +3,6 @@
 import {
   getModelTraits,
   getReasoningLevelLabel,
-  modelHasTraits,
   resolveTraitsForDisplay,
   type AIModel,
   type StoredModelTraits,
@@ -24,8 +23,7 @@ interface ModelTraitsMenuProps {
  * Trait controls (reasoning / Speed / context window / thinking) for one
  * model. Renders the compact panel used inside the model picker — chat
  * composers, the quick task modal, and task Properties share this so stored
- * values, model defaults and labels resolve the same way everywhere. Renders
- * nothing when the model has no traits.
+ * values, model defaults and labels resolve the same way everywhere.
  */
 export function ModelTraitsMenu({
   model,
@@ -34,8 +32,6 @@ export function ModelTraitsMenu({
   disabled,
   className,
 }: ModelTraitsMenuProps) {
-  if (!modelHasTraits(model)) return null;
-
   const config = getModelTraits(model);
   const display = resolveTraitsForDisplay(model, traits);
 

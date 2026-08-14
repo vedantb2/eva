@@ -1,13 +1,8 @@
 "use client";
 
-import { useRef, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { IconBolt, IconChevronDown } from "@tabler/icons-react";
-import {
-  Popover,
-  PopoverAnchor,
-  PopoverContent,
-  PopoverTrigger,
-} from "../ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { cn } from "../utils/cn";
 import { ProviderIcon } from "./provider-icon";
 import {
@@ -35,8 +30,6 @@ export { ModelPickerContent };
  */
 export const modelPickerSurfaceClass =
   "w-100 max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg border-0 bg-transparent p-0 shadow-none";
-
-const EMPTY_ANCHOR_RECT = new DOMRect();
 
 export interface ModelSelectProps<TModel extends string = string> {
   value: TModel;
@@ -67,7 +60,7 @@ export interface ModelSelectProps<TModel extends string = string> {
   canSelectTeamWhilePersonal?: boolean;
   /**
    * Compact label after the model name on the trigger (e.g. the active
-   * reasoning level). Truncates with the model label.
+   * reasoning level).
    */
   triggerSuffix?: string;
   /** Pinned above the model list — typically trait controls. */
@@ -97,14 +90,8 @@ export function ModelSelect<TModel extends string>({
   showFastIcon,
 }: ModelSelectProps<TModel>) {
   const [open, setOpen] = useState(false);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  // Freeze the popover to the trigger's box at open. Live suffix/model
-  // updates would otherwise resize the trigger and drag the menu.
-  const frozenRectRef = useRef<DOMRect | null>(null);
-  const virtualAnchorRef = useRef({
-    getBoundingClientRect: () => frozenRectRef.current ?? EMPTY_ANCHOR_RECT,
-  });
   const selectedModel = findModelOption(value, options);
+  const triggerLabel = selectedModel ? selectedModel.label : "Select model";
   const instances = buildPickerInstances(options, accounts);
 
   const selectedAccount = accountId
@@ -131,28 +118,15 @@ export function ModelSelect<TModel extends string>({
   );
 
   return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        if (next) {
-          frozenRectRef.current =
-            triggerRef.current?.getBoundingClientRect() ?? null;
-        } else {
-          frozenRectRef.current = null;
-        }
-        setOpen(next);
-      }}
-    >
-      <PopoverAnchor virtualRef={virtualAnchorRef} />
+    <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button
-          ref={triggerRef}
           type="button"
           role="combobox"
           aria-expanded={open}
           data-slot="select-trigger"
           className={cn(
-            "flex h-7 min-w-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50",
+            "flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50",
             className,
           )}
           disabled={disabled}
@@ -184,8 +158,8 @@ export function ModelSelect<TModel extends string>({
               size={14}
             />
           )}
-          <span className="min-w-0 flex-1 truncate text-left">
-            {selectedModel ? selectedModel.label : "Select model"}
+          <span className="whitespace-nowrap text-left">
+            {triggerLabel}
             {triggerSuffix ? (
               <span className="text-muted-foreground/70">
                 {" · "}
@@ -195,7 +169,7 @@ export function ModelSelect<TModel extends string>({
           </span>
           <IconChevronDown
             size={12}
-            className="ml-auto shrink-0 opacity-60"
+            className="shrink-0 opacity-60"
             aria-hidden
           />
         </button>

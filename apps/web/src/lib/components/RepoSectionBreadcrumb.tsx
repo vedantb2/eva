@@ -16,7 +16,7 @@ export function RepoSectionBreadcrumb({
   entityLabel,
 }: RepoSectionBreadcrumbProps) {
   return (
-    <div className="flex min-w-0 w-full items-center gap-1.5 overflow-hidden text-base sm:text-lg md:text-xl">
+    <div className="flex min-w-0 w-full items-center gap-1.5 overflow-hidden text-base">
       <button
         type="button"
         onClick={onSectionClick}

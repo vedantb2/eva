@@ -487,11 +487,18 @@ export const sandboxStartupWarning = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
+    // Step labels are prefixed onto the error by runLoggedSessionStep, so the
+    // message can name what actually broke instead of a generic "unfinished".
+    // Branch-checkout failures are recoverable (publish self-heals the branch),
+    // which the generic copy misrepresents as a services problem.
+    const isBranchCheckoutFailure =
+      /\.(checkoutSessionBranch|checkoutBranch):/.test(args.error);
     await ctx.db.insert("messages", {
       parentId: args.sessionId,
       role: "assistant",
-      content:
-        "Sandbox startup unfinished — session left running. Some services may still be starting.",
+      content: isBranchCheckoutFailure
+        ? "Session branch could not be created — the session is running on its base branch. Eva will recover the branch when it publishes your changes."
+        : "Sandbox startup unfinished — session left running. Some services may still be starting.",
       timestamp: Date.now(),
       isSystemAlert: true,
       errorDetail: args.error,

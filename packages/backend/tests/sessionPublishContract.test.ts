@@ -9,6 +9,7 @@ const sessionWorkflow = readSource("_sessions/workflow.ts");
 const resultTarget = readSource("_sessions/resultTarget.ts");
 const sandboxExecution = readSource("_sandbox_runtime/execution.ts");
 const sandboxGit = readSource("_sandbox_runtime/git.ts");
+const sessionsSandbox = readSource("_sessions/sandbox.ts");
 const turnPersist = readSource("../callback-src/runtime/turnPersist.ts");
 const claudeSdkDaemon = readSource(
   "../callback-src/providers/claudeSdkDaemon.ts",
@@ -432,6 +433,37 @@ describe("a callback-published session still opens its first pull request", () =
     expect(body, "ambiguous shapes must still refuse").toContain(
       "Refusing to publish",
     );
+  });
+
+  /**
+   * The generic "some services may still be starting" banner misdescribed a
+   * failed branch checkout as a services problem (prod sessions eva/65 and
+   * eva/66). The step label runLoggedSessionStep prefixes onto the error is
+   * the routing key; all three checkout step labels must keep matching it.
+   */
+  test("the startup warning names a failed branch checkout", () => {
+    const body = definitionBody(sessionsSandbox, "sandboxStartupWarning");
+    const routing = "/\\.(checkoutSessionBranch|checkoutBranch):/";
+    expect(body, "checkout routing regex changed").toContain(routing);
+    expect(body, "checkout-specific copy lost").toContain(
+      "Session branch could not be created",
+    );
+    expect(body, "generic copy lost").toContain("Sandbox startup unfinished");
+    const stepLabels = [
+      "newSessionSandbox.checkoutSessionBranch:",
+      "newTaskSandbox.checkoutBranch:",
+      "newProjectSandbox.checkoutBranch:",
+    ];
+    const runtimeSessions = readSource("_sandbox_runtime/sessions.ts");
+    for (const label of stepLabels) {
+      expect(runtimeSessions, `step label ${label} renamed`).toContain(
+        label.slice(0, -1),
+      );
+      expect(
+        /\.(checkoutSessionBranch|checkoutBranch):/.test(label),
+        `routing regex no longer matches ${label}`,
+      ).toBe(true);
+    }
   });
 
   test("the post-completion push reports an already-published branch", () => {

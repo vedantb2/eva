@@ -1,8 +1,12 @@
 # Changelog
 
+## Startup warning names a failed branch checkout - 2026-08-14
+
+The "Sandbox startup unfinished — some services may still be starting" banner misdescribed the session-65/66 failure: services were fine, the session branch had failed to be created. `sandboxStartupWarning` now routes on the step label prefixed onto the error (`*.checkoutSessionBranch:` / `*.checkoutBranch:`) and says what actually happened — the session is running on its base branch and publish will recover the branch. Generic copy stays for genuinely generic failures; a contract test pins the routing regex to all three checkout step labels.
+
 ## Quick task chat marks the task in progress - 2026-08-14
 
-Sending a message on a todo quick task left it in Todo while Eva was working, so the in-progress beam and kanban column never showed. Tracking the chat workflow now promotes `todo` → `in_progress`, and the turn finishing (or cancelling) restores `todo` unless a main run is still going.
+Sending a message on a quick task left it in its previous column while Eva was working, so the in-progress beam never showed. The chat workflow now parks the current status, flips to `in_progress` for the turn, and restores the parked status when the agent stops.
 
 ## Publish self-heals a session stranded on its base branch - 2026-08-14
 

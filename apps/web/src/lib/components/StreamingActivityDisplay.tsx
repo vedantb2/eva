@@ -15,31 +15,18 @@ import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import { formatDuration } from "@eva/shared/duration";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
-function SimpleViewActivityStatus({
-  isStreaming,
-  startedAt,
-  duration,
-}: {
-  isStreaming: boolean;
-  startedAt?: number;
-  duration?: string;
-}) {
-  const elapsed = useElapsedSeconds(startedAt, isStreaming);
-  if (isStreaming) {
-    return (
-      <div className="flex items-center gap-2 text-muted-foreground text-sm">
-        <Spinner size="sm" />
-        <Shimmer as="span" duration={2.5} spread={1.5}>
-          Working for {formatElapsed(elapsed)}
-        </Shimmer>
-      </div>
-    );
-  }
-  if (!duration) {
-    return null;
-  }
+function SimpleViewWorkingStatus({ startedAt }: { startedAt?: number }) {
+  const elapsed = useElapsedSeconds(startedAt, true);
   return (
-    <p className="text-muted-foreground text-sm">Worked for {duration}</p>
+    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+      <Spinner size="sm" />
+      <span>
+        <Shimmer as="span" duration={2.5} spread={1.5}>
+          Working for
+        </Shimmer>{" "}
+        <span className="tabular-nums">{formatElapsed(elapsed)}</span>
+      </span>
+    </div>
   );
 }
 
@@ -62,12 +49,9 @@ export function StreamingActivityDisplay({
 }) {
   const simpleView = useSimpleView();
   if (simpleView) {
-    return (
-      <SimpleViewActivityStatus
-        isStreaming={isStreaming}
-        startedAt={startedAt}
-      />
-    );
+    return isStreaming ? (
+      <SimpleViewWorkingStatus startedAt={startedAt} />
+    ) : null;
   }
 
   const steps = parseActivitySteps(activity);
@@ -108,13 +92,7 @@ export function ActivityLogDisplay({
     startedAt && finishedAt ? formatDuration(startedAt, finishedAt) : undefined;
 
   if (simpleView) {
-    const trimmedLog = activityLog.trim();
-    if (trimmedLog === "" || trimmedLog === "[]") {
-      return null;
-    }
-    return (
-      <SimpleViewActivityStatus isStreaming={false} duration={duration} />
-    );
+    return null;
   }
 
   const steps = parseActivitySteps(activityLog);

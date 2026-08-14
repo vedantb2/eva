@@ -14,7 +14,6 @@ import {
   SelectLabel,
   SelectGroup,
   Input,
-  ModelSelect,
   Tooltip,
   TooltipTrigger,
   TooltipContent,
@@ -48,7 +47,7 @@ import {
   type Priority,
 } from "@/lib/components/priority/priorityMeta";
 import { BranchSelect } from "@/lib/components/BranchSelect";
-import { ModelTraitsMenu } from "@/lib/components/ModelTraitsMenu";
+import { ModelSelectWithTraits } from "@/lib/components/ModelSelectWithTraits";
 import { storedRunTraits, toRunTraitArgs } from "@/lib/utils/runTraits";
 import {
   FieldsSection,
@@ -395,7 +394,7 @@ export function StatusFieldsSection({
         </Select>
 
         <div className={FIELD_ROW_CLASS}>
-          <ModelSelect
+          <ModelSelectWithTraits
             value={currentModel}
             options={modelOptions}
             onValueChange={() => undefined}
@@ -415,16 +414,11 @@ export function StatusFieldsSection({
             }}
             canSelectTeamWhilePersonal={isOwner}
             disabled={modelLockReason !== undefined}
-            className="px-0"
-          />
-          <ModelTraitsMenu
-            model={currentModel}
             traits={storedRunTraits(task)}
-            onChange={(partial) =>
+            onTraitsChange={(partial) =>
               updateTask({ id: taskId, ...toRunTraitArgs(partial) })
             }
-            disabled={modelLockReason !== undefined}
-            className="ml-1"
+            className="px-0"
           />
           {modelLockReason ? (
             <Tooltip>

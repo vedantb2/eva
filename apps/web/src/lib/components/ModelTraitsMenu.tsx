@@ -8,7 +8,7 @@ import {
   type AIModel,
   type StoredModelTraits,
 } from "@eva/backend";
-import { TraitsMenu } from "@eva/ui";
+import { TraitsPanel } from "@eva/ui";
 
 interface ModelTraitsMenuProps {
   model: AIModel;
@@ -21,11 +21,11 @@ interface ModelTraitsMenuProps {
 }
 
 /**
- * Traits dropdown (reasoning / Speed / context window / thinking) for one
- * model. Single wiring point for every surface that stores traits — chat
- * composers, the quick task modal, and task Properties — so stored values,
- * model defaults and labels resolve the same way everywhere. Renders nothing
- * when the model has no traits.
+ * Trait controls (reasoning / Speed / context window / thinking) for one
+ * model. Renders the compact panel used inside the model picker — chat
+ * composers, the quick task modal, and task Properties share this so stored
+ * values, model defaults and labels resolve the same way everywhere. Renders
+ * nothing when the model has no traits.
  */
 export function ModelTraitsMenu({
   model,
@@ -40,7 +40,7 @@ export function ModelTraitsMenu({
   const display = resolveTraitsForDisplay(model, traits);
 
   return (
-    <TraitsMenu
+    <TraitsPanel
       config={config}
       effortLevel={display.effortLevel}
       thinkingEnabled={display.thinkingEnabled}

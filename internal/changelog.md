@@ -1,5 +1,10 @@
 # Changelog
 
+## Model and traits share one picker menu - 2026-08-14
+
+Two adjacent dropdowns (model, then traits) made switching either feel like two controls for one decision. The model picker now hosts trait pills above the list and stays open until you click outside, so model and traits can be set in one pass. The trigger shows the provider icon plus the short model name (Sonnet, not Claude Sonnet), a bolt when Fast is on, and the active reasoning level. The popover is anchored to the trigger's position at open, so changing reasoning (or Fast) does not shift the menu.
+
+
 ## Agent reasoning shows again as one evolving activity row - 2026-08-13
 
 Reasoning was suppressed as a transient liveness signal, so the model's thinking never reached the timeline. It now streams into a single evolving `reasoning` step, updated in place across deltas the way the todo checklist is, so a turn's thousands of reasoning events never flood the stream. The prose rides the existing `detail` field (no schema change) and is head-capped at 6000 chars per burst so one burst cannot dominate the payload. A tool call between two reasoning bursts closes the first row and opens a second, keeping thinking interleaved with tools in timeline order. The frontend renders the row as the collapsible `Reasoning` block (auto-open while streaming, "Thought for N seconds" once done); only `thinking` and `response` stay hidden.

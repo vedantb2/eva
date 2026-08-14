@@ -78,7 +78,7 @@ interface ChatBodyProps {
   onAccountChange?: (accountId: string | null) => void;
   /**
    * Model trait controls (reasoning effort, thinking toggle, Fast, 1M context). When
-   * provided, a traits menu is shown after the model selector for capable models.
+   * provided, trait pills appear above the model list for capable models.
    */
   displayTraits?: ReturnType<typeof resolveTraitsForDisplay>;
   onTraitsChange?: (partial: Partial<StoredModelTraits>) => void;

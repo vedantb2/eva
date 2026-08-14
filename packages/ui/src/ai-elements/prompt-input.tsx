@@ -144,7 +144,7 @@ export const usePromptInputController = () => {
 };
 
 // Optional variants (do NOT throw). Useful for dual-mode components — e.g.
-// TraitsMenu, which also renders outside a composer (task Properties).
+// TraitsPanel, which also renders outside a composer (task Properties).
 export const useOptionalPromptInputController = () =>
   useContext(PromptInputController);
 

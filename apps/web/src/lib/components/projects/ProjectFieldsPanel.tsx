@@ -18,7 +18,6 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
-  ModelSelect,
 } from "@eva/ui";
 import {
   IconUsers,
@@ -51,7 +50,7 @@ import {
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 import { ProjectTagsPopover } from "./_components/ProjectTagsPopover";
-import { ModelTraitsMenu } from "@/lib/components/ModelTraitsMenu";
+import { ModelSelectWithTraits } from "@/lib/components/ModelSelectWithTraits";
 import { useUpdateProject } from "./useUpdateProject";
 import { projectStoredTraits, useSetProjectTraits } from "./useProjectTraits";
 
@@ -270,7 +269,7 @@ export function ProjectFieldsPanel({
         </DropdownMenu>
 
         <div className={FIELD_ROW_CLASS}>
-          <ModelSelect
+          <ModelSelectWithTraits
             value={currentModel}
             options={modelOptions}
             onValueChange={(nextModel) =>
@@ -285,14 +284,9 @@ export function ProjectFieldsPanel({
                 providerAccountId: resolveAccountId(nextAccountId) ?? null,
               });
             }}
-            className="px-0"
-          />
-          {/* Same trait set the project sandbox chat composer edits. */}
-          <ModelTraitsMenu
-            model={currentModel}
             traits={projectStoredTraits(project)}
-            onChange={setProjectTraits}
-            className="ml-1"
+            onTraitsChange={setProjectTraits}
+            className="px-0"
           />
         </div>
 

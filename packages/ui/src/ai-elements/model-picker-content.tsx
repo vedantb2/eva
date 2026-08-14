@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Command as CommandPrimitive } from "cmdk";
 import { IconCheck, IconSearch } from "@tabler/icons-react";
 import { Command, CommandEmpty, CommandItem, CommandList } from "../ui/command";
@@ -117,13 +117,13 @@ function InstanceIcon({
 function rowFooter(instance: ModelPickerInstance): string {
   const providerLabel = getProviderLabel(instance.provider);
   if (instance.accountId === null) return providerLabel;
-  return `${providerLabel} Â· ${instance.label}`;
+  return `${providerLabel} · ${instance.label}`;
 }
 
 /**
  * Searchable model + account list used by `ModelSelect` and by menu embeds
  * (context/dropdown submenus). Do not reimplement provider/account radios
- * elsewhere â€” pass the same options/accounts hooks the modal uses.
+ * elsewhere — pass the same options/accounts hooks the modal uses.
  */
 export function ModelPickerContent<TModel extends string>({
   value,
@@ -132,6 +132,7 @@ export function ModelPickerContent<TModel extends string>({
   accounts,
   onSelect,
   canSelectTeamWhilePersonal = true,
+  header,
 }: {
   value: TModel;
   accountId: string | null;
@@ -139,6 +140,8 @@ export function ModelPickerContent<TModel extends string>({
   accounts?: ReadonlyArray<ModelAccount>;
   onSelect: (modelId: TModel, accountId: string | null) => void;
   canSelectTeamWhilePersonal?: boolean;
+  /** Trait controls (or any extra chrome) pinned above the model list. */
+  header?: ReactNode;
 }) {
   const instances = useMemo(
     () => buildPickerInstances(options, accounts),
@@ -209,7 +212,7 @@ export function ModelPickerContent<TModel extends string>({
         out.push({
           compositeKey: toCompositeKey(instance.key, option.id),
           modelId: option.id,
-          modelLabel: formatModelDisplayLabel(option.provider, option.label),
+          modelLabel: option.label,
           instance,
         });
       }
@@ -282,10 +285,19 @@ export function ModelPickerContent<TModel extends string>({
   return (
     <TooltipProvider>
       <div
-        className="flex h-96 max-h-[min(24rem,var(--radix-popover-content-available-height))] w-full overflow-hidden rounded-lg bg-popover smooth-shadow-ring-lg"
+        className="flex h-96 max-h-[min(24rem,var(--radix-popover-content-available-height))] w-full flex-col overflow-hidden rounded-lg bg-popover smooth-shadow-ring-lg"
         data-model-picker-content
       >
-        {!isSearching ? (
+        {header ? (
+          <div
+            className="shrink-0 border-b border-border bg-muted/30 px-3 py-2"
+            onPointerDown={(event) => event.stopPropagation()}
+          >
+            {header}
+          </div>
+        ) : null}
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          {!isSearching ? (
           <div className="w-12 shrink-0 overflow-hidden border-r border-border bg-muted/30">
             <div
               ref={railContentRef}
@@ -422,6 +434,10 @@ export function ModelPickerContent<TModel extends string>({
                     disabled={isLockedTeamRow}
                     keywords={[
                       row.modelLabel,
+                      formatModelDisplayLabel(
+                        row.instance.provider,
+                        row.modelLabel,
+                      ),
                       getProviderLabel(row.instance.provider),
                       row.instance.label,
                     ]}
@@ -431,6 +447,8 @@ export function ModelPickerContent<TModel extends string>({
                         (entry) => entry.id === row.modelId,
                       );
                       if (!option) return;
+                      setSelectedInstanceKey(row.instance.key);
+                      setSearch("");
                       onSelect(option.id, row.instance.accountId);
                     }}
                     className={cn(
@@ -476,6 +494,7 @@ export function ModelPickerContent<TModel extends string>({
             </CommandList>
           </div>
         </Command>
+        </div>
       </div>
     </TooltipProvider>
   );

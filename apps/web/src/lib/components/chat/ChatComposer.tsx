@@ -1,7 +1,6 @@
 import {
   BorderBeam,
   Button,
-  ModelSelect,
   motionBase,
   PromptInput,
   PromptInputFooter,
@@ -14,7 +13,7 @@ import {
   type PromptInputMessage,
   usePromptInputController,
 } from "@eva/ui";
-import { ModelTraitsMenu } from "@/lib/components/ModelTraitsMenu";
+import { ModelSelectWithTraits } from "@/lib/components/ModelSelectWithTraits";
 import { ComposerSpeechButton } from "@/lib/components/chat/_components/ComposerSpeechButton";
 import {
   MAX_CHAT_ATTACHMENTS,
@@ -309,25 +308,17 @@ export function ChatComposer({
                   />
                 </PromptInputTools>
                 <div className="flex min-w-0 items-center gap-1">
-                  <ModelSelect
+                  <ModelSelectWithTraits
                     value={model}
                     options={modelOptions}
                     onValueChange={setModel}
                     accounts={accounts}
                     accountId={accountId}
                     onAccountChange={onAccountChange}
-                    className="max-w-48 truncate sm:max-w-none"
+                    className="max-w-56 truncate sm:max-w-none"
+                    traits={displayTraits}
+                    onTraitsChange={onTraitsChange}
                   />
-                  {onTraitsChange && displayTraits ? (
-                    // Already-resolved traits round-trip through
-                    // resolveTraitsForDisplay unchanged, so they double as the
-                    // stored values the shared menu expects.
-                    <ModelTraitsMenu
-                      model={model}
-                      traits={displayTraits}
-                      onChange={onTraitsChange}
-                    />
-                  ) : null}
                   <ComposerSpeechButton disabled={isInputDisabled} />
                   {isExecuting ? (
                     <Button

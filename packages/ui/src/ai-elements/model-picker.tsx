@@ -1,8 +1,13 @@
 "use client";
 
-import { useState } from "react";
-import { IconChevronDown } from "@tabler/icons-react";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { useRef, useState, type ReactNode } from "react";
+import { IconBolt, IconChevronDown } from "@tabler/icons-react";
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+  PopoverTrigger,
+} from "../ui/popover";
 import { cn } from "../utils/cn";
 import { ProviderIcon } from "./provider-icon";
 import {
@@ -31,6 +36,8 @@ export { ModelPickerContent };
 export const modelPickerSurfaceClass =
   "w-100 max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg border-0 bg-transparent p-0 shadow-none";
 
+const EMPTY_ANCHOR_RECT = new DOMRect();
+
 export interface ModelSelectProps<TModel extends string = string> {
   value: TModel;
   onValueChange: (model: TModel) => void;
@@ -58,6 +65,15 @@ export interface ModelSelectProps<TModel extends string = string> {
    * (e.g. non-owner on a task) so Team stays unselectable.
    */
   canSelectTeamWhilePersonal?: boolean;
+  /**
+   * Compact label after the model name on the trigger (e.g. the active
+   * reasoning level). Truncates with the model label.
+   */
+  triggerSuffix?: string;
+  /** Pinned above the model list — typically trait controls. */
+  header?: ReactNode;
+  /** Bolt before the provider icon when Fast mode is on. */
+  showFastIcon?: boolean;
 }
 
 /**
@@ -76,8 +92,18 @@ export function ModelSelect<TModel extends string>({
   onAccountChange,
   onSelectionChange,
   canSelectTeamWhilePersonal = true,
+  triggerSuffix,
+  header,
+  showFastIcon,
 }: ModelSelectProps<TModel>) {
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  // Freeze the popover to the trigger's box at open. Live suffix/model
+  // updates would otherwise resize the trigger and drag the menu.
+  const frozenRectRef = useRef<DOMRect | null>(null);
+  const virtualAnchorRef = useRef({
+    getBoundingClientRect: () => frozenRectRef.current ?? EMPTY_ANCHOR_RECT,
+  });
   const selectedModel = findModelOption(value, options);
   const instances = buildPickerInstances(options, accounts);
 
@@ -105,9 +131,22 @@ export function ModelSelect<TModel extends string>({
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        if (next) {
+          frozenRectRef.current =
+            triggerRef.current?.getBoundingClientRect() ?? null;
+        } else {
+          frozenRectRef.current = null;
+        }
+        setOpen(next);
+      }}
+    >
+      <PopoverAnchor virtualRef={virtualAnchorRef} />
       <PopoverTrigger asChild>
         <button
+          ref={triggerRef}
           type="button"
           role="combobox"
           aria-expanded={open}
@@ -118,6 +157,11 @@ export function ModelSelect<TModel extends string>({
           )}
           disabled={disabled}
         >
+          {showFastIcon ? (
+            <span title="Fast" className="inline-flex shrink-0">
+              <IconBolt size={12} aria-hidden />
+            </span>
+          ) : null}
           {activeInstance && selectedAccount && showAccountBadge ? (
             <span className="relative isolate inline-flex size-4 shrink-0 items-center justify-center">
               <ProviderIcon
@@ -141,12 +185,13 @@ export function ModelSelect<TModel extends string>({
             />
           )}
           <span className="min-w-0 flex-1 truncate text-left">
-            {selectedModel
-              ? formatModelDisplayLabel(
-                  selectedModel.provider,
-                  selectedModel.label,
-                )
-              : "Select model"}
+            {selectedModel ? selectedModel.label : "Select model"}
+            {triggerSuffix ? (
+              <span className="text-muted-foreground/70">
+                {" · "}
+                {triggerSuffix}
+              </span>
+            ) : null}
           </span>
           <IconChevronDown
             size={12}
@@ -177,8 +222,8 @@ export function ModelSelect<TModel extends string>({
               onValueChange(modelId);
               onAccountChange?.(nextAccountId);
             }
-            setOpen(false);
           }}
+          header={header}
         />
       </PopoverContent>
     </Popover>

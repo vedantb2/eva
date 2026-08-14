@@ -11,7 +11,6 @@ import {
   Popover,
   PopoverTrigger,
   PopoverContent,
-  ModelSelect,
   Badge,
   Command,
   CommandInput,
@@ -44,7 +43,7 @@ import {
 import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
 import { toRunTraitArgs } from "@/lib/utils/runTraits";
 import { BranchSelect } from "@/lib/components/BranchSelect";
-import { ModelTraitsMenu } from "@/lib/components/ModelTraitsMenu";
+import { ModelSelectWithTraits } from "@/lib/components/ModelSelectWithTraits";
 import {
   IconFileText,
   IconTrash,
@@ -489,7 +488,7 @@ export function QuickTaskModal({
               setAssignedTo={setAssignedTo}
             />
 
-            <ModelSelect
+            <ModelSelectWithTraits
               value={model}
               options={modelOptions}
               onValueChange={(next) => {
@@ -499,13 +498,8 @@ export function QuickTaskModal({
               accounts={accounts}
               accountId={providerAccountId}
               onAccountChange={setProviderAccountId}
-              className={QUICK_TASK_OPTION_BADGE_CLASS}
-            />
-
-            <ModelTraitsMenu
-              model={model}
               traits={traits}
-              onChange={(partial) =>
+              onTraitsChange={(partial) =>
                 setTraits((prev) => ({ ...prev, ...partial }))
               }
               className={QUICK_TASK_OPTION_BADGE_CLASS}

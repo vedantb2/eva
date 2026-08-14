@@ -28,6 +28,10 @@ import {
   type BulkAction,
 } from "./_components/QuickTasksBulkBar";
 import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
+import { QuickTaskBreadcrumb } from "./_components/QuickTaskBreadcrumb";
+import { QuickTaskDetailHeaderActions } from "./_components/QuickTaskDetailHeaderActions";
+import { useQuickTaskNeighbors } from "./_utils/useQuickTaskNeighbors";
+import { QuickTaskHeaderActionsSlotProvider } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "./_utils";
 import { useAgentTaskByNumId } from "@/lib/useResolveByNumId";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
@@ -97,6 +101,24 @@ export function QuickTasksClient() {
   })();
 
   const quickTasks = useFilteredQuickTasks(tasks);
+  const selectedTask =
+    selectedTaskId && tasks
+      ? tasks.find((task) => task._id === selectedTaskId)
+      : undefined;
+  const listNavSurface =
+    routeState?.surface === "sandbox" ? "sandbox" : "detail";
+  const listSandboxTab =
+    routeState?.surface === "sandbox" ? routeState.sandboxTab : undefined;
+  const {
+    prevTaskId: listPrevTaskId,
+    nextTaskId: listNextTaskId,
+    handleNavigatePrev: handleListNavigatePrev,
+    handleNavigateNext: handleListNavigateNext,
+  } = useQuickTaskNeighbors({
+    taskId: selectedTaskId ?? "",
+    navSurface: listNavSurface,
+    sandboxTab: listSandboxTab,
+  });
   const hasAnyTasks = (tasks ?? []).length > 0;
   const hasQuickTasks = quickTasks.length > 0;
 
@@ -361,40 +383,67 @@ export function QuickTasksClient() {
   }
 
   return (
-    <>
+    <QuickTaskHeaderActionsSlotProvider>
       <PageWrapper
-        title="Quick Tasks"
-        fillHeight
-        childPadding={false}
-        headerRight={
-          <QuickTasksToolbar
-            view={view}
-            onViewChange={(v: "kanban" | "list") => {
-              setParams({ view: v });
-              // Only list view renders an open task inline (master/detail
-              // split); kanban shows the board, so close the task.
-              if (selectedTaskId && v !== "list") {
+        title={
+          view === "list" && selectedTask ? (
+            <QuickTaskBreadcrumb
+              onBack={() => {
                 navigate({
                   to: toInternalRepoHref(`${basePath}/quick-tasks`),
                   search: (prev) => prev,
                 });
-              }
-            }}
-            searchQuery={q}
-            onSearchChange={(v) => setParams({ q: v ?? "" })}
-            hasQuickTasks={hasAnyTasks}
-            isSelecting={isSelecting}
-            onStartSelecting={() => setIsSelecting(true)}
-            onCreateTask={() => setIsCreating(true)}
-            onImport={() => setIsImporting(true)}
-            projects={projects}
-            projectFilter={project}
-            onProjectFilterChange={(v) => setParams({ project: v })}
-            users={users}
-            userFilter={user}
-            onUserFilterChange={(v) => setParams({ user: v })}
-            allTags={allTags}
-          />
+              }}
+              taskNumId={selectedTask.numId}
+              taskTitle={selectedTask.title}
+            />
+          ) : (
+            "Quick Tasks"
+          )
+        }
+        fillHeight
+        childPadding={false}
+        headerRight={
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            {view === "list" && selectedTaskId ? (
+              <QuickTaskDetailHeaderActions
+                repoId={repo._id}
+                taskId={selectedTaskId}
+                prevTaskId={listPrevTaskId ?? undefined}
+                nextTaskId={listNextTaskId ?? undefined}
+                onNavigatePrev={handleListNavigatePrev}
+                onNavigateNext={handleListNavigateNext}
+              />
+            ) : null}
+            <QuickTasksToolbar
+              view={view}
+              onViewChange={(v: "kanban" | "list") => {
+                setParams({ view: v });
+                // Only list view renders an open task inline (master/detail
+                // split); kanban shows the board, so close the task.
+                if (selectedTaskId && v !== "list") {
+                  navigate({
+                    to: toInternalRepoHref(`${basePath}/quick-tasks`),
+                    search: (prev) => prev,
+                  });
+                }
+              }}
+              searchQuery={q}
+              onSearchChange={(v) => setParams({ q: v ?? "" })}
+              hasQuickTasks={hasAnyTasks}
+              isSelecting={isSelecting}
+              onStartSelecting={() => setIsSelecting(true)}
+              onCreateTask={() => setIsCreating(true)}
+              onImport={() => setIsImporting(true)}
+              projects={projects}
+              projectFilter={project}
+              onProjectFilterChange={(v) => setParams({ project: v })}
+              users={users}
+              userFilter={user}
+              onUserFilterChange={(v) => setParams({ user: v })}
+              allTags={allTags}
+            />
+          </div>
         }
       >
         <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden p-3 pt-0">
@@ -518,6 +567,6 @@ export function QuickTasksClient() {
         selectedTasks={selectedTasks}
         onSuccess={exitSelectMode}
       />
-    </>
+    </QuickTaskHeaderActionsSlotProvider>
   );
 }

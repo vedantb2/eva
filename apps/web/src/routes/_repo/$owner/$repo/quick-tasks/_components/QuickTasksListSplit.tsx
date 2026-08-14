@@ -6,7 +6,6 @@ import type { FunctionReturnType } from "convex/server";
 import { Spinner } from "@eva/ui";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
-import { QuickTaskHeaderActionsSlotProvider } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
 import { QuickTaskSplitDetailPane } from "./QuickTaskSplitDetailPane";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
@@ -61,8 +60,7 @@ export function QuickTasksListSplit({
 }: QuickTasksListSplitProps) {
   const { basePath } = useRepo();
   return (
-    <QuickTaskHeaderActionsSlotProvider>
-      <div className="min-h-0 flex-1 overflow-hidden">
+    <div className="min-h-0 flex-1 overflow-hidden">
         <ResizablePanelLayout
           storageKey="quick-tasks-split"
           leftDefaultSize="33%"
@@ -115,6 +113,5 @@ export function QuickTasksListSplit({
           }
         />
       </div>
-    </QuickTaskHeaderActionsSlotProvider>
   );
 }

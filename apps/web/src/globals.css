@@ -948,43 +948,32 @@ html[data-blur-pid] [data-pii] {
   color: rgb(var(--foreground));
 }
 
-/* Animated border for in-progress quick task cards */
-@property --qt-border-angle {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 0deg;
-}
-
-@keyframes qt-border-spin {
-  to {
-    --qt-border-angle: 360deg;
-  }
-}
-
-.qt-in-progress-border {
-  --qt-border-angle: 0deg;
-  /* Outer = ListRow surface radius + 1px padding (concentric). */
-  border-radius: calc(clamp(0.75rem, var(--radius), 1.25rem) + 1px);
-  animation: qt-border-spin 2.5s linear infinite;
-  background-image: conic-gradient(
-    from var(--qt-border-angle),
-    transparent 0%,
-    rgb(var(--status-progress-bar) / 0.85) 12%,
-    transparent 25%
-  );
-}
-
 /* ───────────────────────────────────────────────────────────────────
  * Border beam (<BorderBeam/>) — hairline of light that travels around a
- * surface while an async task runs (chat composer while Eva replies).
- * The beam is an overlay inset -1px: its wrapper owns the radius, the beam
- * inherits it, and the child's opaque background hides the gradient's
- * interior so only the ring reads. ::after is the same gradient, blurred,
- * for the outward glow.
+ * surface while an async task runs (chat composer while Eva replies, quick
+ * task / project cards while building). The overlay is inset -1px: its
+ * wrapper owns the radius, the beam inherits it, and the child's opaque
+ * background hides the gradient's interior so only the ring reads.
  *
- * Named `beam-*`, NOT `border-beam-*`: tailwind-merge (inside cn()) reads a
- * `border-` prefix as a border-colour utility and drops `border-beam` as a
- * conflict with `border-beam-colorful`, leaving an unstyled span.
+ * The ring must NOT be drawn by animating the conic gradient's angle: a
+ * registered custom property can't run on the compositor, so it repaints
+ * the gradient every frame — real GPU burn at high refresh rates. Instead
+ * an oversized gradient square spins under a static rounded clip via
+ * `rotate`, which is a cached-texture compositor animation. The halo is a
+ * blur of a changing image so it can't be cached the same way; `steps(90)`
+ * caps its repaints at ~30Hz, which the blur hides.
+ *
+ * Color stops live on `.beam-root` as `--beam-stops`. The ring bakes them
+ * into a `from 0deg` gradient (angle is the `rotate`). The halo must name
+ * `from var(--beam-angle)` on *itself* — a parent `--beam-image` would
+ * substitute `--beam-angle` on `.beam-root` (always 0deg) and the glow
+ * would sit still while the ring moved.
+ *
+ * `.beam-root` carries the variant variables; `.beam` is the crisp ring;
+ * `.beam-halo` the outward glow. Named `beam-*`, NOT `border-beam-*`:
+ * tailwind-merge (inside cn()) reads a `border-` prefix as a border-colour
+ * utility and drops `border-beam` as a conflict with `border-beam-colorful`,
+ * leaving an unstyled span.
  * ─────────────────────────────────────────────────────────────────── */
 @property --beam-angle {
   syntax: "<angle>";
@@ -992,41 +981,66 @@ html[data-blur-pid] [data-pii] {
   initial-value: 0deg;
 }
 
+/* Halo only — the crisp ring spins with the composited `beam-rotate`. */
 @keyframes beam-spin {
   to {
     --beam-angle: 360deg;
   }
 }
 
-.beam {
-  --beam-angle: 0deg;
+@keyframes beam-rotate {
+  to {
+    rotate: 1turn;
+  }
+}
+
+.beam-root {
   --beam-duration: 3s;
   --beam-spread: 12%;
   --beam-glow: 8px;
-  --beam-image: conic-gradient(
-    from var(--beam-angle),
-    transparent 0%,
+  --beam-stops: transparent 0%,
     rgb(var(--foreground) / 0.75) var(--beam-spread),
-    transparent calc(var(--beam-spread) * 2)
-  );
+    transparent calc(var(--beam-spread) * 2);
   position: absolute;
-  inset: -1px;
+  inset: 0;
   z-index: 0;
   border-radius: inherit;
   pointer-events: none;
-  background-image: var(--beam-image);
-  animation: beam-spin var(--beam-duration) linear infinite;
 }
 
-.beam::after {
+.beam {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+/* Spinning gradient square. Sized off the host's width so it covers the
+ * clip's diagonal on any surface at least as wide as it is tall — every
+ * beam host is. */
+.beam::before {
   content: "";
   position: absolute;
-  inset: 0;
+  left: 50%;
+  top: 50%;
+  width: 150%;
+  aspect-ratio: 1;
+  margin: -75% 0 0 -75%;
+  background-image: conic-gradient(from 0deg, var(--beam-stops));
+  animation: beam-rotate var(--beam-duration) linear infinite;
+}
+
+.beam-halo {
+  position: absolute;
+  inset: -1px;
   border-radius: inherit;
-  background-image: var(--beam-image);
+  background-image: conic-gradient(
+    from var(--beam-angle),
+    var(--beam-stops)
+  );
   filter: blur(var(--beam-glow));
   opacity: 0.5;
-  animation: beam-spin var(--beam-duration) linear infinite;
+  animation: beam-spin var(--beam-duration) steps(90) infinite;
 }
 
 .beam-sm {
@@ -1042,23 +1056,17 @@ html[data-blur-pid] [data-pii] {
 }
 
 .beam-progress {
-  --beam-image: conic-gradient(
-    from var(--beam-angle),
-    transparent 0%,
+  --beam-stops: transparent 0%,
     rgb(var(--status-progress-bar) / 0.9) var(--beam-spread),
-    transparent calc(var(--beam-spread) * 2)
-  );
+    transparent calc(var(--beam-spread) * 2);
 }
 
 .beam-colorful {
-  --beam-image: conic-gradient(
-    from var(--beam-angle),
-    transparent 0%,
+  --beam-stops: transparent 0%,
     rgb(var(--chart-4) / 0.9) calc(var(--beam-spread) * 0.5),
     rgb(var(--chart-2) / 0.95) var(--beam-spread),
     rgb(var(--chart-5) / 0.75) calc(var(--beam-spread) * 1.5),
-    transparent calc(var(--beam-spread) * 2)
-  );
+    transparent calc(var(--beam-spread) * 2);
 }
 
 /* ───────────────────────────────────────────────────────────────────

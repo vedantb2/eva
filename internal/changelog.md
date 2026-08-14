@@ -1,5 +1,9 @@
 # Changelog
 
+## Border beams no longer repaint every frame - 2026-08-14
+
+The composer BorderBeam and the in-progress card ring animated a registered CSS custom property (`--beam-angle` / `--qt-border-angle`), which cannot run on the compositor: every frame repainted the conic gradient, and the beam's glow re-ran an 8px blur on top — enough to spike GPU to ~25% at high refresh rates while Eva replies. The crisp ring is now an oversized gradient square spinning under a static rounded clip via a composited `rotate` animation (cached texture, no repaints), and the glow — a blur of a changing image that cannot be cached — updates through `steps(90)` at ~30Hz, invisible under the blur. The halo names `from var(--beam-angle)` on itself: a parent `--beam-image` substituted the angle on `.beam-root` (always 0deg), so the glow sat still while the ring moved. The duplicate `qt-in-progress-border` spinner is gone: quick task and project cards reuse `<BorderBeam colorVariant="progress" glow={false}>`, which now forwards props/ref so Radix `asChild` context-menu triggers keep working.
+
 ## Fast Refresh no longer full-reloads the app on provider edits - 2026-08-14
 
 Editing a provider file (Convex client, theme tokens, shortcuts, avatars) was forcing a full page reload because those modules exported both React components and non-components. Constants and hooks now live next to the providers instead of inside them, so Vite can patch the UI in place. Cursor's TypeScript server is also pointed at workspace TypeScript 5.9 with a 4 GB heap cap — the editor was previously aimed at the native TS 7 preview, which is not a language service, and tsserver was sitting on ~7 GB.

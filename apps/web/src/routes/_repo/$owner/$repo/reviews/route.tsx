@@ -12,7 +12,7 @@ function ReviewsLayout() {
   if (simpleView) {
     return (
       <Navigate
-        to="/$owner/$repo/projects/"
+        to="/$owner/$repo/projects"
         params={{ owner, repo }}
         replace
       />

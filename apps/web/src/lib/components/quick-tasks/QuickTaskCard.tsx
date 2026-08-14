@@ -2,6 +2,7 @@
 
 import {
   Badge,
+  BorderBeam,
   Checkbox,
   cn,
   ContextMenu,
@@ -340,7 +341,14 @@ export function QuickTaskCard({
   );
 
   const wrappedCard = isInProgress ? (
-    <div className="qt-in-progress-border p-px">{card}</div>
+    <BorderBeam
+      active
+      colorVariant="progress"
+      glow={false}
+      className="rounded-surface"
+    >
+      {card}
+    </BorderBeam>
   ) : (
     card
   );

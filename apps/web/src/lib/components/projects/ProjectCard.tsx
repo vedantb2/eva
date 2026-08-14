@@ -31,6 +31,7 @@ import {
   ContextMenuRadioGroup,
   ContextMenuRadioItem,
   ContextMenuSeparator,
+  BorderBeam,
   Button,
   Dialog,
   DialogContent,
@@ -320,7 +321,14 @@ export function ProjectCard({
   );
 
   const wrappedCard = isBuilding ? (
-    <div className="qt-in-progress-border p-px">{cardContent}</div>
+    <BorderBeam
+      active
+      colorVariant="progress"
+      glow={false}
+      className="rounded-surface"
+    >
+      {cardContent}
+    </BorderBeam>
   ) : (
     cardContent
   );

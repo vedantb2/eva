@@ -22,7 +22,9 @@ FOLLOW ALL OF THESE RULES
 - useEffect is banned as it introduces performance regressions
 - Do not run dev / lint / build unless the user asks.
 - After medium+ changes: no banned types; `tsc` where relevant; `/changelog` (or `internal/changelog.md`).
-  Eliminate duplication, centralise your changes so its easier to update them
+- Eliminate duplication, centralise your changes so its easier to update them
+- For debugging, use Eva MCP and Convex CLI for prod logs
+
 
 ## Domain docs (read when relevant)
 

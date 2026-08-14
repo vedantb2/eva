@@ -20,6 +20,7 @@ import { TeamReposTab } from "./_components/TeamReposTab";
 import { TeamEnvVarsTab } from "./_components/TeamEnvVarsTab";
 import { TeamArtifactsTab } from "./_components/TeamArtifactsTab";
 import { useNavigate } from "@tanstack/react-router";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 export function TeamDetailClient({
   teamId,
@@ -29,19 +30,23 @@ export function TeamDetailClient({
   tab: TeamDetailTab;
 }) {
   const navigate = useNavigate();
+  const simpleView = useSimpleView();
   const team = useQuery(api.teams.get, { id: teamId });
   const members =
     useQuery(api.teamMembers.list, team ? { teamId: team._id } : "skip") ?? [];
   const repos =
     useQuery(
       api.githubRepos.listByTeam,
-      team ? { teamId: team._id } : "skip",
+      team && !simpleView ? { teamId: team._id } : "skip",
     ) ?? [];
   const allRepos =
-    useQuery(api.githubRepos.list, { includeHidden: true }) ?? [];
+    useQuery(
+      api.githubRepos.list,
+      simpleView ? "skip" : { includeHidden: true },
+    ) ?? [];
   const teamEnvVars = useQuery(
     api.teamEnvVars.list,
-    team ? { teamId: team._id } : "skip",
+    team && !simpleView ? { teamId: team._id } : "skip",
   );
   const {
     uploadLogo,
@@ -141,8 +146,12 @@ export function TeamDetailClient({
           <TabsList>
             <TabsTrigger value="activity">Activity</TabsTrigger>
             <TabsTrigger value="members">Members</TabsTrigger>
-            <TabsTrigger value="codebases">Codebases</TabsTrigger>
-            <TabsTrigger value="env">Env Variables</TabsTrigger>
+            {simpleView ? null : (
+              <>
+                <TabsTrigger value="codebases">Codebases</TabsTrigger>
+                <TabsTrigger value="env">Env Variables</TabsTrigger>
+              </>
+            )}
             <TabsTrigger value="artifacts">Artifacts</TabsTrigger>
           </TabsList>
         </Tabs>
@@ -211,7 +220,7 @@ export function TeamDetailClient({
           isOwner={isOwner}
         />
       ) : null}
-      {tab === "codebases" ? (
+      {simpleView ? null : tab === "codebases" ? (
         <TeamReposTab
           teamId={team._id}
           repos={repos}
@@ -219,7 +228,7 @@ export function TeamDetailClient({
           isOwner={isOwner}
         />
       ) : null}
-      {tab === "env" ? (
+      {simpleView ? null : tab === "env" ? (
         <TeamEnvVarsTab teamId={team._id} teamEnvVars={teamEnvVars} />
       ) : null}
       {tab === "artifacts" ? <TeamArtifactsTab teamId={team._id} /> : null}

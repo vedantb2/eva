@@ -52,3 +52,10 @@ export function isSimpleViewHiddenGlobalSettingsPath(
     (href) => pathname === href || pathname.startsWith(`${href}/`),
   );
 }
+
+const SIMPLE_VIEW_HIDDEN_TEAM_TABS = new Set(["codebases", "env"]);
+
+/** Team detail tabs that simple view does not show (bounce to Activity). */
+export function isSimpleViewHiddenTeamTab(tab: string): boolean {
+  return SIMPLE_VIEW_HIDDEN_TEAM_TABS.has(tab);
+}

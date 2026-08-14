@@ -1,6 +1,10 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, Navigate, redirect } from "@tanstack/react-router";
 import { TeamDetailClient } from "../TeamDetailClient";
 import { isTeamDetailTab } from "@/lib/search-params";
+import {
+  isSimpleViewHiddenTeamTab,
+  useSimpleView,
+} from "@/lib/hooks/useSimpleView";
 
 export const Route = createFileRoute("/_global/teams/$teamId/$teamTab")({
   beforeLoad: ({ params }) => {
@@ -30,8 +34,18 @@ export const Route = createFileRoute("/_global/teams/$teamId/$teamTab")({
 
 function TeamDetailTabRoute() {
   const { teamId, teamTab } = Route.useParams();
+  const simpleView = useSimpleView();
   if (!isTeamDetailTab(teamTab)) {
     return null;
+  }
+  if (simpleView && isSimpleViewHiddenTeamTab(teamTab)) {
+    return (
+      <Navigate
+        to="/teams/$teamId/$teamTab"
+        params={{ teamId, teamTab: "activity" }}
+        replace
+      />
+    );
   }
   return <TeamDetailClient teamId={teamId} tab={teamTab} />;
 }

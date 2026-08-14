@@ -56,6 +56,7 @@ import {
   type MentionTextareaHandle,
 } from "@/lib/components/chat/MentionTextarea";
 import { useSkillSlashItems } from "@/lib/hooks/useSkillSlashItems";
+import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { QueuedMessagesPanel } from "@/lib/components/QueuedMessagesPanel";
 import type { ChatBodyQueuedMessage } from "@/lib/components/chat/chatBodyUtils";
 import { useQueuedMessageMutations } from "@/lib/components/chat/useQueuedMessageMutations";
@@ -99,7 +100,10 @@ interface ChatComposerProps {
   preInputContent?: React.ReactNode;
   /** Optional left-side control on the under-input card (e.g. base branch). */
   underCardLeading?: React.ReactNode;
+  /** Optional left-side controls on the under-input card (e.g. design tools). */
   toolsBefore?: React.ReactNode;
+  mode?: SessionMode;
+  onModeChange?: (mode: SessionMode) => void;
   draft?: ChatDraftSeed;
   /** Persist draft in localStorage when no Convex conversation exists yet. */
   localDraft?: LocalChatDraft;
@@ -130,6 +134,8 @@ export function ChatComposer({
   preInputContent,
   underCardLeading,
   toolsBefore,
+  mode,
+  onModeChange,
   draft,
   localDraft,
   isDraftLoading,
@@ -292,6 +298,8 @@ export function ChatComposer({
                     dataItems={plusDataItems}
                     skillItems={skillItems}
                     mentionRef={mentionRef}
+                    mode={mode}
+                    onModeChange={onModeChange}
                   />
                   {toolsBefore}
                   <ComposerStash

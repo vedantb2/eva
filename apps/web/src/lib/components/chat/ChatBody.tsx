@@ -22,6 +22,7 @@ import {
   type resolveTraitsForDisplay,
 } from "@eva/backend";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
+import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import {
   buildJumpRailTicks,
   buildMessageHistory,
@@ -96,8 +97,10 @@ interface ChatBodyProps {
   beforeQueuedContent?: React.ReactNode;
   /** Optional slot inserted between the queued messages panel and the input (session PRD plan view). */
   preInputContent?: React.ReactNode;
-  /** Optional slot inserted before the model selector (session mode dropdown). */
+  /** Optional slot inserted before the stash control (e.g. design-mode tools). */
   toolsBefore?: React.ReactNode;
+  mode?: SessionMode;
+  onModeChange?: (mode: SessionMode) => void;
   /** Replaces the default empty-state component when there are zero messages. */
   emptyStateOverride?: React.ReactNode;
   /**
@@ -158,6 +161,8 @@ export function ChatBody({
   beforeQueuedContent,
   preInputContent,
   toolsBefore,
+  mode,
+  onModeChange,
   emptyStateOverride,
   draft,
   isDraftLoading,
@@ -378,6 +383,8 @@ export function ChatBody({
           beforeQueuedContent={beforeQueuedContent}
           preInputContent={preInputContent}
           toolsBefore={toolsBefore}
+          mode={mode}
+          onModeChange={onModeChange}
           draft={draft}
           isDraftLoading={isDraftLoading}
           hasPendingContext={hasPendingContext}

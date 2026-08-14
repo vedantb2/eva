@@ -20,7 +20,6 @@ import { ComposerPlanReadyBanner } from "./_components/ComposerPlanReadyBanner";
 import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
 import { BackgroundAgentsChip } from "./_components/BackgroundAgentsChip";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
-import { SessionModeDropdown } from "./_components/SessionModeDropdown";
 import { SessionDesignComposerTools } from "./_components/SessionDesignComposerTools";
 import { SessionSummaryAccordion } from "./_components/SessionSummaryAccordion";
 import { SessionSummaryModal } from "./_components/SessionSummaryModal";
@@ -326,21 +325,17 @@ export function ChatPanel({
     </>
   );
 
-  const toolsBefore = (
-    <>
-      <SessionModeDropdown mode={mode} onModeChange={setMode} />
-      {mode === "design" ? (
-        <SessionDesignComposerTools
-          repoId={repo._id}
-          personaId={selectedPersonaId}
-          onPersonaChange={setSelectedPersonaId}
-          numDesigns={numDesigns}
-          onNumDesignsChange={setNumDesigns}
-          disabled={!isSandboxActive || isReadOnly}
-        />
-      ) : null}
-    </>
-  );
+  const toolsBefore =
+    mode === "design" ? (
+      <SessionDesignComposerTools
+        repoId={repo._id}
+        personaId={selectedPersonaId}
+        onPersonaChange={setSelectedPersonaId}
+        numDesigns={numDesigns}
+        onNumDesignsChange={setNumDesigns}
+        disabled={!isSandboxActive || isReadOnly}
+      />
+    ) : null;
   const emptyStateTitle = isSandboxActive
     ? "No messages yet. Start the conversation!"
     : isSandboxStopping
@@ -395,6 +390,8 @@ export function ChatPanel({
           />
         }
         toolsBefore={toolsBefore}
+        mode={mode}
+        onModeChange={setMode}
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}

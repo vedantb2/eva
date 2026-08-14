@@ -1,32 +1,6 @@
 import { v } from "convex/values";
-import type { Doc, Id } from "../_generated/dataModel";
+import type { Id } from "../_generated/dataModel";
 import { agentTaskFields } from "../validators";
-
-type TaskStatus = Doc<"agentTasks">["status"];
-
-/**
- * Chat turns used to leave the task on `todo` while the agent was working.
- * Promote only from `todo` — review/done/draft stay put. The matching
- * restore (`todoWhenChatEnds`) drops back when the turn ends so the
- * in-progress beam does not spin on an idle card.
- */
-export function inProgressWhenChatStarts(
-  status: TaskStatus,
-): "in_progress" | undefined {
-  return status === "todo" ? "in_progress" : undefined;
-}
-
-/** Restore `todo` after a chat turn unless a main run is still going. */
-export function todoWhenChatEnds(task: {
-  status: TaskStatus;
-  activeWorkflowId?: string;
-  hasActiveRun: boolean;
-}): "todo" | undefined {
-  if (task.status !== "in_progress") return undefined;
-  if (task.activeWorkflowId !== undefined) return undefined;
-  if (task.hasActiveRun) return undefined;
-  return "todo";
-}
 
 /**
  * Model traits for the task's runs, shared by every mutation that writes them.

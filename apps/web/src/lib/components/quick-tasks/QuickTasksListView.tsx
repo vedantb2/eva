@@ -30,7 +30,7 @@ import {
   TASK_STATUSES,
   type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
-import { QuickTaskCard } from "./QuickTaskCard";
+import { isTaskAgentActive, QuickTaskCard } from "./QuickTaskCard";
 import { entityPathSegment } from "@/lib/numId";
 import { RunAllDialog } from "./RunAllDialog";
 
@@ -284,6 +284,7 @@ export function QuickTasksListView({
                                     title={task.title}
                                     description={task.description}
                                     status={task.status}
+                                    isAgentActive={isTaskAgentActive(task)}
                                     priority={task.priority}
                                     numId={task.numId}
                                     projectNumId={

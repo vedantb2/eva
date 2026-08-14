@@ -33,7 +33,10 @@ import {
   AccordionContent,
   Button,
 } from "@eva/ui";
-import { QuickTaskCard } from "@/lib/components/quick-tasks/QuickTaskCard";
+import {
+  isTaskAgentActive,
+  QuickTaskCard,
+} from "@/lib/components/quick-tasks/QuickTaskCard";
 import {
   statusConfig,
   TASK_STATUSES,
@@ -92,6 +95,7 @@ function SortableTaskWrapper({
           title={task.title}
           description={task.description}
           status={task.status}
+          isAgentActive={isTaskAgentActive(task)}
           hasError={hasError}
           sandboxStatus={task.reviewTaskSandboxStatus}
           numId={task.numId}
@@ -345,6 +349,7 @@ export function ProjectTaskListPanel({
                             title={task.title}
                             description={task.description}
                             status={task.status}
+                            isAgentActive={isTaskAgentActive(task)}
                             hasError={errorTaskIdSet.has(task._id)}
                             sandboxStatus={task.reviewTaskSandboxStatus}
                             numId={task.numId}

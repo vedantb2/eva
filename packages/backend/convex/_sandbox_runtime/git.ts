@@ -761,6 +761,11 @@ export async function checkoutSessionBranch(
     // `--no-track` on the base fallback: tracking the START POINT is what left
     // the branch pointing at origin/<base>; pinBranchUpstream then pins the
     // upstream to origin/<branchName> on both arms.
+    // `-f` on both arms: this path only runs on a fresh sandbox with no user
+    // work, but the dev server can re-dirty generated files between
+    // normalizeSnapshotWorktree and here (e.g. routeTree.gen.ts), and when the
+    // start point moves those files a plain checkout aborts — leaving the
+    // sandbox stuck on the base branch and publish refusing at session end.
     const { ref: baseTarget } = await resolveBaseTarget(sandbox, baseBranch);
     const quotedBranch = quote([branchName]);
     const quotedRemoteBranch = quote([`origin/${branchName}`]);
@@ -768,7 +773,7 @@ export async function checkoutSessionBranch(
     const workspaceDir = workspaceDirShell();
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && (git checkout -b ${quotedBranch} ${quotedRemoteBranch} || git checkout --no-track -b ${quotedBranch} ${quotedBase})`,
+      `cd ${workspaceDir} && (git checkout -f -b ${quotedBranch} ${quotedRemoteBranch} || git checkout -f --no-track -b ${quotedBranch} ${quotedBase})`,
       30,
     );
     await pinBranchUpstream(sandbox, branchName);

@@ -1,5 +1,9 @@
 # Changelog
 
+## Session branch creation survives a re-dirtied snapshot worktree - 2026-08-14
+
+New sessions (eva 65 and 66 in prod) came up stuck on `main`: the dev server regenerates `apps/web/src/routeTree.gen.ts` in the seconds between `normalizeSnapshotWorktree`'s reset and `checkoutSessionBranch`, and when origin/main had moved past the snapshot and touched that file, `git checkout -b` aborted rather than overwrite the local change. Startup carried on ("Sandbox startup unfinished"), the run did its work on `main`, and publish then correctly refused ("Refusing to publish … sandbox is on main") — work stranded in the sandbox. The branch-creation path only ever runs on a fresh sandbox with no user work, so both checkout arms now pass `-f` and discard the regenerated files. Session 66's live sandbox was healed by hand (`git switch -c` at HEAD, keeping the agent's uncommitted work).
+
 ## Border beams no longer repaint every frame - 2026-08-14
 
 The composer BorderBeam and the in-progress card ring animated a registered CSS custom property (`--beam-angle` / `--qt-border-angle`), which cannot run on the compositor: every frame repainted the conic gradient, and the beam's glow re-ran an 8px blur on top — enough to spike GPU to ~25% at high refresh rates while Eva replies. The crisp ring is now an oversized gradient square spinning under a static rounded clip via a composited `rotate` animation (cached texture, no repaints), and the glow — a blur of a changing image that cannot be cached — updates through `steps(90)` at ~30Hz, invisible under the blur. The halo names `from var(--beam-angle)` on itself: a parent `--beam-image` substituted the angle on `.beam-root` (always 0deg), so the glow sat still while the ring moved. The duplicate `qt-in-progress-border` spinner is gone: quick task and project cards reuse `<BorderBeam colorVariant="progress" glow={false}>`, which now forwards props/ref so Radix `asChild` context-menu triggers keep working.

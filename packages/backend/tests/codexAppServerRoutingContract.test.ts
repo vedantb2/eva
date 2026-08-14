@@ -26,6 +26,20 @@ test("interactive Codex surfaces route through the persistent App Server daemon"
   );
 });
 
+test("chat re-staging keeps Codex turns instead of dropping them as non-claude", () => {
+  // ensurePendingTurn re-stages a prompt when cancel raced startExecute. A
+  // claude-only guard silently dropped that prompt on codex chats; the daemon
+  // discards mid-turn claims now, so the guard matches the workflow's.
+  for (const daemon of [
+    "convex/_chat/taskChatDaemon.ts",
+    "convex/_chat/projectChatDaemon.ts",
+  ]) {
+    const body = source(daemon);
+    expect(body).toContain("!usesChatDaemon(normalizeAIModel(args.model))");
+    expect(body).not.toContain('!== "claude"');
+  }
+});
+
 test("non-chat Codex jobs route through the official SDK without a direct exec path", () => {
   const callbackEntry = source("callback-src/index.ts");
   expect(callbackEntry).toContain(

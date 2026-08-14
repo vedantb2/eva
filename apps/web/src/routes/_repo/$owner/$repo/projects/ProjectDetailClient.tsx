@@ -66,6 +66,7 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "@eva/shared/dates";
 import { ScheduleBuildPopover } from "@/lib/components/projects/ScheduleBuildPopover";
+import { BUILDABLE_PROJECT_PHASES } from "@/lib/components/projects/ProjectPhaseBadge";
 import { StopConfirmDialog } from "@/lib/components/tasks/_components/StopConfirmDialog";
 import { ResolveConfirmDialog } from "@/lib/components/tasks/_components/ResolveConfirmDialog";
 import { StartupCommandsConfirmDialog } from "@/lib/components/tasks/_components/StartupCommandsConfirmDialog";
@@ -256,6 +257,7 @@ export function ProjectDetailClient({
 
   const isDraftOrFinalized =
     project.phase === "draft" || project.phase === "finalized";
+  const canBuildProject = BUILDABLE_PROJECT_PHASES.includes(project.phase);
 
   const hasDeployedPreview =
     latestDeployment?.deploymentStatus === "deployed" &&
@@ -547,28 +549,30 @@ export function ProjectDetailClient({
                   </span>
                 </Button>
               ) : null}
-              {project.activeBuildWorkflowId ? (
-                <Button
-                  size="sm"
-                  variant="destructive"
-                  onClick={() => setShowStopBuildConfirm(true)}
-                  disabled={isStoppingBuild}
-                >
-                  {isStoppingBuild ? (
-                    <IconLoader2 size={16} className="animate-spin" />
-                  ) : (
-                    <IconPlayerStop size={16} />
-                  )}
-                  <span className="hidden sm:inline">Stop Build</span>
-                </Button>
-              ) : (
-                <SplitBuildButton
-                  projectId={projectId}
-                  scheduledBuildAt={project.scheduledBuildAt}
-                  hasActiveBuild={!!project.activeBuildWorkflowId}
-                  onBuild={() => setIsBuildModalOpen(true)}
-                />
-              )}
+              {canBuildProject ? (
+                project.activeBuildWorkflowId ? (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => setShowStopBuildConfirm(true)}
+                    disabled={isStoppingBuild}
+                  >
+                    {isStoppingBuild ? (
+                      <IconLoader2 size={16} className="animate-spin" />
+                    ) : (
+                      <IconPlayerStop size={16} />
+                    )}
+                    <span className="hidden sm:inline">Stop Build</span>
+                  </Button>
+                ) : (
+                  <SplitBuildButton
+                    projectId={projectId}
+                    scheduledBuildAt={project.scheduledBuildAt}
+                    hasActiveBuild={!!project.activeBuildWorkflowId}
+                    onBuild={() => setIsBuildModalOpen(true)}
+                  />
+                )
+              ) : null}
             </div>
           </div>
         ) : null

@@ -62,6 +62,8 @@ export function SessionChatHeader({
   onOpenSummaryModal,
   onOpenReviewModal,
 }: SessionChatHeaderProps) {
+  const showSendForReview = branchName && (!prState || prState === "draft");
+
   const headerLeft = (
     <Button
       size="icon"
@@ -83,17 +85,6 @@ export function SessionChatHeader({
   const headerRight = (
     <>
       <EntityContextUsage repoId={repoId} entityId={sessionId} />
-      {branchName && (!prState || prState === "draft") && (
-        <Button
-          size="sm"
-          variant="secondary"
-          className="text-status-code-review"
-          onClick={onOpenReviewModal}
-        >
-          <IconEye size={12} />
-          <span className="hidden sm:inline">Send for Review</span>
-        </Button>
-      )}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -112,7 +103,15 @@ export function SessionChatHeader({
             <IconSparkles size={14} />
             {hasSummary ? "Regenerate Summary" : "Summarise Session"}
           </DropdownMenuItem>
-          {(deploymentStatus || prUrl) && <DropdownMenuSeparator />}
+          {(showSendForReview || deploymentStatus || prUrl) && (
+            <DropdownMenuSeparator />
+          )}
+          {showSendForReview && (
+            <DropdownMenuItem onClick={onOpenReviewModal}>
+              <IconEye size={14} className="text-status-code-review" />
+              Send for Review
+            </DropdownMenuItem>
+          )}
           {deploymentStatus && (
             <Tooltip>
               <TooltipTrigger asChild>

@@ -51,13 +51,13 @@ export type RepoSyncStrategy =
   | { mode: "none" };
 
 const SESSION_LIFECYCLE: SandboxLifecycle = {
-  autoStopInterval: 90,
+  autoStopInterval: 4 * 60,
   // Auto-archive after 1 day; no auto-delete.
   autoArchiveInterval: 1 * 24 * 60,
 };
 
 const EPHEMERAL_LIFECYCLE: SandboxLifecycle = {
-  autoStopInterval: 90,
+  autoStopInterval: 4 * 60,
   ephemeral: true,
 };
 

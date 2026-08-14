@@ -1,5 +1,9 @@
 # Changelog
 
+## Preview iframes survive leaving the session - 2026-08-14
+
+Route changes (/home, switching apps) unmounted the session tree and destroyed the preview iframe, so coming back always reloaded the app under development even when the sandbox was still running. Preview iframes now live in a root-level host outside the router: panels render a measured placeholder, and the host overlays the real iframe on that rect without moving it in the DOM (moving also reloads). Hidden iframes stay cached (capped at 3) via `display: none`, which keeps the document alive; stopping the sandbox drops every port's cache so a later visit cannot resurrect a dead document. Fullscreen uses the document element instead of the panel, because a fixed overlay outside the fullscreen element would otherwise go blank.
+
 ## Streamed tokens stay on the turn that owns them - 2026-08-14
 
 A still-streaming turn's text jumped under the user's newer message, then vanished when the turn finalised (session 62: a `/loop` synthetic continuation was streaming when a queued message inserted its own placeholder — the old stream re-attached to the new bubble, "deleted" itself on finalise, and the real reply appeared above). Streaming state is one session-scoped row, and `ChatBody` attached it to the *newest* bubble (`isLast`); turns execute FIFO, so it now attaches to the *oldest* empty unfinished assistant bubble via `findStreamingTargetMessage`, handing over to the queued turn's placeholder only when the older turn finishes. Live activity, streamed content, and blocking/pending question cards all follow the same target (previously activity and question cards duplicated onto every placeholder); a finished last message still hosts its own saved question when nothing is streaming.

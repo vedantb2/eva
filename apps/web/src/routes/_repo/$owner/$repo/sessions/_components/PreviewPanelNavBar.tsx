@@ -25,6 +25,8 @@ export function PreviewPanelNavBar({
   isLoading,
   onRefresh,
   containerRef,
+  iframeElement,
+  onToggleFullscreen,
   port,
   onPortChange,
   previewPath,
@@ -39,6 +41,9 @@ export function PreviewPanelNavBar({
   isLoading: boolean;
   onRefresh: () => void;
   containerRef: RefObject<HTMLDivElement | null>;
+  /** Host-managed iframe element (PreviewIframeHost) — see PreviewNavBar. */
+  iframeElement?: HTMLIFrameElement | null;
+  onToggleFullscreen?: () => void;
   port: number;
   onPortChange: (port: number) => void;
   previewPath: string;
@@ -68,7 +73,9 @@ export function PreviewPanelNavBar({
       <PreviewNavBar
         previewUrl={previewInfo?.url ?? null}
         iframeRef={iframeRef}
+        iframeElement={iframeElement}
         containerRef={containerRef}
+        onToggleFullscreen={onToggleFullscreen}
         port={port}
         path={previewPath}
         onPortChange={onPortChange}

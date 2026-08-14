@@ -7,6 +7,11 @@ import type { Id } from "@eva/backend";
 import { useQueryState } from "nuqs";
 import { previewPortParser } from "@/lib/search-params";
 import { stripPreviewGrant } from "@/lib/utils/previewGrant";
+import {
+  dropPreviewGroup,
+  getPreviewMeta,
+  setPreviewMeta,
+} from "./previewIframeHost";
 
 interface PreviewInfo {
   url: string;
@@ -67,12 +72,25 @@ export function useSandboxPreview({
   devPort,
   onPortPersist,
 }: UseSandboxPreviewArgs): SandboxPreviewApi {
-  const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [iframeKey, setIframeKey] = useState(0);
   const [port, setPortQuery] = useQueryState("port", previewPortParser);
   const effectivePort = port ?? devPort ?? 3000;
+  const configKey = `${sandboxId ?? ""}:${effectivePort}`;
+
+  // Seed from the iframe-host meta cache: when this hook remounts (route
+  // change, cross-app switch) while the host still holds a live iframe for
+  // this sandbox+port, starting resolved skips the loading overlay AND keeps
+  // iframeKey aligned with the cached iframe's epoch so it is not remounted.
+  const seed = sandboxId !== undefined ? getPreviewMeta(configKey) : undefined;
+  const [previewInfo, setPreviewInfo] = useState<PreviewInfo | null>(
+    seed?.previewInfo ?? null,
+  );
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [iframeKey, setIframeKey] = useState(seed?.epoch ?? 0);
+  // Epoch source of truth for async continuations: a queued poll callback
+  // closes over a stale iframeKey, and `stale + 1` could collide with the
+  // current epoch (host would keep an iframe the user asked to reload).
+  const epochRef = useRef(seed?.epoch ?? 0);
 
   const setPort = async (next: number | null) => {
     const params = await setPortQuery(next);
@@ -92,8 +110,8 @@ export function useSandboxPreview({
   const generationRef = useRef(0);
   // Last URL painted into the iframe — skip iframeKey bumps when revalidation
   // returns the same signed URL (session switch keep-alive / effect re-run).
-  const loadedUrlRef = useRef<string | null>(null);
-  const configKey = `${sandboxId ?? ""}:${effectivePort}`;
+  // Seeded so a remount silently revalidates instead of remounting the iframe.
+  const loadedUrlRef = useRef<string | null>(seed?.strippedTarget ?? null);
   const prevConfigKeyRef = useRef(configKey);
 
   useEffect(() => {
@@ -140,8 +158,15 @@ export function useSandboxPreview({
         const target = stripPreviewGrant(data.url);
         if (loadedUrlRef.current !== target) {
           loadedUrlRef.current = target;
+          const nextEpoch = epochRef.current + 1;
+          epochRef.current = nextEpoch;
           setPreviewInfo(data);
-          setIframeKey((k) => k + 1);
+          setIframeKey(nextEpoch);
+          setPreviewMeta(configKey, {
+            previewInfo: data,
+            strippedTarget: target,
+            epoch: nextEpoch,
+          });
         }
         setIsLoading(false);
       } else {
@@ -183,6 +208,10 @@ export function useSandboxPreview({
       loadedUrlRef.current = null;
       setPreviewInfo(null);
       setIsLoading(false);
+      // Sandbox stopped: every port's hosted iframes are dead documents.
+      if (sandboxId !== undefined) {
+        dropPreviewGroup(sandboxId);
+      }
       return stopPolling;
     }
     if (!sandboxId) {

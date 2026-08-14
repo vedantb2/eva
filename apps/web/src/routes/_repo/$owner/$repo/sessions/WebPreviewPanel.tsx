@@ -1,11 +1,16 @@
 import { useMemo, useRef, useState } from "react";
-import { Spinner, Button, WebPreview, WebPreviewBody } from "@eva/ui";
+import { cn, Spinner, Button, WebPreview } from "@eva/ui";
 import { useSessionStorage } from "usehooks-ts";
 import { IconPlayerPlay, IconRefresh, IconWorld } from "@tabler/icons-react";
 import {
   buildUrlWithPath,
   normalizePreviewPath,
 } from "@/lib/components/PreviewNavBar";
+import {
+  PersistentPreviewBody,
+  useFullscreenElement,
+  usePreviewIframeElement,
+} from "@/lib/components/sandbox/previewIframeHost";
 import { PreviewAnnotationLayer } from "./_components/PreviewAnnotationLayer";
 import { PreviewPanelNavBar } from "./_components/PreviewPanelNavBar";
 import {
@@ -64,6 +69,30 @@ export function WebPreviewPanel({
 }: WebPreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [annotationMode, setAnnotationMode] = useState(false);
+  // The live iframe lives in the global PreviewIframeHost (fixed overlay),
+  // so it survives route changes. Nav bar / annotation consumers get the
+  // element via this subscription instead of an in-tree ref.
+  const iframeElement = usePreviewIframeElement(pathStorageKey);
+  const fullscreenElement = useFullscreenElement();
+  const [fullscreenRequested, setFullscreenRequested] = useState(false);
+  // Esc exits fullscreen without going through our toggle — resync in render.
+  if (fullscreenRequested && fullscreenElement === null) {
+    setFullscreenRequested(false);
+  }
+  // `containerRef.requestFullscreen` would blank the preview: fixed-position
+  // elements outside the fullscreen element (the host overlay) are not
+  // rendered. Fullscreen the document instead and fake-expand this panel.
+  const isFullscreen =
+    fullscreenRequested && fullscreenElement === document.documentElement;
+  const toggleFullscreen = () => {
+    if (document.fullscreenElement !== null) {
+      void document.exitFullscreen();
+      setFullscreenRequested(false);
+      return;
+    }
+    void document.documentElement.requestFullscreen();
+    setFullscreenRequested(true);
+  };
   const [localPath, setLocalPath] = useSessionStorage(pathStorageKey, "/", {
     serializer: (value) => value,
     deserializer: (value) => normalizePreviewPath(value),
@@ -124,13 +153,18 @@ export function WebPreviewPanel({
     <WebPreview
       ref={containerRef}
       defaultUrl={iframeSrc ?? ""}
-      className="h-full rounded-none border-0"
+      className={cn(
+        "h-full rounded-none border-0",
+        isFullscreen && "fixed inset-0 z-40 h-auto bg-background",
+      )}
     >
       <PreviewPanelNavBar
         previewInfo={previewInfo}
         isLoading={isLoading}
         onRefresh={onRefresh}
         containerRef={containerRef}
+        iframeElement={iframeElement}
+        onToggleFullscreen={toggleFullscreen}
         port={port}
         onPortChange={onPortChange}
         previewPath={previewPath}
@@ -142,13 +176,13 @@ export function WebPreviewPanel({
         showAnnotationToggle={Boolean(onAnnotationSubmit)}
       />
       <div className="relative flex min-h-0 flex-1 flex-col">
-        <WebPreviewBody
-          key={iframeKey}
+        <PersistentPreviewBody
+          entryKey={pathStorageKey}
+          group={`${sandboxId}:${port}`}
           src={iframeSrc}
-          className={deviceWidth ? "mx-auto border-x border-border" : undefined}
-          style={
-            deviceWidth ? { width: deviceWidth, maxWidth: "100%" } : undefined
-          }
+          epoch={iframeKey}
+          covered={error !== null}
+          deviceWidth={deviceWidth}
           loading={
             isLoading && !previewInfo ? (
               <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">

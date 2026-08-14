@@ -1,6 +1,7 @@
 "use client";
 
 import { useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useWebPreview } from "@eva/ui";
 import {
   buildAnnotationDisplay,
@@ -42,50 +43,56 @@ export function PreviewAnnotationLayer({
       setCardPosition(null);
       return;
     }
+    // Viewport coordinates: the card renders in a fixed body portal (z-50)
+    // because the preview iframe lives in the fixed z-40 host overlay — an
+    // in-panel absolute card would paint underneath it.
     const layerRect = layerRef.current.getBoundingClientRect();
     const iframeRect = iframeRef.current.getBoundingClientRect();
     const left =
-      iframeRect.left -
-      layerRect.left +
-      pending.rect.left +
-      Math.min(pending.rect.width, 40);
+      iframeRect.left + pending.rect.left + Math.min(pending.rect.width, 40);
     const top =
-      iframeRect.top -
-      layerRect.top +
-      pending.rect.top +
-      pending.rect.height +
-      CARD_GAP;
-    const maxLeft = Math.max(0, layerRect.width - CARD_WIDTH - 8);
-    const maxTop = Math.max(0, layerRect.height - CARD_ESTIMATED_HEIGHT);
+      iframeRect.top + pending.rect.top + pending.rect.height + CARD_GAP;
+    const minLeft = layerRect.left + 8;
+    const maxLeft = Math.max(minLeft, layerRect.right - CARD_WIDTH - 8);
+    const minTop = layerRect.top + 8;
+    const maxTop = Math.max(minTop, layerRect.bottom - CARD_ESTIMATED_HEIGHT);
     setCardPosition({
-      left: Math.min(Math.max(8, left), maxLeft),
-      top: Math.min(Math.max(8, top), maxTop),
+      left: Math.min(Math.max(minLeft, left), maxLeft),
+      top: Math.min(Math.max(minTop, top), maxTop),
     });
   }, [pending, iframeRef]);
 
   return (
     <div ref={layerRef} className="pointer-events-none absolute inset-0 z-10">
-      {pending && cardPosition ? (
-        <AnnotationCommentCard
-          context={pending.context}
-          position={cardPosition}
-          isSubmitting={isSubmitting}
-          onCancel={clearPending}
-          onSubmit={(feedback) => {
-            const display = buildAnnotationDisplay(feedback, pending.context);
-            const full = buildAnnotationPrompt(feedback, pending.context);
-            setIsSubmitting(true);
-            void onSubmit(display, full)
-              .then(() => {
-                clearPending();
-                onModeChange(false);
-              })
-              .finally(() => {
-                setIsSubmitting(false);
-              });
-          }}
-        />
-      ) : null}
+      {pending && cardPosition
+        ? createPortal(
+            <div className="pointer-events-none fixed inset-0 z-50">
+              <AnnotationCommentCard
+                context={pending.context}
+                position={cardPosition}
+                isSubmitting={isSubmitting}
+                onCancel={clearPending}
+                onSubmit={(feedback) => {
+                  const display = buildAnnotationDisplay(
+                    feedback,
+                    pending.context,
+                  );
+                  const full = buildAnnotationPrompt(feedback, pending.context);
+                  setIsSubmitting(true);
+                  void onSubmit(display, full)
+                    .then(() => {
+                      clearPending();
+                      onModeChange(false);
+                    })
+                    .finally(() => {
+                      setIsSubmitting(false);
+                    });
+                }}
+              />
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

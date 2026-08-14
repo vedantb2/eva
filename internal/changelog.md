@@ -1,5 +1,9 @@
 # Changelog
 
+## Quick task chat marks the task in progress - 2026-08-14
+
+Sending a message on a todo quick task left it in Todo while Eva was working, so the in-progress beam and kanban column never showed. Tracking the chat workflow now promotes `todo` → `in_progress`, and the turn finishing (or cancelling) restores `todo` unless a main run is still going.
+
 ## Publish self-heals a session stranded on its base branch - 2026-08-14
 
 Second layer of defence for the session-65/66 failure shape: if startup checkout ever fails again for a new reason, the run finishes on the base branch and publish used to refuse outright, stranding the work in the sandbox. `synchronizeBranchForPublish` now recovers the one unambiguous case — the session branch does not exist locally, so every local commit is the session's — by creating the branch at HEAD (`git switch -c`, touches no files) and pinning its upstream before pushing as normal. Detached HEAD, or a session branch that exists but is not checked out, still refuses. Both layers are locked in by contract tests: session-branch creation must keep `-f` on both arms, and the publish heal must keep its local-branch probe, no-touch creation, upstream pin, and refusal paths.

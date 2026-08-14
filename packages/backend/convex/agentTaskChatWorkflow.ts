@@ -5,7 +5,7 @@ import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow, cancelTrackedWorkflow } from "./workflowManager";
 import { ensureSandboxStartedSteps } from "./_sandbox_runtime/resumeSandboxSteps";
-import { authMutation, hasRepoAccess } from "./functions";
+import { authMutation, hasActiveRun, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
   reasoningLevelValidator,
@@ -28,6 +28,7 @@ import {
   TASK_CHAT_STREAM_PREFIX,
 } from "./workflowWatchdog";
 import { buildAgentTaskChatPrompt } from "./_agentTasks/chatPrompt";
+import { todoWhenChatEnds } from "./_agentTasks/helpers";
 import { buildCustomInstructionsBlock } from "./prompts";
 import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 import { notifyChatMentions } from "./_mentions/notifyChatMentions";
@@ -452,6 +453,7 @@ export const cancelExecution = authMutation({
       activeChatWorkflowId?: undefined;
       pendingTurn?: undefined;
       syntheticTurnMessageId?: undefined;
+      status?: "todo";
       updatedAt: number;
     } = { updatedAt: Date.now() };
 
@@ -460,6 +462,12 @@ export const cancelExecution = authMutation({
       latest.activeChatWorkflowId === workflowIdToCancel
     ) {
       taskPatch.activeChatWorkflowId = undefined;
+      const idle = todoWhenChatEnds({
+        status: latest.status,
+        activeWorkflowId: latest.activeWorkflowId,
+        hasActiveRun: await hasActiveRun(ctx.db, args.taskId),
+      });
+      if (idle) taskPatch.status = idle;
     }
     if (
       pendingRequestedAt !== undefined &&
@@ -800,8 +808,14 @@ export const saveResult = internalMutation({
       await ctx.db.patch(last._id, patch);
     }
 
+    const idle = todoWhenChatEnds({
+      status: task.status,
+      activeWorkflowId: task.activeWorkflowId,
+      hasActiveRun: await hasActiveRun(ctx.db, args.taskId),
+    });
     await ctx.db.patch(args.taskId, {
       activeChatWorkflowId: undefined,
+      ...(idle !== undefined ? { status: idle } : {}),
       updatedAt: Date.now(),
     });
 

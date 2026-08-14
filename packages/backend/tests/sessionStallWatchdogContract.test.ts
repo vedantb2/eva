@@ -166,6 +166,7 @@ describe("task chat adapter (_chat/surfaceAdapters.ts)", () => {
       "export async function trackAgentTaskChatWorkflow(",
     );
     expect(body).toContain("checkStaleAgentTaskChatHeartbeat");
+    expect(body).toContain("inProgressWhenChatStarts");
   });
 
   test("checkStaleAgentTaskChatHeartbeat and probeStaleAgentTaskChatLiveness wire to the shared implementation with taskChatAdapter", () => {

@@ -13,6 +13,11 @@ import {
 } from "../_queues/helpers";
 import type { WorkflowId } from "@convex-dev/workflow";
 import { syncSessionDaemonState } from "../_sessions/daemonState";
+import { hasActiveRun } from "../functions";
+import {
+  inProgressWhenChatStarts,
+  todoWhenChatEnds,
+} from "../_agentTasks/helpers";
 
 /** Streaming entityId prefix for project chat workflows. */
 export const PROJECT_CHAT_STREAM_PREFIX = "project-chat-";
@@ -227,11 +232,13 @@ const taskChatAdapter: ChatSurfaceAdapter<
     }
   },
   release: async (ctx, id, opts) => {
+    const task = await ctx.db.get(id);
     const patch: {
       activeChatWorkflowId: undefined;
       syntheticTurnMessageId: undefined;
       updatedAt: number;
       reviewTaskSandboxStatus?: "closed";
+      status?: "todo";
     } = {
       activeChatWorkflowId: undefined,
       syntheticTurnMessageId: undefined,
@@ -242,6 +249,14 @@ const taskChatAdapter: ChatSurfaceAdapter<
       // tracks the lifecycle of this same task.sandboxId (see
       // _agentTasks/sandbox.ts).
       patch.reviewTaskSandboxStatus = "closed";
+    }
+    if (task) {
+      const idle = todoWhenChatEnds({
+        status: task.status,
+        activeWorkflowId: task.activeWorkflowId,
+        hasActiveRun: await hasActiveRun(ctx.db, id),
+      });
+      if (idle) patch.status = idle;
     }
     await ctx.db.patch(id, patch);
   },
@@ -441,7 +456,13 @@ export async function trackAgentTaskChatWorkflow(
   timeoutMs: number = RUN_TIMEOUT_MS,
 ): Promise<void> {
   const id = String(workflowId);
-  await ctx.db.patch(taskId, { activeChatWorkflowId: id });
+  const task = await ctx.db.get(taskId);
+  const status =
+    task === null ? undefined : inProgressWhenChatStarts(task.status);
+  await ctx.db.patch(taskId, {
+    activeChatWorkflowId: id,
+    ...(status !== undefined ? { status } : {}),
+  });
   await ctx.scheduler.runAfter(
     timeoutMs,
     internal.workflowWatchdog.handleStaleAgentTaskChat,

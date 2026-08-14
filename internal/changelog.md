@@ -1,5 +1,9 @@
 # Changelog
 
+## Publish self-heals a session stranded on its base branch - 2026-08-14
+
+Second layer of defence for the session-65/66 failure shape: if startup checkout ever fails again for a new reason, the run finishes on the base branch and publish used to refuse outright, stranding the work in the sandbox. `synchronizeBranchForPublish` now recovers the one unambiguous case — the session branch does not exist locally, so every local commit is the session's — by creating the branch at HEAD (`git switch -c`, touches no files) and pinning its upstream before pushing as normal. Detached HEAD, or a session branch that exists but is not checked out, still refuses. Both layers are locked in by contract tests: session-branch creation must keep `-f` on both arms, and the publish heal must keep its local-branch probe, no-touch creation, upstream pin, and refusal paths.
+
 ## Session branch creation survives a re-dirtied snapshot worktree - 2026-08-14
 
 New sessions (eva 65 and 66 in prod) came up stuck on `main`: the dev server regenerates `apps/web/src/routeTree.gen.ts` in the seconds between `normalizeSnapshotWorktree`'s reset and `checkoutSessionBranch`, and when origin/main had moved past the snapshot and touched that file, `git checkout -b` aborted rather than overwrite the local change. Startup carried on ("Sandbox startup unfinished"), the run did its work on `main`, and publish then correctly refused ("Refusing to publish … sandbox is on main") — work stranded in the sandbox. The branch-creation path only ever runs on a fresh sandbox with no user work, so both checkout arms now pass `-f` and discard the regenerated files. Session 66's live sandbox was healed by hand (`git switch -c` at HEAD, keeping the agent's uncommitted work).

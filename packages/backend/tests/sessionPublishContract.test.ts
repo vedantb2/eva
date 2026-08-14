@@ -384,6 +384,56 @@ describe("a callback-published session still opens its first pull request", () =
     expect(pin).toContain("refs/heads/${branchName}");
   });
 
+  /**
+   * The dev server regenerates files (routeTree.gen.ts) between the snapshot
+   * reset and the session-branch checkout; when the base ref moved past the
+   * snapshot and touches those files, a plain `checkout -b` aborts, the run
+   * proceeds on the base branch, and publish strands the work (prod sessions
+   * eva/65 and eva/66). Creation only runs on fresh sandboxes with no user
+   * work, so both arms must force.
+   */
+  test("session branch creation forces past re-dirtied snapshot files", () => {
+    const body = functionBody(
+      sandboxGit,
+      "export async function checkoutSessionBranch(",
+    );
+    expect(body, "remote arm lost -f").toContain(
+      "git checkout -f -b ${quotedBranch} ${quotedRemoteBranch}",
+    );
+    expect(body, "base fallback arm lost -f").toContain(
+      "git checkout -f --no-track -b ${quotedBranch} ${quotedBase}",
+    );
+  });
+
+  /**
+   * When the startup checkout failed anyway (older sandbox, new failure mode),
+   * publish must recover the unambiguous shape instead of stranding the work:
+   * no local session branch means every local commit is the session's, so the
+   * branch is created at HEAD (touches no files) and publication proceeds.
+   * Anything else — detached HEAD, or a session branch that exists but is not
+   * checked out — still refuses.
+   */
+  test("publish heals a session stranded on its base branch", () => {
+    const body = functionBody(
+      sandboxGit,
+      "async function synchronizeBranchForPublish(",
+    );
+    const healGate = "git show-ref --verify --quiet ${quotedLocalHeadRef}";
+    expect(body, "heal gate lost its local-branch probe").toContain(healGate);
+    expect(body, "heal lost its no-touch branch creation").toContain(
+      "git switch -c ${quote([branchName])}",
+    );
+    expect(body, "healed branch lost its upstream pin").toContain(
+      "pinBranchUpstream(sandbox, branchName)",
+    );
+    expect(body, "detached HEAD must still refuse").toContain(
+      'currentBranch === ""',
+    );
+    expect(body, "ambiguous shapes must still refuse").toContain(
+      "Refusing to publish",
+    );
+  });
+
   test("the post-completion push reports an already-published branch", () => {
     const body = functionBody(
       sandboxGit,

@@ -1060,9 +1060,35 @@ async function synchronizeBranchForPublish(
     )
   ).trim();
   if (currentBranch !== branchName) {
-    throw new Error(
-      `Refusing to publish ${branchName}: sandbox is on ${currentBranch || "detached HEAD"}`,
+    // Self-heal the startup-checkout-failure shape (prod sessions eva/65 and
+    // eva/66): checkoutSessionBranch failed, the run did its work on the base
+    // branch, and refusing here strands that work in the sandbox. When the
+    // session branch does not exist locally, every local commit is the
+    // session's, so creating the branch at HEAD (touches no files) publishes
+    // the work instead. An existing local session branch means HEAD and the
+    // branch have diverged in an unknown way — keep refusing.
+    const quotedLocalHeadRef = quote([`refs/heads/${branchName}`]);
+    const localBranchState = (
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && ((git show-ref --verify --quiet ${quotedLocalHeadRef} && echo exists) || echo missing)`,
+        10,
+      )
+    ).trim();
+    if (currentBranch === "" || localBranchState !== "missing") {
+      throw new Error(
+        `Refusing to publish ${branchName}: sandbox is on ${currentBranch || "detached HEAD"}`,
+      );
+    }
+    logGit(
+      `synchronizeBranchForPublish: sandbox stranded on ${currentBranch} with no local ${branchName}; creating it at HEAD`,
     );
+    await execGitCommand(
+      sandbox,
+      `cd ${workspaceDir} && git switch -c ${quote([branchName])}`,
+      15,
+    );
+    await pinBranchUpstream(sandbox, branchName);
   }
 
   const fetched = await fetchBranchRefs(

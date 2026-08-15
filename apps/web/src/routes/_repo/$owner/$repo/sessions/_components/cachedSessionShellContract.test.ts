@@ -1,0 +1,91 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, test } from "vitest";
+
+const here = dirname(fileURLToPath(import.meta.url));
+
+const shell = read("./CachedSessionShell.tsx");
+const layout = read("../route.tsx");
+const repoContext = read("../../../../../../lib/contexts/RepoContext.tsx");
+
+/**
+ * The sessions layout keeps the last few session shells mounted so switching
+ * sessions does not remount Preview iframes. That cache outlives `$owner` and
+ * `$repo` param changes, so two things bit at once (fix b1049293): bare numIds
+ * collide across apps, and a hidden shell that still read the live URL would
+ * resolve — and navigate — as the repo now in the address bar.
+ */
+describe("cached session shells are isolated per repo", () => {
+  test("the cache key includes the repo, not just the numId", () => {
+    expect(layout).toContain("key: `${owner}/${repo}/${numId}`");
+  });
+
+  test("a shell resolves against the repo it was cached with", () => {
+    // Reading the live params inside the shell is exactly the regression: a
+    // background shell would follow whichever repo the URL moved to.
+    expect(shell).not.toContain("useParams");
+    expect(shell).toContain("owner: string;");
+    expect(shell).toContain("repoParam: string;");
+    expect(layout).toContain("owner={entry.owner}");
+    expect(layout).toContain("repoParam={entry.repoParam}");
+  });
+
+  test("each shell carries its own passive RepoProvider", () => {
+    expect(shell).toContain(
+      "<RepoProvider owner={owner} repoParam={repoParam} passive>",
+    );
+  });
+
+  test("only the visible shell may redirect", () => {
+    const redirectAt = shell.indexOf("<SimpleViewSandboxRedirect");
+    expect(redirectAt, "the simple-view redirect moved").toBeGreaterThan(-1);
+    const guard = shell.lastIndexOf("isActiveRoute ?", redirectAt);
+    expect(guard, "a hidden shell would hijack the URL").toBeGreaterThan(-1);
+    // The redirect targets the cached repo, never the URL's.
+    expect(shell).toContain("params={{ owner, repo: repoParam, numId }}");
+  });
+
+  test("the mounted shell count stays capped", () => {
+    // Each shell holds a Preview iframe and PTY connections.
+    expect(layout).toMatch(/MAX_CACHED_SESSIONS = \d+/);
+    expect(layout.replace(/\s+/g, " ")).toMatch(
+      /slice\( ?0, MAX_CACHED_SESSIONS/,
+    );
+  });
+});
+
+/**
+ * `passive` is what makes a background RepoProvider safe: it resolves the repo
+ * for its subtree but never drives navigation.
+ */
+describe("a passive RepoProvider never navigates", () => {
+  test("both navigation effects bail out when passive", () => {
+    const effects = repoContext
+      .split("useEffect(() => {")
+      .slice(1)
+      .filter((body) => body.includes("navigate({"));
+    expect(effects, "the RepoProvider navigation effects moved").toHaveLength(
+      2,
+    );
+    for (const body of effects) {
+      const bailAt = body.indexOf("if (passive) return;");
+      expect(
+        bailAt,
+        "a background repo could hijack navigation",
+      ).toBeGreaterThan(-1);
+      expect(bailAt).toBeLessThan(body.indexOf("navigate({"));
+    }
+  });
+
+  test("passive defaults to false, so routed trees keep redirecting", () => {
+    expect(repoContext).toContain("passive = false");
+  });
+});
+
+function read(relativePath: string): string {
+  return readFileSync(join(here, relativePath), "utf8").replaceAll(
+    "\r\n",
+    "\n",
+  );
+}

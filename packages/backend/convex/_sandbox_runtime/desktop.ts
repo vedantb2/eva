@@ -40,7 +40,7 @@ const CHROME_FLAGS = [
  * crashed exit skips session restore. Runs before each launch; double quotes
  * only so the whole script survives single-quote sh wrapping.
  */
-const CHROME_PREFS_SCRIPT = [
+export const CHROME_PREFS_SCRIPT = [
   'const fs=require("fs");',
   'const dir="/home/eva/.config/chrome-debug/Default";',
   'const p=dir+"/Preferences";',

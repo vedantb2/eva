@@ -7,6 +7,7 @@ import { Button, cn } from "@eva/ui";
 import { IconX } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
+import { DOC_SIDE_PANEL_CLASS } from "./docSidePanel";
 
 export function DocHistoryPanel({
   docId,
@@ -25,16 +26,18 @@ export function DocHistoryPanel({
   const isRecap = docKind === "pr-recap";
 
   return (
-    <div className="flex h-full w-80 shrink-0 flex-col border-l border-border">
+    <div className={DOC_SIDE_PANEL_CLASS}>
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <span className="text-sm font-medium">Version History</span>
+        <span className="min-w-0 truncate text-sm font-medium">
+          Version History
+        </span>
         <Button
           size="icon-sm"
           variant="ghost"
-          className="hit-target"
+          aria-label="Close version history"
           onClick={onClose}
         >
-          <IconX size={14} />
+          <IconX size={14} aria-hidden />
         </Button>
       </div>
 

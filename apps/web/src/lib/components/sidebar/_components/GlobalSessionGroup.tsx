@@ -160,7 +160,7 @@ export function GlobalSessionGroup({
             type="button"
             aria-label={`New session in ${label}`}
             title={`New session in ${label}`}
-            className="flex size-7 shrink-0 items-center justify-center rounded-menu-item text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            className="flex size-7 max-sm:size-10 shrink-0 items-center justify-center rounded-menu-item text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();

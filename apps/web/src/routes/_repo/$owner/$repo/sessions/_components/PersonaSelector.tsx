@@ -40,7 +40,7 @@ export function PersonaDropdown({
         onChange(persona?._id);
       }}
     >
-      <SelectTrigger className="h-7 w-auto gap-1.5 border-none bg-transparent text-xs text-muted-foreground shadow-none hover:bg-muted hover:text-foreground">
+      <SelectTrigger className="h-7 w-auto gap-1.5 border-none bg-transparent text-xs text-muted-foreground shadow-none hover:bg-muted hover:text-foreground max-sm:h-9">
         <SelectValue placeholder="No persona" />
       </SelectTrigger>
       <SelectContent>
@@ -211,7 +211,7 @@ export function ManagePersonasModal({
           <DialogHeader>
             <DialogTitle>Manage Personas</DialogTitle>
           </DialogHeader>
-          <div className="space-y-3 max-h-[60vh] overflow-y-auto">
+          <div className="space-y-3 max-h-[60dvh] overflow-y-auto">
             {personas?.map((persona) =>
               editingId === persona._id ? (
                 <div key={persona._id}>{formUI}</div>
@@ -232,7 +232,8 @@ export function ManagePersonasModal({
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-7 w-7 p-0"
+                      className="hit-target h-7 w-7 p-0"
+                      aria-label={`Edit ${persona.name}`}
                       onClick={() => handleStartEdit(persona)}
                     >
                       <IconEdit size={14} />
@@ -240,7 +241,8 @@ export function ManagePersonasModal({
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="h-7 w-7 p-0 text-destructive"
+                      className="hit-target h-7 w-7 p-0 text-destructive"
+                      aria-label={`Delete ${persona.name}`}
                       onClick={() => setDeletingId(persona._id)}
                     >
                       <IconTrash size={14} />

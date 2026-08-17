@@ -14,21 +14,35 @@ import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
  */
 export function menuContentClass(origin: string): string {
   return [
-    "z-50 min-w-48 overflow-hidden bg-popover/95 p-1.5 text-popover-foreground backdrop-blur-md smooth-shadow-ring-lg",
+    // Height cap + internal scroll (`dvh`, never `vh`) so a long menu stays on
+    // screen on a phone, and a width cap so `min-w-48` cannot widen the page at
+    // a 320px viewport.
+    "z-50 min-w-48 max-w-[calc(100vw-2rem)] max-h-[85dvh] overflow-y-auto overflow-x-hidden bg-popover/95 p-1.5 text-popover-foreground backdrop-blur-md smooth-shadow-ring-lg",
     SURFACE_RADIUS_CLASS,
     origin,
     "duration-150 data-[state=closed]:duration-75 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95",
   ].join(" ");
 }
 
+/**
+ * `min-h-10` below `sm` puts menu rows at the 40px comfortable-tap floor while
+ * desktop keeps the tighter intrinsic height.
+ *
+ * A responsive *padding* (`py-2.5 sm:py-2`) would read more naturally and is
+ * what this originally used, but `tailwind-merge` only resolves conflicts within
+ * a variant group: a call site passing `py-1` would keep the primitive's
+ * `sm:py-2` and lose control of its own inset above the breakpoint. That trap is
+ * documented — and locked by `apps/web/src/designTokens.test.ts` — in
+ * `card.tsx`. Growing the box instead of its padding sidesteps it.
+ */
 export const menuSubTriggerClass =
-  "flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm outline-hidden transition-colors motion-press active:scale-[0.98] focus:bg-muted data-[state=open]:bg-muted [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0";
+  "flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-2 min-h-10 sm:min-h-0 text-sm outline-hidden transition-colors motion-press active:scale-[0.98] focus:bg-muted data-[state=open]:bg-muted [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0";
 
 export const menuItemClass =
-  "relative flex cursor-pointer select-none items-center gap-1.5 rounded-lg px-2.5 py-2 text-sm outline-hidden transition-colors motion-press active:scale-[0.98] focus:bg-muted focus:text-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0";
+  "relative flex cursor-pointer select-none items-center gap-1.5 rounded-lg px-2.5 py-2 min-h-10 sm:min-h-0 text-sm outline-hidden transition-colors motion-press active:scale-[0.98] focus:bg-muted focus:text-foreground data-disabled:pointer-events-none data-disabled:opacity-50 [&>svg]:size-4 [&>svg]:shrink-0";
 
 export const menuCheckboxRadioItemClass =
-  "relative flex cursor-pointer select-none items-center gap-1.5 rounded-lg py-2 pl-9 pr-2.5 text-sm outline-hidden transition-colors motion-press active:scale-[0.98] focus:bg-muted focus:text-foreground data-disabled:pointer-events-none data-disabled:opacity-50";
+  "relative flex cursor-pointer select-none items-center gap-1.5 rounded-lg py-2 min-h-10 sm:min-h-0 pl-9 pr-2.5 text-sm outline-hidden transition-colors motion-press active:scale-[0.98] focus:bg-muted focus:text-foreground data-disabled:pointer-events-none data-disabled:opacity-50";
 
 export const menuLabelClass =
   "px-2.5 py-1 text-[11px] font-medium tracking-[-0.01em] text-muted-foreground";

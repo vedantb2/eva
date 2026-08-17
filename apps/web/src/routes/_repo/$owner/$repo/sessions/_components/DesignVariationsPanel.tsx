@@ -124,10 +124,18 @@ export function DesignVariationsPanel({
             }}
           >
             <TabsList className="h-8">
-              <TabsTrigger value="desktop" className="px-2 text-xs">
+              <TabsTrigger
+                value="desktop"
+                className="hit-target px-2 text-xs"
+                aria-label="Frame designs as desktop"
+              >
                 <IconDeviceDesktop size={14} />
               </TabsTrigger>
-              <TabsTrigger value="mobile" className="px-2 text-xs">
+              <TabsTrigger
+                value="mobile"
+                className="hit-target px-2 text-xs"
+                aria-label="Frame designs as mobile"
+              >
                 <IconDeviceMobile size={14} />
               </TabsTrigger>
             </TabsList>

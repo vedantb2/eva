@@ -50,10 +50,18 @@ const TAB_BAR_BASE =
   "relative flex items-end gap-1 border-b border-border px-2";
 
 const TAB_CLOSE_BUTTON_BASE =
-  "ml-0.5 flex shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground";
+  "ml-0.5 flex shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground hit-target";
+
+/* `TabsList` scrolls its own overflow (see `tabsListVariants`), which makes
+   `overflow-y` compute to `auto` and would clip the 1px that the active
+   trigger's `-mb-px` uses to cover the bar's bottom hairline. Absorbing that
+   pixel as padding and pulling the list back down keeps the folder-tab seam
+   identical while the row scrolls. */
+const TAB_LIST_BASE =
+  "-mb-px h-auto max-w-full gap-0 rounded-none border-0 bg-transparent p-0 pb-px shadow-none [&_.t-tabs-pill]:hidden";
 
 const TAB_ADD_BUTTON_BASE =
-  "flex shrink-0 items-center justify-center rounded-t-md text-muted-foreground transition-[transform,background-color] hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40";
+  "flex shrink-0 items-center justify-center rounded-t-md text-muted-foreground transition-[transform,background-color] hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40 hit-target";
 
 function getSandboxTabBarStyles(size: SandboxTabBarSize) {
   if (size === "compact") {
@@ -237,7 +245,7 @@ export function SandboxTabBar({
         value={resolvedTab}
         onValueChange={onTabChange}
       >
-        <TabsList className="h-auto gap-0 rounded-none border-0 bg-transparent p-0 shadow-none [&_.t-tabs-pill]:hidden">
+        <TabsList className={TAB_LIST_BASE}>
           {tabs.map((tab) => {
             const Icon = tab.icon;
             return (
@@ -422,7 +430,7 @@ export function SandboxTabBar({
             type="button"
             aria-label="Toggle terminal panel"
             aria-pressed={terminalPanel.expanded}
-            className={`${styles.addButton} hit-target`}
+            className={styles.addButton}
             onClick={terminalPanel.toggle}
           >
             <IconTerminal2 className={styles.addIcon} />

@@ -32,11 +32,11 @@ export function DeploymentErrorFallback({ error }: { error: Error }) {
   }, [shouldReload]);
 
   if (shouldReload) {
-    return <div className="min-h-screen w-full bg-background" />;
+    return <div className="min-h-dvh w-full bg-background" />;
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
+    <div className="flex min-h-dvh items-center justify-center bg-background px-4">
       <div className="text-center">
         <h1 className="text-balance text-lg font-semibold text-foreground">
           Something went wrong
@@ -45,8 +45,9 @@ export function DeploymentErrorFallback({ error }: { error: Error }) {
           Please refresh the page to try again.
         </p>
         <button
+          type="button"
           onClick={() => window.location.reload()}
-          className="mt-4 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 transition-colors"
+          className="mt-4 min-h-10 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 transition-colors"
         >
           Refresh
         </button>

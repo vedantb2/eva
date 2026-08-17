@@ -187,6 +187,7 @@ function RunAccordion({
     <div>
       <button
         type="button"
+        aria-expanded={expanded}
         onClick={() => {
           const willExpand = !expanded;
           setExpanded(willExpand);
@@ -306,7 +307,7 @@ function RunAccordion({
           {run.error && (
             <div>
               <p className="text-xs font-medium text-destructive mb-1">Error</p>
-              <p className="text-sm text-destructive whitespace-pre-wrap">
+              <p className="text-sm text-destructive whitespace-pre-wrap wrap-break-word">
                 {run.error}
               </p>
             </div>
@@ -317,7 +318,7 @@ function RunAccordion({
                 href={run.prUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                className="hit-target inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
               >
                 <IconExternalLink size={14} />
                 View Pull Request

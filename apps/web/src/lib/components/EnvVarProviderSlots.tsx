@@ -238,16 +238,18 @@ export function EnvVarProviderSlots({
                     <Button
                       size="icon-sm"
                       variant="ghost"
+                      className="hit-target text-primary hover:text-primary"
                       onClick={() => saveEdit(entry, matched)}
                       disabled={!editValue.trim() || busy}
                       title="Save"
-                      className="text-primary hover:text-primary"
+                      aria-label="Save value"
                     >
                       <IconCheck size={14} />
                     </Button>
                     <Button
                       size="icon-sm"
                       variant="ghost"
+                      className="hit-target"
                       onClick={() => {
                         setEditingId(null);
                         setEditValue("");
@@ -278,6 +280,7 @@ export function EnvVarProviderSlots({
                   <Button
                     size="icon-sm"
                     variant="ghost"
+                    className="hit-target"
                     onClick={() => toggleReveal(matched.key)}
                     disabled={revealingKey === matched.key}
                     title={
@@ -298,6 +301,7 @@ export function EnvVarProviderSlots({
                   <Button
                     size="icon-sm"
                     variant="ghost"
+                    className="hit-target"
                     onClick={() => copyValue(matched.key)}
                     title={copiedKey === matched.key ? "Copied!" : "Copy value"}
                   >
@@ -317,6 +321,7 @@ export function EnvVarProviderSlots({
                       <Button
                         size="icon-sm"
                         variant="ghost"
+                        className="hit-target"
                         onClick={() => {
                           setEditingId(entry.id);
                           setEditValue("");
@@ -330,7 +335,7 @@ export function EnvVarProviderSlots({
                         variant="ghost"
                         onClick={() => setDeleteKey(matched.key)}
                         title="Remove"
-                        className="text-destructive hover:text-destructive"
+                        className="hit-target text-destructive hover:text-destructive"
                       >
                         <IconTrash size={14} />
                       </Button>

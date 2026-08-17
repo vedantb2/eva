@@ -161,7 +161,9 @@ export function WelcomeSetupDialog() {
         hideCloseButton
         onInteractOutside={(event) => event.preventDefault()}
         onEscapeKeyDown={(event) => event.preventDefault()}
-        className="flex h-[min(90vh,42rem)] max-w-[calc(100vw-2rem)] flex-col sm:max-w-3xl"
+        // `dvh`, not `vh`: mobile browser chrome makes `100vh` taller than the
+        // visible area, which would push the footer buttons off screen.
+        className="flex h-[min(90dvh,42rem)] max-w-[calc(100vw-2rem)] flex-col sm:max-w-3xl"
       >
         <DialogHeader className="shrink-0">
           <div className="flex items-center gap-3">

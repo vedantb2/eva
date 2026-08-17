@@ -6,13 +6,16 @@ import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { UserInitials } from "@eva/shared";
-import { Button, cn, Textarea } from "@eva/ui";
+import { Button, cn, LIST_ROW_CONTROL_CLASS, Textarea } from "@eva/ui";
 import { IconCheck, IconArrowBackUp } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { useState, useEffect, useRef } from "react";
 import { catchMutationError } from "@/lib/utils/mutationToast";
 
 type DocComment = FunctionReturnType<typeof api.docComments.listByDoc>[number];
+
+/** 24px beside a pointer, a full 40px tap target below `sm`. */
+const THREAD_ACTION_CLASS = "h-6 px-1.5 text-xs max-sm:h-10 max-sm:px-3";
 
 export function DocCommentThread({
   root,
@@ -66,12 +69,20 @@ export function DocCommentThread({
   return (
     <div
       ref={rootRef}
-      onClick={onClick}
       className={cn(
-        "border-b border-border p-3 cursor-pointer transition-colors",
+        "relative border-b border-border p-3 transition-colors",
         isActive && "bg-accent/50 ring-1 ring-inset ring-ring",
       )}
     >
+      {/* A real button stretched across the thread rather than `onClick` on the
+          wrapper, which had no role and no keyboard path. The thread's own
+          controls sit above it with `LIST_ROW_CONTROL_CLASS`. */}
+      <button
+        type="button"
+        aria-label="Scroll to the commented text"
+        onClick={onClick}
+        className="absolute inset-0 z-1 cursor-pointer focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/35"
+      />
       {root.anchorText && (
         <div className="mb-2 rounded border border-border bg-muted/50 px-2 py-1 text-xs text-muted-foreground line-clamp-2 italic">
           &ldquo;{root.anchorText}&rdquo;
@@ -99,14 +110,18 @@ export function DocCommentThread({
         </div>
       ))}
 
-      <div className="mt-2 flex items-center gap-1">
+      <div
+        className={cn(
+          LIST_ROW_CONTROL_CLASS,
+          "mt-2 flex flex-wrap items-center gap-1 max-sm:gap-2",
+        )}
+      >
         {!isResolved ? (
           <Button
             size="sm"
             variant="ghost"
-            className="h-6 px-1.5 text-xs"
-            onClick={(e) => {
-              e.stopPropagation();
+            className={THREAD_ACTION_CLASS}
+            onClick={() => {
               catchMutationError(
                 setResolved({ id: root._id, resolved: true }),
                 "Couldn't resolve comment",
@@ -114,16 +129,15 @@ export function DocCommentThread({
               );
             }}
           >
-            <IconCheck size={12} />
+            <IconCheck size={12} aria-hidden />
             Resolve
           </Button>
         ) : (
           <Button
             size="sm"
             variant="ghost"
-            className="h-6 px-1.5 text-xs"
-            onClick={(e) => {
-              e.stopPropagation();
+            className={THREAD_ACTION_CLASS}
+            onClick={() => {
               catchMutationError(
                 setResolved({ id: root._id, resolved: false }),
                 "Couldn't reopen comment",
@@ -131,7 +145,7 @@ export function DocCommentThread({
               );
             }}
           >
-            <IconArrowBackUp size={12} />
+            <IconArrowBackUp size={12} aria-hidden />
             Reopen
           </Button>
         )}
@@ -140,11 +154,8 @@ export function DocCommentThread({
           <Button
             size="sm"
             variant="ghost"
-            className="h-6 px-1.5 text-xs"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsReplying(true);
-            }}
+            className={THREAD_ACTION_CLASS}
+            onClick={() => setIsReplying(true)}
           >
             Reply
           </Button>
@@ -152,7 +163,7 @@ export function DocCommentThread({
       </div>
 
       {isReplying && (
-        <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+        <div className={cn(LIST_ROW_CONTROL_CLASS, "mt-2")}>
           <Textarea
             value={replyContent}
             onChange={(e) => setReplyContent(e.target.value)}
@@ -161,11 +172,11 @@ export function DocCommentThread({
             className="text-sm"
             autoFocus
           />
-          <div className="mt-1.5 flex justify-end gap-1">
+          <div className="mt-1.5 flex justify-end gap-1 max-sm:gap-2">
             <Button
               size="sm"
               variant="ghost"
-              className="h-6 text-xs"
+              className="h-6 text-xs max-sm:h-10 max-sm:px-3"
               onClick={() => {
                 setIsReplying(false);
                 setReplyContent("");
@@ -175,7 +186,7 @@ export function DocCommentThread({
             </Button>
             <Button
               size="sm"
-              className="h-6 text-xs"
+              className="h-6 text-xs max-sm:h-10 max-sm:px-3"
               disabled={!replyContent.trim()}
               onClick={handleReply}
             >

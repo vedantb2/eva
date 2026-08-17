@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import type { Id } from "@eva/backend";
 import {
   Button,
@@ -71,6 +71,7 @@ function RepoLabelForm({
   const setLabel = useSetRepoLabel(teamId);
   const [value, setValue] = useState(label ?? "");
   const [saving, setSaving] = useState(false);
+  const fieldId = useId();
 
   const save = async () => {
     setSaving(true);
@@ -95,8 +96,11 @@ function RepoLabelForm({
         <DialogTitle>Rename</DialogTitle>
       </DialogHeader>
       <div className="space-y-2">
-        <label className="text-sm font-medium">Display name</label>
+        <label htmlFor={fieldId} className="block text-sm font-medium">
+          Display name
+        </label>
         <Input
+          id={fieldId}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           placeholder={fallbackName}

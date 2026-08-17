@@ -35,7 +35,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   }
 
   return (
-    <Suspense fallback={<div className="min-h-screen bg-app-shell" />}>
+    <Suspense fallback={<div className="min-h-dvh bg-app-shell" />}>
       <AppShellChrome>{children}</AppShellChrome>
     </Suspense>
   );

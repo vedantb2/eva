@@ -52,11 +52,25 @@ export function BuildRow({
     <>
       <tr className="cursor-pointer hover:bg-muted/30" onClick={onToggle}>
         <td className="px-2 py-2 sm:px-4">
-          {isExpanded ? (
-            <IconChevronDown size={14} />
-          ) : (
-            <IconChevronRight size={14} />
-          )}
+          {/* The row keeps its click target, but the disclosure also needs to be
+              a real control so it is reachable by keyboard and screen reader.
+              `stopPropagation` stops the row handler undoing this one. */}
+          <button
+            type="button"
+            aria-expanded={isExpanded}
+            aria-label="Build details"
+            className="hit-target flex items-center justify-center text-muted-foreground"
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggle();
+            }}
+          >
+            {isExpanded ? (
+              <IconChevronDown size={14} />
+            ) : (
+              <IconChevronRight size={14} />
+            )}
+          </button>
         </td>
         <td className="px-2 py-2 sm:px-4">
           {new Date(build.startedAt).toLocaleDateString("en-GB", {

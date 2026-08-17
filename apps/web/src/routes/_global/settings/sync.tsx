@@ -247,12 +247,12 @@ function OwnerGroup({
     // header and the repos read as the section body.
     <SettingsSection
       title={
-        <label className="flex cursor-pointer items-center gap-2.5">
+        <label className="flex min-w-0 cursor-pointer items-center gap-2.5">
           <Checkbox
             checked={allEnabled ? true : someEnabled ? "indeterminate" : false}
             onCheckedChange={onToggleOwner}
           />
-          {owner}
+          <span className="min-w-0 truncate">{owner}</span>
         </label>
       }
       action={
@@ -268,7 +268,9 @@ function OwnerGroup({
         return (
           <label
             key={repo.name}
-            className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 text-sm transition-colors hover:bg-muted/60"
+            // `py-2.5` below `sm` lifts the row to a 40px tap target; desktop
+            // keeps the tighter list rhythm.
+            className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2.5 text-sm transition-colors hover:bg-muted/60 sm:py-1.5"
           >
             <Checkbox
               checked={enabled}
@@ -276,7 +278,7 @@ function OwnerGroup({
                 onToggleRepo(repo.owner, repo.name, checked === true)
               }
             />
-            {repo.name}
+            <span className="min-w-0 truncate">{repo.name}</span>
           </label>
         );
       })}

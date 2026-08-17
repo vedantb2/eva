@@ -104,14 +104,17 @@ export function NotificationRow({
           ) : null}
         </div>
       </button>
-      {/* Timestamp and Dismiss share the trailing slot: hovering an unread row
-          swaps one for the other. */}
+      {/* Timestamp and Dismiss both sit in the trailing slot at every width.
+          This used to swap them — Dismiss absolutely positioned over the
+          timestamp, revealed on hover — which left Dismiss unreachable on touch,
+          and a `sm:opacity-0` + `group-hover:opacity-100` pair would have left it
+          permanently invisible on a landscape tablet (wide enough to hide it, no
+          hover to bring it back) while the timestamp stayed put, so the two would
+          have overlapped. `reveal-on-hover` keeps Dismiss in layout and only
+          fades it, so its space is always reserved and nothing shifts on hover. */}
       <RelativeDateTime
         at={notification.createdAt}
-        className={cn(
-          "shrink-0 text-xs tabular-nums text-muted-foreground",
-          unread && "group-hover:invisible",
-        )}
+        className="shrink-0 text-xs tabular-nums text-muted-foreground"
       />
       {unread ? (
         <Button
@@ -120,10 +123,10 @@ export function NotificationRow({
           onClick={onMarkRead}
           title="Mark as read"
           aria-label="Mark as read"
-          className="absolute right-3 h-6 gap-1 px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+          className="reveal-on-hover size-10 shrink-0 p-0 text-xs text-muted-foreground hover:text-foreground sm:h-6 sm:w-auto sm:gap-1 sm:px-2"
         >
           <IconCheck size={14} />
-          Dismiss
+          <span className="hidden sm:inline">Dismiss</span>
         </Button>
       ) : null}
     </div>

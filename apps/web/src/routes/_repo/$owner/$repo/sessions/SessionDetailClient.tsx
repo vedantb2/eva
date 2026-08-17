@@ -269,6 +269,7 @@ export function SessionDetailClient({
             rightMinWidthPx={300}
             storageKey="sandbox-collapsed"
             expandRightSignal={expandRightSignal}
+            mobilePaneLabels={{ left: "Chat", right: "Sandbox" }}
           />
         )}
       </SandboxWorkspace>

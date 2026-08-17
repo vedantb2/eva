@@ -10,6 +10,7 @@ import { Button, cn } from "@eva/ui";
 import { IconX } from "@tabler/icons-react";
 import { DocCommentThread } from "./DocCommentThread";
 import { DocNewCommentComposer } from "./DocNewCommentComposer";
+import { DOC_SIDE_PANEL_CLASS } from "./docSidePanel";
 
 type DocComment = FunctionReturnType<typeof api.docComments.listByDoc>[number];
 
@@ -54,30 +55,30 @@ export function DocCommentsPanel({
   }
 
   return (
-    <div className="flex h-full w-80 shrink-0 flex-col border-l border-border">
+    <div className={DOC_SIDE_PANEL_CLASS}>
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">Comments</span>
-          <span className="text-xs text-muted-foreground">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="truncate text-sm font-medium">Comments</span>
+          <span className="shrink-0 text-xs text-muted-foreground">
             {openRoots.length} open
           </span>
         </div>
         <Button
-          size="icon"
+          size="icon-sm"
           variant="ghost"
-          className="size-6"
+          aria-label="Close comments"
           onClick={onClose}
         >
-          <IconX size={14} />
+          <IconX size={14} aria-hidden />
         </Button>
       </div>
 
-      <div className="flex items-center gap-1 border-b border-border px-3 py-1.5">
+      <div className="flex items-center gap-1 border-b border-border px-3 py-1.5 max-sm:gap-2.5">
         <button
           type="button"
           onClick={() => setFilter("open")}
           className={cn(
-            "rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
+            "hit-target rounded-md px-2 py-1 text-xs font-medium transition-colors",
             filter === "open"
               ? "bg-accent text-accent-foreground"
               : "text-muted-foreground hover:text-foreground",
@@ -89,7 +90,7 @@ export function DocCommentsPanel({
           type="button"
           onClick={() => setFilter("resolved")}
           className={cn(
-            "rounded-md px-2 py-0.5 text-xs font-medium transition-colors",
+            "hit-target rounded-md px-2 py-1 text-xs font-medium transition-colors",
             filter === "resolved"
               ? "bg-accent text-accent-foreground"
               : "text-muted-foreground hover:text-foreground",

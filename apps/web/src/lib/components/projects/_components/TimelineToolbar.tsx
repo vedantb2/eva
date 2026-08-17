@@ -50,16 +50,17 @@ export function TimelineToolbar({
   onToday,
 }: TimelineToolbarProps) {
   return (
-    <div className="flex items-center justify-end gap-2">
+    <div className="flex flex-wrap items-center justify-end gap-2">
       <Tooltip>
         <TooltipTrigger asChild>
           <Button
             variant="secondary"
             size="sm"
+            aria-label="Jump to today"
             className="h-8 gap-1.5"
             onClick={onToday}
           >
-            <IconCalendarEvent size={15} />
+            <IconCalendarEvent size={15} aria-hidden />
             <span className="hidden sm:inline">Today</span>
           </Button>
         </TooltipTrigger>
@@ -72,7 +73,7 @@ export function TimelineToolbar({
           if (isRange(value)) onRangeChange(value);
         }}
       >
-        <TabsList className="tabs-segmented h-8">
+        <TabsList className="tabs-segmented h-8 max-sm:h-10">
           {RANGE_OPTIONS.map((opt) => (
             <TabsTrigger
               key={opt.value}
@@ -86,14 +87,18 @@ export function TimelineToolbar({
       </Tabs>
 
       <div className="flex items-center overflow-hidden rounded-surface bg-muted/40">
+        {/* Real 40px below `sm` rather than `hit-target`: these two abut, so an
+            8px pseudo-element bleed would eat into the neighbour, and the
+            group's `overflow-hidden` would clip it anyway. */}
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-none"
+          aria-label="Zoom out"
+          className="size-10 rounded-none sm:size-8"
           disabled={zoom <= ZOOM_MIN}
           onClick={() => onZoomChange(Math.max(ZOOM_MIN, zoom - ZOOM_STEP))}
         >
-          <IconZoomOut size={15} />
+          <IconZoomOut size={15} aria-hidden />
         </Button>
         <span className="w-10 text-center text-[11px] tabular-nums text-muted-foreground">
           {zoom}%
@@ -101,11 +106,12 @@ export function TimelineToolbar({
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 rounded-none"
+          aria-label="Zoom in"
+          className="size-10 rounded-none sm:size-8"
           disabled={zoom >= ZOOM_MAX}
           onClick={() => onZoomChange(Math.min(ZOOM_MAX, zoom + ZOOM_STEP))}
         >
-          <IconZoomIn size={15} />
+          <IconZoomIn size={15} aria-hidden />
         </Button>
       </div>
     </div>

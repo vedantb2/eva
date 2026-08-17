@@ -92,7 +92,7 @@ function PreviewAuth() {
   }
 
   return (
-    <div className="flex h-screen items-center justify-center p-6 text-center">
+    <div className="flex min-h-dvh items-center justify-center p-6 text-center">
       <p className="text-sm text-muted-foreground">
         {error ?? "Authorising preview access…"}
       </p>

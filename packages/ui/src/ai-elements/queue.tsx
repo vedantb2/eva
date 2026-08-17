@@ -168,7 +168,11 @@ export const QueueItemActions = ({
 }: QueueItemActionsProps) => (
   <div
     className={cn(
-      "flex shrink-0 items-start gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100",
+      // `reveal-on-hover` rather than a bare `opacity-0 group-hover:*`: touch has
+      // no hover, so the hand-rolled version left edit/move/delete on a queued
+      // message permanently invisible — and still clickable, so the row carried a
+      // dead tap zone. The utility ships them visible below `sm`.
+      "flex shrink-0 items-start gap-0.5 reveal-on-hover",
       className,
     )}
     {...props}

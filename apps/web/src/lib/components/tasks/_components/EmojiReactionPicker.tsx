@@ -35,13 +35,17 @@ export function EmojiReactionPicker({
     setOpen(false);
   };
 
+  // Sizes grow to the 40px tap floor below `sm` instead of taking `hit-target`:
+  // the trigger sits flush against the comment's overflow menu (and, in the
+  // reaction bar, against the chips), where an 8px bleed would overlap them.
   const triggerClassName = cn(
     "flex items-center justify-center text-muted-foreground transition-[opacity,background-color,color] hover:text-foreground focus-visible:opacity-100 data-[state=open]:text-foreground data-[state=open]:opacity-100",
     variant === "ghost"
-      ? "size-7 rounded-md hover:bg-muted/60 data-[state=open]:bg-muted"
-      : "h-6 rounded-full bg-muted/40 px-2 hover:bg-muted data-[state=open]:bg-muted",
-    !alwaysVisible &&
-      "opacity-0 group-hover:opacity-100 focus-visible:opacity-100",
+      ? "size-10 rounded-md hover:bg-muted/60 data-[state=open]:bg-muted sm:size-7"
+      : "h-10 rounded-full bg-muted/40 px-2 hover:bg-muted data-[state=open]:bg-muted sm:h-6",
+    // Hover-only reveal is unreachable on touch; `reveal-on-hover` keeps the
+    // quiet pointer behaviour and ships the trigger visible below `sm`.
+    !alwaysVisible && "reveal-on-hover",
   );
 
   return (

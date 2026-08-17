@@ -70,7 +70,7 @@ export function HiddenReposSheet({
                         ? repo.rootDirectory.split("/").pop()
                         : repo.name}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="truncate text-xs text-muted-foreground">
                       {repo.owner}/{repo.name}
                     </p>
                   </div>

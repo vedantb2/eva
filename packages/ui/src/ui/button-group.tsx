@@ -6,7 +6,11 @@ import { SURFACE_RADIUS_CLASS } from "../utils/surface-radius";
 import { Separator } from "./separator";
 
 const buttonGroupVariants = cva(
-  "flex w-fit items-stretch has-[>[data-slot=button-group]]:gap-2 focus-visible:*:relative focus-visible:*:z-10 [&>[data-slot=select-trigger]:last-of-type]:has-[select[aria-hidden=true]:last-child]:rounded-r-lg [&>[data-slot=select-trigger]:not([class*='w-'])]:w-fit [&>input]:flex-1",
+  // Children abut with no gap, so the `hit-target` pseudo-element the small
+  // button sizes carry would overlap the neighbour by 8px and let the later
+  // sibling steal its edge. A segmented group is already one wide target, so the
+  // expansion is dropped here rather than mis-routing taps.
+  "flex w-fit items-stretch [&>*]:after:content-none has-[>[data-slot=button-group]]:gap-2 focus-visible:*:relative focus-visible:*:z-10 [&>[data-slot=select-trigger]:last-of-type]:has-[select[aria-hidden=true]:last-child]:rounded-r-lg [&>[data-slot=select-trigger]:not([class*='w-'])]:w-fit [&>input]:flex-1",
   {
     variants: {
       orientation: {

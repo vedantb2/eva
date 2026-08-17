@@ -51,7 +51,9 @@ export function PrCommentBubble({
   const hasBody = body.trim().length > 0;
 
   return (
-    <Surface density="tight" className="group/bubble space-y-1.5">
+    // Plain `group`, not `group/bubble`: `reveal-on-hover` keys off the
+    // unnamed group, and nothing else in here needed the name.
+    <Surface density="tight" className="group space-y-1.5">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
         <span className="font-medium text-foreground">
           {authorLogin ?? "unknown"}
@@ -70,7 +72,7 @@ export function PrCommentBubble({
             href={htmlUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover/bubble:opacity-100"
+            className="reveal-on-hover hit-target hover:text-foreground"
             aria-label="View on GitHub"
           >
             <IconExternalLink size={12} aria-hidden />

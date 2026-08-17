@@ -80,8 +80,8 @@ export function SystemAutomationSettings({
       </Surface>
 
       <Surface density="none" className="p-3 sm:p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
             <h3 className="text-sm font-medium">Uninstall</h3>
             <p className="mt-0.5 text-[11px] text-muted-foreground">
               Remove this automation from the app. Reinstalling it from the
@@ -91,6 +91,7 @@ export function SystemAutomationSettings({
           <Button
             variant="destructive"
             size="sm"
+            className="shrink-0"
             onClick={() => {
               void uninstall({ repoId, key: systemKey })
                 .then(() =>

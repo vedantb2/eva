@@ -209,7 +209,7 @@ const CarouselPrevious = React.forwardRef<
     <button
       ref={ref}
       className={cn(
-        "absolute h-8 w-8 cursor-pointer rounded-full border bg-card/95 backdrop-blur-sm flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted motion-press active:scale-[0.94]",
+        "hit-target absolute h-8 w-8 cursor-pointer rounded-full border bg-card/95 backdrop-blur-sm flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted motion-press active:scale-[0.94]",
         orientation === "horizontal"
           ? "-left-3 top-1/2 -translate-y-1/2"
           : "-top-3 left-1/2 -translate-x-1/2 rotate-90",
@@ -249,7 +249,7 @@ const CarouselNext = React.forwardRef<
     <button
       ref={ref}
       className={cn(
-        "absolute h-8 w-8 cursor-pointer rounded-full border bg-card/95 backdrop-blur-sm flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted motion-press active:scale-[0.94]",
+        "hit-target absolute h-8 w-8 cursor-pointer rounded-full border bg-card/95 backdrop-blur-sm flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed hover:bg-muted motion-press active:scale-[0.94]",
         orientation === "horizontal"
           ? "-right-3 top-1/2 -translate-y-1/2"
           : "-bottom-3 left-1/2 -translate-x-1/2 rotate-90",

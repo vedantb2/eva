@@ -89,7 +89,7 @@ export function ChangelogDialog() {
         </DialogHeader>
 
         <DialogBody>
-          <div className="max-h-[60vh] overflow-y-auto">
+          <div className="max-h-[60dvh] overflow-y-auto">
             <Surface>
               <Streamdown
                 className={cn(

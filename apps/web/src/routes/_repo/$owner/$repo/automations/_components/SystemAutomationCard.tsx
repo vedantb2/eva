@@ -113,7 +113,7 @@ export function SystemAutomationCard({
               {numId !== null && (
                 <Link
                   to={href}
-                  className="flex items-center gap-1 rounded-menu-item px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  className="hit-target flex items-center gap-1 rounded-menu-item px-2 py-1 text-[11px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                 >
                   Open
                   <IconArrowRight size={12} />

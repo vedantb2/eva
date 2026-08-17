@@ -71,7 +71,10 @@ export function AttachmentCard({
             event.stopPropagation();
             onRemove();
           }}
-          className="absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-foreground opacity-0 transition-opacity hover:bg-background focus:opacity-100 group-hover:opacity-100"
+          // `reveal-on-hover` (globals.css) keeps the quiet hover reveal on a
+          // pointer device and ships the control visible below `sm`, where there
+          // is no hover and this is the only way to drop an attachment.
+          className="reveal-on-hover hit-target absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-foreground hover:bg-background max-sm:p-1.5"
         >
           <IconX className="size-3" />
         </button>

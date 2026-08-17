@@ -302,7 +302,9 @@ export function PreviewNavBar({
         )}
       </WebPreviewNavigationButton>
       <Input
-        className="h-8 flex-1 text-xs"
+        // 16px below `sm` keeps iOS from zooming the page on focus; the compact
+        // 12px size is restored from `sm` up.
+        className="h-8 min-w-0 flex-1 text-base sm:text-xs"
         value={pathInput}
         onChange={(e) => setPathInput(e.target.value)}
         onBlur={commitPath}
@@ -313,7 +315,7 @@ export function PreviewNavBar({
         aria-label="Preview path"
       />
       <Input
-        className="h-8 w-14 text-xs text-center px-1 sm:w-16"
+        className="h-8 w-14 shrink-0 text-base text-center px-1 sm:w-16 sm:text-xs"
         value={portInput}
         onChange={(e) => setPortInput(e.target.value)}
         onBlur={commitPort}

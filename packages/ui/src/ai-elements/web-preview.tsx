@@ -119,7 +119,10 @@ export const WebPreviewNavigation = ({
   ...props
 }: WebPreviewNavigationProps) => (
   <div
-    className={cn("flex items-center gap-1 border-b p-2", className)}
+    // `flex-wrap`: the nav holds back/forward/reload plus a URL field and a
+    // device toggle, which is wider than a phone-width preview pane. Without it
+    // the row overflows its container rather than taking a second line.
+    className={cn("flex flex-wrap items-center gap-1 border-b p-2", className)}
     {...props}
   >
     {children}
@@ -146,6 +149,11 @@ export const WebPreviewNavigationButton = ({
           onClick={onClick}
           size="sm"
           variant="ghost"
+          // These buttons are icon-only, and a `TooltipContent` is wired up as
+          // `aria-describedby` — a description, not a name — so without this
+          // every preview nav control is announced as just "button". Placed
+          // before the spread so a call site can still override it.
+          aria-label={tooltip}
           {...props}
         >
           {children}

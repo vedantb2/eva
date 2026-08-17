@@ -404,6 +404,7 @@ function SplitRunButton({
           <Button
             ref={chevronRef}
             size={size}
+            aria-label="Schedule options"
             className={`rounded-l-none border-l border-l-primary-foreground/20 px-2 ${SPLIT_BUTTON_HALF}`}
           >
             <IconChevronDown size={14} />

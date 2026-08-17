@@ -221,7 +221,7 @@ export function FileViewerPanel({
           <Button
             size="sm"
             variant="ghost"
-            className="size-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+            className="hit-target size-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
             onClick={() =>
               void setMarkdownView(
                 markdownView === "rendered" ? "source" : "rendered",
@@ -244,7 +244,7 @@ export function FileViewerPanel({
         <Button
           size="sm"
           variant="ghost"
-          className="size-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+          className="hit-target size-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
           onClick={() => setRefreshKey((k) => k + 1)}
           aria-label="Refresh file"
         >
@@ -325,7 +325,7 @@ function CopyButton({ content }: { content: string }) {
     <Button
       size="sm"
       variant="ghost"
-      className="size-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+      className="hit-target size-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
       onClick={() => {
         void navigator.clipboard.writeText(content);
         setCopied(true);

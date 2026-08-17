@@ -406,7 +406,9 @@ export function QuickTaskModal({
               attachments.add(dropped);
             }}
           >
-            <div className="scrollbar px-5 min-h-[160px] max-h-[50vh] overflow-y-auto">
+            {/* `dvh`, not `vh`: mobile browser chrome makes `50vh` taller than
+                half the visible area, which pushes the modal footer offscreen. */}
+            <div className="scrollbar px-5 min-h-[160px] max-h-[50dvh] overflow-y-auto">
               <DescriptionMentionEditor
                 ref={editorRef}
                 value={description}
@@ -621,12 +623,13 @@ export function QuickTaskModal({
                   <Badge
                     key={tag}
                     variant="secondary"
-                    className="text-[10px] h-5 gap-0.5 pr-0.5"
+                    className="text-[10px] h-8 gap-0.5 pr-0.5 sm:h-5"
                   >
                     {tag}
                     <button
                       type="button"
-                      className="rounded-sm opacity-50 hover:opacity-100 transition-opacity ml-0.5 px-0.5"
+                      aria-label={`Remove tag ${tag}`}
+                      className="ml-0.5 flex h-full min-w-6 items-center justify-center rounded-sm px-1 opacity-50 transition-opacity hover:opacity-100"
                       onClick={() => toggleTag(tag)}
                     >
                       <IconX size={10} />
@@ -688,16 +691,19 @@ export function QuickTaskModal({
                               </div>
                             </div>
                           ) : (
-                            <div
-                              role="button"
-                              tabIndex={0}
-                              className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-muted transition-colors group cursor-pointer"
-                              onClick={() => loadDraft(draft)}
-                              onKeyDown={(e) => {
-                                if (e.key === "Enter" || e.key === " ")
-                                  loadDraft(draft);
-                              }}
-                            >
+                            // A row with its own delete control cannot be one
+                            // big `<button>`, and `role="button"` on a div
+                            // means hand-rolled key handling — so this follows
+                            // `<ListRow>`: a stretched native button supplies
+                            // the role and the keyboard, and the delete control
+                            // sits above it.
+                            <div className="group relative flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors hover:bg-muted">
+                              <button
+                                type="button"
+                                className="absolute inset-0 z-1 cursor-pointer focus-visible:outline-hidden"
+                                aria-label={`Load draft ${draft.title || "Untitled"}`}
+                                onClick={() => loadDraft(draft)}
+                              />
                               <span className="flex-1 truncate">
                                 {draft.title || (
                                   <span className="text-muted-foreground italic">
@@ -706,11 +712,10 @@ export function QuickTaskModal({
                                 )}
                               </span>
                               <button
-                                className="opacity-0 group-hover:opacity-100 shrink-0 p-0.5 rounded hover:bg-destructive/10 hover:text-destructive transition-[opacity,background-color,color]"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setConfirmDeleteId(draft._id);
-                                }}
+                                type="button"
+                                aria-label={`Delete draft ${draft.title || "Untitled"}`}
+                                className="reveal-on-hover hit-target relative z-2 shrink-0 rounded p-0.5 hover:bg-destructive/10 hover:text-destructive"
+                                onClick={() => setConfirmDeleteId(draft._id)}
                               >
                                 <IconTrash size={14} />
                               </button>

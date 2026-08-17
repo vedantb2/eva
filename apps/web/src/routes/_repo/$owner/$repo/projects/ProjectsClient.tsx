@@ -233,7 +233,7 @@ export function ProjectsClient() {
   };
 
   const toolbarContent = (
-    <div className="flex items-center gap-1.5 sm:gap-2">
+    <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2">
       <ToggleSearch
         value={searchQuery}
         onChange={(v) => setParams({ q: v ?? "" })}
@@ -248,16 +248,18 @@ export function ProjectsClient() {
             if (isProjectView(value)) setParams({ view: value });
           }}
         >
-          <TabsList className="tabs-segmented h-8">
+          {/* Taller below `sm` so the icon-only triggers clear the tap floor;
+              `hit-target` is no use inside the list's own overflow clip. */}
+          <TabsList className="tabs-segmented h-8 max-sm:h-10">
             {VIEW_OPTIONS.map((opt) => (
               <Tooltip key={opt.key}>
                 <TooltipTrigger asChild>
                   <TabsTrigger
                     value={opt.key}
                     aria-label={opt.label}
-                    className="px-2.5 py-1"
+                    className="px-2.5 py-1 max-sm:px-3"
                   >
-                    <opt.icon size={16} />
+                    <opt.icon size={16} aria-hidden />
                   </TabsTrigger>
                 </TooltipTrigger>
                 <TooltipContent>{opt.label}</TooltipContent>
@@ -272,9 +274,10 @@ export function ProjectsClient() {
             <Button
               size="sm"
               variant="secondary"
+              aria-label="View options"
               className="motion-press hover:scale-[1.01] active:scale-[0.96]"
             >
-              <IconSettings size={16} />
+              <IconSettings size={16} aria-hidden />
               <span className="hidden sm:inline">Options</span>
             </Button>
           </DropdownMenuTrigger>
@@ -357,10 +360,11 @@ export function ProjectsClient() {
       )}
       <Button
         size="sm"
+        aria-label="New project"
         className="motion-press hover:scale-[1.01] active:scale-[0.96]"
         onClick={() => setIsCreating(true)}
       >
-        <IconPlus size={16} />
+        <IconPlus size={16} aria-hidden />
         <span className="hidden sm:inline">New Project</span>
       </Button>
     </div>

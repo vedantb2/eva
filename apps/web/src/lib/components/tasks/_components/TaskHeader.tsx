@@ -57,9 +57,9 @@ export function TaskHeader({
   );
 
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex min-w-0 items-center gap-2">
       {taskNumber && (
-        <span className="font-mono tabular-nums text-muted-foreground">
+        <span className="shrink-0 font-mono tabular-nums text-muted-foreground">
           #{taskNumber}
         </span>
       )}
@@ -88,22 +88,24 @@ export function TaskHeader({
           autoFocus
           className="flex-1 text-xl font-semibold h-auto px-1 -mx-1 py-0 border-none shadow-none focus-visible:ring-0 bg-muted/50 rounded"
         />
+      ) : canEditTaskText ? (
+        // A real button, not a `<span onClick>`: the title is plain text with
+        // nothing clickable inside it, so there is no reason to hand-roll the
+        // keyboard handling a native control already has.
+        <button
+          type="button"
+          onClick={() => {
+            setEditTitle(title ?? "");
+            setIsEditingTitle(true);
+          }}
+          className="-mx-1 min-w-0 rounded px-1 text-left text-xl font-semibold wrap-break-word hover:bg-muted/50"
+        >
+          {title}
+        </button>
       ) : (
         <span
-          onClick={() => {
-            if (canEditTaskText) {
-              setEditTitle(title ?? "");
-              setIsEditingTitle(true);
-            }
-          }}
-          title={
-            canEditTaskText ? undefined : "Title can only be edited in To Do"
-          }
-          className={
-            !canEditTaskText
-              ? "text-xl font-semibold"
-              : "text-xl font-semibold cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1"
-          }
+          title="Title can only be edited in To Do"
+          className="min-w-0 text-xl font-semibold wrap-break-word"
         >
           {title}
         </span>

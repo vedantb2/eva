@@ -6,7 +6,9 @@ import { cn } from "../utils/cn";
 
 const Table = forwardRef<HTMLTableElement, HTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto">
+    // `min-w-0` so the wrapper actually shrinks when it is a flex/grid child —
+    // without it a wide table widens the page instead of scrolling in place.
+    <div className="relative w-full min-w-0 max-w-full overflow-x-auto scrollbar">
       <table
         ref={ref}
         className={cn("w-full caption-bottom text-sm", className)}

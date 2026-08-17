@@ -34,7 +34,7 @@ export function LandingPage({ agentRedirect }: LandingPageProps) {
   // `?agent` is mid-redirect to the agent login route; render a blank canvas
   // rather than flashing the whole marketing page.
   if (agentRedirect) {
-    return <div className="min-h-screen w-full bg-background" />;
+    return <div className="min-h-dvh w-full bg-background" />;
   }
 
   if (!newLandingEnabled) {
@@ -47,7 +47,7 @@ export function LandingPage({ agentRedirect }: LandingPageProps) {
   }
 
   return (
-    <div id="top" className="min-h-screen bg-background">
+    <div id="top" className="min-h-dvh bg-background">
       <LandingNav />
 
       <main>

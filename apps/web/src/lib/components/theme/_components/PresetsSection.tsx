@@ -80,6 +80,8 @@ export function PresetsSection({
         return (
           <button
             key={preset.name}
+            type="button"
+            aria-pressed={active}
             onClick={() => onApplyPreset(preset.theme)}
             className={cn(
               // Matches the other theme pickers: border carries the selected

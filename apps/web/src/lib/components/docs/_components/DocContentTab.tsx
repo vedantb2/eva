@@ -340,8 +340,11 @@ export function DocContentTab({
   }
 
   return (
-    <div className="flex min-h-0 flex-1 overflow-hidden">
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    // `relative`: below `md` the comments / history / suggestions panels are
+    // full-width overlays over the editor rather than a 320px column beside it,
+    // and they position against this row.
+    <div className="relative flex min-h-0 flex-1 overflow-hidden">
+      <div className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden">
         {selectedVersionId ? (
           <div className="scrollbar min-h-0 flex-1 overflow-y-auto px-4 pb-4">
             <DocVersionDiff
@@ -369,7 +372,9 @@ export function DocContentTab({
             >
               <EditorContent
                 editor={editor}
-                className="[&_.tiptap]:min-h-48 [&_.tiptap]:outline-hidden"
+                // Code fences scroll inside themselves; an unbroken line would
+                // otherwise widen the whole document past the viewport.
+                className="[&_.tiptap]:min-h-48 [&_.tiptap]:outline-hidden [&_pre]:overflow-x-auto"
               />
               {editor && (
                 <BubbleMenu
@@ -379,10 +384,10 @@ export function DocContentTab({
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-7 px-2 text-xs"
+                    className="h-7 px-2 text-xs max-sm:h-10 max-sm:px-3"
                     onClick={handleStartComment}
                   >
-                    <IconMessage size={14} />
+                    <IconMessage size={14} aria-hidden />
                     Comment
                   </Button>
                 </BubbleMenu>

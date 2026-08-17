@@ -86,7 +86,12 @@ export function FindingsList({ run, repoOwner, repoName }: FindingsListProps) {
     <div className="space-y-2">
       {selectableFindings.length > 0 && (
         <div className="flex items-center gap-2 pb-1">
-          <Checkbox checked={allSelected} onCheckedChange={toggleAll} />
+          <Checkbox
+            className="hit-target"
+            aria-label={`Select all ${selectableFindings.length} findings`}
+            checked={allSelected}
+            onCheckedChange={toggleAll}
+          />
           <span className="text-xs text-muted-foreground">
             Select all ({selectableFindings.length})
           </span>
@@ -105,7 +110,7 @@ export function FindingsList({ run, repoOwner, repoName }: FindingsListProps) {
       ))}
 
       {selectableFindings.length > 0 && (
-        <div className="flex items-center gap-2 pt-2">
+        <div className="flex flex-wrap items-center gap-2 pt-2">
           <Button
             size="sm"
             variant="outline"
@@ -162,12 +167,15 @@ function FindingRow({
     >
       <div className="group flex items-center gap-3 px-3 py-2.5">
         <Checkbox
+          className="hit-target"
+          aria-label={`Select finding: ${finding.title}`}
           checked={hasTaskCreated ? true : selected}
           disabled={hasTaskCreated}
           onCheckedChange={onToggle}
         />
         <button
           type="button"
+          aria-expanded={expanded}
           onClick={() => setExpanded((prev) => !prev)}
           className="flex flex-1 items-center gap-2 text-left min-w-0"
         >
@@ -197,7 +205,7 @@ function FindingRow({
         {hasTaskCreated && taskUrl && (
           <a
             href={taskUrl}
-            className="inline-flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
+            className="hit-target inline-flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
           >
             <IconExternalLink size={12} />
             Task created
@@ -206,7 +214,7 @@ function FindingRow({
       </div>
       {expanded && (
         <div className="px-3 pb-3 pl-10 space-y-2">
-          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap wrap-break-word">
             {finding.description}
           </p>
           {finding.filePaths && finding.filePaths.length > 0 && (
@@ -218,7 +226,7 @@ function FindingRow({
                 {finding.filePaths.map((fp) => (
                   <span
                     key={fp}
-                    className="inline-block rounded bg-muted px-1.5 py-0.5 text-xs font-mono"
+                    className="inline-block max-w-full break-all rounded bg-muted px-1.5 py-0.5 text-xs font-mono"
                   >
                     {fp}
                   </span>
@@ -231,7 +239,7 @@ function FindingRow({
               <p className="text-xs font-medium text-muted-foreground mb-1">
                 Suggested Fix
               </p>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap wrap-break-word">
                 {finding.suggestedFix}
               </p>
             </div>

@@ -11,16 +11,11 @@ import { useNavigate } from "@tanstack/react-router";
 import {
   DndContext,
   closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
@@ -39,6 +34,7 @@ import {
   TabsTrigger,
   TabsContent,
   Spinner,
+  useDragSensors,
 } from "@eva/ui";
 import { ProjectPhaseBadge } from "@/lib/components/projects/ProjectPhaseBadge";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
@@ -81,7 +77,8 @@ function SortableTaskItem({ task, index }: { task: Task; index: number }) {
     >
       <button
         type="button"
-        className="cursor-grab touch-none text-muted-foreground hover:text-foreground"
+        aria-label={`Reorder ${task.title}`}
+        className="flex size-10 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-muted-foreground hover:text-foreground sm:size-6"
         {...attributes}
         {...listeners}
       >
@@ -127,12 +124,10 @@ export function GroupTasksModal({
   const createFromTasks = useMutation(api.projects.createFromTasks);
   const assignToProject = useMutation(api.agentTasks.assignToProject);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
+  // The house activation split. A lone `PointerSensor` armed on distance never
+  // works on touch: the finger is also describing a scroll, the browser wins the
+  // gesture, and the drag dies. See `useDragSensors`.
+  const sensors = useDragSensors({ sortable: true });
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;

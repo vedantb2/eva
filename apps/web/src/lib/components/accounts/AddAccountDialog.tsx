@@ -156,7 +156,9 @@ function AddAccountForm({
                 disabled={editing !== null}
                 onClick={() => setProvider(option)}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                  // `max-sm:min-h-10` lifts the 30px chip to a comfortable tap
+                  // target on touch without changing the desktop density.
+                  "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors max-sm:min-h-10",
                   provider === option
                     ? "border-border bg-muted text-foreground"
                     : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted/60",
@@ -193,6 +195,7 @@ function AddAccountForm({
                     }))
                   }
                   placeholder={field.placeholder}
+                  aria-label={field.label}
                   className="h-28 font-mono text-xs"
                 />
               ) : (
@@ -210,6 +213,7 @@ function AddAccountForm({
                     }))
                   }
                   placeholder={field.placeholder}
+                  aria-label={field.label}
                   className="h-8 font-mono text-xs"
                   autoFocus={field === fields[0]}
                 />

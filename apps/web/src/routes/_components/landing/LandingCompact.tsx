@@ -28,7 +28,7 @@ import {
  */
 export function LandingCompact() {
   return (
-    <div id="top" className="flex min-h-screen flex-col bg-background">
+    <div id="top" className="flex min-h-dvh flex-col bg-background">
       <header className="border-b border-border">
         <nav className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-5 sm:px-8">
           <span className="flex items-center gap-2.5">

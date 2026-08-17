@@ -21,6 +21,7 @@ import {
   type PtyProtocol,
   type TerminalHistoryWriter,
 } from "./_utils";
+import { TerminalKeyRow } from "./_components/TerminalKeyRow";
 
 interface TerminalPanelProps {
   owner: SandboxOwner;
@@ -40,6 +41,17 @@ interface TerminalPanelProps {
 
 const MAX_RECONNECT_ATTEMPTS = 3;
 const RECONNECT_DELAY_MS = 1000;
+
+/**
+ * xterm takes the font size at construction, so this is read once per init
+ * rather than tracked as reactive state. At 13px a 390px pane fits roughly 44
+ * columns, which wraps most command output into unreadable soup; 10px gets it
+ * to about 60. FitAddon still recomputes cols/rows on rotation, so only the
+ * glyph size is fixed for the life of the connection.
+ */
+function initialTerminalFontSize(): number {
+  return window.matchMedia("(max-width: 767px)").matches ? 10 : 13;
+}
 
 function getCssRgb(
   styles: CSSStyleDeclaration,
@@ -366,7 +378,7 @@ export function TerminalPanel({
         const rootStyles = getComputedStyle(document.documentElement);
         const terminal = new Terminal({
           cursorBlink: true,
-          fontSize: 13,
+          fontSize: initialTerminalFontSize(),
           fontFamily: "Menlo, Monaco, 'Courier New', monospace",
           scrollback: 5000,
           theme: {
@@ -561,6 +573,16 @@ export function TerminalPanel({
         </div>
       )}
       <div ref={terminalRef} className="min-h-0 flex-1 overflow-hidden" />
+      <TerminalKeyRow
+        onKey={(data) => {
+          const terminal = terminalInstanceRef.current;
+          if (!terminal) return;
+          // `input` routes through the same `onData` handler as typing, so the
+          // bytes reach the pty over the existing socket.
+          terminal.input(data);
+          terminal.focus();
+        }}
+      />
     </div>
   );
 }

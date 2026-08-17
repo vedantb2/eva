@@ -63,10 +63,11 @@ ContextMenuSubContent.displayName = ContextMenuPrimitive.SubContent.displayName;
 const ContextMenuContent = React.forwardRef<
   React.ComponentRef<typeof ContextMenuPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof ContextMenuPrimitive.Content>
->(({ className, ...props }, ref) => (
+>(({ className, collisionPadding = 8, ...props }, ref) => (
   <ContextMenuPrimitive.Portal>
     <ContextMenuPrimitive.Content
       ref={ref}
+      collisionPadding={collisionPadding}
       className={cn(CONTEXT_MENU_CONTENT_CLASS, className)}
       {...props}
     />

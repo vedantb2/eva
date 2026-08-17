@@ -186,7 +186,7 @@ function Status({ children }: { children: React.ReactNode }) {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-background px-4 py-8">
       <div className="flex w-full max-w-sm flex-col items-center gap-6">
         <EvaIcon
           size={56}

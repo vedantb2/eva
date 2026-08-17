@@ -119,7 +119,7 @@ export function McpConfigClient() {
         >
           {prompt ? (
             // Nested inside the card, so the prompt steps to the muted tone.
-            <pre className="whitespace-pre-wrap rounded-control border border-border bg-muted/40 p-3 font-mono text-xs leading-relaxed text-foreground/80">
+            <pre className="whitespace-pre-wrap wrap-break-word rounded-control border border-border bg-muted/40 p-3 font-mono text-xs leading-relaxed text-foreground/80">
               {prompt}
             </pre>
           ) : (

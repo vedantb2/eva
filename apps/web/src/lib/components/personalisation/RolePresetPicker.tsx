@@ -34,6 +34,7 @@ export function RolePresetPicker({
           <button
             key={key}
             type="button"
+            aria-pressed={isActive}
             onClick={() => onSelect(isActive ? null : key)}
             className={cn(
               // Inactive tiles keep a transparent border so selecting one does

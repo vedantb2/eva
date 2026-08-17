@@ -11,24 +11,25 @@ import { useRepoLogoUpload } from "@/lib/hooks/useRepoLogoUpload";
 import { appLeafName, repoDisplayLabel } from "@/lib/utils/repoGrouping";
 import { catchMutationError } from "@/lib/utils/mutationToast";
 import {
+  cn,
   Card,
   CardContent,
   ContextMenu,
   ContextMenuContent,
-  ContextMenuItem,
   ContextMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
   motionBase,
   motionStagger,
 } from "@eva/ui";
 import {
   IconBrandGithub,
+  IconDots,
   IconPlugConnectedX,
-  IconFolders,
-  IconEyeOff,
-  IconPhoto,
-  IconPhotoOff,
-  IconPencil,
 } from "@tabler/icons-react";
+import { RepoCardMenuItems } from "./RepoCardMenuItems";
+import { CARD_KEBAB_CLASS } from "@/lib/components/ui/cardKebab";
 
 export type Repo = FunctionReturnType<typeof api.githubRepos.list>[number];
 
@@ -62,6 +63,21 @@ export function RepoCard({
     e.target.value = "";
     if (file) uploadLogo(repo._id, file);
   };
+
+  const menuProps = {
+    hasLogo: Boolean(repo.logoUrl),
+    onRename: () => setRenameOpen(true),
+    onManageApps,
+    onPickLogo: () => fileInputRef.current?.click(),
+    onRemoveLogo: () => removeLogo(repo._id),
+    onHide: () =>
+      void catchMutationError(
+        toggleHidden({ repoId: repo._id, hidden: true }),
+        "Couldn't hide codebase",
+        "repo-hide",
+      ),
+  };
+
   return (
     <m.div
       key={repo._id}
@@ -78,7 +94,9 @@ export function RepoCard({
               className="block rounded-surface focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35"
             >
               <Card className="motion-emphasized ui-surface-interactive cursor-pointer">
-                <CardContent className="flex items-center gap-3 p-4">
+                {/* `max-sm:pr-10` reserves the lane the touch kebab sits in, so
+                    the label and the disconnected pill never run under it. */}
+                <CardContent className="flex items-center gap-3 p-4 max-sm:pr-10">
                   <RepoLogo
                     logoUrl={repo.logoUrl}
                     size={28}
@@ -97,12 +115,12 @@ export function RepoCard({
                     <p className="truncate text-sm font-medium text-foreground">
                       {repoDisplayLabel(repo)}
                     </p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">
+                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
                       {repo.owner}/{repo.name}
                     </p>
                   </div>
                   {repo.connected === false && (
-                    <div className="flex items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-destructive">
+                    <div className="flex shrink-0 items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-destructive">
                       <IconPlugConnectedX size={11} />
                       <span className="text-[11px] font-medium">
                         Disconnected
@@ -112,39 +130,34 @@ export function RepoCard({
                 </CardContent>
               </Card>
             </Link>
+            {/* Touch has no right-click, so below `sm` the same items get a
+                visible kebab. It is a sibling of the <Link> rather than a child
+                (a button may not nest in an anchor) and sits above it at z-2. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Repository actions"
+                  onClick={(e) => e.stopPropagation()}
+                  className={cn(
+                    "absolute right-1.5 top-1/2 z-2 -translate-y-1/2",
+                    CARD_KEBAB_CLASS,
+                  )}
+                >
+                  <IconDots className="size-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <RepoCardMenuItems variant="dropdown" {...menuProps} />
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </ContextMenuTrigger>
         <ContextMenuContent onClick={(e) => e.stopPropagation()}>
-          <ContextMenuItem onClick={() => setRenameOpen(true)}>
-            <IconPencil size={16} />
-            Rename
-          </ContextMenuItem>
-          <ContextMenuItem onClick={onManageApps}>
-            <IconFolders size={16} />
-            Manage apps
-          </ContextMenuItem>
-          <ContextMenuItem onClick={() => fileInputRef.current?.click()}>
-            <IconPhoto size={16} />
-            {repo.logoUrl ? "Change logo" : "Set logo"}
-          </ContextMenuItem>
-          {repo.logoUrl && (
-            <ContextMenuItem onClick={() => removeLogo(repo._id)}>
-              <IconPhotoOff size={16} />
-              Remove logo
-            </ContextMenuItem>
-          )}
-          <ContextMenuItem
-            onClick={() =>
-              void catchMutationError(
-                toggleHidden({ repoId: repo._id, hidden: true }),
-                "Couldn't hide codebase",
-                "repo-hide",
-              )
-            }
-          >
-            <IconEyeOff size={16} />
-            Hide
-          </ContextMenuItem>
+          <RepoCardMenuItems variant="context" {...menuProps} />
         </ContextMenuContent>
       </ContextMenu>
       <input

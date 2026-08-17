@@ -216,10 +216,15 @@ export function SessionChromeTab({
                 aria-label={`Archive ${session.title}`}
                 title="Archive session"
                 className={cn(
-                  "mr-2 flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,opacity] hover:bg-foreground/10 hover:text-foreground focus-visible:opacity-100 [@container(max-width:7.5rem)]:hidden",
+                  "hit-target mr-2 flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,opacity] hover:bg-foreground/10 hover:text-foreground focus-visible:opacity-100 [@container(max-width:7.5rem)]:hidden",
                   isSelected
                     ? "opacity-100"
-                    : "opacity-0 group-hover:opacity-100",
+                    : // `reveal-on-hover` rather than a hand-rolled
+                      // `sm:opacity-0 group-hover:opacity-100`: `group-hover:`
+                      // compiles with `@media (hover: hover)` but `sm:opacity-0`
+                      // does not, so the pair leaves the archive control
+                      // permanently invisible on a landscape tablet.
+                      "reveal-on-hover",
                 )}
                 onClick={(e) => {
                   e.preventDefault();

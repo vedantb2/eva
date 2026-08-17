@@ -38,7 +38,10 @@ export function PriorityPicker({
         <button
           type="button"
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors",
+            // `min-h-10 sm:min-h-0` rather than a height: the trigger is ~26px
+            // tall, and callers that pass their own `h-*` (the quick-task
+            // option chips) must keep it from `sm` up.
+            "inline-flex min-h-10 items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-muted/80 hover:text-foreground sm:min-h-0",
             className,
           )}
           aria-label={`Priority: ${value ? PRIORITY_LABELS[value] : "No priority"}`}

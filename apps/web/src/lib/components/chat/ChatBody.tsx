@@ -21,6 +21,7 @@ import {
   type StoredModelTraits,
   type resolveTraitsForDisplay,
 } from "@eva/backend";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import {
@@ -246,6 +247,9 @@ export function ChatBody({
   const jumpRailMessages = buildJumpRailTicks(messages);
 
   const currentUserId = useQuery(api.auth.me);
+  // Simple view hides diff surfaces, so the per-turn changed-files card goes
+  // with them (quick task / project / session all render through ChatBody).
+  const simpleView = useSimpleView();
   const users = useQuery(api.users.listAll);
   const firstNameByUserId = (() => {
     const map = new Map<Id<"users">, string>();
@@ -276,6 +280,7 @@ export function ChatBody({
         repoBasePath={repoBasePath}
         isLast={isLast}
         isLatestAssistantTurn={message._id === latestAssistantMessageId}
+        showChangedFiles={!simpleView}
         {...(expandedByMessageId[message._id] !== undefined
           ? { changedFilesExpanded: expandedByMessageId[message._id] }
           : {})}

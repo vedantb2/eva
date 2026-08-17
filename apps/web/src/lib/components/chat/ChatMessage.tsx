@@ -87,6 +87,8 @@ interface ChatMessageProps {
   repoBasePath: string;
   isLast: boolean;
   isLatestAssistantTurn: boolean;
+  /** False in simple view, which hides diff surfaces entirely. */
+  showChangedFiles?: boolean;
   changedFilesExpanded?: boolean;
   onChangedFilesExpandedChange: (messageId: string, expanded: boolean) => void;
   /** True when this user turn belongs to a teammate (left-aligned). */
@@ -122,6 +124,7 @@ export const ChatMessage = memo(function ChatMessage({
   repoBasePath,
   isLast,
   isLatestAssistantTurn,
+  showChangedFiles = true,
   changedFilesExpanded,
   onChangedFilesExpandedChange,
   isOtherUser = false,
@@ -297,7 +300,7 @@ export const ChatMessage = memo(function ChatMessage({
                     <MessageResponse className="prose prose-sm dark:prose-invert max-w-none wrap-anywhere">
                       {message.content}
                     </MessageResponse>
-                    {changedFiles.length > 0 ? (
+                    {showChangedFiles && changedFiles.length > 0 ? (
                       <ChangedFilesCard
                         files={changedFiles}
                         isLatestAssistantTurn={isLatestAssistantTurn}

@@ -7282,6 +7282,11 @@ function errorCode(error) {
 function isAgentNotFound(error) {
   return errorCode(error) === "agent_not_found" || error.message.includes("agent_not_found");
 }
+var RESOURCE_EXHAUSTED_RETRY_DELAYS_MS = [15e3, 3e4];
+function isResourceExhaustedMessage(text) {
+  return text.includes("resource_exhausted");
+}
+var RESOURCE_EXHAUSTED_CHAT_MESSAGE = "Cursor rejected the request: rate limit or usage quota exhausted (resource_exhausted). No tokens were used. Wait a minute and try again, or switch to a different model.";
 var ZERO_USAGE = {
   inputTokens: 0,
   outputTokens: 0,
@@ -7397,51 +7402,89 @@ async function runCursorSdkAttempt(sessionMode) {
       if (timedOutForMaxRuntime || timedOutForNoOutput) break;
     }
     const result = await run.wait();
-    const usage = readUsageTokens(result.usage) ?? lastStreamUsage ?? ZERO_USAGE;
-    const isError = result.status !== "finished";
-    const resultText = typeof result.result === "string" && result.result ? result.result : result.error && typeof result.error.message === "string" ? result.error.message : "";
+    return {
+      isError: result.status !== "finished",
+      resultText: typeof result.result === "string" && result.result ? result.result : result.error && typeof result.error.message === "string" ? result.error.message : "",
+      durationMs: readNum(result.durationMs),
+      usage: readUsageTokens(result.usage) ?? lastStreamUsage ?? ZERO_USAGE
+    };
+  };
+  const emitTurnResult = (outcome) => {
     const syntheticResult = {
       type: "result",
-      is_error: isError,
-      result: resultText,
-      duration_ms: readNum(result.durationMs),
+      is_error: outcome.isError,
+      result: outcome.resultText,
+      duration_ms: outcome.durationMs,
       usage: {
-        input_tokens: usage.inputTokens,
-        output_tokens: usage.outputTokens,
-        cache_read_input_tokens: usage.cacheReadTokens,
-        cache_creation_input_tokens: usage.cacheWriteTokens
+        input_tokens: outcome.usage.inputTokens,
+        output_tokens: outcome.usage.outputTokens,
+        cache_read_input_tokens: outcome.usage.cacheReadTokens,
+        cache_creation_input_tokens: outcome.usage.cacheWriteTokens
       }
     };
     pushLine(JSON.stringify(syntheticResult) + "\\n");
     sawResult = true;
-    resultIsError = isError;
+    resultIsError = outcome.isError;
+  };
+  const runTurnWithRetries = async (activeAgent) => {
+    for (let attempt = 0; ; attempt++) {
+      let outcome;
+      try {
+        outcome = await runTurn(activeAgent);
+      } catch (error) {
+        const messageText = error instanceof Error ? error.message : String(error);
+        if (!isResourceExhaustedMessage(messageText) || RESOURCE_EXHAUSTED_RETRY_DELAYS_MS[attempt] === void 0 || timedOutForMaxRuntime || timedOutForNoOutput) {
+          throw error;
+        }
+        outcome = { isError: true, resultText: messageText, durationMs: 0, usage: ZERO_USAGE };
+      }
+      const retryDelayMs = RESOURCE_EXHAUSTED_RETRY_DELAYS_MS[attempt];
+      if (outcome.isError && isResourceExhaustedMessage(outcome.resultText) && retryDelayMs !== void 0 && !timedOutForMaxRuntime && !timedOutForNoOutput) {
+        log(
+          "runCursorSdkAttempt: resource_exhausted \\u2014 retrying in " + retryDelayMs + "ms (attempt " + (attempt + 1) + " of " + (RESOURCE_EXHAUSTED_RETRY_DELAYS_MS.length + 1) + ")"
+        );
+        appendToRawLogFile(
+          "[sdk-retry] resource_exhausted \\u2014 waiting " + retryDelayMs + "ms before retry\\n"
+        );
+        updateThinkingStep(
+          "Cursor is rate-limited...",
+          "Retrying in " + Math.round(retryDelayMs / 1e3) + "s..."
+        );
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+        continue;
+      }
+      if (outcome.isError && isResourceExhaustedMessage(outcome.resultText)) {
+        outcome.resultText = RESOURCE_EXHAUSTED_CHAT_MESSAGE;
+      }
+      emitTurnResult(outcome);
+      return;
+    }
   };
   try {
     try {
-      await runTurn(agent);
+      await runTurnWithRetries(agent);
     } catch (error) {
       if (resumedExistingAgent && error instanceof Error && isAgentNotFound(error)) {
         log(
           "runCursorSdkAttempt: resumed agent unusable \\u2014 retrying as a fresh agent"
         );
         appendToRawLogFile("[sdk-retry] " + error.message + "\\n");
-        sawResult = false;
-        resultIsError = false;
         try {
           agent.close();
         } catch {
         }
         agent = await createFreshAgent();
-        await runTurn(agent);
+        await runTurnWithRetries(agent);
       } else {
         throw error;
       }
     }
   } catch (error) {
-    const messageText = error instanceof Error ? error.message : String(error);
+    const rawMessage = error instanceof Error ? error.message : String(error);
+    const messageText = isResourceExhaustedMessage(rawMessage) ? RESOURCE_EXHAUSTED_CHAT_MESSAGE : rawMessage;
     attemptErrorMessage = messageText;
-    log("runCursorSdkAttempt: run failed \\u2014 " + messageText);
-    appendToRawLogFile("[sdk-error] " + messageText + "\\n");
+    log("runCursorSdkAttempt: run failed \\u2014 " + rawMessage);
+    appendToRawLogFile("[sdk-error] " + rawMessage + "\\n");
     callbackState.stderrOutput = trimBufferHead(callbackState.stderrOutput + messageText + "\\n");
   } finally {
     clearInterval(healthTimer);

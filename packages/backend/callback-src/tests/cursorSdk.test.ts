@@ -3,8 +3,10 @@ import { splitCursorModel } from "../config.js";
 import { cursorSdkToolToStep } from "../parse/toolSteps.js";
 import { probeCursorSdkToolResult } from "../providers/cursor.js";
 import {
+  RESOURCE_EXHAUSTED_CHAT_MESSAGE,
   cursorModeParams,
   filterModeParamsByModel,
+  isResourceExhaustedMessage,
 } from "../providers/cursorSdk.js";
 
 test("splitCursorModel separates base id and reasoning level", () => {
@@ -119,6 +121,24 @@ test("filterModeParamsByModel without a model entry keeps only opted-in params",
 function opted(fastMode: boolean, use1mContext: boolean) {
   return { fastMode, use1mContext };
 }
+
+test("isResourceExhaustedMessage matches Cursor's Connect-RPC 429", () => {
+  // Exact shape observed in prod (task 234, 17 Aug 2026).
+  expect(isResourceExhaustedMessage("[resource_exhausted] Error")).toBe(true);
+  expect(
+    isResourceExhaustedMessage("[resource_exhausted] quota exceeded"),
+  ).toBe(true);
+  expect(isResourceExhaustedMessage("resource_exhausted")).toBe(true);
+  expect(isResourceExhaustedMessage("[agent_not_found] Error")).toBe(false);
+  expect(isResourceExhaustedMessage("network timeout")).toBe(false);
+  expect(isResourceExhaustedMessage("")).toBe(false);
+});
+
+test("resource_exhausted chat message is readable, not the raw code alone", () => {
+  expect(RESOURCE_EXHAUSTED_CHAT_MESSAGE).toContain("rate limit");
+  expect(RESOURCE_EXHAUSTED_CHAT_MESSAGE).toContain("resource_exhausted");
+  expect(RESOURCE_EXHAUSTED_CHAT_MESSAGE).toContain("try again");
+});
 
 test("cursorSdkToolToStep maps known SDK tool kinds", () => {
   const read = cursorSdkToolToStep("read", { path: "/tmp/repo/src/a.ts" });

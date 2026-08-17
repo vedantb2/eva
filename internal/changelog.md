@@ -1,5 +1,9 @@
 # Changelog
 
+## Cursor rate limits retry instead of erroring the chat - 2026-08-17
+
+Cursor's backend rejects a run with the Connect-RPC code `resource_exhausted` (its 429: rate limit or usage quota) — observed in prod as two grok-4.6 quick-task chat turns failing in ~40s with zero tokens used and the chat showing the raw `Error: [resource_exhausted] Error`. The condition cleared itself minutes later, so the cursor provider now retries the turn up to twice with 15s/30s backoff (covering both an error result status and a thrown SDK error), shows "Cursor is rate-limited..." as the live activity step while waiting, and only the final outcome is emitted as the synthetic result line so retried failures never reach the parser. When retries are exhausted, the chat gets a readable message naming the cause and the fix (wait, or switch model) instead of the raw code.
+
 ## Preview iframes survive leaving the session - 2026-08-14
 
 Route changes (/home, switching apps) unmounted the session tree and destroyed the preview iframe, so coming back always reloaded the app under development even when the sandbox was still running. Preview iframes now live in a root-level host outside the router: panels render a measured placeholder, and the host overlays the real iframe on that rect without moving it in the DOM (moving also reloads). Hidden iframes stay cached (capped at 3) via `display: none`, which keeps the document alive; stopping the sandbox drops every port's cache so a later visit cannot resurrect a dead document. Fullscreen uses the document element instead of the panel, because a fixed overlay outside the fullscreen element would otherwise go blank.

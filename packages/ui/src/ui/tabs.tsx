@@ -18,7 +18,7 @@ const tabsListVariants = cva(
     // spills equally past both edges, and `scrollLeft` cannot go negative, so the
     // *leading* tabs become unreachable — the same bug the scroll was added to
     // fix, moved to the other end. Safe alignment falls back to start on overflow.
-    "relative inline-flex max-w-full items-center justify-center-safe overflow-x-auto scrollbar-none bg-background p-1 text-muted-foreground",
+    "relative inline-flex items-center justify-center bg-background p-1 text-muted-foreground max-sm:max-w-full max-sm:justify-center-safe max-sm:overflow-x-auto max-sm:scrollbar-none",
     SURFACE_RADIUS_CLASS,
   ),
   {

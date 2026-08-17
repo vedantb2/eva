@@ -122,7 +122,7 @@ export const WebPreviewNavigation = ({
     // `flex-wrap`: the nav holds back/forward/reload plus a URL field and a
     // device toggle, which is wider than a phone-width preview pane. Without it
     // the row overflows its container rather than taking a second line.
-    className={cn("flex flex-wrap items-center gap-1 border-b p-2", className)}
+    className={cn("flex items-center gap-1 border-b p-2 max-sm:flex-wrap", className)}
     {...props}
   >
     {children}

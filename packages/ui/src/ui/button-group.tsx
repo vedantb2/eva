@@ -7,10 +7,12 @@ import { Separator } from "./separator";
 
 const buttonGroupVariants = cva(
   // Children abut with no gap, so the `hit-target` pseudo-element the small
-  // button sizes carry would overlap the neighbour by 8px and let the later
-  // sibling steal its edge. A segmented group is already one wide target, so the
-  // expansion is dropped here rather than mis-routing taps.
-  "flex w-fit items-stretch [&>*]:after:content-none has-[>[data-slot=button-group]]:gap-2 focus-visible:*:relative focus-visible:*:z-10 [&>[data-slot=select-trigger]:last-of-type]:has-[select[aria-hidden=true]:last-child]:rounded-r-lg [&>[data-slot=select-trigger]:not([class*='w-'])]:w-fit [&>input]:flex-1",
+  // button sizes carry below `sm` would overlap the neighbour by 8px and let the
+  // later sibling steal its edge. A segmented group is already one wide target,
+  // so the expansion is dropped here rather than mis-routing taps. Scoped to
+  // `max-sm` because `xs`/`icon-xs` carry the bleed at every width and always
+  // have — cancelling it above `sm` would shrink hit areas that predate this.
+  "flex w-fit items-stretch max-sm:[&>*]:after:content-none has-[>[data-slot=button-group]]:gap-2 focus-visible:*:relative focus-visible:*:z-10 [&>[data-slot=select-trigger]:last-of-type]:has-[select[aria-hidden=true]:last-child]:rounded-r-lg [&>[data-slot=select-trigger]:not([class*='w-'])]:w-fit [&>input]:flex-1",
   {
     variants: {
       orientation: {

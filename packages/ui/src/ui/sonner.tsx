@@ -201,7 +201,7 @@ function Toaster({ style, ...props }: ToasterProps) {
             // permanently invisible on a landscape tablet — `group-hover:`
             // compiles with `@media (hover: hover)`, `sm:opacity-0` does not —
             // and a toast with no reachable close is a toast you cannot dismiss.
-            "reveal-on-hover hit-target absolute -right-2 -top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card/95 text-muted-foreground hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
+            "pointer-events-none absolute -right-2 -top-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card/95 text-muted-foreground opacity-0 transition-opacity duration-[var(--motion-base)] hover:text-foreground focus-visible:pointer-events-auto focus-visible:opacity-100 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring group-hover:pointer-events-auto group-hover:opacity-100 max-sm:pointer-events-auto max-sm:opacity-100 max-sm:hit-target",
         },
       }}
       {...props}

@@ -313,14 +313,14 @@ export const AttachmentRemove = ({
         variant === "grid" && [
           "absolute top-2 right-2 size-6 rounded-full p-0",
           "bg-background/80 ",
-          "reveal-on-hover",
+          "reveal-on-hover transition-opacity",
           "hover:bg-background",
           "[&>svg]:size-3",
           "after:absolute after:inset-[-7px]",
         ],
         variant === "inline" && [
           "size-5 rounded p-0",
-          "reveal-on-hover",
+          "reveal-on-hover transition-opacity",
           "[&>svg]:size-2.5",
           "relative after:absolute after:inset-[-10px]",
         ],

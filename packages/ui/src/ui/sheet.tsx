@@ -50,7 +50,7 @@ const SheetContent = React.forwardRef<
       className={cn(
         // `dvh` + a viewport width guard so the panel cannot exceed the visible
         // area on a phone when a caller forgets to size it.
-        "fixed z-50 flex flex-col h-dvh max-w-[100vw] top-0 border-border bg-card smooth-shadow-ring-xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out",
+        "fixed z-50 flex flex-col h-full top-0 max-sm:h-dvh max-sm:max-w-[100vw] border-border bg-card smooth-shadow-ring-xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out",
         side === "left" &&
           "left-0 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
         side === "right" &&
@@ -61,7 +61,7 @@ const SheetContent = React.forwardRef<
     >
       {children}
       {!hideCloseButton && (
-        <DialogPrimitive.Close className="absolute right-3 top-3 inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground motion-press active:scale-[0.94] hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35 hit-target">
+        <DialogPrimitive.Close className="absolute right-3 top-3 inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-md text-muted-foreground motion-press active:scale-[0.94] hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35 after:absolute after:inset-[-6px]">
           <IconX className="h-4 w-4" />
           <span className="sr-only">Close</span>
         </DialogPrimitive.Close>

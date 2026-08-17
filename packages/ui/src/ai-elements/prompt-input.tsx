@@ -1044,7 +1044,7 @@ export const PromptInputFooter = ({
     // `flex-wrap`: the footer carries the model picker, mode/agent selects and
     // the send button, which together are wider than a phone-width composer.
     // Without it the row squashes its children instead of taking a second line.
-    className={cn("flex-wrap justify-between gap-1", className)}
+    className={cn("justify-between gap-1 max-sm:flex-wrap", className)}
     {...props}
   />
 );

@@ -80,7 +80,7 @@ const DialogContent = React.forwardRef<
         className={cn(
           // `dvh`, not `vh`: mobile browser chrome makes `100vh` taller than the
           // visible area, so a `90vh` dialog runs off the bottom of the screen.
-          "t-modal fixed left-[50%] top-[50%] z-50 flex flex-col w-[calc(100vw-2rem)] max-w-lg max-h-[90dvh] gap-4",
+          "t-modal fixed left-[50%] top-[50%] z-50 flex flex-col w-[92vw] max-sm:w-[calc(100vw-2rem)] max-w-lg max-h-[90dvh] gap-4",
           SURFACE_RADIUS_CLASS,
           "bg-card p-6 smooth-shadow-ring-xl overflow-hidden",
           className,
@@ -89,7 +89,7 @@ const DialogContent = React.forwardRef<
       >
         {children}
         {!hideCloseButton && (
-          <DialogPrimitive.Close className="hit-target absolute right-4 top-4 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-muted-foreground motion-press active:scale-[0.94] hover:bg-muted hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none">
+          <DialogPrimitive.Close className="max-sm:hit-target absolute right-4 top-4 inline-flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg text-muted-foreground motion-press active:scale-[0.94] hover:bg-muted hover:text-foreground focus:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none">
             <IconX className="h-4 w-4" />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>

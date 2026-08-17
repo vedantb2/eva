@@ -163,15 +163,24 @@ describe("the reveal-on-hover utility", () => {
  * of the sub-40px controls — a 24px destructive delete and 14px tab-close
  * buttons among them. Baking it into the small `Button` sizes means a consumer
  * inherits a compliant target and only hand-rolled `<button>`s need thought.
+ *
+ * `sm`/`icon-sm` take it as `max-sm:hit-target`, because the 8px bleed is
+ * invisible but it *is* a change to where a pointer has to be to click, and this
+ * work was scoped to mobile only. `xs`/`icon-xs` predate that and keep the
+ * ungated utility they shipped with.
  */
 describe("small Button sizes", () => {
-  it("carry hit-target so consumers inherit a 40px target", () => {
-    const button = readFileSync(join(uiSrc, "ui", "button.tsx"), "utf8");
-    const variants = button.slice(
-      button.indexOf("size:"),
-      button.indexOf("defaultVariants"),
-    );
-    for (const size of ["xs", "sm", "icon-xs", "icon-sm"]) {
+  const ungated = ["xs", "icon-xs"];
+  const mobileOnly = ["sm", "icon-sm"];
+
+  it.each([...ungated, ...mobileOnly])(
+    "%s reaches the 40px floor on touch",
+    (size) => {
+      const button = readFileSync(join(uiSrc, "ui", "button.tsx"), "utf8");
+      const variants = button.slice(
+        button.indexOf("size:"),
+        button.indexOf("defaultVariants"),
+      );
       // Only the hyphenated keys are quoted in the object literal.
       const at = variants.search(new RegExp(`"?${size}"?:`));
       expect(at, `the ${size} size is gone`).toBeGreaterThan(-1);
@@ -180,8 +189,14 @@ describe("small Button sizes", () => {
         declaration,
         `${size} is under 40px and needs hit-target`,
       ).toContain("hit-target");
-    }
-  });
+      if (mobileOnly.includes(size)) {
+        expect(
+          declaration,
+          `${size} grew a desktop hit area; gate it as max-sm:hit-target`,
+        ).toContain("max-sm:hit-target");
+      }
+    },
+  );
 });
 
 /**
@@ -189,11 +204,14 @@ describe("small Button sizes", () => {
  * `overflow-hidden`, so a strip of four or more tabs was not just cramped — the
  * trailing tabs were clipped away with no way to reach them. Snapshots' four
  * tabs and the sandbox's six-to-eight were both unreachable on a phone.
+ *
+ * The scroll is `max-sm:`-gated: desktop keeps the centred, non-scrolling strip
+ * it always had, because this work was scoped to mobile only.
  */
 describe("the TabsList primitive", () => {
-  it("scrolls its own overflow instead of widening or clipping", () => {
+  it("scrolls its own overflow on a phone, and only there", () => {
     // Comments stripped first: the one above this class names the very utility
-    // the rule below bans.
+    // the rules below check for.
     const tabs = stripComments(
       readFileSync(join(uiSrc, "ui", "tabs.tsx"), "utf8"),
     ).replaceAll(/\/\/.*$/gm, "");
@@ -201,17 +219,20 @@ describe("the TabsList primitive", () => {
       tabs.indexOf("tabsListVariants"),
       tabs.indexOf("variants:"),
     );
-    expect(base).toContain("overflow-x-auto");
-    expect(base).toContain("max-w-full");
-    // `justify-center` spills centred overflow past *both* edges, and scrollLeft
+    expect(base).toContain("max-sm:overflow-x-auto");
+    expect(base).toContain("max-sm:max-w-full");
+    // Centred content that overflows spills past *both* edges, and `scrollLeft`
     // cannot go negative, so the leading tabs become unreachable — the same bug
-    // at the other end of the strip. Safe alignment falls back to start.
-    // `justify-center-safe` is the fix, so the ban has to exclude it: `\b` would
-    // match right through the hyphen.
+    // at the other end of the strip. Safe alignment falls back to start, and it
+    // is only needed where the strip actually scrolls.
     expect(
       base,
-      "centred overflow strands the leading tabs; use safe alignment",
-    ).not.toMatch(/\bjustify-center(?![\w-])/);
+      "centred overflow strands the leading tabs; use safe alignment on mobile",
+    ).toContain("max-sm:justify-center-safe");
+    expect(
+      base,
+      "desktop kept plain centring, so an ungated safe variant is a desktop change",
+    ).not.toMatch(/(?<!max-sm:)justify-center-safe/);
   });
 });
 

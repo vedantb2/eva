@@ -23,7 +23,7 @@ const SelectTrigger = React.forwardRef<
     className={cn(
       // 16px below `sm` matches Input/Textarea: iOS zooms the page when a form
       // control smaller than that takes focus.
-      "flex h-10 w-full min-w-0 cursor-pointer items-center justify-between whitespace-nowrap border border-input bg-card px-3.5 py-2 text-base sm:text-sm ring-offset-background motion-press active:scale-[0.98] placeholder:text-muted-foreground focus:outline-hidden focus-visible:ring-1 focus-visible:ring-ring/35 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
+      "flex h-10 w-full max-sm:min-w-0 cursor-pointer items-center justify-between whitespace-nowrap border border-input bg-card px-3.5 py-2 text-base sm:text-sm ring-offset-background motion-press active:scale-[0.98] placeholder:text-muted-foreground focus:outline-hidden focus-visible:ring-1 focus-visible:ring-ring/35 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1",
       CONTROL_RADIUS_CLASS,
       className,
     )}
@@ -85,7 +85,7 @@ const SelectContent = React.forwardRef<
         ref={ref}
         collisionPadding={collisionPadding}
         className={cn(
-          "relative z-50 max-h-[min(24rem,85dvh)] min-w-48 max-w-[calc(100vw-2rem)] overflow-hidden bg-popover/95 text-popover-foreground backdrop-blur-md smooth-shadow-ring-lg origin-(--radix-select-content-transform-origin)",
+          "relative z-50 max-h-96 min-w-48 max-sm:max-h-[85dvh] max-sm:max-w-[calc(100vw-2rem)] overflow-hidden bg-popover/95 text-popover-foreground backdrop-blur-md smooth-shadow-ring-lg origin-(--radix-select-content-transform-origin)",
           SURFACE_RADIUS_CLASS,
           "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 data-[state=closed]:data-[side=bottom]:slide-out-to-top-2 data-[state=closed]:data-[side=left]:slide-out-to-right-2 data-[state=closed]:data-[side=right]:slide-out-to-left-2 data-[state=closed]:data-[side=top]:slide-out-to-bottom-2",
           position === "popper" &&
@@ -134,7 +134,7 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex w-full cursor-pointer select-none items-center py-2 min-h-10 sm:min-h-0 pl-2.5 pr-8 text-sm outline-hidden motion-press active:scale-[0.98] focus:bg-muted focus:text-foreground data-disabled:pointer-events-none data-disabled:opacity-50",
+      "relative flex w-full cursor-pointer select-none items-center py-2 max-sm:min-h-10 pl-2.5 pr-8 text-sm outline-hidden motion-press active:scale-[0.98] focus:bg-muted focus:text-foreground data-disabled:pointer-events-none data-disabled:opacity-50",
       "rounded-lg",
       className,
     )}

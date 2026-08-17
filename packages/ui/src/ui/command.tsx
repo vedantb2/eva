@@ -50,7 +50,7 @@ const CommandInput = React.forwardRef<
       ref={ref}
       className={cn(
         // 16px below `sm` — see the note in input.tsx.
-        "flex h-11 w-full min-w-0 rounded-none bg-transparent py-3 text-base sm:text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
+        "flex h-11 w-full max-sm:min-w-0 rounded-none bg-transparent py-3 text-base sm:text-sm outline-hidden placeholder:text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50",
         className,
       )}
       {...props}
@@ -70,7 +70,7 @@ const CommandList = React.forwardRef<
       // `dvh` cap so the list never pushes the palette past the visible area on
       // a phone, where 320px of results plus the input exceeds the keyboard-free
       // space.
-      "max-h-[min(320px,60dvh)] overflow-y-auto overflow-x-hidden scrollbar",
+      "max-h-[320px] max-sm:max-h-[60dvh] overflow-y-auto overflow-x-hidden scrollbar",
       className,
     )}
     {...props}
@@ -127,7 +127,7 @@ const CommandItem = React.forwardRef<
   <CommandPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-pointer gap-2 select-none items-center px-2.5 py-2 min-h-10 sm:min-h-0 text-sm outline-hidden motion-press active:scale-[0.98] data-[disabled=true]:pointer-events-none data-[selected=true]:bg-muted data-[selected=true]:text-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
+      "relative flex cursor-pointer gap-2 select-none items-center px-2.5 py-2 max-sm:min-h-10 text-sm outline-hidden motion-press active:scale-[0.98] data-[disabled=true]:pointer-events-none data-[selected=true]:bg-muted data-[selected=true]:text-foreground data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0",
       "rounded-lg",
       className,
     )}

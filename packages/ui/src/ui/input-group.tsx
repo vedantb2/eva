@@ -89,11 +89,11 @@ const inputGroupButtonVariants = cva(
         // All four sizes sit under the 40px comfortable-tap floor, so each
         // carries `hit-target` — it grows the pressable area by 8px per side via
         // a pseudo-element, without touching layout.
-        xs: "hit-target h-6 gap-1 rounded-[calc(var(--radius)-4px)] px-2 has-[>svg]:px-2 [&>svg:not([class*='size-'])]:size-3.5",
-        sm: "hit-target h-8 gap-1.5 rounded-lg px-2.5 has-[>svg]:px-2.5",
+        xs: "max-sm:hit-target h-6 gap-1 rounded-[calc(var(--radius)-4px)] px-2 has-[>svg]:px-2 [&>svg:not([class*='size-'])]:size-3.5",
+        sm: "max-sm:hit-target h-8 gap-1.5 rounded-lg px-2.5 has-[>svg]:px-2.5",
         "icon-xs":
-          "hit-target size-6 rounded-[calc(var(--radius)-4px)] p-0 has-[>svg]:p-0",
-        "icon-sm": "hit-target size-8 p-0 has-[>svg]:p-0",
+          "max-sm:hit-target size-6 rounded-[calc(var(--radius)-4px)] p-0 has-[>svg]:p-0",
+        "icon-sm": "max-sm:hit-target size-8 p-0 has-[>svg]:p-0",
       },
     },
     defaultVariants: {

@@ -200,15 +200,9 @@
      hover reveal on pointer devices and ships the control visible below `sm`.
 
      Why it is not just `opacity-0 group-hover:opacity-100` plus a `max-sm:`
-     override at the call site:
-     - that is three or four utilities whose order has to be right at every
-       one of ~17 sites, and it was already wrong at several of them;
-     - `opacity-0` alone leaves the control clickable while invisible, so the
-       row carries a dead tap zone. `pointer-events` moves with the opacity
-       here, and comes back for `:focus-visible` so keyboard users can still
-       tab to it;
-     - `group-focus-within` keeps the action on screen while a menu it opened
-       still owns focus.
+     override at the call site: that is three or four utilities whose order has
+     to be right at every one of ~17 sites, and it was already wrong at several
+     of them.
 
      The hidden state is gated on `(hover: hover)` as well as the `sm` width,
      not on width alone: this project's `hover:` variant compiles with that
@@ -216,23 +210,29 @@
      leave the control permanently invisible on a landscape tablet — wide
      enough for `sm`, with no hover to bring it back.
 
+     Deliberately narrow, so that at `sm` and up this is byte-for-byte the
+     `opacity-0 group-hover:opacity-100 focus-within:opacity-100` it replaced:
+
+     - **no `pointer-events`.** Moving it with the opacity would fix a real dead
+       tap zone (an invisible control still swallows clicks meant for the row),
+       but that is a *desktop* behaviour change, and desktop is out of scope.
+       It costs nothing on touch, where the control is visible anyway.
+     - **no transition.** `transition-opacity` is 150ms with Tailwind's default
+       easing; the house `--motion-base` is 220ms, so baking a transition in here
+       would have quietly reslowed every hover reveal in the app. Call sites keep
+       their own `transition-opacity` where they already had one.
+
      Needs an ancestor carrying Tailwind's `group` class. Pair with
-     `hit-target` when the control itself is under 40px. */
+     `max-sm:hit-target` when the control itself is under 40px. */
   opacity: 1;
-  pointer-events: auto;
-  transition-property: opacity;
-  transition-duration: var(--motion-base);
-  transition-timing-function: var(--motion-ease-out);
 
   @media (hover: hover) and (width >= theme(--breakpoint-sm)) {
     opacity: 0;
-    pointer-events: none;
 
     &:is(:where(.group):hover *),
     &:is(:where(.group):focus-within *),
     &:focus-visible {
       opacity: 1;
-      pointer-events: auto;
     }
   }
 }

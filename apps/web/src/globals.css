@@ -955,19 +955,24 @@ html[data-blur-pid] [data-pii] {
  * wrapper owns the radius, the beam inherits it, and the child's opaque
  * background hides the gradient's interior so only the ring reads.
  *
- * The ring must NOT be drawn by animating the conic gradient's angle: a
- * registered custom property can't run on the compositor, so it repaints
- * the gradient every frame — real GPU burn at high refresh rates. Instead
- * an oversized gradient square spins under a static rounded clip via
- * `rotate`, which is a cached-texture compositor animation. The halo is a
- * blur of a changing image so it can't be cached the same way; `steps(90)`
- * caps its repaints at ~30Hz, which the blur hides.
+ * Neither layer may animate the conic gradient's angle: a registered custom
+ * property can't run on the compositor, so it repaints the gradient every
+ * frame — real GPU burn at high refresh rates, and the halo paid for it
+ * twice by re-rastering through its blur. Both layers instead spin an
+ * oversized `from 0deg` gradient square under a static rounded clip via
+ * `rotate`, a cached-texture compositor animation. Rotating the square and
+ * clipping it gives the same image as rotating the gradient's own `from`
+ * angle, so the visual is unchanged.
  *
- * Color stops live on `.beam-root` as `--beam-stops`. The ring bakes them
- * into a `from 0deg` gradient (angle is the `rotate`). The halo must name
- * `from var(--beam-angle)` on *itself* — a parent `--beam-image` would
- * substitute `--beam-angle` on `.beam-root` (always 0deg) and the glow
- * would sit still while the ring moved.
+ * The halo's blur sits on the static parent, and the parent's
+ * `overflow: hidden` rounded clip shapes the glow: the clip applies to the
+ * child before the parent's own filter runs, so the blur still spills
+ * outward past the border. `steps(90)` on the halo's spin caps blur
+ * re-execution at ~30Hz — between steps nothing is damaged, so GPU
+ * compositors reuse the cached filtered render pass.
+ *
+ * Color stops live on `.beam-root` as `--beam-stops`; both layers bake them
+ * into a `from 0deg` gradient, since the angle is the `rotate`.
  *
  * `.beam-root` carries the variant variables; `.beam` is the crisp ring;
  * `.beam-halo` the outward glow. Named `beam-*`, NOT `border-beam-*`:
@@ -975,19 +980,6 @@ html[data-blur-pid] [data-pii] {
  * utility and drops `border-beam` as a conflict with `border-beam-colorful`,
  * leaving an unstyled span.
  * ─────────────────────────────────────────────────────────────────── */
-@property --beam-angle {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 0deg;
-}
-
-/* Halo only — the crisp ring spins with the composited `beam-rotate`. */
-@keyframes beam-spin {
-  to {
-    --beam-angle: 360deg;
-  }
-}
-
 @keyframes beam-rotate {
   to {
     rotate: 1turn;
@@ -1034,13 +1026,21 @@ html[data-blur-pid] [data-pii] {
   position: absolute;
   inset: -1px;
   border-radius: inherit;
-  background-image: conic-gradient(
-    from var(--beam-angle),
-    var(--beam-stops)
-  );
+  overflow: hidden;
   filter: blur(var(--beam-glow));
   opacity: 0.5;
-  animation: beam-spin var(--beam-duration) steps(90) infinite;
+}
+
+.beam-halo::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 150%;
+  aspect-ratio: 1;
+  margin: -75% 0 0 -75%;
+  background-image: conic-gradient(from 0deg, var(--beam-stops));
+  animation: beam-rotate var(--beam-duration) steps(90) infinite;
 }
 
 .beam-sm {
@@ -1703,17 +1703,7 @@ html[data-blur-pid] [data-pii] {
   animation: nav-icon-sidebar-nudge-out 0.8s ease-in-out infinite;
 }
 
-/* LoadingState (packages/ui) — pixel wavefront + label shimmer */
-@keyframes pixel-on {
-  0%,
-  100% {
-    opacity: 0.12;
-  }
-  50% {
-    opacity: 1;
-  }
-}
-
+/* LoadingState (packages/ui) — label shimmer (the pixel grid runs on WAAPI) */
 @keyframes shimmer-text {
   0% {
     background-position: 200% 0;

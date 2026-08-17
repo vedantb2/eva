@@ -112,3 +112,61 @@ describe("a live turn keeps its sandbox deadline ahead of the watchdog tick", ()
     expect(vercelProvider).toContain("async extendTimeout(durationMs: number)");
   });
 });
+
+/**
+ * The sliding deadline above only helps once a watchdog has ticked. The cap the
+ * sandbox is BORN with is a separate number, and it is the one that killed turns
+ * in prod: `autoStopMinutes` is an idle-stop budget in eva's neutral lifecycle
+ * vocabulary, but Vercel spends it as a hard runtime cap, so mapping it straight
+ * through turns a short idle budget into a mid-turn kill. It was raised twice in
+ * one day chasing exactly that (45 min -> 4 h in e1231f6c, 4 h -> 24 h in
+ * 1cca6aa5), which is what makes the floor worth pinning rather than the value.
+ */
+describe("a sandbox is created with a cap longer than a long turn", () => {
+  const FLOOR = /timeout:\s*Math\.max\(\s*params\.lifecycle\.autoStopMinutes,\s*([^)]+)\)([^,\n]*)/;
+
+  /** "24 * 60" -> 1440. Guards the parse so a reshaped expression cannot read as NaN. */
+  function minutes(expression: string): number {
+    const parts = expression.split("*").map((part) => Number(part.trim()));
+    for (const part of parts) {
+      expect(
+        Number.isFinite(part) && part > 0,
+        `the floor is no longer a product of numbers: ${expression}`,
+      ).toBe(true);
+    }
+    return parts.reduce((total, part) => total * part, 1);
+  }
+
+  test("the mapping floors autoStopMinutes instead of passing it through", () => {
+    expect(
+      vercelProvider,
+      "a caller's short idle budget must not become the hard runtime cap",
+    ).toMatch(FLOOR);
+  });
+
+  /**
+   * The lower bound, not the current value — raising the cap must stay free.
+   * Both shipped regressions sat under this line (45 and 90 minutes) and both
+   * killed real turns, so anything back in that range fails here.
+   */
+  test("the floor leaves room for a long seed build or agent turn", () => {
+    const floor = vercelProvider.match(FLOOR);
+    expect(floor, "the create-time timeout mapping moved").not.toBeNull();
+    expect(
+      minutes(floor?.[1] ?? ""),
+      "a cap this short kills long turns mid-work, with no snapshot",
+    ).toBeGreaterThanOrEqual(4 * 60);
+  });
+
+  /**
+   * The quiet one: eva counts minutes, the Vercel field takes milliseconds. A
+   * dropped factor reads as a healthy-looking 24 and hard-kills every sandbox
+   * 24 minutes in, which looks like a crash rather than a cap.
+   */
+  test("the floored minutes are converted to milliseconds", () => {
+    const floor = vercelProvider.match(FLOOR);
+    expect(floor?.[2] ?? "", "minutes -> ms conversion changed").toContain(
+      "* 60 * 1000",
+    );
+  });
+});

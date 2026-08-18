@@ -27,6 +27,7 @@ import {
 } from "./devServer";
 import { ensureGitCredentialHelper } from "./gitCredentials";
 import { ensureSwapFile } from "./swap";
+import { PACKAGE_HELPER_SCRIPT, pkgInstall } from "./packageManager";
 import {
   EVA_ENV_FILE,
   ensureEvaEnvInteractiveHookScript,
@@ -396,7 +397,7 @@ export async function createSandbox(
           "GITHUB_APP_SLUG and GITHUB_BOT_USER_ID must be set in Convex env",
         );
       }
-      // Fresh Vercel node24 sandboxes ship without `jq`, which the git credential
+      // Fresh Vercel sandboxes ship without `jq`, which the git credential
       // helper (git-credential-eva) shells out to on every authenticated
       // fetch/push. Without it, syncRepo/fetchBaseBranch fail with exit 128
       // ("jq: command not found") before the seed toolchain stage ever runs.
@@ -405,7 +406,7 @@ export async function createSandbox(
       await runLoggedGitStep("createSandbox.ensureJq", sandbox.id, () =>
         execHandle(
           sandbox,
-          "command -v jq >/dev/null 2>&1 || sudo dnf install -y jq >/dev/null 2>&1 || true",
+          `${PACKAGE_HELPER_SCRIPT}\ncommand -v jq >/dev/null 2>&1 || ${pkgInstall("jq")} || true`,
           120,
         ),
       );
@@ -884,7 +885,7 @@ async function installDependencies(
       PNPM_INSTALL_TIMEOUT_SECONDS,
     );
   } else if (pm === "yarn") {
-    // Bare node24 has no yarn shim — mirror the pnpm branch's global install.
+    // No base image ships a yarn shim — mirror the pnpm branch's global install.
     await execHandle(
       sandbox,
       `npm install -g yarn && cd ${workspaceDir} && yarn install`,
@@ -1091,13 +1092,11 @@ async function synchronizeBranchForPublish(
     await pinBranchUpstream(sandbox, branchName);
   }
 
-  const fetched = await fetchBranchRefs(
-    sandbox,
-    owner,
-    name,
-    [branchName],
-    { prune: false, timeoutSeconds: 60, retryAttempts: 2 },
-  );
+  const fetched = await fetchBranchRefs(sandbox, owner, name, [branchName], {
+    prune: false,
+    timeoutSeconds: 60,
+    retryAttempts: 2,
+  });
   const remoteRefName = `refs/remotes/origin/${branchName}`;
   const quotedRemoteRef = quote([remoteRefName]);
   const quotedLocalRef = quote([`refs/heads/${branchName}`]);

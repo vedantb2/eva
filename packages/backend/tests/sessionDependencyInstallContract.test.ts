@@ -10,7 +10,7 @@ const sessions = readSource("convex/_sandbox_runtime/sessions.ts");
 const devServer = readSource("convex/_sandbox_runtime/devServer.ts");
 
 /**
- * Bare node24 sandbox images ship npm but no yarn shim, so a plain
+ * Bare sandbox base images ship npm but no yarn shim, so a plain
  * `yarn install` exits 127 and kills dependency install — on the snapshot
  * path (installSnapshotDependenciesWithRetry) and the fresh-clone path
  * (installDependencies). Both yarn branches must globally install yarn first,
@@ -117,7 +117,7 @@ function everyYarnInstallBootstrapsTheShim(source: string): void {
     const window = source.slice(Math.max(0, from - 120), from);
     expect(
       window,
-      "a bare `yarn install` regressed — node24 images have no yarn shim",
+      "a bare `yarn install` regressed — base images have no yarn shim",
     ).toContain("npm install -g yarn");
     from = source.indexOf(marker, from + marker.length);
   }

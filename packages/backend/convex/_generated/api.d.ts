@@ -130,6 +130,7 @@ import type * as _sandbox_stickyPreview from "../_sandbox/stickyPreview.js";
 import type * as _sandbox_stopRecovery from "../_sandbox/stopRecovery.js";
 import type * as _sandbox_tags from "../_sandbox/tags.js";
 import type * as _sandbox_vercelEnvFile from "../_sandbox/vercelEnvFile.js";
+import type * as _sandbox_vercelImage from "../_sandbox/vercelImage.js";
 import type * as _sandbox_vercelProvider from "../_sandbox/vercelProvider.js";
 import type * as _sandbox_vercelSnapshotOptions from "../_sandbox/vercelSnapshotOptions.js";
 import type * as _sandbox_runtime_attachments from "../_sandbox_runtime/attachments.js";
@@ -148,6 +149,7 @@ import type * as _sandbox_runtime_gitCredentials from "../_sandbox_runtime/gitCr
 import type * as _sandbox_runtime_helpers from "../_sandbox_runtime/helpers.js";
 import type * as _sandbox_runtime_launch from "../_sandbox_runtime/launch.js";
 import type * as _sandbox_runtime_lifecycle from "../_sandbox_runtime/lifecycle.js";
+import type * as _sandbox_runtime_packageManager from "../_sandbox_runtime/packageManager.js";
 import type * as _sandbox_runtime_prepareSandboxSteps from "../_sandbox_runtime/prepareSandboxSteps.js";
 import type * as _sandbox_runtime_previewProxy from "../_sandbox_runtime/previewProxy.js";
 import type * as _sandbox_runtime_previewRecovery from "../_sandbox_runtime/previewRecovery.js";
@@ -458,6 +460,7 @@ declare const fullApi: ApiFromModules<{
   "_sandbox/stopRecovery": typeof _sandbox_stopRecovery;
   "_sandbox/tags": typeof _sandbox_tags;
   "_sandbox/vercelEnvFile": typeof _sandbox_vercelEnvFile;
+  "_sandbox/vercelImage": typeof _sandbox_vercelImage;
   "_sandbox/vercelProvider": typeof _sandbox_vercelProvider;
   "_sandbox/vercelSnapshotOptions": typeof _sandbox_vercelSnapshotOptions;
   "_sandbox_runtime/attachments": typeof _sandbox_runtime_attachments;
@@ -476,6 +479,7 @@ declare const fullApi: ApiFromModules<{
   "_sandbox_runtime/helpers": typeof _sandbox_runtime_helpers;
   "_sandbox_runtime/launch": typeof _sandbox_runtime_launch;
   "_sandbox_runtime/lifecycle": typeof _sandbox_runtime_lifecycle;
+  "_sandbox_runtime/packageManager": typeof _sandbox_runtime_packageManager;
   "_sandbox_runtime/prepareSandboxSteps": typeof _sandbox_runtime_prepareSandboxSteps;
   "_sandbox_runtime/previewProxy": typeof _sandbox_runtime_previewProxy;
   "_sandbox_runtime/previewRecovery": typeof _sandbox_runtime_previewRecovery;

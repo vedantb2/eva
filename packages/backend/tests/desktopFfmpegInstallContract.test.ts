@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
+import { PACKAGE_HELPER_SCRIPT } from "../convex/_sandbox_runtime/packageManager";
 
 const testsDir = dirname(fileURLToPath(import.meta.url));
 
@@ -26,6 +27,17 @@ const desktopStartBody = (() => {
     .replace(/^\s*\/\/.*$/gm, "");
 })();
 
+/** `eva_pkg_install_ffmpeg`'s body, extracted from the shared bash helper. */
+const ffmpegHelperBody = (() => {
+  const startAt = PACKAGE_HELPER_SCRIPT.indexOf("eva_pkg_install_ffmpeg() {");
+  expect(
+    startAt,
+    "eva_pkg_install_ffmpeg moved or was renamed",
+  ).toBeGreaterThan(-1);
+  const endAt = PACKAGE_HELPER_SCRIPT.indexOf("\n}", startAt);
+  return PACKAGE_HELPER_SCRIPT.slice(startAt, endAt);
+})();
+
 /**
  * `agent-browser record` needs ffmpeg to encode the WebM. Older snapshots bake
  * the VNC stack but not ffmpeg, so an install that sits inside the desktop
@@ -34,13 +46,13 @@ const desktopStartBody = (() => {
  * The install has to come before either gate.
  */
 test("desktop start installs ffmpeg before the health gate and install guard", () => {
-  const ffmpegAt = desktopStartBody.indexOf("ffmpeg -version");
+  const ffmpegAt = desktopStartBody.indexOf("eva_pkg_install_ffmpeg");
   expect(ffmpegAt, "desktop start must install ffmpeg").toBeGreaterThan(-1);
 
   const gates = [
     // Healthy stack → early return, skipping everything below.
     "if (healthy.exitCode === 0)",
-    // Already-installed VNC stack → the dnf block is skipped.
+    // Already-installed VNC stack → the package block is skipped.
     'if [ "$INSTALLED" != "1" ]; then',
   ];
   for (const gate of gates) {
@@ -53,31 +65,56 @@ test("desktop start installs ffmpeg before the health gate and install guard", (
   }
 });
 
-/** Soft-failing and idempotent, so a dnf hiccup cannot block desktop startup. */
-test("the ffmpeg install is idempotent and cannot block startup", () => {
-  const installAt = desktopStartBody.indexOf("if ! ffmpeg -version");
+/** Soft-failing, so a package-manager hiccup cannot block desktop startup. */
+test("the ffmpeg install cannot block startup", () => {
+  const installAt = desktopStartBody.indexOf("eva_pkg_install_ffmpeg");
   expect(
-    installAt,
-    "the install must be gated on `command -v` so re-running is a no-op",
-  ).toBeGreaterThan(-1);
-  const installBlock = desktopStartBody.slice(installAt, installAt + 600);
-  expect(
-    installBlock,
-    "a failing dnf must not throw out of desktop startup",
+    desktopStartBody.slice(installAt, installAt + 60),
+    "a failing install must not throw out of desktop startup",
   ).toContain("|| true");
 });
 
+/**
+ * Idempotence lives in the helper: it returns early when ffmpeg already runs,
+ * so calling it on every desktop start is a no-op on a warm sandbox.
+ */
 test("the health probe catches a present but unloadable ffmpeg binary", () => {
-  expect(desktopStartBody).not.toContain("command -v ffmpeg");
-  expect(desktopStartBody.match(/if ! ffmpeg -version/g)).toHaveLength(2);
+  expect(
+    ffmpegHelperBody,
+    "`command -v ffmpeg` calls SPAL's broken binary healthy — gate on running it",
+  ).not.toContain("command -v ffmpeg");
+  expect(ffmpegHelperBody).toContain(
+    "ffmpeg -version >/dev/null 2>&1 && return 0",
+  );
 });
 
-test("the repair installs ffmpeg before its missing libjack dependency", () => {
-  const ffmpegInstallAt = desktopStartBody.indexOf("ffmpeg-free");
-  const libjackInstallAt = desktopStartBody.indexOf("libjack.so.0");
+/**
+ * dnf-only repair path: SPAL's ffmpeg links against libjack.so.0 without
+ * depending on the package that ships it. Ubuntu's ffmpeg has no such problem,
+ * so the repair must stay inside the dnf branch.
+ */
+test("the dnf repair installs ffmpeg before its missing libjack dependency", () => {
+  const ffmpegInstallAt = ffmpegHelperBody.indexOf("ffmpeg-free");
+  const libjackInstallAt = ffmpegHelperBody.indexOf("libjack.so.0");
   expect(ffmpegInstallAt).toBeGreaterThan(-1);
   expect(libjackInstallAt).toBeGreaterThan(ffmpegInstallAt);
   expect(
-    desktopStartBody.slice(libjackInstallAt, libjackInstallAt + 500),
+    ffmpegHelperBody.slice(libjackInstallAt, libjackInstallAt + 500),
   ).toContain("|| true");
+});
+
+/** Ubuntu managed images get plain `ffmpeg` — no SPAL repo, no libjack repair. */
+test("the apt path installs ffmpeg directly", () => {
+  const aptBranchAt = ffmpegHelperBody.indexOf('if [ "$mgr" = apt ]');
+  const dnfBranchAt = ffmpegHelperBody.indexOf("  else");
+  expect(aptBranchAt).toBeGreaterThan(-1);
+  expect(dnfBranchAt).toBeGreaterThan(aptBranchAt);
+  const aptBranch = ffmpegHelperBody.slice(aptBranchAt, dnfBranchAt);
+  expect(aptBranch).toContain(
+    "apt-get install -y --no-install-recommends ffmpeg",
+  );
+  expect(aptBranch, "SPAL is an AL2023 repo").not.toContain("spal-release");
+  expect(aptBranch, "libjack is an AL2023-only defect").not.toContain(
+    "libjack",
+  );
 });

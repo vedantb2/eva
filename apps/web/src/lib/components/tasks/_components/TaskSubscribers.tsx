@@ -53,7 +53,7 @@ export function TaskSubscribers({
   return (
     // Wraps because this row shares a flex line with the "Activity" label in
     // the task detail, and the avatar stack grows with the subscriber count.
-    <div className="flex min-w-0 flex-wrap items-center gap-2">
+    <div className="flex max-sm:min-w-0 max-sm:flex-wrap items-center gap-2">
       <Button
         variant={isSubscribed ? "secondary" : "outline"}
         size="sm"
@@ -80,7 +80,8 @@ export function TaskSubscribers({
           <Button
             variant="ghost"
             size="icon-sm"
-            className="text-muted-foreground"
+            // 28px on desktop, as before; `icon-sm` is 32px and only wanted on touch.
+            className="text-muted-foreground sm:size-7"
             aria-label="Manage subscribers"
           >
             <IconUserPlus size={15} />

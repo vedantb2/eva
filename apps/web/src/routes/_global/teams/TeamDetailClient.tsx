@@ -7,12 +7,7 @@ import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { useTeamLogoUpload } from "@/lib/hooks/useTeamLogoUpload";
 import { useTeamBackgroundUpload } from "@/lib/hooks/useTeamBackgroundUpload";
-import {
-  Tabs,
-  TabsList,
-  TabsTrigger,
-  Button,
-} from "@eva/ui";
+import { Tabs, TabsList, TabsTrigger, Button } from "@eva/ui";
 import { IconUsers, IconPhoto, IconPhotoOff } from "@tabler/icons-react";
 import { TeamActivityTab } from "./_components/TeamActivityTab";
 import { TeamMembersTab } from "./_components/TeamMembersTab";
@@ -123,7 +118,7 @@ export function TeamDetailClient({
               title="Remove logo"
               disabled={logoUploading}
               onClick={() => void removeLogo(team._id)}
-              className="size-10 sm:size-8"
+              className="max-sm:size-10"
             >
               <IconPhotoOff size={14} />
             </Button>
@@ -166,7 +161,7 @@ export function TeamDetailClient({
           row without shredding the description into one word per line. */}
       <div className="mb-4 flex flex-col items-start gap-3 rounded-surface bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="relative size-10 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+          <div className="relative max-sm:size-10 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
             {team.backgroundUrl ? (
               <img
                 src={team.backgroundUrl}
@@ -205,7 +200,7 @@ export function TeamDetailClient({
               title="Remove background"
               disabled={backgroundUploading}
               onClick={() => void removeBackground(team._id)}
-              className="size-10 sm:size-8"
+              className="max-sm:size-10"
             >
               <IconPhotoOff size={14} />
             </Button>
@@ -222,11 +217,7 @@ export function TeamDetailClient({
 
       {tab === "activity" ? <TeamActivityTab members={members} /> : null}
       {tab === "members" ? (
-        <TeamMembersTab
-          teamId={team._id}
-          members={members}
-          isOwner={isOwner}
-        />
+        <TeamMembersTab teamId={team._id} members={members} isOwner={isOwner} />
       ) : null}
       {simpleView ? null : tab === "codebases" ? (
         <TeamReposTab

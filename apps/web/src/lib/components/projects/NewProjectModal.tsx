@@ -206,7 +206,7 @@ export function NewProjectModal({
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="hit-target inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+                className="max-sm:hit-target inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
               >
                 <IconGitBranch size={14} />
                 <span className="text-foreground">{baseBranch}</span>
@@ -231,7 +231,7 @@ export function NewProjectModal({
             <PopoverTrigger asChild>
               <button
                 type="button"
-                className="hit-target inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
+                className="max-sm:hit-target inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"
               >
                 {skipPlanning ? (
                   <IconListCheck size={14} />

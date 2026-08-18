@@ -14,7 +14,7 @@ export function TeamArtifactsTab({ teamId }: { teamId: Id<"teams"> }) {
     <div className="flex flex-col gap-4">
       {/* Stacks below `sm` so the blurb is not squeezed beside the Upload button. */}
       <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <p className="min-w-0 text-sm text-muted-foreground">
+        <p className="max-sm:min-w-0 text-sm text-muted-foreground">
           Artifacts bound to this team. Anyone in the team can open or delete
           them.
         </p>

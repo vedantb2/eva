@@ -79,7 +79,7 @@ export function SandboxFileTree({
         <Button
           size="sm"
           variant="ghost"
-          className="hit-target size-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+          className="max-sm:hit-target size-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
           onClick={() => {
             model.openSearch();
           }}
@@ -90,7 +90,7 @@ export function SandboxFileTree({
         <Button
           size="sm"
           variant="ghost"
-          className="hit-target size-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
+          className="max-sm:hit-target size-7 shrink-0 p-0 text-muted-foreground hover:text-foreground"
           onClick={onRefresh}
           disabled={isRefreshing}
           aria-label="Refresh file list"

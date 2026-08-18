@@ -23,9 +23,7 @@ const RANGE_OPTIONS: { value: Range; label: string }[] = [
 ];
 
 function isRange(value: string): value is Range {
-  return (
-    value === "quarterly" || value === "monthly" || value === "daily"
-  );
+  return value === "quarterly" || value === "monthly" || value === "daily";
 }
 
 const ZOOM_MIN = 50;
@@ -50,7 +48,7 @@ export function TimelineToolbar({
   onToday,
 }: TimelineToolbarProps) {
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="flex max-sm:flex-wrap items-center justify-end gap-2">
       <Tooltip>
         <TooltipTrigger asChild>
           <Button

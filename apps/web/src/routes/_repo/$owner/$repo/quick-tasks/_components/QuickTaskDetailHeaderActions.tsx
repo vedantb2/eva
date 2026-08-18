@@ -23,18 +23,18 @@ export function QuickTaskDetailHeaderActions({
   onNavigateNext,
 }: QuickTaskDetailHeaderActionsProps) {
   return (
-    <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+    <div className="flex max-sm:min-w-0 max-sm:flex-wrap items-center max-sm:justify-end max-sm:gap-1.5 sm:gap-2">
       <EntityContextUsage repoId={repoId} entityId={taskId} />
       <QuickTaskHeaderActionsSlot />
       {/* Grown to the 40px floor below `sm` rather than given `hit-target`:
           the two buttons sit flush, so an 8px bleed each would overlap and one
           would steal the other's taps. */}
-      <div className="flex shrink-0 items-center gap-1">
+      <div className="flex max-sm:shrink-0 items-center gap-0.5 max-sm:gap-1">
         <button
           type="button"
           onClick={onNavigatePrev}
           disabled={!prevTaskId}
-          className="flex size-10 items-center justify-center rounded transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30 sm:size-7"
+          className="max-sm:flex max-sm:size-10 max-sm:items-center max-sm:justify-center rounded p-1 transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
           aria-label="Previous task"
           title="Previous task"
         >
@@ -44,7 +44,7 @@ export function QuickTaskDetailHeaderActions({
           type="button"
           onClick={onNavigateNext}
           disabled={!nextTaskId}
-          className="flex size-10 items-center justify-center rounded transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30 sm:size-7"
+          className="max-sm:flex max-sm:size-10 max-sm:items-center max-sm:justify-center rounded p-1 transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
           aria-label="Next task"
           title="Next task"
         >

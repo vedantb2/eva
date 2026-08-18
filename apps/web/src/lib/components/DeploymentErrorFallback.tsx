@@ -36,7 +36,7 @@ export function DeploymentErrorFallback({ error }: { error: Error }) {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background px-4">
+    <div className="flex min-h-dvh items-center justify-center bg-background max-sm:px-4">
       <div className="text-center">
         <h1 className="text-balance text-lg font-semibold text-foreground">
           Something went wrong
@@ -47,7 +47,7 @@ export function DeploymentErrorFallback({ error }: { error: Error }) {
         <button
           type="button"
           onClick={() => window.location.reload()}
-          className="mt-4 min-h-10 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 transition-colors"
+          className="mt-4 max-sm:min-h-10 rounded-md bg-primary max-sm:px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 transition-colors"
         >
           Refresh
         </button>

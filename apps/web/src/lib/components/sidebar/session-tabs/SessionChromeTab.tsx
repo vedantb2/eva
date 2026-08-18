@@ -216,7 +216,7 @@ export function SessionChromeTab({
                 aria-label={`Archive ${session.title}`}
                 title="Archive session"
                 className={cn(
-                  "hit-target mr-2 flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,opacity] hover:bg-foreground/10 hover:text-foreground focus-visible:opacity-100 [@container(max-width:7.5rem)]:hidden",
+                  "max-sm:hit-target mr-2 flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,opacity] hover:bg-foreground/10 hover:text-foreground focus-visible:opacity-100 [@container(max-width:7.5rem)]:hidden",
                   isSelected
                     ? "opacity-100"
                     : // `reveal-on-hover` rather than a hand-rolled

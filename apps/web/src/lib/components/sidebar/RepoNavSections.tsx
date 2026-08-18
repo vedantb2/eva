@@ -184,8 +184,9 @@ export function RepoNavSections({
             // `sm:opacity-0 group-hover:opacity-100`: `group-hover:` compiles with
             // `@media (hover: hover)` but `sm:opacity-0` does not, so the pair
             // leaves this permanently invisible on a landscape tablet — and this
-            // is the only way into the section's context sidebar.
-            className="reveal-on-hover absolute right-2 top-1/2 z-20 h-6 w-6 -translate-y-1/2 text-muted-foreground hover:text-sidebar-foreground hit-target"
+            // is the only way into the section's context sidebar. `hit-target` and
+            // `transition-opacity` predate this work, so they stay ungated.
+            className="reveal-on-hover hit-target transition-opacity absolute right-2 top-1/2 z-20 h-6 w-6 -translate-y-1/2 text-muted-foreground hover:text-sidebar-foreground"
             aria-label={`Open ${item.name.toLowerCase()} sidebar`}
             onClick={(event) => {
               event.preventDefault();

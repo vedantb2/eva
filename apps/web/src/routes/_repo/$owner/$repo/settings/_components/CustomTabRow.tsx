@@ -108,22 +108,22 @@ export function CustomTabRow({ tab, takenSlugs }: CustomTabRowProps) {
       {/* Name / icon / port / switch / delete is ~350px of minimum width, so
           below `sm` the icon+port+controls group takes its own row (`basis-full`)
           and only the name input shares the first line. */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex max-sm:flex-wrap items-center gap-2">
         <CustomTabIcon icon={tab.icon} />
         <Input
           key={`name-${tab._id}-${tab.name}`}
           defaultValue={tab.name}
           onBlur={handleNameBlur}
-          className="h-8 min-w-0 flex-1 text-xs"
+          className="h-8 max-sm:min-w-0 flex-1 text-xs"
           placeholder="Name"
           aria-label="Tab name"
         />
-        <div className="flex w-full items-center gap-2 sm:w-auto">
+        <div className="contents max-sm:flex max-sm:w-full max-sm:items-center max-sm:gap-2">
           <Input
             key={`icon-${tab._id}`}
             defaultValue={tab.icon}
             onBlur={handleIconBlur}
-            className="h-8 min-w-0 flex-1 text-xs font-mono sm:w-40 sm:flex-none"
+            className="h-8 w-40 text-xs font-mono max-sm:min-w-0 max-sm:w-auto max-sm:flex-1"
             placeholder="IconBolt"
             aria-label="Tab icon"
           />
@@ -132,7 +132,7 @@ export function CustomTabRow({ tab, takenSlugs }: CustomTabRowProps) {
             type="number"
             defaultValue={tab.port}
             onBlur={handlePortBlur}
-            className="h-8 w-20 shrink-0 text-xs sm:w-24"
+            className="h-8 w-20 max-sm:shrink-0 text-xs sm:w-24"
             placeholder="Port"
             aria-label="Tab port"
           />
@@ -150,7 +150,7 @@ export function CustomTabRow({ tab, takenSlugs }: CustomTabRowProps) {
           <Button
             size="icon"
             variant="ghost"
-            className="size-10 shrink-0 text-destructive hover:bg-destructive/10 sm:size-8"
+            className="size-10 max-sm:shrink-0 text-destructive hover:bg-destructive/10 sm:size-8"
             aria-label="Delete tab"
             onClick={() =>
               void withMutationToast(

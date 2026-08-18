@@ -207,7 +207,7 @@ export function QuickTasksToolbar({
   };
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+    <div className="flex max-sm:min-w-0 max-sm:flex-wrap items-center max-sm:justify-end gap-1.5 sm:gap-2">
       <ToggleSearch
         value={searchQuery}
         onChange={onSearchChange}

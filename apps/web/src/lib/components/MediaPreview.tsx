@@ -89,7 +89,7 @@ export function ScreenshotPreview({
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="hit-target inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="max-sm:hit-target inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               <IconExternalLink size={14} />
               Open in new tab

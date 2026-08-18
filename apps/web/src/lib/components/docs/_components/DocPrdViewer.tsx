@@ -177,7 +177,7 @@ export function DocPrdViewer({
     <div className="h-full flex flex-col overflow-hidden">
       {/* `flex-wrap`: the title plus four trailing controls do not fit one row on
           a phone, and without wrapping the title is squeezed to nothing. */}
-      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
+      <div className="flex max-sm:flex-wrap items-center gap-1.5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
         <input
           value={doc.title}
           onChange={(e) => updateDoc({ id: doc._id, title: e.target.value })}

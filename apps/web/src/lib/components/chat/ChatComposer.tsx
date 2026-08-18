@@ -294,7 +294,7 @@ export function ChatComposer({
               {/* Wraps rather than squashing: the footer holds five controls and
                   the chat pane goes down to 350px on desktop and a full phone
                   width below `md`. No effect while everything fits. */}
-              <PromptInputFooter className="gap-y-2 px-4 pb-4">
+              <PromptInputFooter className="max-sm:gap-y-2 px-4 pb-4">
                 <PromptInputTools>
                   <ComposerPlusMenu
                     dataItems={plusDataItems}

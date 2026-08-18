@@ -57,15 +57,17 @@ export function DocCommentsPanel({
   return (
     <div className={DOC_SIDE_PANEL_CLASS}>
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm font-medium">Comments</span>
-          <span className="shrink-0 text-xs text-muted-foreground">
+        <div className="flex max-sm:min-w-0 items-center gap-2">
+          <span className="max-sm:truncate text-sm font-medium">Comments</span>
+          <span className="max-sm:shrink-0 text-xs text-muted-foreground">
             {openRoots.length} open
           </span>
         </div>
         <Button
           size="icon-sm"
           variant="ghost"
+          // 24px on desktop, as before; `icon-sm` is 32px and only wanted on touch.
+          className="sm:size-6"
           aria-label="Close comments"
           onClick={onClose}
         >
@@ -73,12 +75,12 @@ export function DocCommentsPanel({
         </Button>
       </div>
 
-      <div className="flex items-center gap-1 border-b border-border px-3 py-1.5 max-sm:gap-2.5">
+      <div className="flex items-center gap-1 border-b border-border px-3 max-sm:py-1.5 max-sm:gap-2.5">
         <button
           type="button"
           onClick={() => setFilter("open")}
           className={cn(
-            "hit-target rounded-md px-2 py-1 text-xs font-medium transition-colors",
+            "max-sm:hit-target rounded-md px-2 max-sm:py-1 text-xs font-medium transition-colors",
             filter === "open"
               ? "bg-accent text-accent-foreground"
               : "text-muted-foreground hover:text-foreground",
@@ -90,7 +92,7 @@ export function DocCommentsPanel({
           type="button"
           onClick={() => setFilter("resolved")}
           className={cn(
-            "hit-target rounded-md px-2 py-1 text-xs font-medium transition-colors",
+            "max-sm:hit-target rounded-md px-2 max-sm:py-1 text-xs font-medium transition-colors",
             filter === "resolved"
               ? "bg-accent text-accent-foreground"
               : "text-muted-foreground hover:text-foreground",

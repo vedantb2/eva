@@ -29,7 +29,7 @@ export function PreviewDeviceToggle({
       <TabsList className="h-8">
         <TabsTrigger
           value="desktop"
-          className="hit-target px-2 text-xs"
+          className="max-sm:hit-target px-2 text-xs"
           aria-label="Frame preview as desktop"
           title="Desktop"
         >
@@ -37,7 +37,7 @@ export function PreviewDeviceToggle({
         </TabsTrigger>
         <TabsTrigger
           value="tablet"
-          className="hit-target px-2 text-xs"
+          className="max-sm:hit-target px-2 text-xs"
           aria-label="Frame preview as tablet"
           title="Tablet"
         >
@@ -45,7 +45,7 @@ export function PreviewDeviceToggle({
         </TabsTrigger>
         <TabsTrigger
           value="mobile"
-          className="hit-target px-2 text-xs"
+          className="max-sm:hit-target px-2 text-xs"
           aria-label="Frame preview as mobile"
           title="Mobile"
         >

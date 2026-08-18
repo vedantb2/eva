@@ -59,7 +59,7 @@ export function PreviewPanelNavBar({
   return (
     // `WebPreviewNavigation` does not wrap by default, so the device toggle,
     // the element picker and the URL bar overflowed a phone-width pane.
-    <WebPreviewNavigation className="flex-wrap gap-1">
+    <WebPreviewNavigation className="max-sm:flex-wrap gap-1">
       <PreviewDeviceToggle value={device} onChange={onDeviceChange} />
       {showAnnotationToggle ? (
         <WebPreviewNavigationButton
@@ -71,7 +71,7 @@ export function PreviewPanelNavBar({
           }
           aria-pressed={annotationMode}
           className={cn(
-            "hit-target",
+            "max-sm:hit-target",
             annotationMode && "bg-secondary text-primary hover:text-primary",
           )}
           onClick={() => onAnnotationModeChange(!annotationMode)}

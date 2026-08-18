@@ -76,7 +76,7 @@ function SortableTaskWrapper({
       <button
         type="button"
         aria-label={`Reorder ${task.title}`}
-        className="hit-target cursor-grab touch-none text-muted-foreground hover:text-foreground shrink-0 p-1.5"
+        className="max-sm:hit-target cursor-grab touch-none text-muted-foreground hover:text-foreground shrink-0 max-sm:p-1.5"
         {...attributes}
         {...listeners}
       >

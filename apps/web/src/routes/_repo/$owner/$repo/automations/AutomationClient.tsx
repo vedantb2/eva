@@ -119,7 +119,7 @@ export function AutomationClient({
         >
           {/* `TabsList` is `inline-flex` with no wrap: on a narrow screen the
               three labels have to scroll in place rather than widen the page. */}
-          <div className="overflow-x-auto">
+          <div className="max-sm:overflow-x-auto">
             <TabsList>
               <TabsTrigger value="latest">Latest</TabsTrigger>
               <TabsTrigger value="run-history">Run History</TabsTrigger>
@@ -366,8 +366,8 @@ function SettingsForm({
       </Surface>
 
       <Surface density="none" className="p-3 space-y-4 sm:p-4">
-        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0">
+        <div className="flex flex-col items-start max-sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="max-sm:min-w-0">
             <h3 className="text-sm font-medium text-destructive">
               Delete Automation
             </h3>
@@ -378,7 +378,7 @@ function SettingsForm({
           <Button
             variant="destructive"
             size="sm"
-            className="shrink-0"
+            className="max-sm:shrink-0"
             onClick={() => setShowDeleteDialog(true)}
           >
             <IconTrash size={14} />

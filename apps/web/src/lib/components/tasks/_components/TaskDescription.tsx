@@ -158,7 +158,7 @@ export function TaskDescription({
           <button
             type="button"
             onClick={handleClick}
-            className="flex min-h-10 w-full items-center rounded text-left text-sm text-muted-foreground/60 hover:bg-muted/50 sm:min-h-6"
+            className="rounded text-sm text-muted-foreground/60 max-sm:flex max-sm:min-h-10 max-sm:w-full max-sm:items-center max-sm:text-left max-sm:hover:bg-muted/50"
           >
             Add description...
           </button>
@@ -170,7 +170,7 @@ export function TaskDescription({
       {/* Reactions live outside the click-to-edit area so toggling a reaction
           never enters edit mode. Only shown when there's description content. */}
       {!isEditing && desc ? (
-        <div className="mt-1.5 flex flex-wrap items-center gap-1">
+        <div className="mt-1.5 max-sm:flex max-sm:flex-wrap max-sm:items-center max-sm:gap-1">
           {groups.length > 0 ? (
             <ReactionBar groups={groups} toggle={toggle} />
           ) : (
@@ -187,7 +187,10 @@ export function TaskDescription({
               variant="ghost"
               onClick={handleClick}
               aria-label="Edit description"
-              className="reveal-on-hover text-muted-foreground"
+              // Touch-only: desktop still edits by clicking the description text,
+              // exactly as before, and a hover-revealed pencil there would be new
+              // chrome on a surface this work was not meant to touch.
+              className="text-muted-foreground sm:hidden"
             >
               <IconPencil size={14} />
             </Button>

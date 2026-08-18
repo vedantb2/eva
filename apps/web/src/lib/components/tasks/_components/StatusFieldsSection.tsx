@@ -485,7 +485,9 @@ export function StatusFieldsSection({
         {/* No row-level `onClick` to focus the input: a click handler on a
             non-interactive element has no keyboard equivalent, and the input
             already fills the rest of the row, so it is directly clickable. */}
-        <div className={`${FIELD_ROW_CLASS} flex-wrap gap-1`}>
+        <div
+          className={`${FIELD_ROW_CLASS} group/tags flex-wrap gap-1 cursor-text`}
+        >
           <IconTags size={14} className="text-muted-foreground shrink-0" />
           {task?.tags?.map((tag) => (
             <Badge
@@ -497,7 +499,7 @@ export function StatusFieldsSection({
               <button
                 type="button"
                 aria-label={`Remove label ${tag}`}
-                className="ml-0.5 flex h-full min-w-6 items-center justify-center rounded-sm px-1 opacity-50 transition-opacity hover:opacity-100"
+                className="ml-0.5 rounded-sm px-0.5 opacity-50 transition-opacity hover:opacity-100 max-sm:flex max-sm:h-full max-sm:min-w-6 max-sm:items-center max-sm:justify-center max-sm:px-1"
                 onClick={() => void removeTag(tag)}
               >
                 ×
@@ -526,7 +528,7 @@ export function StatusFieldsSection({
                 <button
                   type="button"
                   aria-label="Choose from existing labels"
-                  className="flex size-10 shrink-0 items-center justify-center rounded-sm text-muted-foreground transition-colors hover:text-foreground sm:size-7"
+                  className="rounded-sm p-0.5 shrink-0 text-muted-foreground transition-colors hover:text-foreground max-sm:flex max-sm:size-10 max-sm:items-center max-sm:justify-center max-sm:p-0"
                 >
                   <IconChevronDown size={14} />
                 </button>

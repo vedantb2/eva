@@ -37,7 +37,7 @@ export function DocVersionDiff({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex max-sm:flex-wrap items-center justify-between max-sm:gap-2">
         <span className="text-xs text-muted-foreground">
           Comparing selected version with current
         </span>
@@ -49,7 +49,7 @@ export function DocVersionDiff({
           Restore this version
         </Button>
       </div>
-      <pre className="whitespace-pre-wrap wrap-break-word rounded-surface border border-border bg-muted/30 p-3 text-sm leading-relaxed">
+      <pre className="whitespace-pre-wrap max-sm:wrap-break-word rounded-surface border border-border bg-muted/30 p-3 text-sm leading-relaxed">
         {changes.map((part, i) => {
           if (part.added) {
             return (

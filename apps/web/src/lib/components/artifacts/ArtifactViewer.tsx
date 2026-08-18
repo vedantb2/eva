@@ -75,13 +75,13 @@ export function ArtifactViewer({ artifactId }: { artifactId: string }) {
         <Link
           to="/artifacts"
           aria-label="Back to artifacts"
-          className="hit-target flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          className="max-sm:hit-target flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <IconArrowLeft size={16} />
           <span className="hidden sm:inline">Artifacts</span>
         </Link>
         <span className="hidden text-muted-foreground sm:inline">/</span>
-        <h1 className="min-w-0 flex-1 truncate text-balance font-medium text-foreground">
+        <h1 className="min-w-0 truncate text-balance font-medium text-foreground">
           {artifact.name}
         </h1>
         <button
@@ -90,7 +90,7 @@ export function ArtifactViewer({ artifactId }: { artifactId: string }) {
             window.open(`/artifacts/${artifact._id}`, "_blank", "noopener")
           }
           aria-label="Open in new tab"
-          className="hit-target flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          className="max-sm:hit-target flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <IconExternalLink size={16} />
           <span className="hidden sm:inline">Open in new tab</span>

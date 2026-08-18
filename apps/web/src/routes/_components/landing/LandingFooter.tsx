@@ -28,7 +28,7 @@ export function LandingFooter() {
             <a
               key={link.href}
               href={link.href}
-              className="motion-base hit-target py-1 text-sm text-muted-foreground hover:text-foreground"
+              className="motion-base max-sm:hit-target max-sm:py-1 text-sm text-muted-foreground hover:text-foreground"
             >
               {link.label}
             </a>
@@ -37,7 +37,7 @@ export function LandingFooter() {
             href={EVA_SETUP_URL}
             target="_blank"
             rel="noreferrer"
-            className="motion-base hit-target py-1 text-sm text-muted-foreground hover:text-foreground"
+            className="motion-base max-sm:hit-target max-sm:py-1 text-sm text-muted-foreground hover:text-foreground"
           >
             Self-host
           </a>
@@ -46,7 +46,7 @@ export function LandingFooter() {
             target="_blank"
             rel="noreferrer"
             aria-label="Eva on GitHub"
-            className="motion-base hit-target py-1 text-muted-foreground hover:text-foreground"
+            className="motion-base max-sm:hit-target max-sm:py-1 text-muted-foreground hover:text-foreground"
           >
             <IconBrandGithub size={18} />
           </a>

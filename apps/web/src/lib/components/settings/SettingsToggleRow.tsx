@@ -29,7 +29,7 @@ export function SettingsToggleRow({
       )}
     >
       <div className="min-w-0">
-        <p className="text-sm font-medium wrap-break-word text-foreground">
+        <p className="text-sm font-medium max-sm:wrap-break-word text-foreground">
           {title}
         </p>
         {description ? (

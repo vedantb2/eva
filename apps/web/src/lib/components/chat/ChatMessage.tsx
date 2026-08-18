@@ -341,7 +341,7 @@ export const ChatMessage = memo(function ChatMessage({
                 )}
               </MessageContent>
               {turnModel || copyPlain ? (
-                <div className="reveal-on-hover mt-0.5 flex items-center gap-2">
+                <div className="reveal-on-hover transition-opacity mt-0.5 flex items-center gap-2">
                   {turnModel ? (
                     <MessageModelIcon
                       model={turnModel}
@@ -423,7 +423,7 @@ function UserMessageMeta({
   return (
     <div
       className={cn(
-        "reveal-on-hover flex items-center gap-3",
+        "reveal-on-hover transition-opacity flex items-center gap-3",
         align === "start" ? "justify-start" : "justify-end",
         className,
       )}

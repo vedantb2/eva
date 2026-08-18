@@ -629,7 +629,7 @@ export function QuickTaskModal({
                     <button
                       type="button"
                       aria-label={`Remove tag ${tag}`}
-                      className="ml-0.5 flex h-full min-w-6 items-center justify-center rounded-sm px-1 opacity-50 transition-opacity hover:opacity-100"
+                      className="ml-0.5 rounded-sm px-0.5 opacity-50 transition-opacity hover:opacity-100 max-sm:flex max-sm:h-full max-sm:min-w-6 max-sm:items-center max-sm:justify-center max-sm:px-1"
                       onClick={() => toggleTag(tag)}
                     >
                       <IconX size={10} />
@@ -714,7 +714,7 @@ export function QuickTaskModal({
                               <button
                                 type="button"
                                 aria-label={`Delete draft ${draft.title || "Untitled"}`}
-                                className="reveal-on-hover hit-target relative z-2 shrink-0 rounded p-0.5 hover:bg-destructive/10 hover:text-destructive"
+                                className="reveal-on-hover max-sm:hit-target relative z-2 shrink-0 rounded p-0.5 hover:bg-destructive/10 hover:text-destructive"
                                 onClick={() => setConfirmDeleteId(draft._id)}
                               >
                                 <IconTrash size={14} />

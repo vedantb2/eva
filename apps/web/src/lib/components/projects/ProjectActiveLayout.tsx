@@ -156,9 +156,9 @@ export function ProjectActiveLayout({
       ) : null}
       <div
         className={cn(
-          // `md:flex-none` keeps the desktop column at its width: a `flex-1`
+          // `md:shrink-0` keeps the desktop column at its width: a `flex-1`
           // basis of 0 would otherwise let it grow past `w-1/3` in the row.
-          "flex min-h-0 flex-col overflow-hidden md:h-full md:w-1/3 md:flex-none md:shrink-0 lg:w-1/4",
+          "flex max-sm:min-h-0 flex-col overflow-hidden md:h-full md:w-1/3 md:shrink-0 lg:w-1/4",
           detailRequested ? "hidden md:flex" : "flex-1",
         )}
       >

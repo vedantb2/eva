@@ -64,69 +64,69 @@ export function McpConfigClient() {
   return (
     <SettingsPage title="MCP Config">
       <SettingsSection
-          title="Root prompt"
-          description="Shared instructions injected into MCP context."
-          action={
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
+        title="Root prompt"
+        description="Shared instructions injected into MCP context."
+        action={
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 shrink-0"
+                onClick={handleOpen}
+              >
+                <IconPencil size={14} />
+                Edit
+              </Button>
+            </DialogTrigger>
+
+            <DialogContent className="max-w-2xl">
+              <DialogHeader>
+                <DialogTitle>Edit root prompt</DialogTitle>
+                <DialogDescription>
+                  Shared instructions injected into MCP context.
+                </DialogDescription>
+              </DialogHeader>
+
+              <DialogBody>
+                <Textarea
+                  className="min-h-[280px] text-xs font-mono"
+                  placeholder="Describe your repo's data topology, table relationships, or any context the MCP server should know..."
+                  value={draft}
+                  onChange={(e) => setDraft(e.target.value)}
+                />
+              </DialogBody>
+
+              <DialogFooter>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-7 shrink-0"
-                  onClick={handleOpen}
+                  onClick={() => setOpen(false)}
                 >
-                  <IconPencil size={14} />
-                  Edit
+                  Cancel
                 </Button>
-              </DialogTrigger>
-
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Edit root prompt</DialogTitle>
-                  <DialogDescription>
-                    Shared instructions injected into MCP context.
-                  </DialogDescription>
-                </DialogHeader>
-
-                <DialogBody>
-                  <Textarea
-                    className="min-h-[280px] text-xs font-mono"
-                    placeholder="Describe your repo's data topology, table relationships, or any context the MCP server should know..."
-                    value={draft}
-                    onChange={(e) => setDraft(e.target.value)}
-                  />
-                </DialogBody>
-
-                <DialogFooter>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setOpen(false)}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    size="sm"
-                    onClick={handleSave}
-                    disabled={!isDirty || saving}
-                  >
-                    {saving ? "Saving..." : "Save"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          }
-        >
-          {prompt ? (
-            // Nested inside the card, so the prompt steps to the muted tone.
-            <pre className="whitespace-pre-wrap wrap-break-word rounded-control border border-border bg-muted/40 p-3 font-mono text-xs leading-relaxed text-foreground/80">
-              {prompt}
-            </pre>
-          ) : (
-            <p className="text-xs text-muted-foreground">
-              No root prompt configured. Select Edit to add one.
-            </p>
-          )}
+                <Button
+                  size="sm"
+                  onClick={handleSave}
+                  disabled={!isDirty || saving}
+                >
+                  {saving ? "Saving..." : "Save"}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        }
+      >
+        {prompt ? (
+          // Nested inside the card, so the prompt steps to the muted tone.
+          <pre className="whitespace-pre-wrap max-sm:wrap-break-word rounded-control border border-border bg-muted/40 p-3 font-mono text-xs leading-relaxed text-foreground/80">
+            {prompt}
+          </pre>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            No root prompt configured. Select Edit to add one.
+          </p>
+        )}
       </SettingsSection>
     </SettingsPage>
   );

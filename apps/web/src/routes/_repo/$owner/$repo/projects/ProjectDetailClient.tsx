@@ -405,9 +405,9 @@ export function ProjectDetailClient({
       }
       headerRight={
         !isDraftOrFinalized ? (
-          <div className="flex min-w-0 flex-col items-end gap-1">
+          <div className="flex max-sm:min-w-0 flex-col items-end gap-1">
             {prError && <p className="text-xs text-destructive">{prError}</p>}
-            <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+            <div className="flex max-sm:flex-wrap items-center max-sm:justify-end gap-1.5 sm:gap-2">
               <ProjectContextUsage repoId={repo._id} projectId={projectId} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -552,7 +552,11 @@ export function ProjectDetailClient({
                 >
                   {(isSandboxStarting && !isSandboxActive) ||
                   isSandboxStopping ? (
-                    <IconLoader2 size={16} className="animate-spin" aria-hidden />
+                    <IconLoader2
+                      size={16}
+                      className="animate-spin"
+                      aria-hidden
+                    />
                   ) : (
                     <IconTerminal2 size={16} aria-hidden />
                   )}
@@ -572,7 +576,11 @@ export function ProjectDetailClient({
                     disabled={isStoppingBuild}
                   >
                     {isStoppingBuild ? (
-                      <IconLoader2 size={16} className="animate-spin" aria-hidden />
+                      <IconLoader2
+                        size={16}
+                        className="animate-spin"
+                        aria-hidden
+                      />
                     ) : (
                       <IconPlayerStop size={16} aria-hidden />
                     )}

@@ -65,10 +65,10 @@ export function ChatMessageActions({
     <MessageActions
       className={cn(
         "gap-0.5",
-        // `reveal-on-hover` keeps the quiet hover reveal on pointer devices but
+        // `reveal-on-hover transition-opacity` keeps the quiet hover reveal on pointer devices but
         // ships copy / retry / branch visible below `sm`, where there is no
         // hover to reveal them with.
-        revealOnHover && "reveal-on-hover",
+        revealOnHover && "reveal-on-hover transition-opacity",
         className,
       )}
     >

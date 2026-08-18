@@ -247,12 +247,12 @@ function OwnerGroup({
     // header and the repos read as the section body.
     <SettingsSection
       title={
-        <label className="flex min-w-0 cursor-pointer items-center gap-2.5">
+        <label className="flex max-sm:min-w-0 cursor-pointer items-center gap-2.5">
           <Checkbox
             checked={allEnabled ? true : someEnabled ? "indeterminate" : false}
             onCheckedChange={onToggleOwner}
           />
-          <span className="min-w-0 truncate">{owner}</span>
+          <span className="max-sm:min-w-0 max-sm:truncate">{owner}</span>
         </label>
       }
       action={
@@ -278,7 +278,7 @@ function OwnerGroup({
                 onToggleRepo(repo.owner, repo.name, checked === true)
               }
             />
-            <span className="min-w-0 truncate">{repo.name}</span>
+            <span className="max-sm:min-w-0 max-sm:truncate">{repo.name}</span>
           </label>
         );
       })}

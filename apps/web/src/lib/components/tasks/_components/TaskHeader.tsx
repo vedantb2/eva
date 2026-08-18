@@ -57,9 +57,9 @@ export function TaskHeader({
   );
 
   return (
-    <div className="flex min-w-0 items-center gap-2">
+    <div className="flex max-sm:min-w-0 items-center gap-2">
       {taskNumber && (
-        <span className="shrink-0 font-mono tabular-nums text-muted-foreground">
+        <span className="max-sm:shrink-0 font-mono tabular-nums text-muted-foreground">
           #{taskNumber}
         </span>
       )}
@@ -98,14 +98,14 @@ export function TaskHeader({
             setEditTitle(title ?? "");
             setIsEditingTitle(true);
           }}
-          className="-mx-1 min-w-0 rounded px-1 text-left text-xl font-semibold wrap-break-word hover:bg-muted/50"
+          className="-mx-1 max-sm:min-w-0 rounded px-1 text-left text-xl font-semibold max-sm:wrap-break-word hover:bg-muted/50"
         >
           {title}
         </button>
       ) : (
         <span
           title="Title can only be edited in To Do"
-          className="min-w-0 text-xl font-semibold wrap-break-word"
+          className="max-sm:min-w-0 text-xl font-semibold max-sm:wrap-break-word"
         >
           {title}
         </span>

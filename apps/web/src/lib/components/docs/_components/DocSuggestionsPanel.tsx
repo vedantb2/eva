@@ -52,15 +52,19 @@ export function DocSuggestionsPanel({
   return (
     <div className={DOC_SIDE_PANEL_CLASS}>
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <div className="flex min-w-0 items-center gap-2">
-          <span className="truncate text-sm font-medium">Suggestions</span>
-          <span className="shrink-0 text-xs text-muted-foreground">
+        <div className="flex max-sm:min-w-0 items-center gap-2">
+          <span className="max-sm:truncate text-sm font-medium">
+            Suggestions
+          </span>
+          <span className="max-sm:shrink-0 text-xs text-muted-foreground">
             {list.length}
           </span>
         </div>
         <Button
           size="icon-sm"
           variant="ghost"
+          // 24px on desktop, as before; `icon-sm` is 32px and only wanted on touch.
+          className="sm:size-6"
           aria-label="Close suggestions"
           onClick={onClose}
         >
@@ -69,7 +73,7 @@ export function DocSuggestionsPanel({
       </div>
 
       {list.length > 0 && (
-        <div className="flex flex-wrap items-center gap-1 border-b border-border px-3 py-1.5 max-sm:gap-2">
+        <div className="flex max-sm:flex-wrap items-center gap-1 border-b border-border px-3 py-1.5 max-sm:gap-2">
           <Button
             size="sm"
             variant="ghost"
@@ -163,7 +167,7 @@ function SuggestionRow({
       <div
         className={cn(
           LIST_ROW_CONTROL_CLASS,
-          "mt-2 flex flex-wrap items-center gap-1 max-sm:gap-2",
+          "mt-2 flex max-sm:flex-wrap items-center gap-1 max-sm:gap-2",
         )}
       >
         <Button

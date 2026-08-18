@@ -68,7 +68,7 @@ export function PrRemedyButton({
       disabled={starting}
       onClick={() => void start()}
       className={cn(
-        "hit-target motion-press inline-flex shrink-0 items-center gap-1 text-xs font-medium underline-offset-4 hover:underline active:scale-[0.98] disabled:no-underline disabled:opacity-70",
+        "max-sm:hit-target motion-press inline-flex shrink-0 items-center gap-1 text-xs font-medium underline-offset-4 hover:underline active:scale-[0.98] disabled:no-underline disabled:opacity-70",
         TONE_CLASS[tone],
       )}
     >

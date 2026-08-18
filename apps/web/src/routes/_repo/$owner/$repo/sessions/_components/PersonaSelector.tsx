@@ -232,7 +232,7 @@ export function ManagePersonasModal({
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="hit-target h-7 w-7 p-0"
+                      className="max-sm:hit-target h-7 w-7 p-0"
                       aria-label={`Edit ${persona.name}`}
                       onClick={() => handleStartEdit(persona)}
                     >
@@ -241,7 +241,7 @@ export function ManagePersonasModal({
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="hit-target h-7 w-7 p-0 text-destructive"
+                      className="max-sm:hit-target h-7 w-7 p-0 text-destructive"
                       aria-label={`Delete ${persona.name}`}
                       onClick={() => setDeletingId(persona._id)}
                     >

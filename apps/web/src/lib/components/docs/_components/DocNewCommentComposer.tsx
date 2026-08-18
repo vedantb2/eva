@@ -71,7 +71,7 @@ export function DocNewCommentComposer({
         className="text-sm"
         autoFocus
       />
-      <div className="mt-1.5 flex flex-wrap justify-end gap-1 max-sm:gap-2">
+      <div className="mt-1.5 flex max-sm:flex-wrap justify-end gap-1 max-sm:gap-2">
         <Button
           size="sm"
           variant="ghost"

@@ -293,7 +293,7 @@ export function ProjectCard({
                 aria-label="Project actions"
                 onClick={(e) => e.stopPropagation()}
                 className={cn(
-                  "ml-auto shrink-0",
+                  "ml-auto max-sm:shrink-0",
                   CARD_KEBAB_CLASS,
                   LIST_ROW_CONTROL_CLASS,
                 )}

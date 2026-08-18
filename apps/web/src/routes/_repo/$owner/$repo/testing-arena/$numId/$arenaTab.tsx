@@ -89,13 +89,13 @@ function ReportCard({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex max-sm:flex-wrap items-center justify-between gap-2">
         <span className="text-sm font-medium">
           {issues.length === 0
             ? "No issues found"
             : `${issues.length} issue${issues.length === 1 ? "" : "s"} found`}
         </span>
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex max-sm:flex-wrap items-center gap-2">
           {issues.length > 0 && report.fixStatus === undefined && (
             <Button size="sm" onClick={handleFix} disabled={isStartingFix}>
               <IconTool size={14} />
@@ -130,7 +130,7 @@ function ReportCard({
               href={report.prUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="hit-target inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/5 transition-colors"
+              className="max-sm:hit-target inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/5 transition-colors"
             >
               <IconGitPullRequest size={14} aria-hidden />
               View Fix PR

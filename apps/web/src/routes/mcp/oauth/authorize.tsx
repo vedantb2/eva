@@ -114,8 +114,8 @@ function AuthorizedFlow({ search }: { search: McpOauthParams }) {
           Allow {clientLabel} to access Eva?
         </h1>
         <p className="text-sm text-muted-foreground">
-          This client will be able to use Eva&apos;s MCP tools with your account,
-          including your accessible repositories, tasks, documents, and
+          This client will be able to use Eva&apos;s MCP tools with your
+          account, including your accessible repositories, tasks, documents, and
           connected services.
         </p>
       </div>
@@ -142,11 +142,7 @@ function AuthorizedFlow({ search }: { search: McpOauthParams }) {
         >
           Cancel
         </Button>
-        <Button
-          className="flex-1"
-          onClick={allowAccess}
-          disabled={submitting}
-        >
+        <Button className="flex-1" onClick={allowAccess} disabled={submitting}>
           {submitting ? <Spinner size="sm" /> : null}
           Allow access
         </Button>
@@ -186,7 +182,7 @@ function Status({ children }: { children: React.ReactNode }) {
 
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-background px-4 py-8">
+    <div className="flex min-h-dvh items-center justify-center bg-background px-4 max-sm:py-8">
       <div className="flex w-full max-w-sm flex-col items-center gap-6">
         <EvaIcon
           size={56}

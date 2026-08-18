@@ -58,7 +58,7 @@ export function UnscheduledProjectsSection({
                     ),
                   })
                 }
-                className="hit-target min-w-0 flex-1 truncate text-left text-xs font-medium hover:text-primary"
+                className="max-sm:hit-target max-sm:min-w-0 flex-1 truncate text-left text-xs font-medium hover:text-primary"
               >
                 {project.title}
               </button>

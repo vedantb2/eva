@@ -91,7 +91,7 @@ export function TeamRepoCard({
                   worse than either alone, so the inline row is the pointer-device
                   affordance and the kebab below `sm` hosts the same actions. */}
               {isOwner && (
-                <div className="hidden shrink-0 items-center gap-1 sm:flex">
+                <div className="hidden max-sm:shrink-0 items-center gap-1 sm:flex">
                   <Button
                     size="icon"
                     variant="ghost"
@@ -134,7 +134,7 @@ export function TeamRepoCard({
                     type="button"
                     aria-label="Repository actions"
                     onClick={(e) => e.stopPropagation()}
-                    className={cn("relative shrink-0", CARD_KEBAB_CLASS)}
+                    className={cn("relative max-sm:shrink-0", CARD_KEBAB_CLASS)}
                   >
                     <IconDots className="size-3.5" />
                   </button>

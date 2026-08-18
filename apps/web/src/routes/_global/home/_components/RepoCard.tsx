@@ -115,12 +115,12 @@ export function RepoCard({
                     <p className="truncate text-sm font-medium text-foreground">
                       {repoDisplayLabel(repo)}
                     </p>
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                    <p className="mt-0.5 max-sm:truncate text-xs text-muted-foreground">
                       {repo.owner}/{repo.name}
                     </p>
                   </div>
                   {repo.connected === false && (
-                    <div className="flex shrink-0 items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-destructive">
+                    <div className="flex max-sm:shrink-0 items-center gap-1 rounded-md bg-destructive/10 px-1.5 py-0.5 text-destructive">
                       <IconPlugConnectedX size={11} />
                       <span className="text-[11px] font-medium">
                         Disconnected

@@ -113,7 +113,7 @@ export function IssuesList({ report }: { report: EvaluationReport }) {
       ))}
 
       {selectableIssues.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 pt-2">
+        <div className="flex max-sm:flex-wrap items-center gap-2 pt-2">
           <Button
             size="sm"
             variant="outline"
@@ -196,7 +196,7 @@ function IssueRow({
         {hasTaskCreated && taskUrl && (
           <a
             href={taskUrl}
-            className="hit-target inline-flex shrink-0 items-center gap-1 text-xs text-primary hover:underline"
+            className="max-sm:hit-target inline-flex shrink-0 items-center gap-1 text-xs text-primary hover:underline"
           >
             <IconExternalLink size={12} aria-hidden />
             Task created
@@ -217,7 +217,7 @@ function IssueRow({
                 {issue.filePaths.map((fp) => (
                   <span
                     key={fp}
-                    className="inline-block max-w-full break-all rounded bg-muted px-1.5 py-0.5 text-xs font-mono"
+                    className="inline-block max-sm:max-w-full max-sm:break-all rounded bg-muted px-1.5 py-0.5 text-xs font-mono"
                   >
                     {fp}
                   </span>

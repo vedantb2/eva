@@ -343,7 +343,8 @@ export function Sidebar() {
   // header, so the handler has to sit on both regions — the `aside` alone only
   // fires once focus has already moved inside the drawer.
   const closeOnEscape = (event: React.KeyboardEvent) => {
-    if (event.key === "Escape" && !isDesktop && mobileOpen) closeMobileSidebar();
+    if (event.key === "Escape" && !isDesktop && mobileOpen)
+      closeMobileSidebar();
   };
 
   return (
@@ -357,18 +358,18 @@ export function Sidebar() {
           variant="ghost"
           onClick={() => setMobileOpen(true)}
           aria-label="Open navigation"
-          className="-ml-1 shrink-0"
+          className="-ml-1 max-sm:shrink-0"
         >
           <IconMenu2 size={20} className="text-muted-foreground" />
         </Button>
         {pageTitle ? (
-          <h1 className="mx-auto min-w-0 truncate text-base font-semibold tracking-[-0.02em] text-foreground text-balance">
+          <h1 className="mx-auto max-sm:min-w-0 truncate text-base font-semibold tracking-[-0.02em] text-foreground text-balance">
             {pageTitle}
           </h1>
         ) : (
           <Link
             to="/home"
-            className="mx-auto flex min-w-0 shrink-0 items-center gap-2 rounded-surface border border-border bg-muted/40 px-2.5 py-1.5"
+            className="mx-auto flex max-sm:min-w-0 max-sm:shrink-0 items-center gap-2 rounded-surface border border-border bg-muted/40 px-2.5 py-1.5"
           >
             <LogoMark size={26} />
             <span className="text-sm font-semibold tracking-[-0.02em] text-primary">

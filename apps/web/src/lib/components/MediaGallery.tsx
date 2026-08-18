@@ -210,7 +210,7 @@ export function ImageGalleryPreview({ images }: { images: GalleryImage[] }) {
                     type="button"
                     aria-label="Previous image"
                     onClick={() => step(-1)}
-                    className="hit-target absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white motion-press active:scale-[0.94] hover:bg-black/70"
+                    className="max-sm:hit-target absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white motion-press active:scale-[0.94] hover:bg-black/70"
                   >
                     <IconChevronLeft size={22} />
                   </button>
@@ -218,7 +218,7 @@ export function ImageGalleryPreview({ images }: { images: GalleryImage[] }) {
                     type="button"
                     aria-label="Next image"
                     onClick={() => step(1)}
-                    className="hit-target absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white motion-press active:scale-[0.94] hover:bg-black/70"
+                    className="max-sm:hit-target absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/50 p-2 text-white motion-press active:scale-[0.94] hover:bg-black/70"
                   >
                     <IconChevronRight size={22} />
                   </button>
@@ -231,7 +231,7 @@ export function ImageGalleryPreview({ images }: { images: GalleryImage[] }) {
                 href={current.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hit-target absolute right-12 top-3 inline-flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-white/80 transition-colors hover:text-white"
+                className="max-sm:hit-target absolute right-12 top-3 inline-flex items-center gap-1 rounded-md bg-black/60 px-2 py-1 text-xs text-white/80 transition-colors hover:text-white"
               >
                 <IconExternalLink size={14} />
                 Open in new tab

@@ -233,7 +233,7 @@ export function ProjectsClient() {
   };
 
   const toolbarContent = (
-    <div className="flex flex-wrap items-center justify-end gap-1.5 sm:gap-2">
+    <div className="flex max-sm:flex-wrap items-center max-sm:justify-end gap-1.5 sm:gap-2">
       <ToggleSearch
         value={searchQuery}
         onChange={(v) => setParams({ q: v ?? "" })}

@@ -184,7 +184,7 @@ export function ResizablePanelLayout({
     // always present because the call sites' own toggle lives inside the left
     // pane, which is hidden while the right pane is showing.
     return (
-      <div className="flex h-full min-h-0 flex-col">
+      <div className="flex h-full max-sm:min-h-0 flex-col">
         <MobilePaneSwitcher
           labels={mobilePaneLabels}
           showingRight={!rightCollapsed}

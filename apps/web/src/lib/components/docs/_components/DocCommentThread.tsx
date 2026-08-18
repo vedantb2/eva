@@ -113,7 +113,7 @@ export function DocCommentThread({
       <div
         className={cn(
           LIST_ROW_CONTROL_CLASS,
-          "mt-2 flex flex-wrap items-center gap-1 max-sm:gap-2",
+          "mt-2 flex max-sm:flex-wrap items-center gap-1 max-sm:gap-2",
         )}
       >
         {!isResolved ? (

@@ -20,7 +20,7 @@ export function ActiveFiltersBar({
           type="button"
           aria-label={`Clear filter: ${f.label}`}
           onClick={() => onClearFilter(f.key)}
-          className="hit-target group flex items-center gap-1 rounded-md bg-muted/60 px-2 py-1 text-xs text-muted-foreground hover:bg-muted transition-colors"
+          className="max-sm:hit-target group flex items-center gap-1 rounded-md bg-muted/60 px-2 max-sm:py-1 text-xs text-muted-foreground hover:bg-muted transition-colors"
         >
           {f.label}
           <IconX
@@ -34,7 +34,7 @@ export function ActiveFiltersBar({
         <button
           type="button"
           onClick={onClearAll}
-          className="hit-target text-xs text-muted-foreground hover:text-foreground transition-colors ml-1"
+          className="max-sm:hit-target text-xs text-muted-foreground hover:text-foreground transition-colors ml-1"
         >
           Clear all
         </button>

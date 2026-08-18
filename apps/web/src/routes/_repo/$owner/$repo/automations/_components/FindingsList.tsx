@@ -87,7 +87,7 @@ export function FindingsList({ run, repoOwner, repoName }: FindingsListProps) {
       {selectableFindings.length > 0 && (
         <div className="flex items-center gap-2 pb-1">
           <Checkbox
-            className="hit-target"
+            className="max-sm:hit-target"
             aria-label={`Select all ${selectableFindings.length} findings`}
             checked={allSelected}
             onCheckedChange={toggleAll}
@@ -110,7 +110,7 @@ export function FindingsList({ run, repoOwner, repoName }: FindingsListProps) {
       ))}
 
       {selectableFindings.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 pt-2">
+        <div className="flex max-sm:flex-wrap items-center gap-2 pt-2">
           <Button
             size="sm"
             variant="outline"
@@ -160,14 +160,10 @@ function FindingRow({
       : null;
 
   return (
-    <div
-      className={cn(
-        "rounded-surface bg-muted/40 overflow-hidden",
-      )}
-    >
+    <div className={cn("rounded-surface bg-muted/40 overflow-hidden")}>
       <div className="group flex items-center gap-3 px-3 py-2.5">
         <Checkbox
-          className="hit-target"
+          className="max-sm:hit-target"
           aria-label={`Select finding: ${finding.title}`}
           checked={hasTaskCreated ? true : selected}
           disabled={hasTaskCreated}
@@ -205,7 +201,7 @@ function FindingRow({
         {hasTaskCreated && taskUrl && (
           <a
             href={taskUrl}
-            className="hit-target inline-flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
+            className="max-sm:hit-target inline-flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
           >
             <IconExternalLink size={12} />
             Task created
@@ -214,7 +210,7 @@ function FindingRow({
       </div>
       {expanded && (
         <div className="px-3 pb-3 pl-10 space-y-2">
-          <p className="text-sm text-muted-foreground whitespace-pre-wrap wrap-break-word">
+          <p className="text-sm text-muted-foreground whitespace-pre-wrap max-sm:wrap-break-word">
             {finding.description}
           </p>
           {finding.filePaths && finding.filePaths.length > 0 && (
@@ -226,7 +222,7 @@ function FindingRow({
                 {finding.filePaths.map((fp) => (
                   <span
                     key={fp}
-                    className="inline-block max-w-full break-all rounded bg-muted px-1.5 py-0.5 text-xs font-mono"
+                    className="inline-block max-sm:max-w-full max-sm:break-all rounded bg-muted px-1.5 py-0.5 text-xs font-mono"
                   >
                     {fp}
                   </span>
@@ -239,7 +235,7 @@ function FindingRow({
               <p className="text-xs font-medium text-muted-foreground mb-1">
                 Suggested Fix
               </p>
-              <p className="text-sm text-muted-foreground whitespace-pre-wrap wrap-break-word">
+              <p className="text-sm text-muted-foreground whitespace-pre-wrap max-sm:wrap-break-word">
                 {finding.suggestedFix}
               </p>
             </div>

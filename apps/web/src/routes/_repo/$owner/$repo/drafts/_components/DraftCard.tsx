@@ -235,7 +235,7 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
                   aria-label="Draft actions"
                   onClick={(e) => e.stopPropagation()}
                   className={cn(
-                    "shrink-0",
+                    "max-sm:shrink-0",
                     CARD_KEBAB_CLASS,
                     LIST_ROW_CONTROL_CLASS,
                   )}

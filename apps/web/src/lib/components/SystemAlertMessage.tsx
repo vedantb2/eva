@@ -54,7 +54,7 @@ export function SystemAlertMessage({
           <button
             type="button"
             onClick={() => setShowError(true)}
-            className="hit-target text-xs font-medium text-destructive hover:underline whitespace-nowrap"
+            className="max-sm:hit-target text-xs font-medium text-destructive hover:underline whitespace-nowrap"
           >
             View error
           </button>
@@ -70,7 +70,7 @@ export function SystemAlertMessage({
                 Sandbox Error
               </DialogTitle>
             </DialogHeader>
-            <pre className="whitespace-pre-wrap wrap-break-word text-sm text-muted-foreground bg-muted rounded-surface p-4 max-h-[min(16rem,50dvh)] overflow-y-auto scroll-fade">
+            <pre className="whitespace-pre-wrap max-sm:wrap-break-word text-sm text-muted-foreground bg-muted rounded-surface p-4 max-h-[min(16rem,50dvh)] overflow-y-auto scroll-fade">
               {errorDetail}
             </pre>
             <DialogFooter>

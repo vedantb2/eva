@@ -141,7 +141,7 @@ export function BranchSelect({
                         size={14}
                         className="text-muted-foreground"
                       />
-                      <span className="min-w-0 flex-1 truncate">
+                      <span className="max-sm:min-w-0 max-sm:flex-1 max-sm:truncate">
                         {branch.name}
                       </span>
                       <IconCheck

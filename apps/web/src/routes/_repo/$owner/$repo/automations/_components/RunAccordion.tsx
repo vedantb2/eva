@@ -113,7 +113,10 @@ export function RunHistory({
   }
 
   return (
-    <Surface density="none" className="overflow-hidden divide-y divide-border/50">
+    <Surface
+      density="none"
+      className="overflow-hidden divide-y divide-border/50"
+    >
       {runs.map((run) => (
         <RunAccordion
           key={run._id}
@@ -307,7 +310,7 @@ function RunAccordion({
           {run.error && (
             <div>
               <p className="text-xs font-medium text-destructive mb-1">Error</p>
-              <p className="text-sm text-destructive whitespace-pre-wrap wrap-break-word">
+              <p className="text-sm text-destructive whitespace-pre-wrap max-sm:wrap-break-word">
                 {run.error}
               </p>
             </div>
@@ -318,7 +321,7 @@ function RunAccordion({
                 href={run.prUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hit-target inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
+                className="max-sm:hit-target inline-flex items-center gap-1.5 text-sm text-primary hover:underline"
               >
                 <IconExternalLink size={14} />
                 View Pull Request

@@ -8,11 +8,7 @@ import type { Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useNavigate } from "@tanstack/react-router";
-import {
-  DndContext,
-  closestCenter,
-  type DragEndEvent,
-} from "@dnd-kit/core";
+import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
@@ -78,7 +74,7 @@ function SortableTaskItem({ task, index }: { task: Task; index: number }) {
       <button
         type="button"
         aria-label={`Reorder ${task.title}`}
-        className="flex size-10 shrink-0 cursor-grab touch-none items-center justify-center rounded-md text-muted-foreground hover:text-foreground sm:size-6"
+        className="cursor-grab touch-none text-muted-foreground hover:text-foreground max-sm:flex max-sm:size-10 max-sm:shrink-0 max-sm:items-center max-sm:justify-center max-sm:rounded-md"
         {...attributes}
         {...listeners}
       >

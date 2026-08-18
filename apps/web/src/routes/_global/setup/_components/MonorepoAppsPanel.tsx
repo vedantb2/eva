@@ -94,7 +94,7 @@ export function MonorepoAppsPanel({
           aria-label="Custom root directory"
           value={customRootDir}
           onChange={(e) => setCustomRootDir(e.target.value)}
-          className="min-w-0 flex-1 rounded-control border border-border bg-background px-2 py-1.5 text-sm"
+          className="max-sm:min-w-0 flex-1 rounded-control border border-border bg-background px-2 py-1.5 text-sm"
         />
         <Button
           size="sm"

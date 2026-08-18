@@ -344,7 +344,7 @@ export function DocContentTab({
     // full-width overlays over the editor rather than a 320px column beside it,
     // and they position against this row.
     <div className="relative flex min-h-0 flex-1 overflow-hidden">
-      <div className="flex min-w-0 min-h-0 flex-1 flex-col overflow-hidden">
+      <div className="flex max-sm:min-w-0 min-h-0 flex-1 flex-col overflow-hidden">
         {selectedVersionId ? (
           <div className="scrollbar min-h-0 flex-1 overflow-y-auto px-4 pb-4">
             <DocVersionDiff
@@ -374,7 +374,7 @@ export function DocContentTab({
                 editor={editor}
                 // Code fences scroll inside themselves; an unbroken line would
                 // otherwise widen the whole document past the viewport.
-                className="[&_.tiptap]:min-h-48 [&_.tiptap]:outline-hidden [&_pre]:overflow-x-auto"
+                className="[&_.tiptap]:min-h-48 [&_.tiptap]:outline-hidden max-sm:[&_pre]:overflow-x-auto"
               />
               {editor && (
                 <BubbleMenu

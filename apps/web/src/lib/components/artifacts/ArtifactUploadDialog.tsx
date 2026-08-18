@@ -169,7 +169,7 @@ export function ArtifactUploadDialog({
               className="text-sm file:mr-3 file:rounded-surface file:border file:border-border file:bg-muted file:px-3 file:py-1.5 file:text-sm"
             />
             {fileName ? (
-              <span className="break-all text-xs text-muted-foreground">
+              <span className="max-sm:break-all text-xs text-muted-foreground">
                 {fileName}
               </span>
             ) : null}

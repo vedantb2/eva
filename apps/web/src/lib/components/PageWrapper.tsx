@@ -66,7 +66,7 @@ export function PageWrapper({
                   variant="outline"
                   onClick={onBack ?? (() => window.history.back())}
                   aria-label="Go back"
-                  className="motion-press hit-target h-9 w-9 shrink-0 rounded-full hover:scale-[1.03] active:scale-[0.96]"
+                  className="motion-press max-sm:hit-target h-9 w-9 shrink-0 rounded-full hover:scale-[1.03] active:scale-[0.96]"
                 >
                   <IconArrowLeft size={16} className="text-muted-foreground" />
                 </Button>
@@ -85,7 +85,7 @@ export function PageWrapper({
               </div>
             )}
             {hasHeaderRight ? (
-              <div className="flex min-h-10 min-w-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2 justify-self-end animate-in fade-in slide-in-from-right-1 duration-300">
+              <div className="flex min-h-10 max-sm:min-w-0 max-sm:flex-wrap items-center justify-end gap-1.5 sm:gap-2 justify-self-end animate-in fade-in slide-in-from-right-1 duration-300">
                 {headerRight}
               </div>
             ) : null}
@@ -105,7 +105,7 @@ export function PageWrapper({
                 </div>
               ) : null}
               {hasTabs ? (
-                <div className="min-w-0 max-w-full overflow-x-auto scrollbar">
+                <div className="min-w-0 max-sm:max-w-full max-sm:overflow-x-auto scrollbar">
                   {tabs}
                 </div>
               ) : null}

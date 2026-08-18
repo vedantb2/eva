@@ -89,7 +89,7 @@ export function AccountsClient() {
             {accounts.map((account) => (
               <div
                 key={account._id}
-                className="flex flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
+                className="flex max-sm:flex-wrap items-center gap-3 px-4 py-3 transition-colors hover:bg-muted/40"
               >
                 {/* `basis-full` below `sm`: the share toggle plus two icon
                     buttons take the whole width of a phone, so the account
@@ -141,7 +141,7 @@ export function AccountsClient() {
                   variant="ghost"
                   onClick={() => openEdit(account)}
                   title="Edit"
-                  className="size-10 sm:size-8"
+                  className="max-sm:size-10"
                 >
                   <IconPencil size={14} />
                 </Button>
@@ -150,7 +150,7 @@ export function AccountsClient() {
                   variant="ghost"
                   onClick={() => setDeleteId(account._id)}
                   title="Delete"
-                  className="size-10 text-destructive hover:text-destructive sm:size-8"
+                  className="max-sm:size-10 text-destructive hover:text-destructive"
                 >
                   <IconTrash size={14} />
                 </Button>

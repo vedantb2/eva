@@ -154,7 +154,7 @@ export function DocRecapViewer({
   return (
     <div className="h-full flex flex-col overflow-hidden">
       {/* `flex-wrap`: title plus trailing controls do not share one row on a phone. */}
-      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
+      <div className="flex max-sm:flex-wrap items-center gap-1.5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
         <h1 className="min-w-0 truncate text-balance text-lg font-semibold">
           {doc.title}
         </h1>
@@ -209,7 +209,7 @@ export function DocRecapViewer({
               href={doc.prUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="hit-target ml-2 inline-flex items-center gap-1 text-foreground hover:underline"
+              className="max-sm:hit-target ml-2 inline-flex items-center gap-1 text-foreground hover:underline"
             >
               View on GitHub
               <IconExternalLink size={12} aria-hidden />

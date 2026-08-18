@@ -24,7 +24,7 @@ export function SkillRow({ skill }: { skill: Skill }) {
         {/* Stacks below `sm`: a full-width "View contents" button beside the
             title leaves the title one word wide on a phone. */}
         <div className="flex min-w-0 flex-col items-start gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
-          <div className="min-w-0 max-w-full">
+          <div className="min-w-0 max-sm:max-w-full">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <p className="text-sm font-medium">{skill.title}</p>
               {!skill.available ? (

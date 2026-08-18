@@ -142,18 +142,42 @@ describe("the reveal-on-hover utility", () => {
   });
 
   /**
-   * `opacity: 0` on its own leaves the control clickable while invisible, so the
-   * row carries a dead tap zone that swallows taps meant for the row itself.
-   * Focus has to bring it back, or a keyboard user tabs to something they cannot
-   * see.
+   * Focus has to bring the control back, or a keyboard user tabs to something
+   * they cannot see.
    */
-  it("moves pointer-events with the opacity, and restores both on focus", () => {
-    const block = utility("reveal-on-hover");
-    expect(block).toMatch(/pointer-events:\s*auto/);
-    const hidden = block.slice(block.indexOf("@media"));
-    expect(hidden).toMatch(/pointer-events:\s*none/);
+  it("restores the control on focus", () => {
+    const hidden = utility("reveal-on-hover").slice(
+      utility("reveal-on-hover").indexOf("@media"),
+    );
     expect(hidden).toContain(":focus-visible");
     expect(hidden).toContain(":focus-within");
+  });
+
+  /**
+   * This work was scoped to mobile: at `sm` and up the utility has to be exactly
+   * the `opacity-0 group-hover:opacity-100` it replaced, or adopting it silently
+   * restyles the desktop app.
+   *
+   * Two things it therefore must NOT do, both of which it did at first:
+   *
+   * - **`pointer-events`.** Moving it with the opacity fixes a real dead tap zone
+   *   (an invisible control still swallows clicks meant for the row) but that is a
+   *   desktop behaviour change. It costs nothing on touch, where the control is
+   *   visible anyway.
+   * - **a transition.** `transition-opacity` is 150ms; the house `--motion-base`
+   *   is 220ms, so baking one in here quietly reslowed every hover reveal in the
+   *   app. Call sites keep their own where they had one.
+   */
+  it("changes nothing about desktop except when focused", () => {
+    const block = utility("reveal-on-hover");
+    expect(
+      block,
+      "pointer-events here is a desktop behaviour change",
+    ).not.toMatch(/pointer-events/);
+    expect(
+      block,
+      "a transition here reslows every hover reveal in the app",
+    ).not.toMatch(/transition/);
   });
 });
 
@@ -176,7 +200,11 @@ describe("small Button sizes", () => {
   it.each([...ungated, ...mobileOnly])(
     "%s reaches the 40px floor on touch",
     (size) => {
-      const button = readFileSync(join(uiSrc, "ui", "button.tsx"), "utf8");
+      // Comments stripped first: the note above these variants quotes the very
+      // keys and utilities this searches for.
+      const button = stripComments(
+        readFileSync(join(uiSrc, "ui", "button.tsx"), "utf8"),
+      ).replaceAll(/\/\/.*$/gm, "");
       const variants = button.slice(
         button.indexOf("size:"),
         button.indexOf("defaultVariants"),
@@ -274,12 +302,19 @@ describe("the split-pane primitives", () => {
  * `min-w-0` is the load-bearing half of the pair.
  */
 describe("the Table primitive", () => {
-  it("scrolls wide tables inside their own box", () => {
-    const table = readFileSync(join(uiSrc, "ui", "table.tsx"), "utf8");
+  it("scrolls wide tables inside their own box on a phone", () => {
+    const table = stripComments(
+      readFileSync(join(uiSrc, "ui", "table.tsx"), "utf8"),
+    ).replaceAll(/\/\/.*$/gm, "");
     const wrapper = table.slice(0, table.indexOf("<table"));
-    expect(wrapper).toContain("overflow-x-auto");
+    expect(wrapper, "the wrapper has to be able to scroll").toMatch(
+      /overflow-(?:auto|x-auto)/,
+    );
+    // `min-w-0` is the load-bearing half: a flex/grid child defaults to
+    // `min-width: auto`, so without it the wrapper grows to its content and never
+    // overflows. Scoped to `max-sm` because desktop kept the wrapper it had.
     expect(wrapper, "without min-w-0 the wrapper grows instead").toContain(
-      "min-w-0",
+      "max-sm:min-w-0",
     );
   });
 });

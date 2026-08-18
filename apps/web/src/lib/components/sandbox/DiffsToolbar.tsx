@@ -83,7 +83,7 @@ export function DiffsToolbar({
           onChange={onFilterChange}
           onClear={() => onFilterChange("")}
           placeholder="Filter files…"
-          className="w-full min-w-0 sm:w-44 sm:max-w-none"
+          className="w-full max-sm:min-w-0 sm:w-44 sm:max-w-none"
           inputClassName="h-8 text-xs"
         />
 
@@ -132,7 +132,9 @@ export function DiffsToolbar({
             <Button
               variant="ghost"
               size="icon-sm"
-              aria-label={allExpanded ? "Collapse all files" : "Expand all files"}
+              aria-label={
+                allExpanded ? "Collapse all files" : "Expand all files"
+              }
               onClick={allExpanded ? onCollapseAll : onExpandAll}
             >
               {allExpanded ? (

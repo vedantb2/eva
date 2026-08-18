@@ -59,7 +59,7 @@ export function BuildRow({
             type="button"
             aria-expanded={isExpanded}
             aria-label="Build details"
-            className="hit-target flex items-center justify-center text-muted-foreground"
+            className="max-sm:hit-target flex items-center justify-center text-muted-foreground"
             onClick={(event) => {
               event.stopPropagation();
               onToggle();

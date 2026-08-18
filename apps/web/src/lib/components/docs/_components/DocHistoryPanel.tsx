@@ -28,7 +28,7 @@ export function DocHistoryPanel({
   return (
     <div className={DOC_SIDE_PANEL_CLASS}>
       <div className="flex items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <span className="min-w-0 truncate text-sm font-medium">
+        <span className="max-sm:min-w-0 max-sm:truncate text-sm font-medium">
           Version History
         </span>
         <Button

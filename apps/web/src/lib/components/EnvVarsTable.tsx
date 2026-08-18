@@ -300,7 +300,7 @@ export function EnvVarsTable({
               onClick={saveEdit}
               disabled={!editValue.trim() || saving}
               title="Save"
-              className="hit-target text-primary hover:text-primary"
+              className="max-sm:hit-target text-primary hover:text-primary"
             >
               <IconCheck size={14} />
             </Button>
@@ -309,7 +309,7 @@ export function EnvVarsTable({
               variant="ghost"
               onClick={cancelEdit}
               title="Cancel"
-              className="hit-target"
+              className="max-sm:hit-target"
             >
               <IconX size={14} />
             </Button>
@@ -359,7 +359,7 @@ export function EnvVarsTable({
                   <Button
                     size="icon-sm"
                     variant="ghost"
-                    className="hit-target"
+                    className="max-sm:hit-target"
                     onClick={() =>
                       void catchMutationError(
                         onToggleSandboxExclude(v.key, !v.sandboxExclude),
@@ -385,7 +385,7 @@ export function EnvVarsTable({
                   variant="ghost"
                   onClick={() => startEdit(v.key)}
                   title="Edit"
-                  className="hit-target"
+                  className="max-sm:hit-target"
                 >
                   <IconPencil size={14} />
                 </Button>
@@ -394,7 +394,7 @@ export function EnvVarsTable({
                   variant="ghost"
                   onClick={() => setDeleteKey(v.key)}
                   title="Delete"
-                  className="hit-target text-destructive hover:text-destructive"
+                  className="max-sm:hit-target text-destructive hover:text-destructive"
                 >
                   <IconTrash size={14} />
                 </Button>
@@ -451,7 +451,7 @@ export function EnvVarsTable({
             onClick={handleAdd}
             disabled={!keyInput.trim() || !valueInput.trim() || saving}
             title="Save"
-            className="hit-target text-primary hover:text-primary"
+            className="max-sm:hit-target text-primary hover:text-primary"
           >
             <IconCheck size={14} />
           </Button>
@@ -460,7 +460,7 @@ export function EnvVarsTable({
             variant="ghost"
             onClick={cancelAdd}
             title="Cancel"
-            className="hit-target"
+            className="max-sm:hit-target"
           >
             <IconX size={14} />
           </Button>

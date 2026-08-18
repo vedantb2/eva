@@ -705,6 +705,16 @@ async function prepareSessionSandboxInternal(
       }),
   );
   const rootDir = repo?.rootDirectory ?? "";
+  // The orchestrator (master) session boots from the Vercel managed image,
+  // skips the repo dependency install, and must not start repo services
+  // either: `pnpm dev` / `npx convex dev` cannot work without node_modules,
+  // and every doomed attempt ends 6 minutes later with a "Convex dev was not
+  // ready" alert row in the master's chat. Resolved before the reuse path so
+  // both boot paths share the decision.
+  const launchSession = await ctx.runQuery(internal.sessions.getInternal, {
+    id: args.sessionId,
+  });
+  const isOrchestrator = launchSession?.isOrchestrator === true;
   completedSteps.push({
     type: "tool",
     label: "Loading repository config...",
@@ -788,11 +798,17 @@ async function prepareSessionSandboxInternal(
             sandboxDetails,
             () => copySandboxConfigFilesToWorkspace(handle),
           );
-          const { port: devPort, devCommand } = await runLoggedSessionStep(
-            "reuseSessionSandbox.startSessionServices",
-            sandboxDetails,
-            () => startSessionServices(handle, rootDir, devOverrides(repo)),
-          );
+          let devPort: number | undefined;
+          let devCommand: string | undefined;
+          if (!isOrchestrator) {
+            const services = await runLoggedSessionStep(
+              "reuseSessionSandbox.startSessionServices",
+              sandboxDetails,
+              () => startSessionServices(handle, rootDir, devOverrides(repo)),
+            );
+            devPort = services.port;
+            devCommand = services.devCommand;
+          }
           if (args.startDesktop) {
             await runLoggedSessionStep(
               "reuseSessionSandbox.startDesktop",
@@ -811,6 +827,9 @@ async function prepareSessionSandboxInternal(
             "reuseSessionSandbox.runBackgroundCommands",
             sandboxDetails,
             async () => {
+              // No repo services on the orchestrator: without node_modules the
+              // convex daemon can only fail into a chat alert (see above).
+              if (isOrchestrator) return;
               const result = await ctx.runAction(
                 internal.sandbox.runBackgroundCommands,
                 {
@@ -849,18 +868,22 @@ async function prepareSessionSandboxInternal(
               }
             },
           );
-          await runLoggedSessionStep(
-            "reuseSessionSandbox.launchDevServer",
-            sandboxDetails,
-            () =>
-              launchPreviewDevServer(
-                handle,
-                `session-${args.sessionId}`,
-                devCommand,
-                devPort,
-                rootDir,
-              ),
-          );
+          if (devCommand !== undefined && devPort !== undefined) {
+            const command = devCommand;
+            const port = devPort;
+            await runLoggedSessionStep(
+              "reuseSessionSandbox.launchDevServer",
+              sandboxDetails,
+              () =>
+                launchPreviewDevServer(
+                  handle,
+                  `session-${args.sessionId}`,
+                  command,
+                  port,
+                  rootDir,
+                ),
+            );
+          }
           reusedResult = {
             sandbox: handle,
             isNew: false,
@@ -891,13 +914,6 @@ async function prepareSessionSandboxInternal(
   });
 
   // Create path needs full env map + snapshot — load only after reuse failed.
-  // The orchestrator (master) session boots from the Vercel managed image
-  // instead of this repo's snapshot, and skips the repo dependency install:
-  // chat needs neither, and both would cost minutes on every master start.
-  const session = await ctx.runQuery(internal.sessions.getInternal, {
-    id: args.sessionId,
-  });
-  const isOrchestrator = session?.isOrchestrator === true;
   const { sandboxEnvVars, snapshotName, image } = await runLoggedSessionStep(
     "resolveSessionSandboxContext",
     actionDetails,
@@ -1171,13 +1187,15 @@ async function prepareSessionSandboxInternal(
       completedSteps,
       "Starting dev server...",
     );
-    const { port: devPort, devCommand } = await runLoggedSessionStep(
-      "newSessionSandbox.startSessionServices",
-      sandboxDetails,
-      () => startSessionServices(handle, rootDir, devOverrides(repo)),
-    );
-    resolvedDevPort = devPort;
-    resolvedDevCommand = devCommand;
+    if (!isOrchestrator) {
+      const services = await runLoggedSessionStep(
+        "newSessionSandbox.startSessionServices",
+        sandboxDetails,
+        () => startSessionServices(handle, rootDir, devOverrides(repo)),
+      );
+      resolvedDevPort = services.port;
+      resolvedDevCommand = services.devCommand;
+    }
     completedSteps.push({
       type: "tool",
       label: "Starting dev server...",
@@ -1214,6 +1232,8 @@ async function prepareSessionSandboxInternal(
       "newSessionSandbox.runBackgroundCommands",
       sandboxDetails,
       async () => {
+        // No repo services on the orchestrator (see isOrchestrator above).
+        if (isOrchestrator) return;
         const result = await ctx.runAction(
           internal.sandbox.runBackgroundCommands,
           {
@@ -1283,18 +1303,22 @@ async function prepareSessionSandboxInternal(
       status: "complete",
     });
 
-    await runLoggedSessionStep(
-      "newSessionSandbox.launchDevServer",
-      sandboxDetails,
-      () =>
-        launchPreviewDevServer(
-          handle,
-          `session-${args.sessionId}`,
-          devCommand,
-          devPort,
-          rootDir,
-        ),
-    );
+    if (resolvedDevCommand !== undefined && resolvedDevPort !== undefined) {
+      const command = resolvedDevCommand;
+      const port = resolvedDevPort;
+      await runLoggedSessionStep(
+        "newSessionSandbox.launchDevServer",
+        sandboxDetails,
+        () =>
+          launchPreviewDevServer(
+            handle,
+            `session-${args.sessionId}`,
+            command,
+            port,
+            rootDir,
+          ),
+      );
+    }
 
     await completeSessionProgress(ctx, args.sessionId);
     logSession(
@@ -1306,8 +1330,8 @@ async function prepareSessionSandboxInternal(
       usedSnapshot: prepared.usedSnapshot,
       sandboxDetails,
       branchName: args.branchName,
-      devPort,
-      devCommand,
+      devPort: resolvedDevPort,
+      devCommand: resolvedDevCommand,
       resumeFellBack: reuseId !== undefined,
     };
   } catch (setupError) {

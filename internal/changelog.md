@@ -1,5 +1,9 @@
 # Changelog
 
+## Eva's sandbox stops starting repo services it can never run - 2026-08-18
+
+Follow-up to the entry below: Eva's chat kept accumulating "Sandbox startup unfinished" alert rows. Cause: the orchestrator boot deliberately skips the repo `pnpm install` (chat needs no deps), but `prepareSessionSandboxInternal` still ran `startSessionServices`, `launchPreviewDevServer`, and `runBackgroundCommands` — so `npx convex dev` started with no `node_modules`, esbuild failed to resolve every import, and `watchConvexReadiness` posted a warning row into the master's chat 6 minutes after every page-open resume. All three are now gated on `isOrchestrator` (resolved once, before the reuse path, alongside the existing image/skip-install decision) on both the reuse and fresh-create paths; `devPort`/`devCommand` stay unset so the (never-shown) preview has nothing to point at. Repo startup commands still run — they post no alerts and may be cheap; revisit if a repo's startup config assumes installed deps.
+
 ## Eva lives at /eva, and one-shot launches stop killing themselves - 2026-08-18
 
 **The master session is now "Eva" at `/eva`, rendered inline.** Feedback round on the orchestrator feature below: `/master` redirected into the normal `/$owner/$repo/sessions/$numId` URL, which defeated the point of a stable home. `routes/_global/eva.tsx` now mounts `CachedSessionShell` directly (its passive `RepoProvider` means the repo resolves without living under the repo route; a subtree audit confirmed nothing in ChatPanel uses strict route params or navigates on mount — the simple-view redirect is inert because the default tab "preview" is never simple-view-hidden). Rail tile is "Eva" (IconSparkles), the session is titled "Eva", the chat badge reads "via Eva", and a new `encodeRepoParam` in `repoUrl.ts` builds the internal `$repo` segment.

@@ -2,7 +2,7 @@ import { loadEnv, type Plugin } from "vite";
 
 /**
  * Same path the sandbox preview proxy forwards to the local Convex backend —
- * kept in sync with `PROXIED_CONVEX_PATH` in src/lib/convex.ts and
+ * kept in sync with `PROXIED_CONVEX_PATH` in src/lib/convexDeploymentUrl.ts and
  * `CONVEX_PREFIX` in the preview proxy.
  */
 const CONVEX_PATH = "/__convex";

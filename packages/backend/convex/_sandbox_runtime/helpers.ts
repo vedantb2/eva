@@ -584,6 +584,13 @@ export async function signAndLaunchScript(
       );
     }
   }
+  // The orchestrator flag lives on the session, so it is resolved here — the
+  // single launch choke point — and minted into the MCP token as a claim.
+  const launchSession =
+    entityIdField === "sessionId"
+      ? await ctx.runQuery(internal.sessions.getInternal, { id: entityId })
+      : null;
+
   // Mint the sandbox auth token and MCP token in a single node action. This
   // replaces three separate runAction hops across two "use node" isolates, which
   // cold-started Node twice and dominated launch latency (~3s).
@@ -601,6 +608,7 @@ export async function signAndLaunchScript(
           : entityIdField === "projectId"
             ? { entityKind: "project" as const }
             : {}),
+      ...(launchSession?.isOrchestrator ? { isOrchestrator: true } : {}),
     },
   );
   console.log(

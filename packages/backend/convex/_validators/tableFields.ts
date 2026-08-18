@@ -68,6 +68,9 @@ export const userFields = {
   experimentalFlags: v.optional(experimentalFlagsValidator),
   /** Rebound keyboard shortcuts (settings → Shortcuts). Sparse: missing = default. */
   shortcutOverrides: v.optional(shortcutOverridesValidator),
+  // The user's single persistent orchestrator ("master") session. Absent until
+  // first opened; repointed if the master is archived/deleted and recreated.
+  orchestratorSessionId: v.optional(v.id("sessions")),
 };
 
 // A user's own coding-agent login ("bring your own account"). Each row is one
@@ -272,6 +275,9 @@ export const agentTaskFields = {
   // Soft UX lock while the agent drives the shared desktop Chrome via
   // browser_lock/browser_unlock MCP tools (mirrors sessions.agentBrowsingAt).
   agentBrowsingAt: v.optional(v.number()),
+  // Orchestrator session watching this task for completion notifications
+  // (mirrors sessions.watchedByOrchestrator).
+  watchedByOrchestrator: v.optional(v.id("sessions")),
 };
 
 export const agentRunFields = {
@@ -386,6 +392,13 @@ export const sessionFields = {
   sandboxSetupPending: v.optional(v.boolean()),
   // Design mode: index of the variation the user selected as the refine base.
   selectedVariationIndex: v.optional(v.number()),
+  // Persistent per-user master ("orchestrator") session. Set only at creation —
+  // the sandbox token's orchestrator claim is minted at launch, never toggled.
+  isOrchestrator: v.optional(v.boolean()),
+  // Orchestrator session watching this one for completion notifications. Set
+  // implicitly when the master touches this session (send/create) or via
+  // watch_agent; cleared by unwatch_agent or when the master is gone.
+  watchedByOrchestrator: v.optional(v.id("sessions")),
 };
 
 export const syncSettingFields = {
@@ -683,6 +696,12 @@ export const messageFields = {
   // send/dequeue so the chat can show a provider icon + tooltip later.
   model: v.optional(aiModelValidator),
   reasoningLevel: v.optional(reasoningLevelValidator),
+  // User-role message injected by the user's orchestrator (master) session via
+  // the send_agent_message MCP tool. Drives a "via master" badge in chat.
+  sentViaOrchestrator: v.optional(v.boolean()),
+  // User-role wake-up row inserted into the master session when a watched
+  // child agent finishes. Drives distinct UI styling.
+  orchestratorNotification: v.optional(v.boolean()),
 };
 
 export const queuedMessageFields = {

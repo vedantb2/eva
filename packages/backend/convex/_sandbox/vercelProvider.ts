@@ -1031,9 +1031,13 @@ class VercelSandboxClient implements SandboxClient {
             ...base,
             source: { type: "snapshot", snapshotId: params.snapshot },
           })
-        : await Sandbox.create({ ...base, runtime: "node24" });
+        : params.image
+          ? // VCR image boot. `image` and the legacy `runtime` are mutually
+            // exclusive in the SDK types, hence the separate call.
+            await Sandbox.create({ ...base, image: params.image })
+          : await Sandbox.create({ ...base, runtime: "node24" });
       console.log(
-        `[vercel] created sandbox=${sandbox.name} persistent=${persistent} sourceSnapshot=${params.snapshot ?? "none"}`,
+        `[vercel] created sandbox=${sandbox.name} persistent=${persistent} sourceSnapshot=${params.snapshot ?? "none"} image=${params.image ?? "none"}`,
       );
       // Env is NOT written here. writeFiles is the first sandbox I/O and absorbs
       // Vercel's first-command boot penalty (seconds–tens of seconds). Callers
@@ -1053,7 +1057,7 @@ class VercelSandboxClient implements SandboxClient {
       // params we sent (env values redacted) so a create failure is diagnosable.
       const detail = extractApiErrorDetail(e);
       throw new Error(
-        `vercel create failed (snapshot=${params.snapshot ?? "none"}, timeout=${base.timeout}, persistent=${base.persistent}, vcpus=${DEFAULT_VCPUS}, envKeys=[${Object.keys(params.envVars ?? {}).join(",")}], hasTags=${Boolean(params.lifecycle.labels)}): ${detail}`,
+        `vercel create failed (snapshot=${params.snapshot ?? "none"}, image=${params.image ?? "none"}, timeout=${base.timeout}, persistent=${base.persistent}, vcpus=${DEFAULT_VCPUS}, envKeys=[${Object.keys(params.envVars ?? {}).join(",")}], hasTags=${Boolean(params.lifecycle.labels)}): ${detail}`,
       );
     }
   }

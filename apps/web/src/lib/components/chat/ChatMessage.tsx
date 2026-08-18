@@ -161,6 +161,15 @@ export const ChatMessage = memo(function ChatMessage({
       : (streamingContent ?? "");
   const copyPlain = copySource ? tokenizedToDisplayText(copySource) : undefined;
 
+  // Two orchestrator provenances, never both on one row: a child chat shows the
+  // turns its master injected, the master shows the wake-ups its children fired.
+  const isOrchestratorNotification = message.orchestratorNotification === true;
+  const orchestratorTag = isOrchestratorNotification
+    ? "agent update"
+    : message.sentViaOrchestrator === true
+      ? "via master"
+      : undefined;
+
   // Videos render as inline players; images collapse into one Twitter-style
   // grid + lightbox so a screenshot-heavy turn is not a long vertical stack.
   const mediaEntries = message.media ?? [];
@@ -208,6 +217,16 @@ export const ChatMessage = memo(function ChatMessage({
                   {senderFirstName}
                 </span>
               ) : null}
+              {orchestratorTag ? (
+                <span
+                  className={cn(
+                    "rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground",
+                    isOtherUser ? "ml-9" : undefined,
+                  )}
+                >
+                  {orchestratorTag}
+                </span>
+              ) : null}
               {/* min-w-0 stops the default `min-width: auto` on this flex item
                   from letting one unbreakable token (a JWT, a long URL) stretch
                   the bubble past the message column. */}
@@ -222,7 +241,11 @@ export const ChatMessage = memo(function ChatMessage({
                     "group px-3 py-2 text-foreground",
                     isOtherUser
                       ? "bg-secondary group-[.is-user]:ml-0 group-[.is-user]:bg-secondary"
-                      : "rounded-surface bg-primary/10 group-[.is-user]:bg-primary/10",
+                      : isOrchestratorNotification
+                        ? // Machine-authored wake-up, not something the user
+                          // typed — drop it a tone step off the accent bubble.
+                          "rounded-surface bg-muted group-[.is-user]:bg-muted"
+                        : "rounded-surface bg-primary/10 group-[.is-user]:bg-primary/10",
                   )}
                   style={
                     isOtherUser

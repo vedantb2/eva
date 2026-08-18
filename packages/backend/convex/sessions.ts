@@ -35,6 +35,11 @@ export {
   sandboxStartupWarning,
 } from "./_sessions/sandbox";
 
+export {
+  getOrchestratorSession,
+  ensureOrchestratorSession,
+} from "./_sessions/orchestrator";
+
 export { updatePtySession, updatePtySessionInternal } from "./_sessions/pty";
 
 export {

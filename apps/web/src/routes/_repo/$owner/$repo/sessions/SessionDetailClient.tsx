@@ -108,6 +108,10 @@ export function SessionDetailClient({
   const isSandboxStopping = session?.status === "stopping";
   const [isStopPending, setIsStopPending] = useState(false);
   const simpleView = useSimpleView();
+  // The master session drives other agents rather than editing its own
+  // checkout, so it gets the chat with no sandbox panel (no preview / computer
+  // / review tabs) — same tab-gating idea as simple view, one step further.
+  const chatOnly = session?.isOrchestrator === true;
   const handleSandboxToggle = async (action: "start" | "stop") => {
     if (action === "start") {
       await withMutationToast(
@@ -136,7 +140,7 @@ export function SessionDetailClient({
   // Must stay above loading/null early returns — Phase 3 review comments
   // introduced this hook after them and tripped React #310 on session resolve.
   const openDiffsTab = () => {
-    if (simpleView) return;
+    if (simpleView || chatOnly) return;
     if (onViewDiff) {
       onViewDiff();
       return;
@@ -182,6 +186,58 @@ export function SessionDetailClient({
   const stickyMode: SessionMode = normalizeMode(session.lastMode ?? "edit");
   const selectedVariationIndex = session.selectedVariationIndex;
 
+  const chatPanel = (
+    sandboxCollapsed?: boolean,
+    onToggleSandbox?: () => void,
+  ) => (
+    <ChatPanel
+      sessionId={sessionId}
+      title={session.title}
+      branchName={session.branchName}
+      prUrl={session.prUrl}
+      prState={session.prState}
+      summary={session.summary}
+      messages={messages ?? []}
+      queuedMessages={queuedMessages ?? []}
+      planContent={session.planContent}
+      streamingActivity={streaming?.currentActivity}
+      streamingContent={streaming?.currentContent}
+      streamingPendingQuestion={streaming?.pendingQuestion}
+      summaryStreamingActivity={summaryStreaming?.currentActivity}
+      startupStreamingActivity={startupStreaming?.currentActivity}
+      isSandboxActive={isSandboxActive}
+      isSandboxToggling={
+        isSandboxStarting || isSandboxStopping || isStopPending
+      }
+      isSandboxStopping={isSandboxStopping || isStopPending}
+      onSandboxToggle={handleSandboxToggle}
+      isArchived={isArchived}
+      isReadOnly={isReadOnly}
+      deploymentStatus={session.deploymentStatus}
+      sandboxCollapsed={sandboxCollapsed}
+      onToggleSandbox={onToggleSandbox}
+      onOpenFile={chatOnly ? undefined : onOpenFile}
+      onViewDiff={chatOnly ? undefined : onViewDiff}
+      onOpenPrdTab={
+        chatOnly
+          ? undefined
+          : () => {
+              onSandboxTabChange("prd");
+              setExpandRightSignal((n) => n + 1);
+            }
+      }
+      backgroundAgents={session.backgroundAgents}
+    />
+  );
+
+  if (chatOnly) {
+    return (
+      <PendingReviewCommentsProvider onOpenDiffsTab={openDiffsTab}>
+        <div className="flex min-h-0 flex-1">{chatPanel()}</div>
+      </PendingReviewCommentsProvider>
+    );
+  }
+
   return (
     <PendingReviewCommentsProvider onOpenDiffsTab={openDiffsTab}>
       <SandboxWorkspace
@@ -195,42 +251,9 @@ export function SessionDetailClient({
       >
         {(panes, owner, terminalPanel) => (
           <ResizablePanelLayout
-            leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
-              <ChatPanel
-                sessionId={sessionId}
-                title={session.title}
-                branchName={session.branchName}
-                prUrl={session.prUrl}
-                prState={session.prState}
-                summary={session.summary}
-                messages={messages ?? []}
-                queuedMessages={queuedMessages ?? []}
-                planContent={session.planContent}
-                streamingActivity={streaming?.currentActivity}
-                streamingContent={streaming?.currentContent}
-                streamingPendingQuestion={streaming?.pendingQuestion}
-                summaryStreamingActivity={summaryStreaming?.currentActivity}
-                startupStreamingActivity={startupStreaming?.currentActivity}
-                isSandboxActive={isSandboxActive}
-                isSandboxToggling={
-                  isSandboxStarting || isSandboxStopping || isStopPending
-                }
-                isSandboxStopping={isSandboxStopping || isStopPending}
-                onSandboxToggle={handleSandboxToggle}
-                isArchived={isArchived}
-                isReadOnly={isReadOnly}
-                deploymentStatus={session.deploymentStatus}
-                sandboxCollapsed={rightPanelCollapsed}
-                onToggleSandbox={onToggleRightPanel}
-                onOpenFile={onOpenFile}
-                onViewDiff={onViewDiff}
-                onOpenPrdTab={() => {
-                  onSandboxTabChange("prd");
-                  setExpandRightSignal((n) => n + 1);
-                }}
-                backgroundAgents={session.backgroundAgents}
-              />
-            )}
+            leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) =>
+              chatPanel(rightPanelCollapsed, onToggleRightPanel)
+            }
             rightPanel={
               <SandboxPanel
                 sessionId={sessionId}

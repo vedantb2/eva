@@ -306,10 +306,14 @@ export async function createSandbox(
   // Those post-create steps absorb Vercel's first-command boot penalty
   // (seconds–tens of seconds); session UI should not wait on them.
   onSandboxAcquired?: (sandbox: SandboxHandle) => Promise<void>,
+  // Boot from a Vercel Container Registry image instead of the legacy runtime.
+  // Only read when there is no snapshot — a restore carries its own image.
+  image?: string,
 ): Promise<SandboxHandle> {
   const details = [
     `installation=${installationId}`,
     snapshotName ? `snapshot=${snapshotName}` : "snapshot=none",
+    image ? `image=${image}` : "image=none",
     lifecycle.ephemeral ? "ephemeral=true" : "ephemeral=false",
   ].join(", ");
   return await runLoggedGitStep("createSandbox", details, async () => {
@@ -327,6 +331,7 @@ export async function createSandbox(
 
     const sandbox = await client.create({
       snapshot: snapshotName,
+      image,
       ports: [...VERCEL_DEFAULT_EXPOSED_PORTS],
       envVars: {
         // VNC_RESOLUTION is read by the snapshot's ComputerUse plugin at startup
@@ -1295,10 +1300,13 @@ export async function createSandboxAndPrepareRepo(
   // and reliably trips Convex's 600s per-action ceiling on providers (Vercel)
   // that don't have it pre-baked into their base snapshot.
   skipInstallDeps = false,
+  // VCR image to boot from when there is no snapshot (orchestrator sessions use
+  // the Vercel-managed universal image). Threaded straight to createSandbox.
+  image?: string,
 ): Promise<{ sandbox: SandboxHandle; usedSnapshot: boolean }> {
   let sandbox: SandboxHandle | undefined;
   try {
-    const details = `${owner}/${name}, snapshot=${snapshotName ?? "none"}, syncStrategy=${syncStrategy.mode}`;
+    const details = `${owner}/${name}, snapshot=${snapshotName ?? "none"}, image=${image ?? "none"}, syncStrategy=${syncStrategy.mode}`;
     return await runLoggedGitStep(
       "createSandboxAndPrepareRepo",
       details,
@@ -1314,6 +1322,7 @@ export async function createSandboxAndPrepareRepo(
             effectiveSnapshot,
             readyTimeoutSeconds,
             onSandboxAcquired,
+            image,
           );
         } catch (err) {
           if (effectiveSnapshot && isSnapshotUnusableError(err)) {
@@ -1331,6 +1340,7 @@ export async function createSandboxAndPrepareRepo(
               undefined,
               readyTimeoutSeconds,
               onSandboxAcquired,
+              image,
             );
           } else {
             throw err;
@@ -1410,12 +1420,16 @@ export async function getOrCreateSandbox(
   snapshotName?: string,
   onProgress?: (label: string) => Promise<void>,
   syncStrategy: RepoSyncStrategy = { mode: "all" },
+  // Both only matter on the create fallback below — a resume reuses whatever the
+  // existing sandbox was built from. See createSandboxAndPrepareRepo.
+  skipInstallDeps = false,
+  image?: string,
 ): Promise<{
   sandbox: SandboxHandle;
   isNew: boolean;
   resumeFellBack: boolean;
 }> {
-  const details = `${owner}/${name}, existingSandboxId=${existingSandboxId ?? "none"}, snapshot=${snapshotName ?? "none"}, syncStrategy=${syncStrategy.mode}`;
+  const details = `${owner}/${name}, existingSandboxId=${existingSandboxId ?? "none"}, snapshot=${snapshotName ?? "none"}, image=${image ?? "none"}, syncStrategy=${syncStrategy.mode}`;
   return await runLoggedGitStep("getOrCreateSandbox", details, async () => {
     if (existingSandboxId) {
       const resumed = await tryResumeSandbox(
@@ -1447,6 +1461,9 @@ export async function getOrCreateSandbox(
       undefined,
       onProgress,
       syncStrategy,
+      undefined,
+      skipInstallDeps,
+      image,
     );
     return {
       sandbox,

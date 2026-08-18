@@ -116,6 +116,31 @@ const sessionPersistenceIdValidator = v.union(
   v.id("agentTasks"),
 );
 
+/**
+ * True when the sandbox being created belongs to a master (orchestrator)
+ * session, which boots from the Vercel managed image instead of the repo
+ * snapshot. Looked up lazily: only session-persisted flows can be one, so
+ * task/project/ephemeral paths never pay the query.
+ */
+async function isOrchestratorSandboxSession(
+  ctx: ActionCtx,
+  args: {
+    sessionPersistenceId?: Infer<typeof sessionPersistenceIdValidator>;
+    sessionPersistenceKind?: Infer<typeof sessionPersistenceKindValidator>;
+  },
+): Promise<boolean> {
+  if (
+    args.sessionPersistenceKind !== "sessions" ||
+    args.sessionPersistenceId === undefined
+  ) {
+    return false;
+  }
+  const session = await ctx.runQuery(internal.sessions.getInternal, {
+    id: args.sessionPersistenceId,
+  });
+  return session?.isOrchestrator === true;
+}
+
 /** Checks whether a sandbox is healthy, starting it if stopped. */
 export const validateSandbox = internalAction({
   args: {
@@ -836,11 +861,15 @@ export const prepareSandbox = internalAction({
     console.log(
       `[sandbox] prepareSandbox: resolving context for repo=${args.repoOwner}/${args.repoName} repoId=${args.repoId} ephemeral=${args.ephemeral ?? false}`,
     );
-    const { client, sandboxEnvVars, snapshotName } =
-      await resolveSandboxContext(ctx, args.repoId);
+    // A master session whose sandbox died resumes through here, so the image
+    // override has to be resolved on this path too — otherwise it would fall
+    // back to a repo snapshot (or bare node24) instead of the managed image.
+    const isOrchestrator = await isOrchestratorSandboxSession(ctx, args);
+    const { client, sandboxEnvVars, snapshotName, image } =
+      await resolveSandboxContext(ctx, args.repoId, { isOrchestrator });
     const existingSandboxId = args.existingSandboxId;
     console.log(
-      `[sandbox] prepareSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, existingSandbox=${existingSandboxId ?? "none"}`,
+      `[sandbox] prepareSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, image=${image ?? "none"}, existingSandbox=${existingSandboxId ?? "none"}`,
     );
     let sandbox: SandboxHandle | undefined;
     let deleteSandboxOnFailure = false;
@@ -873,6 +902,9 @@ export const prepareSandbox = internalAction({
             attachRunSandbox,
             emitProgress,
             { mode: "none" },
+            undefined,
+            isOrchestrator,
+            image,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;
@@ -889,6 +921,8 @@ export const prepareSandbox = internalAction({
             snapshotName,
             emitProgress,
             { mode: "none" },
+            isOrchestrator,
+            image,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = prepared.isNew;
@@ -1013,11 +1047,14 @@ export const createOrResumeSandbox = internalAction({
     console.log(
       `[sandbox] createOrResumeSandbox: resolving context for repo=${args.repoOwner}/${args.repoName} repoId=${args.repoId} ephemeral=${args.ephemeral ?? false}`,
     );
-    const { client, sandboxEnvVars, snapshotName } =
-      await resolveSandboxContext(ctx, args.repoId);
+    // Same reason as prepareSandbox: a master session resuming after its
+    // sandbox died must land on the managed image, not a repo snapshot.
+    const isOrchestrator = await isOrchestratorSandboxSession(ctx, args);
+    const { client, sandboxEnvVars, snapshotName, image } =
+      await resolveSandboxContext(ctx, args.repoId, { isOrchestrator });
     const existingSandboxId = args.existingSandboxId;
     console.log(
-      `[sandbox] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, existingSandbox=${existingSandboxId ?? "none"}`,
+      `[sandbox] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, image=${image ?? "none"}, existingSandbox=${existingSandboxId ?? "none"}`,
     );
 
     let sandbox: SandboxHandle | undefined;
@@ -1052,6 +1089,9 @@ export const createOrResumeSandbox = internalAction({
             attachRunSandbox,
             emitProgress,
             { mode: "none" },
+            undefined,
+            isOrchestrator,
+            image,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;
@@ -1069,6 +1109,8 @@ export const createOrResumeSandbox = internalAction({
             snapshotName,
             emitProgress,
             { mode: "none" },
+            isOrchestrator,
+            image,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = prepared.isNew;

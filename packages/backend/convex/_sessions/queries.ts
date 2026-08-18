@@ -51,6 +51,8 @@ const sessionListItemValidator = v.object({
   lastMode: v.optional(sessionModeValidator),
   deploymentStatus: v.optional(deploymentStatusValidator),
   deploymentUrl: v.optional(v.string()),
+  /** True for the user's persistent master session (badged in the sidebar). */
+  isOrchestrator: v.optional(v.boolean()),
   /**
    * True while a chat turn workflow is tracked on the session. Same window as
    * composer BorderBeam in practice (message-level isExecuting needs the open
@@ -86,6 +88,7 @@ function toSessionListItem(session: Doc<"sessions">) {
     lastMode: session.lastMode,
     deploymentStatus: session.deploymentStatus,
     deploymentUrl: session.deploymentUrl,
+    isOrchestrator: session.isOrchestrator,
     isExecuting: session.activeWorkflowId !== undefined,
   };
 }

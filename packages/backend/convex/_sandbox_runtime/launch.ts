@@ -37,6 +37,10 @@ const OPENCODE_FALLBACK_BIN_PATH = `${OPENCODE_FALLBACK_INSTALL_DIR}/bin/opencod
  * callback-src/providers/opencodeSdk.ts — the CLI serves, the SDK is its
  * generated client, and a drifted pair breaks fresh snapshots. */
 const OPENCODE_FALLBACK_VERSION = "1.18.16";
+const EVA_TOOLING_INSTALL_TIMEOUT_SECONDS = 300;
+/** Package specs mirror the snapshot seed run's global install (snapshotActions.ts). */
+const EVA_TOOLING_PACKAGES = "agent-browser agentation-mcp@1.2.0";
+const EVA_TOOLING_INSTALL_FAILED_MARKER = "eva-tooling-install-failed";
 const CALLBACK_READY_POLL_ATTEMPTS = 60;
 const CALLBACK_READY_POLL_INTERVAL_MS = 1000;
 const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
@@ -112,6 +116,44 @@ function ensureProviderCliAvailable(
 }
 
 /**
+ * Provisions the parts of eva's own tooling that only the snapshot seed run
+ * installs: `/home/eva` (every provider-SDK self-install targets
+ * `/home/eva/.eva-agent-sdk`) plus the agent-browser and agentation-mcp CLIs,
+ * which agents invoke by name off PATH — hence a global install, not the
+ * `--prefix` form the provider CLIs use with an explicit *_BIN_PATH env var.
+ * Sandboxes booted from the Vercel managed image (orchestrator sessions) have
+ * none of it. Both halves are gated on the artifact already being present, so a
+ * snapshot boot pays one probe and installs nothing.
+ *
+ * The install is best-effort: a session without browser tooling still chats and
+ * edits code, so npm trouble must not fail the launch. The `/home/eva` half is
+ * not — without it the SDK fallbacks have nowhere to install.
+ */
+async function ensureEvaToolingAvailable(
+  sandbox: SandboxHandle,
+): Promise<void> {
+  const out = await execHandle(
+    sandbox,
+    // Each half is its own brace group: `&&`/`||` are left-associative at equal
+    // precedence, so a flat chain would run the install after a failed mkdir.
+    [
+      // Same paths and permissions the seed run creates (snapshotActions.ts).
+      "{ [ -d /home/eva ] || { sudo mkdir -p /home/eva/sandbox-config /home/eva/.eva-snapshot-state && sudo chmod -R 777 /home/eva; }; }",
+      // agentation-mcp is probed by its global package dir rather than a binary:
+      // the seed run gates its libraries the same way, and the probe cannot go
+      // stale if the package renames its bin.
+      `{ command -v agent-browser >/dev/null 2>&1 && [ -d "$(npm root -g)/agentation-mcp" ] || sudo npm install -g ${EVA_TOOLING_PACKAGES} || echo ${quote([EVA_TOOLING_INSTALL_FAILED_MARKER])}; }`,
+    ].join(" && "),
+    EVA_TOOLING_INSTALL_TIMEOUT_SECONDS,
+  );
+  if (out.includes(EVA_TOOLING_INSTALL_FAILED_MARKER)) {
+    console.warn(
+      `[sandbox][launchScript] eva tooling install failed on ${sandbox.id} — agent-browser / agentation-mcp unavailable this run`,
+    );
+  }
+}
+
+/**
  * Points pnpm at the sandbox user's store for shells whose HOME is an agent
  * runtime dir. Cursor's agent runs its shell with HOME=/tmp/cursor-home, so a
  * pnpm install there silently builds a second multi-GB store; the per-home
@@ -179,6 +221,7 @@ export async function launchScript(
   const provider = getAIModelProvider(normalizedModel);
   const providerPrep = Promise.all([
     ensureProviderCliAvailable(sandbox, provider),
+    ensureEvaToolingAvailable(sandbox),
     ensureSharedPnpmStore(sandbox),
   ]);
   function uploadWithTiming(

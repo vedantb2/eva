@@ -13,6 +13,7 @@ import {
 } from "../_chat/surfaceAdapters";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
+import type { OrchestratorNotifyChild } from "../orchestratorShared";
 
 const QUEUE_RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
@@ -72,6 +73,16 @@ type ChatQueueConfig<
   ) => Promise<void>;
   /** Inserts an assistant error bubble and touches `updatedAt`. */
   recordError: (ctx: MutationCtx, id: TId, content: string) => Promise<void>;
+  /**
+   * The wake-up payload for the master session watching this entity, or
+   * `undefined` when it is unwatched (or when the surface cannot be watched at
+   * all). Read off the already-loaded entity, so the shared core below pays no
+   * extra read and never has to guess a field name per surface.
+   */
+  orchestratorNotifyChild: (
+    entity: TEntity,
+    id: TId,
+  ) => OrchestratorNotifyChild | undefined;
   defaultStartErrorMessage: string;
 };
 
@@ -95,12 +106,31 @@ async function startNextQueuedChatMessage<
     return false;
   }
 
+  /**
+   * Wakes the master session watching this entity. Every turn-finished path
+   * (workflow completion, synthetic turn, cancel, stall teardown) ends by
+   * draining the queue here, and we only reach this function once the entity
+   * has no active workflow — so "the drain started nothing" is exactly "the
+   * child went idle". Hooking that single fact keeps mid-queue turns silent
+   * without every completion mutation remembering to check.
+   */
+  const watchedChild = config.orchestratorNotifyChild(entity, id);
+  async function notifyWatchingOrchestrator(status: string): Promise<void> {
+    if (!watchedChild) return;
+    await ctx.scheduler.runAfter(
+      0,
+      internal.orchestratorNotify.notifyOrchestratorOfChild,
+      { child: watchedChild, status },
+    );
+  }
+
   const nextMessage = await ctx.db
     .query("queuedMessages")
     .withIndex("by_parent_and_order", (q) => q.eq("parentId", id))
     .order("asc")
     .first();
   if (!nextMessage) {
+    await notifyWatchingOrchestrator("completed");
     return false;
   }
 
@@ -109,6 +139,9 @@ async function startNextQueuedChatMessage<
   const guard = await config.prepareGuard(ctx, entity, nextMessage);
   if (!guard.ok) {
     await config.recordError(ctx, id, guard.error);
+    // The queued turn is consumed and cannot run, so the child is idle again —
+    // without this the master would wait forever on a turn that never starts.
+    await notifyWatchingOrchestrator("error");
     return false;
   }
 
@@ -137,6 +170,7 @@ async function startNextQueuedChatMessage<
     const errorMessage =
       error instanceof Error ? error.message : config.defaultStartErrorMessage;
     await config.recordError(ctx, id, `Error: ${errorMessage}`);
+    await notifyWatchingOrchestrator("error");
     return false;
   }
 }
@@ -185,6 +219,7 @@ const sessionQueueConfig: ChatQueueConfig<
       ),
       model: prepared.model,
       reasoningLevel: next.reasoningLevel,
+      orchestratorNotification: next.orchestratorNotification,
     });
   },
   startWorkflow: (ctx, id, session, next, prepared) =>
@@ -217,6 +252,10 @@ const sessionQueueConfig: ChatQueueConfig<
     });
     await ctx.db.patch(id, { updatedAt: Date.now() });
   },
+  orchestratorNotifyChild: (session, id) =>
+    session.watchedByOrchestrator === undefined
+      ? undefined
+      : { kind: "session", sessionId: id },
   defaultStartErrorMessage: "Failed to start queued message.",
 };
 
@@ -276,6 +315,9 @@ const projectChatQueueConfig: ChatQueueConfig<
     });
     await ctx.db.patch(id, { updatedAt: Date.now() });
   },
+  // Project chat has no orchestrator watch — only sessions and tasks are
+  // spawned as child agents.
+  orchestratorNotifyChild: () => undefined,
   defaultStartErrorMessage: "Failed to start queued chat message.",
 };
 
@@ -335,6 +377,10 @@ const taskChatQueueConfig: ChatQueueConfig<
     });
     await ctx.db.patch(id, { updatedAt: Date.now() });
   },
+  orchestratorNotifyChild: (task, id) =>
+    task.watchedByOrchestrator === undefined
+      ? undefined
+      : { kind: "task", taskId: id },
   defaultStartErrorMessage: "Failed to start queued chat message.",
 };
 

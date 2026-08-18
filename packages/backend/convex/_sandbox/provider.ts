@@ -69,6 +69,13 @@ export interface SandboxLifecycleParams {
 export interface SandboxCreateParams {
   /** Vercel snapshotId. Omit for a bare sandbox. */
   snapshot?: string;
+  /**
+   * Vercel Container Registry image to boot from (e.g. the managed
+   * `vercel/sandbox/universal:latest`). Ignored when `snapshot` is set — a
+   * snapshot restore already carries its own image. Omit for the legacy
+   * `runtime` boot.
+   */
+  image?: string;
   envVars: Record<string, string>;
   lifecycle: SandboxLifecycleParams;
   /** Ports to expose publicly (Vercel needs these declared up front). */

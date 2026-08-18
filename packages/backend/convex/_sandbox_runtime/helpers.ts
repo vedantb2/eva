@@ -12,6 +12,7 @@ import type { SandboxClient, SandboxHandle } from "../_sandbox/provider";
 import { getSandboxClient } from "../_sandbox/factory";
 import { launchScript } from "./launch";
 import { ensureSwapFile } from "./swap";
+import { buildStubMarkdown, SYSTEM_SKILLS } from "../_systemSkills/registry";
 
 export const WORKSPACE_DIR = "/tmp/repo";
 export const LEGACY_WORKSPACE_DIR = "/workspace/repo";
@@ -488,14 +489,27 @@ export async function resolveSandboxClientOnly(
   return client;
 }
 
+/**
+ * Vercel-managed universal image: Ubuntu with Node 24, git, ripgrep and the
+ * claude-code / codex / opencode CLIs, patched nightly. The orchestrator boots
+ * from it so the master session never waits on (or drifts with) a per-repo
+ * snapshot build.
+ */
+export const ORCHESTRATOR_SANDBOX_IMAGE = "vercel/sandbox/universal:latest";
+
 /** Resolves the provider client, sandbox env vars, and snapshot name for a repo. */
 export async function resolveSandboxContext(
   ctx: GenericActionCtx<DataModel>,
   repoId: Id<"githubRepos">,
+  opts?: {
+    /** Orchestrator sessions boot from the managed image, not a repo snapshot. */
+    isOrchestrator?: boolean;
+  },
 ): Promise<{
   client: SandboxClient;
   sandboxEnvVars: Record<string, string>;
   snapshotName: string | undefined;
+  image: string | undefined;
 }> {
   const startedAt = Date.now();
   const { credentials, sandboxEnvVars } = await resolveSandboxCredentials(
@@ -503,18 +517,23 @@ export async function resolveSandboxContext(
     repoId,
   );
   const client = getSandboxClient(credentials);
-  const repoSnapshot = await ctx.runQuery(
-    internal.repoSnapshots.getRepoSnapshotName,
-    { repoId },
-  );
+  const isOrchestrator = opts?.isOrchestrator === true;
+  // Snapshot lookup is skipped entirely for the orchestrator: the image boot
+  // ignores it, and the query would only add latency to the master's start.
+  const repoSnapshot = isOrchestrator
+    ? null
+    : await ctx.runQuery(internal.repoSnapshots.getRepoSnapshotName, {
+        repoId,
+      });
   const snapshotName = repoSnapshot?.snapshotName;
   console.log(
-    `[sandbox] resolveSandboxContext repoId=${repoId} kind=${client.kind} elapsed=${Date.now() - startedAt}ms`,
+    `[sandbox] resolveSandboxContext repoId=${repoId} kind=${client.kind} orchestrator=${isOrchestrator} elapsed=${Date.now() - startedAt}ms`,
   );
   return {
     client,
     sandboxEnvVars: { ...sandboxEnvVars, REPO_ID: repoId },
     snapshotName,
+    image: isOrchestrator ? ORCHESTRATOR_SANDBOX_IMAGE : undefined,
   };
 }
 
@@ -620,11 +639,27 @@ export async function signAndLaunchScript(
   // System skills reach the agent as stub SKILL.md files in the checkout, and
   // the stubs are useless without the eva MCP server — so a launch with MCP
   // disabled ships an empty list, which prunes any leftovers.
-  const systemSkillStubs = mcpToken
+  const installedSkillStubs = mcpToken
     ? await ctx.runQuery(internal.repoSystemSkills.listStubsForLaunch, {
         repoId,
       })
     : [];
+  // The master's own skill skips the per-repo install gate — it belongs to the
+  // session, not to whichever repo the master happens to be checked out on.
+  // `get_skill` mirrors this bypass when it serves the content.
+  const orchestratorSkill = SYSTEM_SKILLS["eva-orchestrator"];
+  const systemSkillStubs =
+    mcpToken && launchSession?.isOrchestrator === true
+      ? [
+          ...installedSkillStubs.filter(
+            (stub) => stub.name !== orchestratorSkill.name,
+          ),
+          {
+            name: orchestratorSkill.name,
+            stub: buildStubMarkdown(orchestratorSkill),
+          },
+        ]
+      : installedSkillStubs;
 
   await launchScript(
     sandbox,

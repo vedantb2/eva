@@ -729,6 +729,11 @@ export const queuedMessageFields = {
   numDesigns: v.optional(v.number()),
   // Carried from the composer through the queue to the started user message.
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+  // Set when a child-completion wake-up had to be queued because the master was
+  // busy. Copied onto the started user message so the row still renders as a
+  // notification rather than a plain user turn (mirrors
+  // messageFields.orchestratorNotification).
+  orchestratorNotification: v.optional(v.boolean()),
 };
 
 export const taskSandboxEventFields = {

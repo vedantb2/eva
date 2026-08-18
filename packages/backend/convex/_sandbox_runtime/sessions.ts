@@ -891,10 +891,17 @@ async function prepareSessionSandboxInternal(
   });
 
   // Create path needs full env map + snapshot — load only after reuse failed.
-  const { sandboxEnvVars, snapshotName } = await runLoggedSessionStep(
+  // The orchestrator (master) session boots from the Vercel managed image
+  // instead of this repo's snapshot, and skips the repo dependency install:
+  // chat needs neither, and both would cost minutes on every master start.
+  const session = await ctx.runQuery(internal.sessions.getInternal, {
+    id: args.sessionId,
+  });
+  const isOrchestrator = session?.isOrchestrator === true;
+  const { sandboxEnvVars, snapshotName, image } = await runLoggedSessionStep(
     "resolveSessionSandboxContext",
     actionDetails,
-    () => resolveSandboxContext(ctx, args.repoId),
+    () => resolveSandboxContext(ctx, args.repoId, { isOrchestrator }),
   );
 
   if (reuseId) {
@@ -925,7 +932,7 @@ async function prepareSessionSandboxInternal(
   let earlyReadyEmitted = false;
   const prepared = await runLoggedSessionStep(
     "createSessionSandboxAndPrepareRepo",
-    `${actionDetails}, snapshot=${snapshotName ?? "none"}`,
+    `${actionDetails}, snapshot=${snapshotName ?? "none"}, image=${image ?? "none"}`,
     () =>
       createSandboxAndPrepareRepo(
         ctx,
@@ -962,6 +969,11 @@ async function prepareSessionSandboxInternal(
         },
         undefined,
         { mode: "none" },
+        undefined,
+        // skipInstallDeps: the orchestrator only chats + runs git, so a repo
+        // dependency install would add minutes to every master boot.
+        isOrchestrator,
+        image,
       ),
   );
   const handle = prepared.sandbox;

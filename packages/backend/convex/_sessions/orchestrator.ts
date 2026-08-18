@@ -1,0 +1,83 @@
+import { v } from "convex/values";
+import type { Id } from "../_generated/dataModel";
+import type { DatabaseReader } from "../_generated/server";
+import { authMutation, authQuery } from "../functions";
+import { entityVisible } from "../numId";
+import { createSession } from "./mutations";
+
+/** Title of the persistent per-user master session. */
+const MASTER_SESSION_TITLE = "Master";
+
+/**
+ * Everything the client needs to route to the master session. The master lives
+ * in the normal session UI, so this is a pointer (repo + numId), not the doc.
+ */
+const orchestratorSessionValidator = v.object({
+  sessionId: v.id("sessions"),
+  numId: v.number(),
+  owner: v.string(),
+  name: v.string(),
+  rootDirectory: v.optional(v.string()),
+});
+
+/**
+ * Resolves the user's master session pointer, or null when it was never
+ * created, was deleted/archived, or has no repo to route through.
+ */
+async function resolveOrchestratorSession(
+  db: DatabaseReader,
+  userId: Id<"users">,
+) {
+  const user = await db.get(userId);
+  if (!user?.orchestratorSessionId) return null;
+  const session = entityVisible(await db.get(user.orchestratorSessionId));
+  if (!session || session.archived === true) return null;
+  // A session without a numId has no URL, so it cannot be the master.
+  if (session.numId === undefined) return null;
+  const repo = await db.get(session.repoId);
+  if (!repo) return null;
+  return {
+    sessionId: session._id,
+    numId: session.numId,
+    owner: repo.owner,
+    name: repo.name,
+    rootDirectory: repo.rootDirectory,
+  };
+}
+
+/** The user's master session, or null when they do not have a live one. */
+export const getOrchestratorSession = authQuery({
+  args: {},
+  returns: v.union(orchestratorSessionValidator, v.null()),
+  handler: async (ctx) => await resolveOrchestratorSession(ctx.db, ctx.userId),
+});
+
+/**
+ * Returns the user's live master session, creating one in `repoId` when it is
+ * missing (never created, deleted, or archived). A replacement master repoints
+ * the user at the new session — there is only ever one.
+ */
+export const ensureOrchestratorSession = authMutation({
+  args: { repoId: v.id("githubRepos") },
+  returns: orchestratorSessionValidator,
+  handler: async (ctx, args) => {
+    const existing = await resolveOrchestratorSession(ctx.db, ctx.userId);
+    if (existing) return existing;
+    // `createSession` owns the repo access check and the sandbox startup path.
+    const { sessionId, numId } = await createSession(ctx, {
+      repoId: args.repoId,
+      title: MASTER_SESSION_TITLE,
+      isOrchestrator: true,
+    });
+    await ctx.db.patch(ctx.userId, { orchestratorSessionId: sessionId });
+    const repo = await ctx.db.get(args.repoId);
+    if (!repo) throw new Error("Repository not found");
+    return {
+      sessionId,
+      numId,
+      owner: repo.owner,
+      name: repo.name,
+      rootDirectory: repo.rootDirectory,
+    };
+  },
+});

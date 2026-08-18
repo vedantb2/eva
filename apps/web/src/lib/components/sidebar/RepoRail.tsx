@@ -15,7 +15,7 @@ import {
   TooltipTrigger,
   cn,
 } from "@eva/ui";
-import { IconPencil } from "@tabler/icons-react";
+import { IconPencil, IconRobot } from "@tabler/icons-react";
 import {
   AutomationsIcon,
   InboxIcon,
@@ -191,6 +191,9 @@ function RepoRailView({
     pathname === "/automations" ||
     pathname.startsWith("/automations/") ||
     (pathParts.includes("automations") && pathParts[0] !== "automations");
+  // The master redirects into a normal session URL, so only the picker/redirect
+  // route itself lights this tile — the session it lands on belongs to Sessions.
+  const masterActive = pathname === "/master";
   const sessionsLabel = formatCountLabel(activeSessionCount);
   const [renameRepo, setRenameRepo] = useState<RepoWithLogo | null>(null);
 
@@ -262,6 +265,23 @@ function RepoRailView({
           <TooltipContent side="right">
             {sessionsLabel ? `Sessions (${sessionsLabel})` : "Sessions"}
           </TooltipContent>
+        </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              to="/master"
+              onClick={onNavigate}
+              aria-label="Master"
+              className={cn(
+                RAIL_TILE_CLASS,
+                "group",
+                railTileActive(masterActive),
+              )}
+            >
+              <IconRobot size={22} className="shrink-0" />
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right">Master</TooltipContent>
         </Tooltip>
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />
       </div>

@@ -1,7 +1,7 @@
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import { internal } from "../_generated/api";
 import type { Doc, Id } from "../_generated/dataModel";
-import type { DatabaseReader } from "../_generated/server";
+import type { DatabaseReader, MutationCtx } from "../_generated/server";
 import {
   authMutation,
   getSessionWithAccess,
@@ -45,136 +45,158 @@ async function getSessionOrThrow(
   return session;
 }
 
+const createSessionArgs = v.object({
+  repoId: v.id("githubRepos"),
+  title: v.optional(v.string()),
+  message: v.optional(v.string()),
+  mode: v.optional(sessionModeValidator),
+  model: v.optional(aiModelValidator),
+  reasoningLevel: v.optional(reasoningLevelValidator),
+  thinkingEnabled: v.optional(v.boolean()),
+  use1mContext: v.optional(v.boolean()),
+  fastMode: v.optional(v.boolean()),
+  providerAccountId: v.optional(
+    v.union(v.id("userProviderAccounts"), v.null()),
+  ),
+  baseBranch: v.optional(v.string()),
+  attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+  personaId: v.optional(v.id("designPersonas")),
+  numDesigns: v.optional(v.number()),
+  /** Marks the user's persistent master session. Set only at creation. */
+  isOrchestrator: v.optional(v.boolean()),
+});
+
+type CreateSessionArgs = Infer<typeof createSessionArgs>;
+
+/** Mutation context after `authMutation` injects the caller's user id. */
+type AuthMutationCtx = MutationCtx & { userId: Id<"users"> };
+
+/**
+ * Shared session creation path: insert, branch, sandbox startup workflow, and
+ * (optionally) the first queued message. Used by the `create` mutation and by
+ * `_sessions/orchestrator.ts` so the master session takes the same path.
+ */
+export async function createSession(
+  ctx: AuthMutationCtx,
+  args: CreateSessionArgs,
+): Promise<{ sessionId: Id<"sessions">; numId: number }> {
+  if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
+    throw new Error("Not authorized");
+  }
+  const repo = await ctx.db.get(args.repoId);
+  if (!repo) throw new Error("Repository not found");
+  const title = args.title?.trim() || DEFAULT_SESSION_TITLE;
+  const baseBranch = resolveSessionBaseBranch(
+    { baseBranch: args.baseBranch },
+    repo,
+  );
+  const numId = await allocateNumId(ctx.db, args.repoId, "sessions");
+  const model = args.model ?? repo.defaultModel;
+  const reasoningLevel = args.reasoningLevel ?? repo.defaultReasoningLevel;
+  const thinkingEnabled = args.thinkingEnabled ?? repo.defaultThinkingEnabled;
+  const use1mContext = args.use1mContext ?? repo.defaultUse1mContext;
+  const fastMode = args.fastMode ?? repo.defaultFastMode;
+  const providerAccountId =
+    args.providerAccountId === undefined
+      ? await resolveDefaultProviderAccountId(ctx.db, ctx.userId, model)
+      : await assertProviderAccountUsableBy(
+          ctx.db,
+          args.providerAccountId,
+          ctx.userId,
+        );
+  const sessionId = await ctx.db.insert("sessions", {
+    repoId: args.repoId,
+    userId: ctx.userId,
+    title,
+    status: "starting",
+    createdBy: ctx.userId,
+    updatedAt: Date.now(),
+    numId,
+    baseBranch,
+    providerAccountId,
+    // Pins the session to this provider for its whole life.
+    provider: getAIModelProvider(model),
+    lastModel: model,
+    ...(args.mode !== undefined ? { lastMode: args.mode } : {}),
+    ...(reasoningLevel !== undefined
+      ? { lastReasoningLevel: reasoningLevel }
+      : {}),
+    ...(thinkingEnabled !== undefined
+      ? { lastThinkingEnabled: thinkingEnabled }
+      : {}),
+    ...(use1mContext !== undefined ? { lastUse1mContext: use1mContext } : {}),
+    ...(fastMode !== undefined ? { lastFastMode: fastMode } : {}),
+    ...(args.isOrchestrator !== undefined
+      ? { isOrchestrator: args.isOrchestrator }
+      : {}),
+  });
+  const branchName = `eva/session-${sessionId}`;
+  await ctx.db.patch(sessionId, { branchName });
+  await workflow.start(
+    ctx,
+    internal.sessionWorkflow.sessionSandboxStartupWorkflow,
+    {
+      sessionId,
+      installationId: repo.installationId,
+      repoOwner: repo.owner,
+      repoName: repo.name,
+      branchName,
+      baseBranch,
+      repoId: args.repoId,
+    },
+  );
+
+  const content = args.message?.trim() ?? "";
+  if (content) {
+    if (!args.mode || !args.model) {
+      throw new Error("mode and model are required when queuing a message");
+    }
+    await ctx.db.insert("queuedMessages", {
+      parentId: sessionId,
+      content,
+      createdAt: Date.now(),
+      order: Date.now(),
+      userId: ctx.userId,
+      mode: args.mode,
+      model: args.model,
+      reasoningLevel,
+      thinkingEnabled,
+      use1mContext,
+      fastMode,
+      providerAccountId,
+      attachmentStorageIds: args.attachmentStorageIds,
+      personaId: args.personaId,
+      numDesigns: args.numDesigns,
+    });
+    // The first message queues directly rather than going through
+    // startExecute, so its mentions are notified here instead.
+    const session = await ctx.db.get(sessionId);
+    if (session) {
+      await notifyChatMentions(ctx, {
+        content,
+        authorUserId: ctx.userId,
+        surface: { kind: "session", session },
+      });
+    }
+    if (title === DEFAULT_SESSION_TITLE) {
+      await ctx.scheduler.runAfter(0, internal.textGen.generateSessionTitle, {
+        sessionId,
+        message: content,
+      });
+    }
+  }
+
+  return { sessionId, numId };
+}
+
 /** Creates a new session with a sandbox startup workflow. */
 export const create = authMutation({
-  args: {
-    repoId: v.id("githubRepos"),
-    title: v.optional(v.string()),
-    message: v.optional(v.string()),
-    mode: v.optional(sessionModeValidator),
-    model: v.optional(aiModelValidator),
-    reasoningLevel: v.optional(reasoningLevelValidator),
-    thinkingEnabled: v.optional(v.boolean()),
-    use1mContext: v.optional(v.boolean()),
-    fastMode: v.optional(v.boolean()),
-    providerAccountId: v.optional(
-      v.union(v.id("userProviderAccounts"), v.null()),
-    ),
-    baseBranch: v.optional(v.string()),
-    attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
-    personaId: v.optional(v.id("designPersonas")),
-    numDesigns: v.optional(v.number()),
-  },
+  args: createSessionArgs.fields,
   returns: v.object({
     sessionId: v.id("sessions"),
     numId: v.number(),
   }),
-  handler: async (ctx, args) => {
-    if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
-      throw new Error("Not authorized");
-    }
-    const repo = await ctx.db.get(args.repoId);
-    if (!repo) throw new Error("Repository not found");
-    const title = args.title?.trim() || DEFAULT_SESSION_TITLE;
-    const baseBranch = resolveSessionBaseBranch(
-      { baseBranch: args.baseBranch },
-      repo,
-    );
-    const numId = await allocateNumId(ctx.db, args.repoId, "sessions");
-    const model = args.model ?? repo.defaultModel;
-    const reasoningLevel = args.reasoningLevel ?? repo.defaultReasoningLevel;
-    const thinkingEnabled = args.thinkingEnabled ?? repo.defaultThinkingEnabled;
-    const use1mContext = args.use1mContext ?? repo.defaultUse1mContext;
-    const fastMode = args.fastMode ?? repo.defaultFastMode;
-    const providerAccountId =
-      args.providerAccountId === undefined
-        ? await resolveDefaultProviderAccountId(ctx.db, ctx.userId, model)
-        : await assertProviderAccountUsableBy(
-            ctx.db,
-            args.providerAccountId,
-            ctx.userId,
-          );
-    const sessionId = await ctx.db.insert("sessions", {
-      repoId: args.repoId,
-      userId: ctx.userId,
-      title,
-      status: "starting",
-      createdBy: ctx.userId,
-      updatedAt: Date.now(),
-      numId,
-      baseBranch,
-      providerAccountId,
-      // Pins the session to this provider for its whole life.
-      provider: getAIModelProvider(model),
-      lastModel: model,
-      ...(args.mode !== undefined ? { lastMode: args.mode } : {}),
-      ...(reasoningLevel !== undefined
-        ? { lastReasoningLevel: reasoningLevel }
-        : {}),
-      ...(thinkingEnabled !== undefined
-        ? { lastThinkingEnabled: thinkingEnabled }
-        : {}),
-      ...(use1mContext !== undefined ? { lastUse1mContext: use1mContext } : {}),
-      ...(fastMode !== undefined ? { lastFastMode: fastMode } : {}),
-    });
-    const branchName = `eva/session-${sessionId}`;
-    await ctx.db.patch(sessionId, { branchName });
-    await workflow.start(
-      ctx,
-      internal.sessionWorkflow.sessionSandboxStartupWorkflow,
-      {
-        sessionId,
-        installationId: repo.installationId,
-        repoOwner: repo.owner,
-        repoName: repo.name,
-        branchName,
-        baseBranch,
-        repoId: args.repoId,
-      },
-    );
-
-    const content = args.message?.trim() ?? "";
-    if (content) {
-      if (!args.mode || !args.model) {
-        throw new Error("mode and model are required when queuing a message");
-      }
-      await ctx.db.insert("queuedMessages", {
-        parentId: sessionId,
-        content,
-        createdAt: Date.now(),
-        order: Date.now(),
-        userId: ctx.userId,
-        mode: args.mode,
-        model: args.model,
-        reasoningLevel,
-        thinkingEnabled,
-        use1mContext,
-        fastMode,
-        providerAccountId,
-        attachmentStorageIds: args.attachmentStorageIds,
-        personaId: args.personaId,
-        numDesigns: args.numDesigns,
-      });
-      // The first message queues directly rather than going through
-      // startExecute, so its mentions are notified here instead.
-      const session = await ctx.db.get(sessionId);
-      if (session) {
-        await notifyChatMentions(ctx, {
-          content,
-          authorUserId: ctx.userId,
-          surface: { kind: "session", session },
-        });
-      }
-      if (title === DEFAULT_SESSION_TITLE) {
-        await ctx.scheduler.runAfter(0, internal.textGen.generateSessionTitle, {
-          sessionId,
-          message: content,
-        });
-      }
-    }
-
-    return { sessionId, numId };
-  },
+  handler: async (ctx, args) => await createSession(ctx, args),
 });
 
 /** Adds a message to a session conversation. */
@@ -191,6 +213,8 @@ export const addMessage = authMutation({
     model: v.optional(aiModelValidator),
     reasoningLevel: v.optional(reasoningLevelValidator),
     personaId: v.optional(v.id("designPersonas")),
+    /** Set by the orchestrator's `send_agent_message` MCP tool. */
+    sentViaOrchestrator: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -219,6 +243,7 @@ export const addMessage = authMutation({
         ? {
             model: args.model,
             reasoningLevel: args.reasoningLevel,
+            sentViaOrchestrator: args.sentViaOrchestrator,
           }
         : {}),
     });

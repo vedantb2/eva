@@ -10,6 +10,9 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { registerTools } from "./tools";
 import { registerSupabaseTools } from "./supabase";
+import { resolveAgentDelivery } from "./orchestratorDelivery";
+import { TASK_CHAT_STREAM_PREFIX } from "../_chat/surfaceAdapters";
+import { normalizeAIModel } from "../validators";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Environment Helpers
@@ -53,6 +56,7 @@ const internalTokenClaims = z.object({
   repoId: z.string(),
   entityId: z.string().optional(),
   entityKind: z.enum(["session", "task", "project"]).optional(),
+  orchestrator: z.boolean().optional(),
 });
 
 type OauthTokens = {
@@ -184,6 +188,7 @@ export const verifyAccessToken = internalAction({
       entityKind: v.optional(
         v.union(v.literal("session"), v.literal("task"), v.literal("project")),
       ),
+      isOrchestrator: v.optional(v.boolean()),
     }),
     v.null(),
   ),
@@ -217,6 +222,7 @@ export const verifyAccessToken = internalAction({
           scopedRepoId: undefined,
           entityId: undefined,
           entityKind: undefined,
+          isOrchestrator: undefined,
         };
       }
       // OAuth payload missing sub — fall through to internal token
@@ -252,6 +258,9 @@ export const verifyAccessToken = internalAction({
           : {}),
         ...(claims.data.entityKind !== undefined
           ? { entityKind: claims.data.entityKind }
+          : {}),
+        ...(claims.data.orchestrator !== undefined
+          ? { isOrchestrator: claims.data.orchestrator }
           : {}),
       };
     } catch (err) {
@@ -1118,6 +1127,511 @@ export const listArtifacts = internalAction({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Orchestrator actions (master session fleet control)
+//
+// Every call below goes through runQueryAsUser / runMutationAsUser, i.e. a
+// signed user JWT hitting authQuery/authMutation. Their hasRepoAccess checks
+// are the ONLY authorisation for orchestrator tools — unlike the repo-scoped
+// tools these deliberately skip the sandbox token's single-repo pin, so the
+// master can reach every agent the user can reach and nothing more.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const agentKindValidator = v.union(v.literal("session"), v.literal("task"));
+type AgentKind = "session" | "task";
+
+const orchestratorAgentValidator = v.object({
+  kind: agentKindValidator,
+  id: v.string(),
+  numId: v.optional(v.number()),
+  repo: v.string(),
+  title: v.string(),
+  status: v.string(),
+  isExecuting: v.boolean(),
+  model: v.optional(v.string()),
+  updatedAt: v.number(),
+});
+
+interface OrchestratorAgent {
+  kind: AgentKind;
+  id: string;
+  numId?: number;
+  repo: string;
+  title: string;
+  status: string;
+  isExecuting: boolean;
+  model?: string;
+  updatedAt: number;
+}
+
+/** Slim projection of `_sessions/queries:list` rows. */
+const sessionListItemSchema = z.object({
+  _id: z.string(),
+  _creationTime: z.number(),
+  numId: z.number().optional(),
+  repoId: z.string(),
+  title: z.string(),
+  status: z.string(),
+  updatedAt: z.number().optional(),
+  lastModel: z.string().optional(),
+  isExecuting: z.boolean(),
+});
+
+/** Slim projection of an `agentTasks` document. */
+const agentTaskSchema = z.object({
+  _id: z.string(),
+  _creationTime: z.number(),
+  numId: z.number().optional(),
+  repoId: z.string().optional(),
+  title: z.string(),
+  status: z.string(),
+  updatedAt: z.number(),
+  model: z.string().optional(),
+  lastChatModel: z.string().optional(),
+  activeWorkflowId: z.string().optional(),
+  activeChatWorkflowId: z.string().optional(),
+});
+
+/** Slim projection of a `sessions` document. */
+const sessionDocSchema = z.object({
+  _id: z.string(),
+  _creationTime: z.number(),
+  numId: z.number().optional(),
+  repoId: z.string(),
+  title: z.string(),
+  status: z.string(),
+  updatedAt: z.number().optional(),
+  lastModel: z.string().optional(),
+  lastMode: z.string().optional(),
+  activeWorkflowId: z.string().optional(),
+  deploymentUrl: z.string().optional(),
+  deploymentStatus: z.string().optional(),
+});
+
+const streamingStateSchema = z
+  .object({
+    currentActivity: z.string(),
+    currentContent: z.string(),
+    pendingQuestion: z.string().optional(),
+  })
+  .nullable();
+
+const transcriptMessageSchema = z.object({
+  _creationTime: z.number(),
+  role: z.string(),
+  content: z.string(),
+  timestamp: z.number().optional(),
+});
+
+const createdSessionSchema = z.object({
+  sessionId: z.string(),
+  numId: z.number(),
+});
+
+/** Longest message body kept per transcript entry in `get_agent_state`. */
+const TRANSCRIPT_CHAR_LIMIT = 2000;
+
+/**
+ * Points a child session/task at the master session so a later completion can
+ * wake it. Called implicitly by create/send and explicitly by watch_agent.
+ */
+async function setWatchedByOrchestrator(
+  clerkUserId: string,
+  kind: AgentKind,
+  id: string,
+  masterSessionId: string | undefined,
+): Promise<void> {
+  const args: Record<string, JsonValue> =
+    kind === "session" ? { sessionId: id } : { taskId: id };
+  if (masterSessionId !== undefined) args.masterSessionId = masterSessionId;
+  await runMutationAsUser(
+    getEvaConvexCloudUrl(),
+    clerkUserId,
+    kind === "session"
+      ? "orchestratorWatch:setSessionWatchedBy"
+      : "orchestratorWatch:setTaskWatchedBy",
+    args,
+  );
+}
+
+export const orchestratorListAgents = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    repos: v.array(v.object({ id: v.string(), fullName: v.string() })),
+    includeIdle: v.boolean(),
+    excludeEntityId: v.optional(v.string()),
+  },
+  returns: v.array(orchestratorAgentValidator),
+  handler: async (
+    _ctx,
+    { clerkUserId, repos, includeIdle, excludeEntityId },
+  ): Promise<OrchestratorAgent[]> => {
+    const convexUrl = getEvaConvexCloudUrl();
+    const repoNameById = new Map(repos.map((r) => [r.id, r.fullName]));
+
+    const [sessionGroups, rawTasks] = await Promise.all([
+      Promise.all(
+        repos.map((repo) =>
+          runQueryAsUser(convexUrl, clerkUserId, "_sessions/queries:list", {
+            repoId: repo.id,
+          }),
+        ),
+      ),
+      // Already user-wide, so one call covers every repo.
+      runQueryAsUser(
+        convexUrl,
+        clerkUserId,
+        "_agentTasks/queries:getActiveTasks",
+        {},
+      ),
+    ]);
+
+    const agents: OrchestratorAgent[] = [];
+    for (const group of sessionGroups) {
+      for (const item of z.array(sessionListItemSchema).parse(group)) {
+        agents.push({
+          kind: "session",
+          id: item._id,
+          numId: item.numId,
+          repo: repoNameById.get(item.repoId) ?? item.repoId,
+          title: item.title,
+          status: item.status,
+          isExecuting: item.isExecuting,
+          model: item.lastModel,
+          updatedAt: item.updatedAt ?? item._creationTime,
+        });
+      }
+    }
+    for (const task of z.array(agentTaskSchema).parse(rawTasks)) {
+      // Keep tasks inside the requested repo scope (all repos, or one).
+      if (task.repoId === undefined) continue;
+      const repoName = repoNameById.get(task.repoId);
+      if (repoName === undefined) continue;
+      agents.push({
+        kind: "task",
+        id: task._id,
+        numId: task.numId,
+        repo: repoName,
+        title: task.title,
+        status: task.status,
+        isExecuting:
+          task.activeWorkflowId !== undefined ||
+          task.activeChatWorkflowId !== undefined,
+        model: task.lastChatModel ?? task.model,
+        updatedAt: task.updatedAt,
+      });
+    }
+
+    return agents
+      .filter((agent) => agent.id !== excludeEntityId)
+      .filter((agent) => includeIdle || agent.isExecuting)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+  },
+});
+
+export const orchestratorGetAgentState = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    kind: agentKindValidator,
+    id: v.string(),
+    transcriptTail: v.number(),
+  },
+  returns: v.object({
+    kind: agentKindValidator,
+    id: v.string(),
+    numId: v.optional(v.number()),
+    title: v.string(),
+    status: v.string(),
+    isExecuting: v.boolean(),
+    model: v.optional(v.string()),
+    updatedAt: v.number(),
+    deploymentUrl: v.optional(v.string()),
+    deploymentStatus: v.optional(v.string()),
+    currentActivity: v.optional(v.string()),
+    currentContent: v.optional(v.string()),
+    pendingQuestion: v.optional(v.string()),
+    queuedMessageCount: v.number(),
+    transcript: v.array(
+      v.object({
+        role: v.string(),
+        content: v.string(),
+        timestamp: v.number(),
+        truncated: v.boolean(),
+      }),
+    ),
+  }),
+  handler: async (_ctx, { clerkUserId, kind, id, transcriptTail }) => {
+    const convexUrl = getEvaConvexCloudUrl();
+    const streamingEntityId =
+      kind === "session" ? id : `${TASK_CHAT_STREAM_PREFIX}${id}`;
+
+    const [rawDoc, rawStreaming, rawMessages, rawQueued] = await Promise.all([
+      runQueryAsUser(
+        convexUrl,
+        clerkUserId,
+        kind === "session"
+          ? "_sessions/queries:get"
+          : "_agentTasks/queries:get",
+        { id },
+      ),
+      runQueryAsUser(convexUrl, clerkUserId, "streaming:get", {
+        entityId: streamingEntityId,
+      }),
+      runQueryAsUser(convexUrl, clerkUserId, "messages:listByParent", {
+        parentId: id,
+      }),
+      runQueryAsUser(convexUrl, clerkUserId, "queuedMessages:listByParent", {
+        parentId: id,
+      }),
+    ]);
+
+    if (rawDoc === null) {
+      throw new Error(`No ${kind} ${id} found, or you do not have access.`);
+    }
+
+    const streaming = streamingStateSchema.parse(rawStreaming);
+    const queuedMessageCount = z.array(z.unknown()).parse(rawQueued).length;
+    const messages = z.array(transcriptMessageSchema).parse(rawMessages);
+    const tail = transcriptTail > 0 ? messages.slice(-transcriptTail) : [];
+    const transcript = tail.map((message) => ({
+      role: message.role,
+      content: message.content.slice(0, TRANSCRIPT_CHAR_LIMIT),
+      timestamp: message.timestamp ?? message._creationTime,
+      truncated: message.content.length > TRANSCRIPT_CHAR_LIMIT,
+    }));
+
+    const common = {
+      kind,
+      id,
+      queuedMessageCount,
+      transcript,
+      currentActivity: streaming?.currentActivity,
+      currentContent: streaming?.currentContent,
+      pendingQuestion: streaming?.pendingQuestion,
+    };
+
+    if (kind === "session") {
+      const session = sessionDocSchema.parse(rawDoc);
+      return {
+        ...common,
+        numId: session.numId,
+        title: session.title,
+        status: session.status,
+        isExecuting: session.activeWorkflowId !== undefined,
+        model: session.lastModel,
+        updatedAt: session.updatedAt ?? session._creationTime,
+        deploymentUrl: session.deploymentUrl,
+        deploymentStatus: session.deploymentStatus,
+      };
+    }
+
+    const task = agentTaskSchema.parse(rawDoc);
+    return {
+      ...common,
+      numId: task.numId,
+      title: task.title,
+      status: task.status,
+      isExecuting:
+        task.activeWorkflowId !== undefined ||
+        task.activeChatWorkflowId !== undefined,
+      model: task.lastChatModel ?? task.model,
+      updatedAt: task.updatedAt,
+      deploymentUrl: undefined,
+      deploymentStatus: undefined,
+    };
+  },
+});
+
+export const orchestratorSendMessage = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    kind: agentKindValidator,
+    id: v.string(),
+    message: v.string(),
+    model: v.optional(v.string()),
+    masterSessionId: v.optional(v.string()),
+  },
+  returns: v.object({
+    delivered: v.union(v.literal("started"), v.literal("queued")),
+    model: v.string(),
+  }),
+  handler: async (
+    _ctx,
+    { clerkUserId, kind, id, message, model, masterSessionId },
+  ) => {
+    const convexUrl = getEvaConvexCloudUrl();
+    const rawDoc = await runQueryAsUser(
+      convexUrl,
+      clerkUserId,
+      kind === "session" ? "_sessions/queries:get" : "_agentTasks/queries:get",
+      { id },
+    );
+    if (rawDoc === null) {
+      throw new Error(`No ${kind} ${id} found, or you do not have access.`);
+    }
+
+    if (kind === "session") {
+      const session = sessionDocSchema.parse(rawDoc);
+      const delivery = resolveAgentDelivery({
+        isBusy: session.activeWorkflowId !== undefined,
+        requestedModel: model,
+        storedModel: session.lastModel,
+      });
+      const mode = session.lastMode ?? "edit";
+      if (delivery.action === "queue") {
+        // The queue drain inserts the user message row on dequeue.
+        await runMutationAsUser(
+          convexUrl,
+          clerkUserId,
+          "_sessions/execution:enqueueMessage",
+          { sessionId: id, message, mode, model: delivery.model },
+        );
+      } else {
+        // startExecute only stages the assistant placeholder, so the user row
+        // has to be inserted first (same pairing the web composer uses).
+        await runMutationAsUser(
+          convexUrl,
+          clerkUserId,
+          "_sessions/mutations:addMessage",
+          {
+            id,
+            role: "user",
+            content: message,
+            mode,
+            model: delivery.model,
+            sentViaOrchestrator: true,
+          },
+        );
+        await runMutationAsUser(
+          convexUrl,
+          clerkUserId,
+          "_sessions/execution:startExecute",
+          { sessionId: id, message, mode, model: delivery.model },
+        );
+      }
+      await setWatchedByOrchestrator(clerkUserId, kind, id, masterSessionId);
+      const delivered: "queued" | "started" =
+        delivery.action === "queue" ? "queued" : "started";
+      return { delivered, model: delivery.model };
+    }
+
+    const task = agentTaskSchema.parse(rawDoc);
+    const delivery = resolveAgentDelivery({
+      // The chat surface has its own workflow slot, separate from a task run.
+      isBusy: task.activeChatWorkflowId !== undefined,
+      requestedModel: model,
+      storedModel: task.lastChatModel ?? task.model,
+    });
+    if (delivery.action === "queue") {
+      await runMutationAsUser(
+        convexUrl,
+        clerkUserId,
+        "agentTaskChatWorkflow:enqueueMessage",
+        { taskId: id, message, model: delivery.model },
+      );
+    } else {
+      await runMutationAsUser(
+        convexUrl,
+        clerkUserId,
+        "agentTaskChatWorkflow:addMessage",
+        {
+          taskId: id,
+          role: "user",
+          content: message,
+          model: delivery.model,
+          sentViaOrchestrator: true,
+        },
+      );
+      await runMutationAsUser(
+        convexUrl,
+        clerkUserId,
+        "agentTaskChatWorkflow:startExecute",
+        { taskId: id, message, model: delivery.model },
+      );
+    }
+    await setWatchedByOrchestrator(clerkUserId, kind, id, masterSessionId);
+    const delivered: "queued" | "started" =
+      delivery.action === "queue" ? "queued" : "started";
+    return { delivered, model: delivery.model };
+  },
+});
+
+export const orchestratorStopAgent = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    kind: agentKindValidator,
+    id: v.string(),
+  },
+  returns: v.null(),
+  handler: async (_ctx, { clerkUserId, kind, id }) => {
+    await runMutationAsUser(
+      getEvaConvexCloudUrl(),
+      clerkUserId,
+      kind === "session"
+        ? "_sessions/execution:cancelExecution"
+        : "agentTaskChatWorkflow:cancelExecution",
+      kind === "session" ? { sessionId: id } : { taskId: id },
+    );
+    return null;
+  },
+});
+
+export const orchestratorCreateSession = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    repoId: v.string(),
+    title: v.optional(v.string()),
+    message: v.string(),
+    model: v.optional(v.string()),
+    baseBranch: v.optional(v.string()),
+    masterSessionId: v.optional(v.string()),
+  },
+  returns: v.object({ sessionId: v.string(), numId: v.number() }),
+  handler: async (
+    _ctx,
+    { clerkUserId, repoId, title, message, model, baseBranch, masterSessionId },
+  ) => {
+    const createArgs: Record<string, JsonValue> = {
+      repoId,
+      message,
+      mode: "edit",
+      model: normalizeAIModel(model),
+    };
+    if (title) createArgs.title = title;
+    if (baseBranch) createArgs.baseBranch = baseBranch;
+
+    const created = createdSessionSchema.parse(
+      await runMutationAsUser(
+        getEvaConvexCloudUrl(),
+        clerkUserId,
+        "_sessions/mutations:create",
+        createArgs,
+      ),
+    );
+    await setWatchedByOrchestrator(
+      clerkUserId,
+      "session",
+      created.sessionId,
+      masterSessionId,
+    );
+    return created;
+  },
+});
+
+export const orchestratorSetWatch = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    kind: agentKindValidator,
+    id: v.string(),
+    masterSessionId: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (_ctx, { clerkUserId, kind, id, masterSessionId }) => {
+    await setWatchedByOrchestrator(clerkUserId, kind, id, masterSessionId);
+    return null;
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Supabase Proxy Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1199,6 +1713,7 @@ export const handleMcpRequest = internalAction({
     entityKind: v.optional(
       v.union(v.literal("session"), v.literal("task"), v.literal("project")),
     ),
+    isOrchestrator: v.optional(v.boolean()),
     body: v.string(),
   },
   returns: v.object({
@@ -1207,7 +1722,7 @@ export const handleMcpRequest = internalAction({
   }),
   handler: async (
     ctx,
-    { clerkUserId, scopedRepoId, entityId, entityKind, body },
+    { clerkUserId, scopedRepoId, entityId, entityKind, isOrchestrator, body },
   ) => {
     try {
       const parsedBody = JSON.parse(body);
@@ -1220,7 +1735,13 @@ export const handleMcpRequest = internalAction({
 
       // Register tools with credentials (including optional scoped repo /
       // session entity for browser tools).
-      const credentials = { clerkUserId, scopedRepoId, entityId, entityKind };
+      const credentials = {
+        clerkUserId,
+        scopedRepoId,
+        entityId,
+        entityKind,
+        isOrchestrator,
+      };
       registerTools(server, credentials, ctx);
       try {
         await registerSupabaseTools(server, credentials, ctx);

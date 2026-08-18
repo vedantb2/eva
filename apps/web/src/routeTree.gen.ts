@@ -18,6 +18,7 @@ import { Route as GlobalAutomationsRouteImport } from './routes/_global/automati
 import { Route as GlobalChangelogRouteImport } from './routes/_global/changelog'
 import { Route as GlobalHomeRouteImport } from './routes/_global/home'
 import { Route as GlobalInboxRouteImport } from './routes/_global/inbox'
+import { Route as GlobalMasterRouteImport } from './routes/_global/master'
 import { Route as GlobalSessionsRouteImport } from './routes/_global/sessions'
 import { Route as GlobalSettingsRouteRouteImport } from './routes/_global/settings/route'
 import { Route as GlobalTestingRouteImport } from './routes/_global/testing'
@@ -165,6 +166,11 @@ const GlobalHomeRoute = GlobalHomeRouteImport.update({
 const GlobalInboxRoute = GlobalInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
+  getParentRoute: () => GlobalRoute,
+} as any)
+const GlobalMasterRoute = GlobalMasterRouteImport.update({
+  id: '/master',
+  path: '/master',
   getParentRoute: () => GlobalRoute,
 } as any)
 const GlobalSessionsRoute = GlobalSessionsRouteImport.update({
@@ -792,6 +798,7 @@ export interface FileRoutesByFullPath {
   '/changelog': typeof GlobalChangelogRoute
   '/home': typeof GlobalHomeRoute
   '/inbox': typeof GlobalInboxRoute
+  '/master': typeof GlobalMasterRoute
   '/sessions': typeof GlobalSessionsRoute
   '/testing': typeof GlobalTestingRoute
   '/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
@@ -906,6 +913,7 @@ export interface FileRoutesByTo {
   '/changelog': typeof GlobalChangelogRoute
   '/home': typeof GlobalHomeRoute
   '/inbox': typeof GlobalInboxRoute
+  '/master': typeof GlobalMasterRoute
   '/sessions': typeof GlobalSessionsRoute
   '/testing': typeof GlobalTestingRoute
   '/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
@@ -999,6 +1007,7 @@ export interface FileRoutesById {
   '/_global/changelog': typeof GlobalChangelogRoute
   '/_global/home': typeof GlobalHomeRoute
   '/_global/inbox': typeof GlobalInboxRoute
+  '/_global/master': typeof GlobalMasterRoute
   '/_global/sessions': typeof GlobalSessionsRoute
   '/_global/testing': typeof GlobalTestingRoute
   '/_global/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
@@ -1115,6 +1124,7 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/home'
     | '/inbox'
+    | '/master'
     | '/sessions'
     | '/testing'
     | '/teams/$teamId'
@@ -1229,6 +1239,7 @@ export interface FileRouteTypes {
     | '/changelog'
     | '/home'
     | '/inbox'
+    | '/master'
     | '/sessions'
     | '/testing'
     | '/artifacts/$artifactId'
@@ -1321,6 +1332,7 @@ export interface FileRouteTypes {
     | '/_global/changelog'
     | '/_global/home'
     | '/_global/inbox'
+    | '/_global/master'
     | '/_global/sessions'
     | '/_global/testing'
     | '/_global/teams/$teamId'
@@ -1499,6 +1511,13 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof GlobalInboxRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/master': {
+      id: '/_global/master'
+      path: '/master'
+      fullPath: '/master'
+      preLoaderRoute: typeof GlobalMasterRouteImport
       parentRoute: typeof GlobalRoute
     }
     '/_global/sessions': {
@@ -2286,6 +2305,7 @@ interface GlobalRouteChildren {
   GlobalChangelogRoute: typeof GlobalChangelogRoute
   GlobalHomeRoute: typeof GlobalHomeRoute
   GlobalInboxRoute: typeof GlobalInboxRoute
+  GlobalMasterRoute: typeof GlobalMasterRoute
   GlobalSessionsRoute: typeof GlobalSessionsRoute
   GlobalTestingRoute: typeof GlobalTestingRoute
   GlobalTeamsTeamIdRouteRoute: typeof GlobalTeamsTeamIdRouteRouteWithChildren
@@ -2301,6 +2321,7 @@ const GlobalRouteChildren: GlobalRouteChildren = {
   GlobalChangelogRoute: GlobalChangelogRoute,
   GlobalHomeRoute: GlobalHomeRoute,
   GlobalInboxRoute: GlobalInboxRoute,
+  GlobalMasterRoute: GlobalMasterRoute,
   GlobalSessionsRoute: GlobalSessionsRoute,
   GlobalTestingRoute: GlobalTestingRoute,
   GlobalTeamsTeamIdRouteRoute: GlobalTeamsTeamIdRouteRouteWithChildren,

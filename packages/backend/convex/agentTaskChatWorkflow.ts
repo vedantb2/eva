@@ -139,6 +139,8 @@ export const addMessage = authMutation({
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     model: v.optional(aiModelValidator),
     reasoningLevel: v.optional(reasoningLevelValidator),
+    /** Set by the orchestrator's `send_agent_message` MCP tool. */
+    sentViaOrchestrator: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -167,6 +169,7 @@ export const addMessage = authMutation({
             ),
             model: args.model,
             reasoningLevel: args.reasoningLevel,
+            sentViaOrchestrator: args.sentViaOrchestrator,
           }
         : {}),
     });

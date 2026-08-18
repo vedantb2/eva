@@ -2,39 +2,24 @@ import { type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
+import { registerOrchestratorTools } from "./orchestratorTools";
+import { buildEvaOrchestratorContent } from "../_systemSkills/evaOrchestrator";
 
-export function errorResult(message: string) {
-  return {
-    content: [{ type: "text" as const, text: message }],
-    isError: true,
-  };
-}
-
-export function textResult(data: Record<string, unknown> | Array<unknown>) {
-  return {
-    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
-  };
-}
-
-interface McpCredentials {
-  clerkUserId: string;
-  scopedRepoId?: string;
-  entityId?: string;
-  entityKind?: "session" | "task" | "project";
-}
-
-interface RepoInfo {
-  id: string;
-  owner: string;
-  name: string;
-  rootDirectory: string | null;
-  mcpRootPrompt: string | null;
-}
+import {
+  errorResult,
+  matchRepoByName,
+  mcpGetContext,
+  mcpListUserRepos,
+  textResult,
+  type McpCredentials,
+  type RepoInfo,
+} from "./toolShared";
 
 interface RepoCredentials {
   convexUrl: string;
   deployKey: string;
 }
+
 
 export function registerTools(
   server: McpServer,
@@ -42,26 +27,27 @@ export function registerTools(
   ctx: ActionCtx,
 ): void {
   const { clerkUserId, scopedRepoId, entityId, entityKind } = credentials;
+  const isOrchestrator = credentials.isOrchestrator === true;
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Helper functions
   // ─────────────────────────────────────────────────────────────────────────────
 
   async function getContext(): Promise<{ deployKey: string; userId: string }> {
-    return ctx.runAction(internal.mcp.nodeActions.getContext, {
-      clerkUserId,
-    });
+    return mcpGetContext(ctx, clerkUserId);
   }
 
   async function getUserRepos(userId: string): Promise<RepoInfo[]> {
-    return ctx.runAction(internal.mcp.nodeActions.listUserRepos, { userId });
+    return mcpListUserRepos(ctx, userId);
   }
 
   async function assertRepoAccess(
     repoId: string,
     userId: string,
   ): Promise<void> {
-    if (scopedRepoId && scopedRepoId !== repoId) {
+    // The master session reaches every repo the user can reach, so the token's
+    // single-repo pin does not apply to it — the per-user check below does.
+    if (scopedRepoId && scopedRepoId !== repoId && !isOrchestrator) {
       throw new Error(
         "Access denied: this token is scoped to a different repository.",
       );
@@ -106,6 +92,45 @@ export function registerTools(
     .describe(
       'Which Convex deployment to query. "prod" (default) reads from PROD_CONVEX_URL/PROD_CONVEX_DEPLOY_KEY. "staging" reads from NEXT_PUBLIC_CONVEX_URL/CONVEX_DEPLOY_KEY.',
     );
+
+  /**
+   * Repo selector shared by the backend read tools. `repoId` is the normal
+   * path; `repoName` exists so the master session can name any connected repo
+   * without a list_repos round trip first.
+   */
+  const repoRefArgs = {
+    repoId: z
+      .string()
+      .optional()
+      .describe(
+        "Repo ID from list_repos, specifying which repo's database to query. Provide this or repoName.",
+      ),
+    repoName: z
+      .string()
+      .optional()
+      .describe(
+        'Repo name (e.g. "eva" or "vvedantb/eva"), as an alternative to repoId. Resolved against your connected repos.',
+      ),
+    app: z
+      .string()
+      .optional()
+      .describe(
+        'App name within a monorepo (e.g. "web"). Used with repoName when a repo has multiple apps.',
+      ),
+  };
+
+  async function resolveRepoRef(
+    ref: { repoId?: string; repoName?: string; app?: string },
+    userId: string,
+  ): Promise<{ repoId: string } | ReturnType<typeof errorResult>> {
+    if (ref.repoId) return { repoId: ref.repoId };
+    if (!ref.repoName) {
+      return errorResult("Provide either repoId (from list_repos) or repoName.");
+    }
+    const resolved = await resolveRepoByName(ref.repoName, ref.app, userId);
+    if ("isError" in resolved) return resolved;
+    return { repoId: resolved.repo.id };
+  }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // list_repos
@@ -167,17 +192,15 @@ export function registerTools(
     "list_tables",
     "List all tables in a repo's Convex deployment with their field definitions, indexes, and inferred shapes.",
     {
-      repoId: z
-        .string()
-        .describe(
-          "Repo ID from list_repos. Required to specify which repo's database to query.",
-        ),
+      ...repoRefArgs,
       environment: environmentArg,
     },
-    async ({ repoId, environment }) => {
+    async ({ repoId, repoName, app, environment }) => {
       const { deployKey, userId } = await getContext();
+      const ref = await resolveRepoRef({ repoId, repoName, app }, userId);
+      if ("isError" in ref) return ref;
       const target = await resolveTargetWithAccess(
-        repoId,
+        ref.repoId,
         deployKey,
         userId,
         environment,
@@ -214,17 +237,24 @@ export function registerTools(
         .string()
         .optional()
         .describe("Pagination cursor from a previous query"),
-      repoId: z
-        .string()
-        .describe(
-          "Repo ID from list_repos. Required to specify which repo's database to query.",
-        ),
+      ...repoRefArgs,
       environment: environmentArg,
     },
-    async ({ table, order, limit, cursor, repoId, environment }) => {
+    async ({
+      table,
+      order,
+      limit,
+      cursor,
+      repoId,
+      repoName,
+      app,
+      environment,
+    }) => {
       const { deployKey, userId } = await getContext();
+      const ref = await resolveRepoRef({ repoId, repoName, app }, userId);
+      if ("isError" in ref) return ref;
       const target = await resolveTargetWithAccess(
-        repoId,
+        ref.repoId,
         deployKey,
         userId,
         environment,
@@ -259,22 +289,20 @@ export function registerTools(
       id: z
         .string()
         .describe('The document ID (e.g. "j572abc123..." or "kd83xyz...")'),
-      repoId: z
-        .string()
-        .describe(
-          "Repo ID from list_repos. Required to specify which repo's database to query.",
-        ),
+      ...repoRefArgs,
       environment: environmentArg,
     },
-    async ({ id, repoId, environment }) => {
+    async ({ id, repoId, repoName, app, environment }) => {
       if (!/^[a-zA-Z0-9_]+$/.test(id)) {
         return errorResult(
           "Invalid document ID format. IDs should be alphanumeric.",
         );
       }
       const { deployKey, userId } = await getContext();
+      const ref = await resolveRepoRef({ repoId, repoName, app }, userId);
+      if ("isError" in ref) return ref;
       const target = await resolveTargetWithAccess(
-        repoId,
+        ref.repoId,
         deployKey,
         userId,
         environment,
@@ -319,17 +347,15 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
         .describe(
           "The handler body code. Must return a value. Example: \"return await ctx.db.query('users').collect();\"",
         ),
-      repoId: z
-        .string()
-        .describe(
-          "Repo ID from list_repos. Required to specify which repo's database to query.",
-        ),
+      ...repoRefArgs,
       environment: environmentArg,
     },
-    async ({ code, repoId, environment }) => {
+    async ({ code, repoId, repoName, app, environment }) => {
       const { deployKey, userId } = await getContext();
+      const ref = await resolveRepoRef({ repoId, repoName, app }, userId);
+      if ("isError" in ref) return ref;
       const target = await resolveTargetWithAccess(
-        repoId,
+        ref.repoId,
         deployKey,
         userId,
         environment,
@@ -364,22 +390,20 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
     "Count the total number of documents in a table.",
     {
       table: z.string().describe("Table name"),
-      repoId: z
-        .string()
-        .describe(
-          "Repo ID from list_repos. Required to specify which repo's database to query.",
-        ),
+      ...repoRefArgs,
       environment: environmentArg,
     },
-    async ({ table, repoId, environment }) => {
+    async ({ table, repoId, repoName, app, environment }) => {
       if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(table)) {
         return errorResult(
           "Invalid table name. Use alphanumeric characters and underscores.",
         );
       }
       const { deployKey, userId } = await getContext();
+      const ref = await resolveRepoRef({ repoId, repoName, app }, userId);
+      if ("isError" in ref) return ref;
       const target = await resolveTargetWithAccess(
-        repoId,
+        ref.repoId,
         deployKey,
         userId,
         environment,
@@ -420,19 +444,17 @@ For schema discovery, query information_schema (e.g. "SELECT table_name FROM inf
         .max(1000)
         .default(100)
         .describe("Max rows to return (default 100, max 1000)."),
-      repoId: z
-        .string()
-        .describe(
-          "Repo ID from list_repos. Required to specify which repo's read replica to query.",
-        ),
+      ...repoRefArgs,
     },
-    async ({ sql, limit, repoId }) => {
+    async ({ sql, limit, repoId, repoName, app }) => {
       const { userId } = await getContext();
-      await assertRepoAccess(repoId, userId);
+      const ref = await resolveRepoRef({ repoId, repoName, app }, userId);
+      if ("isError" in ref) return ref;
+      await assertRepoAccess(ref.repoId, userId);
 
       const result = await ctx.runAction(
         internal.mcp.postgres.runPostgresQuery,
-        { repoId, sql, maxRows: limit },
+        { repoId: ref.repoId, sql, maxRows: limit },
       );
 
       if (!result.ok) {
@@ -462,56 +484,25 @@ For schema discovery, query information_schema (e.g. "SELECT table_name FROM inf
     app: string | undefined,
     userId: string,
   ): Promise<{ repo: RepoInfo } | ReturnType<typeof errorResult>> {
-    const repos = await getUserRepos(userId);
+    return matchRepoByName(await getUserRepos(userId), repoName, app);
+  }
 
-    const normalizedInput = repoName.toLowerCase();
-    const normalizedApp = app?.toLowerCase();
+  /** The master session's own id, carried on the orchestrator sandbox token. */
+  const masterSessionId =
+    isOrchestrator && entityKind === "session" ? entityId : undefined;
 
-    const nameMatches = repos.filter((r) => {
-      const fullName = `${r.owner}/${r.name}`.toLowerCase();
-      return (
-        fullName === normalizedInput || r.name.toLowerCase() === normalizedInput
-      );
+  /**
+   * Registers a task the master just created so it is woken when that task
+   * finishes. No-op for every non-orchestrator caller.
+   */
+  async function watchTaskAsOrchestrator(taskId: string): Promise<void> {
+    if (masterSessionId === undefined) return;
+    await ctx.runAction(internal.mcp.nodeActions.orchestratorSetWatch, {
+      clerkUserId,
+      kind: "task",
+      id: taskId,
+      masterSessionId,
     });
-
-    let repo: RepoInfo | undefined;
-    if (nameMatches.length === 0) {
-      repo = undefined;
-    } else if (nameMatches.length === 1) {
-      repo = nameMatches[0];
-    } else if (normalizedApp) {
-      repo = nameMatches.find((r) => {
-        if (!r.rootDirectory) return false;
-        const rootDir = r.rootDirectory.toLowerCase();
-        return (
-          rootDir === normalizedApp || rootDir.endsWith(`/${normalizedApp}`)
-        );
-      });
-      if (!repo) {
-        const apps = nameMatches
-          .map((r) => r.rootDirectory ?? "(root)")
-          .join(", ");
-        return errorResult(
-          `Multiple apps found for "${repoName}" but none matched app "${app}". Available apps: ${apps}`,
-        );
-      }
-    } else {
-      const apps = nameMatches
-        .map((r) => r.rootDirectory ?? "(root)")
-        .join(", ");
-      return errorResult(
-        `Multiple apps found for "${repoName}". Specify the "app" parameter to disambiguate. Available apps: ${apps}`,
-      );
-    }
-
-    if (!repo) {
-      const available = repos.map((r) => `${r.owner}/${r.name}`).join(", ");
-      return errorResult(
-        `Repo "${repoName}" not found. Your repos: ${available}`,
-      );
-    }
-
-    return { repo };
   }
 
   const taskArgs = {
@@ -581,6 +572,8 @@ For schema discovery, query information_schema (e.g. "SELECT table_name FROM inf
       baseBranch: input.baseBranch,
       projectId: input.projectId,
     });
+
+    await watchTaskAsOrchestrator(taskId);
 
     return { taskId, repoFullName: `${repo.owner}/${repo.name}` };
   }
@@ -722,6 +715,15 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
         typeof rawResult === "object" && rawResult !== null
           ? { ...rawResult }
           : {};
+
+      const created = z
+        .object({ taskIds: z.array(z.string()) })
+        .safeParse(rawResult);
+      if (created.success) {
+        for (const taskId of created.data.taskIds) {
+          await watchTaskAsOrchestrator(taskId);
+        }
+      }
 
       return textResult({
         repo: `${repo.owner}/${repo.name}`,
@@ -1130,6 +1132,16 @@ Do NOT use this instead of leaving files in recordings/ / screenshots/ for chat 
         ),
     },
     async ({ name, repoName, app }) => {
+      // The master's own skill is not repo-scoped and is never installed on a
+      // repo — the launch path ships its stub, so serve it off the token claim.
+      if (name === "eva-orchestrator" && isOrchestrator) {
+        return {
+          content: [
+            { type: "text" as const, text: buildEvaOrchestratorContent() },
+          ],
+        };
+      }
+
       const { userId } = await getContext();
 
       let repoId = scopedRepoId;
@@ -1162,4 +1174,12 @@ Do NOT use this instead of leaving files in recordings/ / screenshots/ for chat 
       };
     },
   );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Orchestrator tools — only the user's master session gets these.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  if (isOrchestrator) {
+    registerOrchestratorTools(server, credentials, ctx);
+  }
 }

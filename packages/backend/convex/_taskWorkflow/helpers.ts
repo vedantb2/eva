@@ -7,6 +7,7 @@ import { toWorkflowId, workflow } from "../workflowManager";
 import { buildProjectBranchName } from "../_projects/helpers";
 import { preferPersistedSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import { isUsageLimitError, parseUsageLimitResetTime } from "./recovery";
+import { scheduleTaskOrchestratorNotify } from "../orchestratorShared";
 
 export const llmJson = new LlmJson({ attemptCorrection: true });
 
@@ -178,6 +179,15 @@ export async function finalizeRunStatus(
     errorType: isRateLimit ? ("rate_limit" as const) : undefined,
     limitResetAt,
   });
+
+  // Single terminal-status choke point for a run, and it is guarded above
+  // against re-finalizing — so a watched task's master is woken exactly once
+  // whether the run ended via finalizeRunStreamingPhase or completeRun.
+  await scheduleTaskOrchestratorNotify(
+    ctx,
+    run.taskId,
+    params.success ? "success" : "error",
+  );
 }
 
 /** Extracts a JSON block from text, handling code fences and raw JSON objects. */

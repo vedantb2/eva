@@ -124,13 +124,17 @@ export function RepoNavSections({
             href: `${repoBasePath}/stats`,
             icon: StatsIcon,
           },
-          {
-            name: "Settings",
-            href: simpleView
-              ? `${repoBasePath}/settings/skills`
-              : `${repoBasePath}/settings/config`,
-            icon: SettingsIcon,
-          },
+          // Simple view has no repo settings pages, so the entry is dropped
+          // here; the rail's gear still opens global settings.
+          ...(simpleView
+            ? []
+            : [
+                {
+                  name: "Settings",
+                  href: `${repoBasePath}/settings/config`,
+                  icon: SettingsIcon,
+                } satisfies RepoMainNavItem,
+              ]),
         ],
       },
     ];

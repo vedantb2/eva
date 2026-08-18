@@ -9,6 +9,7 @@ import { WebPreviewPanel } from "@/routes/_repo/$owner/$repo/sessions/WebPreview
 import { EditorPanel } from "@/routes/_repo/$owner/$repo/sessions/EditorPanel";
 import { DesktopPanel } from "@/routes/_repo/$owner/$repo/sessions/DesktopPanel";
 import { PrPanel } from "./PrPanel";
+import { SandboxPaneBoundary } from "./SandboxPaneBoundary";
 import { PreviewPaneTabs } from "@/routes/_repo/$owner/$repo/sessions/_components/PreviewPaneTabs";
 import { ConsoleDock } from "./ConsoleDock";
 import type { SandboxPanesApi } from "./useSandboxPanes";
@@ -178,39 +179,45 @@ export function SandboxPaneSlots({
             : "hidden"
         }
       >
-        {simpleView ? (
-          previewRegion
-        ) : (
-        <ConsoleDock
-          controller={panes.consoleDock}
-          preview={previewRegion}
-          renderConsole={(visible) =>
-            consolePane ? (
-              <div className="flex h-full min-h-0 flex-col overflow-hidden">
-                <TerminalPanel
-                  owner={owner}
-                  sandboxId={sandboxId}
-                  isActive={isActive}
-                  ptyInstanceId={consolePane.id}
-                  isForeground={resolvedTab === "preview" && visible}
-                  runDevCommandOnConnect={runConsoleDevCommandOnConnect}
-                  devCommand={devCommand}
-                  stickyHistoryTail={stickyTerminalHistoryTail}
-                  onStickyHistoryTailChange={onStickyTerminalHistoryTailChange}
-                />
-              </div>
-            ) : null
-          }
-        />
-        )}
+        <SandboxPaneBoundary label="Preview">
+          {simpleView ? (
+            previewRegion
+          ) : (
+            <ConsoleDock
+              controller={panes.consoleDock}
+              preview={previewRegion}
+              renderConsole={(visible) =>
+                consolePane ? (
+                  <div className="flex h-full min-h-0 flex-col overflow-hidden">
+                    <TerminalPanel
+                      owner={owner}
+                      sandboxId={sandboxId}
+                      isActive={isActive}
+                      ptyInstanceId={consolePane.id}
+                      isForeground={resolvedTab === "preview" && visible}
+                      runDevCommandOnConnect={runConsoleDevCommandOnConnect}
+                      devCommand={devCommand}
+                      stickyHistoryTail={stickyTerminalHistoryTail}
+                      onStickyHistoryTailChange={
+                        onStickyTerminalHistoryTailChange
+                      }
+                    />
+                  </div>
+                ) : null
+              }
+            />
+          )}
+        </SandboxPaneBoundary>
       </div>
       <div className={resolvedTab === "editor" ? "h-full" : "hidden"}>
-        <EditorPanel
-          cacheKey={cacheKey}
-          sandboxId={sandboxId}
-          isActive={isActive}
-          repoId={repoId}
-        />
+        <SandboxPaneBoundary label="Editor">
+          <EditorPanel
+            cacheKey={cacheKey}
+            sandboxId={sandboxId}
+            isActive={isActive}
+            repoId={repoId}
+          />
+        </SandboxPaneBoundary>
       </div>
       <div
         className={
@@ -219,44 +226,52 @@ export function SandboxPaneSlots({
             : "hidden"
         }
       >
-        <DesktopPanel
-          cacheKey={cacheKey}
-          sandboxId={sandboxId}
-          isActive={isActive}
-          repoId={repoId}
-          surface={resolvedTab === "browser" ? "browser" : "desktop"}
-          agentBrowsingAt={agentBrowsingAt}
-          onReleaseLock={onReleaseBrowserLock}
-          onRunningChange={onComputerRunningChange}
-        />
+        <SandboxPaneBoundary
+          label={resolvedTab === "browser" ? "Browser" : "Computer"}
+        >
+          <DesktopPanel
+            cacheKey={cacheKey}
+            sandboxId={sandboxId}
+            isActive={isActive}
+            repoId={repoId}
+            surface={resolvedTab === "browser" ? "browser" : "desktop"}
+            agentBrowsingAt={agentBrowsingAt}
+            onReleaseLock={onReleaseBrowserLock}
+            onRunningChange={onComputerRunningChange}
+          />
+        </SandboxPaneBoundary>
       </div>
       <div className={resolvedTab === "review" ? "h-full" : "hidden"}>
-        <PrPanel
-          prUrl={prUrl}
-          repoId={repoId}
-          isActive={resolvedTab === "review"}
-        />
+        <SandboxPaneBoundary label="Review">
+          <PrPanel
+            prUrl={prUrl}
+            repoId={repoId}
+            isActive={resolvedTab === "review"}
+          />
+        </SandboxPaneBoundary>
       </div>
       {simpleView
         ? null
         : customTabs?.map((tab) => {
-        const slug = slugifyAppTabName(tab.name);
-        return (
-          <div
-            key={tab._id}
-            className={resolvedTab === slug ? "h-full" : "hidden"}
-          >
-            <CustomTabPanel
-              name={tab.name}
-              port={tab.port}
-              sandboxId={sandboxId}
-              isActive={isActive}
-              isForeground={resolvedTab === slug}
-              repoId={repoId}
-            />
-          </div>
-        );
-      })}
+            const slug = slugifyAppTabName(tab.name);
+            return (
+              <div
+                key={tab._id}
+                className={resolvedTab === slug ? "h-full" : "hidden"}
+              >
+                <SandboxPaneBoundary label={tab.name}>
+                  <CustomTabPanel
+                    name={tab.name}
+                    port={tab.port}
+                    sandboxId={sandboxId}
+                    isActive={isActive}
+                    isForeground={resolvedTab === slug}
+                    repoId={repoId}
+                  />
+                </SandboxPaneBoundary>
+              </div>
+            );
+          })}
     </>
   );
 }

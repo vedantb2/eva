@@ -21,24 +21,6 @@ export function isSimpleViewHiddenSandboxTab(tab: string): boolean {
   return !SIMPLE_VIEW_SANDBOX_TABS.has(tab);
 }
 
-const SIMPLE_VIEW_HIDDEN_SETTINGS_SEGMENTS = [
-  "/settings/config",
-  "/settings/monorepo",
-  "/settings/app",
-  "/settings/tabs",
-  "/settings/env-variables",
-  "/settings/snapshots",
-  "/settings/mcp-config",
-  "/settings/logs",
-] as const;
-
-/** Repo settings pages that simple view does not show (bounce to Skills). */
-export function isSimpleViewHiddenSettingsPath(pathname: string): boolean {
-  return SIMPLE_VIEW_HIDDEN_SETTINGS_SEGMENTS.some((segment) =>
-    pathname.includes(segment),
-  );
-}
-
 const SIMPLE_VIEW_HIDDEN_GLOBAL_SETTINGS_HREFS = [
   "/settings/sandboxes",
   "/settings/sync",

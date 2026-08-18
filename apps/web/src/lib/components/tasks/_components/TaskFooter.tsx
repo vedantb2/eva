@@ -19,7 +19,6 @@ import {
   IconBrandVercel,
   IconHammer,
   IconPlayerPlay,
-  IconPlayerStop,
   IconTerminal2,
   IconLoader2,
   IconChevronDown,
@@ -30,6 +29,7 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "@eva/shared/dates";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
+import { SleepEvaButton } from "@/lib/components/sandbox/SleepEvaButton";
 import type { TaskStatus } from "../TaskStatusBadge";
 import { SchedulePopover } from "../SchedulePopover";
 
@@ -107,15 +107,12 @@ export function TaskFooter({
     !task?.projectId &&
     (status === "todo" || (status === "in_progress" && !hasActiveRun));
   const showViewSandbox = canViewSandbox;
-  // Stopping the VM mid-turn does not cancel the turn: the daemon dies with the
-  // VM and the chat sits on "Working…" until the stall watchdog kills it minutes
-  // later. The composer's "Stop Eva" is the correct control in that window.
-  // Gated on the chat turn only, not `hasActiveRun` — that also counts *queued*
-  // runs, and a task waiting in the queue is no reason to refuse to sleep a
-  // sandbox. A main run has its own confirmed Stop; hiding this during one is a
-  // separate call.
-  const showStopSandbox =
-    isSandboxActive && !isSandboxStopping && !task?.activeChatWorkflowId;
+  const showStopSandbox = isSandboxActive && !isSandboxStopping;
+  // Inert, not hidden, mid-turn — see `SleepEvaButton`. Gated on the chat turn
+  // only, not `hasActiveRun`: that also counts *queued* runs, and a task waiting
+  // in the queue is no reason to refuse to sleep a sandbox. A main run has its
+  // own confirmed Stop; blocking this during one is a separate call.
+  const sleepBlockedMidTurn = Boolean(task?.activeChatWorkflowId);
   const showResolveConflicts =
     !hasActiveRun && (status === "code_review" || status === "business_review");
   const showRunDevServer = isSandboxActive && canStartSandbox;
@@ -304,15 +301,13 @@ export function TaskFooter({
             </DropdownMenu>
           )}
           {showStopSandbox ? (
-            <Button
-              variant="destructive"
+            <SleepEvaButton
+              onStop={onStopSandbox}
+              isStopping={isSandboxStopping}
+              blockedMidTurn={sleepBlockedMidTurn}
               size={buttonSize}
-              onClick={onStopSandbox}
-              disabled={isSandboxStopping}
-            >
-              <IconPlayerStop size={iconSize} />
-              <span className="hidden sm:inline">Put Eva to sleep</span>
-            </Button>
+              iconSize={iconSize}
+            />
           ) : null}
           {showViewSandbox && (
             <Button

@@ -39,6 +39,7 @@ import { ProjectSandboxPanel } from "@/lib/components/projects/ProjectSandboxPan
 import { ProjectSandboxChatPanel } from "@/lib/components/projects/ProjectSandboxChatPanel";
 import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
+import { SleepEvaButton } from "@/lib/components/sandbox/SleepEvaButton";
 import {
   SandboxWorkspace,
   type TerminalPanelApi,
@@ -525,24 +526,17 @@ export function ProjectDetailClient({
                   <CopyLinkMenuItem />
                 </DropdownMenuContent>
               </DropdownMenu>
-              {/* Hidden while a chat turn is in flight: stopping the VM does not
-                  cancel the turn, it wedges the chat on "Working…" until the
-                  stall watchdog kills it. "Stop Eva" in the composer is the
-                  control for that window. A running build keeps its own
-                  confirmed "Stop Build", so it is not gated here. */}
-              {isSandboxActive &&
-              !isSandboxStopping &&
-              !project?.activeChatWorkflowId ? (
-                <Button
-                  variant="destructive"
+              {/* Inert while a chat turn is in flight — see `SleepEvaButton`.
+                  A running build keeps its own confirmed "Stop Build", so it is
+                  not gated here. */}
+              {isSandboxActive && !isSandboxStopping ? (
+                <SleepEvaButton
+                  onStop={handleStopSandbox}
+                  isStopping={isSandboxStopping}
+                  blockedMidTurn={Boolean(project?.activeChatWorkflowId)}
                   size="sm"
-                  aria-label="Put Eva to sleep"
-                  onClick={handleStopSandbox}
-                  disabled={isSandboxStopping}
-                >
-                  <IconPlayerStop size={16} aria-hidden />
-                  <span className="hidden sm:inline">Put Eva to sleep</span>
-                </Button>
+                  iconSize={16}
+                />
               ) : null}
               {canStartSandbox ? (
                 <Button

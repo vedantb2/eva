@@ -15,8 +15,7 @@ import {
   appendToRawOutput,
   trimBufferHead,
 } from "../runtime/buffers.js";
-import { resetAttemptState } from "../runtime/cliAttempt.js";
-import { callbackState as S } from "../runtime/state.js";
+import { callbackState as S, resetAttemptState } from "../runtime/state.js";
 import {
   syncOpencodeStateToPersist,
   writeOpencodeSessionState,
@@ -481,8 +480,8 @@ export async function runOpencodeSdkAttempt(
     }
     // No events arrive between a tool's running and completed updates, so a
     // long silent tool (10-minute bash, subagent run) is indistinguishable from
-    // a hang by event silence alone. Mirror cliAttempt.ts: while a tool is in
-    // flight only the hard runtime cap applies.
+    // a hang by event silence alone: while a tool is in flight only the hard
+    // runtime cap applies.
     if (S.inFlightToolUses > 0) {
       watchdogClock = now;
     }

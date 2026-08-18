@@ -320,8 +320,9 @@ export async function launchScript(
     // oom_score_adj to -600 (callback-src/index.ts) but lowering needs root,
     // so that write no-ops unprivileged — observed in prod as the callback
     // dying silently under memory pressure while dev servers survived. Lower
-    // it here via sudo instead. CLI subtrees are re-raised to 300 at spawn
-    // (callback-src/runtime/cliAttempt.ts), so the kernel kill order becomes:
+    // it here via sudo instead. The opencode server subtree is re-raised to
+    // 300 at spawn (callback-src/providers/opencodeServer.ts) — the only agent
+    // process the callback still spawns — so the kernel kill order becomes:
     // dev servers and agent work first (both recover — preview self-heal and
     // turn error reporting), the heartbeat/reporting callback last. Fail open
     // on images without passwordless sudo.

@@ -7,7 +7,9 @@ const backendDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const claudeSdk = readSource("callback-src/providers/claudeSdk.ts");
 const claudeSdkDaemon = readSource("callback-src/providers/claudeSdkDaemon.ts");
-const cliAttempt = readSource("callback-src/runtime/cliAttempt.ts");
+const codexSdk = readSource("callback-src/providers/codexSdk.ts");
+const cursorSdk = readSource("callback-src/providers/cursorSdk.ts");
+const opencodeSdk = readSource("callback-src/providers/opencodeSdk.ts");
 const bundledScript = readSource(
   "convex/_sandbox_runtime/callbackScript.generated.ts",
 );
@@ -83,27 +85,52 @@ describe("a tool in flight exempts the turn from the silence kill", () => {
     expect(body.indexOf("turnStartedAtMs = now")).toBeLessThan(exemptionAt);
   });
 
-  test("the CLI path keeps its exemption ahead of the stream-silence kill", () => {
-    const exemptionAt = cliAttempt.indexOf(
-      "if (S.inFlightToolUses > 0 || S.resultEventSeen) {",
-    );
-    const silenceAt = cliAttempt.indexOf(
-      "silenceMs > STREAM_SILENCE_TIMEOUT_MS",
-    );
-    expect(exemptionAt, "the CLI tool exemption moved").toBeGreaterThan(-1);
-    expect(silenceAt, "the CLI silence kill moved").toBeGreaterThan(-1);
-    expect(exemptionAt).toBeLessThan(silenceAt);
+  /**
+   * The CLI runner used to carry the original version of this exemption and was
+   * the reference the SDK runners were fixed against. It is deleted, so the
+   * invariant is asserted directly on the three remaining one-shot runners
+   * instead — each names its silence clock differently, but all three must
+   * refresh only that clock and keep the runtime cap ahead of it.
+   */
+  test.each([
+    ["codex", () => codexSdk, "lastEventAt = now;", "S.activeAttemptStartedAt"],
+    [
+      "cursor",
+      () => cursorSdk,
+      "lastMessageAt = now;",
+      "S.activeAttemptStartedAt",
+    ],
+    [
+      "opencode",
+      () => opencodeSdk,
+      "watchdogClock = now;",
+      "S.activeAttemptStartedAt",
+    ],
+  ])(
+    "the %s one-shot watchdog refreshes only its silence clock",
+    (_name, read, refresh, runtimeClock) => {
+      const body = sliceBetween(
+        read(),
+        "const healthTimer = setInterval(() => {",
+        "}, NO_OUTPUT_CHECK_INTERVAL_MS);",
+      );
+      const exemption = guardedBlock(body, "if (S.inFlightToolUses > 0) {");
+      expect(exemption).toContain(refresh);
+      expect(
+        exemption,
+        "refreshing the runtime clock would remove the backstop",
+      ).not.toContain(runtimeClock);
 
-    // The startup guards must stay ahead of the exemption: a process that dies
-    // before its first event never clears inFlightToolUses.
-    const firstAssistantAt = cliAttempt.indexOf(
-      "FIRST_ASSISTANT_EVENT_TIMEOUT_MS",
-    );
-    expect(firstAssistantAt, "the first-assistant guard moved").toBeGreaterThan(
-      -1,
-    );
-    expect(firstAssistantAt).toBeLessThan(exemptionAt);
-  });
+      const capAt = body.indexOf(
+        "now - S.activeAttemptStartedAt > MAX_TOTAL_RUNTIME_MS",
+      );
+      const exemptionAt = body.indexOf("if (S.inFlightToolUses > 0) {");
+      expect(capAt, "the runtime cap moved").toBeGreaterThan(-1);
+      // The cap must be evaluated before the exemption so a turn wedged while
+      // holding a tool open is still bounded.
+      expect(capAt).toBeLessThan(exemptionAt);
+    },
+  );
 
   /**
    * Sandboxes run the bundled script, not these sources — a fix that never

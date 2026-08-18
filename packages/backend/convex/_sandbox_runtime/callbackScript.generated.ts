@@ -59,9 +59,6 @@ var WORK_DIR = existsSync("/tmp/repo") ? "/tmp/repo" : existsSync("/workspace/re
 var NO_OUTPUT_TIMEOUT_MS = Number(
   process.env.CLAUDE_NO_OUTPUT_TIMEOUT_MS || "60000"
 );
-var STREAM_SILENCE_TIMEOUT_MS = Number(
-  process.env.CLAUDE_STREAM_SILENCE_TIMEOUT_MS || String(10 * 60 * 1e3)
-);
 var FIRST_EVENT_TIMEOUT_MS = Number(
   process.env.CLAUDE_FIRST_EVENT_TIMEOUT_MS || "90000"
 );
@@ -432,7 +429,6 @@ var callbackState = {
   currentStreamedContent: "",
   streamedAssistantTextThisMessage: false,
   pendingParagraphBreak: false,
-  activeAttemptChild: null,
   fatalHeartbeatErrorMessage: "",
   consecutiveHeartbeatFailures: 0,
   heartbeatFailureStreakStartedAt: 0,
@@ -486,6 +482,21 @@ function setRawLogStreamFailed(value) {
 }
 function assignRawLogStream(stream) {
   callbackState.rawLogStream = stream;
+}
+function resetAttemptState() {
+  callbackState.realtimeOutputBuffer = "";
+  callbackState.resultEventSeen = false;
+  callbackState.waitingForFirstAssistantEvent = false;
+  callbackState.claudeInitAt = 0;
+  callbackState.currentStreamedContent = "";
+  callbackState.firstAssistantEventAt = 0;
+  callbackState.firstTextBlockAt = 0;
+  callbackState.fatalHeartbeatErrorMessage = "";
+  callbackState.heartbeatFailureStreakStartedAt = 0;
+  callbackState.inFlightToolUses = 0;
+  callbackState.codexToolItemIds.clear();
+  callbackState.cursorKnownToolIds.clear();
+  callbackState.cursorTerminalToolIds.clear();
 }
 
 // callback-src/utils.ts
@@ -3744,22 +3755,6 @@ function appendStreamedContent(text, isBlockBoundary = false) {
 
 // callback-src/runtime/heartbeats.ts
 import { writeFileSync as writeFileSync7 } from "fs";
-
-// callback-src/runtime/processControl.ts
-function terminateAttemptProcess(child) {
-  try {
-    child.kill("SIGTERM");
-  } catch {
-  }
-  setTimeout(() => {
-    try {
-      child.kill("SIGKILL");
-    } catch {
-    }
-  }, 2e3);
-}
-
-// callback-src/runtime/heartbeats.ts
 var flushInterval = null;
 var heartbeatInterval = null;
 function buildStreamingPayload() {
@@ -3802,9 +3797,6 @@ function noteHeartbeatFailure(error) {
   if (burstFatal || slowFatal || absoluteFatal) {
     callbackState.fatalHeartbeatErrorMessage = "Lost streaming heartbeat after " + String(callbackState.consecutiveHeartbeatFailures) + " consecutive failures: " + message;
     log(callbackState.fatalHeartbeatErrorMessage);
-    if (callbackState.activeAttemptChild) {
-      terminateAttemptProcess(callbackState.activeAttemptChild);
-    }
   }
 }
 async function sendStreamingHeartbeatUpdate(payload) {
@@ -4037,23 +4029,6 @@ function appendToRawLogFile(text) {
 // callback-src/providers/claudeSdk.ts
 import { execSync } from "child_process";
 import { existsSync as existsSync6, readFileSync as readFileSync5 } from "fs";
-
-// callback-src/runtime/cliAttempt.ts
-function resetAttemptState() {
-  callbackState.realtimeOutputBuffer = "";
-  callbackState.resultEventSeen = false;
-  callbackState.waitingForFirstAssistantEvent = false;
-  callbackState.claudeInitAt = 0;
-  callbackState.currentStreamedContent = "";
-  callbackState.firstAssistantEventAt = 0;
-  callbackState.firstTextBlockAt = 0;
-  callbackState.fatalHeartbeatErrorMessage = "";
-  callbackState.heartbeatFailureStreakStartedAt = 0;
-  callbackState.inFlightToolUses = 0;
-  callbackState.codexToolItemIds.clear();
-  callbackState.cursorKnownToolIds.clear();
-  callbackState.cursorTerminalToolIds.clear();
-}
 
 // callback-src/runtime/pendingQuestion.ts
 var POLL_INTERVAL_MS = 300;

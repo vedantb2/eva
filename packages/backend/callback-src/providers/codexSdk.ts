@@ -17,8 +17,7 @@ import {
   appendToRawOutput,
   trimBufferHead,
 } from "../runtime/buffers.js";
-import { resetAttemptState } from "../runtime/cliAttempt.js";
-import { callbackState as S } from "../runtime/state.js";
+import { callbackState as S, resetAttemptState } from "../runtime/state.js";
 import type { ProviderAttemptResult, SessionMode } from "../types.js";
 import { log } from "../utils.js";
 
@@ -119,9 +118,9 @@ export async function runCodexSdkAttempt(
       return;
     }
     // The SDK emits nothing between a tool call and its result, so a long
-    // silent tool is indistinguishable from a hang by event silence alone.
-    // Mirror cliAttempt.ts: while a tool is in flight only the hard runtime cap
-    // applies, and the silence clock restarts once the tool result lands.
+    // silent tool is indistinguishable from a hang by event silence alone:
+    // while a tool is in flight only the hard runtime cap applies, and the
+    // silence clock restarts once the tool result lands.
     if (S.inFlightToolUses > 0) {
       lastEventAt = now;
     }

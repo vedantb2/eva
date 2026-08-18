@@ -1,4 +1,3 @@
-import type { ChildProcess } from "child_process";
 import type { WriteStream } from "fs";
 import type { JsonValue, ProgressStep, TodoItem } from "../types.js";
 
@@ -143,7 +142,6 @@ type CallbackState = {
    * append inserts a paragraph break instead of butting one message's last
    * sentence against the next's first word ("design.Design settled."). */
   pendingParagraphBreak: boolean;
-  activeAttemptChild: ChildProcess | null;
   fatalHeartbeatErrorMessage: string;
   consecutiveHeartbeatFailures: number;
   heartbeatFailureStreakStartedAt: number;
@@ -201,7 +199,6 @@ export const callbackState: CallbackState = {
   currentStreamedContent: "",
   streamedAssistantTextThisMessage: false,
   pendingParagraphBreak: false,
-  activeAttemptChild: null,
   fatalHeartbeatErrorMessage: "",
   consecutiveHeartbeatFailures: 0,
   heartbeatFailureStreakStartedAt: 0,
@@ -263,6 +260,28 @@ export function setRawLogStreamFailed(value: boolean): void {
 
 export function assignRawLogStream(stream: WriteStream | null): void {
   callbackState.rawLogStream = stream;
+}
+
+/**
+ * Clears the per-turn slice of callback state. Every provider runner calls this
+ * first so a retried attempt cannot inherit the previous one's stream position,
+ * tool bookkeeping or fatal-heartbeat flag. Fields outside one turn's lifetime
+ * (session ids, todo state, raw-log stream) deliberately survive.
+ */
+export function resetAttemptState(): void {
+  callbackState.realtimeOutputBuffer = "";
+  callbackState.resultEventSeen = false;
+  callbackState.waitingForFirstAssistantEvent = false;
+  callbackState.claudeInitAt = 0;
+  callbackState.currentStreamedContent = "";
+  callbackState.firstAssistantEventAt = 0;
+  callbackState.firstTextBlockAt = 0;
+  callbackState.fatalHeartbeatErrorMessage = "";
+  callbackState.heartbeatFailureStreakStartedAt = 0;
+  callbackState.inFlightToolUses = 0;
+  callbackState.codexToolItemIds.clear();
+  callbackState.cursorKnownToolIds.clear();
+  callbackState.cursorTerminalToolIds.clear();
 }
 
 /** @internal test-only state resets */

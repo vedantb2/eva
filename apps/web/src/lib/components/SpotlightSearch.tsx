@@ -159,7 +159,7 @@ export function SpotlightSearch() {
     <Dialog open={isOpen} onOpenChange={handleOpenChange}>
       <DialogContent
         hideCloseButton
-        className="h-[min(28rem,70vh)] max-w-xl gap-0 overflow-hidden p-0"
+        className="h-[min(28rem,70dvh)] max-w-xl gap-0 overflow-hidden p-0"
       >
         <Command
           shouldFilter={false}

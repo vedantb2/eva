@@ -1,7 +1,8 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import {
+  extractFunctionSource,
+  previewProxySource as proxySource,
+} from "./_helpers/previewProxySource";
 
 /**
  * Guards the Set-Cookie rewrite that keeps sandboxed-app sign-in alive inside
@@ -9,44 +10,8 @@ import { describe, expect, test } from "vitest";
  * SameSite=Lax cookies set from a cross-site frame, so the proxy must rewrite
  * every upstream Set-Cookie to `Secure; SameSite=None; Partitioned`. If that
  * rewrite regresses, iframe sign-in breaks again with no runtime error.
- *
- * `rewriteSetCookie` lives inside the generated proxy script (a String.raw
- * template that runs standalone in the sandbox), so it cannot be imported.
- * We lift the exact shipped source out of the template and instantiate it, so
- * this exercises the real transformation rather than a copy that could drift.
  */
-const proxySource = readFileSync(
-  join(
-    dirname(fileURLToPath(import.meta.url)),
-    "../convex/_sandbox_runtime/previewProxy.ts",
-  ),
-  "utf8",
-);
-
-function extractFunctionSource(source: string, signature: string): string {
-  const start = source.indexOf(signature);
-  if (start === -1) {
-    throw new Error(`Could not find ${signature} in previewProxy.ts`);
-  }
-  let depth = 0;
-  let seenBrace = false;
-  for (let i = start; i < source.length; i += 1) {
-    const char = source[i];
-    if (char === "{") {
-      depth += 1;
-      seenBrace = true;
-    } else if (char === "}") {
-      depth -= 1;
-      if (seenBrace && depth === 0) {
-        return source.slice(start, i + 1);
-      }
-    }
-  }
-  throw new Error(`Unbalanced braces extracting ${signature}`);
-}
-
 const rewriteSetCookieSource = extractFunctionSource(
-  proxySource,
   "function rewriteSetCookie(value) {",
 );
 const factory = new Function(

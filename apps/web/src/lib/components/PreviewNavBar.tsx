@@ -1,11 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, type RefObject } from "react";
-import {
-  Input,
-  Spinner,
-  WebPreviewNavigationButton,
-} from "@eva/ui";
+import { Input, Spinner, WebPreviewNavigationButton } from "@eva/ui";
 import {
   IconArrowLeft,
   IconArrowRight,
@@ -86,7 +82,16 @@ function stepIframeHistory(
 interface PreviewNavBarProps {
   previewUrl: string | null;
   iframeRef: RefObject<HTMLIFrameElement | null>;
+  /**
+   * Host-managed iframes (PreviewIframeHost) deliver the element as state, not
+   * a ref — the ref is often still null when the listener effect runs. Pass it
+   * here so the effect re-attaches when the element (re)appears. `undefined`
+   * keeps the legacy ref-only behavior.
+   */
+  iframeElement?: HTMLIFrameElement | null;
   containerRef: RefObject<HTMLDivElement | null>;
+  /** Overrides the built-in container fullscreen (host iframes need document fullscreen). */
+  onToggleFullscreen?: () => void;
   port: number;
   path?: string;
   onPortChange?: (port: number) => void;
@@ -103,7 +108,9 @@ type PreviewHistoryCommand =
 export function PreviewNavBar({
   previewUrl,
   iframeRef,
+  iframeElement,
   containerRef,
+  onToggleFullscreen,
   port,
   path,
   onPortChange,
@@ -112,6 +119,9 @@ export function PreviewNavBar({
   isLoading = false,
   onRefresh,
 }: PreviewNavBarProps) {
+  function currentIframe(): HTMLIFrameElement | null {
+    return iframeElement !== undefined ? iframeElement : iframeRef.current;
+  }
   const [portInput, setPortInput] = useState(String(port));
   const [pathInput, setPathInput] = useState(path ?? defaultPath);
   // Tracks the last value emitted via onPathChange so the three event sources
@@ -140,7 +150,7 @@ export function PreviewNavBar({
   }
 
   function syncPathFromIframe() {
-    const href = readIframeHref(iframeRef.current);
+    const href = readIframeHref(currentIframe());
     // Skip about:blank, data:, blob:, etc. — the iframe fires `load` for the
     // initial empty document before the real URL is applied, and we don't
     // want that captured as a navigable path.
@@ -155,26 +165,32 @@ export function PreviewNavBar({
   // listeners only fire after commit, so the effect-time write is equivalent.
   const syncPathFromIframeRef = useRef(syncPathFromIframe);
   const notifyPathChangeRef = useRef(notifyPathChange);
+  const currentIframeRef = useRef(currentIframe);
   useEffect(() => {
     syncPathFromIframeRef.current = syncPathFromIframe;
     notifyPathChangeRef.current = notifyPathChange;
+    currentIframeRef.current = currentIframe;
   });
 
   function postHistoryCommand(type: PreviewHistoryCommand) {
-    iframeRef.current?.contentWindow?.postMessage({ type }, "*");
+    currentIframe()?.contentWindow?.postMessage({ type }, "*");
   }
 
   useEffect(() => {
-    const iframe = iframeRef.current;
-    if (!iframe) return;
+    // Host-managed mode: the element arrives as state (possibly null on first
+    // run) — attach the load listener when it exists, but keep the window
+    // message listener regardless so in-iframe navigation events are never
+    // missed while the element is still materializing.
+    const iframe =
+      iframeElement !== undefined ? iframeElement : iframeRef.current;
     const onLoad = () => {
       syncPathFromIframeRef.current();
     };
-    iframe.addEventListener("load", onLoad);
+    iframe?.addEventListener("load", onLoad);
 
     function handleMessage(event: MessageEvent) {
       if (
-        event.source === iframeRef.current?.contentWindow &&
+        event.source === currentIframeRef.current()?.contentWindow &&
         typeof event.data === "object" &&
         event.data !== null &&
         "type" in event.data &&
@@ -190,13 +206,13 @@ export function PreviewNavBar({
 
     window.addEventListener("message", handleMessage);
     return () => {
-      iframe.removeEventListener("load", onLoad);
+      iframe?.removeEventListener("load", onLoad);
       window.removeEventListener("message", handleMessage);
     };
-  }, [iframeRef]);
+  }, [iframeRef, iframeElement]);
 
   function goBack() {
-    const handled = stepIframeHistory(iframeRef.current, "back");
+    const handled = stepIframeHistory(currentIframe(), "back");
     if (!handled) {
       postHistoryCommand("eva-preview-history-back");
     }
@@ -204,7 +220,7 @@ export function PreviewNavBar({
   }
 
   function goForward() {
-    const handled = stepIframeHistory(iframeRef.current, "forward");
+    const handled = stepIframeHistory(currentIframe(), "forward");
     if (!handled) {
       postHistoryCommand("eva-preview-history-forward");
     }
@@ -212,19 +228,21 @@ export function PreviewNavBar({
   }
 
   function reload() {
-    if (iframeRef.current) {
+    const iframe = currentIframe();
+    if (iframe) {
       // Reassigning the same src forces the iframe to reload its document.
-      const currentSrc = iframeRef.current.src;
-      iframeRef.current.src = currentSrc;
+      const currentSrc = iframe.src;
+      iframe.src = currentSrc;
     }
   }
 
   function commitPath() {
-    if (!iframeRef.current || !previewUrl) return;
+    const iframe = currentIframe();
+    if (!iframe || !previewUrl) return;
     const nextPath = normalizePreviewPath(pathInput);
     setPathInput(nextPath);
     notifyPathChange(nextPath);
-    iframeRef.current.src = buildUrlWithPath(previewUrl, nextPath);
+    iframe.src = buildUrlWithPath(previewUrl, nextPath);
   }
 
   function commitPort() {
@@ -244,6 +262,10 @@ export function PreviewNavBar({
     : undefined;
 
   function toggleFullscreen() {
+    if (onToggleFullscreen) {
+      onToggleFullscreen();
+      return;
+    }
     if (document.fullscreenElement) {
       document.exitFullscreen();
     } else {
@@ -277,7 +299,9 @@ export function PreviewNavBar({
         )}
       </WebPreviewNavigationButton>
       <Input
-        className="h-8 flex-1 text-xs"
+        // 16px below `sm` keeps iOS from zooming the page on focus; the compact
+        // 12px size is restored from `sm` up.
+        className="h-8 max-sm:min-w-0 flex-1 text-base sm:text-xs"
         value={pathInput}
         onChange={(e) => setPathInput(e.target.value)}
         onBlur={commitPath}
@@ -288,7 +312,7 @@ export function PreviewNavBar({
         aria-label="Preview path"
       />
       <Input
-        className="h-8 w-14 text-xs text-center px-1 sm:w-16"
+        className="h-8 w-14 max-sm:shrink-0 text-base text-center px-1 sm:w-16 sm:text-xs"
         value={portInput}
         onChange={(e) => setPortInput(e.target.value)}
         onBlur={commitPort}

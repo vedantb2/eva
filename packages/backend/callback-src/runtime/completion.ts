@@ -26,9 +26,10 @@ import type { JsonObject, ResultEvent } from "../types.js";
 import { attemptElapsedMs, readResponseJson, tryParseJson } from "../utils.js";
 import {
   existsSync,
+  mkdirSync,
   readFileSync,
   readdirSync,
-  unlinkSync,
+  renameSync,
   writeFileSync,
 } from "fs";
 import { createHash } from "crypto";
@@ -524,9 +525,26 @@ export async function deliverCompletionWithMedia(
  * daemon turns previously skipped this, so chat never showed agent
  * recordings.
  *
+ * Posted files move into `<dir>/.posted/` rather than being deleted, so a
+ * later turn can reuse a capture (PR/Linear embeds) without recapturing.
+ * Files whose upload failed stay at the top level and are retried by the
+ * next turn's harvest — deleting them destroyed the only copy.
+ *
  * Prefer calling via `deliverCompletionWithMedia` so the message exists before
  * attachMedia patches it.
  */
+/**
+ * Moves a posted deliverable into `<dir>/.posted/`. Same-name files
+ * overwrite, so a re-posted capture keeps only its latest copy. The `.posted`
+ * entry itself never matches the harvest's extension filters, so archived
+ * files are not re-posted.
+ */
+function archivePostedFile(dir: string, file: string): void {
+  const postedDir = dir + "/.posted";
+  mkdirSync(postedDir, { recursive: true });
+  renameSync(dir + "/" + file, postedDir + "/" + file);
+}
+
 async function uploadAndAttachSandboxMedia(): Promise<void> {
   // Task runs (RUN_ID set) have no chat message to attach to — only chat turns
   // scan. Anything a run leaves behind is picked up by the next chat turn.
@@ -560,13 +578,9 @@ async function uploadAndAttachSandboxMedia(): Promise<void> {
           const storageId = await uploadMediaFile(fp, mimeType);
           uploaded.push({ storageId, fileName: file });
         }
+        archivePostedFile(recDir, file);
       } catch {
-        /* ignore upload errors */
-      }
-      try {
-        unlinkSync(fp);
-      } catch {
-        /* ignore */
+        /* upload failed — leave the file for the next turn's harvest */
       }
     }
   }
@@ -590,13 +604,9 @@ async function uploadAndAttachSandboxMedia(): Promise<void> {
           const storageId = await uploadMediaFile(fp, mimeType);
           uploaded.push({ storageId, fileName: file });
         }
+        archivePostedFile(ssDir, file);
       } catch {
-        /* ignore upload errors */
-      }
-      try {
-        unlinkSync(fp);
-      } catch {
-        /* ignore */
+        /* upload failed — leave the file for the next turn's harvest */
       }
     }
   }

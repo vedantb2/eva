@@ -7,7 +7,6 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Spinner,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -17,19 +16,20 @@ import {
   IconDots,
   IconEye,
   IconGitPullRequest,
-  IconPlayerPlay,
-  IconPlayerStop,
   IconSparkles,
 } from "@tabler/icons-react";
 import type { Id } from "@eva/backend";
 import { EntityContextUsage } from "@/lib/components/context-usage";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
+import { SandboxStartStopButton } from "@/lib/components/sandbox/SandboxStartStopButton";
+import { SessionSwitcher } from "./SessionSwitcher";
 import { prStateIconClass } from "../_utils/-prStateIconClass";
 
 interface SessionChatHeaderProps {
   repoId: Id<"githubRepos">;
   sessionId: Id<"sessions">;
+  title: string;
   branchName?: string;
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
@@ -48,6 +48,7 @@ interface SessionChatHeaderProps {
 export function SessionChatHeader({
   repoId,
   sessionId,
+  title,
   branchName,
   prUrl,
   prState,
@@ -62,38 +63,20 @@ export function SessionChatHeader({
   onOpenSummaryModal,
   onOpenReviewModal,
 }: SessionChatHeaderProps) {
+  const showSendForReview = branchName && (!prState || prState === "draft");
+
   const headerLeft = (
-    <Button
-      size="icon"
-      variant={isSandboxActive ? "destructive" : "secondary"}
-      onClick={() => onSandboxToggle(isSandboxActive ? "stop" : "start")}
-      disabled={isSandboxToggling}
-      className={`h-8 w-8 ${isSandboxActive ? "" : "text-success"}`}
-    >
-      {isSandboxToggling ? (
-        <Spinner size="sm" />
-      ) : isSandboxActive ? (
-        <IconPlayerStop className="w-4 h-4" />
-      ) : (
-        <IconPlayerPlay className="w-4 h-4" />
-      )}
-    </Button>
+    <SessionSwitcher sessionId={sessionId} title={title} />
   );
 
   const headerRight = (
     <>
       <EntityContextUsage repoId={repoId} entityId={sessionId} />
-      {branchName && (!prState || prState === "draft") && (
-        <Button
-          size="sm"
-          variant="secondary"
-          className="text-status-code-review"
-          onClick={onOpenReviewModal}
-        >
-          <IconEye size={12} />
-          <span className="hidden sm:inline">Send for Review</span>
-        </Button>
-      )}
+      <SandboxStartStopButton
+        isActive={isSandboxActive}
+        isToggling={isSandboxToggling}
+        onToggle={onSandboxToggle}
+      />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
@@ -112,7 +95,15 @@ export function SessionChatHeader({
             <IconSparkles size={14} />
             {hasSummary ? "Regenerate Summary" : "Summarise Session"}
           </DropdownMenuItem>
-          {(deploymentStatus || prUrl) && <DropdownMenuSeparator />}
+          {(showSendForReview || deploymentStatus || prUrl) && (
+            <DropdownMenuSeparator />
+          )}
+          {showSendForReview && (
+            <DropdownMenuItem onClick={onOpenReviewModal}>
+              <IconEye size={14} className="text-status-code-review" />
+              Send for Review
+            </DropdownMenuItem>
+          )}
           {deploymentStatus && (
             <Tooltip>
               <TooltipTrigger asChild>

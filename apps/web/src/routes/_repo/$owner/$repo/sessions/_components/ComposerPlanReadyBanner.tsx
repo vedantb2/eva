@@ -47,7 +47,9 @@ export function ComposerPlanReadyBanner({
           Product requirements are ready to review
         </span>
       )}
-      <div className="flex shrink-0 items-center gap-1.5">
+      {/* Grown rather than given `hit-target`: the two buttons sit 6px apart, so
+          overlapping tap extensions could send an Approve to View. */}
+      <div className="flex shrink-0 items-center gap-1.5 max-sm:[&_button]:h-9">
         <Button
           type="button"
           size="sm"

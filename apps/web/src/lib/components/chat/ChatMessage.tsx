@@ -87,6 +87,8 @@ interface ChatMessageProps {
   repoBasePath: string;
   isLast: boolean;
   isLatestAssistantTurn: boolean;
+  /** False in simple view, which hides diff surfaces entirely. */
+  showChangedFiles?: boolean;
   changedFilesExpanded?: boolean;
   onChangedFilesExpandedChange: (messageId: string, expanded: boolean) => void;
   /** True when this user turn belongs to a teammate (left-aligned). */
@@ -122,6 +124,7 @@ export const ChatMessage = memo(function ChatMessage({
   repoBasePath,
   isLast,
   isLatestAssistantTurn,
+  showChangedFiles = true,
   changedFilesExpanded,
   onChangedFilesExpandedChange,
   isOtherUser = false,
@@ -297,7 +300,7 @@ export const ChatMessage = memo(function ChatMessage({
                     <MessageResponse className="prose prose-sm dark:prose-invert max-w-none wrap-anywhere">
                       {message.content}
                     </MessageResponse>
-                    {changedFiles.length > 0 ? (
+                    {showChangedFiles && changedFiles.length > 0 ? (
                       <ChangedFilesCard
                         files={changedFiles}
                         isLatestAssistantTurn={isLatestAssistantTurn}
@@ -337,30 +340,35 @@ export const ChatMessage = memo(function ChatMessage({
                   </>
                 )}
               </MessageContent>
-              <div className="mt-0.5 flex items-center gap-2">
-                {turnModel ? (
-                  <MessageModelIcon
-                    model={turnModel}
-                    reasoningLevel={turnReasoningLevel}
-                    credentialSourceLabel={turnCredentialSourceLabel}
-                  />
-                ) : null}
-                {copyPlain ? (
-                  <div className="flex items-center gap-2 opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover:opacity-100 focus-within:opacity-100">
-                    <ChatMessageActions
-                      copyText={copyPlain}
-                      className="ml-0.5"
-                      revealOnHover={false}
+              {turnModel || copyPlain ? (
+                <div className="reveal-on-hover transition-opacity mt-0.5 flex items-center gap-2">
+                  {turnModel ? (
+                    <MessageModelIcon
+                      model={turnModel}
+                      reasoningLevel={turnReasoningLevel}
+                      credentialSourceLabel={turnCredentialSourceLabel}
                     />
-                    {message.finishedAt && message.timestamp ? (
-                      <span className="text-[11px] tabular-nums text-muted-foreground/60">
-                        {dayjs(message.timestamp).format("h:mm A")} ·{" "}
-                        {formatDuration(message.timestamp, message.finishedAt)}
-                      </span>
-                    ) : null}
-                  </div>
-                ) : null}
-              </div>
+                  ) : null}
+                  {copyPlain ? (
+                    <>
+                      <ChatMessageActions
+                        copyText={copyPlain}
+                        className="ml-0.5"
+                        revealOnHover={false}
+                      />
+                      {message.finishedAt && message.timestamp ? (
+                        <span className="text-[11px] tabular-nums text-muted-foreground/60">
+                          {dayjs(message.timestamp).format("h:mm A")} ·{" "}
+                          {formatDuration(
+                            message.timestamp,
+                            message.finishedAt,
+                          )}
+                        </span>
+                      ) : null}
+                    </>
+                  ) : null}
+                </div>
+              ) : null}
             </>
           )}
         </AIMessage>
@@ -415,7 +423,7 @@ function UserMessageMeta({
   return (
     <div
       className={cn(
-        "flex items-center gap-3 opacity-0 transition-opacity duration-[var(--motion-fast)] group-hover:opacity-100 focus-within:opacity-100",
+        "reveal-on-hover transition-opacity flex items-center gap-3",
         align === "start" ? "justify-start" : "justify-end",
         className,
       )}

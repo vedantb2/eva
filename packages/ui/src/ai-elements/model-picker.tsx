@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { IconChevronDown } from "@tabler/icons-react";
+import { useState, type ReactNode } from "react";
+import { IconBolt, IconChevronDown } from "@tabler/icons-react";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { cn } from "../utils/cn";
 import { ProviderIcon } from "./provider-icon";
@@ -58,6 +58,15 @@ export interface ModelSelectProps<TModel extends string = string> {
    * (e.g. non-owner on a task) so Team stays unselectable.
    */
   canSelectTeamWhilePersonal?: boolean;
+  /**
+   * Compact label after the model name on the trigger (e.g. the active
+   * reasoning level).
+   */
+  triggerSuffix?: string;
+  /** Pinned above the model list — typically trait controls. */
+  header?: ReactNode;
+  /** Bolt before the provider icon when Fast mode is on. */
+  showFastIcon?: boolean;
 }
 
 /**
@@ -76,9 +85,13 @@ export function ModelSelect<TModel extends string>({
   onAccountChange,
   onSelectionChange,
   canSelectTeamWhilePersonal = true,
+  triggerSuffix,
+  header,
+  showFastIcon,
 }: ModelSelectProps<TModel>) {
   const [open, setOpen] = useState(false);
   const selectedModel = findModelOption(value, options);
+  const triggerLabel = selectedModel ? selectedModel.label : "Select model";
   const instances = buildPickerInstances(options, accounts);
 
   const selectedAccount = accountId
@@ -113,11 +126,16 @@ export function ModelSelect<TModel extends string>({
           aria-expanded={open}
           data-slot="select-trigger"
           className={cn(
-            "flex h-7 min-w-0 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50",
+            "flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50",
             className,
           )}
           disabled={disabled}
         >
+          {showFastIcon ? (
+            <span title="Fast" className="inline-flex shrink-0">
+              <IconBolt size={12} aria-hidden />
+            </span>
+          ) : null}
           {activeInstance && selectedAccount && showAccountBadge ? (
             <span className="relative isolate inline-flex size-4 shrink-0 items-center justify-center">
               <ProviderIcon
@@ -140,17 +158,18 @@ export function ModelSelect<TModel extends string>({
               size={14}
             />
           )}
-          <span className="min-w-0 flex-1 truncate text-left">
-            {selectedModel
-              ? formatModelDisplayLabel(
-                  selectedModel.provider,
-                  selectedModel.label,
-                )
-              : "Select model"}
+          <span className="whitespace-nowrap text-left">
+            {triggerLabel}
+            {triggerSuffix ? (
+              <span className="text-muted-foreground/70">
+                {" · "}
+                {triggerSuffix}
+              </span>
+            ) : null}
           </span>
           <IconChevronDown
             size={12}
-            className="ml-auto shrink-0 opacity-60"
+            className="shrink-0 opacity-60"
             aria-hidden
           />
         </button>
@@ -177,8 +196,8 @@ export function ModelSelect<TModel extends string>({
               onValueChange(modelId);
               onAccountChange?.(nextAccountId);
             }
-            setOpen(false);
           }}
+          header={header}
         />
       </PopoverContent>
     </Popover>

@@ -305,17 +305,22 @@ export const AttachmentRemove = ({
     <Button
       aria-label={label}
       className={cn(
+        // `reveal-on-hover`, not `opacity-0 group-hover:opacity-100`: touch has no
+        // hover, so the hand-rolled form meant an attachment could not be removed
+        // on a phone at all — and `opacity-0` alone leaves the button clickable
+        // while invisible, so the tile carried a dead tap zone. The utility ships
+        // it visible below `sm` and moves `pointer-events` with the opacity.
         variant === "grid" && [
           "absolute top-2 right-2 size-6 rounded-full p-0",
           "bg-background/80 ",
-          "opacity-0 transition-opacity group-hover:opacity-100",
+          "reveal-on-hover transition-opacity",
           "hover:bg-background",
           "[&>svg]:size-3",
           "after:absolute after:inset-[-7px]",
         ],
         variant === "inline" && [
           "size-5 rounded p-0",
-          "opacity-0 transition-opacity group-hover:opacity-100",
+          "reveal-on-hover transition-opacity",
           "[&>svg]:size-2.5",
           "relative after:absolute after:inset-[-10px]",
         ],

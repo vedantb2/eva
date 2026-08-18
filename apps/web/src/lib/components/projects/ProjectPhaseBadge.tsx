@@ -35,6 +35,13 @@ export const ACTIVE_PROJECT_PHASES: ProjectPhase[] = [
   "cancelled",
 ];
 
+/** Phases where the autonomous "Build Project" workflow can be started. */
+export const BUILDABLE_PROJECT_PHASES: ProjectPhase[] = [
+  "in_progress",
+  "business_review",
+  "code_review",
+];
+
 export const phaseConfig: Record<
   ProjectPhase,
   {

@@ -6,9 +6,9 @@ import {
   type Id,
   type StoredModelTraits,
 } from "@eva/backend";
-import { Button, ModelSelect, Spinner } from "@eva/ui";
+import { Button, Spinner } from "@eva/ui";
 import { IconRefresh } from "@tabler/icons-react";
-import { ModelTraitsMenu } from "@/lib/components/ModelTraitsMenu";
+import { ModelSelectWithTraits } from "@/lib/components/ModelSelectWithTraits";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
 
 interface RecapGenerateControlsProps {
@@ -25,9 +25,9 @@ interface RecapGenerateControlsProps {
 }
 
 /**
- * Model picker, traits menu and Generate button for a PR recap. Mounted in both
- * the empty state and the panel toolbar so a recap can be regenerated on a
- * different model without leaving the tab.
+ * Model picker (traits live in the same menu) and Generate button for a PR
+ * recap. Mounted in both the empty state and the panel toolbar so a recap can
+ * be regenerated on a different model without leaving the tab.
  */
 export function RecapGenerateControls({
   repoId,
@@ -45,18 +45,14 @@ export function RecapGenerateControls({
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-1">
-      <ModelSelect
+      <ModelSelectWithTraits
         value={model}
         options={options}
         onValueChange={(next) => onModelChange(normalizeAIModel(next))}
+        traits={traits}
+        onTraitsChange={onTraitsChange}
         disabled={disabled}
         className="px-0"
-      />
-      <ModelTraitsMenu
-        model={model}
-        traits={traits}
-        onChange={onTraitsChange}
-        disabled={disabled}
       />
       <Button
         size="sm"

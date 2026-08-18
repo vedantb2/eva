@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api, normalizeAIModel } from "@eva/backend";
@@ -117,11 +117,15 @@ export function AutomationClient({
             }
           }}
         >
-          <TabsList>
-            <TabsTrigger value="latest">Latest</TabsTrigger>
-            <TabsTrigger value="run-history">Run History</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
+          {/* `TabsList` is `inline-flex` with no wrap: on a narrow screen the
+              three labels have to scroll in place rather than widen the page. */}
+          <div className="max-sm:overflow-x-auto">
+            <TabsList>
+              <TabsTrigger value="latest">Latest</TabsTrigger>
+              <TabsTrigger value="run-history">Run History</TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
+            </TabsList>
+          </div>
         </Tabs>
 
         {activeTab === "latest" && (
@@ -212,6 +216,8 @@ function SettingsForm({
   const [cronDraft, setCronDraft] = useState(automation.cronSchedule);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const titleFieldId = useId();
+  const promptFieldId = useId();
   const model = normalizeAIModel(automation.model ?? repo.defaultModel);
   const { options: modelOptions } = useAvailableAiModels(repoId, model);
 
@@ -259,10 +265,14 @@ function SettingsForm({
       <Surface density="none" className="p-3 space-y-4 sm:p-4">
         <h3 className="text-sm font-medium">Description</h3>
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+          <label
+            htmlFor={titleFieldId}
+            className="mb-1.5 block text-xs font-medium text-muted-foreground"
+          >
             Title
           </label>
           <Input
+            id={titleFieldId}
             className="h-8 text-xs"
             placeholder="Automation title"
             defaultValue={automation.title}
@@ -273,10 +283,14 @@ function SettingsForm({
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+          <label
+            htmlFor={promptFieldId}
+            className="mb-1.5 block text-xs font-medium text-muted-foreground"
+          >
             Prompt
           </label>
           <Textarea
+            id={promptFieldId}
             className="min-h-[120px] text-xs"
             placeholder="Describe what this automation should do..."
             defaultValue={automation.description}
@@ -340,9 +354,9 @@ function SettingsForm({
       <Surface density="none" className="p-3 space-y-4 sm:p-4">
         <h3 className="text-sm font-medium">Model</h3>
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+          <p className="mb-1.5 text-xs font-medium text-muted-foreground">
             Provider and Model
-          </label>
+          </p>
           <ModelSelect
             value={model}
             options={modelOptions}
@@ -352,8 +366,8 @@ function SettingsForm({
       </Surface>
 
       <Surface density="none" className="p-3 space-y-4 sm:p-4">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-col items-start max-sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="max-sm:min-w-0">
             <h3 className="text-sm font-medium text-destructive">
               Delete Automation
             </h3>
@@ -364,6 +378,7 @@ function SettingsForm({
           <Button
             variant="destructive"
             size="sm"
+            className="max-sm:shrink-0"
             onClick={() => setShowDeleteDialog(true)}
           >
             <IconTrash size={14} />

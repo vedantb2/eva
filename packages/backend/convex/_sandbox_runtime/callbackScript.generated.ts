@@ -1,13 +1,7 @@
 "use node";
 
 export const CALLBACK_SCRIPT = `// callback-src/index.ts
-import {
-  existsSync as existsSync13,
-  mkdirSync as mkdirSync9,
-  readdirSync as readdirSync4,
-  unlinkSync as unlinkSync4,
-  writeFileSync as writeFileSync12
-} from "fs";
+import { mkdirSync as mkdirSync10, unlinkSync as unlinkSync3, writeFileSync as writeFileSync12 } from "fs";
 
 // callback-src/config.ts
 import { existsSync } from "fs";
@@ -288,7 +282,7 @@ var completedLabels = {
 };
 
 // callback-src/providers/claudeSdkDaemon.ts
-import { unlinkSync as unlinkSync2, writeFileSync as writeFileSync8, readFileSync as readFileSync6 } from "fs";
+import { unlinkSync, writeFileSync as writeFileSync8, readFileSync as readFileSync6 } from "fs";
 
 // callback-src/providers/daemonPaths.ts
 var LEGACY_DAEMON_PID = "/tmp/eva-daemon.pid";
@@ -1730,9 +1724,10 @@ function mediaSearchDirs(workDir, rootDirectory) {
 // callback-src/runtime/completion.ts
 import {
   existsSync as existsSync3,
+  mkdirSync as mkdirSync2,
   readFileSync as readFileSync2,
   readdirSync as readdirSync2,
-  unlinkSync,
+  renameSync,
   writeFileSync as writeFileSync2
 } from "fs";
 import { createHash } from "crypto";
@@ -2044,6 +2039,11 @@ async function deliverCompletionWithMedia(completionArgs) {
   );
   await uploadAndAttachSandboxMedia();
 }
+function archivePostedFile(dir, file) {
+  const postedDir = dir + "/.posted";
+  mkdirSync2(postedDir, { recursive: true });
+  renameSync(dir + "/" + file, postedDir + "/" + file);
+}
 async function uploadAndAttachSandboxMedia() {
   if (RUN_ID) return;
   const uploaded = [];
@@ -2066,10 +2066,7 @@ async function uploadAndAttachSandboxMedia() {
           const storageId = await uploadMediaFile(fp, mimeType);
           uploaded.push({ storageId, fileName: file });
         }
-      } catch {
-      }
-      try {
-        unlinkSync(fp);
+        archivePostedFile(recDir, file);
       } catch {
       }
     }
@@ -2093,10 +2090,7 @@ async function uploadAndAttachSandboxMedia() {
           const storageId = await uploadMediaFile(fp, mimeType);
           uploaded.push({ storageId, fileName: file });
         }
-      } catch {
-      }
-      try {
-        unlinkSync(fp);
+        archivePostedFile(ssDir, file);
       } catch {
       }
     }
@@ -2112,7 +2106,7 @@ function hasToolActivity() {
 }
 
 // callback-src/session/claudeSession.ts
-import { existsSync as existsSync4, mkdirSync as mkdirSync2, readFileSync as readFileSync3, writeFileSync as writeFileSync3 } from "fs";
+import { existsSync as existsSync4, mkdirSync as mkdirSync3, readFileSync as readFileSync3, writeFileSync as writeFileSync3 } from "fs";
 function buildClaudeStartupStep() {
   if (callbackState.waitingForFirstAssistantEvent && callbackState.claudeInitAt > 0) {
     const elapsedSeconds = Math.max(
@@ -2157,7 +2151,7 @@ function writeClaudeSessionState() {
   if (!resumeSessionId) {
     return;
   }
-  mkdirSync2(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
+  mkdirSync3(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
   writeFileSync3(
     CLAUDE_LOCAL_STATE_FILE,
     JSON.stringify(
@@ -2194,7 +2188,7 @@ function hydratePersistedClaudeState() {
     return;
   }
   copyBaseClaudeConfig();
-  mkdirSync2(CLAUDE_LOCAL_PROJECT_DIR, { recursive: true });
+  mkdirSync3(CLAUDE_LOCAL_PROJECT_DIR, { recursive: true });
   const prepareScript = "mkdir -p " + JSON.stringify(CLAUDE_LOCAL_PROJECT_DIR) + " " + JSON.stringify(CLAUDE_RUNTIME_CONFIG_DIR);
   runTimedBashSync(prepareScript, "hydratePersistedClaudeState(prepare)");
   copyFileIfPresent(
@@ -2219,7 +2213,7 @@ function hydratePersistedClaudeState() {
 }
 function ensureClaudeWorkspaceTrust() {
   const configPath = CLAUDE_RUNTIME_CONFIG_DIR + "/.claude.json";
-  mkdirSync2(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
+  mkdirSync3(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
   const parsed = existsSync4(configPath) ? tryParseJson(readFileSync3(configPath, "utf8")) : null;
   const config = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? { ...parsed } : {};
   const rawProjects = config.projects;
@@ -2936,10 +2930,10 @@ var claudeAdapter = {
 };
 
 // callback-src/session/codexSession.ts
-import { mkdirSync as mkdirSync4, writeFileSync as writeFileSync5 } from "fs";
+import { mkdirSync as mkdirSync5, writeFileSync as writeFileSync5 } from "fs";
 
 // callback-src/session/createSessionStore.ts
-import { existsSync as existsSync5, mkdirSync as mkdirSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync4 } from "fs";
+import { existsSync as existsSync5, mkdirSync as mkdirSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync4 } from "fs";
 function createSessionStore(config) {
   const readSessionState = () => {
     const statePath = existsSync5(config.localStateFile) ? config.localStateFile : existsSync5(config.persistStateFile) ? config.persistStateFile : "";
@@ -2971,7 +2965,7 @@ function createSessionStore(config) {
     if (!activeId) {
       return;
     }
-    mkdirSync3(config.runtimeHomeDir, { recursive: true });
+    mkdirSync4(config.runtimeHomeDir, { recursive: true });
     const payload = {
       [config.resumeField]: activeId,
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
@@ -2979,7 +2973,7 @@ function createSessionStore(config) {
     writeFileSync4(config.localStateFile, JSON.stringify(payload, null, 2));
   };
   const hydratePersistedState = (label) => {
-    mkdirSync3(config.runtimeHomeDir, { recursive: true });
+    mkdirSync4(config.runtimeHomeDir, { recursive: true });
     copyFileIfPresent(
       config.persistStateFile,
       config.localStateFile,
@@ -2988,7 +2982,7 @@ function createSessionStore(config) {
   };
   const syncStateToPersist = (label) => {
     writeSessionState();
-    mkdirSync3(config.persistDir, { recursive: true });
+    mkdirSync4(config.persistDir, { recursive: true });
     copyFileIfPresent(
       config.localStateFile,
       config.persistStateFile,
@@ -3039,7 +3033,7 @@ function writeCodexFileIfConfigured(fileName, rawValue, encodedValue) {
   if (!value) {
     return;
   }
-  mkdirSync4(CODEX_RUNTIME_HOME_DIR, { recursive: true });
+  mkdirSync5(CODEX_RUNTIME_HOME_DIR, { recursive: true });
   writeFileSync5(CODEX_RUNTIME_HOME_DIR + "/" + fileName, value);
 }
 function buildCodexRuntimeConfig(rawValue, encodedValue, fastMode = codexFastMode) {
@@ -3080,7 +3074,7 @@ function hydratePersistedCodexState() {
     CODEX_AUTH_JSON,
     CODEX_AUTH_JSON_BASE64
   );
-  mkdirSync4(CODEX_RUNTIME_HOME_DIR, { recursive: true });
+  mkdirSync5(CODEX_RUNTIME_HOME_DIR, { recursive: true });
   writeFileSync5(
     CODEX_RUNTIME_HOME_DIR + "/config.toml",
     buildCodexRuntimeConfig(CODEX_CONFIG_TOML, CODEX_CONFIG_TOML_BASE64)
@@ -3392,7 +3386,7 @@ var cursorAdapter = {
 };
 
 // callback-src/session/opencodeSession.ts
-import { mkdirSync as mkdirSync5, writeFileSync as writeFileSync6 } from "fs";
+import { mkdirSync as mkdirSync6, writeFileSync as writeFileSync6 } from "fs";
 var store3 = createSessionStore({
   runtimeHomeDir: OPENCODE_RUNTIME_HOME_DIR,
   persistDir: OPENCODE_PERSIST_DIR,
@@ -3420,7 +3414,7 @@ function hydratePersistedOpencodeState() {
   if (configJson) {
     process.env.OPENCODE_CONFIG_CONTENT = configJson;
   }
-  mkdirSync5(OPENCODE_AUTH_DIR, { recursive: true });
+  mkdirSync6(OPENCODE_AUTH_DIR, { recursive: true });
   const authJson = OPENCODE_AUTH_JSON || (OPENCODE_AUTH_JSON_BASE64 ? decodeBase64(OPENCODE_AUTH_JSON_BASE64) : "");
   if (authJson) {
     writeFileSync6(OPENCODE_AUTH_FILE, authJson);
@@ -4270,6 +4264,9 @@ async function runClaudeSdkAttempt(sessionMode) {
       void interrupt();
       return;
     }
+    if (callbackState.inFlightToolUses > 0) {
+      lastMessageAt = now;
+    }
     if (!sawResult && now - lastMessageAt > NO_OUTPUT_TIMEOUT_MS * 5) {
       timedOutForNoOutput = true;
       log("runClaudeSdkAttempt: no SDK messages \\u2014 interrupting");
@@ -4592,7 +4589,7 @@ async function failTurnAndExit(error) {
   }
   if (readDaemonPidFile() === process.pid) {
     try {
-      unlinkSync2(DAEMON_PID_FILE);
+      unlinkSync(DAEMON_PID_FILE);
     } catch {
     }
   }
@@ -4603,7 +4600,7 @@ async function exitWithoutCompletion(reason) {
   log("daemon: exiting without completion \\u2014 " + reason);
   if (readDaemonPidFile() === process.pid) {
     try {
-      unlinkSync2(DAEMON_PID_FILE);
+      unlinkSync(DAEMON_PID_FILE);
     } catch {
     }
   }
@@ -4624,6 +4621,9 @@ function startTurnWatchdog() {
       turnStartedAtMs = now;
       lastMessageAtMs = now;
       return;
+    }
+    if (callbackState.inFlightToolUses > 0) {
+      lastMessageAtMs = now;
     }
     if (now - turnStartedAtMs > MAX_TOTAL_RUNTIME_MS) {
       turnActive = false;
@@ -5513,21 +5513,21 @@ async function runSdkDaemon() {
   } finally {
     if (readDaemonPidFile() === process.pid) {
       try {
-        unlinkSync2(DAEMON_PID_FILE);
-        unlinkSync2(DAEMON_ENTITY_FILE);
-        unlinkSync2(DAEMON_OPTS_FILE);
+        unlinkSync(DAEMON_PID_FILE);
+        unlinkSync(DAEMON_ENTITY_FILE);
+        unlinkSync(DAEMON_OPTS_FILE);
         if (ENTITY_ID_FIELD === "sessionId") {
           const legacy = resolveLegacySessionDaemonPaths();
           try {
-            unlinkSync2(legacy.pid);
+            unlinkSync(legacy.pid);
           } catch {
           }
           try {
-            unlinkSync2(legacy.entity);
+            unlinkSync(legacy.entity);
           } catch {
           }
           try {
-            unlinkSync2(legacy.opts);
+            unlinkSync(legacy.opts);
           } catch {
           }
         }
@@ -5540,7 +5540,7 @@ async function runSdkDaemon() {
 }
 
 // callback-src/providers/codexAppServerDaemon.ts
-import { readFileSync as readFileSync7, unlinkSync as unlinkSync3, writeFileSync as writeFileSync9 } from "fs";
+import { readFileSync as readFileSync7, unlinkSync as unlinkSync2, writeFileSync as writeFileSync9 } from "fs";
 
 // callback-src/providers/codexAppServerClient.ts
 import { spawn } from "child_process";
@@ -5988,7 +5988,7 @@ function cleanMarkers() {
   if (readOwnerPid() !== process.pid) return;
   for (const path3 of [paths.pid, paths.entity, paths.opts]) {
     try {
-      unlinkSync3(path3);
+      unlinkSync2(path3);
     } catch {
     }
   }
@@ -5996,7 +5996,7 @@ function cleanMarkers() {
     const legacy = resolveLegacySessionDaemonPaths();
     for (const path3 of [legacy.pid, legacy.entity, legacy.opts]) {
       try {
-        unlinkSync3(path3);
+        unlinkSync2(path3);
       } catch {
       }
     }
@@ -6098,7 +6098,7 @@ async function runCodexAppServerDaemon() {
 // callback-src/runtime/systemSkills.ts
 import {
   existsSync as existsSync8,
-  mkdirSync as mkdirSync6,
+  mkdirSync as mkdirSync7,
   readdirSync as readdirSync3,
   readFileSync as readFileSync8,
   rmSync,
@@ -6174,7 +6174,7 @@ function writeStub(skill) {
     log(\`[system-skills] \${skill.name} exists in the repo \\u2014 leaving it alone\`);
     return false;
   }
-  mkdirSync6(directory, { recursive: true });
+  mkdirSync7(directory, { recursive: true });
   writeFileSync10(\`\${directory}/SKILL.md\`, skill.stub);
   return true;
 }
@@ -6201,7 +6201,7 @@ function updateGitExclude(names) {
   const existing = existsSync8(excludeFile) ? readFileSync8(excludeFile, "utf8") : "";
   const next = renderExcludeContent(existing, names);
   if (next === existing) return;
-  mkdirSync6(infoDir, { recursive: true });
+  mkdirSync7(infoDir, { recursive: true });
   writeFileSync10(excludeFile, next);
 }
 function materializeSystemSkills() {
@@ -6911,7 +6911,7 @@ async function runCodexSdkAttempt(sessionMode) {
 
 // callback-src/providers/cursorSdk.ts
 import { execSync as execSync2 } from "child_process";
-import { existsSync as existsSync10, mkdirSync as mkdirSync7, readFileSync as readFileSync10 } from "fs";
+import { existsSync as existsSync10, mkdirSync as mkdirSync8, readFileSync as readFileSync10 } from "fs";
 var SDK_PACKAGE2 = "@cursor/sdk";
 var SDK_VERSION2 = "1.0.26";
 var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
@@ -7039,6 +7039,11 @@ function errorCode(error) {
 function isAgentNotFound(error) {
   return errorCode(error) === "agent_not_found" || error.message.includes("agent_not_found");
 }
+var RESOURCE_EXHAUSTED_RETRY_DELAYS_MS = [15e3, 3e4];
+function isResourceExhaustedMessage(text) {
+  return text.includes("resource_exhausted");
+}
+var RESOURCE_EXHAUSTED_CHAT_MESSAGE = "Cursor rejected the request: rate limit or usage quota exhausted (resource_exhausted). No tokens were used. Wait a minute and try again, or switch to a different model.";
 var ZERO_USAGE = {
   inputTokens: 0,
   outputTokens: 0,
@@ -7047,6 +7052,34 @@ var ZERO_USAGE = {
 };
 function readNum(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+async function runTurnWithResourceExhaustedRetries(deps) {
+  for (let attempt = 0; ; attempt++) {
+    const retryDelayMs = RESOURCE_EXHAUSTED_RETRY_DELAYS_MS[attempt];
+    let outcome;
+    try {
+      outcome = await deps.runTurn();
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      if (!isResourceExhaustedMessage(messageText) || retryDelayMs === void 0 || deps.aborted()) {
+        throw error;
+      }
+      outcome = {
+        isError: true,
+        resultText: messageText,
+        durationMs: 0,
+        usage: ZERO_USAGE
+      };
+    }
+    if (!outcome.isError || !isResourceExhaustedMessage(outcome.resultText)) {
+      return outcome;
+    }
+    if (retryDelayMs === void 0 || deps.aborted()) {
+      return { ...outcome, resultText: RESOURCE_EXHAUSTED_CHAT_MESSAGE };
+    }
+    deps.onRetry(retryDelayMs, attempt);
+    await deps.sleep(retryDelayMs);
+  }
 }
 function readUsageTokens(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -7077,7 +7110,7 @@ async function runCursorSdkAttempt(sessionMode) {
   let lastStreamUsage = null;
   let activeRun = null;
   const sdk = await loadCursorSdk();
-  mkdirSync7(CURSOR_SDK_STORE_DIR, { recursive: true });
+  mkdirSync8(CURSOR_SDK_STORE_DIR, { recursive: true });
   const store4 = new sdk.JsonlLocalAgentStore(CURSOR_SDK_STORE_DIR);
   const options = {
     apiKey: (process.env.CURSOR_API_KEY || "").trim(),
@@ -7157,51 +7190,76 @@ async function runCursorSdkAttempt(sessionMode) {
       if (timedOutForMaxRuntime || timedOutForNoOutput) break;
     }
     const result = await run.wait();
-    const usage = readUsageTokens(result.usage) ?? lastStreamUsage ?? ZERO_USAGE;
-    const isError = result.status !== "finished";
-    const resultText = typeof result.result === "string" && result.result ? result.result : result.error && typeof result.error.message === "string" ? result.error.message : "";
+    return {
+      isError: result.status !== "finished",
+      resultText: typeof result.result === "string" && result.result ? result.result : result.error && typeof result.error.message === "string" ? result.error.message : "",
+      durationMs: readNum(result.durationMs),
+      usage: readUsageTokens(result.usage) ?? lastStreamUsage ?? ZERO_USAGE
+    };
+  };
+  const emitTurnResult = (outcome) => {
     const syntheticResult = {
       type: "result",
-      is_error: isError,
-      result: resultText,
-      duration_ms: readNum(result.durationMs),
+      is_error: outcome.isError,
+      result: outcome.resultText,
+      duration_ms: outcome.durationMs,
       usage: {
-        input_tokens: usage.inputTokens,
-        output_tokens: usage.outputTokens,
-        cache_read_input_tokens: usage.cacheReadTokens,
-        cache_creation_input_tokens: usage.cacheWriteTokens
+        input_tokens: outcome.usage.inputTokens,
+        output_tokens: outcome.usage.outputTokens,
+        cache_read_input_tokens: outcome.usage.cacheReadTokens,
+        cache_creation_input_tokens: outcome.usage.cacheWriteTokens
       }
     };
     pushLine(JSON.stringify(syntheticResult) + "\\n");
     sawResult = true;
-    resultIsError = isError;
+    resultIsError = outcome.isError;
+  };
+  const runTurnWithRetries = async (activeAgent) => {
+    emitTurnResult(
+      await runTurnWithResourceExhaustedRetries({
+        runTurn: () => runTurn(activeAgent),
+        aborted: () => timedOutForMaxRuntime || timedOutForNoOutput,
+        onRetry: (retryDelayMs, attempt) => {
+          log(
+            "runCursorSdkAttempt: resource_exhausted \\u2014 retrying in " + retryDelayMs + "ms (attempt " + (attempt + 1) + " of " + (RESOURCE_EXHAUSTED_RETRY_DELAYS_MS.length + 1) + ")"
+          );
+          appendToRawLogFile(
+            "[sdk-retry] resource_exhausted \\u2014 waiting " + retryDelayMs + "ms before retry\\n"
+          );
+          updateThinkingStep(
+            "Cursor is rate-limited...",
+            "Retrying in " + Math.round(retryDelayMs / 1e3) + "s..."
+          );
+        },
+        sleep: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs))
+      })
+    );
   };
   try {
     try {
-      await runTurn(agent);
+      await runTurnWithRetries(agent);
     } catch (error) {
       if (resumedExistingAgent && error instanceof Error && isAgentNotFound(error)) {
         log(
           "runCursorSdkAttempt: resumed agent unusable \\u2014 retrying as a fresh agent"
         );
         appendToRawLogFile("[sdk-retry] " + error.message + "\\n");
-        sawResult = false;
-        resultIsError = false;
         try {
           agent.close();
         } catch {
         }
         agent = await createFreshAgent();
-        await runTurn(agent);
+        await runTurnWithRetries(agent);
       } else {
         throw error;
       }
     }
   } catch (error) {
-    const messageText = error instanceof Error ? error.message : String(error);
+    const rawMessage = error instanceof Error ? error.message : String(error);
+    const messageText = isResourceExhaustedMessage(rawMessage) ? RESOURCE_EXHAUSTED_CHAT_MESSAGE : rawMessage;
     attemptErrorMessage = messageText;
-    log("runCursorSdkAttempt: run failed \\u2014 " + messageText);
-    appendToRawLogFile("[sdk-error] " + messageText + "\\n");
+    log("runCursorSdkAttempt: run failed \\u2014 " + rawMessage);
+    appendToRawLogFile("[sdk-error] " + rawMessage + "\\n");
     callbackState.stderrOutput = trimBufferHead(callbackState.stderrOutput + messageText + "\\n");
   } finally {
     clearInterval(healthTimer);
@@ -7237,7 +7295,7 @@ import { spawn as spawn3 } from "child_process";
 import {
   closeSync,
   existsSync as existsSync11,
-  mkdirSync as mkdirSync8,
+  mkdirSync as mkdirSync9,
   openSync,
   readFileSync as readFileSync11,
   rmSync as rmSync2,
@@ -7363,14 +7421,14 @@ async function waitForHealth(pid) {
 }
 function acquireStartupLock() {
   try {
-    mkdirSync8(SERVER_LOCK_DIR);
+    mkdirSync9(SERVER_LOCK_DIR);
     return true;
   } catch {
     try {
       const ageMs = Date.now() - statSync3(SERVER_LOCK_DIR).mtimeMs;
       if (ageMs > LOCK_STALE_MS) {
         rmSync2(SERVER_LOCK_DIR, { recursive: true, force: true });
-        mkdirSync8(SERVER_LOCK_DIR);
+        mkdirSync9(SERVER_LOCK_DIR);
         log("opencode server startup lock was stale \\u2014 reclaimed");
         return true;
       }
@@ -7386,7 +7444,7 @@ function releaseStartupLock() {
   }
 }
 async function ensureOpencodeServer() {
-  mkdirSync8(OPENCODE_RUNTIME_HOME_DIR, { recursive: true });
+  mkdirSync9(OPENCODE_RUNTIME_HOME_DIR, { recursive: true });
   if (await probeHealth()) return opencodeServerBaseUrl;
   if (!acquireStartupLock()) {
     const deadline = Date.now() + STARTUP_TIMEOUT_MS;
@@ -7854,7 +7912,7 @@ process.on("exit", (code) => {
   }
 });
 try {
-  unlinkSync4(READY_FILE);
+  unlinkSync3(READY_FILE);
 } catch {
 }
 try {
@@ -7878,18 +7936,9 @@ if (!preflightOk) {
 }
 startStreamingLoops();
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
-  if (existsSync13(d)) {
-    for (const f of readdirSync4(d)) {
-      try {
-        unlinkSync4(d + "/" + f);
-      } catch {
-      }
-    }
-  } else {
-    try {
-      mkdirSync9(d, { recursive: true });
-    } catch {
-    }
+  try {
+    mkdirSync10(d, { recursive: true });
+  } catch {
   }
 }
 if (REPO_ID && CONVEX_URL && CONVEX_TOKEN) {

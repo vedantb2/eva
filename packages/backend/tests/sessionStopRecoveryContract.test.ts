@@ -6,6 +6,7 @@ import { describe, expect, test } from "vitest";
 const convexDir = join(dirname(fileURLToPath(import.meta.url)), "../convex");
 
 const sandboxSource = readSource("_sessions/sandbox.ts");
+const stopRecoverySource = readSource("_sandbox/stopRecovery.ts");
 const startupSource = readSource("_sandbox_runtime/sessions.ts");
 
 /**
@@ -35,9 +36,13 @@ describe("every session stop schedules its own recovery", () => {
     expect(scheduler).toContain("STUCK_STOPPING_RECOVER_MS");
   });
 
-  /** A zero delay would race the finalize it is meant to backstop. */
+  /**
+   * A zero delay would race the finalize it is meant to backstop. Sessions,
+   * tasks and projects share one constant, so it is declared in `_sandbox`
+   * rather than in any one of their modules.
+   */
   test("waits before re-issuing", () => {
-    const declaration = sandboxSource.match(
+    const declaration = stopRecoverySource.match(
       /const STUCK_STOPPING_RECOVER_MS = ([\d_]+);/,
     );
     expect(

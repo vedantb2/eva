@@ -10,13 +10,13 @@ the zombie / first-event / first-assistant guards and
 inline `setInterval` that enforces max runtime plus a no-event silence kill at
 `CLAUDE_NO_OUTPUT_TIMEOUT_MS × 5`, exempting in-flight tools.
 
-| Variable                                  | Default  | Purpose                                                           |
-| ----------------------------------------- | -------- | ----------------------------------------------------------------- |
-| `CLAUDE_NO_OUTPUT_TIMEOUT_MS`             | 60000    | Daemon-path message watchdog base (×5 in claudeSdkDaemon).        |
-| `CLAUDE_STREAM_SILENCE_TIMEOUT_MS`        | 600000   | Kill a mid-turn stream silent this long with no tool in flight.   |
-| `CLAUDE_FIRST_EVENT_TIMEOUT_MS`           | 90000    | Kill if no parseable stream-json line before this.                |
-| `CLAUDE_FIRST_ASSISTANT_EVENT_TIMEOUT_MS` | 120000   | After Claude `system/init`, kill if no assistant event.           |
-| `CLAUDE_MAX_TOTAL_RUNTIME_MS`             | 5400000  | Absolute callback+CLI runtime cap (~90 min).                      |
+| Variable                                  | Default | Purpose                                                         |
+| ----------------------------------------- | ------- | --------------------------------------------------------------- |
+| `CLAUDE_NO_OUTPUT_TIMEOUT_MS`             | 60000   | Daemon-path message watchdog base (×5 in claudeSdkDaemon).      |
+| `CLAUDE_STREAM_SILENCE_TIMEOUT_MS`        | 600000  | Kill a mid-turn stream silent this long with no tool in flight. |
+| `CLAUDE_FIRST_EVENT_TIMEOUT_MS`           | 90000   | Kill if no parseable stream-json line before this.              |
+| `CLAUDE_FIRST_ASSISTANT_EVENT_TIMEOUT_MS` | 120000  | After Claude `system/init`, kill if no assistant event.         |
+| `CLAUDE_MAX_TOTAL_RUNTIME_MS`             | 5400000 | Absolute callback+CLI runtime cap (~90 min).                    |
 
 Watchdog interval: `NO_OUTPUT_CHECK_INTERVAL_MS` = 5000 (fixed in `config.ts`).
 
@@ -57,7 +57,7 @@ Quick tasks and automations use **both** the sandbox callback (this script) and,
 | ---------------------------- | --------------------------- | ----------------------------------- | -------------------------------- |
 | Callback `MAX_TOTAL_RUNTIME` | sandbox script              | 90m (`CLAUDE_MAX_TOTAL_RUNTIME_MS`) | Hard CLI lifetime cap            |
 | Daytona sandbox autostop     | Daytona                     | 90m (ephemeral + session)           | Sandbox inactivity stop          |
-| Convex `checkStaleRuns`      | `_taskWorkflow/watchdog.ts` | 5m / 25m tool-active                | Heartbeat staleness (tasks only) |
+| Convex `checkStaleRuns`      | `_taskWorkflow/watchdog.ts` | 5m probe / 25m unverified kill      | Heartbeat staleness (tasks only) |
 | `handleStaleRun`             | workflow                    | 2h                                  | Absolute backstop (tasks only)   |
 
 Automations rely on callback timeouts only — no task watchdog.

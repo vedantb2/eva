@@ -216,7 +216,7 @@ export const KanbanProvider = ({
   const [activeCardId, setActiveCardId] = useState<string | null>(null);
   const [overColumnId, setOverColumnId] = useState<string | null>(null);
 
-  const sensors = useDragSensors();
+  const sensors = useDragSensors({ sortable: true });
 
   const handleDragStart = (event: DragStartEvent) => {
     const card = data.find((item) => item.id === event.active.id);

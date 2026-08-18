@@ -99,7 +99,7 @@ export function ChatMessage({
         {isUser && (
           <div className="flex items-center justify-end gap-2 mt-0.5 ml-auto">
             {startedAt !== undefined ? (
-              <div className="flex items-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
+              <div className="reveal-on-hover transition-opacity flex items-center gap-3">
                 <span className="text-[11px] text-muted-foreground/60">
                   {dayjs(startedAt).format("h:mm A")}
                 </span>

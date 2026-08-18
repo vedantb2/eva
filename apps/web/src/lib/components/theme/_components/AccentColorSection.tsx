@@ -1,6 +1,6 @@
 "use client";
 
-import { ACCENT_COLORS } from "@/lib/contexts/ThemeContext";
+import { ACCENT_COLORS } from "@/lib/contexts/themeTokens";
 import type { AccentColor } from "@/lib/contexts/ThemeContext";
 import { cn } from "@eva/ui";
 import { IconCheck } from "@tabler/icons-react";

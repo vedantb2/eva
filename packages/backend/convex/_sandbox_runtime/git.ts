@@ -51,13 +51,13 @@ export type RepoSyncStrategy =
   | { mode: "none" };
 
 const SESSION_LIFECYCLE: SandboxLifecycle = {
-  autoStopInterval: 90,
+  autoStopInterval: 24 * 60,
   // Auto-archive after 1 day; no auto-delete.
   autoArchiveInterval: 1 * 24 * 60,
 };
 
 const EPHEMERAL_LIFECYCLE: SandboxLifecycle = {
-  autoStopInterval: 90,
+  autoStopInterval: 24 * 60,
   ephemeral: true,
 };
 
@@ -761,6 +761,11 @@ export async function checkoutSessionBranch(
     // `--no-track` on the base fallback: tracking the START POINT is what left
     // the branch pointing at origin/<base>; pinBranchUpstream then pins the
     // upstream to origin/<branchName> on both arms.
+    // `-f` on both arms: this path only runs on a fresh sandbox with no user
+    // work, but the dev server can re-dirty generated files between
+    // normalizeSnapshotWorktree and here (e.g. routeTree.gen.ts), and when the
+    // start point moves those files a plain checkout aborts — leaving the
+    // sandbox stuck on the base branch and publish refusing at session end.
     const { ref: baseTarget } = await resolveBaseTarget(sandbox, baseBranch);
     const quotedBranch = quote([branchName]);
     const quotedRemoteBranch = quote([`origin/${branchName}`]);
@@ -768,7 +773,7 @@ export async function checkoutSessionBranch(
     const workspaceDir = workspaceDirShell();
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && (git checkout -b ${quotedBranch} ${quotedRemoteBranch} || git checkout --no-track -b ${quotedBranch} ${quotedBase})`,
+      `cd ${workspaceDir} && (git checkout -f -b ${quotedBranch} ${quotedRemoteBranch} || git checkout -f --no-track -b ${quotedBranch} ${quotedBase})`,
       30,
     );
     await pinBranchUpstream(sandbox, branchName);
@@ -1055,9 +1060,35 @@ async function synchronizeBranchForPublish(
     )
   ).trim();
   if (currentBranch !== branchName) {
-    throw new Error(
-      `Refusing to publish ${branchName}: sandbox is on ${currentBranch || "detached HEAD"}`,
+    // Self-heal the startup-checkout-failure shape (prod sessions eva/65 and
+    // eva/66): checkoutSessionBranch failed, the run did its work on the base
+    // branch, and refusing here strands that work in the sandbox. When the
+    // session branch does not exist locally, every local commit is the
+    // session's, so creating the branch at HEAD (touches no files) publishes
+    // the work instead. An existing local session branch means HEAD and the
+    // branch have diverged in an unknown way — keep refusing.
+    const quotedLocalHeadRef = quote([`refs/heads/${branchName}`]);
+    const localBranchState = (
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && ((git show-ref --verify --quiet ${quotedLocalHeadRef} && echo exists) || echo missing)`,
+        10,
+      )
+    ).trim();
+    if (currentBranch === "" || localBranchState !== "missing") {
+      throw new Error(
+        `Refusing to publish ${branchName}: sandbox is on ${currentBranch || "detached HEAD"}`,
+      );
+    }
+    logGit(
+      `synchronizeBranchForPublish: sandbox stranded on ${currentBranch} with no local ${branchName}; creating it at HEAD`,
     );
+    await execGitCommand(
+      sandbox,
+      `cd ${workspaceDir} && git switch -c ${quote([branchName])}`,
+      15,
+    );
+    await pinBranchUpstream(sandbox, branchName);
   }
 
   const fetched = await fetchBranchRefs(

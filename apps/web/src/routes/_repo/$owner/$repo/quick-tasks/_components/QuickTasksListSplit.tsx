@@ -1,12 +1,12 @@
 "use client";
 
+import { useState } from "react";
 import { IconChecklist } from "@tabler/icons-react";
 import type { Id, api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { Spinner } from "@eva/ui";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
-import { QuickTaskHeaderActionsSlotProvider } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
 import { QuickTaskSplitDetailPane } from "./QuickTaskSplitDetailPane";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
@@ -31,6 +31,44 @@ interface QuickTasksListSplitProps {
 }
 
 /**
+ * Two counters that track which pane a phone should be on: `expand` increments
+ * each time a task becomes the selected one (including the first paint of a deep
+ * link), `collapse` increments each time the selection is cleared.
+ * `ResizablePanelLayout` only reacts to a value changing, so plain booleans
+ * would not fire again after the user had switched panes by hand.
+ *
+ * Both are adjusted during render (rather than in an effect) so the pane lands
+ * in the same commit as the selection — `useEffect` is banned here. `nudge`
+ * covers the case the URL cannot: re-tapping the task that is *already* in the
+ * URL after switching back to the list, which changes no route state at all.
+ */
+function useDetailPaneSignals(selectedTaskId: Id<"agentTasks"> | undefined) {
+  const [signal, setSignal] = useState(() => ({
+    taskId: selectedTaskId,
+    // Deep-linking straight to a task must land on the detail, not the list.
+    expand: selectedTaskId === undefined ? 0 : 1,
+    collapse: 0,
+  }));
+  if (signal.taskId !== selectedTaskId) {
+    const cleared = selectedTaskId === undefined;
+    setSignal({
+      taskId: selectedTaskId,
+      // Clearing the selection must not expand the (now empty) detail pane; it
+      // sends the phone back to the list instead. Either way the old id is
+      // forgotten, so re-picking that task counts as a new selection.
+      expand: cleared ? signal.expand : signal.expand + 1,
+      collapse: cleared ? signal.collapse + 1 : signal.collapse,
+    });
+  }
+  return {
+    expandRightSignal: signal.expand,
+    collapseRightSignal: signal.collapse,
+    nudge: () =>
+      setSignal((prev) => ({ ...prev, expand: prev.expand + 1 })),
+  };
+}
+
+/**
  * List-view master/detail layout: the quick-task list on the left, the selected
  * task's detail on the right. Mirrors the projects task-list layout while
  * keeping the existing `/quick-tasks/$numId` routing. The action-slot provider
@@ -46,6 +84,16 @@ interface QuickTasksListSplitProps {
  * own flex split at a fixed `md:w-1/3`, which meant the width was neither
  * draggable nor remembered — the only three-pane surface in the app where that
  * was true.
+ *
+ * Below `md` the primitive shows one pane at a time and opens on the left
+ * (the list). Unlike the sandbox call sites, the right pane here is the point
+ * of the view rather than an auxiliary panel, so selection drives which pane is
+ * on screen: {@link useDetailPaneSignals} bumps `expandRightSignal` whenever a
+ * different task becomes the selected one, which is what pushes a phone from the
+ * list to the detail, and `collapseRightSignal` when the selection is cleared,
+ * so the breadcrumb's "Quick Tasks" returns to the list instead of leaving an
+ * empty detail pane on screen. With no selection neither fires, so the list is
+ * what you land on.
  */
 export function QuickTasksListSplit({
   tasks,
@@ -60,9 +108,10 @@ export function QuickTasksListSplit({
   navSurface,
 }: QuickTasksListSplitProps) {
   const { basePath } = useRepo();
+  const { expandRightSignal, collapseRightSignal, nudge } =
+    useDetailPaneSignals(selectedTaskId);
   return (
-    <QuickTaskHeaderActionsSlotProvider>
-      <div className="min-h-0 flex-1 overflow-hidden">
+    <div className="min-h-0 flex-1 overflow-hidden">
         <ResizablePanelLayout
           storageKey="quick-tasks-split"
           leftDefaultSize="33%"
@@ -71,6 +120,9 @@ export function QuickTasksListSplit({
           // The detail pane is the point of this view, so it starts open —
           // unlike the sidebar-style panels the other call sites use.
           defaultRightCollapsed={false}
+          expandRightSignal={expandRightSignal}
+          collapseRightSignal={collapseRightSignal}
+          mobilePaneLabels={{ left: "Tasks", right: "Details" }}
           leftPanel={() => (
             <div className="flex h-full min-h-0 flex-col overflow-hidden">
               <QuickTasksListView
@@ -80,6 +132,7 @@ export function QuickTasksListSplit({
                 selectedIds={selectedIds}
                 onToggleSelect={onToggleSelect}
                 selectedTaskId={selectedTaskId}
+                onOpenTask={nudge}
               />
             </div>
           )}
@@ -115,6 +168,5 @@ export function QuickTasksListSplit({
           }
         />
       </div>
-    </QuickTaskHeaderActionsSlotProvider>
   );
 }

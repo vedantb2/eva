@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { toast } from "@eva/ui";
-import { convex } from "@/lib/components/ClientProvider";
+import { convex } from "@/lib/convex";
 import { fetchDeployFingerprint } from "@/lib/utils/deployFingerprint";
 
 const POLL_MS = 60_000;

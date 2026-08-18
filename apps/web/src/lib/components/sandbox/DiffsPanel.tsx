@@ -7,6 +7,7 @@ import type { GitStatus } from "@pierre/trees";
 import { Accordion, Spinner } from "@eva/ui";
 import { IconGitPullRequest, IconAlertTriangle } from "@tabler/icons-react";
 import { useThemeMode } from "@/lib/hooks/useThemeMode";
+import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { ResizableSidebar } from "@/lib/components/ResizableSidebar";
 import { DiffFileTree } from "./DiffFileTree";
 import { DiffFileAccordionItem } from "./DiffFileAccordionItem";
@@ -36,6 +37,13 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
   const { resolvedTheme } = useThemeMode();
   const { diffView, setDiffView, diffFile, setDiffFile } =
     useDiffSearchParams();
+  // Split view puts two code columns into a phone-width pane — roughly twenty
+  // characters each — so below `md` the diff is always unified, whatever the URL
+  // says. `@pierre/diffs` takes the style as a render option rather than a
+  // layout, so a CSS breakpoint cannot express this; the matching Split trigger
+  // is hidden in `DiffsToolbar` at the same breakpoint.
+  const isNarrow = useMediaQuery("(max-width: 767px)");
+  const effectiveDiffView = isNarrow ? "unified" : diffView;
   const { isViewed, setViewed, viewedPaths } = useDiffViewedFiles(prUrl);
   const { state, refresh } = usePrDiff(prUrl, repoId);
 
@@ -45,6 +53,7 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
   // Controlled accordion open set — independent of Viewed so a viewed file can
   // still be expanded to re-read without clearing the checkbox (GitHub UX).
   const [openPaths, setOpenPaths] = useState<string[]>([]);
+  const [showContentSignal, setShowContentSignal] = useState(0);
   const [seededFilesKey, setSeededFilesKey] = useState<string | null>(null);
 
   // Held in state, not a ref, because each file's body needs the element as its
@@ -113,6 +122,9 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
   const handleSelect = (path: string) => {
     setDiffFile(path);
     ensureOpen(path);
+    // Below `md` the tree and the diff are separate panes, so picking a file has
+    // to move you to that file's diff.
+    setShowContentSignal((n) => n + 1);
     // Defer scroll until after the accordion open state commits.
     requestAnimationFrame(() => {
       fileRefs.current
@@ -202,7 +214,7 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
               <div key={entry.path} ref={setFileRef(entry.path)}>
                 <DiffFileAccordionItem
                   entry={entry}
-                  diffView={diffView}
+                  diffView={effectiveDiffView}
                   resolvedTheme={resolvedTheme}
                   viewed={isViewed(entry.path)}
                   onViewedChange={(viewed) =>
@@ -234,7 +246,7 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
         viewedCount={viewedCount}
         filter={fileFilter}
         onFilterChange={setFileFilter}
-        diffView={diffView}
+        diffView={effectiveDiffView}
         onDiffViewChange={setDiffView}
         wrapLines={wrapLines}
         onWrapLinesChange={setWrapLines}
@@ -260,6 +272,12 @@ export function DiffsPanel({ prUrl, repoId }: DiffsPanelProps) {
         {showTree ? (
           <ResizableSidebar
             storageKey="diff-file-tree"
+            mobilePaneLabels={{ left: "Files", right: "Diff" }}
+            showContentSignal={showContentSignal}
+            // See FilesPanel: the 481px default floor overflows the sandbox
+            // pane on a tablet. The diff body scrolls horizontally itself.
+            minSidebarWidthPx={140}
+            minContentWidthPx={200}
             sidebar={
               <DiffFileTree
                 key={visibleKey}

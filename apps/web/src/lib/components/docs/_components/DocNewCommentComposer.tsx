@@ -71,11 +71,11 @@ export function DocNewCommentComposer({
         className="text-sm"
         autoFocus
       />
-      <div className="mt-1.5 flex justify-end gap-1">
+      <div className="mt-1.5 flex max-sm:flex-wrap justify-end gap-1 max-sm:gap-2">
         <Button
           size="sm"
           variant="ghost"
-          className="h-6 text-xs"
+          className="h-6 text-xs max-sm:h-10 max-sm:px-3"
           onClick={onCancel}
           disabled={isSubmitting}
         >
@@ -85,7 +85,7 @@ export function DocNewCommentComposer({
           <Button
             size="sm"
             variant="secondary"
-            className="h-6 text-xs"
+            className="h-6 text-xs max-sm:h-10 max-sm:px-3"
             disabled={!content.trim() || isSubmitting}
             onClick={() => submit("agent")}
           >
@@ -94,7 +94,7 @@ export function DocNewCommentComposer({
         ) : null}
         <Button
           size="sm"
-          className="h-6 text-xs"
+          className="h-6 text-xs max-sm:h-10 max-sm:px-3"
           disabled={!content.trim() || isSubmitting}
           onClick={() => submit(allowAskEva ? "human" : undefined)}
         >

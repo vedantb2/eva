@@ -21,17 +21,23 @@ const buttonVariants = cva(
       },
       size: {
         default: "h-10 px-4 py-2",
-        // `xs` and `icon-xs` fall under the 40px comfortable-tap floor, so they
-        // carry `hit-target` — it grows the pressable area by 8px on every side
-        // via a pseudo-element, without touching layout. Row-level controls
-        // were being hand-sized to `size-6`/`size-7` precisely because these
-        // did not exist. (`.hit-target` must not override Tailwind `absolute` —
-        // see globals.css.)
+        // Sizes under the 40px comfortable-tap floor grow their pressable area
+        // by 8px on every side via a pseudo-element, without touching layout.
+        // Row-level controls were being hand-sized to `size-6`/`size-7`
+        // precisely because these did not exist, and an audit found ~45 sub-40px
+        // targets against 17 uses of the utility: a compliant target has to come
+        // from the variant, or it does not come at all.
+        //
+        // `sm`/`icon-sm` take it as `max-sm:hit-target`, not `hit-target`: the
+        // 8px bleed is invisible but it *is* a change to where a pointer has to
+        // be to click, so on desktop these stay exactly the 32px targets they
+        // always were. `xs`/`icon-xs` keep the ungated utility they shipped with.
+        // (`.hit-target` must not override Tailwind `absolute` — see globals.css.)
         xs: "h-7 rounded-md px-2 text-[11px] hit-target [&_svg]:size-3.5",
-        sm: "h-8 rounded-lg px-3 text-xs",
+        sm: "h-8 rounded-lg px-3 text-xs max-sm:hit-target",
         lg: "h-11 rounded-lg px-6",
         icon: "h-10 w-10",
-        "icon-sm": "h-8 w-8",
+        "icon-sm": "h-8 w-8 max-sm:hit-target",
         "icon-xs": "h-7 w-7 hit-target [&_svg]:size-3.5",
       },
     },

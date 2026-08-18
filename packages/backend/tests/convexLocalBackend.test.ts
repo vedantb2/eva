@@ -51,6 +51,16 @@ describe("buildConvexBackgroundScriptBody", () => {
     expect(body).toContain("reusing planted binary");
   });
 
+  it("plants only into real convex caches, never the cursor home", () => {
+    const body = buildConvexBackgroundScriptBody("npx convex dev");
+    // Cursor runs the CLI in-process under the sandbox home now, so
+    // /tmp/cursor-home is not a convex cache — planting there leaked ~250MB
+    // per label onto a 32GB disk (fix c06518ab).
+    expect(body).not.toContain("/tmp/cursor-home");
+    expect(body).toContain("os.path.expanduser('~/.cache/convex/binaries')");
+    expect(body).toContain("'/home/vercel-sandbox/.cache/convex/binaries'");
+  });
+
   it("sweeps stale Convex CLI bundle staging dirs, age-gated", () => {
     const body = buildConvexBackgroundScriptBody("npx convex dev");
     expect(body).toContain(

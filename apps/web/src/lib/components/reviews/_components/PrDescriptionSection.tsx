@@ -108,7 +108,8 @@ export function PrDescriptionSection({
     <Collapsible
       open={open}
       onOpenChange={setOpen}
-      className="group/description space-y-2"
+      // Plain `group`: `reveal-on-hover transition-opacity` keys off the unnamed group.
+      className="group space-y-2"
     >
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         {/* The house Collapsible, not Accordion: an accordion item carries a
@@ -118,7 +119,7 @@ export function PrDescriptionSection({
         <CollapsibleTrigger
           className={cn(
             SECTION_LABEL_CLASS,
-            "motion-press flex min-w-0 items-center gap-1.5 hover:text-foreground active:scale-[0.98] [&[data-state=open]>svg]:rotate-90",
+            "max-sm:hit-target motion-press flex min-w-0 items-center gap-1.5 hover:text-foreground active:scale-[0.98] [&[data-state=open]>svg]:rotate-90",
           )}
         >
           <IconChevronRight
@@ -131,11 +132,12 @@ export function PrDescriptionSection({
         </CollapsibleTrigger>
 
         {/* Held back until the reader is in this region: two controls sitting
-            permanently beside a heading read as chrome to skip past. */}
-        <span className="ml-auto flex shrink-0 items-center gap-3 text-xs text-muted-foreground opacity-0 transition-opacity focus-within:opacity-100 group-hover/description:opacity-100">
+            permanently beside a heading read as chrome to skip past. Shipped
+            visible below `sm`, where there is no hover to hold them back with. */}
+        <span className="reveal-on-hover transition-opacity ml-auto flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
           <button
             type="button"
-            className="inline-flex items-center gap-1 hover:text-foreground"
+            className="max-sm:hit-target inline-flex items-center gap-1 hover:text-foreground"
             onClick={() => setDraft(body)}
           >
             <IconPencil size={12} aria-hidden />
@@ -145,7 +147,7 @@ export function PrDescriptionSection({
             href={overview.htmlUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="hover:text-foreground"
+            className="max-sm:hit-target hover:text-foreground"
             aria-label="View on GitHub"
           >
             <IconExternalLink size={12} aria-hidden />

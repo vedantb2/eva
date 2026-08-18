@@ -2,15 +2,19 @@ import { useRef, useState } from "react";
 import type { api, Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
+  cn,
   Button,
   Card,
   CardContent,
   ContextMenu,
   ContextMenuContent,
-  ContextMenuItem,
   ContextMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
 } from "@eva/ui";
 import {
+  IconDots,
   IconGitBranch,
   IconTrash,
   IconPhoto,
@@ -21,6 +25,8 @@ import { RepoLogo } from "@/lib/components/RepoLogo";
 import { RepoLabelDialog } from "@/lib/components/RepoLabelDialog";
 import { useRepoLogoUpload } from "@/lib/hooks/useRepoLogoUpload";
 import { appLeafName, repoDisplayLabel } from "@/lib/utils/repoGrouping";
+import { TeamRepoCardMenuItems } from "./TeamRepoCardMenuItems";
+import { CARD_KEBAB_CLASS } from "@/lib/components/ui/cardKebab";
 
 type Repo = FunctionReturnType<typeof api.githubRepos.listByTeam>[number];
 
@@ -44,6 +50,15 @@ export function TeamRepoCard({
     const file = e.target.files?.[0];
     e.target.value = "";
     if (file) uploadLogo(repo._id, file);
+  };
+
+  const menuProps = {
+    isOwner,
+    hasLogo: Boolean(repo.logoUrl),
+    onRename: () => setRenameOpen(true),
+    onPickLogo: () => fileInputRef.current?.click(),
+    onRemoveLogo: () => removeLogo(repo._id),
+    onRemove: () => onRemove(repo._id),
   };
 
   return (
@@ -72,8 +87,11 @@ export function TeamRepoCard({
                   </p>
                 </div>
               </div>
+              {/* Four 28px icon buttons plus a kebab side by side on a phone is
+                  worse than either alone, so the inline row is the pointer-device
+                  affordance and the kebab below `sm` hosts the same actions. */}
               {isOwner && (
-                <div className="flex shrink-0 items-center gap-1">
+                <div className="hidden max-sm:shrink-0 items-center gap-1 sm:flex">
                   <Button
                     size="icon"
                     variant="ghost"
@@ -110,6 +128,24 @@ export function TeamRepoCard({
                   </Button>
                 </div>
               )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Repository actions"
+                    onClick={(e) => e.stopPropagation()}
+                    className={cn("relative max-sm:shrink-0", CARD_KEBAB_CLASS)}
+                  >
+                    <IconDots className="size-3.5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent
+                  align="end"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <TeamRepoCardMenuItems variant="dropdown" {...menuProps} />
+                </DropdownMenuContent>
+              </DropdownMenu>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -121,28 +157,7 @@ export function TeamRepoCard({
           </Card>
         </ContextMenuTrigger>
         <ContextMenuContent onClick={(e) => e.stopPropagation()}>
-          <ContextMenuItem onClick={() => setRenameOpen(true)}>
-            <IconPencil size={16} />
-            Rename
-          </ContextMenuItem>
-          {isOwner ? (
-            <ContextMenuItem onClick={() => fileInputRef.current?.click()}>
-              <IconPhoto size={16} />
-              {repo.logoUrl ? "Change logo" : "Set logo"}
-            </ContextMenuItem>
-          ) : null}
-          {isOwner && repo.logoUrl ? (
-            <ContextMenuItem onClick={() => removeLogo(repo._id)}>
-              <IconPhotoOff size={16} />
-              Remove logo
-            </ContextMenuItem>
-          ) : null}
-          {isOwner ? (
-            <ContextMenuItem onClick={() => onRemove(repo._id)}>
-              <IconTrash size={16} />
-              Remove from team
-            </ContextMenuItem>
-          ) : null}
+          <TeamRepoCardMenuItems variant="context" {...menuProps} />
         </ContextMenuContent>
       </ContextMenu>
       <RepoLabelDialog

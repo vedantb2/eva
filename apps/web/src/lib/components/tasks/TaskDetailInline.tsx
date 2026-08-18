@@ -38,6 +38,7 @@ import {
 import type { UseTaskDetailRouting } from "./useTaskDetail";
 import { useQuickTaskHeaderActionsSlot } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 interface TaskDetailInlineProps {
   onClose: () => void;
@@ -55,6 +56,7 @@ export function TaskDetailInline({
     useState<SandboxTab>("preview");
   const [, setFileViewerPath] = useQueryState("file", fileViewerPathParser);
   const quickTaskHeaderActionsSlot = useQuickTaskHeaderActionsSlot();
+  const simpleView = useSimpleView();
   const prewarmChatDaemon = useMutation(
     api.agentTaskChatWorkflow.prewarmChatDaemon,
   );
@@ -129,6 +131,7 @@ export function TaskDetailInline({
   // Chat file chips → Files tab + `?file=` (same pattern as sessions).
   // Must stay above early returns so hooks order is stable.
   const openFile = (path: string) => {
+    if (simpleView) return;
     if (routing?.mode === "quick-sandbox") {
       routing.quick.onOpenFile(path);
       return;
@@ -242,13 +245,23 @@ export function TaskDetailInline({
           rightMinWidthPx={300}
           defaultRightCollapsed={false}
           expandRightSignal={expandRightSignal}
+          mobilePaneLabels={{ left: "Chat", right: "Sandbox" }}
           leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
             <TaskSandboxChatPanel
               taskId={taskId}
               isSandboxActive={isSandboxActive}
+              isSandboxToggling={isSandboxStarting || isSandboxStopping}
               onOpenFile={openFile}
               sandboxCollapsed={rightPanelCollapsed}
               onToggleSandbox={onToggleRightPanel}
+              onSandboxToggle={
+                canStartSandbox || isSandboxActive
+                  ? (action) => {
+                      if (action === "start") void handleStartSandbox();
+                      else void handleStopSandbox();
+                    }
+                  : undefined
+              }
             />
           )}
           rightPanel={sandboxRightPanel(panes, owner, terminalPanel)}

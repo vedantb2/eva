@@ -144,7 +144,7 @@ export const usePromptInputController = () => {
 };
 
 // Optional variants (do NOT throw). Useful for dual-mode components — e.g.
-// TraitsMenu, which also renders outside a composer (task Properties).
+// TraitsPanel, which also renders outside a composer (task Properties).
 export const useOptionalPromptInputController = () =>
   useContext(PromptInputController);
 
@@ -1041,7 +1041,10 @@ export const PromptInputFooter = ({
 }: PromptInputFooterProps) => (
   <InputGroupAddon
     align="block-end"
-    className={cn("justify-between gap-1", className)}
+    // `flex-wrap`: the footer carries the model picker, mode/agent selects and
+    // the send button, which together are wider than a phone-width composer.
+    // Without it the row squashes its children instead of taking a second line.
+    className={cn("justify-between gap-1 max-sm:flex-wrap", className)}
     {...props}
   />
 );

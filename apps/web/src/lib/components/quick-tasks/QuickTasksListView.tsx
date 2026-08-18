@@ -30,7 +30,7 @@ import {
   TASK_STATUSES,
   type DisplayTaskStatus,
 } from "@/lib/components/tasks/TaskStatusBadge";
-import { QuickTaskCard } from "./QuickTaskCard";
+import { isTaskAgentActive, QuickTaskCard } from "./QuickTaskCard";
 import { entityPathSegment } from "@/lib/numId";
 import { RunAllDialog } from "./RunAllDialog";
 
@@ -53,6 +53,12 @@ interface QuickTasksListViewProps {
   selectedIds: Set<Id<"agentTasks">>;
   onToggleSelect: (id: Id<"agentTasks">) => void;
   selectedTaskId?: string | null;
+  /**
+   * Fires when a card is opened (not in selection mode). The master/detail
+   * caller uses it to bring the detail pane forward on a phone, which the URL
+   * alone cannot express when the tapped task is the one already open.
+   */
+  onOpenTask?: (id: Id<"agentTasks">) => void;
 }
 
 export function QuickTasksListView({
@@ -62,6 +68,7 @@ export function QuickTasksListView({
   selectedIds,
   onToggleSelect,
   selectedTaskId,
+  onOpenTask,
 }: QuickTasksListViewProps) {
   const { repoId, basePath, owner, name } = useRepo();
   const currentUserId = useQuery(api.auth.me);
@@ -284,6 +291,7 @@ export function QuickTasksListView({
                                     title={task.title}
                                     description={task.description}
                                     status={task.status}
+                                    isAgentActive={isTaskAgentActive(task)}
                                     priority={task.priority}
                                     numId={task.numId}
                                     projectNumId={
@@ -315,7 +323,9 @@ export function QuickTasksListView({
                                             event.preventDefault();
                                             onToggleSelect(task._id);
                                           }
-                                        : undefined
+                                        : onOpenTask
+                                          ? () => onOpenTask(task._id)
+                                          : undefined
                                     }
                                     isSelecting={isSelecting}
                                     isSelected={selectedIds.has(task._id)}

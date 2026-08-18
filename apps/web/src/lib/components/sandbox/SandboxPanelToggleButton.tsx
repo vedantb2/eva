@@ -6,7 +6,7 @@ import {
   IconLayoutSidebarRightExpand,
 } from "@tabler/icons-react";
 import { formatForDisplay } from "@tanstack/react-hotkeys";
-import { useShortcutBinding } from "@/lib/hotkeys/ShortcutsContext";
+import { useShortcutBinding } from "@/lib/hotkeys/useShortcut";
 
 /** Show/hide the right sandbox panel (same control sessions use). */
 export function SandboxPanelToggleButton({

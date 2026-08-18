@@ -9,7 +9,6 @@ import {
   STALE_RECHECK_MS,
   STALE_FINISHING_THRESHOLD_MS,
   STALE_NO_SANDBOX_THRESHOLD_MS,
-  STALE_TOOL_ACTIVE_THRESHOLD_MS,
 } from "./recovery";
 import {
   clearStreamingActivity,
@@ -120,13 +119,14 @@ export const checkStaleRuns = internalMutation({
       run.startedAt ?? 0,
       run.finalizingAt ?? 0,
     );
+    // A silent long tool is not exempt from the ordinary threshold: the 10s
+    // transport ping is heartbeat enough, and the liveness probe below (not a
+    // longer window) is what protects a live build from transport flaps.
     const staleThresholdMs = startupStillInProgress
       ? STALE_NO_SANDBOX_THRESHOLD_MS
-      : toolActive
-        ? STALE_TOOL_ACTIVE_THRESHOLD_MS
-        : finishingInProgress
-          ? STALE_FINISHING_THRESHOLD_MS
-          : STALE_THRESHOLD_MS;
+      : finishingInProgress
+        ? STALE_FINISHING_THRESHOLD_MS
+        : STALE_THRESHOLD_MS;
     const staleSeconds = Math.round(staleThresholdMs / 1000);
     const streamingAgeMs = Date.now() - lastActivity;
     const isStale = streamingAgeMs > staleThresholdMs;

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
+import { useShortcut } from "@/lib/hotkeys/useShortcut";
 
 /**
  * Session/sandbox view shortcut for toggling the Browser tab.

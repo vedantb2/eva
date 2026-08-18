@@ -1,7 +1,6 @@
 import {
   BorderBeam,
   Button,
-  ModelSelect,
   motionBase,
   PromptInput,
   PromptInputFooter,
@@ -14,7 +13,7 @@ import {
   type PromptInputMessage,
   usePromptInputController,
 } from "@eva/ui";
-import { ModelTraitsMenu } from "@/lib/components/ModelTraitsMenu";
+import { ModelSelectWithTraits } from "@/lib/components/ModelSelectWithTraits";
 import { ComposerSpeechButton } from "@/lib/components/chat/_components/ComposerSpeechButton";
 import {
   MAX_CHAT_ATTACHMENTS,
@@ -56,6 +55,7 @@ import {
   type MentionTextareaHandle,
 } from "@/lib/components/chat/MentionTextarea";
 import { useSkillSlashItems } from "@/lib/hooks/useSkillSlashItems";
+import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { QueuedMessagesPanel } from "@/lib/components/QueuedMessagesPanel";
 import type { ChatBodyQueuedMessage } from "@/lib/components/chat/chatBodyUtils";
 import { useQueuedMessageMutations } from "@/lib/components/chat/useQueuedMessageMutations";
@@ -99,7 +99,10 @@ interface ChatComposerProps {
   preInputContent?: React.ReactNode;
   /** Optional left-side control on the under-input card (e.g. base branch). */
   underCardLeading?: React.ReactNode;
+  /** Optional left-side controls on the under-input card (e.g. design tools). */
   toolsBefore?: React.ReactNode;
+  mode?: SessionMode;
+  onModeChange?: (mode: SessionMode) => void;
   draft?: ChatDraftSeed;
   /** Persist draft in localStorage when no Convex conversation exists yet. */
   localDraft?: LocalChatDraft;
@@ -130,6 +133,8 @@ export function ChatComposer({
   preInputContent,
   underCardLeading,
   toolsBefore,
+  mode,
+  onModeChange,
   draft,
   localDraft,
   isDraftLoading,
@@ -286,12 +291,17 @@ export function ChatComposer({
                 enableAttachmentPaste
                 completionContext={`a message instructing an AI coding agent working on the repository ${repoBasePath.replace(/^\//, "")}`}
               />
-              <PromptInputFooter className="px-4 pb-4">
+              {/* Wraps rather than squashing: the footer holds five controls and
+                  the chat pane goes down to 350px on desktop and a full phone
+                  width below `md`. No effect while everything fits. */}
+              <PromptInputFooter className="max-sm:gap-y-2 px-4 pb-4">
                 <PromptInputTools>
                   <ComposerPlusMenu
                     dataItems={plusDataItems}
                     skillItems={skillItems}
                     mentionRef={mentionRef}
+                    mode={mode}
+                    onModeChange={onModeChange}
                   />
                   {toolsBefore}
                   <ComposerStash
@@ -301,25 +311,16 @@ export function ChatComposer({
                   />
                 </PromptInputTools>
                 <div className="flex min-w-0 items-center gap-1">
-                  <ModelSelect
+                  <ModelSelectWithTraits
                     value={model}
                     options={modelOptions}
                     onValueChange={setModel}
                     accounts={accounts}
                     accountId={accountId}
                     onAccountChange={onAccountChange}
-                    className="max-w-48 truncate sm:max-w-none"
+                    traits={displayTraits}
+                    onTraitsChange={onTraitsChange}
                   />
-                  {onTraitsChange && displayTraits ? (
-                    // Already-resolved traits round-trip through
-                    // resolveTraitsForDisplay unchanged, so they double as the
-                    // stored values the shared menu expects.
-                    <ModelTraitsMenu
-                      model={model}
-                      traits={displayTraits}
-                      onChange={onTraitsChange}
-                    />
-                  ) : null}
                   <ComposerSpeechButton disabled={isInputDisabled} />
                   {isExecuting ? (
                     <Button
@@ -327,6 +328,7 @@ export function ChatComposer({
                       type="button"
                       variant="destructive"
                       onClick={onCancel}
+                      aria-label="Stop Eva"
                       title="Stop Eva"
                     >
                       <IconPlayerStop className="size-4" />

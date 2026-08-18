@@ -170,7 +170,7 @@ export function CustomTabPanel({
   if (!isActive || !sandboxId) {
     return (
       <div className="h-full flex items-center justify-center text-sm text-muted-foreground">
-        Start the sandbox to use {name}.
+        Wake Eva up to use {name}.
       </div>
     );
   }
@@ -183,6 +183,7 @@ export function CustomTabPanel({
             size="icon"
             variant="ghost"
             className="size-8"
+            aria-label={`Reload ${name}`}
             onClick={() => setIframeKey((k) => k + 1)}
           >
             <IconRefresh className="w-4 h-4" />
@@ -191,6 +192,7 @@ export function CustomTabPanel({
             size="icon"
             variant="ghost"
             className="size-8"
+            aria-label="Toggle fullscreen"
             onClick={toggleFullscreen}
           >
             <IconMaximize className="w-4 h-4" />
@@ -200,6 +202,7 @@ export function CustomTabPanel({
               href={stripPreviewGrant(url)}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label={`Open ${name} in a new tab`}
             >
               <IconExternalLink className="w-4 h-4" />
             </a>

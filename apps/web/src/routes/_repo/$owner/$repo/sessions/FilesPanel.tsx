@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useQueryState } from "nuqs";
 import type { Id } from "@eva/backend";
 import { Button, Spinner } from "@eva/ui";
@@ -41,25 +42,37 @@ export function FilesPanel({
   const root = listState.kind === "loaded" ? listState.root : null;
   const selectedPath = deriveSelectedRelPath(file, root);
 
+  // Below `md` the tree and the viewer are separate panes, so opening a file has
+  // to move you to the file — otherwise the tap looks like it did nothing.
+  const [showContentSignal, setShowContentSignal] = useState(0);
+
   const handleSelectFile = (relativePath: string) => {
     if (!root) return;
     void setFile(`${root}/${relativePath}`);
+    setShowContentSignal((n) => n + 1);
   };
 
   if (!sandboxId || !isActive) {
-    return <ViewerNotice message="Start the sandbox to browse files" />;
+    return <ViewerNotice message="Wake Eva up to browse files" />;
   }
 
   return (
     <ResizableSidebar
       storageKey="sandbox-file-tree"
+      mobilePaneLabels={{ left: "Files", right: "Viewer" }}
+      showContentSignal={showContentSignal}
+      // The 160/320 defaults add up to a 481px floor, which overflows the
+      // sandbox pane on a tablet (and on a narrow desktop pane). Both sides
+      // scroll their own content, so they can go narrower than the default.
+      minSidebarWidthPx={140}
+      minContentWidthPx={200}
       sidebar={
         listState.kind === "loading" || listState.kind === "idle" ? (
           <div className="flex h-full items-center justify-center">
             <Spinner size="sm" />
           </div>
         ) : listState.kind === "not_running" ? (
-          <ViewerNotice message="Start the sandbox to browse files" />
+          <ViewerNotice message="Wake Eva up to browse files" />
         ) : listState.kind === "error" ? (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-4">
             <pre className="max-h-48 max-w-full overflow-auto scroll-fade whitespace-pre-wrap rounded-lg bg-destructive/5 p-3 text-sm text-destructive">

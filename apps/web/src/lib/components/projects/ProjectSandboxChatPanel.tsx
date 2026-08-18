@@ -14,7 +14,7 @@ import {
 } from "@eva/backend";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
-import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
+import { SandboxChatHeaderActions } from "@/lib/components/sandbox/SandboxStartStopButton";
 import { BackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
@@ -26,18 +26,22 @@ import { projectStoredTraits, useSetProjectTraits } from "./useProjectTraits";
 interface ProjectSandboxChatPanelProps {
   projectId: Id<"projects">;
   isSandboxActive: boolean;
+  isSandboxToggling?: boolean;
   /** Opens the Files tab and loads this sandbox path in the file viewer. */
   onOpenFile?: (path: string) => void;
   sandboxCollapsed?: boolean;
   onToggleSandbox?: () => void;
+  onSandboxToggle?: (action: "start" | "stop") => void;
 }
 
 export function ProjectSandboxChatPanel({
   projectId,
   isSandboxActive,
+  isSandboxToggling = false,
   onOpenFile,
   sandboxCollapsed,
   onToggleSandbox,
+  onSandboxToggle,
 }: ProjectSandboxChatPanelProps) {
   const { repo, basePath } = useRepo();
   const project = useQuery(api.projects.get, { id: projectId });
@@ -212,14 +216,13 @@ export function ProjectSandboxChatPanel({
 
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
-      {onToggleSandbox ? (
-        <div className="flex shrink-0 items-center justify-end px-2 py-1">
-          <SandboxPanelToggleButton
-            collapsed={sandboxCollapsed === true}
-            onToggle={onToggleSandbox}
-          />
-        </div>
-      ) : null}
+      <SandboxChatHeaderActions
+        isSandboxActive={isSandboxActive}
+        isSandboxToggling={isSandboxToggling}
+        onSandboxToggle={onSandboxToggle}
+        sandboxCollapsed={sandboxCollapsed}
+        onToggleSandbox={onToggleSandbox}
+      />
       <ChatBody
         repoId={repo._id}
         repoBasePath={basePath}
@@ -235,13 +238,13 @@ export function ProjectSandboxChatPanel({
         isInputDisabled={!isSandboxActive}
         placeholder={
           !isSandboxActive
-            ? "Sandbox must be running to chat..."
+            ? "Wake Eva up to chat..."
             : "Ask Eva anything... / for skills · @ to mention"
         }
         emptyStateTitle={
           isSandboxActive
             ? "Ask Eva anything about this project's running sandbox."
-            : "Sandbox is inactive. Start it to begin chatting."
+            : "Wake Eva up to begin chatting."
         }
         model={model}
         setModel={setModel}

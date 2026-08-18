@@ -6,25 +6,26 @@ import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
+  cn,
   ContextMenu,
   ContextMenuTrigger,
   ContextMenuContent,
-  ContextMenuItem,
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
   Button,
 } from "@eva/ui";
-import {
-  IconExternalLink,
-  IconLayoutDashboard,
-  IconTrash,
-} from "@tabler/icons-react";
+import { IconDots, IconLayoutDashboard } from "@tabler/icons-react";
 import { relativeTime } from "./_format";
 import { withMutationToast } from "@/lib/utils/mutationToast";
+import { ArtifactCardMenuItems } from "./ArtifactCardMenuItems";
+import { CARD_KEBAB_CLASS } from "@/lib/components/ui/cardKebab";
 
 type ArtifactRow = FunctionReturnType<typeof api.artifacts.listAll>[number];
 
@@ -47,57 +48,75 @@ export function ArtifactCard({ artifact }: { artifact: ArtifactRow }) {
     setConfirmDeleteOpen(false);
   };
 
+  const menuProps = {
+    onOpen: () =>
+      void navigate({
+        to: "/artifacts/$artifactId",
+        params: { artifactId: artifact._id },
+      }),
+    onOpenInNewTab: openInNewTab,
+    onDelete: () => setConfirmDeleteOpen(true),
+  };
+
   return (
     <>
       <ContextMenu>
         <ContextMenuTrigger asChild>
-          <Link
-            to="/artifacts/$artifactId"
-            params={{ artifactId: artifact._id }}
-            className="flex flex-col gap-2 rounded-surface bg-card p-4 transition-colors hover:bg-muted"
-          >
-            <div className="flex items-center gap-2">
-              <IconLayoutDashboard
-                size={18}
-                className="shrink-0 text-muted-foreground"
-              />
-              <span className="truncate font-medium text-foreground">
-                {artifact.name}
+          {/* The tile is a single stretched <Link>, so the touch kebab cannot
+              live inside it (a button may not nest in an anchor). This wrapper
+              gives the kebab a positioning parent; `h-full` on both keeps the
+              tile stretching to the grid row as it did before. */}
+          <div className="relative h-full">
+            <Link
+              to="/artifacts/$artifactId"
+              params={{ artifactId: artifact._id }}
+              className="flex h-full flex-col gap-2 rounded-surface bg-card p-4 transition-colors hover:bg-muted"
+            >
+              <div className="flex items-center gap-2">
+                <IconLayoutDashboard
+                  size={18}
+                  className="shrink-0 text-muted-foreground"
+                />
+                <span className="truncate font-medium text-foreground">
+                  {artifact.name}
+                </span>
+              </div>
+              {artifact.description ? (
+                <p className="line-clamp-2 text-sm text-muted-foreground">
+                  {artifact.description}
+                </p>
+              ) : null}
+              <span className="mt-auto text-xs text-muted-foreground max-sm:pr-8">
+                {relativeTime(artifact.createdAt)}
               </span>
-            </div>
-            {artifact.description ? (
-              <p className="line-clamp-2 text-sm text-muted-foreground">
-                {artifact.description}
-              </p>
-            ) : null}
-            <span className="mt-auto text-xs text-muted-foreground">
-              {relativeTime(artifact.createdAt)}
-            </span>
-          </Link>
+            </Link>
+            {/* Touch has no right-click, so below `sm` the same items get a
+                visible kebab, parked on the timestamp line. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Artifact actions"
+                  onClick={(e) => e.stopPropagation()}
+                  className={cn(
+                    "absolute bottom-3 right-2 z-2",
+                    CARD_KEBAB_CLASS,
+                  )}
+                >
+                  <IconDots className="size-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ArtifactCardMenuItems variant="dropdown" {...menuProps} />
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </ContextMenuTrigger>
         <ContextMenuContent>
-          <ContextMenuItem
-            onClick={() =>
-              navigate({
-                to: "/artifacts/$artifactId",
-                params: { artifactId: artifact._id },
-              })
-            }
-          >
-            <IconLayoutDashboard size={16} />
-            Open
-          </ContextMenuItem>
-          <ContextMenuItem onClick={openInNewTab}>
-            <IconExternalLink size={16} />
-            Open in new tab
-          </ContextMenuItem>
-          <ContextMenuItem
-            className="text-destructive"
-            onClick={() => setConfirmDeleteOpen(true)}
-          >
-            <IconTrash size={16} />
-            Delete
-          </ContextMenuItem>
+          <ArtifactCardMenuItems variant="context" {...menuProps} />
         </ContextMenuContent>
       </ContextMenu>
       <Dialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>

@@ -1,12 +1,34 @@
+"use client";
+
 import type { ReactNode } from "react";
 import {
   ActivityTasks,
   Reasoning,
   ReasoningTrigger,
   CollapsibleContent,
+  Shimmer,
+  Spinner,
+  formatElapsed,
+  useElapsedSeconds,
 } from "@eva/ui";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import { formatDuration } from "@eva/shared/duration";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
+
+function SimpleViewWorkingStatus({ startedAt }: { startedAt?: number }) {
+  const elapsed = useElapsedSeconds(startedAt, true);
+  return (
+    <div className="flex items-center gap-2 text-muted-foreground text-sm">
+      <Spinner size="sm" />
+      <span>
+        <Shimmer as="span" duration={2.5} spread={1.5}>
+          Working for
+        </Shimmer>{" "}
+        <span className="tabular-nums">{formatElapsed(elapsed)}</span>
+      </span>
+    </div>
+  );
+}
 
 export function StreamingActivityDisplay({
   activity,
@@ -25,6 +47,13 @@ export function StreamingActivityDisplay({
   startedAt?: number;
   onOpenFile?: (path: string) => void;
 }) {
+  const simpleView = useSimpleView();
+  if (simpleView) {
+    return isStreaming ? (
+      <SimpleViewWorkingStatus startedAt={startedAt} />
+    ) : null;
+  }
+
   const steps = parseActivitySteps(activity);
 
   return (
@@ -58,9 +87,15 @@ export function ActivityLogDisplay({
   finalText?: string;
   onOpenFile?: (path: string) => void;
 }) {
-  const steps = parseActivitySteps(activityLog);
+  const simpleView = useSimpleView();
   const duration =
     startedAt && finishedAt ? formatDuration(startedAt, finishedAt) : undefined;
+
+  if (simpleView) {
+    return null;
+  }
+
+  const steps = parseActivitySteps(activityLog);
 
   if (steps) {
     return (
@@ -88,7 +123,7 @@ export function ActivityLogDisplay({
     <Reasoning defaultOpen={false}>
       <ReasoningTrigger getThinkingMessage={() => "View logs"} />
       <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-        <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto scroll-fade">
+        <pre className="whitespace-pre-wrap max-sm:wrap-break-word font-mono text-xs max-h-64 overflow-y-auto scroll-fade">
           {activityLog}
         </pre>
       </CollapsibleContent>

@@ -3,8 +3,13 @@ import { splitCursorModel } from "../config.js";
 import { cursorSdkToolToStep } from "../parse/toolSteps.js";
 import { probeCursorSdkToolResult } from "../providers/cursor.js";
 import {
+  RESOURCE_EXHAUSTED_CHAT_MESSAGE,
+  RESOURCE_EXHAUSTED_RETRY_DELAYS_MS,
   cursorModeParams,
   filterModeParamsByModel,
+  isResourceExhaustedMessage,
+  runTurnWithResourceExhaustedRetries,
+  type CursorTurnOutcome,
 } from "../providers/cursorSdk.js";
 
 test("splitCursorModel separates base id and reasoning level", () => {
@@ -119,6 +124,162 @@ test("filterModeParamsByModel without a model entry keeps only opted-in params",
 function opted(fastMode: boolean, use1mContext: boolean) {
   return { fastMode, use1mContext };
 }
+
+test("isResourceExhaustedMessage matches Cursor's Connect-RPC 429", () => {
+  // Exact shape observed in prod (task 234, 17 Aug 2026).
+  expect(isResourceExhaustedMessage("[resource_exhausted] Error")).toBe(true);
+  expect(
+    isResourceExhaustedMessage("[resource_exhausted] quota exceeded"),
+  ).toBe(true);
+  expect(isResourceExhaustedMessage("resource_exhausted")).toBe(true);
+  expect(isResourceExhaustedMessage("[agent_not_found] Error")).toBe(false);
+  expect(isResourceExhaustedMessage("network timeout")).toBe(false);
+  expect(isResourceExhaustedMessage("")).toBe(false);
+});
+
+test("resource_exhausted chat message is readable, not the raw code alone", () => {
+  expect(RESOURCE_EXHAUSTED_CHAT_MESSAGE).toContain("rate limit");
+  expect(RESOURCE_EXHAUSTED_CHAT_MESSAGE).toContain("resource_exhausted");
+  expect(RESOURCE_EXHAUSTED_CHAT_MESSAGE).toContain("try again");
+});
+
+/**
+ * The prod failure (task 234, 17 Aug 2026): a Cursor turn rejected with
+ * `resource_exhausted` died in ~40s with zero tokens and put the raw
+ * `[resource_exhausted] Error` in the chat, even though the rate limit cleared
+ * minutes later. These cover the retry policy that absorbs it — a regression
+ * here puts the raw Connect-RPC code back in front of the user.
+ */
+const EXHAUSTED = "[resource_exhausted] Error";
+
+function outcome(over: Partial<CursorTurnOutcome> = {}): CursorTurnOutcome {
+  return {
+    isError: false,
+    resultText: "done",
+    durationMs: 1_234,
+    usage: {
+      inputTokens: 10,
+      outputTokens: 20,
+      cacheReadTokens: 30,
+      cacheWriteTokens: 40,
+    },
+    ...over,
+  };
+}
+
+/** Drives the policy with scripted turns, recording backoff instead of waiting. */
+function harness(turns: ReadonlyArray<CursorTurnOutcome | Error>) {
+  const delays: number[] = [];
+  let calls = 0;
+  const run = () =>
+    runTurnWithResourceExhaustedRetries({
+      runTurn: async () => {
+        const turn = turns[calls];
+        calls++;
+        if (turn === undefined) throw new Error("ran more turns than scripted");
+        if (turn instanceof Error) throw turn;
+        return turn;
+      },
+      aborted: () => false,
+      onRetry: (delayMs) => delays.push(delayMs),
+      sleep: async () => {},
+    });
+  return { run, delays, calls: () => calls };
+}
+
+test("a transient resource_exhausted result retries and the retry's result wins", async () => {
+  const h = harness([
+    outcome({ isError: true, resultText: EXHAUSTED }),
+    outcome({ resultText: "recovered" }),
+  ]);
+  const result = await h.run();
+
+  expect(h.calls()).toBe(2);
+  expect(h.delays).toEqual([15_000]);
+  // Only this outcome is emitted, so the swallowed failure never reaches the
+  // parser as a result line.
+  expect(result.isError).toBe(false);
+  expect(result.resultText).toBe("recovered");
+});
+
+test("a thrown resource_exhausted error retries too, not just an error status", async () => {
+  const h = harness([new Error(EXHAUSTED), outcome({ resultText: "ok" })]);
+  const result = await h.run();
+
+  expect(h.calls()).toBe(2);
+  expect(result.resultText).toBe("ok");
+});
+
+test("resource_exhausted backs off 15s then 30s before giving up", async () => {
+  const h = harness([
+    outcome({ isError: true, resultText: EXHAUSTED }),
+    outcome({ isError: true, resultText: EXHAUSTED }),
+    outcome({ isError: true, resultText: EXHAUSTED }),
+  ]);
+  const result = await h.run();
+
+  expect(h.delays).toEqual(RESOURCE_EXHAUSTED_RETRY_DELAYS_MS);
+  expect(h.calls()).toBe(3);
+  expect(result.isError).toBe(true);
+  // The whole point of the fix: the user reads a remedy, never the raw code.
+  expect(result.resultText).toBe(RESOURCE_EXHAUSTED_CHAT_MESSAGE);
+  expect(result.resultText).not.toBe(EXHAUSTED);
+});
+
+test("a resource_exhausted throw past the retry budget still propagates", async () => {
+  const h = harness([
+    new Error(EXHAUSTED),
+    new Error(EXHAUSTED),
+    new Error(EXHAUSTED),
+  ]);
+  // The caller maps this to the readable message; it must not be mistaken for
+  // a healthy turn, so it rejects rather than resolving with an empty result.
+  await expect(h.run()).rejects.toThrow(EXHAUSTED);
+  expect(h.calls()).toBe(3);
+});
+
+test("unrelated failures are never retried or reworded", async () => {
+  const thrown = harness([new Error("[agent_not_found] Error")]);
+  // agent_not_found has its own fresh-agent recovery upstream — swallowing it
+  // here would break that path.
+  await expect(thrown.run()).rejects.toThrow("agent_not_found");
+  expect(thrown.calls()).toBe(1);
+
+  const errored = harness([outcome({ isError: true, resultText: "boom" })]);
+  const result = await errored.run();
+  expect(errored.calls()).toBe(1);
+  expect(errored.delays).toEqual([]);
+  expect(result.resultText).toBe("boom");
+});
+
+test("a successful turn passes through untouched", async () => {
+  const first = outcome();
+  const h = harness([first]);
+
+  await expect(h.run()).resolves.toEqual(first);
+  expect(h.calls()).toBe(1);
+  expect(h.delays).toEqual([]);
+});
+
+test("a timed-out attempt stops retrying and still reads as rate-limited", async () => {
+  let calls = 0;
+  const delays: number[] = [];
+  const result = await runTurnWithResourceExhaustedRetries({
+    runTurn: async () => {
+      calls++;
+      return outcome({ isError: true, resultText: EXHAUSTED });
+    },
+    // The health timer cancelled the run; sleeping 30s would burn the
+    // remaining budget for a turn that can no longer finish.
+    aborted: () => true,
+    onRetry: (delayMs) => delays.push(delayMs),
+    sleep: async () => {},
+  });
+
+  expect(calls).toBe(1);
+  expect(delays).toEqual([]);
+  expect(result.resultText).toBe(RESOURCE_EXHAUSTED_CHAT_MESSAGE);
+});
 
 test("cursorSdkToolToStep maps known SDK tool kinds", () => {
   const read = cursorSdkToolToStep("read", { path: "/tmp/repo/src/a.ts" });

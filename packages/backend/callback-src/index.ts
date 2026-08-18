@@ -1,10 +1,4 @@
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  unlinkSync,
-  writeFileSync,
-} from "fs";
+import { mkdirSync, unlinkSync, writeFileSync } from "fs";
 import {
   ALLOWED_TOOLS,
   CLAIM_MUTATION,
@@ -111,21 +105,14 @@ if (!preflightOk) {
 
 startStreamingLoops();
 
+// Deliverable folders are not cleared at startup: the end-of-turn harvest
+// archives posted files into `.posted/`, so any top-level leftovers are
+// failed uploads from a crashed turn — this turn's harvest posts them.
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
-  if (existsSync(d)) {
-    for (const f of readdirSync(d)) {
-      try {
-        unlinkSync(d + "/" + f);
-      } catch {
-        /* ignore */
-      }
-    }
-  } else {
-    try {
-      mkdirSync(d, { recursive: true });
-    } catch {
-      /* ignore */
-    }
+  try {
+    mkdirSync(d, { recursive: true });
+  } catch {
+    /* ignore */
   }
 }
 

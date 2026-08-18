@@ -21,12 +21,14 @@ export function LandingFooter() {
           </p>
         </div>
 
+        {/* `hit-target` on every link: at `text-sm` these are 20px tall, which is
+            half a comfortable thumb. It grows the pressable box, not the layout. */}
         <nav className="flex flex-wrap items-center gap-x-5 gap-y-2">
           {LANDING_NAV_LINKS.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className="motion-base text-sm text-muted-foreground hover:text-foreground"
+              className="motion-base max-sm:hit-target max-sm:py-1 text-sm text-muted-foreground hover:text-foreground"
             >
               {link.label}
             </a>
@@ -35,7 +37,7 @@ export function LandingFooter() {
             href={EVA_SETUP_URL}
             target="_blank"
             rel="noreferrer"
-            className="motion-base text-sm text-muted-foreground hover:text-foreground"
+            className="motion-base max-sm:hit-target max-sm:py-1 text-sm text-muted-foreground hover:text-foreground"
           >
             Self-host
           </a>
@@ -44,7 +46,7 @@ export function LandingFooter() {
             target="_blank"
             rel="noreferrer"
             aria-label="Eva on GitHub"
-            className="motion-base text-muted-foreground hover:text-foreground"
+            className="motion-base max-sm:hit-target max-sm:py-1 text-muted-foreground hover:text-foreground"
           >
             <IconBrandGithub size={18} />
           </a>

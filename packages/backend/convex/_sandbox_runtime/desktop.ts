@@ -32,6 +32,27 @@ const CHROME_FLAGS = [
 ].join(" ");
 
 /**
+ * Chrome purges all session cookies (no-expiry auth cookies — Clerk, Supabase,
+ * most app logins) on startup unless the profile has "continue where you left
+ * off" (restore_on_startup=1). Every sandbox resume relaunches Chrome, so
+ * without this every resume signs the user out of the app under development.
+ * exit_type/exited_cleanly must also be reset: pkill looks like a crash, and a
+ * crashed exit skips session restore. Runs before each launch; double quotes
+ * only so the whole script survives single-quote sh wrapping.
+ */
+export const CHROME_PREFS_SCRIPT = [
+  'const fs=require("fs");',
+  'const dir="/home/eva/.config/chrome-debug/Default";',
+  'const p=dir+"/Preferences";',
+  "let d={};",
+  'try{d=JSON.parse(fs.readFileSync(p,"utf8"))}catch(e){}',
+  "d.session=Object.assign({},d.session,{restore_on_startup:1});",
+  'd.profile=Object.assign({},d.profile,{exit_type:"Normal",exited_cleanly:true});',
+  "fs.mkdirSync(dir,{recursive:true});",
+  "fs.writeFileSync(p,JSON.stringify(d));",
+].join("");
+
+/**
  * Launches Chrome in the sandbox with remote debugging enabled.
  *
  * On Vercel, long-running Chrome MUST use native execDetached — `nohup … &`
@@ -61,6 +82,7 @@ export async function launchChrome(sandbox: SandboxHandle): Promise<void> {
         "sleep 1",
         "mkdir -p /home/eva/.config/chrome-debug",
         "rm -rf /home/eva/.config/chrome-debug/Singleton* 2>/dev/null || true",
+        `node -e '${CHROME_PREFS_SCRIPT}' 2>/dev/null || true`,
         // Resolve display: Vercel Xvnc is :1; :0 is a legacy fallback.
         'DISPLAY_VALUE="${EVA_DESKTOP_DISPLAY:-}"',
         'if [ -z "$DISPLAY_VALUE" ]; then DISPLAY=:1 xprop -root >/dev/null 2>&1 && DISPLAY_VALUE=:1; fi',

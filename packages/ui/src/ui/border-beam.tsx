@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ComponentPropsWithRef, ReactNode } from "react";
 import { AnimatePresence, m } from "motion/react";
 
 import { cn } from "../utils/cn";
@@ -11,7 +11,7 @@ export type BorderBeamSize = "sm" | "md" | "lg";
 /** Beam colour: neutral, the amber in-progress hue, or the violet→cyan sweep. */
 export type BorderBeamColorVariant = "mono" | "progress" | "colorful";
 
-export type BorderBeamProps = {
+export type BorderBeamProps = ComponentPropsWithRef<"div"> & {
   children: ReactNode;
   /**
    * Runs the beam while true. Toggle this rather than mounting/unmounting
@@ -21,6 +21,8 @@ export type BorderBeamProps = {
   active: boolean;
   size?: BorderBeamSize;
   colorVariant?: BorderBeamColorVariant;
+  /** Blurred outward glow. On for the composer; off for list/grid cards. */
+  glow?: boolean;
   /**
    * Wrapper classes. Give it the same radius as the child (e.g. `rounded-control`)
    * — the beam inherits the wrapper's radius.
@@ -46,26 +48,38 @@ const colorClass: Record<BorderBeamColorVariant, string> = {
  * Wraps a surface in a hairline of light that travels around its border while
  * `active`. The child needs an opaque background: it is what hides the
  * gradient's interior so only the ring reads. Beam keyframes live in globals.css.
+ *
+ * Spreads the rest props and ref onto the wrapper div so the whole thing can
+ * sit under a Radix `asChild` trigger (context menus on in-progress cards).
  */
 export function BorderBeam({
   children,
   active,
   size = "md",
   colorVariant = "mono",
+  glow = true,
   className,
+  ...rest
 }: BorderBeamProps) {
   return (
-    <div className={cn("relative", className)}>
+    <div className={cn("relative", className)} {...rest}>
       <AnimatePresence initial={false}>
         {active ? (
           <m.span
             aria-hidden="true"
-            className={cn("beam", sizeClass[size], colorClass[colorVariant])}
+            className={cn(
+              "beam-root",
+              sizeClass[size],
+              colorClass[colorVariant],
+            )}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={motionSlow}
-          />
+          >
+            <span className="beam" />
+            {glow ? <span className="beam-halo" /> : null}
+          </m.span>
         ) : null}
       </AnimatePresence>
       {children}

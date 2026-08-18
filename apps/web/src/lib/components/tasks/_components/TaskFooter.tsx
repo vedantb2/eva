@@ -303,7 +303,7 @@ export function TaskFooter({
               disabled={isSandboxStopping}
             >
               <IconPlayerStop size={iconSize} />
-              <span className="hidden sm:inline">Stop Sandbox</span>
+              <span className="hidden sm:inline">Put Eva to sleep</span>
             </Button>
           ) : null}
           {showViewSandbox && (
@@ -404,6 +404,7 @@ function SplitRunButton({
           <Button
             ref={chevronRef}
             size={size}
+            aria-label="Schedule options"
             className={`rounded-l-none border-l border-l-primary-foreground/20 px-2 ${SPLIT_BUTTON_HALF}`}
           >
             <IconChevronDown size={14} />

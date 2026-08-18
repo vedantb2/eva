@@ -1,7 +1,14 @@
 "use client";
 
 import { useState, type ReactNode } from "react";
-import { Button, Input, Card, CardContent, Badge } from "@eva/ui";
+import {
+  Badge,
+  Button,
+  Card,
+  CardContent,
+  Input,
+  LIST_ROW_CONTROL_CLASS,
+} from "@eva/ui";
 import {
   IconCheck,
   IconPencil,
@@ -9,6 +16,16 @@ import {
   IconArrowLeft,
   IconLoader2,
 } from "@tabler/icons-react";
+
+/**
+ * The pressable surface of an option card. A stretched native `<button>` rather
+ * than `role="button" tabIndex={0}` plus a hand-written Enter/Space handler on
+ * the card div — see `list-row.tsx` for why the native element has to own the
+ * role and the keyboard behaviour. Nested controls (the "Other" text field) opt
+ * back above it with `LIST_ROW_CONTROL_CLASS`.
+ */
+const OPTION_OVERLAY_CLASS =
+  "absolute inset-0 z-1 cursor-pointer rounded-surface focus-visible:outline-hidden";
 
 interface OptionItem {
   label: string;
@@ -176,24 +193,21 @@ export function MultipleChoiceQuestion({
           return (
             <Card
               key={`${option.label}-${optIdx}`}
-              className={`cursor-pointer shadow-none transition-[background-color,border-color,box-shadow] duration-[var(--motion-fast)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35 ${
+              className={`relative shadow-none transition-[background-color,border-color,box-shadow] duration-[var(--motion-fast)] has-[button:focus-visible]:ring-2 has-[button:focus-visible]:ring-ring/35 ${
                 isSelected
                   ? "border-primary bg-accent ring-1 ring-primary"
                   : "border-transparent bg-secondary hover:bg-muted"
               } ${isLoading ? "pointer-events-none opacity-50" : ""}`}
-              onClick={() =>
-                !isLoading && toggleOption(option.label, q.multiSelect)
-              }
-              role="button"
-              tabIndex={isLoading ? -1 : 0}
-              onKeyDown={(e) => {
-                if (isLoading) return;
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  toggleOption(option.label, q.multiSelect);
-                }
-              }}
             >
+              <button
+                type="button"
+                aria-pressed={isSelected}
+                disabled={isLoading}
+                onClick={() => toggleOption(option.label, q.multiSelect)}
+                className={OPTION_OVERLAY_CLASS}
+              >
+                <span className="sr-only">{option.label}</span>
+              </button>
               <CardContent className="flex flex-row items-start gap-3 py-2 px-2.5">
                 <span
                   className={`
@@ -228,22 +242,21 @@ export function MultipleChoiceQuestion({
         })}
 
         <Card
-          className={`cursor-pointer shadow-none transition-[background-color,border-color,box-shadow] duration-[var(--motion-fast)] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35 ${
+          className={`relative shadow-none transition-[background-color,border-color,box-shadow] duration-[var(--motion-fast)] has-[button:focus-visible]:ring-2 has-[button:focus-visible]:ring-ring/35 ${
             otherActive[currentStep]
               ? "border-primary bg-accent ring-1 ring-primary"
               : "border-transparent bg-secondary hover:bg-muted"
           } ${isLoading ? "pointer-events-none opacity-50" : ""}`}
-          onClick={() => !isLoading && toggleOther()}
-          role="button"
-          tabIndex={isLoading ? -1 : 0}
-          onKeyDown={(e) => {
-            if (isLoading) return;
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault();
-              toggleOther();
-            }
-          }}
         >
+          <button
+            type="button"
+            aria-pressed={otherActive[currentStep] ?? false}
+            disabled={isLoading}
+            onClick={() => toggleOther()}
+            className={OPTION_OVERLAY_CLASS}
+          >
+            <span className="sr-only">Other</span>
+          </button>
           <CardContent className="py-2 px-2.5">
             <div className="flex items-center gap-3">
               <span
@@ -270,9 +283,7 @@ export function MultipleChoiceQuestion({
             </div>
             {otherActive[currentStep] && (
               <div
-                className="mt-2 ml-9 animate-in fade-in slide-in-from-top-1 duration-150"
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
+                className={`${LIST_ROW_CONTROL_CLASS} mt-2 ml-9 animate-in fade-in slide-in-from-top-1 duration-150`}
               >
                 <Input
                   value={customAnswers[currentStep] ?? ""}

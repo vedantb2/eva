@@ -8,7 +8,7 @@ import {
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { m, AnimatePresence } from "motion/react";
-import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
+import { useShortcut } from "@/lib/hotkeys/useShortcut";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -20,7 +20,6 @@ import { ComposerPlanReadyBanner } from "./_components/ComposerPlanReadyBanner";
 import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
 import { BackgroundAgentsChip } from "./_components/BackgroundAgentsChip";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
-import { SessionModeDropdown } from "./_components/SessionModeDropdown";
 import { SessionDesignComposerTools } from "./_components/SessionDesignComposerTools";
 import { SessionSummaryAccordion } from "./_components/SessionSummaryAccordion";
 import { SessionSummaryModal } from "./_components/SessionSummaryModal";
@@ -234,6 +233,7 @@ export function ChatPanel({
   const { headerLeft, headerRight } = SessionChatHeader({
     repoId: repo._id,
     sessionId,
+    title,
     branchName,
     prUrl,
     prState,
@@ -326,31 +326,27 @@ export function ChatPanel({
     </>
   );
 
-  const toolsBefore = (
-    <>
-      <SessionModeDropdown mode={mode} onModeChange={setMode} />
-      {mode === "design" ? (
-        <SessionDesignComposerTools
-          repoId={repo._id}
-          personaId={selectedPersonaId}
-          onPersonaChange={setSelectedPersonaId}
-          numDesigns={numDesigns}
-          onNumDesignsChange={setNumDesigns}
-          disabled={!isSandboxActive || isReadOnly}
-        />
-      ) : null}
-    </>
-  );
+  const toolsBefore =
+    mode === "design" ? (
+      <SessionDesignComposerTools
+        repoId={repo._id}
+        personaId={selectedPersonaId}
+        onPersonaChange={setSelectedPersonaId}
+        numDesigns={numDesigns}
+        onNumDesignsChange={setNumDesigns}
+        disabled={!isSandboxActive || isReadOnly}
+      />
+    ) : null;
   const emptyStateTitle = isSandboxActive
     ? "No messages yet. Start the conversation!"
     : isSandboxStopping
       ? "Stopping sandbox..."
       : isSandboxToggling
         ? "Starting sandbox..."
-        : "Sandbox is inactive. Start the sandbox to begin chatting.";
+        : "Wake Eva up to begin chatting.";
 
   const placeholder = !isSandboxActive
-    ? "Start the sandbox to begin chatting..."
+    ? "Wake Eva up to begin chatting..."
     : mode === "plan"
       ? "Describe what to plan... / for skills · @ to mention"
       : mode === "design"
@@ -395,6 +391,8 @@ export function ChatPanel({
           />
         }
         toolsBefore={toolsBefore}
+        mode={mode}
+        onModeChange={setMode}
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}

@@ -8,7 +8,7 @@ import {
   type SandboxTab,
   type TaskRouteSandboxTab,
 } from "@/lib/search-params";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useParams } from "@tanstack/react-router";
 import { entityPathSegment } from "@/lib/numId";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
@@ -22,6 +22,8 @@ import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList"
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import { SimpleViewSandboxRedirect } from "@/lib/components/sandbox/SimpleViewSandboxRedirect";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 interface ProjectSandboxPanelProps {
   projectId: Id<"projects">;
@@ -56,6 +58,7 @@ export function ProjectSandboxPanel({
   onStartSandbox,
   isSandboxStarting,
 }: ProjectSandboxPanelProps) {
+  const simpleView = useSimpleView();
   const navigate = useNavigate();
   const { basePath } = useRepo();
   const projectPathSegment = entityPathSegment({ numId: projectNumId });
@@ -123,9 +126,23 @@ export function ProjectSandboxPanel({
   );
 
   const enabledTabs = withBrowserTab(panes.enabledTabs);
+  const { owner: ownerParam, repo: repoParam } = useParams({ strict: false });
 
   return (
     <div className="h-full flex flex-col">
+      {projectPathSegment &&
+      typeof ownerParam === "string" &&
+      typeof repoParam === "string" ? (
+        <SimpleViewSandboxRedirect
+          activeTab={activeTab}
+          to="/$owner/$repo/projects/$numId/sandbox/$sandboxTab"
+          params={{
+            owner: ownerParam,
+            repo: repoParam,
+            numId: projectPathSegment,
+          }}
+        />
+      ) : null}
       <SandboxTabBar
         compact
         activeTab={activeTab}
@@ -150,7 +167,7 @@ export function ProjectSandboxPanel({
         terminalPanel={terminalPanel}
       />
       <div className="flex-1 overflow-hidden bg-card">
-        <div className={activeTab === "files" ? "h-full min-h-0" : "hidden"}>
+        <div className={!simpleView && activeTab === "files" ? "h-full min-h-0" : "hidden"}>
           <FilesPanel
             sandboxId={sandboxId}
             repoId={repoId}

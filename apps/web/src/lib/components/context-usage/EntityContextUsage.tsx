@@ -16,6 +16,7 @@ import {
   ContextCacheWriteUsage,
 } from "@eva/ui";
 import { parseResultEvent } from "@/lib/utils/logs";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 // Model context window sizes (in tokens). Used for the usage percentage display;
 // not for cost (cost comes from Claude's `total_cost_usd` in the result event).
@@ -122,7 +123,12 @@ export function EntityContextUsage({
   repoId,
   entityId,
 }: EntityContextUsageProps) {
-  const logs = useQuery(api.logs.getByEntityId, { repoId, entityId });
+  const simpleView = useSimpleView();
+  const logs = useQuery(
+    api.logs.getByEntityId,
+    simpleView ? "skip" : { repoId, entityId },
+  );
+  if (simpleView) return null;
   const aggregated = aggregateUsage(logs);
   return <ContextUsageDisplay aggregated={aggregated} />;
 }
@@ -138,7 +144,12 @@ export function ProjectContextUsage({
   repoId,
   projectId,
 }: ProjectContextUsageProps) {
-  const logs = useQuery(api.logs.getByProjectId, { repoId, projectId });
+  const simpleView = useSimpleView();
+  const logs = useQuery(
+    api.logs.getByProjectId,
+    simpleView ? "skip" : { repoId, projectId },
+  );
+  if (simpleView) return null;
   const aggregated = aggregateUsage(logs);
   return <ContextUsageDisplay aggregated={aggregated} />;
 }

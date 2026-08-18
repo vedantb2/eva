@@ -289,6 +289,14 @@ export async function runClaudeSdkAttempt(
       void interrupt();
       return;
     }
+    // The SDK emits nothing between a tool_use and its tool_result, so a
+    // long-running tool (Bash allows 10min; subagent Task calls longer) is
+    // indistinguishable from a hang by message silence alone. Mirror
+    // cliAttempt.ts: while a tool is in flight only the hard runtime cap
+    // applies, and the silence clock restarts once the tool result lands.
+    if (S.inFlightToolUses > 0) {
+      lastMessageAt = now;
+    }
     // Idle only counts before the result event; after it the turn is done.
     if (!sawResult && now - lastMessageAt > NO_OUTPUT_TIMEOUT_MS * 5) {
       timedOutForNoOutput = true;

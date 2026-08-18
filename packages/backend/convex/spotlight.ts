@@ -7,6 +7,7 @@ import {
 } from "./_githubRepos/helpers";
 import { filterActiveEntities, isEntityDeleted } from "./numId";
 import type { Doc } from "./_generated/dataModel";
+import { resolveExperimentalFlags } from "./_auth/experimentalFlags";
 
 const DEFAULT_LIMIT = 40;
 /** Bound per-repo reads so cross-repo search stays within Convex budgets. */
@@ -132,6 +133,8 @@ export const search = authQuery({
         : DEFAULT_LIMIT;
     const query = normalizeQuery(args.query);
     const hits: SpotlightHit[] = [];
+    const user = await ctx.db.get(ctx.userId);
+    const simpleView = resolveExperimentalFlags(user).simpleView;
 
     for (const page of GLOBAL_PAGES) {
       const haystack = `${page.title} ${page.keywords}`;
@@ -197,6 +200,12 @@ export const search = authQuery({
       // Per-repo nav pages: only when typing (avoids N×pages noise when empty).
       if (query.length > 0 && repoPagesAdded < 8) {
         for (const page of REPO_PAGES) {
+          if (simpleView && page.path === "/reviews") continue;
+          if (simpleView && page.path === "/automations") continue;
+          const pagePath =
+            simpleView && page.path === "/settings/config"
+              ? "/settings/skills"
+              : page.path;
           if (repoPagesAdded >= 8) break;
           if (!matchesQuery(`${page.title} ${page.keywords}`, query)) continue;
           pushHit(
@@ -205,7 +214,7 @@ export const search = authQuery({
               type: "page",
               title: page.title,
               subtitle: label,
-              href: `${base}${page.path}`,
+              href: `${base}${pagePath}`,
               rank: rankMatch(page.title, query) + 5,
             },
             limit,
@@ -340,20 +349,22 @@ export const search = authQuery({
             );
           }
 
-          for (const automation of filterActiveEntities(automations)) {
-            if (automation.numId === undefined) continue;
-            if (!matchesQuery(automation.title, query)) continue;
-            pushHit(
-              hits,
-              {
-                type: "automation",
-                title: automation.title,
-                subtitle: label,
-                href: `${base}/automations/${automation.numId}`,
-                rank: rankMatch(automation.title, query) + 20,
-              },
-              limit,
-            );
+          if (!simpleView) {
+            for (const automation of filterActiveEntities(automations)) {
+              if (automation.numId === undefined) continue;
+              if (!matchesQuery(automation.title, query)) continue;
+              pushHit(
+                hits,
+                {
+                  type: "automation",
+                  title: automation.title,
+                  subtitle: label,
+                  href: `${base}/automations/${automation.numId}`,
+                  rank: rankMatch(automation.title, query) + 20,
+                },
+                limit,
+              );
+            }
           }
         }),
       );

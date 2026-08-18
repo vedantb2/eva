@@ -126,7 +126,7 @@ export function GlobalAutomationGroup({
           to={baseUrl}
           aria-label={`Automations hub for ${label}`}
           title={`Automations hub for ${label}`}
-          className="flex size-7 shrink-0 items-center justify-center rounded-menu-item text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          className="flex size-7 max-sm:size-10 shrink-0 items-center justify-center rounded-menu-item text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
           onClick={onNavigate}
         >
           <IconLayoutGrid size={14} />
@@ -135,7 +135,7 @@ export function GlobalAutomationGroup({
           type="button"
           aria-label={`New automation in ${label}`}
           title={`New automation in ${label}`}
-          className="flex size-7 shrink-0 items-center justify-center rounded-menu-item text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+          className="flex size-7 max-sm:size-10 shrink-0 items-center justify-center rounded-menu-item text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
           onClick={(e) => {
             e.preventDefault();
             e.stopPropagation();

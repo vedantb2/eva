@@ -29,8 +29,12 @@ export function DocModeSwitcher() {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button size="sm" variant="secondary">
-          <Icon size={14} />
+        <Button
+          size="sm"
+          variant="secondary"
+          aria-label={`Mode: ${current.label}`}
+        >
+          <Icon size={14} aria-hidden />
           <span className="hidden sm:inline">{current.label}</span>
         </Button>
       </DropdownMenuTrigger>

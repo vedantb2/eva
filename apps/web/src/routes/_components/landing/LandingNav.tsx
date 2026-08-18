@@ -5,6 +5,7 @@ import { IconBrandGithub } from "@tabler/icons-react";
 import { Button } from "@eva/ui";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { EVA_GITHUB_URL, LANDING_NAV_LINKS } from "./landingContent";
+import { LandingNavMenu } from "./LandingNavMenu";
 
 /**
  * Sticky hairline nav. Section links are anchors rather than router links —
@@ -54,10 +55,12 @@ export function LandingNav() {
             </a>
           </Button>
           <SignInButton mode="modal">
+            {/* Visible at every width: an existing user on a phone needs a way
+                in, and "Get started" sends them to sign-up instead. */}
             <Button
               variant="ghost"
               size="sm"
-              className="hidden text-muted-foreground hover:text-foreground sm:inline-flex"
+              className="text-muted-foreground hover:text-foreground"
             >
               Sign in
             </Button>
@@ -65,6 +68,7 @@ export function LandingNav() {
           <SignUpButton mode="modal">
             <Button size="sm">Get started</Button>
           </SignUpButton>
+          <LandingNavMenu />
         </div>
       </nav>
     </header>

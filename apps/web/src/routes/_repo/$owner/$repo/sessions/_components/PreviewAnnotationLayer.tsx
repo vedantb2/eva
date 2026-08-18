@@ -53,7 +53,10 @@ export function PreviewAnnotationLayer({
     const top =
       iframeRect.top + pending.rect.top + pending.rect.height + CARD_GAP;
     const minLeft = layerRect.left + 8;
-    const maxLeft = Math.max(minLeft, layerRect.right - CARD_WIDTH - 8);
+    // The card shrinks to `100vw - 2rem` on a narrow viewport, so clamping
+    // against a flat 320px would push it off the right edge on a phone.
+    const cardWidth = Math.min(CARD_WIDTH, window.innerWidth - 32);
+    const maxLeft = Math.max(minLeft, layerRect.right - cardWidth - 8);
     const minTop = layerRect.top + 8;
     const maxTop = Math.max(minTop, layerRect.bottom - CARD_ESTIMATED_HEIGHT);
     setCardPosition({

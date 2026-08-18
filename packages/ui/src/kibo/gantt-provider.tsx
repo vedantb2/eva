@@ -84,12 +84,29 @@ export type GanttContextProps = {
   setScrollX: (v: number) => void;
 };
 
+/** The issue-list column at desktop width. */
+const GANTT_SIDEBAR_WIDTH_PX = 300;
+
+/**
+ * The sidebar is a grid track, not a sized element, so its width has to be a
+ * number. Hardcoded at 300 it left roughly 90px of chart canvas on a 390px
+ * phone — the timeline was there, just not wide enough to read. Capped at 45% of
+ * the viewport, a phone keeps the majority of the width for the bars while
+ * desktop is unchanged.
+ */
+function ganttSidebarWidth(): number {
+  return Math.min(
+    GANTT_SIDEBAR_WIDTH_PX,
+    Math.round(window.innerWidth * 0.45),
+  );
+}
+
 export const GanttContext = createContext<GanttContextProps>({
   zoom: 100,
   range: "monthly",
   columnWidth: 50,
   headerHeight: 60,
-  sidebarWidth: 300,
+  sidebarWidth: GANTT_SIDEBAR_WIDTH_PX,
   rowHeight: 36,
   onAddItem: undefined,
   placeholderLength: 2,
@@ -347,7 +364,7 @@ export const GanttProvider: FC<GanttProviderProps> = ({
       const sidebarElement = scrollRef.current?.querySelector(
         '[data-roadmap-ui="gantt-sidebar"]',
       );
-      setSidebarWidth(sidebarElement ? 300 : 0);
+      setSidebarWidth(sidebarElement ? ganttSidebarWidth() : 0);
     };
 
     updateSidebarWidth();
@@ -358,7 +375,15 @@ export const GanttProvider: FC<GanttProviderProps> = ({
       observer.observe(el, { childList: true, subtree: true });
     }
 
-    return () => observer.disconnect();
+    // The width is viewport-relative below the full 300px, so it has to be
+    // recomputed on resize and rotation — this number is also the scroll maths'
+    // origin, so letting it drift from the rendered track mis-centres the chart.
+    window.addEventListener("resize", updateSidebarWidth);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updateSidebarWidth);
+    };
   }, []);
 
   const handleScroll = useMemo(

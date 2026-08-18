@@ -57,12 +57,21 @@ export function PreviewPanelNavBar({
   const { iframeRef } = useWebPreview();
 
   return (
-    <WebPreviewNavigation className="gap-1">
+    // `WebPreviewNavigation` does not wrap by default, so the device toggle,
+    // the element picker and the URL bar overflowed a phone-width pane.
+    <WebPreviewNavigation className="max-sm:flex-wrap gap-1">
       <PreviewDeviceToggle value={device} onChange={onDeviceChange} />
       {showAnnotationToggle ? (
         <WebPreviewNavigationButton
           tooltip={annotationMode ? "Cancel select element" : "Select element"}
+          // The tooltip is wired as `aria-describedby`, which is a description
+          // rather than a name.
+          aria-label={
+            annotationMode ? "Cancel select element" : "Select element"
+          }
+          aria-pressed={annotationMode}
           className={cn(
+            "max-sm:hit-target",
             annotationMode && "bg-secondary text-primary hover:text-primary",
           )}
           onClick={() => onAnnotationModeChange(!annotationMode)}

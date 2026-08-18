@@ -113,15 +113,13 @@ export function PersonalisationClient() {
                 <IconChevronDown className="size-3.5" />
               </CollapsibleTrigger>
               <CollapsibleContent>
-                <pre className="mt-2 whitespace-pre-wrap rounded-control bg-muted p-3 font-mono text-xs leading-relaxed text-foreground/80">
+                <pre className="mt-2 whitespace-pre-wrap max-sm:wrap-break-word rounded-control bg-muted p-3 font-mono text-xs leading-relaxed text-foreground/80">
                   {PERSONALISATION_PRESETS[activeRole].prompt}
                 </pre>
               </CollapsibleContent>
             </Collapsible>
           ) : (
-            <p className="text-xs text-muted-foreground">
-              No preset selected.
-            </p>
+            <p className="text-xs text-muted-foreground">No preset selected.</p>
           )}
         </div>
       </SettingsSection>

@@ -8,7 +8,7 @@ import { LogoMark } from "@/lib/components/LogoMark";
 export function AuthLoadingScreen() {
   return (
     <div
-      className="flex min-h-screen w-full items-center justify-center bg-background"
+      className="flex min-h-dvh w-full items-center justify-center bg-background"
       aria-busy="true"
       aria-label="Loading"
     >

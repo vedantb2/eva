@@ -83,7 +83,7 @@ function ComposerStashItem({
       <button
         type="button"
         aria-label="Delete stash"
-        className="shrink-0 rounded-md p-1 text-muted-foreground opacity-0 transition-opacity hover:bg-muted hover:text-foreground group-hover:opacity-100 focus:opacity-100"
+        className="reveal-on-hover max-sm:hit-target shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
         onClick={(event) => {
           event.stopPropagation();
           onDelete();
@@ -190,7 +190,7 @@ export function ComposerStash({
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
               transition={motionSpring}
-              className="inline-flex h-7 items-center gap-1 rounded-md bg-muted px-2 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+              className="max-sm:hit-target inline-flex h-7 items-center gap-1 rounded-md bg-muted px-2 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground"
               onClick={() => setOpen((prev) => !prev)}
               title="Prompt stash"
               aria-label={`Prompt stash, ${entries.length} saved`}

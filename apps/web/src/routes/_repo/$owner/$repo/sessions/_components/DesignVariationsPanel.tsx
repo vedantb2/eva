@@ -124,10 +124,18 @@ export function DesignVariationsPanel({
             }}
           >
             <TabsList className="h-8">
-              <TabsTrigger value="desktop" className="px-2 text-xs">
+              <TabsTrigger
+                value="desktop"
+                className="max-sm:hit-target px-2 text-xs"
+                aria-label="Frame designs as desktop"
+              >
                 <IconDeviceDesktop size={14} />
               </TabsTrigger>
-              <TabsTrigger value="mobile" className="px-2 text-xs">
+              <TabsTrigger
+                value="mobile"
+                className="max-sm:hit-target px-2 text-xs"
+                aria-label="Frame designs as mobile"
+              >
                 <IconDeviceMobile size={14} />
               </TabsTrigger>
             </TabsList>
@@ -182,9 +190,7 @@ export function DesignVariationsPanel({
                             disabled={isSandboxStarting}
                           >
                             <IconPlayerPlay size={14} />
-                            {isSandboxStarting
-                              ? "Starting..."
-                              : "Wake up Eva"}
+                            {isSandboxStarting ? "Starting..." : "Wake up Eva"}
                           </Button>
                         )}
                       </>

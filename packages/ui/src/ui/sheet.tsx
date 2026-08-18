@@ -48,7 +48,9 @@ const SheetContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed z-50 flex flex-col h-full top-0 border-border bg-card smooth-shadow-ring-xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out",
+        // `dvh` + a viewport width guard so the panel cannot exceed the visible
+        // area on a phone when a caller forgets to size it.
+        "fixed z-50 flex flex-col h-full top-0 max-sm:h-dvh max-sm:max-w-[100vw] border-border bg-card smooth-shadow-ring-xl duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out",
         side === "left" &&
           "left-0 border-r data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left",
         side === "right" &&

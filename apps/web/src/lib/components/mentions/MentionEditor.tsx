@@ -924,7 +924,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       ? createPortal(
           <div
             data-mention-hover-card="true"
-            className="fixed z-50 flex w-72 flex-col-reverse items-stretch"
+            className="fixed z-50 flex w-72 max-w-[calc(100vw-1rem)] flex-col-reverse items-stretch"
             style={{
               left: mentionHoverRect.left,
               bottom: window.innerHeight - mentionHoverRect.top,

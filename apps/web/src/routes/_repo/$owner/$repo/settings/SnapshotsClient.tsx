@@ -294,7 +294,8 @@ export function SnapshotsClient({
               label="Branch"
               description={
                 <>
-                  Branch to clone for the snapshot. Defaults to <code>main</code>
+                  Branch to clone for the snapshot. Defaults to{" "}
+                  <code>main</code>
                   if empty.
                 </>
               }
@@ -369,7 +370,9 @@ export function SnapshotsClient({
                 <div className="grid grid-cols-1 gap-3 text-xs sm:grid-cols-2 sm:gap-4">
                   <div>
                     <span className="text-muted-foreground">Snapshot Name</span>
-                    <p className="font-mono mt-0.5">{snapshot.snapshotName}</p>
+                    <p className="font-mono mt-0.5 max-sm:break-all">
+                      {snapshot.snapshotName}
+                    </p>
                   </div>
                   <div>
                     <span className="text-muted-foreground">Schedule</span>
@@ -386,7 +389,7 @@ export function SnapshotsClient({
                   </div>
                   <div>
                     <span className="text-muted-foreground">Clone Branch</span>
-                    <p className="font-mono mt-0.5">
+                    <p className="font-mono mt-0.5 max-sm:break-all">
                       {snapshot.workflowRef ?? "main"}
                     </p>
                   </div>
@@ -499,14 +502,16 @@ export function SnapshotsClient({
                         {snapshot.baseSnapshotId ? (
                           <>
                             Last active:{" "}
-                            <span className="font-mono">
+                            <span className="font-mono break-all">
                               {snapshot.baseSnapshotId}
                             </span>
                             {" — "}
                           </>
                         ) : null}
                         Config name:{" "}
-                        <span className="font-mono">{snapshot.snapshotName}</span>
+                        <span className="font-mono max-sm:break-all">
+                          {snapshot.snapshotName}
+                        </span>
                         {lastBuild?.status === "error"
                           ? " — last build failed; click Rebuild Now to retry."
                           : " — not built yet; click Rebuild Now."}
@@ -543,7 +548,7 @@ export function SnapshotsClient({
                           <span className="mr-1 text-muted-foreground">
                             Active:
                           </span>
-                          <span className="font-mono break-all">
+                          <span className="font-mono max-sm:break-all">
                             {sharedSeededSnapshotName}
                           </span>
                         </span>
@@ -575,7 +580,7 @@ export function SnapshotsClient({
             // Rows own their padding so the table spans the card's full width.
             <SettingsSection title="Build History" bodyVariant="list">
               <div className="overflow-x-auto">
-                <table className="w-full text-xs min-w-[320px] sm:min-w-[420px]">
+                <table className="w-full text-xs sm:min-w-[420px] max-sm:min-w-[620px]">
                   <thead>
                     <tr className="text-left text-muted-foreground">
                       <th className="px-2 py-2 font-medium w-8 sm:px-4" />
@@ -828,7 +833,7 @@ function ConfigFilesSection({
         )}
 
         {/* Upload button */}
-        <div className="flex items-center gap-2">
+        <div className="flex max-sm:flex-wrap items-center gap-2">
           <input
             ref={fileInputRef}
             type="file"
@@ -880,7 +885,9 @@ function ConfigFilesSection({
               <tbody>
                 {files.map((file) => (
                   <tr key={file._id} className="hover:bg-muted/30">
-                    <td className="px-2 py-2 font-mono">{file.fileName}</td>
+                    <td className="px-2 py-2 font-mono max-sm:break-all">
+                      {file.fileName}
+                    </td>
                     <td className="px-2 py-2">
                       {formatFileSize(file.fileSize)}
                     </td>
@@ -903,7 +910,8 @@ function ConfigFilesSection({
                             "snapshot-config-file-delete",
                           )
                         }
-                        className="h-6 w-6 p-0"
+                        aria-label={`Remove ${file.fileName}`}
+                        className="max-sm:hit-target size-6 p-0"
                       >
                         <IconTrash size={14} />
                       </Button>

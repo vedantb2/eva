@@ -43,7 +43,10 @@ export function PendingReviewCommentChips() {
                 <IconX className="size-3" />
               </button>
             </span>
-            <TooltipContent side="top" className="max-w-96 whitespace-pre-wrap">
+            <TooltipContent
+              side="top"
+              className="max-w-[calc(100vw-2rem)] whitespace-pre-wrap sm:max-w-96"
+            >
               {comment.text}
             </TooltipContent>
           </Tooltip>

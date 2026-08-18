@@ -37,15 +37,21 @@ export function VideoPreview({
         preload="metadata"
         slot="media"
       />
+      {/* Nine controls do not fit a phone-width bar. Playback rate and the
+          volume slider drop out below `sm` — a phone has hardware volume keys,
+          and everything essential (play, scrub, time, mute, fullscreen) stays. */}
       <VideoPlayerControlBar>
         <VideoPlayerPlayButton />
         <VideoPlayerSeekBackwardButton />
         <VideoPlayerSeekForwardButton />
         <VideoPlayerTimeRange />
         <VideoPlayerTimeDisplay showDuration />
-        <VideoPlayerPlaybackRateButton rates={[1, 3, 5, 8]} />
+        <VideoPlayerPlaybackRateButton
+          rates={[1, 3, 5, 8]}
+          className="max-sm:hidden"
+        />
         <VideoPlayerMuteButton />
-        <VideoPlayerVolumeRange />
+        <VideoPlayerVolumeRange className="max-sm:hidden" />
         <VideoPlayerFullscreenButton />
       </VideoPlayerControlBar>
     </VideoPlayer>
@@ -76,14 +82,14 @@ export function ScreenshotPreview({
         />
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[90vw] max-h-[90vh] p-0 overflow-hidden">
+        <DialogContent className="max-w-[90vw] max-h-[90dvh] p-0 overflow-hidden">
           <DialogTitle className="sr-only">{alt}</DialogTitle>
           <DialogHeader className="absolute top-2 right-10 z-10">
             <a
               href={url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+              className="max-sm:hit-target inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
             >
               <IconExternalLink size={14} />
               Open in new tab

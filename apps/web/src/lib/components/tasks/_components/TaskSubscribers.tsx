@@ -51,11 +51,13 @@ export function TaskSubscribers({
   const manageableUsers = users ?? [];
 
   return (
-    <div className="flex items-center gap-2">
+    // Wraps because this row shares a flex line with the "Activity" label in
+    // the task detail, and the avatar stack grows with the subscriber count.
+    <div className="flex max-sm:min-w-0 max-sm:flex-wrap items-center gap-2">
       <Button
         variant={isSubscribed ? "secondary" : "outline"}
         size="sm"
-        className="h-7 gap-1.5"
+        className="h-10 gap-1.5 sm:h-7"
         disabled={currentUserId === undefined || currentUserId === null}
         onClick={() =>
           void setSubscription({ taskId, subscribed: !isSubscribed })
@@ -77,8 +79,9 @@ export function TaskSubscribers({
         <DropdownMenuTrigger asChild>
           <Button
             variant="ghost"
-            size="icon"
-            className="h-7 w-7 text-muted-foreground"
+            size="icon-sm"
+            // 28px on desktop, as before; `icon-sm` is 32px and only wanted on touch.
+            className="text-muted-foreground sm:size-7"
             aria-label="Manage subscribers"
           >
             <IconUserPlus size={15} />

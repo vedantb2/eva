@@ -210,7 +210,9 @@ export function TeamMembersTab({
                         )
                       }
                     >
-                      <SelectTrigger className="h-7 w-[100px] border-0 bg-secondary text-xs">
+                      {/* 28px is under the comfortable tap floor, so the
+                          trigger grows to 40px on touch only. */}
+                      <SelectTrigger className="h-10 w-[100px] border-0 bg-secondary text-xs sm:h-7">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -227,6 +229,7 @@ export function TeamMembersTab({
                     <Button
                       size="icon"
                       variant="ghost"
+                      aria-label="Remove member"
                       onClick={() =>
                         void withMutationToast(
                           removeMember({ teamId, userId: member.userId }),

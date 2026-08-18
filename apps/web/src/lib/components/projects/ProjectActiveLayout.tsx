@@ -6,8 +6,9 @@ import { useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { Spinner } from "@eva/ui";
+import { cn, Spinner } from "@eva/ui";
 import { entityPathSegment } from "@/lib/numId";
+import { MobilePaneSwitcher } from "@/lib/components/MobilePaneSwitcher";
 import { ProjectTaskListPanel } from "./ProjectTaskListPanel";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
@@ -131,9 +132,36 @@ export function ProjectActiveLayout({
     }
   }, [project.phase, project.sandboxId, project._id, clearProjectSandbox]);
 
+  // Below `md` the list and the detail cannot share the viewport — a 1/3 + 2/3
+  // vertical split gives two independently scrolling panes of ~230px and ~470px,
+  // and neither is usable. So one pane is on screen at a time, and *which* one is
+  // the URL: a selected task means the detail. The switcher's list button clears
+  // the selection, so there is no second source of truth to keep in sync, and it
+  // is only rendered when there are two panes to move between.
+  const detailRequested =
+    selectedTaskIdParam !== undefined || selectedTaskStatus !== undefined;
+
   return (
-    <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden bg-background">
-      <div className="w-full md:w-1/3 lg:w-1/4 h-1/3 md:h-full flex flex-col overflow-hidden shrink-0">
+    <div className="flex flex-1 min-h-0 flex-col overflow-hidden bg-background md:flex-row">
+      {detailRequested ? (
+        <div className="shrink-0 md:hidden">
+          <MobilePaneSwitcher
+            labels={{ left: "Tasks", right: "Details" }}
+            showingRight
+            onSelect={(pane) => {
+              if (pane === "left") handleCloseTask();
+            }}
+          />
+        </div>
+      ) : null}
+      <div
+        className={cn(
+          // `md:shrink-0` keeps the desktop column at its width: a `flex-1`
+          // basis of 0 would otherwise let it grow past `w-1/3` in the row.
+          "flex max-sm:min-h-0 flex-col overflow-hidden md:h-full md:w-1/3 md:shrink-0 lg:w-1/4",
+          detailRequested ? "hidden md:flex" : "flex-1",
+        )}
+      >
         <ProjectTaskListPanel
           tasks={tasks ?? []}
           selectedTaskId={selectedTaskId}
@@ -142,7 +170,12 @@ export function ProjectActiveLayout({
           projectNumId={project.numId}
         />
       </div>
-      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+      <div
+        className={cn(
+          "min-h-0 flex-1 flex-col overflow-hidden md:flex",
+          detailRequested ? "flex" : "hidden",
+        )}
+      >
         {selectedTaskStatus === "loading" ? (
           <div className="flex h-full items-center justify-center">
             <Spinner size="lg" />

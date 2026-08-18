@@ -43,6 +43,7 @@ import { EntityNumLabel } from "@/lib/components/ui/EntityNumLabel";
 import { DeleteTaskDialog } from "./_components/DeleteTaskDialog";
 import { MoveTaskDialog } from "./_components/MoveTaskDialog";
 import { TaskCardMenuItems } from "./_components/TaskCardMenuItems";
+import { CARD_KEBAB_CLASS } from "@/lib/components/ui/cardKebab";
 
 type GroupedCodebase = FunctionReturnType<
   typeof api.githubRepos.listGroupedByCodebase
@@ -144,8 +145,7 @@ export function QuickTaskCard({
   const showError = hasError && status !== "done";
   const statusMeta = statusConfig[status];
   const accentClass = showError ? "bg-destructive" : statusMeta.bar;
-  const isInProgress =
-    !hasError && (status === "in_progress" || isAgentActive);
+  const isInProgress = !hasError && (status === "in_progress" || isAgentActive);
 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [moveTarget, setMoveTarget] = useState<Id<"githubRepos"> | null>(null);
@@ -336,10 +336,7 @@ export function QuickTaskCard({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className={cn(
-                  "relative flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] duration-[var(--motion-fast)] hit-target hover:bg-muted/80 hover:text-foreground active:scale-[0.96] sm:hidden",
-                  LIST_ROW_CONTROL_CLASS,
-                )}
+                className={cn(CARD_KEBAB_CLASS, LIST_ROW_CONTROL_CLASS)}
                 onClick={(e) => e.stopPropagation()}
                 aria-label="Task actions"
               >

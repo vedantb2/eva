@@ -7,8 +7,19 @@ import {
   execHandle,
   getSandboxHandle,
   KILL_PRIOR_AGENT_PROCESSES_CMD,
+  withTimeout,
 } from "./helpers";
 import { releaseSwapFile } from "./swap";
+
+/**
+ * Total budget for one stopSandbox attempt. Must stay well under the 600s
+ * action cap: the calling finalizeStop* actions share that cap, and if this
+ * child eats the whole budget the parent is killed by timeout before its catch
+ * can settle entity status — leaving the task/project/session wedged on
+ * "stopping" forever (observed in prod: cold resume + swap release + stop
+ * confirmation together overran 600s).
+ */
+const STOP_SANDBOX_BUDGET_MS = 480_000;
 const CALLBACK_LIVENESS_COMMAND = [
   "test -f /tmp/run-design.pid",
   "test ! -f /tmp/run-design.done",
@@ -161,11 +172,31 @@ export const stopSandbox = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
-      const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
-      // Stop auto-snapshots the filesystem — drop the swapfile first so the
-      // resume image does not carry GBs the next boot recreates for free.
-      await releaseSwapFile(sandbox);
-      await sandbox.stop();
+      await withTimeout(
+        (async () => {
+          const sandbox = await getSandboxHandle(
+            ctx,
+            args.repoId,
+            args.sandboxId,
+          );
+          await sandbox.refresh();
+          const state = sandbox.state;
+          // Stop auto-snapshots the filesystem — drop the swapfile first so
+          // the resume image does not carry GBs the next boot recreates for
+          // free. Only on a running VM: exec on a stopped sandbox resumes it
+          // (minutes on a cold restore) just to stop it again.
+          if (state === "running") {
+            await releaseSwapFile(sandbox);
+          } else {
+            console.log(
+              `[sandbox] stopSandbox skipping swap release sandboxId=${args.sandboxId} state=${state}`,
+            );
+          }
+          await sandbox.stop();
+        })(),
+        STOP_SANDBOX_BUDGET_MS,
+        `stop ${args.sandboxId}`,
+      );
       console.log(`[sandbox] stopSandbox ok sandboxId=${args.sandboxId}`);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

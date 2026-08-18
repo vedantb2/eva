@@ -1,8 +1,16 @@
 # Changelog
 
+## Sandbox stop can no longer wedge on "stopping" - 2026-08-18
+
+Project 3's preview sandbox sat on "stopping" indefinitely (prod 18 Aug, 16:25 UTC): `finalizeStopProjectSandbox` settles status in its catch, but the nested `sandbox:stopSandbox` action ate the full 600s action cap (prod log: "execution timed out (maximum duration 600s)"), so the parent hit its own 600s cap first and was killed before the catch could run — action timeouts are fatal, not catchable. Two fixes: (1) `stopSandbox` now runs under a 480s `withTimeout` budget so it always *throws* inside the parent's window, letting the existing error path revert status; it also checks sandbox state first and skips `releaseSwapFile` on a non-running VM — the swap-release exec was resuming stopped sandboxes (minutes on a cold restore) just to stop them again, which is how a stop overran 600s. (2) Tasks and projects get the same `recoverStuckStopping` re-issue sessions already had (a 20s-delayed mutation that re-schedules finalize if still "stopping"), wired through new `scheduleFinalizeStopTask`/`scheduleFinalizeStopProject` helpers used by both the user Stop mutations and the auto-stop sweep; the shared delay constant moved to `_sandbox/stopRecovery.ts`.
+
 ## Stall watchdog probes silent tools at 5 minutes - 2026-08-18
 
 A dead callback during a tool-active phase left the chat on "Working…" for up to 25 minutes: `STALE_TOOL_ACTIVE_THRESHOLD_MS` gated the *first* liveness probe, not just the kill (prod 18 Aug: project 3's callback died at 16:01 UTC mid-background-task and the user stared at "Working…" for 20+ minutes). Since the probe never kills live work (confirmed alive → touch the streaming row and keep waiting), the tool phase now goes probe-eligible at the ordinary 5-minute `STALE_THRESHOLD_MS` like every other phase, in both the chat stall watchdog and `checkStaleRuns`. The 25-minute value survives as `STALE_UNVERIFIED_KILL_THRESHOLD_MS`: an unreachable probe no longer touches the row (which reset the clock and deferred everything to the 2h backstop) — it keeps rechecking with the clock running and kills once the heartbeat has been silent *and* the provider unverifiable for 25 minutes, since those two paths fail independently. Shared decision lives in `staleProbeFollowUp` (`_taskWorkflow/staleness.ts`), unit-tested in `staleTurnDecision.test.ts`. Net effect: dead callback mid-tool surfaces as a clear error in ~6 minutes instead of ~26.
+
+## Idle daemons back off the claim poll - 2026-08-17
+
+A warm daemon polled the `claimPendingTurn` mutation every 50ms for its whole 45-minute idle window — ~20 Convex mutation calls/s (~54k per idle window, per warm daemon, across session/task-chat/project-chat daemons), all of them empty reads that also flooded `convex logs` history into uselessness. The claim watcher now keeps the 50ms cadence only while a turn is in flight (cancel and stop-task drains ride the same mutation, so mid-turn responsiveness is untouched) or within 30s of the last activity (fresh boot, turn end — the send-again window), and backs off to 1s otherwise. Worst case an idle daemon claims a new send ~1s later, invisible next to model time-to-first-token; idle Convex cost drops ~20×.
 
 ## Composer beam glow and loading grids stop burning the GPU - 2026-08-17
 

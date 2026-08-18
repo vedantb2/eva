@@ -1,6 +1,12 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { internalAction, internalMutation } from "../_generated/server";
+import {
+  internalAction,
+  internalMutation,
+  type MutationCtx,
+} from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { STUCK_STOPPING_RECOVER_MS } from "../_sandbox/stopRecovery";
 import { authMutation, getProjectWithAccess, hasActiveRun } from "../functions";
 import { workflow } from "../workflowManager";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
@@ -337,15 +343,11 @@ export const stopProjectSandbox = authMutation({
       return null;
     }
 
-    await ctx.scheduler.runAfter(
-      0,
-      internal._projects.sandbox.finalizeStopProjectSandbox,
-      {
-        projectId: args.projectId,
-        sandboxId: project.sandboxId,
-        repoId: project.repoId,
-      },
-    );
+    await scheduleFinalizeStopProject(ctx, {
+      projectId: args.projectId,
+      sandboxId: project.sandboxId,
+      repoId: project.repoId,
+    });
 
     // Clear leftover start steps so stop does not re-show startup activity.
     await clearSandboxStartupActivity(
@@ -362,6 +364,61 @@ export const stopProjectSandbox = authMutation({
       reviewProjectSandboxStatus: "stopping",
     });
 
+    return null;
+  },
+});
+
+/**
+ * Schedules project sandbox teardown. Every path that flips a project to
+ * `"stopping"` must go through here, or a transient on the finalize action
+ * wedges the project with no recovery (mirrors _sessions/sandbox.ts).
+ */
+export async function scheduleFinalizeStopProject(
+  ctx: MutationCtx,
+  args: {
+    projectId: Id<"projects">;
+    sandboxId: string;
+    repoId: Id<"githubRepos">;
+  },
+): Promise<void> {
+  await ctx.scheduler.runAfter(
+    0,
+    internal._projects.sandbox.finalizeStopProjectSandbox,
+    args,
+  );
+  await ctx.scheduler.runAfter(
+    STUCK_STOPPING_RECOVER_MS,
+    internal._projects.sandbox.recoverStuckStopping,
+    { projectId: args.projectId },
+  );
+}
+
+/**
+ * Re-issues finalizeStopProjectSandbox if the project is still `"stopping"`.
+ * Scheduled after Stop so a platform transient on the first action doesn't
+ * leave the UI wedged; no-ops if stop already finished.
+ */
+export const recoverStuckStopping = internalMutation({
+  args: { projectId: v.id("projects") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const project = await ctx.db.get(args.projectId);
+    if (
+      !project ||
+      project.reviewProjectSandboxStatus !== "stopping" ||
+      !project.sandboxId
+    ) {
+      return null;
+    }
+    await ctx.scheduler.runAfter(
+      0,
+      internal._projects.sandbox.finalizeStopProjectSandbox,
+      {
+        projectId: args.projectId,
+        sandboxId: project.sandboxId,
+        repoId: project.repoId,
+      },
+    );
     return null;
   },
 });

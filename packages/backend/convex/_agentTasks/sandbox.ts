@@ -1,6 +1,12 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { internalAction, internalMutation } from "../_generated/server";
+import {
+  internalAction,
+  internalMutation,
+  type MutationCtx,
+} from "../_generated/server";
+import type { Id } from "../_generated/dataModel";
+import { STUCK_STOPPING_RECOVER_MS } from "../_sandbox/stopRecovery";
 import { authMutation, hasRepoAccess } from "../functions";
 import { workflow } from "../workflowManager";
 import { resolveTaskWorkflowBaseBranchForTask } from "../_taskWorkflow/resolveBaseBranch";
@@ -295,15 +301,11 @@ export const stopTaskSandbox = authMutation({
       return null;
     }
 
-    await ctx.scheduler.runAfter(
-      0,
-      internal._agentTasks.sandbox.finalizeStopTaskSandbox,
-      {
-        taskId: args.taskId,
-        sandboxId: task.sandboxId,
-        repoId: task.repoId,
-      },
-    );
+    await scheduleFinalizeStopTask(ctx, {
+      taskId: args.taskId,
+      sandboxId: task.sandboxId,
+      repoId: task.repoId,
+    });
 
     // Clear leftover start steps so stop does not re-show startup activity.
     await clearSandboxStartupActivity(
@@ -321,6 +323,62 @@ export const stopTaskSandbox = authMutation({
       updatedAt: Date.now(),
     });
 
+    return null;
+  },
+});
+
+/**
+ * Schedules task sandbox teardown. Every path that flips a task to
+ * `"stopping"` must go through here, or a transient on the finalize action
+ * wedges the task with no recovery (mirrors _sessions/sandbox.ts).
+ */
+export async function scheduleFinalizeStopTask(
+  ctx: MutationCtx,
+  args: {
+    taskId: Id<"agentTasks">;
+    sandboxId: string;
+    repoId: Id<"githubRepos">;
+  },
+): Promise<void> {
+  await ctx.scheduler.runAfter(
+    0,
+    internal._agentTasks.sandbox.finalizeStopTaskSandbox,
+    args,
+  );
+  await ctx.scheduler.runAfter(
+    STUCK_STOPPING_RECOVER_MS,
+    internal._agentTasks.sandbox.recoverStuckStopping,
+    { taskId: args.taskId },
+  );
+}
+
+/**
+ * Re-issues finalizeStopTaskSandbox if the task is still `"stopping"`.
+ * Scheduled after Stop so a platform transient on the first action doesn't
+ * leave the UI wedged; no-ops if stop already finished.
+ */
+export const recoverStuckStopping = internalMutation({
+  args: { taskId: v.id("agentTasks") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (
+      !task ||
+      task.reviewTaskSandboxStatus !== "stopping" ||
+      !task.sandboxId ||
+      !task.repoId
+    ) {
+      return null;
+    }
+    await ctx.scheduler.runAfter(
+      0,
+      internal._agentTasks.sandbox.finalizeStopTaskSandbox,
+      {
+        taskId: args.taskId,
+        sandboxId: task.sandboxId,
+        repoId: task.repoId,
+      },
+    );
     return null;
   },
 });

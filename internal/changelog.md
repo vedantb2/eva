@@ -1,5 +1,9 @@
 # Changelog
 
+## The master session is now "Orchestrator" at /orchestrator - 2026-08-18
+
+Third naming round ("Master" → "Eva" → "Orchestrator" — "Eva" collided with the product name in the breadcrumb): route file renamed to `routes/_global/orchestrator.tsx`, rail tile/tooltip "Orchestrator", session title constant "Orchestrator", chat badge "via orchestrator". Also root-caused the "chat keeps growing on refresh" report: nothing was growing server-side any more — the failed test turns had left a ~450KB accumulated activity log on one error bubble, which the page re-renders progressively on every load, reading as endless new items. Wiped the orchestrator session's ten junk rows in the local deployment (one-off internal mutation, run and deleted) and retitled the existing session.
+
 ## Eva's sandbox stops starting repo services it can never run - 2026-08-18
 
 Follow-up to the entry below: Eva's chat kept accumulating "Sandbox startup unfinished" alert rows. Cause: the orchestrator boot deliberately skips the repo `pnpm install` (chat needs no deps), but `prepareSessionSandboxInternal` still ran `startSessionServices`, `launchPreviewDevServer`, and `runBackgroundCommands` — so `npx convex dev` started with no `node_modules`, esbuild failed to resolve every import, and `watchConvexReadiness` posted a warning row into the master's chat 6 minutes after every page-open resume. All three are now gated on `isOrchestrator` (resolved once, before the reuse path, alongside the existing image/skip-install decision) on both the reuse and fresh-create paths; `devPort`/`devCommand` stay unset so the (never-shown) preview has nothing to point at. Repo startup commands still run — they post no alerts and may be cheap; revisit if a repo's startup config assumes installed deps.

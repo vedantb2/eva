@@ -192,7 +192,7 @@ function RepoRailView({
     pathname.startsWith("/automations/") ||
     (pathParts.includes("automations") && pathParts[0] !== "automations");
   // Eva's chat lives at its own stable URL, so only that path lights this tile.
-  const evaActive = pathname === "/eva";
+  const evaActive = pathname === "/orchestrator";
   const sessionsLabel = formatCountLabel(activeSessionCount);
   const [renameRepo, setRenameRepo] = useState<RepoWithLogo | null>(null);
 
@@ -213,7 +213,7 @@ function RepoRailView({
               </span>
             </Link>
           </TooltipTrigger>
-          <TooltipContent side="right">Eva</TooltipContent>
+          <TooltipContent side="right">Orchestrator</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -268,9 +268,9 @@ function RepoRailView({
         <Tooltip>
           <TooltipTrigger asChild>
             <Link
-              to="/eva"
+              to="/orchestrator"
               onClick={onNavigate}
-              aria-label="Eva"
+              aria-label="Orchestrator"
               className={cn(
                 RAIL_TILE_CLASS,
                 "group",
@@ -280,7 +280,7 @@ function RepoRailView({
               <IconSparkles size={22} className="shrink-0" />
             </Link>
           </TooltipTrigger>
-          <TooltipContent side="right">Eva</TooltipContent>
+          <TooltipContent side="right">Orchestrator</TooltipContent>
         </Tooltip>
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />
       </div>

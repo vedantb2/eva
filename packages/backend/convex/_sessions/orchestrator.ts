@@ -5,8 +5,8 @@ import { authMutation, authQuery } from "../functions";
 import { entityVisible } from "../numId";
 import { createSession } from "./mutations";
 
-/** Title of the persistent per-user orchestrator session, shown as "Eva". */
-const EVA_SESSION_TITLE = "Eva";
+/** Title of the persistent per-user orchestrator session. */
+const ORCHESTRATOR_SESSION_TITLE = "Orchestrator";
 
 /**
  * Everything the client needs to route to the master session. The master lives
@@ -66,7 +66,7 @@ export const ensureOrchestratorSession = authMutation({
     // `createSession` owns the repo access check and the sandbox startup path.
     const { sessionId, numId } = await createSession(ctx, {
       repoId: args.repoId,
-      title: EVA_SESSION_TITLE,
+      title: ORCHESTRATOR_SESSION_TITLE,
       isOrchestrator: true,
     });
     await ctx.db.patch(ctx.userId, { orchestratorSessionId: sessionId });

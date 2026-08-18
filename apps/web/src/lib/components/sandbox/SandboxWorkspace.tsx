@@ -16,6 +16,7 @@ import {
   BOTTOM_PANEL_ID,
   TOP_PANEL_ID,
   complementaryPercentage,
+  isMeasuredPanelSize,
   usePersistentPanelSize,
 } from "@/lib/hooks/usePersistentPanelSize";
 import {
@@ -124,6 +125,10 @@ export function SandboxWorkspace(props: SandboxWorkspaceProps) {
   }, [expanded, savedBottomSize, bottomPanelRef]);
 
   const handleResize = (size: PanelSize) => {
+    // A hidden panel reports NaN, not a collapse — see `isMeasuredPanelSize`.
+    // Reading it as expanded flipped the stored open flag on every session
+    // switch, leaving the Mod+J toggle a click behind the real panel.
+    if (!isMeasuredPanelSize(size)) return;
     const collapsed = size.asPercentage === 0;
     if (collapsedRef.current === collapsed) return;
     collapsedRef.current = collapsed;

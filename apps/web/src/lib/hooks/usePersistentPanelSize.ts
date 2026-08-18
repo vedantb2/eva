@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Layout } from "react-resizable-panels";
+import type { Layout, PanelSize } from "react-resizable-panels";
 import { useLocalStorage } from "usehooks-ts";
 
 /**
@@ -56,10 +56,11 @@ export function usePersistentPanelSize({
   panel,
   defaultSize,
 }: PersistentPanelSizeOptions): PersistentPanelSize {
-  const [savedSize, setSavedSize] = useLocalStorage(
+  const [storedSize, setSavedSize] = useLocalStorage(
     `${storageKey}:size`,
     defaultSize,
   );
+  const savedSize = usableStoredSize(storedSize, defaultSize);
   const [initialSize] = useState(savedSize);
   // Guards the first layout report; see `onLayoutChanged` below.
   const isMounted = useRef(false);
@@ -84,6 +85,31 @@ export function usePersistentPanelSize({
 }
 
 /**
+ * True when a panel's reported size describes a laid-out panel.
+ *
+ * A panel inside a `display: none` subtree — how the sessions layout keeps the
+ * last few session shells mounted — measures 0px inside a 0px group, and the
+ * library derives the percentage as `panelWidth / groupWidth`, so the report
+ * arrives as `NaN`. That is not a layout change and must not be mistaken for
+ * one: `NaN === 0` is false, so a collapsed panel that gets hidden would
+ * otherwise read back as expanded, and `${NaN}%` would be stored as the width
+ * to re-expand to.
+ */
+export function isMeasuredPanelSize(size: PanelSize): boolean {
+  return Number.isFinite(size.asPercentage);
+}
+
+/**
+ * A stored size, or the default when the stored string has no finite number in
+ * it. Recovers panels whose stored width was written as `NaN%` before hidden
+ * panels were filtered out; without this the group applies a `NaN` size on every
+ * load and a reload cannot clear it.
+ */
+export function usableStoredSize(size: string, defaultSize: string): string {
+  return Number.isFinite(parseFloat(size)) ? size : defaultSize;
+}
+
+/**
  * A panel's share of its group, as a percentage. Derived from the ratio between
  * the two flexGrow values rather than read straight off one of them, so it holds
  * whatever scale the library normalises them to.
@@ -99,6 +125,7 @@ export function panelPercentage(
   const primary = layout[primaryId];
   const secondary = layout[secondaryId];
   if (primary === undefined || secondary === undefined) return null;
+  if (!Number.isFinite(primary) || !Number.isFinite(secondary)) return null;
   const total = primary + secondary;
   if (total <= 0) return null;
   const selected = panel === "left" || panel === "top" ? primary : secondary;

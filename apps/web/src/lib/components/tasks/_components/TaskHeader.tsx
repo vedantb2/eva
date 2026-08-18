@@ -6,16 +6,19 @@ import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { catchMutationError } from "@/lib/utils/mutationToast";
+import { taskTextLockReason } from "./task-detail-constants";
 
 export function TaskHeader({
   taskNumber,
   title,
   canEditTaskText,
+  hasActiveRun,
   taskId,
 }: {
   taskNumber: number | undefined;
   title: string | undefined;
   canEditTaskText: boolean;
+  hasActiveRun: boolean;
   taskId: Id<"agentTasks">;
 }) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
@@ -104,7 +107,7 @@ export function TaskHeader({
         </button>
       ) : (
         <span
-          title="Title can only be edited in To Do"
+          title={taskTextLockReason(hasActiveRun, "Title")}
           className="max-sm:min-w-0 text-xl font-semibold max-sm:wrap-break-word"
         >
           {title}

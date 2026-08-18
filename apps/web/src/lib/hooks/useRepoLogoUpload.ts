@@ -3,9 +3,7 @@ import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { parseStorageId } from "@/lib/components/artifacts/_meta";
-import {
-  withMutationToast,
-} from "@/lib/utils/mutationToast";
+import { withMutationToast } from "@/lib/utils/mutationToast";
 
 /**
  * Shared logo upload/remove logic for repo cards and the settings page. Owns the
@@ -40,6 +38,8 @@ export function useRepoLogoUpload() {
       }
       await setLogo({ repoId, storageId });
     };
+    // `try`/`finally` without a `catch` bails the React Compiler out of this
+    // whole file, so the reset is duplicated instead. See CLAUDE.md.
     try {
       await withMutationToast(
         uploadAndSave(),
@@ -47,9 +47,11 @@ export function useRepoLogoUpload() {
         "Couldn't upload logo",
         "repo-logo-upload",
       );
-    } finally {
+    } catch (error) {
       setUploading(false);
+      throw error;
     }
+    setUploading(false);
   };
 
   const removeLogo = async (repoId: Id<"githubRepos">) => {

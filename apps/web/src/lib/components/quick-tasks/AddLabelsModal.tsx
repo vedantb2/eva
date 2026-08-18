@@ -73,6 +73,9 @@ export function AddLabelsModal({
   const handleAdd = async () => {
     if (newLabels.length === 0) return;
     setIsLoading(true);
+    // Built out here: a ternary inside the `try` bails the React Compiler out
+    // of this whole file. See CLAUDE.md.
+    const successMessage = `Added labels to ${count} task${count === 1 ? "" : "s"}`;
     try {
       await withMutationToast(
         Promise.all(
@@ -82,7 +85,7 @@ export function AddLabelsModal({
             return updateTask({ id: task._id, tags: merged });
           }),
         ),
-        `Added labels to ${count} task${count === 1 ? "" : "s"}`,
+        successMessage,
         "Couldn't add labels",
         "tasks-bulk-labels",
       );

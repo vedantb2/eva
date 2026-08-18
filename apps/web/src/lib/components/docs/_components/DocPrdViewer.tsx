@@ -144,6 +144,8 @@ export function DocPrdViewer({
   const handleGenerateTests = async () => {
     if (isTriggeringTestGen || doc.testGenStatus === "running") return;
     setIsTriggeringTestGen(true);
+    // `try`/`finally` without a `catch` bails the React Compiler out of this
+    // whole file, so the reset is duplicated instead. See CLAUDE.md.
     try {
       await withMutationToast(
         startTestGenMutation({ docId: doc._id }),
@@ -151,9 +153,11 @@ export function DocPrdViewer({
         "Couldn't start test generation",
         "doc-test-gen-start",
       );
-    } finally {
+    } catch (error) {
       setIsTriggeringTestGen(false);
+      throw error;
     }
+    setIsTriggeringTestGen(false);
   };
 
   const handleStopTestGen = async () => {
@@ -165,9 +169,11 @@ export function DocPrdViewer({
         "Couldn't stop test generation",
         "doc-test-gen-stop",
       );
-    } finally {
+    } catch (error) {
       setIsStopping(false);
+      throw error;
     }
+    setIsStopping(false);
   };
 
   const isGeneratingTests =

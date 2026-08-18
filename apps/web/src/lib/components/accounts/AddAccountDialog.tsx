@@ -118,15 +118,22 @@ function AddAccountForm({
       const value = values[field.key]?.trim() ?? "";
       return value.length > 0 ? [{ key: field.key, value }] : [];
     });
+    // Built out here: ternaries and optional chaining inside the `try` bail the
+    // React Compiler out of this whole file. See CLAUDE.md.
+    const accountId = editing?._id;
+    const successMessage = editing ? "Account updated" : "Account added";
+    const errorMessage = editing
+      ? "Couldn't update account"
+      : "Couldn't add account";
     try {
       await withMutationToast(
         upsert({
-          accountId: editing?._id,
+          accountId,
           provider,
           credentials,
         }),
-        editing ? "Account updated" : "Account added",
-        editing ? "Couldn't update account" : "Couldn't add account",
+        successMessage,
+        errorMessage,
         "account-upsert",
       );
       onOpenChange(false);

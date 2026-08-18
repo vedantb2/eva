@@ -149,10 +149,13 @@ export function EnvVarsTable({
   const saveEdit = async () => {
     if (!editingKey || !editValue.trim() || !onUpsert) return;
     const existing = vars?.find((v) => v.key === editingKey);
+    // Read out here: optional chaining and `??` inside the `try` bail the React
+    // Compiler out of this whole file. See CLAUDE.md.
+    const sandboxExclude = existing?.sandboxExclude ?? false;
     setSaving(true);
     try {
       await withMutationToast(
-        onUpsert(editingKey, editValue, existing?.sandboxExclude ?? false),
+        onUpsert(editingKey, editValue, sandboxExclude),
         "Variable saved",
         "Couldn't save variable",
         "env-var-save",
@@ -236,12 +239,15 @@ export function EnvVarsTable({
     const parsed = parseEnvVars(bulkText);
     if (parsed.length === 0) return;
     setBulkSaving(true);
+    // Built out here: a ternary inside the `try` bails the React Compiler out
+    // of this whole file. See CLAUDE.md.
+    const successMessage = `Imported ${parsed.length} variable${parsed.length !== 1 ? "s" : ""}`;
     try {
       await withMutationToast(
         Promise.all(
           parsed.map(({ key, value }) => onUpsert(key, value, false)),
         ),
-        `Imported ${parsed.length} variable${parsed.length !== 1 ? "s" : ""}`,
+        successMessage,
         "Couldn't import variables",
         "env-var-bulk-import",
       );

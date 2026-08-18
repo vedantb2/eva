@@ -63,6 +63,16 @@ export function FindingsList({ run, repoOwner, repoName }: FindingsListProps) {
     if (selected.size === 0) return;
     const count = selected.size;
     setIsCreating(true);
+    // Ternaries inside the `try`, and a `try`/`finally` with no `catch`, each
+    // bail the React Compiler out of this whole file. See CLAUDE.md.
+    const plural = count === 1 ? "" : "s";
+    const successMessage = autoRun
+      ? `Created and started ${count} task${plural}`
+      : `Created ${count} task${plural}`;
+    const errorMessage = autoRun
+      ? "Couldn't create and run tasks"
+      : "Couldn't create tasks";
+    const toastId = autoRun ? "findings-create-run" : "findings-create-tasks";
     try {
       await withMutationToast(
         createTasks({
@@ -70,16 +80,16 @@ export function FindingsList({ run, repoOwner, repoName }: FindingsListProps) {
           findingIds: Array.from(selected),
           autoRun,
         }),
-        autoRun
-          ? `Created and started ${count} task${count === 1 ? "" : "s"}`
-          : `Created ${count} task${count === 1 ? "" : "s"}`,
-        autoRun ? "Couldn't create and run tasks" : "Couldn't create tasks",
-        autoRun ? "findings-create-run" : "findings-create-tasks",
+        successMessage,
+        errorMessage,
+        toastId,
       );
       setSelected(new Set());
-    } finally {
+    } catch (error) {
       setIsCreating(false);
+      throw error;
     }
+    setIsCreating(false);
   }
 
   return (

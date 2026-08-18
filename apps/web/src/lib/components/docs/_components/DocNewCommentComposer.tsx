@@ -29,6 +29,13 @@ export function DocNewCommentComposer({
   const submit = async (resolutionTarget?: "agent" | "human") => {
     if (!content.trim()) return;
     setIsSubmitting(true);
+    // Ternaries inside the `try`, and a `try`/`finally` with no `catch`, each
+    // bail the React Compiler out of this whole file. See CLAUDE.md.
+    const askingEva = resolutionTarget === "agent";
+    const errorMessage = askingEva
+      ? "Couldn't ask Eva"
+      : "Couldn't add comment";
+    const toastId = askingEva ? "doc-comment-ask-eva" : "doc-comment-create";
     try {
       await catchMutationError(
         createComment({
@@ -38,18 +45,16 @@ export function DocNewCommentComposer({
           anchorText,
           resolutionTarget,
         }),
-        resolutionTarget === "agent"
-          ? "Couldn't ask Eva"
-          : "Couldn't add comment",
-        resolutionTarget === "agent"
-          ? "doc-comment-ask-eva"
-          : "doc-comment-create",
+        errorMessage,
+        toastId,
       );
       setContent("");
       onCreated();
-    } finally {
+    } catch (error) {
       setIsSubmitting(false);
+      throw error;
     }
+    setIsSubmitting(false);
   };
 
   return (

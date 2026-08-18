@@ -175,13 +175,16 @@ export function GroupTasksModal({
   const handleAddToProject = async () => {
     if (!selectedProjectId || taskIds.length === 0) return;
     setIsLoading(true);
+    // Built out here: a ternary inside the `try` bails the React Compiler out
+    // of this whole file. See CLAUDE.md.
+    const successMessage = `Added ${taskIds.length} task${taskIds.length === 1 ? "" : "s"} to project`;
     try {
       await withMutationToast(
         assignToProject({
           taskIds,
           projectId: selectedProjectId,
         }),
-        `Added ${taskIds.length} task${taskIds.length === 1 ? "" : "s"} to project`,
+        successMessage,
         "Couldn't add tasks to project",
         "tasks-add-to-project",
       );

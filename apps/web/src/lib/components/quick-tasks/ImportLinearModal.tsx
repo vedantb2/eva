@@ -15,10 +15,7 @@ import { useMutation, useAction } from "convex/react";
 import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { IconAlertCircle } from "@tabler/icons-react";
-import {
-  mutationError,
-  withMutationToast,
-} from "@/lib/utils/mutationToast";
+import { mutationError, withMutationToast } from "@/lib/utils/mutationToast";
 
 interface ImportLinearModalProps {
   isOpen: boolean;
@@ -46,6 +43,14 @@ function parseLinearIdentifiers(text: string): string[] {
   }
 
   return Array.from(identifiers);
+}
+
+/**
+ * The count is only known inside the `try`, and a ternary there bails the React
+ * Compiler out of the whole file — a plain call does not. See CLAUDE.md.
+ */
+function importedMessage(count: number): string {
+  return `Imported ${count} task${count === 1 ? "" : "s"}`;
 }
 
 export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
@@ -90,7 +95,7 @@ export function ImportLinearModal({ isOpen, onClose }: ImportLinearModalProps) {
           repoId: repo._id,
           tasks,
         }),
-        `Imported ${issues.length} task${issues.length === 1 ? "" : "s"}`,
+        importedMessage(issues.length),
         "Couldn't import from Linear",
         "linear-import",
       );

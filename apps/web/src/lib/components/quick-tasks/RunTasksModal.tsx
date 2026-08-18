@@ -14,10 +14,7 @@ import {
   Button,
   Spinner,
 } from "@eva/ui";
-import {
-  mutationError,
-  mutationSuccess,
-} from "@/lib/utils/mutationToast";
+import { mutationError, mutationSuccess } from "@/lib/utils/mutationToast";
 
 interface RunTasksModalProps {
   isOpen: boolean;
@@ -41,6 +38,9 @@ export function RunTasksModal({
   const handleRun = async () => {
     setIsLoading(true);
     setRunError(null);
+    // Built out here: a ternary inside the `try` bails the React Compiler out
+    // of this whole file. See CLAUDE.md.
+    const successMessage = `Started ${count} task${count === 1 ? "" : "s"}`;
     try {
       const taskIds = [...selectedTaskIds];
       const results = await Promise.all(
@@ -56,10 +56,7 @@ export function RunTasksModal({
       );
       const startedCount = results.filter((started) => started).length;
       if (startedCount === count) {
-        mutationSuccess(
-          `Started ${count} task${count === 1 ? "" : "s"}`,
-          "tasks-bulk-run",
-        );
+        mutationSuccess(successMessage, "tasks-bulk-run");
         setIsLoading(false);
         onSuccess();
         onClose();

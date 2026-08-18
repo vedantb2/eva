@@ -139,6 +139,8 @@ export function DocRecapViewer({
 
   const handleReviseRecap = async () => {
     setIsRevising(true);
+    // `try`/`finally` without a `catch` bails the React Compiler out of this
+    // whole file, so the reset is duplicated instead. See CLAUDE.md.
     try {
       await withMutationToast(
         reviseRecap({ docId: doc._id }),
@@ -146,9 +148,11 @@ export function DocRecapViewer({
         "Couldn't revise recap",
         "doc-revise-recap",
       );
-    } finally {
+    } catch (error) {
       setIsRevising(false);
+      throw error;
     }
+    setIsRevising(false);
   };
 
   return (

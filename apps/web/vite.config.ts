@@ -8,6 +8,7 @@ import path from "path";
 import { tablerDeepImports } from "./vite/deepImports";
 import { tablerIconData } from "./vite/tablerIconData";
 import { originHints } from "./vite/originHints";
+import { convexDevProxy } from "./vite/convexDevProxy";
 
 function agentLoginPlugin(): Plugin {
   let env: Record<string, string>;
@@ -94,6 +95,7 @@ export default defineConfig({
     tablerDeepImports(),
     tablerIconData(),
     originHints(),
+    convexDevProxy(),
     agentLoginPlugin(),
     process.env.ANALYZE === "true" &&
       visualizer({

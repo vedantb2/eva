@@ -10,7 +10,6 @@ const consoleLauncher = readSource(
   "convex/_pty/launchDevServerInVercelConsole.ts",
 );
 const callbackIndex = readSource("callback-src/index.ts");
-const cliAttempt = readSource("callback-src/runtime/cliAttempt.ts");
 const opencodeServer = readSource("callback-src/providers/opencodeServer.ts");
 const bundledScript = readSource(
   "convex/_sandbox_runtime/callbackScript.generated.ts",
@@ -50,19 +49,11 @@ describe("the OOM kill order protects the reporter", () => {
     expect(callbackIndex).toContain('"/proc/self/oom_score_adj"');
   });
 
-  test("spawned CLI subtrees are re-raised to killable", () => {
-    // Children inherit the callback's protected score; raising our own child
-    // is always permitted, and tool processes (tsc, builds) inherit it.
-    const raise = cliAttempt.match(
-      /\/proc\/" \+ String\(child\.pid\) \+ "\/oom_score_adj", "(\d+)"/,
-    );
-    expect(raise, "the child re-raise moved").not.toBeNull();
-    expect(Number(raise?.[1])).toBeGreaterThanOrEqual(200);
-  });
-
   test("the opencode server subtree is re-raised to killable", () => {
-    // Since the SDK migration this is the only agent process the callback still
-    // spawns, and every opencode tool process descends from it.
+    // The only agent process the callback still spawns now that the CLI runner
+    // is deleted, and every opencode tool process descends from it. Children
+    // inherit the callback's protected score; raising our own child is always
+    // permitted, and tool processes (tsc, builds) inherit the raised score.
     const raise = opencodeServer.match(
       /\/proc\/" \+ String\(pid\) \+ "\/oom_score_adj", "(\d+)"/,
     );

@@ -1,5 +1,11 @@
 # Changelog
 
+## The CLI subprocess runner is deleted - 2026-08-18
+
+The OpenCode SDK migration left `runCliAttempt` with no callers; it and everything only it used are now gone. `callback-src/runtime/cliAttempt.ts` and `callback-src/runtime/processControl.ts` are deleted entirely, along with `evaluateAttemptHealth` and its test, `isChildZombie`, `terminateAttemptProcess`, the `CliAttemptOptions` / `AttemptHealthInput` / `AttemptHealthResult` types, the `activeAttemptChild` state field, and `CLAUDE_STREAM_SILENCE_TIMEOUT_MS` — a watchdog whose last reader was the subprocess path. `resetAttemptState`, the one live export, moved into `runtime/state.ts` next to the state it resets, so the four SDK runners no longer import from a module named after a code path that no longer exists.
+
+One branch went with it: the heartbeat fatal handler used to kill `S.activeAttemptChild`, which nothing has set since the last provider left the CLI. It now just sets `fatalHeartbeatErrorMessage` and lets each runner's own watchdog abort through its SDK. That is a no-op today for Claude and Cursor, whose runners do not read the flag — pre-existing, filed as follow-up. `ProviderAttemptResult` also still carries four always-false timeout fields and `toolStallErrorMessage` that only the deleted runner ever set to anything; `completion.ts` still reads them to build failure messages, so removing them is a separate change. Bundle rebuilt: 271.3kb, ~500 bytes of dead code out of every sandbox launch.
+
 ## The mobile pass stops at 640px - 2026-08-18
 
 The mobile work below fixed real phone problems but also moved desktop: `hit-target` on the small `Button` sizes changed where a pointer had to be to click, `TabsList` gained scroll and safe-centring, menus and popovers gained height caps, tables changed scroll container, and a long tail of `flex-wrap` / `min-w-0` / `truncate` / `break-all` landed ungated. All of it is now behind `max-sm:` (or `max-md:` where the mobile branch genuinely sits at `md`), so at 640px and up the app renders exactly as it did before.

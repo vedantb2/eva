@@ -20,7 +20,6 @@ import { buildClaudeStartupStep } from "../session/claudeSession.js";
 import { log } from "../utils.js";
 import { writeFileSync } from "fs";
 import { callbackState as S } from "./state.js";
-import { terminateAttemptProcess } from "./processControl.js";
 import { flushBackgroundShellQueue } from "./backgroundShells.js";
 import { serializeSteps } from "../parse/stepBudget.js";
 
@@ -91,10 +90,10 @@ function noteHeartbeatFailure(error: Error | string): void {
       String(S.consecutiveHeartbeatFailures) +
       " consecutive failures: " +
       message;
+    // Setting the flag is the whole job: with no CLI subprocess left to kill,
+    // each SDK runner's watchdog picks this up on its next tick and aborts the
+    // turn through its own SDK cancellation path.
     log(S.fatalHeartbeatErrorMessage);
-    if (S.activeAttemptChild) {
-      terminateAttemptProcess(S.activeAttemptChild);
-    }
   }
 }
 

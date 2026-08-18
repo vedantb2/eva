@@ -72,7 +72,7 @@ try {
 // of memory during a heavy tool step (e.g. `npx tsc`), the agent subtree should
 // die — not the process responsible for heartbeats and failure reporting.
 // Lowering our own score requires privilege, so this is best-effort; a spawned
-// child's score is raised at spawn time in cliAttempt.ts as the portable half.
+// child's score is raised at spawn time (opencodeServer.ts) as the portable half.
 try {
   writeFileSync("/proc/self/oom_score_adj", "-600");
 } catch {

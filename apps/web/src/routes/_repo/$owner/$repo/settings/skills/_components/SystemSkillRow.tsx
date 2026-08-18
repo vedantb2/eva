@@ -28,10 +28,14 @@ export function SystemSkillRow({
     <>
       {/* A row inside the skills list section, so the section owns the border. */}
       <div className="px-4 py-3 transition-colors hover:bg-muted/40">
-        <div className="flex min-w-0 items-start justify-between gap-3">
-          <div className="min-w-0">
+        {/* Stacks below `sm`: "View contents" + Install is ~200px, which leaves
+            no room for the skill name on a phone. */}
+        <div className="flex min-w-0 flex-col items-start gap-2 sm:flex-row sm:items-start sm:justify-between sm:gap-3">
+          <div className="min-w-0 max-sm:max-w-full">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <p className="text-sm font-medium">{skill.name}</p>
+              <p className="text-sm font-medium max-sm:wrap-break-word">
+                {skill.name}
+              </p>
               {skill.installed ? (
                 <Badge variant="secondary" className="text-xs">
                   Installed
@@ -39,7 +43,7 @@ export function SystemSkillRow({
               ) : null}
             </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 max-sm:flex-wrap items-center gap-2">
             <Button
               type="button"
               variant="outline"

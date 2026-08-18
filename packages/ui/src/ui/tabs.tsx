@@ -11,7 +11,14 @@ const Tabs = TabsPrimitive.Root;
 
 const tabsListVariants = cva(
   cn(
-    "relative inline-flex items-center justify-center bg-background p-1 text-muted-foreground",
+    // `max-w-full` + scroll: a tab list wide enough to overflow scrolls inside
+    // its own box instead of widening the page. The bar is only 32-40px tall, so
+    // the scrollbar is hidden rather than eating that height.
+    // `justify-center-safe`, not `justify-center`: centred content that overflows
+    // spills equally past both edges, and `scrollLeft` cannot go negative, so the
+    // *leading* tabs become unreachable — the same bug the scroll was added to
+    // fix, moved to the other end. Safe alignment falls back to start on overflow.
+    "relative inline-flex items-center justify-center bg-background p-1 text-muted-foreground max-sm:max-w-full max-sm:justify-center-safe max-sm:overflow-x-auto max-sm:scrollbar-none",
     SURFACE_RADIUS_CLASS,
   ),
   {

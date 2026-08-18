@@ -27,6 +27,7 @@ import {
   contextSidebarModeForNav,
   type ContextSidebarMode,
 } from "@/lib/components/sidebar/contextSidebarModes";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 type RepoDoc = FunctionReturnType<typeof api.githubRepos.getByOwnerAndName>;
 
@@ -72,6 +73,7 @@ export function RepoNavSections({
   onNavigate,
 }: RepoNavSectionsProps) {
   const isDev = import.meta.env.DEV;
+  const simpleView = useSimpleView();
 
   const repoNavigation = (() => {
     const allGroups: RepoMainNavGroup[] = [
@@ -98,11 +100,15 @@ export function RepoNavSections({
             href: `${repoBasePath}/docs`,
             icon: DocumentsIcon,
           },
-          {
-            name: "Reviews",
-            href: `${repoBasePath}/reviews`,
-            icon: ReviewsIcon,
-          },
+          ...(simpleView
+            ? []
+            : [
+                {
+                  name: "Reviews",
+                  href: `${repoBasePath}/reviews`,
+                  icon: ReviewsIcon,
+                } satisfies RepoMainNavItem,
+              ]),
           {
             name: "Testing Arena",
             href: `${repoBasePath}/testing-arena`,
@@ -118,11 +124,17 @@ export function RepoNavSections({
             href: `${repoBasePath}/stats`,
             icon: StatsIcon,
           },
-          {
-            name: "Settings",
-            href: `${repoBasePath}/settings/config`,
-            icon: SettingsIcon,
-          },
+          // Simple view has no repo settings pages, so the entry is dropped
+          // here; the rail's gear still opens global settings.
+          ...(simpleView
+            ? []
+            : [
+                {
+                  name: "Settings",
+                  href: `${repoBasePath}/settings/config`,
+                  icon: SettingsIcon,
+                } satisfies RepoMainNavItem,
+              ]),
         ],
       },
     ];
@@ -139,7 +151,10 @@ export function RepoNavSections({
     sidebarNavLinkClass(isActive, collapsed);
 
   const renderRepoNavItem = (item: RepoMainNavItem) => {
-    const isActive = pathname.startsWith(item.href);
+    const isActive =
+      item.name === "Settings"
+        ? pathname.startsWith(`${repoBasePath}/settings`)
+        : pathname.startsWith(item.href);
     const contextMode = contextSidebarModeForNav(item.name);
 
     if (contextMode && !collapsed) {
@@ -169,7 +184,14 @@ export function RepoNavSections({
           <Button
             size="icon-sm"
             variant="ghost"
-            className="absolute right-2 top-1/2 z-20 h-6 w-6 -translate-y-1/2 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-sidebar-foreground hit-target"
+            // `reveal-on-hover` rather than a hand-rolled
+            // `sm:opacity-0 group-hover:opacity-100`: `group-hover:` compiles with
+            // `@media (hover: hover)` but `sm:opacity-0` does not, so the pair
+            // leaves this permanently invisible on a landscape tablet — and this
+            // is the only way into the section's context sidebar. `hit-target` and
+            // `transition-opacity` predate this work, so they stay ungated.
+            className="reveal-on-hover hit-target transition-opacity absolute right-2 top-1/2 z-20 h-6 w-6 -translate-y-1/2 text-muted-foreground hover:text-sidebar-foreground"
+            aria-label={`Open ${item.name.toLowerCase()} sidebar`}
             onClick={(event) => {
               event.preventDefault();
               event.stopPropagation();

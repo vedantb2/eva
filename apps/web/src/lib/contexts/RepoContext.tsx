@@ -37,12 +37,18 @@ interface RepoProviderProps {
   children: React.ReactNode;
   owner: string;
   repoParam: string;
+  /**
+   * Cached/hidden trees (session shell cache): skips the not-found redirect
+   * and URL canonicalization so a background repo can never hijack navigation.
+   */
+  passive?: boolean;
 }
 
 export function RepoProvider({
   children,
   owner,
   repoParam,
+  passive = false,
 }: RepoProviderProps) {
   const { name, appName } = decodeRepoParam(repoParam);
 
@@ -56,15 +62,17 @@ export function RepoProvider({
   });
 
   useEffect(() => {
+    if (passive) return;
     if (repo === null) {
       navigate({ to: "/home", replace: true });
     }
-  }, [repo, navigate]);
+  }, [repo, navigate, passive]);
 
   // Bare /owner/repo URLs for monorepos without a visible root row resolve to an
   // app repo — canonicalize to the public slash form (router rewrite maps it
   // to the internal `--` segment for matching).
   useEffect(() => {
+    if (passive) return;
     if (!repo?.rootDirectory || appName) return;
     const appSegment = repo.rootDirectory.split("/").pop();
     if (!appSegment) return;
@@ -81,7 +89,7 @@ export function RepoProvider({
       search: (prev) => prev,
       replace: true,
     });
-  }, [repo, appName, owner, name, location.pathname, navigate]);
+  }, [repo, appName, owner, name, location.pathname, navigate, passive]);
 
   /**
    * Public path prefix for the active repo. Monorepo apps use slash form

@@ -11,7 +11,7 @@ import {
 } from "react-resizable-panels";
 import { IconGripHorizontal } from "@tabler/icons-react";
 import type { Id, SandboxOwner } from "@eva/backend";
-import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
+import { useShortcut } from "@/lib/hotkeys/useShortcut";
 import {
   BOTTOM_PANEL_ID,
   TOP_PANEL_ID,
@@ -24,6 +24,7 @@ import {
   type SharedTerminalPane,
 } from "./useSandboxPanes";
 import { SandboxTerminalPanel } from "./SandboxTerminalPanel";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 /**
  * Imperative surface for the bottom terminal panel, shared by the Mod+J
@@ -71,6 +72,7 @@ export function SandboxWorkspace(props: SandboxWorkspaceProps) {
     hotkeyEnabled = true,
     children,
   } = props;
+  const simpleView = useSimpleView();
   const owner: SandboxOwner =
     props.ownerKind === "session"
       ? { kind: "session", sessionId: props.ownerId }
@@ -153,13 +155,17 @@ export function SandboxWorkspace(props: SandboxWorkspaceProps) {
       event.preventDefault();
       terminalPanel.toggle();
     },
-    { enabled: hotkeyEnabled },
+    { enabled: hotkeyEnabled && !simpleView },
   );
 
   const bottomDefaultSize = initialExpanded ? initialBottomSize : "0%";
   const topDefaultSize = initialExpanded
     ? complementaryPercentage(initialBottomSize, DEFAULT_TOP_SIZE)
     : "100%";
+
+  if (simpleView) {
+    return <>{children(panes, owner, terminalPanel)}</>;
+  }
 
   return (
     <Group

@@ -10,6 +10,7 @@ import { Analytics } from "@vercel/analytics/react";
 import { ClientProvider } from "@/lib/components/ClientProvider";
 import { AppToaster } from "@/lib/components/AppToaster";
 import { AppShell } from "@/lib/components/AppShell";
+import { PreviewIframeHost } from "@/lib/components/sandbox/previewIframeHost";
 import { ChangelogDialogGate } from "@/lib/components/ChangelogDialogGate";
 import { useDocumentTitle } from "@/lib/hooks/useDocumentTitle";
 
@@ -49,6 +50,10 @@ function RootComponent() {
         <AppShell>
           <Outlet />
         </AppShell>
+        {/* Preview iframes survive ALL route changes by living here, outside
+            the router. Mounted after AppShell so equal-z fixed layers paint
+            above routed content; Radix portals (z-50) still stack above. */}
+        <PreviewIframeHost />
       </NuqsAdapter>
       <AppToaster />
       <Analytics />

@@ -38,6 +38,7 @@ interface BuildSandboxPaletteCommandsArgs {
   onOpenComputer: (() => void) | undefined;
   onNewPreview: () => void;
   newPreviewDisabled: boolean;
+  simpleView?: boolean;
 }
 
 /** Builds the shared, context-aware command palette vocabulary. */
@@ -57,6 +58,7 @@ export function buildSandboxPaletteCommands({
   onOpenComputer,
   onNewPreview,
   newPreviewDisabled,
+  simpleView = false,
 }: BuildSandboxPaletteCommandsArgs): SandboxPaletteCommand[] {
   const commands: SandboxPaletteCommand[] = tabs.map((tab) => ({
     id: `show-${tab.value}`,
@@ -133,45 +135,47 @@ export function buildSandboxPaletteCommands({
     });
   }
 
-  commands.push(
-    {
-      id: "toggle-console",
-      label: "Toggle Preview Console",
-      keywords: "show hide logs dev server",
-      icon: IconTerminal2,
-      run: () => {
-        if (activeTab !== "preview") {
-          onTabChange("preview");
-          consoleDock.expand();
-          return;
-        }
-        consoleDock.toggle();
-      },
-    },
-    {
-      id: "toggle-terminal-panel",
-      label: "Toggle Terminal Panel",
-      keywords: "show hide shell pty bottom terminal",
-      icon: IconTerminal2,
-      run: terminalPanel.toggle,
-    },
-    {
+  if (!simpleView) {
+    commands.push({
       id: "new-preview",
       label: "New Preview",
       keywords: "create add browser port",
       icon: IconWorld,
       run: onNewPreview,
       disabled: newPreviewDisabled,
-    },
-    {
-      id: "new-terminal",
-      label: "New Terminal",
-      keywords: "create add shell pty console",
-      icon: IconTerminal2,
-      run: terminalPanel.newTerminal,
-      disabled: terminalPanel.newTerminalDisabled,
-    },
-  );
+    });
+    commands.push(
+      {
+        id: "toggle-console",
+        label: "Toggle Preview Console",
+        keywords: "show hide logs dev server",
+        icon: IconTerminal2,
+        run: () => {
+          if (activeTab !== "preview") {
+            onTabChange("preview");
+            consoleDock.expand();
+            return;
+          }
+          consoleDock.toggle();
+        },
+      },
+      {
+        id: "toggle-terminal-panel",
+        label: "Toggle Terminal Panel",
+        keywords: "show hide shell pty bottom terminal",
+        icon: IconTerminal2,
+        run: terminalPanel.toggle,
+      },
+      {
+        id: "new-terminal",
+        label: "New Terminal",
+        keywords: "create add shell pty console",
+        icon: IconTerminal2,
+        run: terminalPanel.newTerminal,
+        disabled: terminalPanel.newTerminalDisabled,
+      },
+    );
+  }
 
   return commands;
 }

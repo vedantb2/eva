@@ -1,7 +1,7 @@
 "use client";
 
 import dayjs from "../utils/dayjs";
-import type { FC, KeyboardEventHandler, ReactNode } from "react";
+import type { FC, ReactNode } from "react";
 import { cn } from "../utils/cn";
 import { CONTROL_RADIUS_CLASS } from "../utils/surface-radius";
 import { useGanttContext, type GanttFeature } from "./gantt-provider";
@@ -39,28 +39,28 @@ export const GanttSidebarItem: FC<GanttSidebarItemProps> = ({
     onSelectItem?.(feature.id);
   };
 
-  const handleKeyDown: KeyboardEventHandler<HTMLDivElement> = (event) => {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      select();
-    }
-  };
-
   return (
+    // A plain row with a real `<button>` stretched across it, not a
+    // `role="button" tabIndex={0}` div — see `ui/list-row.tsx`, which documents
+    // why the div form needs a hand-written Enter/Space handler and still gets
+    // the role, focus and press semantics wrong. The row keeps its own `relative`
+    // so the overlay is bounded by it.
     <div
       className={cn(
-        "relative flex cursor-pointer items-center gap-2.5 px-2.5 text-xs transition-colors hover:bg-muted/50",
+        "relative flex cursor-pointer items-center gap-2.5 px-2.5 text-xs transition-colors hover:bg-muted/50 has-[button:focus-visible]:ring-2 has-[button:focus-visible]:ring-ring/35",
         CONTROL_RADIUS_CLASS,
         selected && "bg-muted/60 ring-1 ring-inset ring-border",
         className,
       )}
       key={feature.id}
-      onClick={select}
-      onKeyDown={handleKeyDown}
-      role="button"
       style={{ height: "var(--gantt-row-height)" }}
-      tabIndex={0}
     >
+      <button
+        type="button"
+        onClick={select}
+        aria-label={feature.name}
+        className="absolute inset-0 z-1 outline-hidden"
+      />
       {icon ? (
         <span className="pointer-events-none flex shrink-0 items-center">
           {icon}

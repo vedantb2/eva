@@ -24,7 +24,7 @@ import { fileViewerPathParser } from "@/lib/search-params";
 import {
   useShortcut,
   useShortcutBinding,
-} from "@/lib/hotkeys/ShortcutsContext";
+} from "@/lib/hotkeys/useShortcut";
 import type { SandboxFileListApi } from "./useSandboxFileList";
 import {
   rankSandboxFiles,
@@ -58,7 +58,7 @@ function fileListMessage(fileList: SandboxFileListApi): string {
     case "loading":
       return "Loading files…";
     case "not_running":
-      return "Start the sandbox to search files";
+      return "Wake Eva up to search files";
     case "error":
       return fileList.state.message;
     case "loaded":
@@ -149,7 +149,7 @@ export function SandboxQuickOpenDialogs({
               value={fileSearch}
               onValueChange={setFileSearch}
             />
-            <CommandList className="max-h-[min(26rem,65vh)]">
+            <CommandList className="max-h-[min(26rem,65dvh)]">
               <CommandEmpty className="px-4 text-muted-foreground">
                 {fileListMessage(fileList)}
               </CommandEmpty>
@@ -207,7 +207,7 @@ export function SandboxQuickOpenDialogs({
               value={actionSearch}
               onValueChange={setActionSearch}
             />
-            <CommandList className="max-h-[min(26rem,65vh)]">
+            <CommandList className="max-h-[min(26rem,65dvh)]">
               <CommandEmpty>No matching actions</CommandEmpty>
               {filesEnabled ? (
                 <CommandGroup heading="Files">

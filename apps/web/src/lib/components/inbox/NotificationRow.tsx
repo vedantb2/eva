@@ -104,13 +104,17 @@ export function NotificationRow({
           ) : null}
         </div>
       </button>
-      {/* Timestamp and Dismiss share the trailing slot: hovering an unread row
-          swaps one for the other. */}
+      {/* At `sm` and up this is exactly as it was: timestamp and Dismiss share
+          the trailing slot, and hovering an unread row swaps one for the other.
+          Below `sm` that swap is unusable — touch has no hover, so Dismiss was
+          unreachable — so there the button leaves the overlay, sits in flow next
+          to the timestamp as a 40px icon-only target, and the timestamp keeps its
+          place. Both halves are `max-sm:`-scoped so the desktop row is untouched. */}
       <RelativeDateTime
         at={notification.createdAt}
         className={cn(
           "shrink-0 text-xs tabular-nums text-muted-foreground",
-          unread && "group-hover:invisible",
+          unread && "sm:group-hover:invisible",
         )}
       />
       {unread ? (
@@ -120,10 +124,10 @@ export function NotificationRow({
           onClick={onMarkRead}
           title="Mark as read"
           aria-label="Mark as read"
-          className="absolute right-3 h-6 gap-1 px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+          className="absolute right-3 h-6 gap-1 px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 max-sm:static max-sm:size-10 max-sm:shrink-0 max-sm:gap-0 max-sm:p-0 max-sm:opacity-100"
         >
           <IconCheck size={14} />
-          Dismiss
+          <span className="max-sm:hidden">Dismiss</span>
         </Button>
       ) : null}
     </div>

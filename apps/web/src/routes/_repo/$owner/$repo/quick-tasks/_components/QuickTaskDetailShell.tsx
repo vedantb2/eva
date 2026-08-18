@@ -4,16 +4,12 @@ import { type ReactNode } from "react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { Spinner } from "@eva/ui";
-import { IconChevronRight, IconChevronLeft } from "@tabler/icons-react";
-import { EntityContextUsage } from "@/lib/components/context-usage";
-import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { useQuickTaskNeighbors } from "../_utils/useQuickTaskNeighbors";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
-import {
-  QuickTaskHeaderActionsSlot,
-  QuickTaskHeaderActionsSlotProvider,
-} from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
+import { QuickTaskHeaderActionsSlotProvider } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
+import { QuickTaskBreadcrumb } from "./QuickTaskBreadcrumb";
+import { QuickTaskDetailHeaderActions } from "./QuickTaskDetailHeaderActions";
 
 interface QuickTaskDetailShellProps {
   taskId: string;
@@ -53,52 +49,21 @@ export function QuickTaskDetailShell({
     <QuickTaskHeaderActionsSlotProvider>
       <PageWrapper
         title={
-          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-            <div className="flex shrink-0 items-center gap-1.5 text-base sm:text-lg md:text-xl">
-              <button
-                onClick={handleBack}
-                className="text-muted-foreground hover:text-foreground transition-colors font-semibold whitespace-nowrap"
-              >
-                Quick Tasks
-              </button>
-              <IconChevronRight
-                size={14}
-                className="text-muted-foreground/50 shrink-0"
-              />
-            </div>
-            {selectedTask?.numId !== undefined ? (
-              <span className="shrink-0 font-semibold font-mono tabular-nums text-muted-foreground">
-                #{selectedTask.numId}
-              </span>
-            ) : null}
-            {navSurface === "sandbox" && selectedTask?.title ? (
-              <MarqueeOnHover className="min-w-0 font-semibold">
-                {selectedTask.title}
-              </MarqueeOnHover>
-            ) : null}
-            <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
-              <EntityContextUsage repoId={repo._id} entityId={taskId} />
-              <QuickTaskHeaderActionsSlot />
-              <div className="flex items-center gap-0.5">
-                <button
-                  onClick={handleNavigatePrev}
-                  disabled={!prevTaskId}
-                  className="rounded p-1 transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
-                  title="Previous task"
-                >
-                  <IconChevronLeft size={16} />
-                </button>
-                <button
-                  onClick={handleNavigateNext}
-                  disabled={!nextTaskId}
-                  className="rounded p-1 transition-colors hover:bg-muted/60 disabled:pointer-events-none disabled:opacity-30"
-                  title="Next task"
-                >
-                  <IconChevronRight size={16} />
-                </button>
-              </div>
-            </div>
-          </div>
+          <QuickTaskBreadcrumb
+            onBack={handleBack}
+            taskNumId={selectedTask?.numId}
+            taskTitle={selectedTask?.title}
+          />
+        }
+        headerRight={
+          <QuickTaskDetailHeaderActions
+            repoId={repo._id}
+            taskId={taskId}
+            prevTaskId={prevTaskId ?? undefined}
+            nextTaskId={nextTaskId ?? undefined}
+            onNavigatePrev={handleNavigatePrev}
+            onNavigateNext={handleNavigateNext}
+          />
         }
         fillHeight
         childPadding={false}

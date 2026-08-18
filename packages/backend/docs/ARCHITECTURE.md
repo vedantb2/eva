@@ -88,7 +88,9 @@ The callback owns seven core capabilities:
 
 ### Bonus: Multi-Runtime Multiplexing
 
-The same callback bundle already runs Claude, Codex, OpenCode, and Cursor. Providers are plugged in via `buildSdkOptions` + runtime detection.
+The same callback bundle already runs Claude, Codex, OpenCode, and Cursor — every one of them through its vendor SDK in-process, with no CLI subprocess left. Claude and Codex use warm daemons; Cursor and OpenCode run one shot per turn. OpenCode is the one provider whose SDK is an HTTP client: the callback keeps a detached `opencode serve` per sandbox (`callback-src/providers/opencodeServer.ts`) and reuses it across turns.
+
+Every runner reshapes its vendor events into the JSONL line shapes the provider parsers already understand, then pushes them through `processRealtimeStdoutChunk`, so streaming, tool steps, session persistence and completion stay shared.
 
 ## Sandbox Provider Abstraction
 

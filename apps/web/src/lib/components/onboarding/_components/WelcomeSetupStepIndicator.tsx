@@ -41,7 +41,9 @@ export function WelcomeSetupStepIndicator({
                 "whitespace-nowrap text-xs",
                 isActive
                   ? "font-medium text-foreground"
-                  : "text-muted-foreground",
+                  : // Five labelled chips wrap to five lines on a phone, so
+                    // below `sm` only the current step keeps its label.
+                    "hidden text-muted-foreground sm:inline",
               )}
             >
               {label}

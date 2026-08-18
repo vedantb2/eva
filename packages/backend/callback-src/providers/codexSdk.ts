@@ -118,6 +118,13 @@ export async function runCodexSdkAttempt(
       abortController.abort();
       return;
     }
+    // The SDK emits nothing between a tool call and its result, so a long
+    // silent tool is indistinguishable from a hang by event silence alone.
+    // Mirror cliAttempt.ts: while a tool is in flight only the hard runtime cap
+    // applies, and the silence clock restarts once the tool result lands.
+    if (S.inFlightToolUses > 0) {
+      lastEventAt = now;
+    }
     if (!sawCompletedTurn && now - lastEventAt > NO_OUTPUT_TIMEOUT_MS * 5) {
       timedOutForNoOutput = true;
       log("runCodexSdkAttempt: no SDK events — aborting turn");

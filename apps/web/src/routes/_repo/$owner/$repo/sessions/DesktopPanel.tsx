@@ -30,7 +30,7 @@ interface DesktopPanelProps {
 
 const SURFACE_COPY = {
   browser: {
-    inactiveLabel: "Start the sandbox to use the browser",
+    inactiveLabel: "Wake Eva up to use the browser",
     idleLabel: "Browser is not running",
     startLabel: "Start Browser",
     startingLabel: "Starting browser environment...",
@@ -39,7 +39,7 @@ const SURFACE_COPY = {
     loadFailedError: "Failed to load browser",
   },
   desktop: {
-    inactiveLabel: "Start the sandbox to use Computer",
+    inactiveLabel: "Wake Eva up to use Computer",
     idleLabel: "Computer is not running",
     startLabel: "Start Computer",
     startingLabel: "Starting Computer...",

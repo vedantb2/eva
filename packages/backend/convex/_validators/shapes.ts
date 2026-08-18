@@ -113,6 +113,7 @@ export const experimentalFlagKeyValidator = v.union(
   v.literal("blurPid"),
   v.literal("voiceDictation"),
   v.literal("composerAutocomplete"),
+  v.literal("simpleView"),
 );
 
 /** Stored shape on `users.experimentalFlags` — missing key means off. */
@@ -121,6 +122,7 @@ export const experimentalFlagsFields = {
   blurPid: v.optional(v.boolean()),
   voiceDictation: v.optional(v.boolean()),
   composerAutocomplete: v.optional(v.boolean()),
+  simpleView: v.optional(v.boolean()),
 };
 
 export const experimentalFlagsValidator = v.object(experimentalFlagsFields);
@@ -131,5 +133,6 @@ export const resolvedExperimentalFlagsValidator = v.object({
   blurPid: v.boolean(),
   voiceDictation: v.boolean(),
   composerAutocomplete: v.boolean(),
+  simpleView: v.boolean(),
 });
 

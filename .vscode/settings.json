@@ -4,5 +4,7 @@
     "titleBar.activeBackground": "#860B0D",
     "titleBar.activeForeground": "#FFFBFB"
   },
-  "typescript.tsdk": "apps/web\\node_modules\\typescript\\lib"
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  "typescript.tsserver.maxTsServerMemory": 4096
 }

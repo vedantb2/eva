@@ -1,13 +1,7 @@
 "use node";
 
 export const CALLBACK_SCRIPT = `// callback-src/index.ts
-import {
-  existsSync as existsSync11,
-  mkdirSync as mkdirSync8,
-  readdirSync as readdirSync4,
-  unlinkSync as unlinkSync4,
-  writeFileSync as writeFileSync12
-} from "fs";
+import { mkdirSync as mkdirSync10, unlinkSync as unlinkSync3, writeFileSync as writeFileSync12 } from "fs";
 
 // callback-src/config.ts
 import { existsSync } from "fs";
@@ -128,6 +122,9 @@ var CODEX_CONFIG_TOML_BASE64 = process.env.CODEX_CONFIG_TOML_BASE64 || "";
 var OPENCODE_RUNTIME_HOME_DIR = process.env.OPENCODE_RUNTIME_HOME_DIR || "/tmp/opencode-home";
 var OPENCODE_PERSIST_DIR = process.env.OPENCODE_PERSIST_DIR || "/home/eva/.opencode-persist";
 var OPENCODE_BIN_PATH = process.env.EVA_OPENCODE_BIN_PATH || "/tmp/opencode-cli/bin/opencode";
+var OPENCODE_SERVER_PORT = Number(
+  process.env.OPENCODE_SERVER_PORT || "4096"
+);
 var OPENCODE_STATE_FILE = "session-state.json";
 var OPENCODE_LOCAL_STATE_FILE = OPENCODE_RUNTIME_HOME_DIR + "/" + OPENCODE_STATE_FILE;
 var OPENCODE_PERSIST_STATE_FILE = OPENCODE_PERSIST_DIR + "/" + OPENCODE_STATE_FILE;
@@ -222,9 +219,7 @@ var CURSOR_REASONING_EFFORT = {
   max: "high"
 };
 var cursorReasoningLevel = PROVIDER === "cursor" && REASONING_EFFORT in CURSOR_REASONING_EFFORT ? CURSOR_REASONING_EFFORT[REASONING_EFFORT] : cursorModelParts.level;
-var opencodeCommand = existsSync(OPENCODE_BIN_PATH) ? JSON.stringify(OPENCODE_BIN_PATH) : "opencode";
-var opencodePromptCmd = SYSTEM_PROMPT ? "(printf %s\\\\n\\\\n " + JSON.stringify(SYSTEM_PROMPT) + "; cat /tmp/design-prompt.txt)" : "cat /tmp/design-prompt.txt";
-var opencodeExecBaseCmd = opencodeCommand + " run --format json --model " + JSON.stringify(normalizedOpencodeModel);
+var opencodeCommand = existsSync(OPENCODE_BIN_PATH) ? OPENCODE_BIN_PATH : "opencode";
 var TOOL_STEP_TYPES = /* @__PURE__ */ new Set([
   "read",
   "search_files",
@@ -287,7 +282,7 @@ var completedLabels = {
 };
 
 // callback-src/providers/claudeSdkDaemon.ts
-import { unlinkSync as unlinkSync2, writeFileSync as writeFileSync9, readFileSync as readFileSync6 } from "fs";
+import { unlinkSync, writeFileSync as writeFileSync8, readFileSync as readFileSync6 } from "fs";
 
 // callback-src/providers/daemonPaths.ts
 var LEGACY_DAEMON_PID = "/tmp/eva-daemon.pid";
@@ -1729,9 +1724,10 @@ function mediaSearchDirs(workDir, rootDirectory) {
 // callback-src/runtime/completion.ts
 import {
   existsSync as existsSync3,
+  mkdirSync as mkdirSync2,
   readFileSync as readFileSync2,
   readdirSync as readdirSync2,
-  unlinkSync,
+  renameSync,
   writeFileSync as writeFileSync2
 } from "fs";
 import { createHash } from "crypto";
@@ -1788,169 +1784,96 @@ function buildClaudeShapedResult(args) {
     modelUsage: args.model ? { [args.model]: {} } : {}
   });
 }
-function extractResultEvent(output) {
-  if (PROVIDER === "cursor") {
-    let resultText = "";
-    let isError = false;
-    let sawResult = false;
-    let durationMs = 0;
-    let inputTokens = 0;
-    let outputTokens = 0;
-    let cacheReadTokens = 0;
-    let cacheWriteTokens = 0;
-    const assistantParts = [];
-    const readTokenField = (usage, key) => {
-      const value = usage[key];
-      return typeof value === "number" && Number.isFinite(value) ? value : 0;
-    };
-    for (const line of output.split("\\n")) {
-      const clean = line.trim();
-      if (!clean) continue;
-      try {
-        const parsed = parseJsonObject(clean);
-        if (!parsed) continue;
-        if (parsed.type === "result") {
-          sawResult = true;
-          isError = Boolean(parsed.is_error);
-          if (typeof parsed.duration_ms === "number")
-            durationMs = parsed.duration_ms;
-          if (typeof parsed.result === "string") {
-            resultText = parsed.result;
-          } else if (parsed.result !== void 0) {
-            resultText = JSON.stringify(parsed.result);
-          }
-          if (parsed.usage && typeof parsed.usage === "object" && !Array.isArray(parsed.usage)) {
-            inputTokens = readTokenField(parsed.usage, "input_tokens");
-            outputTokens = readTokenField(parsed.usage, "output_tokens");
-            cacheReadTokens = readTokenField(
-              parsed.usage,
-              "cache_read_input_tokens"
-            );
-            cacheWriteTokens = readTokenField(
-              parsed.usage,
-              "cache_creation_input_tokens"
-            );
-          }
-          continue;
+function readSyntheticResult(output) {
+  const found = {
+    sawResult: false,
+    resultText: "",
+    isError: false,
+    durationMs: 0,
+    totalCostUsd: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    model: "",
+    assistantText: ""
+  };
+  const readNumberField2 = (source, key) => {
+    const value = source[key];
+    return typeof value === "number" && Number.isFinite(value) ? value : 0;
+  };
+  const assistantParts = [];
+  for (const line of output.split("\\n")) {
+    const clean = line.trim();
+    if (!clean) continue;
+    try {
+      const parsed = parseJsonObject(clean);
+      if (!parsed) continue;
+      if (parsed.type === "result") {
+        found.sawResult = true;
+        found.isError = Boolean(parsed.is_error);
+        found.durationMs = readNumberField2(parsed, "duration_ms");
+        found.totalCostUsd = readNumberField2(parsed, "total_cost_usd");
+        found.model = typeof parsed.model === "string" ? parsed.model : "";
+        if (typeof parsed.result === "string") {
+          found.resultText = parsed.result;
+        } else if (parsed.result !== void 0) {
+          found.resultText = JSON.stringify(parsed.result);
         }
-        if (parsed.type === "assistant" && parsed.message && typeof parsed.message === "object" && !Array.isArray(parsed.message) && Array.isArray(parsed.message.content)) {
-          for (const block of parsed.message.content) {
-            if (block && typeof block === "object" && !Array.isArray(block) && block.type === "text" && typeof block.text === "string") {
-              assistantParts.push(block.text);
-            }
-          }
+        if (parsed.usage && typeof parsed.usage === "object" && !Array.isArray(parsed.usage)) {
+          found.inputTokens = readNumberField2(parsed.usage, "input_tokens");
+          found.outputTokens = readNumberField2(parsed.usage, "output_tokens");
+          found.cacheReadTokens = readNumberField2(
+            parsed.usage,
+            "cache_read_input_tokens"
+          );
+          found.cacheWriteTokens = readNumberField2(
+            parsed.usage,
+            "cache_creation_input_tokens"
+          );
         }
-      } catch {
+        continue;
       }
+      if (parsed.type === "assistant" && parsed.message && typeof parsed.message === "object" && !Array.isArray(parsed.message) && Array.isArray(parsed.message.content)) {
+        for (const block of parsed.message.content) {
+          if (block && typeof block === "object" && !Array.isArray(block) && block.type === "text" && typeof block.text === "string") {
+            assistantParts.push(block.text);
+          }
+        }
+      }
+    } catch {
     }
-    if (sawResult) {
+  }
+  found.assistantText = assistantParts.join("");
+  return found;
+}
+function extractResultEvent(output) {
+  if (PROVIDER === "cursor" || PROVIDER === "opencode") {
+    const found = readSyntheticResult(output);
+    if (found.sawResult) {
       return {
-        result: resultText || assistantParts.join(""),
-        isError,
+        result: found.resultText || found.assistantText,
+        isError: found.isError,
         rawResultEvent: buildClaudeShapedResult({
-          provider: "cursor",
-          totalCostUsd: 0,
-          durationMs: durationMs || attemptElapsedMs(),
-          inputTokens,
-          outputTokens,
-          cacheReadInputTokens: cacheReadTokens,
-          cacheCreationInputTokens: cacheWriteTokens,
-          model: normalizedCursorModel
+          provider: PROVIDER,
+          totalCostUsd: found.totalCostUsd,
+          durationMs: found.durationMs || attemptElapsedMs(),
+          inputTokens: found.inputTokens,
+          outputTokens: found.outputTokens,
+          cacheReadInputTokens: found.cacheReadTokens,
+          cacheCreationInputTokens: found.cacheWriteTokens,
+          // OpenCode reports the model the server actually served the turn
+          // with; Cursor's runner does not, so fall back to the configured id.
+          model: found.model || (PROVIDER === "opencode" ? normalizedOpencodeModel : normalizedCursorModel)
         })
       };
     }
-    if (assistantParts.length > 0) {
+    if (found.assistantText) {
       return {
-        result: assistantParts.join(""),
+        result: found.assistantText,
         isError: false,
         rawResultEvent: ""
       };
-    }
-    return null;
-  }
-  if (PROVIDER === "opencode") {
-    let finalMessageId = "";
-    let sawStopStep = false;
-    let errorLine = "";
-    let errorMessage = "";
-    const textByMessageId = /* @__PURE__ */ new Map();
-    let totalCostUsd = 0;
-    let inputTokens = 0;
-    let outputTokens = 0;
-    let reasoningTokens = 0;
-    let cacheReadTokens = 0;
-    let cacheWriteTokens = 0;
-    let stepModel = "";
-    for (const line of output.split("\\n")) {
-      const clean = line.trim();
-      if (!clean) continue;
-      try {
-        const parsed = parseJsonObject(clean);
-        if (!parsed) continue;
-        if (parsed.type === "step_finish" && parsed.part) {
-          const part = typeof parsed.part === "object" && !Array.isArray(parsed.part) ? parsed.part : null;
-          if (part && typeof part.cost === "number") totalCostUsd += part.cost;
-          const t = part && part.tokens;
-          if (t && typeof t === "object" && !Array.isArray(t)) {
-            if (typeof t.input === "number") inputTokens = t.input;
-            if (typeof t.output === "number") outputTokens += t.output;
-            if (typeof t.reasoning === "number") reasoningTokens += t.reasoning;
-            if (t.cache && typeof t.cache === "object" && !Array.isArray(t.cache)) {
-              if (typeof t.cache.read === "number")
-                cacheReadTokens = t.cache.read;
-              if (typeof t.cache.write === "number")
-                cacheWriteTokens += t.cache.write;
-            }
-          }
-          if (part && typeof part.modelID === "string" && part.modelID) {
-            stepModel = part.modelID;
-          }
-          if (part && part.reason === "stop" && typeof part.messageID === "string" && part.messageID) {
-            finalMessageId = part.messageID;
-            sawStopStep = true;
-          }
-          continue;
-        }
-        if (parsed.type === "text" && parsed.part && typeof parsed.part === "object" && !Array.isArray(parsed.part) && typeof parsed.part.messageID === "string" && parsed.part.messageID && typeof parsed.part.text === "string") {
-          const existing = textByMessageId.get(parsed.part.messageID) || "";
-          textByMessageId.set(
-            parsed.part.messageID,
-            existing + parsed.part.text
-          );
-          continue;
-        }
-        if (parsed.type === "error") {
-          errorLine = clean;
-          const err = parsed.error && typeof parsed.error === "object" && !Array.isArray(parsed.error) ? parsed.error : null;
-          if (err && err.data && typeof err.data === "object" && !Array.isArray(err.data) && typeof err.data.message === "string") {
-            errorMessage = err.data.message;
-          } else if (err && typeof err.name === "string") {
-            errorMessage = err.name;
-          } else {
-            errorMessage = "Opencode error";
-          }
-        }
-      } catch {
-      }
-    }
-    if (sawStopStep) {
-      return {
-        result: textByMessageId.get(finalMessageId) || "",
-        isError: false,
-        rawResultEvent: buildClaudeShapedResult({
-          provider: "opencode",
-          totalCostUsd,
-          durationMs: attemptElapsedMs(),
-          inputTokens,
-          outputTokens: outputTokens + reasoningTokens,
-          cacheReadInputTokens: cacheReadTokens,
-          cacheCreationInputTokens: cacheWriteTokens,
-          model: stepModel || normalizedOpencodeModel
-        })
-      };
-    }
-    if (errorMessage) {
-      return { result: errorMessage, isError: true, rawResultEvent: errorLine };
     }
     return null;
   }
@@ -2033,7 +1956,7 @@ function extractResultEvent(output) {
   return resultEvent;
 }
 function buildErrorMessage(code, fatalHeartbeatError, toolStallError, timedOutForMaxRuntime, timedOutForNoOutput, timedOutForFirstEvent, timedOutForFirstAssistant, timedOutAfterFirstText, timedOutForZombie) {
-  const agentName = PROVIDER === "codex" ? "Codex SDK" : PROVIDER === "opencode" ? "Opencode CLI" : PROVIDER === "cursor" ? "Cursor CLI" : "Claude CLI";
+  const agentName = PROVIDER === "codex" ? "Codex SDK" : PROVIDER === "opencode" ? "Opencode SDK" : PROVIDER === "cursor" ? "Cursor SDK" : "Claude CLI";
   if (fatalHeartbeatError) return fatalHeartbeatError;
   if (toolStallError) return toolStallError;
   if (timedOutForZombie) {
@@ -2116,6 +2039,11 @@ async function deliverCompletionWithMedia(completionArgs) {
   );
   await uploadAndAttachSandboxMedia();
 }
+function archivePostedFile(dir, file) {
+  const postedDir = dir + "/.posted";
+  mkdirSync2(postedDir, { recursive: true });
+  renameSync(dir + "/" + file, postedDir + "/" + file);
+}
 async function uploadAndAttachSandboxMedia() {
   if (RUN_ID) return;
   const uploaded = [];
@@ -2138,10 +2066,7 @@ async function uploadAndAttachSandboxMedia() {
           const storageId = await uploadMediaFile(fp, mimeType);
           uploaded.push({ storageId, fileName: file });
         }
-      } catch {
-      }
-      try {
-        unlinkSync(fp);
+        archivePostedFile(recDir, file);
       } catch {
       }
     }
@@ -2165,10 +2090,7 @@ async function uploadAndAttachSandboxMedia() {
           const storageId = await uploadMediaFile(fp, mimeType);
           uploaded.push({ storageId, fileName: file });
         }
-      } catch {
-      }
-      try {
-        unlinkSync(fp);
+        archivePostedFile(ssDir, file);
       } catch {
       }
     }
@@ -2184,7 +2106,7 @@ function hasToolActivity() {
 }
 
 // callback-src/session/claudeSession.ts
-import { existsSync as existsSync4, mkdirSync as mkdirSync2, readFileSync as readFileSync3, writeFileSync as writeFileSync3 } from "fs";
+import { existsSync as existsSync4, mkdirSync as mkdirSync3, readFileSync as readFileSync3, writeFileSync as writeFileSync3 } from "fs";
 function buildClaudeStartupStep() {
   if (callbackState.waitingForFirstAssistantEvent && callbackState.claudeInitAt > 0) {
     const elapsedSeconds = Math.max(
@@ -2229,7 +2151,7 @@ function writeClaudeSessionState() {
   if (!resumeSessionId) {
     return;
   }
-  mkdirSync2(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
+  mkdirSync3(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
   writeFileSync3(
     CLAUDE_LOCAL_STATE_FILE,
     JSON.stringify(
@@ -2266,7 +2188,7 @@ function hydratePersistedClaudeState() {
     return;
   }
   copyBaseClaudeConfig();
-  mkdirSync2(CLAUDE_LOCAL_PROJECT_DIR, { recursive: true });
+  mkdirSync3(CLAUDE_LOCAL_PROJECT_DIR, { recursive: true });
   const prepareScript = "mkdir -p " + JSON.stringify(CLAUDE_LOCAL_PROJECT_DIR) + " " + JSON.stringify(CLAUDE_RUNTIME_CONFIG_DIR);
   runTimedBashSync(prepareScript, "hydratePersistedClaudeState(prepare)");
   copyFileIfPresent(
@@ -2291,7 +2213,7 @@ function hydratePersistedClaudeState() {
 }
 function ensureClaudeWorkspaceTrust() {
   const configPath = CLAUDE_RUNTIME_CONFIG_DIR + "/.claude.json";
-  mkdirSync2(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
+  mkdirSync3(CLAUDE_RUNTIME_CONFIG_DIR, { recursive: true });
   const parsed = existsSync4(configPath) ? tryParseJson(readFileSync3(configPath, "utf8")) : null;
   const config = parsed && typeof parsed === "object" && !Array.isArray(parsed) ? { ...parsed } : {};
   const rawProjects = config.projects;
@@ -3008,10 +2930,10 @@ var claudeAdapter = {
 };
 
 // callback-src/session/codexSession.ts
-import { mkdirSync as mkdirSync4, writeFileSync as writeFileSync5 } from "fs";
+import { mkdirSync as mkdirSync5, writeFileSync as writeFileSync5 } from "fs";
 
 // callback-src/session/createSessionStore.ts
-import { existsSync as existsSync5, mkdirSync as mkdirSync3, readFileSync as readFileSync4, writeFileSync as writeFileSync4 } from "fs";
+import { existsSync as existsSync5, mkdirSync as mkdirSync4, readFileSync as readFileSync4, writeFileSync as writeFileSync4 } from "fs";
 function createSessionStore(config) {
   const readSessionState = () => {
     const statePath = existsSync5(config.localStateFile) ? config.localStateFile : existsSync5(config.persistStateFile) ? config.persistStateFile : "";
@@ -3043,7 +2965,7 @@ function createSessionStore(config) {
     if (!activeId) {
       return;
     }
-    mkdirSync3(config.runtimeHomeDir, { recursive: true });
+    mkdirSync4(config.runtimeHomeDir, { recursive: true });
     const payload = {
       [config.resumeField]: activeId,
       updatedAt: (/* @__PURE__ */ new Date()).toISOString()
@@ -3051,7 +2973,7 @@ function createSessionStore(config) {
     writeFileSync4(config.localStateFile, JSON.stringify(payload, null, 2));
   };
   const hydratePersistedState = (label) => {
-    mkdirSync3(config.runtimeHomeDir, { recursive: true });
+    mkdirSync4(config.runtimeHomeDir, { recursive: true });
     copyFileIfPresent(
       config.persistStateFile,
       config.localStateFile,
@@ -3060,7 +2982,7 @@ function createSessionStore(config) {
   };
   const syncStateToPersist = (label) => {
     writeSessionState();
-    mkdirSync3(config.persistDir, { recursive: true });
+    mkdirSync4(config.persistDir, { recursive: true });
     copyFileIfPresent(
       config.localStateFile,
       config.persistStateFile,
@@ -3111,7 +3033,7 @@ function writeCodexFileIfConfigured(fileName, rawValue, encodedValue) {
   if (!value) {
     return;
   }
-  mkdirSync4(CODEX_RUNTIME_HOME_DIR, { recursive: true });
+  mkdirSync5(CODEX_RUNTIME_HOME_DIR, { recursive: true });
   writeFileSync5(CODEX_RUNTIME_HOME_DIR + "/" + fileName, value);
 }
 function buildCodexRuntimeConfig(rawValue, encodedValue, fastMode = codexFastMode) {
@@ -3152,7 +3074,7 @@ function hydratePersistedCodexState() {
     CODEX_AUTH_JSON,
     CODEX_AUTH_JSON_BASE64
   );
-  mkdirSync4(CODEX_RUNTIME_HOME_DIR, { recursive: true });
+  mkdirSync5(CODEX_RUNTIME_HOME_DIR, { recursive: true });
   writeFileSync5(
     CODEX_RUNTIME_HOME_DIR + "/config.toml",
     buildCodexRuntimeConfig(CODEX_CONFIG_TOML, CODEX_CONFIG_TOML_BASE64)
@@ -3464,7 +3386,7 @@ var cursorAdapter = {
 };
 
 // callback-src/session/opencodeSession.ts
-import { mkdirSync as mkdirSync5, writeFileSync as writeFileSync6 } from "fs";
+import { mkdirSync as mkdirSync6, writeFileSync as writeFileSync6 } from "fs";
 var store3 = createSessionStore({
   runtimeHomeDir: OPENCODE_RUNTIME_HOME_DIR,
   persistDir: OPENCODE_PERSIST_DIR,
@@ -3492,7 +3414,7 @@ function hydratePersistedOpencodeState() {
   if (configJson) {
     process.env.OPENCODE_CONFIG_CONTENT = configJson;
   }
-  mkdirSync5(OPENCODE_AUTH_DIR, { recursive: true });
+  mkdirSync6(OPENCODE_AUTH_DIR, { recursive: true });
   const authJson = OPENCODE_AUTH_JSON || (OPENCODE_AUTH_JSON_BASE64 ? decodeBase64(OPENCODE_AUTH_JSON_BASE64) : "");
   if (authJson) {
     writeFileSync6(OPENCODE_AUTH_FILE, authJson);
@@ -3824,7 +3746,6 @@ function appendStreamedContent(text, isBlockBoundary = false) {
 import { writeFileSync as writeFileSync7 } from "fs";
 
 // callback-src/runtime/processControl.ts
-import { spawnSync as spawnSync2 } from "child_process";
 function terminateAttemptProcess(child) {
   try {
     child.kill("SIGTERM");
@@ -3836,19 +3757,6 @@ function terminateAttemptProcess(child) {
     } catch {
     }
   }, 2e3);
-}
-function isChildZombie(pid) {
-  if (!pid) return false;
-  try {
-    const result = spawnSync2("ps", ["-p", String(pid), "-o", "state="], {
-      timeout: 2e3,
-      encoding: "utf8"
-    });
-    if (result.error || result.status !== 0) return false;
-    return (result.stdout || "").trim() === "Z";
-  } catch {
-    return false;
-  }
 }
 
 // callback-src/runtime/heartbeats.ts
@@ -4131,64 +4039,6 @@ import { execSync } from "child_process";
 import { existsSync as existsSync6, readFileSync as readFileSync5 } from "fs";
 
 // callback-src/runtime/cliAttempt.ts
-import { spawn } from "child_process";
-import { writeFileSync as writeFileSync8 } from "fs";
-function evaluateAttemptHealth(input) {
-  const result = {
-    shouldTerminate: false,
-    timedOutForZombie: false,
-    timedOutForMaxRuntime: false,
-    timedOutForFirstEvent: false,
-    timedOutForFirstAssistant: false,
-    timedOutAfterFirstText: false,
-    timedOutForNoOutput: false,
-    toolStallErrorMessage: input.toolStallErrorMessage
-  };
-  if (callbackState.fatalHeartbeatErrorMessage) {
-    result.shouldTerminate = true;
-    return result;
-  }
-  if (isChildZombie(input.childPid)) {
-    if (callbackState.resultEventSeen) {
-      result.logMessage = input.processLabel + " detected zombie state for pid=" + String(input.childPid) + " after result event; terminating for cleanup";
-      result.shouldTerminate = true;
-      return result;
-    }
-    result.timedOutForZombie = true;
-    result.logMessage = input.processLabel + " detected zombie state for pid=" + String(input.childPid) + "; terminating";
-    result.shouldTerminate = true;
-    return result;
-  }
-  if (Date.now() - SCRIPT_STARTED_AT > MAX_TOTAL_RUNTIME_MS) {
-    result.timedOutForMaxRuntime = true;
-    result.shouldTerminate = true;
-    return result;
-  }
-  if (callbackState.parsedStreamEventCount === input.parsedEventsAtStart && Date.now() - input.attemptStartedAt > FIRST_EVENT_TIMEOUT_MS) {
-    result.timedOutForFirstEvent = true;
-    result.shouldTerminate = true;
-    return result;
-  }
-  if (callbackState.waitingForFirstAssistantEvent && callbackState.claudeInitAt > 0 && Date.now() - callbackState.claudeInitAt > FIRST_ASSISTANT_EVENT_TIMEOUT_MS) {
-    result.timedOutForFirstAssistant = true;
-    result.logMessage = input.processLabel + " stalled waiting for first assistant event for " + String(Date.now() - callbackState.claudeInitAt) + "ms after init; terminating process";
-    result.shouldTerminate = true;
-    return result;
-  }
-  if (callbackState.inFlightToolUses > 0 || callbackState.resultEventSeen) {
-    return result;
-  }
-  const silenceMs = Date.now() - input.lastStdoutAt;
-  if (silenceMs > STREAM_SILENCE_TIMEOUT_MS) {
-    result.timedOutForNoOutput = true;
-    if (callbackState.firstTextBlockAt > 0) {
-      result.timedOutAfterFirstText = true;
-    }
-    result.logMessage = input.processLabel + " stream silent for " + String(silenceMs) + "ms with no tool in flight; terminating process";
-    result.shouldTerminate = true;
-  }
-  return result;
-}
 function resetAttemptState() {
   callbackState.realtimeOutputBuffer = "";
   callbackState.resultEventSeen = false;
@@ -4203,108 +4053,6 @@ function resetAttemptState() {
   callbackState.codexToolItemIds.clear();
   callbackState.cursorKnownToolIds.clear();
   callbackState.cursorTerminalToolIds.clear();
-}
-async function runCliAttempt(options) {
-  resetAttemptState();
-  callbackState.activeAttemptStartedAt = Date.now();
-  updateThinkingStep(options.startupStep.label, options.startupStep.detail);
-  if (options.onStart) {
-    options.onStart();
-  }
-  return await new Promise((resolve, reject) => {
-    const child = spawn(
-      "bash",
-      ["-c", "cd " + WORK_DIR + " && " + options.cmd],
-      {
-        env: options.env,
-        stdio: ["pipe", "pipe", "pipe"]
-      }
-    );
-    callbackState.activeAttemptChild = child;
-    if (child.pid) {
-      try {
-        writeFileSync8("/proc/" + String(child.pid) + "/oom_score_adj", "300");
-      } catch {
-      }
-    }
-    log(
-      options.processLabel + " process spawned after " + String(elapsedAttemptMs()) + "ms pid=" + String(child.pid || "unknown")
-    );
-    let attemptOutput = "";
-    const attemptStartedAt = Date.now();
-    const parsedEventsAtStart = callbackState.parsedStreamEventCount;
-    let lastStdoutAt = Date.now();
-    let timedOutForNoOutput = false;
-    let timedOutForMaxRuntime = false;
-    let timedOutForFirstEvent = false;
-    let timedOutForFirstAssistant = false;
-    let timedOutAfterFirstText = false;
-    let timedOutForZombie = false;
-    let toolStallErrorMessage = "";
-    const noOutputTimer = setInterval(() => {
-      const health = evaluateAttemptHealth({
-        childPid: child.pid,
-        parsedEventsAtStart,
-        attemptStartedAt,
-        lastStdoutAt,
-        processLabel: options.processLabel,
-        toolStallErrorMessage
-      });
-      toolStallErrorMessage = health.toolStallErrorMessage;
-      if (health.logMessage) {
-        log(health.logMessage);
-      }
-      if (!health.shouldTerminate) {
-        return;
-      }
-      timedOutForZombie = health.timedOutForZombie;
-      timedOutForMaxRuntime = health.timedOutForMaxRuntime;
-      timedOutForFirstEvent = health.timedOutForFirstEvent;
-      timedOutForFirstAssistant = health.timedOutForFirstAssistant;
-      timedOutAfterFirstText = health.timedOutAfterFirstText;
-      timedOutForNoOutput = health.timedOutForNoOutput;
-      terminateAttemptProcess(child);
-    }, NO_OUTPUT_CHECK_INTERVAL_MS);
-    child.stdout.on("data", (chunk) => {
-      const text = chunk.toString();
-      appendToRawLogFile(text);
-      attemptOutput = trimBufferHead(attemptOutput + text);
-      appendToRawOutput(text);
-      lastStdoutAt = Date.now();
-      processRealtimeStdoutChunk(text);
-    });
-    child.stderr.on("data", (chunk) => {
-      const text = chunk.toString();
-      appendToRawLogFile(
-        "[stderr] " + text + (text.endsWith("\\n") ? "" : "\\n")
-      );
-      callbackState.stderrOutput = trimBufferHead(callbackState.stderrOutput + text);
-    });
-    child.on("close", (code, signal) => {
-      clearInterval(noOutputTimer);
-      callbackState.activeAttemptChild = null;
-      const terminatedBySignal = signal !== null;
-      log(
-        options.attemptLabel + " finished in " + elapsedAttemptMs() + "ms (code=" + code + ", signal=" + (signal ?? "none") + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", timedOutForFirstEvent=" + timedOutForFirstEvent + ", timedOutForFirstAssistant=" + timedOutForFirstAssistant + ", timedOutAfterFirstText=" + timedOutAfterFirstText + ", timedOutForZombie=" + timedOutForZombie + ", toolStallError=" + (toolStallErrorMessage || "none") + ", outputBytes=" + attemptOutput.length + ", stderrBytes=" + callbackState.stderrOutput.length + ")"
-      );
-      resolve({
-        code: code ?? 1,
-        terminatedBySignal,
-        output: attemptOutput,
-        timedOutForNoOutput,
-        timedOutForMaxRuntime,
-        timedOutForFirstEvent,
-        timedOutForFirstAssistant,
-        timedOutAfterFirstText,
-        timedOutForZombie,
-        toolStallErrorMessage
-      });
-    });
-    child.on("error", (err) => {
-      clearInterval(noOutputTimer);
-      reject(err);
-    });
-  });
 }
 
 // callback-src/runtime/pendingQuestion.ts
@@ -4516,6 +4264,9 @@ async function runClaudeSdkAttempt(sessionMode) {
       void interrupt();
       return;
     }
+    if (callbackState.inFlightToolUses > 0) {
+      lastMessageAt = now;
+    }
     if (!sawResult && now - lastMessageAt > NO_OUTPUT_TIMEOUT_MS * 5) {
       timedOutForNoOutput = true;
       log("runClaudeSdkAttempt: no SDK messages \\u2014 interrupting");
@@ -4587,7 +4338,7 @@ async function runClaudeSdkAttempt(sessionMode) {
 }
 
 // callback-src/runtime/turnPersist.ts
-import { spawnSync as spawnSync3 } from "child_process";
+import { spawnSync as spawnSync2 } from "child_process";
 var GIT_STEP_TIMEOUT_MS = 2e4;
 var PUSH_TIMEOUT_MS = 6e4;
 var COMMIT_ADD_ARGS = [
@@ -4606,7 +4357,7 @@ var COMMIT_ADD_ARGS = [
   ":!recordings/"
 ];
 function git(args, timeoutMs = GIT_STEP_TIMEOUT_MS) {
-  const result = spawnSync3("git", ["-C", WORK_DIR, ...args], {
+  const result = spawnSync2("git", ["-C", WORK_DIR, ...args], {
     encoding: "utf8",
     timeout: timeoutMs,
     env: { ...process.env, GIT_TERMINAL_PROMPT: "0" }
@@ -4838,7 +4589,7 @@ async function failTurnAndExit(error) {
   }
   if (readDaemonPidFile() === process.pid) {
     try {
-      unlinkSync2(DAEMON_PID_FILE);
+      unlinkSync(DAEMON_PID_FILE);
     } catch {
     }
   }
@@ -4849,7 +4600,7 @@ async function exitWithoutCompletion(reason) {
   log("daemon: exiting without completion \\u2014 " + reason);
   if (readDaemonPidFile() === process.pid) {
     try {
-      unlinkSync2(DAEMON_PID_FILE);
+      unlinkSync(DAEMON_PID_FILE);
     } catch {
     }
   }
@@ -4870,6 +4621,9 @@ function startTurnWatchdog() {
       turnStartedAtMs = now;
       lastMessageAtMs = now;
       return;
+    }
+    if (callbackState.inFlightToolUses > 0) {
+      lastMessageAtMs = now;
     }
     if (now - turnStartedAtMs > MAX_TOTAL_RUNTIME_MS) {
       turnActive = false;
@@ -5666,7 +5420,7 @@ async function materializeTurnAttachments(turn) {
         res.headers.get("content-type") ?? ""
       );
       const path3 = \`/tmp/eva-attachment-\${index}\${extension}\`;
-      writeFileSync9(path3, bytes);
+      writeFileSync8(path3, bytes);
       paths2.push(path3);
     } catch (error) {
       log(
@@ -5700,9 +5454,9 @@ async function runSdkDaemon() {
     );
     process.exit(0);
   }
-  writeFileSync9(DAEMON_PID_FILE, String(process.pid));
-  writeFileSync9(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
-  writeFileSync9(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
+  writeFileSync8(DAEMON_PID_FILE, String(process.pid));
+  writeFileSync8(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
+  writeFileSync8(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
   let deposedLogged = false;
   setInterval(() => {
     const owner = readDaemonPidFile();
@@ -5759,21 +5513,21 @@ async function runSdkDaemon() {
   } finally {
     if (readDaemonPidFile() === process.pid) {
       try {
-        unlinkSync2(DAEMON_PID_FILE);
-        unlinkSync2(DAEMON_ENTITY_FILE);
-        unlinkSync2(DAEMON_OPTS_FILE);
+        unlinkSync(DAEMON_PID_FILE);
+        unlinkSync(DAEMON_ENTITY_FILE);
+        unlinkSync(DAEMON_OPTS_FILE);
         if (ENTITY_ID_FIELD === "sessionId") {
           const legacy = resolveLegacySessionDaemonPaths();
           try {
-            unlinkSync2(legacy.pid);
+            unlinkSync(legacy.pid);
           } catch {
           }
           try {
-            unlinkSync2(legacy.entity);
+            unlinkSync(legacy.entity);
           } catch {
           }
           try {
-            unlinkSync2(legacy.opts);
+            unlinkSync(legacy.opts);
           } catch {
           }
         }
@@ -5786,10 +5540,10 @@ async function runSdkDaemon() {
 }
 
 // callback-src/providers/codexAppServerDaemon.ts
-import { readFileSync as readFileSync7, unlinkSync as unlinkSync3, writeFileSync as writeFileSync10 } from "fs";
+import { readFileSync as readFileSync7, unlinkSync as unlinkSync2, writeFileSync as writeFileSync9 } from "fs";
 
 // callback-src/providers/codexAppServerClient.ts
-import { spawn as spawn2 } from "child_process";
+import { spawn } from "child_process";
 import { existsSync as existsSync7 } from "fs";
 import { createInterface } from "readline";
 function objectValue(value) {
@@ -5807,7 +5561,7 @@ var CodexAppServerClient = class {
   terminalError = null;
   start() {
     const command = existsSync7(CODEX_BIN_PATH) ? CODEX_BIN_PATH : "codex";
-    this.child = spawn2(command, ["app-server"], {
+    this.child = spawn(command, ["app-server"], {
       cwd: WORK_DIR,
       env: { ...process.env, CODEX_HOME: CODEX_RUNTIME_HOME_DIR },
       stdio: ["pipe", "pipe", "pipe"]
@@ -6021,7 +5775,7 @@ async function materializeAttachments(turn) {
       const response = await fetchWithTimeout(url, { method: "GET" });
       if (!response.ok) continue;
       const path3 = \`/tmp/eva-attachment-\${index}\${attachmentExtension(response.headers.get("content-type") ?? "")}\`;
-      writeFileSync10(path3, new Uint8Array(await response.arrayBuffer()));
+      writeFileSync9(path3, new Uint8Array(await response.arrayBuffer()));
       localPaths.push(path3);
     } catch (error) {
       log(
@@ -6234,7 +5988,7 @@ function cleanMarkers() {
   if (readOwnerPid() !== process.pid) return;
   for (const path3 of [paths.pid, paths.entity, paths.opts]) {
     try {
-      unlinkSync3(path3);
+      unlinkSync2(path3);
     } catch {
     }
   }
@@ -6242,7 +5996,7 @@ function cleanMarkers() {
     const legacy = resolveLegacySessionDaemonPaths();
     for (const path3 of [legacy.pid, legacy.entity, legacy.opts]) {
       try {
-        unlinkSync3(path3);
+        unlinkSync2(path3);
       } catch {
       }
     }
@@ -6256,9 +6010,9 @@ async function runCodexAppServerDaemon() {
     log("codex daemon: live rival already owns entity; exiting");
     process.exit(0);
   }
-  writeFileSync10(paths.pid, String(process.pid));
-  writeFileSync10(paths.entity, ENTITY_ID ?? "");
-  writeFileSync10(paths.opts, DAEMON_OPTS_SIG);
+  writeFileSync9(paths.pid, String(process.pid));
+  writeFileSync9(paths.entity, ENTITY_ID ?? "");
+  writeFileSync9(paths.opts, DAEMON_OPTS_SIG);
   const fence = setInterval(() => {
     if (readOwnerPid() !== process.pid && !activeTurnId) exiting = true;
   }, FENCE_POLL_INTERVAL_MS2);
@@ -6344,11 +6098,11 @@ async function runCodexAppServerDaemon() {
 // callback-src/runtime/systemSkills.ts
 import {
   existsSync as existsSync8,
-  mkdirSync as mkdirSync6,
+  mkdirSync as mkdirSync7,
   readdirSync as readdirSync3,
   readFileSync as readFileSync8,
   rmSync,
-  writeFileSync as writeFileSync11
+  writeFileSync as writeFileSync10
 } from "fs";
 var SYSTEM_SKILLS_STATE_FILE = "/tmp/eva-system-skills.json";
 var SYSTEM_SKILL_MARKER = "<!-- eva:system-skill -->";
@@ -6420,8 +6174,8 @@ function writeStub(skill) {
     log(\`[system-skills] \${skill.name} exists in the repo \\u2014 leaving it alone\`);
     return false;
   }
-  mkdirSync6(directory, { recursive: true });
-  writeFileSync11(\`\${directory}/SKILL.md\`, skill.stub);
+  mkdirSync7(directory, { recursive: true });
+  writeFileSync10(\`\${directory}/SKILL.md\`, skill.stub);
   return true;
 }
 function pruneStaleStubs(keep) {
@@ -6447,8 +6201,8 @@ function updateGitExclude(names) {
   const existing = existsSync8(excludeFile) ? readFileSync8(excludeFile, "utf8") : "";
   const next = renderExcludeContent(existing, names);
   if (next === existing) return;
-  mkdirSync6(infoDir, { recursive: true });
-  writeFileSync11(excludeFile, next);
+  mkdirSync7(infoDir, { recursive: true });
+  writeFileSync10(excludeFile, next);
 }
 function materializeSystemSkills() {
   try {
@@ -6486,7 +6240,7 @@ function materializeSystemSkills() {
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
-import { spawn as spawn3 } from "child_process";
+import { spawn as spawn2 } from "child_process";
 import { statSync as statSync2 } from "fs";
 import path2 from "path";
 import readline from "readline";
@@ -6729,7 +6483,7 @@ var CodexExec = class {
     if (this.pathDirs.length > 0) {
       prependPathDirs(env, this.pathDirs);
     }
-    const child = spawn3(this.executablePath, commandArgs, {
+    const child = spawn2(this.executablePath, commandArgs, {
       env,
       signal: args.signal
     });
@@ -7082,6 +6836,9 @@ async function runCodexSdkAttempt(sessionMode) {
       abortController.abort();
       return;
     }
+    if (callbackState.inFlightToolUses > 0) {
+      lastEventAt2 = now;
+    }
     if (!sawCompletedTurn && now - lastEventAt2 > NO_OUTPUT_TIMEOUT_MS * 5) {
       timedOutForNoOutput = true;
       log("runCodexSdkAttempt: no SDK events \\u2014 aborting turn");
@@ -7154,7 +6911,7 @@ async function runCodexSdkAttempt(sessionMode) {
 
 // callback-src/providers/cursorSdk.ts
 import { execSync as execSync2 } from "child_process";
-import { existsSync as existsSync10, mkdirSync as mkdirSync7, readFileSync as readFileSync10 } from "fs";
+import { existsSync as existsSync10, mkdirSync as mkdirSync8, readFileSync as readFileSync10 } from "fs";
 var SDK_PACKAGE2 = "@cursor/sdk";
 var SDK_VERSION2 = "1.0.26";
 var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
@@ -7282,6 +7039,11 @@ function errorCode(error) {
 function isAgentNotFound(error) {
   return errorCode(error) === "agent_not_found" || error.message.includes("agent_not_found");
 }
+var RESOURCE_EXHAUSTED_RETRY_DELAYS_MS = [15e3, 3e4];
+function isResourceExhaustedMessage(text) {
+  return text.includes("resource_exhausted");
+}
+var RESOURCE_EXHAUSTED_CHAT_MESSAGE = "Cursor rejected the request: rate limit or usage quota exhausted (resource_exhausted). No tokens were used. Wait a minute and try again, or switch to a different model.";
 var ZERO_USAGE = {
   inputTokens: 0,
   outputTokens: 0,
@@ -7290,6 +7052,34 @@ var ZERO_USAGE = {
 };
 function readNum(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+async function runTurnWithResourceExhaustedRetries(deps) {
+  for (let attempt = 0; ; attempt++) {
+    const retryDelayMs = RESOURCE_EXHAUSTED_RETRY_DELAYS_MS[attempt];
+    let outcome;
+    try {
+      outcome = await deps.runTurn();
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      if (!isResourceExhaustedMessage(messageText) || retryDelayMs === void 0 || deps.aborted()) {
+        throw error;
+      }
+      outcome = {
+        isError: true,
+        resultText: messageText,
+        durationMs: 0,
+        usage: ZERO_USAGE
+      };
+    }
+    if (!outcome.isError || !isResourceExhaustedMessage(outcome.resultText)) {
+      return outcome;
+    }
+    if (retryDelayMs === void 0 || deps.aborted()) {
+      return { ...outcome, resultText: RESOURCE_EXHAUSTED_CHAT_MESSAGE };
+    }
+    deps.onRetry(retryDelayMs, attempt);
+    await deps.sleep(retryDelayMs);
+  }
 }
 function readUsageTokens(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
@@ -7320,7 +7110,7 @@ async function runCursorSdkAttempt(sessionMode) {
   let lastStreamUsage = null;
   let activeRun = null;
   const sdk = await loadCursorSdk();
-  mkdirSync7(CURSOR_SDK_STORE_DIR, { recursive: true });
+  mkdirSync8(CURSOR_SDK_STORE_DIR, { recursive: true });
   const store4 = new sdk.JsonlLocalAgentStore(CURSOR_SDK_STORE_DIR);
   const options = {
     apiKey: (process.env.CURSOR_API_KEY || "").trim(),
@@ -7371,6 +7161,9 @@ async function runCursorSdkAttempt(sessionMode) {
       cancelRun();
       return;
     }
+    if (callbackState.inFlightToolUses > 0) {
+      lastMessageAt = now;
+    }
     if (!sawResult && now - lastMessageAt > NO_OUTPUT_TIMEOUT_MS * 5) {
       timedOutForNoOutput = true;
       log("runCursorSdkAttempt: no SDK events \\u2014 cancelling run");
@@ -7397,51 +7190,76 @@ async function runCursorSdkAttempt(sessionMode) {
       if (timedOutForMaxRuntime || timedOutForNoOutput) break;
     }
     const result = await run.wait();
-    const usage = readUsageTokens(result.usage) ?? lastStreamUsage ?? ZERO_USAGE;
-    const isError = result.status !== "finished";
-    const resultText = typeof result.result === "string" && result.result ? result.result : result.error && typeof result.error.message === "string" ? result.error.message : "";
+    return {
+      isError: result.status !== "finished",
+      resultText: typeof result.result === "string" && result.result ? result.result : result.error && typeof result.error.message === "string" ? result.error.message : "",
+      durationMs: readNum(result.durationMs),
+      usage: readUsageTokens(result.usage) ?? lastStreamUsage ?? ZERO_USAGE
+    };
+  };
+  const emitTurnResult = (outcome) => {
     const syntheticResult = {
       type: "result",
-      is_error: isError,
-      result: resultText,
-      duration_ms: readNum(result.durationMs),
+      is_error: outcome.isError,
+      result: outcome.resultText,
+      duration_ms: outcome.durationMs,
       usage: {
-        input_tokens: usage.inputTokens,
-        output_tokens: usage.outputTokens,
-        cache_read_input_tokens: usage.cacheReadTokens,
-        cache_creation_input_tokens: usage.cacheWriteTokens
+        input_tokens: outcome.usage.inputTokens,
+        output_tokens: outcome.usage.outputTokens,
+        cache_read_input_tokens: outcome.usage.cacheReadTokens,
+        cache_creation_input_tokens: outcome.usage.cacheWriteTokens
       }
     };
     pushLine(JSON.stringify(syntheticResult) + "\\n");
     sawResult = true;
-    resultIsError = isError;
+    resultIsError = outcome.isError;
+  };
+  const runTurnWithRetries = async (activeAgent) => {
+    emitTurnResult(
+      await runTurnWithResourceExhaustedRetries({
+        runTurn: () => runTurn(activeAgent),
+        aborted: () => timedOutForMaxRuntime || timedOutForNoOutput,
+        onRetry: (retryDelayMs, attempt) => {
+          log(
+            "runCursorSdkAttempt: resource_exhausted \\u2014 retrying in " + retryDelayMs + "ms (attempt " + (attempt + 1) + " of " + (RESOURCE_EXHAUSTED_RETRY_DELAYS_MS.length + 1) + ")"
+          );
+          appendToRawLogFile(
+            "[sdk-retry] resource_exhausted \\u2014 waiting " + retryDelayMs + "ms before retry\\n"
+          );
+          updateThinkingStep(
+            "Cursor is rate-limited...",
+            "Retrying in " + Math.round(retryDelayMs / 1e3) + "s..."
+          );
+        },
+        sleep: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs))
+      })
+    );
   };
   try {
     try {
-      await runTurn(agent);
+      await runTurnWithRetries(agent);
     } catch (error) {
       if (resumedExistingAgent && error instanceof Error && isAgentNotFound(error)) {
         log(
           "runCursorSdkAttempt: resumed agent unusable \\u2014 retrying as a fresh agent"
         );
         appendToRawLogFile("[sdk-retry] " + error.message + "\\n");
-        sawResult = false;
-        resultIsError = false;
         try {
           agent.close();
         } catch {
         }
         agent = await createFreshAgent();
-        await runTurn(agent);
+        await runTurnWithRetries(agent);
       } else {
         throw error;
       }
     }
   } catch (error) {
-    const messageText = error instanceof Error ? error.message : String(error);
+    const rawMessage = error instanceof Error ? error.message : String(error);
+    const messageText = isResourceExhaustedMessage(rawMessage) ? RESOURCE_EXHAUSTED_CHAT_MESSAGE : rawMessage;
     attemptErrorMessage = messageText;
-    log("runCursorSdkAttempt: run failed \\u2014 " + messageText);
-    appendToRawLogFile("[sdk-error] " + messageText + "\\n");
+    log("runCursorSdkAttempt: run failed \\u2014 " + rawMessage);
+    appendToRawLogFile("[sdk-error] " + rawMessage + "\\n");
     callbackState.stderrOutput = trimBufferHead(callbackState.stderrOutput + messageText + "\\n");
   } finally {
     clearInterval(healthTimer);
@@ -7453,6 +7271,575 @@ async function runCursorSdkAttempt(sessionMode) {
   const code = sawResult && !resultIsError && !timedOutForMaxRuntime && !timedOutForNoOutput ? 0 : 1;
   log(
     "runCursorSdkAttempt finished in " + String(Date.now() - callbackState.activeAttemptStartedAt) + "ms (code=" + code + ", sawResult=" + sawResult + ", resultIsError=" + resultIsError + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", outputBytes=" + attemptOutput.length + (attemptErrorMessage ? ", runError=" + attemptErrorMessage : "") + ")"
+  );
+  return {
+    code,
+    terminatedBySignal: false,
+    output: attemptOutput,
+    timedOutForNoOutput,
+    timedOutForMaxRuntime,
+    timedOutForFirstEvent: false,
+    timedOutForFirstAssistant: false,
+    timedOutAfterFirstText: false,
+    timedOutForZombie: false,
+    toolStallErrorMessage: ""
+  };
+}
+
+// callback-src/providers/opencodeSdk.ts
+import { execSync as execSync3 } from "child_process";
+import { existsSync as existsSync12, readFileSync as readFileSync12 } from "fs";
+
+// callback-src/providers/opencodeServer.ts
+import { spawn as spawn3 } from "child_process";
+import {
+  closeSync,
+  existsSync as existsSync11,
+  mkdirSync as mkdirSync9,
+  openSync,
+  readFileSync as readFileSync11,
+  rmSync as rmSync2,
+  statSync as statSync3,
+  writeFileSync as writeFileSync11
+} from "fs";
+var SERVER_STATE_FILE = OPENCODE_RUNTIME_HOME_DIR + "/server.json";
+var SERVER_LOCK_DIR = OPENCODE_RUNTIME_HOME_DIR + "/server.lock";
+var SERVER_LOG_FILE = OPENCODE_RUNTIME_HOME_DIR + "/server.log";
+var HEALTH_PROBE_TIMEOUT_MS = 3e3;
+var STARTUP_TIMEOUT_MS = 6e4;
+var HEALTH_POLL_INTERVAL_MS = 250;
+var LOCK_STALE_MS = 9e4;
+var LOG_TAIL_BYTES = 4e3;
+var opencodeServerBaseUrl = "http://127.0.0.1:" + String(OPENCODE_SERVER_PORT);
+function sleep4(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+function readOpencodeServerLogTail(maxBytes = LOG_TAIL_BYTES) {
+  try {
+    const contents = readFileSync11(SERVER_LOG_FILE, "utf8");
+    return contents.length > maxBytes ? contents.slice(-maxBytes) : contents;
+  } catch {
+    return "";
+  }
+}
+async function probeHealth() {
+  try {
+    const response = await fetch(opencodeServerBaseUrl + "/config", {
+      signal: AbortSignal.timeout(HEALTH_PROBE_TIMEOUT_MS)
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+function readRecordedPid() {
+  try {
+    const parsed = tryParseJson(readFileSync11(SERVER_STATE_FILE, "utf8"));
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return 0;
+    }
+    return typeof parsed.pid === "number" && parsed.pid > 0 ? parsed.pid : 0;
+  } catch {
+    return 0;
+  }
+}
+function killRecordedServer() {
+  const pid = readRecordedPid();
+  if (!pid) return;
+  let cmdline = "";
+  try {
+    cmdline = readFileSync11("/proc/" + String(pid) + "/cmdline", "utf8");
+  } catch {
+    return;
+  }
+  if (!cmdline.includes("opencode")) return;
+  try {
+    process.kill(pid, "SIGKILL");
+    log("opencode server pid=" + String(pid) + " was unhealthy \\u2014 killed");
+  } catch {
+  }
+}
+function spawnServer() {
+  const logFd = openSync(SERVER_LOG_FILE, "a");
+  try {
+    const child = spawn3(
+      opencodeCommand,
+      [
+        "serve",
+        "--hostname=127.0.0.1",
+        "--port=" + String(OPENCODE_SERVER_PORT)
+      ],
+      {
+        cwd: WORK_DIR,
+        env: { ...process.env },
+        // Detached: the server must outlive this turn's callback process so the
+        // next turn reuses it instead of paying a cold start.
+        detached: true,
+        stdio: ["ignore", logFd, logFd]
+      }
+    );
+    child.unref();
+    const pid = child.pid ?? 0;
+    if (pid) {
+      try {
+        writeFileSync11("/proc/" + String(pid) + "/oom_score_adj", "300");
+      } catch {
+      }
+    }
+    writeFileSync11(
+      SERVER_STATE_FILE,
+      JSON.stringify({ pid, port: OPENCODE_SERVER_PORT })
+    );
+    return pid;
+  } finally {
+    closeSync(logFd);
+  }
+}
+function processAlive(pid) {
+  if (!pid) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+async function waitForHealth(pid) {
+  const deadline = Date.now() + STARTUP_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    if (await probeHealth()) return;
+    if (pid && !processAlive(pid)) {
+      throw new Error(
+        "opencode serve exited during startup. Server log tail:\\n" + readOpencodeServerLogTail()
+      );
+    }
+    await sleep4(HEALTH_POLL_INTERVAL_MS);
+  }
+  throw new Error(
+    "opencode serve did not become healthy on " + opencodeServerBaseUrl + " within " + String(STARTUP_TIMEOUT_MS) + "ms. Server log tail:\\n" + readOpencodeServerLogTail()
+  );
+}
+function acquireStartupLock() {
+  try {
+    mkdirSync9(SERVER_LOCK_DIR);
+    return true;
+  } catch {
+    try {
+      const ageMs = Date.now() - statSync3(SERVER_LOCK_DIR).mtimeMs;
+      if (ageMs > LOCK_STALE_MS) {
+        rmSync2(SERVER_LOCK_DIR, { recursive: true, force: true });
+        mkdirSync9(SERVER_LOCK_DIR);
+        log("opencode server startup lock was stale \\u2014 reclaimed");
+        return true;
+      }
+    } catch {
+    }
+    return false;
+  }
+}
+function releaseStartupLock() {
+  try {
+    rmSync2(SERVER_LOCK_DIR, { recursive: true, force: true });
+  } catch {
+  }
+}
+async function ensureOpencodeServer() {
+  mkdirSync9(OPENCODE_RUNTIME_HOME_DIR, { recursive: true });
+  if (await probeHealth()) return opencodeServerBaseUrl;
+  if (!acquireStartupLock()) {
+    const deadline = Date.now() + STARTUP_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+      await sleep4(HEALTH_POLL_INTERVAL_MS);
+      if (await probeHealth()) return opencodeServerBaseUrl;
+      if (!existsSync11(SERVER_LOCK_DIR)) break;
+    }
+    if (await probeHealth()) return opencodeServerBaseUrl;
+    releaseStartupLock();
+    if (!acquireStartupLock()) {
+      throw new Error(
+        "could not acquire the opencode server startup lock. Server log tail:\\n" + readOpencodeServerLogTail()
+      );
+    }
+  }
+  try {
+    if (await probeHealth()) return opencodeServerBaseUrl;
+    killRecordedServer();
+    const startedAt = Date.now();
+    const pid = spawnServer();
+    await waitForHealth(pid);
+    log(
+      "opencode serve ready on " + opencodeServerBaseUrl + " (pid=" + String(pid) + ", " + String(Date.now() - startedAt) + "ms)"
+    );
+    return opencodeServerBaseUrl;
+  } finally {
+    releaseStartupLock();
+  }
+}
+
+// callback-src/providers/opencodeSdk.ts
+var SDK_PACKAGE3 = "@opencode-ai/sdk";
+var SDK_VERSION3 = "1.18.16";
+var SDK_ENTRY_RELPATH2 = "/dist/client.js";
+var SDK_LOCAL_PREFIX3 = "/home/eva/.eva-agent-sdk";
+var IDLE_PROBE_AFTER_MS = 6e4;
+var IDLE_PROBE_INTERVAL_MS = 15e3;
+var IDLE_PROBE_STREAK = 2;
+async function loadOpencodeSdk() {
+  const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE3 + SDK_ENTRY_RELPATH2;
+  const localEntry = SDK_LOCAL_PREFIX3 + "/node_modules/" + SDK_PACKAGE3 + SDK_ENTRY_RELPATH2;
+  if (existsSync12(globalEntry)) {
+    const mod2 = await import(globalEntry);
+    return mod2;
+  }
+  if (!existsSync12(localEntry)) {
+    log(
+      "opencode sdk not found in sandbox; installing " + SDK_PACKAGE3 + "@" + SDK_VERSION3 + " to " + SDK_LOCAL_PREFIX3 + " (one-time)"
+    );
+    execSync3(
+      "mkdir -p " + SDK_LOCAL_PREFIX3 + " && npm install --prefix " + SDK_LOCAL_PREFIX3 + " " + SDK_PACKAGE3 + "@" + SDK_VERSION3,
+      { encoding: "utf8", timeout: 18e4 }
+    );
+  }
+  const mod = await import(localEntry);
+  return mod;
+}
+function readPromptText4() {
+  return readFileSync12("/tmp/design-prompt.txt", "utf8");
+}
+function splitOpencodeModel(raw) {
+  const separator = raw.indexOf("/");
+  if (separator <= 0 || separator === raw.length - 1) {
+    return { providerID: "", modelID: raw };
+  }
+  return {
+    providerID: raw.slice(0, separator),
+    modelID: raw.slice(separator + 1)
+  };
+}
+function createPartEmitState() {
+  return { emittedTextLength: /* @__PURE__ */ new Map(), emittedToolStatus: /* @__PURE__ */ new Map() };
+}
+function opencodePartToCliLine(part, state) {
+  if (part.type === "text" || part.type === "reasoning") {
+    const emitted = state.emittedTextLength.get(part.id) ?? 0;
+    if (part.text.length <= emitted) return null;
+    const delta = part.text.slice(emitted);
+    state.emittedTextLength.set(part.id, part.text.length);
+    return JSON.stringify({
+      type: part.type,
+      part: { ...part, text: delta },
+      sessionID: part.sessionID
+    });
+  }
+  if (part.type === "tool") {
+    if (state.emittedToolStatus.get(part.id) === part.state.status) return null;
+    state.emittedToolStatus.set(part.id, part.state.status);
+    return JSON.stringify({
+      type: "tool_use",
+      part,
+      sessionID: part.sessionID
+    });
+  }
+  if (part.type === "step-start" || part.type === "step-finish") {
+    return JSON.stringify({
+      type: part.type === "step-start" ? "step_start" : "step_finish",
+      part,
+      sessionID: part.sessionID
+    });
+  }
+  return null;
+}
+function opencodeEventSessionId(event) {
+  const properties = event.properties;
+  if (!properties) return "";
+  return properties.part?.sessionID ?? properties.info?.sessionID ?? properties.sessionID ?? "";
+}
+function opencodeErrorMessage(error) {
+  if (!error) return "";
+  return error.data?.message || error.name || "Opencode error";
+}
+var ZERO_USAGE2 = {
+  costUsd: 0,
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0,
+  model: ""
+};
+function readTurnUsage(info) {
+  return {
+    costUsd: info.cost,
+    inputTokens: info.tokens.input,
+    outputTokens: info.tokens.output + info.tokens.reasoning,
+    cacheReadTokens: info.tokens.cache.read,
+    cacheWriteTokens: info.tokens.cache.write,
+    model: info.modelID
+  };
+}
+function readMessageText(parts) {
+  let text = "";
+  for (const part of parts) {
+    if (part.type === "text") text += part.text;
+  }
+  return text;
+}
+function resultFailure(result) {
+  return opencodeErrorMessage(result.error) || (result.response ? "HTTP " + String(result.response.status) : "no data");
+}
+function requireData(result, what) {
+  if (result.data === void 0) {
+    throw new Error("opencode " + what + " failed: " + resultFailure(result));
+  }
+  return result.data;
+}
+async function runOpencodeSdkAttempt(sessionMode) {
+  resetAttemptState();
+  callbackState.activeAttemptStartedAt = Date.now();
+  updateThinkingStep(
+    "Starting Opencode agent...",
+    sessionMode.mode === "resume" ? "Restoring saved context..." : "Creating Opencode session..."
+  );
+  log(
+    "runOpencodeSdkAttempt started (mode=" + sessionMode.mode + ", sessionId=" + (sessionMode.sessionId || "none") + ")"
+  );
+  let attemptOutput = "";
+  let lastEventAt2 = Date.now();
+  let watchdogClock = Date.now();
+  let timedOutForNoOutput = false;
+  let timedOutForMaxRuntime = false;
+  let sawResult = false;
+  let resultIsError = false;
+  let attemptErrorMessage = "";
+  const sdk = await loadOpencodeSdk();
+  const baseUrl = await ensureOpencodeServer();
+  const client = sdk.createOpencodeClient({
+    baseUrl,
+    directory: WORK_DIR
+  });
+  const persistSessionId = (sessionId2) => {
+    callbackState.activeOpencodeSessionId = sessionId2;
+    writeOpencodeSessionState();
+    syncOpencodeStateToPersist();
+  };
+  const createFreshSession = async () => {
+    const created = requireData(
+      await client.session.create(),
+      "session.create"
+    );
+    if (created.version !== SDK_VERSION3) {
+      log(
+        "opencode server version " + created.version + " differs from the SDK pin " + SDK_VERSION3
+      );
+    }
+    persistSessionId(created.id);
+    return created.id;
+  };
+  let sessionId = "";
+  if (sessionMode.mode === "resume" && sessionMode.sessionId) {
+    const existing = await client.session.get({
+      path: { id: sessionMode.sessionId }
+    });
+    if (existing.data) {
+      sessionId = existing.data.id;
+      persistSessionId(sessionId);
+    } else {
+      log(
+        "runOpencodeSdkAttempt: session " + sessionMode.sessionId + " unknown to the server \\u2014 starting a fresh session"
+      );
+      appendToRawLogFile(
+        "[sdk-retry] resume session not found: " + sessionMode.sessionId + "\\n"
+      );
+      sessionId = await createFreshSession();
+    }
+  } else {
+    sessionId = await createFreshSession();
+  }
+  const promptText = readPromptText4();
+  const combinedPrompt = SYSTEM_PROMPT ? SYSTEM_PROMPT + "\\n\\n" + promptText : promptText;
+  const model = splitOpencodeModel(normalizedOpencodeModel);
+  const emitState = createPartEmitState();
+  const streamAbort = new AbortController();
+  let terminalReached = false;
+  let resolveTerminal = () => {
+  };
+  const terminal = new Promise((resolve) => {
+    resolveTerminal = resolve;
+  });
+  const markTerminal = () => {
+    if (terminalReached) return;
+    terminalReached = true;
+    resolveTerminal();
+  };
+  let assistantMessageId = "";
+  let usage = ZERO_USAGE2;
+  let turnErrorMessage = "";
+  let sawSessionEvent = false;
+  let idleProbeStreak = 0;
+  let idleProbeInFlight = false;
+  let lastIdleProbeAt = 0;
+  const pushLine = (line) => {
+    appendToRawLogFile(line);
+    attemptOutput = trimBufferHead(attemptOutput + line);
+    appendToRawOutput(line);
+    processRealtimeStdoutChunk(line);
+  };
+  const emitPart = (part) => {
+    const line = opencodePartToCliLine(part, emitState);
+    if (line) pushLine(line + "\\n");
+  };
+  const abortTurn = () => {
+    client.session.abort({ path: { id: sessionId } }).catch(() => {
+    });
+    markTerminal();
+  };
+  const probeSessionIdle = async () => {
+    if (idleProbeInFlight || terminalReached || !sawSessionEvent) return;
+    idleProbeInFlight = true;
+    lastIdleProbeAt = Date.now();
+    try {
+      const status = await client.session.status();
+      if (!status.data) return;
+      const sessionStatus = status.data[sessionId];
+      const idle = !sessionStatus || sessionStatus.type === "idle";
+      idleProbeStreak = idle ? idleProbeStreak + 1 : 0;
+      if (idleProbeStreak >= IDLE_PROBE_STREAK) {
+        log(
+          "runOpencodeSdkAttempt: server reports the session idle after an event gap \\u2014 finishing turn"
+        );
+        appendToRawLogFile(
+          "[sdk-recover] session idle detected by status poll\\n"
+        );
+        markTerminal();
+      }
+    } catch {
+    } finally {
+      idleProbeInFlight = false;
+    }
+  };
+  const healthTimer = setInterval(() => {
+    const now = Date.now();
+    if (terminalReached) return;
+    if (callbackState.fatalHeartbeatErrorMessage) {
+      attemptErrorMessage = callbackState.fatalHeartbeatErrorMessage;
+      abortTurn();
+      return;
+    }
+    if (now - callbackState.activeAttemptStartedAt > MAX_TOTAL_RUNTIME_MS) {
+      timedOutForMaxRuntime = true;
+      log("runOpencodeSdkAttempt: max runtime exceeded \\u2014 aborting turn");
+      abortTurn();
+      return;
+    }
+    if (callbackState.inFlightToolUses > 0) {
+      watchdogClock = now;
+    }
+    if (now - lastEventAt2 > IDLE_PROBE_AFTER_MS && now - lastIdleProbeAt > IDLE_PROBE_INTERVAL_MS) {
+      void probeSessionIdle();
+    }
+    if (now - watchdogClock > NO_OUTPUT_TIMEOUT_MS * 5) {
+      timedOutForNoOutput = true;
+      log("runOpencodeSdkAttempt: no SDK events \\u2014 aborting turn");
+      abortTurn();
+    }
+  }, NO_OUTPUT_CHECK_INTERVAL_MS);
+  const consumeEvents = async (stream) => {
+    for await (const event of stream) {
+      if (terminalReached) break;
+      if (opencodeEventSessionId(event) !== sessionId) continue;
+      lastEventAt2 = Date.now();
+      watchdogClock = lastEventAt2;
+      sawSessionEvent = true;
+      idleProbeStreak = 0;
+      const part = event.properties?.part;
+      if (event.type === "message.part.updated" && part) {
+        emitPart(part);
+        continue;
+      }
+      const info = event.properties?.info;
+      if (event.type === "message.updated" && info?.role === "assistant") {
+        assistantMessageId = info.id;
+        usage = readTurnUsage(info);
+        if (info.error) turnErrorMessage = opencodeErrorMessage(info.error);
+        continue;
+      }
+      if (event.type === "session.error") {
+        turnErrorMessage = opencodeErrorMessage(event.properties?.error);
+        continue;
+      }
+      if (event.type === "session.idle") {
+        markTerminal();
+        break;
+      }
+    }
+  };
+  try {
+    const events = await client.event.subscribe({ signal: streamAbort.signal });
+    const consumed = consumeEvents(events.stream);
+    consumed.catch(() => {
+    });
+    const accepted = await client.session.promptAsync({
+      path: { id: sessionId },
+      body: {
+        ...model.providerID ? { model } : {},
+        parts: [{ type: "text", text: combinedPrompt }]
+      }
+    });
+    if (accepted.error || accepted.response?.ok === false) {
+      throw new Error(
+        "opencode session.promptAsync failed: " + resultFailure(accepted)
+      );
+    }
+    lastEventAt2 = Date.now();
+    watchdogClock = lastEventAt2;
+    await Promise.race([terminal, consumed]);
+    markTerminal();
+    const finalMessage = assistantMessageId ? await client.session.message({
+      path: { id: sessionId, messageID: assistantMessageId }
+    }) : null;
+    let resultText = "";
+    const finalData = finalMessage?.data;
+    if (finalData && finalData.info.role === "assistant") {
+      for (const part of finalData.parts) emitPart(part);
+      usage = readTurnUsage(finalData.info);
+      if (finalData.info.error) {
+        turnErrorMessage = opencodeErrorMessage(finalData.info.error);
+      }
+      resultText = readMessageText(finalData.parts);
+    }
+    resultIsError = Boolean(turnErrorMessage);
+    pushLine(
+      JSON.stringify({
+        type: "result",
+        is_error: resultIsError,
+        result: resultText || turnErrorMessage,
+        duration_ms: Date.now() - callbackState.activeAttemptStartedAt,
+        total_cost_usd: usage.costUsd,
+        model: usage.model || normalizedOpencodeModel,
+        usage: {
+          input_tokens: usage.inputTokens,
+          output_tokens: usage.outputTokens,
+          cache_read_input_tokens: usage.cacheReadTokens,
+          cache_creation_input_tokens: usage.cacheWriteTokens
+        }
+      }) + "\\n"
+    );
+    sawResult = true;
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    attemptErrorMessage = messageText;
+    log("runOpencodeSdkAttempt: turn failed \\u2014 " + messageText);
+    appendToRawLogFile("[sdk-error] " + messageText + "\\n");
+    callbackState.stderrOutput = trimBufferHead(
+      callbackState.stderrOutput + messageText + "\\n" + readOpencodeServerLogTail(1e3) + "\\n"
+    );
+  } finally {
+    clearInterval(healthTimer);
+    markTerminal();
+    streamAbort.abort();
+  }
+  const code = sawResult && !resultIsError && !timedOutForMaxRuntime && !timedOutForNoOutput ? 0 : 1;
+  log(
+    "runOpencodeSdkAttempt finished in " + String(Date.now() - callbackState.activeAttemptStartedAt) + "ms (code=" + code + ", sawResult=" + sawResult + ", resultIsError=" + resultIsError + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", outputBytes=" + attemptOutput.length + (attemptErrorMessage ? ", turnError=" + attemptErrorMessage : "") + ")"
   );
   return {
     code,
@@ -7497,18 +7884,7 @@ async function runCodexAttempt(sessionMode) {
   return await runCodexSdkAttempt(sessionMode);
 }
 async function runOpencodeAttempt(sessionMode) {
-  const sessionArg = sessionMode.mode === "resume" && sessionMode.sessionId ? " -s " + JSON.stringify(sessionMode.sessionId) : "";
-  const cmd = opencodePromptCmd + " | " + opencodeExecBaseCmd + sessionArg;
-  return await runCliAttempt({
-    cmd,
-    env: { ...process.env },
-    processLabel: "opencode",
-    attemptLabel: "runOpencodeAttempt",
-    startupStep: {
-      label: "Starting Opencode CLI...",
-      detail: sessionMode.mode === "resume" ? "Restoring saved context..." : "Launching Opencode process..."
-    }
-  });
+  return await runOpencodeSdkAttempt(sessionMode);
 }
 async function runCursorAttempt(sessionMode) {
   if (!process.env.CURSOR_API_KEY?.trim()) {
@@ -7536,7 +7912,7 @@ process.on("exit", (code) => {
   }
 });
 try {
-  unlinkSync4(READY_FILE);
+  unlinkSync3(READY_FILE);
 } catch {
 }
 try {
@@ -7560,18 +7936,9 @@ if (!preflightOk) {
 }
 startStreamingLoops();
 for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
-  if (existsSync11(d)) {
-    for (const f of readdirSync4(d)) {
-      try {
-        unlinkSync4(d + "/" + f);
-      } catch {
-      }
-    }
-  } else {
-    try {
-      mkdirSync8(d, { recursive: true });
-    } catch {
-    }
+  try {
+    mkdirSync10(d, { recursive: true });
+  } catch {
   }
 }
 if (REPO_ID && CONVEX_URL && CONVEX_TOKEN) {

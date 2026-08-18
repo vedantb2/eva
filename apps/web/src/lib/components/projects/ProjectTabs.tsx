@@ -4,6 +4,8 @@ import { useState } from "react";
 import type { Id } from "@eva/backend";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
+import { cn } from "@eva/ui";
+import { MobilePaneSwitcher } from "@/lib/components/MobilePaneSwitcher";
 import { ProjectChatTab, type ConversationMessage } from "./ProjectChatTab";
 import { ProjectPlanTab } from "./ProjectPlanTab";
 import { useUpdateProject } from "./useUpdateProject";
@@ -35,6 +37,8 @@ export function ProjectTabs({
   repoId,
 }: ProjectTabsProps) {
   const [pendingSpec, setPendingSpec] = useState<string | null>(null);
+  /** Which of the two panes is on screen below `md`. Inert at `md`+. */
+  const [mobilePane, setMobilePane] = useState<"left" | "right">("right");
   const updateProject = useUpdateProject(projectId);
   const clearMessagesDb = useMutation(api.projects.clearMessages);
   const addMessageDb = useMutation(api.projects.addMessage);
@@ -86,8 +90,24 @@ export function ProjectTabs({
   }
 
   return (
-    <div className="h-full grid grid-cols-1 md:grid-cols-2">
-      <div className="overflow-y-auto scrollbar min-h-0">
+    <div className="flex h-full min-h-0 flex-col md:grid md:grid-cols-2">
+      {/* Below `md` the interview and the plan would be two ~350px scroll areas
+          stacked on top of each other, so one is on screen at a time. It opens on
+          the plan: a spec only exists here once the interview produced one, and
+          approving or rejecting it is what the reader came to do. */}
+      <div className="shrink-0 md:hidden">
+        <MobilePaneSwitcher
+          labels={{ left: "Interview", right: "Plan" }}
+          showingRight={mobilePane === "right"}
+          onSelect={setMobilePane}
+        />
+      </div>
+      <div
+        className={cn(
+          "overflow-y-auto scrollbar min-h-0 md:block",
+          mobilePane === "left" ? "flex-1" : "hidden",
+        )}
+      >
         <ProjectChatTab
           projectId={projectId}
           projectPhase={projectPhase}
@@ -100,7 +120,12 @@ export function ProjectTabs({
           repoId={repoId}
         />
       </div>
-      <div className="overflow-y-auto scrollbar min-h-0">
+      <div
+        className={cn(
+          "overflow-y-auto scrollbar min-h-0 md:block",
+          mobilePane === "right" ? "flex-1" : "hidden",
+        )}
+      >
         <ProjectPlanTab
           projectId={projectId}
           projectPhase={projectPhase}

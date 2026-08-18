@@ -229,7 +229,7 @@ export function DocInterviewDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-[calc(100vw-2rem)] w-full max-h-[95vh] flex flex-col sm:max-w-5xl">
+        <DialogContent className="max-w-[calc(100vw-2rem)] w-full max-h-[95dvh] flex flex-col sm:max-w-5xl">
           <DialogHeader>
             <DialogTitle>
               {readOnly ? "Interview History" : "Interview"}: {doc.title}
@@ -356,24 +356,30 @@ export function DocInterviewDialog({
                           <Button
                             size="icon"
                             variant={isListening ? "destructive" : "secondary"}
+                            aria-label={
+                              isListening
+                                ? "Stop dictation"
+                                : "Dictate an answer"
+                            }
                             onClick={() => toggleSpeech(dictation)}
                             disabled={isLoading}
-                            className="h-9 w-9 sm:h-8 sm:w-8"
+                            className="size-10 sm:size-8"
                           >
                             {isListening ? (
-                              <IconPlayerStop size={14} />
+                              <IconPlayerStop size={14} aria-hidden />
                             ) : (
-                              <IconMicrophone size={14} />
+                              <IconMicrophone size={14} aria-hidden />
                             )}
                           </Button>
                           <Button
                             size="icon"
                             variant="default"
+                            aria-label="Send answer"
                             onClick={handleDictationSubmit}
                             disabled={isLoading || !dictation.trim()}
-                            className="h-9 w-9 sm:h-8 sm:w-8"
+                            className="size-10 sm:size-8"
                           >
-                            <IconArrowRight size={14} />
+                            <IconArrowRight size={14} aria-hidden />
                           </Button>
                         </div>
                       </div>

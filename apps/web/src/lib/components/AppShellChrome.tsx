@@ -21,7 +21,7 @@ import { ShortcutsProvider } from "@/lib/hotkeys/ShortcutsContext";
 export function AppShellChrome({ children }: { children: ReactNode }) {
   return (
     <AuthGate>
-      <div className="relative min-h-screen bg-app-shell">
+      <div className="relative min-h-dvh bg-app-shell">
         <SidebarProvider>
           <PageTitleProvider>
             {/* Above SearchProvider: its Mod+K registration is a consumer. */}

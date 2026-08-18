@@ -17,6 +17,7 @@ import {
   type SessionMode,
 } from "@/lib/hooks/useSessionSettings";
 import { withMutationToast } from "@/lib/utils/mutationToast";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 export function SessionDetailClient({
   sessionId,
@@ -106,6 +107,7 @@ export function SessionDetailClient({
   // that previously orphaned sandboxes.
   const isSandboxStopping = session?.status === "stopping";
   const [isStopPending, setIsStopPending] = useState(false);
+  const simpleView = useSimpleView();
   const handleSandboxToggle = async (action: "start" | "stop") => {
     if (action === "start") {
       await withMutationToast(
@@ -134,6 +136,7 @@ export function SessionDetailClient({
   // Must stay above loading/null early returns — Phase 3 review comments
   // introduced this hook after them and tripped React #310 on session resolve.
   const openDiffsTab = () => {
+    if (simpleView) return;
     if (onViewDiff) {
       onViewDiff();
       return;
@@ -266,6 +269,7 @@ export function SessionDetailClient({
             rightMinWidthPx={300}
             storageKey="sandbox-collapsed"
             expandRightSignal={expandRightSignal}
+            mobilePaneLabels={{ left: "Chat", right: "Sandbox" }}
           />
         )}
       </SandboxWorkspace>

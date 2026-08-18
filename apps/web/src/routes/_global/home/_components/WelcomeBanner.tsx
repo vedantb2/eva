@@ -28,6 +28,7 @@ export function WelcomeBanner({ onDismiss }: { onDismiss: () => void }) {
                 size="icon"
                 variant="ghost"
                 onClick={onDismiss}
+                aria-label="Dismiss getting started"
                 className="-mr-1 h-7 w-7 text-muted-foreground hover:text-foreground relative after:absolute after:inset-[-6px]"
               >
                 <IconX size={14} />

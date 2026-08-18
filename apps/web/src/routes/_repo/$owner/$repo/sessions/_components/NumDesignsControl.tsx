@@ -37,7 +37,7 @@ export function NumDesignsControl({
       <DropdownMenuTrigger asChild disabled={disabled}>
         <button
           type="button"
-          className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+          className="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50 max-sm:h-9"
         >
           Designs: {selected}
         </button>

@@ -12,9 +12,14 @@ import { useEffect, useState } from "react";
  *   Dots   — same wavefront, circular cells
  *   Orbit  — a comet lapping the grid perimeter
  *
+ * Cells pulse on WAAPI, not a CSS `animation`: a CSS one
+ * fires `animationiteration` every cycle, and React's
+ * eagerly-attached root listeners turn each into a main-
+ * thread style recalc (~14×/s per mounted loader). WAAPI
+ * emits no animation events and runs the same keyframes.
+ *
  * Paired with a shimmering label and a live elapsed timer
- * in mono tabular figures. Reduced motion freezes the grid
- * to its dim state; the timer still ticks.
+ * in mono tabular figures.
  *
  * Source: https://21st.dev/@theshanelevine/components/loading-state
  * ───────────────────────────────────────────────────────── */
@@ -60,6 +65,45 @@ const COLORFUL_COLUMNS = [
   "rgb(var(--chart-5))",
 ] as const;
 
+/** Started on attach, cancelled on detach. `undefined` for a gap cell. */
+type PulseRef = ((cell: HTMLSpanElement) => () => void) | undefined;
+
+/**
+ * One ref callback per cell. The easing sits on the keyframes, not in the
+ * options, because CSS applies `animation-timing-function` per segment —
+ * as an option it would ease the whole cycle instead. No `fill`, so during
+ * its delay a cell keeps the static inline opacity, as under CSS.
+ */
+function pulseRefs(delays: (number | null)[], dur: number): PulseRef[] {
+  return delays.map((d) =>
+    d === null
+      ? undefined
+      : (cell: HTMLSpanElement) => {
+          const pulse = cell.animate(
+            [
+              { opacity: 0.12, easing: "ease-in-out" },
+              { opacity: 1, easing: "ease-in-out" },
+              { opacity: 0.12 },
+            ],
+            { duration: dur, delay: d, iterations: Infinity },
+          );
+          return () => pulse.cancel();
+        },
+  );
+}
+
+/**
+ * Built once per variant, because these identities have to be stable: a ref
+ * callback built during render would be a new function every render, and React
+ * detaches and reattaches on identity change — restarting the pulse each time
+ * (the labelled variant re-renders 10×/s off `useElapsed`).
+ */
+const PULSE_REFS: Record<LoadingStateVariant, PulseRef[]> = {
+  Drive: pulseRefs(PATTERNS.Drive.delays, PATTERNS.Drive.dur),
+  Dots: pulseRefs(PATTERNS.Dots.delays, PATTERNS.Dots.dur),
+  Orbit: pulseRefs(PATTERNS.Orbit.delays, PATTERNS.Orbit.dur),
+};
+
 function useElapsed(enabled: boolean) {
   const [ds, setDs] = useState(0);
   useEffect(() => {
@@ -85,7 +129,7 @@ export function LoadingState({
   iconOnly?: boolean;
 }) {
   const elapsed = useElapsed(!iconOnly);
-  const { delays, dur, round } = PATTERNS[variant];
+  const { delays, round } = PATTERNS[variant];
   const { cellPx, gapPx, radiusClass } = SIZE_TOKENS[size];
 
   const grid = (
@@ -100,16 +144,13 @@ export function LoadingState({
       {delays.map((d, i) => (
         <span
           key={i}
+          ref={PULSE_REFS[variant][i]}
           className={round ? "rounded-full" : radiusClass}
           style={{
             width: cellPx,
             height: cellPx,
             backgroundColor: COLORFUL_COLUMNS[i % 3],
             opacity: d === null ? 0.07 : 0.15,
-            animation:
-              d === null
-                ? "none"
-                : `pixel-on ${dur}ms ease-in-out ${d}ms infinite`,
           }}
         />
       ))}

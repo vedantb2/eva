@@ -34,7 +34,7 @@ function SearchInput({
       }}
       placeholder={placeholder}
       wrapperClassName={cn("w-full max-w-sm", className)}
-      className={cn("h-9 pl-8 text-sm", inputClassName)}
+      className={cn("h-9 pl-8 text-base sm:text-sm", inputClassName)}
       leading={
         <IconSearch
           size={15}

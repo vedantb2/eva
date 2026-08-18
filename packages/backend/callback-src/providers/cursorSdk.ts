@@ -293,11 +293,36 @@ function isAgentNotFound(error: Error): boolean {
   );
 }
 
+/**
+ * Cursor's backend rejects a run with the Connect-RPC code
+ * `resource_exhausted` (its HTTP 429: rate limit or usage quota) — observed in
+ * prod as a grok-4.6 turn erroring after ~40s with zero tokens used. The
+ * condition is usually transient, so retry with backoff before surfacing, and
+ * surface a readable message instead of the raw `[resource_exhausted] Error`.
+ */
+export const RESOURCE_EXHAUSTED_RETRY_DELAYS_MS = [15_000, 30_000];
+
+export function isResourceExhaustedMessage(text: string): boolean {
+  return text.includes("resource_exhausted");
+}
+
+export const RESOURCE_EXHAUSTED_CHAT_MESSAGE =
+  "Cursor rejected the request: rate limit or usage quota exhausted " +
+  "(resource_exhausted). No tokens were used. Wait a minute and try again, " +
+  "or switch to a different model.";
+
 type UsageTokens = {
   inputTokens: number;
   outputTokens: number;
   cacheReadTokens: number;
   cacheWriteTokens: number;
+};
+
+export type CursorTurnOutcome = {
+  isError: boolean;
+  resultText: string;
+  durationMs: number;
+  usage: UsageTokens;
 };
 
 const ZERO_USAGE: UsageTokens = {
@@ -309,6 +334,54 @@ const ZERO_USAGE: UsageTokens = {
 
 function readNum(value: JsonLike | number | undefined): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+/**
+ * Runs a turn, absorbing transient `resource_exhausted` rejections — Cursor
+ * signals them both as an error run status and as a thrown SDK error, so both
+ * paths retry. Only the final outcome is returned, so a retried failure never
+ * reaches the parser as a result line. An exhausted retry budget resolves with
+ * the readable chat message instead of the raw `[resource_exhausted] Error`;
+ * any other error propagates untouched, and an attempt already aborted by a
+ * timeout stops retrying so the run can wind down.
+ */
+export async function runTurnWithResourceExhaustedRetries(deps: {
+  runTurn: () => Promise<CursorTurnOutcome>;
+  aborted: () => boolean;
+  onRetry: (delayMs: number, attempt: number) => void;
+  sleep: (delayMs: number) => Promise<void>;
+}): Promise<CursorTurnOutcome> {
+  for (let attempt = 0; ; attempt++) {
+    const retryDelayMs = RESOURCE_EXHAUSTED_RETRY_DELAYS_MS[attempt];
+    let outcome: CursorTurnOutcome;
+    try {
+      outcome = await deps.runTurn();
+    } catch (error) {
+      const messageText =
+        error instanceof Error ? error.message : String(error);
+      if (
+        !isResourceExhaustedMessage(messageText) ||
+        retryDelayMs === undefined ||
+        deps.aborted()
+      ) {
+        throw error;
+      }
+      outcome = {
+        isError: true,
+        resultText: messageText,
+        durationMs: 0,
+        usage: ZERO_USAGE,
+      };
+    }
+    if (!outcome.isError || !isResourceExhaustedMessage(outcome.resultText)) {
+      return outcome;
+    }
+    if (retryDelayMs === undefined || deps.aborted()) {
+      return { ...outcome, resultText: RESOURCE_EXHAUSTED_CHAT_MESSAGE };
+    }
+    deps.onRetry(retryDelayMs, attempt);
+    await deps.sleep(retryDelayMs);
+  }
 }
 
 /** Extracts camelCase TokenUsage fields from a stream `usage` event or RunResult. */
@@ -434,6 +507,13 @@ export async function runCursorSdkAttempt(
       cancelRun();
       return;
     }
+    // The SDK emits nothing between a tool call and its result, so a long
+    // silent tool is indistinguishable from a hang by message silence alone.
+    // Mirror cliAttempt.ts: while a tool is in flight only the hard runtime cap
+    // applies, and the silence clock restarts once the tool result lands.
+    if (S.inFlightToolUses > 0) {
+      lastMessageAt = now;
+    }
     if (!sawResult && now - lastMessageAt > NO_OUTPUT_TIMEOUT_MS * 5) {
       timedOutForNoOutput = true;
       log("runCursorSdkAttempt: no SDK events — cancelling run");
@@ -448,7 +528,7 @@ export async function runCursorSdkAttempt(
     processRealtimeStdoutChunk(line);
   };
 
-  const runTurn = async (activeAgent: SdkAgent): Promise<void> => {
+  const runTurn = async (activeAgent: SdkAgent): Promise<CursorTurnOutcome> => {
     // `force` expires a run left marked active by a killed prior callback
     // (user stop is a process-level kill); a no-op otherwise.
     const run = await activeAgent.send(combinedPrompt, {
@@ -464,35 +544,71 @@ export async function runCursorSdkAttempt(
       if (timedOutForMaxRuntime || timedOutForNoOutput) break;
     }
     const result = await run.wait();
-    const usage =
-      readUsageTokens(result.usage) ?? lastStreamUsage ?? ZERO_USAGE;
-    const isError = result.status !== "finished";
-    const resultText =
-      typeof result.result === "string" && result.result
-        ? result.result
-        : result.error && typeof result.error.message === "string"
-          ? result.error.message
-          : "";
+    return {
+      isError: result.status !== "finished",
+      resultText:
+        typeof result.result === "string" && result.result
+          ? result.result
+          : result.error && typeof result.error.message === "string"
+            ? result.error.message
+            : "",
+      durationMs: readNum(result.durationMs),
+      usage: readUsageTokens(result.usage) ?? lastStreamUsage ?? ZERO_USAGE,
+    };
+  };
+
+  const emitTurnResult = (outcome: CursorTurnOutcome): void => {
     const syntheticResult: JsonValue = {
       type: "result",
-      is_error: isError,
-      result: resultText,
-      duration_ms: readNum(result.durationMs),
+      is_error: outcome.isError,
+      result: outcome.resultText,
+      duration_ms: outcome.durationMs,
       usage: {
-        input_tokens: usage.inputTokens,
-        output_tokens: usage.outputTokens,
-        cache_read_input_tokens: usage.cacheReadTokens,
-        cache_creation_input_tokens: usage.cacheWriteTokens,
+        input_tokens: outcome.usage.inputTokens,
+        output_tokens: outcome.usage.outputTokens,
+        cache_read_input_tokens: outcome.usage.cacheReadTokens,
+        cache_creation_input_tokens: outcome.usage.cacheWriteTokens,
       },
     };
     pushLine(JSON.stringify(syntheticResult) + "\n");
     sawResult = true;
-    resultIsError = isError;
+    resultIsError = outcome.isError;
+  };
+
+  const runTurnWithRetries = async (activeAgent: SdkAgent): Promise<void> => {
+    emitTurnResult(
+      await runTurnWithResourceExhaustedRetries({
+        runTurn: () => runTurn(activeAgent),
+        aborted: () => timedOutForMaxRuntime || timedOutForNoOutput,
+        onRetry: (retryDelayMs, attempt) => {
+          log(
+            "runCursorSdkAttempt: resource_exhausted — retrying in " +
+              retryDelayMs +
+              "ms (attempt " +
+              (attempt + 1) +
+              " of " +
+              (RESOURCE_EXHAUSTED_RETRY_DELAYS_MS.length + 1) +
+              ")",
+          );
+          appendToRawLogFile(
+            "[sdk-retry] resource_exhausted — waiting " +
+              retryDelayMs +
+              "ms before retry\n",
+          );
+          updateThinkingStep(
+            "Cursor is rate-limited...",
+            "Retrying in " + Math.round(retryDelayMs / 1000) + "s...",
+          );
+        },
+        sleep: (delayMs) =>
+          new Promise((resolve) => setTimeout(resolve, delayMs)),
+      }),
+    );
   };
 
   try {
     try {
-      await runTurn(agent);
+      await runTurnWithRetries(agent);
     } catch (error) {
       // A resumed agent whose stored runs are unreadable can throw
       // agent_not_found past resume (at send/stream/wait). Retry once fresh so
@@ -506,24 +622,25 @@ export async function runCursorSdkAttempt(
           "runCursorSdkAttempt: resumed agent unusable — retrying as a fresh agent",
         );
         appendToRawLogFile("[sdk-retry] " + error.message + "\n");
-        sawResult = false;
-        resultIsError = false;
         try {
           agent.close();
         } catch {
           /* already closed */
         }
         agent = await createFreshAgent();
-        await runTurn(agent);
+        await runTurnWithRetries(agent);
       } else {
         throw error;
       }
     }
   } catch (error) {
-    const messageText = error instanceof Error ? error.message : String(error);
+    const rawMessage = error instanceof Error ? error.message : String(error);
+    const messageText = isResourceExhaustedMessage(rawMessage)
+      ? RESOURCE_EXHAUSTED_CHAT_MESSAGE
+      : rawMessage;
     attemptErrorMessage = messageText;
-    log("runCursorSdkAttempt: run failed — " + messageText);
-    appendToRawLogFile("[sdk-error] " + messageText + "\n");
+    log("runCursorSdkAttempt: run failed — " + rawMessage);
+    appendToRawLogFile("[sdk-error] " + rawMessage + "\n");
     S.stderrOutput = trimBufferHead(S.stderrOutput + messageText + "\n");
   } finally {
     clearInterval(healthTimer);

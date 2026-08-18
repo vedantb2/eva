@@ -338,6 +338,7 @@ export function SandboxIframeService({
             size="icon"
             variant="ghost"
             className="size-8"
+            aria-label="Reload"
             onClick={refreshIframe}
           >
             <IconRefresh className="w-4 h-4" />
@@ -346,6 +347,7 @@ export function SandboxIframeService({
             size="icon"
             variant="ghost"
             className="size-8"
+            aria-label="Toggle fullscreen"
             onClick={toggleFullscreen}
           >
             <IconMaximize className="w-4 h-4" />
@@ -355,6 +357,7 @@ export function SandboxIframeService({
               href={stripPreviewGrant(url)}
               target="_blank"
               rel="noopener noreferrer"
+              aria-label="Open in a new tab"
             >
               <IconExternalLink className="w-4 h-4" />
             </a>
@@ -363,6 +366,7 @@ export function SandboxIframeService({
             size="icon"
             variant="ghost"
             className="size-8 text-destructive hover:bg-destructive/10"
+            aria-label="Stop"
             onClick={stop}
           >
             <IconPlayerStop className="w-4 h-4" />

@@ -105,7 +105,9 @@ export function MentionPickerPopup<TItem extends { id: string }>({
                   onSelectItem(item);
                 }}
                 className={
-                  "mx-1 flex w-[calc(100%-0.5rem)] min-w-0 items-center rounded-lg px-2 py-1.5 text-left text-sm " +
+                  // `max-sm:py-2.5` takes the row to a 40px tap target on a
+                  // phone without loosening the dense desktop list.
+                  "mx-1 flex w-[calc(100%-0.5rem)] min-w-0 items-center rounded-lg px-2 py-1.5 text-left text-sm max-sm:py-2.5 " +
                   "transition-[background-color] " +
                   (isSelected
                     ? "bg-primary/15 font-medium text-foreground dark:bg-primary/25"

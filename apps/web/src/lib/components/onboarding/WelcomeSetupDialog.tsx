@@ -18,13 +18,13 @@ import {
   TooltipTrigger,
 } from "@eva/ui";
 import { LogoMark } from "@/lib/components/LogoMark";
-import {
-  useThemeContext,
-  resolveCustomTheme,
-  type AccentColor,
-  type FontFamily,
-  type LetterSpacing,
-  type RadiusSize,
+import { useThemeContext } from "@/lib/contexts/useThemeContext";
+import { resolveCustomTheme } from "@/lib/contexts/themeTokens";
+import type {
+  AccentColor,
+  FontFamily,
+  LetterSpacing,
+  RadiusSize,
 } from "@/lib/contexts/ThemeContext";
 import { type ThemeMode } from "@/lib/hooks/useThemeMode";
 import type { RolePresetKey } from "@/lib/components/personalisation/RolePresetPicker";
@@ -161,7 +161,9 @@ export function WelcomeSetupDialog() {
         hideCloseButton
         onInteractOutside={(event) => event.preventDefault()}
         onEscapeKeyDown={(event) => event.preventDefault()}
-        className="flex h-[min(90vh,42rem)] max-w-[calc(100vw-2rem)] flex-col sm:max-w-3xl"
+        // `dvh`, not `vh`: mobile browser chrome makes `100vh` taller than the
+        // visible area, which would push the footer buttons off screen.
+        className="flex h-[min(90dvh,42rem)] max-w-[calc(100vw-2rem)] flex-col sm:max-w-3xl"
       >
         <DialogHeader className="shrink-0">
           <div className="flex items-center gap-3">

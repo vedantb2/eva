@@ -4,7 +4,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useHotkey } from "@tanstack/react-hotkeys";
 import { repoHref } from "@/lib/utils/repoUrl";
 import type { RepoWithLogo } from "@/lib/utils/repoGrouping";
-import { useShortcutBinding } from "@/lib/hotkeys/ShortcutsContext";
+import { useShortcutBinding } from "@/lib/hotkeys/useShortcut";
 import { SHORTCUT_DEFS, deriveSlotHotkey } from "@/lib/hotkeys/registry";
 
 /** Nine numbered slots jump straight to the 1st … 9th app tile in the rail. */

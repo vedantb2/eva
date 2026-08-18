@@ -1,6 +1,6 @@
 "use client";
 
-import { useShortcut } from "@/lib/hotkeys/ShortcutsContext";
+import { useShortcut } from "@/lib/hotkeys/useShortcut";
 import type { SandboxTab } from "@/lib/search-params";
 
 /**

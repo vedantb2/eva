@@ -139,7 +139,7 @@ export function SessionTabsArchivedMenu({
                             type="button"
                             title="Unarchive"
                             aria-label={`Unarchive ${session.title}`}
-                            className="flex size-7 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                            className="flex size-7 max-sm:size-10 shrink-0 items-center justify-center rounded-sm text-muted-foreground hover:bg-muted hover:text-foreground"
                             onClick={() => {
                               void (async () => {
                                 try {

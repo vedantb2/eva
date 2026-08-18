@@ -1,21 +1,21 @@
-import { StrictMode, useEffect } from "react";
+import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { RouterProvider, createRouter } from "@tanstack/react-router";
-import { ClerkProvider, useAuth } from "@clerk/clerk-react";
+import { createRouter } from "@tanstack/react-router";
+import { ClerkProvider } from "@clerk/clerk-react";
 import { queryClient } from "./lib/queryClient";
 import { routeTree } from "./routeTree.gen";
 import { createAppHistory } from "./lib/history";
 import { toDisplayRepoHref, toInternalRepoHref } from "./lib/utils/repoUrl";
 import { clientEnv } from "./env/client";
-import { convex } from "./lib/components/ClientProvider";
+import { convex } from "./lib/convex";
 import { DeploymentErrorFallback } from "./lib/components/DeploymentErrorFallback";
-import { AuthLoadingScreen } from "./lib/components/AuthLoadingScreen";
 import { MotionProvider } from "./lib/components/MotionProvider";
 import { isChunkLoadError } from "./lib/utils/isChunkLoadError";
-import { readSignedInHint, writeSignedInHint } from "./lib/authHint";
+import { readSignedInHint } from "./lib/authHint";
 import { saveMcpOauthParamsFromUrl } from "./lib/mcpOauthStorage";
 import { migrateLegacyStorageKeys } from "./lib/migrateLegacyStorageKeys";
+import { InnerApp } from "./InnerApp";
 import "./fonts";
 import "./globals.css";
 
@@ -106,34 +106,6 @@ if (hadSession) {
   void import("@/lib/components/AppShellChrome");
 }
 
-function InnerApp() {
-  const { isLoaded, isSignedIn } = useAuth();
-
-  useEffect(() => {
-    if (!isLoaded) return;
-    writeSignedInHint(isSignedIn ?? false);
-    // The early anonymous render below was a guess. If Clerk disagrees (hint
-    // cleared but a session exists), re-run route guards so `/` redirects to
-    // /home the way a blocking boot would have.
-    if (!hadSession && isSignedIn) {
-      void router.invalidate();
-    }
-  }, [isLoaded, isSignedIn]);
-
-  // Returning signed-in users keep the previous behavior: hold paint until
-  // the session is restored, so protected routes never flash the landing.
-  if (!isLoaded && hadSession) {
-    return <AuthLoadingScreen />;
-  }
-
-  return (
-    <RouterProvider
-      router={router}
-      context={{ isSignedIn: isSignedIn ?? false }}
-    />
-  );
-}
-
 const rootElement = document.getElementById("root");
 if (rootElement) {
   createRoot(rootElement).render(
@@ -145,7 +117,7 @@ if (rootElement) {
             signInFallbackRedirectUrl="/home"
             signUpFallbackRedirectUrl="/home"
           >
-            <InnerApp />
+            <InnerApp hadSession={hadSession} router={router} />
           </ClerkProvider>
         </MotionProvider>
       </QueryClientProvider>

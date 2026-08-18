@@ -26,7 +26,7 @@ import {
   IconCircleHalf,
   IconLoader2,
 } from "@tabler/icons-react";
-import { useThemeContext } from "@/lib/contexts/ThemeContext";
+import { useThemeContext } from "@/lib/contexts/useThemeContext";
 import { useSearch } from "@/lib/contexts/SearchContext";
 
 interface SidebarUserMenuProps {

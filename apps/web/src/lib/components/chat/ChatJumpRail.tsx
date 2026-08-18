@@ -13,7 +13,8 @@ import { tokenizedToDisplayText } from "@/lib/components/mentions";
 /** Matches t3code `TIMELINE_MINIMAP_ITEM_SPACING` — compact rail, not full-height. */
 const ITEM_SPACING_PX = 8;
 const MIN_VISIBLE_TICKS = 2;
-const MAX_HEIGHT_CSS = "calc(100vh - 18rem)";
+/** `dvh`, not `vh` — mobile browser chrome makes `100vh` taller than the visible area. */
+const MAX_HEIGHT_CSS = "calc(100dvh - 18rem)";
 
 interface ChatJumpRailMessage {
   id: string;

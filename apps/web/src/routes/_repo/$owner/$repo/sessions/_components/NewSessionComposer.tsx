@@ -23,7 +23,6 @@ import {
 import { useNewSessionComposerState } from "@/lib/hooks/useNewSessionComposerState";
 import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
 import { ComposerAppSwitcher } from "./ComposerAppSwitcher";
-import { SessionModeDropdown } from "./SessionModeDropdown";
 import { SessionDesignComposerTools } from "./SessionDesignComposerTools";
 
 /**
@@ -172,20 +171,19 @@ export function NewSessionComposer() {
           onSend={handleSend}
           onCancel={async () => {}}
           toolsBefore={
-            <>
-              <SessionModeDropdown mode={mode} onModeChange={setMode} />
-              {mode === "design" ? (
-                <SessionDesignComposerTools
-                  repoId={repo._id}
-                  personaId={selectedPersonaId}
-                  onPersonaChange={setSelectedPersonaId}
-                  numDesigns={numDesigns}
-                  onNumDesignsChange={setNumDesigns}
-                  disabled={isSubmitting}
-                />
-              ) : null}
-            </>
+            mode === "design" ? (
+              <SessionDesignComposerTools
+                repoId={repo._id}
+                personaId={selectedPersonaId}
+                onPersonaChange={setSelectedPersonaId}
+                numDesigns={numDesigns}
+                onNumDesignsChange={setNumDesigns}
+                disabled={isSubmitting}
+              />
+            ) : null
           }
+          mode={mode}
+          onModeChange={setMode}
           localDraft={{
             initialDisplay: draftDisplay,
             mentionMap: draftMentionMap,

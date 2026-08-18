@@ -20,9 +20,11 @@ import { expect, test } from "vitest";
 // and cannot be imported in the node test environment.
 //
 // This whole file is safe to delete once `staging` and `main` ship the same
-// accents — see the CLEAN UP note on `lookupAccent` in ThemeContext.tsx.
+// accents — see the CLEAN UP note on `lookupAccent` in themeTokens.ts.
 
 const here = dirname(fileURLToPath(import.meta.url));
+
+const themeTokensSource = readFileSync(join(here, "themeTokens.ts"), "utf8");
 
 const themeContextSource = readFileSync(join(here, "ThemeContext.tsx"), "utf8");
 
@@ -35,7 +37,7 @@ test("lookupAccent surfaces the miss to the type system via a Partial view", () 
   // A direct `ACCENT_COLORS[accentColor]` index is typed as always-present and
   // is what threw. The Partial view is what makes `undefined` reachable and
   // forces callers to handle it; losing it reintroduces the crash.
-  expect(themeContextSource).toContain("Partial<typeof ACCENT_COLORS>");
+  expect(themeTokensSource).toContain("Partial<typeof ACCENT_COLORS>");
 });
 
 test("applyCustomThemeVars falls back when the stored accent is undefined", () => {

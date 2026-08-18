@@ -10,6 +10,10 @@ import {
   SharedLayoutNavSurface,
   sidebarNavLinkClassCompact,
 } from "@/lib/components/sidebar/SharedLayoutNav";
+import {
+  isSimpleViewHiddenGlobalSettingsPath,
+  useSimpleView,
+} from "@/lib/hooks/useSimpleView";
 
 interface GlobalSettingsSidebarProps {
   pathname: string;
@@ -21,10 +25,14 @@ export function GlobalSettingsSidebar({
   pathname,
   onNavigate,
 }: GlobalSettingsSidebarProps) {
+  const simpleView = useSimpleView();
   const showTesting = import.meta.env.DEV;
-  const items = showTesting
-    ? [...GLOBAL_SETTINGS_NAV, GLOBAL_SETTINGS_TESTING]
-    : [...GLOBAL_SETTINGS_NAV];
+  const nav = simpleView
+    ? GLOBAL_SETTINGS_NAV.filter(
+        (item) => !isSimpleViewHiddenGlobalSettingsPath(item.href),
+      )
+    : GLOBAL_SETTINGS_NAV;
+  const items = showTesting ? [...nav, GLOBAL_SETTINGS_TESTING] : [...nav];
 
   return (
     <SharedLayoutNav layoutId="global-settings-nav" className="space-y-1">

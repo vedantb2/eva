@@ -25,6 +25,7 @@ import { useSessionModel } from "@/lib/hooks/useSessionModel";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useSessionAnnotationSend } from "./_components/useSessionAnnotationSend";
 import { catchMutationError } from "@/lib/utils/mutationToast";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 import {
   getLatestVariations,
   type SessionDesignMessage,
@@ -82,6 +83,7 @@ export function SandboxPanel({
   onStartSandbox,
   isSandboxStarting,
 }: SandboxPanelProps) {
+  const simpleView = useSimpleView();
   const { repo } = useRepo();
   const sessionIdStr = String(sessionId);
   const { setMode } = useSessionModel(
@@ -163,7 +165,7 @@ export function SandboxPanel({
         showDesignsTab={showDesignsTab}
         hasDesignsContent={hasDesignsContent}
         showFilesTab
-        customTabs={customTabs}
+        customTabs={simpleView ? undefined : customTabs}
         agentBrowsingAt={agentBrowsingAt}
         computerTabOpen={computerTabOpen}
         computerRunning={computerRunning}
@@ -227,7 +229,7 @@ export function SandboxPanel({
             }}
           />
         </div>
-        <div className={activeTab === "files" ? "h-full min-h-0" : "hidden"}>
+        <div className={!simpleView && activeTab === "files" ? "h-full min-h-0" : "hidden"}>
           <FilesPanel
             sandboxId={sandboxId}
             repoId={repoId}
@@ -246,7 +248,7 @@ export function SandboxPanel({
           cacheKey={sessionIdStr}
           devCommand={devCommand}
           prUrl={prUrl}
-          customTabs={customTabs}
+          customTabs={simpleView ? undefined : customTabs}
           agentBrowsingAt={agentBrowsingAt}
           onReleaseBrowserLock={() =>
             void catchMutationError(

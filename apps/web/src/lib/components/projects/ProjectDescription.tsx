@@ -42,18 +42,28 @@ export function ProjectDescription({
         Project context
       </div>
       <div
-        onClick={handleClick}
         title={
           isEditing
             ? undefined
             : "Acts as the project's system prompt for Eva chat and tasks"
         }
         className={cn(
-          "min-h-6 overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1",
-          !isEditing && "cursor-pointer hover:bg-muted/50",
-          !isEditing && clamp && "max-h-[20vh] overflow-y-auto scrollbar",
+          "relative min-h-6 overflow-x-hidden rounded px-2 py-1 -mx-2 -my-1",
+          !isEditing && "hover:bg-muted/50",
+          !isEditing && clamp && "max-h-[20dvh] overflow-y-auto scrollbar",
         )}
       >
+        {/* A real button stretched over the (non-editable) preview rather than
+            `onClick` on the wrapper: the div gave click-to-edit no keyboard path
+            at all, and the editor below cannot itself be the button. */}
+        {!isEditing ? (
+          <button
+            type="button"
+            aria-label="Edit project context"
+            onClick={handleClick}
+            className="absolute inset-0 z-1 cursor-pointer rounded focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35"
+          />
+        ) : null}
         <MarkdownEditor
           content={desc}
           editable={isEditing}

@@ -9,6 +9,7 @@ const sessionWorkflow = readSource("_sessions/workflow.ts");
 const resultTarget = readSource("_sessions/resultTarget.ts");
 const sandboxExecution = readSource("_sandbox_runtime/execution.ts");
 const sandboxGit = readSource("_sandbox_runtime/git.ts");
+const sessionsSandbox = readSource("_sessions/sandbox.ts");
 const turnPersist = readSource("../callback-src/runtime/turnPersist.ts");
 const claudeSdkDaemon = readSource(
   "../callback-src/providers/claudeSdkDaemon.ts",
@@ -382,6 +383,87 @@ describe("a callback-published session still opens its first pull request", () =
     const pin = functionBody(sandboxGit, "async function pinBranchUpstream(");
     expect(pin).toContain("branch.${branchName}.remote");
     expect(pin).toContain("refs/heads/${branchName}");
+  });
+
+  /**
+   * The dev server regenerates files (routeTree.gen.ts) between the snapshot
+   * reset and the session-branch checkout; when the base ref moved past the
+   * snapshot and touches those files, a plain `checkout -b` aborts, the run
+   * proceeds on the base branch, and publish strands the work (prod sessions
+   * eva/65 and eva/66). Creation only runs on fresh sandboxes with no user
+   * work, so both arms must force.
+   */
+  test("session branch creation forces past re-dirtied snapshot files", () => {
+    const body = functionBody(
+      sandboxGit,
+      "export async function checkoutSessionBranch(",
+    );
+    expect(body, "remote arm lost -f").toContain(
+      "git checkout -f -b ${quotedBranch} ${quotedRemoteBranch}",
+    );
+    expect(body, "base fallback arm lost -f").toContain(
+      "git checkout -f --no-track -b ${quotedBranch} ${quotedBase}",
+    );
+  });
+
+  /**
+   * When the startup checkout failed anyway (older sandbox, new failure mode),
+   * publish must recover the unambiguous shape instead of stranding the work:
+   * no local session branch means every local commit is the session's, so the
+   * branch is created at HEAD (touches no files) and publication proceeds.
+   * Anything else — detached HEAD, or a session branch that exists but is not
+   * checked out — still refuses.
+   */
+  test("publish heals a session stranded on its base branch", () => {
+    const body = functionBody(
+      sandboxGit,
+      "async function synchronizeBranchForPublish(",
+    );
+    const healGate = "git show-ref --verify --quiet ${quotedLocalHeadRef}";
+    expect(body, "heal gate lost its local-branch probe").toContain(healGate);
+    expect(body, "heal lost its no-touch branch creation").toContain(
+      "git switch -c ${quote([branchName])}",
+    );
+    expect(body, "healed branch lost its upstream pin").toContain(
+      "pinBranchUpstream(sandbox, branchName)",
+    );
+    expect(body, "detached HEAD must still refuse").toContain(
+      'currentBranch === ""',
+    );
+    expect(body, "ambiguous shapes must still refuse").toContain(
+      "Refusing to publish",
+    );
+  });
+
+  /**
+   * The generic "some services may still be starting" banner misdescribed a
+   * failed branch checkout as a services problem (prod sessions eva/65 and
+   * eva/66). The step label runLoggedSessionStep prefixes onto the error is
+   * the routing key; all three checkout step labels must keep matching it.
+   */
+  test("the startup warning names a failed branch checkout", () => {
+    const body = definitionBody(sessionsSandbox, "sandboxStartupWarning");
+    const routing = "/\\.(checkoutSessionBranch|checkoutBranch):/";
+    expect(body, "checkout routing regex changed").toContain(routing);
+    expect(body, "checkout-specific copy lost").toContain(
+      "Session branch could not be created",
+    );
+    expect(body, "generic copy lost").toContain("Sandbox startup unfinished");
+    const stepLabels = [
+      "newSessionSandbox.checkoutSessionBranch:",
+      "newTaskSandbox.checkoutBranch:",
+      "newProjectSandbox.checkoutBranch:",
+    ];
+    const runtimeSessions = readSource("_sandbox_runtime/sessions.ts");
+    for (const label of stepLabels) {
+      expect(runtimeSessions, `step label ${label} renamed`).toContain(
+        label.slice(0, -1),
+      );
+      expect(
+        /\.(checkoutSessionBranch|checkoutBranch):/.test(label),
+        `routing regex no longer matches ${label}`,
+      ).toBe(true);
+    }
   });
 
   test("the post-completion push reports an already-published branch", () => {

@@ -11,6 +11,8 @@ import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-deta
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { QuickTaskRouteState } from "../_utils/useQuickTaskRouteState";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import { SimpleViewSandboxRedirect } from "@/lib/components/sandbox/SimpleViewSandboxRedirect";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 interface QuickTaskTaskPageContentProps {
   taskId: Id<"agentTasks">;
@@ -23,6 +25,7 @@ export function QuickTaskTaskPageContent({
 }: QuickTaskTaskPageContentProps) {
   const navigate = useNavigate();
   const { basePath, repo } = useRepo();
+  const simpleView = useSimpleView();
   const params = useParams({ strict: false });
   const pathSegment =
     typeof params.numId === "string" ? params.numId : undefined;
@@ -74,6 +77,7 @@ export function QuickTaskTaskPageContent({
             });
           },
           onOpenFile: (path: string) => {
+            if (simpleView) return;
             navigate({
               to: toInternalRepoHref(
                 `${basePath}/quick-tasks/${pathSegment}/sandbox/files`,
@@ -135,7 +139,27 @@ export function QuickTaskTaskPageContent({
     );
   }
 
+  const ownerParam = params.owner;
+  const repoParam = params.repo;
+  const sandboxTab =
+    routeState.surface === "sandbox" ? routeState.sandboxTab : undefined;
+
   return (
+    <>
+      {pathSegment &&
+      sandboxTab !== undefined &&
+      typeof ownerParam === "string" &&
+      typeof repoParam === "string" ? (
+        <SimpleViewSandboxRedirect
+          activeTab={sandboxTab}
+          to="/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab"
+          params={{
+            owner: ownerParam,
+            repo: repoParam,
+            numId: pathSegment,
+          }}
+        />
+      ) : null}
     <TaskDetailInline
       onClose={() =>
         navigate({
@@ -147,5 +171,6 @@ export function QuickTaskTaskPageContent({
       allTags={allTags}
       routing={routing}
     />
+    </>
   );
 }

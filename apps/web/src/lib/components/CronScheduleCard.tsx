@@ -1,3 +1,4 @@
+import { useId } from "react";
 import cronstrue from "cronstrue";
 import { CronExpressionParser } from "cron-parser";
 import { Input, Surface } from "@eva/ui";
@@ -84,6 +85,7 @@ export function CronScheduleCard({
   allowManual = false,
   onBlurCommit,
 }: CronScheduleCardProps) {
+  const fieldId = useId();
   const isManual = allowManual && value === "manual";
   const localDisplay = isManual ? "" : utcCronToLocal(value);
   const schedule = allowManual ? value : value || "";
@@ -92,11 +94,15 @@ export function CronScheduleCard({
     <Surface density="none" className="p-3 space-y-4 sm:p-4">
       <h3 className="text-sm font-medium">Cron Schedule</h3>
       <div>
-        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+        <label
+          htmlFor={fieldId}
+          className="mb-1.5 block text-xs font-medium text-muted-foreground"
+        >
           Schedule (cron expression, your timezone)
         </label>
         <CronPreview schedule={schedule} allowManual={allowManual} />
         <Input
+          id={fieldId}
           className="h-8 text-xs font-mono text-center"
           placeholder={
             allowManual ? "0 6 * * * (leave empty for manual)" : "0 6 * * *"

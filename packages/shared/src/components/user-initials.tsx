@@ -14,6 +14,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { Facehash } from "facehash";
 import type { ReactNode } from "react";
 import { compactRelativeTime } from "../utils/dates";
+import { getUserInitials, type UserFields } from "./getUserInitials";
 
 const ONLINE_THRESHOLD_MS = 120_000;
 
@@ -22,28 +23,6 @@ const USER_ID_PATTERN = /^[a-z0-9_]{16,40}$/;
 
 function isUsersTableId(id: string): id is Id<"users"> {
   return USER_ID_PATTERN.test(id);
-}
-
-interface UserFields {
-  firstName?: string | null;
-  lastName?: string | null;
-  fullName?: string | null;
-  lastSeenAt?: number | null;
-}
-
-export function getUserInitials(user: UserFields): string {
-  const firstLast =
-    `${user.firstName?.[0] ?? ""}${user.lastName?.[0] ?? ""}`.toUpperCase();
-  if (firstLast) return firstLast;
-  if (user.fullName) {
-    return user.fullName
-      .split(/\s+/)
-      .map((w) => w[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  }
-  return "?";
 }
 
 function getUserName(user: UserFields): string {

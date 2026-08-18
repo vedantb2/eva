@@ -49,7 +49,7 @@ export function EditorPanel({
       stopAction={stopAction}
       maxAttempts={20}
       icon={IconCode}
-      inactiveLabel="Start the sandbox to use the editor"
+      inactiveLabel="Wake Eva up to use the editor"
       idleLabel="Editor is not running"
       startLabel="Start Editor"
       startingLabel="Starting editor..."

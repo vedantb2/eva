@@ -69,15 +69,18 @@ export function ArtifactViewer({ artifactId }: { artifactId: string }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div className="flex shrink-0 items-center gap-3">
+      {/* Only the artifact name is essential on a phone, so the breadcrumb and
+          the new-tab label collapse to their icons and keep an accessible name. */}
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
         <Link
           to="/artifacts"
-          className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          aria-label="Back to artifacts"
+          className="max-sm:hit-target flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <IconArrowLeft size={16} />
-          Artifacts
+          <span className="hidden sm:inline">Artifacts</span>
         </Link>
-        <span className="text-muted-foreground">/</span>
+        <span className="hidden text-muted-foreground sm:inline">/</span>
         <h1 className="min-w-0 truncate text-balance font-medium text-foreground">
           {artifact.name}
         </h1>
@@ -86,10 +89,11 @@ export function ArtifactViewer({ artifactId }: { artifactId: string }) {
           onClick={() =>
             window.open(`/artifacts/${artifact._id}`, "_blank", "noopener")
           }
-          className="ml-auto flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+          aria-label="Open in new tab"
+          className="max-sm:hit-target flex shrink-0 items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <IconExternalLink size={16} />
-          Open in new tab
+          <span className="hidden sm:inline">Open in new tab</span>
         </button>
       </div>
       <div className="min-h-0 w-full flex-1 overflow-hidden rounded-surface border border-border bg-white">

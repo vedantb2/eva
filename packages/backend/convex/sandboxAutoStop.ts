@@ -7,6 +7,8 @@ import {
 } from "./_generated/server";
 import { authMutation, authQuery } from "./functions";
 import { scheduleFinalizeStop } from "./_sessions/sandbox";
+import { scheduleFinalizeStopTask } from "./_agentTasks/sandbox";
+import { scheduleFinalizeStopProject } from "./_projects/sandbox";
 
 const DAY_MS = 86_400_000;
 
@@ -186,11 +188,11 @@ export const stopTask = internalMutation({
     const task = await ctx.db.get(taskId);
     if (!task || !task.sandboxId || !task.repoId) return null;
     if (task.reviewTaskSandboxStatus !== "active") return null;
-    await ctx.scheduler.runAfter(
-      0,
-      internal._agentTasks.sandbox.finalizeStopTaskSandbox,
-      { taskId, sandboxId: task.sandboxId, repoId: task.repoId },
-    );
+    await scheduleFinalizeStopTask(ctx, {
+      taskId,
+      sandboxId: task.sandboxId,
+      repoId: task.repoId,
+    });
     await ctx.db.patch(taskId, {
       reviewTaskSandboxStatus: "stopping",
       updatedAt: Date.now(),
@@ -207,11 +209,11 @@ export const stopProject = internalMutation({
     const project = await ctx.db.get(projectId);
     if (!project || !project.sandboxId) return null;
     if (project.reviewProjectSandboxStatus !== "active") return null;
-    await ctx.scheduler.runAfter(
-      0,
-      internal._projects.sandbox.finalizeStopProjectSandbox,
-      { projectId, sandboxId: project.sandboxId, repoId: project.repoId },
-    );
+    await scheduleFinalizeStopProject(ctx, {
+      projectId,
+      sandboxId: project.sandboxId,
+      repoId: project.repoId,
+    });
     await ctx.db.patch(projectId, { reviewProjectSandboxStatus: "stopping" });
     return null;
   },

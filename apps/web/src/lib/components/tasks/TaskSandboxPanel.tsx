@@ -15,6 +15,7 @@ import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 interface TaskSandboxPanelProps {
   taskId: Id<"agentTasks">;
@@ -66,6 +67,7 @@ export function TaskSandboxPanel({
   onStartSandbox,
   isSandboxStarting,
 }: TaskSandboxPanelProps) {
+  const simpleView = useSimpleView();
   const taskIdStr = String(taskId);
 
   const viewState = useQuery(api.sandboxPanes.getViewState, { owner });
@@ -142,7 +144,7 @@ export function TaskSandboxPanel({
         terminalPanel={terminalPanel}
       />
       <div className="flex-1 overflow-hidden bg-card">
-        <div className={tabBarValue === "files" ? "h-full min-h-0" : "hidden"}>
+        <div className={!simpleView && tabBarValue === "files" ? "h-full min-h-0" : "hidden"}>
           <FilesPanel
             sandboxId={sandboxId}
             repoId={repoId}

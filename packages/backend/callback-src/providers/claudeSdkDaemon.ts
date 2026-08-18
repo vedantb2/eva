@@ -102,9 +102,11 @@ const PROMPT_POLL_INTERVAL_MS = 50;
 // emitting a result would never send a completion event, so the workflow's
 // awaitEvent hangs until the 2h stale-session timeout (empty "Working…" bubble).
 // Mirrors the one-shot path (claudeSdk.ts): fail the turn if it produces no SDK
-// message for a while, or exceeds the hard runtime cap. On a fire we send a
-// failure completion (resolving awaitEvent) and exit so the next turn respawns a
-// clean daemon rather than reusing a wedged query.
+// message for a while, or exceeds the hard runtime cap. Silence while a tool is
+// in flight (S.inFlightToolUses > 0) is exempt — the SDK emits nothing during a
+// tool run, so a long bash call would otherwise be killed as a hang (seen in
+// prod). On a fire we send a failure completion (resolving awaitEvent) and exit
+// so the next turn respawns a clean daemon rather than reusing a wedged query.
 const NO_MESSAGE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
 const WATCHDOG_TICK_MS = 5000;
 
@@ -277,6 +279,14 @@ function startTurnWatchdog(): void {
       turnStartedAtMs = now;
       lastMessageAtMs = now;
       return;
+    }
+    // The SDK emits nothing between a tool_use and its tool_result, so a
+    // long-running tool (Bash allows 10min; subagent Task calls longer) is
+    // indistinguishable from a hang by message silence alone. Mirror
+    // cliAttempt.ts: while a tool is in flight only the hard runtime cap
+    // applies, and the silence clock restarts once the tool result lands.
+    if (S.inFlightToolUses > 0) {
+      lastMessageAtMs = now;
     }
     if (now - turnStartedAtMs > MAX_TOTAL_RUNTIME_MS) {
       turnActive = false;

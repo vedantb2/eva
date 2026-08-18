@@ -9,6 +9,7 @@ import {
 } from "@eva/backend";
 import { ModelSelect, type ModelSelectProps } from "@eva/ui";
 import { ModelTraitsMenu } from "@/lib/components/ModelTraitsMenu";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 function triggerTraitUi(
   model: AIModel,
@@ -53,8 +54,11 @@ export function ModelSelectWithTraits({
   disabled,
   ...selectProps
 }: ModelSelectWithTraitsProps) {
+  // Simple view keeps the model name only — no reasoning/context/fast controls
+  // and no trailing trait summary on the trigger.
+  const simpleView = useSimpleView();
   const traitsUi =
-    onTraitsChange !== undefined && traits !== undefined
+    !simpleView && onTraitsChange !== undefined && traits !== undefined
       ? {
           ...triggerTraitUi(value, traits),
           header: (

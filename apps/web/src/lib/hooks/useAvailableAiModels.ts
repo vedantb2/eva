@@ -4,10 +4,12 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import type { ModelAccount } from "@eva/ui";
 import {
   api,
+  getSimpleViewModelOptions,
   getVisibleAIModelOptions,
   normalizeAIModel,
   type Id,
 } from "@eva/backend";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 export function useAvailableAiModels(
   repoId: Id<"githubRepos"> | null | undefined,
@@ -17,9 +19,15 @@ export function useAvailableAiModels(
     api.githubRepos.getProviderAvailability,
     repoId ? { repoId } : "skip",
   );
+  const simpleView = useSimpleView();
 
   const normalizedModel = normalizeAIModel(currentModel);
-  const options = getVisibleAIModelOptions(availability, normalizedModel);
+  const visible = getVisibleAIModelOptions(availability, normalizedModel);
+  // Simple view narrows the same list rather than a separate source, so the
+  // provider/availability rules above still hold.
+  const options = simpleView
+    ? getSimpleViewModelOptions(visible, normalizedModel)
+    : visible;
 
   return {
     availability,

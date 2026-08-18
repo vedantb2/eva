@@ -8,6 +8,7 @@ const convexDir = join(dirname(fileURLToPath(import.meta.url)), "../convex");
 const sandboxSource = readSource("_sessions/sandbox.ts");
 const stopRecoverySource = readSource("_sandbox/stopRecovery.ts");
 const startupSource = readSource("_sandbox_runtime/sessions.ts");
+const lifecycleSource = readSource("_sandbox_runtime/lifecycle.ts");
 
 /**
  * Convex does not auto-retry actions. A "Transient error while executing action"
@@ -78,6 +79,68 @@ describe("every session stop schedules its own recovery", () => {
     );
     expect(body.indexOf("return null;", guardAt)).toBeLessThan(
       body.indexOf("ctx.scheduler.runAfter("),
+    );
+  });
+});
+
+/**
+ * Recovery above only unwedges the *entity*; the VM still has to be told to
+ * stop. On a sandbox Vercel could no longer reach, the pre-stop refresh and
+ * swap-release exec hung until the whole budget was gone, so `stop()` — a fast
+ * control-plane call — was never issued and every attempt timed out (fix
+ * d8c53fa). Only `stop()` is load-bearing: everything before it is an
+ * optimisation, so each step is bounded and best-effort.
+ */
+describe("an unreachable VM cannot stop the stop from being issued", () => {
+  const body = definitionBody(lifecycleSource, "stopSandbox");
+  const dense = withoutWhitespace(body);
+
+  /** The calling finalize shares the 600s action cap and needs its catch to run. */
+  test("the attempt as a whole stays under the action cap", () => {
+    expect(dense).toContain("STOP_SANDBOX_BUDGET_MS");
+    expect(constant(lifecycleSource, "STOP_SANDBOX_BUDGET_MS")).toBeLessThan(
+      600_000,
+    );
+  });
+
+  test.each([
+    ["refresh", "withTimeout(sandbox.refresh(),REFRESH_BUDGET_MS"],
+    [
+      "swap release",
+      "withTimeout(releaseSwapFile(sandbox),SWAP_RELEASE_BUDGET_MS",
+    ],
+  ])("the pre-stop %s is bounded on its own", (_label, call) => {
+    expect(dense).toContain(call);
+  });
+
+  /** Half the budget is reserved for the stop and its confirmation. */
+  test("the pre-stop steps cannot claim most of the budget", () => {
+    const preStop =
+      constant(lifecycleSource, "REFRESH_BUDGET_MS") +
+      constant(lifecycleSource, "SWAP_RELEASE_BUDGET_MS");
+    expect(preStop).toBeLessThanOrEqual(
+      constant(lifecycleSource, "STOP_SANDBOX_BUDGET_MS") / 2,
+    );
+  });
+
+  test("neither pre-stop step can skip the stop", () => {
+    const stopAt = dense.indexOf("awaitsandbox.stop()");
+    expect(stopAt, "the stop call moved").toBeGreaterThan(-1);
+    const preStop = dense.slice(0, stopAt);
+    // Both steps log and fall through; a rethrow here would skip the stop.
+    expect(preStop.match(/catch\(/g) ?? []).toHaveLength(2);
+    expect(preStop).not.toContain("throw");
+    // The swap release is skipped unless the VM is known to be running, so a
+    // failed refresh must leave a state that still falls through to the stop.
+    expect(preStop, "a failed refresh must not gate the stop").toContain(
+      'letstate="unknown"',
+    );
+  });
+
+  /** The one call whose failure has to reach the caller. */
+  test("the stop itself still propagates", () => {
+    expect(dense.slice(dense.indexOf("awaitsandbox.stop()"))).toContain(
+      "throwerror",
     );
   });
 });
@@ -192,6 +255,18 @@ function blockBody(source: string, opener: string): string {
     }
   }
   throw new Error(`unterminated block at ${opener}`);
+}
+
+/** A numeric top-level constant, underscores and all. */
+function constant(source: string, name: string): number {
+  const declaration = source.match(new RegExp(`const ${name} = ([\\d_]+);`));
+  expect(declaration, `${name} moved or was renamed`).not.toBeNull();
+  return Number(declaration?.[1].replaceAll("_", ""));
+}
+
+/** Lets assertions span a prettier-wrapped call without pinning its layout. */
+function withoutWhitespace(source: string): string {
+  return source.replace(/\s+/g, "");
 }
 
 function stripComments(source: string): string {

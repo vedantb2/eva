@@ -321,10 +321,14 @@ export function QueuedMessagesPanel({
           <DialogHeader>
             <DialogTitle>Edit queued message</DialogTitle>
           </DialogHeader>
+          {/* A queued message is usually a whole follow-up prompt, so show a
+              dozen lines before scrolling. The dialog is a flex column under
+              max-h-[90vh], so a short viewport shrinks this rather than pushing
+              the buttons off screen. */}
           <Textarea
             value={draftContent}
             onChange={(event) => setDraftContent(event.target.value)}
-            rows={5}
+            rows={12}
           />
           <DialogFooter>
             <Button variant="ghost" onClick={() => setEditingItem(null)}>

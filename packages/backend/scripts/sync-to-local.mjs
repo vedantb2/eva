@@ -499,8 +499,9 @@ const componentZips = splitComponents(
 
 const targetFlags = ["--url", target.url, "--admin-key", target.adminKey];
 
-// Root tables first: --replace-all deletes every table not in the import, and a
-// component import would otherwise be undone by it.
+// Root tables first, and only here is --replace-all right: it clears tables the
+// snapshot omits, which is what makes the local deployment a mirror rather than a
+// merge. The component imports below must not repeat the flag — see there.
 runConvex(["import", ...targetFlags, "--replace-all", "--yes", zipPath], {
   label: `import into ${target.name}`,
   secrets: [target.adminKey],
@@ -591,13 +592,19 @@ function installComponents() {
   });
 }
 
+// --replace, not --replace-all: --replace-all is deployment-wide even alongside
+// --component, so it also clears every ROOT table not present in the component's
+// zip — which is all of them. That silently undid the root import above (the
+// change summary read "githubRepos 0 create / 17 of 17 delete"), leaving every
+// seeded sandbox with an empty app database. --replace only replaces the tables
+// the component zip actually carries.
 for (const component of componentZips) {
   const args = [
     "import",
     ...targetFlags,
     "--component",
     component.path,
-    "--replace-all",
+    "--replace",
     "--yes",
     component.zip,
   ];

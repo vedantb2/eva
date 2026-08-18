@@ -6,9 +6,11 @@ import {
   BOTTOM_PANEL_ID,
   LEFT_PANEL_ID,
   complementaryPercentage,
+  isMeasuredPanelSize,
   panelPercentage,
   RIGHT_PANEL_ID,
   TOP_PANEL_ID,
+  usableStoredSize,
 } from "./usePersistentPanelSize";
 
 describe("panelPercentage", () => {
@@ -48,11 +50,54 @@ describe("panelPercentage", () => {
     ).toBeNull();
   });
 
+  /** A NaN layout must not be persisted as a `NaN%` width. */
+  it("returns null when a flexGrow value is not finite", () => {
+    expect(
+      panelPercentage({ [LEFT_PANEL_ID]: NaN, [RIGHT_PANEL_ID]: 60 }, "right"),
+    ).toBeNull();
+    expect(
+      panelPercentage({ [LEFT_PANEL_ID]: 40, [RIGHT_PANEL_ID]: NaN }, "right"),
+    ).toBeNull();
+  });
+
   /** Collapsed is tracked separately; 0 is not a width worth returning to. */
   it("reports 0 for a collapsed panel so callers can skip persisting it", () => {
     expect(
       panelPercentage({ [LEFT_PANEL_ID]: 100, [RIGHT_PANEL_ID]: 0 }, "right"),
     ).toBe(0);
+  });
+});
+
+describe("isMeasuredPanelSize", () => {
+  /**
+   * The report a panel makes from inside a `display: none` subtree: 0px wide in
+   * a 0px group, so the library's `panelWidth / groupWidth` percentage is NaN.
+   * Kept-alive session shells are hidden that way on every session switch.
+   */
+  it("rejects the NaN report a hidden panel makes", () => {
+    expect(isMeasuredPanelSize({ asPercentage: NaN, inPixels: 0 })).toBe(false);
+  });
+
+  /** A real collapse is 0% of a measured group, and must still count. */
+  it("accepts a collapsed panel", () => {
+    expect(isMeasuredPanelSize({ asPercentage: 0, inPixels: 0 })).toBe(true);
+  });
+
+  it("accepts a laid-out panel", () => {
+    expect(isMeasuredPanelSize({ asPercentage: 60, inPixels: 720 })).toBe(true);
+  });
+});
+
+describe("usableStoredSize", () => {
+  it("keeps a stored size", () => {
+    expect(usableStoredSize("60%", "40%")).toBe("60%");
+    expect(usableStoredSize("256px", "300px")).toBe("256px");
+  });
+
+  /** Recovery path for widths stored as `NaN%` before the NaN reports were filtered. */
+  it("falls back when the stored size has no number in it", () => {
+    expect(usableStoredSize("NaN%", "40%")).toBe("40%");
+    expect(usableStoredSize("", "40%")).toBe("40%");
   });
 });
 
@@ -117,4 +162,20 @@ it("exports stable panel ids for the saved layout to key on", () => {
  */
 it("guards the group's first layout report", () => {
   expect(source).toContain("if (!isMounted.current) return;");
+});
+
+/**
+ * Every `onResize` consumer has to drop the NaN report a hidden panel makes.
+ * Without it the handler's collapsed state disagrees with the panel it mirrors,
+ * which is what made the sandbox toggle stop responding after a session switch.
+ */
+it.each([
+  "../components/ResizablePanelLayout.tsx",
+  "../components/sandbox/SandboxWorkspace.tsx",
+])("filters hidden-panel resize reports in %s", (relativePath) => {
+  const consumer = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), relativePath),
+    "utf8",
+  );
+  expect(consumer).toContain("if (!isMeasuredPanelSize(size)) return;");
 });

@@ -185,7 +185,9 @@ export const MentionTextarea = forwardRef<
           : undefined
       }
       dataSlot="input-group-control"
-      className="min-h-16 max-h-40 self-stretch overflow-y-auto rounded-none p-6 text-left focus-visible:outline-hidden"
+      // max-h is where the composer starts scrolling instead of growing. 200px
+      // is +40px on the previous 160px — two more 20px `text-sm` lines.
+      className="min-h-16 max-h-50 self-stretch overflow-y-auto rounded-none p-6 text-left focus-visible:outline-hidden"
       emptySlashContent={
         skillsSettingsHref && !simpleView ? (
           <span>

@@ -284,6 +284,7 @@ export function TaskDetailInline({
                         taskNumber={task?.taskNumber}
                         title={task?.title}
                         canEditTaskText={canEditTaskText}
+                        hasActiveRun={hasActiveRun}
                         taskId={taskId}
                       />
                       {task?.scheduledAt ? (
@@ -304,6 +305,7 @@ export function TaskDetailInline({
                     <TaskDescription
                       description={task?.description}
                       canEditTaskText={canEditTaskText}
+                      hasActiveRun={hasActiveRun}
                       taskId={taskId}
                       inline={true}
                     />

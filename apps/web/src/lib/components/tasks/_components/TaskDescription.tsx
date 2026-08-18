@@ -15,6 +15,7 @@ import {
 import { ReactionBar } from "./ReactionBar";
 import { EmojiReactionPicker } from "./EmojiReactionPicker";
 import { useReactions } from "./TaskReactionsProvider";
+import { taskTextLockReason } from "./task-detail-constants";
 
 /**
  * Descriptions are authored and stored as Markdown. Legacy/imported content can
@@ -34,11 +35,13 @@ function stripHtml(raw: string): string {
 export function TaskDescription({
   description,
   canEditTaskText,
+  hasActiveRun,
   taskId,
   inline: _inline,
 }: {
   description: string | undefined;
   canEditTaskText: boolean;
+  hasActiveRun: boolean;
   taskId: Id<"agentTasks">;
   /** Kept for call-site compatibility; description no longer uses a nested max-height scroll. */
   inline: boolean;
@@ -122,7 +125,7 @@ export function TaskDescription({
         onClick={isEmptyPlaceholder ? undefined : handleClick}
         title={
           !isEditing && !canEditTaskText
-            ? "Description can only be edited in To Do"
+            ? taskTextLockReason(hasActiveRun, "Description")
             : undefined
         }
         className={cn(

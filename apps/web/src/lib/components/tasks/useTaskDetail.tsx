@@ -9,7 +9,10 @@ import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { useState } from "react";
 import { convexErrorMessage } from "@/lib/utils/convexErrorMessage";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
-import type { TaskDetailTab } from "./_components/task-detail-constants";
+import {
+  canEditTaskText,
+  type TaskDetailTab,
+} from "./_components/task-detail-constants";
 
 const PREVIEW_SANDBOX_ALLOWED_STATUSES = [
   "code_review",
@@ -304,7 +307,7 @@ export function useTaskDetail(
   };
 
   const status = task?.status;
-  const canEditTaskText = status === "todo" && !hasActiveRun;
+  const canEditText = canEditTaskText(status, Boolean(hasActiveRun));
   const latestPrUrl = runs?.find((r) => r.prUrl)?.prUrl;
   const latestPrError = runs?.find((r) => r.prError)?.prError;
   const latestDeployment = runs?.find((r) => r.deploymentStatus);
@@ -338,7 +341,7 @@ export function useTaskDetail(
     hasActiveRun: Boolean(hasActiveRun),
     isProjectTask,
     hasRuns,
-    canEditTaskText,
+    canEditTaskText: canEditText,
     showTabsColumn,
     isActivityBusy: Boolean(hasActiveRun),
 

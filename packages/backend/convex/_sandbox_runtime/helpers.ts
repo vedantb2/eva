@@ -26,7 +26,10 @@ export const KILL_PRIOR_AGENT_PROCESSES_CMD =
   // Only legacy `opencode run` turns, never `opencode serve`: since the SDK
   // migration the long-lived server is shared across turns and killing it here
   // would force a cold start (and a fresh port bind) on every single launch.
-  "pkill -f 'opencode run' 2>/dev/null || true; " +
+  // `[ ]` keeps the regex from matching this command's own `bash -lc` wrapper,
+  // whose cmdline contains the pattern text — without it, pkill SIGTERMs the
+  // wrapping shell and the exec dies with exit 143 before reaching `true`.
+  "pkill -f 'opencode[ ]run' 2>/dev/null || true; " +
   "pkill -x cursor-agent 2>/dev/null || true; " +
   "true";
 
@@ -153,10 +156,14 @@ export async function execHandle(
   );
   if (resp.exitCode !== 0) {
     const output = resp.output?.trim();
+    // The command prefix is the only clue when the provider discards output on
+    // a kill (e.g. exit 143 = SIGTERM at timeout) — without it the failing exec
+    // is unidentifiable in logs.
+    const cmdHint = `cmd=${JSON.stringify(cmd.slice(0, 80))}`;
     throw new Error(
       output
         ? `Sandbox command failed (exit ${resp.exitCode}): ${output}`
-        : `Sandbox command failed with exit code ${resp.exitCode}`,
+        : `Sandbox command failed with exit code ${resp.exitCode} (${cmdHint})`,
     );
   }
   return resp.output;

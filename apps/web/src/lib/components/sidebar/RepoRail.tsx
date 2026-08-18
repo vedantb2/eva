@@ -376,26 +376,26 @@ function RepoRailView({
       ) : null}
       <div className="flex w-full flex-col items-center gap-1.5 border-t border-sidebar-border py-3">
         {simpleView ? null : (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Link
-                to="/automations"
-                onClick={onNavigate}
-                aria-label="Automations"
-                className={cn(
-                  RAIL_TILE_CLASS,
-                  "group",
-                  railTileActive(automationsActive),
-                )}
-              >
-                <AutomationsIcon size={22} className="shrink-0" />
-                <QueryErrorBoundary>
-                  <AutomationsUnreadBadge />
-                </QueryErrorBoundary>
-              </Link>
-            </TooltipTrigger>
-            <TooltipContent side="right">Automations</TooltipContent>
-          </Tooltip>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              to="/automations"
+              onClick={onNavigate}
+              aria-label="Automations"
+              className={cn(
+                RAIL_TILE_CLASS,
+                "group",
+                railTileActive(automationsActive),
+              )}
+            >
+              <AutomationsIcon size={22} className="shrink-0" />
+              <QueryErrorBoundary>
+                <AutomationsUnreadBadge />
+              </QueryErrorBoundary>
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right">Automations</TooltipContent>
+        </Tooltip>
         )}
         <Tooltip>
           <TooltipTrigger asChild>

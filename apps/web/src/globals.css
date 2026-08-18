@@ -1022,6 +1022,17 @@ html[data-blur-pid] [data-pii] {
   animation: beam-rotate var(--beam-duration) linear infinite;
 }
 
+/* The `steps(90)` cap below does NOT hold at 60Hz+, and layer isolation does
+ * not rescue it. The ring damages the frame every vsync, and the halo's blurred
+ * render pass is re-drawn with it: traced 720 `DirectRenderer::DrawRenderPass`
+ * over 360 frames with the ring on, versus 360 over 180 for the halo alone.
+ * `will-change: filter` on this layer plus `will-change: transform` on the
+ * spinning child was measured and rejected — the ratio stayed at 2 passes per
+ * frame on Chrome's GPU (SkiaRenderer) path, so cc never reused the undamaged
+ * filtered pass, and in software rendering the extra layers cost ~6% more
+ * compositor time. The remaining options all change how the glow looks
+ * (dropping it, or blurring inside the clip so it stops spilling outward), so
+ * this stays as-is pending a visual decision rather than being churned. */
 .beam-halo {
   position: absolute;
   inset: -1px;
@@ -1710,6 +1721,20 @@ html[data-blur-pid] [data-pii] {
   }
   100% {
     background-position: -200% 0;
+  }
+}
+
+/* <Shimmer/> (packages/ui) — the highlight sweep across text. Same start and
+ * end positions the motion/react version animated between, so the movement is
+ * unchanged; it just no longer costs a rAF callback and an inline style write
+ * per frame. `background-position` is still a paint property, so this repaints
+ * each frame — inherent to a background-clipped text sweep. */
+@keyframes shimmer-sweep {
+  from {
+    background-position: 100% center;
+  }
+  to {
+    background-position: 0% center;
   }
 }
 

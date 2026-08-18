@@ -53,17 +53,6 @@ export const WORK_DIR = existsSync("/tmp/repo")
 export const NO_OUTPUT_TIMEOUT_MS = Number(
   process.env.CLAUDE_NO_OUTPUT_TIMEOUT_MS || "60000",
 );
-/**
- * Mid-stream silence cap for CLI attempts: kill when the provider stream emits
- * nothing for this long with no tool in flight and no result yet. The original
- * 45s idle-stdout kill was removed (c8bb7fb8) for murdering healthy quiet
- * runs; that left hung provider streams riding until MAX_TOTAL_RUNTIME_MS —
- * observed in prod as a cursor:grok turn silent for 29 minutes mid-turn.
- * 10 minutes is far beyond any legitimate token gap but bounds a dead stream.
- */
-export const STREAM_SILENCE_TIMEOUT_MS = Number(
-  process.env.CLAUDE_STREAM_SILENCE_TIMEOUT_MS || String(10 * 60 * 1000),
-);
 export const FIRST_EVENT_TIMEOUT_MS = Number(
   process.env.CLAUDE_FIRST_EVENT_TIMEOUT_MS || "90000",
 );
@@ -136,6 +125,10 @@ export const OPENCODE_PERSIST_DIR =
   process.env.OPENCODE_PERSIST_DIR || "/home/eva/.opencode-persist";
 const OPENCODE_BIN_PATH =
   process.env.EVA_OPENCODE_BIN_PATH || "/tmp/opencode-cli/bin/opencode";
+/** Loopback port for the Eva-managed `opencode serve` process. */
+export const OPENCODE_SERVER_PORT = Number(
+  process.env.OPENCODE_SERVER_PORT || "4096",
+);
 const OPENCODE_STATE_FILE = "session-state.json";
 export const OPENCODE_LOCAL_STATE_FILE =
   OPENCODE_RUNTIME_HOME_DIR + "/" + OPENCODE_STATE_FILE;
@@ -300,18 +293,14 @@ export const cursorReasoningLevel =
   PROVIDER === "cursor" && REASONING_EFFORT in CURSOR_REASONING_EFFORT
     ? CURSOR_REASONING_EFFORT[REASONING_EFFORT]
     : cursorModelParts.level;
-const opencodeCommand = existsSync(OPENCODE_BIN_PATH)
-  ? JSON.stringify(OPENCODE_BIN_PATH)
+/**
+ * Resolved `opencode` executable. Unquoted: it is spawned directly (no shell)
+ * by the server manager, which is the only remaining caller now that turns run
+ * through the SDK rather than `opencode run`.
+ */
+export const opencodeCommand = existsSync(OPENCODE_BIN_PATH)
+  ? OPENCODE_BIN_PATH
   : "opencode";
-export const opencodePromptCmd = SYSTEM_PROMPT
-  ? "(printf %s\\n\\n " +
-    JSON.stringify(SYSTEM_PROMPT) +
-    "; cat /tmp/design-prompt.txt)"
-  : "cat /tmp/design-prompt.txt";
-export const opencodeExecBaseCmd =
-  opencodeCommand +
-  " run --format json --model " +
-  JSON.stringify(normalizedOpencodeModel);
 export const TOOL_STEP_TYPES = new Set([
   "read",
   "search_files",

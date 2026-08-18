@@ -33,6 +33,10 @@ const CODEX_FALLBACK_BIN_PATH = `${CODEX_FALLBACK_INSTALL_DIR}/bin/codex`;
 const OPENCODE_INSTALL_TIMEOUT_SECONDS = 300;
 const OPENCODE_FALLBACK_INSTALL_DIR = "/tmp/opencode-cli";
 const OPENCODE_FALLBACK_BIN_PATH = `${OPENCODE_FALLBACK_INSTALL_DIR}/bin/opencode`;
+/** Mirrors OPENCODE_VERSION in snapshotActions.ts and SDK_VERSION in
+ * callback-src/providers/opencodeSdk.ts — the CLI serves, the SDK is its
+ * generated client, and a drifted pair breaks fresh snapshots. */
+const OPENCODE_FALLBACK_VERSION = "1.18.16";
 const CALLBACK_READY_POLL_ATTEMPTS = 60;
 const CALLBACK_READY_POLL_INTERVAL_MS = 1000;
 const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
@@ -71,13 +75,18 @@ async function ensureCodexRuntimeAvailable(
   );
 }
 
-/** Installs the opencode CLI globally if not already available on the sandbox. */
+/**
+ * Installs the opencode CLI on sandboxes whose snapshot predates it. The CLI is
+ * still required after the SDK migration — it is what runs `opencode serve`,
+ * the HTTP server every turn talks to. The SDK itself self-installs from the
+ * callback (loadOpencodeSdk) when the snapshot lacks it.
+ */
 async function ensureOpencodeCliAvailable(
   sandbox: SandboxHandle,
 ): Promise<void> {
   await execHandle(
     sandbox,
-    `if ! command -v opencode >/dev/null 2>&1 && [ ! -x ${quote([OPENCODE_FALLBACK_BIN_PATH])} ]; then npm install -g --prefix ${quote([OPENCODE_FALLBACK_INSTALL_DIR])} opencode-ai; fi`,
+    `if ! command -v opencode >/dev/null 2>&1 && [ ! -x ${quote([OPENCODE_FALLBACK_BIN_PATH])} ]; then npm install -g --prefix ${quote([OPENCODE_FALLBACK_INSTALL_DIR])} opencode-ai@${OPENCODE_FALLBACK_VERSION}; fi`,
     OPENCODE_INSTALL_TIMEOUT_SECONDS,
   );
 }
@@ -311,8 +320,9 @@ export async function launchScript(
     // oom_score_adj to -600 (callback-src/index.ts) but lowering needs root,
     // so that write no-ops unprivileged — observed in prod as the callback
     // dying silently under memory pressure while dev servers survived. Lower
-    // it here via sudo instead. CLI subtrees are re-raised to 300 at spawn
-    // (callback-src/runtime/cliAttempt.ts), so the kernel kill order becomes:
+    // it here via sudo instead. The opencode server subtree is re-raised to
+    // 300 at spawn (callback-src/providers/opencodeServer.ts) — the only agent
+    // process the callback still spawns — so the kernel kill order becomes:
     // dev servers and agent work first (both recover — preview self-heal and
     // turn error reporting), the heartbeat/reporting callback last. Fail open
     // on images without passwordless sudo.

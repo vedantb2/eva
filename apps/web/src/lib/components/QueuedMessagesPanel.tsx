@@ -26,21 +26,13 @@ import {
   TooltipContent,
   TooltipTrigger,
   formatModelDisplayLabel,
+  useDragSensors,
 } from "@eva/ui";
 import { IconArrowUp, IconPencil, IconTrash } from "@tabler/icons-react";
-import {
-  DndContext,
-  closestCenter,
-  KeyboardSensor,
-  PointerSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
+import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
@@ -184,7 +176,9 @@ function SortableQueuedItem({
         <QueueItemContent className="text-xs leading-4">
           {renderContent ? renderContent(item.content) : item.content}
         </QueueItemContent>
-        <QueueItemActions className="items-center">
+        {/* `QueueItemActions` now carries `reveal-on-hover`, so it is visible on
+            touch by itself; only the tap target still needs growing here. */}
+        <QueueItemActions className="items-center max-sm:[&>button]:size-10">
           {onEditClick ? (
             <QueueItemAction
               aria-label="Edit queued message"
@@ -247,12 +241,10 @@ export function QueuedMessagesPanel({
     setDraftContent(editingItem?.content ?? "");
   }
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
+  // A lone distance-armed `PointerSensor` competes with the vertical scroll the
+  // finger is also describing, so the browser claims the gesture and reordering
+  // a queued message by touch never starts. The house hook arms touch on a hold.
+  const sensors = useDragSensors({ sortable: true });
 
   if (items.length === 0) {
     return null;

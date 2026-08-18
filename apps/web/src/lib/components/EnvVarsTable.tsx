@@ -149,10 +149,13 @@ export function EnvVarsTable({
   const saveEdit = async () => {
     if (!editingKey || !editValue.trim() || !onUpsert) return;
     const existing = vars?.find((v) => v.key === editingKey);
+    // Read out here: optional chaining and `??` inside the `try` bail the React
+    // Compiler out of this whole file. See CLAUDE.md.
+    const sandboxExclude = existing?.sandboxExclude ?? false;
     setSaving(true);
     try {
       await withMutationToast(
-        onUpsert(editingKey, editValue, existing?.sandboxExclude ?? false),
+        onUpsert(editingKey, editValue, sandboxExclude),
         "Variable saved",
         "Couldn't save variable",
         "env-var-save",
@@ -236,12 +239,15 @@ export function EnvVarsTable({
     const parsed = parseEnvVars(bulkText);
     if (parsed.length === 0) return;
     setBulkSaving(true);
+    // Built out here: a ternary inside the `try` bails the React Compiler out
+    // of this whole file. See CLAUDE.md.
+    const successMessage = `Imported ${parsed.length} variable${parsed.length !== 1 ? "s" : ""}`;
     try {
       await withMutationToast(
         Promise.all(
           parsed.map(({ key, value }) => onUpsert(key, value, false)),
         ),
-        `Imported ${parsed.length} variable${parsed.length !== 1 ? "s" : ""}`,
+        successMessage,
         "Couldn't import variables",
         "env-var-bulk-import",
       );
@@ -300,7 +306,7 @@ export function EnvVarsTable({
               onClick={saveEdit}
               disabled={!editValue.trim() || saving}
               title="Save"
-              className="text-primary hover:text-primary"
+              className="max-sm:hit-target text-primary hover:text-primary"
             >
               <IconCheck size={14} />
             </Button>
@@ -309,6 +315,7 @@ export function EnvVarsTable({
               variant="ghost"
               onClick={cancelEdit}
               title="Cancel"
+              className="max-sm:hit-target"
             >
               <IconX size={14} />
             </Button>
@@ -358,6 +365,7 @@ export function EnvVarsTable({
                   <Button
                     size="icon-sm"
                     variant="ghost"
+                    className="max-sm:hit-target"
                     onClick={() =>
                       void catchMutationError(
                         onToggleSandboxExclude(v.key, !v.sandboxExclude),
@@ -383,6 +391,7 @@ export function EnvVarsTable({
                   variant="ghost"
                   onClick={() => startEdit(v.key)}
                   title="Edit"
+                  className="max-sm:hit-target"
                 >
                   <IconPencil size={14} />
                 </Button>
@@ -391,7 +400,7 @@ export function EnvVarsTable({
                   variant="ghost"
                   onClick={() => setDeleteKey(v.key)}
                   title="Delete"
-                  className="text-destructive hover:text-destructive"
+                  className="max-sm:hit-target text-destructive hover:text-destructive"
                 >
                   <IconTrash size={14} />
                 </Button>
@@ -448,7 +457,7 @@ export function EnvVarsTable({
             onClick={handleAdd}
             disabled={!keyInput.trim() || !valueInput.trim() || saving}
             title="Save"
-            className="text-primary hover:text-primary"
+            className="max-sm:hit-target text-primary hover:text-primary"
           >
             <IconCheck size={14} />
           </Button>
@@ -457,6 +466,7 @@ export function EnvVarsTable({
             variant="ghost"
             onClick={cancelAdd}
             title="Cancel"
+            className="max-sm:hit-target"
           >
             <IconX size={14} />
           </Button>

@@ -1,4 +1,6 @@
 node_modules/
+# generated benchmark output
+*-results.json
 # never commit credential dumps
 secrets.txt
 *.secret

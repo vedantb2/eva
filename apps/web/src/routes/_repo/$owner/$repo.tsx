@@ -22,7 +22,11 @@ function MainContent({ children }: { children: ReactNode }) {
   return (
     <div
       className={cn(
-        "relative flex h-screen flex-col overflow-hidden pt-14 lg:pt-0",
+        // `h-dvh`, not `h-screen`: with `overflow-hidden` on the shell, a `100vh`
+        // height on iOS pushes the bottom of every repo page under the browser
+        // chrome with no way to scroll to it. The top pad tracks the below-`lg`
+        // header in `Sidebar.tsx`, which is 3.5rem *plus* the notch inset.
+        "relative flex h-dvh flex-col overflow-hidden pt-(--eva-mobile-header-height) lg:pt-0",
         // Default 20rem matches prior lg:pl-80 until localStorage hydrates.
         railOnly ? "lg:pl-16" : "lg:pl-(--eva-sidebar-width,20rem)",
       )}

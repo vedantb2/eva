@@ -114,222 +114,141 @@ export function buildClaudeShapedResult(args: {
   });
 }
 
-/** Extracts the final result event from a provider attempt's event stream. */
-export function extractResultEvent(output: string): ResultEvent | null {
-  if (PROVIDER === "cursor") {
-    let resultText = "";
-    let isError = false;
-    let sawResult = false;
-    let durationMs = 0;
-    let inputTokens = 0;
-    let outputTokens = 0;
-    let cacheReadTokens = 0;
-    let cacheWriteTokens = 0;
-    const assistantParts: string[] = [];
-    const readTokenField = (usage: JsonObject, key: string): number => {
-      const value = usage[key];
-      return typeof value === "number" && Number.isFinite(value) ? value : 0;
-    };
-    for (const line of output.split("\n")) {
-      const clean = line.trim();
-      if (!clean) continue;
-      try {
-        const parsed = parseJsonObject(clean);
-        if (!parsed) continue;
-        if (parsed.type === "result") {
-          sawResult = true;
-          isError = Boolean(parsed.is_error);
-          if (typeof parsed.duration_ms === "number")
-            durationMs = parsed.duration_ms;
-          if (typeof parsed.result === "string") {
-            resultText = parsed.result;
-          } else if (parsed.result !== undefined) {
-            resultText = JSON.stringify(parsed.result);
-          }
-          // The SDK runner synthesizes this line from run.wait() with real
-          // token usage (the old CLI reported nothing here).
-          if (
-            parsed.usage &&
-            typeof parsed.usage === "object" &&
-            !Array.isArray(parsed.usage)
-          ) {
-            inputTokens = readTokenField(parsed.usage, "input_tokens");
-            outputTokens = readTokenField(parsed.usage, "output_tokens");
-            cacheReadTokens = readTokenField(
-              parsed.usage,
-              "cache_read_input_tokens",
-            );
-            cacheWriteTokens = readTokenField(
-              parsed.usage,
-              "cache_creation_input_tokens",
-            );
-          }
-          continue;
+type SyntheticResult = {
+  sawResult: boolean;
+  resultText: string;
+  isError: boolean;
+  durationMs: number;
+  totalCostUsd: number;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  model: string;
+  /** Fallback prose from `type:"assistant"` lines (Cursor emits these). */
+  assistantText: string;
+};
+
+/**
+ * Reads the `{type:"result"}` line an SDK runner pushes at the end of a turn.
+ *
+ * Runners that own their own event loop (Cursor, OpenCode) also own the turn's
+ * usage numbers, so completion picks up one line instead of reparsing the whole
+ * stdout buffer — the reparse OpenCode needed while it ran as a CLI is gone.
+ */
+function readSyntheticResult(output: string): SyntheticResult {
+  const found: SyntheticResult = {
+    sawResult: false,
+    resultText: "",
+    isError: false,
+    durationMs: 0,
+    totalCostUsd: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    cacheReadTokens: 0,
+    cacheWriteTokens: 0,
+    model: "",
+    assistantText: "",
+  };
+  const readNumberField = (source: JsonObject, key: string): number => {
+    const value = source[key];
+    return typeof value === "number" && Number.isFinite(value) ? value : 0;
+  };
+  const assistantParts: string[] = [];
+  for (const line of output.split("\n")) {
+    const clean = line.trim();
+    if (!clean) continue;
+    try {
+      const parsed = parseJsonObject(clean);
+      if (!parsed) continue;
+      if (parsed.type === "result") {
+        found.sawResult = true;
+        found.isError = Boolean(parsed.is_error);
+        found.durationMs = readNumberField(parsed, "duration_ms");
+        found.totalCostUsd = readNumberField(parsed, "total_cost_usd");
+        found.model = typeof parsed.model === "string" ? parsed.model : "";
+        if (typeof parsed.result === "string") {
+          found.resultText = parsed.result;
+        } else if (parsed.result !== undefined) {
+          found.resultText = JSON.stringify(parsed.result);
         }
         if (
-          parsed.type === "assistant" &&
-          parsed.message &&
-          typeof parsed.message === "object" &&
-          !Array.isArray(parsed.message) &&
-          Array.isArray(parsed.message.content)
+          parsed.usage &&
+          typeof parsed.usage === "object" &&
+          !Array.isArray(parsed.usage)
         ) {
-          for (const block of parsed.message.content) {
-            if (
-              block &&
-              typeof block === "object" &&
-              !Array.isArray(block) &&
-              block.type === "text" &&
-              typeof block.text === "string"
-            ) {
-              assistantParts.push(block.text);
-            }
+          found.inputTokens = readNumberField(parsed.usage, "input_tokens");
+          found.outputTokens = readNumberField(parsed.usage, "output_tokens");
+          found.cacheReadTokens = readNumberField(
+            parsed.usage,
+            "cache_read_input_tokens",
+          );
+          found.cacheWriteTokens = readNumberField(
+            parsed.usage,
+            "cache_creation_input_tokens",
+          );
+        }
+        continue;
+      }
+      if (
+        parsed.type === "assistant" &&
+        parsed.message &&
+        typeof parsed.message === "object" &&
+        !Array.isArray(parsed.message) &&
+        Array.isArray(parsed.message.content)
+      ) {
+        for (const block of parsed.message.content) {
+          if (
+            block &&
+            typeof block === "object" &&
+            !Array.isArray(block) &&
+            block.type === "text" &&
+            typeof block.text === "string"
+          ) {
+            assistantParts.push(block.text);
           }
         }
-      } catch {
-        /* skip malformed lines */
       }
+    } catch {
+      /* skip malformed lines */
     }
-    if (sawResult) {
+  }
+  found.assistantText = assistantParts.join("");
+  return found;
+}
+
+/** Extracts the final result event from a provider attempt's event stream. */
+export function extractResultEvent(output: string): ResultEvent | null {
+  if (PROVIDER === "cursor" || PROVIDER === "opencode") {
+    const found = readSyntheticResult(output);
+    if (found.sawResult) {
       return {
-        result: resultText || assistantParts.join(""),
-        isError,
+        result: found.resultText || found.assistantText,
+        isError: found.isError,
         rawResultEvent: buildClaudeShapedResult({
-          provider: "cursor",
-          totalCostUsd: 0,
-          durationMs: durationMs || attemptElapsedMs(),
-          inputTokens,
-          outputTokens,
-          cacheReadInputTokens: cacheReadTokens,
-          cacheCreationInputTokens: cacheWriteTokens,
-          model: normalizedCursorModel,
+          provider: PROVIDER,
+          totalCostUsd: found.totalCostUsd,
+          durationMs: found.durationMs || attemptElapsedMs(),
+          inputTokens: found.inputTokens,
+          outputTokens: found.outputTokens,
+          cacheReadInputTokens: found.cacheReadTokens,
+          cacheCreationInputTokens: found.cacheWriteTokens,
+          // OpenCode reports the model the server actually served the turn
+          // with; Cursor's runner does not, so fall back to the configured id.
+          model:
+            found.model ||
+            (PROVIDER === "opencode"
+              ? normalizedOpencodeModel
+              : normalizedCursorModel),
         }),
       };
     }
-    if (assistantParts.length > 0) {
+    if (found.assistantText) {
       return {
-        result: assistantParts.join(""),
+        result: found.assistantText,
         isError: false,
         rawResultEvent: "",
       };
-    }
-    return null;
-  }
-
-  if (PROVIDER === "opencode") {
-    let finalMessageId = "";
-    let sawStopStep = false;
-    let errorLine = "";
-    let errorMessage = "";
-    const textByMessageId = new Map<string, string>();
-    let totalCostUsd = 0;
-    let inputTokens = 0;
-    let outputTokens = 0;
-    let reasoningTokens = 0;
-    let cacheReadTokens = 0;
-    let cacheWriteTokens = 0;
-    let stepModel = "";
-    for (const line of output.split("\n")) {
-      const clean = line.trim();
-      if (!clean) continue;
-      try {
-        const parsed = parseJsonObject(clean);
-        if (!parsed) continue;
-        if (parsed.type === "step_finish" && parsed.part) {
-          const part =
-            typeof parsed.part === "object" && !Array.isArray(parsed.part)
-              ? parsed.part
-              : null;
-          if (part && typeof part.cost === "number") totalCostUsd += part.cost;
-          const t = part && part.tokens;
-          if (t && typeof t === "object" && !Array.isArray(t)) {
-            if (typeof t.input === "number") inputTokens = t.input;
-            if (typeof t.output === "number") outputTokens += t.output;
-            if (typeof t.reasoning === "number") reasoningTokens += t.reasoning;
-            if (
-              t.cache &&
-              typeof t.cache === "object" &&
-              !Array.isArray(t.cache)
-            ) {
-              if (typeof t.cache.read === "number")
-                cacheReadTokens = t.cache.read;
-              if (typeof t.cache.write === "number")
-                cacheWriteTokens += t.cache.write;
-            }
-          }
-          if (part && typeof part.modelID === "string" && part.modelID) {
-            stepModel = part.modelID;
-          }
-          if (
-            part &&
-            part.reason === "stop" &&
-            typeof part.messageID === "string" &&
-            part.messageID
-          ) {
-            finalMessageId = part.messageID;
-            sawStopStep = true;
-          }
-          continue;
-        }
-        if (
-          parsed.type === "text" &&
-          parsed.part &&
-          typeof parsed.part === "object" &&
-          !Array.isArray(parsed.part) &&
-          typeof parsed.part.messageID === "string" &&
-          parsed.part.messageID &&
-          typeof parsed.part.text === "string"
-        ) {
-          const existing = textByMessageId.get(parsed.part.messageID) || "";
-          textByMessageId.set(
-            parsed.part.messageID,
-            existing + parsed.part.text,
-          );
-          continue;
-        }
-        if (parsed.type === "error") {
-          errorLine = clean;
-          const err =
-            parsed.error &&
-            typeof parsed.error === "object" &&
-            !Array.isArray(parsed.error)
-              ? parsed.error
-              : null;
-          if (
-            err &&
-            err.data &&
-            typeof err.data === "object" &&
-            !Array.isArray(err.data) &&
-            typeof err.data.message === "string"
-          ) {
-            errorMessage = err.data.message;
-          } else if (err && typeof err.name === "string") {
-            errorMessage = err.name;
-          } else {
-            errorMessage = "Opencode error";
-          }
-        }
-      } catch {
-        /* skip malformed lines */
-      }
-    }
-    if (sawStopStep) {
-      return {
-        result: textByMessageId.get(finalMessageId) || "",
-        isError: false,
-        rawResultEvent: buildClaudeShapedResult({
-          provider: "opencode",
-          totalCostUsd,
-          durationMs: attemptElapsedMs(),
-          inputTokens,
-          outputTokens: outputTokens + reasoningTokens,
-          cacheReadInputTokens: cacheReadTokens,
-          cacheCreationInputTokens: cacheWriteTokens,
-          model: stepModel || normalizedOpencodeModel,
-        }),
-      };
-    }
-    if (errorMessage) {
-      return { result: errorMessage, isError: true, rawResultEvent: errorLine };
     }
     return null;
   }
@@ -442,9 +361,9 @@ export function buildErrorMessage(
     PROVIDER === "codex"
       ? "Codex SDK"
       : PROVIDER === "opencode"
-        ? "Opencode CLI"
+        ? "Opencode SDK"
         : PROVIDER === "cursor"
-          ? "Cursor CLI"
+          ? "Cursor SDK"
           : "Claude CLI";
   if (fatalHeartbeatError) return fatalHeartbeatError;
   if (toolStallError) return toolStallError;

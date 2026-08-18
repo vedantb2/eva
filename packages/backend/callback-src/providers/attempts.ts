@@ -1,4 +1,4 @@
-import { PROVIDER, opencodeExecBaseCmd, opencodePromptCmd } from "../config.js";
+import { PROVIDER } from "../config.js";
 import {
   prepareClaudeSessionState,
   syncClaudeStateToPersist,
@@ -18,7 +18,7 @@ import {
 import { runClaudeSdkAttempt } from "./claudeSdk.js";
 import { runCodexSdkAttempt } from "./codexSdk.js";
 import { runCursorSdkAttempt } from "./cursorSdk.js";
-import { runCliAttempt } from "../runtime/cliAttempt.js";
+import { runOpencodeSdkAttempt } from "./opencodeSdk.js";
 import type { SessionMode } from "../types.js";
 
 export function prepareProviderSessionState(): SessionMode {
@@ -57,25 +57,13 @@ async function runCodexAttempt(sessionMode: SessionMode) {
   return await runCodexSdkAttempt(sessionMode);
 }
 
+/**
+ * OpenCode runs via the opencode SDK against the sandbox's `opencode serve`
+ * process (one shot per turn). The CLI binary is still required — it is what
+ * serves.
+ */
 async function runOpencodeAttempt(sessionMode: SessionMode) {
-  const sessionArg =
-    sessionMode.mode === "resume" && sessionMode.sessionId
-      ? " -s " + JSON.stringify(sessionMode.sessionId)
-      : "";
-  const cmd = opencodePromptCmd + " | " + opencodeExecBaseCmd + sessionArg;
-  return await runCliAttempt({
-    cmd,
-    env: { ...process.env },
-    processLabel: "opencode",
-    attemptLabel: "runOpencodeAttempt",
-    startupStep: {
-      label: "Starting Opencode CLI...",
-      detail:
-        sessionMode.mode === "resume"
-          ? "Restoring saved context..."
-          : "Launching Opencode process...",
-    },
-  });
+  return await runOpencodeSdkAttempt(sessionMode);
 }
 
 /** Cursor runs via the Cursor SDK (local agent in-process, one shot per turn). */

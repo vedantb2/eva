@@ -139,6 +139,8 @@ export function DocRecapViewer({
 
   const handleReviseRecap = async () => {
     setIsRevising(true);
+    // `try`/`finally` without a `catch` bails the React Compiler out of this
+    // whole file, so the reset is duplicated instead. See CLAUDE.md.
     try {
       await withMutationToast(
         reviseRecap({ docId: doc._id }),
@@ -146,14 +148,17 @@ export function DocRecapViewer({
         "Couldn't revise recap",
         "doc-revise-recap",
       );
-    } finally {
+    } catch (error) {
       setIsRevising(false);
+      throw error;
     }
+    setIsRevising(false);
   };
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="flex items-center gap-1.5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
+      {/* `flex-wrap`: title plus trailing controls do not share one row on a phone. */}
+      <div className="flex max-sm:flex-wrap items-center gap-1.5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
         <h1 className="min-w-0 truncate text-balance text-lg font-semibold">
           {doc.title}
         </h1>
@@ -168,9 +173,10 @@ export function DocRecapViewer({
               <Button
                 size="sm"
                 variant="secondary"
+                aria-label="Recap options"
                 className="motion-press hover:scale-[1.01] active:scale-[0.96]"
               >
-                <IconSettings size={16} />
+                <IconSettings size={16} aria-hidden />
                 <span className="hidden sm:inline">Options</span>
               </Button>
             </DropdownMenuTrigger>
@@ -207,10 +213,10 @@ export function DocRecapViewer({
               href={doc.prUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="ml-2 inline-flex items-center gap-1 text-foreground hover:underline"
+              className="max-sm:hit-target ml-2 inline-flex items-center gap-1 text-foreground hover:underline"
             >
               View on GitHub
-              <IconExternalLink size={12} />
+              <IconExternalLink size={12} aria-hidden />
             </a>
           ) : null}
           {isRecapErrored && doc.prRecapError ? (
@@ -278,7 +284,7 @@ export function DocRecapViewer({
                   <Button
                     size="sm"
                     variant={suggestionsOpen ? "secondary" : "ghost"}
-                    className="h-7 px-2"
+                    className="h-7 px-2 max-sm:h-10 max-sm:px-3"
                     onClick={toggleSuggestions}
                   >
                     <IconPencilCheck size={14} />
@@ -292,7 +298,7 @@ export function DocRecapViewer({
                   <Button
                     size="sm"
                     variant={commentsOpen ? "secondary" : "ghost"}
-                    className="h-7 px-2"
+                    className="h-7 px-2 max-sm:h-10 max-sm:px-3"
                     onClick={toggleComments}
                   >
                     <IconMessage size={14} />

@@ -123,7 +123,7 @@ export function ActivityLogDisplay({
     <Reasoning defaultOpen={false}>
       <ReasoningTrigger getThinkingMessage={() => "View logs"} />
       <CollapsibleContent className="mt-4 text-sm text-muted-foreground">
-        <pre className="whitespace-pre-wrap font-mono text-xs max-h-64 overflow-y-auto scroll-fade">
+        <pre className="whitespace-pre-wrap max-sm:wrap-break-word font-mono text-xs max-h-64 overflow-y-auto scroll-fade">
           {activityLog}
         </pre>
       </CollapsibleContent>

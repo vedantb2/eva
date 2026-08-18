@@ -6,7 +6,6 @@ import { describe, expect, test } from "vitest";
 const backendDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const oneShotSource = readSource("callback-src/index.ts");
-const cliAttemptSource = readSource("callback-src/runtime/cliAttempt.ts");
 const completionSource = readSource("callback-src/runtime/completion.ts");
 const sessionPromptSource = readSource("convex/_sessions/prompts.ts");
 const bundledScript = readSource(
@@ -20,25 +19,10 @@ const bundledScript = readSource(
  * preamble can otherwise look like a successful final answer.
  */
 describe("a signal-killed one-shot turn is never reported as success", () => {
-  test.each([
-    ["callback source", cliAttemptSource],
-    ["deployed bundle", bundledScript],
-  ])(
-    "the child close signal survives result parsing (%s)",
-    (_label, source) => {
-      const closeAt = source.indexOf('child.on("close", (code, signal)');
-      expect(
-        closeAt,
-        "the close handler stopped reading its signal",
-      ).toBeGreaterThan(-1);
-      const resultAt = source.indexOf("terminatedBySignal,", closeAt);
-      expect(
-        resultAt,
-        "the CLI attempt result stopped preserving signal termination",
-      ).toBeGreaterThan(closeAt);
-    },
-  );
-
+  // The CLI runner that translated a child's close signal into
+  // `terminatedBySignal` is deleted; no provider spawns an agent subprocess
+  // any more, so every SDK runner reports it false and the surviving guards
+  // below (137/143 exit codes, agentWasInterrupted) carry the invariant.
   test.each([
     ["callback source", oneShotSource],
     ["deployed bundle", bundledScript],

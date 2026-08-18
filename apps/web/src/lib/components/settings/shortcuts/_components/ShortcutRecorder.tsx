@@ -12,6 +12,11 @@ const SLOT_HINT = "That combo needs to end in a digit from 1 to 9.";
  * The record button for one shortcut row. Click it, press the combo, done —
  * Escape cancels and Backspace clears back to the default, both handled by the
  * library's recorder.
+ *
+ * The button also cancels, because Escape and Backspace do not exist on a phone:
+ * tapping it used to arm recording with no way out and no way to record, so the
+ * row was a dead end on touch. Rebinding a shortcut still needs a keyboard —
+ * that is inherent — but entering the state is now reversible for everyone.
  */
 export function ShortcutRecorder({
   def,
@@ -51,9 +56,17 @@ export function ShortcutRecorder({
         size="sm"
         onClick={() => {
           setRejected(null);
+          if (recorder.isRecording) {
+            recorder.cancelRecording();
+            return;
+          }
           recorder.startRecording();
         }}
-        aria-label={`Change the shortcut for ${def.name}`}
+        aria-label={
+          recorder.isRecording
+            ? `Stop changing the shortcut for ${def.name}`
+            : `Change the shortcut for ${def.name}`
+        }
         className={cn(
           "min-w-28 justify-center font-mono",
           recorder.isRecording && "border-primary text-primary",
@@ -67,7 +80,7 @@ export function ShortcutRecorder({
       </Button>
       {recorder.isRecording ? (
         <p className="text-[11px] text-muted-foreground">
-          Esc cancels · Backspace resets
+          Esc or tap cancels · Backspace resets
         </p>
       ) : null}
       {rejected ? <p className="text-[11px] text-warning">{rejected}</p> : null}

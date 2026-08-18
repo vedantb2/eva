@@ -9,19 +9,10 @@ import { Virtuoso } from "react-virtuoso";
 import { useMutation } from "convex/react";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { entityPathSegment } from "@/lib/numId";
-import {
-  DndContext,
-  closestCenter,
-  PointerSensor,
-  KeyboardSensor,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-} from "@dnd-kit/core";
+import { DndContext, closestCenter, type DragEndEvent } from "@dnd-kit/core";
 import {
   arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
@@ -32,6 +23,7 @@ import {
   AccordionTrigger,
   AccordionContent,
   Button,
+  useDragSensors,
 } from "@eva/ui";
 import {
   isTaskAgentActive,
@@ -83,11 +75,12 @@ function SortableTaskWrapper({
     >
       <button
         type="button"
-        className="cursor-grab touch-none text-muted-foreground hover:text-foreground shrink-0 p-0.5"
+        aria-label={`Reorder ${task.title}`}
+        className="max-sm:hit-target cursor-grab touch-none text-muted-foreground hover:text-foreground shrink-0 max-sm:p-1.5"
         {...attributes}
         {...listeners}
       >
-        <IconGripVertical size={14} />
+        <IconGripVertical size={14} aria-hidden />
       </button>
       <div className="flex-1 min-w-0">
         <QuickTaskCard
@@ -192,12 +185,10 @@ export function ProjectTaskListPanel({
     todoTasks = ordered;
   }
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    }),
-  );
+  // Mouse arms on distance, touch on a hold — a single PointerSensor cannot do
+  // both, and distance-based activation on touch loses the pointer to the list's
+  // own scroll, so reorder was impossible on a phone.
+  const sensors = useDragSensors({ sortable: true });
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;

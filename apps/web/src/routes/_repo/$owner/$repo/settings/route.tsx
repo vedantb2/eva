@@ -2,12 +2,8 @@ import {
   createFileRoute,
   Navigate,
   Outlet,
-  useRouterState,
 } from "@tanstack/react-router";
-import {
-  isSimpleViewHiddenSettingsPath,
-  useSimpleView,
-} from "@/lib/hooks/useSimpleView";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 export const Route = createFileRoute("/_repo/$owner/$repo/settings")({
   component: SettingsLayout,
@@ -16,16 +12,11 @@ export const Route = createFileRoute("/_repo/$owner/$repo/settings")({
 function SettingsLayout() {
   const simpleView = useSimpleView();
   const { owner, repo } = Route.useParams();
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  if (simpleView && isSimpleViewHiddenSettingsPath(pathname)) {
-    return (
-      <Navigate
-        to="/$owner/$repo/settings/skills"
-        params={{ owner, repo }}
-        replace
-      />
-    );
+  // Simple view has no repo settings at all — every page here (Skills
+  // included) bounces to the repo home so deep links cannot reach them.
+  if (simpleView) {
+    return <Navigate to="/$owner/$repo" params={{ owner, repo }} replace />;
   }
 
   return <Outlet />;

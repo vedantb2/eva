@@ -5,6 +5,7 @@ import { cancelTrackedWorkflow } from "../workflowManager";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import {
   STALE_RECHECK_MS,
+  staleProbeFollowUp,
   staleTurnDecision,
 } from "../_taskWorkflow/staleness";
 import { finalizeCancelledAssistantMessage } from "../streaming";
@@ -226,11 +227,13 @@ export async function runStaleChatHeartbeatCheck<TId extends ChatId, TEntity>(
 /**
  * Pre-kill liveness gate for a stale chat turn: asks the sandbox provider
  * whether the VM is running and the callback PID (or an agent CLI process) is
- * alive. Alive → touch the streaming row (resets the staleness clock) and
- * keep checking, so transport flaps never kill live work. Dead → re-enter the
- * check with the probe suppressed so the kill proceeds immediately.
- * Unreachable probes report alive (see verifySandboxLiveness), so we never
- * kill on our own inability to verify.
+ * alive. Confirmed alive → touch the streaming row (resets the staleness
+ * clock) and keep checking, so transport flaps never kill live work. Dead →
+ * re-enter the check with the probe suppressed so the kill proceeds
+ * immediately. Unreachable → keep checking WITHOUT touching the row, so a
+ * turn we cannot verify at all dies at STALE_UNVERIFIED_KILL_THRESHOLD_MS
+ * instead of hanging on "Working…" until the 2h backstop (see
+ * staleProbeFollowUp).
  */
 export async function runStaleChatLivenessProbe<TId extends ChatId, TEntity>(
   ctx: ActionCtx,
@@ -253,10 +256,24 @@ export async function runStaleChatLivenessProbe<TId extends ChatId, TEntity>(
     `[watchdog][${adapter.logLabel}-probe] ${adapter.idLogLabel}=${args.id} alive=${liveness.alive} reason=${liveness.reason} sandboxState=${liveness.sandboxState ?? "unknown"} pidAlive=${liveness.pidAlive ?? "n/a"} streamingAgeMs=${args.streamingAgeMs}`,
   );
 
-  if (liveness.alive) {
+  const followUp = staleProbeFollowUp({
+    alive: liveness.alive,
+    reason: liveness.reason,
+    streamingAgeMs: args.streamingAgeMs,
+  });
+
+  if (followUp === "confirmed_alive") {
     await ctx.runMutation(internal.streaming.internalTouch, {
       entityId: adapter.streamingEntityId(args.id),
     });
+    await adapter.scheduleCheck(ctx, args.id, STALE_RECHECK_MS, {
+      workflowId: args.workflowId,
+      turnStartedAt: args.turnStartedAt,
+    });
+    return;
+  }
+
+  if (followUp === "await_verification") {
     await adapter.scheduleCheck(ctx, args.id, STALE_RECHECK_MS, {
       workflowId: args.workflowId,
       turnStartedAt: args.turnStartedAt,

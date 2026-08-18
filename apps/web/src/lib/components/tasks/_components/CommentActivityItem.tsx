@@ -180,7 +180,10 @@ export function CommentActivityItem({
                   type="button"
                   size="icon-sm"
                   variant="ghost"
-                  className="h-7 w-7 text-muted-foreground opacity-0 transition-[opacity,background-color] group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100"
+                  // `icon-sm` carries `hit-target`, so the visible 32px button
+                  // has a 48px pressable area — the hand-rolled `h-7 w-7` it
+                  // replaces had neither that nor a way to be reached on touch.
+                  className="reveal-on-hover text-muted-foreground"
                   aria-label="Comment options"
                 >
                   <IconDots size={14} />

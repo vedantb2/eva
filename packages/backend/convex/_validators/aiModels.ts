@@ -733,6 +733,38 @@ export function getVisibleAIModelOptions(
 }
 
 /**
+ * Simple view keeps one current model per provider family: the Claude models we
+ * recommend, the latest Codex generation, and Cursor's latest Grok/Composer.
+ * Everything else stays selectable in the normal UI — this only trims the list.
+ */
+const SIMPLE_VIEW_MODEL_IDS: ReadonlySet<AIModel> = new Set<AIModel>([
+  "claude:claude-fable-5",
+  "claude:opus",
+  "claude:sonnet",
+  "codex:gpt-5.6-sol",
+  "codex:gpt-5.6-terra",
+  "codex:gpt-5.6-luna",
+  "cursor:grok-4.6",
+  "cursor:composer-2.5",
+  "opencode:openai/gpt-5.4",
+]);
+
+/**
+ * Trims the picker to the simple-view set. The current model is always kept so
+ * a session already running on an older model still shows its own name.
+ */
+export function getSimpleViewModelOptions(
+  options: ReadonlyArray<AIModelOption>,
+  currentModel: string | null | undefined,
+): ReadonlyArray<AIModelOption> {
+  const normalizedCurrent = normalizeAIModel(currentModel);
+  return options.filter(
+    (option) =>
+      SIMPLE_VIEW_MODEL_IDS.has(option.id) || option.id === normalizedCurrent,
+  );
+}
+
+/**
  * A session is pinned to the provider of the model it was created with.
  *
  * Each agent CLI keeps its own resume state inside the sandbox, so switching

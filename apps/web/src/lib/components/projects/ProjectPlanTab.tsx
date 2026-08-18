@@ -195,7 +195,7 @@ export function ProjectPlanTab({
                     }
                   }}
                   autoFocus
-                  className="h-8 text-sm flex-1"
+                  className="h-8 flex-1 text-sm max-sm:h-10 max-sm:text-base"
                 />
                 <Button
                   size="sm"

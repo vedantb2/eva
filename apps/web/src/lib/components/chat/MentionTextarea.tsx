@@ -20,6 +20,7 @@ import { useDataMentionItems } from "@/lib/hooks/useDataMentionItems";
 import { usePeopleMentionItems } from "@/lib/hooks/usePeopleMentionItems";
 import { useDataMentionNavigate } from "@/lib/useDataMentionNavigate";
 import { useInlineSuggestion } from "@/lib/hooks/useInlineSuggestion";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 export type MentionTextareaHandle = MentionEditorHandle;
 
@@ -130,7 +131,12 @@ export const MentionTextarea = forwardRef<
     void navigateToData(id);
   };
 
+  // Skills settings do not exist in simple view, so the chip and the empty
+  // state must not point at a page that redirects straight back out.
+  const simpleView = useSimpleView();
+
   const handleSkillChipClick = (_skillId: string) => {
+    if (simpleView) return;
     navigate({ to: `${repoBasePath}/settings/skills` });
   };
 
@@ -183,7 +189,7 @@ export const MentionTextarea = forwardRef<
       // is +40px on the previous 160px — two more 20px `text-sm` lines.
       className="min-h-16 max-h-50 self-stretch overflow-y-auto rounded-none p-6 text-left focus-visible:outline-hidden"
       emptySlashContent={
-        skillsSettingsHref ? (
+        skillsSettingsHref && !simpleView ? (
           <span>
             No available skills.{" "}
             <Link

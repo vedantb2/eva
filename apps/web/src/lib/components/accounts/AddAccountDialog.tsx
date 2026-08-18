@@ -118,15 +118,22 @@ function AddAccountForm({
       const value = values[field.key]?.trim() ?? "";
       return value.length > 0 ? [{ key: field.key, value }] : [];
     });
+    // Built out here: ternaries and optional chaining inside the `try` bail the
+    // React Compiler out of this whole file. See CLAUDE.md.
+    const accountId = editing?._id;
+    const successMessage = editing ? "Account updated" : "Account added";
+    const errorMessage = editing
+      ? "Couldn't update account"
+      : "Couldn't add account";
     try {
       await withMutationToast(
         upsert({
-          accountId: editing?._id,
+          accountId,
           provider,
           credentials,
         }),
-        editing ? "Account updated" : "Account added",
-        editing ? "Couldn't update account" : "Couldn't add account",
+        successMessage,
+        errorMessage,
         "account-upsert",
       );
       onOpenChange(false);
@@ -156,7 +163,9 @@ function AddAccountForm({
                 disabled={editing !== null}
                 onClick={() => setProvider(option)}
                 className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors",
+                  // `max-sm:min-h-10` lifts the 30px chip to a comfortable tap
+                  // target on touch without changing the desktop density.
+                  "inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors max-sm:min-h-10",
                   provider === option
                     ? "border-border bg-muted text-foreground"
                     : "border-transparent bg-muted/40 text-muted-foreground hover:bg-muted/60",
@@ -193,6 +202,7 @@ function AddAccountForm({
                     }))
                   }
                   placeholder={field.placeholder}
+                  aria-label={field.label}
                   className="h-28 font-mono text-xs"
                 />
               ) : (
@@ -210,6 +220,7 @@ function AddAccountForm({
                     }))
                   }
                   placeholder={field.placeholder}
+                  aria-label={field.label}
                   className="h-8 font-mono text-xs"
                   autoFocus={field === fields[0]}
                 />

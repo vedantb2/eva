@@ -33,7 +33,7 @@ export function SessionTabsNewMenu({ repos }: SessionTabsNewMenuProps) {
           type="button"
           aria-label="New session"
           title="New session"
-          className="flex size-7 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40"
+          className="flex size-7 max-sm:size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40"
         >
           <IconPlus size={16} />
         </button>

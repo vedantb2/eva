@@ -55,7 +55,7 @@ export function PageWrapper({
           className={`motion-base relative ${comfortable ? "px-4 py-6 sm:px-6" : "p-3 sm:px-4"}`}
         >
           <div
-            className={`grid items-center gap-2 sm:gap-3 ${hasHeaderRight ? "grid-cols-[minmax(0,1fr)_auto] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]" : "grid-cols-1"} ${comfortable ? "mx-auto w-full max-w-5xl" : ""}`}
+            className={`grid items-center gap-2 sm:gap-3 ${hasHeaderRight ? "grid-cols-[minmax(0,1fr)_minmax(0,auto)] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]" : "grid-cols-1"} ${comfortable ? "mx-auto w-full max-w-5xl" : ""}`}
           >
             <div
               className={`flex min-w-0 items-center gap-2 sm:gap-3 ${hasHeaderRight && !headerCenter ? "md:col-span-2" : ""}`}
@@ -65,7 +65,8 @@ export function PageWrapper({
                   size="icon"
                   variant="outline"
                   onClick={onBack ?? (() => window.history.back())}
-                  className="motion-press h-9 w-9 shrink-0 rounded-full hover:scale-[1.03] active:scale-[0.96]"
+                  aria-label="Go back"
+                  className="motion-press max-sm:hit-target h-9 w-9 shrink-0 rounded-full hover:scale-[1.03] active:scale-[0.96]"
                 >
                   <IconArrowLeft size={16} className="text-muted-foreground" />
                 </Button>
@@ -84,7 +85,7 @@ export function PageWrapper({
               </div>
             )}
             {hasHeaderRight ? (
-              <div className="flex min-h-10 items-center justify-end gap-1.5 sm:gap-2 justify-self-end animate-in fade-in slide-in-from-right-1 duration-300">
+              <div className="flex min-h-10 max-sm:min-w-0 max-sm:flex-wrap items-center justify-end gap-1.5 sm:gap-2 justify-self-end animate-in fade-in slide-in-from-right-1 duration-300">
                 {headerRight}
               </div>
             ) : null}
@@ -103,7 +104,11 @@ export function PageWrapper({
                   {toolbar}
                 </div>
               ) : null}
-              {hasTabs ? <div className="min-w-0">{tabs}</div> : null}
+              {hasTabs ? (
+                <div className="min-w-0 max-sm:max-w-full max-sm:overflow-x-auto scrollbar">
+                  {tabs}
+                </div>
+              ) : null}
             </div>
           ) : null}
         </div>

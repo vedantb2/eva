@@ -40,7 +40,9 @@ export function SkillContentDialog({
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
           {sourcePath ? (
-            <DialogDescription>{sourcePath}</DialogDescription>
+            <DialogDescription className="max-sm:break-all">
+              {sourcePath}
+            </DialogDescription>
           ) : null}
         </DialogHeader>
 

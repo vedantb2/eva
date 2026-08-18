@@ -114,7 +114,9 @@ export function BranchSelect({
           />
           <CommandList
             ref={listRef}
-            className="max-h-[300px]"
+            // `dvh` cap so the list stays inside the visible area once a phone
+            // keyboard is up over the search field.
+            className="max-h-[min(300px,55dvh)]"
             onWheel={(e) => e.stopPropagation()}
           >
             {isLoading ? (
@@ -139,7 +141,9 @@ export function BranchSelect({
                         size={14}
                         className="text-muted-foreground"
                       />
-                      {branch.name}
+                      <span className="max-sm:min-w-0 max-sm:flex-1 max-sm:truncate">
+                        {branch.name}
+                      </span>
                       <IconCheck
                         size={14}
                         className={cn(

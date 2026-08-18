@@ -78,12 +78,15 @@ export function AssignTasksModal({
 
   const handleAssign = async (userId: Id<"users">) => {
     setIsLoading(true);
+    // Built out here: a ternary inside the `try` bails the React Compiler out
+    // of this whole file. See CLAUDE.md.
+    const successMessage = `Assigned ${count} task${count === 1 ? "" : "s"}`;
     try {
       await withMutationToast(
         Promise.all(
           taskIds.map((id) => updateTask({ id, assignedTo: userId })),
         ),
-        `Assigned ${count} task${count === 1 ? "" : "s"}`,
+        successMessage,
         "Couldn't assign tasks",
         "tasks-bulk-assign",
       );

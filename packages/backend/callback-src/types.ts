@@ -97,15 +97,6 @@ export type StreamLineResult = {
   needsHeartbeat?: boolean;
 };
 
-export type CliAttemptOptions = {
-  cmd: string;
-  env: NodeJS.ProcessEnv;
-  processLabel: string;
-  attemptLabel: string;
-  startupStep: StartupStep;
-  onStart?: () => void;
-};
-
 export type ProviderAttemptResult = {
   code: number;
   terminatedBySignal: boolean;
@@ -123,27 +114,6 @@ export type ResultEvent = {
   result: string;
   isError: boolean;
   rawResultEvent: string;
-};
-
-export type AttemptHealthInput = {
-  childPid: number | undefined;
-  parsedEventsAtStart: number;
-  attemptStartedAt: number;
-  lastStdoutAt: number;
-  processLabel: string;
-  toolStallErrorMessage: string;
-};
-
-export type AttemptHealthResult = {
-  shouldTerminate: boolean;
-  timedOutForZombie: boolean;
-  timedOutForMaxRuntime: boolean;
-  timedOutForFirstEvent: boolean;
-  timedOutForFirstAssistant: boolean;
-  timedOutAfterFirstText: boolean;
-  timedOutForNoOutput: boolean;
-  toolStallErrorMessage: string;
-  logMessage?: string;
 };
 
 export type ConvexCallType = "mutation" | "action";

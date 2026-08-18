@@ -286,6 +286,17 @@ export function ProjectDetailClient({
     showRetryStartupCommands || showRunBackgroundCommands;
   const hasPrLinkItems =
     canCreatePr || Boolean(project.prUrl) || hasDeployedPreview;
+  // Named once: the label is hidden below `sm`, where it becomes the button's
+  // accessible name instead.
+  const sandboxButtonLabel = isSandboxStopping
+    ? "Stopping..."
+    : isSandboxStarting && !isSandboxActive
+      ? "Starting..."
+      : isSandboxSurface
+        ? "Back to Tasks"
+        : isSandboxActive
+          ? "View Sandbox · Active"
+          : "View Sandbox";
 
   const tab = sandboxTab ?? "preview";
   // Always mount the sandbox panel when the project can have one so tabs
@@ -346,6 +357,7 @@ export function ProjectDetailClient({
           rightMinWidthPx={300}
           defaultRightCollapsed={false}
           expandRightSignal={expandRightSignal}
+          mobilePaneLabels={{ left: "Chat", right: "Sandbox" }}
           leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
             <ProjectSandboxChatPanel
               projectId={projectId}
@@ -393,9 +405,9 @@ export function ProjectDetailClient({
       }
       headerRight={
         !isDraftOrFinalized ? (
-          <div className="flex flex-col items-end gap-1">
+          <div className="flex max-sm:min-w-0 flex-col items-end gap-1">
             {prError && <p className="text-xs text-destructive">{prError}</p>}
-            <div className="flex items-center gap-1.5 sm:gap-2">
+            <div className="flex max-sm:flex-wrap items-center max-sm:justify-end gap-1.5 sm:gap-2">
               <ProjectContextUsage repoId={repo._id} projectId={projectId} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -517,10 +529,11 @@ export function ProjectDetailClient({
                 <Button
                   variant="destructive"
                   size="sm"
+                  aria-label="Put Eva to sleep"
                   onClick={handleStopSandbox}
                   disabled={isSandboxStopping}
                 >
-                  <IconPlayerStop size={16} />
+                  <IconPlayerStop size={16} aria-hidden />
                   <span className="hidden sm:inline">Put Eva to sleep</span>
                 </Button>
               ) : null}
@@ -528,6 +541,7 @@ export function ProjectDetailClient({
                 <Button
                   variant="secondary"
                   size="sm"
+                  aria-label={sandboxButtonLabel}
                   onClick={toggleProjectSandboxView}
                   disabled={isSandboxStopping}
                   className={
@@ -538,24 +552,18 @@ export function ProjectDetailClient({
                 >
                   {(isSandboxStarting && !isSandboxActive) ||
                   isSandboxStopping ? (
-                    <IconLoader2 size={16} className="animate-spin" />
+                    <IconLoader2
+                      size={16}
+                      className="animate-spin"
+                      aria-hidden
+                    />
                   ) : (
-                    <IconTerminal2 size={16} />
+                    <IconTerminal2 size={16} aria-hidden />
                   )}
                   {isSandboxActive && !isSandboxSurface && (
                     <span className="h-1.5 w-1.5 rounded-full bg-success" />
                   )}
-                  <span className="hidden sm:inline">
-                    {isSandboxStopping
-                      ? "Stopping..."
-                      : isSandboxStarting && !isSandboxActive
-                        ? "Starting..."
-                        : isSandboxSurface
-                          ? "Back to Tasks"
-                          : isSandboxActive
-                            ? "View Sandbox · Active"
-                            : "View Sandbox"}
-                  </span>
+                  <span className="hidden sm:inline">{sandboxButtonLabel}</span>
                 </Button>
               ) : null}
               {canBuildProject ? (
@@ -563,13 +571,18 @@ export function ProjectDetailClient({
                   <Button
                     size="sm"
                     variant="destructive"
+                    aria-label="Stop build"
                     onClick={() => setShowStopBuildConfirm(true)}
                     disabled={isStoppingBuild}
                   >
                     {isStoppingBuild ? (
-                      <IconLoader2 size={16} className="animate-spin" />
+                      <IconLoader2
+                        size={16}
+                        className="animate-spin"
+                        aria-hidden
+                      />
                     ) : (
-                      <IconPlayerStop size={16} />
+                      <IconPlayerStop size={16} aria-hidden />
                     )}
                     <span className="hidden sm:inline">Stop Build</span>
                   </Button>
@@ -757,8 +770,10 @@ export function ProjectDetailClient({
   );
 }
 
+// `max-sm:h-10`: the two halves abut, so the `hit-target` bleed each `size="sm"`
+// carries would be spent on the other half rather than on the tap target.
 const SPLIT_BUTTON_HALF =
-  "hover:translate-y-0 active:scale-100 group-hover/split:bg-primary/92";
+  "hover:translate-y-0 active:scale-100 group-hover/split:bg-primary/92 max-sm:h-10";
 
 function SplitBuildButton({
   projectId,
@@ -773,6 +788,10 @@ function SplitBuildButton({
 }) {
   const chevronRef = useRef<HTMLButtonElement>(null);
   const isScheduled = scheduledBuildAt !== undefined;
+  // Hidden below `sm`, so it doubles as the button's accessible name there.
+  const buildLabel = isScheduled
+    ? dayjs(scheduledBuildAt).format("MMM D, h:mm A")
+    : "Build Project";
 
   return (
     <div className="group/split flex items-center transition-[transform,background-color] duration-[var(--motion-base)] active:scale-[0.96]">
@@ -781,21 +800,18 @@ function SplitBuildButton({
           <div>
             <Button
               size="sm"
+              aria-label={buildLabel}
               onClick={
                 isScheduled ? () => chevronRef.current?.click() : onBuild
               }
               className={`rounded-r-none ${SPLIT_BUTTON_HALF}`}
             >
               {isScheduled ? (
-                <IconCalendarClock size={16} />
+                <IconCalendarClock size={16} aria-hidden />
               ) : (
-                <IconHammer size={16} />
+                <IconHammer size={16} aria-hidden />
               )}
-              <span className="hidden sm:inline">
-                {isScheduled
-                  ? dayjs(scheduledBuildAt).format("MMM D, h:mm A")
-                  : "Build Project"}
-              </span>
+              <span className="hidden sm:inline">{buildLabel}</span>
             </Button>
           </div>
         </TooltipTrigger>
@@ -811,10 +827,11 @@ function SplitBuildButton({
           <Button
             ref={chevronRef}
             size="sm"
+            aria-label="Schedule build"
             disabled={hasActiveBuild}
-            className={`rounded-l-none border-l border-l-primary-foreground/20 px-2 ${SPLIT_BUTTON_HALF}`}
+            className={`rounded-l-none border-l border-l-primary-foreground/20 px-2 max-sm:px-3 ${SPLIT_BUTTON_HALF}`}
           >
-            <IconChevronDown size={14} />
+            <IconChevronDown size={14} aria-hidden />
           </Button>
         }
       />

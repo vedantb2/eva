@@ -9,17 +9,22 @@ import {
   Badge,
   ContextMenu,
   ContextMenuContent,
-  ContextMenuItem,
   ContextMenuTrigger,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  LIST_ROW_CONTROL_CLASS,
   cn,
 } from "@eva/ui";
-import { IconTrash } from "@tabler/icons-react";
+import { IconDots } from "@tabler/icons-react";
+import { DraftCardMenuItems } from "./DraftCardMenuItems";
 import { tokenizedToDisplayText } from "@/lib/components/mentions";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { entityPathSegment } from "@/lib/numId";
 import type { DraftCardModel } from "../_utils";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 import { withMutationToast } from "@/lib/utils/mutationToast";
+import { CARD_KEBAB_CLASS } from "@/lib/components/ui/cardKebab";
 
 interface DraftCardProps {
   model: DraftCardModel;
@@ -194,18 +199,21 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
     <ContextMenu>
       <ContextMenuTrigger asChild>
         <div
-          role="button"
-          tabIndex={0}
-          onClick={handleClick}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") handleClick();
-          }}
           className={cn(
-            "flex h-full cursor-pointer flex-col gap-2 rounded-surface bg-card p-4",
+            "relative flex h-full flex-col gap-2 rounded-surface bg-card p-4",
             "hover:bg-muted/40 transition-colors duration-[var(--motion-fast)]",
-            "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring",
           )}
         >
+          {/* A real `<button>` stretched across the card rather than
+              `role="button" tabIndex={0}` plus a hand-written Enter/Space
+              handler on a div — see `list-row.tsx` for why the native element
+              owns the role and the keyboard behaviour. */}
+          <button
+            type="button"
+            aria-label={title}
+            onClick={handleClick}
+            className="absolute inset-0 z-1 cursor-pointer rounded-surface focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring"
+          />
           <div className="flex items-center gap-2">
             <Badge
               variant="secondary"
@@ -217,6 +225,34 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
               at={ts}
               className="min-w-0 flex-1 truncate text-xs"
             />
+            {/* Touch has no right-click, so below `sm` the same item gets a
+                visible kebab. `LIST_ROW_CONTROL_CLASS` lifts it above the
+                stretched activation button above, which is at z-1. */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  type="button"
+                  aria-label="Draft actions"
+                  onClick={(e) => e.stopPropagation()}
+                  className={cn(
+                    "max-sm:shrink-0",
+                    CARD_KEBAB_CLASS,
+                    LIST_ROW_CONTROL_CLASS,
+                  )}
+                >
+                  <IconDots className="size-3.5" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <DraftCardMenuItems
+                  variant="dropdown"
+                  onDelete={handleDelete}
+                />
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <p className="line-clamp-2 text-sm font-medium text-foreground">
@@ -235,10 +271,7 @@ export function DraftCard({ model, basePath }: DraftCardProps) {
         </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
-        <ContextMenuItem className="text-destructive" onClick={handleDelete}>
-          <IconTrash size={16} />
-          Delete draft
-        </ContextMenuItem>
+        <DraftCardMenuItems variant="context" onDelete={handleDelete} />
       </ContextMenuContent>
     </ContextMenu>
   );

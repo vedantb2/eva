@@ -404,7 +404,13 @@ export function QuickTasksClient() {
         fillHeight
         childPadding={false}
         headerRight={
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          // No wrapper element: in list view with a task open this is 6+
+          // controls (prev/next, actions, view toggle, Select, Options,
+          // search, New Task). A wrapper would make them one unbreakable flex
+          // item in the header's end cell; as direct children they use
+          // `PageWrapper`'s own `flex-wrap` and fall onto a second row instead
+          // of squeezing the title to nothing on a phone.
+          <>
             {view === "list" && selectedTaskId ? (
               <QuickTaskDetailHeaderActions
                 repoId={repo._id}
@@ -443,7 +449,7 @@ export function QuickTasksClient() {
               onUserFilterChange={(v) => setParams({ user: v })}
               allTags={allTags}
             />
-          </div>
+          </>
         }
       >
         <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden p-3 pt-0">

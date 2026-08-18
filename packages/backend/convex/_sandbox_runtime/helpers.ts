@@ -22,7 +22,10 @@ export const KILL_PRIOR_AGENT_PROCESSES_CMD =
   "pkill -x claude 2>/dev/null || true; " +
   "pkill -x claude-code 2>/dev/null || true; " +
   "pkill -x codex 2>/dev/null || true; " +
-  "pkill -x opencode 2>/dev/null || true; " +
+  // Only legacy `opencode run` turns, never `opencode serve`: since the SDK
+  // migration the long-lived server is shared across turns and killing it here
+  // would force a cold start (and a fresh port bind) on every single launch.
+  "pkill -f 'opencode run' 2>/dev/null || true; " +
   "pkill -x cursor-agent 2>/dev/null || true; " +
   "true";
 

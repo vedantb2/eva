@@ -30,7 +30,11 @@ export function AppearanceSection({
     <div
       className={cn(
         "grid",
-        compact ? "grid-cols-2 gap-1.5" : "grid-cols-4 gap-2",
+        compact
+          ? "grid-cols-2 gap-1.5"
+          : // Four swatch tiles are ~66px wide on a 320px phone, so they pair
+            // up below `sm` and only fan out to a single row above it.
+            "grid-cols-2 gap-2 sm:grid-cols-4",
       )}
     >
       {MODES.map((mode) => {
@@ -55,6 +59,8 @@ export function AppearanceSection({
         return (
           <button
             key={mode}
+            type="button"
+            aria-pressed={isActive}
             onClick={() => onModeChange(mode)}
             className={cn(
               // The border carries the selected state, so inactive tiles keep a

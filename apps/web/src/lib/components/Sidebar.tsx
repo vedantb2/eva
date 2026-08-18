@@ -130,6 +130,15 @@ export function Sidebar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const isDesktop = useMediaQuery("(min-width: 1024px)");
 
+  // The drawer lives above the router, so navigating does not unmount it. Close
+  // it here rather than relying on every nested link remembering to call
+  // `onNavigate` (adjust-state-during-render, not an effect).
+  const [prevPathname, setPrevPathname] = useState(pathname);
+  if (pathname !== prevPathname) {
+    setPrevPathname(pathname);
+    if (mobileOpen) setMobileOpen(false);
+  }
+
   useShortcut("toggleSidebar", (e) => {
     e.preventDefault();
     setCollapsed(!collapsed);
@@ -330,25 +339,37 @@ export function Sidebar() {
             ? "Testing Arena"
             : "";
 
+  // Escape closes the drawer. Opening it leaves focus on the trigger in the
+  // header, so the handler has to sit on both regions — the `aside` alone only
+  // fires once focus has already moved inside the drawer.
+  const closeOnEscape = (event: React.KeyboardEvent) => {
+    if (event.key === "Escape" && !isDesktop && mobileOpen)
+      closeMobileSidebar();
+  };
+
   return (
     <>
-      <header className="fixed inset-x-0 top-0 z-30 flex h-14 items-center gap-2 bg-background/80 px-3 sm:px-4 lg:hidden">
+      <header
+        onKeyDown={closeOnEscape}
+        className="fixed inset-x-0 top-0 z-30 flex h-(--eva-mobile-header-height) items-center gap-2 bg-background/80 px-3 pt-[env(safe-area-inset-top)] backdrop-blur-md sm:px-4 lg:hidden"
+      >
         <Button
           size="icon"
           variant="ghost"
           onClick={() => setMobileOpen(true)}
-          className="-ml-1"
+          aria-label="Open navigation"
+          className="-ml-1 max-sm:shrink-0"
         >
           <IconMenu2 size={20} className="text-muted-foreground" />
         </Button>
         {pageTitle ? (
-          <h1 className="mx-auto truncate text-base font-semibold tracking-[-0.02em] text-foreground text-balance">
+          <h1 className="mx-auto max-sm:min-w-0 truncate text-base font-semibold tracking-[-0.02em] text-foreground text-balance">
             {pageTitle}
           </h1>
         ) : (
           <Link
             to="/home"
-            className="mx-auto flex items-center gap-2 rounded-surface border border-border bg-muted/40 px-2.5 py-1.5"
+            className="mx-auto flex max-sm:min-w-0 max-sm:shrink-0 items-center gap-2 rounded-surface border border-border bg-muted/40 px-2.5 py-1.5"
           >
             <LogoMark size={26} />
             <span className="text-sm font-semibold tracking-[-0.02em] text-primary">
@@ -361,6 +382,7 @@ export function Sidebar() {
           variant="ghost"
           onClick={toggleTheme}
           aria-label="Toggle theme"
+          className="shrink-0"
         >
           {theme === "dark" ? (
             <IconSun size={18} className="text-muted-foreground" />
@@ -374,8 +396,10 @@ export function Sidebar() {
 
       <AnimatePresence initial={false}>
         {mobileOpen && (
-          <m.div
-            className="fixed inset-0 z-40 bg-background/62  lg:hidden"
+          <m.button
+            type="button"
+            aria-label="Close navigation"
+            className="fixed inset-0 z-40 bg-background/62 lg:hidden"
             onClick={closeMobileSidebar}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -386,8 +410,13 @@ export function Sidebar() {
       </AnimatePresence>
 
       <m.aside
+        // Off-screen below `lg` when closed: `inert` keeps its links out of the
+        // tab order and the accessibility tree instead of leaving a focusable
+        // drawer parked outside the viewport.
+        inert={!isDesktop && !mobileOpen}
+        onKeyDown={closeOnEscape}
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex",
+          "fixed inset-y-0 left-0 z-50 flex pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] lg:py-0",
           // Global pages are rail-only except Sessions (grouped cross-repo list).
           // Collapsed = hide the secondary panel entirely (rail only on lg+).
           showSidePanel
@@ -481,6 +510,7 @@ export function Sidebar() {
                               variant="ghost"
                               className="motion-press h-8 w-8 shrink-0 lg:hidden hover:scale-[1.03] active:scale-[0.96]"
                               onClick={closeMobileSidebar}
+                              aria-label="Close navigation"
                             >
                               <IconX
                                 size={16}
@@ -495,6 +525,7 @@ export function Sidebar() {
                             type="button"
                             onClick={() => setContextSidebarMode("main")}
                             title="Back to main sidebar"
+                            aria-label="Back to main sidebar"
                             className="absolute inset-0 rounded-menu-item hover:bg-sidebar-accent/50"
                           />
                           <span className="pointer-events-none relative z-10 flex size-8 shrink-0 items-center justify-center">
@@ -515,6 +546,7 @@ export function Sidebar() {
                               variant="ghost"
                               className="motion-press h-8 w-8 shrink-0 lg:hidden hover:scale-[1.03] active:scale-[0.96]"
                               onClick={closeMobileSidebar}
+                              aria-label="Close navigation"
                             >
                               <IconX
                                 size={16}
@@ -566,6 +598,7 @@ export function Sidebar() {
                             variant="ghost"
                             className="motion-press shrink-0 lg:hidden hover:scale-[1.03] active:scale-[0.96]"
                             onClick={closeMobileSidebar}
+                            aria-label="Close navigation"
                           >
                             <IconX
                               size={18}

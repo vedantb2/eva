@@ -57,7 +57,13 @@ export function RepoSetupCard({
               Add
             </Button>
           )}
-          <Button size="sm" variant="ghost" onClick={onToggleExpand}>
+          <Button
+            size="sm"
+            variant="ghost"
+            aria-expanded={isExpanded}
+            aria-label={`Monorepo apps in ${repo.name}`}
+            onClick={onToggleExpand}
+          >
             {isExpanded ? (
               <IconChevronDown className="w-4 h-4" />
             ) : (

@@ -291,7 +291,10 @@ export function ChatComposer({
                 enableAttachmentPaste
                 completionContext={`a message instructing an AI coding agent working on the repository ${repoBasePath.replace(/^\//, "")}`}
               />
-              <PromptInputFooter className="px-4 pb-4">
+              {/* Wraps rather than squashing: the footer holds five controls and
+                  the chat pane goes down to 350px on desktop and a full phone
+                  width below `md`. No effect while everything fits. */}
+              <PromptInputFooter className="max-sm:gap-y-2 px-4 pb-4">
                 <PromptInputTools>
                   <ComposerPlusMenu
                     dataItems={plusDataItems}
@@ -325,6 +328,7 @@ export function ChatComposer({
                       type="button"
                       variant="destructive"
                       onClick={onCancel}
+                      aria-label="Stop Eva"
                       title="Stop Eva"
                     >
                       <IconPlayerStop className="size-4" />

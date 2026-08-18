@@ -29,6 +29,13 @@ export function DocNewCommentComposer({
   const submit = async (resolutionTarget?: "agent" | "human") => {
     if (!content.trim()) return;
     setIsSubmitting(true);
+    // Ternaries inside the `try`, and a `try`/`finally` with no `catch`, each
+    // bail the React Compiler out of this whole file. See CLAUDE.md.
+    const askingEva = resolutionTarget === "agent";
+    const errorMessage = askingEva
+      ? "Couldn't ask Eva"
+      : "Couldn't add comment";
+    const toastId = askingEva ? "doc-comment-ask-eva" : "doc-comment-create";
     try {
       await catchMutationError(
         createComment({
@@ -38,18 +45,16 @@ export function DocNewCommentComposer({
           anchorText,
           resolutionTarget,
         }),
-        resolutionTarget === "agent"
-          ? "Couldn't ask Eva"
-          : "Couldn't add comment",
-        resolutionTarget === "agent"
-          ? "doc-comment-ask-eva"
-          : "doc-comment-create",
+        errorMessage,
+        toastId,
       );
       setContent("");
       onCreated();
-    } finally {
+    } catch (error) {
       setIsSubmitting(false);
+      throw error;
     }
+    setIsSubmitting(false);
   };
 
   return (
@@ -71,11 +76,11 @@ export function DocNewCommentComposer({
         className="text-sm"
         autoFocus
       />
-      <div className="mt-1.5 flex justify-end gap-1">
+      <div className="mt-1.5 flex max-sm:flex-wrap justify-end gap-1 max-sm:gap-2">
         <Button
           size="sm"
           variant="ghost"
-          className="h-6 text-xs"
+          className="h-6 text-xs max-sm:h-10 max-sm:px-3"
           onClick={onCancel}
           disabled={isSubmitting}
         >
@@ -85,7 +90,7 @@ export function DocNewCommentComposer({
           <Button
             size="sm"
             variant="secondary"
-            className="h-6 text-xs"
+            className="h-6 text-xs max-sm:h-10 max-sm:px-3"
             disabled={!content.trim() || isSubmitting}
             onClick={() => submit("agent")}
           >
@@ -94,7 +99,7 @@ export function DocNewCommentComposer({
         ) : null}
         <Button
           size="sm"
-          className="h-6 text-xs"
+          className="h-6 text-xs max-sm:h-10 max-sm:px-3"
           disabled={!content.trim() || isSubmitting}
           onClick={() => submit(allowAskEva ? "human" : undefined)}
         >

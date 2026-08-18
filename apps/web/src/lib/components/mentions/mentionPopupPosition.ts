@@ -47,9 +47,16 @@ export function computeMentionPopupPlacement(
   anchor: DOMRect,
   estimatedHeight = POPUP_ESTIMATED_HEIGHT,
 ): MentionPopupPlacement {
-  const width = Math.min(POPUP_WIDTH, window.innerWidth - VIEWPORT_PADDING * 2);
+  // The visual viewport is what is actually visible: on a phone the on-screen
+  // keyboard shrinks it while `window.innerHeight` stays put, so measuring
+  // against `innerHeight` would place the list behind the keyboard.
+  const visual = window.visualViewport;
+  const viewportWidth = visual?.width ?? window.innerWidth;
+  const viewportHeight = visual?.height ?? window.innerHeight;
+
+  const width = Math.min(POPUP_WIDTH, viewportWidth - VIEWPORT_PADDING * 2);
   const spaceAbove = anchor.top - VIEWPORT_PADDING;
-  const spaceBelow = window.innerHeight - anchor.bottom - VIEWPORT_PADDING;
+  const spaceBelow = viewportHeight - anchor.bottom - VIEWPORT_PADDING;
   const placeAbove =
     spaceAbove >= estimatedHeight + POPUP_GAP || spaceAbove >= spaceBelow;
   const placement = placeAbove ? "above" : "below";
@@ -58,8 +65,8 @@ export function computeMentionPopupPlacement(
   const maxHeight = Math.max(120, Math.min(estimatedHeight, available));
 
   let left = anchor.left;
-  if (left + width > window.innerWidth - VIEWPORT_PADDING) {
-    left = window.innerWidth - VIEWPORT_PADDING - width;
+  if (left + width > viewportWidth - VIEWPORT_PADDING) {
+    left = viewportWidth - VIEWPORT_PADDING - width;
   }
   left = Math.max(VIEWPORT_PADDING, left);
 

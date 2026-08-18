@@ -51,10 +51,13 @@ export function DeleteTasksModal({
 
   const handleDelete = async () => {
     setIsLoading(true);
+    // Built out here: a ternary inside the `try` bails the React Compiler out
+    // of this whole file. See CLAUDE.md.
+    const successMessage = `Deleted ${count} task${count === 1 ? "" : "s"}`;
     try {
       await withMutationToast(
         Promise.all([...selectedTaskIds].map((id) => removeTask({ id }))),
-        `Deleted ${count} task${count === 1 ? "" : "s"}`,
+        successMessage,
         "Couldn't delete tasks",
         "tasks-bulk-delete",
       );

@@ -83,12 +83,15 @@ export function ReviewDetailClient({
               #{prHeader.number}
             </span>
           </h1>
-          <div className="flex shrink-0 items-center gap-0.5 text-muted-foreground">
+          {/* Real 40px targets below `sm` rather than leaning on the `hit-target`
+              each `size="sm"` carries: these two sit flush, so each button's 8px
+              bleed would be spent on its neighbour. */}
+          <div className="flex shrink-0 items-center gap-0.5 text-muted-foreground max-sm:gap-2">
             <Button
               size="sm"
               variant="ghost"
               asChild
-              className="size-7 p-0"
+              className="size-7 p-0 max-sm:size-10"
               aria-label="View on GitHub"
             >
               <a
@@ -105,7 +108,7 @@ export function ReviewDetailClient({
               variant="ghost"
               onClick={refresh}
               disabled={refreshing}
-              className="size-7 p-0"
+              className="size-7 p-0 max-sm:size-10"
               aria-label="Refresh"
               title="Refresh"
             >

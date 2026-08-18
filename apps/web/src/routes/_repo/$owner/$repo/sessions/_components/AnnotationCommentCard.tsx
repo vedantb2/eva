@@ -37,7 +37,10 @@ export function AnnotationCommentCard({
 
   return (
     <div
-      className="pointer-events-auto absolute z-20 w-80 rounded-lg bg-popover p-3 smooth-shadow-ring-lg"
+      // `w-80` is exactly a 320px viewport, so the card hung off the edge with
+      // no gutter. The expression matches `CARD_WIDTH` clamping in
+      // `PreviewAnnotationLayer` — keep the two in step.
+      className="pointer-events-auto absolute z-20 w-[min(20rem,calc(100vw-2rem))] rounded-lg bg-popover p-3 smooth-shadow-ring-lg"
       style={{ left: position.left, top: position.top }}
     >
       <div className="mb-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">

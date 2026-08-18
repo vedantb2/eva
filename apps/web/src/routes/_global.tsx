@@ -52,7 +52,9 @@ function GlobalMainContent() {
     <div
       className={cn(
         // No padding transition: animating pl-* during route changes counts as CLS.
-        "relative flex min-h-screen flex-col pt-14 lg:pt-0",
+        // `--eva-mobile-header-height` (globals.css), not a literal `pt-14`: the
+        // below-`lg` header in `Sidebar.tsx` is 3.5rem *plus* the notch inset.
+        "relative flex min-h-dvh flex-col pt-(--eva-mobile-header-height) lg:pt-0",
         paddingClass,
       )}
     >

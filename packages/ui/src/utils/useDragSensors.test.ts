@@ -50,7 +50,23 @@ describe("the house drag activation split", () => {
 
   /** A drag no keyboard can reach is a drag some users simply do not have. */
   test("includes the keyboard sensor", () => {
-    expect(hook).toContain("useSensor(KeyboardSensor)");
+    expect(hook).toContain("useSensor(KeyboardSensor");
+  });
+
+  /**
+   * Two app call sites had `coordinateGetter: sortableKeyboardCoordinates` and
+   * silently dropped it when they adopted this hook, which turns a keyboard
+   * reorder from "move to the next row" into "nudge a few pixels into nothing".
+   * The getter belongs here so adopting the hook cannot lose it again — opt-in,
+   * because it reads `active.data.current.sortable` and returns nothing without
+   * it, so switching it on by default would break the non-sortable gantt bars.
+   */
+  test("offers sortable keyboard coordinates to sortable surfaces", () => {
+    expect(hook).toContain("sortableKeyboardCoordinates");
+    const keyboard = sensorCall("KeyboardSensor");
+    expect(keyboard).toMatch(
+      /coordinateGetter:\s*sortable\s*\?\s*sortableKeyboardCoordinates/,
+    );
   });
 
   /**
@@ -99,7 +115,8 @@ describe("every shared drag surface uses the split", () => {
   });
 
   test.each(surfaces)("%s takes its sensors from the hook", (_name, source) => {
-    expect(source).toContain("useDragSensors()");
+    // With or without `{ sortable: true }` — that flag is each surface's call.
+    expect(source).toContain("useDragSensors(");
     expect(
       source,
       "a local sensor set drifts from the shared split",

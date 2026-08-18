@@ -34,7 +34,9 @@ export function LinkChip({ url, label }: LinkChipProps) {
       ) : (
         <IconLink className="size-3 shrink-0" />
       )}
-      {label ?? linkLabel(url)}
+      <span className="max-sm:min-w-0 max-sm:wrap-break-word">
+        {label ?? linkLabel(url)}
+      </span>
     </a>
   );
 }

@@ -31,7 +31,7 @@ export function UnscheduledProjectsSection({
 
   return (
     <details className="group shrink-0 rounded-surface bg-card">
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-xs font-medium text-muted-foreground max-sm:py-3">
         <IconChevronRight
           size={14}
           className="shrink-0 transition-transform group-open:rotate-90"
@@ -46,7 +46,7 @@ export function UnscheduledProjectsSection({
           return (
             <div
               key={project._id}
-              className="flex items-center gap-2.5 border-b border-border/60 px-3 py-2 last:border-b-0 hover:bg-muted/40"
+              className="flex items-center gap-2.5 border-b border-border/60 px-3 py-2 last:border-b-0 hover:bg-muted/40 max-sm:py-3"
             >
               <Icon size={14} className={`shrink-0 ${config.text}`} />
               <button
@@ -58,7 +58,7 @@ export function UnscheduledProjectsSection({
                     ),
                   })
                 }
-                className="flex-1 truncate text-left text-xs font-medium hover:text-primary"
+                className="max-sm:hit-target max-sm:min-w-0 flex-1 truncate text-left text-xs font-medium hover:text-primary"
               >
                 {project.title}
               </button>

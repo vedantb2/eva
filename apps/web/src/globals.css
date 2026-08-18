@@ -192,6 +192,51 @@
   }
 }
 
+@utility reveal-on-hover {
+  /* Row / message / attachment actions that only appear on `group-hover`.
+     Touch has no hover, so on a phone those controls are not merely hard to
+     find — they are unreachable: a chat attachment cannot be removed and a
+     comment's overflow menu cannot be opened at all. This keeps the quiet
+     hover reveal on pointer devices and ships the control visible below `sm`.
+
+     Why it is not just `opacity-0 group-hover:opacity-100` plus a `max-sm:`
+     override at the call site: that is three or four utilities whose order has
+     to be right at every one of ~17 sites, and it was already wrong at several
+     of them.
+
+     The hidden state is gated on `(hover: hover)` as well as the `sm` width,
+     not on width alone: this project's `hover:` variant compiles with that
+     capability query, so hiding at `sm` and revealing on `group-hover` would
+     leave the control permanently invisible on a landscape tablet — wide
+     enough for `sm`, with no hover to bring it back.
+
+     Deliberately narrow, so that at `sm` and up this is byte-for-byte the
+     `opacity-0 group-hover:opacity-100 focus-within:opacity-100` it replaced:
+
+     - **no `pointer-events`.** Moving it with the opacity would fix a real dead
+       tap zone (an invisible control still swallows clicks meant for the row),
+       but that is a *desktop* behaviour change, and desktop is out of scope.
+       It costs nothing on touch, where the control is visible anyway.
+     - **no transition.** `transition-opacity` is 150ms with Tailwind's default
+       easing; the house `--motion-base` is 220ms, so baking a transition in here
+       would have quietly reslowed every hover reveal in the app. Call sites keep
+       their own `transition-opacity` where they already had one.
+
+     Needs an ancestor carrying Tailwind's `group` class. Pair with
+     `max-sm:hit-target` when the control itself is under 40px. */
+  opacity: 1;
+
+  @media (hover: hover) and (width >= theme(--breakpoint-sm)) {
+    opacity: 0;
+
+    &:is(:where(.group):hover *),
+    &:is(:where(.group):focus-within *),
+    &:focus-visible {
+      opacity: 1;
+    }
+  }
+}
+
 @utility media-outline {
   @apply ring-1 ring-black/10 dark:ring-white/10;
 }
@@ -282,7 +327,7 @@
 }
 
 @utility landing-mock-body {
-  max-height: min(32rem, 72vh);
+  max-height: min(32rem, 72dvh);
   overflow: hidden;
   mask-image: linear-gradient(to bottom, black 88%, transparent 100%);
 }
@@ -347,6 +392,12 @@
     --modal-ease: cubic-bezier(0.22, 1, 0.36, 1);
     --tabs-dur: 200ms;
     --tabs-ease: cubic-bezier(0.22, 1, 0.36, 1);
+
+    /* Height of the fixed below-`lg` app header in `Sidebar.tsx`, including the
+       notch inset (`viewport-fit=cover` in index.html makes it non-zero). Every
+       layout that offsets content for that header must use this, not a literal
+       `pt-14`, or the header overlaps content on a notched phone. */
+    --eva-mobile-header-height: calc(3.5rem + env(safe-area-inset-top));
   }
 
   @font-face {

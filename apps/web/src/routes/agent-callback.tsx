@@ -40,7 +40,7 @@ function AgentCallback() {
   }, [signIn, setActive, ticket, navigate]);
 
   return (
-    <div className="flex h-screen items-center justify-center">
+    <div className="flex h-dvh items-center justify-center max-sm:px-4 max-sm:text-center">
       <p className="text-muted-foreground">Signing in...</p>
     </div>
   );

@@ -223,7 +223,9 @@ export function DiffFileAccordionItem({
               onCheckedChange={(checked) => onViewedChange(checked === true)}
               aria-label={`Mark ${path} as viewed`}
             />
-            <span>Viewed</span>
+            {/* The checkbox carries the accessible name, so the word can go on a
+                phone and give the file path back its width. */}
+            <span className="hidden sm:inline">Viewed</span>
           </label>
         </div>
       </div>

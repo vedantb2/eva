@@ -144,6 +144,8 @@ export function DocPrdViewer({
   const handleGenerateTests = async () => {
     if (isTriggeringTestGen || doc.testGenStatus === "running") return;
     setIsTriggeringTestGen(true);
+    // `try`/`finally` without a `catch` bails the React Compiler out of this
+    // whole file, so the reset is duplicated instead. See CLAUDE.md.
     try {
       await withMutationToast(
         startTestGenMutation({ docId: doc._id }),
@@ -151,9 +153,11 @@ export function DocPrdViewer({
         "Couldn't start test generation",
         "doc-test-gen-start",
       );
-    } finally {
+    } catch (error) {
       setIsTriggeringTestGen(false);
+      throw error;
     }
+    setIsTriggeringTestGen(false);
   };
 
   const handleStopTestGen = async () => {
@@ -165,9 +169,11 @@ export function DocPrdViewer({
         "Couldn't stop test generation",
         "doc-test-gen-stop",
       );
-    } finally {
+    } catch (error) {
       setIsStopping(false);
+      throw error;
     }
+    setIsStopping(false);
   };
 
   const isGeneratingTests =
@@ -175,7 +181,9 @@ export function DocPrdViewer({
 
   return (
     <div className="h-full flex flex-col overflow-hidden">
-      <div className="flex items-center gap-1.5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
+      {/* `flex-wrap`: the title plus four trailing controls do not fit one row on
+          a phone, and without wrapping the title is squeezed to nothing. */}
+      <div className="flex max-sm:flex-wrap items-center gap-1.5 px-3 py-2 sm:gap-3 sm:px-4 sm:py-3">
         <input
           value={doc.title}
           onChange={(e) => updateDoc({ id: doc._id, title: e.target.value })}
@@ -201,9 +209,10 @@ export function DocPrdViewer({
               <Button
                 size="sm"
                 variant="secondary"
+                aria-label="Document options"
                 className="motion-press hover:scale-[1.01] active:scale-[0.96]"
               >
-                <IconSettings size={16} />
+                <IconSettings size={16} aria-hidden />
                 <span className="hidden sm:inline">Options</span>
               </Button>
             </DropdownMenuTrigger>
@@ -321,10 +330,10 @@ export function DocPrdViewer({
                   <Button
                     size="sm"
                     variant={suggestionsOpen ? "secondary" : "ghost"}
-                    className="h-7 px-2"
+                    className="h-7 px-2 max-sm:h-10 max-sm:px-3"
                     onClick={toggleSuggestions}
                   >
-                    <IconPencilCheck size={14} />
+                    <IconPencilCheck size={14} aria-hidden />
                     <span className="text-xs">Suggestions</span>
                     {suggestionCount > 0 && (
                       <span className="ml-1 text-xs text-muted-foreground">
@@ -335,10 +344,10 @@ export function DocPrdViewer({
                   <Button
                     size="sm"
                     variant={commentsOpen ? "secondary" : "ghost"}
-                    className="h-7 px-2"
+                    className="h-7 px-2 max-sm:h-10 max-sm:px-3"
                     onClick={toggleComments}
                   >
-                    <IconMessage size={14} />
+                    <IconMessage size={14} aria-hidden />
                     <span className="text-xs">Comments</span>
                     {openCommentCount > 0 && (
                       <span className="ml-1 text-xs text-muted-foreground">

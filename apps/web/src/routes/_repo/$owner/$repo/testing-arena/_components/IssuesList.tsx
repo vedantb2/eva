@@ -65,6 +65,16 @@ export function IssuesList({ report }: { report: EvaluationReport }) {
     if (selected.size === 0) return;
     const count = selected.size;
     setIsCreating(true);
+    // Ternaries inside the `try`, and a `try`/`finally` with no `catch`, each
+    // bail the React Compiler out of this whole file. See CLAUDE.md.
+    const plural = count === 1 ? "" : "s";
+    const successMessage = autoRun
+      ? `Created and started ${count} task${plural}`
+      : `Created ${count} task${plural}`;
+    const errorMessage = autoRun
+      ? "Couldn't create and run tasks"
+      : "Couldn't create tasks";
+    const toastId = autoRun ? "issues-create-run" : "issues-create-tasks";
     try {
       await withMutationToast(
         createTasks({
@@ -72,16 +82,16 @@ export function IssuesList({ report }: { report: EvaluationReport }) {
           issueIds: Array.from(selected),
           autoRun,
         }),
-        autoRun
-          ? `Created and started ${count} task${count === 1 ? "" : "s"}`
-          : `Created ${count} task${count === 1 ? "" : "s"}`,
-        autoRun ? "Couldn't create and run tasks" : "Couldn't create tasks",
-        autoRun ? "issues-create-run" : "issues-create-tasks",
+        successMessage,
+        errorMessage,
+        toastId,
       );
       setSelected(new Set());
-    } finally {
+    } catch (error) {
       setIsCreating(false);
+      throw error;
     }
+    setIsCreating(false);
   }
 
   if (issues.length === 0) {
@@ -113,7 +123,7 @@ export function IssuesList({ report }: { report: EvaluationReport }) {
       ))}
 
       {selectableIssues.length > 0 && (
-        <div className="flex items-center gap-2 pt-2">
+        <div className="flex max-sm:flex-wrap items-center gap-2 pt-2">
           <Button
             size="sm"
             variant="outline"
@@ -196,9 +206,9 @@ function IssueRow({
         {hasTaskCreated && taskUrl && (
           <a
             href={taskUrl}
-            className="inline-flex items-center gap-1 text-xs text-primary hover:underline shrink-0"
+            className="max-sm:hit-target inline-flex shrink-0 items-center gap-1 text-xs text-primary hover:underline"
           >
-            <IconExternalLink size={12} />
+            <IconExternalLink size={12} aria-hidden />
             Task created
           </a>
         )}
@@ -217,7 +227,7 @@ function IssueRow({
                 {issue.filePaths.map((fp) => (
                   <span
                     key={fp}
-                    className="inline-block rounded bg-muted px-1.5 py-0.5 text-xs font-mono"
+                    className="inline-block max-sm:max-w-full max-sm:break-all rounded bg-muted px-1.5 py-0.5 text-xs font-mono"
                   >
                     {fp}
                   </span>

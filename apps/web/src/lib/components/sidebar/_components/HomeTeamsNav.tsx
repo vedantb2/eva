@@ -64,7 +64,7 @@ export function HomeTeamsNav({
             <button
               type="button"
               aria-label={open ? "Hide teams" : "Show teams"}
-              className="flex size-7 shrink-0 items-center justify-center rounded-menu-item text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+              className="flex size-7 max-sm:size-10 shrink-0 items-center justify-center rounded-menu-item text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
             >
               <IconChevronDown
                 size={14}

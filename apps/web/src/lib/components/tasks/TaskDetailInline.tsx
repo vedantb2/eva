@@ -245,6 +245,7 @@ export function TaskDetailInline({
           rightMinWidthPx={300}
           defaultRightCollapsed={false}
           expandRightSignal={expandRightSignal}
+          mobilePaneLabels={{ left: "Chat", right: "Sandbox" }}
           leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
             <TaskSandboxChatPanel
               taskId={taskId}

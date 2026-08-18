@@ -482,25 +482,25 @@ export function StatusFieldsSection({
       </FieldsSection>
 
       <FieldsSection title="Labels">
+        {/* No row-level `onClick` to focus the input: a click handler on a
+            non-interactive element has no keyboard equivalent, and the input
+            already fills the rest of the row, so it is directly clickable. */}
         <div
           className={`${FIELD_ROW_CLASS} group/tags flex-wrap gap-1 cursor-text`}
-          onClick={() => tagDraftRef.current?.focus()}
         >
           <IconTags size={14} className="text-muted-foreground shrink-0" />
           {task?.tags?.map((tag) => (
             <Badge
               key={tag}
               variant="outline"
-              className="text-xs h-5 gap-0.5 pr-0.5 group/tag"
+              className="text-xs h-8 gap-0.5 pr-0.5 group/tag sm:h-5"
             >
               {tag}
               <button
                 type="button"
-                className="rounded-sm opacity-50 hover:opacity-100 transition-opacity ml-0.5 px-0.5"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  void removeTag(tag);
-                }}
+                aria-label={`Remove label ${tag}`}
+                className="ml-0.5 rounded-sm px-0.5 opacity-50 transition-opacity hover:opacity-100 max-sm:flex max-sm:h-full max-sm:min-w-6 max-sm:items-center max-sm:justify-center max-sm:px-1"
+                onClick={() => void removeTag(tag)}
               >
                 ×
               </button>
@@ -527,8 +527,8 @@ export function StatusFieldsSection({
               <DropdownMenuTrigger asChild>
                 <button
                   type="button"
-                  className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground transition-colors shrink-0"
-                  onClick={(e) => e.stopPropagation()}
+                  aria-label="Choose from existing labels"
+                  className="rounded-sm p-0.5 shrink-0 text-muted-foreground transition-colors hover:text-foreground max-sm:flex max-sm:size-10 max-sm:items-center max-sm:justify-center max-sm:p-0"
                 >
                   <IconChevronDown size={14} />
                 </button>

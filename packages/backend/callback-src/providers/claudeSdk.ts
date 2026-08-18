@@ -30,9 +30,8 @@ import {
   appendToRawOutput,
   trimBufferHead,
 } from "../runtime/buffers.js";
-import { resetAttemptState } from "../runtime/cliAttempt.js";
 import { buildCanUseTool } from "../runtime/pendingQuestion.js";
-import { callbackState as S } from "../runtime/state.js";
+import { callbackState as S, resetAttemptState } from "../runtime/state.js";
 import type { ProviderAttemptResult, SessionMode } from "../types.js";
 import { log } from "../utils.js";
 
@@ -291,8 +290,8 @@ export async function runClaudeSdkAttempt(
     }
     // The SDK emits nothing between a tool_use and its tool_result, so a
     // long-running tool (Bash allows 10min; subagent Task calls longer) is
-    // indistinguishable from a hang by message silence alone. Mirror
-    // cliAttempt.ts: while a tool is in flight only the hard runtime cap
+    // indistinguishable from a hang by message silence alone: while a tool is
+    // in flight only the hard runtime cap
     // applies, and the silence clock restarts once the tool result lands.
     if (S.inFlightToolUses > 0) {
       lastMessageAt = now;

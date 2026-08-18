@@ -149,7 +149,7 @@ export function SandboxQuickOpenDialogs({
               value={fileSearch}
               onValueChange={setFileSearch}
             />
-            <CommandList className="max-h-[min(26rem,65vh)]">
+            <CommandList className="max-h-[min(26rem,65dvh)]">
               <CommandEmpty className="px-4 text-muted-foreground">
                 {fileListMessage(fileList)}
               </CommandEmpty>
@@ -207,7 +207,7 @@ export function SandboxQuickOpenDialogs({
               value={actionSearch}
               onValueChange={setActionSearch}
             />
-            <CommandList className="max-h-[min(26rem,65vh)]">
+            <CommandList className="max-h-[min(26rem,65dvh)]">
               <CommandEmpty>No matching actions</CommandEmpty>
               {filesEnabled ? (
                 <CommandGroup heading="Files">

@@ -24,14 +24,31 @@ export function PreviewDeviceToggle({
         }
       }}
     >
+      {/* `title` alone is a weak accessible name and invisible on touch, and the
+          triggers paint under 40px — `hit-target` grows the tap area only. */}
       <TabsList className="h-8">
-        <TabsTrigger value="desktop" className="px-2 text-xs" title="Desktop">
+        <TabsTrigger
+          value="desktop"
+          className="max-sm:hit-target px-2 text-xs"
+          aria-label="Frame preview as desktop"
+          title="Desktop"
+        >
           <IconDeviceDesktop size={14} />
         </TabsTrigger>
-        <TabsTrigger value="tablet" className="px-2 text-xs" title="Tablet">
+        <TabsTrigger
+          value="tablet"
+          className="max-sm:hit-target px-2 text-xs"
+          aria-label="Frame preview as tablet"
+          title="Tablet"
+        >
           <IconDeviceTablet size={14} />
         </TabsTrigger>
-        <TabsTrigger value="mobile" className="px-2 text-xs" title="Mobile">
+        <TabsTrigger
+          value="mobile"
+          className="max-sm:hit-target px-2 text-xs"
+          aria-label="Frame preview as mobile"
+          title="Mobile"
+        >
           <IconDeviceMobile size={14} />
         </TabsTrigger>
       </TabsList>

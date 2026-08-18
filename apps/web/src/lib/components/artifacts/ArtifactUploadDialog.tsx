@@ -8,6 +8,7 @@ import type { Id } from "@eva/backend";
 import {
   Button,
   Dialog,
+  DialogBody,
   DialogContent,
   DialogHeader,
   DialogTitle,
@@ -154,7 +155,10 @@ export function ArtifactUploadDialog({
           <DialogTitle>Upload artifact</DialogTitle>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4">
+        {/* DialogBody, not a plain div: the dialog caps its own height, so the
+            form has to scroll internally rather than being clipped on a short
+            (or landscape) phone. */}
+        <DialogBody className="flex flex-col gap-4">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="artifact-file">Artifact HTML</Label>
             <input
@@ -165,7 +169,9 @@ export function ArtifactUploadDialog({
               className="text-sm file:mr-3 file:rounded-surface file:border file:border-border file:bg-muted file:px-3 file:py-1.5 file:text-sm"
             />
             {fileName ? (
-              <span className="text-xs text-muted-foreground">{fileName}</span>
+              <span className="max-sm:break-all text-xs text-muted-foreground">
+                {fileName}
+              </span>
             ) : null}
           </div>
 
@@ -215,7 +221,7 @@ export function ArtifactUploadDialog({
           ) : null}
 
           {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        </div>
+        </DialogBody>
 
         <DialogFooter>
           <Button

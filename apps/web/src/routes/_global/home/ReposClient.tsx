@@ -120,6 +120,7 @@ export function ReposClient() {
                     size="sm"
                     variant="outline"
                     disabled={repos === undefined}
+                    aria-label="Codebase options"
                     className="motion-press border-border text-muted-foreground hover:scale-[1.01] active:scale-[0.96]"
                   >
                     <IconDots size={16} />

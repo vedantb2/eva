@@ -19,9 +19,7 @@ import { finalizeCancelledAssistantMessage } from "../streaming";
 import { clearPendingQuestionsForEntity } from "../pendingQuestions";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
 import { syncSessionDaemonState } from "./daemonState";
-
-/** How long to wait before re-issuing stop if finalize died with a Convex transient error. */
-const STUCK_STOPPING_RECOVER_MS = 20_000;
+import { STUCK_STOPPING_RECOVER_MS } from "../_sandbox/stopRecovery";
 
 /** Updates sandbox-related fields (sandbox ID, branch, PR URL) on a session. */
 export const updateSandbox = authMutation({

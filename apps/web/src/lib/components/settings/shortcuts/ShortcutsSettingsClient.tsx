@@ -144,6 +144,9 @@ export function ShortcutsSettingsClient() {
         {EDITING_KEYS.map((entry) => (
           <SettingsToggleRow
             key={entry.keys.join("+")}
+            // Multi-key combos are wide; wrap them under the description on a
+            // phone rather than squeezing the description to one word a line.
+            className="max-sm:flex-wrap"
             title={entry.description}
             action={
               <div className="flex items-center gap-1">

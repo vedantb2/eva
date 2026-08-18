@@ -33,8 +33,7 @@ import {
   appendToRawOutput,
   trimBufferHead,
 } from "../runtime/buffers.js";
-import { resetAttemptState } from "../runtime/cliAttempt.js";
-import { callbackState as S } from "../runtime/state.js";
+import { callbackState as S, resetAttemptState } from "../runtime/state.js";
 import {
   syncCursorStateToPersist,
   writeCursorSessionState,
@@ -300,7 +299,7 @@ function isAgentNotFound(error: Error): boolean {
  * condition is usually transient, so retry with backoff before surfacing, and
  * surface a readable message instead of the raw `[resource_exhausted] Error`.
  */
-const RESOURCE_EXHAUSTED_RETRY_DELAYS_MS = [15_000, 30_000];
+export const RESOURCE_EXHAUSTED_RETRY_DELAYS_MS = [15_000, 30_000];
 
 export function isResourceExhaustedMessage(text: string): boolean {
   return text.includes("resource_exhausted");
@@ -318,6 +317,13 @@ type UsageTokens = {
   cacheWriteTokens: number;
 };
 
+export type CursorTurnOutcome = {
+  isError: boolean;
+  resultText: string;
+  durationMs: number;
+  usage: UsageTokens;
+};
+
 const ZERO_USAGE: UsageTokens = {
   inputTokens: 0,
   outputTokens: 0,
@@ -327,6 +333,54 @@ const ZERO_USAGE: UsageTokens = {
 
 function readNum(value: JsonLike | number | undefined): number {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+/**
+ * Runs a turn, absorbing transient `resource_exhausted` rejections — Cursor
+ * signals them both as an error run status and as a thrown SDK error, so both
+ * paths retry. Only the final outcome is returned, so a retried failure never
+ * reaches the parser as a result line. An exhausted retry budget resolves with
+ * the readable chat message instead of the raw `[resource_exhausted] Error`;
+ * any other error propagates untouched, and an attempt already aborted by a
+ * timeout stops retrying so the run can wind down.
+ */
+export async function runTurnWithResourceExhaustedRetries(deps: {
+  runTurn: () => Promise<CursorTurnOutcome>;
+  aborted: () => boolean;
+  onRetry: (delayMs: number, attempt: number) => void;
+  sleep: (delayMs: number) => Promise<void>;
+}): Promise<CursorTurnOutcome> {
+  for (let attempt = 0; ; attempt++) {
+    const retryDelayMs = RESOURCE_EXHAUSTED_RETRY_DELAYS_MS[attempt];
+    let outcome: CursorTurnOutcome;
+    try {
+      outcome = await deps.runTurn();
+    } catch (error) {
+      const messageText =
+        error instanceof Error ? error.message : String(error);
+      if (
+        !isResourceExhaustedMessage(messageText) ||
+        retryDelayMs === undefined ||
+        deps.aborted()
+      ) {
+        throw error;
+      }
+      outcome = {
+        isError: true,
+        resultText: messageText,
+        durationMs: 0,
+        usage: ZERO_USAGE,
+      };
+    }
+    if (!outcome.isError || !isResourceExhaustedMessage(outcome.resultText)) {
+      return outcome;
+    }
+    if (retryDelayMs === undefined || deps.aborted()) {
+      return { ...outcome, resultText: RESOURCE_EXHAUSTED_CHAT_MESSAGE };
+    }
+    deps.onRetry(retryDelayMs, attempt);
+    await deps.sleep(retryDelayMs);
+  }
 }
 
 /** Extracts camelCase TokenUsage fields from a stream `usage` event or RunResult. */
@@ -452,6 +506,13 @@ export async function runCursorSdkAttempt(
       cancelRun();
       return;
     }
+    // The SDK emits nothing between a tool call and its result, so a long
+    // silent tool is indistinguishable from a hang by message silence alone:
+    // while a tool is in flight only the hard runtime cap applies, and the
+    // silence clock restarts once the tool result lands.
+    if (S.inFlightToolUses > 0) {
+      lastMessageAt = now;
+    }
     if (!sawResult && now - lastMessageAt > NO_OUTPUT_TIMEOUT_MS * 5) {
       timedOutForNoOutput = true;
       log("runCursorSdkAttempt: no SDK events — cancelling run");
@@ -466,14 +527,7 @@ export async function runCursorSdkAttempt(
     processRealtimeStdoutChunk(line);
   };
 
-  type TurnOutcome = {
-    isError: boolean;
-    resultText: string;
-    durationMs: number;
-    usage: UsageTokens;
-  };
-
-  const runTurn = async (activeAgent: SdkAgent): Promise<TurnOutcome> => {
+  const runTurn = async (activeAgent: SdkAgent): Promise<CursorTurnOutcome> => {
     // `force` expires a run left marked active by a killed prior callback
     // (user stop is a process-level kill); a no-op otherwise.
     const run = await activeAgent.send(combinedPrompt, {
@@ -502,7 +556,7 @@ export async function runCursorSdkAttempt(
     };
   };
 
-  const emitTurnResult = (outcome: TurnOutcome): void => {
+  const emitTurnResult = (outcome: CursorTurnOutcome): void => {
     const syntheticResult: JsonValue = {
       type: "result",
       is_error: outcome.isError,
@@ -520,62 +574,35 @@ export async function runCursorSdkAttempt(
     resultIsError = outcome.isError;
   };
 
-  // Runs the turn, absorbing transient resource_exhausted rejections (result
-  // status or throw) with backoff. Only the final outcome is emitted as the
-  // synthetic result line, so retried failures never reach the parser.
   const runTurnWithRetries = async (activeAgent: SdkAgent): Promise<void> => {
-    for (let attempt = 0; ; attempt++) {
-      let outcome: TurnOutcome;
-      try {
-        outcome = await runTurn(activeAgent);
-      } catch (error) {
-        const messageText =
-          error instanceof Error ? error.message : String(error);
-        if (
-          !isResourceExhaustedMessage(messageText) ||
-          RESOURCE_EXHAUSTED_RETRY_DELAYS_MS[attempt] === undefined ||
-          timedOutForMaxRuntime ||
-          timedOutForNoOutput
-        ) {
-          throw error;
-        }
-        outcome = { isError: true, resultText: messageText, durationMs: 0, usage: ZERO_USAGE };
-      }
-      const retryDelayMs = RESOURCE_EXHAUSTED_RETRY_DELAYS_MS[attempt];
-      if (
-        outcome.isError &&
-        isResourceExhaustedMessage(outcome.resultText) &&
-        retryDelayMs !== undefined &&
-        !timedOutForMaxRuntime &&
-        !timedOutForNoOutput
-      ) {
-        log(
-          "runCursorSdkAttempt: resource_exhausted — retrying in " +
-            retryDelayMs +
-            "ms (attempt " +
-            (attempt + 1) +
-            " of " +
-            (RESOURCE_EXHAUSTED_RETRY_DELAYS_MS.length + 1) +
-            ")",
-        );
-        appendToRawLogFile(
-          "[sdk-retry] resource_exhausted — waiting " +
-            retryDelayMs +
-            "ms before retry\n",
-        );
-        updateThinkingStep(
-          "Cursor is rate-limited...",
-          "Retrying in " + Math.round(retryDelayMs / 1000) + "s...",
-        );
-        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
-        continue;
-      }
-      if (outcome.isError && isResourceExhaustedMessage(outcome.resultText)) {
-        outcome.resultText = RESOURCE_EXHAUSTED_CHAT_MESSAGE;
-      }
-      emitTurnResult(outcome);
-      return;
-    }
+    emitTurnResult(
+      await runTurnWithResourceExhaustedRetries({
+        runTurn: () => runTurn(activeAgent),
+        aborted: () => timedOutForMaxRuntime || timedOutForNoOutput,
+        onRetry: (retryDelayMs, attempt) => {
+          log(
+            "runCursorSdkAttempt: resource_exhausted — retrying in " +
+              retryDelayMs +
+              "ms (attempt " +
+              (attempt + 1) +
+              " of " +
+              (RESOURCE_EXHAUSTED_RETRY_DELAYS_MS.length + 1) +
+              ")",
+          );
+          appendToRawLogFile(
+            "[sdk-retry] resource_exhausted — waiting " +
+              retryDelayMs +
+              "ms before retry\n",
+          );
+          updateThinkingStep(
+            "Cursor is rate-limited...",
+            "Retrying in " + Math.round(retryDelayMs / 1000) + "s...",
+          );
+        },
+        sleep: (delayMs) =>
+          new Promise((resolve) => setTimeout(resolve, delayMs)),
+      }),
+    );
   };
 
   try {

@@ -22,11 +22,12 @@ export interface TextShimmerProps {
  *
  * The sweep is a CSS animation rather than a motion/react one for two reasons.
  * It rendered `motion.create(element)` — a `motion` component, not an `m` one —
- * which *throws* under the app-wide `<LazyMotion strict>` in MotionProvider, so
- * every mount tripped an error boundary (simple-view streaming status was the
- * live path). And its rAF loop wrote `background-position` inline every frame:
- * ~211ms of main-thread time per 6s traced, against ~134ms for the same
- * keyframes in CSS with no script at all.
+ * which throws under the app-wide `<LazyMotion strict>` in MotionProvider. That
+ * check is `process.env.NODE_ENV !== "production"`, so this shimmered in prod
+ * and tripped an error boundary in dev (simple-view streaming status). And its
+ * rAF loop wrote `background-position` inline every frame: ~211ms of
+ * main-thread time per 6s traced, against ~134ms for the same keyframes in CSS
+ * with no script at all.
  *
  * `background-position` is a paint property, so this still repaints per frame.
  * That is inherent to a background-clipped text sweep — moving it on the

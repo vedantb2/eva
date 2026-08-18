@@ -49,7 +49,7 @@ Quick tasks and automations use **both** the sandbox callback (this script) and,
 | ---------------------------- | --------------------------- | ----------------------------------- | -------------------------------- |
 | Callback `MAX_TOTAL_RUNTIME` | sandbox script              | 90m (`CLAUDE_MAX_TOTAL_RUNTIME_MS`) | Hard CLI lifetime cap            |
 | Daytona sandbox autostop     | Daytona                     | 90m (ephemeral + session)           | Sandbox inactivity stop          |
-| Convex `checkStaleRuns`      | `_taskWorkflow/watchdog.ts` | 5m / 25m tool-active                | Heartbeat staleness (tasks only) |
+| Convex `checkStaleRuns`      | `_taskWorkflow/watchdog.ts` | 5m probe / 25m unverified kill      | Heartbeat staleness (tasks only) |
 | `handleStaleRun`             | workflow                    | 2h                                  | Absolute backstop (tasks only)   |
 
 Automations rely on callback timeouts only — no task watchdog.

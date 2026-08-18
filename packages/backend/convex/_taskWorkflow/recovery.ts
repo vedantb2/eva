@@ -19,7 +19,7 @@ export {
   STALE_RECHECK_MS,
   STALE_FINISHING_THRESHOLD_MS,
   STALE_NO_SANDBOX_THRESHOLD_MS,
-  STALE_TOOL_ACTIVE_THRESHOLD_MS,
+  STALE_UNVERIFIED_KILL_THRESHOLD_MS,
 } from "./staleness";
 
 /** Checks whether an error message indicates a sandbox infrastructure/network issue. */

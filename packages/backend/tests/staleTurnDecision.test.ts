@@ -3,7 +3,8 @@ import {
   STALE_FINISHING_THRESHOLD_MS,
   STALE_NO_SANDBOX_THRESHOLD_MS,
   STALE_THRESHOLD_MS,
-  STALE_TOOL_ACTIVE_THRESHOLD_MS,
+  STALE_UNVERIFIED_KILL_THRESHOLD_MS,
+  staleProbeFollowUp,
   staleTurnDecision,
 } from "../convex/_taskWorkflow/staleness";
 
@@ -69,7 +70,14 @@ describe("staleTurnDecision", () => {
     expect(dead.stale).toBe(true);
   });
 
-  test("an active tool step gets the extended tool threshold", () => {
+  test("an active tool step goes stale on the ordinary threshold — probe early, kill late", () => {
+    // The 18 Aug 2026 prod incident: a project-chat callback died mid-tool
+    // and the user stared at "Working…" for 25 minutes, because the tool
+    // phase used to gate the FIRST probe on the 25-minute value. The probe
+    // never kills live work (confirmed-alive → touch), so a silent tool must
+    // become probe-eligible at the same 5 minutes as everything else; the
+    // 25-minute value survives only as the unverified kill ceiling (see the
+    // staleProbeFollowUp tests below).
     const building = step("Running command...", "active");
     const base = {
       currentActivity: building,
@@ -79,14 +87,14 @@ describe("staleTurnDecision", () => {
     };
     const quiet = staleTurnDecision({
       ...base,
-      lastUpdatedAt: NOW - 10 * MIN,
+      lastUpdatedAt: NOW - 4 * MIN,
     });
     expect(quiet.phase).toBe("tool");
-    expect(quiet.thresholdMs).toBe(STALE_TOOL_ACTIVE_THRESHOLD_MS);
+    expect(quiet.thresholdMs).toBe(STALE_THRESHOLD_MS);
     expect(quiet.stale).toBe(false);
     const dead = staleTurnDecision({
       ...base,
-      lastUpdatedAt: NOW - 26 * MIN,
+      lastUpdatedAt: NOW - 6 * MIN,
     });
     expect(dead.stale).toBe(true);
   });
@@ -143,5 +151,56 @@ describe("staleTurnDecision", () => {
     });
     expect(decision.ageMs).toBe(MIN);
     expect(decision.stale).toBe(false);
+  });
+});
+
+/**
+ * What the pre-kill liveness probe does with a verifySandboxLiveness result.
+ * A confirmed-dead callback dies at the ordinary threshold; an unverifiable
+ * one (provider API unreachable) gets until the 25-minute ceiling, with the
+ * staleness clock left running (no touch) so that ceiling is actually
+ * reachable.
+ */
+describe("staleProbeFollowUp", () => {
+  test("a confirmed-alive callback resets the clock", () => {
+    expect(
+      staleProbeFollowUp({
+        alive: true,
+        reason: "sandbox_started_pid_alive",
+        streamingAgeMs: 6 * MIN,
+      }),
+    ).toBe("confirmed_alive");
+  });
+
+  test("a confirmed-dead callback is killed at the ordinary threshold", () => {
+    expect(
+      staleProbeFollowUp({
+        alive: false,
+        reason: "pid_dead_or_exec_failed",
+        streamingAgeMs: 6 * MIN,
+      }),
+    ).toBe("kill");
+  });
+
+  test("an unreachable probe under the ceiling waits without resetting the clock", () => {
+    expect(
+      staleProbeFollowUp({
+        alive: true,
+        reason: "probe_unreachable_refresh",
+        streamingAgeMs: 6 * MIN,
+      }),
+    ).toBe("await_verification");
+  });
+
+  test("an unreachable probe past the ceiling kills anyway", () => {
+    // Silent heartbeat (sandbox → Convex) AND unreachable provider (Convex →
+    // provider API) for 25+ minutes: dead by every independent signal.
+    expect(
+      staleProbeFollowUp({
+        alive: true,
+        reason: "probe_unreachable_get_sandbox",
+        streamingAgeMs: STALE_UNVERIFIED_KILL_THRESHOLD_MS + MIN,
+      }),
+    ).toBe("kill");
   });
 });

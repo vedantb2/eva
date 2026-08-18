@@ -17,14 +17,15 @@ export const STALE_RECHECK_MS = 30_000;
 export const RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 export const STALE_FINISHING_THRESHOLD_MS = 600_000;
 export const STALE_NO_SANDBOX_THRESHOLD_MS = 900_000;
-// Extended threshold for when the agent is demonstrably running a long tool
-// (e.g. `pnpm build`, `pnpm install`) with output redirected away from the
-// terminal. During that window stream-json emits nothing new, so the only
-// thing bumping `streamingActivity.lastUpdatedAt` is the 10s heartbeat — if
-// transport has a transient issue we don't want to kill a run that's mid-build.
-// Paired with the pre-kill liveness probe, we only apply this when we've
-// confirmed the callback PID is still alive.
-export const STALE_TOOL_ACTIVE_THRESHOLD_MS = 1_500_000;
+// Hard ceiling for killing a turn whose liveness the probe could NOT verify
+// (provider API unreachable). The liveness probe runs at the ordinary
+// STALE_THRESHOLD_MS even during long silent tools — a confirmed-alive probe
+// touches the streaming row and keeps waiting, so probing early never kills
+// live work; it only shortens how long a dead callback wears "Working…".
+// (This value used to gate the first probe in the tool phase instead: a
+// project-chat callback that died mid-tool on 18 Aug 2026 left the user
+// staring at "Working…" for 25 minutes before the watchdog even looked.)
+export const STALE_UNVERIFIED_KILL_THRESHOLD_MS = 1_500_000;
 
 const SANDBOX_STARTUP_LABELS = new Set([
   "Starting sandbox...",
@@ -131,12 +132,12 @@ export function isFinalizingActivity(
 
 /**
  * Returns true when an agent tool step (Bash, tool-use, etc.) is currently
- * active and we are past sandbox startup/finalization. Used to extend the
- * stale threshold — long-running shell commands (e.g. `pnpm build 2>&1 | tail`)
- * silence stream-json output entirely, so the only thing keeping the heartbeat
- * alive is the 10s transport ping. Extending the threshold here lets the
- * pre-kill liveness probe absorb transient heartbeat transport hiccups without
- * killing a demonstrably-live build.
+ * active and we are past sandbox startup/finalization. Long-running shell
+ * commands (e.g. `pnpm build 2>&1 | tail`) silence stream-json output
+ * entirely, so the only thing keeping the heartbeat alive is the 10s
+ * transport ping. The phase feeds alert wording/logging; the pre-kill
+ * liveness probe (not a longer threshold) is what protects a
+ * demonstrably-live build from a transient heartbeat transport hiccup.
  */
 export function hasActiveAgentToolStep(
   currentActivity: string | undefined,
@@ -165,9 +166,12 @@ export type StaleTurnDecision = {
 
 /**
  * Staleness decision for one agent turn. Sandbox startup steps (clone,
- * install) legitimately go minutes between streaming writes, long silent
- * tools leave only the transport ping, finalization gets a middle allowance,
- * and everything else must heartbeat within STALE_THRESHOLD_MS. The clock
+ * install) legitimately go minutes between streaming writes, finalization
+ * gets a middle allowance, and everything else — including long silent tools,
+ * whose 10s transport ping is heartbeat enough — must heartbeat within
+ * STALE_THRESHOLD_MS. "Stale" here means "probe now", not "kill now": outside
+ * startup the caller probes liveness first, and only a confirmed-dead (or
+ * 25-minute-unverifiable, see staleProbeFollowUp) turn is killed. The clock
  * never starts before `turnStartedAt`, so a turn whose streaming row was
  * wiped at staging is measured from its own start, not from epoch.
  */
@@ -196,12 +200,45 @@ export function staleTurnDecision(input: {
   const thresholdMs =
     phase === "startup"
       ? STALE_NO_SANDBOX_THRESHOLD_MS
-      : phase === "tool"
-        ? STALE_TOOL_ACTIVE_THRESHOLD_MS
-        : phase === "finishing"
-          ? STALE_FINISHING_THRESHOLD_MS
-          : STALE_THRESHOLD_MS;
+      : phase === "finishing"
+        ? STALE_FINISHING_THRESHOLD_MS
+        : STALE_THRESHOLD_MS;
   const ageMs =
     input.now - Math.max(input.lastUpdatedAt ?? 0, input.turnStartedAt);
   return { stale: ageMs > thresholdMs, phase, thresholdMs, ageMs };
+}
+
+export type StaleProbeFollowUp =
+  /** Sandbox + callback demonstrably alive: touch the streaming row (resets
+   * the staleness clock) and keep checking. */
+  | "confirmed_alive"
+  /** Probe unreachable and still under the unverified-kill ceiling: keep
+   * checking WITHOUT touching the row, so the clock keeps running toward
+   * STALE_UNVERIFIED_KILL_THRESHOLD_MS instead of resetting to the 2h
+   * backstop. */
+  | "await_verification"
+  /** Confirmed dead, or unverifiable past the ceiling: proceed to the kill. */
+  | "kill";
+
+/**
+ * What the stale-turn liveness probe does with a `verifySandboxLiveness`
+ * result. Shared by the chat stall watchdog and the task-run watchdog so both
+ * kill on the same evidence: a confirmed-dead callback dies at the ordinary
+ * stale threshold, while an unverifiable one (provider API unreachable) gets
+ * until STALE_UNVERIFIED_KILL_THRESHOLD_MS. A silent heartbeat plus an
+ * unreachable provider for 25 minutes is dead by every signal we have — the
+ * heartbeat path (sandbox → Convex) and the probe path (Convex → provider)
+ * fail independently, so a mere provider API outage never even reaches the
+ * probe: live callbacks keep heartbeating and the turn never goes stale.
+ */
+export function staleProbeFollowUp(input: {
+  alive: boolean;
+  reason: string;
+  streamingAgeMs: number;
+}): StaleProbeFollowUp {
+  if (!input.alive) return "kill";
+  if (!input.reason.startsWith("probe_unreachable")) return "confirmed_alive";
+  return input.streamingAgeMs > STALE_UNVERIFIED_KILL_THRESHOLD_MS
+    ? "kill"
+    : "await_verification";
 }

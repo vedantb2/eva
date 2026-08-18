@@ -28,10 +28,12 @@ const CALLBACK_LIVENESS_COMMAND = [
   'state="$(ps -p "$pid" -o stat= 2>/dev/null | tr -d " ")"',
   'case "$state" in Z*) exit 1 ;; *) exit 0 ;; esac',
 ].join(" && ");
-/** Agent still running even if callback PID bookkeeping is stale. Cursor runs
- * in-process inside the callback (run-design.mjs) since the SDK migration, so
- * the callback process itself counts as agent liveness; cursor-agent stays for
- * pre-migration sandboxes. */
+/** Agent still running even if callback PID bookkeeping is stale. Cursor and
+ * OpenCode drive their turns from inside the callback (run-design.mjs) since
+ * the SDK migrations, so the callback process itself counts as agent liveness;
+ * cursor-agent and `opencode run` stay for pre-migration sandboxes. OpenCode's
+ * `opencode serve` is deliberately absent: it idles between turns, so matching
+ * it would report every sandbox alive forever. */
 const AGENT_PROCESS_LIVENESS_COMMAND =
   "pgrep -f 'claude-code|cursor-agent|codex run|opencode run|/\\.claude/|run-design\\.mjs' >/dev/null 2>&1";
 

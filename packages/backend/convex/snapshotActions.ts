@@ -69,9 +69,11 @@ const RIPGREP_VERSION = "15.2.0";
 const FD_VERSION = "10.4.2";
 const GIT_LFS_VERSION = "3.7.1";
 const CODE_SERVER_VERSION = "4.132.0";
-// Keep the launcher and its platform package in lockstep. npm briefly exposed
+// Keep the launcher, its platform package and @opencode-ai/sdk in lockstep:
+// the SDK is a generated client for one server release, and npm briefly exposed
 // opencode-ai 1.18.17 before any matching linux package existed, so `latest`
-// made every fresh snapshot fail deterministically during postinstall.
+// made every fresh snapshot fail deterministically during postinstall. Mirror
+// any bump in callback-src/providers/opencodeSdk.ts (SDK_VERSION).
 const OPENCODE_VERSION = "1.18.16";
 
 function shouldCaptureSupabaseState(commands: string[]): boolean {
@@ -356,7 +358,7 @@ export const launchSeedRun = internalAction({
       'sudo /usr/local/bin/git-lfs install --system || { echo "SEEDRUN-FAILED:git-lfs-filters"; exit 1; }',
       'sudo env GIT_CONFIG_SYSTEM=/etc/gitconfig /usr/local/bin/git-lfs install --system || { echo "SEEDRUN-FAILED:git-lfs-filters"; exit 1; }',
       'command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && [ -d "$(npm root -g)/@anthropic-ai/claude-agent-sdk" ] && [ -d "$(npm root -g)/@cursor/sdk" ] || sudo npm install -g @anthropic-ai/claude-code @anthropic-ai/claude-agent-sdk@0.3.201 @openai/codex@0.146.0 agent-browser convex agentation-mcp@1.2.0 @cursor/sdk@1.0.26 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
-      `command -v opencode >/dev/null 2>&1 || sudo npm install -g opencode-ai@${OPENCODE_VERSION} || { echo "SEEDRUN-FAILED:opencode-cli"; exit 1; }`,
+      `command -v opencode >/dev/null 2>&1 && [ -d "$(npm root -g)/@opencode-ai/sdk" ] || sudo npm install -g opencode-ai@${OPENCODE_VERSION} @opencode-ai/sdk@${OPENCODE_VERSION} || { echo "SEEDRUN-FAILED:opencode-cli"; exit 1; }`,
       `command -v code-server >/dev/null 2>&1 || { github_release_download coder/code-server v${CODE_SERVER_VERSION} code-server-${CODE_SERVER_VERSION}-amd64.rpm /tmp/code-server.rpm && sudo rpm -Uvh /tmp/code-server.rpm && rm -f /tmp/code-server.rpm; } || { echo "SEEDRUN-FAILED:code-server"; exit 1; }`,
       'command -v websockify >/dev/null 2>&1 || python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1 || { echo "SEEDRUN-FAILED:websockify"; exit 1; }',
       "sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify 2>/dev/null || true",

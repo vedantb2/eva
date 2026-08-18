@@ -6,9 +6,10 @@ import { useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { cn, Spinner } from "@eva/ui";
+import { Spinner } from "@eva/ui";
 import { entityPathSegment } from "@/lib/numId";
-import { MobilePaneSwitcher } from "@/lib/components/MobilePaneSwitcher";
+import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
+import { useDetailPaneSignals } from "@/lib/hooks/useDetailPaneSignals";
 import { ProjectTaskListPanel } from "./ProjectTaskListPanel";
 import { TaskDetailInline } from "@/lib/components/tasks/TaskDetailInline";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
@@ -71,11 +72,18 @@ export function ProjectActiveLayout({
       ? (tasks.find((t) => t._id === selectedTaskId) ?? null)
       : null;
 
+  // Below `md` the primitive shows one pane at a time; selection is what moves a
+  // phone to the detail. `nudge` covers re-tapping the task already in the URL
+  // after switching back to the list, which changes no route state at all.
+  const { expandRightSignal, collapseRightSignal, nudge } =
+    useDetailPaneSignals(selectedTaskIdParam);
+
   const handleSelectTask = (id: Id<"agentTasks">) => {
     if (!projectPathSegment) return;
     const task = tasks?.find((t) => t._id === id);
     const taskPathSegment = task ? entityPathSegment(task) : null;
     if (!taskPathSegment) return;
+    nudge();
     navigate({
       to: toInternalRepoHref(
         `${basePath}/projects/${projectPathSegment}/${taskPathSegment}/activity`,
@@ -132,93 +140,73 @@ export function ProjectActiveLayout({
     }
   }, [project.phase, project.sandboxId, project._id, clearProjectSandbox]);
 
-  // Below `md` the list and the detail cannot share the viewport — a 1/3 + 2/3
-  // vertical split gives two independently scrolling panes of ~230px and ~470px,
-  // and neither is usable. So one pane is on screen at a time, and *which* one is
-  // the URL: a selected task means the detail. The switcher's list button clears
-  // the selection, so there is no second source of truth to keep in sync, and it
-  // is only rendered when there are two panes to move between.
-  const detailRequested =
-    selectedTaskIdParam !== undefined || selectedTaskStatus !== undefined;
+  const notFoundPane = (
+    <EntityNotFound
+      entityLabel="task"
+      backTo={
+        projectPathSegment
+          ? `${basePath}/projects/${projectPathSegment}`
+          : `${basePath}/projects`
+      }
+      backLabel="Back to project"
+    />
+  );
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col overflow-hidden bg-background md:flex-row">
-      {detailRequested ? (
-        <div className="shrink-0 md:hidden">
-          <MobilePaneSwitcher
-            labels={{ left: "Tasks", right: "Details" }}
-            showingRight
-            onSelect={(pane) => {
-              if (pane === "left") handleCloseTask();
-            }}
-          />
-        </div>
-      ) : null}
-      <div
-        className={cn(
-          // `md:shrink-0` keeps the desktop column at its width: a `flex-1`
-          // basis of 0 would otherwise let it grow past `w-1/3` in the row.
-          "flex max-sm:min-h-0 flex-col overflow-hidden md:h-full md:w-1/3 md:shrink-0 lg:w-1/4",
-          detailRequested ? "hidden md:flex" : "flex-1",
-        )}
-      >
-        <ProjectTaskListPanel
-          tasks={tasks ?? []}
-          selectedTaskId={selectedTaskId}
-          onSelectTask={handleSelectTask}
-          onCreateTask={() => setCreateTaskOpen(true)}
-          projectNumId={project.numId}
-        />
-      </div>
-      <div
-        className={cn(
-          "min-h-0 flex-1 flex-col overflow-hidden md:flex",
-          detailRequested ? "flex" : "hidden",
-        )}
-      >
-        {selectedTaskStatus === "loading" ? (
-          <div className="flex h-full items-center justify-center">
-            <Spinner size="lg" />
-          </div>
-        ) : selectedTaskStatus === "not-found" ? (
-          <EntityNotFound
-            entityLabel="task"
-            backTo={
-              projectPathSegment
-                ? `${basePath}/projects/${projectPathSegment}`
-                : `${basePath}/projects`
-            }
-            backLabel="Back to project"
-          />
-        ) : selectedTaskIdParam &&
-          tasks !== undefined &&
-          selectedTaskId === null ? (
-          <EntityNotFound
-            entityLabel="task"
-            backTo={
-              projectPathSegment
-                ? `${basePath}/projects/${projectPathSegment}`
-                : `${basePath}/projects`
-            }
-            backLabel="Back to project"
-          />
-        ) : selectedTaskId ? (
-          <TaskDetailInline
-            key={selectedTaskId}
-            taskId={selectedTaskId}
-            onClose={handleCloseTask}
-            allTags={allTags}
-            routing={routing}
-          />
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center gap-2 p-4">
-            <IconChecklist size={32} className="text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              Select a task to view details
-            </p>
+    <div className="min-h-0 flex-1 overflow-hidden bg-background">
+      <ResizablePanelLayout
+        storageKey="project-tasks-split"
+        leftDefaultSize="33%"
+        leftMinWidthPx={260}
+        rightMinWidthPx={360}
+        // The detail pane is the point of this view, so it starts open —
+        // unlike the sidebar-style panels the other call sites use.
+        defaultRightCollapsed={false}
+        expandRightSignal={expandRightSignal}
+        collapseRightSignal={collapseRightSignal}
+        mobilePaneLabels={{ left: "Tasks", right: "Details" }}
+        leftPanel={() => (
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
+            <ProjectTaskListPanel
+              tasks={tasks ?? []}
+              selectedTaskId={selectedTaskId}
+              onSelectTask={handleSelectTask}
+              onCreateTask={() => setCreateTaskOpen(true)}
+              projectNumId={project.numId}
+            />
           </div>
         )}
-      </div>
+        rightPanel={
+          <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+            {selectedTaskStatus === "loading" ? (
+              <div className="flex h-full items-center justify-center">
+                <Spinner size="lg" />
+              </div>
+            ) : selectedTaskStatus === "not-found" ? (
+              notFoundPane
+            ) : selectedTaskIdParam &&
+              tasks !== undefined &&
+              selectedTaskId === null ? (
+              notFoundPane
+            ) : selectedTaskId ? (
+              <TaskDetailInline
+                key={selectedTaskId}
+                taskId={selectedTaskId}
+                onClose={handleCloseTask}
+                allTags={allTags}
+                routing={routing}
+              />
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
+                <IconChecklist size={32} className="text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Select a task to view details
+                </p>
+              </div>
+            )}
+          </div>
+        }
+      />
       <QuickTaskModal
         isOpen={createTaskOpen}
         onClose={() => setCreateTaskOpen(false)}

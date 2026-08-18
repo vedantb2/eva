@@ -1,19 +1,16 @@
 "use client";
 
-import { Button, Spinner } from "@eva/ui";
+import { Button, cn, Spinner } from "@eva/ui";
 import { IconPlayerPlay, IconPlayerStop } from "@tabler/icons-react";
 import { SandboxPanelToggleButton } from "./SandboxPanelToggleButton";
+import { MidTurnSleepTooltip } from "./SleepEvaButton";
 
 /**
  * Compact play/stop control used in session, project, and task sandbox chat.
  *
- * Hidden — not disabled — while a turn is in flight. Stopping the VM mid-turn
- * does not cancel the turn: the daemon dies with the VM, the workflow keeps
- * waiting, and the chat sits on "Working…" until the stall watchdog kills it
- * 5–25 minutes later with an alert that blames a runtime limit. The composer's
- * "Stop Eva" button is present in exactly this state and cancels properly, so
- * this is the wrong of two adjacent controls and removing it costs the user
- * nothing. A `disabled` button would keep drawing the eye to the wrong one.
+ * Held open but inert while a turn is in flight, with a tooltip saying why —
+ * see {@link MidTurnSleepTooltip} for the reasoning and for the `aria-disabled`
+ * treatment this shares with the labelled sleep button.
  */
 export function SandboxStartStopButton({
   isActive,
@@ -24,30 +21,39 @@ export function SandboxStartStopButton({
   isActive: boolean;
   isToggling: boolean;
   onToggle: (action: "start" | "stop") => void;
-  /** Suppresses the stop affordance while the assistant holds the turn. */
+  /** Makes the stop affordance inert while the assistant holds the turn. */
   isAssistantResponding?: boolean;
 }) {
   // Only stopping is unsafe mid-turn; a turn cannot be running on a sandbox
   // that is asleep, but if the flags ever disagree, starting stays available.
-  if (isActive && isAssistantResponding) return null;
+  const blockedMidTurn = isActive && isAssistantResponding;
 
   return (
-    <Button
-      size="icon-sm"
-      variant={isActive ? "destructive" : "secondary"}
-      onClick={() => onToggle(isActive ? "stop" : "start")}
-      disabled={isToggling}
-      className={isActive ? undefined : "text-success"}
-      aria-label={isActive ? "Put Eva to sleep" : "Wake up Eva"}
-    >
-      {isToggling ? (
-        <Spinner size="sm" />
-      ) : isActive ? (
-        <IconPlayerStop className="w-4 h-4" />
-      ) : (
-        <IconPlayerPlay className="w-4 h-4" />
-      )}
-    </Button>
+    <MidTurnSleepTooltip blocked={blockedMidTurn}>
+      <Button
+        size="icon-sm"
+        variant={isActive ? "destructive" : "secondary"}
+        onClick={() => {
+          if (blockedMidTurn) return;
+          onToggle(isActive ? "stop" : "start");
+        }}
+        disabled={isToggling}
+        aria-disabled={blockedMidTurn || undefined}
+        className={cn(
+          isActive ? undefined : "text-success",
+          blockedMidTurn && "cursor-not-allowed opacity-45 hover:bg-destructive",
+        )}
+        aria-label={isActive ? "Put Eva to sleep" : "Wake up Eva"}
+      >
+        {isToggling ? (
+          <Spinner size="sm" />
+        ) : isActive ? (
+          <IconPlayerStop className="w-4 h-4" />
+        ) : (
+          <IconPlayerPlay className="w-4 h-4" />
+        )}
+      </Button>
+    </MidTurnSleepTooltip>
   );
 }
 

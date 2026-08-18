@@ -108,9 +108,10 @@ export function SessionDetailClient({
   const isSandboxStopping = session?.status === "stopping";
   const [isStopPending, setIsStopPending] = useState(false);
   const simpleView = useSimpleView();
-  // The master session drives other agents rather than editing its own
-  // checkout, so it gets the chat with no sandbox panel (no preview / computer
-  // / review tabs) — same tab-gating idea as simple view, one step further.
+  // The Eva session drives other agents rather than editing its own checkout,
+  // so it gets the chat with no sandbox panel (no preview / computer / review
+  // tabs) — same tab-gating idea as simple view, one step further. This branch
+  // is what makes the session renderable inline at `/eva`.
   const chatOnly = session?.isOrchestrator === true;
   const handleSandboxToggle = async (action: "start" | "stop") => {
     if (action === "start") {
@@ -150,6 +151,8 @@ export function SessionDetailClient({
 
   // Auto-switch to Browser + expand sandbox panel on lock transition only
   // (undefined → set). Don't fight the user if they switch away mid-lock.
+  // Skipped for chatOnly: there is no sandbox panel to switch, and the tab
+  // change is a navigation — it would bounce Eva off its own `/eva` URL.
   const prevAgentBrowsingAt = useRef<number | undefined>(undefined);
   const [expandRightSignal, setExpandRightSignal] = useState(0);
   const agentBrowsingAt =
@@ -159,11 +162,11 @@ export function SessionDetailClient({
   useEffect(() => {
     const prev = prevAgentBrowsingAt.current;
     prevAgentBrowsingAt.current = agentBrowsingAt;
-    if (!isRouteActive) return;
+    if (!isRouteActive || chatOnly) return;
     if (agentBrowsingAt === undefined || prev !== undefined) return;
     onSandboxTabChange("browser");
     setExpandRightSignal((n) => n + 1);
-  }, [agentBrowsingAt, onSandboxTabChange, isRouteActive]);
+  }, [agentBrowsingAt, onSandboxTabChange, isRouteActive, chatOnly]);
 
   if (session === undefined) {
     return (

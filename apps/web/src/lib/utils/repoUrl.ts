@@ -62,6 +62,15 @@ export function repoPublicHref(
   return repoHref(owner, name, rootDirectory);
 }
 
+/**
+ * Build the router's internal `$repo` param (`name` or `name--app`) for a repo
+ * that is not in the URL — e.g. mounting a repo-scoped tree from a global route.
+ */
+export function encodeRepoParam(name: string, rootDirectory?: string): string {
+  const appName = rootDirectory?.split("/").pop();
+  return appName ? `${name}--${appName}` : name;
+}
+
 /** Parse the router's internal `$repo` param (`name` or `name--app`). */
 export function decodeRepoParam(repoParam: string): {
   name: string;

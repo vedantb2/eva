@@ -15,7 +15,7 @@ import {
   TooltipTrigger,
   cn,
 } from "@eva/ui";
-import { IconPencil, IconRobot } from "@tabler/icons-react";
+import { IconPencil, IconSparkles } from "@tabler/icons-react";
 import {
   AutomationsIcon,
   InboxIcon,
@@ -191,9 +191,8 @@ function RepoRailView({
     pathname === "/automations" ||
     pathname.startsWith("/automations/") ||
     (pathParts.includes("automations") && pathParts[0] !== "automations");
-  // The master redirects into a normal session URL, so only the picker/redirect
-  // route itself lights this tile — the session it lands on belongs to Sessions.
-  const masterActive = pathname === "/master";
+  // Eva's chat lives at its own stable URL, so only that path lights this tile.
+  const evaActive = pathname === "/eva";
   const sessionsLabel = formatCountLabel(activeSessionCount);
   const [renameRepo, setRenameRepo] = useState<RepoWithLogo | null>(null);
 
@@ -269,19 +268,19 @@ function RepoRailView({
         <Tooltip>
           <TooltipTrigger asChild>
             <Link
-              to="/master"
+              to="/eva"
               onClick={onNavigate}
-              aria-label="Master"
+              aria-label="Eva"
               className={cn(
                 RAIL_TILE_CLASS,
                 "group",
-                railTileActive(masterActive),
+                railTileActive(evaActive),
               )}
             >
-              <IconRobot size={22} className="shrink-0" />
+              <IconSparkles size={22} className="shrink-0" />
             </Link>
           </TooltipTrigger>
-          <TooltipContent side="right">Master</TooltipContent>
+          <TooltipContent side="right">Eva</TooltipContent>
         </Tooltip>
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />
       </div>
@@ -377,26 +376,26 @@ function RepoRailView({
       ) : null}
       <div className="flex w-full flex-col items-center gap-1.5 border-t border-sidebar-border py-3">
         {simpleView ? null : (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              to="/automations"
-              onClick={onNavigate}
-              aria-label="Automations"
-              className={cn(
-                RAIL_TILE_CLASS,
-                "group",
-                railTileActive(automationsActive),
-              )}
-            >
-              <AutomationsIcon size={22} className="shrink-0" />
-              <QueryErrorBoundary>
-                <AutomationsUnreadBadge />
-              </QueryErrorBoundary>
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent side="right">Automations</TooltipContent>
-        </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                to="/automations"
+                onClick={onNavigate}
+                aria-label="Automations"
+                className={cn(
+                  RAIL_TILE_CLASS,
+                  "group",
+                  railTileActive(automationsActive),
+                )}
+              >
+                <AutomationsIcon size={22} className="shrink-0" />
+                <QueryErrorBoundary>
+                  <AutomationsUnreadBadge />
+                </QueryErrorBoundary>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right">Automations</TooltipContent>
+          </Tooltip>
         )}
         <Tooltip>
           <TooltipTrigger asChild>

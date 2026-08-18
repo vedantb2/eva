@@ -162,12 +162,12 @@ export const ChatMessage = memo(function ChatMessage({
   const copyPlain = copySource ? tokenizedToDisplayText(copySource) : undefined;
 
   // Two orchestrator provenances, never both on one row: a child chat shows the
-  // turns its master injected, the master shows the wake-ups its children fired.
+  // turns Eva injected, Eva shows the wake-ups its children fired.
   const isOrchestratorNotification = message.orchestratorNotification === true;
   const orchestratorTag = isOrchestratorNotification
     ? "agent update"
     : message.sentViaOrchestrator === true
-      ? "via master"
+      ? "via Eva"
       : undefined;
 
   // Videos render as inline players; images collapse into one Twitter-style

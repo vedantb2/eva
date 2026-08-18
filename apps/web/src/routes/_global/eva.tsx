@@ -8,65 +8,71 @@ import { Spinner, cn } from "@eva/ui";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { catchMutationError } from "@/lib/utils/mutationToast";
 import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
-import { repoHref } from "@/lib/utils/repoUrl";
+import { encodeRepoParam } from "@/lib/utils/repoUrl";
 import { repoTileColor } from "@/lib/utils/repoTileColor";
+import { CachedSessionShell } from "@/routes/_repo/$owner/$repo/sessions/_components/CachedSessionShell";
 
-export const Route = createFileRoute("/_global/master")({
-  staticData: { title: "Master" },
-  component: MasterRoute,
+export const Route = createFileRoute("/_global/eva")({
+  staticData: { title: "Eva" },
+  component: EvaRoute,
 });
 
 /** Placeholder that holds the page while a query resolves. */
-function MasterBusy({ label }: { label: string }) {
+function EvaBusy({ label }: { label: string }) {
   return (
     <div className="flex min-h-0 flex-1" aria-busy="true" aria-label={label} />
   );
 }
 
 /**
- * The rail's Master entry. The master is one persistent session per user, shown
- * in the normal session UI — so this route only resolves (or creates) it and
- * forwards to its session URL. `replace` keeps it out of history, otherwise
- * Back from the master would bounce through here and forward again.
+ * The rail's Eva entry. Eva is one persistent session per user, but it lives at
+ * this stable URL rather than redirecting into `/$owner/$repo/sessions/$numId`
+ * — the session shell is mounted inline instead. Its `chatOnly` branch drops
+ * the sandbox panel, so all that renders here is the chat.
  */
-function MasterRoute() {
-  const master = useQuery(api.sessions.getOrchestratorSession, {});
+function EvaRoute() {
+  const eva = useQuery(api.sessions.getOrchestratorSession, {});
 
-  // `undefined` is "still loading", not "no master" — rendering the picker here
-  // would flash a codebase list at every user who already has one.
-  if (master === undefined) return <MasterBusy label="Opening master" />;
+  // `undefined` is "still loading", not "no session" — rendering the picker
+  // here would flash a codebase list at every user who already has one.
+  if (eva === undefined) return <EvaBusy label="Opening Eva" />;
 
-  if (master) {
-    const base = repoHref(master.owner, master.name, master.rootDirectory);
-    // Widened to string: `to` accepts plain strings (the sessions.tsx redirect
-    // relies on the same escape hatch) but rejects template-literal types.
-    const to: string = `${base}/sessions/${master.numId}`;
-    return <Navigate to={to} replace />;
-  }
+  if (eva === null) return <EvaHomeRepoPicker />;
 
-  return <MasterHomeRepoPicker />;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* The shell carries its own passive RepoProvider, so Eva's repo resolves
+          without this route living under `/$owner/$repo`. */}
+      <CachedSessionShell
+        numId={String(eva.numId)}
+        owner={eva.owner}
+        repoParam={encodeRepoParam(eva.name, eva.rootDirectory)}
+        isActiveRoute
+      />
+    </div>
+  );
 }
 
-/** First-run only: the master needs a codebase to live in. */
-function MasterHomeRepoPicker() {
+/** First-run only: Eva needs a codebase to live in. */
+function EvaHomeRepoPicker() {
   const repos = useQuery(api.githubRepos.list, {});
-  const ensureMaster = useMutation(api.sessions.ensureOrchestratorSession);
+  const ensureEva = useMutation(api.sessions.ensureOrchestratorSession);
   const [pendingRepoId, setPendingRepoId] = useState<Id<"githubRepos"> | null>(
     null,
   );
 
   // No navigate here — `getOrchestratorSession` is live, so the parent route
-  // picks up the new master and redirects on its own.
-  const startMaster = (repoId: Id<"githubRepos">) => {
+  // picks up the new session and renders the chat on its own.
+  const startEva = (repoId: Id<"githubRepos">) => {
     setPendingRepoId(repoId);
     void catchMutationError(
-      ensureMaster({ repoId }),
-      "Couldn't create the master session",
-      "master-session-create",
+      ensureEva({ repoId }),
+      "Couldn't start Eva",
+      "eva-session-create",
     ).catch(() => setPendingRepoId(null));
   };
 
-  if (repos === undefined) return <MasterBusy label="Loading codebases" />;
+  if (repos === undefined) return <EvaBusy label="Loading codebases" />;
   if (repos.length === 0) return <Navigate to="/home" replace />;
 
   return (
@@ -74,8 +80,9 @@ function MasterHomeRepoPicker() {
       <div className="flex flex-col items-center gap-2 text-center">
         <h1 className="text-lg font-semibold">Choose a home codebase</h1>
         <p className="max-w-sm text-sm text-muted-foreground">
-          Master is one session that runs your other agents. Pick where it lives
-          — you can talk to it about any codebase from there.
+          Eva is your persistent agent that runs and supervises your other
+          agents. Pick where it lives — you can talk to it about any codebase
+          from there.
         </p>
       </div>
       <div className="flex w-full max-w-sm flex-col gap-1">
@@ -85,7 +92,7 @@ function MasterHomeRepoPicker() {
             <button
               key={repo._id}
               type="button"
-              onClick={() => startMaster(repo._id)}
+              onClick={() => startEva(repo._id)}
               disabled={pendingRepoId !== null}
               className="motion-press flex items-center gap-3 rounded-lg bg-muted px-3 py-2 text-left text-sm active:scale-[0.99] hover:bg-accent disabled:opacity-60"
             >

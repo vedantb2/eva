@@ -16,9 +16,9 @@ import { Route as AgentCallbackRouteImport } from './routes/agent-callback'
 import { Route as PreviewAuthRouteImport } from './routes/preview-auth'
 import { Route as GlobalAutomationsRouteImport } from './routes/_global/automations'
 import { Route as GlobalChangelogRouteImport } from './routes/_global/changelog'
+import { Route as GlobalEvaRouteImport } from './routes/_global/eva'
 import { Route as GlobalHomeRouteImport } from './routes/_global/home'
 import { Route as GlobalInboxRouteImport } from './routes/_global/inbox'
-import { Route as GlobalMasterRouteImport } from './routes/_global/master'
 import { Route as GlobalSessionsRouteImport } from './routes/_global/sessions'
 import { Route as GlobalSettingsRouteRouteImport } from './routes/_global/settings/route'
 import { Route as GlobalTestingRouteImport } from './routes/_global/testing'
@@ -158,6 +158,11 @@ const GlobalChangelogRoute = GlobalChangelogRouteImport.update({
   path: '/changelog',
   getParentRoute: () => GlobalRoute,
 } as any)
+const GlobalEvaRoute = GlobalEvaRouteImport.update({
+  id: '/eva',
+  path: '/eva',
+  getParentRoute: () => GlobalRoute,
+} as any)
 const GlobalHomeRoute = GlobalHomeRouteImport.update({
   id: '/home',
   path: '/home',
@@ -166,11 +171,6 @@ const GlobalHomeRoute = GlobalHomeRouteImport.update({
 const GlobalInboxRoute = GlobalInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
-  getParentRoute: () => GlobalRoute,
-} as any)
-const GlobalMasterRoute = GlobalMasterRouteImport.update({
-  id: '/master',
-  path: '/master',
   getParentRoute: () => GlobalRoute,
 } as any)
 const GlobalSessionsRoute = GlobalSessionsRouteImport.update({
@@ -796,9 +796,9 @@ export interface FileRoutesByFullPath {
   '/settings': typeof GlobalSettingsRouteRouteWithChildren
   '/automations': typeof GlobalAutomationsRoute
   '/changelog': typeof GlobalChangelogRoute
+  '/eva': typeof GlobalEvaRoute
   '/home': typeof GlobalHomeRoute
   '/inbox': typeof GlobalInboxRoute
-  '/master': typeof GlobalMasterRoute
   '/sessions': typeof GlobalSessionsRoute
   '/testing': typeof GlobalTestingRoute
   '/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
@@ -911,9 +911,9 @@ export interface FileRoutesByTo {
   '/settings': typeof GlobalSettingsRouteRouteWithChildren
   '/automations': typeof GlobalAutomationsRoute
   '/changelog': typeof GlobalChangelogRoute
+  '/eva': typeof GlobalEvaRoute
   '/home': typeof GlobalHomeRoute
   '/inbox': typeof GlobalInboxRoute
-  '/master': typeof GlobalMasterRoute
   '/sessions': typeof GlobalSessionsRoute
   '/testing': typeof GlobalTestingRoute
   '/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
@@ -1005,9 +1005,9 @@ export interface FileRoutesById {
   '/_global/settings': typeof GlobalSettingsRouteRouteWithChildren
   '/_global/automations': typeof GlobalAutomationsRoute
   '/_global/changelog': typeof GlobalChangelogRoute
+  '/_global/eva': typeof GlobalEvaRoute
   '/_global/home': typeof GlobalHomeRoute
   '/_global/inbox': typeof GlobalInboxRoute
-  '/_global/master': typeof GlobalMasterRoute
   '/_global/sessions': typeof GlobalSessionsRoute
   '/_global/testing': typeof GlobalTestingRoute
   '/_global/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
@@ -1122,9 +1122,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/automations'
     | '/changelog'
+    | '/eva'
     | '/home'
     | '/inbox'
-    | '/master'
     | '/sessions'
     | '/testing'
     | '/teams/$teamId'
@@ -1237,9 +1237,9 @@ export interface FileRouteTypes {
     | '/settings'
     | '/automations'
     | '/changelog'
+    | '/eva'
     | '/home'
     | '/inbox'
-    | '/master'
     | '/sessions'
     | '/testing'
     | '/artifacts/$artifactId'
@@ -1330,9 +1330,9 @@ export interface FileRouteTypes {
     | '/_global/settings'
     | '/_global/automations'
     | '/_global/changelog'
+    | '/_global/eva'
     | '/_global/home'
     | '/_global/inbox'
-    | '/_global/master'
     | '/_global/sessions'
     | '/_global/testing'
     | '/_global/teams/$teamId'
@@ -1499,6 +1499,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GlobalChangelogRouteImport
       parentRoute: typeof GlobalRoute
     }
+    '/_global/eva': {
+      id: '/_global/eva'
+      path: '/eva'
+      fullPath: '/eva'
+      preLoaderRoute: typeof GlobalEvaRouteImport
+      parentRoute: typeof GlobalRoute
+    }
     '/_global/home': {
       id: '/_global/home'
       path: '/home'
@@ -1511,13 +1518,6 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof GlobalInboxRouteImport
-      parentRoute: typeof GlobalRoute
-    }
-    '/_global/master': {
-      id: '/_global/master'
-      path: '/master'
-      fullPath: '/master'
-      preLoaderRoute: typeof GlobalMasterRouteImport
       parentRoute: typeof GlobalRoute
     }
     '/_global/sessions': {
@@ -2303,9 +2303,9 @@ interface GlobalRouteChildren {
   GlobalSettingsRouteRoute: typeof GlobalSettingsRouteRouteWithChildren
   GlobalAutomationsRoute: typeof GlobalAutomationsRoute
   GlobalChangelogRoute: typeof GlobalChangelogRoute
+  GlobalEvaRoute: typeof GlobalEvaRoute
   GlobalHomeRoute: typeof GlobalHomeRoute
   GlobalInboxRoute: typeof GlobalInboxRoute
-  GlobalMasterRoute: typeof GlobalMasterRoute
   GlobalSessionsRoute: typeof GlobalSessionsRoute
   GlobalTestingRoute: typeof GlobalTestingRoute
   GlobalTeamsTeamIdRouteRoute: typeof GlobalTeamsTeamIdRouteRouteWithChildren
@@ -2319,9 +2319,9 @@ const GlobalRouteChildren: GlobalRouteChildren = {
   GlobalSettingsRouteRoute: GlobalSettingsRouteRouteWithChildren,
   GlobalAutomationsRoute: GlobalAutomationsRoute,
   GlobalChangelogRoute: GlobalChangelogRoute,
+  GlobalEvaRoute: GlobalEvaRoute,
   GlobalHomeRoute: GlobalHomeRoute,
   GlobalInboxRoute: GlobalInboxRoute,
-  GlobalMasterRoute: GlobalMasterRoute,
   GlobalSessionsRoute: GlobalSessionsRoute,
   GlobalTestingRoute: GlobalTestingRoute,
   GlobalTeamsTeamIdRouteRoute: GlobalTeamsTeamIdRouteRouteWithChildren,

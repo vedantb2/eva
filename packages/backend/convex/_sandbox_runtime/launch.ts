@@ -37,10 +37,7 @@ const OPENCODE_FALLBACK_BIN_PATH = `${OPENCODE_FALLBACK_INSTALL_DIR}/bin/opencod
  * callback-src/providers/opencodeSdk.ts — the CLI serves, the SDK is its
  * generated client, and a drifted pair breaks fresh snapshots. */
 const OPENCODE_FALLBACK_VERSION = "1.18.16";
-const EVA_TOOLING_INSTALL_TIMEOUT_SECONDS = 300;
-/** Package specs mirror the snapshot seed run's global install (snapshotActions.ts). */
-const EVA_TOOLING_PACKAGES = "agent-browser agentation-mcp@1.2.0";
-const EVA_TOOLING_INSTALL_FAILED_MARKER = "eva-tooling-install-failed";
+const EVA_TOOLING_PREP_TIMEOUT_SECONDS = 30;
 const CALLBACK_READY_POLL_ATTEMPTS = 60;
 const CALLBACK_READY_POLL_INTERVAL_MS = 1000;
 const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
@@ -118,37 +115,48 @@ function ensureProviderCliAvailable(
 /**
  * Provisions the parts of eva's own tooling that only the snapshot seed run
  * installs: `/home/eva` (every provider-SDK self-install targets
- * `/home/eva/.eva-agent-sdk`) plus the agent-browser and agentation-mcp CLIs,
- * which agents invoke by name off PATH — hence a global install, not the
- * `--prefix` form the provider CLIs use with an explicit *_BIN_PATH env var.
- * Sandboxes booted from the Vercel managed image (orchestrator sessions) have
- * none of it. Both halves are gated on the artifact already being present, so a
- * snapshot boot pays one probe and installs nothing.
+ * `/home/eva/.eva-agent-sdk`) plus the agent-browser CLI, which agents invoke
+ * by name off PATH — hence a global install, not the `--prefix` form the
+ * provider CLIs use with an explicit *_BIN_PATH env var. Sandboxes booted from
+ * the Vercel managed image (orchestrator sessions) have none of it. Both
+ * halves are gated on the artifact already being present, so a snapshot boot
+ * pays one probe and installs nothing.
  *
- * The install is best-effort: a session without browser tooling still chats and
- * edits code, so npm trouble must not fail the launch. The `/home/eva` half is
- * not — without it the SDK fallbacks have nowhere to install.
+ * The npm install runs detached: a synchronous install once held the launch's
+ * providerPrep gate until the provider SIGTERM-killed it at the exec timeout,
+ * which surfaced in chat as "Sandbox command failed with exit code 143".
+ * agent-browser availability is eventually-consistent instead — a session
+ * without browser tooling still chats and edits code. agentation-mcp is
+ * deliberately NOT installed here: it exists for the preview annotation
+ * widget (which image-booted orchestrator sandboxes never serve) and its
+ * better-sqlite3 build needs gcc/make, which the managed image lacks — that
+ * compile is what blew the old synchronous install past its timeout.
+ *
+ * Nothing in here may throw: losing the SDK-fallback directory or the browser
+ * CLI degrades a launch, but killing the chat turn is strictly worse.
  */
 async function ensureEvaToolingAvailable(
   sandbox: SandboxHandle,
 ): Promise<void> {
-  const out = await execHandle(
-    sandbox,
-    // Each half is its own brace group: `&&`/`||` are left-associative at equal
-    // precedence, so a flat chain would run the install after a failed mkdir.
-    [
-      // Same paths and permissions the seed run creates (snapshotActions.ts).
-      "{ [ -d /home/eva ] || { sudo mkdir -p /home/eva/sandbox-config /home/eva/.eva-snapshot-state && sudo chmod -R 777 /home/eva; }; }",
-      // agentation-mcp is probed by its global package dir rather than a binary:
-      // the seed run gates its libraries the same way, and the probe cannot go
-      // stale if the package renames its bin.
-      `{ command -v agent-browser >/dev/null 2>&1 && [ -d "$(npm root -g)/agentation-mcp" ] || sudo npm install -g ${EVA_TOOLING_PACKAGES} || echo ${quote([EVA_TOOLING_INSTALL_FAILED_MARKER])}; }`,
-    ].join(" && "),
-    EVA_TOOLING_INSTALL_TIMEOUT_SECONDS,
-  );
-  if (out.includes(EVA_TOOLING_INSTALL_FAILED_MARKER)) {
+  try {
+    await execHandle(
+      sandbox,
+      // Each half is its own brace group and best-effort (`|| true`): `&&`/`||`
+      // are left-associative at equal precedence, so a flat chain would run
+      // the install after a failed mkdir.
+      [
+        // Same paths and permissions the seed run creates (snapshotActions.ts).
+        "{ [ -d /home/eva ] || { sudo mkdir -p /home/eva/sandbox-config /home/eva/.eva-snapshot-state && sudo chmod -R 777 /home/eva; } || true; }",
+        // Detached via setsid+nohup so the exec returns immediately and the
+        // install survives it; the log file is the debugging breadcrumb.
+        "{ command -v agent-browser >/dev/null 2>&1 || sudo sh -c 'setsid nohup npm install -g agent-browser >/tmp/eva-tooling-install.log 2>&1 &' || true; }",
+      ].join(" && "),
+      EVA_TOOLING_PREP_TIMEOUT_SECONDS,
+    );
+  } catch (error) {
     console.warn(
-      `[sandbox][launchScript] eva tooling install failed on ${sandbox.id} — agent-browser / agentation-mcp unavailable this run`,
+      `[sandbox][launchScript] eva tooling prep failed on ${sandbox.id} — agent-browser / provider-SDK fallback dir may be unavailable this run:`,
+      error,
     );
   }
 }

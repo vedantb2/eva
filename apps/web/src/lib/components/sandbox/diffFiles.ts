@@ -90,13 +90,24 @@ export interface DiffFileEntry {
  * Turns a multi-file diff into the per-file entries the Diffs tab renders.
  * Everything here is derived from the patch text, so a single pass over the
  * diff gives the tree, the headers, and the totals.
+ *
+ * Paths are unique: the first patch for a path wins. `@pierre/trees` throws
+ * `Duplicate path` when the same path is appended twice, and the Review pane is
+ * always mounted (just hidden), so one repeated path would take down the whole
+ * sandbox route. A repeat is not a legal git diff, but it does reach us — the
+ * `pulls.listFiles` fallback for 300+ file PRs can repeat an entry across pages,
+ * and a path is also the React key for each accordion item and scroll ref.
  */
 export function buildDiffFileEntries(diff: string): DiffFileEntry[] {
-  return splitDiffFiles(diff).map((patch, index) => {
+  const seenPaths = new Set<string>();
+  return splitDiffFiles(diff).flatMap((patch, index) => {
     const stats = diffFileStats(patch);
+    const path = fileNameFromPatch(patch, `file-${index}`);
+    if (seenPaths.has(path)) return [];
+    seenPaths.add(path);
     return {
       patch,
-      path: fileNameFromPatch(patch, `file-${index}`),
+      path,
       status: diffFileStatus(patch),
       additions: stats.additions,
       deletions: stats.deletions,

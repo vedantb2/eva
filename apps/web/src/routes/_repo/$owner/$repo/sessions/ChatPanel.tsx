@@ -241,6 +241,7 @@ export function ChatPanel({
     messageCount: messages.length,
     isSandboxActive,
     isSandboxToggling,
+    isAssistantResponding: isExecuting,
     deploymentStatus,
     sandboxCollapsed,
     onSandboxToggle,

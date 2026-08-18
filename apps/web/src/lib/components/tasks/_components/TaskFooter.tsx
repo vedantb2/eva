@@ -107,7 +107,15 @@ export function TaskFooter({
     !task?.projectId &&
     (status === "todo" || (status === "in_progress" && !hasActiveRun));
   const showViewSandbox = canViewSandbox;
-  const showStopSandbox = isSandboxActive && !isSandboxStopping;
+  // Stopping the VM mid-turn does not cancel the turn: the daemon dies with the
+  // VM and the chat sits on "Working…" until the stall watchdog kills it minutes
+  // later. The composer's "Stop Eva" is the correct control in that window.
+  // Gated on the chat turn only, not `hasActiveRun` — that also counts *queued*
+  // runs, and a task waiting in the queue is no reason to refuse to sleep a
+  // sandbox. A main run has its own confirmed Stop; hiding this during one is a
+  // separate call.
+  const showStopSandbox =
+    isSandboxActive && !isSandboxStopping && !task?.activeChatWorkflowId;
   const showResolveConflicts =
     !hasActiveRun && (status === "code_review" || status === "business_review");
   const showRunDevServer = isSandboxActive && canStartSandbox;

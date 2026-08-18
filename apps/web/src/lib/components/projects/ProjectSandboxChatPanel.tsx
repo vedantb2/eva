@@ -222,6 +222,7 @@ export function ProjectSandboxChatPanel({
         onSandboxToggle={onSandboxToggle}
         sandboxCollapsed={sandboxCollapsed}
         onToggleSandbox={onToggleSandbox}
+        isAssistantResponding={isExecuting}
       />
       <ChatBody
         repoId={repo._id}

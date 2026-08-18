@@ -5,7 +5,8 @@ import { createPortal } from "react-dom";
 import { useQueryState } from "nuqs";
 import { useMutation } from "convex/react";
 import { api, type Id, type SandboxOwner } from "@eva/backend";
-import { Badge } from "@eva/ui";
+import { Badge, cn } from "@eva/ui";
+import { MobilePaneSwitcher } from "@/lib/components/MobilePaneSwitcher";
 import { IconLoader2, IconClock } from "@tabler/icons-react";
 import dayjs from "@eva/shared/dates";
 import { useTaskDetail } from "./useTaskDetail";
@@ -54,6 +55,8 @@ export function TaskDetailInline({
 }: TaskDetailInlineProps) {
   const [embeddedSandboxTab, setEmbeddedSandboxTab] =
     useState<SandboxTab>("preview");
+  /** Which detail pane is on screen below `md`; both show at `md` and up. */
+  const [showMobileProperties, setShowMobileProperties] = useState(false);
   const [, setFileViewerPath] = useQueryState("file", fileViewerPathParser);
   const quickTaskHeaderActionsSlot = useQuickTaskHeaderActionsSlot();
   const simpleView = useSimpleView();
@@ -273,9 +276,31 @@ export function TaskDetailInline({
   const detailContent = (
     <TaskReactionsProvider taskId={taskId}>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* Below `md` the two columns stack, which buried Status / Priority /
+            Labels / Project under the whole (unbounded) activity timeline — on a
+            phone the only way to change a task's status was to scroll past every
+            run and comment. One pane at a time instead, same model the split
+            primitives use, following ProjectTabs' CSS-gated shape so desktop
+            keeps rendering both columns with no JS involved.
+            Local state, not a URL tab: on desktop both panes are on screen at
+            once, so there is nothing here worth linking to. */}
+        <div className="shrink-0 md:hidden">
+          <MobilePaneSwitcher
+            labels={{ left: "Overview", right: "Properties" }}
+            showingRight={showMobileProperties}
+            onSelect={(pane) => setShowMobileProperties(pane === "right")}
+          />
+        </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden scrollbar md:overflow-hidden">
           <div className="flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[14fr_6fr] md:grid-rows-1 md:overflow-hidden">
-            <div className="min-h-0 min-w-0 md:flex md:flex-1 md:flex-col md:overflow-hidden">
+            {/* Only one column is hidden at a time below `md`, and the scroller
+                above stays the single scroll owner for whichever is showing. */}
+            <div
+              className={cn(
+                "min-h-0 min-w-0 md:flex md:flex-1 md:flex-col md:overflow-hidden",
+                showMobileProperties && "max-md:hidden",
+              )}
+            >
               <div className="flex min-h-0 min-w-0 flex-col overflow-x-hidden md:flex-1 md:overflow-y-auto md:scrollbar">
                 <div className="flex min-h-0 flex-1 flex-col">
                   <div className="shrink-0 space-y-4 px-4 pt-4 md:px-6 md:pr-6 md:pt-5">
@@ -341,7 +366,14 @@ export function TaskDetailInline({
                 </div>
               </div>
             </div>
-            <div className="mt-6 flex shrink-0 flex-col min-w-0 overflow-x-hidden px-4 pb-4 md:mt-0 md:overflow-hidden md:px-0 md:pb-0 md:pl-8 md:pr-6 md:pt-5">
+            {/* `mt-6` is gone: it separated this from the overview when the two
+                stacked, and as its own pane it starts at the top instead. */}
+            <div
+              className={cn(
+                "flex min-w-0 shrink-0 flex-col overflow-x-hidden px-4 pb-4 max-md:pt-4 md:overflow-hidden md:px-0 md:pb-0 md:pl-8 md:pr-6 md:pt-5",
+                !showMobileProperties && "max-md:hidden",
+              )}
+            >
               <StatusFieldsSection
                 taskId={taskId}
                 task={task}

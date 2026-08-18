@@ -37,6 +37,8 @@ interface SessionChatHeaderProps {
   messageCount: number;
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
+  /** True while the assistant holds the turn — hides the sleep button. */
+  isAssistantResponding: boolean;
   deploymentStatus?: "queued" | "building" | "deployed" | "error";
   sandboxCollapsed?: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
@@ -56,6 +58,7 @@ export function SessionChatHeader({
   messageCount,
   isSandboxActive,
   isSandboxToggling,
+  isAssistantResponding,
   deploymentStatus,
   sandboxCollapsed,
   onSandboxToggle,
@@ -76,6 +79,7 @@ export function SessionChatHeader({
         isActive={isSandboxActive}
         isToggling={isSandboxToggling}
         onToggle={onSandboxToggle}
+        isAssistantResponding={isAssistantResponding}
       />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

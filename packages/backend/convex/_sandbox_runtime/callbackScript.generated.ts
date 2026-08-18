@@ -7296,6 +7296,34 @@ var ZERO_USAGE = {
 function readNum(value) {
   return typeof value === "number" && Number.isFinite(value) ? value : 0;
 }
+async function runTurnWithResourceExhaustedRetries(deps) {
+  for (let attempt = 0; ; attempt++) {
+    const retryDelayMs = RESOURCE_EXHAUSTED_RETRY_DELAYS_MS[attempt];
+    let outcome;
+    try {
+      outcome = await deps.runTurn();
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      if (!isResourceExhaustedMessage(messageText) || retryDelayMs === void 0 || deps.aborted()) {
+        throw error;
+      }
+      outcome = {
+        isError: true,
+        resultText: messageText,
+        durationMs: 0,
+        usage: ZERO_USAGE
+      };
+    }
+    if (!outcome.isError || !isResourceExhaustedMessage(outcome.resultText)) {
+      return outcome;
+    }
+    if (retryDelayMs === void 0 || deps.aborted()) {
+      return { ...outcome, resultText: RESOURCE_EXHAUSTED_CHAT_MESSAGE };
+    }
+    deps.onRetry(retryDelayMs, attempt);
+    await deps.sleep(retryDelayMs);
+  }
+}
 function readUsageTokens(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   return {
@@ -7427,38 +7455,25 @@ async function runCursorSdkAttempt(sessionMode) {
     resultIsError = outcome.isError;
   };
   const runTurnWithRetries = async (activeAgent) => {
-    for (let attempt = 0; ; attempt++) {
-      let outcome;
-      try {
-        outcome = await runTurn(activeAgent);
-      } catch (error) {
-        const messageText = error instanceof Error ? error.message : String(error);
-        if (!isResourceExhaustedMessage(messageText) || RESOURCE_EXHAUSTED_RETRY_DELAYS_MS[attempt] === void 0 || timedOutForMaxRuntime || timedOutForNoOutput) {
-          throw error;
-        }
-        outcome = { isError: true, resultText: messageText, durationMs: 0, usage: ZERO_USAGE };
-      }
-      const retryDelayMs = RESOURCE_EXHAUSTED_RETRY_DELAYS_MS[attempt];
-      if (outcome.isError && isResourceExhaustedMessage(outcome.resultText) && retryDelayMs !== void 0 && !timedOutForMaxRuntime && !timedOutForNoOutput) {
-        log(
-          "runCursorSdkAttempt: resource_exhausted \\u2014 retrying in " + retryDelayMs + "ms (attempt " + (attempt + 1) + " of " + (RESOURCE_EXHAUSTED_RETRY_DELAYS_MS.length + 1) + ")"
-        );
-        appendToRawLogFile(
-          "[sdk-retry] resource_exhausted \\u2014 waiting " + retryDelayMs + "ms before retry\\n"
-        );
-        updateThinkingStep(
-          "Cursor is rate-limited...",
-          "Retrying in " + Math.round(retryDelayMs / 1e3) + "s..."
-        );
-        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
-        continue;
-      }
-      if (outcome.isError && isResourceExhaustedMessage(outcome.resultText)) {
-        outcome.resultText = RESOURCE_EXHAUSTED_CHAT_MESSAGE;
-      }
-      emitTurnResult(outcome);
-      return;
-    }
+    emitTurnResult(
+      await runTurnWithResourceExhaustedRetries({
+        runTurn: () => runTurn(activeAgent),
+        aborted: () => timedOutForMaxRuntime || timedOutForNoOutput,
+        onRetry: (retryDelayMs, attempt) => {
+          log(
+            "runCursorSdkAttempt: resource_exhausted \\u2014 retrying in " + retryDelayMs + "ms (attempt " + (attempt + 1) + " of " + (RESOURCE_EXHAUSTED_RETRY_DELAYS_MS.length + 1) + ")"
+          );
+          appendToRawLogFile(
+            "[sdk-retry] resource_exhausted \\u2014 waiting " + retryDelayMs + "ms before retry\\n"
+          );
+          updateThinkingStep(
+            "Cursor is rate-limited...",
+            "Retrying in " + Math.round(retryDelayMs / 1e3) + "s..."
+          );
+        },
+        sleep: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs))
+      })
+    );
   };
   try {
     try {

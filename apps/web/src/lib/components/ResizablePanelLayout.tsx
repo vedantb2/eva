@@ -23,6 +23,7 @@ import {
   LEFT_PANEL_ID,
   RIGHT_PANEL_ID,
   complementaryPercentage,
+  isMeasuredPanelSize,
   usePersistentPanelSize,
 } from "@/lib/hooks/usePersistentPanelSize";
 
@@ -125,6 +126,11 @@ export function ResizablePanelLayout({
   }, [expandRightSignal, isMobile, rightPanelRef, setSavedCollapsed]);
 
   const handleResize = (size: PanelSize) => {
+    // Hiding the panel (a kept-alive session shell going `display: none`) is not
+    // a collapse — see `isMeasuredPanelSize`. Taking that report as "expanded"
+    // left this state disagreeing with the panel, so the toggle called
+    // `collapse()` on an already-collapsed panel and looked dead until reload.
+    if (!isMeasuredPanelSize(size)) return;
     const collapsed = size.asPercentage === 0;
     if (!collapsed) {
       lastExpandedSize.current = `${size.asPercentage}%`;

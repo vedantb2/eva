@@ -525,7 +525,14 @@ export function ProjectDetailClient({
                   <CopyLinkMenuItem />
                 </DropdownMenuContent>
               </DropdownMenu>
-              {isSandboxActive && !isSandboxStopping ? (
+              {/* Hidden while a chat turn is in flight: stopping the VM does not
+                  cancel the turn, it wedges the chat on "Working…" until the
+                  stall watchdog kills it. "Stop Eva" in the composer is the
+                  control for that window. A running build keeps its own
+                  confirmed "Stop Build", so it is not gated here. */}
+              {isSandboxActive &&
+              !isSandboxStopping &&
+              !project?.activeChatWorkflowId ? (
                 <Button
                   variant="destructive"
                   size="sm"

@@ -20,6 +20,11 @@ import { releaseSwapFile } from "./swap";
  * confirmation together overran 600s).
  */
 const STOP_SANDBOX_BUDGET_MS = 480_000;
+
+/** Bound on the pre-stop refresh — a wedged VM must not eat the stop budget. */
+const REFRESH_BUDGET_MS = 30_000;
+/** Bound on the pre-stop swap release (script exec timeout is 120s). */
+const SWAP_RELEASE_BUDGET_MS = 150_000;
 const CALLBACK_LIVENESS_COMMAND = [
   "test -f /tmp/run-design.pid",
   "test ! -f /tmp/run-design.done",
@@ -181,14 +186,39 @@ export const stopSandbox = internalAction({
             args.repoId,
             args.sandboxId,
           );
-          await sandbox.refresh();
-          const state = sandbox.state;
+          // Pre-stop steps are bounded individually: on a wedged VM the
+          // refresh or the swap-release exec can hang until the whole budget
+          // is gone, so stop() — a fast control-plane call — never fires.
+          // Each step is best-effort; only stop() itself is load-bearing.
+          let state = "unknown";
+          try {
+            await withTimeout(
+              sandbox.refresh(),
+              REFRESH_BUDGET_MS,
+              `refresh ${args.sandboxId}`,
+            );
+            state = sandbox.state;
+          } catch (refreshError) {
+            console.log(
+              `[sandbox] stopSandbox refresh failed sandboxId=${args.sandboxId}: ${refreshError instanceof Error ? refreshError.message : String(refreshError)}`,
+            );
+          }
           // Stop auto-snapshots the filesystem — drop the swapfile first so
           // the resume image does not carry GBs the next boot recreates for
           // free. Only on a running VM: exec on a stopped sandbox resumes it
           // (minutes on a cold restore) just to stop it again.
           if (state === "running") {
-            await releaseSwapFile(sandbox);
+            try {
+              await withTimeout(
+                releaseSwapFile(sandbox),
+                SWAP_RELEASE_BUDGET_MS,
+                `swap release ${args.sandboxId}`,
+              );
+            } catch (swapError) {
+              console.log(
+                `[sandbox] stopSandbox swap release failed sandboxId=${args.sandboxId}: ${swapError instanceof Error ? swapError.message : String(swapError)}`,
+              );
+            }
           } else {
             console.log(
               `[sandbox] stopSandbox skipping swap release sandboxId=${args.sandboxId} state=${state}`,

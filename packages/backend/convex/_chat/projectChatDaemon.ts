@@ -12,7 +12,10 @@ import { backgroundAgentEntryValidator } from "../_validators/tableFields";
 import { mergeBackgroundAgents } from "../_sessions/backgroundAgents";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "../streaming";
-import { startNextQueuedProjectChatMessage } from "../_queues/helpers";
+import {
+  scheduleQueueDrainAfterBackgroundAgents,
+  startNextQueuedProjectChatMessage,
+} from "../_queues/helpers";
 import { PROJECT_CHAT_STREAM_PREFIX } from "../workflowWatchdog";
 
 function projectChatStreamEntityId(projectId: Id<"projects">): string {
@@ -113,14 +116,22 @@ export const updateBackgroundAgents = authMutation({
       throw new Error("Not authorized");
     }
     if (args.agents.length === 0) return null;
+    const backgroundAgents = mergeBackgroundAgents(
+      project.backgroundAgents,
+      args.agents,
+    );
     await ctx.db.patch(args.projectId, {
-      backgroundAgents: mergeBackgroundAgents(
-        project.backgroundAgents,
-        args.agents,
-      ),
+      backgroundAgents,
       updatedAt: Date.now(),
       lastSandboxActivity: Date.now(),
     });
+    // See the session copy: settling is the one queue release the surface
+    // never signals on its own.
+    await scheduleQueueDrainAfterBackgroundAgents(
+      ctx,
+      args.projectId,
+      backgroundAgents,
+    );
     return null;
   },
 });

@@ -20,6 +20,8 @@ inline `setInterval` that enforces max runtime plus a no-event silence kill at
 
 Watchdog interval: `NO_OUTPUT_CHECK_INTERVAL_MS` = 5000 (fixed in `config.ts`).
 
+Daemon claim poll (`claudeSdkDaemon.ts`, fixed constants): 50ms while a turn is in flight or within 30s of the last activity, backing off to 1000ms when idle. The 50ms mid-turn cadence is what keeps cancel/stop-task drains prompt; the idle backoff caps an idle daemon at ~1 mutation/s instead of ~20/s.
+
 While a tool is in flight, idle checks are skipped — a tool call emits nothing between its start and its result, so silence there means work, not a hang. Only max runtime applies until the result lands. There is no per-tool stall kill.
 
 OpenCode adds one more timer of its own: after 60 s without events it polls the opencode server's session status, and two consecutive idle answers end the turn. This recovers turns whose SSE connection was dropped by undici's 300 s body timeout during a long silent tool, where the reconnect misses the events that would have ended the turn.

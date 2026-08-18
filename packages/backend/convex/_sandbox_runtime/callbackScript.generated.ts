@@ -4535,6 +4535,8 @@ var DAEMON_OPTS_FILE = daemonPaths.opts;
 var IDLE_EXIT_MS = 45 * 60 * 1e3;
 var FENCE_POLL_INTERVAL_MS = 5e3;
 var PROMPT_POLL_INTERVAL_MS = 50;
+var PROMPT_POLL_IDLE_INTERVAL_MS = 1e3;
+var PROMPT_POLL_FAST_WINDOW_MS = 3e4;
 var NO_MESSAGE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
 var WATCHDOG_TICK_MS = 5e3;
 var CANCEL_SETTLE_TIMEOUT_MS = 3e4;
@@ -5177,7 +5179,11 @@ function startClaimWatcher(agentRunner) {
         }
       } catch {
       }
-      await sleep2(PROMPT_POLL_INTERVAL_MS);
+      const turnInFlight = daemonTurn !== null || pendingClaimedTurn !== null || turnCancelInFlight;
+      const recentlyActive = Date.now() - lastIdleActivityAtMs < PROMPT_POLL_FAST_WINDOW_MS;
+      await sleep2(
+        turnInFlight || recentlyActive ? PROMPT_POLL_INTERVAL_MS : PROMPT_POLL_IDLE_INTERVAL_MS
+      );
     }
   })();
 }

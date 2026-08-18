@@ -97,6 +97,16 @@ const FENCE_POLL_INTERVAL_MS = 5000;
 // Poll interval for the claim mutation. Low enough to keep handoff→turn-start
 // latency to ~one poll; the turn itself dominates so this only trims the tail.
 const PROMPT_POLL_INTERVAL_MS = 50;
+// Idle backoff for that poll. At 50ms an idle daemon burns ~20 Convex mutation
+// calls/s (~54k per 45-min idle window) purely to notice a turn that is not
+// coming, and those silent executions flood `convex logs`. Once no turn is in
+// flight and nothing has happened for PROMPT_POLL_FAST_WINDOW_MS, poll at the
+// idle interval instead — worst case adds ~1s before an idle daemon claims a
+// fresh send, invisible next to model time-to-first-token. Any in-flight turn
+// keeps the 50ms cadence so cancel/stop-task drains (which ride the same
+// mutation) stay prompt even through long-silent tool runs.
+const PROMPT_POLL_IDLE_INTERVAL_MS = 1000;
+const PROMPT_POLL_FAST_WINDOW_MS = 30_000;
 
 // Per-turn watchdog. Without this a turn whose SDK query stalls or ends without
 // emitting a result would never send a completion event, so the workflow's
@@ -996,7 +1006,15 @@ function startClaimWatcher(agentRunner: WarmRunner): void {
       } catch {
         /* retry on next poll */
       }
-      await sleep(PROMPT_POLL_INTERVAL_MS);
+      const turnInFlight =
+        daemonTurn !== null || pendingClaimedTurn !== null || turnCancelInFlight;
+      const recentlyActive =
+        Date.now() - lastIdleActivityAtMs < PROMPT_POLL_FAST_WINDOW_MS;
+      await sleep(
+        turnInFlight || recentlyActive
+          ? PROMPT_POLL_INTERVAL_MS
+          : PROMPT_POLL_IDLE_INTERVAL_MS,
+      );
     }
   })();
 }

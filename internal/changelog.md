@@ -1,5 +1,15 @@
 # Changelog
 
+## The backend suite is green again: two contract tests were lying, not the code - 2026-08-19
+
+Eleventh pass. Nothing orchestrator-side was outstanding, so this round went after the three failures that have been red on `main` all day and which I had been setting aside as "not mine". Both causes turned out to be the tests, and one of them had stopped testing anything at all.
+
+**`prewarmNeverResurrects` — the `projects` pin was asserting against `});`.** `reconcileStoppedSandboxStatus` handles `projects` as the fall-through after the `sessions` and `agentTasks` branches, so it has no `if (args.entityTable === "projects")` marker to anchor on. The helper's fallback sliced from the first `\n    return null;\n  }` after the *last* marker, which — once the branches were reshaped — landed on the handler's own closing lines. The test was comparing its expectations against three lines of `return null; }, });`, so it could never have caught a real regression in the projects branch; it only failed once the surrounding shape moved. It now anchors on `normalizeId("projects"`, and with that both guards it is meant to pin (`doc.sandboxId !== args.sandboxId`, `reviewProjectSandboxStatus !== "active"`) are verified present in the source, which they are.
+
+**`ephemeralSandboxTeardown` — an ordered comparison of an unordered scan.** The inventory is built by walking files, and `_taskWorkflow/workflowDefinition.ts::taskExecutionWorkflow` moved from the end of that walk to the front, failing an exact `toEqual` on the array. No call site changed, nothing was misclassified. Both sides are now sorted, since membership and the `ephemeral=` classification are what the test exists to pin and order carries no meaning.
+
+`843 tests across 120 files pass` — the whole backend suite is green for the first time today, so future orchestrator rounds get a clean baseline instead of three failures to explain away every time.
+
 ## The fleet list stops moving 115KB per round - 2026-08-19
 
 Tenth pass, measuring rather than reading. `list_agents` is the tool the orchestrator calls every supervision round, and it reached the task side through `_agentTasks/queries:getActiveTasks`, which returns whole `agentTasks` documents. On this deployment's real data that is **115,579 bytes across 43 active tasks**, of which the fleet list keeps eleven small fields and discards the rest; the worst single document is **38,661 bytes**, dominated by `backgroundAgents` (up to 34.9KB) and `description` (up to 8.5KB). An earlier audit flagged this as a risk; these are the numbers.

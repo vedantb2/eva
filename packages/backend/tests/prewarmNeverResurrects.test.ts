@@ -234,10 +234,13 @@ function entityBranch(body: string, table: string): string {
     const nextAt = body.indexOf('if (args.entityTable === "', startAt + 1);
     return body.slice(startAt, nextAt < 0 ? undefined : nextAt);
   }
-  // The last table needs no test, so it is the fall-through after the others.
-  const lastAt = body.lastIndexOf('if (args.entityTable === "');
-  expect(lastAt, `${table} has no branch`).toBeGreaterThan(-1);
-  const tail = body.slice(lastAt);
-  const endAt = tail.indexOf("\n    return null;\n  }");
-  return tail.slice(endAt < 0 ? 0 : endAt);
+  // The last table is the fall-through after the others, so it has no marker to
+  // anchor on. Anchor on its `normalizeId` instead: the previous heuristic
+  // (slice from the first `return null;` after the last marker) silently landed
+  // on the handler's own closing lines once the branches were reshaped, so this
+  // asserted against three lines of `});` and could never have caught a real
+  // regression here.
+  const idAt = body.indexOf(`normalizeId("${table}"`);
+  expect(idAt, `${table} has no branch`).toBeGreaterThan(-1);
+  return body.slice(idAt);
 }

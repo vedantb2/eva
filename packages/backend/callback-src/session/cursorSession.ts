@@ -3,11 +3,16 @@ import {
   CURSOR_PERSIST_DIR,
   CURSOR_PERSIST_STATE_FILE,
   CURSOR_RUNTIME_HOME_DIR,
+  CURSOR_SDK_STORE_DIR,
 } from "../config.js";
 import { updateThinkingStep } from "../parse/canonical.js";
 import { callbackState as S } from "../runtime/state.js";
 import type { SessionMode } from "../types.js";
 import { createSessionStore } from "./createSessionStore.js";
+import {
+  readCursorResumeStats,
+  shouldRotateCursorSession,
+} from "./cursorResumePolicy.js";
 
 const store = createSessionStore({
   runtimeHomeDir: CURSOR_RUNTIME_HOME_DIR,
@@ -47,6 +52,26 @@ export function prepareCursorSessionState(): SessionMode {
       : "Preparing fresh Cursor session...",
   );
   if (persistedState && persistedState.resumeSessionId) {
+    const resumeStats = readCursorResumeStats(
+      CURSOR_SDK_STORE_DIR,
+      persistedState.resumeSessionId,
+    );
+    if (shouldRotateCursorSession(resumeStats)) {
+      const detail = resumeStats
+        ? `turn ${resumeStats.turnNumber}, ${resumeStats.inputTokens} input tokens`
+        : "oversized history";
+      console.log(
+        "prepareCursorSessionState: rotating saved Cursor agent (" +
+          detail +
+          ")",
+      );
+      S.activeCursorSessionId = "";
+      updateThinkingStep(
+        "Preparing Cursor session...",
+        "Saved context reached its safe limit. Starting fresh...",
+      );
+      return { mode: "none", sessionId: null };
+    }
     S.activeCursorSessionId = persistedState.resumeSessionId;
     return { mode: "resume", sessionId: persistedState.resumeSessionId };
   }

@@ -26,10 +26,11 @@ export const KILL_PRIOR_AGENT_PROCESSES_CMD =
   // Only legacy `opencode run` turns, never `opencode serve`: since the SDK
   // migration the long-lived server is shared across turns and killing it here
   // would force a cold start (and a fresh port bind) on every single launch.
-  // `[ ]` keeps the regex from matching this command's own `bash -lc` wrapper,
-  // whose cmdline contains the pattern text — without it, pkill SIGTERMs the
-  // wrapping shell and the exec dies with exit 143 before reaching `true`.
-  "pkill -f 'opencode[ ]run' 2>/dev/null || true; " +
+  // Bracketing keeps the regex from matching this command's own `bash -lc`
+  // wrapper, whose cmdline contains the pattern text — without it, pkill
+  // SIGTERMs the wrapping shell and the exec dies with exit 143 before
+  // reaching `true`.
+  "pkill -f '[o]pencode run' 2>/dev/null || true; " +
   "pkill -x cursor-agent 2>/dev/null || true; " +
   "true";
 

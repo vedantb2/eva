@@ -193,8 +193,12 @@ describe("session branch publication reconciles concurrent remote work", () => {
     expect(fetchAt).toBeGreaterThan(-1);
     expect(divergenceAt).toBeGreaterThan(fetchAt);
     expect(sync).toContain("git merge --ff-only");
-    expect(sync).toContain("git rebase ${quotedRemoteRef}");
-    expect(sync).toContain("git rebase --abort");
+    // Merge, never rebase: rebasing a branch that merged its base in replays
+    // every base commit onto the remote tip and conflicts on work neither
+    // side changed (evalucom/carepulse-ts project 3, 19 Aug 2026).
+    expect(sync).toContain("git merge --no-edit ${quotedRemoteRef}");
+    expect(sync).toContain("git merge --abort");
+    expect(sync).not.toContain("git rebase");
     expect(sync).toContain("git update-ref -d");
 
     const push = functionBody(
@@ -232,8 +236,9 @@ describe("session branch publication reconciles concurrent remote work", () => {
     const gateAt = turnPersist.indexOf('"rev-list",\n      "--count"');
     const pushAt = turnPersist.indexOf('git(["push", "origin", refspec]');
     expect(turnPersist).toContain('"fetch",\n      "--no-tags"');
-    expect(turnPersist).toContain('git(["rebase", remoteRef]');
-    expect(turnPersist).toContain('git(["rebase", "--abort"]');
+    expect(turnPersist).toContain('git(["merge", "--no-edit", remoteRef]');
+    expect(turnPersist).toContain('git(["merge", "--abort"]');
+    expect(turnPersist).not.toContain('"rebase"');
     expect(syncAt).toBeGreaterThan(-1);
     expect(syncAt).toBeLessThan(gateAt);
     expect(gateAt).toBeLessThan(pushAt);

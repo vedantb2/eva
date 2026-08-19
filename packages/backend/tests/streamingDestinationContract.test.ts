@@ -66,7 +66,7 @@ test("complete provider events request an immediate activity drain", () => {
 test("the generated callback preserves Cursor text delta semantics", () => {
   const cursorParser = functionBody(
     generatedCallbackSource,
-    "function cursorParseLine(",
+    "function cursorEventToCanonical(",
   );
   expect(cursorParser).toContain(
     'events.push({ kind: "stream_text_delta", text: block.text });',

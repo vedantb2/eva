@@ -75,6 +75,24 @@ const CODE_SERVER_VERSION = "4.132.0";
 // made every fresh snapshot fail deterministically during postinstall. Mirror
 // any bump in callback-src/providers/opencodeSdk.ts (SDK_VERSION).
 const OPENCODE_VERSION = "1.18.16";
+// Mirror any bump in callback-src/providers/{claudeSdk,cursorSdk}.ts
+// (SDK_VERSION): the callback's stream parsers match one SDK release's message
+// shapes exactly.
+const CLAUDE_AGENT_SDK_VERSION = "0.3.201";
+const CURSOR_SDK_VERSION = "1.0.26";
+
+/**
+ * Shell test that a globally installed package is at an exact version.
+ *
+ * Seeding used to test only that the package directory existed, so a snapshot
+ * built before a pin moved kept serving the stale SDK forever. That drift is
+ * silent rather than fatal: the callback's parsers drop every event they do not
+ * recognise, so the turn renders no activity at all while still returning its
+ * final answer.
+ */
+function globalPackageIsVersion(name: string, version: string): string {
+  return `[ "$(node -p "require('$(npm root -g)/${name}/package.json').version" 2>/dev/null)" = "${version}" ]`;
+}
 
 function shouldCaptureSupabaseState(commands: string[]): boolean {
   return commands.some((command) => {
@@ -357,8 +375,8 @@ export const launchSeedRun = internalAction({
       "sudo mkdir -p /opt/git/etc",
       'sudo /usr/local/bin/git-lfs install --system || { echo "SEEDRUN-FAILED:git-lfs-filters"; exit 1; }',
       'sudo env GIT_CONFIG_SYSTEM=/etc/gitconfig /usr/local/bin/git-lfs install --system || { echo "SEEDRUN-FAILED:git-lfs-filters"; exit 1; }',
-      'command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && [ -d "$(npm root -g)/@anthropic-ai/claude-agent-sdk" ] && [ -d "$(npm root -g)/@cursor/sdk" ] || sudo npm install -g @anthropic-ai/claude-code @anthropic-ai/claude-agent-sdk@0.3.201 @openai/codex@0.146.0 agent-browser convex agentation-mcp@1.2.0 @cursor/sdk@1.0.26 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
-      `command -v opencode >/dev/null 2>&1 && [ -d "$(npm root -g)/@opencode-ai/sdk" ] || sudo npm install -g opencode-ai@${OPENCODE_VERSION} @opencode-ai/sdk@${OPENCODE_VERSION} || { echo "SEEDRUN-FAILED:opencode-cli"; exit 1; }`,
+      `command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && ${globalPackageIsVersion("@anthropic-ai/claude-agent-sdk", CLAUDE_AGENT_SDK_VERSION)} && ${globalPackageIsVersion("@cursor/sdk", CURSOR_SDK_VERSION)} || sudo npm install -g @anthropic-ai/claude-code @anthropic-ai/claude-agent-sdk@${CLAUDE_AGENT_SDK_VERSION} @openai/codex@0.146.0 agent-browser convex agentation-mcp@1.2.0 @cursor/sdk@${CURSOR_SDK_VERSION} || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }`,
+      `command -v opencode >/dev/null 2>&1 && ${globalPackageIsVersion("@opencode-ai/sdk", OPENCODE_VERSION)} || sudo npm install -g opencode-ai@${OPENCODE_VERSION} @opencode-ai/sdk@${OPENCODE_VERSION} || { echo "SEEDRUN-FAILED:opencode-cli"; exit 1; }`,
       `command -v code-server >/dev/null 2>&1 || { github_release_download coder/code-server v${CODE_SERVER_VERSION} code-server-${CODE_SERVER_VERSION}-amd64.rpm /tmp/code-server.rpm && sudo rpm -Uvh /tmp/code-server.rpm && rm -f /tmp/code-server.rpm; } || { echo "SEEDRUN-FAILED:code-server"; exit 1; }`,
       'command -v websockify >/dev/null 2>&1 || python3 -m pip install --user --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1 || { echo "SEEDRUN-FAILED:websockify"; exit 1; }',
       "sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify 2>/dev/null || true",

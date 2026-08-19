@@ -15,6 +15,7 @@ import type {
   StreamLineResult,
   ToolCompleteResult,
 } from "../types.js";
+import { log } from "../utils.js";
 import type { ProviderAdapter } from "./types.js";
 
 /**
@@ -157,12 +158,47 @@ function cursorToolCallEvents(event: JsonObject): CanonicalEvent[] {
 }
 
 /**
+ * Stream event types that legitimately carry nothing the activity feed wants.
+ * Producing no canonical events for these is expected, not a parser gap.
+ */
+const SILENT_EVENT_TYPES = new Set([
+  "user",
+  "status",
+  "request",
+  "task",
+  "usage",
+]);
+
+/** Event types already reported: one log line each, not one per stream event. */
+const reportedSilentTypes = new Set<string>();
+
+/**
  * Parses one Cursor SDK stream event (serialized by runCursorSdkAttempt) into
  * canonical events. The final `result` line is synthesized by the runner from
- * run.wait(); `user`/`status`/`request`/`task`/`usage` events carry nothing
- * the activity stream needs.
+ * run.wait().
+ *
+ * An event that yields nothing is reported once per type. The two failure modes
+ * that matter are invisible otherwise: a turn whose whole stream is dropped
+ * still returns a correct answer via run.wait(), so an SDK whose message shapes
+ * have drifted from this parser reads as a silent hang rather than a bug.
  */
 export function cursorParseLine(event: JsonObject): CanonicalEvent[] {
+  const events = cursorEventToCanonical(event);
+  if (events.length === 0) {
+    const type = typeof event.type === "string" ? event.type : "(untyped)";
+    if (!SILENT_EVENT_TYPES.has(type) && !reportedSilentTypes.has(type)) {
+      reportedSilentTypes.add(type);
+      log(
+        "cursor stream event '" +
+          type +
+          "' produced no activity steps; parser and SDK may disagree on its shape",
+      );
+    }
+  }
+  return events;
+}
+
+function cursorEventToCanonical(event: JsonObject): CanonicalEvent[] {
   const events: CanonicalEvent[] = [];
   if (event.type === "system") {
     events.push({

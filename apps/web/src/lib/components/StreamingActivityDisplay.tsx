@@ -11,9 +11,20 @@ import {
   formatElapsed,
   useElapsedSeconds,
 } from "@eva/ui";
-import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
+import {
+  isEmptyActivityPayload,
+  parseActivitySteps,
+} from "@eva/shared/parseActivitySteps";
 import { formatDuration } from "@eva/shared/duration";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
+
+/**
+ * How long an empty-but-live activity payload is treated as ordinary startup
+ * lag before the placeholder admits it is receiving nothing. Every turn opens
+ * with a few empty writes, so a shorter grace period would cry wolf on healthy
+ * runs; past a minute the silence is the story.
+ */
+const SILENT_STREAM_NOTICE_AFTER_SECONDS = 60;
 
 function SimpleViewWorkingStatus({ startedAt }: { startedAt?: number }) {
   const elapsed = useElapsedSeconds(startedAt, true);
@@ -48,6 +59,7 @@ export function StreamingActivityDisplay({
   onOpenFile?: (path: string) => void;
 }) {
   const simpleView = useSimpleView();
+  const elapsed = useElapsedSeconds(startedAt, isStreaming);
   if (simpleView) {
     return isStreaming ? (
       <SimpleViewWorkingStatus startedAt={startedAt} />
@@ -56,10 +68,26 @@ export function StreamingActivityDisplay({
 
   const steps = parseActivitySteps(activity);
 
+  // An empty payload means the daemon is publishing and the provider stream
+  // has produced nothing parseable — indistinguishable from "no payload yet"
+  // to `parseActivitySteps`, and from a hang to the reader. Say so rather than
+  // shimmering "Working..." over a stream that has gone quiet.
+  const streamIsSilent =
+    isEmptyActivityPayload(activity) &&
+    elapsed >= SILENT_STREAM_NOTICE_AFTER_SECONDS;
+
   return (
     <ActivityTasks
       steps={
-        steps ?? [{ type: "thinking", label: thinkingLabel, status: "active" }]
+        steps ?? [
+          {
+            type: "thinking",
+            label: streamIsSilent
+              ? "Working — no activity reported"
+              : thinkingLabel,
+            status: "active",
+          },
+        ]
       }
       isStreaming={isStreaming}
       name={name}

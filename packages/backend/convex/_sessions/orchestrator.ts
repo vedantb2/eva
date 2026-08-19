@@ -63,6 +63,18 @@ export const ensureOrchestratorSession = authMutation({
   handler: async (ctx, args) => {
     const existing = await resolveOrchestratorSession(ctx.db, ctx.userId);
     if (existing) return existing;
+    // The old pointer could not serve (archived, or its home repo is gone) but
+    // the row may still exist and still be flagged. Strip the flag before
+    // creating the replacement so exactly one session is ever the
+    // orchestrator — otherwise the sessions list shows two marked rows and
+    // `list_agents` hides both from the fleet.
+    const user = await ctx.db.get(ctx.userId);
+    const stale = user?.orchestratorSessionId
+      ? await ctx.db.get(user.orchestratorSessionId)
+      : null;
+    if (stale?.isOrchestrator === true) {
+      await ctx.db.patch(stale._id, { isOrchestrator: undefined });
+    }
     // `createSession` owns the repo access check and the sandbox startup path.
     const { sessionId, numId } = await createSession(ctx, {
       repoId: args.repoId,

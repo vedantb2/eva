@@ -43,6 +43,12 @@ interface SessionChatHeaderProps {
   sandboxCollapsed?: boolean;
   /** Canonical link to this session; omitted when the URL already is one. */
   permalinkPath?: string;
+  /**
+   * Chat-only surface (the orchestrator). It supervises other agents instead of
+   * building on its own branch, so "Send for Review" would open a PR with no
+   * commits against base — a guaranteed failure, hidden rather than offered.
+   */
+  chatOnly?: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
   onToggleSandbox?: () => void;
   onOpenSummaryModal: () => void;
@@ -64,12 +70,14 @@ export function SessionChatHeader({
   deploymentStatus,
   sandboxCollapsed,
   permalinkPath,
+  chatOnly = false,
   onSandboxToggle,
   onToggleSandbox,
   onOpenSummaryModal,
   onOpenReviewModal,
 }: SessionChatHeaderProps) {
-  const showSendForReview = branchName && (!prState || prState === "draft");
+  const showSendForReview =
+    !chatOnly && branchName && (!prState || prState === "draft");
 
   const headerLeft = (
     <SessionSwitcher sessionId={sessionId} title={title} />

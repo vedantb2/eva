@@ -1,5 +1,17 @@
 # Changelog
 
+## Orchestrator can no longer duplicate itself, and stops offering a PR it cannot open - 2026-08-19
+
+Seventh pass, clearing the two items previous rounds had deliberately left open.
+
+**One orchestrator, always.** `ensureOrchestratorSession` created a replacement whenever the pointer could not be resolved — archived, soft-deleted, or its home repo gone — but left the old row still flagged `isOrchestrator: true`. Two marked rows then showed in the sessions list, and since `list_agents` excludes *every* orchestrator session, both also vanished from the fleet list. The mutation now strips the flag off the stale row before creating the replacement.
+
+**"Send for Review" is hidden on the orchestrator.** The gate was `branchName && (!prState || prState === "draft")`, which the orchestrator satisfies — but it supervises other agents rather than committing to its own branch, so the action could only produce a PR with no commits against base. `chatOnly` is now threaded through `ChatPanel` into `SessionChatHeader` and folded into `showSendForReview`. Verified both ways in the browser: the orchestrator's More menu no longer lists it, and session 76 (branch + draft PR) still does.
+
+Plan verification step 1b is also satisfied with evidence rather than assumption: after the `@vercel/sandbox` v3 bump this deployment has resolved 7 sandbox contexts on the old path (`image=none`, snapshot/runtime) and 8 on the new one (`image=vercel/sandbox/universal:latest`), and sessions created on both paths booted their sandboxes — so the bump did not disturb existing creation.
+
+829 backend tests pass; both typechecks clean.
+
 ## Today's orchestrator fixes get automated guards - 2026-08-19
 
 Sixth pass. Every plan item now has at least one live verification, so this round converts the day's hardest-won fixes — all found by hand, none covered by a test — into regressions that fail loudly.

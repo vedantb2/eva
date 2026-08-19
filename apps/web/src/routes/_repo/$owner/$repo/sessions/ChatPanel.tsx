@@ -75,6 +75,8 @@ interface ChatPanelProps {
   sandboxCollapsed?: boolean;
   /** Canonical link to this session; omitted when the URL already is one. */
   permalinkPath?: string;
+  /** Chat-only surface (the orchestrator): hides branch/PR affordances. */
+  chatOnly?: boolean;
   onToggleSandbox?: () => void;
   /** Opens a file (by full sandbox path) in the File Viewer tab. */
   onOpenFile?: (path: string) => void;
@@ -111,6 +113,7 @@ export function ChatPanel({
   deploymentStatus,
   sandboxCollapsed,
   permalinkPath,
+  chatOnly,
   onToggleSandbox,
   onOpenFile,
   onViewDiff,
@@ -248,6 +251,7 @@ export function ChatPanel({
     deploymentStatus,
     sandboxCollapsed,
     permalinkPath,
+    chatOnly,
     onSandboxToggle,
     onToggleSandbox,
     onOpenSummaryModal: () => setShowSummaryModal(true),

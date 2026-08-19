@@ -226,6 +226,7 @@ export function SessionDetailClient({
           : undefined
       }
       onToggleSandbox={onToggleSandbox}
+      chatOnly={chatOnly}
       onOpenFile={chatOnly ? undefined : onOpenFile}
       onViewDiff={chatOnly ? undefined : onViewDiff}
       onOpenPrdTab={

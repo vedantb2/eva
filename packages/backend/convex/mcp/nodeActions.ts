@@ -1292,11 +1292,13 @@ export const orchestratorListAgents = internalAction({
           }),
         ),
       ),
-      // Already user-wide, so one call covers every repo.
+      // Already user-wide, so one call covers every repo. The slim projection
+      // keeps the fleet list cheap: full task docs measured up to 38KB each
+      // (backgroundAgents, description), all of it discarded below.
       runQueryAsUser(
         convexUrl,
         clerkUserId,
-        "_agentTasks/queries:getActiveTasks",
+        "_agentTasks/queries:getActiveTasksSlim",
         {},
       ),
     ]);

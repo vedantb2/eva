@@ -78,3 +78,50 @@ describe("queued work counts as busy", () => {
     expect(folds?.length).toBe(2);
   });
 });
+
+/**
+ * `list_agents` runs every supervision round. It keeps eleven small fields per
+ * task, but used to fetch whole `agentTasks` documents to get them — measured on
+ * real data at 115KB per call across 43 active tasks, worst single document
+ * 38.6KB (`backgroundAgents`, `description`), all discarded. The slim
+ * projection cut that to 13KB.
+ */
+describe("the fleet list does not fetch whole task documents", () => {
+  const taskQueries = readSource("_agentTasks/queries.ts");
+
+  test("the slim projection exists and is what the tool calls", () => {
+    expect(taskQueries).toContain("export const getActiveTasksSlim");
+    expect(nodeActions).toContain(
+      '"_agentTasks/queries:getActiveTasksSlim"',
+    );
+  });
+
+  test("the fleet list no longer calls the full-document query", () => {
+    expect(nodeActions).not.toContain(
+      '"_agentTasks/queries:getActiveTasks"',
+    );
+  });
+
+  test("the projection omits the fields that made docs large", () => {
+    const projection = taskQueries.slice(
+      taskQueries.indexOf("const orchestratorTaskValidator"),
+      taskQueries.indexOf("export const getAllTasks"),
+    );
+    for (const fat of [
+      "backgroundAgents",
+      "description",
+      "terminalHistoryTail",
+      "terminalPanes",
+      "pendingTurn",
+    ]) {
+      expect(projection).not.toContain(fat);
+    }
+  });
+
+  test("both task queries share one scope implementation", () => {
+    // Team repos + connected repos + active statuses, defined once.
+    expect(taskQueries).toContain("async function activeTasksForUser");
+    const uses = taskQueries.match(/activeTasksForUser\(ctx, ctx\.userId/g);
+    expect(uses?.length).toBe(2);
+  });
+});

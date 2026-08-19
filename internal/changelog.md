@@ -1,5 +1,15 @@
 # Changelog
 
+## The fleet list stops moving 115KB per round - 2026-08-19
+
+Tenth pass, measuring rather than reading. `list_agents` is the tool the orchestrator calls every supervision round, and it reached the task side through `_agentTasks/queries:getActiveTasks`, which returns whole `agentTasks` documents. On this deployment's real data that is **115,579 bytes across 43 active tasks**, of which the fleet list keeps eleven small fields and discards the rest; the worst single document is **38,661 bytes**, dominated by `backgroundAgents` (up to 34.9KB) and `description` (up to 8.5KB). An earlier audit flagged this as a risk; these are the numbers.
+
+`getActiveTasksSlim` is a new `authQuery` returning only what the fleet list needs, and the same data now costs **12,816 bytes — 88% smaller**, worst document 38,661 → 373 bytes. Rather than copy the scoping rules, the existing `getActiveTasks` body was extracted into `activeTasksForUser(ctx, userId, repoId?)` and both queries call it, so "team repos plus connected repos, active statuses only" still exists once and the full-document query is unchanged for its existing consumers.
+
+Guarded by four more contract tests: the slim query exists and is what the tool calls, the tool no longer names the full-document query at all, the projection contains none of the fat fields, and both queries share the one scope implementation. 840 backend tests pass; both typechecks clean.
+
+Nothing else came up this round: the orchestrator chat is clean, the branch is level with `main`, and the tools all still answer over MCP.
+
 ## Cross-user boundary verified against real data, and denials read like sentences - 2026-08-19
 
 Ninth pass, aimed at the security property the whole design rests on: the orchestrator claim skips the sandbox token's repo pin, so *only* per-user auth stands between one user's master and another user's agents. Until now that was argued from code, not observed.

@@ -9,12 +9,10 @@ import { clearStreamingActivity } from "./_taskWorkflow/helpers";
 import { isEntityDeleted } from "./numId";
 import { normalizeAIModel } from "./validators";
 import {
+  decideChildOutcome,
   orchestratorNotifyChildValidator,
   type OrchestratorNotifyChild,
 } from "./orchestratorShared";
-
-/** How much of the child's last reply is quoted back to the master. */
-const REPLY_TAIL_CHARS = 500;
 
 
 /** Everything the wake-up message needs about the child that just finished. */
@@ -80,41 +78,9 @@ function isLiveMaster(
 }
 
 /**
- * Trims a quoted child reply to the tail the master is shown — a reply's
- * conclusion is at the end.
- */
-function replyTail(content: string): string {
-  const trimmed = content.trim();
-  return trimmed.length > REPLY_TAIL_CHARS
-    ? trimmed.slice(-REPLY_TAIL_CHARS)
-    : trimmed;
-}
-
-/**
- * Opposite trim for a failure: an alert's meaning is in its first line, and its
- * `errorDetail` usually ends in a stack trace. Tailing one quoted a bare
- * `HX5DX.js:634:28)` fragment at the master, which says nothing about what
- * broke.
- */
-function alertHead(content: string): string {
-  const trimmed = content.trim();
-  return trimmed.length > REPLY_TAIL_CHARS
-    ? `${trimmed.slice(0, REPLY_TAIL_CHARS)}…`
-    : trimmed;
-}
-
-/** The optimistic label the queue-drain hook passes when a child goes idle. */
-const DRAIN_IDLE_STATUS = "completed";
-
-/**
- * What actually happened to the child's last turn, read off its newest
- * messages rather than taken from the caller.
- *
- * The queue-drain hook can only report "the child went idle", so it passes
- * `"completed"` for a user cancel and a stall-watchdog kill alike. Both write a
- * system-alert row as the turn's last message, so the child's own transcript is
- * the only place the difference survives — and quoting past the alert (the
- * previous successful reply) told the master a killed turn had succeeded.
+ * Reads the child's newest non-empty assistant row and hands it to
+ * {@link decideChildOutcome}, which owns the labelling rules (and is unit
+ * tested in `tests/orchestratorOutcome.test.ts`).
  */
 async function resolveChildOutcome(
   ctx: MutationCtx,
@@ -130,22 +96,7 @@ async function resolveChildOutcome(
     (message) =>
       message.role === "assistant" && message.content.trim().length > 0,
   );
-  if (!lastAgentRow) return { status: reportedStatus, tail: undefined };
-  if (lastAgentRow.isSystemAlert === true) {
-    // The alert IS the outcome: quote it rather than an older, unrelated
-    // success. Only the drain's optimistic "completed" is overridden — a caller
-    // that already knows what went wrong (e.g. sandboxError) passes a specific
-    // status, and flattening that to "interrupted" would lose the reason.
-    const detail = lastAgentRow.errorDetail?.trim();
-    return {
-      status:
-        reportedStatus === DRAIN_IDLE_STATUS ? "interrupted" : reportedStatus,
-      tail: alertHead(
-        detail ? `${lastAgentRow.content}: ${detail}` : lastAgentRow.content,
-      ),
-    };
-  }
-  return { status: reportedStatus, tail: replyTail(lastAgentRow.content) };
+  return decideChildOutcome(lastAgentRow, reportedStatus);
 }
 
 /**

@@ -1,5 +1,15 @@
 # Changelog
 
+## Today's orchestrator fixes get automated guards - 2026-08-19
+
+Sixth pass. Every plan item now has at least one live verification, so this round converts the day's hardest-won fixes — all found by hand, none covered by a test — into regressions that fail loudly.
+
+`decideChildOutcome` was extracted out of `orchestratorNotify.ts` into the `orchestratorShared.ts` leaf (with `replyTail`/`alertHead`), so the labelling rules are pure and testable; the mutation now only fetches the newest assistant row and delegates. `tests/orchestratorOutcome.test.ts` pins all five behaviours: a normal reply keeps the reported status and is tailed; a system alert overrides the drain's optimistic `completed` with `interrupted`; a caller's specific status (`sandbox failed to start`) survives an alert instead of being flattened; alerts quote head-first while replies quote tail-first; and a child with no reply yet reports the caller's status.
+
+`tests/orchestratorDeliveryContract.test.ts` pins the two plumbing fixes that span five files each and would otherwise rot silently: `sentViaOrchestrator` present on `queuedMessageFields`, accepted and persisted by both enqueue mutations, copied onto the started user row by *both* drains, set on every tool delivery path, and carried by `create_session`'s first message; plus the ordering rule — that send reads `queuedMessages:listByParent` and folds `queuedAhead > 0` into `isBusy` on both surfaces.
+
+Also re-ran the four representative tools over real MCP JSON-RPC after the day's later edits (the `repoRefLabel` refactor, the queue-depth read, the `create_session` flag): `list_agents`, `get_agent_state`, cross-repo `list_tables`, and the `get_skill` bypass all still answer correctly. 829 backend tests pass (12 new), both typechecks clean.
+
 ## First-run picker verified live, and the sidebar finally uses `isOrchestrator` - 2026-08-19
 
 Fifth orchestrator pass, closing the two plan items with no coverage at all.

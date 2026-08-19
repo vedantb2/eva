@@ -1,0 +1,80 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, expect, test } from "vitest";
+
+const convexDir = join(dirname(fileURLToPath(import.meta.url)), "../convex");
+
+function readSource(relative: string): string {
+  return readFileSync(join(convexDir, relative), "utf8");
+}
+
+const nodeActions = readSource("mcp/nodeActions.ts");
+const queueHelpers = readSource("_queues/helpers.ts");
+const sessionExecution = readSource("_sessions/execution.ts");
+const taskChat = readSource("agentTaskChatWorkflow.ts");
+const sessionMutations = readSource("_sessions/mutations.ts");
+const tableFields = readSource("_validators/tableFields.ts");
+
+/**
+ * A message the orchestrator sends is marked so the child's chat can badge it
+ * "via orchestrator". The flag has to survive the *queued* path too: a busy
+ * child parks the message in `queuedMessages`, and the drain inserts the user
+ * row from that queued document — so a missing field anywhere in the chain
+ * silently drops the badge on exactly the messages that had to wait.
+ */
+describe("sentViaOrchestrator survives queueing", () => {
+  test("the queued row can carry it", () => {
+    const queuedFields = tableFields.slice(
+      tableFields.indexOf("export const queuedMessageFields = {"),
+    );
+    expect(queuedFields).toContain("sentViaOrchestrator: v.optional(v.boolean())");
+  });
+
+  test("both enqueue mutations accept and persist it", () => {
+    for (const source of [sessionExecution, taskChat]) {
+      expect(source).toContain("sentViaOrchestrator: v.optional(v.boolean())");
+      expect(source).toContain(
+        "sentViaOrchestrator: args.sentViaOrchestrator",
+      );
+    }
+  });
+
+  test("both drains copy it onto the started user message", () => {
+    // Session and task chat each build their own `messages` insert.
+    const copies = queueHelpers.match(
+      /sentViaOrchestrator: next\.sentViaOrchestrator/g,
+    );
+    expect(copies?.length).toBe(2);
+  });
+
+  test("the tool sets it on every delivery path", () => {
+    // Idle (addMessage), busy (both enqueue variants), and create_session.
+    const sets = nodeActions.match(/sentViaOrchestrator: true/g);
+    expect(sets?.length).toBeGreaterThanOrEqual(4);
+  });
+
+  test("a session the orchestrator creates marks its first message", () => {
+    expect(sessionMutations).toContain(
+      "sentViaOrchestrator: args.sentViaOrchestrator",
+    );
+  });
+});
+
+/**
+ * Delivery must treat a queue backlog as busy. A session created by
+ * `create_session` parks its first turn in `queuedMessages` until its sandbox
+ * reports ready — no workflow is in flight yet — so deciding "idle" from
+ * `activeWorkflowId` alone made a follow-up run *ahead* of that first message.
+ */
+describe("queued work counts as busy", () => {
+  test("send reads the child's queue depth", () => {
+    expect(nodeActions).toContain('"queuedMessages:listByParent"');
+    expect(nodeActions).toContain("const queuedAhead");
+  });
+
+  test("both surfaces fold it into isBusy", () => {
+    const folds = nodeActions.match(/queuedAhead > 0/g);
+    expect(folds?.length).toBe(2);
+  });
+});

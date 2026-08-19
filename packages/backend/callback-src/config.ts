@@ -8,6 +8,13 @@ export const STREAMING_HMAC = process.env.STREAMING_HMAC || "";
 export const ENTITY_ID = process.env.ENTITY_ID;
 export const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 export const RUN_ID = process.env.RUN_ID || null;
+export const TURN_ID = process.env.TURN_ID || null;
+const parsedTurnLeaseGeneration = Number(process.env.TURN_LEASE_GENERATION);
+export const TURN_LEASE_GENERATION =
+  Number.isSafeInteger(parsedTurnLeaseGeneration) &&
+  parsedTurnLeaseGeneration > 0
+    ? parsedTurnLeaseGeneration
+    : null;
 export const ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
 /** App subdirectory (e.g. apps/eprocurement) — also scanned for agent media. */
 export const ROOT_DIRECTORY = process.env.ROOT_DIRECTORY || "";

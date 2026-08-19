@@ -91,6 +91,24 @@ http.route({
       return new Response("Invalid heartbeat signature", { status: 401 });
     }
 
+    const turnId = params.get("turnId");
+    if (turnId !== null) {
+      const leaseGeneration = Number(params.get("leaseGeneration"));
+      if (!Number.isSafeInteger(leaseGeneration) || leaseGeneration <= 0) {
+        return new Response("Invalid turn lease generation", { status: 400 });
+      }
+      const lease = await ctx.runMutation(internal.turns.heartbeat, {
+        turnId,
+        leaseGeneration,
+        entityId,
+        touchOnly,
+        currentActivity: currentActivity ?? undefined,
+        currentContent: params.get("currentContent") ?? "",
+        pendingQuestion: params.get("pendingQuestion") ?? undefined,
+      });
+      return Response.json({ ok: true, lease });
+    }
+
     if (touchOnly) {
       await ctx.runMutation(internal.streaming.internalTouch, { entityId });
     } else {

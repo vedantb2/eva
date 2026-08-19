@@ -40,6 +40,9 @@ var STREAMING_HMAC = process.env.STREAMING_HMAC || "";
 var ENTITY_ID = process.env.ENTITY_ID;
 var STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 var RUN_ID = process.env.RUN_ID || null;
+var TURN_ID = process.env.TURN_ID || null;
+var parsedTurnLeaseGeneration = Number(process.env.TURN_LEASE_GENERATION);
+var TURN_LEASE_GENERATION = Number.isSafeInteger(parsedTurnLeaseGeneration) && parsedTurnLeaseGeneration > 0 ? parsedTurnLeaseGeneration : null;
 var ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
 var ROOT_DIRECTORY = process.env.ROOT_DIRECTORY || "";
 var COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
@@ -670,7 +673,62 @@ function elapsedAttemptMs() {
   return attemptElapsedMs();
 }
 
+// callback-src/runtime/turnLease.ts
+var currentTurnLease = TURN_ID !== null && TURN_LEASE_GENERATION !== null ? { turnId: TURN_ID, leaseGeneration: TURN_LEASE_GENERATION } : null;
+var terminalReason = null;
+function getCurrentTurnLease() {
+  return currentTurnLease;
+}
+function setCurrentTurnLease(identity) {
+  if (currentTurnLease?.turnId === identity?.turnId && currentTurnLease?.leaseGeneration === identity?.leaseGeneration) {
+    return;
+  }
+  currentTurnLease = identity;
+  terminalReason = null;
+}
+function getLeaseTerminalReason() {
+  return terminalReason;
+}
+function parseTerminalReason(value) {
+  if (value === "unknown_turn" || value === "closed" || value === "superseded" || value === "timeout" || value === "cancelled") {
+    return value;
+  }
+  return null;
+}
+function noteHeartbeatResponse(response) {
+  if (terminalReason !== null) return true;
+  let parsed;
+  if (typeof response === "string") {
+    try {
+      parsed = JSON.parse(response);
+    } catch {
+      return false;
+    }
+  } else {
+    parsed = response;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return false;
+  }
+  const lease = parsed.lease;
+  if (typeof lease !== "object" || lease === null || Array.isArray(lease)) {
+    return false;
+  }
+  if (lease.status !== "terminal") return false;
+  terminalReason = parseTerminalReason(lease.reason) ?? "closed";
+  log(
+    "turn lease terminal (" + terminalReason + ") turnId=" + String(currentTurnLease?.turnId)
+  );
+  return true;
+}
+
 // callback-src/http/convexClient.ts
+function appendTurnLease(body) {
+  const identity = getCurrentTurnLease();
+  if (identity === null) return;
+  body.set("turnId", identity.turnId);
+  body.set("leaseGeneration", String(identity.leaseGeneration));
+}
 async function fetchWithTimeout(url, options, timeoutMs = CALLBACK_HTTP_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -727,6 +785,7 @@ async function callStreamingHeartbeatTouchOnce(entityId) {
     body.set("entityId", entityId);
     body.set("hmac", STREAMING_HMAC);
     body.set("touchOnly", "1");
+    appendTurnLease(body);
     const res = await fetchWithTimeout(
       CONVEX_SITE_URL + "/api/streaming/heartbeat",
       {
@@ -741,7 +800,9 @@ async function callStreamingHeartbeatTouchOnce(entityId) {
         "Streaming heartbeat touch failed: " + res.status + " " + text
       );
     }
-    return res.text();
+    const response = await res.text();
+    noteHeartbeatResponse(response);
+    return response;
   }
   return await callConvex("mutation", "streaming:touch", { entityId });
 }
@@ -752,6 +813,7 @@ async function callStreamingHeartbeatOnce(entityId, currentActivity, currentCont
     body.set("hmac", STREAMING_HMAC);
     body.set("currentActivity", currentActivity);
     body.set("currentContent", currentContent || "");
+    appendTurnLease(body);
     if (pendingQuestion) {
       body.set("pendingQuestion", pendingQuestion);
     }
@@ -767,7 +829,9 @@ async function callStreamingHeartbeatOnce(entityId, currentActivity, currentCont
       const text = await res.text();
       throw new Error("Streaming heartbeat failed: " + res.status + " " + text);
     }
-    return res.text();
+    const response = await res.text();
+    noteHeartbeatResponse(response);
+    return response;
   }
   const args = {
     entityId,
@@ -3984,10 +4048,10 @@ async function initialHeartbeat() {
 }
 function startStreamingLoops() {
   flushInterval = setInterval(() => {
-    void flushStreaming();
+    void flushStreaming().then(enforceTurnLease);
   }, 150);
   heartbeatInterval = setInterval(() => {
-    void heartbeatPing();
+    void heartbeatPing().then(enforceTurnLease);
   }, 1e4);
 }
 async function stopStreamingLoops() {
@@ -3997,6 +4061,20 @@ async function stopStreamingLoops() {
   if (heartbeatInterval) clearInterval(heartbeatInterval);
   await flushStreaming();
 }
+var LEASE_EXIT_GRACE_MS = 500;
+var leaseExitScheduled = false;
+function enforceTurnLease() {
+  const reason = getLeaseTerminalReason();
+  if (reason === null) return false;
+  if (leaseExitScheduled) return true;
+  leaseExitScheduled = true;
+  log("exiting: turn lease terminal (" + reason + ")");
+  if (flushInterval) clearInterval(flushInterval);
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  callbackState.streamingLoopsStopped = true;
+  setTimeout(() => process.exit(0), LEASE_EXIT_GRACE_MS).unref();
+  return true;
+}
 async function setFinalizingState() {
   markLastComplete();
   callbackState.lastStepType = "thinking";
@@ -4004,6 +4082,7 @@ async function setFinalizingState() {
     await sendStreamingHeartbeatUpdate(buildStreamingPayload());
   } catch {
   }
+  return enforceTurnLease();
 }
 async function runPreflightHeartbeat() {
   try {
@@ -4557,6 +4636,13 @@ function persistTurnWork() {
 }
 
 // callback-src/providers/claimPendingTurnParse.ts
+function claimPayload(result) {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return null;
+  }
+  const inner = result.value;
+  return typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+}
 function readStopTaskToolUseIds(result) {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
     return [];
@@ -4570,12 +4656,19 @@ function readStopTaskToolUseIds(result) {
   return field.filter((id) => typeof id === "string");
 }
 function readCancelRequested(result) {
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return false;
-  }
-  const inner = result.value;
-  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+  const payload = claimPayload(result);
+  if (!payload) return false;
   return payload.cancelRequested === true;
+}
+function readTurnLeaseIdentity(result) {
+  const payload = claimPayload(result);
+  if (!payload) return null;
+  const turnId = payload.turnId;
+  const leaseGeneration = payload.leaseGeneration;
+  if (typeof turnId !== "string" || typeof leaseGeneration !== "number" || !Number.isSafeInteger(leaseGeneration) || leaseGeneration <= 0) {
+    return null;
+  }
+  return { turnId, leaseGeneration };
 }
 
 // callback-src/providers/callbackRefresh.ts
@@ -4854,10 +4947,16 @@ async function finalizeTurn(output) {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
-  await setFinalizingState();
+  const turnLease = getCurrentTurnLease();
+  if (turnLease) {
+    completionArgs.turnId = turnLease.turnId;
+    completionArgs.leaseGeneration = turnLease.leaseGeneration;
+  }
+  if (await setFinalizingState()) return;
   persistTurnWork();
   const completionSentAt = Date.now();
   await deliverCompletionWithMedia(completionArgs);
+  setCurrentTurnLease(null);
   log(
     "daemon: turn finalized success=" + success + " steps=" + activityLog.length + " (completion mutation " + (Date.now() - completionSentAt) + "ms)"
   );
@@ -4889,13 +4988,14 @@ function readClaimedTurn(result) {
     return null;
   }
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return { prompt, attachmentUrls: [] };
+    return { prompt, attachmentUrls: [], turnLease: null };
   }
   const inner = result.value;
   const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
   return {
     prompt,
-    attachmentUrls: readClaimedAttachmentUrls(payload)
+    attachmentUrls: readClaimedAttachmentUrls(payload),
+    turnLease: readTurnLeaseIdentity(result)
   };
 }
 function readSyntheticTurnMessageId(result) {
@@ -5128,6 +5228,7 @@ async function failSyntheticTurn(error) {
     for (const step of callbackState.accumulatedSteps) {
       step.status = "complete";
     }
+    const turnLease = getCurrentTurnLease();
     await callConvexWithRetry(
       "mutation",
       COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
@@ -5136,13 +5237,15 @@ async function failSyntheticTurn(error) {
         success: false,
         result: null,
         error,
-        activityLog: serializeSteps(callbackState.accumulatedSteps)
+        activityLog: serializeSteps(callbackState.accumulatedSteps),
+        ...turnLease ?? {}
       })
     );
   } catch {
   }
   endWatchedTurn();
   resetTurnState();
+  setCurrentTurnLease(null);
   daemonTurn = null;
   agentTurnOutput = "";
 }
@@ -5163,6 +5266,7 @@ async function ensureSyntheticTurn() {
       return;
     }
     resetTurnState();
+    setCurrentTurnLease(readTurnLeaseIdentity(result));
     daemonTurn = { kind: "synthetic", messageId };
     agentTurnStartedAt = Date.now();
     sawFirstMessageThisTurn = { value: false };
@@ -5196,6 +5300,11 @@ async function finalizeSyntheticTurn(output) {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
+  const turnLease = getCurrentTurnLease();
+  if (turnLease) {
+    completionArgs.turnId = turnLease.turnId;
+    completionArgs.leaseGeneration = turnLease.leaseGeneration;
+  }
   await callConvexWithRetry(
     "mutation",
     COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
@@ -5204,12 +5313,14 @@ async function finalizeSyntheticTurn(output) {
   syncClaudeStateToPersist("daemon-synthetic-turn");
   endWatchedTurn();
   resetTurnState();
+  setCurrentTurnLease(null);
   daemonTurn = null;
   agentTurnOutput = "";
   log("daemon: synthetic turn finalized success=" + success);
 }
 function startRealAgentTurn(turn, agentRunner) {
   resetTurnState();
+  setCurrentTurnLease(turn.turnLease);
   daemonTurn = { kind: "real" };
   agentTurnStartedAt = Date.now();
   sawFirstMessageThisTurn = { value: false };
@@ -5357,6 +5468,7 @@ async function runDaemonMessagePump(agentRunner) {
         continue;
       }
       resetTurnState();
+      setCurrentTurnLease(null);
       daemonTurn = null;
       agentTurnOutput = "";
       turnCancelInFlight = false;
@@ -5868,7 +5980,11 @@ function readClaimedTurn2(result) {
   const attachmentUrls = Array.isArray(payload.attachmentUrls) ? payload.attachmentUrls.filter(
     (url) => typeof url === "string"
   ) : [];
-  return { prompt: payload.prompt, attachmentUrls };
+  return {
+    prompt: payload.prompt,
+    attachmentUrls,
+    turnLease: readTurnLeaseIdentity(result)
+  };
 }
 function attachmentExtension(mimeType) {
   const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
@@ -5964,7 +6080,7 @@ async function finalizeTurn2(success, error) {
   await flushStreaming();
   for (const step of callbackState.accumulatedSteps) step.status = "complete";
   const result = finalText || callbackState.currentStreamedContent || callbackState.rawOutput;
-  await setFinalizingState();
+  if (await setFinalizingState()) return;
   persistTurnWork();
   const usage = computeTurnUsageDelta(turnStartUsage, threadTotalUsage);
   await deliverCompletionWithMedia({
@@ -5974,6 +6090,7 @@ async function finalizeTurn2(success, error) {
     error,
     activityLog: serializeSteps(callbackState.accumulatedSteps),
     ...RUN_ID ? { runId: RUN_ID } : {},
+    ...getCurrentTurnLease() ?? {},
     ...usage ? {
       rawResultEvent: buildClaudeShapedResult({
         provider: "codex",
@@ -5995,6 +6112,7 @@ async function finalizeTurn2(success, error) {
       })
     } : {}
   });
+  setCurrentTurnLease(null);
   syncCodexStateToPersist();
   log("codex daemon: turn finalized success=" + success);
 }
@@ -6028,6 +6146,7 @@ function processNotification(notification) {
   lastIdleActivityAt = Date.now();
   if (cancelInFlight || status === "interrupted") {
     cancelInFlight = false;
+    setCurrentTurnLease(null);
     resetTurnState2();
     return null;
   }
@@ -6090,6 +6209,7 @@ async function establishThread(client, sessionMode) {
 }
 async function startTurn(client, turn) {
   resetTurnState2();
+  setCurrentTurnLease(turn.turnLease);
   await materializeAttachments(turn);
   const text = SYSTEM_PROMPT ? SYSTEM_PROMPT + "\\n\\n" + turn.prompt : turn.prompt;
   activeTurnStartedAt = Date.now();
@@ -8101,7 +8221,7 @@ try {
   } else {
     log("skipping post-attempt sync because result-event sync already ran");
   }
-  await setFinalizingState();
+  if (await setFinalizingState()) process.exit(0);
   const agentWasInterrupted = finalTerminatedBySignal || finalCode === 137 || finalCode === 143;
   const attemptEndedDueToTimeout = finalTimedOutAfterFirstText || finalTimedOutForNoOutput || finalTimedOutForMaxRuntime || finalTimedOutForFirstEvent || finalTimedOutForFirstAssistant || finalTimedOutForZombie || Boolean(finalToolStallErrorMessage);
   const runSucceededWithResult = finalResultEvent != null && !finalResultEvent.isError && !agentWasInterrupted;
@@ -8170,9 +8290,15 @@ try {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
+  const turnLease = getCurrentTurnLease();
+  if (turnLease) {
+    completionArgs.turnId = turnLease.turnId;
+    completionArgs.leaseGeneration = turnLease.leaseGeneration;
+  }
   persistTurnWork();
   try {
     await deliverCompletionWithMedia(completionArgs);
+    setCurrentTurnLease(null);
     syncProviderStateToPersist("completion");
     await stopStreamingLoops();
     writeDoneFile(completionSuccess ? "success" : "error", {

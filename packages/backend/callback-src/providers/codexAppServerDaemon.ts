@@ -36,13 +36,21 @@ import {
 import { callbackState as S } from "../runtime/state.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
 import {
+  getCurrentTurnLease,
+  setCurrentTurnLease,
+  type TurnLeaseIdentity,
+} from "../runtime/turnLease.js";
+import {
   prepareCodexSessionState,
   syncCodexStateToPersist,
   writeCodexSessionState,
 } from "../session/codexSession.js";
 import type { JsonObject, JsonValue, SessionMode } from "../types.js";
 import { attemptElapsedMs, log, readResponseJson } from "../utils.js";
-import { readCancelRequested } from "./claimPendingTurnParse.js";
+import {
+  readCancelRequested,
+  readTurnLeaseIdentity,
+} from "./claimPendingTurnParse.js";
 import {
   CodexAppServerClient,
   type AppServerNotification,
@@ -57,7 +65,11 @@ const POLL_INTERVAL_MS = 50;
 const FENCE_POLL_INTERVAL_MS = 5000;
 const NO_EVENT_TIMEOUT_MS = 5 * 60 * 1000;
 
-type ClaimedTurn = { prompt: string; attachmentUrls: string[] };
+type ClaimedTurn = {
+  prompt: string;
+  attachmentUrls: string[];
+  turnLease: TurnLeaseIdentity | null;
+};
 
 const paths = resolveDaemonPaths();
 let activeTurnId = "";
@@ -157,7 +169,11 @@ function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
         (url): url is string => typeof url === "string",
       )
     : [];
-  return { prompt: payload.prompt, attachmentUrls };
+  return {
+    prompt: payload.prompt,
+    attachmentUrls,
+    turnLease: readTurnLeaseIdentity(result),
+  };
 }
 
 function attachmentExtension(mimeType: string): string {
@@ -291,7 +307,7 @@ async function finalizeTurn(
   await flushStreaming();
   for (const step of S.accumulatedSteps) step.status = "complete";
   const result = finalText || S.currentStreamedContent || S.rawOutput;
-  await setFinalizingState();
+  if (await setFinalizingState()) return;
   persistTurnWork();
   const usage = computeTurnUsageDelta(turnStartUsage, threadTotalUsage);
   await deliverCompletionWithMedia({
@@ -301,6 +317,7 @@ async function finalizeTurn(
     error,
     activityLog: serializeSteps(S.accumulatedSteps),
     ...(RUN_ID ? { runId: RUN_ID } : {}),
+    ...(getCurrentTurnLease() ?? {}),
     ...(usage
       ? {
           rawResultEvent: buildClaudeShapedResult({
@@ -324,6 +341,7 @@ async function finalizeTurn(
         }
       : {}),
   });
+  setCurrentTurnLease(null);
   syncCodexStateToPersist();
   log("codex daemon: turn finalized success=" + success);
 }
@@ -364,6 +382,7 @@ function processNotification(
   lastIdleActivityAt = Date.now();
   if (cancelInFlight || status === "interrupted") {
     cancelInFlight = false;
+    setCurrentTurnLease(null);
     resetTurnState();
     return null;
   }
@@ -437,6 +456,7 @@ async function startTurn(
   turn: ClaimedTurn,
 ): Promise<void> {
   resetTurnState();
+  setCurrentTurnLease(turn.turnLease);
   await materializeAttachments(turn);
   const text = SYSTEM_PROMPT
     ? SYSTEM_PROMPT + "\n\n" + turn.prompt

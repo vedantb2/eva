@@ -22,6 +22,7 @@ import { writeFileSync } from "fs";
 import { callbackState as S } from "./state.js";
 import { flushBackgroundShellQueue } from "./backgroundShells.js";
 import { serializeSteps } from "../parse/stepBudget.js";
+import { getLeaseTerminalReason } from "./turnLease.js";
 
 let flushInterval: ReturnType<typeof setInterval> | null = null;
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
@@ -232,10 +233,10 @@ async function initialHeartbeat(): Promise<void> {
 
 export function startStreamingLoops(): void {
   flushInterval = setInterval(() => {
-    void flushStreaming();
+    void flushStreaming().then(enforceTurnLease);
   }, 150);
   heartbeatInterval = setInterval(() => {
-    void heartbeatPing();
+    void heartbeatPing().then(enforceTurnLease);
   }, 10000);
 }
 
@@ -247,7 +248,23 @@ export async function stopStreamingLoops(): Promise<void> {
   await flushStreaming();
 }
 
-export async function setFinalizingState(): Promise<void> {
+const LEASE_EXIT_GRACE_MS = 500;
+let leaseExitScheduled = false;
+
+function enforceTurnLease(): boolean {
+  const reason = getLeaseTerminalReason();
+  if (reason === null) return false;
+  if (leaseExitScheduled) return true;
+  leaseExitScheduled = true;
+  log("exiting: turn lease terminal (" + reason + ")");
+  if (flushInterval) clearInterval(flushInterval);
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  S.streamingLoopsStopped = true;
+  setTimeout(() => process.exit(0), LEASE_EXIT_GRACE_MS).unref();
+  return true;
+}
+
+export async function setFinalizingState(): Promise<boolean> {
   // No "Finalizing response..." step — status filler isn't shown in the
   // activity flow; the response text itself is the signal.
   markLastComplete();
@@ -257,6 +274,7 @@ export async function setFinalizingState(): Promise<void> {
   } catch {
     /* ignore final heartbeat errors */
   }
+  return enforceTurnLease();
 }
 
 export async function runPreflightHeartbeat(): Promise<boolean> {

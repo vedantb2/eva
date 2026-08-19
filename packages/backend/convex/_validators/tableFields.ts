@@ -160,9 +160,43 @@ export const backgroundAgentEntryValidator = v.object(
 
 export type BackgroundAgentEntry = Infer<typeof backgroundAgentEntryValidator>;
 
+export const turnStateValidator = v.union(
+  v.literal("staged"),
+  v.literal("launching"),
+  v.literal("running"),
+  v.literal("finalizing"),
+  v.literal("done"),
+  v.literal("error"),
+  v.literal("cancelled"),
+);
+
+export type TurnState = Infer<typeof turnStateValidator>;
+
+/** Durable ownership record for one session chat turn. */
+export const turnFields = {
+  surface: v.literal("session"),
+  entityId: v.string(),
+  streamingEntityId: v.string(),
+  state: turnStateValidator,
+  open: v.boolean(),
+  turnStartedAt: v.number(),
+  leaseExpiresAt: v.number(),
+  leaseGeneration: v.number(),
+  finishedAt: v.optional(v.number()),
+  error: v.optional(v.string()),
+  workflowId: v.optional(v.string()),
+  placeholderMessageId: v.optional(v.id("messages")),
+  prompt: v.optional(v.string()),
+  attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+  model: aiModelValidator,
+  sandboxId: v.optional(v.string()),
+  repoId: v.id("githubRepos"),
+};
+
 export const pendingTurnFields = {
   prompt: v.string(),
   requestedAt: v.number(),
+  turnId: v.optional(v.id("turns")),
   // legacy field, no longer written — cleanup migration later
   turnKind: v.optional(
     v.union(v.literal("conversational"), v.literal("agent")),

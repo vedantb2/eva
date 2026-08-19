@@ -10,6 +10,17 @@ import {
 } from "../config.js";
 import type { ConvexCallType, JsonObject, JsonValue } from "../types.js";
 import { readResponseJson } from "../utils.js";
+import {
+  getCurrentTurnLease,
+  noteHeartbeatResponse,
+} from "../runtime/turnLease.js";
+
+function appendTurnLease(body: URLSearchParams): void {
+  const identity = getCurrentTurnLease();
+  if (identity === null) return;
+  body.set("turnId", identity.turnId);
+  body.set("leaseGeneration", String(identity.leaseGeneration));
+}
 
 /** Wraps fetch with an AbortController timeout. */
 export async function fetchWithTimeout(
@@ -97,6 +108,7 @@ async function callStreamingHeartbeatTouchOnce(
     body.set("entityId", entityId);
     body.set("hmac", STREAMING_HMAC);
     body.set("touchOnly", "1");
+    appendTurnLease(body);
     const res = await fetchWithTimeout(
       CONVEX_SITE_URL + "/api/streaming/heartbeat",
       {
@@ -111,7 +123,9 @@ async function callStreamingHeartbeatTouchOnce(
         "Streaming heartbeat touch failed: " + res.status + " " + text,
       );
     }
-    return res.text();
+    const response = await res.text();
+    noteHeartbeatResponse(response);
+    return response;
   }
 
   return await callConvex("mutation", "streaming:touch", { entityId });
@@ -130,6 +144,7 @@ async function callStreamingHeartbeatOnce(
     body.set("hmac", STREAMING_HMAC);
     body.set("currentActivity", currentActivity);
     body.set("currentContent", currentContent || "");
+    appendTurnLease(body);
     if (pendingQuestion) {
       body.set("pendingQuestion", pendingQuestion);
     }
@@ -145,7 +160,9 @@ async function callStreamingHeartbeatOnce(
       const text = await res.text();
       throw new Error("Streaming heartbeat failed: " + res.status + " " + text);
     }
-    return res.text();
+    const response = await res.text();
+    noteHeartbeatResponse(response);
+    return response;
   }
 
   const args: JsonObject = {

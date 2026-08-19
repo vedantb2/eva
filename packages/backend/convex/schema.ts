@@ -46,6 +46,7 @@ import {
   backgroundProcessFields,
   snapshotBuildFields,
   sessionDaemonStateFields,
+  turnFields,
 } from "./validators";
 
 const schema = defineSchema({
@@ -159,6 +160,10 @@ const schema = defineSchema({
     "by_session",
     ["sessionId"],
   ),
+  turns: defineTable(turnFields)
+    .index("by_entity_open", ["surface", "entityId", "open"])
+    .index("by_open_lease", ["open", "leaseExpiresAt"])
+    .index("by_workflow", ["workflowId"]),
   backgroundProcesses: defineTable(backgroundProcessFields)
     .index("by_session_and_status", ["sessionId", "status"])
     .index("by_session_and_key", ["sessionId", "key"]),

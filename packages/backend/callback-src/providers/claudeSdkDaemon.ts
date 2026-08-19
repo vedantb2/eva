@@ -47,11 +47,17 @@ import {
 import { buildSdkOptions, loadSdk, type SdkUserMessage } from "./claudeSdk.js";
 import { callbackState as S } from "../runtime/state.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
+import {
+  getCurrentTurnLease,
+  setCurrentTurnLease,
+  type TurnLeaseIdentity,
+} from "../runtime/turnLease.js";
 import { log, readResponseJson } from "../utils.js";
 import type { JsonObject, JsonValue } from "../types.js";
 import {
   readCancelRequested,
   readStopTaskToolUseIds,
+  readTurnLeaseIdentity,
 } from "./claimPendingTurnParse.js";
 import { decideCallbackRefresh } from "./callbackRefresh.js";
 
@@ -135,6 +141,7 @@ let lastMessageAtMs = 0;
 type ClaimedTurn = {
   prompt: string;
   attachmentUrls: string[];
+  turnLease: TurnLeaseIdentity | null;
 };
 
 type DaemonMessage = Record<string, JsonValue>;
@@ -446,7 +453,7 @@ async function finalizeTurn(output: string): Promise<void> {
   for (const step of S.accumulatedSteps) step.status = "complete";
   const activityLog = serializeSteps(S.accumulatedSteps);
   const success = resultEvent ? !resultEvent.isError : false;
-  const completionArgs: Record<string, string | boolean | null> = {
+  const completionArgs: Record<string, JsonValue> = {
     [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
     success,
     result: resultEvent?.result ?? S.rawOutput,
@@ -460,6 +467,11 @@ async function finalizeTurn(output: string): Promise<void> {
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
+  const turnLease = getCurrentTurnLease();
+  if (turnLease) {
+    completionArgs.turnId = turnLease.turnId;
+    completionArgs.leaseGeneration = turnLease.leaseGeneration;
+  }
   // Final streaming reconcile BEFORE completion. The completion mutation
   // finalizes the assistant message, after which the server clears the
   // streaming row and may immediately dequeue the next queued turn — so this
@@ -469,7 +481,7 @@ async function finalizeTurn(output: string): Promise<void> {
   // as its response until the real reply arrived (stale-reply bug).
   // setFinalizingState (not plain flushStreaming, which would early-return on
   // the already-drained buffer) pushes the now-complete steps and final text.
-  await setFinalizingState();
+  if (await setFinalizingState()) return;
   // Durability BEFORE completion: commit + push the turn's work so a VM death
   // after this point cannot erase it (a hard death snapshots nothing and the
   // next resume rolls the filesystem back — see turnPersist.ts).
@@ -478,6 +490,7 @@ async function finalizeTurn(output: string): Promise<void> {
   // that was just written.
   const completionSentAt = Date.now();
   await deliverCompletionWithMedia(completionArgs);
+  setCurrentTurnLease(null);
   log(
     "daemon: turn finalized success=" +
       success +
@@ -534,7 +547,7 @@ function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
     return null;
   }
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return { prompt, attachmentUrls: [] };
+    return { prompt, attachmentUrls: [], turnLease: null };
   }
   const inner = result.value;
   const payload =
@@ -544,6 +557,7 @@ function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
   return {
     prompt,
     attachmentUrls: readClaimedAttachmentUrls(payload),
+    turnLease: readTurnLeaseIdentity(result),
   };
 }
 
@@ -832,6 +846,7 @@ async function failSyntheticTurn(error: string): Promise<void> {
     for (const step of S.accumulatedSteps) {
       step.status = "complete";
     }
+    const turnLease = getCurrentTurnLease();
     await callConvexWithRetry(
       "mutation",
       COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
@@ -841,6 +856,7 @@ async function failSyntheticTurn(error: string): Promise<void> {
         result: null,
         error,
         activityLog: serializeSteps(S.accumulatedSteps),
+        ...(turnLease ?? {}),
       }),
     );
   } catch {
@@ -848,6 +864,7 @@ async function failSyntheticTurn(error: string): Promise<void> {
   }
   endWatchedTurn();
   resetTurnState();
+  setCurrentTurnLease(null);
   daemonTurn = null;
   agentTurnOutput = "";
 }
@@ -869,6 +886,7 @@ async function ensureSyntheticTurn(): Promise<void> {
       return;
     }
     resetTurnState();
+    setCurrentTurnLease(readTurnLeaseIdentity(result));
     daemonTurn = { kind: "synthetic", messageId };
     agentTurnStartedAt = Date.now();
     sawFirstMessageThisTurn = { value: false };
@@ -903,6 +921,11 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
+  const turnLease = getCurrentTurnLease();
+  if (turnLease) {
+    completionArgs.turnId = turnLease.turnId;
+    completionArgs.leaseGeneration = turnLease.leaseGeneration;
+  }
   await callConvexWithRetry(
     "mutation",
     COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
@@ -911,6 +934,7 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
   syncClaudeStateToPersist("daemon-synthetic-turn");
   endWatchedTurn();
   resetTurnState();
+  setCurrentTurnLease(null);
   daemonTurn = null;
   agentTurnOutput = "";
   log("daemon: synthetic turn finalized success=" + success);
@@ -921,6 +945,7 @@ function startRealAgentTurn(turn: ClaimedTurn, agentRunner: WarmRunner): void {
   // messages must stay queued so the main loop can open a synthetic turn (or
   // attribute them into this real turn once it is live).
   resetTurnState();
+  setCurrentTurnLease(turn.turnLease);
   daemonTurn = { kind: "real" };
   agentTurnStartedAt = Date.now();
   sawFirstMessageThisTurn = { value: false };
@@ -1122,6 +1147,7 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
       // the cancel. Reset per-turn state and let the pump either pick up a
       // parked turn (next loop iteration) or go idle.
       resetTurnState();
+      setCurrentTurnLease(null);
       daemonTurn = null;
       agentTurnOutput = "";
       turnCancelInFlight = false;

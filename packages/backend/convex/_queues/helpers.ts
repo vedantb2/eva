@@ -13,6 +13,11 @@ import {
 } from "../_chat/surfaceAdapters";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
+import {
+  bindTurnWorkflow,
+  findOpenSessionTurn,
+  openSessionTurn,
+} from "../_chat/turnStore";
 
 const QUEUE_RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
@@ -187,24 +192,50 @@ const sessionQueueConfig: ChatQueueConfig<
       reasoningLevel: next.reasoningLevel,
     });
   },
-  startWorkflow: (ctx, id, session, next, prepared) =>
-    workflow.start(ctx, internal.sessionWorkflow.sessionExecuteWorkflow, {
-      sessionId: id,
-      message: next.content,
+  startWorkflow: async (ctx, id, session, next, prepared) => {
+    const placeholderMessageId = await ctx.db.insert("messages", {
+      parentId: id,
+      role: "assistant",
+      content: "",
+      timestamp: Date.now(),
       mode: prepared.mode,
+      activityLog: "",
+    });
+    const turnId = await openSessionTurn(ctx, {
+      sessionId: id,
+      streamingEntityId: String(id),
+      placeholderMessageId,
+      prompt: next.content,
+      attachmentStorageIds: next.attachmentStorageIds,
       model: prepared.model,
-      reasoningLevel: next.reasoningLevel,
-      thinkingEnabled: next.thinkingEnabled,
-      use1mContext: next.use1mContext,
-      fastMode: next.fastMode,
-      providerAccountId: session.providerAccountId,
-      credentialOwnerUserId: session.createdBy ?? session.userId,
-      personaId: next.personaId,
-      numDesigns: next.numDesigns,
-      userId: next.userId,
-      installationId: prepared.repo.installationId,
-    }),
+      sandboxId: session.sandboxId,
+      repoId: session.repoId,
+    });
+    return await workflow.start(
+      ctx,
+      internal.sessionWorkflow.sessionExecuteWorkflow,
+      {
+        sessionId: id,
+        message: next.content,
+        mode: prepared.mode,
+        model: prepared.model,
+        reasoningLevel: next.reasoningLevel,
+        thinkingEnabled: next.thinkingEnabled,
+        use1mContext: next.use1mContext,
+        fastMode: next.fastMode,
+        providerAccountId: session.providerAccountId,
+        credentialOwnerUserId: session.createdBy ?? session.userId,
+        personaId: next.personaId,
+        numDesigns: next.numDesigns,
+        userId: next.userId,
+        installationId: prepared.repo.installationId,
+        turnId,
+      },
+    );
+  },
   onStarted: async (ctx, id, workflowId, now) => {
+    const turn = await findOpenSessionTurn(ctx, id);
+    if (turn) await bindTurnWorkflow(ctx, turn._id, String(workflowId));
     await ctx.db.patch(id, { updatedAt: now });
     await trackSessionWorkflow(ctx, id, workflowId, QUEUE_RUN_TIMEOUT_MS);
   },

@@ -1739,6 +1739,8 @@ export const launchOnExistingSandbox = internalAction({
     /** Entity owner for personal-credential decrypt; defaults to `userId`. */
     credentialOwnerUserId: v.optional(v.id("users")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    turnId: v.optional(v.id("turns")),
+    turnLeaseGeneration: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1780,6 +1782,13 @@ export const launchOnExistingSandbox = internalAction({
     }
     if (args.requireTaskCommit === true) {
       extraEnvVars.REQUIRE_TASK_COMMIT = "true";
+    }
+    if (
+      args.turnId !== undefined &&
+      args.turnLeaseGeneration !== undefined
+    ) {
+      extraEnvVars.TURN_ID = String(args.turnId);
+      extraEnvVars.TURN_LEASE_GENERATION = String(args.turnLeaseGeneration);
     }
     // Session-wide trait overrides. Only non-default values are sent from the UI;
     // the runner maps effort to each provider's native control (see config.ts).

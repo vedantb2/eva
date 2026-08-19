@@ -73,6 +73,8 @@ interface ChatPanelProps {
   isReadOnly?: boolean;
   deploymentStatus?: "queued" | "building" | "deployed" | "error";
   sandboxCollapsed?: boolean;
+  /** Canonical link to this session; omitted when the URL already is one. */
+  permalinkPath?: string;
   onToggleSandbox?: () => void;
   /** Opens a file (by full sandbox path) in the File Viewer tab. */
   onOpenFile?: (path: string) => void;
@@ -108,6 +110,7 @@ export function ChatPanel({
   isReadOnly = false,
   deploymentStatus,
   sandboxCollapsed,
+  permalinkPath,
   onToggleSandbox,
   onOpenFile,
   onViewDiff,
@@ -244,6 +247,7 @@ export function ChatPanel({
     isAssistantResponding: isExecuting,
     deploymentStatus,
     sandboxCollapsed,
+    permalinkPath,
     onSandboxToggle,
     onToggleSandbox,
     onOpenSummaryModal: () => setShowSummaryModal(true),

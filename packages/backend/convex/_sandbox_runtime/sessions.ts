@@ -857,6 +857,12 @@ async function prepareSessionSandboxInternal(
             "reuseSessionSandbox.runStartupCommands",
             sandboxDetails,
             async () => {
+              // Startup commands bootstrap repo services (dockerd, seeded DBs)
+              // against installed dependencies. The orchestrator installs none
+              // and runs none, so they can only fail — and their failures are
+              // reported as `sandboxStartupWarning` alert rows in its chat,
+              // which is exactly what gating the services was meant to stop.
+              if (isOrchestrator) return;
               const result = await runStartupCommandsDirect(ctx, {
                 sandboxId: handle.id,
                 repoId: args.repoId,
@@ -964,7 +970,11 @@ async function prepareSessionSandboxInternal(
           earlyReadyEmitted = true;
           // Seed configured app port/command immediately so Preview doesn't
           // fall back to 3000 while startSessionServices is still running.
-          const configured = repo ? devOverrides(repo) : undefined;
+          // Never for the orchestrator: it starts no dev server, and a sticky
+          // devPort+devCommand pair on the row is all `previewRecovery` needs
+          // to "self-heal" a server that was deliberately never launched.
+          const configured =
+            repo && !isOrchestrator ? devOverrides(repo) : undefined;
           await ctx.runMutation(internal.sessions.sandboxReady, {
             sessionId: args.sessionId,
             sandboxId: sandbox.id,
@@ -1181,13 +1191,16 @@ async function prepareSessionSandboxInternal(
       status: "complete",
     });
 
-    await emitSessionProgress(
-      ctx,
-      args.sessionId,
-      completedSteps,
-      "Starting dev server...",
-    );
+    // Orchestrator: no services, so don't narrate a dev server it never starts
+    // — the step would show as active and then land in the master's startup
+    // progress marked "complete".
     if (!isOrchestrator) {
+      await emitSessionProgress(
+        ctx,
+        args.sessionId,
+        completedSteps,
+        "Starting dev server...",
+      );
       const services = await runLoggedSessionStep(
         "newSessionSandbox.startSessionServices",
         sandboxDetails,
@@ -1195,12 +1208,12 @@ async function prepareSessionSandboxInternal(
       );
       resolvedDevPort = services.port;
       resolvedDevCommand = services.devCommand;
+      completedSteps.push({
+        type: "tool",
+        label: "Starting dev server...",
+        status: "complete",
+      });
     }
-    completedSteps.push({
-      type: "tool",
-      label: "Starting dev server...",
-      status: "complete",
-    });
 
     if (args.startDesktop) {
       await emitSessionProgress(
@@ -1269,6 +1282,8 @@ async function prepareSessionSandboxInternal(
       "newSessionSandbox.runStartupCommands",
       sandboxDetails,
       async () => {
+        // No repo services on the orchestrator (see the reuse path above).
+        if (isOrchestrator) return;
         const result = await runStartupCommandsDirect(ctx, {
           sandboxId: handle.id,
           repoId: args.repoId,

@@ -1174,6 +1174,7 @@ const sessionListItemSchema = z.object({
   updatedAt: z.number().optional(),
   lastModel: z.string().optional(),
   isExecuting: z.boolean(),
+  isOrchestrator: z.boolean().optional(),
 });
 
 /** Slim projection of an `agentTasks` document. */
@@ -1232,7 +1233,9 @@ const TRANSCRIPT_CHAR_LIMIT = 2000;
 
 /**
  * Points a child session/task at the master session so a later completion can
- * wake it. Called implicitly by create/send and explicitly by watch_agent.
+ * wake it, or clears the pointer when `masterSessionId` is omitted. Only
+ * `unwatch_agent` wants the clearing behaviour — implicit registration must go
+ * through `registerWatchIfMaster`.
  */
 async function setWatchedByOrchestrator(
   clerkUserId: string,
@@ -1251,6 +1254,22 @@ async function setWatchedByOrchestrator(
       : "orchestratorWatch:setTaskWatchedBy",
     args,
   );
+}
+
+/**
+ * Implicit watch registration for create/send. A missing master id means "no
+ * master to register" — never "clear this child's watch", which is what
+ * `setWatchedByOrchestrator` would do and would silently drop the wake-up the
+ * caller was promised. Mirrors `watchTaskAsOrchestrator` in tools.ts.
+ */
+async function registerWatchIfMaster(
+  clerkUserId: string,
+  kind: AgentKind,
+  id: string,
+  masterSessionId: string | undefined,
+): Promise<void> {
+  if (masterSessionId === undefined) return;
+  await setWatchedByOrchestrator(clerkUserId, kind, id, masterSessionId);
 }
 
 export const orchestratorListAgents = internalAction({
@@ -1288,6 +1307,11 @@ export const orchestratorListAgents = internalAction({
     const agents: OrchestratorAgent[] = [];
     for (const group of sessionGroups) {
       for (const item of z.array(sessionListItemSchema).parse(group)) {
+        // Never list an orchestrator session. `_sessions/queries:list` is
+        // repo-scoped, so on a shared repo it also returns a teammate's master
+        // — and driving somebody else's supervisor is never intended. The
+        // caller's own id is excluded below, but that only covers itself.
+        if (item.isOrchestrator === true) continue;
         agents.push({
           kind: "session",
           id: item._id,
@@ -1483,7 +1507,13 @@ export const orchestratorSendMessage = internalAction({
           convexUrl,
           clerkUserId,
           "_sessions/execution:enqueueMessage",
-          { sessionId: id, message, mode, model: delivery.model },
+          {
+            sessionId: id,
+            message,
+            mode,
+            model: delivery.model,
+            sentViaOrchestrator: true,
+          },
         );
       } else {
         // startExecute only stages the assistant placeholder, so the user row
@@ -1508,7 +1538,7 @@ export const orchestratorSendMessage = internalAction({
           { sessionId: id, message, mode, model: delivery.model },
         );
       }
-      await setWatchedByOrchestrator(clerkUserId, kind, id, masterSessionId);
+      await registerWatchIfMaster(clerkUserId, kind, id, masterSessionId);
       const delivered: "queued" | "started" =
         delivery.action === "queue" ? "queued" : "started";
       return { delivered, model: delivery.model };
@@ -1526,7 +1556,12 @@ export const orchestratorSendMessage = internalAction({
         convexUrl,
         clerkUserId,
         "agentTaskChatWorkflow:enqueueMessage",
-        { taskId: id, message, model: delivery.model },
+        {
+          taskId: id,
+          message,
+          model: delivery.model,
+          sentViaOrchestrator: true,
+        },
       );
     } else {
       await runMutationAsUser(
@@ -1548,7 +1583,7 @@ export const orchestratorSendMessage = internalAction({
         { taskId: id, message, model: delivery.model },
       );
     }
-    await setWatchedByOrchestrator(clerkUserId, kind, id, masterSessionId);
+    await registerWatchIfMaster(clerkUserId, kind, id, masterSessionId);
     const delivered: "queued" | "started" =
       delivery.action === "queue" ? "queued" : "started";
     return { delivered, model: delivery.model };
@@ -1563,13 +1598,30 @@ export const orchestratorStopAgent = internalAction({
   },
   returns: v.null(),
   handler: async (_ctx, { clerkUserId, kind, id }) => {
+    const convexUrl = getEvaConvexCloudUrl();
+    if (kind === "session") {
+      await runMutationAsUser(
+        convexUrl,
+        clerkUserId,
+        "_sessions/execution:cancelExecution",
+        { sessionId: id },
+      );
+      return null;
+    }
+    // A task has two independent workflow slots: its main run and its sandbox
+    // chat. Cancelling only the chat one reported success while a run kept
+    // going, so stop both — each cancel is a no-op when that slot is idle.
     await runMutationAsUser(
-      getEvaConvexCloudUrl(),
+      convexUrl,
       clerkUserId,
-      kind === "session"
-        ? "_sessions/execution:cancelExecution"
-        : "agentTaskChatWorkflow:cancelExecution",
-      kind === "session" ? { sessionId: id } : { taskId: id },
+      "agentTaskChatWorkflow:cancelExecution",
+      { taskId: id },
+    );
+    await runMutationAsUser(
+      convexUrl,
+      clerkUserId,
+      "_taskWorkflow/publicMutations:cancelExecution",
+      { taskId: id },
     );
     return null;
   },
@@ -1607,7 +1659,7 @@ export const orchestratorCreateSession = internalAction({
         createArgs,
       ),
     );
-    await setWatchedByOrchestrator(
+    await registerWatchIfMaster(
       clerkUserId,
       "session",
       created.sessionId,

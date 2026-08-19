@@ -290,6 +290,8 @@ export const enqueueMessage = authMutation({
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
     personaId: v.optional(v.id("designPersonas")),
     numDesigns: v.optional(v.number()),
+    /** Set by the orchestrator's `send_agent_message` MCP tool. */
+    sentViaOrchestrator: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -327,6 +329,7 @@ export const enqueueMessage = authMutation({
       attachmentStorageIds: args.attachmentStorageIds,
       personaId: args.personaId,
       numDesigns: args.numDesigns,
+      sentViaOrchestrator: args.sentViaOrchestrator,
     });
     await ctx.db.patch(args.sessionId, {
       lastModel: args.model,

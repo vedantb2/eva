@@ -213,7 +213,7 @@ function RepoRailView({
               </span>
             </Link>
           </TooltipTrigger>
-          <TooltipContent side="right">Orchestrator</TooltipContent>
+          <TooltipContent side="right">Home</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>

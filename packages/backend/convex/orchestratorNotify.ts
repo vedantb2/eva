@@ -79,27 +79,51 @@ function isLiveMaster(
   );
 }
 
-/** Tail of the child's most recent non-empty assistant reply, if it has one. */
-async function lastAssistantTail(
+/** Trims a quoted child reply to the tail the master is shown. */
+function replyTail(content: string): string {
+  const trimmed = content.trim();
+  return trimmed.length > REPLY_TAIL_CHARS
+    ? trimmed.slice(-REPLY_TAIL_CHARS)
+    : trimmed;
+}
+
+/**
+ * What actually happened to the child's last turn, read off its newest
+ * messages rather than taken from the caller.
+ *
+ * The queue-drain hook can only report "the child went idle", so it passes
+ * `"completed"` for a user cancel and a stall-watchdog kill alike. Both write a
+ * system-alert row as the turn's last message, so the child's own transcript is
+ * the only place the difference survives — and quoting past the alert (the
+ * previous successful reply) told the master a killed turn had succeeded.
+ */
+async function resolveChildOutcome(
   ctx: MutationCtx,
   parentId: Id<"sessions"> | Id<"agentTasks">,
-): Promise<string | undefined> {
+  reportedStatus: string,
+): Promise<{ status: string; tail: string | undefined }> {
   const recent = await ctx.db
     .query("messages")
     .withIndex("by_parent", (q) => q.eq("parentId", parentId))
     .order("desc")
     .take(10);
-  const reply = recent.find(
+  const lastAgentRow = recent.find(
     (message) =>
-      message.role === "assistant" &&
-      message.isSystemAlert !== true &&
-      message.content.trim().length > 0,
+      message.role === "assistant" && message.content.trim().length > 0,
   );
-  if (!reply) return undefined;
-  const content = reply.content.trim();
-  return content.length > REPLY_TAIL_CHARS
-    ? content.slice(-REPLY_TAIL_CHARS)
-    : content;
+  if (!lastAgentRow) return { status: reportedStatus, tail: undefined };
+  if (lastAgentRow.isSystemAlert === true) {
+    // The alert IS the outcome: report it instead of the drain's optimistic
+    // label, and quote it rather than an older, unrelated success.
+    const detail = lastAgentRow.errorDetail?.trim();
+    return {
+      status: "interrupted",
+      tail: replyTail(
+        detail ? `${lastAgentRow.content}: ${detail}` : lastAgentRow.content,
+      ),
+    };
+  }
+  return { status: reportedStatus, tail: replyTail(lastAgentRow.content) };
 }
 
 /**
@@ -137,9 +161,14 @@ export const notifyOrchestratorOfChild = internalMutation({
     const repo =
       summary.repoId === undefined ? null : await ctx.db.get(summary.repoId);
     const repoLabel = repo ? `${repo.owner}/${repo.name}` : "unknown repo";
-    const tail = await lastAssistantTail(ctx, summary.parentId);
-    const headline = `[agent-notification] ${summary.kindLabel} "${summary.title}" (${repoLabel}) finished: ${args.status}`;
-    const content = tail === undefined ? headline : `${headline}\n\n${tail}`;
+    const outcome = await resolveChildOutcome(
+      ctx,
+      summary.parentId,
+      args.status,
+    );
+    const headline = `[agent-notification] ${summary.kindLabel} "${summary.title}" (${repoLabel}) finished: ${outcome.status}`;
+    const content =
+      outcome.tail === undefined ? headline : `${headline}\n\n${outcome.tail}`;
 
     const ownerUserId = master.createdBy ?? master.userId;
     const mode = master.lastMode ?? "edit";

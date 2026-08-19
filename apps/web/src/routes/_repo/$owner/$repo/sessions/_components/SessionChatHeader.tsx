@@ -41,6 +41,8 @@ interface SessionChatHeaderProps {
   isAssistantResponding: boolean;
   deploymentStatus?: "queued" | "building" | "deployed" | "error";
   sandboxCollapsed?: boolean;
+  /** Canonical link to this session; omitted when the URL already is one. */
+  permalinkPath?: string;
   onSandboxToggle: (action: "start" | "stop") => void;
   onToggleSandbox?: () => void;
   onOpenSummaryModal: () => void;
@@ -61,6 +63,7 @@ export function SessionChatHeader({
   isAssistantResponding,
   deploymentStatus,
   sandboxCollapsed,
+  permalinkPath,
   onSandboxToggle,
   onToggleSandbox,
   onOpenSummaryModal,
@@ -138,7 +141,7 @@ export function SessionChatHeader({
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
-          <CopyLinkMenuItem />
+          <CopyLinkMenuItem path={permalinkPath} />
         </DropdownMenuContent>
       </DropdownMenu>
       {onToggleSandbox && (

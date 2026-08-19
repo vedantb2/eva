@@ -218,6 +218,13 @@ export function SessionDetailClient({
       isReadOnly={isReadOnly}
       deploymentStatus={session.deploymentStatus}
       sandboxCollapsed={sandboxCollapsed}
+      // chatOnly mounts inline at the per-user `/orchestrator`, so the current
+      // URL is not a link to *this* session — hand the header a real permalink.
+      permalinkPath={
+        chatOnly && session.numId !== undefined
+          ? `${basePath}/sessions/${session.numId}`
+          : undefined
+      }
       onToggleSandbox={onToggleSandbox}
       onOpenFile={chatOnly ? undefined : onOpenFile}
       onViewDiff={chatOnly ? undefined : onViewDiff}

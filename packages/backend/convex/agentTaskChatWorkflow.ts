@@ -314,6 +314,8 @@ export const enqueueMessage = authMutation({
     fastMode: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    /** Set by the orchestrator's `send_agent_message` MCP tool. */
+    sentViaOrchestrator: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -348,6 +350,7 @@ export const enqueueMessage = authMutation({
       fastMode: args.fastMode,
       providerAccountId: task.providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
+      sentViaOrchestrator: args.sentViaOrchestrator,
     });
     await ctx.db.patch(args.taskId, {
       lastChatModel: normalizeAIModel(args.model),

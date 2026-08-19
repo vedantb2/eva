@@ -220,6 +220,7 @@ const sessionQueueConfig: ChatQueueConfig<
       model: prepared.model,
       reasoningLevel: next.reasoningLevel,
       orchestratorNotification: next.orchestratorNotification,
+      sentViaOrchestrator: next.sentViaOrchestrator,
     });
   },
   startWorkflow: (ctx, id, session, next, prepared) =>
@@ -257,6 +258,23 @@ const sessionQueueConfig: ChatQueueConfig<
       ? undefined
       : { kind: "session", sessionId: id },
   defaultStartErrorMessage: "Failed to start queued message.",
+};
+
+/**
+ * `sessionQueueConfig` with the orchestrator wake-up suppressed, for the one
+ * drain that is NOT a turn ending: `sandboxReady` (`_sessions/sandbox.ts`)
+ * drains after a sandbox start/resume, where an empty queue means "nothing was
+ * waiting" rather than "the child just went idle". Left on the notifying config,
+ * merely starting a watched session's sandbox woke its master with a spurious
+ * "finished: completed" carrying the tail of an older reply.
+ */
+const sessionSandboxReadyQueueConfig: ChatQueueConfig<
+  Id<"sessions">,
+  Doc<"sessions">,
+  SessionQueuePrepared
+> = {
+  ...sessionQueueConfig,
+  orchestratorNotifyChild: () => undefined,
 };
 
 const projectChatQueueConfig: ChatQueueConfig<
@@ -345,6 +363,7 @@ const taskChatQueueConfig: ChatQueueConfig<
       ),
       model: next.model,
       reasoningLevel: next.reasoningLevel,
+      sentViaOrchestrator: next.sentViaOrchestrator,
     });
   },
   startWorkflow: (ctx, id, task, next) =>
@@ -390,6 +409,22 @@ export function startNextQueuedSessionMessage(
   sessionId: Id<"sessions">,
 ): Promise<boolean> {
   return startNextQueuedChatMessage(ctx, sessionId, sessionQueueConfig);
+}
+
+/**
+ * Dequeues after a sandbox start/resume. Identical to
+ * `startNextQueuedSessionMessage` except it never wakes a watching orchestrator
+ * — see `sessionSandboxReadyQueueConfig`.
+ */
+export function startNextQueuedSessionMessageAfterSandboxReady(
+  ctx: MutationCtx,
+  sessionId: Id<"sessions">,
+): Promise<boolean> {
+  return startNextQueuedChatMessage(
+    ctx,
+    sessionId,
+    sessionSandboxReadyQueueConfig,
+  );
 }
 
 /** Dequeues and starts the next pending chat message for a project. */

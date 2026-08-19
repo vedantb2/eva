@@ -734,6 +734,10 @@ export const queuedMessageFields = {
   // notification rather than a plain user turn (mirrors
   // messageFields.orchestratorNotification).
   orchestratorNotification: v.optional(v.boolean()),
+  // Same idea for a message the orchestrator sent to a BUSY child: without it
+  // the "via orchestrator" badge was lost on exactly the messages that had to
+  // queue (mirrors messageFields.sentViaOrchestrator).
+  sentViaOrchestrator: v.optional(v.boolean()),
 };
 
 export const taskSandboxEventFields = {

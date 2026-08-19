@@ -17,7 +17,7 @@ import { markAllRunningExited } from "../backgroundProcesses";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "../streaming";
 import { clearPendingQuestionsForEntity } from "../pendingQuestions";
-import { startNextQueuedSessionMessage } from "../_queues/helpers";
+import { startNextQueuedSessionMessageAfterSandboxReady } from "../_queues/helpers";
 import { syncSessionDaemonState } from "./daemonState";
 import { STUCK_STOPPING_RECOVER_MS } from "../_sandbox/stopRecovery";
 
@@ -420,7 +420,9 @@ export const sandboxReady = internalMutation({
     }
     // Drain first-message (and any other) queued turns now that chat can run.
     // Early + final ready both call this; second no-ops while activeWorkflowId is set.
-    await startNextQueuedSessionMessage(ctx, args.sessionId);
+    // Starting a sandbox is not a turn ending, so this drain must not wake a
+    // watching orchestrator when the queue turns out to be empty.
+    await startNextQueuedSessionMessageAfterSandboxReady(ctx, args.sessionId);
     return null;
   },
 });
@@ -468,6 +470,20 @@ export const sandboxError = internalMutation({
       status: "closed",
       updatedAt: Date.now(),
     });
+    // A watched child whose sandbox never started will never reach the
+    // queue-drain hook (its queued first turn stays queued), so without this
+    // the orchestrator waits on it forever. Notify only — deliberately no
+    // drain, which would start that turn on a session just marked closed.
+    if (session.watchedByOrchestrator !== undefined) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.orchestratorNotify.notifyOrchestratorOfChild,
+        {
+          child: { kind: "session", sessionId: args.sessionId },
+          status: "sandbox failed to start",
+        },
+      );
+    }
     return null;
   },
 });

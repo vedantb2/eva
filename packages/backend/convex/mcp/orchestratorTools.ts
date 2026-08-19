@@ -96,7 +96,11 @@ export function registerOrchestratorTools(
           clerkUserId,
           repos: scope.repos.map((repo) => ({
             id: repo.id,
-            fullName: `${repo.owner}/${repo.name}`,
+            // App-qualified so a monorepo's app rows are distinguishable in
+            // the fleet table (they are separate repo records sharing a name).
+            fullName: repo.rootDirectory
+              ? `${repo.owner}/${repo.name}/${repo.rootDirectory.split("/").pop() ?? repo.rootDirectory}`
+              : `${repo.owner}/${repo.name}`,
           })),
           includeIdle,
           excludeEntityId: entityId,

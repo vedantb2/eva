@@ -3,12 +3,26 @@
 import { DropdownMenuItem } from "@eva/ui";
 import { IconLink } from "@tabler/icons-react";
 
-/** Copies the current page URL — shared More-menu item for task / project / session headers. */
-export function CopyLinkMenuItem({ iconSize = 14 }: { iconSize?: number }) {
+/**
+ * Copies the current page URL — shared More-menu item for task / project /
+ * session headers. Pass `path` when the current URL is not a link to the
+ * entity: the orchestrator chat is mounted inline at the per-user
+ * `/orchestrator`, which resolves to a *different* session for everyone else.
+ */
+export function CopyLinkMenuItem({
+  iconSize = 14,
+  path,
+}: {
+  iconSize?: number;
+  path?: string;
+}) {
   return (
     <DropdownMenuItem
       onClick={() => {
-        void navigator.clipboard.writeText(window.location.href);
+        const href = path
+          ? new URL(path, window.location.origin).href
+          : window.location.href;
+        void navigator.clipboard.writeText(href);
       }}
     >
       <IconLink size={iconSize} />

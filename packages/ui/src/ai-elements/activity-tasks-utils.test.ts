@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityStep } from "./activity-shared";
-import { buildActivityRows, normalizeStep } from "./activity-tasks-utils";
+import {
+  buildActivityRows,
+  groupActivityRows,
+  normalizeStep,
+} from "./activity-tasks-utils";
 
 function step(
   partial: Partial<ActivityStep> & Pick<ActivityStep, "type" | "label">,
@@ -117,5 +121,38 @@ describe("buildActivityRows", () => {
     ]);
     expect(rows).toHaveLength(1);
     expect(rows[0]?.step.type).toBe("todos");
+  });
+});
+
+describe("groupActivityRows", () => {
+  it("folds runs of actions between reasoning blocks", () => {
+    const segments = groupActivityRows(
+      buildActivityRows([
+        step({ type: "reasoning", label: "Thought", detail: "Plan it" }),
+        step({ type: "read", label: "Read", detail: "a.ts" }),
+        step({ type: "bash", label: "Ran", detail: "ls" }),
+        step({ type: "reasoning", label: "Thought", detail: "Now edit" }),
+        step({ type: "edit", label: "Edited", detail: "a.ts" }),
+      ]),
+    );
+    expect(segments.map((s) => s.kind)).toEqual([
+      "reasoning",
+      "actions",
+      "reasoning",
+      "actions",
+    ]);
+    expect(segments[1]).toMatchObject({ kind: "actions" });
+    expect(segments[1]?.kind === "actions" && segments[1].rows).toHaveLength(2);
+  });
+
+  it("keeps narration rows out of action groups", () => {
+    const segments = groupActivityRows(
+      buildActivityRows([
+        step({ type: "bash", label: "Ran", detail: "ls" }),
+        step({ type: "notice", label: "Context automatically compacting" }),
+        step({ type: "bash", label: "Ran", detail: "pwd" }),
+      ]),
+    );
+    expect(segments.map((s) => s.kind)).toEqual(["actions", "row", "actions"]);
   });
 });

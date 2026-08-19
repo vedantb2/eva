@@ -30,16 +30,24 @@ import {
   useElapsedSeconds,
   formatElapsed,
 } from "./activity-shared";
-import { type ActivityRow, buildActivityRows } from "./activity-tasks-utils";
 import {
+  type ActivityRow,
+  type ActivitySegment,
+  buildActivityRows,
+  groupActivityRows,
+} from "./activity-tasks-utils";
+import {
+  deriveActionGroupSummary,
   deriveStepRowPresentation,
+  resolveCommandVisualKind,
   type CommandVisualKind,
 } from "./activity-step-label";
 import { ActivityStepDetail } from "./activity-step-detail";
+import { MessageResponse } from "./message";
 import { Reasoning, ReasoningContent, ReasoningTrigger } from "./reasoning";
 import { Task, TaskContent, TaskItem, TaskItemFile, TaskTrigger } from "./task";
 
-/** Max activity rows shown before the overflow toggle appears. */
+/** Max timeline blocks shown before the overflow toggle appears. */
 const MAX_VISIBLE_ROWS = 8;
 
 /** Max nested child rows shown under a subtask before "+N more". */
@@ -158,6 +166,14 @@ function bashIconForKind(kind: CommandVisualKind) {
   return IconTerminal2;
 }
 
+/** Glyph for a step — shell steps swap in a glyph matching what they ran. */
+function iconForStep(step: ActivityStep) {
+  if (step.type === "bash" && step.detail) {
+    return bashIconForKind(resolveCommandVisualKind(step.detail));
+  }
+  return (stepConfig[step.type] ?? stepConfig.tool).icon;
+}
+
 /** One per-call activity row with Synara-style humanized label. */
 function ActivityStepRow({
   row,
@@ -214,11 +230,7 @@ function ActivityStepRow({
     );
   }
 
-  const config = stepConfig[step.type] ?? stepConfig.tool;
-  const Icon =
-    step.type === "bash" && presentation.commandKind
-      ? bashIconForKind(presentation.commandKind)
-      : config.icon;
+  const Icon = iconForStep(step);
 
   const label = (
     <span className="min-w-0 truncate" title={presentation.title}>
@@ -322,8 +334,80 @@ function ActivityStepRow({
   );
 }
 
+/** Model reasoning, shown as ordinary prose rather than another muted row. */
+function ActivityReasoningBlock({ step }: { step: ActivityStep }) {
+  const thoughts = step.detail?.trim();
+  if (!thoughts) return null;
+  return (
+    <MessageResponse className="my-1 text-foreground text-sm leading-relaxed">
+      {thoughts}
+    </MessageResponse>
+  );
+}
+
+/** A run of tool calls, folded behind one muted "what happened" summary line. */
+function ActivityActionGroup({
+  rows,
+  onOpenFile,
+}: {
+  rows: ActivityRow[];
+  onOpenFile?: (path: string) => void;
+}) {
+  const steps = rows.map((row) => row.step);
+  const isActive = steps.some((step) => step.status === "active");
+  const summary = deriveActionGroupSummary(steps);
+  const firstStep = steps[0];
+  const Icon = firstStep ? iconForStep(firstStep) : IconTerminal2;
+
+  return (
+    <Collapsible className="group w-full" defaultOpen={isActive}>
+      {/* Summary stays muted even when a call inside failed: agents run failing
+          commands on purpose, so one non-zero exit should not paint the run red.
+          The failed row itself is still red once the fold is open. */}
+      <CollapsibleTrigger className="flex w-full items-center gap-2 text-left text-muted-foreground text-sm transition-colors hover:text-foreground">
+        <Icon className="size-4 shrink-0" />
+        <span className="min-w-0 truncate" title={summary}>
+          {isActive ? (
+            <Shimmer as="span" duration={2.5} spread={1.5}>
+              {summary}
+            </Shimmer>
+          ) : (
+            summary
+          )}
+        </span>
+        <IconChevronDown className="size-4 shrink-0 transition-transform group-data-[state=open]:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="mt-1.5 ml-2 space-y-1.5 border-l border-border pl-3 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
+        {rows.map((row, i) => (
+          <ActivityStepRow
+            key={`${row.step.type}-${i}-${row.step.label}`}
+            row={row}
+            onOpenFile={onOpenFile}
+          />
+        ))}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function ActivitySegmentBlock({
+  segment,
+  onOpenFile,
+}: {
+  segment: ActivitySegment;
+  onOpenFile?: (path: string) => void;
+}) {
+  if (segment.kind === "reasoning") {
+    return <ActivityReasoningBlock step={segment.step} />;
+  }
+  if (segment.kind === "row") {
+    return <ActivityStepRow row={segment.row} onOpenFile={onOpenFile} />;
+  }
+  return <ActivityActionGroup rows={segment.rows} onOpenFile={onOpenFile} />;
+}
+
 /**
- * Renders activity rows with an overflow cap. Settled turns cap from the front
+ * Renders timeline blocks with an overflow cap. Settled turns cap from the front
  * (first N); streaming turns cap from the end (newest N) so latest stays visible.
  */
 function ActivityRowList({
@@ -337,13 +421,14 @@ function ActivityRowList({
 }) {
   const [expanded, setExpanded] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
-  const overflow = rows.length - MAX_VISIBLE_ROWS;
+  const segments = groupActivityRows(rows);
+  const overflow = segments.length - MAX_VISIBLE_ROWS;
   const isCapped = overflow > 0 && !expanded;
   const visible = isCapped
     ? isStreaming
-      ? rows.slice(rows.length - MAX_VISIBLE_ROWS)
-      : rows.slice(0, MAX_VISIBLE_ROWS)
-    : rows;
+      ? segments.slice(segments.length - MAX_VISIBLE_ROWS)
+      : segments.slice(0, MAX_VISIBLE_ROWS)
+    : segments;
 
   const handleToggle = useCallback(() => {
     const anchor = toggleRef.current;
@@ -369,10 +454,10 @@ function ActivityRowList({
   return (
     <>
       {isStreaming && toggle}
-      {visible.map((row, i) => (
-        <ActivityStepRow
-          key={`${row.step.type}-${i}-${row.step.label}`}
-          row={row}
+      {visible.map((segment, i) => (
+        <ActivitySegmentBlock
+          key={`${segment.kind}-${i}`}
+          segment={segment}
           onOpenFile={onOpenFile}
         />
       ))}

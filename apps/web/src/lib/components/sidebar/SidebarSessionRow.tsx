@@ -35,6 +35,7 @@ interface SessionItem {
   title: string;
   status: SessionStatus;
   isExecuting?: boolean;
+  isOrchestrator?: boolean;
   updatedAt?: number;
   sandboxId?: string;
   branchName?: string;
@@ -102,6 +103,7 @@ export function SidebarSessionRow<T extends SessionItem>({
               updatedAt={session.updatedAt}
               status={session.status}
               isExecuting={session.isExecuting === true}
+              isOrchestrator={session.isOrchestrator === true}
               isSelected={isSelected}
               onNavigate={onNavigate}
               prUrl={prUrl}

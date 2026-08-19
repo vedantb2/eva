@@ -1,5 +1,17 @@
 # Changelog
 
+## First-run picker verified live, and the sidebar finally uses `isOrchestrator` - 2026-08-19
+
+Fifth orchestrator pass, closing the two plan items with no coverage at all.
+
+**Step 2's sidebar badge was never implemented.** `isOrchestrator` was plumbed onto `sessionListItemValidator`/`toSessionListItem` "so the sidebar can badge it", but nothing in `apps/web` read it — the orchestrator sat in the sessions list indistinguishable from ordinary work. `SidebarSessionItem` now renders an `IconSparkles` mark in place of the sandbox status dot for it (`SessionItem` and `SidebarSessionRow` carry the flag through), following the existing `isExecuting` precedent: a turn in flight still wins the slot, because "working" is the more urgent fact. Rationale in a comment: the orchestrator is one persistent session per user, not a unit of work, so its sandbox colour is not what distinguishes it.
+
+**First-run flow exercised end to end for real.** With `users.orchestratorSessionId` temporarily cleared, `/orchestrator` rendered the home-codebase picker, clicking the codebase called `ensureOrchestratorSession`, and the new session (numId 82) was created with `isOrchestrator: true`, the user pointer was repointed to it, and the chat mounted inline — no redirect. The original session was then restored and the replacement retired.
+
+Both of the day's remaining "stuck" artefacts were traced to earlier probes rather than the product: deleting a live turn's message rows out of band left `activeWorkflowId` set (the sidebar showed "Working" indefinitely, masking the new marker until cleared). Clearing it through the product's own `_sessions/execution:cancelExecution` worked first time, which incidentally verifies the path `stop_agent` depends on. Worth noting for future probes: `saveResult` cannot finalize a turn whose placeholder row has been deleted, and only the 2-hour stall watchdog recovers that — unreachable through the UI, so left alone.
+
+817 backend tests pass; both typechecks clean.
+
 ## Orchestrator sends no longer jump the queue, and both chat badges verified on screen - 2026-08-19
 
 Fourth orchestrator test pass, covering the three plan items no earlier round had exercised: cross-repo `create_task`, task-kind notifications, and the Step 6 badges as actually rendered.

@@ -1,6 +1,10 @@
 # Changelog
 
-## Tiny prompts no longer replay giant Cursor sessions, and callback refreshes cannot lose Claude turns - 2026-08-19
+## Automation tabs match the settings pages, and page titles line up with the cards - 2026-08-19
+
+The automation tabs (Latest / Run History / Settings) were built inside the page body rather than the header, so they scrolled away with the content and sat on a trough the eye could not see — while the settings tabs stayed pinned under the title as a segmented control. They now go through `PageWrapper`'s `tabs` slot with `tabs-segmented`, the same treatment Env Variables uses, so the strip stays put while the panel scrolls. Snapshots, the one settings page still using the untroughed list, was switched over too, so every settings-shaped tab strip in the app now reads the same.
+
+Page titles were also a gutter out. Each settings card carries its section title at `px-4`, but the page title above sat flush with the card edge, leaving the two headings 16px apart on every settings and automations page. `PageWrapper` gained an opt-in `insetHeader` that indents the title row by the card gutter; `SettingsPage`, the automation detail page and the Automations Hub set it, and the Hub's own "Automations Hub" caption moved inside a full-bleed divider so its copy takes the same gutter. List pages whose card has no section heading to align to (inbox, drafts, stats) are deliberately left flush.
 
 Two production sessions exposed separate ways to sit on “Working” for minutes. In evalucom/carepulse-ts session 53, a one-word `hi` resumed Cursor agent `agent-79d58a3d-fe04-4140-8073-3ac246ed315c` at turn 31 with 189,397 input tokens and only 68 output tokens; the first event took 167 seconds. Later runs reached 971,770 input tokens. Cursor's SDK store is append-only and has no public compact operation, while Eva resumed the same agent forever. Cursor sessions now rotate before resume at 12 turns or an 80,000-token last input. A fresh agent receives a bounded handoff from the last six Eva messages (2,000 characters each), so rotation caps replay cost without turning follow-ups into context-free requests. The decision reads only the persisted agent's newest run, so old oversized agents remaining in the shared store do not repeatedly rotate healthy replacements.
 

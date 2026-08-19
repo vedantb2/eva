@@ -63,6 +63,7 @@ export function AutomationClient({
   return (
     <PageWrapper
       comfortable
+      insetHeader
       title={
         <div className="flex items-center gap-2 sm:gap-3">
           <MarqueeOnHover className="min-w-0">
@@ -101,8 +102,7 @@ export function AutomationClient({
           Run Now
         </Button>
       }
-    >
-      <div className="flex flex-col gap-4">
+      tabs={
         <Tabs
           value={activeTab}
           onValueChange={(v) => {
@@ -117,17 +117,15 @@ export function AutomationClient({
             }
           }}
         >
-          {/* `TabsList` is `inline-flex` with no wrap: on a narrow screen the
-              three labels have to scroll in place rather than widen the page. */}
-          <div className="max-sm:overflow-x-auto">
-            <TabsList>
-              <TabsTrigger value="latest">Latest</TabsTrigger>
-              <TabsTrigger value="run-history">Run History</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
-            </TabsList>
-          </div>
+          <TabsList className="tabs-segmented">
+            <TabsTrigger value="latest">Latest</TabsTrigger>
+            <TabsTrigger value="run-history">Run History</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
         </Tabs>
-
+      }
+    >
+      <div className="flex flex-col gap-4">
         {activeTab === "latest" && (
           <LatestRun
             run={runs?.[0]}

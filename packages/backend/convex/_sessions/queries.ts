@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import type { Doc } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
+import type { QueryCtx } from "../_generated/server";
 import { authQuery, hasRepoAccess } from "../functions";
 import { entityVisible, filterActiveEntities } from "../numId";
 import { firstUserMessagePreview } from "../_messages/preview";
@@ -60,7 +61,10 @@ const sessionListItemValidator = v.object({
 });
 
 /** Maps a full session doc to the slim list payload. */
-function toSessionListItem(session: Doc<"sessions">) {
+function toSessionListItem(
+  session: Doc<"sessions">,
+  openSessionIds: ReadonlySet<string>,
+) {
   return {
     _id: session._id,
     _creationTime: session._creationTime,
@@ -86,8 +90,22 @@ function toSessionListItem(session: Doc<"sessions">) {
     lastMode: session.lastMode,
     deploymentStatus: session.deploymentStatus,
     deploymentUrl: session.deploymentUrl,
-    isExecuting: session.activeWorkflowId !== undefined,
+    isExecuting: openSessionIds.has(String(session._id)),
   };
+}
+
+/** One indexed query per list subscription, never one turn lookup per row. */
+async function openSessionIdsForRepo(
+  ctx: QueryCtx,
+  repoId: Id<"githubRepos">,
+): Promise<ReadonlySet<string>> {
+  const turns = await ctx.db
+    .query("turns")
+    .withIndex("by_repo_open", (q) =>
+      q.eq("repoId", repoId).eq("open", true),
+    )
+    .collect();
+  return new Set(turns.map((turn) => turn.entityId));
 }
 
 /** Sorts sessions by most recently updated (falling back to creation time). */
@@ -101,21 +119,26 @@ export const list = authQuery({
   returns: v.array(sessionListItemValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const sessionGroups = await Promise.all(
-      [undefined, false].map((archived) =>
-        ctx.db
-          .query("sessions")
-          .withIndex("by_repo_archived_and_deleted", (q) =>
-            q
-              .eq("repoId", args.repoId)
-              .eq("archived", archived)
-              .eq("deletedAt", undefined),
-          )
-          .collect(),
+    const [sessionGroups, openSessionIds] = await Promise.all([
+      Promise.all(
+        [undefined, false].map((archived) =>
+          ctx.db
+            .query("sessions")
+            .withIndex("by_repo_archived_and_deleted", (q) =>
+              q
+                .eq("repoId", args.repoId)
+                .eq("archived", archived)
+                .eq("deletedAt", undefined),
+            )
+            .collect(),
+        ),
       ),
-    );
+      openSessionIdsForRepo(ctx, args.repoId),
+    ]);
     const sessions = sessionGroups.flat();
-    return sessions.sort(byMostRecentlyUpdated).map(toSessionListItem);
+    return sessions
+      .sort(byMostRecentlyUpdated)
+      .map((session) => toSessionListItem(session, openSessionIds));
   },
 });
 
@@ -125,16 +148,21 @@ export const listArchived = authQuery({
   returns: v.array(sessionListItemValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const sessions = await ctx.db
-      .query("sessions")
-      .withIndex("by_repo_archived_and_deleted", (q) =>
-        q
-          .eq("repoId", args.repoId)
-          .eq("archived", true)
-          .eq("deletedAt", undefined),
-      )
-      .collect();
-    return sessions.sort(byMostRecentlyUpdated).map(toSessionListItem);
+    const [sessions, openSessionIds] = await Promise.all([
+      ctx.db
+        .query("sessions")
+        .withIndex("by_repo_archived_and_deleted", (q) =>
+          q
+            .eq("repoId", args.repoId)
+            .eq("archived", true)
+            .eq("deletedAt", undefined),
+        )
+        .collect(),
+      openSessionIdsForRepo(ctx, args.repoId),
+    ]);
+    return sessions
+      .sort(byMostRecentlyUpdated)
+      .map((session) => toSessionListItem(session, openSessionIds));
   },
 });
 

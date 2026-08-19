@@ -13,12 +13,43 @@ import {
   touchStreamingEntity,
   upsertStreamingActivity,
 } from "./streaming";
+import { authQuery, hasRepoAccess } from "./functions";
 import {
   acquireTurnLease,
   advanceTurn,
   closeTurn,
+  findOpenSessionTurn,
   renewTurnLease,
 } from "./_chat/turnStore";
+import { turnStateValidator } from "./_validators/tableFields";
+
+const sessionTurnStatusValidator = v.object({
+  turnId: v.id("turns"),
+  state: turnStateValidator,
+  startedAt: v.number(),
+  leaseExpiresAt: v.number(),
+  placeholderMessageId: v.optional(v.id("messages")),
+});
+
+/** Canonical UI projection for whether one session turn is open. */
+export const getSessionStatus = authQuery({
+  args: { sessionId: v.id("sessions") },
+  returns: v.union(sessionTurnStatusValidator, v.null()),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) return null;
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) return null;
+    const turn = await findOpenSessionTurn(ctx, args.sessionId);
+    if (!turn) return null;
+    return {
+      turnId: turn._id,
+      state: turn.state,
+      startedAt: turn.turnStartedAt,
+      leaseExpiresAt: turn.leaseExpiresAt,
+      placeholderMessageId: turn.placeholderMessageId,
+    };
+  },
+});
 
 const leaseIdentityValidator = v.object({
   turnId: v.id("turns"),

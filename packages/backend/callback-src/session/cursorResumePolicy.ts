@@ -6,7 +6,7 @@ export const CURSOR_MAX_RESUME_INPUT_TOKENS = 80_000;
 
 export type CursorResumeStats = {
   turnNumber: number;
-  inputTokens: number;
+  inputTokens: number | null;
 };
 
 /** Reads the newest run for one agent from Cursor's append-only JSONL store. */
@@ -25,12 +25,13 @@ export function readCursorResumeStats(
       if (!line || !line.includes(agentNeedle)) continue;
       const turnMatch = /"turnNumber":(\d+)/.exec(line);
       const inputMatch = /"inputTokens":(\d+)/.exec(line);
-      if (!turnMatch || !inputMatch) return null;
+      // A process death can leave a partial final JSONL record. Keep scanning
+      // for the newest complete turn instead of forgetting all prior history.
+      if (!turnMatch) continue;
       const turnNumber = Number(turnMatch[1]);
-      const inputTokens = Number(inputMatch[1]);
-      if (!Number.isFinite(turnNumber) || !Number.isFinite(inputTokens)) {
-        return null;
-      }
+      if (!Number.isFinite(turnNumber)) continue;
+      const inputTokens = inputMatch ? Number(inputMatch[1]) : null;
+      if (inputTokens !== null && !Number.isFinite(inputTokens)) continue;
       return { turnNumber, inputTokens };
     }
   } catch (error) {
@@ -46,6 +47,7 @@ export function shouldRotateCursorSession(
   if (stats === null) return false;
   return (
     stats.turnNumber >= CURSOR_MAX_RESUME_TURNS ||
-    stats.inputTokens >= CURSOR_MAX_RESUME_INPUT_TOKENS
+    (stats.inputTokens !== null &&
+      stats.inputTokens >= CURSOR_MAX_RESUME_INPUT_TOKENS)
   );
 }

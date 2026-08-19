@@ -58,7 +58,11 @@ export function prepareCursorSessionState(): SessionMode {
     );
     if (shouldRotateCursorSession(resumeStats)) {
       const detail = resumeStats
-        ? `turn ${resumeStats.turnNumber}, ${resumeStats.inputTokens} input tokens`
+        ? `turn ${resumeStats.turnNumber}, ${
+            resumeStats.inputTokens === null
+              ? "input usage unavailable"
+              : `${resumeStats.inputTokens} input tokens`
+          }`
         : "oversized history";
       console.log(
         "prepareCursorSessionState: rotating saved Cursor agent (" +

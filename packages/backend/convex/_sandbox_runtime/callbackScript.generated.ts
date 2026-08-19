@@ -3221,12 +3221,11 @@ function readCursorResumeStats(storeDir, agentId) {
       if (!line || !line.includes(agentNeedle)) continue;
       const turnMatch = /"turnNumber":(\\d+)/.exec(line);
       const inputMatch = /"inputTokens":(\\d+)/.exec(line);
-      if (!turnMatch || !inputMatch) return null;
+      if (!turnMatch) continue;
       const turnNumber = Number(turnMatch[1]);
-      const inputTokens = Number(inputMatch[1]);
-      if (!Number.isFinite(turnNumber) || !Number.isFinite(inputTokens)) {
-        return null;
-      }
+      if (!Number.isFinite(turnNumber)) continue;
+      const inputTokens = inputMatch ? Number(inputMatch[1]) : null;
+      if (inputTokens !== null && !Number.isFinite(inputTokens)) continue;
       return { turnNumber, inputTokens };
     }
   } catch (error) {
@@ -3236,7 +3235,7 @@ function readCursorResumeStats(storeDir, agentId) {
 }
 function shouldRotateCursorSession(stats) {
   if (stats === null) return false;
-  return stats.turnNumber >= CURSOR_MAX_RESUME_TURNS || stats.inputTokens >= CURSOR_MAX_RESUME_INPUT_TOKENS;
+  return stats.turnNumber >= CURSOR_MAX_RESUME_TURNS || stats.inputTokens !== null && stats.inputTokens >= CURSOR_MAX_RESUME_INPUT_TOKENS;
 }
 
 // callback-src/session/cursorSession.ts
@@ -3276,7 +3275,7 @@ function prepareCursorSessionState() {
       persistedState.resumeSessionId
     );
     if (shouldRotateCursorSession(resumeStats)) {
-      const detail = resumeStats ? \`turn \${resumeStats.turnNumber}, \${resumeStats.inputTokens} input tokens\` : "oversized history";
+      const detail = resumeStats ? \`turn \${resumeStats.turnNumber}, \${resumeStats.inputTokens === null ? "input usage unavailable" : \`\${resumeStats.inputTokens} input tokens\`}\` : "oversized history";
       console.log(
         "prepareCursorSessionState: rotating saved Cursor agent (" + detail + ")"
       );
@@ -4579,6 +4578,33 @@ function readCancelRequested(result) {
   return payload.cancelRequested === true;
 }
 
+// callback-src/providers/callbackRefresh.ts
+function decideCallbackRefresh(state) {
+  if (!state.refreshPending) return { action: "poll" };
+  if (state.watchedTurnActive) {
+    return { action: "defer", blocker: "watched-turn" };
+  }
+  if (state.daemonTurnActive) {
+    return { action: "defer", blocker: "daemon-turn" };
+  }
+  if (state.claimedTurnPending) {
+    return { action: "defer", blocker: "claimed-turn" };
+  }
+  if (state.cancellationInFlight) {
+    return { action: "defer", blocker: "cancellation" };
+  }
+  if (state.backgroundAgentCount > 0) {
+    return { action: "defer", blocker: "background-agent" };
+  }
+  if (state.sdkMessagePending) {
+    return { action: "defer", blocker: "sdk-message" };
+  }
+  if (state.syntheticTurnOpening) {
+    return { action: "defer", blocker: "synthetic-turn-opening" };
+  }
+  return { action: "exit" };
+}
+
 // callback-src/providers/claudeSdkDaemon.ts
 function sleep2(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -5217,18 +5243,27 @@ function startClaimWatcher(agentRunner) {
       if (callbackScriptWentStaleOnDisk()) {
         callbackRefreshPending = true;
       }
-      if (callbackRefreshPending) {
-        const activeWork = turnActive || daemonTurn !== null || pendingClaimedTurn !== null || turnCancelInFlight || unsettledBackgroundAgents.size > 0 || agentRunner.hasPending();
-        if (activeWork) {
-          if (!callbackRefreshDeferralLogged) {
-            log(
-              "daemon: callback script updated on disk \\u2014 deferring respawn until active work settles"
-            );
-            callbackRefreshDeferralLogged = true;
-          }
-          await sleep2(PROMPT_POLL_INTERVAL_MS);
-          continue;
+      const refreshDecision = decideCallbackRefresh({
+        refreshPending: callbackRefreshPending,
+        watchedTurnActive: turnActive,
+        daemonTurnActive: daemonTurn !== null,
+        claimedTurnPending: pendingClaimedTurn !== null,
+        cancellationInFlight: turnCancelInFlight,
+        backgroundAgentCount: unsettledBackgroundAgents.size,
+        sdkMessagePending: agentRunner.hasPending(),
+        syntheticTurnOpening: openingSyntheticTurn
+      });
+      if (refreshDecision.action === "defer") {
+        if (!callbackRefreshDeferralLogged) {
+          log(
+            "daemon: callback script updated on disk \\u2014 deferring respawn until active work settles (" + refreshDecision.blocker + ")"
+          );
+          callbackRefreshDeferralLogged = true;
         }
+        await sleep2(PROMPT_POLL_INTERVAL_MS);
+        continue;
+      }
+      if (refreshDecision.action === "exit") {
         log("daemon: callback script updated on disk \\u2014 exiting for respawn");
         daemonExiting = true;
         return;

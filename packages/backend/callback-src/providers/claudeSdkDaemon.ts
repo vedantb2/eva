@@ -53,6 +53,7 @@ import {
   readCancelRequested,
   readStopTaskToolUseIds,
 } from "./claimPendingTurnParse.js";
+import { decideCallbackRefresh } from "./callbackRefresh.js";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -963,24 +964,29 @@ function startClaimWatcher(agentRunner: WarmRunner): void {
       if (callbackScriptWentStaleOnDisk()) {
         callbackRefreshPending = true;
       }
-      if (callbackRefreshPending) {
-        const activeWork =
-          turnActive ||
-          daemonTurn !== null ||
-          pendingClaimedTurn !== null ||
-          turnCancelInFlight ||
-          unsettledBackgroundAgents.size > 0 ||
-          agentRunner.hasPending();
-        if (activeWork) {
-          if (!callbackRefreshDeferralLogged) {
-            log(
-              "daemon: callback script updated on disk — deferring respawn until active work settles",
-            );
-            callbackRefreshDeferralLogged = true;
-          }
-          await sleep(PROMPT_POLL_INTERVAL_MS);
-          continue;
+      const refreshDecision = decideCallbackRefresh({
+        refreshPending: callbackRefreshPending,
+        watchedTurnActive: turnActive,
+        daemonTurnActive: daemonTurn !== null,
+        claimedTurnPending: pendingClaimedTurn !== null,
+        cancellationInFlight: turnCancelInFlight,
+        backgroundAgentCount: unsettledBackgroundAgents.size,
+        sdkMessagePending: agentRunner.hasPending(),
+        syntheticTurnOpening: openingSyntheticTurn,
+      });
+      if (refreshDecision.action === "defer") {
+        if (!callbackRefreshDeferralLogged) {
+          log(
+            "daemon: callback script updated on disk — deferring respawn until active work settles (" +
+              refreshDecision.blocker +
+              ")",
+          );
+          callbackRefreshDeferralLogged = true;
         }
+        await sleep(PROMPT_POLL_INTERVAL_MS);
+        continue;
+      }
+      if (refreshDecision.action === "exit") {
         log("daemon: callback script updated on disk — exiting for respawn");
         daemonExiting = true;
         return;

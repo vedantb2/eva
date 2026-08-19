@@ -9,7 +9,6 @@ import {
   aiModelValidator,
   reasoningLevelValidator,
   workflowCompleteValidator,
-  getAIModelProvider,
   normalizeAIModel,
   sessionStatusValidator,
   usesChatDaemon,
@@ -41,6 +40,7 @@ import {
   ensureSessionDaemonState,
   syncSessionDaemonState,
 } from "./daemonState";
+import { usesCursorConversationHandoff } from "./cursorContext";
 
 // --- Completion event ---
 
@@ -214,10 +214,11 @@ export async function buildSessionPrompt(
       customInstructionsBlock,
     );
   } else {
-    const sessionProvider =
-      session.provider ?? getAIModelProvider(session.lastModel);
     const cursorMessages =
-      sessionProvider === "cursor"
+      usesCursorConversationHandoff({
+        provider: session.provider,
+        lastModel: session.lastModel,
+      })
         ? await ctx.db
             .query("messages")
             .withIndex("by_parent", (q) => q.eq("parentId", session._id))

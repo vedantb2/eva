@@ -44,6 +44,52 @@ test("rotates a long-lived agent before another context replay", () => {
   ).toBe(true);
 });
 
+test("turn count still rotates when Cursor omitted usage from the last run", () => {
+  const storeDir = writeRuns([
+    `{"agentId":"agent-target","turnNumber":${CURSOR_MAX_RESUME_TURNS},"status":"error","usage":null}`,
+  ]);
+
+  const stats = readCursorResumeStats(storeDir, "agent-target");
+  expect(stats).toEqual({
+    turnNumber: CURSOR_MAX_RESUME_TURNS,
+    inputTokens: null,
+  });
+  expect(shouldRotateCursorSession(stats)).toBe(true);
+});
+
+test("a partial crash record falls back to the preceding complete run", () => {
+  const storeDir = writeRuns([
+    '{"agentId":"agent-target","turnNumber":9,"usage":{"inputTokens":79000}}',
+    '{"agentId":"agent-target","status":"running"',
+  ]);
+
+  expect(readCursorResumeStats(storeDir, "agent-target")).toEqual({
+    turnNumber: 9,
+    inputTokens: 79_000,
+  });
+});
+
+test("rotation thresholds are inclusive and independent", () => {
+  expect(
+    shouldRotateCursorSession({
+      turnNumber: CURSOR_MAX_RESUME_TURNS - 1,
+      inputTokens: CURSOR_MAX_RESUME_INPUT_TOKENS,
+    }),
+  ).toBe(true);
+  expect(
+    shouldRotateCursorSession({
+      turnNumber: CURSOR_MAX_RESUME_TURNS,
+      inputTokens: null,
+    }),
+  ).toBe(true);
+  expect(
+    shouldRotateCursorSession({
+      turnNumber: CURSOR_MAX_RESUME_TURNS - 1,
+      inputTokens: null,
+    }),
+  ).toBe(false);
+});
+
 test("keeps a bounded agent and tolerates a missing store", () => {
   expect(
     shouldRotateCursorSession({

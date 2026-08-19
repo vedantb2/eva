@@ -1037,9 +1037,17 @@ export async function setupBranch(
  * Refreshes the exact remote branch and makes the checked-out local branch a
  * safe fast-forward of it before publication.
  *
- * Local-only commits are never reset away. When both sides moved, Git rebases
- * the local-only commits onto the fetched remote tip; a conflict is aborted so
- * the preserved sandbox remains in its original recoverable state.
+ * Local-only commits are never reset away. When both sides moved, Git merges
+ * the fetched remote tip into the local branch; a conflict is aborted so the
+ * preserved sandbox remains in its original recoverable state.
+ *
+ * Merge, not rebase: a turn that merges the base branch in (`git merge
+ * origin/staging`) makes every base commit since the fork local-only, and a
+ * rebase replays all of them onto the remote tip. Project 3 of
+ * evalucom/carepulse-ts (19 Aug 2026) hit exactly that — 302 replayed commits,
+ * conflicting on the base branch's own Mantine 9.3 bump — so a clean sandbox
+ * merge could never publish, and every retry failed identically. A merge
+ * conflicts only where the two tips genuinely touch the same lines.
  */
 async function synchronizeBranchForPublish(
   sandbox: SandboxHandle,
@@ -1134,7 +1142,7 @@ async function synchronizeBranchForPublish(
   if (/^[1-9]\d*\s+[1-9]\d*$/.test(divergence)) {
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && if ! git rebase ${quotedRemoteRef}; then git rebase --abort; exit 1; fi`,
+      `cd ${workspaceDir} && if ! git merge --no-edit ${quotedRemoteRef}; then git merge --abort; exit 1; fi`,
       120,
     );
     return { remoteExists: true };

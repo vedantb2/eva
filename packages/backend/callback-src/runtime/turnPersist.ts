@@ -104,12 +104,16 @@ function synchronizeForPush(branch: string): BranchSyncResult {
     return { status: "failed" };
   }
   if (/^[1-9]\d*\s+[1-9]\d*$/.test(divergence.out)) {
-    const rebase = git(["rebase", remoteRef], PUSH_TIMEOUT_MS);
-    if (rebase.ok) {
+    // Merge, not rebase: a turn that merged the base branch in makes every
+    // base commit since the fork local-only, and a rebase replays all of them
+    // onto the remote tip (see synchronizeBranchForPublish in
+    // _sandbox_runtime/git.ts for the prod case this cost us).
+    const merge = git(["merge", "--no-edit", remoteRef], PUSH_TIMEOUT_MS);
+    if (merge.ok) {
       return { status: "ready", remoteExists: true };
     }
-    git(["rebase", "--abort"]);
-    log(`persistTurnWork: rebase failed: ${rebase.out.slice(0, 200)}`);
+    git(["merge", "--abort"]);
+    log(`persistTurnWork: merge failed: ${merge.out.slice(0, 200)}`);
     return { status: "failed" };
   }
   log(`persistTurnWork: unexpected divergence: ${divergence.out}`);

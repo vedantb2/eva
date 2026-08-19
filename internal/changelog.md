@@ -1,5 +1,16 @@
 # Changelog
 
+## The orchestrator skill no longer describes behaviour that changed under it - 2026-08-19
+
+Eighth pass, auditing the one artefact never read directly: the `eva-orchestrator` skill text the master actually receives. It covered every element the plan asked for, but three statements had gone stale against today's own fixes — and a skill that is confidently wrong is worse than one that is silent.
+
+- **Notification statuses.** It said a wake-up names "its terminal status" and stopped there, written when the only status was `completed`. `decideChildOutcome` now also emits `interrupted` and caller-specific labels like `sandbox failed to start`. The skill now says how to read each: `completed`/`success` means the turn ended on its own; `interrupted` means cancelled or killed and the quote is the alert, *not* a result, so that work must not be reported as done; anything more specific is the real failure. Without this the master would relay a killed child as finished — the exact failure the notification fix was for.
+- **Send semantics.** "Queued if it is mid-turn, starts a turn if it is idle" predated the ordering fix; a child with messages already waiting also queues now, and the skill says so, with why (your message never overtakes them).
+- **Stopping a task.** `stop_agent` now cancels a task's run as well as its chat turn, so the skill flags it as the bigger action it has become.
+- **`list_agents` scope.** "every agent under this user" was never quite true: orchestrator sessions are excluded, and on a repo shared with teammates their agents can appear — now stated, with an instruction to say whose work is being touched.
+
+`tests/orchestratorSkillContract.test.ts` pins these to the code they describe (statuses tied to `DRAIN_IDLE_STATUS`, the queue-overtake warning, the task-stop warning, the tool list, wake-ups-not-polling, the shell-based log guidance, and the status table), so the text and the behaviour cannot drift apart again silently. The updated content was confirmed served over MCP (5,504 chars, both new warnings present). 836 backend tests pass; both typechecks clean.
+
 ## Orchestrator can no longer duplicate itself, and stops offering a PR it cannot open - 2026-08-19
 
 Seventh pass, clearing the two items previous rounds had deliberately left open.

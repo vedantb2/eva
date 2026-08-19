@@ -213,6 +213,22 @@ export async function buildSessionPrompt(
       customInstructionsBlock,
     );
   } else {
+    const cursorMessages =
+      session.provider === "cursor"
+        ? await ctx.db
+            .query("messages")
+            .withIndex("by_parent", (q) => q.eq("parentId", session._id))
+            .collect()
+        : [];
+    const cursorHistory = cursorMessages
+      .filter((entry) => entry.content)
+      .map((entry) => ({ role: entry.role, content: entry.content }));
+    const lastHistoryEntry = cursorHistory.at(-1);
+    const priorCursorHistory =
+      lastHistoryEntry?.role === "user" &&
+      lastHistoryEntry.content === args.message
+        ? cursorHistory.slice(0, -1)
+        : cursorHistory;
     prompt = buildEditPrompt(
       {
         owner: repo.owner,
@@ -226,6 +242,7 @@ export async function buildSessionPrompt(
       customInstructionsBlock,
       repo.systemPrompt,
       session.devPort ?? repo.devPort,
+      priorCursorHistory,
     );
   }
   if (prefixBlock) {

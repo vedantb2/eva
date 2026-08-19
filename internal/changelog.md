@@ -1,5 +1,13 @@
 # Changelog
 
+## Tiny prompts no longer replay giant Cursor sessions, and callback refreshes cannot lose Claude turns - 2026-08-19
+
+Two production sessions exposed separate ways to sit on “Working” for minutes. In evalucom/carepulse-ts session 53, a one-word `hi` resumed Cursor agent `agent-79d58a3d-fe04-4140-8073-3ac246ed315c` at turn 31 with 189,397 input tokens and only 68 output tokens; the first event took 167 seconds. Later runs reached 971,770 input tokens. Cursor's SDK store is append-only and has no public compact operation, while Eva resumed the same agent forever. Cursor sessions now rotate before resume at 12 turns or an 80,000-token last input. A fresh agent receives a bounded handoff from the last six Eva messages (2,000 characters each), so rotation caps replay cost without turning follow-ups into context-free requests. The decision reads only the persisted agent's newest run, so old oversized agents remaining in the shared store do not repeatedly rotate healthy replacements.
+
+In vvedantb/eva session 78, the Claude daemon claimed the prompt at 08:30:17, which atomically cleared `pendingTurn`; one second later it noticed a new callback fingerprint and exited immediately. The replacement daemon could resume the transcript but could not recover the already-claimed prompt, leaving an empty assistant bubble heartbeating for 16 minutes. Callback refresh is now a between-turn boundary: once a changed bundle is detected the daemon stops claiming more work, waits for its active, parked, cancelling, SDK-queued and background-agent work to settle, then exits for respawn. The production bundle is contract-tested alongside source so a stale generated callback cannot silently reintroduce the loss.
+
+The earlier session-53 launch failure had a third cause: `pkill -f 'opencode run'` matched its own cleanup shell and terminated `launchOnExistingSandbox` with exit 143. The legacy cleanup match now uses `[o]pencode run`, preserving the intended target while hiding from `pkill` itself. Focused regressions cover all three failures; callback and Convex TypeScript checks pass.
+
 ## The deadline watchdog stops asking Vercel for time it cannot have - 2026-08-19
 
 Prod Convex logs were one line, repeating: `extendSandboxDeadline: skipped sandboxId=white-spiritual-cobra-vvQSfA: Status code 400 is not ok`, every 30 seconds for as long as a turn was live. Nothing failed — the extension is best-effort and the action swallows it — but every watchdog tick spent a scheduled action on a request Vercel was always going to reject, and the log for the deployment was that message and nothing else.

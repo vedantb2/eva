@@ -161,11 +161,23 @@ export function buildEditPrompt(
   customInstructionsBlock: string,
   systemPrompt: string | undefined,
   devPort?: number,
+  conversationHistory: Array<{ role: string; content: string }> = [],
 ): string {
   const commitMessage = message.slice(0, 50).replace(/"/g, '\\"');
   const baseBranch = repo.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
   const planContext = planContent
     ? `\n\nApproved plan:\n${planContent}\n\nFollow this plan when implementing.`
+    : "";
+  const recentConversation = conversationHistory
+    .filter((entry) => entry.content.trim())
+    .slice(-6)
+    .map((entry) => {
+      const role = entry.role === "user" ? "User" : "Assistant";
+      return `${role}: ${stripMentionTokens(entry.content).slice(0, 2_000)}`;
+    })
+    .join("\n\n");
+  const conversationContext = recentConversation
+    ? `\n\nRecent Eva conversation (compact handoff; it may overlap provider memory):\n${recentConversation}`
     : "";
   const devPortText =
     devPort !== undefined ? String(devPort) : "its configured dev port";
@@ -196,7 +208,7 @@ When the user asks for a recording, walkthrough video, or screenshot:
 6. For "each" or "all features" requests, first make a checklist naming every feature, then create one isolated deliverable per checklist item unless the user asks for a combined walkthrough. Do not finish until every checklist item has a non-empty file in the deliverable folder.
 7. A status update such as "recording now" is not a final answer. Finish the captures before replying, then list which attached file demonstrates each feature. If capture is impossible, report the concrete failure instead of promising future work.
 8. To embed a capture in a PR comment or Linear issue (GitHub/Linear cannot see chat attachments): eva MCP \`upload_media\` → curl the file to the returned uploadUrl → \`get_media_url\` for a permanent public link. Captures posted in earlier turns are still on disk under \`.posted/\` — upload those instead of recapturing.`;
-  return `${message}${planContext}${devServerSection}${browserSection}
+  return `${message}${planContext}${conversationContext}${devServerSection}${browserSection}
 
 Eva session (${repo.owner}/${repo.name}, branch "${branchName}"):
 - Do all work on "${branchName}". Do not commit or push to "${baseBranch}" or main unless the user asks for that explicitly. Fetching/merging/rebasing/pulling from "${baseBranch}" into this branch is allowed when the user asks.

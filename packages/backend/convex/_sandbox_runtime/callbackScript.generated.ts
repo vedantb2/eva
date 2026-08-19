@@ -279,7 +279,7 @@ var completedLabels = {
 };
 
 // callback-src/providers/claudeSdkDaemon.ts
-import { unlinkSync, writeFileSync as writeFileSync8, readFileSync as readFileSync6 } from "fs";
+import { unlinkSync, writeFileSync as writeFileSync8, readFileSync as readFileSync7 } from "fs";
 
 // callback-src/providers/daemonPaths.ts
 var LEGACY_DAEMON_PID = "/tmp/eva-daemon.pid";
@@ -3205,6 +3205,40 @@ var codexAdapter = {
   }
 };
 
+// callback-src/session/cursorResumePolicy.ts
+import { existsSync as existsSync6, readFileSync as readFileSync5 } from "fs";
+import { join } from "path";
+var CURSOR_MAX_RESUME_TURNS = 12;
+var CURSOR_MAX_RESUME_INPUT_TOKENS = 8e4;
+function readCursorResumeStats(storeDir, agentId) {
+  const runsFile = join(storeDir, "runs.ndjson");
+  if (!existsSync6(runsFile)) return null;
+  try {
+    const lines = readFileSync5(runsFile, "utf8").split("\\n");
+    const agentNeedle = \`"agentId":"\${agentId}"\`;
+    for (let index = lines.length - 1; index >= 0; index--) {
+      const line = lines[index];
+      if (!line || !line.includes(agentNeedle)) continue;
+      const turnMatch = /"turnNumber":(\\d+)/.exec(line);
+      const inputMatch = /"inputTokens":(\\d+)/.exec(line);
+      if (!turnMatch || !inputMatch) return null;
+      const turnNumber = Number(turnMatch[1]);
+      const inputTokens = Number(inputMatch[1]);
+      if (!Number.isFinite(turnNumber) || !Number.isFinite(inputTokens)) {
+        return null;
+      }
+      return { turnNumber, inputTokens };
+    }
+  } catch (error) {
+    console.error("Failed to inspect Cursor resume history:", String(error));
+  }
+  return null;
+}
+function shouldRotateCursorSession(stats) {
+  if (stats === null) return false;
+  return stats.turnNumber >= CURSOR_MAX_RESUME_TURNS || stats.inputTokens >= CURSOR_MAX_RESUME_INPUT_TOKENS;
+}
+
 // callback-src/session/cursorSession.ts
 var store2 = createSessionStore({
   runtimeHomeDir: CURSOR_RUNTIME_HOME_DIR,
@@ -3237,6 +3271,22 @@ function prepareCursorSessionState() {
     persistedState ? "Saved session hydrated. Starting Cursor..." : "Preparing fresh Cursor session..."
   );
   if (persistedState && persistedState.resumeSessionId) {
+    const resumeStats = readCursorResumeStats(
+      CURSOR_SDK_STORE_DIR,
+      persistedState.resumeSessionId
+    );
+    if (shouldRotateCursorSession(resumeStats)) {
+      const detail = resumeStats ? \`turn \${resumeStats.turnNumber}, \${resumeStats.inputTokens} input tokens\` : "oversized history";
+      console.log(
+        "prepareCursorSessionState: rotating saved Cursor agent (" + detail + ")"
+      );
+      callbackState.activeCursorSessionId = "";
+      updateThinkingStep(
+        "Preparing Cursor session...",
+        "Saved context reached its safe limit. Starting fresh..."
+      );
+      return { mode: "none", sessionId: null };
+    }
     callbackState.activeCursorSessionId = persistedState.resumeSessionId;
     return { mode: "resume", sessionId: persistedState.resumeSessionId };
   }
@@ -4049,7 +4099,7 @@ function appendToRawLogFile(text) {
 
 // callback-src/providers/claudeSdk.ts
 import { execSync } from "child_process";
-import { existsSync as existsSync6, readFileSync as readFileSync5 } from "fs";
+import { existsSync as existsSync7, readFileSync as readFileSync6 } from "fs";
 
 // callback-src/runtime/pendingQuestion.ts
 var POLL_INTERVAL_MS = 300;
@@ -4135,7 +4185,7 @@ var SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
 function installedSdkVersion(packageRoot) {
   try {
     const manifest = JSON.parse(
-      readFileSync5(packageRoot + "/package.json", "utf8")
+      readFileSync6(packageRoot + "/package.json", "utf8")
     );
     if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) {
       return null;
@@ -4180,11 +4230,11 @@ function claudeExecutablePath() {
     return execSync("command -v claude", { encoding: "utf8" }).trim();
   } catch {
     const fallback = process.env.CLAUDE_BIN_PATH || "";
-    return fallback && existsSync6(fallback) ? fallback : "claude";
+    return fallback && existsSync7(fallback) ? fallback : "claude";
   }
 }
 function readPromptText() {
-  return readFileSync5("/tmp/design-prompt.txt", "utf8");
+  return readFileSync6("/tmp/design-prompt.txt", "utf8");
 }
 function buildSdkOptions(sessionMode) {
   const extraArgs = { settings: settingsJson };
@@ -4543,7 +4593,7 @@ function pidAlive(pid) {
 }
 function readDaemonPidFile() {
   try {
-    return Number(readFileSync6(DAEMON_PID_FILE, "utf8").trim());
+    return Number(readFileSync7(DAEMON_PID_FILE, "utf8").trim());
   } catch {
     return Number.NaN;
   }
@@ -4566,6 +4616,8 @@ var lastMessageAtMs = 0;
 var daemonTurn = null;
 var pendingClaimedTurn = null;
 var daemonExiting = false;
+var callbackRefreshPending = false;
+var callbackRefreshDeferralLogged = false;
 var openingSyntheticTurn = false;
 var lastIdleActivityAtMs = Date.now();
 var agentTurnOutput = "";
@@ -5163,6 +5215,20 @@ function startClaimWatcher(agentRunner) {
   void (async () => {
     while (!daemonExiting) {
       if (callbackScriptWentStaleOnDisk()) {
+        callbackRefreshPending = true;
+      }
+      if (callbackRefreshPending) {
+        const activeWork = turnActive || daemonTurn !== null || pendingClaimedTurn !== null || turnCancelInFlight || unsettledBackgroundAgents.size > 0 || agentRunner.hasPending();
+        if (activeWork) {
+          if (!callbackRefreshDeferralLogged) {
+            log(
+              "daemon: callback script updated on disk \\u2014 deferring respawn until active work settles"
+            );
+            callbackRefreshDeferralLogged = true;
+          }
+          await sleep2(PROMPT_POLL_INTERVAL_MS);
+          continue;
+        }
         log("daemon: callback script updated on disk \\u2014 exiting for respawn");
         daemonExiting = true;
         return;
@@ -5399,7 +5465,7 @@ function createWarmAgentRunner(sdk, options) {
 function callbackScriptWentStaleOnDisk() {
   if (!CALLBACK_SCRIPT_FP) return false;
   try {
-    const onDisk = readFileSync6("/tmp/eva-callback-fp", "utf8").trim();
+    const onDisk = readFileSync7("/tmp/eva-callback-fp", "utf8").trim();
     return onDisk !== CALLBACK_SCRIPT_FP;
   } catch {
     return false;
@@ -5566,11 +5632,11 @@ async function runSdkDaemon() {
 }
 
 // callback-src/providers/codexAppServerDaemon.ts
-import { readFileSync as readFileSync7, unlinkSync as unlinkSync2, writeFileSync as writeFileSync9 } from "fs";
+import { readFileSync as readFileSync8, unlinkSync as unlinkSync2, writeFileSync as writeFileSync9 } from "fs";
 
 // callback-src/providers/codexAppServerClient.ts
 import { spawn } from "child_process";
-import { existsSync as existsSync7 } from "fs";
+import { existsSync as existsSync8 } from "fs";
 import { createInterface } from "readline";
 function objectValue(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -5586,7 +5652,7 @@ var CodexAppServerClient = class {
   notifications = [];
   terminalError = null;
   start() {
-    const command = existsSync7(CODEX_BIN_PATH) ? CODEX_BIN_PATH : "codex";
+    const command = existsSync8(CODEX_BIN_PATH) ? CODEX_BIN_PATH : "codex";
     this.child = spawn(command, ["app-server"], {
       cwd: WORK_DIR,
       env: { ...process.env, CODEX_HOME: CODEX_RUNTIME_HOME_DIR },
@@ -5730,7 +5796,7 @@ function pidAlive2(pid) {
 }
 function readOwnerPid() {
   try {
-    return Number(readFileSync7(paths.pid, "utf8").trim());
+    return Number(readFileSync8(paths.pid, "utf8").trim());
   } catch {
     return Number.NaN;
   }
@@ -5738,7 +5804,7 @@ function readOwnerPid() {
 function callbackWentStale() {
   if (!CALLBACK_SCRIPT_FP) return false;
   try {
-    return readFileSync7("/tmp/eva-callback-fp", "utf8").trim() !== CALLBACK_SCRIPT_FP;
+    return readFileSync8("/tmp/eva-callback-fp", "utf8").trim() !== CALLBACK_SCRIPT_FP;
   } catch {
     return false;
   }
@@ -6123,10 +6189,10 @@ async function runCodexAppServerDaemon() {
 
 // callback-src/runtime/systemSkills.ts
 import {
-  existsSync as existsSync8,
+  existsSync as existsSync9,
   mkdirSync as mkdirSync7,
   readdirSync as readdirSync3,
-  readFileSync as readFileSync8,
+  readFileSync as readFileSync9,
   rmSync,
   writeFileSync as writeFileSync10
 } from "fs";
@@ -6187,16 +6253,16 @@ function skillsRoot() {
 }
 function isEvaStub(directoryName) {
   const skillFile = \`\${skillsRoot()}/\${directoryName}/SKILL.md\`;
-  if (!existsSync8(skillFile)) return false;
+  if (!existsSync9(skillFile)) return false;
   try {
-    return readFileSync8(skillFile, "utf8").includes(SYSTEM_SKILL_MARKER);
+    return readFileSync9(skillFile, "utf8").includes(SYSTEM_SKILL_MARKER);
   } catch {
     return false;
   }
 }
 function writeStub(skill) {
   const directory = \`\${skillsRoot()}/\${skill.name}\`;
-  if (existsSync8(\`\${directory}/SKILL.md\`) && !isEvaStub(skill.name)) {
+  if (existsSync9(\`\${directory}/SKILL.md\`) && !isEvaStub(skill.name)) {
     log(\`[system-skills] \${skill.name} exists in the repo \\u2014 leaving it alone\`);
     return false;
   }
@@ -6206,7 +6272,7 @@ function writeStub(skill) {
 }
 function pruneStaleStubs(keep) {
   const root = skillsRoot();
-  if (!existsSync8(root)) return;
+  if (!existsSync9(root)) return;
   for (const entry of readdirSync3(root, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     if (keep.has(entry.name)) continue;
@@ -6221,10 +6287,10 @@ function pruneStaleStubs(keep) {
 }
 function updateGitExclude(names) {
   const gitDir = \`\${WORK_DIR}/.git\`;
-  if (!existsSync8(gitDir)) return;
+  if (!existsSync9(gitDir)) return;
   const infoDir = \`\${gitDir}/info\`;
   const excludeFile = \`\${infoDir}/exclude\`;
-  const existing = existsSync8(excludeFile) ? readFileSync8(excludeFile, "utf8") : "";
+  const existing = existsSync9(excludeFile) ? readFileSync9(excludeFile, "utf8") : "";
   const next = renderExcludeContent(existing, names);
   if (next === existing) return;
   mkdirSync7(infoDir, { recursive: true });
@@ -6232,13 +6298,13 @@ function updateGitExclude(names) {
 }
 function materializeSystemSkills() {
   try {
-    if (!existsSync8(SYSTEM_SKILLS_STATE_FILE)) return;
-    if (!existsSync8(WORK_DIR)) {
+    if (!existsSync9(SYSTEM_SKILLS_STATE_FILE)) return;
+    if (!existsSync9(WORK_DIR)) {
       log("[system-skills] no checkout yet \\u2014 skipping");
       return;
     }
     const skills = parseSystemSkillsFile(
-      readFileSync8(SYSTEM_SKILLS_STATE_FILE, "utf8")
+      readFileSync9(SYSTEM_SKILLS_STATE_FILE, "utf8")
     );
     if (skills === null) {
       log("[system-skills] state file unreadable \\u2014 skipping");
@@ -6792,9 +6858,9 @@ var Codex = class {
 };
 
 // callback-src/providers/codexSdk.ts
-import { existsSync as existsSync9, readFileSync as readFileSync9 } from "fs";
+import { existsSync as existsSync10, readFileSync as readFileSync10 } from "fs";
 function readPromptText2() {
-  const prompt = readFileSync9("/tmp/design-prompt.txt", "utf8");
+  const prompt = readFileSync10("/tmp/design-prompt.txt", "utf8");
   return SYSTEM_PROMPT ? SYSTEM_PROMPT + "\\n\\n" + prompt : prompt;
 }
 function codexEnvironment() {
@@ -6844,7 +6910,7 @@ async function runCodexSdkAttempt(sessionMode) {
   const abortController = new AbortController();
   const agentTextByItem = /* @__PURE__ */ new Map();
   const codex = new Codex({
-    codexPathOverride: existsSync9(CODEX_BIN_PATH) ? CODEX_BIN_PATH : "codex",
+    codexPathOverride: existsSync10(CODEX_BIN_PATH) ? CODEX_BIN_PATH : "codex",
     env: codexEnvironment()
   });
   const threadOptions = buildCodexSdkThreadOptions();
@@ -6936,7 +7002,7 @@ async function runCodexSdkAttempt(sessionMode) {
 }
 
 // callback-src/providers/cursorSdk.ts
-import { mkdirSync as mkdirSync8, readFileSync as readFileSync10 } from "fs";
+import { mkdirSync as mkdirSync8, readFileSync as readFileSync11 } from "fs";
 var SDK_PACKAGE2 = "@cursor/sdk";
 var SDK_VERSION2 = "1.0.26";
 var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
@@ -6974,7 +7040,7 @@ async function loadCursorSdk() {
   return mod;
 }
 function readPromptText3() {
-  return readFileSync10("/tmp/design-prompt.txt", "utf8");
+  return readFileSync11("/tmp/design-prompt.txt", "utf8");
 }
 async function resolveCursorModelSelection(sdk) {
   const base = normalizedCursorModel;
@@ -7300,16 +7366,16 @@ async function runCursorSdkAttempt(sessionMode) {
 }
 
 // callback-src/providers/opencodeSdk.ts
-import { readFileSync as readFileSync12 } from "fs";
+import { readFileSync as readFileSync13 } from "fs";
 
 // callback-src/providers/opencodeServer.ts
 import { spawn as spawn3 } from "child_process";
 import {
   closeSync,
-  existsSync as existsSync10,
+  existsSync as existsSync11,
   mkdirSync as mkdirSync9,
   openSync,
-  readFileSync as readFileSync11,
+  readFileSync as readFileSync12,
   rmSync as rmSync2,
   statSync as statSync3,
   writeFileSync as writeFileSync11
@@ -7328,7 +7394,7 @@ function sleep4(ms) {
 }
 function readOpencodeServerLogTail(maxBytes = LOG_TAIL_BYTES) {
   try {
-    const contents = readFileSync11(SERVER_LOG_FILE, "utf8");
+    const contents = readFileSync12(SERVER_LOG_FILE, "utf8");
     return contents.length > maxBytes ? contents.slice(-maxBytes) : contents;
   } catch {
     return "";
@@ -7346,7 +7412,7 @@ async function probeHealth() {
 }
 function readRecordedPid() {
   try {
-    const parsed = tryParseJson(readFileSync11(SERVER_STATE_FILE, "utf8"));
+    const parsed = tryParseJson(readFileSync12(SERVER_STATE_FILE, "utf8"));
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       return 0;
     }
@@ -7360,7 +7426,7 @@ function killRecordedServer() {
   if (!pid) return;
   let cmdline = "";
   try {
-    cmdline = readFileSync11("/proc/" + String(pid) + "/cmdline", "utf8");
+    cmdline = readFileSync12("/proc/" + String(pid) + "/cmdline", "utf8");
   } catch {
     return;
   }
@@ -7463,7 +7529,7 @@ async function ensureOpencodeServer() {
     while (Date.now() < deadline) {
       await sleep4(HEALTH_POLL_INTERVAL_MS);
       if (await probeHealth()) return opencodeServerBaseUrl;
-      if (!existsSync10(SERVER_LOCK_DIR)) break;
+      if (!existsSync11(SERVER_LOCK_DIR)) break;
     }
     if (await probeHealth()) return opencodeServerBaseUrl;
     releaseStartupLock();
@@ -7504,7 +7570,7 @@ async function loadOpencodeSdk() {
   return mod;
 }
 function readPromptText4() {
-  return readFileSync12("/tmp/design-prompt.txt", "utf8");
+  return readFileSync13("/tmp/design-prompt.txt", "utf8");
 }
 function splitOpencodeModel(raw) {
   const separator = raw.indexOf("/");

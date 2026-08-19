@@ -164,6 +164,8 @@ type BackgroundAgentEntry = {
 let daemonTurn: DaemonTurn | null = null;
 let pendingClaimedTurn: ClaimedTurn | null = null;
 let daemonExiting = false;
+let callbackRefreshPending = false;
+let callbackRefreshDeferralLogged = false;
 let openingSyntheticTurn = false;
 let lastIdleActivityAtMs = Date.now();
 let agentTurnOutput = "";
@@ -959,6 +961,26 @@ function startClaimWatcher(agentRunner: WarmRunner): void {
   void (async () => {
     while (!daemonExiting) {
       if (callbackScriptWentStaleOnDisk()) {
+        callbackRefreshPending = true;
+      }
+      if (callbackRefreshPending) {
+        const activeWork =
+          turnActive ||
+          daemonTurn !== null ||
+          pendingClaimedTurn !== null ||
+          turnCancelInFlight ||
+          unsettledBackgroundAgents.size > 0 ||
+          agentRunner.hasPending();
+        if (activeWork) {
+          if (!callbackRefreshDeferralLogged) {
+            log(
+              "daemon: callback script updated on disk — deferring respawn until active work settles",
+            );
+            callbackRefreshDeferralLogged = true;
+          }
+          await sleep(PROMPT_POLL_INTERVAL_MS);
+          continue;
+        }
         log("daemon: callback script updated on disk — exiting for respawn");
         daemonExiting = true;
         return;

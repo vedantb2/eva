@@ -1,5 +1,9 @@
 # Changelog
 
+## The orchestrator page stops growing by 700px a second - 2026-08-19
+
+The real root of the "infinitely growing" /orchestrator page (the prior two entries fixed contributors, not this): the chat's virtualized message list needs a viewport-clamped ancestor, but the `_global` layout is a content-sized scrolling column (`min-h-dvh`, `max-w-7xl px-4 py-6`). With no fixed height above it, the scroller's `height: 100%` resolved against its own content, the virtualizer's measure loop diverged, and the list's `min-height` spacer grew ~720px/second forever — constant DOM node count, ever-shrinking scrollbar. Reproduced and verified numerically (52,000px and climbing → locked at the 633px viewport, spacer stable at 409px across 48s). Fix in `routes/_global.tsx`: the orchestrator path gets the same `h-dvh overflow-hidden` shell as `_repo/$owner/$repo.tsx`, `min-h-0` on the flex chain, and a full-width unpadded content wrapper; every other global page keeps the scrolling column. Also wiped the overnight "Hi" turn's two junk rows (same one-off mutation as before).
+
 ## The master session is now "Orchestrator" at /orchestrator - 2026-08-18
 
 Third naming round ("Master" → "Eva" → "Orchestrator" — "Eva" collided with the product name in the breadcrumb): route file renamed to `routes/_global/orchestrator.tsx`, rail tile/tooltip "Orchestrator", session title constant "Orchestrator", chat badge "via orchestrator". Also root-caused the "chat keeps growing on refresh" report: nothing was growing server-side any more — the failed test turns had left a ~450KB accumulated activity log on one error bubble, which the page re-renders progressively on every load, reading as endless new items. Wiped the orchestrator session's ten junk rows in the local deployment (one-off internal mutation, run and deleted) and retitled the existing session.

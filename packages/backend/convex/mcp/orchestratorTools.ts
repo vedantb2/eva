@@ -8,6 +8,7 @@ import {
   matchRepoByName,
   mcpGetContext,
   mcpListUserRepos,
+  repoRefLabel,
   textResult,
   type McpCredentials,
   type RepoInfo,
@@ -98,9 +99,7 @@ export function registerOrchestratorTools(
             id: repo.id,
             // App-qualified so a monorepo's app rows are distinguishable in
             // the fleet table (they are separate repo records sharing a name).
-            fullName: repo.rootDirectory
-              ? `${repo.owner}/${repo.name}/${repo.rootDirectory.split("/").pop() ?? repo.rootDirectory}`
-              : `${repo.owner}/${repo.name}`,
+            fullName: repoRefLabel(repo),
           })),
           includeIdle,
           excludeEntityId: entityId,

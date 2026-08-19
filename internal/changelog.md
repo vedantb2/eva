@@ -1,5 +1,17 @@
 # Changelog
 
+## Orchestrator tools verified over real MCP JSON-RPC, including the negative check - 2026-08-19
+
+Third orchestrator test pass, driving the deployed `/mcp` HTTP endpoint end to end rather than the backing actions: two tokens minted through `sandboxJwt:mintSandboxSessionTokens` (one with `isOrchestrator: true`, one without) and used as bearer credentials against real `tools/list` and `tools/call` requests.
+
+**Registration gating (plan verification step 4) holds:** the orchestrator token sees **31** tools including all seven of `list_agents`, `get_agent_state`, `send_agent_message`, `stop_agent`, `create_session`, `watch_agent`, `unwatch_agent`; the plain session token sees **24** and none of them. `get_skill eva-orchestrator` returns the full 4.6KB skill under the claim (no repo install row needed) and, without it, the normal "not installed on this repo" error — the install-gate bypass is claim-scoped, not global.
+
+**Cross-repo data tools behave on all four paths:** `list_tables {repoName:"eva", app:"web"}` returned the real schema for a repo the token is *not* pinned to; an unknown name and a missing `repoId`/`repoName` each produce a clear error; and the same `repoName` call on a plain token is still refused with "this token is scoped to a different repository", so the pin only lifts under the claim.
+
+One defect fixed from that run: the "repo not found" hint listed `vvedantb/eva` twelve times, because a monorepo is many repo rows sharing one name. A shared `repoRefLabel` now renders `owner/name/app`, used by both the error hint and the `list_agents` fleet labels (replacing the inline copy added earlier today).
+
+Also worth recording, since it cost time to diagnose: a stranded user message in the orchestrator chat with no reply and no error was **self-inflicted** — an earlier probe called `workflow.cancel` on a live master workflow and cleared `activeWorkflowId` by hand, which left the workflow component rejecting the *next* turn's completion (`already has generation number 1 when completing …`), so that turn produced no bubble at all. The app's own `cancelExecution` path (`cancelTrackedWorkflow`) does this correctly and was never involved. Probes no longer cancel workflows.
+
 ## MCP tools work against local/self-hosted Convex, and failure wake-ups say what failed - 2026-08-19
 
 Second orchestrator test pass, this time **executing** the tool layer instead of reading it — the backing `orchestrator*` internalActions take a `clerkUserId`, so they can be driven straight from `npx convex run` without a working sandbox.

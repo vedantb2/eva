@@ -51,6 +51,13 @@ export async function mcpListUserRepos(
   return ctx.runAction(internal.mcp.nodeActions.listUserRepos, { userId });
 }
 
+/** `owner/name` for a plain repo, `owner/name/app` for one app of a monorepo. */
+export function repoRefLabel(repo: RepoInfo): string {
+  if (!repo.rootDirectory) return `${repo.owner}/${repo.name}`;
+  const app = repo.rootDirectory.split("/").pop() ?? repo.rootDirectory;
+  return `${repo.owner}/${repo.name}/${app}`;
+}
+
 /**
  * Picks one repo out of the user's repos by name, disambiguating monorepo apps
  * by `rootDirectory`. Pure so both the repo-scoped and orchestrator tools can
@@ -98,7 +105,10 @@ export function matchRepoByName(
   }
 
   if (!repo) {
-    const available = repos.map((r) => `${r.owner}/${r.name}`).join(", ");
+    // App-qualified: a monorepo is several repo rows sharing one name, so the
+    // bare `owner/name` list repeated the same string a dozen times and told
+    // the caller nothing about which app to ask for.
+    const available = repos.map(repoRefLabel).join(", ");
     return errorResult(`Repo "${repoName}" not found. Your repos: ${available}`);
   }
 

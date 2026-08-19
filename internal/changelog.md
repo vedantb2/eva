@@ -1,8 +1,8 @@
 # Changelog
 
-## Automation tabs match the settings pages, and page titles line up with the cards - 2026-08-19
+## Automation tabs sit in the page header, and page titles line up with the cards - 2026-08-19
 
-The automation tabs (Latest / Run History / Settings) were built inside the page body rather than the header, so they scrolled away with the content and sat on a trough the eye could not see — while the settings tabs stayed pinned under the title as a segmented control. They now go through `PageWrapper`'s `tabs` slot with `tabs-segmented`, the same treatment Env Variables uses, so the strip stays put while the panel scrolls. Snapshots, the one settings page still using the untroughed list, was switched over too, so every settings-shaped tab strip in the app now reads the same.
+The automation tabs (Latest / Run History / Settings) were built inside the page body rather than the header, so they scrolled away with the content and sat lower than the settings tabs do. They now go through `PageWrapper`'s `tabs` slot, so the strip stays pinned under the title while the panel scrolls, exactly like every settings page. The tab styling itself is unchanged — an earlier pass gave Automations and Snapshots the segmented trough that Env Variables uses, and that was reverted; only the placement moved.
 
 Page titles were also a gutter out. Each settings card carries its section title at `px-4`, but the page title above sat flush with the card edge, leaving the two headings 16px apart on every settings and automations page. `PageWrapper` gained an opt-in `insetHeader` that indents the title row by the card gutter; `SettingsPage`, the automation detail page and the Automations Hub set it, and the Hub's own "Automations Hub" caption moved inside a full-bleed divider so its copy takes the same gutter. List pages whose card has no section heading to align to (inbox, drafts, stats) are deliberately left flush.
 

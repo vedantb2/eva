@@ -117,7 +117,7 @@ export function AutomationClient({
             }
           }}
         >
-          <TabsList className="tabs-segmented">
+          <TabsList>
             <TabsTrigger value="latest">Latest</TabsTrigger>
             <TabsTrigger value="run-history">Run History</TabsTrigger>
             <TabsTrigger value="settings">Settings</TabsTrigger>

@@ -220,7 +220,7 @@ export function SnapshotsClient({
         title="Snapshots"
         tabs={
           <Tabs value={activeTab} onValueChange={handleSnapshotsTabChange}>
-            <TabsList className="tabs-segmented">
+            <TabsList>
               <TabsTrigger value="configuration">Configuration</TabsTrigger>
               <TabsTrigger value="status">Status</TabsTrigger>
               <TabsTrigger value="builds">Builds</TabsTrigger>
@@ -255,7 +255,7 @@ export function SnapshotsClient({
       }
       tabs={
         <Tabs value={activeTab} onValueChange={handleSnapshotsTabChange}>
-          <TabsList className="tabs-segmented">
+          <TabsList>
             <TabsTrigger value="configuration">Configuration</TabsTrigger>
             <TabsTrigger value="status">Status</TabsTrigger>
             <TabsTrigger value="builds">Builds</TabsTrigger>

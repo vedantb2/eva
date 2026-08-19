@@ -1,5 +1,17 @@
 # Changelog
 
+## The deadline watchdog stops asking Vercel for time it cannot have - 2026-08-19
+
+Prod Convex logs were one line, repeating: `extendSandboxDeadline: skipped sandboxId=white-spiritual-cobra-vvQSfA: Status code 400 is not ok`, every 30 seconds for as long as a turn was live. Nothing failed — the extension is best-effort and the action swallows it — but every watchdog tick spent a scheduled action on a request Vercel was always going to reject, and the log for the deployment was that message and nothing else.
+
+The rejection is structural, not transient. `create` floors the session `timeout` to 24h, which is the plan ceiling, and `extendTimeout` only moves a deadline "up until the maximum execution timeout for your plan" — so an ask that would pass 24h is refused. The Vercel CLI shows the shape directly: sandbox `white-spiritual-cobra-vvQSfA`, session `sbx_70Tp8UqTg6cdrWeDcsE4IwZ1Qh8A`, running, `TIMEOUT: in 24 hours`. Both watchdogs asked for +60s on every not-stale tick regardless of where the deadline actually sat, so for the ~24h it sat hours away, each ask was a guaranteed 400.
+
+`VercelSandboxHandle.extendTimeout` now reads the live session deadline (`sandbox.expiresAt`, which for a running session is `startedAt + timeout`) and returns without calling the API while the deadline is further out than the window the caller asked to keep clear. That is the caller's contract restated as a gate: the watchdog wants the deadline at least two ticks ahead, so there is nothing to do until it is not. The watchdogs, the tick, and the 2-tick arithmetic are untouched — only the pointless asks are gone.
+
+When a genuine near-deadline extension does fail, it now says why. The SDK's message is only the HTTP status, so the provider wraps the failure with the API body plus the numbers that decide the outcome (`durationMs`, `sessionTimeout`, `expiresAt`) through the same `extractApiErrorDetail` used by create and exec. The action still swallows it — a provider hiccup must never fail a turn — but the swallowed line is now diagnosable rather than four words of HTTP.
+
+Worth stating plainly: if the plan ceiling and the create-time floor stay equal at 24h, the extension can never succeed, and this protection is only real for a session whose cap is below the ceiling. The gate does not fix that; it stops it from being invisible behind 2,880 identical log lines a day. Contract test extended to pin the gate and the error detail.
+
 ## Publishing a branch merges the remote tip instead of rebasing onto it - 2026-08-19
 
 Project 3 of evalucom/carepulse-ts ("eProcurement admin side KPIs") could not publish for five hours. Every turn ended `Chat completed locally, but Eva could not publish the branch to GitHub … Rebasing (1/302) … could not apply 63feaa57b "update to mantine 9.3"`, and the user's obvious reply — "resolve conflicts then?" — could not help, because the sandbox had nothing to resolve: `git diff --diff-filter=U` empty, no conflict markers, 0 behind staging, 96 ahead. The conflict existed only inside Eva's publish step.

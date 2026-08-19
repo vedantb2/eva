@@ -777,7 +777,26 @@ class VercelSandboxHandle implements SandboxHandle {
     // Pushes the hard session deadline out (capped by the plan's max runtime).
     // Called by the stall watchdog while a turn is active so live work is
     // never killed by the create-time `timeout` cap. Best-effort by contract.
-    await this.sandbox.extendTimeout(durationMs);
+    //
+    // Sessions are born at the plan ceiling (create floors `timeout` to 24h),
+    // and Vercel rejects any extension that would pass that ceiling — so while
+    // the deadline is still hours out, every ask is a guaranteed 400. Only ask
+    // once the deadline is actually inside the window the caller wants covered.
+    // Without this gate a single live turn burned one action + one 400 every
+    // 30s for the length of the turn (prod, 2026-08-19: extendSandboxDeadline
+    // logging "Status code 400 is not ok" for white-spiritual-cobra-vvQSfA on
+    // every watchdog tick).
+    const expiresAt = this.sandbox.expiresAt?.getTime();
+    if (expiresAt !== undefined && expiresAt - Date.now() > durationMs) return;
+    try {
+      await this.sandbox.extendTimeout(durationMs);
+    } catch (e) {
+      // The SDK's message is only the HTTP status; the caller swallows this, so
+      // the body is the sole record of WHY a real near-deadline extension lost.
+      throw new Error(
+        `vercel extendTimeout failed (sandbox=${this.sandbox.name}, durationMs=${durationMs}, sessionTimeout=${this.sandbox.timeout ?? "unknown"}, expiresAt=${expiresAt !== undefined ? new Date(expiresAt).toISOString() : "none"}): ${extractApiErrorDetail(e)}`,
+      );
+    }
   }
 
   async stop(): Promise<void> {

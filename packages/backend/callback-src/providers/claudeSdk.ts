@@ -60,29 +60,68 @@ export function globalNpmRoot(): string {
 /** User-writable fallback install location (persists in home across resumes). */
 const SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
 
-/**
- * Imports the Agent SDK, preferring the base Image's global install. Older
- * snapshots lack it, and the callback runs as the unprivileged `eva` user (a
- * global `npm i -g` fails with EACCES on the root-owned npm root), so the
- * fallback is a one-time user-local prefix install under the eva home.
- */
-export async function loadSdk(): Promise<SdkModule> {
-  const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE + "/sdk.mjs";
-  const localEntry =
-    SDK_LOCAL_PREFIX + "/node_modules/" + SDK_PACKAGE + "/sdk.mjs";
-  if (existsSync(globalEntry)) {
-    const mod: SdkModule = await import(globalEntry);
-    return mod;
+/** Version recorded in `packageRoot`'s manifest, or null when unreadable. */
+function installedSdkVersion(packageRoot: string): string | null {
+  try {
+    const manifest: JsonLike = JSON.parse(
+      readFileSync(packageRoot + "/package.json", "utf8"),
+    );
+    if (
+      typeof manifest !== "object" ||
+      manifest === null ||
+      Array.isArray(manifest)
+    ) {
+      return null;
+    }
+    const version = manifest.version;
+    return typeof version === "string" ? version : null;
+  } catch {
+    return null;
   }
-  if (!existsSync(localEntry)) {
+}
+
+/**
+ * Absolute entry path for an agent SDK pinned to `version`, preferring the base
+ * Image's global install and falling back to a one-time user-local prefix
+ * install under the eva home (the callback runs as the unprivileged `eva` user,
+ * so a global `npm i -g` fails with EACCES on the root-owned npm root).
+ *
+ * Both roots are version-checked rather than merely tested for existence. The
+ * seed guard in snapshotActions only asserts the package directory is present,
+ * so a snapshot built before a pin moved keeps serving the old version forever.
+ * That drift fails quietly instead of loudly: the stream parsers match one
+ * SDK's event names exactly, so an unexpected version yields zero canonical
+ * events and the turn reports no activity at all while still returning its
+ * final answer.
+ */
+export function resolvePinnedSdkEntry(pin: {
+  packageName: string;
+  version: string;
+  entryRelPath: string;
+}): string {
+  const globalRoot = globalNpmRoot() + "/" + pin.packageName;
+  const localRoot = SDK_LOCAL_PREFIX + "/node_modules/" + pin.packageName;
+  const globalVersion = installedSdkVersion(globalRoot);
+  if (globalVersion === pin.version) return globalRoot + pin.entryRelPath;
+  if (globalVersion !== null) {
     log(
-      "claude-agent-sdk not found in sandbox; installing " +
-        SDK_PACKAGE +
+      "sdk version drift: global " +
+        pin.packageName +
+        " is " +
+        globalVersion +
+        ", need " +
+        pin.version +
+        "; falling back to the pinned user-local copy",
+    );
+  }
+  if (installedSdkVersion(localRoot) !== pin.version) {
+    log(
+      "installing " +
+        pin.packageName +
         "@" +
-        SDK_VERSION +
+        pin.version +
         " to " +
-        SDK_LOCAL_PREFIX +
-        " (one-time)",
+        SDK_LOCAL_PREFIX,
     );
     execSync(
       "mkdir -p " +
@@ -90,13 +129,24 @@ export async function loadSdk(): Promise<SdkModule> {
         " && npm install --prefix " +
         SDK_LOCAL_PREFIX +
         " " +
-        SDK_PACKAGE +
+        pin.packageName +
         "@" +
-        SDK_VERSION,
+        pin.version,
       { encoding: "utf8", timeout: 180_000 },
     );
   }
-  const mod: SdkModule = await import(localEntry);
+  return localRoot + pin.entryRelPath;
+}
+
+/** Imports the Agent SDK version this callback's parsers were written for. */
+export async function loadSdk(): Promise<SdkModule> {
+  const mod: SdkModule = await import(
+    resolvePinnedSdkEntry({
+      packageName: SDK_PACKAGE,
+      version: SDK_VERSION,
+      entryRelPath: "/sdk.mjs",
+    })
+  );
   return mod;
 }
 

@@ -1,5 +1,4 @@
-import { execSync } from "child_process";
-import { existsSync, mkdirSync, readFileSync } from "fs";
+import { mkdirSync, readFileSync } from "fs";
 import type {
   Agent,
   AgentOptions,
@@ -44,15 +43,12 @@ import type {
   SessionMode,
 } from "../types.js";
 import { log } from "../utils.js";
-import { globalNpmRoot, type JsonLike } from "./claudeSdk.js";
+import { resolvePinnedSdkEntry, type JsonLike } from "./claudeSdk.js";
 
 const SDK_PACKAGE = "@cursor/sdk";
 const SDK_VERSION = "1.0.26";
 /** ESM entry inside the package (its exports map's `import` target). */
 const SDK_ENTRY_RELPATH = "/dist/esm/index.js";
-
-/** User-writable fallback install location (persists in home across resumes). */
-const SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
 
 /** Official SDK types are erased from the standalone callback bundle. */
 export type SdkMcpServerConfig = McpServerConfig;
@@ -123,42 +119,19 @@ export type CursorSdkModule = {
 };
 
 /**
- * Imports the Cursor SDK, preferring the base Image's global install (seeded in
- * snapshotActions). Older snapshots lack it, and the callback runs as the
- * unprivileged `eva` user, so the fallback is a one-time user-local prefix
- * install under the eva home — same pattern as the Claude Agent SDK loader.
+ * Imports the Cursor SDK version `cursorParseLine` was written against. Taking
+ * whatever the sandbox happens to hold is not safe here: the parser matches the
+ * 1.0.x message type names exactly, so a drifted SDK streams events it drops on
+ * the floor and the turn renders as a bare "Working..." for its whole duration.
  */
 export async function loadCursorSdk(): Promise<CursorSdkModule> {
-  const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE + SDK_ENTRY_RELPATH;
-  const localEntry =
-    SDK_LOCAL_PREFIX + "/node_modules/" + SDK_PACKAGE + SDK_ENTRY_RELPATH;
-  if (existsSync(globalEntry)) {
-    const mod: CursorSdkModule = await import(globalEntry);
-    return mod;
-  }
-  if (!existsSync(localEntry)) {
-    log(
-      "cursor sdk not found in sandbox; installing " +
-        SDK_PACKAGE +
-        "@" +
-        SDK_VERSION +
-        " to " +
-        SDK_LOCAL_PREFIX +
-        " (one-time)",
-    );
-    execSync(
-      "mkdir -p " +
-        SDK_LOCAL_PREFIX +
-        " && npm install --prefix " +
-        SDK_LOCAL_PREFIX +
-        " " +
-        SDK_PACKAGE +
-        "@" +
-        SDK_VERSION,
-      { encoding: "utf8", timeout: 180_000 },
-    );
-  }
-  const mod: CursorSdkModule = await import(localEntry);
+  const mod: CursorSdkModule = await import(
+    resolvePinnedSdkEntry({
+      packageName: SDK_PACKAGE,
+      version: SDK_VERSION,
+      entryRelPath: SDK_ENTRY_RELPATH,
+    })
+  );
   return mod;
 }
 

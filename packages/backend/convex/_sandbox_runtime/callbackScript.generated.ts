@@ -3324,7 +3324,28 @@ function cursorToolCallEvents(event) {
   }
   return [];
 }
+var SILENT_EVENT_TYPES = /* @__PURE__ */ new Set([
+  "user",
+  "status",
+  "request",
+  "task",
+  "usage"
+]);
+var reportedSilentTypes = /* @__PURE__ */ new Set();
 function cursorParseLine(event) {
+  const events = cursorEventToCanonical(event);
+  if (events.length === 0) {
+    const type = typeof event.type === "string" ? event.type : "(untyped)";
+    if (!SILENT_EVENT_TYPES.has(type) && !reportedSilentTypes.has(type)) {
+      reportedSilentTypes.add(type);
+      log(
+        "cursor stream event '" + type + "' produced no activity steps; parser and SDK may disagree on its shape"
+      );
+    }
+  }
+  return events;
+}
+function cursorEventToCanonical(event) {
   const events = [];
   if (event.type === "system") {
     events.push({
@@ -4111,23 +4132,47 @@ function globalNpmRoot() {
   return execSync("npm root -g", { encoding: "utf8" }).trim();
 }
 var SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
-async function loadSdk() {
-  const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE + "/sdk.mjs";
-  const localEntry = SDK_LOCAL_PREFIX + "/node_modules/" + SDK_PACKAGE + "/sdk.mjs";
-  if (existsSync6(globalEntry)) {
-    const mod2 = await import(globalEntry);
-    return mod2;
+function installedSdkVersion(packageRoot) {
+  try {
+    const manifest = JSON.parse(
+      readFileSync5(packageRoot + "/package.json", "utf8")
+    );
+    if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) {
+      return null;
+    }
+    const version = manifest.version;
+    return typeof version === "string" ? version : null;
+  } catch {
+    return null;
   }
-  if (!existsSync6(localEntry)) {
+}
+function resolvePinnedSdkEntry(pin) {
+  const globalRoot = globalNpmRoot() + "/" + pin.packageName;
+  const localRoot = SDK_LOCAL_PREFIX + "/node_modules/" + pin.packageName;
+  const globalVersion = installedSdkVersion(globalRoot);
+  if (globalVersion === pin.version) return globalRoot + pin.entryRelPath;
+  if (globalVersion !== null) {
     log(
-      "claude-agent-sdk not found in sandbox; installing " + SDK_PACKAGE + "@" + SDK_VERSION + " to " + SDK_LOCAL_PREFIX + " (one-time)"
+      "sdk version drift: global " + pin.packageName + " is " + globalVersion + ", need " + pin.version + "; falling back to the pinned user-local copy"
+    );
+  }
+  if (installedSdkVersion(localRoot) !== pin.version) {
+    log(
+      "installing " + pin.packageName + "@" + pin.version + " to " + SDK_LOCAL_PREFIX
     );
     execSync(
-      "mkdir -p " + SDK_LOCAL_PREFIX + " && npm install --prefix " + SDK_LOCAL_PREFIX + " " + SDK_PACKAGE + "@" + SDK_VERSION,
+      "mkdir -p " + SDK_LOCAL_PREFIX + " && npm install --prefix " + SDK_LOCAL_PREFIX + " " + pin.packageName + "@" + pin.version,
       { encoding: "utf8", timeout: 18e4 }
     );
   }
-  const mod = await import(localEntry);
+  return localRoot + pin.entryRelPath;
+}
+async function loadSdk() {
+  const mod = await import(resolvePinnedSdkEntry({
+    packageName: SDK_PACKAGE,
+    version: SDK_VERSION,
+    entryRelPath: "/sdk.mjs"
+  }));
   return mod;
 }
 function claudeExecutablePath() {
@@ -6891,12 +6936,10 @@ async function runCodexSdkAttempt(sessionMode) {
 }
 
 // callback-src/providers/cursorSdk.ts
-import { execSync as execSync2 } from "child_process";
-import { existsSync as existsSync10, mkdirSync as mkdirSync8, readFileSync as readFileSync10 } from "fs";
+import { mkdirSync as mkdirSync8, readFileSync as readFileSync10 } from "fs";
 var SDK_PACKAGE2 = "@cursor/sdk";
 var SDK_VERSION2 = "1.0.26";
 var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
-var SDK_LOCAL_PREFIX2 = "/home/eva/.eva-agent-sdk";
 function cursorModeParams(model, fastMode, use1mContext) {
   const params = [];
   if (model === "grok-4.6" || model === "grok-4.5" || model === "composer-2.5") {
@@ -6923,22 +6966,11 @@ function filterModeParamsByModel(candidates, model, opted) {
   );
 }
 async function loadCursorSdk() {
-  const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE2 + SDK_ENTRY_RELPATH;
-  const localEntry = SDK_LOCAL_PREFIX2 + "/node_modules/" + SDK_PACKAGE2 + SDK_ENTRY_RELPATH;
-  if (existsSync10(globalEntry)) {
-    const mod2 = await import(globalEntry);
-    return mod2;
-  }
-  if (!existsSync10(localEntry)) {
-    log(
-      "cursor sdk not found in sandbox; installing " + SDK_PACKAGE2 + "@" + SDK_VERSION2 + " to " + SDK_LOCAL_PREFIX2 + " (one-time)"
-    );
-    execSync2(
-      "mkdir -p " + SDK_LOCAL_PREFIX2 + " && npm install --prefix " + SDK_LOCAL_PREFIX2 + " " + SDK_PACKAGE2 + "@" + SDK_VERSION2,
-      { encoding: "utf8", timeout: 18e4 }
-    );
-  }
-  const mod = await import(localEntry);
+  const mod = await import(resolvePinnedSdkEntry({
+    packageName: SDK_PACKAGE2,
+    version: SDK_VERSION2,
+    entryRelPath: SDK_ENTRY_RELPATH
+  }));
   return mod;
 }
 function readPromptText3() {
@@ -7268,14 +7300,13 @@ async function runCursorSdkAttempt(sessionMode) {
 }
 
 // callback-src/providers/opencodeSdk.ts
-import { execSync as execSync3 } from "child_process";
-import { existsSync as existsSync12, readFileSync as readFileSync12 } from "fs";
+import { readFileSync as readFileSync12 } from "fs";
 
 // callback-src/providers/opencodeServer.ts
 import { spawn as spawn3 } from "child_process";
 import {
   closeSync,
-  existsSync as existsSync11,
+  existsSync as existsSync10,
   mkdirSync as mkdirSync9,
   openSync,
   readFileSync as readFileSync11,
@@ -7432,7 +7463,7 @@ async function ensureOpencodeServer() {
     while (Date.now() < deadline) {
       await sleep4(HEALTH_POLL_INTERVAL_MS);
       if (await probeHealth()) return opencodeServerBaseUrl;
-      if (!existsSync11(SERVER_LOCK_DIR)) break;
+      if (!existsSync10(SERVER_LOCK_DIR)) break;
     }
     if (await probeHealth()) return opencodeServerBaseUrl;
     releaseStartupLock();
@@ -7461,27 +7492,15 @@ async function ensureOpencodeServer() {
 var SDK_PACKAGE3 = "@opencode-ai/sdk";
 var SDK_VERSION3 = "1.18.16";
 var SDK_ENTRY_RELPATH2 = "/dist/client.js";
-var SDK_LOCAL_PREFIX3 = "/home/eva/.eva-agent-sdk";
 var IDLE_PROBE_AFTER_MS = 6e4;
 var IDLE_PROBE_INTERVAL_MS = 15e3;
 var IDLE_PROBE_STREAK = 2;
 async function loadOpencodeSdk() {
-  const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE3 + SDK_ENTRY_RELPATH2;
-  const localEntry = SDK_LOCAL_PREFIX3 + "/node_modules/" + SDK_PACKAGE3 + SDK_ENTRY_RELPATH2;
-  if (existsSync12(globalEntry)) {
-    const mod2 = await import(globalEntry);
-    return mod2;
-  }
-  if (!existsSync12(localEntry)) {
-    log(
-      "opencode sdk not found in sandbox; installing " + SDK_PACKAGE3 + "@" + SDK_VERSION3 + " to " + SDK_LOCAL_PREFIX3 + " (one-time)"
-    );
-    execSync3(
-      "mkdir -p " + SDK_LOCAL_PREFIX3 + " && npm install --prefix " + SDK_LOCAL_PREFIX3 + " " + SDK_PACKAGE3 + "@" + SDK_VERSION3,
-      { encoding: "utf8", timeout: 18e4 }
-    );
-  }
-  const mod = await import(localEntry);
+  const mod = await import(resolvePinnedSdkEntry({
+    packageName: SDK_PACKAGE3,
+    version: SDK_VERSION3,
+    entryRelPath: SDK_ENTRY_RELPATH2
+  }));
   return mod;
 }
 function readPromptText4() {

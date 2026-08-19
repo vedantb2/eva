@@ -1,5 +1,4 @@
-import { execSync } from "child_process";
-import { existsSync, readFileSync } from "fs";
+import { readFileSync } from "fs";
 import {
   MAX_TOTAL_RUNTIME_MS,
   NO_OUTPUT_CHECK_INTERVAL_MS,
@@ -22,7 +21,7 @@ import {
 } from "../session/opencodeSession.js";
 import type { ProviderAttemptResult, SessionMode } from "../types.js";
 import { log } from "../utils.js";
-import { globalNpmRoot } from "./claudeSdk.js";
+import { resolvePinnedSdkEntry } from "./claudeSdk.js";
 import {
   ensureOpencodeServer,
   readOpencodeServerLogTail,
@@ -48,9 +47,6 @@ const SDK_VERSION = "1.18.16";
  * server spawner (and its cross-spawn dep), which we never use. */
 const SDK_ENTRY_RELPATH = "/dist/client.js";
 
-/** User-writable fallback install location (persists in home across resumes). */
-const SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
-
 /** Poll the server for turn completion once the event stream goes this quiet. */
 const IDLE_PROBE_AFTER_MS = 60_000;
 /** Minimum spacing between status polls while the stream stays quiet. */
@@ -59,42 +55,18 @@ const IDLE_PROBE_INTERVAL_MS = 15_000;
 const IDLE_PROBE_STREAK = 2;
 
 /**
- * Imports the opencode SDK, preferring the base Image's global install (seeded
- * in snapshotActions). Older snapshots lack it, and the callback runs as the
- * unprivileged `eva` user, so the fallback is a one-time user-local prefix
- * install under the eva home — same pattern as the Claude and Cursor loaders.
+ * Imports the opencode SDK version this adapter was generated against. The
+ * client is generated for one server release, so a drifted global install is
+ * worse than no install: see resolvePinnedSdkEntry.
  */
 export async function loadOpencodeSdk(): Promise<OpencodeSdkModule> {
-  const globalEntry = globalNpmRoot() + "/" + SDK_PACKAGE + SDK_ENTRY_RELPATH;
-  const localEntry =
-    SDK_LOCAL_PREFIX + "/node_modules/" + SDK_PACKAGE + SDK_ENTRY_RELPATH;
-  if (existsSync(globalEntry)) {
-    const mod: OpencodeSdkModule = await import(globalEntry);
-    return mod;
-  }
-  if (!existsSync(localEntry)) {
-    log(
-      "opencode sdk not found in sandbox; installing " +
-        SDK_PACKAGE +
-        "@" +
-        SDK_VERSION +
-        " to " +
-        SDK_LOCAL_PREFIX +
-        " (one-time)",
-    );
-    execSync(
-      "mkdir -p " +
-        SDK_LOCAL_PREFIX +
-        " && npm install --prefix " +
-        SDK_LOCAL_PREFIX +
-        " " +
-        SDK_PACKAGE +
-        "@" +
-        SDK_VERSION,
-      { encoding: "utf8", timeout: 180_000 },
-    );
-  }
-  const mod: OpencodeSdkModule = await import(localEntry);
+  const mod: OpencodeSdkModule = await import(
+    resolvePinnedSdkEntry({
+      packageName: SDK_PACKAGE,
+      version: SDK_VERSION,
+      entryRelPath: SDK_ENTRY_RELPATH,
+    })
+  );
   return mod;
 }
 

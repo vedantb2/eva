@@ -23,11 +23,13 @@ const sdkVersions = [
   {
     packageName: "@anthropic-ai/claude-agent-sdk",
     version: "0.3.201",
+    versionConstant: "CLAUDE_AGENT_SDK_VERSION",
     loader: claudeLoader,
   },
   {
     packageName: "@cursor/sdk",
     version: "1.0.26",
+    versionConstant: "CURSOR_SDK_VERSION",
     loader: cursorLoader,
   },
 ];
@@ -53,18 +55,35 @@ test("provider boundaries use official SDK declarations", () => {
 
 test("new snapshots preinstall both provider SDKs at the loader versions", () => {
   for (const sdk of sdkVersions) {
+    // Version-pinned, never existence-only. A snapshot seeded before a pin
+    // moved would otherwise keep serving an SDK whose message shapes the
+    // callback's parsers do not recognise, which reads as a turn that streams
+    // no activity at all rather than as an error.
     expect(snapshotActions).toContain(
-      `[ -d "$(npm root -g)/${sdk.packageName}" ]`,
+      `const ${sdk.versionConstant} = "${sdk.version}"`,
     );
-    expect(snapshotActions).toContain(`${sdk.packageName}@${sdk.version}`);
+    expect(snapshotActions).toContain(
+      `globalPackageIsVersion("${sdk.packageName}", ${sdk.versionConstant})`,
+    );
+    expect(snapshotActions).toContain(
+      `${sdk.packageName}@\${${sdk.versionConstant}}`,
+    );
+  }
+});
+
+test("both loaders resolve their pin through one version-aware helper", () => {
+  // The helper lives in the Claude loader; the others import it.
+  expect(claudeLoader).toContain("export function resolvePinnedSdkEntry(");
+  expect(claudeLoader).toContain("if (globalVersion === pin.version)");
+  for (const sdk of sdkVersions) {
+    expect(sdk.loader).toContain("resolvePinnedSdkEntry({");
+    expect(sdk.loader).toContain("version: SDK_VERSION,");
   }
 });
 
 test("older snapshots retain the user-local SDK fallback", () => {
-  for (const sdk of sdkVersions) {
-    expect(sdk.loader).toContain(
-      'const SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk"',
-    );
-    expect(sdk.loader).toContain("npm install --prefix");
-  }
+  expect(claudeLoader).toContain(
+    'const SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk"',
+  );
+  expect(claudeLoader).toContain("npm install --prefix");
 });

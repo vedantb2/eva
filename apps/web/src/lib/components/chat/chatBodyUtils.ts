@@ -72,13 +72,9 @@ export function isOtherUserChatMessage(
   );
 }
 
-/** Streaming / questions / changed-files flags for an assistant row. */
-export function getAssistantTurnState(
-  message: ChatBodyMessage,
-  isLast: boolean,
-): {
+/** Streaming / changed-files flags for an assistant row. */
+export function getAssistantTurnState(message: ChatBodyMessage): {
   isStreamingPlaceholder: boolean;
-  showQuestions: boolean;
   changedFiles: ChangedFile[];
 } {
   const isStreamingPlaceholder =
@@ -91,11 +87,7 @@ export function getAssistantTurnState(
     message.activityLog
       ? collectChangedFiles(parseActivitySteps(message.activityLog) ?? [])
       : [];
-  return {
-    isStreamingPlaceholder,
-    showQuestions: isStreamingPlaceholder || isLast,
-    changedFiles,
-  };
+  return { isStreamingPlaceholder, changedFiles };
 }
 
 /**

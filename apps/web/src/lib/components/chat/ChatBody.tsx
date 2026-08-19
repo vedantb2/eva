@@ -10,8 +10,8 @@ import { ChatLastTurn } from "@/lib/components/chat/ChatLastTurn";
 import { ChatJumpRail } from "@/lib/components/chat/ChatJumpRail";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { ChatMessage } from "@/lib/components/chat/ChatMessage";
+import { ChatQuestionDock } from "@/lib/components/chat/ChatQuestionDock";
 import { useChangedFilesExpansion } from "@/lib/components/chat/useChangedFilesExpansion";
-import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
@@ -173,7 +173,6 @@ export function ChatBody({
   hasPendingContext,
 }: ChatBodyProps) {
   const lastMessage = messages[messages.length - 1];
-  const lastMessageId = lastMessage?._id;
   // The oldest unfinished Working bubble owns the session-scoped streaming
   // row — turns run FIFO, so a newer queued placeholder must not steal a
   // still-streaming older turn's tokens (see findStreamingTargetMessage).
@@ -206,11 +205,10 @@ export function ChatBody({
   const blockingQuestions = blockingQuestion
     ? parsePendingQuestion(blockingQuestion.payload)
     : null;
-  // The blocking card is normally hosted by the streaming target message.
-  // If no placeholder exists (run died, sandbox restarted) the unanswered
-  // question would otherwise be unrenderable while still hiding the composer —
-  // render it standalone so the user can always answer and unblock the chat.
-  const hasStreamingPlaceholder = streamingTargetId !== undefined;
+  // Both question kinds render in the composer's slot, so the card stays put
+  // instead of scrolling with the conversation. Blocking wins: it holds the
+  // turn open and its answer resumes the run.
+  const dockedQuestions = blockingQuestions ?? activePendingQuestion;
 
   const handleQuestionAnswer = async (answer: string) => {
     if (pendingQuestionRaw) {
@@ -261,7 +259,6 @@ export function ChatBody({
   })();
 
   const renderMessage = (message: ChatBodyMessage) => {
-    const isLast = message._id === lastMessageId;
     const isStreamingTarget = message._id === streamingTargetId;
     const isOtherUser = isOtherUserChatMessage(message, currentUserId);
     const senderFirstName =
@@ -278,7 +275,6 @@ export function ChatBody({
         key={message._id}
         message={message}
         repoBasePath={repoBasePath}
-        isLast={isLast}
         isLatestAssistantTurn={message._id === latestAssistantMessageId}
         showChangedFiles={!simpleView}
         {...(expandedByMessageId[message._id] !== undefined
@@ -292,17 +288,6 @@ export function ChatBody({
         turnCredentialSourceLabel={precedingUser?.credentialSourceLabel}
         streamingActivity={isStreamingTarget ? streamingActivity : undefined}
         streamingContent={isStreamingTarget ? streamingContent : undefined}
-        blockingQuestions={isStreamingTarget ? blockingQuestions : undefined}
-        activePendingQuestion={
-          // The streaming target hosts live questions; a finished last message
-          // hosts its own saved question only while no turn is streaming.
-          isStreamingTarget || (isLast && streamingTargetId === undefined)
-            ? activePendingQuestion
-            : undefined
-        }
-        isQuestionLoading={isAnsweringQuestion}
-        onQuestionAnswer={handleQuestionAnswer}
-        onBlockingAnswer={handleBlockingAnswer}
         onOpenFile={onOpenFile}
         onViewDiff={onViewDiff}
       />
@@ -328,19 +313,20 @@ export function ChatBody({
               </ChatLastTurn>
             </>
           )}
-          {blockingQuestions && !hasStreamingPlaceholder ? (
-            <MultipleChoiceQuestion
-              questions={blockingQuestions}
-              onAnswer={handleQuestionAnswer}
-              onAnswerStructured={handleBlockingAnswer}
-              isLoading={isAnsweringQuestion}
-            />
-          ) : null}
         </ConversationContent>
         <ConversationScrollButton resetKey={conversationId} />
         <ChatJumpRail messages={jumpRailMessages} />
       </Conversation>
-      {!isArchived && !activePendingQuestion && !blockingQuestions && (
+      {isArchived ? null : dockedQuestions ? (
+        <ChatQuestionDock
+          questions={dockedQuestions}
+          onAnswer={handleQuestionAnswer}
+          {...(blockingQuestions
+            ? { onAnswerStructured: handleBlockingAnswer }
+            : {})}
+          isLoading={isAnsweringQuestion}
+        />
+      ) : (
         <ChatComposer
           repoId={repoId}
           repoBasePath={repoBasePath}

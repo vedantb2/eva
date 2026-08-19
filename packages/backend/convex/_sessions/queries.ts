@@ -52,9 +52,11 @@ const sessionListItemValidator = v.object({
   deploymentStatus: v.optional(deploymentStatusValidator),
   deploymentUrl: v.optional(v.string()),
   /**
-   * True while a chat turn workflow is tracked on the session. Same window as
-   * composer BorderBeam in practice (message-level isExecuting needs the open
-   * thread; list rows use this field instead of N+1 into messages).
+   * True while a turn is in flight — either a tracked chat workflow, or a
+   * daemon-minted continuation (`/loop`), which never gets an
+   * `activeWorkflowId`. Same window as composer BorderBeam in practice
+   * (message-level isExecuting needs the open thread; list rows use this field
+   * instead of N+1 into messages).
    */
   isExecuting: v.boolean(),
 });
@@ -86,7 +88,9 @@ function toSessionListItem(session: Doc<"sessions">) {
     lastMode: session.lastMode,
     deploymentStatus: session.deploymentStatus,
     deploymentUrl: session.deploymentUrl,
-    isExecuting: session.activeWorkflowId !== undefined,
+    isExecuting:
+      session.activeWorkflowId !== undefined ||
+      session.syntheticTurnMessageId !== undefined,
   };
 }
 

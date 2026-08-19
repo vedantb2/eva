@@ -359,9 +359,21 @@ function getBootstrapSecret(): string {
   return secret;
 }
 
-/** Eva's own Convex cloud URL (derived from the .convex.site HTTP URL). */
+/**
+ * Eva's own Convex API URL, used for the `runQueryAsUser`/`runMutationAsUser`
+ * calls below.
+ *
+ * Prefer `CONVEX_CLOUD_URL`, which every deployment sets and which is correct
+ * by construction. The `.convex.site` → `.convex.cloud` rewrite only works on
+ * hosted URLs: on a local or self-hosted backend the site URL is a plain
+ * `host:site-proxy-port` with no substring to replace, so the rewrite silently
+ * returned the site-proxy URL and every call 404'd ("No matching routes
+ * found") — the whole MCP tool layer was unusable against such deployments.
+ */
 function getEvaConvexCloudUrl(): string {
-  return getConvexSiteUrl().replace(".convex.site", ".convex.cloud");
+  const configured = process.env.CONVEX_CLOUD_URL;
+  if (configured) return configured;
+  return getEvaConvexCloudUrl();
 }
 
 /** Deployed web app origin, used to build hosted artifact view links. */
@@ -421,7 +433,7 @@ async function resolveUserByClerkId(
     return cached.userId;
   }
 
-  const convexUrl = getConvexSiteUrl().replace(".convex.site", ".convex.cloud");
+  const convexUrl = getEvaConvexCloudUrl();
   const source = wrapQueryHandler(
     `const user = await ctx.db.query("users").withIndex("by_clerk_id", q => q.eq("clerkId", ${JSON.stringify(clerkUserId)})).first();
     return user ? user._id : null;`,
@@ -545,10 +557,7 @@ export const getContext = internalAction({
     const deployKey = await getDeployKey();
     let userId = await resolveUserByClerkId(deployKey, clerkUserId);
     if (!userId) {
-      const convexUrl = getConvexSiteUrl().replace(
-        ".convex.site",
-        ".convex.cloud",
-      );
+      const convexUrl = getEvaConvexCloudUrl();
       userId = await ensureUserExists(convexUrl, clerkUserId);
     }
     return { deployKey, userId };
@@ -576,10 +585,7 @@ export const listUserRepos = internalAction({
   ),
   handler: async (_ctx, { userId }) => {
     const deployKey = await getDeployKey();
-    const convexUrl = getConvexSiteUrl().replace(
-      ".convex.site",
-      ".convex.cloud",
-    );
+    const convexUrl = getEvaConvexCloudUrl();
 
     const source = wrapQueryHandler(
       `const userId = ${JSON.stringify(userId)};
@@ -811,10 +817,7 @@ export const createTask = internalAction({
     _ctx,
     { clerkUserId, repoId, title, description, model, baseBranch, projectId },
   ) => {
-    const convexUrl = getConvexSiteUrl().replace(
-      ".convex.site",
-      ".convex.cloud",
-    );
+    const convexUrl = getEvaConvexCloudUrl();
     const mutationArgs: Record<string, JsonValue> = {
       repoId,
       title,
@@ -842,10 +845,7 @@ export const startTaskExecution = internalAction({
   args: { clerkUserId: v.string(), taskId: v.string() },
   returns: v.null(),
   handler: async (_ctx, { clerkUserId, taskId }) => {
-    const convexUrl = getConvexSiteUrl().replace(
-      ".convex.site",
-      ".convex.cloud",
-    );
+    const convexUrl = getEvaConvexCloudUrl();
     await runMutationAsUser(
       convexUrl,
       clerkUserId,
@@ -878,10 +878,7 @@ export const createTasksBatch = internalAction({
     _ctx,
     { clerkUserId, repoId, tasks, projectTitle, model, baseBranch },
   ) => {
-    const convexUrl = getConvexSiteUrl().replace(
-      ".convex.site",
-      ".convex.cloud",
-    );
+    const convexUrl = getEvaConvexCloudUrl();
     const mutationArgs: Record<string, JsonValue> = {
       repoId,
       tasks: tasks.map((t) => ({
@@ -1706,10 +1703,7 @@ export const resolveSupabaseToken = internalAction({
     if (!userId) return null;
 
     // Get repos and search for SUPABASE_ACCESS_TOKEN
-    const convexUrl = getConvexSiteUrl().replace(
-      ".convex.site",
-      ".convex.cloud",
-    );
+    const convexUrl = getEvaConvexCloudUrl();
     const source = wrapQueryHandler(
       `const userId = ${JSON.stringify(userId)};
       const memberships = await ctx.db.query("teamMembers").withIndex("by_user", q => q.eq("userId", userId)).collect();

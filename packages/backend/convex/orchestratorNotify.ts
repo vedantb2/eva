@@ -79,13 +79,32 @@ function isLiveMaster(
   );
 }
 
-/** Trims a quoted child reply to the tail the master is shown. */
+/**
+ * Trims a quoted child reply to the tail the master is shown — a reply's
+ * conclusion is at the end.
+ */
 function replyTail(content: string): string {
   const trimmed = content.trim();
   return trimmed.length > REPLY_TAIL_CHARS
     ? trimmed.slice(-REPLY_TAIL_CHARS)
     : trimmed;
 }
+
+/**
+ * Opposite trim for a failure: an alert's meaning is in its first line, and its
+ * `errorDetail` usually ends in a stack trace. Tailing one quoted a bare
+ * `HX5DX.js:634:28)` fragment at the master, which says nothing about what
+ * broke.
+ */
+function alertHead(content: string): string {
+  const trimmed = content.trim();
+  return trimmed.length > REPLY_TAIL_CHARS
+    ? `${trimmed.slice(0, REPLY_TAIL_CHARS)}…`
+    : trimmed;
+}
+
+/** The optimistic label the queue-drain hook passes when a child goes idle. */
+const DRAIN_IDLE_STATUS = "completed";
 
 /**
  * What actually happened to the child's last turn, read off its newest
@@ -113,12 +132,15 @@ async function resolveChildOutcome(
   );
   if (!lastAgentRow) return { status: reportedStatus, tail: undefined };
   if (lastAgentRow.isSystemAlert === true) {
-    // The alert IS the outcome: report it instead of the drain's optimistic
-    // label, and quote it rather than an older, unrelated success.
+    // The alert IS the outcome: quote it rather than an older, unrelated
+    // success. Only the drain's optimistic "completed" is overridden — a caller
+    // that already knows what went wrong (e.g. sandboxError) passes a specific
+    // status, and flattening that to "interrupted" would lose the reason.
     const detail = lastAgentRow.errorDetail?.trim();
     return {
-      status: "interrupted",
-      tail: replyTail(
+      status:
+        reportedStatus === DRAIN_IDLE_STATUS ? "interrupted" : reportedStatus,
+      tail: alertHead(
         detail ? `${lastAgentRow.content}: ${detail}` : lastAgentRow.content,
       ),
     };

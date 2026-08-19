@@ -1,5 +1,17 @@
 # Changelog
 
+## MCP tools work against local/self-hosted Convex, and failure wake-ups say what failed - 2026-08-19
+
+Second orchestrator test pass, this time **executing** the tool layer instead of reading it — the backing `orchestrator*` internalActions take a `clerkUserId`, so they can be driven straight from `npx convex run` without a working sandbox.
+
+**`getEvaConvexCloudUrl` was wrong for every non-hosted deployment.** It derived the API URL as `getConvexSiteUrl().replace(".convex.site", ".convex.cloud")`, and that rewrite is a no-op on a local or self-hosted backend (`http://127.0.0.1:3211` has no substring to replace) — so every `runQueryAsUser`/`runMutationAsUser` POSTed to the site-proxy port and died with `HTTP 404: No matching routes found`. The whole MCP tool layer, orchestrator and pre-existing tools alike, was unusable there. It now prefers `CONVEX_CLOUD_URL` (which every deployment sets) and the eight copy-pasted inline rewrites were collapsed onto the one helper.
+
+**Then, with the layer reachable, all seven tools were run for real** against the dev deployment: `list_agents` returned 46 agents across 12 repo/app rows with app-qualified labels and no orchestrator sessions; `get_agent_state` returned status/activity/transcript/queue depth; `create_session` created session 79 *and* registered the implicit watch; `send_agent_message` returned `started` then, on a second call, `queued` — with `sentViaOrchestrator: true` on both the message row and the queued row, confirming this morning's badge fix; `watch_agent`/`unwatch_agent` set and cleared the pointer; `stop_agent` on an idle task no-opped on both workflow slots. The probe session and every row it produced were purged afterwards.
+
+**Two refinements to the notification fix, both found by that live run.** The probe's sandbox failed to start (expected in this preview), which fired the new `sandboxError` wake — and exposed that (a) the specific status `sandbox failed to start` was being flattened to the generic `interrupted`, and (b) the quote was the *tail* of the alert's `errorDetail`, i.e. a bare `HX5DX.js:634:28)` stack fragment. Now only the drain's optimistic `"completed"` is overridden, and alerts are quoted head-first (`alertHead`) while replies keep tail-first (`replyTail`), since a reply's conclusion is at its end and a failure's meaning is at its start.
+
+Note for anyone testing in a sandbox preview: `EVA_DEPLOY_KEY` on the local anonymous deployment was pointing at a prod key, so tool calls returned `BadAdminKey`; it is now set to this instance's own admin key. 817 backend tests pass, both typechecks clean.
+
 ## Orchestrator hardening: nine bugs found by a full audit pass - 2026-08-19
 
 Systematic test/audit pass over every part of the orchestrator feature (tools, notifications, UI, boot), three parallel auditors plus live probes against the dev deployment. The reported "stuck on Working for 44s" turn was **not** orchestrator-specific: it ends after ~2.7 min with `Streaming heartbeat failed: 404 This Convex deployment does not have HTTP actions enabled` — this preview's Convex is a local anonymous backend on the app VM, which a remote Vercel sandbox cannot reach. Any session here fails the same way; real deployments are unaffected.

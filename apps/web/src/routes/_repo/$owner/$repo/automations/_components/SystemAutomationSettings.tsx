@@ -3,10 +3,12 @@ import { useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
 import { api } from "@eva/backend";
 import type { Doc } from "@eva/backend";
-import { Button, Surface, toast } from "@eva/ui";
+import { Button, Switch, toast } from "@eva/ui";
 import { CronScheduleCard } from "@/lib/components/CronScheduleCard";
+import { SettingsStack } from "@/lib/components/settings/SettingsStack";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsToggleRow } from "@/lib/components/settings/SettingsToggleRow";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { SettingToggle } from "./SettingToggle";
 
 /**
  * Settings tab for an installed system automation. eva owns the title, prompt
@@ -45,7 +47,7 @@ export function SystemAutomationSettings({
   };
 
   return (
-    <div className="space-y-4">
+    <SettingsStack>
       <CronScheduleCard
         value={cronDraft}
         onChange={setCronDraft}
@@ -54,68 +56,69 @@ export function SystemAutomationSettings({
         }}
       />
 
-      <Surface density="none" className="p-3 space-y-2 sm:p-4">
-        <h3 className="text-sm font-medium">Prompt</h3>
-        <p className="whitespace-pre-wrap text-xs text-muted-foreground">
+      <SettingsSection title="Prompt">
+        <p className="whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">
           {automation.description}
         </p>
-      </Surface>
+      </SettingsSection>
 
-      <Surface density="none" className="p-3 sm:p-4">
-        <SettingToggle
+      <SettingsSection title="Behaviour" bodyVariant="list">
+        <SettingsToggleRow
           title="Enabled"
-          description="Run this automation on its schedule for this app"
-          checked={automation.enabled}
-          onChange={(next) => commit({ enabled: next })}
+          description="Run this automation on its schedule for this app."
+          action={
+            <Switch
+              checked={automation.enabled}
+              onCheckedChange={(next) => commit({ enabled: next })}
+              aria-label="Enabled"
+            />
+          }
         />
-      </Surface>
-
-      <Surface density="none" className="p-3 sm:p-4">
-        <SettingToggle
+        <SettingsToggleRow
           title="Send email"
-          description="Email this automation's run summary to all users when a run succeeds"
-          checked={automation.sendEmail === true}
-          onChange={(next) => commit({ sendEmail: next })}
+          description="Email this automation's run summary to all users when a run succeeds."
+          action={
+            <Switch
+              checked={automation.sendEmail === true}
+              onCheckedChange={(next) => commit({ sendEmail: next })}
+              aria-label="Send email"
+            />
+          }
         />
-      </Surface>
+      </SettingsSection>
 
-      <Surface density="none" className="p-3 sm:p-4">
-        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="max-sm:min-w-0">
-            <h3 className="text-sm font-medium">Uninstall</h3>
-            <p className="mt-0.5 text-[11px] text-muted-foreground">
-              Remove this automation from the app. Reinstalling it from the
-              Automations Hub brings its run history back.
-            </p>
-          </div>
-          <Button
-            variant="destructive"
-            size="sm"
-            className="max-sm:shrink-0"
-            onClick={() => {
-              void uninstall({ repoId, key: systemKey })
-                .then(() =>
-                  navigate({
-                    to: "/$owner/$repo/automations",
-                    params: { owner: repoOwner, repo: repoName },
-                  }),
-                )
-                .catch(() =>
-                  toast.error("Couldn't uninstall automation", {
-                    id: "automation-saved",
-                  }),
-                );
-            }}
-          >
-            Uninstall
-          </Button>
-        </div>
-      </Surface>
+      <SettingsSection
+        title="Uninstall"
+        description="Remove this automation from the app. Reinstalling it from the Automations Hub brings its run history back."
+        bodyVariant="compact"
+        bodyClassName="flex justify-end"
+      >
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => {
+            void uninstall({ repoId, key: systemKey })
+              .then(() =>
+                navigate({
+                  to: "/$owner/$repo/automations",
+                  params: { owner: repoOwner, repo: repoName },
+                }),
+              )
+              .catch(() =>
+                toast.error("Couldn't uninstall automation", {
+                  id: "automation-saved",
+                }),
+              );
+          }}
+        >
+          Uninstall
+        </Button>
+      </SettingsSection>
 
-      <p className="text-[11px] text-muted-foreground">
+      <p className="px-4 text-xs leading-relaxed text-muted-foreground">
         This automation is built into eva. Its title, prompt and report-only
         mode are managed by eva; the schedule is yours to change.
       </p>
-    </div>
+    </SettingsStack>
   );
 }

@@ -1490,10 +1490,26 @@ export const orchestratorSendMessage = internalAction({
       throw new Error(`No ${kind} ${id} found, or you do not have access.`);
     }
 
+    // A child with anything already queued is NOT idle, even with no workflow
+    // in flight: a brand-new session parks its first turn in the queue until
+    // its sandbox reports ready. Starting a turn then would run this message
+    // ahead of the one the child was created with (observed live: "probe
+    // second message" answered while "probe first message" sat queued).
+    const queuedAhead = z
+      .array(z.unknown())
+      .parse(
+        await runQueryAsUser(
+          convexUrl,
+          clerkUserId,
+          "queuedMessages:listByParent",
+          { parentId: id },
+        ),
+      ).length;
+
     if (kind === "session") {
       const session = sessionDocSchema.parse(rawDoc);
       const delivery = resolveAgentDelivery({
-        isBusy: session.activeWorkflowId !== undefined,
+        isBusy: session.activeWorkflowId !== undefined || queuedAhead > 0,
         requestedModel: model,
         storedModel: session.lastModel,
       });
@@ -1544,7 +1560,7 @@ export const orchestratorSendMessage = internalAction({
     const task = agentTaskSchema.parse(rawDoc);
     const delivery = resolveAgentDelivery({
       // The chat surface has its own workflow slot, separate from a task run.
-      isBusy: task.activeChatWorkflowId !== undefined,
+      isBusy: task.activeChatWorkflowId !== undefined || queuedAhead > 0,
       requestedModel: model,
       storedModel: task.lastChatModel ?? task.model,
     });
@@ -1644,6 +1660,7 @@ export const orchestratorCreateSession = internalAction({
       message,
       mode: "edit",
       model: normalizeAIModel(model),
+      sentViaOrchestrator: true,
     };
     if (title) createArgs.title = title;
     if (baseBranch) createArgs.baseBranch = baseBranch;

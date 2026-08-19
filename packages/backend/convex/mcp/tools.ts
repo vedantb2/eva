@@ -8,6 +8,7 @@ import { buildEvaOrchestratorContent } from "../_systemSkills/evaOrchestrator";
 import {
   errorResult,
   matchRepoByName,
+  repoRefLabel,
   mcpGetContext,
   mcpListUserRepos,
   textResult,
@@ -726,7 +727,7 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
       }
 
       return textResult({
-        repo: `${repo.owner}/${repo.name}`,
+        repo: repoRefLabel(repo),
         ...batchResult,
         taskCount: input.tasks.length,
         status: "created",
@@ -774,7 +775,7 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
 
       return textResult({
         docId,
-        repo: `${repo.owner}/${repo.name}`,
+        repo: repoRefLabel(repo),
         title,
         status: "created",
       });
@@ -832,7 +833,7 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
         repoId: repo.id,
         kind,
       });
-      return textResult({ repo: `${repo.owner}/${repo.name}`, docs });
+      return textResult({ repo: repoRefLabel(repo), docs });
     },
   );
 

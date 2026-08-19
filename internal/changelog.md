@@ -1,5 +1,17 @@
 # Changelog
 
+## Orchestrator sends no longer jump the queue, and both chat badges verified on screen - 2026-08-19
+
+Fourth orchestrator test pass, covering the three plan items no earlier round had exercised: cross-repo `create_task`, task-kind notifications, and the Step 6 badges as actually rendered.
+
+**Cross-repo task creation works:** with a token pinned to `eva/web`, `create_task {repoName:"eva", app:"mcp"}` created the task in the `apps/mcp` repo row and auto-registered `watchedByOrchestrator` — so Step 4's cross-repo unlock and Step 4b's implicit watch both hold for tasks, not just sessions. A task-kind wake-up then produced `[agent-notification] task "…" (vvedantb/eva) finished: success` in the orchestrator chat, exercising `loadChildSummary`'s task branch.
+
+**Ordering bug found by that live run, now fixed.** `send_agent_message` decided "idle" from `activeWorkflowId` alone, but a session created by `create_session` parks its first turn in `queuedMessages` until its sandbox reports ready — no workflow is in flight yet. A follow-up therefore *started immediately and answered ahead of the session's own first message* (observed: "probe second message" running while "probe first message" sat queued). Delivery now also treats a non-empty queue as busy on both surfaces, so the follow-up queues behind it; re-tested end to end and the second send now returns `queued`. Related: `create_session`'s own first message now carries `sentViaOrchestrator`, so the badge appears on it too rather than only on later sends.
+
+**Both badges confirmed in the browser**, not just in code: the wake-up row renders "agent update" with the muted bubble tone in the orchestrator chat, and an orchestrator-sent message renders "via orchestrator" in the child session's chat. `repoRefLabel` is now used for the `repo` field of the `create_task` / `create_and_run_task` / `create_tasks_batch` / `list_docs` responses too, which previously returned a bare `owner/name` for a monorepo app.
+
+All probe artefacts (two sessions, one task, every row) were purged; 817 backend tests pass and both typechecks are clean.
+
 ## Orchestrator tools verified over real MCP JSON-RPC, including the negative check - 2026-08-19
 
 Third orchestrator test pass, driving the deployed `/mcp` HTTP endpoint end to end rather than the backing actions: two tokens minted through `sandboxJwt:mintSandboxSessionTokens` (one with `isOrchestrator: true`, one without) and used as bearer credentials against real `tools/list` and `tools/call` requests.

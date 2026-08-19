@@ -64,6 +64,8 @@ const createSessionArgs = v.object({
   numDesigns: v.optional(v.number()),
   /** Marks the user's persistent master session. Set only at creation. */
   isOrchestrator: v.optional(v.boolean()),
+  /** Set when the orchestrator's `create_session` tool opened this session. */
+  sentViaOrchestrator: v.optional(v.boolean()),
 });
 
 type CreateSessionArgs = Infer<typeof createSessionArgs>;
@@ -167,6 +169,9 @@ export async function createSession(
       attachmentStorageIds: args.attachmentStorageIds,
       personaId: args.personaId,
       numDesigns: args.numDesigns,
+      // A session the orchestrator created: its first message is master-sent
+      // too, so it carries the same badge as anything sent later.
+      sentViaOrchestrator: args.sentViaOrchestrator,
     });
     // The first message queues directly rather than going through
     // startExecute, so its mentions are notified here instead.

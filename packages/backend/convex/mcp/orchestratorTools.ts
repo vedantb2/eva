@@ -248,7 +248,7 @@ The message is marked as sent via the master session, and the agent is registere
       return textResult({
         sessionId: created.sessionId,
         numId: created.numId,
-        repo: `${repo.owner}/${repo.name}`,
+        repo: repoRefLabel(repo),
         path: `${basePath}/sessions/${created.numId}`,
         status: "created",
       });

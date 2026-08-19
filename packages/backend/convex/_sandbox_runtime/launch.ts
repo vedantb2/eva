@@ -42,6 +42,53 @@ const CALLBACK_READY_POLL_ATTEMPTS = 60;
 const CALLBACK_READY_POLL_INTERVAL_MS = 1000;
 const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
 
+/** Cap for a runner log tail quoted into a thrown error (and thus a chat row). */
+const RUNNER_LOG_TAIL_MAX_CHARS = 2_000;
+
+/**
+ * Condenses a runner log tail before it is quoted into an error message. These
+ * errors are written straight into the chat as the failed turn's assistant
+ * bubble, and a retrying daemon repeats the same line dozens of times — one
+ * observed failure produced a 17.8KB bubble of identical "streaming heartbeat
+ * attempt N failed" lines, which is unreadable and slow to render.
+ *
+ * Collapses runs of identical lines into `line (xN)` and keeps the LAST
+ * `RUNNER_LOG_TAIL_MAX_CHARS` characters, since the tail is where the actual
+ * failure lands.
+ */
+export function condenseRunnerLogTail(log: string): string {
+  const collapsed: string[] = [];
+  // `shown` is the first line of the current run (kept verbatim, so timestamps
+  // and ports survive); `key` is its digit-masked form, used only to decide
+  // whether the next line is a repeat of the same failure.
+  let shown: string | undefined;
+  let key: string | undefined;
+  let repeats = 0;
+  const flush = () => {
+    if (shown === undefined) return;
+    collapsed.push(repeats > 1 ? `${shown} (x${repeats})` : shown);
+  };
+  for (const line of log.split("\n")) {
+    const trimmed = line.trim();
+    // Compare on the message, not the timestamps/backoff figures that differ on
+    // every retry of the same failure.
+    const normalized = trimmed.replace(/\d+/g, "#");
+    if (key !== undefined && normalized === key) {
+      repeats += 1;
+      continue;
+    }
+    flush();
+    shown = trimmed;
+    key = normalized;
+    repeats = 1;
+  }
+  flush();
+  const condensed = collapsed.join("\n").trim();
+  return condensed.length > RUNNER_LOG_TAIL_MAX_CHARS
+    ? `…${condensed.slice(-RUNNER_LOG_TAIL_MAX_CHARS)}`
+    : condensed;
+}
+
 /** Computes a scoped streaming HMAC if the deployment encryption key is available. */
 function computeStreamingHmac(entityId: string): string | null {
   const secret = process.env.ENCRYPTION_KEY;
@@ -469,7 +516,7 @@ async function waitForRunnerReady(
         10,
       );
       throw new Error(
-        `[sandbox][launchScript] runner died entityId=${entityId} spawnLock=${lock}: ${log}`,
+        `[sandbox][launchScript] runner died entityId=${entityId} spawnLock=${lock}: ${condenseRunnerLogTail(log)}`,
       );
     }
 
@@ -489,6 +536,6 @@ async function waitForRunnerReady(
     5,
   );
   throw new Error(
-    `[sandbox][launchScript] runner ready timeout entityId=${entityId}: ${log}`,
+    `[sandbox][launchScript] runner ready timeout entityId=${entityId}: ${condenseRunnerLogTail(log)}`,
   );
 }

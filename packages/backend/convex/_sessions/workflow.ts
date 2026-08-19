@@ -9,6 +9,7 @@ import {
   aiModelValidator,
   reasoningLevelValidator,
   workflowCompleteValidator,
+  getAIModelProvider,
   normalizeAIModel,
   sessionStatusValidator,
   usesChatDaemon,
@@ -213,8 +214,10 @@ export async function buildSessionPrompt(
       customInstructionsBlock,
     );
   } else {
+    const sessionProvider =
+      session.provider ?? getAIModelProvider(session.lastModel);
     const cursorMessages =
-      session.provider === "cursor"
+      sessionProvider === "cursor"
         ? await ctx.db
             .query("messages")
             .withIndex("by_parent", (q) => q.eq("parentId", session._id))

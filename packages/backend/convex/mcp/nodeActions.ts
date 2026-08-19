@@ -1385,15 +1385,21 @@ export const orchestratorGetAgentState = internalAction({
     const streamingEntityId =
       kind === "session" ? id : `${TASK_CHAT_STREAM_PREFIX}${id}`;
 
-    const [rawDoc, rawStreaming, rawMessages, rawQueued] = await Promise.all([
-      runQueryAsUser(
-        convexUrl,
-        clerkUserId,
-        kind === "session"
-          ? "_sessions/queries:get"
-          : "_agentTasks/queries:get",
-        { id },
-      ),
+    // The access check runs first, on its own. `messages:listByParent` *throws*
+    // "Not authorized" while the entity read merely returns null, so in a
+    // Promise.all the raw throw won the race and the agent saw a stack instead
+    // of the sentence below.
+    const rawDoc = await runQueryAsUser(
+      convexUrl,
+      clerkUserId,
+      kind === "session" ? "_sessions/queries:get" : "_agentTasks/queries:get",
+      { id },
+    );
+    if (rawDoc === null) {
+      throw new Error(`No ${kind} ${id} found, or you do not have access.`);
+    }
+
+    const [rawStreaming, rawMessages, rawQueued] = await Promise.all([
       runQueryAsUser(convexUrl, clerkUserId, "streaming:get", {
         entityId: streamingEntityId,
       }),
@@ -1404,10 +1410,6 @@ export const orchestratorGetAgentState = internalAction({
         parentId: id,
       }),
     ]);
-
-    if (rawDoc === null) {
-      throw new Error(`No ${kind} ${id} found, or you do not have access.`);
-    }
 
     const streaming = streamingStateSchema.parse(rawStreaming);
     const queuedMessageCount = z.array(z.unknown()).parse(rawQueued).length;

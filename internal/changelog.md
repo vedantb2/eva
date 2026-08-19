@@ -1,5 +1,15 @@
 # Changelog
 
+## Cross-user boundary verified against real data, and denials read like sentences - 2026-08-19
+
+Ninth pass, aimed at the security property the whole design rests on: the orchestrator claim skips the sandbox token's repo pin, so *only* per-user auth stands between one user's master and another user's agents. Until now that was argued from code, not observed.
+
+This deployment happens to hold 33 sessions owned by a second user across four repos, exactly one of which the orchestrator's owner can reach (`checkRepoAccessForUser` → `true` for `apps/web`, `false` for the other three). Every reach path was pointed at a session in an inaccessible repo and every one refused: `get_agent_state` → `Not authorized` from `getSessionWithAccess`/`assertMessageParentAccess`, `send_agent_message` → "No session … found, or you do not have access", `watch_agent` → denied in `orchestratorWatch`. So the claim widens *which repos* a token may name, never *whose data* the user may touch — as the plan's security model claims.
+
+One rough edge fixed while there: `get_agent_state` ran the entity read and `messages:listByParent` in one `Promise.all`, and since the message query *throws* while the entity read merely returns null, the raw `Not authorized` stack won the race and the friendly sentence was unreachable. The access check now runs first on its own, then the three detail reads in parallel — one extra round trip, in exchange for an error the agent can actually act on. Confirmed live: the same call now returns "No session … found, or you do not have access."
+
+Also closed the last two untested tool paths: `get_agent_state` against a live quick task (status/model/queue depth/transcript all correct, and a soft-deleted task correctly reports as not found), and cross-repo `create_tasks_batch` — two dependent tasks plus a project created in `apps/teams-bot` from a token pinned to `apps/web`, labelled `vvedantb/eva/teams-bot`. Probe rows retired afterwards. 836 backend tests pass; both typechecks clean.
+
 ## The orchestrator skill no longer describes behaviour that changed under it - 2026-08-19
 
 Eighth pass, auditing the one artefact never read directly: the `eva-orchestrator` skill text the master actually receives. It covered every element the plan asked for, but three statements had gone stale against today's own fixes — and a skill that is confidently wrong is worse than one that is silent.

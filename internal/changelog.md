@@ -8332,3 +8332,11 @@ Behavior per context:
 - Added `groupActivityRows` (activity-tasks-utils) and `deriveActionGroupSummary` (activity-step-label); narration rows (todos, notices, questions) stay on their own line
 - Group summaries stay muted even when a call inside failed — the failed row is still red once expanded
 - Removed the now-unused `commandKind` from `StepRowPresentation`; row icons resolve through a single `iconForStep` helper
+
+## PR Review Surfaces Cleaned Up (Cursor-style) - 2026-08-20
+
+- Status pill now leads the PR title on both the reviews page and the sandbox Review tab; open PRs get an emerald "Open" pill (previously open rendered no pill), and `statusMeta` carries the icon so wording/colour/icon cannot drift
+- Header consolidated to one secondary line (author + `base ← head` chips) with a right rail of file count, diffstat, and "Updated Xm ago"
+- Overview and Diffs tabs carry muted counts (comments / changed files) read off the existing overview payload — no new queries; truncated comment counts get a `+` suffix
+- Timeline leads with a tonal merged/closed event card (`PrLifecycleEventCard`); PR description is now a `Surface` card headed by "<author> opened this pull request · <time>" (editor extracted to `PrDescriptionEditor`)
+- Meta sidebar gained a Checks section (failing / in progress / passing / skipped counts via `countChecks`) between Reviewers and Assignees; a Previews section was skipped — no existing PR→preview-URL query, would need a new backend endpoint

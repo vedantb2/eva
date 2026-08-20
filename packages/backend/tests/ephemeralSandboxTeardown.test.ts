@@ -188,10 +188,15 @@ function ephemeralFlags(definition: string): boolean[] {
   return flags;
 }
 
+/**
+ * Sorted, because `readdirSync` returns filesystem order: the inventory below
+ * is an exact list, so an unsorted walk made it pass on one machine and fail on
+ * another with the same nine call sites in a different order.
+ */
 function convexSources(): string[] {
   const walk = (dir: string): string[] => {
     const found: string[] = [];
-    for (const entry of readdirSync(dir)) {
+    for (const entry of readdirSync(dir).toSorted()) {
       if (entry === "_generated") continue;
       const full = join(dir, entry);
       if (statSync(full).isDirectory()) found.push(...walk(full));

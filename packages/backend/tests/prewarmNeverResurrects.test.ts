@@ -234,13 +234,25 @@ function entityBranch(body: string, table: string): string {
     const nextAt = body.indexOf('if (args.entityTable === "', startAt + 1);
     return body.slice(startAt, nextAt < 0 ? undefined : nextAt);
   }
-  // The last table is the fall-through after the others, so it has no marker to
-  // anchor on. Anchor on its `normalizeId` instead: the previous heuristic
-  // (slice from the first `return null;` after the last marker) silently landed
-  // on the handler's own closing lines once the branches were reshaped, so this
-  // asserted against three lines of `});` and could never have caught a real
-  // regression here.
-  const idAt = body.indexOf(`normalizeId("${table}"`);
-  expect(idAt, `${table} has no branch`).toBeGreaterThan(-1);
-  return body.slice(idAt);
+  // The last table needs no `if`, so it is the fall-through after the others:
+  // everything past the closing brace of the final guarded branch. Found by
+  // counting braces rather than by matching an indented `return null;` — the
+  // latter matched the end of the whole handler, so this returned three lines
+  // of tail and every assertion below it passed on nothing.
+  const lastAt = body.lastIndexOf('if (args.entityTable === "');
+  expect(lastAt, `${table} has no branch`).toBeGreaterThan(-1);
+  return body.slice(afterBlock(body, lastAt));
+}
+
+/** Index just past the `}` closing the first block opened at or after `startAt`. */
+function afterBlock(source: string, startAt: number): number {
+  let depth = 0;
+  for (let at = startAt; at < source.length; at += 1) {
+    if (source[at] === "{") depth += 1;
+    else if (source[at] === "}") {
+      depth -= 1;
+      if (depth === 0) return at + 1;
+    }
+  }
+  throw new Error(`unterminated block at index ${startAt}`);
 }

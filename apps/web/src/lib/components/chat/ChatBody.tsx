@@ -34,6 +34,7 @@ import {
   firstNameFromUser,
   isOtherUserChatMessage,
   parsePendingQuestion,
+  visibleChatMessages,
   type ChatBodyMessage,
   type ChatBodyQueuedMessage,
 } from "@/lib/components/chat/chatBodyUtils";
@@ -172,14 +173,19 @@ export function ChatBody({
   onViewDiff,
   hasPendingContext,
 }: ChatBodyProps) {
-  const lastMessage = messages[messages.length - 1];
+  // Simple view hides diffs and sandbox lifecycle banners. Quick task /
+  // project / session all render through ChatBody, so this is the one gate.
+  const simpleView = useSimpleView();
+  const displayMessages = visibleChatMessages(messages, simpleView);
+
+  const lastMessage = displayMessages[displayMessages.length - 1];
   const lastMessageId = lastMessage?._id;
   // The oldest unfinished Working bubble owns the session-scoped streaming
   // row — turns run FIFO, so a newer queued placeholder must not steal a
   // still-streaming older turn's tokens (see findStreamingTargetMessage).
-  const streamingTarget = findStreamingTargetMessage(messages);
+  const streamingTarget = findStreamingTargetMessage(displayMessages);
   const streamingTargetId = streamingTarget?._id;
-  const latestAssistantMessageId = findLastAssistantMessageId(messages);
+  const latestAssistantMessageId = findLastAssistantMessageId(displayMessages);
   const { expandedByMessageId, setMessageExpanded } =
     useChangedFilesExpansion(conversationId);
 
@@ -240,16 +246,13 @@ export function ChatBody({
     setIsAnsweringQuestion(false);
   };
 
-  const messageHistory = buildMessageHistory(messages);
+  const messageHistory = buildMessageHistory(displayMessages);
 
-  const lastUserMessageIndex = findLastUserMessageIndex(messages);
+  const lastUserMessageIndex = findLastUserMessageIndex(displayMessages);
 
-  const jumpRailMessages = buildJumpRailTicks(messages);
+  const jumpRailMessages = buildJumpRailTicks(displayMessages);
 
   const currentUserId = useQuery(api.auth.me);
-  // Simple view hides diff surfaces, so the per-turn changed-files card goes
-  // with them (quick task / project / session all render through ChatBody).
-  const simpleView = useSimpleView();
   const users = useQuery(api.users.listAll);
   const firstNameByUserId = (() => {
     const map = new Map<Id<"users">, string>();
@@ -270,7 +273,7 @@ export function ChatBody({
         : undefined;
     const precedingUser =
       message.role === "assistant"
-        ? findPrecedingUserTurn(messages, message._id)
+        ? findPrecedingUserTurn(displayMessages, message._id)
         : undefined;
 
     return (
@@ -314,17 +317,17 @@ export function ChatBody({
       {preConversationContent}
       <Conversation className="flex-1 min-h-0">
         <ConversationContent className="gap-3 p-3 max-w-3xl mx-auto w-full">
-          {messages.length === 0 ? (
+          {displayMessages.length === 0 ? (
             (emptyStateOverride ?? (
               <ConversationEmptyState title={emptyStateTitle} />
             ))
           ) : lastUserMessageIndex < 0 ? (
-            messages.map(renderMessage)
+            displayMessages.map(renderMessage)
           ) : (
             <>
-              {messages.slice(0, lastUserMessageIndex).map(renderMessage)}
+              {displayMessages.slice(0, lastUserMessageIndex).map(renderMessage)}
               <ChatLastTurn>
-                {messages.slice(lastUserMessageIndex).map(renderMessage)}
+                {displayMessages.slice(lastUserMessageIndex).map(renderMessage)}
               </ChatLastTurn>
             </>
           )}

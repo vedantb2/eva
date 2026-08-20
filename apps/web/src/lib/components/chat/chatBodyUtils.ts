@@ -25,6 +25,18 @@ export type ChatBodyMessage = Omit<Doc<"messages">, "_id"> & {
 
 export type ChatBodyQueuedMessage = Doc<"queuedMessages">;
 
+/**
+ * Simple view omits sandbox lifecycle / stall banners from the transcript.
+ * Rows stay in Convex; this only affects rendering, empty-state, and
+ * last-message targeting. Execution helpers already skip `isSystemAlert`.
+ */
+export function visibleChatMessages<
+  M extends Pick<ChatBodyMessage, "isSystemAlert">,
+>(messages: M[], hideSystemAlerts: boolean): M[] {
+  if (!hideSystemAlerts) return messages;
+  return messages.filter((message) => message.isSystemAlert !== true);
+}
+
 // Boundary schema for the pending-question JSON emitted by the agent. A
 // question with any malformed field (or option) is dropped via
 // `.catch(null)` + filter, matching the previous per-item guard behaviour.

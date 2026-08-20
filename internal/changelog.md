@@ -1,10 +1,9 @@
 # Changelog
 
-<<<<<<< HEAD
-## Queued messages wait for background subagents - 2026-08-18
+## Queued messages wait for background subagents - 2026-08-20
 
 A queued message could start its turn while a backgrounded Agent/Task subagent was still working. The shared dequeue (`startNextQueuedChatMessage`) gated on `activeWorkflowId` alone, and `sessionComplete` clears that field before draining the queue — but a backgrounded subagent outlives the turn that spawned it, and the daemon opens a *synthetic* turn to process whatever it reports back, neither of which sets `activeWorkflowId`. Prod data confirms it: a session finalised its turn at `…894497` and dequeued a user message in the same millisecond, with two backgrounded agents that did not settle until 70s and 86s later, and a synthetic turn opened 367ms earlier. The dequeue now consults a shared `isSurfaceBusy` that also blocks on still-running background agents and on an open synthetic turn (checked against the message's `finishedAt`, so a crashed daemon's stale id cannot wedge the queue). Because a subagent settling is the one release no surface signals on its own, each `updateBackgroundAgents` schedules a retry drain 15s after the last agent settles — long enough for the daemon to open its synthetic turn, which the retry then defers to. Two backstops against a queue that never drains: entries stop blocking after 2h (`BACKGROUND_AGENT_QUEUE_BLOCK_MS`, matching the workflow timeout), and a fresh or resumed sandbox settles orphaned entries next to the existing `markAllRunningExited`. Fix lives in the shared queue helper, so sessions, task chat and project chat all get it.
-=======
+
 ## A quick task's first run reads as a chat turn, not a timeline accordion - 2026-08-20
 
 The quick task detail timeline used to open with a collapsed run accordion whose only real content — the activity log and result summary — duplicated what the sandbox chat presents for every later turn. That first run now renders inside the sandbox chat as an ordinary conversation opener: the task title + description as the user prompt (with the task's image attachments and the run's model snapshot), and the run's activity log + summary as the assistant reply, complete with the "Worked for N minutes" fold, changed-files card, and duration meta. The detail timeline hides that same run.
@@ -44,7 +43,6 @@ Project 3 of evalucom/carepulse-ts ("eProcurement admin side KPIs") could not pu
 `synchronizeBranchForPublish` classified local-vs-`origin/<branch>` divergence and, for the both-moved case, ran `git rebase origin/<branch>`. That is right when the local-only commits are the turn's own handful. It is wrong the moment a turn merges the base branch in, which is exactly what this one was asked to do: `git merge origin/staging` makes every base commit since the fork local-only, so the rebase flattened the merge and replayed 302 commits onto the remote tip — including staging's own Mantine 8 → 9.3 bump, which conflicts with the branch's `package.json`. The rebase aborted (by design, to leave the sandbox recoverable), the push never ran, and the next turn reproduced it identically because nothing about the sandbox was wrong.
 
 Both publish paths now merge: `git merge --no-edit <remoteRef>` with `git merge --abort` on conflict in `_sandbox_runtime/git.ts`, and the same swap in the pre-completion durability push (`callback-src/runtime/turnPersist.ts`), whose `synchronizeForPush` carried a copy of the same three-case classifier. A merge conflicts only where the two tips genuinely touch the same lines; it never replays upstream history. The fast-forward and already-ahead cases are untouched. Verified against the stuck sandbox itself: the plain merge the new code would run reports "Automatic merge went well" on the exact refs the rebase failed on. Callback bundle rebuilt; the publish contract test now pins merge-not-rebase on both paths.
->>>>>>> origin/main
 
 ## Sleep button explains itself mid-turn, project task split is draggable - 2026-08-18
 

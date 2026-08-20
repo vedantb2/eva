@@ -11,37 +11,110 @@ const startupSource = readSource("_sandbox_runtime/sessions.ts");
 const lifecycleSource = readSource("_sandbox_runtime/lifecycle.ts");
 
 /**
- * Convex does not auto-retry actions. A "Transient error while executing action"
- * on `finalizeStopSandbox` therefore left the session on `"stopping"` forever,
- * with no button that could recover it (fix 37cdeb0b). The fix pairs every stop
- * with a delayed re-issue, so the invariant is about *pairing*, not about either
- * schedule on its own.
+ * The three entities that own a sandbox. Sessions had the pairing below first;
+ * tasks and projects went without it until prod project 3 sat on `"stopping"`
+ * indefinitely (18 Aug 2026, fix 67b0826e), so the invariant is asserted per
+ * entity rather than on the session path alone.
  */
-describe("every session stop schedules its own recovery", () => {
-  const scheduler = functionBody(
-    sandboxSource,
-    "export async function scheduleFinalizeStop(",
-  );
+const stopPaths = [
+  {
+    entity: "session",
+    module: "_sessions/sandbox.ts",
+    schedulerDeclaration: "export async function scheduleFinalizeStop(",
+    finalizeRef: "internal._sessions.sandbox.finalizeStopSandbox",
+    recoverRef: "internal._sessions.sandbox.recoverStuckStopping",
+    stoppingGuard: 'session.status !== "stopping"',
+  },
+  {
+    entity: "task",
+    module: "_agentTasks/sandbox.ts",
+    schedulerDeclaration: "export async function scheduleFinalizeStopTask(",
+    finalizeRef: "internal._agentTasks.sandbox.finalizeStopTaskSandbox",
+    recoverRef: "internal._agentTasks.sandbox.recoverStuckStopping",
+    stoppingGuard: 'task.reviewTaskSandboxStatus !== "stopping"',
+  },
+  {
+    entity: "project",
+    module: "_projects/sandbox.ts",
+    schedulerDeclaration: "export async function scheduleFinalizeStopProject(",
+    finalizeRef: "internal._projects.sandbox.finalizeStopProjectSandbox",
+    recoverRef: "internal._projects.sandbox.recoverStuckStopping",
+    stoppingGuard: 'project.reviewProjectSandboxStatus !== "stopping"',
+  },
+] as const;
 
-  test("issues the finalize immediately", () => {
-    expect(scheduler).toContain(
-      "internal._sessions.sandbox.finalizeStopSandbox",
-    );
-    expect(scheduler).toContain("await ctx.scheduler.runAfter(\n    0,");
-  });
+/**
+ * Convex does not auto-retry actions. A "Transient error while executing action"
+ * on the finalize action therefore left the entity on `"stopping"` forever,
+ * with no button that could recover it (fix 37cdeb0b, generalised in 67b0826e).
+ * The fix pairs every stop with a delayed re-issue, so the invariant is about
+ * *pairing*, not about either schedule on its own.
+ */
+describe.each(stopPaths)(
+  "every $entity stop schedules its own recovery",
+  (path) => {
+    const source = readSource(path.module);
+    const scheduler = functionBody(source, path.schedulerDeclaration);
 
-  test("issues a delayed recovery alongside it", () => {
-    expect(scheduler).toContain(
-      "internal._sessions.sandbox.recoverStuckStopping",
-    );
-    expect(scheduler).toContain("STUCK_STOPPING_RECOVER_MS");
-  });
+    test("issues the finalize immediately", () => {
+      expect(scheduler).toContain(path.finalizeRef);
+      expect(scheduler).toContain("await ctx.scheduler.runAfter(\n    0,");
+    });
 
-  /**
-   * A zero delay would race the finalize it is meant to backstop. Sessions,
-   * tasks and projects share one constant, so it is declared in `_sandbox`
-   * rather than in any one of their modules.
-   */
+    test("issues a delayed recovery alongside it", () => {
+      expect(scheduler).toContain(path.recoverRef);
+      expect(scheduler).toContain("STUCK_STOPPING_RECOVER_MS");
+    });
+
+    /**
+     * The gap this test was written for: idle auto-stop set `"stopping"` and
+     * scheduled the finalize itself, so a transient wedged it with no recovery.
+     */
+    test("nothing schedules the finalize outside its own module", () => {
+      const callers = convexFiles()
+        .filter((file) => file !== path.module)
+        .filter((file) => readSource(file).includes(path.finalizeRef));
+      expect(
+        callers,
+        `schedule stops via ${path.schedulerDeclaration.slice("export async function ".length)}) instead`,
+      ).toEqual([]);
+    });
+
+    /**
+     * Same rule inside the module, which is where the wedge actually came from:
+     * the user Stop mutation and the auto-stop sweep must both go through the
+     * scheduler helper, so the only two places that name the finalize are that
+     * helper and the recovery that re-issues it.
+     */
+    test("only the scheduler and its recovery reach the finalize", () => {
+      const occurrences = source.split(path.finalizeRef).length - 1;
+      expect(
+        occurrences,
+        "a stop path is scheduling the finalize without pairing a recovery",
+      ).toBe(2);
+    });
+
+    /** Recovery has to be a no-op once the stop it backstops has landed. */
+    test("recovery only fires while the entity is still stopping", () => {
+      const body = definitionBody(source, "recoverStuckStopping");
+      const guardAt = body.indexOf(path.stoppingGuard);
+      expect(
+        guardAt,
+        "the stopping guard moved or was renamed",
+      ).toBeGreaterThan(-1);
+      expect(body.indexOf("return null;", guardAt)).toBeLessThan(
+        body.indexOf("ctx.scheduler.runAfter("),
+      );
+    });
+  },
+);
+
+/**
+ * A zero delay would race the finalize it is meant to backstop. Sessions, tasks
+ * and projects share one constant, so it is declared in `_sandbox` rather than
+ * in any one of their modules — and each of them has to use that one.
+ */
+describe("the recovery delay is shared and non-zero", () => {
   test("waits before re-issuing", () => {
     const declaration = stopRecoverySource.match(
       /const STUCK_STOPPING_RECOVER_MS = ([\d_]+);/,
@@ -53,32 +126,9 @@ describe("every session stop schedules its own recovery", () => {
     expect(Number(declaration?.[1].replaceAll("_", ""))).toBeGreaterThan(0);
   });
 
-  /**
-   * The gap this test was written for: idle auto-stop set `"stopping"` and
-   * scheduled the finalize itself, so a transient wedged it with no recovery.
-   */
-  test("nothing schedules the finalize outside its own module", () => {
-    const callers = convexFiles()
-      .filter((path) => path !== "_sessions/sandbox.ts")
-      .filter((path) =>
-        readSource(path).includes(
-          "internal._sessions.sandbox.finalizeStopSandbox",
-        ),
-      );
-    expect(callers, "schedule stops via scheduleFinalizeStop instead").toEqual(
-      [],
-    );
-  });
-
-  /** Recovery has to be a no-op once the stop it backstops has landed. */
-  test("recovery only fires while the session is still stopping", () => {
-    const body = definitionBody(sandboxSource, "recoverStuckStopping");
-    const guardAt = body.indexOf('session.status !== "stopping"');
-    expect(guardAt, "the stopping guard moved or was renamed").toBeGreaterThan(
-      -1,
-    );
-    expect(body.indexOf("return null;", guardAt)).toBeLessThan(
-      body.indexOf("ctx.scheduler.runAfter("),
+  test.each(stopPaths)("$entity imports it rather than its own", (path) => {
+    expect(readSource(path.module)).toContain(
+      'STUCK_STOPPING_RECOVER_MS } from "',
     );
   });
 });

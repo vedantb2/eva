@@ -8,7 +8,12 @@ import {
 } from "@/lib/components/chat/ChangedFilesCard";
 import { z } from "zod";
 
-export type ChatBodyMessage = Doc<"messages"> & {
+// `_id` is widened to `string` so callers can prepend client-built synthetic
+// turns (the quick task's first-run activity in the sandbox chat) without
+// forging a branded id. Real docs stay assignable; nothing in the chat tree
+// feeds `_id` back into Convex.
+export type ChatBodyMessage = Omit<Doc<"messages">, "_id"> & {
+  _id: string;
   media?: { url: string | null; contentType: string | null }[];
   /** @deprecated Prefer `attachments` — kept for optimistic/local messages. */
   attachmentUrls?: (string | null)[];

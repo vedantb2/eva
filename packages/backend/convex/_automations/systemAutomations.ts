@@ -32,7 +32,7 @@ export const DAILY_STANDUP_KEY = "daily-standup";
  */
 const DAILY_STANDUP_PROMPT = `Write the daily standup: a short, skimmable changelog of what shipped in this app over the last working day.
 
-Gather the raw material with git: \`git log --since='36 hours ago' --pretty=format:'%h %ad %s' --date=short\`. If that window is empty, use the most recent day that has commits and say which day you covered. Read the diffs of the commits that matter before describing them.
+Gather the raw material with git. Cover everything since the previous working day: \`git log --since='36 hours ago' --pretty=format:'%h %ad %s' --date=short\`, but on a Monday use \`--since='4 days ago'\` so Friday and the weekend are included. If the window is empty, use the most recent day that has commits and say which day you covered. Read the diffs of the commits that matter before describing them.
 
 Format the deliverable as markdown:
 - Start with one bold line summarising the day in plain language
@@ -57,7 +57,7 @@ export const SYSTEM_AUTOMATIONS: ReadonlyArray<SystemAutomationDefinition> = [
     key: DAILY_STANDUP_KEY,
     title: "Daily standup",
     description: DAILY_STANDUP_PROMPT,
-    defaultCronSchedule: "30 6 * * *",
+    defaultCronSchedule: "0 8 * * 1-5",
     readOnly: true,
     actionsEnabled: false,
   },

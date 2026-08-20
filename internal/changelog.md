@@ -8345,7 +8345,7 @@ Behavior per context:
 
 ## Today Page + Daily Standup System Automation - 2026-08-20
 
-- Added a "Daily standup" system automation to the Hub catalog (`daily-standup`, read-only, 06:30 UTC) with a real prompt: skimmable markdown standup of the last working day's commits, themed headings, ~150 words
+- Added a "Daily standup" system automation to the Hub catalog (`daily-standup`, read-only, `0 8 * * 1-5` — 08:00 UTC on weekdays) with a real prompt: skimmable markdown standup of the last working day's commits, themed headings, ~150 words; Monday runs widen the git window to 4 days so Friday and the weekend are covered
 - New `convex/today.ts`: `isStandupEnabled` (sidebar gate) and `listStandups` (published runs feed), both matched by `systemKey` via the `by_repo` index — unlike the title-matched global changelog
 - New per-app `/today` route renders standup runs as a changelog timeline (Streamdown, Today/Yesterday headings); empty states offer one-click install or explain the pending first run
 - "Today" tab appears at the top of the sidebar Ship group only while the automation is installed and enabled; page stays reachable by URL so history survives a pause

@@ -13,6 +13,9 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  Tabs,
+  TabsList,
+  TabsTrigger,
 } from "@eva/ui";
 import {
   IconGitPullRequest,
@@ -21,7 +24,6 @@ import {
   IconHammer,
   IconPlayerPlay,
   IconPlayerStop,
-  IconTerminal2,
   IconLoader2,
   IconChevronDown,
   IconCalendarClock,
@@ -31,12 +33,19 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "@eva/shared/dates";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
+import { SANDBOX_STATUS_STYLES } from "@/lib/components/sandbox/sandboxStatusStyles";
 import type { TaskStatus } from "../TaskStatusBadge";
 import { SchedulePopover } from "../SchedulePopover";
 
 type RunDoc = NonNullable<
   FunctionReturnType<typeof api.agentRuns.listByTask>
 >[number];
+
+export type QuickTaskSurface = "task" | "sandbox";
+
+function isQuickTaskSurface(value: string): value is QuickTaskSurface {
+  return value === "task" || value === "sandbox";
+}
 
 interface TaskFooterProps {
   taskId: Id<"agentTasks">;
@@ -59,7 +68,7 @@ interface TaskFooterProps {
   canCreatePr: boolean;
   isCreatingPr: boolean;
   onCreatePr: () => void;
-  onViewSandbox: () => void;
+  onSurfaceChange: (surface: QuickTaskSurface) => void;
   onStopSandbox: () => void;
   isSandboxViewActive?: boolean;
   onRunStartupCommands: () => void;
@@ -92,7 +101,7 @@ export function TaskFooter({
   canCreatePr,
   isCreatingPr,
   onCreatePr,
-  onViewSandbox,
+  onSurfaceChange,
   onStopSandbox,
   isSandboxViewActive = false,
   onRunStartupCommands,
@@ -117,6 +126,13 @@ export function TaskFooter({
     status !== "todo" && status !== "in_progress" && status !== undefined;
   const showRunDevServer = isSandboxActive && canStartSandbox;
   const showRunBackgroundCommands = isSandboxActive && canStartSandbox;
+  const sandboxTabStatus = isSandboxStopping
+    ? "stopping"
+    : isSandboxStarting && !isSandboxActive
+      ? "starting"
+      : isSandboxActive
+        ? "active"
+        : null;
   const hasSandboxCommandItems =
     canStartSandbox || showRunDevServer || showRunBackgroundCommands;
   const hasPrLinkItems =
@@ -326,37 +342,35 @@ export function TaskFooter({
             </Button>
           ) : null}
           {showViewSandbox && (
-            <Button
-              variant="secondary"
-              size={buttonSize}
-              onClick={onViewSandbox}
-              disabled={isSandboxStopping}
-              className={
-                isSandboxViewActive || isSandboxActive
-                  ? "border-success/35 bg-success/10 text-success hover:border-success/50 hover:bg-success/15 hover:text-success"
-                  : undefined
-              }
+            <Tabs
+              value={isSandboxViewActive ? "sandbox" : "task"}
+              onValueChange={(value) => {
+                if (isQuickTaskSurface(value)) onSurfaceChange(value);
+              }}
             >
-              {(isSandboxStarting && !isSandboxActive) || isSandboxStopping ? (
-                <IconLoader2 size={iconSize} className="animate-spin" />
-              ) : (
-                <IconTerminal2 size={iconSize} />
-              )}
-              {isSandboxActive && !isSandboxViewActive && (
-                <span className="h-1.5 w-1.5 rounded-full bg-success" />
-              )}
-              <span className="hidden sm:inline">
-                {isSandboxStopping
-                  ? "Stopping..."
-                  : isSandboxStarting && !isSandboxActive
-                    ? "Starting..."
-                    : isSandboxViewActive
-                      ? "Back to Details"
-                      : isSandboxActive
-                        ? "View Sandbox · Active"
-                        : "View Sandbox"}
-              </span>
-            </Button>
+              <TabsList
+                size="sm"
+                className="tabs-segmented"
+                aria-label="Task or sandbox"
+              >
+                <TabsTrigger value="task" className="px-2.5 py-1 text-xs">
+                  Task
+                </TabsTrigger>
+                <TabsTrigger
+                  value="sandbox"
+                  className="gap-1.5 px-2.5 py-1 text-xs"
+                >
+                  Sandbox
+                  {sandboxTabStatus ? (
+                    <span
+                      className={`size-2 shrink-0 rounded-full ${SANDBOX_STATUS_STYLES[sandboxTabStatus].dot}`}
+                      title={SANDBOX_STATUS_STYLES[sandboxTabStatus].label}
+                      aria-label={SANDBOX_STATUS_STYLES[sandboxTabStatus].label}
+                    />
+                  ) : null}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           )}
         </div>
       </div>

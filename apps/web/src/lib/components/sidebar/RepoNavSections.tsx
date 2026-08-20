@@ -3,7 +3,8 @@
 import { Link } from "@tanstack/react-router";
 import type { ComponentType } from "react";
 import type { FunctionReturnType } from "convex/server";
-import { IconChevronRight } from "@tabler/icons-react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
+import { IconChevronRight, IconSunrise } from "@tabler/icons-react";
 import {
   DocumentsIcon,
   ReviewsIcon,
@@ -13,7 +14,7 @@ import {
   StatsIcon,
   TestingArenaIcon,
 } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
-import { type api } from "@eva/backend";
+import { api } from "@eva/backend";
 import { Button, Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";
 import { ActiveTasksBadge } from "@/lib/components/sidebar/ActiveTasksPopover";
 import { BuildingProjectsBadge } from "@/lib/components/sidebar/BuildingProjectsBadge";
@@ -74,12 +75,27 @@ export function RepoNavSections({
 }: RepoNavSectionsProps) {
   const isDev = import.meta.env.DEV;
   const simpleView = useSimpleView();
+  // Today only exists while the "Daily standup" system automation is on, so
+  // the tab appears with the install and disappears with the uninstall.
+  const standupEnabled = useQuery(
+    api.today.isStandupEnabled,
+    repo ? { repoId: repo._id } : "skip",
+  );
 
   const repoNavigation = (() => {
     const allGroups: RepoMainNavGroup[] = [
       {
         label: "Ship",
         items: [
+          ...(standupEnabled === true
+            ? [
+                {
+                  name: "Today",
+                  href: `${repoBasePath}/today`,
+                  icon: IconSunrise,
+                } satisfies RepoMainNavItem,
+              ]
+            : []),
           {
             name: "Projects",
             href: `${repoBasePath}/projects`,

@@ -14,6 +14,7 @@ export const KNOWN_REPO_SUB_PAGES = new Set([
   "settings",
   "testing-arena",
   "stats",
+  "today",
   "automations",
   "inbox",
   "drafts",

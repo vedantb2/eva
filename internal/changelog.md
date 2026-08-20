@@ -8342,3 +8342,10 @@ Behavior per context:
 - Added `groupActivityRows` (activity-tasks-utils) and `deriveActionGroupSummary` (activity-step-label); narration rows (todos, notices, questions) stay on their own line
 - Group summaries stay muted even when a call inside failed — the failed row is still red once expanded
 - Removed the now-unused `commandKind` from `StepRowPresentation`; row icons resolve through a single `iconForStep` helper
+
+## Today Page + Daily Standup System Automation - 2026-08-20
+
+- Added a "Daily standup" system automation to the Hub catalog (`daily-standup`, read-only, 06:30 UTC) with a real prompt: skimmable markdown standup of the last working day's commits, themed headings, ~150 words
+- New `convex/today.ts`: `isStandupEnabled` (sidebar gate) and `listStandups` (published runs feed), both matched by `systemKey` via the `by_repo` index — unlike the title-matched global changelog
+- New per-app `/today` route renders standup runs as a changelog timeline (Streamdown, Today/Yesterday headings); empty states offer one-click install or explain the pending first run
+- "Today" tab appears at the top of the sidebar Ship group only while the automation is installed and enabled; page stays reachable by URL so history survives a pause

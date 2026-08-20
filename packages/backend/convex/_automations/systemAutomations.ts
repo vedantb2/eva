@@ -20,12 +20,44 @@ export interface SystemAutomationDefinition {
   actionsEnabled: boolean;
 }
 
+/**
+ * Stable key of the daily standup install. The Today page and its sidebar tab
+ * key off this, so it must never change once installs exist.
+ */
+export const DAILY_STANDUP_KEY = "daily-standup";
+
+/**
+ * The first line doubles as the Hub card blurb (cards line-clamp to two
+ * lines), so it must read as a description before the instructions start.
+ */
+const DAILY_STANDUP_PROMPT = `Write the daily standup: a short, skimmable changelog of what shipped in this app over the last working day.
+
+Gather the raw material with git: \`git log --since='36 hours ago' --pretty=format:'%h %ad %s' --date=short\`. If that window is empty, use the most recent day that has commits and say which day you covered. Read the diffs of the commits that matter before describing them.
+
+Format the deliverable as markdown:
+- Start with one bold line summarising the day in plain language
+- Group work under a few short \`###\` headings by theme (features, fixes, infrastructure — whatever fits the day), each with 1-4 bullets
+- Each bullet is one sentence on the user-visible outcome, not the implementation; no file paths, no commit hashes
+- Skip merge commits, version bumps, lockfile churn and formatting-only changes entirely
+- If something needs a teammate's attention (a revert, a hotfix, a breaking change), end with a single **Heads up:** line
+- Keep the whole deliverable under ~150 words
+
+If nothing meaningful shipped, the deliverable is the single line: \`No meaningful changes in the last day.\``;
+
 export const SYSTEM_AUTOMATIONS: ReadonlyArray<SystemAutomationDefinition> = [
   {
     key: "daily-changelog",
     title: "Daily changelog",
     description: "Produce a changelog",
     defaultCronSchedule: "0 7 * * *",
+    readOnly: true,
+    actionsEnabled: false,
+  },
+  {
+    key: DAILY_STANDUP_KEY,
+    title: "Daily standup",
+    description: DAILY_STANDUP_PROMPT,
+    defaultCronSchedule: "30 6 * * *",
     readOnly: true,
     actionsEnabled: false,
   },

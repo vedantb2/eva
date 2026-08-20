@@ -4,10 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Button, Spinner } from "@eva/ui";
 import { IconArrowUpRight, IconInbox } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
-import {
-  getNotificationAppearance,
-  type Notification,
-} from "@/lib/components/notifications/notification-config";
+import { type Notification } from "@/lib/components/notifications/notification-config";
 import { NotificationSourceAvatar } from "@/lib/components/inbox/NotificationRow";
 import {
   MarkdownMentionText,
@@ -106,7 +103,6 @@ export function NotificationDetailPane({
     );
   }
 
-  const appearance = getNotificationAppearance(notification);
   const sourceLabel = repo ? repoDisplayLabel(repo) : undefined;
 
   return (
@@ -115,13 +111,13 @@ export function NotificationDetailPane({
         <NotificationSourceAvatar notification={notification} repo={repo} />
         <div className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-sm font-medium text-foreground">
-            {sourceLabel ?? appearance.label}
+            {notification.title}
           </span>
           <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-            {/* Without a repo the top line already shows the type label. */}
+            {/* No type label here — the avatar badge already carries the type. */}
             {sourceLabel ? (
               <>
-                {appearance.label}
+                {sourceLabel}
                 <span aria-hidden>·</span>
               </>
             ) : null}

@@ -2,8 +2,9 @@
 
 ## Linear-style two-pane inbox - 2026-08-20
 
-- The inbox is now a resizable list/detail split: clicking a notification selects it and shows its full content in a right-hand pane instead of navigating away.
-- The detail pane surfaces the complete notification message (previously never shown anywhere in the UI), the source repo and type, and a card linking to the task/project/session/doc the notification is about.
+- The inbox is now a resizable list/detail split: clicking a notification selects it and renders the linked page live in a right-hand pane instead of navigating away.
+- The preview pane embeds the app itself in a chromeless mode (same-origin iframe, no sidebar/top bar/overlays); switching notifications navigates the embedded router in place via postMessage, so there is no reload per selection.
+- Notifications without a link fall back to showing the full notification message (previously never shown anywhere in the UI); an Open button breaks out of the inbox to the full-window page.
 - Selecting a notification marks it read in place; arrow keys step the list, Enter opens the linked entity, Escape clears the selection — so the inbox can be triaged without leaving it.
 - The selected notification lives in the URL (`?notification=`), making a specific inbox item shareable and reload-safe.
 - The global `/inbox` route became a viewport-bound, full-bleed app surface (like the repo shell) rather than a scrolling document page, so both panes scroll independently.

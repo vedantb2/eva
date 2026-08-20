@@ -1,6 +1,7 @@
 "use client";
 
-import { Button } from "@eva/ui";
+import { useEffect, useRef, useState } from "react";
+import { Button, Spinner } from "@eva/ui";
 import { IconArrowUpRight, IconInbox } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import {
@@ -12,35 +13,69 @@ import {
   MarkdownMentionText,
   MARKDOWN_PROSE_CLASS,
 } from "@/lib/components/chat/MarkdownMentionText";
+import { embedReadyMessage } from "@/lib/embed/embedded";
 import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
 import { repoHref, toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 /**
- * Human label for where a notification's href leads, parsed from the path the
- * backend builds in `createNotification` (task/project/session/doc detail
- * routes keyed by numId). Unrecognised paths fall back to a generic label.
+ * The linked page itself, embedded as a same-origin iframe running the app in
+ * chromeless mode (see `lib/embed/embedded.ts`). One iframe persists across
+ * selections: once the embedded app announces `eva:embed-ready`, switching
+ * notifications posts an `eva:embed-navigate` message and the embedded router
+ * navigates in place — no SPA reboot per selection. Until that handshake (or
+ * if it never arrives), switches fall back to swapping the iframe src.
  */
-function describeNotificationHref(href: string): string {
-  const pathname = href.split("?")[0]?.split("#")[0] ?? href;
-  const segments = pathname.split("/").filter(Boolean);
-  const after = (section: string): string[] => {
-    const i = segments.indexOf(section);
-    return i >= 0 ? segments.slice(i + 1) : [];
-  };
-  const isNumId = (s: string | undefined): s is string =>
-    s !== undefined && /^\d+$/.test(s);
+function NotificationPagePreview({ href }: { href: string }) {
+  const frameRef = useRef<HTMLIFrameElement>(null);
+  const readyRef = useRef(false);
+  const [booted, setBooted] = useState(false);
+  // The src only seeds the first document; later hrefs arrive via postMessage.
+  const [initialHref] = useState(href);
 
-  const projects = after("projects");
-  if (isNumId(projects[0]) && isNumId(projects[1]))
-    return `Task #${projects[1]}`;
-  if (isNumId(projects[0])) return `Project #${projects[0]}`;
-  const quickTasks = after("quick-tasks");
-  if (isNumId(quickTasks[0])) return `Quick task #${quickTasks[0]}`;
-  const sessions = after("sessions");
-  if (isNumId(sessions[0])) return `Session #${sessions[0]}`;
-  const docs = after("docs");
-  if (isNumId(docs[0])) return `Doc #${docs[0]}`;
-  return "Linked page";
+  useEffect(() => {
+    const frame = frameRef.current;
+    if (!frame) return;
+    if (readyRef.current && frame.contentWindow) {
+      frame.contentWindow.postMessage(
+        { type: "eva:embed-navigate", href },
+        window.location.origin,
+      );
+      return;
+    }
+    if (frame.getAttribute("src") !== href) {
+      setBooted(false);
+      frame.setAttribute("src", href);
+    }
+  }, [href]);
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.source !== frameRef.current?.contentWindow) return;
+      if (embedReadyMessage.safeParse(event.data).success) {
+        readyRef.current = true;
+      }
+    };
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, []);
+
+  return (
+    <div className="relative min-h-0 flex-1">
+      {!booted ? (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Spinner size="lg" />
+        </div>
+      ) : null}
+      <iframe
+        ref={frameRef}
+        src={initialHref}
+        onLoad={() => setBooted(true)}
+        title="Notification page preview"
+        className="absolute inset-0 size-full border-0 bg-background"
+      />
+    </div>
+  );
 }
 
 interface NotificationDetailPaneProps {
@@ -50,9 +85,10 @@ interface NotificationDetailPaneProps {
 }
 
 /**
- * Right column of the two-pane inbox: the selected notification in full —
- * source, type, complete (unclipped) message, and a card linking to the
- * entity the notification is about. The list rows truncate all of this.
+ * Right column of the two-pane inbox: a slim header naming the notification's
+ * source and type, above the linked page rendered live in an embedded frame.
+ * "Open" leaves the inbox for the full-window page. Notifications without a
+ * link fall back to showing the notification's own message in full.
  */
 export function NotificationDetailPane({
   notification,
@@ -98,7 +134,9 @@ export function NotificationDetailPane({
         {notification.href ? (
           <Button
             size="sm"
+            variant="outline"
             onClick={() => onOpen(notification)}
+            title="Open as full page"
             className="h-7 gap-1 text-xs"
           >
             Open
@@ -106,59 +144,44 @@ export function NotificationDetailPane({
           </Button>
         ) : null}
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto scrollbar">
-        <div className="mx-auto w-full max-w-2xl space-y-4 px-6 py-6">
-          <div className="space-y-1">
-            <h2 className="text-lg font-semibold tracking-[-0.01em] text-balance text-foreground">
-              {notification.title}
-            </h2>
-            {notification.contextLabel ? (
-              <p className="text-sm text-muted-foreground">
-                {notification.contextLabel}
-              </p>
+      {notification.href ? (
+        <NotificationPagePreview href={notification.href} />
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto scrollbar">
+          <div className="mx-auto w-full max-w-2xl space-y-4 px-6 py-6">
+            <div className="space-y-1">
+              <h2 className="text-lg font-semibold tracking-[-0.01em] text-balance text-foreground">
+                {notification.title}
+              </h2>
+              {notification.contextLabel ? (
+                <p className="text-sm text-muted-foreground">
+                  {notification.contextLabel}
+                </p>
+              ) : null}
+            </div>
+            {notification.message ? (
+              repo && notification.repoId ? (
+                // Repo-scoped messages can carry `@[Label](id)` mention tokens
+                // (comment/mention notifications), so they get the chip-aware
+                // renderer the rest of the app uses for comment bodies.
+                <MarkdownMentionText
+                  text={notification.message}
+                  repoBasePath={toInternalRepoHref(
+                    repoHref(repo.owner, repo.name, repo.rootDirectory),
+                  )}
+                  repoId={notification.repoId}
+                  atKind="user"
+                  className={MARKDOWN_PROSE_CLASS}
+                />
+              ) : (
+                <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                  {notification.message}
+                </p>
+              )
             ) : null}
           </div>
-          {notification.message ? (
-            repo && notification.repoId ? (
-              // Repo-scoped messages can carry `@[Label](id)` mention tokens
-              // (comment/mention notifications), so they get the chip-aware
-              // renderer the rest of the app uses for comment bodies.
-              <MarkdownMentionText
-                text={notification.message}
-                repoBasePath={toInternalRepoHref(
-                  repoHref(repo.owner, repo.name, repo.rootDirectory),
-                )}
-                repoId={notification.repoId}
-                atKind="user"
-                className={MARKDOWN_PROSE_CLASS}
-              />
-            ) : (
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-                {notification.message}
-              </p>
-            )
-          ) : null}
-          {notification.href ? (
-            <button
-              onClick={() => onOpen(notification)}
-              className="motion-press group flex w-full items-center gap-3 rounded-surface bg-muted px-4 py-3 text-left transition-colors hover:bg-muted/70 active:scale-[0.99]"
-            >
-              <div className="flex min-w-0 flex-1 flex-col">
-                <span className="text-sm font-medium text-foreground">
-                  {describeNotificationHref(notification.href)}
-                </span>
-                <span className="truncate text-xs text-muted-foreground">
-                  {notification.href}
-                </span>
-              </div>
-              <IconArrowUpRight
-                size={16}
-                className="shrink-0 text-muted-foreground transition-colors group-hover:text-foreground"
-              />
-            </button>
-          ) : null}
         </div>
-      </div>
+      )}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { useChromeSessionTabsActive } from "@/lib/components/sidebar/session-tab
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { RepoProvider, RepoGate } from "@/lib/contexts/RepoContext";
 import { LiveCursors } from "@/lib/components/LiveCursors";
+import { IS_EMBEDDED } from "@/lib/embed/embedded";
 import { cn } from "@eva/ui";
 
 export const Route = createFileRoute("/_repo/$owner/$repo")({
@@ -22,9 +23,16 @@ function MainContent({ children }: { children: ReactNode }) {
   return (
     <div
       className={cn(
-        "relative flex h-screen flex-col overflow-hidden pt-14 lg:pt-0",
-        // Default 20rem matches prior lg:pl-80 until localStorage hydrates.
-        railOnly ? "lg:pl-16" : "lg:pl-(--eva-sidebar-width,20rem)",
+        "relative flex h-screen flex-col overflow-hidden",
+        // Embedded documents (inbox preview pane) have no sidebar or mobile
+        // top bar to pad for. Default 20rem matches prior lg:pl-80 until
+        // localStorage hydrates.
+        IS_EMBEDDED
+          ? null
+          : [
+              "pt-14 lg:pt-0",
+              railOnly ? "lg:pl-16" : "lg:pl-(--eva-sidebar-width,20rem)",
+            ],
       )}
     >
       <div className="relative flex h-full flex-col overflow-hidden bg-background">
@@ -52,7 +60,8 @@ function RepoLayoutInner() {
           </div>
         </RepoGate>
       </MainContent>
-      <LiveCursors />
+      {/* The host window already draws cursors; a second layer would double them. */}
+      {IS_EMBEDDED ? null : <LiveCursors />}
     </RepoProvider>
   );
 }

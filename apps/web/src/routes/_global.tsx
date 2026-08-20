@@ -11,6 +11,7 @@ import {
 } from "@/lib/components/sidebar/homePaths";
 import { SessionChromeTabsBar } from "@/lib/components/sidebar/session-tabs/SessionChromeTabsBar";
 import { useChromeSessionTabsActive } from "@/lib/components/sidebar/session-tabs/useChromeSessionTabs";
+import { IS_EMBEDDED } from "@/lib/embed/embedded";
 import { cn } from "@eva/ui";
 
 export const Route = createFileRoute("/_global")({
@@ -54,10 +55,11 @@ function GlobalMainContent() {
   return (
     <div
       className={cn(
-        // No padding transition: animating pl-* during route changes counts as CLS.
-        "relative flex flex-col pt-14 lg:pt-0",
+        "relative flex flex-col",
         isInbox ? "h-screen overflow-hidden" : "min-h-screen",
-        paddingClass,
+        // No padding transition: animating pl-* during route changes counts as CLS.
+        // Embedded documents have no sidebar or mobile top bar to pad for.
+        IS_EMBEDDED ? null : ["pt-14 lg:pt-0", paddingClass],
       )}
     >
       <div

@@ -24,6 +24,7 @@ import { StartupCommandsConfirmDialog } from "./_components/StartupCommandsConfi
 import { RunDevServerConfirmDialog } from "./_components/RunDevServerConfirmDialog";
 import { TaskSandboxPanel } from "./TaskSandboxPanel";
 import { TaskSandboxChatPanel } from "./TaskSandboxChatPanel";
+import { findFirstRunChatTurnRun } from "./firstRunChatTurn";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import {
   SandboxWorkspace,
@@ -186,6 +187,13 @@ export function TaskDetailInline({
 
   const isQuickTask = task.projectId === undefined;
   const isSandboxViewActive = showSandbox;
+
+  // A quick task's settled first run renders as the opening chat turn in the
+  // sandbox view instead of a timeline accordion (see firstRunChatTurn.ts).
+  const firstRunInChat = isQuickTask ? findFirstRunChatTurnRun(runs) : undefined;
+  const timelineRuns = firstRunInChat
+    ? runs?.filter((run) => run._id !== firstRunInChat._id)
+    : runs;
 
   const routeSandboxTab: TaskRouteSandboxTab =
     routing?.mode === "quick-sandbox" ? routing.quick.sandboxTab : "preview";
@@ -352,7 +360,7 @@ export function TaskDetailInline({
                       taskId={taskId}
                       createdAt={task.createdAt}
                       creatorUser={creatorUser}
-                      runs={runs}
+                      runs={timelineRuns}
                       comments={comments}
                       taskActivity={taskActivity}
                       users={users}

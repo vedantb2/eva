@@ -112,6 +112,24 @@ async function finalizeOpenSyntheticTurn(
   await ctx.db.patch(sessionId, { syntheticTurnMessageId: undefined });
 }
 
+/**
+ * Whether a session's edit prompt carries the compact Eva conversation handoff.
+ * Cursor rotates agents between turns and keeps no server-side history, so its
+ * prompts need the recent turns inlined; every other provider already has them.
+ *
+ * `provider` is only stamped on sessions created after the provider lock, so
+ * reading it alone dropped the handoff — silently, since the prompt is still
+ * well-formed without it — for every session that predates the lock. The model
+ * a session last ran is the fallback record of which provider it runs on.
+ */
+export function sessionNeedsConversationHandoff(
+  session: Pick<Doc<"sessions">, "provider" | "lastModel">,
+): boolean {
+  return (
+    (session.provider ?? getAIModelProvider(session.lastModel)) === "cursor"
+  );
+}
+
 // Accepts legacy "ask"/"execute" for in-flight queued messages — treated as "edit" in handlers
 export const sessionModeArgValidator = v.union(
   v.literal("edit"),
@@ -214,15 +232,12 @@ export async function buildSessionPrompt(
       customInstructionsBlock,
     );
   } else {
-    const sessionProvider =
-      session.provider ?? getAIModelProvider(session.lastModel);
-    const cursorMessages =
-      sessionProvider === "cursor"
-        ? await ctx.db
-            .query("messages")
-            .withIndex("by_parent", (q) => q.eq("parentId", session._id))
-            .collect()
-        : [];
+    const cursorMessages = sessionNeedsConversationHandoff(session)
+      ? await ctx.db
+          .query("messages")
+          .withIndex("by_parent", (q) => q.eq("parentId", session._id))
+          .collect()
+      : [];
     const cursorHistory = cursorMessages
       .filter((entry) => entry.content)
       .map((entry) => ({ role: entry.role, content: entry.content }));

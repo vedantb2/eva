@@ -356,7 +356,20 @@ export function TaskFooter({
                   Sandbox
                   {(isSandboxStarting && !isSandboxActive) ||
                   isSandboxStopping ? (
-                    <IconLoader2 size={12} className="animate-spin" />
+                    <IconLoader2
+                      size={12}
+                      className="animate-spin text-amber-400"
+                      title={
+                        isSandboxStopping
+                          ? SANDBOX_STATUS_STYLES.stopping.label
+                          : SANDBOX_STATUS_STYLES.starting.label
+                      }
+                      aria-label={
+                        isSandboxStopping
+                          ? SANDBOX_STATUS_STYLES.stopping.label
+                          : SANDBOX_STATUS_STYLES.starting.label
+                      }
+                    />
                   ) : isSandboxActive ? (
                     <span
                       className={`size-2 shrink-0 rounded-full ${SANDBOX_STATUS_STYLES.active.dot}`}

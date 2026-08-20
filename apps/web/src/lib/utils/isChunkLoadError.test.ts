@@ -16,6 +16,20 @@ test("isChunkLoadError detects ChunkLoadError name and common messages", () => {
   expect(isChunkLoadError(new Error("Importing a module script failed"))).toBe(
     true,
   );
+  expect(
+    isChunkLoadError(
+      new Error(
+        'Failed to load module script: Expected a JavaScript-or-Wasm module script but the server responded with a MIME type of "text/html".',
+      ),
+    ),
+  ).toBe(true);
+  expect(
+    isChunkLoadError(
+      new Error(
+        'Loading module from “https://example/assets/x.js” was blocked because of a disallowed MIME type (“text/html”).',
+      ),
+    ),
+  ).toBe(true);
 });
 
 test("isChunkLoadError rejects unrelated errors and non-errors", () => {

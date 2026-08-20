@@ -12,6 +12,7 @@ import { convex } from "./lib/convex";
 import { DeploymentErrorFallback } from "./lib/components/DeploymentErrorFallback";
 import { MotionProvider } from "./lib/components/MotionProvider";
 import { isChunkLoadError } from "./lib/utils/isChunkLoadError";
+import { claimStaleDeployReload } from "./lib/utils/staleDeployReload";
 import { readSignedInHint } from "./lib/authHint";
 import { saveMcpOauthParamsFromUrl } from "./lib/mcpOauthStorage";
 import { migrateLegacyStorageKeys } from "./lib/migrateLegacyStorageKeys";
@@ -35,6 +36,7 @@ migrateLegacyStorageKeys();
  */
 function handleStaleDeployment(event: Event) {
   event.preventDefault();
+  if (!claimStaleDeployReload()) return;
   try {
     convex.close();
   } catch {
@@ -43,17 +45,40 @@ function handleStaleDeployment(event: Event) {
   window.location.reload();
 }
 
+function isFailedHashedModule(target: EventTarget | null): boolean {
+  if (
+    !(target instanceof HTMLScriptElement) &&
+    !(target instanceof HTMLLinkElement)
+  ) {
+    return false;
+  }
+  if (target instanceof HTMLScriptElement && target.type !== "module") {
+    return false;
+  }
+  if (target instanceof HTMLLinkElement && target.rel !== "modulepreload") {
+    return false;
+  }
+  const url = target instanceof HTMLScriptElement ? target.src : target.href;
+  return url.includes("/assets/");
+}
+
 // After a new Vercel deployment, cached HTML may reference old chunk hashes that no longer exist.
 // Reload the page so the browser fetches the new HTML with correct asset references.
 window.addEventListener("vite:preloadError", handleStaleDeployment);
 
 // Catch chunk loading failures that bypass Vite's preload detection
 // (e.g. dynamic imports triggered by route navigation or lazy components).
-window.addEventListener("error", (event) => {
-  if (isChunkLoadError(event.error)) {
-    handleStaleDeployment(event);
-  }
-});
+// Resource-load errors (wrong MIME / 404 on <script type="module">) do not
+// bubble, so the listener must run in the capture phase.
+window.addEventListener(
+  "error",
+  (event) => {
+    if (isChunkLoadError(event.error) || isFailedHashedModule(event.target)) {
+      handleStaleDeployment(event);
+    }
+  },
+  true,
+);
 window.addEventListener("unhandledrejection", (event) => {
   if (isChunkLoadError(event.reason)) {
     handleStaleDeployment(event);

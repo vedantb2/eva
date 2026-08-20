@@ -85,8 +85,9 @@ export default defineConfig({
       autoCodeSplitting: true,
     }),
     // React Compiler for both dev and build so local runtime matches production
-    // memoization. Runs natively via oxc-transform-react (Rust) rather than
-    // babel-plugin-react-compiler — same output, ~10x faster transform.
+    // memoization. `compiler: true` runs oxc-transform-react (Rust) in-process —
+    // no Babel pass. Bailouts surface as build warnings; `pnpm compiler:check`
+    // is the gate that fails on a new one.
     react({ compiler: true }),
     // Nothing imports the icon barrel anymore: static imports are rewritten to
     // deep paths here, and icon-by-name resolution reads raw path data from

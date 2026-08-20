@@ -21,6 +21,11 @@ const sessionWorkflow = readFileSync(
   .replace(/\/\*[\s\S]*?\*\//g, "")
   .replace(/^[^\S\n]*\/\/.*$/gm, "");
 
+const sandboxHelpers = readFileSync(
+  join(testsDir, "../convex/_sandbox_runtime/helpers.ts"),
+  "utf8",
+).replaceAll("\r\n", "\n");
+
 /**
  * A completed one-shot runner used to outlive its own turn. The success path
  * reported completion and then fell off the end of the script instead of
@@ -61,6 +66,13 @@ describe("the one-shot runner exits on every terminal path", () => {
    */
   test("the failure paths still exit non-zero", () => {
     expect(completion).toContain("process.exit(1);");
+  });
+});
+
+describe("prior-runner cleanup cannot kill its own shell", () => {
+  test("the full-command opencode match hides from pkill itself", () => {
+    expect(sandboxHelpers).toContain("pkill -f '[o]pencode run'");
+    expect(sandboxHelpers).not.toContain("pkill -f 'opencode run'");
   });
 });
 

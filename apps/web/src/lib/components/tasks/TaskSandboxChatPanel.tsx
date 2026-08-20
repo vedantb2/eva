@@ -14,6 +14,10 @@ import {
   type StoredModelTraits,
 } from "@eva/backend";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
+import {
+  buildFirstRunChatTurn,
+  findFirstRunChatTurnRun,
+} from "@/lib/components/tasks/firstRunChatTurn";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxChatHeaderActions } from "@/lib/components/sandbox/SandboxStartStopButton";
 import { BackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
@@ -52,6 +56,38 @@ export function TaskSandboxChatPanel({
   const streaming = useQuery(api.streaming.get, {
     entityId: `task-chat-${taskId}`,
   });
+
+  // Quick tasks open the chat with the first run rendered as a normal turn:
+  // the task prompt as the user message, the run's activity log + summary as
+  // the assistant reply. The detail timeline hides that same run (see
+  // firstRunChatTurn.ts).
+  const isQuickTask = task != null && task.projectId === undefined;
+  const runs = useQuery(
+    api.agentRuns.listByTask,
+    isQuickTask ? { taskId } : "skip",
+  );
+  const firstRun = findFirstRunChatTurnRun(runs);
+  const firstRunActivityLog = useQuery(
+    api.agentRuns.getActivityLog,
+    firstRun ? { id: firstRun._id } : "skip",
+  );
+  const taskAttachments = useQuery(
+    api.agentTasks.listAttachments,
+    firstRun && (task?.attachmentStorageIds?.length ?? 0) > 0
+      ? { taskId }
+      : "skip",
+  );
+  const firstRunTurn =
+    task && firstRun && firstRunActivityLog !== undefined
+      ? buildFirstRunChatTurn({
+          task,
+          run: firstRun,
+          activityLog: firstRunActivityLog,
+          ...(taskAttachments !== undefined
+            ? { attachments: taskAttachments }
+            : {}),
+        })
+      : [];
 
   const addMessage = useMutation(api.agentTaskChatWorkflow.addMessage);
   const startExecute = useMutation(api.agentTaskChatWorkflow.startExecute);
@@ -238,7 +274,7 @@ export function TaskSandboxChatPanel({
         repoId={repo._id}
         repoBasePath={basePath}
         conversationId={taskId}
-        messages={messages ?? []}
+        messages={[...firstRunTurn, ...(messages ?? [])]}
         queuedMessages={queuedMessages ?? []}
         streamingActivity={streaming?.currentActivity}
         streamingContent={streaming?.currentContent}

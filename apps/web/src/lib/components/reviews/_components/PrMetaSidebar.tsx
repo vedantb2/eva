@@ -4,11 +4,14 @@ import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import {
   ReviewStateIcon,
   SECTION_LABEL_CLASS,
+  ToneIcon,
   reviewStateMeta,
   type PrActor,
   type PrLabel,
   type PrOverview,
+  type StatusTone,
 } from "./prOverviewMeta";
+import { countChecks } from "./prMergeState";
 
 /**
  * The metadata column: who is reviewing, who owns the change, how it is
@@ -19,14 +22,15 @@ import {
  * is reference material beside the conversation, so it must not compete with the
  * merge control for the one piece of attention on the surface.
  *
- * Reviewers, Assignees, and Labels always render, empty or not — the structure
- * is the point, and a reader should be able to tell "nobody is reviewing" from
- * "I am looking in the wrong place". What is empty says so in one word rather
- * than the sentence it used to spend ("No reviewers requested.").
+ * Reviewers, Checks, Assignees, and Labels always render, empty or not — the
+ * structure is the point, and a reader should be able to tell "nobody is
+ * reviewing" from "I am looking in the wrong place". What is empty says so in one
+ * word rather than the sentence it used to spend ("No reviewers requested.").
  */
 export function PrMetaSidebar({ overview }: { overview: PrOverview }) {
   const reviewers =
     overview.reviews.length + overview.requestedReviewers.length;
+  const checks = countChecks(overview.checks);
 
   return (
     // Sections sit side by side while this is a full-width band above the
@@ -74,6 +78,26 @@ export function PrMetaSidebar({ overview }: { overview: PrOverview }) {
                 </span>
               </li>
             ))}
+          </ul>
+        )}
+      </Section>
+
+      {/* CI at a glance, one line per outcome that actually occurred. The full
+          run list lives in the merge box below; this is the "is anything red" answer,
+          worded as `checksHeadline` words it so the two cannot drift. */}
+      <Section title="Checks">
+        {checks.total === 0 ? (
+          <Empty />
+        ) : (
+          <ul className="space-y-1">
+            <CheckCount tone="failure" count={checks.failure} word="failing" />
+            <CheckCount
+              tone="pending"
+              count={checks.pending}
+              word="in progress"
+            />
+            <CheckCount tone="success" count={checks.success} word="passing" />
+            <CheckCount tone="neutral" count={checks.neutral} word="skipped" />
           </ul>
         )}
       </Section>
@@ -129,6 +153,30 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function Empty() {
   return <p className="text-xs text-muted-foreground">None</p>;
+}
+
+/**
+ * One outcome of a check run, or nothing at all when none had that outcome —
+ * "0 failing" is a line that says nothing and reads, for a second, as bad news.
+ * The icon carries the colour; the words stay muted like the rest of the column.
+ */
+function CheckCount({
+  tone,
+  count,
+  word,
+}: {
+  tone: StatusTone;
+  count: number;
+  word: string;
+}) {
+  if (count === 0) return null;
+  return (
+    <li className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      <ToneIcon tone={tone} size={13} />
+      <span className="tabular-nums text-foreground">{count}</span>
+      {word}
+    </li>
+  );
 }
 
 function Person({ login, avatarUrl }: PrActor) {

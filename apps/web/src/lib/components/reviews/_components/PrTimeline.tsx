@@ -3,10 +3,18 @@
 import type { ReactNode } from "react";
 import type { Id } from "@eva/backend";
 import { Button, Spinner, cn } from "@eva/ui";
-import { IconGitCommit } from "@tabler/icons-react";
+import {
+  IconGitCommit,
+  IconGitMerge,
+  IconGitPullRequestClosed,
+} from "@tabler/icons-react";
 import { usePrCommits } from "../usePrOverview";
 import { PrCommentBubble } from "./PrCommentBubble";
 import { PrCommitGroup } from "./PrCommitGroup";
+import {
+  PrLifecycleEventCard,
+  type PrLifecycleStatus,
+} from "./PrLifecycleEventCard";
 import { PrReviewEventItem } from "./PrReviewEventItem";
 import {
   NOTICE_CLASS,
@@ -46,6 +54,13 @@ export function PrTimeline({
     (allCommits.commits !== undefined &&
       (allCommits.truncated || hiddenCommits > 0));
 
+  // Null for an open pull request: nothing has happened to it yet, and a row
+  // saying so is the one row on the rail that carries no news.
+  const lifecycle: PrLifecycleStatus | null =
+    overview.status === "merged" || overview.status === "closed"
+      ? overview.status
+      : null;
+
   return (
     <div className="relative min-w-0 space-y-3">
       <span
@@ -56,19 +71,32 @@ export function PrTimeline({
       />
 
       <ol className="relative flex min-w-0 flex-col gap-4">
+        {/* Out of chronological order on purpose — see PrLifecycleEventCard. */}
+        {lifecycle === null ? null : (
+          <TimelineRow
+            gutter={
+              <TimelineGlyph>
+                {lifecycle === "merged" ? (
+                  <IconGitMerge size={13} aria-hidden />
+                ) : (
+                  <IconGitPullRequestClosed size={13} aria-hidden />
+                )}
+              </TimelineGlyph>
+            }
+          >
+            <PrLifecycleEventCard status={lifecycle} overview={overview} />
+          </TimelineRow>
+        )}
+
         {items.map((item) => {
           if (item.kind === "commits") {
             return (
               <TimelineRow
                 key={item.key}
                 gutter={
-                  <span className="flex size-8 items-center justify-center">
-                    {/* `ring-background` is the mask that breaks the rail behind
-                        the glyph, so the fill needs no outline of its own. */}
-                    <span className="flex size-6 items-center justify-center rounded-full bg-muted text-muted-foreground ring-2 ring-background">
-                      <IconGitCommit size={13} aria-hidden />
-                    </span>
-                  </span>
+                  <TimelineGlyph>
+                    <IconGitCommit size={13} aria-hidden />
+                  </TimelineGlyph>
                 }
               >
                 <PrCommitGroup repoId={repoId} commits={item.commits} />
@@ -178,6 +206,21 @@ function TimelineRow({
       <span className="relative z-1 shrink-0">{gutter}</span>
       <div className="min-w-0 flex-1">{children}</div>
     </li>
+  );
+}
+
+/**
+ * The gutter mark for an event with no author to show — a push, a merge, a close.
+ * `ring-background` is the mask that breaks the rail behind the glyph, so the
+ * fill needs no outline of its own.
+ */
+function TimelineGlyph({ children }: { children: ReactNode }) {
+  return (
+    <span className="flex size-8 items-center justify-center">
+      <span className="flex size-6 items-center justify-center rounded-full bg-muted text-muted-foreground ring-2 ring-background">
+        {children}
+      </span>
+    </span>
   );
 }
 

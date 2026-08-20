@@ -33,13 +33,13 @@ import {
   type Id,
   type StoredModelTraits,
 } from "@eva/backend";
-import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
+import { useBaseBranchState } from "@/lib/hooks/useBaseBranchState";
 import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
 import { toRunTraitArgs } from "@/lib/utils/runTraits";
 import { BranchSelect } from "@/lib/components/BranchSelect";
@@ -112,15 +112,16 @@ export function QuickTaskModal({
   initialDraft,
 }: QuickTaskModalProps) {
   const { repo } = useRepo();
-  const defaultBranch = repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
+  const {
+    baseBranch,
+    setBaseBranch,
+    repoDefaultBranch: defaultBranch,
+  } = useBaseBranchState(initialDraft?.baseBranch);
   const [title, setTitle] = useState(initialDraft?.title ?? "");
   const [description, setDescription] = useState(() =>
     initialDraft
       ? tokenizedToEditable(initialDraft.description ?? "").displayText
       : "",
-  );
-  const [baseBranch, setBaseBranch] = useState(
-    initialDraft?.baseBranch ?? defaultBranch,
   );
   const [isLoading, setIsLoading] = useState(false);
   const [activeDraftId, setActiveDraftId] = useState<Id<"agentTasks"> | null>(

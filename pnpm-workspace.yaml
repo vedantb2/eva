@@ -10,3 +10,6 @@ minimumReleaseAgeExclude:
   - "@vitejs/plugin-react"
   - oxc-transform-react
   - "@oxc-transform-react/*"
+  # Same release: oxlint 1.79 is the first with the React Compiler lint rules.
+  - oxlint
+  - "@oxlint/*"

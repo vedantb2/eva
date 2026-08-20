@@ -1,5 +1,17 @@
 # Changelog
 
+## Oxlint 1.79 lints the Rules of React, and 8,862 false positives go away - 2026-08-20
+
+Oxlint 1.77 only had the old nursery `react/react-compiler` rule, which this repo never enabled. 1.79 ships React Compiler's own validation passes as 22 individual rules, aligned with the upstream ESLint presets, so the recommended set lands in Oxlint's `correctness` category — already `error` here. Nine of them fire: `set-state-in-effect` (28), `exhaustive-effect-dependencies` (26), `refs` (14), `static-components` (4), `purity` (2), `capitalized-calls` (2), and one each of `no-deriving-state-in-effects`, `memo-dependencies` and `hooks`.
+
+The 48 that landed as errors are pre-existing debt, not regressions, and they span four packages — `ResizablePanelLayout`, `DocContentTab` and `TablerIconByName` in web, `activity-tasks` and `gantt-provider` in ui, `user-initials` in shared, `AnnotationOverlay` and `PageToolbar` in the extension. Fixing them is behavioural work (`set-state-in-effect` alone is 28 sites, and `useEffect` is already discouraged by `no-restricted-imports`), so `set-state-in-effect`, `refs`, `static-components` and `purity` are pinned to `warn` in `.oxlintrc.json`. The other 18 recommended rules are clean and deliberately left at `correctness`/`error`, which ratchets: a new `immutability` or `preserve-manual-memoization` violation is blocked from the day it is written.
+
+These rules do not replace `pnpm compiler:check`. Run against this repo they do not flag `WebPreviewPanel.tsx`, the one baselined bailout, because Oxlint uses fixed compiler options that leave `validatePreserveExistingMemoizationGuarantees` off. The lint rules catch Rules-of-React violations as they are typed; the gate catches a file silently losing memoization. Both stay.
+
+Separately, `react/react-in-jsx-scope` is now `off`. It was emitting 8,862 warnings — 80% of all lint output — against a codebase whose every tsconfig sets `"jsx": "react-jsx"`, so `React` is never required in scope. This predates the bump (1.77 emitted the same 8,862) and was drowning everything else, including the new compiler rules. Total findings drop from 11,089 to 2,227.
+
+Verified: config parses, `pnpm lint` has one error and it is the same `consistent-type-assertions` one that reproduces on HEAD, the 28 JS-plugin rule tests pass, and `compiler:check` is unchanged.
+
 ## React Compiler runs natively: 28s builds become 2.6s - 2026-08-20
 
 `apps/web` compiled React through `babel({ presets: [reactCompilerPreset()] })`, and Babel owned the build. Rolldown's `PLUGIN_TIMINGS` put `@rolldown/plugin-babel transform` at 25.2-27.2s of a 27.7-30.0s build across three clean runs — 91% of it, 992 calls. Oxc shipped a vendored Rust port of React Compiler on 18 Aug and `@vitejs/plugin-react` 6.1.0 exposes it as `react({ compiler: true })`, running in-process on the Oxc AST with no Babel pass. Three clean runs now take 2.58 / 2.60 / 2.85s. The compiler no longer appears in the timing report at all.

@@ -5,25 +5,29 @@ import type { ChatBodyMessage } from "@/lib/components/chat/chatBodyUtils";
 type AgentRun = FunctionReturnType<typeof api.agentRuns.listByTask>[number];
 
 /**
- * The quick task's initial run, once it settled successfully. Its activity
- * log renders as the opening assistant turn of the sandbox chat instead of a
- * run accordion in the activity timeline — both surfaces key off this one
- * function so they can never disagree about which run moved. Failed and
- * cancelled runs stay in the timeline (that is where `run.error` and the raw
- * launch logs render), as does a success without a `resultSummary` (the chat
- * turn would have no reply text).
+ * The run whose activity log renders as the opening assistant turn of the
+ * sandbox chat instead of a run accordion in the activity timeline — both
+ * surfaces key off this one function so they can never disagree about which
+ * run moved. It is the earliest successful initial run: failed or cancelled
+ * attempts before it stay in the timeline (that is where `run.error` and the
+ * raw launch logs render), and so do "Make changes" runs (they belong to
+ * their triggering comment) and Resolve Conflicts runs. A success without a
+ * `resultSummary` also stays — the chat turn would have no reply text.
  */
 export function findFirstRunChatTurnRun(
   runs: readonly AgentRun[] | undefined,
 ): AgentRun | undefined {
   let first: AgentRun | undefined;
   for (const run of runs ?? []) {
+    if (run.status !== "success" || !run.resultSummary) continue;
+    if (run.triggeringCommentId !== undefined) continue;
+    if (run.mode === "resolve_conflicts") continue;
     const startedAt = run.startedAt ?? run._creationTime;
     if (!first || startedAt < (first.startedAt ?? first._creationTime)) {
       first = run;
     }
   }
-  return first?.status === "success" && first.resultSummary ? first : undefined;
+  return first;
 }
 
 /**

@@ -47,24 +47,35 @@ function GlobalMainContent() {
       ? "lg:pl-16"
       : "lg:pl-(--eva-sidebar-width,20rem)"
     : "lg:pl-16";
+  // The two-pane inbox is an app surface (viewport-bound, full-bleed) like the
+  // repo shell, not a scrolling document page like the rest of _global.
+  const isInbox = pathname === "/inbox" || pathname.startsWith("/inbox/");
 
   return (
     <div
       className={cn(
         // No padding transition: animating pl-* during route changes counts as CLS.
-        "relative flex min-h-screen flex-col pt-14 lg:pt-0",
+        "relative flex flex-col pt-14 lg:pt-0",
+        isInbox ? "h-screen overflow-hidden" : "min-h-screen",
         paddingClass,
       )}
     >
-      <div className="relative flex flex-1 flex-col bg-background">
+      <div
+        className={cn(
+          "relative flex flex-1 flex-col bg-background",
+          isInbox && "min-h-0 overflow-hidden",
+        )}
+      >
         {chromeSessionTabs && isSessionsLanding ? (
           <SessionChromeTabsBar pathname={pathname} />
         ) : null}
         <div
           className={
-            isGlobalSettingsPath(pathname)
-              ? "relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col"
-              : "relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-6 sm:px-6 lg:px-8"
+            isInbox
+              ? "relative z-10 flex w-full min-h-0 flex-1 flex-col overflow-hidden"
+              : isGlobalSettingsPath(pathname)
+                ? "relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col"
+                : "relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-6 sm:px-6 lg:px-8"
           }
         >
           <Outlet />

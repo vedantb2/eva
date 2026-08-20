@@ -351,6 +351,10 @@ export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
   .withDefault("all")
   .withOptions(searchOptions);
 
+// Selected notification id in the two-pane inbox, kept in the URL so the
+// selection survives reload and a notification can be linked directly.
+export const inboxSelectedParser = parseAsString.withOptions(searchOptions);
+
 const pullRequestListStates = ["open", "closed", "all"] as const;
 export type PullRequestListState = (typeof pullRequestListStates)[number];
 export const pullRequestListStateParser = parseAsStringLiteral(

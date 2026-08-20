@@ -126,6 +126,13 @@ export function TaskFooter({
     status !== "todo" && status !== "in_progress" && status !== undefined;
   const showRunDevServer = isSandboxActive && canStartSandbox;
   const showRunBackgroundCommands = isSandboxActive && canStartSandbox;
+  const sandboxTabStatus = isSandboxStopping
+    ? "stopping"
+    : isSandboxStarting && !isSandboxActive
+      ? "starting"
+      : isSandboxActive
+        ? "active"
+        : null;
   const hasSandboxCommandItems =
     canStartSandbox || showRunDevServer || showRunBackgroundCommands;
   const hasPrLinkItems =
@@ -354,27 +361,11 @@ export function TaskFooter({
                   className="gap-1.5 px-2.5 py-1 text-xs"
                 >
                   Sandbox
-                  {(isSandboxStarting && !isSandboxActive) ||
-                  isSandboxStopping ? (
-                    <IconLoader2
-                      size={12}
-                      className="animate-spin text-amber-400"
-                      title={
-                        isSandboxStopping
-                          ? SANDBOX_STATUS_STYLES.stopping.label
-                          : SANDBOX_STATUS_STYLES.starting.label
-                      }
-                      aria-label={
-                        isSandboxStopping
-                          ? SANDBOX_STATUS_STYLES.stopping.label
-                          : SANDBOX_STATUS_STYLES.starting.label
-                      }
-                    />
-                  ) : isSandboxActive ? (
+                  {sandboxTabStatus ? (
                     <span
-                      className={`size-2 shrink-0 rounded-full ${SANDBOX_STATUS_STYLES.active.dot}`}
-                      title={SANDBOX_STATUS_STYLES.active.label}
-                      aria-label={SANDBOX_STATUS_STYLES.active.label}
+                      className={`size-2 shrink-0 rounded-full ${SANDBOX_STATUS_STYLES[sandboxTabStatus].dot}`}
+                      title={SANDBOX_STATUS_STYLES[sandboxTabStatus].label}
+                      aria-label={SANDBOX_STATUS_STYLES[sandboxTabStatus].label}
                     />
                   ) : null}
                 </TabsTrigger>

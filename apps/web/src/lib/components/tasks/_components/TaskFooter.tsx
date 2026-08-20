@@ -33,6 +33,7 @@ import {
 } from "@tabler/icons-react";
 import dayjs from "@eva/shared/dates";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
+import { SANDBOX_STATUS_STYLES } from "@/lib/components/sandbox/sandboxStatusStyles";
 import type { TaskStatus } from "../TaskStatusBadge";
 import { SchedulePopover } from "../SchedulePopover";
 
@@ -352,16 +353,17 @@ export function TaskFooter({
                   value="sandbox"
                   className="gap-1.5 px-2.5 py-1 text-xs"
                 >
+                  Sandbox
                   {(isSandboxStarting && !isSandboxActive) ||
                   isSandboxStopping ? (
                     <IconLoader2 size={12} className="animate-spin" />
                   ) : isSandboxActive ? (
                     <span
-                      className="h-1.5 w-1.5 rounded-full bg-success"
-                      aria-hidden
+                      className={`size-2 shrink-0 rounded-full ${SANDBOX_STATUS_STYLES.active.dot}`}
+                      title={SANDBOX_STATUS_STYLES.active.label}
+                      aria-label={SANDBOX_STATUS_STYLES.active.label}
                     />
                   ) : null}
-                  Sandbox
                 </TabsTrigger>
               </TabsList>
             </Tabs>

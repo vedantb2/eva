@@ -9,6 +9,7 @@ import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { useState } from "react";
 import { convexErrorMessage } from "@/lib/utils/convexErrorMessage";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
+import type { SandboxSurface } from "@/lib/components/sandbox/SandboxSurfaceTabs";
 import {
   canEditTaskText,
   type TaskDetailTab,
@@ -294,7 +295,7 @@ export function useTaskDetail(
     setIsCreatingPr(false);
   };
 
-  const handleSelectSurface = (surface: "task" | "sandbox") => {
+  const handleSelectSurface = (surface: SandboxSurface) => {
     if (surface === "sandbox") {
       if (routing?.mode === "quick-sandbox") return;
       if (routing?.mode === "quick-detail") {

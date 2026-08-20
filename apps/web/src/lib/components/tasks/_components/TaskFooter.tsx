@@ -13,9 +13,6 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
-  Tabs,
-  TabsList,
-  TabsTrigger,
 } from "@eva/ui";
 import {
   IconGitPullRequest,
@@ -32,19 +29,16 @@ import {
 import dayjs from "@eva/shared/dates";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { SleepEvaButton } from "@/lib/components/sandbox/SleepEvaButton";
-import { SANDBOX_STATUS_STYLES } from "@/lib/components/sandbox/sandboxStatusStyles";
+import {
+  SandboxSurfaceTabs,
+  type SandboxSurface,
+} from "@/lib/components/sandbox/SandboxSurfaceTabs";
 import type { TaskStatus } from "../TaskStatusBadge";
 import { SchedulePopover } from "../SchedulePopover";
 
 type RunDoc = NonNullable<
   FunctionReturnType<typeof api.agentRuns.listByTask>
 >[number];
-
-export type QuickTaskSurface = "task" | "sandbox";
-
-function isQuickTaskSurface(value: string): value is QuickTaskSurface {
-  return value === "task" || value === "sandbox";
-}
 
 interface TaskFooterProps {
   taskId: Id<"agentTasks">;
@@ -67,7 +61,7 @@ interface TaskFooterProps {
   canCreatePr: boolean;
   isCreatingPr: boolean;
   onCreatePr: () => void;
-  onSurfaceChange: (surface: QuickTaskSurface) => void;
+  onSurfaceChange: (surface: SandboxSurface) => void;
   onStopSandbox: () => void;
   isSandboxViewActive?: boolean;
   onRunStartupCommands: () => void;
@@ -126,13 +120,6 @@ export function TaskFooter({
     !hasActiveRun && (status === "code_review" || status === "business_review");
   const showRunDevServer = isSandboxActive && canStartSandbox;
   const showRunBackgroundCommands = isSandboxActive && canStartSandbox;
-  const sandboxTabStatus = isSandboxStopping
-    ? "stopping"
-    : isSandboxStarting && !isSandboxActive
-      ? "starting"
-      : isSandboxActive
-        ? "active"
-        : null;
   const hasSandboxCommandItems =
     canStartSandbox || showRunDevServer || showRunBackgroundCommands;
   const hasPrLinkItems =
@@ -326,35 +313,14 @@ export function TaskFooter({
             />
           ) : null}
           {showViewSandbox && (
-            <Tabs
-              value={isSandboxViewActive ? "sandbox" : "task"}
-              onValueChange={(value) => {
-                if (isQuickTaskSurface(value)) onSurfaceChange(value);
-              }}
-            >
-              <TabsList
-                size="sm"
-                className="tabs-segmented"
-                aria-label="Task or sandbox"
-              >
-                <TabsTrigger value="task" className="px-2.5 py-1 text-xs">
-                  Task
-                </TabsTrigger>
-                <TabsTrigger
-                  value="sandbox"
-                  className="gap-1.5 px-2.5 py-1 text-xs"
-                >
-                  Sandbox
-                  {sandboxTabStatus ? (
-                    <span
-                      className={`size-2 shrink-0 rounded-full ${SANDBOX_STATUS_STYLES[sandboxTabStatus].dot}`}
-                      title={SANDBOX_STATUS_STYLES[sandboxTabStatus].label}
-                      aria-label={SANDBOX_STATUS_STYLES[sandboxTabStatus].label}
-                    />
-                  ) : null}
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+            <SandboxSurfaceTabs
+              mainLabel="Task"
+              surface={isSandboxViewActive ? "sandbox" : "main"}
+              isSandboxActive={isSandboxActive}
+              isSandboxStarting={isSandboxStarting}
+              isSandboxStopping={isSandboxStopping}
+              onSurfaceChange={onSurfaceChange}
+            />
           )}
         </div>
       </div>

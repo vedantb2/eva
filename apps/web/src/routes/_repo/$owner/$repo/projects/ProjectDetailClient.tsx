@@ -41,6 +41,10 @@ import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { SleepEvaButton } from "@/lib/components/sandbox/SleepEvaButton";
 import {
+  SandboxSurfaceTabs,
+  type SandboxSurface,
+} from "@/lib/components/sandbox/SandboxSurfaceTabs";
+import {
   SandboxWorkspace,
   type TerminalPanelApi,
 } from "@/lib/components/sandbox/SandboxWorkspace";
@@ -90,7 +94,7 @@ export function ProjectDetailClient({
 }: {
   projectId: Id<"projects">;
   projectNumId?: number;
-  surface: "main" | "sandbox";
+  surface: SandboxSurface;
   sandboxTab?: TaskRouteSandboxTab;
   /** Primary tab. `work` is the index route, so deep links keep working. */
   mainTab?: ProjectMainTab;
@@ -162,14 +166,13 @@ export function ProjectDetailClient({
 
   const projectPathSegment = entityPathSegment({ numId: projectNumId });
 
-  const toggleProjectSandboxView = () => {
-    if (!projectPathSegment) return;
-    if (isSandboxSurface) {
-      navigate({ to: `${basePath}/projects/${projectPathSegment}` });
-      return;
-    }
+  const handleSelectSurface = (next: SandboxSurface) => {
+    if (!projectPathSegment || next === surface) return;
     navigate({
-      to: `${basePath}/projects/${projectPathSegment}/sandbox/preview`,
+      to:
+        next === "sandbox"
+          ? `${basePath}/projects/${projectPathSegment}/sandbox/preview`
+          : `${basePath}/projects/${projectPathSegment}`,
     });
   };
 
@@ -287,17 +290,6 @@ export function ProjectDetailClient({
     showRetryStartupCommands || showRunBackgroundCommands;
   const hasPrLinkItems =
     canCreatePr || Boolean(project.prUrl) || hasDeployedPreview;
-  // Named once: the label is hidden below `sm`, where it becomes the button's
-  // accessible name instead.
-  const sandboxButtonLabel = isSandboxStopping
-    ? "Stopping..."
-    : isSandboxStarting && !isSandboxActive
-      ? "Starting..."
-      : isSandboxSurface
-        ? "Back to Tasks"
-        : isSandboxActive
-          ? "View Sandbox · Active"
-          : "View Sandbox";
 
   const tab = sandboxTab ?? "preview";
   // Always mount the sandbox panel when the project can have one so tabs
@@ -539,33 +531,14 @@ export function ProjectDetailClient({
                 />
               ) : null}
               {canStartSandbox ? (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  aria-label={sandboxButtonLabel}
-                  onClick={toggleProjectSandboxView}
-                  disabled={isSandboxStopping}
-                  className={
-                    isSandboxSurface || isSandboxActive
-                      ? "border-success/35 bg-success/10 text-success hover:border-success/50 hover:bg-success/15 hover:text-success"
-                      : undefined
-                  }
-                >
-                  {(isSandboxStarting && !isSandboxActive) ||
-                  isSandboxStopping ? (
-                    <IconLoader2
-                      size={16}
-                      className="animate-spin"
-                      aria-hidden
-                    />
-                  ) : (
-                    <IconTerminal2 size={16} aria-hidden />
-                  )}
-                  {isSandboxActive && !isSandboxSurface && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                  )}
-                  <span className="hidden sm:inline">{sandboxButtonLabel}</span>
-                </Button>
+                <SandboxSurfaceTabs
+                  mainLabel="Project"
+                  surface={surface}
+                  isSandboxActive={isSandboxActive}
+                  isSandboxStarting={isSandboxStarting}
+                  isSandboxStopping={isSandboxStopping}
+                  onSurfaceChange={handleSelectSurface}
+                />
               ) : null}
               {canBuildProject ? (
                 project.activeBuildWorkflowId ? (

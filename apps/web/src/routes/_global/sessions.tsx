@@ -1,43 +1,93 @@
-import { createFileRoute, Navigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
-import { firstRepoSessionsPath } from "@/lib/components/sidebar/_utils/repoSessionPaths";
+import { Card, CardContent, Skeleton } from "@eva/ui";
+import { IconBrandGithub, IconTerminal2 } from "@tabler/icons-react";
+import { RepoLogo } from "@/lib/components/RepoLogo";
+import { EmptyState } from "@/lib/components/ui/EmptyState";
+import { repoSessionsIndexPath } from "@/lib/components/sidebar/_utils/repoSessionPaths";
+import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
 
 export const Route = createFileRoute("/_global/sessions")({
   staticData: { title: "Sessions" },
-  component: SessionsGlobalRedirect,
+  component: SessionsCodebasePicker,
 });
 
 /**
- * The rail's Sessions entry used to land on a "Select a codebase" grid. Every
- * other way into sessions already picks an app for you (tile click, ⌘1, a
- * session link), so the grid was a click between the user and the composer;
- * it now forwards straight to the first app's composer.
+ * Landing for the rail's Sessions entry: pick which codebase to open sessions
+ * for. It used to forward straight to the first app's composer, which made the
+ * rail tile a shortcut to one arbitrary app; the picker makes the choice
+ * explicit and keeps the URL stable for its other callers (spotlight's
+ * "Sessions" entry in `convex/spotlight.ts`, and the fallback both session
+ * archive dialogs navigate to after archiving the session being viewed).
  *
- * Still a route rather than a deletion, because this URL has three callers
- * that would otherwise 404: the spotlight "Sessions" entry
- * (`convex/spotlight.ts` `GLOBAL_PAGES`), and the fallback both session
- * archive dialogs navigate to when you archive the session you are viewing.
- * Keeping one redirect here is cheaper than teaching each of them to resolve
- * a repo, and keeps `/sessions` bookmarks working.
+ * Deliberately not a `PageWrapper` page: this is a one-decision interstitial,
+ * so it renders as a centered column instead of a titled page with a top-left
+ * header. Text inside the column stays left-aligned.
  *
- * `replace` so the redirect does not sit in history — Back from the composer
- * would otherwise bounce through here and forward again.
+ * Rows link to `<app>/sessions` via `repoSessionsIndexPath`, the same helper
+ * the rail and hotkeys use, so there is one definition of an app's sessions URL.
  */
-function SessionsGlobalRedirect() {
+function SessionsCodebasePicker() {
   const repos = useQuery(api.githubRepos.list, {});
 
-  // `undefined` is "still loading", not "no apps" — bouncing to /home here
-  // would flash the onboarding page at every user with apps.
-  if (repos === undefined) {
-    return (
-      <div
-        className="flex min-h-0 flex-1"
-        aria-busy="true"
-        aria-label="Opening sessions"
-      />
-    );
-  }
-
-  return <Navigate to={firstRepoSessionsPath(repos) ?? "/home"} replace />;
+  return (
+    <div className="flex min-h-0 flex-1 items-center justify-center">
+      <div className="w-full max-w-md">
+        <h1 className="mb-4 text-lg font-semibold tracking-[-0.02em] text-foreground">
+          Select a codebase
+        </h1>
+        {repos === undefined ? (
+          <div
+            className="space-y-2"
+            aria-busy="true"
+            aria-label="Loading codebases"
+          >
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Skeleton key={i} className="h-[68px] border border-border" />
+            ))}
+          </div>
+        ) : repos.length === 0 ? (
+          <EmptyState
+            icon={<IconTerminal2 size={28} />}
+            title="No codebases yet"
+            description="Connect a repository to start a session."
+          />
+        ) : (
+          <div className="space-y-2">
+            {repos.map((repo) => (
+              <Link
+                key={repo._id}
+                to={repoSessionsIndexPath(repo)}
+                className="block rounded-surface focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/35"
+              >
+                <Card className="motion-emphasized ui-surface-interactive cursor-pointer">
+                  <CardContent className="flex items-center gap-3 p-4">
+                    <RepoLogo
+                      logoUrl={repo.logoUrl}
+                      size={28}
+                      fallback={
+                        <IconBrandGithub
+                          size={28}
+                          className="text-muted-foreground"
+                        />
+                      }
+                    />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {repoDisplayLabel(repo)}
+                      </p>
+                      <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                        {repo.owner}/{repo.name}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }

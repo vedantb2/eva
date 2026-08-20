@@ -1,5 +1,11 @@
 # Changelog
 
+## A quick task's first run reads as a chat turn, not a timeline accordion - 2026-08-20
+
+The quick task detail timeline used to open with a collapsed run accordion whose only real content — the activity log and result summary — duplicated what the sandbox chat presents for every later turn. That first run now renders inside the sandbox chat as an ordinary conversation opener: the task title + description as the user prompt (with the task's image attachments and the run's model snapshot), and the run's activity log + summary as the assistant reply, complete with the "Worked for N minutes" fold, changed-files card, and duration meta. The detail timeline hides that same run.
+
+One function, `findFirstRunChatTurnRun`, decides which run moved — the earliest successful initial run with a `resultSummary` — and both surfaces key off it, so they cannot disagree. Failed and cancelled attempts before it, "Make changes" runs, and Resolve Conflicts runs stay in the timeline, where `run.error` and raw launch logs render. The chat turn is client-built: `ChatBodyMessage._id` is widened to `string` so a synthetic id needs no forged Convex brand, and the assistant row always carries `finishedAt` so it can never be mistaken for the live streaming placeholder. Applies to quick tasks only (`projectId === undefined`); project tasks are untouched. Verified in the running app against task #356.
+
 ## Loop turns show as working in the nav, and pending questions dock to the composer - 2026-08-19
 
 **A `/loop` turn now reports itself in the sidebar and tab bar.** The composer's BorderBeam derives execution from the messages themselves (`isAssistantTurnInProgress`: an assistant bubble with no content and no `finishedAt`), so it lit up for every kind of turn. The list rows deliberately do not join messages — one subscription per repo, not one per row — and read `sessionListItemValidator.isExecuting`, which `toSessionListItem` computed as `session.activeWorkflowId !== undefined`. Daemon-minted continuations never take that field: `openSyntheticTurn` inserts the placeholder and stores `syntheticTurnMessageId` instead, because there is no Convex workflow behind a loop iteration — the daemon mints the turn itself. So the two surfaces disagreed for the whole duration of every loop, and the disagreement was invisible in the open session where the composer answered the question. `isExecuting` is now true for either field, which is exactly the window the daemon holds a turn open in. Crash hygiene already matches: `handleStaleSyntheticTurn` (10 min), sandbox stop, and the cancel path clear `syntheticTurnMessageId` on the same paths that clear `activeWorkflowId`, so a dead daemon cannot pin a row on "Working".
@@ -8314,3 +8320,11 @@ Behavior per context:
 - Created `backend/convex/streaming.ts` with shared `get`/`set`/`clear` functions
 - Applied hot/cold path separation to project interview flow (`interview-question.ts`) — same pattern as sessions
 - Updated `ProjectChatTab` to use `streamingActivity` prop from the new shared streaming query
+
+## Activity Steps Grouped Into Thought/Action Blocks - 2026-08-19
+
+- Reasoning steps now render as ordinary prose inside the "Worked for {duration}" fold instead of a nested "Thought for Ns" collapsible
+- Consecutive tool calls between two thoughts fold into one muted summary line ("Edited files, ran commands") that expands to the per-call rows
+- Added `groupActivityRows` (activity-tasks-utils) and `deriveActionGroupSummary` (activity-step-label); narration rows (todos, notices, questions) stay on their own line
+- Group summaries stay muted even when a call inside failed — the failed row is still red once expanded
+- Removed the now-unused `commandKind` from `StepRowPresentation`; row icons resolve through a single `iconForStep` helper

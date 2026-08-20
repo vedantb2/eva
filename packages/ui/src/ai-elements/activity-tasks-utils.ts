@@ -63,6 +63,52 @@ function stepsToRows(steps: ActivityStep[]): ActivityRow[] {
 }
 
 /**
+ * Row types that read as narration rather than work: they already summarise
+ * themselves, so folding them into an action group would hide their only text.
+ */
+const STANDALONE_TYPES = new Set<ActivityStep["type"]>([
+  "todos",
+  "notice",
+  "status",
+  "question",
+]);
+
+/** One block in the activity timeline: prose, a lone row, or a folded run. */
+export type ActivitySegment =
+  | { kind: "reasoning"; step: ActivityStep }
+  | { kind: "row"; row: ActivityRow }
+  | { kind: "actions"; rows: ActivityRow[] };
+
+/**
+ * Folds rows into the read-then-act rhythm of the turn: each reasoning block
+ * stays prose, and the run of tool calls it produced collapses behind a single
+ * summary line. Without this the whole turn is one undifferentiated wall of
+ * per-call rows and the thinking that motivated them is lost in it.
+ */
+export function groupActivityRows(rows: ActivityRow[]): ActivitySegment[] {
+  const segments: ActivitySegment[] = [];
+
+  for (const row of rows) {
+    if (row.step.type === "reasoning") {
+      segments.push({ kind: "reasoning", step: row.step });
+      continue;
+    }
+    if (STANDALONE_TYPES.has(row.step.type)) {
+      segments.push({ kind: "row", row });
+      continue;
+    }
+    const last = segments.at(-1);
+    if (last?.kind === "actions") {
+      last.rows.push(row);
+      continue;
+    }
+    segments.push({ kind: "actions", rows: [row] });
+  }
+
+  return segments;
+}
+
+/**
  * Builds per-call activity rows. Steps with `parentToolUseId` nest under the
  * matching subtask `toolUseId`. Orphans whose parent was never found append
  * at the top level (never drop).

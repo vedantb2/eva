@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { findStreamingTargetMessage } from "./chatBodyUtils";
+import {
+  findStreamingTargetMessage,
+  visibleChatMessages,
+} from "./chatBodyUtils";
 
 type TestMessage = {
   role: "user" | "assistant";
@@ -87,5 +90,24 @@ describe("findStreamingTargetMessage", () => {
       placeholder("a1"),
     ];
     expect(findStreamingTargetMessage(messages)?.label).toBe("a1");
+  });
+});
+
+describe("visibleChatMessages", () => {
+  test("returns the same array when not hiding", () => {
+    const messages = [user("u1"), alert("stopped")];
+    expect(visibleChatMessages(messages, false)).toBe(messages);
+  });
+
+  test("drops system alerts when hiding", () => {
+    const messages = [user("u1"), alert("stopped"), finished("a1")];
+    expect(visibleChatMessages(messages, true).map((m) => m.label)).toEqual([
+      "u1",
+      "a1",
+    ]);
+  });
+
+  test("an alerts-only transcript is empty when hiding", () => {
+    expect(visibleChatMessages([alert("started")], true)).toEqual([]);
   });
 });

@@ -8308,3 +8308,11 @@ Behavior per context:
 - Created `backend/convex/streaming.ts` with shared `get`/`set`/`clear` functions
 - Applied hot/cold path separation to project interview flow (`interview-question.ts`) — same pattern as sessions
 - Updated `ProjectChatTab` to use `streamingActivity` prop from the new shared streaming query
+
+## Activity Steps Grouped Into Thought/Action Blocks - 2026-08-19
+
+- Reasoning steps now render as ordinary prose inside the "Worked for {duration}" fold instead of a nested "Thought for Ns" collapsible
+- Consecutive tool calls between two thoughts fold into one muted summary line ("Edited files, ran commands") that expands to the per-call rows
+- Added `groupActivityRows` (activity-tasks-utils) and `deriveActionGroupSummary` (activity-step-label); narration rows (todos, notices, questions) stay on their own line
+- Group summaries stay muted even when a call inside failed — the failed row is still red once expanded
+- Removed the now-unused `commandKind` from `StepRowPresentation`; row icons resolve through a single `iconForStep` helper

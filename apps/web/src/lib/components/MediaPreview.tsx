@@ -1,13 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { IconExternalLink } from "@tabler/icons-react";
 import {
   cn,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
   VideoPlayer,
   VideoPlayerContent,
   VideoPlayerControlBar,
@@ -21,6 +16,7 @@ import {
   VideoPlayerTimeRange,
   VideoPlayerVolumeRange,
 } from "@eva/ui";
+import { ImageLightbox } from "@/lib/components/ImageLightbox";
 
 export function VideoPreview({
   url,
@@ -81,27 +77,12 @@ export function ScreenshotPreview({
           )}
         />
       </button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-[90vw] max-h-[90dvh] p-0 overflow-hidden">
-          <DialogTitle className="sr-only">{alt}</DialogTitle>
-          <DialogHeader className="absolute top-2 right-10 z-10">
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="max-sm:hit-target inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <IconExternalLink size={14} />
-              Open in new tab
-            </a>
-          </DialogHeader>
-          <img
-            src={url}
-            alt={alt}
-            className="media-outline h-full w-full object-contain"
-          />
-        </DialogContent>
-      </Dialog>
+      <ImageLightbox
+        images={[{ url, alt }]}
+        index={open ? 0 : null}
+        onIndexChange={() => undefined}
+        onClose={() => setOpen(false)}
+      />
     </>
   );
 }

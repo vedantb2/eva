@@ -294,16 +294,22 @@ export function useTaskDetail(
     setIsCreatingPr(false);
   };
 
-  const handleToggleSandboxView = () => {
+  const handleSelectSurface = (surface: "task" | "sandbox") => {
+    if (surface === "sandbox") {
+      if (routing?.mode === "quick-sandbox") return;
+      if (routing?.mode === "quick-detail") {
+        routing.quick.onOpenSandboxView("preview");
+        return;
+      }
+      setEmbeddedShowSandbox(true);
+      return;
+    }
     if (routing?.mode === "quick-sandbox") {
       routing.quick.onExitSandboxView();
       return;
     }
-    if (routing?.mode === "quick-detail") {
-      routing.quick.onOpenSandboxView("preview");
-      return;
-    }
-    setEmbeddedShowSandbox((prev) => !prev);
+    if (routing?.mode === "quick-detail") return;
+    setEmbeddedShowSandbox(false);
   };
 
   const status = task?.status;
@@ -381,7 +387,7 @@ export function useTaskDetail(
     isSandboxStopping: isSandboxStopping || isSandboxStoppingFromStatus,
     handleStartSandbox,
     handleStopSandbox,
-    handleToggleSandboxView,
+    handleSelectSurface,
     handleRetryStartupCommands,
     isRetryingStartupCommands,
     handleRunDevServer,

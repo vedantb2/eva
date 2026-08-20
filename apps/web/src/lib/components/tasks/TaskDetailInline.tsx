@@ -112,7 +112,7 @@ export function TaskDetailInline({
     isSandboxStopping,
     handleStartSandbox,
     handleStopSandbox,
-    handleToggleSandboxView,
+    handleSelectSurface,
     handleRetryStartupCommands,
     isRetryingStartupCommands,
     handleRunDevServer,
@@ -372,7 +372,7 @@ export function TaskDetailInline({
         canCreatePr={canCreatePr}
         isCreatingPr={isCreatingPr}
         onCreatePr={handleCreatePr}
-        onViewSandbox={handleToggleSandboxView}
+        onSurfaceChange={handleSelectSurface}
         onStopSandbox={handleStopSandbox}
         isSandboxViewActive={isSandboxViewActive}
         onRunStartupCommands={() => setShowStartupCommandsConfirm(true)}

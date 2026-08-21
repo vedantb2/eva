@@ -8410,3 +8410,23 @@ Behavior per context:
 - Overview and Diffs tabs carry muted counts (comments / changed files) read off the existing overview payload — no new queries; truncated comment counts get a `+` suffix
 - Timeline leads with a tonal merged/closed event card (`PrLifecycleEventCard`); PR description is now a `Surface` card headed by "<author> opened this pull request · <time>" (editor extracted to `PrDescriptionEditor`)
 - Meta sidebar gained a Checks section (failing / in progress / passing / skipped counts via `countChecks`) between Reviewers and Assignees; a Previews section was skipped — no existing PR→preview-URL query, would need a new backend endpoint
+
+## Standup Prompt Rewritten Non-Technical + Model Picker for System Automations - 2026-08-21
+
+- `DAILY_STANDUP_PROMPT` now mirrors the "Eva Weekly Changelog" automation: explicit non-technical audience framing, `### New / Faster / Fixed / Improved` headings, one plain-language sentence per change on the user benefit, and a hard ban on file/function names, hashes and implementation detail
+- Prompt now skips non-user-facing work outright (refactors, dependency bumps, tests, formatting, merges) and falls back to `No user-facing changes since the last working day.`; headings stay plain words, no emoji, so the quiet uppercase heading styling in `standupProseClass` still reads
+- `automations.update` no longer rejects `model` on system installs — `model` was never part of `SystemAutomationDefinition`, so it is install-level like `cronSchedule`/`enabled`/`sendEmail`, not code-owned
+- `SystemAutomationSettings` gained the same Model card as `AutomationClient` (`ModelSelect` + `useAvailableAiModels`, defaulting to `repo.defaultModel` via `normalizeAIModel`); `commit` now takes the mutation's own arg type instead of a hand-written subset
+
+## Daily Changelog Removed From the Automations Hub - 2026-08-21
+
+- Dropped the `daily-changelog` entry from `SYSTEM_AUTOMATIONS`; the Hub now offers Daily standup only. No installs of that key existed in prod, so `resolveAutomationDoc`'s orphan path (stored fallback title, empty prompt) is not exercised
+- Repointed the `ENTRY_ICONS` glyph in `SystemAutomationCard` from `daily-changelog` to `daily-standup`, keeping `IconFileText` in use instead of leaving an empty map and an unused import
+
+## Five Codebase-Maintenance Automations Added to the Hub - 2026-08-21
+
+- Copied Find critical bugs, Add test coverage, Generate docs, Improve code structure and Thermo-Nuclear Code Quality Review from the carepulse-ts automations into `SYSTEM_AUTOMATIONS`, prompts byte-identical to the source rows (verified by round-tripping each escaped template literal back against the original text)
+- Prompts now live one-per-module under `_automations/prompts/` (mirroring `_automationWorkflow/prompts`) rather than inline — the Thermo-Nuclear prompt alone is 11k characters and would have made the catalog file unreadable
+- Added `blurb` to `SystemAutomationDefinition`, returned by `listSystemAutomations` and rendered by `SystemAutomationCard` in place of `description`. The old contract — first line of the prompt doubles as card copy — broke on these prompts (`## Goal`, "Review commits made in the past week and:"); the card renders raw text with no markdown parsing, so a heading would have shown literally
+- All five are `readOnly: false` (they open PRs), the first non-report-only entries in the catalog; default schedules stagger 03:00–05:00 UTC instead of the source's shared 03:00, so a repo with several installed does not start five agent sessions at once
+- Per-entry glyphs added to `ENTRY_ICONS` (bug, test pipe, book, sitemap, radioactive)

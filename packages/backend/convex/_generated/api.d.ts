@@ -27,6 +27,12 @@ import type * as _automationWorkflow_prompts from "../_automationWorkflow/prompt
 import type * as _automations_crud from "../_automations/crud.js";
 import type * as _automations_findings from "../_automations/findings.js";
 import type * as _automations_helpers from "../_automations/helpers.js";
+import type * as _automations_prompts_addTestCoverage from "../_automations/prompts/addTestCoverage.js";
+import type * as _automations_prompts_dailyStandup from "../_automations/prompts/dailyStandup.js";
+import type * as _automations_prompts_findCriticalBugs from "../_automations/prompts/findCriticalBugs.js";
+import type * as _automations_prompts_generateDocs from "../_automations/prompts/generateDocs.js";
+import type * as _automations_prompts_improveCodeStructure from "../_automations/prompts/improveCodeStructure.js";
+import type * as _automations_prompts_thermoNuclearCodeReview from "../_automations/prompts/thermoNuclearCodeReview.js";
 import type * as _automations_runs from "../_automations/runs.js";
 import type * as _automations_systemAutomations from "../_automations/systemAutomations.js";
 import type * as _automations_systemInstall from "../_automations/systemInstall.js";
@@ -356,6 +362,12 @@ declare const fullApi: ApiFromModules<{
   "_automations/crud": typeof _automations_crud;
   "_automations/findings": typeof _automations_findings;
   "_automations/helpers": typeof _automations_helpers;
+  "_automations/prompts/addTestCoverage": typeof _automations_prompts_addTestCoverage;
+  "_automations/prompts/dailyStandup": typeof _automations_prompts_dailyStandup;
+  "_automations/prompts/findCriticalBugs": typeof _automations_prompts_findCriticalBugs;
+  "_automations/prompts/generateDocs": typeof _automations_prompts_generateDocs;
+  "_automations/prompts/improveCodeStructure": typeof _automations_prompts_improveCodeStructure;
+  "_automations/prompts/thermoNuclearCodeReview": typeof _automations_prompts_thermoNuclearCodeReview;
   "_automations/runs": typeof _automations_runs;
   "_automations/systemAutomations": typeof _automations_systemAutomations;
   "_automations/systemInstall": typeof _automations_systemInstall;

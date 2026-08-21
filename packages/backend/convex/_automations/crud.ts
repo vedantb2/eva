@@ -135,12 +135,13 @@ export const update = authMutation({
     }
 
     // A system automation's definition is code-owned, but everything else —
-    // schedule, enabled, email — belongs to the install and takes the path below.
+    // schedule, model, enabled, email — belongs to the install and takes the
+    // path below. `model` is not part of SystemAutomationDefinition, so it is
+    // the user's to pick here exactly as it is on a normal automation.
     if (automation.systemKey !== undefined) {
       const editsDefinition =
         args.title !== undefined ||
         args.description !== undefined ||
-        args.model !== undefined ||
         args.readOnly !== undefined ||
         args.actionsEnabled !== undefined ||
         args.shared !== undefined;

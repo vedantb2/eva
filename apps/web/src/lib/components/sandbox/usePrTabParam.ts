@@ -3,28 +3,25 @@
 import { useNavigate, useRouterState, useSearch } from "@tanstack/react-router";
 import { isReviewTab, type ReviewTab } from "@/lib/search-params";
 
-/** Matches `/review/diffs…`, `/review/recap`, or `/review/overview`. */
+/** Matches `/review/diffs…` or any of the single-segment review sub-tabs. */
 const REVIEW_DIFFS_PATH = /\/review\/diffs(?:\/(?:unified|split))?\/?$/;
-const REVIEW_RECAP_PATH = /\/review\/recap\/?$/;
-const REVIEW_OVERVIEW_PATH = /\/review\/overview\/?$/;
+const REVIEW_PLAIN_PATH = /\/review\/(overview|commits|checks|recap)\/?$/;
 
 function prTabFromPathname(pathname: string): ReviewTab | undefined {
   if (REVIEW_DIFFS_PATH.test(pathname)) return "diffs";
-  if (REVIEW_RECAP_PATH.test(pathname)) return "recap";
-  if (REVIEW_OVERVIEW_PATH.test(pathname)) return "overview";
-  return undefined;
+  const plain = REVIEW_PLAIN_PATH.exec(pathname)?.[1];
+  return plain !== undefined && isReviewTab(plain) ? plain : undefined;
 }
 
+/** Diffs is the one sub-tab with a nested segment of its own. */
 function reviewSubPath(tab: ReviewTab, diffView: string): string {
-  if (tab === "diffs") return `diffs/${diffView}`;
-  if (tab === "recap") return "recap";
-  return "overview";
+  return tab === "diffs" ? `diffs/${diffView}` : tab;
 }
 
 /**
- * Review panel Overview/Diffs/Recap sub-tab. Prefers path segments
- * (`…/review/overview`, `…/review/diffs/…`, `…/review/recap`) on
- * sessions/projects/quick-tasks and falls back to `?prTab=` only when those
+ * Review panel sub-tab. Prefers path segments (`…/review/overview`,
+ * `…/review/commits`, `…/review/checks`, `…/review/diffs/…`, `…/review/recap`)
+ * on sessions/projects/quick-tasks and falls back to `?prTab=` only when those
  * paths are absent.
  */
 export function usePrTabParam() {

@@ -1,6 +1,10 @@
-import { cn } from "@eva/ui";
-import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
-import { NOTICE_CLASS, type PrOverview } from "./prOverviewMeta";
+import { Button, Surface } from "@eva/ui";
+import {
+  IconGitMerge,
+  IconGitPullRequestClosed,
+} from "@tabler/icons-react";
+import { formatExactDateTime } from "@eva/shared/dates";
+import { shortSha, type PrOverview } from "./prOverviewMeta";
 
 /**
  * The two ends a pull request can reach. An open one has not had an event yet,
@@ -16,10 +20,15 @@ export type PrLifecycleStatus = "merged" | "closed";
  * would tell them: chronologically the merge lands after every comment, so on a
  * long thread the answer to "did this ship?" was a scroll away. It leads instead.
  *
- * Only what the payload actually carries is stated. There is no merge commit sha
- * on the overview and no close timestamp, so the merged row names the merger, the
- * base branch, and the time, and the closed row names neither a person nor a date
- * rather than guessing at one.
+ * A card with the verdict on its own line and the detail under it, because that
+ * detail is a sentence and not a label — it used to be a single wrapping notice
+ * line where "Merged" was the first of eleven words rather than the answer. The
+ * merge commit is the one thing a reader wants next, so it ends the row as a
+ * control rather than as another clause.
+ *
+ * An exact timestamp, not a relative one: everything else on this surface is
+ * "17h ago" because it is still moving, and this is the one event a reader might
+ * quote in an incident channel.
  */
 export function PrLifecycleEventCard({
   status,
@@ -28,49 +37,76 @@ export function PrLifecycleEventCard({
   status: PrLifecycleStatus;
   overview: PrOverview;
 }) {
-  const mergedAt = overview.mergedAt;
+  const merged = status === "merged";
+  const sha = overview.mergeCommitSha;
+  const commitUrl =
+    sha === null ? null : `${overview.htmlUrl}/commits/${sha}`;
 
   return (
-    // The same quiet tonal fill as every other notice on this surface: an event
-    // is context for the thread, not another voice in it, so it gets a softer
-    // card than the comment bubbles it sits above.
-    <div
-      className={cn(
-        NOTICE_CLASS,
-        "flex flex-wrap items-center gap-x-1.5 gap-y-1",
-      )}
-    >
-      <span className="font-medium text-foreground">
-        {status === "merged" ? "Merged" : "Closed"}
+    <Surface density="tight" className="flex min-w-0 items-center gap-3">
+      <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+        {merged ? (
+          <IconGitMerge size={15} aria-hidden />
+        ) : (
+          <IconGitPullRequestClosed size={15} aria-hidden />
+        )}
       </span>
-      <span aria-hidden>—</span>
 
-      {status === "merged" ? (
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <p className="text-sm font-medium">{merged ? "Merged" : "Closed"}</p>
+        <p className="min-w-0 truncate text-xs text-muted-foreground">
+          <Detail status={status} overview={overview} />
+        </p>
+      </div>
+
+      {commitUrl === null ? null : (
+        <Button size="sm" variant="outline" asChild className="shrink-0">
+          <a href={commitUrl} target="_blank" rel="noopener noreferrer">
+            View commit
+          </a>
+        </Button>
+      )}
+    </Surface>
+  );
+}
+
+/**
+ * Only what the payload actually carries. There is no close timestamp and no
+ * closer on the overview, so the closed line names neither rather than guessing.
+ */
+function Detail({
+  status,
+  overview,
+}: {
+  status: PrLifecycleStatus;
+  overview: PrOverview;
+}) {
+  if (status === "closed") return <>Closed without merging.</>;
+
+  const sha = overview.mergeCommitSha;
+  return (
+    <>
+      {overview.mergedByLogin === null ? "Merged" : null}
+      {overview.mergedByLogin === null ? null : (
+        <span className="font-medium text-foreground">
+          {overview.mergedByLogin}
+        </span>
+      )}
+      {overview.mergedByLogin === null ? " " : " merged "}
+      {sha === null ? null : (
         <>
-          {overview.mergedByLogin === null ? null : (
-            <span className="font-medium text-foreground">
-              {overview.mergedByLogin}
-            </span>
-          )}
-          <span>
-            {overview.mergedByLogin === null
-              ? "merged into"
-              : "merged this pull request into"}
-          </span>
-          <span className="min-w-0 truncate rounded bg-muted/60 px-1 py-0.5 font-mono">
-            {overview.baseRef}
-          </span>
+          {"commit "}
+          <span className="font-mono">{shortSha(sha)}</span>{" "}
         </>
-      ) : (
-        <span>without merging</span>
       )}
-
-      {mergedAt === null ? null : (
-        <RelativeDateTime
-          at={new Date(mergedAt).getTime()}
-          className="ml-auto shrink-0"
-        />
+      {"into "}
+      <span className="font-mono">{overview.baseRef}</span>
+      {overview.mergedAt === null ? null : (
+        <>
+          {" on "}
+          {formatExactDateTime(new Date(overview.mergedAt).getTime())}
+        </>
       )}
-    </div>
+    </>
   );
 }

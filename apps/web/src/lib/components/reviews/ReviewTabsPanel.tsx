@@ -15,8 +15,15 @@ import {
 import { PrRecapPanel } from "@/lib/components/sandbox/PrRecapPanel";
 import { ReviewOverviewPanel } from "./ReviewOverviewPanel";
 import { usePrOverview } from "./usePrOverview";
-import { PrChecksPill } from "./_components/PrChecksPill";
+import { PrChecksPanel } from "./_components/PrChecksPanel";
+import { PrCommitsPanel } from "./_components/PrCommitsPanel";
+import { PrTabRail } from "./_components/PrTabRail";
 import { ReviewHeader } from "./_components/ReviewHeader";
+import {
+  REVIEW_TAB_META,
+  REVIEW_TAB_ORDER,
+  reviewTabCount,
+} from "./_components/reviewTabMeta";
 
 interface ReviewTabsPanelProps {
   repoId: Id<"githubRepos">;
@@ -31,10 +38,17 @@ interface ReviewTabsPanelProps {
    */
   header?: ReactNode;
   /**
-   * True where `header` already carries a Refresh control, so the shared header
-   * drops its own rather than showing two.
+   * Rendered above `header` as the first line of the surface — the standalone
+   * page's repository breadcrumb. Absent in a session, where the sidebar already
+   * says which repository and task the reader is in.
    */
-  headerOwnsRefresh?: boolean;
+  breadcrumb?: ReactNode;
+  /**
+   * Renews every payload the surface shows, not just the overview — the
+   * standalone page also has a title block, read from its own query. Omitted in a
+   * session, where the overview is the only payload on the surface.
+   */
+  refresh?: { run: () => void; running: boolean };
   /**
    * Nested surfaces (session sandbox Review) use `size="sm"` on the same
    * TabsBar / TabsList; the standalone Reviews page keeps the default size.
@@ -43,11 +57,15 @@ interface ReviewTabsPanelProps {
 }
 
 /**
- * The Overview/Diffs/Recap tab set, shared by the standalone Reviews page and
- * the sandbox Review tab. Every review surface renders this, so tab order,
- * labels, slugs, empty states, and panel wiring cannot drift between them: the
- * only per-surface concerns are how the active tab is read from the URL and
- * what (if anything) sits above the tab row.
+ * The Activity/Commits/Checks/Changes/Recap tab set, shared by the standalone
+ * Reviews page and the sandbox Review tab. Every review surface renders this, so
+ * tab order, labels, slugs, empty states, and panel wiring cannot drift between
+ * them: the only per-surface concerns are how the active tab is read from the URL
+ * and what (if anything) sits above the tab row.
+ *
+ * The four questions a reviewer arrives with — what was said, what was pushed,
+ * what CI thinks, what changed — get a tab each, rather than Commits and Checks
+ * being nested inside Activity where each cost a scroll and a disclosure click.
  *
  * Deliberately does not mount `PendingReviewCommentsProvider`: the sandbox
  * shares those pending comments with its chat composer, so the provider has to
@@ -60,7 +78,8 @@ export function ReviewTabsPanel({
   activeTab,
   onTabChange,
   header,
-  headerOwnsRefresh = false,
+  breadcrumb,
+  refresh,
   compact = false,
 }: ReviewTabsPanelProps) {
   // Cached hook, so querying here as well as on a surface that needs the recap
@@ -95,15 +114,25 @@ export function ReviewTabsPanel({
         {/* Until the overview lands, the surface's own block stands in for the
             header — same padding, so the title does not shift when it arrives. */}
         {overview === null ? (
-          header === undefined ? null : (
-            <div className="shrink-0 px-4 pt-3">{header}</div>
+          header === undefined && breadcrumb === undefined ? null : (
+            <div className="shrink-0 space-y-2 px-4 pt-3">
+              {breadcrumb}
+              {header}
+            </div>
           )
         ) : (
           <ReviewHeader
+            repoId={repoId}
             overview={overview}
-            refreshing={state.status === "ready" && state.refreshing}
-            onRefresh={headerOwnsRefresh ? undefined : reload}
+            refreshing={
+              refresh?.running === true ||
+              (state.status === "ready" && state.refreshing)
+            }
+            onRefresh={refresh?.run ?? reload}
+            onTabChange={onTabChange}
+            onChanged={reload}
             title={header}
+            breadcrumb={breadcrumb}
           />
         )}
         {/* Zeroed left padding so the first tab's label lands on the same 16px
@@ -114,33 +143,39 @@ export function ReviewTabsPanel({
         <TabsBar
           size={tabSize}
           className={cn("pr-4", compact ? "pl-0.5" : "pl-0")}
-          actions={
-            overview === null ? null : (
-              <PrChecksPill
-                checks={overview.checks}
-                onSelect={() => onTabChange("overview")}
-              />
-            )
-          }
+          actions={overview === null ? null : <PrTabRail overview={overview} />}
         >
-          <TabsList
-            size={tabSize}
-            className="tabs-line h-auto gap-0.5 shadow-none"
-          >
-            <TabsTrigger value="overview">
-              Overview
-              <TabCount
-                value={overview === null ? null : overview.comments.length}
-                approximate={overview !== null && overview.commentsTruncated}
-              />
-            </TabsTrigger>
-            <TabsTrigger value="diffs">
-              Diffs
-              <TabCount
-                value={overview === null ? null : overview.changedFiles}
-              />
-            </TabsTrigger>
-            <TabsTrigger value="recap">Recap</TabsTrigger>
+          {/* Pill tabs, not the underline the review surface used to carry: the
+              filled marker is the same device the sandbox and settings tabs use,
+              and it slides between tabs instead of redrawing a rule. */}
+          <TabsList size={tabSize} className="h-auto gap-0.5 shadow-none">
+            {REVIEW_TAB_ORDER.map((tab) => {
+              const meta = REVIEW_TAB_META[tab];
+              const Icon = meta.icon;
+              const count = reviewTabCount(tab, overview);
+              return (
+                <TabsTrigger key={tab} value={tab} className="gap-1.5">
+                  <Icon
+                    size={compact ? 13 : 14}
+                    className="shrink-0 opacity-70"
+                    aria-hidden
+                  />
+                  {meta.label}
+                  {count === null ? null : (
+                    <span
+                      className={cn(
+                        "text-xs font-normal tabular-nums",
+                        count.muted
+                          ? "text-muted-foreground"
+                          : "text-destructive",
+                      )}
+                    >
+                      {count.text}
+                    </span>
+                  )}
+                </TabsTrigger>
+              );
+            })}
           </TabsList>
         </TabsBar>
 
@@ -148,13 +183,33 @@ export function ReviewTabsPanel({
             comments, scroll position, expanded files) instead of refetching. */}
         <ReviewTabContent tab="overview" activeTab={activeTab}>
           {prNumber === undefined ? (
-            <NoPullRequest detail="Once a pull request is opened for this work, its overview will appear here." />
+            <NoPullRequest detail="Once a pull request is opened for this work, its activity will appear here." />
           ) : (
             <ReviewOverviewPanel
               repoId={repoId}
               prNumber={prNumber}
               state={state}
               reload={reload}
+            />
+          )}
+        </ReviewTabContent>
+
+        <ReviewTabContent tab="commits" activeTab={activeTab}>
+          {overview === null ? (
+            <NoPullRequest detail="Once a pull request is opened for this work, its commits will appear here." />
+          ) : (
+            <PrCommitsPanel repoId={repoId} overview={overview} />
+          )}
+        </ReviewTabContent>
+
+        <ReviewTabContent tab="checks" activeTab={activeTab}>
+          {overview === null ? (
+            <NoPullRequest detail="Once a pull request is opened for this work, its checks will appear here." />
+          ) : (
+            <PrChecksPanel
+              overview={overview}
+              refreshing={state.status === "ready" && state.refreshing}
+              onRefresh={reload}
             />
           )}
         </ReviewTabContent>
@@ -168,33 +223,6 @@ export function ReviewTabsPanel({
         </ReviewTabContent>
       </Tabs>
     </WorkerPoolContextProvider>
-  );
-}
-
-/**
- * The size of what a tab holds, said on the tab itself: how much conversation
- * there is to read, how many files changed. Both numbers come off the overview
- * the header above already reads, so the labels cost no extra request.
- *
- * Rendered only once that payload lands, and never at zero — a reserved slot
- * that fills a beat later moves the whole row, and a tab reading "0" spends a
- * number saying what the empty panel says anyway.
- */
-function TabCount({
-  value,
-  approximate = false,
-}: {
-  /** Null while the overview is still loading. */
-  value: number | null;
-  /** True where the payload was capped, so the count is a floor, not a total. */
-  approximate?: boolean;
-}) {
-  if (value === null || value === 0) return null;
-  return (
-    <span className="ml-1.5 text-xs font-normal text-muted-foreground tabular-nums">
-      {value}
-      {approximate ? "+" : ""}
-    </span>
   );
 }
 

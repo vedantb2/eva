@@ -1,5 +1,11 @@
 # Changelog
 
+## Stats page gains merge, latency, first-try and hours-saved KPIs - 2026-08-21
+
+- `getImpactStats` now also returns `prsMerged`/`mergeRate` (distinct session PRs with `prState: "merged"`, rated against distinct session PRs since merge state only exists on sessions), `medianTimeToPrMs` (task `createdAt` → first PR-producing run's `finishedAt`), `firstTryRate` (done tasks that needed exactly one run, over done tasks that ran at all) and `agentWorkMs`, plus `prevPrsMerged`/`prevFirstTryRate` for the trend chips — all in the same round trip, with the run fetch still limited to non-draft tasks because `agentRuns` carry the logs
+- Raw first-try counters ride out of `computeStats` under an `internal` key that is destructured off before the response, so the previous window's rate is derived from counts rather than by subtracting two percentages
+- `StatsClient` renders a second three-tile row (PRs Merged, Median Time to PR, First-Try Rate) and one full-width hero tile for estimated hours saved, which states its own assumption — `est. 2h saved per completed task · agent worked Xh` — instead of presenting the number bare; `Kpi` honours `size="lg"` in the stacked layout for it, and `formatDuration`'s coarse formatting is now reusable as `formatDurationCompactMs`
+
 ## Four regression guards for yesterday's fixes, and one red test that was lying - 2026-08-21
 
 Yesterday's bug fixes shipped mostly untested. Four of them had an invariant worth pinning, so each now has one.

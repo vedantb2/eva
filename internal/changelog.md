@@ -1,5 +1,11 @@
 # Changelog
 
+## Quick task list view keeps its own page header - 2026-08-21
+
+Opening a task in the quick-tasks list view rewrote the page header: the title became a `Quick Tasks / #444` breadcrumb, the task's Task/Sandbox switcher landed in `titleAfter` — which `PageWrapper` centres absolutely on the header row, so it floated over the middle of the list — and Run Eva, the overflow menu and prev/next crowded in beside the list's own search, Select, Options and New Task. That layout is right for the full-page detail the kanban and table views open, where the task *is* the page. In a master/detail split it is not: the header belongs to the list.
+
+The list view now always renders `title="Quick Tasks"` with just `QuickTasksToolbar` on the right. Task chrome moves into the new `QuickTaskSplitDetailHeader` at the top of the detail pane — surface switcher left, context usage / actions / prev-next right, one hairline separating it from the body. `QuickTaskHeaderActionsSlotProvider` moves from `QuickTasksClient` down into `QuickTasksListSplit`, so the portal targets `TaskDetailInline` writes into live inside the pane; the header sits outside the `key={selectedTaskId}` pane so switching tasks does not remount them. `useQuickTaskNeighbors` moves with it, which drops the `taskId: selectedTaskId ?? ""` call the client was making on every render regardless of selection. The full-page shell (`QuickTaskDetailShell`) is untouched.
+
 ## Four regression guards for yesterday's fixes, and one red test that was lying - 2026-08-21
 
 Yesterday's bug fixes shipped mostly untested. Four of them had an invariant worth pinning, so each now has one.

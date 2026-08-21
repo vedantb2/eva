@@ -66,19 +66,25 @@ export function MentionRow({
   personUserId,
 }: MentionRowProps): ReactNode {
   const detail = description ? previewOneLine(description) : null;
-  const leading =
-    personUserId !== undefined ? (
-      <UserInitials userId={personUserId} size="sm" hideLastSeen />
-    ) : kind !== undefined ? (
+  // The kind icon takes the trailing slot the kind badge used to occupy, so
+  // every label starts in the same column (a leading icon would indent data
+  // rows past skill rows) and the type marker stays in one consistent place.
+  // Only a teammate's avatar leads, because it identifies the person rather
+  // than naming a type.
+  const trailing =
+    kind !== undefined ? (
       <MentionKindIcon kind={kind} />
+    ) : badge !== undefined ? (
+      <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
+        {badge}
+      </span>
     ) : null;
-  // The icon already says "Document"/"Session", so the kind badge would only
-  // repeat it. People keep theirs because an avatar does not name the kind.
-  const showBadge = badge !== undefined && kind === undefined;
 
   return (
     <span className="flex w-full min-w-0 items-center gap-2">
-      {leading}
+      {personUserId !== undefined ? (
+        <UserInitials userId={personUserId} size="sm" hideLastSeen />
+      ) : null}
       <span className="flex min-w-0 flex-1 flex-col gap-0.5 overflow-hidden">
         <span className="flex min-w-0 items-center gap-1.5">
           <span className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden">
@@ -92,11 +98,7 @@ export function MentionRow({
               {label}
             </span>
           </span>
-          {showBadge ? (
-            <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
-              {badge}
-            </span>
-          ) : null}
+          {trailing}
         </span>
         {detail ? (
           <span className="truncate text-xs text-muted-foreground">

@@ -28,7 +28,7 @@ const sdkVersions = [
   },
   {
     packageName: "@cursor/sdk",
-    version: "1.0.26",
+    version: "1.0.28",
     versionConstant: "CURSOR_SDK_VERSION",
     loader: cursorLoader,
   },

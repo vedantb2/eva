@@ -3,12 +3,18 @@ import { splitCursorModel } from "../config.js";
 import { cursorSdkToolToStep } from "../parse/toolSteps.js";
 import { probeCursorSdkToolResult } from "../providers/cursor.js";
 import {
+  COST_LOOKUP_RETRY_DELAYS_MS,
+  EMPTY_CURSOR_COST_SNAPSHOT,
   RESOURCE_EXHAUSTED_CHAT_MESSAGE,
   RESOURCE_EXHAUSTED_RETRY_DELAYS_MS,
+  attributeCursorTurnRawCents,
   cursorModeParams,
   filterModeParamsByModel,
   isResourceExhaustedMessage,
+  readCursorCostSnapshot,
+  resolveCursorTurnCostUsd,
   runTurnWithResourceExhaustedRetries,
+  type CursorCostSnapshot,
   type CursorTurnOutcome,
 } from "../providers/cursorSdk.js";
 
@@ -385,4 +391,207 @@ test("probeCursorSdkToolResult surfaces diffString and plain payloads", () => {
     exitCode: 0,
   });
   expect(plainObject?.output?.text).toBe("direct");
+});
+
+
+const tokens = {
+  inputTokens: 10,
+  outputTokens: 5,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0,
+  totalTokens: 15,
+};
+
+/** An `AgentUsage` as `agent.getUsage()` returns it for a local agent. */
+function agentUsage(
+  totalRawCents: number | null,
+  runs: [string, number | null][],
+) {
+  return {
+    usage: tokens,
+    ...(totalRawCents === null
+      ? {}
+      : { cost: { rawCostCents: totalRawCents, chargedCents: 0 } }),
+    runs: runs.map(([runId, rawCents]) => ({
+      runId,
+      usage: tokens,
+      ...(rawCents === null
+        ? {}
+        : { cost: { rawCostCents: rawCents, chargedCents: 0 } }),
+    })),
+  };
+}
+
+test("readCursorCostSnapshot normalizes AgentUsage and unreported cost", () => {
+  expect(readCursorCostSnapshot(agentUsage(7.5, [["uuid-a", 7.5]]))).toEqual({
+    totalRawCents: 7.5,
+    entries: [{ runId: "uuid-a", rawCents: 7.5 }],
+  });
+  // Cost absent on the totals and on a turn group both read as "not reported".
+  expect(readCursorCostSnapshot(agentUsage(null, [["uuid-a", null]]))).toEqual({
+    totalRawCents: null,
+    entries: [{ runId: "uuid-a", rawCents: null }],
+  });
+  // Nothing to read from is an empty snapshot, never a throw.
+  expect(readCursorCostSnapshot(undefined)).toEqual(EMPTY_CURSOR_COST_SNAPSHOT);
+  expect(readCursorCostSnapshot({ runs: "not-an-array" })).toEqual(
+    EMPTY_CURSOR_COST_SNAPSHOT,
+  );
+  // A group without a usage UUID cannot be diffed, so it is not an entry.
+  expect(readCursorCostSnapshot({ runs: [{ usage: tokens }] })).toEqual({
+    totalRawCents: null,
+    entries: [],
+  });
+});
+
+test("attributeCursorTurnRawCents charges only this turn's usage groups", () => {
+  const before = readCursorCostSnapshot(agentUsage(30, [["prior", 30]]));
+  const after = readCursorCostSnapshot(
+    agentUsage(42, [
+      ["prior", 30],
+      ["this-turn", 12],
+    ]),
+  );
+  expect(attributeCursorTurnRawCents(before, after)).toBe(12);
+
+  // A fresh agent starts from the empty baseline: everything is this turn's.
+  expect(
+    attributeCursorTurnRawCents(
+      EMPTY_CURSOR_COST_SNAPSHOT,
+      readCursorCostSnapshot(agentUsage(12, [["this-turn", 12]])),
+    ),
+  ).toBe(12);
+});
+
+test("attributeCursorTurnRawCents ignores a prior turn's late-landing cost", () => {
+  // The previous turn's group existed at snapshot time with no cost yet; its
+  // cost landing during this turn belongs to that turn, not to this one.
+  const before = readCursorCostSnapshot(agentUsage(null, [["prior", null]]));
+  const after = readCursorCostSnapshot(
+    agentUsage(30, [
+      ["prior", 30],
+      ["this-turn", null],
+    ]),
+  );
+  expect(attributeCursorTurnRawCents(before, after)).toBeNull();
+});
+
+test("attributeCursorTurnRawCents is null until this turn's cost lands", () => {
+  const before = readCursorCostSnapshot(agentUsage(30, [["prior", 30]]));
+  // The group exists but carries no cost yet — retry rather than report 0.
+  expect(
+    attributeCursorTurnRawCents(
+      before,
+      readCursorCostSnapshot(
+        agentUsage(30, [
+          ["prior", 30],
+          ["this-turn", null],
+        ]),
+      ),
+    ),
+  ).toBeNull();
+  // A reported 0 is an answer, not a gap: request-priced usage bills 0 raw.
+  expect(
+    attributeCursorTurnRawCents(
+      before,
+      readCursorCostSnapshot(
+        agentUsage(30, [
+          ["prior", 30],
+          ["this-turn", 0],
+        ]),
+      ),
+    ),
+  ).toBe(0);
+});
+
+test("attributeCursorTurnRawCents counts growth in the uuid-less remainder", () => {
+  // Local events the backend records without a usage UUID only ever move the
+  // totals, so the totals-minus-groups remainder is their only trace.
+  const before = readCursorCostSnapshot(agentUsage(30, [["prior", 30]]));
+  const after = readCursorCostSnapshot(
+    agentUsage(50, [
+      ["prior", 30],
+      ["this-turn", 12],
+    ]),
+  );
+  expect(attributeCursorTurnRawCents(before, after)).toBe(20);
+
+  // A shrinking remainder never becomes a negative charge.
+  expect(
+    attributeCursorTurnRawCents(
+      readCursorCostSnapshot(agentUsage(50, [["prior", 30]])),
+      readCursorCostSnapshot(agentUsage(40, [["prior", 30]])),
+    ),
+  ).toBeNull();
+});
+
+test("resolveCursorTurnCostUsd converts raw cents to dollars", async () => {
+  const usd = await resolveCursorTurnCostUsd({
+    before: EMPTY_CURSOR_COST_SNAPSHOT,
+    fetchAfter: async () =>
+      readCursorCostSnapshot(agentUsage(12.3456789, [["this-turn", 12.3456789]])),
+    sleep: async () => {},
+  });
+  expect(usd).toBe(0.123457);
+});
+
+test("resolveCursorTurnCostUsd polls while the backend lags, then gives up", async () => {
+  const delays: number[] = [];
+  let calls = 0;
+  const pending = await resolveCursorTurnCostUsd({
+    before: EMPTY_CURSOR_COST_SNAPSHOT,
+    fetchAfter: async () => {
+      calls++;
+      return readCursorCostSnapshot(agentUsage(null, [["this-turn", null]]));
+    },
+    sleep: async (delayMs) => delays.push(delayMs),
+  });
+  // Cost is eventually consistent, so a gap is not final until the budget is.
+  expect(calls).toBe(COST_LOOKUP_RETRY_DELAYS_MS.length + 1);
+  expect(delays).toEqual([...COST_LOOKUP_RETRY_DELAYS_MS]);
+  // Never fails the turn: a missing cost is simply omitted downstream.
+  expect(pending).toBeUndefined();
+
+  const lateDelays: number[] = [];
+  let lateCalls = 0;
+  const landed = await resolveCursorTurnCostUsd({
+    before: EMPTY_CURSOR_COST_SNAPSHOT,
+    fetchAfter: async () => {
+      lateCalls++;
+      return readCursorCostSnapshot(
+        agentUsage(null, [["this-turn", lateCalls > 1 ? 250 : null]]),
+      );
+    },
+    sleep: async (delayMs) => lateDelays.push(delayMs),
+  });
+  expect(lateCalls).toBe(2);
+  expect(lateDelays).toEqual([COST_LOOKUP_RETRY_DELAYS_MS[0]]);
+  expect(landed).toBe(2.5);
+});
+
+test("resolveCursorTurnCostUsd degrades to no cost when a lookup fails", async () => {
+  // A failed pre-send baseline on a resumed agent: charging the agent's whole
+  // history to this turn would be worse than reporting nothing.
+  const noBaseline: CursorCostSnapshot | null = null;
+  let calls = 0;
+  expect(
+    await resolveCursorTurnCostUsd({
+      before: noBaseline,
+      fetchAfter: async () => {
+        calls++;
+        return readCursorCostSnapshot(agentUsage(999, [["prior", 999]]));
+      },
+      sleep: async () => {},
+    }),
+  ).toBeUndefined();
+  expect(calls).toBe(0);
+
+  // Every post-run lookup throwing (wrapped by the caller into null) is a gap.
+  expect(
+    await resolveCursorTurnCostUsd({
+      before: EMPTY_CURSOR_COST_SNAPSHOT,
+      fetchAfter: async () => null,
+      sleep: async () => {},
+    }),
+  ).toBeUndefined();
 });

@@ -1,5 +1,9 @@
 # Changelog
 
+## Cursor runs now report dollar cost - 2026-08-21
+
+- Bumped `@cursor/sdk` to 1.0.28 (whose `getUsage()` finally covers local agents) and `runCursorSdkAttempt` now diffs the agent's per-turn usage groups either side of the send — retrying a few times while the server-derived cost lands, omitting it rather than failing or over-attributing when it does not — to emit `total_cost_usd` on the synthetic result line the logs page already parses
+
 ## Stats page gains merge, latency, first-try and hours-saved KPIs - 2026-08-21
 
 - `getImpactStats` now also returns `prsMerged`/`mergeRate` (distinct session PRs with `prState: "merged"`, rated against distinct session PRs since merge state only exists on sessions), `medianTimeToPrMs` (task `createdAt` → first PR-producing run's `finishedAt`), `firstTryRate` (done tasks that needed exactly one run, over done tasks that ran at all) and `agentWorkMs`, plus `prevPrsMerged`/`prevFirstTryRate` for the trend chips — all in the same round trip, with the run fetch still limited to non-draft tasks because `agentRuns` carry the logs

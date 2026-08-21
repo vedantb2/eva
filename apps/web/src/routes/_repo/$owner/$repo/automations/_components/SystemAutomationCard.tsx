@@ -16,7 +16,7 @@ import { describeCron } from "@/lib/components/CronScheduleCard";
  * stays free of presentation; unknown keys fall back to the generic mark.
  */
 const ENTRY_ICONS: Record<string, Icon> = {
-  "daily-changelog": IconFileText,
+  "daily-standup": IconFileText,
 };
 
 interface SystemAutomationCardProps {

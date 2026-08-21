@@ -49,14 +49,6 @@ If nothing user-facing shipped, the deliverable is the single line: \`No user-fa
 
 export const SYSTEM_AUTOMATIONS: ReadonlyArray<SystemAutomationDefinition> = [
   {
-    key: "daily-changelog",
-    title: "Daily changelog",
-    description: "Produce a changelog",
-    defaultCronSchedule: "0 7 * * *",
-    readOnly: true,
-    actionsEnabled: false,
-  },
-  {
     key: DAILY_STANDUP_KEY,
     title: "Daily standup",
     description: DAILY_STANDUP_PROMPT,

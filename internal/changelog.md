@@ -8417,3 +8417,8 @@ Behavior per context:
 - Prompt now skips non-user-facing work outright (refactors, dependency bumps, tests, formatting, merges) and falls back to `No user-facing changes since the last working day.`; headings stay plain words, no emoji, so the quiet uppercase heading styling in `standupProseClass` still reads
 - `automations.update` no longer rejects `model` on system installs — `model` was never part of `SystemAutomationDefinition`, so it is install-level like `cronSchedule`/`enabled`/`sendEmail`, not code-owned
 - `SystemAutomationSettings` gained the same Model card as `AutomationClient` (`ModelSelect` + `useAvailableAiModels`, defaulting to `repo.defaultModel` via `normalizeAIModel`); `commit` now takes the mutation's own arg type instead of a hand-written subset
+
+## Daily Changelog Removed From the Automations Hub - 2026-08-21
+
+- Dropped the `daily-changelog` entry from `SYSTEM_AUTOMATIONS`; the Hub now offers Daily standup only. No installs of that key existed in prod, so `resolveAutomationDoc`'s orphan path (stored fallback title, empty prompt) is not exercised
+- Repointed the `ENTRY_ICONS` glyph in `SystemAutomationCard` from `daily-changelog` to `daily-standup`, keeping `IconFileText` in use instead of leaving an empty map and an unused import

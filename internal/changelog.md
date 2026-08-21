@@ -78,6 +78,15 @@ The base-branch picker and the lightbox controls get contract checks rather than
 
 `projectBuildAvailability` was failing on `main`. The gate is intact — the test matched the string `"Stop Build"`, and the tab-bar refactor added a comment naming that button _above_ the gate, so `indexOf` found the prose. It anchors on the button's `aria-label` now. A suite with a permanently red test is a suite people stop reading.
 
+## Linear-style two-pane inbox - 2026-08-20
+
+- The inbox is now a resizable list/detail split: clicking a notification selects it and renders the linked page live in a right-hand pane instead of navigating away.
+- The preview pane embeds the app itself in a chromeless mode (same-origin iframe, no sidebar/top bar/overlays); switching notifications navigates the embedded router in place via postMessage, so there is no reload per selection.
+- Notifications without a link fall back to showing the full notification message (previously never shown anywhere in the UI); an Open button breaks out of the inbox to the full-window page.
+- Selecting a notification marks it read in place; arrow keys step the list, Enter opens the linked entity, Escape clears the selection — so the inbox can be triaged without leaving it.
+- The selected notification lives in the URL (`?notification=`), making a specific inbox item shareable and reload-safe.
+- The global `/inbox` route became a viewport-bound, full-bleed app surface (like the repo shell) rather than a scrolling document page, so both panes scroll independently.
+
 ## Oxlint 1.79 lints the Rules of React, and 8,862 false positives go away - 2026-08-20
 
 Oxlint 1.77 only had the old nursery `react/react-compiler` rule, which this repo never enabled. 1.79 ships React Compiler's own validation passes as 22 individual rules, aligned with the upstream ESLint presets, so the recommended set lands in Oxlint's `correctness` category — already `error` here. Nine of them fire: `set-state-in-effect` (28), `exhaustive-effect-dependencies` (26), `refs` (14), `static-components` (4), `purity` (2), `capitalized-calls` (2), and one each of `no-deriving-state-in-effects`, `memo-dependencies` and `hooks`.

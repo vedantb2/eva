@@ -10,6 +10,7 @@ import { SidebarProvider } from "@/lib/contexts/SidebarContext";
 import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
 import { SearchProvider } from "@/lib/contexts/SearchContext";
 import { ShortcutsProvider } from "@/lib/hotkeys/ShortcutsContext";
+import { IS_EMBEDDED } from "@/lib/embed/embedded";
 
 /**
  * The signed-in app chrome. Split from `AppShell` so the sidebar, spotlight
@@ -28,12 +29,20 @@ export function AppShellChrome({ children }: { children: ReactNode }) {
             <ShortcutsProvider>
               <SearchProvider>
                 <FollowProvider>
-                  <Sidebar />
+                  {/* Embedded documents (inbox preview pane) render content
+                      only: the host window already owns the sidebar, search,
+                      follow overlay and toast streams. Providers stay — pages
+                      consume them regardless of where they render. */}
+                  {IS_EMBEDDED ? null : <Sidebar />}
                   {children}
-                  <SpotlightSearch />
-                  <FollowOverlay />
-                  <NotificationToastStream />
-                  <UpdateAvailableToast />
+                  {IS_EMBEDDED ? null : (
+                    <>
+                      <SpotlightSearch />
+                      <FollowOverlay />
+                      <NotificationToastStream />
+                      <UpdateAvailableToast />
+                    </>
+                  )}
                 </FollowProvider>
               </SearchProvider>
             </ShortcutsProvider>

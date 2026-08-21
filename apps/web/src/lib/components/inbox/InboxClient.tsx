@@ -1,52 +1,38 @@
 "use client";
 
+import { useEffect } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { api } from "@eva/backend";
+import { api, type Id } from "@eva/backend";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryState } from "nuqs";
-import { m, AnimatePresence } from "motion/react";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
-import { Button, motionFast, motionStagger, Skeleton } from "@eva/ui";
+import { Button, Skeleton } from "@eva/ui";
 import { IconChecks, IconInbox } from "@tabler/icons-react";
-import dayjs from "@eva/shared/dates";
-import { inboxFilterParser } from "@/lib/search-params";
+import { inboxFilterParser, inboxSelectedParser } from "@/lib/search-params";
 import { type Notification } from "@/lib/components/notifications/notification-config";
 import { InboxFilterTabs } from "@/lib/components/inbox/InboxFilterTabs";
-import { NotificationRow } from "@/lib/components/inbox/NotificationRow";
+import { NotificationList } from "@/lib/components/inbox/NotificationList";
+import { NotificationDetailPane } from "@/lib/components/inbox/NotificationDetailPane";
+import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import type { RepoWithLogo } from "@/lib/utils/repoGrouping";
 
-function groupByDate(notifications: Notification[]) {
-  const groups: { label: string; items: Notification[] }[] = [];
-  const map = new Map<string, Notification[]>();
-
-  for (const n of notifications) {
-    const d = dayjs(n.createdAt);
-    const now = dayjs();
-    let label: string;
-    if (d.isSame(now, "day")) label = "Today";
-    else if (d.isSame(now.subtract(1, "day"), "day")) label = "Yesterday";
-    else if (d.isSame(now, "week")) label = d.format("dddd");
-    else label = d.format("MMMM D, YYYY");
-
-    let items = map.get(label);
-    if (!items) {
-      items = [];
-      map.set(label, items);
-      groups.push({ label, items });
-    }
-    items.push(n);
-  }
-  return groups;
-}
-
+/**
+ * Two-pane inbox (Linear-style): the notification list on the left, the
+ * selected notification's full content on the right. Clicking a row selects
+ * it (and marks it read) instead of navigating away; the detail pane owns
+ * the jump to the linked entity.
+ */
 export function InboxClient() {
   const navigate = useNavigate();
   const notifications = useQuery(api.notifications.list);
   const repos = useQuery(api.githubRepos.list, {});
   const unreadCount = useQuery(api.notifications.countUnread) ?? 0;
-  const repoById = new Map((repos ?? []).map((repo) => [repo._id, repo]));
+  const repoById = new Map<Id<"githubRepos">, RepoWithLogo>(
+    (repos ?? []).map((repo) => [repo._id, repo]),
+  );
   const markAsRead = useMutation(
     api.notifications.markAsRead,
   ).withOptimisticUpdate((localStore, args) => {
@@ -81,6 +67,10 @@ export function InboxClient() {
     localStore.setQuery(api.notifications.countUnread, {}, 0);
   });
   const [filter, setFilter] = useQueryState("filter", inboxFilterParser);
+  const [selectedId, setSelectedId] = useQueryState(
+    "notification",
+    inboxSelectedParser,
+  );
 
   const filtered =
     notifications === undefined
@@ -89,20 +79,59 @@ export function InboxClient() {
         ? notifications.filter((n) => !n.read)
         : notifications;
 
-  const groups = filtered === undefined ? undefined : groupByDate(filtered);
+  // Resolved against the full list, not `filtered`: selecting an unread row on
+  // the Unread tab marks it read (removing it from the tab), and the detail
+  // pane must keep showing it rather than blanking out.
+  const selected = notifications?.find((n) => n._id === selectedId);
+  const selectedRepo =
+    selected?.repoId !== undefined ? repoById.get(selected.repoId) : undefined;
 
-  const handleClick = (n: Notification) => {
+  const handleSelect = (n: Notification) => {
     if (!n.read) markAsRead({ id: n._id });
+    setSelectedId(n._id);
+  };
+
+  const handleOpen = (n: Notification) => {
     if (n.href) navigate({ to: toInternalRepoHref(n.href) });
   };
 
-  const isEmpty = groups !== undefined && groups.length === 0;
+  // Linear-style keys: arrows step the list, Enter opens the linked entity,
+  // Escape clears the selection. Skipped while typing in a field.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target;
+      if (target instanceof HTMLElement) {
+        if (target.isContentEditable) return;
+        const tag = target.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      }
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        if (filtered === undefined || filtered.length === 0) return;
+        e.preventDefault();
+        const index = filtered.findIndex((n) => n._id === selectedId);
+        const next =
+          index < 0
+            ? filtered[0]
+            : e.key === "ArrowDown"
+              ? filtered[Math.min(index + 1, filtered.length - 1)]
+              : filtered[Math.max(index - 1, 0)];
+        if (next) handleSelect(next);
+      } else if (e.key === "Enter") {
+        if (selected) handleOpen(selected);
+      } else if (e.key === "Escape") {
+        setSelectedId(null);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
 
   return (
     <PageWrapper
       title="Inbox"
-      comfortable
-      fillHeight={isEmpty}
+      fillHeight
+      childPadding={false}
       headerRight={
         unreadCount > 0 ? (
           <Button
@@ -127,74 +156,67 @@ export function InboxClient() {
         />
       }
     >
-      {filtered === undefined ? (
-        <div
-          className="min-h-80 space-y-2 rounded-surface bg-card p-4"
-          aria-busy="true"
-          aria-label="Loading inbox"
-        >
-          <Skeleton className="h-4 w-24" />
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="h-14" />
-          ))}
-        </div>
-      ) : groups === undefined || groups.length === 0 ? (
-        <div className="flex min-h-0 flex-1 items-center justify-center">
-          <EmptyState
-            icon={<IconInbox size={24} className="text-muted-foreground" />}
-            title={
-              filter === "unread"
-                ? "No unread notifications"
-                : "No notifications yet"
-            }
-            description="You're all caught up"
-            animate={filter !== "unread"}
-          />
-        </div>
-      ) : (
-        <div className="overflow-hidden rounded-surface bg-card">
-          <AnimatePresence initial={false}>
-            {groups.map((group) => (
-              <m.div
-                key={group.label}
-                // Later groups need the divider their header's border-b cannot draw.
-                className="border-t border-border first:border-t-0"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={motionFast}
-              >
-                <div className="border-b border-border bg-muted px-4 py-1.5">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {group.label}
-                  </span>
-                </div>
-                <div className="divide-y divide-border">
-                  {group.items.map((n, index) => (
-                    <m.div
-                      key={n._id}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{
-                        ...motionFast,
-                        delay: motionStagger(index, 0.02, 0.1),
-                      }}
-                    >
-                      <NotificationRow
-                        notification={n}
-                        repo={n.repoId ? repoById.get(n.repoId) : undefined}
-                        onOpen={() => handleClick(n)}
-                        onMarkRead={() => markAsRead({ id: n._id })}
-                      />
-                    </m.div>
+      {/* Region divider between the page header and the split panes. */}
+      <div className="min-h-0 flex-1 overflow-hidden border-t border-border">
+        <ResizablePanelLayout
+          storageKey="inbox-split"
+          leftDefaultSize="40%"
+          leftMinWidthPx={300}
+          rightMinWidthPx={360}
+          // The detail pane is the point of this view, so it starts open.
+          defaultRightCollapsed={false}
+          leftPanel={() => (
+            <div className="flex h-full min-h-0 flex-col overflow-hidden">
+              {filtered === undefined ? (
+                <div
+                  className="space-y-2 p-4"
+                  aria-busy="true"
+                  aria-label="Loading inbox"
+                >
+                  <Skeleton className="h-4 w-24" />
+                  {Array.from({ length: 6 }).map((_, i) => (
+                    <Skeleton key={i} className="h-14" />
                   ))}
                 </div>
-              </m.div>
-            ))}
-          </AnimatePresence>
-        </div>
-      )}
+              ) : filtered.length === 0 ? (
+                <div className="flex min-h-0 flex-1 items-center justify-center">
+                  <EmptyState
+                    icon={
+                      <IconInbox size={24} className="text-muted-foreground" />
+                    }
+                    title={
+                      filter === "unread"
+                        ? "No unread notifications"
+                        : "No notifications yet"
+                    }
+                    description="You're all caught up"
+                    animate={filter !== "unread"}
+                  />
+                </div>
+              ) : (
+                <div className="min-h-0 flex-1 overflow-y-auto scrollbar">
+                  <NotificationList
+                    notifications={filtered}
+                    repoById={repoById}
+                    selectedId={selectedId}
+                    onSelect={handleSelect}
+                    onMarkRead={(n) => markAsRead({ id: n._id })}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+          rightPanel={
+            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+              <NotificationDetailPane
+                notification={selected}
+                repo={selectedRepo}
+                onOpen={handleOpen}
+              />
+            </div>
+          }
+        />
+      </div>
     </PageWrapper>
   );
 }

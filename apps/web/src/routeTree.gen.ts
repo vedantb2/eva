@@ -46,6 +46,7 @@ import { Route as RepoOwnerRepoReviewsRouteRouteImport } from './routes/_repo/$o
 import { Route as RepoOwnerRepoSessionsRouteRouteImport } from './routes/_repo/$owner/$repo/sessions/route'
 import { Route as RepoOwnerRepoSettingsRouteRouteImport } from './routes/_repo/$owner/$repo/settings/route'
 import { Route as RepoOwnerRepoStatsRouteImport } from './routes/_repo/$owner/$repo/stats'
+import { Route as RepoOwnerRepoTodayRouteImport } from './routes/_repo/$owner/$repo/today'
 import { Route as RepoOwnerRepoAutomationsIndexRouteImport } from './routes/_repo/$owner/$repo/automations/index'
 import { Route as RepoOwnerRepoAutomationsNumIdRouteRouteImport } from './routes/_repo/$owner/$repo/automations/$numId/route'
 import { Route as RepoOwnerRepoDocsIndexRouteImport } from './routes/_repo/$owner/$repo/docs/index'
@@ -315,6 +316,11 @@ const RepoOwnerRepoSettingsRouteRoute =
 const RepoOwnerRepoStatsRoute = RepoOwnerRepoStatsRouteImport.update({
   id: '/stats',
   path: '/stats',
+  getParentRoute: () => RepoOwnerRepoRoute,
+} as any)
+const RepoOwnerRepoTodayRoute = RepoOwnerRepoTodayRouteImport.update({
+  id: '/today',
+  path: '/today',
   getParentRoute: () => RepoOwnerRepoRoute,
 } as any)
 const RepoOwnerRepoAutomationsIndexRoute =
@@ -817,6 +823,7 @@ export interface FileRoutesByFullPath {
   '/teams/$teamId/$teamTab': typeof GlobalTeamsTeamIdTeamTabRoute
   '/$owner/$repo/inbox': typeof RepoOwnerRepoInboxRoute
   '/$owner/$repo/stats': typeof RepoOwnerRepoStatsRoute
+  '/$owner/$repo/today': typeof RepoOwnerRepoTodayRoute
   '/teams/$teamId/': typeof GlobalTeamsTeamIdIndexRoute
   '/$owner/$repo/': typeof RepoOwnerRepoIndexRoute
   '/$owner/$repo/automations/$numId': typeof RepoOwnerRepoAutomationsNumIdRouteRouteWithChildren
@@ -924,6 +931,7 @@ export interface FileRoutesByTo {
   '/teams/$teamId/$teamTab': typeof GlobalTeamsTeamIdTeamTabRoute
   '/$owner/$repo/inbox': typeof RepoOwnerRepoInboxRoute
   '/$owner/$repo/stats': typeof RepoOwnerRepoStatsRoute
+  '/$owner/$repo/today': typeof RepoOwnerRepoTodayRoute
   '/teams/$teamId': typeof GlobalTeamsTeamIdIndexRoute
   '/$owner/$repo': typeof RepoOwnerRepoIndexRoute
   '/$owner/$repo/settings/app': typeof RepoOwnerRepoSettingsAppRoute
@@ -1024,6 +1032,7 @@ export interface FileRoutesById {
   '/_global/teams/$teamId/$teamTab': typeof GlobalTeamsTeamIdTeamTabRoute
   '/_repo/$owner/$repo/inbox': typeof RepoOwnerRepoInboxRoute
   '/_repo/$owner/$repo/stats': typeof RepoOwnerRepoStatsRoute
+  '/_repo/$owner/$repo/today': typeof RepoOwnerRepoTodayRoute
   '/_global/teams/$teamId/': typeof GlobalTeamsTeamIdIndexRoute
   '/_repo/$owner/$repo/': typeof RepoOwnerRepoIndexRoute
   '/_repo/$owner/$repo/automations/$numId': typeof RepoOwnerRepoAutomationsNumIdRouteRouteWithChildren
@@ -1140,6 +1149,7 @@ export interface FileRouteTypes {
     | '/teams/$teamId/$teamTab'
     | '/$owner/$repo/inbox'
     | '/$owner/$repo/stats'
+    | '/$owner/$repo/today'
     | '/teams/$teamId/'
     | '/$owner/$repo/'
     | '/$owner/$repo/automations/$numId'
@@ -1247,6 +1257,7 @@ export interface FileRouteTypes {
     | '/teams/$teamId/$teamTab'
     | '/$owner/$repo/inbox'
     | '/$owner/$repo/stats'
+    | '/$owner/$repo/today'
     | '/teams/$teamId'
     | '/$owner/$repo'
     | '/$owner/$repo/settings/app'
@@ -1346,6 +1357,7 @@ export interface FileRouteTypes {
     | '/_global/teams/$teamId/$teamTab'
     | '/_repo/$owner/$repo/inbox'
     | '/_repo/$owner/$repo/stats'
+    | '/_repo/$owner/$repo/today'
     | '/_global/teams/$teamId/'
     | '/_repo/$owner/$repo/'
     | '/_repo/$owner/$repo/automations/$numId'
@@ -1695,6 +1707,13 @@ declare module '@tanstack/react-router' {
       path: '/stats'
       fullPath: '/$owner/$repo/stats'
       preLoaderRoute: typeof RepoOwnerRepoStatsRouteImport
+      parentRoute: typeof RepoOwnerRepoRoute
+    }
+    '/_repo/$owner/$repo/today': {
+      id: '/_repo/$owner/$repo/today'
+      path: '/today'
+      fullPath: '/$owner/$repo/today'
+      preLoaderRoute: typeof RepoOwnerRepoTodayRouteImport
       parentRoute: typeof RepoOwnerRepoRoute
     }
     '/_repo/$owner/$repo/automations/': {
@@ -2790,6 +2809,7 @@ interface RepoOwnerRepoRouteChildren {
   RepoOwnerRepoSettingsRouteRoute: typeof RepoOwnerRepoSettingsRouteRouteWithChildren
   RepoOwnerRepoInboxRoute: typeof RepoOwnerRepoInboxRoute
   RepoOwnerRepoStatsRoute: typeof RepoOwnerRepoStatsRoute
+  RepoOwnerRepoTodayRoute: typeof RepoOwnerRepoTodayRoute
   RepoOwnerRepoIndexRoute: typeof RepoOwnerRepoIndexRoute
   RepoOwnerRepoDocsNumIdRouteRoute: typeof RepoOwnerRepoDocsNumIdRouteRouteWithChildren
   RepoOwnerRepoProjectsNumIdRouteRoute: typeof RepoOwnerRepoProjectsNumIdRouteRouteWithChildren
@@ -2810,6 +2830,7 @@ const RepoOwnerRepoRouteChildren: RepoOwnerRepoRouteChildren = {
   RepoOwnerRepoSettingsRouteRoute: RepoOwnerRepoSettingsRouteRouteWithChildren,
   RepoOwnerRepoInboxRoute: RepoOwnerRepoInboxRoute,
   RepoOwnerRepoStatsRoute: RepoOwnerRepoStatsRoute,
+  RepoOwnerRepoTodayRoute: RepoOwnerRepoTodayRoute,
   RepoOwnerRepoIndexRoute: RepoOwnerRepoIndexRoute,
   RepoOwnerRepoDocsNumIdRouteRoute:
     RepoOwnerRepoDocsNumIdRouteRouteWithChildren,

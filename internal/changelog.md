@@ -8396,6 +8396,13 @@ Behavior per context:
 - Group summaries stay muted even when a call inside failed — the failed row is still red once expanded
 - Removed the now-unused `commandKind` from `StepRowPresentation`; row icons resolve through a single `iconForStep` helper
 
+## Today Page + Daily Standup System Automation - 2026-08-20
+
+- Added a "Daily standup" system automation to the Hub catalog (`daily-standup`, read-only, `0 8 * * 1-5` — 08:00 UTC on weekdays) with a real prompt: skimmable markdown standup of the last working day's commits, themed headings, ~150 words; Monday runs widen the git window to 4 days so Friday and the weekend are covered
+- New `convex/today.ts`: `isStandupEnabled` (sidebar gate) and `listStandups` (published runs feed), both matched by `systemKey` via the `by_repo` index — unlike the title-matched global changelog
+- New per-app `/today` route renders standup runs as a changelog timeline (Streamdown, Today/Yesterday headings); empty states offer one-click install or explain the pending first run
+- "Today" sits above Drafts as an ungrouped sidebar shortcut (not a Ship-pipeline stage), only while the automation is installed and enabled; page stays reachable by URL so history survives a pause
+
 ## PR Review Surfaces Cleaned Up (Cursor-style) - 2026-08-20
 
 - Status pill now leads the PR title on both the reviews page and the sandbox Review tab; open PRs get an emerald "Open" pill (previously open rendered no pill), and `statusMeta` carries the icon so wording/colour/icon cannot drift

@@ -5,9 +5,9 @@ import { checkTone, ToneIcon, type PrCheck } from "./prOverviewMeta";
  * One check run or commit status. Review bots report through either API and
  * GitHub's own page merges the two, so both render identically here.
  *
- * Shared by the Checks tab and the collapsed list beside the merge control, so a
- * check's tone, wording, and link target cannot differ between the two places a
- * reader might meet it.
+ * Its own component rather than inlined in `PrChecksPanel`: the tone mapping, the
+ * bot summary line and the link-or-not branch are the whole substance of a check
+ * row, and the panel around it is a heading and a list.
  */
 export function PrCheckRow({ check }: { check: PrCheck }) {
   const row = (

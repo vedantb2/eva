@@ -1,5 +1,21 @@
 # Changelog
 
+## The review surface adopts the Cursor PR-page layout - 2026-08-21
+
+The review pages and the sandbox Review tab had three tabs (Overview / Diffs / Recap), two unlabelled icon buttons in the header, and the merge control at the foot of an unbounded conversation. A reviewer who had finished reading had to scroll back up past every comment to act on what they had read, and "is CI red" was two clicks and a disclosure inside the merge box.
+
+Five tabs now, from one table (`reviewTabMeta.ts`): Activity, Commits, Checks, Changes, Recap — each with a leading glyph, a count, and the sliding pill marker the rest of the app already uses instead of the underline this surface carried alone. Commits and Checks are new panels; the commit row is extracted (`PrCommitRow`) and shared with the Activity rail's push groups, so a commit reads and behaves the same in both places, and the check row (`PrCheckRow`) is its own component for the same reason. Slugs did not move — `overview` still answers to "Activity" and `diffs` to "Changes", because renaming them would break every review link anybody has pasted into a task, and `canonicalReviewTab` accepts the label-shaped spellings too. `commits` and `checks` route files were added to all three sandbox surfaces (projects, quick tasks, sessions).
+
+Every action moved into the header (`PrHeaderActions`): an overflow menu (Refresh, Copy link, View on GitHub, Close without merging), an "Add comment" split control whose chevron approves or requests changes (`PrVerdictDialog`, sharing `verdictSuccessTitle` with the Diffs toolbar's popover so the two cannot report the same verdict in different words), and one filled button that decides the pull request — Merge with the method on a dropdown, Reopen, or Revert. Revert is a session on the base branch, not an API call: GitHub has no undo-a-merge endpoint, so an agent writes the revert and opens a pull request for it. `PrMergeBox` and `PrMergeBoxChecks` are deleted; `updatePullRequest` gained `state` for close/reopen.
+
+The metadata column keeps its five sections but says less to say it: sentence-case headings instead of tracked-out caps, empty sections stating their emptiness on the heading line ("Assignees  No one") rather than spending a second line on the word "None", and checks worded as "4 Passing Checks". Reviewers, Assignees and Labels are editable in place through one searchable multi-select (`PrMetaEditor`) backed by a new `_github/prMeta.ts` — whole-set saves, because add/remove-per-chip needs the client to diff against a payload that may be a minute stale. Previews is new: `getPullRequestOverview` now reads the head commit's deployments and their latest statuses, so the deployed page is a click from the column instead of buried in whatever comment the provider's bot left. Freshness and the diffstat moved off the author line onto the tab row, which has an empty right half on every surface.
+
+The merge event leads the Activity column as a card with the merge commit and a View commit button (`mergeCommitSha` is new on the overview) — chronologically it lands after every comment, which is the one place a reader will not look for it. A repository breadcrumb sits above the title on the standalone page, which is reachable straight from a link.
+
+Cards stayed tone-only. The reference design draws hairline-bordered cards on a recessed canvas; `docs/eva-ui.md` bans decorative hairlines, and the structure and spacing carry the layout without them.
+
+Verified: `tsc` clean for `@eva/web` and the Convex functions, 331 web tests pass, and all five tabs, both alias slugs, the label editor, the previews list and the merged-PR header were exercised in the running app on the standalone page and in a session's Review tab.
+
 ## Four regression guards for yesterday's fixes, and one red test that was lying - 2026-08-21
 
 Yesterday's bug fixes shipped mostly untested. Four of them had an invariant worth pinning, so each now has one.

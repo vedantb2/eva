@@ -106,6 +106,8 @@ import { Route as RepoOwnerRepoSessionsNumIdPrIndexRouteImport } from './routes/
 import { Route as RepoOwnerRepoSessionsNumIdPrDiffsRouteRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/pr/diffs/route'
 import { Route as RepoOwnerRepoSessionsNumIdPrRecapRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/pr/recap'
 import { Route as RepoOwnerRepoSessionsNumIdReviewIndexRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/review/index'
+import { Route as RepoOwnerRepoSessionsNumIdReviewChecksRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/review/checks'
+import { Route as RepoOwnerRepoSessionsNumIdReviewCommitsRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/review/commits'
 import { Route as RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/review/diffs/route'
 import { Route as RepoOwnerRepoSessionsNumIdReviewOverviewRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/review/overview'
 import { Route as RepoOwnerRepoSessionsNumIdReviewRecapRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/review/recap'
@@ -680,6 +682,18 @@ const RepoOwnerRepoSessionsNumIdReviewIndexRoute =
     path: '/',
     getParentRoute: () => RepoOwnerRepoSessionsNumIdReviewRouteRoute,
   } as any)
+const RepoOwnerRepoSessionsNumIdReviewChecksRoute =
+  RepoOwnerRepoSessionsNumIdReviewChecksRouteImport.update({
+    id: '/checks',
+    path: '/checks',
+    getParentRoute: () => RepoOwnerRepoSessionsNumIdReviewRouteRoute,
+  } as any)
+const RepoOwnerRepoSessionsNumIdReviewCommitsRoute =
+  RepoOwnerRepoSessionsNumIdReviewCommitsRouteImport.update({
+    id: '/commits',
+    path: '/commits',
+    getParentRoute: () => RepoOwnerRepoSessionsNumIdReviewRouteRoute,
+  } as any)
 const RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute =
   RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteImport.update({
     id: '/diffs',
@@ -917,6 +931,8 @@ export interface FileRoutesByFullPath {
   '/$owner/$repo/projects/$numId/sandbox/$sandboxTab': typeof RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute
   '/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab': typeof RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute
   '/$owner/$repo/sessions/$numId/pr/recap': typeof RepoOwnerRepoSessionsNumIdPrRecapRoute
+  '/$owner/$repo/sessions/$numId/review/checks': typeof RepoOwnerRepoSessionsNumIdReviewChecksRoute
+  '/$owner/$repo/sessions/$numId/review/commits': typeof RepoOwnerRepoSessionsNumIdReviewCommitsRoute
   '/$owner/$repo/sessions/$numId/review/overview': typeof RepoOwnerRepoSessionsNumIdReviewOverviewRoute
   '/$owner/$repo/sessions/$numId/review/recap': typeof RepoOwnerRepoSessionsNumIdReviewRecapRoute
   '/$owner/$repo/projects/$numId/$taskNumId/': typeof RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute
@@ -1015,6 +1031,8 @@ export interface FileRoutesByTo {
   '/$owner/$repo/projects/$numId/sandbox/$sandboxTab': typeof RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute
   '/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab': typeof RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute
   '/$owner/$repo/sessions/$numId/pr/recap': typeof RepoOwnerRepoSessionsNumIdPrRecapRoute
+  '/$owner/$repo/sessions/$numId/review/checks': typeof RepoOwnerRepoSessionsNumIdReviewChecksRoute
+  '/$owner/$repo/sessions/$numId/review/commits': typeof RepoOwnerRepoSessionsNumIdReviewCommitsRoute
   '/$owner/$repo/sessions/$numId/review/overview': typeof RepoOwnerRepoSessionsNumIdReviewOverviewRoute
   '/$owner/$repo/sessions/$numId/review/recap': typeof RepoOwnerRepoSessionsNumIdReviewRecapRoute
   '/$owner/$repo/projects/$numId/$taskNumId': typeof RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute
@@ -1136,6 +1154,8 @@ export interface FileRoutesById {
   '/_repo/$owner/$repo/projects/$numId/sandbox/$sandboxTab': typeof RepoOwnerRepoProjectsNumIdSandboxSandboxTabRoute
   '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab': typeof RepoOwnerRepoQuickTasksNumIdSandboxSandboxTabRoute
   '/_repo/$owner/$repo/sessions/$numId/pr/recap': typeof RepoOwnerRepoSessionsNumIdPrRecapRoute
+  '/_repo/$owner/$repo/sessions/$numId/review/checks': typeof RepoOwnerRepoSessionsNumIdReviewChecksRoute
+  '/_repo/$owner/$repo/sessions/$numId/review/commits': typeof RepoOwnerRepoSessionsNumIdReviewCommitsRoute
   '/_repo/$owner/$repo/sessions/$numId/review/overview': typeof RepoOwnerRepoSessionsNumIdReviewOverviewRoute
   '/_repo/$owner/$repo/sessions/$numId/review/recap': typeof RepoOwnerRepoSessionsNumIdReviewRecapRoute
   '/_repo/$owner/$repo/projects/$numId/$taskNumId/': typeof RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute
@@ -1258,6 +1278,8 @@ export interface FileRouteTypes {
     | '/$owner/$repo/projects/$numId/sandbox/$sandboxTab'
     | '/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab'
     | '/$owner/$repo/sessions/$numId/pr/recap'
+    | '/$owner/$repo/sessions/$numId/review/checks'
+    | '/$owner/$repo/sessions/$numId/review/commits'
     | '/$owner/$repo/sessions/$numId/review/overview'
     | '/$owner/$repo/sessions/$numId/review/recap'
     | '/$owner/$repo/projects/$numId/$taskNumId/'
@@ -1356,6 +1378,8 @@ export interface FileRouteTypes {
     | '/$owner/$repo/projects/$numId/sandbox/$sandboxTab'
     | '/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab'
     | '/$owner/$repo/sessions/$numId/pr/recap'
+    | '/$owner/$repo/sessions/$numId/review/checks'
+    | '/$owner/$repo/sessions/$numId/review/commits'
     | '/$owner/$repo/sessions/$numId/review/overview'
     | '/$owner/$repo/sessions/$numId/review/recap'
     | '/$owner/$repo/projects/$numId/$taskNumId'
@@ -1476,6 +1500,8 @@ export interface FileRouteTypes {
     | '/_repo/$owner/$repo/projects/$numId/sandbox/$sandboxTab'
     | '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/$sandboxTab'
     | '/_repo/$owner/$repo/sessions/$numId/pr/recap'
+    | '/_repo/$owner/$repo/sessions/$numId/review/checks'
+    | '/_repo/$owner/$repo/sessions/$numId/review/commits'
     | '/_repo/$owner/$repo/sessions/$numId/review/overview'
     | '/_repo/$owner/$repo/sessions/$numId/review/recap'
     | '/_repo/$owner/$repo/projects/$numId/$taskNumId/'
@@ -2193,6 +2219,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewIndexRouteImport
       parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRoute
     }
+    '/_repo/$owner/$repo/sessions/$numId/review/checks': {
+      id: '/_repo/$owner/$repo/sessions/$numId/review/checks'
+      path: '/checks'
+      fullPath: '/$owner/$repo/sessions/$numId/review/checks'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewChecksRouteImport
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRoute
+    }
+    '/_repo/$owner/$repo/sessions/$numId/review/commits': {
+      id: '/_repo/$owner/$repo/sessions/$numId/review/commits'
+      path: '/commits'
+      fullPath: '/$owner/$repo/sessions/$numId/review/commits'
+      preLoaderRoute: typeof RepoOwnerRepoSessionsNumIdReviewCommitsRouteImport
+      parentRoute: typeof RepoOwnerRepoSessionsNumIdReviewRouteRoute
+    }
     '/_repo/$owner/$repo/sessions/$numId/review/diffs': {
       id: '/_repo/$owner/$repo/sessions/$numId/review/diffs'
       path: '/diffs'
@@ -2651,6 +2691,8 @@ const RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteWithChildren =
 
 interface RepoOwnerRepoSessionsNumIdReviewRouteRouteChildren {
   RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute: typeof RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteWithChildren
+  RepoOwnerRepoSessionsNumIdReviewChecksRoute: typeof RepoOwnerRepoSessionsNumIdReviewChecksRoute
+  RepoOwnerRepoSessionsNumIdReviewCommitsRoute: typeof RepoOwnerRepoSessionsNumIdReviewCommitsRoute
   RepoOwnerRepoSessionsNumIdReviewOverviewRoute: typeof RepoOwnerRepoSessionsNumIdReviewOverviewRoute
   RepoOwnerRepoSessionsNumIdReviewRecapRoute: typeof RepoOwnerRepoSessionsNumIdReviewRecapRoute
   RepoOwnerRepoSessionsNumIdReviewIndexRoute: typeof RepoOwnerRepoSessionsNumIdReviewIndexRoute
@@ -2660,6 +2702,10 @@ const RepoOwnerRepoSessionsNumIdReviewRouteRouteChildren: RepoOwnerRepoSessionsN
   {
     RepoOwnerRepoSessionsNumIdReviewDiffsRouteRoute:
       RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteWithChildren,
+    RepoOwnerRepoSessionsNumIdReviewChecksRoute:
+      RepoOwnerRepoSessionsNumIdReviewChecksRoute,
+    RepoOwnerRepoSessionsNumIdReviewCommitsRoute:
+      RepoOwnerRepoSessionsNumIdReviewCommitsRoute,
     RepoOwnerRepoSessionsNumIdReviewOverviewRoute:
       RepoOwnerRepoSessionsNumIdReviewOverviewRoute,
     RepoOwnerRepoSessionsNumIdReviewRecapRoute:

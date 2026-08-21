@@ -34,6 +34,7 @@ import {
   stopStreamingLoops,
 } from "../runtime/heartbeats.js";
 import { callbackState as S } from "../runtime/state.js";
+import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
 import {
   prepareCodexSessionState,
@@ -158,55 +159,6 @@ function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
       )
     : [];
   return { prompt: payload.prompt, attachmentUrls };
-}
-
-function attachmentExtension(mimeType: string): string {
-  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
-  switch (type) {
-    case "image/jpeg":
-      return ".jpg";
-    case "image/gif":
-      return ".gif";
-    case "image/webp":
-      return ".webp";
-    case "image/svg+xml":
-      return ".svg";
-    case "image/png":
-      return ".png";
-    case "text/html":
-      return ".html";
-    case "text/markdown":
-      return ".md";
-    case "text/plain":
-      return ".txt";
-    default:
-      return type.startsWith("image/") ? ".png" : ".bin";
-  }
-}
-
-async function materializeAttachments(turn: ClaimedTurn): Promise<void> {
-  const localPaths: string[] = [];
-  for (let index = 0; index < turn.attachmentUrls.length; index++) {
-    const url = turn.attachmentUrls[index];
-    if (!url) continue;
-    try {
-      const response = await fetchWithTimeout(url, { method: "GET" });
-      if (!response.ok) continue;
-      const path = `/tmp/eva-attachment-${index}${attachmentExtension(response.headers.get("content-type") ?? "")}`;
-      writeFileSync(path, new Uint8Array(await response.arrayBuffer()));
-      localPaths.push(path);
-    } catch (error) {
-      log(
-        "codex daemon: attachment download failed: " +
-          (error instanceof Error ? error.message : String(error)),
-      );
-    }
-  }
-  if (localPaths.length > 0) {
-    turn.prompt +=
-      "\n\n---\nThe user attached the following file(s). Read them with your file-reading tool before responding:\n" +
-      localPaths.map((path) => `- ${path}`).join("\n");
-  }
 }
 
 function emitEvent(event: JsonObject): void {
@@ -437,7 +389,7 @@ async function startTurn(
   turn: ClaimedTurn,
 ): Promise<void> {
   resetTurnState();
-  await materializeAttachments(turn);
+  await materializeTurnAttachments(turn);
   const text = SYSTEM_PROMPT
     ? SYSTEM_PROMPT + "\n\n" + turn.prompt
     : turn.prompt;

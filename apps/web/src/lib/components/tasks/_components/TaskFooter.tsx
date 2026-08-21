@@ -328,8 +328,13 @@ function SplitRunButton({
   const isScheduled = scheduledAt !== undefined;
   const iconSize = size === "sm" ? 16 : 18;
 
+  // The two halves cancel their own press (`SPLIT_BUTTON_HALF`) so the wrapper
+  // scales as one unit. `motion-press` owns that: the hand-listed
+  // `transition-[transform,background-color]` it replaces named `transform`,
+  // which never matches the `scale` property Tailwind compiles `scale-[0.96]`
+  // to, so the split button did not press at all.
   return (
-    <div className="group/split flex items-center transition-[transform,background-color] duration-[var(--motion-base)] active:scale-[0.96]">
+    <div className="group/split motion-press flex items-center active:scale-[0.96]">
       <Tooltip>
         <TooltipTrigger asChild>
           <div>

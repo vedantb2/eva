@@ -270,6 +270,9 @@ export function ChatComposer({
               />
             )}
             <PromptInput
+              // The `@`/`/` picker renders as a full-width panel above this
+              // card and matches its width — see MentionEditor `popupLayout`.
+              data-mention-popup-anchor=""
               onSubmit={handlePromptSubmit}
               accept={CHAT_ATTACHMENT_ACCEPT}
               multiple

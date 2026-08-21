@@ -5,7 +5,7 @@ import {
   CURSOR_RUNTIME_HOME_DIR,
   CURSOR_SDK_STORE_DIR,
 } from "../config.js";
-import { updateThinkingStep } from "../parse/canonical.js";
+import { pushNoticeStep, updateThinkingStep } from "../parse/canonical.js";
 import { callbackState as S } from "../runtime/state.js";
 import type { SessionMode } from "../types.js";
 import { createSessionStore } from "./createSessionStore.js";
@@ -57,15 +57,21 @@ export function prepareCursorSessionState(): SessionMode {
       persistedState.resumeSessionId,
     );
     if (shouldRotateCursorSession(resumeStats)) {
-      const detail = resumeStats
-        ? `turn ${resumeStats.turnNumber}, ${resumeStats.inputTokens} input tokens`
-        : "oversized history";
+      // Rotation drops everything the agent remembered, so it must leave a
+      // durable trace: users saw the fresh agent deny its own past work with a
+      // transient thinking line as the only clue.
+      const contextTokens = resumeStats ? resumeStats.contextTokens : 0;
+      const approxThousands = Math.round(contextTokens / 1000);
       console.log(
         "prepareCursorSessionState: rotating saved Cursor agent (" +
-          detail +
-          ")",
+          contextTokens +
+          " context tokens)",
       );
       S.activeCursorSessionId = "";
+      pushNoticeStep(
+        "Started a fresh Cursor agent",
+        `Saved context reached ~${approxThousands}k tokens; continuing with a summary handoff.`,
+      );
       updateThinkingStep(
         "Preparing Cursor session...",
         "Saved context reached its safe limit. Starting fresh...",

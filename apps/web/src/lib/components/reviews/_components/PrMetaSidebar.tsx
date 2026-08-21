@@ -3,6 +3,9 @@
 import { Button, Spinner } from "@eva/ui";
 import { IconClock, IconRefresh } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
+import type { Id } from "@eva/backend";
+import { usePrMetaEdit } from "../usePrMetaEdit";
+import { PrMetaEditor, type PrMetaOption } from "./PrMetaEditor";
 import { PrMetaSection } from "./PrMetaSection";
 import { PrPreviewList } from "./PrPreviewList";
 import {
@@ -39,10 +42,12 @@ const CHECK_WORDS: ReadonlyArray<{ tone: StatusTone; word: string }> = [
  * second line on the word "None".
  */
 export function PrMetaSidebar({
+  repoId,
   overview,
   refreshing,
   onRefresh,
 }: {
+  repoId: Id<"githubRepos">;
   overview: PrOverview;
   refreshing: boolean;
   onRefresh: () => void;
@@ -50,6 +55,27 @@ export function PrMetaSidebar({
   const reviewers =
     overview.reviews.length + overview.requestedReviewers.length;
   const checks = countChecks(overview.checks);
+  const edit = usePrMetaEdit(repoId, overview.number, onRefresh);
+
+  const userOptions: PrMetaOption[] = (edit.candidates?.users ?? []).map(
+    (user) => ({
+      value: user.login,
+      label: user.login,
+      adornment: <Person login={user.login} avatarUrl={user.avatarUrl} />,
+    }),
+  );
+  const labelOptions: PrMetaOption[] = (edit.candidates?.labels ?? []).map(
+    (label) => ({
+      value: label.name,
+      label: label.name,
+      adornment: <LabelDot color={label.color} />,
+    }),
+  );
+  // Only *requested* reviewers are a set eva can edit — someone who has already
+  // submitted a review cannot be un-asked, and GitHub rejects the attempt.
+  const requestedLogins = overview.requestedReviewers.map(
+    (reviewer) => reviewer.login,
+  );
 
   return (
     // `group` for the sections' hover-revealed controls. Sections sit side by side
@@ -59,6 +85,18 @@ export function PrMetaSidebar({
       <PrMetaSection
         title="Reviewers"
         empty={reviewers === 0 ? "None yet" : undefined}
+        action={
+          <PrMetaEditor
+            title="Reviewers"
+            selected={requestedLogins}
+            options={userOptions}
+            loading={edit.loading}
+            saving={edit.savingReviewers}
+            onOpen={edit.loadCandidates}
+            onToggle={edit.setReviewers}
+            emptyMessage="No collaborators found."
+          />
+        }
       >
         <ul className="space-y-1.5">
           {overview.reviews.map((review) => (
@@ -149,6 +187,18 @@ export function PrMetaSidebar({
       <PrMetaSection
         title="Assignees"
         empty={overview.assignees.length === 0 ? "No one" : undefined}
+        action={
+          <PrMetaEditor
+            title="Assignees"
+            selected={overview.assignees.map((assignee) => assignee.login)}
+            options={userOptions}
+            loading={edit.loading}
+            saving={edit.savingAssignees}
+            onOpen={edit.loadCandidates}
+            onToggle={edit.setAssignees}
+            emptyMessage="No collaborators found."
+          />
+        }
       >
         <ul className="space-y-1.5">
           {overview.assignees.map((assignee) => (
@@ -162,6 +212,18 @@ export function PrMetaSidebar({
       <PrMetaSection
         title="Labels"
         empty={overview.labels.length === 0 ? "None set" : undefined}
+        action={
+          <PrMetaEditor
+            title="Labels"
+            selected={overview.labels.map((label) => label.name)}
+            options={labelOptions}
+            loading={edit.loading}
+            saving={edit.savingLabels}
+            onOpen={edit.loadCandidates}
+            onToggle={edit.setLabels}
+            emptyMessage="This repository has no labels."
+          />
+        }
       >
         <div className="flex flex-wrap gap-1.5">
           {overview.labels.map((label) => (
@@ -213,13 +275,21 @@ function Person({ login, avatarUrl }: PrActor) {
 function LabelChip({ label }: { label: PrLabel }) {
   return (
     <span className="inline-flex items-center gap-1.5 rounded bg-muted/60 px-1.5 py-0.5 text-xs">
-      {/* Label colours come from GitHub as data, so they cannot be theme
-          tokens; keep them to a dot so contrast stays safe in both themes. */}
-      <span
-        className="size-2 shrink-0 rounded-full"
-        style={{ backgroundColor: `#${label.color}` }}
-      />
+      <LabelDot color={label.color} />
       {label.name}
     </span>
+  );
+}
+
+/**
+ * Label colours come from GitHub as data, so they cannot be theme tokens; keeping
+ * them to a dot is what keeps contrast safe in both themes.
+ */
+function LabelDot({ color }: { color: string }) {
+  return (
+    <span
+      className="size-2 shrink-0 rounded-full"
+      style={{ backgroundColor: `#${color}` }}
+    />
   );
 }

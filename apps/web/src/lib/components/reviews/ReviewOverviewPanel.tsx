@@ -76,6 +76,7 @@ export function ReviewOverviewPanel({
         {/* First in the source so the metadata leads when it is a band across
             the top, and ordered back to the right once it is a column. */}
         <PrMetaSidebar
+          repoId={repoId}
           overview={overview}
           refreshing={state.refreshing}
           onRefresh={reload}

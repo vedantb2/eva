@@ -6,6 +6,7 @@ import { action, internalAction } from "../_generated/server";
 import { components, internal } from "../_generated/api";
 import { getInstallationOctokit } from "../githubAuth";
 import { invalidatePrHeaderCache } from "./pullRequests";
+import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { getActionRepoWithAccess } from "../functions";
 
@@ -659,15 +660,30 @@ export const updatePullRequest = action({
       ...(args.state === undefined ? {} : { state: args.state }),
     });
 
-    const cacheKey = { repoId: args.repoId, prNumber: args.prNumber };
-    await Promise.all([
-      prOverviewCache.remove(ctx, cacheKey),
-      invalidatePrHeaderCache(ctx, cacheKey),
-    ]);
+    await invalidatePrOverviewCache(ctx, {
+      repoId: args.repoId,
+      prNumber: args.prNumber,
+    });
 
     return { title: data.title, body: data.body };
   },
 });
+
+/**
+ * Drops both cached payloads that describe a pull request. Anything that changes
+ * it on GitHub has to call this: without it the overview and the page header keep
+ * serving the old text for up to their TTL, and the edit looks as though it had
+ * been undone.
+ */
+export async function invalidatePrOverviewCache(
+  ctx: ActionCtx,
+  key: { repoId: Id<"githubRepos">; prNumber: number },
+): Promise<void> {
+  await Promise.all([
+    prOverviewCache.remove(ctx, key),
+    invalidatePrHeaderCache(ctx, key),
+  ]);
+}
 
 const pullRequestCommitsValidator = v.object({
   commits: v.array(pullRequestCommitValidator),

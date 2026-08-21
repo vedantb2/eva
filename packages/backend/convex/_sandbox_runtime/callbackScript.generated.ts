@@ -1,7 +1,7 @@
 "use node";
 
 export const CALLBACK_SCRIPT = `// callback-src/index.ts
-import { mkdirSync as mkdirSync10, unlinkSync as unlinkSync3, writeFileSync as writeFileSync12 } from "fs";
+import { mkdirSync as mkdirSync10, unlinkSync as unlinkSync4, writeFileSync as writeFileSync13 } from "fs";
 
 // callback-src/config.ts
 import { existsSync } from "fs";
@@ -3208,26 +3208,55 @@ var codexAdapter = {
 // callback-src/session/cursorResumePolicy.ts
 import { existsSync as existsSync6, readFileSync as readFileSync5 } from "fs";
 import { join } from "path";
-var CURSOR_MAX_RESUME_TURNS = 12;
-var CURSOR_MAX_RESUME_INPUT_TOKENS = 8e4;
+var CURSOR_MAX_RESUME_CONTEXT_TOKENS = 16e4;
+function asRecord(value) {
+  if (value === null || value === void 0) return null;
+  if (typeof value !== "object" || Array.isArray(value)) return null;
+  return value;
+}
+function asId(value) {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+function readContextTokens(usage) {
+  if (!usage) return null;
+  const input = usage.inputTokens;
+  if (typeof input !== "number" || !Number.isFinite(input)) return null;
+  const cacheRead = usage.cacheReadTokens;
+  const cached = typeof cacheRead === "number" && Number.isFinite(cacheRead) ? cacheRead : 0;
+  return Math.max(0, input) + Math.max(0, cached);
+}
+function readRunEventLine(line) {
+  const record = asRecord(tryParseJson(line));
+  if (!record) return null;
+  const payload = asRecord(record.payload);
+  const message = payload ? asRecord(payload.message) : null;
+  const runId = asId(record.runId) ?? asId(record.run_id) ?? asId(payload?.runId) ?? asId(payload?.run_id) ?? asId(message?.run_id) ?? asId(message?.runId);
+  const agentId = asId(payload?.agentId) ?? asId(payload?.agent_id) ?? asId(message?.agent_id) ?? asId(message?.agentId);
+  return {
+    runId,
+    agentId,
+    contextTokens: readContextTokens(asRecord(message?.usage))
+  };
+}
 function readCursorResumeStats(storeDir, agentId) {
-  const runsFile = join(storeDir, "runs.ndjson");
-  if (!existsSync6(runsFile)) return null;
+  const eventsFile = join(storeDir, "run_events.ndjson");
+  if (!existsSync6(eventsFile)) return null;
   try {
-    const lines = readFileSync5(runsFile, "utf8").split("\\n");
-    const agentNeedle = \`"agentId":"\${agentId}"\`;
+    const lines = readFileSync5(eventsFile, "utf8").split("\\n");
+    let newestRunId = null;
     for (let index = lines.length - 1; index >= 0; index--) {
       const line = lines[index];
-      if (!line || !line.includes(agentNeedle)) continue;
-      const turnMatch = /"turnNumber":(\\d+)/.exec(line);
-      const inputMatch = /"inputTokens":(\\d+)/.exec(line);
-      if (!turnMatch || !inputMatch) return null;
-      const turnNumber = Number(turnMatch[1]);
-      const inputTokens = Number(inputMatch[1]);
-      if (!Number.isFinite(turnNumber) || !Number.isFinite(inputTokens)) {
-        return null;
+      if (!line) continue;
+      const event = readRunEventLine(line);
+      if (!event || event.runId === null) continue;
+      if (newestRunId === null) {
+        if (event.agentId !== agentId) continue;
+        newestRunId = event.runId;
       }
-      return { turnNumber, inputTokens };
+      if (event.runId !== newestRunId) continue;
+      if (event.contextTokens !== null) {
+        return { runId: newestRunId, contextTokens: event.contextTokens };
+      }
     }
   } catch (error) {
     console.error("Failed to inspect Cursor resume history:", String(error));
@@ -3236,7 +3265,7 @@ function readCursorResumeStats(storeDir, agentId) {
 }
 function shouldRotateCursorSession(stats) {
   if (stats === null) return false;
-  return stats.turnNumber >= CURSOR_MAX_RESUME_TURNS || stats.inputTokens >= CURSOR_MAX_RESUME_INPUT_TOKENS;
+  return stats.contextTokens >= CURSOR_MAX_RESUME_CONTEXT_TOKENS;
 }
 
 // callback-src/session/cursorSession.ts
@@ -3276,11 +3305,16 @@ function prepareCursorSessionState() {
       persistedState.resumeSessionId
     );
     if (shouldRotateCursorSession(resumeStats)) {
-      const detail = resumeStats ? \`turn \${resumeStats.turnNumber}, \${resumeStats.inputTokens} input tokens\` : "oversized history";
+      const contextTokens = resumeStats ? resumeStats.contextTokens : 0;
+      const approxThousands = Math.round(contextTokens / 1e3);
       console.log(
-        "prepareCursorSessionState: rotating saved Cursor agent (" + detail + ")"
+        "prepareCursorSessionState: rotating saved Cursor agent (" + contextTokens + " context tokens)"
       );
       callbackState.activeCursorSessionId = "";
+      pushNoticeStep2(
+        "Started a fresh Cursor agent",
+        \`Saved context reached ~\${approxThousands}k tokens; continuing with a summary handoff.\`
+      );
       updateThinkingStep(
         "Preparing Cursor session...",
         "Saved context reached its safe limit. Starting fresh..."
@@ -3704,6 +3738,9 @@ function applyReasoningSnapshot(text) {
   callbackState.accumulatedSteps.push(step);
   stepStartedAt.set(step, Date.now());
   callbackState.lastStepType = "thinking";
+}
+function pushNoticeStep2(label, detail) {
+  pushProgressStep({ type: "notice", label, detail, status: "complete" });
 }
 function updateThinkingStep(label, detail) {
   void label;
@@ -6187,14 +6224,841 @@ async function runCodexAppServerDaemon() {
   process.exit(exiting ? 1 : 0);
 }
 
+// callback-src/providers/cursorSdkDaemon.ts
+import { readFileSync as readFileSync10, unlinkSync as unlinkSync3, writeFileSync as writeFileSync10 } from "fs";
+
+// callback-src/providers/cursorSdk.ts
+import { mkdirSync as mkdirSync7, readFileSync as readFileSync9 } from "fs";
+var SDK_PACKAGE2 = "@cursor/sdk";
+var SDK_VERSION2 = "1.0.26";
+var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
+function cursorModeParams(model, fastMode, use1mContext) {
+  const params = [];
+  if (model === "grok-4.6" || model === "grok-4.5" || model === "composer-2.5") {
+    params.push({ id: "fast", value: fastMode ? "true" : "false" });
+  }
+  if (use1mContext) {
+    params.push({ id: "context", value: "1m" });
+  }
+  return params;
+}
+function filterModeParamsByModel(candidates, model, opted) {
+  if (!model) {
+    return candidates.filter(
+      (param) => param.id === "fast" ? opted.fastMode : opted.use1mContext
+    );
+  }
+  const definitions = Array.isArray(model.parameters) ? model.parameters : [];
+  return candidates.filter(
+    (param) => definitions.some((definition) => {
+      if (!definition || definition.id !== param.id) return false;
+      const values = Array.isArray(definition.values) ? definition.values : [];
+      return values.length === 0 || values.some((entry) => entry && entry.value === param.value);
+    })
+  );
+}
+var loadedSdk = null;
+async function loadCursorSdk() {
+  if (loadedSdk) return loadedSdk;
+  const mod = await import(resolvePinnedSdkEntry({
+    packageName: SDK_PACKAGE2,
+    version: SDK_VERSION2,
+    entryRelPath: SDK_ENTRY_RELPATH
+  }));
+  loadedSdk = mod;
+  return mod;
+}
+function readPromptText2() {
+  return readFileSync9("/tmp/design-prompt.txt", "utf8");
+}
+async function resolveCursorModelSelection(sdk) {
+  const base = normalizedCursorModel;
+  const level = cursorReasoningLevel;
+  const candidates = cursorModeParams(base, cursorFastMode, cursorUse1mContext);
+  const opted = { fastMode: cursorFastMode, use1mContext: cursorUse1mContext };
+  if (candidates.length === 0 && !level) {
+    return { id: base };
+  }
+  let model;
+  let listUnavailable = false;
+  try {
+    const list = sdk.Cursor?.models?.list;
+    if (list) {
+      const models = await list();
+      model = Array.isArray(models) ? models.find(
+        (entry) => entry && typeof entry === "object" && entry.id === base
+      ) : void 0;
+      if (!model) {
+        log(
+          "resolveCursorModelSelection: model " + base + " not in Cursor.models.list \\u2014 keeping opted-in params only"
+        );
+      }
+    } else {
+      listUnavailable = true;
+    }
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    listUnavailable = true;
+    log(
+      "resolveCursorModelSelection: model list failed \\u2014 keeping opted-in params only (" + messageText + ")"
+    );
+  }
+  const params = filterModeParamsByModel(candidates, model, opted);
+  if (params.length < candidates.length && model) {
+    log(
+      "resolveCursorModelSelection: " + base + " does not declare " + candidates.filter((candidate) => !params.some((p) => p.id === candidate.id)).map((candidate) => candidate.id).join(", ") + " \\u2014 dropped"
+    );
+  }
+  if (!level || listUnavailable || !model) {
+    return params.length > 0 ? { id: base, params } : { id: base };
+  }
+  for (const definition of model.parameters ?? []) {
+    if (!definition || typeof definition.id !== "string") continue;
+    const values = Array.isArray(definition.values) ? definition.values : [];
+    if (values.some((entry) => entry && entry.value === level)) {
+      log(
+        "resolveCursorModelSelection: " + base + " reasoning level " + level + " via parameter " + definition.id
+      );
+      params.push({ id: definition.id, value: level });
+      return { id: base, params };
+    }
+  }
+  for (const variant of model.variants ?? []) {
+    const variantParams = Array.isArray(variant?.params) ? variant.params : [];
+    if (variantParams.some((param) => param && param.value === level)) {
+      log(
+        "resolveCursorModelSelection: " + base + " reasoning level " + level + " via variant params"
+      );
+      const remainingVariantParams = variantParams.filter(
+        (variantParam) => !params.some((param) => param.id === variantParam.id)
+      );
+      return { id: base, params: [...params, ...remainingVariantParams] };
+    }
+  }
+  log(
+    "resolveCursorModelSelection: " + base + " exposes no parameter accepting '" + level + "' \\u2014 sending base id"
+  );
+  return params.length > 0 ? { id: base, params } : { id: base };
+}
+function errorCode(error) {
+  const withCode = error;
+  return typeof withCode.code === "string" ? withCode.code : "";
+}
+function isAgentNotFound(error) {
+  return errorCode(error) === "agent_not_found" || error.message.includes("agent_not_found");
+}
+var RESOURCE_EXHAUSTED_RETRY_DELAYS_MS = [15e3, 3e4];
+function isResourceExhaustedMessage(text) {
+  return text.includes("resource_exhausted");
+}
+var RESOURCE_EXHAUSTED_CHAT_MESSAGE = "Cursor rejected the request: rate limit or usage quota exhausted (resource_exhausted). No tokens were used. Wait a minute and try again, or switch to a different model.";
+var ZERO_USAGE = {
+  inputTokens: 0,
+  outputTokens: 0,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0
+};
+function readNum(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+async function runTurnWithResourceExhaustedRetries(deps) {
+  for (let attempt = 0; ; attempt++) {
+    const retryDelayMs = RESOURCE_EXHAUSTED_RETRY_DELAYS_MS[attempt];
+    let outcome;
+    try {
+      outcome = await deps.runTurn();
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      if (!isResourceExhaustedMessage(messageText) || retryDelayMs === void 0 || deps.aborted()) {
+        throw error;
+      }
+      outcome = {
+        isError: true,
+        resultText: messageText,
+        durationMs: 0,
+        usage: ZERO_USAGE
+      };
+    }
+    if (!outcome.isError || !isResourceExhaustedMessage(outcome.resultText)) {
+      return outcome;
+    }
+    if (retryDelayMs === void 0 || deps.aborted()) {
+      return { ...outcome, resultText: RESOURCE_EXHAUSTED_CHAT_MESSAGE };
+    }
+    deps.onRetry(retryDelayMs, attempt);
+    await deps.sleep(retryDelayMs);
+  }
+}
+function readUsageTokens(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return {
+    inputTokens: readNum(value.inputTokens),
+    outputTokens: readNum(value.outputTokens),
+    cacheReadTokens: readNum(value.cacheReadTokens),
+    cacheWriteTokens: readNum(value.cacheWriteTokens)
+  };
+}
+async function runCursorSdkAttempt(sessionMode, overrides = {}) {
+  resetAttemptState();
+  callbackState.activeAttemptStartedAt = Date.now();
+  updateThinkingStep(
+    "Starting Cursor agent...",
+    sessionMode.mode === "resume" ? "Restoring saved context..." : "Creating Cursor agent..."
+  );
+  log(
+    "runCursorSdkAttempt started (mode=" + sessionMode.mode + ", sessionId=" + (sessionMode.sessionId || "none") + ")"
+  );
+  let attemptOutput = "";
+  let lastMessageAt = Date.now();
+  let timedOutForNoOutput = false;
+  let timedOutForMaxRuntime = false;
+  let sawResult = false;
+  let resultIsError = false;
+  let attemptErrorMessage = "";
+  let lastStreamUsage = null;
+  let activeRun = null;
+  let abortedByCaller = false;
+  const cancelRun = () => {
+    if (!activeRun) return;
+    activeRun.cancel().catch(() => {
+    });
+  };
+  overrides.onAbortHandle?.(() => {
+    abortedByCaller = true;
+    cancelRun();
+  });
+  const sdk = await loadCursorSdk();
+  mkdirSync7(CURSOR_SDK_STORE_DIR, { recursive: true });
+  const store4 = new sdk.JsonlLocalAgentStore(CURSOR_SDK_STORE_DIR);
+  const options = {
+    apiKey: (process.env.CURSOR_API_KEY || "").trim(),
+    model: await resolveCursorModelSelection(sdk),
+    local: { cwd: WORK_DIR, store: store4 },
+    ...Object.keys(evaMcpServers).length > 0 ? { mcpServers: evaMcpServers } : {}
+  };
+  const persistAgentId = (agentId) => {
+    callbackState.activeCursorSessionId = agentId;
+    writeCursorSessionState();
+    syncCursorStateToPersist();
+  };
+  const createFreshAgent = async () => {
+    const created = await sdk.Agent.create(options);
+    persistAgentId(created.agentId);
+    return created;
+  };
+  let resumedExistingAgent = false;
+  let agent;
+  if (sessionMode.mode === "resume" && sessionMode.sessionId) {
+    try {
+      agent = await sdk.Agent.resume(sessionMode.sessionId, options);
+      resumedExistingAgent = true;
+      persistAgentId(agent.agentId);
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      log(
+        "runCursorSdkAttempt: resume failed \\u2014 starting a fresh agent (" + messageText + ")"
+      );
+      appendToRawLogFile("[sdk-retry] resume failed: " + messageText + "\\n");
+      agent = await createFreshAgent();
+    }
+  } else {
+    agent = await createFreshAgent();
+  }
+  const promptText = overrides.promptText ?? readPromptText2();
+  const combinedPrompt = SYSTEM_PROMPT ? SYSTEM_PROMPT + "\\n\\n" + promptText : promptText;
+  const healthTimer = setInterval(() => {
+    const now = Date.now();
+    if (now - callbackState.activeAttemptStartedAt > MAX_TOTAL_RUNTIME_MS) {
+      timedOutForMaxRuntime = true;
+      log("runCursorSdkAttempt: max runtime exceeded \\u2014 cancelling run");
+      cancelRun();
+      return;
+    }
+    if (callbackState.inFlightToolUses > 0) {
+      lastMessageAt = now;
+    }
+    if (!sawResult && now - lastMessageAt > NO_OUTPUT_TIMEOUT_MS * 5) {
+      timedOutForNoOutput = true;
+      log("runCursorSdkAttempt: no SDK events \\u2014 cancelling run");
+      cancelRun();
+    }
+  }, NO_OUTPUT_CHECK_INTERVAL_MS);
+  const pushLine = (line) => {
+    appendToRawLogFile(line);
+    attemptOutput = trimBufferHead(attemptOutput + line);
+    appendToRawOutput(line);
+    processRealtimeStdoutChunk(line);
+  };
+  const runTurn = async (activeAgent) => {
+    const run = await activeAgent.send(combinedPrompt, {
+      local: { force: true }
+    });
+    activeRun = run;
+    if (abortedByCaller) cancelRun();
+    for await (const message of run.stream()) {
+      lastMessageAt = Date.now();
+      pushLine(JSON.stringify(message) + "\\n");
+      if (message.type === "usage") {
+        lastStreamUsage = readUsageTokens(message.usage) ?? lastStreamUsage;
+      }
+      if (timedOutForMaxRuntime || timedOutForNoOutput || abortedByCaller)
+        break;
+    }
+    const result = await run.wait();
+    return {
+      isError: result.status !== "finished",
+      resultText: typeof result.result === "string" && result.result ? result.result : result.error && typeof result.error.message === "string" ? result.error.message : "",
+      durationMs: readNum(result.durationMs),
+      usage: readUsageTokens(result.usage) ?? lastStreamUsage ?? ZERO_USAGE
+    };
+  };
+  const emitTurnResult = (outcome) => {
+    const syntheticResult = {
+      type: "result",
+      is_error: outcome.isError,
+      result: outcome.resultText,
+      duration_ms: outcome.durationMs,
+      usage: {
+        input_tokens: outcome.usage.inputTokens,
+        output_tokens: outcome.usage.outputTokens,
+        cache_read_input_tokens: outcome.usage.cacheReadTokens,
+        cache_creation_input_tokens: outcome.usage.cacheWriteTokens
+      }
+    };
+    pushLine(JSON.stringify(syntheticResult) + "\\n");
+    sawResult = true;
+    resultIsError = outcome.isError;
+  };
+  const runTurnWithRetries = async (activeAgent) => {
+    emitTurnResult(
+      await runTurnWithResourceExhaustedRetries({
+        runTurn: () => runTurn(activeAgent),
+        aborted: () => timedOutForMaxRuntime || timedOutForNoOutput || abortedByCaller,
+        onRetry: (retryDelayMs, attempt) => {
+          log(
+            "runCursorSdkAttempt: resource_exhausted \\u2014 retrying in " + retryDelayMs + "ms (attempt " + (attempt + 1) + " of " + (RESOURCE_EXHAUSTED_RETRY_DELAYS_MS.length + 1) + ")"
+          );
+          appendToRawLogFile(
+            "[sdk-retry] resource_exhausted \\u2014 waiting " + retryDelayMs + "ms before retry\\n"
+          );
+          updateThinkingStep(
+            "Cursor is rate-limited...",
+            "Retrying in " + Math.round(retryDelayMs / 1e3) + "s..."
+          );
+        },
+        sleep: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs))
+      })
+    );
+  };
+  try {
+    try {
+      await runTurnWithRetries(agent);
+    } catch (error) {
+      if (resumedExistingAgent && error instanceof Error && isAgentNotFound(error)) {
+        log(
+          "runCursorSdkAttempt: resumed agent unusable \\u2014 retrying as a fresh agent"
+        );
+        appendToRawLogFile("[sdk-retry] " + error.message + "\\n");
+        try {
+          agent.close();
+        } catch {
+        }
+        agent = await createFreshAgent();
+        await runTurnWithRetries(agent);
+      } else {
+        throw error;
+      }
+    }
+  } catch (error) {
+    const rawMessage = error instanceof Error ? error.message : String(error);
+    const messageText = isResourceExhaustedMessage(rawMessage) ? RESOURCE_EXHAUSTED_CHAT_MESSAGE : rawMessage;
+    attemptErrorMessage = messageText;
+    log("runCursorSdkAttempt: run failed \\u2014 " + rawMessage);
+    appendToRawLogFile("[sdk-error] " + rawMessage + "\\n");
+    callbackState.stderrOutput = trimBufferHead(callbackState.stderrOutput + messageText + "\\n");
+  } finally {
+    clearInterval(healthTimer);
+    try {
+      agent.close();
+    } catch {
+    }
+  }
+  const code = sawResult && !resultIsError && !timedOutForMaxRuntime && !timedOutForNoOutput ? 0 : 1;
+  log(
+    "runCursorSdkAttempt finished in " + String(Date.now() - callbackState.activeAttemptStartedAt) + "ms (code=" + code + ", sawResult=" + sawResult + ", resultIsError=" + resultIsError + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", outputBytes=" + attemptOutput.length + (attemptErrorMessage ? ", runError=" + attemptErrorMessage : "") + ")"
+  );
+  return {
+    code,
+    terminatedBySignal: false,
+    output: attemptOutput,
+    timedOutForNoOutput,
+    timedOutForMaxRuntime,
+    timedOutForFirstEvent: false,
+    timedOutForFirstAssistant: false,
+    timedOutAfterFirstText: false,
+    timedOutForZombie: false,
+    toolStallErrorMessage: ""
+  };
+}
+
+// callback-src/providers/cursorSdkDaemon.ts
+var IDLE_EXIT_MS3 = 45 * 60 * 1e3;
+var FENCE_POLL_INTERVAL_MS3 = 5e3;
+var PROMPT_POLL_INTERVAL_MS2 = 50;
+var PROMPT_POLL_IDLE_INTERVAL_MS2 = 1e3;
+var PROMPT_POLL_FAST_WINDOW_MS2 = 3e4;
+var WATCHDOG_TICK_MS2 = 5e3;
+var TURN_HARD_TIMEOUT_MS = MAX_TOTAL_RUNTIME_MS + 5 * 60 * 1e3;
+var CANCEL_SETTLE_TIMEOUT_MS2 = 3e4;
+var daemonPaths2 = resolveDaemonPaths();
+var daemonExiting2 = false;
+var callbackRefreshPending2 = false;
+var callbackRefreshDeferralLogged2 = false;
+var pendingClaimedTurn2 = null;
+var turnActive2 = false;
+var turnStartedAtMs2 = 0;
+var lastIdleActivityAtMs2 = Date.now();
+var cancelInFlight2 = false;
+var cancelRequestedAtMs = 0;
+var abortActiveTurn = null;
+function sleep4(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+function pidAlive3(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+function readDaemonPidFile2() {
+  try {
+    return Number(readFileSync10(daemonPaths2.pid, "utf8").trim());
+  } catch {
+    return Number.NaN;
+  }
+}
+function entityMutationArgs2(fields) {
+  return { [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "", ...fields };
+}
+function callbackScriptWentStaleOnDisk2() {
+  if (!CALLBACK_SCRIPT_FP) return false;
+  try {
+    return readFileSync10("/tmp/eva-callback-fp", "utf8").trim() !== CALLBACK_SCRIPT_FP;
+  } catch {
+    return false;
+  }
+}
+function resetTurnState3() {
+  callbackState.accumulatedSteps.length = 0;
+  callbackState.currentStreamedContent = "";
+  callbackState.streamedAssistantTextThisMessage = false;
+  callbackState.pendingParagraphBreak = false;
+  callbackState.resultEventSeen = false;
+  callbackState.rawOutput = "";
+  callbackState.lastProcessed = 0;
+  callbackState.realtimeOutputBuffer = "";
+  callbackState.inFlightToolUses = 0;
+  callbackState.pendingQuestionData = "";
+  callbackState.todoState.length = 0;
+  callbackState.lastStepType = "thinking";
+}
+function attachmentExtensionForMimeType2(mimeType) {
+  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+  switch (type) {
+    case "image/jpeg":
+      return ".jpg";
+    case "image/gif":
+      return ".gif";
+    case "image/webp":
+      return ".webp";
+    case "image/svg+xml":
+      return ".svg";
+    case "image/png":
+      return ".png";
+    case "text/html":
+      return ".html";
+    case "text/markdown":
+      return ".md";
+    case "text/plain":
+      return ".txt";
+    default:
+      return type.startsWith("image/") ? ".png" : ".bin";
+  }
+}
+async function materializeTurnAttachments2(turn) {
+  if (turn.attachmentUrls.length === 0) return;
+  const paths2 = [];
+  for (let index = 0; index < turn.attachmentUrls.length; index++) {
+    const url = turn.attachmentUrls[index];
+    if (!url) continue;
+    try {
+      const response = await fetchWithTimeout(url, { method: "GET" });
+      if (!response.ok) {
+        log(
+          "cursor daemon: attachment download failed status=" + response.status
+        );
+        continue;
+      }
+      const path3 = \`/tmp/eva-attachment-\${index}\${attachmentExtensionForMimeType2(
+        response.headers.get("content-type") ?? ""
+      )}\`;
+      writeFileSync10(path3, new Uint8Array(await response.arrayBuffer()));
+      paths2.push(path3);
+    } catch (error) {
+      log(
+        "cursor daemon: attachment download error " + (error instanceof Error ? error.message : String(error))
+      );
+    }
+  }
+  if (paths2.length === 0) return;
+  turn.prompt += "\\n\\n---\\nThe user attached the following file(s). Read them with your file-reading tool before responding:\\n" + paths2.map((path3) => \`- \${path3}\`).join("\\n");
+}
+function readClaimedTurn3(result) {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return null;
+  }
+  const inner = result.value;
+  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+  if (typeof payload.prompt !== "string") return null;
+  const urls = payload.attachmentUrls;
+  return {
+    prompt: payload.prompt,
+    attachmentUrls: Array.isArray(urls) ? urls.filter((url) => typeof url === "string") : []
+  };
+}
+async function ensureGithubToken3() {
+  if (!REPO_ID || !CONVEX_URL || !CONVEX_TOKEN) return;
+  try {
+    const response = await fetchWithTimeout(CONVEX_URL + "/api/action", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + CONVEX_TOKEN
+      },
+      body: JSON.stringify({
+        path: "github:getInstallationTokenAction",
+        args: { repoId: REPO_ID },
+        format: "json"
+      })
+    });
+    if (!response.ok) return;
+    const data = await readResponseJson(response);
+    if (typeof data !== "object" || data === null || Array.isArray(data))
+      return;
+    const value = data.value;
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+      return;
+    }
+    if (typeof value.token === "string") {
+      process.env.GITHUB_TOKEN = value.token;
+      process.env.GH_TOKEN = value.token;
+    }
+  } catch {
+  }
+}
+function buildTurnCompletion(attempt) {
+  const resultEvent = extractResultEvent(attempt.output);
+  const attemptEndedDueToTimeout = attempt.timedOutForMaxRuntime || attempt.timedOutForNoOutput || Boolean(attempt.toolStallErrorMessage);
+  const finalTerminatedBySignal = attempt.terminatedBySignal;
+  const finalCode = attempt.code;
+  const agentWasInterrupted = finalTerminatedBySignal || finalCode === 137 || finalCode === 143;
+  const runSucceededWithResult = resultEvent !== null && !resultEvent.isError && !agentWasInterrupted;
+  if (resultEvent?.isError) {
+    return { success: false, error: resultEvent.result };
+  }
+  if (!runSucceededWithResult && attempt.code !== 0 || attemptEndedDueToTimeout && !runSucceededWithResult) {
+    return {
+      success: false,
+      error: appendDiagnosticTail(
+        buildErrorMessage(
+          attempt.code,
+          callbackState.fatalHeartbeatErrorMessage,
+          attempt.toolStallErrorMessage,
+          attempt.timedOutForMaxRuntime,
+          attempt.timedOutForNoOutput,
+          attempt.timedOutForFirstEvent,
+          attempt.timedOutForFirstAssistant,
+          attempt.timedOutAfterFirstText,
+          attempt.timedOutForZombie
+        )
+      )
+    };
+  }
+  return { success: runSucceededWithResult, error: null };
+}
+async function finalizeTurn3(attempt) {
+  await flushStreaming();
+  const resultEvent = extractResultEvent(attempt.output);
+  for (const step of callbackState.accumulatedSteps) step.status = "complete";
+  const { success, error } = buildTurnCompletion(attempt);
+  const completionArgs = {
+    [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+    success,
+    result: resultEvent?.result ?? callbackState.rawOutput,
+    error,
+    activityLog: serializeSteps(callbackState.accumulatedSteps)
+  };
+  if (RUN_ID) completionArgs.runId = RUN_ID;
+  if (resultEvent?.rawResultEvent) {
+    completionArgs.rawResultEvent = resultEvent.rawResultEvent;
+  }
+  if (callbackState.pendingQuestionData) {
+    completionArgs.pendingQuestion = callbackState.pendingQuestionData;
+  }
+  await setFinalizingState();
+  persistTurnWork();
+  await deliverCompletionWithMedia(completionArgs);
+  syncCursorStateToPersist();
+  log("cursor daemon: turn finalized success=" + success);
+}
+async function failTurnAndExit2(error) {
+  log("cursor daemon: failing turn \\u2014 " + error);
+  try {
+    await callConvexWithRetry(
+      "mutation",
+      COMPLETION_MUTATION ?? "",
+      entityMutationArgs2({
+        success: false,
+        result: null,
+        error,
+        activityLog: serializeSteps(callbackState.accumulatedSteps),
+        ...RUN_ID ? { runId: RUN_ID } : {}
+      })
+    );
+  } catch {
+  }
+  cleanOwnedMarkers();
+  await stopStreamingLoops();
+  process.exit(1);
+}
+function cleanOwnedMarkers() {
+  if (readDaemonPidFile2() !== process.pid) return;
+  const legacy = ENTITY_ID_FIELD === "sessionId" ? resolveLegacySessionDaemonPaths() : null;
+  const targets = [
+    daemonPaths2.pid,
+    daemonPaths2.entity,
+    daemonPaths2.opts,
+    ...legacy ? [legacy.pid, legacy.entity, legacy.opts] : []
+  ];
+  for (const path3 of targets) {
+    try {
+      unlinkSync3(path3);
+    } catch {
+    }
+  }
+}
+function startTurnWatchdog2() {
+  const timer = setInterval(() => {
+    const now = Date.now();
+    if (cancelInFlight2) {
+      if (now - cancelRequestedAtMs > CANCEL_SETTLE_TIMEOUT_MS2) {
+        log("cursor daemon: cancelled turn did not settle in time \\u2014 exiting");
+        cleanOwnedMarkers();
+        process.exit(1);
+      }
+      return;
+    }
+    if (!turnActive2) return;
+    if (now - turnStartedAtMs2 > TURN_HARD_TIMEOUT_MS) {
+      turnActive2 = false;
+      void failTurnAndExit2("The assistant exceeded the maximum turn runtime.");
+    }
+  }, WATCHDOG_TICK_MS2);
+  timer.unref?.();
+}
+function startClaimWatcher2() {
+  void (async () => {
+    while (!daemonExiting2) {
+      if (callbackScriptWentStaleOnDisk2()) callbackRefreshPending2 = true;
+      if (callbackRefreshPending2) {
+        if (turnActive2 || pendingClaimedTurn2 !== null || cancelInFlight2) {
+          if (!callbackRefreshDeferralLogged2) {
+            callbackRefreshDeferralLogged2 = true;
+            log(
+              "cursor daemon: callback script updated on disk \\u2014 deferring respawn until active work settles"
+            );
+          }
+          await sleep4(PROMPT_POLL_INTERVAL_MS2);
+          continue;
+        }
+        log(
+          "cursor daemon: callback script updated on disk \\u2014 exiting for respawn"
+        );
+        daemonExiting2 = true;
+        return;
+      }
+      try {
+        const claimed = await callConvexWithRetry(
+          "mutation",
+          CLAIM_MUTATION ?? "",
+          entityMutationArgs2({ model: MODEL })
+        );
+        if (readCancelRequested(claimed)) handleCancelRequested2();
+        const turn = readClaimedTurn3(claimed);
+        if (turn !== null) {
+          await materializeTurnAttachments2(turn);
+          lastIdleActivityAtMs2 = Date.now();
+          if (!turnActive2 || cancelInFlight2) {
+            pendingClaimedTurn2 = turn;
+          } else {
+            log(
+              "cursor daemon: claim discarded while real turn active (prompt lost; pendingTurn was already cleared)"
+            );
+          }
+        }
+      } catch {
+      }
+      const busy = turnActive2 || pendingClaimedTurn2 !== null || cancelInFlight2;
+      const recentlyActive = Date.now() - lastIdleActivityAtMs2 < PROMPT_POLL_FAST_WINDOW_MS2;
+      await sleep4(
+        busy || recentlyActive ? PROMPT_POLL_INTERVAL_MS2 : PROMPT_POLL_IDLE_INTERVAL_MS2
+      );
+    }
+  })();
+}
+function handleCancelRequested2() {
+  if (!turnActive2) {
+    log("cursor daemon: cancelRequested with no active turn \\u2014 ignored");
+    return;
+  }
+  if (cancelInFlight2) return;
+  cancelInFlight2 = true;
+  cancelRequestedAtMs = Date.now();
+  log("cursor daemon: cancel requested \\u2014 cancelling the in-flight run");
+  abortActiveTurn?.();
+}
+async function runClaimedTurn(turn) {
+  resetTurnState3();
+  turnActive2 = true;
+  turnStartedAtMs2 = Date.now();
+  abortActiveTurn = null;
+  log("cursor daemon: turn started");
+  try {
+    if (!process.env.CURSOR_API_KEY?.trim()) {
+      throw new Error(
+        "CURSOR_API_KEY is missing in the sandbox environment \\u2014 the Cursor SDK cannot authenticate"
+      );
+    }
+    const sessionMode = prepareCursorSessionState();
+    const attempt = await runCursorSdkAttempt(sessionMode, {
+      promptText: turn.prompt,
+      onAbortHandle: (abort) => {
+        abortActiveTurn = abort;
+        if (cancelInFlight2) abort();
+      }
+    });
+    turnActive2 = false;
+    if (cancelInFlight2) {
+      log("cursor daemon: cancelled turn settled \\u2014 no completion posted");
+      return;
+    }
+    await finalizeTurn3(attempt);
+  } catch (error) {
+    turnActive2 = false;
+    const message = error instanceof Error ? error.message : String(error);
+    log("cursor daemon: turn failed \\u2014 " + message);
+    if (cancelInFlight2) return;
+    try {
+      await flushStreaming();
+      for (const step of callbackState.accumulatedSteps) step.status = "complete";
+      await setFinalizingState();
+      await deliverCompletionWithMedia({
+        [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
+        success: false,
+        result: null,
+        error: appendDiagnosticTail(message),
+        activityLog: serializeSteps(callbackState.accumulatedSteps),
+        ...RUN_ID ? { runId: RUN_ID } : {}
+      });
+    } catch {
+    }
+  } finally {
+    turnActive2 = false;
+    abortActiveTurn = null;
+    cancelInFlight2 = false;
+    lastIdleActivityAtMs2 = Date.now();
+  }
+}
+async function runCursorDaemon() {
+  if (!CLAIM_MUTATION) {
+    log("cursor daemon: CLAIM_MUTATION env is required in daemon mode");
+    process.exit(1);
+  }
+  const rivalPid = readDaemonPidFile2();
+  if (!Number.isNaN(rivalPid) && rivalPid !== process.pid && pidAlive3(rivalPid)) {
+    log(
+      \`cursor daemon: rival daemon pid=\${rivalPid} already owns \${daemonPaths2.pid} \\u2014 exiting\`
+    );
+    process.exit(0);
+  }
+  writeFileSync10(daemonPaths2.pid, String(process.pid));
+  writeFileSync10(daemonPaths2.entity, ENTITY_ID ?? "");
+  writeFileSync10(daemonPaths2.opts, DAEMON_OPTS_SIG);
+  let deposedLogged = false;
+  const fence = setInterval(() => {
+    const owner = readDaemonPidFile2();
+    if (owner === process.pid) {
+      deposedLogged = false;
+      return;
+    }
+    const ownerLabel = Number.isNaN(owner) ? "none" : String(owner);
+    if (turnActive2) {
+      if (!deposedLogged) {
+        deposedLogged = true;
+        log(
+          \`cursor daemon: deposed (pidfile owner=\${ownerLabel}) \\u2014 exiting after active turn\`
+        );
+      }
+      return;
+    }
+    log(\`cursor daemon: deposed (pidfile owner=\${ownerLabel}) \\u2014 exiting\`);
+    process.exit(0);
+  }, FENCE_POLL_INTERVAL_MS3);
+  fence.unref?.();
+  const preflightOk2 = await runPreflightHeartbeat();
+  if (!preflightOk2) {
+    log("cursor daemon: preflight failed");
+    process.exit(1);
+  }
+  startStreamingLoops();
+  await ensureGithubToken3();
+  log(
+    "runCursorDaemon started (entityId=" + (ENTITY_ID ?? "none") + ", model=" + MODEL + ")"
+  );
+  startTurnWatchdog2();
+  startClaimWatcher2();
+  try {
+    while (!daemonExiting2) {
+      if (pendingClaimedTurn2 !== null) {
+        const turn = pendingClaimedTurn2;
+        pendingClaimedTurn2 = null;
+        await runClaimedTurn(turn);
+        continue;
+      }
+      if (Date.now() - lastIdleActivityAtMs2 > IDLE_EXIT_MS3) {
+        log("cursor daemon: idle timeout \\u2014 exiting");
+        break;
+      }
+      await sleep4(PROMPT_POLL_INTERVAL_MS2);
+    }
+  } finally {
+    daemonExiting2 = true;
+    cleanOwnedMarkers();
+    await stopStreamingLoops();
+  }
+  process.exit(0);
+}
+
 // callback-src/runtime/systemSkills.ts
 import {
   existsSync as existsSync9,
-  mkdirSync as mkdirSync7,
+  mkdirSync as mkdirSync8,
   readdirSync as readdirSync3,
-  readFileSync as readFileSync9,
+  readFileSync as readFileSync11,
   rmSync,
-  writeFileSync as writeFileSync10
+  writeFileSync as writeFileSync11
 } from "fs";
 var SYSTEM_SKILLS_STATE_FILE = "/tmp/eva-system-skills.json";
 var SYSTEM_SKILL_MARKER = "<!-- eva:system-skill -->";
@@ -6255,7 +7119,7 @@ function isEvaStub(directoryName) {
   const skillFile = \`\${skillsRoot()}/\${directoryName}/SKILL.md\`;
   if (!existsSync9(skillFile)) return false;
   try {
-    return readFileSync9(skillFile, "utf8").includes(SYSTEM_SKILL_MARKER);
+    return readFileSync11(skillFile, "utf8").includes(SYSTEM_SKILL_MARKER);
   } catch {
     return false;
   }
@@ -6266,8 +7130,8 @@ function writeStub(skill) {
     log(\`[system-skills] \${skill.name} exists in the repo \\u2014 leaving it alone\`);
     return false;
   }
-  mkdirSync7(directory, { recursive: true });
-  writeFileSync10(\`\${directory}/SKILL.md\`, skill.stub);
+  mkdirSync8(directory, { recursive: true });
+  writeFileSync11(\`\${directory}/SKILL.md\`, skill.stub);
   return true;
 }
 function pruneStaleStubs(keep) {
@@ -6290,11 +7154,11 @@ function updateGitExclude(names) {
   if (!existsSync9(gitDir)) return;
   const infoDir = \`\${gitDir}/info\`;
   const excludeFile = \`\${infoDir}/exclude\`;
-  const existing = existsSync9(excludeFile) ? readFileSync9(excludeFile, "utf8") : "";
+  const existing = existsSync9(excludeFile) ? readFileSync11(excludeFile, "utf8") : "";
   const next = renderExcludeContent(existing, names);
   if (next === existing) return;
-  mkdirSync7(infoDir, { recursive: true });
-  writeFileSync10(excludeFile, next);
+  mkdirSync8(infoDir, { recursive: true });
+  writeFileSync11(excludeFile, next);
 }
 function materializeSystemSkills() {
   try {
@@ -6304,7 +7168,7 @@ function materializeSystemSkills() {
       return;
     }
     const skills = parseSystemSkillsFile(
-      readFileSync9(SYSTEM_SKILLS_STATE_FILE, "utf8")
+      readFileSync11(SYSTEM_SKILLS_STATE_FILE, "utf8")
     );
     if (skills === null) {
       log("[system-skills] state file unreadable \\u2014 skipping");
@@ -6858,9 +7722,9 @@ var Codex = class {
 };
 
 // callback-src/providers/codexSdk.ts
-import { existsSync as existsSync10, readFileSync as readFileSync10 } from "fs";
-function readPromptText2() {
-  const prompt = readFileSync10("/tmp/design-prompt.txt", "utf8");
+import { existsSync as existsSync10, readFileSync as readFileSync12 } from "fs";
+function readPromptText3() {
+  const prompt = readFileSync12("/tmp/design-prompt.txt", "utf8");
   return SYSTEM_PROMPT ? SYSTEM_PROMPT + "\\n\\n" + prompt : prompt;
 }
 function codexEnvironment() {
@@ -6944,7 +7808,7 @@ async function runCodexSdkAttempt(sessionMode) {
     processRealtimeStdoutChunk(line);
   };
   try {
-    const streamed = await thread.runStreamed(readPromptText2(), {
+    const streamed = await thread.runStreamed(readPromptText3(), {
       signal: abortController.signal
     });
     for await (const event of streamed.events) {
@@ -7001,372 +7865,8 @@ async function runCodexSdkAttempt(sessionMode) {
   };
 }
 
-// callback-src/providers/cursorSdk.ts
-import { mkdirSync as mkdirSync8, readFileSync as readFileSync11 } from "fs";
-var SDK_PACKAGE2 = "@cursor/sdk";
-var SDK_VERSION2 = "1.0.26";
-var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
-function cursorModeParams(model, fastMode, use1mContext) {
-  const params = [];
-  if (model === "grok-4.6" || model === "grok-4.5" || model === "composer-2.5") {
-    params.push({ id: "fast", value: fastMode ? "true" : "false" });
-  }
-  if (use1mContext) {
-    params.push({ id: "context", value: "1m" });
-  }
-  return params;
-}
-function filterModeParamsByModel(candidates, model, opted) {
-  if (!model) {
-    return candidates.filter(
-      (param) => param.id === "fast" ? opted.fastMode : opted.use1mContext
-    );
-  }
-  const definitions = Array.isArray(model.parameters) ? model.parameters : [];
-  return candidates.filter(
-    (param) => definitions.some((definition) => {
-      if (!definition || definition.id !== param.id) return false;
-      const values = Array.isArray(definition.values) ? definition.values : [];
-      return values.length === 0 || values.some((entry) => entry && entry.value === param.value);
-    })
-  );
-}
-async function loadCursorSdk() {
-  const mod = await import(resolvePinnedSdkEntry({
-    packageName: SDK_PACKAGE2,
-    version: SDK_VERSION2,
-    entryRelPath: SDK_ENTRY_RELPATH
-  }));
-  return mod;
-}
-function readPromptText3() {
-  return readFileSync11("/tmp/design-prompt.txt", "utf8");
-}
-async function resolveCursorModelSelection(sdk) {
-  const base = normalizedCursorModel;
-  const level = cursorReasoningLevel;
-  const candidates = cursorModeParams(base, cursorFastMode, cursorUse1mContext);
-  const opted = { fastMode: cursorFastMode, use1mContext: cursorUse1mContext };
-  if (candidates.length === 0 && !level) {
-    return { id: base };
-  }
-  let model;
-  let listUnavailable = false;
-  try {
-    const list = sdk.Cursor?.models?.list;
-    if (list) {
-      const models = await list();
-      model = Array.isArray(models) ? models.find(
-        (entry) => entry && typeof entry === "object" && entry.id === base
-      ) : void 0;
-      if (!model) {
-        log(
-          "resolveCursorModelSelection: model " + base + " not in Cursor.models.list \\u2014 keeping opted-in params only"
-        );
-      }
-    } else {
-      listUnavailable = true;
-    }
-  } catch (error) {
-    const messageText = error instanceof Error ? error.message : String(error);
-    listUnavailable = true;
-    log(
-      "resolveCursorModelSelection: model list failed \\u2014 keeping opted-in params only (" + messageText + ")"
-    );
-  }
-  const params = filterModeParamsByModel(candidates, model, opted);
-  if (params.length < candidates.length && model) {
-    log(
-      "resolveCursorModelSelection: " + base + " does not declare " + candidates.filter((candidate) => !params.some((p) => p.id === candidate.id)).map((candidate) => candidate.id).join(", ") + " \\u2014 dropped"
-    );
-  }
-  if (!level || listUnavailable || !model) {
-    return params.length > 0 ? { id: base, params } : { id: base };
-  }
-  for (const definition of model.parameters ?? []) {
-    if (!definition || typeof definition.id !== "string") continue;
-    const values = Array.isArray(definition.values) ? definition.values : [];
-    if (values.some((entry) => entry && entry.value === level)) {
-      log(
-        "resolveCursorModelSelection: " + base + " reasoning level " + level + " via parameter " + definition.id
-      );
-      params.push({ id: definition.id, value: level });
-      return { id: base, params };
-    }
-  }
-  for (const variant of model.variants ?? []) {
-    const variantParams = Array.isArray(variant?.params) ? variant.params : [];
-    if (variantParams.some((param) => param && param.value === level)) {
-      log(
-        "resolveCursorModelSelection: " + base + " reasoning level " + level + " via variant params"
-      );
-      const remainingVariantParams = variantParams.filter(
-        (variantParam) => !params.some((param) => param.id === variantParam.id)
-      );
-      return { id: base, params: [...params, ...remainingVariantParams] };
-    }
-  }
-  log(
-    "resolveCursorModelSelection: " + base + " exposes no parameter accepting '" + level + "' \\u2014 sending base id"
-  );
-  return params.length > 0 ? { id: base, params } : { id: base };
-}
-function errorCode(error) {
-  const withCode = error;
-  return typeof withCode.code === "string" ? withCode.code : "";
-}
-function isAgentNotFound(error) {
-  return errorCode(error) === "agent_not_found" || error.message.includes("agent_not_found");
-}
-var RESOURCE_EXHAUSTED_RETRY_DELAYS_MS = [15e3, 3e4];
-function isResourceExhaustedMessage(text) {
-  return text.includes("resource_exhausted");
-}
-var RESOURCE_EXHAUSTED_CHAT_MESSAGE = "Cursor rejected the request: rate limit or usage quota exhausted (resource_exhausted). No tokens were used. Wait a minute and try again, or switch to a different model.";
-var ZERO_USAGE = {
-  inputTokens: 0,
-  outputTokens: 0,
-  cacheReadTokens: 0,
-  cacheWriteTokens: 0
-};
-function readNum(value) {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
-}
-async function runTurnWithResourceExhaustedRetries(deps) {
-  for (let attempt = 0; ; attempt++) {
-    const retryDelayMs = RESOURCE_EXHAUSTED_RETRY_DELAYS_MS[attempt];
-    let outcome;
-    try {
-      outcome = await deps.runTurn();
-    } catch (error) {
-      const messageText = error instanceof Error ? error.message : String(error);
-      if (!isResourceExhaustedMessage(messageText) || retryDelayMs === void 0 || deps.aborted()) {
-        throw error;
-      }
-      outcome = {
-        isError: true,
-        resultText: messageText,
-        durationMs: 0,
-        usage: ZERO_USAGE
-      };
-    }
-    if (!outcome.isError || !isResourceExhaustedMessage(outcome.resultText)) {
-      return outcome;
-    }
-    if (retryDelayMs === void 0 || deps.aborted()) {
-      return { ...outcome, resultText: RESOURCE_EXHAUSTED_CHAT_MESSAGE };
-    }
-    deps.onRetry(retryDelayMs, attempt);
-    await deps.sleep(retryDelayMs);
-  }
-}
-function readUsageTokens(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  return {
-    inputTokens: readNum(value.inputTokens),
-    outputTokens: readNum(value.outputTokens),
-    cacheReadTokens: readNum(value.cacheReadTokens),
-    cacheWriteTokens: readNum(value.cacheWriteTokens)
-  };
-}
-async function runCursorSdkAttempt(sessionMode) {
-  resetAttemptState();
-  callbackState.activeAttemptStartedAt = Date.now();
-  updateThinkingStep(
-    "Starting Cursor agent...",
-    sessionMode.mode === "resume" ? "Restoring saved context..." : "Creating Cursor agent..."
-  );
-  log(
-    "runCursorSdkAttempt started (mode=" + sessionMode.mode + ", sessionId=" + (sessionMode.sessionId || "none") + ")"
-  );
-  let attemptOutput = "";
-  let lastMessageAt = Date.now();
-  let timedOutForNoOutput = false;
-  let timedOutForMaxRuntime = false;
-  let sawResult = false;
-  let resultIsError = false;
-  let attemptErrorMessage = "";
-  let lastStreamUsage = null;
-  let activeRun = null;
-  const sdk = await loadCursorSdk();
-  mkdirSync8(CURSOR_SDK_STORE_DIR, { recursive: true });
-  const store4 = new sdk.JsonlLocalAgentStore(CURSOR_SDK_STORE_DIR);
-  const options = {
-    apiKey: (process.env.CURSOR_API_KEY || "").trim(),
-    model: await resolveCursorModelSelection(sdk),
-    local: { cwd: WORK_DIR, store: store4 },
-    ...Object.keys(evaMcpServers).length > 0 ? { mcpServers: evaMcpServers } : {}
-  };
-  const persistAgentId = (agentId) => {
-    callbackState.activeCursorSessionId = agentId;
-    writeCursorSessionState();
-    syncCursorStateToPersist();
-  };
-  const createFreshAgent = async () => {
-    const created = await sdk.Agent.create(options);
-    persistAgentId(created.agentId);
-    return created;
-  };
-  let resumedExistingAgent = false;
-  let agent;
-  if (sessionMode.mode === "resume" && sessionMode.sessionId) {
-    try {
-      agent = await sdk.Agent.resume(sessionMode.sessionId, options);
-      resumedExistingAgent = true;
-      persistAgentId(agent.agentId);
-    } catch (error) {
-      const messageText = error instanceof Error ? error.message : String(error);
-      log(
-        "runCursorSdkAttempt: resume failed \\u2014 starting a fresh agent (" + messageText + ")"
-      );
-      appendToRawLogFile("[sdk-retry] resume failed: " + messageText + "\\n");
-      agent = await createFreshAgent();
-    }
-  } else {
-    agent = await createFreshAgent();
-  }
-  const promptText = readPromptText3();
-  const combinedPrompt = SYSTEM_PROMPT ? SYSTEM_PROMPT + "\\n\\n" + promptText : promptText;
-  const cancelRun = () => {
-    if (!activeRun) return;
-    activeRun.cancel().catch(() => {
-    });
-  };
-  const healthTimer = setInterval(() => {
-    const now = Date.now();
-    if (now - callbackState.activeAttemptStartedAt > MAX_TOTAL_RUNTIME_MS) {
-      timedOutForMaxRuntime = true;
-      log("runCursorSdkAttempt: max runtime exceeded \\u2014 cancelling run");
-      cancelRun();
-      return;
-    }
-    if (callbackState.inFlightToolUses > 0) {
-      lastMessageAt = now;
-    }
-    if (!sawResult && now - lastMessageAt > NO_OUTPUT_TIMEOUT_MS * 5) {
-      timedOutForNoOutput = true;
-      log("runCursorSdkAttempt: no SDK events \\u2014 cancelling run");
-      cancelRun();
-    }
-  }, NO_OUTPUT_CHECK_INTERVAL_MS);
-  const pushLine = (line) => {
-    appendToRawLogFile(line);
-    attemptOutput = trimBufferHead(attemptOutput + line);
-    appendToRawOutput(line);
-    processRealtimeStdoutChunk(line);
-  };
-  const runTurn = async (activeAgent) => {
-    const run = await activeAgent.send(combinedPrompt, {
-      local: { force: true }
-    });
-    activeRun = run;
-    for await (const message of run.stream()) {
-      lastMessageAt = Date.now();
-      pushLine(JSON.stringify(message) + "\\n");
-      if (message.type === "usage") {
-        lastStreamUsage = readUsageTokens(message.usage) ?? lastStreamUsage;
-      }
-      if (timedOutForMaxRuntime || timedOutForNoOutput) break;
-    }
-    const result = await run.wait();
-    return {
-      isError: result.status !== "finished",
-      resultText: typeof result.result === "string" && result.result ? result.result : result.error && typeof result.error.message === "string" ? result.error.message : "",
-      durationMs: readNum(result.durationMs),
-      usage: readUsageTokens(result.usage) ?? lastStreamUsage ?? ZERO_USAGE
-    };
-  };
-  const emitTurnResult = (outcome) => {
-    const syntheticResult = {
-      type: "result",
-      is_error: outcome.isError,
-      result: outcome.resultText,
-      duration_ms: outcome.durationMs,
-      usage: {
-        input_tokens: outcome.usage.inputTokens,
-        output_tokens: outcome.usage.outputTokens,
-        cache_read_input_tokens: outcome.usage.cacheReadTokens,
-        cache_creation_input_tokens: outcome.usage.cacheWriteTokens
-      }
-    };
-    pushLine(JSON.stringify(syntheticResult) + "\\n");
-    sawResult = true;
-    resultIsError = outcome.isError;
-  };
-  const runTurnWithRetries = async (activeAgent) => {
-    emitTurnResult(
-      await runTurnWithResourceExhaustedRetries({
-        runTurn: () => runTurn(activeAgent),
-        aborted: () => timedOutForMaxRuntime || timedOutForNoOutput,
-        onRetry: (retryDelayMs, attempt) => {
-          log(
-            "runCursorSdkAttempt: resource_exhausted \\u2014 retrying in " + retryDelayMs + "ms (attempt " + (attempt + 1) + " of " + (RESOURCE_EXHAUSTED_RETRY_DELAYS_MS.length + 1) + ")"
-          );
-          appendToRawLogFile(
-            "[sdk-retry] resource_exhausted \\u2014 waiting " + retryDelayMs + "ms before retry\\n"
-          );
-          updateThinkingStep(
-            "Cursor is rate-limited...",
-            "Retrying in " + Math.round(retryDelayMs / 1e3) + "s..."
-          );
-        },
-        sleep: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs))
-      })
-    );
-  };
-  try {
-    try {
-      await runTurnWithRetries(agent);
-    } catch (error) {
-      if (resumedExistingAgent && error instanceof Error && isAgentNotFound(error)) {
-        log(
-          "runCursorSdkAttempt: resumed agent unusable \\u2014 retrying as a fresh agent"
-        );
-        appendToRawLogFile("[sdk-retry] " + error.message + "\\n");
-        try {
-          agent.close();
-        } catch {
-        }
-        agent = await createFreshAgent();
-        await runTurnWithRetries(agent);
-      } else {
-        throw error;
-      }
-    }
-  } catch (error) {
-    const rawMessage = error instanceof Error ? error.message : String(error);
-    const messageText = isResourceExhaustedMessage(rawMessage) ? RESOURCE_EXHAUSTED_CHAT_MESSAGE : rawMessage;
-    attemptErrorMessage = messageText;
-    log("runCursorSdkAttempt: run failed \\u2014 " + rawMessage);
-    appendToRawLogFile("[sdk-error] " + rawMessage + "\\n");
-    callbackState.stderrOutput = trimBufferHead(callbackState.stderrOutput + messageText + "\\n");
-  } finally {
-    clearInterval(healthTimer);
-    try {
-      agent.close();
-    } catch {
-    }
-  }
-  const code = sawResult && !resultIsError && !timedOutForMaxRuntime && !timedOutForNoOutput ? 0 : 1;
-  log(
-    "runCursorSdkAttempt finished in " + String(Date.now() - callbackState.activeAttemptStartedAt) + "ms (code=" + code + ", sawResult=" + sawResult + ", resultIsError=" + resultIsError + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", outputBytes=" + attemptOutput.length + (attemptErrorMessage ? ", runError=" + attemptErrorMessage : "") + ")"
-  );
-  return {
-    code,
-    terminatedBySignal: false,
-    output: attemptOutput,
-    timedOutForNoOutput,
-    timedOutForMaxRuntime,
-    timedOutForFirstEvent: false,
-    timedOutForFirstAssistant: false,
-    timedOutAfterFirstText: false,
-    timedOutForZombie: false,
-    toolStallErrorMessage: ""
-  };
-}
-
 // callback-src/providers/opencodeSdk.ts
-import { readFileSync as readFileSync13 } from "fs";
+import { readFileSync as readFileSync14 } from "fs";
 
 // callback-src/providers/opencodeServer.ts
 import { spawn as spawn3 } from "child_process";
@@ -7375,10 +7875,10 @@ import {
   existsSync as existsSync11,
   mkdirSync as mkdirSync9,
   openSync,
-  readFileSync as readFileSync12,
+  readFileSync as readFileSync13,
   rmSync as rmSync2,
   statSync as statSync3,
-  writeFileSync as writeFileSync11
+  writeFileSync as writeFileSync12
 } from "fs";
 var SERVER_STATE_FILE = OPENCODE_RUNTIME_HOME_DIR + "/server.json";
 var SERVER_LOCK_DIR = OPENCODE_RUNTIME_HOME_DIR + "/server.lock";
@@ -7389,12 +7889,12 @@ var HEALTH_POLL_INTERVAL_MS = 250;
 var LOCK_STALE_MS = 9e4;
 var LOG_TAIL_BYTES = 4e3;
 var opencodeServerBaseUrl = "http://127.0.0.1:" + String(OPENCODE_SERVER_PORT);
-function sleep4(ms) {
+function sleep5(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 function readOpencodeServerLogTail(maxBytes = LOG_TAIL_BYTES) {
   try {
-    const contents = readFileSync12(SERVER_LOG_FILE, "utf8");
+    const contents = readFileSync13(SERVER_LOG_FILE, "utf8");
     return contents.length > maxBytes ? contents.slice(-maxBytes) : contents;
   } catch {
     return "";
@@ -7412,7 +7912,7 @@ async function probeHealth() {
 }
 function readRecordedPid() {
   try {
-    const parsed = tryParseJson(readFileSync12(SERVER_STATE_FILE, "utf8"));
+    const parsed = tryParseJson(readFileSync13(SERVER_STATE_FILE, "utf8"));
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       return 0;
     }
@@ -7426,7 +7926,7 @@ function killRecordedServer() {
   if (!pid) return;
   let cmdline = "";
   try {
-    cmdline = readFileSync12("/proc/" + String(pid) + "/cmdline", "utf8");
+    cmdline = readFileSync13("/proc/" + String(pid) + "/cmdline", "utf8");
   } catch {
     return;
   }
@@ -7460,11 +7960,11 @@ function spawnServer() {
     const pid = child.pid ?? 0;
     if (pid) {
       try {
-        writeFileSync11("/proc/" + String(pid) + "/oom_score_adj", "300");
+        writeFileSync12("/proc/" + String(pid) + "/oom_score_adj", "300");
       } catch {
       }
     }
-    writeFileSync11(
+    writeFileSync12(
       SERVER_STATE_FILE,
       JSON.stringify({ pid, port: OPENCODE_SERVER_PORT })
     );
@@ -7491,7 +7991,7 @@ async function waitForHealth(pid) {
         "opencode serve exited during startup. Server log tail:\\n" + readOpencodeServerLogTail()
       );
     }
-    await sleep4(HEALTH_POLL_INTERVAL_MS);
+    await sleep5(HEALTH_POLL_INTERVAL_MS);
   }
   throw new Error(
     "opencode serve did not become healthy on " + opencodeServerBaseUrl + " within " + String(STARTUP_TIMEOUT_MS) + "ms. Server log tail:\\n" + readOpencodeServerLogTail()
@@ -7527,7 +8027,7 @@ async function ensureOpencodeServer() {
   if (!acquireStartupLock()) {
     const deadline = Date.now() + STARTUP_TIMEOUT_MS;
     while (Date.now() < deadline) {
-      await sleep4(HEALTH_POLL_INTERVAL_MS);
+      await sleep5(HEALTH_POLL_INTERVAL_MS);
       if (await probeHealth()) return opencodeServerBaseUrl;
       if (!existsSync11(SERVER_LOCK_DIR)) break;
     }
@@ -7570,7 +8070,7 @@ async function loadOpencodeSdk() {
   return mod;
 }
 function readPromptText4() {
-  return readFileSync13("/tmp/design-prompt.txt", "utf8");
+  return readFileSync14("/tmp/design-prompt.txt", "utf8");
 }
 function splitOpencodeModel(raw) {
   const separator = raw.indexOf("/");
@@ -7978,11 +8478,11 @@ process.on("exit", (code) => {
   }
 });
 try {
-  unlinkSync3(READY_FILE);
+  unlinkSync4(READY_FILE);
 } catch {
 }
 try {
-  writeFileSync12("/proc/self/oom_score_adj", "-600");
+  writeFileSync13("/proc/self/oom_score_adj", "-600");
 } catch {
 }
 callbackState.lastStepType = "thinking";
@@ -7993,6 +8493,9 @@ if (CLAIM_MUTATION) {
   }
   if (PROVIDER === "codex") {
     await runCodexAppServerDaemon();
+  }
+  if (PROVIDER === "cursor") {
+    await runCursorDaemon();
   }
 }
 var preflightOk = await runPreflightHeartbeat();

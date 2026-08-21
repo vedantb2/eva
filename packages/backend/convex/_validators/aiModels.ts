@@ -542,7 +542,7 @@ export function getAIModelProvider(
 /** Interactive chat providers that keep one sandbox-local process alive across turns. */
 export function usesChatDaemon(model: string | null | undefined): boolean {
   const provider = getAIModelProvider(model);
-  return provider === "claude" || provider === "codex";
+  return provider === "claude" || provider === "codex" || provider === "cursor";
 }
 
 /**

@@ -395,7 +395,6 @@ export function QuickTasksClient() {
                 });
               }}
               taskNumId={selectedTask.numId}
-              taskTitle={selectedTask.title}
             />
           ) : (
             "Quick Tasks"

@@ -52,7 +52,6 @@ export function QuickTaskDetailShell({
           <QuickTaskBreadcrumb
             onBack={handleBack}
             taskNumId={selectedTask?.numId}
-            taskTitle={selectedTask?.title}
           />
         }
         headerRight={

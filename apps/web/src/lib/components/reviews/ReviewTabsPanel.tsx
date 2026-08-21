@@ -44,10 +44,11 @@ interface ReviewTabsPanelProps {
    */
   breadcrumb?: ReactNode;
   /**
-   * True where `header` already carries a Refresh control, so the shared header
-   * drops its own rather than showing two.
+   * Renews every payload the surface shows, not just the overview — the
+   * standalone page also has a title block, read from its own query. Omitted in a
+   * session, where the overview is the only payload on the surface.
    */
-  headerOwnsRefresh?: boolean;
+  refresh?: { run: () => void; running: boolean };
   /**
    * Nested surfaces (session sandbox Review) use `size="sm"` on the same
    * TabsBar / TabsList; the standalone Reviews page keeps the default size.
@@ -78,7 +79,7 @@ export function ReviewTabsPanel({
   onTabChange,
   header,
   breadcrumb,
-  headerOwnsRefresh = false,
+  refresh,
   compact = false,
 }: ReviewTabsPanelProps) {
   // Cached hook, so querying here as well as on a surface that needs the recap
@@ -121,9 +122,15 @@ export function ReviewTabsPanel({
           )
         ) : (
           <ReviewHeader
+            repoId={repoId}
             overview={overview}
-            refreshing={state.status === "ready" && state.refreshing}
-            onRefresh={headerOwnsRefresh ? undefined : reload}
+            refreshing={
+              refresh?.running === true ||
+              (state.status === "ready" && state.refreshing)
+            }
+            onRefresh={refresh?.run ?? reload}
+            onTabChange={onTabChange}
+            onChanged={reload}
             title={header}
             breadcrumb={breadcrumb}
           />

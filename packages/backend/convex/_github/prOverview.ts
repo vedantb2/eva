@@ -124,6 +124,8 @@ const pullRequestOverviewValidator = v.object({
   mergeableState: v.string(),
   mergedAt: v.union(v.string(), v.null()),
   mergedByLogin: v.union(v.string(), v.null()),
+  /** The commit the merge produced, so the lifecycle event can link to it. */
+  mergeCommitSha: v.union(v.string(), v.null()),
   labels: v.array(pullRequestLabelValidator),
   /** Latest decisive review per reviewer, human or bot. */
   reviews: v.array(pullRequestReviewValidator),
@@ -214,6 +216,7 @@ type PullRequestOverview = {
   mergeableState: string;
   mergedAt: string | null;
   mergedByLogin: string | null;
+  mergeCommitSha: string | null;
   labels: PullRequestLabel[];
   reviews: PullRequestReview[];
   reviewEvents: PullRequestReviewEvent[];
@@ -473,6 +476,9 @@ export const fetchPullRequestOverview = internalAction({
       mergeableState: pr.mergeable_state ?? "unknown",
       mergedAt: pr.merged_at ?? null,
       mergedByLogin: pr.merged_by?.login ?? null,
+      // Present on an open pull request too (GitHub's test-merge commit), so it
+      // is only meaningful once `merged` is true.
+      mergeCommitSha: pr.merged ? (pr.merge_commit_sha ?? null) : null,
       labels: pr.labels.map((label) => ({
         name: label.name,
         color: label.color,
@@ -533,7 +539,8 @@ export const getPullRequestOverview = action({
 });
 
 /**
- * Renames a pull request or rewrites its description. Both cached payloads that
+ * Renames a pull request, rewrites its description, or closes/reopens it. Both
+ * cached payloads that
  * carry those fields are dropped afterwards — without that, the overview and the
  * page header would keep serving the old text for up to their TTL and the edit
  * would look as though it had been undone.
@@ -545,6 +552,12 @@ export const updatePullRequest = action({
     /** Omitted fields are left as they are on GitHub. */
     title: v.optional(v.string()),
     body: v.optional(v.string()),
+    /**
+     * Close or reopen. Reopening a *merged* pull request is not a thing GitHub
+     * allows, so the caller has to know which state the branch is in — the header
+     * only offers Reopen for a closed one.
+     */
+    state: v.optional(v.union(v.literal("open"), v.literal("closed"))),
   },
   returns: v.object({ title: v.string(), body: v.union(v.string(), v.null()) }),
   handler: async (ctx, args): Promise<{ title: string; body: string | null }> => {
@@ -556,7 +569,11 @@ export const updatePullRequest = action({
     if (title !== undefined && title.length === 0) {
       throw new Error("Title cannot be empty");
     }
-    if (title === undefined && args.body === undefined) {
+    if (
+      title === undefined &&
+      args.body === undefined &&
+      args.state === undefined
+    ) {
       throw new Error("Nothing to update");
     }
 
@@ -572,6 +589,7 @@ export const updatePullRequest = action({
       pull_number: args.prNumber,
       ...(title === undefined ? {} : { title }),
       ...(args.body === undefined ? {} : { body: args.body }),
+      ...(args.state === undefined ? {} : { state: args.state }),
     });
 
     const cacheKey = { repoId: args.repoId, prNumber: args.prNumber };

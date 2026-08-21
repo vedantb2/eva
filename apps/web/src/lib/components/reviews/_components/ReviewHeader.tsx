@@ -1,9 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { Button, Spinner, cn } from "@eva/ui";
-import { IconArrowNarrowLeft, IconRefresh } from "@tabler/icons-react";
+import type { Id } from "@eva/backend";
+import { cn } from "@eva/ui";
+import { IconArrowNarrowLeft } from "@tabler/icons-react";
+import type { ReviewTab } from "@/lib/search-params";
 import { headerBlocker } from "./prMergeState";
+import { PrHeaderActions } from "./PrHeaderActions";
 import { PrRemedyButton } from "./PrRemedyButton";
 import {
   PrStatusPill,
@@ -32,28 +35,43 @@ const BLOCKER_TONE_CLASS: Record<StatusTone, string> = {
  * the line under it is whose branch this is and where it is going. Size and
  * freshness live on the tab row (`PrTabRail`), which is on screen for every tab.
  *
- * Colour is spent on the status pill and, when it appears, the blocker line. The
- * rest is neutral, so those two are what the eye lands on.
- *
- * `onRefresh` is absent where the surface's own chrome carries a Refresh control,
- * so the two never both appear.
+ * Colour is spent on the status pill, the one filled action button, and — when it
+ * appears — the blocker line. The rest is neutral, so those are what the eye
+ * lands on.
  */
 export function ReviewHeader({
+  repoId,
   overview,
   refreshing,
   onRefresh,
+  onTabChange,
+  onChanged,
   title,
   breadcrumb,
 }: {
+  repoId: Id<"githubRepos">;
   overview: PrOverview;
   refreshing: boolean;
-  onRefresh?: () => void;
+  onRefresh: () => void;
+  onTabChange: (tab: ReviewTab) => void;
+  /** Re-reads the overview after an action changed the pull request on GitHub. */
+  onChanged: () => void;
   /** The surface's own block above this one — the standalone page's PR title. */
   title?: ReactNode;
   /** Repository breadcrumb, above the title row. Standalone page only. */
   breadcrumb?: ReactNode;
 }) {
   const blocker = headerBlocker(overview);
+  const actions = (
+    <PrHeaderActions
+      repoId={repoId}
+      overview={overview}
+      refreshing={refreshing}
+      onRefresh={onRefresh}
+      onTabChange={onTabChange}
+      onChanged={onChanged}
+    />
+  );
 
   return (
     <div className="shrink-0 space-y-2 px-4 pt-3">
@@ -70,6 +88,7 @@ export function ReviewHeader({
             className="mt-0.5"
           />
           <div className="min-w-0 flex-1">{title}</div>
+          {actions}
         </div>
       )}
 
@@ -113,23 +132,13 @@ export function ReviewHeader({
 
         {/* Freshness and the diffstat used to end this line. They sit on the tab
             row now (`PrTabRail`), which has an empty right half on every surface
-            and keeps this line to one fact: whose branch this is. */}
-        {onRefresh === undefined ? null : (
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onRefresh}
-            disabled={refreshing}
-            aria-label="Refresh"
-            className="-my-1 ml-auto size-7 shrink-0 p-0 text-muted-foreground"
-          >
-            {refreshing ? (
-              <Spinner size="sm" />
-            ) : (
-              <IconRefresh size={14} aria-hidden />
-            )}
-          </Button>
-        )}
+            and keeps this line to one fact: whose branch this is.
+
+            The compact sandbox pane has no title row for the action cluster to
+            end, so it ends this line instead. */}
+        {title === undefined ? (
+          <span className="ml-auto flex shrink-0 items-center">{actions}</span>
+        ) : null}
       </div>
 
       {blocker === null ? null : (

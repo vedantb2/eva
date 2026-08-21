@@ -4,8 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { useAction } from "convex/react";
 import { api } from "@eva/backend";
-import { Button, Spinner } from "@eva/ui";
-import { IconExternalLink, IconRefresh } from "@tabler/icons-react";
+import { Spinner } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PendingReviewCommentsProvider } from "@/lib/contexts/PendingReviewCommentsContext";
 import { githubPrUrl } from "@/lib/githubPr";
@@ -47,8 +46,9 @@ export function ReviewDetailClient({
     prHeaderQuery(getHeader, repoId, isValidPrNumber ? prNumber : undefined),
   );
   const prHeader = headerQuery.data;
-  // One Refresh for the page, renewing both the title block and Overview — the
-  // tab drops its own control (`headerOwnsRefresh`) so there is only ever one.
+  // One Refresh for the page, renewing both the title block and the overview.
+  // Handed to the tab panel so the header's overflow menu is the only place it
+  // appears.
   const { refresh, refreshing } = usePrRefresh(repoId, prNumber);
 
   const goToTab = (nextTab: string) => {
@@ -70,57 +70,18 @@ export function ReviewDetailClient({
   }
 
   // Padding is owned by the header slot in `ReviewTabsPanel`, so this block sits
-  // flush with the author and branch rows below it.
+  // flush with the author and branch rows below it. Every control that acts on
+  // the pull request lives in `PrHeaderActions`, beside this title on the same
+  // row — including Refresh, which is why this block carries no chrome of its own.
   const header = (
     <>
       {prHeader !== undefined ? (
-        // The title is the only large type on the surface, so its two controls are
-        // icons: spelled out, "View on GitHub" and "Refresh" put 180px of button
-        // chrome at the same weight as the sentence they sit beside.
-        <div className="flex flex-wrap items-start gap-2">
-          <h1 className="min-w-0 flex-1 text-xl font-semibold leading-tight tracking-tight">
-            {prHeader.title}{" "}
-            <span className="font-normal text-muted-foreground">
-              #{prHeader.number}
-            </span>
-          </h1>
-          {/* Real 40px targets below `sm` rather than leaning on the `hit-target`
-              each `size="sm"` carries: these two sit flush, so each button's 8px
-              bleed would be spent on its neighbour. */}
-          <div className="flex shrink-0 items-center gap-0.5 text-muted-foreground max-sm:gap-2">
-            <Button
-              size="sm"
-              variant="ghost"
-              asChild
-              className="size-7 p-0 max-sm:size-10"
-              aria-label="View on GitHub"
-            >
-              <a
-                href={prHeader.htmlUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                title="View on GitHub"
-              >
-                <IconExternalLink size={15} aria-hidden />
-              </a>
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={refresh}
-              disabled={refreshing}
-              className="size-7 p-0 max-sm:size-10"
-              aria-label="Refresh"
-              title="Refresh"
-            >
-              {refreshing ? (
-                <Spinner size="sm" />
-              ) : (
-                <IconRefresh size={15} aria-hidden />
-              )}
-            </Button>
-          </div>
-        </div>
+        <h1 className="min-w-0 text-xl font-semibold leading-tight tracking-tight">
+          {prHeader.title}{" "}
+          <span className="font-normal text-muted-foreground">
+            #{prHeader.number}
+          </span>
+        </h1>
       ) : headerQuery.isError ? (
         <p className="text-sm text-destructive">
           {prErrorMessage(headerQuery.error, "Couldn't load pull request")}
@@ -148,7 +109,7 @@ export function ReviewDetailClient({
         breadcrumb={
           <PrBreadcrumb basePath={basePath} owner={owner} name={name} />
         }
-        headerOwnsRefresh
+        refresh={{ run: refresh, running: refreshing }}
       />
     </PendingReviewCommentsProvider>
   );

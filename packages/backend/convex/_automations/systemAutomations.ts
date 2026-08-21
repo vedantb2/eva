@@ -1,4 +1,10 @@
 import type { Doc } from "../_generated/dataModel";
+import { ADD_TEST_COVERAGE_PROMPT } from "./prompts/addTestCoverage";
+import { DAILY_STANDUP_PROMPT } from "./prompts/dailyStandup";
+import { FIND_CRITICAL_BUGS_PROMPT } from "./prompts/findCriticalBugs";
+import { GENERATE_DOCS_PROMPT } from "./prompts/generateDocs";
+import { IMPROVE_CODE_STRUCTURE_PROMPT } from "./prompts/improveCodeStructure";
+import { THERMO_NUCLEAR_CODE_REVIEW_PROMPT } from "./prompts/thermoNuclearCodeReview";
 
 /**
  * A system automation shipped with eva. The definition lives in code, so
@@ -10,6 +16,11 @@ export interface SystemAutomationDefinition {
   /** Stable identifier stored on the install row as `systemKey`. */
   key: string;
   title: string;
+  /**
+   * One line for the Hub card, which line-clamps to two. Separate from the
+   * prompt so prompts can open with instructions rather than a description.
+   */
+  blurb: string;
   /** Prompt the agent runs each time. */
   description: string;
   /** Standard 5-field cron expression in UTC, seeded onto new installs. */
@@ -27,33 +38,68 @@ export interface SystemAutomationDefinition {
 export const DAILY_STANDUP_KEY = "daily-standup";
 
 /**
- * The first line doubles as the Hub card blurb (cards line-clamp to two
- * lines), so it must read as a description before the instructions start.
+ * Default schedules stagger across the small hours rather than all landing on
+ * 03:00: the code-touching entries each run a full agent session, and a repo
+ * with several installed would otherwise start them all at once.
  */
-const DAILY_STANDUP_PROMPT = `Write the daily standup: a short, friendly summary of what changed in this app since the last working day, written for the people who use it.
-
-Gather the raw material with git. Cover everything since the previous working day: \`git log --since='36 hours ago' --pretty=format:'%h %ad %s' --date=short\`, but on a Monday use \`--since='4 days ago'\` so Friday and the weekend are included. If the window is empty, use the most recent day that has commits and say which day you covered. Read the diffs of the commits that matter, so you can describe what they changed for a user.
-
-The audience is non-technical. They care about what they can now do, what got faster, and what got fixed. They do not care about how it was built.
-
-Rules:
-- Start with one bold line summarising the day in plain language
-- Group the changes under whichever of these \`###\` headings apply: New, Faster, Fixed, Improved
-- Write each change as one plain-language sentence about what is different for the user, and be specific about the benefit
-- No jargon, no file or function names, no commit hashes, no architecture or implementation detail
-- Skip anything with no user-facing impact: refactors, dependency bumps, tests, formatting, merge commits
-- If something needs a teammate's attention (a revert, a hotfix, a breaking change), end with a single **Heads up:** line
-- Keep the whole deliverable under ~150 words
-
-If nothing user-facing shipped, the deliverable is the single line: \`No user-facing changes since the last working day.\``;
-
 export const SYSTEM_AUTOMATIONS: ReadonlyArray<SystemAutomationDefinition> = [
   {
     key: DAILY_STANDUP_KEY,
     title: "Daily standup",
+    blurb:
+      "A short, plain-language summary of what changed in this app since the last working day.",
     description: DAILY_STANDUP_PROMPT,
     defaultCronSchedule: "0 8 * * 1-5",
     readOnly: true,
+    actionsEnabled: false,
+  },
+  {
+    key: "find-critical-bugs",
+    title: "Find critical bugs",
+    blurb:
+      "Hunts recent commits for high-severity correctness bugs, and only fixes the ones it can prove.",
+    description: FIND_CRITICAL_BUGS_PROMPT,
+    defaultCronSchedule: "0 3 * * *",
+    readOnly: false,
+    actionsEnabled: false,
+  },
+  {
+    key: "add-test-coverage",
+    title: "Add test coverage",
+    blurb: "Adds tests where recently merged code left risky paths uncovered.",
+    description: ADD_TEST_COVERAGE_PROMPT,
+    defaultCronSchedule: "30 3 * * *",
+    readOnly: false,
+    actionsEnabled: false,
+  },
+  {
+    key: "generate-docs",
+    title: "Generate docs",
+    blurb:
+      "Keeps technical documentation current for recently changed subsystems with weak coverage.",
+    description: GENERATE_DOCS_PROMPT,
+    defaultCronSchedule: "0 4 * * *",
+    readOnly: false,
+    actionsEnabled: false,
+  },
+  {
+    key: "improve-code-structure",
+    title: "Improve code structure",
+    blurb:
+      "Moves duplicated operational logic behind a shared service layer, keeping domain rules in actions.",
+    description: IMPROVE_CODE_STRUCTURE_PROMPT,
+    defaultCronSchedule: "30 4 * * *",
+    readOnly: false,
+    actionsEnabled: false,
+  },
+  {
+    key: "thermo-nuclear-code-review",
+    title: "Thermo-Nuclear Code Quality Review",
+    blurb:
+      "A demanding structural audit of the past week's commits that pushes for simplification, not polish.",
+    description: THERMO_NUCLEAR_CODE_REVIEW_PROMPT,
+    defaultCronSchedule: "0 5 * * *",
+    readOnly: false,
     actionsEnabled: false,
   },
 ];

@@ -25,11 +25,7 @@ export function SettingToggle({
           {description}
         </p>
       </div>
-      <Switch
-        checked={checked}
-        onCheckedChange={onChange}
-        aria-label={title}
-      />
+      <Switch checked={checked} onCheckedChange={onChange} aria-label={title} />
     </div>
   );
 }

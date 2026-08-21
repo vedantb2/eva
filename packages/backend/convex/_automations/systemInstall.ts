@@ -11,7 +11,8 @@ import { getSystemAutomation, SYSTEM_AUTOMATIONS } from "./systemAutomations";
 const systemAutomationEntry = v.object({
   key: v.string(),
   title: v.string(),
-  description: v.string(),
+  /** One-line card copy; the prompt itself is only shown once installed. */
+  blurb: v.string(),
   /** This install's schedule, or the catalog default before it is installed. */
   cronSchedule: v.string(),
   /** True when the automation reports without touching code. */
@@ -65,7 +66,7 @@ export const listSystemAutomations = authQuery({
       return {
         key: entry.key,
         title: entry.title,
-        description: entry.description,
+        blurb: entry.blurb,
         cronSchedule: install?.cronSchedule || entry.defaultCronSchedule,
         readOnly: entry.readOnly,
         installed: install !== undefined,

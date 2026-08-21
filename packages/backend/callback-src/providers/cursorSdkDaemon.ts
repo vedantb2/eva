@@ -29,6 +29,7 @@ import {
   stopStreamingLoops,
 } from "../runtime/heartbeats.js";
 import { callbackState as S } from "../runtime/state.js";
+import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
 import {
   prepareCursorSessionState,
@@ -142,69 +143,6 @@ function resetTurnState(): void {
   S.pendingQuestionData = "";
   S.todoState.length = 0;
   S.lastStepType = "thinking";
-}
-
-/** Mirrors attachmentExtensionForMimeType in convex/_sandbox_runtime/attachments.ts. */
-function attachmentExtensionForMimeType(mimeType: string): string {
-  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
-  switch (type) {
-    case "image/jpeg":
-      return ".jpg";
-    case "image/gif":
-      return ".gif";
-    case "image/webp":
-      return ".webp";
-    case "image/svg+xml":
-      return ".svg";
-    case "image/png":
-      return ".png";
-    case "text/html":
-      return ".html";
-    case "text/markdown":
-      return ".md";
-    case "text/plain":
-      return ".txt";
-    default:
-      return type.startsWith("image/") ? ".png" : ".bin";
-  }
-}
-
-/**
- * Downloads this turn's input attachments and points the agent at them, using
- * the same flat `/tmp/eva-attachment-<n>.<ext>` scheme and note text as the CLI
- * launch path (convex/_sandbox_runtime/attachments.ts). Failed downloads are
- * skipped rather than failing the turn.
- */
-async function materializeTurnAttachments(turn: ClaimedTurn): Promise<void> {
-  if (turn.attachmentUrls.length === 0) return;
-  const paths: string[] = [];
-  for (let index = 0; index < turn.attachmentUrls.length; index++) {
-    const url = turn.attachmentUrls[index];
-    if (!url) continue;
-    try {
-      const response = await fetchWithTimeout(url, { method: "GET" });
-      if (!response.ok) {
-        log(
-          "cursor daemon: attachment download failed status=" + response.status,
-        );
-        continue;
-      }
-      const path = `/tmp/eva-attachment-${index}${attachmentExtensionForMimeType(
-        response.headers.get("content-type") ?? "",
-      )}`;
-      writeFileSync(path, new Uint8Array(await response.arrayBuffer()));
-      paths.push(path);
-    } catch (error) {
-      log(
-        "cursor daemon: attachment download error " +
-          (error instanceof Error ? error.message : String(error)),
-      );
-    }
-  }
-  if (paths.length === 0) return;
-  turn.prompt +=
-    "\n\n---\nThe user attached the following file(s). Read them with your file-reading tool before responding:\n" +
-    paths.map((path) => `- ${path}`).join("\n");
 }
 
 /** Unwraps `{ status, value }` from the claim mutation's HTTP envelope. */

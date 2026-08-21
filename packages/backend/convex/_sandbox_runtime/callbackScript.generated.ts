@@ -1,7 +1,7 @@
 "use node";
 
 export const CALLBACK_SCRIPT = `// callback-src/index.ts
-import { mkdirSync as mkdirSync10, unlinkSync as unlinkSync4, writeFileSync as writeFileSync13 } from "fs";
+import { mkdirSync as mkdirSync10, unlinkSync as unlinkSync4, writeFileSync as writeFileSync14 } from "fs";
 
 // callback-src/config.ts
 import { existsSync } from "fs";
@@ -279,7 +279,7 @@ var completedLabels = {
 };
 
 // callback-src/providers/claudeSdkDaemon.ts
-import { unlinkSync, writeFileSync as writeFileSync8, readFileSync as readFileSync7 } from "fs";
+import { unlinkSync, writeFileSync as writeFileSync9, readFileSync as readFileSync7 } from "fs";
 
 // callback-src/providers/daemonPaths.ts
 var LEGACY_DAEMON_PID = "/tmp/eva-daemon.pid";
@@ -4444,6 +4444,58 @@ async function runClaudeSdkAttempt(sessionMode) {
   };
 }
 
+// callback-src/runtime/turnAttachments.ts
+import { writeFileSync as writeFileSync8 } from "fs";
+function attachmentExtensionForMimeType(mimeType) {
+  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
+  switch (type) {
+    case "image/jpeg":
+      return ".jpg";
+    case "image/gif":
+      return ".gif";
+    case "image/webp":
+      return ".webp";
+    case "image/svg+xml":
+      return ".svg";
+    case "image/png":
+      return ".png";
+    case "text/html":
+      return ".html";
+    case "text/markdown":
+      return ".md";
+    case "text/plain":
+      return ".txt";
+    default:
+      return type.startsWith("image/") ? ".png" : ".bin";
+  }
+}
+async function materializeTurnAttachments(turn) {
+  if (turn.attachmentUrls.length === 0) return;
+  const paths2 = [];
+  for (let index = 0; index < turn.attachmentUrls.length; index++) {
+    const url = turn.attachmentUrls[index];
+    if (!url) continue;
+    try {
+      const response = await fetchWithTimeout(url, { method: "GET" });
+      if (!response.ok) {
+        log(\`daemon: attachment download failed status=\${response.status}\`);
+        continue;
+      }
+      const path3 = \`/tmp/eva-attachment-\${index}\${attachmentExtensionForMimeType(
+        response.headers.get("content-type") ?? ""
+      )}\`;
+      writeFileSync8(path3, new Uint8Array(await response.arrayBuffer()));
+      paths2.push(path3);
+    } catch (error) {
+      log(
+        \`daemon: attachment download error \${error instanceof Error ? error.message : String(error)}\`
+      );
+    }
+  }
+  if (paths2.length === 0) return;
+  turn.prompt += "\\n\\n---\\nThe user attached the following file(s). Read them with your file-reading tool before responding:\\n" + paths2.map((path3) => \`- \${path3}\`).join("\\n");
+}
+
 // callback-src/runtime/turnPersist.ts
 import { spawnSync as spawnSync2 } from "child_process";
 var GIT_STEP_TIMEOUT_MS = 2e4;
@@ -5508,63 +5560,6 @@ function callbackScriptWentStaleOnDisk() {
     return false;
   }
 }
-function attachmentExtensionForMimeType(mimeType) {
-  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
-  switch (type) {
-    case "image/jpeg":
-      return ".jpg";
-    case "image/gif":
-      return ".gif";
-    case "image/webp":
-      return ".webp";
-    case "image/svg+xml":
-      return ".svg";
-    case "image/png":
-      return ".png";
-    case "text/html":
-      return ".html";
-    case "text/markdown":
-      return ".md";
-    case "text/plain":
-      return ".txt";
-    default:
-      if (type.startsWith("image/")) return ".png";
-      return ".bin";
-  }
-}
-async function materializeTurnAttachments(turn) {
-  if (turn.attachmentUrls.length === 0) return;
-  const paths2 = [];
-  for (let index = 0; index < turn.attachmentUrls.length; index++) {
-    const url = turn.attachmentUrls[index];
-    if (!url) continue;
-    try {
-      const res = await fetchWithTimeout(url, { method: "GET" });
-      if (!res.ok) {
-        log(\`daemon: attachment download failed status=\${res.status}\`);
-        continue;
-      }
-      const bytes = new Uint8Array(await res.arrayBuffer());
-      const extension = attachmentExtensionForMimeType(
-        res.headers.get("content-type") ?? ""
-      );
-      const path3 = \`/tmp/eva-attachment-\${index}\${extension}\`;
-      writeFileSync8(path3, bytes);
-      paths2.push(path3);
-    } catch (error) {
-      log(
-        \`daemon: attachment download error \${error instanceof Error ? error.message : String(error)}\`
-      );
-    }
-  }
-  if (paths2.length === 0) return;
-  const list = paths2.map((p) => \`- \${p}\`).join("\\n");
-  turn.prompt += \`
-
----
-The user attached the following file(s). Read them with your file-reading tool before responding:
-\${list}\`;
-}
 async function runSdkDaemon() {
   if (!CLAIM_MUTATION) {
     log("daemon: CLAIM_MUTATION env is required in sdk-daemon mode");
@@ -5583,9 +5578,9 @@ async function runSdkDaemon() {
     );
     process.exit(0);
   }
-  writeFileSync8(DAEMON_PID_FILE, String(process.pid));
-  writeFileSync8(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
-  writeFileSync8(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
+  writeFileSync9(DAEMON_PID_FILE, String(process.pid));
+  writeFileSync9(DAEMON_ENTITY_FILE, ENTITY_ID ?? "");
+  writeFileSync9(DAEMON_OPTS_FILE, DAEMON_OPTS_SIG);
   let deposedLogged = false;
   setInterval(() => {
     const owner = readDaemonPidFile();
@@ -5669,7 +5664,7 @@ async function runSdkDaemon() {
 }
 
 // callback-src/providers/codexAppServerDaemon.ts
-import { readFileSync as readFileSync8, unlinkSync as unlinkSync2, writeFileSync as writeFileSync9 } from "fs";
+import { readFileSync as readFileSync8, unlinkSync as unlinkSync2, writeFileSync as writeFileSync10 } from "fs";
 
 // callback-src/providers/codexAppServerClient.ts
 import { spawn } from "child_process";
@@ -5872,50 +5867,6 @@ function readClaimedTurn2(result) {
   ) : [];
   return { prompt: payload.prompt, attachmentUrls };
 }
-function attachmentExtension(mimeType) {
-  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
-  switch (type) {
-    case "image/jpeg":
-      return ".jpg";
-    case "image/gif":
-      return ".gif";
-    case "image/webp":
-      return ".webp";
-    case "image/svg+xml":
-      return ".svg";
-    case "image/png":
-      return ".png";
-    case "text/html":
-      return ".html";
-    case "text/markdown":
-      return ".md";
-    case "text/plain":
-      return ".txt";
-    default:
-      return type.startsWith("image/") ? ".png" : ".bin";
-  }
-}
-async function materializeAttachments(turn) {
-  const localPaths = [];
-  for (let index = 0; index < turn.attachmentUrls.length; index++) {
-    const url = turn.attachmentUrls[index];
-    if (!url) continue;
-    try {
-      const response = await fetchWithTimeout(url, { method: "GET" });
-      if (!response.ok) continue;
-      const path3 = \`/tmp/eva-attachment-\${index}\${attachmentExtension(response.headers.get("content-type") ?? "")}\`;
-      writeFileSync9(path3, new Uint8Array(await response.arrayBuffer()));
-      localPaths.push(path3);
-    } catch (error) {
-      log(
-        "codex daemon: attachment download failed: " + (error instanceof Error ? error.message : String(error))
-      );
-    }
-  }
-  if (localPaths.length > 0) {
-    turn.prompt += "\\n\\n---\\nThe user attached the following file(s). Read them with your file-reading tool before responding:\\n" + localPaths.map((path3) => \`- \${path3}\`).join("\\n");
-  }
-}
 function emitEvent(event) {
   const line = JSON.stringify(event) + "\\n";
   appendToRawLogFile(line);
@@ -6092,7 +6043,7 @@ async function establishThread(client, sessionMode) {
 }
 async function startTurn(client, turn) {
   resetTurnState2();
-  await materializeAttachments(turn);
+  await materializeTurnAttachments(turn);
   const text = SYSTEM_PROMPT ? SYSTEM_PROMPT + "\\n\\n" + turn.prompt : turn.prompt;
   activeTurnStartedAt = Date.now();
   lastEventAt = activeTurnStartedAt;
@@ -6139,9 +6090,9 @@ async function runCodexAppServerDaemon() {
     log("codex daemon: live rival already owns entity; exiting");
     process.exit(0);
   }
-  writeFileSync9(paths.pid, String(process.pid));
-  writeFileSync9(paths.entity, ENTITY_ID ?? "");
-  writeFileSync9(paths.opts, DAEMON_OPTS_SIG);
+  writeFileSync10(paths.pid, String(process.pid));
+  writeFileSync10(paths.entity, ENTITY_ID ?? "");
+  writeFileSync10(paths.opts, DAEMON_OPTS_SIG);
   const fence = setInterval(() => {
     if (readOwnerPid() !== process.pid && !activeTurnId) exiting = true;
   }, FENCE_POLL_INTERVAL_MS2);
@@ -6225,7 +6176,7 @@ async function runCodexAppServerDaemon() {
 }
 
 // callback-src/providers/cursorSdkDaemon.ts
-import { readFileSync as readFileSync10, unlinkSync as unlinkSync3, writeFileSync as writeFileSync10 } from "fs";
+import { readFileSync as readFileSync10, unlinkSync as unlinkSync3, writeFileSync as writeFileSync11 } from "fs";
 
 // callback-src/providers/cursorSdk.ts
 import { mkdirSync as mkdirSync7, readFileSync as readFileSync9 } from "fs";
@@ -6664,57 +6615,6 @@ function resetTurnState3() {
   callbackState.todoState.length = 0;
   callbackState.lastStepType = "thinking";
 }
-function attachmentExtensionForMimeType2(mimeType) {
-  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
-  switch (type) {
-    case "image/jpeg":
-      return ".jpg";
-    case "image/gif":
-      return ".gif";
-    case "image/webp":
-      return ".webp";
-    case "image/svg+xml":
-      return ".svg";
-    case "image/png":
-      return ".png";
-    case "text/html":
-      return ".html";
-    case "text/markdown":
-      return ".md";
-    case "text/plain":
-      return ".txt";
-    default:
-      return type.startsWith("image/") ? ".png" : ".bin";
-  }
-}
-async function materializeTurnAttachments2(turn) {
-  if (turn.attachmentUrls.length === 0) return;
-  const paths2 = [];
-  for (let index = 0; index < turn.attachmentUrls.length; index++) {
-    const url = turn.attachmentUrls[index];
-    if (!url) continue;
-    try {
-      const response = await fetchWithTimeout(url, { method: "GET" });
-      if (!response.ok) {
-        log(
-          "cursor daemon: attachment download failed status=" + response.status
-        );
-        continue;
-      }
-      const path3 = \`/tmp/eva-attachment-\${index}\${attachmentExtensionForMimeType2(
-        response.headers.get("content-type") ?? ""
-      )}\`;
-      writeFileSync10(path3, new Uint8Array(await response.arrayBuffer()));
-      paths2.push(path3);
-    } catch (error) {
-      log(
-        "cursor daemon: attachment download error " + (error instanceof Error ? error.message : String(error))
-      );
-    }
-  }
-  if (paths2.length === 0) return;
-  turn.prompt += "\\n\\n---\\nThe user attached the following file(s). Read them with your file-reading tool before responding:\\n" + paths2.map((path3) => \`- \${path3}\`).join("\\n");
-}
 function readClaimedTurn3(result) {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
     return null;
@@ -6898,7 +6798,7 @@ function startClaimWatcher2() {
         if (readCancelRequested(claimed)) handleCancelRequested2();
         const turn = readClaimedTurn3(claimed);
         if (turn !== null) {
-          await materializeTurnAttachments2(turn);
+          await materializeTurnAttachments(turn);
           lastIdleActivityAtMs2 = Date.now();
           if (!turnActive2 || cancelInFlight2) {
             pendingClaimedTurn2 = turn;
@@ -6993,9 +6893,9 @@ async function runCursorDaemon() {
     );
     process.exit(0);
   }
-  writeFileSync10(daemonPaths2.pid, String(process.pid));
-  writeFileSync10(daemonPaths2.entity, ENTITY_ID ?? "");
-  writeFileSync10(daemonPaths2.opts, DAEMON_OPTS_SIG);
+  writeFileSync11(daemonPaths2.pid, String(process.pid));
+  writeFileSync11(daemonPaths2.entity, ENTITY_ID ?? "");
+  writeFileSync11(daemonPaths2.opts, DAEMON_OPTS_SIG);
   let deposedLogged = false;
   const fence = setInterval(() => {
     const owner = readDaemonPidFile2();
@@ -7058,7 +6958,7 @@ import {
   readdirSync as readdirSync3,
   readFileSync as readFileSync11,
   rmSync,
-  writeFileSync as writeFileSync11
+  writeFileSync as writeFileSync12
 } from "fs";
 var SYSTEM_SKILLS_STATE_FILE = "/tmp/eva-system-skills.json";
 var SYSTEM_SKILL_MARKER = "<!-- eva:system-skill -->";
@@ -7131,7 +7031,7 @@ function writeStub(skill) {
     return false;
   }
   mkdirSync8(directory, { recursive: true });
-  writeFileSync11(\`\${directory}/SKILL.md\`, skill.stub);
+  writeFileSync12(\`\${directory}/SKILL.md\`, skill.stub);
   return true;
 }
 function pruneStaleStubs(keep) {
@@ -7158,7 +7058,7 @@ function updateGitExclude(names) {
   const next = renderExcludeContent(existing, names);
   if (next === existing) return;
   mkdirSync8(infoDir, { recursive: true });
-  writeFileSync11(excludeFile, next);
+  writeFileSync12(excludeFile, next);
 }
 function materializeSystemSkills() {
   try {
@@ -7878,7 +7778,7 @@ import {
   readFileSync as readFileSync13,
   rmSync as rmSync2,
   statSync as statSync3,
-  writeFileSync as writeFileSync12
+  writeFileSync as writeFileSync13
 } from "fs";
 var SERVER_STATE_FILE = OPENCODE_RUNTIME_HOME_DIR + "/server.json";
 var SERVER_LOCK_DIR = OPENCODE_RUNTIME_HOME_DIR + "/server.lock";
@@ -7960,11 +7860,11 @@ function spawnServer() {
     const pid = child.pid ?? 0;
     if (pid) {
       try {
-        writeFileSync12("/proc/" + String(pid) + "/oom_score_adj", "300");
+        writeFileSync13("/proc/" + String(pid) + "/oom_score_adj", "300");
       } catch {
       }
     }
-    writeFileSync12(
+    writeFileSync13(
       SERVER_STATE_FILE,
       JSON.stringify({ pid, port: OPENCODE_SERVER_PORT })
     );
@@ -8482,7 +8382,7 @@ try {
 } catch {
 }
 try {
-  writeFileSync13("/proc/self/oom_score_adj", "-600");
+  writeFileSync14("/proc/self/oom_score_adj", "-600");
 } catch {
 }
 callbackState.lastStepType = "thinking";

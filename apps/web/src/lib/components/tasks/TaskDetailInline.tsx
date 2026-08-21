@@ -31,6 +31,7 @@ import {
   type TerminalPanelApi,
 } from "@/lib/components/sandbox/SandboxWorkspace";
 import type { SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
+import { SandboxSurfaceTabs } from "@/lib/components/sandbox/SandboxSurfaceTabs";
 import {
   fileViewerPathParser,
   isTaskRouteSandboxTab,
@@ -404,8 +405,11 @@ export function TaskDetailInline({
     </TaskReactionsProvider>
   );
 
+  const actionsSlotElement = quickTaskHeaderActionsSlot?.actionsElement;
+  const titleSlotElement = quickTaskHeaderActionsSlot?.titleAfterElement;
+
   const quickTaskHeaderActions =
-    isQuickTask && quickTaskHeaderActionsSlot?.slotElement ? (
+    isQuickTask && actionsSlotElement ? (
       <TaskFooter
         variant="header"
         taskId={taskId}
@@ -418,15 +422,12 @@ export function TaskDetailInline({
         executionError={executionError}
         isStarting={isStarting}
         canStartSandbox={canStartSandbox}
-        canViewSandbox={canViewSandbox}
         isSandboxActive={isSandboxActive}
-        isSandboxStarting={isSandboxStarting}
         isSandboxStopping={isSandboxStopping}
         isRetryingStartupCommands={isRetryingStartupCommands}
         canCreatePr={canCreatePr}
         isCreatingPr={isCreatingPr}
         onCreatePr={handleCreatePr}
-        onSurfaceChange={handleSelectSurface}
         onStopSandbox={handleStopSandbox}
         isSandboxViewActive={isSandboxViewActive}
         onRunStartupCommands={() => setShowStartupCommandsConfirm(true)}
@@ -439,13 +440,27 @@ export function TaskDetailInline({
       />
     ) : null;
 
+  // Navigation, so it goes next to the breadcrumb rather than into the header's
+  // action cluster — same split as the project header.
+  const quickTaskSurfaceTabs =
+    isQuickTask && canViewSandbox && titleSlotElement ? (
+      <SandboxSurfaceTabs
+        mainLabel="Task"
+        surface={isSandboxViewActive ? "sandbox" : "main"}
+        isSandboxActive={isSandboxActive}
+        isSandboxStarting={isSandboxStarting}
+        isSandboxStopping={isSandboxStopping}
+        onSurfaceChange={handleSelectSurface}
+      />
+    ) : null;
+
   return (
     <>
-      {quickTaskHeaderActions && quickTaskHeaderActionsSlot?.slotElement
-        ? createPortal(
-            quickTaskHeaderActions,
-            quickTaskHeaderActionsSlot.slotElement,
-          )
+      {quickTaskHeaderActions && actionsSlotElement
+        ? createPortal(quickTaskHeaderActions, actionsSlotElement)
+        : null}
+      {quickTaskSurfaceTabs && titleSlotElement
+        ? createPortal(quickTaskSurfaceTabs, titleSlotElement)
         : null}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {isSandboxViewActive ? (

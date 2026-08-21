@@ -29,10 +29,6 @@ import {
 import dayjs from "@eva/shared/dates";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { SleepEvaButton } from "@/lib/components/sandbox/SleepEvaButton";
-import {
-  SandboxSurfaceTabs,
-  type SandboxSurface,
-} from "@/lib/components/sandbox/SandboxSurfaceTabs";
 import type { TaskStatus } from "../TaskStatusBadge";
 import { SchedulePopover } from "../SchedulePopover";
 
@@ -51,9 +47,7 @@ interface TaskFooterProps {
   executionError: string | null;
   isStarting: boolean;
   canStartSandbox: boolean;
-  canViewSandbox: boolean;
   isSandboxActive: boolean;
-  isSandboxStarting: boolean;
   isSandboxStopping: boolean;
   isRetryingStartupCommands: boolean;
   isRunningDevServer: boolean;
@@ -61,7 +55,6 @@ interface TaskFooterProps {
   canCreatePr: boolean;
   isCreatingPr: boolean;
   onCreatePr: () => void;
-  onSurfaceChange: (surface: SandboxSurface) => void;
   onStopSandbox: () => void;
   isSandboxViewActive?: boolean;
   onRunStartupCommands: () => void;
@@ -83,9 +76,7 @@ export function TaskFooter({
   executionError,
   isStarting,
   canStartSandbox,
-  canViewSandbox,
   isSandboxActive,
-  isSandboxStarting,
   isSandboxStopping,
   isRetryingStartupCommands,
   isRunningDevServer,
@@ -93,7 +84,6 @@ export function TaskFooter({
   canCreatePr,
   isCreatingPr,
   onCreatePr,
-  onSurfaceChange,
   onStopSandbox,
   isSandboxViewActive = false,
   onRunStartupCommands,
@@ -109,7 +99,6 @@ export function TaskFooter({
   const showRunButton =
     !task?.projectId &&
     (status === "todo" || (status === "in_progress" && !hasActiveRun));
-  const showViewSandbox = canViewSandbox;
   // Hidden on the sandbox surface: the chat header there has its own stop
   // control, and two buttons for one action read as a bug.
   const showStopSandbox =
@@ -136,8 +125,7 @@ export function TaskFooter({
     showResolveConflicts ||
     Boolean(latestDeployment?.deploymentStatus) ||
     Boolean(latestPrUrl);
-  const hasSecondaryContent =
-    isHeader || showViewSandbox || showStopSandbox || showMoreMenu;
+  const hasSecondaryContent = isHeader || showStopSandbox || showMoreMenu;
 
   return (
     <div
@@ -314,16 +302,6 @@ export function TaskFooter({
               size={buttonSize}
             />
           ) : null}
-          {showViewSandbox && (
-            <SandboxSurfaceTabs
-              mainLabel="Task"
-              surface={isSandboxViewActive ? "sandbox" : "main"}
-              isSandboxActive={isSandboxActive}
-              isSandboxStarting={isSandboxStarting}
-              isSandboxStopping={isSandboxStopping}
-              onSurfaceChange={onSurfaceChange}
-            />
-          )}
         </div>
       </div>
     </div>

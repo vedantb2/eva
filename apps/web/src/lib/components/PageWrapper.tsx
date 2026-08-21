@@ -7,6 +7,12 @@ import { usePageTitle } from "@/lib/contexts/PageTitleContext";
 
 interface PageWrapperProps {
   title?: React.ReactNode;
+  /**
+   * Sits beside the title, before `headerRight`. For navigation that belongs
+   * with "where am I" rather than the action cluster — e.g. the main/sandbox
+   * surface switcher.
+   */
+  titleAfter?: React.ReactNode;
   headerCenter?: React.ReactNode;
   headerRight?: React.ReactNode;
   /**
@@ -26,6 +32,7 @@ interface PageWrapperProps {
 
 export function PageWrapper({
   title,
+  titleAfter,
   headerCenter,
   headerRight,
   toolbar,
@@ -73,11 +80,14 @@ export function PageWrapper({
               )}
               {title && (
                 <h1
-                  className={`min-w-0 flex-1 text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300 ${isStringTitle ? "hidden whitespace-nowrap text-balance lg:block" : "overflow-hidden"}`}
+                  /* Only grows to fill the cell when nothing follows it —
+                     otherwise `titleAfter` would be pushed to the far right. */
+                  className={`min-w-0 ${titleAfter ? "" : "flex-1"} text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300 ${isStringTitle ? "hidden whitespace-nowrap text-balance lg:block" : "overflow-hidden"}`}
                 >
                   {title}
                 </h1>
               )}
+              {titleAfter && <div className="shrink-0">{titleAfter}</div>}
             </div>
             {headerCenter && (
               <div className="hidden min-w-0 justify-center md:flex animate-in fade-in duration-300">

@@ -7,7 +7,10 @@ import { Spinner } from "@eva/ui";
 import { useQuickTaskNeighbors } from "../_utils/useQuickTaskNeighbors";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
-import { QuickTaskHeaderActionsSlotProvider } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
+import {
+  QuickTaskHeaderActionsSlotProvider,
+  QuickTaskHeaderTitleSlot,
+} from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
 import { QuickTaskBreadcrumb } from "./QuickTaskBreadcrumb";
 import { QuickTaskDetailHeaderActions } from "./QuickTaskDetailHeaderActions";
 
@@ -54,6 +57,7 @@ export function QuickTaskDetailShell({
             taskNumId={selectedTask?.numId}
           />
         }
+        titleAfter={<QuickTaskHeaderTitleSlot />}
         headerRight={
           <QuickTaskDetailHeaderActions
             repoId={repo._id}

@@ -384,6 +384,20 @@ export function ProjectDetailClient({
           entityLabel={project.title}
         />
       }
+      /* Navigation, not an action: sits with the breadcrumb, above the
+         Overview/Tasks tabs, rather than inside the header's action cluster. */
+      titleAfter={
+        canStartSandbox && !isDraftOrFinalized ? (
+          <SandboxSurfaceTabs
+            mainLabel="Project"
+            surface={surface}
+            isSandboxActive={isSandboxActive}
+            isSandboxStarting={isSandboxStarting}
+            isSandboxStopping={isSandboxStopping}
+            onSurfaceChange={handleSelectSurface}
+          />
+        ) : null
+      }
       fillHeight
       childPadding={false}
       /* Tab strip is detail-only — sandbox stays flush like sessions. */
@@ -528,16 +542,6 @@ export function ProjectDetailClient({
                   isStopping={isSandboxStopping}
                   blockedMidTurn={Boolean(project?.activeChatWorkflowId)}
                   size="sm"
-                />
-              ) : null}
-              {canStartSandbox ? (
-                <SandboxSurfaceTabs
-                  mainLabel="Project"
-                  surface={surface}
-                  isSandboxActive={isSandboxActive}
-                  isSandboxStarting={isSandboxStarting}
-                  isSandboxStopping={isSandboxStopping}
-                  onSurfaceChange={handleSelectSurface}
                 />
               ) : null}
               {canBuildProject ? (

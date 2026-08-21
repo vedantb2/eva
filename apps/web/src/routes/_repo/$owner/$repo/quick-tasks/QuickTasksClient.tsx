@@ -31,7 +31,10 @@ import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
 import { QuickTaskBreadcrumb } from "./_components/QuickTaskBreadcrumb";
 import { QuickTaskDetailHeaderActions } from "./_components/QuickTaskDetailHeaderActions";
 import { useQuickTaskNeighbors } from "./_utils/useQuickTaskNeighbors";
-import { QuickTaskHeaderActionsSlotProvider } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
+import {
+  QuickTaskHeaderActionsSlotProvider,
+  QuickTaskHeaderTitleSlot,
+} from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "./_utils";
 import { useAgentTaskByNumId } from "@/lib/useResolveByNumId";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
@@ -400,6 +403,7 @@ export function QuickTasksClient() {
             "Quick Tasks"
           )
         }
+        titleAfter={<QuickTaskHeaderTitleSlot />}
         fillHeight
         childPadding={false}
         headerRight={

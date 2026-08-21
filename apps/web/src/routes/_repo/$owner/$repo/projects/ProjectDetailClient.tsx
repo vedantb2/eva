@@ -527,7 +527,6 @@ export function ProjectDetailClient({
                   isStopping={isSandboxStopping}
                   blockedMidTurn={Boolean(project?.activeChatWorkflowId)}
                   size="sm"
-                  iconSize={16}
                 />
               ) : null}
               {canStartSandbox ? (

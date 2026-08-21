@@ -309,7 +309,6 @@ export function TaskFooter({
               isStopping={isSandboxStopping}
               blockedMidTurn={sleepBlockedMidTurn}
               size={buttonSize}
-              iconSize={iconSize}
             />
           ) : null}
           {showViewSandbox && (

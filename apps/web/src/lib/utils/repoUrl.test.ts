@@ -86,6 +86,21 @@ describe("repoUrl monorepo slash rewrite", () => {
     ).toBe("settings");
   });
 
+  // Sessions and Automations render one cross-repo panel behind their own rail
+  // entry, so carrying them onto an app tile would keep that panel open instead
+  // of showing the app sidebar the click asked for.
+  it("drops sections owned by a global rail entry", () => {
+    expect(
+      repoSectionFromPath("/evalucom/carepulse-ts/web/sessions/42"),
+    ).toBeNull();
+    expect(
+      repoSectionFromPath("/evalucom/carepulse-ts--web/sessions"),
+    ).toBeNull();
+    expect(
+      repoSectionFromPath("/evalucom/carepulse-ts/automations/7"),
+    ).toBeNull();
+  });
+
   it("has no section for repo roots or non-repo paths", () => {
     expect(repoSectionFromPath("/evalucom/carepulse-ts")).toBeNull();
     expect(repoSectionFromPath("/evalucom/carepulse-ts/web")).toBeNull();

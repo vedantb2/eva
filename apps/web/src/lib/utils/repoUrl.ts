@@ -113,17 +113,28 @@ export function toDisplayRepoHref(href: string): string {
 }
 
 /**
+ * Repo sections whose sidebar belongs to a global rail entry (one cross-repo
+ * panel) rather than to the app. Clicking an app tile means "show me this app",
+ * so these are never carried across — landing on them would leave the same
+ * global panel open and never reveal the app sidebar.
+ */
+const RAIL_GLOBAL_SECTIONS = new Set(["sessions", "automations"]);
+
+/**
  * The repo section a path sits in (`quick-tasks`, `projects`, …), or null for a
- * repo root or a non-repo path. Anything below the section — entity ids, tabs,
- * query, hash — is dropped, so switching apps keeps the view without carrying a
- * task or session that belongs to the app you left. Accepts either URL form.
+ * repo root, a non-repo path, or a section owned by a global rail entry.
+ * Anything below the section — entity ids, tabs, query, hash — is dropped, so
+ * switching apps keeps the view without carrying a task or session that belongs
+ * to the app you left. Accepts either URL form.
  */
 export function repoSectionFromPath(pathname: string): string | null {
   const { pathname: internal } = splitHref(toInternalRepoHref(pathname));
   const segments = internal.split("/").filter(Boolean);
   if (segments.length < 3) return null;
   if (NON_REPO_PATH_PREFIXES.has(segments[0])) return null;
-  return KNOWN_REPO_SUB_PAGES.has(segments[2]) ? segments[2] : null;
+  const section = segments[2];
+  if (RAIL_GLOBAL_SECTIONS.has(section)) return null;
+  return KNOWN_REPO_SUB_PAGES.has(section) ? section : null;
 }
 
 /**

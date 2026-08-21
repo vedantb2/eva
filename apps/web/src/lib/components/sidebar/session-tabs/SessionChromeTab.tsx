@@ -174,9 +174,15 @@ export function SessionChromeTab({
                   />
                 </>
               ) : null}
+              {/* Press lives on the tab *body*, not the shell: the shell
+                  carries the chrome stroke and the two radial-gradient corner
+                  folds as absolutely-positioned children, and scaling it would
+                  drag those off the tab's edge. Scaling the label region instead
+                  reads as the content answering inside a fixed frame. 0.98 is
+                  the figure `TabsTrigger` already uses. */}
               <DynamicLink
                 to={href}
-                className="flex h-full min-w-0 flex-1 items-center gap-2.5 pl-3 pr-1 text-[0.8125rem] [@container(max-width:4.5rem)]:justify-center [@container(max-width:4.5rem)]:px-0"
+                className="motion-press flex h-full min-w-0 flex-1 items-center gap-2.5 pl-3 pr-1 text-[0.8125rem] active:scale-[0.98] [@container(max-width:4.5rem)]:justify-center [@container(max-width:4.5rem)]:px-0"
               >
                 {/* Favicon slot: Drive grid while a turn is in flight; else
                     sandbox status. Stays visible when the tab is fully squeezed. */}
@@ -216,7 +222,14 @@ export function SessionChromeTab({
                 aria-label={`Archive ${session.title}`}
                 title="Archive session"
                 className={cn(
-                  "max-sm:hit-target mr-2 flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-[color,background-color,opacity] hover:bg-foreground/10 hover:text-foreground focus-visible:opacity-100 [@container(max-width:7.5rem)]:hidden",
+                  // `motion-press` rather than the hand-rolled
+                  // `transition-[color,background-color,opacity]`: archiving is
+                  // a one-click, state-changing action on a 24px target, so the
+                  // press is the only acknowledgement it gets before the tab
+                  // leaves the strip. The utility already covers colour, and
+                  // opacity is in its property list too, so the reveal still
+                  // fades.
+                  "max-sm:hit-target motion-press mr-2 flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-foreground/10 hover:text-foreground active:scale-[0.92] focus-visible:opacity-100 [@container(max-width:7.5rem)]:hidden",
                   isSelected
                     ? "opacity-100"
                     : // `reveal-on-hover` rather than a hand-rolled

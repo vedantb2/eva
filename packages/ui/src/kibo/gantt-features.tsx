@@ -54,9 +54,14 @@ export const GanttFeatureDragHelper: FC<GanttFeatureDragHelperProps> = ({
         className={cn(
           // The handle slides out on hover via translate, not `left`/`right`:
           // an inset animation relayouts every frame, a transform does not.
-          // Only opacity and transform transition, so this stays on the
+          // Only opacity and the slide transition, so this stays on the
           // compositor while the user is mid-drag.
-          "-translate-y-1/2 absolute top-1/2 h-[80%] w-1 rounded-sm bg-muted-foreground opacity-0 transition-[opacity,transform] duration-[var(--motion-fast)]",
+          //
+          // The named property is `translate`, not `transform`: the slide is
+          // `translate-x-*`, which Tailwind compiles to `translate: …`, and an
+          // arbitrary `transition-[…]` matches property names literally — so
+          // the handle used to appear at its final offset in one frame.
+          "-translate-y-1/2 absolute top-1/2 h-[80%] w-1 rounded-sm bg-muted-foreground opacity-0 transition-[opacity,translate] duration-[var(--motion-fast)]",
           direction === "left" ? "left-0" : "right-0",
           direction === "left" ? "translate-x-2.5" : "-translate-x-2.5",
           "group-hover:translate-x-0",

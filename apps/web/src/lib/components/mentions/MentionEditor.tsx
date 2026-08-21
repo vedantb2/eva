@@ -9,6 +9,7 @@ import {
   type Ref,
 } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence } from "motion/react";
 import { formatMentionToken } from "./mentionToken";
 import { formatSkillToken } from "./skillToken";
 import {
@@ -942,6 +943,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     showPopup && popupPlacement ? (
       trigger.kind === "slash" ? (
         <MentionPickerPopup
+          key="slash"
           {...sharedPopupProps}
           placement={popupPlacement}
           items={activeSlashItems}
@@ -953,6 +955,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         />
       ) : (
         <MentionPickerPopup
+          key="mention"
           {...sharedPopupProps}
           placement={popupPlacement}
           items={activeMentionItems}
@@ -1020,8 +1023,15 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         onBlur={disabled ? undefined : handleBlur}
         onPaste={disabled ? undefined : handlePaste}
       />
-      {pickerPopup && typeof document !== "undefined"
-        ? createPortal(pickerPopup, document.body)
+      {/* `AnimatePresence` is portalled unconditionally, with the popup as its
+          conditional child: gating the portal on `pickerPopup` would unmount the
+          presence boundary in the same commit that removes the popup, and the
+          exit animation would never run. */}
+      {typeof document !== "undefined"
+        ? createPortal(
+            <AnimatePresence>{pickerPopup}</AnimatePresence>,
+            document.body,
+          )
         : null}
       {chipHoverCard}
     </>

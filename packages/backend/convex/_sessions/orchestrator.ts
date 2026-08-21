@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { DatabaseReader } from "../_generated/server";
 import { authMutation, authQuery } from "../functions";
+import { sessionStatusValidator } from "../_validators/enums";
 import { entityVisible } from "../numId";
 import { createSession } from "./mutations";
 
@@ -18,9 +19,9 @@ const orchestratorSessionValidator = v.object({
   owner: v.string(),
   name: v.string(),
   rootDirectory: v.optional(v.string()),
-  /** A turn is in flight — the rail entry shows this, since the orchestrator is
+  /** Sandbox lifecycle state. The rail entry shows it, since the orchestrator is
    * excluded from the sessions list and its badges. */
-  isExecuting: v.boolean(),
+  status: sessionStatusValidator,
 });
 
 /**
@@ -45,7 +46,7 @@ async function resolveOrchestratorSession(
     owner: repo.owner,
     name: repo.name,
     rootDirectory: repo.rootDirectory,
-    isExecuting: session.activeWorkflowId !== undefined,
+    status: session.status,
   };
 }
 
@@ -94,8 +95,8 @@ export const ensureOrchestratorSession = authMutation({
       owner: repo.owner,
       name: repo.name,
       rootDirectory: repo.rootDirectory,
-      // Freshly created: its first turn has not started yet.
-      isExecuting: false,
+      // Freshly created: its sandbox is still starting.
+      status: "starting" as const,
     };
   },
 });

@@ -123,7 +123,7 @@ function RepoRailLiveData(props: RepoRailProps) {
     <RepoRailView
       {...props}
       activeSessionCount={activeSessionCount}
-      orchestratorBusy={orchestrator?.isExecuting === true}
+      orchestratorActive={orchestrator?.status === "active"}
       activeSandboxRepoIds={activeSandboxRepoIds}
     />
   );
@@ -147,7 +147,7 @@ export function RepoRail(props: RepoRailProps) {
         <RepoRailView
           {...props}
           activeSessionCount={undefined}
-          orchestratorBusy={false}
+          orchestratorActive={false}
           activeSandboxRepoIds={EMPTY_SANDBOX_REPO_IDS}
         />
       }
@@ -159,8 +159,8 @@ export function RepoRail(props: RepoRailProps) {
 
 interface RepoRailViewProps extends RepoRailProps {
   activeSessionCount: number | undefined;
-  /** True while the orchestrator has a turn in flight. */
-  orchestratorBusy?: boolean;
+  /** True while the orchestrator's sandbox is up. */
+  orchestratorActive?: boolean;
   activeSandboxRepoIds: ReadonlySet<Id<"githubRepos">>;
 }
 
@@ -174,7 +174,7 @@ function RepoRailView({
   userName,
   showSearch,
   activeSessionCount,
-  orchestratorBusy = false,
+  orchestratorActive = false,
   activeSandboxRepoIds,
 }: RepoRailViewProps) {
   const { collapsed, setCollapsed, setSessionsNavMode } = useSidebar();
@@ -279,7 +279,7 @@ function RepoRailView({
               to="/orchestrator"
               onClick={onNavigate}
               aria-label={
-                orchestratorBusy ? "Orchestrator, working" : "Orchestrator"
+                orchestratorActive ? "Orchestrator, active" : "Orchestrator"
               }
               className={cn(
                 RAIL_TILE_CLASS,
@@ -288,9 +288,9 @@ function RepoRailView({
               )}
             >
               <IconSparkles size={22} className="shrink-0" />
-              {orchestratorBusy ? (
+              {orchestratorActive ? (
                 // A dot, not a count: there is only ever one orchestrator, so
-                // the question is "is it working", not "how many".
+                // the question is "is its sandbox up", not "how many".
                 <span
                   className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success ring-2 ring-sidebar"
                   aria-hidden
@@ -299,7 +299,7 @@ function RepoRailView({
             </Link>
           </TooltipTrigger>
           <TooltipContent side="right">
-            {orchestratorBusy ? "Orchestrator (working)" : "Orchestrator"}
+            {orchestratorActive ? "Orchestrator (active)" : "Orchestrator"}
           </TooltipContent>
         </Tooltip>
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />

@@ -46,7 +46,7 @@ export function SessionSwitcher({ sessionId, title }: SessionSwitcherProps) {
           type="button"
           title={`${appName} / ${title}`}
           aria-label="Switch session"
-          className="flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm font-semibold transition-colors hover:bg-muted focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40"
+          className="motion-press flex min-w-0 max-w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-sm font-semibold hover:bg-muted active:scale-[0.98] focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40"
         >
           <RepoLogo
             logoUrl={logoUrl}

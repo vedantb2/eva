@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { AnimatePresence, m } from "motion/react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
@@ -15,8 +14,6 @@ import {
   TooltipContent,
   TooltipTrigger,
   cn,
-  motionBase,
-  motionFast,
 } from "@eva/ui";
 import { IconPencil } from "@tabler/icons-react";
 import {
@@ -34,6 +31,7 @@ import { RailSettingsMenu } from "@/lib/components/sidebar/RailSettingsMenu";
 import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import { QueryErrorBoundary } from "@/lib/components/QueryErrorBoundary";
 import { ShortcutKbd } from "@/lib/components/ui/Kbd";
+import { CountPop, countLabel } from "@/lib/components/ui/CountPop";
 import { railTileActiveClass } from "@/lib/components/sidebar/SharedLayoutNav";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useSearch } from "@/lib/contexts/SearchContext";
@@ -82,39 +80,17 @@ function railTileActive(active: boolean): string {
     : "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground";
 }
 
-function formatCountLabel(count: number | undefined): string | null {
-  if (count === undefined || count <= 0) return null;
-  return count > 99 ? "99+" : String(count);
-}
-
 /**
- * The unread dot on a rail tile. One component for both counters — they were
- * two byte-identical copies differing only in the query.
- *
- * The count arrives over a live subscription while the user is looking at
- * something else, so it is the badge's job to say a number changed: it pops from
- * `scale(0.5)` on the emphasized curve rather than materialising at full size,
- * and `key={label}` re-runs that pop on every subsequent change (2 → 3), not
- * just on first mount. Exit is a plain shrink at `--motion-fast`, since nothing
- * is being announced when a count clears.
+ * The unread dot on a rail tile. One component for both counters — they were two
+ * byte-identical copies differing only in the query. The pop itself lives in
+ * `CountPop`, shared with the drafts pill and the running-sessions count.
  */
 function RailUnreadBadge({ count }: { count: number | undefined }) {
-  const label = formatCountLabel(count);
   return (
-    <AnimatePresence mode="popLayout">
-      {label ? (
-        <m.span
-          key={label}
-          initial={{ opacity: 0, scale: 0.5 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.5, transition: motionFast }}
-          transition={{ ...motionBase, ease: [0.2, 0.8, 0.2, 1] }}
-          className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
-        >
-          {label}
-        </m.span>
-      ) : null}
-    </AnimatePresence>
+    <CountPop
+      label={countLabel(count)}
+      className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
+    />
   );
 }
 
@@ -211,7 +187,7 @@ function RepoRailView({
     pathname === "/automations" ||
     pathname.startsWith("/automations/") ||
     (pathParts.includes("automations") && pathParts[0] !== "automations");
-  const sessionsLabel = formatCountLabel(activeSessionCount);
+  const sessionsLabel = countLabel(activeSessionCount);
   const [renameRepo, setRenameRepo] = useState<RepoWithLogo | null>(null);
   // Carry the section (Quick Tasks, Projects, …) across an app switch, but not
   // the entity below it: task 204 belongs to the app you are leaving.
@@ -283,11 +259,10 @@ function RepoRailView({
               )}
             >
               <SessionsIcon size={22} className="shrink-0" />
-              {sessionsLabel ? (
-                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-success px-1 text-[10px] font-semibold leading-none text-white">
-                  {sessionsLabel}
-                </span>
-              ) : null}
+              <CountPop
+                label={sessionsLabel}
+                className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-success px-1 text-[10px] font-semibold leading-none text-white"
+              />
             </Link>
           </TooltipTrigger>
           <TooltipContent side="right">

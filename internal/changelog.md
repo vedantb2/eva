@@ -8410,3 +8410,10 @@ Behavior per context:
 - Overview and Diffs tabs carry muted counts (comments / changed files) read off the existing overview payload — no new queries; truncated comment counts get a `+` suffix
 - Timeline leads with a tonal merged/closed event card (`PrLifecycleEventCard`); PR description is now a `Surface` card headed by "<author> opened this pull request · <time>" (editor extracted to `PrDescriptionEditor`)
 - Meta sidebar gained a Checks section (failing / in progress / passing / skipped counts via `countChecks`) between Reviewers and Assignees; a Previews section was skipped — no existing PR→preview-URL query, would need a new backend endpoint
+
+## Standup Prompt Rewritten Non-Technical + Model Picker for System Automations - 2026-08-21
+
+- `DAILY_STANDUP_PROMPT` now mirrors the "Eva Weekly Changelog" automation: explicit non-technical audience framing, `### New / Faster / Fixed / Improved` headings, one plain-language sentence per change on the user benefit, and a hard ban on file/function names, hashes and implementation detail
+- Prompt now skips non-user-facing work outright (refactors, dependency bumps, tests, formatting, merges) and falls back to `No user-facing changes since the last working day.`; headings stay plain words, no emoji, so the quiet uppercase heading styling in `standupProseClass` still reads
+- `automations.update` no longer rejects `model` on system installs — `model` was never part of `SystemAutomationDefinition`, so it is install-level like `cronSchedule`/`enabled`/`sendEmail`, not code-owned
+- `SystemAutomationSettings` gained the same Model card as `AutomationClient` (`ModelSelect` + `useAvailableAiModels`, defaulting to `repo.defaultModel` via `normalizeAIModel`); `commit` now takes the mutation's own arg type instead of a hand-written subset

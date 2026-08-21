@@ -17,3 +17,5 @@ export { SkillMentionHoverCardBody } from "./SkillMentionHoverCardBody";
 export { tokenizedToEditable, tokenizedToDisplayText } from "./mentionToken";
 export { isSkillTokenId, systemSkillTokenId } from "./skillToken";
 export { mergeMentionItems } from "./mergeMentionItems";
+export { MentionRow } from "./MentionRow";
+export type { MentionKind } from "./MentionRow";

@@ -8506,3 +8506,14 @@ Behavior per context:
 - Added `blurb` to `SystemAutomationDefinition`, returned by `listSystemAutomations` and rendered by `SystemAutomationCard` in place of `description`. The old contract — first line of the prompt doubles as card copy — broke on these prompts (`## Goal`, "Review commits made in the past week and:"); the card renders raw text with no markdown parsing, so a heading would have shown literally
 - All five are `readOnly: false` (they open PRs), the first non-report-only entries in the catalog; default schedules stagger 03:00–05:00 UTC instead of the source's shared 03:00, so a repo with several installed does not start five agent sessions at once
 - Per-entry glyphs added to `ENTRY_ICONS` (bug, test pipe, book, sitemap, radioactive)
+
+## Composer `@`/`/` Picker Became a Full-Width Panel With Working Search - 2026-08-21
+
+- `MentionEditor` gained `popupLayout`: `caret` (unchanged, default) keeps the compact list beside the caret; `panel` renders a sheet the exact width of the composer card, just above it, anchored to `[data-mention-popup-anchor]` on `PromptInput` rather than to the caret so the list stops jumping mid-word
+- Only the chat composer opts into `panel`. Modals and comment boxes stay on `caret` deliberately: their popup portals outside the Radix dialog, so a focusable field there would be pulled straight back by the focus trap
+- The panel's search row is now a real autofocused `<input>` that owns the filter. Previously the row only mirrored the text typed after `@`/`/`, and a space ended the trigger — so any multi-word search closed the picker instead of narrowing it
+- Filtering is word-wise across label plus description (`matchesAllWords` replaces the two substring filters), so "capture proof" finds `eva-capture`
+- Editor keystrokes mirror into the search field while the editor still owns the caret, tracked by an `editorTypedRef` flag rather than `document.activeElement` — the field autofocuses a frame after the trigger opens, so fast typing lands partly in each and both halves have to reach the filter
+- Popup visibility is gated on the unfiltered list, showing "No matches" instead of unmounting — unmounting would take the focused search field with it. Editor blur ignores focus moving into `[data-mention-picker]`; focus leaving the picker for anything else closes it
+- Data mentions now render the sidebar nav glyph for their kind (document / session / project / quick task) in the trailing slot the repeated kind badge used to occupy, so every label starts in the same column and the type marker stays in one place; `MentionItem.kind` carries the backend `DataMentionKind`, so a new kind there fails to compile until it gets an icon
+- `ComposerPlusMenu`'s hand-copied `MentionMenuRow` deleted in favour of the shared `MentionRow`, so a mention reads identically in the picker and the "+" menu

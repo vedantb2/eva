@@ -33,10 +33,17 @@ migrateLegacyStorageKeys();
 /**
  * Handles stale deployment detection: closes the Convex WebSocket to prevent
  * a cascade of "Not authenticated" server errors, then reloads the page.
+ *
+ * Claim before preventDefault. Vite's preload helper resolves the failed
+ * `import()` to `undefined` when `vite:preloadError` is canceled — React.lazy
+ * then crashes with `Cannot read properties of undefined (reading 'default')`.
+ * Preventing only after we win the cooldown keeps a refused claim from
+ * swallowing the rejection (and matches the index.html listener, which never
+ * cancels the event).
  */
 function handleStaleDeployment(event: Event) {
-  event.preventDefault();
   if (!claimStaleDeployReload()) return;
+  event.preventDefault();
   try {
     convex.close();
   } catch {

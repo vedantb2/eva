@@ -10,7 +10,6 @@ import { SidebarProvider } from "@/lib/contexts/SidebarContext";
 import { PageTitleProvider } from "@/lib/contexts/PageTitleContext";
 import { SearchProvider } from "@/lib/contexts/SearchContext";
 import { ShortcutsProvider } from "@/lib/hotkeys/ShortcutsContext";
-import { IS_EMBEDDED } from "@/lib/embed/embedded";
 
 /**
  * The signed-in app chrome. Split from `AppShell` so the sidebar, spotlight
@@ -18,8 +17,17 @@ import { IS_EMBEDDED } from "@/lib/embed/embedded";
  * instead of the entry — anonymous landing visitors never download them.
  * `main.tsx` warms this chunk at boot when the signed-in hint is set, so app
  * users fetch it in parallel with Clerk's session handshake.
+ *
+ * `embedded` is a prop (not an `embedded.ts` import) so this lazy chunk does
+ * not pull the entry-resident embed module and form an async→entry cycle.
  */
-export function AppShellChrome({ children }: { children: ReactNode }) {
+export function AppShellChrome({
+  children,
+  embedded,
+}: {
+  children: ReactNode;
+  embedded: boolean;
+}) {
   return (
     <AuthGate>
       <div className="relative min-h-dvh bg-app-shell">
@@ -33,9 +41,9 @@ export function AppShellChrome({ children }: { children: ReactNode }) {
                       only: the host window already owns the sidebar, search,
                       follow overlay and toast streams. Providers stay — pages
                       consume them regardless of where they render. */}
-                  {IS_EMBEDDED ? null : <Sidebar />}
+                  {embedded ? null : <Sidebar />}
                   {children}
-                  {IS_EMBEDDED ? null : (
+                  {embedded ? null : (
                     <>
                       <SpotlightSearch />
                       <FollowOverlay />

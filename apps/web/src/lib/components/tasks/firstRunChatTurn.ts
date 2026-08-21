@@ -5,6 +5,22 @@ import type { ChatBodyMessage } from "@/lib/components/chat/chatBodyUtils";
 type AgentRun = FunctionReturnType<typeof api.agentRuns.listByTask>[number];
 
 /**
+ * The fields the rule below reads, spelled out structurally instead of taking
+ * the whole `AgentRun`: callers still get their own row type back (see the
+ * generic), and the rule stays exercisable in a test without fabricating
+ * Convex ids. `triggeringCommentId` widens to `string` for the same reason —
+ * only whether it is set matters here.
+ */
+type ChatTurnRunFields = {
+  status: AgentRun["status"];
+  mode?: AgentRun["mode"];
+  resultSummary?: string;
+  triggeringCommentId?: string;
+  startedAt?: number;
+  _creationTime: number;
+};
+
+/**
  * The run whose activity log renders as the opening assistant turn of the
  * sandbox chat instead of a run accordion in the activity timeline — both
  * surfaces key off this one function so they can never disagree about which
@@ -14,10 +30,10 @@ type AgentRun = FunctionReturnType<typeof api.agentRuns.listByTask>[number];
  * their triggering comment) and Resolve Conflicts runs. A success without a
  * `resultSummary` also stays — the chat turn would have no reply text.
  */
-export function findFirstRunChatTurnRun(
-  runs: readonly AgentRun[] | undefined,
-): AgentRun | undefined {
-  let first: AgentRun | undefined;
+export function findFirstRunChatTurnRun<Run extends ChatTurnRunFields>(
+  runs: readonly Run[] | undefined,
+): Run | undefined {
+  let first: Run | undefined;
   for (const run of runs ?? []) {
     if (run.status !== "success" || !run.resultSummary) continue;
     if (run.triggeringCommentId !== undefined) continue;

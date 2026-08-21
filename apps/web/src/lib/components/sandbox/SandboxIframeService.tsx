@@ -84,6 +84,13 @@ interface SandboxIframeServiceProps {
   loadFailedError: string;
   /** Optional `allow` attribute on the iframe (e.g. clipboard). */
   iframeAllow?: string;
+  /**
+   * When set, skips the idle Start button and starts automatically — once per
+   * distinct key. Callers pass the timestamp of whatever proved the service is
+   * already up (e.g. the agent's browsing lock), so a manual Stop sticks until
+   * the next signal instead of instantly restarting.
+   */
+  autoStartKey?: number;
   /** Fires whenever the service state machine changes. */
   onStateChange?: (state: SandboxIframeServiceState) => void;
 }
@@ -116,6 +123,7 @@ export function SandboxIframeService({
   startFailedError,
   loadFailedError,
   iframeAllow,
+  autoStartKey,
   onStateChange,
 }: SandboxIframeServiceProps) {
   // Scope the cache key by sandboxId — Vercel signed URLs embed the sandbox
@@ -136,6 +144,7 @@ export function SandboxIframeService({
   const pollTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const attempts = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
+  const handledAutoStartKey = useRef<number | undefined>(undefined);
   const onStateChangeRef = useRef(onStateChange);
   useEffect(() => {
     onStateChangeRef.current = onStateChange;
@@ -259,14 +268,26 @@ export function SandboxIframeService({
   // (zombie websockify), which looks like a permanent "Loading" bar. Re-run
   // start + readiness poll instead.
   useEffect(() => {
-    if (isActive && sandboxId && state === "idle" && cachedUrl) {
-      if (ensureStartedBeforeReady) {
+    if (isActive && sandboxId && state === "idle") {
+      if (
+        autoStartKey !== undefined &&
+        handledAutoStartKey.current !== autoStartKey
+      ) {
+        // Mark before starting so a later Stop (state → idle) is not undone by
+        // this effect re-running against the same key.
+        handledAutoStartKey.current = autoStartKey;
         void start();
         return stopPolling;
       }
-      setUrl(cachedUrl);
-      setState("running");
-      onReady?.(cachedUrl);
+      if (cachedUrl) {
+        if (ensureStartedBeforeReady) {
+          void start();
+          return stopPolling;
+        }
+        setUrl(cachedUrl);
+        setState("running");
+        onReady?.(cachedUrl);
+      }
     }
     if (!isActive) {
       setCachedUrl(null);
@@ -282,6 +303,7 @@ export function SandboxIframeService({
     onReady,
     ensureStartedBeforeReady,
     start,
+    autoStartKey,
   ]);
 
   const toggleFullscreen = () => {

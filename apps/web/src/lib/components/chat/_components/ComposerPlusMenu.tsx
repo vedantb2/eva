@@ -27,20 +27,17 @@ import {
   isSessionMode,
   SESSION_MODE_OPTIONS,
 } from "@/lib/sessionModeOptions";
-import { UserInitials } from "@eva/shared";
 import type { Id } from "@eva/backend";
 import type { MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
-import type { SlashItem } from "@/lib/components/mentions";
+import {
+  MentionRow,
+  type MentionKind,
+  type SlashItem,
+} from "@/lib/components/mentions";
 import {
   IMAGE_ATTACHMENT_ACCEPT,
   CHAT_ATTACHMENT_ACCEPT,
 } from "@/lib/components/chat/imageAttachments";
-
-function previewOneLine(text: string, maxLength = 72): string {
-  const singleLine = text.replace(/\s+/g, " ").trim();
-  if (singleLine.length <= maxLength) return singleLine;
-  return `${singleLine.slice(0, maxLength - 1)}…`;
-}
 
 function matchesQuery(
   query: string,
@@ -52,57 +49,6 @@ function matchesQuery(
   if (label.toLowerCase().includes(q)) return true;
   if (description?.toLowerCase().includes(q)) return true;
   return false;
-}
-
-/** Matches MentionEditor picker rows: `/` or `@` + title, badge, description. */
-function MentionMenuRow({
-  prefix,
-  label,
-  description,
-  badge,
-  personUserId,
-}: {
-  prefix: "/" | "@";
-  label: string;
-  description?: string;
-  badge?: string;
-  personUserId?: Id<"users">;
-}) {
-  if (personUserId !== undefined) {
-    return (
-      <span className="flex w-full min-w-0 items-center gap-2">
-        <UserInitials userId={personUserId} size="sm" hideLastSeen />
-        <span data-pii className="min-w-0 flex-1 truncate">
-          {label}
-        </span>
-        {badge ? (
-          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
-            {badge}
-          </span>
-        ) : null}
-      </span>
-    );
-  }
-
-  const detail = description ? previewOneLine(description) : null;
-  return (
-    <span className="flex min-w-0 w-full flex-col gap-0.5 overflow-hidden">
-      <span className="flex min-w-0 items-center gap-1.5">
-        <span className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden">
-          <span className="shrink-0 text-muted-foreground">{prefix}</span>
-          <span className="truncate">{label}</span>
-        </span>
-        {badge ? (
-          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
-            {badge}
-          </span>
-        ) : null}
-      </span>
-      {detail ? (
-        <span className="truncate text-xs text-muted-foreground">{detail}</span>
-      ) : null}
-    </span>
-  );
 }
 
 /** Sticky search field for plus-menu sublists (keeps typing out of Radix key handling). */
@@ -149,6 +95,7 @@ interface DataMenuItem {
   id: string;
   label: string;
   badge?: string;
+  kind?: MentionKind;
   description?: string;
   personUserId?: Id<"users">;
 }
@@ -278,7 +225,7 @@ export function ComposerPlusMenu({
                           mentionRef.current?.insertSkill(skill);
                         }}
                       >
-                        <MentionMenuRow
+                        <MentionRow
                           prefix="/"
                           label={skill.label}
                           description={skill.description}
@@ -328,15 +275,17 @@ export function ComposerPlusMenu({
                             label: item.label,
                             description: item.description,
                             badge: item.badge,
+                            kind: item.kind,
                             personUserId: item.personUserId,
                           });
                         }}
                       >
-                        <MentionMenuRow
+                        <MentionRow
                           prefix="@"
                           label={item.label}
                           description={item.description}
                           badge={item.badge}
+                          kind={item.kind}
                           personUserId={item.personUserId}
                         />
                       </DropdownMenuItem>

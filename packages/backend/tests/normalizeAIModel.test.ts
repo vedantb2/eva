@@ -10,10 +10,11 @@ import {
   usesChatDaemon,
 } from "../convex/_validators/aiModels";
 
-test("interactive Claude and Codex models use persistent chat daemons", () => {
+test("interactive Claude, Codex and Cursor models use persistent chat daemons", () => {
   expect(usesChatDaemon("claude:sonnet")).toBe(true);
   expect(usesChatDaemon("codex:gpt-5.6-sol")).toBe(true);
-  expect(usesChatDaemon("cursor:gpt-5.5")).toBe(false);
+  expect(usesChatDaemon("cursor:gpt-5.5")).toBe(true);
+  // Opencode has no warm daemon: its turns still push the prompt at launch.
   expect(usesChatDaemon("opencode:openai/gpt-5.4")).toBe(false);
 });
 

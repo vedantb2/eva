@@ -24,6 +24,13 @@ export {
 
 export { submitPrReview, addPrComment } from "./_github/prReview";
 
+export {
+  listPullRequestCandidates,
+  setPullRequestReviewers,
+  setPullRequestAssignees,
+  setPullRequestLabels,
+} from "./_github/prMeta";
+
 export { syncRepos } from "./_github/sync";
 
 export { verifySessionPrMerged } from "./_github/sessionMergeGuard";

@@ -6,12 +6,19 @@ import { action, internalAction } from "../_generated/server";
 import { components, internal } from "../_generated/api";
 import { getInstallationOctokit } from "../githubAuth";
 import { invalidatePrHeaderCache } from "./pullRequests";
+import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { getActionRepoWithAccess } from "../functions";
 
 const MAX_ISSUE_COMMENTS = 100;
 const MAX_REVIEW_COMMENTS = 100;
 const MAX_CHECKS = 40;
+/**
+ * Deployments of one commit. A repo with several apps deploys each of them, and
+ * each costs a second request for its latest status, so this is a ceiling on
+ * fan-out rather than on what is interesting.
+ */
+const MAX_PREVIEWS = 4;
 const MAX_COMMITS = 30;
 /** GitHub itself serves at most 250 commits per pull request. */
 const MAX_ALL_COMMITS = 250;
@@ -97,6 +104,20 @@ const pullRequestLabelValidator = v.object({
   color: v.string(),
 });
 
+/**
+ * A deployment of the head commit — a preview environment, in practice. GitHub
+ * models the address as a *status* on a deployment rather than on the deployment
+ * itself, so `url` is null until the provider has reported one.
+ */
+const pullRequestPreviewValidator = v.object({
+  /** GitHub's environment name, e.g. "Preview" or "preview-eva". */
+  environment: v.string(),
+  url: v.union(v.string(), v.null()),
+  /** success | pending | in_progress | failure | error | inactive | queued */
+  state: v.string(),
+  updatedAt: v.string(),
+});
+
 const pullRequestOverviewValidator = v.object({
   number: v.number(),
   title: v.string(),
@@ -124,6 +145,8 @@ const pullRequestOverviewValidator = v.object({
   mergeableState: v.string(),
   mergedAt: v.union(v.string(), v.null()),
   mergedByLogin: v.union(v.string(), v.null()),
+  /** The commit the merge produced, so the lifecycle event can link to it. */
+  mergeCommitSha: v.union(v.string(), v.null()),
   labels: v.array(pullRequestLabelValidator),
   /** Latest decisive review per reviewer, human or bot. */
   reviews: v.array(pullRequestReviewValidator),
@@ -133,6 +156,8 @@ const pullRequestOverviewValidator = v.object({
   assignees: v.array(pullRequestActorValidator),
   checks: v.array(pullRequestCheckValidator),
   checksTruncated: v.boolean(),
+  /** Deployments of the head commit, newest first. Empty where nothing deploys. */
+  previews: v.array(pullRequestPreviewValidator),
   comments: v.array(pullRequestCommentValidator),
   commentsTruncated: v.boolean(),
 });
@@ -189,6 +214,13 @@ type PullRequestLabel = {
   color: string;
 };
 
+type PullRequestPreview = {
+  environment: string;
+  url: string | null;
+  state: string;
+  updatedAt: string;
+};
+
 type PullRequestOverview = {
   number: number;
   title: string;
@@ -214,6 +246,7 @@ type PullRequestOverview = {
   mergeableState: string;
   mergedAt: string | null;
   mergedByLogin: string | null;
+  mergeCommitSha: string | null;
   labels: PullRequestLabel[];
   reviews: PullRequestReview[];
   reviewEvents: PullRequestReviewEvent[];
@@ -221,6 +254,7 @@ type PullRequestOverview = {
   assignees: PullRequestActor[];
   checks: PullRequestCheck[];
   checksTruncated: boolean;
+  previews: PullRequestPreview[];
   comments: PullRequestComment[];
   commentsTruncated: boolean;
 };
@@ -311,6 +345,7 @@ export const fetchPullRequestOverview = internalAction({
       commitRes,
       checksRes,
       statusRes,
+      deploymentRes,
     ] = await Promise.all([
       prPromise.then((res) => res.data),
       octokit.rest.issues.listComments({
@@ -361,7 +396,42 @@ export const fetchPullRequestOverview = internalAction({
           }),
         )
         .catch(() => ({ data: { statuses: [] } })),
+      prPromise
+        .then((res) =>
+          octokit.rest.repos.listDeployments({
+            owner: repo.owner,
+            repo: repo.name,
+            sha: res.data.head.sha,
+            per_page: MAX_PREVIEWS,
+          }),
+        )
+        .catch(() => ({ data: [] })),
     ]);
+
+    // The address lives on the deployment's latest *status*, not the deployment,
+    // so each one costs a second request. Failures are swallowed per deployment:
+    // a preview nobody can reach is worth less than the rest of the overview.
+    const previews: PullRequestPreview[] = (
+      await Promise.all(
+        deploymentRes.data.slice(0, MAX_PREVIEWS).map(async (deployment) => {
+          const statuses = await octokit.rest.repos
+            .listDeploymentStatuses({
+              owner: repo.owner,
+              repo: repo.name,
+              deployment_id: deployment.id,
+              per_page: 1,
+            })
+            .catch(() => ({ data: [] }));
+          const latest = statuses.data[0];
+          return {
+            environment: deployment.environment,
+            url: latest?.environment_url ?? null,
+            state: latest?.state ?? "queued",
+            updatedAt: latest?.created_at ?? deployment.updated_at,
+          };
+        }),
+      )
+    ).filter((preview) => preview.state !== "inactive");
 
     const checkRuns: PullRequestCheck[] = checksRes.data.check_runs
       .slice(0, MAX_CHECKS)
@@ -473,6 +543,9 @@ export const fetchPullRequestOverview = internalAction({
       mergeableState: pr.mergeable_state ?? "unknown",
       mergedAt: pr.merged_at ?? null,
       mergedByLogin: pr.merged_by?.login ?? null,
+      // Present on an open pull request too (GitHub's test-merge commit), so it
+      // is only meaningful once `merged` is true.
+      mergeCommitSha: pr.merged ? (pr.merge_commit_sha ?? null) : null,
       labels: pr.labels.map((label) => ({
         name: label.name,
         color: label.color,
@@ -489,6 +562,7 @@ export const fetchPullRequestOverview = internalAction({
       })),
       checks: [...checkRuns, ...statusChecks],
       checksTruncated: checksRes.data.total_count > MAX_CHECKS,
+      previews,
       comments,
       commentsTruncated:
         issueRes.data.length >= MAX_ISSUE_COMMENTS ||
@@ -533,7 +607,8 @@ export const getPullRequestOverview = action({
 });
 
 /**
- * Renames a pull request or rewrites its description. Both cached payloads that
+ * Renames a pull request, rewrites its description, or closes/reopens it. Both
+ * cached payloads that
  * carry those fields are dropped afterwards — without that, the overview and the
  * page header would keep serving the old text for up to their TTL and the edit
  * would look as though it had been undone.
@@ -545,6 +620,12 @@ export const updatePullRequest = action({
     /** Omitted fields are left as they are on GitHub. */
     title: v.optional(v.string()),
     body: v.optional(v.string()),
+    /**
+     * Close or reopen. Reopening a *merged* pull request is not a thing GitHub
+     * allows, so the caller has to know which state the branch is in — the header
+     * only offers Reopen for a closed one.
+     */
+    state: v.optional(v.union(v.literal("open"), v.literal("closed"))),
   },
   returns: v.object({ title: v.string(), body: v.union(v.string(), v.null()) }),
   handler: async (ctx, args): Promise<{ title: string; body: string | null }> => {
@@ -556,7 +637,11 @@ export const updatePullRequest = action({
     if (title !== undefined && title.length === 0) {
       throw new Error("Title cannot be empty");
     }
-    if (title === undefined && args.body === undefined) {
+    if (
+      title === undefined &&
+      args.body === undefined &&
+      args.state === undefined
+    ) {
       throw new Error("Nothing to update");
     }
 
@@ -572,17 +657,33 @@ export const updatePullRequest = action({
       pull_number: args.prNumber,
       ...(title === undefined ? {} : { title }),
       ...(args.body === undefined ? {} : { body: args.body }),
+      ...(args.state === undefined ? {} : { state: args.state }),
     });
 
-    const cacheKey = { repoId: args.repoId, prNumber: args.prNumber };
-    await Promise.all([
-      prOverviewCache.remove(ctx, cacheKey),
-      invalidatePrHeaderCache(ctx, cacheKey),
-    ]);
+    await invalidatePrOverviewCache(ctx, {
+      repoId: args.repoId,
+      prNumber: args.prNumber,
+    });
 
     return { title: data.title, body: data.body };
   },
 });
+
+/**
+ * Drops both cached payloads that describe a pull request. Anything that changes
+ * it on GitHub has to call this: without it the overview and the page header keep
+ * serving the old text for up to their TTL, and the edit looks as though it had
+ * been undone.
+ */
+export async function invalidatePrOverviewCache(
+  ctx: ActionCtx,
+  key: { repoId: Id<"githubRepos">; prNumber: number },
+): Promise<void> {
+  await Promise.all([
+    prOverviewCache.remove(ctx, key),
+    invalidatePrHeaderCache(ctx, key),
+  ]);
+}
 
 const pullRequestCommitsValidator = v.object({
   commits: v.array(pullRequestCommitValidator),

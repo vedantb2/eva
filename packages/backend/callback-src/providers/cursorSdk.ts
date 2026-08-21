@@ -122,6 +122,8 @@ export type CursorSdkModule = {
   JsonlLocalAgentStore: typeof JsonlLocalAgentStore;
 };
 
+let loadedSdk: CursorSdkModule | null = null;
+
 /**
  * Imports the Cursor SDK version `cursorParseLine` was written against. Taking
  * whatever the sandbox happens to hold is not safe here: the parser matches the
@@ -129,6 +131,10 @@ export type CursorSdkModule = {
  * the floor and the turn renders as a bare "Working..." for its whole duration.
  */
 export async function loadCursorSdk(): Promise<CursorSdkModule> {
+  // Memoized so the warm daemon pays the resolve (`npm root -g`, manifest
+  // reads) and the import once for the whole session instead of once per turn.
+  // The one-shot path calls this exactly once, so nothing changes there.
+  if (loadedSdk) return loadedSdk;
   const mod: CursorSdkModule = await import(
     resolvePinnedSdkEntry({
       packageName: SDK_PACKAGE,
@@ -136,6 +142,7 @@ export async function loadCursorSdk(): Promise<CursorSdkModule> {
       entryRelPath: SDK_ENTRY_RELPATH,
     })
   );
+  loadedSdk = mod;
   return mod;
 }
 
@@ -500,6 +507,21 @@ function readUsageTokens(
   };
 }
 
+export type CursorAttemptOverrides = {
+  /**
+   * The turn's prompt. One-shot runs omit it and read the prompt file the
+   * launch uploaded; the warm daemon has no such file (it launches with an
+   * empty prompt) and passes the prompt it claimed instead.
+   */
+  promptText?: string;
+  /**
+   * Receives a handle that aborts this attempt's run. The daemon calls it when
+   * a claim response drains a user cancel, so the attempt returns instead of
+   * running to completion.
+   */
+  onAbortHandle?: (abort: () => void) => void;
+};
+
 /**
  * Runs one Cursor turn via the Cursor SDK (local agent in-process).
  *
@@ -514,6 +536,7 @@ function readUsageTokens(
  */
 export async function runCursorSdkAttempt(
   sessionMode: SessionMode,
+  overrides: CursorAttemptOverrides = {},
 ): Promise<ProviderAttemptResult> {
   resetAttemptState();
   S.activeAttemptStartedAt = Date.now();
@@ -540,6 +563,20 @@ export async function runCursorSdkAttempt(
   let attemptErrorMessage = "";
   let lastStreamUsage: UsageTokens | null = null;
   let activeRun: SdkRun | null = null;
+  let abortedByCaller = false;
+
+  const cancelRun = (): void => {
+    if (!activeRun) return;
+    activeRun.cancel().catch(() => {
+      /* already finished */
+    });
+  };
+  // Registered before the first await so a cancel racing agent setup is not
+  // dropped: `runTurn` re-applies the abort once the run exists.
+  overrides.onAbortHandle?.(() => {
+    abortedByCaller = true;
+    cancelRun();
+  });
 
   const sdk = await loadCursorSdk();
   mkdirSync(CURSOR_SDK_STORE_DIR, { recursive: true });
@@ -591,17 +628,11 @@ export async function runCursorSdkAttempt(
     agent = await createFreshAgent();
   }
 
-  const promptText = readPromptText();
+  const promptText = overrides.promptText ?? readPromptText();
   const combinedPrompt = SYSTEM_PROMPT
     ? SYSTEM_PROMPT + "\n\n" + promptText
     : promptText;
 
-  const cancelRun = (): void => {
-    if (!activeRun) return;
-    activeRun.cancel().catch(() => {
-      /* already finished */
-    });
-  };
   const healthTimer = setInterval(() => {
     const now = Date.now();
     if (now - S.activeAttemptStartedAt > MAX_TOTAL_RUNTIME_MS) {
@@ -669,13 +700,15 @@ export async function runCursorSdkAttempt(
       local: { force: true },
     });
     activeRun = run;
+    if (abortedByCaller) cancelRun();
     for await (const message of run.stream()) {
       lastMessageAt = Date.now();
       pushLine(JSON.stringify(message) + "\n");
       if (message.type === "usage") {
         lastStreamUsage = readUsageTokens(message.usage) ?? lastStreamUsage;
       }
-      if (timedOutForMaxRuntime || timedOutForNoOutput) break;
+      if (timedOutForMaxRuntime || timedOutForNoOutput || abortedByCaller)
+        break;
     }
     const result = await run.wait();
     const costUsd = await resolveCursorTurnCostUsd({
@@ -726,7 +759,8 @@ export async function runCursorSdkAttempt(
     emitTurnResult(
       await runTurnWithResourceExhaustedRetries({
         runTurn: () => runTurn(activeAgent, agentIsFresh),
-        aborted: () => timedOutForMaxRuntime || timedOutForNoOutput,
+        aborted: () =>
+          timedOutForMaxRuntime || timedOutForNoOutput || abortedByCaller,
         onRetry: (retryDelayMs, attempt) => {
           log(
             "runCursorSdkAttempt: resource_exhausted — retrying in " +

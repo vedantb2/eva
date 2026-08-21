@@ -7,7 +7,6 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import {
-  Badge,
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -19,6 +18,7 @@ import { AnimatePresence } from "motion/react";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import { SessionListShowMore } from "@/lib/components/sidebar/_components/SessionListShowMore";
 import { SidebarSessionRow } from "@/lib/components/sidebar/SidebarSessionRow";
+import { CountPop, countLabel } from "@/lib/components/ui/CountPop";
 import { SharedLayoutNav } from "@/lib/components/sidebar/SharedLayoutNav";
 import {
   repoBasePaths,
@@ -119,7 +119,7 @@ export function GlobalSessionGroup({
         <CollapsibleTrigger asChild>
           <button
             type="button"
-            className="flex min-w-0 flex-1 items-center gap-2 rounded-menu-item px-4 py-1.5 text-left transition-colors hover:bg-sidebar-accent/50"
+            className="motion-press flex min-w-0 flex-1 items-center gap-2 rounded-menu-item px-4 py-1.5 text-left hover:bg-sidebar-accent/50 active:scale-[0.99]"
           >
             <RepoLogo
               logoUrl={repo.logoUrl}
@@ -134,17 +134,20 @@ export function GlobalSessionGroup({
               <span className="truncate text-xs font-medium text-muted-foreground">
                 {label}
               </span>
-              {listMode === "active" && runningCount > 0 ? (
-                <Badge
-                  variant="outline"
-                  className="shrink-0 gap-1 border-0 bg-transparent px-1.5 py-0"
-                >
-                  <span className="size-1.5 rounded-full bg-emerald-500" />
-                  <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
-                    {runningCount}
-                  </span>
-                </Badge>
-              ) : null}
+              {/* This count is the sidebar's live read on "how many agents are
+                  working right now", so it mounts, climbs and clears while the
+                  user is reading something else — the same job as the rail's
+                  unread dots, and now the same entrance. `children` rather than
+                  a bare label because the badge is a dot plus a number. */}
+              <CountPop
+                label={listMode === "active" ? countLabel(runningCount) : null}
+                className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-0"
+              >
+                <span className="size-1.5 rounded-full bg-emerald-500" />
+                <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
+                  {runningCount}
+                </span>
+              </CountPop>
               <IconChevronDown
                 size={14}
                 className={cn(
@@ -160,7 +163,7 @@ export function GlobalSessionGroup({
             type="button"
             aria-label={`New session in ${label}`}
             title={`New session in ${label}`}
-            className="flex size-7 max-sm:size-10 shrink-0 items-center justify-center rounded-menu-item text-muted-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-foreground"
+            className="motion-press flex size-7 max-sm:size-10 shrink-0 items-center justify-center rounded-menu-item text-muted-foreground hover:bg-sidebar-accent hover:text-sidebar-foreground active:scale-[0.92]"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();

@@ -46,6 +46,7 @@ import {
 } from "../session/claudeSession.js";
 import { buildSdkOptions, loadSdk, type SdkUserMessage } from "./claudeSdk.js";
 import { callbackState as S } from "../runtime/state.js";
+import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
 import { log, readResponseJson } from "../utils.js";
 import type { JsonObject, JsonValue } from "../types.js";
@@ -1029,7 +1030,9 @@ function startClaimWatcher(agentRunner: WarmRunner): void {
         /* retry on next poll */
       }
       const turnInFlight =
-        daemonTurn !== null || pendingClaimedTurn !== null || turnCancelInFlight;
+        daemonTurn !== null ||
+        pendingClaimedTurn !== null ||
+        turnCancelInFlight;
       const recentlyActive =
         Date.now() - lastIdleActivityAtMs < PROMPT_POLL_FAST_WINDOW_MS;
       await sleep(
@@ -1325,72 +1328,6 @@ function callbackScriptWentStaleOnDisk(): boolean {
  * daemon can exit and free the sandbox. The claim is atomic server-side, so a
  * prompt is handed to exactly one poll and never re-executed.
  */
-/** Mirrors attachmentExtensionForMimeType in convex/_sandbox_runtime/attachments.ts. */
-function attachmentExtensionForMimeType(mimeType: string): string {
-  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
-  switch (type) {
-    case "image/jpeg":
-      return ".jpg";
-    case "image/gif":
-      return ".gif";
-    case "image/webp":
-      return ".webp";
-    case "image/svg+xml":
-      return ".svg";
-    case "image/png":
-      return ".png";
-    case "text/html":
-      return ".html";
-    case "text/markdown":
-      return ".md";
-    case "text/plain":
-      return ".txt";
-    default:
-      if (type.startsWith("image/")) return ".png";
-      return ".bin";
-  }
-}
-
-/**
- * Downloads this turn's input attachments into the sandbox filesystem and
- * appends a note pointing the agent at them, so a claimed turn's prompt
- * references files that already exist on disk (no race — the daemon owns
- * ordering). Uses the same flat `/tmp/eva-attachment-<n>.<ext>` scheme + note
- * text as the CLI launch path (convex/_sandbox_runtime/attachments.ts). Failed
- * downloads are skipped.
- */
-async function materializeTurnAttachments(turn: ClaimedTurn): Promise<void> {
-  if (turn.attachmentUrls.length === 0) return;
-  const paths: string[] = [];
-  for (let index = 0; index < turn.attachmentUrls.length; index++) {
-    const url = turn.attachmentUrls[index];
-    if (!url) continue;
-    try {
-      const res = await fetchWithTimeout(url, { method: "GET" });
-      if (!res.ok) {
-        log(`daemon: attachment download failed status=${res.status}`);
-        continue;
-      }
-      const bytes = new Uint8Array(await res.arrayBuffer());
-      const extension = attachmentExtensionForMimeType(
-        res.headers.get("content-type") ?? "",
-      );
-      const path = `/tmp/eva-attachment-${index}${extension}`;
-      writeFileSync(path, bytes);
-      paths.push(path);
-    } catch (error) {
-      log(
-        `daemon: attachment download error ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
-  }
-  if (paths.length === 0) return;
-  const list = paths.map((p) => `- ${p}`).join("\n");
-  turn.prompt += `\n\n---\nThe user attached the following file(s). Read them with your file-reading tool before responding:\n${list}`;
-}
-
 /**
  * Persistent warm-session daemon. Creates one `query()` and feeds it prompts
  * across turns so only the first turn pays the CLI/MCP/API boot; later turns

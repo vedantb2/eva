@@ -17,8 +17,17 @@ import { ShortcutsProvider } from "@/lib/hotkeys/ShortcutsContext";
  * instead of the entry — anonymous landing visitors never download them.
  * `main.tsx` warms this chunk at boot when the signed-in hint is set, so app
  * users fetch it in parallel with Clerk's session handshake.
+ *
+ * `embedded` is a prop (not an `embedded.ts` import) so this lazy chunk does
+ * not pull the entry-resident embed module and form an async→entry cycle.
  */
-export function AppShellChrome({ children }: { children: ReactNode }) {
+export function AppShellChrome({
+  children,
+  embedded,
+}: {
+  children: ReactNode;
+  embedded: boolean;
+}) {
   return (
     <AuthGate>
       <div className="relative min-h-dvh bg-app-shell">
@@ -28,12 +37,20 @@ export function AppShellChrome({ children }: { children: ReactNode }) {
             <ShortcutsProvider>
               <SearchProvider>
                 <FollowProvider>
-                  <Sidebar />
+                  {/* Embedded documents (inbox preview pane) render content
+                      only: the host window already owns the sidebar, search,
+                      follow overlay and toast streams. Providers stay — pages
+                      consume them regardless of where they render. */}
+                  {embedded ? null : <Sidebar />}
                   {children}
-                  <SpotlightSearch />
-                  <FollowOverlay />
-                  <NotificationToastStream />
-                  <UpdateAvailableToast />
+                  {embedded ? null : (
+                    <>
+                      <SpotlightSearch />
+                      <FollowOverlay />
+                      <NotificationToastStream />
+                      <UpdateAvailableToast />
+                    </>
+                  )}
                 </FollowProvider>
               </SearchProvider>
             </ShortcutsProvider>

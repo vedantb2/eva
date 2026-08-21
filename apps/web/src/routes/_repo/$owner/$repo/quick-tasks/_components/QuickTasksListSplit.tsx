@@ -7,6 +7,8 @@ import { Spinner } from "@eva/ui";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { QuickTasksListView } from "@/lib/components/quick-tasks/QuickTasksListView";
 import { QuickTaskSplitDetailPane } from "./QuickTaskSplitDetailPane";
+import { QuickTaskSplitDetailHeader } from "./QuickTaskSplitDetailHeader";
+import { QuickTaskHeaderActionsSlotProvider } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -34,8 +36,9 @@ interface QuickTasksListSplitProps {
  * List-view master/detail layout: the quick-task list on the left, the selected
  * task's detail on the right. Mirrors the projects task-list layout while
  * keeping the existing `/quick-tasks/$numId` routing. The action-slot provider
- * wraps both panes so `TaskDetailInline` can portal its action buttons into the
- * right pane's header.
+ * wraps the split so `TaskDetailInline` can portal its surface switcher and
+ * action buttons into {@link QuickTaskSplitDetailHeader} at the top of the right
+ * pane — not into the page header, which belongs to the list.
  *
  * The left list stays mounted across all detail-pane states (loading,
  * not-found, resolved, no selection) so switching tasks never unmounts the
@@ -53,9 +56,8 @@ interface QuickTasksListSplitProps {
  * on screen: {@link useDetailPaneSignals} bumps `expandRightSignal` whenever a
  * different task becomes the selected one, which is what pushes a phone from the
  * list to the detail, and `collapseRightSignal` when the selection is cleared,
- * so the breadcrumb's "Quick Tasks" returns to the list instead of leaving an
- * empty detail pane on screen. With no selection neither fires, so the list is
- * what you land on.
+ * so closing a task returns to the list instead of leaving an empty detail pane
+ * on screen. With no selection neither fires, so the list is what you land on.
  */
 export function QuickTasksListSplit({
   tasks,
@@ -73,7 +75,8 @@ export function QuickTasksListSplit({
   const { expandRightSignal, collapseRightSignal, nudge } =
     useDetailPaneSignals(selectedTaskId);
   return (
-    <div className="min-h-0 flex-1 overflow-hidden">
+    <QuickTaskHeaderActionsSlotProvider>
+      <div className="min-h-0 flex-1 overflow-hidden">
         <ResizablePanelLayout
           storageKey="quick-tasks-split"
           leftDefaultSize="33%"
@@ -111,13 +114,23 @@ export function QuickTasksListSplit({
                   backLabel="Back to Quick Tasks"
                 />
               ) : selectedTaskId ? (
-                <QuickTaskSplitDetailPane
-                  key={selectedTaskId}
-                  taskId={selectedTaskId}
-                  detailTab={detailTab ?? "activity"}
-                  sandboxTab={sandboxTab}
-                  navSurface={navSurface}
-                />
+                <>
+                  {/* Outside the keyed pane so the portal targets survive a
+                      task switch — remounting them mid-switch would drop the
+                      surface switcher and actions for a frame. */}
+                  <QuickTaskSplitDetailHeader
+                    taskId={selectedTaskId}
+                    navSurface={navSurface}
+                    sandboxTab={sandboxTab}
+                  />
+                  <QuickTaskSplitDetailPane
+                    key={selectedTaskId}
+                    taskId={selectedTaskId}
+                    detailTab={detailTab ?? "activity"}
+                    sandboxTab={sandboxTab}
+                    navSurface={navSurface}
+                  />
+                </>
               ) : (
                 <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center">
                   <IconChecklist className="size-8 text-muted-foreground" />
@@ -130,5 +143,6 @@ export function QuickTasksListSplit({
           }
         />
       </div>
+    </QuickTaskHeaderActionsSlotProvider>
   );
 }

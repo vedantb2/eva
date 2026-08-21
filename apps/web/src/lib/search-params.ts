@@ -181,8 +181,20 @@ export function isTaskRouteSandboxTab(s: string): s is TaskRouteSandboxTab {
  * The review tab set, shared by the standalone Reviews page
  * (`/reviews/$prNumber/$reviewTab`) and the sandbox Review tab
  * (`…/review/$tab`). One union so the two surfaces cannot drift apart.
+ *
+ * The ids are URL slugs and outlive their labels: `overview` is presented as
+ * "Activity" and `diffs` as "Changes" (see `REVIEW_TAB_META`). Renaming the
+ * slugs would break every link anybody has pasted into a task or a PR comment
+ * for the sake of two words nothing renders, so the labels moved and the slugs
+ * stayed. `canonicalReviewTab` accepts the label-shaped spellings too.
  */
-const reviewTabs = ["overview", "diffs", "recap"] as const;
+const reviewTabs = [
+  "overview",
+  "commits",
+  "checks",
+  "diffs",
+  "recap",
+] as const;
 export type ReviewTab = (typeof reviewTabs)[number];
 export const REVIEW_DEFAULT_TAB: ReviewTab = "overview";
 
@@ -190,9 +202,10 @@ export function isReviewTab(s: string): s is ReviewTab {
   return reviewTabs.some((tab) => tab === s);
 }
 
-/** Slugs the Diffs tab used to answer to, redirected to the canonical one. */
+/** Slugs a tab used to answer to, or is labelled as, redirected to canonical. */
 export function canonicalReviewTab(s: string): ReviewTab | undefined {
-  if (s === "diff") return "diffs";
+  if (s === "diff" || s === "changes") return "diffs";
+  if (s === "activity") return "overview";
   return isReviewTab(s) ? s : undefined;
 }
 
@@ -348,6 +361,10 @@ export type InboxFilter = (typeof inboxFilters)[number];
 export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
   .withDefault("all")
   .withOptions(searchOptions);
+
+// Selected notification id in the two-pane inbox, kept in the URL so the
+// selection survives reload and a notification can be linked directly.
+export const inboxSelectedParser = parseAsString.withOptions(searchOptions);
 
 const pullRequestListStates = ["open", "closed", "all"] as const;
 export type PullRequestListState = (typeof pullRequestListStates)[number];

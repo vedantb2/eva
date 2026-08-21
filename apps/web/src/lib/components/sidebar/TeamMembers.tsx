@@ -51,7 +51,7 @@ export function OnlineTeamAvatars({ collapsed }: { collapsed: boolean }) {
                 <button
                   type="button"
                   className={cn(
-                    "cursor-pointer rounded-full transition-[transform,background-color] hover:scale-110",
+                    "cursor-pointer rounded-full transition-[scale,background-color] hover:scale-110",
                     isFollowing && "ring-2 ring-primary",
                   )}
                   onClick={() => {
@@ -107,7 +107,7 @@ export function OnlineTeamAvatars({ collapsed }: { collapsed: boolean }) {
                 <button
                   type="button"
                   className={cn(
-                    "cursor-pointer rounded-full transition-[transform,background-color] hover:scale-110",
+                    "cursor-pointer rounded-full transition-[scale,background-color] hover:scale-110",
                     isFollowing && "ring-2 ring-primary",
                   )}
                   onClick={() => {

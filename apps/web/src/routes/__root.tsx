@@ -12,6 +12,8 @@ import { AppToaster } from "@/lib/components/AppToaster";
 import { AppShell } from "@/lib/components/AppShell";
 import { PreviewIframeHost } from "@/lib/components/sandbox/previewIframeHost";
 import { ChangelogDialogGate } from "@/lib/components/ChangelogDialogGate";
+import { IS_EMBEDDED } from "@/lib/embed/embedded";
+import { EmbedNavigationBridge } from "@/lib/embed/EmbedNavigationBridge";
 import { useDocumentTitle } from "@/lib/hooks/useDocumentTitle";
 
 export interface RouterContext {
@@ -55,8 +57,10 @@ function RootComponent() {
             above routed content; Radix portals (z-50) still stack above. */}
         <PreviewIframeHost />
       </NuqsAdapter>
+      {IS_EMBEDDED ? <EmbedNavigationBridge /> : null}
       <AppToaster />
-      <Analytics />
+      {/* No analytics from embedded documents: the host page already counts. */}
+      {IS_EMBEDDED ? null : <Analytics />}
       {DevAgentation ? (
         <Suspense fallback={null}>
           <DevAgentation />
@@ -72,7 +76,8 @@ function RootComponent() {
   return (
     <ClientProvider>
       {app}
-      <ChangelogDialogGate />
+      {/* The What's New dialog belongs to the top-level window, not previews. */}
+      {IS_EMBEDDED ? null : <ChangelogDialogGate />}
     </ClientProvider>
   );
 }

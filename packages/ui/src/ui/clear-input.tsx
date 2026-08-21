@@ -79,7 +79,10 @@ const ClearInput = React.forwardRef<HTMLInputElement, ClearInputProps>(
         {value.length > 0 ? (
           <button
             type="button"
-            className="max-sm:hit-target absolute right-2 top-1/2 z-4 inline-flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-[background-color,color] hover:bg-muted hover:text-foreground focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring/35"
+            /* The scale composes with the centring `-translate-y-1/2` rather
+               than replacing it, so the button presses in place instead of
+               dropping half its height. */
+            className="max-sm:hit-target motion-press absolute right-2 top-1/2 z-4 inline-flex h-6 w-6 -translate-y-1/2 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground active:scale-[0.92] focus-visible:outline-hidden focus-visible:ring-1 focus-visible:ring-ring/35"
             aria-label={clearLabel}
             onPointerDown={preventFocusSteal}
             onMouseDown={preventFocusSteal}

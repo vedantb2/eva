@@ -126,7 +126,13 @@ export function ModelSelect<TModel extends string>({
           aria-expanded={open}
           data-slot="select-trigger"
           className={cn(
-            "flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-foreground disabled:opacity-50",
+            // Carries `data-slot="select-trigger"` and is styled to read as one,
+            // so it has to press like one: `SelectTrigger` is
+            // `motion-press active:scale-[0.98]`, and this sits directly beside
+            // real selects in the composer footer where the mismatch showed.
+            // `motion-press` supersedes `transition-colors` — the two at equal
+            // specificity silently replaced each other's declaration.
+            "motion-press flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground active:scale-[0.98] disabled:opacity-50",
             className,
           )}
           disabled={disabled}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AnimatePresence, m } from "motion/react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
@@ -14,6 +15,8 @@ import {
   TooltipContent,
   TooltipTrigger,
   cn,
+  motionBase,
+  motionFast,
 } from "@eva/ui";
 import { IconPencil } from "@tabler/icons-react";
 import {
@@ -84,26 +87,43 @@ function formatCountLabel(count: number | undefined): string | null {
   return count > 99 ? "99+" : String(count);
 }
 
-function InboxUnreadBadge() {
-  const unreadCount = useQuery(api.notifications.countUnread);
-  const unreadLabel = formatCountLabel(unreadCount);
-  if (!unreadLabel) return null;
+/**
+ * The unread dot on a rail tile. One component for both counters — they were
+ * two byte-identical copies differing only in the query.
+ *
+ * The count arrives over a live subscription while the user is looking at
+ * something else, so it is the badge's job to say a number changed: it pops from
+ * `scale(0.5)` on the emphasized curve rather than materialising at full size,
+ * and `key={label}` re-runs that pop on every subsequent change (2 → 3), not
+ * just on first mount. Exit is a plain shrink at `--motion-fast`, since nothing
+ * is being announced when a count clears.
+ */
+function RailUnreadBadge({ count }: { count: number | undefined }) {
+  const label = formatCountLabel(count);
   return (
-    <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
-      {unreadLabel}
-    </span>
+    <AnimatePresence mode="popLayout">
+      {label ? (
+        <m.span
+          key={label}
+          initial={{ opacity: 0, scale: 0.5 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0, scale: 0.5, transition: motionFast }}
+          transition={{ ...motionBase, ease: [0.2, 0.8, 0.2, 1] }}
+          className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
+        >
+          {label}
+        </m.span>
+      ) : null}
+    </AnimatePresence>
   );
 }
 
+function InboxUnreadBadge() {
+  return <RailUnreadBadge count={useQuery(api.notifications.countUnread)} />;
+}
+
 function AutomationsUnreadBadge() {
-  const unreadCount = useQuery(api.automations.countUnreadAll);
-  const unreadLabel = formatCountLabel(unreadCount);
-  if (!unreadLabel) return null;
-  return (
-    <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
-      {unreadLabel}
-    </span>
-  );
+  return <RailUnreadBadge count={useQuery(api.automations.countUnreadAll)} />;
 }
 
 const EMPTY_SANDBOX_REPO_IDS = new Set<Id<"githubRepos">>();

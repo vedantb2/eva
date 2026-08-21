@@ -1,5 +1,6 @@
 "use client";
 
+import { AnimatePresence, m } from "motion/react";
 import { Badge } from "@eva/ui";
 import {
   IconCircle,
@@ -114,14 +115,41 @@ export const statusConfig: Record<
   },
 };
 
+/**
+ * A status change here is the one thing a user waits for while an agent works,
+ * and it used to arrive as a hard swap of three things at once — icon, label and
+ * colour token. The crossfade is keyed on `status`, so the outgoing badge leaves
+ * while the incoming one arrives and the change reads as one event.
+ *
+ * `initial={false}` is deliberate, and is the opposite call to the one on the
+ * home repo grid: these badges render inside task lists and kanban columns
+ * dozens at a time, so animating them on first paint would be a wave of
+ * flickering status pills. Only an actual transition animates.
+ *
+ * `mode="wait"` rather than `popLayout`: the label width changes between
+ * statuses ("To Do" → "Business Review"), and overlapping two differently-sized
+ * pills in the same box makes the row jitter. Half of `--motion-fast` each way
+ * keeps the whole exchange inside one `--motion-fast` beat.
+ */
 export function TaskStatusBadge({ status }: TaskStatusBadgeProps) {
   const config = statusConfig[status];
   const Icon = config.icon;
 
   return (
-    <Badge className={`${config.text} ${config.bg} border-transparent`}>
-      <Icon size={14} className={`mr-1 ${config.text}`} />
-      {config.label}
-    </Badge>
+    <AnimatePresence mode="wait" initial={false}>
+      <m.span
+        key={status}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.075, ease: [0.22, 1, 0.36, 1] }}
+        className="inline-flex"
+      >
+        <Badge className={`${config.text} ${config.bg} border-transparent`}>
+          <Icon size={14} className={`mr-1 ${config.text}`} />
+          {config.label}
+        </Badge>
+      </m.span>
+    </AnimatePresence>
   );
 }

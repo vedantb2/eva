@@ -19,19 +19,6 @@ export function repoSessionsIndexPath(repo: RepoWithLogo): string {
   return `${repoHref(repo.owner, repo.name, repo.rootDirectory)}/sessions`;
 }
 
-/**
- * Where the rail's Sessions entry lands. `repos` is `githubRepos.list` order —
- * the same order the rail paints its tiles and `RailAppHotkeys` numbers its
- * slots, so this is the app behind tile 1 / ⌘1 rather than a third ordering.
- * `null` when the user has no apps; callers send those users to `/home`.
- */
-export function firstRepoSessionsPath(
-  repos: readonly RepoWithLogo[],
-): string | null {
-  const first = repos[0];
-  return first ? repoSessionsIndexPath(first) : null;
-}
-
 /** Whether `pathname` is under this repo/app (any sub-page). */
 export function repoMatchesPath(repo: RepoWithLogo, pathname: string): boolean {
   return repoBasePaths(repo).some(

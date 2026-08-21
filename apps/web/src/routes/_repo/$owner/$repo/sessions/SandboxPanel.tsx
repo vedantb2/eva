@@ -20,6 +20,7 @@ import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
+import { resolveSandboxStatus } from "@/lib/components/sandbox/sandboxStatusStyles";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { useSessionModel } from "@/lib/hooks/useSessionModel";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -149,7 +150,6 @@ export function SandboxPanel({
   return (
     <div className="h-full flex flex-col">
       <SandboxTabBar
-        compact
         activeTab={activeTab}
         onTabChange={onTabChange}
         onNewPreview={() => {
@@ -175,6 +175,10 @@ export function SandboxPanel({
         onOpenEditor={openEditor}
         onCloseEditor={closeEditor}
         hotkeysEnabled={isRouteActive}
+        sandboxStatus={resolveSandboxStatus({
+          isActive,
+          isStarting: isSandboxStarting,
+        })}
         fileList={fileList}
         consoleDock={panes.consoleDock}
         terminalPanel={terminalPanel}

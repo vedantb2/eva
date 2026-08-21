@@ -109,7 +109,7 @@ function AutomationsHubPage() {
                 entryKey={entry.key}
                 readOnly={entry.readOnly}
                 title={entry.title}
-                description={entry.description}
+                blurb={entry.blurb}
                 cronSchedule={entry.cronSchedule}
                 installed={entry.installed}
                 numId={entry.numId}

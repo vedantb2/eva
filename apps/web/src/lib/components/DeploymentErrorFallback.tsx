@@ -1,21 +1,6 @@
 import { useEffect } from "react";
 import { isChunkLoadError } from "@/lib/utils/isChunkLoadError";
-
-const RELOAD_COOLDOWN_KEY = "deployment-reload-ts";
-const RELOAD_COOLDOWN_MS = 10_000;
-
-/** Prevents infinite reload loops by enforcing a cooldown between auto-reloads. */
-function canAutoReload(): boolean {
-  try {
-    const last = sessionStorage.getItem(RELOAD_COOLDOWN_KEY);
-    if (last && Date.now() - Number(last) < RELOAD_COOLDOWN_MS) return false;
-    sessionStorage.setItem(RELOAD_COOLDOWN_KEY, String(Date.now()));
-    return true;
-  } catch {
-    // sessionStorage unavailable (e.g. private browsing), allow reload
-    return true;
-  }
-}
+import { claimStaleDeployReload } from "@/lib/utils/staleDeployReload";
 
 /**
  * TanStack Router error fallback that silently reloads on stale deployment errors
@@ -23,7 +8,7 @@ function canAutoReload(): boolean {
  * prompt for all other uncaught errors.
  */
 export function DeploymentErrorFallback({ error }: { error: Error }) {
-  const shouldReload = isChunkLoadError(error) && canAutoReload();
+  const shouldReload = isChunkLoadError(error) && claimStaleDeployReload();
 
   useEffect(() => {
     if (shouldReload) {

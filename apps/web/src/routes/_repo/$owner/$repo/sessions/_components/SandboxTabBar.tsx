@@ -5,25 +5,25 @@ import {
   IconBrowser,
   IconDeviceDesktop,
   IconCode,
-  IconClipboardList,
   IconGitPullRequest,
-  IconFileText,
-  IconPalette,
   IconPlus,
   IconTerminal2,
-  IconX,
 } from "@tabler/icons-react";
 import type { Doc } from "@eva/backend";
 import { useCycleSandboxTabHotkey } from "@/lib/components/sandbox/useCycleSandboxTabHotkey";
 import { useSandboxViewHotkeys } from "@/lib/components/sandbox/useSandboxViewHotkeys";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
-import { TablerIconByName } from "@/lib/components/TablerIconByName";
 import type { SandboxTab } from "@/lib/search-params";
 import type { SandboxFileListApi } from "@/lib/components/sandbox/useSandboxFileList";
 import type { ConsoleDockApi } from "@/lib/components/sandbox/useConsoleDock";
 import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace";
 import { SandboxQuickOpenDialogs } from "@/lib/components/sandbox/SandboxQuickOpenDialogs";
-import { buildSandboxPaletteCommands } from "@/lib/components/sandbox/sandboxPaletteCommands";
+import {
+  buildSandboxPaletteCommands,
+  type SandboxCommandTab,
+} from "@/lib/components/sandbox/sandboxPaletteCommands";
+import { SandboxStatusChip } from "@/lib/components/sandbox/SandboxStatusChip";
+import type { SandboxStatus } from "@/lib/components/sandbox/sandboxStatusStyles";
 import {
   isSimpleViewHiddenSandboxTab,
   useSimpleView,
@@ -31,7 +31,6 @@ import {
 import {
   Tabs,
   TabsList,
-  TabsTrigger,
   DropdownMenu,
   DropdownMenuTrigger,
   DropdownMenuContent,
@@ -40,61 +39,43 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@eva/ui";
+import {
+  isCollapsibleSandboxTab,
+  SandboxTabTrigger,
+} from "./SandboxTabTrigger";
+import { buildSandboxTabDescriptors } from "./sandboxTabDescriptors";
 
-export type SandboxTabBarSize = "default" | "compact";
+/* Chips on the canvas, not folder tabs. The old bar drew a hairline under
+   itself and had the active trigger cover that 1px back with `-mb-px` +
+   `border-b-card`, a seam that then had to be re-patched with padding once the
+   list started scrolling its own overflow. The pane below is `bg-card` and the
+   bar sits on `--background`, so the tone step already separates them and the
+   hairline is redundant (see docs/eva-ui.md). */
+const TAB_BAR_CLASS = "flex shrink-0 items-center gap-1 px-1.5 py-1";
 
-const TAB_TRIGGER_BASE =
-  "relative flex items-center rounded-none rounded-t-md border border-b-0 font-medium data-[state=active]:-mb-px data-[state=active]:border-b data-[state=active]:border-b-card data-[state=active]:bg-card data-[state=active]:border-border data-[state=active]:z-10 data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:border-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-secondary";
+/* `justify-start` matters: the primitive centres its list, and centred content
+   that overflows spills past *both* edges while `scrollLeft` cannot go
+   negative — the leading tabs become unreachable. Scrolling is ungated here
+   because the primitive only scrolls `max-sm:`, which left the desktop strip
+   clipping its trailing tabs with no way to reach them. */
+const TAB_LIST_CLASS =
+  "h-auto max-w-full justify-start gap-1 overflow-x-auto rounded-none border-0 bg-transparent p-0 shadow-none scrollbar-none max-sm:justify-start [&_.t-tabs-pill]:smooth-shadow-ring-xs";
 
-const TAB_BAR_BASE =
-  "relative flex items-end gap-1 border-b border-border px-2";
+const ICON_BUTTON_CLASS =
+  "motion-press max-sm:hit-target flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40";
 
-const TAB_CLOSE_BUTTON_BASE =
-  "ml-0.5 flex shrink-0 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground max-sm:hit-target";
-
-/* `TabsList` scrolls its own overflow (see `tabsListVariants`), which makes
-   `overflow-y` compute to `auto` and would clip the 1px that the active
-   trigger's `max-sm:-mb-px` uses to cover the bar's bottom hairline. Absorbing that
-   pixel as padding and pulling the list back down keeps the folder-tab seam
-   identical while the row scrolls. */
-const TAB_LIST_BASE =
-  "max-sm:-mb-px h-auto max-sm:max-w-full gap-0 rounded-none border-0 bg-transparent p-0 max-sm:pb-px shadow-none [&_.t-tabs-pill]:hidden";
-
-const TAB_ADD_BUTTON_BASE =
-  "flex shrink-0 items-center justify-center rounded-t-md text-muted-foreground transition-[transform,background-color] hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40 max-sm:hit-target";
-
-function getSandboxTabBarStyles(size: SandboxTabBarSize) {
-  if (size === "compact") {
-    return {
-      bar: `${TAB_BAR_BASE} mt-1 px-1.5 pt-0.5`,
-      trigger: `${TAB_TRIGGER_BASE} gap-1 px-2.5 py-1 text-xs`,
-      icon: "size-3 shrink-0",
-      closeButton: `${TAB_CLOSE_BUTTON_BASE} size-3.5`,
-      closeIcon: "size-3",
-      addButton: `${TAB_ADD_BUTTON_BASE} mb-px h-6 w-6`,
-      addIcon: "size-3",
-      pulseDot: "ml-0.5 size-1 shrink-0 rounded-full bg-primary",
-    };
-  }
-  return {
-    bar: `${TAB_BAR_BASE} pt-1.5`,
-    trigger: `${TAB_TRIGGER_BASE} gap-1.5 px-4 py-1.5 text-sm`,
-    icon: "size-3.5 shrink-0",
-    closeButton: `${TAB_CLOSE_BUTTON_BASE} size-5`,
-    closeIcon: "size-3.5",
-    addButton: `${TAB_ADD_BUTTON_BASE} mb-px h-[30px] w-8`,
-    addIcon: "size-4",
-    pulseDot: "ml-0.5 size-1.5 shrink-0 rounded-full bg-primary",
-  };
-}
+/**
+ * Past this many tabs the inactive labels collapse to icon-only (label moves to
+ * a tooltip). A session can show Preview, Browser, Review, Files, Plan, Designs,
+ * Editor, Computer and any number of user-defined tabs at once, so the strip has
+ * to compress rather than simply run off the edge. The active tab keeps its
+ * label so the current pane is always named.
+ */
+const MAX_LABELLED_TABS = 6;
 
 // Editor and Computer stay in the `+` menu until opened; then they pin as
 // closable tabs. Browser is first-class (sessions) for watching agent Chrome.
-const allTabs: Array<{
-  value: SandboxTab;
-  label: string;
-  icon: typeof IconWorld;
-}> = [
+const allTabs: ReadonlyArray<SandboxCommandTab> = [
   { value: "preview", label: "Preview", icon: IconWorld },
   { value: "browser", label: "Browser", icon: IconBrowser },
   { value: "review", label: "Review", icon: IconGitPullRequest },
@@ -132,10 +113,8 @@ interface SandboxTabBarProps {
   onCloseEditor?: () => void;
   /** When false, view hotkeys are inert (inactive cached session shells). */
   hotkeysEnabled?: boolean;
-  /** Tab row density — `compact` for a shorter bar with smaller labels/icons. */
-  tabSize?: SandboxTabBarSize;
-  /** Shorthand for `tabSize="compact"`. */
-  compact?: boolean;
+  /** Sandbox run state, shown as a chip at the trailing edge. */
+  sandboxStatus?: SandboxStatus;
   fileList: SandboxFileListApi;
   consoleDock: ConsoleDockApi;
   terminalPanel: TerminalPanelApi;
@@ -169,14 +148,12 @@ export function SandboxTabBar({
   onOpenEditor,
   onCloseEditor,
   hotkeysEnabled = true,
-  tabSize = "default",
-  compact = false,
+  sandboxStatus,
   fileList,
   consoleDock,
   terminalPanel,
 }: SandboxTabBarProps) {
   const simpleView = useSimpleView();
-  const styles = getSandboxTabBarStyles(compact ? "compact" : tabSize);
   const tabs = enabledTabs
     ? allTabs.filter((tab) => enabledTabs.includes(tab.value))
     : allTabs.filter((tab) => tab.value !== "browser");
@@ -188,7 +165,6 @@ export function SandboxTabBar({
     simpleView && isSimpleViewHiddenSandboxTab(activeTab)
       ? "preview"
       : activeTab;
-  const showBrowserPulse = isAgentBrowsingActive(agentBrowsingAt);
   const showComputerTab = showDesktopItem && computerTabOpen;
   const showEditorTab = showEditorItem && editorTabOpen;
 
@@ -197,6 +173,23 @@ export function SandboxTabBar({
   const customTabSlugs = visibleCustomTabs.map((tab) =>
     slugifyAppTabName(tab.name),
   );
+
+  const tabDescriptors = buildSandboxTabDescriptors({
+    baseTabs: tabs,
+    showBrowserActivity: isAgentBrowsingActive(agentBrowsingAt),
+    showEditorTab,
+    onCloseEditor,
+    showComputerTab,
+    computerRunning,
+    onCloseComputer,
+    showFilesTab: showFiles,
+    showPrdTab,
+    hasPrdContent,
+    showDesignsTab,
+    hasDesignsContent,
+    customTabs: visibleCustomTabs,
+  });
+  const collapseLabels = tabDescriptors.length > MAX_LABELLED_TABS;
 
   useCycleSandboxTabHotkey({
     activeTab: resolvedTab,
@@ -239,140 +232,24 @@ export function SandboxTabBar({
 
   return (
     <>
-      <div className={styles.bar}>
+      <div className={TAB_BAR_CLASS}>
         <Tabs
           className="min-w-0 flex-1"
           value={resolvedTab}
           onValueChange={onTabChange}
         >
-          <TabsList className={TAB_LIST_BASE}>
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              return (
-                <TabsTrigger
-                  key={tab.value}
-                  value={tab.value}
-                  className={styles.trigger}
-                >
-                  <Icon className={styles.icon} />
-                  {tab.label}
-                  {tab.value === "browser" && showBrowserPulse ? (
-                    <span
-                      className={styles.pulseDot}
-                      aria-label="Agent is browsing"
-                    />
-                  ) : null}
-                </TabsTrigger>
-              );
-            })}
-            {showEditorTab ? (
-              <TabsTrigger value="editor" className={styles.trigger}>
-                <IconCode className={styles.icon} />
-                Editor
-                <button
-                  type="button"
-                  aria-label="Close Editor tab"
-                  className={styles.closeButton}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onCloseEditor?.();
-                  }}
-                  onPointerDown={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                >
-                  <IconX className={styles.closeIcon} />
-                </button>
-              </TabsTrigger>
-            ) : null}
-            {showComputerTab ? (
-              <TabsTrigger value="computer" className={styles.trigger}>
-                <IconDeviceDesktop className={styles.icon} />
-                Computer
-                {computerRunning ? (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="ml-0.5 inline-flex">
-                        <button
-                          type="button"
-                          disabled
-                          aria-label="Stop Computer before closing this tab"
-                          className={`${styles.closeButton} opacity-40`}
-                        >
-                          <IconX className={styles.closeIcon} />
-                        </button>
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="text-xs">
-                      Stop Computer before closing this tab
-                    </TooltipContent>
-                  </Tooltip>
-                ) : (
-                  <button
-                    type="button"
-                    aria-label="Close Computer tab"
-                    className={styles.closeButton}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      onCloseComputer?.();
-                    }}
-                    onPointerDown={(e) => {
-                      // Keep Radix Tabs from selecting via the close hit-target.
-                      e.preventDefault();
-                      e.stopPropagation();
-                    }}
-                  >
-                    <IconX className={styles.closeIcon} />
-                  </button>
-                )}
-              </TabsTrigger>
-            ) : null}
-            {showFiles ? (
-              <TabsTrigger value="files" className={styles.trigger}>
-                <IconFileText className={styles.icon} />
-                Files
-              </TabsTrigger>
-            ) : null}
-            {showPrdTab ? (
-              <TabsTrigger value="prd" className={styles.trigger}>
-                <IconClipboardList className={styles.icon} />
-                Plan
-                {hasPrdContent ? (
-                  <span
-                    className={styles.pulseDot}
-                    aria-label="Plan available"
-                  />
-                ) : null}
-              </TabsTrigger>
-            ) : null}
-            {showDesignsTab ? (
-              <TabsTrigger value="designs" className={styles.trigger}>
-                <IconPalette className={styles.icon} />
-                Designs
-                {hasDesignsContent ? (
-                  <span
-                    className={styles.pulseDot}
-                    aria-label="Design variations available"
-                  />
-                ) : null}
-              </TabsTrigger>
-            ) : null}
-            {visibleCustomTabs.map((tab) => {
-              const slug = slugifyAppTabName(tab.name);
-              return (
-                <TabsTrigger
-                  key={tab._id}
-                  value={slug}
-                  className={styles.trigger}
-                >
-                  <TablerIconByName name={tab.icon} className={styles.icon} />
-                  {tab.name}
-                </TabsTrigger>
-              );
-            })}
+          <TabsList className={TAB_LIST_CLASS}>
+            {tabDescriptors.map((tab) => (
+              <SandboxTabTrigger
+                key={tab.value}
+                tab={tab}
+                labelHidden={
+                  collapseLabels &&
+                  tab.value !== resolvedTab &&
+                  isCollapsibleSandboxTab(tab)
+                }
+              />
+            ))}
           </TabsList>
         </Tabs>
         {/* Outside Tabs so the menu isn't part of Radix tab focus/value sync. */}
@@ -381,10 +258,10 @@ export function SandboxTabBar({
             <DropdownMenuTrigger asChild>
               <button
                 type="button"
-                className={styles.addButton}
+                className={ICON_BUTTON_CLASS}
                 aria-label="Open tab menu"
               >
-                <IconPlus className={styles.addIcon} />
+                <IconPlus className="size-4" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="min-w-40">
@@ -433,10 +310,10 @@ export function SandboxTabBar({
                 type="button"
                 aria-label="Toggle terminal panel"
                 aria-pressed={terminalPanel.expanded}
-                className={styles.addButton}
+                className={ICON_BUTTON_CLASS}
                 onClick={terminalPanel.toggle}
               >
-                <IconTerminal2 className={styles.addIcon} />
+                <IconTerminal2 className="size-4" />
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
@@ -444,6 +321,7 @@ export function SandboxTabBar({
             </TooltipContent>
           </Tooltip>
         )}
+        {sandboxStatus ? <SandboxStatusChip status={sandboxStatus} /> : null}
       </div>
       <SandboxQuickOpenDialogs
         fileList={fileList}

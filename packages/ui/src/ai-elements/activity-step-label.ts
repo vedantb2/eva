@@ -5,7 +5,6 @@ export type CommandVisualKind = "inspect" | "git" | "terminal";
 export interface StepRowPresentation {
   text: string;
   fileChip?: { name: string; path?: string };
-  commandKind?: CommandVisualKind;
   title?: string;
 }
 
@@ -811,6 +810,64 @@ function joinCommandText(verb: string, target: string): string {
   return `${verb} ${target}`;
 }
 
+/**
+ * Past-tense phrase used when a step type is folded into a group summary line.
+ * Deliberately plural/vague — the exact call is one click away in the fold.
+ */
+const GROUP_PHRASES: Record<ActivityStep["type"], string> = {
+  read: "read files",
+  edit: "edited files",
+  write: "created files",
+  notebook: "edited notebooks",
+  bash: "ran commands",
+  search_files: "searched for files",
+  search_code: "searched the code",
+  web_fetch: "fetched pages",
+  web_search: "searched the web",
+  subtask: "ran agents",
+  todos: "updated the task list",
+  tool: "used tools",
+  notice: "posted notices",
+  hook: "ran hooks",
+  status: "reported status",
+  thinking: "thought it through",
+  reasoning: "thought it through",
+  response: "replied",
+  question: "asked a question",
+};
+
+function groupPhraseForStep(step: ActivityStep): string {
+  if (step.type !== "tool") {
+    return GROUP_PHRASES[step.type];
+  }
+  // Codex reports edits as a `file_change` tool call, not an edit step.
+  if (isFileChangeTool(step)) {
+    return GROUP_PHRASES.edit;
+  }
+  const mcpLabel = extractMcpIdentifier(step);
+  const server = mcpLabel?.split(":")[0]?.trim();
+  return server ? `used ${server}` : GROUP_PHRASES.tool;
+}
+
+/**
+ * One-line summary for a folded run of steps — "Edited files, ran commands" —
+ * listing each distinct kind of work once, in the order it first happened.
+ */
+export function deriveActionGroupSummary(steps: ActivityStep[]): string {
+  const phrases: string[] = [];
+  for (const step of steps) {
+    const phrase = groupPhraseForStep(step);
+    if (phrase && !phrases.includes(phrase)) {
+      phrases.push(phrase);
+    }
+  }
+  const joined = phrases.join(", ");
+  if (!joined) {
+    return "Worked";
+  }
+  return `${joined.charAt(0).toUpperCase()}${joined.slice(1)}`;
+}
+
 export function deriveStepRowPresentation(
   step: ActivityStep,
   isActive: boolean,
@@ -837,14 +894,10 @@ export function deriveStepRowPresentation(
       if (isBackgroundShellLabel(step.label)) {
         return {
           text: `${step.label.replace(/\.\.\.$/, "").trim()} ${compactInlineCommand(step.detail)}`.trim(),
-          commandKind: resolveCommandVisualKind(step.detail),
         };
       }
       const display = deriveReadableCommandDisplay(step.detail, isActive);
-      return {
-        text: joinCommandText(display.verb, display.target),
-        commandKind: resolveCommandVisualKind(step.detail),
-      };
+      return { text: joinCommandText(display.verb, display.target) };
     }
     case "search_code": {
       const pattern = step.detail ? truncatePattern(step.detail) : "pattern";

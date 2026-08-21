@@ -10,7 +10,6 @@ import {
   storedTraitsFromRepoDefaults,
   type Id,
 } from "@eva/backend";
-import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { toast } from "@eva/ui";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
@@ -20,6 +19,7 @@ import {
   useAvailableAiModels,
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
+import { useBaseBranchState } from "@/lib/hooks/useBaseBranchState";
 import { useNewSessionComposerState } from "@/lib/hooks/useNewSessionComposerState";
 import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
 import { ComposerAppSwitcher } from "./ComposerAppSwitcher";
@@ -37,9 +37,7 @@ export function NewSessionComposer() {
   const firstName = user?.firstName?.trim();
   const createSession = useMutation(api.sessions.create);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [baseBranch, setBaseBranch] = useState(
-    repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
-  );
+  const { baseBranch, setBaseBranch } = useBaseBranchState();
 
   const defaultModel = normalizeAIModel(repo.defaultModel);
   const {

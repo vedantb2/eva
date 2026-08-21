@@ -123,7 +123,25 @@ export const KanbanCard = ({
   } = useSortable({ id });
 
   const style = {
-    transition,
+    /**
+     * `useSortable` hands back a `transition` string, and putting it in inline
+     * style outranks every `transition-*` class on the element — the shorthand
+     * resets `transition-property`, so while a sort is animating the class below
+     * is not merely overridden on duration, it stops applying at all and the
+     * press scale snaps. dnd-kit's own entry only ever names `transform`.
+     *
+     * Appending the two properties the card animates itself keeps the reflow
+     * tween dnd-kit wants and the press and drag-fade the card wants. The value
+     * is `undefined` when nothing is sorting, which is why it is filtered rather
+     * than interpolated.
+     */
+    transition: [
+      transition,
+      "scale var(--motion-fast) var(--motion-ease-out)",
+      "opacity var(--motion-fast) var(--motion-ease-out)",
+    ]
+      .filter(Boolean)
+      .join(", "),
     transform: CSS.Transform.toString(transform),
   };
 
@@ -138,7 +156,13 @@ export const KanbanCard = ({
         // Press feedback on pointer-down, not on release — the card has to
         // acknowledge the grab before the drag threshold is crossed, or the
         // first few pixels of every drag read as a dead control.
-        "cursor-grab transition-[opacity,transform] duration-[var(--motion-fast)] active:scale-[0.98]",
+        //
+        // `scale` is named explicitly alongside `transform`: an arbitrary
+        // `transition-[…]` emits exactly the properties listed, and Tailwind
+        // compiles `scale-[0.98]` to the individual `scale` property, which
+        // `transform` does not match — so this press was a no-op. `transform`
+        // stays for the inline one `useSortable` writes below.
+        "cursor-grab transition-[opacity,transform,scale] duration-[var(--motion-fast)] active:scale-[0.98]",
         SURFACE_RADIUS_CLASS,
         isDragging && "pointer-events-none cursor-grabbing opacity-30",
         className,

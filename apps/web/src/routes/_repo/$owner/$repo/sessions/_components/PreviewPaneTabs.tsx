@@ -33,7 +33,9 @@ export function PreviewPaneTabs({
           <div
             key={id}
             className={cn(
-              "group flex h-8 shrink-0 items-center rounded-lg transition-[transform,background-color]",
+              // The wrapper only shifts colour; the press lives on the button
+              // inside it, so `transform` here named a property nothing sets.
+              "group flex h-8 shrink-0 items-center rounded-lg motion-base",
               selected ? "bg-card" : "hover:bg-muted/80",
             )}
           >
@@ -42,7 +44,11 @@ export function PreviewPaneTabs({
               role="tab"
               aria-selected={selected}
               className={cn(
-                "flex h-full min-w-24 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-[transform,background-color] active:scale-[0.96]",
+                // `motion-press` rather than a hand-listed
+                // `transition-[transform,background-color]`: Tailwind compiles
+                // `scale-[0.96]` to the individual `scale` property, which
+                // `transform` never matched, so this tab press was inert.
+                "motion-press flex h-full min-w-24 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium active:scale-[0.96]",
                 selected
                   ? "text-foreground"
                   : "text-muted-foreground hover:text-foreground",

@@ -297,6 +297,7 @@ import type * as sandboxHeal from "../sandboxHeal.js";
 import type * as sandboxJwt from "../sandboxJwt.js";
 import type * as sandboxPanes from "../sandboxPanes.js";
 import type * as screenshots from "../screenshots.js";
+import type * as seedStandups from "../seedStandups.js";
 import type * as sessionWorkflow from "../sessionWorkflow.js";
 import type * as sessions from "../sessions.js";
 import type * as snapshotActions from "../snapshotActions.js";
@@ -626,6 +627,7 @@ declare const fullApi: ApiFromModules<{
   sandboxJwt: typeof sandboxJwt;
   sandboxPanes: typeof sandboxPanes;
   screenshots: typeof screenshots;
+  seedStandups: typeof seedStandups;
   sessionWorkflow: typeof sessionWorkflow;
   sessions: typeof sessions;
   snapshotActions: typeof snapshotActions;

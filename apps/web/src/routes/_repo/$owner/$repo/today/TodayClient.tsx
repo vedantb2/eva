@@ -18,6 +18,22 @@ import { withMutationToast } from "@/lib/utils/mutationToast";
 /** Same plugin set as the changelog surfaces, so all three render identically. */
 const standupPlugins = { cjk, math, mermaid };
 
+/**
+ * A standup is a lead line plus a couple of `###` theme headings, so the
+ * default heading scale swamps the bullets it labels. Demote headings to a
+ * quiet section label and tighten list spacing to keep each card skimmable.
+ */
+const standupProseClass =
+  "text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 " +
+  "[&_h1]:text-xs [&_h2]:text-xs [&_h3]:text-xs [&_h4]:text-xs " +
+  "[&_h1]:font-medium [&_h2]:font-medium [&_h3]:font-medium [&_h4]:font-medium " +
+  "[&_h1]:uppercase [&_h2]:uppercase [&_h3]:uppercase [&_h4]:uppercase " +
+  "[&_h1]:tracking-wide [&_h2]:tracking-wide [&_h3]:tracking-wide [&_h4]:tracking-wide " +
+  "[&_h1]:text-muted-foreground [&_h2]:text-muted-foreground [&_h3]:text-muted-foreground [&_h4]:text-muted-foreground " +
+  "[&_h1]:mt-4 [&_h2]:mt-4 [&_h3]:mt-4 [&_h4]:mt-4 " +
+  "[&_h1]:mb-1.5 [&_h2]:mb-1.5 [&_h3]:mb-1.5 [&_h4]:mb-1.5 " +
+  "[&_ul]:my-0 [&_li]:my-0.5 [&_p]:my-1.5";
+
 /** "Today" / "Yesterday" for the two freshest entries, dates beyond that. */
 function entryHeading(publishedAt: number): string {
   const published = dayjs(publishedAt);
@@ -96,7 +112,7 @@ export function TodayClient() {
                 <div className="px-4 py-3">
                   <Streamdown
                     className={cn(
-                      "text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
+                      standupProseClass,
                       STREAMDOWN_TABLE_RADIUS_CLASS,
                     )}
                     plugins={standupPlugins}

@@ -110,7 +110,10 @@ export function TaskFooter({
     !task?.projectId &&
     (status === "todo" || (status === "in_progress" && !hasActiveRun));
   const showViewSandbox = canViewSandbox;
-  const showStopSandbox = isSandboxActive && !isSandboxStopping;
+  // Hidden on the sandbox surface: the chat header there has its own stop
+  // control, and two buttons for one action read as a bug.
+  const showStopSandbox =
+    isSandboxActive && !isSandboxStopping && !isSandboxViewActive;
   // Inert, not hidden, mid-turn — see `SleepEvaButton`. Gated on the chat turn
   // only, not `hasActiveRun`: that also counts *queued* runs, and a task waiting
   // in the queue is no reason to refuse to sleep a sandbox. A main run has its

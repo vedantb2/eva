@@ -520,8 +520,9 @@ export function ProjectDetailClient({
               </DropdownMenu>
               {/* Inert while a chat turn is in flight — see `SleepEvaButton`.
                   A running build keeps its own confirmed "Stop Build", so it is
-                  not gated here. */}
-              {isSandboxActive && !isSandboxStopping ? (
+                  not gated here. Hidden on the sandbox surface, which has its
+                  own stop control in the chat header. */}
+              {isSandboxActive && !isSandboxStopping && !isSandboxSurface ? (
                 <SleepEvaButton
                   onStop={handleStopSandbox}
                   isStopping={isSandboxStopping}

@@ -117,8 +117,14 @@ export function DesktopPanel({
     onRunningChange?.(state === "starting" || state === "running");
   };
 
-  const showLockOverlay =
-    onReleaseLock !== undefined && isAgentBrowsingActive(agentBrowsingAt);
+  const isAgentBrowsing = isAgentBrowsingActive(agentBrowsingAt);
+
+  // The agent only takes the browsing lock after `browser_start`, so Chrome is
+  // already up — auto-start (start + readiness poll) instead of asking the user
+  // to press Start for something they can see is running.
+  const autoStartKey = isAgentBrowsing ? agentBrowsingAt : undefined;
+
+  const showLockOverlay = onReleaseLock !== undefined && isAgentBrowsing;
 
   const handleTakeControl = () => {
     onReleaseLock?.();
@@ -148,6 +154,7 @@ export function DesktopPanel({
         startFailedError={copy.startFailedError}
         loadFailedError={copy.loadFailedError}
         iframeAllow="clipboard-read; clipboard-write"
+        autoStartKey={autoStartKey}
         onStateChange={handleStateChange}
       />
       {showLockOverlay ? (

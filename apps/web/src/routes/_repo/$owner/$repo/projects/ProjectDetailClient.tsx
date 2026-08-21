@@ -618,7 +618,7 @@ export function ProjectDetailClient({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Build Project</DialogTitle>
+            <DialogTitle>Run Eva</DialogTitle>
           </DialogHeader>
           <div>
             <p className="text-muted-foreground">
@@ -765,7 +765,7 @@ function SplitBuildButton({
   // Hidden below `sm`, so it doubles as the button's accessible name there.
   const buildLabel = isScheduled
     ? dayjs(scheduledBuildAt).format("MMM D, h:mm A")
-    : "Build Project";
+    : "Run Eva";
 
   return (
     <div className="group/split flex items-center transition-[transform,background-color] duration-[var(--motion-base)] active:scale-[0.96]">

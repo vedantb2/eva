@@ -374,7 +374,7 @@ function SplitRunButton({
               )}
               {isScheduled
                 ? dayjs(scheduledAt).format("MMM D, h:mm A")
-                : "Run Eva on this task"}
+                : "Run Eva"}
             </Button>
           </div>
         </TooltipTrigger>

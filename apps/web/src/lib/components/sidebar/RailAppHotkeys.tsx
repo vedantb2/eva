@@ -2,7 +2,7 @@
 
 import { useNavigate } from "@tanstack/react-router";
 import { useHotkey } from "@tanstack/react-hotkeys";
-import { repoHref } from "@/lib/utils/repoUrl";
+import { repoSectionHref } from "@/lib/utils/repoUrl";
 import type { RepoWithLogo } from "@/lib/utils/repoGrouping";
 import { useShortcutBinding } from "@/lib/hotkeys/useShortcut";
 import { SHORTCUT_DEFS, deriveSlotHotkey } from "@/lib/hotkeys/registry";
@@ -20,10 +20,12 @@ const HOTKEY_SLOTS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 function RailAppHotkey({
   slot,
   repo,
+  section,
   onNavigate,
 }: {
   slot: (typeof HOTKEY_SLOTS)[number];
   repo: RepoWithLogo | undefined;
+  section: string | null;
   onNavigate: () => void;
 }) {
   const navigate = useNavigate();
@@ -36,7 +38,9 @@ function RailAppHotkey({
       if (!repo) return;
       e.preventDefault();
       onNavigate();
-      navigate({ to: repoHref(repo.owner, repo.name, repo.rootDirectory) });
+      navigate({
+        to: repoSectionHref(repo.owner, repo.name, repo.rootDirectory, section),
+      });
     },
     { enabled: repo !== undefined && slotHotkey !== null },
   );
@@ -51,9 +55,12 @@ function RailAppHotkey({
  */
 export function RailAppHotkeys({
   repos,
+  section,
   onNavigate,
 }: {
   repos: RepoWithLogo[];
+  /** Repo section to land on, so a jump keeps the current view. */
+  section: string | null;
   onNavigate: () => void;
 }) {
   return (
@@ -63,6 +70,7 @@ export function RailAppHotkeys({
           key={slot}
           slot={slot}
           repo={repos[slot - 1]}
+          section={section}
           onNavigate={onNavigate}
         />
       ))}

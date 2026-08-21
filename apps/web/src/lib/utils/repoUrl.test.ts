@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   repoHref,
   repoPublicHref,
+  repoSectionFromPath,
+  repoSectionHref,
   toDisplayRepoHref,
   toInternalRepoHref,
 } from "./repoUrl";
@@ -67,6 +69,39 @@ describe("repoUrl monorepo slash rewrite", () => {
     );
     expect(toInternalRepoHref("/evalucom/carepulse-ts/sessions")).toBe(
       "/evalucom/carepulse-ts/sessions",
+    );
+  });
+
+  // Switching apps in the rail keeps the section you are looking at, and drops
+  // everything below it — a task or session id belongs to the app you left.
+  it("reads the repo section from either URL form", () => {
+    expect(
+      repoSectionFromPath("/evalucom/carepulse-ts--web/quick-tasks/204"),
+    ).toBe("quick-tasks");
+    expect(
+      repoSectionFromPath("/evalucom/carepulse-ts/web/quick-tasks/204?draft=1"),
+    ).toBe("quick-tasks");
+    expect(
+      repoSectionFromPath("/evalucom/carepulse-ts/settings/snapshots/status"),
+    ).toBe("settings");
+  });
+
+  it("has no section for repo roots or non-repo paths", () => {
+    expect(repoSectionFromPath("/evalucom/carepulse-ts")).toBeNull();
+    expect(repoSectionFromPath("/evalucom/carepulse-ts/web")).toBeNull();
+    expect(repoSectionFromPath("/home")).toBeNull();
+    expect(repoSectionFromPath("/settings/theme")).toBeNull();
+  });
+
+  it("repoSectionHref lands on the section, or the repo root without one", () => {
+    expect(
+      repoSectionHref("evalucom", "carepulse-ts", "apps/web", "quick-tasks"),
+    ).toBe("/evalucom/carepulse-ts/web/quick-tasks");
+    expect(
+      repoSectionHref("evalucom", "carepulse-ts", undefined, "projects"),
+    ).toBe("/evalucom/carepulse-ts/projects");
+    expect(repoSectionHref("evalucom", "carepulse-ts", "apps/web", null)).toBe(
+      "/evalucom/carepulse-ts/web",
     );
   });
 

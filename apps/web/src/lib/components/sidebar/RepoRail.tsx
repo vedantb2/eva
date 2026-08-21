@@ -31,6 +31,7 @@ import { RailSettingsMenu } from "@/lib/components/sidebar/RailSettingsMenu";
 import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import { QueryErrorBoundary } from "@/lib/components/QueryErrorBoundary";
 import { ShortcutKbd } from "@/lib/components/ui/Kbd";
+import { CountPop, countLabel } from "@/lib/components/ui/CountPop";
 import { railTileActiveClass } from "@/lib/components/sidebar/SharedLayoutNav";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useSearch } from "@/lib/contexts/SearchContext";
@@ -79,31 +80,26 @@ function railTileActive(active: boolean): string {
     : "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground";
 }
 
-function formatCountLabel(count: number | undefined): string | null {
-  if (count === undefined || count <= 0) return null;
-  return count > 99 ? "99+" : String(count);
+/**
+ * The unread dot on a rail tile. One component for both counters — they were two
+ * byte-identical copies differing only in the query. The pop itself lives in
+ * `CountPop`, shared with the drafts pill and the running-sessions count.
+ */
+function RailUnreadBadge({ count }: { count: number | undefined }) {
+  return (
+    <CountPop
+      label={countLabel(count)}
+      className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
+    />
+  );
 }
 
 function InboxUnreadBadge() {
-  const unreadCount = useQuery(api.notifications.countUnread);
-  const unreadLabel = formatCountLabel(unreadCount);
-  if (!unreadLabel) return null;
-  return (
-    <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
-      {unreadLabel}
-    </span>
-  );
+  return <RailUnreadBadge count={useQuery(api.notifications.countUnread)} />;
 }
 
 function AutomationsUnreadBadge() {
-  const unreadCount = useQuery(api.automations.countUnreadAll);
-  const unreadLabel = formatCountLabel(unreadCount);
-  if (!unreadLabel) return null;
-  return (
-    <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
-      {unreadLabel}
-    </span>
-  );
+  return <RailUnreadBadge count={useQuery(api.automations.countUnreadAll)} />;
 }
 
 const EMPTY_SANDBOX_REPO_IDS = new Set<Id<"githubRepos">>();
@@ -191,7 +187,7 @@ function RepoRailView({
     pathname === "/automations" ||
     pathname.startsWith("/automations/") ||
     (pathParts.includes("automations") && pathParts[0] !== "automations");
-  const sessionsLabel = formatCountLabel(activeSessionCount);
+  const sessionsLabel = countLabel(activeSessionCount);
   const [renameRepo, setRenameRepo] = useState<RepoWithLogo | null>(null);
   // Carry the section (Quick Tasks, Projects, …) across an app switch, but not
   // the entity below it: task 204 belongs to the app you are leaving.
@@ -263,11 +259,10 @@ function RepoRailView({
               )}
             >
               <SessionsIcon size={22} className="shrink-0" />
-              {sessionsLabel ? (
-                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-success px-1 text-[10px] font-semibold leading-none text-white">
-                  {sessionsLabel}
-                </span>
-              ) : null}
+              <CountPop
+                label={sessionsLabel}
+                className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-success px-1 text-[10px] font-semibold leading-none text-white"
+              />
             </Link>
           </TooltipTrigger>
           <TooltipContent side="right">

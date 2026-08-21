@@ -771,8 +771,12 @@ function SplitBuildButton({
     ? dayjs(scheduledBuildAt).format("MMM D, h:mm A")
     : "Run Eva";
 
+  // Halves cancel their own press so the wrapper scales as one unit — see the
+  // twin in `TaskFooter`. `motion-press` replaces a hand-listed
+  // `transition-[transform,background-color]` that named `transform` and so
+  // never matched the `scale` property `scale-[0.96]` compiles to.
   return (
-    <div className="group/split flex items-center transition-[transform,background-color] duration-[var(--motion-base)] active:scale-[0.96]">
+    <div className="group/split motion-press flex items-center active:scale-[0.96]">
       <Tooltip>
         <TooltipTrigger asChild>
           <div>

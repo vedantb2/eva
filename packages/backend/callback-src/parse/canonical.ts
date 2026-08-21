@@ -154,6 +154,17 @@ function applyReasoningSnapshot(text: string): void {
   S.lastStepType = "thinking";
 }
 
+/**
+ * Appends ONE already-finished activity row. Unlike `updateThinkingStep` this
+ * survives into the message's activityLog, so a one-off event the user must be
+ * able to see after the turn (a session rotation, say) leaves a trace instead of
+ * a vanished thinking line. Pushed directly rather than through
+ * `applyCanonicalEvents` so it never touches the in-flight tool counter.
+ */
+export function pushNoticeStep(label: string, detail?: string): void {
+  pushProgressStep({ type: "notice", label, detail, status: "complete" });
+}
+
 /** Thinking is a transient liveness signal, not a durable activity row. */
 export function updateThinkingStep(label: string, detail?: string): void {
   void label;

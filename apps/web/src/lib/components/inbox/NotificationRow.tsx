@@ -70,9 +70,12 @@ export function NotificationRow({
 
   return (
     <div className="group relative flex items-center gap-3 px-4 transition-colors hover:bg-muted/40">
+      {/* Matches `ListRow`, which every comparable row in the app is built on
+          and which presses at 0.99 — the inbox row was hand-rolled and so never
+          picked it up. */}
       <button
         onClick={onOpen}
-        className="flex min-w-0 flex-1 items-center gap-3 py-3 text-left focus-visible:outline-hidden"
+        className="motion-press flex min-w-0 flex-1 items-center gap-3 py-3 text-left active:scale-[0.99] focus-visible:outline-hidden"
       >
         {/* Fixed-width dot slot so read and unread rows stay aligned. */}
         <span className="flex w-1.5 shrink-0 justify-center" aria-hidden>

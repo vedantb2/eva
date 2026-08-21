@@ -137,18 +137,19 @@ export function PrHeaderActions({
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Only while the pull request can still be influenced: a review on a
-          merged branch is a comment nobody will read. */}
-      {isOpen ? (
-        <ButtonGroup>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => focusPrComposer(overview.number, onTabChange)}
-          >
-            <IconMessagePlus size={14} aria-hidden />
-            <span className="max-sm:hidden">Add comment</span>
-          </Button>
+      {/* Commenting outlives the pull request — a merged branch still gets
+          questions, and GitHub keeps the thread open. Only the *verdict* half
+          goes away: a review submitted after the merge changes nothing. */}
+      <ButtonGroup>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => focusPrComposer(overview.number, onTabChange)}
+        >
+          <IconMessagePlus size={14} aria-hidden />
+          <span className="max-sm:hidden">Add comment</span>
+        </Button>
+        {isOpen ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -171,8 +172,8 @@ export function PrHeaderActions({
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </ButtonGroup>
-      ) : null}
+        ) : null}
+      </ButtonGroup>
 
       <PrPrimaryAction
         repoId={repoId}

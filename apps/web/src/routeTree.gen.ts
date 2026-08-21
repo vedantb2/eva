@@ -21,6 +21,7 @@ import { Route as GlobalInboxRouteImport } from './routes/_global/inbox'
 import { Route as GlobalSessionsRouteImport } from './routes/_global/sessions'
 import { Route as GlobalSettingsRouteRouteImport } from './routes/_global/settings/route'
 import { Route as GlobalTestingRouteImport } from './routes/_global/testing'
+import { Route as GlobalWhatsNewRouteImport } from './routes/_global/whats-new'
 import { Route as GlobalArtifactsIndexRouteImport } from './routes/_global/artifacts/index'
 import { Route as GlobalArtifactsArtifactIdRouteImport } from './routes/_global/artifacts/$artifactId'
 import { Route as GlobalSettingsAccountsRouteImport } from './routes/_global/settings/accounts'
@@ -181,6 +182,11 @@ const GlobalSettingsRouteRoute = GlobalSettingsRouteRouteImport.update({
 const GlobalTestingRoute = GlobalTestingRouteImport.update({
   id: '/testing',
   path: '/testing',
+  getParentRoute: () => GlobalRoute,
+} as any)
+const GlobalWhatsNewRoute = GlobalWhatsNewRouteImport.update({
+  id: '/whats-new',
+  path: '/whats-new',
   getParentRoute: () => GlobalRoute,
 } as any)
 const GlobalArtifactsIndexRoute = GlobalArtifactsIndexRouteImport.update({
@@ -800,6 +806,7 @@ export interface FileRoutesByFullPath {
   '/inbox': typeof GlobalInboxRoute
   '/sessions': typeof GlobalSessionsRoute
   '/testing': typeof GlobalTestingRoute
+  '/whats-new': typeof GlobalWhatsNewRoute
   '/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
   '/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
   '/settings/accounts': typeof GlobalSettingsAccountsRoute
@@ -915,6 +922,7 @@ export interface FileRoutesByTo {
   '/inbox': typeof GlobalInboxRoute
   '/sessions': typeof GlobalSessionsRoute
   '/testing': typeof GlobalTestingRoute
+  '/whats-new': typeof GlobalWhatsNewRoute
   '/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
   '/settings/accounts': typeof GlobalSettingsAccountsRoute
   '/settings/experimental': typeof GlobalSettingsExperimentalRoute
@@ -1009,6 +1017,7 @@ export interface FileRoutesById {
   '/_global/inbox': typeof GlobalInboxRoute
   '/_global/sessions': typeof GlobalSessionsRoute
   '/_global/testing': typeof GlobalTestingRoute
+  '/_global/whats-new': typeof GlobalWhatsNewRoute
   '/_global/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
   '/_global/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
   '/_global/settings/accounts': typeof GlobalSettingsAccountsRoute
@@ -1126,6 +1135,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/sessions'
     | '/testing'
+    | '/whats-new'
     | '/teams/$teamId'
     | '/artifacts/$artifactId'
     | '/settings/accounts'
@@ -1241,6 +1251,7 @@ export interface FileRouteTypes {
     | '/inbox'
     | '/sessions'
     | '/testing'
+    | '/whats-new'
     | '/artifacts/$artifactId'
     | '/settings/accounts'
     | '/settings/experimental'
@@ -1334,6 +1345,7 @@ export interface FileRouteTypes {
     | '/_global/inbox'
     | '/_global/sessions'
     | '/_global/testing'
+    | '/_global/whats-new'
     | '/_global/teams/$teamId'
     | '/_global/artifacts/$artifactId'
     | '/_global/settings/accounts'
@@ -1532,6 +1544,13 @@ declare module '@tanstack/react-router' {
       path: '/testing'
       fullPath: '/testing'
       preLoaderRoute: typeof GlobalTestingRouteImport
+      parentRoute: typeof GlobalRoute
+    }
+    '/_global/whats-new': {
+      id: '/_global/whats-new'
+      path: '/whats-new'
+      fullPath: '/whats-new'
+      preLoaderRoute: typeof GlobalWhatsNewRouteImport
       parentRoute: typeof GlobalRoute
     }
     '/_global/artifacts/': {
@@ -2307,6 +2326,7 @@ interface GlobalRouteChildren {
   GlobalInboxRoute: typeof GlobalInboxRoute
   GlobalSessionsRoute: typeof GlobalSessionsRoute
   GlobalTestingRoute: typeof GlobalTestingRoute
+  GlobalWhatsNewRoute: typeof GlobalWhatsNewRoute
   GlobalTeamsTeamIdRouteRoute: typeof GlobalTeamsTeamIdRouteRouteWithChildren
   GlobalArtifactsArtifactIdRoute: typeof GlobalArtifactsArtifactIdRoute
   GlobalSetupIdRoute: typeof GlobalSetupIdRoute
@@ -2322,6 +2342,7 @@ const GlobalRouteChildren: GlobalRouteChildren = {
   GlobalInboxRoute: GlobalInboxRoute,
   GlobalSessionsRoute: GlobalSessionsRoute,
   GlobalTestingRoute: GlobalTestingRoute,
+  GlobalWhatsNewRoute: GlobalWhatsNewRoute,
   GlobalTeamsTeamIdRouteRoute: GlobalTeamsTeamIdRouteRouteWithChildren,
   GlobalArtifactsArtifactIdRoute: GlobalArtifactsArtifactIdRoute,
   GlobalSetupIdRoute: GlobalSetupIdRoute,

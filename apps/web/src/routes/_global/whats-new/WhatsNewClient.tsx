@@ -13,17 +13,17 @@ import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 
 /** Same plugin set as `ChangelogDialog`, so both surfaces render identically. */
-const changelogPlugins = { cjk, math, mermaid };
+const whatsNewPlugins = { cjk, math, mermaid };
 
 /**
  * Every published entry of the "Eva Weekly Changelog" automation as a timeline.
  * The dialog shows only the newest one; this is the full archive.
  */
-export function ChangelogClient() {
+export function WhatsNewClient() {
   const entries = useQuery(api.changelog.listChangelog);
 
   return (
-    <PageWrapper title="Changelog" comfortable>
+    <PageWrapper title="What's New" comfortable>
       {entries === undefined ? (
         <div className="space-y-3">
           {[0, 1, 2].map((i) => (
@@ -33,8 +33,8 @@ export function ChangelogClient() {
       ) : entries.length === 0 ? (
         <EmptyState
           icon={<IconSparkles size={24} />}
-          title="No changelog entries yet"
-          description="Published weekly changelog runs will show up here."
+          title="Nothing new yet"
+          description="Published weekly updates will show up here."
         />
       ) : (
         // The rail is drawn on the list, not per entry, so it runs unbroken
@@ -66,7 +66,7 @@ export function ChangelogClient() {
                       "text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0",
                       STREAMDOWN_TABLE_RADIUS_CLASS,
                     )}
-                    plugins={changelogPlugins}
+                    plugins={whatsNewPlugins}
                   >
                     {entry.content}
                   </Streamdown>

@@ -110,6 +110,9 @@ const EMPTY_SANDBOX_REPO_IDS = new Set<Id<"githubRepos">>();
 
 function RepoRailLiveData(props: RepoRailProps) {
   const activeSessionCount = useQuery(api.githubRepos.countActiveSessions);
+  // The orchestrator is deliberately absent from the sessions list and its
+  // counts, so its rail entry is the only place its state can be seen.
+  const orchestrator = useQuery(api.sessions.getOrchestratorSession, {});
   const sandboxRepoIds = useQuery(api.githubRepos.listReposWithActiveSandboxes);
   const activeSandboxRepoIds = useMemo(
     () => new Set(sandboxRepoIds ?? []),
@@ -120,6 +123,7 @@ function RepoRailLiveData(props: RepoRailProps) {
     <RepoRailView
       {...props}
       activeSessionCount={activeSessionCount}
+      orchestratorBusy={orchestrator?.isExecuting === true}
       activeSandboxRepoIds={activeSandboxRepoIds}
     />
   );
@@ -143,6 +147,7 @@ export function RepoRail(props: RepoRailProps) {
         <RepoRailView
           {...props}
           activeSessionCount={undefined}
+          orchestratorBusy={false}
           activeSandboxRepoIds={EMPTY_SANDBOX_REPO_IDS}
         />
       }
@@ -154,6 +159,8 @@ export function RepoRail(props: RepoRailProps) {
 
 interface RepoRailViewProps extends RepoRailProps {
   activeSessionCount: number | undefined;
+  /** True while the orchestrator has a turn in flight. */
+  orchestratorBusy?: boolean;
   activeSandboxRepoIds: ReadonlySet<Id<"githubRepos">>;
 }
 
@@ -167,6 +174,7 @@ function RepoRailView({
   userName,
   showSearch,
   activeSessionCount,
+  orchestratorBusy = false,
   activeSandboxRepoIds,
 }: RepoRailViewProps) {
   const { collapsed, setCollapsed, setSessionsNavMode } = useSidebar();
@@ -270,7 +278,9 @@ function RepoRailView({
             <Link
               to="/orchestrator"
               onClick={onNavigate}
-              aria-label="Orchestrator"
+              aria-label={
+                orchestratorBusy ? "Orchestrator, working" : "Orchestrator"
+              }
               className={cn(
                 RAIL_TILE_CLASS,
                 "group",
@@ -278,9 +288,19 @@ function RepoRailView({
               )}
             >
               <IconSparkles size={22} className="shrink-0" />
+              {orchestratorBusy ? (
+                // A dot, not a count: there is only ever one orchestrator, so
+                // the question is "is it working", not "how many".
+                <span
+                  className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success ring-2 ring-sidebar"
+                  aria-hidden
+                />
+              ) : null}
             </Link>
           </TooltipTrigger>
-          <TooltipContent side="right">Orchestrator</TooltipContent>
+          <TooltipContent side="right">
+            {orchestratorBusy ? "Orchestrator (working)" : "Orchestrator"}
+          </TooltipContent>
         </Tooltip>
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />
       </div>

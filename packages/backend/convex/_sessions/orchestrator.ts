@@ -18,6 +18,9 @@ const orchestratorSessionValidator = v.object({
   owner: v.string(),
   name: v.string(),
   rootDirectory: v.optional(v.string()),
+  /** A turn is in flight — the rail entry shows this, since the orchestrator is
+   * excluded from the sessions list and its badges. */
+  isExecuting: v.boolean(),
 });
 
 /**
@@ -42,6 +45,7 @@ async function resolveOrchestratorSession(
     owner: repo.owner,
     name: repo.name,
     rootDirectory: repo.rootDirectory,
+    isExecuting: session.activeWorkflowId !== undefined,
   };
 }
 
@@ -90,6 +94,8 @@ export const ensureOrchestratorSession = authMutation({
       owner: repo.owner,
       name: repo.name,
       rootDirectory: repo.rootDirectory,
+      // Freshly created: its first turn has not started yet.
+      isExecuting: false,
     };
   },
 });

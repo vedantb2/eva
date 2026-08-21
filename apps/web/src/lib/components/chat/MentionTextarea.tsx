@@ -156,6 +156,7 @@ export const MentionTextarea = forwardRef<
       onDismissSuggestion={dismiss}
       items={items}
       slashItems={skillItems}
+      popupLayout="panel"
       mentionPopupTitle="Mentions"
       onMentionChipClick={handleMentionChipClick}
       onSkillChipClick={handleSkillChipClick}

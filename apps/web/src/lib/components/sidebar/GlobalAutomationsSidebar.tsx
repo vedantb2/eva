@@ -21,13 +21,11 @@ import { GlobalAutomationGroup } from "@/lib/components/sidebar/_components/Glob
 import { repoBasePaths } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { sortAppsForSidebar } from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
 import { AUTOMATIONS_APP_GROUPS_OPEN_KEY } from "@/lib/components/sidebar/_utils/automationsSidebarSettings";
+import { useAutomationsSidebarSettings } from "@/lib/components/sidebar/useAutomationsSidebarSettings";
 import { useSidebarAppGroupOpen } from "@/lib/components/sidebar/useSidebarAppGroupOpen";
 import { entityPathSegment } from "@/lib/numId";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
-import {
-  mutationError,
-  mutationSuccess,
-} from "@/lib/utils/mutationToast";
+import { mutationError, mutationSuccess } from "@/lib/utils/mutationToast";
 
 type AutomationListItem = FunctionReturnType<
   typeof api.automations.list
@@ -49,6 +47,7 @@ export function GlobalAutomationsSidebar({
 }: GlobalAutomationsSidebarProps) {
   const navigate = useNavigate();
   const convex = useConvex();
+  const { settings } = useAutomationsSidebarSettings();
   const { isGroupOpen, setGroupOpen } = useSidebarAppGroupOpen(pathname, {
     storageKey: AUTOMATIONS_APP_GROUPS_OPEN_KEY,
     sectionSegment: "/automations",
@@ -122,7 +121,7 @@ export function GlobalAutomationsSidebar({
   const orderedRepos =
     repos === undefined
       ? undefined
-      : sortAppsForSidebar(repos, "updated_at", latestActivityByAppId);
+      : sortAppsForSidebar(repos, settings.appSortOrder, latestActivityByAppId);
 
   const handleCreate = async () => {
     if (!createTarget || !newTitle.trim()) return;
@@ -189,6 +188,8 @@ export function GlobalAutomationsSidebar({
               automations={ownedByRepoId.get(repo._id) ?? []}
               isLoading={loadingByRepoId.get(repo._id) === true}
               pathname={pathname}
+              automationSortOrder={settings.automationSortOrder}
+              automationPreviewCount={settings.automationPreviewCount}
               open={isGroupOpen(repo)}
               onOpenChange={(open) => {
                 setGroupOpen(repo._id, open);

@@ -36,7 +36,7 @@ import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { isHomePath } from "@/lib/components/sidebar/homePaths";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
-import { repoHref } from "@/lib/utils/repoUrl";
+import { repoSectionFromPath, repoSectionHref } from "@/lib/utils/repoUrl";
 import { repoTileColor } from "@/lib/utils/repoTileColor";
 import {
   appLeafName,
@@ -193,10 +193,21 @@ function RepoRailView({
     (pathParts.includes("automations") && pathParts[0] !== "automations");
   const sessionsLabel = formatCountLabel(activeSessionCount);
   const [renameRepo, setRenameRepo] = useState<RepoWithLogo | null>(null);
+  // Carry the section (Quick Tasks, Projects, …) across an app switch, but not
+  // the entity below it: task 204 belongs to the app you are leaving.
+  const currentSection = repoSectionFromPath(pathname);
+  // Plain `string`, not a template-literal type: `<Link to>` is a union of
+  // known route paths and rejects the narrowed form.
+  const railHref = (row: RepoWithLogo): string =>
+    repoSectionHref(row.owner, row.name, row.rootDirectory, currentSection);
 
   return (
     <div className="flex h-full w-16 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar">
-      <RailAppHotkeys repos={repos} onNavigate={onNavigate} />
+      <RailAppHotkeys
+        repos={repos}
+        section={currentSection}
+        onNavigate={onNavigate}
+      />
       <div className="flex w-full flex-col items-center gap-1.5 px-0 pt-3">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -285,7 +296,7 @@ function RepoRailView({
                 <TooltipTrigger asChild>
                   <ContextMenuTrigger asChild>
                     <Link
-                      to={repoHref(row.owner, row.name, row.rootDirectory)}
+                      to={railHref(row)}
                       onClick={onNavigate}
                       aria-label={
                         hasActiveSandbox
@@ -357,26 +368,26 @@ function RepoRailView({
       ) : null}
       <div className="flex w-full flex-col items-center gap-1.5 border-t border-sidebar-border py-3">
         {simpleView ? null : (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              to="/automations"
-              onClick={onNavigate}
-              aria-label="Automations"
-              className={cn(
-                RAIL_TILE_CLASS,
-                "group",
-                railTileActive(automationsActive),
-              )}
-            >
-              <AutomationsIcon size={22} className="shrink-0" />
-              <QueryErrorBoundary>
-                <AutomationsUnreadBadge />
-              </QueryErrorBoundary>
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent side="right">Automations</TooltipContent>
-        </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                to="/automations"
+                onClick={onNavigate}
+                aria-label="Automations"
+                className={cn(
+                  RAIL_TILE_CLASS,
+                  "group",
+                  railTileActive(automationsActive),
+                )}
+              >
+                <AutomationsIcon size={22} className="shrink-0" />
+                <QueryErrorBoundary>
+                  <AutomationsUnreadBadge />
+                </QueryErrorBoundary>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right">Automations</TooltipContent>
+          </Tooltip>
         )}
         <Tooltip>
           <TooltipTrigger asChild>

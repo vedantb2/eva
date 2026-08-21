@@ -22,6 +22,13 @@ interface PageWrapperProps {
   toolbar?: React.ReactNode;
   /** Route / view tabs under the title (and under toolbar when both exist). */
   tabs?: React.ReactNode;
+  /**
+   * Indent the title row by the card gutter (`px-4`) so the page title lines up
+   * with the section titles inside the cards below, rather than with the card
+   * edge. For settings-shaped pages; leave off for list pages whose card has no
+   * section heading to align to.
+   */
+  insetHeader?: boolean;
   showBack?: boolean;
   onBack?: () => void;
   fillHeight?: boolean;
@@ -37,6 +44,7 @@ export function PageWrapper({
   headerRight,
   toolbar,
   tabs,
+  insetHeader = false,
   showBack = false,
   onBack,
   fillHeight = false,
@@ -62,7 +70,7 @@ export function PageWrapper({
           className={`motion-base relative ${comfortable ? "px-4 py-6 sm:px-6" : "p-3 sm:px-4"}`}
         >
           <div
-            className={`relative grid items-center gap-2 sm:gap-3 ${hasHeaderRight ? "grid-cols-[minmax(0,1fr)_minmax(0,auto)] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]" : "grid-cols-1"} ${comfortable ? "mx-auto w-full max-w-5xl" : ""}`}
+            className={`relative grid items-center gap-2 sm:gap-3 ${hasHeaderRight ? "grid-cols-[minmax(0,1fr)_minmax(0,auto)] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]" : "grid-cols-1"} ${comfortable ? "mx-auto w-full max-w-5xl" : ""} ${insetHeader ? "px-4" : ""}`}
           >
             <div
               className={`flex min-w-0 items-center gap-2 sm:gap-3 ${hasHeaderRight && !headerCenter ? "md:col-span-2" : ""}`}

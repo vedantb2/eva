@@ -112,6 +112,34 @@ export function toDisplayRepoHref(href: string): string {
   return href;
 }
 
+/**
+ * The repo section a path sits in (`quick-tasks`, `projects`, …), or null for a
+ * repo root or a non-repo path. Anything below the section — entity ids, tabs,
+ * query, hash — is dropped, so switching apps keeps the view without carrying a
+ * task or session that belongs to the app you left. Accepts either URL form.
+ */
+export function repoSectionFromPath(pathname: string): string | null {
+  const { pathname: internal } = splitHref(toInternalRepoHref(pathname));
+  const segments = internal.split("/").filter(Boolean);
+  if (segments.length < 3) return null;
+  if (NON_REPO_PATH_PREFIXES.has(segments[0])) return null;
+  return KNOWN_REPO_SUB_PAGES.has(segments[2]) ? segments[2] : null;
+}
+
+/**
+ * Public href for a repo, landing on `section` when one is given. Used by the
+ * rail so an app tile keeps the section you are already looking at.
+ */
+export function repoSectionHref(
+  owner: string,
+  name: string,
+  rootDirectory: string | undefined,
+  section: string | null,
+): string {
+  const base = repoHref(owner, name, rootDirectory);
+  return section === null ? base : `${base}/${section}`;
+}
+
 function splitHref(href: string): { pathname: string; suffix: string } {
   const qIdx = href.indexOf("?");
   const hIdx = href.indexOf("#");

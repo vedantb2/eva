@@ -35,6 +35,7 @@ export function SettingsPage({
     <PageWrapper
       title={title}
       comfortable
+      insetHeader
       headerRight={headerRight}
       toolbar={toolbar}
       tabs={tabs}

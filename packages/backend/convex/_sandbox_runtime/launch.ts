@@ -96,9 +96,20 @@ function computeStreamingHmac(entityId: string): string | null {
   return createHmac("sha256", secret).update(entityId).digest("hex");
 }
 
+/**
+ * Overrides for the URLs handed to agent sandboxes, for deployments whose own
+ * `CONVEX_CLOUD_URL`/`CONVEX_SITE_URL` are not reachable from outside — e.g. a
+ * local backend on 127.0.0.1 exposed through a tunnel. The built-in names are
+ * reserved by Convex and cannot be overridden, hence the EVA_ pair.
+ */
+function publicConvexUrl(): string {
+  return process.env.EVA_PUBLIC_CONVEX_URL ?? requireEnv("CONVEX_CLOUD_URL");
+}
+
 /** Resolves the Convex site URL used for HTTP actions, falling back from cloud URL. */
 function resolveConvexSiteUrl(convexCloudUrl: string): string {
-  const configured = process.env.CONVEX_SITE_URL;
+  const configured =
+    process.env.EVA_PUBLIC_CONVEX_SITE_URL ?? process.env.CONVEX_SITE_URL;
   if (configured) return configured;
   return convexCloudUrl.replace(".convex.cloud", ".convex.site");
 }
@@ -315,7 +326,7 @@ export async function launchScript(
 
   await Promise.all([providerPrep, ...uploadTasks]);
 
-  const convexUrl = requireEnv("CONVEX_CLOUD_URL");
+  const convexUrl = publicConvexUrl();
   const streamingEntityId = opts.extraEnvVars?.STREAMING_ENTITY_ID ?? entityId;
   const streamingHmac = computeStreamingHmac(streamingEntityId);
   const envParts = [

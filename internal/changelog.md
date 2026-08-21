@@ -1,5 +1,9 @@
 # Changelog
 
+## Sandboxes can reach tunneled/self-hosted deployments via EVA_PUBLIC_* overrides - 2026-08-19
+
+Agent sandboxes are handed this deployment's own `CONVEX_CLOUD_URL`/`CONVEX_SITE_URL`, which on a local backend are 127.0.0.1 — unreachable from the sandbox, so no turn could ever stream a reply back in a sandbox-preview environment. Convex reserves those names, so they cannot simply be re-set. New optional `EVA_PUBLIC_CONVEX_URL`/`EVA_PUBLIC_CONVEX_SITE_URL` env vars take precedence in `launch.ts` (`publicConvexUrl`/`resolveConvexSiteUrl`) and `mcp/nodeActions.ts` (`getEvaConvexCloudUrl`); unset, behaviour is unchanged. Verified live by exposing the local backend through two Cloudflare quick tunnels and calling MCP `tools/list` over the public URL (31 tools). Also fixed a latent infinite recursion the earlier `getEvaConvexCloudUrl` refactor had introduced in its own (unreachable) fallback line — a regex replace had rewritten the fallback into a self-call.
+
 ## The backend suite is green again: two contract tests were lying, not the code - 2026-08-19
 
 Eleventh pass. Nothing orchestrator-side was outstanding, so this round went after the three failures that have been red on `main` all day and which I had been setting aside as "not mine". Both causes turned out to be the tests, and one of them had stopped testing anything at all.

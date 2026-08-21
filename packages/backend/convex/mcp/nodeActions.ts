@@ -371,9 +371,10 @@ function getBootstrapSecret(): string {
  * found") — the whole MCP tool layer was unusable against such deployments.
  */
 function getEvaConvexCloudUrl(): string {
-  const configured = process.env.CONVEX_CLOUD_URL;
+  const configured =
+    process.env.EVA_PUBLIC_CONVEX_URL ?? process.env.CONVEX_CLOUD_URL;
   if (configured) return configured;
-  return getEvaConvexCloudUrl();
+  return getConvexSiteUrl().replace(".convex.site", ".convex.cloud");
 }
 
 /** Deployed web app origin, used to build hosted artifact view links. */

@@ -186,7 +186,7 @@ export function TaskCardMenuItems({
             }}
           >
             <IconPlayerPlay size={16} />
-            Run Eva on this task
+            Run Eva
           </Item>
           <MenuSeparator />
         </>

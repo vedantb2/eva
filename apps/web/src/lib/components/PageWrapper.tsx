@@ -7,6 +7,12 @@ import { usePageTitle } from "@/lib/contexts/PageTitleContext";
 
 interface PageWrapperProps {
   title?: React.ReactNode;
+  /**
+   * Sits beside the title, before `headerRight`. For navigation that belongs
+   * with "where am I" rather than the action cluster — e.g. the main/sandbox
+   * surface switcher.
+   */
+  titleAfter?: React.ReactNode;
   headerCenter?: React.ReactNode;
   headerRight?: React.ReactNode;
   /**
@@ -26,6 +32,7 @@ interface PageWrapperProps {
 
 export function PageWrapper({
   title,
+  titleAfter,
   headerCenter,
   headerRight,
   toolbar,
@@ -55,7 +62,7 @@ export function PageWrapper({
           className={`motion-base relative ${comfortable ? "px-4 py-6 sm:px-6" : "p-3 sm:px-4"}`}
         >
           <div
-            className={`grid items-center gap-2 sm:gap-3 ${hasHeaderRight ? "grid-cols-[minmax(0,1fr)_minmax(0,auto)] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]" : "grid-cols-1"} ${comfortable ? "mx-auto w-full max-w-5xl" : ""}`}
+            className={`relative grid items-center gap-2 sm:gap-3 ${hasHeaderRight ? "grid-cols-[minmax(0,1fr)_minmax(0,auto)] md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]" : "grid-cols-1"} ${comfortable ? "mx-auto w-full max-w-5xl" : ""}`}
           >
             <div
               className={`flex min-w-0 items-center gap-2 sm:gap-3 ${hasHeaderRight && !headerCenter ? "md:col-span-2" : ""}`}
@@ -73,10 +80,23 @@ export function PageWrapper({
               )}
               {title && (
                 <h1
-                  className={`min-w-0 flex-1 text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300 ${isStringTitle ? "hidden whitespace-nowrap text-balance lg:block" : "overflow-hidden"}`}
+                  /* Capped short of the row's centre when `titleAfter` is
+                     centred over it, so a long title truncates instead of
+                     sliding under the absolutely positioned control. */
+                  className={`min-w-0 flex-1 ${titleAfter ? "sm:max-w-[calc(75%-4rem)]" : ""} text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300 ${isStringTitle ? "hidden whitespace-nowrap text-balance lg:block" : "overflow-hidden"}`}
                 >
                   {title}
                 </h1>
+              )}
+              {/* Centred on the row itself rather than placed in the flow: the
+                  title and action clusters are both variable-width, so any
+                  in-flow position drifts with them. Absolute keeps it fixed at
+                  the row's centre and out of the layout entirely. Below `sm`
+                  there is no room to centre, so it sits after the title. */}
+              {titleAfter && (
+                <div className="shrink-0 sm:absolute sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2">
+                  {titleAfter}
+                </div>
               )}
             </div>
             {headerCenter && (

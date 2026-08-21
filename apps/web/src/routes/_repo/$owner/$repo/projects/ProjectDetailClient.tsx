@@ -384,6 +384,20 @@ export function ProjectDetailClient({
           entityLabel={project.title}
         />
       }
+      /* Navigation, not an action: sits with the breadcrumb, above the
+         Overview/Tasks tabs, rather than inside the header's action cluster. */
+      titleAfter={
+        canStartSandbox && !isDraftOrFinalized ? (
+          <SandboxSurfaceTabs
+            mainLabel="Project"
+            surface={surface}
+            isSandboxActive={isSandboxActive}
+            isSandboxStarting={isSandboxStarting}
+            isSandboxStopping={isSandboxStopping}
+            onSurfaceChange={handleSelectSurface}
+          />
+        ) : null
+      }
       fillHeight
       childPadding={false}
       /* Tab strip is detail-only — sandbox stays flush like sessions. */
@@ -520,24 +534,14 @@ export function ProjectDetailClient({
               </DropdownMenu>
               {/* Inert while a chat turn is in flight — see `SleepEvaButton`.
                   A running build keeps its own confirmed "Stop Build", so it is
-                  not gated here. */}
-              {isSandboxActive && !isSandboxStopping ? (
+                  not gated here. Hidden on the sandbox surface, which has its
+                  own stop control in the chat header. */}
+              {isSandboxActive && !isSandboxStopping && !isSandboxSurface ? (
                 <SleepEvaButton
                   onStop={handleStopSandbox}
                   isStopping={isSandboxStopping}
                   blockedMidTurn={Boolean(project?.activeChatWorkflowId)}
                   size="sm"
-                  iconSize={16}
-                />
-              ) : null}
-              {canStartSandbox ? (
-                <SandboxSurfaceTabs
-                  mainLabel="Project"
-                  surface={surface}
-                  isSandboxActive={isSandboxActive}
-                  isSandboxStarting={isSandboxStarting}
-                  isSandboxStopping={isSandboxStopping}
-                  onSurfaceChange={handleSelectSurface}
                 />
               ) : null}
               {canBuildProject ? (
@@ -618,7 +622,7 @@ export function ProjectDetailClient({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Build Project</DialogTitle>
+            <DialogTitle>Run Eva</DialogTitle>
           </DialogHeader>
           <div>
             <p className="text-muted-foreground">
@@ -765,7 +769,7 @@ function SplitBuildButton({
   // Hidden below `sm`, so it doubles as the button's accessible name there.
   const buildLabel = isScheduled
     ? dayjs(scheduledBuildAt).format("MMM D, h:mm A")
-    : "Build Project";
+    : "Run Eva";
 
   return (
     <div className="group/split flex items-center transition-[transform,background-color] duration-[var(--motion-base)] active:scale-[0.96]">

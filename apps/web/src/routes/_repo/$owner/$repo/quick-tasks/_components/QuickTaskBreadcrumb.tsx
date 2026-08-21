@@ -5,25 +5,14 @@ import { RepoSectionBreadcrumb } from "@/lib/components/RepoSectionBreadcrumb";
 interface QuickTaskBreadcrumbProps {
   onBack: () => void;
   taskNumId?: number;
-  taskTitle?: string;
 }
 
+/** Breadcrumb shows only the task number: the title is rendered by TaskHeader below. */
 export function QuickTaskBreadcrumb({
   onBack,
   taskNumId,
-  taskTitle,
 }: QuickTaskBreadcrumbProps) {
-  const taskLabel = (() => {
-    if (taskTitle) {
-      return taskNumId !== undefined
-        ? `#${taskNumId} ${taskTitle}`
-        : taskTitle;
-    }
-    if (taskNumId !== undefined) return `#${taskNumId}`;
-    return "";
-  })();
-
-  if (taskLabel.length === 0) {
+  if (taskNumId === undefined) {
     return null;
   }
 
@@ -31,7 +20,7 @@ export function QuickTaskBreadcrumb({
     <RepoSectionBreadcrumb
       sectionLabel="Quick Tasks"
       onSectionClick={onBack}
-      entityLabel={taskLabel}
+      entityLabel={`#${taskNumId}`}
     />
   );
 }

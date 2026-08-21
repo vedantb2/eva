@@ -151,6 +151,106 @@ Rules:
 - Do NOT commit or push${getResponseLengthInstruction("plan")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
+/**
+ * A rotated Cursor agent starts with no memory beyond this handoff, so the
+ * user's own messages — the accumulated spec — are what must survive. Assistant
+ * replies are Eva's short summaries, so only the newest few are kept for local
+ * continuity.
+ */
+const HANDOFF_ENTRY_CHAR_CAP = 1_500;
+const HANDOFF_ASSISTANT_ENTRY_LIMIT = 3;
+const HANDOFF_TOTAL_CHAR_BUDGET = 24_000;
+
+type HandoffMessage = { role: string; content: string };
+type HandoffEntry = { isUser: boolean; line: string };
+
+function handoffElisionMarker(count: number): string {
+  return `[... ${count} earlier ${count === 1 ? "message" : "messages"} elided ...]`;
+}
+
+/** Renders the kept prefix, the elision marker, then the kept suffix. */
+function handoffLines(
+  entries: HandoffEntry[],
+  head: number,
+  tail: number,
+): string[] {
+  const elided = entries.length - head - tail;
+  return [
+    ...entries.slice(0, head).map((entry) => entry.line),
+    ...(elided > 0 ? [handoffElisionMarker(elided)] : []),
+    ...entries.slice(entries.length - tail).map((entry) => entry.line),
+  ];
+}
+
+function handoffCost(
+  entries: HandoffEntry[],
+  head: number,
+  tail: number,
+): number {
+  const lines = handoffLines(entries, head, tail);
+  if (lines.length === 0) return 0;
+  return (
+    lines.reduce((total, line) => total + line.length, 0) +
+    2 * (lines.length - 1)
+  );
+}
+
+/**
+ * Builds the chronological handoff block for a rotated agent: every user
+ * message plus the last few assistant messages, each capped, trimmed to a total
+ * character budget by dropping assistant entries first and then eliding the
+ * middle of the user history (earliest and latest messages always survive).
+ */
+export function buildSessionHandoff(history: HandoffMessage[]): string {
+  const all: HandoffEntry[] = [];
+  for (const message of history) {
+    const text = stripMentionTokens(message.content)
+      .slice(0, HANDOFF_ENTRY_CHAR_CAP)
+      .trim();
+    if (!text) continue;
+    const isUser = message.role === "user";
+    all.push({ isUser, line: `${isUser ? "User" : "Assistant"}: ${text}` });
+  }
+
+  const keptAssistants = new Set(
+    all
+      .flatMap((entry, index) => (entry.isUser ? [] : [index]))
+      .slice(-HANDOFF_ASSISTANT_ENTRY_LIMIT),
+  );
+  let entries = all.filter(
+    (entry, index) => entry.isUser || keptAssistants.has(index),
+  );
+
+  // Over budget: assistant summaries go first, oldest first.
+  while (
+    handoffCost(entries, entries.length, 0) > HANDOFF_TOTAL_CHAR_BUDGET &&
+    entries.some((entry) => !entry.isUser)
+  ) {
+    const oldestAssistant = entries.findIndex((entry) => !entry.isUser);
+    entries = [
+      ...entries.slice(0, oldestAssistant),
+      ...entries.slice(oldestAssistant + 1),
+    ];
+  }
+
+  let head = entries.length;
+  let tail = 0;
+  if (handoffCost(entries, head, tail) > HANDOFF_TOTAL_CHAR_BUDGET) {
+    // Still over: elide from the middle outwards, keeping both ends.
+    head = Math.ceil(entries.length / 2);
+    tail = entries.length - head;
+    while (
+      handoffCost(entries, head, tail) > HANDOFF_TOTAL_CHAR_BUDGET &&
+      head + tail > 2
+    ) {
+      if (head > tail) head -= 1;
+      else tail -= 1;
+    }
+  }
+
+  return handoffLines(entries, head, tail).join("\n\n");
+}
+
 /** Eva-specific session constraints; exploration is left to the claude_code factory preset. */
 export function buildEditPrompt(
   repo: { owner: string; name: string; baseBranch?: string },
@@ -168,16 +268,9 @@ export function buildEditPrompt(
   const planContext = planContent
     ? `\n\nApproved plan:\n${planContent}\n\nFollow this plan when implementing.`
     : "";
-  const recentConversation = conversationHistory
-    .filter((entry) => entry.content.trim())
-    .slice(-6)
-    .map((entry) => {
-      const role = entry.role === "user" ? "User" : "Assistant";
-      return `${role}: ${stripMentionTokens(entry.content).slice(0, 2_000)}`;
-    })
-    .join("\n\n");
-  const conversationContext = recentConversation
-    ? `\n\nRecent Eva conversation (compact handoff; it may overlap provider memory):\n${recentConversation}`
+  const handoff = buildSessionHandoff(conversationHistory);
+  const conversationContext = handoff
+    ? `\n\nPrior instructions from this session (handoff; may overlap provider memory). Earlier instructions still apply unless the user has since changed them — do not undo agreed work:\n${handoff}`
     : "";
   const devPortText =
     devPort !== undefined ? String(devPort) : "its configured dev port";

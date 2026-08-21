@@ -28,6 +28,7 @@ const BASE_OVERVIEW: PrOverview = {
   mergedAt: null,
   mergedByLogin: null,
   mergeCommitSha: null,
+  previews: [],
   labels: [],
   reviews: [],
   reviewEvents: [],

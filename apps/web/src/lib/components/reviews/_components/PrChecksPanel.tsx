@@ -38,7 +38,7 @@ export function PrChecksPanel({
 
   return (
     <div className="h-full overflow-auto">
-      <div className="mx-auto flex max-w-5xl flex-col gap-3 px-4 py-4">
+      <div className="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-4">
         <div className="flex items-center gap-2">
           <ToneIcon tone={checksOverallTone(counts)} size={15} />
           <span className="min-w-0 flex-1 truncate text-sm font-medium">

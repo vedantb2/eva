@@ -146,12 +146,17 @@ export function PrStatusPill({
 }
 
 /**
- * The one structural device on the review surface: a quiet uppercase label naming
- * a region of the document. Regions are separated by this plus whitespace, never
- * by a box — a review reads as one page, not a stack of cards.
+ * The one structural device on the review surface: a quiet label naming a region
+ * of the document. Regions are separated by this plus whitespace, never by a box —
+ * a review reads as one page, not a stack of cards.
+ *
+ * Sentence case, not the tracked-out uppercase this used to be. Five uppercase
+ * headings down a 224px column read as a form to fill in; these are labels on
+ * reference material, and at this size caps also cost the descenders that make
+ * "Assignees" and "Reviewers" distinguishable at a glance.
  */
 export const SECTION_LABEL_CLASS =
-  "text-[11px] font-medium uppercase tracking-wider text-muted-foreground";
+  "shrink-0 text-xs font-medium text-muted-foreground";
 
 /** Shared idiom for a quiet, non-blocking notice (truncation, empty states). */
 export const NOTICE_CLASS =

@@ -3,18 +3,10 @@
 import type { ReactNode } from "react";
 import type { Id } from "@eva/backend";
 import { Button, Spinner, cn } from "@eva/ui";
-import {
-  IconGitCommit,
-  IconGitMerge,
-  IconGitPullRequestClosed,
-} from "@tabler/icons-react";
+import { IconGitCommit } from "@tabler/icons-react";
 import { usePrCommits } from "../usePrOverview";
 import { PrCommentBubble } from "./PrCommentBubble";
 import { PrCommitGroup } from "./PrCommitGroup";
-import {
-  PrLifecycleEventCard,
-  type PrLifecycleStatus,
-} from "./PrLifecycleEventCard";
 import { PrReviewEventItem } from "./PrReviewEventItem";
 import {
   NOTICE_CLASS,
@@ -28,8 +20,10 @@ import { buildPrTimeline } from "./prTimelineItems";
  * vertical rail and the 32px gutter are owned here, so comments, review verdicts,
  * and commits all line up however they are composed.
  *
- * The description is not a row on this rail — it sits above the timeline in its
- * own collapsible section, so a long agent-written one cannot bury the replies.
+ * Neither the description nor the merge event is a row on this rail: both sit
+ * above it (see `ReviewOverviewPanel`), because a long agent-written description
+ * would bury the replies and the merge lands chronologically last when it is the
+ * first thing a reader wants to know.
  */
 export function PrTimeline({
   repoId,
@@ -54,13 +48,6 @@ export function PrTimeline({
     (allCommits.commits !== undefined &&
       (allCommits.truncated || hiddenCommits > 0));
 
-  // Null for an open pull request: nothing has happened to it yet, and a row
-  // saying so is the one row on the rail that carries no news.
-  const lifecycle: PrLifecycleStatus | null =
-    overview.status === "merged" || overview.status === "closed"
-      ? overview.status
-      : null;
-
   return (
     <div className="relative min-w-0 space-y-3">
       <span
@@ -71,23 +58,6 @@ export function PrTimeline({
       />
 
       <ol className="relative flex min-w-0 flex-col gap-4">
-        {/* Out of chronological order on purpose — see PrLifecycleEventCard. */}
-        {lifecycle === null ? null : (
-          <TimelineRow
-            gutter={
-              <TimelineGlyph>
-                {lifecycle === "merged" ? (
-                  <IconGitMerge size={13} aria-hidden />
-                ) : (
-                  <IconGitPullRequestClosed size={13} aria-hidden />
-                )}
-              </TimelineGlyph>
-            }
-          >
-            <PrLifecycleEventCard status={lifecycle} overview={overview} />
-          </TimelineRow>
-        )}
-
         {items.map((item) => {
           if (item.kind === "commits") {
             return (

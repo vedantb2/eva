@@ -12,6 +12,12 @@ import { getActionRepoWithAccess } from "../functions";
 const MAX_ISSUE_COMMENTS = 100;
 const MAX_REVIEW_COMMENTS = 100;
 const MAX_CHECKS = 40;
+/**
+ * Deployments of one commit. A repo with several apps deploys each of them, and
+ * each costs a second request for its latest status, so this is a ceiling on
+ * fan-out rather than on what is interesting.
+ */
+const MAX_PREVIEWS = 4;
 const MAX_COMMITS = 30;
 /** GitHub itself serves at most 250 commits per pull request. */
 const MAX_ALL_COMMITS = 250;
@@ -97,6 +103,20 @@ const pullRequestLabelValidator = v.object({
   color: v.string(),
 });
 
+/**
+ * A deployment of the head commit — a preview environment, in practice. GitHub
+ * models the address as a *status* on a deployment rather than on the deployment
+ * itself, so `url` is null until the provider has reported one.
+ */
+const pullRequestPreviewValidator = v.object({
+  /** GitHub's environment name, e.g. "Preview" or "preview-eva". */
+  environment: v.string(),
+  url: v.union(v.string(), v.null()),
+  /** success | pending | in_progress | failure | error | inactive | queued */
+  state: v.string(),
+  updatedAt: v.string(),
+});
+
 const pullRequestOverviewValidator = v.object({
   number: v.number(),
   title: v.string(),
@@ -135,6 +155,8 @@ const pullRequestOverviewValidator = v.object({
   assignees: v.array(pullRequestActorValidator),
   checks: v.array(pullRequestCheckValidator),
   checksTruncated: v.boolean(),
+  /** Deployments of the head commit, newest first. Empty where nothing deploys. */
+  previews: v.array(pullRequestPreviewValidator),
   comments: v.array(pullRequestCommentValidator),
   commentsTruncated: v.boolean(),
 });
@@ -191,6 +213,13 @@ type PullRequestLabel = {
   color: string;
 };
 
+type PullRequestPreview = {
+  environment: string;
+  url: string | null;
+  state: string;
+  updatedAt: string;
+};
+
 type PullRequestOverview = {
   number: number;
   title: string;
@@ -224,6 +253,7 @@ type PullRequestOverview = {
   assignees: PullRequestActor[];
   checks: PullRequestCheck[];
   checksTruncated: boolean;
+  previews: PullRequestPreview[];
   comments: PullRequestComment[];
   commentsTruncated: boolean;
 };
@@ -314,6 +344,7 @@ export const fetchPullRequestOverview = internalAction({
       commitRes,
       checksRes,
       statusRes,
+      deploymentRes,
     ] = await Promise.all([
       prPromise.then((res) => res.data),
       octokit.rest.issues.listComments({
@@ -364,7 +395,42 @@ export const fetchPullRequestOverview = internalAction({
           }),
         )
         .catch(() => ({ data: { statuses: [] } })),
+      prPromise
+        .then((res) =>
+          octokit.rest.repos.listDeployments({
+            owner: repo.owner,
+            repo: repo.name,
+            sha: res.data.head.sha,
+            per_page: MAX_PREVIEWS,
+          }),
+        )
+        .catch(() => ({ data: [] })),
     ]);
+
+    // The address lives on the deployment's latest *status*, not the deployment,
+    // so each one costs a second request. Failures are swallowed per deployment:
+    // a preview nobody can reach is worth less than the rest of the overview.
+    const previews: PullRequestPreview[] = (
+      await Promise.all(
+        deploymentRes.data.slice(0, MAX_PREVIEWS).map(async (deployment) => {
+          const statuses = await octokit.rest.repos
+            .listDeploymentStatuses({
+              owner: repo.owner,
+              repo: repo.name,
+              deployment_id: deployment.id,
+              per_page: 1,
+            })
+            .catch(() => ({ data: [] }));
+          const latest = statuses.data[0];
+          return {
+            environment: deployment.environment,
+            url: latest?.environment_url ?? null,
+            state: latest?.state ?? "queued",
+            updatedAt: latest?.created_at ?? deployment.updated_at,
+          };
+        }),
+      )
+    ).filter((preview) => preview.state !== "inactive");
 
     const checkRuns: PullRequestCheck[] = checksRes.data.check_runs
       .slice(0, MAX_CHECKS)
@@ -495,6 +561,7 @@ export const fetchPullRequestOverview = internalAction({
       })),
       checks: [...checkRuns, ...statusChecks],
       checksTruncated: checksRes.data.total_count > MAX_CHECKS,
+      previews,
       comments,
       commentsTruncated:
         issueRes.data.length >= MAX_ISSUE_COMMENTS ||

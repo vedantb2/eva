@@ -6,6 +6,7 @@ import { IconAlertTriangle } from "@tabler/icons-react";
 import type { PrOverviewState } from "./usePrOverview";
 import { PrCommentComposer } from "./_components/PrCommentComposer";
 import { PrDescriptionSection } from "./_components/PrDescriptionSection";
+import { PrLifecycleEventCard } from "./_components/PrLifecycleEventCard";
 import { PrMetaSidebar } from "./_components/PrMetaSidebar";
 import { PrTimeline } from "./_components/PrTimeline";
 
@@ -71,11 +72,25 @@ export function ReviewOverviewPanel({
     <div className="@container h-full overflow-auto">
       {/* Capped for measure, not for the viewport: this holds agent-written
           markdown, and a description set across a 1600px page is unreadable. */}
-      <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-4 [@container(min-width:52rem)]:flex-row [@container(min-width:52rem)]:gap-8">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4 [@container(min-width:52rem)]:flex-row [@container(min-width:52rem)]:gap-8">
         {/* First in the source so the metadata leads when it is a band across
             the top, and ordered back to the right once it is a column. */}
-        <PrMetaSidebar overview={overview} />
+        <PrMetaSidebar
+          overview={overview}
+          refreshing={state.refreshing}
+          onRefresh={reload}
+        />
         <div className="min-w-0 flex-1 space-y-6 [@container(min-width:52rem)]:order-first">
+          {/* First, above even the description: "did this ship?" is the question a
+              reader opens a finished pull request with, and chronologically the
+              merge is the last thing that happened to it. Null while it is open —
+              nothing has happened to it yet. */}
+          {overview.status === "open" ? null : (
+            <PrLifecycleEventCard
+              status={overview.status}
+              overview={overview}
+            />
+          )}
           <PrDescriptionSection repoId={repoId} overview={overview} />
           <PrTimeline repoId={repoId} overview={overview} />
           <PrCommentComposer

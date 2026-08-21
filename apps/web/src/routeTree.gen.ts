@@ -110,10 +110,14 @@ import { Route as RepoOwnerRepoSessionsNumIdReviewDiffsRouteRouteImport } from '
 import { Route as RepoOwnerRepoSessionsNumIdReviewOverviewRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/review/overview'
 import { Route as RepoOwnerRepoSessionsNumIdReviewRecapRouteImport } from './routes/_repo/$owner/$repo/sessions/$numId/review/recap'
 import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewIndexRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/sandbox/review/index'
+import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewChecksRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/sandbox/review/checks'
+import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewCommitsRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/sandbox/review/commits'
 import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs/route'
 import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewOverviewRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/sandbox/review/overview'
 import { Route as RepoOwnerRepoProjectsNumIdSandboxReviewRecapRouteImport } from './routes/_repo/$owner/$repo/projects/$numId/sandbox/review/recap'
 import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/index'
+import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewChecksRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/checks'
+import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewCommitsRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/commits'
 import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs/route'
 import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewOverviewRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/overview'
 import { Route as RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRouteImport } from './routes/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/recap'
@@ -700,6 +704,18 @@ const RepoOwnerRepoProjectsNumIdSandboxReviewIndexRoute =
     path: '/',
     getParentRoute: () => RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute,
   } as any)
+const RepoOwnerRepoProjectsNumIdSandboxReviewChecksRoute =
+  RepoOwnerRepoProjectsNumIdSandboxReviewChecksRouteImport.update({
+    id: '/checks',
+    path: '/checks',
+    getParentRoute: () => RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute,
+  } as any)
+const RepoOwnerRepoProjectsNumIdSandboxReviewCommitsRoute =
+  RepoOwnerRepoProjectsNumIdSandboxReviewCommitsRouteImport.update({
+    id: '/commits',
+    path: '/commits',
+    getParentRoute: () => RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute,
+  } as any)
 const RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRoute =
   RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteImport.update({
     id: '/diffs',
@@ -722,6 +738,18 @@ const RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRoute =
   RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRouteImport.update({
     id: '/',
     path: '/',
+    getParentRoute: () => RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute,
+  } as any)
+const RepoOwnerRepoQuickTasksNumIdSandboxReviewChecksRoute =
+  RepoOwnerRepoQuickTasksNumIdSandboxReviewChecksRouteImport.update({
+    id: '/checks',
+    path: '/checks',
+    getParentRoute: () => RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute,
+  } as any)
+const RepoOwnerRepoQuickTasksNumIdSandboxReviewCommitsRoute =
+  RepoOwnerRepoQuickTasksNumIdSandboxReviewCommitsRouteImport.update({
+    id: '/commits',
+    path: '/commits',
     getParentRoute: () => RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute,
   } as any)
 const RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRoute =
@@ -896,8 +924,12 @@ export interface FileRoutesByFullPath {
   '/$owner/$repo/sessions/$numId/review/': typeof RepoOwnerRepoSessionsNumIdReviewIndexRoute
   '/$owner/$repo/projects/$numId/sandbox/review/diffs': typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteWithChildren
   '/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteWithChildren
+  '/$owner/$repo/projects/$numId/sandbox/review/checks': typeof RepoOwnerRepoProjectsNumIdSandboxReviewChecksRoute
+  '/$owner/$repo/projects/$numId/sandbox/review/commits': typeof RepoOwnerRepoProjectsNumIdSandboxReviewCommitsRoute
   '/$owner/$repo/projects/$numId/sandbox/review/overview': typeof RepoOwnerRepoProjectsNumIdSandboxReviewOverviewRoute
   '/$owner/$repo/projects/$numId/sandbox/review/recap': typeof RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute
+  '/$owner/$repo/quick-tasks/$numId/sandbox/review/checks': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewChecksRoute
+  '/$owner/$repo/quick-tasks/$numId/sandbox/review/commits': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewCommitsRoute
   '/$owner/$repo/quick-tasks/$numId/sandbox/review/overview': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewOverviewRoute
   '/$owner/$repo/quick-tasks/$numId/sandbox/review/recap': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute
   '/$owner/$repo/sessions/$numId/pr/diffs/$diffView': typeof RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute
@@ -988,8 +1020,12 @@ export interface FileRoutesByTo {
   '/$owner/$repo/projects/$numId/$taskNumId': typeof RepoOwnerRepoProjectsNumIdTaskNumIdIndexRoute
   '/$owner/$repo/sessions/$numId/pr': typeof RepoOwnerRepoSessionsNumIdPrIndexRoute
   '/$owner/$repo/sessions/$numId/review': typeof RepoOwnerRepoSessionsNumIdReviewIndexRoute
+  '/$owner/$repo/projects/$numId/sandbox/review/checks': typeof RepoOwnerRepoProjectsNumIdSandboxReviewChecksRoute
+  '/$owner/$repo/projects/$numId/sandbox/review/commits': typeof RepoOwnerRepoProjectsNumIdSandboxReviewCommitsRoute
   '/$owner/$repo/projects/$numId/sandbox/review/overview': typeof RepoOwnerRepoProjectsNumIdSandboxReviewOverviewRoute
   '/$owner/$repo/projects/$numId/sandbox/review/recap': typeof RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute
+  '/$owner/$repo/quick-tasks/$numId/sandbox/review/checks': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewChecksRoute
+  '/$owner/$repo/quick-tasks/$numId/sandbox/review/commits': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewCommitsRoute
   '/$owner/$repo/quick-tasks/$numId/sandbox/review/overview': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewOverviewRoute
   '/$owner/$repo/quick-tasks/$numId/sandbox/review/recap': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute
   '/$owner/$repo/sessions/$numId/pr/diffs/$diffView': typeof RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute
@@ -1107,8 +1143,12 @@ export interface FileRoutesById {
   '/_repo/$owner/$repo/sessions/$numId/review/': typeof RepoOwnerRepoSessionsNumIdReviewIndexRoute
   '/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs': typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteWithChildren
   '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteWithChildren
+  '/_repo/$owner/$repo/projects/$numId/sandbox/review/checks': typeof RepoOwnerRepoProjectsNumIdSandboxReviewChecksRoute
+  '/_repo/$owner/$repo/projects/$numId/sandbox/review/commits': typeof RepoOwnerRepoProjectsNumIdSandboxReviewCommitsRoute
   '/_repo/$owner/$repo/projects/$numId/sandbox/review/overview': typeof RepoOwnerRepoProjectsNumIdSandboxReviewOverviewRoute
   '/_repo/$owner/$repo/projects/$numId/sandbox/review/recap': typeof RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute
+  '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/checks': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewChecksRoute
+  '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/commits': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewCommitsRoute
   '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/overview': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewOverviewRoute
   '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/recap': typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute
   '/_repo/$owner/$repo/sessions/$numId/pr/diffs/$diffView': typeof RepoOwnerRepoSessionsNumIdPrDiffsDiffViewRoute
@@ -1225,8 +1265,12 @@ export interface FileRouteTypes {
     | '/$owner/$repo/sessions/$numId/review/'
     | '/$owner/$repo/projects/$numId/sandbox/review/diffs'
     | '/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs'
+    | '/$owner/$repo/projects/$numId/sandbox/review/checks'
+    | '/$owner/$repo/projects/$numId/sandbox/review/commits'
     | '/$owner/$repo/projects/$numId/sandbox/review/overview'
     | '/$owner/$repo/projects/$numId/sandbox/review/recap'
+    | '/$owner/$repo/quick-tasks/$numId/sandbox/review/checks'
+    | '/$owner/$repo/quick-tasks/$numId/sandbox/review/commits'
     | '/$owner/$repo/quick-tasks/$numId/sandbox/review/overview'
     | '/$owner/$repo/quick-tasks/$numId/sandbox/review/recap'
     | '/$owner/$repo/sessions/$numId/pr/diffs/$diffView'
@@ -1317,8 +1361,12 @@ export interface FileRouteTypes {
     | '/$owner/$repo/projects/$numId/$taskNumId'
     | '/$owner/$repo/sessions/$numId/pr'
     | '/$owner/$repo/sessions/$numId/review'
+    | '/$owner/$repo/projects/$numId/sandbox/review/checks'
+    | '/$owner/$repo/projects/$numId/sandbox/review/commits'
     | '/$owner/$repo/projects/$numId/sandbox/review/overview'
     | '/$owner/$repo/projects/$numId/sandbox/review/recap'
+    | '/$owner/$repo/quick-tasks/$numId/sandbox/review/checks'
+    | '/$owner/$repo/quick-tasks/$numId/sandbox/review/commits'
     | '/$owner/$repo/quick-tasks/$numId/sandbox/review/overview'
     | '/$owner/$repo/quick-tasks/$numId/sandbox/review/recap'
     | '/$owner/$repo/sessions/$numId/pr/diffs/$diffView'
@@ -1435,8 +1483,12 @@ export interface FileRouteTypes {
     | '/_repo/$owner/$repo/sessions/$numId/review/'
     | '/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs'
     | '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs'
+    | '/_repo/$owner/$repo/projects/$numId/sandbox/review/checks'
+    | '/_repo/$owner/$repo/projects/$numId/sandbox/review/commits'
     | '/_repo/$owner/$repo/projects/$numId/sandbox/review/overview'
     | '/_repo/$owner/$repo/projects/$numId/sandbox/review/recap'
+    | '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/checks'
+    | '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/commits'
     | '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/overview'
     | '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/recap'
     | '/_repo/$owner/$repo/sessions/$numId/pr/diffs/$diffView'
@@ -2169,6 +2221,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewIndexRouteImport
       parentRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute
     }
+    '/_repo/$owner/$repo/projects/$numId/sandbox/review/checks': {
+      id: '/_repo/$owner/$repo/projects/$numId/sandbox/review/checks'
+      path: '/checks'
+      fullPath: '/$owner/$repo/projects/$numId/sandbox/review/checks'
+      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewChecksRouteImport
+      parentRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute
+    }
+    '/_repo/$owner/$repo/projects/$numId/sandbox/review/commits': {
+      id: '/_repo/$owner/$repo/projects/$numId/sandbox/review/commits'
+      path: '/commits'
+      fullPath: '/$owner/$repo/projects/$numId/sandbox/review/commits'
+      preLoaderRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewCommitsRouteImport
+      parentRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRouteRoute
+    }
     '/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs': {
       id: '/_repo/$owner/$repo/projects/$numId/sandbox/review/diffs'
       path: '/diffs'
@@ -2195,6 +2261,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/$owner/$repo/quick-tasks/$numId/sandbox/review/'
       preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRouteImport
+      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute
+    }
+    '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/checks': {
+      id: '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/checks'
+      path: '/checks'
+      fullPath: '/$owner/$repo/quick-tasks/$numId/sandbox/review/checks'
+      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewChecksRouteImport
+      parentRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute
+    }
+    '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/commits': {
+      id: '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/commits'
+      path: '/commits'
+      fullPath: '/$owner/$repo/quick-tasks/$numId/sandbox/review/commits'
+      preLoaderRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewCommitsRouteImport
       parentRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRoute
     }
     '/_repo/$owner/$repo/quick-tasks/$numId/sandbox/review/diffs': {
@@ -2408,6 +2488,8 @@ const RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteWithChildren =
 
 interface RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteChildren {
   RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteWithChildren
+  RepoOwnerRepoQuickTasksNumIdSandboxReviewChecksRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewChecksRoute
+  RepoOwnerRepoQuickTasksNumIdSandboxReviewCommitsRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewCommitsRoute
   RepoOwnerRepoQuickTasksNumIdSandboxReviewOverviewRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewOverviewRoute
   RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute
   RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRoute: typeof RepoOwnerRepoQuickTasksNumIdSandboxReviewIndexRoute
@@ -2417,6 +2499,10 @@ const RepoOwnerRepoQuickTasksNumIdSandboxReviewRouteRouteChildren: RepoOwnerRepo
   {
     RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRoute:
       RepoOwnerRepoQuickTasksNumIdSandboxReviewDiffsRouteRouteWithChildren,
+    RepoOwnerRepoQuickTasksNumIdSandboxReviewChecksRoute:
+      RepoOwnerRepoQuickTasksNumIdSandboxReviewChecksRoute,
+    RepoOwnerRepoQuickTasksNumIdSandboxReviewCommitsRoute:
+      RepoOwnerRepoQuickTasksNumIdSandboxReviewCommitsRoute,
     RepoOwnerRepoQuickTasksNumIdSandboxReviewOverviewRoute:
       RepoOwnerRepoQuickTasksNumIdSandboxReviewOverviewRoute,
     RepoOwnerRepoQuickTasksNumIdSandboxReviewRecapRoute:
@@ -2741,6 +2827,8 @@ const RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteWithChildren =
 
 interface RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteChildren {
   RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteWithChildren
+  RepoOwnerRepoProjectsNumIdSandboxReviewChecksRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewChecksRoute
+  RepoOwnerRepoProjectsNumIdSandboxReviewCommitsRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewCommitsRoute
   RepoOwnerRepoProjectsNumIdSandboxReviewOverviewRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewOverviewRoute
   RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute
   RepoOwnerRepoProjectsNumIdSandboxReviewIndexRoute: typeof RepoOwnerRepoProjectsNumIdSandboxReviewIndexRoute
@@ -2750,6 +2838,10 @@ const RepoOwnerRepoProjectsNumIdSandboxReviewRouteRouteChildren: RepoOwnerRepoPr
   {
     RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRoute:
       RepoOwnerRepoProjectsNumIdSandboxReviewDiffsRouteRouteWithChildren,
+    RepoOwnerRepoProjectsNumIdSandboxReviewChecksRoute:
+      RepoOwnerRepoProjectsNumIdSandboxReviewChecksRoute,
+    RepoOwnerRepoProjectsNumIdSandboxReviewCommitsRoute:
+      RepoOwnerRepoProjectsNumIdSandboxReviewCommitsRoute,
     RepoOwnerRepoProjectsNumIdSandboxReviewOverviewRoute:
       RepoOwnerRepoProjectsNumIdSandboxReviewOverviewRoute,
     RepoOwnerRepoProjectsNumIdSandboxReviewRecapRoute:

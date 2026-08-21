@@ -55,20 +55,6 @@ export function checksHeadline(counts: CheckCounts): string {
 }
 
 /**
- * The tab row's pill, which has room for one number. "1 of 17 failing" answers
- * "is CI broken and how badly" in a glance, where the headline's full breakdown
- * would be truncated to uselessness at this width.
- */
-export function checksPillLabel(counts: CheckCounts): string | null {
-  if (counts.total === 0) return null;
-  if (counts.failure > 0) return `${counts.failure} of ${counts.total} failing`;
-  if (counts.pending > 0) return `${counts.pending} of ${counts.total} running`;
-  if (counts.success === 0) return `${counts.total} skipped`;
-  if (counts.success === counts.total) return "All checks passed";
-  return `${counts.success} of ${counts.total} passed`;
-}
-
-/**
  * Work eva can do about a blocker itself. Conflicts and a stale branch are both
  * ordinary agent tasks on the head branch, so the header offers a session rather
  * than leaving the reader at a dead end with GitHub's verdict.

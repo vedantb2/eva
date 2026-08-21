@@ -2,13 +2,7 @@
 
 import type { ReactNode } from "react";
 import { Button, Spinner, cn } from "@eva/ui";
-import {
-  IconArrowNarrowLeft,
-  IconFiles,
-  IconRefresh,
-} from "@tabler/icons-react";
-import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
-import { DiffCountBar } from "@/lib/components/sandbox/DiffFileBadges";
+import { IconArrowNarrowLeft, IconRefresh } from "@tabler/icons-react";
 import { headerBlocker } from "./prMergeState";
 import { PrRemedyButton } from "./PrRemedyButton";
 import {
@@ -35,9 +29,8 @@ const BLOCKER_TONE_CLASS: Record<StatusTone, string> = {
  *
  * Two rows, plus a third only when something blocks. The title row opens with the
  * lifecycle pill, so the first thing read is what state this pull request is in;
- * everything the reader needs next — author, branches, size, freshness — is one
- * line, with the totals and "Updated" on a right rail that wraps as one unit when
- * the pane is too narrow to hold the line.
+ * the line under it is whose branch this is and where it is going. Size and
+ * freshness live on the tab row (`PrTabRail`), which is on screen for every tab.
  *
  * Colour is spent on the status pill and, when it appears, the blocker line. The
  * rest is neutral, so those two are what the eye lands on.
@@ -50,17 +43,21 @@ export function ReviewHeader({
   refreshing,
   onRefresh,
   title,
+  breadcrumb,
 }: {
   overview: PrOverview;
   refreshing: boolean;
   onRefresh?: () => void;
   /** The surface's own block above this one — the standalone page's PR title. */
   title?: ReactNode;
+  /** Repository breadcrumb, above the title row. Standalone page only. */
+  breadcrumb?: ReactNode;
 }) {
   const blocker = headerBlocker(overview);
 
   return (
     <div className="shrink-0 space-y-2 px-4 pt-3">
+      {breadcrumb}
       {title === undefined ? null : (
         // The pill leads the title rather than trailing the author line, so the
         // state of the pull request is read before its name. `mt-0.5` optically
@@ -99,8 +96,8 @@ export function ReviewHeader({
 
         {/* Target on the left, as the arrow reads: this branch goes into that
             one. `flex-auto` and not `flex-1`: the line breaks on content widths,
-            so the right rail wraps as a unit instead of the branches shrinking to
-            nothing to keep everything on one line. */}
+            so a trailing control wraps as a unit instead of the branches
+            shrinking to nothing to keep everything on one line. */}
         <span className="flex min-w-0 flex-auto items-center gap-1.5">
           {/* Base refs are short and always worth reading in full; head refs are
               generated (`eva/task-m57569wftd7p63r0mrc53…`), so the head is the
@@ -114,44 +111,25 @@ export function ReviewHeader({
           <BranchChip name={overview.headRef} />
         </span>
 
-        {/* The right rail: files and the diffstat, and not the commit count — the
-            timeline groups and counts commits already, and file count is the
-            number that says how long this will take to read. Freshness ends the
-            rail, where a reader checking whether they are looking at stale data
-            looks. */}
-        <span className="ml-auto flex shrink-0 items-center gap-3">
-          <span className="flex items-center gap-1">
-            <IconFiles size={13} aria-hidden />
-            <span className="tabular-nums">{overview.changedFiles}</span>
-            {overview.changedFiles === 1 ? "file" : "files"}
-          </span>
-          <DiffCountBar
-            additions={overview.additions}
-            deletions={overview.deletions}
-          />
-          <span className="whitespace-nowrap">
-            {"Updated "}
-            <RelativeDateTime at={new Date(overview.updatedAt).getTime()} />
-            {" ago"}
-          </span>
-
-          {onRefresh === undefined ? null : (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={onRefresh}
-              disabled={refreshing}
-              aria-label="Refresh"
-              className="-my-1 size-7 shrink-0 p-0 text-muted-foreground"
-            >
-              {refreshing ? (
-                <Spinner size="sm" />
-              ) : (
-                <IconRefresh size={14} aria-hidden />
-              )}
-            </Button>
-          )}
-        </span>
+        {/* Freshness and the diffstat used to end this line. They sit on the tab
+            row now (`PrTabRail`), which has an empty right half on every surface
+            and keeps this line to one fact: whose branch this is. */}
+        {onRefresh === undefined ? null : (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onRefresh}
+            disabled={refreshing}
+            aria-label="Refresh"
+            className="-my-1 ml-auto size-7 shrink-0 p-0 text-muted-foreground"
+          >
+            {refreshing ? (
+              <Spinner size="sm" />
+            ) : (
+              <IconRefresh size={14} aria-hidden />
+            )}
+          </Button>
+        )}
       </div>
 
       {blocker === null ? null : (

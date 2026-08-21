@@ -13,6 +13,7 @@ import { prErrorMessage, prHeaderQuery } from "@/lib/prReviewQueries";
 import { REVIEW_DEFAULT_TAB, isReviewTab } from "@/lib/search-params";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { ReviewTabsPanel } from "./ReviewTabsPanel";
+import { PrBreadcrumb } from "./_components/PrBreadcrumb";
 import { usePrRefresh } from "./usePrOverview";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 
@@ -144,6 +145,9 @@ export function ReviewDetailClient({
         activeTab={tab}
         onTabChange={goToTab}
         header={header}
+        breadcrumb={
+          <PrBreadcrumb basePath={basePath} owner={owner} name={name} />
+        }
         headerOwnsRefresh
       />
     </PendingReviewCommentsProvider>

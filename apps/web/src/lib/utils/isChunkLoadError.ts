@@ -6,6 +6,8 @@ export function isChunkLoadError(error: unknown): boolean {
     error.name === "ChunkLoadError" ||
     msg.includes("Failed to fetch dynamically imported module") ||
     msg.includes("Importing a module script failed") ||
+    msg.includes("Failed to load module script") ||
+    msg.includes("disallowed MIME type") ||
     msg.includes("Loading chunk") ||
     msg.includes("Loading CSS chunk")
   );

@@ -127,8 +127,19 @@ export function ReviewTabsPanel({
             size={tabSize}
             className="tabs-line h-auto gap-0.5 shadow-none"
           >
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="diffs">Diffs</TabsTrigger>
+            <TabsTrigger value="overview">
+              Overview
+              <TabCount
+                value={overview === null ? null : overview.comments.length}
+                approximate={overview !== null && overview.commentsTruncated}
+              />
+            </TabsTrigger>
+            <TabsTrigger value="diffs">
+              Diffs
+              <TabCount
+                value={overview === null ? null : overview.changedFiles}
+              />
+            </TabsTrigger>
             <TabsTrigger value="recap">Recap</TabsTrigger>
           </TabsList>
         </TabsBar>
@@ -157,6 +168,33 @@ export function ReviewTabsPanel({
         </ReviewTabContent>
       </Tabs>
     </WorkerPoolContextProvider>
+  );
+}
+
+/**
+ * The size of what a tab holds, said on the tab itself: how much conversation
+ * there is to read, how many files changed. Both numbers come off the overview
+ * the header above already reads, so the labels cost no extra request.
+ *
+ * Rendered only once that payload lands, and never at zero — a reserved slot
+ * that fills a beat later moves the whole row, and a tab reading "0" spends a
+ * number saying what the empty panel says anyway.
+ */
+function TabCount({
+  value,
+  approximate = false,
+}: {
+  /** Null while the overview is still loading. */
+  value: number | null;
+  /** True where the payload was capped, so the count is a floor, not a total. */
+  approximate?: boolean;
+}) {
+  if (value === null || value === 0) return null;
+  return (
+    <span className="ml-1.5 text-xs font-normal text-muted-foreground tabular-nums">
+      {value}
+      {approximate ? "+" : ""}
+    </span>
   );
 }
 

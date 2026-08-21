@@ -19,7 +19,6 @@ import {
   IconBrandVercel,
   IconHammer,
   IconPlayerPlay,
-  IconTerminal2,
   IconLoader2,
   IconChevronDown,
   IconCalendarClock,
@@ -30,6 +29,10 @@ import {
 import dayjs from "@eva/shared/dates";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { SleepEvaButton } from "@/lib/components/sandbox/SleepEvaButton";
+import {
+  SandboxSurfaceTabs,
+  type SandboxSurface,
+} from "@/lib/components/sandbox/SandboxSurfaceTabs";
 import type { TaskStatus } from "../TaskStatusBadge";
 import { SchedulePopover } from "../SchedulePopover";
 
@@ -58,7 +61,7 @@ interface TaskFooterProps {
   canCreatePr: boolean;
   isCreatingPr: boolean;
   onCreatePr: () => void;
-  onViewSandbox: () => void;
+  onSurfaceChange: (surface: SandboxSurface) => void;
   onStopSandbox: () => void;
   isSandboxViewActive?: boolean;
   onRunStartupCommands: () => void;
@@ -90,7 +93,7 @@ export function TaskFooter({
   canCreatePr,
   isCreatingPr,
   onCreatePr,
-  onViewSandbox,
+  onSurfaceChange,
   onStopSandbox,
   isSandboxViewActive = false,
   onRunStartupCommands,
@@ -310,37 +313,14 @@ export function TaskFooter({
             />
           ) : null}
           {showViewSandbox && (
-            <Button
-              variant="secondary"
-              size={buttonSize}
-              onClick={onViewSandbox}
-              disabled={isSandboxStopping}
-              className={
-                isSandboxViewActive || isSandboxActive
-                  ? "border-success/35 bg-success/10 text-success hover:border-success/50 hover:bg-success/15 hover:text-success"
-                  : undefined
-              }
-            >
-              {(isSandboxStarting && !isSandboxActive) || isSandboxStopping ? (
-                <IconLoader2 size={iconSize} className="animate-spin" />
-              ) : (
-                <IconTerminal2 size={iconSize} />
-              )}
-              {isSandboxActive && !isSandboxViewActive && (
-                <span className="h-1.5 w-1.5 rounded-full bg-success" />
-              )}
-              <span className="hidden sm:inline">
-                {isSandboxStopping
-                  ? "Stopping..."
-                  : isSandboxStarting && !isSandboxActive
-                    ? "Starting..."
-                    : isSandboxViewActive
-                      ? "Back to Details"
-                      : isSandboxActive
-                        ? "View Sandbox · Active"
-                        : "View Sandbox"}
-              </span>
-            </Button>
+            <SandboxSurfaceTabs
+              mainLabel="Task"
+              surface={isSandboxViewActive ? "sandbox" : "main"}
+              isSandboxActive={isSandboxActive}
+              isSandboxStarting={isSandboxStarting}
+              isSandboxStopping={isSandboxStopping}
+              onSurfaceChange={onSurfaceChange}
+            />
           )}
         </div>
       </div>

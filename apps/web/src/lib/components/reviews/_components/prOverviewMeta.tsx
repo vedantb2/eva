@@ -7,11 +7,13 @@ import {
   IconCircleCheck,
   IconCircleX,
   IconGitMerge,
+  IconGitPullRequest,
   IconGitPullRequestClosed,
   IconGitPullRequestDraft,
   IconLoader2,
   IconMessageCircle,
   IconMinus,
+  type Icon as TablerIcon,
 } from "@tabler/icons-react";
 
 /**
@@ -76,61 +78,68 @@ export function ToneIcon({
 }
 
 /**
- * The lifecycle, when it is worth stating. Null for a plain open pull request:
- * that is the case nine times in ten, so a pill saying so is a label that carries
- * almost nothing while taking the first position on the header. Draft, merged, and
- * closed are news, and only they get the pixels.
+ * The lifecycle, always stated. Open used to render nothing on the grounds that it
+ * is the common case, but the pill sits immediately left of the title now: a slot
+ * that is empty nine times in ten reads as a missing thing rather than a saved
+ * one, and the title shifted left or right depending on the PR it belonged to.
+ * One pill, four states, same position.
  */
 export function statusMeta(
   status: PrOverview["status"],
   draft: boolean,
-): { label: string; className: string } | null {
+): { label: string; className: string; icon: TablerIcon } {
   if (status === "merged") {
     return {
       label: "Merged",
       className: "bg-violet-500/10 text-violet-700 dark:text-violet-300",
+      icon: IconGitMerge,
     };
   }
   if (status === "closed") {
     return {
       label: "Closed",
       className: "bg-destructive/10 text-destructive",
+      icon: IconGitPullRequestClosed,
     };
   }
   if (draft) {
-    return { label: "Draft", className: "bg-muted text-muted-foreground" };
+    return {
+      label: "Draft",
+      className: "bg-muted/60 text-muted-foreground",
+      icon: IconGitPullRequestDraft,
+    };
   }
-  return null;
+  return {
+    label: "Open",
+    className: "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300",
+    icon: IconGitPullRequest,
+  };
 }
 
 /**
  * The lifecycle pill itself. Rendered from `statusMeta` rather than beside it, so
- * a surface cannot pair one status's wording with another's colour — and so the
- * "open needs no pill" rule is decided once rather than at each call site.
+ * a surface cannot pair one status's wording with another's colour, icon, or tone.
  */
 export function PrStatusPill({
   status,
   draft,
+  className,
 }: {
   status: PrOverview["status"];
   draft: boolean;
+  className?: string;
 }) {
   const meta = statusMeta(status, draft);
-  if (meta === null) return null;
+  const Icon = meta.icon;
   return (
     <span
       className={cn(
         "inline-flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium",
         meta.className,
+        className,
       )}
     >
-      {status === "merged" ? (
-        <IconGitMerge size={12} aria-hidden />
-      ) : status === "closed" ? (
-        <IconGitPullRequestClosed size={12} aria-hidden />
-      ) : (
-        <IconGitPullRequestDraft size={12} aria-hidden />
-      )}
+      <Icon size={12} aria-hidden />
       {meta.label}
     </span>
   );

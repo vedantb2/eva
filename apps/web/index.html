@@ -147,6 +147,33 @@
         } catch (e) {}
       })();
     </script>
+    <script>
+      (function () {
+        // Stale HTML after a deploy requests hashed /assets/* that 404.
+        // The entry module never runs, so this listener (not main.tsx) reloads.
+        // Key must match STALE_DEPLOY_RELOAD_KEY in staleDeployReload.ts.
+        var KEY = "deployment-reload-ts";
+        var COOLDOWN_MS = 10000;
+        window.addEventListener(
+          "error",
+          function (event) {
+            var t = event.target;
+            if (!t || (t.tagName !== "SCRIPT" && t.tagName !== "LINK")) return;
+            var url = t.src || t.href || "";
+            if (url.indexOf("/assets/") === -1) return;
+            if (t.tagName === "SCRIPT" && t.type !== "module") return;
+            if (t.tagName === "LINK" && t.rel !== "modulepreload") return;
+            try {
+              var last = sessionStorage.getItem(KEY);
+              if (last && Date.now() - Number(last) < COOLDOWN_MS) return;
+              sessionStorage.setItem(KEY, String(Date.now()));
+            } catch (e) {}
+            location.reload();
+          },
+          true,
+        );
+      })();
+    </script>
   </head>
   <body class="font-sans text-foreground">
     <div id="root"></div>

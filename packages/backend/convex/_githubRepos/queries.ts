@@ -131,7 +131,10 @@ export const countActiveSessions = authQuery({
           (s) =>
             s.archived !== true &&
             s.prState !== "merged" &&
-            s.prState !== "closed",
+            s.prState !== "closed" &&
+            // The orchestrator is always active, so counting it made the rail
+            // badge read "1" with no actual work in flight.
+            s.isOrchestrator !== true,
         ).length;
       }),
     );

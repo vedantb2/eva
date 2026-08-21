@@ -97,15 +97,32 @@ export function sessionActivityAt(session: {
   return session.updatedAt ?? session._creationTime;
 }
 
+/**
+ * Orders a repo's sessions for any sidebar list, and drops the orchestrator.
+ *
+ * The orchestrator is one persistent session per user reached from its own rail
+ * entry, not a piece of work in a repo — listed here it sat at the top of every
+ * list forever. Excluded at this single choke point because every sidebar
+ * surface (global list, chrome tabs, session switcher) sorts through it;
+ * filtering in `sessions:list` instead would add a post-read filter to a query
+ * whose I/O discipline is pinned by `convexHotPathIoContract`.
+ */
 export function sortSessionsForSidebar<
-  T extends { updatedAt?: number; _creationTime: number },
+  T extends {
+    updatedAt?: number;
+    _creationTime: number;
+    isOrchestrator?: boolean;
+  },
 >(sessions: T[], order: SessionSortOrder): T[] {
+  const listed = sessions.filter(
+    (session) => session.isOrchestrator !== true,
+  );
   if (order === "updated_at") {
-    return sessions.toSorted(
+    return listed.toSorted(
       (a, b) => sessionActivityAt(b) - sessionActivityAt(a),
     );
   }
-  return sessions.toSorted((a, b) => b._creationTime - a._creationTime);
+  return listed.toSorted((a, b) => b._creationTime - a._creationTime);
 }
 
 export function sortAppsForSidebar<

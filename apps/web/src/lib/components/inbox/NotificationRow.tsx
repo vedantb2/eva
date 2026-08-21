@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { Button, cn } from "@eva/ui";
 import { IconCheck } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
@@ -15,7 +16,7 @@ import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
  * Repo logo with the notification type badged onto its corner. Falls back to
  * the plain type icon when the notification is not tied to a repo.
  */
-function NotificationSourceAvatar({
+export function NotificationSourceAvatar({
   notification,
   repo,
 }: {
@@ -54,7 +55,8 @@ function NotificationSourceAvatar({
 interface NotificationRowProps {
   notification: Notification;
   repo: RepoWithLogo | undefined;
-  onOpen: () => void;
+  selected: boolean;
+  onSelect: () => void;
   onMarkRead: () => void;
 }
 
@@ -62,19 +64,34 @@ interface NotificationRowProps {
 export function NotificationRow({
   notification,
   repo,
-  onOpen,
+  selected,
+  onSelect,
   onMarkRead,
 }: NotificationRowProps) {
+  const rowRef = useRef<HTMLDivElement>(null);
   const sourceLabel = repo ? repoDisplayLabel(repo) : undefined;
   const unread = !notification.read;
 
+  // Keyboard stepping (arrow keys in the inbox) must keep the selected row in
+  // view; nearest-block scrolling is a no-op when it is already visible.
+  useEffect(() => {
+    if (selected) rowRef.current?.scrollIntoView({ block: "nearest" });
+  }, [selected]);
+
   return (
-    <div className="group relative flex items-center gap-3 px-4 transition-colors hover:bg-muted/40">
+    <div
+      ref={rowRef}
+      className={cn(
+        "group relative flex items-center gap-3 px-4 transition-colors",
+        selected ? "bg-muted" : "hover:bg-muted/40",
+      )}
+    >
       {/* Matches `ListRow`, which every comparable row in the app is built on
           and which presses at 0.99 — the inbox row was hand-rolled and so never
           picked it up. */}
       <button
-        onClick={onOpen}
+        onClick={onSelect}
+        aria-current={selected ? "true" : undefined}
         className="motion-press flex min-w-0 flex-1 items-center gap-3 py-3 text-left active:scale-[0.99] focus-visible:outline-hidden"
       >
         {/* Fixed-width dot slot so read and unread rows stay aligned. */}

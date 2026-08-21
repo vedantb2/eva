@@ -17,6 +17,64 @@ const tailwindConfig = stripComments(
 );
 
 /**
+ * The same property-name trap as the utilities below, in its other shape.
+ *
+ * An arbitrary `transition-[a,b]` emits exactly the properties it names, so
+ * `transition-[transform,background-color]` on an element whose press is
+ * `active:scale-[0.96]` transitions nothing: Tailwind sets the individual
+ * `scale` property and the list only claimed `transform`. Thirteen call sites
+ * had it — the card kebab on seven card surfaces, both split Run buttons, the
+ * preview pane tabs, the kanban card's grab feedback, the sidebar hover nudges,
+ * the team avatars, and the gantt resize handle whose own comment explains it
+ * chose `translate` over `left`/`right` to stay on the compositor and then never
+ * moved. Every one read as tokenised and animated nothing.
+ *
+ * Tailwind's own `transition-transform` is safe — it expands to
+ * `transform, translate, scale, rotate` — so this only bites hand-written lists,
+ * and it bites them silently.
+ */
+describe("arbitrary transition lists name the properties Tailwind sets", () => {
+  const individual = ["scale", "translate", "rotate"] as const;
+
+  /** Every `transition-[…]` in a source file, with the file it came from. */
+  const lists = sourceFiles().flatMap((path) => {
+    const source = stripComments(readFileSync(path, "utf8"));
+    return [...source.matchAll(/transition-\[([^\]]+)\]/g)].map(
+      ({ 1: properties }) => ({
+        file: path.slice(path.indexOf("/src/") + 1),
+        properties,
+      }),
+    );
+  });
+
+  /** Guards the regex above: a typo here would pass the rule vacuously. */
+  it("finds the lists to check", () => {
+    expect(lists.length).toBeGreaterThan(20);
+  });
+
+  /**
+   * `transform` alone is the tell. It is legitimate *next to* an individual
+   * property, because a hand-written `transform:` can be animated at the same
+   * time — the kanban card transitions dnd-kit's inline `transform` and its own
+   * `scale`. So the rule is "name an individual property too", not "never say
+   * transform".
+   */
+  it("no list names `transform` without an individual transform property", () => {
+    const offenders = lists.filter(
+      ({ properties }) =>
+        /\btransform\b/.test(properties) &&
+        !individual.some((property) =>
+          new RegExp(`\\b${property}\\b`).test(properties),
+        ),
+    );
+    expect(
+      offenders,
+      "`transform` does not match the scale/translate/rotate properties Tailwind's utilities set",
+    ).toEqual([]);
+  });
+});
+
+/**
  * Tailwind v4 compiles `scale-[0.98]` to `scale: 0.98` and `translate-x-*` to
  * `translate: …` — the individual transform properties from Transforms Level 2,
  * not a `transform: scale(…)` shorthand. `transition-property` matches property
@@ -93,6 +151,7 @@ describe("motion utilities transition the properties Tailwind actually sets", ()
       );
     },
   );
+
 });
 
 /**

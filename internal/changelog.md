@@ -1,5 +1,17 @@
 # Changelog
 
+## Four regression guards for yesterday's fixes, and one red test that was lying - 2026-08-21
+
+Yesterday's bug fixes shipped mostly untested. Four of them had an invariant worth pinning, so each now has one.
+
+`findFirstRunChatTurnRun` gets a real behaviour suite. The rule used to pick the earliest run of _any_ kind and only then check it for success, so a failed or cancelled first attempt swallowed the slot and the quick task opened with no assistant turn at all; it also had nothing excluding "Make changes" and Resolve Conflicts runs. Five of the eleven cases fail against that old body. To exercise it without fabricating Convex ids, the parameter is now the structural set of fields the rule actually reads and the function is generic over the row, so both call sites still get their own type back — no runtime change.
+
+`claimStaleDeployReload` is the only thing standing between a stale deploy and a page that refreshes forever: three listeners reload on a broken chunk load (the inline one in `index.html`, `vite:preloadError`, and the capture-phase error listener), and one failure can fire several. Both cooldown branches, expiry, an unparseable stamp and unavailable storage are now pinned. Deleting the cooldown check fails two of them.
+
+The base-branch picker and the lightbox controls get contract checks rather than behaviour tests — the hook resets state during render and the lightbox is a `"use client"` module pulling Radix and motion, so neither loads in the node environment. The base-branch one asserts all three create surfaces take their branch from `useBaseBranchState` and that it keys on `repo._id`, not `owner`/`name`: the guard that shipped on 1 Aug keyed on the latter, was reverted three days later, and would not have caught PR #615 merging into `staging` anyway. The lightbox one counts controls inside the swipe surface against `data-lightbox-control` markers, because pointer capture retargets clicks and a control added without the marker renders, hovers, and does nothing.
+
+`projectBuildAvailability` was failing on `main`. The gate is intact — the test matched the string `"Stop Build"`, and the tab-bar refactor added a comment naming that button _above_ the gate, so `indexOf` found the prose. It anchors on the button's `aria-label` now. A suite with a permanently red test is a suite people stop reading.
+
 ## Oxlint 1.79 lints the Rules of React, and 8,862 false positives go away - 2026-08-20
 
 Oxlint 1.77 only had the old nursery `react/react-compiler` rule, which this repo never enabled. 1.79 ships React Compiler's own validation passes as 22 individual rules, aligned with the upstream ESLint presets, so the recommended set lands in Oxlint's `correctness` category — already `error` here. Nine of them fire: `set-state-in-effect` (28), `exhaustive-effect-dependencies` (26), `refs` (14), `static-components` (4), `purity` (2), `capitalized-calls` (2), and one each of `no-deriving-state-in-effects`, `memo-dependencies` and `hooks`.

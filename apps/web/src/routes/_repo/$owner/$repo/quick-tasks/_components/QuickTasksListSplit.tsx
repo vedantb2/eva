@@ -10,7 +10,7 @@ import { QuickTaskSplitDetailPane } from "./QuickTaskSplitDetailPane";
 import { QuickTaskSplitDetailHeader } from "./QuickTaskSplitDetailHeader";
 import { QuickTaskHeaderActionsSlotProvider } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
-import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
+import type { EntityResolveStatus } from "@/lib/numId";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { useDetailPaneSignals } from "@/lib/hooks/useDetailPaneSignals";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";

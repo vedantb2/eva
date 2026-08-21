@@ -5,7 +5,12 @@ import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { motionBase, Skeleton } from "@eva/ui";
 import { useShortcut } from "@/lib/hotkeys/useShortcut";
-import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
+import {
+  Navigate,
+  useNavigate,
+  useParams,
+  useSearch,
+} from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
@@ -280,6 +285,12 @@ export function QuickTasksClient() {
     // clearDraftParam is defined inline each render — only run when these values change.
     // eslint-disable-next-line react/exhaustive-deps
   }, [drafts, draftParam, initialDraft]);
+
+  // Pre-numId link (old notification href, PR body): swap the Convex id in the
+  // path for the task's numId before rendering anything else.
+  if (taskResolve.redirectTo !== null) {
+    return <Navigate to={taskResolve.redirectTo} search={true} replace />;
+  }
 
   if (tasks === undefined) {
     return (

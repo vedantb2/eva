@@ -6,7 +6,8 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { parseRouteNumId } from "@/lib/numId";
+import { useDocByNumId } from "@/lib/useResolveByNumId";
+import { EntityNumIdGate } from "@/lib/components/EntityNumIdGate";
 import type { FunctionReturnType } from "convex/server";
 import {
   ActivityTasks,
@@ -22,7 +23,6 @@ import {
   IconGitPullRequest,
   IconTool,
 } from "@tabler/icons-react";
-import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { IssuesList } from "../_components/IssuesList";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
@@ -321,18 +321,30 @@ function CodeTestingContent({
   );
 }
 
+/** Non-null doc shape the detail body works with, once the gate has resolved it. */
+type ArenaDoc = NonNullable<FunctionReturnType<typeof api.docs.getByNumId>>;
+
 function TestingArenaDetailRoute() {
   const { numId } = Route.useParams();
-  const { basePath, repo, repoId } = useRepo();
-  const parsedNumId = parseRouteNumId(numId);
-  const doc = useQuery(
-    api.docs.getByNumId,
-    parsedNumId !== null ? { repoId, numId: parsedNumId } : "skip",
+  const { basePath, repoId } = useRepo();
+  const resolve = useDocByNumId(numId, repoId);
+
+  return (
+    <EntityNumIdGate
+      resolve={resolve}
+      entityLabel="document"
+      backTo={`${basePath}/testing-arena`}
+    >
+      {(doc) => <TestingArenaDetail doc={doc} />}
+    </EntityNumIdGate>
   );
-  const reports = useQuery(
-    api.evaluationReports.listByDoc,
-    doc ? { docId: doc._id } : "skip",
-  );
+}
+
+function TestingArenaDetail({ doc }: { doc: ArenaDoc }) {
+  const { repo } = useRepo();
+  const reports = useQuery(api.evaluationReports.listByDoc, {
+    docId: doc._id,
+  });
   const activeReport = reports?.find(
     (r) => r.status === "running" || r.fixStatus === "fixing",
   );
@@ -347,10 +359,9 @@ function TestingArenaDetailRoute() {
   const hasActiveRun =
     reports?.some((r) => r.status === "pending" || r.status === "running") ??
     false;
-  const hasContent = (doc?.content?.trim().length ?? 0) > 0;
+  const hasContent = (doc.content?.trim().length ?? 0) > 0;
 
   const handleRunTest = async () => {
-    if (!doc) return;
     setIsRunning(true);
     // Resolved before the try: React Compiler bails on the whole file when a
     // conditional expression sits inside a try/catch.
@@ -367,32 +378,6 @@ function TestingArenaDetailRoute() {
     }
     setIsRunning(false);
   };
-
-  if (parsedNumId === null) {
-    return (
-      <EntityNotFound
-        entityLabel="document"
-        backTo={`${basePath}/testing-arena`}
-      />
-    );
-  }
-
-  if (doc === undefined) {
-    return (
-      <div className="h-full flex items-center justify-center">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
-  if (doc === null) {
-    return (
-      <EntityNotFound
-        entityLabel="document"
-        backTo={`${basePath}/testing-arena`}
-      />
-    );
-  }
 
   return (
     <div className="h-full flex flex-col overflow-hidden">

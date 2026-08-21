@@ -7,6 +7,37 @@ export function parseRouteNumId(value: string): number | null {
   return parsed;
 }
 
+export type EntityResolveStatus = "loading" | "not-found" | "ready";
+
+/** Outcome of turning a numId (or legacy Convex id) route param into a document. */
+export type EntityResolveResult<TDoc extends { _id: string }> = {
+  status: EntityResolveStatus;
+  doc: TDoc | null;
+  convexId: TDoc["_id"] | null;
+  numId: number | null;
+  /**
+   * Canonical path when the param holds a legacy Convex id. Status stays
+   * `loading` while this is set — the owning route renders the redirect.
+   */
+  redirectTo: string | null;
+};
+
+/**
+ * Swaps a legacy Convex id segment for its numId, keeping the rest of the path.
+ * Route-shape agnostic, so nested ids (`/projects/:id/:taskId`) each redirect on
+ * their own without either one needing to know the other's route.
+ */
+export function replaceRouteIdSegment(
+  pathname: string,
+  legacyId: string,
+  numId: number,
+): string {
+  return pathname
+    .split("/")
+    .map((segment) => (segment === legacyId ? String(numId) : segment))
+    .join("/");
+}
+
 /** Human label for entity num ids: `#12` or `#12/34` when nested under a project. */
 export function formatEntityNumLabel(options: {
   numId?: number;

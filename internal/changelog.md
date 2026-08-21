@@ -1,5 +1,16 @@
 # Changelog
 
+## Legacy Convex-id URLs redirect to their numId route - 2026-08-21
+
+Detail routes moved to per-repo numIds in July 2026, but links minted before that still carry raw Convex ids: notification `href`s are written at insert time and never rewritten, and `_taskWorkflow/urls.ts` still stamps `/quick-tasks/{taskId}`, `/projects/{projectId}` and `/sessions/{sessionId}` into every PR body Eva opens. All of them hit `parseRouteNumId`, return `null`, and render "This task does not exist".
+
+Every numId route now accepts a Convex id in the same segment and replaces the URL with the canonical numId path. One new query, `legacyIds.resolveNumId`, validates the untrusted segment with `ctx.db.normalizeId` and returns the entity's numId; the document must live on the repo in the URL, since a sibling-repo hit would redirect to a numId that resolves to a *different* document here. `replaceRouteIdSegment` swaps only its own path segment, so `/projects/{id}/{taskId}/activity` converges in two `replace` hops without either resolver knowing the other's route shape.
+
+- `EntityNumIdGate` now takes the whole resolve result and yields the document, so it owns all four states (redirect / loading / not-found / ready) in one place. Docs, automations and Testing Arena dropped their hand-rolled `parseRouteNumId` + `useQuery` + three-branch guards for `useDocByNumId` / `useAutomationByNumId` and the gate; Testing Arena's body split into `TestingArenaDetail({ doc })` so its report queries stop threading a possibly-null doc
+- A pending redirect reports `status: "loading"` with `redirectTo` set, rather than a fourth `EntityResolveStatus` — consumers that only render a spinner (the task pane in projects and the list split) needed no change, and `EntityResolveStatus`/`EntityResolveResult` moved to `lib/numId.ts` to keep the gate from importing the hooks that import it
+- Hidden session shells null their `redirectTo`: the sessions layout keeps three shells mounted, and a background shell firing `Navigate` would hijack the visible session's URL, same rule as `SimpleViewSandboxRedirect`
+- Not covered: the March-2026 `?taskId=` query-param hrefs, and the January hyphen-slug `/{owner}-{repo}/` base path, which never resolves to a repo
+
 ## The review surface adopts the Cursor PR-page layout - 2026-08-21
 
 The review pages and the sandbox Review tab had three tabs (Overview / Diffs / Recap), two unlabelled icon buttons in the header, and the merge control at the foot of an unbounded conversation. A reviewer who had finished reading had to scroll back up past every comment to act on what they had read, and "is CI red" was two clicks and a disclosure inside the merge box.

@@ -249,6 +249,7 @@ import type * as githubRepos from "../githubRepos.js";
 import type * as githubUserAuth from "../githubUserAuth.js";
 import type * as githubWebhook from "../githubWebhook.js";
 import type * as http from "../http.js";
+import type * as legacyIds from "../legacyIds.js";
 import type * as linearActions from "../linearActions.js";
 import type * as logs from "../logs.js";
 import type * as mcp_browserLock from "../mcp/browserLock.js";
@@ -585,6 +586,7 @@ declare const fullApi: ApiFromModules<{
   githubUserAuth: typeof githubUserAuth;
   githubWebhook: typeof githubWebhook;
   http: typeof http;
+  legacyIds: typeof legacyIds;
   linearActions: typeof linearActions;
   logs: typeof logs;
   "mcp/browserLock": typeof mcp_browserLock;

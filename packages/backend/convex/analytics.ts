@@ -70,10 +70,25 @@ export const getImpactStats = authQuery({
     /** done / (done + cancelled), as a percent. */
     shipRate: v.number(),
     tasksCompleted: v.number(),
+    /** Distinct session PRs whose live state is "merged". */
+    prsMerged: v.number(),
+    /** prsMerged / distinct session PRs, as a percent. */
+    mergeRate: v.number(),
+    /**
+     * Median task-created-to-PR latency. Absent when no task in the window
+     * produced a PR from a finished run.
+     */
+    medianTimeToPrMs: v.optional(v.number()),
+    /** Done tasks that needed exactly one run, as a percent of done tasks that ran. */
+    firstTryRate: v.number(),
+    /** Summed wall-clock time of runs that finished in the window. */
+    agentWorkMs: v.number(),
     prevPrsShipped: v.optional(v.number()),
     prevTasksRan: v.optional(v.number()),
     prevTasksCompleted: v.optional(v.number()),
     prevShipRate: v.optional(v.number()),
+    prevPrsMerged: v.optional(v.number()),
+    prevFirstTryRate: v.optional(v.number()),
   }),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
@@ -84,6 +99,11 @@ export const getImpactStats = authQuery({
         sessionsWithPr: 0,
         shipRate: 0,
         tasksCompleted: 0,
+        prsMerged: 0,
+        mergeRate: 0,
+        medianTimeToPrMs: undefined,
+        firstTryRate: 0,
+        agentWorkMs: 0,
       };
     }
     const startTime = args.startTime;
@@ -134,7 +154,10 @@ export const getImpactStats = authQuery({
     // Runs are only consulted for tasks that can appear in either the current
     // or previous window. Skip older tasks' runs — agentRuns carry large logs.
     const tasksNeedingRuns = allTasks.filter((task) => task.status !== "draft");
-    const runsByTaskId = new Map<string, Array<{ prUrl?: string }>>();
+    const runsByTaskId = new Map<
+      string,
+      Array<{ prUrl?: string; startedAt?: number; finishedAt?: number }>
+    >();
     await Promise.all(
       tasksNeedingRuns.map(async (task) => {
         const runs = await ctx.db
@@ -143,14 +166,32 @@ export const getImpactStats = authQuery({
           .collect();
         runsByTaskId.set(
           task._id,
-          runs.map((run) => ({ prUrl: run.prUrl })),
+          runs.map((run) => ({
+            prUrl: run.prUrl,
+            startedAt: run.startedAt,
+            finishedAt: run.finishedAt,
+          })),
         );
       }),
     );
 
+    /** Middle value of `values`, averaging the two middles when even. */
+    function median(values: number[]): number | undefined {
+      if (values.length === 0) return undefined;
+      const sorted = [...values].sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      return sorted.length % 2 === 1
+        ? sorted[mid]
+        : Math.round((sorted[mid - 1] + sorted[mid]) / 2);
+    }
+
     /** Computes stats for sessions/tasks/runs starting from an optional timestamp. */
     function computeStats(from: number | undefined) {
       const prUrls = new Set<string>();
+      // Merge state only exists on sessions, so the merge rate is measured
+      // against session PRs rather than every PR counted in `prsShipped`.
+      const sessionPrUrls = new Set<string>();
+      const mergedPrUrls = new Set<string>();
       const filtered =
         from !== undefined
           ? sessions.filter((s) => s._creationTime >= from)
@@ -160,17 +201,49 @@ export const getImpactStats = authQuery({
         if (s.prUrl) {
           withPr++;
           prUrls.add(s.prUrl);
+          sessionPrUrls.add(s.prUrl);
+          if (s.prState === "merged") mergedPrUrls.add(s.prUrl);
         }
       }
       let done = 0;
       let cancelled = 0;
+      // Denominator for the first-try rate: a done task with no runs never
+      // took a "try", so counting it would deflate the rate.
+      let doneWithRuns = 0;
+      let firstTryTasks = 0;
+      let agentWorkMs = 0;
+      const timeToPrMs: number[] = [];
       for (const task of allTasks) {
         if (from !== undefined && task.updatedAt < from) continue;
-        if (task.status === "done") done++;
-        else if (task.status === "cancelled") cancelled++;
         const runs = runsByTaskId.get(task._id) ?? [];
+        if (task.status === "done") {
+          done++;
+          if (runs.length > 0) {
+            doneWithRuns++;
+            if (runs.length === 1) firstTryTasks++;
+          }
+        } else if (task.status === "cancelled") cancelled++;
+        let firstPrRunFinishedAt: number | undefined;
         for (const run of runs) {
-          if (run.prUrl) prUrls.add(run.prUrl);
+          if (run.prUrl) {
+            prUrls.add(run.prUrl);
+            if (
+              firstPrRunFinishedAt === undefined &&
+              run.finishedAt !== undefined
+            ) {
+              firstPrRunFinishedAt = run.finishedAt;
+            }
+          }
+          if (
+            run.startedAt !== undefined &&
+            run.finishedAt !== undefined &&
+            (from === undefined || run.finishedAt >= from)
+          ) {
+            agentWorkMs += Math.max(0, run.finishedAt - run.startedAt);
+          }
+        }
+        if (firstPrRunFinishedAt !== undefined) {
+          timeToPrMs.push(Math.max(0, firstPrRunFinishedAt - task.createdAt));
         }
       }
       const filteredProjects =
@@ -190,10 +263,23 @@ export const getImpactStats = authQuery({
         sessionsWithPr: withPr,
         shipRate: rate,
         tasksCompleted: done,
+        prsMerged: mergedPrUrls.size,
+        mergeRate:
+          sessionPrUrls.size > 0
+            ? Math.round((mergedPrUrls.size / sessionPrUrls.size) * 100)
+            : 0,
+        medianTimeToPrMs: median(timeToPrMs),
+        firstTryRate:
+          doneWithRuns > 0
+            ? Math.round((firstTryTasks / doneWithRuns) * 100)
+            : 0,
+        agentWorkMs,
+        /** Raw counters kept out of the response, used to derive prev rates. */
+        internal: { doneWithRuns, firstTryTasks },
       };
     }
 
-    const current = computeStats(startTime);
+    const { internal: currentInternal, ...current } = computeStats(startTime);
 
     if (startTime !== undefined && args.previousStartTime !== undefined) {
       // computeStats is cumulative from a timestamp, so the previous period is
@@ -201,6 +287,10 @@ export const getImpactStats = authQuery({
       const prev = computeStats(args.previousStartTime);
       const prevTasksCompleted = prev.tasksCompleted - current.tasksCompleted;
       const prevTasksRan = prev.tasksRan - current.tasksRan;
+      const prevDoneWithRuns =
+        prev.internal.doneWithRuns - currentInternal.doneWithRuns;
+      const prevFirstTryTasks =
+        prev.internal.firstTryTasks - currentInternal.firstTryTasks;
       return {
         ...current,
         prevPrsShipped: prev.prsShipped - current.prsShipped,
@@ -209,6 +299,11 @@ export const getImpactStats = authQuery({
         prevShipRate:
           prevTasksRan > 0
             ? Math.round((prevTasksCompleted / prevTasksRan) * 100)
+            : 0,
+        prevPrsMerged: prev.prsMerged - current.prsMerged,
+        prevFirstTryRate:
+          prevDoneWithRuns > 0
+            ? Math.round((prevFirstTryTasks / prevDoneWithRuns) * 100)
             : 0,
       };
     }

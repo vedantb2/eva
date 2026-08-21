@@ -6181,7 +6181,7 @@ import { readFileSync as readFileSync10, unlinkSync as unlinkSync3, writeFileSyn
 // callback-src/providers/cursorSdk.ts
 import { mkdirSync as mkdirSync7, readFileSync as readFileSync9 } from "fs";
 var SDK_PACKAGE2 = "@cursor/sdk";
-var SDK_VERSION2 = "1.0.26";
+var SDK_VERSION2 = "1.0.28";
 var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
 function cursorModeParams(model, fastMode, use1mContext) {
   const params = [];
@@ -6303,6 +6303,65 @@ function isResourceExhaustedMessage(text) {
   return text.includes("resource_exhausted");
 }
 var RESOURCE_EXHAUSTED_CHAT_MESSAGE = "Cursor rejected the request: rate limit or usage quota exhausted (resource_exhausted). No tokens were used. Wait a minute and try again, or switch to a different model.";
+var EMPTY_CURSOR_COST_SNAPSHOT = {
+  totalRawCents: null,
+  entries: []
+};
+function readCursorCostSnapshot(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return EMPTY_CURSOR_COST_SNAPSHOT;
+  }
+  const runs = Array.isArray(value.runs) ? value.runs : [];
+  const entries = [];
+  for (const run of runs) {
+    if (!run || typeof run !== "object" || Array.isArray(run)) continue;
+    if (typeof run.runId !== "string" || !run.runId) continue;
+    entries.push({ runId: run.runId, rawCents: readRawCents(run.cost) });
+  }
+  return { totalRawCents: readRawCents(value.cost), entries };
+}
+function readRawCents(cost) {
+  if (!cost || typeof cost !== "object" || Array.isArray(cost)) return null;
+  const raw = cost.rawCostCents;
+  return typeof raw === "number" && Number.isFinite(raw) ? raw : null;
+}
+function sumKnownRawCents(entries) {
+  return entries.reduce((total, entry) => total + (entry.rawCents ?? 0), 0);
+}
+function attributeCursorTurnRawCents(before, after) {
+  const knownRunIds = new Set(before.entries.map((entry) => entry.runId));
+  let attributed = 0;
+  let attributable = false;
+  for (const entry of after.entries) {
+    if (entry.rawCents === null || knownRunIds.has(entry.runId)) continue;
+    attributed += entry.rawCents;
+    attributable = true;
+  }
+  if (after.totalRawCents !== null) {
+    const remainderAfter = after.totalRawCents - sumKnownRawCents(after.entries);
+    const remainderBefore = before.totalRawCents === null ? 0 : before.totalRawCents - sumKnownRawCents(before.entries);
+    if (remainderAfter - remainderBefore > 0) {
+      attributed += remainderAfter - remainderBefore;
+      attributable = true;
+    }
+  }
+  return attributable ? attributed : null;
+}
+var COST_LOOKUP_RETRY_DELAYS_MS = [2e3, 2e3];
+async function resolveCursorTurnCostUsd(deps) {
+  if (!deps.before) return void 0;
+  const delays = deps.retryDelaysMs ?? COST_LOOKUP_RETRY_DELAYS_MS;
+  for (let attempt = 0; ; attempt++) {
+    const after = await deps.fetchAfter();
+    const rawCents = after ? attributeCursorTurnRawCents(deps.before, after) : null;
+    if (rawCents !== null) {
+      return Math.round(rawCents / 100 * 1e6) / 1e6;
+    }
+    const delayMs = delays[attempt];
+    if (delayMs === void 0) return void 0;
+    await deps.sleep(delayMs);
+  }
+}
 var ZERO_USAGE = {
   inputTokens: 0,
   outputTokens: 0,
@@ -6440,7 +6499,19 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     appendToRawOutput(line);
     processRealtimeStdoutChunk(line);
   };
-  const runTurn = async (activeAgent) => {
+  const readCostSnapshot = async (activeAgent) => {
+    try {
+      return readCursorCostSnapshot(await activeAgent.getUsage());
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      log(
+        "runCursorSdkAttempt: getUsage failed \\u2014 turn cost unavailable (" + messageText + ")"
+      );
+      return null;
+    }
+  };
+  const runTurn = async (activeAgent, agentIsFresh) => {
+    const costBefore = agentIsFresh ? Promise.resolve(EMPTY_CURSOR_COST_SNAPSHOT) : readCostSnapshot(activeAgent);
     const run = await activeAgent.send(combinedPrompt, {
       local: { force: true }
     });
@@ -6456,11 +6527,17 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
         break;
     }
     const result = await run.wait();
+    const costUsd = await resolveCursorTurnCostUsd({
+      before: await costBefore,
+      fetchAfter: () => readCostSnapshot(activeAgent),
+      sleep: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs))
+    });
     return {
       isError: result.status !== "finished",
       resultText: typeof result.result === "string" && result.result ? result.result : result.error && typeof result.error.message === "string" ? result.error.message : "",
       durationMs: readNum(result.durationMs),
-      usage: readUsageTokens(result.usage) ?? lastStreamUsage ?? ZERO_USAGE
+      usage: readUsageTokens(result.usage) ?? lastStreamUsage ?? ZERO_USAGE,
+      ...costUsd === void 0 ? {} : { costUsd }
     };
   };
   const emitTurnResult = (outcome) => {
@@ -6469,6 +6546,8 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
       is_error: outcome.isError,
       result: outcome.resultText,
       duration_ms: outcome.durationMs,
+      // Omitted when Cursor reported no cost; the parser then defaults to 0.
+      ...outcome.costUsd === void 0 ? {} : { total_cost_usd: outcome.costUsd },
       usage: {
         input_tokens: outcome.usage.inputTokens,
         output_tokens: outcome.usage.outputTokens,
@@ -6480,10 +6559,10 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     sawResult = true;
     resultIsError = outcome.isError;
   };
-  const runTurnWithRetries = async (activeAgent) => {
+  const runTurnWithRetries = async (activeAgent, agentIsFresh) => {
     emitTurnResult(
       await runTurnWithResourceExhaustedRetries({
-        runTurn: () => runTurn(activeAgent),
+        runTurn: () => runTurn(activeAgent, agentIsFresh),
         aborted: () => timedOutForMaxRuntime || timedOutForNoOutput || abortedByCaller,
         onRetry: (retryDelayMs, attempt) => {
           log(
@@ -6503,7 +6582,7 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
   };
   try {
     try {
-      await runTurnWithRetries(agent);
+      await runTurnWithRetries(agent, !resumedExistingAgent);
     } catch (error) {
       if (resumedExistingAgent && error instanceof Error && isAgentNotFound(error)) {
         log(
@@ -6515,7 +6594,7 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
         } catch {
         }
         agent = await createFreshAgent();
-        await runTurnWithRetries(agent);
+        await runTurnWithRetries(agent, true);
       } else {
         throw error;
       }

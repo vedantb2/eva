@@ -79,7 +79,7 @@ const OPENCODE_VERSION = "1.18.16";
 // (SDK_VERSION): the callback's stream parsers match one SDK release's message
 // shapes exactly.
 const CLAUDE_AGENT_SDK_VERSION = "0.3.201";
-const CURSOR_SDK_VERSION = "1.0.26";
+const CURSOR_SDK_VERSION = "1.0.28";
 
 /**
  * Shell test that a globally installed package is at an exact version.

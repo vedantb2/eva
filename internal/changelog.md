@@ -11,6 +11,16 @@ Every numId route now accepts a Convex id in the same segment and replaces the U
 - Hidden session shells null their `redirectTo`: the sessions layout keeps three shells mounted, and a background shell firing `Navigate` would hijack the visible session's URL, same rule as `SimpleViewSandboxRedirect`
 - Not covered: the March-2026 `?taskId=` query-param hrefs, and the January hyphen-slug `/{owner}-{repo}/` base path, which never resolves to a repo
 
+## Cursor runs now report dollar cost - 2026-08-21
+
+- Bumped `@cursor/sdk` to 1.0.28 (whose `getUsage()` finally covers local agents) and `runCursorSdkAttempt` now diffs the agent's per-turn usage groups either side of the send — retrying a few times while the server-derived cost lands, omitting it rather than failing or over-attributing when it does not — to emit `total_cost_usd` on the synthetic result line the logs page already parses
+
+## Stats page gains merge, latency, first-try and hours-saved KPIs - 2026-08-21
+
+- `getImpactStats` now also returns `prsMerged`/`mergeRate` (distinct session PRs with `prState: "merged"`, rated against distinct session PRs since merge state only exists on sessions), `medianTimeToPrMs` (task `createdAt` → first PR-producing run's `finishedAt`), `firstTryRate` (done tasks that needed exactly one run, over done tasks that ran at all) and `agentWorkMs`, plus `prevPrsMerged`/`prevFirstTryRate` for the trend chips — all in the same round trip, with the run fetch still limited to non-draft tasks because `agentRuns` carry the logs
+- Raw first-try counters ride out of `computeStats` under an `internal` key that is destructured off before the response, so the previous window's rate is derived from counts rather than by subtracting two percentages
+- `StatsClient` renders a second three-tile row (PRs Merged, Median Time to PR, First-Try Rate) and one full-width hero tile for estimated hours saved, which states its own assumption — `est. 2h saved per completed task · agent worked Xh` — instead of presenting the number bare; `Kpi` honours `size="lg"` in the stacked layout for it, and `formatDuration`'s coarse formatting is now reusable as `formatDurationCompactMs`
+
 ## The review surface adopts the Cursor PR-page layout - 2026-08-21
 
 The review pages and the sandbox Review tab had three tabs (Overview / Diffs / Recap), two unlabelled icon buttons in the header, and the merge control at the foot of an unbounded conversation. A reviewer who had finished reading had to scroll back up past every comment to act on what they had read, and "is CI red" was two clicks and a disclosure inside the merge box.

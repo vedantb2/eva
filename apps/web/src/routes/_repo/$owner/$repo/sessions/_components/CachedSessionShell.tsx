@@ -58,7 +58,7 @@ function CachedSessionShellInner({
   const navigate = useNavigate();
   const { basePath, repoId } = useRepo();
   const simpleView = useSimpleView();
-  const { status, convexId } = useSessionByNumId(numId, repoId);
+  const session = useSessionByNumId(numId, repoId);
   const urlSandboxTab = useSessionRouteSandboxTab();
   const [sandboxTab, setSandboxTab] = useState(urlSandboxTab);
 
@@ -112,14 +112,15 @@ function CachedSessionShellInner({
         />
       ) : null}
     <EntityNumIdGate
-      status={status}
-      convexId={convexId}
+      // Same rule as the redirect above: only the visible shell may navigate,
+      // so a hidden shell holding a legacy Convex id just keeps its spinner.
+      resolve={isActiveRoute ? session : { ...session, redirectTo: null }}
       entityLabel="session"
       backTo={`${basePath}/sessions`}
     >
-      {(sessionId) => (
+      {(sessionDoc) => (
         <SessionDetailClient
-          sessionId={sessionId}
+          sessionId={sessionDoc._id}
           activeSandboxTab={sandboxTab}
           onSandboxTabChange={onSandboxTabChange}
           onOpenFile={openFile}

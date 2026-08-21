@@ -1,5 +1,16 @@
 # Changelog
 
+## Legacy Convex-id URLs redirect to their numId route - 2026-08-21
+
+Detail routes moved to per-repo numIds in July 2026, but links minted before that still carry raw Convex ids: notification `href`s are written at insert time and never rewritten, and `_taskWorkflow/urls.ts` still stamps `/quick-tasks/{taskId}`, `/projects/{projectId}` and `/sessions/{sessionId}` into every PR body Eva opens. All of them hit `parseRouteNumId`, return `null`, and render "This task does not exist".
+
+Every numId route now accepts a Convex id in the same segment and replaces the URL with the canonical numId path. One new query, `legacyIds.resolveNumId`, validates the untrusted segment with `ctx.db.normalizeId` and returns the entity's numId; the document must live on the repo in the URL, since a sibling-repo hit would redirect to a numId that resolves to a *different* document here. `replaceRouteIdSegment` swaps only its own path segment, so `/projects/{id}/{taskId}/activity` converges in two `replace` hops without either resolver knowing the other's route shape.
+
+- `EntityNumIdGate` now takes the whole resolve result and yields the document, so it owns all four states (redirect / loading / not-found / ready) in one place. Docs, automations and Testing Arena dropped their hand-rolled `parseRouteNumId` + `useQuery` + three-branch guards for `useDocByNumId` / `useAutomationByNumId` and the gate; Testing Arena's body split into `TestingArenaDetail({ doc })` so its report queries stop threading a possibly-null doc
+- A pending redirect reports `status: "loading"` with `redirectTo` set, rather than a fourth `EntityResolveStatus` — consumers that only render a spinner (the task pane in projects and the list split) needed no change, and `EntityResolveStatus`/`EntityResolveResult` moved to `lib/numId.ts` to keep the gate from importing the hooks that import it
+- Hidden session shells null their `redirectTo`: the sessions layout keeps three shells mounted, and a background shell firing `Navigate` would hijack the visible session's URL, same rule as `SimpleViewSandboxRedirect`
+- Not covered: the March-2026 `?taskId=` query-param hrefs, and the January hyphen-slug `/{owner}-{repo}/` base path, which never resolves to a repo
+
 ## Cursor runs now report dollar cost - 2026-08-21
 
 - Bumped `@cursor/sdk` to 1.0.28 (whose `getUsage()` finally covers local agents) and `runCursorSdkAttempt` now diffs the agent's per-turn usage groups either side of the send — retrying a few times while the server-derived cost lands, omitting it rather than failing or over-attributing when it does not — to emit `total_cost_usd` on the synthetic result line the logs page already parses

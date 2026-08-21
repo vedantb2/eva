@@ -17,7 +17,7 @@ import { IconChecklist } from "@tabler/icons-react";
 import { QuickTaskModal } from "../quick-tasks/QuickTaskModal";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
 import type { ProjectPhase } from "./ProjectPhaseBadge";
-import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
+import type { EntityResolveStatus } from "@/lib/numId";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 import { TASK_TAGS } from "@eva/shared";

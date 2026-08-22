@@ -38,6 +38,74 @@ export function replaceRouteIdSegment(
     .join("/");
 }
 
+/**
+ * Outcome of the legacy Convex-id lookup that fronts every numId route.
+ * `none` means the param is a normal numId and the lookup never ran.
+ */
+export type LegacyRedirect =
+  | { kind: "none" }
+  | { kind: "loading" }
+  | { kind: "not-found" }
+  | { kind: "redirect"; to: string };
+
+/**
+ * Turns a route param, its document and the legacy lookup into one resolve
+ * result. Pure, and deliberately separate from the hooks that feed it: the
+ * loading/not-found/redirect ordering is the part that breaks, and getting it
+ * wrong flashes "not found" over a link that was about to redirect fine.
+ */
+export function resolveEntity<TDoc extends { _id: string }>(
+  param: string | undefined,
+  doc: TDoc | null | undefined,
+  legacy: LegacyRedirect,
+): EntityResolveResult<TDoc> {
+  const parsedNumId = param !== undefined ? parseRouteNumId(param) : null;
+
+  if (legacy.kind !== "none") {
+    return {
+      status: legacy.kind === "not-found" ? "not-found" : "loading",
+      doc: null,
+      convexId: null,
+      numId: null,
+      redirectTo: legacy.kind === "redirect" ? legacy.to : null,
+    };
+  }
+  if (parsedNumId === null) {
+    return {
+      status: "not-found",
+      doc: null,
+      convexId: null,
+      numId: null,
+      redirectTo: null,
+    };
+  }
+  if (doc === undefined) {
+    return {
+      status: "loading",
+      doc: null,
+      convexId: null,
+      numId: parsedNumId,
+      redirectTo: null,
+    };
+  }
+  if (doc === null) {
+    return {
+      status: "not-found",
+      doc: null,
+      convexId: null,
+      numId: parsedNumId,
+      redirectTo: null,
+    };
+  }
+  return {
+    status: "ready",
+    doc,
+    convexId: doc._id,
+    numId: parsedNumId,
+    redirectTo: null,
+  };
+}
+
 /** Human label for entity num ids: `#12` or `#12/34` when nested under a project. */
 export function formatEntityNumLabel(options: {
   numId?: number;

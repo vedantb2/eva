@@ -200,6 +200,65 @@ test("treats a newest run without usage as unknown, not as a reason to rotate", 
   expect(readCursorResumeStats(storeDir, "agent-target")).toBe(null);
 });
 
+// The ids are read from the envelope, the payload and the message in both
+// casings on purpose: if an SDK rename made every lookup miss, the policy would
+// report "unknown" for a real 200k context and quietly resume it forever.
+test("finds the run when the SDK only reports snake_case ids on the message", () => {
+  const storeDir = writeEvents([
+    JSON.stringify({
+      seq: 1,
+      eventType: "run_stream_event",
+      payload: {
+        schemaVersion: 1,
+        type: "sdk_message",
+        message: {
+          type: "usage",
+          agent_id: "agent-target",
+          run_id: "run-new",
+          usage: { inputTokens: 40_000, cacheReadTokens: 130_000 },
+        },
+      },
+    }),
+  ]);
+
+  const stats = readCursorResumeStats(storeDir, "agent-target");
+  expect(stats).toEqual({ runId: "run-new", contextTokens: 170_000 });
+  expect(shouldRotateCursorSession(stats)).toBe(true);
+});
+
+// `cacheReadTokens` is the bulk of a resumed context. Dropping it would read a
+// nearly full window as a few thousand tokens and never rotate.
+test("counts cached context and tolerates an absent cache field", () => {
+  const withoutCache = writeEvents([
+    JSON.stringify({
+      runId: "run-new",
+      seq: 1,
+      payload: {
+        agentId: "agent-target",
+        message: { type: "usage", usage: { inputTokens: 5_000 } },
+      },
+    }),
+  ]);
+  expect(readCursorResumeStats(withoutCache, "agent-target")).toEqual({
+    runId: "run-new",
+    contextTokens: 5_000,
+  });
+
+  const withoutInput = writeEvents([
+    JSON.stringify({
+      runId: "run-new",
+      seq: 1,
+      payload: {
+        agentId: "agent-target",
+        message: { type: "usage", usage: { cacheReadTokens: 200_000 } },
+      },
+    }),
+  ]);
+  // No `inputTokens` means the request never reported its context: unknown, and
+  // unknown resumes rather than throwing the agent's memory away.
+  expect(readCursorResumeStats(withoutInput, "agent-target")).toBe(null);
+});
+
 test("tolerates a missing store", () => {
   expect(readCursorResumeStats("/path/that/does/not/exist", "agent-x")).toBe(
     null,

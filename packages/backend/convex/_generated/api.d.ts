@@ -74,6 +74,7 @@ import type * as _githubRepos_queries from "../_githubRepos/queries.js";
 import type * as _githubRepos_sandboxRepoPick from "../_githubRepos/sandboxRepoPick.js";
 import type * as _githubRepos_sync from "../_githubRepos/sync.js";
 import type * as _harnessSkills_filter from "../_harnessSkills/filter.js";
+import type * as _harnessSkills_report from "../_harnessSkills/report.js";
 import type * as _logs_resolveProjectId from "../_logs/resolveProjectId.js";
 import type * as _mcp_redirectUri from "../_mcp/redirectUri.js";
 import type * as _mentions_dataKinds from "../_mentions/dataKinds.js";
@@ -413,6 +414,7 @@ declare const fullApi: ApiFromModules<{
   "_githubRepos/sandboxRepoPick": typeof _githubRepos_sandboxRepoPick;
   "_githubRepos/sync": typeof _githubRepos_sync;
   "_harnessSkills/filter": typeof _harnessSkills_filter;
+  "_harnessSkills/report": typeof _harnessSkills_report;
   "_logs/resolveProjectId": typeof _logs_resolveProjectId;
   "_mcp/redirectUri": typeof _mcp_redirectUri;
   "_mentions/dataKinds": typeof _mentions_dataKinds;

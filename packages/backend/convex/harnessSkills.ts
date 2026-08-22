@@ -1,5 +1,6 @@
 import { v } from "convex/values";
-import { authMutation, authQuery } from "./functions";
+import { internalMutation } from "./_generated/server";
+import { authQuery } from "./functions";
 import { aiProviderValidator } from "./_validators/aiModels";
 import { harnessSkillValidator } from "./_validators/tableFields";
 import {
@@ -32,15 +33,14 @@ export const getForProvider = authQuery({
 });
 
 /**
- * Records what a sandbox's harness CLI reported at session start. Public
- * (not internal) because the caller is the sandbox callback, which reaches
- * Convex over `/api/mutation` with its own identity token — the same transport
- * and auth `streaming:touch` uses.
+ * Records what a sandbox's harness CLI reported at session start. Internal:
+ * the only writer is the HMAC-verified `/api/harness-skills/report` route in
+ * `http.ts`, so a signature only launched sandboxes hold gates this global row.
  *
  * A no-op when nothing changed: every daemon boot reports, and this row is
  * global, so writing unconditionally would serialize fleet-wide.
  */
-export const upsertForProvider = authMutation({
+export const upsertForProvider = internalMutation({
   args: {
     provider: aiProviderValidator,
     cliVersion: v.string(),

@@ -4,6 +4,7 @@ import { createHmac } from "crypto";
 import { quote } from "shell-quote";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
 import type { AIProvider } from "../validators";
+import { harnessCatalogHmacMessage } from "../_harnessSkills/report";
 import { execHandle, requireEnv } from "./helpers";
 import { entityDaemonPaths } from "./daemonPaths";
 import type { SandboxHandle } from "../_sandbox/provider";
@@ -41,11 +42,14 @@ const CALLBACK_READY_POLL_ATTEMPTS = 60;
 const CALLBACK_READY_POLL_INTERVAL_MS = 1000;
 const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
 
-/** Computes a scoped streaming HMAC if the deployment encryption key is available. */
-function computeStreamingHmac(entityId: string): string | null {
+/**
+ * Computes a scoped callback HMAC if the deployment encryption key is
+ * available. Mirrors `computeScopedHmac` in `http.ts`, which verifies it.
+ */
+function computeScopedHmac(message: string): string | null {
   const secret = process.env.ENCRYPTION_KEY;
   if (!secret) return null;
-  return createHmac("sha256", secret).update(entityId).digest("hex");
+  return createHmac("sha256", secret).update(message).digest("hex");
 }
 
 /** Resolves the Convex site URL used for HTTP actions, falling back from cloud URL. */
@@ -219,7 +223,12 @@ export async function launchScript(
 
   const convexUrl = requireEnv("CONVEX_CLOUD_URL");
   const streamingEntityId = opts.extraEnvVars?.STREAMING_ENTITY_ID ?? entityId;
-  const streamingHmac = computeStreamingHmac(streamingEntityId);
+  const streamingHmac = computeScopedHmac(streamingEntityId);
+  // Signs this sandbox's own provider, so a claude daemon's catalog report
+  // cannot be replayed as another provider's catalog.
+  const harnessCatalogHmac = computeScopedHmac(
+    harnessCatalogHmacMessage(provider),
+  );
   const envParts = [
     `CONVEX_URL=${quote([convexUrl])}`,
     `CONVEX_TOKEN=${quote([convexToken])}`,
@@ -245,11 +254,17 @@ export async function launchScript(
     `CURSOR_RUNTIME_HOME_DIR=${quote([CURSOR_RUNTIME_HOME_DIR])}`,
     `CURSOR_PERSIST_DIR=${quote([CURSOR_PERSIST_VOLUME_MOUNT_PATH])}`,
   ];
-  if (streamingHmac) {
+  // Both signatures need the site URL: they are verified by HTTP routes.
+  if (streamingHmac || harnessCatalogHmac) {
     envParts.push(
       `CONVEX_SITE_URL=${quote([resolveConvexSiteUrl(convexUrl)])}`,
     );
+  }
+  if (streamingHmac) {
     envParts.push(`STREAMING_HMAC=${quote([streamingHmac])}`);
+  }
+  if (harnessCatalogHmac) {
+    envParts.push(`HARNESS_CATALOG_HMAC=${quote([harnessCatalogHmac])}`);
   }
   if (opts.claudeSessionId) {
     envParts.push(`CLAUDE_SESSION_ID=${quote([opts.claudeSessionId])}`);

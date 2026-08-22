@@ -9,6 +9,7 @@ import {
   DAEMON_OPTS_SIG,
   ENTITY_ID,
   ENTITY_ID_FIELD,
+  HARNESS_CATALOG_HMAC,
   MAX_TOTAL_RUNTIME_MS,
   MODEL,
   NO_OUTPUT_TIMEOUT_MS,
@@ -21,7 +22,12 @@ import {
   resolveDaemonPaths,
   resolveLegacySessionDaemonPaths,
 } from "./daemonPaths.js";
-import { callConvexWithRetry, fetchWithTimeout } from "../http/convexClient.js";
+import {
+  callConvexWithRetry,
+  callHarnessSkillCatalogReport,
+  fetchWithTimeout,
+  type HarnessCommandReport,
+} from "../http/convexClient.js";
 import {
   deliverCompletionWithMedia,
   extractResultEvent,
@@ -706,44 +712,34 @@ async function syncBackgroundAgentsToConvex(
   }
 }
 
-/**
- * Global (not entity-scoped) mutation, so the path is fixed here rather than
- * injected per launch like COMPLETION_MUTATION — same as `streaming:touch`.
- */
-const HARNESS_SKILL_CATALOG_MUTATION = "harnessSkills:upsertForProvider";
-
 let harnessCatalogReportStarted = false;
 
 /**
  * Reports the built-in slash commands this sandbox's Claude CLI ships with, so
  * the composer's `/` picker tracks the installed build instead of a hardcoded
- * list. Once per daemon; the server drops the report when nothing changed.
- * Best-effort — a failure here must never touch the session.
+ * list. Goes to the HMAC-verified `/api/harness-skills/report` route: the row
+ * is global, so only a sandbox Eva launched may write it. Once per daemon; the
+ * server drops the report when nothing changed. Best-effort — a failure here
+ * must never touch the session, and an unsigned daemon just does not report.
  */
 async function reportHarnessSkillCatalog(
   cliVersion: string,
   query: AgentQuery,
 ): Promise<void> {
   try {
+    if (!HARNESS_CATALOG_HMAC) return;
     if (typeof query.initializationResult !== "function") {
       log("daemon: initializationResult unavailable — skipping skill report");
       return;
     }
     const init = await query.initializationResult();
-    const commands: Record<string, string>[] = init.commands.map((command) => {
-      const payload: Record<string, string> = {
-        name: command.name,
-        description: command.description,
-      };
-      if (command.argumentHint) payload.argumentHint = command.argumentHint;
-      return payload;
-    });
+    const commands: HarnessCommandReport[] = init.commands.map((command) => ({
+      name: command.name,
+      description: command.description,
+      ...(command.argumentHint ? { argumentHint: command.argumentHint } : {}),
+    }));
     if (commands.length === 0) return;
-    await callConvexWithRetry("mutation", HARNESS_SKILL_CATALOG_MUTATION, {
-      provider: "claude",
-      cliVersion,
-      commands,
-    });
+    await callHarnessSkillCatalogReport("claude", cliVersion, commands);
     log(
       "daemon: reported " +
         commands.length +

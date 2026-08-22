@@ -1,9 +1,22 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   filterHarnessCommands,
   isHarnessCatalogUnchanged,
   type ReportedHarnessCommand,
 } from "../convex/_harnessSkills/filter";
+import {
+  harnessCatalogHmacMessage,
+  parseHarnessCatalogReport,
+} from "../convex/_harnessSkills/report";
+
+const testsDir = dirname(fileURLToPath(import.meta.url));
+
+function backendSource(path: string): string {
+  return readFileSync(join(testsDir, "..", path), "utf8");
+}
 
 function command(
   name: string,
@@ -145,5 +158,138 @@ describe("isHarnessCatalogUnchanged", () => {
         },
       ),
     ).toBe(false);
+  });
+});
+
+describe("parseHarnessCatalogReport", () => {
+  const skills = JSON.stringify([
+    { name: "loop", description: "runs a prompt", argumentHint: "5m /foo" },
+  ]);
+
+  it("accepts a well-formed report from a known provider", () => {
+    expect(
+      parseHarnessCatalogReport({
+        provider: "claude",
+        cliVersion: "2.1.239",
+        skillsJson: skills,
+      }),
+    ).toEqual({
+      provider: "claude",
+      cliVersion: "2.1.239",
+      commands: [
+        { name: "loop", description: "runs a prompt", argumentHint: "5m /foo" },
+      ],
+    });
+  });
+
+  it("rejects an unknown provider, so the row can only be a real one", () => {
+    for (const provider of ["", "Claude", "claude ", "gemini", null]) {
+      expect(
+        parseHarnessCatalogReport({
+          provider,
+          cliVersion: "2.1.239",
+          skillsJson: skills,
+        }),
+      ).toBeNull();
+    }
+  });
+
+  it("rejects a missing or empty CLI version", () => {
+    for (const cliVersion of [null, "", "v".repeat(65)]) {
+      expect(
+        parseHarnessCatalogReport({
+          provider: "claude",
+          cliVersion,
+          skillsJson: skills,
+        }),
+      ).toBeNull();
+    }
+  });
+
+  it("rejects skills that are not a JSON array of commands", () => {
+    for (const skillsJson of [
+      null,
+      "",
+      "not json",
+      "{}",
+      "[]",
+      '[{"name":"loop"}]',
+      '[{"name":"","description":"d"}]',
+      '[{"name":"loop","description":42}]',
+      '["loop"]',
+    ]) {
+      expect(
+        parseHarnessCatalogReport({
+          provider: "claude",
+          cliVersion: "2.1.239",
+          skillsJson,
+        }),
+      ).toBeNull();
+    }
+  });
+
+  it("caps the report size so a leaked signature cannot bloat the row", () => {
+    const entry = { name: "loop", description: "d" };
+    expect(
+      parseHarnessCatalogReport({
+        provider: "claude",
+        cliVersion: "2.1.239",
+        skillsJson: JSON.stringify(Array.from({ length: 100 }, () => entry)),
+      }),
+    ).not.toBeNull();
+    expect(
+      parseHarnessCatalogReport({
+        provider: "claude",
+        cliVersion: "2.1.239",
+        skillsJson: JSON.stringify(Array.from({ length: 101 }, () => entry)),
+      }),
+    ).toBeNull();
+    expect(
+      parseHarnessCatalogReport({
+        provider: "claude",
+        cliVersion: "2.1.239",
+        skillsJson: JSON.stringify([
+          { name: "loop", description: "d".repeat(2001) },
+        ]),
+      }),
+    ).toBeNull();
+  });
+
+  it("drops unknown fields instead of storing whatever was posted", () => {
+    const report = parseHarnessCatalogReport({
+      provider: "claude",
+      cliVersion: "2.1.239",
+      skillsJson: '[{"name":"loop","description":"d","injected":"x"}]',
+    });
+    expect(report?.commands).toEqual([{ name: "loop", description: "d" }]);
+  });
+});
+
+describe("harness catalog write path", () => {
+  it("scopes the signed message per provider", () => {
+    expect(harnessCatalogHmacMessage("claude")).toBe("harness-catalog:claude");
+    expect(harnessCatalogHmacMessage("codex")).not.toBe(
+      harnessCatalogHmacMessage("claude"),
+    );
+  });
+
+  /**
+   * The global row every composer reads must not be writable by any signed-in
+   * user — only by a sandbox holding the launcher-injected signature.
+   */
+  it("keeps the catalog mutation internal", () => {
+    const source = backendSource("convex/harnessSkills.ts");
+    expect(source).toContain(
+      "export const upsertForProvider = internalMutation(",
+    );
+    expect(source).not.toContain("authMutation");
+  });
+
+  it("verifies the signature before parsing the reported payload", () => {
+    const source = backendSource("convex/http.ts");
+    const route = source.slice(source.indexOf("/api/harness-skills/report"));
+    expect(route.indexOf("timingSafeEqual")).toBeLessThan(
+      route.indexOf("parseHarnessCatalogReport"),
+    );
   });
 });

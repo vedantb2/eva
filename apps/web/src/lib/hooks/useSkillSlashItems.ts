@@ -111,7 +111,10 @@ export function harnessSlashItems(
             id: harnessSkillTokenId(skill.name),
             label: skill.name,
             description: skill.description,
-            badge: "Built-in",
+            // Same badge the `.claude/skills` repo skills carry — a built-in
+            // and a Claude-only repo skill are both "provided by Claude" to
+            // the person picking one.
+            badge: "Claude",
           },
         ],
   );

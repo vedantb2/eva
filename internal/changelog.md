@@ -5,7 +5,7 @@
 The composer's `/` popup only listed repo skills (synced from `.agents/skills` / `.claude/skills`) and installed Eva system skills — the harness's own built-ins (`/loop`, `/goal`, `/security-review`, …) were invisible even though sending them as literal text already works, since `resolveSkillMentions` strips chips down to `/name` and the CLI executes it natively. Mirrors how t3code surfaces each harness's default commands.
 
 - New static catalog `mentions/harnessSkills.ts`: 13 agent-invocable built-ins curated from the Agent SDK init handshake (`initializationResult().commands`) of the Claude Code build the sandboxes run (2.1.239), descriptions taken from the harness itself. Terminal-local commands (`/clear`, `/config`, `/usage`) and `/batch` (fights Eva's own orchestration) are excluded. No backend or sandbox changes — nothing to materialize or sync
-- `useSkillSlashItems` appends them last with a "Built-in" badge, gated to `provider === "claude"` and shadowed by any repo or system skill of the same name (the precedence the harness itself applies)
+- `useSkillSlashItems` appends them last with a "Claude" badge — the same provider badge `.claude/skills` repo skills carry, now rendered with the Claude mark to its left in `MentionRow` — gated to `provider === "claude"` and shadowed by any repo or system skill of the same name (the precedence the harness itself applies)
 - Chips reuse the system-skill synthetic-id scheme: `evabuiltinskill_<name>` fits the existing `/[Title](id)` token grammar, and `isSkillTokenId` now excludes the new prefix so the hover card never queries `repoSkills.getContentById` with a non-Convex id
 
 ## Regression tests for yesterday's fixes - 2026-08-22

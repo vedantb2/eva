@@ -69,7 +69,7 @@ describe("harnessSlashItems", () => {
   it("lists Claude built-ins only for the claude provider", () => {
     const claudeItems = harnessSlashItems("claude", []);
     expect(claudeItems.map((item) => item.label)).toContain("loop");
-    expect(claudeItems.every((item) => item.badge === "Built-in")).toBe(true);
+    expect(claudeItems.every((item) => item.badge === "Claude")).toBe(true);
     expect(harnessSlashItems("cursor", [])).toEqual([]);
     expect(harnessSlashItems(undefined, [])).toEqual([]);
   });

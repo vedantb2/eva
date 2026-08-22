@@ -8,20 +8,14 @@ import type { FunctionArgs } from "convex/server";
 import {
   parseRouteNumId,
   replaceRouteIdSegment,
-  type EntityResolveResult,
+  resolveEntity,
+  type LegacyRedirect,
 } from "@/lib/numId";
 
 /** Derived from the query args so the entity list has one source of truth. */
 type RepoEntityType = FunctionArgs<
   typeof api.legacyIds.resolveNumId
 >["entityType"];
-
-/** `none` means the param is a normal numId and the legacy lookup never ran. */
-type LegacyRedirect =
-  | { kind: "none" }
-  | { kind: "loading" }
-  | { kind: "not-found" }
-  | { kind: "redirect"; to: string };
 
 /**
  * Handles the pre-numId URL shape: a param that is not a positive integer is
@@ -49,58 +43,6 @@ function useLegacyRedirect(
   return {
     kind: "redirect",
     to: replaceRouteIdSegment(pathname, legacyDocId, numId),
-  };
-}
-
-function resolveEntity<TDoc extends { _id: string }>(
-  param: string | undefined,
-  doc: TDoc | null | undefined,
-  legacy: LegacyRedirect,
-): EntityResolveResult<TDoc> {
-  const parsedNumId = param !== undefined ? parseRouteNumId(param) : null;
-
-  if (legacy.kind !== "none") {
-    return {
-      status: legacy.kind === "not-found" ? "not-found" : "loading",
-      doc: null,
-      convexId: null,
-      numId: null,
-      redirectTo: legacy.kind === "redirect" ? legacy.to : null,
-    };
-  }
-  if (parsedNumId === null) {
-    return {
-      status: "not-found",
-      doc: null,
-      convexId: null,
-      numId: null,
-      redirectTo: null,
-    };
-  }
-  if (doc === undefined) {
-    return {
-      status: "loading",
-      doc: null,
-      convexId: null,
-      numId: parsedNumId,
-      redirectTo: null,
-    };
-  }
-  if (doc === null) {
-    return {
-      status: "not-found",
-      doc: null,
-      convexId: null,
-      numId: parsedNumId,
-      redirectTo: null,
-    };
-  }
-  return {
-    status: "ready",
-    doc,
-    convexId: doc._id,
-    numId: parsedNumId,
-    redirectTo: null,
   };
 }
 

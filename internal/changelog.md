@@ -1,5 +1,16 @@
 # Changelog
 
+## Regression tests for yesterday's fixes - 2026-08-22
+
+Four of the past day's bug fixes had no test standing behind them. Each of these covers the exact failure mode, not the surrounding feature.
+
+- `resolveEntity` — the loading / not-found / redirect state machine behind every numId route — moved from `useResolveByNumId.ts` into `lib/numId.ts`. It is pure, and the hook file it lived in imports Convex and the router, so it could not be reached from a test. The tests pin the part that actually broke: a legacy Convex id under lookup reports `loading`, never `not-found`, and a pending redirect never reports `ready` (which would paint the entity for a frame before navigating away)
+- The Automations sidebar sorted both its lists by a hardcoded `updated_at`, so a run landing reshuffled the panel under the pointer. The defaults (`manual` apps, `created_at` automations) and the sort-order guard are now tested, plus the wiring — the bug was in the two callers passing a literal, which no unit test of the settings module can see
+- `AppShellChrome` must take `embedded` as a prop: importing `embed/embedded.ts` from that lazy chunk forms an async-chunk → entry cycle, which is how a failed preload resolved `import()` to `undefined` and crashed `React.lazy` on `.default`
+- Cursor's resume policy reads run ids in both casings so an SDK rename cannot silently report "unknown" for a full 256k window. That tolerance, and the `cacheReadTokens` half of the context measurement, are now covered
+
+Not added: the "Add comment survives a closed pull request" rule and the quick-task split header's placement outside the keyed pane. Both are JSX structure in a node-environment test suite, where the only available assertion is a substring match on the source — too brittle to be worth the noise.
+
 ## Legacy Convex-id URLs redirect to their numId route - 2026-08-21
 
 Detail routes moved to per-repo numIds in July 2026, but links minted before that still carry raw Convex ids: notification `href`s are written at insert time and never rewritten, and `_taskWorkflow/urls.ts` still stamps `/quick-tasks/{taskId}`, `/projects/{projectId}` and `/sessions/{sessionId}` into every PR body Eva opens. All of them hit `parseRouteNumId`, return `null`, and render "This task does not exist".

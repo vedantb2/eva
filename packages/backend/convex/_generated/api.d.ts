@@ -331,6 +331,7 @@ import type * as testGenWorkflow from "../testGenWorkflow.js";
 import type * as textGen from "../textGen.js";
 import type * as today from "../today.js";
 import type * as transcription from "../transcription.js";
+import type * as usageLimits from "../usageLimits.js";
 import type * as userProviderAccounts from "../userProviderAccounts.js";
 import type * as userProviderAccountsActions from "../userProviderAccountsActions.js";
 import type * as users from "../users.js";
@@ -668,6 +669,7 @@ declare const fullApi: ApiFromModules<{
   textGen: typeof textGen;
   today: typeof today;
   transcription: typeof transcription;
+  usageLimits: typeof usageLimits;
   userProviderAccounts: typeof userProviderAccounts;
   userProviderAccountsActions: typeof userProviderAccountsActions;
   users: typeof users;

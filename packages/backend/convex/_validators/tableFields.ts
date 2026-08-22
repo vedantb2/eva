@@ -33,6 +33,8 @@ import {
   taskSandboxStatusValidator,
   taskStatusValidator,
   themeValidator,
+  usageLimitProviderValidator,
+  usageLimitStatusValidator,
 } from "./enums";
 import {
   automationFindingValidator,
@@ -42,6 +44,8 @@ import {
   experimentalFlagsValidator,
   logEntryValidator,
   terminalPaneValidator,
+  usageLimitTokensValidator,
+  usageLimitWindowValidator,
   userFlowValidator,
   variationValidator,
 } from "./shapes";
@@ -984,4 +988,28 @@ export const backgroundProcessFields = {
   status: backgroundProcessStatusValidator,
   startedAt: v.number(),
   exitedAt: v.optional(v.number()),
+};
+
+/**
+ * The latest plan usage-limit reading for one agent provider on one repo,
+ * captured in the sandbox at the end of every turn and upserted here (one row
+ * per repo+provider). Each row is a whole snapshot, so a field the provider
+ * stopped reporting disappears rather than going stale.
+ *
+ * Claude reports subscription plan windows: `subscriptionType`, `status` and
+ * `windows` (5-hour, weekly, per-model). Cursor has no plan windows, so it
+ * reports the agent's cumulative `tokens` and `costCents` instead.
+ */
+export const agentUsageLimitFields = {
+  repoId: v.id("githubRepos"),
+  provider: usageLimitProviderValidator,
+  /** Epoch ms the sandbox took this reading. */
+  capturedAt: v.number(),
+  /** claude.ai plan, e.g. "max". Absent for API-key sessions. */
+  subscriptionType: v.optional(v.string()),
+  status: v.optional(usageLimitStatusValidator),
+  windows: v.optional(v.array(usageLimitWindowValidator)),
+  tokens: v.optional(usageLimitTokensValidator),
+  /** Cumulative charged cost in cents (Cursor). */
+  costCents: v.optional(v.number()),
 };

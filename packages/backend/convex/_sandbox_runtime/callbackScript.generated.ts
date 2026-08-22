@@ -438,6 +438,8 @@ var callbackState = {
   cursorTerminalToolIds: /* @__PURE__ */ new Set(),
   todoState: [],
   awaitingQuestionAnswer: false,
+  usageLimitSnapshot: null,
+  lastReportedUsageLimits: "",
   doneFileWritten: false,
   flushInProgress: false,
   pingInProgress: false,
@@ -2434,6 +2436,212 @@ async function flushBackgroundShellQueue() {
   }
 }
 
+// callback-src/runtime/usageLimits.ts
+var REPORT_MUTATION = "usageLimits:report";
+var REPORT_MAX_RETRIES = 1;
+var USAGE_LOOKUP_TIMEOUT_MS = 5e3;
+var CLAUDE_WINDOW_LABELS = {
+  five_hour: "5h",
+  seven_day: "Weekly (all models)",
+  seven_day_oauth_apps: "Weekly (apps)",
+  seven_day_opus: "Weekly (Opus)",
+  seven_day_sonnet: "Weekly (Sonnet)",
+  seven_day_overage_included: "Weekly (overage included)",
+  overage: "Extra usage"
+};
+function readFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : void 0;
+}
+function readNonEmptyString(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : void 0;
+}
+function readStatus(value) {
+  return value === "allowed" || value === "allowed_warning" || value === "rejected" ? value : void 0;
+}
+function readIsoMs(value) {
+  const text = readNonEmptyString(value);
+  if (!text) return void 0;
+  const ms = Date.parse(text);
+  return Number.isFinite(ms) ? ms : void 0;
+}
+function buildWindow(key, label, utilization, resetsAt) {
+  return {
+    key,
+    label,
+    ...utilization === void 0 ? {} : { utilization },
+    ...resetsAt === void 0 ? {} : { resetsAt }
+  };
+}
+function mergeWindow(snapshot, window) {
+  const windows = snapshot.windows ?? [];
+  const index = windows.findIndex((existing) => existing.key === window.key);
+  if (index >= 0) {
+    windows[index] = window;
+  } else {
+    windows.push(window);
+  }
+  snapshot.windows = windows;
+}
+function ensureSnapshot() {
+  const existing = callbackState.usageLimitSnapshot;
+  if (existing) return existing;
+  const created = {};
+  callbackState.usageLimitSnapshot = created;
+  return created;
+}
+function mergeClaudeRateLimitEvent(event) {
+  const info = event.rate_limit_info;
+  if (typeof info !== "object" || info === null || Array.isArray(info)) return;
+  const status = readStatus(info.status);
+  const key = readNonEmptyString(info.rateLimitType);
+  if (!status && !key) return;
+  const snapshot = ensureSnapshot();
+  if (status) snapshot.status = status;
+  if (!key) return;
+  const resetsAtSeconds = readFiniteNumber(info.resetsAt);
+  mergeWindow(
+    snapshot,
+    buildWindow(
+      key,
+      CLAUDE_WINDOW_LABELS[key] ?? key,
+      readFiniteNumber(info.utilization),
+      resetsAtSeconds === void 0 ? void 0 : Math.round(resetsAtSeconds * 1e3)
+    )
+  );
+}
+function pushUsageWindow(windows, key, entry, label) {
+  if (!entry) return;
+  const utilization = readFiniteNumber(entry.utilization);
+  const resetsAt = readIsoMs(entry.resets_at);
+  if (utilization === void 0 && resetsAt === void 0) return;
+  windows.push(
+    buildWindow(
+      key,
+      label ?? CLAUDE_WINDOW_LABELS[key] ?? key,
+      utilization,
+      resetsAt
+    )
+  );
+}
+function readClaudeUsageWindows(response) {
+  const limits = response?.rate_limits;
+  if (!limits) return [];
+  const windows = [];
+  pushUsageWindow(windows, "five_hour", limits.five_hour);
+  pushUsageWindow(windows, "seven_day", limits.seven_day);
+  pushUsageWindow(windows, "seven_day_opus", limits.seven_day_opus);
+  pushUsageWindow(windows, "seven_day_sonnet", limits.seven_day_sonnet);
+  pushUsageWindow(windows, "seven_day_oauth_apps", limits.seven_day_oauth_apps);
+  for (const entry of limits.model_scoped ?? []) {
+    const name = readNonEmptyString(entry.display_name);
+    if (!name) continue;
+    pushUsageWindow(windows, "model_scoped:" + name, entry, name);
+  }
+  return windows;
+}
+async function captureClaudeUsage(readUsage) {
+  let timer;
+  try {
+    const response = await Promise.race([
+      readUsage(),
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve("timeout"), USAGE_LOOKUP_TIMEOUT_MS);
+      })
+    ]);
+    if (response === "timeout") {
+      log("usage limits: claude usage lookup timed out");
+      return;
+    }
+    if (!response) return;
+    const snapshot = ensureSnapshot();
+    const subscriptionType = readNonEmptyString(response.subscription_type);
+    if (subscriptionType) snapshot.subscriptionType = subscriptionType;
+    if (response.rate_limits_available !== true) return;
+    for (const window of readClaudeUsageWindows(response)) {
+      mergeWindow(snapshot, window);
+    }
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    log("usage limits: claude usage lookup failed \\u2014 " + messageText);
+  } finally {
+    if (timer !== void 0) clearTimeout(timer);
+  }
+}
+function readCursorUsageSnapshot(value) {
+  if (!value) return null;
+  const snapshot = {};
+  const tokens = value.usage;
+  if (tokens) {
+    snapshot.tokens = {
+      input: readFiniteNumber(tokens.inputTokens) ?? 0,
+      output: readFiniteNumber(tokens.outputTokens) ?? 0,
+      cacheRead: readFiniteNumber(tokens.cacheReadTokens) ?? 0,
+      cacheWrite: readFiniteNumber(tokens.cacheWriteTokens) ?? 0,
+      total: readFiniteNumber(tokens.totalTokens) ?? 0
+    };
+  }
+  const costCents = readFiniteNumber(value.cost?.chargedCents);
+  if (costCents !== void 0) snapshot.costCents = costCents;
+  if (!snapshot.tokens && snapshot.costCents === void 0) return null;
+  return snapshot;
+}
+function captureCursorUsage(value) {
+  const snapshot = readCursorUsageSnapshot(value);
+  if (snapshot) callbackState.usageLimitSnapshot = snapshot;
+}
+function windowToJson(window) {
+  return {
+    key: window.key,
+    label: window.label,
+    ...window.utilization === void 0 ? {} : { utilization: window.utilization },
+    ...window.resetsAt === void 0 ? {} : { resetsAt: window.resetsAt }
+  };
+}
+function buildUsageLimitReportArgs(repoId, provider, snapshot) {
+  const tokens = snapshot.tokens;
+  return {
+    repoId,
+    provider,
+    ...snapshot.subscriptionType === void 0 ? {} : { subscriptionType: snapshot.subscriptionType },
+    ...snapshot.status === void 0 ? {} : { status: snapshot.status },
+    ...snapshot.windows === void 0 ? {} : { windows: snapshot.windows.map(windowToJson) },
+    ...tokens === void 0 ? {} : {
+      tokens: {
+        input: tokens.input,
+        output: tokens.output,
+        cacheRead: tokens.cacheRead,
+        cacheWrite: tokens.cacheWrite,
+        total: tokens.total
+      }
+    },
+    ...snapshot.costCents === void 0 ? {} : { costCents: snapshot.costCents }
+  };
+}
+async function reportUsageLimits(provider) {
+  const snapshot = callbackState.usageLimitSnapshot;
+  if (!snapshot) return;
+  if (!REPO_ID) {
+    log("usage limits: no REPO_ID in the environment \\u2014 not reporting");
+    return;
+  }
+  const args = buildUsageLimitReportArgs(REPO_ID, provider, snapshot);
+  const fingerprint = JSON.stringify(args);
+  if (fingerprint === callbackState.lastReportedUsageLimits) return;
+  callbackState.lastReportedUsageLimits = fingerprint;
+  try {
+    await callConvexWithRetry(
+      "mutation",
+      REPORT_MUTATION,
+      { ...args, capturedAt: Date.now() },
+      REPORT_MAX_RETRIES
+    );
+  } catch (error) {
+    callbackState.lastReportedUsageLimits = "";
+    const messageText = error instanceof Error ? error.message : String(error);
+    log("usage limits: report failed \\u2014 " + messageText);
+  }
+}
+
 // callback-src/parse/sdkTaxonomy.ts
 var loggedUnknownKinds = /* @__PURE__ */ new Set();
 var knownBackgroundTaskIds = /* @__PURE__ */ new Set();
@@ -2599,7 +2807,11 @@ function parseClaudeSdkTaxonomy(event) {
   if (messageType !== "system" && messageType !== "tool_progress" && messageType !== "tool_use_summary" && messageType !== "auth_status" && messageType !== "rate_limit_event") {
     return [];
   }
-  if (messageType === "auth_status" || messageType === "rate_limit_event") {
+  if (messageType === "rate_limit_event") {
+    mergeClaudeRateLimitEvent(event);
+    return [];
+  }
+  if (messageType === "auth_status") {
     return [];
   }
   if (messageType === "tool_progress") {
@@ -4215,6 +4427,13 @@ function buildCanUseTool() {
 // callback-src/providers/claudeSdk.ts
 var SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 var SDK_VERSION = "0.3.201";
+async function readSdkPlanUsage(handle) {
+  if (typeof handle.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET !== "function") {
+    log("usage limits: this SDK query handle exposes no usage method");
+    return null;
+  }
+  return await handle.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET();
+}
 function globalNpmRoot() {
   return execSync("npm root -g", { encoding: "utf8" }).trim();
 }
@@ -4426,6 +4645,8 @@ async function runClaudeSdkAttempt(sessionMode) {
   } finally {
     clearInterval(healthTimer);
   }
+  await captureClaudeUsage(() => readSdkPlanUsage(q));
+  void reportUsageLimits("claude");
   const code = sawResult && !resultIsError && !timedOutForMaxRuntime && !timedOutForNoOutput ? 0 : 1;
   log(
     "runClaudeSdkAttempt finished in " + String(Date.now() - callbackState.activeAttemptStartedAt) + "ms (code=" + code + ", sawResult=" + sawResult + ", resultIsError=" + resultIsError + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", outputBytes=" + attemptOutput.length + (queryErrorMessage ? ", queryError=" + queryErrorMessage : "") + ")"
@@ -4897,7 +5118,7 @@ function resetTurnState() {
   callbackState.awaitingQuestionAnswer = false;
   callbackState.lastStepType = "thinking";
 }
-async function finalizeTurn(output) {
+async function finalizeTurn(output, agentRunner) {
   await flushStreaming();
   const resultEvent = extractResultEvent(output);
   for (const step of callbackState.accumulatedSteps) step.status = "complete";
@@ -4925,6 +5146,8 @@ async function finalizeTurn(output) {
     "daemon: turn finalized success=" + success + " steps=" + activityLog.length + " (completion mutation " + (Date.now() - completionSentAt) + "ms)"
   );
   const bookkeepingAt = Date.now();
+  await captureClaudeUsage(agentRunner.readUsage);
+  void reportUsageLimits("claude");
   syncClaudeStateToPersist("daemon-turn");
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
@@ -5454,7 +5677,7 @@ async function runDaemonMessagePump(agentRunner) {
     if (daemonTurn?.kind === "synthetic") {
       await finalizeSyntheticTurn(agentTurnOutput);
     } else {
-      await finalizeTurn(agentTurnOutput);
+      await finalizeTurn(agentTurnOutput, agentRunner);
       log(
         "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms"
       );
@@ -5549,7 +5772,16 @@ function createWarmAgentRunner(sdk, options) {
     }
     log("daemon: interrupt unavailable on SDK query handle");
   };
-  return { push, waitMessage, drainPending, hasPending, stopTask, interrupt };
+  const readUsage = () => readSdkPlanUsage(query);
+  return {
+    push,
+    waitMessage,
+    drainPending,
+    hasPending,
+    stopTask,
+    interrupt,
+    readUsage
+  };
 }
 function callbackScriptWentStaleOnDisk() {
   if (!CALLBACK_SCRIPT_FP) return false;
@@ -6501,7 +6733,9 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
   };
   const readCostSnapshot = async (activeAgent) => {
     try {
-      return readCursorCostSnapshot(await activeAgent.getUsage());
+      const usage = await activeAgent.getUsage();
+      captureCursorUsage(usage);
+      return readCursorCostSnapshot(usage);
     } catch (error) {
       const messageText = error instanceof Error ? error.message : String(error);
       log(
@@ -6613,6 +6847,7 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     } catch {
     }
   }
+  void reportUsageLimits("cursor");
   const code = sawResult && !resultIsError && !timedOutForMaxRuntime && !timedOutForNoOutput ? 0 : 1;
   log(
     "runCursorSdkAttempt finished in " + String(Date.now() - callbackState.activeAttemptStartedAt) + "ms (code=" + code + ", sawResult=" + sawResult + ", resultIsError=" + resultIsError + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", outputBytes=" + attemptOutput.length + (attemptErrorMessage ? ", runError=" + attemptErrorMessage : "") + ")"

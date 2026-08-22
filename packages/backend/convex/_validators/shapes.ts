@@ -136,3 +136,24 @@ export const resolvedExperimentalFlagsValidator = v.object({
   simpleView: v.boolean(),
 });
 
+/**
+ * One plan usage window (Claude: 5-hour, weekly, per-model). `key` is the SDK's
+ * rate-limit type, or `model_scoped:<display name>` for a per-model bucket.
+ * `utilization` is a percentage 0-100 and `resetsAt` is epoch ms; either can be
+ * absent when the provider reported only the other.
+ */
+export const usageLimitWindowValidator = v.object({
+  key: v.string(),
+  label: v.string(),
+  utilization: v.optional(v.number()),
+  resetsAt: v.optional(v.number()),
+});
+
+/** Cumulative token counts, for a provider that exposes no plan windows. */
+export const usageLimitTokensValidator = v.object({
+  input: v.number(),
+  output: v.number(),
+  cacheRead: v.number(),
+  cacheWrite: v.number(),
+  total: v.number(),
+});

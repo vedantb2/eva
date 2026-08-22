@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "fs";
 import type {
   CanUseTool,
   Options,
+  Query,
   SDKUserMessage,
   query,
 } from "@anthropic-ai/claude-agent-sdk";
@@ -32,6 +33,11 @@ import {
 } from "../runtime/buffers.js";
 import { buildCanUseTool } from "../runtime/pendingQuestion.js";
 import { callbackState as S, resetAttemptState } from "../runtime/state.js";
+import {
+  captureClaudeUsage,
+  reportUsageLimits,
+  type ClaudeUsageResponseLike,
+} from "../runtime/usageLimits.js";
 import type { ProviderAttemptResult, SessionMode } from "../types.js";
 import { log } from "../utils.js";
 
@@ -50,7 +56,28 @@ export type JsonLike =
 export type SdkCanUseTool = CanUseTool;
 export type SdkOptions = Options;
 export type SdkUserMessage = SDKUserMessage;
+export type SdkQuery = Query;
 export type SdkModule = { query: typeof query };
+
+/**
+ * Reads the plan-usage data behind `/usage` off a live query handle.
+ *
+ * The method name is explicitly marked experimental by the SDK, so a version
+ * that renames or drops it must degrade rather than throw — the caller wraps
+ * this in `captureClaudeUsage`, which swallows the rest.
+ */
+export async function readSdkPlanUsage(
+  handle: SdkQuery,
+): Promise<ClaudeUsageResponseLike | null> {
+  if (
+    typeof handle.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET !==
+    "function"
+  ) {
+    log("usage limits: this SDK query handle exposes no usage method");
+    return null;
+  }
+  return await handle.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET();
+}
 
 /** Resolves the sandbox's global npm root once (e.g. /usr/lib/node_modules). */
 export function globalNpmRoot(): string {
@@ -410,6 +437,13 @@ export async function runClaudeSdkAttempt(
   } finally {
     clearInterval(healthTimer);
   }
+
+  // Plan usage-limit reading, taken while the query handle is still alive. The
+  // stream's `rate_limit_event`s already populated whichever window they named;
+  // this fills in the rest. Reporting is fire-and-forget — the turn's outcome is
+  // already decided below and must not depend on it.
+  await captureClaudeUsage(() => readSdkPlanUsage(q));
+  void reportUsageLimits("claude");
 
   const code =
     sawResult &&

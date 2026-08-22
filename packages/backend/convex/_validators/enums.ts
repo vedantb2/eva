@@ -300,3 +300,20 @@ export const backgroundProcessStatusValidator = v.union(
   v.literal("exited"),
   v.literal("killed"),
 );
+
+/**
+ * Agent provider whose plan usage limits eva tracks. Narrower than
+ * `aiProviderValidator` on purpose: codex and opencode expose no usage data, so
+ * a row can never exist for them and the UI never has to handle the case.
+ */
+export const usageLimitProviderValidator = v.union(
+  v.literal("claude"),
+  v.literal("cursor"),
+);
+
+/** Whether the plan currently allows requests, as reported by the agent SDK. */
+export const usageLimitStatusValidator = v.union(
+  v.literal("allowed"),
+  v.literal("allowed_warning"),
+  v.literal("rejected"),
+);

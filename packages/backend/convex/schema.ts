@@ -46,6 +46,7 @@ import {
   backgroundProcessFields,
   snapshotBuildFields,
   sessionDaemonStateFields,
+  agentUsageLimitFields,
 } from "./validators";
 
 const schema = defineSchema({
@@ -158,6 +159,13 @@ const schema = defineSchema({
   sessionDaemonStates: defineTable(sessionDaemonStateFields).index(
     "by_session",
     ["sessionId"],
+  ),
+  // Latest agent plan usage-limit reading per (repo, provider), upserted by the
+  // sandbox callback at the end of every turn (usageLimits:report). One row per
+  // pair — the UI reads both to show how much of each plan is left.
+  agentUsageLimits: defineTable(agentUsageLimitFields).index(
+    "by_repo_and_provider",
+    ["repoId", "provider"],
   ),
   backgroundProcesses: defineTable(backgroundProcessFields)
     .index("by_session_and_status", ["sessionId", "status"])

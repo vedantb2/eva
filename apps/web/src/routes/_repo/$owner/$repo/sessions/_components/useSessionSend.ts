@@ -5,7 +5,6 @@ import { useMutation } from "convex/react";
 import type { OptimisticLocalStore } from "convex/browser";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";
 
-import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { resolveCredentialSourceLabel } from "@/lib/utils/credentialSourceLabel";
 import { appendReviewCommentsToPrompt } from "@/lib/reviewComments";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
@@ -41,7 +40,6 @@ function applyAddMessageOptimistically(
     role: "user",
     content: args.content,
     timestamp: now,
-    mode: args.mode,
     activityLog: "",
     media: undefined,
     attachmentStorageIds: args.attachmentStorageIds,
@@ -61,7 +59,6 @@ function applyAddMessageOptimistically(
     role: "assistant",
     content: "",
     timestamp: now + 1,
-    mode: args.mode,
     activityLog: "",
     media: undefined,
     attachmentUrls: undefined,
@@ -76,7 +73,6 @@ function applyAddMessageOptimistically(
 
 interface UseSessionSendParams {
   sessionId: Id<"sessions">;
-  mode: SessionMode;
   model: AIModel;
   executionTraits: ModelTraitsExecutionArgs;
   /** Effective effort shown in the composer; snapshotted onto the user message. */
@@ -87,13 +83,10 @@ interface UseSessionSendParams {
   ) => Id<"userProviderAccounts"> | undefined;
   accounts: ReadonlyArray<ModelAccount>;
   messages: SessionMessage[];
-  personaId?: Id<"designPersonas">;
-  numDesigns?: number;
 }
 
 export function useSessionSend({
   sessionId,
-  mode,
   model,
   executionTraits,
   reasoningLevel,
@@ -101,8 +94,6 @@ export function useSessionSend({
   resolveAccountId,
   accounts,
   messages,
-  personaId,
-  numDesigns,
 }: UseSessionSendParams) {
   const review = usePendingReviewComments();
   const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
@@ -117,14 +108,6 @@ export function useSessionSend({
 
   const isExecuting = isAssistantTurnInProgress(messages);
 
-  const designArgs =
-    mode === "design"
-      ? {
-          personaId,
-          numDesigns,
-        }
-      : {};
-
   const handleSend = async (
     content: string,
     attachmentStorageIds?: Id<"_storage">[],
@@ -137,13 +120,11 @@ export function useSessionSend({
       await enqueueMessage({
         sessionId,
         message: finalContent,
-        mode,
         model,
         ...executionTraits,
         reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
         providerAccountId: resolveAccountId(providerAccountId),
         attachmentStorageIds,
-        ...designArgs,
       });
       review?.clear();
       return;
@@ -154,23 +135,19 @@ export function useSessionSend({
         id: sessionId,
         role: "user",
         content: finalContent,
-        mode,
         attachmentStorageIds,
         providerAccountId: accountId,
         model,
         reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
-        ...designArgs,
       }),
       startExecution({
         sessionId,
         message: finalContent,
-        mode,
         model,
         ...executionTraits,
         reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
         providerAccountId: accountId,
         attachmentStorageIds,
-        ...designArgs,
       }),
     ])
       .catch(async (error) => {
@@ -180,7 +157,6 @@ export function useSessionSend({
           id: sessionId,
           role: "assistant",
           content: `Error: ${errorMessage}`,
-          mode,
         });
       })
       .finally(() => {

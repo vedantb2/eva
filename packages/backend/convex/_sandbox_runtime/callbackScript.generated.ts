@@ -3047,7 +3047,20 @@ function writeCodexFileIfConfigured(fileName, rawValue, encodedValue) {
   mkdirSync5(CODEX_RUNTIME_HOME_DIR, { recursive: true });
   writeFileSync5(CODEX_RUNTIME_HOME_DIR + "/" + fileName, value);
 }
-function buildCodexRuntimeConfig(rawValue, encodedValue, fastMode = codexFastMode) {
+function codexMcpServerSections(servers) {
+  return Object.entries(servers).flatMap(([name, server]) => {
+    const headers = Object.entries(server.headers).map(
+      ([header, value]) => \`\${JSON.stringify(header)} = \${JSON.stringify(value)}\`
+    ).join(", ");
+    return [
+      "",
+      \`[mcp_servers.\${JSON.stringify(name)}]\`,
+      \`url = \${JSON.stringify(server.url)}\`,
+      \`http_headers = { \${headers} }\`
+    ];
+  });
+}
+function buildCodexRuntimeConfig(rawValue, encodedValue, fastMode = codexFastMode, mcpServers = evaMcpServers) {
   const configuredValue = rawValue || (encodedValue ? decodeBase64(encodedValue) : "");
   const preservedLines = configuredValue ? configuredValue.split(/\\r?\\n/).filter((line) => {
     const trimmed = line.trim().toLowerCase();
@@ -3069,6 +3082,7 @@ function buildCodexRuntimeConfig(rawValue, encodedValue, fastMode = codexFastMod
   if (normalizedPreservedLines.length > 0) {
     runtimeLines.push(...normalizedPreservedLines);
   }
+  runtimeLines.push(...codexMcpServerSections(mcpServers));
   return runtimeLines.join("\\n") + "\\n";
 }
 function hydratePersistedCodexState() {
@@ -8131,6 +8145,38 @@ function readMessageText(parts) {
 function resultFailure(result) {
   return opencodeErrorMessage(result.error) || (result.response ? "HTTP " + String(result.response.status) : "no data");
 }
+async function ensureEvaMcpServers(client, servers = evaMcpServers) {
+  const configured = Object.entries(servers);
+  if (configured.length === 0) return;
+  try {
+    const status = await client.mcp.status();
+    if (!status.data) {
+      log("opencode mcp.status failed: " + resultFailure(status));
+      return;
+    }
+    for (const [name, server] of configured) {
+      if (status.data[name]) continue;
+      const added = await client.mcp.add({
+        body: {
+          name,
+          config: {
+            type: "remote",
+            url: server.url,
+            headers: server.headers,
+            enabled: true
+          }
+        }
+      });
+      log(
+        added.data ? "opencode mcp server " + name + " registered (" + (added.data[name]?.status ?? "unknown") + ")" : "opencode mcp.add " + name + " failed: " + resultFailure(added)
+      );
+    }
+  } catch (error) {
+    log(
+      "opencode mcp registration failed: " + (error instanceof Error ? error.message : String(error))
+    );
+  }
+}
 function requireData(result, what) {
   if (result.data === void 0) {
     throw new Error("opencode " + what + " failed: " + resultFailure(result));
@@ -8161,6 +8207,7 @@ async function runOpencodeSdkAttempt(sessionMode) {
     baseUrl,
     directory: WORK_DIR
   });
+  await ensureEvaMcpServers(client);
   const persistSessionId = (sessionId2) => {
     callbackState.activeOpencodeSessionId = sessionId2;
     writeOpencodeSessionState();

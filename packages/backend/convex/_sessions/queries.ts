@@ -6,7 +6,6 @@ import { firstUserMessagePreview } from "../_messages/preview";
 import {
   deploymentStatusValidator,
   entityNumIdFields,
-  sessionModeValidator,
   sessionStatusValidator,
   aiModelValidator,
   reasoningLevelValidator,
@@ -48,7 +47,6 @@ const sessionListItemValidator = v.object({
   lastThinkingEnabled: v.optional(v.boolean()),
   lastUse1mContext: v.optional(v.boolean()),
   lastFastMode: v.optional(v.boolean()),
-  lastMode: v.optional(sessionModeValidator),
   deploymentStatus: v.optional(deploymentStatusValidator),
   deploymentUrl: v.optional(v.string()),
   /**
@@ -85,7 +83,6 @@ function toSessionListItem(session: Doc<"sessions">) {
     lastThinkingEnabled: session.lastThinkingEnabled,
     lastUse1mContext: session.lastUse1mContext,
     lastFastMode: session.lastFastMode,
-    lastMode: session.lastMode,
     deploymentStatus: session.deploymentStatus,
     deploymentUrl: session.deploymentUrl,
     isExecuting:

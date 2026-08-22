@@ -1,5 +1,18 @@
 # Changelog
 
+## Session modes give way to the eva-plan and eva-design skills - 2026-08-22
+
+A session carried a mode — edit, plan or design — and the mode decided everything downstream: which prompt was built, which tools the turn was allowed (`MODE_TOOLS`), whether the PRD tab existed, whether the Designs tab existed. It was a modal switch in front of an agent that can already read a skill and decide for itself, and it cost the user a dropdown press before every planning turn. Worse, the mode was the *only* signal: a turn that wrote `plan.md` in edit mode produced no PRD tab, and asking for "a few options" without first flipping to design produced no variations.
+
+Modes are gone. Planning and design are now two system skills, `eva-plan` and `eva-design`, served over MCP like `eva-capture` and `eva-audit` — the old mode prompts moved into `buildEvaPlanContent` / `buildEvaDesignContent` more or less intact, including the five variation strategies. Every turn gets one tool list, `SESSION_TOOLS`, which is the old edit set plus `Skill` so the harness can reach them. The agent invokes planning when the user asks to plan, which is the same decision the dropdown was asking the user to make on its behalf.
+
+- Both artefact tabs are **content-keyed** rather than mode-keyed: `plan.md` is harvested and the design-variations JSON parsed after *every* successful turn, and the PRD tab appears when `planContent` is non-empty, the Designs tab when the session has variations. `saveResult` only writes `planContent` when it changed, so an unrelated turn does not reorder anything downstream of it
+- The variations schema now requires `variations` to be present and non-empty. All-optional matched a bare `{}` in an ordinary reply and turned it into an empty Designs tab
+- "Approve plan" and "Use this design" no longer flip a mode — they seed the chat draft through a new `useSeedChatDraft`, which writes the same `drafts` row `useChatDraftSeed` reads and *appends* to it, so a half-typed message survives. The two prompt strings live in `composerPrompts.ts`
+- Design personas and the variation count are removed: `designPersonas` (whole API), `sessions.setMode`, `sessions.selectVariation`, and the `mode` / `personaId` / `numDesigns` args on `startExecute` / `enqueueMessage` / `create` / `addMessage`. The mode-cycle shortcut (`cycleSessionMode`, Mod+Shift+Tab) is delisted; stored overrides are a sparse `record(string, string)` read through `SHORTCUT_IDS`, so a stale key is ignored rather than failing validation
+- Schema fields (`lastMode`, `personaId`, `numDesigns`, queued `mode`) stay as dormant legacy so in-flight queued rows and existing documents still validate — ignored on dequeue, pending a cleanup migration
+- Separately, Eva's MCP server is now wired into the other two providers: codex gets `[mcp_servers.*]` table sections appended to `CODEX_HOME/config.toml` (one wiring point for both the SDK CLI and the app-server daemon), and opencode registers it on the live `opencode serve` process via `POST /mcp`, because that server outlives the callback and reads its config only at startup. Best-effort in both cases — a server Eva cannot register costs the turn its Eva tools rather than failing the turn
+
 ## Regression tests for yesterday's fixes - 2026-08-22
 
 Four of the past day's bug fixes had no test standing behind them. Each of these covers the exact failure mode, not the surrounding feature.

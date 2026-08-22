@@ -11,20 +11,16 @@ import {
 } from "@eva/backend";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import {
-  normalizeMode,
-  type SessionMode,
-} from "@/lib/hooks/useSessionSettings";
 
 /**
- * Session composer prefs backed by Convex (`sessions.lastModel` / `lastMode` /
- * trait fields / `providerAccountId`) as the source of truth. Read straight
- * off the live `sessions.get` query — no mirrored `useState` — so picks stay
- * sticky across reloads, tabs, and devices.
+ * Session composer prefs backed by Convex (`sessions.lastModel` / trait fields
+ * / `providerAccountId`) as the source of truth. Read straight off the live
+ * `sessions.get` query — no mirrored `useState` — so picks stay sticky across
+ * reloads, tabs, and devices.
  *
  * Changes go through sticky setters with optimistic patches. While the session
- * query is still loading the picker shows `defaultModel`, mode `"edit"`,
- * model-default traits, and Team account.
+ * query is still loading the picker shows `defaultModel`, model-default traits,
+ * and Team account.
  */
 export function useSessionModel(
   sessionId: Id<"sessions">,
@@ -32,8 +28,6 @@ export function useSessionModel(
 ): {
   model: AIModel;
   setModel: (model: AIModel) => void;
-  mode: SessionMode | undefined;
-  setMode: (mode: SessionMode) => void;
   /** Sticky traits from Convex; undefined fields use model defaults. */
   traits: StoredModelTraits;
   setTraits: (partial: Partial<StoredModelTraits>) => void;
@@ -60,17 +54,6 @@ export function useSessionModel(
       api.sessions.get,
       { id: args.id },
       { ...current, lastModel: args.model },
-    );
-  });
-  const setModeMutation = useMutation(
-    api.sessions.setMode,
-  ).withOptimisticUpdate((localStore, args) => {
-    const current = localStore.getQuery(api.sessions.get, { id: args.id });
-    if (!current) return;
-    localStore.setQuery(
-      api.sessions.get,
-      { id: args.id },
-      { ...current, lastMode: args.mode },
     );
   });
   const setProviderAccountIdMutation = useMutation(
@@ -121,10 +104,6 @@ export function useSessionModel(
     });
   };
 
-  const setMode = (mode: SessionMode) => {
-    void setModeMutation({ id: sessionId, mode });
-  };
-
   const setTraits = (partial: Partial<StoredModelTraits>) => {
     const reasoningLevel: ReasoningLevel | undefined = partial.effortLevel;
     void setTraitsMutation({
@@ -149,11 +128,6 @@ export function useSessionModel(
   return {
     model,
     setModel,
-    mode:
-      session?.lastMode !== undefined
-        ? normalizeMode(session.lastMode)
-        : undefined,
-    setMode,
     traits: {
       effortLevel: session?.lastReasoningLevel,
       thinkingEnabled: session?.lastThinkingEnabled,

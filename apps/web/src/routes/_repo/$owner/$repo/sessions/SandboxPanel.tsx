@@ -1,11 +1,6 @@
 import { useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
-import {
-  api,
-  normalizeAIModel,
-  type Id,
-  type SandboxOwner,
-} from "@eva/backend";
+import { api, type Id, type SandboxOwner } from "@eva/backend";
 import { isSessionSandboxTab } from "@/lib/search-params";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
@@ -22,8 +17,7 @@ import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { resolveSandboxStatus } from "@/lib/components/sandbox/sandboxStatusStyles";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
-import { useSessionModel } from "@/lib/hooks/useSessionModel";
-import { useRepo } from "@/lib/contexts/RepoContext";
+import { useSeedChatDraft } from "@/lib/components/chat/useSeedChatDraft";
 import { useSessionAnnotationSend } from "./_components/useSessionAnnotationSend";
 import { catchMutationError } from "@/lib/utils/mutationToast";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
@@ -32,7 +26,10 @@ import {
   type SessionDesignMessage,
 } from "./_utils/designVariations";
 import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
-import type { SessionMode } from "@/lib/hooks/useSessionSettings";
+import {
+  APPROVE_PLAN_PROMPT,
+  designVariationPrompt,
+} from "./_utils/composerPrompts";
 interface SandboxPanelProps {
   sessionId: Id<"sessions">;
   sandboxId: string | undefined;
@@ -51,8 +48,6 @@ interface SandboxPanelProps {
   terminalPanel: TerminalPanelApi;
   planContent?: string;
   messages?: SessionDesignMessage[];
-  lastMode?: SessionMode;
-  selectedVariationIndex?: number;
   isArchived?: boolean;
   /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
   activeTab: string;
@@ -75,8 +70,6 @@ export function SandboxPanel({
   terminalPanel,
   planContent,
   messages = [],
-  lastMode,
-  selectedVariationIndex,
   isArchived,
   activeTab,
   onTabChange,
@@ -85,16 +78,17 @@ export function SandboxPanel({
   isSandboxStarting,
 }: SandboxPanelProps) {
   const simpleView = useSimpleView();
-  const { repo } = useRepo();
   const sessionIdStr = String(sessionId);
-  const { setMode } = useSessionModel(
-    sessionId,
-    normalizeAIModel(repo.defaultModel),
-  );
   const submitAnnotation = useSessionAnnotationSend(sessionId);
-  const selectVariation = useMutation(api.sessions.selectVariation);
+  const seedChatDraft = useSeedChatDraft({
+    kind: "sessionChat",
+    sessionId,
+  });
   const latestVariations = getLatestVariations(messages);
-  const showDesignsTab = lastMode === "design" || latestVariations.length > 0;
+  // Both tabs are content-keyed: they appear once the session has produced the
+  // artefact they show, whatever prompt or skill produced it.
+  const hasPlanContent =
+    typeof planContent === "string" && planContent.trim().length > 0;
   const hasDesignsContent = latestVariations.length > 0;
   const isDesignExecuting = isAssistantTurnInProgress(messages);
   // Sticky Preview path/port + console tail, keyed by the sandbox owner so all
@@ -158,11 +152,9 @@ export function SandboxPanel({
         }}
         newPreviewDisabled={panes.newPreviewDisabled}
         enabledTabs={enabledTabs}
-        showPrdTab
-        hasPrdContent={
-          typeof planContent === "string" && planContent.trim().length > 0
-        }
-        showDesignsTab={showDesignsTab}
+        showPrdTab={hasPlanContent}
+        hasPrdContent={hasPlanContent}
+        showDesignsTab={hasDesignsContent}
         hasDesignsContent={hasDesignsContent}
         showFilesTab
         customTabs={simpleView ? undefined : customTabs}
@@ -195,7 +187,9 @@ export function SandboxPanel({
             <SessionPrdPlanView
               sessionId={sessionId}
               planContent={planContent}
-              onApprovePlan={() => setMode("edit")}
+              onApprovePlan={() => {
+                void seedChatDraft(APPROVE_PLAN_PROMPT);
+              }}
               variant="panel"
               isArchived={isArchived}
             />
@@ -205,8 +199,9 @@ export function SandboxPanel({
               <div className="max-w-md space-y-1">
                 <p className="text-sm font-medium">No plan yet</p>
                 <p className="text-sm text-muted-foreground">
-                  Switch the composer to Plan mode and describe what you want to
-                  build — the plan will appear here once generated.
+                  Run <span className="font-mono">/eva-plan</span> in the
+                  composer and describe what you want to build — the plan will
+                  appear here once generated.
                 </p>
               </div>
             </div>
@@ -225,11 +220,10 @@ export function SandboxPanel({
             isArchived={isArchived === true}
             isExecuting={isDesignExecuting}
             latestVariations={latestVariations}
-            selectedVariationIndex={selectedVariationIndex}
             isSandboxStarting={isSandboxStarting === true}
             onStartSandbox={() => onStartSandbox?.()}
-            onSelectVariation={(index) => {
-              void selectVariation({ id: sessionId, variationIndex: index });
+            onUseVariation={(letter, label) => {
+              void seedChatDraft(designVariationPrompt(letter, label));
             }}
           />
         </div>

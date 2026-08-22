@@ -363,7 +363,8 @@ export const sessionFields = {
   lastThinkingEnabled: v.optional(v.boolean()),
   lastUse1mContext: v.optional(v.boolean()),
   lastFastMode: v.optional(v.boolean()),
-  // Sticky composer mode (edit / plan). Absent → client default "edit".
+  // Legacy: the session mode system is gone (plan/design are skills now).
+  // Kept so existing rows still validate; pending a cleanup migration.
   lastMode: v.optional(sessionModeValidator),
   // Sticky Preview URL path for this session (e.g. "/dashboard"). Device
   // viewport stays tab-local; port reuses `devPort` below.
@@ -384,7 +385,8 @@ export const sessionFields = {
   // chat. `claimPendingTurn` withholds the queued first turn until this clears,
   // so the agent never runs against a stale snapshot checkout or baked modules.
   sandboxSetupPending: v.optional(v.boolean()),
-  // Design mode: index of the variation the user selected as the refine base.
+  // Legacy: design-mode refine base. No longer read or written; kept so
+  // existing rows still validate, pending a cleanup migration.
   selectedVariationIndex: v.optional(v.number()),
 };
 
@@ -654,6 +656,8 @@ export const messageFields = {
   activityLog: v.optional(v.string()),
   userId: v.optional(v.id("users")),
   parentId: v.union(v.id("sessions"), v.id("projects"), v.id("agentTasks")),
+  // Legacy: turn mode. No longer written; kept so existing rows still validate,
+  // pending a cleanup migration.
   mode: v.optional(sessionModeValidator),
   // Client-generated id (crypto.randomUUID) set when a user message is sent
   // optimistically. Lets the client dedup its local pending row against the
@@ -661,6 +665,8 @@ export const messageFields = {
   clientId: v.optional(v.string()),
   isSystemAlert: v.optional(v.boolean()),
   errorDetail: v.optional(v.string()),
+  // Legacy: design-mode persona. No longer written; kept so existing rows still
+  // validate, pending a cleanup migration.
   personaId: v.optional(v.id("designPersonas")),
   variations: v.optional(v.array(variationValidator)),
   imageStorageId: v.optional(v.id("_storage")),
@@ -696,6 +702,8 @@ export const queuedMessageFields = {
   // field deploys without a migration; legacy rows without it sort first.
   order: v.optional(v.number()),
   userId: v.id("users"),
+  // Legacy: turn mode. Ignored on dequeue; kept so rows queued before the mode
+  // system was removed still validate, pending a cleanup migration.
   mode: v.optional(sessionModeValidator),
   model: v.optional(aiModelValidator),
   // Carried alongside `model` so a queued message runs on the same user account
@@ -706,6 +714,8 @@ export const queuedMessageFields = {
   use1mContext: v.optional(v.boolean()),
   fastMode: v.optional(v.boolean()),
   responseLength: v.optional(v.string()),
+  // Legacy: design-mode persona and variation count. Ignored on dequeue; kept
+  // so already-queued rows still validate, pending a cleanup migration.
   personaId: v.optional(v.id("designPersonas")),
   numDesigns: v.optional(v.number()),
   // Carried from the composer through the queue to the started user message.

@@ -27,7 +27,7 @@ import {
 } from "../_queues/helpers";
 import { resolveMessageTokens } from "../_mentions/resolveMessageTokens";
 import { buildCustomInstructionsBlock } from "../prompts";
-import { buildPlanPrompt, buildEditPrompt, buildDesignPrompt } from "./prompts";
+import { buildEditPrompt } from "./prompts";
 import { z } from "zod";
 import {
   delayedPublishFailureError,
@@ -52,25 +52,20 @@ export const sessionCompleteEvent = defineEvent({
   validator: workflowCompleteValidator,
 });
 
-// --- Mode config ---
+// --- Turn config ---
 
-export const MODE_TOOLS: Record<"edit" | "plan" | "design", string> = {
-  edit: "Read,Write,Edit,Bash,Glob,Grep",
-  plan: "Read,Write,Glob,Grep",
-  design: "Read,Glob,Grep,Skill,Write,Edit,Bash",
-};
+/**
+ * Tools every session turn may use. Skill is required so the harness can invoke
+ * Eva's system skills (eva-plan, eva-design, eva-capture, eva-audit), which is
+ * how planning and design work now that turn modes are gone.
+ */
+export const SESSION_TOOLS = "Read,Write,Edit,Bash,Glob,Grep,Skill";
 
-type SessionPromptMode = "edit" | "ask" | "execute" | "plan" | "design";
-
-/** Maps a session turn mode to the MODE_TOOLS key used for allowedTools. */
-export function resolveToolMode(
-  mode: SessionPromptMode,
-): keyof typeof MODE_TOOLS {
-  if (mode === "plan") return "plan";
-  if (mode === "design") return "design";
-  return "edit";
-}
-
+/**
+ * The `eva-design` reply contract. `variations` must be present and non-empty:
+ * an all-optional schema matched a bare `{}` in an ordinary reply and turned it
+ * into an empty Designs tab.
+ */
 const designResultSchema = z.object({
   summary: z.string().optional(),
   variations: z
@@ -81,10 +76,10 @@ const designResultSchema = z.object({
         filePath: z.string().optional(),
       }),
     )
-    .optional(),
+    .min(1),
 });
 
-/** Parses design-turn JSON output from agent text. */
+/** Parses the design-variations JSON a turn may end with. */
 function parseDesignResult(
   text: string | null,
 ): z.infer<typeof designResultSchema> | null {
@@ -115,24 +110,15 @@ async function finalizeOpenSyntheticTurn(
   await ctx.db.patch(sessionId, { syntheticTurnMessageId: undefined });
 }
 
-// Accepts legacy "ask"/"execute" for in-flight queued messages — treated as "edit" in handlers
-export const sessionModeArgValidator = v.union(
-  v.literal("edit"),
-  v.literal("ask"),
-  v.literal("execute"),
-  v.literal("plan"),
-  v.literal("design"),
-);
-
 /**
- * Builds the mode-specific agent prompt for a session turn (doc `@` mentions
- * resolved, custom instructions + system prompt folded in). Shared single
- * source of truth so both the workflow's `getSessionData` query and the
- * daemon-pull `startExecute` mutation produce byte-identical prompts — the
- * daemon must run exactly what the workflow would have handed it, never a
- * second variant. Takes already-fetched session/repo/user docs so it works from
- * either a query or a mutation context (MutationCtx satisfies QueryCtx for the
- * read-only mention resolution).
+ * Builds the agent prompt for a session turn (doc `@` mentions resolved, custom
+ * instructions + system prompt folded in). Shared single source of truth so
+ * both the workflow's `getSessionData` query and the daemon-pull `startExecute`
+ * mutation produce byte-identical prompts — the daemon must run exactly what
+ * the workflow would have handed it, never a second variant. Takes
+ * already-fetched session/repo/user docs so it works from either a query or a
+ * mutation context (MutationCtx satisfies QueryCtx for the read-only mention
+ * resolution).
  */
 export async function buildSessionPrompt(
   ctx: QueryCtx,
@@ -141,9 +127,6 @@ export async function buildSessionPrompt(
     repo: Doc<"githubRepos">;
     user: Doc<"users"> | null;
     message: string;
-    mode: SessionPromptMode;
-    personaId?: Id<"designPersonas">;
-    numDesigns?: number;
   },
 ): Promise<{ prompt: string; branchName: string }> {
   const { session, repo, user } = args;
@@ -161,96 +144,41 @@ export async function buildSessionPrompt(
     session.repoId,
   );
 
-  let prompt: string;
-  if (args.mode === "plan") {
-    prompt = buildPlanPrompt(
-      { owner: repo.owner, name: repo.name },
-      session.planContent || "",
-      resolvedMessage,
-      rootDirectory,
-      customInstructionsBlock,
-      repo.systemPrompt,
-    );
-  } else if (args.mode === "design") {
-    let persona: { name: string; prompt: string } | null = null;
-    if (args.personaId) {
-      const personaDoc = await ctx.db.get(args.personaId);
-      if (personaDoc) {
-        persona = { name: personaDoc.name, prompt: personaDoc.prompt };
-      }
-    }
-
-    const messages = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", session._id))
-      .collect();
-
-    let selectedBase: { label: string; filePath: string } | null = null;
-    if (session.selectedVariationIndex !== undefined) {
-      const lastAssistant = [...messages]
-        .reverse()
-        .find((m) => m.role === "assistant" && m.variations?.length);
-      if (lastAssistant?.variations) {
-        const variation =
-          lastAssistant.variations[session.selectedVariationIndex];
-        if (variation?.filePath) {
-          selectedBase = {
-            label: variation.label,
-            filePath: variation.filePath,
-          };
-        }
-      }
-    }
-
-    const conversationHistory = messages
-      .filter((m) => m.content)
-      .map((m) => ({ role: m.role, content: m.content }));
-
-    prompt = buildDesignPrompt(
-      { owner: repo.owner, name: repo.name },
-      resolvedMessage,
-      conversationHistory,
-      selectedBase,
-      persona,
-      rootDirectory,
-      args.numDesigns ?? 3,
-      customInstructionsBlock,
-    );
-  } else {
-    const sessionProvider =
-      session.provider ?? getAIModelProvider(session.lastModel);
-    const cursorMessages =
-      sessionProvider === "cursor"
-        ? await ctx.db
-            .query("messages")
-            .withIndex("by_parent", (q) => q.eq("parentId", session._id))
-            .collect()
-        : [];
-    const cursorHistory = cursorMessages
-      .filter((entry) => entry.content)
-      .map((entry) => ({ role: entry.role, content: entry.content }));
-    const lastHistoryEntry = cursorHistory.at(-1);
-    const priorCursorHistory =
-      lastHistoryEntry?.role === "user" &&
-      lastHistoryEntry.content === args.message
-        ? cursorHistory.slice(0, -1)
-        : cursorHistory;
-    prompt = buildEditPrompt(
-      {
-        owner: repo.owner,
-        name: repo.name,
-        baseBranch: resolveSessionBaseBranch(session, repo),
-      },
-      branchName,
-      session.planContent || "",
-      resolvedMessage,
-      rootDirectory,
-      customInstructionsBlock,
-      repo.systemPrompt,
-      session.devPort ?? repo.devPort,
-      priorCursorHistory,
-    );
-  }
+  const sessionProvider =
+    session.provider ?? getAIModelProvider(session.lastModel);
+  const cursorMessages =
+    sessionProvider === "cursor"
+      ? await ctx.db
+          .query("messages")
+          .withIndex("by_parent", (q) => q.eq("parentId", session._id))
+          .collect()
+      : [];
+  const cursorHistory = cursorMessages
+    .filter((entry) => entry.content)
+    .map((entry) => ({ role: entry.role, content: entry.content }));
+  const lastHistoryEntry = cursorHistory.at(-1);
+  const priorCursorHistory =
+    lastHistoryEntry?.role === "user" &&
+    lastHistoryEntry.content === args.message
+      ? cursorHistory.slice(0, -1)
+      : cursorHistory;
+  // The stored plan still feeds implementation turns, and gives `eva-plan` its
+  // iteration context after a sandbox is recreated without plan.md on disk.
+  let prompt = buildEditPrompt(
+    {
+      owner: repo.owner,
+      name: repo.name,
+      baseBranch: resolveSessionBaseBranch(session, repo),
+    },
+    branchName,
+    session.planContent || "",
+    resolvedMessage,
+    rootDirectory,
+    customInstructionsBlock,
+    repo.systemPrompt,
+    session.devPort ?? repo.devPort,
+    priorCursorHistory,
+  );
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;
   }
@@ -285,12 +213,11 @@ export const sessionSandboxStartupWorkflow = workflow.define({
   },
 });
 
-/** Runs a session message through the sandbox agent in the specified mode (ask/plan/execute). */
+/** Runs a session message through the sandbox agent. */
 export const sessionExecuteWorkflow = workflow.define({
   args: {
     sessionId: v.id("sessions"),
     message: v.string(),
-    mode: sessionModeArgValidator,
     model: aiModelValidator,
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
@@ -298,25 +225,19 @@ export const sessionExecuteWorkflow = workflow.define({
     fastMode: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     credentialOwnerUserId: v.optional(v.id("users")),
-    personaId: v.optional(v.id("designPersonas")),
-    numDesigns: v.optional(v.number()),
     userId: v.id("users"),
     installationId: v.number(),
   },
   handler: async (step, args): Promise<void> => {
     await step.runMutation(internal.sessionWorkflow.addAssistantPlaceholder, {
       sessionId: args.sessionId,
-      mode: args.mode,
     });
 
     const data = await step.runQuery(internal.sessionWorkflow.getSessionData, {
       sessionId: args.sessionId,
       message: args.message,
-      mode: args.mode,
       model: args.model,
       userId: args.userId,
-      personaId: args.personaId,
-      numDesigns: args.numDesigns,
     });
 
     // Daemon-pull dispatch: the prompt is NOT pushed from here. `startExecute`
@@ -424,7 +345,7 @@ export const sessionExecuteWorkflow = workflow.define({
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
         fastMode: args.fastMode,
-        allowedTools: data.allowedTools,
+        allowedTools: SESSION_TOOLS,
         providerAccountId: args.providerAccountId,
         credentialOwnerUserId: args.credentialOwnerUserId,
         sessionPersistenceId: args.sessionId,
@@ -447,7 +368,7 @@ export const sessionExecuteWorkflow = workflow.define({
           thinkingEnabled: args.thinkingEnabled,
           use1mContext: args.use1mContext,
           fastMode: args.fastMode,
-          allowedTools: data.allowedTools,
+          allowedTools: SESSION_TOOLS,
           repoId: data.repoId,
           streamingEntityId: String(args.sessionId),
           sessionPersistenceId: args.sessionId,
@@ -472,9 +393,12 @@ export const sessionExecuteWorkflow = workflow.define({
 
     const result = await step.awaitEvent(sessionCompleteEvent);
 
+    // Content-keyed, not mode-keyed: any turn may have written plan.md (the
+    // `eva-plan` skill does), so harvest it on every success and let saveResult
+    // decide whether it actually changed.
     let planContent: string | undefined;
 
-    if (args.mode === "plan" && result.success && sandboxId) {
+    if (result.success && sandboxId) {
       const planRaw = await step.runAction(internal.sandbox.runSandboxCommand, {
         sandboxId,
         command: `cat ${WORKSPACE_DIR}/plan.md 2>/dev/null || cat ${LEGACY_WORKSPACE_DIR}/plan.md 2>/dev/null || echo ""`,
@@ -510,7 +434,7 @@ export const sessionExecuteWorkflow = workflow.define({
     let pushSucceeded = false;
     let pushedCommits = false;
     let branchPublished = false;
-    if (args.mode !== "plan" && result.success && data.branchName) {
+    if (result.success && data.branchName) {
       try {
         const pushResult = await step.runAction(
           internal.sandbox.pushSandboxBranch,
@@ -698,7 +622,6 @@ export const clearStuckWorkingState = internalMutation({
 export const addAssistantPlaceholder = internalMutation({
   args: {
     sessionId: v.id("sessions"),
-    mode: sessionModeArgValidator,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -730,7 +653,6 @@ export const addAssistantPlaceholder = internalMutation({
       role: "assistant",
       content: "",
       timestamp: Date.now(),
-      mode: args.mode,
       activityLog: "",
     });
     await ctx.db.patch(args.sessionId, { updatedAt: Date.now() });
@@ -738,16 +660,13 @@ export const addAssistantPlaceholder = internalMutation({
   },
 });
 
-/** Fetches session and repo data, builds the mode-specific prompt, and resolves branch/tools config. */
+/** Fetches session and repo data, builds the turn prompt, and resolves branch config. */
 export const getSessionData = internalQuery({
   args: {
     sessionId: v.id("sessions"),
     message: v.string(),
-    mode: sessionModeArgValidator,
     model: aiModelValidator,
     userId: v.id("users"),
-    personaId: v.optional(v.id("designPersonas")),
-    numDesigns: v.optional(v.number()),
   },
   returns: v.object({
     sandboxId: v.optional(v.string()),
@@ -759,7 +678,6 @@ export const getSessionData = internalQuery({
     branchName: v.optional(v.string()),
     prUrl: v.optional(v.string()),
     baseBranch: v.string(),
-    allowedTools: v.string(),
     model: aiModelValidator,
     deploymentProjectName: v.optional(v.string()),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
@@ -777,9 +695,6 @@ export const getSessionData = internalQuery({
       repo,
       user,
       message: args.message,
-      mode: args.mode,
-      personaId: args.personaId,
-      numDesigns: args.numDesigns,
     });
 
     // Input images attached to the triggering user message. Used to re-stage
@@ -802,7 +717,6 @@ export const getSessionData = internalQuery({
       branchName,
       prUrl: session.prUrl,
       baseBranch: resolveSessionBaseBranch(session, repo),
-      allowedTools: MODE_TOOLS[resolveToolMode(args.mode)],
       model: normalizeAIModel(args.model),
       deploymentProjectName: repo.deploymentProjectName,
       attachmentStorageIds: triggeringUserMessage?.attachmentStorageIds,
@@ -879,9 +793,9 @@ export const saveResult = internalMutation({
     const last = resultTargetMessage(recent);
     if (!last) return null;
 
-    const isDesignTurn = last.mode === "design";
-    const designParsed =
-      isDesignTurn && args.success ? parseDesignResult(args.result) : null;
+    // Any successful turn may have ended with the eva-design JSON, so this is
+    // keyed on the reply's content rather than on what the turn was asked to do.
+    const designParsed = args.success ? parseDesignResult(args.result) : null;
 
     const patch: {
       content: string;
@@ -906,19 +820,12 @@ export const saveResult = internalMutation({
       isSystemAlert: undefined,
       errorDetail: undefined,
     };
-    if (designParsed?.variations) {
+    if (designParsed) {
       patch.variations = designParsed.variations.map((variation) => ({
         label: variation.label,
         route: variation.route,
         filePath: variation.filePath,
       }));
-    } else if (
-      isDesignTurn &&
-      args.success &&
-      args.result &&
-      designParsed === null
-    ) {
-      patch.content = args.result || "Failed to generate designs.";
     }
     if (args.activityLog) {
       patch.activityLog = args.activityLog;
@@ -945,7 +852,10 @@ export const saveResult = internalMutation({
       // Crash hygiene: drop stale soft-lock if the agent forgot browser_unlock.
       agentBrowsingAt: undefined,
     };
-    if (args.planContent) {
+    // plan.md is now harvested after every successful turn, so only write it
+    // back when it actually changed — an unchanged reread must not touch the
+    // session (and reorder nothing downstream of planContent).
+    if (args.planContent && args.planContent !== session.planContent) {
       sessionPatch.planContent = args.planContent;
     }
     await ctx.db.patch(args.sessionId, sessionPatch);
@@ -1246,22 +1156,11 @@ export const restageOpenTurn = internalMutation({
       };
     }
     const user = await ctx.db.get(session.userId);
-    const rawMode = lastAssistant.mode ?? lastUser.mode ?? "edit";
-    const mode: SessionPromptMode =
-      rawMode === "plan" ||
-      rawMode === "design" ||
-      rawMode === "ask" ||
-      rawMode === "execute" ||
-      rawMode === "edit"
-        ? rawMode
-        : "edit";
     const { prompt } = await buildSessionPrompt(ctx, {
       session,
       repo,
       user,
       message: lastUser.content,
-      mode,
-      personaId: lastUser.personaId,
     });
 
     const pendingTurn = {

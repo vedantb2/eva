@@ -79,12 +79,6 @@ export const SHORTCUT_DEFS = {
     group: "Navigation",
     defaultHotkey: "Alt+N",
   },
-  cycleSessionMode: {
-    name: "Cycle session mode",
-    description: "Step the composer through edit, plan, and design.",
-    group: "Chat",
-    defaultHotkey: "Mod+Shift+Tab",
-  },
   stashDraft: {
     name: "Stash composer draft",
     description:

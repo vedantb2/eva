@@ -1,12 +1,19 @@
 import { buildEvaCaptureContent } from "./evaCapture";
 import { buildEvaAuditContent } from "./evaAudit";
+import { buildEvaPlanContent } from "./evaPlan";
+import { buildEvaDesignContent } from "./evaDesign";
 
 /**
  * Eva-provided ("system") skills. Definitions live here rather than in a table
  * so they can be updated by deploying, and so the installed artefact in a repo
  * checkout stays a thin stub that fetches the real content over MCP.
  */
-export const SYSTEM_SKILL_NAMES = ["eva-capture", "eva-audit"] as const;
+export const SYSTEM_SKILL_NAMES = [
+  "eva-capture",
+  "eva-audit",
+  "eva-plan",
+  "eva-design",
+] as const;
 
 export type SystemSkillName = (typeof SYSTEM_SKILL_NAMES)[number];
 
@@ -47,6 +54,18 @@ export const SYSTEM_SKILLS: Record<SystemSkillName, SystemSkillDefinition> = {
     description:
       "Audit this branch against Eva's standard review categories and report the findings in chat. Use when the user asks for a code audit, a review of this branch, or a quality check before shipping.",
     buildContent: buildEvaAuditContent,
+  },
+  "eva-plan": {
+    name: "eva-plan",
+    description:
+      "Write or revise an implementation plan (PRD) for this session in plan.md, exploring the codebase first and implementing nothing. Use when the user asks to plan, scope, or spec work before it is built, or to revise the existing plan.",
+    buildContent: buildEvaPlanContent,
+  },
+  "eva-design": {
+    name: "eva-design",
+    description:
+      "Generate N design variations of a UI behind the app's /design-preview harness and report them so Eva can show them side by side. Use when the user asks for design options, variations, mockups, or a few directions for a screen.",
+    buildContent: buildEvaDesignContent,
   },
 };
 

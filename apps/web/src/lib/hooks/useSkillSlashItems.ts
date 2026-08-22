@@ -1,6 +1,11 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api, type AIProvider, type Id } from "@eva/backend";
-import { type SlashItem, systemSkillTokenId } from "@/lib/components/mentions";
+import {
+  type SlashItem,
+  systemSkillTokenId,
+  harnessSkillTokenId,
+  harnessSkillsForProvider,
+} from "@/lib/components/mentions";
 
 /**
  * The `/` skill list for a repo: skills synced from `.agents/skills` plus the
@@ -80,5 +85,34 @@ export function useSkillSlashItems(
       : [],
   );
 
-  return [...systemItems, ...repoItems];
+  const harnessItems = harnessSlashItems(provider, [
+    ...systemItems,
+    ...repoItems,
+  ]);
+
+  return [...systemItems, ...repoItems, ...harnessItems];
+}
+
+/**
+ * The harness's own built-in skills, shown last. A repo or system skill of
+ * the same name shadows the built-in — same precedence the harness applies
+ * when a project skill collides with a bundled one.
+ */
+export function harnessSlashItems(
+  provider: AIProvider | undefined,
+  existingItems: ReadonlyArray<Pick<SlashItem, "label">>,
+): SlashItem[] {
+  const takenLabels = new Set(existingItems.map((item) => item.label));
+  return harnessSkillsForProvider(provider).flatMap((skill) =>
+    takenLabels.has(skill.name)
+      ? []
+      : [
+          {
+            id: harnessSkillTokenId(skill.name),
+            label: skill.name,
+            description: skill.description,
+            badge: "Built-in",
+          },
+        ],
+  );
 }

@@ -1,5 +1,4 @@
 import type { Doc } from "@eva/backend";
-import { formatDurationCompactMs } from "@eva/shared/duration";
 
 /**
  * One provider's latest reading, minus the fields only the table row carries.
@@ -84,12 +83,39 @@ export function formatCostCents(cents: number): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+const MINUTE_MS = 60_000;
+const MINUTES_PER_HOUR = 60;
+const MINUTES_PER_DAY = 24 * MINUTES_PER_HOUR;
+
+/**
+ * Time still to run on a window, at the coarsest useful granularity: "2d 23h",
+ * "2h 28m", "45m". Deliberately not `formatDurationCompactMs`, which has no day
+ * unit — a weekly window would read "167h 12m" there, and its other callers
+ * measure agent work, where hours are the right ceiling.
+ *
+ * Rounds the smallest shown unit UP, carrying, so a countdown never claims a
+ * reset lands sooner than it does (and never reads "0m" with time left).
+ */
+export function formatResetDistanceMs(ms: number): string {
+  const totalMinutes = Math.ceil(ms / MINUTE_MS);
+  if (totalMinutes < MINUTES_PER_HOUR) return `${totalMinutes}m`;
+  if (totalMinutes < MINUTES_PER_DAY) {
+    const hours = Math.floor(totalMinutes / MINUTES_PER_HOUR);
+    const minutes = totalMinutes % MINUTES_PER_HOUR;
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+  const totalHours = Math.ceil(totalMinutes / MINUTES_PER_HOUR);
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  return hours > 0 ? `${days}d ${hours}h` : `${days}d`;
+}
+
 /** "resets in 2h 15m", or the moment it has already passed. */
 export function resetsInLabel(resetsAt: number, now: number): string {
   const remaining = resetsAt - now;
   return remaining <= 0
     ? "resets now"
-    : `resets in ${formatDurationCompactMs(remaining)}`;
+    : `resets in ${formatResetDistanceMs(remaining)}`;
 }
 
 export interface ChipSummary {

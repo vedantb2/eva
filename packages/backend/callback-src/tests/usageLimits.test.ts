@@ -122,7 +122,8 @@ test("readClaudeUsageWindows builds every populated window in display order", ()
       resetsAt: Date.parse("2026-08-22T10:00:00.000Z"),
     },
     { key: "seven_day", label: "Weekly (all models)", utilization: 55 },
-    { key: "model_scoped:Fable", label: "Fable", utilization: 3 },
+    // A model-scoped window reads like its fixed-key siblings, not "Fable".
+    { key: "model_scoped:Fable", label: "Weekly (Fable)", utilization: 3 },
   ]);
 });
 

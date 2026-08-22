@@ -2535,7 +2535,12 @@ function readClaudeUsageWindows(response) {
   for (const entry of limits.model_scoped ?? []) {
     const name = readNonEmptyString(entry.display_name);
     if (!name) continue;
-    pushUsageWindow(windows, "model_scoped:" + name, entry, name);
+    pushUsageWindow(
+      windows,
+      "model_scoped:" + name,
+      entry,
+      \`Weekly (\${name})\`
+    );
   }
   return windows;
 }

@@ -221,7 +221,14 @@ export function readClaudeUsageWindows(
   for (const entry of limits.model_scoped ?? []) {
     const name = readNonEmptyString(entry.display_name);
     if (!name) continue;
-    pushUsageWindow(windows, "model_scoped:" + name, entry, name);
+    // Model-scoped entries are weekly windows too, so they are labelled like
+    // the fixed ones ("Weekly (Fable)") rather than by bare model name.
+    pushUsageWindow(
+      windows,
+      "model_scoped:" + name,
+      entry,
+      `Weekly (${name})`,
+    );
   }
   return windows;
 }

@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import {
   chipSummary,
   formatCostCents,
+  formatResetDistanceMs,
   maxUtilization,
   newestCapturedAt,
   providerHeading,
@@ -13,6 +14,7 @@ import {
 } from "./_utils";
 
 const HOUR = 60 * 60 * 1000;
+const DAY = 24 * HOUR;
 const NOW = 1_700_000_000_000;
 
 function claude(overrides: Partial<UsageSnapshot> = {}): UsageSnapshot {
@@ -118,6 +120,26 @@ test("reset labels count down, and stop at the reset", () => {
   );
   expect(resetsInLabel(NOW + 9 * 60 * 1000, NOW)).toBe("resets in 9m");
   expect(resetsInLabel(NOW - 1000, NOW)).toBe("resets now");
+});
+
+test("a reset more than a day out is counted in days, not raw hours", () => {
+  expect(formatResetDistanceMs(2 * DAY + 23 * HOUR)).toBe("2d 23h");
+  expect(formatResetDistanceMs(6 * DAY + 12 * HOUR)).toBe("6d 12h");
+  // Whole days drop the "0h", and the last minutes of a day roll up into it.
+  expect(formatResetDistanceMs(3 * DAY)).toBe("3d");
+  expect(formatResetDistanceMs(DAY - 30 * 1000)).toBe("1d");
+  expect(resetsInLabel(NOW + 2 * DAY + 23 * HOUR, NOW)).toBe(
+    "resets in 2d 23h",
+  );
+});
+
+test("under a day stays on hours and minutes, under an hour on minutes", () => {
+  expect(formatResetDistanceMs(23 * HOUR + 59 * 60 * 1000)).toBe("23h 59m");
+  expect(formatResetDistanceMs(2 * HOUR + 28 * 60 * 1000)).toBe("2h 28m");
+  expect(formatResetDistanceMs(2 * HOUR)).toBe("2h");
+  expect(formatResetDistanceMs(45 * 60 * 1000)).toBe("45m");
+  // Rounding up keeps a live countdown off "0m" while time remains.
+  expect(formatResetDistanceMs(30 * 1000)).toBe("1m");
 });
 
 test("the provider heading names the plan only when there is one", () => {

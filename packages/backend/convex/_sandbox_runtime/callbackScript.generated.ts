@@ -158,6 +158,7 @@ if (GH_TOKEN) {
 process.env.GH_PROMPT_DISABLED = "1";
 process.env.GH_NO_UPDATE_NOTIFIER = "1";
 var REPO_ID = process.env.REPO_ID;
+var PROVIDER_ACCOUNT_ID = process.env.PROVIDER_ACCOUNT_ID || "";
 var REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
 var AI_THINKING_ENABLED = process.env.AI_THINKING_ENABLED || "";
 var AI_CONTEXT_1M = process.env.AI_CONTEXT_1M || "";
@@ -2602,11 +2603,12 @@ function windowToJson(window) {
     ...window.resetsAt === void 0 ? {} : { resetsAt: window.resetsAt }
   };
 }
-function buildUsageLimitReportArgs(repoId, provider, snapshot) {
+function buildUsageLimitReportArgs(repoId, provider, providerAccountId, snapshot) {
   const tokens = snapshot.tokens;
   return {
     repoId,
     provider,
+    ...providerAccountId ? { providerAccountId } : {},
     ...snapshot.subscriptionType === void 0 ? {} : { subscriptionType: snapshot.subscriptionType },
     ...snapshot.status === void 0 ? {} : { status: snapshot.status },
     ...snapshot.windows === void 0 ? {} : { windows: snapshot.windows.map(windowToJson) },
@@ -2629,7 +2631,12 @@ async function reportUsageLimits(provider) {
     log("usage limits: no REPO_ID in the environment \\u2014 not reporting");
     return;
   }
-  const args = buildUsageLimitReportArgs(REPO_ID, provider, snapshot);
+  const args = buildUsageLimitReportArgs(
+    REPO_ID,
+    provider,
+    PROVIDER_ACCOUNT_ID,
+    snapshot
+  );
   const fingerprint = JSON.stringify(args);
   if (fingerprint === callbackState.lastReportedUsageLimits) return;
   callbackState.lastReportedUsageLimits = fingerprint;

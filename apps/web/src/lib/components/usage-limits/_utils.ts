@@ -1,12 +1,15 @@
-import type { Doc } from "@eva/backend";
+import type { FunctionReturnType } from "convex/server";
+import { type api } from "@eva/backend";
 
 /**
- * One provider's latest reading, minus the fields only the table row carries.
- * Derived from the Doc rather than restated, so a schema change fails here
- * instead of drifting — while still letting a test build one from a literal.
+ * One account's latest reading, minus the fields only the table row carries.
+ * Derived from the query's return type rather than restated, so a schema change
+ * fails here instead of drifting — while still letting a test build one from a
+ * literal. Taken from the query rather than the Doc because `accountLabel` is
+ * resolved on read and exists only in the query's result.
  */
 export type UsageSnapshot = Omit<
-  Doc<"agentUsageLimits">,
+  FunctionReturnType<typeof api.usageLimits.getByRepo>[number],
   "_id" | "_creationTime" | "repoId"
 >;
 
@@ -130,22 +133,31 @@ export interface ChipSummary {
  * so they win; a Cursor-only repo has cumulative spend instead. A reading with
  * neither still matters when the provider flagged it, and returning nothing is
  * how the whole feature stays invisible until a turn has reported something.
+ *
+ * The number is the tightest constraint anywhere in the card — the highest
+ * utilisation across every account, not the freshest row's. One chip stands in
+ * for several accounts, so the one closest to being refused is the one worth
+ * showing; and its tone also carries any other account's flagged status, which
+ * would otherwise be hidden behind a collapsed card.
  */
 export function chipSummary(
   rows: readonly UsageSnapshot[],
 ): ChipSummary | undefined {
+  let tightest: number | undefined;
+  let tone: UsageTone = "neutral";
   for (const row of rows) {
     const utilization = maxUtilization(row);
-    if (utilization !== undefined) {
-      return {
-        label: formatUtilization(utilization),
-        utilization,
-        tone: worseTone(
-          toneForUtilization(utilization),
-          toneForStatus(row.status),
-        ),
-      };
+    if (utilization === undefined) continue;
+    if (tightest === undefined || utilization > tightest) {
+      tightest = utilization;
     }
+    tone = worseTone(
+      tone,
+      worseTone(toneForUtilization(utilization), toneForStatus(row.status)),
+    );
+  }
+  if (tightest !== undefined) {
+    return { label: formatUtilization(tightest), utilization: tightest, tone };
   }
   for (const row of rows) {
     if (row.costCents !== undefined) {
@@ -169,6 +181,41 @@ export function providerHeading(snapshot: UsageSnapshot): string {
   const plan = snapshot.subscriptionType;
   if (!plan) return provider;
   return `${provider} · ${plan.charAt(0).toUpperCase()}${plan.slice(1)} plan`;
+}
+
+type UsageProvider = UsageSnapshot["provider"];
+
+/**
+ * Identity of one section: a provider can appear once per connected account, so
+ * the provider alone is not a stable React key. Structural rather than taking a
+ * whole snapshot — the id is only ever read as a string here.
+ */
+export function sectionKey(snapshot: {
+  provider: UsageProvider;
+  providerAccountId?: string;
+}): string {
+  return `${snapshot.provider}:${snapshot.providerAccountId ?? ""}`;
+}
+
+/**
+ * Sections in display order. Rows arrive newest-first, which would let a Cursor
+ * reading land between two Claude accounts; grouping keeps one provider's
+ * accounts adjacent while leaving both the provider order and the order of
+ * accounts within a provider as captured — freshest first.
+ */
+export function orderedSections<Row extends { provider: UsageProvider }>(
+  rows: readonly Row[],
+): Row[] {
+  const byProvider = new Map<UsageProvider, Row[]>();
+  for (const row of rows) {
+    const group = byProvider.get(row.provider);
+    if (group) {
+      group.push(row);
+    } else {
+      byProvider.set(row.provider, [row]);
+    }
+  }
+  return [...byProvider.values()].flat();
 }
 
 /** The freshest reading across providers, for the card's single footer. */

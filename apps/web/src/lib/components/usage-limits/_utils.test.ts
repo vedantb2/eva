@@ -5,9 +5,11 @@ import {
   formatResetDistanceMs,
   maxUtilization,
   newestCapturedAt,
+  orderedSections,
   providerHeading,
   reportedWindows,
   resetsInLabel,
+  sectionKey,
   toneForUtilization,
   type UsageSnapshot,
   worseTone,
@@ -92,6 +94,63 @@ test("a Cursor-only repo falls back to cumulative cost", () => {
 
 test("Claude windows win over a Cursor cost when both have reported", () => {
   expect(chipSummary([cursor(), claude()])?.label).toBe("62%");
+});
+
+test("the chip shows the tightest window across every account, not the freshest", () => {
+  // Two Claude accounts on one repo. The newer row is the roomier one, so a
+  // first-match chip would have understated how close the other is to refusal.
+  const roomy = claude({ capturedAt: NOW, windows: [{ key: "5h", label: "5h", utilization: 18 }] });
+  const tight = claude({
+    capturedAt: NOW - 60_000,
+    windows: [{ key: "5h", label: "5h", utilization: 83 }],
+  });
+  expect(chipSummary([roomy, tight])).toEqual({
+    label: "83%",
+    utilization: 83,
+    tone: "warning",
+  });
+});
+
+test("one account's flagged status colours the chip the whole card shares", () => {
+  // The collapsed chip stands in for every account, so a rejection sitting
+  // behind a lower utilisation must not be hidden by it.
+  const calm = claude({ windows: [{ key: "5h", label: "5h", utilization: 70 }] });
+  const rejected = claude({
+    status: "rejected",
+    windows: [{ key: "5h", label: "5h", utilization: 12 }],
+  });
+  expect(chipSummary([calm, rejected])).toEqual({
+    label: "70%",
+    utilization: 70,
+    tone: "danger",
+  });
+});
+
+test("a section is keyed by account, so two of one provider stay distinct", () => {
+  expect(sectionKey({ provider: "claude", providerAccountId: "acc-a" })).toBe(
+    "claude:acc-a",
+  );
+  expect(sectionKey({ provider: "claude", providerAccountId: "acc-b" })).not.toBe(
+    sectionKey({ provider: "claude", providerAccountId: "acc-a" }),
+  );
+  // A run on the shared team credential has no account, and still keys.
+  expect(sectionKey({ provider: "cursor" })).toBe("cursor:");
+});
+
+test("a provider's accounts render adjacently, newest provider first", () => {
+  // Newest-first rows can interleave providers; grouping must not let the
+  // Cursor section split the two Claude accounts apart.
+  const rows = [
+    { provider: "claude" as const, providerAccountId: "acc-a" },
+    { provider: "cursor" as const },
+    { provider: "claude" as const, providerAccountId: "acc-b" },
+  ];
+  expect(orderedSections(rows).map(sectionKey)).toEqual([
+    "claude:acc-a",
+    "claude:acc-b",
+    "cursor:",
+  ]);
+  expect(orderedSections([])).toEqual([]);
 });
 
 test("a flagged reading still shows even with nothing to measure", () => {

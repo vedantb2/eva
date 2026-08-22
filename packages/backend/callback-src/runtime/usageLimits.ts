@@ -1,4 +1,4 @@
-import { REPO_ID } from "../config.js";
+import { PROVIDER_ACCOUNT_ID, REPO_ID } from "../config.js";
 import { callConvexWithRetry } from "../http/convexClient.js";
 import type {
   JsonObject,
@@ -10,7 +10,7 @@ import type {
 import { log } from "../utils.js";
 import { callbackState as S } from "./state.js";
 
-/** Convex mutation that upserts the (repo, provider) usage-limit row. */
+/** Convex mutation that upserts the (repo, provider, account) usage-limit row. */
 const REPORT_MUTATION = "usageLimits:report";
 
 /**
@@ -317,16 +317,24 @@ function windowToJson(window: UsageLimitWindow): JsonObject {
   };
 }
 
-/** The mutation payload minus `capturedAt`, so it doubles as the dedup key. */
+/**
+ * The mutation payload minus `capturedAt`, so it doubles as the dedup key.
+ *
+ * `providerAccountId` is omitted when empty rather than sent blank: it is part
+ * of the row's key, and the shared-team-credential row is the one with no
+ * account at all.
+ */
 export function buildUsageLimitReportArgs(
   repoId: string,
   provider: UsageLimitProvider,
+  providerAccountId: string,
   snapshot: UsageLimitSnapshot,
 ): JsonObject {
   const tokens = snapshot.tokens;
   return {
     repoId,
     provider,
+    ...(providerAccountId ? { providerAccountId } : {}),
     ...(snapshot.subscriptionType === undefined
       ? {}
       : { subscriptionType: snapshot.subscriptionType }),
@@ -367,7 +375,12 @@ export async function reportUsageLimits(
     log("usage limits: no REPO_ID in the environment — not reporting");
     return;
   }
-  const args = buildUsageLimitReportArgs(REPO_ID, provider, snapshot);
+  const args = buildUsageLimitReportArgs(
+    REPO_ID,
+    provider,
+    PROVIDER_ACCOUNT_ID,
+    snapshot,
+  );
   const fingerprint = JSON.stringify(args);
   if (fingerprint === S.lastReportedUsageLimits) return;
   S.lastReportedUsageLimits = fingerprint;

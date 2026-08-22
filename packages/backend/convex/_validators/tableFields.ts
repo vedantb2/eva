@@ -991,10 +991,10 @@ export const backgroundProcessFields = {
 };
 
 /**
- * The latest plan usage-limit reading for one agent provider on one repo,
+ * The latest plan usage-limit reading for one agent account on one repo,
  * captured in the sandbox at the end of every turn and upserted here (one row
- * per repo+provider). Each row is a whole snapshot, so a field the provider
- * stopped reporting disappears rather than going stale.
+ * per repo+provider+account). Each row is a whole snapshot, so a field the
+ * provider stopped reporting disappears rather than going stale.
  *
  * Claude reports subscription plan windows: `subscriptionType`, `status` and
  * `windows` (5-hour, weekly, per-model). Cursor has no plan windows, so it
@@ -1003,6 +1003,13 @@ export const backgroundProcessFields = {
 export const agentUsageLimitFields = {
   repoId: v.id("githubRepos"),
   provider: usageLimitProviderValidator,
+  /**
+   * The connected account the run authenticated as, when it ran on one. Plan
+   * limits are per account, so this is part of the row's identity: without it a
+   * second account's reading would overwrite the first. Absent when the run
+   * used the shared team credential from the sandbox environment.
+   */
+  providerAccountId: v.optional(v.id("userProviderAccounts")),
   /** Epoch ms the sandbox took this reading. */
   capturedAt: v.number(),
   /** claude.ai plan, e.g. "max". Absent for API-key sessions. */

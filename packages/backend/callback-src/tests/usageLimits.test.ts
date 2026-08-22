@@ -159,7 +159,7 @@ test("readCursorUsageSnapshot normalizes cumulative tokens and charged cost", ()
 
 test("buildUsageLimitReportArgs omits every field the snapshot did not observe", () => {
   expect(
-    buildUsageLimitReportArgs("repo-1", "claude", {
+    buildUsageLimitReportArgs("repo-1", "claude", "account-1", {
       subscriptionType: "max",
       status: "allowed",
       windows: [{ key: "five_hour", label: "5h", utilization: 12 }],
@@ -167,11 +167,31 @@ test("buildUsageLimitReportArgs omits every field the snapshot did not observe",
   ).toEqual({
     repoId: "repo-1",
     provider: "claude",
+    providerAccountId: "account-1",
     subscriptionType: "max",
     status: "allowed",
     windows: [{ key: "five_hour", label: "5h", utilization: 12 }],
   });
   expect(
-    buildUsageLimitReportArgs("repo-1", "cursor", { costCents: 0 }),
+    buildUsageLimitReportArgs("repo-1", "cursor", "", { costCents: 0 }),
   ).toEqual({ repoId: "repo-1", provider: "cursor", costCents: 0 });
+});
+
+test("buildUsageLimitReportArgs keys two accounts apart on one repo", () => {
+  const snapshot = { subscriptionType: "max", status: "allowed" } as const;
+  const kezia = buildUsageLimitReportArgs("repo-1", "claude", "acc-a", {
+    ...snapshot,
+  });
+  const team = buildUsageLimitReportArgs("repo-1", "claude", "acc-b", {
+    ...snapshot,
+  });
+  // Identical readings on the same repo and provider must still differ, or the
+  // dedup fingerprint would suppress the second account's report entirely.
+  expect(kezia).not.toEqual(team);
+  expect(kezia.providerAccountId).toBe("acc-a");
+  // A run on the shared team credential sends no account at all.
+  expect(
+    "providerAccountId" in
+      buildUsageLimitReportArgs("repo-1", "claude", "", { ...snapshot }),
+  ).toBe(false);
 });

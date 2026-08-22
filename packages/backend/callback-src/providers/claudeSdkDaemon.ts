@@ -44,7 +44,12 @@ import {
   syncClaudeStateToPersist,
   prepareClaudeSessionState,
 } from "../session/claudeSession.js";
-import { buildSdkOptions, loadSdk, type SdkUserMessage } from "./claudeSdk.js";
+import {
+  buildSdkOptions,
+  loadSdk,
+  type SdkModule,
+  type SdkUserMessage,
+} from "./claudeSdk.js";
 import { callbackState as S } from "../runtime/state.js";
 import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
@@ -138,6 +143,9 @@ type ClaimedTurn = {
 };
 
 type DaemonMessage = Record<string, JsonValue>;
+
+/** The SDK's live query handle — inferred so no SDK type is named here. */
+type AgentQuery = ReturnType<SdkModule["query"]>;
 
 type DaemonTurn = { kind: "real" } | { kind: "synthetic"; messageId: string };
 
@@ -698,6 +706,73 @@ async function syncBackgroundAgentsToConvex(
   }
 }
 
+/**
+ * Global (not entity-scoped) mutation, so the path is fixed here rather than
+ * injected per launch like COMPLETION_MUTATION — same as `streaming:touch`.
+ */
+const HARNESS_SKILL_CATALOG_MUTATION = "harnessSkills:upsertForProvider";
+
+let harnessCatalogReportStarted = false;
+
+/**
+ * Reports the built-in slash commands this sandbox's Claude CLI ships with, so
+ * the composer's `/` picker tracks the installed build instead of a hardcoded
+ * list. Once per daemon; the server drops the report when nothing changed.
+ * Best-effort — a failure here must never touch the session.
+ */
+async function reportHarnessSkillCatalog(
+  cliVersion: string,
+  query: AgentQuery,
+): Promise<void> {
+  try {
+    if (typeof query.initializationResult !== "function") {
+      log("daemon: initializationResult unavailable — skipping skill report");
+      return;
+    }
+    const init = await query.initializationResult();
+    const commands: Record<string, string>[] = init.commands.map((command) => {
+      const payload: Record<string, string> = {
+        name: command.name,
+        description: command.description,
+      };
+      if (command.argumentHint) payload.argumentHint = command.argumentHint;
+      return payload;
+    });
+    if (commands.length === 0) return;
+    await callConvexWithRetry("mutation", HARNESS_SKILL_CATALOG_MUTATION, {
+      provider: "claude",
+      cliVersion,
+      commands,
+    });
+    log(
+      "daemon: reported " +
+        commands.length +
+        " built-in skills from CLI " +
+        cliVersion,
+    );
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    log("daemon: harness skill report failed — " + messageText);
+  }
+}
+
+/**
+ * The init system message is the only place the CLI version appears; the
+ * command descriptions only come from `initializationResult()`. Fires once,
+ * detached, as soon as the first init message lands on the warm query.
+ */
+function noteHarnessInitMessage(
+  message: DaemonMessage,
+  query: AgentQuery,
+): void {
+  if (harnessCatalogReportStarted) return;
+  if (message.type !== "system" || message.subtype !== "init") return;
+  const cliVersion = readStringField(message, "claude_code_version");
+  if (!cliVersion) return;
+  harnessCatalogReportStarted = true;
+  void reportHarnessSkillCatalog(cliVersion, query);
+}
+
 function findAgentByTaskId(taskId: string): BackgroundAgentEntry | undefined {
   for (const entry of unsettledBackgroundAgents.values()) {
     if (entry.taskId === taskId) {
@@ -1256,6 +1331,7 @@ function createWarmAgentRunner(
         if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
           continue;
         }
+        noteHarnessInitMessage(raw, query);
         pending.push(raw);
         wakeWaiters();
       }

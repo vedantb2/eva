@@ -7,12 +7,18 @@ import type { AIProvider } from "@eva/backend";
  * `convex/_mentions/resolveSkillMentions.ts`), so nothing is materialized in
  * the sandbox and no content sync is needed.
  *
- * The Claude list is curated from the Agent SDK init handshake
- * (`initializationResult().commands`) of the Claude Code build the sandboxes
- * run (2.1.239): agent-invocable prompt skills only. Local/terminal-UI
- * commands (`/clear`, `/config`, `/usage`, …) and ones that fight Eva's own
- * orchestration (`/batch`) are left out. Descriptions are the harness's own,
- * trimmed to their first sentence for the picker row.
+ * This static list is the FALLBACK. The live catalog is reported by every
+ * Claude sandbox at session start (`harnessSkills.upsertForProvider`, filtered
+ * by `convex/_harnessSkills/filter.ts`) and read back by `useSkillSlashItems`;
+ * these entries only show until the first report lands, and while that query
+ * is still loading, so the picker never renders empty.
+ *
+ * Curated from the Agent SDK init handshake (`initializationResult().commands`)
+ * of the Claude Code build the sandboxes ran at the time (2.1.239):
+ * agent-invocable prompt skills only. Local/terminal-UI commands (`/clear`,
+ * `/config`, `/usage`, …) and ones that fight Eva's own orchestration
+ * (`/batch`) are left out — the same exclusions the ingest filter applies.
+ * Descriptions are the harness's own, trimmed for the picker row.
  */
 export interface HarnessSkill {
   name: string;
@@ -84,9 +90,17 @@ export const CLAUDE_HARNESS_SKILLS: readonly HarnessSkill[] = [
   },
 ];
 
-/** Built-in skills for the harness a provider runs, if we know its catalog. */
+/**
+ * Built-in skills for the harness a provider runs, if we know its catalog.
+ *
+ * `reported` is the live catalog from `harnessSkills.getForProvider`: a row's
+ * skills, `null` when no sandbox has reported yet, `undefined` while the query
+ * is in flight. Both fall back to the static list, so the picker never blinks.
+ */
 export function harnessSkillsForProvider(
   provider: AIProvider | undefined,
+  reported?: readonly HarnessSkill[] | null,
 ): readonly HarnessSkill[] {
-  return provider === "claude" ? CLAUDE_HARNESS_SKILLS : [];
+  if (provider !== "claude") return [];
+  return reported && reported.length > 0 ? reported : CLAUDE_HARNESS_SKILLS;
 }

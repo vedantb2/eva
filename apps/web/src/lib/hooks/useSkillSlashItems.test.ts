@@ -81,6 +81,44 @@ describe("harnessSlashItems", () => {
     expect(labels).not.toContain("loop");
     expect(labels).toContain("init");
   });
+
+  it("prefers the catalog a sandbox reported over the static list", () => {
+    const reported = [
+      { name: "brand-new-skill", description: "shipped in a newer CLI" },
+      { name: "loop", description: "reworded upstream" },
+    ];
+    const items = harnessSlashItems("claude", [], reported);
+    expect(items.map((item) => item.label)).toEqual([
+      "brand-new-skill",
+      "loop",
+    ]);
+    // Same merge path as the static list: badge, token id and shadowing.
+    expect(items.every((item) => item.badge === "Claude")).toBe(true);
+    expect(items[0]?.id).toBe(harnessSkillTokenId("brand-new-skill"));
+    expect(
+      harnessSlashItems("claude", [{ label: "loop" }], reported).map(
+        (item) => item.label,
+      ),
+    ).toEqual(["brand-new-skill"]);
+    // Reported catalogs stay gated on the provider running the harness.
+    expect(harnessSlashItems("cursor", [], reported)).toEqual([]);
+  });
+
+  it("falls back to the static list while loading and before any report", () => {
+    const staticLabels = harnessSlashItems("claude", []).map(
+      (item) => item.label,
+    );
+    // undefined = query in flight, null = no sandbox has reported yet.
+    expect(
+      harnessSlashItems("claude", [], undefined).map((i) => i.label),
+    ).toEqual(staticLabels);
+    expect(harnessSlashItems("claude", [], null).map((i) => i.label)).toEqual(
+      staticLabels,
+    );
+    expect(harnessSlashItems("claude", [], []).map((i) => i.label)).toEqual(
+      staticLabels,
+    );
+  });
 });
 
 describe("harnessSkillTokenId", () => {

@@ -5084,6 +5084,45 @@ async function syncBackgroundAgentsToConvex(agents) {
   } catch {
   }
 }
+var HARNESS_SKILL_CATALOG_MUTATION = "harnessSkills:upsertForProvider";
+var harnessCatalogReportStarted = false;
+async function reportHarnessSkillCatalog(cliVersion, query) {
+  try {
+    if (typeof query.initializationResult !== "function") {
+      log("daemon: initializationResult unavailable \\u2014 skipping skill report");
+      return;
+    }
+    const init = await query.initializationResult();
+    const commands = init.commands.map((command) => {
+      const payload = {
+        name: command.name,
+        description: command.description
+      };
+      if (command.argumentHint) payload.argumentHint = command.argumentHint;
+      return payload;
+    });
+    if (commands.length === 0) return;
+    await callConvexWithRetry("mutation", HARNESS_SKILL_CATALOG_MUTATION, {
+      provider: "claude",
+      cliVersion,
+      commands
+    });
+    log(
+      "daemon: reported " + commands.length + " built-in skills from CLI " + cliVersion
+    );
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    log("daemon: harness skill report failed \\u2014 " + messageText);
+  }
+}
+function noteHarnessInitMessage(message, query) {
+  if (harnessCatalogReportStarted) return;
+  if (message.type !== "system" || message.subtype !== "init") return;
+  const cliVersion = readStringField2(message, "claude_code_version");
+  if (!cliVersion) return;
+  harnessCatalogReportStarted = true;
+  void reportHarnessSkillCatalog(cliVersion, query);
+}
 function findAgentByTaskId(taskId) {
   for (const entry of unsettledBackgroundAgents.values()) {
     if (entry.taskId === taskId) {
@@ -5507,6 +5546,7 @@ function createWarmAgentRunner(sdk, options) {
         if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
           continue;
         }
+        noteHarnessInitMessage(raw, query);
         pending.push(raw);
         wakeWaiters();
       }

@@ -3,6 +3,7 @@
 import { IconChevronLeft, IconChevronRight } from "@tabler/icons-react";
 import type { Id } from "@eva/backend";
 import { EntityContextUsage } from "@/lib/components/context-usage";
+import { UsageLimitsIndicator } from "@/lib/components/usage-limits";
 import { QuickTaskHeaderActionsSlot } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
 
 interface QuickTaskDetailHeaderActionsProps {
@@ -25,6 +26,7 @@ export function QuickTaskDetailHeaderActions({
   return (
     <div className="flex max-sm:min-w-0 max-sm:flex-wrap items-center max-sm:justify-end max-sm:gap-1.5 sm:gap-2">
       <EntityContextUsage repoId={repoId} entityId={taskId} />
+      <UsageLimitsIndicator repoId={repoId} />
       <QuickTaskHeaderActionsSlot />
       {/* Grown to the 40px floor below `sm` rather than given `hit-target`:
           the two buttons sit flush, so an 8px bleed each would overlap and one

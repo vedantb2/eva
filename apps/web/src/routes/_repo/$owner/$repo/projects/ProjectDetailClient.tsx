@@ -50,6 +50,7 @@ import {
 } from "@/lib/components/sandbox/SandboxWorkspace";
 import type { SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import { ProjectContextUsage } from "@/lib/components/context-usage";
+import { UsageLimitsIndicator } from "@/lib/components/usage-limits";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { RepoSectionBreadcrumb } from "@/lib/components/RepoSectionBreadcrumb";
@@ -416,6 +417,7 @@ export function ProjectDetailClient({
             {prError && <p className="text-xs text-destructive">{prError}</p>}
             <div className="flex max-sm:flex-wrap items-center max-sm:justify-end gap-1.5 sm:gap-2">
               <ProjectContextUsage repoId={repo._id} projectId={projectId} />
+              <UsageLimitsIndicator repoId={repo._id} />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="secondary" size="icon-sm" aria-label="More">

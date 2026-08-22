@@ -78,14 +78,6 @@ export function formatUtilization(utilization: number): string {
   return `${Math.round(utilization)}%`;
 }
 
-/**
- * Cursor bills in USD cents. Deliberately not `formatCost`, which converts a
- * USD *dollar* amount to GBP for the logs pages — a different unit either side.
- */
-export function formatCostCents(cents: number): string {
-  return `$${(cents / 100).toFixed(2)}`;
-}
-
 const MINUTE_MS = 60_000;
 const MINUTES_PER_HOUR = 60;
 const MINUTES_PER_DAY = 24 * MINUTES_PER_HOUR;
@@ -129,10 +121,10 @@ export interface ChipSummary {
 }
 
 /**
- * What the collapsed chip says. Claude's plan windows are the real constraint,
- * so they win; a Cursor-only repo has cumulative spend instead. A reading with
- * neither still matters when the provider flagged it, and returning nothing is
- * how the whole feature stays invisible until a turn has reported something.
+ * What the collapsed chip says: the plan windows, which are the real
+ * constraint. A reading without any still matters when the provider flagged it,
+ * and returning nothing is how the whole feature stays invisible until a turn
+ * has reported something.
  *
  * The number is the tightest constraint anywhere in the card — the highest
  * utilisation across every account, not the freshest row's. One chip stands in
@@ -159,14 +151,6 @@ export function chipSummary(
   if (tightest !== undefined) {
     return { label: formatUtilization(tightest), utilization: tightest, tone };
   }
-  for (const row of rows) {
-    if (row.costCents !== undefined) {
-      return {
-        label: formatCostCents(row.costCents),
-        tone: toneForStatus(row.status),
-      };
-    }
-  }
   const flagged = rows.find((row) => toneForStatus(row.status) !== "neutral");
   if (!flagged) return undefined;
   return {
@@ -175,15 +159,21 @@ export function chipSummary(
   };
 }
 
+type UsageProvider = UsageSnapshot["provider"];
+
+/**
+ * Display name per provider. A record rather than a ternary, so adding a
+ * provider to the Convex validator fails to compile until it gets a name.
+ */
+const PROVIDER_LABELS: Record<UsageProvider, string> = { claude: "Claude" };
+
 /** "Claude · Max plan" — the plan half is dropped for an API-key session. */
 export function providerHeading(snapshot: UsageSnapshot): string {
-  const provider = snapshot.provider === "claude" ? "Claude" : "Cursor";
+  const provider = PROVIDER_LABELS[snapshot.provider];
   const plan = snapshot.subscriptionType;
   if (!plan) return provider;
   return `${provider} · ${plan.charAt(0).toUpperCase()}${plan.slice(1)} plan`;
 }
-
-type UsageProvider = UsageSnapshot["provider"];
 
 /**
  * Identity of one section: a provider can appear once per connected account, so
@@ -198,10 +188,10 @@ export function sectionKey(snapshot: {
 }
 
 /**
- * Sections in display order. Rows arrive newest-first, which would let a Cursor
- * reading land between two Claude accounts; grouping keeps one provider's
- * accounts adjacent while leaving both the provider order and the order of
- * accounts within a provider as captured — freshest first.
+ * Sections in display order. Rows arrive newest-first, which would let one
+ * provider's reading land between two of another's accounts; grouping keeps one
+ * provider's accounts adjacent while leaving both the provider order and the
+ * order of accounts within a provider as captured — freshest first.
  */
 export function orderedSections<Row extends { provider: UsageProvider }>(
   rows: readonly Row[],

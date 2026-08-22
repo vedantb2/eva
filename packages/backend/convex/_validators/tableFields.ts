@@ -44,7 +44,6 @@ import {
   experimentalFlagsValidator,
   logEntryValidator,
   terminalPaneValidator,
-  usageLimitTokensValidator,
   usageLimitWindowValidator,
   userFlowValidator,
   variationValidator,
@@ -996,9 +995,9 @@ export const backgroundProcessFields = {
  * per repo+provider+account). Each row is a whole snapshot, so a field the
  * provider stopped reporting disappears rather than going stale.
  *
- * Claude reports subscription plan windows: `subscriptionType`, `status` and
- * `windows` (5-hour, weekly, per-model). Cursor has no plan windows, so it
- * reports the agent's cumulative `tokens` and `costCents` instead.
+ * Plan windows only: Claude reports `subscriptionType`, `status` and `windows`
+ * (5-hour, weekly, per-model). A provider that exposes no plan limits does not
+ * belong here — its spend is the per-turn cost gauge's business.
  */
 export const agentUsageLimitFields = {
   repoId: v.id("githubRepos"),
@@ -1016,7 +1015,4 @@ export const agentUsageLimitFields = {
   subscriptionType: v.optional(v.string()),
   status: v.optional(usageLimitStatusValidator),
   windows: v.optional(v.array(usageLimitWindowValidator)),
-  tokens: v.optional(usageLimitTokensValidator),
-  /** Cumulative charged cost in cents (Cursor). */
-  costCents: v.optional(v.number()),
 };

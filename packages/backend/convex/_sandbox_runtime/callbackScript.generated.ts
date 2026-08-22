@@ -2573,28 +2573,6 @@ async function captureClaudeUsage(readUsage) {
     if (timer !== void 0) clearTimeout(timer);
   }
 }
-function readCursorUsageSnapshot(value) {
-  if (!value) return null;
-  const snapshot = {};
-  const tokens = value.usage;
-  if (tokens) {
-    snapshot.tokens = {
-      input: readFiniteNumber(tokens.inputTokens) ?? 0,
-      output: readFiniteNumber(tokens.outputTokens) ?? 0,
-      cacheRead: readFiniteNumber(tokens.cacheReadTokens) ?? 0,
-      cacheWrite: readFiniteNumber(tokens.cacheWriteTokens) ?? 0,
-      total: readFiniteNumber(tokens.totalTokens) ?? 0
-    };
-  }
-  const costCents = readFiniteNumber(value.cost?.chargedCents);
-  if (costCents !== void 0) snapshot.costCents = costCents;
-  if (!snapshot.tokens && snapshot.costCents === void 0) return null;
-  return snapshot;
-}
-function captureCursorUsage(value) {
-  const snapshot = readCursorUsageSnapshot(value);
-  if (snapshot) callbackState.usageLimitSnapshot = snapshot;
-}
 function windowToJson(window) {
   return {
     key: window.key,
@@ -2604,24 +2582,13 @@ function windowToJson(window) {
   };
 }
 function buildUsageLimitReportArgs(repoId, provider, providerAccountId, snapshot) {
-  const tokens = snapshot.tokens;
   return {
     repoId,
     provider,
     ...providerAccountId ? { providerAccountId } : {},
     ...snapshot.subscriptionType === void 0 ? {} : { subscriptionType: snapshot.subscriptionType },
     ...snapshot.status === void 0 ? {} : { status: snapshot.status },
-    ...snapshot.windows === void 0 ? {} : { windows: snapshot.windows.map(windowToJson) },
-    ...tokens === void 0 ? {} : {
-      tokens: {
-        input: tokens.input,
-        output: tokens.output,
-        cacheRead: tokens.cacheRead,
-        cacheWrite: tokens.cacheWrite,
-        total: tokens.total
-      }
-    },
-    ...snapshot.costCents === void 0 ? {} : { costCents: snapshot.costCents }
+    ...snapshot.windows === void 0 ? {} : { windows: snapshot.windows.map(windowToJson) }
   };
 }
 async function reportUsageLimits(provider) {
@@ -6745,9 +6712,7 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
   };
   const readCostSnapshot = async (activeAgent) => {
     try {
-      const usage = await activeAgent.getUsage();
-      captureCursorUsage(usage);
-      return readCursorCostSnapshot(usage);
+      return readCursorCostSnapshot(await activeAgent.getUsage());
     } catch (error) {
       const messageText = error instanceof Error ? error.message : String(error);
       log(
@@ -6859,7 +6824,6 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     } catch {
     }
   }
-  void reportUsageLimits("cursor");
   const code = sawResult && !resultIsError && !timedOutForMaxRuntime && !timedOutForNoOutput ? 0 : 1;
   log(
     "runCursorSdkAttempt finished in " + String(Date.now() - callbackState.activeAttemptStartedAt) + "ms (code=" + code + ", sawResult=" + sawResult + ", resultIsError=" + resultIsError + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", outputBytes=" + attemptOutput.length + (attemptErrorMessage ? ", runError=" + attemptErrorMessage : "") + ")"

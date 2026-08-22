@@ -27,8 +27,11 @@ const REPORT_MAX_RETRIES = 1;
  */
 const USAGE_LOOKUP_TIMEOUT_MS = 5_000;
 
-/** Provider whose plan usage is tracked. Mirrors the Convex validator. */
-export type UsageLimitProvider = "claude" | "cursor";
+/**
+ * Provider whose plan usage is tracked. Mirrors the Convex validator, and stays
+ * a named type so a provider with real plan windows slots in here.
+ */
+export type UsageLimitProvider = "claude";
 
 /**
  * Display labels for the Agent SDK's rate-limit window keys. Shared by both
@@ -72,18 +75,6 @@ export type ClaudeUsageResponseLike = {
       resets_at?: string | null;
     }[];
   } | null;
-};
-
-/** Minimal structural view of the Cursor SDK's `AgentUsage`. */
-export type CursorUsageLike = {
-  usage?: {
-    inputTokens?: number;
-    outputTokens?: number;
-    cacheReadTokens?: number;
-    cacheWriteTokens?: number;
-    totalTokens?: number;
-  } | null;
-  cost?: { chargedCents?: number } | null;
 };
 
 function readFiniteNumber(value: JsonValue | undefined): number | undefined {
@@ -273,39 +264,6 @@ export async function captureClaudeUsage(
   }
 }
 
-/**
- * Reads Cursor's cumulative `AgentUsage`. Cursor exposes no plan windows, so the
- * agent-lifetime token totals and charged cost are what its row shows instead.
- */
-export function readCursorUsageSnapshot(
-  value: CursorUsageLike | null | undefined,
-): UsageLimitSnapshot | null {
-  if (!value) return null;
-  const snapshot: UsageLimitSnapshot = {};
-  const tokens = value.usage;
-  if (tokens) {
-    snapshot.tokens = {
-      input: readFiniteNumber(tokens.inputTokens) ?? 0,
-      output: readFiniteNumber(tokens.outputTokens) ?? 0,
-      cacheRead: readFiniteNumber(tokens.cacheReadTokens) ?? 0,
-      cacheWrite: readFiniteNumber(tokens.cacheWriteTokens) ?? 0,
-      total: readFiniteNumber(tokens.totalTokens) ?? 0,
-    };
-  }
-  const costCents = readFiniteNumber(value.cost?.chargedCents);
-  if (costCents !== undefined) snapshot.costCents = costCents;
-  if (!snapshot.tokens && snapshot.costCents === undefined) return null;
-  return snapshot;
-}
-
-/** Records Cursor's cumulative usage. The totals supersede any prior reading. */
-export function captureCursorUsage(
-  value: CursorUsageLike | null | undefined,
-): void {
-  const snapshot = readCursorUsageSnapshot(value);
-  if (snapshot) S.usageLimitSnapshot = snapshot;
-}
-
 function windowToJson(window: UsageLimitWindow): JsonObject {
   return {
     key: window.key,
@@ -330,7 +288,6 @@ export function buildUsageLimitReportArgs(
   providerAccountId: string,
   snapshot: UsageLimitSnapshot,
 ): JsonObject {
-  const tokens = snapshot.tokens;
   return {
     repoId,
     provider,
@@ -342,20 +299,6 @@ export function buildUsageLimitReportArgs(
     ...(snapshot.windows === undefined
       ? {}
       : { windows: snapshot.windows.map(windowToJson) }),
-    ...(tokens === undefined
-      ? {}
-      : {
-          tokens: {
-            input: tokens.input,
-            output: tokens.output,
-            cacheRead: tokens.cacheRead,
-            cacheWrite: tokens.cacheWrite,
-            total: tokens.total,
-          },
-        }),
-    ...(snapshot.costCents === undefined
-      ? {}
-      : { costCents: snapshot.costCents }),
   };
 }
 

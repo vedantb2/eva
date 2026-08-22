@@ -4,7 +4,6 @@ import {
   buildUsageLimitReportArgs,
   mergeClaudeRateLimitEvent,
   readClaudeUsageWindows,
-  readCursorUsageSnapshot,
   readIsoMs,
 } from "../runtime/usageLimits.js";
 
@@ -132,31 +131,6 @@ test("readClaudeUsageWindows is empty when the plan reports no limits", () => {
   expect(readClaudeUsageWindows({ rate_limits: null })).toEqual([]);
 });
 
-test("readCursorUsageSnapshot normalizes cumulative tokens and charged cost", () => {
-  expect(
-    readCursorUsageSnapshot({
-      usage: {
-        inputTokens: 100,
-        outputTokens: 20,
-        cacheReadTokens: 5,
-        cacheWriteTokens: 2,
-        totalTokens: 127,
-      },
-      cost: { chargedCents: 41.5 },
-    }),
-  ).toEqual({
-    tokens: { input: 100, output: 20, cacheRead: 5, cacheWrite: 2, total: 127 },
-    costCents: 41.5,
-  });
-  // Cost absent (not yet reported by the backend) is not zero.
-  expect(
-    readCursorUsageSnapshot({ usage: { inputTokens: 7 } })?.costCents,
-  ).toBeUndefined();
-  // Nothing to read from is null, never a throw.
-  expect(readCursorUsageSnapshot(undefined)).toBeNull();
-  expect(readCursorUsageSnapshot({})).toBeNull();
-});
-
 test("buildUsageLimitReportArgs omits every field the snapshot did not observe", () => {
   expect(
     buildUsageLimitReportArgs("repo-1", "claude", "account-1", {
@@ -172,9 +146,10 @@ test("buildUsageLimitReportArgs omits every field the snapshot did not observe",
     status: "allowed",
     windows: [{ key: "five_hour", label: "5h", utilization: 12 }],
   });
+  // A reading with nothing but a status sends nothing but a status.
   expect(
-    buildUsageLimitReportArgs("repo-1", "cursor", "", { costCents: 0 }),
-  ).toEqual({ repoId: "repo-1", provider: "cursor", costCents: 0 });
+    buildUsageLimitReportArgs("repo-1", "claude", "", { status: "rejected" }),
+  ).toEqual({ repoId: "repo-1", provider: "claude", status: "rejected" });
 });
 
 test("buildUsageLimitReportArgs keys two accounts apart on one repo", () => {

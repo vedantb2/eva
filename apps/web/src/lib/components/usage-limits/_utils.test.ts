@@ -1,7 +1,6 @@
 import { expect, test } from "vitest";
 import {
   chipSummary,
-  formatCostCents,
   formatResetDistanceMs,
   maxUtilization,
   newestCapturedAt,
@@ -29,22 +28,6 @@ function claude(overrides: Partial<UsageSnapshot> = {}): UsageSnapshot {
       { key: "5h", label: "5h", utilization: 42 },
       { key: "week", label: "Weekly (all models)", utilization: 62 },
     ],
-    ...overrides,
-  };
-}
-
-function cursor(overrides: Partial<UsageSnapshot> = {}): UsageSnapshot {
-  return {
-    provider: "cursor",
-    capturedAt: NOW - 60 * 1000,
-    costCents: 142,
-    tokens: {
-      input: 1_200_000,
-      output: 34_000,
-      cacheRead: 900_000,
-      cacheWrite: 12_000,
-      total: 2_146_000,
-    },
     ...overrides,
   };
 }
@@ -83,17 +66,7 @@ test("windows with no utilisation are skipped, not drawn at zero", () => {
   });
   expect(reportedWindows(snapshot).map((w) => w.key)).toEqual(["5h"]);
   expect(maxUtilization(claude({ windows: [] }))).toBeUndefined();
-  expect(maxUtilization(cursor())).toBeUndefined();
-});
-
-test("a Cursor-only repo falls back to cumulative cost", () => {
-  expect(chipSummary([cursor()])).toEqual({ label: "$1.42", tone: "neutral" });
-  expect(formatCostCents(0)).toBe("$0.00");
-  expect(formatCostCents(7)).toBe("$0.07");
-});
-
-test("Claude windows win over a Cursor cost when both have reported", () => {
-  expect(chipSummary([cursor(), claude()])?.label).toBe("62%");
+  expect(maxUtilization(claude({ windows: undefined }))).toBeUndefined();
 });
 
 test("the chip shows the tightest window across every account, not the freshest", () => {
@@ -134,21 +107,21 @@ test("a section is keyed by account, so two of one provider stay distinct", () =
     sectionKey({ provider: "claude", providerAccountId: "acc-a" }),
   );
   // A run on the shared team credential has no account, and still keys.
-  expect(sectionKey({ provider: "cursor" })).toBe("cursor:");
+  expect(sectionKey({ provider: "claude" })).toBe("claude:");
 });
 
-test("a provider's accounts render adjacently, newest provider first", () => {
-  // Newest-first rows can interleave providers; grouping must not let the
-  // Cursor section split the two Claude accounts apart.
+test("a provider's accounts keep the order they were captured in", () => {
+  // Grouping is by provider, so one provider's accounts stay in the order the
+  // query returned them — freshest first.
   const rows = [
     { provider: "claude" as const, providerAccountId: "acc-a" },
-    { provider: "cursor" as const },
+    { provider: "claude" as const },
     { provider: "claude" as const, providerAccountId: "acc-b" },
   ];
   expect(orderedSections(rows).map(sectionKey)).toEqual([
     "claude:acc-a",
+    "claude:",
     "claude:acc-b",
-    "cursor:",
   ]);
   expect(orderedSections([])).toEqual([]);
 });
@@ -206,10 +179,10 @@ test("the provider heading names the plan only when there is one", () => {
   expect(providerHeading(claude({ subscriptionType: undefined }))).toBe(
     "Claude",
   );
-  expect(providerHeading(cursor())).toBe("Cursor");
 });
 
 test("the footer stamps the freshest reading of the lot", () => {
-  expect(newestCapturedAt([claude(), cursor()])).toBe(cursor().capturedAt);
+  const freshest = claude({ capturedAt: NOW });
+  expect(newestCapturedAt([claude(), freshest])).toBe(NOW);
   expect(newestCapturedAt([])).toBeUndefined();
 });

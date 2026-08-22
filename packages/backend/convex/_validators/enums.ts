@@ -303,13 +303,12 @@ export const backgroundProcessStatusValidator = v.union(
 
 /**
  * Agent provider whose plan usage limits eva tracks. Narrower than
- * `aiProviderValidator` on purpose: codex and opencode expose no usage data, so
- * a row can never exist for them and the UI never has to handle the case.
+ * `aiProviderValidator` on purpose: only a provider that reports real plan
+ * windows can have a row, so the UI never has to handle a windowless one.
+ * Cursor is absent because it exposes no plan limits at all — its spend is the
+ * per-turn cost gauge's business, not this table's.
  */
-export const usageLimitProviderValidator = v.union(
-  v.literal("claude"),
-  v.literal("cursor"),
-);
+export const usageLimitProviderValidator = v.literal("claude");
 
 /** Whether the plan currently allows requests, as reported by the agent SDK. */
 export const usageLimitStatusValidator = v.union(

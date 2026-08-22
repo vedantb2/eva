@@ -1,11 +1,4 @@
-import { formatTokens } from "@/lib/utils/logs";
-import {
-  formatCostCents,
-  providerHeading,
-  reportedWindows,
-  type UsageSnapshot,
-} from "./_utils";
-import { UsageMetaRow } from "./UsageMetaRow";
+import { providerHeading, reportedWindows, type UsageSnapshot } from "./_utils";
 import { UsageWindowRow } from "./UsageWindowRow";
 
 interface UsageProviderSectionProps {
@@ -15,9 +8,7 @@ interface UsageProviderSectionProps {
 }
 
 /**
- * One account's reading. Claude reports plan windows; Cursor has none, and
- * reports cumulative tokens and spend instead — so a section shows whichever
- * of the two its provider actually sent.
+ * One account's reading: the plan windows the provider reported, if any.
  *
  * The account's name trails the heading, muted: the plan is what the numbers
  * measure, and the account is only there to tell two of the same plan apart. A
@@ -28,8 +19,6 @@ export function UsageProviderSection({
   now,
 }: UsageProviderSectionProps) {
   const windows = reportedWindows(snapshot);
-  const tokens = snapshot.tokens;
-  const costCents = snapshot.costCents;
 
   return (
     <div className="space-y-2 p-3">
@@ -51,16 +40,6 @@ export function UsageProviderSection({
             />
           ))}
         </div>
-      )}
-      {tokens && (
-        <div className="space-y-1">
-          <UsageMetaRow label="Tokens" value={formatTokens(tokens.total)} />
-          <UsageMetaRow label="Input" value={formatTokens(tokens.input)} />
-          <UsageMetaRow label="Output" value={formatTokens(tokens.output)} />
-        </div>
-      )}
-      {costCents !== undefined && (
-        <UsageMetaRow label="Cost" value={formatCostCents(costCents)} />
       )}
     </div>
   );

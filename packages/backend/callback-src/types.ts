@@ -78,27 +78,16 @@ export type UsageLimitWindow = {
   resetsAt?: number;
 };
 
-/** Cumulative token counts, for providers that expose no plan windows. */
-export type UsageLimitTokens = {
-  input: number;
-  output: number;
-  cacheRead: number;
-  cacheWrite: number;
-  total: number;
-};
-
 /**
  * Plan usage-limit state observed during this run, upserted to Convex at the end
- * of every turn so the UI can show how much of the plan is left. Claude fills
- * `status`/`windows`/`subscriptionType`; Cursor has no plan windows and fills
- * `tokens`/`costCents` instead.
+ * of every turn so the UI can show how much of the plan is left. Only providers
+ * that expose real plan windows report here — Claude fills
+ * `subscriptionType`/`status`/`windows`.
  */
 export type UsageLimitSnapshot = {
   subscriptionType?: string;
   status?: UsageLimitStatus;
   windows?: UsageLimitWindow[];
-  tokens?: UsageLimitTokens;
-  costCents?: number;
 };
 
 export type SessionMode = {

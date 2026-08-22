@@ -36,10 +36,6 @@ import {
 } from "../runtime/buffers.js";
 import { callbackState as S, resetAttemptState } from "../runtime/state.js";
 import {
-  captureCursorUsage,
-  reportUsageLimits,
-} from "../runtime/usageLimits.js";
-import {
   syncCursorStateToPersist,
   writeCursorSessionState,
 } from "../session/cursorSession.js";
@@ -671,11 +667,7 @@ export async function runCursorSdkAttempt(
     activeAgent: SdkAgent,
   ): Promise<CursorCostSnapshot | null> => {
     try {
-      const usage = await activeAgent.getUsage();
-      // Cursor has no plan usage windows, so the same lookup doubles as the
-      // usage-limits reading: cumulative tokens plus charged cost.
-      captureCursorUsage(usage);
-      return readCursorCostSnapshot(usage);
+      return readCursorCostSnapshot(await activeAgent.getUsage());
     } catch (error) {
       const messageText =
         error instanceof Error ? error.message : String(error);
@@ -840,10 +832,6 @@ export async function runCursorSdkAttempt(
       /* already closed */
     }
   }
-
-  // Fire-and-forget: the post-turn `getUsage()` above already captured the
-  // reading, and reporting it must never affect this attempt's outcome.
-  void reportUsageLimits("cursor");
 
   const code =
     sawResult &&

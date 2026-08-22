@@ -29,8 +29,8 @@ const agentUsageLimitValidator = v.object({
 
 /**
  * Upserts the reading for one (repo, provider, account) triple. Replaces rather
- * than patches: each report is a whole snapshot, so a window or token count the
- * provider no longer reports must disappear instead of going stale.
+ * than patches: each report is a whole snapshot, so a window the provider no
+ * longer reports must disappear instead of going stale.
  *
  * The account is part of the key because plan limits are per account — keyed on
  * the provider alone, a second connected account's reading would overwrite the

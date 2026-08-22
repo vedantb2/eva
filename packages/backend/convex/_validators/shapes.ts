@@ -148,12 +148,3 @@ export const usageLimitWindowValidator = v.object({
   utilization: v.optional(v.number()),
   resetsAt: v.optional(v.number()),
 });
-
-/** Cumulative token counts, for a provider that exposes no plan windows. */
-export const usageLimitTokensValidator = v.object({
-  input: v.number(),
-  output: v.number(),
-  cacheRead: v.number(),
-  cacheWrite: v.number(),
-  total: v.number(),
-});

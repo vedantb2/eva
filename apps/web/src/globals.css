@@ -470,6 +470,9 @@
     initial-value: 0px;
   }
   @keyframes scroll-fade-top {
+    from {
+      --scroll-fade-top: 0px;
+    }
     to {
       --scroll-fade-top: 1.5rem;
     }
@@ -478,8 +481,14 @@
     from {
       --scroll-fade-bottom: 1.5rem;
     }
+    to {
+      --scroll-fade-bottom: 0px;
+    }
   }
   @keyframes scroll-fade-left {
+    from {
+      --scroll-fade-left: 0px;
+    }
     to {
       --scroll-fade-left: 1.5rem;
     }
@@ -487,6 +496,9 @@
   @keyframes scroll-fade-right {
     from {
       --scroll-fade-right: 1.5rem;
+    }
+    to {
+      --scroll-fade-right: 0px;
     }
   }
 }
@@ -904,6 +916,11 @@
  * by its own range of the element's scroll timeline, so an edge only
  * fades while there is more content past it.
  *
+ * Duration must be a non-zero time (`1ms`, stretched across the range by
+ * the timeline). The shorthand's initial duration is `0s`, which pins
+ * both animations at their end keyframes — a fade on every edge even
+ * when the list is flush with the top or bottom.
+ *
  * `.scroll-fade` is the vertical (block) axis; `.scroll-fade-x` is the
  * horizontal (inline) axis — same recipe, used by the quick-task / project
  * kanban column row.
@@ -928,11 +945,11 @@
       transparent 100%
     );
     animation:
-      scroll-fade-top linear both,
-      scroll-fade-bottom linear both;
-    animation-timeline: scroll(self block);
+      scroll-fade-top 1ms linear both,
+      scroll-fade-bottom 1ms linear both;
+    animation-timeline: scroll(self y), scroll(self y);
     animation-range:
-      0 1.5rem,
+      0px 1.5rem,
       calc(100% - 1.5rem) 100%;
   }
 
@@ -945,11 +962,11 @@
       transparent 100%
     );
     animation:
-      scroll-fade-left linear both,
-      scroll-fade-right linear both;
-    animation-timeline: scroll(self inline);
+      scroll-fade-left 1ms linear both,
+      scroll-fade-right 1ms linear both;
+    animation-timeline: scroll(self x), scroll(self x);
     animation-range:
-      0 1.5rem,
+      0px 1.5rem,
       calc(100% - 1.5rem) 100%;
   }
 }

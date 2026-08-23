@@ -242,8 +242,6 @@ const sessionQueueConfig: ChatQueueConfig<
   backgroundAgents: (session) => session.backgroundAgents,
   syntheticTurnMessageId: (session) => session.syntheticTurnMessageId,
   streamingEntityId: (id) => String(id),
-  // Queued rows may still carry legacy mode/personaId/numDesigns until
-  // removeSessionModeFields finishes; they are ignored rather than validated.
   prepareGuard: async (ctx, session, next) => {
     if (!next.model) {
       return { ok: false, error: "Error: Failed to start queued message." };

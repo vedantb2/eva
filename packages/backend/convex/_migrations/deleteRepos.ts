@@ -259,7 +259,6 @@ export const deleteRepoStep = internalMutation({
           }
         }
         const tables = [
-          "designPersonas",
           "repoSkills",
           "notifications",
           "repoEnvVars",

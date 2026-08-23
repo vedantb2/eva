@@ -9,8 +9,6 @@ export {
   deleteNonEvalucomRepos,
   deleteEvalucomRepos,
 } from "./_migrations/deleteRepos";
-export { migrateSessionModes } from "./_migrations/sessionModes";
-export { removeSessionModeFields } from "./_migrations/removeSessionModeFields";
 export { backfillDeploymentUrlScheme } from "./_migrations/deploymentUrl";
 export { migrateRepoSkillsToGithubMetadata } from "./_migrations/repoSkills";
 export { backfillLogProjectIds } from "./_migrations/logProjectIds";

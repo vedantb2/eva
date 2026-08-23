@@ -1,5 +1,9 @@
 # Changelog
 
+## Session-mode columns leave the schema - 2026-08-23
+
+The modes-to-skills deploy left the old columns in the validators so stored rows would still read. `removeSessionModeFields` has now run on prod (`96` sessions, `2970` messages, `4` personas) and the local Convex deployment (`59` / `2467` / `4`). The fields, `sessionModeValidator`, the `designPersonas` table, and the spent migrations are gone, so the schema no longer describes a system that does not exist.
+
 ## Session modes give way to the eva-plan and eva-design skills - 2026-08-23
 
 A session carried a mode — edit, plan or design — and the mode decided everything downstream: which prompt was built, which tools the turn was allowed (`MODE_TOOLS`), whether the PRD tab existed, whether the Designs tab existed. It was a modal switch in front of an agent that can already read a skill and decide for itself, and it cost the user a dropdown press before every planning turn. Worse, the mode was the *only* signal: a turn that wrote `plan.md` in edit mode produced no PRD tab, and asking for "a few options" without first flipping to design produced no variations.

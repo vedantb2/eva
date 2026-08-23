@@ -9,8 +9,8 @@ const SPA_FALLBACK = "/((?!assets/).*)";
 
 /**
  * Missing hashed files must 404, not rewrite to index.html. The previous
- * catch-all `/(.*)` served HTML (MIME text/html, and the /assets/ immutable
- * Cache-Control) for stale chunk URLs — Chrome then refused to execute them.
+ * catch-all `/(.*)` served HTML (MIME text/html) for stale chunk URLs —
+ * Chrome then refused to execute them as modules.
  */
 test("SPA fallback does not rewrite hashed /assets/ URLs", () => {
   const config = JSON.parse(readFileSync(join(webApp, "vercel.json"), "utf8"));

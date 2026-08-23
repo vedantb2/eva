@@ -1,5 +1,9 @@
 # Changelog
 
+## Vercel no longer pins hashed assets as immutable - 2026-08-23
+
+`/assets/*` was served `Cache-Control: public, max-age=31536000, immutable` so repeat visits would skip revalidation of Vite's hashed files. That header also stamped onto SPA-fallback HTML when a stale chunk URL missed, and browsers then refused to run the cached HTML as a module after deploys. The header is gone; Vercel default caching applies. The SPA rewrite still skips `/assets/` so missing chunks 404 instead of returning `index.html`.
+
 ## eva-ask teaches in chat without bringing modes back - 2026-08-23
 
 Ask used to be a session mode, and people forgot to switch back to edit. `/eva-ask` is a system skill instead: tutor voice (short, jargon-light, mermaid when a diagram is clearer), explore then explain, write nothing. The description says never auto-trigger, so ordinary questions stay on the default turn. Tools are not fenced — `SESSION_TOOLS` is unchanged.

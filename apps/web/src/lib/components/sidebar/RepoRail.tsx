@@ -196,13 +196,9 @@ function RepoRailView({
     pathname === "/automations" ||
     pathname.startsWith("/automations/") ||
     (pathParts.includes("automations") && pathParts[0] !== "automations");
-<<<<<<< HEAD
-  // Eva's chat lives at its own stable URL, so only that path lights this tile.
+  // Ave's chat lives at its own stable URL, so only that path lights this tile.
   const aveRouteActive = pathname === "/ave";
-  const sessionsLabel = formatCountLabel(activeSessionCount);
-=======
   const sessionsLabel = countLabel(activeSessionCount);
->>>>>>> origin/main
   const [renameRepo, setRenameRepo] = useState<RepoWithLogo | null>(null);
   // Carry the section (Quick Tasks, Projects, …) across an app switch, but not
   // the entity below it: task 204 belongs to the app you are leaving.

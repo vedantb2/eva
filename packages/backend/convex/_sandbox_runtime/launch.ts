@@ -43,7 +43,6 @@ const CALLBACK_READY_POLL_ATTEMPTS = 60;
 const CALLBACK_READY_POLL_INTERVAL_MS = 1000;
 const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
 
-<<<<<<< HEAD
 /** Cap for a runner log tail quoted into a thrown error (and thus a chat row). */
 const RUNNER_LOG_TAIL_MAX_CHARS = 2_000;
 
@@ -91,15 +90,11 @@ export function condenseRunnerLogTail(log: string): string {
     : condensed;
 }
 
-/** Computes a scoped streaming HMAC if the deployment encryption key is available. */
-function computeStreamingHmac(entityId: string): string | null {
-=======
 /**
  * Computes a scoped callback HMAC if the deployment encryption key is
  * available. Mirrors `computeScopedHmac` in `http.ts`, which verifies it.
  */
 function computeScopedHmac(message: string): string | null {
->>>>>>> origin/main
   const secret = process.env.ENCRYPTION_KEY;
   if (!secret) return null;
   return createHmac("sha256", secret).update(message).digest("hex");

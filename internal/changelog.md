@@ -1,7 +1,6 @@
 # Changelog
 
-<<<<<<< HEAD
-## Session modes give way to the eva-plan and eva-design skills - 2026-08-22
+## Session modes give way to the eva-plan and eva-design skills - 2026-08-23
 
 A session carried a mode — edit, plan or design — and the mode decided everything downstream: which prompt was built, which tools the turn was allowed (`MODE_TOOLS`), whether the PRD tab existed, whether the Designs tab existed. It was a modal switch in front of an agent that can already read a skill and decide for itself, and it cost the user a dropdown press before every planning turn. Worse, the mode was the *only* signal: a turn that wrote `plan.md` in edit mode produced no PRD tab, and asking for "a few options" without first flipping to design produced no variations.
 
@@ -10,10 +9,11 @@ Modes are gone. Planning and design are now two system skills, `eva-plan` and `e
 - Both artefact tabs are **content-keyed** rather than mode-keyed: `plan.md` is harvested and the design-variations JSON parsed after *every* successful turn, and the PRD tab appears when `planContent` is non-empty, the Designs tab when the session has variations. `saveResult` only writes `planContent` when it changed, so an unrelated turn does not reorder anything downstream of it
 - The variations schema now requires `variations` to be present and non-empty. All-optional matched a bare `{}` in an ordinary reply and turned it into an empty Designs tab
 - "Approve plan" and "Use this design" no longer flip a mode — they seed the chat draft through a new `useSeedChatDraft`, which writes the same `drafts` row `useChatDraftSeed` reads and *appends* to it, so a half-typed message survives. The two prompt strings live in `composerPrompts.ts`
-- Design personas and the variation count are removed: `designPersonas` (whole API), `sessions.setMode`, `sessions.selectVariation`, and the `mode` / `personaId` / `numDesigns` args on `startExecute` / `enqueueMessage` / `create` / `addMessage`. The mode-cycle shortcut (`cycleSessionMode`, Mod+Shift+Tab) is delisted; stored overrides are a sparse `record(string, string)` read through `SHORTCUT_IDS`, so a stale key is ignored rather than failing validation
-- Schema fields (`lastMode`, `personaId`, `numDesigns`, queued `mode`) stay as dormant legacy so in-flight queued rows and existing documents still validate — ignored on dequeue, pending a cleanup migration
+- Design personas and the variation count are removed: `designPersonas` (API gone; table stays until the cleanup migration deletes the rows), `sessions.setMode`, `sessions.selectVariation`, and the `mode` / `personaId` / `numDesigns` args on `startExecute` / `enqueueMessage` / `create` / `addMessage`. The mode-cycle shortcut (`cycleSessionMode`, Mod+Shift+Tab) is delisted; stored overrides are a sparse `record(string, string)` read through `SHORTCUT_IDS`, so a stale key is ignored rather than failing validation
+- `removeSessionModeFields` pages through sessions, messages, queued rows, daemon state, projects, and tasks to strip the write-dead columns (`lastMode`, `selectedVariationIndex`, `mode`, `personaId`, `numDesigns`, `pendingTurn.turnKind`) and delete `designPersonas` rows. Validators stay until that has run on every deployment
+- Session auto-commit and the agent commit hint exclude `plan.md`, so a harvested plan stays in the working tree and Convex rather than landing on the branch
 - Separately, Eva's MCP server is now wired into the other two providers: codex gets `[mcp_servers.*]` table sections appended to `CODEX_HOME/config.toml` (one wiring point for both the SDK CLI and the app-server daemon), and opencode registers it on the live `opencode serve` process via `POST /mcp`, because that server outlives the callback and reads its config only at startup. Best-effort in both cases — a server Eva cannot register costs the turn its Eva tools rather than failing the turn
-=======
+
 ## Durable Turn rollout closes the deployment and fencing gaps - 2026-08-23
 
 The first Turn-lifecycle implementation made new executions durable, but a deploy could still strand workflows that started on the previous code, and three failure boundaries could recreate the same long-lived “Working…” state it was meant to eliminate.
@@ -61,7 +61,6 @@ The composer's `/` popup only listed repo skills (synced from `.agents/skills` /
 - New static catalog `mentions/harnessSkills.ts`: 13 agent-invocable built-ins curated from the Agent SDK init handshake (`initializationResult().commands`) of the Claude Code build the sandboxes run (2.1.239), descriptions taken from the harness itself. Terminal-local commands (`/clear`, `/config`, `/usage`) and `/batch` (fights Eva's own orchestration) are excluded. No backend or sandbox changes — nothing to materialize or sync
 - `useSkillSlashItems` appends them last with a "Claude" badge — the same provider badge `.claude/skills` repo skills carry, now rendered with the Claude mark to its left in `MentionRow` — gated to `provider === "claude"` and shadowed by any repo or system skill of the same name (the precedence the harness itself applies)
 - Chips reuse the system-skill synthetic-id scheme: `evabuiltinskill_<name>` fits the existing `/[Title](id)` token grammar, and `isSkillTokenId` now excludes the new prefix so the hover card never queries `repoSkills.getContentById` with a non-Convex id
->>>>>>> origin/main
 
 ## Regression tests for yesterday's fixes - 2026-08-22
 

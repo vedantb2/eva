@@ -1,6 +1,6 @@
 # Remove dormant session-mode fields
 
-**Status:** ready to implement
+**Status:** deploy 1 in this PR — migration written, validators still in place. Run `npx convex run --prod migrations:removeSessionModeFields` after this backend ships, then do deploy 2 (drop the fields).
 **Written:** 22 August 2026
 **Follows:** the modes-to-skills migration (see `internal/changelog.md`, "Session modes give way to the eva-plan and eva-design skills")
 

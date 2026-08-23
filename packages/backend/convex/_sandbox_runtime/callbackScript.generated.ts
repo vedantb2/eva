@@ -4903,7 +4903,8 @@ var COMMIT_ADD_ARGS = [
   ":!*.mp4",
   ":!*.mov",
   ":!screenshots/",
-  ":!recordings/"
+  ":!recordings/",
+  ":!plan.md"
 ];
 function git(args, timeoutMs = GIT_STEP_TIMEOUT_MS) {
   const result = spawnSync2("git", ["-C", WORK_DIR, ...args], {

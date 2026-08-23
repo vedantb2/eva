@@ -152,11 +152,11 @@ export async function buildSessionPrompt(
     session.repoId,
   );
 
-<<<<<<< HEAD
-  const sessionProvider =
-    session.provider ?? getAIModelProvider(session.lastModel);
   const cursorMessages =
-    sessionProvider === "cursor"
+    usesCursorConversationHandoff({
+      provider: session.provider,
+      lastModel: session.lastModel,
+    })
       ? await ctx.db
           .query("messages")
           .withIndex("by_parent", (q) => q.eq("parentId", session._id))
@@ -188,99 +188,6 @@ export async function buildSessionPrompt(
     session.devPort ?? repo.devPort,
     priorCursorHistory,
   );
-=======
-  let prompt: string;
-  if (args.mode === "plan") {
-    prompt = buildPlanPrompt(
-      { owner: repo.owner, name: repo.name },
-      session.planContent || "",
-      resolvedMessage,
-      rootDirectory,
-      customInstructionsBlock,
-      repo.systemPrompt,
-    );
-  } else if (args.mode === "design") {
-    let persona: { name: string; prompt: string } | null = null;
-    if (args.personaId) {
-      const personaDoc = await ctx.db.get(args.personaId);
-      if (personaDoc) {
-        persona = { name: personaDoc.name, prompt: personaDoc.prompt };
-      }
-    }
-
-    const messages = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", session._id))
-      .collect();
-
-    let selectedBase: { label: string; filePath: string } | null = null;
-    if (session.selectedVariationIndex !== undefined) {
-      const lastAssistant = [...messages]
-        .reverse()
-        .find((m) => m.role === "assistant" && m.variations?.length);
-      if (lastAssistant?.variations) {
-        const variation =
-          lastAssistant.variations[session.selectedVariationIndex];
-        if (variation?.filePath) {
-          selectedBase = {
-            label: variation.label,
-            filePath: variation.filePath,
-          };
-        }
-      }
-    }
-
-    const conversationHistory = messages
-      .filter((m) => m.content)
-      .map((m) => ({ role: m.role, content: m.content }));
-
-    prompt = buildDesignPrompt(
-      { owner: repo.owner, name: repo.name },
-      resolvedMessage,
-      conversationHistory,
-      selectedBase,
-      persona,
-      rootDirectory,
-      args.numDesigns ?? 3,
-      customInstructionsBlock,
-    );
-  } else {
-    const cursorMessages =
-      usesCursorConversationHandoff({
-        provider: session.provider,
-        lastModel: session.lastModel,
-      })
-        ? await ctx.db
-            .query("messages")
-            .withIndex("by_parent", (q) => q.eq("parentId", session._id))
-            .collect()
-        : [];
-    const cursorHistory = cursorMessages
-      .filter((entry) => entry.content)
-      .map((entry) => ({ role: entry.role, content: entry.content }));
-    const lastHistoryEntry = cursorHistory.at(-1);
-    const priorCursorHistory =
-      lastHistoryEntry?.role === "user" &&
-      lastHistoryEntry.content === args.message
-        ? cursorHistory.slice(0, -1)
-        : cursorHistory;
-    prompt = buildEditPrompt(
-      {
-        owner: repo.owner,
-        name: repo.name,
-        baseBranch: resolveSessionBaseBranch(session, repo),
-      },
-      branchName,
-      session.planContent || "",
-      resolvedMessage,
-      rootDirectory,
-      customInstructionsBlock,
-      repo.systemPrompt,
-      session.devPort ?? repo.devPort,
-      priorCursorHistory,
-    );
-  }
->>>>>>> origin/main
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;
   }

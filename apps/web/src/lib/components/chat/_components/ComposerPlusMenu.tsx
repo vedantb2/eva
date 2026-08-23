@@ -19,11 +19,6 @@ import {
   IconSparkles,
   IconDatabase,
 } from "@tabler/icons-react";
-<<<<<<< HEAD
-=======
-import type { SessionMode } from "@/lib/hooks/useSessionSettings";
-import { isSessionMode, SESSION_MODE_OPTIONS } from "@/lib/sessionModeOptions";
->>>>>>> origin/main
 import type { Id } from "@eva/backend";
 import type { MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
 import {

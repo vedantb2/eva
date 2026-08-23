@@ -242,8 +242,8 @@ const sessionQueueConfig: ChatQueueConfig<
   backgroundAgents: (session) => session.backgroundAgents,
   syntheticTurnMessageId: (session) => session.syntheticTurnMessageId,
   streamingEntityId: (id) => String(id),
-  // Rows queued before modes were removed still carry mode/personaId/numDesigns;
-  // they are ignored rather than validated against.
+  // Queued rows may still carry legacy mode/personaId/numDesigns until
+  // removeSessionModeFields finishes; they are ignored rather than validated.
   prepareGuard: async (ctx, session, next) => {
     if (!next.model) {
       return { ok: false, error: "Error: Failed to start queued message." };
@@ -274,29 +274,12 @@ const sessionQueueConfig: ChatQueueConfig<
       reasoningLevel: next.reasoningLevel,
     });
   },
-<<<<<<< HEAD
-  startWorkflow: (ctx, id, session, next, prepared) =>
-    workflow.start(ctx, internal.sessionWorkflow.sessionExecuteWorkflow, {
-      sessionId: id,
-      message: next.content,
-      model: prepared.model,
-      reasoningLevel: next.reasoningLevel,
-      thinkingEnabled: next.thinkingEnabled,
-      use1mContext: next.use1mContext,
-      fastMode: next.fastMode,
-      providerAccountId: session.providerAccountId,
-      credentialOwnerUserId: session.createdBy ?? session.userId,
-      userId: next.userId,
-      installationId: prepared.repo.installationId,
-    }),
-=======
   startWorkflow: async (ctx, id, session, next, prepared) => {
     const placeholderMessageId = await ctx.db.insert("messages", {
       parentId: id,
       role: "assistant",
       content: "",
       timestamp: Date.now(),
-      mode: prepared.mode,
       activityLog: "",
     });
     const turnId = await openSessionTurn(ctx, {
@@ -316,7 +299,6 @@ const sessionQueueConfig: ChatQueueConfig<
         {
           sessionId: id,
           message: next.content,
-          mode: prepared.mode,
           model: prepared.model,
           reasoningLevel: next.reasoningLevel,
           thinkingEnabled: next.thinkingEnabled,
@@ -324,8 +306,6 @@ const sessionQueueConfig: ChatQueueConfig<
           fastMode: next.fastMode,
           providerAccountId: session.providerAccountId,
           credentialOwnerUserId: session.createdBy ?? session.userId,
-          personaId: next.personaId,
-          numDesigns: next.numDesigns,
           userId: next.userId,
           installationId: prepared.repo.installationId,
           turnId,
@@ -340,7 +320,6 @@ const sessionQueueConfig: ChatQueueConfig<
       throw error;
     }
   },
->>>>>>> origin/main
   onStarted: async (ctx, id, workflowId, now) => {
     const turn = await findOpenSessionTurn(ctx, id);
     if (turn) await bindTurnWorkflow(ctx, turn._id, String(workflowId));

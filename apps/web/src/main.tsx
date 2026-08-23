@@ -12,7 +12,11 @@ import { convex } from "./lib/convex";
 import { DeploymentErrorFallback } from "./lib/components/DeploymentErrorFallback";
 import { MotionProvider } from "./lib/components/MotionProvider";
 import { isChunkLoadError } from "./lib/utils/isChunkLoadError";
-import { claimStaleDeployReload } from "./lib/utils/staleDeployReload";
+import {
+  claimStaleDeployReload,
+  reloadForStaleDeploy,
+  stripStaleDeployReloadParam,
+} from "./lib/utils/staleDeployReload";
 import { readSignedInHint } from "./lib/authHint";
 import { saveMcpOauthParamsFromUrl } from "./lib/mcpOauthStorage";
 import { migrateLegacyStorageKeys } from "./lib/migrateLegacyStorageKeys";
@@ -23,6 +27,7 @@ import "./globals.css";
 // Persist any in-flight MCP OAuth params before Clerk's session handshake
 // gets a chance to redirect us off `/mcp/oauth/authorize`. See
 // `mcpOauthStorage.ts` for the full flow.
+stripStaleDeployReloadParam();
 saveMcpOauthParamsFromUrl();
 
 // Moves persisted sandbox UI state off the legacy `conductor:` key prefix. Must
@@ -49,7 +54,7 @@ function handleStaleDeployment(event: Event) {
   } catch {
     // WebSocket may already be closed
   }
-  window.location.reload();
+  reloadForStaleDeploy();
 }
 
 function isFailedHashedModule(target: EventTarget | null): boolean {
@@ -135,7 +140,11 @@ const hadSession = readSignedInHint();
 // anonymous landing never downloads it. Returning users need it immediately,
 // so start fetching now — it downloads in parallel with Clerk's handshake.
 if (hadSession) {
-  void import("@/lib/components/AppShellChrome");
+  void import("@/lib/components/AppShellChrome").catch((error: Error) => {
+    if (isChunkLoadError(error)) {
+      handleStaleDeployment(new Event("error"));
+    }
+  });
 }
 
 const rootElement = document.getElementById("root");

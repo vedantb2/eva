@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
-import { STALE_DEPLOY_RELOAD_KEY } from "./staleDeployReload";
+import {
+  STALE_DEPLOY_RELOAD_KEY,
+  STALE_DEPLOY_RELOAD_PARAM,
+} from "./staleDeployReload";
 
 const webApp = join(dirname(fileURLToPath(import.meta.url)), "../../..");
 const SPA_FALLBACK = "/((?!assets/).*)";
@@ -17,6 +20,17 @@ test("SPA fallback does not rewrite hashed /assets/ URLs", () => {
 
   expect(config).toMatchObject({
     rewrites: [{ source: SPA_FALLBACK, destination: "/index.html" }],
+    headers: expect.arrayContaining([
+      {
+        source: SPA_FALLBACK,
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-cache, no-store, must-revalidate",
+          },
+        ],
+      },
+    ]),
   });
 
   const pattern = new RegExp(`^${SPA_FALLBACK}$`);
@@ -30,5 +44,7 @@ test("SPA fallback does not rewrite hashed /assets/ URLs", () => {
 test("index.html reloads on hashed module failure using the shared cooldown key", () => {
   const html = readFileSync(join(webApp, "index.html"), "utf8");
   expect(html).toContain(`var KEY = "${STALE_DEPLOY_RELOAD_KEY}"`);
+  expect(html).toContain(`var PARAM = "${STALE_DEPLOY_RELOAD_PARAM}"`);
   expect(html).toContain('url.indexOf("/assets/")');
+  expect(html).toContain("location.replace");
 });

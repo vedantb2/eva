@@ -1,5 +1,13 @@
 # Changelog
 
+## Preview sticky path no longer stores the grant token - 2026-08-23
+
+Iframe navigation sync was saving `?__eva_grant=` into the session's sticky Preview path. Five minutes later that token is dead, and the in-sandbox proxy answers with its HTML sign-in bootstrap instead of the app. Path persist now strips the param on both the client and Convex.
+
+## Stale AppShellChrome imports force a fresh HTML fetch - 2026-08-23
+
+After a deploy, a tab still running the previous entry (`index-*.js`) dynamically imports `AppShellChrome-*.js` by the old hash. That file is gone, so Chrome throws `TypeError: Failed to fetch dynamically imported module`. The signed-in prefetch used `void import(...)` with no `.catch()`, and `location.reload()` could reuse cached HTML that still pointed at the dead hashes. The prefetch now reloads on that TypeError; recovery navigates with a one-shot `_eva_reload` query so HTML is fetched again (then stripped); HTML routes send `Cache-Control: no-cache, no-store, must-revalidate`.
+
 ## Vercel no longer pins hashed assets as immutable - 2026-08-23
 
 `/assets/*` was served `Cache-Control: public, max-age=31536000, immutable` so repeat visits would skip revalidation of Vite's hashed files. That header also stamped onto SPA-fallback HTML when a stale chunk URL missed, and browsers then refused to run the cached HTML as a module after deploys. The header is gone; Vercel default caching applies. The SPA rewrite still skips `/assets/` so missing chunks 404 instead of returning `index.html`.

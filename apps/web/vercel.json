@@ -8,6 +8,15 @@
   ],
   "headers": [
     {
+      "source": "/((?!assets/).*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-cache, no-store, must-revalidate"
+        }
+      ]
+    },
+    {
       "source": "/:owner/:repo/sessions/:path*",
       "headers": [
         {

@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import {
   claimStaleDeployReload,
+  reloadForStaleDeploy,
   STALE_DEPLOY_RELOAD_KEY,
+  STALE_DEPLOY_RELOAD_PARAM,
+  stripStaleDeployReloadParam,
 } from "./staleDeployReload";
 
 // Regression guard for commit 69092685a ("stop serving HTML for missing JS
@@ -98,5 +101,50 @@ describe("claimStaleDeployReload", () => {
     });
 
     expect(claimStaleDeployReload()).toBe(true);
+  });
+});
+
+describe("reloadForStaleDeploy", () => {
+  test("replaces the document with a unique cache-bust query", () => {
+    const replace = vi.fn();
+    vi.stubGlobal("location", {
+      href: "https://eva.example/home?tab=inbox",
+      replace,
+    });
+
+    reloadForStaleDeploy();
+
+    expect(replace).toHaveBeenCalledWith(
+      expect.stringContaining(`${STALE_DEPLOY_RELOAD_PARAM}=`),
+    );
+    expect(replace).toHaveBeenCalledWith(expect.stringContaining("tab=inbox"));
+  });
+});
+
+describe("stripStaleDeployReloadParam", () => {
+  test("drops the cache-bust param and keeps the rest of the URL", () => {
+    const replaceState = vi.fn();
+    vi.stubGlobal("location", {
+      href: `https://eva.example/home?${STALE_DEPLOY_RELOAD_PARAM}=99&tab=inbox#x`,
+    });
+    vi.stubGlobal("history", { state: { keep: true }, replaceState });
+
+    stripStaleDeployReloadParam();
+
+    expect(replaceState).toHaveBeenCalledWith(
+      { keep: true },
+      "",
+      "/home?tab=inbox#x",
+    );
+  });
+
+  test("is a no-op when the param is absent", () => {
+    const replaceState = vi.fn();
+    vi.stubGlobal("location", { href: "https://eva.example/home" });
+    vi.stubGlobal("history", { state: null, replaceState });
+
+    stripStaleDeployReloadParam();
+
+    expect(replaceState).not.toHaveBeenCalled();
   });
 });

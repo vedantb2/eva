@@ -8,7 +8,9 @@ test("isChunkLoadError detects ChunkLoadError name and common messages", () => {
 
   expect(
     isChunkLoadError(
-      new Error("Failed to fetch dynamically imported module: /assets/x.js"),
+      new TypeError(
+        "Failed to fetch dynamically imported module: https://eva.carepulse.co.uk/assets/AppShellChrome-D7P1ksRo.js",
+      ),
     ),
   ).toBe(true);
   expect(isChunkLoadError(new Error("Loading chunk 12 failed"))).toBe(true);

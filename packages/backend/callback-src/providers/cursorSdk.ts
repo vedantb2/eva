@@ -714,7 +714,8 @@ export async function runCursorSdkAttempt(
     const costUsd = await resolveCursorTurnCostUsd({
       before: await costBefore,
       fetchAfter: () => readCostSnapshot(activeAgent),
-      sleep: (delayMs) => new Promise((resolve) => setTimeout(resolve, delayMs)),
+      sleep: (delayMs) =>
+        new Promise((resolve) => setTimeout(resolve, delayMs)),
     });
     return {
       isError: result.status !== "finished",

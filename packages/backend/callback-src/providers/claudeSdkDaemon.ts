@@ -55,10 +55,16 @@ import {
 import {
   buildSdkOptions,
   loadSdk,
+  readSdkPlanUsage,
   type SdkModule,
   type SdkUserMessage,
 } from "./claudeSdk.js";
 import { callbackState as S } from "../runtime/state.js";
+import {
+  captureClaudeUsage,
+  reportUsageLimits,
+  type ClaudeUsageResponseLike,
+} from "../runtime/usageLimits.js";
 import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
 import { log, readResponseJson } from "../utils.js";
@@ -166,6 +172,8 @@ type WarmRunner = {
   /** Interrupts the in-flight turn (cancel). Logs and no-ops when the SDK
    * query handle does not support it. */
   interrupt: () => Promise<void>;
+  /** Reads the SDK's experimental plan-usage data; null when unavailable. */
+  readUsage: () => Promise<ClaudeUsageResponseLike | null>;
 };
 
 type BackgroundAgentEntry = {
@@ -448,7 +456,10 @@ function resetTurnState(): void {
 }
 
 /** Reports one finished turn to the session workflow (mirrors the one-shot completion). */
-async function finalizeTurn(output: string): Promise<void> {
+async function finalizeTurn(
+  output: string,
+  agentRunner: WarmRunner,
+): Promise<void> {
   // Drain the buffered turn output into S.accumulatedSteps before building the
   // completion payload — exactly like the one-shot path (index.ts) flushes after
   // its attempt loop. processRealtimeStdoutChunk only runs the streaming
@@ -509,6 +520,11 @@ async function finalizeTurn(output: string): Promise<void> {
   // this only guards against a sandbox restart. accumulatedSteps is still
   // populated (resetTurnState runs after this returns).
   const bookkeepingAt = Date.now();
+  // Plan usage-limit reading, taken after completion so the /usage round trip
+  // never delays the reply the user is waiting on. The turn's own
+  // `rate_limit_event`s already merged whichever window they named.
+  await captureClaudeUsage(agentRunner.readUsage);
+  void reportUsageLimits("claude");
   syncClaudeStateToPersist("daemon-turn");
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms",
@@ -1317,7 +1333,7 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
     if (daemonTurn?.kind === "synthetic") {
       await finalizeSyntheticTurn(agentTurnOutput);
     } else {
-      await finalizeTurn(agentTurnOutput);
+      await finalizeTurn(agentTurnOutput, agentRunner);
       log(
         "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms",
       );
@@ -1451,7 +1467,18 @@ function createWarmAgentRunner(
     log("daemon: interrupt unavailable on SDK query handle");
   };
 
-  return { push, waitMessage, drainPending, hasPending, stopTask, interrupt };
+  const readUsage = (): Promise<ClaudeUsageResponseLike | null> =>
+    readSdkPlanUsage(query);
+
+  return {
+    push,
+    waitMessage,
+    drainPending,
+    hasPending,
+    stopTask,
+    interrupt,
+    readUsage,
+  };
 }
 
 /**

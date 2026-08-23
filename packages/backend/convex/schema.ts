@@ -47,6 +47,7 @@ import {
   backgroundProcessFields,
   snapshotBuildFields,
   sessionDaemonStateFields,
+  agentUsageLimitFields,
 } from "./validators";
 
 const schema = defineSchema({
@@ -159,6 +160,15 @@ const schema = defineSchema({
   sessionDaemonStates: defineTable(sessionDaemonStateFields).index(
     "by_session",
     ["sessionId"],
+  ),
+  // Latest agent plan usage-limit reading per (repo, provider, account),
+  // upserted by the sandbox callback at the end of every turn
+  // (usageLimits:report). Plan limits are per connected account, so a repo run
+  // on two Claude accounts keeps a row for each; the trailing optional id also
+  // carries the "shared team credential" row, whose account is absent.
+  agentUsageLimits: defineTable(agentUsageLimitFields).index(
+    "by_repo_provider_account",
+    ["repoId", "provider", "providerAccountId"],
   ),
   backgroundProcesses: defineTable(backgroundProcessFields)
     .index("by_session_and_status", ["sessionId", "status"])

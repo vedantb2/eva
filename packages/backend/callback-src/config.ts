@@ -184,6 +184,15 @@ process.env.GH_NO_UPDATE_NOTIFIER = "1";
 
 export const REPO_ID = process.env.REPO_ID;
 
+/**
+ * The connected provider account whose credentials this run authenticated as.
+ * Set by the launcher only when an account override actually took effect, so an
+ * empty value means the run used the sandbox's shared team credential — which is
+ * exactly the attribution a usage-limit reading needs (plan limits are per
+ * account, and two accounts' readings must not overwrite each other).
+ */
+export const PROVIDER_ACCOUNT_ID = process.env.PROVIDER_ACCOUNT_ID || "";
+
 // --- Reasoning / thinking effort ---
 // `AI_REASONING_EFFORT` is the abstract level from the traits menu, sent only
 // when the user picks a non-default level. Mapped per provider below:

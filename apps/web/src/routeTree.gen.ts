@@ -15,10 +15,10 @@ import { Route as RepoRouteImport } from './routes/_repo'
 import { Route as AgentCallbackRouteImport } from './routes/agent-callback'
 import { Route as PreviewAuthRouteImport } from './routes/preview-auth'
 import { Route as GlobalAutomationsRouteImport } from './routes/_global/automations'
+import { Route as GlobalAveRouteImport } from './routes/_global/ave'
 import { Route as GlobalChangelogRouteImport } from './routes/_global/changelog'
 import { Route as GlobalHomeRouteImport } from './routes/_global/home'
 import { Route as GlobalInboxRouteImport } from './routes/_global/inbox'
-import { Route as GlobalOrchestratorRouteImport } from './routes/_global/orchestrator'
 import { Route as GlobalSessionsRouteImport } from './routes/_global/sessions'
 import { Route as GlobalSettingsRouteRouteImport } from './routes/_global/settings/route'
 import { Route as GlobalTestingRouteImport } from './routes/_global/testing'
@@ -153,6 +153,11 @@ const GlobalAutomationsRoute = GlobalAutomationsRouteImport.update({
   path: '/automations',
   getParentRoute: () => GlobalRoute,
 } as any)
+const GlobalAveRoute = GlobalAveRouteImport.update({
+  id: '/ave',
+  path: '/ave',
+  getParentRoute: () => GlobalRoute,
+} as any)
 const GlobalChangelogRoute = GlobalChangelogRouteImport.update({
   id: '/changelog',
   path: '/changelog',
@@ -166,11 +171,6 @@ const GlobalHomeRoute = GlobalHomeRouteImport.update({
 const GlobalInboxRoute = GlobalInboxRouteImport.update({
   id: '/inbox',
   path: '/inbox',
-  getParentRoute: () => GlobalRoute,
-} as any)
-const GlobalOrchestratorRoute = GlobalOrchestratorRouteImport.update({
-  id: '/orchestrator',
-  path: '/orchestrator',
   getParentRoute: () => GlobalRoute,
 } as any)
 const GlobalSessionsRoute = GlobalSessionsRouteImport.update({
@@ -795,10 +795,10 @@ export interface FileRoutesByFullPath {
   '/preview-auth': typeof PreviewAuthRoute
   '/settings': typeof GlobalSettingsRouteRouteWithChildren
   '/automations': typeof GlobalAutomationsRoute
+  '/ave': typeof GlobalAveRoute
   '/changelog': typeof GlobalChangelogRoute
   '/home': typeof GlobalHomeRoute
   '/inbox': typeof GlobalInboxRoute
-  '/orchestrator': typeof GlobalOrchestratorRoute
   '/sessions': typeof GlobalSessionsRoute
   '/testing': typeof GlobalTestingRoute
   '/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
@@ -910,10 +910,10 @@ export interface FileRoutesByTo {
   '/preview-auth': typeof PreviewAuthRoute
   '/settings': typeof GlobalSettingsRouteRouteWithChildren
   '/automations': typeof GlobalAutomationsRoute
+  '/ave': typeof GlobalAveRoute
   '/changelog': typeof GlobalChangelogRoute
   '/home': typeof GlobalHomeRoute
   '/inbox': typeof GlobalInboxRoute
-  '/orchestrator': typeof GlobalOrchestratorRoute
   '/sessions': typeof GlobalSessionsRoute
   '/testing': typeof GlobalTestingRoute
   '/artifacts/$artifactId': typeof GlobalArtifactsArtifactIdRoute
@@ -1004,10 +1004,10 @@ export interface FileRoutesById {
   '/preview-auth': typeof PreviewAuthRoute
   '/_global/settings': typeof GlobalSettingsRouteRouteWithChildren
   '/_global/automations': typeof GlobalAutomationsRoute
+  '/_global/ave': typeof GlobalAveRoute
   '/_global/changelog': typeof GlobalChangelogRoute
   '/_global/home': typeof GlobalHomeRoute
   '/_global/inbox': typeof GlobalInboxRoute
-  '/_global/orchestrator': typeof GlobalOrchestratorRoute
   '/_global/sessions': typeof GlobalSessionsRoute
   '/_global/testing': typeof GlobalTestingRoute
   '/_global/teams/$teamId': typeof GlobalTeamsTeamIdRouteRouteWithChildren
@@ -1121,10 +1121,10 @@ export interface FileRouteTypes {
     | '/preview-auth'
     | '/settings'
     | '/automations'
+    | '/ave'
     | '/changelog'
     | '/home'
     | '/inbox'
-    | '/orchestrator'
     | '/sessions'
     | '/testing'
     | '/teams/$teamId'
@@ -1236,10 +1236,10 @@ export interface FileRouteTypes {
     | '/preview-auth'
     | '/settings'
     | '/automations'
+    | '/ave'
     | '/changelog'
     | '/home'
     | '/inbox'
-    | '/orchestrator'
     | '/sessions'
     | '/testing'
     | '/artifacts/$artifactId'
@@ -1329,10 +1329,10 @@ export interface FileRouteTypes {
     | '/preview-auth'
     | '/_global/settings'
     | '/_global/automations'
+    | '/_global/ave'
     | '/_global/changelog'
     | '/_global/home'
     | '/_global/inbox'
-    | '/_global/orchestrator'
     | '/_global/sessions'
     | '/_global/testing'
     | '/_global/teams/$teamId'
@@ -1492,6 +1492,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GlobalAutomationsRouteImport
       parentRoute: typeof GlobalRoute
     }
+    '/_global/ave': {
+      id: '/_global/ave'
+      path: '/ave'
+      fullPath: '/ave'
+      preLoaderRoute: typeof GlobalAveRouteImport
+      parentRoute: typeof GlobalRoute
+    }
     '/_global/changelog': {
       id: '/_global/changelog'
       path: '/changelog'
@@ -1511,13 +1518,6 @@ declare module '@tanstack/react-router' {
       path: '/inbox'
       fullPath: '/inbox'
       preLoaderRoute: typeof GlobalInboxRouteImport
-      parentRoute: typeof GlobalRoute
-    }
-    '/_global/orchestrator': {
-      id: '/_global/orchestrator'
-      path: '/orchestrator'
-      fullPath: '/orchestrator'
-      preLoaderRoute: typeof GlobalOrchestratorRouteImport
       parentRoute: typeof GlobalRoute
     }
     '/_global/sessions': {
@@ -2302,10 +2302,10 @@ const GlobalTeamsTeamIdRouteRouteWithChildren =
 interface GlobalRouteChildren {
   GlobalSettingsRouteRoute: typeof GlobalSettingsRouteRouteWithChildren
   GlobalAutomationsRoute: typeof GlobalAutomationsRoute
+  GlobalAveRoute: typeof GlobalAveRoute
   GlobalChangelogRoute: typeof GlobalChangelogRoute
   GlobalHomeRoute: typeof GlobalHomeRoute
   GlobalInboxRoute: typeof GlobalInboxRoute
-  GlobalOrchestratorRoute: typeof GlobalOrchestratorRoute
   GlobalSessionsRoute: typeof GlobalSessionsRoute
   GlobalTestingRoute: typeof GlobalTestingRoute
   GlobalTeamsTeamIdRouteRoute: typeof GlobalTeamsTeamIdRouteRouteWithChildren
@@ -2318,10 +2318,10 @@ interface GlobalRouteChildren {
 const GlobalRouteChildren: GlobalRouteChildren = {
   GlobalSettingsRouteRoute: GlobalSettingsRouteRouteWithChildren,
   GlobalAutomationsRoute: GlobalAutomationsRoute,
+  GlobalAveRoute: GlobalAveRoute,
   GlobalChangelogRoute: GlobalChangelogRoute,
   GlobalHomeRoute: GlobalHomeRoute,
   GlobalInboxRoute: GlobalInboxRoute,
-  GlobalOrchestratorRoute: GlobalOrchestratorRoute,
   GlobalSessionsRoute: GlobalSessionsRoute,
   GlobalTestingRoute: GlobalTestingRoute,
   GlobalTeamsTeamIdRouteRoute: GlobalTeamsTeamIdRouteRouteWithChildren,

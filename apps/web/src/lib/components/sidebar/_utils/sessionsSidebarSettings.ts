@@ -98,9 +98,9 @@ export function sessionActivityAt(session: {
 }
 
 /**
- * Orders a repo's sessions for any sidebar list, and drops the orchestrator.
+ * Orders a repo's sessions for any sidebar list, and drops Manager Ave.
  *
- * The orchestrator is one persistent session per user reached from its own rail
+ * Manager Ave is one persistent session per user reached from its own rail
  * entry, not a piece of work in a repo — listed here it sat at the top of every
  * list forever. Excluded at this single choke point because every sidebar
  * surface (global list, chrome tabs, session switcher) sorts through it;

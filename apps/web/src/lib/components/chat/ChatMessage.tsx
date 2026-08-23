@@ -167,7 +167,7 @@ export const ChatMessage = memo(function ChatMessage({
   const orchestratorTag = isOrchestratorNotification
     ? "agent update"
     : message.sentViaOrchestrator === true
-      ? "via orchestrator"
+      ? "via Ave"
       : undefined;
 
   // Videos render as inline players; images collapse into one Twitter-style

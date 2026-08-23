@@ -11,7 +11,7 @@ export function isSessionPrReadOnly(
  * Session still in play for sidebar badges: not manually archived, and PR is
  * still draft/open (or no PR yet).
  *
- * The orchestrator never counts. It is always `active` by design, so including
+ * Manager Ave never counts. It is always `active` by design, so including
  * it made every badge read one higher than the work actually in flight.
  */
 export function isSessionSidebarActive(session: {

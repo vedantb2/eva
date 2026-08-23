@@ -44,7 +44,7 @@ interface SessionChatHeaderProps {
   /** Canonical link to this session; omitted when the URL already is one. */
   permalinkPath?: string;
   /**
-   * Chat-only surface (the orchestrator). It supervises other agents instead of
+   * Chat-only surface (Manager Ave). It supervises other agents instead of
    * building on its own branch, so "Send for Review" would open a PR with no
    * commits against base — a guaranteed failure, hidden rather than offered.
    */

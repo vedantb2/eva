@@ -7,7 +7,7 @@ import { entityVisible } from "../numId";
 import { createSession } from "./mutations";
 
 /** Title of the persistent per-user orchestrator session. */
-const ORCHESTRATOR_SESSION_TITLE = "Orchestrator";
+const ORCHESTRATOR_SESSION_TITLE = "Manager Ave";
 
 /**
  * Everything the client needs to route to the master session. The master lives

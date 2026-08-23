@@ -6,8 +6,8 @@ import { IconLink } from "@tabler/icons-react";
 /**
  * Copies the current page URL — shared More-menu item for task / project /
  * session headers. Pass `path` when the current URL is not a link to the
- * entity: the orchestrator chat is mounted inline at the per-user
- * `/orchestrator`, which resolves to a *different* session for everyone else.
+ * entity: Manager Ave's chat is mounted inline at the per-user `/ave`,
+ * which resolves to a *different* session for everyone else.
  */
 export function CopyLinkMenuItem({
   iconSize = 14,

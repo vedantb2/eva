@@ -110,8 +110,8 @@ const EMPTY_SANDBOX_REPO_IDS = new Set<Id<"githubRepos">>();
 
 function RepoRailLiveData(props: RepoRailProps) {
   const activeSessionCount = useQuery(api.githubRepos.countActiveSessions);
-  // The orchestrator is deliberately absent from the sessions list and its
-  // counts, so its rail entry is the only place its state can be seen.
+  // Manager Ave is deliberately absent from the sessions list and its counts,
+  // so this rail entry is the only place its state can be seen.
   const orchestrator = useQuery(api.sessions.getOrchestratorSession, {});
   const sandboxRepoIds = useQuery(api.githubRepos.listReposWithActiveSandboxes);
   const activeSandboxRepoIds = useMemo(
@@ -123,7 +123,7 @@ function RepoRailLiveData(props: RepoRailProps) {
     <RepoRailView
       {...props}
       activeSessionCount={activeSessionCount}
-      orchestratorActive={orchestrator?.status === "active"}
+      aveSandboxActive={orchestrator?.status === "active"}
       activeSandboxRepoIds={activeSandboxRepoIds}
     />
   );
@@ -147,7 +147,7 @@ export function RepoRail(props: RepoRailProps) {
         <RepoRailView
           {...props}
           activeSessionCount={undefined}
-          orchestratorActive={false}
+          aveSandboxActive={false}
           activeSandboxRepoIds={EMPTY_SANDBOX_REPO_IDS}
         />
       }
@@ -159,8 +159,8 @@ export function RepoRail(props: RepoRailProps) {
 
 interface RepoRailViewProps extends RepoRailProps {
   activeSessionCount: number | undefined;
-  /** True while the orchestrator's sandbox is up. */
-  orchestratorActive?: boolean;
+  /** True while Manager Ave's sandbox is up. */
+  aveSandboxActive?: boolean;
   activeSandboxRepoIds: ReadonlySet<Id<"githubRepos">>;
 }
 
@@ -174,7 +174,7 @@ function RepoRailView({
   userName,
   showSearch,
   activeSessionCount,
-  orchestratorActive = false,
+  aveSandboxActive = false,
   activeSandboxRepoIds,
 }: RepoRailViewProps) {
   const { collapsed, setCollapsed, setSessionsNavMode } = useSidebar();
@@ -200,7 +200,7 @@ function RepoRailView({
     pathname.startsWith("/automations/") ||
     (pathParts.includes("automations") && pathParts[0] !== "automations");
   // Eva's chat lives at its own stable URL, so only that path lights this tile.
-  const evaActive = pathname === "/orchestrator";
+  const aveRouteActive = pathname === "/ave";
   const sessionsLabel = formatCountLabel(activeSessionCount);
   const [renameRepo, setRenameRepo] = useState<RepoWithLogo | null>(null);
 
@@ -276,20 +276,20 @@ function RepoRailView({
         <Tooltip>
           <TooltipTrigger asChild>
             <Link
-              to="/orchestrator"
+              to="/ave"
               onClick={onNavigate}
               aria-label={
-                orchestratorActive ? "Orchestrator, active" : "Orchestrator"
+                aveSandboxActive ? "Manager Ave, active" : "Manager Ave"
               }
               className={cn(
                 RAIL_TILE_CLASS,
                 "group",
-                railTileActive(evaActive),
+                railTileActive(aveRouteActive),
               )}
             >
               <IconSparkles size={22} className="shrink-0" />
-              {orchestratorActive ? (
-                // A dot, not a count: there is only ever one orchestrator, so
+              {aveSandboxActive ? (
+                // A dot, not a count: there is only ever one Manager Ave, so
                 // the question is "is its sandbox up", not "how many".
                 <span
                   className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success ring-2 ring-sidebar"
@@ -299,7 +299,7 @@ function RepoRailView({
             </Link>
           </TooltipTrigger>
           <TooltipContent side="right">
-            {orchestratorActive ? "Orchestrator (active)" : "Orchestrator"}
+            {aveSandboxActive ? "Manager Ave (active)" : "Manager Ave"}
           </TooltipContent>
         </Tooltip>
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />

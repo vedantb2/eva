@@ -12,36 +12,36 @@ import { encodeRepoParam } from "@/lib/utils/repoUrl";
 import { repoTileColor } from "@/lib/utils/repoTileColor";
 import { CachedSessionShell } from "@/routes/_repo/$owner/$repo/sessions/_components/CachedSessionShell";
 
-export const Route = createFileRoute("/_global/orchestrator")({
-  staticData: { title: "Orchestrator" },
-  component: OrchestratorRoute,
+export const Route = createFileRoute("/_global/ave")({
+  staticData: { title: "Manager Ave" },
+  component: AveRoute,
 });
 
 /** Placeholder that holds the page while a query resolves. */
-function OrchestratorBusy({ label }: { label: string }) {
+function AveBusy({ label }: { label: string }) {
   return (
     <div className="flex min-h-0 flex-1" aria-busy="true" aria-label={label} />
   );
 }
 
 /**
- * The rail's Orchestrator entry: one persistent session per user, but it lives at
+ * The rail's Manager Ave entry: one persistent session per user, but it lives at
  * this stable URL rather than redirecting into `/$owner/$repo/sessions/$numId`
  * — the session shell is mounted inline instead. Its `chatOnly` branch drops
  * the sandbox panel, so all that renders here is the chat.
  */
-function OrchestratorRoute() {
+function AveRoute() {
   const orchestrator = useQuery(api.sessions.getOrchestratorSession, {});
 
   // `undefined` is "still loading", not "no session" — rendering the picker
   // here would flash a codebase list at every user who already has one.
-  if (orchestrator === undefined) return <OrchestratorBusy label="Opening orchestrator" />;
+  if (orchestrator === undefined) return <AveBusy label="Opening Manager Ave" />;
 
-  if (orchestrator === null) return <OrchestratorHomeRepoPicker />;
+  if (orchestrator === null) return <AveHomeRepoPicker />;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      {/* The shell carries its own passive RepoProvider, so the orchestrator's repo resolves
+      {/* The shell carries its own passive RepoProvider, so Ave's repo resolves
           without this route living under `/$owner/$repo`. */}
       <CachedSessionShell
         numId={String(orchestrator.numId)}
@@ -53,8 +53,8 @@ function OrchestratorRoute() {
   );
 }
 
-/** First-run only: the orchestrator needs a codebase to live in. */
-function OrchestratorHomeRepoPicker() {
+/** First-run only: Manager Ave needs a codebase to live in. */
+function AveHomeRepoPicker() {
   const repos = useQuery(api.githubRepos.list, {});
   const ensureOrchestrator = useMutation(api.sessions.ensureOrchestratorSession);
   const [pendingRepoId, setPendingRepoId] = useState<Id<"githubRepos"> | null>(
@@ -67,12 +67,12 @@ function OrchestratorHomeRepoPicker() {
     setPendingRepoId(repoId);
     void catchMutationError(
       ensureOrchestrator({ repoId }),
-      "Couldn't start the orchestrator",
-      "orchestrator-session-create",
+      "Couldn't start Manager Ave",
+      "ave-session-create",
     ).catch(() => setPendingRepoId(null));
   };
 
-  if (repos === undefined) return <OrchestratorBusy label="Loading codebases" />;
+  if (repos === undefined) return <AveBusy label="Loading codebases" />;
   if (repos.length === 0) return <Navigate to="/home" replace />;
 
   return (
@@ -80,8 +80,8 @@ function OrchestratorHomeRepoPicker() {
       <div className="flex flex-col items-center gap-2 text-center">
         <h1 className="text-lg font-semibold">Choose a home codebase</h1>
         <p className="max-w-sm text-sm text-muted-foreground">
-          The orchestrator is your persistent agent that runs and supervises
-          your other agents. Pick where it lives — you can talk to it about any codebase
+          Manager Ave is your persistent agent that runs and supervises your
+          other agents. Pick where it lives — you can talk to it about any codebase
           from there.
         </p>
       </div>

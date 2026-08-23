@@ -34,13 +34,12 @@ function GlobalMainContent() {
   const onTesting =
     import.meta.env.DEV &&
     (pathname === "/testing" || pathname.startsWith("/testing/"));
-  // The orchestrator chat is a virtualized session surface: it needs a
+  // Manager Ave's chat is a virtualized session surface: it needs a
   // viewport-clamped shell (like `_repo/$owner/$repo.tsx`'s `h-dvh
   // overflow-hidden`), not this layout's content-sized `min-h-dvh` column —
   // an unclamped ancestor makes the chat virtualizer's measure loop diverge,
   // growing the page by hundreds of px per second.
-  const isOrchestratorPath =
-    pathname === "/orchestrator" || pathname.startsWith("/orchestrator/");
+  const isAvePath = pathname === "/ave" || pathname.startsWith("/ave/");
   // Sessions / automations / home / root settings show the wide second column;
   // collapsed = rail only. Chrome session tabs use rail-only (no sidebar).
   const hasSecondColumn =
@@ -62,7 +61,7 @@ function GlobalMainContent() {
         // `--eva-mobile-header-height` (globals.css), not a literal `pt-14`: the
         // below-`lg` header in `Sidebar.tsx` is 3.5rem *plus* the notch inset.
         "relative flex flex-col pt-(--eva-mobile-header-height) lg:pt-0",
-        isOrchestratorPath ? "h-dvh overflow-hidden" : "min-h-dvh",
+        isAvePath ? "h-dvh overflow-hidden" : "min-h-dvh",
         paddingClass,
       )}
     >
@@ -72,7 +71,7 @@ function GlobalMainContent() {
         ) : null}
         <div
           className={
-            isOrchestratorPath
+            isAvePath
               ? "relative z-10 flex w-full min-h-0 flex-1 flex-col"
               : isGlobalSettingsPath(pathname)
                 ? "relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col"

@@ -113,12 +113,12 @@ function SessionStatusLeading({
       </span>
     );
   }
-  // The orchestrator is one persistent session per user rather than a piece of
+  // Manager Ave is one persistent session per user rather than a piece of
   // work, so it is marked instead of dotted: its sandbox status is not what the
   // reader needs to tell it apart from the sessions around it.
   if (isOrchestrator) {
     return (
-      <span className="flex shrink-0 items-center" title="Orchestrator">
+      <span className="flex shrink-0 items-center" title="Manager Ave">
         <IconSparkles size={12} className="shrink-0 text-sidebar-primary" />
       </span>
     );

@@ -1,5 +1,5 @@
 import { TURN_ID, TURN_LEASE_GENERATION } from "../config.js";
-import type { JsonValue } from "../types.js";
+import type { JsonObject, JsonValue } from "../types.js";
 import { log } from "../utils.js";
 
 export type TurnLeaseIdentity = {
@@ -22,6 +22,14 @@ let terminalReason: LeaseTerminalReason | null = null;
 
 export function getCurrentTurnLease(): TurnLeaseIdentity | null {
   return currentTurnLease;
+}
+
+/** Adds the current fence to any callback mutation payload when one is owned. */
+export function appendCurrentTurnLease(args: JsonObject): void {
+  const identity = getCurrentTurnLease();
+  if (identity === null) return;
+  args.turnId = identity.turnId;
+  args.leaseGeneration = identity.leaseGeneration;
 }
 
 export function setCurrentTurnLease(identity: TurnLeaseIdentity | null): void {
@@ -67,7 +75,14 @@ export function noteHeartbeatResponse(response: string | JsonValue): boolean {
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     return false;
   }
-  const lease = parsed.lease;
+  const responseValue = parsed.value;
+  const payload =
+    typeof responseValue === "object" &&
+    responseValue !== null &&
+    !Array.isArray(responseValue)
+      ? responseValue
+      : parsed;
+  const lease = payload.lease;
   if (typeof lease !== "object" || lease === null || Array.isArray(lease)) {
     return false;
   }

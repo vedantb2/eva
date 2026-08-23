@@ -25,6 +25,38 @@ test("a turn is persisted before its workflow is launched", () => {
   expect(openAt).toBeLessThan(startAt);
 });
 
+test("pre-cutover workflow replays keep the V1 journal and argument shape", () => {
+  const workflow = source("../convex/_sessions/workflow.ts");
+  expect(workflow).toContain('turnId: v.optional(v.id("turns"))');
+  expect(workflow).toContain("if (args.turnId !== undefined)");
+  expect(workflow).toContain("args.turnId === undefined\n            ? null");
+  expect(workflow).toContain(
+    "...(args.turnId !== undefined ? { turnId: args.turnId } : {})",
+  );
+});
+
+test("fatal completion uses the same fenced payload helper as normal completion", () => {
+  const callback = source("../callback-src/index.ts");
+  const bundle = source(
+    "../convex/_sandbox_runtime/callbackScript.generated.ts",
+  );
+  const fatalAt = callback.indexOf('syncProviderStateToPersist("fatal-error")');
+  const appendAt = callback.indexOf("appendCurrentTurnLease(errorArgs)", fatalAt);
+  const deliverAt = callback.indexOf("callConvexWithRetry", fatalAt);
+  expect(appendAt).toBeGreaterThan(fatalAt);
+  expect(deliverAt).toBeGreaterThan(appendAt);
+  expect(bundle).toContain("appendCurrentTurnLease(errorArgs)");
+});
+
+test("queued workflow start failures invoke durable rollback before surfacing", () => {
+  const queues = source("../convex/_queues/helpers.ts");
+  const catchAt = queues.indexOf("} catch (error) {", queues.indexOf("turnId,"));
+  const rollbackAt = queues.indexOf("rollbackQueuedSessionStart", catchAt);
+  const throwAt = queues.indexOf("throw error", catchAt);
+  expect(rollbackAt).toBeGreaterThan(catchAt);
+  expect(throwAt).toBeGreaterThan(rollbackAt);
+});
+
 test("claiming increments the fenced lease generation", () => {
   const store = source("../convex/_chat/turnStore.ts");
   expect(store).toContain(
@@ -39,13 +71,22 @@ test("the heartbeat fences stale writers before changing streaming state", () =>
   const http = source("../convex/http.ts");
   const turns = source("../convex/turns.ts");
   expect(http).toContain("internal.turns.heartbeat");
-  const heartbeatAt = turns.indexOf("export const heartbeat");
+  const heartbeatAt = turns.indexOf("async function applyFencedHeartbeat");
   const renewAt = turns.indexOf("await renewTurnLease", heartbeatAt);
   const terminalAt = turns.indexOf('lease.status === "terminal"', heartbeatAt);
   const streamAt = turns.indexOf("await upsertStreamingActivity", heartbeatAt);
   expect(renewAt).toBeGreaterThan(-1);
   expect(terminalAt).toBeGreaterThan(renewAt);
   expect(streamAt).toBeGreaterThan(terminalAt);
+  expect(http).toContain("internal.turns.legacyHeartbeat");
+  expect(turns).toContain("await findOpenSessionTurn(ctx, sessionId)");
+  const bundle = source(
+    "../convex/_sandbox_runtime/callbackScript.generated.ts",
+  );
+  expect(bundle).toContain("turns:legacyHeartbeatFromCallback");
+  expect(bundle).toContain("turns:heartbeatFromCallback");
+  expect(bundle).not.toContain('"streaming:touch"');
+  expect(bundle).not.toContain('"streaming:set"');
 });
 
 test("completion resolves the lease fence before publishing its event", () => {

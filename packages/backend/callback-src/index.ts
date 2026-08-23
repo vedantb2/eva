@@ -22,7 +22,10 @@ import { runCodexAppServerDaemon } from "./providers/codexAppServerDaemon.js";
 import { runCursorDaemon } from "./providers/cursorSdkDaemon.js";
 import { fetchWithTimeout, callConvexWithRetry } from "./http/convexClient.js";
 import { callbackState as S } from "./runtime/state.js";
-import { getCurrentTurnLease, setCurrentTurnLease } from "./runtime/turnLease.js";
+import {
+  appendCurrentTurnLease,
+  setCurrentTurnLease,
+} from "./runtime/turnLease.js";
 import { persistTurnWork } from "./runtime/turnPersist.js";
 import { materializeSystemSkills } from "./runtime/systemSkills.js";
 import {
@@ -341,11 +344,7 @@ try {
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
-  const turnLease = getCurrentTurnLease();
-  if (turnLease) {
-    completionArgs.turnId = turnLease.turnId;
-    completionArgs.leaseGeneration = turnLease.leaseGeneration;
-  }
+  appendCurrentTurnLease(completionArgs);
 
   // Durability BEFORE completion: commit + push the turn's work so a VM death
   // after this point cannot erase it (no-op for task runs — the commit gate
@@ -383,7 +382,7 @@ try {
   writeDoneFile("fatal-error", {
     error: err instanceof Error ? err.message : String(err),
   });
-  const errorArgs: Record<string, string | boolean | null> = {
+  const errorArgs: JsonObject = {
     [ENTITY_ID_FIELD ?? "entityId"]: ENTITY_ID ?? "",
     success: false,
     result: null,
@@ -402,6 +401,7 @@ try {
     activityLog: serializeSteps(S.accumulatedSteps),
   };
   if (RUN_ID) errorArgs.runId = RUN_ID;
+  appendCurrentTurnLease(errorArgs);
   try {
     await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", errorArgs);
   } catch {

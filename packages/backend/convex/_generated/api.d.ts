@@ -43,6 +43,7 @@ import type * as _chat_stallWatchdog from "../_chat/stallWatchdog.js";
 import type * as _chat_surfaceAdapters from "../_chat/surfaceAdapters.js";
 import type * as _chat_taskChatDaemon from "../_chat/taskChatDaemon.js";
 import type * as _chat_turnLease from "../_chat/turnLease.js";
+import type * as _chat_turnProjection from "../_chat/turnProjection.js";
 import type * as _chat_turnStore from "../_chat/turnStore.js";
 import type * as _deployment_vercel from "../_deployment/vercel.js";
 import type * as _docEditor_markdown from "../_docEditor/markdown.js";
@@ -388,6 +389,7 @@ declare const fullApi: ApiFromModules<{
   "_chat/surfaceAdapters": typeof _chat_surfaceAdapters;
   "_chat/taskChatDaemon": typeof _chat_taskChatDaemon;
   "_chat/turnLease": typeof _chat_turnLease;
+  "_chat/turnProjection": typeof _chat_turnProjection;
   "_chat/turnStore": typeof _chat_turnStore;
   "_deployment/vercel": typeof _deployment_vercel;
   "_docEditor/markdown": typeof _docEditor_markdown;

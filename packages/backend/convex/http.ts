@@ -117,23 +117,20 @@ http.route({
       return Response.json({ ok: true, lease });
     }
 
-    if (touchOnly) {
-      await ctx.runMutation(internal.streaming.internalTouch, { entityId });
-    } else {
-      if (!currentActivity) {
-        return new Response("Missing required heartbeat fields", {
-          status: 400,
-        });
-      }
-      await ctx.runMutation(internal.streaming.internalSet, {
-        entityId,
-        currentActivity,
-        currentContent: params.get("currentContent") ?? "",
-        pendingQuestion: params.get("pendingQuestion") ?? undefined,
-      });
-    }
-
-    return Response.json({ ok: true });
+    const accepted = await ctx.runMutation(internal.turns.legacyHeartbeat, {
+      entityId,
+      touchOnly,
+      currentActivity: currentActivity ?? undefined,
+      currentContent: params.get("currentContent") ?? "",
+      pendingQuestion: params.get("pendingQuestion") ?? undefined,
+    });
+    return Response.json({
+      ok: true,
+      accepted,
+      lease: accepted
+        ? null
+        : { status: "terminal", reason: "superseded" },
+    });
   }),
 });
 

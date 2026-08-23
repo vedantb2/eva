@@ -684,6 +684,12 @@ var terminalReason = null;
 function getCurrentTurnLease() {
   return currentTurnLease;
 }
+function appendCurrentTurnLease(args) {
+  const identity = getCurrentTurnLease();
+  if (identity === null) return;
+  args.turnId = identity.turnId;
+  args.leaseGeneration = identity.leaseGeneration;
+}
 function setCurrentTurnLease(identity) {
   if (currentTurnLease?.turnId === identity?.turnId && currentTurnLease?.leaseGeneration === identity?.leaseGeneration) {
     return;
@@ -715,7 +721,9 @@ function noteHeartbeatResponse(response) {
   if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
     return false;
   }
-  const lease = parsed.lease;
+  const responseValue = parsed.value;
+  const payload = typeof responseValue === "object" && responseValue !== null && !Array.isArray(responseValue) ? responseValue : parsed;
+  const lease = payload.lease;
   if (typeof lease !== "object" || lease === null || Array.isArray(lease)) {
     return false;
   }
@@ -832,7 +840,18 @@ async function callStreamingHeartbeatTouchOnce(entityId) {
     noteHeartbeatResponse(response);
     return response;
   }
-  return await callConvex("mutation", "streaming:touch", { entityId });
+  const identity = getCurrentTurnLease();
+  const response = identity === null ? await callConvex("mutation", "turns:legacyHeartbeatFromCallback", {
+    entityId,
+    touchOnly: true
+  }) : await callConvex("mutation", "turns:heartbeatFromCallback", {
+    entityId,
+    touchOnly: true,
+    turnId: identity.turnId,
+    leaseGeneration: identity.leaseGeneration
+  });
+  noteHeartbeatResponse(response);
+  return response;
 }
 async function callStreamingHeartbeatOnce(entityId, currentActivity, currentContent, pendingQuestion) {
   if (CONVEX_SITE_URL && STREAMING_HMAC) {
@@ -855,13 +874,22 @@ async function callStreamingHeartbeatOnce(entityId, currentActivity, currentCont
   }
   const args = {
     entityId,
+    touchOnly: false,
     currentActivity,
     currentContent
   };
   if (pendingQuestion) {
     args.pendingQuestion = pendingQuestion;
   }
-  return await callConvex("mutation", "streaming:set", args);
+  const identity = getCurrentTurnLease();
+  const path = identity === null ? "turns:legacyHeartbeatFromCallback" : "turns:heartbeatFromCallback";
+  if (identity !== null) {
+    args.turnId = identity.turnId;
+    args.leaseGeneration = identity.leaseGeneration;
+  }
+  const response = await callConvex("mutation", path, args);
+  noteHeartbeatResponse(response);
+  return response;
 }
 async function callStreamingHeartbeat(entityId, currentActivity, currentContent, pendingQuestion) {
   return await withRetries(
@@ -5318,11 +5346,7 @@ async function finalizeTurn(output, agentRunner) {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
-  const turnLease = getCurrentTurnLease();
-  if (turnLease) {
-    completionArgs.turnId = turnLease.turnId;
-    completionArgs.leaseGeneration = turnLease.leaseGeneration;
-  }
+  appendCurrentTurnLease(completionArgs);
   if (await setFinalizingState()) return;
   persistTurnWork();
   const completionSentAt = Date.now();
@@ -9208,6 +9232,7 @@ try {
     activityLog: serializeSteps(callbackState.accumulatedSteps)
   };
   if (RUN_ID) errorArgs.runId = RUN_ID;
+  appendCurrentTurnLease(errorArgs);
   try {
     await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", errorArgs);
   } catch {

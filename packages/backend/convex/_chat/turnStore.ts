@@ -71,7 +71,7 @@ export async function openSessionTurn(
       error: "Superseded by a newer turn",
     });
   }
-  return await ctx.db.insert("turns", {
+  const turnId = await ctx.db.insert("turns", {
     surface: "session",
     entityId: String(params.sessionId),
     streamingEntityId: params.streamingEntityId,
@@ -91,6 +91,8 @@ export async function openSessionTurn(
     sandboxId: params.sandboxId,
     repoId: params.repoId,
   });
+  await ctx.db.patch(params.sessionId, { turnLifecycleVersion: 2 });
+  return turnId;
 }
 
 export async function bindTurnWorkflow(

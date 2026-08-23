@@ -13,6 +13,7 @@ import {
   reasoningLevelValidator,
 } from "../validators";
 import { sessionValidator } from "./helpers";
+import { isLegacySessionExecuting } from "../_chat/turnProjection";
 
 /**
  * Sidebar list shape: omit heavy session fields (planContent, terminal tail,
@@ -92,7 +93,9 @@ function toSessionListItem(
     lastMode: session.lastMode,
     deploymentStatus: session.deploymentStatus,
     deploymentUrl: session.deploymentUrl,
-    isExecuting: openSessionIds.has(String(session._id)),
+    isExecuting:
+      openSessionIds.has(String(session._id)) ||
+      isLegacySessionExecuting(session),
   };
 }
 

@@ -181,7 +181,21 @@ async function callStreamingHeartbeatTouchOnce(
     return response;
   }
 
-  return await callConvex("mutation", "streaming:touch", { entityId });
+  const identity = getCurrentTurnLease();
+  const response =
+    identity === null
+      ? await callConvex("mutation", "turns:legacyHeartbeatFromCallback", {
+          entityId,
+          touchOnly: true,
+        })
+      : await callConvex("mutation", "turns:heartbeatFromCallback", {
+          entityId,
+          touchOnly: true,
+          turnId: identity.turnId,
+          leaseGeneration: identity.leaseGeneration,
+        });
+  noteHeartbeatResponse(response);
+  return response;
 }
 
 /** Sends one streaming heartbeat request through the scoped HMAC endpoint or legacy mutation fallback. */
@@ -212,13 +226,25 @@ async function callStreamingHeartbeatOnce(
 
   const args: JsonObject = {
     entityId,
+    touchOnly: false,
     currentActivity,
     currentContent,
   };
   if (pendingQuestion) {
     args.pendingQuestion = pendingQuestion;
   }
-  return await callConvex("mutation", "streaming:set", args);
+  const identity = getCurrentTurnLease();
+  const path =
+    identity === null
+      ? "turns:legacyHeartbeatFromCallback"
+      : "turns:heartbeatFromCallback";
+  if (identity !== null) {
+    args.turnId = identity.turnId;
+    args.leaseGeneration = identity.leaseGeneration;
+  }
+  const response = await callConvex("mutation", path, args);
+  noteHeartbeatResponse(response);
+  return response;
 }
 
 /** Sends a streaming heartbeat update with current activity and content. */

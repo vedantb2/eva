@@ -1,10 +1,11 @@
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import { internal } from "./_generated/api";
 import {
   internalAction,
   internalMutation,
   internalQuery,
 } from "./_generated/server";
+import type { MutationCtx } from "./_generated/server";
 import { finalizeStaleChatTurn } from "./_chat/stallWatchdog";
 import { sessionChatAdapter } from "./_chat/surfaceAdapters";
 import { clearStreamingActivity } from "./_taskWorkflow/helpers";
@@ -13,7 +14,7 @@ import {
   touchStreamingEntity,
   upsertStreamingActivity,
 } from "./streaming";
-import { authQuery, hasRepoAccess } from "./functions";
+import { authMutation, authQuery, hasRepoAccess } from "./functions";
 import {
   acquireTurnLease,
   advanceTurn,
@@ -22,26 +23,37 @@ import {
   renewTurnLease,
 } from "./_chat/turnStore";
 import { turnStateValidator } from "./_validators/tableFields";
+import { isLegacySessionExecuting } from "./_chat/turnProjection";
 
-const sessionTurnStatusValidator = v.object({
-  turnId: v.id("turns"),
-  state: turnStateValidator,
-  startedAt: v.number(),
-  leaseExpiresAt: v.number(),
-  placeholderMessageId: v.optional(v.id("messages")),
-});
+const sessionTurnStatusValidator = v.union(
+  v.object({
+    source: v.literal("durable"),
+    turnId: v.id("turns"),
+    state: turnStateValidator,
+    startedAt: v.number(),
+    leaseExpiresAt: v.number(),
+    placeholderMessageId: v.optional(v.id("messages")),
+  }),
+  v.object({ source: v.literal("legacy") }),
+);
 
 /** Canonical UI projection for whether one session turn is open. */
 export const getSessionStatus = authQuery({
   args: { sessionId: v.id("sessions") },
   returns: v.union(sessionTurnStatusValidator, v.null()),
-  handler: async (ctx, args) => {
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof sessionTurnStatusValidator> | null> => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) return null;
     const turn = await findOpenSessionTurn(ctx, args.sessionId);
-    if (!turn) return null;
+    if (!turn) {
+      return isLegacySessionExecuting(session) ? { source: "legacy" } : null;
+    }
     return {
+      source: "durable",
       turnId: turn._id,
       state: turn.state,
       startedAt: turn.turnStartedAt,
@@ -74,6 +86,68 @@ const leaseVerdictValidator = v.union(
   }),
 );
 
+const heartbeatArgs = {
+  turnId: v.string(),
+  leaseGeneration: v.number(),
+  entityId: v.string(),
+  touchOnly: v.boolean(),
+  currentActivity: v.optional(v.string()),
+  currentContent: v.optional(v.string()),
+  pendingQuestion: v.optional(v.string()),
+};
+const heartbeatArgsValidator = v.object(heartbeatArgs);
+
+async function applyFencedHeartbeat(
+  ctx: MutationCtx,
+  args: Infer<typeof heartbeatArgsValidator>,
+) {
+  const lease = await renewTurnLease(ctx, {
+    turnId: args.turnId,
+    leaseGeneration: args.leaseGeneration,
+    streamingEntityId: args.entityId,
+  });
+  if (lease.status === "terminal") return lease;
+  if (args.touchOnly) {
+    await touchStreamingEntity(ctx, args.entityId);
+  } else {
+    await upsertStreamingActivity(ctx, {
+      entityId: args.entityId,
+      currentActivity: args.currentActivity ?? "[]",
+      currentContent: args.currentContent,
+      pendingQuestion: args.pendingQuestion,
+    });
+  }
+  return lease;
+}
+
+const legacyHeartbeatArgs = {
+  entityId: v.string(),
+  touchOnly: v.boolean(),
+  currentActivity: v.optional(v.string()),
+  currentContent: v.optional(v.string()),
+  pendingQuestion: v.optional(v.string()),
+};
+const legacyHeartbeatArgsValidator = v.object(legacyHeartbeatArgs);
+
+async function applyLegacyHeartbeat(
+  ctx: MutationCtx,
+  args: Infer<typeof legacyHeartbeatArgsValidator>,
+): Promise<boolean> {
+  const sessionId = ctx.db.normalizeId("sessions", args.entityId);
+  if (sessionId && (await findOpenSessionTurn(ctx, sessionId))) return false;
+  if (args.touchOnly) {
+    await touchStreamingEntity(ctx, args.entityId);
+  } else {
+    await upsertStreamingActivity(ctx, {
+      entityId: args.entityId,
+      currentActivity: args.currentActivity ?? "[]",
+      currentContent: args.currentContent,
+      pendingQuestion: args.pendingQuestion,
+    });
+  }
+  return true;
+}
+
 /** Renews the exact lease generation presented by a sandbox runner. */
 export const renew = internalMutation({
   args: {
@@ -87,34 +161,47 @@ export const renew = internalMutation({
 
 /** Atomically renews a fenced lease and writes only for its current owner. */
 export const heartbeat = internalMutation({
-  args: {
-    turnId: v.string(),
-    leaseGeneration: v.number(),
-    entityId: v.string(),
-    touchOnly: v.boolean(),
-    currentActivity: v.optional(v.string()),
-    currentContent: v.optional(v.string()),
-    pendingQuestion: v.optional(v.string()),
-  },
+  args: heartbeatArgs,
   returns: leaseVerdictValidator,
-  handler: async (ctx, args) => {
-    const lease = await renewTurnLease(ctx, {
-      turnId: args.turnId,
-      leaseGeneration: args.leaseGeneration,
-      streamingEntityId: args.entityId,
-    });
-    if (lease.status === "terminal") return lease;
-    if (args.touchOnly) {
-      await touchStreamingEntity(ctx, args.entityId);
-    } else {
-      await upsertStreamingActivity(ctx, {
-        entityId: args.entityId,
-        currentActivity: args.currentActivity ?? "[]",
-        currentContent: args.currentContent,
-        pendingQuestion: args.pendingQuestion,
-      });
-    }
-    return lease;
+  handler: applyFencedHeartbeat,
+});
+
+/** Authenticated fallback for callbacks without the scoped heartbeat route. */
+export const heartbeatFromCallback = authMutation({
+  args: heartbeatArgs,
+  returns: v.object({ lease: leaseVerdictValidator }),
+  handler: async (ctx, args) => ({
+    lease: await applyFencedHeartbeat(ctx, args),
+  }),
+});
+
+/** Legacy callbacks may write only while no durable Turn owns the session. */
+export const legacyHeartbeat = internalMutation({
+  args: legacyHeartbeatArgs,
+  returns: v.boolean(),
+  handler: applyLegacyHeartbeat,
+});
+
+/** Authenticated legacy fallback with the same durable ownership gate. */
+const legacyHeartbeatResultValidator = v.object({
+  accepted: v.boolean(),
+  lease: v.union(leaseVerdictValidator, v.null()),
+});
+
+export const legacyHeartbeatFromCallback = authMutation({
+  args: legacyHeartbeatArgs,
+  returns: legacyHeartbeatResultValidator,
+  handler: async (
+    ctx,
+    args,
+  ): Promise<Infer<typeof legacyHeartbeatResultValidator>> => {
+    const accepted = await applyLegacyHeartbeat(ctx, args);
+    return {
+      accepted,
+      lease: accepted
+        ? null
+        : { status: "terminal", reason: "superseded" },
+    };
   },
 });
 

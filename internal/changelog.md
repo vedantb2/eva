@@ -1,5 +1,15 @@
 # Changelog
 
+## Durable Turn rollout closes the deployment and fencing gaps - 2026-08-23
+
+The first Turn-lifecycle implementation made new executions durable, but a deploy could still strand workflows that started on the previous code, and three failure boundaries could recreate the same long-lived “Working…” state it was meant to eliminate.
+
+- `sessionExecuteWorkflow.turnId` is now the rollout discriminator: pre-cutover workflow arguments remain valid and skip every new journalled step and argument, preserving the workflow component’s order-based replay contract, while all new starts continue through the fenced Turn path
+- Sessions receive a permanent `turnLifecycleVersion: 2` marker on their first durable Turn. Missing-marker sessions may temporarily project `activeWorkflowId` or a synthetic placeholder for work already running during deployment; marked sessions derive activity only from open Turns, so stale legacy fields can never regain authority
+- Fatal one-shot completions use the same shared lease-appending helper as normal completions. Legacy heartbeats now pass through one ownership gate on both the signed HTTP route and authenticated fallback; an open durable Turn rejects the write and returns a terminal superseded fence so the stale runner exits
+- A queued `workflow.start` failure now closes the exact Turn and removes its empty placeholder before the outer queue handler records the user-visible error, keeping the caught mutation transactional rather than committing half a launch
+- Added schema-backed `convex-test` coverage for durable cutover writes, legacy heartbeat rejection without streaming mutation, queue-start rollback, rollout projection and callback fencing. The backend Vitest config now declares the automatic JSX runtime so clean installs execute the same 130-file suite as warm workspaces
+
 ## Regression tests for the shared attachment materialiser and the merge verdict - 2026-08-23
 
 Two of the past day's changes shipped without a test. Both consolidated logic that three or more callers had been carrying their own copy of, which is the point at which a single wrong branch stops being one surface's bug.

@@ -379,6 +379,12 @@ export const sessionFields = {
   createdBy: v.optional(v.id("users")),
   planContent: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
+  /**
+   * Set the first time this session opens a durable Turn. Missing sessions may
+   * still have a pre-cutover workflow in flight, so projections temporarily
+   * consult the legacy workflow fields until this marker is written.
+   */
+  turnLifecycleVersion: v.optional(v.literal(2)),
   // The user provider account chosen for this session's runs (overriding the
   // team credential). Session-scoped so the page-open daemon prewarm — which
   // has no per-message context — still injects the right account. Absent = team

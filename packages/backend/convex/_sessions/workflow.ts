@@ -311,7 +311,9 @@ export const sessionExecuteWorkflow = workflow.define({
     numDesigns: v.optional(v.number()),
     userId: v.id("users"),
     installationId: v.number(),
-    turnId: v.id("turns"),
+    // Missing only for workflows that were already in flight at the durable
+    // Turn cutover. Every new start supplies this discriminator.
+    turnId: v.optional(v.id("turns")),
   },
   handler: async (step, args): Promise<void> => {
     await step.runMutation(internal.sessionWorkflow.addAssistantPlaceholder, {
@@ -357,7 +359,7 @@ export const sessionExecuteWorkflow = workflow.define({
       } catch (error) {
         await step.runMutation(internal.sessionWorkflow.saveResult, {
           sessionId: args.sessionId,
-          turnId: args.turnId,
+          ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
           success: false,
           result: null,
           error:
@@ -412,10 +414,15 @@ export const sessionExecuteWorkflow = workflow.define({
       throw new Error("sessionExecuteWorkflow: sandbox was not resolved");
     }
 
-    await step.runMutation(internal.turns.markLaunching, {
-      turnId: args.turnId,
-      sandboxId,
-    });
+    // Preserve the exact V1 journal for workflows started before the cutover:
+    // workflow steps are replayed by order, so even one new call would strand
+    // an in-flight execution with a journal mismatch.
+    if (args.turnId !== undefined) {
+      await step.runMutation(internal.turns.markLaunching, {
+        turnId: args.turnId,
+        sandboxId,
+      });
+    }
 
     // A cancel can race with startExecute and wipe pendingTurn while a daemon
     // workflow waits, so restage it before ensuring the warm process.
@@ -451,11 +458,14 @@ export const sessionExecuteWorkflow = workflow.define({
       // empty placeholder (and activeWorkflowId) stuck on "Working…" until
       // the 2-hour backstop.
       try {
-        const turnLease = await step.runMutation(
-          internal.turns.acquireOneShotLease,
-          { turnId: args.turnId, sandboxId },
-        );
-        if (turnLease === null) {
+        const turnLease =
+          args.turnId === undefined
+            ? null
+            : await step.runMutation(internal.turns.acquireOneShotLease, {
+                turnId: args.turnId,
+                sandboxId,
+              });
+        if (args.turnId !== undefined && turnLease === null) {
           await step.runMutation(internal.sessionWorkflow.saveResult, {
             sessionId: args.sessionId,
             turnId: args.turnId,
@@ -485,13 +495,17 @@ export const sessionExecuteWorkflow = workflow.define({
           providerAccountId: args.providerAccountId,
           credentialOwnerUserId: args.credentialOwnerUserId,
           attachmentStorageIds: data.attachmentStorageIds,
-          turnId: turnLease.turnId,
-          turnLeaseGeneration: turnLease.leaseGeneration,
+          ...(turnLease !== null
+            ? {
+                turnId: turnLease.turnId,
+                turnLeaseGeneration: turnLease.leaseGeneration,
+              }
+            : {}),
         });
       } catch (error) {
         await step.runMutation(internal.sessionWorkflow.saveResult, {
           sessionId: args.sessionId,
-          turnId: args.turnId,
+          ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
           success: false,
           result: null,
           error:
@@ -526,7 +540,7 @@ export const sessionExecuteWorkflow = workflow.define({
     // turns. Publish failures are patched onto the saved message below.
     await step.runMutation(internal.sessionWorkflow.saveResult, {
       sessionId: args.sessionId,
-      turnId: args.turnId,
+      ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
       success: result.success,
       result: result.result,
       error: result.error,
@@ -568,7 +582,7 @@ export const sessionExecuteWorkflow = workflow.define({
         );
         await step.runMutation(internal.sessionWorkflow.saveResult, {
           sessionId: args.sessionId,
-          turnId: args.turnId,
+          ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
           success: false,
           result: result.result,
           error: publishError,

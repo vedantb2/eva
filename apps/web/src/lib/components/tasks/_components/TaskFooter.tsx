@@ -19,7 +19,6 @@ import {
   IconBrandVercel,
   IconHammer,
   IconPlayerPlay,
-  IconTerminal2,
   IconLoader2,
   IconChevronDown,
   IconCalendarClock,
@@ -48,9 +47,7 @@ interface TaskFooterProps {
   executionError: string | null;
   isStarting: boolean;
   canStartSandbox: boolean;
-  canViewSandbox: boolean;
   isSandboxActive: boolean;
-  isSandboxStarting: boolean;
   isSandboxStopping: boolean;
   isRetryingStartupCommands: boolean;
   isRunningDevServer: boolean;
@@ -58,7 +55,6 @@ interface TaskFooterProps {
   canCreatePr: boolean;
   isCreatingPr: boolean;
   onCreatePr: () => void;
-  onViewSandbox: () => void;
   onStopSandbox: () => void;
   isSandboxViewActive?: boolean;
   onRunStartupCommands: () => void;
@@ -80,9 +76,7 @@ export function TaskFooter({
   executionError,
   isStarting,
   canStartSandbox,
-  canViewSandbox,
   isSandboxActive,
-  isSandboxStarting,
   isSandboxStopping,
   isRetryingStartupCommands,
   isRunningDevServer,
@@ -90,7 +84,6 @@ export function TaskFooter({
   canCreatePr,
   isCreatingPr,
   onCreatePr,
-  onViewSandbox,
   onStopSandbox,
   isSandboxViewActive = false,
   onRunStartupCommands,
@@ -106,8 +99,10 @@ export function TaskFooter({
   const showRunButton =
     !task?.projectId &&
     (status === "todo" || (status === "in_progress" && !hasActiveRun));
-  const showViewSandbox = canViewSandbox;
-  const showStopSandbox = isSandboxActive && !isSandboxStopping;
+  // Hidden on the sandbox surface: the chat header there has its own stop
+  // control, and two buttons for one action read as a bug.
+  const showStopSandbox =
+    isSandboxActive && !isSandboxStopping && !isSandboxViewActive;
   // Inert, not hidden, mid-turn — see `SleepEvaButton`. Gated on the chat turn
   // only, not `hasActiveRun`: that also counts *queued* runs, and a task waiting
   // in the queue is no reason to refuse to sleep a sandbox. A main run has its
@@ -130,8 +125,7 @@ export function TaskFooter({
     showResolveConflicts ||
     Boolean(latestDeployment?.deploymentStatus) ||
     Boolean(latestPrUrl);
-  const hasSecondaryContent =
-    isHeader || showViewSandbox || showStopSandbox || showMoreMenu;
+  const hasSecondaryContent = isHeader || showStopSandbox || showMoreMenu;
 
   return (
     <div
@@ -306,42 +300,8 @@ export function TaskFooter({
               isStopping={isSandboxStopping}
               blockedMidTurn={sleepBlockedMidTurn}
               size={buttonSize}
-              iconSize={iconSize}
             />
           ) : null}
-          {showViewSandbox && (
-            <Button
-              variant="secondary"
-              size={buttonSize}
-              onClick={onViewSandbox}
-              disabled={isSandboxStopping}
-              className={
-                isSandboxViewActive || isSandboxActive
-                  ? "border-success/35 bg-success/10 text-success hover:border-success/50 hover:bg-success/15 hover:text-success"
-                  : undefined
-              }
-            >
-              {(isSandboxStarting && !isSandboxActive) || isSandboxStopping ? (
-                <IconLoader2 size={iconSize} className="animate-spin" />
-              ) : (
-                <IconTerminal2 size={iconSize} />
-              )}
-              {isSandboxActive && !isSandboxViewActive && (
-                <span className="h-1.5 w-1.5 rounded-full bg-success" />
-              )}
-              <span className="hidden sm:inline">
-                {isSandboxStopping
-                  ? "Stopping..."
-                  : isSandboxStarting && !isSandboxActive
-                    ? "Starting..."
-                    : isSandboxViewActive
-                      ? "Back to Details"
-                      : isSandboxActive
-                        ? "View Sandbox · Active"
-                        : "View Sandbox"}
-              </span>
-            </Button>
-          )}
         </div>
       </div>
     </div>
@@ -368,8 +328,13 @@ function SplitRunButton({
   const isScheduled = scheduledAt !== undefined;
   const iconSize = size === "sm" ? 16 : 18;
 
+  // The two halves cancel their own press (`SPLIT_BUTTON_HALF`) so the wrapper
+  // scales as one unit. `motion-press` owns that: the hand-listed
+  // `transition-[transform,background-color]` it replaces named `transform`,
+  // which never matches the `scale` property Tailwind compiles `scale-[0.96]`
+  // to, so the split button did not press at all.
   return (
-    <div className="group/split flex items-center transition-[transform,background-color] duration-[var(--motion-base)] active:scale-[0.96]">
+    <div className="group/split motion-press flex items-center active:scale-[0.96]">
       <Tooltip>
         <TooltipTrigger asChild>
           <div>
@@ -392,7 +357,7 @@ function SplitRunButton({
               )}
               {isScheduled
                 ? dayjs(scheduledAt).format("MMM D, h:mm A")
-                : "Run Eva on this task"}
+                : "Run Eva"}
             </Button>
           </div>
         </TooltipTrigger>

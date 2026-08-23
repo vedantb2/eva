@@ -1,9 +1,14 @@
+import { v } from "convex/values";
+import { internalMutation } from "../_generated/server";
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { WorkflowId } from "@convex-dev/workflow";
 import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
 import { DEFAULT_AI_MODEL } from "../validators";
+import { queuedMessageFields } from "../_validators/tableFields";
+import { runningBackgroundAgents } from "../_sessions/backgroundAgents";
+import type { BackgroundAgentEntry } from "../_validators/tableFields";
 import {
   PROJECT_CHAT_STREAM_PREFIX,
   TASK_CHAT_STREAM_PREFIX,
@@ -16,6 +21,16 @@ import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import type { OrchestratorNotifyChild } from "../orchestratorShared";
 
 const QUEUE_RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
+
+/**
+ * Grace period between the last subagent settling and the retry drain. The
+ * daemon reacts to that same settle by opening a synthetic turn to process the
+ * subagent's report (`ensureSyntheticTurn` in callback-src), so draining the
+ * instant the settle lands would start the queued turn on top of it. The retry
+ * re-checks `isSurfaceBusy`, so if that synthetic turn did open, this no-ops and
+ * the turn's own completion drains the queue instead.
+ */
+const BACKGROUND_AGENT_DRAIN_DELAY_MS = 15 * 1000;
 
 /** Outcome of a queue config's pre-start guard: `ok: false` aborts before anything is cleared or inserted. */
 type ChatQueueGuardResult<TPrepared> =
@@ -37,6 +52,10 @@ type ChatQueueConfig<
 > = {
   getEntity: (ctx: MutationCtx, id: TId) => Promise<TEntity | null>;
   hasActiveWorkflow: (entity: TEntity) => boolean;
+  /** Backgrounded Agent/Task subagents, which outlive the turn that spawned them. */
+  backgroundAgents: (entity: TEntity) => BackgroundAgentEntry[] | undefined;
+  /** The daemon-minted continuation turn, if one is open. */
+  syntheticTurnMessageId: (entity: TEntity) => Id<"messages"> | undefined;
   streamingEntityId: (id: TId) => string;
   /**
    * Validates the entity/message can start a workflow, returning any extra
@@ -87,6 +106,43 @@ type ChatQueueConfig<
 };
 
 /**
+ * True while the surface is still working on the previous turn. `activeWorkflowId`
+ * alone is not enough: a backgrounded Agent/Task subagent keeps running after
+ * the turn that spawned it completes, and the daemon opens a synthetic turn to
+ * process whatever that subagent reports back. Dequeuing in either window
+ * starts the queued message on top of work the user is still waiting on — the
+ * "queued message ran while a subagent was working" bug.
+ */
+async function isSurfaceBusy<
+  TId extends Id<"sessions"> | Id<"agentTasks"> | Id<"projects">,
+  TEntity,
+  TPrepared,
+>(
+  ctx: MutationCtx,
+  entity: TEntity,
+  config: ChatQueueConfig<TId, TEntity, TPrepared>,
+): Promise<boolean> {
+  if (config.hasActiveWorkflow(entity)) {
+    return true;
+  }
+  if (
+    runningBackgroundAgents(config.backgroundAgents(entity), Date.now())
+      .length > 0
+  ) {
+    return true;
+  }
+  const syntheticTurnMessageId = config.syntheticTurnMessageId(entity);
+  if (syntheticTurnMessageId === undefined) {
+    return false;
+  }
+  // Check the message rather than trusting the id: a crashed daemon can leave
+  // the id set on a turn that cleanup already finalized, which would wedge the
+  // queue with nothing left to drain it.
+  const syntheticTurn = await ctx.db.get(syntheticTurnMessageId);
+  return syntheticTurn !== null && syntheticTurn.finishedAt === undefined;
+}
+
+/**
  * Dequeues and starts the next pending message for one chat surface. Single
  * implementation shared by sessions, project chat, and task chat — the three
  * exported `startNextQueuedX` functions below are thin `config` bindings so a
@@ -102,7 +158,7 @@ async function startNextQueuedChatMessage<
   config: ChatQueueConfig<TId, TEntity, TPrepared>,
 ): Promise<boolean> {
   const entity = await config.getEntity(ctx, id);
-  if (!entity || config.hasActiveWorkflow(entity)) {
+  if (!entity || (await isSurfaceBusy(ctx, entity, config))) {
     return false;
   }
 
@@ -188,6 +244,8 @@ const sessionQueueConfig: ChatQueueConfig<
 > = {
   getEntity: (ctx, id) => ctx.db.get(id),
   hasActiveWorkflow: (session) => session.activeWorkflowId !== undefined,
+  backgroundAgents: (session) => session.backgroundAgents,
+  syntheticTurnMessageId: (session) => session.syntheticTurnMessageId,
   streamingEntityId: (id) => String(id),
   prepareGuard: async (ctx, session, next) => {
     if (!next.mode || !next.model) {
@@ -284,6 +342,8 @@ const projectChatQueueConfig: ChatQueueConfig<
 > = {
   getEntity: (ctx, id) => ctx.db.get(id),
   hasActiveWorkflow: (project) => project.activeChatWorkflowId !== undefined,
+  backgroundAgents: (project) => project.backgroundAgents,
+  syntheticTurnMessageId: (project) => project.syntheticTurnMessageId,
   streamingEntityId: (id) => `${PROJECT_CHAT_STREAM_PREFIX}${String(id)}`,
   prepareGuard: async () => ({ ok: true, data: undefined }),
   insertUserMessage: async (ctx, id, project, next, _prepared, now) => {
@@ -346,6 +406,8 @@ const taskChatQueueConfig: ChatQueueConfig<
 > = {
   getEntity: (ctx, id) => ctx.db.get(id),
   hasActiveWorkflow: (task) => task.activeChatWorkflowId !== undefined,
+  backgroundAgents: (task) => task.backgroundAgents,
+  syntheticTurnMessageId: (task) => task.syntheticTurnMessageId,
   streamingEntityId: (id) => `${TASK_CHAT_STREAM_PREFIX}${String(id)}`,
   prepareGuard: async () => ({ ok: true, data: undefined }),
   insertUserMessage: async (ctx, id, task, next, _prepared, now) => {
@@ -441,4 +503,53 @@ export function startNextQueuedTaskChatMessage(
   taskId: Id<"agentTasks">,
 ): Promise<boolean> {
   return startNextQueuedChatMessage(ctx, taskId, taskChatQueueConfig);
+}
+
+/**
+ * Retry drain for the one release the surfaces cannot signal themselves: the
+ * last backgrounded subagent settling. Every other unblock (turn completion,
+ * synthetic-turn completion, cancel, watchdog release) already ends in a drain
+ * call. Dispatches on the id's table so all three surfaces share one scheduled
+ * function instead of three copies.
+ */
+export const drainQueueAfterBackgroundAgents = internalMutation({
+  args: { parentId: queuedMessageFields.parentId },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const sessionId = ctx.db.normalizeId("sessions", args.parentId);
+    if (sessionId) {
+      await startNextQueuedSessionMessage(ctx, sessionId);
+      return null;
+    }
+    const taskId = ctx.db.normalizeId("agentTasks", args.parentId);
+    if (taskId) {
+      await startNextQueuedTaskChatMessage(ctx, taskId);
+      return null;
+    }
+    const projectId = ctx.db.normalizeId("projects", args.parentId);
+    if (projectId) {
+      await startNextQueuedProjectChatMessage(ctx, projectId);
+    }
+    return null;
+  },
+});
+
+/**
+ * Called by each surface's `updateBackgroundAgents` after merging a daemon
+ * patch. Schedules the retry drain only once the merged roster has nothing
+ * still running, so a mid-fan-out settle costs nothing.
+ */
+export async function scheduleQueueDrainAfterBackgroundAgents(
+  ctx: MutationCtx,
+  parentId: Id<"sessions"> | Id<"agentTasks"> | Id<"projects">,
+  mergedAgents: BackgroundAgentEntry[],
+): Promise<void> {
+  if (runningBackgroundAgents(mergedAgents, Date.now()).length > 0) {
+    return;
+  }
+  await ctx.scheduler.runAfter(
+    BACKGROUND_AGENT_DRAIN_DELAY_MS,
+    internal._queues.helpers.drainQueueAfterBackgroundAgents,
+    { parentId },
+  );
 }

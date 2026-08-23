@@ -26,7 +26,7 @@ import { repoBasePaths } from "@/lib/components/sidebar/_utils/repoSessionPaths"
 import { automationMatchesPath } from "@/lib/components/sidebar/_utils/repoAutomationPaths";
 import { previewSessions } from "@/lib/components/sidebar/_utils/sessionListPreview";
 import { sortSessionsForSidebar } from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
-import { AUTOMATION_PREVIEW_COUNT } from "@/lib/components/sidebar/_utils/automationsSidebarSettings";
+import type { AutomationSortOrder } from "@/lib/components/sidebar/_utils/automationsSidebarSettings";
 import { entityPathSegment } from "@/lib/numId";
 import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
 
@@ -40,6 +40,8 @@ interface GlobalAutomationGroupProps {
   automations: AutomationListItem[];
   isLoading: boolean;
   pathname: string;
+  automationSortOrder: AutomationSortOrder;
+  automationPreviewCount: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onNavigate?: () => void;
@@ -56,6 +58,8 @@ export function GlobalAutomationGroup({
   automations,
   isLoading,
   pathname,
+  automationSortOrder,
+  automationPreviewCount,
   open,
   onOpenChange,
   onNavigate,
@@ -65,7 +69,7 @@ export function GlobalAutomationGroup({
   const label = repoDisplayLabel(repo);
   const baseUrl = `${repoBasePaths(repo)[0]}/automations`;
 
-  const sorted = sortSessionsForSidebar(automations, "updated_at");
+  const sorted = sortSessionsForSidebar(automations, automationSortOrder);
   const selectedId =
     sorted.find((automation) =>
       automationMatchesPath(repo, entityPathSegment(automation), pathname),
@@ -77,7 +81,7 @@ export function GlobalAutomationGroup({
   } = previewSessions(sorted, {
     expanded: isListExpanded,
     selectedId,
-    limit: AUTOMATION_PREVIEW_COUNT,
+    limit: automationPreviewCount,
   });
   const hasNoResults = !isLoading && sorted.length === 0;
 

@@ -27,16 +27,12 @@ import {
   ActivityLogDisplay,
 } from "@/lib/components/StreamingActivityDisplay";
 import { SystemAlertMessage } from "@/lib/components/SystemAlertMessage";
-import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { UserMessageAttachments } from "@/lib/components/chat/imageAttachments";
 import { ChangedFilesCard } from "@/lib/components/chat/ChangedFilesCard";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { UserMessageAvatar } from "@/lib/components/UserMessageAvatar";
 import { tokenizedToDisplayText } from "@/lib/components/mentions";
-import type {
-  ParsedQuestion,
-  ChatBodyMessage,
-} from "@/lib/components/chat/chatBodyUtils";
+import type { ChatBodyMessage } from "@/lib/components/chat/chatBodyUtils";
 import { getAssistantTurnState } from "@/lib/components/chat/chatBodyUtils";
 
 const EVA_ICON = <EvaIcon />;
@@ -85,7 +81,6 @@ function MessageModelIcon({
 interface ChatMessageProps {
   message: ChatBodyMessage;
   repoBasePath: string;
-  isLast: boolean;
   isLatestAssistantTurn: boolean;
   /** False in simple view, which hides diff surfaces entirely. */
   showChangedFiles?: boolean;
@@ -105,16 +100,6 @@ interface ChatMessageProps {
   turnCredentialSourceLabel?: string;
   streamingActivity?: string;
   streamingContent?: string;
-  blockingQuestions?: ParsedQuestion[] | null;
-  activePendingQuestion?: ParsedQuestion[] | null;
-  /**
-   * True only while an answer mutation/send is in flight. Must NOT mirror
-   * turn `isExecuting` — AskUserQuestion keeps the turn executing while it
-   * waits for the user, which would permanently disable the card.
-   */
-  isQuestionLoading?: boolean;
-  onQuestionAnswer: (answer: string) => Promise<void>;
-  onBlockingAnswer: (answers: Record<string, string>) => Promise<void>;
   onOpenFile?: (path: string) => void;
   onViewDiff?: (repoRelativePath?: string) => void;
 }
@@ -122,7 +107,6 @@ interface ChatMessageProps {
 export const ChatMessage = memo(function ChatMessage({
   message,
   repoBasePath,
-  isLast,
   isLatestAssistantTurn,
   showChangedFiles = true,
   changedFilesExpanded,
@@ -134,11 +118,6 @@ export const ChatMessage = memo(function ChatMessage({
   turnCredentialSourceLabel,
   streamingActivity,
   streamingContent,
-  blockingQuestions,
-  activePendingQuestion,
-  isQuestionLoading = false,
-  onQuestionAnswer,
-  onBlockingAnswer,
   onOpenFile,
   onViewDiff,
 }: ChatMessageProps) {
@@ -152,8 +131,8 @@ export const ChatMessage = memo(function ChatMessage({
     );
   }
 
-  const { isStreamingPlaceholder, showQuestions, changedFiles } =
-    getAssistantTurnState(message, isLast);
+  const { isStreamingPlaceholder, changedFiles } =
+    getAssistantTurnState(message);
 
   const copySource =
     message.content.trim().length > 0
@@ -283,27 +262,6 @@ export const ChatMessage = memo(function ChatMessage({
                         {streamingContent}
                       </MessageResponse>
                     ) : null}
-                    {showQuestions && blockingQuestions ? (
-                      <div className="mt-3">
-                        <MultipleChoiceQuestion
-                          key={blockingQuestions
-                            .map((question) => question.question)
-                            .join("\u0000")}
-                          questions={blockingQuestions}
-                          onAnswer={onQuestionAnswer}
-                          onAnswerStructured={onBlockingAnswer}
-                          isLoading={isQuestionLoading}
-                        />
-                      </div>
-                    ) : showQuestions && activePendingQuestion ? (
-                      <div className="mt-3">
-                        <MultipleChoiceQuestion
-                          questions={activePendingQuestion}
-                          onAnswer={onQuestionAnswer}
-                          isLoading={isQuestionLoading}
-                        />
-                      </div>
-                    ) : null}
                   </>
                 ) : (
                   <>
@@ -350,15 +308,6 @@ export const ChatMessage = memo(function ChatMessage({
                     ))}
                     {imageMedia.length > 0 ? (
                       <ImageGalleryPreview images={imageMedia} />
-                    ) : null}
-                    {showQuestions && activePendingQuestion ? (
-                      <div className="mt-3">
-                        <MultipleChoiceQuestion
-                          questions={activePendingQuestion}
-                          onAnswer={onQuestionAnswer}
-                          isLoading={isQuestionLoading}
-                        />
-                      </div>
                     ) : null}
                   </>
                 )}

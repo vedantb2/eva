@@ -11,6 +11,7 @@ import {
 } from "@/lib/components/sidebar/homePaths";
 import { SessionChromeTabsBar } from "@/lib/components/sidebar/session-tabs/SessionChromeTabsBar";
 import { useChromeSessionTabsActive } from "@/lib/components/sidebar/session-tabs/useChromeSessionTabs";
+import { IS_EMBEDDED } from "@/lib/embed/embedded";
 import { cn } from "@eva/ui";
 
 export const Route = createFileRoute("/_global")({
@@ -53,26 +54,51 @@ function GlobalMainContent() {
       ? "lg:pl-16"
       : "lg:pl-(--eva-sidebar-width,20rem)"
     : "lg:pl-16";
+  // The two-pane inbox is an app surface (viewport-bound, full-bleed) like the
+  // repo shell, not a scrolling document page like the rest of _global.
+  const isInbox = pathname === "/inbox" || pathname.startsWith("/inbox/");
 
   return (
     <div
       className={cn(
+        "relative flex flex-col",
+        isInbox ? "h-dvh overflow-hidden" : "min-h-dvh",
         // No padding transition: animating pl-* during route changes counts as CLS.
+        // Embedded documents have no sidebar or mobile top bar to pad for.
         // `--eva-mobile-header-height` (globals.css), not a literal `pt-14`: the
         // below-`lg` header in `Sidebar.tsx` is 3.5rem *plus* the notch inset.
+<<<<<<< HEAD
         "relative flex flex-col pt-(--eva-mobile-header-height) lg:pt-0",
         isAvePath ? "h-dvh overflow-hidden" : "min-h-dvh",
         paddingClass,
       )}
     >
       <div className="relative flex min-h-0 flex-1 flex-col bg-background">
+=======
+        IS_EMBEDDED
+          ? null
+          : ["pt-(--eva-mobile-header-height) lg:pt-0", paddingClass],
+      )}
+    >
+      <div
+        className={cn(
+          "relative flex flex-1 flex-col bg-background",
+          isInbox && "min-h-0 overflow-hidden",
+        )}
+      >
+>>>>>>> origin/main
         {chromeSessionTabs && isSessionsLanding ? (
           <SessionChromeTabsBar pathname={pathname} />
         ) : null}
         <div
           className={
+<<<<<<< HEAD
             isAvePath
               ? "relative z-10 flex w-full min-h-0 flex-1 flex-col"
+=======
+            isInbox
+              ? "relative z-10 flex w-full min-h-0 flex-1 flex-col overflow-hidden"
+>>>>>>> origin/main
               : isGlobalSettingsPath(pathname)
                 ? "relative z-10 mx-auto flex w-full max-w-5xl flex-1 flex-col"
                 : "relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col px-4 py-6 sm:px-6 lg:px-8"

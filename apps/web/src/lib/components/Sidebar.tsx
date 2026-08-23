@@ -33,6 +33,7 @@ import { RepoStatsSummary } from "@/lib/components/sidebar/RepoStatsSummary";
 import { OnlineTeamAvatars } from "@/lib/components/sidebar/TeamMembers";
 import { SidebarResizeHandle } from "@/lib/components/sidebar/SidebarResizeHandle";
 import { ContextSidebarHeaderActionProvider } from "@/lib/components/sidebar/ContextSidebarHeaderAction";
+import { AutomationsSidebarOptionsMenu } from "@/lib/components/sidebar/_components/AutomationsSidebarOptionsMenu";
 import { SessionsSidebarOptionsMenu } from "@/lib/components/sidebar/_components/SessionsSidebarOptionsMenu";
 import { type ContextSidebarMode } from "@/lib/components/sidebar/contextSidebarModes";
 import {
@@ -504,6 +505,9 @@ export function Sidebar() {
                           <div className="flex shrink-0 items-center gap-0.5">
                             {showGlobalSessionsPanel ? (
                               <SessionsSidebarOptionsMenu />
+                            ) : null}
+                            {showGlobalAutomationsPanel ? (
+                              <AutomationsSidebarOptionsMenu />
                             ) : null}
                             <Button
                               size="icon-sm"

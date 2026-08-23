@@ -10,8 +10,8 @@ import { ChatLastTurn } from "@/lib/components/chat/ChatLastTurn";
 import { ChatJumpRail } from "@/lib/components/chat/ChatJumpRail";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { ChatMessage } from "@/lib/components/chat/ChatMessage";
+import { ChatQuestionDock } from "@/lib/components/chat/ChatQuestionDock";
 import { useChangedFilesExpansion } from "@/lib/components/chat/useChangedFilesExpansion";
-import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQuestion";
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
@@ -34,6 +34,7 @@ import {
   firstNameFromUser,
   isOtherUserChatMessage,
   parsePendingQuestion,
+  visibleChatMessages,
   type ChatBodyMessage,
   type ChatBodyQueuedMessage,
 } from "@/lib/components/chat/chatBodyUtils";
@@ -172,14 +173,18 @@ export function ChatBody({
   onViewDiff,
   hasPendingContext,
 }: ChatBodyProps) {
-  const lastMessage = messages[messages.length - 1];
-  const lastMessageId = lastMessage?._id;
+  // Simple view hides diffs and sandbox lifecycle banners. Quick task /
+  // project / session all render through ChatBody, so this is the one gate.
+  const simpleView = useSimpleView();
+  const displayMessages = visibleChatMessages(messages, simpleView);
+
+  const lastMessage = displayMessages[displayMessages.length - 1];
   // The oldest unfinished Working bubble owns the session-scoped streaming
   // row — turns run FIFO, so a newer queued placeholder must not steal a
   // still-streaming older turn's tokens (see findStreamingTargetMessage).
-  const streamingTarget = findStreamingTargetMessage(messages);
+  const streamingTarget = findStreamingTargetMessage(displayMessages);
   const streamingTargetId = streamingTarget?._id;
-  const latestAssistantMessageId = findLastAssistantMessageId(messages);
+  const latestAssistantMessageId = findLastAssistantMessageId(displayMessages);
   const { expandedByMessageId, setMessageExpanded } =
     useChangedFilesExpansion(conversationId);
 
@@ -206,11 +211,10 @@ export function ChatBody({
   const blockingQuestions = blockingQuestion
     ? parsePendingQuestion(blockingQuestion.payload)
     : null;
-  // The blocking card is normally hosted by the streaming target message.
-  // If no placeholder exists (run died, sandbox restarted) the unanswered
-  // question would otherwise be unrenderable while still hiding the composer —
-  // render it standalone so the user can always answer and unblock the chat.
-  const hasStreamingPlaceholder = streamingTargetId !== undefined;
+  // Both question kinds render in the composer's slot, so the card stays put
+  // instead of scrolling with the conversation. Blocking wins: it holds the
+  // turn open and its answer resumes the run.
+  const dockedQuestions = blockingQuestions ?? activePendingQuestion;
 
   const handleQuestionAnswer = async (answer: string) => {
     if (pendingQuestionRaw) {
@@ -240,16 +244,13 @@ export function ChatBody({
     setIsAnsweringQuestion(false);
   };
 
-  const messageHistory = buildMessageHistory(messages);
+  const messageHistory = buildMessageHistory(displayMessages);
 
-  const lastUserMessageIndex = findLastUserMessageIndex(messages);
+  const lastUserMessageIndex = findLastUserMessageIndex(displayMessages);
 
-  const jumpRailMessages = buildJumpRailTicks(messages);
+  const jumpRailMessages = buildJumpRailTicks(displayMessages);
 
   const currentUserId = useQuery(api.auth.me);
-  // Simple view hides diff surfaces, so the per-turn changed-files card goes
-  // with them (quick task / project / session all render through ChatBody).
-  const simpleView = useSimpleView();
   const users = useQuery(api.users.listAll);
   const firstNameByUserId = (() => {
     const map = new Map<Id<"users">, string>();
@@ -261,7 +262,6 @@ export function ChatBody({
   })();
 
   const renderMessage = (message: ChatBodyMessage) => {
-    const isLast = message._id === lastMessageId;
     const isStreamingTarget = message._id === streamingTargetId;
     const isOtherUser = isOtherUserChatMessage(message, currentUserId);
     const senderFirstName =
@@ -270,7 +270,7 @@ export function ChatBody({
         : undefined;
     const precedingUser =
       message.role === "assistant"
-        ? findPrecedingUserTurn(messages, message._id)
+        ? findPrecedingUserTurn(displayMessages, message._id)
         : undefined;
 
     return (
@@ -278,7 +278,6 @@ export function ChatBody({
         key={message._id}
         message={message}
         repoBasePath={repoBasePath}
-        isLast={isLast}
         isLatestAssistantTurn={message._id === latestAssistantMessageId}
         showChangedFiles={!simpleView}
         {...(expandedByMessageId[message._id] !== undefined
@@ -292,17 +291,6 @@ export function ChatBody({
         turnCredentialSourceLabel={precedingUser?.credentialSourceLabel}
         streamingActivity={isStreamingTarget ? streamingActivity : undefined}
         streamingContent={isStreamingTarget ? streamingContent : undefined}
-        blockingQuestions={isStreamingTarget ? blockingQuestions : undefined}
-        activePendingQuestion={
-          // The streaming target hosts live questions; a finished last message
-          // hosts its own saved question only while no turn is streaming.
-          isStreamingTarget || (isLast && streamingTargetId === undefined)
-            ? activePendingQuestion
-            : undefined
-        }
-        isQuestionLoading={isAnsweringQuestion}
-        onQuestionAnswer={handleQuestionAnswer}
-        onBlockingAnswer={handleBlockingAnswer}
         onOpenFile={onOpenFile}
         onViewDiff={onViewDiff}
       />
@@ -314,33 +302,34 @@ export function ChatBody({
       {preConversationContent}
       <Conversation className="flex-1 min-h-0">
         <ConversationContent className="gap-3 p-3 max-w-3xl mx-auto w-full">
-          {messages.length === 0 ? (
+          {displayMessages.length === 0 ? (
             (emptyStateOverride ?? (
               <ConversationEmptyState title={emptyStateTitle} />
             ))
           ) : lastUserMessageIndex < 0 ? (
-            messages.map(renderMessage)
+            displayMessages.map(renderMessage)
           ) : (
             <>
-              {messages.slice(0, lastUserMessageIndex).map(renderMessage)}
+              {displayMessages.slice(0, lastUserMessageIndex).map(renderMessage)}
               <ChatLastTurn>
-                {messages.slice(lastUserMessageIndex).map(renderMessage)}
+                {displayMessages.slice(lastUserMessageIndex).map(renderMessage)}
               </ChatLastTurn>
             </>
           )}
-          {blockingQuestions && !hasStreamingPlaceholder ? (
-            <MultipleChoiceQuestion
-              questions={blockingQuestions}
-              onAnswer={handleQuestionAnswer}
-              onAnswerStructured={handleBlockingAnswer}
-              isLoading={isAnsweringQuestion}
-            />
-          ) : null}
         </ConversationContent>
         <ConversationScrollButton resetKey={conversationId} />
         <ChatJumpRail messages={jumpRailMessages} />
       </Conversation>
-      {!isArchived && !activePendingQuestion && !blockingQuestions && (
+      {isArchived ? null : dockedQuestions ? (
+        <ChatQuestionDock
+          questions={dockedQuestions}
+          onAnswer={handleQuestionAnswer}
+          {...(blockingQuestions
+            ? { onAnswerStructured: handleBlockingAnswer }
+            : {})}
+          isLoading={isAnsweringQuestion}
+        />
+      ) : (
         <ChatComposer
           repoId={repoId}
           repoBasePath={repoBasePath}

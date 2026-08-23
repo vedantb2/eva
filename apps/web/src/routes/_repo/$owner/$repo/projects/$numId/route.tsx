@@ -1,5 +1,6 @@
 import {
   createFileRoute,
+  Navigate,
   useParams,
   useRouterState,
 } from "@tanstack/react-router";
@@ -63,16 +64,22 @@ function ProjectDetailShell() {
       ? params.detailTab
       : undefined;
 
+  // A legacy `$taskNumId` redirects on its own once the project segment is
+  // canonical — `replaceRouteIdSegment` only touches its own segment, so the two
+  // hops converge without either knowing about the other.
+  if (task.redirectTo !== null) {
+    return <Navigate to={task.redirectTo} search={true} replace />;
+  }
+
   return (
     <EntityNumIdGate
-      status={project.status}
-      convexId={project.convexId}
+      resolve={project}
       entityLabel="project"
       backTo={`${basePath}/projects`}
     >
-      {(projectId) => (
+      {(projectDoc) => (
         <ProjectDetailClient
-          projectId={projectId}
+          projectId={projectDoc._id}
           projectNumId={project.numId ?? undefined}
           surface={isSandboxSurface ? "sandbox" : "main"}
           mainTab={mainTab}

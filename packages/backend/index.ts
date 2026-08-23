@@ -3,6 +3,7 @@ export type { BackgroundAgentEntry } from "./convex/_validators/tableFields";
 export type { SandboxOwner } from "./convex/_sandbox/owner";
 export { api } from "./convex/_generated/api";
 export { GITHUB_AUTH_REQUIRED } from "./convex/_github/authErrors";
+export { DAILY_STANDUP_KEY } from "./convex/_automations/systemAutomations";
 export {
   AI_MODEL_OPTIONS,
   DEFAULT_AI_MODEL,

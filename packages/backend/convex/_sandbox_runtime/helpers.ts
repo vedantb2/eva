@@ -605,7 +605,16 @@ export async function signAndLaunchScript(
       opts.model,
     );
     if (Object.keys(accountEnv).length > 0) {
-      extraEnvVars = { ...extraEnvVars, ...accountEnv };
+      extraEnvVars = {
+        ...extraEnvVars,
+        ...accountEnv,
+        // Attribution for the turn's usage-limit reading (usageLimits:report).
+        // Set only inside this branch: plan limits are per account, so a reading
+        // may only be attributed to the account whose credentials the run
+        // actually authenticated with — a fallback to the team credential
+        // reports no account and keeps its own row.
+        PROVIDER_ACCOUNT_ID: opts.providerAccountId,
+      };
       console.log(
         `[sandbox][launch] applied user provider account override entityId=${entityId} keys=${Object.keys(accountEnv).join(",")}`,
       );

@@ -1,0 +1,124 @@
+import {
+  IconClipboardList,
+  IconCode,
+  IconDeviceDesktop,
+  IconFileText,
+  IconPalette,
+} from "@tabler/icons-react";
+import type { Doc } from "@eva/backend";
+import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
+import type { SandboxCommandTab } from "@/lib/components/sandbox/sandboxPaletteCommands";
+import type { SandboxTabDescriptor } from "./SandboxTabTrigger";
+
+interface BuildSandboxTabDescriptorsArgs {
+  /** Always-visible base tabs, already filtered to the enabled set. */
+  baseTabs: ReadonlyArray<SandboxCommandTab>;
+  showBrowserActivity: boolean;
+  showEditorTab: boolean;
+  onCloseEditor: (() => void) | undefined;
+  showComputerTab: boolean;
+  /** True while Computer is starting/running — closing it is blocked. */
+  computerRunning: boolean;
+  onCloseComputer: (() => void) | undefined;
+  showFilesTab: boolean;
+  showPrdTab: boolean;
+  hasPrdContent: boolean;
+  showDesignsTab: boolean;
+  hasDesignsContent: boolean;
+  customTabs: ReadonlyArray<Doc<"appTabs">>;
+}
+
+/**
+ * One ordered list for the whole strip. The bar used to hand-roll a
+ * `TabsTrigger` per conditional tab — eight near-identical blocks that each had
+ * to remember the icon size, the indicator dot and the close-button pointer
+ * dance. Order here is the strip's order, and must stay in step with
+ * `SANDBOX_TAB_BAR_ORDER` in `useCycleSandboxTabHotkey`.
+ */
+export function buildSandboxTabDescriptors({
+  baseTabs,
+  showBrowserActivity,
+  showEditorTab,
+  onCloseEditor,
+  showComputerTab,
+  computerRunning,
+  onCloseComputer,
+  showFilesTab,
+  showPrdTab,
+  hasPrdContent,
+  showDesignsTab,
+  hasDesignsContent,
+  customTabs,
+}: BuildSandboxTabDescriptorsArgs): SandboxTabDescriptor[] {
+  const descriptors: SandboxTabDescriptor[] = baseTabs.map((tab) => {
+    const live = tab.value === "browser" && showBrowserActivity;
+    return {
+      value: tab.value,
+      label: tab.label,
+      icon: { kind: "component", Icon: tab.icon },
+      indicator: live ? "activity" : undefined,
+      indicatorLabel: live ? "Agent is browsing" : undefined,
+    };
+  });
+
+  if (showEditorTab) {
+    descriptors.push({
+      value: "editor",
+      label: "Editor",
+      icon: { kind: "component", Icon: IconCode },
+      onClose: () => onCloseEditor?.(),
+    });
+  }
+
+  if (showComputerTab) {
+    descriptors.push({
+      value: "computer",
+      label: "Computer",
+      icon: { kind: "component", Icon: IconDeviceDesktop },
+      onClose: computerRunning ? undefined : () => onCloseComputer?.(),
+      closeBlockedReason: computerRunning
+        ? "Stop Computer before closing this tab"
+        : undefined,
+    });
+  }
+
+  if (showFilesTab) {
+    descriptors.push({
+      value: "files",
+      label: "Files",
+      icon: { kind: "component", Icon: IconFileText },
+    });
+  }
+
+  if (showPrdTab) {
+    descriptors.push({
+      value: "prd",
+      label: "Plan",
+      icon: { kind: "component", Icon: IconClipboardList },
+      indicator: hasPrdContent ? "content" : undefined,
+      indicatorLabel: hasPrdContent ? "Plan available" : undefined,
+    });
+  }
+
+  if (showDesignsTab) {
+    descriptors.push({
+      value: "designs",
+      label: "Designs",
+      icon: { kind: "component", Icon: IconPalette },
+      indicator: hasDesignsContent ? "content" : undefined,
+      indicatorLabel: hasDesignsContent
+        ? "Design variations available"
+        : undefined,
+    });
+  }
+
+  for (const tab of customTabs) {
+    descriptors.push({
+      value: slugifyAppTabName(tab.name),
+      label: tab.name,
+      icon: { kind: "name", name: tab.icon },
+    });
+  }
+
+  return descriptors;
+}

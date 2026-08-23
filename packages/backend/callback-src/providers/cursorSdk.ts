@@ -2,6 +2,7 @@ import { mkdirSync, readFileSync } from "fs";
 import type {
   Agent,
   AgentOptions,
+  AgentUsage,
   Cursor,
   JsonlLocalAgentStore,
   McpServerConfig,
@@ -11,6 +12,7 @@ import type {
   Run,
   SDKAgent,
   TokenUsage,
+  UsageCost,
 } from "@cursor/sdk";
 import {
   CURSOR_SDK_STORE_DIR,
@@ -46,7 +48,7 @@ import { log } from "../utils.js";
 import { resolvePinnedSdkEntry, type JsonLike } from "./claudeSdk.js";
 
 const SDK_PACKAGE = "@cursor/sdk";
-const SDK_VERSION = "1.0.26";
+const SDK_VERSION = "1.0.28";
 /** ESM entry inside the package (its exports map's `import` target). */
 const SDK_ENTRY_RELPATH = "/dist/esm/index.js";
 
@@ -109,6 +111,8 @@ export function filterModeParamsByModel(
 
 type SdkAgentOptions = AgentOptions;
 type SdkTokenUsage = TokenUsage;
+type SdkAgentUsage = AgentUsage;
+type SdkUsageCost = UsageCost;
 type SdkRun = Run;
 type SdkAgent = SDKAgent;
 
@@ -118,6 +122,8 @@ export type CursorSdkModule = {
   JsonlLocalAgentStore: typeof JsonlLocalAgentStore;
 };
 
+let loadedSdk: CursorSdkModule | null = null;
+
 /**
  * Imports the Cursor SDK version `cursorParseLine` was written against. Taking
  * whatever the sandbox happens to hold is not safe here: the parser matches the
@@ -125,6 +131,10 @@ export type CursorSdkModule = {
  * the floor and the turn renders as a bare "Working..." for its whole duration.
  */
 export async function loadCursorSdk(): Promise<CursorSdkModule> {
+  // Memoized so the warm daemon pays the resolve (`npm root -g`, manifest
+  // reads) and the import once for the whole session instead of once per turn.
+  // The one-shot path calls this exactly once, so nothing changes there.
+  if (loadedSdk) return loadedSdk;
   const mod: CursorSdkModule = await import(
     resolvePinnedSdkEntry({
       packageName: SDK_PACKAGE,
@@ -132,6 +142,7 @@ export async function loadCursorSdk(): Promise<CursorSdkModule> {
       entryRelPath: SDK_ENTRY_RELPATH,
     })
   );
+  loadedSdk = mod;
   return mod;
 }
 
@@ -295,7 +306,134 @@ export type CursorTurnOutcome = {
   resultText: string;
   durationMs: number;
   usage: UsageTokens;
+  /** Undiscounted model cost of this turn, absent when Cursor did not report it. */
+  costUsd?: number;
 };
+
+/**
+ * Cost the Cursor backend has billed an agent, normalized from `getUsage()`.
+ * `null` cost means "not reported (yet)", which is distinct from a reported 0
+ * (request-priced, plan-included and BYOK usage all bill 0 raw cents).
+ */
+export type CursorCostSnapshot = {
+  /** Agent-lifetime raw cost in float cents. */
+  totalRawCents: number | null;
+  /** Per-turn groups, keyed by the backend's usage UUID (not our run id). */
+  entries: { runId: string; rawCents: number | null }[];
+};
+
+/** A never-billed agent: the correct baseline for an agent created just now. */
+export const EMPTY_CURSOR_COST_SNAPSHOT: CursorCostSnapshot = {
+  totalRawCents: null,
+  entries: [],
+};
+
+/** Reads the `AgentUsage` returned by `agent.getUsage()` into a cost snapshot. */
+export function readCursorCostSnapshot(
+  value: SdkAgentUsage | JsonLike | undefined,
+): CursorCostSnapshot {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return EMPTY_CURSOR_COST_SNAPSHOT;
+  }
+  const runs = Array.isArray(value.runs) ? value.runs : [];
+  const entries: CursorCostSnapshot["entries"] = [];
+  for (const run of runs) {
+    if (!run || typeof run !== "object" || Array.isArray(run)) continue;
+    if (typeof run.runId !== "string" || !run.runId) continue;
+    entries.push({ runId: run.runId, rawCents: readRawCents(run.cost) });
+  }
+  return { totalRawCents: readRawCents(value.cost), entries };
+}
+
+function readRawCents(
+  cost: SdkUsageCost | JsonLike | undefined,
+): number | null {
+  if (!cost || typeof cost !== "object" || Array.isArray(cost)) return null;
+  const raw = cost.rawCostCents;
+  return typeof raw === "number" && Number.isFinite(raw) ? raw : null;
+}
+
+function sumKnownRawCents(entries: CursorCostSnapshot["entries"]): number {
+  return entries.reduce((total, entry) => total + (entry.rawCents ?? 0), 0);
+}
+
+/**
+ * Raw cents this turn cost, or `null` while nothing is attributable to it yet.
+ *
+ * `getUsage()` reports an agent's whole life, so a resumed agent's totals carry
+ * every prior turn — the turn's own cost has to be isolated by diffing. Each
+ * local turn is its own usage-UUID group, so this turn's groups are exactly the
+ * ones absent from the pre-send snapshot. Cost that appears on a group that
+ * already existed is deliberately ignored: that is a *previous* turn's cost
+ * landing late, and charging it here would inflate this turn.
+ *
+ * Local events the backend records without a usage UUID never get a group, so
+ * their only trace is the remainder between the totals and the groups; its
+ * growth is counted too, and it is the one component that cannot be told apart
+ * from a late-landing prior turn, hence the "only when it grew" guard.
+ */
+export function attributeCursorTurnRawCents(
+  before: CursorCostSnapshot,
+  after: CursorCostSnapshot,
+): number | null {
+  const knownRunIds = new Set(before.entries.map((entry) => entry.runId));
+  let attributed = 0;
+  let attributable = false;
+  for (const entry of after.entries) {
+    if (entry.rawCents === null || knownRunIds.has(entry.runId)) continue;
+    attributed += entry.rawCents;
+    attributable = true;
+  }
+  if (after.totalRawCents !== null) {
+    const remainderAfter =
+      after.totalRawCents - sumKnownRawCents(after.entries);
+    const remainderBefore =
+      before.totalRawCents === null
+        ? 0
+        : before.totalRawCents - sumKnownRawCents(before.entries);
+    if (remainderAfter - remainderBefore > 0) {
+      attributed += remainderAfter - remainderBefore;
+      attributable = true;
+    }
+  }
+  return attributable ? attributed : null;
+}
+
+/**
+ * Cursor derives cost server-side and it can lag briefly after a run ends while
+ * billing events land, so poll a few times before giving up.
+ */
+export const COST_LOOKUP_RETRY_DELAYS_MS = [2_000, 2_000];
+
+/**
+ * Dollars this turn cost, or `undefined` when Cursor never reported it — the
+ * downstream parser then defaults to 0, so a missing cost is never fatal.
+ * A missing baseline (`before === null`, i.e. the pre-send lookup failed on a
+ * resumed agent) resolves to `undefined` rather than charging this turn for the
+ * agent's whole history.
+ */
+export async function resolveCursorTurnCostUsd(deps: {
+  before: CursorCostSnapshot | null;
+  fetchAfter: () => Promise<CursorCostSnapshot | null>;
+  sleep: (delayMs: number) => Promise<void>;
+  retryDelaysMs?: readonly number[];
+}): Promise<number | undefined> {
+  if (!deps.before) return undefined;
+  const delays = deps.retryDelaysMs ?? COST_LOOKUP_RETRY_DELAYS_MS;
+  for (let attempt = 0; ; attempt++) {
+    const after = await deps.fetchAfter();
+    const rawCents = after
+      ? attributeCursorTurnRawCents(deps.before, after)
+      : null;
+    if (rawCents !== null) {
+      // Float cents to dollars, at a precision cents can actually carry.
+      return Math.round((rawCents / 100) * 1e6) / 1e6;
+    }
+    const delayMs = delays[attempt];
+    if (delayMs === undefined) return undefined;
+    await deps.sleep(delayMs);
+  }
+}
 
 const ZERO_USAGE: UsageTokens = {
   inputTokens: 0,
@@ -369,6 +507,21 @@ function readUsageTokens(
   };
 }
 
+export type CursorAttemptOverrides = {
+  /**
+   * The turn's prompt. One-shot runs omit it and read the prompt file the
+   * launch uploaded; the warm daemon has no such file (it launches with an
+   * empty prompt) and passes the prompt it claimed instead.
+   */
+  promptText?: string;
+  /**
+   * Receives a handle that aborts this attempt's run. The daemon calls it when
+   * a claim response drains a user cancel, so the attempt returns instead of
+   * running to completion.
+   */
+  onAbortHandle?: (abort: () => void) => void;
+};
+
 /**
  * Runs one Cursor turn via the Cursor SDK (local agent in-process).
  *
@@ -383,6 +536,7 @@ function readUsageTokens(
  */
 export async function runCursorSdkAttempt(
   sessionMode: SessionMode,
+  overrides: CursorAttemptOverrides = {},
 ): Promise<ProviderAttemptResult> {
   resetAttemptState();
   S.activeAttemptStartedAt = Date.now();
@@ -409,6 +563,20 @@ export async function runCursorSdkAttempt(
   let attemptErrorMessage = "";
   let lastStreamUsage: UsageTokens | null = null;
   let activeRun: SdkRun | null = null;
+  let abortedByCaller = false;
+
+  const cancelRun = (): void => {
+    if (!activeRun) return;
+    activeRun.cancel().catch(() => {
+      /* already finished */
+    });
+  };
+  // Registered before the first await so a cancel racing agent setup is not
+  // dropped: `runTurn` re-applies the abort once the run exists.
+  overrides.onAbortHandle?.(() => {
+    abortedByCaller = true;
+    cancelRun();
+  });
 
   const sdk = await loadCursorSdk();
   mkdirSync(CURSOR_SDK_STORE_DIR, { recursive: true });
@@ -460,17 +628,11 @@ export async function runCursorSdkAttempt(
     agent = await createFreshAgent();
   }
 
-  const promptText = readPromptText();
+  const promptText = overrides.promptText ?? readPromptText();
   const combinedPrompt = SYSTEM_PROMPT
     ? SYSTEM_PROMPT + "\n\n" + promptText
     : promptText;
 
-  const cancelRun = (): void => {
-    if (!activeRun) return;
-    activeRun.cancel().catch(() => {
-      /* already finished */
-    });
-  };
   const healthTimer = setInterval(() => {
     const now = Date.now();
     if (now - S.activeAttemptStartedAt > MAX_TOTAL_RUNTIME_MS) {
@@ -500,22 +662,61 @@ export async function runCursorSdkAttempt(
     processRealtimeStdoutChunk(line);
   };
 
-  const runTurn = async (activeAgent: SdkAgent): Promise<CursorTurnOutcome> => {
+  /** `getUsage()` is one cloud round trip; a failure only costs us the cost. */
+  const readCostSnapshot = async (
+    activeAgent: SdkAgent,
+  ): Promise<CursorCostSnapshot | null> => {
+    try {
+      return readCursorCostSnapshot(await activeAgent.getUsage());
+    } catch (error) {
+      const messageText =
+        error instanceof Error ? error.message : String(error);
+      log(
+        "runCursorSdkAttempt: getUsage failed — turn cost unavailable (" +
+          messageText +
+          ")",
+      );
+      return null;
+    }
+  };
+
+  const runTurn = async (
+    activeAgent: SdkAgent,
+    agentIsFresh: boolean,
+  ): Promise<CursorTurnOutcome> => {
+    // An agent created in this attempt has never been billed, so its baseline
+    // is zero by construction — no round trip, and a lookup failure can never
+    // cost a first turn its cost. A resumed agent's totals carry its prior
+    // turns, so read the baseline; the request is issued before the send and
+    // only awaited after the run, so it never delays the turn. (A rejected
+    // resource_exhausted retry bills nothing, so a fresh agent's baseline stays
+    // zero across the retries within this attempt.)
+    const costBefore = agentIsFresh
+      ? Promise.resolve(EMPTY_CURSOR_COST_SNAPSHOT)
+      : readCostSnapshot(activeAgent);
     // `force` expires a run left marked active by a killed prior callback
     // (user stop is a process-level kill); a no-op otherwise.
     const run = await activeAgent.send(combinedPrompt, {
       local: { force: true },
     });
     activeRun = run;
+    if (abortedByCaller) cancelRun();
     for await (const message of run.stream()) {
       lastMessageAt = Date.now();
       pushLine(JSON.stringify(message) + "\n");
       if (message.type === "usage") {
         lastStreamUsage = readUsageTokens(message.usage) ?? lastStreamUsage;
       }
-      if (timedOutForMaxRuntime || timedOutForNoOutput) break;
+      if (timedOutForMaxRuntime || timedOutForNoOutput || abortedByCaller)
+        break;
     }
     const result = await run.wait();
+    const costUsd = await resolveCursorTurnCostUsd({
+      before: await costBefore,
+      fetchAfter: () => readCostSnapshot(activeAgent),
+      sleep: (delayMs) =>
+        new Promise((resolve) => setTimeout(resolve, delayMs)),
+    });
     return {
       isError: result.status !== "finished",
       resultText:
@@ -526,6 +727,7 @@ export async function runCursorSdkAttempt(
             : "",
       durationMs: readNum(result.durationMs),
       usage: readUsageTokens(result.usage) ?? lastStreamUsage ?? ZERO_USAGE,
+      ...(costUsd === undefined ? {} : { costUsd }),
     };
   };
 
@@ -535,6 +737,10 @@ export async function runCursorSdkAttempt(
       is_error: outcome.isError,
       result: outcome.resultText,
       duration_ms: outcome.durationMs,
+      // Omitted when Cursor reported no cost; the parser then defaults to 0.
+      ...(outcome.costUsd === undefined
+        ? {}
+        : { total_cost_usd: outcome.costUsd }),
       usage: {
         input_tokens: outcome.usage.inputTokens,
         output_tokens: outcome.usage.outputTokens,
@@ -547,11 +753,15 @@ export async function runCursorSdkAttempt(
     resultIsError = outcome.isError;
   };
 
-  const runTurnWithRetries = async (activeAgent: SdkAgent): Promise<void> => {
+  const runTurnWithRetries = async (
+    activeAgent: SdkAgent,
+    agentIsFresh: boolean,
+  ): Promise<void> => {
     emitTurnResult(
       await runTurnWithResourceExhaustedRetries({
-        runTurn: () => runTurn(activeAgent),
-        aborted: () => timedOutForMaxRuntime || timedOutForNoOutput,
+        runTurn: () => runTurn(activeAgent, agentIsFresh),
+        aborted: () =>
+          timedOutForMaxRuntime || timedOutForNoOutput || abortedByCaller,
         onRetry: (retryDelayMs, attempt) => {
           log(
             "runCursorSdkAttempt: resource_exhausted — retrying in " +
@@ -580,7 +790,7 @@ export async function runCursorSdkAttempt(
 
   try {
     try {
-      await runTurnWithRetries(agent);
+      await runTurnWithRetries(agent, !resumedExistingAgent);
     } catch (error) {
       // A resumed agent whose stored runs are unreadable can throw
       // agent_not_found past resume (at send/stream/wait). Retry once fresh so
@@ -600,7 +810,7 @@ export async function runCursorSdkAttempt(
           /* already closed */
         }
         agent = await createFreshAgent();
-        await runTurnWithRetries(agent);
+        await runTurnWithRetries(agent, true);
       } else {
         throw error;
       }

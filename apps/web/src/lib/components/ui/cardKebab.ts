@@ -23,6 +23,13 @@
  *
  * `hit-target` is included: the button is 24px, and the utility grows the
  * pressable area to 40px without changing layout.
+ *
+ * Motion comes from `motion-press`, not a hand-listed
+ * `transition-[background-color,color,transform]`. An arbitrary list emits
+ * exactly the properties it names, and Tailwind compiles `scale-[0.96]` to
+ * `scale: 0.96` — an individual transform property that `transform` does not
+ * match — so the press here never animated. The utility owns the correct
+ * property set and the house rule that colour trails the press.
  */
 export const CARD_KEBAB_CLASS =
-  "flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground transition-[background-color,color,transform] duration-[var(--motion-fast)] hit-target hover:bg-muted/80 hover:text-foreground active:scale-[0.96] sm:hidden";
+  "motion-press flex h-6 w-6 items-center justify-center rounded-md text-muted-foreground hit-target hover:bg-muted/80 hover:text-foreground active:scale-[0.96] sm:hidden";

@@ -18,6 +18,7 @@ import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "../streaming";
 import { clearPendingQuestionsForEntity } from "../pendingQuestions";
 import { startNextQueuedSessionMessageAfterSandboxReady } from "../_queues/helpers";
+import { settleOrphanedBackgroundAgents } from "./backgroundAgents";
 import { syncSessionDaemonState } from "./daemonState";
 import { STUCK_STOPPING_RECOVER_MS } from "../_sandbox/stopRecovery";
 
@@ -391,6 +392,18 @@ export const sandboxReady = internalMutation({
     if (!alreadyActive) {
       // Fresh boot / resume — prior VM processes are gone.
       await markAllRunningExited(ctx.db, args.sessionId);
+      // Subagents died with the old VM, so settle any the dead daemon never
+      // reported terminal — they gate the message queue (see
+      // `runningBackgroundAgents`) and nothing else would ever clear them.
+      const settledAgents = settleOrphanedBackgroundAgents(
+        session.backgroundAgents,
+        Date.now(),
+      );
+      if (settledAgents) {
+        await ctx.db.patch(args.sessionId, {
+          backgroundAgents: settledAgents,
+        });
+      }
       const content = args.resumeFellBack
         ? "Previous sandbox expired — started a fresh one. Uncommitted changes from the old sandbox are gone."
         : args.isNew

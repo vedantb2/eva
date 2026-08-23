@@ -33,6 +33,8 @@ import {
   taskSandboxStatusValidator,
   taskStatusValidator,
   themeValidator,
+  usageLimitProviderValidator,
+  usageLimitStatusValidator,
 } from "./enums";
 import {
   automationFindingValidator,
@@ -42,6 +44,7 @@ import {
   experimentalFlagsValidator,
   logEntryValidator,
   terminalPaneValidator,
+  usageLimitWindowValidator,
   userFlowValidator,
   variationValidator,
 } from "./shapes";
@@ -405,6 +408,29 @@ export const syncSettingFields = {
   owner: v.string(),
   name: v.string(),
   enabled: v.boolean(),
+};
+
+/** One built-in slash command reported by a harness CLI's init handshake. */
+export const harnessSkillValidator = v.object({
+  name: v.string(),
+  description: v.string(),
+  argumentHint: v.optional(v.string()),
+});
+
+/**
+ * The built-in skill catalog a harness CLI ships with, one row per provider.
+ * Deliberately global rather than per repo: every sandbox boots from the same
+ * image, so the CLI build — and therefore its command list — is fleet-wide.
+ * Reported by the provider daemon at session start (see
+ * `harnessSkills.upsertForProvider`) and read by the composer's `/` picker,
+ * which falls back to a static list until the first sandbox reports.
+ */
+export const harnessSkillCatalogFields = {
+  provider: aiProviderValidator,
+  /** Harness CLI version the catalog was read from, e.g. "2.1.239". */
+  cliVersion: v.string(),
+  skills: v.array(harnessSkillValidator),
+  updatedAt: v.number(),
 };
 
 export const repoSkillFields = {
@@ -1012,4 +1038,32 @@ export const backgroundProcessFields = {
   status: backgroundProcessStatusValidator,
   startedAt: v.number(),
   exitedAt: v.optional(v.number()),
+};
+
+/**
+ * The latest plan usage-limit reading for one agent account on one repo,
+ * captured in the sandbox at the end of every turn and upserted here (one row
+ * per repo+provider+account). Each row is a whole snapshot, so a field the
+ * provider stopped reporting disappears rather than going stale.
+ *
+ * Plan windows only: Claude reports `subscriptionType`, `status` and `windows`
+ * (5-hour, weekly, per-model). A provider that exposes no plan limits does not
+ * belong here — its spend is the per-turn cost gauge's business.
+ */
+export const agentUsageLimitFields = {
+  repoId: v.id("githubRepos"),
+  provider: usageLimitProviderValidator,
+  /**
+   * The connected account the run authenticated as, when it ran on one. Plan
+   * limits are per account, so this is part of the row's identity: without it a
+   * second account's reading would overwrite the first. Absent when the run
+   * used the shared team credential from the sandbox environment.
+   */
+  providerAccountId: v.optional(v.id("userProviderAccounts")),
+  /** Epoch ms the sandbox took this reading. */
+  capturedAt: v.number(),
+  /** claude.ai plan, e.g. "max". Absent for API-key sessions. */
+  subscriptionType: v.optional(v.string()),
+  status: v.optional(usageLimitStatusValidator),
+  windows: v.optional(v.array(usageLimitWindowValidator)),
 };

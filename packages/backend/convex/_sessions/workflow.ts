@@ -21,7 +21,10 @@ import {
   clearStreamingActivity,
   extractFirstJsonValue,
 } from "../_taskWorkflow/helpers";
-import { startNextQueuedSessionMessage } from "../_queues/helpers";
+import {
+  scheduleQueueDrainAfterBackgroundAgents,
+  startNextQueuedSessionMessage,
+} from "../_queues/helpers";
 import { resolveMessageTokens } from "../_mentions/resolveMessageTokens";
 import { buildCustomInstructionsBlock } from "../prompts";
 import { buildPlanPrompt, buildEditPrompt, buildDesignPrompt } from "./prompts";
@@ -1081,13 +1084,21 @@ export const updateBackgroundAgents = authMutation({
       throw new Error("Not authorized");
     if (args.agents.length === 0) return null;
 
+    const backgroundAgents = mergeBackgroundAgents(
+      session.backgroundAgents,
+      args.agents,
+    );
     await ctx.db.patch(args.sessionId, {
-      backgroundAgents: mergeBackgroundAgents(
-        session.backgroundAgents,
-        args.agents,
-      ),
+      backgroundAgents,
       updatedAt: Date.now(),
     });
+    // Queued messages wait for these agents, so their settling is a queue
+    // release the session itself never signals otherwise.
+    await scheduleQueueDrainAfterBackgroundAgents(
+      ctx,
+      args.sessionId,
+      backgroundAgents,
+    );
     return null;
   },
 });

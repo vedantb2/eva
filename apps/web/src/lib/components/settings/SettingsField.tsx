@@ -3,6 +3,8 @@ interface SettingsFieldProps {
   label: React.ReactNode;
   /** Help text shown under the control. */
   description?: React.ReactNode;
+  /** `id` of the control, so clicking the label focuses it. */
+  htmlFor?: string;
   children: React.ReactNode;
 }
 
@@ -16,11 +18,15 @@ interface SettingsFieldProps {
 export function SettingsField({
   label,
   description,
+  htmlFor,
   children,
 }: SettingsFieldProps) {
   return (
     <div>
-      <label className="mb-2 block text-sm font-medium text-foreground">
+      <label
+        htmlFor={htmlFor}
+        className="mb-2 block text-sm font-medium text-foreground"
+      >
         {label}
       </label>
       {children}

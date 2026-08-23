@@ -2,11 +2,16 @@ import { Link } from "@tanstack/react-router";
 import { Button, Surface, cn } from "@eva/ui";
 import {
   IconArrowRight,
+  IconBook,
+  IconBug,
   IconCheck,
   IconClock,
   IconEye,
   IconFileText,
+  IconRadioactive,
+  IconSitemap,
   IconSparkles,
+  IconTestPipe,
 } from "@tabler/icons-react";
 import type { Icon } from "@tabler/icons-react";
 import { describeCron } from "@/lib/components/CronScheduleCard";
@@ -16,13 +21,19 @@ import { describeCron } from "@/lib/components/CronScheduleCard";
  * stays free of presentation; unknown keys fall back to the generic mark.
  */
 const ENTRY_ICONS: Record<string, Icon> = {
-  "daily-changelog": IconFileText,
+  "daily-standup": IconFileText,
+  "find-critical-bugs": IconBug,
+  "add-test-coverage": IconTestPipe,
+  "generate-docs": IconBook,
+  "improve-code-structure": IconSitemap,
+  "thermo-nuclear-code-review": IconRadioactive,
 };
 
 interface SystemAutomationCardProps {
   entryKey: string;
   title: string;
-  description: string;
+  /** One-line card copy, not the prompt. */
+  blurb: string;
   /** Cron expression in UTC; shown in the reader's local time. */
   cronSchedule: string;
   readOnly: boolean;
@@ -42,7 +53,7 @@ interface SystemAutomationCardProps {
 export function SystemAutomationCard({
   entryKey,
   title,
-  description,
+  blurb,
   cronSchedule,
   readOnly,
   installed,
@@ -83,7 +94,7 @@ export function SystemAutomationCard({
               {title}
             </h3>
             <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
-              {description}
+              {blurb}
             </p>
           </div>
         </div>

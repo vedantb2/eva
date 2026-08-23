@@ -5,7 +5,12 @@ import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { motionBase, Skeleton } from "@eva/ui";
 import { useShortcut } from "@/lib/hotkeys/useShortcut";
-import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
+import {
+  Navigate,
+  useNavigate,
+  useParams,
+  useSearch,
+} from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
@@ -28,10 +33,6 @@ import {
   type BulkAction,
 } from "./_components/QuickTasksBulkBar";
 import { QuickTasksBulkModals } from "./_components/QuickTasksBulkModals";
-import { QuickTaskBreadcrumb } from "./_components/QuickTaskBreadcrumb";
-import { QuickTaskDetailHeaderActions } from "./_components/QuickTaskDetailHeaderActions";
-import { useQuickTaskNeighbors } from "./_utils/useQuickTaskNeighbors";
-import { QuickTaskHeaderActionsSlotProvider } from "@/lib/components/quick-tasks/QuickTaskHeaderActionsSlot";
 import { useFilteredQuickTasks, useQuickTaskFilters } from "./_utils";
 import { useAgentTaskByNumId } from "@/lib/useResolveByNumId";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
@@ -101,24 +102,6 @@ export function QuickTasksClient() {
   })();
 
   const quickTasks = useFilteredQuickTasks(tasks);
-  const selectedTask =
-    selectedTaskId && tasks
-      ? tasks.find((task) => task._id === selectedTaskId)
-      : undefined;
-  const listNavSurface =
-    routeState?.surface === "sandbox" ? "sandbox" : "detail";
-  const listSandboxTab =
-    routeState?.surface === "sandbox" ? routeState.sandboxTab : undefined;
-  const {
-    prevTaskId: listPrevTaskId,
-    nextTaskId: listNextTaskId,
-    handleNavigatePrev: handleListNavigatePrev,
-    handleNavigateNext: handleListNavigateNext,
-  } = useQuickTaskNeighbors({
-    taskId: selectedTaskId ?? "",
-    navSurface: listNavSurface,
-    sandboxTab: listSandboxTab,
-  });
   const hasAnyTasks = (tasks ?? []).length > 0;
   const hasQuickTasks = quickTasks.length > 0;
 
@@ -303,6 +286,12 @@ export function QuickTasksClient() {
     // eslint-disable-next-line react/exhaustive-deps
   }, [drafts, draftParam, initialDraft]);
 
+  // Pre-numId link (old notification href, PR body): swap the Convex id in the
+  // path for the task's numId before rendering anything else.
+  if (taskResolve.redirectTo !== null) {
+    return <Navigate to={taskResolve.redirectTo} search={true} replace />;
+  }
+
   if (tasks === undefined) {
     return (
       <PageWrapper title="Quick Tasks" fillHeight childPadding={false}>
@@ -383,73 +372,45 @@ export function QuickTasksClient() {
   }
 
   return (
-    <QuickTaskHeaderActionsSlotProvider>
+    <>
       <PageWrapper
-        title={
-          view === "list" && selectedTask ? (
-            <QuickTaskBreadcrumb
-              onBack={() => {
+        // The page header stays the list's own: title, search, filters, view
+        // toggle, New Task. An open task's chrome (surface switcher, actions,
+        // prev/next) belongs to the detail pane, which renders it itself — in
+        // the header it read as a breadcrumb replacing the page title and a
+        // switcher floating over the middle of the list.
+        title="Quick Tasks"
+        fillHeight
+        childPadding={false}
+        headerRight={
+          <QuickTasksToolbar
+            view={view}
+            onViewChange={(v: "kanban" | "list") => {
+              setParams({ view: v });
+              // Only list view renders an open task inline (master/detail
+              // split); kanban shows the board, so close the task.
+              if (selectedTaskId && v !== "list") {
                 navigate({
                   to: toInternalRepoHref(`${basePath}/quick-tasks`),
                   search: (prev) => prev,
                 });
-              }}
-              taskNumId={selectedTask.numId}
-              taskTitle={selectedTask.title}
-            />
-          ) : (
-            "Quick Tasks"
-          )
-        }
-        fillHeight
-        childPadding={false}
-        headerRight={
-          // No wrapper element: in list view with a task open this is 6+
-          // controls (prev/next, actions, view toggle, Select, Options,
-          // search, New Task). A wrapper would make them one unbreakable flex
-          // item in the header's end cell; as direct children they use
-          // `PageWrapper`'s own `flex-wrap` and fall onto a second row instead
-          // of squeezing the title to nothing on a phone.
-          <>
-            {view === "list" && selectedTaskId ? (
-              <QuickTaskDetailHeaderActions
-                repoId={repo._id}
-                taskId={selectedTaskId}
-                prevTaskId={listPrevTaskId ?? undefined}
-                nextTaskId={listNextTaskId ?? undefined}
-                onNavigatePrev={handleListNavigatePrev}
-                onNavigateNext={handleListNavigateNext}
-              />
-            ) : null}
-            <QuickTasksToolbar
-              view={view}
-              onViewChange={(v: "kanban" | "list") => {
-                setParams({ view: v });
-                // Only list view renders an open task inline (master/detail
-                // split); kanban shows the board, so close the task.
-                if (selectedTaskId && v !== "list") {
-                  navigate({
-                    to: toInternalRepoHref(`${basePath}/quick-tasks`),
-                    search: (prev) => prev,
-                  });
-                }
-              }}
-              searchQuery={q}
-              onSearchChange={(v) => setParams({ q: v ?? "" })}
-              hasQuickTasks={hasAnyTasks}
-              isSelecting={isSelecting}
-              onStartSelecting={() => setIsSelecting(true)}
-              onCreateTask={() => setIsCreating(true)}
-              onImport={() => setIsImporting(true)}
-              projects={projects}
-              projectFilter={project}
-              onProjectFilterChange={(v) => setParams({ project: v })}
-              users={users}
-              userFilter={user}
-              onUserFilterChange={(v) => setParams({ user: v })}
-              allTags={allTags}
-            />
-          </>
+              }
+            }}
+            searchQuery={q}
+            onSearchChange={(v) => setParams({ q: v ?? "" })}
+            hasQuickTasks={hasAnyTasks}
+            isSelecting={isSelecting}
+            onStartSelecting={() => setIsSelecting(true)}
+            onCreateTask={() => setIsCreating(true)}
+            onImport={() => setIsImporting(true)}
+            projects={projects}
+            projectFilter={project}
+            onProjectFilterChange={(v) => setParams({ project: v })}
+            users={users}
+            userFilter={user}
+            onUserFilterChange={(v) => setParams({ user: v })}
+            allTags={allTags}
+          />
         }
       >
         <div className="relative flex min-w-0 flex-1 min-h-0 flex-col overflow-hidden p-3 pt-0">
@@ -573,6 +534,6 @@ export function QuickTasksClient() {
         selectedTasks={selectedTasks}
         onSuccess={exitSelectMode}
       />
-    </QuickTaskHeaderActionsSlotProvider>
+    </>
   );
 }

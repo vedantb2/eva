@@ -2676,12 +2676,16 @@ async function captureClaudeUsage(readUsage) {
       log("usage limits: claude usage response omitted availability");
       return;
     }
+    if (response.rate_limits_available === false) {
+      log(
+        "usage limits: claude plan usage unavailable \\u2014 preserving prior reading"
+      );
+      return;
+    }
     const snapshot = { completeness: "complete" };
     const subscriptionType = readNonEmptyString(response.subscription_type);
     if (subscriptionType) snapshot.subscriptionType = subscriptionType;
-    if (response.rate_limits_available === true) {
-      snapshot.windows = readClaudeUsageWindows(response);
-    }
+    snapshot.windows = readClaudeUsageWindows(response);
     callbackState.usageLimitSnapshot = snapshot;
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
@@ -2689,6 +2693,15 @@ async function captureClaudeUsage(readUsage) {
   } finally {
     if (timer !== void 0) clearTimeout(timer);
   }
+}
+function captureClaudeUsageLimitError(error) {
+  if (!error) return;
+  const message = error.toLowerCase();
+  if (!message.includes("out of extra usage") && !message.includes("rate limit") && !message.includes("usage limit") && !message.includes("spend limit") && !message.includes("token limit exceeded")) {
+    return;
+  }
+  const snapshot = ensureSnapshot();
+  snapshot.status = "rejected";
 }
 function windowToJson(window) {
   return {
@@ -2743,12 +2756,13 @@ async function reportUsageLimits(provider) {
     log("usage limits: report failed \\u2014 " + messageText);
   }
 }
-async function captureAndReportClaudeUsage(readUsage) {
-  await captureClaudeUsage(readUsage);
+async function captureAndReportClaudeUsage(input) {
+  await captureClaudeUsage(input.readUsage);
+  captureClaudeUsageLimitError(input.error);
   await reportUsageLimits("claude");
 }
-function startClaudeUsageReport(readUsage) {
-  const report = captureAndReportClaudeUsage(readUsage);
+function startClaudeUsageReport(input) {
+  const report = captureAndReportClaudeUsage(input);
   pendingClaudeUsageReport = report;
   void report.finally(() => {
     if (pendingClaudeUsageReport === report) pendingClaudeUsageReport = null;
@@ -4720,6 +4734,7 @@ async function runClaudeSdkAttempt(sessionMode) {
   let timedOutForMaxRuntime = false;
   let sawResult = false;
   let resultIsError = false;
+  let resultErrorMessage = "";
   let queryErrorMessage = "";
   const sdk = await loadSdk();
   let effectiveMode = sessionMode;
@@ -4766,6 +4781,9 @@ async function runClaudeSdkAttempt(sessionMode) {
       if (message.type === "result") {
         sawResult = true;
         resultIsError = message.is_error === true;
+        if (resultIsError && typeof message.result === "string") {
+          resultErrorMessage = message.result;
+        }
       }
       if (timedOutForMaxRuntime || timedOutForNoOutput) break;
     }
@@ -4801,7 +4819,10 @@ async function runClaudeSdkAttempt(sessionMode) {
   } finally {
     clearInterval(healthTimer);
   }
-  startClaudeUsageReport(() => readSdkPlanUsage(q));
+  startClaudeUsageReport({
+    readUsage: () => readSdkPlanUsage(q),
+    error: resultErrorMessage || queryErrorMessage || void 0
+  });
   const code = sawResult && !resultIsError && !timedOutForMaxRuntime && !timedOutForNoOutput ? 0 : 1;
   log(
     "runClaudeSdkAttempt finished in " + String(Date.now() - callbackState.activeAttemptStartedAt) + "ms (code=" + code + ", sawResult=" + sawResult + ", resultIsError=" + resultIsError + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", outputBytes=" + attemptOutput.length + (queryErrorMessage ? ", queryError=" + queryErrorMessage : "") + ")"
@@ -5433,7 +5454,10 @@ async function finalizeTurn(output, readUsage) {
   );
   const bookkeepingAt = Date.now();
   syncClaudeStateToPersist("daemon-turn");
-  void captureAndReportClaudeUsage(readUsage);
+  void captureAndReportClaudeUsage({
+    readUsage,
+    error: resultEvent?.isError ? resultEvent.result : void 0
+  });
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
   );

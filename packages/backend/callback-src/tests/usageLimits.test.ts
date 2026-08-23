@@ -4,6 +4,7 @@ import type { UsageLimitSnapshot } from "../types.js";
 import {
   buildUsageLimitReportArgs,
   captureClaudeUsage,
+  captureClaudeUsageLimitError,
   mergeClaudeRateLimitEvent,
   readClaudeUsageWindows,
   readIsoMs,
@@ -164,6 +165,62 @@ test("a successful usage read replaces vanished windows and clears stream status
     completeness: "complete",
     subscriptionType: "max",
     windows: [{ key: "five_hour", label: "5h", utilization: 12 }],
+  });
+});
+
+test("an unavailable usage read preserves the last observed plan windows", async () => {
+  mergeClaudeRateLimitEvent({
+    rate_limit_info: {
+      status: "allowed",
+      rateLimitType: "five_hour",
+      utilization: 12,
+    },
+  });
+
+  await captureClaudeUsage(async () => ({
+    rate_limits_available: false,
+    rate_limits: null,
+  }));
+
+  expect(S.usageLimitSnapshot).toEqual({
+    completeness: "partial",
+    status: "allowed",
+    windows: [{ key: "five_hour", label: "5h", utilization: 12 }],
+  });
+});
+
+test("an unavailable usage read never creates an empty complete snapshot", async () => {
+  await captureClaudeUsage(async () => ({
+    rate_limits_available: false,
+    rate_limits: null,
+  }));
+  expect(S.usageLimitSnapshot).toBeNull();
+});
+
+test("a spend-limit result becomes a non-destructive rejected snapshot", () => {
+  captureClaudeUsageLimitError(
+    "You've hit your individual spend limit · ask your admin to raise it",
+  );
+  expect(S.usageLimitSnapshot).toEqual({
+    completeness: "partial",
+    status: "rejected",
+  });
+});
+
+test("a spend-limit result keeps authoritative windows when available", async () => {
+  await captureClaudeUsage(async () => ({
+    subscription_type: "max",
+    rate_limits_available: true,
+    rate_limits: {
+      five_hour: { utilization: 100, resets_at: null },
+    },
+  }));
+  captureClaudeUsageLimitError("spend limit reached");
+  expect(S.usageLimitSnapshot).toEqual({
+    completeness: "complete",
+    subscriptionType: "max",
+    status: "rejected",
+    windows: [{ key: "five_hour", label: "5h", utilization: 100 }],
   });
 });
 

@@ -5,7 +5,7 @@ import { expect, test } from "vitest";
 
 const testsDir = dirname(fileURLToPath(import.meta.url));
 const source = (path: string): string =>
-  readFileSync(join(testsDir, path), "utf8");
+  readFileSync(join(testsDir, path), "utf8").replaceAll("\r\n", "\n");
 
 test("the schema supports one indexed open turn and lease reconciliation", () => {
   const schema = source("../convex/schema.ts");

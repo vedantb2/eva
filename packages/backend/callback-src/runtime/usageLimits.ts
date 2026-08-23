@@ -87,6 +87,11 @@ export type ClaudeUsageResponseLike = {
   } | null;
 };
 
+type ClaudeUsageReportInput = {
+  readUsage: () => Promise<ClaudeUsageResponseLike | null>;
+  error?: string;
+};
+
 function readFiniteNumber(value: JsonValue | undefined): number | undefined {
   return typeof value === "number" && Number.isFinite(value)
     ? value
@@ -260,14 +265,21 @@ export async function captureClaudeUsage(
       log("usage limits: claude usage response omitted availability");
       return;
     }
+    // A failed or not-yet-initialized SDK query can report `false` even for an
+    // OAuth account whose prior turn exposed plan windows. Treating that as an
+    // authoritative empty snapshot erases the last useful reading and makes
+    // the UI disappear. No observation is safer than destructive absence; a
+    // genuinely windowless credential simply never creates a chip.
+    if (response.rate_limits_available === false) {
+      log(
+        "usage limits: claude plan usage unavailable — preserving prior reading",
+      );
+      return;
+    }
     const snapshot: UsageLimitSnapshot = { completeness: "complete" };
     const subscriptionType = readNonEmptyString(response.subscription_type);
     if (subscriptionType) snapshot.subscriptionType = subscriptionType;
-    // False for API key, Bedrock and Vertex sessions — there are no plan
-    // windows to read, and `rate_limits` is null.
-    if (response.rate_limits_available === true) {
-      snapshot.windows = readClaudeUsageWindows(response);
-    }
+    snapshot.windows = readClaudeUsageWindows(response);
     // A successful `/usage` read is authoritative. Replacing here drops windows
     // and status that vanished since the last turn instead of preserving them
     // for the lifetime of a warm daemon.
@@ -278,6 +290,26 @@ export async function captureClaudeUsage(
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }
+}
+
+/** Folds provider refusal copy into the plan snapshot shown by the UI. */
+export function captureClaudeUsageLimitError(error: string | undefined): void {
+  if (!error) return;
+  const message = error.toLowerCase();
+  if (
+    !message.includes("out of extra usage") &&
+    !message.includes("rate limit") &&
+    !message.includes("usage limit") &&
+    !message.includes("spend limit") &&
+    !message.includes("token limit exceeded")
+  ) {
+    return;
+  }
+  // Preserve complete windows when the usage endpoint returned them. Without
+  // one, ensureSnapshot creates a partial status-only reading so Convex patches
+  // an existing row instead of replacing its last valid windows.
+  const snapshot = ensureSnapshot();
+  snapshot.status = "rejected";
 }
 
 function windowToJson(window: UsageLimitWindow): JsonObject {
@@ -369,17 +401,18 @@ export async function reportUsageLimits(
 
 /** Captures Claude's authoritative usage view and reports it in that order. */
 export async function captureAndReportClaudeUsage(
-  readUsage: () => Promise<ClaudeUsageResponseLike | null>,
+  input: ClaudeUsageReportInput,
 ): Promise<void> {
-  await captureClaudeUsage(readUsage);
+  await captureClaudeUsage(input.readUsage);
+  captureClaudeUsageLimitError(input.error);
   await reportUsageLimits("claude");
 }
 
 /** Starts the one-shot report without delaying the user-visible completion. */
 export function startClaudeUsageReport(
-  readUsage: () => Promise<ClaudeUsageResponseLike | null>,
+  input: ClaudeUsageReportInput,
 ): void {
-  const report = captureAndReportClaudeUsage(readUsage);
+  const report = captureAndReportClaudeUsage(input);
   pendingClaudeUsageReport = report;
   void report.finally(() => {
     if (pendingClaudeUsageReport === report) pendingClaudeUsageReport = null;

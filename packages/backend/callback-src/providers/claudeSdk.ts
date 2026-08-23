@@ -333,6 +333,7 @@ export async function runClaudeSdkAttempt(
   let timedOutForMaxRuntime = false;
   let sawResult = false;
   let resultIsError = false;
+  let resultErrorMessage = "";
   let queryErrorMessage = "";
 
   const sdk = await loadSdk();
@@ -391,6 +392,9 @@ export async function runClaudeSdkAttempt(
       if (message.type === "result") {
         sawResult = true;
         resultIsError = message.is_error === true;
+        if (resultIsError && typeof message.result === "string") {
+          resultErrorMessage = message.result;
+        }
       }
       if (timedOutForMaxRuntime || timedOutForNoOutput) break;
     }
@@ -441,7 +445,10 @@ export async function runClaudeSdkAttempt(
   // stream's `rate_limit_event`s already populated whichever window they named;
   // this fills in the rest. Reporting is fire-and-forget — the turn's outcome is
   // already decided below and must not depend on it.
-  startClaudeUsageReport(() => readSdkPlanUsage(q));
+  startClaudeUsageReport({
+    readUsage: () => readSdkPlanUsage(q),
+    error: resultErrorMessage || queryErrorMessage || undefined,
+  });
 
   const code =
     sawResult &&

@@ -532,7 +532,10 @@ async function finalizeTurn(
   // Detached after completion and transcript persistence: a degraded SDK
   // control channel must not stall the next queued message or risk losing the
   // persisted transcript. Capture still precedes report inside the helper.
-  void captureAndReportClaudeUsage(readUsage);
+  void captureAndReportClaudeUsage({
+    readUsage,
+    error: resultEvent?.isError ? resultEvent.result : undefined,
+  });
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms",
   );

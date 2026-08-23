@@ -91,6 +91,7 @@ export function isUsageLimitError(errorMsg: string): boolean {
     message.includes("out of extra usage") ||
     message.includes("rate limit") ||
     message.includes("usage limit") ||
+    message.includes("spend limit") ||
     message.includes("token limit exceeded")
   );
 }

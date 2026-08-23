@@ -1,5 +1,9 @@
 # Changelog
 
+## eva-ask teaches in chat without bringing modes back - 2026-08-23
+
+Ask used to be a session mode, and people forgot to switch back to edit. `/eva-ask` is a system skill instead: tutor voice (short, jargon-light, mermaid when a diagram is clearer), explore then explain, write nothing. The description says never auto-trigger, so ordinary questions stay on the default turn. Tools are not fenced — `SESSION_TOOLS` is unchanged.
+
 ## Session-mode columns leave the schema - 2026-08-23
 
 The modes-to-skills deploy left the old columns in the validators so stored rows would still read. `removeSessionModeFields` has now run on prod (`96` sessions, `2970` messages, `4` personas) and the local Convex deployment (`59` / `2467` / `4`). The fields, `sessionModeValidator`, the `designPersonas` table, and the spent migrations are gone, so the schema no longer describes a system that does not exist.

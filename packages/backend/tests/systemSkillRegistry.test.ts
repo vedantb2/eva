@@ -94,6 +94,23 @@ describe("eva-capture content", () => {
   });
 });
 
+describe("eva-ask content", () => {
+  it("hydrates the repo and stays a chat-only tutor", () => {
+    const content = SYSTEM_SKILLS["eva-ask"].buildContent(hydration);
+    expect(content).toContain("acme/web");
+    expect(content).toContain("/tmp/repo/apps/site");
+    expect(content).toContain("Tutor, not a briefing");
+    expect(content).toContain("mermaid");
+    expect(content).toContain("Do not edit source files");
+    expect(content).toContain("eva-plan");
+  });
+
+  it("tells the harness not to auto-trigger", () => {
+    expect(SYSTEM_SKILLS["eva-ask"].description).toContain("never auto-trigger");
+    expect(SYSTEM_SKILLS["eva-ask"].description).not.toContain("\n");
+  });
+});
+
 describe("eva-audit content", () => {
   it("hydrates the base branch and renders the standard categories", () => {
     const content = SYSTEM_SKILLS["eva-audit"].buildContent(hydration);

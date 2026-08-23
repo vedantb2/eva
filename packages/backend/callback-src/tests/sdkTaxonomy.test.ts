@@ -54,6 +54,7 @@ test("parseClaudeSdkTaxonomy captures rate limits without a timeline row", () =>
   ).toEqual([]);
   expect(S.accumulatedSteps).toHaveLength(0);
   expect(S.usageLimitSnapshot).toEqual({
+    completeness: "partial",
     status: "allowed_warning",
     windows: [
       { key: "seven_day", label: "Weekly (all models)", utilization: 91 },

@@ -600,6 +600,9 @@ importers:
       concurrently:
         specifier: ^9.1.2
         version: 9.2.1
+      convex-test:
+        specifier: ^0.0.41
+        version: 0.0.41(convex@1.40.0(@clerk/clerk-react@5.61.6(react-dom@19.2.1(react@19.2.5))(react@19.2.5))(bufferutil@4.1.0)(react@19.2.5)(utf-8-validate@6.0.6))
       cross-env:
         specifier: ^7.0.3
         version: 7.0.3
@@ -5821,6 +5824,11 @@ packages:
         optional: true
       zod:
         optional: true
+
+  convex-test@0.0.41:
+    resolution: {integrity: sha512-GPHeYFOi70n7UtW0eCEQFVhzl/+m8PvbWkDCbKpHLybI1MrScf4sVpGeM0cC2qmtxiduxa2nLPbehPalhh9oyQ==}
+    peerDependencies:
+      convex: ^1.16.4
 
   convex@1.35.1:
     resolution: {integrity: sha512-g23KrTjBiXqRHzWIN0PVFagKjrmFxWUaOSiBsAWPTpXX2rXl0L1F4PR0YpAcMJEzMgfZR9AGymJvLTM+KA6lsQ==}
@@ -14384,6 +14392,10 @@ snapshots:
       react: 19.2.5
       typescript: 7.0.1-rc
       zod: 3.25.76
+
+  convex-test@0.0.41(convex@1.40.0(@clerk/clerk-react@5.61.6(react-dom@19.2.1(react@19.2.5))(react@19.2.5))(bufferutil@4.1.0)(react@19.2.5)(utf-8-validate@6.0.6)):
+    dependencies:
+      convex: 1.40.0(@clerk/clerk-react@5.61.6(react-dom@19.2.1(react@19.2.5))(react@19.2.5))(bufferutil@4.1.0)(react@19.2.5)(utf-8-validate@6.0.6)
 
   convex@1.35.1(@clerk/clerk-react@5.61.6(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6):
     dependencies:

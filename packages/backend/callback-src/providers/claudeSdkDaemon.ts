@@ -66,11 +66,18 @@ import {
 } from "../runtime/usageLimits.js";
 import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
+import {
+  getCurrentTurnLease,
+  setCurrentTurnLease,
+  type TurnLeaseIdentity,
+} from "../runtime/turnLease.js";
 import { log, readResponseJson } from "../utils.js";
 import type { JsonObject, JsonValue } from "../types.js";
+import { DaemonSupervisor } from "../runtime/daemonSupervisor.js";
 import {
   readCancelRequested,
   readStopTaskToolUseIds,
+  readTurnLeaseIdentity,
 } from "./claimPendingTurnParse.js";
 
 function sleep(ms: number): Promise<void> {
@@ -142,8 +149,7 @@ const WATCHDOG_TICK_MS = 5000;
 // Safety net for a cancel whose interrupted `result` never arrives (SDK
 // interrupt() hung, or silently dropped it). The normal per-turn watchdog
 // above is disarmed at cancel time (endWatchedTurn already ran), so without
-// this a lost interrupt would wedge the daemon forever with daemonTurn stuck
-// non-null. See turnCancelInFlight and startTurnWatchdog.
+// this a lost interrupt would wedge the supervisor in `cancelling` forever.
 const CANCEL_SETTLE_TIMEOUT_MS = 30_000;
 
 let turnActive = false;
@@ -153,6 +159,7 @@ let lastMessageAtMs = 0;
 type ClaimedTurn = {
   prompt: string;
   attachmentUrls: string[];
+  turnLease: TurnLeaseIdentity | null;
 };
 
 type DaemonMessage = Record<string, JsonValue>;
@@ -185,12 +192,8 @@ type BackgroundAgentEntry = {
   settledAt?: number;
 };
 
-let daemonTurn: DaemonTurn | null = null;
-let pendingClaimedTurn: ClaimedTurn | null = null;
-let daemonExiting = false;
-let callbackRefreshPending = false;
+const supervisor = new DaemonSupervisor<ClaimedTurn, DaemonTurn>();
 let callbackRefreshDeferralLogged = false;
-let openingSyntheticTurn = false;
 let lastIdleActivityAtMs = Date.now();
 let agentTurnOutput = "";
 let agentTurnStartedAt = 0;
@@ -204,7 +207,6 @@ let sawAssistantThisTurn = { value: false };
 // parks — rather than discards — any turn the same claim also carried, and
 // the message pump drops the interrupted turn's tail instead of streaming or
 // finalizing it.
-let turnCancelInFlight = false;
 let turnCancelRequestedAtMs = 0;
 
 const recognisedSubagentToolUseIds = new Set<string>();
@@ -253,6 +255,7 @@ async function failTurnAndExit(error: string): Promise<never> {
       error,
       activityLog: serializeSteps(S.accumulatedSteps),
       ...(RUN_ID ? { runId: RUN_ID } : {}),
+      ...(getCurrentTurnLease() ?? {}),
     });
   } catch {
     /* best-effort: exit regardless so the daemon does not wedge */
@@ -297,7 +300,7 @@ async function exitWithoutCompletion(reason: string): Promise<void> {
 function startTurnWatchdog(): void {
   const timer = setInterval(() => {
     const now = Date.now();
-    if (turnCancelInFlight) {
+    if (supervisor.isCancellationInFlight) {
       if (now - turnCancelRequestedAtMs > CANCEL_SETTLE_TIMEOUT_MS) {
         // The server already finalized this turn when it drained the
         // cancel, so — like exitWithoutCompletion — do not post a completion
@@ -326,7 +329,7 @@ function startTurnWatchdog(): void {
     }
     if (now - turnStartedAtMs > MAX_TOTAL_RUNTIME_MS) {
       turnActive = false;
-      if (daemonTurn?.kind === "synthetic") {
+      if (supervisor.currentTurn?.kind === "synthetic") {
         void failSyntheticTurn(
           "The assistant exceeded the maximum turn runtime.",
         );
@@ -337,7 +340,7 @@ function startTurnWatchdog(): void {
       }
     } else if (now - lastMessageAtMs > NO_MESSAGE_TIMEOUT_MS) {
       turnActive = false;
-      if (daemonTurn?.kind === "synthetic") {
+      if (supervisor.currentTurn?.kind === "synthetic") {
         void failSyntheticTurn(
           "The assistant stopped responding. Please try again.",
         );
@@ -472,7 +475,7 @@ async function finalizeTurn(
   for (const step of S.accumulatedSteps) step.status = "complete";
   const activityLog = serializeSteps(S.accumulatedSteps);
   const success = resultEvent ? !resultEvent.isError : false;
-  const completionArgs: Record<string, string | boolean | null> = {
+  const completionArgs: Record<string, JsonValue> = {
     [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
     success,
     result: resultEvent?.result ?? S.rawOutput,
@@ -486,6 +489,11 @@ async function finalizeTurn(
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
+  const turnLease = getCurrentTurnLease();
+  if (turnLease) {
+    completionArgs.turnId = turnLease.turnId;
+    completionArgs.leaseGeneration = turnLease.leaseGeneration;
+  }
   // Final streaming reconcile BEFORE completion. The completion mutation
   // finalizes the assistant message, after which the server clears the
   // streaming row and may immediately dequeue the next queued turn — so this
@@ -495,7 +503,7 @@ async function finalizeTurn(
   // as its response until the real reply arrived (stale-reply bug).
   // setFinalizingState (not plain flushStreaming, which would early-return on
   // the already-drained buffer) pushes the now-complete steps and final text.
-  await setFinalizingState();
+  if (await setFinalizingState()) return;
   // Durability BEFORE completion: commit + push the turn's work so a VM death
   // after this point cannot erase it (a hard death snapshots nothing and the
   // next resume rolls the filesystem back — see turnPersist.ts).
@@ -504,6 +512,7 @@ async function finalizeTurn(
   // that was just written.
   const completionSentAt = Date.now();
   await deliverCompletionWithMedia(completionArgs);
+  setCurrentTurnLease(null);
   log(
     "daemon: turn finalized success=" +
       success +
@@ -564,7 +573,7 @@ function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
     return null;
   }
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return { prompt, attachmentUrls: [] };
+    return { prompt, attachmentUrls: [], turnLease: null };
   }
   const inner = result.value;
   const payload =
@@ -574,6 +583,7 @@ function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
   return {
     prompt,
     attachmentUrls: readClaimedAttachmentUrls(payload),
+    turnLease: readTurnLeaseIdentity(result),
   };
 }
 
@@ -981,16 +991,18 @@ function handleSystemTaskMessage(message: DaemonMessage): void {
 }
 
 async function failSyntheticTurn(error: string): Promise<void> {
-  if (daemonTurn?.kind !== "synthetic") {
+  const turn = supervisor.currentTurn;
+  if (turn?.kind !== "synthetic") {
     return;
   }
   log("daemon: failing synthetic turn — " + error);
-  const messageId = daemonTurn.messageId;
+  const messageId = turn.messageId;
   try {
     await flushStreaming();
     for (const step of S.accumulatedSteps) {
       step.status = "complete";
     }
+    const turnLease = getCurrentTurnLease();
     await callConvexWithRetry(
       "mutation",
       COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
@@ -1000,6 +1012,7 @@ async function failSyntheticTurn(error: string): Promise<void> {
         result: null,
         error,
         activityLog: serializeSteps(S.accumulatedSteps),
+        ...(turnLease ?? {}),
       }),
     );
   } catch {
@@ -1007,15 +1020,13 @@ async function failSyntheticTurn(error: string): Promise<void> {
   }
   endWatchedTurn();
   resetTurnState();
-  daemonTurn = null;
+  setCurrentTurnLease(null);
+  supervisor.settleTurn();
   agentTurnOutput = "";
 }
 
 async function ensureSyntheticTurn(): Promise<void> {
-  if (daemonTurn !== null || openingSyntheticTurn) {
-    return;
-  }
-  openingSyntheticTurn = true;
+  if (!supervisor.beginSyntheticOpen()) return;
   try {
     const result = await callConvexWithRetry(
       "mutation",
@@ -1028,7 +1039,11 @@ async function ensureSyntheticTurn(): Promise<void> {
       return;
     }
     resetTurnState();
-    daemonTurn = { kind: "synthetic", messageId };
+    setCurrentTurnLease(readTurnLeaseIdentity(result));
+    if (!supervisor.startTurn({ kind: "synthetic", messageId })) {
+      log("daemon: synthetic turn opened after lifecycle moved; ignoring");
+      return;
+    }
     agentTurnStartedAt = Date.now();
     sawFirstMessageThisTurn = { value: false };
     sawAssistantThisTurn = { value: false };
@@ -1036,15 +1051,17 @@ async function ensureSyntheticTurn(): Promise<void> {
     beginWatchedTurn();
     log("daemon: synthetic turn opened messageId=" + messageId);
   } finally {
-    openingSyntheticTurn = false;
+    supervisor.abandonSyntheticOpen();
   }
 }
 
 async function finalizeSyntheticTurn(output: string): Promise<void> {
-  if (daemonTurn?.kind !== "synthetic") {
+  const turn = supervisor.currentTurn;
+  if (turn?.kind !== "synthetic") {
     return;
   }
-  const messageId = daemonTurn.messageId;
+  supervisor.beginFinalizing();
+  const messageId = turn.messageId;
   await flushStreaming();
   const resultEvent = extractResultEvent(output);
   for (const step of S.accumulatedSteps) {
@@ -1062,6 +1079,11 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
+  const turnLease = getCurrentTurnLease();
+  if (turnLease) {
+    completionArgs.turnId = turnLease.turnId;
+    completionArgs.leaseGeneration = turnLease.leaseGeneration;
+  }
   await callConvexWithRetry(
     "mutation",
     COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
@@ -1070,7 +1092,8 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
   syncClaudeStateToPersist("daemon-synthetic-turn");
   endWatchedTurn();
   resetTurnState();
-  daemonTurn = null;
+  setCurrentTurnLease(null);
+  supervisor.settleTurn();
   agentTurnOutput = "";
   log("daemon: synthetic turn finalized success=" + success);
 }
@@ -1080,7 +1103,11 @@ function startRealAgentTurn(turn: ClaimedTurn, agentRunner: WarmRunner): void {
   // messages must stay queued so the main loop can open a synthetic turn (or
   // attribute them into this real turn once it is live).
   resetTurnState();
-  daemonTurn = { kind: "real" };
+  setCurrentTurnLease(turn.turnLease);
+  if (!supervisor.startTurn({ kind: "real" })) {
+    log("daemon: claimed turn could not enter running state");
+    return;
+  }
   agentTurnStartedAt = Date.now();
   sawFirstMessageThisTurn = { value: false };
   sawAssistantThisTurn = { value: false };
@@ -1100,14 +1127,11 @@ function startRealAgentTurn(turn: ClaimedTurn, agentRunner: WarmRunner): void {
  * turn's result arrives (or the watchdog's cancel-settle timeout fires).
  */
 function handleCancelRequested(agentRunner: WarmRunner): void {
-  if (daemonTurn === null) {
+  if (supervisor.currentTurn === null) {
     log("daemon: cancelRequested with no active turn — ignored");
     return;
   }
-  if (turnCancelInFlight) {
-    return;
-  }
-  turnCancelInFlight = true;
+  if (!supervisor.beginCancellation()) return;
   turnCancelRequestedAtMs = Date.now();
   endWatchedTurn();
   log("daemon: cancel requested — interrupting in-flight turn");
@@ -1119,31 +1143,31 @@ function handleCancelRequested(agentRunner: WarmRunner): void {
 
 function startClaimWatcher(agentRunner: WarmRunner): void {
   void (async () => {
-    while (!daemonExiting) {
+    while (!supervisor.isStopping) {
       if (callbackScriptWentStaleOnDisk()) {
-        callbackRefreshPending = true;
+        supervisor.noticeRefresh();
       }
-      if (callbackRefreshPending) {
-        const activeWork =
-          turnActive ||
-          daemonTurn !== null ||
-          pendingClaimedTurn !== null ||
-          turnCancelInFlight ||
-          unsettledBackgroundAgents.size > 0 ||
-          agentRunner.hasPending();
-        if (activeWork) {
-          if (!callbackRefreshDeferralLogged) {
-            log(
-              "daemon: callback script updated on disk — deferring respawn until active work settles",
-            );
-            callbackRefreshDeferralLogged = true;
-          }
-          await sleep(PROMPT_POLL_INTERVAL_MS);
-          continue;
+      const refreshDecision = supervisor.decideRefresh({
+        watchedTurnActive: turnActive,
+        backgroundAgentCount: unsettledBackgroundAgents.size,
+        sdkMessagePending: agentRunner.hasPending(),
+      });
+      if (refreshDecision.action === "defer") {
+        if (!callbackRefreshDeferralLogged) {
+          log(
+            "daemon: callback script updated on disk — deferring respawn until active work settles (" +
+              refreshDecision.blocker +
+              ")",
+          );
+          callbackRefreshDeferralLogged = true;
         }
+        await sleep(PROMPT_POLL_INTERVAL_MS);
+        continue;
+      }
+      if (refreshDecision.action === "exit") {
         log("daemon: callback script updated on disk — exiting for respawn");
-        daemonExiting = true;
-        return;
+        supervisor.stop();
+        process.exit(0);
       }
       try {
         const claimed = await callConvexWithRetry(
@@ -1167,18 +1191,21 @@ function startClaimWatcher(agentRunner: WarmRunner): void {
           // any branch that does not park/start the claim loses that prompt.
           // Normal startExecute queues while a real turn/workflow is active, so
           // the discard paths below should stay unreachable — log clearly if not.
-          if (daemonTurn === null) {
-            pendingClaimedTurn = turn;
-          } else if (daemonTurn.kind === "synthetic") {
-            pendingClaimedTurn = turn;
-          } else if (turnCancelInFlight) {
+          const currentTurn = supervisor.currentTurn;
+          if (
+            currentTurn === null ||
+            currentTurn.kind === "synthetic" ||
+            supervisor.isCancellationInFlight
+          ) {
             // The same claim response can carry both the cancel flag and the
             // next queued prompt — cancelling dequeues it server-side in the
-            // same mutation. daemonTurn stays non-null until the cancelled
+            // same mutation. The supervisor stays cancelling until the old
             // turn's result settles in runDaemonMessagePump, so park this
             // instead of discarding it (that would lose the prompt for good,
             // since claimPendingTurn already cleared it server-side).
-            pendingClaimedTurn = turn;
+            if (!supervisor.parkClaim(turn)) {
+              log("daemon: duplicate claimed turn ignored");
+            }
           } else {
             log(
               "daemon: claim discarded while real turn active (prompt lost; pendingTurn was already cleared)",
@@ -1188,10 +1215,7 @@ function startClaimWatcher(agentRunner: WarmRunner): void {
       } catch {
         /* retry on next poll */
       }
-      const turnInFlight =
-        daemonTurn !== null ||
-        pendingClaimedTurn !== null ||
-        turnCancelInFlight;
+      const turnInFlight = supervisor.hasWork;
       const recentlyActive =
         Date.now() - lastIdleActivityAtMs < PROMPT_POLL_FAST_WINDOW_MS;
       await sleep(
@@ -1204,17 +1228,16 @@ function startClaimWatcher(agentRunner: WarmRunner): void {
 }
 
 async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
-  while (!daemonExiting) {
-    if (daemonTurn === null && pendingClaimedTurn !== null) {
-      const turn = pendingClaimedTurn;
-      pendingClaimedTurn = null;
+  while (!supervisor.isStopping) {
+    if (supervisor.currentTurn === null && supervisor.pendingClaim !== null) {
+      const turn = supervisor.takeClaim();
+      if (turn === null) continue;
       startRealAgentTurn(turn, agentRunner);
       continue;
     }
 
     if (
-      daemonTurn === null &&
-      pendingClaimedTurn === null &&
+      !supervisor.hasWork &&
       unsettledBackgroundAgents.size === 0 &&
       Date.now() - lastIdleActivityAtMs > IDLE_EXIT_MS
     ) {
@@ -1222,14 +1245,14 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
       return;
     }
 
-    if (daemonTurn === null && !agentRunner.hasPending()) {
+    if (supervisor.currentTurn === null && !agentRunner.hasPending()) {
       await sleep(PROMPT_POLL_INTERVAL_MS);
       continue;
     }
 
     const message = await agentRunner.waitMessage();
     if (message === null) {
-      if (turnCancelInFlight) {
+      if (supervisor.isCancellationInFlight) {
         // The SDK query's async iterable ended while we were waiting out an
         // interrupted turn's tail. The server already finalized the
         // user-facing turn when it drained the cancel, so exit like
@@ -1240,7 +1263,7 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
         return;
       }
       if (turnActive) {
-        if (daemonTurn?.kind === "synthetic") {
+        if (supervisor.currentTurn?.kind === "synthetic") {
           await failSyntheticTurn(
             "The assistant ended without a reply. Please try again.",
           );
@@ -1265,7 +1288,7 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
     handleSystemTaskMessage(message);
     handleBackgroundTasksChanged(message);
 
-    if (turnCancelInFlight) {
+    if (supervisor.isCancellationInFlight) {
       if (message.type !== "result") {
         // Drop the interrupted turn's tail from user-visible streaming (no
         // processRealtimeStdoutChunk) — the server already finalized the
@@ -1278,18 +1301,18 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
       // the cancel. Reset per-turn state and let the pump either pick up a
       // parked turn (next loop iteration) or go idle.
       resetTurnState();
-      daemonTurn = null;
+      setCurrentTurnLease(null);
+      supervisor.settleTurn();
       agentTurnOutput = "";
-      turnCancelInFlight = false;
       continue;
     }
 
-    if (message.type === "result" && daemonTurn === null) {
+    if (message.type === "result" && supervisor.currentTurn === null) {
       log("daemon: result with no live turn — ignored");
       continue;
     }
 
-    if (daemonTurn === null) {
+    if (supervisor.currentTurn === null) {
       if (!shouldMintSyntheticTurn(message)) {
         const messageType =
           typeof message.type === "string" ? message.type : "?";
@@ -1301,7 +1324,7 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
         continue;
       }
       await ensureSyntheticTurn();
-      if (daemonTurn === null) {
+      if (supervisor.currentTurn === null) {
         continue;
       }
       agentTurnOutput = "";
@@ -1328,22 +1351,23 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
         "ms after turn start",
     );
 
-    if (daemonTurn?.kind === "synthetic") {
+    if (supervisor.currentTurn?.kind === "synthetic") {
       await finalizeSyntheticTurn(agentTurnOutput);
     } else {
+      supervisor.beginFinalizing();
       await finalizeTurn(agentTurnOutput, agentRunner.readUsage);
       log(
         "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms",
       );
-      daemonTurn = null;
+      supervisor.settleTurn();
     }
     // Leave any already-queued SDK messages in the pump. The next loop
     // iteration will ensureSyntheticTurn() / handle them — draining here
     // orphaned background-agent "report back" continuations (session 43).
 
-    if (pendingClaimedTurn !== null && daemonTurn === null) {
-      const parked = pendingClaimedTurn;
-      pendingClaimedTurn = null;
+    if (supervisor.pendingClaim !== null && supervisor.currentTurn === null) {
+      const parked = supervisor.takeClaim();
+      if (parked === null) continue;
       startRealAgentTurn(parked, agentRunner);
     }
   }
@@ -1388,7 +1412,7 @@ function handleDaemonMessage(
 
 /**
  * Session-lifetime agent query pump. Turn boundaries are state changes (see
- * daemonTurn), not loop exits — the same query() serves every turn for the
+ * supervisor's running turn), not loop exits — the same query() serves every turn for the
  * life of the daemon.
  */
 function createWarmAgentRunner(
@@ -1552,7 +1576,7 @@ export async function runSdkDaemon(): Promise<void> {
       return;
     }
     const ownerLabel = Number.isNaN(owner) ? "none" : String(owner);
-    if (turnActive) {
+    if (supervisor.hasWork) {
       if (!deposedLogged) {
         deposedLogged = true;
         log(
@@ -1607,6 +1631,7 @@ export async function runSdkDaemon(): Promise<void> {
         result: null,
         error: "Agent SDK daemon failed: " + messageText,
         activityLog: serializeSteps(S.accumulatedSteps),
+        ...(getCurrentTurnLease() ?? {}),
       });
     } catch {
       /* ignore */

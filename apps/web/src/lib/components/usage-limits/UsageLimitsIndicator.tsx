@@ -26,7 +26,7 @@ export function UsageLimitsIndicator({ repoId }: UsageLimitsIndicatorProps) {
   const now = useMinuteNow();
   const rows = useQuery(
     api.usageLimits.getByRepo,
-    simpleView ? "skip" : { repoId },
+    simpleView ? "skip" : { repoId, now },
   );
   if (simpleView) return null;
   const summary = rows === undefined ? undefined : chipSummary(rows, now);

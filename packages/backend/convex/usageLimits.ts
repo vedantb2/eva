@@ -126,7 +126,11 @@ export const report = authMutation({
  * provider can appear more than once — once per connected account it has run on.
  */
 export const getByRepo = authQuery({
-  args: { repoId: v.id("githubRepos") },
+  args: {
+    repoId: v.id("githubRepos"),
+    /** Quantized by the caller so expiry remains deterministic and cacheable. */
+    now: v.number(),
+  },
   returns: v.array(agentUsageLimitValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
@@ -134,15 +138,15 @@ export const getByRepo = authQuery({
       .query("agentUsageLimits")
       .withIndex("by_repo_provider_account", (q) => q.eq("repoId", args.repoId))
       .collect();
-    const now = Date.now();
     const visible = [];
     for (const row of rows) {
-      if (!isUsageLimitReadingFresh(row.capturedAt, now)) continue;
+      if (!isUsageLimitReadingFresh(row.capturedAt, args.now)) continue;
       const next = { ...row };
       const reportedWindows = next.windows;
       if (reportedWindows) {
         const activeWindows = reportedWindows.filter(
-          (window) => window.resetsAt === undefined || window.resetsAt > now,
+          (window) =>
+            window.resetsAt === undefined || window.resetsAt > args.now,
         );
         if (activeWindows.length > 0) {
           next.windows = activeWindows;

@@ -22,6 +22,10 @@ import { runCodexAppServerDaemon } from "./providers/codexAppServerDaemon.js";
 import { runCursorDaemon } from "./providers/cursorSdkDaemon.js";
 import { fetchWithTimeout, callConvexWithRetry } from "./http/convexClient.js";
 import { callbackState as S } from "./runtime/state.js";
+import {
+  appendCurrentTurnLease,
+  setCurrentTurnLease,
+} from "./runtime/turnLease.js";
 import { waitForPendingClaudeUsageReport } from "./runtime/usageLimits.js";
 import { persistTurnWork } from "./runtime/turnPersist.js";
 import { materializeSystemSkills } from "./runtime/systemSkills.js";
@@ -45,6 +49,7 @@ import {
   runProviderAttempt,
   syncProviderStateToPersist,
 } from "./providers/attempts.js";
+import type { JsonObject } from "./types.js";
 import {
   hasNewTaskCommitSince,
   log,
@@ -212,7 +217,7 @@ try {
     log("skipping post-attempt sync because result-event sync already ran");
   }
 
-  await setFinalizingState();
+  if (await setFinalizingState()) process.exit(0);
 
   // Cursor can flush partial assistant text while a SIGTERM/SIGKILL is tearing
   // down the process. extractResultEvent deliberately falls back to that text,
@@ -326,7 +331,7 @@ try {
       S.accumulatedSteps.length,
   );
 
-  const completionArgs: Record<string, string | boolean | null> = {
+  const completionArgs: JsonObject = {
     [ENTITY_ID_FIELD ?? "entityId"]: ENTITY_ID ?? "",
     success: completionSuccess,
     result: finalResultEvent?.result ?? S.rawOutput,
@@ -340,6 +345,7 @@ try {
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
+  appendCurrentTurnLease(completionArgs);
 
   // Durability BEFORE completion: commit + push the turn's work so a VM death
   // after this point cannot erase it (no-op for task runs — the commit gate
@@ -348,6 +354,7 @@ try {
 
   try {
     await deliverCompletionWithMedia(completionArgs);
+    setCurrentTurnLease(null);
     syncProviderStateToPersist("completion");
     await stopStreamingLoops();
     await waitForPendingClaudeUsageReport();
@@ -377,7 +384,7 @@ try {
   writeDoneFile("fatal-error", {
     error: err instanceof Error ? err.message : String(err),
   });
-  const errorArgs: Record<string, string | boolean | null> = {
+  const errorArgs: JsonObject = {
     [ENTITY_ID_FIELD ?? "entityId"]: ENTITY_ID ?? "",
     success: false,
     result: null,
@@ -396,6 +403,7 @@ try {
     activityLog: serializeSteps(S.accumulatedSteps),
   };
   if (RUN_ID) errorArgs.runId = RUN_ID;
+  appendCurrentTurnLease(errorArgs);
   try {
     await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", errorArgs);
   } catch {

@@ -2151,12 +2151,13 @@ async function uploadMediaFile(filePath, mimeType) {
   }
   throw new Error("Missing storageId in upload response");
 }
-async function attachChatMediaIfAny(uploaded) {
+async function attachChatMediaIfAny(uploaded, target) {
   if (uploaded.length === 0) return;
   const mediaArgs = {
     parentId: ENTITY_ID ?? "",
     mediaStorageIds: uploaded.map((item) => item.storageId)
   };
+  if (target.messageId) mediaArgs.messageId = target.messageId;
   await callConvexWithRetry("action", "screenshots:attachMedia", mediaArgs, 3);
 }
 async function deliverCompletionWithMedia(completionArgs) {
@@ -2165,14 +2166,14 @@ async function deliverCompletionWithMedia(completionArgs) {
     COMPLETION_MUTATION ?? "",
     completionArgs
   );
-  await uploadAndAttachSandboxMedia();
+  await uploadAndAttachSandboxMedia({});
 }
 function archivePostedFile(dir, file) {
   const postedDir = dir + "/.posted";
   mkdirSync2(postedDir, { recursive: true });
   renameSync(dir + "/" + file, postedDir + "/" + file);
 }
-async function uploadAndAttachSandboxMedia() {
+async function uploadAndAttachSandboxMedia(target) {
   if (RUN_ID) return;
   const uploaded = [];
   const seenDigests = /* @__PURE__ */ new Set();
@@ -2224,7 +2225,7 @@ async function uploadAndAttachSandboxMedia() {
     }
   }
   try {
-    await attachChatMediaIfAny(uploaded);
+    await attachChatMediaIfAny(uploaded, target);
   } catch (e) {
     console.error("Failed to attach sandbox media:", e);
   }
@@ -5930,6 +5931,7 @@ async function finalizeSyntheticTurn(output) {
     COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
     completionArgs
   );
+  await uploadAndAttachSandboxMedia({ messageId });
   syncClaudeStateToPersist("daemon-synthetic-turn");
   endWatchedTurn();
   resetTurnState();

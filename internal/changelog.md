@@ -1,5 +1,9 @@
 # Changelog
 
+## Synthetic Claude replies now deliver their screenshots - 2026-08-23
+
+Claude background-agent continuations complete through a synthetic-turn mutation, but that path bypassed the shared sandbox media harvester used by normal turns. The reply could claim screenshots were attached while its message stored no media at all, leaving the files to be harvested by a later turn. Synthetic completion now runs the same uploader after its message exists and passes the exact synthetic message id through the screenshots action, so a concurrently dequeued placeholder cannot steal the captures. Legacy callback bundles still fall back to the latest-message behavior.
+
 ## Background task notifications no longer consume user turns - 2026-08-23
 
 Claude's warm query can emit an empty, zero-token `task-notification` result immediately before processing a newly queued user prompt. Eva treated that stream boundary as a successful answer, finalized the user's placeholder with “I couldn't process your message,” then rendered the real response as a separate synthetic continuation. The daemon now ignores that exact zero-work result and preserves the active turn for the response already behind it; the one-shot fallback retries the prompt once and otherwise fails instead of manufacturing a successful empty reply. Provider errors, non-empty results, and real zero-text turns remain authoritative.

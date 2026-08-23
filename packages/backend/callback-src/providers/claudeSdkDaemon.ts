@@ -33,6 +33,7 @@ import {
 import {
   deliverCompletionWithMedia,
   extractResultEvent,
+  uploadAndAttachSandboxMedia,
 } from "../runtime/completion.js";
 import {
   flushStreaming,
@@ -1093,6 +1094,10 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
     COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
     completionArgs,
   );
+  // Synthetic completion has an exact placeholder id. Target it explicitly:
+  // completeSyntheticTurn may dequeue another message before media finishes,
+  // so attaching to the latest message could put these captures on that turn.
+  await uploadAndAttachSandboxMedia({ messageId });
   syncClaudeStateToPersist("daemon-synthetic-turn");
   endWatchedTurn();
   resetTurnState();

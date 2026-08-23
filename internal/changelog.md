@@ -1,5 +1,15 @@
 # Changelog
 
+## Regression tests for the shared attachment materialiser and the merge verdict - 2026-08-23
+
+Two of the past day's changes shipped without a test. Both consolidated logic that three or more callers had been carrying their own copy of, which is the point at which a single wrong branch stops being one surface's bug.
+
+- `materializeTurnAttachments` replaced three copied daemon implementations, so Claude, Codex and Cursor now share one download-and-note path. Every failure in it is silent — the turn still runs, the agent simply never sees the pasted screenshot. The tests stub `fetch` and let the real function write to `/tmp`: a failed download is skipped while the survivors keep their own attachment index, a thrown download does not fail the turn, and a turn where every download fails gets no note at all rather than one pointing at files that were never written
+- The daemon path and the CLI launch path (`convex/_sandbox_runtime/attachments.ts`) are separate bundles that cannot import each other, so the extension table, the flat `/tmp/eva-attachment-<n>.<ext>` scheme and the note text are duplicated by design. Parity is now asserted against the launch path's own helpers over thirteen mime types, including parameters, casing and a missing header, rather than restated by hand. A companion contract test holds the de-duplication itself: no daemon carries a copy, and the deployed bundle carries exactly one — which also catches a bundle that was never rebuilt
+- `prMergeState`'s blocker precedence had no coverage. The tests pin the order that matters: a closed or merged pull request reports no blocker even when every mergeability field still says "conflicted", a draft outranks the conflicts underneath it, and GitHub's momentary `mergeable: null` reads as pending rather than as a false "cannot merge". Remedies are checked for presence as well as absence, since offering a session for a cause GitHub has not named spends a sandbox to reach the same dead end. The check roll-up is covered for worst-outcome-wins and for the "All checks have passed" line, which must not appear while anything is failing, running or merely skipped
+- This is the same class of bug as commit 796b4087 ("keep Add comment available after a pull request closes"), approached from the side that can be tested. The button itself is JSX in a node-environment suite, so it stays uncovered; the state machine deciding what the header may offer no longer is
+- The 38-field `PrOverview` fixture moved out of `prTimelineItems.test.ts` into `prOverviewFixture.ts` so both review test files share one shape and cannot drift as the validator grows
+
 ## Regression tests for yesterday's fixes - 2026-08-22
 
 Four of the past day's bug fixes had no test standing behind them. Each of these covers the exact failure mode, not the surrounding feature.

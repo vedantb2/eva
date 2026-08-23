@@ -7,6 +7,7 @@ import { isLegacySessionExecuting } from "../convex/_chat/turnProjection";
 import { rollbackQueuedSessionStart } from "../convex/_queues/helpers";
 import {
   appendCurrentTurnLease,
+  canSendTurnHeartbeat,
   getLeaseTerminalReason,
   noteHeartbeatResponse,
   setCurrentTurnLease,
@@ -110,6 +111,24 @@ describe("turn lifecycle integration", () => {
 });
 
 describe("turn lifecycle rollout", () => {
+  test("a cold daemon waits for a claimed lease before heartbeating", () => {
+    expect(
+      canSendTurnHeartbeat({
+        claimMutation: "sessionWorkflow:claimPendingTurn",
+        turnLease: null,
+      }),
+    ).toBe(false);
+    expect(
+      canSendTurnHeartbeat({
+        claimMutation: "sessionWorkflow:claimPendingTurn",
+        turnLease: { turnId: "turn-1", leaseGeneration: 1 },
+      }),
+    ).toBe(true);
+    expect(
+      canSendTurnHeartbeat({ claimMutation: undefined, turnLease: null }),
+    ).toBe(true);
+  });
+
   test("legacy execution fields are consulted only before the durable cutover", () => {
     expect(
       isLegacySessionExecuting({

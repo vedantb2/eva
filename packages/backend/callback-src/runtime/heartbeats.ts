@@ -3,6 +3,7 @@ import {
   HEARTBEAT_FATAL_BURST,
   HEARTBEAT_FATAL_SLOW_COUNT,
   HEARTBEAT_FATAL_SLOW_WINDOW_MS,
+  CLAIM_MUTATION,
   READY_FILE,
   SCRIPT_STARTED_AT,
   STREAMING_ENTITY_ID,
@@ -22,10 +23,21 @@ import { writeFileSync } from "fs";
 import { callbackState as S } from "./state.js";
 import { flushBackgroundShellQueue } from "./backgroundShells.js";
 import { serializeSteps } from "../parse/stepBudget.js";
-import { getLeaseTerminalReason } from "./turnLease.js";
+import {
+  canSendTurnHeartbeat,
+  getCurrentTurnLease,
+  getLeaseTerminalReason,
+} from "./turnLease.js";
 
 let flushInterval: ReturnType<typeof setInterval> | null = null;
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+
+function ownsHeartbeatLease(): boolean {
+  return canSendTurnHeartbeat({
+    claimMutation: CLAIM_MUTATION,
+    turnLease: getCurrentTurnLease(),
+  });
+}
 
 export function buildStreamingPayload(): string {
   return serializeSteps(S.accumulatedSteps);
@@ -101,6 +113,7 @@ function noteHeartbeatFailure(error: Error | string): void {
 export async function sendStreamingHeartbeatUpdate(
   payload: string,
 ): Promise<boolean> {
+  if (!ownsHeartbeatLease()) return true;
   try {
     await callStreamingHeartbeat(
       STREAMING_ENTITY_ID ?? "",
@@ -118,6 +131,10 @@ export async function sendStreamingHeartbeatUpdate(
 
 export async function flushStreaming(): Promise<void> {
   if (S.flushInProgress) return;
+  if (!ownsHeartbeatLease()) {
+    void flushBackgroundShellQueue();
+    return;
+  }
   if (S.rawOutput.length <= S.lastProcessed) {
     // Still drain bg-shell registrations even when there is no new stream text.
     void flushBackgroundShellQueue();
@@ -164,6 +181,7 @@ export async function flushStreaming(): Promise<void> {
 const PING_STUCK_MS = 45_000;
 
 async function heartbeatPing(): Promise<void> {
+  if (!ownsHeartbeatLease()) return;
   if (
     S.pingInProgress &&
     S.pingStartedAt > 0 &&
@@ -204,6 +222,10 @@ async function heartbeatPing(): Promise<void> {
 }
 
 async function initialHeartbeat(): Promise<void> {
+  if (!ownsHeartbeatLease()) {
+    log("initialHeartbeat skipped: daemon is waiting to claim a turn");
+    return;
+  }
   const startedAt = Date.now();
   let attempt = 0;
   while (attempt <= 1) {

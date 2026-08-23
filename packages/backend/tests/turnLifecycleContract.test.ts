@@ -117,3 +117,15 @@ test("both warm daemons propagate claimed lease identity", () => {
     expect(daemon).toContain("setCurrentTurnLease(turn.turnLease)");
   }
 });
+
+test("cold daemons cannot heartbeat before claiming a durable turn", () => {
+  const heartbeats = source("../callback-src/runtime/heartbeats.ts");
+  const lease = source("../callback-src/runtime/turnLease.ts");
+  expect(heartbeats).toContain("if (!ownsHeartbeatLease())");
+  expect(heartbeats).toContain(
+    'initialHeartbeat skipped: daemon is waiting to claim a turn',
+  );
+  expect(lease).toContain(
+    "return claimMutation === undefined || turnLease !== null;",
+  );
+});

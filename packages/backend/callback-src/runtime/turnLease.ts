@@ -24,6 +24,17 @@ export function getCurrentTurnLease(): TurnLeaseIdentity | null {
   return currentTurnLease;
 }
 
+/** Daemons must not heartbeat until claimPendingTurn grants turn ownership. */
+export function canSendTurnHeartbeat({
+  claimMutation,
+  turnLease,
+}: {
+  claimMutation: string | undefined;
+  turnLease: TurnLeaseIdentity | null;
+}): boolean {
+  return claimMutation === undefined || turnLease !== null;
+}
+
 /** Adds the current fence to any callback mutation payload when one is owned. */
 export function appendCurrentTurnLease(args: JsonObject): void {
   const identity = getCurrentTurnLease();

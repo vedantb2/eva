@@ -686,6 +686,12 @@ var terminalReason = null;
 function getCurrentTurnLease() {
   return currentTurnLease;
 }
+function canSendTurnHeartbeat({
+  claimMutation,
+  turnLease
+}) {
+  return claimMutation === void 0 || turnLease !== null;
+}
 function appendCurrentTurnLease(args) {
   const identity = getCurrentTurnLease();
   if (identity === null) return;
@@ -851,13 +857,13 @@ async function callStreamingHeartbeatTouchOnce(entityId) {
     body.set("hmac", STREAMING_HMAC);
     body.set("touchOnly", "1");
     appendTurnLease(body);
-    const response = await postSignedForm(
+    const response2 = await postSignedForm(
       CONVEX_SITE_URL + "/api/streaming/heartbeat",
       body,
       "Streaming heartbeat touch"
     );
-    noteHeartbeatResponse(response);
-    return response;
+    noteHeartbeatResponse(response2);
+    return response2;
   }
   const identity = getCurrentTurnLease();
   const response = identity === null ? await callConvex("mutation", "turns:legacyHeartbeatFromCallback", {
@@ -883,13 +889,13 @@ async function callStreamingHeartbeatOnce(entityId, currentActivity, currentCont
     if (pendingQuestion) {
       body.set("pendingQuestion", pendingQuestion);
     }
-    const response = await postSignedForm(
+    const response2 = await postSignedForm(
       CONVEX_SITE_URL + "/api/streaming/heartbeat",
       body,
       "Streaming heartbeat"
     );
-    noteHeartbeatResponse(response);
-    return response;
+    noteHeartbeatResponse(response2);
+    return response2;
   }
   const args = {
     entityId,
@@ -901,12 +907,12 @@ async function callStreamingHeartbeatOnce(entityId, currentActivity, currentCont
     args.pendingQuestion = pendingQuestion;
   }
   const identity = getCurrentTurnLease();
-  const path = identity === null ? "turns:legacyHeartbeatFromCallback" : "turns:heartbeatFromCallback";
+  const path3 = identity === null ? "turns:legacyHeartbeatFromCallback" : "turns:heartbeatFromCallback";
   if (identity !== null) {
     args.turnId = identity.turnId;
     args.leaseGeneration = identity.leaseGeneration;
   }
-  const response = await callConvex("mutation", path, args);
+  const response = await callConvex("mutation", path3, args);
   noteHeartbeatResponse(response);
   return response;
 }
@@ -4196,6 +4202,12 @@ function appendStreamedContent(text, isBlockBoundary = false) {
 import { writeFileSync as writeFileSync7 } from "fs";
 var flushInterval = null;
 var heartbeatInterval = null;
+function ownsHeartbeatLease() {
+  return canSendTurnHeartbeat({
+    claimMutation: CLAIM_MUTATION,
+    turnLease: getCurrentTurnLease()
+  });
+}
 function buildStreamingPayload() {
   return serializeSteps(callbackState.accumulatedSteps);
 }
@@ -4239,6 +4251,7 @@ function noteHeartbeatFailure(error) {
   }
 }
 async function sendStreamingHeartbeatUpdate(payload) {
+  if (!ownsHeartbeatLease()) return true;
   try {
     await callStreamingHeartbeat(
       STREAMING_ENTITY_ID ?? "",
@@ -4255,6 +4268,10 @@ async function sendStreamingHeartbeatUpdate(payload) {
 }
 async function flushStreaming() {
   if (callbackState.flushInProgress) return;
+  if (!ownsHeartbeatLease()) {
+    void flushBackgroundShellQueue();
+    return;
+  }
   if (callbackState.rawOutput.length <= callbackState.lastProcessed) {
     void flushBackgroundShellQueue();
     return;
@@ -4295,6 +4312,7 @@ async function flushStreaming() {
 }
 var PING_STUCK_MS = 45e3;
 async function heartbeatPing() {
+  if (!ownsHeartbeatLease()) return;
   if (callbackState.pingInProgress && callbackState.pingStartedAt > 0 && Date.now() - callbackState.pingStartedAt < PING_STUCK_MS) {
     return;
   }
@@ -4328,6 +4346,10 @@ async function heartbeatPing() {
   }
 }
 async function initialHeartbeat() {
+  if (!ownsHeartbeatLease()) {
+    log("initialHeartbeat skipped: daemon is waiting to claim a turn");
+    return;
+  }
   const startedAt = Date.now();
   let attempt = 0;
   while (attempt <= 1) {
@@ -5396,7 +5418,11 @@ async function finalizeTurn(output, readUsage) {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
-  appendCurrentTurnLease(completionArgs);
+  const turnLease = getCurrentTurnLease();
+  if (turnLease) {
+    completionArgs.turnId = turnLease.turnId;
+    completionArgs.leaseGeneration = turnLease.leaseGeneration;
+  }
   if (await setFinalizingState()) return;
   persistTurnWork();
   const completionSentAt = Date.now();
@@ -7793,7 +7819,7 @@ function materializeSystemSkills() {
   }
 }
 
-// ../../../../eva/node_modules/.pnpm/@openai+codex-sdk@0.146.0/node_modules/@openai/codex-sdk/dist/index.js
+// ../../node_modules/.pnpm/@openai+codex-sdk@0.146.0/node_modules/@openai/codex-sdk/dist/index.js
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
@@ -9239,11 +9265,7 @@ try {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
-  const turnLease = getCurrentTurnLease();
-  if (turnLease) {
-    completionArgs.turnId = turnLease.turnId;
-    completionArgs.leaseGeneration = turnLease.leaseGeneration;
-  }
+  appendCurrentTurnLease(completionArgs);
   persistTurnWork();
   try {
     await deliverCompletionWithMedia(completionArgs);

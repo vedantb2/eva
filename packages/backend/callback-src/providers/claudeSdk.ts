@@ -34,8 +34,7 @@ import {
 import { buildCanUseTool } from "../runtime/pendingQuestion.js";
 import { callbackState as S, resetAttemptState } from "../runtime/state.js";
 import {
-  captureClaudeUsage,
-  reportUsageLimits,
+  startClaudeUsageReport,
   type ClaudeUsageResponseLike,
 } from "../runtime/usageLimits.js";
 import type { ProviderAttemptResult, SessionMode } from "../types.js";
@@ -442,8 +441,7 @@ export async function runClaudeSdkAttempt(
   // stream's `rate_limit_event`s already populated whichever window they named;
   // this fills in the rest. Reporting is fire-and-forget — the turn's outcome is
   // already decided below and must not depend on it.
-  await captureClaudeUsage(() => readSdkPlanUsage(q));
-  void reportUsageLimits("claude");
+  startClaudeUsageReport(() => readSdkPlanUsage(q));
 
   const code =
     sawResult &&

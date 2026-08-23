@@ -7,18 +7,12 @@
  * change here. Only the commands that cannot work in Eva are named.
  */
 
-/** Shape reported by the sandbox — the SDK's `SlashCommand`, trimmed. */
-export interface ReportedHarnessCommand {
-  name: string;
-  description: string;
-  argumentHint?: string;
-}
+import type { Infer } from "convex/values";
+import { harnessSkillValidator } from "../_validators/tableFields";
 
-export interface HarnessCatalogSkill {
-  name: string;
-  description: string;
-  argumentHint?: string;
-}
+/** The schema validator is the single source for reported and stored skills. */
+export type HarnessCatalogSkill = Infer<typeof harnessSkillValidator>;
+export type ReportedHarnessCommand = HarnessCatalogSkill;
 
 /**
  * Terminal-UI and session-local commands. They either act on the interactive

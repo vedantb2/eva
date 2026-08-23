@@ -37,7 +37,8 @@ var CONVEX_URL = process.env.CONVEX_URL;
 var CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
 var CONVEX_TOKEN = process.env.CONVEX_TOKEN;
 var STREAMING_HMAC = process.env.STREAMING_HMAC || "";
-var HARNESS_CATALOG_HMAC = process.env.HARNESS_CATALOG_HMAC || "";
+var HARNESS_CATALOG_TOKEN = process.env.HARNESS_CATALOG_TOKEN || "";
+var HARNESS_CATALOG_SANDBOX_ID = process.env.HARNESS_CATALOG_SANDBOX_ID || "";
 var ENTITY_ID = process.env.ENTITY_ID;
 var STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 var RUN_ID = process.env.RUN_ID || null;
@@ -443,6 +444,7 @@ var callbackState = {
   awaitingQuestionAnswer: false,
   usageLimitSnapshot: null,
   lastReportedUsageLimits: "",
+  lastReportedUsageLimitsAt: 0,
   doneFileWritten: false,
   flushInProgress: false,
   pingInProgress: false,
@@ -690,14 +692,15 @@ function buildRetryDelayMs(attempt) {
   const jitter = Math.floor(Math.random() * 500);
   return exponential + jitter;
 }
-async function withRetries(label, maxRetries, run) {
+async function withRetries(label, maxRetries, run, shouldRetry = () => true) {
   let attempt = 0;
   while (true) {
     try {
       return await run();
     } catch (e) {
+      const error = e instanceof Error ? e : new Error(String(e));
       attempt++;
-      if (attempt > maxRetries) throw e;
+      if (attempt > maxRetries || !shouldRetry(error)) throw e;
       const delayMs = buildRetryDelayMs(attempt);
       console.error(
         label + " attempt " + attempt + " failed, retrying in " + delayMs + "ms:",
@@ -707,6 +710,17 @@ async function withRetries(label, maxRetries, run) {
     }
   }
 }
+var HttpResponseError = class extends Error {
+  status;
+  constructor(label, status, body) {
+    super(label + " failed: " + status + " " + body);
+    this.name = "HttpResponseError";
+    this.status = status;
+  }
+};
+function shouldRetryHttpError(error) {
+  return !(error instanceof HttpResponseError) || error.status >= 500;
+}
 async function postSignedForm(url, body, label) {
   const res = await fetchWithTimeout(url, {
     method: "POST",
@@ -715,7 +729,7 @@ async function postSignedForm(url, body, label) {
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(label + " failed: " + res.status + " " + text);
+    throw new HttpResponseError(label, res.status, text);
   }
   return res.text();
 }
@@ -746,17 +760,22 @@ async function callConvexWithRetry(type, path3, args, maxRetries = CALLBACK_HTTP
   );
 }
 async function callHarnessSkillCatalogReport(provider, cliVersion, skills) {
-  if (!CONVEX_SITE_URL || !HARNESS_CATALOG_HMAC) return null;
+  if (!CONVEX_SITE_URL || !HARNESS_CATALOG_TOKEN || !HARNESS_CATALOG_SANDBOX_ID || !REPO_ID) {
+    return null;
+  }
   const url = CONVEX_SITE_URL + "/api/harness-skills/report";
   const body = new URLSearchParams();
   body.set("provider", provider);
   body.set("cliVersion", cliVersion);
   body.set("skills", JSON.stringify(skills));
-  body.set("hmac", HARNESS_CATALOG_HMAC);
+  body.set("token", HARNESS_CATALOG_TOKEN);
+  body.set("sandboxId", HARNESS_CATALOG_SANDBOX_ID);
+  body.set("repoId", REPO_ID);
   return await withRetries(
     "harness skill catalog report",
     CALLBACK_HTTP_MAX_RETRIES,
-    () => postSignedForm(url, body, "Harness skill catalog report")
+    () => postSignedForm(url, body, "Harness skill catalog report"),
+    shouldRetryHttpError
   );
 }
 async function callStreamingHeartbeatTouchOnce(entityId) {
@@ -2438,6 +2457,9 @@ async function flushBackgroundShellQueue() {
 var REPORT_MUTATION = "usageLimits:report";
 var REPORT_MAX_RETRIES = 1;
 var USAGE_LOOKUP_TIMEOUT_MS = 5e3;
+var USAGE_REPORT_EXIT_GRACE_MS = 7e3;
+var USAGE_REPORT_REFRESH_MS = 6 * 60 * 60 * 1e3;
+var pendingClaudeUsageReport = null;
 var CLAUDE_WINDOW_LABELS = {
   five_hour: "5h",
   seven_day: "Weekly (all models)",
@@ -2483,7 +2505,7 @@ function mergeWindow(snapshot, window) {
 function ensureSnapshot() {
   const existing = callbackState.usageLimitSnapshot;
   if (existing) return existing;
-  const created = {};
+  const created = { completeness: "partial" };
   callbackState.usageLimitSnapshot = created;
   return created;
 }
@@ -2494,6 +2516,7 @@ function mergeClaudeRateLimitEvent(event) {
   const key = readNonEmptyString(info.rateLimitType);
   if (!status && !key) return;
   const snapshot = ensureSnapshot();
+  snapshot.completeness = "partial";
   if (status) snapshot.status = status;
   if (!key) return;
   const resetsAtSeconds = readFiniteNumber(info.resetsAt);
@@ -2533,12 +2556,7 @@ function readClaudeUsageWindows(response) {
   for (const entry of limits.model_scoped ?? []) {
     const name = readNonEmptyString(entry.display_name);
     if (!name) continue;
-    pushUsageWindow(
-      windows,
-      "model_scoped:" + name,
-      entry,
-      \`Weekly (\${name})\`
-    );
+    pushUsageWindow(windows, "model_scoped:" + name, entry, \`Weekly (\${name})\`);
   }
   return windows;
 }
@@ -2556,13 +2574,17 @@ async function captureClaudeUsage(readUsage) {
       return;
     }
     if (!response) return;
-    const snapshot = ensureSnapshot();
+    if (response.rate_limits_available !== true && response.rate_limits_available !== false) {
+      log("usage limits: claude usage response omitted availability");
+      return;
+    }
+    const snapshot = { completeness: "complete" };
     const subscriptionType = readNonEmptyString(response.subscription_type);
     if (subscriptionType) snapshot.subscriptionType = subscriptionType;
-    if (response.rate_limits_available !== true) return;
-    for (const window of readClaudeUsageWindows(response)) {
-      mergeWindow(snapshot, window);
+    if (response.rate_limits_available === true) {
+      snapshot.windows = readClaudeUsageWindows(response);
     }
+    callbackState.usageLimitSnapshot = snapshot;
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     log("usage limits: claude usage lookup failed \\u2014 " + messageText);
@@ -2582,6 +2604,7 @@ function buildUsageLimitReportArgs(repoId, provider, providerAccountId, snapshot
   return {
     repoId,
     provider,
+    snapshotComplete: snapshot.completeness === "complete",
     ...providerAccountId ? { providerAccountId } : {},
     ...snapshot.subscriptionType === void 0 ? {} : { subscriptionType: snapshot.subscriptionType },
     ...snapshot.status === void 0 ? {} : { status: snapshot.status },
@@ -2602,20 +2625,48 @@ async function reportUsageLimits(provider) {
     snapshot
   );
   const fingerprint = JSON.stringify(args);
-  if (fingerprint === callbackState.lastReportedUsageLimits) return;
+  const capturedAt = Date.now();
+  if (fingerprint === callbackState.lastReportedUsageLimits && capturedAt - callbackState.lastReportedUsageLimitsAt < USAGE_REPORT_REFRESH_MS) {
+    return;
+  }
   callbackState.lastReportedUsageLimits = fingerprint;
   try {
     await callConvexWithRetry(
       "mutation",
       REPORT_MUTATION,
-      { ...args, capturedAt: Date.now() },
+      { ...args, capturedAt },
       REPORT_MAX_RETRIES
     );
+    callbackState.lastReportedUsageLimitsAt = capturedAt;
   } catch (error) {
     callbackState.lastReportedUsageLimits = "";
+    callbackState.lastReportedUsageLimitsAt = 0;
     const messageText = error instanceof Error ? error.message : String(error);
     log("usage limits: report failed \\u2014 " + messageText);
   }
+}
+async function captureAndReportClaudeUsage(readUsage) {
+  await captureClaudeUsage(readUsage);
+  await reportUsageLimits("claude");
+}
+function startClaudeUsageReport(readUsage) {
+  const report = captureAndReportClaudeUsage(readUsage);
+  pendingClaudeUsageReport = report;
+  void report.finally(() => {
+    if (pendingClaudeUsageReport === report) pendingClaudeUsageReport = null;
+  });
+}
+async function waitForPendingClaudeUsageReport() {
+  const pending = pendingClaudeUsageReport;
+  if (!pending) return;
+  let timer;
+  await Promise.race([
+    pending,
+    new Promise((resolve) => {
+      timer = setTimeout(resolve, USAGE_REPORT_EXIT_GRACE_MS);
+    })
+  ]);
+  if (timer !== void 0) clearTimeout(timer);
 }
 
 // callback-src/parse/sdkTaxonomy.ts
@@ -4621,8 +4672,7 @@ async function runClaudeSdkAttempt(sessionMode) {
   } finally {
     clearInterval(healthTimer);
   }
-  await captureClaudeUsage(() => readSdkPlanUsage(q));
-  void reportUsageLimits("claude");
+  startClaudeUsageReport(() => readSdkPlanUsage(q));
   const code = sawResult && !resultIsError && !timedOutForMaxRuntime && !timedOutForNoOutput ? 0 : 1;
   log(
     "runClaudeSdkAttempt finished in " + String(Date.now() - callbackState.activeAttemptStartedAt) + "ms (code=" + code + ", sawResult=" + sawResult + ", resultIsError=" + resultIsError + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", outputBytes=" + attemptOutput.length + (queryErrorMessage ? ", queryError=" + queryErrorMessage : "") + ")"
@@ -5094,7 +5144,7 @@ function resetTurnState() {
   callbackState.awaitingQuestionAnswer = false;
   callbackState.lastStepType = "thinking";
 }
-async function finalizeTurn(output, agentRunner) {
+async function finalizeTurn(output, readUsage) {
   await flushStreaming();
   const resultEvent = extractResultEvent(output);
   for (const step of callbackState.accumulatedSteps) step.status = "complete";
@@ -5122,9 +5172,8 @@ async function finalizeTurn(output, agentRunner) {
     "daemon: turn finalized success=" + success + " steps=" + activityLog.length + " (completion mutation " + (Date.now() - completionSentAt) + "ms)"
   );
   const bookkeepingAt = Date.now();
-  await captureClaudeUsage(agentRunner.readUsage);
-  void reportUsageLimits("claude");
   syncClaudeStateToPersist("daemon-turn");
+  void captureAndReportClaudeUsage(readUsage);
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
   );
@@ -5318,7 +5367,7 @@ function catalogDescription(description) {
 }
 async function reportHarnessSkillCatalog(cliVersion, query) {
   try {
-    if (!HARNESS_CATALOG_HMAC) return;
+    if (!HARNESS_CATALOG_TOKEN) return;
     if (typeof query.initializationResult !== "function") {
       log("daemon: initializationResult unavailable \\u2014 skipping skill report");
       return;
@@ -5734,7 +5783,7 @@ async function runDaemonMessagePump(agentRunner) {
     if (daemonTurn?.kind === "synthetic") {
       await finalizeSyntheticTurn(agentTurnOutput);
     } else {
-      await finalizeTurn(agentTurnOutput, agentRunner);
+      await finalizeTurn(agentTurnOutput, agentRunner.readUsage);
       log(
         "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms"
       );
@@ -8912,6 +8961,7 @@ try {
     await deliverCompletionWithMedia(completionArgs);
     syncProviderStateToPersist("completion");
     await stopStreamingLoops();
+    await waitForPendingClaudeUsageReport();
     writeDoneFile(completionSuccess ? "success" : "error", {
       exitCode: finalCode,
       error: errorValue

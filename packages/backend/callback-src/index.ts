@@ -22,6 +22,7 @@ import { runCodexAppServerDaemon } from "./providers/codexAppServerDaemon.js";
 import { runCursorDaemon } from "./providers/cursorSdkDaemon.js";
 import { fetchWithTimeout, callConvexWithRetry } from "./http/convexClient.js";
 import { callbackState as S } from "./runtime/state.js";
+import { waitForPendingClaudeUsageReport } from "./runtime/usageLimits.js";
 import { persistTurnWork } from "./runtime/turnPersist.js";
 import { materializeSystemSkills } from "./runtime/systemSkills.js";
 import {
@@ -349,6 +350,7 @@ try {
     await deliverCompletionWithMedia(completionArgs);
     syncProviderStateToPersist("completion");
     await stopStreamingLoops();
+    await waitForPendingClaudeUsageReport();
     writeDoneFile(completionSuccess ? "success" : "error", {
       exitCode: finalCode,
       error: errorValue,

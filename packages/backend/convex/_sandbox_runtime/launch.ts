@@ -4,8 +4,8 @@ import { createHmac } from "crypto";
 import { quote } from "shell-quote";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
 import type { AIProvider } from "../validators";
-import { harnessCatalogHmacMessage } from "../_harnessSkills/report";
 import { execHandle, requireEnv } from "./helpers";
+import { streamingHeartbeatHmacMessage } from "./callbackAuth";
 import { entityDaemonPaths } from "./daemonPaths";
 import type { SandboxHandle } from "../_sandbox/provider";
 import { CALLBACK_SCRIPT } from "./callbackScript";
@@ -173,6 +173,7 @@ export async function launchScript(
     openSyntheticTurnMutation?: string;
     completeSyntheticTurnMutation?: string;
     updateBackgroundAgentsMutation?: string;
+    harnessCatalogToken?: string;
   } = {},
 ): Promise<void> {
   const launchStartedAt = Date.now();
@@ -223,11 +224,8 @@ export async function launchScript(
 
   const convexUrl = requireEnv("CONVEX_CLOUD_URL");
   const streamingEntityId = opts.extraEnvVars?.STREAMING_ENTITY_ID ?? entityId;
-  const streamingHmac = computeScopedHmac(streamingEntityId);
-  // Signs this sandbox's own provider, so a claude daemon's catalog report
-  // cannot be replayed as another provider's catalog.
-  const harnessCatalogHmac = computeScopedHmac(
-    harnessCatalogHmacMessage(provider),
+  const streamingHmac = computeScopedHmac(
+    streamingHeartbeatHmacMessage(streamingEntityId),
   );
   const envParts = [
     `CONVEX_URL=${quote([convexUrl])}`,
@@ -254,8 +252,8 @@ export async function launchScript(
     `CURSOR_RUNTIME_HOME_DIR=${quote([CURSOR_RUNTIME_HOME_DIR])}`,
     `CURSOR_PERSIST_DIR=${quote([CURSOR_PERSIST_VOLUME_MOUNT_PATH])}`,
   ];
-  // Both signatures need the site URL: they are verified by HTTP routes.
-  if (streamingHmac || harnessCatalogHmac) {
+  // Callback credentials use HTTP routes on the Convex site deployment.
+  if (streamingHmac || opts.harnessCatalogToken) {
     envParts.push(
       `CONVEX_SITE_URL=${quote([resolveConvexSiteUrl(convexUrl)])}`,
     );
@@ -263,8 +261,11 @@ export async function launchScript(
   if (streamingHmac) {
     envParts.push(`STREAMING_HMAC=${quote([streamingHmac])}`);
   }
-  if (harnessCatalogHmac) {
-    envParts.push(`HARNESS_CATALOG_HMAC=${quote([harnessCatalogHmac])}`);
+  if (opts.harnessCatalogToken) {
+    envParts.push(
+      `HARNESS_CATALOG_TOKEN=${quote([opts.harnessCatalogToken])}`,
+      `HARNESS_CATALOG_SANDBOX_ID=${quote([sandbox.id])}`,
+    );
   }
   if (opts.claudeSessionId) {
     envParts.push(`CLAUDE_SESSION_ID=${quote([opts.claudeSessionId])}`);

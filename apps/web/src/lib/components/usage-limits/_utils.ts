@@ -19,6 +19,8 @@ export type UsageWindow = NonNullable<UsageSnapshot["windows"]>[number];
 export const WARNING_UTILIZATION = 80;
 /** Utilisation at which it reads as about to be refused. */
 export const DANGER_UTILIZATION = 95;
+/** Mirrors the server-side freshness gate in `usageLimits.getByRepo`. */
+export const USAGE_READING_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export type UsageTone = "neutral" | "warning" | "danger";
 
@@ -60,18 +62,39 @@ export function worseTone(a: UsageTone, b: UsageTone): UsageTone {
 }
 
 /** Windows worth a row: one with no utilisation has nothing to draw. */
-export function reportedWindows(snapshot: UsageSnapshot): UsageWindow[] {
+export function reportedWindows(
+  snapshot: UsageSnapshot,
+  now: number,
+): UsageWindow[] {
   return (snapshot.windows ?? []).filter(
-    (window) => window.utilization !== undefined,
+    (window) =>
+      window.utilization !== undefined &&
+      (window.resetsAt === undefined || window.resetsAt > now),
   );
 }
 
 /** The tightest constraint the snapshot reports, if it reports any. */
-export function maxUtilization(snapshot: UsageSnapshot): number | undefined {
-  const utilizations = reportedWindows(snapshot).map(
+export function maxUtilization(
+  snapshot: UsageSnapshot,
+  now: number,
+): number | undefined {
+  const utilizations = reportedWindows(snapshot, now).map(
     (window) => window.utilization ?? 0,
   );
   return utilizations.length === 0 ? undefined : Math.max(...utilizations);
+}
+
+/** Status remains meaningful until its associated windows have all reset. */
+export function activeUsageStatus(
+  snapshot: UsageSnapshot,
+  now: number,
+): UsageSnapshot["status"] {
+  const windows = snapshot.windows ?? [];
+  if (windows.length === 0) return snapshot.status;
+  const hasUnexpiredWindow = windows.some(
+    (window) => window.resetsAt === undefined || window.resetsAt > now,
+  );
+  return hasUnexpiredWindow ? snapshot.status : undefined;
 }
 
 export function formatUtilization(utilization: number): string {
@@ -134,12 +157,14 @@ export interface ChipSummary {
  */
 export function chipSummary(
   rows: readonly UsageSnapshot[],
+  now: number,
 ): ChipSummary | undefined {
   let tightest: number | undefined;
   let tone: UsageTone = "neutral";
   for (const row of rows) {
-    tone = worseTone(tone, toneForStatus(row.status));
-    const utilization = maxUtilization(row);
+    if (now - row.capturedAt > USAGE_READING_MAX_AGE_MS) continue;
+    tone = worseTone(tone, toneForStatus(activeUsageStatus(row, now)));
+    const utilization = maxUtilization(row, now);
     if (utilization === undefined) continue;
     if (tightest === undefined || utilization > tightest) {
       tightest = utilization;
@@ -149,11 +174,15 @@ export function chipSummary(
   if (tightest !== undefined) {
     return { label: formatUtilization(tightest), utilization: tightest, tone };
   }
-  const flagged = rows.find((row) => toneForStatus(row.status) !== "neutral");
+  const flagged = rows.find(
+    (row) =>
+      now - row.capturedAt <= USAGE_READING_MAX_AGE_MS &&
+      toneForStatus(activeUsageStatus(row, now)) !== "neutral",
+  );
   if (!flagged) return undefined;
   return {
     label: flagged.status === "rejected" ? "Limit reached" : "Near limit",
-    tone: toneForStatus(flagged.status),
+    tone: toneForStatus(activeUsageStatus(flagged, now)),
   };
 }
 

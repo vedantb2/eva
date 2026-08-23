@@ -420,6 +420,15 @@ export const harnessSkillCatalogFields = {
   updatedAt: v.number(),
 };
 
+/** One short-lived, single-use credential for a sandbox catalog report. */
+export const harnessSkillReportTokenFields = {
+  tokenHash: v.string(),
+  provider: aiProviderValidator,
+  sandboxId: v.string(),
+  repoId: v.id("githubRepos"),
+  expiresAt: v.number(),
+};
+
 export const repoSkillFields = {
   repoId: v.id("githubRepos"),
   title: v.string(),

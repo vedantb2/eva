@@ -170,8 +170,11 @@ type CallbackState = {
    * previous reading rather than reporting a blank row. */
   usageLimitSnapshot: UsageLimitSnapshot | null;
   /** Fingerprint of the last snapshot successfully reported to Convex, so an
-   * unchanged reading is not rewritten once per turn forever. */
+   * unchanged reading is not rewritten once per turn. */
   lastReportedUsageLimits: string;
+  /** Time of that successful report. Unchanged readings are periodically
+   * refreshed so the server's stale-row cutoff reflects a live daemon. */
+  lastReportedUsageLimitsAt: number;
   doneFileWritten: boolean;
   flushInProgress: boolean;
   pingInProgress: boolean;
@@ -222,6 +225,7 @@ export const callbackState: CallbackState = {
   awaitingQuestionAnswer: false,
   usageLimitSnapshot: null,
   lastReportedUsageLimits: "",
+  lastReportedUsageLimitsAt: 0,
   doneFileWritten: false,
   flushInProgress: false,
   pingInProgress: false,
@@ -319,6 +323,7 @@ export function resetStateForTests(): void {
   callbackState.awaitingQuestionAnswer = false;
   callbackState.usageLimitSnapshot = null;
   callbackState.lastReportedUsageLimits = "";
+  callbackState.lastReportedUsageLimitsAt = 0;
 }
 
 export function setFatalHeartbeatForTest(message: string): void {

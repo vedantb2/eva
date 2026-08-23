@@ -5,8 +5,10 @@ export const CONVEX_URL = process.env.CONVEX_URL;
 export const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
 export const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
 export const STREAMING_HMAC = process.env.STREAMING_HMAC || "";
-/** Scoped signature for `/api/harness-skills/report`; empty on older backends. */
-export const HARNESS_CATALOG_HMAC = process.env.HARNESS_CATALOG_HMAC || "";
+/** Short-lived, single-use credential for `/api/harness-skills/report`. */
+export const HARNESS_CATALOG_TOKEN = process.env.HARNESS_CATALOG_TOKEN || "";
+export const HARNESS_CATALOG_SANDBOX_ID =
+  process.env.HARNESS_CATALOG_SANDBOX_ID || "";
 export const ENTITY_ID = process.env.ENTITY_ID;
 export const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 export const RUN_ID = process.env.RUN_ID || null;

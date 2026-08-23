@@ -6,7 +6,11 @@ import {
   harnessSkillTokenId,
   harnessSkillsForProvider,
 } from "@/lib/components/mentions";
-import type { HarnessSkill } from "@/lib/components/mentions/harnessSkills";
+import {
+  harnessCatalogProvider,
+  harnessProviderMetadata,
+  type HarnessSkill,
+} from "@/lib/components/mentions/harnessSkills";
 
 /**
  * The `/` skill list for a repo: skills synced from `.agents/skills` plus the
@@ -61,11 +65,12 @@ export function useSkillSlashItems(
   const repoSkills = useQuery(api.repoSkills.listByRepo, { repoId }) ?? [];
   const systemSkills =
     useQuery(api.repoSystemSkills.listForRepo, { repoId }) ?? [];
+  const catalogProvider = harnessCatalogProvider(provider);
   // The harness's own catalog, reported by the sandboxes that run it. Global,
   // so it is keyed by provider rather than repo.
   const harnessCatalog = useQuery(
     api.harnessSkills.getForProvider,
-    provider ? { provider } : "skip",
+    catalogProvider ? { provider: catalogProvider } : "skip",
   );
 
   const selectedRepoSkills = selectRepoSkillsForProvider(repoSkills, provider);
@@ -73,7 +78,9 @@ export function useSkillSlashItems(
     id: skill._id,
     label: skill.title,
     description: skill.description,
-    ...(isClaudeSkillSourcePath(skill.sourcePath) ? { badge: "Claude" } : {}),
+    ...(isClaudeSkillSourcePath(skill.sourcePath)
+      ? { badge: "Claude", provider: "claude" }
+      : {}),
   }));
 
   // A repo skill of the same name shadows the Eva one — the sandbox
@@ -115,6 +122,8 @@ export function harnessSlashItems(
   reported?: readonly HarnessSkill[] | null,
 ): SlashItem[] {
   const takenLabels = new Set(existingItems.map((item) => item.label));
+  const metadata = harnessProviderMetadata(provider);
+  if (!metadata) return [];
   return harnessSkillsForProvider(provider, reported).flatMap((skill) =>
     takenLabels.has(skill.name)
       ? []
@@ -126,7 +135,8 @@ export function harnessSlashItems(
             // Same badge the `.claude/skills` repo skills carry — a built-in
             // and a Claude-only repo skill are both "provided by Claude" to
             // the person picking one.
-            badge: "Claude",
+            badge: metadata.badge,
+            provider,
           },
         ],
   );

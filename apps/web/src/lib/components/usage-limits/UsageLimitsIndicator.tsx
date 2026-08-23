@@ -3,16 +3,12 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import {
-  Button,
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@eva/ui";
+import { Button, HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
 import { chipSummary, USAGE_TONE_TEXT_CLASS } from "./_utils";
 import { UsageBar } from "./UsageBar";
 import { UsageLimitsDetails } from "./UsageLimitsDetails";
+import { useMinuteNow } from "./_useMinuteNow";
 
 interface UsageLimitsIndicatorProps {
   repoId: Id<"githubRepos">;
@@ -27,12 +23,13 @@ interface UsageLimitsIndicatorProps {
  */
 export function UsageLimitsIndicator({ repoId }: UsageLimitsIndicatorProps) {
   const simpleView = useSimpleView();
+  const now = useMinuteNow();
   const rows = useQuery(
     api.usageLimits.getByRepo,
     simpleView ? "skip" : { repoId },
   );
   if (simpleView) return null;
-  const summary = rows === undefined ? undefined : chipSummary(rows);
+  const summary = rows === undefined ? undefined : chipSummary(rows, now);
   if (!rows || !summary) return null;
 
   return (

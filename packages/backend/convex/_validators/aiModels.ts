@@ -1,10 +1,17 @@
 import { v } from "convex/values";
 
+function tuple<const Values extends readonly [string, ...string[]]>(
+  ...values: Values
+): Values {
+  return values;
+}
+
+/** Canonical provider list for types, Convex validators, and Zod boundaries. */
+export const AI_PROVIDERS = tuple("claude", "codex", "opencode", "cursor");
+export type AIProvider = (typeof AI_PROVIDERS)[number];
+
 export const aiProviderValidator = v.union(
-  v.literal("claude"),
-  v.literal("codex"),
-  v.literal("opencode"),
-  v.literal("cursor"),
+  ...AI_PROVIDERS.map((provider) => v.literal(provider)),
 );
 
 export const aiModelValidator = v.union(
@@ -169,14 +176,6 @@ const CURSOR_REASONING_GPT55: ModelReasoningTraits = {
   default: "low",
 };
 
-export type AIProvider = "claude" | "codex" | "opencode" | "cursor";
-/** The same provider list as `aiProviderValidator`, for non-Convex parsers. */
-export const AI_PROVIDERS: readonly [AIProvider, ...AIProvider[]] = [
-  "claude",
-  "codex",
-  "opencode",
-  "cursor",
-];
 export type LegacyClaudeModel = "opus" | "sonnet" | "haiku";
 export type AIModel =
   | "claude:opus"

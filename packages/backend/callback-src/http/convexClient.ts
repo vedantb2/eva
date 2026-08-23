@@ -5,7 +5,9 @@ import {
   CONVEX_SITE_URL,
   CONVEX_TOKEN,
   CONVEX_URL,
-  HARNESS_CATALOG_HMAC,
+  HARNESS_CATALOG_SANDBOX_ID,
+  HARNESS_CATALOG_TOKEN,
+  REPO_ID,
   STREAMING_HMAC,
   STREAMING_HEARTBEAT_MAX_RETRIES,
 } from "../config.js";
@@ -39,14 +41,16 @@ async function withRetries<T>(
   label: string,
   maxRetries: number,
   run: () => Promise<T>,
+  shouldRetry: (error: Error) => boolean = () => true,
 ): Promise<T> {
   let attempt = 0;
   while (true) {
     try {
       return await run();
     } catch (e) {
+      const error = e instanceof Error ? e : new Error(String(e));
       attempt++;
-      if (attempt > maxRetries) throw e;
+      if (attempt > maxRetries || !shouldRetry(error)) throw e;
       const delayMs = buildRetryDelayMs(attempt);
       console.error(
         label +
@@ -60,6 +64,21 @@ async function withRetries<T>(
       await new Promise((r) => setTimeout(r, delayMs));
     }
   }
+}
+
+export class HttpResponseError extends Error {
+  readonly status: number;
+
+  constructor(label: string, status: number, body: string) {
+    super(label + " failed: " + status + " " + body);
+    this.name = "HttpResponseError";
+    this.status = status;
+  }
+}
+
+/** Network failures and server errors may recover; deterministic 4xx do not. */
+export function shouldRetryHttpError(error: Error): boolean {
+  return !(error instanceof HttpResponseError) || error.status >= 500;
 }
 
 /**
@@ -78,7 +97,7 @@ async function postSignedForm(
   });
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(label + " failed: " + res.status + " " + text);
+    throw new HttpResponseError(label, res.status, text);
   }
   return res.text();
 }
@@ -137,17 +156,27 @@ export async function callHarnessSkillCatalogReport(
   cliVersion: string,
   skills: readonly HarnessCommandReport[],
 ): Promise<string | null> {
-  if (!CONVEX_SITE_URL || !HARNESS_CATALOG_HMAC) return null;
+  if (
+    !CONVEX_SITE_URL ||
+    !HARNESS_CATALOG_TOKEN ||
+    !HARNESS_CATALOG_SANDBOX_ID ||
+    !REPO_ID
+  ) {
+    return null;
+  }
   const url = CONVEX_SITE_URL + "/api/harness-skills/report";
   const body = new URLSearchParams();
   body.set("provider", provider);
   body.set("cliVersion", cliVersion);
   body.set("skills", JSON.stringify(skills));
-  body.set("hmac", HARNESS_CATALOG_HMAC);
+  body.set("token", HARNESS_CATALOG_TOKEN);
+  body.set("sandboxId", HARNESS_CATALOG_SANDBOX_ID);
+  body.set("repoId", REPO_ID);
   return await withRetries(
     "harness skill catalog report",
     CALLBACK_HTTP_MAX_RETRIES,
     () => postSignedForm(url, body, "Harness skill catalog report"),
+    shouldRetryHttpError,
   );
 }
 

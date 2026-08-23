@@ -2,14 +2,19 @@
 
 import type { ReactNode } from "react";
 import { UserInitials } from "@eva/shared";
-import type { Id } from "@eva/backend";
+import type { AIProvider, Id } from "@eva/backend";
 import {
   DocumentsIcon,
   ProjectsIcon,
   QuickTasksIcon,
   SessionsIcon,
 } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
-import { ClaudeLogo } from "@/lib/components/ui/providerLogos";
+import {
+  ClaudeLogo,
+  CursorLogo,
+  OpenAILogo,
+  OpenCodeLogo,
+} from "@/lib/components/ui/providerLogos";
 
 /**
  * What a Data `@` entry points at. Mirrors the backend `DataMentionKind` union
@@ -40,14 +45,24 @@ function MentionKindIcon({ kind }: { kind: MentionKind }) {
  * recognisable before the word is read. Badges naming anything else (Eva,
  * Person) are text-only.
  */
-const BADGE_LOGO: Record<string, (props: { size: number }) => ReactNode> = {
-  Claude: ClaudeLogo,
+const PROVIDER_LOGO: Record<
+  AIProvider,
+  (props: { size: number }) => ReactNode
+> = {
+  claude: ClaudeLogo,
+  codex: OpenAILogo,
+  opencode: OpenCodeLogo,
+  cursor: CursorLogo,
 };
 
 /** The provider mark for a badge, or nothing when the badge names no provider. */
-function BadgeLogo({ badge }: { badge: string }): ReactNode {
-  const Logo = BADGE_LOGO[badge];
-  if (Logo === undefined) return null;
+function BadgeLogo({
+  provider,
+}: {
+  provider: AIProvider | undefined;
+}): ReactNode {
+  if (provider === undefined) return null;
+  const Logo = PROVIDER_LOGO[provider];
   return <Logo size={11} />;
 }
 
@@ -64,6 +79,7 @@ export interface MentionRowProps {
   description?: string;
   /** Source badge (e.g. Eva, Claude, Person). Suppressed when an icon is shown. */
   badge?: string;
+  provider?: AIProvider;
   /** Data entity kind — renders a leading icon instead of the kind badge. */
   kind?: MentionKind;
   /** Set for teammates, whose avatar replaces the icon. */
@@ -79,6 +95,7 @@ export function MentionRow({
   label,
   description,
   badge,
+  provider,
   kind,
   personUserId,
 }: MentionRowProps): ReactNode {
@@ -93,7 +110,7 @@ export function MentionRow({
       <MentionKindIcon kind={kind} />
     ) : badge !== undefined ? (
       <span className="flex shrink-0 items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
-        <BadgeLogo badge={badge} />
+        <BadgeLogo provider={provider} />
         {badge}
       </span>
     ) : null;

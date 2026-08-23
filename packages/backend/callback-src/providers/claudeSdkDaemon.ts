@@ -10,7 +10,7 @@ import {
   DAEMON_OPTS_SIG,
   ENTITY_ID,
   ENTITY_ID_FIELD,
-  HARNESS_CATALOG_HMAC,
+  HARNESS_CATALOG_TOKEN,
   MAX_TOTAL_RUNTIME_MS,
   MODEL,
   NO_OUTPUT_TIMEOUT_MS,
@@ -61,8 +61,7 @@ import {
 } from "./claudeSdk.js";
 import { callbackState as S } from "../runtime/state.js";
 import {
-  captureClaudeUsage,
-  reportUsageLimits,
+  captureAndReportClaudeUsage,
   type ClaudeUsageResponseLike,
 } from "../runtime/usageLimits.js";
 import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
@@ -461,7 +460,7 @@ function resetTurnState(): void {
 /** Reports one finished turn to the session workflow (mirrors the one-shot completion). */
 async function finalizeTurn(
   output: string,
-  agentRunner: WarmRunner,
+  readUsage: () => Promise<ClaudeUsageResponseLike | null>,
 ): Promise<void> {
   // Drain the buffered turn output into S.accumulatedSteps before building the
   // completion payload — exactly like the one-shot path (index.ts) flushes after
@@ -529,12 +528,11 @@ async function finalizeTurn(
   // this only guards against a sandbox restart. accumulatedSteps is still
   // populated (resetTurnState runs after this returns).
   const bookkeepingAt = Date.now();
-  // Plan usage-limit reading, taken after completion so the /usage round trip
-  // never delays the reply the user is waiting on. The turn's own
-  // `rate_limit_event`s already merged whichever window they named.
-  await captureClaudeUsage(agentRunner.readUsage);
-  void reportUsageLimits("claude");
   syncClaudeStateToPersist("daemon-turn");
+  // Detached after completion and transcript persistence: a degraded SDK
+  // control channel must not stall the next queued message or risk losing the
+  // persisted transcript. Capture still precedes report inside the helper.
+  void captureAndReportClaudeUsage(readUsage);
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms",
   );
@@ -806,7 +804,7 @@ async function reportHarnessSkillCatalog(
   query: AgentQuery,
 ): Promise<void> {
   try {
-    if (!HARNESS_CATALOG_HMAC) return;
+    if (!HARNESS_CATALOG_TOKEN) return;
     if (typeof query.initializationResult !== "function") {
       log("daemon: initializationResult unavailable — skipping skill report");
       return;
@@ -1357,7 +1355,7 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
       await finalizeSyntheticTurn(agentTurnOutput);
     } else {
       supervisor.beginFinalizing();
-      await finalizeTurn(agentTurnOutput, agentRunner);
+      await finalizeTurn(agentTurnOutput, agentRunner.readUsage);
       log(
         "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms",
       );

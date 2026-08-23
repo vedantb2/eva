@@ -147,6 +147,7 @@ import type * as _sandbox_vercelSnapshotOptions from "../_sandbox/vercelSnapshot
 import type * as _sandbox_runtime_attachments from "../_sandbox_runtime/attachments.js";
 import type * as _sandbox_runtime_backgroundProcesses from "../_sandbox_runtime/backgroundProcesses.js";
 import type * as _sandbox_runtime_bulkSnapshotRetention from "../_sandbox_runtime/bulkSnapshotRetention.js";
+import type * as _sandbox_runtime_callbackAuth from "../_sandbox_runtime/callbackAuth.js";
 import type * as _sandbox_runtime_callbackScript from "../_sandbox_runtime/callbackScript.js";
 import type * as _sandbox_runtime_callbackScriptFingerprint from "../_sandbox_runtime/callbackScriptFingerprint.js";
 import type * as _sandbox_runtime_convexLocalBackend from "../_sandbox_runtime/convexLocalBackend.js";
@@ -493,6 +494,7 @@ declare const fullApi: ApiFromModules<{
   "_sandbox_runtime/attachments": typeof _sandbox_runtime_attachments;
   "_sandbox_runtime/backgroundProcesses": typeof _sandbox_runtime_backgroundProcesses;
   "_sandbox_runtime/bulkSnapshotRetention": typeof _sandbox_runtime_bulkSnapshotRetention;
+  "_sandbox_runtime/callbackAuth": typeof _sandbox_runtime_callbackAuth;
   "_sandbox_runtime/callbackScript": typeof _sandbox_runtime_callbackScript;
   "_sandbox_runtime/callbackScriptFingerprint": typeof _sandbox_runtime_callbackScriptFingerprint;
   "_sandbox_runtime/convexLocalBackend": typeof _sandbox_runtime_convexLocalBackend;

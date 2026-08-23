@@ -27,6 +27,16 @@ const REPORT_MAX_RETRIES = 1;
  */
 const USAGE_LOOKUP_TIMEOUT_MS = 5_000;
 
+/** A one-shot process may wait this long after delivering completion before its
+ * hard exit. This covers the lookup timeout plus a small reporting allowance. */
+const USAGE_REPORT_EXIT_GRACE_MS = 7_000;
+
+/** Keep an unchanged live daemon comfortably inside the server's 24-hour
+ * freshness window without writing the same reading after every turn. */
+const USAGE_REPORT_REFRESH_MS = 6 * 60 * 60 * 1000;
+
+let pendingClaudeUsageReport: Promise<void> | null = null;
+
 /**
  * Provider whose plan usage is tracked. Mirrors the Convex validator, and stays
  * a named type so a provider with real plan windows slots in here.
@@ -141,7 +151,7 @@ function mergeWindow(
 function ensureSnapshot(): UsageLimitSnapshot {
   const existing = S.usageLimitSnapshot;
   if (existing) return existing;
-  const created: UsageLimitSnapshot = {};
+  const created: UsageLimitSnapshot = { completeness: "partial" };
   S.usageLimitSnapshot = created;
   return created;
 }
@@ -158,6 +168,7 @@ export function mergeClaudeRateLimitEvent(event: JsonObject): void {
   const key = readNonEmptyString(info.rateLimitType);
   if (!status && !key) return;
   const snapshot = ensureSnapshot();
+  snapshot.completeness = "partial";
   if (status) snapshot.status = status;
   if (!key) return;
   // The stream event reports `resetsAt` in epoch SECONDS, unlike the `/usage`
@@ -214,12 +225,7 @@ export function readClaudeUsageWindows(
     if (!name) continue;
     // Model-scoped entries are weekly windows too, so they are labelled like
     // the fixed ones ("Weekly (Fable)") rather than by bare model name.
-    pushUsageWindow(
-      windows,
-      "model_scoped:" + name,
-      entry,
-      `Weekly (${name})`,
-    );
+    pushUsageWindow(windows, "model_scoped:" + name, entry, `Weekly (${name})`);
   }
   return windows;
 }
@@ -247,15 +253,25 @@ export async function captureClaudeUsage(
       return;
     }
     if (!response) return;
-    const snapshot = ensureSnapshot();
+    if (
+      response.rate_limits_available !== true &&
+      response.rate_limits_available !== false
+    ) {
+      log("usage limits: claude usage response omitted availability");
+      return;
+    }
+    const snapshot: UsageLimitSnapshot = { completeness: "complete" };
     const subscriptionType = readNonEmptyString(response.subscription_type);
     if (subscriptionType) snapshot.subscriptionType = subscriptionType;
     // False for API key, Bedrock and Vertex sessions — there are no plan
     // windows to read, and `rate_limits` is null.
-    if (response.rate_limits_available !== true) return;
-    for (const window of readClaudeUsageWindows(response)) {
-      mergeWindow(snapshot, window);
+    if (response.rate_limits_available === true) {
+      snapshot.windows = readClaudeUsageWindows(response);
     }
+    // A successful `/usage` read is authoritative. Replacing here drops windows
+    // and status that vanished since the last turn instead of preserving them
+    // for the lifetime of a warm daemon.
+    S.usageLimitSnapshot = snapshot;
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     log("usage limits: claude usage lookup failed — " + messageText);
@@ -291,6 +307,7 @@ export function buildUsageLimitReportArgs(
   return {
     repoId,
     provider,
+    snapshotComplete: snapshot.completeness === "complete",
     ...(providerAccountId ? { providerAccountId } : {}),
     ...(snapshot.subscriptionType === undefined
       ? {}
@@ -305,9 +322,9 @@ export function buildUsageLimitReportArgs(
 /**
  * Upserts the run's usage-limit snapshot in Convex at the end of a turn.
  *
- * Fire-and-forget by contract: nothing here may affect the turn's outcome, so
- * every failure is logged and swallowed. An unchanged reading is skipped, which
- * also caps a warm daemon at one write per turn.
+ * Best-effort by contract: nothing here may affect the turn's outcome, so every
+ * failure is logged and swallowed. Unchanged readings are skipped between
+ * periodic refreshes, keeping a live warm daemon from looking stale.
  */
 export async function reportUsageLimits(
   provider: UsageLimitProvider,
@@ -325,19 +342,60 @@ export async function reportUsageLimits(
     snapshot,
   );
   const fingerprint = JSON.stringify(args);
-  if (fingerprint === S.lastReportedUsageLimits) return;
+  const capturedAt = Date.now();
+  if (
+    fingerprint === S.lastReportedUsageLimits &&
+    capturedAt - S.lastReportedUsageLimitsAt < USAGE_REPORT_REFRESH_MS
+  ) {
+    return;
+  }
   S.lastReportedUsageLimits = fingerprint;
   try {
     await callConvexWithRetry(
       "mutation",
       REPORT_MUTATION,
-      { ...args, capturedAt: Date.now() },
+      { ...args, capturedAt },
       REPORT_MAX_RETRIES,
     );
+    S.lastReportedUsageLimitsAt = capturedAt;
   } catch (error) {
     // Clear the fingerprint so the next turn retries this reading.
     S.lastReportedUsageLimits = "";
+    S.lastReportedUsageLimitsAt = 0;
     const messageText = error instanceof Error ? error.message : String(error);
     log("usage limits: report failed — " + messageText);
   }
+}
+
+/** Captures Claude's authoritative usage view and reports it in that order. */
+export async function captureAndReportClaudeUsage(
+  readUsage: () => Promise<ClaudeUsageResponseLike | null>,
+): Promise<void> {
+  await captureClaudeUsage(readUsage);
+  await reportUsageLimits("claude");
+}
+
+/** Starts the one-shot report without delaying the user-visible completion. */
+export function startClaudeUsageReport(
+  readUsage: () => Promise<ClaudeUsageResponseLike | null>,
+): void {
+  const report = captureAndReportClaudeUsage(readUsage);
+  pendingClaudeUsageReport = report;
+  void report.finally(() => {
+    if (pendingClaudeUsageReport === report) pendingClaudeUsageReport = null;
+  });
+}
+
+/** Gives a one-shot report a bounded chance to land before `process.exit(0)`. */
+export async function waitForPendingClaudeUsageReport(): Promise<void> {
+  const pending = pendingClaudeUsageReport;
+  if (!pending) return;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    pending,
+    new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, USAGE_REPORT_EXIT_GRACE_MS);
+    }),
+  ]);
+  if (timer !== undefined) clearTimeout(timer);
 }

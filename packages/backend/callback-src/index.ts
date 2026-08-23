@@ -26,6 +26,7 @@ import {
   appendCurrentTurnLease,
   setCurrentTurnLease,
 } from "./runtime/turnLease.js";
+import { waitForPendingClaudeUsageReport } from "./runtime/usageLimits.js";
 import { persistTurnWork } from "./runtime/turnPersist.js";
 import { materializeSystemSkills } from "./runtime/systemSkills.js";
 import {
@@ -356,6 +357,7 @@ try {
     setCurrentTurnLease(null);
     syncProviderStateToPersist("completion");
     await stopStreamingLoops();
+    await waitForPendingClaudeUsageReport();
     writeDoneFile(completionSuccess ? "success" : "error", {
       exitCode: finalCode,
       error: errorValue,

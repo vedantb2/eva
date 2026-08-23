@@ -85,6 +85,9 @@ export type UsageLimitWindow = {
  * `subscriptionType`/`status`/`windows`.
  */
 export type UsageLimitSnapshot = {
+  /** Whether the latest observation was a complete `/usage` response or only a
+   * stream event. Convex replaces complete snapshots and merges partial ones. */
+  completeness: "partial" | "complete";
   subscriptionType?: string;
   status?: UsageLimitStatus;
   windows?: UsageLimitWindow[];

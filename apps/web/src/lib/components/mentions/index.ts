@@ -19,6 +19,7 @@ export {
   isSkillTokenId,
   systemSkillTokenId,
   harnessSkillTokenId,
+  isHarnessSkillTokenId,
 } from "./skillToken";
 export { harnessSkillsForProvider } from "./harnessSkills";
 export { mergeMentionItems } from "./mergeMentionItems";

@@ -1,7 +1,9 @@
 import { beforeEach, expect, test } from "vitest";
 import { callbackState as S, resetStateForTests } from "../runtime/state.js";
+import type { UsageLimitSnapshot } from "../types.js";
 import {
   buildUsageLimitReportArgs,
+  captureClaudeUsage,
   mergeClaudeRateLimitEvent,
   readClaudeUsageWindows,
   readIsoMs,
@@ -22,6 +24,7 @@ test("mergeClaudeRateLimitEvent labels the window and converts epoch seconds", (
     },
   });
   expect(S.usageLimitSnapshot).toEqual({
+    completeness: "partial",
     status: "allowed_warning",
     windows: [
       {
@@ -58,6 +61,7 @@ test("mergeClaudeRateLimitEvent merges per window without clobbering the others"
     },
   });
   expect(S.usageLimitSnapshot).toEqual({
+    completeness: "partial",
     status: "rejected",
     windows: [
       { key: "five_hour", label: "5h", utilization: 100 },
@@ -131,9 +135,42 @@ test("readClaudeUsageWindows is empty when the plan reports no limits", () => {
   expect(readClaudeUsageWindows({ rate_limits: null })).toEqual([]);
 });
 
+test("a successful usage read replaces vanished windows and clears stream status", async () => {
+  mergeClaudeRateLimitEvent({
+    rate_limit_info: {
+      status: "rejected",
+      rateLimitType: "five_hour",
+      utilization: 100,
+    },
+  });
+  mergeClaudeRateLimitEvent({
+    rate_limit_info: {
+      status: "rejected",
+      rateLimitType: "seven_day_opus",
+      utilization: 95,
+    },
+  });
+
+  await captureClaudeUsage(async () => ({
+    subscription_type: "max",
+    rate_limits_available: true,
+    rate_limits: {
+      five_hour: { utilization: 12, resets_at: null },
+      seven_day_opus: null,
+    },
+  }));
+
+  expect(S.usageLimitSnapshot).toEqual({
+    completeness: "complete",
+    subscriptionType: "max",
+    windows: [{ key: "five_hour", label: "5h", utilization: 12 }],
+  });
+});
+
 test("buildUsageLimitReportArgs omits every field the snapshot did not observe", () => {
   expect(
     buildUsageLimitReportArgs("repo-1", "claude", "account-1", {
+      completeness: "complete",
       subscriptionType: "max",
       status: "allowed",
       windows: [{ key: "five_hour", label: "5h", utilization: 12 }],
@@ -142,18 +179,31 @@ test("buildUsageLimitReportArgs omits every field the snapshot did not observe",
     repoId: "repo-1",
     provider: "claude",
     providerAccountId: "account-1",
+    snapshotComplete: true,
     subscriptionType: "max",
     status: "allowed",
     windows: [{ key: "five_hour", label: "5h", utilization: 12 }],
   });
   // A reading with nothing but a status sends nothing but a status.
   expect(
-    buildUsageLimitReportArgs("repo-1", "claude", "", { status: "rejected" }),
-  ).toEqual({ repoId: "repo-1", provider: "claude", status: "rejected" });
+    buildUsageLimitReportArgs("repo-1", "claude", "", {
+      completeness: "partial",
+      status: "rejected",
+    }),
+  ).toEqual({
+    repoId: "repo-1",
+    provider: "claude",
+    snapshotComplete: false,
+    status: "rejected",
+  });
 });
 
 test("buildUsageLimitReportArgs keys two accounts apart on one repo", () => {
-  const snapshot = { subscriptionType: "max", status: "allowed" } as const;
+  const snapshot: UsageLimitSnapshot = {
+    completeness: "complete",
+    subscriptionType: "max",
+    status: "allowed",
+  };
   const kezia = buildUsageLimitReportArgs("repo-1", "claude", "acc-a", {
     ...snapshot,
   });

@@ -1,4 +1,5 @@
-import type { AIProvider } from "@eva/backend";
+import { api, type AIProvider } from "@eva/backend";
+import type { FunctionReturnType } from "convex/server";
 
 /**
  * Built-in skills each CLI harness ships with, surfaced in the `/` picker so
@@ -20,9 +21,31 @@ import type { AIProvider } from "@eva/backend";
  * (`/batch`) are left out — the same exclusions the ingest filter applies.
  * Descriptions are the harness's own, trimmed for the picker row.
  */
-export interface HarnessSkill {
-  name: string;
-  description: string;
+type HarnessCatalog = NonNullable<
+  FunctionReturnType<typeof api.harnessSkills.getForProvider>
+>;
+export type HarnessSkill = HarnessCatalog["skills"][number];
+
+type HarnessProviderMetadata = { badge: string };
+
+const HARNESS_PROVIDER_METADATA: Partial<
+  Record<AIProvider, HarnessProviderMetadata>
+> = {
+  claude: { badge: "Claude" },
+};
+
+export function harnessProviderMetadata(
+  provider: AIProvider | undefined,
+): HarnessProviderMetadata | undefined {
+  return provider === undefined
+    ? undefined
+    : HARNESS_PROVIDER_METADATA[provider];
+}
+
+export function harnessCatalogProvider(
+  provider: AIProvider | undefined,
+): AIProvider | undefined {
+  return harnessProviderMetadata(provider) ? provider : undefined;
 }
 
 export const CLAUDE_HARNESS_SKILLS: readonly HarnessSkill[] = [
@@ -101,6 +124,6 @@ export function harnessSkillsForProvider(
   provider: AIProvider | undefined,
   reported?: readonly HarnessSkill[] | null,
 ): readonly HarnessSkill[] {
-  if (provider !== "claude") return [];
+  if (!harnessProviderMetadata(provider)) return [];
   return reported && reported.length > 0 ? reported : CLAUDE_HARNESS_SKILLS;
 }

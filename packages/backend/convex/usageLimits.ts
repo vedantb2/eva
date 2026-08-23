@@ -1,6 +1,8 @@
 import { v } from "convex/values";
 import { authMutation, authQuery, hasRepoAccess } from "./functions";
 import { agentUsageLimitFields } from "./validators";
+import type { Doc } from "./_generated/dataModel";
+import { isAccountUsableBy } from "./_userProviderAccounts/sharing";
 
 /**
  * Agent plan usage limits. A sandbox turn captures how much of the provider's
@@ -28,21 +30,59 @@ const agentUsageLimitValidator = v.object({
 });
 
 /**
- * Upserts the reading for one (repo, provider, account) triple. Replaces rather
- * than patches: each report is a whole snapshot, so a window the provider no
- * longer reports must disappear instead of going stale.
+ * Upserts the reading for one (repo, provider, account) triple. Authoritative
+ * provider snapshots replace the row so vanished windows are cleared; partial
+ * stream observations patch only what they actually observed.
  *
  * The account is part of the key because plan limits are per account — keyed on
  * the provider alone, a second connected account's reading would overwrite the
  * first. A run on the shared team credential reports no account and keeps its
  * own row.
  */
+type UsageWindow = NonNullable<Doc<"agentUsageLimits">["windows"]>[number];
+
+/** Readings older than this are no longer evidence of the provider's state. */
+export const USAGE_LIMIT_READING_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/** New same-key windows win while unobserved stored windows remain intact. */
+export function mergeUsageLimitWindows(
+  stored: readonly UsageWindow[] | undefined,
+  reported: readonly UsageWindow[] | undefined,
+): UsageWindow[] | undefined {
+  if (reported === undefined) return stored ? [...stored] : undefined;
+  const byKey = new Map((stored ?? []).map((window) => [window.key, window]));
+  for (const window of reported) byKey.set(window.key, window);
+  return [...byKey.values()];
+}
+
+export function isUsageLimitReadingFresh(
+  capturedAt: number,
+  now: number,
+): boolean {
+  return now - capturedAt <= USAGE_LIMIT_READING_MAX_AGE_MS;
+}
+
 export const report = authMutation({
-  args: agentUsageLimitFields,
+  args: {
+    ...agentUsageLimitFields,
+    /** True only after an authoritative provider `/usage` response. Older
+     * callback bundles omit it and therefore safely receive merge semantics. */
+    snapshotComplete: v.optional(v.boolean()),
+  },
   returns: v.null(),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) {
       throw new Error("Not authorized");
+    }
+    if (args.providerAccountId) {
+      const account = await ctx.db.get(args.providerAccountId);
+      if (
+        !account ||
+        account.provider !== args.provider ||
+        !(await isAccountUsableBy(ctx.db, account, ctx.userId))
+      ) {
+        throw new Error("Provider account not found");
+      }
     }
     const existing = await ctx.db
       .query("agentUsageLimits")
@@ -53,11 +93,30 @@ export const report = authMutation({
           .eq("providerAccountId", args.providerAccountId),
       )
       .first();
+    const { snapshotComplete, ...reading } = args;
     if (existing) {
-      await ctx.db.replace(existing._id, args);
+      if (snapshotComplete === true) {
+        await ctx.db.replace(existing._id, reading);
+        return null;
+      }
+      await ctx.db.patch(existing._id, {
+        capturedAt: reading.capturedAt,
+        ...(reading.subscriptionType === undefined
+          ? {}
+          : { subscriptionType: reading.subscriptionType }),
+        ...(reading.status === undefined ? {} : { status: reading.status }),
+        ...(reading.windows === undefined
+          ? {}
+          : {
+              windows: mergeUsageLimitWindows(
+                existing.windows,
+                reading.windows,
+              ),
+            }),
+      });
       return null;
     }
-    await ctx.db.insert("agentUsageLimits", args);
+    await ctx.db.insert("agentUsageLimits", reading);
     return null;
   },
 });
@@ -67,7 +126,11 @@ export const report = authMutation({
  * provider can appear more than once — once per connected account it has run on.
  */
 export const getByRepo = authQuery({
-  args: { repoId: v.id("githubRepos") },
+  args: {
+    repoId: v.id("githubRepos"),
+    /** Quantized by the caller so expiry remains deterministic and cacheable. */
+    now: v.number(),
+  },
   returns: v.array(agentUsageLimitValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
@@ -75,14 +138,39 @@ export const getByRepo = authQuery({
       .query("agentUsageLimits")
       .withIndex("by_repo_provider_account", (q) => q.eq("repoId", args.repoId))
       .collect();
-    rows.sort((a, b) => b.capturedAt - a.capturedAt);
-    return await Promise.all(
-      rows.map(async (row) => {
-        const account = row.providerAccountId
-          ? await ctx.db.get(row.providerAccountId)
-          : null;
-        return { ...row, ...(account ? { accountLabel: account.label } : {}) };
-      }),
-    );
+    const visible = [];
+    for (const row of rows) {
+      if (!isUsageLimitReadingFresh(row.capturedAt, args.now)) continue;
+      const next = { ...row };
+      const reportedWindows = next.windows;
+      if (reportedWindows) {
+        const activeWindows = reportedWindows.filter(
+          (window) =>
+            window.resetsAt === undefined || window.resetsAt > args.now,
+        );
+        if (activeWindows.length > 0) {
+          next.windows = activeWindows;
+        } else {
+          delete next.windows;
+          // A status observed alongside windows expires when all of those
+          // windows reset. Windowless status-only events remain until the row's
+          // captured-at freshness limit above.
+          if (reportedWindows.length > 0) delete next.status;
+        }
+      }
+      const account = next.providerAccountId
+        ? await ctx.db.get(next.providerAccountId)
+        : null;
+      const canNameAccount =
+        account !== null &&
+        account.provider === next.provider &&
+        (await isAccountUsableBy(ctx.db, account, ctx.userId));
+      visible.push({
+        ...next,
+        ...(canNameAccount && account ? { accountLabel: account.label } : {}),
+      });
+    }
+    visible.sort((a, b) => b.capturedAt - a.capturedAt);
+    return visible;
   },
 });

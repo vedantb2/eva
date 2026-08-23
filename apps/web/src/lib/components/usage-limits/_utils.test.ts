@@ -42,15 +42,17 @@ test("tone buckets sit on the 80 and 95 thresholds", () => {
 test("a reported status is never softened by a low window", () => {
   // The provider's own warning is the part worth surfacing, not the 42% bar.
   expect(worseTone("neutral", "warning")).toBe("warning");
-  expect(
-    chipSummary([claude({ status: "allowed_warning" })])?.tone,
-  ).toBe("warning");
-  expect(chipSummary([claude({ status: "rejected" })])?.tone).toBe("danger");
+  expect(chipSummary([claude({ status: "allowed_warning" })], NOW)?.tone).toBe(
+    "warning",
+  );
+  expect(chipSummary([claude({ status: "rejected" })], NOW)?.tone).toBe(
+    "danger",
+  );
 });
 
 test("the chip shows the tightest window across a Claude row", () => {
-  expect(maxUtilization(claude())).toBe(62);
-  expect(chipSummary([claude()])).toEqual({
+  expect(maxUtilization(claude(), NOW)).toBe(62);
+  expect(chipSummary([claude()], NOW)).toEqual({
     label: "62%",
     utilization: 62,
     tone: "neutral",
@@ -64,20 +66,23 @@ test("windows with no utilisation are skipped, not drawn at zero", () => {
       { key: "opus", label: "Weekly (Opus)" },
     ],
   });
-  expect(reportedWindows(snapshot).map((w) => w.key)).toEqual(["5h"]);
-  expect(maxUtilization(claude({ windows: [] }))).toBeUndefined();
-  expect(maxUtilization(claude({ windows: undefined }))).toBeUndefined();
+  expect(reportedWindows(snapshot, NOW).map((w) => w.key)).toEqual(["5h"]);
+  expect(maxUtilization(claude({ windows: [] }), NOW)).toBeUndefined();
+  expect(maxUtilization(claude({ windows: undefined }), NOW)).toBeUndefined();
 });
 
 test("the chip shows the tightest window across every account, not the freshest", () => {
   // Two Claude accounts on one repo. The newer row is the roomier one, so a
   // first-match chip would have understated how close the other is to refusal.
-  const roomy = claude({ capturedAt: NOW, windows: [{ key: "5h", label: "5h", utilization: 18 }] });
+  const roomy = claude({
+    capturedAt: NOW,
+    windows: [{ key: "5h", label: "5h", utilization: 18 }],
+  });
   const tight = claude({
     capturedAt: NOW - 60_000,
     windows: [{ key: "5h", label: "5h", utilization: 83 }],
   });
-  expect(chipSummary([roomy, tight])).toEqual({
+  expect(chipSummary([roomy, tight], NOW)).toEqual({
     label: "83%",
     utilization: 83,
     tone: "warning",
@@ -87,12 +92,14 @@ test("the chip shows the tightest window across every account, not the freshest"
 test("one account's flagged status colours the chip the whole card shares", () => {
   // The collapsed chip stands in for every account, so a rejection sitting
   // behind a lower utilisation must not be hidden by it.
-  const calm = claude({ windows: [{ key: "5h", label: "5h", utilization: 70 }] });
+  const calm = claude({
+    windows: [{ key: "5h", label: "5h", utilization: 70 }],
+  });
   const rejected = claude({
     status: "rejected",
     windows: [{ key: "5h", label: "5h", utilization: 12 }],
   });
-  expect(chipSummary([calm, rejected])).toEqual({
+  expect(chipSummary([calm, rejected], NOW)).toEqual({
     label: "70%",
     utilization: 70,
     tone: "danger",
@@ -110,7 +117,7 @@ test("a windowless rejection still colours a chip that has a number", () => {
     capturedAt: NOW,
     status: "rejected",
   };
-  expect(chipSummary([measured, rejectedNoWindows])).toEqual({
+  expect(chipSummary([measured, rejectedNoWindows], NOW)).toEqual({
     label: "40%",
     utilization: 40,
     tone: "danger",
@@ -121,9 +128,9 @@ test("a section is keyed by account, so two of one provider stay distinct", () =
   expect(sectionKey({ provider: "claude", providerAccountId: "acc-a" })).toBe(
     "claude:acc-a",
   );
-  expect(sectionKey({ provider: "claude", providerAccountId: "acc-b" })).not.toBe(
-    sectionKey({ provider: "claude", providerAccountId: "acc-a" }),
-  );
+  expect(
+    sectionKey({ provider: "claude", providerAccountId: "acc-b" }),
+  ).not.toBe(sectionKey({ provider: "claude", providerAccountId: "acc-a" }));
   // A run on the shared team credential has no account, and still keys.
   expect(sectionKey({ provider: "claude" })).toBe("claude:");
 });
@@ -146,21 +153,44 @@ test("a provider's accounts keep the order they were captured in", () => {
 
 test("a flagged reading still shows even with nothing to measure", () => {
   expect(
-    chipSummary([
-      { provider: "claude", capturedAt: NOW, status: "rejected" },
-    ]),
+    chipSummary(
+      [{ provider: "claude", capturedAt: NOW, status: "rejected" }],
+      NOW,
+    ),
   ).toEqual({ label: "Limit reached", tone: "danger" });
   expect(
-    chipSummary([
-      { provider: "claude", capturedAt: NOW, status: "allowed_warning" },
-    ])?.label,
+    chipSummary(
+      [{ provider: "claude", capturedAt: NOW, status: "allowed_warning" }],
+      NOW,
+    )?.label,
   ).toBe("Near limit");
 });
 
 test("nothing to show renders nothing at all", () => {
-  expect(chipSummary([])).toBeUndefined();
+  expect(chipSummary([], NOW)).toBeUndefined();
   expect(
-    chipSummary([{ provider: "claude", capturedAt: NOW, status: "allowed" }]),
+    chipSummary(
+      [{ provider: "claude", capturedAt: NOW, status: "allowed" }],
+      NOW,
+    ),
+  ).toBeUndefined();
+});
+
+test("expired windows and old readings stop affecting the chip", () => {
+  const reset = claude({
+    status: "rejected",
+    windows: [
+      {
+        key: "5h",
+        label: "5h",
+        utilization: 100,
+        resetsAt: NOW - 1,
+      },
+    ],
+  });
+  expect(chipSummary([reset], NOW)).toBeUndefined();
+  expect(
+    chipSummary([claude({ capturedAt: NOW - DAY - 1 })], NOW),
   ).toBeUndefined();
 });
 

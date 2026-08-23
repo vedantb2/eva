@@ -27,6 +27,7 @@ import {
   repoSkillContentFields,
   repoSystemSkillFields,
   harnessSkillCatalogFields,
+  harnessSkillReportTokenFields,
   sandboxGitCredentialsFields,
   appSettingsFields,
   userFields,
@@ -265,6 +266,9 @@ const schema = defineSchema({
     "by_provider",
     ["provider"],
   ),
+  harnessSkillReportTokens: defineTable(harnessSkillReportTokenFields)
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_expires_at", ["expiresAt"]),
   notifications: defineTable({
     userId: v.id("users"),
     type: notificationTypeValidator,

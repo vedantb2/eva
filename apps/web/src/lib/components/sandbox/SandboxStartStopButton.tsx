@@ -2,15 +2,17 @@
 
 import { Button, cn, Spinner } from "@eva/ui";
 import { IconPlayerPlay, IconPlayerStop } from "@tabler/icons-react";
+import type { Id } from "@eva/backend";
+import { UsageLimitsIndicator } from "@/lib/components/usage-limits";
 import { SandboxPanelToggleButton } from "./SandboxPanelToggleButton";
-import { MidTurnSleepTooltip } from "./SleepEvaButton";
+import { SleepControlTooltip } from "./SleepEvaButton";
 
 /**
  * Compact play/stop control used in session, project, and task sandbox chat.
  *
  * Held open but inert while a turn is in flight, with a tooltip saying why —
- * see {@link MidTurnSleepTooltip} for the reasoning and for the `aria-disabled`
- * treatment this shares with the labelled sleep button.
+ * see {@link SleepControlTooltip} for the reasoning and for the `aria-disabled`
+ * treatment this shares with the header sleep button.
  */
 export function SandboxStartStopButton({
   isActive,
@@ -27,9 +29,10 @@ export function SandboxStartStopButton({
   // Only stopping is unsafe mid-turn; a turn cannot be running on a sandbox
   // that is asleep, but if the flags ever disagree, starting stays available.
   const blockedMidTurn = isActive && isAssistantResponding;
+  const label = isActive ? "Put Eva to sleep" : "Wake up Eva";
 
   return (
-    <MidTurnSleepTooltip blocked={blockedMidTurn}>
+    <SleepControlTooltip blocked={blockedMidTurn} label={label}>
       <Button
         size="icon-sm"
         variant={isActive ? "destructive" : "secondary"}
@@ -43,7 +46,7 @@ export function SandboxStartStopButton({
           isActive ? undefined : "text-success",
           blockedMidTurn && "cursor-not-allowed opacity-45 hover:bg-destructive",
         )}
-        aria-label={isActive ? "Put Eva to sleep" : "Wake up Eva"}
+        aria-label={label}
       >
         {isToggling ? (
           <Spinner size="sm" />
@@ -53,12 +56,17 @@ export function SandboxStartStopButton({
           <IconPlayerPlay className="w-4 h-4" />
         )}
       </Button>
-    </MidTurnSleepTooltip>
+    </SleepControlTooltip>
   );
 }
 
-/** Start/stop plus panel toggle for project and task sandbox chat headers. */
+/**
+ * Plan usage, start/stop, and panel toggle for project and task sandbox chat
+ * headers — the sandbox-surface counterpart of the session chat header, which
+ * carries the same trio itself (so nothing is duplicated there).
+ */
 export function SandboxChatHeaderActions({
+  repoId,
   isSandboxActive,
   isSandboxToggling,
   onSandboxToggle,
@@ -66,6 +74,7 @@ export function SandboxChatHeaderActions({
   onToggleSandbox,
   isAssistantResponding = false,
 }: {
+  repoId: Id<"githubRepos">;
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
   onSandboxToggle?: (action: "start" | "stop") => void;
@@ -77,6 +86,7 @@ export function SandboxChatHeaderActions({
 
   return (
     <div className="flex shrink-0 items-center justify-end gap-1 px-2 py-1">
+      <UsageLimitsIndicator repoId={repoId} />
       {onSandboxToggle ? (
         <SandboxStartStopButton
           isActive={isSandboxActive}

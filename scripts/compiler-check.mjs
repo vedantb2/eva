@@ -1,7 +1,8 @@
-// Runs babel-plugin-react-compiler (the exact version the build uses) over
+// Runs oxc-transform-react (the exact React Compiler the build runs) over
 // apps/web/src and fails when a file bails out of compilation for a reason not
-// recorded in the baseline. A bailout is silent at build time — the compiler
-// just skips memoizing the whole file — so this is the only gate that notices.
+// recorded in the baseline. @vitejs/plugin-react surfaces each bailout as a
+// build warning, but a 700-chunk build scrolls them past unnoticed and nothing
+// fails — so this stays the gate that actually stops a regression.
 //
 //   node scripts/compiler-check.mjs             check against the baseline
 //   node scripts/compiler-check.mjs --update    rewrite the baseline from HEAD
@@ -26,12 +27,13 @@ const BASELINE_PATH = path.join(
 );
 const UPDATE = process.argv.includes("--update");
 
-// Resolve babel + the compiler through apps/web so we test what the build runs.
+// Resolve the compiler through apps/web so we test what the build runs.
 const req = createRequire(path.join(WEB, "package.json"));
-const babel = createRequire(req.resolve("@rolldown/plugin-babel"))(
-  "@babel/core",
-);
-const compilerPlugin = req.resolve("babel-plugin-react-compiler");
+const { transformSync } = await import(req.resolve("oxc-transform-react"));
+
+// Mirrors @vitejs/plugin-react: files without a component-shaped identifier are
+// skipped by the plugin, so compiling them here would report phantom bailouts.
+const CODE_FILTER = /forwardRef|memo|\b(?:[A-Z]|use[A-Z0-9])/;
 
 function walk(dir, out = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -44,52 +46,39 @@ function walk(dir, out = []) {
   return out;
 }
 
+// Byte offsets come back on the diagnostic labels; the report wants line numbers.
+function lineAt(code, offset) {
+  let line = 1;
+  for (let i = 0; i < offset && i < code.length; i++) {
+    if (code[i] === "\n") line++;
+  }
+  return line;
+}
+
 // key: "relpath :: reason"  ->  [line, line, ...] for display only
 const found = new Map();
 
 for (const file of walk(path.join(WEB, "src"))) {
   const code = readFileSync(file, "utf8");
   if (code.includes('"use no memo"')) continue; // deliberate opt-out
+  if (!CODE_FILTER.test(code)) continue;
   const rel = path.relative(ROOT, file).split(path.sep).join("/");
-  try {
-    babel.transformSync(code, {
-      filename: file,
-      babelrc: false,
-      configFile: false,
-      sourceMaps: false,
-      parserOpts: {
-        plugins: file.endsWith(".tsx") ? ["typescript", "jsx"] : ["typescript"],
-      },
-      plugins: [
-        [
-          compilerPlugin,
-          {
-            logger: {
-              logEvent(_fn, ev) {
-                if (ev.kind !== "CompileError") return;
-                const detail = ev.detail ?? {};
-                const reason = String(detail.reason ?? "unknown reason");
-                const key = `${rel} :: ${reason}`;
-                const lines = found.get(key) ?? [];
-                // Dig any source location out of the detail for the report.
-                const dig = (o) => {
-                  if (!o || typeof o !== "object") return;
-                  if (o.loc?.start?.line) lines.push(o.loc.start.line);
-                  for (const k in o) dig(o[k]);
-                };
-                dig(detail);
-                found.set(
-                  key,
-                  [...new Set(lines)].sort((a, b) => a - b),
-                );
-              },
-            },
-          },
-        ],
-      ],
-    });
-  } catch {
-    // Parse failures are tsc's job, not this script's.
+
+  const result = transformSync(file, code, {
+    reactCompiler: {},
+    jsx: { runtime: "automatic" },
+    sourcemap: false,
+  });
+
+  for (const error of result.errors ?? []) {
+    const key = `${rel} :: ${error.message}`;
+    const lines = found.get(key) ?? [];
+    for (const label of error.labels ?? [])
+      lines.push(lineAt(code, label.start));
+    found.set(
+      key,
+      [...new Set(lines)].sort((a, b) => a - b),
+    );
   }
 }
 

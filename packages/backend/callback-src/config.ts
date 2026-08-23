@@ -5,6 +5,8 @@ export const CONVEX_URL = process.env.CONVEX_URL;
 export const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
 export const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
 export const STREAMING_HMAC = process.env.STREAMING_HMAC || "";
+/** Scoped signature for `/api/harness-skills/report`; empty on older backends. */
+export const HARNESS_CATALOG_HMAC = process.env.HARNESS_CATALOG_HMAC || "";
 export const ENTITY_ID = process.env.ENTITY_ID;
 export const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 export const RUN_ID = process.env.RUN_ID || null;
@@ -188,6 +190,15 @@ process.env.GH_PROMPT_DISABLED = "1";
 process.env.GH_NO_UPDATE_NOTIFIER = "1";
 
 export const REPO_ID = process.env.REPO_ID;
+
+/**
+ * The connected provider account whose credentials this run authenticated as.
+ * Set by the launcher only when an account override actually took effect, so an
+ * empty value means the run used the sandbox's shared team credential — which is
+ * exactly the attribution a usage-limit reading needs (plan limits are per
+ * account, and two accounts' readings must not overwrite each other).
+ */
+export const PROVIDER_ACCOUNT_ID = process.env.PROVIDER_ACCOUNT_ID || "";
 
 // --- Reasoning / thinking effort ---
 // `AI_REASONING_EFFORT` is the abstract level from the traits menu, sent only

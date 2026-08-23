@@ -19,11 +19,19 @@ import {
   DAY_MS,
 } from "@/lib/components/analytics/timeRange";
 import { useQuantizedNow } from "@/lib/hooks/useQuantizedNow";
+import { formatDurationCompactMs } from "@eva/shared/duration";
 import {
   IconGitPullRequest,
   IconPercentage,
   IconChecklist,
+  IconGitMerge,
+  IconClockBolt,
+  IconTargetArrow,
+  IconClockHour4,
 } from "@tabler/icons-react";
+
+/** Hours we credit back to a human for each task the agent completed. */
+const HOURS_SAVED_PER_TASK = 2;
 
 export function StatsClient() {
   const { repo } = useRepo();
@@ -68,6 +76,7 @@ export function StatsClient() {
     <PageWrapper
       title="Stats"
       comfortable
+      insetHeader
       headerRight={
         <TimeRangeFilter value={timeRange} onChange={setTimeRange} />
       }
@@ -80,10 +89,11 @@ export function StatsClient() {
         >
           <Skeleton className="h-40 border border-border" />
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {Array.from({ length: 3 }).map((_, i) => (
+            {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className="h-24 border border-border" />
             ))}
           </div>
+          <Skeleton className="h-28 border border-border" />
           <Skeleton className="h-56 border border-border" />
         </div>
       ) : (
@@ -126,6 +136,51 @@ export function StatsClient() {
               }
             />
           </KpiGroup>
+
+          <KpiGroup className="lg:grid-cols-3">
+            <Kpi
+              icon={IconGitMerge}
+              label="PRs Merged"
+              value={impactStats.prsMerged}
+              subtitle={`${impactStats.mergeRate}% of session PRs merged`}
+              currentValue={impactStats.prsMerged}
+              previousValue={
+                "prevPrsMerged" in impactStats
+                  ? impactStats.prevPrsMerged
+                  : undefined
+              }
+            />
+            <Kpi
+              icon={IconClockBolt}
+              label="Median Time to PR"
+              value={
+                impactStats.medianTimeToPrMs === undefined
+                  ? "—"
+                  : formatDurationCompactMs(impactStats.medianTimeToPrMs)
+              }
+              subtitle="task created to PR opened"
+            />
+            <Kpi
+              icon={IconTargetArrow}
+              label="First-Try Rate"
+              value={`${impactStats.firstTryRate}%`}
+              subtitle="tasks done in one run"
+              currentValue={impactStats.firstTryRate}
+              previousValue={
+                "prevFirstTryRate" in impactStats
+                  ? impactStats.prevFirstTryRate
+                  : undefined
+              }
+            />
+          </KpiGroup>
+
+          <Kpi
+            icon={IconClockHour4}
+            label="Estimated Hours Saved"
+            value={`${impactStats.tasksCompleted * HOURS_SAVED_PER_TASK}h`}
+            subtitle={`est. ${HOURS_SAVED_PER_TASK}h saved per completed task · agent worked ${formatDurationCompactMs(impactStats.agentWorkMs)}`}
+            size="lg"
+          />
 
           <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
             <div className="lg:col-span-2">

@@ -170,6 +170,13 @@ const CURSOR_REASONING_GPT55: ModelReasoningTraits = {
 };
 
 export type AIProvider = "claude" | "codex" | "opencode" | "cursor";
+/** The same provider list as `aiProviderValidator`, for non-Convex parsers. */
+export const AI_PROVIDERS: readonly [AIProvider, ...AIProvider[]] = [
+  "claude",
+  "codex",
+  "opencode",
+  "cursor",
+];
 export type LegacyClaudeModel = "opus" | "sonnet" | "haiku";
 export type AIModel =
   | "claude:opus"
@@ -542,7 +549,7 @@ export function getAIModelProvider(
 /** Interactive chat providers that keep one sandbox-local process alive across turns. */
 export function usesChatDaemon(model: string | null | undefined): boolean {
   const provider = getAIModelProvider(model);
-  return provider === "claude" || provider === "codex";
+  return provider === "claude" || provider === "codex" || provider === "cursor";
 }
 
 /**

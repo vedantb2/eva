@@ -31,12 +31,13 @@ import { RailSettingsMenu } from "@/lib/components/sidebar/RailSettingsMenu";
 import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import { QueryErrorBoundary } from "@/lib/components/QueryErrorBoundary";
 import { ShortcutKbd } from "@/lib/components/ui/Kbd";
+import { CountPop, countLabel } from "@/lib/components/ui/CountPop";
 import { railTileActiveClass } from "@/lib/components/sidebar/SharedLayoutNav";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { isHomePath } from "@/lib/components/sidebar/homePaths";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
-import { repoHref } from "@/lib/utils/repoUrl";
+import { repoSectionFromPath, repoSectionHref } from "@/lib/utils/repoUrl";
 import { repoTileColor } from "@/lib/utils/repoTileColor";
 import {
   appLeafName,
@@ -79,31 +80,26 @@ function railTileActive(active: boolean): string {
     : "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground";
 }
 
-function formatCountLabel(count: number | undefined): string | null {
-  if (count === undefined || count <= 0) return null;
-  return count > 99 ? "99+" : String(count);
+/**
+ * The unread dot on a rail tile. One component for both counters — they were two
+ * byte-identical copies differing only in the query. The pop itself lives in
+ * `CountPop`, shared with the drafts pill and the running-sessions count.
+ */
+function RailUnreadBadge({ count }: { count: number | undefined }) {
+  return (
+    <CountPop
+      label={countLabel(count)}
+      className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
+    />
+  );
 }
 
 function InboxUnreadBadge() {
-  const unreadCount = useQuery(api.notifications.countUnread);
-  const unreadLabel = formatCountLabel(unreadCount);
-  if (!unreadLabel) return null;
-  return (
-    <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
-      {unreadLabel}
-    </span>
-  );
+  return <RailUnreadBadge count={useQuery(api.notifications.countUnread)} />;
 }
 
 function AutomationsUnreadBadge() {
-  const unreadCount = useQuery(api.automations.countUnreadAll);
-  const unreadLabel = formatCountLabel(unreadCount);
-  if (!unreadLabel) return null;
-  return (
-    <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
-      {unreadLabel}
-    </span>
-  );
+  return <RailUnreadBadge count={useQuery(api.automations.countUnreadAll)} />;
 }
 
 const EMPTY_SANDBOX_REPO_IDS = new Set<Id<"githubRepos">>();
@@ -191,12 +187,23 @@ function RepoRailView({
     pathname === "/automations" ||
     pathname.startsWith("/automations/") ||
     (pathParts.includes("automations") && pathParts[0] !== "automations");
-  const sessionsLabel = formatCountLabel(activeSessionCount);
+  const sessionsLabel = countLabel(activeSessionCount);
   const [renameRepo, setRenameRepo] = useState<RepoWithLogo | null>(null);
+  // Carry the section (Quick Tasks, Projects, …) across an app switch, but not
+  // the entity below it: task 204 belongs to the app you are leaving.
+  const currentSection = repoSectionFromPath(pathname);
+  // Plain `string`, not a template-literal type: `<Link to>` is a union of
+  // known route paths and rejects the narrowed form.
+  const railHref = (row: RepoWithLogo): string =>
+    repoSectionHref(row.owner, row.name, row.rootDirectory, currentSection);
 
   return (
     <div className="flex h-full w-16 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar">
-      <RailAppHotkeys repos={repos} onNavigate={onNavigate} />
+      <RailAppHotkeys
+        repos={repos}
+        section={currentSection}
+        onNavigate={onNavigate}
+      />
       <div className="flex w-full flex-col items-center gap-1.5 px-0 pt-3">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -252,11 +259,10 @@ function RepoRailView({
               )}
             >
               <SessionsIcon size={22} className="shrink-0" />
-              {sessionsLabel ? (
-                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-success px-1 text-[10px] font-semibold leading-none text-white">
-                  {sessionsLabel}
-                </span>
-              ) : null}
+              <CountPop
+                label={sessionsLabel}
+                className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-success px-1 text-[10px] font-semibold leading-none text-white"
+              />
             </Link>
           </TooltipTrigger>
           <TooltipContent side="right">
@@ -285,7 +291,7 @@ function RepoRailView({
                 <TooltipTrigger asChild>
                   <ContextMenuTrigger asChild>
                     <Link
-                      to={repoHref(row.owner, row.name, row.rootDirectory)}
+                      to={railHref(row)}
                       onClick={onNavigate}
                       aria-label={
                         hasActiveSandbox
@@ -357,26 +363,26 @@ function RepoRailView({
       ) : null}
       <div className="flex w-full flex-col items-center gap-1.5 border-t border-sidebar-border py-3">
         {simpleView ? null : (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              to="/automations"
-              onClick={onNavigate}
-              aria-label="Automations"
-              className={cn(
-                RAIL_TILE_CLASS,
-                "group",
-                railTileActive(automationsActive),
-              )}
-            >
-              <AutomationsIcon size={22} className="shrink-0" />
-              <QueryErrorBoundary>
-                <AutomationsUnreadBadge />
-              </QueryErrorBoundary>
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent side="right">Automations</TooltipContent>
-        </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                to="/automations"
+                onClick={onNavigate}
+                aria-label="Automations"
+                className={cn(
+                  RAIL_TILE_CLASS,
+                  "group",
+                  railTileActive(automationsActive),
+                )}
+              >
+                <AutomationsIcon size={22} className="shrink-0" />
+                <QueryErrorBoundary>
+                  <AutomationsUnreadBadge />
+                </QueryErrorBoundary>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right">Automations</TooltipContent>
+          </Tooltip>
         )}
         <Tooltip>
           <TooltipTrigger asChild>

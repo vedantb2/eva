@@ -1,4 +1,5 @@
-import { unlinkSync, writeFileSync, readFileSync } from "fs";
+import { unlinkSync, writeFileSync, readFileSync, readdirSync } from "fs";
+import { homedir } from "os";
 import {
   CLAIM_MUTATION,
   COMPLETE_SYNTHETIC_TURN_MUTATION,
@@ -9,6 +10,7 @@ import {
   DAEMON_OPTS_SIG,
   ENTITY_ID,
   ENTITY_ID_FIELD,
+  HARNESS_CATALOG_HMAC,
   MAX_TOTAL_RUNTIME_MS,
   MODEL,
   NO_OUTPUT_TIMEOUT_MS,
@@ -16,12 +18,18 @@ import {
   REPO_ID,
   RUN_ID,
   UPDATE_BACKGROUND_AGENTS_MUTATION,
+  WORK_DIR,
 } from "../config.js";
 import {
   resolveDaemonPaths,
   resolveLegacySessionDaemonPaths,
 } from "./daemonPaths.js";
-import { callConvexWithRetry, fetchWithTimeout } from "../http/convexClient.js";
+import {
+  callConvexWithRetry,
+  callHarnessSkillCatalogReport,
+  fetchWithTimeout,
+  type HarnessCommandReport,
+} from "../http/convexClient.js";
 import {
   deliverCompletionWithMedia,
   extractResultEvent,
@@ -44,8 +52,20 @@ import {
   syncClaudeStateToPersist,
   prepareClaudeSessionState,
 } from "../session/claudeSession.js";
-import { buildSdkOptions, loadSdk, type SdkUserMessage } from "./claudeSdk.js";
+import {
+  buildSdkOptions,
+  loadSdk,
+  readSdkPlanUsage,
+  type SdkModule,
+  type SdkUserMessage,
+} from "./claudeSdk.js";
 import { callbackState as S } from "../runtime/state.js";
+import {
+  captureClaudeUsage,
+  reportUsageLimits,
+  type ClaudeUsageResponseLike,
+} from "../runtime/usageLimits.js";
+import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
 import {
   getCurrentTurnLease,
@@ -145,6 +165,9 @@ type ClaimedTurn = {
 
 type DaemonMessage = Record<string, JsonValue>;
 
+/** The SDK's live query handle — inferred so no SDK type is named here. */
+type AgentQuery = ReturnType<SdkModule["query"]>;
+
 type DaemonTurn = { kind: "real" } | { kind: "synthetic"; messageId: string };
 
 type WarmRunner = {
@@ -156,6 +179,8 @@ type WarmRunner = {
   /** Interrupts the in-flight turn (cancel). Logs and no-ops when the SDK
    * query handle does not support it. */
   interrupt: () => Promise<void>;
+  /** Reads the SDK's experimental plan-usage data; null when unavailable. */
+  readUsage: () => Promise<ClaudeUsageResponseLike | null>;
 };
 
 type BackgroundAgentEntry = {
@@ -434,7 +459,10 @@ function resetTurnState(): void {
 }
 
 /** Reports one finished turn to the session workflow (mirrors the one-shot completion). */
-async function finalizeTurn(output: string): Promise<void> {
+async function finalizeTurn(
+  output: string,
+  agentRunner: WarmRunner,
+): Promise<void> {
   // Drain the buffered turn output into S.accumulatedSteps before building the
   // completion payload — exactly like the one-shot path (index.ts) flushes after
   // its attempt loop. processRealtimeStdoutChunk only runs the streaming
@@ -501,6 +529,11 @@ async function finalizeTurn(output: string): Promise<void> {
   // this only guards against a sandbox restart. accumulatedSteps is still
   // populated (resetTurnState runs after this returns).
   const bookkeepingAt = Date.now();
+  // Plan usage-limit reading, taken after completion so the /usage round trip
+  // never delays the reply the user is waiting on. The turn's own
+  // `rate_limit_event`s already merged whichever window they named.
+  await captureClaudeUsage(agentRunner.readUsage);
+  void reportUsageLimits("claude");
   syncClaudeStateToPersist("daemon-turn");
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms",
@@ -705,6 +738,135 @@ async function syncBackgroundAgentsToConvex(
   } catch {
     /* best-effort */
   }
+}
+
+let harnessCatalogReportStarted = false;
+
+/** Server-side caps on `/api/harness-skills/report`; exceeding any rejects the whole report. */
+const CATALOG_MAX_COMMANDS = 100;
+const CATALOG_MAX_NAME_LENGTH = 100;
+const CATALOG_MAX_DESCRIPTION_LENGTH = 2000;
+const CATALOG_MAX_ARGUMENT_HINT_LENGTH = 400;
+
+/**
+ * Command names the SDK picked up from this checkout or the sandbox user's
+ * settings (`.claude/skills` directories and `.claude/commands` markdown
+ * files) rather than from the CLI build. The catalog row is global across
+ * repos, so these must never be reported as built-ins.
+ */
+function collectLocalCommandNames(): Set<string> {
+  const names = new Set<string>();
+  for (const root of [WORK_DIR, homedir()]) {
+    try {
+      for (const entry of readdirSync(root + "/.claude/skills", {
+        withFileTypes: true,
+      })) {
+        if (entry.isDirectory()) names.add(entry.name);
+      }
+    } catch {
+      /* no skills dir */
+    }
+    try {
+      for (const entry of readdirSync(root + "/.claude/commands", {
+        withFileTypes: true,
+      })) {
+        if (entry.isFile() && entry.name.endsWith(".md")) {
+          names.add(entry.name.slice(0, -".md".length));
+        }
+      }
+    } catch {
+      /* no commands dir */
+    }
+  }
+  return names;
+}
+
+/** First non-empty line of a command description, within the server's length cap. */
+function catalogDescription(description: string): string {
+  const firstLine = description
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+  return (firstLine ?? "").slice(0, CATALOG_MAX_DESCRIPTION_LENGTH);
+}
+
+/**
+ * Reports the built-in slash commands this sandbox's Claude CLI ships with, so
+ * the composer's `/` picker tracks the installed build instead of a hardcoded
+ * list. Goes to the HMAC-verified `/api/harness-skills/report` route: the row
+ * is global, so only a sandbox Eva launched may write it — and commands the
+ * SDK loaded from this repo's or the user's `.claude` directory are excluded
+ * so one repo's skills never leak into every other repo's picker. Once per
+ * daemon; the server drops the report when nothing changed. Best-effort — a
+ * failure here must never touch the session, and an unsigned daemon just does
+ * not report.
+ */
+async function reportHarnessSkillCatalog(
+  cliVersion: string,
+  query: AgentQuery,
+): Promise<void> {
+  try {
+    if (!HARNESS_CATALOG_HMAC) return;
+    if (typeof query.initializationResult !== "function") {
+      log("daemon: initializationResult unavailable — skipping skill report");
+      return;
+    }
+    const init = await query.initializationResult();
+    const localNames = collectLocalCommandNames();
+    const commands: HarnessCommandReport[] = [];
+    for (const command of init.commands) {
+      if (localNames.has(command.name)) continue;
+      if (command.name.length === 0) continue;
+      if (command.name.length > CATALOG_MAX_NAME_LENGTH) continue;
+      const argumentHint = (command.argumentHint ?? "").slice(
+        0,
+        CATALOG_MAX_ARGUMENT_HINT_LENGTH,
+      );
+      commands.push({
+        name: command.name,
+        description: catalogDescription(command.description),
+        ...(argumentHint ? { argumentHint } : {}),
+      });
+    }
+    if (commands.length === 0) return;
+    if (commands.length > CATALOG_MAX_COMMANDS) {
+      log(
+        "daemon: harness skill report truncated from " +
+          commands.length +
+          " to " +
+          CATALOG_MAX_COMMANDS +
+          " commands",
+      );
+      commands.length = CATALOG_MAX_COMMANDS;
+    }
+    await callHarnessSkillCatalogReport("claude", cliVersion, commands);
+    log(
+      "daemon: reported " +
+        commands.length +
+        " built-in skills from CLI " +
+        cliVersion,
+    );
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    log("daemon: harness skill report failed — " + messageText);
+  }
+}
+
+/**
+ * The init system message is the only place the CLI version appears; the
+ * command descriptions only come from `initializationResult()`. Fires once,
+ * detached, as soon as the first init message lands on the warm query.
+ */
+function noteHarnessInitMessage(
+  message: DaemonMessage,
+  query: AgentQuery,
+): void {
+  if (harnessCatalogReportStarted) return;
+  if (message.type !== "system" || message.subtype !== "init") return;
+  const cliVersion = readStringField(message, "claude_code_version");
+  if (!cliVersion) return;
+  harnessCatalogReportStarted = true;
+  void reportHarnessSkillCatalog(cliVersion, query);
 }
 
 function findAgentByTaskId(taskId: string): BackgroundAgentEntry | undefined {
@@ -1195,7 +1357,7 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
       await finalizeSyntheticTurn(agentTurnOutput);
     } else {
       supervisor.beginFinalizing();
-      await finalizeTurn(agentTurnOutput);
+      await finalizeTurn(agentTurnOutput, agentRunner);
       log(
         "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms",
       );
@@ -1279,6 +1441,7 @@ function createWarmAgentRunner(
         if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
           continue;
         }
+        noteHarnessInitMessage(raw, query);
         pending.push(raw);
         wakeWaiters();
       }
@@ -1328,7 +1491,18 @@ function createWarmAgentRunner(
     log("daemon: interrupt unavailable on SDK query handle");
   };
 
-  return { push, waitMessage, drainPending, hasPending, stopTask, interrupt };
+  const readUsage = (): Promise<ClaudeUsageResponseLike | null> =>
+    readSdkPlanUsage(query);
+
+  return {
+    push,
+    waitMessage,
+    drainPending,
+    hasPending,
+    stopTask,
+    interrupt,
+    readUsage,
+  };
 }
 
 /**
@@ -1351,72 +1525,6 @@ function callbackScriptWentStaleOnDisk(): boolean {
  * daemon can exit and free the sandbox. The claim is atomic server-side, so a
  * prompt is handed to exactly one poll and never re-executed.
  */
-/** Mirrors attachmentExtensionForMimeType in convex/_sandbox_runtime/attachments.ts. */
-function attachmentExtensionForMimeType(mimeType: string): string {
-  const type = mimeType.split(";")[0]?.trim().toLowerCase() ?? "";
-  switch (type) {
-    case "image/jpeg":
-      return ".jpg";
-    case "image/gif":
-      return ".gif";
-    case "image/webp":
-      return ".webp";
-    case "image/svg+xml":
-      return ".svg";
-    case "image/png":
-      return ".png";
-    case "text/html":
-      return ".html";
-    case "text/markdown":
-      return ".md";
-    case "text/plain":
-      return ".txt";
-    default:
-      if (type.startsWith("image/")) return ".png";
-      return ".bin";
-  }
-}
-
-/**
- * Downloads this turn's input attachments into the sandbox filesystem and
- * appends a note pointing the agent at them, so a claimed turn's prompt
- * references files that already exist on disk (no race — the daemon owns
- * ordering). Uses the same flat `/tmp/eva-attachment-<n>.<ext>` scheme + note
- * text as the CLI launch path (convex/_sandbox_runtime/attachments.ts). Failed
- * downloads are skipped.
- */
-async function materializeTurnAttachments(turn: ClaimedTurn): Promise<void> {
-  if (turn.attachmentUrls.length === 0) return;
-  const paths: string[] = [];
-  for (let index = 0; index < turn.attachmentUrls.length; index++) {
-    const url = turn.attachmentUrls[index];
-    if (!url) continue;
-    try {
-      const res = await fetchWithTimeout(url, { method: "GET" });
-      if (!res.ok) {
-        log(`daemon: attachment download failed status=${res.status}`);
-        continue;
-      }
-      const bytes = new Uint8Array(await res.arrayBuffer());
-      const extension = attachmentExtensionForMimeType(
-        res.headers.get("content-type") ?? "",
-      );
-      const path = `/tmp/eva-attachment-${index}${extension}`;
-      writeFileSync(path, bytes);
-      paths.push(path);
-    } catch (error) {
-      log(
-        `daemon: attachment download error ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
-    }
-  }
-  if (paths.length === 0) return;
-  const list = paths.map((p) => `- ${p}`).join("\n");
-  turn.prompt += `\n\n---\nThe user attached the following file(s). Read them with your file-reading tool before responding:\n${list}`;
-}
-
 /**
  * Persistent warm-session daemon. Creates one `query()` and feeds it prompts
  * across turns so only the first turn pays the CLI/MCP/API boot; later turns

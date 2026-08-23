@@ -19,6 +19,7 @@ import {
 } from "./config.js";
 import { runSdkDaemon } from "./providers/claudeSdkDaemon.js";
 import { runCodexAppServerDaemon } from "./providers/codexAppServerDaemon.js";
+import { runCursorDaemon } from "./providers/cursorSdkDaemon.js";
 import { fetchWithTimeout, callConvexWithRetry } from "./http/convexClient.js";
 import { callbackState as S } from "./runtime/state.js";
 import { getCurrentTurnLease, setCurrentTurnLease } from "./runtime/turnLease.js";
@@ -95,6 +96,9 @@ if (CLAIM_MUTATION) {
   }
   if (PROVIDER === "codex") {
     await runCodexAppServerDaemon();
+  }
+  if (PROVIDER === "cursor") {
+    await runCursorDaemon();
   }
 }
 

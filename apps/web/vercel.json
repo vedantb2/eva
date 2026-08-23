@@ -1,6 +1,11 @@
 {
   "installCommand": "cd ../.. && HUSKY=0 pnpm install --frozen-lockfile --filter @eva/web...",
-  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }],
+  "rewrites": [
+    {
+      "source": "/((?!assets/).*)",
+      "destination": "/index.html"
+    }
+  ],
   "headers": [
     {
       "source": "/assets/(.*)",

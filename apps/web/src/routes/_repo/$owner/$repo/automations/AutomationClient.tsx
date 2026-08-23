@@ -15,12 +15,14 @@ import {
   Textarea,
   ModelSelect,
   toast,
-  Surface,
 } from "@eva/ui";
 import { IconPlayerPlay, IconTrash } from "@tabler/icons-react";
 import { useNavigate } from "@tanstack/react-router";
+import { SettingsStack } from "@/lib/components/settings/SettingsStack";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsField } from "@/lib/components/settings/SettingsField";
+import { SettingsToggleRow } from "@/lib/components/settings/SettingsToggleRow";
 import { AutomationDeleteDialog } from "./_components/AutomationDeleteDialog";
-import { SettingToggle } from "./_components/SettingToggle";
 import { SystemAutomationSettings } from "./_components/SystemAutomationSettings";
 import { LatestRun, RunHistory } from "./_components/RunAccordion";
 import { useAvailableAiModels } from "@/lib/hooks/useAvailableAiModels";
@@ -63,6 +65,7 @@ export function AutomationClient({
   return (
     <PageWrapper
       comfortable
+      insetHeader
       title={
         <div className="flex items-center gap-2 sm:gap-3">
           <MarqueeOnHover className="min-w-0">
@@ -101,8 +104,7 @@ export function AutomationClient({
           Run Now
         </Button>
       }
-    >
-      <div className="flex flex-col gap-4">
+      tabs={
         <Tabs
           value={activeTab}
           onValueChange={(v) => {
@@ -117,17 +119,15 @@ export function AutomationClient({
             }
           }}
         >
-          {/* `TabsList` is `inline-flex` with no wrap: on a narrow screen the
-              three labels have to scroll in place rather than widen the page. */}
-          <div className="max-sm:overflow-x-auto">
-            <TabsList>
-              <TabsTrigger value="latest">Latest</TabsTrigger>
-              <TabsTrigger value="run-history">Run History</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
-            </TabsList>
-          </div>
+          <TabsList>
+            <TabsTrigger value="latest">Latest</TabsTrigger>
+            <TabsTrigger value="run-history">Run History</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
         </Tabs>
-
+      }
+    >
+      <div className="flex flex-col gap-4">
         {activeTab === "latest" && (
           <LatestRun
             run={runs?.[0]}
@@ -253,7 +253,7 @@ function SettingsForm({
   };
 
   return (
-    <div className="space-y-4">
+    <SettingsStack>
       <CronScheduleCard
         value={cronDraft}
         onChange={setCronDraft}
@@ -262,18 +262,10 @@ function SettingsForm({
         }}
       />
 
-      <Surface density="none" className="p-3 space-y-4 sm:p-4">
-        <h3 className="text-sm font-medium">Description</h3>
-        <div>
-          <label
-            htmlFor={titleFieldId}
-            className="mb-1.5 block text-xs font-medium text-muted-foreground"
-          >
-            Title
-          </label>
+      <SettingsSection title="Description" bodyClassName="grid gap-5">
+        <SettingsField label="Title" htmlFor={titleFieldId}>
           <Input
             id={titleFieldId}
-            className="h-8 text-xs"
             placeholder="Automation title"
             defaultValue={automation.title}
             onBlur={(e) => {
@@ -281,17 +273,15 @@ function SettingsForm({
               if (val !== automation.title) commit({ title: val });
             }}
           />
-        </div>
-        <div>
-          <label
-            htmlFor={promptFieldId}
-            className="mb-1.5 block text-xs font-medium text-muted-foreground"
-          >
-            Prompt
-          </label>
+        </SettingsField>
+        <SettingsField
+          label="Prompt"
+          htmlFor={promptFieldId}
+          description="The prompt that will be executed on each run."
+        >
           <Textarea
             id={promptFieldId}
-            className="min-h-[120px] text-xs"
+            className="min-h-[120px]"
             placeholder="Describe what this automation should do..."
             defaultValue={automation.description}
             onBlur={(e) => {
@@ -299,93 +289,93 @@ function SettingsForm({
               if (val !== automation.description) commit({ description: val });
             }}
           />
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            The prompt that will be executed on each run.
-          </p>
-        </div>
-      </Surface>
+        </SettingsField>
+      </SettingsSection>
 
-      {isMonorepo && (
-        <Surface density="none" className="p-3 sm:p-4">
-          <SettingToggle
+      <SettingsSection title="Behaviour" bodyVariant="list">
+        {isMonorepo ? (
+          <SettingsToggleRow
             title="Share across apps"
-            description="Show and run this automation from every app in the monorepo"
-            checked={automation.shared === true}
-            onChange={(next) => commit({ contextRepoId: repoId, shared: next })}
+            description="Show and run this automation from every app in the monorepo."
+            action={
+              <Switch
+                checked={automation.shared === true}
+                onCheckedChange={(next) =>
+                  commit({ contextRepoId: repoId, shared: next })
+                }
+                aria-label="Share across apps"
+              />
+            }
           />
-        </Surface>
-      )}
-
-      <Surface density="none" className="p-3 sm:p-4">
-        <SettingToggle
-          title="Report Only"
-          description="Analyze and report without making code changes, branches, or PRs"
-          checked={automation.readOnly === true}
-          onChange={(next) =>
-            commit(
-              next
-                ? { readOnly: true }
-                : { readOnly: false, actionsEnabled: false },
-            )
+        ) : null}
+        <SettingsToggleRow
+          title="Report only"
+          description="Analyze and report without making code changes, branches, or PRs."
+          action={
+            <Switch
+              checked={automation.readOnly === true}
+              onCheckedChange={(next) =>
+                commit(
+                  next
+                    ? { readOnly: true }
+                    : { readOnly: false, actionsEnabled: false },
+                )
+              }
+              aria-label="Report only"
+            />
           }
         />
-      </Surface>
-
-      {automation.readOnly === true && (
-        <Surface density="none" className="p-3 sm:p-4">
-          <SettingToggle
+        {automation.readOnly === true ? (
+          <SettingsToggleRow
             title="Actions"
-            description="Parse findings into actionable items you can convert to tasks"
-            checked={automation.actionsEnabled === true}
-            onChange={(next) => commit({ actionsEnabled: next })}
+            description="Parse findings into actionable items you can convert to tasks."
+            action={
+              <Switch
+                checked={automation.actionsEnabled === true}
+                onCheckedChange={(next) => commit({ actionsEnabled: next })}
+                aria-label="Actions"
+              />
+            }
           />
-        </Surface>
-      )}
-
-      <Surface density="none" className="p-3 sm:p-4">
-        <SettingToggle
+        ) : null}
+        <SettingsToggleRow
           title="Send email"
-          description="Email this automation's run summary to all users when a run succeeds"
-          checked={automation.sendEmail === true}
-          onChange={(next) => commit({ sendEmail: next })}
+          description="Email this automation's run summary to all users when a run succeeds."
+          action={
+            <Switch
+              checked={automation.sendEmail === true}
+              onCheckedChange={(next) => commit({ sendEmail: next })}
+              aria-label="Send email"
+            />
+          }
         />
-      </Surface>
+      </SettingsSection>
 
-      <Surface density="none" className="p-3 space-y-4 sm:p-4">
-        <h3 className="text-sm font-medium">Model</h3>
-        <div>
-          <p className="mb-1.5 text-xs font-medium text-muted-foreground">
-            Provider and Model
-          </p>
+      <SettingsSection title="Model">
+        <SettingsField label="Provider and model">
           <ModelSelect
             value={model}
             options={modelOptions}
             onValueChange={(m) => commit({ model: m })}
           />
-        </div>
-      </Surface>
+        </SettingsField>
+      </SettingsSection>
 
-      <Surface density="none" className="p-3 space-y-4 sm:p-4">
-        <div className="flex flex-col items-start max-sm:gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="max-sm:min-w-0">
-            <h3 className="text-sm font-medium text-destructive">
-              Delete Automation
-            </h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              Permanently remove this automation and all its run history
-            </p>
-          </div>
-          <Button
-            variant="destructive"
-            size="sm"
-            className="max-sm:shrink-0"
-            onClick={() => setShowDeleteDialog(true)}
-          >
-            <IconTrash size={14} />
-            Delete
-          </Button>
-        </div>
-      </Surface>
+      <SettingsSection
+        title="Delete automation"
+        description="Permanently remove this automation and all its run history."
+        bodyVariant="compact"
+        bodyClassName="flex justify-end"
+      >
+        <Button
+          variant="destructive"
+          size="sm"
+          onClick={() => setShowDeleteDialog(true)}
+        >
+          <IconTrash size={14} />
+          Delete
+        </Button>
+      </SettingsSection>
 
       <AutomationDeleteDialog
         automation={
@@ -397,6 +387,6 @@ function SettingsForm({
         onConfirm={handleDelete}
         isDeleting={isDeleting}
       />
-    </div>
+    </SettingsStack>
   );
 }

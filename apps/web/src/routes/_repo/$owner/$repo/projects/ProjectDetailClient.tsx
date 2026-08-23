@@ -41,6 +41,10 @@ import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { SleepEvaButton } from "@/lib/components/sandbox/SleepEvaButton";
 import {
+  SandboxSurfaceTabs,
+  type SandboxSurface,
+} from "@/lib/components/sandbox/SandboxSurfaceTabs";
+import {
   SandboxWorkspace,
   type TerminalPanelApi,
 } from "@/lib/components/sandbox/SandboxWorkspace";
@@ -73,7 +77,7 @@ import { ResolveConfirmDialog } from "@/lib/components/tasks/_components/Resolve
 import { StartupCommandsConfirmDialog } from "@/lib/components/tasks/_components/StartupCommandsConfirmDialog";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
-import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
+import type { EntityResolveStatus } from "@/lib/numId";
 import { parseSpec } from "@/lib/utils/parseSpec";
 import { ProjectChatMessageList } from "@/lib/components/projects/ProjectChatMessageList";
 import { withMutationToast } from "@/lib/utils/mutationToast";
@@ -90,7 +94,7 @@ export function ProjectDetailClient({
 }: {
   projectId: Id<"projects">;
   projectNumId?: number;
-  surface: "main" | "sandbox";
+  surface: SandboxSurface;
   sandboxTab?: TaskRouteSandboxTab;
   /** Primary tab. `work` is the index route, so deep links keep working. */
   mainTab?: ProjectMainTab;
@@ -162,14 +166,13 @@ export function ProjectDetailClient({
 
   const projectPathSegment = entityPathSegment({ numId: projectNumId });
 
-  const toggleProjectSandboxView = () => {
-    if (!projectPathSegment) return;
-    if (isSandboxSurface) {
-      navigate({ to: `${basePath}/projects/${projectPathSegment}` });
-      return;
-    }
+  const handleSelectSurface = (next: SandboxSurface) => {
+    if (!projectPathSegment || next === surface) return;
     navigate({
-      to: `${basePath}/projects/${projectPathSegment}/sandbox/preview`,
+      to:
+        next === "sandbox"
+          ? `${basePath}/projects/${projectPathSegment}/sandbox/preview`
+          : `${basePath}/projects/${projectPathSegment}`,
     });
   };
 
@@ -287,17 +290,6 @@ export function ProjectDetailClient({
     showRetryStartupCommands || showRunBackgroundCommands;
   const hasPrLinkItems =
     canCreatePr || Boolean(project.prUrl) || hasDeployedPreview;
-  // Named once: the label is hidden below `sm`, where it becomes the button's
-  // accessible name instead.
-  const sandboxButtonLabel = isSandboxStopping
-    ? "Stopping..."
-    : isSandboxStarting && !isSandboxActive
-      ? "Starting..."
-      : isSandboxSurface
-        ? "Back to Tasks"
-        : isSandboxActive
-          ? "View Sandbox · Active"
-          : "View Sandbox";
 
   const tab = sandboxTab ?? "preview";
   // Always mount the sandbox panel when the project can have one so tabs
@@ -391,6 +383,20 @@ export function ProjectDetailClient({
           onSectionClick={() => navigate({ to: `${basePath}/projects` })}
           entityLabel={project.title}
         />
+      }
+      /* Navigation, not an action: sits with the breadcrumb, above the
+         Overview/Tasks tabs, rather than inside the header's action cluster. */
+      titleAfter={
+        canStartSandbox && !isDraftOrFinalized ? (
+          <SandboxSurfaceTabs
+            mainLabel="Project"
+            surface={surface}
+            isSandboxActive={isSandboxActive}
+            isSandboxStarting={isSandboxStarting}
+            isSandboxStopping={isSandboxStopping}
+            onSurfaceChange={handleSelectSurface}
+          />
+        ) : null
       }
       fillHeight
       childPadding={false}
@@ -528,44 +534,15 @@ export function ProjectDetailClient({
               </DropdownMenu>
               {/* Inert while a chat turn is in flight — see `SleepEvaButton`.
                   A running build keeps its own confirmed "Stop Build", so it is
-                  not gated here. */}
-              {isSandboxActive && !isSandboxStopping ? (
+                  not gated here. Hidden on the sandbox surface, which has its
+                  own stop control in the chat header. */}
+              {isSandboxActive && !isSandboxStopping && !isSandboxSurface ? (
                 <SleepEvaButton
                   onStop={handleStopSandbox}
                   isStopping={isSandboxStopping}
                   blockedMidTurn={Boolean(project?.activeChatWorkflowId)}
                   size="sm"
-                  iconSize={16}
                 />
-              ) : null}
-              {canStartSandbox ? (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  aria-label={sandboxButtonLabel}
-                  onClick={toggleProjectSandboxView}
-                  disabled={isSandboxStopping}
-                  className={
-                    isSandboxSurface || isSandboxActive
-                      ? "border-success/35 bg-success/10 text-success hover:border-success/50 hover:bg-success/15 hover:text-success"
-                      : undefined
-                  }
-                >
-                  {(isSandboxStarting && !isSandboxActive) ||
-                  isSandboxStopping ? (
-                    <IconLoader2
-                      size={16}
-                      className="animate-spin"
-                      aria-hidden
-                    />
-                  ) : (
-                    <IconTerminal2 size={16} aria-hidden />
-                  )}
-                  {isSandboxActive && !isSandboxSurface && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                  )}
-                  <span className="hidden sm:inline">{sandboxButtonLabel}</span>
-                </Button>
               ) : null}
               {canBuildProject ? (
                 project.activeBuildWorkflowId ? (
@@ -645,7 +622,7 @@ export function ProjectDetailClient({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Build Project</DialogTitle>
+            <DialogTitle>Run Eva</DialogTitle>
           </DialogHeader>
           <div>
             <p className="text-muted-foreground">
@@ -792,10 +769,14 @@ function SplitBuildButton({
   // Hidden below `sm`, so it doubles as the button's accessible name there.
   const buildLabel = isScheduled
     ? dayjs(scheduledBuildAt).format("MMM D, h:mm A")
-    : "Build Project";
+    : "Run Eva";
 
+  // Halves cancel their own press so the wrapper scales as one unit — see the
+  // twin in `TaskFooter`. `motion-press` replaces a hand-listed
+  // `transition-[transform,background-color]` that named `transform` and so
+  // never matched the `scale` property `scale-[0.96]` compiles to.
   return (
-    <div className="group/split flex items-center transition-[transform,background-color] duration-[var(--motion-base)] active:scale-[0.96]">
+    <div className="group/split motion-press flex items-center active:scale-[0.96]">
       <Tooltip>
         <TooltipTrigger asChild>
           <div>

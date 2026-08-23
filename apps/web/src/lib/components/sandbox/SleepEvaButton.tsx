@@ -24,25 +24,34 @@ import { IconPlayerStop } from "@tabler/icons-react";
 export const MID_TURN_SLEEP_HINT =
   "Eva is working — use Stop Eva in the composer first";
 
-/** Wraps a blocked sleep control so hovering it explains the block. */
-export function MidTurnSleepTooltip({
+/**
+ * Tooltip for the icon-only sleep/wake controls: names the action, or explains
+ * the block while a turn is in flight. Always mounted so the label stays
+ * reachable — these buttons carry no visible text.
+ */
+export function SleepControlTooltip({
   blocked,
+  label,
   children,
 }: {
   blocked: boolean;
+  label: string;
   children: ReactNode;
 }) {
-  if (!blocked) return children;
   return (
     <Tooltip>
       <TooltipTrigger asChild>{children}</TooltipTrigger>
-      <TooltipContent side="bottom">{MID_TURN_SLEEP_HINT}</TooltipContent>
+      <TooltipContent side="bottom">
+        {blocked ? MID_TURN_SLEEP_HINT : label}
+      </TooltipContent>
     </Tooltip>
   );
 }
 
 /**
- * The labelled "Put Eva to sleep" button shared by the task and project headers.
+ * The sleep control shared by the task and project headers. Icon-only: the
+ * label lives in the tooltip and `aria-label`, matching the compact control in
+ * the sandbox chat header.
  *
  * `aria-disabled` rather than `disabled` while blocked: a disabled button
  * swallows pointer events, so the tooltip carrying the explanation would never
@@ -54,20 +63,18 @@ export function SleepEvaButton({
   isStopping,
   blockedMidTurn,
   size = "default",
-  iconSize = 18,
 }: {
   onStop: () => void;
   isStopping: boolean;
   /** True while the assistant holds the chat turn. */
   blockedMidTurn: boolean;
   size?: "sm" | "default";
-  iconSize?: number;
 }) {
   return (
-    <MidTurnSleepTooltip blocked={blockedMidTurn}>
+    <SleepControlTooltip blocked={blockedMidTurn} label="Put Eva to sleep">
       <Button
         variant="destructive"
-        size={size}
+        size={size === "sm" ? "icon-sm" : "icon"}
         aria-label="Put Eva to sleep"
         onClick={() => {
           if (blockedMidTurn) return;
@@ -80,9 +87,8 @@ export function SleepEvaButton({
             "cursor-not-allowed opacity-45 hover:bg-destructive",
         )}
       >
-        <IconPlayerStop size={iconSize} aria-hidden />
-        <span className="hidden sm:inline">Put Eva to sleep</span>
+        <IconPlayerStop aria-hidden />
       </Button>
-    </MidTurnSleepTooltip>
+    </SleepControlTooltip>
   );
 }

@@ -68,22 +68,27 @@ function AutomationsHubPage() {
     systemAutomations?.filter((entry) => entry.installed).length ?? 0;
 
   return (
-    <PageWrapper comfortable title="Automations">
+    <PageWrapper comfortable insetHeader title="Automations">
       <div className="flex flex-col gap-5">
-        <div className="flex flex-wrap items-end justify-between gap-3 border-b border-border pb-4">
-          <div className="max-w-prose">
-            <h2 className="text-sm font-medium">Automations Hub</h2>
-            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-              Automations built and maintained by eva. Install one to add it to
-              this app — set your own schedule, switch it off, run it on demand.
-              The prompt stays ours to improve, so every app gets the fix.
-            </p>
+        {/* Divider stays full-bleed; the copy takes the same `px-4` card gutter
+            as section titles, so it lines up with the page title above. */}
+        <div className="border-b border-border pb-4">
+          <div className="flex flex-wrap items-end justify-between gap-3 px-4">
+            <div className="max-w-prose">
+              <h2 className="text-sm font-semibold">Automations Hub</h2>
+              <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                Automations built and maintained by eva. Install one to add it
+                to this app — set your own schedule, switch it off, run it on
+                demand. The prompt stays ours to improve, so every app gets the
+                fix.
+              </p>
+            </div>
+            {systemAutomations !== undefined && (
+              <p className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
+                {installedCount} of {systemAutomations.length} installed
+              </p>
+            )}
           </div>
-          {systemAutomations !== undefined && (
-            <p className="shrink-0 text-[11px] tabular-nums text-muted-foreground">
-              {installedCount} of {systemAutomations.length} installed
-            </p>
-          )}
         </div>
 
         {systemAutomations === undefined ? (
@@ -104,7 +109,7 @@ function AutomationsHubPage() {
                 entryKey={entry.key}
                 readOnly={entry.readOnly}
                 title={entry.title}
-                description={entry.description}
+                blurb={entry.blurb}
                 cronSchedule={entry.cronSchedule}
                 installed={entry.installed}
                 numId={entry.numId}

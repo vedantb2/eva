@@ -41,6 +41,26 @@ test("parseClaudeSdkTaxonomy maps compacting status and completes on next messag
   });
 });
 
+test("parseClaudeSdkTaxonomy captures rate limits without a timeline row", () => {
+  expect(
+    parseClaudeSdkTaxonomy({
+      type: "rate_limit_event",
+      rate_limit_info: {
+        status: "allowed_warning",
+        rateLimitType: "seven_day",
+        utilization: 91,
+      },
+    }),
+  ).toEqual([]);
+  expect(S.accumulatedSteps).toHaveLength(0);
+  expect(S.usageLimitSnapshot).toEqual({
+    status: "allowed_warning",
+    windows: [
+      { key: "seven_day", label: "Weekly (all models)", utilization: 91 },
+    ],
+  });
+});
+
 test("parseClaudeSdkTaxonomy patches tool progress onto active step", () => {
   S.accumulatedSteps.push({
     type: "tool",

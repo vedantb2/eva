@@ -64,6 +64,32 @@ export type TodoItem = {
   status: "pending" | "in_progress" | "completed";
 };
 
+export type UsageLimitStatus = "allowed" | "allowed_warning" | "rejected";
+
+/**
+ * One plan usage window. `key` is the provider's window id (a Claude
+ * `rateLimitType`, or `model_scoped:<display name>`), `utilization` is a 0-100
+ * percentage and `resetsAt` is epoch ms.
+ */
+export type UsageLimitWindow = {
+  key: string;
+  label: string;
+  utilization?: number;
+  resetsAt?: number;
+};
+
+/**
+ * Plan usage-limit state observed during this run, upserted to Convex at the end
+ * of every turn so the UI can show how much of the plan is left. Only providers
+ * that expose real plan windows report here — Claude fills
+ * `subscriptionType`/`status`/`windows`.
+ */
+export type UsageLimitSnapshot = {
+  subscriptionType?: string;
+  status?: UsageLimitStatus;
+  windows?: UsageLimitWindow[];
+};
+
 export type SessionMode = {
   mode: "none" | "session" | "resume";
   sessionId: string | null;

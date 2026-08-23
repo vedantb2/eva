@@ -24,12 +24,14 @@ import { StartupCommandsConfirmDialog } from "./_components/StartupCommandsConfi
 import { RunDevServerConfirmDialog } from "./_components/RunDevServerConfirmDialog";
 import { TaskSandboxPanel } from "./TaskSandboxPanel";
 import { TaskSandboxChatPanel } from "./TaskSandboxChatPanel";
+import { findFirstRunChatTurnRun } from "./firstRunChatTurn";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import {
   SandboxWorkspace,
   type TerminalPanelApi,
 } from "@/lib/components/sandbox/SandboxWorkspace";
 import type { SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
+import { SandboxSurfaceTabs } from "@/lib/components/sandbox/SandboxSurfaceTabs";
 import {
   fileViewerPathParser,
   isTaskRouteSandboxTab,
@@ -112,7 +114,7 @@ export function TaskDetailInline({
     isSandboxStopping,
     handleStartSandbox,
     handleStopSandbox,
-    handleToggleSandboxView,
+    handleSelectSurface,
     handleRetryStartupCommands,
     isRetryingStartupCommands,
     handleRunDevServer,
@@ -186,6 +188,13 @@ export function TaskDetailInline({
 
   const isQuickTask = task.projectId === undefined;
   const isSandboxViewActive = showSandbox;
+
+  // A quick task's settled first run renders as the opening chat turn in the
+  // sandbox view instead of a timeline accordion (see firstRunChatTurn.ts).
+  const firstRunInChat = isQuickTask ? findFirstRunChatTurnRun(runs) : undefined;
+  const timelineRuns = firstRunInChat
+    ? runs?.filter((run) => run._id !== firstRunInChat._id)
+    : runs;
 
   const routeSandboxTab: TaskRouteSandboxTab =
     routing?.mode === "quick-sandbox" ? routing.quick.sandboxTab : "preview";
@@ -352,7 +361,7 @@ export function TaskDetailInline({
                       taskId={taskId}
                       createdAt={task.createdAt}
                       creatorUser={creatorUser}
-                      runs={runs}
+                      runs={timelineRuns}
                       comments={comments}
                       taskActivity={taskActivity}
                       users={users}
@@ -396,8 +405,11 @@ export function TaskDetailInline({
     </TaskReactionsProvider>
   );
 
+  const actionsSlotElement = quickTaskHeaderActionsSlot?.actionsElement;
+  const titleSlotElement = quickTaskHeaderActionsSlot?.titleAfterElement;
+
   const quickTaskHeaderActions =
-    isQuickTask && quickTaskHeaderActionsSlot?.slotElement ? (
+    isQuickTask && actionsSlotElement ? (
       <TaskFooter
         variant="header"
         taskId={taskId}
@@ -410,15 +422,12 @@ export function TaskDetailInline({
         executionError={executionError}
         isStarting={isStarting}
         canStartSandbox={canStartSandbox}
-        canViewSandbox={canViewSandbox}
         isSandboxActive={isSandboxActive}
-        isSandboxStarting={isSandboxStarting}
         isSandboxStopping={isSandboxStopping}
         isRetryingStartupCommands={isRetryingStartupCommands}
         canCreatePr={canCreatePr}
         isCreatingPr={isCreatingPr}
         onCreatePr={handleCreatePr}
-        onViewSandbox={handleToggleSandboxView}
         onStopSandbox={handleStopSandbox}
         isSandboxViewActive={isSandboxViewActive}
         onRunStartupCommands={() => setShowStartupCommandsConfirm(true)}
@@ -431,13 +440,27 @@ export function TaskDetailInline({
       />
     ) : null;
 
+  // Navigation, so it goes next to the breadcrumb rather than into the header's
+  // action cluster — same split as the project header.
+  const quickTaskSurfaceTabs =
+    isQuickTask && canViewSandbox && titleSlotElement ? (
+      <SandboxSurfaceTabs
+        mainLabel="Task"
+        surface={isSandboxViewActive ? "sandbox" : "main"}
+        isSandboxActive={isSandboxActive}
+        isSandboxStarting={isSandboxStarting}
+        isSandboxStopping={isSandboxStopping}
+        onSurfaceChange={handleSelectSurface}
+      />
+    ) : null;
+
   return (
     <>
-      {quickTaskHeaderActions && quickTaskHeaderActionsSlot?.slotElement
-        ? createPortal(
-            quickTaskHeaderActions,
-            quickTaskHeaderActionsSlot.slotElement,
-          )
+      {quickTaskHeaderActions && actionsSlotElement
+        ? createPortal(quickTaskHeaderActions, actionsSlotElement)
+        : null}
+      {quickTaskSurfaceTabs && titleSlotElement
+        ? createPortal(quickTaskSurfaceTabs, titleSlotElement)
         : null}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {isSandboxViewActive ? (

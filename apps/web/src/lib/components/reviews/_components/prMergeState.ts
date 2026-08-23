@@ -7,10 +7,10 @@ import {
 
 /**
  * Everything both review surfaces need to say about whether a pull request can
- * merge, derived in one place. The header states it compactly above the tabs and
- * the merge box states it at length at the foot of Overview, so the two would
- * drift the moment either re-derived it — the wording differences below are
- * deliberate registers of one verdict, not two verdicts.
+ * merge, derived in one place. The header states it compactly above the tabs, the
+ * Checks tab states it at length, and the merge button's tooltip states why it is
+ * disabled — three registers of one verdict, which is why none of them re-derives
+ * it.
  */
 
 export type CheckCounts = Record<StatusTone, number> & { total: number };
@@ -40,7 +40,7 @@ export function checksOverallTone(counts: CheckCounts): StatusTone {
   return "neutral";
 }
 
-/** The merge box's line, which has room to break every outcome out. */
+/** The Checks tab's verdict line, which has room to break every outcome out. */
 export function checksHeadline(counts: CheckCounts): string {
   if (counts.failure === 0 && counts.pending === 0 && counts.success > 0) {
     return "All checks have passed";
@@ -52,20 +52,6 @@ export function checksHeadline(counts: CheckCounts): string {
     counts.neutral > 0 ? `${counts.neutral} skipped` : null,
   ].filter((part) => part !== null);
   return parts.join(" · ");
-}
-
-/**
- * The tab row's pill, which has room for one number. "1 of 17 failing" answers
- * "is CI broken and how badly" in a glance, where the headline's full breakdown
- * would be truncated to uselessness at this width.
- */
-export function checksPillLabel(counts: CheckCounts): string | null {
-  if (counts.total === 0) return null;
-  if (counts.failure > 0) return `${counts.failure} of ${counts.total} failing`;
-  if (counts.pending > 0) return `${counts.pending} of ${counts.total} running`;
-  if (counts.success === 0) return `${counts.total} skipped`;
-  if (counts.success === counts.total) return "All checks passed";
-  return `${counts.success} of ${counts.total} passed`;
 }
 
 /**
@@ -186,7 +172,7 @@ export function mergeBlocker(overview: PrOverview): PrBlocker | null {
 
 /**
  * The blocker worth a badge of its own in the header, which is not every blocker
- * the merge box lists.
+ * `mergeBlocker` reports.
  *
  * `draft` is already the lifecycle pill's job — saying "Draft" twice in one header
  * is noise, not emphasis. `checking` is GitHub's own bookkeeping, true for a second
@@ -198,17 +184,4 @@ export function headerBlocker(overview: PrOverview): PrBlocker | null {
   if (blocker === null) return null;
   if (blocker.kind === "draft" || blocker.kind === "checking") return null;
   return blocker;
-}
-
-/** The merge box's top line: the blocker's headline, or the all-clear. */
-export function mergeStateHeadline(overview: PrOverview): {
-  tone: StatusTone;
-  text: string;
-} {
-  const blocker = mergeBlocker(overview);
-  if (blocker) return { tone: blocker.tone, text: blocker.headline };
-  return {
-    tone: "success",
-    text: "This branch has no conflicts with the base branch",
-  };
 }

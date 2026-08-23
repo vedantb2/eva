@@ -394,6 +394,29 @@ export const syncSettingFields = {
   enabled: v.boolean(),
 };
 
+/** One built-in slash command reported by a harness CLI's init handshake. */
+export const harnessSkillValidator = v.object({
+  name: v.string(),
+  description: v.string(),
+  argumentHint: v.optional(v.string()),
+});
+
+/**
+ * The built-in skill catalog a harness CLI ships with, one row per provider.
+ * Deliberately global rather than per repo: every sandbox boots from the same
+ * image, so the CLI build — and therefore its command list — is fleet-wide.
+ * Reported by the provider daemon at session start (see
+ * `harnessSkills.upsertForProvider`) and read by the composer's `/` picker,
+ * which falls back to a static list until the first sandbox reports.
+ */
+export const harnessSkillCatalogFields = {
+  provider: aiProviderValidator,
+  /** Harness CLI version the catalog was read from, e.g. "2.1.239". */
+  cliVersion: v.string(),
+  skills: v.array(harnessSkillValidator),
+  updatedAt: v.number(),
+};
+
 export const repoSkillFields = {
   repoId: v.id("githubRepos"),
   title: v.string(),

@@ -9,6 +9,7 @@ import {
   QuickTasksIcon,
   SessionsIcon,
 } from "@/lib/components/sidebar/icons/AnimatedNavIcons";
+import { ClaudeLogo } from "@/lib/components/ui/providerLogos";
 
 /**
  * What a Data `@` entry points at. Mirrors the backend `DataMentionKind` union
@@ -32,6 +33,22 @@ function MentionKindIcon({ kind }: { kind: MentionKind }) {
     case "quickTask":
       return <QuickTasksIcon size={16} className={KIND_ICON_CLASS} />;
   }
+}
+
+/**
+ * Badges that name an AI provider get its mark, so a Claude-provided skill is
+ * recognisable before the word is read. Badges naming anything else (Eva,
+ * Person) are text-only.
+ */
+const BADGE_LOGO: Record<string, (props: { size: number }) => ReactNode> = {
+  Claude: ClaudeLogo,
+};
+
+/** The provider mark for a badge, or nothing when the badge names no provider. */
+function BadgeLogo({ badge }: { badge: string }): ReactNode {
+  const Logo = BADGE_LOGO[badge];
+  if (Logo === undefined) return null;
+  return <Logo size={11} />;
 }
 
 function previewOneLine(text: string, maxLength = 72): string {
@@ -75,7 +92,8 @@ export function MentionRow({
     kind !== undefined ? (
       <MentionKindIcon kind={kind} />
     ) : badge !== undefined ? (
-      <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
+      <span className="flex shrink-0 items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
+        <BadgeLogo badge={badge} />
         {badge}
       </span>
     ) : null;

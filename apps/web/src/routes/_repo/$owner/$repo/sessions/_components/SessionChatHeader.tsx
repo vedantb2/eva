@@ -79,7 +79,15 @@ export function SessionChatHeader({
   const showSendForReview =
     !chatOnly && branchName && (!prState || prState === "draft");
 
-  const headerLeft = (
+  // Manager Ave is one fixed session at its own URL, so there is nothing to
+  // switch to and no repo to navigate up into — the switcher's dropdown would
+  // list other repos' sessions and its crumb would imply this chat belongs to
+  // the home repo, which is only where its sandbox happens to live.
+  const headerLeft = chatOnly ? (
+    <span className="truncate text-sm font-medium text-foreground">
+      {title}
+    </span>
+  ) : (
     <SessionSwitcher sessionId={sessionId} title={title} />
   );
 

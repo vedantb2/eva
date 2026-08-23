@@ -16,7 +16,6 @@ import {
   cn,
 } from "@eva/ui";
 import { IconPencil } from "@tabler/icons-react";
-import { EvaIcon } from "@/lib/components/EvaIcon";
 import {
   AutomationsIcon,
   InboxIcon,
@@ -107,9 +106,6 @@ const EMPTY_SANDBOX_REPO_IDS = new Set<Id<"githubRepos">>();
 
 function RepoRailLiveData(props: RepoRailProps) {
   const activeSessionCount = useQuery(api.githubRepos.countActiveSessions);
-  // Manager Ave is deliberately absent from the sessions list and its counts,
-  // so this rail entry is the only place its state can be seen.
-  const orchestrator = useQuery(api.sessions.getOrchestratorSession, {});
   const sandboxRepoIds = useQuery(api.githubRepos.listReposWithActiveSandboxes);
   const activeSandboxRepoIds = useMemo(
     () => new Set(sandboxRepoIds ?? []),
@@ -120,7 +116,6 @@ function RepoRailLiveData(props: RepoRailProps) {
     <RepoRailView
       {...props}
       activeSessionCount={activeSessionCount}
-      aveSandboxActive={orchestrator?.status === "active"}
       activeSandboxRepoIds={activeSandboxRepoIds}
     />
   );
@@ -144,7 +139,6 @@ export function RepoRail(props: RepoRailProps) {
         <RepoRailView
           {...props}
           activeSessionCount={undefined}
-          aveSandboxActive={false}
           activeSandboxRepoIds={EMPTY_SANDBOX_REPO_IDS}
         />
       }
@@ -156,8 +150,6 @@ export function RepoRail(props: RepoRailProps) {
 
 interface RepoRailViewProps extends RepoRailProps {
   activeSessionCount: number | undefined;
-  /** True while Manager Ave's sandbox is up. */
-  aveSandboxActive?: boolean;
   activeSandboxRepoIds: ReadonlySet<Id<"githubRepos">>;
 }
 
@@ -171,7 +163,6 @@ function RepoRailView({
   userName,
   showSearch,
   activeSessionCount,
-  aveSandboxActive = false,
   activeSandboxRepoIds,
 }: RepoRailViewProps) {
   const { collapsed, setCollapsed, setSessionsNavMode } = useSidebar();
@@ -196,8 +187,6 @@ function RepoRailView({
     pathname === "/automations" ||
     pathname.startsWith("/automations/") ||
     (pathParts.includes("automations") && pathParts[0] !== "automations");
-  // Ave's chat lives at its own stable URL, so only that path lights this tile.
-  const aveRouteActive = pathname === "/ave";
   const sessionsLabel = countLabel(activeSessionCount);
   const [renameRepo, setRenameRepo] = useState<RepoWithLogo | null>(null);
   // Carry the section (Quick Tasks, Projects, …) across an app switch, but not
@@ -280,39 +269,8 @@ function RepoRailView({
             {sessionsLabel ? `Sessions (${sessionsLabel})` : "Sessions"}
           </TooltipContent>
         </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              to="/ave"
-              onClick={onNavigate}
-              aria-label={
-                aveSandboxActive ? "Manager Ave, active" : "Manager Ave"
-              }
-              className={cn(
-                RAIL_TILE_CLASS,
-                "group",
-                railTileActive(aveRouteActive),
-              )}
-            >
-              {/* Eva's own mark rather than a generic glyph: Ave is the one
-                  agent that is Eva herself rather than a piece of work. The
-                  disc tracks `--card`, so it sits flush on the rail in both
-                  themes. */}
-              <EvaIcon size={22} className="shrink-0" label={null} disc={false} />
-              {aveSandboxActive ? (
-                // A dot, not a count: there is only ever one Manager Ave, so
-                // the question is "is its sandbox up", not "how many".
-                <span
-                  className="absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full bg-success ring-2 ring-sidebar"
-                  aria-hidden
-                />
-              ) : null}
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            {aveSandboxActive ? "Manager Ave (active)" : "Manager Ave"}
-          </TooltipContent>
-        </Tooltip>
+        {/* Manager Ave used to sit here. It now lives in the floating launcher
+            (`AveLauncherProvider`), which owns the orchestrator query too. */}
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />
       </div>
       <div className="scrollbar scroll-fade flex w-full flex-1 flex-col items-center gap-1.5 overflow-y-auto py-2">

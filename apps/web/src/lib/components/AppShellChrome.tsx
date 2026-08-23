@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AuthGate } from "@/lib/components/ClientProvider";
+import { AveLauncherProvider } from "@/lib/components/ave/AveLauncherProvider";
 import { FollowOverlay } from "@/lib/components/FollowOverlay";
 import { Sidebar } from "@/lib/components/Sidebar";
 import { SpotlightSearch } from "@/lib/components/SpotlightSearch";
@@ -42,7 +43,12 @@ export function AppShellChrome({
                       follow overlay and toast streams. Providers stay — pages
                       consume them regardless of where they render. */}
                   {embedded ? null : <Sidebar />}
-                  {children}
+                  {/* Wraps the outlet rather than sitting beside it: the
+                      launcher popover keeps a live chat mounted, so it has to
+                      live above the routed content that comes and goes. */}
+                  <AveLauncherProvider enabled={!embedded}>
+                    {children}
+                  </AveLauncherProvider>
                   {embedded ? null : (
                     <>
                       <SpotlightSearch />

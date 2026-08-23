@@ -36,6 +36,7 @@ import {
 } from "./mentionPopupPosition";
 import { UserProfileHoverCardBody } from "@eva/shared";
 import type { Id } from "@eva/backend";
+import type { AIProvider } from "@eva/backend";
 
 // The inline AI suggestion renders as an `::after` pseudo-element fed by
 // `data-suggestion`, mirroring how the placeholder uses `::before`. A pseudo-
@@ -50,6 +51,8 @@ export interface MentionItem<TId extends string = string> {
   description?: string;
   /** Type badge shown in the picker (e.g. Eva, Claude, Person). */
   badge?: string;
+  /** Provider badge identity, used to select its logo without matching text. */
+  provider?: AIProvider;
   /** Data entity kind — the picker shows its icon in place of a kind badge. */
   kind?: MentionKind;
   /**
@@ -181,6 +184,7 @@ function renderRow(prefix: "@" | "/", item: MentionItem): ReactNode {
       label={item.label}
       description={item.description}
       badge={item.badge}
+      provider={item.provider}
       kind={item.kind}
       personUserId={item.personUserId}
     />

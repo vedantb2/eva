@@ -1,5 +1,5 @@
 "use node";
-import { createHash } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import type { GenericActionCtx } from "convex/server";
 import type { DataModel, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
@@ -12,6 +12,7 @@ import type { SandboxClient, SandboxHandle } from "../_sandbox/provider";
 import { getSandboxClient } from "../_sandbox/factory";
 import { launchScript } from "./launch";
 import { ensureSwapFile } from "./swap";
+import { getAIModelProvider, normalizeAIModel } from "../validators";
 
 export const WORKSPACE_DIR = "/tmp/repo";
 export const LEGACY_WORKSPACE_DIR = "/workspace/repo";
@@ -579,7 +580,16 @@ export async function signAndLaunchScript(
       opts.model,
     );
     if (Object.keys(accountEnv).length > 0) {
-      extraEnvVars = { ...extraEnvVars, ...accountEnv };
+      extraEnvVars = {
+        ...extraEnvVars,
+        ...accountEnv,
+        // Attribution for the turn's usage-limit reading (usageLimits:report).
+        // Set only inside this branch: plan limits are per account, so a reading
+        // may only be attributed to the account whose credentials the run
+        // actually authenticated with — a fallback to the team credential
+        // reports no account and keeps its own row.
+        PROVIDER_ACCOUNT_ID: opts.providerAccountId,
+      };
       console.log(
         `[sandbox][launch] applied user provider account override entityId=${entityId} keys=${Object.keys(accountEnv).join(",")}`,
       );
@@ -610,6 +620,22 @@ export async function signAndLaunchScript(
 
   const mcpBaseUrl = mcpToken ? (process.env.CONVEX_SITE_URL ?? "") : "";
 
+  // A catalog writer is deliberately short-lived and single-use. Unlike the
+  // old fleet-constant HMAC, reading one sandbox's env cannot grant permanent
+  // write access to the global composer catalog.
+  const provider = getAIModelProvider(normalizeAIModel(opts.model));
+  let harnessCatalogToken: string | undefined;
+  if (provider === "claude") {
+    harnessCatalogToken = randomBytes(32).toString("hex");
+    await ctx.runMutation(internal.harnessSkills.issueReportToken, {
+      tokenHash: createHash("sha256").update(harnessCatalogToken).digest("hex"),
+      provider,
+      sandboxId: sandbox.id,
+      repoId,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+  }
+
   // System skills reach the agent as stub SKILL.md files in the checkout, and
   // the stubs are useless without the eva MCP server — so a launch with MCP
   // disabled ships an empty list, which prunes any leftovers.
@@ -632,6 +658,7 @@ export async function signAndLaunchScript(
       mcpToken: mcpToken?.token,
       mcpBaseUrl,
       systemSkillsJson: JSON.stringify({ skills: systemSkillStubs }),
+      harnessCatalogToken,
     },
   );
   console.log(

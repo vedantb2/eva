@@ -302,3 +302,19 @@ export const backgroundProcessStatusValidator = v.union(
   v.literal("exited"),
   v.literal("killed"),
 );
+
+/**
+ * Agent provider whose plan usage limits eva tracks. Narrower than
+ * `aiProviderValidator` on purpose: only a provider that reports real plan
+ * windows can have a row, so the UI never has to handle a windowless one.
+ * Cursor is absent because it exposes no plan limits at all — its spend is the
+ * per-turn cost gauge's business, not this table's.
+ */
+export const usageLimitProviderValidator = v.literal("claude");
+
+/** Whether the plan currently allows requests, as reported by the agent SDK. */
+export const usageLimitStatusValidator = v.union(
+  v.literal("allowed"),
+  v.literal("allowed_warning"),
+  v.literal("rejected"),
+);

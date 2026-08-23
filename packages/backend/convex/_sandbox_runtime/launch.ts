@@ -5,6 +5,7 @@ import { quote } from "shell-quote";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
 import type { AIProvider } from "../validators";
 import { execHandle, requireEnv } from "./helpers";
+import { streamingHeartbeatHmacMessage } from "./callbackAuth";
 import { entityDaemonPaths } from "./daemonPaths";
 import type { SandboxHandle } from "../_sandbox/provider";
 import { CALLBACK_SCRIPT } from "./callbackScript";
@@ -41,11 +42,14 @@ const CALLBACK_READY_POLL_ATTEMPTS = 60;
 const CALLBACK_READY_POLL_INTERVAL_MS = 1000;
 const EVA_ENV_FILE = "/vercel/sandbox/.eva-env.sh";
 
-/** Computes a scoped streaming HMAC if the deployment encryption key is available. */
-function computeStreamingHmac(entityId: string): string | null {
+/**
+ * Computes a scoped callback HMAC if the deployment encryption key is
+ * available. Mirrors `computeScopedHmac` in `http.ts`, which verifies it.
+ */
+function computeScopedHmac(message: string): string | null {
   const secret = process.env.ENCRYPTION_KEY;
   if (!secret) return null;
-  return createHmac("sha256", secret).update(entityId).digest("hex");
+  return createHmac("sha256", secret).update(message).digest("hex");
 }
 
 /** Resolves the Convex site URL used for HTTP actions, falling back from cloud URL. */
@@ -169,6 +173,7 @@ export async function launchScript(
     openSyntheticTurnMutation?: string;
     completeSyntheticTurnMutation?: string;
     updateBackgroundAgentsMutation?: string;
+    harnessCatalogToken?: string;
   } = {},
 ): Promise<void> {
   const launchStartedAt = Date.now();
@@ -219,7 +224,9 @@ export async function launchScript(
 
   const convexUrl = requireEnv("CONVEX_CLOUD_URL");
   const streamingEntityId = opts.extraEnvVars?.STREAMING_ENTITY_ID ?? entityId;
-  const streamingHmac = computeStreamingHmac(streamingEntityId);
+  const streamingHmac = computeScopedHmac(
+    streamingHeartbeatHmacMessage(streamingEntityId),
+  );
   const envParts = [
     `CONVEX_URL=${quote([convexUrl])}`,
     `CONVEX_TOKEN=${quote([convexToken])}`,
@@ -245,11 +252,20 @@ export async function launchScript(
     `CURSOR_RUNTIME_HOME_DIR=${quote([CURSOR_RUNTIME_HOME_DIR])}`,
     `CURSOR_PERSIST_DIR=${quote([CURSOR_PERSIST_VOLUME_MOUNT_PATH])}`,
   ];
-  if (streamingHmac) {
+  // Callback credentials use HTTP routes on the Convex site deployment.
+  if (streamingHmac || opts.harnessCatalogToken) {
     envParts.push(
       `CONVEX_SITE_URL=${quote([resolveConvexSiteUrl(convexUrl)])}`,
     );
+  }
+  if (streamingHmac) {
     envParts.push(`STREAMING_HMAC=${quote([streamingHmac])}`);
+  }
+  if (opts.harnessCatalogToken) {
+    envParts.push(
+      `HARNESS_CATALOG_TOKEN=${quote([opts.harnessCatalogToken])}`,
+      `HARNESS_CATALOG_SANDBOX_ID=${quote([sandbox.id])}`,
+    );
   }
   if (opts.claudeSessionId) {
     envParts.push(`CLAUDE_SESSION_ID=${quote([opts.claudeSessionId])}`);

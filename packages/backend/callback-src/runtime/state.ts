@@ -1,5 +1,10 @@
 import type { WriteStream } from "fs";
-import type { JsonValue, ProgressStep, TodoItem } from "../types.js";
+import type {
+  JsonValue,
+  ProgressStep,
+  TodoItem,
+  UsageLimitSnapshot,
+} from "../types.js";
 
 function parsePriorStep(value: JsonValue): ProgressStep | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -160,6 +165,16 @@ type CallbackState = {
    * to a blocking AskUserQuestion. Suspends the per-turn watchdog so a genuinely
    * waiting turn is never killed for producing no SDK messages. */
   awaitingQuestionAnswer: boolean;
+  /** Plan usage-limit state seen so far. Deliberately NOT per-turn: the plan
+   * windows describe the account, so a turn that observes nothing keeps the
+   * previous reading rather than reporting a blank row. */
+  usageLimitSnapshot: UsageLimitSnapshot | null;
+  /** Fingerprint of the last snapshot successfully reported to Convex, so an
+   * unchanged reading is not rewritten once per turn. */
+  lastReportedUsageLimits: string;
+  /** Time of that successful report. Unchanged readings are periodically
+   * refreshed so the server's stale-row cutoff reflects a live daemon. */
+  lastReportedUsageLimitsAt: number;
   doneFileWritten: boolean;
   flushInProgress: boolean;
   pingInProgress: boolean;
@@ -208,6 +223,9 @@ export const callbackState: CallbackState = {
   cursorTerminalToolIds: new Set<string>(),
   todoState: [],
   awaitingQuestionAnswer: false,
+  usageLimitSnapshot: null,
+  lastReportedUsageLimits: "",
+  lastReportedUsageLimitsAt: 0,
   doneFileWritten: false,
   flushInProgress: false,
   pingInProgress: false,
@@ -303,6 +321,9 @@ export function resetStateForTests(): void {
   callbackState.pendingParagraphBreak = false;
   callbackState.todoState.length = 0;
   callbackState.awaitingQuestionAnswer = false;
+  callbackState.usageLimitSnapshot = null;
+  callbackState.lastReportedUsageLimits = "";
+  callbackState.lastReportedUsageLimitsAt = 0;
 }
 
 export function setFatalHeartbeatForTest(message: string): void {

@@ -37,9 +37,14 @@ var CONVEX_URL = process.env.CONVEX_URL;
 var CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
 var CONVEX_TOKEN = process.env.CONVEX_TOKEN;
 var STREAMING_HMAC = process.env.STREAMING_HMAC || "";
+var HARNESS_CATALOG_TOKEN = process.env.HARNESS_CATALOG_TOKEN || "";
+var HARNESS_CATALOG_SANDBOX_ID = process.env.HARNESS_CATALOG_SANDBOX_ID || "";
 var ENTITY_ID = process.env.ENTITY_ID;
 var STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 var RUN_ID = process.env.RUN_ID || null;
+var TURN_ID = process.env.TURN_ID || null;
+var parsedTurnLeaseGeneration = Number(process.env.TURN_LEASE_GENERATION);
+var TURN_LEASE_GENERATION = Number.isSafeInteger(parsedTurnLeaseGeneration) && parsedTurnLeaseGeneration > 0 ? parsedTurnLeaseGeneration : null;
 var ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
 var ROOT_DIRECTORY = process.env.ROOT_DIRECTORY || "";
 var COMPLETION_MUTATION = process.env.COMPLETION_MUTATION;
@@ -158,6 +163,7 @@ if (GH_TOKEN) {
 process.env.GH_PROMPT_DISABLED = "1";
 process.env.GH_NO_UPDATE_NOTIFIER = "1";
 var REPO_ID = process.env.REPO_ID;
+var PROVIDER_ACCOUNT_ID = process.env.PROVIDER_ACCOUNT_ID || "";
 var REASONING_EFFORT = process.env.AI_REASONING_EFFORT || "";
 var AI_THINKING_ENABLED = process.env.AI_THINKING_ENABLED || "";
 var AI_CONTEXT_1M = process.env.AI_CONTEXT_1M || "";
@@ -279,7 +285,8 @@ var completedLabels = {
 };
 
 // callback-src/providers/claudeSdkDaemon.ts
-import { unlinkSync, writeFileSync as writeFileSync9, readFileSync as readFileSync7 } from "fs";
+import { unlinkSync, writeFileSync as writeFileSync9, readFileSync as readFileSync7, readdirSync as readdirSync3 } from "fs";
+import { homedir } from "os";
 
 // callback-src/providers/daemonPaths.ts
 var LEGACY_DAEMON_PID = "/tmp/eva-daemon.pid";
@@ -438,6 +445,9 @@ var callbackState = {
   cursorTerminalToolIds: /* @__PURE__ */ new Set(),
   todoState: [],
   awaitingQuestionAnswer: false,
+  usageLimitSnapshot: null,
+  lastReportedUsageLimits: "",
+  lastReportedUsageLimitsAt: 0,
   doneFileWritten: false,
   flushInProgress: false,
   pingInProgress: false,
@@ -670,7 +680,76 @@ function elapsedAttemptMs() {
   return attemptElapsedMs();
 }
 
+// callback-src/runtime/turnLease.ts
+var currentTurnLease = TURN_ID !== null && TURN_LEASE_GENERATION !== null ? { turnId: TURN_ID, leaseGeneration: TURN_LEASE_GENERATION } : null;
+var terminalReason = null;
+function getCurrentTurnLease() {
+  return currentTurnLease;
+}
+function canSendTurnHeartbeat({
+  claimMutation,
+  turnLease
+}) {
+  return claimMutation === void 0 || turnLease !== null;
+}
+function appendCurrentTurnLease(args) {
+  const identity = getCurrentTurnLease();
+  if (identity === null) return;
+  args.turnId = identity.turnId;
+  args.leaseGeneration = identity.leaseGeneration;
+}
+function setCurrentTurnLease(identity) {
+  if (currentTurnLease?.turnId === identity?.turnId && currentTurnLease?.leaseGeneration === identity?.leaseGeneration) {
+    return;
+  }
+  currentTurnLease = identity;
+  terminalReason = null;
+}
+function getLeaseTerminalReason() {
+  return terminalReason;
+}
+function parseTerminalReason(value) {
+  if (value === "unknown_turn" || value === "closed" || value === "superseded" || value === "timeout" || value === "cancelled") {
+    return value;
+  }
+  return null;
+}
+function noteHeartbeatResponse(response) {
+  if (terminalReason !== null) return true;
+  let parsed;
+  if (typeof response === "string") {
+    try {
+      parsed = JSON.parse(response);
+    } catch {
+      return false;
+    }
+  } else {
+    parsed = response;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    return false;
+  }
+  const responseValue = parsed.value;
+  const payload = typeof responseValue === "object" && responseValue !== null && !Array.isArray(responseValue) ? responseValue : parsed;
+  const lease = payload.lease;
+  if (typeof lease !== "object" || lease === null || Array.isArray(lease)) {
+    return false;
+  }
+  if (lease.status !== "terminal") return false;
+  terminalReason = parseTerminalReason(lease.reason) ?? "closed";
+  log(
+    "turn lease terminal (" + terminalReason + ") turnId=" + String(currentTurnLease?.turnId)
+  );
+  return true;
+}
+
 // callback-src/http/convexClient.ts
+function appendTurnLease(body) {
+  const identity = getCurrentTurnLease();
+  if (identity === null) return;
+  body.set("turnId", identity.turnId);
+  body.set("leaseGeneration", String(identity.leaseGeneration));
+}
 async function fetchWithTimeout(url, options, timeoutMs = CALLBACK_HTTP_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -684,6 +763,47 @@ function buildRetryDelayMs(attempt) {
   const exponential = Math.pow(2, attempt - 1) * CALLBACK_HTTP_RETRY_BASE_MS;
   const jitter = Math.floor(Math.random() * 500);
   return exponential + jitter;
+}
+async function withRetries(label, maxRetries, run, shouldRetry = () => true) {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await run();
+    } catch (e) {
+      const error = e instanceof Error ? e : new Error(String(e));
+      attempt++;
+      if (attempt > maxRetries || !shouldRetry(error)) throw e;
+      const delayMs = buildRetryDelayMs(attempt);
+      console.error(
+        label + " attempt " + attempt + " failed, retrying in " + delayMs + "ms:",
+        String(e)
+      );
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+}
+var HttpResponseError = class extends Error {
+  status;
+  constructor(label, status, body) {
+    super(label + " failed: " + status + " " + body);
+    this.name = "HttpResponseError";
+    this.status = status;
+  }
+};
+function shouldRetryHttpError(error) {
+  return !(error instanceof HttpResponseError) || error.status >= 500;
+}
+async function postSignedForm(url, body, label) {
+  const res = await fetchWithTimeout(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new HttpResponseError(label, res.status, text);
+  }
+  return res.text();
 }
 async function callConvex(type, path3, args) {
   const endpoint = type === "mutation" ? "/api/mutation" : "/api/action";
@@ -705,21 +825,30 @@ async function callConvex(type, path3, args) {
   return await readResponseJson(res) ?? null;
 }
 async function callConvexWithRetry(type, path3, args, maxRetries = CALLBACK_HTTP_MAX_RETRIES) {
-  let attempt = 0;
-  while (true) {
-    try {
-      return await callConvex(type, path3, args);
-    } catch (e) {
-      attempt++;
-      if (attempt > maxRetries) throw e;
-      const delayMs = buildRetryDelayMs(attempt);
-      console.error(
-        "callConvex(" + type + ") attempt " + attempt + " failed, retrying in " + delayMs + "ms:",
-        String(e)
-      );
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
+  return await withRetries(
+    "callConvex(" + type + ")",
+    maxRetries,
+    () => callConvex(type, path3, args)
+  );
+}
+async function callHarnessSkillCatalogReport(provider, cliVersion, skills) {
+  if (!CONVEX_SITE_URL || !HARNESS_CATALOG_TOKEN || !HARNESS_CATALOG_SANDBOX_ID || !REPO_ID) {
+    return null;
   }
+  const url = CONVEX_SITE_URL + "/api/harness-skills/report";
+  const body = new URLSearchParams();
+  body.set("provider", provider);
+  body.set("cliVersion", cliVersion);
+  body.set("skills", JSON.stringify(skills));
+  body.set("token", HARNESS_CATALOG_TOKEN);
+  body.set("sandboxId", HARNESS_CATALOG_SANDBOX_ID);
+  body.set("repoId", REPO_ID);
+  return await withRetries(
+    "harness skill catalog report",
+    CALLBACK_HTTP_MAX_RETRIES,
+    () => postSignedForm(url, body, "Harness skill catalog report"),
+    shouldRetryHttpError
+  );
 }
 async function callStreamingHeartbeatTouchOnce(entityId) {
   if (CONVEX_SITE_URL && STREAMING_HMAC) {
@@ -727,23 +856,27 @@ async function callStreamingHeartbeatTouchOnce(entityId) {
     body.set("entityId", entityId);
     body.set("hmac", STREAMING_HMAC);
     body.set("touchOnly", "1");
-    const res = await fetchWithTimeout(
+    appendTurnLease(body);
+    const response2 = await postSignedForm(
       CONVEX_SITE_URL + "/api/streaming/heartbeat",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body
-      }
+      body,
+      "Streaming heartbeat touch"
     );
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(
-        "Streaming heartbeat touch failed: " + res.status + " " + text
-      );
-    }
-    return res.text();
+    noteHeartbeatResponse(response2);
+    return response2;
   }
-  return await callConvex("mutation", "streaming:touch", { entityId });
+  const identity = getCurrentTurnLease();
+  const response = identity === null ? await callConvex("mutation", "turns:legacyHeartbeatFromCallback", {
+    entityId,
+    touchOnly: true
+  }) : await callConvex("mutation", "turns:heartbeatFromCallback", {
+    entityId,
+    touchOnly: true,
+    turnId: identity.turnId,
+    leaseGeneration: identity.leaseGeneration
+  });
+  noteHeartbeatResponse(response);
+  return response;
 }
 async function callStreamingHeartbeatOnce(entityId, currentActivity, currentContent, pendingQuestion) {
   if (CONVEX_SITE_URL && STREAMING_HMAC) {
@@ -752,71 +885,55 @@ async function callStreamingHeartbeatOnce(entityId, currentActivity, currentCont
     body.set("hmac", STREAMING_HMAC);
     body.set("currentActivity", currentActivity);
     body.set("currentContent", currentContent || "");
+    appendTurnLease(body);
     if (pendingQuestion) {
       body.set("pendingQuestion", pendingQuestion);
     }
-    const res = await fetchWithTimeout(
+    const response2 = await postSignedForm(
       CONVEX_SITE_URL + "/api/streaming/heartbeat",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body
-      }
+      body,
+      "Streaming heartbeat"
     );
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error("Streaming heartbeat failed: " + res.status + " " + text);
-    }
-    return res.text();
+    noteHeartbeatResponse(response2);
+    return response2;
   }
   const args = {
     entityId,
+    touchOnly: false,
     currentActivity,
     currentContent
   };
   if (pendingQuestion) {
     args.pendingQuestion = pendingQuestion;
   }
-  return await callConvex("mutation", "streaming:set", args);
+  const identity = getCurrentTurnLease();
+  const path3 = identity === null ? "turns:legacyHeartbeatFromCallback" : "turns:heartbeatFromCallback";
+  if (identity !== null) {
+    args.turnId = identity.turnId;
+    args.leaseGeneration = identity.leaseGeneration;
+  }
+  const response = await callConvex("mutation", path3, args);
+  noteHeartbeatResponse(response);
+  return response;
 }
 async function callStreamingHeartbeat(entityId, currentActivity, currentContent, pendingQuestion) {
-  let attempt = 0;
-  while (true) {
-    try {
-      return await callStreamingHeartbeatOnce(
-        entityId,
-        currentActivity,
-        currentContent,
-        pendingQuestion
-      );
-    } catch (e) {
-      attempt++;
-      if (attempt > STREAMING_HEARTBEAT_MAX_RETRIES) throw e;
-      const delayMs = buildRetryDelayMs(attempt);
-      console.error(
-        "streaming heartbeat attempt " + attempt + " failed, retrying in " + delayMs + "ms:",
-        String(e)
-      );
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
+  return await withRetries(
+    "streaming heartbeat",
+    STREAMING_HEARTBEAT_MAX_RETRIES,
+    () => callStreamingHeartbeatOnce(
+      entityId,
+      currentActivity,
+      currentContent,
+      pendingQuestion
+    )
+  );
 }
 async function callStreamingHeartbeatTouch(entityId) {
-  let attempt = 0;
-  while (true) {
-    try {
-      return await callStreamingHeartbeatTouchOnce(entityId);
-    } catch (e) {
-      attempt++;
-      if (attempt > STREAMING_HEARTBEAT_MAX_RETRIES) throw e;
-      const delayMs = buildRetryDelayMs(attempt);
-      console.error(
-        "streaming heartbeat touch attempt " + attempt + " failed, retrying in " + delayMs + "ms:",
-        String(e)
-      );
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
+  return await withRetries(
+    "streaming heartbeat touch",
+    STREAMING_HEARTBEAT_MAX_RETRIES,
+    () => callStreamingHeartbeatTouchOnce(entityId)
+  );
 }
 
 // callback-src/parse/stepBudget.ts
@@ -2434,6 +2551,222 @@ async function flushBackgroundShellQueue() {
   }
 }
 
+// callback-src/runtime/usageLimits.ts
+var REPORT_MUTATION = "usageLimits:report";
+var REPORT_MAX_RETRIES = 1;
+var USAGE_LOOKUP_TIMEOUT_MS = 5e3;
+var USAGE_REPORT_EXIT_GRACE_MS = 7e3;
+var USAGE_REPORT_REFRESH_MS = 6 * 60 * 60 * 1e3;
+var pendingClaudeUsageReport = null;
+var CLAUDE_WINDOW_LABELS = {
+  five_hour: "5h",
+  seven_day: "Weekly (all models)",
+  seven_day_oauth_apps: "Weekly (apps)",
+  seven_day_opus: "Weekly (Opus)",
+  seven_day_sonnet: "Weekly (Sonnet)",
+  seven_day_overage_included: "Weekly (overage included)",
+  overage: "Extra usage"
+};
+function readFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value) ? value : void 0;
+}
+function readNonEmptyString(value) {
+  return typeof value === "string" && value.trim() ? value.trim() : void 0;
+}
+function readStatus(value) {
+  return value === "allowed" || value === "allowed_warning" || value === "rejected" ? value : void 0;
+}
+function readIsoMs(value) {
+  const text = readNonEmptyString(value);
+  if (!text) return void 0;
+  const ms = Date.parse(text);
+  return Number.isFinite(ms) ? ms : void 0;
+}
+function buildWindow(key, label, utilization, resetsAt) {
+  return {
+    key,
+    label,
+    ...utilization === void 0 ? {} : { utilization },
+    ...resetsAt === void 0 ? {} : { resetsAt }
+  };
+}
+function mergeWindow(snapshot, window) {
+  const windows = snapshot.windows ?? [];
+  const index = windows.findIndex((existing) => existing.key === window.key);
+  if (index >= 0) {
+    windows[index] = window;
+  } else {
+    windows.push(window);
+  }
+  snapshot.windows = windows;
+}
+function ensureSnapshot() {
+  const existing = callbackState.usageLimitSnapshot;
+  if (existing) return existing;
+  const created = { completeness: "partial" };
+  callbackState.usageLimitSnapshot = created;
+  return created;
+}
+function mergeClaudeRateLimitEvent(event) {
+  const info = event.rate_limit_info;
+  if (typeof info !== "object" || info === null || Array.isArray(info)) return;
+  const status = readStatus(info.status);
+  const key = readNonEmptyString(info.rateLimitType);
+  if (!status && !key) return;
+  const snapshot = ensureSnapshot();
+  snapshot.completeness = "partial";
+  if (status) snapshot.status = status;
+  if (!key) return;
+  const resetsAtSeconds = readFiniteNumber(info.resetsAt);
+  mergeWindow(
+    snapshot,
+    buildWindow(
+      key,
+      CLAUDE_WINDOW_LABELS[key] ?? key,
+      readFiniteNumber(info.utilization),
+      resetsAtSeconds === void 0 ? void 0 : Math.round(resetsAtSeconds * 1e3)
+    )
+  );
+}
+function pushUsageWindow(windows, key, entry, label) {
+  if (!entry) return;
+  const utilization = readFiniteNumber(entry.utilization);
+  const resetsAt = readIsoMs(entry.resets_at);
+  if (utilization === void 0 && resetsAt === void 0) return;
+  windows.push(
+    buildWindow(
+      key,
+      label ?? CLAUDE_WINDOW_LABELS[key] ?? key,
+      utilization,
+      resetsAt
+    )
+  );
+}
+function readClaudeUsageWindows(response) {
+  const limits = response?.rate_limits;
+  if (!limits) return [];
+  const windows = [];
+  pushUsageWindow(windows, "five_hour", limits.five_hour);
+  pushUsageWindow(windows, "seven_day", limits.seven_day);
+  pushUsageWindow(windows, "seven_day_opus", limits.seven_day_opus);
+  pushUsageWindow(windows, "seven_day_sonnet", limits.seven_day_sonnet);
+  pushUsageWindow(windows, "seven_day_oauth_apps", limits.seven_day_oauth_apps);
+  for (const entry of limits.model_scoped ?? []) {
+    const name = readNonEmptyString(entry.display_name);
+    if (!name) continue;
+    pushUsageWindow(windows, "model_scoped:" + name, entry, \`Weekly (\${name})\`);
+  }
+  return windows;
+}
+async function captureClaudeUsage(readUsage) {
+  let timer;
+  try {
+    const response = await Promise.race([
+      readUsage(),
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve("timeout"), USAGE_LOOKUP_TIMEOUT_MS);
+      })
+    ]);
+    if (response === "timeout") {
+      log("usage limits: claude usage lookup timed out");
+      return;
+    }
+    if (!response) return;
+    if (response.rate_limits_available !== true && response.rate_limits_available !== false) {
+      log("usage limits: claude usage response omitted availability");
+      return;
+    }
+    const snapshot = { completeness: "complete" };
+    const subscriptionType = readNonEmptyString(response.subscription_type);
+    if (subscriptionType) snapshot.subscriptionType = subscriptionType;
+    if (response.rate_limits_available === true) {
+      snapshot.windows = readClaudeUsageWindows(response);
+    }
+    callbackState.usageLimitSnapshot = snapshot;
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    log("usage limits: claude usage lookup failed \\u2014 " + messageText);
+  } finally {
+    if (timer !== void 0) clearTimeout(timer);
+  }
+}
+function windowToJson(window) {
+  return {
+    key: window.key,
+    label: window.label,
+    ...window.utilization === void 0 ? {} : { utilization: window.utilization },
+    ...window.resetsAt === void 0 ? {} : { resetsAt: window.resetsAt }
+  };
+}
+function buildUsageLimitReportArgs(repoId, provider, providerAccountId, snapshot) {
+  return {
+    repoId,
+    provider,
+    snapshotComplete: snapshot.completeness === "complete",
+    ...providerAccountId ? { providerAccountId } : {},
+    ...snapshot.subscriptionType === void 0 ? {} : { subscriptionType: snapshot.subscriptionType },
+    ...snapshot.status === void 0 ? {} : { status: snapshot.status },
+    ...snapshot.windows === void 0 ? {} : { windows: snapshot.windows.map(windowToJson) }
+  };
+}
+async function reportUsageLimits(provider) {
+  const snapshot = callbackState.usageLimitSnapshot;
+  if (!snapshot) return;
+  if (!REPO_ID) {
+    log("usage limits: no REPO_ID in the environment \\u2014 not reporting");
+    return;
+  }
+  const args = buildUsageLimitReportArgs(
+    REPO_ID,
+    provider,
+    PROVIDER_ACCOUNT_ID,
+    snapshot
+  );
+  const fingerprint = JSON.stringify(args);
+  const capturedAt = Date.now();
+  if (fingerprint === callbackState.lastReportedUsageLimits && capturedAt - callbackState.lastReportedUsageLimitsAt < USAGE_REPORT_REFRESH_MS) {
+    return;
+  }
+  callbackState.lastReportedUsageLimits = fingerprint;
+  try {
+    await callConvexWithRetry(
+      "mutation",
+      REPORT_MUTATION,
+      { ...args, capturedAt },
+      REPORT_MAX_RETRIES
+    );
+    callbackState.lastReportedUsageLimitsAt = capturedAt;
+  } catch (error) {
+    callbackState.lastReportedUsageLimits = "";
+    callbackState.lastReportedUsageLimitsAt = 0;
+    const messageText = error instanceof Error ? error.message : String(error);
+    log("usage limits: report failed \\u2014 " + messageText);
+  }
+}
+async function captureAndReportClaudeUsage(readUsage) {
+  await captureClaudeUsage(readUsage);
+  await reportUsageLimits("claude");
+}
+function startClaudeUsageReport(readUsage) {
+  const report = captureAndReportClaudeUsage(readUsage);
+  pendingClaudeUsageReport = report;
+  void report.finally(() => {
+    if (pendingClaudeUsageReport === report) pendingClaudeUsageReport = null;
+  });
+}
+async function waitForPendingClaudeUsageReport() {
+  const pending = pendingClaudeUsageReport;
+  if (!pending) return;
+  let timer;
+  await Promise.race([
+    pending,
+    new Promise((resolve) => {
+      timer = setTimeout(resolve, USAGE_REPORT_EXIT_GRACE_MS);
+    })
+  ]);
+  if (timer !== void 0) clearTimeout(timer);
+}
+
 // callback-src/parse/sdkTaxonomy.ts
 var loggedUnknownKinds = /* @__PURE__ */ new Set();
 var knownBackgroundTaskIds = /* @__PURE__ */ new Set();
@@ -2599,7 +2932,11 @@ function parseClaudeSdkTaxonomy(event) {
   if (messageType !== "system" && messageType !== "tool_progress" && messageType !== "tool_use_summary" && messageType !== "auth_status" && messageType !== "rate_limit_event") {
     return [];
   }
-  if (messageType === "auth_status" || messageType === "rate_limit_event") {
+  if (messageType === "rate_limit_event") {
+    mergeClaudeRateLimitEvent(event);
+    return [];
+  }
+  if (messageType === "auth_status") {
     return [];
   }
   if (messageType === "tool_progress") {
@@ -3879,6 +4216,12 @@ function appendStreamedContent(text, isBlockBoundary = false) {
 import { writeFileSync as writeFileSync7 } from "fs";
 var flushInterval = null;
 var heartbeatInterval = null;
+function ownsHeartbeatLease() {
+  return canSendTurnHeartbeat({
+    claimMutation: CLAIM_MUTATION,
+    turnLease: getCurrentTurnLease()
+  });
+}
 function buildStreamingPayload() {
   return serializeSteps(callbackState.accumulatedSteps);
 }
@@ -3922,6 +4265,7 @@ function noteHeartbeatFailure(error) {
   }
 }
 async function sendStreamingHeartbeatUpdate(payload) {
+  if (!ownsHeartbeatLease()) return true;
   try {
     await callStreamingHeartbeat(
       STREAMING_ENTITY_ID ?? "",
@@ -3938,6 +4282,10 @@ async function sendStreamingHeartbeatUpdate(payload) {
 }
 async function flushStreaming() {
   if (callbackState.flushInProgress) return;
+  if (!ownsHeartbeatLease()) {
+    void flushBackgroundShellQueue();
+    return;
+  }
   if (callbackState.rawOutput.length <= callbackState.lastProcessed) {
     void flushBackgroundShellQueue();
     return;
@@ -3978,6 +4326,7 @@ async function flushStreaming() {
 }
 var PING_STUCK_MS = 45e3;
 async function heartbeatPing() {
+  if (!ownsHeartbeatLease()) return;
   if (callbackState.pingInProgress && callbackState.pingStartedAt > 0 && Date.now() - callbackState.pingStartedAt < PING_STUCK_MS) {
     return;
   }
@@ -4011,6 +4360,10 @@ async function heartbeatPing() {
   }
 }
 async function initialHeartbeat() {
+  if (!ownsHeartbeatLease()) {
+    log("initialHeartbeat skipped: daemon is waiting to claim a turn");
+    return;
+  }
   const startedAt = Date.now();
   let attempt = 0;
   while (attempt <= 1) {
@@ -4036,10 +4389,10 @@ async function initialHeartbeat() {
 }
 function startStreamingLoops() {
   flushInterval = setInterval(() => {
-    void flushStreaming();
+    void flushStreaming().then(enforceTurnLease);
   }, 150);
   heartbeatInterval = setInterval(() => {
-    void heartbeatPing();
+    void heartbeatPing().then(enforceTurnLease);
   }, 1e4);
 }
 async function stopStreamingLoops() {
@@ -4049,6 +4402,20 @@ async function stopStreamingLoops() {
   if (heartbeatInterval) clearInterval(heartbeatInterval);
   await flushStreaming();
 }
+var LEASE_EXIT_GRACE_MS = 500;
+var leaseExitScheduled = false;
+function enforceTurnLease() {
+  const reason = getLeaseTerminalReason();
+  if (reason === null) return false;
+  if (leaseExitScheduled) return true;
+  leaseExitScheduled = true;
+  log("exiting: turn lease terminal (" + reason + ")");
+  if (flushInterval) clearInterval(flushInterval);
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  callbackState.streamingLoopsStopped = true;
+  setTimeout(() => process.exit(0), LEASE_EXIT_GRACE_MS).unref();
+  return true;
+}
 async function setFinalizingState() {
   markLastComplete();
   callbackState.lastStepType = "thinking";
@@ -4056,6 +4423,7 @@ async function setFinalizingState() {
     await sendStreamingHeartbeatUpdate(buildStreamingPayload());
   } catch {
   }
+  return enforceTurnLease();
 }
 async function runPreflightHeartbeat() {
   try {
@@ -4229,6 +4597,13 @@ function buildCanUseTool() {
 // callback-src/providers/claudeSdk.ts
 var SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 var SDK_VERSION = "0.3.201";
+async function readSdkPlanUsage(handle) {
+  if (typeof handle.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET !== "function") {
+    log("usage limits: this SDK query handle exposes no usage method");
+    return null;
+  }
+  return await handle.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET();
+}
 function globalNpmRoot() {
   return execSync("npm root -g", { encoding: "utf8" }).trim();
 }
@@ -4440,6 +4815,7 @@ async function runClaudeSdkAttempt(sessionMode) {
   } finally {
     clearInterval(healthTimer);
   }
+  startClaudeUsageReport(() => readSdkPlanUsage(q));
   const code = sawResult && !resultIsError && !timedOutForMaxRuntime && !timedOutForNoOutput ? 0 : 1;
   log(
     "runClaudeSdkAttempt finished in " + String(Date.now() - callbackState.activeAttemptStartedAt) + "ms (code=" + code + ", sawResult=" + sawResult + ", resultIsError=" + resultIsError + ", timedOutForNoOutput=" + timedOutForNoOutput + ", timedOutForMaxRuntime=" + timedOutForMaxRuntime + ", outputBytes=" + attemptOutput.length + (queryErrorMessage ? ", queryError=" + queryErrorMessage : "") + ")"
@@ -4660,7 +5036,129 @@ function persistTurnWork() {
   }
 }
 
+// callback-src/runtime/daemonSupervisor.ts
+var DaemonSupervisor = class {
+  active = { phase: "idle" };
+  pendingClaimValue = null;
+  shutdown = "active";
+  get phase() {
+    return this.active.phase;
+  }
+  get currentTurn() {
+    switch (this.active.phase) {
+      case "running":
+      case "starting":
+      case "cancelling":
+      case "finalizing":
+        return this.active.turn;
+      case "idle":
+      case "opening_synthetic":
+        return null;
+    }
+  }
+  get pendingClaim() {
+    return this.pendingClaimValue;
+  }
+  get isStopping() {
+    return this.shutdown === "stopping";
+  }
+  get isCancellationInFlight() {
+    return this.active.phase === "cancelling";
+  }
+  get hasWork() {
+    return this.active.phase !== "idle" || this.pendingClaimValue !== null;
+  }
+  beginSyntheticOpen() {
+    if (this.active.phase !== "idle") return false;
+    this.active = { phase: "opening_synthetic" };
+    return true;
+  }
+  abandonSyntheticOpen() {
+    if (this.active.phase === "opening_synthetic") {
+      this.active = { phase: "idle" };
+    }
+  }
+  parkClaim(claim) {
+    if (this.pendingClaimValue !== null) return false;
+    this.pendingClaimValue = claim;
+    return true;
+  }
+  takeClaim() {
+    const claim = this.pendingClaimValue;
+    this.pendingClaimValue = null;
+    return claim;
+  }
+  startTurn(turn) {
+    if (this.active.phase !== "idle" && this.active.phase !== "opening_synthetic") {
+      return false;
+    }
+    this.active = { phase: "running", turn };
+    return true;
+  }
+  beginStarting(turn) {
+    if (this.active.phase !== "idle") return false;
+    this.active = { phase: "starting", turn };
+    return true;
+  }
+  markRunning(turn) {
+    if (this.active.phase !== "starting") return false;
+    this.active = { phase: "running", turn };
+    return true;
+  }
+  beginCancellation() {
+    if (this.active.phase !== "running") return false;
+    this.active = { phase: "cancelling", turn: this.active.turn };
+    return true;
+  }
+  beginFinalizing() {
+    if (this.active.phase !== "running") return false;
+    this.active = { phase: "finalizing", turn: this.active.turn };
+    return true;
+  }
+  settleTurn() {
+    if (this.active.phase !== "opening_synthetic") {
+      this.active = { phase: "idle" };
+    }
+  }
+  noticeRefresh() {
+    if (this.shutdown === "active") this.shutdown = "refresh_pending";
+  }
+  stop() {
+    this.shutdown = "stopping";
+  }
+  decideRefresh(input) {
+    if (this.shutdown === "stopping") return { action: "exit" };
+    if (this.shutdown !== "refresh_pending") return { action: "continue" };
+    if (input.watchedTurnActive) {
+      return { action: "defer", blocker: "watched turn" };
+    }
+    if (this.active.phase === "opening_synthetic") {
+      return { action: "defer", blocker: "synthetic turn opening" };
+    }
+    if (this.active.phase !== "idle") {
+      return { action: "defer", blocker: this.active.phase };
+    }
+    if (this.pendingClaimValue !== null) {
+      return { action: "defer", blocker: "claimed turn" };
+    }
+    if (input.backgroundAgentCount > 0) {
+      return { action: "defer", blocker: "background agent" };
+    }
+    if (input.sdkMessagePending) {
+      return { action: "defer", blocker: "queued SDK message" };
+    }
+    return { action: "exit" };
+  }
+};
+
 // callback-src/providers/claimPendingTurnParse.ts
+function claimPayload(result) {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return null;
+  }
+  const inner = result.value;
+  return typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+}
 function readStopTaskToolUseIds(result) {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
     return [];
@@ -4674,12 +5172,19 @@ function readStopTaskToolUseIds(result) {
   return field.filter((id) => typeof id === "string");
 }
 function readCancelRequested(result) {
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return false;
-  }
-  const inner = result.value;
-  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+  const payload = claimPayload(result);
+  if (!payload) return false;
   return payload.cancelRequested === true;
+}
+function readTurnLeaseIdentity(result) {
+  const payload = claimPayload(result);
+  if (!payload) return null;
+  const turnId = payload.turnId;
+  const leaseGeneration = payload.leaseGeneration;
+  if (typeof turnId !== "string" || typeof leaseGeneration !== "number" || !Number.isSafeInteger(leaseGeneration) || leaseGeneration <= 0) {
+    return null;
+  }
+  return { turnId, leaseGeneration };
 }
 
 // callback-src/providers/claudeSdkDaemon.ts
@@ -4716,18 +5221,13 @@ var CANCEL_SETTLE_TIMEOUT_MS = 3e4;
 var turnActive = false;
 var turnStartedAtMs = 0;
 var lastMessageAtMs = 0;
-var daemonTurn = null;
-var pendingClaimedTurn = null;
-var daemonExiting = false;
-var callbackRefreshPending = false;
+var supervisor = new DaemonSupervisor();
 var callbackRefreshDeferralLogged = false;
-var openingSyntheticTurn = false;
 var lastIdleActivityAtMs = Date.now();
 var agentTurnOutput = "";
 var agentTurnStartedAt = 0;
 var sawFirstMessageThisTurn = { value: false };
 var sawAssistantThisTurn = { value: false };
-var turnCancelInFlight = false;
 var turnCancelRequestedAtMs = 0;
 var recognisedSubagentToolUseIds = /* @__PURE__ */ new Set();
 var settledSubagentToolUseIds = /* @__PURE__ */ new Set();
@@ -4760,7 +5260,8 @@ async function failTurnAndExit(error) {
       result: null,
       error,
       activityLog: serializeSteps(callbackState.accumulatedSteps),
-      ...RUN_ID ? { runId: RUN_ID } : {}
+      ...RUN_ID ? { runId: RUN_ID } : {},
+      ...getCurrentTurnLease() ?? {}
     });
   } catch {
   }
@@ -4786,7 +5287,7 @@ async function exitWithoutCompletion(reason) {
 function startTurnWatchdog() {
   const timer = setInterval(() => {
     const now = Date.now();
-    if (turnCancelInFlight) {
+    if (supervisor.isCancellationInFlight) {
       if (now - turnCancelRequestedAtMs > CANCEL_SETTLE_TIMEOUT_MS) {
         log("daemon: cancelled turn did not settle in time \\u2014 exiting");
         process.exit(1);
@@ -4804,7 +5305,7 @@ function startTurnWatchdog() {
     }
     if (now - turnStartedAtMs > MAX_TOTAL_RUNTIME_MS) {
       turnActive = false;
-      if (daemonTurn?.kind === "synthetic") {
+      if (supervisor.currentTurn?.kind === "synthetic") {
         void failSyntheticTurn(
           "The assistant exceeded the maximum turn runtime."
         );
@@ -4815,7 +5316,7 @@ function startTurnWatchdog() {
       }
     } else if (now - lastMessageAtMs > NO_MESSAGE_TIMEOUT_MS) {
       turnActive = false;
-      if (daemonTurn?.kind === "synthetic") {
+      if (supervisor.currentTurn?.kind === "synthetic") {
         void failSyntheticTurn(
           "The assistant stopped responding. Please try again."
         );
@@ -4911,7 +5412,7 @@ function resetTurnState() {
   callbackState.awaitingQuestionAnswer = false;
   callbackState.lastStepType = "thinking";
 }
-async function finalizeTurn(output) {
+async function finalizeTurn(output, readUsage) {
   await flushStreaming();
   const resultEvent = extractResultEvent(output);
   for (const step of callbackState.accumulatedSteps) step.status = "complete";
@@ -4931,15 +5432,22 @@ async function finalizeTurn(output) {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
-  await setFinalizingState();
+  const turnLease = getCurrentTurnLease();
+  if (turnLease) {
+    completionArgs.turnId = turnLease.turnId;
+    completionArgs.leaseGeneration = turnLease.leaseGeneration;
+  }
+  if (await setFinalizingState()) return;
   persistTurnWork();
   const completionSentAt = Date.now();
   await deliverCompletionWithMedia(completionArgs);
+  setCurrentTurnLease(null);
   log(
     "daemon: turn finalized success=" + success + " steps=" + activityLog.length + " (completion mutation " + (Date.now() - completionSentAt) + "ms)"
   );
   const bookkeepingAt = Date.now();
   syncClaudeStateToPersist("daemon-turn");
+  void captureAndReportClaudeUsage(readUsage);
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
   );
@@ -4966,13 +5474,14 @@ function readClaimedTurn(result) {
     return null;
   }
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return { prompt, attachmentUrls: [] };
+    return { prompt, attachmentUrls: [], turnLease: null };
   }
   const inner = result.value;
   const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
   return {
     prompt,
-    attachmentUrls: readClaimedAttachmentUrls(payload)
+    attachmentUrls: readClaimedAttachmentUrls(payload),
+    turnLease: readTurnLeaseIdentity(result)
   };
 }
 function readSyntheticTurnMessageId(result) {
@@ -5098,6 +5607,87 @@ async function syncBackgroundAgentsToConvex(agents) {
   } catch {
   }
 }
+var harnessCatalogReportStarted = false;
+var CATALOG_MAX_COMMANDS = 100;
+var CATALOG_MAX_NAME_LENGTH = 100;
+var CATALOG_MAX_DESCRIPTION_LENGTH = 2e3;
+var CATALOG_MAX_ARGUMENT_HINT_LENGTH = 400;
+function collectLocalCommandNames() {
+  const names = /* @__PURE__ */ new Set();
+  for (const root of [WORK_DIR, homedir()]) {
+    try {
+      for (const entry of readdirSync3(root + "/.claude/skills", {
+        withFileTypes: true
+      })) {
+        if (entry.isDirectory()) names.add(entry.name);
+      }
+    } catch {
+    }
+    try {
+      for (const entry of readdirSync3(root + "/.claude/commands", {
+        withFileTypes: true
+      })) {
+        if (entry.isFile() && entry.name.endsWith(".md")) {
+          names.add(entry.name.slice(0, -".md".length));
+        }
+      }
+    } catch {
+    }
+  }
+  return names;
+}
+function catalogDescription(description) {
+  const firstLine = description.split("\\n").map((line) => line.trim()).find((line) => line.length > 0);
+  return (firstLine ?? "").slice(0, CATALOG_MAX_DESCRIPTION_LENGTH);
+}
+async function reportHarnessSkillCatalog(cliVersion, query) {
+  try {
+    if (!HARNESS_CATALOG_TOKEN) return;
+    if (typeof query.initializationResult !== "function") {
+      log("daemon: initializationResult unavailable \\u2014 skipping skill report");
+      return;
+    }
+    const init = await query.initializationResult();
+    const localNames = collectLocalCommandNames();
+    const commands = [];
+    for (const command of init.commands) {
+      if (localNames.has(command.name)) continue;
+      if (command.name.length === 0) continue;
+      if (command.name.length > CATALOG_MAX_NAME_LENGTH) continue;
+      const argumentHint = (command.argumentHint ?? "").slice(
+        0,
+        CATALOG_MAX_ARGUMENT_HINT_LENGTH
+      );
+      commands.push({
+        name: command.name,
+        description: catalogDescription(command.description),
+        ...argumentHint ? { argumentHint } : {}
+      });
+    }
+    if (commands.length === 0) return;
+    if (commands.length > CATALOG_MAX_COMMANDS) {
+      log(
+        "daemon: harness skill report truncated from " + commands.length + " to " + CATALOG_MAX_COMMANDS + " commands"
+      );
+      commands.length = CATALOG_MAX_COMMANDS;
+    }
+    await callHarnessSkillCatalogReport("claude", cliVersion, commands);
+    log(
+      "daemon: reported " + commands.length + " built-in skills from CLI " + cliVersion
+    );
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    log("daemon: harness skill report failed \\u2014 " + messageText);
+  }
+}
+function noteHarnessInitMessage(message, query) {
+  if (harnessCatalogReportStarted) return;
+  if (message.type !== "system" || message.subtype !== "init") return;
+  const cliVersion = readStringField2(message, "claude_code_version");
+  if (!cliVersion) return;
+  harnessCatalogReportStarted = true;
+  void reportHarnessSkillCatalog(cliVersion, query);
+}
 function findAgentByTaskId(taskId) {
   for (const entry of unsettledBackgroundAgents.values()) {
     if (entry.taskId === taskId) {
@@ -5195,16 +5785,18 @@ function handleSystemTaskMessage(message) {
   }
 }
 async function failSyntheticTurn(error) {
-  if (daemonTurn?.kind !== "synthetic") {
+  const turn = supervisor.currentTurn;
+  if (turn?.kind !== "synthetic") {
     return;
   }
   log("daemon: failing synthetic turn \\u2014 " + error);
-  const messageId = daemonTurn.messageId;
+  const messageId = turn.messageId;
   try {
     await flushStreaming();
     for (const step of callbackState.accumulatedSteps) {
       step.status = "complete";
     }
+    const turnLease = getCurrentTurnLease();
     await callConvexWithRetry(
       "mutation",
       COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
@@ -5213,21 +5805,20 @@ async function failSyntheticTurn(error) {
         success: false,
         result: null,
         error,
-        activityLog: serializeSteps(callbackState.accumulatedSteps)
+        activityLog: serializeSteps(callbackState.accumulatedSteps),
+        ...turnLease ?? {}
       })
     );
   } catch {
   }
   endWatchedTurn();
   resetTurnState();
-  daemonTurn = null;
+  setCurrentTurnLease(null);
+  supervisor.settleTurn();
   agentTurnOutput = "";
 }
 async function ensureSyntheticTurn() {
-  if (daemonTurn !== null || openingSyntheticTurn) {
-    return;
-  }
-  openingSyntheticTurn = true;
+  if (!supervisor.beginSyntheticOpen()) return;
   try {
     const result = await callConvexWithRetry(
       "mutation",
@@ -5240,7 +5831,11 @@ async function ensureSyntheticTurn() {
       return;
     }
     resetTurnState();
-    daemonTurn = { kind: "synthetic", messageId };
+    setCurrentTurnLease(readTurnLeaseIdentity(result));
+    if (!supervisor.startTurn({ kind: "synthetic", messageId })) {
+      log("daemon: synthetic turn opened after lifecycle moved; ignoring");
+      return;
+    }
     agentTurnStartedAt = Date.now();
     sawFirstMessageThisTurn = { value: false };
     sawAssistantThisTurn = { value: false };
@@ -5248,14 +5843,16 @@ async function ensureSyntheticTurn() {
     beginWatchedTurn();
     log("daemon: synthetic turn opened messageId=" + messageId);
   } finally {
-    openingSyntheticTurn = false;
+    supervisor.abandonSyntheticOpen();
   }
 }
 async function finalizeSyntheticTurn(output) {
-  if (daemonTurn?.kind !== "synthetic") {
+  const turn = supervisor.currentTurn;
+  if (turn?.kind !== "synthetic") {
     return;
   }
-  const messageId = daemonTurn.messageId;
+  supervisor.beginFinalizing();
+  const messageId = turn.messageId;
   await flushStreaming();
   const resultEvent = extractResultEvent(output);
   for (const step of callbackState.accumulatedSteps) {
@@ -5273,6 +5870,11 @@ async function finalizeSyntheticTurn(output) {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
+  const turnLease = getCurrentTurnLease();
+  if (turnLease) {
+    completionArgs.turnId = turnLease.turnId;
+    completionArgs.leaseGeneration = turnLease.leaseGeneration;
+  }
   await callConvexWithRetry(
     "mutation",
     COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
@@ -5281,13 +5883,18 @@ async function finalizeSyntheticTurn(output) {
   syncClaudeStateToPersist("daemon-synthetic-turn");
   endWatchedTurn();
   resetTurnState();
-  daemonTurn = null;
+  setCurrentTurnLease(null);
+  supervisor.settleTurn();
   agentTurnOutput = "";
   log("daemon: synthetic turn finalized success=" + success);
 }
 function startRealAgentTurn(turn, agentRunner) {
   resetTurnState();
-  daemonTurn = { kind: "real" };
+  setCurrentTurnLease(turn.turnLease);
+  if (!supervisor.startTurn({ kind: "real" })) {
+    log("daemon: claimed turn could not enter running state");
+    return;
+  }
   agentTurnStartedAt = Date.now();
   sawFirstMessageThisTurn = { value: false };
   sawAssistantThisTurn = { value: false };
@@ -5298,14 +5905,11 @@ function startRealAgentTurn(turn, agentRunner) {
   log("daemon: real turn started");
 }
 function handleCancelRequested(agentRunner) {
-  if (daemonTurn === null) {
+  if (supervisor.currentTurn === null) {
     log("daemon: cancelRequested with no active turn \\u2014 ignored");
     return;
   }
-  if (turnCancelInFlight) {
-    return;
-  }
-  turnCancelInFlight = true;
+  if (!supervisor.beginCancellation()) return;
   turnCancelRequestedAtMs = Date.now();
   endWatchedTurn();
   log("daemon: cancel requested \\u2014 interrupting in-flight turn");
@@ -5316,25 +5920,29 @@ function handleCancelRequested(agentRunner) {
 }
 function startClaimWatcher(agentRunner) {
   void (async () => {
-    while (!daemonExiting) {
+    while (!supervisor.isStopping) {
       if (callbackScriptWentStaleOnDisk()) {
-        callbackRefreshPending = true;
+        supervisor.noticeRefresh();
       }
-      if (callbackRefreshPending) {
-        const activeWork = turnActive || daemonTurn !== null || pendingClaimedTurn !== null || turnCancelInFlight || unsettledBackgroundAgents.size > 0 || agentRunner.hasPending();
-        if (activeWork) {
-          if (!callbackRefreshDeferralLogged) {
-            log(
-              "daemon: callback script updated on disk \\u2014 deferring respawn until active work settles"
-            );
-            callbackRefreshDeferralLogged = true;
-          }
-          await sleep2(PROMPT_POLL_INTERVAL_MS);
-          continue;
+      const refreshDecision = supervisor.decideRefresh({
+        watchedTurnActive: turnActive,
+        backgroundAgentCount: unsettledBackgroundAgents.size,
+        sdkMessagePending: agentRunner.hasPending()
+      });
+      if (refreshDecision.action === "defer") {
+        if (!callbackRefreshDeferralLogged) {
+          log(
+            "daemon: callback script updated on disk \\u2014 deferring respawn until active work settles (" + refreshDecision.blocker + ")"
+          );
+          callbackRefreshDeferralLogged = true;
         }
+        await sleep2(PROMPT_POLL_INTERVAL_MS);
+        continue;
+      }
+      if (refreshDecision.action === "exit") {
         log("daemon: callback script updated on disk \\u2014 exiting for respawn");
-        daemonExiting = true;
-        return;
+        supervisor.stop();
+        process.exit(0);
       }
       try {
         const claimed = await callConvexWithRetry(
@@ -5354,12 +5962,11 @@ function startClaimWatcher(agentRunner) {
         if (turn !== null) {
           await materializeTurnAttachments(turn);
           lastIdleActivityAtMs = Date.now();
-          if (daemonTurn === null) {
-            pendingClaimedTurn = turn;
-          } else if (daemonTurn.kind === "synthetic") {
-            pendingClaimedTurn = turn;
-          } else if (turnCancelInFlight) {
-            pendingClaimedTurn = turn;
+          const currentTurn = supervisor.currentTurn;
+          if (currentTurn === null || currentTurn.kind === "synthetic" || supervisor.isCancellationInFlight) {
+            if (!supervisor.parkClaim(turn)) {
+              log("daemon: duplicate claimed turn ignored");
+            }
           } else {
             log(
               "daemon: claim discarded while real turn active (prompt lost; pendingTurn was already cleared)"
@@ -5368,7 +5975,7 @@ function startClaimWatcher(agentRunner) {
         }
       } catch {
       }
-      const turnInFlight = daemonTurn !== null || pendingClaimedTurn !== null || turnCancelInFlight;
+      const turnInFlight = supervisor.hasWork;
       const recentlyActive = Date.now() - lastIdleActivityAtMs < PROMPT_POLL_FAST_WINDOW_MS;
       await sleep2(
         turnInFlight || recentlyActive ? PROMPT_POLL_INTERVAL_MS : PROMPT_POLL_IDLE_INTERVAL_MS
@@ -5377,29 +5984,29 @@ function startClaimWatcher(agentRunner) {
   })();
 }
 async function runDaemonMessagePump(agentRunner) {
-  while (!daemonExiting) {
-    if (daemonTurn === null && pendingClaimedTurn !== null) {
-      const turn = pendingClaimedTurn;
-      pendingClaimedTurn = null;
+  while (!supervisor.isStopping) {
+    if (supervisor.currentTurn === null && supervisor.pendingClaim !== null) {
+      const turn = supervisor.takeClaim();
+      if (turn === null) continue;
       startRealAgentTurn(turn, agentRunner);
       continue;
     }
-    if (daemonTurn === null && pendingClaimedTurn === null && unsettledBackgroundAgents.size === 0 && Date.now() - lastIdleActivityAtMs > IDLE_EXIT_MS) {
+    if (!supervisor.hasWork && unsettledBackgroundAgents.size === 0 && Date.now() - lastIdleActivityAtMs > IDLE_EXIT_MS) {
       log("daemon: idle timeout \\u2014 exiting");
       return;
     }
-    if (daemonTurn === null && !agentRunner.hasPending()) {
+    if (supervisor.currentTurn === null && !agentRunner.hasPending()) {
       await sleep2(PROMPT_POLL_INTERVAL_MS);
       continue;
     }
     const message = await agentRunner.waitMessage();
     if (message === null) {
-      if (turnCancelInFlight) {
+      if (supervisor.isCancellationInFlight) {
         await exitWithoutCompletion("pump ended while a cancel was settling");
         return;
       }
       if (turnActive) {
-        if (daemonTurn?.kind === "synthetic") {
+        if (supervisor.currentTurn?.kind === "synthetic") {
           await failSyntheticTurn(
             "The assistant ended without a reply. Please try again."
           );
@@ -5420,21 +6027,21 @@ async function runDaemonMessagePump(agentRunner) {
     recogniseSubagentToolUses(message);
     handleSystemTaskMessage(message);
     handleBackgroundTasksChanged(message);
-    if (turnCancelInFlight) {
+    if (supervisor.isCancellationInFlight) {
       if (message.type !== "result") {
         continue;
       }
       resetTurnState();
-      daemonTurn = null;
+      setCurrentTurnLease(null);
+      supervisor.settleTurn();
       agentTurnOutput = "";
-      turnCancelInFlight = false;
       continue;
     }
-    if (message.type === "result" && daemonTurn === null) {
+    if (message.type === "result" && supervisor.currentTurn === null) {
       log("daemon: result with no live turn \\u2014 ignored");
       continue;
     }
-    if (daemonTurn === null) {
+    if (supervisor.currentTurn === null) {
       if (!shouldMintSyntheticTurn(message)) {
         const messageType = typeof message.type === "string" ? message.type : "?";
         log(
@@ -5443,7 +6050,7 @@ async function runDaemonMessagePump(agentRunner) {
         continue;
       }
       await ensureSyntheticTurn();
-      if (daemonTurn === null) {
+      if (supervisor.currentTurn === null) {
         continue;
       }
       agentTurnOutput = "";
@@ -5465,18 +6072,19 @@ async function runDaemonMessagePump(agentRunner) {
     log(
       "daemon[timing]: result message +" + (resultAt - agentTurnStartedAt) + "ms after turn start"
     );
-    if (daemonTurn?.kind === "synthetic") {
+    if (supervisor.currentTurn?.kind === "synthetic") {
       await finalizeSyntheticTurn(agentTurnOutput);
     } else {
-      await finalizeTurn(agentTurnOutput);
+      supervisor.beginFinalizing();
+      await finalizeTurn(agentTurnOutput, agentRunner.readUsage);
       log(
         "daemon[timing]: finalizeTurn took " + (Date.now() - resultAt) + "ms"
       );
-      daemonTurn = null;
+      supervisor.settleTurn();
     }
-    if (pendingClaimedTurn !== null && daemonTurn === null) {
-      const parked = pendingClaimedTurn;
-      pendingClaimedTurn = null;
+    if (supervisor.pendingClaim !== null && supervisor.currentTurn === null) {
+      const parked = supervisor.takeClaim();
+      if (parked === null) continue;
       startRealAgentTurn(parked, agentRunner);
     }
   }
@@ -5521,6 +6129,7 @@ function createWarmAgentRunner(sdk, options) {
         if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
           continue;
         }
+        noteHarnessInitMessage(raw, query);
         pending.push(raw);
         wakeWaiters();
       }
@@ -5563,7 +6172,16 @@ function createWarmAgentRunner(sdk, options) {
     }
     log("daemon: interrupt unavailable on SDK query handle");
   };
-  return { push, waitMessage, drainPending, hasPending, stopTask, interrupt };
+  const readUsage = () => readSdkPlanUsage(query);
+  return {
+    push,
+    waitMessage,
+    drainPending,
+    hasPending,
+    stopTask,
+    interrupt,
+    readUsage
+  };
 }
 function callbackScriptWentStaleOnDisk() {
   if (!CALLBACK_SCRIPT_FP) return false;
@@ -5603,7 +6221,7 @@ async function runSdkDaemon() {
       return;
     }
     const ownerLabel = Number.isNaN(owner) ? "none" : String(owner);
-    if (turnActive) {
+    if (supervisor.hasWork) {
       if (!deposedLogged) {
         deposedLogged = true;
         log(
@@ -5644,7 +6262,8 @@ async function runSdkDaemon() {
         success: false,
         result: null,
         error: "Agent SDK daemon failed: " + messageText,
-        activityLog: serializeSteps(callbackState.accumulatedSteps)
+        activityLog: serializeSteps(callbackState.accumulatedSteps),
+        ...getCurrentTurnLease() ?? {}
       });
     } catch {
     }
@@ -5745,6 +6364,9 @@ var CodexAppServerClient = class {
     this.notifications = [];
     return drained;
   }
+  hasNotifications() {
+    return this.notifications.length > 0;
+  }
   getError() {
     return this.terminalError;
   }
@@ -5806,14 +6428,12 @@ var POLL_INTERVAL_MS2 = 50;
 var FENCE_POLL_INTERVAL_MS2 = 5e3;
 var NO_EVENT_TIMEOUT_MS = 5 * 60 * 1e3;
 var paths = resolveDaemonPaths();
-var activeTurnId = "";
+var supervisor2 = new DaemonSupervisor();
 var activeTurnStartedAt = 0;
 var lastEventAt = 0;
 var lastIdleActivityAt = Date.now();
 var finalText = "";
-var cancelInFlight = false;
-var pendingTurn = null;
-var exiting = false;
+var exitWithError = false;
 var threadTotalUsage = null;
 var turnStartUsage = null;
 function sleep3(ms) {
@@ -5879,7 +6499,11 @@ function readClaimedTurn2(result) {
   const attachmentUrls = Array.isArray(payload.attachmentUrls) ? payload.attachmentUrls.filter(
     (url) => typeof url === "string"
   ) : [];
-  return { prompt: payload.prompt, attachmentUrls };
+  return {
+    prompt: payload.prompt,
+    attachmentUrls,
+    turnLease: readTurnLeaseIdentity(result)
+  };
 }
 function emitEvent(event) {
   const line = JSON.stringify(event) + "\\n";
@@ -5931,7 +6555,7 @@ async function finalizeTurn2(success, error) {
   await flushStreaming();
   for (const step of callbackState.accumulatedSteps) step.status = "complete";
   const result = finalText || callbackState.currentStreamedContent || callbackState.rawOutput;
-  await setFinalizingState();
+  if (await setFinalizingState()) return;
   persistTurnWork();
   const usage = computeTurnUsageDelta(turnStartUsage, threadTotalUsage);
   await deliverCompletionWithMedia({
@@ -5941,6 +6565,7 @@ async function finalizeTurn2(success, error) {
     error,
     activityLog: serializeSteps(callbackState.accumulatedSteps),
     ...RUN_ID ? { runId: RUN_ID } : {},
+    ...getCurrentTurnLease() ?? {},
     ...usage ? {
       rawResultEvent: buildClaudeShapedResult({
         provider: "codex",
@@ -5962,16 +6587,19 @@ async function finalizeTurn2(success, error) {
       })
     } : {}
   });
+  setCurrentTurnLease(null);
   syncCodexStateToPersist();
   log("codex daemon: turn finalized success=" + success);
 }
 async function failActiveTurn(error) {
-  if (!activeTurnId && activeTurnStartedAt === 0) return;
+  if (supervisor2.currentTurn === null && activeTurnStartedAt === 0) return;
+  supervisor2.beginFinalizing();
   try {
     await finalizeTurn2(false, error);
   } catch {
   }
-  exiting = true;
+  exitWithError = true;
+  supervisor2.stop();
 }
 function processNotification(notification) {
   lastEventAt = Date.now();
@@ -5991,18 +6619,20 @@ function processNotification(notification) {
   if (notification.method !== "turn/completed") return null;
   const turn = objectValue2(notification.params.turn);
   const status = typeof turn.status === "string" ? turn.status : "failed";
-  activeTurnId = "";
   lastIdleActivityAt = Date.now();
-  if (cancelInFlight || status === "interrupted") {
-    cancelInFlight = false;
+  if (supervisor2.isCancellationInFlight || status === "interrupted") {
+    setCurrentTurnLease(null);
     resetTurnState2();
+    supervisor2.settleTurn();
     return null;
   }
+  supervisor2.beginFinalizing();
   return finalizeTurn2(
     status === "completed",
     turnError(notification.params)
   ).then(() => {
     resetTurnState2();
+    supervisor2.settleTurn();
   });
 }
 async function ensureGithubToken2() {
@@ -6057,6 +6687,10 @@ async function establishThread(client, sessionMode) {
 }
 async function startTurn(client, turn) {
   resetTurnState2();
+  setCurrentTurnLease(turn.turnLease);
+  if (!supervisor2.beginStarting({ providerTurnId: "" })) {
+    throw new Error("Codex daemon could not enter starting state");
+  }
   await materializeTurnAttachments(turn);
   const text = SYSTEM_PROMPT ? SYSTEM_PROMPT + "\\n\\n" + turn.prompt : turn.prompt;
   activeTurnStartedAt = Date.now();
@@ -6071,12 +6705,15 @@ async function startTurn(client, turn) {
     sandboxPolicy: { type: "externalSandbox", networkAccess: "enabled" },
     ...codexReasoningEffort ? { effort: codexReasoningEffort } : {}
   });
-  activeTurnId = nestedId(result, "turn");
-  if (!activeTurnId)
+  const providerTurnId = nestedId(result, "turn");
+  if (!providerTurnId)
     throw new Error("Codex App Server did not return a turn id");
+  if (!supervisor2.markRunning({ providerTurnId })) {
+    throw new Error("Codex daemon could not enter running state");
+  }
   lastIdleActivityAt = activeTurnStartedAt;
   callbackState.activeAttemptStartedAt = activeTurnStartedAt;
-  log("codex daemon: turn started " + activeTurnId);
+  log("codex daemon: turn started " + providerTurnId);
 }
 function cleanMarkers() {
   if (readOwnerPid() !== process.pid) return;
@@ -6108,7 +6745,10 @@ async function runCodexAppServerDaemon() {
   writeFileSync10(paths.entity, ENTITY_ID ?? "");
   writeFileSync10(paths.opts, DAEMON_OPTS_SIG);
   const fence = setInterval(() => {
-    if (readOwnerPid() !== process.pid && !activeTurnId) exiting = true;
+    if (readOwnerPid() !== process.pid && !supervisor2.hasWork) {
+      exitWithError = true;
+      supervisor2.stop();
+    }
   }, FENCE_POLL_INTERVAL_MS2);
   fence.unref?.();
   const preflightOk2 = await runPreflightHeartbeat();
@@ -6125,8 +6765,14 @@ async function runCodexAppServerDaemon() {
     syncCodexStateToPersist();
     emitEvent({ type: "thread.started", thread_id: callbackState.activeCodexThreadId });
     log("codex daemon: app-server ready thread=" + callbackState.activeCodexThreadId);
-    while (!exiting) {
-      if (callbackWentStale() && !activeTurnId) break;
+    while (!supervisor2.isStopping) {
+      if (callbackWentStale()) supervisor2.noticeRefresh();
+      const refreshDecision = supervisor2.decideRefresh({
+        watchedTurnActive: supervisor2.currentTurn !== null,
+        backgroundAgentCount: 0,
+        sdkMessagePending: client.hasNotifications()
+      });
+      if (refreshDecision.action === "exit") break;
       const terminalError = client.getError();
       if (terminalError) throw terminalError;
       for (const notification of client.drainNotifications()) {
@@ -6138,11 +6784,11 @@ async function runCodexAppServerDaemon() {
         CLAIM_MUTATION,
         entityArgs({ model: MODEL })
       );
-      if (readCancelRequested(claimed) && activeTurnId && !cancelInFlight) {
-        cancelInFlight = true;
+      const providerTurnId = supervisor2.currentTurn?.providerTurnId ?? "";
+      if (readCancelRequested(claimed) && providerTurnId && supervisor2.beginCancellation()) {
         void client.request("turn/interrupt", {
           threadId: callbackState.activeCodexThreadId,
-          turnId: activeTurnId
+          turnId: providerTurnId
         }).catch((error) => {
           const message = error instanceof Error ? error.message : String(error);
           log("codex daemon: interrupt failed \\u2014 " + message);
@@ -6150,29 +6796,31 @@ async function runCodexAppServerDaemon() {
       }
       const claimedTurn = readClaimedTurn2(claimed);
       if (claimedTurn) {
-        if (!activeTurnId || cancelInFlight) {
-          pendingTurn = claimedTurn;
+        if (supervisor2.currentTurn === null || supervisor2.isCancellationInFlight) {
+          if (!supervisor2.parkClaim(claimedTurn)) {
+            log("codex daemon: duplicate claimed turn ignored");
+          }
         } else {
           log(
             "codex daemon: claim discarded while real turn active (prompt lost; pendingTurn was already cleared)"
           );
         }
       }
-      if (!activeTurnId && pendingTurn) {
-        const next = pendingTurn;
-        pendingTurn = null;
+      if (supervisor2.currentTurn === null && supervisor2.pendingClaim !== null) {
+        const next = supervisor2.takeClaim();
+        if (next === null) continue;
         await startTurn(client, next);
       }
       const now = Date.now();
-      if (activeTurnId && now - activeTurnStartedAt > MAX_TOTAL_RUNTIME_MS) {
+      if (supervisor2.currentTurn !== null && now - activeTurnStartedAt > MAX_TOTAL_RUNTIME_MS) {
         await failActiveTurn(
           "The assistant exceeded the maximum turn runtime."
         );
-      } else if (activeTurnId && now - lastEventAt > NO_EVENT_TIMEOUT_MS) {
+      } else if (supervisor2.currentTurn !== null && now - lastEventAt > NO_EVENT_TIMEOUT_MS) {
         await failActiveTurn(
           "The assistant stopped responding. Please try again."
         );
-      } else if (!activeTurnId && !pendingTurn && now - lastIdleActivityAt > IDLE_EXIT_MS2) {
+      } else if (!supervisor2.hasWork && now - lastIdleActivityAt > IDLE_EXIT_MS2) {
         break;
       }
       await sleep3(POLL_INTERVAL_MS2);
@@ -6186,7 +6834,7 @@ async function runCodexAppServerDaemon() {
     cleanMarkers();
     await stopStreamingLoops();
   }
-  process.exit(exiting ? 1 : 0);
+  process.exit(exitWithError ? 1 : 0);
 }
 
 // callback-src/providers/cursorSdkDaemon.ts
@@ -6655,14 +7303,14 @@ var WATCHDOG_TICK_MS2 = 5e3;
 var TURN_HARD_TIMEOUT_MS = MAX_TOTAL_RUNTIME_MS + 5 * 60 * 1e3;
 var CANCEL_SETTLE_TIMEOUT_MS2 = 3e4;
 var daemonPaths2 = resolveDaemonPaths();
-var daemonExiting2 = false;
-var callbackRefreshPending2 = false;
+var daemonExiting = false;
+var callbackRefreshPending = false;
 var callbackRefreshDeferralLogged2 = false;
-var pendingClaimedTurn2 = null;
+var pendingClaimedTurn = null;
 var turnActive2 = false;
 var turnStartedAtMs2 = 0;
 var lastIdleActivityAtMs2 = Date.now();
-var cancelInFlight2 = false;
+var cancelInFlight = false;
 var cancelRequestedAtMs = 0;
 var abortActiveTurn = null;
 function sleep4(ms) {
@@ -6845,7 +7493,7 @@ function cleanOwnedMarkers() {
 function startTurnWatchdog2() {
   const timer = setInterval(() => {
     const now = Date.now();
-    if (cancelInFlight2) {
+    if (cancelInFlight) {
       if (now - cancelRequestedAtMs > CANCEL_SETTLE_TIMEOUT_MS2) {
         log("cursor daemon: cancelled turn did not settle in time \\u2014 exiting");
         cleanOwnedMarkers();
@@ -6863,10 +7511,10 @@ function startTurnWatchdog2() {
 }
 function startClaimWatcher2() {
   void (async () => {
-    while (!daemonExiting2) {
-      if (callbackScriptWentStaleOnDisk2()) callbackRefreshPending2 = true;
-      if (callbackRefreshPending2) {
-        if (turnActive2 || pendingClaimedTurn2 !== null || cancelInFlight2) {
+    while (!daemonExiting) {
+      if (callbackScriptWentStaleOnDisk2()) callbackRefreshPending = true;
+      if (callbackRefreshPending) {
+        if (turnActive2 || pendingClaimedTurn !== null || cancelInFlight) {
           if (!callbackRefreshDeferralLogged2) {
             callbackRefreshDeferralLogged2 = true;
             log(
@@ -6879,7 +7527,7 @@ function startClaimWatcher2() {
         log(
           "cursor daemon: callback script updated on disk \\u2014 exiting for respawn"
         );
-        daemonExiting2 = true;
+        daemonExiting = true;
         return;
       }
       try {
@@ -6893,8 +7541,8 @@ function startClaimWatcher2() {
         if (turn !== null) {
           await materializeTurnAttachments(turn);
           lastIdleActivityAtMs2 = Date.now();
-          if (!turnActive2 || cancelInFlight2) {
-            pendingClaimedTurn2 = turn;
+          if (!turnActive2 || cancelInFlight) {
+            pendingClaimedTurn = turn;
           } else {
             log(
               "cursor daemon: claim discarded while real turn active (prompt lost; pendingTurn was already cleared)"
@@ -6903,7 +7551,7 @@ function startClaimWatcher2() {
         }
       } catch {
       }
-      const busy = turnActive2 || pendingClaimedTurn2 !== null || cancelInFlight2;
+      const busy = turnActive2 || pendingClaimedTurn !== null || cancelInFlight;
       const recentlyActive = Date.now() - lastIdleActivityAtMs2 < PROMPT_POLL_FAST_WINDOW_MS2;
       await sleep4(
         busy || recentlyActive ? PROMPT_POLL_INTERVAL_MS2 : PROMPT_POLL_IDLE_INTERVAL_MS2
@@ -6916,8 +7564,8 @@ function handleCancelRequested2() {
     log("cursor daemon: cancelRequested with no active turn \\u2014 ignored");
     return;
   }
-  if (cancelInFlight2) return;
-  cancelInFlight2 = true;
+  if (cancelInFlight) return;
+  cancelInFlight = true;
   cancelRequestedAtMs = Date.now();
   log("cursor daemon: cancel requested \\u2014 cancelling the in-flight run");
   abortActiveTurn?.();
@@ -6939,11 +7587,11 @@ async function runClaimedTurn(turn) {
       promptText: turn.prompt,
       onAbortHandle: (abort) => {
         abortActiveTurn = abort;
-        if (cancelInFlight2) abort();
+        if (cancelInFlight) abort();
       }
     });
     turnActive2 = false;
-    if (cancelInFlight2) {
+    if (cancelInFlight) {
       log("cursor daemon: cancelled turn settled \\u2014 no completion posted");
       return;
     }
@@ -6952,7 +7600,7 @@ async function runClaimedTurn(turn) {
     turnActive2 = false;
     const message = error instanceof Error ? error.message : String(error);
     log("cursor daemon: turn failed \\u2014 " + message);
-    if (cancelInFlight2) return;
+    if (cancelInFlight) return;
     try {
       await flushStreaming();
       for (const step of callbackState.accumulatedSteps) step.status = "complete";
@@ -6970,7 +7618,7 @@ async function runClaimedTurn(turn) {
   } finally {
     turnActive2 = false;
     abortActiveTurn = null;
-    cancelInFlight2 = false;
+    cancelInFlight = false;
     lastIdleActivityAtMs2 = Date.now();
   }
 }
@@ -7023,10 +7671,10 @@ async function runCursorDaemon() {
   startTurnWatchdog2();
   startClaimWatcher2();
   try {
-    while (!daemonExiting2) {
-      if (pendingClaimedTurn2 !== null) {
-        const turn = pendingClaimedTurn2;
-        pendingClaimedTurn2 = null;
+    while (!daemonExiting) {
+      if (pendingClaimedTurn !== null) {
+        const turn = pendingClaimedTurn;
+        pendingClaimedTurn = null;
         await runClaimedTurn(turn);
         continue;
       }
@@ -7037,7 +7685,7 @@ async function runCursorDaemon() {
       await sleep4(PROMPT_POLL_INTERVAL_MS2);
     }
   } finally {
-    daemonExiting2 = true;
+    daemonExiting = true;
     cleanOwnedMarkers();
     await stopStreamingLoops();
   }
@@ -7048,7 +7696,7 @@ async function runCursorDaemon() {
 import {
   existsSync as existsSync9,
   mkdirSync as mkdirSync8,
-  readdirSync as readdirSync3,
+  readdirSync as readdirSync4,
   readFileSync as readFileSync11,
   rmSync,
   writeFileSync as writeFileSync12
@@ -7130,7 +7778,7 @@ function writeStub(skill) {
 function pruneStaleStubs(keep) {
   const root = skillsRoot();
   if (!existsSync9(root)) return;
-  for (const entry of readdirSync3(root, { withFileTypes: true })) {
+  for (const entry of readdirSync4(root, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     if (keep.has(entry.name)) continue;
     if (!isEvaStub(entry.name)) continue;
@@ -8595,7 +9243,7 @@ try {
   } else {
     log("skipping post-attempt sync because result-event sync already ran");
   }
-  await setFinalizingState();
+  if (await setFinalizingState()) process.exit(0);
   const agentWasInterrupted = finalTerminatedBySignal || finalCode === 137 || finalCode === 143;
   const attemptEndedDueToTimeout = finalTimedOutAfterFirstText || finalTimedOutForNoOutput || finalTimedOutForMaxRuntime || finalTimedOutForFirstEvent || finalTimedOutForFirstAssistant || finalTimedOutForZombie || Boolean(finalToolStallErrorMessage);
   const runSucceededWithResult = finalResultEvent != null && !finalResultEvent.isError && !agentWasInterrupted;
@@ -8664,11 +9312,14 @@ try {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
+  appendCurrentTurnLease(completionArgs);
   persistTurnWork();
   try {
     await deliverCompletionWithMedia(completionArgs);
+    setCurrentTurnLease(null);
     syncProviderStateToPersist("completion");
     await stopStreamingLoops();
+    await waitForPendingClaudeUsageReport();
     writeDoneFile(completionSuccess ? "success" : "error", {
       exitCode: finalCode,
       error: errorValue
@@ -8700,6 +9351,7 @@ try {
     activityLog: serializeSteps(callbackState.accumulatedSteps)
   };
   if (RUN_ID) errorArgs.runId = RUN_ID;
+  appendCurrentTurnLease(errorArgs);
   try {
     await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", errorArgs);
   } catch {

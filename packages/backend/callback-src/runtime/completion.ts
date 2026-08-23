@@ -507,7 +507,7 @@ async function attachChatMediaIfAny(
  * message that was just written.
  */
 export async function deliverCompletionWithMedia(
-  completionArgs: Record<string, string | boolean | null>,
+  completionArgs: JsonObject,
 ): Promise<void> {
   await callConvexWithRetry(
     "mutation",

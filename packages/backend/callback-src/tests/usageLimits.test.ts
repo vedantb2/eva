@@ -1,0 +1,222 @@
+import { beforeEach, expect, test } from "vitest";
+import { callbackState as S, resetStateForTests } from "../runtime/state.js";
+import type { UsageLimitSnapshot } from "../types.js";
+import {
+  buildUsageLimitReportArgs,
+  captureClaudeUsage,
+  mergeClaudeRateLimitEvent,
+  readClaudeUsageWindows,
+  readIsoMs,
+} from "../runtime/usageLimits.js";
+
+beforeEach(() => {
+  resetStateForTests();
+});
+
+test("mergeClaudeRateLimitEvent labels the window and converts epoch seconds", () => {
+  mergeClaudeRateLimitEvent({
+    type: "rate_limit_event",
+    rate_limit_info: {
+      status: "allowed_warning",
+      rateLimitType: "five_hour",
+      utilization: 82.5,
+      resetsAt: 1_770_000_000,
+    },
+  });
+  expect(S.usageLimitSnapshot).toEqual({
+    completeness: "partial",
+    status: "allowed_warning",
+    windows: [
+      {
+        key: "five_hour",
+        label: "5h",
+        utilization: 82.5,
+        resetsAt: 1_770_000_000_000,
+      },
+    ],
+  });
+});
+
+test("mergeClaudeRateLimitEvent merges per window without clobbering the others", () => {
+  mergeClaudeRateLimitEvent({
+    rate_limit_info: {
+      status: "allowed",
+      rateLimitType: "five_hour",
+      utilization: 10,
+    },
+  });
+  mergeClaudeRateLimitEvent({
+    rate_limit_info: {
+      status: "allowed",
+      rateLimitType: "seven_day_opus",
+      utilization: 40,
+    },
+  });
+  // A second reading for a window already seen replaces only that window.
+  mergeClaudeRateLimitEvent({
+    rate_limit_info: {
+      status: "rejected",
+      rateLimitType: "five_hour",
+      utilization: 100,
+    },
+  });
+  expect(S.usageLimitSnapshot).toEqual({
+    completeness: "partial",
+    status: "rejected",
+    windows: [
+      { key: "five_hour", label: "5h", utilization: 100 },
+      { key: "seven_day_opus", label: "Weekly (Opus)", utilization: 40 },
+    ],
+  });
+});
+
+test("mergeClaudeRateLimitEvent ignores payloads it cannot read", () => {
+  mergeClaudeRateLimitEvent({ type: "rate_limit_event" });
+  mergeClaudeRateLimitEvent({ rate_limit_info: "nope" });
+  mergeClaudeRateLimitEvent({ rate_limit_info: { status: "unheard-of" } });
+  expect(S.usageLimitSnapshot).toBeNull();
+});
+
+test("mergeClaudeRateLimitEvent keeps an unknown window key as its own label", () => {
+  mergeClaudeRateLimitEvent({
+    rate_limit_info: { status: "allowed", rateLimitType: "ten_minute" },
+  });
+  expect(S.usageLimitSnapshot?.windows).toEqual([
+    { key: "ten_minute", label: "ten_minute" },
+  ]);
+});
+
+test("readIsoMs parses ISO timestamps and rejects everything else", () => {
+  expect(readIsoMs("2026-08-22T10:00:00.000Z")).toBe(
+    Date.parse("2026-08-22T10:00:00.000Z"),
+  );
+  expect(readIsoMs("not-a-date")).toBeUndefined();
+  expect(readIsoMs(null)).toBeUndefined();
+  expect(readIsoMs(undefined)).toBeUndefined();
+  expect(readIsoMs(1_770_000_000)).toBeUndefined();
+});
+
+test("readClaudeUsageWindows builds every populated window in display order", () => {
+  expect(
+    readClaudeUsageWindows({
+      subscription_type: "max",
+      rate_limits_available: true,
+      rate_limits: {
+        five_hour: {
+          utilization: 12,
+          resets_at: "2026-08-22T10:00:00.000Z",
+        },
+        seven_day: { utilization: 55, resets_at: null },
+        // Reported but entirely null — nothing to show, so no window.
+        seven_day_opus: { utilization: null, resets_at: null },
+        seven_day_sonnet: null,
+        model_scoped: [
+          { display_name: "Fable", utilization: 3, resets_at: null },
+          // No display name means no label and no stable key.
+          { utilization: 9, resets_at: null },
+        ],
+      },
+    }),
+  ).toEqual([
+    {
+      key: "five_hour",
+      label: "5h",
+      utilization: 12,
+      resetsAt: Date.parse("2026-08-22T10:00:00.000Z"),
+    },
+    { key: "seven_day", label: "Weekly (all models)", utilization: 55 },
+    // A model-scoped window reads like its fixed-key siblings, not "Fable".
+    { key: "model_scoped:Fable", label: "Weekly (Fable)", utilization: 3 },
+  ]);
+});
+
+test("readClaudeUsageWindows is empty when the plan reports no limits", () => {
+  expect(readClaudeUsageWindows(null)).toEqual([]);
+  expect(readClaudeUsageWindows({ rate_limits: null })).toEqual([]);
+});
+
+test("a successful usage read replaces vanished windows and clears stream status", async () => {
+  mergeClaudeRateLimitEvent({
+    rate_limit_info: {
+      status: "rejected",
+      rateLimitType: "five_hour",
+      utilization: 100,
+    },
+  });
+  mergeClaudeRateLimitEvent({
+    rate_limit_info: {
+      status: "rejected",
+      rateLimitType: "seven_day_opus",
+      utilization: 95,
+    },
+  });
+
+  await captureClaudeUsage(async () => ({
+    subscription_type: "max",
+    rate_limits_available: true,
+    rate_limits: {
+      five_hour: { utilization: 12, resets_at: null },
+      seven_day_opus: null,
+    },
+  }));
+
+  expect(S.usageLimitSnapshot).toEqual({
+    completeness: "complete",
+    subscriptionType: "max",
+    windows: [{ key: "five_hour", label: "5h", utilization: 12 }],
+  });
+});
+
+test("buildUsageLimitReportArgs omits every field the snapshot did not observe", () => {
+  expect(
+    buildUsageLimitReportArgs("repo-1", "claude", "account-1", {
+      completeness: "complete",
+      subscriptionType: "max",
+      status: "allowed",
+      windows: [{ key: "five_hour", label: "5h", utilization: 12 }],
+    }),
+  ).toEqual({
+    repoId: "repo-1",
+    provider: "claude",
+    providerAccountId: "account-1",
+    snapshotComplete: true,
+    subscriptionType: "max",
+    status: "allowed",
+    windows: [{ key: "five_hour", label: "5h", utilization: 12 }],
+  });
+  // A reading with nothing but a status sends nothing but a status.
+  expect(
+    buildUsageLimitReportArgs("repo-1", "claude", "", {
+      completeness: "partial",
+      status: "rejected",
+    }),
+  ).toEqual({
+    repoId: "repo-1",
+    provider: "claude",
+    snapshotComplete: false,
+    status: "rejected",
+  });
+});
+
+test("buildUsageLimitReportArgs keys two accounts apart on one repo", () => {
+  const snapshot: UsageLimitSnapshot = {
+    completeness: "complete",
+    subscriptionType: "max",
+    status: "allowed",
+  };
+  const kezia = buildUsageLimitReportArgs("repo-1", "claude", "acc-a", {
+    ...snapshot,
+  });
+  const team = buildUsageLimitReportArgs("repo-1", "claude", "acc-b", {
+    ...snapshot,
+  });
+  // Identical readings on the same repo and provider must still differ, or the
+  // dedup fingerprint would suppress the second account's report entirely.
+  expect(kezia).not.toEqual(team);
+  expect(kezia.providerAccountId).toBe("acc-a");
+  // A run on the shared team credential sends no account at all.
+  expect(
+    "providerAccountId" in
+      buildUsageLimitReportArgs("repo-1", "claude", "", { ...snapshot }),
+  ).toBe(false);
+});

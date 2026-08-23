@@ -15,7 +15,13 @@ export { SkillMentionChip } from "./SkillMentionChip";
 export { DataMentionHoverCardBody } from "./DataMentionHoverCardBody";
 export { SkillMentionHoverCardBody } from "./SkillMentionHoverCardBody";
 export { tokenizedToEditable, tokenizedToDisplayText } from "./mentionToken";
-export { isSkillTokenId, systemSkillTokenId } from "./skillToken";
+export {
+  isSkillTokenId,
+  systemSkillTokenId,
+  harnessSkillTokenId,
+  isHarnessSkillTokenId,
+} from "./skillToken";
+export { harnessSkillsForProvider } from "./harnessSkills";
 export { mergeMentionItems } from "./mergeMentionItems";
 export { MentionRow } from "./MentionRow";
 export type { MentionKind } from "./MentionRow";

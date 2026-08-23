@@ -33,6 +33,8 @@ import {
   taskSandboxStatusValidator,
   taskStatusValidator,
   themeValidator,
+  usageLimitProviderValidator,
+  usageLimitStatusValidator,
 } from "./enums";
 import {
   automationFindingValidator,
@@ -42,6 +44,7 @@ import {
   experimentalFlagsValidator,
   logEntryValidator,
   terminalPaneValidator,
+  usageLimitWindowValidator,
   userFlowValidator,
   variationValidator,
 } from "./shapes";
@@ -160,9 +163,43 @@ export const backgroundAgentEntryValidator = v.object(
 
 export type BackgroundAgentEntry = Infer<typeof backgroundAgentEntryValidator>;
 
+export const turnStateValidator = v.union(
+  v.literal("staged"),
+  v.literal("launching"),
+  v.literal("running"),
+  v.literal("finalizing"),
+  v.literal("done"),
+  v.literal("error"),
+  v.literal("cancelled"),
+);
+
+export type TurnState = Infer<typeof turnStateValidator>;
+
+/** Durable ownership record for one session chat turn. */
+export const turnFields = {
+  surface: v.literal("session"),
+  entityId: v.string(),
+  streamingEntityId: v.string(),
+  state: turnStateValidator,
+  open: v.boolean(),
+  turnStartedAt: v.number(),
+  leaseExpiresAt: v.number(),
+  leaseGeneration: v.number(),
+  finishedAt: v.optional(v.number()),
+  error: v.optional(v.string()),
+  workflowId: v.optional(v.string()),
+  placeholderMessageId: v.optional(v.id("messages")),
+  prompt: v.optional(v.string()),
+  attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+  model: aiModelValidator,
+  sandboxId: v.optional(v.string()),
+  repoId: v.id("githubRepos"),
+};
+
 export const pendingTurnFields = {
   prompt: v.string(),
   requestedAt: v.number(),
+  turnId: v.optional(v.id("turns")),
   // legacy field, no longer written — cleanup migration later
   turnKind: v.optional(
     v.union(v.literal("conversational"), v.literal("agent")),
@@ -342,6 +379,12 @@ export const sessionFields = {
   createdBy: v.optional(v.id("users")),
   planContent: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
+  /**
+   * Set the first time this session opens a durable Turn. Missing sessions may
+   * still have a pre-cutover workflow in flight, so projections temporarily
+   * consult the legacy workflow fields until this marker is written.
+   */
+  turnLifecycleVersion: v.optional(v.literal(2)),
   // The user provider account chosen for this session's runs (overriding the
   // team credential). Session-scoped so the page-open daemon prewarm — which
   // has no per-message context — still injects the right account. Absent = team
@@ -394,6 +437,38 @@ export const syncSettingFields = {
   owner: v.string(),
   name: v.string(),
   enabled: v.boolean(),
+};
+
+/** One built-in slash command reported by a harness CLI's init handshake. */
+export const harnessSkillValidator = v.object({
+  name: v.string(),
+  description: v.string(),
+  argumentHint: v.optional(v.string()),
+});
+
+/**
+ * The built-in skill catalog a harness CLI ships with, one row per provider.
+ * Deliberately global rather than per repo: every sandbox boots from the same
+ * image, so the CLI build — and therefore its command list — is fleet-wide.
+ * Reported by the provider daemon at session start (see
+ * `harnessSkills.upsertForProvider`) and read by the composer's `/` picker,
+ * which falls back to a static list until the first sandbox reports.
+ */
+export const harnessSkillCatalogFields = {
+  provider: aiProviderValidator,
+  /** Harness CLI version the catalog was read from, e.g. "2.1.239". */
+  cliVersion: v.string(),
+  skills: v.array(harnessSkillValidator),
+  updatedAt: v.number(),
+};
+
+/** One short-lived, single-use credential for a sandbox catalog report. */
+export const harnessSkillReportTokenFields = {
+  tokenHash: v.string(),
+  provider: aiProviderValidator,
+  sandboxId: v.string(),
+  repoId: v.id("githubRepos"),
+  expiresAt: v.number(),
 };
 
 export const repoSkillFields = {
@@ -994,4 +1069,32 @@ export const backgroundProcessFields = {
   status: backgroundProcessStatusValidator,
   startedAt: v.number(),
   exitedAt: v.optional(v.number()),
+};
+
+/**
+ * The latest plan usage-limit reading for one agent account on one repo,
+ * captured in the sandbox at the end of every turn and upserted here (one row
+ * per repo+provider+account). Each row is a whole snapshot, so a field the
+ * provider stopped reporting disappears rather than going stale.
+ *
+ * Plan windows only: Claude reports `subscriptionType`, `status` and `windows`
+ * (5-hour, weekly, per-model). A provider that exposes no plan limits does not
+ * belong here — its spend is the per-turn cost gauge's business.
+ */
+export const agentUsageLimitFields = {
+  repoId: v.id("githubRepos"),
+  provider: usageLimitProviderValidator,
+  /**
+   * The connected account the run authenticated as, when it ran on one. Plan
+   * limits are per account, so this is part of the row's identity: without it a
+   * second account's reading would overwrite the first. Absent when the run
+   * used the shared team credential from the sandbox environment.
+   */
+  providerAccountId: v.optional(v.id("userProviderAccounts")),
+  /** Epoch ms the sandbox took this reading. */
+  capturedAt: v.number(),
+  /** claude.ai plan, e.g. "max". Absent for API-key sessions. */
+  subscriptionType: v.optional(v.string()),
+  status: v.optional(usageLimitStatusValidator),
+  windows: v.optional(v.array(usageLimitWindowValidator)),
 };

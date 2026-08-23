@@ -15,7 +15,8 @@ import {
   TooltipTrigger,
   cn,
 } from "@eva/ui";
-import { IconPencil, IconSparkles } from "@tabler/icons-react";
+import { IconPencil } from "@tabler/icons-react";
+import { EvaIcon } from "@/lib/components/EvaIcon";
 import {
   AutomationsIcon,
   InboxIcon,
@@ -287,7 +288,11 @@ function RepoRailView({
                 railTileActive(aveRouteActive),
               )}
             >
-              <IconSparkles size={22} className="shrink-0" />
+              {/* Eva's own mark rather than a generic glyph: Ave is the one
+                  agent that is Eva herself rather than a piece of work. The
+                  disc tracks `--card`, so it sits flush on the rail in both
+                  themes. */}
+              <EvaIcon size={22} className="shrink-0" label={null} disc={false} />
               {aveSandboxActive ? (
                 // A dot, not a count: there is only ever one Manager Ave, so
                 // the question is "is its sandbox up", not "how many".

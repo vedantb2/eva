@@ -1,4 +1,5 @@
-import { unlinkSync, writeFileSync, readFileSync } from "fs";
+import { unlinkSync, writeFileSync, readFileSync, readdirSync } from "fs";
+import { homedir } from "os";
 import {
   CLAIM_MUTATION,
   COMPLETE_SYNTHETIC_TURN_MUTATION,
@@ -9,6 +10,7 @@ import {
   DAEMON_OPTS_SIG,
   ENTITY_ID,
   ENTITY_ID_FIELD,
+  HARNESS_CATALOG_HMAC,
   MAX_TOTAL_RUNTIME_MS,
   MODEL,
   NO_OUTPUT_TIMEOUT_MS,
@@ -16,12 +18,18 @@ import {
   REPO_ID,
   RUN_ID,
   UPDATE_BACKGROUND_AGENTS_MUTATION,
+  WORK_DIR,
 } from "../config.js";
 import {
   resolveDaemonPaths,
   resolveLegacySessionDaemonPaths,
 } from "./daemonPaths.js";
-import { callConvexWithRetry, fetchWithTimeout } from "../http/convexClient.js";
+import {
+  callConvexWithRetry,
+  callHarnessSkillCatalogReport,
+  fetchWithTimeout,
+  type HarnessCommandReport,
+} from "../http/convexClient.js";
 import {
   deliverCompletionWithMedia,
   extractResultEvent,
@@ -48,6 +56,7 @@ import {
   buildSdkOptions,
   loadSdk,
   readSdkPlanUsage,
+  type SdkModule,
   type SdkUserMessage,
 } from "./claudeSdk.js";
 import { callbackState as S } from "../runtime/state.js";
@@ -148,6 +157,9 @@ type ClaimedTurn = {
 };
 
 type DaemonMessage = Record<string, JsonValue>;
+
+/** The SDK's live query handle — inferred so no SDK type is named here. */
+type AgentQuery = ReturnType<SdkModule["query"]>;
 
 type DaemonTurn = { kind: "real" } | { kind: "synthetic"; messageId: string };
 
@@ -718,6 +730,135 @@ async function syncBackgroundAgentsToConvex(
   }
 }
 
+let harnessCatalogReportStarted = false;
+
+/** Server-side caps on `/api/harness-skills/report`; exceeding any rejects the whole report. */
+const CATALOG_MAX_COMMANDS = 100;
+const CATALOG_MAX_NAME_LENGTH = 100;
+const CATALOG_MAX_DESCRIPTION_LENGTH = 2000;
+const CATALOG_MAX_ARGUMENT_HINT_LENGTH = 400;
+
+/**
+ * Command names the SDK picked up from this checkout or the sandbox user's
+ * settings (`.claude/skills` directories and `.claude/commands` markdown
+ * files) rather than from the CLI build. The catalog row is global across
+ * repos, so these must never be reported as built-ins.
+ */
+function collectLocalCommandNames(): Set<string> {
+  const names = new Set<string>();
+  for (const root of [WORK_DIR, homedir()]) {
+    try {
+      for (const entry of readdirSync(root + "/.claude/skills", {
+        withFileTypes: true,
+      })) {
+        if (entry.isDirectory()) names.add(entry.name);
+      }
+    } catch {
+      /* no skills dir */
+    }
+    try {
+      for (const entry of readdirSync(root + "/.claude/commands", {
+        withFileTypes: true,
+      })) {
+        if (entry.isFile() && entry.name.endsWith(".md")) {
+          names.add(entry.name.slice(0, -".md".length));
+        }
+      }
+    } catch {
+      /* no commands dir */
+    }
+  }
+  return names;
+}
+
+/** First non-empty line of a command description, within the server's length cap. */
+function catalogDescription(description: string): string {
+  const firstLine = description
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+  return (firstLine ?? "").slice(0, CATALOG_MAX_DESCRIPTION_LENGTH);
+}
+
+/**
+ * Reports the built-in slash commands this sandbox's Claude CLI ships with, so
+ * the composer's `/` picker tracks the installed build instead of a hardcoded
+ * list. Goes to the HMAC-verified `/api/harness-skills/report` route: the row
+ * is global, so only a sandbox Eva launched may write it — and commands the
+ * SDK loaded from this repo's or the user's `.claude` directory are excluded
+ * so one repo's skills never leak into every other repo's picker. Once per
+ * daemon; the server drops the report when nothing changed. Best-effort — a
+ * failure here must never touch the session, and an unsigned daemon just does
+ * not report.
+ */
+async function reportHarnessSkillCatalog(
+  cliVersion: string,
+  query: AgentQuery,
+): Promise<void> {
+  try {
+    if (!HARNESS_CATALOG_HMAC) return;
+    if (typeof query.initializationResult !== "function") {
+      log("daemon: initializationResult unavailable — skipping skill report");
+      return;
+    }
+    const init = await query.initializationResult();
+    const localNames = collectLocalCommandNames();
+    const commands: HarnessCommandReport[] = [];
+    for (const command of init.commands) {
+      if (localNames.has(command.name)) continue;
+      if (command.name.length === 0) continue;
+      if (command.name.length > CATALOG_MAX_NAME_LENGTH) continue;
+      const argumentHint = (command.argumentHint ?? "").slice(
+        0,
+        CATALOG_MAX_ARGUMENT_HINT_LENGTH,
+      );
+      commands.push({
+        name: command.name,
+        description: catalogDescription(command.description),
+        ...(argumentHint ? { argumentHint } : {}),
+      });
+    }
+    if (commands.length === 0) return;
+    if (commands.length > CATALOG_MAX_COMMANDS) {
+      log(
+        "daemon: harness skill report truncated from " +
+          commands.length +
+          " to " +
+          CATALOG_MAX_COMMANDS +
+          " commands",
+      );
+      commands.length = CATALOG_MAX_COMMANDS;
+    }
+    await callHarnessSkillCatalogReport("claude", cliVersion, commands);
+    log(
+      "daemon: reported " +
+        commands.length +
+        " built-in skills from CLI " +
+        cliVersion,
+    );
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    log("daemon: harness skill report failed — " + messageText);
+  }
+}
+
+/**
+ * The init system message is the only place the CLI version appears; the
+ * command descriptions only come from `initializationResult()`. Fires once,
+ * detached, as soon as the first init message lands on the warm query.
+ */
+function noteHarnessInitMessage(
+  message: DaemonMessage,
+  query: AgentQuery,
+): void {
+  if (harnessCatalogReportStarted) return;
+  if (message.type !== "system" || message.subtype !== "init") return;
+  const cliVersion = readStringField(message, "claude_code_version");
+  if (!cliVersion) return;
+  harnessCatalogReportStarted = true;
+  void reportHarnessSkillCatalog(cliVersion, query);
+}
+
 function findAgentByTaskId(taskId: string): BackgroundAgentEntry | undefined {
   for (const entry of unsettledBackgroundAgents.values()) {
     if (entry.taskId === taskId) {
@@ -1276,6 +1417,7 @@ function createWarmAgentRunner(
         if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
           continue;
         }
+        noteHarnessInitMessage(raw, query);
         pending.push(raw);
         wakeWaiters();
       }

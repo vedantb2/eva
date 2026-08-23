@@ -170,6 +170,13 @@ const CURSOR_REASONING_GPT55: ModelReasoningTraits = {
 };
 
 export type AIProvider = "claude" | "codex" | "opencode" | "cursor";
+/** The same provider list as `aiProviderValidator`, for non-Convex parsers. */
+export const AI_PROVIDERS: readonly [AIProvider, ...AIProvider[]] = [
+  "claude",
+  "codex",
+  "opencode",
+  "cursor",
+];
 export type LegacyClaudeModel = "opus" | "sonnet" | "haiku";
 export type AIModel =
   | "claude:opus"

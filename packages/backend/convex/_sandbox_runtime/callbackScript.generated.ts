@@ -37,6 +37,7 @@ var CONVEX_URL = process.env.CONVEX_URL;
 var CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
 var CONVEX_TOKEN = process.env.CONVEX_TOKEN;
 var STREAMING_HMAC = process.env.STREAMING_HMAC || "";
+var HARNESS_CATALOG_HMAC = process.env.HARNESS_CATALOG_HMAC || "";
 var ENTITY_ID = process.env.ENTITY_ID;
 var STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 var RUN_ID = process.env.RUN_ID || null;
@@ -280,7 +281,8 @@ var completedLabels = {
 };
 
 // callback-src/providers/claudeSdkDaemon.ts
-import { unlinkSync, writeFileSync as writeFileSync9, readFileSync as readFileSync7 } from "fs";
+import { unlinkSync, writeFileSync as writeFileSync9, readFileSync as readFileSync7, readdirSync as readdirSync3 } from "fs";
+import { homedir } from "os";
 
 // callback-src/providers/daemonPaths.ts
 var LEGACY_DAEMON_PID = "/tmp/eva-daemon.pid";
@@ -688,6 +690,35 @@ function buildRetryDelayMs(attempt) {
   const jitter = Math.floor(Math.random() * 500);
   return exponential + jitter;
 }
+async function withRetries(label, maxRetries, run) {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await run();
+    } catch (e) {
+      attempt++;
+      if (attempt > maxRetries) throw e;
+      const delayMs = buildRetryDelayMs(attempt);
+      console.error(
+        label + " attempt " + attempt + " failed, retrying in " + delayMs + "ms:",
+        String(e)
+      );
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+}
+async function postSignedForm(url, body, label) {
+  const res = await fetchWithTimeout(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(label + " failed: " + res.status + " " + text);
+  }
+  return res.text();
+}
 async function callConvex(type, path3, args) {
   const endpoint = type === "mutation" ? "/api/mutation" : "/api/action";
   const headers = {
@@ -708,21 +739,25 @@ async function callConvex(type, path3, args) {
   return await readResponseJson(res) ?? null;
 }
 async function callConvexWithRetry(type, path3, args, maxRetries = CALLBACK_HTTP_MAX_RETRIES) {
-  let attempt = 0;
-  while (true) {
-    try {
-      return await callConvex(type, path3, args);
-    } catch (e) {
-      attempt++;
-      if (attempt > maxRetries) throw e;
-      const delayMs = buildRetryDelayMs(attempt);
-      console.error(
-        "callConvex(" + type + ") attempt " + attempt + " failed, retrying in " + delayMs + "ms:",
-        String(e)
-      );
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
+  return await withRetries(
+    "callConvex(" + type + ")",
+    maxRetries,
+    () => callConvex(type, path3, args)
+  );
+}
+async function callHarnessSkillCatalogReport(provider, cliVersion, skills) {
+  if (!CONVEX_SITE_URL || !HARNESS_CATALOG_HMAC) return null;
+  const url = CONVEX_SITE_URL + "/api/harness-skills/report";
+  const body = new URLSearchParams();
+  body.set("provider", provider);
+  body.set("cliVersion", cliVersion);
+  body.set("skills", JSON.stringify(skills));
+  body.set("hmac", HARNESS_CATALOG_HMAC);
+  return await withRetries(
+    "harness skill catalog report",
+    CALLBACK_HTTP_MAX_RETRIES,
+    () => postSignedForm(url, body, "Harness skill catalog report")
+  );
 }
 async function callStreamingHeartbeatTouchOnce(entityId) {
   if (CONVEX_SITE_URL && STREAMING_HMAC) {
@@ -730,21 +765,11 @@ async function callStreamingHeartbeatTouchOnce(entityId) {
     body.set("entityId", entityId);
     body.set("hmac", STREAMING_HMAC);
     body.set("touchOnly", "1");
-    const res = await fetchWithTimeout(
+    return await postSignedForm(
       CONVEX_SITE_URL + "/api/streaming/heartbeat",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body
-      }
+      body,
+      "Streaming heartbeat touch"
     );
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(
-        "Streaming heartbeat touch failed: " + res.status + " " + text
-      );
-    }
-    return res.text();
   }
   return await callConvex("mutation", "streaming:touch", { entityId });
 }
@@ -758,19 +783,11 @@ async function callStreamingHeartbeatOnce(entityId, currentActivity, currentCont
     if (pendingQuestion) {
       body.set("pendingQuestion", pendingQuestion);
     }
-    const res = await fetchWithTimeout(
+    return await postSignedForm(
       CONVEX_SITE_URL + "/api/streaming/heartbeat",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body
-      }
+      body,
+      "Streaming heartbeat"
     );
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error("Streaming heartbeat failed: " + res.status + " " + text);
-    }
-    return res.text();
   }
   const args = {
     entityId,
@@ -783,43 +800,23 @@ async function callStreamingHeartbeatOnce(entityId, currentActivity, currentCont
   return await callConvex("mutation", "streaming:set", args);
 }
 async function callStreamingHeartbeat(entityId, currentActivity, currentContent, pendingQuestion) {
-  let attempt = 0;
-  while (true) {
-    try {
-      return await callStreamingHeartbeatOnce(
-        entityId,
-        currentActivity,
-        currentContent,
-        pendingQuestion
-      );
-    } catch (e) {
-      attempt++;
-      if (attempt > STREAMING_HEARTBEAT_MAX_RETRIES) throw e;
-      const delayMs = buildRetryDelayMs(attempt);
-      console.error(
-        "streaming heartbeat attempt " + attempt + " failed, retrying in " + delayMs + "ms:",
-        String(e)
-      );
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
+  return await withRetries(
+    "streaming heartbeat",
+    STREAMING_HEARTBEAT_MAX_RETRIES,
+    () => callStreamingHeartbeatOnce(
+      entityId,
+      currentActivity,
+      currentContent,
+      pendingQuestion
+    )
+  );
 }
 async function callStreamingHeartbeatTouch(entityId) {
-  let attempt = 0;
-  while (true) {
-    try {
-      return await callStreamingHeartbeatTouchOnce(entityId);
-    } catch (e) {
-      attempt++;
-      if (attempt > STREAMING_HEARTBEAT_MAX_RETRIES) throw e;
-      const delayMs = buildRetryDelayMs(attempt);
-      console.error(
-        "streaming heartbeat touch attempt " + attempt + " failed, retrying in " + delayMs + "ms:",
-        String(e)
-      );
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
+  return await withRetries(
+    "streaming heartbeat touch",
+    STREAMING_HEARTBEAT_MAX_RETRIES,
+    () => callStreamingHeartbeatTouchOnce(entityId)
+  );
 }
 
 // callback-src/parse/stepBudget.ts
@@ -5286,6 +5283,87 @@ async function syncBackgroundAgentsToConvex(agents) {
   } catch {
   }
 }
+var harnessCatalogReportStarted = false;
+var CATALOG_MAX_COMMANDS = 100;
+var CATALOG_MAX_NAME_LENGTH = 100;
+var CATALOG_MAX_DESCRIPTION_LENGTH = 2e3;
+var CATALOG_MAX_ARGUMENT_HINT_LENGTH = 400;
+function collectLocalCommandNames() {
+  const names = /* @__PURE__ */ new Set();
+  for (const root of [WORK_DIR, homedir()]) {
+    try {
+      for (const entry of readdirSync3(root + "/.claude/skills", {
+        withFileTypes: true
+      })) {
+        if (entry.isDirectory()) names.add(entry.name);
+      }
+    } catch {
+    }
+    try {
+      for (const entry of readdirSync3(root + "/.claude/commands", {
+        withFileTypes: true
+      })) {
+        if (entry.isFile() && entry.name.endsWith(".md")) {
+          names.add(entry.name.slice(0, -".md".length));
+        }
+      }
+    } catch {
+    }
+  }
+  return names;
+}
+function catalogDescription(description) {
+  const firstLine = description.split("\\n").map((line) => line.trim()).find((line) => line.length > 0);
+  return (firstLine ?? "").slice(0, CATALOG_MAX_DESCRIPTION_LENGTH);
+}
+async function reportHarnessSkillCatalog(cliVersion, query) {
+  try {
+    if (!HARNESS_CATALOG_HMAC) return;
+    if (typeof query.initializationResult !== "function") {
+      log("daemon: initializationResult unavailable \\u2014 skipping skill report");
+      return;
+    }
+    const init = await query.initializationResult();
+    const localNames = collectLocalCommandNames();
+    const commands = [];
+    for (const command of init.commands) {
+      if (localNames.has(command.name)) continue;
+      if (command.name.length === 0) continue;
+      if (command.name.length > CATALOG_MAX_NAME_LENGTH) continue;
+      const argumentHint = (command.argumentHint ?? "").slice(
+        0,
+        CATALOG_MAX_ARGUMENT_HINT_LENGTH
+      );
+      commands.push({
+        name: command.name,
+        description: catalogDescription(command.description),
+        ...argumentHint ? { argumentHint } : {}
+      });
+    }
+    if (commands.length === 0) return;
+    if (commands.length > CATALOG_MAX_COMMANDS) {
+      log(
+        "daemon: harness skill report truncated from " + commands.length + " to " + CATALOG_MAX_COMMANDS + " commands"
+      );
+      commands.length = CATALOG_MAX_COMMANDS;
+    }
+    await callHarnessSkillCatalogReport("claude", cliVersion, commands);
+    log(
+      "daemon: reported " + commands.length + " built-in skills from CLI " + cliVersion
+    );
+  } catch (error) {
+    const messageText = error instanceof Error ? error.message : String(error);
+    log("daemon: harness skill report failed \\u2014 " + messageText);
+  }
+}
+function noteHarnessInitMessage(message, query) {
+  if (harnessCatalogReportStarted) return;
+  if (message.type !== "system" || message.subtype !== "init") return;
+  const cliVersion = readStringField2(message, "claude_code_version");
+  if (!cliVersion) return;
+  harnessCatalogReportStarted = true;
+  void reportHarnessSkillCatalog(cliVersion, query);
+}
 function findAgentByTaskId(taskId) {
   for (const entry of unsettledBackgroundAgents.values()) {
     if (entry.taskId === taskId) {
@@ -5709,6 +5787,7 @@ function createWarmAgentRunner(sdk, options) {
         if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
           continue;
         }
+        noteHarnessInitMessage(raw, query);
         pending.push(raw);
         wakeWaiters();
       }
@@ -7245,7 +7324,7 @@ async function runCursorDaemon() {
 import {
   existsSync as existsSync9,
   mkdirSync as mkdirSync8,
-  readdirSync as readdirSync3,
+  readdirSync as readdirSync4,
   readFileSync as readFileSync11,
   rmSync,
   writeFileSync as writeFileSync12
@@ -7327,7 +7406,7 @@ function writeStub(skill) {
 function pruneStaleStubs(keep) {
   const root = skillsRoot();
   if (!existsSync9(root)) return;
-  for (const entry of readdirSync3(root, { withFileTypes: true })) {
+  for (const entry of readdirSync4(root, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     if (keep.has(entry.name)) continue;
     if (!isEvaStub(entry.name)) continue;

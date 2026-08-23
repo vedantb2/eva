@@ -26,6 +26,7 @@ import {
   repoSkillFields,
   repoSkillContentFields,
   repoSystemSkillFields,
+  harnessSkillCatalogFields,
   sandboxGitCredentialsFields,
   appSettingsFields,
   userFields,
@@ -254,6 +255,10 @@ const schema = defineSchema({
   repoSystemSkills: defineTable(repoSystemSkillFields)
     .index("by_repo", ["repoId"])
     .index("by_repo_and_name", ["repoId", "name"]),
+  harnessSkillCatalogs: defineTable(harnessSkillCatalogFields).index(
+    "by_provider",
+    ["provider"],
+  ),
   notifications: defineTable({
     userId: v.id("users"),
     type: notificationTypeValidator,

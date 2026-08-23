@@ -79,6 +79,7 @@ import {
   readStopTaskToolUseIds,
   readTurnLeaseIdentity,
 } from "./claimPendingTurnParse.js";
+import { isZeroWorkTaskNotificationResult } from "./claudeResult.js";
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -1312,6 +1313,17 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
 
     if (message.type === "result" && supervisor.currentTurn === null) {
       log("daemon: result with no live turn — ignored");
+      continue;
+    }
+
+    if (isZeroWorkTaskNotificationResult(message)) {
+      // A background task notification can finish immediately before the SDK
+      // starts processing the user prompt already pushed to this warm query.
+      // Keep the current turn and its placeholder alive; the subsequent
+      // assistant/result events belong to that prompt.
+      log(
+        "daemon: zero-work task notification result ignored; active turn preserved",
+      );
       continue;
     }
 

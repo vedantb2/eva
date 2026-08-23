@@ -4608,6 +4608,12 @@ function buildCanUseTool() {
   };
 }
 
+// callback-src/providers/claudeResult.ts
+function isZeroWorkTaskNotificationResult(message) {
+  const origin = message.origin;
+  return message.type === "result" && message.subtype === "success" && message.is_error !== true && message.num_turns === 0 && typeof message.result === "string" && message.result.trim() === "" && typeof origin === "object" && origin !== null && !Array.isArray(origin) && origin.kind === "task-notification";
+}
+
 // callback-src/providers/claudeSdk.ts
 var SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 var SDK_VERSION = "0.3.201";
@@ -4750,6 +4756,7 @@ async function runClaudeSdkAttempt(sessionMode) {
   let resultIsError = false;
   let resultErrorMessage = "";
   let queryErrorMessage = "";
+  let sawZeroWorkTaskNotification = false;
   const sdk = await loadSdk();
   let effectiveMode = sessionMode;
   let q = sdk.query({
@@ -4787,6 +4794,13 @@ async function runClaudeSdkAttempt(sessionMode) {
   const consumeQuery = async () => {
     for await (const message of q) {
       lastMessageAt = Date.now();
+      if (isZeroWorkTaskNotificationResult(message)) {
+        sawZeroWorkTaskNotification = true;
+        log(
+          "runClaudeSdkAttempt: ignored zero-work task notification result"
+        );
+        continue;
+      }
       const line = JSON.stringify(message) + "\\n";
       appendToRawLogFile(line);
       attemptOutput = trimBufferHead(attemptOutput + line);
@@ -4805,6 +4819,17 @@ async function runClaudeSdkAttempt(sessionMode) {
   try {
     try {
       await consumeQuery();
+      if (sawZeroWorkTaskNotification && !sawResult) {
+        log(
+          "runClaudeSdkAttempt: retrying prompt after zero-work task notification"
+        );
+        sawZeroWorkTaskNotification = false;
+        q = sdk.query({
+          prompt: readPromptText(),
+          options: buildSdkOptions(effectiveMode)
+        });
+        await consumeQuery();
+      }
     } catch (error) {
       const messageText = error instanceof Error ? error.message : String(error);
       if (effectiveMode.mode === "resume" && effectiveMode.sessionId && messageText.includes("No conversation found with session ID")) {
@@ -6064,6 +6089,12 @@ async function runDaemonMessagePump(agentRunner) {
     }
     if (message.type === "result" && supervisor.currentTurn === null) {
       log("daemon: result with no live turn \\u2014 ignored");
+      continue;
+    }
+    if (isZeroWorkTaskNotificationResult(message)) {
+      log(
+        "daemon: zero-work task notification result ignored; active turn preserved"
+      );
       continue;
     }
     if (supervisor.currentTurn === null) {

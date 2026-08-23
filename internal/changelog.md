@@ -1,5 +1,9 @@
 # Changelog
 
+## Background task notifications no longer consume user turns - 2026-08-23
+
+Claude's warm query can emit an empty, zero-token `task-notification` result immediately before processing a newly queued user prompt. Eva treated that stream boundary as a successful answer, finalized the user's placeholder with “I couldn't process your message,” then rendered the real response as a separate synthetic continuation. The daemon now ignores that exact zero-work result and preserves the active turn for the response already behind it; the one-shot fallback retries the prompt once and otherwise fails instead of manufacturing a successful empty reply. Provider errors, non-empty results, and real zero-text turns remain authoritative.
+
 ## Preview sticky path no longer stores the grant token - 2026-08-23
 
 Iframe navigation sync was saving `?__eva_grant=` into the session's sticky Preview path. Five minutes later that token is dead, and the in-sandbox proxy answers with its HTML sign-in bootstrap instead of the app. Path persist now strips the param on both the client and Convex.

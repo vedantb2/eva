@@ -25,16 +25,21 @@ import {
   variationKeyFromIndex,
 } from "../_utils/designVariations";
 
+/** Tab label for a zero-based variation index: 0 -> "A". */
+function variationLetter(index: number): string {
+  return String.fromCharCode(65 + index);
+}
+
 interface DesignVariationsPanelProps {
   previewUrl: string | null;
   sandboxRunning: boolean;
   isArchived: boolean;
   isExecuting: boolean;
   latestVariations: DesignVariation[];
-  selectedVariationIndex: number | undefined;
   isSandboxStarting: boolean;
   onStartSandbox: () => void;
-  onSelectVariation: (index: number) => void;
+  /** Hands the composer a prompt for the variation on screen. */
+  onUseVariation: (letter: string, label: string) => void;
 }
 
 export function DesignVariationsPanel({
@@ -43,10 +48,9 @@ export function DesignVariationsPanel({
   isArchived,
   isExecuting,
   latestVariations,
-  selectedVariationIndex,
   isSandboxStarting,
   onStartSandbox,
-  onSelectVariation,
+  onUseVariation,
 }: DesignVariationsPanelProps) {
   const [{ variation: tab, view }, setDesignParams] = useQueryStates({
     variation: designVariationParser,
@@ -81,7 +85,7 @@ export function DesignVariationsPanel({
             <p className="text-sm">
               {isExecuting
                 ? "Generating designs..."
-                : "Switch to Design mode and send a prompt — variations will appear here."}
+                : "Run /eva-design in the composer — variations will appear here."}
             </p>
           </div>
         </div>
@@ -108,7 +112,7 @@ export function DesignVariationsPanel({
                 value={String(i)}
                 className="relative flex items-center gap-1.5 rounded-none rounded-t-md border border-b-0 px-4 py-1.5 text-sm font-medium data-[state=active]:z-10 data-[state=active]:border-border data-[state=active]:bg-card data-[state=active]:shadow-none data-[state=inactive]:border-transparent data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-secondary data-[state=inactive]:hover:text-foreground"
               >
-                Design {String.fromCharCode(65 + i)}
+                Design {variationLetter(i)}
               </TabsTrigger>
             ))}
           </TabsList>
@@ -207,13 +211,15 @@ export function DesignVariationsPanel({
               size="sm"
               variant="secondary"
               className="h-7 shrink-0 gap-1 text-xs"
-              onClick={() => onSelectVariation(activeTabIndex)}
-              disabled={selectedVariationIndex === activeTabIndex}
+              onClick={() =>
+                onUseVariation(
+                  variationLetter(activeTabIndex),
+                  latestVariations[activeTabIndex]?.label ?? "",
+                )
+              }
             >
               <IconCheck size={14} />
-              {selectedVariationIndex === activeTabIndex
-                ? "Selected"
-                : "Use this design"}
+              Use this design
             </Button>
           )}
           <p className="truncate text-xs text-muted-foreground">

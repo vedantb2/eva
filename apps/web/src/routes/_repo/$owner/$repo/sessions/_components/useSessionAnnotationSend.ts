@@ -18,18 +18,16 @@ export function useSessionAnnotationSend(
 ): (display: string, full: string) => Promise<void> {
   const { repo } = useRepo();
   const defaultModel = normalizeAIModel(repo.defaultModel);
-  // Model + mode + traits + account are owned by Convex.
+  // Model + traits + account are owned by Convex.
   const {
     model,
-    mode: stickyMode,
     traits,
     providerAccountId: stickyProviderAccountId,
   } = useSessionModel(sessionId, defaultModel);
-  const { mode, displayTraits, executionTraits, providerAccountId } =
+  const { displayTraits, executionTraits, providerAccountId } =
     useSessionSettings({
       defaultModel,
       model,
-      mode: stickyMode,
       traits,
       providerAccountId: stickyProviderAccountId,
     });
@@ -59,7 +57,6 @@ export function useSessionAnnotationSend(
         sessionId,
         message: full,
         displayContent: display,
-        mode,
         model,
         ...executionTraits,
         reasoningLevel,
@@ -72,7 +69,6 @@ export function useSessionAnnotationSend(
         id: sessionId,
         role: "user",
         content: display,
-        mode,
         providerAccountId: accountId,
         model,
         reasoningLevel,
@@ -80,7 +76,6 @@ export function useSessionAnnotationSend(
       startExecution({
         sessionId,
         message: full,
-        mode,
         model,
         ...executionTraits,
         reasoningLevel,
@@ -93,7 +88,6 @@ export function useSessionAnnotationSend(
         id: sessionId,
         role: "assistant",
         content: `Error: ${errorMessage}`,
-        mode,
       });
     });
   };

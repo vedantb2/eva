@@ -246,6 +246,9 @@ const schema = defineSchema({
   evaluationReports: defineTable(evaluationReportFields)
     .index("by_repo", ["repoId"])
     .index("by_doc", ["docId"]),
+  // Legacy: design-mode personas. No API reads or writes it any more (design is
+  // the `eva-design` skill now); kept so existing rows still validate and repo
+  // deletion still cascades, pending a cleanup migration.
   designPersonas: defineTable({
     repoId: v.id("githubRepos"),
     userId: v.id("users"),

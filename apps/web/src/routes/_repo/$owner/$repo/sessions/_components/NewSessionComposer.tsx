@@ -23,7 +23,6 @@ import { useBaseBranchState } from "@/lib/hooks/useBaseBranchState";
 import { useNewSessionComposerState } from "@/lib/hooks/useNewSessionComposerState";
 import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
 import { ComposerAppSwitcher } from "./ComposerAppSwitcher";
-import { SessionDesignComposerTools } from "./SessionDesignComposerTools";
 
 /**
  * Shared landing composer for repo home and `/sessions`: branding + prompt,
@@ -42,8 +41,6 @@ export function NewSessionComposer() {
   const defaultModel = normalizeAIModel(repo.defaultModel);
   const {
     draft: draftTokenized,
-    mode,
-    setMode,
     model,
     setModel,
     displayTraits,
@@ -53,15 +50,11 @@ export function NewSessionComposer() {
     setProviderAccountId,
     setDraft,
     clearDraft,
-    numDesigns,
-    setNumDesigns,
   } = useNewSessionComposerState(
     repo._id,
     defaultModel,
     storedTraitsFromRepoDefaults(repo),
   );
-  const [selectedPersonaId, setSelectedPersonaId] =
-    useState<Id<"designPersonas">>();
   const {
     displayText: draftDisplay,
     mentionMap: draftMentionMap,
@@ -94,17 +87,13 @@ export function NewSessionComposer() {
     // Resolved before the try: React Compiler bails on the whole file when a
     // nullish-coalescing expression sits inside a try/catch.
     const accountId = resolveAccountId(providerAccountId) ?? null;
-    const designArgs =
-      mode === "design" ? { personaId: selectedPersonaId, numDesigns } : {};
     try {
       const { numId } = await createSession({
         repoId: repo._id,
         message: content,
-        mode,
         model,
         baseBranch,
         ...executionTraits,
-        ...designArgs,
         // Snapshot resolved display traits (including model defaults) so the
         // new session's sticky Convex fields match the landing composer.
         reasoningLevel: displayTraits.effortLevel,
@@ -148,13 +137,7 @@ export function NewSessionComposer() {
           messageHistory={[]}
           isExecuting={false}
           isInputDisabled={isSubmitting}
-          placeholder={
-            mode === "plan"
-              ? "Describe what to plan... / for skills · @ to mention"
-              : mode === "design"
-                ? "Describe the UI to design... / for skills · @ to mention"
-                : "Ask Eva anything... / for skills · @ to mention"
-          }
+          placeholder="Ask Eva anything... / for skills · @ to mention"
           model={model}
           setModel={(next) => {
             setModel(next);
@@ -168,20 +151,6 @@ export function NewSessionComposer() {
           onTraitsChange={onTraitsChange}
           onSend={handleSend}
           onCancel={async () => {}}
-          toolsBefore={
-            mode === "design" ? (
-              <SessionDesignComposerTools
-                repoId={repo._id}
-                personaId={selectedPersonaId}
-                onPersonaChange={setSelectedPersonaId}
-                numDesigns={numDesigns}
-                onNumDesignsChange={setNumDesigns}
-                disabled={isSubmitting}
-              />
-            ) : null
-          }
-          mode={mode}
-          onModeChange={setMode}
           localDraft={{
             initialDisplay: draftDisplay,
             mentionMap: draftMentionMap,

@@ -2,7 +2,7 @@ export {
   buildRootDirectoryInstruction,
   buildCustomInstructionsBlock,
   buildSystemPromptBlock,
-  getResponseLengthInstruction,
+  RESPONSE_LENGTH_INSTRUCTION,
 } from "./shared";
 export { PARSE_PROMPT, INTERVIEW_PROMPT, GENERATE_PROMPT } from "./doc";
 export {
@@ -10,4 +10,3 @@ export {
   TASK_PHILOSOPHY,
   SPEC_SYSTEM_PROMPT,
 } from "./project";
-export { DESIGN_SYSTEM_PROMPT } from "./design";

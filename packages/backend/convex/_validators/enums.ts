@@ -36,6 +36,8 @@ export const reactionTargetValidator = v.union(
   v.literal("description"),
 );
 
+// Legacy: session turn modes are gone (plan/design are Eva system skills now).
+// Used only by dormant stored fields so existing rows validate.
 export const sessionModeValidator = v.union(
   v.literal("edit"),
   v.literal("ask"),

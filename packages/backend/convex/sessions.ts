@@ -13,7 +13,6 @@ export {
   updateStatus,
   update,
   setModel,
-  setMode,
   setProviderAccountId,
   setTraits,
   updateSummary,
@@ -21,7 +20,6 @@ export {
   unarchive,
   updatePlanContent,
   updateLastMessage,
-  selectVariation,
 } from "./_sessions/mutations";
 
 export {

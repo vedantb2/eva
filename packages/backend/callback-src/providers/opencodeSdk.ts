@@ -7,6 +7,7 @@ import {
   WORK_DIR,
   normalizedOpencodeModel,
 } from "../config.js";
+import { evaMcpServers } from "../evaMcp.js";
 import { updateThinkingStep } from "../parse/canonical.js";
 import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
 import {
@@ -232,6 +233,61 @@ function resultFailure<TData>(result: OpencodeResult<TData>): string {
   );
 }
 
+/**
+ * Registers Eva's HTTP MCP server on the shared `opencode serve` process.
+ *
+ * opencode reads its `mcp` config once at server startup, and that server
+ * outlives the callback (one per sandbox, reused by every turn), so a config
+ * file would leave any already-running server without the tools. `POST /mcp`
+ * registers the same descriptor on the live instance instead, and is skipped as
+ * soon as the server reports the entry.
+ *
+ * Best-effort: a server Eva cannot register costs the turn its Eva tools, which
+ * beats failing a turn that would otherwise run.
+ */
+export async function ensureEvaMcpServers(
+  client: Pick<OpencodeClientLike, "mcp">,
+  servers = evaMcpServers,
+): Promise<void> {
+  const configured = Object.entries(servers);
+  if (configured.length === 0) return;
+  try {
+    const status = await client.mcp.status();
+    if (!status.data) {
+      log("opencode mcp.status failed: " + resultFailure(status));
+      return;
+    }
+    for (const [name, server] of configured) {
+      if (status.data[name]) continue;
+      const added = await client.mcp.add({
+        body: {
+          name,
+          config: {
+            type: "remote",
+            url: server.url,
+            headers: server.headers,
+            enabled: true,
+          },
+        },
+      });
+      log(
+        added.data
+          ? "opencode mcp server " +
+              name +
+              " registered (" +
+              (added.data[name]?.status ?? "unknown") +
+              ")"
+          : "opencode mcp.add " + name + " failed: " + resultFailure(added),
+      );
+    }
+  } catch (error) {
+    log(
+      "opencode mcp registration failed: " +
+        (error instanceof Error ? error.message : String(error)),
+    );
+  }
+}
+
 /** Turns a non-2xx envelope into a thrown error with the server's message. */
 function requireData<TData>(
   result: OpencodeResult<TData>,
@@ -298,6 +354,7 @@ export async function runOpencodeSdkAttempt(
     baseUrl,
     directory: WORK_DIR,
   });
+  await ensureEvaMcpServers(client);
 
   const persistSessionId = (sessionId: string): void => {
     S.activeOpencodeSessionId = sessionId;

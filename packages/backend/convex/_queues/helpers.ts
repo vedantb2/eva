@@ -205,7 +205,6 @@ async function startNextQueuedChatMessage<
 
 type SessionQueuePrepared = {
   repo: Doc<"githubRepos">;
-  mode: NonNullable<Doc<"queuedMessages">["mode"]>;
   model: NonNullable<Doc<"queuedMessages">["model"]>;
 };
 
@@ -243,8 +242,10 @@ const sessionQueueConfig: ChatQueueConfig<
   backgroundAgents: (session) => session.backgroundAgents,
   syntheticTurnMessageId: (session) => session.syntheticTurnMessageId,
   streamingEntityId: (id) => String(id),
+  // Queued rows may still carry legacy mode/personaId/numDesigns until
+  // removeSessionModeFields finishes; they are ignored rather than validated.
   prepareGuard: async (ctx, session, next) => {
-    if (!next.mode || !next.model) {
+    if (!next.model) {
       return { ok: false, error: "Error: Failed to start queued message." };
     }
     const repo = await ctx.db.get(session.repoId);
@@ -254,7 +255,7 @@ const sessionQueueConfig: ChatQueueConfig<
         error: "Error: Repository not found for queued message.",
       };
     }
-    return { ok: true, data: { repo, mode: next.mode, model: next.model } };
+    return { ok: true, data: { repo, model: next.model } };
   },
   insertUserMessage: async (ctx, id, session, next, prepared, now) => {
     await ctx.db.insert("messages", {
@@ -263,9 +264,7 @@ const sessionQueueConfig: ChatQueueConfig<
       content: next.displayContent ?? next.content,
       timestamp: now,
       userId: next.userId,
-      mode: prepared.mode,
       attachmentStorageIds: next.attachmentStorageIds,
-      personaId: next.personaId,
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
         session.providerAccountId,
@@ -281,7 +280,6 @@ const sessionQueueConfig: ChatQueueConfig<
       role: "assistant",
       content: "",
       timestamp: Date.now(),
-      mode: prepared.mode,
       activityLog: "",
     });
     const turnId = await openSessionTurn(ctx, {
@@ -301,7 +299,6 @@ const sessionQueueConfig: ChatQueueConfig<
         {
           sessionId: id,
           message: next.content,
-          mode: prepared.mode,
           model: prepared.model,
           reasoningLevel: next.reasoningLevel,
           thinkingEnabled: next.thinkingEnabled,
@@ -309,8 +306,6 @@ const sessionQueueConfig: ChatQueueConfig<
           fastMode: next.fastMode,
           providerAccountId: session.providerAccountId,
           credentialOwnerUserId: session.createdBy ?? session.userId,
-          personaId: next.personaId,
-          numDesigns: next.numDesigns,
           userId: next.userId,
           installationId: prepared.repo.installationId,
           turnId,

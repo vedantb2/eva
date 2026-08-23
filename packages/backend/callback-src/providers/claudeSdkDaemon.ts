@@ -1,4 +1,5 @@
-import { unlinkSync, writeFileSync, readFileSync } from "fs";
+import { unlinkSync, writeFileSync, readFileSync, readdirSync } from "fs";
+import { homedir } from "os";
 import {
   CLAIM_MUTATION,
   COMPLETE_SYNTHETIC_TURN_MUTATION,
@@ -17,6 +18,7 @@ import {
   REPO_ID,
   RUN_ID,
   UPDATE_BACKGROUND_AGENTS_MUTATION,
+  WORK_DIR,
 } from "../config.js";
 import {
   resolveDaemonPaths,
@@ -714,13 +716,64 @@ async function syncBackgroundAgentsToConvex(
 
 let harnessCatalogReportStarted = false;
 
+/** Server-side caps on `/api/harness-skills/report`; exceeding any rejects the whole report. */
+const CATALOG_MAX_COMMANDS = 100;
+const CATALOG_MAX_NAME_LENGTH = 100;
+const CATALOG_MAX_DESCRIPTION_LENGTH = 2000;
+const CATALOG_MAX_ARGUMENT_HINT_LENGTH = 400;
+
+/**
+ * Command names the SDK picked up from this checkout or the sandbox user's
+ * settings (`.claude/skills` directories and `.claude/commands` markdown
+ * files) rather than from the CLI build. The catalog row is global across
+ * repos, so these must never be reported as built-ins.
+ */
+function collectLocalCommandNames(): Set<string> {
+  const names = new Set<string>();
+  for (const root of [WORK_DIR, homedir()]) {
+    try {
+      for (const entry of readdirSync(root + "/.claude/skills", {
+        withFileTypes: true,
+      })) {
+        if (entry.isDirectory()) names.add(entry.name);
+      }
+    } catch {
+      /* no skills dir */
+    }
+    try {
+      for (const entry of readdirSync(root + "/.claude/commands", {
+        withFileTypes: true,
+      })) {
+        if (entry.isFile() && entry.name.endsWith(".md")) {
+          names.add(entry.name.slice(0, -".md".length));
+        }
+      }
+    } catch {
+      /* no commands dir */
+    }
+  }
+  return names;
+}
+
+/** First non-empty line of a command description, within the server's length cap. */
+function catalogDescription(description: string): string {
+  const firstLine = description
+    .split("\n")
+    .map((line) => line.trim())
+    .find((line) => line.length > 0);
+  return (firstLine ?? "").slice(0, CATALOG_MAX_DESCRIPTION_LENGTH);
+}
+
 /**
  * Reports the built-in slash commands this sandbox's Claude CLI ships with, so
  * the composer's `/` picker tracks the installed build instead of a hardcoded
  * list. Goes to the HMAC-verified `/api/harness-skills/report` route: the row
- * is global, so only a sandbox Eva launched may write it. Once per daemon; the
- * server drops the report when nothing changed. Best-effort — a failure here
- * must never touch the session, and an unsigned daemon just does not report.
+ * is global, so only a sandbox Eva launched may write it — and commands the
+ * SDK loaded from this repo's or the user's `.claude` directory are excluded
+ * so one repo's skills never leak into every other repo's picker. Once per
+ * daemon; the server drops the report when nothing changed. Best-effort — a
+ * failure here must never touch the session, and an unsigned daemon just does
+ * not report.
  */
 async function reportHarnessSkillCatalog(
   cliVersion: string,
@@ -733,12 +786,33 @@ async function reportHarnessSkillCatalog(
       return;
     }
     const init = await query.initializationResult();
-    const commands: HarnessCommandReport[] = init.commands.map((command) => ({
-      name: command.name,
-      description: command.description,
-      ...(command.argumentHint ? { argumentHint: command.argumentHint } : {}),
-    }));
+    const localNames = collectLocalCommandNames();
+    const commands: HarnessCommandReport[] = [];
+    for (const command of init.commands) {
+      if (localNames.has(command.name)) continue;
+      if (command.name.length === 0) continue;
+      if (command.name.length > CATALOG_MAX_NAME_LENGTH) continue;
+      const argumentHint = (command.argumentHint ?? "").slice(
+        0,
+        CATALOG_MAX_ARGUMENT_HINT_LENGTH,
+      );
+      commands.push({
+        name: command.name,
+        description: catalogDescription(command.description),
+        ...(argumentHint ? { argumentHint } : {}),
+      });
+    }
     if (commands.length === 0) return;
+    if (commands.length > CATALOG_MAX_COMMANDS) {
+      log(
+        "daemon: harness skill report truncated from " +
+          commands.length +
+          " to " +
+          CATALOG_MAX_COMMANDS +
+          " commands",
+      );
+      commands.length = CATALOG_MAX_COMMANDS;
+    }
     await callHarnessSkillCatalogReport("claude", cliVersion, commands);
     log(
       "daemon: reported " +

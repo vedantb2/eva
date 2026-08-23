@@ -280,7 +280,8 @@ var completedLabels = {
 };
 
 // callback-src/providers/claudeSdkDaemon.ts
-import { unlinkSync, writeFileSync as writeFileSync9, readFileSync as readFileSync7 } from "fs";
+import { unlinkSync, writeFileSync as writeFileSync9, readFileSync as readFileSync7, readdirSync as readdirSync3 } from "fs";
+import { homedir } from "os";
 
 // callback-src/providers/daemonPaths.ts
 var LEGACY_DAEMON_PID = "/tmp/eva-daemon.pid";
@@ -5081,6 +5082,38 @@ async function syncBackgroundAgentsToConvex(agents) {
   }
 }
 var harnessCatalogReportStarted = false;
+var CATALOG_MAX_COMMANDS = 100;
+var CATALOG_MAX_NAME_LENGTH = 100;
+var CATALOG_MAX_DESCRIPTION_LENGTH = 2e3;
+var CATALOG_MAX_ARGUMENT_HINT_LENGTH = 400;
+function collectLocalCommandNames() {
+  const names = /* @__PURE__ */ new Set();
+  for (const root of [WORK_DIR, homedir()]) {
+    try {
+      for (const entry of readdirSync3(root + "/.claude/skills", {
+        withFileTypes: true
+      })) {
+        if (entry.isDirectory()) names.add(entry.name);
+      }
+    } catch {
+    }
+    try {
+      for (const entry of readdirSync3(root + "/.claude/commands", {
+        withFileTypes: true
+      })) {
+        if (entry.isFile() && entry.name.endsWith(".md")) {
+          names.add(entry.name.slice(0, -".md".length));
+        }
+      }
+    } catch {
+    }
+  }
+  return names;
+}
+function catalogDescription(description) {
+  const firstLine = description.split("\\n").map((line) => line.trim()).find((line) => line.length > 0);
+  return (firstLine ?? "").slice(0, CATALOG_MAX_DESCRIPTION_LENGTH);
+}
 async function reportHarnessSkillCatalog(cliVersion, query) {
   try {
     if (!HARNESS_CATALOG_HMAC) return;
@@ -5089,12 +5122,29 @@ async function reportHarnessSkillCatalog(cliVersion, query) {
       return;
     }
     const init = await query.initializationResult();
-    const commands = init.commands.map((command) => ({
-      name: command.name,
-      description: command.description,
-      ...command.argumentHint ? { argumentHint: command.argumentHint } : {}
-    }));
+    const localNames = collectLocalCommandNames();
+    const commands = [];
+    for (const command of init.commands) {
+      if (localNames.has(command.name)) continue;
+      if (command.name.length === 0) continue;
+      if (command.name.length > CATALOG_MAX_NAME_LENGTH) continue;
+      const argumentHint = (command.argumentHint ?? "").slice(
+        0,
+        CATALOG_MAX_ARGUMENT_HINT_LENGTH
+      );
+      commands.push({
+        name: command.name,
+        description: catalogDescription(command.description),
+        ...argumentHint ? { argumentHint } : {}
+      });
+    }
     if (commands.length === 0) return;
+    if (commands.length > CATALOG_MAX_COMMANDS) {
+      log(
+        "daemon: harness skill report truncated from " + commands.length + " to " + CATALOG_MAX_COMMANDS + " commands"
+      );
+      commands.length = CATALOG_MAX_COMMANDS;
+    }
     await callHarnessSkillCatalogReport("claude", cliVersion, commands);
     log(
       "daemon: reported " + commands.length + " built-in skills from CLI " + cliVersion
@@ -7063,7 +7113,7 @@ async function runCursorDaemon() {
 import {
   existsSync as existsSync9,
   mkdirSync as mkdirSync8,
-  readdirSync as readdirSync3,
+  readdirSync as readdirSync4,
   readFileSync as readFileSync11,
   rmSync,
   writeFileSync as writeFileSync12
@@ -7145,7 +7195,7 @@ function writeStub(skill) {
 function pruneStaleStubs(keep) {
   const root = skillsRoot();
   if (!existsSync9(root)) return;
-  for (const entry of readdirSync3(root, { withFileTypes: true })) {
+  for (const entry of readdirSync4(root, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     if (keep.has(entry.name)) continue;
     if (!isEvaStub(entry.name)) continue;

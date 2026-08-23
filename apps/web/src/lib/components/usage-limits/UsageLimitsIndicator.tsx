@@ -59,7 +59,7 @@ export function UsageLimitsIndicator({ repoId }: UsageLimitsIndicatorProps) {
         </Button>
       </HoverCardTrigger>
       <HoverCardContent align="end" className="w-72 overflow-hidden p-0">
-        <UsageLimitsDetails rows={rows} now={Date.now()} />
+        <UsageLimitsDetails rows={rows} />
       </HoverCardContent>
     </HoverCard>
   );

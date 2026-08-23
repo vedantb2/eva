@@ -9,8 +9,6 @@ import { UsageProviderSection } from "./UsageProviderSection";
 
 interface UsageLimitsDetailsProps {
   rows: readonly UsageSnapshot[];
-  /** One instant for the whole card, so its rows cannot disagree by a tick. */
-  now: number;
 }
 
 /**
@@ -18,7 +16,11 @@ interface UsageLimitsDetailsProps {
  * appears once per connected account, since plan limits are per account — and a
  * single footer stamped with the freshest reading of the lot.
  */
-export function UsageLimitsDetails({ rows, now }: UsageLimitsDetailsProps) {
+export function UsageLimitsDetails({ rows }: UsageLimitsDetailsProps) {
+  // One instant for the whole card, so its rows cannot disagree by a tick.
+  // Taken here, not at the trigger: the card mounts on hover-open, so the
+  // "resets in" countdown is fresh per open instead of frozen at first render.
+  const now = Date.now();
   const capturedAt = newestCapturedAt(rows);
 
   return (

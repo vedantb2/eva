@@ -138,15 +138,13 @@ export function chipSummary(
   let tightest: number | undefined;
   let tone: UsageTone = "neutral";
   for (const row of rows) {
+    tone = worseTone(tone, toneForStatus(row.status));
     const utilization = maxUtilization(row);
     if (utilization === undefined) continue;
     if (tightest === undefined || utilization > tightest) {
       tightest = utilization;
     }
-    tone = worseTone(
-      tone,
-      worseTone(toneForUtilization(utilization), toneForStatus(row.status)),
-    );
+    tone = worseTone(tone, toneForUtilization(utilization));
   }
   if (tightest !== undefined) {
     return { label: formatUtilization(tightest), utilization: tightest, tone };

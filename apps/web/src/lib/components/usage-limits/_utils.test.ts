@@ -99,6 +99,24 @@ test("one account's flagged status colours the chip the whole card shares", () =
   });
 });
 
+test("a windowless rejection still colours a chip that has a number", () => {
+  // Account A reports utilisation; account B was refused before it could
+  // report any window. B's rejection must reach the shared chip's tone.
+  const measured = claude({
+    windows: [{ key: "5h", label: "5h", utilization: 40 }],
+  });
+  const rejectedNoWindows: UsageSnapshot = {
+    provider: "claude",
+    capturedAt: NOW,
+    status: "rejected",
+  };
+  expect(chipSummary([measured, rejectedNoWindows])).toEqual({
+    label: "40%",
+    utilization: 40,
+    tone: "danger",
+  });
+});
+
 test("a section is keyed by account, so two of one provider stay distinct", () => {
   expect(sectionKey({ provider: "claude", providerAccountId: "acc-a" })).toBe(
     "claude:acc-a",

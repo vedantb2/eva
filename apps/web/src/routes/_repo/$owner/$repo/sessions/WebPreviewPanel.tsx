@@ -101,7 +101,7 @@ export function WebPreviewPanel({
     `${pathStorageKey}:device`,
     "desktop",
   );
-  const previewPath = stickyPath ?? localPath;
+  const previewPath = normalizePreviewPath(stickyPath ?? localPath);
 
   // iframeSrc is recomputed only at remount points (previewInfo change,
   // storage-key change, or iframeKey bump from a refresh). previewPath is

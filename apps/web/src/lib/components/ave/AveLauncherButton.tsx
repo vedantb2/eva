@@ -3,6 +3,7 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";
+import { IconX } from "@tabler/icons-react";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { QueryErrorBoundary } from "@/lib/components/QueryErrorBoundary";
 
@@ -43,7 +44,7 @@ export function AveLauncherButton({
         <button
           type="button"
           onClick={onToggle}
-          aria-label="Manager Ave"
+          aria-label={isOpen ? "Close Manager Ave" : "Manager Ave"}
           aria-expanded={isOpen}
           className={cn(
             "motion-press fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50",
@@ -53,13 +54,25 @@ export function AveLauncherButton({
             "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40",
           )}
         >
-          <EvaIcon size={24} label={null} disc={false} />
-          <QueryErrorBoundary>
-            <AveActiveDot />
-          </QueryErrorBoundary>
+          {/* Open → a close affordance: the mark says "summon Ave", but once the
+              panel is up the same button dismisses it, and an unchanged glyph
+              reads as "open it again". The dot is hidden while open — the panel
+              itself shows Ave's state. */}
+          {isOpen ? (
+            <IconX size={22} className="shrink-0" />
+          ) : (
+            <>
+              <EvaIcon size={24} label={null} disc={false} />
+              <QueryErrorBoundary>
+                <AveActiveDot />
+              </QueryErrorBoundary>
+            </>
+          )}
         </button>
       </TooltipTrigger>
-      <TooltipContent side="left">Manager Ave</TooltipContent>
+      <TooltipContent side="left">
+        {isOpen ? "Close" : "Manager Ave"}
+      </TooltipContent>
     </Tooltip>
   );
 }

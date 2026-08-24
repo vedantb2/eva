@@ -31,26 +31,25 @@ import {
   type MentionTextareaHandle,
 } from "@/lib/components/chat/MentionTextarea";
 import { IconPlayerStop } from "@tabler/icons-react";
-import type { RefObject } from "react";
+import { useRef, type RefObject } from "react";
 import type {
   AIModel,
   Id,
   ReasoningLevel,
   StoredModelTraits,
 } from "@eva/backend";
-import { isEditorValueEmpty, type SlashItem } from "@/lib/components/mentions";
+import { type SlashItem } from "@/lib/components/mentions";
+import {
+  draftExceedsPillWidth,
+  editorOverflowsHorizontally,
+  isComposerCompact,
+  readEditorInnerWidth,
+} from "@/lib/components/chat/_components/composerCompact";
 
 const COMPACT_EDITOR =
-  "flex min-h-9 max-h-9 min-w-0 w-auto flex-1 items-center self-center overflow-x-auto whitespace-nowrap rounded-none px-1 py-2 text-left leading-5 scrollbar-none transition-[min-height,padding] duration-[var(--motion-base)] ease-[var(--motion-ease-out)] focus-visible:outline-hidden";
+  "flex min-h-9 max-h-9 min-w-0 w-auto flex-1 items-center self-center overflow-hidden whitespace-nowrap! rounded-none px-1 py-2 text-left leading-5 scrollbar-none transition-[min-height,padding] duration-[var(--motion-base)] ease-[var(--motion-ease-out)] focus-visible:outline-hidden";
 const EXPANDED_EDITOR =
   "min-h-16 max-h-50 w-full self-stretch overflow-y-auto rounded-none px-4 pt-3.5 pb-1 text-left transition-[min-height,padding] duration-[var(--motion-base)] ease-[var(--motion-ease-out)] focus-visible:outline-hidden";
-
-/** Pill while the draft is one line; attachments still need the stacked card. */
-function isComposerCompact(value: string, fileCount: number): boolean {
-  if (fileCount > 0) return false;
-  if (isEditorValueEmpty(value)) return true;
-  return !value.includes("\n");
-}
 
 interface DataMenuItem {
   id: string;
@@ -117,7 +116,30 @@ export function ComposerInputChrome({
   messageHistory: string[];
 }) {
   const { textInput, attachments } = usePromptInputController();
-  const compact = isComposerCompact(textInput.value, attachments.files.length);
+  const chromeRef = useRef<HTMLDivElement>(null);
+  const pillWidthRef = useRef(0);
+  const wasCompactRef = useRef(true);
+
+  const editorNode = chromeRef.current?.querySelector(
+    "[data-slot=input-group-control]",
+  );
+  const editor = editorNode instanceof HTMLElement ? editorNode : null;
+  const font = editor ? getComputedStyle(editor).font : "14px sans-serif";
+  if (editor && wasCompactRef.current) {
+    const inner = readEditorInnerWidth(editor);
+    if (inner > 0) pillWidthRef.current = inner;
+  }
+  const exceedsPill =
+    (editor !== null &&
+      wasCompactRef.current &&
+      editorOverflowsHorizontally(editor)) ||
+    draftExceedsPillWidth(textInput.value, pillWidthRef.current, font);
+  const compact = isComposerCompact({
+    value: textInput.value,
+    fileCount: attachments.files.length,
+    exceedsPill,
+  });
+  wasCompactRef.current = compact;
 
   const leftTools = (
     <m.div
@@ -181,11 +203,12 @@ export function ComposerInputChrome({
 
   return (
     <LayoutGroup>
-      <BorderBeam
-        active={isExecuting}
-        colorVariant="colorful"
-        className={compact ? "rounded-full" : "rounded-surface"}
-      >
+      <div ref={chromeRef} className="min-w-0 w-full">
+        <BorderBeam
+          active={isExecuting}
+          colorVariant="colorful"
+          className={compact ? "rounded-full" : "rounded-surface"}
+        >
         <PromptInput
           data-mention-popup-anchor=""
           onSubmit={onPromptSubmit}
@@ -242,6 +265,7 @@ export function ComposerInputChrome({
           )}
         </PromptInput>
       </BorderBeam>
+      </div>
     </LayoutGroup>
   );
 }

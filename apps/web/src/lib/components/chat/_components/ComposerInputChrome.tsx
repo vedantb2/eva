@@ -8,11 +8,13 @@ import {
   PromptInputTools,
   toast,
   cn,
+  motionSpring,
   type ModelAccount,
   type ModelOption,
   type PromptInputMessage,
   usePromptInputController,
 } from "@eva/ui";
+import { LayoutGroup, m } from "motion/react";
 import { ModelSelectWithTraits } from "@/lib/components/ModelSelectWithTraits";
 import { ComposerSpeechButton } from "@/lib/components/chat/_components/ComposerSpeechButton";
 import {
@@ -39,9 +41,16 @@ import type {
 import { isEditorValueEmpty, type SlashItem } from "@/lib/components/mentions";
 
 const COMPACT_EDITOR =
-  "flex min-h-9 max-h-9 min-w-0 w-auto flex-1 items-center self-center overflow-hidden rounded-none px-1 py-2 text-left leading-5 focus-visible:outline-hidden";
+  "flex min-h-9 max-h-9 min-w-0 w-auto flex-1 items-center self-center overflow-x-auto whitespace-nowrap rounded-none px-1 py-2 text-left leading-5 scrollbar-none transition-[min-height,padding] duration-[var(--motion-base)] ease-[var(--motion-ease-out)] focus-visible:outline-hidden";
 const EXPANDED_EDITOR =
-  "min-h-16 max-h-50 w-full self-stretch overflow-y-auto rounded-none px-4 pt-3.5 pb-1 text-left focus-visible:outline-hidden";
+  "min-h-16 max-h-50 w-full self-stretch overflow-y-auto rounded-none px-4 pt-3.5 pb-1 text-left transition-[min-height,padding] duration-[var(--motion-base)] ease-[var(--motion-ease-out)] focus-visible:outline-hidden";
+
+/** Pill while the draft is one line; attachments still need the stacked card. */
+function isComposerCompact(value: string, fileCount: number): boolean {
+  if (fileCount > 0) return false;
+  if (isEditorValueEmpty(value)) return true;
+  return !value.includes("\n");
+}
 
 interface DataMenuItem {
   id: string;
@@ -108,11 +117,15 @@ export function ComposerInputChrome({
   messageHistory: string[];
 }) {
   const { textInput, attachments } = usePromptInputController();
-  const compact =
-    isEditorValueEmpty(textInput.value) && attachments.files.length === 0;
+  const compact = isComposerCompact(textInput.value, attachments.files.length);
 
   const leftTools = (
-    <>
+    <m.div
+      layout="position"
+      layoutId="composer-left-tools"
+      transition={motionSpring}
+      className="flex items-center gap-1"
+    >
       <ComposerPlusMenu
         dataItems={plusDataItems}
         skillItems={skillItems}
@@ -124,11 +137,16 @@ export function ComposerInputChrome({
         mentionRef={mentionRef}
         disabled={isInputDisabled}
       />
-    </>
+    </m.div>
   );
 
   const rightTools = (
-    <div className="flex min-w-0 items-center gap-0.5">
+    <m.div
+      layout="position"
+      layoutId="composer-right-tools"
+      transition={motionSpring}
+      className="flex min-w-0 items-center gap-0.5"
+    >
       <ModelSelectWithTraits
         value={model}
         options={modelOptions}
@@ -158,68 +176,70 @@ export function ComposerInputChrome({
         isExecuting={isExecuting}
         hasPendingContext={hasPendingContext}
       />
-    </div>
+    </m.div>
   );
 
   return (
-    <BorderBeam
-      active={isExecuting}
-      colorVariant="colorful"
-      className={compact ? "rounded-full" : "rounded-surface"}
-    >
-      <PromptInput
-        data-mention-popup-anchor=""
-        onSubmit={onPromptSubmit}
-        accept={CHAT_ATTACHMENT_ACCEPT}
-        multiple
-        maxFiles={MAX_CHAT_ATTACHMENTS}
-        maxFileSize={MAX_CHAT_ATTACHMENT_BYTES}
-        onError={(err) => toast.error(chatAttachmentErrorMessage(err))}
-        inputGroupClassName={cn(
-          compact
-            ? "h-auto min-h-12 items-center rounded-full py-1"
-            : "rounded-surface",
-        )}
+    <LayoutGroup>
+      <BorderBeam
+        active={isExecuting}
+        colorVariant="colorful"
+        className={compact ? "rounded-full" : "rounded-surface"}
       >
-        <ChatAttachmentPreview />
-        {compact ? (
-          <InputGroupAddon
-            align="inline-start"
-            className="order-first gap-1 py-0 pl-1.5 pr-0 has-[>button]:ml-0"
-          >
-            {leftTools}
-          </InputGroupAddon>
-        ) : null}
-        <MentionTextarea
-          key="composer-editor"
-          ref={mentionRef}
-          repoBasePath={repoBasePath}
-          repoId={repoId}
-          skillItems={skillItems}
-          skillsSettingsHref={skillsSettingsHref}
-          placeholder={placeholder}
-          initialMentionMap={seedMentionMap}
-          initialSkillMap={seedSkillMap}
-          history={messageHistory}
-          enableAttachmentPaste
-          completionContext={`a message instructing an AI coding agent working on the repository ${repoBasePath.replace(/^\//, "")}`}
-          className={compact ? COMPACT_EDITOR : EXPANDED_EDITOR}
-        />
-        {compact ? (
-          <InputGroupAddon
-            align="inline-end"
-            className="order-last gap-1 py-0 pr-1.5 pl-1 has-[>button]:mr-0"
-          >
-            {rightTools}
-          </InputGroupAddon>
-        ) : (
-          <PromptInputFooter className="max-sm:gap-y-2 px-3 pb-3 pt-0">
-            <PromptInputTools>{leftTools}</PromptInputTools>
-            {rightTools}
-          </PromptInputFooter>
-        )}
-      </PromptInput>
-    </BorderBeam>
+        <PromptInput
+          data-mention-popup-anchor=""
+          onSubmit={onPromptSubmit}
+          accept={CHAT_ATTACHMENT_ACCEPT}
+          multiple
+          maxFiles={MAX_CHAT_ATTACHMENTS}
+          maxFileSize={MAX_CHAT_ATTACHMENT_BYTES}
+          onError={(err) => toast.error(chatAttachmentErrorMessage(err))}
+          inputGroupClassName={cn(
+            compact
+              ? "h-auto min-h-12 items-center rounded-full py-1"
+              : "rounded-surface",
+          )}
+        >
+          <ChatAttachmentPreview />
+          {compact ? (
+            <InputGroupAddon
+              align="inline-start"
+              className="order-first gap-1 py-0 pl-1.5 pr-0 has-[>button]:ml-0"
+            >
+              {leftTools}
+            </InputGroupAddon>
+          ) : null}
+          <MentionTextarea
+            key="composer-editor"
+            ref={mentionRef}
+            repoBasePath={repoBasePath}
+            repoId={repoId}
+            skillItems={skillItems}
+            skillsSettingsHref={skillsSettingsHref}
+            placeholder={placeholder}
+            initialMentionMap={seedMentionMap}
+            initialSkillMap={seedSkillMap}
+            history={messageHistory}
+            enableAttachmentPaste
+            completionContext={`a message instructing an AI coding agent working on the repository ${repoBasePath.replace(/^\//, "")}`}
+            className={compact ? COMPACT_EDITOR : EXPANDED_EDITOR}
+          />
+          {compact ? (
+            <InputGroupAddon
+              align="inline-end"
+              className="order-last gap-1 py-0 pr-1.5 pl-1 has-[>button]:mr-0"
+            >
+              {rightTools}
+            </InputGroupAddon>
+          ) : (
+            <PromptInputFooter className="max-sm:gap-y-2 px-3 pb-3 pt-0">
+              <PromptInputTools>{leftTools}</PromptInputTools>
+              {rightTools}
+            </PromptInputFooter>
+          )}
+        </PromptInput>
+      </BorderBeam>
+    </LayoutGroup>
   );
 }
 

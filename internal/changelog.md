@@ -1,5 +1,9 @@
 # Changelog
 
+## Composer stays a pill until a second line - 2026-08-24
+
+A single line of typing used to blow the composer open immediately, so most drafts never saw the compact row. It now stays the pill until Shift+Enter (or a paste) makes a second line, or an attachment is added, and morphs back when the draft is one line again. Plus/stash and the send cluster slide between the inline row and the footer on the house spring so the tools don't teleport.
+
 ## Empty composer is a pill; typing opens the stacked card - 2026-08-24
 
 The composer was always the tall stacked card, even with nothing in it, so the empty state spent most of its height on padding. No text and no attachments now collapse to a single-row pill (circular plus, placeholder, model, mic, send). The first character or attachment expands to the existing toolbar-at-the-bottom card. ChatComposer is the only chat input, so simple view and advanced share the chrome.

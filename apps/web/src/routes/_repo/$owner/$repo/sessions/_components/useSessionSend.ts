@@ -42,10 +42,7 @@ function applyAddMessageOptimistically(
     content: args.content,
     timestamp: now,
     activityLog: "",
-    media: undefined,
     attachmentStorageIds: args.attachmentStorageIds,
-    attachmentUrls: undefined,
-    attachments: undefined,
     credentialSourceLabel: resolveCredentialSourceLabel(
       args.providerAccountId,
       accounts,
@@ -61,9 +58,6 @@ function applyAddMessageOptimistically(
     content: "",
     timestamp: now + 1,
     activityLog: "",
-    media: undefined,
-    attachmentUrls: undefined,
-    attachments: undefined,
   };
   localStore.setQuery(api.messages.listByParent, { parentId: args.id }, [
     ...existing,

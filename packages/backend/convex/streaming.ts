@@ -38,9 +38,10 @@ export async function finalizeCancelledAssistantMessage(
 export const STREAMING_TOUCH_COALESCE_MS = 2_000;
 
 export function shouldCoalesceStreamingTouch(
-  lastUpdatedAt: number,
+  lastUpdatedAt: number | undefined,
   now: number,
 ): boolean {
+  if (lastUpdatedAt === undefined) return false;
   return now - lastUpdatedAt < STREAMING_TOUCH_COALESCE_MS;
 }
 

@@ -4,7 +4,7 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import { Tooltip, TooltipContent, TooltipTrigger, cn } from "@eva/ui";
 import { IconX } from "@tabler/icons-react";
-import { EvaIcon } from "@/lib/components/EvaIcon";
+import { AveMark } from "@/lib/components/ave/AveMark";
 import { QueryErrorBoundary } from "@/lib/components/QueryErrorBoundary";
 
 /**
@@ -18,7 +18,7 @@ function AveActiveDot() {
   return (
     <>
       <span
-        className="absolute right-0.5 top-0.5 size-2.5 rounded-full bg-success ring-2 ring-popover"
+        className="absolute right-0.5 top-0.5 size-2.5 rounded-full bg-success ring-2 ring-background"
         aria-hidden
       />
       <span className="sr-only">Sandbox active</span>
@@ -30,9 +30,9 @@ const GLYPH_LAYER =
   "pointer-events-none absolute inset-0 flex items-center justify-center transition-[opacity,scale] duration-[var(--motion-fast)] ease-[var(--motion-ease-out)]";
 
 /**
- * The floating summon button, bottom-right of the signed-in shell. Circular and
- * carrying Eva's own mark rather than a generic glyph: Ave is the one agent that
- * is Eva herself rather than a piece of work.
+ * The floating summon button, bottom-right of the signed-in shell. Closed, it
+ * *is* Eva's mark — Ave is Eva herself, so the launcher is the app icon, not a
+ * toolbar glyph on glass. Open, the same circle becomes the close control.
  */
 export function AveLauncherButton({
   isOpen,
@@ -57,9 +57,11 @@ export function AveLauncherButton({
           className={cn(
             "motion-press fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-50",
             "flex size-12 items-center justify-center rounded-full",
-            "bg-popover/95 text-popover-foreground backdrop-blur-md smooth-shadow-ring-lg",
-            "hover:scale-[1.03] active:scale-[0.94]",
+            "smooth-shadow-ring-lg hover:scale-[1.03] active:scale-[0.94]",
             "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40",
+            isOpen
+              ? "bg-popover/95 text-popover-foreground backdrop-blur-md"
+              : "overflow-hidden bg-transparent",
           )}
         >
           {/* Open → a close affordance: the mark says "summon Ave", but once the
@@ -75,7 +77,7 @@ export function AveLauncherButton({
               )}
               aria-hidden={isOpen}
             >
-              <EvaIcon size={22} label={null} disc={false} />
+              <AveMark className="size-full" />
               <QueryErrorBoundary>
                 <AveActiveDot />
               </QueryErrorBoundary>

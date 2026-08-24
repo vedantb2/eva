@@ -11,7 +11,7 @@ import {
   cn,
   motionSpring,
 } from "@eva/ui";
-import { EvaIcon } from "@/lib/components/EvaIcon";
+import { AveMark } from "@/lib/components/ave/AveMark";
 
 const AvePanelBody = lazy(() =>
   import("@/lib/components/ave/AvePanelBody").then((m) => ({
@@ -68,7 +68,7 @@ export function AvePanel({
       )}
     >
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
-        <EvaIcon size={18} label={null} disc={false} />
+        <AveMark size={20} className="shrink-0" />
         <span className="flex-1 truncate text-sm font-semibold">
           Manager Ave
         </span>

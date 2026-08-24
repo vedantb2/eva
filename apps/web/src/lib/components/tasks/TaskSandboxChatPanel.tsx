@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useState } from "react";
 import {
   api,
   buildTraitsExecutionPayload,
@@ -96,6 +97,10 @@ export function TaskSandboxChatPanel({
     api.agentTaskChatWorkflow.cancelExecution,
   );
   const updateTask = useMutation(api.agentTasks.update);
+  const prewarmChatDaemonNow = useAction(
+    api.agentTaskChatWorkflow.prewarmChatDaemonNow,
+  );
+  const [isSwitchingAccount, setIsSwitchingAccount] = useState(false);
   const setTraitsMutation = useMutation(
     api.agentTasks.setTraits,
   ).withOptimisticUpdate((localStore, args) => {
@@ -201,10 +206,18 @@ export function TaskSandboxChatPanel({
 
   const setProviderAccountId = (next: string | null) => {
     if (!isOwner || !task) return;
-    void updateTask({
-      id: taskId,
-      providerAccountId: resolveAccountId(next) ?? null,
-    });
+    void (async () => {
+      setIsSwitchingAccount(true);
+      try {
+        await updateTask({
+          id: taskId,
+          providerAccountId: resolveAccountId(next) ?? null,
+        });
+        await prewarmChatDaemonNow({ taskId });
+      } finally {
+        setIsSwitchingAccount(false);
+      }
+    })();
   };
 
   const lastMessage = messages?.[messages.length - 1];
@@ -292,11 +305,13 @@ export function TaskSandboxChatPanel({
         blockingQuestion={activeQuestion ?? undefined}
         onAnswerBlockingQuestion={handleAnswerBlockingQuestion}
         isExecuting={isExecuting}
-        isInputDisabled={!isSandboxActive}
+        isInputDisabled={!isSandboxActive || isSwitchingAccount}
         placeholder={
           !isSandboxActive
             ? "Wake Eva up to chat..."
-            : "Ask Eva anything... / for skills · @ to mention"
+            : isSwitchingAccount
+              ? "Switching Claude account..."
+              : "Ask Eva anything... / for skills · @ to mention"
         }
         emptyStateTitle={
           isSandboxActive

@@ -38,7 +38,7 @@ describe("warm daemons stream to the UI's entity key", () => {
   });
 
   test.each([
-    { name: "task chat", source: taskChatSource, expectedCalls: 3 },
+    { name: "task chat", source: taskChatSource, expectedCalls: 4 },
     { name: "project chat", source: projectChatSource, expectedCalls: 4 },
   ])(
     "every $name prewarm passes its prefixed stream id",

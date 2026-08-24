@@ -22,6 +22,8 @@ export {
 export {
   startExecute,
   prewarmDaemon,
+  prewarmDaemonNow,
+  getDaemonPrewarmData,
   enqueueMessage,
   cancelExecution,
 } from "./_sessions/execution";

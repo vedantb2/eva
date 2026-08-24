@@ -1,5 +1,9 @@
 # Changelog
 
+## Claude account switches preserve task and session chat - 2026-08-24
+
+Project chat already committed a newly selected Claude account and waited for the replacement daemon before the next send. Task chat still discarded the picker at execute time, and session chat patched the sticky account without rotating the warm process, so a quick handoff could keep spending the previous credential. Both surfaces now validate and persist the requested account on send and queue, then await the same rotate-and-wait prewarm so the next turn uses the new account while reusing the stable Claude session.
+
 ## Incomplete PR recaps are stored as errors - 2026-08-24
 
 A Grok recap run returned progress narration with no HTML marker, and the workflow still marked the doc ready because any non-empty success counted. Recap output now requires markdown headings, the HTML marker, and a complete self-contained document; otherwise the doc is stored as an error so Generate stays available. Existing ready docs with no HTML walkthrough show as incomplete instead of an empty recap.

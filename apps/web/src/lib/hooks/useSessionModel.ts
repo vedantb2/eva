@@ -9,8 +9,9 @@ import {
   type ReasoningLevel,
   type StoredModelTraits,
 } from "@eva/backend";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
+import { useState } from "react";
 
 /**
  * Session composer prefs backed by Convex (`sessions.lastModel` / trait fields
@@ -36,6 +37,7 @@ export function useSessionModel(
   setProviderAccountId: (
     providerAccountId: Id<"userProviderAccounts"> | null,
   ) => void;
+  isSwitchingAccount: boolean;
   /**
    * Provider this session is pinned to; undefined while loading and on
    * sessions created before the lock. Feed it to
@@ -45,6 +47,8 @@ export function useSessionModel(
   lockedProvider: AIProvider | undefined;
 } {
   const session = useQuery(api.sessions.get, { id: sessionId });
+  const [isSwitchingAccount, setIsSwitchingAccount] = useState(false);
+  const prewarmDaemonNow = useAction(api.sessionWorkflow.prewarmDaemonNow);
   const setModelMutation = useMutation(
     api.sessions.setModel,
   ).withOptimisticUpdate((localStore, args) => {
@@ -122,7 +126,18 @@ export function useSessionModel(
   const setProviderAccountId = (
     providerAccountId: Id<"userProviderAccounts"> | null,
   ) => {
-    void setProviderAccountIdMutation({ id: sessionId, providerAccountId });
+    void (async () => {
+      setIsSwitchingAccount(true);
+      try {
+        await setProviderAccountIdMutation({
+          id: sessionId,
+          providerAccountId,
+        });
+        await prewarmDaemonNow({ sessionId });
+      } finally {
+        setIsSwitchingAccount(false);
+      }
+    })();
   };
 
   return {
@@ -138,6 +153,7 @@ export function useSessionModel(
     providerAccountId:
       session === undefined ? undefined : (session?.providerAccountId ?? null),
     setProviderAccountId,
+    isSwitchingAccount,
     lockedProvider: session?.provider,
   };
 }

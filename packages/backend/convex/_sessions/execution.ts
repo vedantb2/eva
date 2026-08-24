@@ -1,7 +1,8 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
+import { internalQuery, type MutationCtx } from "../_generated/server";
 import { workflow, cancelTrackedWorkflow } from "../workflowManager";
-import { authMutation, hasRepoAccess } from "../functions";
+import { authAction, authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
   assertModelMatchesLockedProvider,
@@ -21,7 +22,6 @@ import {
   resolveDefaultProviderAccountId,
 } from "../_userProviderAccounts/defaults";
 import type { Doc, Id } from "../_generated/dataModel";
-import type { MutationCtx } from "../_generated/server";
 import { notifyChatMentions } from "../_mentions/notifyChatMentions";
 import {
   bindTurnWorkflow,
@@ -40,6 +40,37 @@ async function finalizeOpenSyntheticTurnOnCancel(
   if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
     await finalizeCancelledAssistantMessage(ctx, syntheticMessage, streaming);
   }
+}
+
+async function resolveSessionTurnProviderAccountId(
+  ctx: MutationCtx,
+  session: Doc<"sessions">,
+  requestedAccountId: Id<"userProviderAccounts"> | undefined,
+  model: string,
+): Promise<Id<"userProviderAccounts"> | undefined> {
+  const credentialOwnerUserId = session.createdBy ?? session.userId;
+  // A session runs on its owner's credentials whoever sends the turn, so the
+  // account must belong to the owner — collaborators pick from that same pool
+  // and can never attach their own.
+  let stickyProviderAccountId = await assertProviderAccountUsableBy(
+    ctx.db,
+    requestedAccountId,
+    credentialOwnerUserId,
+  );
+  // If the chosen account no longer matches the model provider, fall back
+  // to the owner's default for that provider (or Team). Explicit Team
+  // (undefined) stays Team.
+  if (stickyProviderAccountId) {
+    const account = await ctx.db.get(stickyProviderAccountId);
+    if (!account || account.provider !== getAIModelProvider(model)) {
+      stickyProviderAccountId = await resolveDefaultProviderAccountId(
+        ctx.db,
+        credentialOwnerUserId,
+        model,
+      );
+    }
+  }
+  return stickyProviderAccountId;
 }
 
 /** Frontend trigger to start a session execution workflow. */
@@ -75,27 +106,12 @@ export const startExecute = authMutation({
     assertModelMatchesLockedProvider(session.provider, args.model);
 
     const credentialOwnerUserId = session.createdBy ?? session.userId;
-    // A session runs on its owner's credentials whoever sends the turn, so the
-    // account must belong to the owner — collaborators pick from that same pool
-    // and can never attach their own.
-    let stickyProviderAccountId = await assertProviderAccountUsableBy(
-      ctx.db,
+    const stickyProviderAccountId = await resolveSessionTurnProviderAccountId(
+      ctx,
+      session,
       args.providerAccountId,
-      credentialOwnerUserId,
+      args.model,
     );
-    // If the chosen account no longer matches the model provider, fall back
-    // to the owner's default for that provider (or Team). Explicit Team
-    // (undefined) stays Team.
-    if (stickyProviderAccountId) {
-      const account = await ctx.db.get(stickyProviderAccountId);
-      if (!account || account.provider !== getAIModelProvider(args.model)) {
-        stickyProviderAccountId = await resolveDefaultProviderAccountId(
-          ctx.db,
-          credentialOwnerUserId,
-          args.model,
-        );
-      }
-    }
 
     // Wipe any stale streaming row before staging the placeholder. The daemon
     // sends its final reconcile heartbeat BEFORE the completion mutation (see
@@ -270,6 +286,87 @@ export const prewarmDaemon = authMutation({
   },
 });
 
+/**
+ * Waits for account-switch prewarming to finish before the composer is
+ * re-enabled, preventing the previous credential daemon from claiming the next
+ * turn during its replacement window.
+ */
+export const prewarmDaemonNow = authAction({
+  args: { sessionId: v.id("sessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const data = await ctx.runQuery(
+      internal.sessionWorkflow.getDaemonPrewarmData,
+      { sessionId: args.sessionId, userId: ctx.userId },
+    );
+    if (!data) return null;
+    await ctx.runAction(internal.sandbox.prewarmSessionDaemon, {
+      sandboxId: data.sandboxId,
+      sessionId: args.sessionId,
+      repoId: data.repoId,
+      userId: data.ownerUserId,
+      model: data.model,
+      reasoningLevel: data.reasoningLevel,
+      thinkingEnabled: data.thinkingEnabled,
+      use1mContext: data.use1mContext,
+      fastMode: data.fastMode,
+      allowedTools: SESSION_TOOLS,
+      providerAccountId: data.providerAccountId,
+      credentialOwnerUserId: data.credentialOwnerUserId,
+      sessionPersistenceId: args.sessionId,
+    });
+    return null;
+  },
+});
+
+export const getDaemonPrewarmData = internalQuery({
+  args: {
+    sessionId: v.id("sessions"),
+    userId: v.id("users"),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      sandboxId: v.string(),
+      repoId: v.id("githubRepos"),
+      ownerUserId: v.id("users"),
+      credentialOwnerUserId: v.id("users"),
+      model: aiModelValidator,
+      reasoningLevel: v.optional(reasoningLevelValidator),
+      thinkingEnabled: v.optional(v.boolean()),
+      use1mContext: v.optional(v.boolean()),
+      fastMode: v.optional(v.boolean()),
+      providerAccountId: v.optional(v.id("userProviderAccounts")),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session) throw new Error("Session not found");
+    if (!(await hasRepoAccess(ctx.db, session.repoId, args.userId))) {
+      throw new Error("Not authorized");
+    }
+    if (
+      !session.sandboxId ||
+      session.status === "closed" ||
+      session.status === "stopping"
+    ) {
+      return null;
+    }
+    return {
+      sandboxId: session.sandboxId,
+      repoId: session.repoId,
+      ownerUserId: session.userId,
+      credentialOwnerUserId: session.createdBy ?? session.userId,
+      model: normalizeAIModel(session.lastModel),
+      reasoningLevel: session.lastReasoningLevel,
+      thinkingEnabled: session.lastThinkingEnabled,
+      use1mContext: session.lastUse1mContext,
+      fastMode: session.lastFastMode,
+      providerAccountId: session.providerAccountId,
+    };
+  },
+});
+
 /** Queues a message to be processed after the current active workflow finishes. */
 export const enqueueMessage = authMutation({
   args: {
@@ -298,6 +395,13 @@ export const enqueueMessage = authMutation({
 
     assertModelMatchesLockedProvider(session.provider, args.model);
 
+    const providerAccountId = await resolveSessionTurnProviderAccountId(
+      ctx,
+      session,
+      args.providerAccountId,
+      args.model,
+    );
+
     await notifyChatMentions(ctx, {
       content: displayContent || content,
       authorUserId: ctx.userId,
@@ -316,11 +420,12 @@ export const enqueueMessage = authMutation({
       thinkingEnabled: args.thinkingEnabled,
       use1mContext: args.use1mContext,
       fastMode: args.fastMode,
-      providerAccountId: args.providerAccountId,
+      providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
     });
     await ctx.db.patch(args.sessionId, {
       lastModel: args.model,
+      providerAccountId,
       ...(args.reasoningLevel !== undefined
         ? { lastReasoningLevel: args.reasoningLevel }
         : {}),

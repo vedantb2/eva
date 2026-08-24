@@ -1,5 +1,9 @@
 # Changelog
 
+## Incomplete PR recaps are stored as errors - 2026-08-24
+
+A Grok recap run returned progress narration with no HTML marker, and the workflow still marked the doc ready because any non-empty success counted. Recap output now requires markdown headings, the HTML marker, and a complete self-contained document; otherwise the doc is stored as an error so Generate stays available. Existing ready docs with no HTML walkthrough show as incomplete instead of an empty recap.
+
 ## Long Cursor turns get a dedicated 8 GB heap - 2026-08-24
 
 The first disposable-worker rollout protected the warm Cursor daemon from accumulated cross-turn SDK allocations, but a single 17-minute Grok turn still reached Node's default 4 GB heap and aborted after 41 visible activity groups. Cursor turn workers now launch with an explicit 8 GB V8 heap while the supervisor remains small. Because the supervisor's protected Linux OOM score is inherited by children, each worker is also reclassified as disposable so host-level memory pressure kills the recoverable agent process before the daemon that must finalize the turn and accept the next message.

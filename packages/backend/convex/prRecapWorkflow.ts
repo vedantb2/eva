@@ -17,6 +17,7 @@ import {
 import { prepareSandboxSteps } from "./_sandbox_runtime/prepareSandboxSteps";
 import {
   buildPrRecapPrompt,
+  INCOMPLETE_PR_RECAP_ERROR,
   parsePrRecapOutput,
 } from "./_prRecapWorkflow/prompts";
 import {
@@ -156,8 +157,19 @@ export const prRecapWorkflow = workflow.define({
         const result = await step.awaitEvent(prRecapCompleteEvent);
 
         if (result.success && result.result) {
-          const { markdown, html } = parsePrRecapOutput(result.result);
-          await finalize({ kind: "ready", content: markdown, html });
+          const parsed = parsePrRecapOutput(result.result);
+          if (!parsed.ok) {
+            await finalize({
+              kind: "error",
+              message: INCOMPLETE_PR_RECAP_ERROR,
+            });
+            return;
+          }
+          await finalize({
+            kind: "ready",
+            content: parsed.markdown,
+            html: parsed.html,
+          });
           if (
             args.consumeAgentCommentIds &&
             args.consumeAgentCommentIds.length > 0

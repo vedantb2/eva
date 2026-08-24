@@ -82,26 +82,60 @@ Output ONLY the markdown, then a line with the marker, then the HTML document. N
 ${params.diffText}`;
 }
 
+/** Stored on the recap doc when the model response is not a complete recap. */
+export const INCOMPLETE_PR_RECAP_ERROR =
+  "We couldn't generate a complete recap. Generate again to retry.";
+
+export type PrRecapParseFailure =
+  | "missing_marker"
+  | "invalid_markdown"
+  | "invalid_html";
+
+export type ParsedPrRecap =
+  | { ok: true; markdown: string; html: string }
+  | { ok: false; reason: PrRecapParseFailure };
+
+const MARKDOWN_HEADING = /^#{1,3}\s+\S/m;
+
 /**
- * Splits raw agent output into the markdown recap and the optional HTML
- * walkthrough. Falls back to treating the whole response as markdown when the
- * marker is absent (e.g. an older prompt or a model that ignored the format).
+ * Splits raw agent output into the markdown recap and HTML walkthrough.
+ * Incomplete output (no marker, no headings, or a stub HTML document) is
+ * rejected so the workflow can store an error instead of a false "ready".
  */
-export function parsePrRecapOutput(raw: string): {
-  markdown: string;
-  html?: string;
-} {
+export function parsePrRecapOutput(raw: string): ParsedPrRecap {
   const markerIndex = raw.indexOf(PR_RECAP_HTML_MARKER);
   if (markerIndex === -1) {
-    return { markdown: raw.trim() };
+    return { ok: false, reason: "missing_marker" };
   }
 
   const markdown = raw.slice(0, markerIndex).trim();
-  const htmlPart = stripCodeFence(
+  const html = stripCodeFence(
     raw.slice(markerIndex + PR_RECAP_HTML_MARKER.length).trim(),
   );
 
-  return htmlPart.length > 0 ? { markdown, html: htmlPart } : { markdown };
+  if (!looksLikeMarkdownRecap(markdown)) {
+    return { ok: false, reason: "invalid_markdown" };
+  }
+  if (!looksLikeCompleteHtmlDocument(html)) {
+    return { ok: false, reason: "invalid_html" };
+  }
+
+  return { ok: true, markdown, html };
+}
+
+function looksLikeMarkdownRecap(markdown: string): boolean {
+  return markdown.length >= 40 && MARKDOWN_HEADING.test(markdown);
+}
+
+function looksLikeCompleteHtmlDocument(html: string): boolean {
+  if (html.length < 200) return false;
+  const hasRoot = /<!doctype\s+html/i.test(html) || /<html[\s>]/i.test(html);
+  return (
+    hasRoot &&
+    /<\/html>/i.test(html) &&
+    /<style[\s>]/i.test(html) &&
+    /<script[\s>]/i.test(html)
+  );
 }
 
 /** Removes a surrounding ```html ... ``` fence if the model added one. */

@@ -136,6 +136,9 @@ export function DocRecapViewer({
   const isRecapErrored = doc.prRecapStatus === "error";
   // Pending with no workflow behind it means the run died — see PrRecapPanel.
   const isRecapStalled = isRecapPending && doc.activeWorkflowId === undefined;
+  const isRecapIncompleteReady =
+    doc.prRecapStatus === "ready" &&
+    (doc.html === undefined || doc.html.trim() === "");
 
   const handleReviseRecap = async () => {
     setIsRevising(true);
@@ -225,6 +228,11 @@ export function DocRecapViewer({
           {isRecapStalled ? (
             <p className="mt-1 text-destructive">
               Generation stopped before it finished.
+            </p>
+          ) : null}
+          {isRecapIncompleteReady ? (
+            <p className="mt-1 text-destructive">
+              The walkthrough wasn't saved. Generate again to retry.
             </p>
           ) : null}
           {canReviseRecap ? (
@@ -328,8 +336,9 @@ export function DocRecapViewer({
             <HtmlPreviewFrame html={doc.html} title="PR recap" />
           ) : (
             <p className="text-sm text-muted-foreground">
-              No recap generated yet. It is created the next time this review
-              runs.
+              {isRecapIncompleteReady || isRecapErrored
+                ? "The walkthrough wasn't saved. Generate again to retry."
+                : "No recap generated yet. It is created the next time this review runs."}
             </p>
           )}
         </TabsContent>

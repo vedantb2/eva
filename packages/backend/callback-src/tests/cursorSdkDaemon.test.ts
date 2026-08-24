@@ -323,6 +323,18 @@ describe("the cursor daemon's per-turn ordering", () => {
     expect(worker).toContain("executeClaimedTurn(turn)");
     expect(worker).toContain("await stopStreamingLoops()");
   });
+
+  test("the disposable worker has enough heap for a long Cursor run", () => {
+    const spawnWorker = functionBody(
+      daemon,
+      "function spawnCursorTurnWorker(\n  turn: ClaimedTurn,\n  promptFile: string,\n): ChildProcess {",
+    );
+    expect(spawnWorker).toContain(
+      "--max-old-space-size=${CURSOR_TURN_WORKER_HEAP_MB}",
+    );
+    expect(spawnWorker).toContain("/oom_score_adj");
+    expect(spawnWorker).toContain("CURSOR_TURN_WORKER_OOM_SCORE");
+  });
 });
 
 function readSource(relativePath: string): string {

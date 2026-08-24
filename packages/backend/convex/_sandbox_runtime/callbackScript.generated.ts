@@ -7527,6 +7527,8 @@ var WATCHDOG_TICK_MS2 = 5e3;
 var TURN_HARD_TIMEOUT_MS = MAX_TOTAL_RUNTIME_MS + 5 * 60 * 1e3;
 var CANCEL_SETTLE_TIMEOUT_MS2 = 3e4;
 var CURSOR_TURN_WORKER_FILE_PREFIX = "/tmp/eva-cursor-turn-";
+var CURSOR_TURN_WORKER_HEAP_MB = 8192;
+var CURSOR_TURN_WORKER_OOM_SCORE = "300";
 var daemonPaths2 = resolveDaemonPaths();
 var daemonExiting = false;
 var callbackRefreshPending = false;
@@ -7607,11 +7609,28 @@ function spawnCursorTurnWorker(turn, promptFile) {
     delete workerEnv.EVA_CURSOR_TURN_WORKER_TURN_ID;
     delete workerEnv.EVA_CURSOR_TURN_WORKER_LEASE_GENERATION;
   }
-  return spawn2(process.execPath, [cursorTurnWorkerEntryPath()], {
-    cwd: process.cwd(),
-    env: workerEnv,
-    stdio: "inherit"
-  });
+  const child = spawn2(
+    process.execPath,
+    [
+      \`--max-old-space-size=\${CURSOR_TURN_WORKER_HEAP_MB}\`,
+      cursorTurnWorkerEntryPath()
+    ],
+    {
+      cwd: process.cwd(),
+      env: workerEnv,
+      stdio: "inherit"
+    }
+  );
+  if (child.pid !== void 0) {
+    try {
+      writeFileSync11(
+        \`/proc/\${child.pid}/oom_score_adj\`,
+        CURSOR_TURN_WORKER_OOM_SCORE
+      );
+    } catch {
+    }
+  }
+  return child;
 }
 function pidAlive3(pid) {
   try {

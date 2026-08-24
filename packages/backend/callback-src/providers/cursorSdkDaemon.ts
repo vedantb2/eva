@@ -77,6 +77,11 @@ const TURN_HARD_TIMEOUT_MS = MAX_TOTAL_RUNTIME_MS + 5 * 60 * 1000;
 // CANCEL_SETTLE_TIMEOUT_MS): exit for respawn rather than wedge.
 const CANCEL_SETTLE_TIMEOUT_MS = 30_000;
 const CURSOR_TURN_WORKER_FILE_PREFIX = "/tmp/eva-cursor-turn-";
+// Cursor's SDK can retain several gigabytes of a long tool-heavy run. The
+// default V8 heap (~4 GB in production) aborted a healthy 17-minute turn, so
+// give the disposable worker room to finish while keeping the supervisor tiny.
+const CURSOR_TURN_WORKER_HEAP_MB = 8192;
+const CURSOR_TURN_WORKER_OOM_SCORE = "300";
 
 const daemonPaths = resolveDaemonPaths();
 
@@ -186,11 +191,33 @@ function spawnCursorTurnWorker(
     delete workerEnv.EVA_CURSOR_TURN_WORKER_TURN_ID;
     delete workerEnv.EVA_CURSOR_TURN_WORKER_LEASE_GENERATION;
   }
-  return spawn(process.execPath, [cursorTurnWorkerEntryPath()], {
-    cwd: process.cwd(),
-    env: workerEnv,
-    stdio: "inherit",
-  });
+  const child = spawn(
+    process.execPath,
+    [
+      `--max-old-space-size=${CURSOR_TURN_WORKER_HEAP_MB}`,
+      cursorTurnWorkerEntryPath(),
+    ],
+    {
+      cwd: process.cwd(),
+      env: workerEnv,
+      stdio: "inherit",
+    },
+  );
+  // The parent daemon is deliberately OOM-protected by the launch script, and
+  // Linux inherits that score into children. Raise only the disposable worker
+  // so host-level pressure sacrifices it before the process that reports the
+  // failure and accepts the next message.
+  if (child.pid !== undefined) {
+    try {
+      writeFileSync(
+        `/proc/${child.pid}/oom_score_adj`,
+        CURSOR_TURN_WORKER_OOM_SCORE,
+      );
+    } catch {
+      // Non-Linux and restricted procfs environments fail open.
+    }
+  }
+  return child;
 }
 
 function pidAlive(pid: number): boolean {

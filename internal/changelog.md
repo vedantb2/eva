@@ -1,5 +1,9 @@
 # Changelog
 
+## Long Cursor turns get a dedicated 8 GB heap - 2026-08-24
+
+The first disposable-worker rollout protected the warm Cursor daemon from accumulated cross-turn SDK allocations, but a single 17-minute Grok turn still reached Node's default 4 GB heap and aborted after 41 visible activity groups. Cursor turn workers now launch with an explicit 8 GB V8 heap while the supervisor remains small. Because the supervisor's protected Linux OOM score is inherited by children, each worker is also reclassified as disposable so host-level memory pressure kills the recoverable agent process before the daemon that must finalize the turn and accept the next message.
+
 ## Claude account switches preserve the project chat session - 2026-08-24
 
 Project chat accepted a newly selected personal Claude account from the UI but discarded it at execution time in favor of the project row's earlier value, so a quick handoff could keep spending Team quota while the message badge named the personal account. Account selection is now validated and committed as part of the turn or queue mutation, the exact account drives its badge and launch, and changing the picker proactively rotates the warm daemon. The daemon identity includes both account id and credential revision, so switching accounts or updating a token starts a fresh Claude process while reusing the project's stable Claude session id and conversation context. Explicit personal-account failures now stop with a clear error instead of silently falling back to Team.

@@ -378,7 +378,8 @@ export const updateLastConversationMessage = authMutation({
 /**
  * Sticky sandbox-chat model (`lastChatModel`). No `updatedAt` bump — picker
  * changes are not conversation activity. Distinct from `projects.model`
- * (metadata / build prefs).
+ * (metadata / build prefs). A cross-provider pick also reconciles the owner's
+ * sticky account to the new model's provider.
  */
 export const setChatModel = authMutation({
   args: {
@@ -387,8 +388,17 @@ export const setChatModel = authMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getProjectWithAccess(ctx.db, args.id, ctx.userId);
-    await ctx.db.patch(args.id, { lastChatModel: args.model });
+    const project = await getProjectWithAccess(ctx.db, args.id, ctx.userId);
+    const providerAccountId = await reconcileProviderAccountForModel(
+      ctx.db,
+      project.userId,
+      args.model,
+      project.providerAccountId,
+    );
+    await ctx.db.patch(args.id, {
+      lastChatModel: args.model,
+      providerAccountId,
+    });
     return null;
   },
 });

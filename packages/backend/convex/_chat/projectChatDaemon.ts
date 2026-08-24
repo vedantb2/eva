@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
@@ -184,6 +184,10 @@ export const openSyntheticTurn = authMutation({
       timestamp: Date.now(),
       activityLog: "",
       isSyntheticTurn: true,
+      // Stamped at open time because the daemon protocol carries no model on
+      // completion. Not yet a checkpoint — that needs `finishedAt` too — and
+      // `completeSyntheticTurn` clears it again if the turn fails.
+      model: normalizeAIModel(project.lastChatModel ?? project.model),
     });
     await ctx.db.patch(args.projectId, {
       syntheticTurnMessageId: messageId,
@@ -235,6 +239,7 @@ export const completeSyntheticTurn = authMutation({
       activityLog?: string;
       finishedAt: number;
       pendingQuestion?: string;
+      model?: Doc<"messages">["model"];
     } = {
       content: args.success
         ? args.result || "I couldn't process your message."
@@ -243,6 +248,10 @@ export const completeSyntheticTurn = authMutation({
     };
     if (args.activityLog) patch.activityLog = args.activityLog;
     if (args.pendingQuestion) patch.pendingQuestion = args.pendingQuestion;
+    // Drops the open-time stamp so a failed turn never becomes a checkpoint.
+    if (!args.success) {
+      patch.model = undefined;
+    }
     await ctx.db.patch(args.messageId, patch);
 
     await ctx.db.patch(args.projectId, {

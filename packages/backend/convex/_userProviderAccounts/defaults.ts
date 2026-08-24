@@ -47,30 +47,6 @@ export async function assertProviderAccountUsableBy(
   return providerAccountId;
 }
 
-/**
- * Validates an explicit account at the turn boundary, including the selected
- * model's provider. Undefined remains the shared Team credential.
- */
-export async function assertProviderAccountForModel(
-  db: GenericDatabaseReader<DataModel>,
-  providerAccountId: Id<"userProviderAccounts"> | null | undefined,
-  ownerUserId: Id<"users">,
-  model: string | undefined,
-): Promise<Id<"userProviderAccounts"> | undefined> {
-  const usableAccountId = await assertProviderAccountUsableBy(
-    db,
-    providerAccountId,
-    ownerUserId,
-  );
-  if (usableAccountId === undefined) return undefined;
-
-  const account = await db.get(usableAccountId);
-  if (!account || account.provider !== getAIModelProvider(model)) {
-    throw new Error("Selected provider account does not support this model");
-  }
-  return usableAccountId;
-}
-
 type TurnProviderAccountBase = {
   requestedAccountId: Id<"userProviderAccounts"> | undefined;
   ownerUserId: Id<"users">;
@@ -78,11 +54,31 @@ type TurnProviderAccountBase = {
 };
 
 /**
+ * Team (undefined) stays Team. A concrete account that no longer matches the
+ * model's provider falls back to the owner's default for that provider — a
+ * cross-provider model switch must not run on the wrong provider's credential.
+ */
+async function reconcileUsableAccountForModel(
+  db: GenericDatabaseReader<DataModel>,
+  ownerUserId: Id<"users">,
+  model: string | undefined,
+  accountId: Id<"userProviderAccounts"> | undefined,
+): Promise<Id<"userProviderAccounts"> | undefined> {
+  if (accountId === undefined) return undefined;
+  return await reconcileProviderAccountForModel(
+    db,
+    ownerUserId,
+    model,
+    accountId,
+  );
+}
+
+/**
  * Resolves the account a chat turn should run on. Project and task chat are
- * owner-sticky: collaborators cannot change the billed account, and a mismatched
- * provider throws. Session chat lets anyone with access pick from the owner's
- * pool and falls back to the owner's default when the pick no longer matches
- * the model provider.
+ * owner-sticky: only the owner may point the turn at a different account.
+ * Session chat lets anyone with access pick from the owner's pool. Both then
+ * reconcile the provider, so switching model provider never throws — an
+ * automatic reconcile is not a collaborator changing the billed account.
  */
 export async function resolveTurnProviderAccountId(
   db: GenericDatabaseReader<DataModel>,
@@ -98,39 +94,50 @@ export async function resolveTurnProviderAccountId(
       }),
 ): Promise<Id<"userProviderAccounts"> | undefined> {
   if (args.changePolicy === "owner-only") {
-    const accountId = await assertProviderAccountForModel(
-      db,
-      args.requestedAccountId,
-      args.ownerUserId,
-      args.model,
-    );
+    const requested = args.requestedAccountId;
+    if (requested === undefined) {
+      // The entity's stored account is server state, not a caller pick, so a
+      // stale id (owner deleted the account) degrades to the owner's default
+      // for this model rather than failing the turn.
+      return await reconcileUsableAccountForModel(
+        db,
+        args.ownerUserId,
+        args.model,
+        args.currentAccountId,
+      );
+    }
     if (
       args.senderUserId !== args.ownerUserId &&
-      accountId !== args.currentAccountId
+      requested !== args.currentAccountId
     ) {
       throw new Error(
         `Only the ${args.ownerNoun} can change the provider account`,
       );
     }
-    return accountId;
+    const accountId = await assertProviderAccountUsableBy(
+      db,
+      requested,
+      args.ownerUserId,
+    );
+    return await reconcileUsableAccountForModel(
+      db,
+      args.ownerUserId,
+      args.model,
+      accountId,
+    );
   }
 
-  let accountId = await assertProviderAccountUsableBy(
+  const accountId = await assertProviderAccountUsableBy(
     db,
     args.requestedAccountId,
     args.ownerUserId,
   );
-  if (accountId) {
-    const account = await db.get(accountId);
-    if (!account || account.provider !== getAIModelProvider(args.model)) {
-      accountId = await resolveDefaultProviderAccountId(
-        db,
-        args.ownerUserId,
-        args.model,
-      );
-    }
-  }
-  return accountId;
+  return await reconcileUsableAccountForModel(
+    db,
+    args.ownerUserId,
+    args.model,
+    accountId,
+  );
 }
 
 /**

@@ -26,6 +26,7 @@ import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import {
   buildJumpRailTicks,
   buildMessageHistory,
+  findHandoffBoundaryIds,
   findLastUserMessageIndex,
   findLastAssistantMessageId,
   findStreamingTargetMessage,
@@ -241,6 +242,7 @@ export function ChatBody({
   const lastUserMessageIndex = findLastUserMessageIndex(displayMessages);
 
   const jumpRailMessages = buildJumpRailTicks(displayMessages);
+  const handoffBoundaryIds = findHandoffBoundaryIds(displayMessages);
 
   const currentUserId = useQuery(api.auth.me);
   const users = useQuery(api.users.listAll);
@@ -278,6 +280,7 @@ export function ChatBody({
         onChangedFilesExpandedChange={setMessageExpanded}
         isOtherUser={isOtherUser}
         senderFirstName={senderFirstName}
+        isHandoffBoundary={handoffBoundaryIds.has(message._id)}
         turnModel={precedingUser?.model}
         turnReasoningLevel={precedingUser?.reasoningLevel}
         turnCredentialSourceLabel={precedingUser?.credentialSourceLabel}

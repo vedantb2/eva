@@ -20,6 +20,7 @@ import { resolveSessionBaseBranch } from "./baseBranch";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 import {
   assertProviderAccountUsableBy,
+  reconcileProviderAccountForModel,
   resolveDefaultProviderAccountId,
 } from "../_userProviderAccounts/defaults";
 import { schedulePrTitleSync } from "../_github/prTitleSync";
@@ -251,8 +252,9 @@ export const addMessage = authMutation({
  * client-side optimistic update) rather than only when a message is sent. Does
  * not touch `updatedAt` — changing the model is not conversation activity and
  * must not reorder the session list. Any visible model is allowed, including one
- * from another provider: the next turn resolves credentials from the new model's
- * provider and that provider's CLI starts a fresh conversation in the sandbox.
+ * from another provider: the sticky account is reconciled to the new model's
+ * provider here, and that provider's CLI is caught up on the conversation so far
+ * (see `_shared/modelHandoff.ts`).
  */
 export const setModel = authMutation({
   args: {
@@ -265,7 +267,13 @@ export const setModel = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
-    await ctx.db.patch(args.id, { lastModel: args.model });
+    const providerAccountId = await reconcileProviderAccountForModel(
+      ctx.db,
+      session.createdBy ?? session.userId,
+      args.model,
+      session.providerAccountId,
+    );
+    await ctx.db.patch(args.id, { lastModel: args.model, providerAccountId });
     return null;
   },
 });

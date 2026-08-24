@@ -7,10 +7,9 @@ import {
 import { stripMentionTokens } from "../_mentions/resolveDocMentions";
 
 /**
- * A rotated Cursor agent starts with no memory beyond this handoff, so the
- * user's own messages — the accumulated spec — are what must survive. Assistant
- * replies are Eva's short summaries, so only the newest few are kept for local
- * continuity.
+ * Session chat no longer injects this block: Cursor resumes one agent and the
+ * SDK compacts in place. The helper remains for tests and any caller that
+ * still needs an explicit transcript digest.
  */
 const HANDOFF_ENTRY_CHAR_CAP = 1_500;
 const HANDOFF_ASSISTANT_ENTRY_LIMIT = 3;
@@ -51,10 +50,10 @@ function handoffCost(
 }
 
 /**
- * Builds the chronological handoff block for a rotated agent: every user
- * message plus the last few assistant messages, each capped, trimmed to a total
- * character budget by dropping assistant entries first and then eliding the
- * middle of the user history (earliest and latest messages always survive).
+ * Builds a chronological transcript digest: every user message plus the last
+ * few assistant messages, each capped, trimmed to a total character budget by
+ * dropping assistant entries first and then eliding the middle of the user
+ * history (earliest and latest messages always survive).
  */
 export function buildSessionHandoff(history: HandoffMessage[]): string {
   const all: HandoffEntry[] = [];

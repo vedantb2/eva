@@ -182,9 +182,8 @@ describe("the cursor daemon's per-turn ordering", () => {
   });
 
   /**
-   * `prepareCursorSessionState` pushes a persistent activity notice when it
-   * rotates the saved agent, so the per-turn state reset has to run BEFORE it —
-   * resetting afterwards wipes the notice out of the turn's activity log.
+   * Session prep still runs every claimed turn. Reset per-turn buffers first
+   * so leftover output from the previous turn cannot mix with this one.
    */
   test("the state reset runs before session prep, which runs every turn", () => {
     const runTurn = functionBody(

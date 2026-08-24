@@ -1,5 +1,9 @@
 # Changelog
 
+## Cursor follow-ups resume the same agent - 2026-08-24
+
+Cursor's SDK already compacts a full window in place. Eva used to spawn a fresh agent once saved context looked large (~160k tokens), then stuff the Eva transcript in as a handoff. That is what made grok forget in-progress work (a rebase, conflict resolution) after a follow-up. Saved Cursor agents are always resumed now. A new agent is created only when resume itself fails (unreadable store / stalled resume). Session prompts no longer dump prior chat into the turn.
+
 ## Claude account switches preserve task and session chat - 2026-08-24
 
 Project chat already committed a newly selected Claude account and waited for the replacement daemon before the next send. Task chat still discarded the picker at execute time, and session chat patched the sticky account without rotating the warm process, so a quick handoff could keep spending the previous credential. Both surfaces now validate and persist the requested account on send and queue, then await the same rotate-and-wait prewarm so the next turn uses the new account while reusing the stable Claude session.

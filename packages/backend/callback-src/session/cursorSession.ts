@@ -3,16 +3,11 @@ import {
   CURSOR_PERSIST_DIR,
   CURSOR_PERSIST_STATE_FILE,
   CURSOR_RUNTIME_HOME_DIR,
-  CURSOR_SDK_STORE_DIR,
 } from "../config.js";
-import { pushNoticeStep, updateThinkingStep } from "../parse/canonical.js";
+import { updateThinkingStep } from "../parse/canonical.js";
 import { callbackState as S } from "../runtime/state.js";
 import type { SessionMode } from "../types.js";
 import { createSessionStore } from "./createSessionStore.js";
-import {
-  readCursorResumeStats,
-  shouldRotateCursorSession,
-} from "./cursorResumePolicy.js";
 
 const store = createSessionStore({
   runtimeHomeDir: CURSOR_RUNTIME_HOME_DIR,
@@ -38,6 +33,12 @@ function hydratePersistedCursorState(): void {
   store.hydratePersistedState("hydratePersistedCursorState");
 }
 
+/**
+ * Resume the saved Cursor agent whenever one exists. The SDK compacts a full
+ * window in place (`summary-started` / `summary-completed`); Eva used to spawn
+ * a new agent at ~160k tokens and the replacement forgot its own work.
+ * Unreadable stores still self-heal to a fresh agent inside `runCursorSdkAttempt`.
+ */
 export function prepareCursorSessionState(): SessionMode {
   updateThinkingStep(
     "Preparing Cursor session...",
@@ -52,32 +53,6 @@ export function prepareCursorSessionState(): SessionMode {
       : "Preparing fresh Cursor session...",
   );
   if (persistedState && persistedState.resumeSessionId) {
-    const resumeStats = readCursorResumeStats(
-      CURSOR_SDK_STORE_DIR,
-      persistedState.resumeSessionId,
-    );
-    if (shouldRotateCursorSession(resumeStats)) {
-      // Rotation drops everything the agent remembered, so it must leave a
-      // durable trace: users saw the fresh agent deny its own past work with a
-      // transient thinking line as the only clue.
-      const contextTokens = resumeStats ? resumeStats.contextTokens : 0;
-      const approxThousands = Math.round(contextTokens / 1000);
-      console.log(
-        "prepareCursorSessionState: rotating saved Cursor agent (" +
-          contextTokens +
-          " context tokens)",
-      );
-      S.activeCursorSessionId = "";
-      pushNoticeStep(
-        "Started a fresh Cursor agent",
-        `Saved context reached ~${approxThousands}k tokens; continuing with a summary handoff.`,
-      );
-      updateThinkingStep(
-        "Preparing Cursor session...",
-        "Saved context reached its safe limit. Starting fresh...",
-      );
-      return { mode: "none", sessionId: null };
-    }
     S.activeCursorSessionId = persistedState.resumeSessionId;
     return { mode: "resume", sessionId: persistedState.resumeSessionId };
   }

@@ -43,7 +43,6 @@ import {
   ensureSessionDaemonState,
   syncSessionDaemonState,
 } from "./daemonState";
-import { usesCursorConversationHandoff } from "./cursorContext";
 import {
   acquireTurnLease,
   advanceTurn,
@@ -152,27 +151,10 @@ export async function buildSessionPrompt(
     session.repoId,
   );
 
-  const cursorMessages =
-    usesCursorConversationHandoff({
-      provider: session.provider,
-      lastModel: session.lastModel,
-    })
-      ? await ctx.db
-          .query("messages")
-          .withIndex("by_parent", (q) => q.eq("parentId", session._id))
-          .collect()
-      : [];
-  const cursorHistory = cursorMessages
-    .filter((entry) => entry.content)
-    .map((entry) => ({ role: entry.role, content: entry.content }));
-  const lastHistoryEntry = cursorHistory.at(-1);
-  const priorCursorHistory =
-    lastHistoryEntry?.role === "user" &&
-    lastHistoryEntry.content === args.message
-      ? cursorHistory.slice(0, -1)
-      : cursorHistory;
   // The stored plan still feeds implementation turns, and gives `eva-plan` its
   // iteration context after a sandbox is recreated without plan.md on disk.
+  // Cursor resumes the saved SDK agent; the Eva transcript is not stuffed
+  // in as a rotation handoff.
   let prompt = buildEditPrompt(
     {
       owner: repo.owner,
@@ -186,7 +168,6 @@ export async function buildSessionPrompt(
     customInstructionsBlock,
     repo.systemPrompt,
     session.devPort ?? repo.devPort,
-    priorCursorHistory,
   );
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;

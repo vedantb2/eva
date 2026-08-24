@@ -2,7 +2,6 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
-import { useState } from "react";
 import {
   api,
   buildTraitsExecutionPayload,
@@ -27,6 +26,7 @@ import {
   useAvailableAiModels,
   useTaskOwnerProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
+import { useProviderAccountHandoff } from "@/lib/hooks/useProviderAccountHandoff";
 
 interface TaskSandboxChatPanelProps {
   taskId: Id<"agentTasks">;
@@ -100,7 +100,12 @@ export function TaskSandboxChatPanel({
   const prewarmChatDaemonNow = useAction(
     api.agentTaskChatWorkflow.prewarmChatDaemonNow,
   );
-  const [isSwitchingAccount, setIsSwitchingAccount] = useState(false);
+  const { isSwitchingAccount, switchProviderAccount } =
+    useProviderAccountHandoff({
+      persist: (providerAccountId) =>
+        updateTask({ id: taskId, providerAccountId }),
+      prewarm: () => prewarmChatDaemonNow({ taskId }),
+    });
   const setTraitsMutation = useMutation(
     api.agentTasks.setTraits,
   ).withOptimisticUpdate((localStore, args) => {
@@ -206,18 +211,7 @@ export function TaskSandboxChatPanel({
 
   const setProviderAccountId = (next: string | null) => {
     if (!isOwner || !task) return;
-    void (async () => {
-      setIsSwitchingAccount(true);
-      try {
-        await updateTask({
-          id: taskId,
-          providerAccountId: resolveAccountId(next) ?? null,
-        });
-        await prewarmChatDaemonNow({ taskId });
-      } finally {
-        setIsSwitchingAccount(false);
-      }
-    })();
+    switchProviderAccount(resolveAccountId(next) ?? null);
   };
 
   const lastMessage = messages?.[messages.length - 1];

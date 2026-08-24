@@ -32,7 +32,7 @@ import { buildCustomInstructionsBlock } from "./prompts";
 import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 import { notifyChatMentions } from "./_mentions/notifyChatMentions";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
-import { assertProviderAccountForModel } from "./_userProviderAccounts/defaults";
+import { resolveTurnProviderAccountId } from "./_userProviderAccounts/defaults";
 import type { Doc, Id } from "./_generated/dataModel";
 import { TASK_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
 
@@ -53,25 +53,6 @@ const CHAT_ALLOWED_TOOLS = "Read,Write,Edit,Bash,Glob,Grep";
 /** Streaming-activity entity id for a task chat. */
 function chatStreamEntityId(taskId: Id<"agentTasks">): string {
   return `${TASK_CHAT_STREAM_PREFIX}${String(taskId)}`;
-}
-
-async function resolveTaskTurnProviderAccountId(
-  ctx: MutationCtx,
-  task: Doc<"agentTasks">,
-  requestedAccountId: Id<"userProviderAccounts"> | undefined,
-  model: string | undefined,
-  senderUserId: Id<"users">,
-): Promise<Id<"userProviderAccounts"> | undefined> {
-  const accountId = await assertProviderAccountForModel(
-    ctx.db,
-    requestedAccountId,
-    task.createdBy,
-    model,
-  );
-  if (senderUserId !== task.createdBy && accountId !== task.providerAccountId) {
-    throw new Error("Only the task owner can change the provider account");
-  }
-  return accountId;
 }
 
 async function buildTaskChatTurnPrompt(
@@ -173,13 +154,15 @@ export const addMessage = authMutation({
     const role = args.role ?? "user";
     const providerAccountId =
       role === "user"
-        ? await resolveTaskTurnProviderAccountId(
-            ctx,
-            task,
-            args.providerAccountId,
-            args.model ?? task.lastChatModel ?? task.model,
-            ctx.userId,
-          )
+        ? await resolveTurnProviderAccountId(ctx.db, {
+            requestedAccountId: args.providerAccountId,
+            ownerUserId: task.createdBy,
+            currentAccountId: task.providerAccountId,
+            model: args.model ?? task.lastChatModel ?? task.model,
+            senderUserId: ctx.userId,
+            changePolicy: "owner-only",
+            ownerNoun: "task owner",
+          })
         : undefined;
     await ctx.db.insert("messages", {
       parentId: args.taskId,
@@ -229,13 +212,15 @@ export const startExecute = authMutation({
     }
 
     const normalizedModel = normalizeAIModel(args.model);
-    const providerAccountId = await resolveTaskTurnProviderAccountId(
-      ctx,
-      task,
-      args.providerAccountId,
-      normalizedModel,
-      ctx.userId,
-    );
+    const providerAccountId = await resolveTurnProviderAccountId(ctx.db, {
+      requestedAccountId: args.providerAccountId,
+      ownerUserId: task.createdBy,
+      currentAccountId: task.providerAccountId,
+      model: normalizedModel,
+      senderUserId: ctx.userId,
+      changePolicy: "owner-only",
+      ownerNoun: "task owner",
+    });
 
     await notifyChatMentions(ctx, {
       content: args.message,
@@ -362,13 +347,15 @@ export const enqueueMessage = authMutation({
     }
 
     const normalizedModel = normalizeAIModel(args.model);
-    const providerAccountId = await resolveTaskTurnProviderAccountId(
-      ctx,
-      task,
-      args.providerAccountId,
-      normalizedModel,
-      ctx.userId,
-    );
+    const providerAccountId = await resolveTurnProviderAccountId(ctx.db, {
+      requestedAccountId: args.providerAccountId,
+      ownerUserId: task.createdBy,
+      currentAccountId: task.providerAccountId,
+      model: normalizedModel,
+      senderUserId: ctx.userId,
+      changePolicy: "owner-only",
+      ownerNoun: "task owner",
+    });
 
     await notifyChatMentions(ctx, {
       content,

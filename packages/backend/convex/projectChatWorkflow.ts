@@ -35,7 +35,7 @@ import { buildCustomInstructionsBlock } from "./prompts";
 import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 import { notifyChatMentions } from "./_mentions/notifyChatMentions";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
-import { assertProviderAccountForModel } from "./_userProviderAccounts/defaults";
+import { resolveTurnProviderAccountId } from "./_userProviderAccounts/defaults";
 import type { Doc, Id } from "./_generated/dataModel";
 import { PROJECT_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
 
@@ -122,28 +122,6 @@ function chatStreamEntityId(projectId: Id<"projects">): string {
   return `${PROJECT_CHAT_STREAM_PREFIX}${String(projectId)}`;
 }
 
-async function resolveProjectTurnProviderAccountId(
-  ctx: MutationCtx,
-  project: Doc<"projects">,
-  requestedAccountId: Id<"userProviderAccounts"> | undefined,
-  model: string | undefined,
-  senderUserId: Id<"users">,
-): Promise<Id<"userProviderAccounts"> | undefined> {
-  const accountId = await assertProviderAccountForModel(
-    ctx.db,
-    requestedAccountId,
-    project.userId,
-    model,
-  );
-  if (
-    senderUserId !== project.userId &&
-    accountId !== project.providerAccountId
-  ) {
-    throw new Error("Only the project owner can change the provider account");
-  }
-  return accountId;
-}
-
 // --- Completion event ---
 
 export const projectChatCompleteEvent = defineEvent({
@@ -176,13 +154,15 @@ export const addMessage = authMutation({
     const role = args.role ?? "user";
     const providerAccountId =
       role === "user"
-        ? await resolveProjectTurnProviderAccountId(
-            ctx,
-            project,
-            args.providerAccountId,
-            args.model ?? project.lastChatModel ?? project.model,
-            ctx.userId,
-          )
+        ? await resolveTurnProviderAccountId(ctx.db, {
+            requestedAccountId: args.providerAccountId,
+            ownerUserId: project.userId,
+            currentAccountId: project.providerAccountId,
+            model: args.model ?? project.lastChatModel ?? project.model,
+            senderUserId: ctx.userId,
+            changePolicy: "owner-only",
+            ownerNoun: "project owner",
+          })
         : undefined;
     await ctx.db.insert("messages", {
       parentId: args.projectId,
@@ -229,13 +209,15 @@ export const startExecute = authMutation({
     }
 
     const normalizedModel = normalizeAIModel(args.model);
-    const providerAccountId = await resolveProjectTurnProviderAccountId(
-      ctx,
-      project,
-      args.providerAccountId,
-      normalizedModel,
-      ctx.userId,
-    );
+    const providerAccountId = await resolveTurnProviderAccountId(ctx.db, {
+      requestedAccountId: args.providerAccountId,
+      ownerUserId: project.userId,
+      currentAccountId: project.providerAccountId,
+      model: normalizedModel,
+      senderUserId: ctx.userId,
+      changePolicy: "owner-only",
+      ownerNoun: "project owner",
+    });
 
     await notifyChatMentions(ctx, {
       content: args.message,
@@ -360,13 +342,15 @@ export const enqueueMessage = authMutation({
     }
 
     const normalizedModel = normalizeAIModel(args.model);
-    const providerAccountId = await resolveProjectTurnProviderAccountId(
-      ctx,
-      project,
-      args.providerAccountId,
-      normalizedModel,
-      ctx.userId,
-    );
+    const providerAccountId = await resolveTurnProviderAccountId(ctx.db, {
+      requestedAccountId: args.providerAccountId,
+      ownerUserId: project.userId,
+      currentAccountId: project.providerAccountId,
+      model: normalizedModel,
+      senderUserId: ctx.userId,
+      changePolicy: "owner-only",
+      ownerNoun: "project owner",
+    });
 
     await notifyChatMentions(ctx, {
       content,

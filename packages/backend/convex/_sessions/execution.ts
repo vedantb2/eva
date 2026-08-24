@@ -6,7 +6,6 @@ import { authAction, authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
   assertModelMatchesLockedProvider,
-  getAIModelProvider,
   normalizeAIModel,
   reasoningLevelValidator,
   usesChatDaemon,
@@ -17,10 +16,7 @@ import { finalizeCancelledAssistantMessage } from "../streaming";
 import { syncSessionDaemonState } from "./daemonState";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
 import { buildSessionPrompt, SESSION_TOOLS } from "./workflow";
-import {
-  assertProviderAccountUsableBy,
-  resolveDefaultProviderAccountId,
-} from "../_userProviderAccounts/defaults";
+import { resolveTurnProviderAccountId } from "../_userProviderAccounts/defaults";
 import type { Doc, Id } from "../_generated/dataModel";
 import { notifyChatMentions } from "../_mentions/notifyChatMentions";
 import {
@@ -40,37 +36,6 @@ async function finalizeOpenSyntheticTurnOnCancel(
   if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
     await finalizeCancelledAssistantMessage(ctx, syntheticMessage, streaming);
   }
-}
-
-async function resolveSessionTurnProviderAccountId(
-  ctx: MutationCtx,
-  session: Doc<"sessions">,
-  requestedAccountId: Id<"userProviderAccounts"> | undefined,
-  model: string,
-): Promise<Id<"userProviderAccounts"> | undefined> {
-  const credentialOwnerUserId = session.createdBy ?? session.userId;
-  // A session runs on its owner's credentials whoever sends the turn, so the
-  // account must belong to the owner — collaborators pick from that same pool
-  // and can never attach their own.
-  let stickyProviderAccountId = await assertProviderAccountUsableBy(
-    ctx.db,
-    requestedAccountId,
-    credentialOwnerUserId,
-  );
-  // If the chosen account no longer matches the model provider, fall back
-  // to the owner's default for that provider (or Team). Explicit Team
-  // (undefined) stays Team.
-  if (stickyProviderAccountId) {
-    const account = await ctx.db.get(stickyProviderAccountId);
-    if (!account || account.provider !== getAIModelProvider(model)) {
-      stickyProviderAccountId = await resolveDefaultProviderAccountId(
-        ctx.db,
-        credentialOwnerUserId,
-        model,
-      );
-    }
-  }
-  return stickyProviderAccountId;
 }
 
 /** Frontend trigger to start a session execution workflow. */
@@ -106,12 +71,12 @@ export const startExecute = authMutation({
     assertModelMatchesLockedProvider(session.provider, args.model);
 
     const credentialOwnerUserId = session.createdBy ?? session.userId;
-    const stickyProviderAccountId = await resolveSessionTurnProviderAccountId(
-      ctx,
-      session,
-      args.providerAccountId,
-      args.model,
-    );
+    const stickyProviderAccountId = await resolveTurnProviderAccountId(ctx.db, {
+      requestedAccountId: args.providerAccountId,
+      ownerUserId: session.createdBy ?? session.userId,
+      model: args.model,
+      changePolicy: "owner-pool",
+    });
 
     // Wipe any stale streaming row before staging the placeholder. The daemon
     // sends its final reconcile heartbeat BEFORE the completion mutation (see
@@ -395,12 +360,12 @@ export const enqueueMessage = authMutation({
 
     assertModelMatchesLockedProvider(session.provider, args.model);
 
-    const providerAccountId = await resolveSessionTurnProviderAccountId(
-      ctx,
-      session,
-      args.providerAccountId,
-      args.model,
-    );
+    const providerAccountId = await resolveTurnProviderAccountId(ctx.db, {
+      requestedAccountId: args.providerAccountId,
+      ownerUserId: session.createdBy ?? session.userId,
+      model: args.model,
+      changePolicy: "owner-pool",
+    });
 
     await notifyChatMentions(ctx, {
       content: displayContent || content,

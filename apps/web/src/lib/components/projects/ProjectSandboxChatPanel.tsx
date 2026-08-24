@@ -2,7 +2,6 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction, useMutation } from "convex/react";
-import { useState } from "react";
 import {
   api,
   buildTraitsExecutionPayload,
@@ -22,6 +21,7 @@ import {
   useAvailableAiModels,
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
+import { useProviderAccountHandoff } from "@/lib/hooks/useProviderAccountHandoff";
 import { projectStoredTraits, useSetProjectTraits } from "./useProjectTraits";
 import { useUpdateProject } from "./useUpdateProject";
 
@@ -66,7 +66,12 @@ export function ProjectSandboxChatPanel({
     api.projectChatWorkflow.prewarmChatDaemonNow,
   );
   const updateProject = useUpdateProject(projectId);
-  const [isSwitchingAccount, setIsSwitchingAccount] = useState(false);
+  const { isSwitchingAccount, switchProviderAccount } =
+    useProviderAccountHandoff({
+      persist: (providerAccountId) =>
+        updateProject({ id: projectId, providerAccountId }),
+      prewarm: () => prewarmChatDaemonNow({ projectId }),
+    });
   const setChatModelMutation = useMutation(
     api.projects.setChatModel,
   ).withOptimisticUpdate((localStore, args) => {
@@ -161,18 +166,7 @@ export function ProjectSandboxChatPanel({
 
   const setProviderAccountId = (next: string | null) => {
     if (!isOwner) return;
-    void (async () => {
-      setIsSwitchingAccount(true);
-      try {
-        await updateProject({
-          id: projectId,
-          providerAccountId: resolveAccountId(next) ?? null,
-        });
-        await prewarmChatDaemonNow({ projectId });
-      } finally {
-        setIsSwitchingAccount(false);
-      }
-    })();
+    switchProviderAccount(resolveAccountId(next) ?? null);
   };
 
   const lastMessage = messages?.[messages.length - 1];

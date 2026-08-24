@@ -4,11 +4,17 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const testsDir = dirname(fileURLToPath(import.meta.url));
+const defaultsSource = readSource(
+  "../convex/_userProviderAccounts/defaults.ts",
+);
 const projectChatSource = readSource("../convex/projectChatWorkflow.ts");
 const taskChatSource = readSource("../convex/agentTaskChatWorkflow.ts");
 const sessionExecutionSource = readSource("../convex/_sessions/execution.ts");
 const executionSource = readSource("../convex/_sandbox_runtime/execution.ts");
 const envResolverSource = readSource("../convex/envVarResolver.ts");
+const handoffHookSource = readSource(
+  "../../../apps/web/src/lib/hooks/useProviderAccountHandoff.ts",
+);
 const projectPanelSource = readSource(
   "../../../apps/web/src/lib/components/projects/ProjectSandboxChatPanel.tsx",
 );
@@ -22,93 +28,42 @@ const sessionModelSource = readSource(
   "../../../apps/web/src/lib/hooks/useSessionModel.ts",
 );
 
-describe("project chat provider account handoff", () => {
-  test("the requested account is validated and becomes the staged turn account", () => {
-    const startExecute = exportBody(projectChatSource, "startExecute");
-    expect(startExecute).toContain("resolveProjectTurnProviderAccountId(");
-    expect(startExecute).toContain("providerAccountId,");
-    expect(startExecute).not.toContain("void args.providerAccountId");
-    expect(startExecute).not.toContain(
-      "providerAccountId: project.providerAccountId",
+describe("provider account handoff is one shared contract", () => {
+  test("turn account resolution lives in one helper used by all three chats", () => {
+    const helper = functionBody(defaultsSource, "resolveTurnProviderAccountId");
+    expect(helper).toContain('changePolicy: "owner-only"');
+    expect(helper).toContain('changePolicy: "owner-pool"');
+    expect(projectChatSource).toContain("resolveTurnProviderAccountId(");
+    expect(taskChatSource).toContain("resolveTurnProviderAccountId(");
+    expect(sessionExecutionSource).toContain("resolveTurnProviderAccountId(");
+    expect(projectChatSource).not.toContain(
+      "function resolveProjectTurnProviderAccountId",
+    );
+    expect(taskChatSource).not.toContain(
+      "function resolveTaskTurnProviderAccountId",
+    );
+    expect(sessionExecutionSource).not.toContain(
+      "function resolveSessionTurnProviderAccountId",
     );
   });
 
-  test("queued turns and credential badges use the validated account", () => {
-    const addMessage = exportBody(projectChatSource, "addMessage");
-    const enqueueMessage = exportBody(projectChatSource, "enqueueMessage");
-    expect(addMessage).toContain("resolveProjectTurnProviderAccountId(");
-    expect(addMessage).toContain("providerAccountId,");
-    expect(enqueueMessage).toContain("resolveProjectTurnProviderAccountId(");
-    expect(enqueueMessage).toContain("providerAccountId,");
-  });
-
-  test("the composer waits for the replacement daemon before sending again", () => {
-    expect(projectPanelSource).toContain(
-      "await prewarmChatDaemonNow({ projectId })",
-    );
+  test("composer wait lives in one hook used by all three chats", () => {
+    expect(handoffHookSource).toContain("await args.persist(");
+    expect(handoffHookSource).toContain("await args.prewarm()");
+    expect(projectPanelSource).toContain("useProviderAccountHandoff(");
+    expect(taskPanelSource).toContain("useProviderAccountHandoff(");
+    expect(sessionModelSource).toContain("useProviderAccountHandoff(");
     expect(projectPanelSource).toContain(
       "isInputDisabled={!isSandboxActive || isSwitchingAccount}",
     );
-  });
-});
-
-describe("task chat provider account handoff", () => {
-  test("the requested account is validated and becomes the staged turn account", () => {
-    const startExecute = exportBody(taskChatSource, "startExecute");
-    expect(startExecute).toContain("resolveTaskTurnProviderAccountId(");
-    expect(startExecute).toContain("providerAccountId,");
-    expect(startExecute).not.toContain("void args.providerAccountId");
-    expect(startExecute).not.toContain(
-      "providerAccountId: task.providerAccountId",
-    );
-  });
-
-  test("queued turns and credential badges use the validated account", () => {
-    const addMessage = exportBody(taskChatSource, "addMessage");
-    const enqueueMessage = exportBody(taskChatSource, "enqueueMessage");
-    expect(addMessage).toContain("resolveTaskTurnProviderAccountId(");
-    expect(addMessage).toContain("providerAccountId,");
-    expect(enqueueMessage).toContain("resolveTaskTurnProviderAccountId(");
-    expect(enqueueMessage).toContain("providerAccountId,");
-  });
-
-  test("the composer waits for the replacement daemon before sending again", () => {
-    expect(taskPanelSource).toContain("await prewarmChatDaemonNow({ taskId })");
     expect(taskPanelSource).toContain(
       "isInputDisabled={!isSandboxActive || isSwitchingAccount}",
-    );
-  });
-});
-
-describe("session chat provider account handoff", () => {
-  test("the requested account is validated and becomes the staged turn account", () => {
-    const startExecute = exportBody(sessionExecutionSource, "startExecute");
-    expect(startExecute).toContain("resolveSessionTurnProviderAccountId(");
-    expect(startExecute).toContain(
-      "providerAccountId: stickyProviderAccountId",
-    );
-    expect(startExecute).not.toContain(
-      "providerAccountId: session.providerAccountId",
-    );
-  });
-
-  test("queued turns persist the validated account onto the session", () => {
-    const enqueueMessage = exportBody(sessionExecutionSource, "enqueueMessage");
-    expect(enqueueMessage).toContain("resolveSessionTurnProviderAccountId(");
-    expect(enqueueMessage).toContain("providerAccountId,");
-  });
-
-  test("the composer waits for the replacement daemon before sending again", () => {
-    expect(sessionModelSource).toContain(
-      "await prewarmDaemonNow({ sessionId })",
     );
     expect(sessionPanelSource).toContain(
       "isInputDisabled={!isSandboxActive || isSwitchingAccount}",
     );
   });
-});
 
-describe("provider account handoff shared contract", () => {
   test("daemon identity includes both account id and credential revision", () => {
     const signature = functionBody(executionSource, "buildDaemonOptsSig");
     expect(signature).toContain("providerAccountId: string | undefined");
@@ -131,6 +86,66 @@ describe("provider account handoff shared contract", () => {
       'throw new Error("Selected provider account does not support this model")',
     );
     expect(resolver).not.toContain("falling back to team credential");
+  });
+});
+
+describe("project chat provider account handoff", () => {
+  test("the requested account is validated and becomes the staged turn account", () => {
+    const startExecute = exportBody(projectChatSource, "startExecute");
+    expect(startExecute).toContain("resolveTurnProviderAccountId(");
+    expect(startExecute).toContain('changePolicy: "owner-only"');
+    expect(startExecute).toContain("providerAccountId,");
+    expect(startExecute).not.toContain("void args.providerAccountId");
+    expect(startExecute).not.toContain(
+      "providerAccountId: project.providerAccountId",
+    );
+  });
+
+  test("queued turns and credential badges use the validated account", () => {
+    const addMessage = exportBody(projectChatSource, "addMessage");
+    const enqueueMessage = exportBody(projectChatSource, "enqueueMessage");
+    expect(addMessage).toContain("resolveTurnProviderAccountId(");
+    expect(enqueueMessage).toContain("resolveTurnProviderAccountId(");
+  });
+});
+
+describe("task chat provider account handoff", () => {
+  test("the requested account is validated and becomes the staged turn account", () => {
+    const startExecute = exportBody(taskChatSource, "startExecute");
+    expect(startExecute).toContain("resolveTurnProviderAccountId(");
+    expect(startExecute).toContain('changePolicy: "owner-only"');
+    expect(startExecute).toContain("providerAccountId,");
+    expect(startExecute).not.toContain("void args.providerAccountId");
+    expect(startExecute).not.toContain(
+      "providerAccountId: task.providerAccountId",
+    );
+  });
+
+  test("queued turns and credential badges use the validated account", () => {
+    const addMessage = exportBody(taskChatSource, "addMessage");
+    const enqueueMessage = exportBody(taskChatSource, "enqueueMessage");
+    expect(addMessage).toContain("resolveTurnProviderAccountId(");
+    expect(enqueueMessage).toContain("resolveTurnProviderAccountId(");
+  });
+});
+
+describe("session chat provider account handoff", () => {
+  test("the requested account is validated and becomes the staged turn account", () => {
+    const startExecute = exportBody(sessionExecutionSource, "startExecute");
+    expect(startExecute).toContain("resolveTurnProviderAccountId(");
+    expect(startExecute).toContain('changePolicy: "owner-pool"');
+    expect(startExecute).toContain(
+      "providerAccountId: stickyProviderAccountId",
+    );
+    expect(startExecute).not.toContain(
+      "providerAccountId: session.providerAccountId",
+    );
+  });
+
+  test("queued turns persist the validated account onto the session", () => {
+    const enqueueMessage = exportBody(sessionExecutionSource, "enqueueMessage");
+    expect(enqueueMessage).toContain("resolveTurnProviderAccountId(");
+    expect(enqueueMessage).toContain("providerAccountId,");
   });
 });
 

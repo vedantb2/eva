@@ -11,7 +11,7 @@ import {
 } from "@eva/backend";
 import { useAction, useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useState } from "react";
+import { useProviderAccountHandoff } from "@/lib/hooks/useProviderAccountHandoff";
 
 /**
  * Session composer prefs backed by Convex (`sessions.lastModel` / trait fields
@@ -47,7 +47,6 @@ export function useSessionModel(
   lockedProvider: AIProvider | undefined;
 } {
   const session = useQuery(api.sessions.get, { id: sessionId });
-  const [isSwitchingAccount, setIsSwitchingAccount] = useState(false);
   const prewarmDaemonNow = useAction(api.sessionWorkflow.prewarmDaemonNow);
   const setModelMutation = useMutation(
     api.sessions.setModel,
@@ -75,6 +74,12 @@ export function useSessionModel(
       },
     );
   });
+  const { isSwitchingAccount, switchProviderAccount } =
+    useProviderAccountHandoff({
+      persist: (providerAccountId) =>
+        setProviderAccountIdMutation({ id: sessionId, providerAccountId }),
+      prewarm: () => prewarmDaemonNow({ sessionId }),
+    });
   const setTraitsMutation = useMutation(
     api.sessions.setTraits,
   ).withOptimisticUpdate((localStore, args) => {
@@ -123,23 +128,6 @@ export function useSessionModel(
     });
   };
 
-  const setProviderAccountId = (
-    providerAccountId: Id<"userProviderAccounts"> | null,
-  ) => {
-    void (async () => {
-      setIsSwitchingAccount(true);
-      try {
-        await setProviderAccountIdMutation({
-          id: sessionId,
-          providerAccountId,
-        });
-        await prewarmDaemonNow({ sessionId });
-      } finally {
-        setIsSwitchingAccount(false);
-      }
-    })();
-  };
-
   return {
     model,
     setModel,
@@ -152,7 +140,7 @@ export function useSessionModel(
     setTraits,
     providerAccountId:
       session === undefined ? undefined : (session?.providerAccountId ?? null),
-    setProviderAccountId,
+    setProviderAccountId: switchProviderAccount,
     isSwitchingAccount,
     lockedProvider: session?.provider,
   };

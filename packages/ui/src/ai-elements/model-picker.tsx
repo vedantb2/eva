@@ -102,7 +102,9 @@ export function ModelSelect<TModel extends string>({
 }: ModelSelectProps<TModel>) {
   const [open, setOpen] = useState(false);
   const [advanced, setAdvanced] = useState(false);
-  const selectedModel = findModelOption(value, options);
+  const [previewId, setPreviewId] = useState<TModel | null>(null);
+  const displayValue = previewId ?? value;
+  const selectedModel = findModelOption(displayValue, options);
 
   const ladderSteps: ModelOption<TModel>[] = [];
   if (simpleLadder) {
@@ -169,7 +171,10 @@ export function ModelSelect<TModel extends string>({
       open={open}
       onOpenChange={(next) => {
         setOpen(next);
-        if (!next) setAdvanced(false);
+        if (!next) {
+          setAdvanced(false);
+          setPreviewId(null);
+        }
       }}
     >
       <PopoverTrigger asChild>
@@ -247,23 +252,27 @@ export function ModelSelect<TModel extends string>({
       >
         {showLadder ? (
           <SimpleModelLadder
-            value={value}
+            value={displayValue}
             steps={ladderSteps}
             snappedId={snappedAmong}
             disabled={disabled}
             onValueChange={(modelId) => {
+              setPreviewId(modelId);
               commit(modelId, accountForModel(modelId));
             }}
             onAdvanced={() => setAdvanced(true)}
           />
         ) : (
           <ModelPickerContent
-            value={value}
+            value={displayValue}
             accountId={accountId}
             options={options}
             accounts={accounts}
             canSelectTeamWhilePersonal={canSelectTeamWhilePersonal}
-            onSelect={commit}
+            onSelect={(modelId, nextAccountId) => {
+              setPreviewId(null);
+              commit(modelId, nextAccountId);
+            }}
             header={header}
           />
         )}

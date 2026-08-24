@@ -1,12 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { IconChevronRight } from "@tabler/icons-react";
 import { cn } from "../utils/cn";
 import type { ModelOption } from "./model-picker-types";
 
 /**
  * Discrete capability slider for simple view. Ticks are the available ladder
- * models, cheapest on the left. Advanced is a sibling control, not a tick.
+ * models, cheapest on the left. Resting chrome is Advanced; a held drag swaps
+ * that for Faster / Smarter so the thumb is the only control.
  */
 export function SimpleModelLadder<TModel extends string>({
   value,
@@ -24,6 +26,7 @@ export function SimpleModelLadder<TModel extends string>({
   onValueChange: (model: TModel) => void;
   onAdvanced: () => void;
 }) {
+  const [dragging, setDragging] = useState(false);
   const lastIndex = steps.length - 1;
   let index = 0;
   for (let i = 0; i < steps.length; i++) {
@@ -35,6 +38,13 @@ export function SimpleModelLadder<TModel extends string>({
   }
   const fillPct = lastIndex <= 0 ? 0 : (index / lastIndex) * 100;
   const selected = steps[index];
+
+  const applyIndex = (raw: string) => {
+    const next = Number.parseInt(raw, 10);
+    const step = Number.isInteger(next) ? steps[next] : undefined;
+    if (!step) return;
+    onValueChange(step.id);
+  };
 
   return (
     <div className="flex flex-col gap-3">
@@ -48,8 +58,10 @@ export function SimpleModelLadder<TModel extends string>({
             <span
               key={step.id}
               className={cn(
-                "absolute top-1/2 size-1 -translate-x-1/2 -translate-y-1/2 rounded-full",
-                tickIndex <= index ? "bg-primary-foreground/80" : "bg-background",
+                "absolute top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full",
+                tickIndex <= index
+                  ? "bg-primary-foreground/80"
+                  : "bg-muted-foreground/35",
               )}
               style={{
                 left: `${lastIndex <= 0 ? 0 : (tickIndex / lastIndex) * 100}%`,
@@ -67,12 +79,14 @@ export function SimpleModelLadder<TModel extends string>({
           disabled={disabled || lastIndex <= 0}
           aria-label="Model"
           aria-valuetext={selected?.label}
-          onChange={(event) => {
-            const next = Number.parseInt(event.currentTarget.value, 10);
-            const step = Number.isInteger(next) ? steps[next] : undefined;
-            if (!step) return;
-            onValueChange(step.id);
+          onPointerDown={(event) => {
+            event.currentTarget.setPointerCapture(event.pointerId);
+            setDragging(true);
           }}
+          onPointerUp={() => setDragging(false)}
+          onPointerCancel={() => setDragging(false)}
+          onChange={(event) => applyIndex(event.currentTarget.value)}
+          onInput={(event) => applyIndex(event.currentTarget.value)}
           className={cn(
             "relative z-10 h-5 w-full cursor-pointer appearance-none bg-transparent",
             "disabled:cursor-not-allowed disabled:opacity-50",
@@ -82,14 +96,23 @@ export function SimpleModelLadder<TModel extends string>({
           )}
         />
       </div>
-      <button
-        type="button"
-        onClick={onAdvanced}
-        className="motion-press inline-flex items-center gap-0.5 self-start text-xs font-medium text-muted-foreground hover:text-foreground active:scale-[0.98]"
-      >
-        Advanced
-        <IconChevronRight size={12} className="opacity-70" aria-hidden />
-      </button>
+      <div className="flex min-h-5 items-center">
+        {dragging ? (
+          <div className="flex w-full justify-between text-[11px] font-medium text-muted-foreground">
+            <span>Faster</span>
+            <span>Smarter</span>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={onAdvanced}
+            className="motion-press inline-flex items-center gap-0.5 text-xs font-medium text-muted-foreground hover:text-foreground active:scale-[0.98]"
+          >
+            Advanced
+            <IconChevronRight size={12} className="opacity-70" aria-hidden />
+          </button>
+        )}
+      </div>
     </div>
   );
 }

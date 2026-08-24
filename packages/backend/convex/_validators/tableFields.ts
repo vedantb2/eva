@@ -162,43 +162,9 @@ export const backgroundAgentEntryValidator = v.object(
 
 export type BackgroundAgentEntry = Infer<typeof backgroundAgentEntryValidator>;
 
-/** Temporary schema compatibility while the removed lifecycle's rows drain. */
-export const retiredTurnStateValidator = v.union(
-  v.literal("staged"),
-  v.literal("launching"),
-  v.literal("running"),
-  v.literal("finalizing"),
-  v.literal("done"),
-  v.literal("error"),
-  v.literal("cancelled"),
-);
-
-/** No runtime writes this table; deleteRetiredTurns removes its stored rows. */
-export const retiredTurnFields = {
-  surface: v.literal("session"),
-  entityId: v.string(),
-  streamingEntityId: v.string(),
-  state: retiredTurnStateValidator,
-  open: v.boolean(),
-  turnStartedAt: v.number(),
-  leaseExpiresAt: v.number(),
-  leaseGeneration: v.number(),
-  finishedAt: v.optional(v.number()),
-  error: v.optional(v.string()),
-  workflowId: v.optional(v.string()),
-  placeholderMessageId: v.optional(v.id("messages")),
-  prompt: v.optional(v.string()),
-  attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
-  model: aiModelValidator,
-  sandboxId: v.optional(v.string()),
-  repoId: v.id("githubRepos"),
-};
-
 export const pendingTurnFields = {
   prompt: v.string(),
   requestedAt: v.number(),
-  /** Temporary compatibility; cleared before the retired turns table is removed. */
-  turnId: v.optional(v.id("turns")),
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   model: v.optional(aiModelValidator),
 };
@@ -374,8 +340,6 @@ export const sessionFields = {
   createdBy: v.optional(v.id("users")),
   planContent: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
-  /** Temporary compatibility; cleared with the retired Turn rows. */
-  turnLifecycleVersion: v.optional(v.literal(2)),
   // The user provider account chosen for this session's runs (overriding the
   // team credential). Session-scoped so the page-open daemon prewarm — which
   // has no per-message context — still injects the right account. Absent = team

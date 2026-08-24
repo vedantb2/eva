@@ -48,7 +48,6 @@ import {
   backgroundProcessFields,
   snapshotBuildFields,
   sessionDaemonStateFields,
-  retiredTurnFields,
   agentUsageLimitFields,
 } from "./validators";
 
@@ -163,12 +162,6 @@ const schema = defineSchema({
     "by_session",
     ["sessionId"],
   ),
-  // Temporary compatibility only; removed after deleteRetiredTurns completes.
-  turns: defineTable(retiredTurnFields)
-    .index("by_entity_open", ["surface", "entityId", "open"])
-    .index("by_repo_open", ["repoId", "open"])
-    .index("by_open_lease", ["open", "leaseExpiresAt"])
-    .index("by_workflow", ["workflowId"]),
   // Latest agent plan usage-limit reading per (repo, provider, account),
   // upserted by the sandbox callback at the end of every turn
   // (usageLimits:report). Plan limits are per connected account, so a repo run

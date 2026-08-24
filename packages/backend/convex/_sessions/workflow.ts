@@ -26,7 +26,7 @@ import {
 } from "../_queues/helpers";
 import { resolveMessageTokens } from "../_mentions/resolveMessageTokens";
 import { buildCustomInstructionsBlock } from "../prompts";
-import { buildEditPrompt } from "./prompts";
+import { buildEditPrompt, buildOrchestratorPrompt } from "./prompts";
 import { z } from "zod";
 import {
   delayedPublishFailureError,
@@ -67,6 +67,33 @@ export const sessionCompleteEvent = defineEvent({
  * how planning and design work now that turn modes are gone.
  */
 export const SESSION_TOOLS = "Read,Write,Edit,Bash,Glob,Grep,Skill";
+
+/**
+ * The master ("orchestrator") session's tools: `SESSION_TOOLS` minus Write and
+ * Edit. Manager Ave supervises agents and never implements, so the two tools
+ * that make implementation possible are withheld rather than merely discouraged
+ * — a prompt alone did not stop it. Bash stays: the supervision skill reads
+ * production logs and CI state through it (`npx convex logs`, `gh pr checks`),
+ * which is read-only in intent and enforced by prompt, not by tool list.
+ *
+ * Caveat worth knowing: `ALLOWED_TOOLS` is honoured only by the Claude SDK path
+ * (`callback-src/providers/claudeSdk.ts`). Cursor, Codex and OpenCode run their
+ * own native toolsets and ignore it, so on those providers this is defence in
+ * depth behind `buildOrchestratorPrompt`, not a hard gate.
+ */
+export const ORCHESTRATOR_TOOLS = "Read,Bash,Glob,Grep,Skill";
+
+/**
+ * Tool string for a session's turns. Kept as one helper because `allowedTools`
+ * feeds the warm-daemon opts signature (`buildDaemonOptsSignature`): if two
+ * call sites disagreed for the same session, every turn would optsmismatch-kill
+ * and respawn the daemon.
+ */
+export function sessionAllowedTools(
+  isOrchestrator: boolean | undefined,
+): string {
+  return isOrchestrator === true ? ORCHESTRATOR_TOOLS : SESSION_TOOLS;
+}
 
 /**
  * The `eva-design` reply contract. `variations` must be present and non-empty:
@@ -150,6 +177,18 @@ export async function buildSessionPrompt(
     args.message,
     session.repoId,
   );
+
+  // The master supervises rather than builds, so it gets none of the edit
+  // contract below — not the branch, not the commit line, not the repo system
+  // prompt (which is implementation guidance for the checked-out app).
+  if (session.isOrchestrator === true) {
+    return {
+      prompt: prefixBlock
+        ? `${prefixBlock}\n\n${buildOrchestratorPrompt(resolvedMessage, customInstructionsBlock)}`
+        : buildOrchestratorPrompt(resolvedMessage, customInstructionsBlock),
+      branchName,
+    };
+  }
 
   // The stored plan still feeds implementation turns, and gives `eva-plan` its
   // iteration context after a sandbox is recreated without plan.md on disk.
@@ -349,7 +388,7 @@ export const sessionExecuteWorkflow = workflow.define({
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
         fastMode: args.fastMode,
-        allowedTools: SESSION_TOOLS,
+        allowedTools: sessionAllowedTools(data.isOrchestrator),
         providerAccountId: args.providerAccountId,
         credentialOwnerUserId: args.credentialOwnerUserId,
         sessionPersistenceId: args.sessionId,
@@ -390,7 +429,7 @@ export const sessionExecuteWorkflow = workflow.define({
           thinkingEnabled: args.thinkingEnabled,
           use1mContext: args.use1mContext,
           fastMode: args.fastMode,
-          allowedTools: SESSION_TOOLS,
+          allowedTools: sessionAllowedTools(data.isOrchestrator),
           repoId: data.repoId,
           streamingEntityId: String(args.sessionId),
           sessionPersistenceId: args.sessionId,
@@ -718,6 +757,8 @@ export const getSessionData = internalQuery({
     model: aiModelValidator,
     deploymentProjectName: v.optional(v.string()),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    /** Selects the master's reduced tool set — see `sessionAllowedTools`. */
+    isOrchestrator: v.optional(v.boolean()),
   }),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
@@ -757,6 +798,7 @@ export const getSessionData = internalQuery({
       model: normalizeAIModel(args.model),
       deploymentProjectName: repo.deploymentProjectName,
       attachmentStorageIds: triggeringUserMessage?.attachmentStorageIds,
+      isOrchestrator: session.isOrchestrator,
     };
   },
 });
@@ -1039,9 +1081,8 @@ export const claimPendingTurn = authMutation({
     const attachmentUrls = resolvedUrls.filter(
       (url): url is string => url !== null,
     );
-    let turnLease:
-      | { turnId: Id<"turns">; leaseGeneration: number }
-      | null = null;
+    let turnLease: { turnId: Id<"turns">; leaseGeneration: number } | null =
+      null;
     const pendingTurnId = daemonState.pendingTurn.turnId;
     if (pendingTurnId !== undefined) {
       const turn = await ctx.db.get(pendingTurnId);

@@ -1,5 +1,21 @@
 # Changelog
 
+## Manager Ave stops implementing and goes back to supervising - 2026-08-24
+
+Reported from a real prod chat: asked to "spin up a session to remove the provider gate", Ave started grepping the codebase to do it herself, and only stopped when told "you aren't supposed to implement". She was behaving exactly as instructed — the instructions were wrong.
+
+Every session turn is prefixed with `buildEditPrompt`, which opens with "Do all work on `<branch>`" and hands over a `git add -A … git commit` line. The master was getting that prompt too, plus the dev-server and recording sections for a sandbox that has no repo services. The `eva-orchestrator` skill could not correct it: a skill only enters context once the agent invokes it, and this one said outright "Supervising does not stop you doing work yourself when the user asks for it."
+
+Three layers now, because no single one is sufficient:
+
+- **Prompt.** New `buildOrchestratorPrompt`, selected in `buildSessionPrompt` on `session.isOrchestrator`. No branch, no commit line, no dev-server or recording sections, and no repo `systemPrompt` (that is implementation guidance for the checked-out app). It states plainly that a request to change code is a request to delegate, names `create_session` / `send_agent_message` as the answer, and tells her to ask one question rather than start work while she waits.
+- **Tools.** `ORCHESTRATOR_TOOLS` drops Write and Edit, so on the Claude path implementation is impossible rather than discouraged. Bash stays — the skill's prod-log section (`npx convex logs --prod`, `gh pr checks`) is read-only in intent and useful. Selection goes through one `sessionAllowedTools` helper because `allowedTools` feeds the warm-daemon opts signature: two call sites disagreeing for one session would optsmismatch-kill and respawn the daemon every turn.
+- **Skill.** The "full agent" licence is gone, replaced with "you never build anything yourself", an explicit no-implement rule, and the shell described as read-only.
+
+Known gap, worth flagging: `ALLOWED_TOOLS` is honoured only by `callback-src/providers/claudeSdk.ts`. Cursor, Codex and OpenCode run their own native toolsets and ignore it — the prod session in question was on `cursor:grok-4.6`, whose own `search_files`/`search_code` calls appear in that transcript. On those providers the tool list is defence in depth and the prompt is the actual gate. Closing that properly means a per-provider tool restriction in the callback, which is a bigger change than this.
+
+Seven contract tests in `orchestratorReadOnly.test.ts` pin all three layers, including a guard on the premise: if `buildEditPrompt` ever stops instructing edits, the split becomes pointless and that test fails. `sessionPrLifecycleContract` was also repointed at `archiveSessionDoc` — the previous change moved the archive body into that helper and left the test asserting against a mutation that no longer holds it. 1080 backend tests pass; the one remaining failure (`turnLifecycleContract`) reproduces on `origin/main` and is unrelated.
+
 ## Manager Ave can be started from scratch - 2026-08-24
 
 Ave is one persistent session per user, so it was the only chat with no way out of a conversation that had gone stale — every other chat you simply replace by opening a new one. "Start new chat" now sits at the top of the chat header's `⋯` menu (both the floating popover and `/ave`), behind a confirm dialog, disabled while a turn is in flight so an in-flight reply cannot land in a chat the user can no longer reach.

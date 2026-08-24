@@ -14,9 +14,51 @@ import {
   readCursorCostSnapshot,
   resolveCursorTurnCostUsd,
   runTurnWithResourceExhaustedRetries,
+  shouldRetryStalledCursorResume,
+  waitForCursorPhase,
+  CursorPhaseTimeoutError,
   type CursorCostSnapshot,
   type CursorTurnOutcome,
 } from "../providers/cursorSdk.js";
+
+test("Cursor SDK phases fail on a bounded deadline", async () => {
+  let timedOut = false;
+  const never = new Promise<string>(() => {});
+  await expect(
+    waitForCursorPhase({
+      task: never,
+      phase: "starting the model run",
+      timeoutMs: 5,
+      onTimeout: () => {
+        timedOut = true;
+      },
+    }),
+  ).rejects.toEqual(new CursorPhaseTimeoutError("starting the model run", 5));
+  expect(timedOut).toBe(true);
+});
+
+test("only a pre-output resumed Cursor stall rotates to a fresh agent", () => {
+  expect(
+    shouldRetryStalledCursorResume(
+      new CursorPhaseTimeoutError("starting the model run", 60_000),
+    ),
+  ).toBe(true);
+  expect(
+    shouldRetryStalledCursorResume(
+      new CursorPhaseTimeoutError("waiting for the first model event", 60_000),
+    ),
+  ).toBe(true);
+  expect(
+    shouldRetryStalledCursorResume(
+      new CursorPhaseTimeoutError("waiting for the next model event", 60_000),
+    ),
+  ).toBe(false);
+  expect(
+    shouldRetryStalledCursorResume(
+      new CursorPhaseTimeoutError("finishing the model run", 30_000),
+    ),
+  ).toBe(false);
+});
 
 test("splitCursorModel separates base id and reasoning level", () => {
   expect(splitCursorModel("grok-4.6-xhigh")).toEqual({

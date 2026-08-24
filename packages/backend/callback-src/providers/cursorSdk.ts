@@ -27,7 +27,7 @@ import {
   normalizedCursorModel,
 } from "../config.js";
 import { evaMcpServers } from "../evaMcp.js";
-import { updateThinkingStep } from "../parse/canonical.js";
+import { pushNoticeStep, updateThinkingStep } from "../parse/canonical.js";
 import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
 import {
   appendToRawLogFile,
@@ -51,6 +51,72 @@ const SDK_PACKAGE = "@cursor/sdk";
 const SDK_VERSION = "1.0.28";
 /** ESM entry inside the package (its exports map's `import` target). */
 const SDK_ENTRY_RELPATH = "/dist/esm/index.js";
+
+/** SDK setup should return a local handle quickly; model work happens later. */
+export const CURSOR_AGENT_SETUP_TIMEOUT_MS = 30_000;
+/** `Agent.send` only creates the run. A minute here is a wedged SDK session. */
+export const CURSOR_SEND_START_TIMEOUT_MS = 60_000;
+/** Grok normally emits thinking deltas; silence longer than this is a stall. */
+export const CURSOR_STREAM_SILENCE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS;
+const CURSOR_RESULT_SETTLE_TIMEOUT_MS = 30_000;
+
+export type CursorPhase =
+  | "creating a fresh agent"
+  | "restoring saved context"
+  | "starting the model run"
+  | "waiting for the first model event"
+  | "waiting for the next model event"
+  | "finishing the model run";
+
+export class CursorPhaseTimeoutError extends Error {
+  constructor(
+    readonly phase: CursorPhase,
+    readonly timeoutMs: number,
+  ) {
+    super(
+      "Cursor stalled while " +
+        phase +
+        " for " +
+        Math.round(timeoutMs / 1000) +
+        " seconds.",
+    );
+    this.name = "CursorPhaseTimeoutError";
+  }
+}
+
+/** Adds a real deadline to SDK promises whose own cancellation can be a no-op. */
+export async function waitForCursorPhase<T>(args: {
+  task: Promise<T>;
+  phase: CursorPhase;
+  timeoutMs: number;
+  onTimeout?: () => void;
+}): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const deadline = new Promise<T>((_resolve, reject) => {
+    timer = setTimeout(() => {
+      try {
+        args.onTimeout?.();
+      } catch {
+        /* the timeout still owns the result */
+      }
+      reject(new CursorPhaseTimeoutError(args.phase, args.timeoutMs));
+    }, args.timeoutMs);
+  });
+  try {
+    return await Promise.race([args.task, deadline]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
+/** Safe to retry only before a resumed run emitted anything user-visible. */
+export function shouldRetryStalledCursorResume(error: Error): boolean {
+  return (
+    error instanceof CursorPhaseTimeoutError &&
+    (error.phase === "starting the model run" ||
+      error.phase === "waiting for the first model event")
+  );
+}
 
 /** Official SDK types are erased from the standalone callback bundle. */
 export type SdkMcpServerConfig = McpServerConfig;
@@ -597,7 +663,15 @@ export async function runCursorSdkAttempt(
   };
 
   const createFreshAgent = async (): Promise<SdkAgent> => {
-    const created = await sdk.Agent.create(options);
+    updateThinkingStep(
+      "Starting a fresh Cursor agent...",
+      "Creating a clean model context...",
+    );
+    const created = await waitForCursorPhase({
+      task: sdk.Agent.create(options),
+      phase: "creating a fresh agent",
+      timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS,
+    });
     persistAgentId(created.agentId);
     return created;
   };
@@ -610,7 +684,15 @@ export async function runCursorSdkAttempt(
   let agent: SdkAgent;
   if (sessionMode.mode === "resume" && sessionMode.sessionId) {
     try {
-      agent = await sdk.Agent.resume(sessionMode.sessionId, options);
+      updateThinkingStep(
+        "Restoring Cursor context...",
+        "Opening the saved agent...",
+      );
+      agent = await waitForCursorPhase({
+        task: sdk.Agent.resume(sessionMode.sessionId, options),
+        phase: "restoring saved context",
+        timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS,
+      });
       resumedExistingAgent = true;
       persistAgentId(agent.agentId);
     } catch (error) {
@@ -696,12 +778,42 @@ export async function runCursorSdkAttempt(
       : readCostSnapshot(activeAgent);
     // `force` expires a run left marked active by a killed prior callback
     // (user stop is a process-level kill); a no-op otherwise.
-    const run = await activeAgent.send(combinedPrompt, {
-      local: { force: true },
+    updateThinkingStep(
+      "Waiting for Cursor...",
+      "Starting the Grok model run...",
+    );
+    const run = await waitForCursorPhase({
+      task: activeAgent.send(combinedPrompt, {
+        local: { force: true },
+      }),
+      phase: "starting the model run",
+      timeoutMs: CURSOR_SEND_START_TIMEOUT_MS,
+      onTimeout: () => activeAgent.close(),
     });
     activeRun = run;
     if (abortedByCaller) cancelRun();
-    for await (const message of run.stream()) {
+    updateThinkingStep("Waiting for Grok...", "The model is thinking...");
+    const messages = run.stream()[Symbol.asyncIterator]();
+    let sawSdkEvent = false;
+    while (true) {
+      const phase: CursorPhase = sawSdkEvent
+        ? "waiting for the next model event"
+        : "waiting for the first model event";
+      const next = await waitForCursorPhase({
+        task: messages.next(),
+        phase,
+        timeoutMs:
+          S.inFlightToolUses > 0
+            ? MAX_TOTAL_RUNTIME_MS
+            : CURSOR_STREAM_SILENCE_TIMEOUT_MS,
+        onTimeout: () => {
+          timedOutForNoOutput = true;
+          cancelRun();
+        },
+      });
+      if (next.done) break;
+      const message = next.value;
+      sawSdkEvent = true;
       lastMessageAt = Date.now();
       pushLine(JSON.stringify(message) + "\n");
       if (message.type === "usage") {
@@ -710,7 +822,12 @@ export async function runCursorSdkAttempt(
       if (timedOutForMaxRuntime || timedOutForNoOutput || abortedByCaller)
         break;
     }
-    const result = await run.wait();
+    const result = await waitForCursorPhase({
+      task: run.wait(),
+      phase: "finishing the model run",
+      timeoutMs: CURSOR_RESULT_SETTLE_TIMEOUT_MS,
+      onTimeout: cancelRun,
+    });
     const costUsd = await resolveCursorTurnCostUsd({
       before: await costBefore,
       fetchAfter: () => readCostSnapshot(activeAgent),
@@ -795,13 +912,17 @@ export async function runCursorSdkAttempt(
       // A resumed agent whose stored runs are unreadable can throw
       // agent_not_found past resume (at send/stream/wait). Retry once fresh so
       // a poisoned persisted id cannot fail every future turn.
+      const retryStalledResume =
+        error instanceof Error && shouldRetryStalledCursorResume(error);
       if (
         resumedExistingAgent &&
         error instanceof Error &&
-        isAgentNotFound(error)
+        (isAgentNotFound(error) || retryStalledResume)
       ) {
         log(
-          "runCursorSdkAttempt: resumed agent unusable — retrying as a fresh agent",
+          "runCursorSdkAttempt: resumed agent unusable — retrying as a fresh agent (" +
+            error.message +
+            ")",
         );
         appendToRawLogFile("[sdk-retry] " + error.message + "\n");
         try {
@@ -809,6 +930,15 @@ export async function runCursorSdkAttempt(
         } catch {
           /* already closed */
         }
+        activeRun = null;
+        timedOutForNoOutput = false;
+        lastMessageAt = Date.now();
+        pushNoticeStep(
+          "Started a fresh Cursor agent",
+          retryStalledResume
+            ? "The saved agent stopped responding, so Eva recovered with a clean context."
+            : "The saved agent could not be restored, so Eva recovered with a clean context.",
+        );
         agent = await createFreshAgent();
         await runTurnWithRetries(agent, true);
       } else {

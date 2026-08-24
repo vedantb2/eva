@@ -1,5 +1,10 @@
 import { test, expect } from "vitest";
-import { parseToCanonical, applyCanonicalEvents } from "../parse/canonical.js";
+import {
+  parseToCanonical,
+  applyCanonicalEvents,
+  updateThinkingStep,
+} from "../parse/canonical.js";
+import { buildStreamingPayload } from "../runtime/heartbeats.js";
 import {
   callbackState as S,
   getPendingQuestionForTest,
@@ -241,7 +246,39 @@ test("thinking push_step is transient and does not add activity steps", () => {
     },
   ]);
   expect(S.accumulatedSteps.length).toBe(0);
+  expect(JSON.parse(buildStreamingPayload())).toEqual([
+    {
+      type: "thinking",
+      label: "Finalizing response...",
+      status: "active",
+    },
+  ]);
   expect(S.lastStepType).toBe("thinking");
+  resetStateForTests();
+});
+
+test("real activity replaces the transient thinking heartbeat", () => {
+  resetStateForTests();
+  updateThinkingStep("Waiting for Grok...", "The model is thinking...");
+  expect(JSON.parse(buildStreamingPayload())).toEqual([
+    {
+      type: "thinking",
+      label: "Waiting for Grok...",
+      detail: "The model is thinking...",
+      status: "active",
+    },
+  ]);
+
+  applyCanonicalEvents([{ kind: "update_reasoning", text: "Inspecting code" }]);
+  expect(S.transientThinkingStep).toBeNull();
+  expect(JSON.parse(buildStreamingPayload())).toEqual([
+    {
+      type: "reasoning",
+      label: "Thinking...",
+      detail: "Inspecting code",
+      status: "active",
+    },
+  ]);
   resetStateForTests();
 });
 

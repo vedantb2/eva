@@ -1,5 +1,11 @@
 # Changelog
 
+## Cursor stalls recover instead of looking frozen - 2026-08-24
+
+Production logs showed Grok reaching a resumed Cursor agent and then hanging inside `Agent.send()` before the SDK returned a cancellable run or emitted a stream event. That boundary now has an explicit deadline: a resumed agent that stalls before producing any user-visible work is closed and retried once with a clean context, while later stalls fail without replaying tool side effects. Agent create/resume, first-event silence, between-event silence, and result settlement are bounded too, closing the gap where the old watchdog called a no-op cancel and left the turn alive until the daemon's much larger hard cap.
+
+Provider startup state is now a live-only activity step. Cursor's “restoring context”, “starting Grok”, and “model is thinking” phases are included in streaming heartbeats and replaced as soon as real reasoning, text, or tool activity arrives; they never enter the completed message log or the next turn's prior steps. Focused regression coverage pins both the deadline/retry boundary and the transient-versus-durable activity contract.
+
 ## Durable turn lifecycle restored after rollback audit - 2026-08-24
 
 The legacy execution path reproduced the same slow and apparently frozen Cursor experience after the durable lifecycle was removed, showing that the rollback did not address the provider-streaming cause and discarded the stronger ownership guarantees without improving responsiveness. The complete pre-rollback lifecycle is restored: claimed work again has durable identity, lease renewal, fenced completion, daemon supervision, rollout-safe projection, and the cross-provider contract and integration suites that keep Claude, Cursor, and Codex on one execution boundary. Cursor's sparse Grok reasoning stream remains a separate provider/UI concern rather than being conflated with turn ownership.

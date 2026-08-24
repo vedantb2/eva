@@ -409,6 +409,7 @@ function parsePriorStep(value) {
 }
 var callbackState = {
   accumulatedSteps: [],
+  transientThinkingStep: null,
   pendingQuestionData: "",
   lastStepType: "",
   rawOutput: "",
@@ -494,6 +495,7 @@ function assignRawLogStream(stream) {
   callbackState.rawLogStream = stream;
 }
 function resetAttemptState() {
+  callbackState.transientThinkingStep = null;
   callbackState.realtimeOutputBuffer = "";
   callbackState.resultEventSeen = false;
   callbackState.waitingForFirstAssistantEvent = false;
@@ -4109,9 +4111,16 @@ function pushNoticeStep2(label, detail) {
   pushProgressStep({ type: "notice", label, detail, status: "complete" });
 }
 function updateThinkingStep(label, detail) {
-  void label;
-  void detail;
+  callbackState.transientThinkingStep = {
+    type: "thinking",
+    label,
+    detail,
+    status: "active"
+  };
   callbackState.lastStepType = "thinking";
+}
+function clearThinkingStep() {
+  callbackState.transientThinkingStep = null;
 }
 function shouldRecordProgressStep(step) {
   return step.type !== "thinking" && step.type !== "reasoning" && step.type !== "response";
@@ -4144,6 +4153,7 @@ function applyCanonicalEvents(events) {
         updateThinkingStep(ev.label, ev.detail);
         break;
       case "push_step":
+        clearThinkingStep();
         pushProgressStep(ev.step);
         if (shouldRecordProgressStep(ev.step)) {
           if (ev.trackingId) callbackState.codexToolItemIds.add(ev.trackingId);
@@ -4151,6 +4161,7 @@ function applyCanonicalEvents(events) {
         }
         break;
       case "complete_tool":
+        clearThinkingStep();
         completeToolStep(ev.trackingId, ev.result);
         if (ev.trackingId !== void 0) {
           callbackState.codexToolItemIds.delete(ev.trackingId);
@@ -4160,12 +4171,15 @@ function applyCanonicalEvents(events) {
         }
         break;
       case "mark_last_complete":
+        clearThinkingStep();
         markLastComplete();
         break;
       case "append_text":
+        clearThinkingStep();
         appendStreamedContent(ev.text, true);
         break;
       case "stream_text_delta":
+        clearThinkingStep();
         appendStreamedContent(ev.text, callbackState.pendingParagraphBreak);
         callbackState.pendingParagraphBreak = false;
         callbackState.streamedAssistantTextThisMessage = true;
@@ -4178,18 +4192,22 @@ function applyCanonicalEvents(events) {
         callbackState.pendingParagraphBreak = true;
         break;
       case "update_reasoning":
+        clearThinkingStep();
         applyReasoningSnapshot(ev.text);
         break;
       case "set_pending_question":
+        clearThinkingStep();
         callbackState.pendingQuestionData = ev.data;
         break;
       case "set_todos":
+        clearThinkingStep();
         applyTodosSnapshot(ev.todos);
         break;
       case "set_codex_thread":
         callbackState.activeCodexThreadId = ev.threadId;
         break;
       case "mark_first_assistant":
+        clearThinkingStep();
         callbackState.waitingForFirstAssistantEvent = false;
         break;
     }
@@ -4238,7 +4256,9 @@ function ownsHeartbeatLease() {
   });
 }
 function buildStreamingPayload() {
-  return serializeSteps(callbackState.accumulatedSteps);
+  return serializeSteps(
+    callbackState.transientThinkingStep ? [...callbackState.accumulatedSteps, callbackState.transientThinkingStep] : callbackState.accumulatedSteps
+  );
 }
 function markHeartbeatSuccess(payload) {
   callbackState.lastSentPayload = payload;
@@ -4358,6 +4378,10 @@ async function heartbeatPing() {
     if (callbackState.waitingForFirstAssistantEvent) {
       const startupStep = buildClaudeStartupStep();
       updateThinkingStep(startupStep.label, startupStep.detail);
+      await sendStreamingHeartbeatUpdate(buildStreamingPayload());
+      return;
+    }
+    if (callbackState.transientThinkingStep) {
       await sendStreamingHeartbeatUpdate(buildStreamingPayload());
       return;
     }
@@ -6922,6 +6946,40 @@ import { mkdirSync as mkdirSync7, readFileSync as readFileSync9 } from "fs";
 var SDK_PACKAGE2 = "@cursor/sdk";
 var SDK_VERSION2 = "1.0.28";
 var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
+var CURSOR_AGENT_SETUP_TIMEOUT_MS = 3e4;
+var CURSOR_SEND_START_TIMEOUT_MS = 6e4;
+var CURSOR_STREAM_SILENCE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS;
+var CURSOR_RESULT_SETTLE_TIMEOUT_MS = 3e4;
+var CursorPhaseTimeoutError = class extends Error {
+  constructor(phase, timeoutMs) {
+    super(
+      "Cursor stalled while " + phase + " for " + Math.round(timeoutMs / 1e3) + " seconds."
+    );
+    this.phase = phase;
+    this.timeoutMs = timeoutMs;
+    this.name = "CursorPhaseTimeoutError";
+  }
+};
+async function waitForCursorPhase(args) {
+  let timer = null;
+  const deadline = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => {
+      try {
+        args.onTimeout?.();
+      } catch {
+      }
+      reject(new CursorPhaseTimeoutError(args.phase, args.timeoutMs));
+    }, args.timeoutMs);
+  });
+  try {
+    return await Promise.race([args.task, deadline]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+function shouldRetryStalledCursorResume(error) {
+  return error instanceof CursorPhaseTimeoutError && (error.phase === "starting the model run" || error.phase === "waiting for the first model event");
+}
 function cursorModeParams(model, fastMode, use1mContext) {
   const params = [];
   if (model === "grok-4.6" || model === "grok-4.5" || model === "composer-2.5") {
@@ -7191,7 +7249,15 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     syncCursorStateToPersist();
   };
   const createFreshAgent = async () => {
-    const created = await sdk.Agent.create(options);
+    updateThinkingStep(
+      "Starting a fresh Cursor agent...",
+      "Creating a clean model context..."
+    );
+    const created = await waitForCursorPhase({
+      task: sdk.Agent.create(options),
+      phase: "creating a fresh agent",
+      timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS
+    });
     persistAgentId(created.agentId);
     return created;
   };
@@ -7199,7 +7265,15 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
   let agent;
   if (sessionMode.mode === "resume" && sessionMode.sessionId) {
     try {
-      agent = await sdk.Agent.resume(sessionMode.sessionId, options);
+      updateThinkingStep(
+        "Restoring Cursor context...",
+        "Opening the saved agent..."
+      );
+      agent = await waitForCursorPhase({
+        task: sdk.Agent.resume(sessionMode.sessionId, options),
+        phase: "restoring saved context",
+        timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS
+      });
       resumedExistingAgent = true;
       persistAgentId(agent.agentId);
     } catch (error) {
@@ -7251,12 +7325,37 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
   };
   const runTurn = async (activeAgent, agentIsFresh) => {
     const costBefore = agentIsFresh ? Promise.resolve(EMPTY_CURSOR_COST_SNAPSHOT) : readCostSnapshot(activeAgent);
-    const run = await activeAgent.send(combinedPrompt, {
-      local: { force: true }
+    updateThinkingStep(
+      "Waiting for Cursor...",
+      "Starting the Grok model run..."
+    );
+    const run = await waitForCursorPhase({
+      task: activeAgent.send(combinedPrompt, {
+        local: { force: true }
+      }),
+      phase: "starting the model run",
+      timeoutMs: CURSOR_SEND_START_TIMEOUT_MS,
+      onTimeout: () => activeAgent.close()
     });
     activeRun = run;
     if (abortedByCaller) cancelRun();
-    for await (const message of run.stream()) {
+    updateThinkingStep("Waiting for Grok...", "The model is thinking...");
+    const messages = run.stream()[Symbol.asyncIterator]();
+    let sawSdkEvent = false;
+    while (true) {
+      const phase = sawSdkEvent ? "waiting for the next model event" : "waiting for the first model event";
+      const next = await waitForCursorPhase({
+        task: messages.next(),
+        phase,
+        timeoutMs: callbackState.inFlightToolUses > 0 ? MAX_TOTAL_RUNTIME_MS : CURSOR_STREAM_SILENCE_TIMEOUT_MS,
+        onTimeout: () => {
+          timedOutForNoOutput = true;
+          cancelRun();
+        }
+      });
+      if (next.done) break;
+      const message = next.value;
+      sawSdkEvent = true;
       lastMessageAt = Date.now();
       pushLine(JSON.stringify(message) + "\\n");
       if (message.type === "usage") {
@@ -7265,7 +7364,12 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
       if (timedOutForMaxRuntime || timedOutForNoOutput || abortedByCaller)
         break;
     }
-    const result = await run.wait();
+    const result = await waitForCursorPhase({
+      task: run.wait(),
+      phase: "finishing the model run",
+      timeoutMs: CURSOR_RESULT_SETTLE_TIMEOUT_MS,
+      onTimeout: cancelRun
+    });
     const costUsd = await resolveCursorTurnCostUsd({
       before: await costBefore,
       fetchAfter: () => readCostSnapshot(activeAgent),
@@ -7323,15 +7427,23 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     try {
       await runTurnWithRetries(agent, !resumedExistingAgent);
     } catch (error) {
-      if (resumedExistingAgent && error instanceof Error && isAgentNotFound(error)) {
+      const retryStalledResume = error instanceof Error && shouldRetryStalledCursorResume(error);
+      if (resumedExistingAgent && error instanceof Error && (isAgentNotFound(error) || retryStalledResume)) {
         log(
-          "runCursorSdkAttempt: resumed agent unusable \\u2014 retrying as a fresh agent"
+          "runCursorSdkAttempt: resumed agent unusable \\u2014 retrying as a fresh agent (" + error.message + ")"
         );
         appendToRawLogFile("[sdk-retry] " + error.message + "\\n");
         try {
           agent.close();
         } catch {
         }
+        activeRun = null;
+        timedOutForNoOutput = false;
+        lastMessageAt = Date.now();
+        pushNoticeStep2(
+          "Started a fresh Cursor agent",
+          retryStalledResume ? "The saved agent stopped responding, so Eva recovered with a clean context." : "The saved agent could not be restored, so Eva recovered with a clean context."
+        );
         agent = await createFreshAgent();
         await runTurnWithRetries(agent, true);
       } else {

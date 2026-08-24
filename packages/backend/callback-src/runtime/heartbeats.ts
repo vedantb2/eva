@@ -40,7 +40,11 @@ function ownsHeartbeatLease(): boolean {
 }
 
 export function buildStreamingPayload(): string {
-  return serializeSteps(S.accumulatedSteps);
+  return serializeSteps(
+    S.transientThinkingStep
+      ? [...S.accumulatedSteps, S.transientThinkingStep]
+      : S.accumulatedSteps,
+  );
 }
 
 function markHeartbeatSuccess(payload: string): void {
@@ -202,6 +206,10 @@ async function heartbeatPing(): Promise<void> {
     if (S.waitingForFirstAssistantEvent) {
       const startupStep = buildClaudeStartupStep();
       updateThinkingStep(startupStep.label, startupStep.detail);
+      await sendStreamingHeartbeatUpdate(buildStreamingPayload());
+      return;
+    }
+    if (S.transientThinkingStep) {
       await sendStreamingHeartbeatUpdate(buildStreamingPayload());
       return;
     }

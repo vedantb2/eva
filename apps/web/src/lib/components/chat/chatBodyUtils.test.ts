@@ -1,9 +1,13 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import {
   findHandoffBoundaryIds,
   findStreamingTargetMessage,
   visibleChatMessages,
   chatNeedsOtherUserDirectory,
+  otherUserIdsInChat,
   type ChatBodyMessage,
 } from "./chatBodyUtils";
 
@@ -186,4 +190,30 @@ describe("chatNeedsOtherUserDirectory", () => {
       ),
     ).toBe(false);
   });
+});
+
+describe("otherUserIdsInChat", () => {
+  test("returns sorted unique teammate ids", () => {
+    expect(
+      otherUserIdsInChat(
+        [
+          { role: "user", userId: "me" },
+          { role: "user", userId: "zoe" },
+          { role: "assistant" },
+          { role: "user", userId: "ann" },
+          { role: "user", userId: "zoe" },
+        ],
+        "me",
+      ),
+    ).toEqual(["ann", "zoe"]);
+  });
+});
+
+test("ChatBody looks up other senders, not the whole user table", () => {
+  const chatBody = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "ChatBody.tsx"),
+    "utf8",
+  );
+  expect(chatBody).toContain("api.users.getMany");
+  expect(chatBody).not.toContain("api.users.listAll");
 });

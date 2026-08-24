@@ -130,9 +130,25 @@ export function chatNeedsOtherUserDirectory(
   messages: ReadonlyArray<ChatUserAttribution>,
   currentUserId: string | undefined,
 ): boolean {
-  return messages.some((message) =>
-    isOtherUserChatMessage(message, currentUserId),
-  );
+  return otherUserIdsInChat(messages, currentUserId).length > 0;
+}
+
+/** Sorted unique teammate ids that need a name lookup. Empty → skip the query. */
+export function otherUserIdsInChat<TUserId extends string>(
+  messages: ReadonlyArray<{
+    role: ChatBodyMessage["role"];
+    userId?: TUserId;
+    isSystemAlert?: boolean;
+  }>,
+  currentUserId: TUserId | undefined,
+): TUserId[] {
+  const ids = new Set<TUserId>();
+  for (const message of messages) {
+    if (!isOtherUserChatMessage(message, currentUserId)) continue;
+    if (message.userId === undefined) continue;
+    ids.add(message.userId);
+  }
+  return [...ids].sort();
 }
 
 /** Streaming / changed-files flags for an assistant row. */

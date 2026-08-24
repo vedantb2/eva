@@ -1,5 +1,10 @@
 # Changelog
 
+## Chat looks up teammate names by id, not the whole user table - 2026-08-25
+
+Shared chats subscribed to `users.listAll`, which `collect()`s every user doc. A `lastSeenAt` heartbeat on anyone in the deployment then re-ran every open transcript's directory query. Chat now reads `users.getMany` for the sorted unique other-sender ids (solo chats still skip). Task boards still use `listAll`.
+
+
 ## First paint loads one font; chat skips empty storage URL work - 2026-08-25
 
 Every visit downloaded a 12-family Google Fonts CSS (45.5 kB, 98 `@font-face`, 62 files) even though the default theme is Inter and Geist was never in that URL. Boot now injects one CSS2 stylesheet from the theme hint (default Inter: 9.9 kB, 28 faces, 7 files). Switching fonts in settings still loads that family; the picker preloads the rest only while it is on screen.

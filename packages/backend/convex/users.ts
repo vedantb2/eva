@@ -173,18 +173,17 @@ export const listTeamWithMembers = authQuery({
   },
 });
 
-/** Lists all users in the system with their basic profile info. */
+const publicProfileValidator = v.object({
+  _id: v.id("users"),
+  firstName: v.optional(v.string()),
+  lastName: v.optional(v.string()),
+  fullName: v.optional(v.string()),
+  role: v.optional(roleUserValidator),
+});
+
 export const listAll = authQuery({
   args: {},
-  returns: v.array(
-    v.object({
-      _id: v.id("users"),
-      firstName: v.optional(v.string()),
-      lastName: v.optional(v.string()),
-      fullName: v.optional(v.string()),
-      role: v.optional(roleUserValidator),
-    }),
-  ),
+  returns: v.array(publicProfileValidator),
   handler: async (ctx) => {
     const users = await ctx.db.query("users").collect();
     return users.map((u) => ({
@@ -194,5 +193,31 @@ export const listAll = authQuery({
       fullName: u.fullName,
       role: u.role,
     }));
+  },
+});
+
+/**
+ * Public profiles for specific users. Chat uses this instead of `listAll` so a
+ * lastSeenAt write on one user does not re-run every transcript's directory
+ * subscription (those still `collect()` the whole table).
+ */
+export const getMany = authQuery({
+  args: { ids: v.array(v.id("users")) },
+  returns: v.array(publicProfileValidator),
+  handler: async (ctx, args) => {
+    const uniqueIds = [...new Set(args.ids)];
+    const profiles = [];
+    for (const id of uniqueIds) {
+      const user = await ctx.db.get(id);
+      if (!user) continue;
+      profiles.push({
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        fullName: user.fullName,
+        role: user.role,
+      });
+    }
+    return profiles;
   },
 });

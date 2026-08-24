@@ -1,5 +1,10 @@
 # Changelog
 
+## Presence writes no longer invalidate the user directory - 2026-08-25
+
+`lastSeenAt` and `lastSeenPath` lived on `users`, so a heartbeat or route change patched that doc and re-ran every `users.listAll` / name-directory subscriber. They now live on `userPresence` (one row per user). Directory queries never read that table. Sidebar/follow/analytics merge the new row over leftover user fields until the first heartbeat after deploy.
+
+
 ## Chat looks up teammate names by id, not the whole user table - 2026-08-25
 
 Shared chats subscribed to `users.listAll`, which `collect()`s every user doc. A `lastSeenAt` heartbeat on anyone in the deployment then re-ran every open transcript's directory query. Chat now reads `users.getMany` for the sorted unique other-sender ids (solo chats still skip). Task boards still use `listAll`.

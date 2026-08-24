@@ -61,6 +61,7 @@ export const userFields = {
   customTheme: v.optional(customThemeValidator),
   toolbarVisible: v.optional(v.boolean()),
   customInstructions: v.optional(v.string()),
+  /** Leftover; writers use `userPresence`. Readers merge until backfill. */
   lastSeenAt: v.optional(v.number()),
   lastSeenPath: v.optional(v.string()),
   lastChangelogDismissedAt: v.optional(v.number()),
@@ -73,6 +74,13 @@ export const userFields = {
   // The user's single persistent orchestrator ("master") session. Absent until
   // first opened; repointed if the master is archived/deleted and recreated.
   orchestratorSessionId: v.optional(v.id("sessions")),
+};
+
+/** Heartbeat/path writes. Isolated so they do not invalidate `users` subscribers. */
+export const userPresenceFields = {
+  userId: v.id("users"),
+  lastSeenAt: v.optional(v.number()),
+  lastSeenPath: v.optional(v.string()),
 };
 
 // A user's own coding-agent login ("bring your own account"). Each row is one

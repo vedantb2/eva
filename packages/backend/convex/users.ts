@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
 import { roleUserValidator } from "./validators";
 import { authQuery } from "./functions";
+import { getUserPresenceRow, mergeLastSeen } from "./_users/lastSeen";
 
 /** Returns the Clerk ID for a user (internal use only). */
 export const getInternal = internalQuery({
@@ -49,14 +50,18 @@ export const get = authQuery({
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.id);
     if (!user) return null;
+    const seen = mergeLastSeen(
+      await getUserPresenceRow(ctx.db, args.id),
+      user,
+    );
     return {
       firstName: user.firstName,
       lastName: user.lastName,
       fullName: user.fullName,
       email: user.email,
       role: user.role,
-      lastSeenAt: user.lastSeenAt,
-      lastSeenPath: user.lastSeenPath,
+      lastSeenAt: seen.lastSeenAt,
+      lastSeenPath: seen.lastSeenPath,
     };
   },
 });
@@ -145,13 +150,17 @@ export const listTeamWithMembers = authQuery({
       if (tm.userId === ctx.userId) continue;
       const user = await ctx.db.get(tm.userId);
       if (user) {
+        const seen = mergeLastSeen(
+          await getUserPresenceRow(ctx.db, tm.userId),
+          user,
+        );
         members.push({
           _id: user._id,
           firstName: user.firstName,
           lastName: user.lastName,
           fullName: user.fullName,
-          lastSeenAt: user.lastSeenAt,
-          lastSeenPath: user.lastSeenPath,
+          lastSeenAt: seen.lastSeenAt,
+          lastSeenPath: seen.lastSeenPath,
         });
       }
     }

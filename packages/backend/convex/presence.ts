@@ -4,10 +4,14 @@ import { mutation } from "./_generated/server";
 import { Presence } from "@convex-dev/presence";
 import { authQuery, authMutation } from "./functions";
 import { getCurrentUserId } from "./_auth/currentUser";
+import {
+  getUserPresenceRow,
+  shouldWriteLastSeenAt,
+  upsertUserPresence,
+} from "./_users/lastSeen";
 
 const presence = new Presence(components.presence);
 
-const TWO_MINUTES = 2 * 60 * 1000;
 /** Must match ClientProvider's usePresence room — the only heartbeat that owns lastSeenAt. */
 const LAST_SEEN_ROOM_ID = "platform";
 
@@ -34,12 +38,11 @@ export const heartbeat = authMutation({
     // those rooms put lastSeenAt writes in every room's conflict set (30 OCC
     // in 72h on one user doc). Only the app-wide room owns lastSeenAt.
     if (roomId === LAST_SEEN_ROOM_ID) {
-      const user = await ctx.db.get(ctx.userId);
-      if (
-        user &&
-        (!user.lastSeenAt || Date.now() - user.lastSeenAt > TWO_MINUTES)
-      ) {
-        await ctx.db.patch(ctx.userId, { lastSeenAt: Date.now() });
+      const row = await getUserPresenceRow(ctx.db, ctx.userId);
+      if (shouldWriteLastSeenAt(row?.lastSeenAt, Date.now())) {
+        await upsertUserPresence(ctx.db, ctx.userId, {
+          lastSeenAt: Date.now(),
+        });
       }
     }
     return result;
@@ -51,9 +54,9 @@ export const updatePath = authMutation({
   args: { path: v.string() },
   returns: v.null(),
   handler: async (ctx, { path }) => {
-    const user = await ctx.db.get(ctx.userId);
-    if (user && user.lastSeenPath !== path) {
-      await ctx.db.patch(ctx.userId, { lastSeenPath: path });
+    const row = await getUserPresenceRow(ctx.db, ctx.userId);
+    if (row?.lastSeenPath !== path) {
+      await upsertUserPresence(ctx.db, ctx.userId, { lastSeenPath: path });
     }
     return null;
   },

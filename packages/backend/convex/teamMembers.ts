@@ -2,6 +2,7 @@ import type { GenericDatabaseReader } from "convex/server";
 import { v } from "convex/values";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
 import { authQuery, authMutation, hasRepoAccess } from "./functions";
+import { getUserPresenceRow, mergeLastSeen } from "./_users/lastSeen";
 import { teamMemberRoleValidator } from "./validators";
 
 /** Fetches a user's membership row for a team, or null if they aren't a member. */
@@ -75,19 +76,25 @@ export const list = authQuery({
     const membersWithUsers = [];
     for (const member of members) {
       const user = await ctx.db.get(member.userId);
+      if (!user) {
+        membersWithUsers.push({ ...member, user: null });
+        continue;
+      }
+      const seen = mergeLastSeen(
+        await getUserPresenceRow(ctx.db, member.userId),
+        user,
+      );
       membersWithUsers.push({
         ...member,
-        user: user
-          ? {
-              _id: user._id,
-              email: user.email,
-              fullName: user.fullName,
-              firstName: user.firstName,
-              lastName: user.lastName,
-              lastSeenAt: user.lastSeenAt,
-              lastSeenPath: user.lastSeenPath,
-            }
-          : null,
+        user: {
+          _id: user._id,
+          email: user.email,
+          fullName: user.fullName,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          lastSeenAt: seen.lastSeenAt,
+          lastSeenPath: seen.lastSeenPath,
+        },
       });
     }
 

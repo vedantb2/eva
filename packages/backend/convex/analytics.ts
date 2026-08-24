@@ -2,6 +2,7 @@ import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { authQuery, hasRepoAccess } from "./functions";
 import { filterActiveEntities } from "./numId";
+import { loadLastSeenAt } from "./_users/lastSeen";
 
 /**
  * Sidebar cook-rate strip: done + cancelled task counts only.
@@ -344,9 +345,11 @@ export const getActiveUsers = authQuery({
     const repoUserIds = [
       ...new Set<Id<"users">>(activeSessions.map((session) => session.userId)),
     ];
-    const users = await Promise.all(repoUserIds.map((id) => ctx.db.get(id)));
-    const activeCount = users.filter(
-      (u) => u?.lastSeenAt !== undefined && u.lastSeenAt >= fiveMinAgo,
+    const lastSeenAts = await Promise.all(
+      repoUserIds.map((id) => loadLastSeenAt(ctx.db, id)),
+    );
+    const activeCount = lastSeenAts.filter(
+      (lastSeenAt) => lastSeenAt !== undefined && lastSeenAt >= fiveMinAgo,
     ).length;
     return { count: activeCount };
   },
@@ -467,13 +470,13 @@ export const getActivityTimeline = authQuery({
       }
     }
     const activeSessionUserIds = [...usersInActiveSessions];
-    const activeSessionUsers = await Promise.all(
-      activeSessionUserIds.map((id) => ctx.db.get(id)),
+    const lastSeenAts = await Promise.all(
+      activeSessionUserIds.map((id) => loadLastSeenAt(ctx.db, id)),
     );
     for (let i = 0; i < activeSessionUserIds.length; i++) {
-      const user = activeSessionUsers[i];
-      if (user?.lastSeenAt !== undefined && user.lastSeenAt >= args.startTime) {
-        const bucket = getBucket(user.lastSeenAt);
+      const lastSeenAt = lastSeenAts[i];
+      if (lastSeenAt !== undefined && lastSeenAt >= args.startTime) {
+        const bucket = getBucket(lastSeenAt);
         const bucketUsers = activeUsersByBucket[bucket];
         if (bucketUsers) {
           bucketUsers.add(activeSessionUserIds[i]);

@@ -72,13 +72,26 @@ describe("measured Convex I/O hot paths stay on compact reads", () => {
     expect(source("dataMigrations.ts")).toContain("splitRepoSkillContent");
   });
 
-  test("only the platform presence room reads users for lastSeenAt", () => {
+  test("only the platform presence room owns lastSeenAt", () => {
     expect(source("presence.ts")).toContain(
       'const LAST_SEEN_ROOM_ID = "platform"',
     );
     const body = definitionBody("presence.ts", "heartbeat");
     expect(body).toContain("roomId === LAST_SEEN_ROOM_ID");
-    expect(body).toContain("user.lastSeenAt");
+    expect(body).toContain("getUserPresenceRow");
+    expect(body).toContain("upsertUserPresence");
+    expect(body).not.toContain("patch(ctx.userId");
+  });
+
+  test("path and lastSeen writes stay off the users table", () => {
+    const updatePath = definitionBody("presence.ts", "updatePath");
+    expect(updatePath).toContain("getUserPresenceRow");
+    expect(updatePath).toContain("upsertUserPresence");
+    expect(updatePath).not.toContain("patch(ctx.userId");
+    expect(definitionBody("users.ts", "listAll")).not.toContain(
+      "getUserPresenceRow",
+    );
+    expect(source("schema.ts")).toContain("userPresence:");
   });
 
   test("listByParent skips storage URL work for text-only transcripts", () => {

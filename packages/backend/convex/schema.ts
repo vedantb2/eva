@@ -31,6 +31,7 @@ import {
   sandboxGitCredentialsFields,
   appSettingsFields,
   userFields,
+  userPresenceFields,
   userProviderAccountFields,
   githubUserTokenFields,
   githubOauthStateFields,
@@ -56,6 +57,8 @@ const schema = defineSchema({
   users: defineTable(userFields)
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"]),
+
+  userPresence: defineTable(userPresenceFields).index("by_user", ["userId"]),
 
   artifacts: defineTable(artifactFields)
     .index("by_team", ["boundTeamId"])

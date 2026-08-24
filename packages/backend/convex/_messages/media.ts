@@ -54,3 +54,18 @@ export function messageMediaStorageIds<TId>(doc: MediaFields<TId>): TId[] {
     (id): id is TId => id !== undefined,
   );
 }
+
+/**
+ * True when `listByParent` must hit Convex storage for this row.
+ *
+ * Text-only messages are the common case; resolving URLs for them was a
+ * `Promise.all` over every doc on every chat subscription.
+ */
+export function messageNeedsUrlResolution<TId>(
+  doc: MediaFields<TId> & { attachmentStorageIds?: TId[] },
+): boolean {
+  return (
+    (doc.attachmentStorageIds?.length ?? 0) > 0 ||
+    messageMediaStorageIds(doc).length > 0
+  );
+}

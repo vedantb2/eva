@@ -18,6 +18,7 @@ import {
   lookupAccent,
   type CustomTheme,
 } from "@/lib/contexts/themeTokens";
+import { ensureGoogleFont } from "@/lib/contexts/googleFonts";
 import { ThemeStateContext } from "@/lib/contexts/useThemeContext";
 
 export type {
@@ -51,6 +52,8 @@ function applyCustomThemeVars(customTheme: CustomTheme, _isDark: boolean) {
   const radius = customTheme.radius ?? "xl";
   const fontFamily = customTheme.fontFamily ?? "inter";
   const letterSpacing = customTheme.letterSpacing ?? "tight";
+
+  ensureGoogleFont(fontFamily);
 
   document.documentElement.style.setProperty("--radius", RADIUS_VALUES[radius]);
 

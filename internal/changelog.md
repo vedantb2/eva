@@ -1,5 +1,12 @@
 # Changelog
 
+## First paint loads one font; chat skips empty storage URL work - 2026-08-25
+
+Every visit downloaded a 12-family Google Fonts CSS (45.5 kB, 98 `@font-face`, 62 files) even though the default theme is Inter and Geist was never in that URL. Boot now injects one CSS2 stylesheet from the theme hint (default Inter: 9.9 kB, 28 faces, 7 files). Switching fonts in settings still loads that family; the picker preloads the rest only while it is on screen.
+
+`messages.listByParent` still collects the whole thread, but text-only rows no longer go through `storage.getUrl` / `getMetadata`. A transcript with no attachments or agent media returns the docs as stored instead of `Promise.all` over every message.
+
+
 ## Board skeletons follow the active view - 2026-08-24
 
 Quick-task and project loading placeholders were a list/detail split (or a four-column strip) no matter which view was saved, so a kanban user watched the wrong layout pop in. They now match the persisted view: status columns for kanban, the split/list for list, and the gantt for timeline. Today and What's New use the same rail-and-card timeline as the loaded page.

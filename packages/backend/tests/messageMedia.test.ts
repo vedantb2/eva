@@ -3,6 +3,7 @@ import {
   appendMediaStorageIds,
   incomingMediaStorageIds,
   messageMediaStorageIds,
+  messageNeedsUrlResolution,
 } from "../convex/_messages/media";
 
 // The helpers are generic over the id type, so plain strings stand in for the
@@ -104,5 +105,23 @@ describe("messageMediaStorageIds", () => {
 
   test("returns nothing for a message with no media at all", () => {
     expect(messageMediaStorageIds({})).toEqual([]);
+  });
+});
+
+describe("messageNeedsUrlResolution", () => {
+  test("skips text-only messages", () => {
+    expect(messageNeedsUrlResolution({})).toBe(false);
+    expect(messageNeedsUrlResolution({ attachmentStorageIds: [] })).toBe(
+      false,
+    );
+    expect(messageNeedsUrlResolution({ mediaStorageIds: [] })).toBe(false);
+  });
+
+  test("hits storage for attachments or agent media", () => {
+    expect(
+      messageNeedsUrlResolution({ attachmentStorageIds: ["file-1"] }),
+    ).toBe(true);
+    expect(messageNeedsUrlResolution({ mediaStorageIds: [video] })).toBe(true);
+    expect(messageNeedsUrlResolution({ videoStorageId: video })).toBe(true);
   });
 });

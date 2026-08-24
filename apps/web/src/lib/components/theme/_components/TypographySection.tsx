@@ -4,6 +4,7 @@ import {
   FONT_FAMILIES,
   LETTER_SPACING_VALUES,
 } from "@/lib/contexts/themeTokens";
+import { preloadGoogleFontsForPicker } from "@/lib/contexts/googleFonts";
 import type {
   RadiusSize,
   FontFamily,
@@ -51,6 +52,7 @@ export function TypographySection({
   radius: RadiusSize;
   onRadiusChange: (r: RadiusSize) => void;
 }) {
+  preloadGoogleFontsForPicker();
   return (
     // Three labelled sub-groups that read as one block, so the spacing lives
     // here rather than depending on the parent's stack.

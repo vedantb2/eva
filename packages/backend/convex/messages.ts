@@ -11,6 +11,7 @@ import { variationValidator, messageFields } from "./validators";
 import {
   appendMediaStorageIds,
   messageMediaStorageIds,
+  messageNeedsUrlResolution,
 } from "./_messages/media";
 
 const parentIdValidator = messageFields.parentId;
@@ -58,8 +59,14 @@ async function resolveMessageUrls(
     .query("messages")
     .withIndex("by_parent", (q) => q.eq("parentId", parentId))
     .collect();
+  if (!messages.some(messageNeedsUrlResolution)) {
+    return messages;
+  }
   return Promise.all(
     messages.map(async (m) => {
+      if (!messageNeedsUrlResolution(m)) {
+        return m;
+      }
       const attachmentEntries = m.attachmentStorageIds
         ? await Promise.all(
             m.attachmentStorageIds.map(async (id) => {

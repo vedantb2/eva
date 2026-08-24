@@ -80,6 +80,15 @@ describe("measured Convex I/O hot paths stay on compact reads", () => {
     expect(body).toContain("roomId === LAST_SEEN_ROOM_ID");
     expect(body).toContain("user.lastSeenAt");
   });
+
+  test("listByParent skips storage URL work for text-only transcripts", () => {
+    expect(source("_messages/media.ts")).toContain(
+      "export function messageNeedsUrlResolution",
+    );
+    const messages = source("messages.ts");
+    expect(messages).toContain("messageNeedsUrlResolution");
+    expect(messages).toContain("messages.some(messageNeedsUrlResolution)");
+  });
 });
 
 function convexFiles(): string[] {

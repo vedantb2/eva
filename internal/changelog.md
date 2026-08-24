@@ -1,5 +1,9 @@
 # Changelog
 
+## Cursor watchdog preserves already-visible work - 2026-08-24
+
+The first stall-recovery rollout used the same 60-second deadline before and after Cursor emitted visible reasoning. A real Grok turn paused for one minute mid-thought and was incorrectly failed even though its reasoning remained intact in the message activity log. Startup recovery stays strict and replay-safe: only the first visible event has a 60-second deadline, silent status/usage events cannot reset it, and a stalled resumed agent still rotates once. After reasoning, assistant text, or a tool call appears, the watchdog uses the existing five-minute safety window instead, so it cannot abort an ordinary model pause or replay visible work.
+
 ## Cursor stalls recover instead of looking frozen - 2026-08-24
 
 Production logs showed Grok reaching a resumed Cursor agent and then hanging inside `Agent.send()` before the SDK returned a cancellable run or emitted a stream event. That boundary now has an explicit deadline: a resumed agent that stalls before producing any user-visible work is closed and retried once with a clean context, while later stalls fail without replaying tool side effects. Agent create/resume, first-event silence, between-event silence, and result settlement are bounded too, closing the gap where the old watchdog called a no-op cancel and left the turn alive until the daemon's much larger hard cap.

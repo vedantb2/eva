@@ -9,6 +9,8 @@ import {
   RESOURCE_EXHAUSTED_RETRY_DELAYS_MS,
   attributeCursorTurnRawCents,
   cursorModeParams,
+  cursorEventHasVisibleActivity,
+  cursorEventWaitTimeoutMs,
   filterModeParamsByModel,
   isResourceExhaustedMessage,
   readCursorCostSnapshot,
@@ -58,6 +60,50 @@ test("only a pre-output resumed Cursor stall rotates to a fresh agent", () => {
       new CursorPhaseTimeoutError("finishing the model run", 30_000),
     ),
   ).toBe(false);
+});
+
+test("Cursor silence policy distinguishes safe startup recovery from visible work", () => {
+  expect(cursorEventHasVisibleActivity("thinking")).toBe(true);
+  expect(cursorEventHasVisibleActivity("assistant")).toBe(true);
+  expect(cursorEventHasVisibleActivity("tool_call")).toBe(true);
+  expect(cursorEventHasVisibleActivity("status")).toBe(false);
+  expect(cursorEventHasVisibleActivity("usage")).toBe(false);
+
+  expect(
+    cursorEventWaitTimeoutMs({
+      sawVisibleActivity: false,
+      firstVisibleDeadlineAt: 61_000,
+      now: 1_000,
+      toolInFlight: false,
+    }),
+  ).toBe(60_000);
+  // Silent status/usage events do not reset the first-visible deadline.
+  expect(
+    cursorEventWaitTimeoutMs({
+      sawVisibleActivity: false,
+      firstVisibleDeadlineAt: 61_000,
+      now: 31_000,
+      toolInFlight: false,
+    }),
+  ).toBe(30_000);
+  // Once reasoning/text/tools are visible, a normal one-minute model pause is
+  // not fatal. A much longer safety bound still catches a genuinely dead run.
+  expect(
+    cursorEventWaitTimeoutMs({
+      sawVisibleActivity: true,
+      firstVisibleDeadlineAt: 61_000,
+      now: 61_000,
+      toolInFlight: false,
+    }),
+  ).toBe(300_000);
+  expect(
+    cursorEventWaitTimeoutMs({
+      sawVisibleActivity: true,
+      firstVisibleDeadlineAt: 61_000,
+      now: 61_000,
+      toolInFlight: true,
+    }),
+  ).toBeGreaterThan(300_000);
 });
 
 test("splitCursorModel separates base id and reasoning level", () => {

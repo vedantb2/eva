@@ -56,8 +56,10 @@ const SDK_ENTRY_RELPATH = "/dist/esm/index.js";
 export const CURSOR_AGENT_SETUP_TIMEOUT_MS = 30_000;
 /** `Agent.send` only creates the run. A minute here is a wedged SDK session. */
 export const CURSOR_SEND_START_TIMEOUT_MS = 60_000;
-/** Grok normally emits thinking deltas; silence longer than this is a stall. */
-export const CURSOR_STREAM_SILENCE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS;
+/** Before visible output, replaying once on a fresh agent is still safe. */
+export const CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS;
+/** Once output exists, allow long model pauses without replaying or aborting. */
+export const CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
 const CURSOR_RESULT_SETTLE_TIMEOUT_MS = 30_000;
 
 export type CursorPhase =
@@ -116,6 +118,22 @@ export function shouldRetryStalledCursorResume(error: Error): boolean {
     (error.phase === "starting the model run" ||
       error.phase === "waiting for the first model event")
   );
+}
+
+/** SDK events that prove the user has seen model work and replay is unsafe. */
+export function cursorEventHasVisibleActivity(type: string): boolean {
+  return type === "thinking" || type === "assistant" || type === "tool_call";
+}
+
+export function cursorEventWaitTimeoutMs(args: {
+  sawVisibleActivity: boolean;
+  firstVisibleDeadlineAt: number;
+  now: number;
+  toolInFlight: boolean;
+}): number {
+  if (args.toolInFlight) return MAX_TOTAL_RUNTIME_MS;
+  if (args.sawVisibleActivity) return CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS;
+  return Math.max(1, args.firstVisibleDeadlineAt - args.now);
 }
 
 /** Official SDK types are erased from the standalone callback bundle. */
@@ -730,7 +748,10 @@ export async function runCursorSdkAttempt(
     if (S.inFlightToolUses > 0) {
       lastMessageAt = now;
     }
-    if (!sawResult && now - lastMessageAt > NO_OUTPUT_TIMEOUT_MS * 5) {
+    if (
+      !sawResult &&
+      now - lastMessageAt > CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS
+    ) {
       timedOutForNoOutput = true;
       log("runCursorSdkAttempt: no SDK events — cancelling run");
       cancelRun();
@@ -794,18 +815,22 @@ export async function runCursorSdkAttempt(
     if (abortedByCaller) cancelRun();
     updateThinkingStep("Waiting for Grok...", "The model is thinking...");
     const messages = run.stream()[Symbol.asyncIterator]();
-    let sawSdkEvent = false;
+    let sawVisibleActivity = false;
+    const firstVisibleDeadlineAt =
+      Date.now() + CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS;
     while (true) {
-      const phase: CursorPhase = sawSdkEvent
+      const phase: CursorPhase = sawVisibleActivity
         ? "waiting for the next model event"
         : "waiting for the first model event";
       const next = await waitForCursorPhase({
         task: messages.next(),
         phase,
-        timeoutMs:
-          S.inFlightToolUses > 0
-            ? MAX_TOTAL_RUNTIME_MS
-            : CURSOR_STREAM_SILENCE_TIMEOUT_MS,
+        timeoutMs: cursorEventWaitTimeoutMs({
+          sawVisibleActivity,
+          firstVisibleDeadlineAt,
+          now: Date.now(),
+          toolInFlight: S.inFlightToolUses > 0,
+        }),
         onTimeout: () => {
           timedOutForNoOutput = true;
           cancelRun();
@@ -813,7 +838,9 @@ export async function runCursorSdkAttempt(
       });
       if (next.done) break;
       const message = next.value;
-      sawSdkEvent = true;
+      if (cursorEventHasVisibleActivity(message.type)) {
+        sawVisibleActivity = true;
+      }
       lastMessageAt = Date.now();
       pushLine(JSON.stringify(message) + "\n");
       if (message.type === "usage") {

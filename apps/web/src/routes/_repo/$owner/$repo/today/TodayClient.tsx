@@ -3,7 +3,7 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api, DAILY_STANDUP_KEY } from "@eva/backend";
-import { cn, Skeleton, STREAMDOWN_TABLE_RADIUS_CLASS } from "@eva/ui";
+import { cn, STREAMDOWN_TABLE_RADIUS_CLASS } from "@eva/ui";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { math } from "@streamdown/math";
@@ -12,6 +12,7 @@ import { IconSunrise } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
+import { TimelineEntriesSkeleton } from "@/lib/components/ui/TimelineEntriesSkeleton";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { withMutationToast } from "@/lib/utils/mutationToast";
 
@@ -56,11 +57,7 @@ export function TodayClient() {
   return (
     <PageWrapper title="Today" comfortable>
       {entries === undefined ? (
-        <div className="space-y-3">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-32 border border-border" />
-          ))}
-        </div>
+        <TimelineEntriesSkeleton aria-label="Loading standups" />
       ) : entries.length === 0 ? (
         enabled === false ? (
           <EmptyState

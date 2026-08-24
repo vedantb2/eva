@@ -1,5 +1,9 @@
 # Changelog
 
+## Board skeletons follow the active view - 2026-08-24
+
+Quick-task and project loading placeholders were a list/detail split (or a four-column strip) no matter which view was saved, so a kanban user watched the wrong layout pop in. They now match the persisted view: status columns for kanban, the split/list for list, and the gantt for timeline. Today and What's New use the same rail-and-card timeline as the loaded page.
+
 ## Cut idle Convex writes that were fighting themselves - 2026-08-24
 
 Prod insights for the last 72h were almost all OCC retries, not bytes-read. Turn heartbeats patched `leaseExpiresAt` on every 150ms flush even though the running lease is two minutes (18 OCC on `turns`). Overlapping streaming touches rewrote `lastUpdatedAt` when content had not changed (24 OCC on `streamingActivity`, plus 17 more from the stall watchdog). Cursor/typing presence rooms also read the user doc on every heartbeat, so lastSeenAt writes on one tab retried every other room (30 OCC on one user). Chat subscribed to `users.listAll` on every transcript, including solo chats that never show another name.

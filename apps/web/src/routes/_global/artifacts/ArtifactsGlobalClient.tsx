@@ -24,12 +24,12 @@ export function ArtifactsGlobalClient() {
       </div>
       {artifacts === undefined ? (
         <div
-          className="grid min-h-80 gap-3 sm:grid-cols-2"
+          className="grid min-h-80 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3"
           aria-busy="true"
           aria-label="Loading artifacts"
         >
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Skeleton key={i} className="h-32 border border-border" />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-surface" />
           ))}
         </div>
       ) : (

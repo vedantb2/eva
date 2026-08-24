@@ -2,7 +2,7 @@
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
-import { cn, Skeleton, STREAMDOWN_TABLE_RADIUS_CLASS } from "@eva/ui";
+import { cn, STREAMDOWN_TABLE_RADIUS_CLASS } from "@eva/ui";
 import { Streamdown } from "streamdown";
 import { cjk } from "@streamdown/cjk";
 import { math } from "@streamdown/math";
@@ -11,6 +11,7 @@ import { IconSparkles } from "@tabler/icons-react";
 import dayjs from "dayjs";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
+import { TimelineEntriesSkeleton } from "@/lib/components/ui/TimelineEntriesSkeleton";
 
 /** Same plugin set as `ChangelogDialog`, so both surfaces render identically. */
 const whatsNewPlugins = { cjk, math, mermaid };
@@ -25,11 +26,7 @@ export function WhatsNewClient() {
   return (
     <PageWrapper title="What's New" comfortable>
       {entries === undefined ? (
-        <div className="space-y-3">
-          {[0, 1, 2].map((i) => (
-            <Skeleton key={i} className="h-32 border border-border" />
-          ))}
-        </div>
+        <TimelineEntriesSkeleton aria-label="Loading updates" />
       ) : entries.length === 0 ? (
         <EmptyState
           icon={<IconSparkles size={24} />}

@@ -3,7 +3,7 @@ import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { motionBase, Skeleton } from "@eva/ui";
+import { motionBase } from "@eva/ui";
 import { useShortcut } from "@/lib/hotkeys/useShortcut";
 import {
   Navigate,
@@ -27,7 +27,12 @@ import { useQuickTaskRouteState } from "./_utils/useQuickTaskRouteState";
 import { IconChecklist } from "@tabler/icons-react";
 import { TASK_STATUSES } from "@/lib/components/tasks/TaskStatusBadge";
 import { QuickTasksToolbar } from "./_components/QuickTasksToolbar";
+import {
+  QuickTaskDetailSkeleton,
+  QuickTasksListSkeleton,
+} from "./_components/QuickTasksSkeletons";
 import { ActiveFiltersBar } from "./_components/ActiveFiltersBar";
+import { KanbanBoardSkeleton } from "@/lib/components/kanban/KanbanBoardSkeleton";
 import {
   QuickTasksBulkBar,
   type BulkAction,
@@ -292,24 +297,6 @@ export function QuickTasksClient() {
     return <Navigate to={taskResolve.redirectTo} search={true} replace />;
   }
 
-  if (tasks === undefined) {
-    return (
-      <PageWrapper title="Quick Tasks" fillHeight childPadding={false}>
-        <div
-          className="flex h-full min-h-96 flex-1 flex-col gap-3 p-3"
-          aria-busy="true"
-          aria-label="Loading quick tasks"
-        >
-          <Skeleton className="h-10 w-full max-w-md" />
-          <div className="flex flex-1 gap-3">
-            <Skeleton className="w-72 shrink-0 border border-border" />
-            <Skeleton className="min-w-0 flex-1 border border-border" />
-          </div>
-        </div>
-      </PageWrapper>
-    );
-  }
-
   // URL points at a task that is still resolving or no longer exists.
   // List view never takes this full-page path — it shows loading/not-found
   // in the detail pane instead so the list itself stays mounted.
@@ -320,17 +307,7 @@ export function QuickTasksClient() {
   ) {
     return (
       <PageWrapper title="Quick Tasks" fillHeight childPadding={false}>
-        <div
-          className="flex h-full min-h-96 flex-1 flex-col gap-3 p-3"
-          aria-busy="true"
-          aria-label="Loading task"
-        >
-          <Skeleton className="h-10 w-full max-w-md" />
-          <div className="flex flex-1 gap-3">
-            <Skeleton className="w-72 shrink-0 border border-border" />
-            <Skeleton className="min-w-0 flex-1 border border-border" />
-          </div>
-        </div>
+        <QuickTaskDetailSkeleton />
       </PageWrapper>
     );
   }
@@ -422,7 +399,29 @@ export function QuickTasksClient() {
             />
           )}
           <AnimatePresence mode="wait" initial={false}>
-            {!hasQuickTasks &&
+            {tasks === undefined ? (
+              <m.div
+                key="quick-tasks-loading"
+                className="flex min-w-0 flex-1 min-h-0"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={motionBase}
+              >
+                {view === "list" ? (
+                  <QuickTasksListSkeleton />
+                ) : (
+                  <KanbanBoardSkeleton
+                    columns={
+                      statuses.length > 0
+                        ? statuses.length
+                        : TASK_STATUSES.length
+                    }
+                    aria-label="Loading quick tasks"
+                  />
+                )}
+              </m.div>
+            ) : !hasQuickTasks &&
             !(view === "list" && numIdParam !== undefined) ? (
               <m.div
                 key="quick-tasks-empty"

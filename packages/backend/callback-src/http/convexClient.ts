@@ -13,6 +13,17 @@ import {
 } from "../config.js";
 import type { ConvexCallType, JsonObject, JsonValue } from "../types.js";
 import { readResponseJson } from "../utils.js";
+import {
+  getCurrentTurnLease,
+  noteHeartbeatResponse,
+} from "../runtime/turnLease.js";
+
+function appendTurnLease(body: URLSearchParams): void {
+  const identity = getCurrentTurnLease();
+  if (identity === null) return;
+  body.set("turnId", identity.turnId);
+  body.set("leaseGeneration", String(identity.leaseGeneration));
+}
 
 /** Wraps fetch with an AbortController timeout. */
 export async function fetchWithTimeout(
@@ -189,14 +200,31 @@ async function callStreamingHeartbeatTouchOnce(
     body.set("entityId", entityId);
     body.set("hmac", STREAMING_HMAC);
     body.set("touchOnly", "1");
-    return await postSignedForm(
+    appendTurnLease(body);
+    const response = await postSignedForm(
       CONVEX_SITE_URL + "/api/streaming/heartbeat",
       body,
       "Streaming heartbeat touch",
     );
+    noteHeartbeatResponse(response);
+    return response;
   }
 
-  return await callConvex("mutation", "streaming:touch", { entityId });
+  const identity = getCurrentTurnLease();
+  const response =
+    identity === null
+      ? await callConvex("mutation", "turns:legacyHeartbeatFromCallback", {
+          entityId,
+          touchOnly: true,
+        })
+      : await callConvex("mutation", "turns:heartbeatFromCallback", {
+          entityId,
+          touchOnly: true,
+          turnId: identity.turnId,
+          leaseGeneration: identity.leaseGeneration,
+        });
+  noteHeartbeatResponse(response);
+  return response;
 }
 
 /** Sends one streaming heartbeat request through the scoped HMAC endpoint or legacy mutation fallback. */
@@ -212,25 +240,40 @@ async function callStreamingHeartbeatOnce(
     body.set("hmac", STREAMING_HMAC);
     body.set("currentActivity", currentActivity);
     body.set("currentContent", currentContent || "");
+    appendTurnLease(body);
     if (pendingQuestion) {
       body.set("pendingQuestion", pendingQuestion);
     }
-    return await postSignedForm(
+    const response = await postSignedForm(
       CONVEX_SITE_URL + "/api/streaming/heartbeat",
       body,
       "Streaming heartbeat",
     );
+    noteHeartbeatResponse(response);
+    return response;
   }
 
   const args: JsonObject = {
     entityId,
+    touchOnly: false,
     currentActivity,
     currentContent,
   };
   if (pendingQuestion) {
     args.pendingQuestion = pendingQuestion;
   }
-  return await callConvex("mutation", "streaming:set", args);
+  const identity = getCurrentTurnLease();
+  const path =
+    identity === null
+      ? "turns:legacyHeartbeatFromCallback"
+      : "turns:heartbeatFromCallback";
+  if (identity !== null) {
+    args.turnId = identity.turnId;
+    args.leaseGeneration = identity.leaseGeneration;
+  }
+  const response = await callConvex("mutation", path, args);
+  noteHeartbeatResponse(response);
+  return response;
 }
 
 /** Sends a streaming heartbeat update with current activity and content. */

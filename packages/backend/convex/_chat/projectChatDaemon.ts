@@ -24,11 +24,13 @@ function projectChatStreamEntityId(projectId: Id<"projects">): string {
 
 const emptyClaimReturn = {
   prompt: null,
+  turnLifecycle: "legacy",
   attachmentUrls: [],
   stopTaskToolUseIds: [],
   cancelRequested: false,
 } satisfies {
   prompt: null;
+  turnLifecycle: "legacy";
   attachmentUrls: string[];
   stopTaskToolUseIds: string[];
   cancelRequested: boolean;
@@ -42,6 +44,7 @@ export const claimPendingTurn = authMutation({
   },
   returns: v.object({
     prompt: v.union(v.string(), v.null()),
+    turnLifecycle: v.literal("legacy"),
     attachmentUrls: v.array(v.string()),
     stopTaskToolUseIds: v.array(v.string()),
     cancelRequested: v.boolean(),
@@ -99,7 +102,14 @@ export const claimPendingTurn = authMutation({
       (url): url is string => url !== null,
     );
     await ctx.db.patch(args.projectId, { pendingTurn: undefined });
-    return { prompt, attachmentUrls, stopTaskToolUseIds, cancelRequested };
+    const turnLifecycle: "legacy" = "legacy";
+    return {
+      prompt,
+      turnLifecycle,
+      attachmentUrls,
+      stopTaskToolUseIds,
+      cancelRequested,
+    };
   },
 });
 

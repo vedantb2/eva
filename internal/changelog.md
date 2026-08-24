@@ -1,8 +1,12 @@
 # Changelog
 
-## Durable turn lifecycle removed - 2026-08-24
+## Durable turn lifecycle restored after rollback audit - 2026-08-24
 
-The durable Turn journal, lease fencing, provider-daemon supervision, and Turn-derived UI projection introduced by PR #609 have been removed after repeated provider regressions made the architecture too costly to keep debugging. Sessions return to the prior workflow and streaming-activity lifecycle, while later unrelated fixes for screenshots, Claude task notifications, usage limits, preview navigation, asset recovery, and modes-to-skills remain intact. Existing Turn rows are removed through a staged Convex migration before the dormant table schema is deleted.
+The legacy execution path reproduced the same slow and apparently frozen Cursor experience after the durable lifecycle was removed, showing that the rollback did not address the provider-streaming cause and discarded the stronger ownership guarantees without improving responsiveness. The complete pre-rollback lifecycle is restored: claimed work again has durable identity, lease renewal, fenced completion, daemon supervision, rollout-safe projection, and the cross-provider contract and integration suites that keep Claude, Cursor, and Codex on one execution boundary. Cursor's sparse Grok reasoning stream remains a separate provider/UI concern rather than being conflated with turn ownership.
+
+## Claimed turns share one durable lifecycle contract - 2026-08-24
+
+Cursor claimed staged chat turns but discarded the lease identity returned by Convex, so every heartbeat deliberately skipped renewal and healthy work was finalized as stalled at almost exactly two minutes. Claim responses now identify durable versus legacy execution explicitly, and Claude, Cursor, and Codex all cross the same typed lifecycle boundary to parse ownership, install its heartbeat fence before provider work, fence every completion, and clear warm-process state. Durable claims without a lease are rejected before provider work, while one shared behavioral suite and a cross-provider contract matrix prevent an adapter from silently bypassing these invariants again.
 
 ## Synthetic Claude replies now deliver their screenshots - 2026-08-23
 
@@ -45,6 +49,16 @@ Modes are gone. Planning and design are now two system skills, `eva-plan` and `e
 - `removeSessionModeFields` pages through sessions, messages, queued rows, daemon state, projects, and tasks to strip the write-dead columns (`lastMode`, `selectedVariationIndex`, `mode`, `personaId`, `numDesigns`, `pendingTurn.turnKind`) and delete `designPersonas` rows. Validators stay until that has run on every deployment
 - Session auto-commit and the agent commit hint exclude `plan.md`, so a harvested plan stays in the working tree and Convex rather than landing on the branch
 - Separately, Eva's MCP server is now wired into the other two providers: codex gets `[mcp_servers.*]` table sections appended to `CODEX_HOME/config.toml` (one wiring point for both the SDK CLI and the app-server daemon), and opencode registers it on the live `opencode serve` process via `POST /mcp`, because that server outlives the callback and reads its config only at startup. Best-effort in both cases — a server Eva cannot register costs the turn its Eva tools rather than failing the turn
+
+## Durable Turn rollout closes the deployment and fencing gaps - 2026-08-23
+
+The first Turn-lifecycle implementation made new executions durable, but a deploy could still strand workflows that started on the previous code, and three failure boundaries could recreate the same long-lived “Working…” state it was meant to eliminate.
+
+- `sessionExecuteWorkflow.turnId` is now the rollout discriminator: pre-cutover workflow arguments remain valid and skip every new journalled step and argument, preserving the workflow component’s order-based replay contract, while all new starts continue through the fenced Turn path
+- Sessions receive a permanent `turnLifecycleVersion: 2` marker on their first durable Turn. Missing-marker sessions may temporarily project `activeWorkflowId` or a synthetic placeholder for work already running during deployment; marked sessions derive activity only from open Turns, so stale legacy fields can never regain authority
+- Fatal one-shot completions use the same shared lease-appending helper as normal completions. Legacy heartbeats now pass through one ownership gate on both the signed HTTP route and authenticated fallback; an open durable Turn rejects the write and returns a terminal superseded fence so the stale runner exits
+- A queued `workflow.start` failure now closes the exact Turn and removes its empty placeholder before the outer queue handler records the user-visible error, keeping the caught mutation transactional rather than committing half a launch
+- Added schema-backed `convex-test` coverage for durable cutover writes, legacy heartbeat rejection without streaming mutation, queue-start rollback, rollout projection and callback fencing. The backend Vitest config now declares the automatic JSX runtime so clean installs execute the same 130-file suite as warm workspaces
 
 ## Usage limits and harness catalogs now preserve truth across turns - 2026-08-23
 
@@ -294,6 +308,18 @@ The automation tabs (Latest / Run History / Settings) were built inside the page
 The automation Settings tab now uses the settings card shape as well. Every block was a `Surface` with its own `h3` inside the card ("Cron Schedule", "Description", "Model"), so the heading read as part of the control rather than as a caption for it. Those are now `SettingsSection`s — title on the canvas above the card, at the same size and weight as every other settings caption — with `SettingsField` for the labelled inputs and one divided `SettingsToggleRow` list for Share across apps / Report only / Actions / Send email, replacing four separate one-toggle cards. `CronScheduleCard` is shared with the Snapshots settings page, so its caption moved out there too and it now matches the Branch and Build Commands sections beside it. The bespoke `SettingToggle` component is gone; system automations get the same treatment on their own Settings tab.
 
 Page titles were also a gutter out. Each settings card carries its section title at `px-4`, but the page title above sat flush with the card edge, leaving the two headings 16px apart on every settings and automations page. `PageWrapper` gained an opt-in `insetHeader` that indents the title row by the card gutter; `SettingsPage`, the automation detail page and the Automations Hub set it, and the Hub's own "Automations Hub" caption moved inside a full-bleed divider so its copy takes the same gutter. Home and Stats carry the same caption idiom from `RepoGroup` and `Widget`, so they set it too. List pages whose card has no section heading to align to (inbox, drafts, projects) are deliberately left flush, as are pages whose headings live inside the card (changelog, testing).
+
+## Session turns have one durable, fenced lifecycle - 2026-08-19
+
+Session execution no longer has to infer whether a turn exists from a loose combination of workflow IDs, pending prompts, streaming rows, empty assistant messages, and sandbox processes. Every fresh, queued, one-shot, warm-daemon, and synthetic session turn now opens a persisted `turns` row before launch and advances through explicit staged, launching, running, finalizing, and terminal states. The open row carries the placeholder, prompt, model, repository, sandbox, workflow, absolute start time, renewable lease deadline, and monotonically increasing lease generation.
+
+Claims and one-shot launches acquire a new lease generation; heartbeats and completion callbacks must present the exact turn ID and generation. Convex verifies that fence before accepting streaming writes or completion events, so a superseded daemon can neither overwrite the current activity feed nor finish a newer turn. Warm Claude and Codex daemons propagate their claimed identity locally, one-shot runners receive it through environment variables, and synthetic Claude continuations use the same protocol.
+
+A minute cron now reconciles expired leases from persisted state and rechecks expiry transactionally before finalizing, so a concurrent renewal wins and a dead owner converges without depending on an edge-triggered timeout callback. Phase-specific leases allow slow startup and finalization while active execution renews every two minutes; every path remains capped by the existing two-hour absolute deadline. Legacy callbacks are accepted only when no durable turn is open, which keeps rollout compatibility without weakening fencing for new turns. Unit and contract coverage pins legal transitions, phase deadlines, generation checks, write-before-renew ordering, pre-launch persistence, completion fencing, daemon propagation, and level-triggered recovery.
+
+The UI now reads the same open-turn projection. Session composers and annotation sends subscribe to `turns.getSessionStatus`; empty assistant-message inference is only a first-load fallback, so a stale bubble cannot hold the composer in queue mode after the durable turn closes. Sidebar and tab status comes from one repo-indexed open-turn query rather than `activeWorkflowId` or an N+1 join, keeping every session surface aligned with the persisted lifecycle.
+
+Claude and Codex warm processes now share a typed local `DaemonSupervisor` with explicit idle, synthetic-opening, starting, running, cancelling, and finalizing phases plus independent pending-claim and shutdown regions. Claim parking, cancellation, refresh draining, finalization, fence exit, and settlement transition through that authority instead of coordinating six loosely related booleans. Sequence tests exercise illegal double-start/double-claim attempts and refresh blockers, while source-and-bundle contracts prevent either daemon from reintroducing independent lifecycle flags.
 
 ## Tiny prompts no longer replay giant Cursor sessions, and callback refreshes cannot lose Claude turns - 2026-08-19
 

@@ -64,7 +64,7 @@ async function readStreamingActivity(ctx: QueryCtx, entityId: string) {
 }
 
 /** Updates or creates streaming activity state for an entity, only writing on actual changes. */
-async function upsertStreamingActivity(
+export async function upsertStreamingActivity(
   ctx: MutationCtx,
   args: {
     entityId: string;
@@ -131,7 +131,7 @@ export const internalGet = internalQuery({
   handler: async (ctx, args) => readStreamingActivity(ctx, args.entityId),
 });
 
-async function touchStreamingEntity(
+export async function touchStreamingEntity(
   ctx: MutationCtx,
   entityId: string,
 ): Promise<boolean> {

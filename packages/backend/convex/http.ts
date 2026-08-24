@@ -117,23 +117,38 @@ http.route({
       return new Response("Invalid heartbeat signature", { status: 401 });
     }
 
-    if (touchOnly) {
-      await ctx.runMutation(internal.streaming.internalTouch, { entityId });
-    } else {
-      if (!currentActivity) {
-        return new Response("Missing required heartbeat fields", {
-          status: 400,
-        });
+    const turnId = params.get("turnId");
+    if (turnId !== null) {
+      const leaseGeneration = Number(params.get("leaseGeneration"));
+      if (!Number.isSafeInteger(leaseGeneration) || leaseGeneration <= 0) {
+        return new Response("Invalid turn lease generation", { status: 400 });
       }
-      await ctx.runMutation(internal.streaming.internalSet, {
+      const lease = await ctx.runMutation(internal.turns.heartbeat, {
+        turnId,
+        leaseGeneration,
         entityId,
-        currentActivity,
+        touchOnly,
+        currentActivity: currentActivity ?? undefined,
         currentContent: params.get("currentContent") ?? "",
         pendingQuestion: params.get("pendingQuestion") ?? undefined,
       });
+      return Response.json({ ok: true, lease });
     }
 
-    return Response.json({ ok: true });
+    const accepted = await ctx.runMutation(internal.turns.legacyHeartbeat, {
+      entityId,
+      touchOnly,
+      currentActivity: currentActivity ?? undefined,
+      currentContent: params.get("currentContent") ?? "",
+      pendingQuestion: params.get("pendingQuestion") ?? undefined,
+    });
+    return Response.json({
+      ok: true,
+      accepted,
+      lease: accepted
+        ? null
+        : { status: "terminal", reason: "superseded" },
+    });
   }),
 });
 

@@ -25,10 +25,10 @@ const SANDBOX_REVIEW_ROUTE_ID =
 const OVERVIEW_ROUTE_ID = "/_repo/$owner/$repo/projects/$numId/overview";
 
 /**
- * Project shell. Owns the whole detail page — header, tab strip and body — so
- * switching Overview/Tasks, opening a task or crossing into the sandbox swaps
- * the body only and leaves the header mounted. Every child route renders
- * `null`; they exist for their params and `beforeLoad` redirects.
+ * Project shell. Owns the whole detail page — header tabs and body — so
+ * switching Overview/Tasks/Sandbox, opening a task or crossing into the
+ * sandbox swaps the body only and leaves the header mounted. Every child
+ * route renders `null`; they exist for their params and `beforeLoad` redirects.
  */
 export const Route = createFileRoute("/_repo/$owner/$repo/projects/$numId")({
   staticData: { title: "Projects" },

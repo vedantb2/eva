@@ -40,10 +40,7 @@ import { ProjectSandboxChatPanel } from "@/lib/components/projects/ProjectSandbo
 import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { SleepEvaButton } from "@/lib/components/sandbox/SleepEvaButton";
-import {
-  SandboxSurfaceTabs,
-  type SandboxSurface,
-} from "@/lib/components/sandbox/SandboxSurfaceTabs";
+import type { SandboxSurface } from "@/lib/components/sandbox/SandboxSurfaceTabs";
 import {
   SandboxWorkspace,
   type TerminalPanelApi,
@@ -165,16 +162,6 @@ export function ProjectDetailClient({
   const isSandboxSurface = surface === "sandbox";
 
   const projectPathSegment = entityPathSegment({ numId: projectNumId });
-
-  const handleSelectSurface = (next: SandboxSurface) => {
-    if (!projectPathSegment || next === surface) return;
-    navigate({
-      to:
-        next === "sandbox"
-          ? `${basePath}/projects/${projectPathSegment}/sandbox/preview`
-          : `${basePath}/projects/${projectPathSegment}`,
-    });
-  };
 
   // Chat file chips → Files tab + `?file=` (same pattern as sessions).
   const openFile = (path: string) => {
@@ -384,32 +371,23 @@ export function ProjectDetailClient({
           entityLabel={project.title}
         />
       }
-      /* Navigation, not an action: sits with the breadcrumb, above the
-         Overview/Tasks tabs, rather than inside the header's action cluster. */
+      /* Overview / Tasks / Sandbox live in the header — replaces the old
+         Project|Sandbox surface switcher and the secondary tab strip. */
       titleAfter={
-        canStartSandbox && !isDraftOrFinalized ? (
-          <SandboxSurfaceTabs
-            mainLabel="Project"
-            surface={surface}
+        projectPathSegment ? (
+          <ProjectMainTabs
+            projectHref={`${basePath}/projects/${projectPathSegment}`}
+            activeTab={isSandboxSurface ? "sandbox" : mainTab}
+            workTabLabel={isDraftOrFinalized ? "Plan" : "Tasks"}
+            showSandbox={canStartSandbox && !isDraftOrFinalized}
             isSandboxActive={isSandboxActive}
             isSandboxStarting={isSandboxStarting}
             isSandboxStopping={isSandboxStopping}
-            onSurfaceChange={handleSelectSurface}
           />
         ) : null
       }
       fillHeight
       childPadding={false}
-      /* Tab strip is detail-only — sandbox stays flush like sessions. */
-      tabs={
-        isSandboxSurface || !projectPathSegment ? undefined : (
-          <ProjectMainTabs
-            projectHref={`${basePath}/projects/${projectPathSegment}`}
-            activeTab={mainTab}
-            workTabLabel={isDraftOrFinalized ? "Plan" : "Tasks"}
-          />
-        )
-      }
       headerRight={
         !isDraftOrFinalized ? (
           <div className="flex max-sm:min-w-0 flex-col items-end gap-1">

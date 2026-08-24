@@ -36,6 +36,7 @@ import {
 import { callbackState as S } from "../runtime/state.js";
 import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
+import { getCurrentTurnLease } from "../runtime/turnLease.js";
 import { DaemonSupervisor } from "../runtime/daemonSupervisor.js";
 import {
   prepareCodexSessionState,
@@ -49,6 +50,7 @@ import {
   appendClaimedTurnCompletion,
   finishClaimedTurn,
   readClaimedTurn,
+  shouldParkClaimedTurn,
   startClaimedTurn,
   type ClaimedTurn,
 } from "./claimedTurnLifecycle.js";
@@ -499,6 +501,14 @@ export async function runCodexAppServerDaemon(): Promise<void> {
         if (completion) await completion;
       }
 
+      // Same window as the Claude daemon: completion has cleared the lease
+      // but persist still holds "finalizing". Do not acquire a 2-minute
+      // running lease we cannot heartbeat until idle.
+      if (supervisor.phase === "finalizing") {
+        await sleep(POLL_INTERVAL_MS);
+        continue;
+      }
+
       const claimed = await callConvexWithRetry(
         "mutation",
         CLAIM_MUTATION,
@@ -526,13 +536,20 @@ export async function runCodexAppServerDaemon(): Promise<void> {
       }
       const claimedTurn = readClaimedTurn(claimed);
       if (claimedTurn) {
+        const currentLease = getCurrentTurnLease();
         if (
-          supervisor.currentTurn === null ||
-          supervisor.isCancellationInFlight
+          shouldParkClaimedTurn({
+            hasActiveRealTurn: supervisor.currentTurn !== null,
+            isCancellationInFlight: supervisor.isCancellationInFlight,
+            isFinalizing: false,
+            currentLeaseTurnId: currentLease?.turnId ?? null,
+            claimedLeaseTurnId: claimedTurn.turnLease?.turnId ?? null,
+          })
         ) {
           // A cancel response can carry the next queued prompt in the same
           // mutation; claimPendingTurn already cleared it server-side, so
-          // parking is the only lossless option.
+          // parking is the only lossless option. A follow-up send during
+          // finalizing is a different turn and must be parked too.
           if (!supervisor.parkClaim(claimedTurn)) {
             log("codex daemon: duplicate claimed turn ignored");
           }

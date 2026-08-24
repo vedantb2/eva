@@ -5265,6 +5265,11 @@ function finishClaimedTurn() {
   setLegacyTurnHeartbeatActive(false);
   setCurrentTurnLease(null);
 }
+function shouldParkClaimedTurn(input) {
+  if (!input.hasActiveRealTurn || input.isCancellationInFlight) return true;
+  if (input.isFinalizing) return true;
+  return input.claimedLeaseTurnId !== null && input.claimedLeaseTurnId !== input.currentLeaseTurnId;
+}
 
 // callback-src/providers/claudeSdkDaemon.ts
 function sleep2(ms) {
@@ -6002,6 +6007,10 @@ function startClaimWatcher(agentRunner) {
         supervisor.stop();
         process.exit(0);
       }
+      if (supervisor.phase === "finalizing") {
+        await sleep2(PROMPT_POLL_INTERVAL_MS);
+        continue;
+      }
       try {
         const claimed = await callConvexWithRetry(
           "mutation",
@@ -6021,7 +6030,14 @@ function startClaimWatcher(agentRunner) {
           await materializeTurnAttachments(turn);
           lastIdleActivityAtMs = Date.now();
           const currentTurn = supervisor.currentTurn;
-          if (currentTurn === null || currentTurn.kind === "synthetic" || supervisor.isCancellationInFlight) {
+          const currentLease = getCurrentTurnLease();
+          if (shouldParkClaimedTurn({
+            hasActiveRealTurn: currentTurn?.kind === "real",
+            isCancellationInFlight: supervisor.isCancellationInFlight,
+            isFinalizing: false,
+            currentLeaseTurnId: currentLease?.turnId ?? null,
+            claimedLeaseTurnId: turn.turnLease?.turnId ?? null
+          })) {
             if (!supervisor.parkClaim(turn)) {
               log("daemon: duplicate claimed turn ignored");
             }
@@ -6831,6 +6847,10 @@ async function runCodexAppServerDaemon() {
         const completion = processNotification(notification);
         if (completion) await completion;
       }
+      if (supervisor2.phase === "finalizing") {
+        await sleep3(POLL_INTERVAL_MS2);
+        continue;
+      }
       const claimed = await callConvexWithRetry(
         "mutation",
         CLAIM_MUTATION,
@@ -6848,7 +6868,14 @@ async function runCodexAppServerDaemon() {
       }
       const claimedTurn = readClaimedTurn(claimed);
       if (claimedTurn) {
-        if (supervisor2.currentTurn === null || supervisor2.isCancellationInFlight) {
+        const currentLease = getCurrentTurnLease();
+        if (shouldParkClaimedTurn({
+          hasActiveRealTurn: supervisor2.currentTurn !== null,
+          isCancellationInFlight: supervisor2.isCancellationInFlight,
+          isFinalizing: false,
+          currentLeaseTurnId: currentLease?.turnId ?? null,
+          claimedLeaseTurnId: claimedTurn.turnLease?.turnId ?? null
+        })) {
           if (!supervisor2.parkClaim(claimedTurn)) {
             log("codex daemon: duplicate claimed turn ignored");
           }

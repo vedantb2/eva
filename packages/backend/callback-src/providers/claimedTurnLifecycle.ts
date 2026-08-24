@@ -117,3 +117,30 @@ export function finishClaimedTurn(): void {
 export function claimedTurnLifecycleStatus(): ActiveClaimState["status"] {
   return activeClaimState.status;
 }
+
+/**
+ * Whether a just-claimed prompt should be parked for the run loop instead of
+ * discarded. claimPendingTurn already cleared it server-side and (for durable
+ * turns) acquired the 2-minute running lease, so discard is only safe for a
+ * same-turn restage of the prompt already in flight.
+ *
+ * A follow-up send during post-completion bookkeeping is a different turn:
+ * finishClaimedTurn has already dropped the old lease, the supervisor is still
+ * "finalizing", and discarding leaves the new lease with nobody heartbeating
+ * it. That is the session-65 stall (exactly 2 minutes, generation 1, no
+ * result log).
+ */
+export function shouldParkClaimedTurn(input: {
+  hasActiveRealTurn: boolean;
+  isCancellationInFlight: boolean;
+  isFinalizing: boolean;
+  currentLeaseTurnId: string | null;
+  claimedLeaseTurnId: string | null;
+}): boolean {
+  if (!input.hasActiveRealTurn || input.isCancellationInFlight) return true;
+  if (input.isFinalizing) return true;
+  return (
+    input.claimedLeaseTurnId !== null &&
+    input.claimedLeaseTurnId !== input.currentLeaseTurnId
+  );
+}

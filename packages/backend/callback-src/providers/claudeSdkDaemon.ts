@@ -84,6 +84,7 @@ import {
   appendClaimedTurnCompletion,
   finishClaimedTurn,
   readClaimedTurn,
+  shouldParkClaimedTurn,
   startClaimedTurn,
   type ClaimedTurn,
 } from "./claimedTurnLifecycle.js";
@@ -1137,6 +1138,13 @@ function startClaimWatcher(agentRunner: WarmRunner): void {
         supervisor.stop();
         process.exit(0);
       }
+      // Completion already ran (lease cleared) but transcript persist still
+      // holds the supervisor in "finalizing". Claiming here acquires a fresh
+      // 2-minute running lease we cannot heartbeat yet — skip until idle.
+      if (supervisor.phase === "finalizing") {
+        await sleep(PROMPT_POLL_INTERVAL_MS);
+        continue;
+      }
       try {
         const claimed = await callConvexWithRetry(
           "mutation",
@@ -1157,20 +1165,19 @@ function startClaimWatcher(agentRunner: WarmRunner): void {
           lastIdleActivityAtMs = Date.now();
           // claimPendingTurn already cleared session.pendingTurn atomically, so
           // any branch that does not park/start the claim loses that prompt.
-          // Normal startExecute queues while a real turn/workflow is active, so
-          // the discard paths below should stay unreachable — log clearly if not.
+          // Same-turn restages (workflow re-staging the prompt already running)
+          // must still be discarded — parking those replays the prompt twice.
           const currentTurn = supervisor.currentTurn;
+          const currentLease = getCurrentTurnLease();
           if (
-            currentTurn === null ||
-            currentTurn.kind === "synthetic" ||
-            supervisor.isCancellationInFlight
+            shouldParkClaimedTurn({
+              hasActiveRealTurn: currentTurn?.kind === "real",
+              isCancellationInFlight: supervisor.isCancellationInFlight,
+              isFinalizing: false,
+              currentLeaseTurnId: currentLease?.turnId ?? null,
+              claimedLeaseTurnId: turn.turnLease?.turnId ?? null,
+            })
           ) {
-            // The same claim response can carry both the cancel flag and the
-            // next queued prompt — cancelling dequeues it server-side in the
-            // same mutation. The supervisor stays cancelling until the old
-            // turn's result settles in runDaemonMessagePump, so park this
-            // instead of discarding it (that would lose the prompt for good,
-            // since claimPendingTurn already cleared it server-side).
             if (!supervisor.parkClaim(turn)) {
               log("daemon: duplicate claimed turn ignored");
             }

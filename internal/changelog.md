@@ -1,5 +1,13 @@
 # Changelog
 
+## Follow-up sends during Claude finalizing no longer stall - 2026-08-24
+
+Session 65 (CarePulse web) claimed the next turn while the previous one was still copying its transcript. Completion had already dropped the old lease, so the new 2-minute running lease had nobody heartbeating it and expired as "Turn stalled". The claim watcher now skips that window, and a follow-up durable turn is parked instead of discarded. Same-turn restages are still discarded so the prompt is not replayed.
+
+## Context gauge shows current window occupancy - 2026-08-24
+
+The session header summed every turn's cache-read tokens against a 200k default window, so a long Opus 1M session rendered 14,530.8%. The chip now uses the latest result's last-iteration occupancy and the model's reported context window; session spend still sums in the hover card.
+
 ## Cursor follow-ups resume the same agent - 2026-08-24
 
 Cursor's SDK already compacts a full window in place. Eva used to spawn a fresh agent once saved context looked large (~160k tokens), then stuff the Eva transcript in as a handoff. That is what made grok forget in-progress work (a rebase, conflict resolution) after a follow-up. Saved Cursor agents are always resumed now. A new agent is created only when resume itself fails (unreadable store / stalled resume). Session prompts no longer dump prior chat into the turn.

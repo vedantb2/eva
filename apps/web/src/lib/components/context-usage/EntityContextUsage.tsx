@@ -21,6 +21,7 @@ import { useSimpleView } from "@/lib/hooks/useSimpleView";
 // Model context window sizes (in tokens). Used for the usage percentage display;
 // not for cost (cost comes from Claude's `total_cost_usd` in the result event).
 const MODEL_CONTEXT_WINDOWS: Record<string, number> = {
+  "claude-opus-5": 1000000,
   "claude-sonnet-4-20250514": 200000,
   "claude-3-5-sonnet-20241022": 200000,
   "claude-3-5-haiku-20241022": 200000,
@@ -40,44 +41,44 @@ function getMaxTokens(model: string): number {
 
 type AggregatableLog = { rawResultEvent: string | undefined };
 
-function aggregateUsage(logs: AggregatableLog[] | undefined) {
+/**
+ * Context-window occupancy is the latest result, not the sum of every turn's
+ * cache reads. Session 65 summed ~29M cache-read tokens against a 200k default
+ * window and rendered 14,530.8%. Cost still sums across the session.
+ */
+export function aggregateUsage(logs: AggregatableLog[] | undefined) {
   if (!logs || logs.length === 0) return null;
 
-  let totalInputTokens = 0;
-  let totalOutputTokens = 0;
-  let totalCacheReadTokens = 0;
-  let totalCacheCreationTokens = 0;
   let totalCostUsd = 0;
-  let latestModel = "";
+  let latest: ReturnType<typeof parseResultEvent> | null = null;
 
   for (const log of logs) {
     const parsed = parseResultEvent(log.rawResultEvent);
-    totalInputTokens += parsed.inputTokens;
-    totalOutputTokens += parsed.outputTokens;
-    totalCacheReadTokens += parsed.cacheReadTokens;
-    totalCacheCreationTokens += parsed.cacheCreationTokens;
     totalCostUsd += parsed.costUsd;
-    if (parsed.model !== "-" && !latestModel) {
-      latestModel = parsed.model;
+    if (latest === null && parsed.model !== "-") {
+      latest = parsed;
     }
   }
 
-  // Total tokens consumed counts every input-side token: pure input, cache
-  // reads (still occupy context), cache writes (written into prompt), plus output.
-  const totalUsedTokens =
-    totalInputTokens +
-    totalOutputTokens +
-    totalCacheReadTokens +
-    totalCacheCreationTokens;
+  if (latest === null) {
+    const first = logs[0];
+    if (first === undefined) return null;
+    latest = parseResultEvent(first.rawResultEvent);
+  }
+
+  const maxTokens =
+    latest.contextWindow > 0
+      ? latest.contextWindow
+      : getMaxTokens(latest.model);
 
   return {
-    usedTokens: totalUsedTokens,
-    maxTokens: getMaxTokens(latestModel),
+    usedTokens: latest.contextUsedTokens,
+    maxTokens,
     usage: {
-      inputTokens: totalInputTokens,
-      outputTokens: totalOutputTokens,
-      cachedInputReadTokens: totalCacheReadTokens,
-      cachedInputWriteTokens: totalCacheCreationTokens,
+      inputTokens: latest.inputTokens,
+      outputTokens: latest.outputTokens,
+      cachedInputReadTokens: latest.cacheReadTokens,
+      cachedInputWriteTokens: latest.cacheCreationTokens,
     },
     costs: {
       totalUSD: totalCostUsd,

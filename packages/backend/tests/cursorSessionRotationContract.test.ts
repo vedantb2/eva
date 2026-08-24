@@ -4,23 +4,73 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const backendDir = join(dirname(fileURLToPath(import.meta.url)), "..");
-const cursorSurfaces: [string, string][] = [
-  ["callback source", read("callback-src/session/cursorSession.ts")],
-  ["deployed bundle", read("convex/_sandbox_runtime/callbackScript.generated.ts")],
-];
 const workflow = read("convex/_sessions/workflow.ts");
+const callbackBundle = read(
+  "convex/_sandbox_runtime/callbackScript.generated.ts",
+);
 
-describe("a saved Cursor agent is always resumed", () => {
-  test.each(cursorSurfaces)(
-    "context size never forces a fresh agent (%s)",
+const sessionPrep: [string, string][] = [
+  ["claude", read("callback-src/session/claudeSession.ts")],
+  ["codex", read("callback-src/session/codexSession.ts")],
+  ["opencode", read("callback-src/session/opencodeSession.ts")],
+  ["cursor", read("callback-src/session/cursorSession.ts")],
+];
+
+const sizeBasedRotationMarkers = [
+  "shouldRotateCursorSession",
+  "shouldRotateClaudeSession",
+  "shouldRotateCodexSession",
+  "shouldRotateOpencodeSession",
+  "CURSOR_MAX_RESUME_CONTEXT_TOKENS",
+  "rotating saved Cursor agent",
+];
+
+describe("saved provider sessions are resumed, not rotated on context size", () => {
+  test.each(sessionPrep)(
+    "%s session prep never consults a token/turn rotation policy",
     (_label, source) => {
-      expect(source).not.toContain("shouldRotateCursorSession");
-      expect(source).not.toContain("rotating saved Cursor agent");
-      expect(source).toContain(
-        'return { mode: "resume", sessionId: persistedState.resumeSessionId }',
-      );
+      for (const marker of sizeBasedRotationMarkers) {
+        expect(source).not.toContain(marker);
+      }
     },
   );
+
+  test("the deployed callback bundle has no size-based rotation policy", () => {
+    for (const marker of sizeBasedRotationMarkers) {
+      expect(callbackBundle).not.toContain(marker);
+    }
+  });
+
+  test("claude resumes a persisted session id when its transcript exists", () => {
+    const [, source] = sessionPrep[0];
+    expect(source).toContain(
+      'return { mode: "resume", sessionId: persistedState.resumeSessionId }',
+    );
+  });
+
+  test("codex resumes a persisted thread id", () => {
+    const [, source] = sessionPrep[1];
+    expect(source).toContain(
+      "return persistedState && persistedState.resumeThreadId",
+    );
+    expect(source).toContain(
+      '{ mode: "resume", sessionId: persistedState.resumeThreadId }',
+    );
+  });
+
+  test("opencode resumes a persisted session id", () => {
+    const [, source] = sessionPrep[2];
+    expect(source).toContain(
+      'return { mode: "resume", sessionId: persistedState.resumeSessionId }',
+    );
+  });
+
+  test("cursor resumes a persisted agent id", () => {
+    const [, source] = sessionPrep[3];
+    expect(source).toContain(
+      'return { mode: "resume", sessionId: persistedState.resumeSessionId }',
+    );
+  });
 });
 
 describe("session prompts do not dump a Cursor conversation handoff", () => {

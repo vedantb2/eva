@@ -7,6 +7,7 @@ import {
   claimedTurnLifecycleStatus,
   finishClaimedTurn,
   readClaimedTurn,
+  shouldParkClaimedTurn,
   startClaimedTurn,
 } from "../providers/claimedTurnLifecycle.js";
 import {
@@ -154,6 +155,59 @@ describe("the shared claimed-turn lifecycle", () => {
     expect(() => appendClaimedTurnCompletion({ success: false })).toThrow(
       "Cannot complete a claimed turn before it starts",
     );
+  });
+});
+
+describe("shouldParkClaimedTurn", () => {
+  test("parks idle, cancel, and finalizing claims", () => {
+    expect(
+      shouldParkClaimedTurn({
+        hasActiveRealTurn: false,
+        isCancellationInFlight: false,
+        isFinalizing: false,
+        currentLeaseTurnId: null,
+        claimedLeaseTurnId: "turn-2",
+      }),
+    ).toBe(true);
+    expect(
+      shouldParkClaimedTurn({
+        hasActiveRealTurn: true,
+        isCancellationInFlight: true,
+        isFinalizing: false,
+        currentLeaseTurnId: "turn-1",
+        claimedLeaseTurnId: "turn-2",
+      }),
+    ).toBe(true);
+    expect(
+      shouldParkClaimedTurn({
+        hasActiveRealTurn: true,
+        isCancellationInFlight: false,
+        isFinalizing: true,
+        currentLeaseTurnId: null,
+        claimedLeaseTurnId: "turn-2",
+      }),
+    ).toBe(true);
+  });
+
+  test("discards a same-turn restage and parks a follow-up turn", () => {
+    expect(
+      shouldParkClaimedTurn({
+        hasActiveRealTurn: true,
+        isCancellationInFlight: false,
+        isFinalizing: false,
+        currentLeaseTurnId: "turn-1",
+        claimedLeaseTurnId: "turn-1",
+      }),
+    ).toBe(false);
+    expect(
+      shouldParkClaimedTurn({
+        hasActiveRealTurn: true,
+        isCancellationInFlight: false,
+        isFinalizing: false,
+        currentLeaseTurnId: "turn-1",
+        claimedLeaseTurnId: "turn-2",
+      }),
+    ).toBe(true);
   });
 });
 

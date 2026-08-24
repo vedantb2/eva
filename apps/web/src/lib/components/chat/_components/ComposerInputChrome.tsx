@@ -195,9 +195,12 @@ export function ComposerInputChrome({
           maxFileSize={MAX_CHAT_ATTACHMENT_BYTES}
           onError={(err) => toast.error(chatAttachmentErrorMessage(err))}
           inputGroupClassName={cn(
+            // Height interpolates to/from `auto` so the conversation viewport
+            // grows with the composer instead of jumping when the pill snaps.
+            "[interpolate-size:allow-keywords] transition-[color,box-shadow,border-color,border-radius,height] duration-[var(--motion-base)] ease-[var(--motion-ease-out)]",
             compact
-              ? "h-auto min-h-12 items-center rounded-full py-1"
-              : "rounded-surface",
+              ? "h-12 items-center rounded-full py-1"
+              : "h-auto rounded-surface",
           )}
         >
           <ChatAttachmentPreview />

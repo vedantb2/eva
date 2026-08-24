@@ -296,7 +296,10 @@ export function ChatBody({
     <>
       {preConversationContent}
       <Conversation className="flex-1 min-h-0">
-        <ConversationContent className="gap-3 p-3 max-w-3xl mx-auto w-full">
+        <ConversationContent
+          className="gap-3 p-3 max-w-3xl mx-auto w-full"
+          scrollClassName="[container-type:size]"
+        >
           {displayMessages.length === 0 ? (
             (emptyStateOverride ?? (
               <ConversationEmptyState title={emptyStateTitle} />

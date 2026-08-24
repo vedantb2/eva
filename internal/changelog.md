@@ -1,5 +1,9 @@
 # Changelog
 
+## Collapsing the composer no longer jumps the chat - 2026-08-24
+
+The last turn's viewport pad was a ResizeObserver plus React state, so it applied a frame after the pill snapped shut and the thread dropped then jumped back. It now tracks the scroller with `100cqh` in the same layout pass, and the composer height interpolates to `auto` so the viewport grows with the chrome instead of jumping.
+
 ## Session sandbox tab bar matches the chat header - 2026-08-24
 
 The trailing "Stopped"/"Running" chip on the sandbox tab bar duplicated the start/stop control already in the chat header. It is gone. Sessions also give that bar the same `p-2 sm:p-3` padding as the chat header so the split pane no longer looks tighter on the sandbox side.

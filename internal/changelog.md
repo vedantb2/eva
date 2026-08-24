@@ -1,5 +1,9 @@
 # Changelog
 
+## Project Overview/Tasks sit in the header - 2026-08-24
+
+Overview and Tasks lived on a second row under a Project|Sandbox switcher, so the header said "Project" while the real views sat below. Those views now share the header with Sandbox as peers, and the redundant Project tab is gone.
+
 ## Cursor watchdog preserves already-visible work - 2026-08-24
 
 The first stall-recovery rollout used the same 60-second deadline before and after Cursor emitted visible reasoning. A real Grok turn paused for one minute mid-thought and was incorrectly failed even though its reasoning remained intact in the message activity log. Startup recovery stays strict and replay-safe: only the first visible event has a 60-second deadline, silent status/usage events cannot reset it, and a stalled resumed agent still rotates once. After reasoning, assistant text, or a tool call appears, the watchdog uses the existing five-minute safety window instead, so it cannot abort an ordinary model pause or replay visible work.

@@ -69,6 +69,7 @@ import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
 import {
   getCurrentTurnLease,
+  setLegacyTurnHeartbeatActive,
   setCurrentTurnLease,
 } from "../runtime/turnLease.js";
 import { log, readResponseJson } from "../utils.js";
@@ -977,6 +978,7 @@ async function failSyntheticTurn(error: string): Promise<void> {
   }
   endWatchedTurn();
   resetTurnState();
+  setLegacyTurnHeartbeatActive(false);
   setCurrentTurnLease(null);
   supervisor.settleTurn();
   agentTurnOutput = "";
@@ -996,9 +998,13 @@ async function ensureSyntheticTurn(): Promise<void> {
       return;
     }
     resetTurnState();
-    setCurrentTurnLease(readTurnLeaseIdentity(result));
+    const syntheticTurnLease = readTurnLeaseIdentity(result);
+    setLegacyTurnHeartbeatActive(syntheticTurnLease === null);
+    setCurrentTurnLease(syntheticTurnLease);
     if (!supervisor.startTurn({ kind: "synthetic", messageId })) {
       log("daemon: synthetic turn opened after lifecycle moved; ignoring");
+      setLegacyTurnHeartbeatActive(false);
+      setCurrentTurnLease(null);
       return;
     }
     agentTurnStartedAt = Date.now();
@@ -1053,6 +1059,7 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
   syncClaudeStateToPersist("daemon-synthetic-turn");
   endWatchedTurn();
   resetTurnState();
+  setLegacyTurnHeartbeatActive(false);
   setCurrentTurnLease(null);
   supervisor.settleTurn();
   agentTurnOutput = "";

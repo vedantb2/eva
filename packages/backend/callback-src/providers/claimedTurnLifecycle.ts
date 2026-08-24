@@ -1,5 +1,6 @@
 import type { JsonObject, JsonValue } from "../types.js";
 import {
+  setLegacyTurnHeartbeatActive,
   setCurrentTurnLease,
   type TurnLeaseIdentity,
 } from "../runtime/turnLease.js";
@@ -90,6 +91,7 @@ export function startClaimedTurn(turn: ClaimedTurn): void {
     turn.lifecycle === "durable"
       ? { status: "active", lifecycle: "durable", turnLease: turn.turnLease }
       : { status: "active", lifecycle: "legacy" };
+  setLegacyTurnHeartbeatActive(turn.lifecycle === "legacy");
   setCurrentTurnLease(turn.turnLease);
 }
 
@@ -107,6 +109,7 @@ export function appendClaimedTurnCompletion(args: JsonObject): void {
 /** Clears ownership between turns in a warm provider process. */
 export function finishClaimedTurn(): void {
   activeClaimState = { status: "idle" };
+  setLegacyTurnHeartbeatActive(false);
   setCurrentTurnLease(null);
 }
 

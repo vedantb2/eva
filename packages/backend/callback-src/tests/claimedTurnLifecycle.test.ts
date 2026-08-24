@@ -93,7 +93,21 @@ describe("the shared claimed-turn lifecycle", () => {
     appendClaimedTurnCompletion(completion);
 
     expect(getCurrentTurnLease()).toBeNull();
+    expect(
+      canSendTurnHeartbeat({
+        claimMutation: "projectChatWorkflow:claimPendingTurn",
+        turnLease: getCurrentTurnLease(),
+      }),
+    ).toBe(true);
     expect(completion).toEqual({ success: true });
+
+    finishClaimedTurn();
+    expect(
+      canSendTurnHeartbeat({
+        claimMutation: "projectChatWorkflow:claimPendingTurn",
+        turnLease: getCurrentTurnLease(),
+      }),
+    ).toBe(false);
   });
 
   test("keeps the claimed completion fence even if heartbeat state drifts", () => {

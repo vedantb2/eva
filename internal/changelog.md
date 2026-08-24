@@ -8724,5 +8724,6 @@ Behavior per context:
 ## Live Activity and Account Usage Stay With the Selected Claude Account - 2026-08-24
 
 - Serialized callback flushes now coalesce concurrent SDK events and retry unsent state, so tool steps, file activity, and final text reach the live timeline in order and finalization waits for the complete drain
+- Active legacy project/task turns now own their heartbeat window explicitly, so their tool events are parsed, streamed live, and retained in the completed activity log without letting idle daemons write stale state
 - Project and task usage chips now scope readings to the credential selected in the model picker; switching to Kezia can no longer leave Team's percentage visible, and an account without a reading gets an explicit no-data state
 - Added focused callback and UI regressions for in-flight flushes, single-writer heartbeats, and Team-versus-personal account isolation

@@ -694,6 +694,7 @@ function elapsedAttemptMs() {
 
 // callback-src/runtime/turnLease.ts
 var currentTurnLease = TURN_ID !== null && TURN_LEASE_GENERATION !== null ? { turnId: TURN_ID, leaseGeneration: TURN_LEASE_GENERATION } : null;
+var legacyTurnHeartbeatActive = false;
 var terminalReason = null;
 function getCurrentTurnLease() {
   return currentTurnLease;
@@ -702,7 +703,11 @@ function canSendTurnHeartbeat({
   claimMutation,
   turnLease
 }) {
-  return claimMutation === void 0 || turnLease !== null;
+  return claimMutation === void 0 || turnLease !== null || legacyTurnHeartbeatActive;
+}
+function setLegacyTurnHeartbeatActive(active) {
+  legacyTurnHeartbeatActive = active;
+  if (active) terminalReason = null;
 }
 function appendCurrentTurnLease(args) {
   const identity = getCurrentTurnLease();
@@ -5327,6 +5332,7 @@ function startClaimedTurn(turn) {
     throw new Error("Cannot start a claimed turn while another claim is active");
   }
   activeClaimState = turn.lifecycle === "durable" ? { status: "active", lifecycle: "durable", turnLease: turn.turnLease } : { status: "active", lifecycle: "legacy" };
+  setLegacyTurnHeartbeatActive(turn.lifecycle === "legacy");
   setCurrentTurnLease(turn.turnLease);
 }
 function appendClaimedTurnCompletion(args) {
@@ -5340,6 +5346,7 @@ function appendClaimedTurnCompletion(args) {
 }
 function finishClaimedTurn() {
   activeClaimState = { status: "idle" };
+  setLegacyTurnHeartbeatActive(false);
   setCurrentTurnLease(null);
 }
 
@@ -5941,6 +5948,7 @@ async function failSyntheticTurn(error) {
   }
   endWatchedTurn();
   resetTurnState();
+  setLegacyTurnHeartbeatActive(false);
   setCurrentTurnLease(null);
   supervisor.settleTurn();
   agentTurnOutput = "";
@@ -5959,9 +5967,13 @@ async function ensureSyntheticTurn() {
       return;
     }
     resetTurnState();
-    setCurrentTurnLease(readTurnLeaseIdentity(result));
+    const syntheticTurnLease = readTurnLeaseIdentity(result);
+    setLegacyTurnHeartbeatActive(syntheticTurnLease === null);
+    setCurrentTurnLease(syntheticTurnLease);
     if (!supervisor.startTurn({ kind: "synthetic", messageId })) {
       log("daemon: synthetic turn opened after lifecycle moved; ignoring");
+      setLegacyTurnHeartbeatActive(false);
+      setCurrentTurnLease(null);
       return;
     }
     agentTurnStartedAt = Date.now();
@@ -6012,6 +6024,7 @@ async function finalizeSyntheticTurn(output) {
   syncClaudeStateToPersist("daemon-synthetic-turn");
   endWatchedTurn();
   resetTurnState();
+  setLegacyTurnHeartbeatActive(false);
   setCurrentTurnLease(null);
   supervisor.settleTurn();
   agentTurnOutput = "";

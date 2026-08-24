@@ -6,9 +6,6 @@ import { describe, expect, test } from "vitest";
 const backendDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const daemon = readSource("callback-src/providers/claudeSdkDaemon.ts");
-const daemonSupervisor = readSource(
-  "callback-src/runtime/daemonSupervisor.ts",
-);
 const bundledScript = readSource(
   "convex/_sandbox_runtime/callbackScript.generated.ts",
 );
@@ -36,19 +33,17 @@ describe("the daemon claim poll is fast only when it has a reason to be", () => 
     ).toBeGreaterThan(constant(daemon, "PROMPT_POLL_INTERVAL_MS"));
   });
 
-  test("every supervised work state keeps the fast cadence", () => {
-    expect(sliceBetween(dense, "constturnInFlight=", ";")).toContain(
-      "supervisor.hasWork",
-    );
-
-    const supervisorDense = withoutWhitespace(daemonSupervisor);
-    const hasWork = sliceBetween(
-      supervisorDense,
-      "gethasWork():boolean{",
-      "}",
-    );
-    expect(hasWork).toContain('this.active.phase!=="idle"');
-    expect(hasWork).toContain("this.pendingClaimValue!==null");
+  /**
+   * Any of these means work is live on this daemon. `turnCancelInFlight` is the
+   * one worth naming: a cancel settles through the claim mutation, so backing
+   * off while one is outstanding would slow the Stop button.
+   */
+  test.each([
+    ["a running turn", "daemonTurn!==null"],
+    ["a parked claim", "pendingClaimedTurn!==null"],
+    ["a settling cancel", "turnCancelInFlight"],
+  ])("%s keeps the fast cadence", (_label, term) => {
+    expect(sliceBetween(dense, "constturnInFlight=", ";")).toContain(term);
   });
 
   /**

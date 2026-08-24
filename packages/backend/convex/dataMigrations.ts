@@ -90,3 +90,11 @@ export const splitRepoSkillContent = dataMigrations.define({
     await ctx.db.patch(skill._id, { content: undefined });
   },
 });
+
+/** Deletes rows left by the removed durable turn-lifecycle architecture. */
+export const deleteRetiredTurns = dataMigrations.define({
+  table: "turns",
+  migrateOne: async (ctx, turn) => {
+    await ctx.db.delete(turn._id);
+  },
+});

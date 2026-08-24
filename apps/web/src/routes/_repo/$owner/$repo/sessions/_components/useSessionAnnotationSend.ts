@@ -39,15 +39,11 @@ export function useSessionAnnotationSend(
   const messages = useQuery(api.messages.listByParent, {
     parentId: sessionId,
   });
-  const turnStatus = useQuery(api.turns.getSessionStatus, { sessionId });
   const addMessage = useMutation(api.sessions.addMessage);
   const startExecution = useMutation(api.sessionWorkflow.startExecute);
   const enqueueMessage = useMutation(api.sessionWorkflow.enqueueMessage);
 
-  const isExecuting =
-    turnStatus === undefined
-      ? isAssistantTurnInProgress(messages ?? [])
-      : turnStatus !== null;
+  const isExecuting = isAssistantTurnInProgress(messages ?? []);
 
   return async (display: string, full: string) => {
     const accountId = resolveAccountId(providerAccountId);

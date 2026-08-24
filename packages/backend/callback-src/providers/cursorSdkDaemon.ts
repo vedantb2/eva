@@ -38,13 +38,6 @@ import {
 import type { JsonValue, ProviderAttemptResult } from "../types.js";
 import { log, readResponseJson } from "../utils.js";
 import { readCancelRequested } from "./claimPendingTurnParse.js";
-import {
-  appendClaimedTurnCompletion,
-  finishClaimedTurn,
-  readClaimedTurn,
-  startClaimedTurn,
-  type ClaimedTurn,
-} from "./claimedTurnLifecycle.js";
 import { runCursorSdkAttempt } from "./cursorSdk.js";
 import {
   resolveDaemonPaths,
@@ -71,6 +64,8 @@ const TURN_HARD_TIMEOUT_MS = MAX_TOTAL_RUNTIME_MS + 5 * 60 * 1000;
 // Safety net for a cancel whose run never settles (mirrors the Claude daemon's
 // CANCEL_SETTLE_TIMEOUT_MS): exit for respawn rather than wedge.
 const CANCEL_SETTLE_TIMEOUT_MS = 30_000;
+
+type ClaimedTurn = { prompt: string; attachmentUrls: string[] };
 
 const daemonPaths = resolveDaemonPaths();
 
@@ -148,6 +143,26 @@ function resetTurnState(): void {
   S.pendingQuestionData = "";
   S.todoState.length = 0;
   S.lastStepType = "thinking";
+}
+
+/** Unwraps `{ status, value }` from the claim mutation's HTTP envelope. */
+function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return null;
+  }
+  const inner = result.value;
+  const payload =
+    typeof inner === "object" && inner !== null && !Array.isArray(inner)
+      ? inner
+      : result;
+  if (typeof payload.prompt !== "string") return null;
+  const urls = payload.attachmentUrls;
+  return {
+    prompt: payload.prompt,
+    attachmentUrls: Array.isArray(urls)
+      ? urls.filter((url): url is string => typeof url === "string")
+      : [],
+  };
 }
 
 /** Sessions may push git commits; refresh the installation token like the one-shot path. */
@@ -257,12 +272,11 @@ async function finalizeTurn(attempt: ProviderAttemptResult): Promise<void> {
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
-  appendClaimedTurnCompletion(completionArgs);
   // Final streaming reconcile BEFORE completion: the completion mutation
   // finalizes the assistant message and the server may dequeue the next turn
   // straight after, so writing streaming state past that point resurrects this
   // turn's text into the next turn's placeholder.
-  if (await setFinalizingState()) return;
+  await setFinalizingState();
   // Durability BEFORE completion: a VM death after this point must not erase
   // the turn's work.
   persistTurnWork();
@@ -279,18 +293,16 @@ async function finalizeTurn(attempt: ProviderAttemptResult): Promise<void> {
 async function failTurnAndExit(error: string): Promise<never> {
   log("cursor daemon: failing turn — " + error);
   try {
-    const completionArgs = entityMutationArgs({
-      success: false,
-      result: null,
-      error,
-      activityLog: serializeSteps(S.accumulatedSteps),
-      ...(RUN_ID ? { runId: RUN_ID } : {}),
-    });
-    appendClaimedTurnCompletion(completionArgs);
     await callConvexWithRetry(
       "mutation",
       COMPLETION_MUTATION ?? "",
-      completionArgs,
+      entityMutationArgs({
+        success: false,
+        result: null,
+        error,
+        activityLog: serializeSteps(S.accumulatedSteps),
+        ...(RUN_ID ? { runId: RUN_ID } : {}),
+      }),
     );
   } catch {
     /* best-effort: exit regardless so the daemon does not wedge */
@@ -434,7 +446,6 @@ function handleCancelRequested(): void {
  */
 async function runClaimedTurn(turn: ClaimedTurn): Promise<void> {
   resetTurnState();
-  startClaimedTurn(turn);
   turnActive = true;
   turnStartedAtMs = Date.now();
   abortActiveTurn = null;
@@ -469,17 +480,15 @@ async function runClaimedTurn(turn: ClaimedTurn): Promise<void> {
     try {
       await flushStreaming();
       for (const step of S.accumulatedSteps) step.status = "complete";
-      if (await setFinalizingState()) return;
-      const completionArgs: Record<string, JsonValue> = {
+      await setFinalizingState();
+      await deliverCompletionWithMedia({
         [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
         success: false,
         result: null,
         error: appendDiagnosticTail(message),
         activityLog: serializeSteps(S.accumulatedSteps),
         ...(RUN_ID ? { runId: RUN_ID } : {}),
-      };
-      appendClaimedTurnCompletion(completionArgs);
-      await deliverCompletionWithMedia(completionArgs);
+      });
     } catch {
       /* best-effort — the watchdog and stall recovery own the rest */
     }
@@ -487,7 +496,6 @@ async function runClaimedTurn(turn: ClaimedTurn): Promise<void> {
     turnActive = false;
     abortActiveTurn = null;
     cancelInFlight = false;
-    finishClaimedTurn();
     lastIdleActivityAtMs = Date.now();
   }
 }

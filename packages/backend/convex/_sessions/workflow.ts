@@ -9,6 +9,7 @@ import {
   aiModelValidator,
   reasoningLevelValidator,
   workflowCompleteValidator,
+  getAIModelProvider,
   normalizeAIModel,
   sessionStatusValidator,
   usesChatDaemon,
@@ -43,15 +44,6 @@ import {
   ensureSessionDaemonState,
   syncSessionDaemonState,
 } from "./daemonState";
-import { usesCursorConversationHandoff } from "./cursorContext";
-import {
-  acquireTurnLease,
-  advanceTurn,
-  closeTurn,
-  findOpenSessionTurn,
-  openSessionTurn,
-  resolveCompletionTurn,
-} from "../_chat/turnStore";
 
 // --- Completion event ---
 
@@ -236,9 +228,6 @@ export const sessionExecuteWorkflow = workflow.define({
     credentialOwnerUserId: v.optional(v.id("users")),
     userId: v.id("users"),
     installationId: v.number(),
-    // Missing only for workflows that were already in flight at the durable
-    // Turn cutover. Every new start supplies this discriminator.
-    turnId: v.optional(v.id("turns")),
   },
   handler: async (step, args): Promise<void> => {
     await step.runMutation(internal.sessionWorkflow.addAssistantPlaceholder, {
@@ -280,7 +269,6 @@ export const sessionExecuteWorkflow = workflow.define({
       } catch (error) {
         await step.runMutation(internal.sessionWorkflow.saveResult, {
           sessionId: args.sessionId,
-          ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
           success: false,
           result: null,
           error:
@@ -335,16 +323,6 @@ export const sessionExecuteWorkflow = workflow.define({
       throw new Error("sessionExecuteWorkflow: sandbox was not resolved");
     }
 
-    // Preserve the exact V1 journal for workflows started before the cutover:
-    // workflow steps are replayed by order, so even one new call would strand
-    // an in-flight execution with a journal mismatch.
-    if (args.turnId !== undefined) {
-      await step.runMutation(internal.turns.markLaunching, {
-        turnId: args.turnId,
-        sandboxId,
-      });
-    }
-
     // A cancel can race with startExecute and wipe pendingTurn while a daemon
     // workflow waits, so restage it before ensuring the warm process.
     if (usesChatDaemon(data.model)) {
@@ -379,24 +357,6 @@ export const sessionExecuteWorkflow = workflow.define({
       // empty placeholder (and activeWorkflowId) stuck on "Working…" until
       // the 2-hour backstop.
       try {
-        const turnLease =
-          args.turnId === undefined
-            ? null
-            : await step.runMutation(internal.turns.acquireOneShotLease, {
-                turnId: args.turnId,
-                sandboxId,
-              });
-        if (args.turnId !== undefined && turnLease === null) {
-          await step.runMutation(internal.sessionWorkflow.saveResult, {
-            sessionId: args.sessionId,
-            turnId: args.turnId,
-            success: false,
-            result: null,
-            error: "The turn no longer owns this session. Please retry.",
-            activityLog: null,
-          });
-          return;
-        }
         await step.runAction(internal.sandbox.launchOnExistingSandbox, {
           sandboxId,
           entityId: String(args.sessionId),
@@ -416,17 +376,10 @@ export const sessionExecuteWorkflow = workflow.define({
           providerAccountId: args.providerAccountId,
           credentialOwnerUserId: args.credentialOwnerUserId,
           attachmentStorageIds: data.attachmentStorageIds,
-          ...(turnLease !== null
-            ? {
-                turnId: turnLease.turnId,
-                turnLeaseGeneration: turnLease.leaseGeneration,
-              }
-            : {}),
         });
       } catch (error) {
         await step.runMutation(internal.sessionWorkflow.saveResult, {
           sessionId: args.sessionId,
-          ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
           success: false,
           result: null,
           error:
@@ -464,7 +417,6 @@ export const sessionExecuteWorkflow = workflow.define({
     // turns. Publish failures are patched onto the saved message below.
     await step.runMutation(internal.sessionWorkflow.saveResult, {
       sessionId: args.sessionId,
-      ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
       success: result.success,
       result: result.result,
       error: result.error,
@@ -506,7 +458,6 @@ export const sessionExecuteWorkflow = workflow.define({
         );
         await step.runMutation(internal.sessionWorkflow.saveResult, {
           sessionId: args.sessionId,
-          ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
           success: false,
           result: result.result,
           error: publishError,
@@ -658,12 +609,6 @@ export const clearStuckWorkingState = internalMutation({
     });
     if (session) {
       await syncSessionDaemonState(ctx, session, { pendingTurn: undefined });
-      const turn = await findOpenSessionTurn(ctx, args.sessionId);
-      if (turn) {
-        await closeTurn(ctx, turn, "error", {
-          error: "Turn state was cleared during recovery",
-        });
-      }
     }
     return { deletedPlaceholders, clearedStreaming: true };
   },
@@ -809,7 +754,6 @@ export const updateSandboxId = internalMutation({
 export const saveResult = internalMutation({
   args: {
     sessionId: v.id("sessions"),
-    turnId: v.optional(v.id("turns")),
     success: v.boolean(),
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
@@ -916,14 +860,6 @@ export const saveResult = internalMutation({
       sessionPatch.planContent = args.planContent;
     }
     await ctx.db.patch(args.sessionId, sessionPatch);
-    if (args.turnId !== undefined) {
-      const turn = await ctx.db.get(args.turnId);
-      if (turn) {
-        await closeTurn(ctx, turn, args.success ? "done" : "error", {
-          ...(args.error ? { error: args.error } : {}),
-        });
-      }
-    }
     await startNextQueuedSessionMessage(ctx, args.sessionId);
     return null;
   },
@@ -946,36 +882,22 @@ export const claimPendingTurn = authMutation({
     sessionId: v.id("sessions"),
     model: v.optional(aiModelValidator),
   },
-  returns: v.union(
-    v.object({
-      prompt: v.union(v.string(), v.null()),
-      turnLifecycle: v.literal("legacy"),
-      // Resolved download URLs for this turn's input image attachments. The daemon
-      // fetches these and hands the agent local file paths before running the turn.
-      attachmentUrls: v.array(v.string()),
-      stopTaskToolUseIds: v.array(v.string()),
-      cancelRequested: v.boolean(),
-    }),
-    v.object({
-      prompt: v.string(),
-      turnLifecycle: v.literal("durable"),
-      turnId: v.id("turns"),
-      leaseGeneration: v.number(),
-      attachmentUrls: v.array(v.string()),
-      stopTaskToolUseIds: v.array(v.string()),
-      cancelRequested: v.boolean(),
-    }),
-  ),
+  returns: v.object({
+    prompt: v.union(v.string(), v.null()),
+    // Resolved download URLs for this turn's input image attachments. The daemon
+    // fetches these and hands the agent local file paths before running the turn.
+    attachmentUrls: v.array(v.string()),
+    stopTaskToolUseIds: v.array(v.string()),
+    cancelRequested: v.boolean(),
+  }),
   handler: async (ctx, args) => {
     const emptyClaim = {
       prompt: null,
-      turnLifecycle: "legacy",
       attachmentUrls: [],
       stopTaskToolUseIds: [],
       cancelRequested: false,
     } satisfies {
       prompt: null;
-      turnLifecycle: "legacy";
       attachmentUrls: string[];
       stopTaskToolUseIds: string[];
       cancelRequested: boolean;
@@ -1050,39 +972,12 @@ export const claimPendingTurn = authMutation({
     const attachmentUrls = resolvedUrls.filter(
       (url): url is string => url !== null,
     );
-    let turnLease:
-      | { turnId: Id<"turns">; leaseGeneration: number }
-      | null = null;
-    const pendingTurnId = daemonState.pendingTurn.turnId;
-    if (pendingTurnId !== undefined) {
-      const turn = await ctx.db.get(pendingTurnId);
-      if (!turn || !turn.open || turn.state === "running") {
-        await ctx.db.patch(daemonState._id, { pendingTurn: undefined });
-        await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
-        return { ...emptyClaim, stopTaskToolUseIds, cancelRequested };
-      }
-      turnLease = await acquireTurnLease(ctx, turn, "running");
-      if (turnLease === null) {
-        return { ...emptyClaim, stopTaskToolUseIds, cancelRequested };
-      }
-    }
     await ctx.db.patch(daemonState._id, { pendingTurn: undefined });
     await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
     console.log(
       `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} claimWaitMs=${claimWaitMs} attachments=${attachmentUrls.length}`,
     );
-    const claimedTurn = {
-      prompt,
-      attachmentUrls,
-      stopTaskToolUseIds,
-      cancelRequested,
-    };
-    if (turnLease === null) {
-      const turnLifecycle: "legacy" = "legacy";
-      return { ...claimedTurn, turnLifecycle };
-    }
-    const turnLifecycle: "durable" = "durable";
-    return { ...claimedTurn, turnLifecycle, ...turnLease };
+    return { prompt, attachmentUrls, stopTaskToolUseIds, cancelRequested };
   },
 });
 
@@ -1168,8 +1063,6 @@ export const ensurePendingTurn = internalMutation({
       return null;
     }
 
-    const openTurn = await findOpenSessionTurn(ctx, args.sessionId);
-    if (openTurn && openTurn.state === "running") return null;
     const last = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
@@ -1187,7 +1080,6 @@ export const ensurePendingTurn = internalMutation({
     const pendingTurn = {
       prompt: args.prompt,
       requestedAt: Date.now(),
-      ...(openTurn ? { turnId: openTurn._id } : {}),
       attachmentStorageIds: args.attachmentStorageIds,
       ...(args.model !== undefined
         ? { model: normalizeAIModel(args.model) }
@@ -1272,11 +1164,9 @@ export const restageOpenTurn = internalMutation({
       message: lastUser.content,
     });
 
-    const openTurn = await findOpenSessionTurn(ctx, args.sessionId);
     const pendingTurn = {
       prompt,
       requestedAt: Date.now(),
-      ...(openTurn ? { turnId: openTurn._id } : {}),
       attachmentStorageIds: lastUser.attachmentStorageIds,
       ...(session.lastModel !== undefined ? { model: session.lastModel } : {}),
     };
@@ -1298,11 +1188,7 @@ export const restageOpenTurn = internalMutation({
  */
 export const openSyntheticTurn = authMutation({
   args: { sessionId: v.id("sessions") },
-  returns: v.object({
-    messageId: v.id("messages"),
-    turnId: v.id("turns"),
-    leaseGeneration: v.number(),
-  }),
+  returns: v.object({ messageId: v.id("messages") }),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
@@ -1317,19 +1203,6 @@ export const openSyntheticTurn = authMutation({
       activityLog: "",
       isSyntheticTurn: true,
     });
-    const turnId = await openSessionTurn(ctx, {
-      sessionId: args.sessionId,
-      streamingEntityId: String(args.sessionId),
-      placeholderMessageId: messageId,
-      prompt: "[synthetic continuation]",
-      model: normalizeAIModel(session.lastModel),
-      sandboxId: session.sandboxId,
-      repoId: session.repoId,
-    });
-    const turn = await ctx.db.get(turnId);
-    if (!turn) throw new Error("Synthetic turn was not created");
-    const lease = await acquireTurnLease(ctx, turn, "running");
-    if (!lease) throw new Error("Synthetic turn lease was not acquired");
     await ctx.db.patch(args.sessionId, {
       syntheticTurnMessageId: messageId,
       updatedAt: Date.now(),
@@ -1339,7 +1212,7 @@ export const openSyntheticTurn = authMutation({
       internal.sessionWorkflow.handleStaleSyntheticTurn,
       { sessionId: args.sessionId, messageId },
     );
-    return { messageId, ...lease };
+    return { messageId };
   },
 });
 
@@ -1353,21 +1226,9 @@ export const completeSyntheticTurn = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     pendingQuestion: v.optional(v.string()),
-    turnId: v.optional(v.string()),
-    leaseGeneration: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const turnResolution = await resolveCompletionTurn(ctx, {
-      sessionId: args.sessionId,
-      turnId: args.turnId,
-      leaseGeneration: args.leaseGeneration,
-      placeholderMessageId: args.messageId,
-    });
-    if (turnResolution.status === "stale") return null;
-    if (turnResolution.status === "current") {
-      await advanceTurn(ctx, turnResolution.turn, "finalizing");
-    }
     await clearStreamingActivity(ctx, String(args.sessionId));
 
     const message = await ctx.db.get(args.messageId);
@@ -1380,11 +1241,6 @@ export const completeSyntheticTurn = authMutation({
         syntheticTurnMessageId: undefined,
         updatedAt: Date.now(),
       });
-      if (turnResolution.status === "current") {
-        await closeTurn(ctx, turnResolution.turn, "error", {
-          error: "Synthetic turn placeholder was no longer available",
-        });
-      }
       await startNextQueuedSessionMessage(ctx, args.sessionId);
       return null;
     }
@@ -1413,14 +1269,6 @@ export const completeSyntheticTurn = authMutation({
       updatedAt: Date.now(),
       agentBrowsingAt: undefined,
     });
-    if (turnResolution.status === "current") {
-      await closeTurn(
-        ctx,
-        turnResolution.turn,
-        args.success ? "done" : "error",
-        args.error ? { error: args.error } : {},
-      );
-    }
     await startNextQueuedSessionMessage(ctx, args.sessionId);
     return null;
   },
@@ -1466,12 +1314,6 @@ export const handleStaleSyntheticTurn = internalMutation({
     }
 
     await finalizeCancelledAssistantMessage(ctx, message, streaming);
-    const openTurn = await findOpenSessionTurn(ctx, args.sessionId);
-    if (openTurn?.placeholderMessageId === args.messageId) {
-      await closeTurn(ctx, openTurn, "error", {
-        error: "Synthetic turn stopped reporting activity",
-      });
-    }
     await clearStreamingActivity(ctx, String(args.sessionId));
     await ctx.db.patch(args.sessionId, {
       syntheticTurnMessageId: undefined,
@@ -1492,8 +1334,6 @@ export const handleCompletion = authMutation({
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
-    turnId: v.optional(v.string()),
-    leaseGeneration: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1502,16 +1342,6 @@ export const handleCompletion = authMutation({
     if (!session || !session.activeWorkflowId) return null;
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
-
-    const turnResolution = await resolveCompletionTurn(ctx, {
-      sessionId: args.sessionId,
-      turnId: args.turnId,
-      leaseGeneration: args.leaseGeneration,
-    });
-    if (turnResolution.status === "stale") return null;
-    if (turnResolution.status === "current") {
-      await advanceTurn(ctx, turnResolution.turn, "finalizing");
-    }
 
     console.log(
       `[sessionWorkflow] handleCompletion received sessionId=${args.sessionId} success=${args.success} workflowId=${session.activeWorkflowId}`,

@@ -37,8 +37,8 @@ const DISCARD_LOG =
 describe("a codex claim arriving mid-turn is discarded, not parked", () => {
   test.each(surfaces)("the park is gated on an idle turn (%s)", (_l, source) => {
     const block = codexClaimHandling(source);
-    const guardAt = block.indexOf(".currentTurn === null");
-    const parkAt = block.indexOf(".parkClaim(claimedTurn)");
+    const guardAt = block.indexOf("if (!activeTurnId || cancelInFlight)");
+    const parkAt = block.indexOf("pendingTurn = claimedTurn");
     expect(guardAt, "the idle/cancel park guard moved").toBeGreaterThan(-1);
     expect(parkAt, "the park moved out of the claim handler").toBeGreaterThan(
       guardAt,
@@ -47,9 +47,7 @@ describe("a codex claim arriving mid-turn is discarded, not parked", () => {
 
   test.each(surfaces)("no unguarded park survives (%s)", (_label, source) => {
     // One park site only: a second, ungated one is the regression itself.
-    expect(occurrences(codexClaimHandling(source), "parkClaim(claimedTurn)")).toBe(
-      1,
-    );
+    expect(occurrences(source, "pendingTurn = claimedTurn")).toBe(1);
   });
 
   test.each(surfaces)("the discard is logged, not silent (%s)", (_l, source) => {
@@ -60,9 +58,7 @@ describe("a codex claim arriving mid-turn is discarded, not parked", () => {
     expect(claudeDaemonSource).toContain(
       "daemon: claim discarded while real turn active",
     );
-    expect(claudeDaemonSource).toContain(
-      "supervisor.isCancellationInFlight",
-    );
+    expect(claudeDaemonSource).toContain("} else if (turnCancelInFlight) {");
   });
 });
 

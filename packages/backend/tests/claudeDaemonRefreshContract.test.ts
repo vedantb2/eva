@@ -12,18 +12,16 @@ const surfaces: [string, string][] = [
 describe("a callback refresh cannot abandon a claimed Claude turn", () => {
   test.each(surfaces)("active work defers respawn (%s)", (_label, source) => {
     const watcher = claimWatcher(source);
-    const pendingAt = watcher.indexOf("supervisor.decideRefresh({");
-    const activeAt = watcher.indexOf(
-      'if (refreshDecision.action === "defer")',
-      pendingAt,
-    );
+    const pendingAt = watcher.indexOf("if (callbackRefreshPending)");
+    const activeAt = watcher.indexOf("const activeWork", pendingAt);
     const continueAt = watcher.indexOf("continue;", activeAt);
-    const exitAt = watcher.indexOf("supervisor.stop()", continueAt);
+    const exitAt = watcher.indexOf("daemonExiting = true", continueAt);
 
     expect(pendingAt).toBeGreaterThan(-1);
     expect(activeAt).toBeGreaterThan(pendingAt);
-    expect(watcher).toContain("supervisor.parkClaim(turn)");
-    expect(watcher).toContain("supervisor.hasWork");
+    expect(watcher.slice(activeAt, continueAt)).toContain(
+      "pendingClaimedTurn !== null",
+    );
     expect(continueAt).toBeGreaterThan(activeAt);
     expect(exitAt).toBeGreaterThan(continueAt);
   });
@@ -32,7 +30,7 @@ describe("a callback refresh cannot abandon a claimed Claude turn", () => {
     "no new turn is claimed after refresh becomes pending (%s)",
     (_label, source) => {
       const watcher = claimWatcher(source);
-      const refreshAt = watcher.indexOf("supervisor.decideRefresh({");
+      const refreshAt = watcher.indexOf("if (callbackRefreshPending)");
       const claimAt = watcher.indexOf('CLAIM_MUTATION ?? ""', refreshAt);
       const continueAt = watcher.indexOf("continue;", refreshAt);
       expect(continueAt).toBeLessThan(claimAt);

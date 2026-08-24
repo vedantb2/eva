@@ -48,7 +48,7 @@ import {
   backgroundProcessFields,
   snapshotBuildFields,
   sessionDaemonStateFields,
-  turnFields,
+  retiredTurnFields,
   agentUsageLimitFields,
 } from "./validators";
 
@@ -163,7 +163,8 @@ const schema = defineSchema({
     "by_session",
     ["sessionId"],
   ),
-  turns: defineTable(turnFields)
+  // Temporary compatibility only; removed after deleteRetiredTurns completes.
+  turns: defineTable(retiredTurnFields)
     .index("by_entity_open", ["surface", "entityId", "open"])
     .index("by_repo_open", ["repoId", "open"])
     .index("by_open_lease", ["open", "leaseExpiresAt"])

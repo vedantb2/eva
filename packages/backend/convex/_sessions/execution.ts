@@ -23,12 +23,6 @@ import {
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { notifyChatMentions } from "../_mentions/notifyChatMentions";
-import {
-  bindTurnWorkflow,
-  closeOpenSessionTurn,
-  closeTurnForWorkflow,
-  openSessionTurn,
-} from "../_chat/turnStore";
 
 async function finalizeOpenSyntheticTurnOnCancel(
   ctx: MutationCtx,
@@ -114,7 +108,7 @@ export const startExecute = authMutation({
     // it. The workflow still starts below (for cold-resume, completion,
     // post-turn push/save, and cancellation); it simply no longer pushes the
     // prompt (see sessionExecuteWorkflow), so the turn is never double-executed.
-    const placeholderMessageId = await ctx.db.insert("messages", {
+    await ctx.db.insert("messages", {
       parentId: args.sessionId,
       role: "assistant",
       content: "",
@@ -134,21 +128,10 @@ export const startExecute = authMutation({
     // chat providers atomically stage it for their sandbox-local daemon.
     const normalizedModel = normalizeAIModel(args.model);
     const usesDaemonPull = usesChatDaemon(normalizedModel);
-    const turnId = await openSessionTurn(ctx, {
-      sessionId: args.sessionId,
-      streamingEntityId: String(args.sessionId),
-      placeholderMessageId,
-      prompt,
-      attachmentStorageIds: args.attachmentStorageIds,
-      model: normalizedModel,
-      sandboxId: session.sandboxId,
-      repoId: session.repoId,
-    });
     const pendingTurn = usesDaemonPull
       ? {
           prompt,
           requestedAt: Date.now(),
-          turnId,
           attachmentStorageIds: args.attachmentStorageIds,
           model: normalizedModel,
         }
@@ -210,11 +193,9 @@ export const startExecute = authMutation({
         credentialOwnerUserId,
         userId: ctx.userId,
         installationId: repo.installationId,
-        turnId,
       },
     );
 
-    await bindTurnWorkflow(ctx, turnId, String(workflowId));
     await trackSessionWorkflow(ctx, args.sessionId, workflowId);
 
     return null;
@@ -373,16 +354,6 @@ export const cancelExecution = authMutation({
       });
     }
 
-    if (workflowIdToCancel !== undefined) {
-      await closeTurnForWorkflow(
-        ctx,
-        args.sessionId,
-        workflowIdToCancel,
-        "cancelled",
-        { error: "Cancelled by the user" },
-      );
-    }
-
     const streaming = await ctx.db
       .query("streamingActivity")
       .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
@@ -418,9 +389,6 @@ export const cancelExecution = authMutation({
         syntheticTurnMessageId,
         streaming,
       );
-      await closeOpenSessionTurn(ctx, args.sessionId, "cancelled", {
-        error: "Cancelled by the user",
-      });
     }
 
     await clearStreamingActivity(ctx, String(args.sessionId));

@@ -28,7 +28,7 @@ describe("no streaming write after completion is delivered", () => {
     ["deployed bundle", bundledScript],
   ])("finalizeTurn reconciles before completing (%s)", (_label, source) => {
     const body = functionBody(source, "async function finalizeTurn(");
-    const reconcileAt = body.indexOf("await setFinalizingState()");
+    const reconcileAt = body.indexOf("await setFinalizingState();");
     const completionAt = body.indexOf("await deliverCompletionWithMedia(");
     expect(reconcileAt, "the final reconcile moved").toBeGreaterThan(-1);
     expect(completionAt, "the completion call moved").toBeGreaterThan(-1);
@@ -41,7 +41,7 @@ describe("no streaming write after completion is delivered", () => {
   });
 
   test("the one-shot attempt reconciles before completing", () => {
-    const reconcileAt = oneShotSource.indexOf("await setFinalizingState()");
+    const reconcileAt = oneShotSource.indexOf("await setFinalizingState();");
     const completionAt = oneShotSource.indexOf(
       "await deliverCompletionWithMedia(",
     );

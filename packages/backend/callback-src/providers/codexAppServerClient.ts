@@ -93,10 +93,6 @@ export class CodexAppServerClient {
     return drained;
   }
 
-  hasNotifications(): boolean {
-    return this.notifications.length > 0;
-  }
-
   getError(): Error | null {
     return this.terminalError;
   }

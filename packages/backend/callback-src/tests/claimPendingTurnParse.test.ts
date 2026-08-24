@@ -2,7 +2,6 @@ import { describe, expect, test } from "vitest";
 import {
   readCancelRequested,
   readStopTaskToolUseIds,
-  readTurnLeaseIdentity,
 } from "../providers/claimPendingTurnParse.js";
 import type { JsonValue } from "../types.js";
 
@@ -89,28 +88,5 @@ describe("readStopTaskToolUseIds", () => {
     ).toEqual(["a", "b"]);
     expect(readStopTaskToolUseIds({})).toEqual([]);
     expect(readStopTaskToolUseIds(null)).toEqual([]);
-  });
-});
-
-describe("readTurnLeaseIdentity", () => {
-  test("reads an exact lease identity from Convex's value envelope", () => {
-    expect(
-      readTurnLeaseIdentity({
-        value: { turnId: "turn-1", leaseGeneration: 4 },
-      }),
-    ).toEqual({ turnId: "turn-1", leaseGeneration: 4 });
-  });
-
-  test("rejects partial, non-integral, and non-positive identities", () => {
-    expect(readTurnLeaseIdentity({ turnId: "turn-1" })).toBeNull();
-    expect(
-      readTurnLeaseIdentity({ turnId: "turn-1", leaseGeneration: 1.5 }),
-    ).toBeNull();
-    expect(
-      readTurnLeaseIdentity({ turnId: "turn-1", leaseGeneration: 0 }),
-    ).toBeNull();
-    expect(
-      readTurnLeaseIdentity({ turnId: 1, leaseGeneration: 1 }),
-    ).toBeNull();
   });
 });

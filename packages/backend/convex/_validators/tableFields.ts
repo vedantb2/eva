@@ -162,7 +162,8 @@ export const backgroundAgentEntryValidator = v.object(
 
 export type BackgroundAgentEntry = Infer<typeof backgroundAgentEntryValidator>;
 
-export const turnStateValidator = v.union(
+/** Temporary schema compatibility while the removed lifecycle's rows drain. */
+export const retiredTurnStateValidator = v.union(
   v.literal("staged"),
   v.literal("launching"),
   v.literal("running"),
@@ -172,14 +173,12 @@ export const turnStateValidator = v.union(
   v.literal("cancelled"),
 );
 
-export type TurnState = Infer<typeof turnStateValidator>;
-
-/** Durable ownership record for one session chat turn. */
-export const turnFields = {
+/** No runtime writes this table; deleteRetiredTurns removes its stored rows. */
+export const retiredTurnFields = {
   surface: v.literal("session"),
   entityId: v.string(),
   streamingEntityId: v.string(),
-  state: turnStateValidator,
+  state: retiredTurnStateValidator,
   open: v.boolean(),
   turnStartedAt: v.number(),
   leaseExpiresAt: v.number(),
@@ -198,7 +197,6 @@ export const turnFields = {
 export const pendingTurnFields = {
   prompt: v.string(),
   requestedAt: v.number(),
-  turnId: v.optional(v.id("turns")),
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   model: v.optional(aiModelValidator),
 };
@@ -374,12 +372,6 @@ export const sessionFields = {
   createdBy: v.optional(v.id("users")),
   planContent: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
-  /**
-   * Set the first time this session opens a durable Turn. Missing sessions may
-   * still have a pre-cutover workflow in flight, so projections temporarily
-   * consult the legacy workflow fields until this marker is written.
-   */
-  turnLifecycleVersion: v.optional(v.literal(2)),
   // The user provider account chosen for this session's runs (overriding the
   // team credential). Session-scoped so the page-open daemon prewarm — which
   // has no per-message context — still injects the right account. Absent = team

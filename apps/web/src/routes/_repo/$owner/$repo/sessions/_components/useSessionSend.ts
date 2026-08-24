@@ -2,7 +2,6 @@ import { api } from "@eva/backend";
 import type { AIModel, Id, ModelTraitsExecutionArgs } from "@eva/backend";
 import type { ModelAccount } from "@eva/ui";
 import { useMutation } from "convex/react";
-import { useQuery } from "convex-helpers/react/cache/hooks";
 import type { OptimisticLocalStore } from "convex/browser";
 import type { FunctionArgs, FunctionReturnType } from "convex/server";
 
@@ -106,15 +105,8 @@ export function useSessionSend({
   const cancelExecutionMutation = useMutation(
     api.sessionWorkflow.cancelExecution,
   );
-  const turnStatus = useQuery(api.turns.getSessionStatus, { sessionId });
 
-  // The persisted open turn is canonical. Message shape only covers the first
-  // render while that subscription loads, so a stale empty bubble cannot keep
-  // the composer in queue mode after the turn has terminally settled.
-  const isExecuting =
-    turnStatus === undefined
-      ? isAssistantTurnInProgress(messages)
-      : turnStatus !== null;
+  const isExecuting = isAssistantTurnInProgress(messages);
 
   const handleSend = async (
     content: string,

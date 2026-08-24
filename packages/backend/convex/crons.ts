@@ -42,13 +42,6 @@ crons.interval(
   {},
 );
 
-crons.interval(
-  "session turn lease reconcile",
-  { minutes: 1 },
-  internal.turns.reconcile,
-  {},
-);
-
 // Drop GitHub authorize-hop nonces nobody came back with. They expire after 10
 // minutes regardless; this only stops the table growing.
 crons.interval(

@@ -161,14 +161,11 @@ export function DesktopPanel({
       {showLockOverlay ? (
         <>
           {/* Same language as FollowOverlay: an inset ring marks the surface as
-              driven by someone else, with the escape hatch as a pill on top.
-              No scrim/blur — the agent's browsing has to stay watchable. */}
-          <button
-            type="button"
-            onClick={handleTakeControl}
-            aria-label="Take control of the browser"
-            className="absolute inset-0 z-10 cursor-pointer ring-[3px] ring-inset ring-primary/70"
-          />
+              driven by someone else, and this layer swallows clicks so a stray
+              tap cannot fight the agent for the cursor. Releasing the lock is
+              the pill button only. No scrim/blur — the agent's browsing has to
+              stay watchable. */}
+          <div className="absolute inset-0 z-10 cursor-not-allowed ring-[3px] ring-inset ring-primary/70" />
           <div className="absolute top-3 left-1/2 z-20 -translate-x-1/2">
             <div className="flex items-center gap-2 rounded-full bg-primary py-1.5 pr-1.5 pl-4 text-sm font-medium text-primary-foreground smooth-shadow-lg">
               <span>Agent is browsing</span>

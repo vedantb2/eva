@@ -60,6 +60,7 @@ var REQUIRE_TASK_COMMIT = process.env.REQUIRE_TASK_COMMIT === "true";
 var PROVIDER = process.env.AI_PROVIDER || "claude";
 var MODEL = process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 var ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
+var NO_WRITES = process.env.EVA_NO_WRITES === "1";
 var BLOCKING_QUESTIONS_ENABLED = process.env.ENTITY_ID_FIELD === "sessionId";
 var CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
 var DAEMON_OPTS_SIG = process.env.EVA_DAEMON_OPTS || "";
@@ -7009,6 +7010,11 @@ function filterModeParamsByModel(candidates, model, opted) {
     })
   );
 }
+var CURSOR_WRITE_TOOLS = [
+  "edit",
+  "delete",
+  "applyAgentDiff"
+];
 var loadedSdk = null;
 async function loadCursorSdk() {
   if (loadedSdk) return loadedSdk;
@@ -7243,7 +7249,8 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     apiKey: (process.env.CURSOR_API_KEY || "").trim(),
     model: await resolveCursorModelSelection(sdk),
     local: { cwd: WORK_DIR, store: store4 },
-    ...Object.keys(evaMcpServers).length > 0 ? { mcpServers: evaMcpServers } : {}
+    ...Object.keys(evaMcpServers).length > 0 ? { mcpServers: evaMcpServers } : {},
+    ...NO_WRITES ? { disallowedTools: [...CURSOR_WRITE_TOOLS] } : {}
   };
   const persistAgentId = (agentId) => {
     callbackState.activeCursorSessionId = agentId;
@@ -8760,7 +8767,7 @@ function codexEnvironment() {
 function buildCodexSdkThreadOptions() {
   return {
     model: normalizedCodexModel,
-    sandboxMode: "danger-full-access",
+    sandboxMode: NO_WRITES ? "read-only" : "danger-full-access",
     workingDirectory: WORK_DIR,
     skipGitRepoCheck: true,
     approvalPolicy: "never"

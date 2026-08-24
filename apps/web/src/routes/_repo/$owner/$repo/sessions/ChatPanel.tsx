@@ -30,6 +30,7 @@ import {
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { useSeedChatDraft } from "@/lib/components/chat/useSeedChatDraft";
 import { PendingReviewCommentChips } from "@/lib/components/chat/PendingReviewCommentChips";
+import { AveResetChatDialog } from "@/lib/components/ave/AveResetChatDialog";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
 import { getSessionReadOnlyMessage } from "./_utils/sessionReadOnly";
 import { APPROVE_PLAN_PROMPT } from "./_utils/composerPrompts";
@@ -112,6 +113,7 @@ export function ChatPanel({
   const { repo, basePath } = useRepo();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showResetChatDialog, setShowResetChatDialog] = useState(false);
 
   const defaultModel = normalizeAIModel(repo.defaultModel);
   // The picker lists the session owner's accounts, not the viewer's — the turn
@@ -221,6 +223,11 @@ export function ChatPanel({
     onToggleSandbox,
     onOpenSummaryModal: () => setShowSummaryModal(true),
     onOpenReviewModal: () => setShowReviewModal(true),
+    // Only Manager Ave can be reset: it is the one chat the user cannot simply
+    // replace by opening a new session.
+    onOpenResetChatDialog: chatOnly
+      ? () => setShowResetChatDialog(true)
+      : undefined,
   });
 
   const startupStreamingNode = (
@@ -375,6 +382,12 @@ export function ChatPanel({
         open={showReviewModal}
         onClose={() => setShowReviewModal(false)}
       />
+      {chatOnly && (
+        <AveResetChatDialog
+          open={showResetChatDialog}
+          onOpenChange={setShowResetChatDialog}
+        />
+      )}
     </ChatPageWrapper>
   );
 }

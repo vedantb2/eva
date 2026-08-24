@@ -67,7 +67,7 @@ const createSessionArgs = v.object({
 type CreateSessionArgs = Infer<typeof createSessionArgs>;
 
 /** Mutation context after `authMutation` injects the caller's user id. */
-type AuthMutationCtx = MutationCtx & { userId: Id<"users"> };
+export type AuthMutationCtx = MutationCtx & { userId: Id<"users"> };
 
 /**
  * Shared session creation path: insert, branch, sandbox startup workflow, and
@@ -417,6 +417,50 @@ export const updateSummary = authMutation({
   },
 });
 
+/**
+ * Archives a session: sandbox to cold storage, open/draft PR closed (merged
+ * PRs are left alone), row flagged so the active list drops it.
+ *
+ * Split from the `archive` mutation so server-side callers that already hold
+ * the doc and its access check — `resetOrchestratorSession` retiring the old
+ * master — retire it through exactly this path instead of a second copy.
+ */
+export async function archiveSessionDoc(
+  ctx: AuthMutationCtx,
+  session: Doc<"sessions">,
+): Promise<void> {
+  // Archive the sandbox (stops it first, then moves to cold storage)
+  if (session.sandboxId) {
+    await ctx.scheduler.runAfter(0, internal.sandbox.archiveSandbox, {
+      sandboxId: session.sandboxId,
+      repoId: session.repoId,
+    });
+  }
+
+  const restorePrState = livePrState(session.prState);
+  if (restorePrState) {
+    await scheduleSessionPrSync(ctx, session, { kind: "close" });
+    await ctx.db.patch(session._id, {
+      archived: true,
+      status: "closed",
+      updatedAt: Date.now(),
+      prState: "closed",
+      prStateOnArchive: restorePrState,
+    });
+  } else {
+    await ctx.db.patch(session._id, {
+      archived: true,
+      status: "closed",
+      updatedAt: Date.now(),
+    });
+  }
+  await scheduleSessionSandboxGraceDelete(ctx, {
+    ...session,
+    archived: true,
+    status: "closed",
+  });
+}
+
 /** Archives a session so it no longer appears in the active list.
  * Also archives the sandbox (moves to cold storage for cost savings).
  * Closes an open/draft GitHub PR; merged PRs are left alone. */
@@ -428,37 +472,7 @@ export const archive = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
-
-    // Archive the sandbox (stops it first, then moves to cold storage)
-    if (session.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.sandbox.archiveSandbox, {
-        sandboxId: session.sandboxId,
-        repoId: session.repoId,
-      });
-    }
-
-    const restorePrState = livePrState(session.prState);
-    if (restorePrState) {
-      await scheduleSessionPrSync(ctx, session, { kind: "close" });
-      await ctx.db.patch(args.id, {
-        archived: true,
-        status: "closed",
-        updatedAt: Date.now(),
-        prState: "closed",
-        prStateOnArchive: restorePrState,
-      });
-    } else {
-      await ctx.db.patch(args.id, {
-        archived: true,
-        status: "closed",
-        updatedAt: Date.now(),
-      });
-    }
-    await scheduleSessionSandboxGraceDelete(ctx, {
-      ...session,
-      archived: true,
-      status: "closed",
-    });
+    await archiveSessionDoc(ctx, session);
     return null;
   },
 });

@@ -270,6 +270,8 @@ export async function launchScript(
   opts: {
     model?: string;
     allowedTools?: string;
+    /** Read-only turn: each provider SDK translates this into its own option. */
+    noWrites?: boolean;
     systemPrompt?: string;
     extraEnvVars?: Record<string, string>;
     claudeSessionId?: string;
@@ -375,6 +377,14 @@ export async function launchScript(
       `HARNESS_CATALOG_TOKEN=${quote([opts.harnessCatalogToken])}`,
       `HARNESS_CATALOG_SANDBOX_ID=${quote([sandbox.id])}`,
     );
+  }
+  // One provider-agnostic read-only signal. Deliberately not derived from
+  // ALLOWED_TOOLS: that list is Claude's tool vocabulary, and teaching Cursor,
+  // Codex and OpenCode to parse Claude tool names would put four translations
+  // of the same decision in four SDK adapters. Each adapter reads this flag and
+  // applies its own restriction instead.
+  if (opts.noWrites) {
+    envParts.push("EVA_NO_WRITES=1");
   }
   if (opts.claudeSessionId) {
     envParts.push(`CLAUDE_SESSION_ID=${quote([opts.claudeSessionId])}`);

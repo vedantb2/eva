@@ -38,6 +38,21 @@ export const MODEL =
   process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 export const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 /**
+ * This turn may not modify the workspace (set for Manager Ave, the master
+ * session, which supervises agents and never implements).
+ *
+ * Provider-agnostic on purpose: `ALLOWED_TOOLS` above is Claude's tool
+ * vocabulary and only `claudeSdk.ts` can read it, so every other adapter keys
+ * off this boolean and applies its own restriction — Cursor `disallowedTools`,
+ * Codex `sandboxMode: "read-only"`. On Claude and Cursor, shell and MCP stay
+ * fully available: the master reads production logs through the shell and
+ * orchestrates the fleet through MCP. Codex restricts at the sandbox instead of
+ * per tool, so see `codexSdk.ts` for what that does and does not guarantee.
+ * OpenCode has no restriction — its SDK is fetched at runtime and exposes no
+ * verified tool-permission option, so there the prompt is the only gate.
+ */
+export const NO_WRITES = process.env.EVA_NO_WRITES === "1";
+/**
  * Human-in-the-loop AskUserQuestion. The Agent SDK exposes the `canUseTool`
  * pause needed to block a turn on an answer, and only sessions currently wire the
  * answering UI — so this is gated to session runs. Elsewhere AskUserQuestion
@@ -70,8 +85,7 @@ export const CURSOR_TURN_WORKER_LEASE_GENERATION = Number.isSafeInteger(
 )
   ? parsedCursorWorkerLeaseGeneration
   : 0;
-export const IS_CURSOR_TURN_WORKER =
-  CURSOR_TURN_WORKER_PROMPT_FILE.length > 0;
+export const IS_CURSOR_TURN_WORKER = CURSOR_TURN_WORKER_PROMPT_FILE.length > 0;
 export const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 export const WORK_DIR = existsSync("/tmp/repo")
   ? "/tmp/repo"

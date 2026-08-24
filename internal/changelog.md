@@ -8720,3 +8720,9 @@ Behavior per context:
 - Hover card sections by provider: "Claude · Max plan" over one row per window (label, tone-based bar, percentage, "resets in 2h 15m" with the absolute time on hover), and a single footer stamped with the freshest reading. Windows with no utilisation are skipped rather than drawn at zero
 - Snapshots are attributed to the connected provider account: the launcher injects `PROVIDER_ACCOUNT_ID` when account credentials are used, rows key on (repo, provider, account) so two Claude accounts never clobber each other, `getByRepo` resolves each row's live account label, and the hover card shows one section per account ("Claude · Max plan · Kezia's account")
 - The chip renders nothing until a turn has reported something, so a repo on an API key or a self-hosted model never grows an empty control; simple view hides it for the same reason it hides the context gauge. Display maths lives in `usage-limits/_utils.ts` under test — thresholds, chip choice, reset labels — and bars scale from their left edge instead of animating `width`
+
+## Live Activity and Account Usage Stay With the Selected Claude Account - 2026-08-24
+
+- Serialized callback flushes now coalesce concurrent SDK events and retry unsent state, so tool steps, file activity, and final text reach the live timeline in order and finalization waits for the complete drain
+- Project and task usage chips now scope readings to the credential selected in the model picker; switching to Kezia can no longer leave Team's percentage visible, and an account without a reading gets an explicit no-data state
+- Added focused callback and UI regressions for in-flight flushes, single-writer heartbeats, and Team-versus-personal account isolation

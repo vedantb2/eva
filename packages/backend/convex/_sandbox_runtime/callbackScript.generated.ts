@@ -4259,6 +4259,8 @@ function appendStreamedContent(text, isBlockBoundary = false) {
 import { writeFileSync as writeFileSync7 } from "fs";
 var flushInterval = null;
 var heartbeatInterval = null;
+var activeFlush = null;
+var flushRequested = false;
 function ownsHeartbeatLease() {
   return canSendTurnHeartbeat({
     claimMutation: CLAIM_MUTATION,
@@ -4325,49 +4327,62 @@ async function sendStreamingHeartbeatUpdate(payload) {
     return false;
   }
 }
-async function flushStreaming() {
-  if (callbackState.flushInProgress) return;
+async function flushStreamingPass() {
   if (!ownsHeartbeatLease()) {
     void flushBackgroundShellQueue();
     return;
   }
-  if (callbackState.rawOutput.length <= callbackState.lastProcessed) {
-    void flushBackgroundShellQueue();
-    return;
-  }
-  callbackState.flushInProgress = true;
-  try {
+  let hasNew = false;
+  if (callbackState.rawOutput.length > callbackState.lastProcessed) {
     const pending = callbackState.rawOutput.slice(callbackState.lastProcessed);
     const lastNewline = pending.lastIndexOf("\\n");
-    if (lastNewline === -1) return;
-    callbackState.lastProcessed += lastNewline + 1;
-    let hasNew = false;
-    for (const line of pending.slice(0, lastNewline).split("\\n")) {
-      const clean = line.trim();
-      if (!clean) continue;
-      if (parseStreamEvent(clean)) {
-        hasNew = true;
-        callbackState.parsedStreamEventCount++;
+    if (lastNewline >= 0) {
+      callbackState.lastProcessed += lastNewline + 1;
+      for (const line of pending.slice(0, lastNewline).split("\\n")) {
+        const clean = line.trim();
+        if (!clean) continue;
+        if (parseStreamEvent(clean)) {
+          hasNew = true;
+          callbackState.parsedStreamEventCount++;
+        }
       }
     }
-    const contentChanged = callbackState.currentStreamedContent !== callbackState.lastSentContent;
-    if (hasNew || contentChanged) {
-      const payload = buildStreamingPayload();
-      if (payload === callbackState.lastSentPayload && !contentChanged) {
-        return;
-      }
-      await sendStreamingHeartbeatUpdate(payload);
-    } else if (callbackState.inFlightToolUses > 0 && Date.now() - callbackState.lastStreamingSentAt > 15e3) {
-      const entityId = STREAMING_ENTITY_ID ?? "";
-      if (entityId) {
-        await callStreamingHeartbeatTouch(entityId);
-        callbackState.lastStreamingSentAt = Date.now();
-      }
+  }
+  const payload = buildStreamingPayload();
+  const contentChanged = callbackState.currentStreamedContent !== callbackState.lastSentContent;
+  const activityChanged = payload !== callbackState.lastSentPayload;
+  if (hasNew || contentChanged || activityChanged) {
+    await sendStreamingHeartbeatUpdate(payload);
+  } else if (callbackState.inFlightToolUses > 0 && Date.now() - callbackState.lastStreamingSentAt > 15e3) {
+    const entityId = STREAMING_ENTITY_ID ?? "";
+    if (entityId) {
+      await callStreamingHeartbeatTouch(entityId);
+      callbackState.lastStreamingSentAt = Date.now();
     }
+  }
+  void flushBackgroundShellQueue();
+}
+async function drainRequestedFlushes() {
+  callbackState.flushInProgress = true;
+  try {
+    do {
+      flushRequested = false;
+      await flushStreamingPass();
+    } while (flushRequested);
   } finally {
     callbackState.flushInProgress = false;
-    void flushBackgroundShellQueue();
   }
+}
+function flushStreaming() {
+  flushRequested = true;
+  if (activeFlush) return activeFlush;
+  const flush = drainRequestedFlushes();
+  activeFlush = flush;
+  const clearActiveFlush = () => {
+    if (activeFlush === flush) activeFlush = null;
+  };
+  void flush.then(clearActiveFlush, clearActiveFlush);
+  return flush;
 }
 var PING_STUCK_MS = 45e3;
 async function heartbeatPing() {
@@ -4521,10 +4536,7 @@ function handleRealtimeStreamLine(line) {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     return;
   }
-  const result = getProviderAdapter(PROVIDER).onStreamLine(line, parsed);
-  if (result.needsHeartbeat) {
-    void sendStreamingHeartbeatUpdate(buildStreamingPayload());
-  }
+  getProviderAdapter(PROVIDER).onStreamLine(line, parsed);
 }
 
 // callback-src/runtime/buffers.ts

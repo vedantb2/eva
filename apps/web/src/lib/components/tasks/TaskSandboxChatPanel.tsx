@@ -145,6 +145,11 @@ export function TaskSandboxChatPanel({
     currentUserId !== undefined &&
     task?.createdBy !== undefined &&
     currentUserId === task.createdBy;
+  const usageAccountLabel =
+    providerAccountId === null
+      ? "Team"
+      : (accounts.find((account) => account.id === providerAccountId)?.label ??
+        "Selected account");
 
   const draftSeed = useChatDraftSeed({
     kind: "taskChat" as const,
@@ -270,6 +275,10 @@ export function TaskSandboxChatPanel({
         sandboxCollapsed={sandboxCollapsed}
         onToggleSandbox={onToggleSandbox}
         isAssistantResponding={isExecuting}
+        usageAccountScope={{
+          providerAccountId,
+          accountLabel: usageAccountLabel,
+        }}
       />
       <ChatBody
         repoId={repo._id}

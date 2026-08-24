@@ -3,7 +3,10 @@
 import { Button, cn, Spinner } from "@eva/ui";
 import { IconPlayerPlay, IconPlayerStop } from "@tabler/icons-react";
 import type { Id } from "@eva/backend";
-import { UsageLimitsIndicator } from "@/lib/components/usage-limits";
+import {
+  UsageLimitsIndicator,
+  type UsageAccountScope,
+} from "@/lib/components/usage-limits";
 import { SandboxPanelToggleButton } from "./SandboxPanelToggleButton";
 import { SleepControlTooltip } from "./SleepEvaButton";
 
@@ -44,7 +47,8 @@ export function SandboxStartStopButton({
         aria-disabled={blockedMidTurn || undefined}
         className={cn(
           isActive ? undefined : "text-success",
-          blockedMidTurn && "cursor-not-allowed opacity-45 hover:bg-destructive",
+          blockedMidTurn &&
+            "cursor-not-allowed opacity-45 hover:bg-destructive",
         )}
         aria-label={label}
       >
@@ -73,6 +77,7 @@ export function SandboxChatHeaderActions({
   sandboxCollapsed,
   onToggleSandbox,
   isAssistantResponding = false,
+  usageAccountScope,
 }: {
   repoId: Id<"githubRepos">;
   isSandboxActive: boolean;
@@ -81,12 +86,13 @@ export function SandboxChatHeaderActions({
   sandboxCollapsed?: boolean;
   onToggleSandbox?: () => void;
   isAssistantResponding?: boolean;
+  usageAccountScope?: UsageAccountScope;
 }) {
   if (!onSandboxToggle && !onToggleSandbox) return null;
 
   return (
     <div className="flex shrink-0 items-center justify-end gap-1 px-2 py-1">
-      <UsageLimitsIndicator repoId={repoId} />
+      <UsageLimitsIndicator repoId={repoId} accountScope={usageAccountScope} />
       {onSandboxToggle ? (
         <SandboxStartStopButton
           isActive={isSandboxActive}

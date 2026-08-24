@@ -15,6 +15,11 @@ export type UsageSnapshot = Omit<
 
 export type UsageWindow = NonNullable<UsageSnapshot["windows"]>[number];
 
+export interface UsageAccountScope {
+  providerAccountId: string | null;
+  accountLabel: string;
+}
+
 /** Utilisation at which a window stops reading as routine. */
 export const WARNING_UTILIZATION = 80;
 /** Utilisation at which it reads as about to be refused. */
@@ -184,6 +189,16 @@ export function chipSummary(
     label: flagged.status === "rejected" ? "Limit reached" : "Near limit",
     tone: toneForStatus(activeUsageStatus(flagged, now)),
   };
+}
+
+/** Only the selected credential's limits belong beside its model picker. */
+export function usageRowsForAccount<Row extends { providerAccountId?: string }>(
+  rows: readonly Row[],
+  scope: UsageAccountScope | undefined,
+): Row[] {
+  if (!scope) return [...rows];
+  const providerAccountId = scope.providerAccountId ?? undefined;
+  return rows.filter((row) => row.providerAccountId === providerAccountId);
 }
 
 type UsageProvider = UsageSnapshot["provider"];

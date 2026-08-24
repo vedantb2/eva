@@ -117,6 +117,11 @@ export function ProjectSandboxChatPanel({
           },
           ...accounts,
         ];
+  const usageAccountLabel =
+    providerAccountId === null
+      ? "Team"
+      : (displayAccounts.find((account) => account.id === providerAccountId)
+          ?.label ?? "Selected account");
 
   const draftSeed = useChatDraftSeed({
     kind: "projectChat" as const,
@@ -238,6 +243,10 @@ export function ProjectSandboxChatPanel({
         sandboxCollapsed={sandboxCollapsed}
         onToggleSandbox={onToggleSandbox}
         isAssistantResponding={isExecuting}
+        usageAccountScope={{
+          providerAccountId,
+          accountLabel: usageAccountLabel,
+        }}
       />
       <ChatBody
         repoId={repo._id}
@@ -257,7 +266,7 @@ export function ProjectSandboxChatPanel({
             ? "Wake Eva up to chat..."
             : isSwitchingAccount
               ? "Switching Claude account..."
-            : "Ask Eva anything... / for skills · @ to mention"
+              : "Ask Eva anything... / for skills · @ to mention"
         }
         emptyStateTitle={
           isSandboxActive

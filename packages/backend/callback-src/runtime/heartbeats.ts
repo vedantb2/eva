@@ -31,6 +31,8 @@ import {
 
 let flushInterval: ReturnType<typeof setInterval> | null = null;
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+let activeFlush: Promise<void> | null = null;
+let flushRequested = false;
 
 function ownsHeartbeatLease(): boolean {
   return canSendTurnHeartbeat({
@@ -133,53 +135,77 @@ export async function sendStreamingHeartbeatUpdate(
   }
 }
 
-export async function flushStreaming(): Promise<void> {
-  if (S.flushInProgress) return;
+async function flushStreamingPass(): Promise<void> {
   if (!ownsHeartbeatLease()) {
     void flushBackgroundShellQueue();
     return;
   }
-  if (S.rawOutput.length <= S.lastProcessed) {
-    // Still drain bg-shell registrations even when there is no new stream text.
-    void flushBackgroundShellQueue();
-    return;
-  }
-  S.flushInProgress = true;
-  try {
+
+  let hasNew = false;
+  if (S.rawOutput.length > S.lastProcessed) {
     const pending = S.rawOutput.slice(S.lastProcessed);
     const lastNewline = pending.lastIndexOf("\n");
-    if (lastNewline === -1) return;
-    S.lastProcessed += lastNewline + 1;
-    let hasNew = false;
-    for (const line of pending.slice(0, lastNewline).split("\n")) {
-      const clean = line.trim();
-      if (!clean) continue;
-      if (parseStreamEvent(clean)) {
-        hasNew = true;
-        S.parsedStreamEventCount++;
+    if (lastNewline >= 0) {
+      S.lastProcessed += lastNewline + 1;
+      for (const line of pending.slice(0, lastNewline).split("\n")) {
+        const clean = line.trim();
+        if (!clean) continue;
+        if (parseStreamEvent(clean)) {
+          hasNew = true;
+          S.parsedStreamEventCount++;
+        }
       }
     }
-    const contentChanged = S.currentStreamedContent !== S.lastSentContent;
-    if (hasNew || contentChanged) {
-      const payload = buildStreamingPayload();
-      if (payload === S.lastSentPayload && !contentChanged) {
-        return;
-      }
-      await sendStreamingHeartbeatUpdate(payload);
-    } else if (
-      S.inFlightToolUses > 0 &&
-      Date.now() - S.lastStreamingSentAt > 15_000
-    ) {
-      const entityId = STREAMING_ENTITY_ID ?? "";
-      if (entityId) {
-        await callStreamingHeartbeatTouch(entityId);
-        S.lastStreamingSentAt = Date.now();
-      }
+  }
+
+  const payload = buildStreamingPayload();
+  const contentChanged = S.currentStreamedContent !== S.lastSentContent;
+  const activityChanged = payload !== S.lastSentPayload;
+  if (hasNew || contentChanged || activityChanged) {
+    await sendStreamingHeartbeatUpdate(payload);
+  } else if (
+    S.inFlightToolUses > 0 &&
+    Date.now() - S.lastStreamingSentAt > 15_000
+  ) {
+    const entityId = STREAMING_ENTITY_ID ?? "";
+    if (entityId) {
+      await callStreamingHeartbeatTouch(entityId);
+      S.lastStreamingSentAt = Date.now();
     }
+  }
+
+  void flushBackgroundShellQueue();
+}
+
+async function drainRequestedFlushes(): Promise<void> {
+  S.flushInProgress = true;
+  try {
+    do {
+      flushRequested = false;
+      await flushStreamingPass();
+    } while (flushRequested);
   } finally {
     S.flushInProgress = false;
-    void flushBackgroundShellQueue();
   }
+}
+
+/**
+ * Coalesces concurrent parser flushes into one drain that every caller can
+ * await. A result event can arrive while an earlier heartbeat is still in
+ * flight; returning early in that case let finalization serialize the turn
+ * before its last tool events were parsed, and live updates could disappear.
+ */
+export function flushStreaming(): Promise<void> {
+  flushRequested = true;
+  if (activeFlush) return activeFlush;
+
+  const flush = drainRequestedFlushes();
+  activeFlush = flush;
+  const clearActiveFlush = () => {
+    if (activeFlush === flush) activeFlush = null;
+  };
+  void flush.then(clearActiveFlush, clearActiveFlush);
+  return flush;
 }
 
 const PING_STUCK_MS = 45_000;

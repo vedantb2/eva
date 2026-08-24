@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityStep } from "./activity-shared";
 import {
+  activitySegmentKey,
+  activityStepKey,
   buildActivityRows,
   groupActivityRows,
   normalizeStep,
@@ -154,5 +156,76 @@ describe("groupActivityRows", () => {
       ]),
     );
     expect(segments.map((s) => s.kind)).toEqual(["actions", "row", "actions"]);
+  });
+});
+
+describe("activityStepKey", () => {
+  it("keeps the same key when label and status change", () => {
+    const running = step({
+      type: "bash",
+      label: "Running command",
+      status: "active",
+      toolUseId: "toolu_1",
+    });
+    const done = step({
+      type: "bash",
+      label: "Ran command",
+      status: "complete",
+      toolUseId: "toolu_1",
+      isError: true,
+    });
+    expect(activityStepKey(running, 0)).toBe(activityStepKey(done, 9));
+    expect(activityStepKey(running, 0)).toBe("id:toolu_1");
+  });
+
+  it("does not collide two unlabeled steps of the same type", () => {
+    const a = step({ type: "bash", label: "Running" });
+    const b = step({ type: "bash", label: "Running" });
+    expect(activityStepKey(a, 0)).not.toBe(activityStepKey(b, 1));
+  });
+});
+
+describe("activitySegmentKey", () => {
+  it("keeps an action group key when later rows append", () => {
+    const first = step({
+      type: "read",
+      label: "Read",
+      toolUseId: "toolu_read",
+    });
+    const before = groupActivityRows(buildActivityRows([first]));
+    const after = groupActivityRows(
+      buildActivityRows([
+        first,
+        step({ type: "bash", label: "Ran", toolUseId: "toolu_bash" }),
+      ]),
+    );
+    expect(before).toHaveLength(1);
+    expect(after).toHaveLength(1);
+    const beforeSeg = before[0];
+    const afterSeg = after[0];
+    if (beforeSeg === undefined || afterSeg === undefined) {
+      throw new Error("expected action segments");
+    }
+    expect(activitySegmentKey(beforeSeg, 0)).toBe(
+      activitySegmentKey(afterSeg, 0),
+    );
+    expect(activitySegmentKey(beforeSeg, 0)).toBe("actions:id:toolu_read");
+  });
+
+  it("identifies action groups by first-row id, not slice index", () => {
+    const segments = groupActivityRows(
+      buildActivityRows([
+        step({ type: "reasoning", label: "Thought", detail: "a" }),
+        step({ type: "bash", label: "Ran", toolUseId: "toolu_a" }),
+        step({ type: "reasoning", label: "Thought", detail: "b" }),
+        step({ type: "bash", label: "Ran", toolUseId: "toolu_b" }),
+      ]),
+    );
+    const keyed = segments.map((segment, index) =>
+      activitySegmentKey(segment, index),
+    );
+    expect(keyed[1]).toBe("actions:id:toolu_a");
+    expect(keyed[3]).toBe("actions:id:toolu_b");
+    expect(keyed.slice(-2)[1]).toBe("actions:id:toolu_b");
   });
 });

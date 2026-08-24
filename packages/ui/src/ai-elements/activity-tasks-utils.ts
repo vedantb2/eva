@@ -109,6 +109,44 @@ export function groupActivityRows(rows: ActivityRow[]): ActivitySegment[] {
 }
 
 /**
+ * React key for one activity step. `label` and `status` are omitted so a
+ * streaming update (Running → Ran, error → recovered) keeps the same instance.
+ * `toolUseId` is the identity the callback already stamps; the fallback is
+ * type + path/command + occurrence in the list being keyed (never the visible
+ * overflow slice — callers must pass the full-list index).
+ */
+export function activityStepKey(step: ActivityStep, occurrence: number): string {
+  const id = step.toolUseId;
+  if (id !== undefined && id.length > 0) {
+    return `id:${id}`;
+  }
+  const stable = step.path ?? step.command ?? "";
+  return `fb:${step.type}:${stable}:${occurrence}`;
+}
+
+export function activityRowKey(row: ActivityRow, occurrence: number): string {
+  return activityStepKey(row.step, occurrence);
+}
+
+/** React key for a timeline segment. Action groups key off the first row. */
+export function activitySegmentKey(
+  segment: ActivitySegment,
+  occurrence: number,
+): string {
+  if (segment.kind === "reasoning") {
+    return `reasoning:${activityStepKey(segment.step, occurrence)}`;
+  }
+  if (segment.kind === "row") {
+    return `row:${activityRowKey(segment.row, occurrence)}`;
+  }
+  const first = segment.rows[0];
+  if (first === undefined) {
+    return `actions:${occurrence}`;
+  }
+  return `actions:${activityRowKey(first, occurrence)}`;
+}
+
+/**
  * Builds per-call activity rows. Steps with `parentToolUseId` nest under the
  * matching subtask `toolUseId`. Orphans whose parent was never found append
  * at the top level (never drop).

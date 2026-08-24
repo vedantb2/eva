@@ -33,6 +33,8 @@ import {
 import {
   type ActivityRow,
   type ActivitySegment,
+  activityRowKey,
+  activitySegmentKey,
   buildActivityRows,
   groupActivityRows,
 } from "./activity-tasks-utils";
@@ -297,7 +299,7 @@ function ActivityStepRow({
       >
         {shownChildren.map((child, i) => (
           <ActivityStepRow
-            key={`${child.step.type}-${i}-${child.step.label}`}
+            key={activityRowKey(child, i)}
             row={child}
             onOpenFile={onOpenFile}
             depth={depth + 1}
@@ -380,7 +382,7 @@ function ActivityActionGroup({
       <CollapsibleContent className="mt-1.5 ml-2 space-y-1.5 border-l border-border pl-3 data-[state=closed]:animate-out data-[state=open]:animate-in data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0">
         {rows.map((row, i) => (
           <ActivityStepRow
-            key={`${row.step.type}-${i}-${row.step.label}`}
+            key={activityRowKey(row, i)}
             row={row}
             onOpenFile={onOpenFile}
           />
@@ -422,13 +424,17 @@ function ActivityRowList({
   const [expanded, setExpanded] = useState(false);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const segments = groupActivityRows(rows);
-  const overflow = segments.length - MAX_VISIBLE_ROWS;
+  const keyedSegments = segments.map((segment, index) => ({
+    segment,
+    key: activitySegmentKey(segment, index),
+  }));
+  const overflow = keyedSegments.length - MAX_VISIBLE_ROWS;
   const isCapped = overflow > 0 && !expanded;
   const visible = isCapped
     ? isStreaming
-      ? segments.slice(segments.length - MAX_VISIBLE_ROWS)
-      : segments.slice(0, MAX_VISIBLE_ROWS)
-    : segments;
+      ? keyedSegments.slice(keyedSegments.length - MAX_VISIBLE_ROWS)
+      : keyedSegments.slice(0, MAX_VISIBLE_ROWS)
+    : keyedSegments;
 
   const handleToggle = useCallback(() => {
     const anchor = toggleRef.current;
@@ -454,9 +460,9 @@ function ActivityRowList({
   return (
     <>
       {isStreaming && toggle}
-      {visible.map((segment, i) => (
+      {visible.map(({ segment, key }) => (
         <ActivitySegmentBlock
-          key={`${segment.kind}-${i}`}
+          key={key}
           segment={segment}
           onOpenFile={onOpenFile}
         />

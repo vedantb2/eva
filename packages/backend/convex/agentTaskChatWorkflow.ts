@@ -773,6 +773,11 @@ export const saveResult = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const streamingEntityId = chatStreamEntityId(args.taskId);
+    const streaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", streamingEntityId))
+      .first();
+    const activityLog = args.activityLog || streaming?.currentActivity;
     await clearStreamingActivity(ctx, streamingEntityId);
 
     const task = await ctx.db.get(args.taskId);
@@ -795,7 +800,7 @@ export const saveResult = internalMutation({
           : `Error: ${args.error || "Unknown error during execution."}`,
         finishedAt: Date.now(),
       };
-      if (args.activityLog) patch.activityLog = args.activityLog;
+      if (activityLog) patch.activityLog = activityLog;
       if (args.pendingQuestion) patch.pendingQuestion = args.pendingQuestion;
       await ctx.db.patch(last._id, patch);
     }

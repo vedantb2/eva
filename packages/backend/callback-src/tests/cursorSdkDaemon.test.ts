@@ -3,7 +3,10 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import { readClaimedTurn } from "../providers/claimedTurnLifecycle.js";
-import { buildTurnCompletion } from "../providers/cursorSdkDaemon.js";
+import {
+  buildTurnCompletion,
+  cursorTurnWorkerFailureMessage,
+} from "../providers/cursorSdkDaemon.js";
 import type { ProviderAttemptResult } from "../types.js";
 
 const CLEAN_ATTEMPT: ProviderAttemptResult = {
@@ -133,6 +136,34 @@ describe("the daemon preserves durable ownership from the claim response", () =>
   });
 });
 
+describe("the Cursor daemon isolates every turn in a disposable worker", () => {
+  test("reports an OOM without taking down the warm supervisor", () => {
+    expect(
+      cursorTurnWorkerFailureMessage({
+        status: "exited",
+        code: 134,
+        signal: null,
+      }),
+    ).toContain("ran out of memory");
+    expect(
+      cursorTurnWorkerFailureMessage({
+        status: "exited",
+        code: 134,
+        signal: null,
+      }),
+    ).toContain("daemon remained healthy");
+  });
+
+  test("reports spawn failures distinctly", () => {
+    expect(
+      cursorTurnWorkerFailureMessage({
+        status: "spawn_error",
+        message: "ENOENT",
+      }),
+    ).toBe("Cursor turn worker could not start: ENOENT");
+  });
+});
+
 /**
  * Ordering invariants inside the turn loop. Each of these is a silent failure
  * mode rather than a crash, so they are asserted on the source directly (same
@@ -158,23 +189,27 @@ describe("the cursor daemon's per-turn ordering", () => {
   test("the state reset runs before session prep, which runs every turn", () => {
     const runTurn = functionBody(
       daemon,
-      "async function runClaimedTurn(turn: ClaimedTurn): Promise<void> {",
+      "async function executeClaimedTurn(turn: ClaimedTurn): Promise<void> {",
     );
-    const resetAt = runTurn.indexOf("resetTurnState()");
-    const leaseAt = runTurn.indexOf("startClaimedTurn(turn)");
     const prepareAt = runTurn.indexOf("prepareCursorSessionState()");
     const attemptAt = runTurn.indexOf("runCursorSdkAttempt(");
-    expect(resetAt, "the per-turn reset moved").toBeGreaterThan(-1);
-    expect(leaseAt, "the claimed lease is no longer installed").toBeGreaterThan(
-      -1,
+    const worker = functionBody(
+      daemon,
+      "export async function runCursorTurnWorker(): Promise<void> {",
     );
+    const resetAt = worker.indexOf("resetTurnState()");
+    const leaseAt = worker.indexOf("startClaimedTurn(turn)");
+    const executeAt = worker.indexOf("executeClaimedTurn(turn)");
+    expect(resetAt, "the worker no longer clears per-turn state").toBeGreaterThan(-1);
+    expect(leaseAt, "the worker no longer installs the claimed lease").toBeGreaterThan(-1);
+    expect(executeAt, "the worker no longer executes the claimed turn").toBeGreaterThan(-1);
     expect(
       prepareAt,
       "session prep moved out of the turn loop",
     ).toBeGreaterThan(-1);
     expect(attemptAt, "the attempt call moved").toBeGreaterThan(-1);
-    expect(resetAt).toBeLessThan(prepareAt);
-    expect(leaseAt).toBeLessThan(prepareAt);
+    expect(resetAt).toBeLessThan(executeAt);
+    expect(leaseAt).toBeLessThan(executeAt);
     expect(prepareAt).toBeLessThan(attemptAt);
   });
 
@@ -189,12 +224,16 @@ describe("the cursor daemon's per-turn ordering", () => {
     );
     const runTurn = functionBody(
       daemon,
-      "async function runClaimedTurn(turn: ClaimedTurn): Promise<void> {",
+      "async function executeClaimedTurn(turn: ClaimedTurn): Promise<void> {",
     );
     expect(finalize).toContain("appendClaimedTurnCompletion(completionArgs)");
     expect(failAndExit).toContain("appendClaimedTurnCompletion(completionArgs)");
     expect(runTurn).toContain("appendClaimedTurnCompletion(completionArgs)");
-    expect(runTurn).toContain("finishClaimedTurn()");
+    const worker = functionBody(
+      daemon,
+      "export async function runCursorTurnWorker(): Promise<void> {",
+    );
+    expect(worker).toContain("finishClaimedTurn()");
   });
 
   /**
@@ -225,7 +264,7 @@ describe("the cursor daemon's per-turn ordering", () => {
   test("a cancelled turn posts no completion", () => {
     const runTurn = functionBody(
       daemon,
-      "async function runClaimedTurn(turn: ClaimedTurn): Promise<void> {",
+      "async function executeClaimedTurn(turn: ClaimedTurn): Promise<void> {",
     );
     const cancelAt = runTurn.indexOf("if (cancelInFlight) {");
     const finalizeAt = runTurn.indexOf("await finalizeTurn(attempt)");
@@ -247,6 +286,19 @@ describe("the cursor daemon's per-turn ordering", () => {
     expect(entry).toContain(
       "const firstAttempt = await runProviderAttempt(initialSessionMode)",
     );
+    const workerAt = entry.indexOf("if (IS_CURSOR_TURN_WORKER)");
+    const readyUnlinkAt = entry.indexOf("unlinkSync(READY_FILE)");
+    expect(workerAt, "the disposable worker entrypoint is missing").toBeGreaterThan(
+      -1,
+    );
+    expect(
+      readyUnlinkAt,
+      "the parent ready-marker initialization moved",
+    ).toBeGreaterThan(-1);
+    expect(
+      workerAt,
+      "a child must not unlink or take ownership of the parent daemon's marker",
+    ).toBeLessThan(readyUnlinkAt);
   });
 
   /** An idle daemon polling at 50ms burns ~20 Convex mutations/s for nothing. */
@@ -255,6 +307,21 @@ describe("the cursor daemon's per-turn ordering", () => {
     expect(watcher).toContain("PROMPT_POLL_IDLE_INTERVAL_MS");
     expect(watcher).toContain("PROMPT_POLL_INTERVAL_MS");
     expect(watcher).toContain("PROMPT_POLL_FAST_WINDOW_MS");
+  });
+
+  test("the supervisor spawns one child per claimed turn", () => {
+    const supervisorTurn = functionBody(
+      daemon,
+      "async function runClaimedTurn(turn: ClaimedTurn): Promise<void> {",
+    );
+    const worker = functionBody(
+      daemon,
+      "export async function runCursorTurnWorker(): Promise<void> {",
+    );
+    expect(supervisorTurn).toContain("spawnCursorTurnWorker(turn, promptFile)");
+    expect(supervisorTurn).not.toContain("runCursorSdkAttempt(");
+    expect(worker).toContain("executeClaimedTurn(turn)");
+    expect(worker).toContain("await stopStreamingLoops()");
   });
 });
 

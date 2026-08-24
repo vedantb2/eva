@@ -11,6 +11,7 @@ import {
   cursorModeParams,
   cursorEventHasVisibleActivity,
   cursorEventWaitTimeoutMs,
+  cursorAgentStartupActivity,
   filterModeParamsByModel,
   isResourceExhaustedMessage,
   readCursorCostSnapshot,
@@ -22,6 +23,21 @@ import {
   type CursorCostSnapshot,
   type CursorTurnOutcome,
 } from "../providers/cursorSdk.js";
+
+test("Cursor startup activity says whether context is resumed or created", () => {
+  expect(
+    cursorAgentStartupActivity({ mode: "resume", sessionId: "agent-47" }),
+  ).toEqual({
+    label: "Resuming Cursor agent...",
+    detail: "Restoring saved context...",
+  });
+  expect(cursorAgentStartupActivity({ mode: "none", sessionId: null })).toEqual(
+    {
+      label: "Creating Cursor agent...",
+      detail: "Creating a new model context...",
+    },
+  );
+});
 
 test("Cursor SDK phases fail on a bounded deadline", async () => {
   let timedOut = false;

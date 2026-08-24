@@ -15,6 +15,19 @@ const queueHelpersSource = readFileSync(
   "utf8",
 );
 
+const sessionWorkflowSource = readFileSync(
+  join(testsDir, "../convex/_sessions/workflow.ts"),
+  "utf8",
+);
+const projectChatWorkflowSource = readFileSync(
+  join(testsDir, "../convex/projectChatWorkflow.ts"),
+  "utf8",
+);
+const taskChatWorkflowSource = readFileSync(
+  join(testsDir, "../convex/agentTaskChatWorkflow.ts"),
+  "utf8",
+);
+
 /**
  * A turn is staged in two places: `startExecute` (a fresh send) and the
  * queued-message dequeue. Both must wipe `streamingActivity` first.
@@ -87,6 +100,37 @@ test.each([
 ])("$name's streamingEntityId uses the prefixed key", ({ name, prefix }) => {
   const body = configBody(queueHelpersSource, name);
   expect(body).toContain(`\`\${${prefix}}\${String(id)}\``);
+});
+
+/**
+ * A hard provider-worker crash cannot serialize its in-memory steps. The
+ * supervisor reports a null log, so saveResult must copy the last streaming
+ * snapshot before deleting that row; otherwise the error replaces every step
+ * the user already watched with an empty activity panel.
+ */
+test.each([
+  ["session", sessionWorkflowSource],
+  ["project chat", projectChatWorkflowSource],
+  ["task chat", taskChatWorkflowSource],
+])("%s saveResult preserves streamed activity after a worker crash", (_, source) => {
+  const body = functionBody(source, "export const saveResult = internalMutation({");
+  const readAt = body.indexOf('.query("streamingActivity")');
+  const fallbackAt = body.indexOf(
+    "args.activityLog || streaming?.currentActivity",
+  );
+  const clearAt = body.indexOf("await clearStreamingActivity(");
+  const patchAt = body.indexOf("patch.activityLog = activityLog");
+  expect(readAt, "saveResult no longer reads the live snapshot").toBeGreaterThan(
+    -1,
+  );
+  expect(fallbackAt, "null worker logs no longer fall back").toBeGreaterThan(-1);
+  expect(clearAt, "saveResult no longer clears streaming state").toBeGreaterThan(
+    -1,
+  );
+  expect(patchAt, "the preserved log is not persisted").toBeGreaterThan(-1);
+  expect(readAt).toBeLessThan(clearAt);
+  expect(fallbackAt).toBeLessThan(clearAt);
+  expect(clearAt).toBeLessThan(patchAt);
 });
 
 /**

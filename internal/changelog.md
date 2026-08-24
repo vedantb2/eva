@@ -1,5 +1,9 @@
 # Changelog
 
+## Cursor turns no longer share a leaking SDK heap - 2026-08-24
+
+A production Grok turn resumed the correct saved Cursor agent, streamed reasoning, then killed its long-lived daemon at the V8 4 GB heap limit because prior turns' SDK allocations were still resident. The warm daemon is now only a lightweight claim-and-cancel supervisor: every claimed Cursor turn runs in a disposable child Node process that resumes the same persisted agent store, reports completion, and releases its entire heap on exit. A hard child crash is finalized immediately by the surviving supervisor, and session, project-chat, and task-chat completion paths preserve the last streamed activity when no in-memory log survives. Startup copy now says “Resuming Cursor agent” or “Creating Cursor agent” instead of using the misleading generic “Starting” label.
+
 ## Project Overview/Tasks sit in the header - 2026-08-24
 
 Overview and Tasks lived on a second row under a Project|Sandbox switcher, so the header said "Project" while the real views sat below. Those views now share the header with Sandbox as peers, and the redundant Project tab is gone.

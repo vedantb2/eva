@@ -55,6 +55,23 @@ export const CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
  * and respawn the daemon instead of reusing it with the wrong options.
  */
 export const DAEMON_OPTS_SIG = process.env.EVA_DAEMON_OPTS || "";
+/** Internal process-isolation handoff used by the Cursor daemon. */
+export const CURSOR_TURN_WORKER_PROMPT_FILE =
+  process.env.EVA_CURSOR_TURN_WORKER_PROMPT_FILE || "";
+export const CURSOR_TURN_WORKER_LIFECYCLE =
+  process.env.EVA_CURSOR_TURN_WORKER_LIFECYCLE || "";
+export const CURSOR_TURN_WORKER_TURN_ID =
+  process.env.EVA_CURSOR_TURN_WORKER_TURN_ID || "";
+const parsedCursorWorkerLeaseGeneration = Number(
+  process.env.EVA_CURSOR_TURN_WORKER_LEASE_GENERATION,
+);
+export const CURSOR_TURN_WORKER_LEASE_GENERATION = Number.isSafeInteger(
+  parsedCursorWorkerLeaseGeneration,
+)
+  ? parsedCursorWorkerLeaseGeneration
+  : 0;
+export const IS_CURSOR_TURN_WORKER =
+  CURSOR_TURN_WORKER_PROMPT_FILE.length > 0;
 export const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 export const WORK_DIR = existsSync("/tmp/repo")
   ? "/tmp/repo"

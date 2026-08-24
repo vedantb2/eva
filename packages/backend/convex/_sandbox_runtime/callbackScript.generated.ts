@@ -59,6 +59,16 @@ var ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 var BLOCKING_QUESTIONS_ENABLED = process.env.ENTITY_ID_FIELD === "sessionId";
 var CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
 var DAEMON_OPTS_SIG = process.env.EVA_DAEMON_OPTS || "";
+var CURSOR_TURN_WORKER_PROMPT_FILE = process.env.EVA_CURSOR_TURN_WORKER_PROMPT_FILE || "";
+var CURSOR_TURN_WORKER_LIFECYCLE = process.env.EVA_CURSOR_TURN_WORKER_LIFECYCLE || "";
+var CURSOR_TURN_WORKER_TURN_ID = process.env.EVA_CURSOR_TURN_WORKER_TURN_ID || "";
+var parsedCursorWorkerLeaseGeneration = Number(
+  process.env.EVA_CURSOR_TURN_WORKER_LEASE_GENERATION
+);
+var CURSOR_TURN_WORKER_LEASE_GENERATION = Number.isSafeInteger(
+  parsedCursorWorkerLeaseGeneration
+) ? parsedCursorWorkerLeaseGeneration : 0;
+var IS_CURSOR_TURN_WORKER = CURSOR_TURN_WORKER_PROMPT_FILE.length > 0;
 var SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 var WORK_DIR = existsSync("/tmp/repo") ? "/tmp/repo" : existsSync("/workspace/repo") ? "/workspace/repo" : "/tmp/repo";
 var NO_OUTPUT_TIMEOUT_MS = Number(
@@ -3802,8 +3812,8 @@ function cursorEventToCanonical(event) {
   if (event.type === "system") {
     events.push({
       kind: "update_thinking",
-      label: "Starting Cursor agent...",
-      detail: "Cursor agent initializing..."
+      label: "Cursor agent ready",
+      detail: "Model context initialized."
     });
     return events;
   }
@@ -6939,6 +6949,7 @@ async function runCodexAppServerDaemon() {
 }
 
 // callback-src/providers/cursorSdkDaemon.ts
+import { spawn as spawn2 } from "child_process";
 import { readFileSync as readFileSync10, unlinkSync as unlinkSync3, writeFileSync as writeFileSync11 } from "fs";
 
 // callback-src/providers/cursorSdk.ts
@@ -7217,10 +7228,8 @@ function readUsageTokens(value) {
 async function runCursorSdkAttempt(sessionMode, overrides = {}) {
   resetAttemptState();
   callbackState.activeAttemptStartedAt = Date.now();
-  updateThinkingStep(
-    "Starting Cursor agent...",
-    sessionMode.mode === "resume" ? "Restoring saved context..." : "Creating Cursor agent..."
-  );
+  const startupActivity = cursorAgentStartupActivity(sessionMode);
+  updateThinkingStep(startupActivity.label, startupActivity.detail);
   log(
     "runCursorSdkAttempt started (mode=" + sessionMode.mode + ", sessionId=" + (sessionMode.sessionId || "none") + ")"
   );
@@ -7498,6 +7507,15 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     toolStallErrorMessage: ""
   };
 }
+function cursorAgentStartupActivity(sessionMode) {
+  return sessionMode.mode === "resume" ? {
+    label: "Resuming Cursor agent...",
+    detail: "Restoring saved context..."
+  } : {
+    label: "Creating Cursor agent...",
+    detail: "Creating a new model context..."
+  };
+}
 
 // callback-src/providers/cursorSdkDaemon.ts
 var IDLE_EXIT_MS3 = 45 * 60 * 1e3;
@@ -7508,6 +7526,7 @@ var PROMPT_POLL_FAST_WINDOW_MS2 = 3e4;
 var WATCHDOG_TICK_MS2 = 5e3;
 var TURN_HARD_TIMEOUT_MS = MAX_TOTAL_RUNTIME_MS + 5 * 60 * 1e3;
 var CANCEL_SETTLE_TIMEOUT_MS2 = 3e4;
+var CURSOR_TURN_WORKER_FILE_PREFIX = "/tmp/eva-cursor-turn-";
 var daemonPaths2 = resolveDaemonPaths();
 var daemonExiting = false;
 var callbackRefreshPending = false;
@@ -7521,6 +7540,78 @@ var cancelRequestedAtMs = 0;
 var abortActiveTurn = null;
 function sleep4(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+function cursorTurnWorkerEntryPath() {
+  const entryPath = process.argv[1];
+  if (!entryPath) {
+    throw new Error("Cursor turn worker could not resolve the callback entrypoint");
+  }
+  return entryPath;
+}
+function readCursorTurnWorkerClaim() {
+  if (!CURSOR_TURN_WORKER_PROMPT_FILE) {
+    throw new Error("Cursor turn worker prompt file is missing");
+  }
+  const prompt = readFileSync10(CURSOR_TURN_WORKER_PROMPT_FILE, "utf8");
+  if (CURSOR_TURN_WORKER_LIFECYCLE === "legacy") {
+    return {
+      lifecycle: "legacy",
+      prompt,
+      attachmentUrls: [],
+      turnLease: null
+    };
+  }
+  if (CURSOR_TURN_WORKER_LIFECYCLE !== "durable" || !CURSOR_TURN_WORKER_TURN_ID || CURSOR_TURN_WORKER_LEASE_GENERATION <= 0) {
+    throw new Error("Cursor turn worker received an invalid durable lease");
+  }
+  return {
+    lifecycle: "durable",
+    prompt,
+    attachmentUrls: [],
+    turnLease: {
+      turnId: CURSOR_TURN_WORKER_TURN_ID,
+      leaseGeneration: CURSOR_TURN_WORKER_LEASE_GENERATION
+    }
+  };
+}
+function cursorTurnWorkerFailureMessage(outcome) {
+  if (outcome.status === "spawn_error") {
+    return "Cursor turn worker could not start: " + outcome.message;
+  }
+  const exit = outcome.signal !== null ? \`signal \${outcome.signal}\` : \`exit code \${String(outcome.code)}\`;
+  const oom = outcome.signal === "SIGABRT" || outcome.code === 134;
+  return oom ? \`Cursor turn worker ran out of memory (\${exit}). The daemon remained healthy and is ready for the next message.\` : \`Cursor turn worker stopped unexpectedly (\${exit}). The daemon remained healthy and is ready for the next message.\`;
+}
+function waitForCursorTurnWorker(child) {
+  return new Promise((resolve) => {
+    child.once("error", (error) => {
+      resolve({ status: "spawn_error", message: error.message });
+    });
+    child.once("exit", (code, signal) => {
+      resolve({ status: "exited", code, signal });
+    });
+  });
+}
+function spawnCursorTurnWorker(turn, promptFile) {
+  const workerEnv = {
+    ...process.env,
+    EVA_CURSOR_TURN_WORKER_PROMPT_FILE: promptFile,
+    EVA_CURSOR_TURN_WORKER_LIFECYCLE: turn.lifecycle
+  };
+  if (turn.lifecycle === "durable") {
+    workerEnv.EVA_CURSOR_TURN_WORKER_TURN_ID = turn.turnLease.turnId;
+    workerEnv.EVA_CURSOR_TURN_WORKER_LEASE_GENERATION = String(
+      turn.turnLease.leaseGeneration
+    );
+  } else {
+    delete workerEnv.EVA_CURSOR_TURN_WORKER_TURN_ID;
+    delete workerEnv.EVA_CURSOR_TURN_WORKER_LEASE_GENERATION;
+  }
+  return spawn2(process.execPath, [cursorTurnWorkerEntryPath()], {
+    cwd: process.cwd(),
+    env: workerEnv,
+    stdio: "inherit"
+  });
 }
 function pidAlive3(pid) {
   try {
@@ -7655,7 +7746,9 @@ async function failTurnAndExit2(error) {
       success: false,
       result: null,
       error,
-      activityLog: serializeSteps(callbackState.accumulatedSteps),
+      // The disposable worker owns the live steps. A null log tells Convex to
+      // preserve the last streaming snapshot when the worker cannot report.
+      activityLog: null,
       ...RUN_ID ? { runId: RUN_ID } : {}
     });
     appendClaimedTurnCompletion(completionArgs);
@@ -7700,6 +7793,7 @@ function startTurnWatchdog2() {
     if (!turnActive2) return;
     if (now - turnStartedAtMs2 > TURN_HARD_TIMEOUT_MS) {
       turnActive2 = false;
+      abortActiveTurn?.();
       void failTurnAndExit2("The assistant exceeded the maximum turn runtime.");
     }
   }, WATCHDOG_TICK_MS2);
@@ -7766,13 +7860,11 @@ function handleCancelRequested2() {
   log("cursor daemon: cancel requested \\u2014 cancelling the in-flight run");
   abortActiveTurn?.();
 }
-async function runClaimedTurn(turn) {
-  resetTurnState3();
-  startClaimedTurn(turn);
+async function executeClaimedTurn(turn) {
   turnActive2 = true;
   turnStartedAtMs2 = Date.now();
   abortActiveTurn = null;
-  log("cursor daemon: turn started");
+  log("cursor turn worker: turn started");
   try {
     if (!process.env.CURSOR_API_KEY?.trim()) {
       throw new Error(
@@ -7818,8 +7910,86 @@ async function runClaimedTurn(turn) {
     turnActive2 = false;
     abortActiveTurn = null;
     cancelInFlight = false;
+    lastIdleActivityAtMs2 = Date.now();
+  }
+}
+async function runCursorTurnWorker() {
+  const turn = readCursorTurnWorkerClaim();
+  resetTurnState3();
+  startClaimedTurn(turn);
+  try {
+    const preflightOk2 = await runPreflightHeartbeat();
+    if (!preflightOk2) {
+      throw new Error("Cursor turn worker preflight failed");
+    }
+    startStreamingLoops();
+    await ensureGithubToken3();
+    await executeClaimedTurn(turn);
+  } finally {
+    await stopStreamingLoops();
+    finishClaimedTurn();
+  }
+}
+async function reportCursorTurnWorkerFailure(outcome) {
+  const error = cursorTurnWorkerFailureMessage(outcome);
+  log("cursor daemon: " + error);
+  const completionArgs = entityMutationArgs2({
+    success: false,
+    result: null,
+    error,
+    // Convex falls back to the last streamed activity so a hard worker crash
+    // cannot erase the reasoning/tools the user already saw.
+    activityLog: null,
+    ...RUN_ID ? { runId: RUN_ID } : {}
+  });
+  appendClaimedTurnCompletion(completionArgs);
+  await callConvexWithRetry(
+    "mutation",
+    COMPLETION_MUTATION ?? "",
+    completionArgs
+  );
+}
+async function runClaimedTurn(turn) {
+  const promptFile = CURSOR_TURN_WORKER_FILE_PREFIX + String(process.pid) + "-" + String(Date.now()) + ".txt";
+  writeFileSync11(promptFile, turn.prompt);
+  startClaimedTurn(turn);
+  turnActive2 = true;
+  turnStartedAtMs2 = Date.now();
+  log("cursor daemon: starting isolated turn worker");
+  try {
+    const child = spawnCursorTurnWorker(turn, promptFile);
+    abortActiveTurn = () => {
+      if (child.exitCode === null && child.signalCode === null) {
+        child.kill("SIGTERM");
+      }
+    };
+    const outcome = await waitForCursorTurnWorker(child);
+    turnActive2 = false;
+    if (cancelInFlight) {
+      log("cursor daemon: cancelled worker settled \\u2014 no completion posted");
+      return;
+    }
+    if (outcome.status === "exited" && outcome.code === 0 && outcome.signal === null) {
+      log("cursor daemon: isolated turn worker finished");
+      return;
+    }
+    try {
+      await reportCursorTurnWorkerFailure(outcome);
+    } catch (error) {
+      log(
+        "cursor daemon: worker failure completion could not be delivered \\u2014 " + (error instanceof Error ? error.message : String(error))
+      );
+    }
+  } finally {
+    turnActive2 = false;
+    abortActiveTurn = null;
+    cancelInFlight = false;
     finishClaimedTurn();
     lastIdleActivityAtMs2 = Date.now();
+    try {
+      unlinkSync3(promptFile);
+    } catch {
+    }
   }
 }
 async function runCursorDaemon() {
@@ -7863,7 +8033,6 @@ async function runCursorDaemon() {
     log("cursor daemon: preflight failed");
     process.exit(1);
   }
-  startStreamingLoops();
   await ensureGithubToken3();
   log(
     "runCursorDaemon started (entityId=" + (ENTITY_ID ?? "none") + ", model=" + MODEL + ")"
@@ -7887,7 +8056,6 @@ async function runCursorDaemon() {
   } finally {
     daemonExiting = true;
     cleanOwnedMarkers();
-    await stopStreamingLoops();
   }
   process.exit(0);
 }
@@ -8037,7 +8205,7 @@ function materializeSystemSkills() {
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
-import { spawn as spawn2 } from "child_process";
+import { spawn as spawn3 } from "child_process";
 import { statSync as statSync2 } from "fs";
 import path2 from "path";
 import readline from "readline";
@@ -8280,7 +8448,7 @@ var CodexExec = class {
     if (this.pathDirs.length > 0) {
       prependPathDirs(env, this.pathDirs);
     }
-    const child = spawn2(this.executablePath, commandArgs, {
+    const child = spawn3(this.executablePath, commandArgs, {
       env,
       signal: args.signal
     });
@@ -8710,7 +8878,7 @@ async function runCodexSdkAttempt(sessionMode) {
 import { readFileSync as readFileSync14 } from "fs";
 
 // callback-src/providers/opencodeServer.ts
-import { spawn as spawn3 } from "child_process";
+import { spawn as spawn4 } from "child_process";
 import {
   closeSync,
   existsSync as existsSync11,
@@ -8781,7 +8949,7 @@ function killRecordedServer() {
 function spawnServer() {
   const logFd = openSync(SERVER_LOG_FILE, "a");
   try {
-    const child = spawn3(
+    const child = spawn4(
       opencodeCommand,
       [
         "serve",
@@ -9342,6 +9510,17 @@ async function runProviderAttempt(sessionMode) {
 }
 
 // callback-src/index.ts
+if (IS_CURSOR_TURN_WORKER) {
+  try {
+    await runCursorTurnWorker();
+    process.exit(0);
+  } catch (error) {
+    log(
+      "cursor turn worker failed: " + (error instanceof Error ? error.message : String(error))
+    );
+    process.exit(1);
+  }
+}
 process.on("exit", (code) => {
   writeDoneFile("unexpected-exit", {
     exitCode: typeof code === "number" ? code : null

@@ -840,6 +840,14 @@ export const saveResult = internalMutation({
       return null;
     }
 
+    // A disposable provider worker can die too hard to serialize its local
+    // steps (for example V8 heap OOM). Preserve the last durable streaming
+    // snapshot when its supervisor reports a null/empty activity log.
+    const streaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
+      .first();
+    const activityLog = args.activityLog || streaming?.currentActivity;
     await clearStreamingActivity(ctx, String(args.sessionId));
 
     const recent = await ctx.db
@@ -884,8 +892,8 @@ export const saveResult = internalMutation({
         filePath: variation.filePath,
       }));
     }
-    if (args.activityLog) {
-      patch.activityLog = args.activityLog;
+    if (activityLog) {
+      patch.activityLog = activityLog;
     }
     if (args.pendingQuestion) {
       patch.pendingQuestion = args.pendingQuestion;

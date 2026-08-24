@@ -624,12 +624,8 @@ export async function runCursorSdkAttempt(
 ): Promise<ProviderAttemptResult> {
   resetAttemptState();
   S.activeAttemptStartedAt = Date.now();
-  updateThinkingStep(
-    "Starting Cursor agent...",
-    sessionMode.mode === "resume"
-      ? "Restoring saved context..."
-      : "Creating Cursor agent...",
-  );
+  const startupActivity = cursorAgentStartupActivity(sessionMode);
+  updateThinkingStep(startupActivity.label, startupActivity.detail);
   log(
     "runCursorSdkAttempt started (mode=" +
       sessionMode.mode +
@@ -1027,4 +1023,20 @@ export async function runCursorSdkAttempt(
     timedOutForZombie: false,
     toolStallErrorMessage: "",
   };
+}
+
+/** User-facing startup copy must say whether this turn resumes or creates. */
+export function cursorAgentStartupActivity(sessionMode: SessionMode): {
+  label: string;
+  detail: string;
+} {
+  return sessionMode.mode === "resume"
+    ? {
+        label: "Resuming Cursor agent...",
+        detail: "Restoring saved context...",
+      }
+    : {
+        label: "Creating Cursor agent...",
+        detail: "Creating a new model context...",
+      };
 }

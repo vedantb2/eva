@@ -26,6 +26,9 @@ function AveActiveDot() {
   );
 }
 
+const GLYPH_LAYER =
+  "pointer-events-none absolute inset-0 flex items-center justify-center transition-[opacity,scale] duration-[var(--motion-fast)] ease-[var(--motion-ease-out)]";
+
 /**
  * The floating summon button, bottom-right of the signed-in shell. Circular and
  * carrying Eva's own mark rather than a generic glyph: Ave is the one agent that
@@ -34,9 +37,12 @@ function AveActiveDot() {
 export function AveLauncherButton({
   isOpen,
   onToggle,
+  onIntent,
 }: {
   isOpen: boolean;
   onToggle: () => void;
+  /** Hover/focus — start the chat chunk before the first click. */
+  onIntent?: () => void;
 }) {
   return (
     <Tooltip>
@@ -44,6 +50,8 @@ export function AveLauncherButton({
         <button
           type="button"
           onClick={onToggle}
+          onMouseEnter={onIntent}
+          onFocus={onIntent}
           aria-label={isOpen ? "Close Manager Ave" : "Manager Ave"}
           aria-expanded={isOpen}
           className={cn(
@@ -56,18 +64,32 @@ export function AveLauncherButton({
         >
           {/* Open → a close affordance: the mark says "summon Ave", but once the
               panel is up the same button dismisses it, and an unchanged glyph
-              reads as "open it again". The dot is hidden while open — the panel
-              itself shows Ave's state. */}
-          {isOpen ? (
-            <IconX size={22} className="shrink-0" />
-          ) : (
-            <>
-              <EvaIcon size={24} label={null} disc={false} />
+              reads as "open it again". Both glyphs stay mounted so the swap
+              can crossfade instead of teleporting. The dot rides the Eva layer
+              so it leaves with the mark. */}
+          <span className="relative size-full">
+            <span
+              className={cn(
+                GLYPH_LAYER,
+                isOpen ? "scale-90 opacity-0" : "scale-100 opacity-100",
+              )}
+              aria-hidden={isOpen}
+            >
+              <EvaIcon size={22} label={null} disc={false} />
               <QueryErrorBoundary>
                 <AveActiveDot />
               </QueryErrorBoundary>
-            </>
-          )}
+            </span>
+            <span
+              className={cn(
+                GLYPH_LAYER,
+                isOpen ? "scale-100 opacity-100" : "scale-90 opacity-0",
+              )}
+              aria-hidden={!isOpen}
+            >
+              <IconX size={22} className="shrink-0" />
+            </span>
+          </span>
         </button>
       </TooltipTrigger>
       <TooltipContent side="left">

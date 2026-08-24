@@ -1,10 +1,9 @@
 "use client";
 
+import { lazy, Suspense } from "react";
 import { Link } from "@tanstack/react-router";
 import { m } from "motion/react";
-import { useQuery } from "convex-helpers/react/cache/hooks";
 import { IconArrowsDiagonal, IconMinus } from "@tabler/icons-react";
-import { api } from "@eva/backend";
 import {
   Tooltip,
   TooltipContent,
@@ -13,40 +12,15 @@ import {
   motionSpring,
 } from "@eva/ui";
 import { EvaIcon } from "@/lib/components/EvaIcon";
-import { AveBusy, AveHomeRepoPicker } from "@/lib/components/ave/AveHomeRepoPicker";
-import { encodeRepoParam } from "@/lib/utils/repoUrl";
-import { CachedSessionShell } from "@/routes/_repo/$owner/$repo/sessions/_components/CachedSessionShell";
+
+const AvePanelBody = lazy(() =>
+  import("@/lib/components/ave/AvePanelBody").then((m) => ({
+    default: m.AvePanelBody,
+  })),
+);
 
 const HEADER_BUTTON_CLASS =
   "motion-press flex size-7 items-center justify-center rounded-md text-muted-foreground active:scale-[0.9] hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40";
-
-/** The chat itself, once we know whether Ave has a home codebase yet. */
-function AvePanelBody() {
-  const orchestrator = useQuery(api.sessions.getOrchestratorSession, {});
-
-  // `undefined` is "still loading", not "no session" — rendering the picker
-  // here would flash a codebase list at every user who already has one.
-  if (orchestrator === undefined) return <AveBusy label="Opening Manager Ave" />;
-
-  if (orchestrator === null) return <AveHomeRepoPicker />;
-
-  return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {/* `isActiveRoute` is false because the popover is never the URL: it is
-          what stops this shell's `SimpleViewSandboxRedirect` and legacy-id gate
-          from navigating the page out from under whatever route is showing. The
-          orchestrator session renders `chatOnly`, which has no sandbox panel and
-          so needs nothing the flag turns on. */}
-      <CachedSessionShell
-        numId={String(orchestrator.numId)}
-        owner={orchestrator.owner}
-        repoParam={encodeRepoParam(orchestrator.name, orchestrator.rootDirectory)}
-        isActiveRoute={false}
-        embedded
-      />
-    </div>
-  );
-}
 
 /**
  * Manager Ave's chat as a floating popover, anchored above the launcher button.
@@ -58,6 +32,9 @@ function AvePanelBody() {
  * The height is a hard clamp, not a `max-h`: the chat virtualizer measures
  * against its nearest sized ancestor, and an unclamped one makes its measure
  * loop diverge and grow the surface by hundreds of px per second.
+ *
+ * The chrome is eager so the first click can play this spring immediately. The
+ * session tree stays lazy — it is what used to delay the whole surface.
  */
 export function AvePanel({
   visible,
@@ -123,7 +100,17 @@ export function AvePanel({
         </Tooltip>
       </div>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <AvePanelBody />
+        <Suspense
+          fallback={
+            <div
+              className="flex min-h-0 flex-1"
+              aria-busy="true"
+              aria-label="Opening Manager Ave"
+            />
+          }
+        >
+          <AvePanelBody />
+        </Suspense>
       </div>
     </m.div>
   );

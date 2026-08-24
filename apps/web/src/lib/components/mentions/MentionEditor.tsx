@@ -34,6 +34,7 @@ import {
   getSelectionAnchorRect,
   type MentionPopupPlacement,
 } from "./mentionPopupPosition";
+import { cn } from "@eva/ui";
 import { UserProfileHoverCardBody } from "@eva/shared";
 import type { Id } from "@eva/backend";
 import type { AIProvider } from "@eva/backend";
@@ -1014,11 +1015,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         aria-multiline="true"
         aria-disabled={disabled ? "true" : undefined}
         aria-label={ariaLabel ?? placeholder ?? "Editor"}
-        className={
-          className
-            ? `${DEFAULT_EDITOR_CLASS} ${className}`
-            : DEFAULT_EDITOR_CLASS
-        }
+        className={cn(DEFAULT_EDITOR_CLASS, className)}
         onInput={disabled ? undefined : handleInput}
         onKeyDown={disabled ? undefined : handleKeyDown}
         onClick={disabled ? undefined : handleChipClick}

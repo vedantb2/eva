@@ -1,5 +1,9 @@
 # Changelog
 
+## Empty composer is a pill; typing opens the stacked card - 2026-08-24
+
+The composer was always the tall stacked card, even with nothing in it, so the empty state spent most of its height on padding. No text and no attachments now collapse to a single-row pill (circular plus, placeholder, model, mic, send). The first character or attachment expands to the existing toolbar-at-the-bottom card. ChatComposer is the only chat input, so simple view and advanced share the chrome.
+
 ## Simple view picks models with a five-step slider - 2026-08-24
 
 The trimmed model list was still a search-and-rail picker, which is the advanced surface. Simple view now opens a discrete ladder — Composer, Grok 4.5, Grok 4.6, Opus, Fable — and Advanced restores the list. Off-ladder sessions keep their current model until the thumb moves; crossing Cursor to Claude still uses the existing conversation handoff. The ladder uses the shared Radix/shadcn Slider as a 20px pill with a 24px thumb, matching the simple-view mock, instead of a native range input.

@@ -4,7 +4,6 @@ import * as React from "react";
 import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "../utils/cn";
-import { CONTROL_RADIUS_CLASS } from "../utils/surface-radius";
 import { Button } from "./button";
 import { Input } from "./input";
 import { Textarea } from "./textarea";
@@ -16,7 +15,6 @@ function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
       role="group"
       className={cn(
         "group/input-group border-input relative flex w-full items-center border bg-card outline-hidden transition-[color,box-shadow,border-color]",
-        CONTROL_RADIUS_CLASS,
         "h-10 has-[>textarea]:h-auto",
 
         // Variants based on alignment.

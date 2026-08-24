@@ -98,6 +98,8 @@ interface ComposerPlusMenuProps {
   /** Same `/` entries the editor's slash picker shows. */
   skillItems: SlashItem[];
   mentionRef: RefObject<MentionTextareaHandle | null>;
+  /** Circular muted plus, matching the compact ChatGPT-style composer. */
+  compact?: boolean;
 }
 
 /**
@@ -108,6 +110,7 @@ export function ComposerPlusMenu({
   dataItems,
   skillItems,
   mentionRef,
+  compact = false,
 }: ComposerPlusMenuProps) {
   const attachments = usePromptInputAttachments();
   const [skillsQuery, setSkillsQuery] = useState("");
@@ -122,7 +125,14 @@ export function ComposerPlusMenu({
 
   return (
     <PromptInputActionMenu>
-      <PromptInputActionMenuTrigger aria-label="Add to message" />
+      <PromptInputActionMenuTrigger
+        aria-label="Add to message"
+        className={
+          compact
+            ? "size-8 shrink-0 rounded-full bg-muted text-foreground hover:bg-muted/80 hover:text-foreground"
+            : undefined
+        }
+      />
       <PromptInputActionMenuContent className="min-w-52">
         <DropdownMenuItem
           onSelect={(e) => {

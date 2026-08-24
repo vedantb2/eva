@@ -197,6 +197,8 @@ export const retiredTurnFields = {
 export const pendingTurnFields = {
   prompt: v.string(),
   requestedAt: v.number(),
+  /** Temporary compatibility; cleared before the retired turns table is removed. */
+  turnId: v.optional(v.id("turns")),
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   model: v.optional(aiModelValidator),
 };
@@ -372,6 +374,8 @@ export const sessionFields = {
   createdBy: v.optional(v.id("users")),
   planContent: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
+  /** Temporary compatibility; cleared with the retired Turn rows. */
+  turnLifecycleVersion: v.optional(v.literal(2)),
   // The user provider account chosen for this session's runs (overriding the
   // team credential). Session-scoped so the page-open daemon prewarm — which
   // has no per-message context — still injects the right account. Absent = team

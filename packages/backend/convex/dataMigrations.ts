@@ -1,6 +1,6 @@
 import { Migrations } from "@convex-dev/migrations";
 import { components } from "./_generated/api";
-import type { DataModel } from "./_generated/dataModel";
+import type { DataModel, Doc } from "./_generated/dataModel";
 import schema from "./schema";
 
 /**
@@ -96,5 +96,65 @@ export const deleteRetiredTurns = dataMigrations.define({
   table: "turns",
   migrateOne: async (ctx, turn) => {
     await ctx.db.delete(turn._id);
+  },
+});
+
+function withoutRetiredTurnId(
+  pendingTurn: NonNullable<Doc<"sessions">["pendingTurn"]>,
+) {
+  return {
+    prompt: pendingTurn.prompt,
+    requestedAt: pendingTurn.requestedAt,
+    ...(pendingTurn.attachmentStorageIds === undefined
+      ? {}
+      : { attachmentStorageIds: pendingTurn.attachmentStorageIds }),
+    ...(pendingTurn.model === undefined ? {} : { model: pendingTurn.model }),
+  };
+}
+
+/** Clears the rollout marker and any staged Turn reference from sessions. */
+export const clearRetiredSessionTurnFields = dataMigrations.define({
+  table: "sessions",
+  migrateOne: (ctx, session) => {
+    void ctx;
+    return {
+      turnLifecycleVersion: undefined,
+      ...(session.pendingTurn?.turnId === undefined
+        ? {}
+        : { pendingTurn: withoutRetiredTurnId(session.pendingTurn) }),
+    };
+  },
+});
+
+/** Clears staged Turn references from the session daemon side table. */
+export const clearRetiredSessionDaemonTurnFields = dataMigrations.define({
+  table: "sessionDaemonStates",
+  migrateOne: (ctx, daemon) => {
+    void ctx;
+    return daemon.pendingTurn?.turnId === undefined
+      ? undefined
+      : { pendingTurn: withoutRetiredTurnId(daemon.pendingTurn) };
+  },
+});
+
+/** Clears staged Turn references from project sandbox chat state. */
+export const clearRetiredProjectTurnFields = dataMigrations.define({
+  table: "projects",
+  migrateOne: (ctx, project) => {
+    void ctx;
+    return project.pendingTurn?.turnId === undefined
+      ? undefined
+      : { pendingTurn: withoutRetiredTurnId(project.pendingTurn) };
+  },
+});
+
+/** Clears staged Turn references from task sandbox chat state. */
+export const clearRetiredTaskTurnFields = dataMigrations.define({
+  table: "agentTasks",
+  migrateOne: (ctx, task) => {
+    void ctx;
+    return task.pendingTurn?.turnId === undefined
+      ? undefined
+      : { pendingTurn: withoutRetiredTurnId(task.pendingTurn) };
   },
 });

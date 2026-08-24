@@ -186,6 +186,7 @@ import type * as _sessions_queries from "../_sessions/queries.js";
 import type * as _sessions_resultTarget from "../_sessions/resultTarget.js";
 import type * as _sessions_sandbox from "../_sessions/sandbox.js";
 import type * as _sessions_workflow from "../_sessions/workflow.js";
+import type * as _systemSkills_evaAsk from "../_systemSkills/evaAsk.js";
 import type * as _systemSkills_evaAudit from "../_systemSkills/evaAudit.js";
 import type * as _systemSkills_evaCapture from "../_systemSkills/evaCapture.js";
 import type * as _systemSkills_evaDesign from "../_systemSkills/evaDesign.js";
@@ -532,6 +533,7 @@ declare const fullApi: ApiFromModules<{
   "_sessions/resultTarget": typeof _sessions_resultTarget;
   "_sessions/sandbox": typeof _sessions_sandbox;
   "_sessions/workflow": typeof _sessions_workflow;
+  "_systemSkills/evaAsk": typeof _systemSkills_evaAsk;
   "_systemSkills/evaAudit": typeof _systemSkills_evaAudit;
   "_systemSkills/evaCapture": typeof _systemSkills_evaCapture;
   "_systemSkills/evaDesign": typeof _systemSkills_evaDesign;

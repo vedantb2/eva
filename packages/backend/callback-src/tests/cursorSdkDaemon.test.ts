@@ -2,7 +2,10 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
-import { buildTurnCompletion } from "../providers/cursorSdkDaemon.js";
+import {
+  buildTurnCompletion,
+  readClaimedTurn,
+} from "../providers/cursorSdkDaemon.js";
 import type { ProviderAttemptResult } from "../types.js";
 
 const CLEAN_ATTEMPT: ProviderAttemptResult = {
@@ -102,6 +105,34 @@ describe("the daemon turn loop reports each turn's outcome", () => {
   });
 });
 
+describe("the daemon preserves durable ownership from the claim response", () => {
+  test("reads an enveloped turn lease with the prompt and attachments", () => {
+    expect(
+      readClaimedTurn({
+        status: "success",
+        value: {
+          prompt: "Fix the upload.",
+          attachmentUrls: ["https://example.test/input.png", 42],
+          turnId: "turn-47",
+          leaseGeneration: 3,
+        },
+      }),
+    ).toEqual({
+      prompt: "Fix the upload.",
+      attachmentUrls: ["https://example.test/input.png"],
+      turnLease: { turnId: "turn-47", leaseGeneration: 3 },
+    });
+  });
+
+  test("keeps legacy claims usable without inventing a lease", () => {
+    expect(readClaimedTurn({ prompt: "Legacy turn" })).toEqual({
+      prompt: "Legacy turn",
+      attachmentUrls: [],
+      turnLease: null,
+    });
+  });
+});
+
 /**
  * Ordering invariants inside the turn loop. Each of these is a silent failure
  * mode rather than a crash, so they are asserted on the source directly (same
@@ -130,16 +161,40 @@ describe("the cursor daemon's per-turn ordering", () => {
       "async function runClaimedTurn(turn: ClaimedTurn): Promise<void> {",
     );
     const resetAt = runTurn.indexOf("resetTurnState()");
+    const leaseAt = runTurn.indexOf("setCurrentTurnLease(turn.turnLease)");
     const prepareAt = runTurn.indexOf("prepareCursorSessionState()");
     const attemptAt = runTurn.indexOf("runCursorSdkAttempt(");
     expect(resetAt, "the per-turn reset moved").toBeGreaterThan(-1);
+    expect(leaseAt, "the claimed lease is no longer installed").toBeGreaterThan(
+      -1,
+    );
     expect(
       prepareAt,
       "session prep moved out of the turn loop",
     ).toBeGreaterThan(-1);
     expect(attemptAt, "the attempt call moved").toBeGreaterThan(-1);
     expect(resetAt).toBeLessThan(prepareAt);
+    expect(leaseAt).toBeLessThan(prepareAt);
     expect(prepareAt).toBeLessThan(attemptAt);
+  });
+
+  test("every terminal path sends the claimed lease back to Convex", () => {
+    const finalize = functionBody(
+      daemon,
+      "async function finalizeTurn(attempt: ProviderAttemptResult): Promise<void> {",
+    );
+    const failAndExit = functionBody(
+      daemon,
+      "async function failTurnAndExit(error: string): Promise<never> {",
+    );
+    const runTurn = functionBody(
+      daemon,
+      "async function runClaimedTurn(turn: ClaimedTurn): Promise<void> {",
+    );
+    expect(finalize).toContain("appendCurrentTurnLease(completionArgs)");
+    expect(failAndExit).toContain("appendCurrentTurnLease(completionArgs)");
+    expect(runTurn).toContain("appendCurrentTurnLease(completionArgs)");
+    expect(runTurn).toContain("setCurrentTurnLease(null)");
   });
 
   /**

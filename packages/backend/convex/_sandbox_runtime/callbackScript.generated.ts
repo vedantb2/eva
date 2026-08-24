@@ -7424,7 +7424,8 @@ function readClaimedTurn3(result) {
   const urls = payload.attachmentUrls;
   return {
     prompt: payload.prompt,
-    attachmentUrls: Array.isArray(urls) ? urls.filter((url) => typeof url === "string") : []
+    attachmentUrls: Array.isArray(urls) ? urls.filter((url) => typeof url === "string") : [],
+    turnLease: readTurnLeaseIdentity(result)
   };
 }
 async function ensureGithubToken3() {
@@ -7506,7 +7507,8 @@ async function finalizeTurn3(attempt) {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
-  await setFinalizingState();
+  appendCurrentTurnLease(completionArgs);
+  if (await setFinalizingState()) return;
   persistTurnWork();
   await deliverCompletionWithMedia(completionArgs);
   syncCursorStateToPersist();
@@ -7515,16 +7517,18 @@ async function finalizeTurn3(attempt) {
 async function failTurnAndExit2(error) {
   log("cursor daemon: failing turn \\u2014 " + error);
   try {
+    const completionArgs = entityMutationArgs2({
+      success: false,
+      result: null,
+      error,
+      activityLog: serializeSteps(callbackState.accumulatedSteps),
+      ...RUN_ID ? { runId: RUN_ID } : {}
+    });
+    appendCurrentTurnLease(completionArgs);
     await callConvexWithRetry(
       "mutation",
       COMPLETION_MUTATION ?? "",
-      entityMutationArgs2({
-        success: false,
-        result: null,
-        error,
-        activityLog: serializeSteps(callbackState.accumulatedSteps),
-        ...RUN_ID ? { runId: RUN_ID } : {}
-      })
+      completionArgs
     );
   } catch {
   }
@@ -7630,6 +7634,7 @@ function handleCancelRequested2() {
 }
 async function runClaimedTurn(turn) {
   resetTurnState3();
+  setCurrentTurnLease(turn.turnLease);
   turnActive2 = true;
   turnStartedAtMs2 = Date.now();
   abortActiveTurn = null;
@@ -7662,21 +7667,24 @@ async function runClaimedTurn(turn) {
     try {
       await flushStreaming();
       for (const step of callbackState.accumulatedSteps) step.status = "complete";
-      await setFinalizingState();
-      await deliverCompletionWithMedia({
+      if (await setFinalizingState()) return;
+      const completionArgs = {
         [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
         success: false,
         result: null,
         error: appendDiagnosticTail(message),
         activityLog: serializeSteps(callbackState.accumulatedSteps),
         ...RUN_ID ? { runId: RUN_ID } : {}
-      });
+      };
+      appendCurrentTurnLease(completionArgs);
+      await deliverCompletionWithMedia(completionArgs);
     } catch {
     }
   } finally {
     turnActive2 = false;
     abortActiveTurn = null;
     cancelInFlight = false;
+    setCurrentTurnLease(null);
     lastIdleActivityAtMs2 = Date.now();
   }
 }

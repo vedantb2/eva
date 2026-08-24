@@ -1,5 +1,9 @@
 # Changelog
 
+## Cursor turns keep their durable lease - 2026-08-24
+
+The Cursor daemon claimed staged chat turns but discarded the lease identity returned by Convex. Claiming moved the turn into its two-minute running window while every subsequent heartbeat deliberately skipped renewal because the callback could not prove ownership, so healthy Cursor work was finalized as stalled at almost exactly two minutes; Claude already preserved the same identity and was unaffected. Cursor now carries the lease from claim through heartbeats and every completion path, clears it between warm-daemon turns, and has regression coverage for enveloped claims, legacy claims, lease installation, fenced completion, and cleanup.
+
 ## Synthetic Claude replies now deliver their screenshots - 2026-08-23
 
 Claude background-agent continuations complete through a synthetic-turn mutation, but that path bypassed the shared sandbox media harvester used by normal turns. The reply could claim screenshots were attached while its message stored no media at all, leaving the files to be harvested by a later turn. Synthetic completion now runs the same uploader after its message exists and passes the exact synthetic message id through the screenshots action, so a concurrently dequeued placeholder cannot steal the captures. Legacy callback bundles still fall back to the latest-message behavior.

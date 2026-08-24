@@ -1,5 +1,9 @@
 # Changelog
 
+## Preview URL bar remembers recent paths - 2026-08-25
+
+Typing a path in the sandbox preview bar had no memory, so `/settings` and `/login` were retyped every session. The field now shows up to five matching recents from that repo while focused, stored in localStorage (not Convex — the live path is already sticky on the session).
+
 ## Presence writes no longer invalidate the user directory - 2026-08-25
 
 `lastSeenAt` and `lastSeenPath` lived on `users`, so a heartbeat or route change patched that doc and re-ran every `users.listAll` / name-directory subscriber. They now live on `userPresence` (one row per user). Directory queries never read that table. Sidebar/follow/analytics merge the new row over leftover user fields until the first heartbeat after deploy.

@@ -1,13 +1,3 @@
-export type PreviewDevice = "desktop" | "tablet" | "mobile";
-
-export const PREVIEW_DEVICE_WIDTHS: Record<
-  Exclude<PreviewDevice, "desktop">,
-  number
-> = {
-  mobile: 390,
-  tablet: 768,
-};
-
 export interface PreviewAnnotationContext {
   tagName: string;
   id: string;

@@ -11,6 +11,7 @@ import {
   PREVIEW_SESSION_TTL_SECONDS,
 } from "../previewGrantConfig";
 import { PREVIEW_ANNOTATION_SCRIPT } from "./previewAnnotationScript.generated";
+import { PREVIEW_HTML2CANVAS_SCRIPT } from "./html2canvasScript.generated";
 import { VERCEL_PREVIEW_PROXY_PORT } from "./vercelAppPorts";
 
 export { VERCEL_PREVIEW_PROXY_PORT };
@@ -27,7 +28,7 @@ const HEALTH_PATH = "/__eva_preview_proxy/health";
 const SCRIPT_MARKER = "EVA_PREVIEW_PROXY_SCRIPT";
 // Bump when the generated proxy script changes so already-running proxies from
 // an older deploy are detected as stale (via the health response) and relaunched.
-const SCRIPT_VERSION = "stream-v15";
+const SCRIPT_VERSION = "stream-v16";
 
 /** Values injected into the generated proxy script to drive the auth gate. */
 interface PreviewProxyAuthParams {
@@ -145,6 +146,8 @@ process.on("unhandledRejection", (err) => {
 const targetPort = Number(process.env.EVA_PREVIEW_TARGET_PORT || "0");
 const proxyPort = Number(process.env.EVA_PREVIEW_PROXY_PORT || "0");
 const healthPath = "/__eva_preview_proxy/health";
+const html2canvasPath = "/__eva_preview_proxy/html2canvas.js";
+const HTML2CANVAS_SCRIPT = ${JSON.stringify(PREVIEW_HTML2CANVAS_SCRIPT).replace(/`/g, "\\`")};
 
 if (!Number.isInteger(targetPort) || targetPort <= 0 || targetPort > 65535) {
   throw new Error("Invalid EVA_PREVIEW_TARGET_PORT");
@@ -676,6 +679,15 @@ const server = http.createServer(function handleRequest(clientReq, clientRes) {
   if (path === healthPath) {
     clientRes.writeHead(200, { "content-type": "text/plain" });
     clientRes.end("target=" + String(targetPort) + ";" + SCRIPT_VERSION);
+    return;
+  }
+  if (path.split("?")[0] === html2canvasPath) {
+    if (!authorize(clientReq, clientRes)) return;
+    clientRes.writeHead(200, {
+      "content-type": "application/javascript; charset=utf-8",
+      "cache-control": "public, max-age=86400",
+    });
+    clientRes.end(HTML2CANVAS_SCRIPT);
     return;
   }
 

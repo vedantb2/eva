@@ -40,6 +40,11 @@ interface Rect {
   height: number;
 }
 
+interface LogicalSize {
+  width: number;
+  height: number;
+}
+
 interface HostEntry {
   /** Placeholder identity (pathStorageKey) — stable across remounts. */
   key: string;
@@ -51,6 +56,8 @@ interface HostEntry {
   anchor: HTMLElement | null;
   rect: Rect | null;
   element: HTMLIFrameElement | null;
+  /** Guest CSS viewport; null = fill the placeholder. */
+  logical: LogicalSize | null;
   /** Device emulation active — host wrapper draws the device edge borders. */
   bordered: boolean;
   attachedAt: number;
@@ -162,7 +169,7 @@ interface AttachOptions {
   /** Undefined = nothing to show (loading/error) — hides any cached iframe. */
   src: string | undefined;
   epoch: number;
-  bordered: boolean;
+  logical: LogicalSize | null;
   /** Receives the live iframe element (panels wire it into iframeRef). */
   onElement: (el: HTMLIFrameElement | null) => void;
 }
@@ -194,7 +201,8 @@ function attach(key: string, options: AttachOptions): (() => void) | undefined {
     anchor: options.anchor,
     rect: measure(options.anchor),
     element: sameEpoch ? existing.element : null,
-    bordered: options.bordered,
+    logical: options.logical,
+    bordered: options.logical !== null,
     attachedAt: Date.now(),
   });
   evictOverCap();
@@ -314,12 +322,20 @@ export function PreviewIframeHost() {
           entry.rect !== null &&
           entry.rect.width > 0 &&
           entry.rect.height > 0;
+        const logical = entry.logical;
+        const scale =
+          logical && entry.rect
+            ? Math.min(
+                entry.rect.width / logical.width,
+                entry.rect.height / logical.height,
+              )
+            : 1;
         return (
           <div
             key={entry.key}
             className={cn(
-              "pointer-events-auto absolute overflow-hidden",
-              entry.bordered && "border-x border-border",
+              "pointer-events-auto absolute overflow-hidden bg-background",
+              entry.bordered && "border border-border",
               !visible && "hidden",
             )}
             style={
@@ -338,7 +354,17 @@ export function PreviewIframeHost() {
               ref={iframeRefFor(entry.key)}
               src={entry.src}
               title="Preview"
-              className="size-full"
+              className={logical ? "block border-0" : "block size-full border-0"}
+              style={
+                logical
+                  ? {
+                      width: logical.width,
+                      height: logical.height,
+                      transform: `scale(${scale})`,
+                      transformOrigin: "top left",
+                    }
+                  : undefined
+              }
             />
           </div>
         );
@@ -356,8 +382,8 @@ interface PersistentPreviewBodyProps {
   epoch: number;
   /** True while an error overlay must show — hides the hosted iframe. */
   covered: boolean;
-  /** Device emulation width; undefined = fill. */
-  deviceWidth: number | undefined;
+  /** Guest CSS viewport; null = fill the placeholder. */
+  logicalSize: { width: number; height: number } | null;
   loading?: React.ReactNode;
 }
 
@@ -376,16 +402,19 @@ export function PersistentPreviewBody({
   src,
   epoch,
   covered,
-  deviceWidth,
+  logicalSize,
   loading,
 }: PersistentPreviewBodyProps) {
   const { iframeRef } = useWebPreview();
   const effectiveSrc = covered ? undefined : src;
+  const logicalKey = logicalSize
+    ? `${logicalSize.width}x${logicalSize.height}`
+    : "fill";
 
   return (
-    <div className="flex-1 h-full relative overflow-hidden min-h-0">
+    <div className="relative size-full min-h-0 overflow-hidden">
       <div
-        key={`${epoch}:${effectiveSrc ?? ""}:${deviceWidth ?? "fill"}`}
+        key={`${epoch}:${effectiveSrc ?? ""}:${logicalKey}`}
         ref={(node) => {
           if (node === null) return undefined;
           return attach(entryKey, {
@@ -393,18 +422,13 @@ export function PersistentPreviewBody({
             group,
             src: effectiveSrc,
             epoch,
-            bordered: deviceWidth !== undefined,
+            logical: logicalSize,
             onElement: (el) => {
               iframeRef.current = el;
             },
           });
         }}
-        className={cn("size-full", deviceWidth !== undefined && "mx-auto")}
-        style={
-          deviceWidth !== undefined
-            ? { width: deviceWidth, maxWidth: "100%" }
-            : undefined
-        }
+        className="size-full"
       />
       {loading}
     </div>

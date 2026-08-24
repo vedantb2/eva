@@ -15,6 +15,10 @@ const generatedSource = readFileSync(
   ),
   "utf8",
 );
+const html2canvasSource = readFileSync(
+  join(backendRoot, "convex/_sandbox_runtime/html2canvasScript.generated.ts"),
+  "utf8",
+);
 const proxySource = readFileSync(
   join(backendRoot, "convex/_sandbox_runtime/previewProxy.ts"),
   "utf8",
@@ -49,9 +53,19 @@ describe("preview annotation bundle", () => {
   test("checks in a substantial self-contained protocol bundle", () => {
     expect(generatedSource.length).toBeGreaterThan(10_000);
     expect(generatedSource).toContain("eva-preview-annotate-ready");
+    expect(generatedSource).toContain("eva-preview-screenshot-capture");
+    expect(generatedSource).toContain("/__eva_preview_proxy/html2canvas.js");
     expect(generatedSource).not.toMatch(
       /\b(__name|__defProp|__spreadValues|__async)\b/,
     );
+  });
+
+  test("vendors html2canvas for on-demand screenshot capture", () => {
+    expect(html2canvasSource.length).toBeGreaterThan(50_000);
+    expect(html2canvasSource).toContain(
+      "export const PREVIEW_HTML2CANVAS_SCRIPT",
+    );
+    expect(html2canvasSource).toContain("html2canvas");
   });
 
   test("injects the generated bundle rather than stringifying its function", () => {
@@ -59,8 +73,12 @@ describe("preview annotation bundle", () => {
       'import { PREVIEW_ANNOTATION_SCRIPT } from "./previewAnnotationScript.generated"',
     );
     expect(proxySource).toContain(
+      'import { PREVIEW_HTML2CANVAS_SCRIPT } from "./html2canvasScript.generated"',
+    );
+    expect(proxySource).toContain(
       "const ANNOTATION_SCRIPT = ${JSON.stringify(PREVIEW_ANNOTATION_SCRIPT)}",
     );
+    expect(proxySource).toContain("/__eva_preview_proxy/html2canvas.js");
     expect(proxySource).not.toContain("PREVIEW_ANNOTATION_SCRIPT.toString");
   });
 });

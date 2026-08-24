@@ -65,6 +65,7 @@
     "convex-test": "^0.0.41",
     "cross-env": "^7.0.3",
     "esbuild": "^0.25.0",
+    "html2canvas": "^1.4.1",
     "typescript": "7.0.1-rc",
     "vitest": "^3.2.4"
   }

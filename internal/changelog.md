@@ -1,5 +1,9 @@
 # Changelog
 
+## Preview device toolbar: aspect lock, rotate, screenshot - 2026-08-25
+
+The session preview only had a desktop/tablet/mobile width toggle, so phones were a narrow column that still used the panel's height. It now follows T3 Code's in-panel device chrome (not their miniplayer): Fill vs Responsive vs Chrome-catalog presets, width × height, aspect lock, rotate, and a screenshot that copies the live guest page. The hosted iframe keeps the requested CSS viewport and scales to fit the pane, so media queries match the device instead of the letterboxed box. html2canvas loads from the preview proxy only when you click screenshot, so every HTML page does not pay for it.
+
 ## The user directory is teammates, not everyone - 2026-08-25
 
 `users.listAll` collected the whole users table for assignee pickers, task cards, and project boards. A deployment with more people than your team paid that cost on every board. It now walks the caller's `teamMembers` rows and returns those profiles plus self. Chat still uses `getMany` for other senders.

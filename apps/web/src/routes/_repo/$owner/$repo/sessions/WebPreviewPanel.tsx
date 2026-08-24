@@ -12,11 +12,17 @@ import {
   usePreviewIframeElement,
 } from "@/lib/components/sandbox/previewIframeHost";
 import { PreviewAnnotationLayer } from "./_components/PreviewAnnotationLayer";
+import { PreviewDeviceToolbar } from "./_components/PreviewDeviceToolbar";
 import { PreviewPanelNavBar } from "./_components/PreviewPanelNavBar";
+import { PreviewViewportFrame } from "./_components/PreviewViewportFrame";
 import {
-  PREVIEW_DEVICE_WIDTHS,
-  type PreviewDevice,
-} from "./_utils/-previewAnnotation";
+  FILL_PREVIEW_VIEWPORT,
+  parsePreviewViewport,
+  readStoredPreviewViewport,
+  serializePreviewViewport,
+  snapshotFillViewport,
+  type PreviewViewport,
+} from "./_utils/previewViewport";
 
 interface PreviewInfo {
   url: string;
@@ -97,10 +103,24 @@ export function WebPreviewPanel({
     serializer: (value) => value,
     deserializer: (value) => normalizePreviewPath(value),
   });
-  const [device, setDevice] = useSessionStorage<PreviewDevice>(
-    `${pathStorageKey}:device`,
-    "desktop",
+  const viewportStorageKey = `${pathStorageKey}:viewport`;
+  const [viewport, setViewport] = useSessionStorage<PreviewViewport>(
+    viewportStorageKey,
+    readStoredPreviewViewport(
+      viewportStorageKey,
+      `${pathStorageKey}:device`,
+    ),
+    {
+      serializer: serializePreviewViewport,
+      deserializer: parsePreviewViewport,
+    },
   );
+  const [aspectKey, setAspectKey] = useState(pathStorageKey);
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+  if (aspectKey !== pathStorageKey) {
+    setAspectKey(pathStorageKey);
+    setAspectRatio(null);
+  }
   const previewPath = normalizePreviewPath(stickyPath ?? localPath);
 
   // iframeSrc is recomputed only at remount points (previewInfo change,
@@ -146,8 +166,20 @@ export function WebPreviewPanel({
     );
   }
 
-  const deviceWidth =
-    device === "desktop" ? undefined : PREVIEW_DEVICE_WIDTHS[device];
+  function handleToggleDevice() {
+    if (viewport.mode !== "fill") {
+      setViewport(FILL_PREVIEW_VIEWPORT);
+      setAspectRatio(null);
+      return;
+    }
+    const rect = iframeElement?.getBoundingClientRect();
+    setViewport(
+      snapshotFillViewport({
+        width: rect?.width ?? 1280,
+        height: rect?.height ?? 800,
+      }),
+    );
+  }
 
   return (
     <WebPreview
@@ -169,36 +201,64 @@ export function WebPreviewPanel({
         onPortChange={onPortChange}
         previewPath={previewPath}
         onPathChange={handlePathChange}
-        device={device}
-        onDeviceChange={setDevice}
+        viewport={viewport}
+        onToggleDevice={handleToggleDevice}
         annotationMode={annotationMode}
         onAnnotationModeChange={setAnnotationMode}
         showAnnotationToggle={Boolean(onAnnotationSubmit)}
       />
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <PersistentPreviewBody
-          entryKey={pathStorageKey}
-          group={`${sandboxId}:${port}`}
-          src={iframeSrc}
-          epoch={iframeKey}
-          covered={error !== null}
-          deviceWidth={deviceWidth}
-          loading={
-            isLoading && !previewInfo ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
-                <Spinner size="lg" />
-              </div>
-            ) : error ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                <p className="text-sm text-destructive">{error}</p>
-                <Button size="sm" variant="secondary" onClick={onRefresh}>
-                  <IconRefresh className="w-4 h-4" />
-                  Retry
-                </Button>
-              </div>
-            ) : undefined
-          }
+      {viewport.mode !== "fill" ? (
+        <PreviewDeviceToolbar
+          viewport={viewport}
+          aspectRatio={aspectRatio}
+          onAspectRatioChange={setAspectRatio}
+          onChange={setViewport}
+          onFill={() => {
+            setViewport(FILL_PREVIEW_VIEWPORT);
+            setAspectRatio(null);
+          }}
         />
+      ) : null}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <PreviewViewportFrame
+          viewport={viewport}
+          aspectRatio={aspectRatio}
+          onResize={(size) =>
+            setViewport({
+              mode: "freeform",
+              width: size.width,
+              height: size.height,
+            })
+          }
+        >
+          <PersistentPreviewBody
+            entryKey={pathStorageKey}
+            group={`${sandboxId}:${port}`}
+            src={iframeSrc}
+            epoch={iframeKey}
+            covered={error !== null}
+            logicalSize={
+              viewport.mode === "fill"
+                ? null
+                : { width: viewport.width, height: viewport.height }
+            }
+            loading={
+              isLoading && !previewInfo ? (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-secondary">
+                  <Spinner size="lg" />
+                </div>
+              ) : error ? (
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                  <p className="text-sm text-destructive">{error}</p>
+                  <Button size="sm" variant="secondary" onClick={onRefresh}>
+                    <IconRefresh className="w-4 h-4" />
+                    Retry
+                  </Button>
+                </div>
+              ) : undefined
+            }
+          />
+        </PreviewViewportFrame>
         {onAnnotationSubmit ? (
           <PreviewAnnotationLayer
             mode={annotationMode}

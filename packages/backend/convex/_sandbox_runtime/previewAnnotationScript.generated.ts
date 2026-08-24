@@ -263,6 +263,67 @@ export const PREVIEW_ANNOTATION_SCRIPT = `"use strict";
       if (!modeActive || !selectedEl) return;
       scheduleRectReport();
     }
+    function restoreCaptureChrome() {
+      if (overlay) overlay.style.display = overlayDisplayForCapture;
+      if (labelEl) labelEl.style.display = labelDisplayForCapture;
+    }
+    let overlayDisplayForCapture = "";
+    let labelDisplayForCapture = "";
+    function loadHtml2Canvas() {
+      if (typeof Reflect.get(window, "html2canvas") === "function") {
+        return Promise.resolve();
+      }
+      return new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "/__eva_preview_proxy/html2canvas.js";
+        script.onload = () => {
+          if (typeof Reflect.get(window, "html2canvas") === "function") {
+            resolve();
+            return;
+          }
+          reject(new Error("Couldn't render this page as an image"));
+        };
+        script.onerror = () => {
+          reject(new Error("Couldn't render this page as an image"));
+        };
+        document.documentElement.appendChild(script);
+      });
+    }
+    function renderViewportCanvas() {
+      const html2canvas = Reflect.get(window, "html2canvas");
+      if (typeof html2canvas !== "function") {
+        return Promise.reject(new Error("Couldn't render this page as an image"));
+      }
+      const result = html2canvas.call(window, document.documentElement, {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        windowWidth: window.innerWidth,
+        windowHeight: window.innerHeight,
+        x: window.scrollX,
+        y: window.scrollY,
+        scrollX: -window.scrollX,
+        scrollY: -window.scrollY,
+        useCORS: true,
+        logging: false,
+        backgroundColor: null
+      });
+      if (!(result instanceof Promise)) {
+        return Promise.reject(new Error("Couldn't render this page as an image"));
+      }
+      return result.then((canvas) => {
+        if (!(canvas instanceof HTMLCanvasElement)) {
+          throw new Error("Couldn't render this page as an image");
+        }
+        return canvas;
+      });
+    }
+    function captureViewport() {
+      overlayDisplayForCapture = overlay?.style.display ?? "";
+      labelDisplayForCapture = labelEl?.style.display ?? "";
+      if (overlay) overlay.style.display = "none";
+      if (labelEl) labelEl.style.display = "none";
+      return loadHtml2Canvas().then(renderViewportCanvas).then((canvas) => canvas.toDataURL("image/png")).finally(restoreCaptureChrome);
+    }
     window.addEventListener("message", (event) => {
       if (parentOrigin !== "*" && event.origin !== parentOrigin) return;
       const data = event.data;
@@ -275,6 +336,20 @@ export const PREVIEW_ANNOTATION_SCRIPT = `"use strict";
       }
       if (type === "eva-preview-annotate-clear") {
         clearAll();
+        return;
+      }
+      if (type === "eva-preview-screenshot-capture") {
+        const requestId = Reflect.get(data, "requestId");
+        if (typeof requestId !== "string") return;
+        void captureViewport().then((dataUrl) => {
+          post({ type: "eva-preview-screenshot", requestId, dataUrl });
+        }).catch((error) => {
+          post({
+            type: "eva-preview-screenshot-error",
+            requestId,
+            message: error instanceof Error ? error.message : "Couldn't render this page as an image"
+          });
+        });
       }
     });
     document.addEventListener("mousemove", onMouseMove, true);

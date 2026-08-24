@@ -1,5 +1,9 @@
 # Changelog
 
+## Chat threads fade at the scroll edges - 2026-08-24
+
+Session, quick-task, and project conversation scrollers now use the same `.scroll-fade` mask as the rest of the app, so messages soften at the top and bottom instead of clipping hard against the composer and header.
+
 ## Collapsing the composer no longer jumps the chat - 2026-08-24
 
 The last turn's viewport pad was a ResizeObserver plus React state, so it applied a frame after the pill snapped shut and the thread dropped then jumped back. It now tracks the scroller with `100cqh` in the same layout pass, and the composer height interpolates to `auto` so the viewport grows with the chrome instead of jumping.

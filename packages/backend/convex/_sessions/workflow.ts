@@ -144,11 +144,10 @@ export async function buildSessionPrompt(
     session.repoId,
   );
 
+  const sessionProvider =
+    session.provider ?? getAIModelProvider(session.lastModel);
   const cursorMessages =
-    usesCursorConversationHandoff({
-      provider: session.provider,
-      lastModel: session.lastModel,
-    })
+    sessionProvider === "cursor"
       ? await ctx.db
           .query("messages")
           .withIndex("by_parent", (q) => q.eq("parentId", session._id))

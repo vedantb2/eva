@@ -13,7 +13,6 @@ import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
 import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
-import { resolveSandboxStatus } from "@/lib/components/sandbox/sandboxStatusStyles";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
@@ -139,10 +138,6 @@ export function TaskSandboxPanel({
         editorTabOpen={editorTabOpen}
         onOpenEditor={openEditor}
         onCloseEditor={closeEditor}
-        sandboxStatus={resolveSandboxStatus({
-          isActive,
-          isStarting: isSandboxStarting,
-        })}
         fileList={fileList}
         consoleDock={panes.consoleDock}
         terminalPanel={terminalPanel}

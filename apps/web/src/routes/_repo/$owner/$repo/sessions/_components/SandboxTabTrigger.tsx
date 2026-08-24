@@ -51,7 +51,7 @@ export function isCollapsibleSandboxTab(tab: SandboxTabDescriptor): boolean {
    `TabsList` sliding pill gliding underneath. Only the resting/hover tones and
    the tighter panel density belong here. */
 const TAB_CLASS =
-  "h-7 shrink-0 gap-1.5 px-2.5 text-xs data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-secondary data-[state=inactive]:hover:text-foreground";
+  "h-8 shrink-0 gap-1.5 px-2.5 text-xs data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-secondary data-[state=inactive]:hover:text-foreground";
 
 const CLOSE_CLASS =
   "motion-press max-sm:hit-target -mr-1 ml-0.5 flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground active:scale-[0.96]";

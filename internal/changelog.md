@@ -1,5 +1,9 @@
 # Changelog
 
+## Session sandbox tab bar matches the chat header - 2026-08-24
+
+The trailing "Stopped"/"Running" chip on the sandbox tab bar duplicated the start/stop control already in the chat header. It is gone. Sessions also give that bar the same `p-2 sm:p-3` padding as the chat header so the split pane no longer looks tighter on the sandbox side.
+
 ## Composer stays a pill until a second line - 2026-08-24
 
 A single line of typing used to blow the composer open immediately, so most drafts never saw the compact row. It now stays the pill until Shift+Enter (or a paste) makes a second line, or an attachment is added, and morphs back when the draft is one line again. Plus/stash and the send cluster slide between the inline row and the footer on the house spring so the tools don't teleport.

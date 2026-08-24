@@ -22,13 +22,12 @@ import {
   buildSandboxPaletteCommands,
   type SandboxCommandTab,
 } from "@/lib/components/sandbox/sandboxPaletteCommands";
-import { SandboxStatusChip } from "@/lib/components/sandbox/SandboxStatusChip";
-import type { SandboxStatus } from "@/lib/components/sandbox/sandboxStatusStyles";
 import {
   isSimpleViewHiddenSandboxTab,
   useSimpleView,
 } from "@/lib/hooks/useSimpleView";
 import {
+  cn,
   Tabs,
   TabsList,
   DropdownMenu,
@@ -62,7 +61,7 @@ const TAB_LIST_CLASS =
   "h-auto max-w-full justify-start gap-1 overflow-x-auto rounded-none border-0 bg-transparent p-0 shadow-none scrollbar-none max-sm:justify-start [&_.t-tabs-pill]:smooth-shadow-ring-xs";
 
 const ICON_BUTTON_CLASS =
-  "motion-press max-sm:hit-target flex size-7 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40";
+  "motion-press max-sm:hit-target flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40";
 
 /**
  * Past this many tabs the inactive labels collapse to icon-only (label moves to
@@ -113,8 +112,11 @@ interface SandboxTabBarProps {
   onCloseEditor?: () => void;
   /** When false, view hotkeys are inert (inactive cached session shells). */
   hotkeysEnabled?: boolean;
-  /** Sandbox run state, shown as a chip at the trailing edge. */
-  sandboxStatus?: SandboxStatus;
+  /**
+   * Extra classes on the bar itself. Sessions pass the chat-header padding so
+   * the two columns share a row height; task/project keep the tighter default.
+   */
+  className?: string;
   fileList: SandboxFileListApi;
   consoleDock: ConsoleDockApi;
   terminalPanel: TerminalPanelApi;
@@ -148,7 +150,7 @@ export function SandboxTabBar({
   onOpenEditor,
   onCloseEditor,
   hotkeysEnabled = true,
-  sandboxStatus,
+  className,
   fileList,
   consoleDock,
   terminalPanel,
@@ -232,7 +234,7 @@ export function SandboxTabBar({
 
   return (
     <>
-      <div className={TAB_BAR_CLASS}>
+      <div className={cn(TAB_BAR_CLASS, className)}>
         <Tabs
           className="min-w-0 flex-1"
           value={resolvedTab}
@@ -321,7 +323,6 @@ export function SandboxTabBar({
             </TooltipContent>
           </Tooltip>
         )}
-        {sandboxStatus ? <SandboxStatusChip status={sandboxStatus} /> : null}
       </div>
       <SandboxQuickOpenDialogs
         fileList={fileList}

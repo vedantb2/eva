@@ -1308,7 +1308,13 @@ export const restageOpenTurn = internalMutation({
  * stale handler so a crashed daemon cannot leave an empty bubble forever.
  */
 export const openSyntheticTurn = authMutation({
-  args: { sessionId: v.id("sessions") },
+  args: {
+    sessionId: v.id("sessions"),
+    // The daemon's own model. Optional only for daemons launched before the
+    // field existed; those fall back to `session.lastModel`, which the picker
+    // can move mid-flight and may therefore mis-attribute the checkpoint.
+    model: v.optional(aiModelValidator),
+  },
   returns: v.object({
     messageId: v.id("messages"),
     turnId: v.id("turns"),
@@ -1320,6 +1326,7 @@ export const openSyntheticTurn = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
 
+    const turnModel = normalizeAIModel(args.model ?? session.lastModel);
     const messageId = await ctx.db.insert("messages", {
       parentId: args.sessionId,
       role: "assistant",
@@ -1330,14 +1337,14 @@ export const openSyntheticTurn = authMutation({
       // Stamped at open time because the daemon protocol carries no model on
       // completion. Not yet a checkpoint — that needs `finishedAt` too — and
       // `completeSyntheticTurn` clears it again if the turn fails.
-      model: normalizeAIModel(session.lastModel),
+      model: turnModel,
     });
     const turnId = await openSessionTurn(ctx, {
       sessionId: args.sessionId,
       streamingEntityId: String(args.sessionId),
       placeholderMessageId: messageId,
       prompt: "[synthetic continuation]",
-      model: normalizeAIModel(session.lastModel),
+      model: turnModel,
       sandboxId: session.sandboxId,
       repoId: session.repoId,
     });

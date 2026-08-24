@@ -169,7 +169,13 @@ export const requestStopBackgroundAgent = authMutation({
 });
 
 export const openSyntheticTurn = authMutation({
-  args: { projectId: v.id("projects") },
+  args: {
+    projectId: v.id("projects"),
+    // The daemon's own model. Optional only for daemons launched before the
+    // field existed; those fall back to the sticky pick, which the picker can
+    // move mid-flight and may therefore mis-attribute the checkpoint.
+    model: v.optional(aiModelValidator),
+  },
   returns: v.object({ messageId: v.id("messages") }),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -187,7 +193,9 @@ export const openSyntheticTurn = authMutation({
       // Stamped at open time because the daemon protocol carries no model on
       // completion. Not yet a checkpoint — that needs `finishedAt` too — and
       // `completeSyntheticTurn` clears it again if the turn fails.
-      model: normalizeAIModel(project.lastChatModel ?? project.model),
+      model: normalizeAIModel(
+        args.model ?? project.lastChatModel ?? project.model,
+      ),
     });
     await ctx.db.patch(args.projectId, {
       syntheticTurnMessageId: messageId,

@@ -5889,7 +5889,10 @@ async function ensureSyntheticTurn() {
     const result = await callConvexWithRetry(
       "mutation",
       OPEN_SYNTHETIC_TURN_MUTATION ?? "",
-      entityMutationArgs({})
+      // This daemon's own model, so the server stamps the synthetic reply's
+      // provider checkpoint from what actually ran the turn — the sticky
+      // composer pick can move to another provider while this turn is open.
+      entityMutationArgs({ model: MODEL })
     );
     const messageId = readSyntheticTurnMessageId(result);
     if (messageId === null) {

@@ -1,5 +1,9 @@
 # Changelog
 
+## Synthetic turns stamp their checkpoint from the daemon's own model - 2026-08-24
+
+Closes the follow-up flagged in the handoff entry below. `ensureSyntheticTurn` in `callback-src/providers/claudeSdkDaemon.ts` now sends `model: MODEL` (the daemon's launch-time model, the same value it already sends on every `claimPendingTurn` poll) when opening a synthetic continuation. The three `openSyntheticTurn` mutations (`_sessions/workflow.ts`, `_chat/taskChatDaemon.ts`, `_chat/projectChatDaemon.ts`) accept an optional `model` and stamp `args.model ?? <sticky pick>`, so a picker flip to another provider mid-continuation can no longer mis-attribute the checkpoint and swallow part of a later catch-up. The arg stays optional deliberately: running sandboxes execute the callback script baked at their launch, so already-warm daemons keep calling without it and retain the old (racy but bounded) fallback until they recycle. `callbackScript.generated.ts` regenerated via `build:callback`; `syntheticTurnModelStamp.test.ts` pins both sides of the protocol.
+
 ## Cross-provider handoffs carry the conversation with them - 2026-08-24
 
 Removing the provider lock left a gap: each provider CLI keeps its own native session in the sandbox, so a mid-conversation switch started the new provider blind. This lands the handoff layer (a reimplementation of PR #580's design against current main, with the review findings fixed): successful assistant replies are stamped with the model that produced them and act as per-provider checkpoints; when a turn's provider differs from the previous turn's, `_shared/modelHandoff.ts` builds an escaped, 24KB-capped `<handoff_context>` block from only the turns the incoming provider has not seen and prepends it to the prompt, posts a "Handed off from X to Y" system-alert row, and the chat renders a provider chip on the boundary turn (`findHandoffBoundaryIds`).

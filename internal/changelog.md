@@ -1,5 +1,13 @@
 # Changelog
 
+## Sessions can move between providers again - 2026-08-24
+
+Sessions were pinned to the provider of the model they were created with: `sessions.provider` was written at creation, `getLockedProviderModelOptions` filtered the composer's model list down to that provider, and `assertModelMatchesLockedProvider` rejected any cross-provider write from `sessions.setModel`, `startExecute` and `sendMessage`. That gate is gone. Both helpers and their test file are deleted, the three asserts and the picker filter are removed, and `useSessionModel` no longer returns `lockedProvider`, so the session composer and Manager Ave (which renders the same session shell) list every visible model.
+
+Credentials follow the switch without new code: each pick in `ModelSelect` carries the account instance it was made under, so the sticky `providerAccountId` is rewritten alongside `lastModel`, and session turns resolve through `resolveTurnProviderAccountId` with `changePolicy: "owner-pool"`, which already falls back to the owner's default account for the new provider when the stored one belongs to another. `sessions.provider` stays on the schema — dropping an optional field would break writes to documents that still carry it — but is now informational only.
+
+Known consequence, unchanged from before the lock: each agent CLI keeps its own resume state in the sandbox, so a provider switch starts a fresh conversation with no history on the new CLI.
+
 ## Sandboxes can reach tunneled/self-hosted deployments via EVA_PUBLIC_* overrides - 2026-08-19
 
 Agent sandboxes are handed this deployment's own `CONVEX_CLOUD_URL`/`CONVEX_SITE_URL`, which on a local backend are 127.0.0.1 — unreachable from the sandbox, so no turn could ever stream a reply back in a sandbox-preview environment. Convex reserves those names, so they cannot simply be re-set. New optional `EVA_PUBLIC_CONVEX_URL`/`EVA_PUBLIC_CONVEX_SITE_URL` env vars take precedence in `launch.ts` (`publicConvexUrl`/`resolveConvexSiteUrl`) and `mcp/nodeActions.ts` (`getEvaConvexCloudUrl`); unset, behaviour is unchanged. Verified live by exposing the local backend through two Cloudflare quick tunnels and calling MCP `tools/list` over the public URL (31 tools). Also fixed a latent infinite recursion the earlier `getEvaConvexCloudUrl` refactor had introduced in its own (unreachable) fallback line — a regex replace had rewritten the fallback into a self-call.

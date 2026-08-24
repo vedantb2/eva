@@ -769,39 +769,3 @@ export function getSimpleViewModelOptions(
       SIMPLE_VIEW_MODEL_IDS.has(option.id) || option.id === normalizedCurrent,
   );
 }
-
-/**
- * A session is pinned to the provider of the model it was created with.
- *
- * Each agent CLI keeps its own resume state inside the sandbox, so switching
- * provider mid-session silently starts a fresh conversation with no history.
- * It also strands the run's credentials: the session uses the owner's account
- * for the model's provider, so a switch drops whichever account the session was
- * started on. Sessions created before the lock existed have no pinned provider
- * and keep the old free choice.
- */
-export function getLockedProviderModelOptions(
-  options: ReadonlyArray<AIModelOption>,
-  lockedProvider: AIProvider | null | undefined,
-): ReadonlyArray<AIModelOption> {
-  if (!lockedProvider) return options;
-  return options.filter((option) => option.provider === lockedProvider);
-}
-
-/**
- * Throws when `model` would move a pinned session onto another provider. Every
- * mutation that writes a session's model resolves through here so the picker's
- * filter cannot be bypassed by a stale tab or a direct call.
- */
-export function assertModelMatchesLockedProvider(
-  lockedProvider: AIProvider | null | undefined,
-  model: string | null | undefined,
-): void {
-  if (!lockedProvider) return;
-  const provider = getAIModelProvider(model);
-  if (provider !== lockedProvider) {
-    throw new Error(
-      `This session runs on ${lockedProvider}. Start a new session to use ${provider}.`,
-    );
-  }
-}

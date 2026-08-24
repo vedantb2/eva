@@ -10,7 +10,6 @@ import {
 import { allocateNumId } from "../numId";
 import {
   aiModelValidator,
-  assertModelMatchesLockedProvider,
   getAIModelProvider,
   reasoningLevelValidator,
   roleValidator,
@@ -112,7 +111,8 @@ export async function createSession(
     numId,
     baseBranch,
     providerAccountId,
-    // Pins the session to this provider for its whole life.
+    // The provider the session started on. Informational only — the composer
+    // may move the session onto another provider later.
     provider: getAIModelProvider(model),
     lastModel: model,
     ...(reasoningLevel !== undefined
@@ -250,8 +250,9 @@ export const addMessage = authMutation({
  * source of truth for the picker, so this is called directly on change (with a
  * client-side optimistic update) rather than only when a message is sent. Does
  * not touch `updatedAt` — changing the model is not conversation activity and
- * must not reorder the session list. The model must stay on the session's
- * pinned provider.
+ * must not reorder the session list. Any visible model is allowed, including one
+ * from another provider: the next turn resolves credentials from the new model's
+ * provider and that provider's CLI starts a fresh conversation in the sandbox.
  */
 export const setModel = authMutation({
   args: {
@@ -264,7 +265,6 @@ export const setModel = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
-    assertModelMatchesLockedProvider(session.provider, args.model);
     await ctx.db.patch(args.id, { lastModel: args.model });
     return null;
   },

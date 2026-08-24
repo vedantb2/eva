@@ -5,7 +5,6 @@ import { workflow, cancelTrackedWorkflow } from "../workflowManager";
 import { authAction, authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
-  assertModelMatchesLockedProvider,
   normalizeAIModel,
   reasoningLevelValidator,
   usesChatDaemon,
@@ -67,8 +66,6 @@ export const startExecute = authMutation({
 
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
-
-    assertModelMatchesLockedProvider(session.provider, args.model);
 
     const credentialOwnerUserId = session.createdBy ?? session.userId;
     const stickyProviderAccountId = await resolveTurnProviderAccountId(ctx.db, {
@@ -359,8 +356,6 @@ export const enqueueMessage = authMutation({
     if (!session) throw new Error("Session not found");
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
-
-    assertModelMatchesLockedProvider(session.provider, args.model);
 
     const providerAccountId = await resolveTurnProviderAccountId(ctx.db, {
       requestedAccountId: args.providerAccountId,

@@ -4,7 +4,6 @@ import {
   api,
   normalizeAIModel,
   type AIModel,
-  type AIProvider,
   type Id,
   type ReasoningLevel,
   type StoredModelTraits,
@@ -38,13 +37,6 @@ export function useSessionModel(
     providerAccountId: Id<"userProviderAccounts"> | null,
   ) => void;
   isSwitchingAccount: boolean;
-  /**
-   * Provider this session is pinned to; undefined while loading and on
-   * sessions created before the lock. Feed it to
-   * `getLockedProviderModelOptions` so the picker cannot offer a model the
-   * session mutations will reject.
-   */
-  lockedProvider: AIProvider | undefined;
 } {
   const session = useQuery(api.sessions.get, { id: sessionId });
   const prewarmDaemonNow = useAction(api.sessionWorkflow.prewarmDaemonNow);
@@ -142,6 +134,5 @@ export function useSessionModel(
       session === undefined ? undefined : (session?.providerAccountId ?? null),
     setProviderAccountId: switchProviderAccount,
     isSwitchingAccount,
-    lockedProvider: session?.provider,
   };
 }

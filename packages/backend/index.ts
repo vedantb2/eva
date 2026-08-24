@@ -12,7 +12,6 @@ export {
   CURSOR_AUTH_ENV_KEYS,
   findAIModelOption,
   getAIModelProvider,
-  getLockedProviderModelOptions,
   getVisibleAIModelOptions,
   getSimpleViewModelOptions,
   getModelTraits,

@@ -1,5 +1,9 @@
 # Changelog
 
+## Skeleton loaders shimmer instead of pulsing - 2026-08-24
+
+The shared skeleton used Tailwind's opacity pulse, so loading cards just faded in place. They now sweep a soft highlight on a compositor `transform`, which reads as loading without the throb.
+
 ## Chat threads fade at the scroll edges - 2026-08-24
 
 Session, quick-task, and project conversation scrollers now use the same `.scroll-fade` mask as the rest of the app, so messages soften at the top and bottom instead of clipping hard against the composer and header.

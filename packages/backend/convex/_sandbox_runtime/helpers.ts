@@ -211,6 +211,7 @@ export async function ensureDockerDaemon(
       sandbox,
       [
         "command -v docker >/dev/null 2>&1 || sudo dnf install -y docker 2>/dev/null || true",
+        "command -v docker >/dev/null 2>&1 || exit 1",
         "sudo pkill -9 containerd 2>/dev/null",
         "sudo pkill -9 dockerd 2>/dev/null",
         "sleep 1",
@@ -255,6 +256,7 @@ export async function bootstrapVercelDocker(
     "set -e",
     'echo "bootstrap-docker:start"',
     "command -v docker >/dev/null 2>&1 || sudo dnf install -y docker",
+    "command -v docker >/dev/null 2>&1 || { echo \"bootstrap-docker:no-binary\"; exit 1; }",
     "sudo pkill -9 dockerd 2>/dev/null || true",
     "sudo pkill -9 containerd 2>/dev/null || true",
     "sudo rm -f /var/run/docker.pid /var/run/docker.sock /run/docker/containerd/containerd.pid /run/docker/containerd/containerd.sock /run/docker/containerd/containerd.sock.ttrpc /run/docker/containerd/containerd-debug.sock 2>/dev/null || true",

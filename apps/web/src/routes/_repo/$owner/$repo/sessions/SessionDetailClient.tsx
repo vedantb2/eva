@@ -22,6 +22,7 @@ export function SessionDetailClient({
   onOpenFile,
   onViewDiff,
   isRouteActive = true,
+  hideTitle = false,
 }: {
   sessionId: Id<"sessions">;
   /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
@@ -36,6 +37,8 @@ export function SessionDetailClient({
    * shown — Preview must not clear/refetch from sibling URL churn.
    */
   isRouteActive?: boolean;
+  /** Popover already titles the surface — omit the session-chat title. */
+  hideTitle?: boolean;
 }) {
   const { basePath, repo } = useRepo();
   const session = useQuery(api.sessions.get, { id: sessionId });
@@ -221,6 +224,7 @@ export function SessionDetailClient({
       }
       onToggleSandbox={onToggleSandbox}
       chatOnly={chatOnly}
+      hideTitle={hideTitle}
       onOpenFile={chatOnly ? undefined : onOpenFile}
       onViewDiff={chatOnly ? undefined : onViewDiff}
       onOpenPrdTab={

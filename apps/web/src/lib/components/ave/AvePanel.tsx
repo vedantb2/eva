@@ -42,6 +42,7 @@ function AvePanelBody() {
         owner={orchestrator.owner}
         repoParam={encodeRepoParam(orchestrator.name, orchestrator.rootDirectory)}
         isActiveRoute={false}
+        embedded
       />
     </div>
   );

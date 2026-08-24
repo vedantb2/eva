@@ -1,5 +1,14 @@
 # Changelog
 
+## A model switch no longer leaves Ave stuck on Working for minutes - 2026-08-24
+
+The ~3 minute delay on a Manager Ave send was not sandbox boot (resume was 8s). Opening the popover prewarms a daemon with `session.lastModel` and takes the launch lease. Sending on a different model (here 4.6 → 4.5) schedules one matching prewarm, which used to return the moment it saw `launch lease held`. The leftover 4.6 process then mismatch-polled `claimPendingTurn` and nobody retried 4.5 until a later prewarm happened to run.
+
+Losers now wait for the lease, re-probe, and respawn for the pending model. Ave also skips dockerd on that prewarm — the Ubuntu image has no `dnf`, and the 30s `docker info` poll was what kept the stale lastModel launch holding the lease.
+
+The popover already titles itself "Manager Ave"; the inner session header no longer repeats it.
+
+
 ## The read-only master is now enforced on Cursor too, not just Claude - 2026-08-24
 
 The previous change withheld Write and Edit from Manager Ave, but `ALLOWED_TOOLS` is read only by `claudeSdk.ts`. Cursor, Codex and OpenCode run their own native toolsets and ignored it — so on the provider Ave actually runs (`cursor:grok-4.6`) nothing but the prompt stood between her and an edit. That gap is now closed for Cursor and Codex.

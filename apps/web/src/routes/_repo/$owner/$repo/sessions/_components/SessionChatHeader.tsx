@@ -51,6 +51,8 @@ interface SessionChatHeaderProps {
    * commits against base — a guaranteed failure, hidden rather than offered.
    */
   chatOnly?: boolean;
+  /** Popover already titles the surface — omit the duplicate "Manager Ave". */
+  hideTitle?: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
   onToggleSandbox?: () => void;
   onOpenSummaryModal: () => void;
@@ -75,6 +77,7 @@ export function SessionChatHeader({
   sandboxCollapsed,
   permalinkPath,
   chatOnly = false,
+  hideTitle = false,
   onSandboxToggle,
   onToggleSandbox,
   onOpenSummaryModal,
@@ -87,11 +90,14 @@ export function SessionChatHeader({
   // Manager Ave is one fixed session at its own URL, so there is nothing to
   // switch to and no repo to navigate up into — the switcher's dropdown would
   // list other repos' sessions and its crumb would imply this chat belongs to
-  // the home repo, which is only where its sandbox happens to live.
+  // the home repo, which is only where its sandbox happens to live. The
+  // popover already paints that title in its own chrome, so hide it there.
   const headerLeft = chatOnly ? (
-    <span className="truncate text-sm font-medium text-foreground">
-      {title}
-    </span>
+    hideTitle ? undefined : (
+      <span className="truncate text-sm font-medium text-foreground">
+        {title}
+      </span>
+    )
   ) : (
     <SessionSwitcher sessionId={sessionId} title={title} />
   );

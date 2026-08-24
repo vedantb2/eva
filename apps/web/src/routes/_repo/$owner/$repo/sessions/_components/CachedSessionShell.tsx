@@ -21,6 +21,11 @@ interface CachedSessionShellProps {
   repoParam: string;
   /** True when this shell matches the URL `$numId` (visible). */
   isActiveRoute: boolean;
+  /**
+   * Mounted inside Manager Ave's popover, which already titles the surface.
+   * Hides the session-chat title so "Manager Ave" is not painted twice.
+   */
+  embedded?: boolean;
 }
 
 /**
@@ -34,6 +39,7 @@ export function CachedSessionShell({
   owner,
   repoParam,
   isActiveRoute,
+  embedded = false,
 }: CachedSessionShellProps) {
   return (
     <RepoProvider owner={owner} repoParam={repoParam} passive>
@@ -43,6 +49,7 @@ export function CachedSessionShell({
           owner={owner}
           repoParam={repoParam}
           isActiveRoute={isActiveRoute}
+          embedded={embedded}
         />
       </RepoGate>
     </RepoProvider>
@@ -54,6 +61,7 @@ function CachedSessionShellInner({
   owner,
   repoParam,
   isActiveRoute,
+  embedded = false,
 }: CachedSessionShellProps) {
   const navigate = useNavigate();
   const { basePath, repoId } = useRepo();
@@ -126,6 +134,7 @@ function CachedSessionShellInner({
           onOpenFile={openFile}
           onViewDiff={simpleView ? undefined : openDiffs}
           isRouteActive={isActiveRoute}
+          hideTitle={embedded}
         />
       )}
     </EntityNumIdGate>

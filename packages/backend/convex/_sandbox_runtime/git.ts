@@ -309,6 +309,12 @@ export async function createSandbox(
   // Boot from a Vercel Container Registry image instead of the legacy runtime.
   // Only read when there is no snapshot — a restore carries its own image.
   image?: string,
+  /**
+   * Manager Ave never runs repo services, so installing and polling dockerd
+   * on the Ubuntu universal image is pure wait (dnf is missing, then 90s+60s
+   * of `docker info` loops). Skip it.
+   */
+  skipDocker = false,
 ): Promise<SandboxHandle> {
   const details = [
     `installation=${installationId}`,
@@ -451,9 +457,13 @@ export async function createSandbox(
       // since dockerd doesn't survive auto-stop. Already fast-paths on an
       // already-running daemon (`docker info` check first); the timing
       // wrapper just makes that fast path visible in logs instead of assumed.
-      await runLoggedGitStep("createSandbox.bootstrapDocker", sandbox.id, () =>
-        bootstrapVercelDocker(sandbox),
-      );
+      // Orchestrator: no containers, and the universal image has no docker
+      // binary — the bootstrap would sit in a 90s poll then another 60s.
+      if (!skipDocker) {
+        await runLoggedGitStep("createSandbox.bootstrapDocker", sandbox.id, () =>
+          bootstrapVercelDocker(sandbox),
+        );
+      }
 
       return sandbox;
     } catch (error) {
@@ -1311,6 +1321,8 @@ export async function createSandboxAndPrepareRepo(
   // VCR image to boot from when there is no snapshot (orchestrator sessions use
   // the Vercel-managed universal image). Threaded straight to createSandbox.
   image?: string,
+  // Orchestrator: skip dockerd. See createSandbox.skipDocker.
+  skipDocker = false,
 ): Promise<{ sandbox: SandboxHandle; usedSnapshot: boolean }> {
   let sandbox: SandboxHandle | undefined;
   try {
@@ -1331,6 +1343,7 @@ export async function createSandboxAndPrepareRepo(
             readyTimeoutSeconds,
             onSandboxAcquired,
             image,
+            skipDocker,
           );
         } catch (err) {
           if (effectiveSnapshot && isSnapshotUnusableError(err)) {
@@ -1349,6 +1362,7 @@ export async function createSandboxAndPrepareRepo(
               readyTimeoutSeconds,
               onSandboxAcquired,
               image,
+              skipDocker,
             );
           } else {
             throw err;
@@ -1432,6 +1446,7 @@ export async function getOrCreateSandbox(
   // existing sandbox was built from. See createSandboxAndPrepareRepo.
   skipInstallDeps = false,
   image?: string,
+  skipDocker = false,
 ): Promise<{
   sandbox: SandboxHandle;
   isNew: boolean;
@@ -1472,6 +1487,7 @@ export async function getOrCreateSandbox(
       undefined,
       skipInstallDeps,
       image,
+      skipDocker,
     );
     return {
       sandbox,

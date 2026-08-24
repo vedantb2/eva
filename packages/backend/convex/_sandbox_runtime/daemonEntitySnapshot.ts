@@ -17,9 +17,11 @@ const DAEMON_LAUNCH_LEASE_MS = 30_000;
 
 /**
  * Single-flight claim for a warm-daemon launch. Convex mutations are
- * serializable, so exactly one concurrent caller wins. Losers skip the launch
- * entirely (no wasted token mint / bundle upload / node boot); the winner
- * releases via releaseDaemonLaunchLease when its launch settles.
+ * serializable, so exactly one concurrent caller wins. Prewarm losers wait
+ * for this lease to drop rather than skipping: a skip stranded the
+ * pending-turn model when page-open had already claimed with lastModel.
+ * The winner releases via releaseDaemonLaunchLease when its launch settles;
+ * the in-sandbox spawn flock still dedupes any launch that slips past it.
  */
 export const claimDaemonLaunchLease = internalMutation({
   args: { entityId: v.string() },

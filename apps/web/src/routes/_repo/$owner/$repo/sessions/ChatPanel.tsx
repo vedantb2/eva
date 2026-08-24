@@ -69,6 +69,8 @@ interface ChatPanelProps {
   permalinkPath?: string;
   /** Chat-only surface (the orchestrator): hides branch/PR affordances. */
   chatOnly?: boolean;
+  /** Popover already titles the surface — omit the session-chat title. */
+  hideTitle?: boolean;
   onToggleSandbox?: () => void;
   /** Opens a file (by full sandbox path) in the File Viewer tab. */
   onOpenFile?: (path: string) => void;
@@ -104,6 +106,7 @@ export function ChatPanel({
   sandboxCollapsed,
   permalinkPath,
   chatOnly,
+  hideTitle = false,
   onToggleSandbox,
   onOpenFile,
   onViewDiff,
@@ -219,6 +222,7 @@ export function ChatPanel({
     sandboxCollapsed,
     permalinkPath,
     chatOnly,
+    hideTitle,
     onSandboxToggle,
     onToggleSandbox,
     onOpenSummaryModal: () => setShowSummaryModal(true),

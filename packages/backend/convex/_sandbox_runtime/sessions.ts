@@ -271,6 +271,8 @@ async function resumeReusedSandbox(
     onRestoring: () => Promise<void>;
     onEarlyReady: () => Promise<void>;
     shouldAbort?: () => Promise<boolean>;
+    /** Manager Ave: no containers, so skip the dockerd wait after wake. */
+    skipDocker?: boolean;
   },
 ): Promise<void> {
   const abortIfStopRequested = async (): Promise<void> => {
@@ -316,7 +318,11 @@ async function resumeReusedSandbox(
   // ensureSandboxRunning skipped the per-boot bootstrap to unlock sooner; pay
   // it here, swap first, before any service can spike memory.
   await ensureSwapFile(handle);
-  await ensureDockerDaemon(handle);
+  // Orchestrator never runs containers; starting dockerd on the Ubuntu
+  // universal image is a ~2.5 minute no-op (dnf missing, then poll loops).
+  if (!opts.skipDocker) {
+    await ensureDockerDaemon(handle);
+  }
   await abortIfStopRequested();
   // Self-heal: rotate the per-sandbox secret + reinstall the helper every
   // resume so in-sandbox `git pull` and any subsequent fetch authenticate
@@ -786,6 +792,7 @@ async function prepareSessionSandboxInternal(
                   });
                 },
                 shouldAbort: () => sessionStopRequested(ctx, args.sessionId),
+                skipDocker: isOrchestrator,
               }),
           );
           await runLoggedSessionStep(
@@ -1000,6 +1007,7 @@ async function prepareSessionSandboxInternal(
         // dependency install would add minutes to every master boot.
         isOrchestrator,
         image,
+        isOrchestrator,
       ),
   );
   const handle = prepared.sandbox;

@@ -119,6 +119,13 @@ const sessionPersistenceIdValidator = v.union(
   v.id("agentTasks"),
 );
 
+// Must outlast DAEMON_LAUNCH_LEASE_MS (30s in daemonEntitySnapshot.ts) so a
+// dead holder unblocks us at expiry, and long enough that a holder still
+// running docker bootstrap (~30s on Ave's Ubuntu image) can finish and
+// release. Losers then re-check alive / optsmismatch instead of giving up.
+const PREWARM_LAUNCH_LEASE_WAIT_MS = 90_000;
+const PREWARM_LAUNCH_LEASE_POLL_MS = 500;
+
 /**
  * True when the sandbox being created belongs to a master (orchestrator)
  * session, which boots from the Vercel managed image instead of the repo
@@ -908,6 +915,7 @@ export const prepareSandbox = internalAction({
             undefined,
             isOrchestrator,
             image,
+            isOrchestrator,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;
@@ -926,6 +934,7 @@ export const prepareSandbox = internalAction({
             { mode: "none" },
             isOrchestrator,
             image,
+            isOrchestrator,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = prepared.isNew;
@@ -1095,6 +1104,7 @@ export const createOrResumeSandbox = internalAction({
             undefined,
             isOrchestrator,
             image,
+            isOrchestrator,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;
@@ -1114,6 +1124,7 @@ export const createOrResumeSandbox = internalAction({
             { mode: "none" },
             isOrchestrator,
             image,
+            isOrchestrator,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = prepared.isNew;
@@ -1345,6 +1356,12 @@ type PrewarmEntityDaemonBaseParams = {
   streamingEntityId?: string;
   activeWorkflowField: "activeWorkflowId" | "activeChatWorkflowId";
   skipPrewarm?: boolean;
+  /**
+   * Manager Ave never runs repo services. Passing this through to
+   * `ensureSandboxRunning` keeps a lastModel prewarm from holding the launch
+   * lease across a 30s+ dockerd poll on the Ubuntu image (no `dnf`).
+   */
+  skipDocker?: boolean;
 };
 
 type PrewarmEntityDaemonParams = PrewarmEntityDaemonBaseParams & {
@@ -1421,40 +1438,77 @@ async function runPrewarmEntityDaemon(
       },
       args.noWrites,
     );
-    const alive = await execHandle(
-      sandbox,
-      buildDaemonAliveCheckCmd(args.entityIdField, entityIdStr, fp, optsSig),
-      10,
-    );
-    const aliveState = alive.trim().split("\n").pop()?.trim() ?? "cold";
-    if (aliveState === "alive") {
-      console.log(
-        `[sandbox][execution] prewarmEntityDaemon: already warm entityId=${entityIdStr}`,
+    const probeAliveState = async (): Promise<string> => {
+      const alive = await execHandle(
+        sandbox,
+        buildDaemonAliveCheckCmd(args.entityIdField, entityIdStr, fp, optsSig),
+        10,
       );
-      return { prewarmed: false };
-    }
-    if (aliveState === "stale") {
-      console.log(
-        `[sandbox][execution] prewarmEntityDaemon: stale callback script — uploading bundle entityId=${entityIdStr}`,
-      );
-      await uploadCallbackScriptBundle(sandbox);
-      return { prewarmed: false };
-    }
+      return alive.trim().split("\n").pop()?.trim() ?? "cold";
+    };
+
+    const settleIfReady = async (
+      aliveState: string,
+    ): Promise<{ prewarmed: boolean } | null> => {
+      if (aliveState === "alive") {
+        console.log(
+          `[sandbox][execution] prewarmEntityDaemon: already warm entityId=${entityIdStr}`,
+        );
+        return { prewarmed: false };
+      }
+      if (aliveState === "stale") {
+        console.log(
+          `[sandbox][execution] prewarmEntityDaemon: stale callback script — uploading bundle entityId=${entityIdStr}`,
+        );
+        await uploadCallbackScriptBundle(sandbox);
+        return { prewarmed: false };
+      }
+      return null;
+    };
+
+    const initialReady = await settleIfReady(await probeAliveState());
+    if (initialReady !== null) return initialReady;
+
     // Single-flight the kill+launch: prewarm bursts (page opens, doc-patch
     // refires) all reach here seeing "cold" during the multi-second launch
     // window; only the lease claimant proceeds. The in-sandbox spawn flock is
     // the hard guarantee — this just stops losers paying a full launch.
-    const leased = await ctx.runMutation(
-      internal.sandboxDaemon.claimDaemonLaunchLease,
-      { entityId: entityIdStr },
-    );
+    //
+    // Losers used to return immediately. That stranded a pending-turn prewarm
+    // when page-open had already claimed the lease with a stale lastModel:
+    // send/workflow fire once, lose the race, and nothing retried, so the
+    // wrong daemon mismatch-polled claimPendingTurn until a later prewarm
+    // happened to run (observed: ~3 minutes on Manager Ave).
+    const claimLease = () =>
+      ctx.runMutation(internal.sandboxDaemon.claimDaemonLaunchLease, {
+        entityId: entityIdStr,
+      });
+    let leased = await claimLease();
     if (!leased) {
       console.log(
-        `[sandbox][execution] prewarmEntityDaemon: launch lease held — suppressing duplicate launch entityId=${entityIdStr}`,
+        `[sandbox][execution] prewarmEntityDaemon: launch lease held — waiting for in-flight launch entityId=${entityIdStr}`,
       );
-      return { prewarmed: false };
+      const waitDeadline = Date.now() + PREWARM_LAUNCH_LEASE_WAIT_MS;
+      while (!leased && Date.now() < waitDeadline) {
+        await sleep(PREWARM_LAUNCH_LEASE_POLL_MS);
+        const waitedReady = await settleIfReady(await probeAliveState());
+        if (waitedReady !== null) return waitedReady;
+        leased = await claimLease();
+      }
+      if (!leased) {
+        console.log(
+          `[sandbox][execution] prewarmEntityDaemon: launch lease held — giving up after ${Date.now() - startedAt}ms entityId=${entityIdStr}`,
+        );
+        return { prewarmed: false };
+      }
     }
     try {
+      // Re-probe after claiming: the holder may have finished as a different
+      // model during the wait, and the first probe is stale even on the
+      // no-wait path (TOCTOU between alive-check and lease).
+      const aliveState = await probeAliveState();
+      const claimedReady = await settleIfReady(aliveState);
+      if (claimedReady !== null) return claimedReady;
       if (aliveState === "optsmismatch") {
         const snapshot = await ctx.runQuery(
           internal.sandboxDaemon.readDaemonEntitySnapshot,
@@ -1498,6 +1552,7 @@ async function runPrewarmEntityDaemon(
 
       await ensureSandboxRunning(sandbox, {
         timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+        skipDocker: args.skipDocker === true,
       });
 
       const claudeSessionId =
@@ -1777,6 +1832,7 @@ export const prewarmSessionDaemon = internalAction({
       sessionPersistenceId: args.sessionPersistenceId,
       activeWorkflowField: "activeWorkflowId",
       skipPrewarm,
+      skipDocker: session?.isOrchestrator === true,
       entityTable: "sessions",
     });
   },

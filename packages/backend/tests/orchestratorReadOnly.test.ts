@@ -7,7 +7,7 @@ import {
 import {
   ORCHESTRATOR_TOOLS,
   SESSION_TOOLS,
-  sessionAllowedTools,
+  sessionTurnTools,
 } from "../convex/_sessions/workflow";
 
 /**
@@ -18,7 +18,7 @@ import {
  */
 describe("the master session cannot implement", () => {
   test("its tool set drops the two tools that make edits possible", () => {
-    const tools = sessionAllowedTools(true).split(",");
+    const tools = sessionTurnTools(true).allowedTools.split(",");
     expect(tools).not.toContain("Write");
     expect(tools).not.toContain("Edit");
     // Read-only inspection and the log-reading shell the skill documents.
@@ -27,9 +27,17 @@ describe("the master session cannot implement", () => {
   });
 
   test("ordinary sessions keep the full tool set", () => {
-    expect(sessionAllowedTools(undefined)).toBe(SESSION_TOOLS);
-    expect(sessionAllowedTools(false)).toBe(SESSION_TOOLS);
-    expect(sessionAllowedTools(true)).toBe(ORCHESTRATOR_TOOLS);
+    expect(sessionTurnTools(undefined).allowedTools).toBe(SESSION_TOOLS);
+    expect(sessionTurnTools(false).allowedTools).toBe(SESSION_TOOLS);
+    expect(sessionTurnTools(true).allowedTools).toBe(ORCHESTRATOR_TOOLS);
+  });
+
+  test("only the master carries the cross-provider no-writes flag", () => {
+    expect(sessionTurnTools(true).noWrites).toBe(true);
+    // Absent, not false: these objects are spread into launch args, and an
+    // extra key would change every writing session's daemon opts signature.
+    expect(sessionTurnTools(undefined)).not.toHaveProperty("noWrites");
+    expect(sessionTurnTools(false)).not.toHaveProperty("noWrites");
   });
 
   test("its turn prompt carries no branch or commit contract", () => {

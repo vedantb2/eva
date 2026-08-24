@@ -15,7 +15,7 @@ import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "../streaming";
 import { syncSessionDaemonState } from "./daemonState";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
-import { buildSessionPrompt, sessionAllowedTools } from "./workflow";
+import { buildSessionPrompt, sessionTurnTools } from "./workflow";
 import { resolveTurnProviderAccountId } from "../_userProviderAccounts/defaults";
 import type { Doc, Id } from "../_generated/dataModel";
 import { notifyChatMentions } from "../_mentions/notifyChatMentions";
@@ -169,7 +169,7 @@ export const startExecute = authMutation({
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
         fastMode: args.fastMode,
-        allowedTools: sessionAllowedTools(session.isOrchestrator),
+        ...sessionTurnTools(session.isOrchestrator),
         providerAccountId: stickyProviderAccountId,
         credentialOwnerUserId,
         sessionPersistenceId: args.sessionId,
@@ -242,7 +242,7 @@ export const prewarmDaemon = authMutation({
       thinkingEnabled: session.lastThinkingEnabled,
       use1mContext: session.lastUse1mContext,
       fastMode: session.lastFastMode,
-      allowedTools: sessionAllowedTools(session.isOrchestrator),
+      ...sessionTurnTools(session.isOrchestrator),
       providerAccountId: session.providerAccountId,
       credentialOwnerUserId,
       sessionPersistenceId: args.sessionId,
@@ -275,7 +275,7 @@ export const prewarmDaemonNow = authAction({
       thinkingEnabled: data.thinkingEnabled,
       use1mContext: data.use1mContext,
       fastMode: data.fastMode,
-      allowedTools: sessionAllowedTools(data.isOrchestrator),
+      ...sessionTurnTools(data.isOrchestrator),
       providerAccountId: data.providerAccountId,
       credentialOwnerUserId: data.credentialOwnerUserId,
       sessionPersistenceId: args.sessionId,
@@ -302,7 +302,7 @@ export const getDaemonPrewarmData = internalQuery({
       use1mContext: v.optional(v.boolean()),
       fastMode: v.optional(v.boolean()),
       providerAccountId: v.optional(v.id("userProviderAccounts")),
-      /** Selects the master's reduced tool set — see `sessionAllowedTools`. */
+      /** Selects the master's reduced tool set — see `sessionTurnTools`. */
       isOrchestrator: v.optional(v.boolean()),
     }),
   ),

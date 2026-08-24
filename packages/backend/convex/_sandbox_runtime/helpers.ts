@@ -569,6 +569,8 @@ export async function signAndLaunchScript(
   opts: {
     model?: string;
     allowedTools?: string;
+    /** Read-only turn: each provider SDK translates this into its own option. */
+    noWrites?: boolean;
     systemPrompt?: string;
     extraEnvVars?: Record<string, string>;
     claudeSessionId?: string;

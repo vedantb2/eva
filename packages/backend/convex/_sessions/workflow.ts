@@ -76,23 +76,41 @@ export const SESSION_TOOLS = "Read,Write,Edit,Bash,Glob,Grep,Skill";
  * production logs and CI state through it (`npx convex logs`, `gh pr checks`),
  * which is read-only in intent and enforced by prompt, not by tool list.
  *
- * Caveat worth knowing: `ALLOWED_TOOLS` is honoured only by the Claude SDK path
- * (`callback-src/providers/claudeSdk.ts`). Cursor, Codex and OpenCode run their
- * own native toolsets and ignore it, so on those providers this is defence in
- * depth behind `buildOrchestratorPrompt`, not a hard gate.
+ * This string is a Claude tool vocabulary and only the Claude SDK path reads it
+ * (`ALLOWED_TOOLS` in `callback-src/providers/claudeSdk.ts`). The other SDKs
+ * name their tools differently, so the cross-provider signal is the separate
+ * `noWrites` flag below rather than this list.
  */
 export const ORCHESTRATOR_TOOLS = "Read,Bash,Glob,Grep,Skill";
 
+/** Launch config for a session's turns, derived once from what the session is. */
+export type SessionTurnTools = {
+  /** Claude-vocabulary allowlist; ignored by every other provider. */
+  allowedTools: string;
+  /**
+   * Provider-agnostic "this turn may not modify the workspace". Each SDK
+   * translates it into its own vocabulary — Cursor `disallowedTools`, Codex
+   * `sandboxMode: "read-only"` — so no provider has to understand Claude's
+   * tool names. Absent rather than `false` for a writing session: it is spread
+   * into launch args, and an omitted key keeps their opts signature unchanged.
+   */
+  noWrites?: true;
+};
+
 /**
- * Tool string for a session's turns. Kept as one helper because `allowedTools`
- * feeds the warm-daemon opts signature (`buildDaemonOptsSignature`): if two
- * call sites disagreed for the same session, every turn would optsmismatch-kill
- * and respawn the daemon.
+ * Tools and write permission for a session's turns.
+ *
+ * One function returning both because both feed the warm-daemon opts signature
+ * (`buildDaemonOptsSig`): if a call site set one without the other, the daemon
+ * would either optsmismatch-kill and respawn every turn, or — worse — keep
+ * serving a warm process that still holds its write tools.
  */
-export function sessionAllowedTools(
+export function sessionTurnTools(
   isOrchestrator: boolean | undefined,
-): string {
-  return isOrchestrator === true ? ORCHESTRATOR_TOOLS : SESSION_TOOLS;
+): SessionTurnTools {
+  return isOrchestrator === true
+    ? { allowedTools: ORCHESTRATOR_TOOLS, noWrites: true }
+    : { allowedTools: SESSION_TOOLS };
 }
 
 /**
@@ -388,7 +406,7 @@ export const sessionExecuteWorkflow = workflow.define({
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
         fastMode: args.fastMode,
-        allowedTools: sessionAllowedTools(data.isOrchestrator),
+        ...sessionTurnTools(data.isOrchestrator),
         providerAccountId: args.providerAccountId,
         credentialOwnerUserId: args.credentialOwnerUserId,
         sessionPersistenceId: args.sessionId,
@@ -429,7 +447,7 @@ export const sessionExecuteWorkflow = workflow.define({
           thinkingEnabled: args.thinkingEnabled,
           use1mContext: args.use1mContext,
           fastMode: args.fastMode,
-          allowedTools: sessionAllowedTools(data.isOrchestrator),
+          ...sessionTurnTools(data.isOrchestrator),
           repoId: data.repoId,
           streamingEntityId: String(args.sessionId),
           sessionPersistenceId: args.sessionId,
@@ -757,7 +775,7 @@ export const getSessionData = internalQuery({
     model: aiModelValidator,
     deploymentProjectName: v.optional(v.string()),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
-    /** Selects the master's reduced tool set — see `sessionAllowedTools`. */
+    /** Selects the master's reduced tool set — see `sessionTurnTools`. */
     isOrchestrator: v.optional(v.boolean()),
   }),
   handler: async (ctx, args) => {

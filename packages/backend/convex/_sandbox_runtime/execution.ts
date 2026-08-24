@@ -1293,10 +1293,15 @@ function buildDaemonOptsSig(
   providerAccountCredentialRevision: number | undefined,
   streamingEntityId: string,
   traits: TraitEnvInput,
+  noWrites?: boolean,
 ): string {
   const fastMode =
     traits.fastMode === undefined ? "" : traits.fastMode ? "1" : "0";
-  return `${normalizedModel}|${allowedTools ?? ""}|${traits.reasoningLevel ?? ""}|${traits.thinkingEnabled === false ? "0" : ""}|${traits.use1mContext === true ? "1" : ""}|${fastMode}|${providerAccountId ?? ""}|${providerAccountCredentialRevision ?? ""}|${streamingEntityId}`;
+  // `noWrites` is a suffix appended only when set, rather than another `|`
+  // field: a new field would change the signature of every writing session too
+  // and kill+respawn every warm daemon in the fleet on deploy, for no gain.
+  const readOnly = noWrites === true ? "|nowrites" : "";
+  return `${normalizedModel}|${allowedTools ?? ""}|${traits.reasoningLevel ?? ""}|${traits.thinkingEnabled === false ? "0" : ""}|${traits.use1mContext === true ? "1" : ""}|${fastMode}|${providerAccountId ?? ""}|${providerAccountCredentialRevision ?? ""}|${streamingEntityId}${readOnly}`;
 }
 
 function buildTraitEnvVars(traits: TraitEnvInput): Record<string, string> {
@@ -1333,6 +1338,7 @@ type PrewarmEntityDaemonBaseParams = {
   use1mContext?: boolean;
   fastMode?: boolean;
   allowedTools?: string;
+  noWrites?: boolean;
   providerAccountId?: Id<"userProviderAccounts">;
   credentialOwnerUserId?: Id<"users">;
   sessionPersistenceId?: Infer<typeof sessionPersistenceIdValidator>;
@@ -1413,6 +1419,7 @@ async function runPrewarmEntityDaemon(
         use1mContext: args.use1mContext,
         fastMode: args.fastMode,
       },
+      args.noWrites,
     );
     const alive = await execHandle(
       sandbox,
@@ -1511,6 +1518,7 @@ async function runPrewarmEntityDaemon(
         {
           model: normalizedModel,
           allowedTools: args.allowedTools,
+          noWrites: args.noWrites,
           claimMutation: args.claimMutation,
           openSyntheticTurnMutation: args.openSyntheticTurnMutation,
           completeSyntheticTurnMutation: args.completeSyntheticTurnMutation,
@@ -1571,6 +1579,8 @@ export const prewarmEntityDaemon = internalAction({
     use1mContext: v.optional(v.boolean()),
     fastMode: v.optional(v.boolean()),
     allowedTools: v.optional(v.string()),
+    /** Read-only turn: translated per SDK in the callback. See `sessionTurnTools`. */
+    noWrites: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     credentialOwnerUserId: v.optional(v.id("users")),
     sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
@@ -1731,6 +1741,8 @@ export const prewarmSessionDaemon = internalAction({
     use1mContext: v.optional(v.boolean()),
     fastMode: v.optional(v.boolean()),
     allowedTools: v.optional(v.string()),
+    /** Read-only turn: translated per SDK in the callback. See `sessionTurnTools`. */
+    noWrites: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     credentialOwnerUserId: v.optional(v.id("users")),
     sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
@@ -1759,6 +1771,7 @@ export const prewarmSessionDaemon = internalAction({
       use1mContext: args.use1mContext,
       fastMode: args.fastMode,
       allowedTools: args.allowedTools,
+      noWrites: args.noWrites,
       providerAccountId: args.providerAccountId,
       credentialOwnerUserId: args.credentialOwnerUserId,
       sessionPersistenceId: args.sessionPersistenceId,
@@ -1784,6 +1797,8 @@ export const launchOnExistingSandbox = internalAction({
     use1mContext: v.optional(v.boolean()),
     fastMode: v.optional(v.boolean()),
     allowedTools: v.optional(v.string()),
+    /** Read-only turn: translated per SDK in the callback. See `sessionTurnTools`. */
+    noWrites: v.optional(v.boolean()),
     systemPrompt: v.optional(v.string()),
     repoId: v.id("githubRepos"),
     streamingEntityId: v.optional(v.string()),
@@ -1838,10 +1853,7 @@ export const launchOnExistingSandbox = internalAction({
     if (args.requireTaskCommit === true) {
       extraEnvVars.REQUIRE_TASK_COMMIT = "true";
     }
-    if (
-      args.turnId !== undefined &&
-      args.turnLeaseGeneration !== undefined
-    ) {
+    if (args.turnId !== undefined && args.turnLeaseGeneration !== undefined) {
       extraEnvVars.TURN_ID = String(args.turnId);
       extraEnvVars.TURN_LEASE_GENERATION = String(args.turnLeaseGeneration);
     }
@@ -1877,6 +1889,7 @@ export const launchOnExistingSandbox = internalAction({
       {
         model: normalizedModel,
         allowedTools: args.allowedTools,
+        noWrites: args.noWrites,
         systemPrompt: args.systemPrompt,
         extraEnvVars:
           Object.keys(extraEnvVars).length > 0 ? extraEnvVars : undefined,

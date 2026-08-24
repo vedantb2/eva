@@ -79,6 +79,8 @@ export type ClaudeUsageResponseLike = {
     seven_day_oauth_apps?: ClaudeUsageWindowLike;
     seven_day_opus?: ClaudeUsageWindowLike;
     seven_day_sonnet?: ClaudeUsageWindowLike;
+    seven_day_overage_included?: ClaudeUsageWindowLike;
+    overage?: ClaudeUsageWindowLike;
     model_scoped?: {
       display_name?: string;
       utilization?: number | null;
@@ -225,6 +227,11 @@ export function readClaudeUsageWindows(
   pushUsageWindow(windows, "seven_day_opus", limits.seven_day_opus);
   pushUsageWindow(windows, "seven_day_sonnet", limits.seven_day_sonnet);
   pushUsageWindow(windows, "seven_day_oauth_apps", limits.seven_day_oauth_apps);
+  pushUsageWindow(
+    windows,
+    "seven_day_overage_included",
+    limits.seven_day_overage_included,
+  );
   for (const entry of limits.model_scoped ?? []) {
     const name = readNonEmptyString(entry.display_name);
     if (!name) continue;
@@ -232,6 +239,7 @@ export function readClaudeUsageWindows(
     // the fixed ones ("Weekly (Fable)") rather than by bare model name.
     pushUsageWindow(windows, "model_scoped:" + name, entry, `Weekly (${name})`);
   }
+  pushUsageWindow(windows, "overage", limits.overage);
   return windows;
 }
 
@@ -268,12 +276,17 @@ export async function captureClaudeUsage(
     // A failed or not-yet-initialized SDK query can report `false` even for an
     // OAuth account whose prior turn exposed plan windows. Treating that as an
     // authoritative empty snapshot erases the last useful reading and makes
-    // the UI disappear. No observation is safer than destructive absence; a
-    // genuinely windowless credential simply never creates a chip.
+    // the UI disappear. Keep whatever we already observed. When we have never
+    // observed anything, still record a partial so the selected account gets a
+    // row — Team/Enterprise seats often have no 5h/weekly windows, and staying
+    // silent left the chip saying nothing had been reported.
     if (response.rate_limits_available === false) {
       log(
         "usage limits: claude plan usage unavailable — preserving prior reading",
       );
+      if (!S.usageLimitSnapshot) {
+        S.usageLimitSnapshot = { completeness: "partial" };
+      }
       return;
     }
     const snapshot: UsageLimitSnapshot = { completeness: "complete" };

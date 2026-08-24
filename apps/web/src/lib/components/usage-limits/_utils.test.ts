@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import {
   chipSummary,
+  emptyAccountUsageCopy,
   formatResetDistanceMs,
   maxUtilization,
   newestCapturedAt,
@@ -259,4 +260,19 @@ test("the footer stamps the freshest reading of the lot", () => {
   const freshest = claude({ capturedAt: NOW });
   expect(newestCapturedAt([claude(), freshest])).toBe(NOW);
   expect(newestCapturedAt([])).toBeUndefined();
+});
+
+test("account hover copy distinguishes never-reported from windowless", () => {
+  expect(emptyAccountUsageCopy([], NOW)).toBe(
+    "No plan usage has been reported for this account yet.",
+  );
+  expect(
+    emptyAccountUsageCopy(
+      [claude({ capturedAt: NOW - 2 * DAY, windows: [] })],
+      NOW,
+    ),
+  ).toBe("No plan usage has been reported for this account yet.");
+  expect(emptyAccountUsageCopy([claude({ windows: [] })], NOW)).toBe(
+    "Claude isn't reporting plan rate limits for this account.",
+  );
 });

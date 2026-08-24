@@ -260,3 +260,21 @@ export function newestCapturedAt(
     undefined,
   );
 }
+
+/**
+ * Hover copy when the selected account has nothing to draw. A fresh row with
+ * no windows means we asked and Claude has no plan rate limits to show
+ * (Team/Enterprise spend caps live on claude.ai). No row at all still means
+ * no turn has reported for this credential yet.
+ */
+export function emptyAccountUsageCopy(
+  rows: readonly UsageSnapshot[],
+  now: number,
+): string {
+  const hasFreshReading = rows.some(
+    (row) => now - row.capturedAt <= USAGE_READING_MAX_AGE_MS,
+  );
+  return hasFreshReading
+    ? "Claude isn't reporting plan rate limits for this account."
+    : "No plan usage has been reported for this account yet.";
+}

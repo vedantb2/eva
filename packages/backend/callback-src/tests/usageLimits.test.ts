@@ -111,6 +111,11 @@ test("readClaudeUsageWindows builds every populated window in display order", ()
         // Reported but entirely null — nothing to show, so no window.
         seven_day_opus: { utilization: null, resets_at: null },
         seven_day_sonnet: null,
+        seven_day_overage_included: {
+          utilization: 8,
+          resets_at: "2026-08-29T00:00:00.000Z",
+        },
+        overage: { utilization: 1.03, resets_at: null },
         model_scoped: [
           { display_name: "Fable", utilization: 3, resets_at: null },
           // No display name means no label and no stable key.
@@ -126,8 +131,15 @@ test("readClaudeUsageWindows builds every populated window in display order", ()
       resetsAt: Date.parse("2026-08-22T10:00:00.000Z"),
     },
     { key: "seven_day", label: "Weekly (all models)", utilization: 55 },
+    {
+      key: "seven_day_overage_included",
+      label: "Weekly (overage included)",
+      utilization: 8,
+      resetsAt: Date.parse("2026-08-29T00:00:00.000Z"),
+    },
     // A model-scoped window reads like its fixed-key siblings, not "Fable".
     { key: "model_scoped:Fable", label: "Weekly (Fable)", utilization: 3 },
+    { key: "overage", label: "Extra usage", utilization: 1.03 },
   ]);
 });
 
@@ -189,12 +201,14 @@ test("an unavailable usage read preserves the last observed plan windows", async
   });
 });
 
-test("an unavailable usage read never creates an empty complete snapshot", async () => {
+test("an unavailable usage read seeds a partial instead of staying silent", async () => {
   await captureClaudeUsage(async () => ({
     rate_limits_available: false,
     rate_limits: null,
   }));
-  expect(S.usageLimitSnapshot).toBeNull();
+  // Partial so the account still gets a Convex row; complete+empty would wipe
+  // later windows if a subsequent turn treated this as authoritative.
+  expect(S.usageLimitSnapshot).toEqual({ completeness: "partial" });
 });
 
 test("a spend-limit result becomes a non-destructive rejected snapshot", () => {

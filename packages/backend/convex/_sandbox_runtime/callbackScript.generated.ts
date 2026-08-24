@@ -2669,11 +2669,17 @@ function readClaudeUsageWindows(response) {
   pushUsageWindow(windows, "seven_day_opus", limits.seven_day_opus);
   pushUsageWindow(windows, "seven_day_sonnet", limits.seven_day_sonnet);
   pushUsageWindow(windows, "seven_day_oauth_apps", limits.seven_day_oauth_apps);
+  pushUsageWindow(
+    windows,
+    "seven_day_overage_included",
+    limits.seven_day_overage_included
+  );
   for (const entry of limits.model_scoped ?? []) {
     const name = readNonEmptyString(entry.display_name);
     if (!name) continue;
     pushUsageWindow(windows, "model_scoped:" + name, entry, \`Weekly (\${name})\`);
   }
+  pushUsageWindow(windows, "overage", limits.overage);
   return windows;
 }
 async function captureClaudeUsage(readUsage) {
@@ -2698,6 +2704,9 @@ async function captureClaudeUsage(readUsage) {
       log(
         "usage limits: claude plan usage unavailable \\u2014 preserving prior reading"
       );
+      if (!callbackState.usageLimitSnapshot) {
+        callbackState.usageLimitSnapshot = { completeness: "partial" };
+      }
       return;
     }
     const snapshot = { completeness: "complete" };

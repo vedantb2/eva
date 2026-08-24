@@ -1,6 +1,7 @@
 import { compactRelativeTime } from "@eva/shared/dates";
 import {
   activeUsageStatus,
+  emptyAccountUsageCopy,
   newestCapturedAt,
   orderedSections,
   reportedWindows,
@@ -42,7 +43,7 @@ export function UsageLimitsDetails({
       <div className="space-y-1 p-3">
         <p className="font-medium text-xs">{emptyAccountLabel}</p>
         <p className="text-muted-foreground text-xs">
-          No plan usage has been reported for this account yet.
+          {emptyAccountUsageCopy(rows, now)}
         </p>
       </div>
     );

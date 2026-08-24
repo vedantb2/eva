@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { IconBolt, IconChevronDown } from "@tabler/icons-react";
+import { SimpleModelLadder } from "./simple-model-ladder";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { cn } from "../utils/cn";
 import { ProviderIcon } from "./provider-icon";
@@ -67,6 +68,14 @@ export interface ModelSelectProps<TModel extends string = string> {
   header?: ReactNode;
   /** Bolt before the provider icon when Fast mode is on. */
   showFastIcon?: boolean;
+  /**
+   * Simple-view capability ladder (cheapest → strongest). When at least two of
+   * these ids are in `options`, the popover opens on a discrete slider;
+   * Advanced swaps to the full picker.
+   */
+  simpleLadder?: ReadonlyArray<TModel>;
+  /** Parks the slider thumb when `value` is not itself a ladder tick. */
+  simpleLadderSnap?: TModel;
 }
 
 /**
@@ -88,9 +97,29 @@ export function ModelSelect<TModel extends string>({
   triggerSuffix,
   header,
   showFastIcon,
+  simpleLadder,
+  simpleLadderSnap,
 }: ModelSelectProps<TModel>) {
   const [open, setOpen] = useState(false);
+  const [advanced, setAdvanced] = useState(false);
   const selectedModel = findModelOption(value, options);
+
+  const ladderSteps: ModelOption<TModel>[] = [];
+  if (simpleLadder) {
+    for (const id of simpleLadder) {
+      const option = options.find((entry) => entry.id === id);
+      if (option) ladderSteps.push(option);
+    }
+  }
+  const showLadder = ladderSteps.length >= 2 && !advanced;
+  const preferredSnap = simpleLadderSnap ?? value;
+  let snappedAmong = ladderSteps[0]?.id ?? value;
+  for (const step of ladderSteps) {
+    if (step.id === value || step.id === preferredSnap) {
+      snappedAmong = step.id;
+      if (step.id === value) break;
+    }
+  }
   const triggerLabel = selectedModel ? selectedModel.label : "Select model";
   const instances = buildPickerInstances(options, accounts);
 
@@ -117,8 +146,32 @@ export function ModelSelect<TModel extends string>({
     ).length > 1,
   );
 
+  const commit = (modelId: TModel, nextAccountId: string | null) => {
+    if (onSelectionChange) {
+      onSelectionChange(modelId, nextAccountId);
+    } else {
+      onValueChange(modelId);
+      onAccountChange?.(nextAccountId);
+    }
+  };
+
+  const accountForModel = (modelId: TModel): string | null => {
+    const option = options.find((entry) => entry.id === modelId);
+    if (!option) return null;
+    if (selectedAccount && selectedAccount.provider === option.provider) {
+      return accountId;
+    }
+    return null;
+  };
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) setAdvanced(false);
+      }}
+    >
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -182,29 +235,38 @@ export function ModelSelect<TModel extends string>({
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className={modelPickerSurfaceClass}
+        className={
+          showLadder ? "w-56 p-3" : modelPickerSurfaceClass
+        }
         onOpenAutoFocus={(event) => {
+          if (showLadder) return;
           // Let ModelPickerContent own focus (search input); Radix would
           // otherwise park it on the first focusable and fight our layout effect.
           event.preventDefault();
         }}
       >
-        <ModelPickerContent
-          value={value}
-          accountId={accountId}
-          options={options}
-          accounts={accounts}
-          canSelectTeamWhilePersonal={canSelectTeamWhilePersonal}
-          onSelect={(modelId, nextAccountId) => {
-            if (onSelectionChange) {
-              onSelectionChange(modelId, nextAccountId);
-            } else {
-              onValueChange(modelId);
-              onAccountChange?.(nextAccountId);
-            }
-          }}
-          header={header}
-        />
+        {showLadder ? (
+          <SimpleModelLadder
+            value={value}
+            steps={ladderSteps}
+            snappedId={snappedAmong}
+            disabled={disabled}
+            onValueChange={(modelId) => {
+              commit(modelId, accountForModel(modelId));
+            }}
+            onAdvanced={() => setAdvanced(true)}
+          />
+        ) : (
+          <ModelPickerContent
+            value={value}
+            accountId={accountId}
+            options={options}
+            accounts={accounts}
+            canSelectTeamWhilePersonal={canSelectTeamWhilePersonal}
+            onSelect={commit}
+            header={header}
+          />
+        )}
       </PopoverContent>
     </Popover>
   );

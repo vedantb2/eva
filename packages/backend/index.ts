@@ -14,6 +14,8 @@ export {
   getAIModelProvider,
   getVisibleAIModelOptions,
   getSimpleViewModelOptions,
+  SIMPLE_VIEW_MODEL_LADDER,
+  snapToSimpleViewLadder,
   getModelTraits,
   resolveTraitsForDisplay,
   buildTraitsExecutionPayload,

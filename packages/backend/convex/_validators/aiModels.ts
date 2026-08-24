@@ -751,9 +751,38 @@ const SIMPLE_VIEW_MODEL_IDS: ReadonlySet<AIModel> = new Set<AIModel>([
   "codex:gpt-5.6-terra",
   "codex:gpt-5.6-luna",
   "cursor:grok-4.6",
+  "cursor:grok-4.5",
   "cursor:composer-2.5",
   "opencode:openai/gpt-5.4",
 ]);
+
+/**
+ * Capability ladder for the simple-view slider, cheapest → strongest.
+ * Advanced still lists the trimmed set above; this is only the five ticks.
+ */
+export const SIMPLE_VIEW_MODEL_LADDER: ReadonlyArray<AIModel> = [
+  "cursor:composer-2.5",
+  "cursor:grok-4.5",
+  "cursor:grok-4.6",
+  "claude:opus",
+  "claude:claude-fable-5",
+];
+
+/**
+ * Maps any current model onto a ladder tick so the slider has a position
+ * without rewriting the selection. Moving the thumb commits a ladder model.
+ */
+export function snapToSimpleViewLadder(model: string): AIModel {
+  const normalized = normalizeAIModel(model);
+  for (const step of SIMPLE_VIEW_MODEL_LADDER) {
+    if (step === normalized) return step;
+  }
+  if (normalized.includes("fable")) return "claude:claude-fable-5";
+  if (getAIModelProvider(normalized) === "claude") return "claude:opus";
+  if (normalized.includes("composer")) return "cursor:composer-2.5";
+  if (normalized.includes("grok-4.5")) return "cursor:grok-4.5";
+  return "cursor:grok-4.6";
+}
 
 /**
  * Trims the picker to the simple-view set. The current model is always kept so

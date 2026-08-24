@@ -1,5 +1,10 @@
 # Changelog
 
+## Simple view picks models with a five-step slider - 2026-08-24
+
+The trimmed model list was still a search-and-rail picker, which is the advanced surface. Simple view now opens a discrete ladder — Composer, Grok 4.5, Grok 4.6, Opus, Fable — and Advanced restores the list. Off-ladder sessions keep their current model until the thumb moves; crossing Cursor to Claude still uses the existing conversation handoff.
+
+
 ## A model switch no longer leaves Ave stuck on Working for minutes - 2026-08-24
 
 The ~3 minute delay on a Manager Ave send was not sandbox boot (resume was 8s). Opening the popover prewarms a daemon with `session.lastModel` and takes the launch lease. Sending on a different model (here 4.6 → 4.5) schedules one matching prewarm, which used to return the moment it saw `launch lease held`. The leftover 4.6 process then mismatch-polled `claimPendingTurn` and nobody retried 4.5 until a later prewarm happened to run.

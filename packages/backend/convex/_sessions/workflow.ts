@@ -946,29 +946,39 @@ export const claimPendingTurn = authMutation({
     sessionId: v.id("sessions"),
     model: v.optional(aiModelValidator),
   },
-  returns: v.object({
-    prompt: v.union(v.string(), v.null()),
-    turnId: v.optional(v.id("turns")),
-    leaseGeneration: v.optional(v.number()),
-    // Resolved download URLs for this turn's input image attachments. The daemon
-    // fetches these and hands the agent local file paths before running the turn.
-    attachmentUrls: v.array(v.string()),
-    stopTaskToolUseIds: v.array(v.string()),
-    cancelRequested: v.boolean(),
-  }),
+  returns: v.union(
+    v.object({
+      prompt: v.union(v.string(), v.null()),
+      turnLifecycle: v.literal("legacy"),
+      // Resolved download URLs for this turn's input image attachments. The daemon
+      // fetches these and hands the agent local file paths before running the turn.
+      attachmentUrls: v.array(v.string()),
+      stopTaskToolUseIds: v.array(v.string()),
+      cancelRequested: v.boolean(),
+    }),
+    v.object({
+      prompt: v.string(),
+      turnLifecycle: v.literal("durable"),
+      turnId: v.id("turns"),
+      leaseGeneration: v.number(),
+      attachmentUrls: v.array(v.string()),
+      stopTaskToolUseIds: v.array(v.string()),
+      cancelRequested: v.boolean(),
+    }),
+  ),
   handler: async (ctx, args) => {
     const emptyClaim = {
       prompt: null,
+      turnLifecycle: "legacy",
       attachmentUrls: [],
       stopTaskToolUseIds: [],
       cancelRequested: false,
     } satisfies {
       prompt: null;
+      turnLifecycle: "legacy";
       attachmentUrls: string[];
       stopTaskToolUseIds: string[];
       cancelRequested: boolean;
-      turnId?: Id<"turns">;
-      leaseGeneration?: number;
     };
     let daemonState = await ctx.db
       .query("sessionDaemonStates")
@@ -1061,13 +1071,18 @@ export const claimPendingTurn = authMutation({
     console.log(
       `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} claimWaitMs=${claimWaitMs} attachments=${attachmentUrls.length}`,
     );
-    return {
+    const claimedTurn = {
       prompt,
       attachmentUrls,
       stopTaskToolUseIds,
       cancelRequested,
-      ...(turnLease ?? {}),
     };
+    if (turnLease === null) {
+      const turnLifecycle: "legacy" = "legacy";
+      return { ...claimedTurn, turnLifecycle };
+    }
+    const turnLifecycle: "durable" = "durable";
+    return { ...claimedTurn, turnLifecycle, ...turnLease };
   },
 });
 

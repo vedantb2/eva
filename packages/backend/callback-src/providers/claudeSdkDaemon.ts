@@ -70,7 +70,6 @@ import { persistTurnWork } from "../runtime/turnPersist.js";
 import {
   getCurrentTurnLease,
   setCurrentTurnLease,
-  type TurnLeaseIdentity,
 } from "../runtime/turnLease.js";
 import { log, readResponseJson } from "../utils.js";
 import type { JsonObject, JsonValue } from "../types.js";
@@ -80,6 +79,13 @@ import {
   readStopTaskToolUseIds,
   readTurnLeaseIdentity,
 } from "./claimPendingTurnParse.js";
+import {
+  appendClaimedTurnCompletion,
+  finishClaimedTurn,
+  readClaimedTurn,
+  startClaimedTurn,
+  type ClaimedTurn,
+} from "./claimedTurnLifecycle.js";
 import { isZeroWorkTaskNotificationResult } from "./claudeResult.js";
 
 function sleep(ms: number): Promise<void> {
@@ -157,12 +163,6 @@ const CANCEL_SETTLE_TIMEOUT_MS = 30_000;
 let turnActive = false;
 let turnStartedAtMs = 0;
 let lastMessageAtMs = 0;
-
-type ClaimedTurn = {
-  prompt: string;
-  attachmentUrls: string[];
-  turnLease: TurnLeaseIdentity | null;
-};
 
 type DaemonMessage = Record<string, JsonValue>;
 
@@ -250,15 +250,20 @@ function endWatchedTurn(): void {
 async function failTurnAndExit(error: string): Promise<never> {
   log("daemon: failing turn — " + error);
   try {
-    await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
+    const completionArgs: JsonObject = {
       [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
       success: false,
       result: null,
       error,
       activityLog: serializeSteps(S.accumulatedSteps),
       ...(RUN_ID ? { runId: RUN_ID } : {}),
-      ...(getCurrentTurnLease() ?? {}),
-    });
+    };
+    appendClaimedTurnCompletion(completionArgs);
+    await callConvexWithRetry(
+      "mutation",
+      COMPLETION_MUTATION ?? "",
+      completionArgs,
+    );
   } catch {
     /* best-effort: exit regardless so the daemon does not wedge */
   }
@@ -491,11 +496,7 @@ async function finalizeTurn(
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
-  const turnLease = getCurrentTurnLease();
-  if (turnLease) {
-    completionArgs.turnId = turnLease.turnId;
-    completionArgs.leaseGeneration = turnLease.leaseGeneration;
-  }
+  appendClaimedTurnCompletion(completionArgs);
   // Final streaming reconcile BEFORE completion. The completion mutation
   // finalizes the assistant message, after which the server clears the
   // streaming row and may immediately dequeue the next queued turn — so this
@@ -514,7 +515,7 @@ async function finalizeTurn(
   // that was just written.
   const completionSentAt = Date.now();
   await deliverCompletionWithMedia(completionArgs);
-  setCurrentTurnLease(null);
+  finishClaimedTurn();
   log(
     "daemon: turn finalized success=" +
       success +
@@ -541,55 +542,6 @@ async function finalizeTurn(
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms",
   );
-}
-
-/**
- * Reads the `prompt` string out of a claimPendingTurn result. The Convex
- * `/api/mutation` HTTP endpoint wraps the return value in `{ status, value }`
- * (same envelope readToken() unwraps for `/api/action`), so the actual
- * `{ prompt }` lives under `.value`. Falls back to the top level in case an
- * unwrapped value is ever passed.
- */
-function readClaimedPrompt(result: JsonValue): string | null {
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return null;
-  }
-  const inner = result.value;
-  const payload =
-    typeof inner === "object" && inner !== null && !Array.isArray(inner)
-      ? inner
-      : result;
-  const prompt = payload.prompt;
-  return typeof prompt === "string" ? prompt : null;
-}
-
-function readClaimedAttachmentUrls(payload: {
-  [key: string]: JsonValue;
-}): string[] {
-  const field = payload.attachmentUrls;
-  if (!Array.isArray(field)) {
-    return [];
-  }
-  return field.filter((url): url is string => typeof url === "string");
-}
-function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
-  const prompt = readClaimedPrompt(result);
-  if (prompt === null) {
-    return null;
-  }
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return { prompt, attachmentUrls: [], turnLease: null };
-  }
-  const inner = result.value;
-  const payload =
-    typeof inner === "object" && inner !== null && !Array.isArray(inner)
-      ? inner
-      : result;
-  return {
-    prompt,
-    attachmentUrls: readClaimedAttachmentUrls(payload),
-    turnLease: readTurnLeaseIdentity(result),
-  };
 }
 
 function readSyntheticTurnMessageId(result: JsonValue): string | null {
@@ -1112,11 +1064,11 @@ function startRealAgentTurn(turn: ClaimedTurn, agentRunner: WarmRunner): void {
   // messages must stay queued so the main loop can open a synthetic turn (or
   // attribute them into this real turn once it is live).
   resetTurnState();
-  setCurrentTurnLease(turn.turnLease);
   if (!supervisor.startTurn({ kind: "real" })) {
     log("daemon: claimed turn could not enter running state");
     return;
   }
+  startClaimedTurn(turn);
   agentTurnStartedAt = Date.now();
   sawFirstMessageThisTurn = { value: false };
   sawAssistantThisTurn = { value: false };
@@ -1310,7 +1262,7 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
       // the cancel. Reset per-turn state and let the pump either pick up a
       // parked turn (next loop iteration) or go idle.
       resetTurnState();
-      setCurrentTurnLease(null);
+      finishClaimedTurn();
       supervisor.settleTurn();
       agentTurnOutput = "";
       continue;

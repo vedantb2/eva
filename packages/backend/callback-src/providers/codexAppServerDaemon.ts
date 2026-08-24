@@ -38,21 +38,20 @@ import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
 import { DaemonSupervisor } from "../runtime/daemonSupervisor.js";
 import {
-  getCurrentTurnLease,
-  setCurrentTurnLease,
-  type TurnLeaseIdentity,
-} from "../runtime/turnLease.js";
-import {
   prepareCodexSessionState,
   syncCodexStateToPersist,
   writeCodexSessionState,
 } from "../session/codexSession.js";
 import type { JsonObject, JsonValue, SessionMode } from "../types.js";
 import { attemptElapsedMs, log, readResponseJson } from "../utils.js";
+import { readCancelRequested } from "./claimPendingTurnParse.js";
 import {
-  readCancelRequested,
-  readTurnLeaseIdentity,
-} from "./claimPendingTurnParse.js";
+  appendClaimedTurnCompletion,
+  finishClaimedTurn,
+  readClaimedTurn,
+  startClaimedTurn,
+  type ClaimedTurn,
+} from "./claimedTurnLifecycle.js";
 import {
   CodexAppServerClient,
   type AppServerNotification,
@@ -67,11 +66,6 @@ const POLL_INTERVAL_MS = 50;
 const FENCE_POLL_INTERVAL_MS = 5000;
 const NO_EVENT_TIMEOUT_MS = 5 * 60 * 1000;
 
-type ClaimedTurn = {
-  prompt: string;
-  attachmentUrls: string[];
-  turnLease: TurnLeaseIdentity | null;
-};
 type CodexDaemonTurn = { providerTurnId: string };
 
 const paths = resolveDaemonPaths();
@@ -156,25 +150,6 @@ function resetTurnState(): void {
   S.lastStepType = "thinking";
   activeTurnStartedAt = 0;
   finalText = "";
-}
-
-function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
-  const root = objectValue(result);
-  const payload =
-    Object.keys(objectValue(root.value)).length > 0
-      ? objectValue(root.value)
-      : root;
-  if (typeof payload.prompt !== "string") return null;
-  const attachmentUrls = Array.isArray(payload.attachmentUrls)
-    ? payload.attachmentUrls.filter(
-        (url): url is string => typeof url === "string",
-      )
-    : [];
-  return {
-    prompt: payload.prompt,
-    attachmentUrls,
-    turnLease: readTurnLeaseIdentity(result),
-  };
 }
 
 function emitEvent(event: JsonObject): void {
@@ -262,14 +237,13 @@ async function finalizeTurn(
   if (await setFinalizingState()) return;
   persistTurnWork();
   const usage = computeTurnUsageDelta(turnStartUsage, threadTotalUsage);
-  await deliverCompletionWithMedia({
+  const completionArgs: JsonObject = {
     [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
     success,
     result,
     error,
     activityLog: serializeSteps(S.accumulatedSteps),
     ...(RUN_ID ? { runId: RUN_ID } : {}),
-    ...(getCurrentTurnLease() ?? {}),
     ...(usage
       ? {
           rawResultEvent: buildClaudeShapedResult({
@@ -292,8 +266,10 @@ async function finalizeTurn(
           }),
         }
       : {}),
-  });
-  setCurrentTurnLease(null);
+  };
+  appendClaimedTurnCompletion(completionArgs);
+  await deliverCompletionWithMedia(completionArgs);
+  finishClaimedTurn();
   syncCodexStateToPersist();
   log("codex daemon: turn finalized success=" + success);
 }
@@ -334,7 +310,7 @@ function processNotification(
   const status = typeof turn.status === "string" ? turn.status : "failed";
   lastIdleActivityAt = Date.now();
   if (supervisor.isCancellationInFlight || status === "interrupted") {
-    setCurrentTurnLease(null);
+    finishClaimedTurn();
     resetTurnState();
     supervisor.settleTurn();
     return null;
@@ -411,10 +387,10 @@ async function startTurn(
   turn: ClaimedTurn,
 ): Promise<void> {
   resetTurnState();
-  setCurrentTurnLease(turn.turnLease);
   if (!supervisor.beginStarting({ providerTurnId: "" })) {
     throw new Error("Codex daemon could not enter starting state");
   }
+  startClaimedTurn(turn);
   await materializeTurnAttachments(turn);
   const text = SYSTEM_PROMPT
     ? SYSTEM_PROMPT + "\n\n" + turn.prompt

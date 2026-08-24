@@ -5235,6 +5235,68 @@ function readTurnLeaseIdentity(result) {
   return { turnId, leaseGeneration };
 }
 
+// callback-src/providers/claimedTurnLifecycle.ts
+var activeClaimState = { status: "idle" };
+function claimPayload2(result) {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return null;
+  }
+  const inner = result.value;
+  return typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+}
+function readClaimedTurn(result) {
+  const payload = claimPayload2(result);
+  if (!payload || typeof payload.prompt !== "string") return null;
+  const lifecycle = payload.turnLifecycle;
+  if (lifecycle !== void 0 && lifecycle !== "legacy" && lifecycle !== "durable") {
+    throw new Error("Claimed turn returned an invalid lifecycle discriminator");
+  }
+  const attachmentUrls = Array.isArray(payload.attachmentUrls) ? payload.attachmentUrls.filter(
+    (url) => typeof url === "string"
+  ) : [];
+  const turnLease = readTurnLeaseIdentity(result);
+  if (lifecycle === "durable" && turnLease === null) {
+    throw new Error("Durable claimed turn did not include a lease identity");
+  }
+  if (lifecycle === "legacy" && turnLease !== null) {
+    throw new Error("Legacy claimed turn unexpectedly included a lease identity");
+  }
+  if (turnLease !== null) {
+    return {
+      lifecycle: "durable",
+      prompt: payload.prompt,
+      attachmentUrls,
+      turnLease
+    };
+  }
+  return {
+    lifecycle: "legacy",
+    prompt: payload.prompt,
+    attachmentUrls,
+    turnLease: null
+  };
+}
+function startClaimedTurn(turn) {
+  if (activeClaimState.status === "active") {
+    throw new Error("Cannot start a claimed turn while another claim is active");
+  }
+  activeClaimState = turn.lifecycle === "durable" ? { status: "active", lifecycle: "durable", turnLease: turn.turnLease } : { status: "active", lifecycle: "legacy" };
+  setCurrentTurnLease(turn.turnLease);
+}
+function appendClaimedTurnCompletion(args) {
+  if (activeClaimState.status !== "active") {
+    throw new Error("Cannot complete a claimed turn before it starts");
+  }
+  if (activeClaimState.lifecycle === "durable") {
+    args.turnId = activeClaimState.turnLease.turnId;
+    args.leaseGeneration = activeClaimState.turnLease.leaseGeneration;
+  }
+}
+function finishClaimedTurn() {
+  activeClaimState = { status: "idle" };
+  setCurrentTurnLease(null);
+}
+
 // callback-src/providers/claudeSdkDaemon.ts
 function sleep2(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -5302,15 +5364,20 @@ function endWatchedTurn() {
 async function failTurnAndExit(error) {
   log("daemon: failing turn \\u2014 " + error);
   try {
-    await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
+    const completionArgs = {
       [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
       success: false,
       result: null,
       error,
       activityLog: serializeSteps(callbackState.accumulatedSteps),
-      ...RUN_ID ? { runId: RUN_ID } : {},
-      ...getCurrentTurnLease() ?? {}
-    });
+      ...RUN_ID ? { runId: RUN_ID } : {}
+    };
+    appendClaimedTurnCompletion(completionArgs);
+    await callConvexWithRetry(
+      "mutation",
+      COMPLETION_MUTATION ?? "",
+      completionArgs
+    );
   } catch {
   }
   if (readDaemonPidFile() === process.pid) {
@@ -5480,16 +5547,12 @@ async function finalizeTurn(output, readUsage) {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
-  const turnLease = getCurrentTurnLease();
-  if (turnLease) {
-    completionArgs.turnId = turnLease.turnId;
-    completionArgs.leaseGeneration = turnLease.leaseGeneration;
-  }
+  appendClaimedTurnCompletion(completionArgs);
   if (await setFinalizingState()) return;
   persistTurnWork();
   const completionSentAt = Date.now();
   await deliverCompletionWithMedia(completionArgs);
-  setCurrentTurnLease(null);
+  finishClaimedTurn();
   log(
     "daemon: turn finalized success=" + success + " steps=" + activityLog.length + " (completion mutation " + (Date.now() - completionSentAt) + "ms)"
   );
@@ -5502,38 +5565,6 @@ async function finalizeTurn(output, readUsage) {
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
   );
-}
-function readClaimedPrompt(result) {
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return null;
-  }
-  const inner = result.value;
-  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
-  const prompt = payload.prompt;
-  return typeof prompt === "string" ? prompt : null;
-}
-function readClaimedAttachmentUrls(payload) {
-  const field = payload.attachmentUrls;
-  if (!Array.isArray(field)) {
-    return [];
-  }
-  return field.filter((url) => typeof url === "string");
-}
-function readClaimedTurn(result) {
-  const prompt = readClaimedPrompt(result);
-  if (prompt === null) {
-    return null;
-  }
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return { prompt, attachmentUrls: [], turnLease: null };
-  }
-  const inner = result.value;
-  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
-  return {
-    prompt,
-    attachmentUrls: readClaimedAttachmentUrls(payload),
-    turnLease: readTurnLeaseIdentity(result)
-  };
 }
 function readSyntheticTurnMessageId(result) {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
@@ -5942,11 +5973,11 @@ async function finalizeSyntheticTurn(output) {
 }
 function startRealAgentTurn(turn, agentRunner) {
   resetTurnState();
-  setCurrentTurnLease(turn.turnLease);
   if (!supervisor.startTurn({ kind: "real" })) {
     log("daemon: claimed turn could not enter running state");
     return;
   }
+  startClaimedTurn(turn);
   agentTurnStartedAt = Date.now();
   sawFirstMessageThisTurn = { value: false };
   sawAssistantThisTurn = { value: false };
@@ -6084,7 +6115,7 @@ async function runDaemonMessagePump(agentRunner) {
         continue;
       }
       resetTurnState();
-      setCurrentTurnLease(null);
+      finishClaimedTurn();
       supervisor.settleTurn();
       agentTurnOutput = "";
       continue;
@@ -6550,19 +6581,6 @@ function resetTurnState2() {
   activeTurnStartedAt = 0;
   finalText = "";
 }
-function readClaimedTurn2(result) {
-  const root = objectValue2(result);
-  const payload = Object.keys(objectValue2(root.value)).length > 0 ? objectValue2(root.value) : root;
-  if (typeof payload.prompt !== "string") return null;
-  const attachmentUrls = Array.isArray(payload.attachmentUrls) ? payload.attachmentUrls.filter(
-    (url) => typeof url === "string"
-  ) : [];
-  return {
-    prompt: payload.prompt,
-    attachmentUrls,
-    turnLease: readTurnLeaseIdentity(result)
-  };
-}
 function emitEvent(event) {
   const line = JSON.stringify(event) + "\\n";
   appendToRawLogFile(line);
@@ -6616,14 +6634,13 @@ async function finalizeTurn2(success, error) {
   if (await setFinalizingState()) return;
   persistTurnWork();
   const usage = computeTurnUsageDelta(turnStartUsage, threadTotalUsage);
-  await deliverCompletionWithMedia({
+  const completionArgs = {
     [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
     success,
     result,
     error,
     activityLog: serializeSteps(callbackState.accumulatedSteps),
     ...RUN_ID ? { runId: RUN_ID } : {},
-    ...getCurrentTurnLease() ?? {},
     ...usage ? {
       rawResultEvent: buildClaudeShapedResult({
         provider: "codex",
@@ -6644,8 +6661,10 @@ async function finalizeTurn2(success, error) {
         model: normalizedCodexModel
       })
     } : {}
-  });
-  setCurrentTurnLease(null);
+  };
+  appendClaimedTurnCompletion(completionArgs);
+  await deliverCompletionWithMedia(completionArgs);
+  finishClaimedTurn();
   syncCodexStateToPersist();
   log("codex daemon: turn finalized success=" + success);
 }
@@ -6679,7 +6698,7 @@ function processNotification(notification) {
   const status = typeof turn.status === "string" ? turn.status : "failed";
   lastIdleActivityAt = Date.now();
   if (supervisor2.isCancellationInFlight || status === "interrupted") {
-    setCurrentTurnLease(null);
+    finishClaimedTurn();
     resetTurnState2();
     supervisor2.settleTurn();
     return null;
@@ -6745,10 +6764,10 @@ async function establishThread(client, sessionMode) {
 }
 async function startTurn(client, turn) {
   resetTurnState2();
-  setCurrentTurnLease(turn.turnLease);
   if (!supervisor2.beginStarting({ providerTurnId: "" })) {
     throw new Error("Codex daemon could not enter starting state");
   }
+  startClaimedTurn(turn);
   await materializeTurnAttachments(turn);
   const text = SYSTEM_PROMPT ? SYSTEM_PROMPT + "\\n\\n" + turn.prompt : turn.prompt;
   activeTurnStartedAt = Date.now();
@@ -6852,7 +6871,7 @@ async function runCodexAppServerDaemon() {
           log("codex daemon: interrupt failed \\u2014 " + message);
         });
       }
-      const claimedTurn = readClaimedTurn2(claimed);
+      const claimedTurn = readClaimedTurn(claimed);
       if (claimedTurn) {
         if (supervisor2.currentTurn === null || supervisor2.isCancellationInFlight) {
           if (!supervisor2.parkClaim(claimedTurn)) {
@@ -7414,20 +7433,6 @@ function resetTurnState3() {
   callbackState.todoState.length = 0;
   callbackState.lastStepType = "thinking";
 }
-function readClaimedTurn3(result) {
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return null;
-  }
-  const inner = result.value;
-  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
-  if (typeof payload.prompt !== "string") return null;
-  const urls = payload.attachmentUrls;
-  return {
-    prompt: payload.prompt,
-    attachmentUrls: Array.isArray(urls) ? urls.filter((url) => typeof url === "string") : [],
-    turnLease: readTurnLeaseIdentity(result)
-  };
-}
 async function ensureGithubToken3() {
   if (!REPO_ID || !CONVEX_URL || !CONVEX_TOKEN) return;
   try {
@@ -7507,7 +7512,7 @@ async function finalizeTurn3(attempt) {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
-  appendCurrentTurnLease(completionArgs);
+  appendClaimedTurnCompletion(completionArgs);
   if (await setFinalizingState()) return;
   persistTurnWork();
   await deliverCompletionWithMedia(completionArgs);
@@ -7524,7 +7529,7 @@ async function failTurnAndExit2(error) {
       activityLog: serializeSteps(callbackState.accumulatedSteps),
       ...RUN_ID ? { runId: RUN_ID } : {}
     });
-    appendCurrentTurnLease(completionArgs);
+    appendClaimedTurnCompletion(completionArgs);
     await callConvexWithRetry(
       "mutation",
       COMPLETION_MUTATION ?? "",
@@ -7599,7 +7604,7 @@ function startClaimWatcher2() {
           entityMutationArgs2({ model: MODEL })
         );
         if (readCancelRequested(claimed)) handleCancelRequested2();
-        const turn = readClaimedTurn3(claimed);
+        const turn = readClaimedTurn(claimed);
         if (turn !== null) {
           await materializeTurnAttachments(turn);
           lastIdleActivityAtMs2 = Date.now();
@@ -7634,7 +7639,7 @@ function handleCancelRequested2() {
 }
 async function runClaimedTurn(turn) {
   resetTurnState3();
-  setCurrentTurnLease(turn.turnLease);
+  startClaimedTurn(turn);
   turnActive2 = true;
   turnStartedAtMs2 = Date.now();
   abortActiveTurn = null;
@@ -7676,7 +7681,7 @@ async function runClaimedTurn(turn) {
         activityLog: serializeSteps(callbackState.accumulatedSteps),
         ...RUN_ID ? { runId: RUN_ID } : {}
       };
-      appendCurrentTurnLease(completionArgs);
+      appendClaimedTurnCompletion(completionArgs);
       await deliverCompletionWithMedia(completionArgs);
     } catch {
     }
@@ -7684,7 +7689,7 @@ async function runClaimedTurn(turn) {
     turnActive2 = false;
     abortActiveTurn = null;
     cancelInFlight = false;
-    setCurrentTurnLease(null);
+    finishClaimedTurn();
     lastIdleActivityAtMs2 = Date.now();
   }
 }

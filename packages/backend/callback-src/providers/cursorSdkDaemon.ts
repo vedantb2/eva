@@ -30,11 +30,6 @@ import {
 } from "../runtime/heartbeats.js";
 import { callbackState as S } from "../runtime/state.js";
 import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
-import {
-  appendCurrentTurnLease,
-  setCurrentTurnLease,
-  type TurnLeaseIdentity,
-} from "../runtime/turnLease.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
 import {
   prepareCursorSessionState,
@@ -42,10 +37,14 @@ import {
 } from "../session/cursorSession.js";
 import type { JsonValue, ProviderAttemptResult } from "../types.js";
 import { log, readResponseJson } from "../utils.js";
+import { readCancelRequested } from "./claimPendingTurnParse.js";
 import {
-  readCancelRequested,
-  readTurnLeaseIdentity,
-} from "./claimPendingTurnParse.js";
+  appendClaimedTurnCompletion,
+  finishClaimedTurn,
+  readClaimedTurn,
+  startClaimedTurn,
+  type ClaimedTurn,
+} from "./claimedTurnLifecycle.js";
 import { runCursorSdkAttempt } from "./cursorSdk.js";
 import {
   resolveDaemonPaths,
@@ -72,12 +71,6 @@ const TURN_HARD_TIMEOUT_MS = MAX_TOTAL_RUNTIME_MS + 5 * 60 * 1000;
 // Safety net for a cancel whose run never settles (mirrors the Claude daemon's
 // CANCEL_SETTLE_TIMEOUT_MS): exit for respawn rather than wedge.
 const CANCEL_SETTLE_TIMEOUT_MS = 30_000;
-
-type ClaimedTurn = {
-  prompt: string;
-  attachmentUrls: string[];
-  turnLease: TurnLeaseIdentity | null;
-};
 
 const daemonPaths = resolveDaemonPaths();
 
@@ -155,27 +148,6 @@ function resetTurnState(): void {
   S.pendingQuestionData = "";
   S.todoState.length = 0;
   S.lastStepType = "thinking";
-}
-
-/** Unwraps `{ status, value }` from the claim mutation's HTTP envelope. */
-export function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return null;
-  }
-  const inner = result.value;
-  const payload =
-    typeof inner === "object" && inner !== null && !Array.isArray(inner)
-      ? inner
-      : result;
-  if (typeof payload.prompt !== "string") return null;
-  const urls = payload.attachmentUrls;
-  return {
-    prompt: payload.prompt,
-    attachmentUrls: Array.isArray(urls)
-      ? urls.filter((url): url is string => typeof url === "string")
-      : [],
-    turnLease: readTurnLeaseIdentity(result),
-  };
 }
 
 /** Sessions may push git commits; refresh the installation token like the one-shot path. */
@@ -285,7 +257,7 @@ async function finalizeTurn(attempt: ProviderAttemptResult): Promise<void> {
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
-  appendCurrentTurnLease(completionArgs);
+  appendClaimedTurnCompletion(completionArgs);
   // Final streaming reconcile BEFORE completion: the completion mutation
   // finalizes the assistant message and the server may dequeue the next turn
   // straight after, so writing streaming state past that point resurrects this
@@ -314,7 +286,7 @@ async function failTurnAndExit(error: string): Promise<never> {
       activityLog: serializeSteps(S.accumulatedSteps),
       ...(RUN_ID ? { runId: RUN_ID } : {}),
     });
-    appendCurrentTurnLease(completionArgs);
+    appendClaimedTurnCompletion(completionArgs);
     await callConvexWithRetry(
       "mutation",
       COMPLETION_MUTATION ?? "",
@@ -462,7 +434,7 @@ function handleCancelRequested(): void {
  */
 async function runClaimedTurn(turn: ClaimedTurn): Promise<void> {
   resetTurnState();
-  setCurrentTurnLease(turn.turnLease);
+  startClaimedTurn(turn);
   turnActive = true;
   turnStartedAtMs = Date.now();
   abortActiveTurn = null;
@@ -506,7 +478,7 @@ async function runClaimedTurn(turn: ClaimedTurn): Promise<void> {
         activityLog: serializeSteps(S.accumulatedSteps),
         ...(RUN_ID ? { runId: RUN_ID } : {}),
       };
-      appendCurrentTurnLease(completionArgs);
+      appendClaimedTurnCompletion(completionArgs);
       await deliverCompletionWithMedia(completionArgs);
     } catch {
       /* best-effort — the watchdog and stall recovery own the rest */
@@ -515,7 +487,7 @@ async function runClaimedTurn(turn: ClaimedTurn): Promise<void> {
     turnActive = false;
     abortActiveTurn = null;
     cancelInFlight = false;
-    setCurrentTurnLease(null);
+    finishClaimedTurn();
     lastIdleActivityAtMs = Date.now();
   }
 }

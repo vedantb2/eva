@@ -1,8 +1,8 @@
 # Changelog
 
-## Cursor turns keep their durable lease - 2026-08-24
+## Claimed turns share one durable lifecycle contract - 2026-08-24
 
-The Cursor daemon claimed staged chat turns but discarded the lease identity returned by Convex. Claiming moved the turn into its two-minute running window while every subsequent heartbeat deliberately skipped renewal because the callback could not prove ownership, so healthy Cursor work was finalized as stalled at almost exactly two minutes; Claude already preserved the same identity and was unaffected. Cursor now carries the lease from claim through heartbeats and every completion path, clears it between warm-daemon turns, and has regression coverage for enveloped claims, legacy claims, lease installation, fenced completion, and cleanup.
+Cursor claimed staged chat turns but discarded the lease identity returned by Convex, so every heartbeat deliberately skipped renewal and healthy work was finalized as stalled at almost exactly two minutes. Claim responses now identify durable versus legacy execution explicitly, and Claude, Cursor, and Codex all cross the same typed lifecycle boundary to parse ownership, install its heartbeat fence before provider work, fence every completion, and clear warm-process state. Durable claims without a lease are rejected before provider work, while one shared behavioral suite and a cross-provider contract matrix prevent an adapter from silently bypassing these invariants again.
 
 ## Synthetic Claude replies now deliver their screenshots - 2026-08-23
 

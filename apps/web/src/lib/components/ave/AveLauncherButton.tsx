@@ -18,7 +18,7 @@ function AveActiveDot() {
   return (
     <>
       <span
-        className="absolute right-0.5 top-0.5 size-2.5 rounded-full bg-success ring-2 ring-background"
+        className="absolute -right-0.5 -top-0.5 size-2.5 rounded-full bg-success ring-2 ring-background"
         aria-hidden
       />
       <span className="sr-only">Sandbox active</span>
@@ -59,9 +59,11 @@ export function AveLauncherButton({
             "flex size-12 items-center justify-center rounded-full",
             "smooth-shadow-ring-lg hover:scale-[1.03] active:scale-[0.94]",
             "focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40",
+            // AveMark clips the star. The sandbox pip hangs off the corner
+            // like a rail tile, so this circle must not clip descendants.
             isOpen
               ? "bg-popover/95 text-popover-foreground backdrop-blur-md"
-              : "overflow-hidden bg-transparent",
+              : "bg-transparent",
           )}
         >
           {/* Open → a close affordance: the mark says "summon Ave", but once the

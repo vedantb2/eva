@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { IconChevronRight } from "@tabler/icons-react";
 import { cn } from "../utils/cn";
+import { Slider } from "../ui/slider";
 import type { ModelOption } from "./model-picker-types";
 
 /**
@@ -36,24 +37,35 @@ export function SimpleModelLadder<TModel extends string>({
       if (step.id === value) break;
     }
   }
-  const fillPct = lastIndex <= 0 ? 0 : (index / lastIndex) * 100;
   const selected = steps[index];
 
-  const applyIndex = (raw: string) => {
-    const next = Number.parseInt(raw, 10);
-    const step = Number.isInteger(next) ? steps[next] : undefined;
+  const applyIndex = (next: number) => {
+    const step = steps[next];
     if (!step) return;
     onValueChange(step.id);
   };
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative flex h-5 items-center">
-        <div className="pointer-events-none absolute inset-x-2 h-1.5 rounded-full bg-muted">
-          <div
-            className="h-full rounded-full bg-primary"
-            style={{ width: `${fillPct}%` }}
-          />
+      <Slider
+        min={0}
+        max={lastIndex}
+        step={1}
+        value={[index]}
+        disabled={disabled || lastIndex <= 0}
+        aria-label="Model"
+        aria-valuetext={selected?.label}
+        onValueChange={(values) => {
+          const next = values[0];
+          if (next === undefined) return;
+          applyIndex(next);
+        }}
+        onPointerDown={() => setDragging(true)}
+        onPointerUp={() => setDragging(false)}
+        onPointerCancel={() => setDragging(false)}
+        onValueCommit={() => setDragging(false)}
+      >
+        <div className="pointer-events-none absolute inset-x-3 top-1/2 z-[1] h-5 -translate-y-1/2">
           {steps.map((step, tickIndex) => (
             <span
               key={step.id}
@@ -70,32 +82,7 @@ export function SimpleModelLadder<TModel extends string>({
             />
           ))}
         </div>
-        <input
-          type="range"
-          min={0}
-          max={lastIndex}
-          step={1}
-          value={index}
-          disabled={disabled || lastIndex <= 0}
-          aria-label="Model"
-          aria-valuetext={selected?.label}
-          onPointerDown={(event) => {
-            event.currentTarget.setPointerCapture(event.pointerId);
-            setDragging(true);
-          }}
-          onPointerUp={() => setDragging(false)}
-          onPointerCancel={() => setDragging(false)}
-          onChange={(event) => applyIndex(event.currentTarget.value)}
-          onInput={(event) => applyIndex(event.currentTarget.value)}
-          className={cn(
-            "relative z-10 h-5 w-full cursor-pointer appearance-none bg-transparent",
-            "disabled:cursor-not-allowed disabled:opacity-50",
-            "[&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:bg-transparent",
-            "[&::-webkit-slider-thumb]:relative [&::-webkit-slider-thumb]:z-10 [&::-webkit-slider-thumb]:size-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-background [&::-webkit-slider-thumb]:shadow-sm [&::-webkit-slider-thumb]:ring-1 [&::-webkit-slider-thumb]:ring-border",
-            "[&::-moz-range-track]:h-1.5 [&::-moz-range-track]:bg-transparent [&::-moz-range-thumb]:size-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-background [&::-moz-range-thumb]:shadow-sm",
-          )}
-        />
-      </div>
+      </Slider>
       <div className="flex min-h-5 items-center">
         {dragging ? (
           <div className="flex w-full justify-between text-[11px] font-medium text-muted-foreground">

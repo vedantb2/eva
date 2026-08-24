@@ -18,6 +18,7 @@ import {
   REPO_ID,
   RUN_ID,
 } from "../config.js";
+import { evaMcpWorkerHandoffEnv } from "../evaMcp.js";
 import { callConvexWithRetry, fetchWithTimeout } from "../http/convexClient.js";
 import { serializeSteps } from "../parse/stepBudget.js";
 import {
@@ -173,12 +174,22 @@ function waitForCursorTurnWorker(child: ChildProcess): Promise<CursorTurnWorkerE
   });
 }
 
-function spawnCursorTurnWorker(
+/**
+ * The environment for one disposable turn worker. The daemon's own module load
+ * scrubbed the eva MCP transport variables from `process.env`, so a plain
+ * inherit leaves the worker without the eva MCP server for the whole turn —
+ * hand them back explicitly; the worker consumes and scrubs them again at
+ * import, before the Cursor SDK spawns any agent tool processes.
+ */
+export function buildCursorTurnWorkerEnv(
+  baseEnv: NodeJS.ProcessEnv,
+  mcpHandoffEnv: Record<string, string>,
   turn: ClaimedTurn,
   promptFile: string,
-): ChildProcess {
+): NodeJS.ProcessEnv {
   const workerEnv: NodeJS.ProcessEnv = {
-    ...process.env,
+    ...baseEnv,
+    ...mcpHandoffEnv,
     EVA_CURSOR_TURN_WORKER_PROMPT_FILE: promptFile,
     EVA_CURSOR_TURN_WORKER_LIFECYCLE: turn.lifecycle,
   };
@@ -191,6 +202,19 @@ function spawnCursorTurnWorker(
     delete workerEnv.EVA_CURSOR_TURN_WORKER_TURN_ID;
     delete workerEnv.EVA_CURSOR_TURN_WORKER_LEASE_GENERATION;
   }
+  return workerEnv;
+}
+
+function spawnCursorTurnWorker(
+  turn: ClaimedTurn,
+  promptFile: string,
+): ChildProcess {
+  const workerEnv = buildCursorTurnWorkerEnv(
+    process.env,
+    evaMcpWorkerHandoffEnv,
+    turn,
+    promptFile,
+  );
   const child = spawn(
     process.execPath,
     [

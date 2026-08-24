@@ -70,3 +70,65 @@ export const upsertForProvider = internalMutation({
     return null;
   },
 });
+
+/** Explicit admin/reset path for a bad or obsolete provider catalog. */
+export const clearForProvider = internalMutation({
+  args: { provider: aiProviderValidator },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const row = await ctx.db
+      .query("harnessSkillCatalogs")
+      .withIndex("by_provider", (q) => q.eq("provider", args.provider))
+      .unique();
+    if (row) await ctx.db.delete(row._id);
+    return null;
+  },
+});
+
+const REPORT_TOKEN_GC_BATCH = 20;
+
+/** Registers a random per-launch report token generated in the Node action. */
+export const issueReportToken = internalMutation({
+  args: {
+    tokenHash: v.string(),
+    provider: aiProviderValidator,
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+    expiresAt: v.number(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.db.insert("harnessSkillReportTokens", args);
+    const expired = await ctx.db
+      .query("harnessSkillReportTokens")
+      .withIndex("by_expires_at", (q) => q.lt("expiresAt", Date.now()))
+      .take(REPORT_TOKEN_GC_BATCH);
+    for (const row of expired) await ctx.db.delete(row._id);
+    return null;
+  },
+});
+
+/** Atomically consumes a token, so a leaked sandbox value cannot be replayed. */
+export const consumeReportToken = internalMutation({
+  args: {
+    tokenHash: v.string(),
+    provider: aiProviderValidator,
+    sandboxId: v.string(),
+    repoId: v.string(),
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const row = await ctx.db
+      .query("harnessSkillReportTokens")
+      .withIndex("by_token_hash", (q) => q.eq("tokenHash", args.tokenHash))
+      .unique();
+    if (!row) return false;
+    await ctx.db.delete(row._id);
+    return (
+      row.expiresAt >= Date.now() &&
+      row.provider === args.provider &&
+      row.sandboxId === args.sandboxId &&
+      String(row.repoId) === args.repoId
+    );
+  },
+});

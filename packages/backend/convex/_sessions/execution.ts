@@ -8,7 +8,6 @@ import {
   getAIModelProvider,
   normalizeAIModel,
   reasoningLevelValidator,
-  sessionModeValidator,
   usesChatDaemon,
 } from "../validators";
 import { trackSessionWorkflow } from "../workflowWatchdog";
@@ -16,7 +15,7 @@ import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "../streaming";
 import { syncSessionDaemonState } from "./daemonState";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
-import { buildSessionPrompt, MODE_TOOLS, resolveToolMode } from "./workflow";
+import { buildSessionPrompt, SESSION_TOOLS } from "./workflow";
 import {
   assertProviderAccountUsableBy,
   resolveDefaultProviderAccountId,
@@ -24,6 +23,12 @@ import {
 import type { Doc, Id } from "../_generated/dataModel";
 import type { MutationCtx } from "../_generated/server";
 import { notifyChatMentions } from "../_mentions/notifyChatMentions";
+import {
+  bindTurnWorkflow,
+  closeOpenSessionTurn,
+  closeTurnForWorkflow,
+  openSessionTurn,
+} from "../_chat/turnStore";
 
 async function finalizeOpenSyntheticTurnOnCancel(
   ctx: MutationCtx,
@@ -37,12 +42,11 @@ async function finalizeOpenSyntheticTurnOnCancel(
   }
 }
 
-/** Frontend trigger to start a session execution workflow in the specified mode. */
+/** Frontend trigger to start a session execution workflow. */
 export const startExecute = authMutation({
   args: {
     sessionId: v.id("sessions"),
     message: v.string(),
-    mode: sessionModeValidator,
     model: aiModelValidator,
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
@@ -50,8 +54,6 @@ export const startExecute = authMutation({
     fastMode: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
-    personaId: v.optional(v.id("designPersonas")),
-    numDesigns: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -66,16 +68,6 @@ export const startExecute = authMutation({
       authorUserId: ctx.userId,
       surface: { kind: "session", session },
     });
-
-    const normalizedMode =
-      args.mode === "ask" || args.mode === "execute" ? "edit" : args.mode;
-    if (
-      normalizedMode !== "edit" &&
-      normalizedMode !== "plan" &&
-      normalizedMode !== "design"
-    ) {
-      throw new Error(`Unsupported mode: ${args.mode}`);
-    }
 
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
@@ -122,12 +114,11 @@ export const startExecute = authMutation({
     // it. The workflow still starts below (for cold-resume, completion,
     // post-turn push/save, and cancellation); it simply no longer pushes the
     // prompt (see sessionExecuteWorkflow), so the turn is never double-executed.
-    await ctx.db.insert("messages", {
+    const placeholderMessageId = await ctx.db.insert("messages", {
       parentId: args.sessionId,
       role: "assistant",
       content: "",
       timestamp: Date.now(),
-      mode: args.mode,
       activityLog: "",
     });
 
@@ -137,19 +128,27 @@ export const startExecute = authMutation({
       repo,
       user,
       message: args.message,
-      mode: args.mode,
-      personaId: args.personaId,
-      numDesigns: args.numDesigns,
     });
 
     // One-shot providers receive the prompt in their launch payload; persistent
     // chat providers atomically stage it for their sandbox-local daemon.
     const normalizedModel = normalizeAIModel(args.model);
     const usesDaemonPull = usesChatDaemon(normalizedModel);
+    const turnId = await openSessionTurn(ctx, {
+      sessionId: args.sessionId,
+      streamingEntityId: String(args.sessionId),
+      placeholderMessageId,
+      prompt,
+      attachmentStorageIds: args.attachmentStorageIds,
+      model: normalizedModel,
+      sandboxId: session.sandboxId,
+      repoId: session.repoId,
+    });
     const pendingTurn = usesDaemonPull
       ? {
           prompt,
           requestedAt: Date.now(),
+          turnId,
           attachmentStorageIds: args.attachmentStorageIds,
           model: normalizedModel,
         }
@@ -163,7 +162,6 @@ export const startExecute = authMutation({
       // Persist the session owner's sticky account for page-open prewarm.
       providerAccountId: stickyProviderAccountId,
       lastModel: normalizedModel,
-      lastMode: args.mode,
       ...(args.reasoningLevel !== undefined
         ? { lastReasoningLevel: args.reasoningLevel }
         : {}),
@@ -190,7 +188,7 @@ export const startExecute = authMutation({
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
         fastMode: args.fastMode,
-        allowedTools: MODE_TOOLS[resolveToolMode(args.mode)],
+        allowedTools: SESSION_TOOLS,
         providerAccountId: stickyProviderAccountId,
         credentialOwnerUserId,
         sessionPersistenceId: args.sessionId,
@@ -203,7 +201,6 @@ export const startExecute = authMutation({
       {
         sessionId: args.sessionId,
         message: args.message,
-        mode: args.mode,
         model: args.model,
         reasoningLevel: args.reasoningLevel,
         thinkingEnabled: args.thinkingEnabled,
@@ -211,13 +208,13 @@ export const startExecute = authMutation({
         fastMode: args.fastMode,
         providerAccountId: stickyProviderAccountId,
         credentialOwnerUserId,
-        personaId: args.personaId,
-        numDesigns: args.numDesigns,
         userId: ctx.userId,
         installationId: repo.installationId,
+        turnId,
       },
     );
 
+    await bindTurnWorkflow(ctx, turnId, String(workflowId));
     await trackSessionWorkflow(ctx, args.sessionId, workflowId);
 
     return null;
@@ -246,14 +243,14 @@ export const prewarmDaemon = authMutation({
       return null;
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
-    // Match edit-mode defaults so the first real message does not immediately
-    // optsmismatch-kill this daemon (which races with claimPendingTurn and
-    // leaves the chat stuck on Working). Traits must be forwarded for the same
-    // reason: the turn-path prewarm includes them in the opts sig, so omitting
-    // them here made every page-open prewarm mismatch a trait-launched daemon
-    // and kill+respawn it (each respawn window can duplicate daemons).
+    // Match the turn path's launch options so the first real message does not
+    // immediately optsmismatch-kill this daemon (which races with
+    // claimPendingTurn and leaves the chat stuck on Working). Traits must be
+    // forwarded for the same reason: the turn-path prewarm includes them in the
+    // opts sig, so omitting them here made every page-open prewarm mismatch a
+    // trait-launched daemon and kill+respawn it (each respawn window can
+    // duplicate daemons).
     const credentialOwnerUserId = session.createdBy ?? session.userId;
-    const lastMode = session.lastMode ?? "edit";
     await ctx.scheduler.runAfter(0, internal.sandbox.prewarmSessionDaemon, {
       sandboxId: session.sandboxId,
       sessionId: args.sessionId,
@@ -264,7 +261,7 @@ export const prewarmDaemon = authMutation({
       thinkingEnabled: session.lastThinkingEnabled,
       use1mContext: session.lastUse1mContext,
       fastMode: session.lastFastMode,
-      allowedTools: MODE_TOOLS[resolveToolMode(lastMode)],
+      allowedTools: SESSION_TOOLS,
       providerAccountId: session.providerAccountId,
       credentialOwnerUserId,
       sessionPersistenceId: args.sessionId,
@@ -280,7 +277,6 @@ export const enqueueMessage = authMutation({
     message: v.string(),
     /** Compact chat-display text when `message` is a rich agent prompt. */
     displayContent: v.optional(v.string()),
-    mode: sessionModeValidator,
     model: aiModelValidator,
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
@@ -288,8 +284,6 @@ export const enqueueMessage = authMutation({
     fastMode: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
-    personaId: v.optional(v.id("designPersonas")),
-    numDesigns: v.optional(v.number()),
     /** Set by the orchestrator's `send_agent_message` MCP tool. */
     sentViaOrchestrator: v.optional(v.boolean()),
   },
@@ -319,7 +313,6 @@ export const enqueueMessage = authMutation({
       createdAt: Date.now(),
       order: Date.now(),
       userId: ctx.userId,
-      mode: args.mode,
       model: args.model,
       reasoningLevel: args.reasoningLevel,
       thinkingEnabled: args.thinkingEnabled,
@@ -327,13 +320,10 @@ export const enqueueMessage = authMutation({
       fastMode: args.fastMode,
       providerAccountId: args.providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
-      personaId: args.personaId,
-      numDesigns: args.numDesigns,
       sentViaOrchestrator: args.sentViaOrchestrator,
     });
     await ctx.db.patch(args.sessionId, {
       lastModel: args.model,
-      lastMode: args.mode,
       ...(args.reasoningLevel !== undefined
         ? { lastReasoningLevel: args.reasoningLevel }
         : {}),
@@ -386,6 +376,16 @@ export const cancelExecution = authMutation({
       });
     }
 
+    if (workflowIdToCancel !== undefined) {
+      await closeTurnForWorkflow(
+        ctx,
+        args.sessionId,
+        workflowIdToCancel,
+        "cancelled",
+        { error: "Cancelled by the user" },
+      );
+    }
+
     const streaming = await ctx.db
       .query("streamingActivity")
       .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
@@ -421,6 +421,9 @@ export const cancelExecution = authMutation({
         syntheticTurnMessageId,
         streaming,
       );
+      await closeOpenSessionTurn(ctx, args.sessionId, "cancelled", {
+        error: "Cancelled by the user",
+      });
     }
 
     await clearStreamingActivity(ctx, String(args.sessionId));

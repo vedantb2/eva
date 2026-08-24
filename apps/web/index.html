@@ -151,9 +151,17 @@
       (function () {
         // Stale HTML after a deploy requests hashed /assets/* that 404.
         // The entry module never runs, so this listener (not main.tsx) reloads.
-        // Key must match STALE_DEPLOY_RELOAD_KEY in staleDeployReload.ts.
+        // Key/param must match staleDeployReload.ts.
         var KEY = "deployment-reload-ts";
+        var PARAM = "_eva_reload";
         var COOLDOWN_MS = 10000;
+        try {
+          var boot = new URL(location.href);
+          if (boot.searchParams.has(PARAM)) {
+            boot.searchParams.delete(PARAM);
+            history.replaceState(null, "", boot.pathname + boot.search + boot.hash);
+          }
+        } catch (e) {}
         window.addEventListener(
           "error",
           function (event) {
@@ -168,7 +176,9 @@
               if (last && Date.now() - Number(last) < COOLDOWN_MS) return;
               sessionStorage.setItem(KEY, String(Date.now()));
             } catch (e) {}
-            location.reload();
+            var next = new URL(location.href);
+            next.searchParams.set(PARAM, String(Date.now()));
+            location.replace(next.href);
           },
           true,
         );

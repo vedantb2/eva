@@ -36,14 +36,6 @@ export const reactionTargetValidator = v.union(
   v.literal("description"),
 );
 
-export const sessionModeValidator = v.union(
-  v.literal("edit"),
-  v.literal("ask"),
-  v.literal("execute"),
-  v.literal("plan"),
-  v.literal("design"),
-);
-
 export const sessionStatusValidator = v.union(
   v.literal("active"),
   v.literal("starting"),

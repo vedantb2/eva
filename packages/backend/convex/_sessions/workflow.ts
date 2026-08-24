@@ -9,7 +9,6 @@ import {
   aiModelValidator,
   reasoningLevelValidator,
   workflowCompleteValidator,
-  getAIModelProvider,
   normalizeAIModel,
   sessionStatusValidator,
   usesChatDaemon,
@@ -27,7 +26,7 @@ import {
 } from "../_queues/helpers";
 import { resolveMessageTokens } from "../_mentions/resolveMessageTokens";
 import { buildCustomInstructionsBlock } from "../prompts";
-import { buildPlanPrompt, buildEditPrompt, buildDesignPrompt } from "./prompts";
+import { buildEditPrompt } from "./prompts";
 import { z } from "zod";
 import {
   delayedPublishFailureError,
@@ -44,6 +43,15 @@ import {
   ensureSessionDaemonState,
   syncSessionDaemonState,
 } from "./daemonState";
+import { usesCursorConversationHandoff } from "./cursorContext";
+import {
+  acquireTurnLease,
+  advanceTurn,
+  closeTurn,
+  findOpenSessionTurn,
+  openSessionTurn,
+  resolveCompletionTurn,
+} from "../_chat/turnStore";
 
 // --- Completion event ---
 
@@ -52,25 +60,20 @@ export const sessionCompleteEvent = defineEvent({
   validator: workflowCompleteValidator,
 });
 
-// --- Mode config ---
+// --- Turn config ---
 
-export const MODE_TOOLS: Record<"edit" | "plan" | "design", string> = {
-  edit: "Read,Write,Edit,Bash,Glob,Grep",
-  plan: "Read,Write,Glob,Grep",
-  design: "Read,Glob,Grep,Skill,Write,Edit,Bash",
-};
+/**
+ * Tools every session turn may use. Skill is required so the harness can invoke
+ * Eva's system skills (eva-plan, eva-design, eva-ask, eva-capture, eva-audit), which is
+ * how planning and design work now that turn modes are gone.
+ */
+export const SESSION_TOOLS = "Read,Write,Edit,Bash,Glob,Grep,Skill";
 
-type SessionPromptMode = "edit" | "ask" | "execute" | "plan" | "design";
-
-/** Maps a session turn mode to the MODE_TOOLS key used for allowedTools. */
-export function resolveToolMode(
-  mode: SessionPromptMode,
-): keyof typeof MODE_TOOLS {
-  if (mode === "plan") return "plan";
-  if (mode === "design") return "design";
-  return "edit";
-}
-
+/**
+ * The `eva-design` reply contract. `variations` must be present and non-empty:
+ * an all-optional schema matched a bare `{}` in an ordinary reply and turned it
+ * into an empty Designs tab.
+ */
 const designResultSchema = z.object({
   summary: z.string().optional(),
   variations: z
@@ -81,10 +84,10 @@ const designResultSchema = z.object({
         filePath: z.string().optional(),
       }),
     )
-    .optional(),
+    .min(1),
 });
 
-/** Parses design-turn JSON output from agent text. */
+/** Parses the design-variations JSON a turn may end with. */
 function parseDesignResult(
   text: string | null,
 ): z.infer<typeof designResultSchema> | null {
@@ -115,24 +118,15 @@ async function finalizeOpenSyntheticTurn(
   await ctx.db.patch(sessionId, { syntheticTurnMessageId: undefined });
 }
 
-// Accepts legacy "ask"/"execute" for in-flight queued messages — treated as "edit" in handlers
-export const sessionModeArgValidator = v.union(
-  v.literal("edit"),
-  v.literal("ask"),
-  v.literal("execute"),
-  v.literal("plan"),
-  v.literal("design"),
-);
-
 /**
- * Builds the mode-specific agent prompt for a session turn (doc `@` mentions
- * resolved, custom instructions + system prompt folded in). Shared single
- * source of truth so both the workflow's `getSessionData` query and the
- * daemon-pull `startExecute` mutation produce byte-identical prompts — the
- * daemon must run exactly what the workflow would have handed it, never a
- * second variant. Takes already-fetched session/repo/user docs so it works from
- * either a query or a mutation context (MutationCtx satisfies QueryCtx for the
- * read-only mention resolution).
+ * Builds the agent prompt for a session turn (doc `@` mentions resolved, custom
+ * instructions + system prompt folded in). Shared single source of truth so
+ * both the workflow's `getSessionData` query and the daemon-pull `startExecute`
+ * mutation produce byte-identical prompts — the daemon must run exactly what
+ * the workflow would have handed it, never a second variant. Takes
+ * already-fetched session/repo/user docs so it works from either a query or a
+ * mutation context (MutationCtx satisfies QueryCtx for the read-only mention
+ * resolution).
  */
 export async function buildSessionPrompt(
   ctx: QueryCtx,
@@ -141,9 +135,6 @@ export async function buildSessionPrompt(
     repo: Doc<"githubRepos">;
     user: Doc<"users"> | null;
     message: string;
-    mode: SessionPromptMode;
-    personaId?: Id<"designPersonas">;
-    numDesigns?: number;
   },
 ): Promise<{ prompt: string; branchName: string }> {
   const { session, repo, user } = args;
@@ -161,96 +152,42 @@ export async function buildSessionPrompt(
     session.repoId,
   );
 
-  let prompt: string;
-  if (args.mode === "plan") {
-    prompt = buildPlanPrompt(
-      { owner: repo.owner, name: repo.name },
-      session.planContent || "",
-      resolvedMessage,
-      rootDirectory,
-      customInstructionsBlock,
-      repo.systemPrompt,
-    );
-  } else if (args.mode === "design") {
-    let persona: { name: string; prompt: string } | null = null;
-    if (args.personaId) {
-      const personaDoc = await ctx.db.get(args.personaId);
-      if (personaDoc) {
-        persona = { name: personaDoc.name, prompt: personaDoc.prompt };
-      }
-    }
-
-    const messages = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", session._id))
-      .collect();
-
-    let selectedBase: { label: string; filePath: string } | null = null;
-    if (session.selectedVariationIndex !== undefined) {
-      const lastAssistant = [...messages]
-        .reverse()
-        .find((m) => m.role === "assistant" && m.variations?.length);
-      if (lastAssistant?.variations) {
-        const variation =
-          lastAssistant.variations[session.selectedVariationIndex];
-        if (variation?.filePath) {
-          selectedBase = {
-            label: variation.label,
-            filePath: variation.filePath,
-          };
-        }
-      }
-    }
-
-    const conversationHistory = messages
-      .filter((m) => m.content)
-      .map((m) => ({ role: m.role, content: m.content }));
-
-    prompt = buildDesignPrompt(
-      { owner: repo.owner, name: repo.name },
-      resolvedMessage,
-      conversationHistory,
-      selectedBase,
-      persona,
-      rootDirectory,
-      args.numDesigns ?? 3,
-      customInstructionsBlock,
-    );
-  } else {
-    const sessionProvider =
-      session.provider ?? getAIModelProvider(session.lastModel);
-    const cursorMessages =
-      sessionProvider === "cursor"
-        ? await ctx.db
-            .query("messages")
-            .withIndex("by_parent", (q) => q.eq("parentId", session._id))
-            .collect()
-        : [];
-    const cursorHistory = cursorMessages
-      .filter((entry) => entry.content)
-      .map((entry) => ({ role: entry.role, content: entry.content }));
-    const lastHistoryEntry = cursorHistory.at(-1);
-    const priorCursorHistory =
-      lastHistoryEntry?.role === "user" &&
-      lastHistoryEntry.content === args.message
-        ? cursorHistory.slice(0, -1)
-        : cursorHistory;
-    prompt = buildEditPrompt(
-      {
-        owner: repo.owner,
-        name: repo.name,
-        baseBranch: resolveSessionBaseBranch(session, repo),
-      },
-      branchName,
-      session.planContent || "",
-      resolvedMessage,
-      rootDirectory,
-      customInstructionsBlock,
-      repo.systemPrompt,
-      session.devPort ?? repo.devPort,
-      priorCursorHistory,
-    );
-  }
+  const cursorMessages =
+    usesCursorConversationHandoff({
+      provider: session.provider,
+      lastModel: session.lastModel,
+    })
+      ? await ctx.db
+          .query("messages")
+          .withIndex("by_parent", (q) => q.eq("parentId", session._id))
+          .collect()
+      : [];
+  const cursorHistory = cursorMessages
+    .filter((entry) => entry.content)
+    .map((entry) => ({ role: entry.role, content: entry.content }));
+  const lastHistoryEntry = cursorHistory.at(-1);
+  const priorCursorHistory =
+    lastHistoryEntry?.role === "user" &&
+    lastHistoryEntry.content === args.message
+      ? cursorHistory.slice(0, -1)
+      : cursorHistory;
+  // The stored plan still feeds implementation turns, and gives `eva-plan` its
+  // iteration context after a sandbox is recreated without plan.md on disk.
+  let prompt = buildEditPrompt(
+    {
+      owner: repo.owner,
+      name: repo.name,
+      baseBranch: resolveSessionBaseBranch(session, repo),
+    },
+    branchName,
+    session.planContent || "",
+    resolvedMessage,
+    rootDirectory,
+    customInstructionsBlock,
+    repo.systemPrompt,
+    session.devPort ?? repo.devPort,
+    priorCursorHistory,
+  );
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;
   }
@@ -285,12 +222,11 @@ export const sessionSandboxStartupWorkflow = workflow.define({
   },
 });
 
-/** Runs a session message through the sandbox agent in the specified mode (ask/plan/execute). */
+/** Runs a session message through the sandbox agent. */
 export const sessionExecuteWorkflow = workflow.define({
   args: {
     sessionId: v.id("sessions"),
     message: v.string(),
-    mode: sessionModeArgValidator,
     model: aiModelValidator,
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
@@ -298,25 +234,22 @@ export const sessionExecuteWorkflow = workflow.define({
     fastMode: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     credentialOwnerUserId: v.optional(v.id("users")),
-    personaId: v.optional(v.id("designPersonas")),
-    numDesigns: v.optional(v.number()),
     userId: v.id("users"),
     installationId: v.number(),
+    // Missing only for workflows that were already in flight at the durable
+    // Turn cutover. Every new start supplies this discriminator.
+    turnId: v.optional(v.id("turns")),
   },
   handler: async (step, args): Promise<void> => {
     await step.runMutation(internal.sessionWorkflow.addAssistantPlaceholder, {
       sessionId: args.sessionId,
-      mode: args.mode,
     });
 
     const data = await step.runQuery(internal.sessionWorkflow.getSessionData, {
       sessionId: args.sessionId,
       message: args.message,
-      mode: args.mode,
       model: args.model,
       userId: args.userId,
-      personaId: args.personaId,
-      numDesigns: args.numDesigns,
     });
 
     // Daemon-pull dispatch: the prompt is NOT pushed from here. `startExecute`
@@ -347,6 +280,7 @@ export const sessionExecuteWorkflow = workflow.define({
       } catch (error) {
         await step.runMutation(internal.sessionWorkflow.saveResult, {
           sessionId: args.sessionId,
+          ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
           success: false,
           result: null,
           error:
@@ -401,6 +335,16 @@ export const sessionExecuteWorkflow = workflow.define({
       throw new Error("sessionExecuteWorkflow: sandbox was not resolved");
     }
 
+    // Preserve the exact V1 journal for workflows started before the cutover:
+    // workflow steps are replayed by order, so even one new call would strand
+    // an in-flight execution with a journal mismatch.
+    if (args.turnId !== undefined) {
+      await step.runMutation(internal.turns.markLaunching, {
+        turnId: args.turnId,
+        sandboxId,
+      });
+    }
+
     // A cancel can race with startExecute and wipe pendingTurn while a daemon
     // workflow waits, so restage it before ensuring the warm process.
     if (usesChatDaemon(data.model)) {
@@ -424,7 +368,7 @@ export const sessionExecuteWorkflow = workflow.define({
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
         fastMode: args.fastMode,
-        allowedTools: data.allowedTools,
+        allowedTools: SESSION_TOOLS,
         providerAccountId: args.providerAccountId,
         credentialOwnerUserId: args.credentialOwnerUserId,
         sessionPersistenceId: args.sessionId,
@@ -435,6 +379,24 @@ export const sessionExecuteWorkflow = workflow.define({
       // empty placeholder (and activeWorkflowId) stuck on "Working…" until
       // the 2-hour backstop.
       try {
+        const turnLease =
+          args.turnId === undefined
+            ? null
+            : await step.runMutation(internal.turns.acquireOneShotLease, {
+                turnId: args.turnId,
+                sandboxId,
+              });
+        if (args.turnId !== undefined && turnLease === null) {
+          await step.runMutation(internal.sessionWorkflow.saveResult, {
+            sessionId: args.sessionId,
+            turnId: args.turnId,
+            success: false,
+            result: null,
+            error: "The turn no longer owns this session. Please retry.",
+            activityLog: null,
+          });
+          return;
+        }
         await step.runAction(internal.sandbox.launchOnExistingSandbox, {
           sandboxId,
           entityId: String(args.sessionId),
@@ -447,17 +409,24 @@ export const sessionExecuteWorkflow = workflow.define({
           thinkingEnabled: args.thinkingEnabled,
           use1mContext: args.use1mContext,
           fastMode: args.fastMode,
-          allowedTools: data.allowedTools,
+          allowedTools: SESSION_TOOLS,
           repoId: data.repoId,
           streamingEntityId: String(args.sessionId),
           sessionPersistenceId: args.sessionId,
           providerAccountId: args.providerAccountId,
           credentialOwnerUserId: args.credentialOwnerUserId,
           attachmentStorageIds: data.attachmentStorageIds,
+          ...(turnLease !== null
+            ? {
+                turnId: turnLease.turnId,
+                turnLeaseGeneration: turnLease.leaseGeneration,
+              }
+            : {}),
         });
       } catch (error) {
         await step.runMutation(internal.sessionWorkflow.saveResult, {
           sessionId: args.sessionId,
+          ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
           success: false,
           result: null,
           error:
@@ -472,9 +441,12 @@ export const sessionExecuteWorkflow = workflow.define({
 
     const result = await step.awaitEvent(sessionCompleteEvent);
 
+    // Content-keyed, not mode-keyed: any turn may have written plan.md (the
+    // `eva-plan` skill does), so harvest it on every success and let saveResult
+    // decide whether it actually changed.
     let planContent: string | undefined;
 
-    if (args.mode === "plan" && result.success && sandboxId) {
+    if (result.success && sandboxId) {
       const planRaw = await step.runAction(internal.sandbox.runSandboxCommand, {
         sandboxId,
         command: `cat ${WORKSPACE_DIR}/plan.md 2>/dev/null || cat ${LEGACY_WORKSPACE_DIR}/plan.md 2>/dev/null || echo ""`,
@@ -492,6 +464,7 @@ export const sessionExecuteWorkflow = workflow.define({
     // turns. Publish failures are patched onto the saved message below.
     await step.runMutation(internal.sessionWorkflow.saveResult, {
       sessionId: args.sessionId,
+      ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
       success: result.success,
       result: result.result,
       error: result.error,
@@ -510,7 +483,7 @@ export const sessionExecuteWorkflow = workflow.define({
     let pushSucceeded = false;
     let pushedCommits = false;
     let branchPublished = false;
-    if (args.mode !== "plan" && result.success && data.branchName) {
+    if (result.success && data.branchName) {
       try {
         const pushResult = await step.runAction(
           internal.sandbox.pushSandboxBranch,
@@ -533,6 +506,7 @@ export const sessionExecuteWorkflow = workflow.define({
         );
         await step.runMutation(internal.sessionWorkflow.saveResult, {
           sessionId: args.sessionId,
+          ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
           success: false,
           result: result.result,
           error: publishError,
@@ -684,6 +658,12 @@ export const clearStuckWorkingState = internalMutation({
     });
     if (session) {
       await syncSessionDaemonState(ctx, session, { pendingTurn: undefined });
+      const turn = await findOpenSessionTurn(ctx, args.sessionId);
+      if (turn) {
+        await closeTurn(ctx, turn, "error", {
+          error: "Turn state was cleared during recovery",
+        });
+      }
     }
     return { deletedPlaceholders, clearedStreaming: true };
   },
@@ -698,7 +678,6 @@ export const clearStuckWorkingState = internalMutation({
 export const addAssistantPlaceholder = internalMutation({
   args: {
     sessionId: v.id("sessions"),
-    mode: sessionModeArgValidator,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -730,7 +709,6 @@ export const addAssistantPlaceholder = internalMutation({
       role: "assistant",
       content: "",
       timestamp: Date.now(),
-      mode: args.mode,
       activityLog: "",
     });
     await ctx.db.patch(args.sessionId, { updatedAt: Date.now() });
@@ -738,16 +716,13 @@ export const addAssistantPlaceholder = internalMutation({
   },
 });
 
-/** Fetches session and repo data, builds the mode-specific prompt, and resolves branch/tools config. */
+/** Fetches session and repo data, builds the turn prompt, and resolves branch config. */
 export const getSessionData = internalQuery({
   args: {
     sessionId: v.id("sessions"),
     message: v.string(),
-    mode: sessionModeArgValidator,
     model: aiModelValidator,
     userId: v.id("users"),
-    personaId: v.optional(v.id("designPersonas")),
-    numDesigns: v.optional(v.number()),
   },
   returns: v.object({
     sandboxId: v.optional(v.string()),
@@ -759,7 +734,6 @@ export const getSessionData = internalQuery({
     branchName: v.optional(v.string()),
     prUrl: v.optional(v.string()),
     baseBranch: v.string(),
-    allowedTools: v.string(),
     model: aiModelValidator,
     deploymentProjectName: v.optional(v.string()),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
@@ -777,9 +751,6 @@ export const getSessionData = internalQuery({
       repo,
       user,
       message: args.message,
-      mode: args.mode,
-      personaId: args.personaId,
-      numDesigns: args.numDesigns,
     });
 
     // Input images attached to the triggering user message. Used to re-stage
@@ -802,7 +773,6 @@ export const getSessionData = internalQuery({
       branchName,
       prUrl: session.prUrl,
       baseBranch: resolveSessionBaseBranch(session, repo),
-      allowedTools: MODE_TOOLS[resolveToolMode(args.mode)],
       model: normalizeAIModel(args.model),
       deploymentProjectName: repo.deploymentProjectName,
       attachmentStorageIds: triggeringUserMessage?.attachmentStorageIds,
@@ -839,6 +809,7 @@ export const updateSandboxId = internalMutation({
 export const saveResult = internalMutation({
   args: {
     sessionId: v.id("sessions"),
+    turnId: v.optional(v.id("turns")),
     success: v.boolean(),
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
@@ -879,9 +850,9 @@ export const saveResult = internalMutation({
     const last = resultTargetMessage(recent);
     if (!last) return null;
 
-    const isDesignTurn = last.mode === "design";
-    const designParsed =
-      isDesignTurn && args.success ? parseDesignResult(args.result) : null;
+    // Any successful turn may have ended with the eva-design JSON, so this is
+    // keyed on the reply's content rather than on what the turn was asked to do.
+    const designParsed = args.success ? parseDesignResult(args.result) : null;
 
     const patch: {
       content: string;
@@ -906,19 +877,12 @@ export const saveResult = internalMutation({
       isSystemAlert: undefined,
       errorDetail: undefined,
     };
-    if (designParsed?.variations) {
+    if (designParsed) {
       patch.variations = designParsed.variations.map((variation) => ({
         label: variation.label,
         route: variation.route,
         filePath: variation.filePath,
       }));
-    } else if (
-      isDesignTurn &&
-      args.success &&
-      args.result &&
-      designParsed === null
-    ) {
-      patch.content = args.result || "Failed to generate designs.";
     }
     if (args.activityLog) {
       patch.activityLog = args.activityLog;
@@ -945,10 +909,21 @@ export const saveResult = internalMutation({
       // Crash hygiene: drop stale soft-lock if the agent forgot browser_unlock.
       agentBrowsingAt: undefined,
     };
-    if (args.planContent) {
+    // plan.md is now harvested after every successful turn, so only write it
+    // back when it actually changed — an unchanged reread must not touch the
+    // session (and reorder nothing downstream of planContent).
+    if (args.planContent && args.planContent !== session.planContent) {
       sessionPatch.planContent = args.planContent;
     }
     await ctx.db.patch(args.sessionId, sessionPatch);
+    if (args.turnId !== undefined) {
+      const turn = await ctx.db.get(args.turnId);
+      if (turn) {
+        await closeTurn(ctx, turn, args.success ? "done" : "error", {
+          ...(args.error ? { error: args.error } : {}),
+        });
+      }
+    }
     await startNextQueuedSessionMessage(ctx, args.sessionId);
     return null;
   },
@@ -973,6 +948,8 @@ export const claimPendingTurn = authMutation({
   },
   returns: v.object({
     prompt: v.union(v.string(), v.null()),
+    turnId: v.optional(v.id("turns")),
+    leaseGeneration: v.optional(v.number()),
     // Resolved download URLs for this turn's input image attachments. The daemon
     // fetches these and hands the agent local file paths before running the turn.
     attachmentUrls: v.array(v.string()),
@@ -990,6 +967,8 @@ export const claimPendingTurn = authMutation({
       attachmentUrls: string[];
       stopTaskToolUseIds: string[];
       cancelRequested: boolean;
+      turnId?: Id<"turns">;
+      leaseGeneration?: number;
     };
     let daemonState = await ctx.db
       .query("sessionDaemonStates")
@@ -1061,12 +1040,34 @@ export const claimPendingTurn = authMutation({
     const attachmentUrls = resolvedUrls.filter(
       (url): url is string => url !== null,
     );
+    let turnLease:
+      | { turnId: Id<"turns">; leaseGeneration: number }
+      | null = null;
+    const pendingTurnId = daemonState.pendingTurn.turnId;
+    if (pendingTurnId !== undefined) {
+      const turn = await ctx.db.get(pendingTurnId);
+      if (!turn || !turn.open || turn.state === "running") {
+        await ctx.db.patch(daemonState._id, { pendingTurn: undefined });
+        await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
+        return { ...emptyClaim, stopTaskToolUseIds, cancelRequested };
+      }
+      turnLease = await acquireTurnLease(ctx, turn, "running");
+      if (turnLease === null) {
+        return { ...emptyClaim, stopTaskToolUseIds, cancelRequested };
+      }
+    }
     await ctx.db.patch(daemonState._id, { pendingTurn: undefined });
     await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
     console.log(
       `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} claimWaitMs=${claimWaitMs} attachments=${attachmentUrls.length}`,
     );
-    return { prompt, attachmentUrls, stopTaskToolUseIds, cancelRequested };
+    return {
+      prompt,
+      attachmentUrls,
+      stopTaskToolUseIds,
+      cancelRequested,
+      ...(turnLease ?? {}),
+    };
   },
 });
 
@@ -1152,6 +1153,8 @@ export const ensurePendingTurn = internalMutation({
       return null;
     }
 
+    const openTurn = await findOpenSessionTurn(ctx, args.sessionId);
+    if (openTurn && openTurn.state === "running") return null;
     const last = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
@@ -1169,6 +1172,7 @@ export const ensurePendingTurn = internalMutation({
     const pendingTurn = {
       prompt: args.prompt,
       requestedAt: Date.now(),
+      ...(openTurn ? { turnId: openTurn._id } : {}),
       attachmentStorageIds: args.attachmentStorageIds,
       ...(args.model !== undefined
         ? { model: normalizeAIModel(args.model) }
@@ -1246,27 +1250,18 @@ export const restageOpenTurn = internalMutation({
       };
     }
     const user = await ctx.db.get(session.userId);
-    const rawMode = lastAssistant.mode ?? lastUser.mode ?? "edit";
-    const mode: SessionPromptMode =
-      rawMode === "plan" ||
-      rawMode === "design" ||
-      rawMode === "ask" ||
-      rawMode === "execute" ||
-      rawMode === "edit"
-        ? rawMode
-        : "edit";
     const { prompt } = await buildSessionPrompt(ctx, {
       session,
       repo,
       user,
       message: lastUser.content,
-      mode,
-      personaId: lastUser.personaId,
     });
 
+    const openTurn = await findOpenSessionTurn(ctx, args.sessionId);
     const pendingTurn = {
       prompt,
       requestedAt: Date.now(),
+      ...(openTurn ? { turnId: openTurn._id } : {}),
       attachmentStorageIds: lastUser.attachmentStorageIds,
       ...(session.lastModel !== undefined ? { model: session.lastModel } : {}),
     };
@@ -1288,7 +1283,11 @@ export const restageOpenTurn = internalMutation({
  */
 export const openSyntheticTurn = authMutation({
   args: { sessionId: v.id("sessions") },
-  returns: v.object({ messageId: v.id("messages") }),
+  returns: v.object({
+    messageId: v.id("messages"),
+    turnId: v.id("turns"),
+    leaseGeneration: v.number(),
+  }),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
@@ -1303,6 +1302,19 @@ export const openSyntheticTurn = authMutation({
       activityLog: "",
       isSyntheticTurn: true,
     });
+    const turnId = await openSessionTurn(ctx, {
+      sessionId: args.sessionId,
+      streamingEntityId: String(args.sessionId),
+      placeholderMessageId: messageId,
+      prompt: "[synthetic continuation]",
+      model: normalizeAIModel(session.lastModel),
+      sandboxId: session.sandboxId,
+      repoId: session.repoId,
+    });
+    const turn = await ctx.db.get(turnId);
+    if (!turn) throw new Error("Synthetic turn was not created");
+    const lease = await acquireTurnLease(ctx, turn, "running");
+    if (!lease) throw new Error("Synthetic turn lease was not acquired");
     await ctx.db.patch(args.sessionId, {
       syntheticTurnMessageId: messageId,
       updatedAt: Date.now(),
@@ -1312,7 +1324,7 @@ export const openSyntheticTurn = authMutation({
       internal.sessionWorkflow.handleStaleSyntheticTurn,
       { sessionId: args.sessionId, messageId },
     );
-    return { messageId };
+    return { messageId, ...lease };
   },
 });
 
@@ -1326,9 +1338,21 @@ export const completeSyntheticTurn = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     pendingQuestion: v.optional(v.string()),
+    turnId: v.optional(v.string()),
+    leaseGeneration: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const turnResolution = await resolveCompletionTurn(ctx, {
+      sessionId: args.sessionId,
+      turnId: args.turnId,
+      leaseGeneration: args.leaseGeneration,
+      placeholderMessageId: args.messageId,
+    });
+    if (turnResolution.status === "stale") return null;
+    if (turnResolution.status === "current") {
+      await advanceTurn(ctx, turnResolution.turn, "finalizing");
+    }
     await clearStreamingActivity(ctx, String(args.sessionId));
 
     const message = await ctx.db.get(args.messageId);
@@ -1341,6 +1365,11 @@ export const completeSyntheticTurn = authMutation({
         syntheticTurnMessageId: undefined,
         updatedAt: Date.now(),
       });
+      if (turnResolution.status === "current") {
+        await closeTurn(ctx, turnResolution.turn, "error", {
+          error: "Synthetic turn placeholder was no longer available",
+        });
+      }
       await startNextQueuedSessionMessage(ctx, args.sessionId);
       return null;
     }
@@ -1369,6 +1398,14 @@ export const completeSyntheticTurn = authMutation({
       updatedAt: Date.now(),
       agentBrowsingAt: undefined,
     });
+    if (turnResolution.status === "current") {
+      await closeTurn(
+        ctx,
+        turnResolution.turn,
+        args.success ? "done" : "error",
+        args.error ? { error: args.error } : {},
+      );
+    }
     await startNextQueuedSessionMessage(ctx, args.sessionId);
     return null;
   },
@@ -1414,6 +1451,12 @@ export const handleStaleSyntheticTurn = internalMutation({
     }
 
     await finalizeCancelledAssistantMessage(ctx, message, streaming);
+    const openTurn = await findOpenSessionTurn(ctx, args.sessionId);
+    if (openTurn?.placeholderMessageId === args.messageId) {
+      await closeTurn(ctx, openTurn, "error", {
+        error: "Synthetic turn stopped reporting activity",
+      });
+    }
     await clearStreamingActivity(ctx, String(args.sessionId));
     await ctx.db.patch(args.sessionId, {
       syntheticTurnMessageId: undefined,
@@ -1434,6 +1477,8 @@ export const handleCompletion = authMutation({
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
+    turnId: v.optional(v.string()),
+    leaseGeneration: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1442,6 +1487,16 @@ export const handleCompletion = authMutation({
     if (!session || !session.activeWorkflowId) return null;
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
+
+    const turnResolution = await resolveCompletionTurn(ctx, {
+      sessionId: args.sessionId,
+      turnId: args.turnId,
+      leaseGeneration: args.leaseGeneration,
+    });
+    if (turnResolution.status === "stale") return null;
+    if (turnResolution.status === "current") {
+      await advanceTurn(ctx, turnResolution.turn, "finalizing");
+    }
 
     console.log(
       `[sessionWorkflow] handleCompletion received sessionId=${args.sessionId} success=${args.success} workflowId=${session.activeWorkflowId}`,

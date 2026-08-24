@@ -27,6 +27,16 @@ const REPORT_MAX_RETRIES = 1;
  */
 const USAGE_LOOKUP_TIMEOUT_MS = 5_000;
 
+/** A one-shot process may wait this long after delivering completion before its
+ * hard exit. This covers the lookup timeout plus a small reporting allowance. */
+const USAGE_REPORT_EXIT_GRACE_MS = 7_000;
+
+/** Keep an unchanged live daemon comfortably inside the server's 24-hour
+ * freshness window without writing the same reading after every turn. */
+const USAGE_REPORT_REFRESH_MS = 6 * 60 * 60 * 1000;
+
+let pendingClaudeUsageReport: Promise<void> | null = null;
+
 /**
  * Provider whose plan usage is tracked. Mirrors the Convex validator, and stays
  * a named type so a provider with real plan windows slots in here.
@@ -75,6 +85,11 @@ export type ClaudeUsageResponseLike = {
       resets_at?: string | null;
     }[];
   } | null;
+};
+
+type ClaudeUsageReportInput = {
+  readUsage: () => Promise<ClaudeUsageResponseLike | null>;
+  error?: string;
 };
 
 function readFiniteNumber(value: JsonValue | undefined): number | undefined {
@@ -141,7 +156,7 @@ function mergeWindow(
 function ensureSnapshot(): UsageLimitSnapshot {
   const existing = S.usageLimitSnapshot;
   if (existing) return existing;
-  const created: UsageLimitSnapshot = {};
+  const created: UsageLimitSnapshot = { completeness: "partial" };
   S.usageLimitSnapshot = created;
   return created;
 }
@@ -158,6 +173,7 @@ export function mergeClaudeRateLimitEvent(event: JsonObject): void {
   const key = readNonEmptyString(info.rateLimitType);
   if (!status && !key) return;
   const snapshot = ensureSnapshot();
+  snapshot.completeness = "partial";
   if (status) snapshot.status = status;
   if (!key) return;
   // The stream event reports `resetsAt` in epoch SECONDS, unlike the `/usage`
@@ -214,12 +230,7 @@ export function readClaudeUsageWindows(
     if (!name) continue;
     // Model-scoped entries are weekly windows too, so they are labelled like
     // the fixed ones ("Weekly (Fable)") rather than by bare model name.
-    pushUsageWindow(
-      windows,
-      "model_scoped:" + name,
-      entry,
-      `Weekly (${name})`,
-    );
+    pushUsageWindow(windows, "model_scoped:" + name, entry, `Weekly (${name})`);
   }
   return windows;
 }
@@ -247,21 +258,58 @@ export async function captureClaudeUsage(
       return;
     }
     if (!response) return;
-    const snapshot = ensureSnapshot();
+    if (
+      response.rate_limits_available !== true &&
+      response.rate_limits_available !== false
+    ) {
+      log("usage limits: claude usage response omitted availability");
+      return;
+    }
+    // A failed or not-yet-initialized SDK query can report `false` even for an
+    // OAuth account whose prior turn exposed plan windows. Treating that as an
+    // authoritative empty snapshot erases the last useful reading and makes
+    // the UI disappear. No observation is safer than destructive absence; a
+    // genuinely windowless credential simply never creates a chip.
+    if (response.rate_limits_available === false) {
+      log(
+        "usage limits: claude plan usage unavailable — preserving prior reading",
+      );
+      return;
+    }
+    const snapshot: UsageLimitSnapshot = { completeness: "complete" };
     const subscriptionType = readNonEmptyString(response.subscription_type);
     if (subscriptionType) snapshot.subscriptionType = subscriptionType;
-    // False for API key, Bedrock and Vertex sessions — there are no plan
-    // windows to read, and `rate_limits` is null.
-    if (response.rate_limits_available !== true) return;
-    for (const window of readClaudeUsageWindows(response)) {
-      mergeWindow(snapshot, window);
-    }
+    snapshot.windows = readClaudeUsageWindows(response);
+    // A successful `/usage` read is authoritative. Replacing here drops windows
+    // and status that vanished since the last turn instead of preserving them
+    // for the lifetime of a warm daemon.
+    S.usageLimitSnapshot = snapshot;
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     log("usage limits: claude usage lookup failed — " + messageText);
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }
+}
+
+/** Folds provider refusal copy into the plan snapshot shown by the UI. */
+export function captureClaudeUsageLimitError(error: string | undefined): void {
+  if (!error) return;
+  const message = error.toLowerCase();
+  if (
+    !message.includes("out of extra usage") &&
+    !message.includes("rate limit") &&
+    !message.includes("usage limit") &&
+    !message.includes("spend limit") &&
+    !message.includes("token limit exceeded")
+  ) {
+    return;
+  }
+  // Preserve complete windows when the usage endpoint returned them. Without
+  // one, ensureSnapshot creates a partial status-only reading so Convex patches
+  // an existing row instead of replacing its last valid windows.
+  const snapshot = ensureSnapshot();
+  snapshot.status = "rejected";
 }
 
 function windowToJson(window: UsageLimitWindow): JsonObject {
@@ -291,6 +339,7 @@ export function buildUsageLimitReportArgs(
   return {
     repoId,
     provider,
+    snapshotComplete: snapshot.completeness === "complete",
     ...(providerAccountId ? { providerAccountId } : {}),
     ...(snapshot.subscriptionType === undefined
       ? {}
@@ -305,9 +354,9 @@ export function buildUsageLimitReportArgs(
 /**
  * Upserts the run's usage-limit snapshot in Convex at the end of a turn.
  *
- * Fire-and-forget by contract: nothing here may affect the turn's outcome, so
- * every failure is logged and swallowed. An unchanged reading is skipped, which
- * also caps a warm daemon at one write per turn.
+ * Best-effort by contract: nothing here may affect the turn's outcome, so every
+ * failure is logged and swallowed. Unchanged readings are skipped between
+ * periodic refreshes, keeping a live warm daemon from looking stale.
  */
 export async function reportUsageLimits(
   provider: UsageLimitProvider,
@@ -325,19 +374,61 @@ export async function reportUsageLimits(
     snapshot,
   );
   const fingerprint = JSON.stringify(args);
-  if (fingerprint === S.lastReportedUsageLimits) return;
+  const capturedAt = Date.now();
+  if (
+    fingerprint === S.lastReportedUsageLimits &&
+    capturedAt - S.lastReportedUsageLimitsAt < USAGE_REPORT_REFRESH_MS
+  ) {
+    return;
+  }
   S.lastReportedUsageLimits = fingerprint;
   try {
     await callConvexWithRetry(
       "mutation",
       REPORT_MUTATION,
-      { ...args, capturedAt: Date.now() },
+      { ...args, capturedAt },
       REPORT_MAX_RETRIES,
     );
+    S.lastReportedUsageLimitsAt = capturedAt;
   } catch (error) {
     // Clear the fingerprint so the next turn retries this reading.
     S.lastReportedUsageLimits = "";
+    S.lastReportedUsageLimitsAt = 0;
     const messageText = error instanceof Error ? error.message : String(error);
     log("usage limits: report failed — " + messageText);
   }
+}
+
+/** Captures Claude's authoritative usage view and reports it in that order. */
+export async function captureAndReportClaudeUsage(
+  input: ClaudeUsageReportInput,
+): Promise<void> {
+  await captureClaudeUsage(input.readUsage);
+  captureClaudeUsageLimitError(input.error);
+  await reportUsageLimits("claude");
+}
+
+/** Starts the one-shot report without delaying the user-visible completion. */
+export function startClaudeUsageReport(
+  input: ClaudeUsageReportInput,
+): void {
+  const report = captureAndReportClaudeUsage(input);
+  pendingClaudeUsageReport = report;
+  void report.finally(() => {
+    if (pendingClaudeUsageReport === report) pendingClaudeUsageReport = null;
+  });
+}
+
+/** Gives a one-shot report a bounded chance to land before `process.exit(0)`. */
+export async function waitForPendingClaudeUsageReport(): Promise<void> {
+  const pending = pendingClaudeUsageReport;
+  if (!pending) return;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  await Promise.race([
+    pending,
+    new Promise<void>((resolve) => {
+      timer = setTimeout(resolve, USAGE_REPORT_EXIT_GRACE_MS);
+    }),
+  ]);
+  if (timer !== undefined) clearTimeout(timer);
 }

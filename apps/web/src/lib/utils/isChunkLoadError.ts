@@ -4,7 +4,7 @@ export function isChunkLoadError(error: unknown): boolean {
   const msg = error.message;
   return (
     error.name === "ChunkLoadError" ||
-    msg.includes("Failed to fetch dynamically imported module") ||
+    msg.includes("dynamically imported module") ||
     msg.includes("Importing a module script failed") ||
     msg.includes("Failed to load module script") ||
     msg.includes("disallowed MIME type") ||

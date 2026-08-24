@@ -23,7 +23,6 @@ import {
   runModeValidator,
   runStatusValidator,
   sandboxProviderKindValidator,
-  sessionModeValidator,
   sessionStatusValidator,
   snapshotBuildKindValidator,
   snapshotBuildStatusValidator,
@@ -166,13 +165,43 @@ export const backgroundAgentEntryValidator = v.object(
 
 export type BackgroundAgentEntry = Infer<typeof backgroundAgentEntryValidator>;
 
+export const turnStateValidator = v.union(
+  v.literal("staged"),
+  v.literal("launching"),
+  v.literal("running"),
+  v.literal("finalizing"),
+  v.literal("done"),
+  v.literal("error"),
+  v.literal("cancelled"),
+);
+
+export type TurnState = Infer<typeof turnStateValidator>;
+
+/** Durable ownership record for one session chat turn. */
+export const turnFields = {
+  surface: v.literal("session"),
+  entityId: v.string(),
+  streamingEntityId: v.string(),
+  state: turnStateValidator,
+  open: v.boolean(),
+  turnStartedAt: v.number(),
+  leaseExpiresAt: v.number(),
+  leaseGeneration: v.number(),
+  finishedAt: v.optional(v.number()),
+  error: v.optional(v.string()),
+  workflowId: v.optional(v.string()),
+  placeholderMessageId: v.optional(v.id("messages")),
+  prompt: v.optional(v.string()),
+  attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+  model: aiModelValidator,
+  sandboxId: v.optional(v.string()),
+  repoId: v.id("githubRepos"),
+};
+
 export const pendingTurnFields = {
   prompt: v.string(),
   requestedAt: v.number(),
-  // legacy field, no longer written — cleanup migration later
-  turnKind: v.optional(
-    v.union(v.literal("conversational"), v.literal("agent")),
-  ),
+  turnId: v.optional(v.id("turns")),
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   model: v.optional(aiModelValidator),
 };
@@ -351,6 +380,12 @@ export const sessionFields = {
   createdBy: v.optional(v.id("users")),
   planContent: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
+  /**
+   * Set the first time this session opens a durable Turn. Missing sessions may
+   * still have a pre-cutover workflow in flight, so projections temporarily
+   * consult the legacy workflow fields until this marker is written.
+   */
+  turnLifecycleVersion: v.optional(v.literal(2)),
   // The user provider account chosen for this session's runs (overriding the
   // team credential). Session-scoped so the page-open daemon prewarm — which
   // has no per-message context — still injects the right account. Absent = team
@@ -372,8 +407,6 @@ export const sessionFields = {
   lastThinkingEnabled: v.optional(v.boolean()),
   lastUse1mContext: v.optional(v.boolean()),
   lastFastMode: v.optional(v.boolean()),
-  // Sticky composer mode (edit / plan). Absent → client default "edit".
-  lastMode: v.optional(sessionModeValidator),
   // Sticky Preview URL path for this session (e.g. "/dashboard"). Device
   // viewport stays tab-local; port reuses `devPort` below.
   previewPath: v.optional(v.string()),
@@ -393,8 +426,6 @@ export const sessionFields = {
   // chat. `claimPendingTurn` withholds the queued first turn until this clears,
   // so the agent never runs against a stale snapshot checkout or baked modules.
   sandboxSetupPending: v.optional(v.boolean()),
-  // Design mode: index of the variation the user selected as the refine base.
-  selectedVariationIndex: v.optional(v.number()),
   // Persistent per-user master ("orchestrator") session. Set only at creation —
   // the sandbox token's orchestrator claim is minted at launch, never toggled.
   isOrchestrator: v.optional(v.boolean()),
@@ -431,6 +462,15 @@ export const harnessSkillCatalogFields = {
   cliVersion: v.string(),
   skills: v.array(harnessSkillValidator),
   updatedAt: v.number(),
+};
+
+/** One short-lived, single-use credential for a sandbox catalog report. */
+export const harnessSkillReportTokenFields = {
+  tokenHash: v.string(),
+  provider: aiProviderValidator,
+  sandboxId: v.string(),
+  repoId: v.id("githubRepos"),
+  expiresAt: v.number(),
 };
 
 export const repoSkillFields = {
@@ -693,14 +733,12 @@ export const messageFields = {
   activityLog: v.optional(v.string()),
   userId: v.optional(v.id("users")),
   parentId: v.union(v.id("sessions"), v.id("projects"), v.id("agentTasks")),
-  mode: v.optional(sessionModeValidator),
   // Client-generated id (crypto.randomUUID) set when a user message is sent
   // optimistically. Lets the client dedup its local pending row against the
   // server row once the reactive query delivers it.
   clientId: v.optional(v.string()),
   isSystemAlert: v.optional(v.boolean()),
   errorDetail: v.optional(v.string()),
-  personaId: v.optional(v.id("designPersonas")),
   variations: v.optional(v.array(variationValidator)),
   imageStorageId: v.optional(v.id("_storage")),
   videoStorageId: v.optional(v.id("_storage")),
@@ -741,7 +779,6 @@ export const queuedMessageFields = {
   // field deploys without a migration; legacy rows without it sort first.
   order: v.optional(v.number()),
   userId: v.id("users"),
-  mode: v.optional(sessionModeValidator),
   model: v.optional(aiModelValidator),
   // Carried alongside `model` so a queued message runs on the same user account
   // that was selected when it was enqueued.
@@ -751,8 +788,6 @@ export const queuedMessageFields = {
   use1mContext: v.optional(v.boolean()),
   fastMode: v.optional(v.boolean()),
   responseLength: v.optional(v.string()),
-  personaId: v.optional(v.id("designPersonas")),
-  numDesigns: v.optional(v.number()),
   // Carried from the composer through the queue to the started user message.
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   // Set when a child-completion wake-up had to be queued because the master was

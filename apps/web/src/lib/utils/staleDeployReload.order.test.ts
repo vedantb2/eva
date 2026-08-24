@@ -20,4 +20,11 @@ describe("handleStaleDeployment", () => {
     expect(preventAt).toBeGreaterThan(-1);
     expect(claimAt).toBeLessThan(preventAt);
   });
+
+  test("the signed-in AppShellChrome prefetch catches chunk load failure", () => {
+    expect(mainSource).toContain(
+      'void import("@/lib/components/AppShellChrome").catch((error: Error) => {',
+    );
+    expect(mainSource).toContain("isChunkLoadError(error)");
+  });
 });

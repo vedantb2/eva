@@ -1,6 +1,9 @@
 import { useEffect } from "react";
 import { isChunkLoadError } from "@/lib/utils/isChunkLoadError";
-import { claimStaleDeployReload } from "@/lib/utils/staleDeployReload";
+import {
+  claimStaleDeployReload,
+  reloadForStaleDeploy,
+} from "@/lib/utils/staleDeployReload";
 
 /**
  * TanStack Router error fallback that silently reloads on stale deployment errors
@@ -12,7 +15,7 @@ export function DeploymentErrorFallback({ error }: { error: Error }) {
 
   useEffect(() => {
     if (shouldReload) {
-      window.location.reload();
+      reloadForStaleDeploy();
     }
   }, [shouldReload]);
 
@@ -31,7 +34,7 @@ export function DeploymentErrorFallback({ error }: { error: Error }) {
         </p>
         <button
           type="button"
-          onClick={() => window.location.reload()}
+          onClick={() => reloadForStaleDeploy()}
           className="mt-4 max-sm:min-h-10 rounded-md bg-primary max-sm:px-4 py-2 text-sm text-primary-foreground hover:bg-primary/90 transition-colors"
         >
           Refresh

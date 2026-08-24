@@ -62,6 +62,7 @@
     "@types/pg": "^8.20.0",
     "@types/shell-quote": "^1.7.5",
     "concurrently": "^9.1.2",
+    "convex-test": "^0.0.41",
     "cross-env": "^7.0.3",
     "esbuild": "^0.25.0",
     "typescript": "7.0.1-rc",

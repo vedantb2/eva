@@ -21,6 +21,7 @@ const COMMIT_ADD_ARGS = [
   ":!*.mov",
   ":!screenshots/",
   ":!recordings/",
+  ":!plan.md",
 ];
 
 function git(

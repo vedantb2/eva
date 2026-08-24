@@ -19,6 +19,12 @@ import {
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import type { OrchestratorNotifyChild } from "../orchestratorShared";
+import {
+  bindTurnWorkflow,
+  closeTurn,
+  findOpenSessionTurn,
+  openSessionTurn,
+} from "../_chat/turnStore";
 
 const QUEUE_RUN_TIMEOUT_MS = 2 * 60 * 60 * 1000;
 
@@ -233,9 +239,32 @@ async function startNextQueuedChatMessage<
 
 type SessionQueuePrepared = {
   repo: Doc<"githubRepos">;
-  mode: NonNullable<Doc<"queuedMessages">["mode"]>;
   model: NonNullable<Doc<"queuedMessages">["model"]>;
 };
+
+/** Reverts the durable rows created immediately before a queued workflow start. */
+export async function rollbackQueuedSessionStart(
+  ctx: MutationCtx,
+  params: {
+    sessionId: Id<"sessions">;
+    turnId: Id<"turns">;
+    placeholderMessageId: Id<"messages">;
+  },
+): Promise<void> {
+  const turn = await ctx.db.get(params.turnId);
+  if (turn) {
+    await closeTurn(ctx, turn, "error", {
+      error: "Queued workflow failed to start",
+    });
+  }
+  const placeholder = await ctx.db.get(params.placeholderMessageId);
+  if (
+    placeholder?.parentId === params.sessionId &&
+    placeholder.finishedAt === undefined
+  ) {
+    await ctx.db.delete(params.placeholderMessageId);
+  }
+}
 
 const sessionQueueConfig: ChatQueueConfig<
   Id<"sessions">,
@@ -248,7 +277,7 @@ const sessionQueueConfig: ChatQueueConfig<
   syntheticTurnMessageId: (session) => session.syntheticTurnMessageId,
   streamingEntityId: (id) => String(id),
   prepareGuard: async (ctx, session, next) => {
-    if (!next.mode || !next.model) {
+    if (!next.model) {
       return { ok: false, error: "Error: Failed to start queued message." };
     }
     const repo = await ctx.db.get(session.repoId);
@@ -258,7 +287,7 @@ const sessionQueueConfig: ChatQueueConfig<
         error: "Error: Repository not found for queued message.",
       };
     }
-    return { ok: true, data: { repo, mode: next.mode, model: next.model } };
+    return { ok: true, data: { repo, model: next.model } };
   },
   insertUserMessage: async (ctx, id, session, next, prepared, now) => {
     await ctx.db.insert("messages", {
@@ -267,9 +296,7 @@ const sessionQueueConfig: ChatQueueConfig<
       content: next.displayContent ?? next.content,
       timestamp: now,
       userId: next.userId,
-      mode: prepared.mode,
       attachmentStorageIds: next.attachmentStorageIds,
-      personaId: next.personaId,
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
         session.providerAccountId,
@@ -281,24 +308,55 @@ const sessionQueueConfig: ChatQueueConfig<
       sentViaOrchestrator: next.sentViaOrchestrator,
     });
   },
-  startWorkflow: (ctx, id, session, next, prepared) =>
-    workflow.start(ctx, internal.sessionWorkflow.sessionExecuteWorkflow, {
+  startWorkflow: async (ctx, id, session, next, prepared) => {
+    const placeholderMessageId = await ctx.db.insert("messages", {
+      parentId: id,
+      role: "assistant",
+      content: "",
+      timestamp: Date.now(),
+      activityLog: "",
+    });
+    const turnId = await openSessionTurn(ctx, {
       sessionId: id,
-      message: next.content,
-      mode: prepared.mode,
+      streamingEntityId: String(id),
+      placeholderMessageId,
+      prompt: next.content,
+      attachmentStorageIds: next.attachmentStorageIds,
       model: prepared.model,
-      reasoningLevel: next.reasoningLevel,
-      thinkingEnabled: next.thinkingEnabled,
-      use1mContext: next.use1mContext,
-      fastMode: next.fastMode,
-      providerAccountId: session.providerAccountId,
-      credentialOwnerUserId: session.createdBy ?? session.userId,
-      personaId: next.personaId,
-      numDesigns: next.numDesigns,
-      userId: next.userId,
-      installationId: prepared.repo.installationId,
-    }),
+      sandboxId: session.sandboxId,
+      repoId: session.repoId,
+    });
+    try {
+      return await workflow.start(
+        ctx,
+        internal.sessionWorkflow.sessionExecuteWorkflow,
+        {
+          sessionId: id,
+          message: next.content,
+          model: prepared.model,
+          reasoningLevel: next.reasoningLevel,
+          thinkingEnabled: next.thinkingEnabled,
+          use1mContext: next.use1mContext,
+          fastMode: next.fastMode,
+          providerAccountId: session.providerAccountId,
+          credentialOwnerUserId: session.createdBy ?? session.userId,
+          userId: next.userId,
+          installationId: prepared.repo.installationId,
+          turnId,
+        },
+      );
+    } catch (error) {
+      await rollbackQueuedSessionStart(ctx, {
+        sessionId: id,
+        turnId,
+        placeholderMessageId,
+      });
+      throw error;
+    }
+  },
   onStarted: async (ctx, id, workflowId, now) => {
+    const turn = await findOpenSessionTurn(ctx, id);
+    if (turn) await bindTurnWorkflow(ctx, turn._id, String(workflowId));
     await ctx.db.patch(id, { updatedAt: now });
     await trackSessionWorkflow(ctx, id, workflowId, QUEUE_RUN_TIMEOUT_MS);
   },

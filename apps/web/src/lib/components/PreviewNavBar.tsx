@@ -9,11 +9,15 @@ import {
   IconExternalLink,
   IconMaximize,
 } from "@tabler/icons-react";
-import { stripPreviewGrant, carryPreviewGrant } from "@/lib/utils/previewGrant";
+import {
+  stripPreviewGrant,
+  stripPreviewGrantFromPath,
+  carryPreviewGrant,
+} from "@/lib/utils/previewGrant";
 
 function getPathFromUrl(fullUrl: string): string {
   try {
-    const parsed = new URL(fullUrl);
+    const parsed = new URL(stripPreviewGrant(fullUrl));
     return parsed.pathname + parsed.search + parsed.hash;
   } catch {
     return "/";
@@ -23,7 +27,8 @@ function getPathFromUrl(fullUrl: string): string {
 export function normalizePreviewPath(path: string): string {
   const trimmed = path.trim();
   if (!trimmed) return "/";
-  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  const withSlash = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  return stripPreviewGrantFromPath(withSlash);
 }
 
 export function buildUrlWithPath(baseUrl: string, path: string): string {

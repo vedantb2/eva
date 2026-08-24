@@ -4,6 +4,7 @@ import {
   MentionText,
   SkillMentionChip,
   isSkillTokenId,
+  isHarnessSkillTokenId,
   SKILL_CHIP_CLASS,
 } from "@/lib/components/mentions";
 import { AtMentionChip } from "@/lib/components/chat/MarkdownMentionText";
@@ -56,6 +57,13 @@ export function MessageMentionText({
           e.stopPropagation();
           navigate({ to: `${repoBasePath}/settings/skills` });
         };
+        if (isHarnessSkillTokenId(match.id)) {
+          return (
+            <span key={key} className={SKILL_CHIP_CLASS}>
+              /{match.label}
+            </span>
+          );
+        }
         if (isSkillTokenId(match.id)) {
           return (
             <SkillMentionChip

@@ -12,10 +12,6 @@ import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PendingReviewCommentsProvider } from "@/lib/contexts/PendingReviewCommentsContext";
 import { isSessionPrReadOnly } from "./_utils/sessionReadOnly";
-import {
-  normalizeMode,
-  type SessionMode,
-} from "@/lib/hooks/useSessionSettings";
 import { withMutationToast } from "@/lib/utils/mutationToast";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
@@ -186,8 +182,6 @@ export function SessionDetailClient({
   const isArchived = session.archived === true;
   // Archive + PR terminal states share the same UI gates; PR reopen clears lock.
   const isReadOnly = isArchived || isSessionPrReadOnly(session.prState);
-  const stickyMode: SessionMode = normalizeMode(session.lastMode ?? "edit");
-  const selectedVariationIndex = session.selectedVariationIndex;
 
   const chatPanel = (
     sandboxCollapsed?: boolean,
@@ -282,8 +276,6 @@ export function SessionDetailClient({
                 terminalPanel={terminalPanel}
                 planContent={session.planContent}
                 messages={messages ?? []}
-                lastMode={stickyMode}
-                selectedVariationIndex={selectedVariationIndex}
                 isArchived={isReadOnly}
                 activeTab={activeSandboxTab}
                 onTabChange={onSandboxTabChange}

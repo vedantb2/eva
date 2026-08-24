@@ -18,7 +18,7 @@ export function UsageProviderSection({
   snapshot,
   now,
 }: UsageProviderSectionProps) {
-  const windows = reportedWindows(snapshot);
+  const windows = reportedWindows(snapshot, now);
 
   return (
     <div className="space-y-2 p-3">

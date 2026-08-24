@@ -6,8 +6,6 @@ import {
   PromptInputActionMenuContent,
   PromptInputActionMenuTrigger,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -20,13 +18,7 @@ import {
   IconPhoto,
   IconSparkles,
   IconDatabase,
-  IconRoute,
 } from "@tabler/icons-react";
-import type { SessionMode } from "@/lib/hooks/useSessionSettings";
-import {
-  isSessionMode,
-  SESSION_MODE_OPTIONS,
-} from "@/lib/sessionModeOptions";
 import type { Id } from "@eva/backend";
 import type { MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
 import {
@@ -95,6 +87,7 @@ interface DataMenuItem {
   id: string;
   label: string;
   badge?: string;
+  provider?: SlashItem["provider"];
   kind?: MentionKind;
   description?: string;
   personUserId?: Id<"users">;
@@ -105,8 +98,6 @@ interface ComposerPlusMenuProps {
   /** Same `/` entries the editor's slash picker shows. */
   skillItems: SlashItem[];
   mentionRef: RefObject<MentionTextareaHandle | null>;
-  mode?: SessionMode;
-  onModeChange?: (mode: SessionMode) => void;
 }
 
 /**
@@ -117,8 +108,6 @@ export function ComposerPlusMenu({
   dataItems,
   skillItems,
   mentionRef,
-  mode,
-  onModeChange,
 }: ComposerPlusMenuProps) {
   const attachments = usePromptInputAttachments();
   const [skillsQuery, setSkillsQuery] = useState("");
@@ -160,38 +149,6 @@ export function ComposerPlusMenu({
 
         <DropdownMenuSeparator />
 
-        {mode !== undefined && onModeChange !== undefined ? (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <IconRoute className="mr-2 size-4" />
-              Modes
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="min-w-40">
-              <DropdownMenuRadioGroup
-                value={mode}
-                onValueChange={(value) => {
-                  if (isSessionMode(value)) {
-                    onModeChange(value);
-                  }
-                }}
-              >
-                {SESSION_MODE_OPTIONS.map((option) => {
-                  const ModeIcon = option.icon;
-                  return (
-                    <DropdownMenuRadioItem
-                      key={option.value}
-                      value={option.value}
-                    >
-                      <ModeIcon size={14} />
-                      {option.label}
-                    </DropdownMenuRadioItem>
-                  );
-                })}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        ) : null}
-
         <DropdownMenuSub
           onOpenChange={(open) => {
             if (!open) setSkillsQuery("");
@@ -215,7 +172,9 @@ export function ComposerPlusMenu({
                 />
                 <div className="max-h-56 overflow-y-auto p-1.5">
                   {filteredSkills.length === 0 ? (
-                    <DropdownMenuItem disabled>No matching skills</DropdownMenuItem>
+                    <DropdownMenuItem disabled>
+                      No matching skills
+                    </DropdownMenuItem>
                   ) : (
                     filteredSkills.map((skill) => (
                       <DropdownMenuItem
@@ -230,6 +189,7 @@ export function ComposerPlusMenu({
                           label={skill.label}
                           description={skill.description}
                           badge={skill.badge}
+                          provider={skill.provider}
                         />
                       </DropdownMenuItem>
                     ))
@@ -263,7 +223,9 @@ export function ComposerPlusMenu({
                 />
                 <div className="max-h-56 overflow-y-auto p-1.5">
                   {filteredData.length === 0 ? (
-                    <DropdownMenuItem disabled>No matching data</DropdownMenuItem>
+                    <DropdownMenuItem disabled>
+                      No matching data
+                    </DropdownMenuItem>
                   ) : (
                     filteredData.map((item) => (
                       <DropdownMenuItem
@@ -285,6 +247,7 @@ export function ComposerPlusMenu({
                           label={item.label}
                           description={item.description}
                           badge={item.badge}
+                          provider={item.provider}
                           kind={item.kind}
                           personUserId={item.personUserId}
                         />

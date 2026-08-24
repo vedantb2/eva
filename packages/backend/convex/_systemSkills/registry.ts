@@ -1,6 +1,9 @@
 import { buildEvaCaptureContent } from "./evaCapture";
 import { buildEvaAuditContent } from "./evaAudit";
 import { buildEvaOrchestratorContent } from "./evaOrchestrator";
+import { buildEvaPlanContent } from "./evaPlan";
+import { buildEvaDesignContent } from "./evaDesign";
+import { buildEvaAskContent } from "./evaAsk";
 
 /**
  * Eva-provided ("system") skills. Definitions live here rather than in a table
@@ -11,6 +14,9 @@ export const SYSTEM_SKILL_NAMES = [
   "eva-capture",
   "eva-audit",
   "eva-orchestrator",
+  "eva-plan",
+  "eva-design",
+  "eva-ask",
 ] as const;
 
 export type SystemSkillName = (typeof SYSTEM_SKILL_NAMES)[number];
@@ -60,6 +66,24 @@ export const SYSTEM_SKILLS: Record<SystemSkillName, SystemSkillDefinition> = {
     description:
       "Supervise the other Eva agents running under this user: check what they are doing, message them, start new ones, and report their status. Use when acting as the master session coordinating other agents.",
     buildContent: buildEvaOrchestratorContent,
+  },
+  "eva-plan": {
+    name: "eva-plan",
+    description:
+      "Write or revise an implementation plan (PRD) for this session in plan.md, exploring the codebase first and implementing nothing. Use when the user asks to plan, scope, or spec work before it is built, or to revise the existing plan.",
+    buildContent: buildEvaPlanContent,
+  },
+  "eva-design": {
+    name: "eva-design",
+    description:
+      "Generate N design variations of a UI behind the app's /design-preview harness and report them so Eva can show them side by side. Use when the user asks for design options, variations, mockups, or a few directions for a screen.",
+    buildContent: buildEvaDesignContent,
+  },
+  "eva-ask": {
+    name: "eva-ask",
+    description:
+      "Explain something in this repo in a simple tutor voice. Use only when the user explicitly invokes /eva-ask or names this skill — never auto-trigger on ordinary questions.",
+    buildContent: buildEvaAskContent,
   },
 };
 

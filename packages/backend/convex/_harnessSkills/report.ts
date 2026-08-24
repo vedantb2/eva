@@ -1,17 +1,5 @@
 import { z } from "zod";
-import type { AIProvider } from "../_validators/aiModels";
 import { AI_PROVIDERS } from "../_validators/aiModels";
-import type { ReportedHarnessCommand } from "./filter";
-
-/**
- * The message a sandbox signs to prove it may report a harness catalog. Scoped
- * per provider so the injected signature is useless against any other endpoint
- * (the streaming heartbeat signs a bare entity id) or another provider's row.
- * Both sides key it with `ENCRYPTION_KEY`, so rotation = rotating that key.
- */
-export function harnessCatalogHmacMessage(provider: string): string {
-  return "harness-catalog:" + provider;
-}
 
 /** Caps that keep a compromised signature from writing an unbounded row. */
 const MAX_COMMANDS = 100;
@@ -38,14 +26,17 @@ const fieldsSchema = z.object({
   skillsJson: z.string().min(1).max(MAX_SKILLS_JSON_LENGTH),
 });
 
-export interface HarnessCatalogReport {
-  provider: AIProvider;
-  cliVersion: string;
-  commands: ReportedHarnessCommand[];
-}
+type ParsedFields = z.infer<typeof fieldsSchema>;
+type ParsedCommands = z.infer<typeof commandsSchema>;
+
+export type HarnessCatalogReport = {
+  provider: ParsedFields["provider"];
+  cliVersion: ParsedFields["cliVersion"];
+  commands: ParsedCommands;
+};
 
 /** Decodes the JSON command list, treating unparseable input as malformed. */
-function decodeCommands(skillsJson: string): ReportedHarnessCommand[] | null {
+function decodeCommands(skillsJson: string): ParsedCommands | null {
   try {
     const parsed = commandsSchema.safeParse(JSON.parse(skillsJson));
     return parsed.success ? parsed.data : null;

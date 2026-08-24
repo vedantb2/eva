@@ -1114,7 +1114,7 @@ Do NOT use this instead of leaving files in recordings/ / screenshots/ for chat 
 
   server.tool(
     "get_skill",
-    "Fetch the instructions for an Eva system skill (e.g. eva-capture, eva-audit). The stub SKILL.md in .agents/skills points here so the instructions stay current and are tailored to this repo.",
+    "Fetch the instructions for an Eva system skill (e.g. eva-ask, eva-plan, eva-capture). The stub SKILL.md in .agents/skills points here so the instructions stay current and are tailored to this repo.",
     {
       name: z
         .string()

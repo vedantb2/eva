@@ -14,7 +14,6 @@ import {
   getAIModelProvider,
   reasoningLevelValidator,
   roleValidator,
-  sessionModeValidator,
   sessionStatusValidator,
 } from "../validators";
 import { workflow } from "../workflowManager";
@@ -49,7 +48,6 @@ const createSessionArgs = v.object({
   repoId: v.id("githubRepos"),
   title: v.optional(v.string()),
   message: v.optional(v.string()),
-  mode: v.optional(sessionModeValidator),
   model: v.optional(aiModelValidator),
   reasoningLevel: v.optional(reasoningLevelValidator),
   thinkingEnabled: v.optional(v.boolean()),
@@ -60,8 +58,6 @@ const createSessionArgs = v.object({
   ),
   baseBranch: v.optional(v.string()),
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
-  personaId: v.optional(v.id("designPersonas")),
-  numDesigns: v.optional(v.number()),
   /** Marks the user's persistent master session. Set only at creation. */
   isOrchestrator: v.optional(v.boolean()),
   /** Set when the orchestrator's `create_session` tool opened this session. */
@@ -119,7 +115,6 @@ export async function createSession(
     // Pins the session to this provider for its whole life.
     provider: getAIModelProvider(model),
     lastModel: model,
-    ...(args.mode !== undefined ? { lastMode: args.mode } : {}),
     ...(reasoningLevel !== undefined
       ? { lastReasoningLevel: reasoningLevel }
       : {}),
@@ -150,8 +145,8 @@ export async function createSession(
 
   const content = args.message?.trim() ?? "";
   if (content) {
-    if (!args.mode || !args.model) {
-      throw new Error("mode and model are required when queuing a message");
+    if (!args.model) {
+      throw new Error("model is required when queuing a message");
     }
     await ctx.db.insert("queuedMessages", {
       parentId: sessionId,
@@ -159,7 +154,6 @@ export async function createSession(
       createdAt: Date.now(),
       order: Date.now(),
       userId: ctx.userId,
-      mode: args.mode,
       model: args.model,
       reasoningLevel,
       thinkingEnabled,
@@ -167,8 +161,6 @@ export async function createSession(
       fastMode,
       providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
-      personaId: args.personaId,
-      numDesigns: args.numDesigns,
       // A session the orchestrator created: its first message is master-sent
       // too, so it carries the same badge as anything sent later.
       sentViaOrchestrator: args.sentViaOrchestrator,
@@ -210,14 +202,12 @@ export const addMessage = authMutation({
     id: v.id("sessions"),
     role: roleValidator,
     content: v.string(),
-    mode: v.optional(sessionModeValidator),
     activityLog: v.optional(v.string()),
     clientId: v.optional(v.string()),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     model: v.optional(aiModelValidator),
     reasoningLevel: v.optional(reasoningLevelValidator),
-    personaId: v.optional(v.id("designPersonas")),
     /** Set by the orchestrator's `send_agent_message` MCP tool. */
     sentViaOrchestrator: v.optional(v.boolean()),
   },
@@ -237,13 +227,11 @@ export const addMessage = authMutation({
       role: args.role,
       content: args.content,
       timestamp: Date.now(),
-      mode: args.mode,
       activityLog: args.activityLog,
       clientId: args.clientId,
       userId: ctx.userId,
       attachmentStorageIds: args.attachmentStorageIds,
       credentialSourceLabel,
-      personaId: args.personaId,
       ...(args.role === "user"
         ? {
             model: args.model,
@@ -278,26 +266,6 @@ export const setModel = authMutation({
     }
     assertModelMatchesLockedProvider(session.provider, args.model);
     await ctx.db.patch(args.id, { lastModel: args.model });
-    return null;
-  },
-});
-
-/**
- * Sets the sticky composer mode for a session. Same contract as `setModel`:
- * write on change (optimistic on the client), do not bump `updatedAt`.
- */
-export const setMode = authMutation({
-  args: {
-    id: v.id("sessions"),
-    mode: sessionModeValidator,
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const session = await getSessionOrThrow(ctx.db, args.id);
-    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
-      throw new Error("Not authorized");
-    }
-    await ctx.db.patch(args.id, { lastMode: args.mode });
     return null;
   },
 });
@@ -518,45 +486,6 @@ export const unarchive = authMutation({
       prStateOnArchive: undefined,
     });
     await cancelSessionSandboxGraceDelete(ctx, args.id);
-    return null;
-  },
-});
-
-/** Selects a design variation index as the refine base for the next design turn. */
-export const selectVariation = authMutation({
-  args: {
-    id: v.id("sessions"),
-    variationIndex: v.number(),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const session = await getSessionOrThrow(ctx.db, args.id);
-    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
-      throw new Error("Not authorized");
-    }
-
-    const messages = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.id))
-      .order("desc")
-      .collect();
-    const lastWithVariations = messages.find(
-      (m) => m.role === "assistant" && m.variations && m.variations.length > 0,
-    );
-    if (!lastWithVariations?.variations) {
-      throw new Error("No design variations to select from");
-    }
-    if (
-      args.variationIndex < 0 ||
-      args.variationIndex >= lastWithVariations.variations.length
-    ) {
-      throw new Error("Invalid variation index");
-    }
-
-    await ctx.db.patch(args.id, {
-      selectedVariationIndex: args.variationIndex,
-      updatedAt: Date.now(),
-    });
     return null;
   },
 });

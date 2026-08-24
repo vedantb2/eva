@@ -44,7 +44,6 @@ test("readStopTaskToolUseIds unwraps Convex HTTP envelope", () => {
       status: "success",
       value: {
         prompt: null,
-        turnKind: "agent",
         attachmentUrls: [],
         stopTaskToolUseIds: ["tool-1", "tool-2"],
       },

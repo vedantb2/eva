@@ -7,10 +7,9 @@ import {
   isHarnessCatalogUnchanged,
   type ReportedHarnessCommand,
 } from "../convex/_harnessSkills/filter";
-import {
-  harnessCatalogHmacMessage,
-  parseHarnessCatalogReport,
-} from "../convex/_harnessSkills/report";
+import { parseHarnessCatalogReport } from "../convex/_harnessSkills/report";
+import { streamingHeartbeatHmacMessage } from "../convex/_sandbox_runtime/callbackAuth";
+import { AI_PROVIDERS } from "../convex/_validators/aiModels";
 
 const testsDir = dirname(fileURLToPath(import.meta.url));
 
@@ -266,10 +265,9 @@ describe("parseHarnessCatalogReport", () => {
 });
 
 describe("harness catalog write path", () => {
-  it("scopes the signed message per provider", () => {
-    expect(harnessCatalogHmacMessage("claude")).toBe("harness-catalog:claude");
-    expect(harnessCatalogHmacMessage("codex")).not.toBe(
-      harnessCatalogHmacMessage("claude"),
+  it("domain-separates streaming heartbeats from every other callback", () => {
+    expect(streamingHeartbeatHmacMessage("entity-1")).toBe(
+      "streaming-heartbeat:entity-1",
     );
   });
 
@@ -285,11 +283,35 @@ describe("harness catalog write path", () => {
     expect(source).not.toContain("authMutation");
   });
 
-  it("verifies the signature before parsing the reported payload", () => {
+  it("parses before consuming a single-use token, then authorizes before write", () => {
     const source = backendSource("convex/http.ts");
     const route = source.slice(source.indexOf("/api/harness-skills/report"));
-    expect(route.indexOf("timingSafeEqual")).toBeLessThan(
-      route.indexOf("parseHarnessCatalogReport"),
+    expect(route.indexOf("parseHarnessCatalogReport")).toBeLessThan(
+      route.indexOf("consumeReportToken"),
     );
+    expect(route.indexOf("consumeReportToken")).toBeLessThan(
+      route.indexOf("upsertForProvider"),
+    );
+  });
+
+  it("provides both a clear path and single-use token mutations", () => {
+    const source = backendSource("convex/harnessSkills.ts");
+    expect(source).toContain(
+      "export const clearForProvider = internalMutation(",
+    );
+    expect(source).toContain(
+      "export const issueReportToken = internalMutation(",
+    );
+    expect(source).toContain(
+      "export const consumeReportToken = internalMutation(",
+    );
+    expect(source).toContain("await ctx.db.delete(row._id)");
+  });
+
+  it("keeps one canonical provider list for every parser boundary", () => {
+    expect(AI_PROVIDERS).toEqual(["claude", "codex", "opencode", "cursor"]);
+    const source = backendSource("convex/_validators/aiModels.ts");
+    expect(source).toContain("type AIProvider = (typeof AI_PROVIDERS)[number]");
+    expect(source).toContain("...AI_PROVIDERS.map");
   });
 });

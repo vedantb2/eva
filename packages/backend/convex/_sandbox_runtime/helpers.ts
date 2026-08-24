@@ -1,5 +1,5 @@
 "use node";
-import { createHash } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import type { GenericActionCtx } from "convex/server";
 import type { DataModel, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
@@ -13,6 +13,7 @@ import { getSandboxClient } from "../_sandbox/factory";
 import { launchScript } from "./launch";
 import { ensureSwapFile } from "./swap";
 import { buildStubMarkdown, SYSTEM_SKILLS } from "../_systemSkills/registry";
+import { getAIModelProvider, normalizeAIModel } from "../validators";
 
 export const WORKSPACE_DIR = "/tmp/repo";
 export const LEGACY_WORKSPACE_DIR = "/workspace/repo";
@@ -653,6 +654,22 @@ export async function signAndLaunchScript(
 
   const mcpBaseUrl = mcpToken ? (process.env.CONVEX_SITE_URL ?? "") : "";
 
+  // A catalog writer is deliberately short-lived and single-use. Unlike the
+  // old fleet-constant HMAC, reading one sandbox's env cannot grant permanent
+  // write access to the global composer catalog.
+  const provider = getAIModelProvider(normalizeAIModel(opts.model));
+  let harnessCatalogToken: string | undefined;
+  if (provider === "claude") {
+    harnessCatalogToken = randomBytes(32).toString("hex");
+    await ctx.runMutation(internal.harnessSkills.issueReportToken, {
+      tokenHash: createHash("sha256").update(harnessCatalogToken).digest("hex"),
+      provider,
+      sandboxId: sandbox.id,
+      repoId,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+  }
+
   // System skills reach the agent as stub SKILL.md files in the checkout, and
   // the stubs are useless without the eva MCP server — so a launch with MCP
   // disabled ships an empty list, which prunes any leftovers.
@@ -691,6 +708,7 @@ export async function signAndLaunchScript(
       mcpToken: mcpToken?.token,
       mcpBaseUrl,
       systemSkillsJson: JSON.stringify({ skills: systemSkillStubs }),
+      harnessCatalogToken,
     },
   );
   console.log(

@@ -10,7 +10,6 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@eva/ui";
-import { IconCode, IconClipboardList } from "@tabler/icons-react";
 import { memo } from "react";
 import { m } from "motion/react";
 import dayjs from "@eva/shared/dates";
@@ -241,7 +240,6 @@ export const ChatMessage = memo(function ChatMessage({
               <UserMessageMeta
                 align={isOtherUser ? "start" : "end"}
                 copyPlain={copyPlain}
-                mode={message.mode}
                 timestamp={message.timestamp}
                 className={isOtherUser ? "pl-6" : undefined}
               />
@@ -382,13 +380,11 @@ function UserMessageBody({
 function UserMessageMeta({
   align,
   copyPlain,
-  mode,
   timestamp,
   className,
 }: {
   align: "start" | "end";
   copyPlain?: string;
-  mode?: ChatBodyMessage["mode"];
   timestamp?: number;
   className?: string;
 }) {
@@ -402,19 +398,6 @@ function UserMessageMeta({
     >
       {copyPlain ? (
         <ChatMessageActions copyText={copyPlain} revealOnHover={false} />
-      ) : null}
-      {mode ? (
-        <div className="flex items-center gap-1 text-[11px] text-muted-foreground/60">
-          {mode === "plan" ? (
-            <>
-              <IconClipboardList className="h-2.5 w-2.5" /> Plan
-            </>
-          ) : (
-            <>
-              <IconCode className="h-2.5 w-2.5" /> Edit
-            </>
-          )}
-        </div>
       ) : null}
       {timestamp ? (
         <span className="text-[11px] text-muted-foreground/60">

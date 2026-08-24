@@ -144,7 +144,6 @@ export const notifyOrchestratorOfChild = internalMutation({
       outcome.tail === undefined ? headline : `${headline}\n\n${outcome.tail}`;
 
     const ownerUserId = master.createdBy ?? master.userId;
-    const mode = master.lastMode ?? "edit";
     const model = normalizeAIModel(master.lastModel);
     const now = Date.now();
 
@@ -155,7 +154,6 @@ export const notifyOrchestratorOfChild = internalMutation({
         createdAt: now,
         order: now,
         userId: ownerUserId,
-        mode,
         model,
         providerAccountId: master.providerAccountId,
         reasoningLevel: master.lastReasoningLevel,
@@ -181,7 +179,6 @@ export const notifyOrchestratorOfChild = internalMutation({
       content,
       timestamp: now,
       userId: ownerUserId,
-      mode,
       model,
       orchestratorNotification: true,
     });
@@ -192,7 +189,6 @@ export const notifyOrchestratorOfChild = internalMutation({
       {
         sessionId: master._id,
         message: content,
-        mode,
         model,
         reasoningLevel: master.lastReasoningLevel,
         thinkingEnabled: master.lastThinkingEnabled,
@@ -206,7 +202,6 @@ export const notifyOrchestratorOfChild = internalMutation({
     );
     await ctx.db.patch(master._id, {
       updatedAt: now,
-      lastMode: mode,
       lastModel: model,
     });
     await trackSessionWorkflow(ctx, master._id, workflowId);

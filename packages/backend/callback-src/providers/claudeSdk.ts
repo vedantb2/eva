@@ -34,12 +34,12 @@ import {
 import { buildCanUseTool } from "../runtime/pendingQuestion.js";
 import { callbackState as S, resetAttemptState } from "../runtime/state.js";
 import {
-  captureClaudeUsage,
-  reportUsageLimits,
+  startClaudeUsageReport,
   type ClaudeUsageResponseLike,
 } from "../runtime/usageLimits.js";
 import type { ProviderAttemptResult, SessionMode } from "../types.js";
 import { log } from "../utils.js";
+import { isZeroWorkTaskNotificationResult } from "./claudeResult.js";
 
 const SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
 const SDK_VERSION = "0.3.201";
@@ -334,7 +334,9 @@ export async function runClaudeSdkAttempt(
   let timedOutForMaxRuntime = false;
   let sawResult = false;
   let resultIsError = false;
+  let resultErrorMessage = "";
   let queryErrorMessage = "";
+  let sawZeroWorkTaskNotification = false;
 
   const sdk = await loadSdk();
   let effectiveMode = sessionMode;
@@ -384,6 +386,13 @@ export async function runClaudeSdkAttempt(
   const consumeQuery = async (): Promise<void> => {
     for await (const message of q) {
       lastMessageAt = Date.now();
+      if (isZeroWorkTaskNotificationResult(message)) {
+        sawZeroWorkTaskNotification = true;
+        log(
+          "runClaudeSdkAttempt: ignored zero-work task notification result",
+        );
+        continue;
+      }
       const line = JSON.stringify(message) + "\n";
       appendToRawLogFile(line);
       attemptOutput = trimBufferHead(attemptOutput + line);
@@ -392,6 +401,9 @@ export async function runClaudeSdkAttempt(
       if (message.type === "result") {
         sawResult = true;
         resultIsError = message.is_error === true;
+        if (resultIsError && typeof message.result === "string") {
+          resultErrorMessage = message.result;
+        }
       }
       if (timedOutForMaxRuntime || timedOutForNoOutput) break;
     }
@@ -400,6 +412,17 @@ export async function runClaudeSdkAttempt(
   try {
     try {
       await consumeQuery();
+      if (sawZeroWorkTaskNotification && !sawResult) {
+        log(
+          "runClaudeSdkAttempt: retrying prompt after zero-work task notification",
+        );
+        sawZeroWorkTaskNotification = false;
+        q = sdk.query({
+          prompt: readPromptText(),
+          options: buildSdkOptions(effectiveMode),
+        });
+        await consumeQuery();
+      }
     } catch (error) {
       const messageText =
         error instanceof Error ? error.message : String(error);
@@ -442,8 +465,10 @@ export async function runClaudeSdkAttempt(
   // stream's `rate_limit_event`s already populated whichever window they named;
   // this fills in the rest. Reporting is fire-and-forget — the turn's outcome is
   // already decided below and must not depend on it.
-  await captureClaudeUsage(() => readSdkPlanUsage(q));
-  void reportUsageLimits("claude");
+  startClaudeUsageReport({
+    readUsage: () => readSdkPlanUsage(q),
+    error: resultErrorMessage || queryErrorMessage || undefined,
+  });
 
   const code =
     sawResult &&

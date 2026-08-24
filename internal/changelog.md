@@ -1,5 +1,13 @@
 # Changelog
 
+## Manager Ave can be started from scratch - 2026-08-24
+
+Ave is one persistent session per user, so it was the only chat with no way out of a conversation that had gone stale — every other chat you simply replace by opening a new one. "Start new chat" now sits at the top of the chat header's `⋯` menu (both the floating popover and `/ave`), behind a confirm dialog, disabled while a turn is in flight so an in-flight reply cannot land in a chat the user can no longer reach.
+
+Deliberately a new session rather than a message wipe. Ave's memory is not the `messages` rows the UI renders — it is the provider transcript on the sandbox, keyed off a UUID derived from the session id (`sessionClaudeUuid`). Deleting messages would have left Ave answering from a conversation the user could no longer see. A new session id is the only reset that is provider-agnostic (Claude transcript, Cursor thread, Codex/OpenCode state all key off the same id) and needs no reach into the sandbox filesystem to delete state files per provider.
+
+`resetOrchestratorSession` archives the old master, strips its `isOrchestrator` flag so exactly one row ever carries it, and creates the replacement in the same home codebase. The archive path was extracted out of the `archive` mutation into `archiveSessionDoc` and the creation tail out of `ensureOrchestratorSession` into `createOrchestratorSession`, so both entry points retire and create through one implementation. Two known consequences: the reset boots a fresh sandbox, and children the old master was watching lose their supervisor — `orchestratorNotify` sees the archived master and drops the watch rather than waking the new one. `watchedByOrchestrator` has no index, so re-pointing live watches would mean a scan; left out.
+
 ## Sandboxes can reach tunneled/self-hosted deployments via EVA_PUBLIC_* overrides - 2026-08-19
 
 Agent sandboxes are handed this deployment's own `CONVEX_CLOUD_URL`/`CONVEX_SITE_URL`, which on a local backend are 127.0.0.1 — unreachable from the sandbox, so no turn could ever stream a reply back in a sandbox-preview environment. Convex reserves those names, so they cannot simply be re-set. New optional `EVA_PUBLIC_CONVEX_URL`/`EVA_PUBLIC_CONVEX_SITE_URL` env vars take precedence in `launch.ts` (`publicConvexUrl`/`resolveConvexSiteUrl`) and `mcp/nodeActions.ts` (`getEvaConvexCloudUrl`); unset, behaviour is unchanged. Verified live by exposing the local backend through two Cloudflare quick tunnels and calling MCP `tools/list` over the public URL (31 tools). Also fixed a latent infinite recursion the earlier `getEvaConvexCloudUrl` refactor had introduced in its own (unreachable) fallback line — a regex replace had rewritten the fallback into a self-call.

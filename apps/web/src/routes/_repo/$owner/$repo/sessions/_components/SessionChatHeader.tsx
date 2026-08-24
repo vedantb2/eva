@@ -16,6 +16,7 @@ import {
   IconDots,
   IconEye,
   IconGitPullRequest,
+  IconMessagePlus,
   IconSparkles,
 } from "@tabler/icons-react";
 import type { Id } from "@eva/backend";
@@ -54,6 +55,8 @@ interface SessionChatHeaderProps {
   onToggleSandbox?: () => void;
   onOpenSummaryModal: () => void;
   onOpenReviewModal: () => void;
+  /** Manager Ave only: offers "Start new chat". Absent on ordinary sessions. */
+  onOpenResetChatDialog?: () => void;
 }
 
 export function SessionChatHeader({
@@ -76,6 +79,7 @@ export function SessionChatHeader({
   onToggleSandbox,
   onOpenSummaryModal,
   onOpenReviewModal,
+  onOpenResetChatDialog,
 }: SessionChatHeaderProps) {
   const showSendForReview =
     !chatOnly && branchName && (!prState || prState === "draft");
@@ -113,6 +117,21 @@ export function SessionChatHeader({
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {onOpenResetChatDialog && (
+            <>
+              {/* Disabled mid-turn: the reset retires this session, and the
+                  in-flight turn would finish writing into a chat the user can
+                  no longer reach. */}
+              <DropdownMenuItem
+                onClick={onOpenResetChatDialog}
+                disabled={isAssistantResponding}
+              >
+                <IconMessagePlus size={14} />
+                Start new chat
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuItem
             onClick={onOpenSummaryModal}
             disabled={!isSandboxActive || messageCount === 0}

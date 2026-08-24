@@ -1,10 +1,14 @@
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import type { Id } from "../_generated/dataModel";
 import type { DatabaseReader } from "../_generated/server";
 import { authMutation, authQuery } from "../functions";
 import { sessionStatusValidator } from "../_validators/enums";
 import { entityVisible } from "../numId";
-import { createSession } from "./mutations";
+import {
+  archiveSessionDoc,
+  createSession,
+  type AuthMutationCtx,
+} from "./mutations";
 
 /** Title of the persistent per-user orchestrator session. */
 const ORCHESTRATOR_SESSION_TITLE = "Manager Ave";
@@ -50,6 +54,36 @@ async function resolveOrchestratorSession(
   };
 }
 
+/**
+ * Creates the user's master session in `repoId` and points them at it.
+ *
+ * `createSession` owns the repo access check, the branch, and the sandbox
+ * startup workflow, so both the first-run path and the reset path get an
+ * identical session — only one of them may hold the pointer at a time.
+ */
+async function createOrchestratorSession(
+  ctx: AuthMutationCtx,
+  repoId: Id<"githubRepos">,
+): Promise<Infer<typeof orchestratorSessionValidator>> {
+  const { sessionId, numId } = await createSession(ctx, {
+    repoId,
+    title: ORCHESTRATOR_SESSION_TITLE,
+    isOrchestrator: true,
+  });
+  await ctx.db.patch(ctx.userId, { orchestratorSessionId: sessionId });
+  const repo = await ctx.db.get(repoId);
+  if (!repo) throw new Error("Repository not found");
+  return {
+    sessionId,
+    numId,
+    owner: repo.owner,
+    name: repo.name,
+    rootDirectory: repo.rootDirectory,
+    // Freshly created: its sandbox is still starting.
+    status: "starting" as const,
+  };
+}
+
 /** The user's master session, or null when they do not have a live one. */
 export const getOrchestratorSession = authQuery({
   args: {},
@@ -80,23 +114,38 @@ export const ensureOrchestratorSession = authMutation({
     if (stale?.isOrchestrator === true) {
       await ctx.db.patch(stale._id, { isOrchestrator: undefined });
     }
-    // `createSession` owns the repo access check and the sandbox startup path.
-    const { sessionId, numId } = await createSession(ctx, {
-      repoId: args.repoId,
-      title: ORCHESTRATOR_SESSION_TITLE,
-      isOrchestrator: true,
-    });
-    await ctx.db.patch(ctx.userId, { orchestratorSessionId: sessionId });
-    const repo = await ctx.db.get(args.repoId);
-    if (!repo) throw new Error("Repository not found");
-    return {
-      sessionId,
-      numId,
-      owner: repo.owner,
-      name: repo.name,
-      rootDirectory: repo.rootDirectory,
-      // Freshly created: its sandbox is still starting.
-      status: "starting" as const,
-    };
+    return await createOrchestratorSession(ctx, args.repoId);
+  },
+});
+
+/**
+ * Starts Manager Ave over: retires the current master and creates a
+ * replacement in the same home codebase, returning the new pointer.
+ *
+ * Deliberately a new session rather than a message wipe. The agent's memory is
+ * not the `messages` rows the UI renders — it is the provider transcript on the
+ * sandbox, keyed off a UUID derived from the session id (`sessionClaudeUuid`).
+ * Clearing messages alone would leave Ave answering from a conversation the
+ * user can no longer see. A new id is the only reset that is provider-agnostic
+ * (Claude transcript, Cursor thread, Codex/OpenCode state all key off it) and
+ * needs no reach into the sandbox filesystem.
+ *
+ * The old chat is archived, not deleted, so it stays readable at its own URL.
+ * Children it was watching lose their supervisor: `orchestratorNotify` sees the
+ * archived master and drops the watch rather than waking the new one.
+ */
+export const resetOrchestratorSession = authMutation({
+  args: {},
+  returns: orchestratorSessionValidator,
+  handler: async (ctx) => {
+    const existing = await resolveOrchestratorSession(ctx.db, ctx.userId);
+    if (!existing) throw new Error("No Manager Ave chat to reset");
+    const previous = await ctx.db.get(existing.sessionId);
+    if (!previous) throw new Error("No Manager Ave chat to reset");
+    await archiveSessionDoc(ctx, previous);
+    // Exactly one row may carry the flag, otherwise the sessions list shows two
+    // marked rows and `list_agents` hides both from the fleet.
+    await ctx.db.patch(previous._id, { isOrchestrator: undefined });
+    return await createOrchestratorSession(ctx, previous.repoId);
   },
 });

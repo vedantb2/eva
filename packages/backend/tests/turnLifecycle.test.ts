@@ -5,6 +5,7 @@ import {
   TURN_STARTUP_LEASE_MS,
   canTransitionTurn,
   isTerminalTurnState,
+  shouldWriteTurnLeaseRenewal,
   turnExceededAbsoluteLimit,
   turnLeaseDurationMs,
   turnLeaseExpiry,
@@ -60,6 +61,41 @@ describe("durable turn lifecycle", () => {
     expect(turnExceededAbsoluteLimit(STARTED_AT, nearDeadline)).toBe(false);
     expect(
       turnExceededAbsoluteLimit(STARTED_AT, STARTED_AT + RUN_TIMEOUT_MS),
+    ).toBe(true);
+  });
+
+  test("skips lease writes while more than half the phase remains", () => {
+    const now = STARTED_AT + 10_000;
+    expect(
+      shouldWriteTurnLeaseRenewal({
+        currentState: "running",
+        nextState: "running",
+        leaseExpiresAt: now + TURN_RUNNING_LEASE_MS,
+        now,
+        durationMs: TURN_RUNNING_LEASE_MS,
+      }),
+    ).toBe(false);
+    expect(
+      shouldWriteTurnLeaseRenewal({
+        currentState: "running",
+        nextState: "running",
+        leaseExpiresAt: now + TURN_RUNNING_LEASE_MS / 2,
+        now,
+        durationMs: TURN_RUNNING_LEASE_MS,
+      }),
+    ).toBe(true);
+  });
+
+  test("always writes when the turn phase advances", () => {
+    const now = STARTED_AT + 10_000;
+    expect(
+      shouldWriteTurnLeaseRenewal({
+        currentState: "launching",
+        nextState: "running",
+        leaseExpiresAt: now + TURN_STARTUP_LEASE_MS,
+        now,
+        durationMs: TURN_RUNNING_LEASE_MS,
+      }),
     ).toBe(true);
   });
 });

@@ -1,5 +1,11 @@
 # Changelog
 
+## Cut idle Convex writes that were fighting themselves - 2026-08-24
+
+Prod insights for the last 72h were almost all OCC retries, not bytes-read. Turn heartbeats patched `leaseExpiresAt` on every 150ms flush even though the running lease is two minutes (18 OCC on `turns`). Overlapping streaming touches rewrote `lastUpdatedAt` when content had not changed (24 OCC on `streamingActivity`, plus 17 more from the stall watchdog). Cursor/typing presence rooms also read the user doc on every heartbeat, so lastSeenAt writes on one tab retried every other room (30 OCC on one user). Chat subscribed to `users.listAll` on every transcript, including solo chats that never show another name.
+
+Lease renewal now writes only on a phase change or when less than half the lease remains (~1/min instead of ~6.7/s while streaming). Touch-only streaming writes coalesce for 2s, still well under the 5-minute stale threshold. lastSeenAt is owned only by the `platform` presence room. Live cursors throttle to 150ms and ignore sub-0.25% jitter (20 writes/s → ≤6.7, and fewer after the deadzone). Solo chats skip the user-directory subscription.
+
 ## Skeleton loaders shimmer instead of pulsing - 2026-08-24
 
 The shared skeleton used Tailwind's opacity pulse, so loading cards just faded in place. They now sweep a soft highlight on a compositor `transform`, which reads as loading without the throb.

@@ -33,6 +33,7 @@ import {
   findPrecedingUserTurn,
   firstNameFromUser,
   isOtherUserChatMessage,
+  chatNeedsOtherUserDirectory,
   parsePendingQuestion,
   visibleChatMessages,
   type ChatBodyMessage,
@@ -245,7 +246,14 @@ export function ChatBody({
   const handoffBoundaryIds = findHandoffBoundaryIds(displayMessages);
 
   const currentUserId = useQuery(api.auth.me);
-  const users = useQuery(api.users.listAll);
+  const needsOtherUserNames = chatNeedsOtherUserDirectory(
+    displayMessages,
+    currentUserId,
+  );
+  const users = useQuery(
+    api.users.listAll,
+    needsOtherUserNames ? {} : "skip",
+  );
   const firstNameByUserId = (() => {
     const map = new Map<Id<"users">, string>();
     for (const user of users ?? []) {

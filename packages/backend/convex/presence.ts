@@ -8,6 +8,8 @@ import { getCurrentUserId } from "./_auth/currentUser";
 const presence = new Presence(components.presence);
 
 const TWO_MINUTES = 2 * 60 * 1000;
+/** Must match ClientProvider's usePresence room — the only heartbeat that owns lastSeenAt. */
+const LAST_SEEN_ROOM_ID = "platform";
 
 /** Sends a presence heartbeat for the current user in a room, updating lastSeenAt periodically. */
 export const heartbeat = authMutation({
@@ -28,12 +30,17 @@ export const heartbeat = authMutation({
       sessionId,
       interval,
     );
-    const user = await ctx.db.get(ctx.userId);
-    if (
-      user &&
-      (!user.lastSeenAt || Date.now() - user.lastSeenAt > TWO_MINUTES)
-    ) {
-      await ctx.db.patch(ctx.userId, { lastSeenAt: Date.now() });
+    // Cursor/typing rooms also heartbeat this mutation. Reading users from
+    // those rooms put lastSeenAt writes in every room's conflict set (30 OCC
+    // in 72h on one user doc). Only the app-wide room owns lastSeenAt.
+    if (roomId === LAST_SEEN_ROOM_ID) {
+      const user = await ctx.db.get(ctx.userId);
+      if (
+        user &&
+        (!user.lastSeenAt || Date.now() - user.lastSeenAt > TWO_MINUTES)
+      ) {
+        await ctx.db.patch(ctx.userId, { lastSeenAt: Date.now() });
+      }
     }
     return result;
   },

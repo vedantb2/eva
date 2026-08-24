@@ -2,7 +2,7 @@ import { convexTest } from "convex-test";
 import { describe, expect, test } from "vitest";
 import { internal } from "../convex/_generated/api";
 import schema from "../convex/schema";
-import { openSessionTurn } from "../convex/_chat/turnStore";
+import { openSessionTurn, renewTurnLease } from "../convex/_chat/turnStore";
 import { isLegacySessionExecuting } from "../convex/_chat/turnProjection";
 import { rollbackQueuedSessionStart } from "../convex/_queues/helpers";
 import {
@@ -107,6 +107,65 @@ describe("turn lifecycle integration", () => {
     expect(rows.turn?.open).toBe(false);
     expect(rows.turn?.state).toBe("error");
     expect(rows.placeholder).toBeNull();
+  });
+
+  test("a fresh running lease is not rewritten by a second heartbeat", async () => {
+    const { t, turnId } = await createSessionFixture();
+    const first = await t.run(async (ctx) => {
+      const turn = await ctx.db.get(turnId);
+      if (!turn) throw new Error("missing turn");
+      return await renewTurnLease(ctx, {
+        turnId: String(turnId),
+        leaseGeneration: turn.leaseGeneration,
+      });
+    });
+    expect(first.status).toBe("renewed");
+
+    const second = await t.run(async (ctx) => {
+      const before = await ctx.db.get(turnId);
+      if (!before) throw new Error("missing turn");
+      const result = await renewTurnLease(ctx, {
+        turnId: String(turnId),
+        leaseGeneration: before.leaseGeneration,
+      });
+      const after = await ctx.db.get(turnId);
+      return {
+        result,
+        leaseExpiresAt: before.leaseExpiresAt,
+        afterExpiresAt: after?.leaseExpiresAt,
+        afterState: after?.state,
+      };
+    });
+
+    expect(second.result.status).toBe("renewed");
+    expect(second.afterExpiresAt).toBe(second.leaseExpiresAt);
+    expect(second.afterState).toBe("running");
+  });
+
+  test("a streaming touch within 2s does not rewrite lastUpdatedAt", async () => {
+    const { t, sessionId } = await createSessionFixture();
+    const entityId = String(sessionId);
+    const stamped = await t.run(async (ctx) => {
+      const lastUpdatedAt = Date.now();
+      await ctx.db.insert("streamingActivity", {
+        entityId,
+        currentActivity: "[]",
+        currentContent: "",
+        lastUpdatedAt,
+      });
+      return lastUpdatedAt;
+    });
+
+    await t.mutation(internal.streaming.internalTouch, { entityId });
+
+    const after = await t.run(
+      async (ctx) =>
+        await ctx.db
+          .query("streamingActivity")
+          .withIndex("by_entity", (q) => q.eq("entityId", entityId))
+          .unique(),
+    );
+    expect(after?.lastUpdatedAt).toBe(stamped);
   });
 });
 

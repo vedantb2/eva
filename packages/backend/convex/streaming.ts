@@ -34,6 +34,16 @@ export async function finalizeCancelledAssistantMessage(
   });
 }
 
+/** Overlapping heartbeat + flush both bump lastUpdatedAt; 2s is far below the 5-minute stale threshold. */
+export const STREAMING_TOUCH_COALESCE_MS = 2_000;
+
+export function shouldCoalesceStreamingTouch(
+  lastUpdatedAt: number,
+  now: number,
+): boolean {
+  return now - lastUpdatedAt < STREAMING_TOUCH_COALESCE_MS;
+}
+
 const activityStateValidator = v.union(
   v.object({
     currentActivity: v.string(),
@@ -91,7 +101,7 @@ export async function upsertStreamingActivity(
         pendingQuestion: args.pendingQuestion,
         lastUpdatedAt: now,
       });
-    } else {
+    } else if (!shouldCoalesceStreamingTouch(existing.lastUpdatedAt, now)) {
       await ctx.db.patch(existing._id, {
         lastUpdatedAt: now,
       });
@@ -147,6 +157,9 @@ export async function touchStreamingEntity(
       currentContent: "",
       lastUpdatedAt: now,
     });
+    return true;
+  }
+  if (shouldCoalesceStreamingTouch(existing.lastUpdatedAt, now)) {
     return true;
   }
   await ctx.db.patch(existing._id, { lastUpdatedAt: now });

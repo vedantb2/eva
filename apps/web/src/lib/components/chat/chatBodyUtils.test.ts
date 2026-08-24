@@ -3,6 +3,7 @@ import {
   findHandoffBoundaryIds,
   findStreamingTargetMessage,
   visibleChatMessages,
+  chatNeedsOtherUserDirectory,
   type ChatBodyMessage,
 } from "./chatBodyUtils";
 
@@ -149,5 +150,40 @@ describe("findHandoffBoundaryIds", () => {
     ]);
 
     expect([...boundaries]).toEqual([]);
+  });
+});
+
+describe("chatNeedsOtherUserDirectory", () => {
+  test("solo chats do not subscribe to the user directory", () => {
+    expect(
+      chatNeedsOtherUserDirectory(
+        [
+          { role: "user", userId: "me" },
+          { role: "assistant" },
+        ],
+        "me",
+      ),
+    ).toBe(false);
+  });
+
+  test("a teammate bubble needs the directory", () => {
+    expect(
+      chatNeedsOtherUserDirectory(
+        [
+          { role: "user", userId: "them" },
+          { role: "assistant" },
+        ],
+        "me",
+      ),
+    ).toBe(true);
+  });
+
+  test("unknown current user never needs the directory", () => {
+    expect(
+      chatNeedsOtherUserDirectory(
+        [{ role: "user", userId: "them" }],
+        undefined,
+      ),
+    ).toBe(false);
   });
 });

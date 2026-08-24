@@ -5,6 +5,7 @@ import {
   canTransitionTurn,
   isTerminalTurnState,
   turnExceededAbsoluteLimit,
+  shouldWriteTurnLeaseRenewal,
   turnLeaseDurationMs,
   turnLeaseExpiry,
   type TerminalTurnState,
@@ -188,6 +189,21 @@ export async function renewTurnLease(
   }
   const state = turn.state === "finalizing" ? "finalizing" : "running";
   const durationMs = turnLeaseDurationMs(state);
+  if (
+    !shouldWriteTurnLeaseRenewal({
+      currentState: turn.state,
+      nextState: state,
+      leaseExpiresAt: turn.leaseExpiresAt,
+      now,
+      durationMs,
+    })
+  ) {
+    return {
+      status: "renewed",
+      leaseExpiresAt: turn.leaseExpiresAt,
+      durationMs,
+    };
+  }
   const leaseExpiresAt = turnLeaseExpiry({
     state,
     turnStartedAt: turn.turnStartedAt,

@@ -1,4 +1,4 @@
-import { getAIModelProvider, type Doc, type Id } from "@eva/backend";
+import { getAIModelProvider, type Doc } from "@eva/backend";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import { stripReviewCommentBlocks } from "@/lib/reviewComments";
@@ -105,10 +105,16 @@ export function firstNameFromUser(user: {
   return user.firstName?.trim() || user.fullName?.trim().split(" ")[0] || null;
 }
 
+type ChatUserAttribution = {
+  role: ChatBodyMessage["role"];
+  userId?: string;
+  isSystemAlert?: boolean;
+};
+
 /** Teammate user turn (not yours). Missing ids → treat as own to avoid layout flash. */
 export function isOtherUserChatMessage(
-  message: ChatBodyMessage,
-  currentUserId: Id<"users"> | undefined,
+  message: ChatUserAttribution,
+  currentUserId: string | undefined,
 ): boolean {
   return (
     !message.isSystemAlert &&
@@ -116,6 +122,16 @@ export function isOtherUserChatMessage(
     message.userId !== undefined &&
     currentUserId !== undefined &&
     message.userId !== currentUserId
+  );
+}
+
+/** True when the transcript has a teammate bubble that needs a display name. */
+export function chatNeedsOtherUserDirectory(
+  messages: ReadonlyArray<ChatUserAttribution>,
+  currentUserId: string | undefined,
+): boolean {
+  return messages.some((message) =>
+    isOtherUserChatMessage(message, currentUserId),
   );
 }
 

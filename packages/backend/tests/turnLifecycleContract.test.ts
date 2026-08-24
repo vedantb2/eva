@@ -89,6 +89,12 @@ test("the heartbeat fences stale writers before changing streaming state", () =>
   expect(bundle).not.toContain('"streaming:set"');
 });
 
+test("lease renewal skips no-op writes while the lease is still fresh", () => {
+  const store = source("../convex/_chat/turnStore.ts");
+  expect(store).toContain("shouldWriteTurnLeaseRenewal");
+  expect(store).toContain("leaseExpiresAt: turn.leaseExpiresAt");
+});
+
 test("completion resolves the lease fence before publishing its event", () => {
   const workflow = source("../convex/_sessions/workflow.ts");
   const handlerAt = workflow.indexOf("export const handleCompletion");

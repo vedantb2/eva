@@ -72,3 +72,21 @@ export function turnExceededAbsoluteLimit(
 ): boolean {
   return now >= turnStartedAt + RUN_TIMEOUT_MS;
 }
+
+/**
+ * Heartbeats used to patch `leaseExpiresAt` on every flush (~150ms while
+ * tokens stream). The running lease is two minutes; writing it every flush
+ * only created OCC with overlapping heartbeats. Renew when the phase
+ * changed or less than half the lease remains.
+ */
+export function shouldWriteTurnLeaseRenewal(input: {
+  currentState: TurnState;
+  nextState: TurnState;
+  leaseExpiresAt: number;
+  now: number;
+  durationMs: number;
+}): boolean {
+  if (input.currentState !== input.nextState) return true;
+  if (input.durationMs <= 0) return true;
+  return input.leaseExpiresAt - input.now <= input.durationMs / 2;
+}

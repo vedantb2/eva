@@ -21,15 +21,19 @@ function buildEvaMcpServers({
   };
 }
 function consumeEvaMcpEnvironment(env) {
-  const servers = buildEvaMcpServers({
-    auth: env.EVA_MCP_AUTH,
-    baseUrl: env.EVA_MCP_BASE_URL
-  });
+  const auth = env.EVA_MCP_AUTH;
+  const baseUrl = env.EVA_MCP_BASE_URL;
+  const servers = buildEvaMcpServers({ auth, baseUrl });
   delete env.EVA_MCP_AUTH;
   delete env.EVA_MCP_BASE_URL;
-  return servers;
+  return {
+    servers,
+    workerHandoffEnv: auth && baseUrl ? { EVA_MCP_AUTH: auth, EVA_MCP_BASE_URL: baseUrl } : {}
+  };
 }
-var evaMcpServers = consumeEvaMcpEnvironment(process.env);
+var consumed = consumeEvaMcpEnvironment(process.env);
+var evaMcpServers = consumed.servers;
+var evaMcpWorkerHandoffEnv = consumed.workerHandoffEnv;
 var hasEvaMcpConfig = Object.keys(evaMcpServers).length > 0;
 
 // callback-src/config.ts
@@ -5890,7 +5894,10 @@ async function ensureSyntheticTurn() {
     const result = await callConvexWithRetry(
       "mutation",
       OPEN_SYNTHETIC_TURN_MUTATION ?? "",
-      entityMutationArgs({})
+      // This daemon's own model, so the server stamps the synthetic reply's
+      // provider checkpoint from what actually ran the turn — the sticky
+      // composer pick can move to another provider while this turn is open.
+      entityMutationArgs({ model: MODEL })
     );
     const messageId = readSyntheticTurnMessageId(result);
     if (messageId === null) {
@@ -7578,9 +7585,10 @@ function waitForCursorTurnWorker(child) {
     });
   });
 }
-function spawnCursorTurnWorker(turn, promptFile) {
+function buildCursorTurnWorkerEnv(baseEnv, mcpHandoffEnv, turn, promptFile) {
   const workerEnv = {
-    ...process.env,
+    ...baseEnv,
+    ...mcpHandoffEnv,
     EVA_CURSOR_TURN_WORKER_PROMPT_FILE: promptFile,
     EVA_CURSOR_TURN_WORKER_LIFECYCLE: turn.lifecycle
   };
@@ -7593,6 +7601,15 @@ function spawnCursorTurnWorker(turn, promptFile) {
     delete workerEnv.EVA_CURSOR_TURN_WORKER_TURN_ID;
     delete workerEnv.EVA_CURSOR_TURN_WORKER_LEASE_GENERATION;
   }
+  return workerEnv;
+}
+function spawnCursorTurnWorker(turn, promptFile) {
+  const workerEnv = buildCursorTurnWorkerEnv(
+    process.env,
+    evaMcpWorkerHandoffEnv,
+    turn,
+    promptFile
+  );
   const child = spawn2(
     process.execPath,
     [
@@ -9385,8 +9402,8 @@ async function runOpencodeSdkAttempt(sessionMode) {
   };
   try {
     const events = await client.event.subscribe({ signal: streamAbort.signal });
-    const consumed = consumeEvents(events.stream);
-    consumed.catch(() => {
+    const consumed2 = consumeEvents(events.stream);
+    consumed2.catch(() => {
     });
     const accepted = await client.session.promptAsync({
       path: { id: sessionId },
@@ -9402,7 +9419,7 @@ async function runOpencodeSdkAttempt(sessionMode) {
     }
     lastEventAt2 = Date.now();
     watchdogClock = lastEventAt2;
-    await Promise.race([terminal, consumed]);
+    await Promise.race([terminal, consumed2]);
     markTerminal();
     const finalMessage = assistantMessageId ? await client.session.message({
       path: { id: sessionId, messageID: assistantMessageId }

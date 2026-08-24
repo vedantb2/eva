@@ -1,7 +1,9 @@
 import { describe, expect, test } from "vitest";
 import {
+  findHandoffBoundaryIds,
   findStreamingTargetMessage,
   visibleChatMessages,
+  type ChatBodyMessage,
 } from "./chatBodyUtils";
 
 type TestMessage = {
@@ -109,5 +111,43 @@ describe("visibleChatMessages", () => {
 
   test("an alerts-only transcript is empty when hiding", () => {
     expect(visibleChatMessages([alert("started")], true)).toEqual([]);
+  });
+});
+
+describe("findHandoffBoundaryIds", () => {
+  // Typing `model` as the doc's union keeps these fixtures pinned to real ids.
+  const sent = (_id: string, model?: ChatBodyMessage["model"]) => ({
+    _id,
+    role: "user" as const,
+    ...(model !== undefined ? { model } : {}),
+  });
+  const reply = (_id: string) => ({ _id, role: "assistant" as const });
+  const handoffAlert = (_id: string) => ({
+    _id,
+    role: "assistant" as const,
+    isSystemAlert: true,
+  });
+
+  test("marks the provider switch, not model changes inside one provider", () => {
+    const boundaries = findHandoffBoundaryIds([
+      sent("one", "claude:sonnet"),
+      reply("reply-one"),
+      sent("two", "claude:opus"),
+      reply("reply-two"),
+      handoffAlert("alert"),
+      sent("three", "codex:gpt-5.6-sol"),
+    ]);
+
+    expect([...boundaries]).toEqual(["three"]);
+  });
+
+  test("unstamped legacy history followed by a stamped turn marks nothing", () => {
+    const boundaries = findHandoffBoundaryIds([
+      sent("legacy"),
+      reply("legacy-reply"),
+      sent("first-stamped", "codex:gpt-5.6-sol"),
+    ]);
+
+    expect([...boundaries]).toEqual([]);
   });
 });

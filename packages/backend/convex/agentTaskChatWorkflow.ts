@@ -8,6 +8,7 @@ import { ensureSandboxStartedSteps } from "./_sandbox_runtime/resumeSandboxSteps
 import { authAction, authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
+  getAIModelProvider,
   reasoningLevelValidator,
   workflowCompleteValidator,
   normalizeAIModel,
@@ -35,6 +36,10 @@ import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credential
 import { resolveTurnProviderAccountId } from "./_userProviderAccounts/defaults";
 import type { Doc, Id } from "./_generated/dataModel";
 import { TASK_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
+import {
+  maybeInsertModelHandoffAlert,
+  prependModelHandoffContext,
+} from "./_shared/modelHandoff";
 
 async function finalizeOpenSyntheticTurnOnCancel(
   ctx: MutationCtx,
@@ -60,6 +65,8 @@ async function buildTaskChatTurnPrompt(
   args: {
     taskId: Id<"agentTasks">;
     message: string;
+    /** Model this turn runs on; decides whether a handoff catch-up is needed. */
+    model: string;
     userId: Id<"users">;
   },
 ): Promise<{
@@ -112,6 +119,14 @@ async function buildTaskChatTurnPrompt(
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;
   }
+  // Last, so the catch-up block leads the whole prompt.
+  prompt = await prependModelHandoffContext(
+    ctx,
+    args.taskId,
+    args.model,
+    getAIModelProvider(task.model),
+    prompt,
+  );
 
   return {
     prompt,
@@ -231,6 +246,15 @@ export const startExecute = authMutation({
       surface: { kind: "task", task },
     });
 
+    // The user row for this turn is already stored (the client sends addMessage
+    // first), so the alert lands above the new placeholder, not below the reply.
+    await maybeInsertModelHandoffAlert(
+      ctx,
+      args.taskId,
+      normalizedModel,
+      getAIModelProvider(task.model),
+    );
+
     await ctx.db.insert("messages", {
       parentId: args.taskId,
       role: "assistant",
@@ -244,6 +268,7 @@ export const startExecute = authMutation({
       {
         taskId: args.taskId,
         message: args.message,
+        model: normalizedModel,
         userId: ctx.userId,
       },
     );
@@ -379,7 +404,10 @@ export const enqueueMessage = authMutation({
       thinkingEnabled: args.thinkingEnabled,
       use1mContext: args.use1mContext,
       fastMode: args.fastMode,
-      providerAccountId,
+      // The sender's raw pick, re-resolved against the owner's accounts at
+      // dequeue: the model and the owner's accounts can both move while the
+      // message waits.
+      providerAccountId: args.providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
       sentViaOrchestrator: args.sentViaOrchestrator,
     });
@@ -701,6 +729,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       result: result.result,
       error: savedError,
       activityLog: result.activityLog,
+      model: args.model,
       pendingQuestion: result.pendingQuestion,
     });
   },
@@ -777,6 +806,7 @@ export const getChatData = internalQuery({
       {
         taskId: args.taskId,
         message: args.message,
+        model: args.model,
         userId: args.userId,
       },
     );
@@ -806,6 +836,8 @@ export const saveResult = internalMutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    /** Stamped onto the reply on success, making it this provider's checkpoint. */
+    model: v.optional(aiModelValidator),
     pendingQuestion: v.optional(v.string()),
   },
   returns: v.null(),
@@ -832,6 +864,7 @@ export const saveResult = internalMutation({
         activityLog?: string;
         finishedAt: number;
         pendingQuestion?: string;
+        model?: Doc<"messages">["model"];
       } = {
         content: args.success
           ? args.result || "I couldn't process your message."
@@ -840,6 +873,11 @@ export const saveResult = internalMutation({
       };
       if (activityLog) patch.activityLog = activityLog;
       if (args.pendingQuestion) patch.pendingQuestion = args.pendingQuestion;
+      // Only a successful reply is a checkpoint: a failed turn's provider never
+      // saw the conversation, so it must not suppress a later catch-up.
+      if (args.success && args.model !== undefined) {
+        patch.model = normalizeAIModel(args.model);
+      }
       await ctx.db.patch(last._id, patch);
     }
 

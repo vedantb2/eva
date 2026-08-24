@@ -7,6 +7,7 @@ import { ensureSandboxStartedSteps } from "../_sandbox_runtime/resumeSandboxStep
 import { authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
+  DEFAULT_AI_MODEL,
   reasoningLevelValidator,
   workflowCompleteValidator,
   normalizeAIModel,
@@ -39,6 +40,7 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { finalizeCancelledAssistantMessage } from "../streaming";
 import { backgroundAgentEntryValidator } from "../_validators/tableFields";
 import { mergeBackgroundAgents } from "./backgroundAgents";
+import { prependModelHandoffContext } from "../_shared/modelHandoff";
 import {
   ensureSessionDaemonState,
   syncSessionDaemonState,
@@ -179,6 +181,8 @@ export async function buildSessionPrompt(
     repo: Doc<"githubRepos">;
     user: Doc<"users"> | null;
     message: string;
+    /** Model this turn runs on; decides whether a handoff catch-up is needed. */
+    model: string;
   },
 ): Promise<{ prompt: string; branchName: string }> {
   const { session, repo, user } = args;
@@ -200,12 +204,18 @@ export async function buildSessionPrompt(
   // contract below — not the branch, not the commit line, not the repo system
   // prompt (which is implementation guidance for the checked-out app).
   if (session.isOrchestrator === true) {
-    return {
-      prompt: prefixBlock
-        ? `${prefixBlock}\n\n${buildOrchestratorPrompt(resolvedMessage, customInstructionsBlock)}`
-        : buildOrchestratorPrompt(resolvedMessage, customInstructionsBlock),
-      branchName,
-    };
+    let prompt = prefixBlock
+      ? `${prefixBlock}\n\n${buildOrchestratorPrompt(resolvedMessage, customInstructionsBlock)}`
+      : buildOrchestratorPrompt(resolvedMessage, customInstructionsBlock);
+    // Ave can switch providers mid-chat; catch the incoming CLI up the same way.
+    prompt = await prependModelHandoffContext(
+      ctx,
+      session._id,
+      args.model,
+      session.provider,
+      prompt,
+    );
+    return { prompt, branchName };
   }
 
   // The stored plan still feeds implementation turns, and gives `eva-plan` its
@@ -229,6 +239,14 @@ export async function buildSessionPrompt(
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;
   }
+  // Last, so the catch-up block leads the whole prompt.
+  prompt = await prependModelHandoffContext(
+    ctx,
+    session._id,
+    args.model,
+    session.provider,
+    prompt,
+  );
   return { prompt, branchName };
 }
 
@@ -507,6 +525,7 @@ export const sessionExecuteWorkflow = workflow.define({
       result: result.result,
       error: result.error,
       activityLog: result.activityLog,
+      model: args.model,
       planContent,
       pendingQuestion: result.pendingQuestion,
     });
@@ -791,6 +810,7 @@ export const getSessionData = internalQuery({
       repo,
       user,
       message: args.message,
+      model: args.model,
     });
 
     // Input images attached to the triggering user message. Used to re-stage
@@ -855,6 +875,8 @@ export const saveResult = internalMutation({
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    /** Stamped onto the reply on success, making it this provider's checkpoint. */
+    model: v.optional(aiModelValidator),
     planContent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
   },
@@ -908,6 +930,7 @@ export const saveResult = internalMutation({
       activityLog?: string;
       finishedAt?: number;
       pendingQuestion?: string;
+      model?: Doc<"messages">["model"];
       isSystemAlert?: boolean;
       errorDetail?: string;
       variations?: Array<{
@@ -935,6 +958,11 @@ export const saveResult = internalMutation({
     }
     if (activityLog) {
       patch.activityLog = activityLog;
+    }
+    // Only a successful reply is a checkpoint: a failed turn's provider never
+    // saw the conversation, so it must not suppress a later catch-up.
+    if (args.success && args.model !== undefined) {
+      patch.model = normalizeAIModel(args.model);
     }
     if (args.pendingQuestion) {
       patch.pendingQuestion = args.pendingQuestion;
@@ -1318,6 +1346,7 @@ export const restageOpenTurn = internalMutation({
       repo,
       user,
       message: lastUser.content,
+      model: session.lastModel ?? lastUser.model ?? DEFAULT_AI_MODEL,
     });
 
     const openTurn = await findOpenSessionTurn(ctx, args.sessionId);
@@ -1345,7 +1374,13 @@ export const restageOpenTurn = internalMutation({
  * stale handler so a crashed daemon cannot leave an empty bubble forever.
  */
 export const openSyntheticTurn = authMutation({
-  args: { sessionId: v.id("sessions") },
+  args: {
+    sessionId: v.id("sessions"),
+    // The daemon's own model. Optional only for daemons launched before the
+    // field existed; those fall back to `session.lastModel`, which the picker
+    // can move mid-flight and may therefore mis-attribute the checkpoint.
+    model: v.optional(aiModelValidator),
+  },
   returns: v.object({
     messageId: v.id("messages"),
     turnId: v.id("turns"),
@@ -1357,6 +1392,7 @@ export const openSyntheticTurn = authMutation({
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
 
+    const turnModel = normalizeAIModel(args.model ?? session.lastModel);
     const messageId = await ctx.db.insert("messages", {
       parentId: args.sessionId,
       role: "assistant",
@@ -1364,13 +1400,17 @@ export const openSyntheticTurn = authMutation({
       timestamp: Date.now(),
       activityLog: "",
       isSyntheticTurn: true,
+      // Stamped at open time because the daemon protocol carries no model on
+      // completion. Not yet a checkpoint — that needs `finishedAt` too — and
+      // `completeSyntheticTurn` clears it again if the turn fails.
+      model: turnModel,
     });
     const turnId = await openSessionTurn(ctx, {
       sessionId: args.sessionId,
       streamingEntityId: String(args.sessionId),
       placeholderMessageId: messageId,
       prompt: "[synthetic continuation]",
-      model: normalizeAIModel(session.lastModel),
+      model: turnModel,
       sandboxId: session.sandboxId,
       repoId: session.repoId,
     });
@@ -1442,6 +1482,7 @@ export const completeSyntheticTurn = authMutation({
       activityLog?: string;
       finishedAt: number;
       pendingQuestion?: string;
+      model?: Doc<"messages">["model"];
     } = {
       content: args.success
         ? args.result || "I couldn't process your message."
@@ -1453,6 +1494,10 @@ export const completeSyntheticTurn = authMutation({
     }
     if (args.pendingQuestion) {
       patch.pendingQuestion = args.pendingQuestion;
+    }
+    // Drops the open-time stamp so a failed turn never becomes a checkpoint.
+    if (!args.success) {
+      patch.model = undefined;
     }
     await ctx.db.patch(args.messageId, patch);
 

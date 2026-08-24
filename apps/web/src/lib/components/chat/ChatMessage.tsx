@@ -89,6 +89,8 @@ interface ChatMessageProps {
   isOtherUser?: boolean;
   /** First name shown above teammate bubbles. */
   senderFirstName?: string;
+  /** This user turn switches to a different model provider. */
+  isHandoffBoundary?: boolean;
   /**
    * Preceding user turn's model snapshot — shown under the assistant reply
    * (model lives on the user message at send/dequeue time).
@@ -112,6 +114,7 @@ export const ChatMessage = memo(function ChatMessage({
   onChangedFilesExpandedChange,
   isOtherUser = false,
   senderFirstName,
+  isHandoffBoundary = false,
   turnModel,
   turnReasoningLevel,
   turnCredentialSourceLabel,
@@ -237,6 +240,12 @@ export const ChatMessage = memo(function ChatMessage({
                   />
                 </MessageContent>
               </div>
+              {isHandoffBoundary && message.model !== undefined ? (
+                <HandoffModelChip
+                  model={message.model}
+                  className={isOtherUser ? "ml-6" : undefined}
+                />
+              ) : null}
               <UserMessageMeta
                 align={isOtherUser ? "start" : "end"}
                 copyPlain={copyPlain}
@@ -374,6 +383,32 @@ function UserMessageBody({
         </CollapsibleUserMessageBody>
       ) : null}
     </>
+  );
+}
+
+/**
+ * Provider mark under the user turn that switched providers — the quiet twin of
+ * the "Handed off from X to Y" alert row. Matches the `orchestratorTag` chip
+ * above the bubble so both provenance tags read as one family.
+ */
+function HandoffModelChip({
+  model,
+  className,
+}: {
+  model: string;
+  className?: string;
+}) {
+  const option = findAIModelOption(model);
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center gap-1 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground",
+        className,
+      )}
+    >
+      <ProviderIcon provider={option.provider} size={10} />
+      {formatModelDisplayLabel(option.provider, option.label)}
+    </span>
   );
 }
 

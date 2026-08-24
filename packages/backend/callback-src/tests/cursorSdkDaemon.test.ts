@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 import { readClaimedTurn } from "../providers/claimedTurnLifecycle.js";
 import {
+  buildCursorTurnWorkerEnv,
   buildTurnCompletion,
   cursorTurnWorkerFailureMessage,
 } from "../providers/cursorSdkDaemon.js";
@@ -161,6 +162,47 @@ describe("the Cursor daemon isolates every turn in a disposable worker", () => {
         message: "ENOENT",
       }),
     ).toBe("Cursor turn worker could not start: ENOENT");
+  });
+
+  /**
+   * The daemon scrubbed EVA_MCP_AUTH/EVA_MCP_BASE_URL from its own env at
+   * import, so a plain env inherit ships the worker without the eva MCP
+   * server — every Cursor turn then silently loses all eva MCP tools.
+   */
+  test("hands the scrubbed eva MCP credentials back to the turn worker", () => {
+    const env = buildCursorTurnWorkerEnv(
+      { PATH: "/usr/bin" },
+      {
+        EVA_MCP_AUTH: "token-123",
+        EVA_MCP_BASE_URL: "https://example.convex.site",
+      },
+      { lifecycle: "legacy", prompt: "p", attachmentUrls: [], turnLease: null },
+      "/tmp/eva-cursor-turn-1.txt",
+    );
+    expect(env.EVA_MCP_AUTH).toBe("token-123");
+    expect(env.EVA_MCP_BASE_URL).toBe("https://example.convex.site");
+    expect(env.EVA_CURSOR_TURN_WORKER_PROMPT_FILE).toBe(
+      "/tmp/eva-cursor-turn-1.txt",
+    );
+    expect(env.EVA_CURSOR_TURN_WORKER_LIFECYCLE).toBe("legacy");
+    expect(env.EVA_CURSOR_TURN_WORKER_TURN_ID).toBeUndefined();
+  });
+
+  test("a durable lease rides the worker env alongside the MCP handoff", () => {
+    const env = buildCursorTurnWorkerEnv(
+      {},
+      {},
+      {
+        lifecycle: "durable",
+        prompt: "p",
+        attachmentUrls: [],
+        turnLease: { turnId: "turn-1", leaseGeneration: 3 },
+      },
+      "/tmp/eva-cursor-turn-2.txt",
+    );
+    expect(env.EVA_CURSOR_TURN_WORKER_TURN_ID).toBe("turn-1");
+    expect(env.EVA_CURSOR_TURN_WORKER_LEASE_GENERATION).toBe("3");
+    expect(env.EVA_MCP_AUTH).toBeUndefined();
   });
 });
 

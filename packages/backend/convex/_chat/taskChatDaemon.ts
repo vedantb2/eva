@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
@@ -175,7 +175,13 @@ export const requestStopBackgroundAgent = authMutation({
 });
 
 export const openSyntheticTurn = authMutation({
-  args: { taskId: v.id("agentTasks") },
+  args: {
+    taskId: v.id("agentTasks"),
+    // The daemon's own model. Optional only for daemons launched before the
+    // field existed; those fall back to the sticky pick, which the picker can
+    // move mid-flight and may therefore mis-attribute the checkpoint.
+    model: v.optional(aiModelValidator),
+  },
   returns: v.object({ messageId: v.id("messages") }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
@@ -193,6 +199,10 @@ export const openSyntheticTurn = authMutation({
       timestamp: Date.now(),
       activityLog: "",
       isSyntheticTurn: true,
+      // Stamped at open time because the daemon protocol carries no model on
+      // completion. Not yet a checkpoint — that needs `finishedAt` too — and
+      // `completeSyntheticTurn` clears it again if the turn fails.
+      model: normalizeAIModel(args.model ?? task.lastChatModel ?? task.model),
     });
     await ctx.db.patch(args.taskId, {
       syntheticTurnMessageId: messageId,
@@ -240,6 +250,7 @@ export const completeSyntheticTurn = authMutation({
       activityLog?: string;
       finishedAt: number;
       pendingQuestion?: string;
+      model?: Doc<"messages">["model"];
     } = {
       content: args.success
         ? args.result || "I couldn't process your message."
@@ -248,6 +259,10 @@ export const completeSyntheticTurn = authMutation({
     };
     if (args.activityLog) patch.activityLog = args.activityLog;
     if (args.pendingQuestion) patch.pendingQuestion = args.pendingQuestion;
+    // Drops the open-time stamp so a failed turn never becomes a checkpoint.
+    if (!args.success) {
+      patch.model = undefined;
+    }
     await ctx.db.patch(args.messageId, patch);
 
     await ctx.db.patch(args.taskId, {

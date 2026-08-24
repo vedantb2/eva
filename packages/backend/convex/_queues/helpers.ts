@@ -5,7 +5,8 @@ import type { Doc, Id } from "../_generated/dataModel";
 import type { WorkflowId } from "@convex-dev/workflow";
 import { internal } from "../_generated/api";
 import { workflow } from "../workflowManager";
-import { DEFAULT_AI_MODEL } from "../validators";
+import { DEFAULT_AI_MODEL, getAIModelProvider } from "../validators";
+import type { AIProvider } from "../validators";
 import { queuedMessageFields } from "../_validators/tableFields";
 import { runningBackgroundAgents } from "../_sessions/backgroundAgents";
 import type { BackgroundAgentEntry } from "../_validators/tableFields";
@@ -17,6 +18,8 @@ import {
   trackSessionWorkflow,
 } from "../_chat/surfaceAdapters";
 import { resolveCredentialSourceLabel } from "../_userProviderAccounts/credentialSource";
+import { resolveTurnProviderAccountId } from "../_userProviderAccounts/defaults";
+import { maybeInsertModelHandoffAlert } from "../_shared/modelHandoff";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import type { OrchestratorNotifyChild } from "../orchestratorShared";
 import {
@@ -63,6 +66,11 @@ type ChatQueueConfig<
   /** The daemon-minted continuation turn, if one is open. */
   syntheticTurnMessageId: (entity: TEntity) => Id<"messages"> | undefined;
   streamingEntityId: (id: TId) => string;
+  /**
+   * Provider the entity was created on, the legacy fallback for handoff
+   * detection when the previous turn carries no model stamp.
+   */
+  fallbackProvider: (entity: TEntity) => AIProvider | undefined;
   /**
    * Validates the entity/message can start a workflow, returning any extra
    * data (e.g. session's repo + narrowed mode/model) the insert/start steps
@@ -217,6 +225,13 @@ async function startNextQueuedChatMessage<
 
   const now = Date.now();
   await config.insertUserMessage(ctx, id, entity, nextMessage, guard.data, now);
+  // After the user row exists, so detection sees the turn it is deciding about.
+  await maybeInsertModelHandoffAlert(
+    ctx,
+    id,
+    nextMessage.model ?? DEFAULT_AI_MODEL,
+    config.fallbackProvider(entity),
+  );
 
   try {
     const workflowId = await config.startWorkflow(
@@ -240,6 +255,7 @@ async function startNextQueuedChatMessage<
 type SessionQueuePrepared = {
   repo: Doc<"githubRepos">;
   model: NonNullable<Doc<"queuedMessages">["model"]>;
+  providerAccountId: Id<"userProviderAccounts"> | undefined;
 };
 
 /** Reverts the durable rows created immediately before a queued workflow start. */
@@ -276,6 +292,7 @@ const sessionQueueConfig: ChatQueueConfig<
   backgroundAgents: (session) => session.backgroundAgents,
   syntheticTurnMessageId: (session) => session.syntheticTurnMessageId,
   streamingEntityId: (id) => String(id),
+  fallbackProvider: (session) => session.provider,
   prepareGuard: async (ctx, session, next) => {
     if (!next.model) {
       return { ok: false, error: "Error: Failed to start queued message." };
@@ -287,7 +304,15 @@ const sessionQueueConfig: ChatQueueConfig<
         error: "Error: Repository not found for queued message.",
       };
     }
-    return { ok: true, data: { repo, model: next.model } };
+    // Re-resolved here rather than trusted from enqueue time: the queued model
+    // may belong to another provider than the stored pick.
+    const providerAccountId = await resolveTurnProviderAccountId(ctx.db, {
+      requestedAccountId: next.providerAccountId,
+      ownerUserId: session.createdBy ?? session.userId,
+      model: next.model,
+      changePolicy: "owner-pool",
+    });
+    return { ok: true, data: { repo, model: next.model, providerAccountId } };
   },
   insertUserMessage: async (ctx, id, session, next, prepared, now) => {
     await ctx.db.insert("messages", {
@@ -299,7 +324,7 @@ const sessionQueueConfig: ChatQueueConfig<
       attachmentStorageIds: next.attachmentStorageIds,
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
-        session.providerAccountId,
+        prepared.providerAccountId,
         session.createdBy ?? session.userId,
       ),
       model: prepared.model,
@@ -338,7 +363,7 @@ const sessionQueueConfig: ChatQueueConfig<
           thinkingEnabled: next.thinkingEnabled,
           use1mContext: next.use1mContext,
           fastMode: next.fastMode,
-          providerAccountId: session.providerAccountId,
+          providerAccountId: prepared.providerAccountId,
           credentialOwnerUserId: session.createdBy ?? session.userId,
           userId: next.userId,
           installationId: prepared.repo.installationId,
@@ -393,18 +418,39 @@ const sessionSandboxReadyQueueConfig: ChatQueueConfig<
   orchestratorNotifyChild: () => undefined,
 };
 
+type ChatQueuePrepared = {
+  providerAccountId: Id<"userProviderAccounts"> | undefined;
+};
+
 const projectChatQueueConfig: ChatQueueConfig<
   Id<"projects">,
   Doc<"projects">,
-  undefined
+  ChatQueuePrepared
 > = {
   getEntity: (ctx, id) => ctx.db.get(id),
   hasActiveWorkflow: (project) => project.activeChatWorkflowId !== undefined,
   backgroundAgents: (project) => project.backgroundAgents,
   syntheticTurnMessageId: (project) => project.syntheticTurnMessageId,
   streamingEntityId: (id) => `${PROJECT_CHAT_STREAM_PREFIX}${String(id)}`,
-  prepareGuard: async () => ({ ok: true, data: undefined }),
-  insertUserMessage: async (ctx, id, project, next, _prepared, now) => {
+  fallbackProvider: (project) => getAIModelProvider(project.model),
+  prepareGuard: async (ctx, project, next) => ({
+    ok: true,
+    data: {
+      // Owner-only, and a collaborator's stored override is dropped rather than
+      // resolved: raising here would strand the whole queue on one bad row.
+      providerAccountId: await resolveTurnProviderAccountId(ctx.db, {
+        requestedAccountId:
+          next.userId === project.userId ? next.providerAccountId : undefined,
+        ownerUserId: project.userId,
+        currentAccountId: project.providerAccountId,
+        model: next.model,
+        senderUserId: next.userId,
+        changePolicy: "owner-only",
+        ownerNoun: "project owner",
+      }),
+    },
+  }),
+  insertUserMessage: async (ctx, id, project, next, prepared, now) => {
     await ctx.db.insert("messages", {
       parentId: id,
       role: "user",
@@ -414,14 +460,14 @@ const projectChatQueueConfig: ChatQueueConfig<
       attachmentStorageIds: next.attachmentStorageIds,
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
-        project.providerAccountId,
+        prepared.providerAccountId,
         project.userId,
       ),
       model: next.model,
       reasoningLevel: next.reasoningLevel,
     });
   },
-  startWorkflow: (ctx, id, project, next) =>
+  startWorkflow: (ctx, id, project, next, prepared) =>
     workflow.start(
       ctx,
       internal.projectChatWorkflow.projectChatExecuteWorkflow,
@@ -433,7 +479,7 @@ const projectChatQueueConfig: ChatQueueConfig<
         thinkingEnabled: next.thinkingEnabled,
         use1mContext: next.use1mContext,
         fastMode: next.fastMode,
-        providerAccountId: project.providerAccountId,
+        providerAccountId: prepared.providerAccountId,
         credentialOwnerUserId: project.userId,
         userId: next.userId,
       },
@@ -460,15 +506,32 @@ const projectChatQueueConfig: ChatQueueConfig<
 const taskChatQueueConfig: ChatQueueConfig<
   Id<"agentTasks">,
   Doc<"agentTasks">,
-  undefined
+  ChatQueuePrepared
 > = {
   getEntity: (ctx, id) => ctx.db.get(id),
   hasActiveWorkflow: (task) => task.activeChatWorkflowId !== undefined,
   backgroundAgents: (task) => task.backgroundAgents,
   syntheticTurnMessageId: (task) => task.syntheticTurnMessageId,
   streamingEntityId: (id) => `${TASK_CHAT_STREAM_PREFIX}${String(id)}`,
-  prepareGuard: async () => ({ ok: true, data: undefined }),
-  insertUserMessage: async (ctx, id, task, next, _prepared, now) => {
+  fallbackProvider: (task) => getAIModelProvider(task.model),
+  prepareGuard: async (ctx, task, next) => ({
+    ok: true,
+    data: {
+      // Owner-only, and a collaborator's stored override is dropped rather than
+      // resolved: raising here would strand the whole queue on one bad row.
+      providerAccountId: await resolveTurnProviderAccountId(ctx.db, {
+        requestedAccountId:
+          next.userId === task.createdBy ? next.providerAccountId : undefined,
+        ownerUserId: task.createdBy,
+        currentAccountId: task.providerAccountId,
+        model: next.model,
+        senderUserId: next.userId,
+        changePolicy: "owner-only",
+        ownerNoun: "task owner",
+      }),
+    },
+  }),
+  insertUserMessage: async (ctx, id, task, next, prepared, now) => {
     await ctx.db.insert("messages", {
       parentId: id,
       role: "user",
@@ -478,7 +541,7 @@ const taskChatQueueConfig: ChatQueueConfig<
       attachmentStorageIds: next.attachmentStorageIds,
       credentialSourceLabel: await resolveCredentialSourceLabel(
         ctx.db,
-        task.providerAccountId,
+        prepared.providerAccountId,
         task.createdBy,
       ),
       model: next.model,
@@ -486,7 +549,7 @@ const taskChatQueueConfig: ChatQueueConfig<
       sentViaOrchestrator: next.sentViaOrchestrator,
     });
   },
-  startWorkflow: (ctx, id, task, next) =>
+  startWorkflow: (ctx, id, task, next, prepared) =>
     workflow.start(
       ctx,
       internal.agentTaskChatWorkflow.agentTaskChatExecuteWorkflow,
@@ -498,7 +561,7 @@ const taskChatQueueConfig: ChatQueueConfig<
         thinkingEnabled: next.thinkingEnabled,
         use1mContext: next.use1mContext,
         fastMode: next.fastMode,
-        providerAccountId: task.providerAccountId,
+        providerAccountId: prepared.providerAccountId,
         credentialOwnerUserId: task.createdBy,
         userId: next.userId,
       },

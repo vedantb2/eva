@@ -1,5 +1,9 @@
 # Changelog
 
+## Claude account switches preserve the project chat session - 2026-08-24
+
+Project chat accepted a newly selected personal Claude account from the UI but discarded it at execution time in favor of the project row's earlier value, so a quick handoff could keep spending Team quota while the message badge named the personal account. Account selection is now validated and committed as part of the turn or queue mutation, the exact account drives its badge and launch, and changing the picker proactively rotates the warm daemon. The daemon identity includes both account id and credential revision, so switching accounts or updating a token starts a fresh Claude process while reusing the project's stable Claude session id and conversation context. Explicit personal-account failures now stop with a clear error instead of silently falling back to Team.
+
 ## Cursor turns no longer share a leaking SDK heap - 2026-08-24
 
 A production Grok turn resumed the correct saved Cursor agent, streamed reasoning, then killed its long-lived daemon at the V8 4 GB heap limit because prior turns' SDK allocations were still resident. The warm daemon is now only a lightweight claim-and-cancel supervisor: every claimed Cursor turn runs in a disposable child Node process that resumes the same persisted agent store, reports completion, and releases its entire heap on exit. A hard child crash is finalized immediately by the surviving supervisor, and session, project-chat, and task-chat completion paths preserve the last streamed activity when no in-memory log survives. Startup copy now says “Resuming Cursor agent” or “Creating Cursor agent” instead of using the misleading generic “Starting” label.

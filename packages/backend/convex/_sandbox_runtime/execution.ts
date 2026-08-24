@@ -36,7 +36,10 @@ import {
   materializeAttachmentsToSandbox,
   buildAttachmentPromptNote,
 } from "./attachments";
-import { resolveSandboxCredentials } from "../envVarResolver";
+import {
+  resolveProviderAccountCredentialRevision,
+  resolveSandboxCredentials,
+} from "../envVarResolver";
 import {
   buildConvexBackgroundScriptBody,
   isConvexBackendCommand,
@@ -1245,12 +1248,13 @@ function buildDaemonOptsSig(
   normalizedModel: string,
   allowedTools: string | undefined,
   providerAccountId: string | undefined,
+  providerAccountCredentialRevision: number | undefined,
   streamingEntityId: string,
   traits: TraitEnvInput,
 ): string {
   const fastMode =
     traits.fastMode === undefined ? "" : traits.fastMode ? "1" : "0";
-  return `${normalizedModel}|${allowedTools ?? ""}|${traits.reasoningLevel ?? ""}|${traits.thinkingEnabled === false ? "0" : ""}|${traits.use1mContext === true ? "1" : ""}|${fastMode}|${providerAccountId ?? ""}|${streamingEntityId}`;
+  return `${normalizedModel}|${allowedTools ?? ""}|${traits.reasoningLevel ?? ""}|${traits.thinkingEnabled === false ? "0" : ""}|${traits.use1mContext === true ? "1" : ""}|${fastMode}|${providerAccountId ?? ""}|${providerAccountCredentialRevision ?? ""}|${streamingEntityId}`;
 }
 
 function buildTraitEnvVars(traits: TraitEnvInput): Record<string, string> {
@@ -1347,10 +1351,19 @@ async function runPrewarmEntityDaemon(
       );
       return { prewarmed: false };
     }
+    const providerAccountCredentialRevision = args.providerAccountId
+      ? await resolveProviderAccountCredentialRevision(
+          ctx,
+          args.providerAccountId,
+          args.credentialOwnerUserId ?? args.userId,
+          normalizedModel,
+        )
+      : undefined;
     const optsSig = buildDaemonOptsSig(
       normalizedModel,
       args.allowedTools,
       args.providerAccountId,
+      providerAccountCredentialRevision,
       streamingEntityId,
       {
         reasoningLevel: args.reasoningLevel,

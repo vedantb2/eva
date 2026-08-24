@@ -1,7 +1,8 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
+import { useState } from "react";
 import {
   api,
   buildTraitsExecutionPayload,
@@ -22,6 +23,7 @@ import {
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 import { projectStoredTraits, useSetProjectTraits } from "./useProjectTraits";
+import { useUpdateProject } from "./useUpdateProject";
 
 interface ProjectSandboxChatPanelProps {
   projectId: Id<"projects">;
@@ -60,7 +62,11 @@ export function ProjectSandboxChatPanel({
   const requestStopBackgroundAgent = useMutation(
     api.projectChatWorkflow.requestStopBackgroundAgent,
   );
-  const updateProject = useMutation(api.projects.update);
+  const prewarmChatDaemonNow = useAction(
+    api.projectChatWorkflow.prewarmChatDaemonNow,
+  );
+  const updateProject = useUpdateProject(projectId);
+  const [isSwitchingAccount, setIsSwitchingAccount] = useState(false);
   const setChatModelMutation = useMutation(
     api.projects.setChatModel,
   ).withOptimisticUpdate((localStore, args) => {
@@ -150,10 +156,18 @@ export function ProjectSandboxChatPanel({
 
   const setProviderAccountId = (next: string | null) => {
     if (!isOwner) return;
-    void updateProject({
-      id: projectId,
-      providerAccountId: resolveAccountId(next) ?? null,
-    });
+    void (async () => {
+      setIsSwitchingAccount(true);
+      try {
+        await updateProject({
+          id: projectId,
+          providerAccountId: resolveAccountId(next) ?? null,
+        });
+        await prewarmChatDaemonNow({ projectId });
+      } finally {
+        setIsSwitchingAccount(false);
+      }
+    })();
   };
 
   const lastMessage = messages?.[messages.length - 1];
@@ -237,10 +251,12 @@ export function ProjectSandboxChatPanel({
         blockingQuestion={activeQuestion ?? undefined}
         onAnswerBlockingQuestion={handleAnswerBlockingQuestion}
         isExecuting={isExecuting}
-        isInputDisabled={!isSandboxActive}
+        isInputDisabled={!isSandboxActive || isSwitchingAccount}
         placeholder={
           !isSandboxActive
             ? "Wake Eva up to chat..."
+            : isSwitchingAccount
+              ? "Switching Claude account..."
             : "Ask Eva anything... / for skills · @ to mention"
         }
         emptyStateTitle={

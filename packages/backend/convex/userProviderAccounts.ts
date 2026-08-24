@@ -189,13 +189,18 @@ export const getForLaunchInternal = internalQuery({
     v.object({
       provider: aiProviderValidator,
       credentials: v.array(credentialValidator),
+      updatedAt: v.number(),
     }),
   ),
   handler: async (ctx, args) => {
     const doc = await ctx.db.get(args.accountId);
     if (!doc) return null;
     if (!(await isAccountUsableBy(ctx.db, doc, args.ownerUserId))) return null;
-    return { provider: doc.provider, credentials: doc.credentials };
+    return {
+      provider: doc.provider,
+      credentials: doc.credentials,
+      updatedAt: doc.updatedAt,
+    };
   },
 });
 

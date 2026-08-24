@@ -48,6 +48,30 @@ export async function assertProviderAccountUsableBy(
 }
 
 /**
+ * Validates an explicit account at the turn boundary, including the selected
+ * model's provider. Undefined remains the shared Team credential.
+ */
+export async function assertProviderAccountForModel(
+  db: GenericDatabaseReader<DataModel>,
+  providerAccountId: Id<"userProviderAccounts"> | null | undefined,
+  ownerUserId: Id<"users">,
+  model: string | undefined,
+): Promise<Id<"userProviderAccounts"> | undefined> {
+  const usableAccountId = await assertProviderAccountUsableBy(
+    db,
+    providerAccountId,
+    ownerUserId,
+  );
+  if (usableAccountId === undefined) return undefined;
+
+  const account = await db.get(usableAccountId);
+  if (!account || account.provider !== getAIModelProvider(model)) {
+    throw new Error("Selected provider account does not support this model");
+  }
+  return usableAccountId;
+}
+
+/**
  * When the model provider changes, keep the current account only if it still
  * matches; otherwise fall back to the owner's default for the new provider.
  */

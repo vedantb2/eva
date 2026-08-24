@@ -133,6 +133,7 @@ export function ChatPanel({
     providerAccountId: stickyProviderAccountId,
     setProviderAccountId: setStickyProviderAccountId,
     lockedProvider,
+    isSwitchingAccount,
   } = useSessionModel(sessionId, defaultModel);
   const {
     displayTraits,
@@ -317,7 +318,9 @@ export function ChatPanel({
 
   const placeholder = !isSandboxActive
     ? "Wake Eva up to begin chatting..."
-    : "Ask Eva anything... / for skills · @ to mention";
+    : isSwitchingAccount
+      ? "Switching Claude account..."
+      : "Ask Eva anything... / for skills · @ to mention";
 
   const readOnlyMessage = getSessionReadOnlyMessage({
     isArchived,
@@ -343,7 +346,7 @@ export function ChatPanel({
         blockingQuestion={activeQuestion ?? undefined}
         onAnswerBlockingQuestion={handleAnswerBlockingQuestion}
         isExecuting={isExecuting}
-        isInputDisabled={!isSandboxActive}
+        isInputDisabled={!isSandboxActive || isSwitchingAccount}
         isArchived={isReadOnly}
         placeholder={placeholder}
         emptyStateTitle={emptyStateTitle}

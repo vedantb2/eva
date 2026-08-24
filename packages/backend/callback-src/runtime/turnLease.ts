@@ -18,6 +18,7 @@ let currentTurnLease: TurnLeaseIdentity | null =
   TURN_ID !== null && TURN_LEASE_GENERATION !== null
     ? { turnId: TURN_ID, leaseGeneration: TURN_LEASE_GENERATION }
     : null;
+let legacyTurnHeartbeatActive = false;
 let terminalReason: LeaseTerminalReason | null = null;
 
 export function getCurrentTurnLease(): TurnLeaseIdentity | null {
@@ -32,7 +33,21 @@ export function canSendTurnHeartbeat({
   claimMutation: string | undefined;
   turnLease: TurnLeaseIdentity | null;
 }): boolean {
-  return claimMutation === undefined || turnLease !== null;
+  return (
+    claimMutation === undefined ||
+    turnLease !== null ||
+    legacyTurnHeartbeatActive
+  );
+}
+
+/**
+ * Records ownership for an active legacy daemon turn. Legacy project/task
+ * claims intentionally have no lease fence, so `null` alone cannot distinguish
+ * an owned turn from an idle daemon that must not emit heartbeats.
+ */
+export function setLegacyTurnHeartbeatActive(active: boolean): void {
+  legacyTurnHeartbeatActive = active;
+  if (active) terminalReason = null;
 }
 
 /** Adds the current fence to any callback mutation payload when one is owned. */

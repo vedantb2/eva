@@ -11,6 +11,7 @@ import {
   sectionKey,
   toneForUtilization,
   type UsageSnapshot,
+  usageRowsForAccount,
   worseTone,
 } from "./_utils";
 
@@ -104,6 +105,31 @@ test("one account's flagged status colours the chip the whole card shares", () =
     utilization: 70,
     tone: "danger",
   });
+});
+
+test("account-scoped usage never falls back to another credential", () => {
+  const team = { providerAccountId: undefined, label: "team" };
+  const kezia = { providerAccountId: "account-kezia", label: "kezia" };
+  const rows = [team, kezia];
+
+  expect(
+    usageRowsForAccount(rows, {
+      providerAccountId: "account-kezia",
+      accountLabel: "Kezia",
+    }),
+  ).toEqual([kezia]);
+  expect(
+    usageRowsForAccount(rows, {
+      providerAccountId: null,
+      accountLabel: "Team",
+    }),
+  ).toEqual([team]);
+  expect(
+    usageRowsForAccount([team], {
+      providerAccountId: "account-kezia",
+      accountLabel: "Kezia",
+    }),
+  ).toEqual([]);
 });
 
 test("a windowless rejection still colours a chip that has a number", () => {

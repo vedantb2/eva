@@ -9,14 +9,118 @@ import {
   RESOURCE_EXHAUSTED_RETRY_DELAYS_MS,
   attributeCursorTurnRawCents,
   cursorModeParams,
+  cursorEventHasVisibleActivity,
+  cursorEventWaitTimeoutMs,
+  cursorAgentStartupActivity,
   filterModeParamsByModel,
   isResourceExhaustedMessage,
   readCursorCostSnapshot,
   resolveCursorTurnCostUsd,
   runTurnWithResourceExhaustedRetries,
+  shouldRetryStalledCursorResume,
+  waitForCursorPhase,
+  CursorPhaseTimeoutError,
   type CursorCostSnapshot,
   type CursorTurnOutcome,
 } from "../providers/cursorSdk.js";
+
+test("Cursor startup activity says whether context is resumed or created", () => {
+  expect(
+    cursorAgentStartupActivity({ mode: "resume", sessionId: "agent-47" }),
+  ).toEqual({
+    label: "Resuming Cursor agent...",
+    detail: "Restoring saved context...",
+  });
+  expect(cursorAgentStartupActivity({ mode: "none", sessionId: null })).toEqual(
+    {
+      label: "Creating Cursor agent...",
+      detail: "Creating a new model context...",
+    },
+  );
+});
+
+test("Cursor SDK phases fail on a bounded deadline", async () => {
+  let timedOut = false;
+  const never = new Promise<string>(() => {});
+  await expect(
+    waitForCursorPhase({
+      task: never,
+      phase: "starting the model run",
+      timeoutMs: 5,
+      onTimeout: () => {
+        timedOut = true;
+      },
+    }),
+  ).rejects.toEqual(new CursorPhaseTimeoutError("starting the model run", 5));
+  expect(timedOut).toBe(true);
+});
+
+test("only a pre-output resumed Cursor stall rotates to a fresh agent", () => {
+  expect(
+    shouldRetryStalledCursorResume(
+      new CursorPhaseTimeoutError("starting the model run", 60_000),
+    ),
+  ).toBe(true);
+  expect(
+    shouldRetryStalledCursorResume(
+      new CursorPhaseTimeoutError("waiting for the first model event", 60_000),
+    ),
+  ).toBe(true);
+  expect(
+    shouldRetryStalledCursorResume(
+      new CursorPhaseTimeoutError("waiting for the next model event", 60_000),
+    ),
+  ).toBe(false);
+  expect(
+    shouldRetryStalledCursorResume(
+      new CursorPhaseTimeoutError("finishing the model run", 30_000),
+    ),
+  ).toBe(false);
+});
+
+test("Cursor silence policy distinguishes safe startup recovery from visible work", () => {
+  expect(cursorEventHasVisibleActivity("thinking")).toBe(true);
+  expect(cursorEventHasVisibleActivity("assistant")).toBe(true);
+  expect(cursorEventHasVisibleActivity("tool_call")).toBe(true);
+  expect(cursorEventHasVisibleActivity("status")).toBe(false);
+  expect(cursorEventHasVisibleActivity("usage")).toBe(false);
+
+  expect(
+    cursorEventWaitTimeoutMs({
+      sawVisibleActivity: false,
+      firstVisibleDeadlineAt: 61_000,
+      now: 1_000,
+      toolInFlight: false,
+    }),
+  ).toBe(60_000);
+  // Silent status/usage events do not reset the first-visible deadline.
+  expect(
+    cursorEventWaitTimeoutMs({
+      sawVisibleActivity: false,
+      firstVisibleDeadlineAt: 61_000,
+      now: 31_000,
+      toolInFlight: false,
+    }),
+  ).toBe(30_000);
+  // Once reasoning/text/tools are visible, a normal one-minute model pause is
+  // not fatal. A much longer safety bound still catches a genuinely dead run.
+  expect(
+    cursorEventWaitTimeoutMs({
+      sawVisibleActivity: true,
+      firstVisibleDeadlineAt: 61_000,
+      now: 61_000,
+      toolInFlight: false,
+    }),
+  ).toBe(300_000);
+  expect(
+    cursorEventWaitTimeoutMs({
+      sawVisibleActivity: true,
+      firstVisibleDeadlineAt: 61_000,
+      now: 61_000,
+      toolInFlight: true,
+    }),
+  ).toBeGreaterThan(300_000);
+});
 
 test("splitCursorModel separates base id and reasoning level", () => {
   expect(splitCursorModel("grok-4.6-xhigh")).toEqual({

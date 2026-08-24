@@ -158,6 +158,60 @@ Follow-up to the entry below: Eva's chat kept accumulating "Sandbox startup unfi
 **The master boots from the Vercel managed image, not a repo snapshot.** `@vercel/sandbox` bumped 2.4 → 3.0.0 for the `image` create option; `resolveSandboxContext` skips snapshot resolution for orchestrator sessions and returns `image: "vercel/sandbox/universal:latest"`, threaded through `createSandbox`/`getOrCreateSandbox` and both the create and resume paths (`prepareSandbox`/`createOrResumeSandbox`), with the repo dependency install skipped — the master clones its home repo and launches the daemon, nothing else. Because the managed image lacks eva's baked tooling, `launchScript` now runs `ensureEvaToolingAvailable`: creates `/home/eva` (seed-run paths/permissions) and globally installs `agent-browser` + `agentation-mcp@1.2.0` — both probe-gated so snapshot boots pay one no-op exec.
 
 **Supervision behaviour ships as the `eva-orchestrator` system skill** (`_systemSkills/evaOrchestrator.ts`), delivered outside the per-repo install gate: the stub is appended at launch for orchestrator sessions and `get_skill` short-circuits for it under the claim. Prod-log access is documented as coming from the home repo's env vars (`npx convex logs`, `vercel`, `gh`), not a dedicated tool. New tests: `orchestratorTokenContract.test.ts` (claim round-trip, mint gating, registration gating, stub/get_skill bypass), `orchestratorDelivery.test.ts`, and a `systemSkillRegistry` extension. Two import-cycle hazards this feature would have created (tools ↔ orchestratorTools; \_taskWorkflow/helpers ↔ orchestratorNotify via the watchdog graph) are broken by two new leaf modules, `mcp/toolShared.ts` and `orchestratorShared.ts` — the cycle contract test pins this. Left alone: `eva-orchestrator` also appears in Settings → Skills like any registry skill (harmless — a non-master agent installing it gets a stub for tools it does not have), and three test failures that predate this change on main (`prewarmNeverResurrects` ×2, `ephemeralSandboxTeardown` ×1).
+## Follow-up sends during Claude finalizing no longer stall - 2026-08-24
+
+Session 65 (CarePulse web) claimed the next turn while the previous one was still copying its transcript. Completion had already dropped the old lease, so the new 2-minute running lease had nobody heartbeating it and expired as "Turn stalled". The claim watcher now skips that window, and a follow-up durable turn is parked instead of discarded. Same-turn restages are still discarded so the prompt is not replayed.
+
+## Context gauge shows current window occupancy - 2026-08-24
+
+The session header summed every turn's cache-read tokens against a 200k default window, so a long Opus 1M session rendered 14,530.8%. The chip now uses the latest result's last-iteration occupancy and the model's reported context window; session spend still sums in the hover card.
+
+## Cursor follow-ups resume the same agent - 2026-08-24
+
+Cursor's SDK already compacts a full window in place. Eva used to spawn a fresh agent once saved context looked large (~160k tokens), then stuff the Eva transcript in as a handoff. That is what made grok forget in-progress work (a rebase, conflict resolution) after a follow-up. Saved Cursor agents are always resumed now. A new agent is created only when resume itself fails (unreadable store / stalled resume). Session prompts no longer dump prior chat into the turn.
+
+## Claude account switches preserve task and session chat - 2026-08-24
+
+Project chat already committed a newly selected Claude account and waited for the replacement daemon before the next send. Task chat still discarded the picker at execute time, and session chat patched the sticky account without rotating the warm process, so a quick handoff could keep spending the previous credential. Both surfaces now validate and persist the requested account on send and queue, then await the same rotate-and-wait prewarm so the next turn uses the new account while reusing the stable Claude session.
+
+## Incomplete PR recaps are stored as errors - 2026-08-24
+
+A Grok recap run returned progress narration with no HTML marker, and the workflow still marked the doc ready because any non-empty success counted. Recap output now requires markdown headings, the HTML marker, and a complete self-contained document; otherwise the doc is stored as an error so Generate stays available. Existing ready docs with no HTML walkthrough show as incomplete instead of an empty recap.
+
+## Long Cursor turns get a dedicated 8 GB heap - 2026-08-24
+
+The first disposable-worker rollout protected the warm Cursor daemon from accumulated cross-turn SDK allocations, but a single 17-minute Grok turn still reached Node's default 4 GB heap and aborted after 41 visible activity groups. Cursor turn workers now launch with an explicit 8 GB V8 heap while the supervisor remains small. Because the supervisor's protected Linux OOM score is inherited by children, each worker is also reclassified as disposable so host-level memory pressure kills the recoverable agent process before the daemon that must finalize the turn and accept the next message.
+
+## Claude account switches preserve the project chat session - 2026-08-24
+
+Project chat accepted a newly selected personal Claude account from the UI but discarded it at execution time in favor of the project row's earlier value, so a quick handoff could keep spending Team quota while the message badge named the personal account. Account selection is now validated and committed as part of the turn or queue mutation, the exact account drives its badge and launch, and changing the picker proactively rotates the warm daemon. The daemon identity includes both account id and credential revision, so switching accounts or updating a token starts a fresh Claude process while reusing the project's stable Claude session id and conversation context. Explicit personal-account failures now stop with a clear error instead of silently falling back to Team.
+
+## Cursor turns no longer share a leaking SDK heap - 2026-08-24
+
+A production Grok turn resumed the correct saved Cursor agent, streamed reasoning, then killed its long-lived daemon at the V8 4 GB heap limit because prior turns' SDK allocations were still resident. The warm daemon is now only a lightweight claim-and-cancel supervisor: every claimed Cursor turn runs in a disposable child Node process that resumes the same persisted agent store, reports completion, and releases its entire heap on exit. A hard child crash is finalized immediately by the surviving supervisor, and session, project-chat, and task-chat completion paths preserve the last streamed activity when no in-memory log survives. Startup copy now says “Resuming Cursor agent” or “Creating Cursor agent” instead of using the misleading generic “Starting” label.
+
+## Project Overview/Tasks sit in the header - 2026-08-24
+
+Overview and Tasks lived on a second row under a Project|Sandbox switcher, so the header said "Project" while the real views sat below. Those views now share the header with Sandbox as peers, and the redundant Project tab is gone.
+
+## Cursor watchdog preserves already-visible work - 2026-08-24
+
+The first stall-recovery rollout used the same 60-second deadline before and after Cursor emitted visible reasoning. A real Grok turn paused for one minute mid-thought and was incorrectly failed even though its reasoning remained intact in the message activity log. Startup recovery stays strict and replay-safe: only the first visible event has a 60-second deadline, silent status/usage events cannot reset it, and a stalled resumed agent still rotates once. After reasoning, assistant text, or a tool call appears, the watchdog uses the existing five-minute safety window instead, so it cannot abort an ordinary model pause or replay visible work.
+
+## Cursor stalls recover instead of looking frozen - 2026-08-24
+
+Production logs showed Grok reaching a resumed Cursor agent and then hanging inside `Agent.send()` before the SDK returned a cancellable run or emitted a stream event. That boundary now has an explicit deadline: a resumed agent that stalls before producing any user-visible work is closed and retried once with a clean context, while later stalls fail without replaying tool side effects. Agent create/resume, first-event silence, between-event silence, and result settlement are bounded too, closing the gap where the old watchdog called a no-op cancel and left the turn alive until the daemon's much larger hard cap.
+
+Provider startup state is now a live-only activity step. Cursor's “restoring context”, “starting Grok”, and “model is thinking” phases are included in streaming heartbeats and replaced as soon as real reasoning, text, or tool activity arrives; they never enter the completed message log or the next turn's prior steps. Focused regression coverage pins both the deadline/retry boundary and the transient-versus-durable activity contract.
+
+## Durable turn lifecycle restored after rollback audit - 2026-08-24
+
+The legacy execution path reproduced the same slow and apparently frozen Cursor experience after the durable lifecycle was removed, showing that the rollback did not address the provider-streaming cause and discarded the stronger ownership guarantees without improving responsiveness. The complete pre-rollback lifecycle is restored: claimed work again has durable identity, lease renewal, fenced completion, daemon supervision, rollout-safe projection, and the cross-provider contract and integration suites that keep Claude, Cursor, and Codex on one execution boundary. Cursor's sparse Grok reasoning stream remains a separate provider/UI concern rather than being conflated with turn ownership.
+
+## Claimed turns share one durable lifecycle contract - 2026-08-24
+
+Cursor claimed staged chat turns but discarded the lease identity returned by Convex, so every heartbeat deliberately skipped renewal and healthy work was finalized as stalled at almost exactly two minutes. Claim responses now identify durable versus legacy execution explicitly, and Claude, Cursor, and Codex all cross the same typed lifecycle boundary to parse ownership, install its heartbeat fence before provider work, fence every completion, and clear warm-process state. Durable claims without a lease are rejected before provider work, while one shared behavioral suite and a cross-provider contract matrix prevent an adapter from silently bypassing these invariants again.
+
 ## Synthetic Claude replies now deliver their screenshots - 2026-08-23
 
 Claude background-agent continuations complete through a synthetic-turn mutation, but that path bypassed the shared sandbox media harvester used by normal turns. The reply could claim screenshots were attached while its message stored no media at all, leaving the files to be harvested by a later turn. Synthetic completion now runs the same uploader after its message exists and passes the exact synthetic message id through the screenshots action, so a concurrently dequeued placeholder cannot steal the captures. Legacy callback bundles still fall back to the latest-message behavior.
@@ -8844,3 +8898,10 @@ Behavior per context:
 - Hover card sections by provider: "Claude · Max plan" over one row per window (label, tone-based bar, percentage, "resets in 2h 15m" with the absolute time on hover), and a single footer stamped with the freshest reading. Windows with no utilisation are skipped rather than drawn at zero
 - Snapshots are attributed to the connected provider account: the launcher injects `PROVIDER_ACCOUNT_ID` when account credentials are used, rows key on (repo, provider, account) so two Claude accounts never clobber each other, `getByRepo` resolves each row's live account label, and the hover card shows one section per account ("Claude · Max plan · Kezia's account")
 - The chip renders nothing until a turn has reported something, so a repo on an API key or a self-hosted model never grows an empty control; simple view hides it for the same reason it hides the context gauge. Display maths lives in `usage-limits/_utils.ts` under test — thresholds, chip choice, reset labels — and bars scale from their left edge instead of animating `width`
+
+## Live Activity and Account Usage Stay With the Selected Claude Account - 2026-08-24
+
+- Serialized callback flushes now coalesce concurrent SDK events and retry unsent state, so tool steps, file activity, and final text reach the live timeline in order and finalization waits for the complete drain
+- Active legacy project/task turns now own their heartbeat window explicitly, so their tool events are parsed, streamed live, and retained in the completed activity log without letting idle daemons write stale state
+- Project and task usage chips now scope readings to the credential selected in the model picker; switching to Kezia can no longer leave Team's percentage visible, and an account without a reading gets an explicit no-data state
+- Added focused callback and UI regressions for in-flight flushes, single-writer heartbeats, and Team-versus-personal account isolation

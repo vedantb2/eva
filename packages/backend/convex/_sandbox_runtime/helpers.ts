@@ -593,9 +593,8 @@ export async function signAndLaunchScript(
   );
 
   // Layer the selected owner account's credentials last so they win over the
-  // team credential baked into the sandbox env. resolveProviderAccountCredentials
-  // returns {} (no override) if the account is missing, not owned by the entity
-  // owner, or the wrong provider for the model.
+  // team credential baked into the sandbox env. Explicit selections fail
+  // closed if they are unavailable or do not match the model.
   const credentialOwnerUserId = opts.credentialOwnerUserId ?? userId;
   let extraEnvVars = opts.extraEnvVars;
   if (opts.providerAccountId) {

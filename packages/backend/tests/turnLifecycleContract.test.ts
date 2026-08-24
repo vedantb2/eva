@@ -107,15 +107,23 @@ test("expired leases are reconciled by a level-triggered cron", () => {
   expect(crons).toContain("internal.turns.reconcile");
 });
 
-test("both warm daemons propagate claimed lease identity", () => {
+test("every warm daemon uses the shared claimed-turn lifecycle", () => {
   for (const path of [
     "../callback-src/providers/claudeSdkDaemon.ts",
+    "../callback-src/providers/cursorSdkDaemon.ts",
     "../callback-src/providers/codexAppServerDaemon.ts",
   ]) {
     const daemon = source(path);
-    expect(daemon).toContain("readTurnLeaseIdentity(result)");
-    expect(daemon).toContain("setCurrentTurnLease(turn.turnLease)");
+    expect(daemon).toContain("readClaimedTurn");
+    expect(daemon).toContain("startClaimedTurn(turn)");
+    expect(daemon).toContain("appendClaimedTurnCompletion");
+    expect(daemon).toContain("finishClaimedTurn()");
   }
+  const lifecycle = source(
+    "../callback-src/providers/claimedTurnLifecycle.ts",
+  );
+  expect(lifecycle).toContain("readTurnLeaseIdentity(result)");
+  expect(lifecycle).toContain("setCurrentTurnLease(turn.turnLease)");
 });
 
 test("cold daemons cannot heartbeat before claiming a durable turn", () => {

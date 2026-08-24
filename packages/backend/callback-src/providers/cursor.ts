@@ -203,8 +203,8 @@ function cursorEventToCanonical(event: JsonObject): CanonicalEvent[] {
   if (event.type === "system") {
     events.push({
       kind: "update_thinking",
-      label: "Starting Cursor agent...",
-      detail: "Cursor agent initializing...",
+      label: "Cursor agent ready",
+      detail: "Model context initialized.",
     });
     return events;
   }

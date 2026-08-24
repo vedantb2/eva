@@ -1,3 +1,4 @@
+import { spawn, type ChildProcess } from "child_process";
 import { readFileSync, unlinkSync, writeFileSync } from "fs";
 import {
   CALLBACK_SCRIPT_FP,
@@ -5,6 +6,10 @@ import {
   COMPLETION_MUTATION,
   CONVEX_TOKEN,
   CONVEX_URL,
+  CURSOR_TURN_WORKER_LEASE_GENERATION,
+  CURSOR_TURN_WORKER_LIFECYCLE,
+  CURSOR_TURN_WORKER_PROMPT_FILE,
+  CURSOR_TURN_WORKER_TURN_ID,
   DAEMON_OPTS_SIG,
   ENTITY_ID,
   ENTITY_ID_FIELD,
@@ -38,6 +43,13 @@ import {
 import type { JsonValue, ProviderAttemptResult } from "../types.js";
 import { log, readResponseJson } from "../utils.js";
 import { readCancelRequested } from "./claimPendingTurnParse.js";
+import {
+  appendClaimedTurnCompletion,
+  finishClaimedTurn,
+  readClaimedTurn,
+  startClaimedTurn,
+  type ClaimedTurn,
+} from "./claimedTurnLifecycle.js";
 import { runCursorSdkAttempt } from "./cursorSdk.js";
 import {
   resolveDaemonPaths,
@@ -64,8 +76,12 @@ const TURN_HARD_TIMEOUT_MS = MAX_TOTAL_RUNTIME_MS + 5 * 60 * 1000;
 // Safety net for a cancel whose run never settles (mirrors the Claude daemon's
 // CANCEL_SETTLE_TIMEOUT_MS): exit for respawn rather than wedge.
 const CANCEL_SETTLE_TIMEOUT_MS = 30_000;
-
-type ClaimedTurn = { prompt: string; attachmentUrls: string[] };
+const CURSOR_TURN_WORKER_FILE_PREFIX = "/tmp/eva-cursor-turn-";
+// Cursor's SDK can retain several gigabytes of a long tool-heavy run. The
+// default V8 heap (~4 GB in production) aborted a healthy 17-minute turn, so
+// give the disposable worker room to finish while keeping the supervisor tiny.
+const CURSOR_TURN_WORKER_HEAP_MB = 8192;
+const CURSOR_TURN_WORKER_OOM_SCORE = "300";
 
 const daemonPaths = resolveDaemonPaths();
 
@@ -82,8 +98,126 @@ let cancelRequestedAtMs = 0;
 /** Aborts the in-flight Cursor run; registered by the attempt each turn. */
 let abortActiveTurn: (() => void) | null = null;
 
+export type CursorTurnWorkerExit =
+  | { status: "exited"; code: number | null; signal: NodeJS.Signals | null }
+  | { status: "spawn_error"; message: string };
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function cursorTurnWorkerEntryPath(): string {
+  const entryPath = process.argv[1];
+  if (!entryPath) {
+    throw new Error("Cursor turn worker could not resolve the callback entrypoint");
+  }
+  return entryPath;
+}
+
+/** Reads the narrow, validated handoff written by the parent Cursor daemon. */
+function readCursorTurnWorkerClaim(): ClaimedTurn {
+  if (!CURSOR_TURN_WORKER_PROMPT_FILE) {
+    throw new Error("Cursor turn worker prompt file is missing");
+  }
+  const prompt = readFileSync(CURSOR_TURN_WORKER_PROMPT_FILE, "utf8");
+  if (CURSOR_TURN_WORKER_LIFECYCLE === "legacy") {
+    return {
+      lifecycle: "legacy",
+      prompt,
+      attachmentUrls: [],
+      turnLease: null,
+    };
+  }
+  if (
+    CURSOR_TURN_WORKER_LIFECYCLE !== "durable" ||
+    !CURSOR_TURN_WORKER_TURN_ID ||
+    CURSOR_TURN_WORKER_LEASE_GENERATION <= 0
+  ) {
+    throw new Error("Cursor turn worker received an invalid durable lease");
+  }
+  return {
+    lifecycle: "durable",
+    prompt,
+    attachmentUrls: [],
+    turnLease: {
+      turnId: CURSOR_TURN_WORKER_TURN_ID,
+      leaseGeneration: CURSOR_TURN_WORKER_LEASE_GENERATION,
+    },
+  };
+}
+
+export function cursorTurnWorkerFailureMessage(
+  outcome: CursorTurnWorkerExit,
+): string {
+  if (outcome.status === "spawn_error") {
+    return "Cursor turn worker could not start: " + outcome.message;
+  }
+  const exit =
+    outcome.signal !== null
+      ? `signal ${outcome.signal}`
+      : `exit code ${String(outcome.code)}`;
+  const oom = outcome.signal === "SIGABRT" || outcome.code === 134;
+  return oom
+    ? `Cursor turn worker ran out of memory (${exit}). The daemon remained healthy and is ready for the next message.`
+    : `Cursor turn worker stopped unexpectedly (${exit}). The daemon remained healthy and is ready for the next message.`;
+}
+
+function waitForCursorTurnWorker(child: ChildProcess): Promise<CursorTurnWorkerExit> {
+  return new Promise((resolve) => {
+    child.once("error", (error) => {
+      resolve({ status: "spawn_error", message: error.message });
+    });
+    child.once("exit", (code, signal) => {
+      resolve({ status: "exited", code, signal });
+    });
+  });
+}
+
+function spawnCursorTurnWorker(
+  turn: ClaimedTurn,
+  promptFile: string,
+): ChildProcess {
+  const workerEnv: NodeJS.ProcessEnv = {
+    ...process.env,
+    EVA_CURSOR_TURN_WORKER_PROMPT_FILE: promptFile,
+    EVA_CURSOR_TURN_WORKER_LIFECYCLE: turn.lifecycle,
+  };
+  if (turn.lifecycle === "durable") {
+    workerEnv.EVA_CURSOR_TURN_WORKER_TURN_ID = turn.turnLease.turnId;
+    workerEnv.EVA_CURSOR_TURN_WORKER_LEASE_GENERATION = String(
+      turn.turnLease.leaseGeneration,
+    );
+  } else {
+    delete workerEnv.EVA_CURSOR_TURN_WORKER_TURN_ID;
+    delete workerEnv.EVA_CURSOR_TURN_WORKER_LEASE_GENERATION;
+  }
+  const child = spawn(
+    process.execPath,
+    [
+      `--max-old-space-size=${CURSOR_TURN_WORKER_HEAP_MB}`,
+      cursorTurnWorkerEntryPath(),
+    ],
+    {
+      cwd: process.cwd(),
+      env: workerEnv,
+      stdio: "inherit",
+    },
+  );
+  // The parent daemon is deliberately OOM-protected by the launch script, and
+  // Linux inherits that score into children. Raise only the disposable worker
+  // so host-level pressure sacrifices it before the process that reports the
+  // failure and accepts the next message.
+  if (child.pid !== undefined) {
+    try {
+      writeFileSync(
+        `/proc/${child.pid}/oom_score_adj`,
+        CURSOR_TURN_WORKER_OOM_SCORE,
+      );
+    } catch {
+      // Non-Linux and restricted procfs environments fail open.
+    }
+  }
+  return child;
 }
 
 function pidAlive(pid: number): boolean {
@@ -143,26 +277,6 @@ function resetTurnState(): void {
   S.pendingQuestionData = "";
   S.todoState.length = 0;
   S.lastStepType = "thinking";
-}
-
-/** Unwraps `{ status, value }` from the claim mutation's HTTP envelope. */
-function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return null;
-  }
-  const inner = result.value;
-  const payload =
-    typeof inner === "object" && inner !== null && !Array.isArray(inner)
-      ? inner
-      : result;
-  if (typeof payload.prompt !== "string") return null;
-  const urls = payload.attachmentUrls;
-  return {
-    prompt: payload.prompt,
-    attachmentUrls: Array.isArray(urls)
-      ? urls.filter((url): url is string => typeof url === "string")
-      : [],
-  };
 }
 
 /** Sessions may push git commits; refresh the installation token like the one-shot path. */
@@ -272,11 +386,12 @@ async function finalizeTurn(attempt: ProviderAttemptResult): Promise<void> {
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
+  appendClaimedTurnCompletion(completionArgs);
   // Final streaming reconcile BEFORE completion: the completion mutation
   // finalizes the assistant message and the server may dequeue the next turn
   // straight after, so writing streaming state past that point resurrects this
   // turn's text into the next turn's placeholder.
-  await setFinalizingState();
+  if (await setFinalizingState()) return;
   // Durability BEFORE completion: a VM death after this point must not erase
   // the turn's work.
   persistTurnWork();
@@ -293,16 +408,20 @@ async function finalizeTurn(attempt: ProviderAttemptResult): Promise<void> {
 async function failTurnAndExit(error: string): Promise<never> {
   log("cursor daemon: failing turn — " + error);
   try {
+    const completionArgs = entityMutationArgs({
+      success: false,
+      result: null,
+      error,
+      // The disposable worker owns the live steps. A null log tells Convex to
+      // preserve the last streaming snapshot when the worker cannot report.
+      activityLog: null,
+      ...(RUN_ID ? { runId: RUN_ID } : {}),
+    });
+    appendClaimedTurnCompletion(completionArgs);
     await callConvexWithRetry(
       "mutation",
       COMPLETION_MUTATION ?? "",
-      entityMutationArgs({
-        success: false,
-        result: null,
-        error,
-        activityLog: serializeSteps(S.accumulatedSteps),
-        ...(RUN_ID ? { runId: RUN_ID } : {}),
-      }),
+      completionArgs,
     );
   } catch {
     /* best-effort: exit regardless so the daemon does not wedge */
@@ -353,6 +472,7 @@ function startTurnWatchdog(): void {
     if (!turnActive) return;
     if (now - turnStartedAtMs > TURN_HARD_TIMEOUT_MS) {
       turnActive = false;
+      abortActiveTurn?.();
       void failTurnAndExit("The assistant exceeded the maximum turn runtime.");
     }
   }, WATCHDOG_TICK_MS);
@@ -439,17 +559,12 @@ function handleCancelRequested(): void {
   abortActiveTurn?.();
 }
 
-/**
- * Runs one claimed turn on the warm process. The session state (and with it the
- * rotation policy) is re-evaluated every turn, exactly as the one-shot path does
- * before its single attempt.
- */
-async function runClaimedTurn(turn: ClaimedTurn): Promise<void> {
-  resetTurnState();
+/** Runs a claimed turn inside the disposable Cursor worker process. */
+async function executeClaimedTurn(turn: ClaimedTurn): Promise<void> {
   turnActive = true;
   turnStartedAtMs = Date.now();
   abortActiveTurn = null;
-  log("cursor daemon: turn started");
+  log("cursor turn worker: turn started");
   try {
     if (!process.env.CURSOR_API_KEY?.trim()) {
       throw new Error(
@@ -480,15 +595,17 @@ async function runClaimedTurn(turn: ClaimedTurn): Promise<void> {
     try {
       await flushStreaming();
       for (const step of S.accumulatedSteps) step.status = "complete";
-      await setFinalizingState();
-      await deliverCompletionWithMedia({
+      if (await setFinalizingState()) return;
+      const completionArgs: Record<string, JsonValue> = {
         [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
         success: false,
         result: null,
         error: appendDiagnosticTail(message),
         activityLog: serializeSteps(S.accumulatedSteps),
         ...(RUN_ID ? { runId: RUN_ID } : {}),
-      });
+      };
+      appendClaimedTurnCompletion(completionArgs);
+      await deliverCompletionWithMedia(completionArgs);
     } catch {
       /* best-effort — the watchdog and stall recovery own the rest */
     }
@@ -501,11 +618,113 @@ async function runClaimedTurn(turn: ClaimedTurn): Promise<void> {
 }
 
 /**
- * Persistent warm-session daemon for Cursor. The process, the pinned
- * `@cursor/sdk` module and the streaming loops are created once and reused, so
- * only the first turn pays process + SDK startup; later turns cost model time
- * plus a local resume. Jobs (no CLAIM_MUTATION) never reach this and stay on
- * the one-shot path in index.ts.
+ * Child entrypoint: one process, one turn. The persisted SDK store still
+ * resumes the same Cursor agent, while all SDK heap dies with this process.
+ */
+export async function runCursorTurnWorker(): Promise<void> {
+  const turn = readCursorTurnWorkerClaim();
+  resetTurnState();
+  startClaimedTurn(turn);
+  try {
+    const preflightOk = await runPreflightHeartbeat();
+    if (!preflightOk) {
+      throw new Error("Cursor turn worker preflight failed");
+    }
+    startStreamingLoops();
+    await ensureGithubToken();
+    await executeClaimedTurn(turn);
+  } finally {
+    await stopStreamingLoops();
+    finishClaimedTurn();
+  }
+}
+
+async function reportCursorTurnWorkerFailure(
+  outcome: CursorTurnWorkerExit,
+): Promise<void> {
+  const error = cursorTurnWorkerFailureMessage(outcome);
+  log("cursor daemon: " + error);
+  const completionArgs = entityMutationArgs({
+    success: false,
+    result: null,
+    error,
+    // Convex falls back to the last streamed activity so a hard worker crash
+    // cannot erase the reasoning/tools the user already saw.
+    activityLog: null,
+    ...(RUN_ID ? { runId: RUN_ID } : {}),
+  });
+  appendClaimedTurnCompletion(completionArgs);
+  await callConvexWithRetry(
+    "mutation",
+    COMPLETION_MUTATION ?? "",
+    completionArgs,
+  );
+}
+
+/**
+ * The warm daemon only supervises a disposable worker. It retains cancellation
+ * and claim polling without retaining the Cursor SDK's heap between messages.
+ */
+async function runClaimedTurn(turn: ClaimedTurn): Promise<void> {
+  const promptFile =
+    CURSOR_TURN_WORKER_FILE_PREFIX +
+    String(process.pid) +
+    "-" +
+    String(Date.now()) +
+    ".txt";
+  writeFileSync(promptFile, turn.prompt);
+  startClaimedTurn(turn);
+  turnActive = true;
+  turnStartedAtMs = Date.now();
+  log("cursor daemon: starting isolated turn worker");
+  try {
+    const child = spawnCursorTurnWorker(turn, promptFile);
+    abortActiveTurn = () => {
+      if (child.exitCode === null && child.signalCode === null) {
+        child.kill("SIGTERM");
+      }
+    };
+    const outcome = await waitForCursorTurnWorker(child);
+    turnActive = false;
+    if (cancelInFlight) {
+      log("cursor daemon: cancelled worker settled — no completion posted");
+      return;
+    }
+    if (
+      outcome.status === "exited" &&
+      outcome.code === 0 &&
+      outcome.signal === null
+    ) {
+      log("cursor daemon: isolated turn worker finished");
+      return;
+    }
+    try {
+      await reportCursorTurnWorkerFailure(outcome);
+    } catch (error) {
+      log(
+        "cursor daemon: worker failure completion could not be delivered — " +
+          (error instanceof Error ? error.message : String(error)),
+      );
+    }
+  } finally {
+    turnActive = false;
+    abortActiveTurn = null;
+    cancelInFlight = false;
+    finishClaimedTurn();
+    lastIdleActivityAtMs = Date.now();
+    try {
+      unlinkSync(promptFile);
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/**
+ * Persistent warm-session supervisor for Cursor. It claims turns and handles
+ * cancellation, but each turn executes in a disposable child process so the
+ * SDK cannot retain heap between messages. Jobs (no CLAIM_MUTATION) never
+ * reach this and stay on the one-shot path in index.ts.
  */
 export async function runCursorDaemon(): Promise<void> {
   if (!CLAIM_MUTATION) {
@@ -561,7 +780,6 @@ export async function runCursorDaemon(): Promise<void> {
     log("cursor daemon: preflight failed");
     process.exit(1);
   }
-  startStreamingLoops();
   await ensureGithubToken();
 
   log(
@@ -591,7 +809,6 @@ export async function runCursorDaemon(): Promise<void> {
   } finally {
     daemonExiting = true;
     cleanOwnedMarkers();
-    await stopStreamingLoops();
   }
   process.exit(0);
 }

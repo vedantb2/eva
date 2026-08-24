@@ -117,6 +117,9 @@ type ClaudeSessionMode = "none" | "session" | "resume";
 
 type CallbackState = {
   accumulatedSteps: ProgressStep[];
+  /** Live-only provider status. Included in streaming heartbeats, never in the
+   * completed message activity log or PRIOR_STEPS. */
+  transientThinkingStep: ProgressStep | null;
   pendingQuestionData: string;
   lastStepType: string;
   rawOutput: string;
@@ -187,6 +190,7 @@ type CallbackState = {
 /** Single mutable runtime bag — ESM-safe cross-module mutations. */
 export const callbackState: CallbackState = {
   accumulatedSteps: [],
+  transientThinkingStep: null,
   pendingQuestionData: "",
   lastStepType: "",
   rawOutput: "",
@@ -287,6 +291,7 @@ export function assignRawLogStream(stream: WriteStream | null): void {
  * (session ids, todo state, raw-log stream) deliberately survive.
  */
 export function resetAttemptState(): void {
+  callbackState.transientThinkingStep = null;
   callbackState.realtimeOutputBuffer = "";
   callbackState.resultEventSeen = false;
   callbackState.waitingForFirstAssistantEvent = false;
@@ -305,6 +310,7 @@ export function resetAttemptState(): void {
 /** @internal test-only state resets */
 export function resetStateForTests(): void {
   callbackState.accumulatedSteps.length = 0;
+  callbackState.transientThinkingStep = null;
   callbackState.lastStepType = "";
   callbackState.pendingQuestionData = "";
   callbackState.fatalHeartbeatErrorMessage = "";

@@ -4,10 +4,13 @@ Environment variables control watchdog and HTTP behavior for the sandbox callbac
 
 ## Agent stream / lifecycle
 
-Every provider runs through its SDK in-process. `runCliAttempt` and its
-subprocess watchdog (the zombie / first-event / first-assistant guards and
-`CLAUDE_STREAM_SILENCE_TIMEOUT_MS`) were deleted once OpenCode moved to its SDK.
-Each SDK runner now owns an inline `setInterval` enforcing max runtime plus a
+Every provider runs through its SDK. Cursor's warm daemon supervises one
+disposable child Node process per claimed turn; the child resumes the persisted
+Cursor agent store but releases its entire SDK heap when the turn ends. Claude,
+Codex, and OpenCode keep their provider-specific warm runtimes. `runCliAttempt`
+and its subprocess watchdog (the zombie / first-event / first-assistant guards
+and `CLAUDE_STREAM_SILENCE_TIMEOUT_MS`) were deleted once OpenCode moved to its
+SDK. Each SDK runner owns an inline `setInterval` enforcing max runtime plus a
 no-event silence kill at `CLAUDE_NO_OUTPUT_TIMEOUT_MS × 5`, exempting in-flight
 tools.
 

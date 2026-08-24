@@ -160,11 +160,9 @@ export async function resolveSandboxCredentials(
  * Resolves the decrypted credential env vars for an entity owner's selected
  * provider account, used to override the shared team credential at launch.
  *
- * Returns an empty map (caller falls back to the team credential) when the
- * account is missing, not usable by `ownerUserId` (neither owned nor shared
- * with them by a teammate), or does not match the selected model's provider. A
- * mismatch must never break the run, so these cases log and degrade rather than
- * throw.
+ * Explicit selections fail closed when the account is unavailable or does not
+ * match the model. Silently falling back would attribute a turn to one account
+ * while actually spending another account's quota.
  */
 export async function resolveProviderAccountCredentials(
   ctx: GenericActionCtx<DataModel>,
@@ -177,17 +175,11 @@ export async function resolveProviderAccountCredentials(
     { accountId, ownerUserId },
   );
   if (!account) {
-    console.warn(
-      `[env] resolveProviderAccountCredentials: account ${accountId} missing or not usable by entity owner ${ownerUserId} — falling back to team credential`,
-    );
-    return {};
+    throw new Error("Selected provider account is no longer available");
   }
   const modelProvider = getAIModelProvider(model);
   if (account.provider !== modelProvider) {
-    console.warn(
-      `[env] resolveProviderAccountCredentials: account provider ${account.provider} does not match model provider ${modelProvider} — falling back to team credential`,
-    );
-    return {};
+    throw new Error("Selected provider account does not support this model");
   }
   // Bookkeeping only — never let it break a launch that has its credentials.
   try {
@@ -206,4 +198,27 @@ export async function resolveProviderAccountCredentials(
     resolved[entry.key] = decryptValue(entry.value);
   }
   return resolved;
+}
+
+/**
+ * Returns the credential revision used in a warm daemon's identity. Updating
+ * credentials on the same account id therefore rotates the daemon too.
+ */
+export async function resolveProviderAccountCredentialRevision(
+  ctx: GenericActionCtx<DataModel>,
+  accountId: Id<"userProviderAccounts">,
+  ownerUserId: Id<"users">,
+  model: string | undefined,
+): Promise<number> {
+  const account = await ctx.runQuery(
+    internal.userProviderAccounts.getForLaunchInternal,
+    { accountId, ownerUserId },
+  );
+  if (!account) {
+    throw new Error("Selected provider account is no longer available");
+  }
+  if (account.provider !== getAIModelProvider(model)) {
+    throw new Error("Selected provider account does not support this model");
+  }
+  return account.updatedAt;
 }

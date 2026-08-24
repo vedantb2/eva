@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import {
   api,
   buildTraitsExecutionPayload,
@@ -21,7 +21,9 @@ import {
   useAvailableAiModels,
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
+import { useProviderAccountHandoff } from "@/lib/hooks/useProviderAccountHandoff";
 import { projectStoredTraits, useSetProjectTraits } from "./useProjectTraits";
+import { useUpdateProject } from "./useUpdateProject";
 
 interface ProjectSandboxChatPanelProps {
   projectId: Id<"projects">;
@@ -60,7 +62,16 @@ export function ProjectSandboxChatPanel({
   const requestStopBackgroundAgent = useMutation(
     api.projectChatWorkflow.requestStopBackgroundAgent,
   );
-  const updateProject = useMutation(api.projects.update);
+  const prewarmChatDaemonNow = useAction(
+    api.projectChatWorkflow.prewarmChatDaemonNow,
+  );
+  const updateProject = useUpdateProject(projectId);
+  const { isSwitchingAccount, switchProviderAccount } =
+    useProviderAccountHandoff({
+      persist: (providerAccountId) =>
+        updateProject({ id: projectId, providerAccountId }),
+      prewarm: () => prewarmChatDaemonNow({ projectId }),
+    });
   const setChatModelMutation = useMutation(
     api.projects.setChatModel,
   ).withOptimisticUpdate((localStore, args) => {
@@ -111,6 +122,11 @@ export function ProjectSandboxChatPanel({
           },
           ...accounts,
         ];
+  const usageAccountLabel =
+    providerAccountId === null
+      ? "Team"
+      : (displayAccounts.find((account) => account.id === providerAccountId)
+          ?.label ?? "Selected account");
 
   const draftSeed = useChatDraftSeed({
     kind: "projectChat" as const,
@@ -150,10 +166,7 @@ export function ProjectSandboxChatPanel({
 
   const setProviderAccountId = (next: string | null) => {
     if (!isOwner) return;
-    void updateProject({
-      id: projectId,
-      providerAccountId: resolveAccountId(next) ?? null,
-    });
+    switchProviderAccount(resolveAccountId(next) ?? null);
   };
 
   const lastMessage = messages?.[messages.length - 1];
@@ -224,6 +237,10 @@ export function ProjectSandboxChatPanel({
         sandboxCollapsed={sandboxCollapsed}
         onToggleSandbox={onToggleSandbox}
         isAssistantResponding={isExecuting}
+        usageAccountScope={{
+          providerAccountId,
+          accountLabel: usageAccountLabel,
+        }}
       />
       <ChatBody
         repoId={repo._id}
@@ -237,11 +254,13 @@ export function ProjectSandboxChatPanel({
         blockingQuestion={activeQuestion ?? undefined}
         onAnswerBlockingQuestion={handleAnswerBlockingQuestion}
         isExecuting={isExecuting}
-        isInputDisabled={!isSandboxActive}
+        isInputDisabled={!isSandboxActive || isSwitchingAccount}
         placeholder={
           !isSandboxActive
             ? "Wake Eva up to chat..."
-            : "Ask Eva anything... / for skills · @ to mention"
+            : isSwitchingAccount
+              ? "Switching Claude account..."
+              : "Ask Eva anything... / for skills · @ to mention"
         }
         emptyStateTitle={
           isSandboxActive

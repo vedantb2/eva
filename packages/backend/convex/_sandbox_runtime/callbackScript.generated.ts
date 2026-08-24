@@ -59,6 +59,16 @@ var ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 var BLOCKING_QUESTIONS_ENABLED = process.env.ENTITY_ID_FIELD === "sessionId";
 var CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
 var DAEMON_OPTS_SIG = process.env.EVA_DAEMON_OPTS || "";
+var CURSOR_TURN_WORKER_PROMPT_FILE = process.env.EVA_CURSOR_TURN_WORKER_PROMPT_FILE || "";
+var CURSOR_TURN_WORKER_LIFECYCLE = process.env.EVA_CURSOR_TURN_WORKER_LIFECYCLE || "";
+var CURSOR_TURN_WORKER_TURN_ID = process.env.EVA_CURSOR_TURN_WORKER_TURN_ID || "";
+var parsedCursorWorkerLeaseGeneration = Number(
+  process.env.EVA_CURSOR_TURN_WORKER_LEASE_GENERATION
+);
+var CURSOR_TURN_WORKER_LEASE_GENERATION = Number.isSafeInteger(
+  parsedCursorWorkerLeaseGeneration
+) ? parsedCursorWorkerLeaseGeneration : 0;
+var IS_CURSOR_TURN_WORKER = CURSOR_TURN_WORKER_PROMPT_FILE.length > 0;
 var SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 var WORK_DIR = existsSync("/tmp/repo") ? "/tmp/repo" : existsSync("/workspace/repo") ? "/workspace/repo" : "/tmp/repo";
 var NO_OUTPUT_TIMEOUT_MS = Number(
@@ -285,7 +295,7 @@ var completedLabels = {
 };
 
 // callback-src/providers/claudeSdkDaemon.ts
-import { unlinkSync, writeFileSync as writeFileSync9, readFileSync as readFileSync7, readdirSync as readdirSync3 } from "fs";
+import { unlinkSync, writeFileSync as writeFileSync9, readFileSync as readFileSync6, readdirSync as readdirSync3 } from "fs";
 import { homedir } from "os";
 
 // callback-src/providers/daemonPaths.ts
@@ -409,6 +419,7 @@ function parsePriorStep(value) {
 }
 var callbackState = {
   accumulatedSteps: [],
+  transientThinkingStep: null,
   pendingQuestionData: "",
   lastStepType: "",
   rawOutput: "",
@@ -494,6 +505,7 @@ function assignRawLogStream(stream) {
   callbackState.rawLogStream = stream;
 }
 function resetAttemptState() {
+  callbackState.transientThinkingStep = null;
   callbackState.realtimeOutputBuffer = "";
   callbackState.resultEventSeen = false;
   callbackState.waitingForFirstAssistantEvent = false;
@@ -682,6 +694,7 @@ function elapsedAttemptMs() {
 
 // callback-src/runtime/turnLease.ts
 var currentTurnLease = TURN_ID !== null && TURN_LEASE_GENERATION !== null ? { turnId: TURN_ID, leaseGeneration: TURN_LEASE_GENERATION } : null;
+var legacyTurnHeartbeatActive = false;
 var terminalReason = null;
 function getCurrentTurnLease() {
   return currentTurnLease;
@@ -690,7 +703,11 @@ function canSendTurnHeartbeat({
   claimMutation,
   turnLease
 }) {
-  return claimMutation === void 0 || turnLease !== null;
+  return claimMutation === void 0 || turnLease !== null || legacyTurnHeartbeatActive;
+}
+function setLegacyTurnHeartbeatActive(active) {
+  legacyTurnHeartbeatActive = active;
+  if (active) terminalReason = null;
 }
 function appendCurrentTurnLease(args) {
   const identity = getCurrentTurnLease();
@@ -3571,69 +3588,6 @@ var codexAdapter = {
   }
 };
 
-// callback-src/session/cursorResumePolicy.ts
-import { existsSync as existsSync6, readFileSync as readFileSync5 } from "fs";
-import { join } from "path";
-var CURSOR_MAX_RESUME_CONTEXT_TOKENS = 16e4;
-function asRecord(value) {
-  if (value === null || value === void 0) return null;
-  if (typeof value !== "object" || Array.isArray(value)) return null;
-  return value;
-}
-function asId(value) {
-  return typeof value === "string" && value.length > 0 ? value : null;
-}
-function readContextTokens(usage) {
-  if (!usage) return null;
-  const input = usage.inputTokens;
-  if (typeof input !== "number" || !Number.isFinite(input)) return null;
-  const cacheRead = usage.cacheReadTokens;
-  const cached = typeof cacheRead === "number" && Number.isFinite(cacheRead) ? cacheRead : 0;
-  return Math.max(0, input) + Math.max(0, cached);
-}
-function readRunEventLine(line) {
-  const record = asRecord(tryParseJson(line));
-  if (!record) return null;
-  const payload = asRecord(record.payload);
-  const message = payload ? asRecord(payload.message) : null;
-  const runId = asId(record.runId) ?? asId(record.run_id) ?? asId(payload?.runId) ?? asId(payload?.run_id) ?? asId(message?.run_id) ?? asId(message?.runId);
-  const agentId = asId(payload?.agentId) ?? asId(payload?.agent_id) ?? asId(message?.agent_id) ?? asId(message?.agentId);
-  return {
-    runId,
-    agentId,
-    contextTokens: readContextTokens(asRecord(message?.usage))
-  };
-}
-function readCursorResumeStats(storeDir, agentId) {
-  const eventsFile = join(storeDir, "run_events.ndjson");
-  if (!existsSync6(eventsFile)) return null;
-  try {
-    const lines = readFileSync5(eventsFile, "utf8").split("\\n");
-    let newestRunId = null;
-    for (let index = lines.length - 1; index >= 0; index--) {
-      const line = lines[index];
-      if (!line) continue;
-      const event = readRunEventLine(line);
-      if (!event || event.runId === null) continue;
-      if (newestRunId === null) {
-        if (event.agentId !== agentId) continue;
-        newestRunId = event.runId;
-      }
-      if (event.runId !== newestRunId) continue;
-      if (event.contextTokens !== null) {
-        return { runId: newestRunId, contextTokens: event.contextTokens };
-      }
-    }
-  } catch (error) {
-    console.error("Failed to inspect Cursor resume history:", String(error));
-  }
-  return null;
-}
-function shouldRotateCursorSession(stats) {
-  if (stats === null) return false;
-  return stats.contextTokens >= CURSOR_MAX_RESUME_CONTEXT_TOKENS;
-}
-
 // callback-src/session/cursorSession.ts
 var store2 = createSessionStore({
   runtimeHomeDir: CURSOR_RUNTIME_HOME_DIR,
@@ -3666,27 +3620,6 @@ function prepareCursorSessionState() {
     persistedState ? "Saved session hydrated. Starting Cursor..." : "Preparing fresh Cursor session..."
   );
   if (persistedState && persistedState.resumeSessionId) {
-    const resumeStats = readCursorResumeStats(
-      CURSOR_SDK_STORE_DIR,
-      persistedState.resumeSessionId
-    );
-    if (shouldRotateCursorSession(resumeStats)) {
-      const contextTokens = resumeStats ? resumeStats.contextTokens : 0;
-      const approxThousands = Math.round(contextTokens / 1e3);
-      console.log(
-        "prepareCursorSessionState: rotating saved Cursor agent (" + contextTokens + " context tokens)"
-      );
-      callbackState.activeCursorSessionId = "";
-      pushNoticeStep2(
-        "Started a fresh Cursor agent",
-        \`Saved context reached ~\${approxThousands}k tokens; continuing with a summary handoff.\`
-      );
-      updateThinkingStep(
-        "Preparing Cursor session...",
-        "Saved context reached its safe limit. Starting fresh..."
-      );
-      return { mode: "none", sessionId: null };
-    }
     callbackState.activeCursorSessionId = persistedState.resumeSessionId;
     return { mode: "resume", sessionId: persistedState.resumeSessionId };
   }
@@ -3800,8 +3733,8 @@ function cursorEventToCanonical(event) {
   if (event.type === "system") {
     events.push({
       kind: "update_thinking",
-      label: "Starting Cursor agent...",
-      detail: "Cursor agent initializing..."
+      label: "Cursor agent ready",
+      detail: "Model context initialized."
     });
     return events;
   }
@@ -4109,9 +4042,16 @@ function pushNoticeStep2(label, detail) {
   pushProgressStep({ type: "notice", label, detail, status: "complete" });
 }
 function updateThinkingStep(label, detail) {
-  void label;
-  void detail;
+  callbackState.transientThinkingStep = {
+    type: "thinking",
+    label,
+    detail,
+    status: "active"
+  };
   callbackState.lastStepType = "thinking";
+}
+function clearThinkingStep() {
+  callbackState.transientThinkingStep = null;
 }
 function shouldRecordProgressStep(step) {
   return step.type !== "thinking" && step.type !== "reasoning" && step.type !== "response";
@@ -4144,6 +4084,7 @@ function applyCanonicalEvents(events) {
         updateThinkingStep(ev.label, ev.detail);
         break;
       case "push_step":
+        clearThinkingStep();
         pushProgressStep(ev.step);
         if (shouldRecordProgressStep(ev.step)) {
           if (ev.trackingId) callbackState.codexToolItemIds.add(ev.trackingId);
@@ -4151,6 +4092,7 @@ function applyCanonicalEvents(events) {
         }
         break;
       case "complete_tool":
+        clearThinkingStep();
         completeToolStep(ev.trackingId, ev.result);
         if (ev.trackingId !== void 0) {
           callbackState.codexToolItemIds.delete(ev.trackingId);
@@ -4160,12 +4102,15 @@ function applyCanonicalEvents(events) {
         }
         break;
       case "mark_last_complete":
+        clearThinkingStep();
         markLastComplete();
         break;
       case "append_text":
+        clearThinkingStep();
         appendStreamedContent(ev.text, true);
         break;
       case "stream_text_delta":
+        clearThinkingStep();
         appendStreamedContent(ev.text, callbackState.pendingParagraphBreak);
         callbackState.pendingParagraphBreak = false;
         callbackState.streamedAssistantTextThisMessage = true;
@@ -4178,18 +4123,22 @@ function applyCanonicalEvents(events) {
         callbackState.pendingParagraphBreak = true;
         break;
       case "update_reasoning":
+        clearThinkingStep();
         applyReasoningSnapshot(ev.text);
         break;
       case "set_pending_question":
+        clearThinkingStep();
         callbackState.pendingQuestionData = ev.data;
         break;
       case "set_todos":
+        clearThinkingStep();
         applyTodosSnapshot(ev.todos);
         break;
       case "set_codex_thread":
         callbackState.activeCodexThreadId = ev.threadId;
         break;
       case "mark_first_assistant":
+        clearThinkingStep();
         callbackState.waitingForFirstAssistantEvent = false;
         break;
     }
@@ -4231,6 +4180,8 @@ function appendStreamedContent(text, isBlockBoundary = false) {
 import { writeFileSync as writeFileSync7 } from "fs";
 var flushInterval = null;
 var heartbeatInterval = null;
+var activeFlush = null;
+var flushRequested = false;
 function ownsHeartbeatLease() {
   return canSendTurnHeartbeat({
     claimMutation: CLAIM_MUTATION,
@@ -4238,7 +4189,9 @@ function ownsHeartbeatLease() {
   });
 }
 function buildStreamingPayload() {
-  return serializeSteps(callbackState.accumulatedSteps);
+  return serializeSteps(
+    callbackState.transientThinkingStep ? [...callbackState.accumulatedSteps, callbackState.transientThinkingStep] : callbackState.accumulatedSteps
+  );
 }
 function markHeartbeatSuccess(payload) {
   callbackState.lastSentPayload = payload;
@@ -4295,49 +4248,62 @@ async function sendStreamingHeartbeatUpdate(payload) {
     return false;
   }
 }
-async function flushStreaming() {
-  if (callbackState.flushInProgress) return;
+async function flushStreamingPass() {
   if (!ownsHeartbeatLease()) {
     void flushBackgroundShellQueue();
     return;
   }
-  if (callbackState.rawOutput.length <= callbackState.lastProcessed) {
-    void flushBackgroundShellQueue();
-    return;
-  }
-  callbackState.flushInProgress = true;
-  try {
+  let hasNew = false;
+  if (callbackState.rawOutput.length > callbackState.lastProcessed) {
     const pending = callbackState.rawOutput.slice(callbackState.lastProcessed);
     const lastNewline = pending.lastIndexOf("\\n");
-    if (lastNewline === -1) return;
-    callbackState.lastProcessed += lastNewline + 1;
-    let hasNew = false;
-    for (const line of pending.slice(0, lastNewline).split("\\n")) {
-      const clean = line.trim();
-      if (!clean) continue;
-      if (parseStreamEvent(clean)) {
-        hasNew = true;
-        callbackState.parsedStreamEventCount++;
+    if (lastNewline >= 0) {
+      callbackState.lastProcessed += lastNewline + 1;
+      for (const line of pending.slice(0, lastNewline).split("\\n")) {
+        const clean = line.trim();
+        if (!clean) continue;
+        if (parseStreamEvent(clean)) {
+          hasNew = true;
+          callbackState.parsedStreamEventCount++;
+        }
       }
     }
-    const contentChanged = callbackState.currentStreamedContent !== callbackState.lastSentContent;
-    if (hasNew || contentChanged) {
-      const payload = buildStreamingPayload();
-      if (payload === callbackState.lastSentPayload && !contentChanged) {
-        return;
-      }
-      await sendStreamingHeartbeatUpdate(payload);
-    } else if (callbackState.inFlightToolUses > 0 && Date.now() - callbackState.lastStreamingSentAt > 15e3) {
-      const entityId = STREAMING_ENTITY_ID ?? "";
-      if (entityId) {
-        await callStreamingHeartbeatTouch(entityId);
-        callbackState.lastStreamingSentAt = Date.now();
-      }
+  }
+  const payload = buildStreamingPayload();
+  const contentChanged = callbackState.currentStreamedContent !== callbackState.lastSentContent;
+  const activityChanged = payload !== callbackState.lastSentPayload;
+  if (hasNew || contentChanged || activityChanged) {
+    await sendStreamingHeartbeatUpdate(payload);
+  } else if (callbackState.inFlightToolUses > 0 && Date.now() - callbackState.lastStreamingSentAt > 15e3) {
+    const entityId = STREAMING_ENTITY_ID ?? "";
+    if (entityId) {
+      await callStreamingHeartbeatTouch(entityId);
+      callbackState.lastStreamingSentAt = Date.now();
     }
+  }
+  void flushBackgroundShellQueue();
+}
+async function drainRequestedFlushes() {
+  callbackState.flushInProgress = true;
+  try {
+    do {
+      flushRequested = false;
+      await flushStreamingPass();
+    } while (flushRequested);
   } finally {
     callbackState.flushInProgress = false;
-    void flushBackgroundShellQueue();
   }
+}
+function flushStreaming() {
+  flushRequested = true;
+  if (activeFlush) return activeFlush;
+  const flush = drainRequestedFlushes();
+  activeFlush = flush;
+  const clearActiveFlush = () => {
+    if (activeFlush === flush) activeFlush = null;
+  };
+  void flush.then(clearActiveFlush, clearActiveFlush);
+  return flush;
 }
 var PING_STUCK_MS = 45e3;
 async function heartbeatPing() {
@@ -4358,6 +4324,10 @@ async function heartbeatPing() {
     if (callbackState.waitingForFirstAssistantEvent) {
       const startupStep = buildClaudeStartupStep();
       updateThinkingStep(startupStep.label, startupStep.detail);
+      await sendStreamingHeartbeatUpdate(buildStreamingPayload());
+      return;
+    }
+    if (callbackState.transientThinkingStep) {
       await sendStreamingHeartbeatUpdate(buildStreamingPayload());
       return;
     }
@@ -4487,10 +4457,7 @@ function handleRealtimeStreamLine(line) {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     return;
   }
-  const result = getProviderAdapter(PROVIDER).onStreamLine(line, parsed);
-  if (result.needsHeartbeat) {
-    void sendStreamingHeartbeatUpdate(buildStreamingPayload());
-  }
+  getProviderAdapter(PROVIDER).onStreamLine(line, parsed);
 }
 
 // callback-src/runtime/buffers.ts
@@ -4533,7 +4500,7 @@ function appendToRawLogFile(text) {
 
 // callback-src/providers/claudeSdk.ts
 import { execSync } from "child_process";
-import { existsSync as existsSync7, readFileSync as readFileSync6 } from "fs";
+import { existsSync as existsSync6, readFileSync as readFileSync5 } from "fs";
 
 // callback-src/runtime/pendingQuestion.ts
 var POLL_INTERVAL_MS = 300;
@@ -4632,7 +4599,7 @@ var SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
 function installedSdkVersion(packageRoot) {
   try {
     const manifest = JSON.parse(
-      readFileSync6(packageRoot + "/package.json", "utf8")
+      readFileSync5(packageRoot + "/package.json", "utf8")
     );
     if (typeof manifest !== "object" || manifest === null || Array.isArray(manifest)) {
       return null;
@@ -4677,11 +4644,11 @@ function claudeExecutablePath() {
     return execSync("command -v claude", { encoding: "utf8" }).trim();
   } catch {
     const fallback = process.env.CLAUDE_BIN_PATH || "";
-    return fallback && existsSync7(fallback) ? fallback : "claude";
+    return fallback && existsSync6(fallback) ? fallback : "claude";
   }
 }
 function readPromptText() {
-  return readFileSync6("/tmp/design-prompt.txt", "utf8");
+  return readFileSync5("/tmp/design-prompt.txt", "utf8");
 }
 function buildSdkOptions(sessionMode) {
   const extraArgs = { settings: settingsJson };
@@ -5235,6 +5202,75 @@ function readTurnLeaseIdentity(result) {
   return { turnId, leaseGeneration };
 }
 
+// callback-src/providers/claimedTurnLifecycle.ts
+var activeClaimState = { status: "idle" };
+function claimPayload2(result) {
+  if (typeof result !== "object" || result === null || Array.isArray(result)) {
+    return null;
+  }
+  const inner = result.value;
+  return typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
+}
+function readClaimedTurn(result) {
+  const payload = claimPayload2(result);
+  if (!payload || typeof payload.prompt !== "string") return null;
+  const lifecycle = payload.turnLifecycle;
+  if (lifecycle !== void 0 && lifecycle !== "legacy" && lifecycle !== "durable") {
+    throw new Error("Claimed turn returned an invalid lifecycle discriminator");
+  }
+  const attachmentUrls = Array.isArray(payload.attachmentUrls) ? payload.attachmentUrls.filter(
+    (url) => typeof url === "string"
+  ) : [];
+  const turnLease = readTurnLeaseIdentity(result);
+  if (lifecycle === "durable" && turnLease === null) {
+    throw new Error("Durable claimed turn did not include a lease identity");
+  }
+  if (lifecycle === "legacy" && turnLease !== null) {
+    throw new Error("Legacy claimed turn unexpectedly included a lease identity");
+  }
+  if (turnLease !== null) {
+    return {
+      lifecycle: "durable",
+      prompt: payload.prompt,
+      attachmentUrls,
+      turnLease
+    };
+  }
+  return {
+    lifecycle: "legacy",
+    prompt: payload.prompt,
+    attachmentUrls,
+    turnLease: null
+  };
+}
+function startClaimedTurn(turn) {
+  if (activeClaimState.status === "active") {
+    throw new Error("Cannot start a claimed turn while another claim is active");
+  }
+  activeClaimState = turn.lifecycle === "durable" ? { status: "active", lifecycle: "durable", turnLease: turn.turnLease } : { status: "active", lifecycle: "legacy" };
+  setLegacyTurnHeartbeatActive(turn.lifecycle === "legacy");
+  setCurrentTurnLease(turn.turnLease);
+}
+function appendClaimedTurnCompletion(args) {
+  if (activeClaimState.status !== "active") {
+    throw new Error("Cannot complete a claimed turn before it starts");
+  }
+  if (activeClaimState.lifecycle === "durable") {
+    args.turnId = activeClaimState.turnLease.turnId;
+    args.leaseGeneration = activeClaimState.turnLease.leaseGeneration;
+  }
+}
+function finishClaimedTurn() {
+  activeClaimState = { status: "idle" };
+  setLegacyTurnHeartbeatActive(false);
+  setCurrentTurnLease(null);
+}
+function shouldParkClaimedTurn(input) {
+  if (!input.hasActiveRealTurn || input.isCancellationInFlight) return true;
+  if (input.isFinalizing) return true;
+  return input.claimedLeaseTurnId !== null && input.claimedLeaseTurnId !== input.currentLeaseTurnId;
+}
+
 // callback-src/providers/claudeSdkDaemon.ts
 function sleep2(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -5249,7 +5285,7 @@ function pidAlive(pid) {
 }
 function readDaemonPidFile() {
   try {
-    return Number(readFileSync7(DAEMON_PID_FILE, "utf8").trim());
+    return Number(readFileSync6(DAEMON_PID_FILE, "utf8").trim());
   } catch {
     return Number.NaN;
   }
@@ -5302,15 +5338,20 @@ function endWatchedTurn() {
 async function failTurnAndExit(error) {
   log("daemon: failing turn \\u2014 " + error);
   try {
-    await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
+    const completionArgs = {
       [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
       success: false,
       result: null,
       error,
       activityLog: serializeSteps(callbackState.accumulatedSteps),
-      ...RUN_ID ? { runId: RUN_ID } : {},
-      ...getCurrentTurnLease() ?? {}
-    });
+      ...RUN_ID ? { runId: RUN_ID } : {}
+    };
+    appendClaimedTurnCompletion(completionArgs);
+    await callConvexWithRetry(
+      "mutation",
+      COMPLETION_MUTATION ?? "",
+      completionArgs
+    );
   } catch {
   }
   if (readDaemonPidFile() === process.pid) {
@@ -5480,16 +5521,12 @@ async function finalizeTurn(output, readUsage) {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
-  const turnLease = getCurrentTurnLease();
-  if (turnLease) {
-    completionArgs.turnId = turnLease.turnId;
-    completionArgs.leaseGeneration = turnLease.leaseGeneration;
-  }
+  appendClaimedTurnCompletion(completionArgs);
   if (await setFinalizingState()) return;
   persistTurnWork();
   const completionSentAt = Date.now();
   await deliverCompletionWithMedia(completionArgs);
-  setCurrentTurnLease(null);
+  finishClaimedTurn();
   log(
     "daemon: turn finalized success=" + success + " steps=" + activityLog.length + " (completion mutation " + (Date.now() - completionSentAt) + "ms)"
   );
@@ -5502,38 +5539,6 @@ async function finalizeTurn(output, readUsage) {
   log(
     "daemon: post-turn bookkeeping took " + (Date.now() - bookkeepingAt) + "ms"
   );
-}
-function readClaimedPrompt(result) {
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return null;
-  }
-  const inner = result.value;
-  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
-  const prompt = payload.prompt;
-  return typeof prompt === "string" ? prompt : null;
-}
-function readClaimedAttachmentUrls(payload) {
-  const field = payload.attachmentUrls;
-  if (!Array.isArray(field)) {
-    return [];
-  }
-  return field.filter((url) => typeof url === "string");
-}
-function readClaimedTurn(result) {
-  const prompt = readClaimedPrompt(result);
-  if (prompt === null) {
-    return null;
-  }
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return { prompt, attachmentUrls: [], turnLease: null };
-  }
-  const inner = result.value;
-  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
-  return {
-    prompt,
-    attachmentUrls: readClaimedAttachmentUrls(payload),
-    turnLease: readTurnLeaseIdentity(result)
-  };
 }
 function readSyntheticTurnMessageId(result) {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
@@ -5864,6 +5869,7 @@ async function failSyntheticTurn(error) {
   }
   endWatchedTurn();
   resetTurnState();
+  setLegacyTurnHeartbeatActive(false);
   setCurrentTurnLease(null);
   supervisor.settleTurn();
   agentTurnOutput = "";
@@ -5882,9 +5888,13 @@ async function ensureSyntheticTurn() {
       return;
     }
     resetTurnState();
-    setCurrentTurnLease(readTurnLeaseIdentity(result));
+    const syntheticTurnLease = readTurnLeaseIdentity(result);
+    setLegacyTurnHeartbeatActive(syntheticTurnLease === null);
+    setCurrentTurnLease(syntheticTurnLease);
     if (!supervisor.startTurn({ kind: "synthetic", messageId })) {
       log("daemon: synthetic turn opened after lifecycle moved; ignoring");
+      setLegacyTurnHeartbeatActive(false);
+      setCurrentTurnLease(null);
       return;
     }
     agentTurnStartedAt = Date.now();
@@ -5935,6 +5945,7 @@ async function finalizeSyntheticTurn(output) {
   syncClaudeStateToPersist("daemon-synthetic-turn");
   endWatchedTurn();
   resetTurnState();
+  setLegacyTurnHeartbeatActive(false);
   setCurrentTurnLease(null);
   supervisor.settleTurn();
   agentTurnOutput = "";
@@ -5942,11 +5953,11 @@ async function finalizeSyntheticTurn(output) {
 }
 function startRealAgentTurn(turn, agentRunner) {
   resetTurnState();
-  setCurrentTurnLease(turn.turnLease);
   if (!supervisor.startTurn({ kind: "real" })) {
     log("daemon: claimed turn could not enter running state");
     return;
   }
+  startClaimedTurn(turn);
   agentTurnStartedAt = Date.now();
   sawFirstMessageThisTurn = { value: false };
   sawAssistantThisTurn = { value: false };
@@ -5996,6 +6007,10 @@ function startClaimWatcher(agentRunner) {
         supervisor.stop();
         process.exit(0);
       }
+      if (supervisor.phase === "finalizing") {
+        await sleep2(PROMPT_POLL_INTERVAL_MS);
+        continue;
+      }
       try {
         const claimed = await callConvexWithRetry(
           "mutation",
@@ -6015,7 +6030,14 @@ function startClaimWatcher(agentRunner) {
           await materializeTurnAttachments(turn);
           lastIdleActivityAtMs = Date.now();
           const currentTurn = supervisor.currentTurn;
-          if (currentTurn === null || currentTurn.kind === "synthetic" || supervisor.isCancellationInFlight) {
+          const currentLease = getCurrentTurnLease();
+          if (shouldParkClaimedTurn({
+            hasActiveRealTurn: currentTurn?.kind === "real",
+            isCancellationInFlight: supervisor.isCancellationInFlight,
+            isFinalizing: false,
+            currentLeaseTurnId: currentLease?.turnId ?? null,
+            claimedLeaseTurnId: turn.turnLease?.turnId ?? null
+          })) {
             if (!supervisor.parkClaim(turn)) {
               log("daemon: duplicate claimed turn ignored");
             }
@@ -6084,7 +6106,7 @@ async function runDaemonMessagePump(agentRunner) {
         continue;
       }
       resetTurnState();
-      setCurrentTurnLease(null);
+      finishClaimedTurn();
       supervisor.settleTurn();
       agentTurnOutput = "";
       continue;
@@ -6244,7 +6266,7 @@ function createWarmAgentRunner(sdk, options) {
 function callbackScriptWentStaleOnDisk() {
   if (!CALLBACK_SCRIPT_FP) return false;
   try {
-    const onDisk = readFileSync7("/tmp/eva-callback-fp", "utf8").trim();
+    const onDisk = readFileSync6("/tmp/eva-callback-fp", "utf8").trim();
     return onDisk !== CALLBACK_SCRIPT_FP;
   } catch {
     return false;
@@ -6355,11 +6377,11 @@ async function runSdkDaemon() {
 }
 
 // callback-src/providers/codexAppServerDaemon.ts
-import { readFileSync as readFileSync8, unlinkSync as unlinkSync2, writeFileSync as writeFileSync10 } from "fs";
+import { readFileSync as readFileSync7, unlinkSync as unlinkSync2, writeFileSync as writeFileSync10 } from "fs";
 
 // callback-src/providers/codexAppServerClient.ts
 import { spawn } from "child_process";
-import { existsSync as existsSync8 } from "fs";
+import { existsSync as existsSync7 } from "fs";
 import { createInterface } from "readline";
 function objectValue(value) {
   return value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -6375,7 +6397,7 @@ var CodexAppServerClient = class {
   notifications = [];
   terminalError = null;
   start() {
-    const command = existsSync8(CODEX_BIN_PATH) ? CODEX_BIN_PATH : "codex";
+    const command = existsSync7(CODEX_BIN_PATH) ? CODEX_BIN_PATH : "codex";
     this.child = spawn(command, ["app-server"], {
       cwd: WORK_DIR,
       env: { ...process.env, CODEX_HOME: CODEX_RUNTIME_HOME_DIR },
@@ -6520,7 +6542,7 @@ function pidAlive2(pid) {
 }
 function readOwnerPid() {
   try {
-    return Number(readFileSync8(paths.pid, "utf8").trim());
+    return Number(readFileSync7(paths.pid, "utf8").trim());
   } catch {
     return Number.NaN;
   }
@@ -6528,7 +6550,7 @@ function readOwnerPid() {
 function callbackWentStale() {
   if (!CALLBACK_SCRIPT_FP) return false;
   try {
-    return readFileSync8("/tmp/eva-callback-fp", "utf8").trim() !== CALLBACK_SCRIPT_FP;
+    return readFileSync7("/tmp/eva-callback-fp", "utf8").trim() !== CALLBACK_SCRIPT_FP;
   } catch {
     return false;
   }
@@ -6549,19 +6571,6 @@ function resetTurnState2() {
   callbackState.lastStepType = "thinking";
   activeTurnStartedAt = 0;
   finalText = "";
-}
-function readClaimedTurn2(result) {
-  const root = objectValue2(result);
-  const payload = Object.keys(objectValue2(root.value)).length > 0 ? objectValue2(root.value) : root;
-  if (typeof payload.prompt !== "string") return null;
-  const attachmentUrls = Array.isArray(payload.attachmentUrls) ? payload.attachmentUrls.filter(
-    (url) => typeof url === "string"
-  ) : [];
-  return {
-    prompt: payload.prompt,
-    attachmentUrls,
-    turnLease: readTurnLeaseIdentity(result)
-  };
 }
 function emitEvent(event) {
   const line = JSON.stringify(event) + "\\n";
@@ -6616,14 +6625,13 @@ async function finalizeTurn2(success, error) {
   if (await setFinalizingState()) return;
   persistTurnWork();
   const usage = computeTurnUsageDelta(turnStartUsage, threadTotalUsage);
-  await deliverCompletionWithMedia({
+  const completionArgs = {
     [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
     success,
     result,
     error,
     activityLog: serializeSteps(callbackState.accumulatedSteps),
     ...RUN_ID ? { runId: RUN_ID } : {},
-    ...getCurrentTurnLease() ?? {},
     ...usage ? {
       rawResultEvent: buildClaudeShapedResult({
         provider: "codex",
@@ -6644,8 +6652,10 @@ async function finalizeTurn2(success, error) {
         model: normalizedCodexModel
       })
     } : {}
-  });
-  setCurrentTurnLease(null);
+  };
+  appendClaimedTurnCompletion(completionArgs);
+  await deliverCompletionWithMedia(completionArgs);
+  finishClaimedTurn();
   syncCodexStateToPersist();
   log("codex daemon: turn finalized success=" + success);
 }
@@ -6679,7 +6689,7 @@ function processNotification(notification) {
   const status = typeof turn.status === "string" ? turn.status : "failed";
   lastIdleActivityAt = Date.now();
   if (supervisor2.isCancellationInFlight || status === "interrupted") {
-    setCurrentTurnLease(null);
+    finishClaimedTurn();
     resetTurnState2();
     supervisor2.settleTurn();
     return null;
@@ -6745,10 +6755,10 @@ async function establishThread(client, sessionMode) {
 }
 async function startTurn(client, turn) {
   resetTurnState2();
-  setCurrentTurnLease(turn.turnLease);
   if (!supervisor2.beginStarting({ providerTurnId: "" })) {
     throw new Error("Codex daemon could not enter starting state");
   }
+  startClaimedTurn(turn);
   await materializeTurnAttachments(turn);
   const text = SYSTEM_PROMPT ? SYSTEM_PROMPT + "\\n\\n" + turn.prompt : turn.prompt;
   activeTurnStartedAt = Date.now();
@@ -6837,6 +6847,10 @@ async function runCodexAppServerDaemon() {
         const completion = processNotification(notification);
         if (completion) await completion;
       }
+      if (supervisor2.phase === "finalizing") {
+        await sleep3(POLL_INTERVAL_MS2);
+        continue;
+      }
       const claimed = await callConvexWithRetry(
         "mutation",
         CLAIM_MUTATION,
@@ -6852,9 +6866,16 @@ async function runCodexAppServerDaemon() {
           log("codex daemon: interrupt failed \\u2014 " + message);
         });
       }
-      const claimedTurn = readClaimedTurn2(claimed);
+      const claimedTurn = readClaimedTurn(claimed);
       if (claimedTurn) {
-        if (supervisor2.currentTurn === null || supervisor2.isCancellationInFlight) {
+        const currentLease = getCurrentTurnLease();
+        if (shouldParkClaimedTurn({
+          hasActiveRealTurn: supervisor2.currentTurn !== null,
+          isCancellationInFlight: supervisor2.isCancellationInFlight,
+          isFinalizing: false,
+          currentLeaseTurnId: currentLease?.turnId ?? null,
+          claimedLeaseTurnId: claimedTurn.turnLease?.turnId ?? null
+        })) {
           if (!supervisor2.parkClaim(claimedTurn)) {
             log("codex daemon: duplicate claimed turn ignored");
           }
@@ -6896,13 +6917,57 @@ async function runCodexAppServerDaemon() {
 }
 
 // callback-src/providers/cursorSdkDaemon.ts
-import { readFileSync as readFileSync10, unlinkSync as unlinkSync3, writeFileSync as writeFileSync11 } from "fs";
+import { spawn as spawn2 } from "child_process";
+import { readFileSync as readFileSync9, unlinkSync as unlinkSync3, writeFileSync as writeFileSync11 } from "fs";
 
 // callback-src/providers/cursorSdk.ts
-import { mkdirSync as mkdirSync7, readFileSync as readFileSync9 } from "fs";
+import { mkdirSync as mkdirSync7, readFileSync as readFileSync8 } from "fs";
 var SDK_PACKAGE2 = "@cursor/sdk";
 var SDK_VERSION2 = "1.0.28";
 var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
+var CURSOR_AGENT_SETUP_TIMEOUT_MS = 3e4;
+var CURSOR_SEND_START_TIMEOUT_MS = 6e4;
+var CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS;
+var CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
+var CURSOR_RESULT_SETTLE_TIMEOUT_MS = 3e4;
+var CursorPhaseTimeoutError = class extends Error {
+  constructor(phase, timeoutMs) {
+    super(
+      "Cursor stalled while " + phase + " for " + Math.round(timeoutMs / 1e3) + " seconds."
+    );
+    this.phase = phase;
+    this.timeoutMs = timeoutMs;
+    this.name = "CursorPhaseTimeoutError";
+  }
+};
+async function waitForCursorPhase(args) {
+  let timer = null;
+  const deadline = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => {
+      try {
+        args.onTimeout?.();
+      } catch {
+      }
+      reject(new CursorPhaseTimeoutError(args.phase, args.timeoutMs));
+    }, args.timeoutMs);
+  });
+  try {
+    return await Promise.race([args.task, deadline]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+function shouldRetryStalledCursorResume(error) {
+  return error instanceof CursorPhaseTimeoutError && (error.phase === "starting the model run" || error.phase === "waiting for the first model event");
+}
+function cursorEventHasVisibleActivity(type) {
+  return type === "thinking" || type === "assistant" || type === "tool_call";
+}
+function cursorEventWaitTimeoutMs(args) {
+  if (args.toolInFlight) return MAX_TOTAL_RUNTIME_MS;
+  if (args.sawVisibleActivity) return CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS;
+  return Math.max(1, args.firstVisibleDeadlineAt - args.now);
+}
 function cursorModeParams(model, fastMode, use1mContext) {
   const params = [];
   if (model === "grok-4.6" || model === "grok-4.5" || model === "composer-2.5") {
@@ -6940,7 +7005,7 @@ async function loadCursorSdk() {
   return mod;
 }
 function readPromptText2() {
-  return readFileSync9("/tmp/design-prompt.txt", "utf8");
+  return readFileSync8("/tmp/design-prompt.txt", "utf8");
 }
 async function resolveCursorModelSelection(sdk) {
   const base = normalizedCursorModel;
@@ -7131,10 +7196,8 @@ function readUsageTokens(value) {
 async function runCursorSdkAttempt(sessionMode, overrides = {}) {
   resetAttemptState();
   callbackState.activeAttemptStartedAt = Date.now();
-  updateThinkingStep(
-    "Starting Cursor agent...",
-    sessionMode.mode === "resume" ? "Restoring saved context..." : "Creating Cursor agent..."
-  );
+  const startupActivity = cursorAgentStartupActivity(sessionMode);
+  updateThinkingStep(startupActivity.label, startupActivity.detail);
   log(
     "runCursorSdkAttempt started (mode=" + sessionMode.mode + ", sessionId=" + (sessionMode.sessionId || "none") + ")"
   );
@@ -7172,7 +7235,15 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     syncCursorStateToPersist();
   };
   const createFreshAgent = async () => {
-    const created = await sdk.Agent.create(options);
+    updateThinkingStep(
+      "Starting a fresh Cursor agent...",
+      "Creating a clean model context..."
+    );
+    const created = await waitForCursorPhase({
+      task: sdk.Agent.create(options),
+      phase: "creating a fresh agent",
+      timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS
+    });
     persistAgentId(created.agentId);
     return created;
   };
@@ -7180,7 +7251,15 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
   let agent;
   if (sessionMode.mode === "resume" && sessionMode.sessionId) {
     try {
-      agent = await sdk.Agent.resume(sessionMode.sessionId, options);
+      updateThinkingStep(
+        "Restoring Cursor context...",
+        "Opening the saved agent..."
+      );
+      agent = await waitForCursorPhase({
+        task: sdk.Agent.resume(sessionMode.sessionId, options),
+        phase: "restoring saved context",
+        timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS
+      });
       resumedExistingAgent = true;
       persistAgentId(agent.agentId);
     } catch (error) {
@@ -7207,7 +7286,7 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     if (callbackState.inFlightToolUses > 0) {
       lastMessageAt = now;
     }
-    if (!sawResult && now - lastMessageAt > NO_OUTPUT_TIMEOUT_MS * 5) {
+    if (!sawResult && now - lastMessageAt > CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS) {
       timedOutForNoOutput = true;
       log("runCursorSdkAttempt: no SDK events \\u2014 cancelling run");
       cancelRun();
@@ -7232,12 +7311,45 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
   };
   const runTurn = async (activeAgent, agentIsFresh) => {
     const costBefore = agentIsFresh ? Promise.resolve(EMPTY_CURSOR_COST_SNAPSHOT) : readCostSnapshot(activeAgent);
-    const run = await activeAgent.send(combinedPrompt, {
-      local: { force: true }
+    updateThinkingStep(
+      "Waiting for Cursor...",
+      "Starting the Grok model run..."
+    );
+    const run = await waitForCursorPhase({
+      task: activeAgent.send(combinedPrompt, {
+        local: { force: true }
+      }),
+      phase: "starting the model run",
+      timeoutMs: CURSOR_SEND_START_TIMEOUT_MS,
+      onTimeout: () => activeAgent.close()
     });
     activeRun = run;
     if (abortedByCaller) cancelRun();
-    for await (const message of run.stream()) {
+    updateThinkingStep("Waiting for Grok...", "The model is thinking...");
+    const messages = run.stream()[Symbol.asyncIterator]();
+    let sawVisibleActivity = false;
+    const firstVisibleDeadlineAt = Date.now() + CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS;
+    while (true) {
+      const phase = sawVisibleActivity ? "waiting for the next model event" : "waiting for the first model event";
+      const next = await waitForCursorPhase({
+        task: messages.next(),
+        phase,
+        timeoutMs: cursorEventWaitTimeoutMs({
+          sawVisibleActivity,
+          firstVisibleDeadlineAt,
+          now: Date.now(),
+          toolInFlight: callbackState.inFlightToolUses > 0
+        }),
+        onTimeout: () => {
+          timedOutForNoOutput = true;
+          cancelRun();
+        }
+      });
+      if (next.done) break;
+      const message = next.value;
+      if (cursorEventHasVisibleActivity(message.type)) {
+        sawVisibleActivity = true;
+      }
       lastMessageAt = Date.now();
       pushLine(JSON.stringify(message) + "\\n");
       if (message.type === "usage") {
@@ -7246,7 +7358,12 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
       if (timedOutForMaxRuntime || timedOutForNoOutput || abortedByCaller)
         break;
     }
-    const result = await run.wait();
+    const result = await waitForCursorPhase({
+      task: run.wait(),
+      phase: "finishing the model run",
+      timeoutMs: CURSOR_RESULT_SETTLE_TIMEOUT_MS,
+      onTimeout: cancelRun
+    });
     const costUsd = await resolveCursorTurnCostUsd({
       before: await costBefore,
       fetchAfter: () => readCostSnapshot(activeAgent),
@@ -7304,15 +7421,23 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     try {
       await runTurnWithRetries(agent, !resumedExistingAgent);
     } catch (error) {
-      if (resumedExistingAgent && error instanceof Error && isAgentNotFound(error)) {
+      const retryStalledResume = error instanceof Error && shouldRetryStalledCursorResume(error);
+      if (resumedExistingAgent && error instanceof Error && (isAgentNotFound(error) || retryStalledResume)) {
         log(
-          "runCursorSdkAttempt: resumed agent unusable \\u2014 retrying as a fresh agent"
+          "runCursorSdkAttempt: resumed agent unusable \\u2014 retrying as a fresh agent (" + error.message + ")"
         );
         appendToRawLogFile("[sdk-retry] " + error.message + "\\n");
         try {
           agent.close();
         } catch {
         }
+        activeRun = null;
+        timedOutForNoOutput = false;
+        lastMessageAt = Date.now();
+        pushNoticeStep2(
+          "Started a fresh Cursor agent",
+          retryStalledResume ? "The saved agent stopped responding, so Eva recovered with a clean context." : "The saved agent could not be restored, so Eva recovered with a clean context."
+        );
         agent = await createFreshAgent();
         await runTurnWithRetries(agent, true);
       } else {
@@ -7350,6 +7475,15 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     toolStallErrorMessage: ""
   };
 }
+function cursorAgentStartupActivity(sessionMode) {
+  return sessionMode.mode === "resume" ? {
+    label: "Resuming Cursor agent...",
+    detail: "Restoring saved context..."
+  } : {
+    label: "Creating Cursor agent...",
+    detail: "Creating a new model context..."
+  };
+}
 
 // callback-src/providers/cursorSdkDaemon.ts
 var IDLE_EXIT_MS3 = 45 * 60 * 1e3;
@@ -7360,6 +7494,9 @@ var PROMPT_POLL_FAST_WINDOW_MS2 = 3e4;
 var WATCHDOG_TICK_MS2 = 5e3;
 var TURN_HARD_TIMEOUT_MS = MAX_TOTAL_RUNTIME_MS + 5 * 60 * 1e3;
 var CANCEL_SETTLE_TIMEOUT_MS2 = 3e4;
+var CURSOR_TURN_WORKER_FILE_PREFIX = "/tmp/eva-cursor-turn-";
+var CURSOR_TURN_WORKER_HEAP_MB = 8192;
+var CURSOR_TURN_WORKER_OOM_SCORE = "300";
 var daemonPaths2 = resolveDaemonPaths();
 var daemonExiting = false;
 var callbackRefreshPending = false;
@@ -7374,6 +7511,95 @@ var abortActiveTurn = null;
 function sleep4(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
+function cursorTurnWorkerEntryPath() {
+  const entryPath = process.argv[1];
+  if (!entryPath) {
+    throw new Error("Cursor turn worker could not resolve the callback entrypoint");
+  }
+  return entryPath;
+}
+function readCursorTurnWorkerClaim() {
+  if (!CURSOR_TURN_WORKER_PROMPT_FILE) {
+    throw new Error("Cursor turn worker prompt file is missing");
+  }
+  const prompt = readFileSync9(CURSOR_TURN_WORKER_PROMPT_FILE, "utf8");
+  if (CURSOR_TURN_WORKER_LIFECYCLE === "legacy") {
+    return {
+      lifecycle: "legacy",
+      prompt,
+      attachmentUrls: [],
+      turnLease: null
+    };
+  }
+  if (CURSOR_TURN_WORKER_LIFECYCLE !== "durable" || !CURSOR_TURN_WORKER_TURN_ID || CURSOR_TURN_WORKER_LEASE_GENERATION <= 0) {
+    throw new Error("Cursor turn worker received an invalid durable lease");
+  }
+  return {
+    lifecycle: "durable",
+    prompt,
+    attachmentUrls: [],
+    turnLease: {
+      turnId: CURSOR_TURN_WORKER_TURN_ID,
+      leaseGeneration: CURSOR_TURN_WORKER_LEASE_GENERATION
+    }
+  };
+}
+function cursorTurnWorkerFailureMessage(outcome) {
+  if (outcome.status === "spawn_error") {
+    return "Cursor turn worker could not start: " + outcome.message;
+  }
+  const exit = outcome.signal !== null ? \`signal \${outcome.signal}\` : \`exit code \${String(outcome.code)}\`;
+  const oom = outcome.signal === "SIGABRT" || outcome.code === 134;
+  return oom ? \`Cursor turn worker ran out of memory (\${exit}). The daemon remained healthy and is ready for the next message.\` : \`Cursor turn worker stopped unexpectedly (\${exit}). The daemon remained healthy and is ready for the next message.\`;
+}
+function waitForCursorTurnWorker(child) {
+  return new Promise((resolve) => {
+    child.once("error", (error) => {
+      resolve({ status: "spawn_error", message: error.message });
+    });
+    child.once("exit", (code, signal) => {
+      resolve({ status: "exited", code, signal });
+    });
+  });
+}
+function spawnCursorTurnWorker(turn, promptFile) {
+  const workerEnv = {
+    ...process.env,
+    EVA_CURSOR_TURN_WORKER_PROMPT_FILE: promptFile,
+    EVA_CURSOR_TURN_WORKER_LIFECYCLE: turn.lifecycle
+  };
+  if (turn.lifecycle === "durable") {
+    workerEnv.EVA_CURSOR_TURN_WORKER_TURN_ID = turn.turnLease.turnId;
+    workerEnv.EVA_CURSOR_TURN_WORKER_LEASE_GENERATION = String(
+      turn.turnLease.leaseGeneration
+    );
+  } else {
+    delete workerEnv.EVA_CURSOR_TURN_WORKER_TURN_ID;
+    delete workerEnv.EVA_CURSOR_TURN_WORKER_LEASE_GENERATION;
+  }
+  const child = spawn2(
+    process.execPath,
+    [
+      \`--max-old-space-size=\${CURSOR_TURN_WORKER_HEAP_MB}\`,
+      cursorTurnWorkerEntryPath()
+    ],
+    {
+      cwd: process.cwd(),
+      env: workerEnv,
+      stdio: "inherit"
+    }
+  );
+  if (child.pid !== void 0) {
+    try {
+      writeFileSync11(
+        \`/proc/\${child.pid}/oom_score_adj\`,
+        CURSOR_TURN_WORKER_OOM_SCORE
+      );
+    } catch {
+    }
+  }
+  return child;
+}
 function pidAlive3(pid) {
   try {
     process.kill(pid, 0);
@@ -7384,7 +7610,7 @@ function pidAlive3(pid) {
 }
 function readDaemonPidFile2() {
   try {
-    return Number(readFileSync10(daemonPaths2.pid, "utf8").trim());
+    return Number(readFileSync9(daemonPaths2.pid, "utf8").trim());
   } catch {
     return Number.NaN;
   }
@@ -7395,7 +7621,7 @@ function entityMutationArgs2(fields) {
 function callbackScriptWentStaleOnDisk2() {
   if (!CALLBACK_SCRIPT_FP) return false;
   try {
-    return readFileSync10("/tmp/eva-callback-fp", "utf8").trim() !== CALLBACK_SCRIPT_FP;
+    return readFileSync9("/tmp/eva-callback-fp", "utf8").trim() !== CALLBACK_SCRIPT_FP;
   } catch {
     return false;
   }
@@ -7413,19 +7639,6 @@ function resetTurnState3() {
   callbackState.pendingQuestionData = "";
   callbackState.todoState.length = 0;
   callbackState.lastStepType = "thinking";
-}
-function readClaimedTurn3(result) {
-  if (typeof result !== "object" || result === null || Array.isArray(result)) {
-    return null;
-  }
-  const inner = result.value;
-  const payload = typeof inner === "object" && inner !== null && !Array.isArray(inner) ? inner : result;
-  if (typeof payload.prompt !== "string") return null;
-  const urls = payload.attachmentUrls;
-  return {
-    prompt: payload.prompt,
-    attachmentUrls: Array.isArray(urls) ? urls.filter((url) => typeof url === "string") : []
-  };
 }
 async function ensureGithubToken3() {
   if (!REPO_ID || !CONVEX_URL || !CONVEX_TOKEN) return;
@@ -7506,7 +7719,8 @@ async function finalizeTurn3(attempt) {
   if (callbackState.pendingQuestionData) {
     completionArgs.pendingQuestion = callbackState.pendingQuestionData;
   }
-  await setFinalizingState();
+  appendClaimedTurnCompletion(completionArgs);
+  if (await setFinalizingState()) return;
   persistTurnWork();
   await deliverCompletionWithMedia(completionArgs);
   syncCursorStateToPersist();
@@ -7515,16 +7729,20 @@ async function finalizeTurn3(attempt) {
 async function failTurnAndExit2(error) {
   log("cursor daemon: failing turn \\u2014 " + error);
   try {
+    const completionArgs = entityMutationArgs2({
+      success: false,
+      result: null,
+      error,
+      // The disposable worker owns the live steps. A null log tells Convex to
+      // preserve the last streaming snapshot when the worker cannot report.
+      activityLog: null,
+      ...RUN_ID ? { runId: RUN_ID } : {}
+    });
+    appendClaimedTurnCompletion(completionArgs);
     await callConvexWithRetry(
       "mutation",
       COMPLETION_MUTATION ?? "",
-      entityMutationArgs2({
-        success: false,
-        result: null,
-        error,
-        activityLog: serializeSteps(callbackState.accumulatedSteps),
-        ...RUN_ID ? { runId: RUN_ID } : {}
-      })
+      completionArgs
     );
   } catch {
   }
@@ -7562,6 +7780,7 @@ function startTurnWatchdog2() {
     if (!turnActive2) return;
     if (now - turnStartedAtMs2 > TURN_HARD_TIMEOUT_MS) {
       turnActive2 = false;
+      abortActiveTurn?.();
       void failTurnAndExit2("The assistant exceeded the maximum turn runtime.");
     }
   }, WATCHDOG_TICK_MS2);
@@ -7595,7 +7814,7 @@ function startClaimWatcher2() {
           entityMutationArgs2({ model: MODEL })
         );
         if (readCancelRequested(claimed)) handleCancelRequested2();
-        const turn = readClaimedTurn3(claimed);
+        const turn = readClaimedTurn(claimed);
         if (turn !== null) {
           await materializeTurnAttachments(turn);
           lastIdleActivityAtMs2 = Date.now();
@@ -7628,12 +7847,11 @@ function handleCancelRequested2() {
   log("cursor daemon: cancel requested \\u2014 cancelling the in-flight run");
   abortActiveTurn?.();
 }
-async function runClaimedTurn(turn) {
-  resetTurnState3();
+async function executeClaimedTurn(turn) {
   turnActive2 = true;
   turnStartedAtMs2 = Date.now();
   abortActiveTurn = null;
-  log("cursor daemon: turn started");
+  log("cursor turn worker: turn started");
   try {
     if (!process.env.CURSOR_API_KEY?.trim()) {
       throw new Error(
@@ -7662,15 +7880,17 @@ async function runClaimedTurn(turn) {
     try {
       await flushStreaming();
       for (const step of callbackState.accumulatedSteps) step.status = "complete";
-      await setFinalizingState();
-      await deliverCompletionWithMedia({
+      if (await setFinalizingState()) return;
+      const completionArgs = {
         [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
         success: false,
         result: null,
         error: appendDiagnosticTail(message),
         activityLog: serializeSteps(callbackState.accumulatedSteps),
         ...RUN_ID ? { runId: RUN_ID } : {}
-      });
+      };
+      appendClaimedTurnCompletion(completionArgs);
+      await deliverCompletionWithMedia(completionArgs);
     } catch {
     }
   } finally {
@@ -7678,6 +7898,85 @@ async function runClaimedTurn(turn) {
     abortActiveTurn = null;
     cancelInFlight = false;
     lastIdleActivityAtMs2 = Date.now();
+  }
+}
+async function runCursorTurnWorker() {
+  const turn = readCursorTurnWorkerClaim();
+  resetTurnState3();
+  startClaimedTurn(turn);
+  try {
+    const preflightOk2 = await runPreflightHeartbeat();
+    if (!preflightOk2) {
+      throw new Error("Cursor turn worker preflight failed");
+    }
+    startStreamingLoops();
+    await ensureGithubToken3();
+    await executeClaimedTurn(turn);
+  } finally {
+    await stopStreamingLoops();
+    finishClaimedTurn();
+  }
+}
+async function reportCursorTurnWorkerFailure(outcome) {
+  const error = cursorTurnWorkerFailureMessage(outcome);
+  log("cursor daemon: " + error);
+  const completionArgs = entityMutationArgs2({
+    success: false,
+    result: null,
+    error,
+    // Convex falls back to the last streamed activity so a hard worker crash
+    // cannot erase the reasoning/tools the user already saw.
+    activityLog: null,
+    ...RUN_ID ? { runId: RUN_ID } : {}
+  });
+  appendClaimedTurnCompletion(completionArgs);
+  await callConvexWithRetry(
+    "mutation",
+    COMPLETION_MUTATION ?? "",
+    completionArgs
+  );
+}
+async function runClaimedTurn(turn) {
+  const promptFile = CURSOR_TURN_WORKER_FILE_PREFIX + String(process.pid) + "-" + String(Date.now()) + ".txt";
+  writeFileSync11(promptFile, turn.prompt);
+  startClaimedTurn(turn);
+  turnActive2 = true;
+  turnStartedAtMs2 = Date.now();
+  log("cursor daemon: starting isolated turn worker");
+  try {
+    const child = spawnCursorTurnWorker(turn, promptFile);
+    abortActiveTurn = () => {
+      if (child.exitCode === null && child.signalCode === null) {
+        child.kill("SIGTERM");
+      }
+    };
+    const outcome = await waitForCursorTurnWorker(child);
+    turnActive2 = false;
+    if (cancelInFlight) {
+      log("cursor daemon: cancelled worker settled \\u2014 no completion posted");
+      return;
+    }
+    if (outcome.status === "exited" && outcome.code === 0 && outcome.signal === null) {
+      log("cursor daemon: isolated turn worker finished");
+      return;
+    }
+    try {
+      await reportCursorTurnWorkerFailure(outcome);
+    } catch (error) {
+      log(
+        "cursor daemon: worker failure completion could not be delivered \\u2014 " + (error instanceof Error ? error.message : String(error))
+      );
+    }
+  } finally {
+    turnActive2 = false;
+    abortActiveTurn = null;
+    cancelInFlight = false;
+    finishClaimedTurn();
+    lastIdleActivityAtMs2 = Date.now();
+    try {
+      unlinkSync3(promptFile);
+    } catch {
+    }
   }
 }
 async function runCursorDaemon() {
@@ -7721,7 +8020,6 @@ async function runCursorDaemon() {
     log("cursor daemon: preflight failed");
     process.exit(1);
   }
-  startStreamingLoops();
   await ensureGithubToken3();
   log(
     "runCursorDaemon started (entityId=" + (ENTITY_ID ?? "none") + ", model=" + MODEL + ")"
@@ -7745,17 +8043,16 @@ async function runCursorDaemon() {
   } finally {
     daemonExiting = true;
     cleanOwnedMarkers();
-    await stopStreamingLoops();
   }
   process.exit(0);
 }
 
 // callback-src/runtime/systemSkills.ts
 import {
-  existsSync as existsSync9,
+  existsSync as existsSync8,
   mkdirSync as mkdirSync8,
   readdirSync as readdirSync4,
-  readFileSync as readFileSync11,
+  readFileSync as readFileSync10,
   rmSync,
   writeFileSync as writeFileSync12
 } from "fs";
@@ -7816,16 +8113,16 @@ function skillsRoot() {
 }
 function isEvaStub(directoryName) {
   const skillFile = \`\${skillsRoot()}/\${directoryName}/SKILL.md\`;
-  if (!existsSync9(skillFile)) return false;
+  if (!existsSync8(skillFile)) return false;
   try {
-    return readFileSync11(skillFile, "utf8").includes(SYSTEM_SKILL_MARKER);
+    return readFileSync10(skillFile, "utf8").includes(SYSTEM_SKILL_MARKER);
   } catch {
     return false;
   }
 }
 function writeStub(skill) {
   const directory = \`\${skillsRoot()}/\${skill.name}\`;
-  if (existsSync9(\`\${directory}/SKILL.md\`) && !isEvaStub(skill.name)) {
+  if (existsSync8(\`\${directory}/SKILL.md\`) && !isEvaStub(skill.name)) {
     log(\`[system-skills] \${skill.name} exists in the repo \\u2014 leaving it alone\`);
     return false;
   }
@@ -7835,7 +8132,7 @@ function writeStub(skill) {
 }
 function pruneStaleStubs(keep) {
   const root = skillsRoot();
-  if (!existsSync9(root)) return;
+  if (!existsSync8(root)) return;
   for (const entry of readdirSync4(root, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     if (keep.has(entry.name)) continue;
@@ -7850,10 +8147,10 @@ function pruneStaleStubs(keep) {
 }
 function updateGitExclude(names) {
   const gitDir = \`\${WORK_DIR}/.git\`;
-  if (!existsSync9(gitDir)) return;
+  if (!existsSync8(gitDir)) return;
   const infoDir = \`\${gitDir}/info\`;
   const excludeFile = \`\${infoDir}/exclude\`;
-  const existing = existsSync9(excludeFile) ? readFileSync11(excludeFile, "utf8") : "";
+  const existing = existsSync8(excludeFile) ? readFileSync10(excludeFile, "utf8") : "";
   const next = renderExcludeContent(existing, names);
   if (next === existing) return;
   mkdirSync8(infoDir, { recursive: true });
@@ -7861,13 +8158,13 @@ function updateGitExclude(names) {
 }
 function materializeSystemSkills() {
   try {
-    if (!existsSync9(SYSTEM_SKILLS_STATE_FILE)) return;
-    if (!existsSync9(WORK_DIR)) {
+    if (!existsSync8(SYSTEM_SKILLS_STATE_FILE)) return;
+    if (!existsSync8(WORK_DIR)) {
       log("[system-skills] no checkout yet \\u2014 skipping");
       return;
     }
     const skills = parseSystemSkillsFile(
-      readFileSync11(SYSTEM_SKILLS_STATE_FILE, "utf8")
+      readFileSync10(SYSTEM_SKILLS_STATE_FILE, "utf8")
     );
     if (skills === null) {
       log("[system-skills] state file unreadable \\u2014 skipping");
@@ -7895,7 +8192,7 @@ function materializeSystemSkills() {
 import { promises as fs } from "fs";
 import os from "os";
 import path from "path";
-import { spawn as spawn2 } from "child_process";
+import { spawn as spawn3 } from "child_process";
 import { statSync as statSync2 } from "fs";
 import path2 from "path";
 import readline from "readline";
@@ -8138,7 +8435,7 @@ var CodexExec = class {
     if (this.pathDirs.length > 0) {
       prependPathDirs(env, this.pathDirs);
     }
-    const child = spawn2(this.executablePath, commandArgs, {
+    const child = spawn3(this.executablePath, commandArgs, {
       env,
       signal: args.signal
     });
@@ -8421,9 +8718,9 @@ var Codex = class {
 };
 
 // callback-src/providers/codexSdk.ts
-import { existsSync as existsSync10, readFileSync as readFileSync12 } from "fs";
+import { existsSync as existsSync9, readFileSync as readFileSync11 } from "fs";
 function readPromptText3() {
-  const prompt = readFileSync12("/tmp/design-prompt.txt", "utf8");
+  const prompt = readFileSync11("/tmp/design-prompt.txt", "utf8");
   return SYSTEM_PROMPT ? SYSTEM_PROMPT + "\\n\\n" + prompt : prompt;
 }
 function codexEnvironment() {
@@ -8473,7 +8770,7 @@ async function runCodexSdkAttempt(sessionMode) {
   const abortController = new AbortController();
   const agentTextByItem = /* @__PURE__ */ new Map();
   const codex = new Codex({
-    codexPathOverride: existsSync10(CODEX_BIN_PATH) ? CODEX_BIN_PATH : "codex",
+    codexPathOverride: existsSync9(CODEX_BIN_PATH) ? CODEX_BIN_PATH : "codex",
     env: codexEnvironment()
   });
   const threadOptions = buildCodexSdkThreadOptions();
@@ -8565,16 +8862,16 @@ async function runCodexSdkAttempt(sessionMode) {
 }
 
 // callback-src/providers/opencodeSdk.ts
-import { readFileSync as readFileSync14 } from "fs";
+import { readFileSync as readFileSync13 } from "fs";
 
 // callback-src/providers/opencodeServer.ts
-import { spawn as spawn3 } from "child_process";
+import { spawn as spawn4 } from "child_process";
 import {
   closeSync,
-  existsSync as existsSync11,
+  existsSync as existsSync10,
   mkdirSync as mkdirSync9,
   openSync,
-  readFileSync as readFileSync13,
+  readFileSync as readFileSync12,
   rmSync as rmSync2,
   statSync as statSync3,
   writeFileSync as writeFileSync13
@@ -8593,7 +8890,7 @@ function sleep5(ms) {
 }
 function readOpencodeServerLogTail(maxBytes = LOG_TAIL_BYTES) {
   try {
-    const contents = readFileSync13(SERVER_LOG_FILE, "utf8");
+    const contents = readFileSync12(SERVER_LOG_FILE, "utf8");
     return contents.length > maxBytes ? contents.slice(-maxBytes) : contents;
   } catch {
     return "";
@@ -8611,7 +8908,7 @@ async function probeHealth() {
 }
 function readRecordedPid() {
   try {
-    const parsed = tryParseJson(readFileSync13(SERVER_STATE_FILE, "utf8"));
+    const parsed = tryParseJson(readFileSync12(SERVER_STATE_FILE, "utf8"));
     if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
       return 0;
     }
@@ -8625,7 +8922,7 @@ function killRecordedServer() {
   if (!pid) return;
   let cmdline = "";
   try {
-    cmdline = readFileSync13("/proc/" + String(pid) + "/cmdline", "utf8");
+    cmdline = readFileSync12("/proc/" + String(pid) + "/cmdline", "utf8");
   } catch {
     return;
   }
@@ -8639,7 +8936,7 @@ function killRecordedServer() {
 function spawnServer() {
   const logFd = openSync(SERVER_LOG_FILE, "a");
   try {
-    const child = spawn3(
+    const child = spawn4(
       opencodeCommand,
       [
         "serve",
@@ -8728,7 +9025,7 @@ async function ensureOpencodeServer() {
     while (Date.now() < deadline) {
       await sleep5(HEALTH_POLL_INTERVAL_MS);
       if (await probeHealth()) return opencodeServerBaseUrl;
-      if (!existsSync11(SERVER_LOCK_DIR)) break;
+      if (!existsSync10(SERVER_LOCK_DIR)) break;
     }
     if (await probeHealth()) return opencodeServerBaseUrl;
     releaseStartupLock();
@@ -8769,7 +9066,7 @@ async function loadOpencodeSdk() {
   return mod;
 }
 function readPromptText4() {
-  return readFileSync14("/tmp/design-prompt.txt", "utf8");
+  return readFileSync13("/tmp/design-prompt.txt", "utf8");
 }
 function splitOpencodeModel(raw) {
   const separator = raw.indexOf("/");
@@ -9200,6 +9497,17 @@ async function runProviderAttempt(sessionMode) {
 }
 
 // callback-src/index.ts
+if (IS_CURSOR_TURN_WORKER) {
+  try {
+    await runCursorTurnWorker();
+    process.exit(0);
+  } catch (error) {
+    log(
+      "cursor turn worker failed: " + (error instanceof Error ? error.message : String(error))
+    );
+    process.exit(1);
+  }
+}
 process.on("exit", (code) => {
   writeDoneFile("unexpected-exit", {
     exitCode: typeof code === "number" ? code : null

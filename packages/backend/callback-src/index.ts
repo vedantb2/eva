@@ -7,6 +7,7 @@ import {
   CONVEX_URL,
   ENTITY_ID,
   ENTITY_ID_FIELD,
+  IS_CURSOR_TURN_WORKER,
   MODEL,
   PROVIDER,
   READY_FILE,
@@ -19,7 +20,10 @@ import {
 } from "./config.js";
 import { runSdkDaemon } from "./providers/claudeSdkDaemon.js";
 import { runCodexAppServerDaemon } from "./providers/codexAppServerDaemon.js";
-import { runCursorDaemon } from "./providers/cursorSdkDaemon.js";
+import {
+  runCursorDaemon,
+  runCursorTurnWorker,
+} from "./providers/cursorSdkDaemon.js";
 import { fetchWithTimeout, callConvexWithRetry } from "./http/convexClient.js";
 import { callbackState as S } from "./runtime/state.js";
 import {
@@ -57,6 +61,23 @@ import {
   readResponseJson,
 } from "./utils.js";
 import { serializeSteps } from "./parse/stepBudget.js";
+
+// Cursor chat turns run in disposable children so the SDK cannot retain heap
+// across messages. The lightweight parent daemon remains alive to claim turns
+// and process cancellation. Enter the worker before touching the parent's ready
+// marker or installing its process-exit bookkeeping.
+if (IS_CURSOR_TURN_WORKER) {
+  try {
+    await runCursorTurnWorker();
+    process.exit(0);
+  } catch (error) {
+    log(
+      "cursor turn worker failed: " +
+        (error instanceof Error ? error.message : String(error)),
+    );
+    process.exit(1);
+  }
+}
 
 process.on("exit", (code) => {
   writeDoneFile("unexpected-exit", {

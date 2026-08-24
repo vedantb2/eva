@@ -1,9 +1,5 @@
 import { PROVIDER } from "../config.js";
-import {
-  buildStreamingPayload,
-  flushStreaming,
-  sendStreamingHeartbeatUpdate,
-} from "../runtime/heartbeats.js";
+import { flushStreaming } from "../runtime/heartbeats.js";
 import { getProviderAdapter } from "../providers/index.js";
 import { callbackState as S } from "../runtime/state.js";
 import { tryParseJson } from "../utils.js";
@@ -35,8 +31,5 @@ function handleRealtimeStreamLine(line: string): void {
   if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
     return;
   }
-  const result = getProviderAdapter(PROVIDER).onStreamLine(line, parsed);
-  if (result.needsHeartbeat) {
-    void sendStreamingHeartbeatUpdate(buildStreamingPayload());
-  }
+  getProviderAdapter(PROVIDER).onStreamLine(line, parsed);
 }

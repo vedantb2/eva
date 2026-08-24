@@ -5,7 +5,7 @@ import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow, cancelTrackedWorkflow } from "./workflowManager";
 import { ensureSandboxStartedSteps } from "./_sandbox_runtime/resumeSandboxSteps";
-import { authMutation, hasRepoAccess } from "./functions";
+import { authAction, authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
   reasoningLevelValidator,
@@ -32,6 +32,7 @@ import { buildCustomInstructionsBlock } from "./prompts";
 import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 import { notifyChatMentions } from "./_mentions/notifyChatMentions";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
+import { resolveTurnProviderAccountId } from "./_userProviderAccounts/defaults";
 import type { Doc, Id } from "./_generated/dataModel";
 import { TASK_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
 
@@ -153,6 +154,18 @@ export const addMessage = authMutation({
       throw new Error("Not authorized");
     }
     const role = args.role ?? "user";
+    const providerAccountId =
+      role === "user"
+        ? await resolveTurnProviderAccountId(ctx.db, {
+            requestedAccountId: args.providerAccountId,
+            ownerUserId: task.createdBy,
+            currentAccountId: task.providerAccountId,
+            model: args.model ?? task.lastChatModel ?? task.model,
+            senderUserId: ctx.userId,
+            changePolicy: "owner-only",
+            ownerNoun: "task owner",
+          })
+        : undefined;
     await ctx.db.insert("messages", {
       parentId: args.taskId,
       role,
@@ -164,7 +177,7 @@ export const addMessage = authMutation({
         ? {
             credentialSourceLabel: await resolveCredentialSourceLabel(
               ctx.db,
-              task.providerAccountId,
+              providerAccountId,
               task.createdBy,
             ),
             model: args.model,
@@ -201,9 +214,16 @@ export const startExecute = authMutation({
       throw new Error("Not authorized");
     }
 
-    // Owner-sticky: always bill the task owner's account, ignoring per-message
-    // picker overrides from collaborators (and from localStorage).
-    void args.providerAccountId;
+    const normalizedModel = normalizeAIModel(args.model);
+    const providerAccountId = await resolveTurnProviderAccountId(ctx.db, {
+      requestedAccountId: args.providerAccountId,
+      ownerUserId: task.createdBy,
+      currentAccountId: task.providerAccountId,
+      model: normalizedModel,
+      senderUserId: ctx.userId,
+      changePolicy: "owner-only",
+      ownerNoun: "task owner",
+    });
 
     await notifyChatMentions(ctx, {
       content: args.message,
@@ -228,7 +248,6 @@ export const startExecute = authMutation({
       },
     );
 
-    const normalizedModel = normalizeAIModel(args.model);
     const usesDaemonPull = usesChatDaemon(normalizedModel);
     await ctx.db.patch(args.taskId, {
       ...(usesDaemonPull
@@ -242,6 +261,7 @@ export const startExecute = authMutation({
           }
         : { pendingTurn: undefined }),
       lastChatModel: normalizedModel,
+      providerAccountId,
       ...(args.reasoningLevel !== undefined
         ? { lastReasoningLevel: args.reasoningLevel }
         : {}),
@@ -271,7 +291,7 @@ export const startExecute = authMutation({
         use1mContext: args.use1mContext,
         fastMode: args.fastMode,
         allowedTools: CHAT_ALLOWED_TOOLS,
-        providerAccountId: task.providerAccountId,
+        providerAccountId,
         credentialOwnerUserId: task.createdBy,
         sessionPersistenceId: args.taskId,
         activeWorkflowField: "activeChatWorkflowId",
@@ -291,7 +311,7 @@ export const startExecute = authMutation({
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
         fastMode: args.fastMode,
-        providerAccountId: task.providerAccountId,
+        providerAccountId,
         credentialOwnerUserId: task.createdBy,
         userId: ctx.userId,
       },
@@ -331,6 +351,17 @@ export const enqueueMessage = authMutation({
       throw new Error("Not authorized");
     }
 
+    const normalizedModel = normalizeAIModel(args.model);
+    const providerAccountId = await resolveTurnProviderAccountId(ctx.db, {
+      requestedAccountId: args.providerAccountId,
+      ownerUserId: task.createdBy,
+      currentAccountId: task.providerAccountId,
+      model: normalizedModel,
+      senderUserId: ctx.userId,
+      changePolicy: "owner-only",
+      ownerNoun: "task owner",
+    });
+
     await notifyChatMentions(ctx, {
       content,
       authorUserId: ctx.userId,
@@ -348,12 +379,13 @@ export const enqueueMessage = authMutation({
       thinkingEnabled: args.thinkingEnabled,
       use1mContext: args.use1mContext,
       fastMode: args.fastMode,
-      providerAccountId: task.providerAccountId,
+      providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
       sentViaOrchestrator: args.sentViaOrchestrator,
     });
     await ctx.db.patch(args.taskId, {
-      lastChatModel: normalizeAIModel(args.model),
+      lastChatModel: normalizedModel,
+      providerAccountId,
       ...(args.reasoningLevel !== undefined
         ? { lastReasoningLevel: args.reasoningLevel }
         : {}),
@@ -779,6 +811,11 @@ export const saveResult = internalMutation({
   returns: v.null(),
   handler: async (ctx, args) => {
     const streamingEntityId = chatStreamEntityId(args.taskId);
+    const streaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", streamingEntityId))
+      .first();
+    const activityLog = args.activityLog || streaming?.currentActivity;
     await clearStreamingActivity(ctx, streamingEntityId);
 
     const task = await ctx.db.get(args.taskId);
@@ -801,7 +838,7 @@ export const saveResult = internalMutation({
           : `Error: ${args.error || "Unknown error during execution."}`,
         finishedAt: Date.now(),
       };
-      if (args.activityLog) patch.activityLog = args.activityLog;
+      if (activityLog) patch.activityLog = activityLog;
       if (args.pendingQuestion) patch.pendingQuestion = args.pendingQuestion;
       await ctx.db.patch(last._id, patch);
     }
@@ -912,6 +949,95 @@ export const prewarmChatDaemon = authMutation({
       entityTable: "agentTasks",
     });
     return null;
+  },
+});
+
+/**
+ * Waits for account-switch prewarming to finish before the composer is
+ * re-enabled, preventing the previous credential daemon from claiming the next
+ * turn during its replacement window.
+ */
+export const prewarmChatDaemonNow = authAction({
+  args: { taskId: v.id("agentTasks") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const data = await ctx.runQuery(
+      internal.agentTaskChatWorkflow.getChatPrewarmData,
+      { taskId: args.taskId, userId: ctx.userId },
+    );
+    if (!data) return null;
+    await ctx.runAction(internal.sandbox.prewarmEntityDaemon, {
+      sandboxId: data.sandboxId,
+      repoId: data.repoId,
+      userId: data.ownerUserId,
+      entityId: String(args.taskId),
+      streamingEntityId: chatStreamEntityId(args.taskId),
+      entityIdField: "taskId",
+      completionMutation: "agentTaskChatWorkflow:handleCompletion",
+      ...TASK_CHAT_DAEMON_MUTATIONS,
+      model: data.model,
+      reasoningLevel: data.reasoningLevel,
+      thinkingEnabled: data.thinkingEnabled,
+      use1mContext: data.use1mContext,
+      fastMode: data.fastMode,
+      allowedTools: CHAT_ALLOWED_TOOLS,
+      providerAccountId: data.providerAccountId,
+      credentialOwnerUserId: data.ownerUserId,
+      sessionPersistenceId: args.taskId,
+      activeWorkflowField: "activeChatWorkflowId",
+      skipPrewarm: false,
+      entityTable: "agentTasks",
+    });
+    return null;
+  },
+});
+
+export const getChatPrewarmData = internalQuery({
+  args: {
+    taskId: v.id("agentTasks"),
+    userId: v.id("users"),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      sandboxId: v.string(),
+      repoId: v.id("githubRepos"),
+      ownerUserId: v.id("users"),
+      model: aiModelValidator,
+      reasoningLevel: v.optional(reasoningLevelValidator),
+      thinkingEnabled: v.optional(v.boolean()),
+      use1mContext: v.optional(v.boolean()),
+      fastMode: v.optional(v.boolean()),
+      providerAccountId: v.optional(v.id("userProviderAccounts")),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("Task not found");
+    if (
+      !task.repoId ||
+      !(await hasRepoAccess(ctx.db, task.repoId, args.userId))
+    ) {
+      throw new Error("Not authorized");
+    }
+    if (
+      !task.sandboxId ||
+      task.reviewTaskSandboxStatus === "closed" ||
+      task.reviewTaskSandboxStatus === "stopping"
+    ) {
+      return null;
+    }
+    return {
+      sandboxId: task.sandboxId,
+      repoId: task.repoId,
+      ownerUserId: task.createdBy,
+      model: normalizeAIModel(task.lastChatModel ?? task.model),
+      reasoningLevel: task.lastReasoningLevel,
+      thinkingEnabled: task.lastThinkingEnabled,
+      use1mContext: task.lastUse1mContext,
+      fastMode: task.lastFastMode,
+      providerAccountId: task.providerAccountId,
+    };
   },
 });
 

@@ -12,6 +12,14 @@ export interface ParsedResultEvent {
   durationMs: number;
   cacheReadTokens: number;
   cacheCreationTokens: number;
+  /** Provider context window for this result, or 0 when the event omitted it. */
+  contextWindow: number;
+  /**
+   * Tokens occupying the context window at the end of this result — last
+   * iteration when present, otherwise the request's usage totals. Not the
+   * sum of cache reads across the whole request/session.
+   */
+  contextUsedTokens: number;
 }
 
 const EMPTY_PARSED: ParsedResultEvent = {
@@ -23,6 +31,22 @@ const EMPTY_PARSED: ParsedResultEvent = {
   durationMs: 0,
   cacheReadTokens: 0,
   cacheCreationTokens: 0,
+  contextWindow: 0,
+  contextUsedTokens: 0,
+};
+
+const tokenCountFields = {
+  input_tokens: z.number().catch(0),
+  output_tokens: z.number().catch(0),
+  cache_read_input_tokens: z.number().catch(0),
+  cache_creation_input_tokens: z.number().catch(0),
+};
+
+const emptyTokenCounts = {
+  input_tokens: 0,
+  output_tokens: 0,
+  cache_read_input_tokens: 0,
+  cache_creation_input_tokens: 0,
 };
 
 // Boundary schema for the Claude Code result-event JSON. Every field carries a
@@ -31,22 +55,23 @@ const EMPTY_PARSED: ParsedResultEvent = {
 // typeof-guarded reads provided.
 const usageSchema = z
   .object({
-    input_tokens: z.number().catch(0),
-    output_tokens: z.number().catch(0),
-    cache_read_input_tokens: z.number().catch(0),
-    cache_creation_input_tokens: z.number().catch(0),
+    ...tokenCountFields,
+    iterations: z.array(z.object(tokenCountFields)).catch([]),
   })
   .catch({
-    input_tokens: 0,
-    output_tokens: 0,
-    cache_read_input_tokens: 0,
-    cache_creation_input_tokens: 0,
+    ...emptyTokenCounts,
+    iterations: [],
   });
 
 const modelUsageSchema = z
   .record(
     z.string(),
-    z.object({ costUSD: z.number().optional().catch(undefined) }).catch({}),
+    z
+      .object({
+        costUSD: z.number().optional().catch(undefined),
+        contextWindow: z.number().optional().catch(undefined),
+      })
+      .catch({}),
   )
   .catch({});
 
@@ -72,10 +97,44 @@ function getPrimaryModel(modelUsage: ModelUsage): string {
   }
   // Fallback to first key if no cost data
   const keys = Object.keys(modelUsage);
-  if (primaryModel === "-" && keys.length > 0) {
-    primaryModel = keys[0];
+  const first = keys[0];
+  if (primaryModel === "-" && first !== undefined) {
+    primaryModel = first;
   }
   return primaryModel;
+}
+
+function getPrimaryContextWindow(
+  modelUsage: ModelUsage,
+  model: string,
+): number {
+  const row = modelUsage[model];
+  if (row && typeof row.contextWindow === "number" && row.contextWindow > 0) {
+    return row.contextWindow;
+  }
+  return 0;
+}
+
+function occupancyFromUsage(usage: {
+  input_tokens: number;
+  output_tokens: number;
+  cache_read_input_tokens: number;
+  cache_creation_input_tokens: number;
+  iterations: Array<{
+    input_tokens: number;
+    output_tokens: number;
+    cache_read_input_tokens: number;
+    cache_creation_input_tokens: number;
+  }>;
+}): number {
+  const last = usage.iterations[usage.iterations.length - 1];
+  const counts = last ?? usage;
+  return (
+    counts.input_tokens +
+    counts.output_tokens +
+    counts.cache_read_input_tokens +
+    counts.cache_creation_input_tokens
+  );
 }
 
 export function parseResultEvent(raw: string | undefined): ParsedResultEvent {
@@ -84,17 +143,20 @@ export function parseResultEvent(raw: string | undefined): ParsedResultEvent {
     const parsed = resultEventSchema.safeParse(JSON.parse(raw));
     if (!parsed.success) return EMPTY_PARSED;
     const data = parsed.data;
+    const model = getPrimaryModel(data.modelUsage);
     // Keep the four token categories semantically distinct. Pure input (non-cached)
     // must not be conflated with cache reads/creations; their pricing differs by ~10-25x.
     return {
       costUsd: data.total_cost_usd,
-      model: getPrimaryModel(data.modelUsage),
+      model,
       provider: data.provider,
       inputTokens: data.usage.input_tokens,
       outputTokens: data.usage.output_tokens,
       durationMs: data.duration_ms,
       cacheReadTokens: data.usage.cache_read_input_tokens,
       cacheCreationTokens: data.usage.cache_creation_input_tokens,
+      contextWindow: getPrimaryContextWindow(data.modelUsage, model),
+      contextUsedTokens: occupancyFromUsage(data.usage),
     };
   } catch {
     return EMPTY_PARSED;

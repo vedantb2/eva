@@ -43,7 +43,6 @@ import {
   ensureSessionDaemonState,
   syncSessionDaemonState,
 } from "./daemonState";
-import { usesCursorConversationHandoff } from "./cursorContext";
 import {
   acquireTurnLease,
   advanceTurn,
@@ -152,27 +151,10 @@ export async function buildSessionPrompt(
     session.repoId,
   );
 
-  const cursorMessages =
-    usesCursorConversationHandoff({
-      provider: session.provider,
-      lastModel: session.lastModel,
-    })
-      ? await ctx.db
-          .query("messages")
-          .withIndex("by_parent", (q) => q.eq("parentId", session._id))
-          .collect()
-      : [];
-  const cursorHistory = cursorMessages
-    .filter((entry) => entry.content)
-    .map((entry) => ({ role: entry.role, content: entry.content }));
-  const lastHistoryEntry = cursorHistory.at(-1);
-  const priorCursorHistory =
-    lastHistoryEntry?.role === "user" &&
-    lastHistoryEntry.content === args.message
-      ? cursorHistory.slice(0, -1)
-      : cursorHistory;
   // The stored plan still feeds implementation turns, and gives `eva-plan` its
   // iteration context after a sandbox is recreated without plan.md on disk.
+  // Cursor resumes the saved SDK agent; the Eva transcript is not stuffed
+  // in as a rotation handoff.
   let prompt = buildEditPrompt(
     {
       owner: repo.owner,
@@ -186,7 +168,6 @@ export async function buildSessionPrompt(
     customInstructionsBlock,
     repo.systemPrompt,
     session.devPort ?? repo.devPort,
-    priorCursorHistory,
   );
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;
@@ -840,6 +821,14 @@ export const saveResult = internalMutation({
       return null;
     }
 
+    // A disposable provider worker can die too hard to serialize its local
+    // steps (for example V8 heap OOM). Preserve the last durable streaming
+    // snapshot when its supervisor reports a null/empty activity log.
+    const streaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
+      .first();
+    const activityLog = args.activityLog || streaming?.currentActivity;
     await clearStreamingActivity(ctx, String(args.sessionId));
 
     const recent = await ctx.db
@@ -884,8 +873,8 @@ export const saveResult = internalMutation({
         filePath: variation.filePath,
       }));
     }
-    if (args.activityLog) {
-      patch.activityLog = args.activityLog;
+    if (activityLog) {
+      patch.activityLog = activityLog;
     }
     if (args.pendingQuestion) {
       patch.pendingQuestion = args.pendingQuestion;
@@ -946,29 +935,39 @@ export const claimPendingTurn = authMutation({
     sessionId: v.id("sessions"),
     model: v.optional(aiModelValidator),
   },
-  returns: v.object({
-    prompt: v.union(v.string(), v.null()),
-    turnId: v.optional(v.id("turns")),
-    leaseGeneration: v.optional(v.number()),
-    // Resolved download URLs for this turn's input image attachments. The daemon
-    // fetches these and hands the agent local file paths before running the turn.
-    attachmentUrls: v.array(v.string()),
-    stopTaskToolUseIds: v.array(v.string()),
-    cancelRequested: v.boolean(),
-  }),
+  returns: v.union(
+    v.object({
+      prompt: v.union(v.string(), v.null()),
+      turnLifecycle: v.literal("legacy"),
+      // Resolved download URLs for this turn's input image attachments. The daemon
+      // fetches these and hands the agent local file paths before running the turn.
+      attachmentUrls: v.array(v.string()),
+      stopTaskToolUseIds: v.array(v.string()),
+      cancelRequested: v.boolean(),
+    }),
+    v.object({
+      prompt: v.string(),
+      turnLifecycle: v.literal("durable"),
+      turnId: v.id("turns"),
+      leaseGeneration: v.number(),
+      attachmentUrls: v.array(v.string()),
+      stopTaskToolUseIds: v.array(v.string()),
+      cancelRequested: v.boolean(),
+    }),
+  ),
   handler: async (ctx, args) => {
     const emptyClaim = {
       prompt: null,
+      turnLifecycle: "legacy",
       attachmentUrls: [],
       stopTaskToolUseIds: [],
       cancelRequested: false,
     } satisfies {
       prompt: null;
+      turnLifecycle: "legacy";
       attachmentUrls: string[];
       stopTaskToolUseIds: string[];
       cancelRequested: boolean;
-      turnId?: Id<"turns">;
-      leaseGeneration?: number;
     };
     let daemonState = await ctx.db
       .query("sessionDaemonStates")
@@ -1061,13 +1060,18 @@ export const claimPendingTurn = authMutation({
     console.log(
       `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} claimWaitMs=${claimWaitMs} attachments=${attachmentUrls.length}`,
     );
-    return {
+    const claimedTurn = {
       prompt,
       attachmentUrls,
       stopTaskToolUseIds,
       cancelRequested,
-      ...(turnLease ?? {}),
     };
+    if (turnLease === null) {
+      const turnLifecycle: "legacy" = "legacy";
+      return { ...claimedTurn, turnLifecycle };
+    }
+    const turnLifecycle: "durable" = "durable";
+    return { ...claimedTurn, turnLifecycle, ...turnLease };
   },
 });
 

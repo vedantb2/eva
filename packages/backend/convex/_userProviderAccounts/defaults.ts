@@ -48,6 +48,92 @@ export async function assertProviderAccountUsableBy(
 }
 
 /**
+ * Validates an explicit account at the turn boundary, including the selected
+ * model's provider. Undefined remains the shared Team credential.
+ */
+export async function assertProviderAccountForModel(
+  db: GenericDatabaseReader<DataModel>,
+  providerAccountId: Id<"userProviderAccounts"> | null | undefined,
+  ownerUserId: Id<"users">,
+  model: string | undefined,
+): Promise<Id<"userProviderAccounts"> | undefined> {
+  const usableAccountId = await assertProviderAccountUsableBy(
+    db,
+    providerAccountId,
+    ownerUserId,
+  );
+  if (usableAccountId === undefined) return undefined;
+
+  const account = await db.get(usableAccountId);
+  if (!account || account.provider !== getAIModelProvider(model)) {
+    throw new Error("Selected provider account does not support this model");
+  }
+  return usableAccountId;
+}
+
+type TurnProviderAccountBase = {
+  requestedAccountId: Id<"userProviderAccounts"> | undefined;
+  ownerUserId: Id<"users">;
+  model: string | undefined;
+};
+
+/**
+ * Resolves the account a chat turn should run on. Project and task chat are
+ * owner-sticky: collaborators cannot change the billed account, and a mismatched
+ * provider throws. Session chat lets anyone with access pick from the owner's
+ * pool and falls back to the owner's default when the pick no longer matches
+ * the model provider.
+ */
+export async function resolveTurnProviderAccountId(
+  db: GenericDatabaseReader<DataModel>,
+  args:
+    | (TurnProviderAccountBase & {
+        changePolicy: "owner-only";
+        currentAccountId: Id<"userProviderAccounts"> | undefined;
+        senderUserId: Id<"users">;
+        ownerNoun: "project owner" | "task owner";
+      })
+    | (TurnProviderAccountBase & {
+        changePolicy: "owner-pool";
+      }),
+): Promise<Id<"userProviderAccounts"> | undefined> {
+  if (args.changePolicy === "owner-only") {
+    const accountId = await assertProviderAccountForModel(
+      db,
+      args.requestedAccountId,
+      args.ownerUserId,
+      args.model,
+    );
+    if (
+      args.senderUserId !== args.ownerUserId &&
+      accountId !== args.currentAccountId
+    ) {
+      throw new Error(
+        `Only the ${args.ownerNoun} can change the provider account`,
+      );
+    }
+    return accountId;
+  }
+
+  let accountId = await assertProviderAccountUsableBy(
+    db,
+    args.requestedAccountId,
+    args.ownerUserId,
+  );
+  if (accountId) {
+    const account = await db.get(accountId);
+    if (!account || account.provider !== getAIModelProvider(args.model)) {
+      accountId = await resolveDefaultProviderAccountId(
+        db,
+        args.ownerUserId,
+        args.model,
+      );
+    }
+  }
+  return accountId;
+}
+
+/**
  * When the model provider changes, keep the current account only if it still
  * matches; otherwise fall back to the owner's default for the new provider.
  */

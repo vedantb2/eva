@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import {
   api,
   buildTraitsExecutionPayload,
@@ -26,6 +26,7 @@ import {
   useAvailableAiModels,
   useTaskOwnerProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
+import { useProviderAccountHandoff } from "@/lib/hooks/useProviderAccountHandoff";
 
 interface TaskSandboxChatPanelProps {
   taskId: Id<"agentTasks">;
@@ -96,6 +97,15 @@ export function TaskSandboxChatPanel({
     api.agentTaskChatWorkflow.cancelExecution,
   );
   const updateTask = useMutation(api.agentTasks.update);
+  const prewarmChatDaemonNow = useAction(
+    api.agentTaskChatWorkflow.prewarmChatDaemonNow,
+  );
+  const { isSwitchingAccount, switchProviderAccount } =
+    useProviderAccountHandoff({
+      persist: (providerAccountId) =>
+        updateTask({ id: taskId, providerAccountId }),
+      prewarm: () => prewarmChatDaemonNow({ taskId }),
+    });
   const setTraitsMutation = useMutation(
     api.agentTasks.setTraits,
   ).withOptimisticUpdate((localStore, args) => {
@@ -145,6 +155,11 @@ export function TaskSandboxChatPanel({
     currentUserId !== undefined &&
     task?.createdBy !== undefined &&
     currentUserId === task.createdBy;
+  const usageAccountLabel =
+    providerAccountId === null
+      ? "Team"
+      : (accounts.find((account) => account.id === providerAccountId)?.label ??
+        "Selected account");
 
   const draftSeed = useChatDraftSeed({
     kind: "taskChat" as const,
@@ -196,10 +211,7 @@ export function TaskSandboxChatPanel({
 
   const setProviderAccountId = (next: string | null) => {
     if (!isOwner || !task) return;
-    void updateTask({
-      id: taskId,
-      providerAccountId: resolveAccountId(next) ?? null,
-    });
+    switchProviderAccount(resolveAccountId(next) ?? null);
   };
 
   const lastMessage = messages?.[messages.length - 1];
@@ -270,6 +282,10 @@ export function TaskSandboxChatPanel({
         sandboxCollapsed={sandboxCollapsed}
         onToggleSandbox={onToggleSandbox}
         isAssistantResponding={isExecuting}
+        usageAccountScope={{
+          providerAccountId,
+          accountLabel: usageAccountLabel,
+        }}
       />
       <ChatBody
         repoId={repo._id}
@@ -283,11 +299,13 @@ export function TaskSandboxChatPanel({
         blockingQuestion={activeQuestion ?? undefined}
         onAnswerBlockingQuestion={handleAnswerBlockingQuestion}
         isExecuting={isExecuting}
-        isInputDisabled={!isSandboxActive}
+        isInputDisabled={!isSandboxActive || isSwitchingAccount}
         placeholder={
           !isSandboxActive
             ? "Wake Eva up to chat..."
-            : "Ask Eva anything... / for skills · @ to mention"
+            : isSwitchingAccount
+              ? "Switching Claude account..."
+              : "Ask Eva anything... / for skills · @ to mention"
         }
         emptyStateTitle={
           isSandboxActive

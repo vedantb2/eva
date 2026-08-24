@@ -156,6 +156,10 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
   // Pending with no workflow behind it means the run died: show the failure and
   // re-enable Generate instead of spinning on a stale activity trail forever.
   const isStalled = isPending && recapDoc.activeWorkflowId === undefined;
+  // Older runs stored progress text as "ready" with no HTML walkthrough.
+  const isIncompleteReady =
+    recapDoc.prRecapStatus === "ready" &&
+    (recapDoc.html === undefined || recapDoc.html.trim() === "");
   const docPath = entityPathSegment(recapDoc);
   const shortSha =
     recapDoc.headSha !== undefined ? recapDoc.headSha.slice(0, 7) : null;
@@ -219,7 +223,9 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
               disabled={isPending && !isStalled}
               variant="ghost"
               label={
-                recapDoc.prRecapStatus === "ready" ? "Regenerate" : "Generate"
+                recapDoc.prRecapStatus === "ready" && !isIncompleteReady
+                  ? "Regenerate"
+                  : "Generate"
               }
             />
           </div>
@@ -231,18 +237,24 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
         </TabsList>
       </TabsBar>
 
-      {isErrored || isStalled ? (
+      {isErrored || isStalled || isIncompleteReady ? (
         <div className="flex items-start gap-2 border-b border-border bg-destructive/5 px-3 py-2 text-sm text-destructive">
           <IconAlertTriangle size={16} className="mt-0.5 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="font-medium">
-              {isStalled ? "Recap stopped" : "Recap failed"}
+              {isStalled
+                ? "Recap stopped"
+                : isIncompleteReady
+                  ? "Recap incomplete"
+                  : "Recap failed"}
             </p>
             <p className="text-destructive/80">
               {isStalled
                 ? "Generation stopped before it finished. Generate again to retry."
-                : (recapDoc.prRecapError ??
-                  "Something went wrong generating the recap.")}
+                : isIncompleteReady
+                  ? "The walkthrough wasn't saved. Generate again to retry."
+                  : (recapDoc.prRecapError ??
+                    "Something went wrong generating the recap.")}
             </p>
           </div>
         </div>
@@ -276,7 +288,9 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
             <HtmlPreviewFrame html={recapDoc.html} title="PR recap" />
           ) : (
             <p className="text-sm text-muted-foreground">
-              No recap yet. It is created the next time this review runs.
+              {isIncompleteReady || isErrored
+                ? "The walkthrough wasn't saved. Generate again to retry."
+                : "No recap yet. It is created the next time this review runs."}
             </p>
           )
         ) : (

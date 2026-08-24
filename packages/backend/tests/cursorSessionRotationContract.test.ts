@@ -4,62 +4,80 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
 
 const backendDir = join(dirname(fileURLToPath(import.meta.url)), "..");
-const cursorSurfaces: [string, string][] = [
-  ["callback source", read("callback-src/session/cursorSession.ts")],
-  ["deployed bundle", read("convex/_sandbox_runtime/callbackScript.generated.ts")],
-];
 const workflow = read("convex/_sessions/workflow.ts");
+const callbackBundle = read(
+  "convex/_sandbox_runtime/callbackScript.generated.ts",
+);
 
-describe("oversized Cursor history cannot be resumed", () => {
-  test.each(cursorSurfaces)(
-    "rotation wins before the resume branch (%s)",
+const sessionPrep: [string, string][] = [
+  ["claude", read("callback-src/session/claudeSession.ts")],
+  ["codex", read("callback-src/session/codexSession.ts")],
+  ["opencode", read("callback-src/session/opencodeSession.ts")],
+  ["cursor", read("callback-src/session/cursorSession.ts")],
+];
+
+const sizeBasedRotationMarkers = [
+  "shouldRotateCursorSession",
+  "shouldRotateClaudeSession",
+  "shouldRotateCodexSession",
+  "shouldRotateOpencodeSession",
+  "CURSOR_MAX_RESUME_CONTEXT_TOKENS",
+  "rotating saved Cursor agent",
+];
+
+describe("saved provider sessions are resumed, not rotated on context size", () => {
+  test.each(sessionPrep)(
+    "%s session prep never consults a token/turn rotation policy",
     (_label, source) => {
-      const policyAt = source.indexOf("shouldRotateCursorSession(resumeStats)");
-      const freshAt = source.indexOf(
-        'return { mode: "none", sessionId: null }',
-        policyAt,
-      );
-      const resumeAt = source.indexOf(
-        'return { mode: "resume", sessionId: persistedState.resumeSessionId }',
-        policyAt,
-      );
-
-      expect(
-        policyAt,
-        "the rotation policy is no longer consulted",
-      ).toBeGreaterThan(-1);
-      expect(freshAt, "rotation no longer starts a fresh agent").toBeGreaterThan(
-        policyAt,
-      );
-      expect(resumeAt, "the normal resume branch moved").toBeGreaterThan(freshAt);
+      for (const marker of sizeBasedRotationMarkers) {
+        expect(source).not.toContain(marker);
+      }
     },
   );
-});
 
-describe("a rotated Cursor session receives the prior conversation", () => {
-  test("the workflow derives Cursor handoff from current and legacy providers", () => {
-    const handoffAt = workflow.indexOf("usesCursorConversationHandoff({");
-    const handoff = workflow.slice(handoffAt, workflow.indexOf("});", handoffAt));
-
-    expect(handoffAt, "the Cursor handoff decision moved").toBeGreaterThan(-1);
-    expect(handoff).toContain("provider: session.provider");
-    expect(handoff).toContain("lastModel: session.lastModel");
+  test("the deployed callback bundle has no size-based rotation policy", () => {
+    for (const marker of sizeBasedRotationMarkers) {
+      expect(callbackBundle).not.toContain(marker);
+    }
   });
 
-  test("the selected history is passed into prompt construction", () => {
-    const historyAt = workflow.indexOf("const priorCursorHistory =");
-    const promptAt = workflow.indexOf("buildEditPrompt(", historyAt);
-    const prompt = workflow.slice(promptAt, workflow.indexOf("\n    );", promptAt));
+  test("claude resumes a persisted session id when its transcript exists", () => {
+    const [, source] = sessionPrep[0];
+    expect(source).toContain(
+      'return { mode: "resume", sessionId: persistedState.resumeSessionId }',
+    );
+  });
 
-    expect(
-      historyAt,
-      "the prior conversation is no longer selected",
-    ).toBeGreaterThan(-1);
-    expect(
-      promptAt,
-      "prompt construction moved before history selection",
-    ).toBeGreaterThan(historyAt);
-    expect(prompt).toContain("priorCursorHistory");
+  test("codex resumes a persisted thread id", () => {
+    const [, source] = sessionPrep[1];
+    expect(source).toContain(
+      "return persistedState && persistedState.resumeThreadId",
+    );
+    expect(source).toContain(
+      '{ mode: "resume", sessionId: persistedState.resumeThreadId }',
+    );
+  });
+
+  test("opencode resumes a persisted session id", () => {
+    const [, source] = sessionPrep[2];
+    expect(source).toContain(
+      'return { mode: "resume", sessionId: persistedState.resumeSessionId }',
+    );
+  });
+
+  test("cursor resumes a persisted agent id", () => {
+    const [, source] = sessionPrep[3];
+    expect(source).toContain(
+      'return { mode: "resume", sessionId: persistedState.resumeSessionId }',
+    );
+  });
+});
+
+describe("session prompts do not dump a Cursor conversation handoff", () => {
+  test("the workflow no longer selects prior Cursor history", () => {
+    expect(workflow).not.toContain("usesCursorConversationHandoff");
+    expect(workflow).not.toContain("priorCursorHistory");
+    expect(workflow).not.toContain("./cursorContext");
   });
 });
 

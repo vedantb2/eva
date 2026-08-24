@@ -1,8 +1,9 @@
 # Changelog
 
-## Preview URL bar remembers recent paths - 2026-08-25
+## The user directory is teammates, not everyone - 2026-08-25
 
-Typing a path in the sandbox preview bar had no memory, so `/settings` and `/login` were retyped every session. The field now shows up to five matching recents from that repo while focused, stored in localStorage (not Convex — the live path is already sticky on the session).
+`users.listAll` collected the whole users table for assignee pickers, task cards, and project boards. A deployment with more people than your team paid that cost on every board. It now walks the caller's `teamMembers` rows and returns those profiles plus self. Chat still uses `getMany` for other senders.
+
 
 ## Presence writes no longer invalidate the user directory - 2026-08-25
 

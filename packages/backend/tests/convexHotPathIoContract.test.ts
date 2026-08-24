@@ -108,6 +108,13 @@ describe("measured Convex I/O hot paths stay on compact reads", () => {
     expect(body).toContain("ctx.db.get(id)");
     expect(body).not.toContain(".collect()");
   });
+
+  test("listAll reads teammates, not every user", () => {
+    const body = definitionBody("users.ts", "listAll");
+    expect(body).toContain('query("teamMembers")');
+    expect(body).toContain("collectDirectoryUserIds");
+    expect(body).not.toContain('query("users")');
+  });
 });
 
 function convexFiles(): string[] {

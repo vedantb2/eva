@@ -1,4 +1,4 @@
-import { type Doc, type Id } from "@eva/backend";
+import { getAIModelProvider, type Doc, type Id } from "@eva/backend";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import { stripReviewCommentBlocks } from "@/lib/reviewComments";
@@ -22,6 +22,36 @@ export type ChatBodyMessage = Omit<Doc<"messages">, "_id"> & {
     contentType: string | null;
   }[];
 };
+
+/**
+ * User turns that switched provider: a stamped row whose provider differs from
+ * the previous stamped row's. Unstamped legacy turns (sent before model was
+ * recorded) are skipped entirely rather than treated as an unknown provider —
+ * otherwise the first stamped turn of every old conversation looks like a
+ * handoff. System alerts (the "Handed off from X to Y" rows) are skipped too.
+ */
+export function findHandoffBoundaryIds(
+  messages: ReadonlyArray<{
+    _id: string;
+    isSystemAlert?: boolean;
+    model?: ChatBodyMessage["model"];
+    role: ChatBodyMessage["role"];
+  }>,
+): Set<string> {
+  const boundaries = new Set<string>();
+  let previousProvider: string | undefined;
+
+  for (const message of messages) {
+    if (message.isSystemAlert) continue;
+    if (message.role !== "user" || message.model === undefined) continue;
+    const provider = getAIModelProvider(message.model);
+    if (previousProvider !== undefined && previousProvider !== provider) {
+      boundaries.add(message._id);
+    }
+    previousProvider = provider;
+  }
+  return boundaries;
+}
 
 export type ChatBodyQueuedMessage = Doc<"queuedMessages">;
 

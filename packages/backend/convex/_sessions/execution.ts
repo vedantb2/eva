@@ -5,7 +5,6 @@ import { workflow, cancelTrackedWorkflow } from "../workflowManager";
 import { authAction, authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
-  assertModelMatchesLockedProvider,
   normalizeAIModel,
   reasoningLevelValidator,
   usesChatDaemon,
@@ -19,6 +18,7 @@ import { buildSessionPrompt, SESSION_TOOLS } from "./workflow";
 import { resolveTurnProviderAccountId } from "../_userProviderAccounts/defaults";
 import type { Doc, Id } from "../_generated/dataModel";
 import { notifyChatMentions } from "../_mentions/notifyChatMentions";
+import { maybeInsertModelHandoffAlert } from "../_shared/modelHandoff";
 import {
   bindTurnWorkflow,
   closeOpenSessionTurn,
@@ -68,8 +68,6 @@ export const startExecute = authMutation({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
 
-    assertModelMatchesLockedProvider(session.provider, args.model);
-
     const credentialOwnerUserId = session.createdBy ?? session.userId;
     const stickyProviderAccountId = await resolveTurnProviderAccountId(ctx.db, {
       requestedAccountId: args.providerAccountId,
@@ -95,6 +93,17 @@ export const startExecute = authMutation({
     // it. The workflow still starts below (for cold-resume, completion,
     // post-turn push/save, and cancellation); it simply no longer pushes the
     // prompt (see sessionExecuteWorkflow), so the turn is never double-executed.
+    //
+    // The user row for this turn is already stored (the client sends addMessage
+    // first), so handoff detection sees it and posts its alert above the new
+    // placeholder rather than below the reply.
+    await maybeInsertModelHandoffAlert(
+      ctx,
+      args.sessionId,
+      args.model,
+      session.provider,
+    );
+
     const placeholderMessageId = await ctx.db.insert("messages", {
       parentId: args.sessionId,
       role: "assistant",
@@ -109,6 +118,7 @@ export const startExecute = authMutation({
       repo,
       user,
       message: args.message,
+      model: args.model,
     });
 
     // One-shot providers receive the prompt in their launch payload; persistent
@@ -359,8 +369,6 @@ export const enqueueMessage = authMutation({
     if (!session) throw new Error("Session not found");
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
-
-    assertModelMatchesLockedProvider(session.provider, args.model);
 
     const providerAccountId = await resolveTurnProviderAccountId(ctx.db, {
       requestedAccountId: args.providerAccountId,

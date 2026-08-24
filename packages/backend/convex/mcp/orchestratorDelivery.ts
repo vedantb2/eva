@@ -15,10 +15,9 @@ export type AgentDelivery =
 /**
  * Pure busy-vs-queue + model-fallback decision for `send_agent_message`.
  *
- * Sessions are provider-locked, so the stored model is the safe fallback: an
- * explicit `requestedModel` on a session pinned to another provider is rejected
- * downstream by `assertModelMatchesLockedProvider`. `normalizeAIModel` supplies
- * the platform default when neither is set.
+ * The stored model is the fallback when the caller names none, and an explicit
+ * `requestedModel` wins even when it belongs to another provider.
+ * `normalizeAIModel` supplies the platform default when neither is set.
  */
 export function resolveAgentDelivery(input: {
   isBusy: boolean;

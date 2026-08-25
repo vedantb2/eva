@@ -293,3 +293,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) and [CLAUDE.md](CLAUDE.md) for convention
 - Named volumes for session persistence (Vercel Drives beta → stable)
 - Release Designs to production
 - Improved project interview experience
+
+## Credits
+
+Parts of Eva's session chat, diffs, model picker, and agent UX are adapted from [T3 Code](https://github.com/pingdotgg/t3code) by [Ping Labs](https://t3.codes) / Theo Browne. Thank you for open-sourcing it.

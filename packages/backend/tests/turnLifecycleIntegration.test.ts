@@ -2,15 +2,20 @@ import { convexTest } from "convex-test";
 import { describe, expect, test } from "vitest";
 import { internal } from "../convex/_generated/api";
 import schema from "../convex/schema";
-import { openSessionTurn, renewTurnLease } from "../convex/_chat/turnStore";
+import {
+  acquireTurnLease,
+  openSessionTurn,
+  renewTurnLease,
+} from "../convex/_chat/turnStore";
+import { shouldWriteTurnLeaseRenewal } from "../convex/_chat/turnLease";
 import { isLegacySessionExecuting } from "../convex/_chat/turnProjection";
 import { rollbackQueuedSessionStart } from "../convex/_queues/helpers";
 import {
   appendCurrentTurnLease,
-  canSendTurnHeartbeat,
+  beginTurnOwnership,
+  endTurnOwnership,
   getLeaseTerminalReason,
   noteHeartbeatResponse,
-  setCurrentTurnLease,
 } from "../callback-src/runtime/turnLease";
 import type { JsonObject } from "../callback-src/types";
 
@@ -109,6 +114,58 @@ describe("turn lifecycle integration", () => {
     expect(rows.placeholder).toBeNull();
   });
 
+  test("each claim bumps the lease generation and fences the older one", async () => {
+    const { t, turnId } = await createSessionFixture();
+    const claim = async (): Promise<number | undefined> =>
+      await t.run(async (ctx) => {
+        const turn = await ctx.db.get(turnId);
+        if (!turn) throw new Error("missing turn");
+        const identity = await acquireTurnLease(ctx, turn, "running");
+        return identity?.leaseGeneration;
+      });
+    const renew = async (leaseGeneration: number) =>
+      await t.run(
+        async (ctx) =>
+          await renewTurnLease(ctx, {
+            turnId: String(turnId),
+            leaseGeneration,
+          }),
+      );
+
+    expect(await claim()).toBe(1);
+    expect(await renew(1)).toMatchObject({ status: "renewed" });
+
+    // A respawned daemon reclaims the same open turn.
+    expect(await claim()).toBe(2);
+
+    expect(await renew(1)).toEqual({
+      status: "terminal",
+      reason: "superseded",
+    });
+    expect(await renew(2)).toMatchObject({ status: "renewed" });
+  });
+
+  test("a heartbeat for a closed or unknown turn is told to stop", async () => {
+    const { t, sessionId, turnId } = await createSessionFixture();
+    const closed = await t.run(async (ctx) => {
+      await ctx.db.patch(turnId, { open: false, state: "done" });
+      return await renewTurnLease(ctx, {
+        turnId: String(turnId),
+        leaseGeneration: 0,
+      });
+    });
+    expect(closed).toEqual({ status: "terminal", reason: "closed" });
+
+    const unknown = await t.run(
+      async (ctx) =>
+        await renewTurnLease(ctx, {
+          turnId: String(sessionId),
+          leaseGeneration: 0,
+        }),
+    );
+    expect(unknown).toEqual({ status: "terminal", reason: "unknown_turn" });
+  });
+
   test("a fresh running lease is not rewritten by a second heartbeat", async () => {
     const { t, turnId } = await createSessionFixture();
     const first = await t.run(async (ctx) => {
@@ -169,25 +226,77 @@ describe("turn lifecycle integration", () => {
   });
 });
 
-describe("turn lifecycle rollout", () => {
-  test("a cold daemon waits for a claimed lease before heartbeating", () => {
+/**
+ * Heartbeats used to patch `leaseExpiresAt` on every 150ms flush, which was an
+ * OCC storm against the overlapping heartbeat (fix c708f9ddd). A renewal now
+ * writes only when the phase moved or the lease is more than half gone.
+ */
+describe("turn lease renewal writes", () => {
+  const now = 1_000_000;
+  const durationMs = 120_000;
+
+  test("a phase change always writes", () => {
     expect(
-      canSendTurnHeartbeat({
-        claimMutation: "sessionWorkflow:claimPendingTurn",
-        turnLease: null,
+      shouldWriteTurnLeaseRenewal({
+        currentState: "running",
+        nextState: "finalizing",
+        leaseExpiresAt: now + durationMs,
+        now,
+        durationMs,
       }),
-    ).toBe(false);
-    expect(
-      canSendTurnHeartbeat({
-        claimMutation: "sessionWorkflow:claimPendingTurn",
-        turnLease: { turnId: "turn-1", leaseGeneration: 1 },
-      }),
-    ).toBe(true);
-    expect(
-      canSendTurnHeartbeat({ claimMutation: undefined, turnLease: null }),
     ).toBe(true);
   });
 
+  test("a lease with more than half its life left is a no-op", () => {
+    expect(
+      shouldWriteTurnLeaseRenewal({
+        currentState: "running",
+        nextState: "running",
+        leaseExpiresAt: now + durationMs / 2 + 1,
+        now,
+        durationMs,
+      }),
+    ).toBe(false);
+  });
+
+  test("a lease past its halfway point is renewed", () => {
+    expect(
+      shouldWriteTurnLeaseRenewal({
+        currentState: "running",
+        nextState: "running",
+        leaseExpiresAt: now + durationMs / 2,
+        now,
+        durationMs,
+      }),
+    ).toBe(true);
+  });
+
+  test("an expired lease is renewed", () => {
+    expect(
+      shouldWriteTurnLeaseRenewal({
+        currentState: "running",
+        nextState: "running",
+        leaseExpiresAt: now - 1,
+        now,
+        durationMs,
+      }),
+    ).toBe(true);
+  });
+
+  test("a state with no lease duration always writes", () => {
+    expect(
+      shouldWriteTurnLeaseRenewal({
+        currentState: "running",
+        nextState: "running",
+        leaseExpiresAt: now + durationMs,
+        now,
+        durationMs: 0,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("turn lifecycle rollout", () => {
   test("legacy execution fields are consulted only before the durable cutover", () => {
     expect(
       isLegacySessionExecuting({
@@ -206,10 +315,10 @@ describe("turn lifecycle rollout", () => {
   });
 
   test("the shared completion helper carries the current lease into fatal payloads", () => {
-    setCurrentTurnLease({ turnId: "turn-1", leaseGeneration: 7 });
+    beginTurnOwnership("claim", { turnId: "turn-1", leaseGeneration: 7 });
     const args: JsonObject = { success: false };
     appendCurrentTurnLease(args);
-    setCurrentTurnLease(null);
+    endTurnOwnership();
     expect(args).toEqual({
       success: false,
       turnId: "turn-1",
@@ -218,7 +327,7 @@ describe("turn lifecycle rollout", () => {
   });
 
   test("an authenticated fallback heartbeat propagates a terminal fence", () => {
-    setCurrentTurnLease({ turnId: "turn-1", leaseGeneration: 7 });
+    beginTurnOwnership("claim", { turnId: "turn-1", leaseGeneration: 7 });
     expect(
       noteHeartbeatResponse({
         status: "success",
@@ -229,6 +338,6 @@ describe("turn lifecycle rollout", () => {
       }),
     ).toBe(true);
     expect(getLeaseTerminalReason()).toBe("superseded");
-    setCurrentTurnLease(null);
+    endTurnOwnership();
   });
 });

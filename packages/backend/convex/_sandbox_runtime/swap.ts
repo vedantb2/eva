@@ -34,6 +34,7 @@
  * (free − reserve), and skip entirely when that leaves too little to matter.
  */
 import type { SandboxHandle } from "../_sandbox/provider";
+import { writeSandboxFile } from "./sandboxFiles";
 
 /** Swapfile location. On `/`, which is a real fs (fallocate-capable). */
 export const SWAP_FILE_PATH = "/swapfile";
@@ -225,7 +226,7 @@ async function runSwapScript(
   timeoutSeconds: number,
 ): Promise<string> {
   try {
-    await sandbox.writeFile(path, script);
+    await writeSandboxFile(sandbox, path, script);
     const result = await sandbox.exec(`bash ${path}`, { timeoutSeconds });
     const status =
       result.output

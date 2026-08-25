@@ -65,15 +65,17 @@ export function SimpleModelLadder<TModel extends string>({
         onPointerCancel={() => setDragging(false)}
         onValueCommit={() => setDragging(false)}
       >
-        <div className="pointer-events-none absolute inset-x-3 top-1/2 z-[1] h-5 -translate-y-1/2">
+        <div className="pointer-events-none absolute inset-x-4 top-1/2 h-5 -translate-y-1/2">
           {steps.map((step, tickIndex) => (
             <span
               key={step.id}
               className={cn(
                 "absolute top-1/2 size-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full",
-                tickIndex <= index
-                  ? "bg-primary-foreground/80"
-                  : "bg-muted-foreground/35",
+                tickIndex === index
+                  ? "opacity-0"
+                  : tickIndex < index
+                    ? "bg-primary-foreground/55"
+                    : "bg-muted-foreground/40",
               )}
               style={{
                 left: `${lastIndex <= 0 ? 0 : (tickIndex / lastIndex) * 100}%`,

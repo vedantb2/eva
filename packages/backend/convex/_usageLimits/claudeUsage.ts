@@ -84,10 +84,7 @@ export type ClaudeUsageBody = z.infer<typeof claudeUsageBodySchema>;
  * honest test, and a body that reports none must not overwrite a stored row.
  */
 export function hasPlanRateLimits(body: ClaudeUsageBody): boolean {
-  if (body.limits !== undefined && body.limits !== null) return true;
-  return FIXED_WINDOW_KEYS.some(
-    (key) => body[key] !== undefined && body[key] !== null,
-  );
+  return readClaudeUsageWindows(body).length > 0;
 }
 
 function finiteOrUndefined(

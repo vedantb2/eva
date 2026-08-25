@@ -29,6 +29,12 @@ describe("delayedPublishFailureError", () => {
     expect(delayedPublishFailureError("saved reply", error)).toBe(error);
   });
 
+  test("identifies a task/project chat publish failure", () => {
+    const error =
+      "Chat completed locally, but Eva could not publish the branch to GitHub.";
+    expect(delayedPublishFailureError("saved reply", error)).toBe(error);
+  });
+
   test.each([
     [
       "no saved result",

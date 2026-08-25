@@ -5,7 +5,11 @@ import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
-import { api } from "@eva/backend";
+import {
+  api,
+  INCOMPLETE_PR_RECAP_MESSAGE,
+  isIncompleteReadyRecap,
+} from "@eva/backend";
 import { entityPathSegment } from "@/lib/numId";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
@@ -136,9 +140,9 @@ export function DocRecapViewer({
   const isRecapErrored = doc.prRecapStatus === "error";
   // Pending with no workflow behind it means the run died — see PrRecapPanel.
   const isRecapStalled = isRecapPending && doc.activeWorkflowId === undefined;
-  const isRecapIncompleteReady =
-    doc.prRecapStatus === "ready" &&
-    (doc.html === undefined || doc.html.trim() === "");
+  // Rows written before the write path enforced the invariant — see
+  // `recapState` in the backend, which both recap views share.
+  const isRecapIncompleteReady = isIncompleteReadyRecap(doc);
 
   const handleReviseRecap = async () => {
     setIsRevising(true);
@@ -232,7 +236,7 @@ export function DocRecapViewer({
           ) : null}
           {isRecapIncompleteReady ? (
             <p className="mt-1 text-destructive">
-              The walkthrough wasn't saved. Generate again to retry.
+              {INCOMPLETE_PR_RECAP_MESSAGE}
             </p>
           ) : null}
           {canReviseRecap ? (
@@ -337,7 +341,7 @@ export function DocRecapViewer({
           ) : (
             <p className="text-sm text-muted-foreground">
               {isRecapIncompleteReady || isRecapErrored
-                ? "The walkthrough wasn't saved. Generate again to retry."
+                ? INCOMPLETE_PR_RECAP_MESSAGE
                 : "No recap generated yet. It is created the next time this review runs."}
             </p>
           )}

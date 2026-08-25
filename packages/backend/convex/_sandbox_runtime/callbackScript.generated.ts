@@ -698,21 +698,28 @@ function elapsedAttemptMs() {
 }
 
 // callback-src/runtime/turnLease.ts
-var currentTurnLease = TURN_ID !== null && TURN_LEASE_GENERATION !== null ? { turnId: TURN_ID, leaseGeneration: TURN_LEASE_GENERATION } : null;
-var legacyTurnHeartbeatActive = false;
+var turnOwnership = TURN_ID !== null && TURN_LEASE_GENERATION !== null ? {
+  status: "owned",
+  owner: "provider",
+  turnLease: { turnId: TURN_ID, leaseGeneration: TURN_LEASE_GENERATION }
+} : { status: "idle" };
 var terminalReason = null;
+function getTurnOwnership() {
+  return turnOwnership;
+}
+function beginTurnOwnership(owner, turnLease) {
+  turnOwnership = { status: "owned", owner, turnLease };
+  terminalReason = null;
+}
+function endTurnOwnership() {
+  turnOwnership = { status: "idle" };
+  terminalReason = null;
+}
 function getCurrentTurnLease() {
-  return currentTurnLease;
+  return turnOwnership.status === "owned" ? turnOwnership.turnLease : null;
 }
-function canSendTurnHeartbeat({
-  claimMutation,
-  turnLease
-}) {
-  return claimMutation === void 0 || turnLease !== null || legacyTurnHeartbeatActive;
-}
-function setLegacyTurnHeartbeatActive(active) {
-  legacyTurnHeartbeatActive = active;
-  if (active) terminalReason = null;
+function canSendTurnHeartbeat(input) {
+  return input.claimMutation === void 0 || input.ownership.status === "owned";
 }
 function appendCurrentTurnLease(args) {
   const identity = getCurrentTurnLease();
@@ -720,15 +727,13 @@ function appendCurrentTurnLease(args) {
   args.turnId = identity.turnId;
   args.leaseGeneration = identity.leaseGeneration;
 }
-function setCurrentTurnLease(identity) {
-  if (currentTurnLease?.turnId === identity?.turnId && currentTurnLease?.leaseGeneration === identity?.leaseGeneration) {
-    return;
-  }
-  currentTurnLease = identity;
-  terminalReason = null;
-}
 function getLeaseTerminalReason() {
   return terminalReason;
+}
+function decideTurnLeaseExit(input) {
+  if (input.terminalReason === null) return { action: "continue" };
+  if (input.exitScheduled) return { action: "wait" };
+  return { action: "exit", reason: input.terminalReason };
 }
 function parseTerminalReason(value) {
   if (value === "unknown_turn" || value === "closed" || value === "superseded" || value === "timeout" || value === "cancelled") {
@@ -760,7 +765,7 @@ function noteHeartbeatResponse(response) {
   if (lease.status !== "terminal") return false;
   terminalReason = parseTerminalReason(lease.reason) ?? "closed";
   log(
-    "turn lease terminal (" + terminalReason + ") turnId=" + String(currentTurnLease?.turnId)
+    "turn lease terminal (" + terminalReason + ") turnId=" + String(getCurrentTurnLease()?.turnId)
   );
   return true;
 }
@@ -2710,7 +2715,7 @@ async function captureClaudeUsage(readUsage) {
         "usage limits: claude plan usage unavailable \\u2014 preserving prior reading"
       );
       if (!callbackState.usageLimitSnapshot) {
-        callbackState.usageLimitSnapshot = { completeness: "partial" };
+        callbackState.usageLimitSnapshot = { completeness: "refused" };
       }
       return;
     }
@@ -2747,7 +2752,10 @@ function buildUsageLimitReportArgs(repoId, provider, providerAccountId, snapshot
   return {
     repoId,
     provider,
-    snapshotComplete: snapshot.completeness === "complete",
+    // Stored on the row so the UI can say why a reading has no windows. The
+    // server also reads it for merge-vs-replace, and still accepts the older
+    // \`snapshotComplete\` boolean from callback bundles baked before this.
+    completeness: snapshot.completeness,
     ...providerAccountId ? { providerAccountId } : {},
     ...snapshot.subscriptionType === void 0 ? {} : { subscriptionType: snapshot.subscriptionType },
     ...snapshot.status === void 0 ? {} : { status: snapshot.status },
@@ -4199,7 +4207,7 @@ var flushRequested = false;
 function ownsHeartbeatLease() {
   return canSendTurnHeartbeat({
     claimMutation: CLAIM_MUTATION,
-    turnLease: getCurrentTurnLease()
+    ownership: getTurnOwnership()
   });
 }
 function buildStreamingPayload() {
@@ -4404,11 +4412,14 @@ async function stopStreamingLoops() {
 var LEASE_EXIT_GRACE_MS = 500;
 var leaseExitScheduled = false;
 function enforceTurnLease() {
-  const reason = getLeaseTerminalReason();
-  if (reason === null) return false;
-  if (leaseExitScheduled) return true;
+  const decision = decideTurnLeaseExit({
+    terminalReason: getLeaseTerminalReason(),
+    exitScheduled: leaseExitScheduled
+  });
+  if (decision.action === "continue") return false;
+  if (decision.action === "wait") return true;
   leaseExitScheduled = true;
-  log("exiting: turn lease terminal (" + reason + ")");
+  log("exiting: turn lease terminal (" + decision.reason + ")");
   if (flushInterval) clearInterval(flushInterval);
   if (heartbeatInterval) clearInterval(heartbeatInterval);
   callbackState.streamingLoopsStopped = true;
@@ -4943,6 +4954,30 @@ function git(args, timeoutMs = GIT_STEP_TIMEOUT_MS) {
   const out = ((result.stdout || "") + (result.stderr || "")).trim();
   return { ok: result.status === 0, out };
 }
+var REWRITE_REMOTE_ONLY_FILE_THRESHOLD = 20;
+function parseGitNameOnlyList(output) {
+  const names = [];
+  for (const line of output.split("\\n")) {
+    const name = line.trim();
+    if (name.length > 0) names.push(name);
+  }
+  return names;
+}
+function remoteOnlyChangedFileCount(localChangedFiles, remoteChangedFiles) {
+  const local = new Set(localChangedFiles);
+  let count = 0;
+  for (const file of remoteChangedFiles) {
+    if (!local.has(file)) count += 1;
+  }
+  return count;
+}
+function divergedPublishLooksLikeRewrite(localChangedFiles, remoteChangedFiles) {
+  const remoteOnly = remoteOnlyChangedFileCount(
+    localChangedFiles,
+    remoteChangedFiles
+  );
+  return remoteOnly > REWRITE_REMOTE_ONLY_FILE_THRESHOLD && remoteOnly > localChangedFiles.length;
+}
 function isMissingRemoteRef(message) {
   const lower = message.toLowerCase();
   return lower.includes("couldn't find remote ref") || lower.includes("could not find remote ref");
@@ -4996,6 +5031,22 @@ function synchronizeForPush(branch) {
     return { status: "failed" };
   }
   if (/^[1-9]\\d*\\s+[1-9]\\d*\$/.test(divergence.out)) {
+    const localRef = \`refs/heads/\${branch}\`;
+    const mergeBase = git(["merge-base", remoteRef, localRef]);
+    if (mergeBase.ok) {
+      const localChanged = parseGitNameOnlyList(
+        git(["diff", "--name-only", mergeBase.out, localRef]).out
+      );
+      const remoteChanged = parseGitNameOnlyList(
+        git(["diff", "--name-only", mergeBase.out, remoteRef]).out
+      );
+      if (divergedPublishLooksLikeRewrite(localChanged, remoteChanged)) {
+        log(
+          \`persistTurnWork: skipped merge \\u2014 rewritten local branch vs origin/\${branch}\`
+        );
+        return { status: "failed" };
+      }
+    }
     const merge = git(["merge", "--no-edit", remoteRef], PUSH_TIMEOUT_MS);
     if (merge.ok) {
       return { status: "ready", remoteExists: true };
@@ -5217,7 +5268,6 @@ function readTurnLeaseIdentity(result) {
 }
 
 // callback-src/providers/claimedTurnLifecycle.ts
-var activeClaimState = { status: "idle" };
 function claimPayload2(result) {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
     return null;
@@ -5258,26 +5308,27 @@ function readClaimedTurn(result) {
   };
 }
 function startClaimedTurn(turn) {
-  if (activeClaimState.status === "active") {
+  if (claimedTurnLifecycleStatus() === "active") {
     throw new Error("Cannot start a claimed turn while another claim is active");
   }
-  activeClaimState = turn.lifecycle === "durable" ? { status: "active", lifecycle: "durable", turnLease: turn.turnLease } : { status: "active", lifecycle: "legacy" };
-  setLegacyTurnHeartbeatActive(turn.lifecycle === "legacy");
-  setCurrentTurnLease(turn.turnLease);
+  beginTurnOwnership("claim", turn.turnLease);
 }
 function appendClaimedTurnCompletion(args) {
-  if (activeClaimState.status !== "active") {
+  const ownership = getTurnOwnership();
+  if (ownership.status !== "owned" || ownership.owner !== "claim") {
     throw new Error("Cannot complete a claimed turn before it starts");
   }
-  if (activeClaimState.lifecycle === "durable") {
-    args.turnId = activeClaimState.turnLease.turnId;
-    args.leaseGeneration = activeClaimState.turnLease.leaseGeneration;
+  if (ownership.turnLease !== null) {
+    args.turnId = ownership.turnLease.turnId;
+    args.leaseGeneration = ownership.turnLease.leaseGeneration;
   }
 }
 function finishClaimedTurn() {
-  activeClaimState = { status: "idle" };
-  setLegacyTurnHeartbeatActive(false);
-  setCurrentTurnLease(null);
+  endTurnOwnership();
+}
+function claimedTurnLifecycleStatus() {
+  const ownership = getTurnOwnership();
+  return ownership.status === "owned" && ownership.owner === "claim" ? "active" : "idle";
 }
 function shouldParkClaimedTurn(input) {
   if (!input.hasActiveRealTurn || input.isCancellationInFlight) return true;
@@ -5876,15 +5927,14 @@ async function failSyntheticTurn(error) {
         result: null,
         error,
         activityLog: serializeSteps(callbackState.accumulatedSteps),
-        ...turnLease ?? {}
+        ...turnLease
       })
     );
   } catch {
   }
   endWatchedTurn();
   resetTurnState();
-  setLegacyTurnHeartbeatActive(false);
-  setCurrentTurnLease(null);
+  endTurnOwnership();
   supervisor.settleTurn();
   agentTurnOutput = "";
 }
@@ -5905,13 +5955,10 @@ async function ensureSyntheticTurn() {
       return;
     }
     resetTurnState();
-    const syntheticTurnLease = readTurnLeaseIdentity(result);
-    setLegacyTurnHeartbeatActive(syntheticTurnLease === null);
-    setCurrentTurnLease(syntheticTurnLease);
+    beginTurnOwnership("provider", readTurnLeaseIdentity(result));
     if (!supervisor.startTurn({ kind: "synthetic", messageId })) {
       log("daemon: synthetic turn opened after lifecycle moved; ignoring");
-      setLegacyTurnHeartbeatActive(false);
-      setCurrentTurnLease(null);
+      endTurnOwnership();
       return;
     }
     agentTurnStartedAt = Date.now();
@@ -5962,8 +6009,7 @@ async function finalizeSyntheticTurn(output) {
   syncClaudeStateToPersist("daemon-synthetic-turn");
   endWatchedTurn();
   resetTurnState();
-  setLegacyTurnHeartbeatActive(false);
-  setCurrentTurnLease(null);
+  endTurnOwnership();
   supervisor.settleTurn();
   agentTurnOutput = "";
   log("daemon: synthetic turn finalized success=" + success);
@@ -6360,7 +6406,7 @@ async function runSdkDaemon() {
         result: null,
         error: "Agent SDK daemon failed: " + messageText,
         activityLog: serializeSteps(callbackState.accumulatedSteps),
-        ...getCurrentTurnLease() ?? {}
+        ...getCurrentTurnLease()
       });
     } catch {
     }
@@ -7851,8 +7897,19 @@ function startClaimWatcher2() {
         if (turn !== null) {
           await materializeTurnAttachments(turn);
           lastIdleActivityAtMs2 = Date.now();
-          if (!turnActive2 || cancelInFlight) {
-            pendingClaimedTurn = turn;
+          const currentLease = getCurrentTurnLease();
+          if (shouldParkClaimedTurn({
+            hasActiveRealTurn: turnActive2,
+            isCancellationInFlight: cancelInFlight,
+            isFinalizing: false,
+            currentLeaseTurnId: currentLease?.turnId ?? null,
+            claimedLeaseTurnId: turn.turnLease?.turnId ?? null
+          })) {
+            if (pendingClaimedTurn === null) {
+              pendingClaimedTurn = turn;
+            } else {
+              log("cursor daemon: duplicate claimed turn ignored");
+            }
           } else {
             log(
               "cursor daemon: claim discarded while real turn active (prompt lost; pendingTurn was already cleared)"
@@ -9715,7 +9772,7 @@ try {
   persistTurnWork();
   try {
     await deliverCompletionWithMedia(completionArgs);
-    setCurrentTurnLease(null);
+    endTurnOwnership();
     syncProviderStateToPersist("completion");
     await stopStreamingLoops();
     await waitForPendingClaudeUsageReport();

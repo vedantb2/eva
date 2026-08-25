@@ -37,6 +37,7 @@ import {
 import { callbackState as S } from "../runtime/state.js";
 import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
+import { getCurrentTurnLease } from "../runtime/turnLease.js";
 import {
   prepareCursorSessionState,
   syncCursorStateToPersist,
@@ -48,6 +49,7 @@ import {
   appendClaimedTurnCompletion,
   finishClaimedTurn,
   readClaimedTurn,
+  shouldParkClaimedTurn,
   startClaimedTurn,
   type ClaimedTurn,
 } from "./claimedTurnLifecycle.js";
@@ -540,11 +542,25 @@ function startClaimWatcher(): void {
           await materializeTurnAttachments(turn);
           lastIdleActivityAtMs = Date.now();
           // claimPendingTurn already cleared the staged turn atomically, so any
-          // branch that neither parks nor starts it loses that prompt. A cancel
-          // can dequeue the next prompt in the same mutation, so park it and let
-          // the run loop pick it up once the cancelled run settles.
-          if (!turnActive || cancelInFlight) {
-            pendingClaimedTurn = turn;
+          // branch that neither parks nor starts it loses that prompt. The one
+          // safe discard is a same-turn restage of the prompt already running;
+          // everything else (cancel drains, follow-up sends) parks through the
+          // shared guard the claude and codex daemons use.
+          const currentLease = getCurrentTurnLease();
+          if (
+            shouldParkClaimedTurn({
+              hasActiveRealTurn: turnActive,
+              isCancellationInFlight: cancelInFlight,
+              isFinalizing: false,
+              currentLeaseTurnId: currentLease?.turnId ?? null,
+              claimedLeaseTurnId: turn.turnLease?.turnId ?? null,
+            })
+          ) {
+            if (pendingClaimedTurn === null) {
+              pendingClaimedTurn = turn;
+            } else {
+              log("cursor daemon: duplicate claimed turn ignored");
+            }
           } else {
             log(
               "cursor daemon: claim discarded while real turn active (prompt lost; pendingTurn was already cleared)",

@@ -23,11 +23,24 @@ describe("hasPlanRateLimits", () => {
     expect(hasPlanRateLimits(parse({}))).toBe(false);
   });
 
-  test("any one window key, or a limits array, counts as a report", () => {
+  test("a populated window counts; an empty limits array does not", () => {
     expect(hasPlanRateLimits(parse({ five_hour: { utilization: 0 } }))).toBe(
       true,
     );
-    expect(hasPlanRateLimits(parse({ limits: [] }))).toBe(true);
+    expect(hasPlanRateLimits(parse({ limits: [] }))).toBe(false);
+    expect(
+      hasPlanRateLimits(
+        parse({
+          limits: [
+            {
+              kind: "weekly_scoped",
+              percent: 10,
+              scope: { model: { display_name: "Opus" } },
+            },
+          ],
+        }),
+      ),
+    ).toBe(true);
   });
 });
 

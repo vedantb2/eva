@@ -16,7 +16,6 @@ import {
   RESUME_READY_TIMEOUT_SECONDS,
   bootstrapVercelDocker,
   ensureSandboxRunning,
-  isSandboxUnresumableMessage,
   sleep,
   withTimeout,
   workspaceDirShell,
@@ -25,7 +24,14 @@ import {
   detectPackageManager,
   installPythonDependenciesBestEffort,
 } from "./devServer";
+import { isSandboxGoneError } from "./sandboxErrors";
+import { writeSandboxFile } from "./sandboxFiles";
 import { ensureGitCredentialHelper } from "./gitCredentials";
+import {
+  divergedPublishLooksLikeRewrite,
+  parseGitNameOnlyList,
+  remoteOnlyChangedFileCount,
+} from "./divergedPublish";
 import { ensureSwapFile } from "./swap";
 import {
   EVA_ENV_FILE,
@@ -375,7 +381,8 @@ export async function createSandbox(
       }
       const token = await tokenPromise;
       await runLoggedGitStep("createSandbox.writeEvaEnv", sandbox.id, () =>
-        sandbox.writeFile(
+        writeSandboxFile(
+          sandbox,
           EVA_ENV_FILE,
           renderEvaEnvFile({
             VNC_RESOLUTION: "1920x1080",
@@ -1063,6 +1070,11 @@ export async function setupBranch(
  * conflicting on the base branch's own Mantine 9.3 bump — so a clean sandbox
  * merge could never publish, and every retry failed identically. A merge
  * conflicts only where the two tips genuinely touch the same lines.
+ *
+ * Skip that merge when the unique remote tree looks like a rewritten base
+ * (task 231, 25 Aug 2026): rebasing onto main left one local file against
+ * 1,272 remote-only staging commits, and merging the old tip back in
+ * conflicted inside publish while the sandbox stayed clean.
  */
 async function synchronizeBranchForPublish(
   sandbox: SandboxHandle,
@@ -1155,11 +1167,62 @@ async function synchronizeBranchForPublish(
     return { remoteExists: true };
   }
   if (/^[1-9]\d*\s+[1-9]\d*$/.test(divergence)) {
-    await execGitCommand(
-      sandbox,
-      `cd ${workspaceDir} && if ! git merge --no-edit ${quotedRemoteRef}; then git merge --abort; exit 1; fi`,
-      120,
+    const mergeBase = (
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git merge-base ${quotedRemoteRef} ${quotedLocalRef}`,
+        15,
+      )
+    ).trim();
+    const quotedMergeBase = quote([mergeBase]);
+    const localChanged = parseGitNameOnlyList(
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git diff --name-only ${quotedMergeBase} ${quotedLocalRef}`,
+        30,
+      ),
     );
+    const remoteChanged = parseGitNameOnlyList(
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git diff --name-only ${quotedMergeBase} ${quotedRemoteRef}`,
+        30,
+      ),
+    );
+    if (divergedPublishLooksLikeRewrite(localChanged, remoteChanged)) {
+      const remoteOnly = remoteOnlyChangedFileCount(
+        localChanged,
+        remoteChanged,
+      );
+      throw new Error(
+        `Refusing to merge origin/${branchName} into a rewritten local branch (${remoteOnly} remote-only files vs ${localChanged.length} local). Local work is intact and GitHub still has the old history. Updating the PR needs a force-push, and a base-branch retarget if you rebased onto a new base.`,
+      );
+    }
+    try {
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git merge --no-edit ${quotedRemoteRef}`,
+        120,
+      );
+    } catch (error) {
+      logGit(
+        `synchronizeBranchForPublish: merge origin/${branchName} failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      try {
+        await execGitCommand(
+          sandbox,
+          `cd ${workspaceDir} && git merge --abort`,
+          30,
+        );
+      } catch (abortError) {
+        logGit(
+          `synchronizeBranchForPublish: merge --abort failed: ${abortError instanceof Error ? abortError.message : String(abortError)}`,
+        );
+      }
+      throw new Error(
+        `Could not merge origin/${branchName} into the local branch. The sandbox was left clean — there are no conflict markers to resolve. If you rewrote history, force-push; if both sides committed, merge the remote branch in the sandbox and retry.`,
+      );
+    }
     return { remoteExists: true };
   }
   throw new Error(
@@ -1498,18 +1561,19 @@ export async function getOrCreateSandbox(
 }
 
 /**
- * Heuristic: does this error mean the sandbox is genuinely gone
- * (deleted, archived, expired) — i.e. safe to fall through to creating a new one?
+ * Does this error mean the sandbox is genuinely gone (deleted, archived,
+ * expired) — i.e. safe to fall through to creating a new one?
  *
- * We deliberately stay narrow. The previous implementation swallowed every
- * error and silently created a new sandbox, which orphaned the old one in
+ * Takes the error object, not its message: classification reads the provider's
+ * structured signals (HTTP status, error type) and only falls back to text for
+ * a tagged provider error. See `sandboxErrors.ts`. An earlier version swallowed
+ * every error and silently created a new sandbox, which orphaned the old one in
  * common races (e.g. user clicking Start while a stop is mid-flight — the
  * sandbox is in a transitional state, `start()` rejects, and we'd happily
  * burn a fresh sandbox + lose the old one's dev server / terminal state).
  */
-function isSandboxMissingError(err: Error | string): boolean {
-  const msg = err instanceof Error ? err.message : err;
-  return isSandboxUnresumableMessage(msg);
+function isSandboxMissingError(err: unknown): boolean {
+  return isSandboxGoneError(err);
 }
 
 /**
@@ -1541,11 +1605,7 @@ async function tryResumeSandbox(
       try {
         await sandbox.refresh();
       } catch (refreshErr) {
-        if (
-          isSandboxMissingError(
-            refreshErr instanceof Error ? refreshErr : String(refreshErr),
-          )
-        ) {
+        if (isSandboxMissingError(refreshErr)) {
           logGit(
             `getOrCreateSandbox: resume refresh says gone — will create new one (${refreshErr instanceof Error ? refreshErr.message : String(refreshErr)})`,
           );
@@ -1578,7 +1638,7 @@ async function tryResumeSandbox(
       }
       return sandbox;
     } catch (err) {
-      if (isSandboxMissingError(err instanceof Error ? err : String(err))) {
+      if (isSandboxMissingError(err)) {
         logGit(
           `getOrCreateSandbox: resume failed because sandbox is gone — will create new one (${err instanceof Error ? err.message : String(err)})`,
         );

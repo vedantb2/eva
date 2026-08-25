@@ -36,8 +36,7 @@ import {
 } from "./mentionPopupPosition";
 import { cn } from "@eva/ui";
 import { UserProfileHoverCardBody } from "@eva/shared";
-import type { Id } from "@eva/backend";
-import type { AIProvider } from "@eva/backend";
+import type { AIProvider, Id } from "@eva/backend";
 
 // The inline AI suggestion renders as an `::after` pseudo-element fed by
 // `data-suggestion`, mirroring how the placeholder uses `::before`. A pseudo-

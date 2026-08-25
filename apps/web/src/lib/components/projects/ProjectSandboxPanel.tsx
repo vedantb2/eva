@@ -20,6 +20,7 @@ import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
+import { SandboxPanelFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
 import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 import { SimpleViewSandboxRedirect } from "@/lib/components/sandbox/SimpleViewSandboxRedirect";
@@ -40,6 +41,8 @@ interface ProjectSandboxPanelProps {
   sandboxTab: TaskRouteSandboxTab;
   onStartSandbox?: () => void;
   isSandboxStarting?: boolean;
+  collapsed?: boolean;
+  onToggle?: () => void;
 }
 
 export function ProjectSandboxPanel({
@@ -57,6 +60,8 @@ export function ProjectSandboxPanel({
   sandboxTab,
   onStartSandbox,
   isSandboxStarting,
+  collapsed = false,
+  onToggle,
 }: ProjectSandboxPanelProps) {
   const simpleView = useSimpleView();
   const navigate = useNavigate();
@@ -129,7 +134,7 @@ export function ProjectSandboxPanel({
   const { owner: ownerParam, repo: repoParam } = useParams({ strict: false });
 
   return (
-    <div className="h-full flex flex-col">
+    <>
       {projectPathSegment &&
       typeof ownerParam === "string" &&
       typeof repoParam === "string" ? (
@@ -143,69 +148,77 @@ export function ProjectSandboxPanel({
           }}
         />
       ) : null}
-      <SandboxTabBar
-        activeTab={activeTab}
-        onTabChange={handleTabChange}
-        onNewPreview={() => {
-          panes.handleNewPreview();
-          navigateToSandboxTab("preview");
-        }}
-        newPreviewDisabled={panes.newPreviewDisabled}
-        enabledTabs={enabledTabs}
-        showFilesTab
-        agentBrowsingAt={viewState?.agentBrowsingAt}
-        computerTabOpen={computerTabOpen}
-        computerRunning={computerRunning}
-        onOpenComputer={openComputer}
-        onCloseComputer={closeComputer}
-        editorTabOpen={editorTabOpen}
-        onOpenEditor={openEditor}
-        onCloseEditor={closeEditor}
-        fileList={fileList}
-        consoleDock={panes.consoleDock}
-        terminalPanel={terminalPanel}
-      />
-      <div className="flex-1 overflow-hidden bg-card">
-        <div className={!simpleView && activeTab === "files" ? "h-full min-h-0" : "hidden"}>
-          <FilesPanel
-            sandboxId={sandboxId}
-            repoId={repoId}
-            isActive={isActive}
+      <SandboxPanelFrame
+        collapsed={collapsed}
+        tabBar={
+          <SandboxTabBar
+            activeTab={activeTab}
+            onTabChange={handleTabChange}
+            collapsed={collapsed}
+            onToggle={onToggle}
+            onNewPreview={() => {
+              panes.handleNewPreview();
+              navigateToSandboxTab("preview");
+            }}
+            newPreviewDisabled={panes.newPreviewDisabled}
+            enabledTabs={enabledTabs}
+            showFilesTab
+            agentBrowsingAt={viewState?.agentBrowsingAt}
+            computerTabOpen={computerTabOpen}
+            computerRunning={computerRunning}
+            onOpenComputer={openComputer}
+            onCloseComputer={closeComputer}
+            editorTabOpen={editorTabOpen}
+            onOpenEditor={openEditor}
+            onCloseEditor={closeEditor}
             fileList={fileList}
+            consoleDock={panes.consoleDock}
+            terminalPanel={terminalPanel}
+          />
+        }
+      >
+        <div className="h-full overflow-hidden">
+          <div className={!simpleView && activeTab === "files" ? "h-full min-h-0" : "hidden"}>
+            <FilesPanel
+              sandboxId={sandboxId}
+              repoId={repoId}
+              isActive={isActive}
+              fileList={fileList}
+            />
+          </div>
+          <SandboxPaneSlots
+            activeTab={activeTab}
+            panes={panes}
+            preview={preview}
+            owner={owner}
+            sandboxId={sandboxId}
+            isActive={isActive}
+            repoId={repoId}
+            cacheKey={projectIdStr}
+            devCommand={devCommand}
+            prUrl={prUrl}
+            agentBrowsingAt={viewState?.agentBrowsingAt}
+            onReleaseBrowserLock={() => void releaseBrowserLock({ owner })}
+            // Backend starts the app in the Console tmux session after startup.
+            runConsoleDevCommandOnConnect={false}
+            onComputerRunningChange={setComputerRunning}
+            onStartSandbox={onStartSandbox}
+            isSandboxStarting={isSandboxStarting}
+            stickyPreviewPath={viewState?.previewPath}
+            onStickyPreviewPathChange={(path) => {
+              void setPreviewPath({ owner, path });
+            }}
+            stickyTerminalHistoryTail={
+              viewState === undefined
+                ? undefined
+                : (viewState?.terminalHistoryTail ?? "")
+            }
+            onStickyTerminalHistoryTailChange={(tail) => {
+              void setTerminalHistoryTail({ owner, tail });
+            }}
           />
         </div>
-        <SandboxPaneSlots
-          activeTab={activeTab}
-          panes={panes}
-          preview={preview}
-          owner={owner}
-          sandboxId={sandboxId}
-          isActive={isActive}
-          repoId={repoId}
-          cacheKey={projectIdStr}
-          devCommand={devCommand}
-          prUrl={prUrl}
-          agentBrowsingAt={viewState?.agentBrowsingAt}
-          onReleaseBrowserLock={() => void releaseBrowserLock({ owner })}
-          // Backend starts the app in the Console tmux session after startup.
-          runConsoleDevCommandOnConnect={false}
-          onComputerRunningChange={setComputerRunning}
-          onStartSandbox={onStartSandbox}
-          isSandboxStarting={isSandboxStarting}
-          stickyPreviewPath={viewState?.previewPath}
-          onStickyPreviewPathChange={(path) => {
-            void setPreviewPath({ owner, path });
-          }}
-          stickyTerminalHistoryTail={
-            viewState === undefined
-              ? undefined
-              : (viewState?.terminalHistoryTail ?? "")
-          }
-          onStickyTerminalHistoryTailChange={(tail) => {
-            void setTerminalHistoryTail({ owner, tail });
-          }}
-        />
-      </div>
-    </div>
+      </SandboxPanelFrame>
+    </>
   );
 }

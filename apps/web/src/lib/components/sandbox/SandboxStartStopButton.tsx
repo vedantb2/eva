@@ -7,7 +7,6 @@ import {
   UsageLimitsIndicator,
   type UsageAccountScope,
 } from "@/lib/components/usage-limits";
-import { SandboxPanelToggleButton } from "./SandboxPanelToggleButton";
 import { SleepControlTooltip } from "./SleepEvaButton";
 
 /**
@@ -65,17 +64,16 @@ export function SandboxStartStopButton({
 }
 
 /**
- * Plan usage, start/stop, and panel toggle for project and task sandbox chat
- * headers — the sandbox-surface counterpart of the session chat header, which
- * carries the same trio itself (so nothing is duplicated there).
+ * Plan usage and start/stop for project and task sandbox chat headers — the
+ * sandbox-surface counterpart of the session chat header, which carries the
+ * same pair itself (so nothing is duplicated there). Collapse lives on the
+ * sandbox rail.
  */
 export function SandboxChatHeaderActions({
   repoId,
   isSandboxActive,
   isSandboxToggling,
   onSandboxToggle,
-  sandboxCollapsed,
-  onToggleSandbox,
   isAssistantResponding = false,
   usageAccountScope,
 }: {
@@ -83,30 +81,20 @@ export function SandboxChatHeaderActions({
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
   onSandboxToggle?: (action: "start" | "stop") => void;
-  sandboxCollapsed?: boolean;
-  onToggleSandbox?: () => void;
   isAssistantResponding?: boolean;
   usageAccountScope?: UsageAccountScope;
 }) {
-  if (!onSandboxToggle && !onToggleSandbox) return null;
+  if (!onSandboxToggle) return null;
 
   return (
     <div className="flex shrink-0 items-center justify-end gap-1 px-2 py-1">
       <UsageLimitsIndicator repoId={repoId} accountScope={usageAccountScope} />
-      {onSandboxToggle ? (
-        <SandboxStartStopButton
-          isActive={isSandboxActive}
-          isToggling={isSandboxToggling}
-          onToggle={onSandboxToggle}
-          isAssistantResponding={isAssistantResponding}
-        />
-      ) : null}
-      {onToggleSandbox ? (
-        <SandboxPanelToggleButton
-          collapsed={sandboxCollapsed === true}
-          onToggle={onToggleSandbox}
-        />
-      ) : null}
+      <SandboxStartStopButton
+        isActive={isSandboxActive}
+        isToggling={isSandboxToggling}
+        onToggle={onSandboxToggle}
+        isAssistantResponding={isAssistantResponding}
+      />
     </div>
   );
 }

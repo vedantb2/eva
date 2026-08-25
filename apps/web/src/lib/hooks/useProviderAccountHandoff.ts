@@ -26,12 +26,17 @@ export function useProviderAccountHandoff(args: {
   ) => {
     void (async () => {
       setIsSwitchingAccount(true);
+      // Cleanup is duplicated into the `catch` and after the `try` rather than
+      // written once in a `finally`: React Compiler cannot compile a `finally`
+      // at all and would bail the whole file out of memoization.
       try {
         await args.persist(providerAccountId);
         await args.prewarm();
-      } finally {
+      } catch (error) {
         setIsSwitchingAccount(false);
+        throw error;
       }
+      setIsSwitchingAccount(false);
     })();
   };
 

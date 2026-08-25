@@ -187,6 +187,7 @@ export const refresh = authAction({
       ...accountArg,
       capturedAt: Date.now(),
       snapshotComplete: true,
+      completeness: "complete",
       windows,
       ...(subscriptionType === undefined ? {} : { subscriptionType }),
     });

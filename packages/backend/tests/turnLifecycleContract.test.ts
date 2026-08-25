@@ -57,16 +57,6 @@ test("queued workflow start failures invoke durable rollback before surfacing", 
   expect(throwAt).toBeGreaterThan(rollbackAt);
 });
 
-test("claiming increments the fenced lease generation", () => {
-  const store = source("../convex/_chat/turnStore.ts");
-  expect(store).toContain(
-    "const leaseGeneration = turn.leaseGeneration + 1;",
-  );
-  expect(store).toContain(
-    "turn.leaseGeneration !== params.leaseGeneration",
-  );
-});
-
 test("the heartbeat fences stale writers before changing streaming state", () => {
   const http = source("../convex/http.ts");
   const turns = source("../convex/turns.ts");
@@ -87,12 +77,6 @@ test("the heartbeat fences stale writers before changing streaming state", () =>
   expect(bundle).toContain("turns:heartbeatFromCallback");
   expect(bundle).not.toContain('"streaming:touch"');
   expect(bundle).not.toContain('"streaming:set"');
-});
-
-test("lease renewal skips no-op writes while the lease is still fresh", () => {
-  const store = source("../convex/_chat/turnStore.ts");
-  expect(store).toContain("shouldWriteTurnLeaseRenewal");
-  expect(store).toContain("leaseExpiresAt: turn.leaseExpiresAt");
 });
 
 test("completion resolves the lease fence before publishing its event", () => {
@@ -129,17 +113,44 @@ test("every warm daemon uses the shared claimed-turn lifecycle", () => {
     "../callback-src/providers/claimedTurnLifecycle.ts",
   );
   expect(lifecycle).toContain("readTurnLeaseIdentity(result)");
-  expect(lifecycle).toContain("setCurrentTurnLease(turn.turnLease)");
+  expect(lifecycle).toContain('beginTurnOwnership("claim", turn.turnLease)');
 });
 
-test("cold daemons cannot heartbeat before claiming a durable turn", () => {
+/**
+ * The gate itself is behaviour-tested in callback-src/tests (the
+ * canSendTurnHeartbeat truth table). What source cannot express behaviourally
+ * is the wiring: every path that writes streaming state has to run through it,
+ * and one unguarded emitter is the whole regression.
+ */
+test("every heartbeat emitter is gated on claimed turn ownership", () => {
   const heartbeats = source("../callback-src/runtime/heartbeats.ts");
-  const lease = source("../callback-src/runtime/turnLease.ts");
-  expect(heartbeats).toContain("if (!ownsHeartbeatLease())");
+  for (const emitter of [
+    "export async function sendStreamingHeartbeatUpdate",
+    "async function flushStreamingPass",
+    "async function heartbeatPing",
+    "async function initialHeartbeat",
+  ]) {
+    const startAt = heartbeats.indexOf(emitter);
+    expect(startAt, emitter + " moved or was renamed").toBeGreaterThan(-1);
+    const guardAt = heartbeats.indexOf("if (!ownsHeartbeatLease())", startAt);
+    const bodyEndAt = heartbeats.indexOf("\n}", startAt);
+    expect(guardAt, emitter + " lost its ownership guard").toBeGreaterThan(-1);
+    expect(guardAt).toBeLessThan(bodyEndAt);
+  }
   expect(heartbeats).toContain(
-    'initialHeartbeat skipped: daemon is waiting to claim a turn',
+    "ownership: getTurnOwnership()",
   );
-  expect(lease).toContain(
-    "return claimMutation === undefined || turnLease !== null;",
+});
+
+test("one ownership state answers both the lease and the heartbeat gate", () => {
+  const lease = source("../callback-src/runtime/turnLease.ts");
+  // Three module globals used to describe this one fact and drifted apart.
+  expect(lease.match(/^let \w+/gm)).toEqual([
+    "let turnOwnership",
+    "let terminalReason",
+  ]);
+  const lifecycle = source(
+    "../callback-src/providers/claimedTurnLifecycle.ts",
   );
+  expect(lifecycle).not.toContain("let activeClaimState");
 });

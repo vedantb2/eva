@@ -279,20 +279,47 @@ export function newestCapturedAt(
   );
 }
 
+/** The freshest reading for the account, or none within the freshness window. */
+function freshestReading(
+  rows: readonly UsageSnapshot[],
+  now: number,
+): UsageSnapshot | undefined {
+  let freshest: UsageSnapshot | undefined;
+  for (const row of rows) {
+    if (now - row.capturedAt > USAGE_READING_MAX_AGE_MS) continue;
+    if (freshest === undefined || row.capturedAt > freshest.capturedAt) {
+      freshest = row;
+    }
+  }
+  return freshest;
+}
+
 /**
- * Hover copy when the selected account has nothing to draw. A fresh row with
- * no windows means we asked and Claude has no plan rate limits to show
- * (Team/Enterprise spend caps live on claude.ai). No row at all still means
- * no turn has reported for this credential yet.
+ * Hover copy when the selected account has nothing to draw. Which of the
+ * several "nothing to draw" states we are in is reported by the row, not
+ * inferred here: a windowless reading used to be read off its timestamp, which
+ * could not tell "Claude has no plan windows" from "Claude declined to say".
+ *
+ * `completeness` is absent on rows written before the discriminant, and on a
+ * reading whose windows have all since reset.
  */
 export function emptyAccountUsageCopy(
   rows: readonly UsageSnapshot[],
   now: number,
 ): string {
-  const hasFreshReading = rows.some(
-    (row) => now - row.capturedAt <= USAGE_READING_MAX_AGE_MS,
-  );
-  return hasFreshReading
-    ? "Claude isn't reporting plan rate limits for this account."
-    : "No plan usage has been reported for this account yet.";
+  const freshest = freshestReading(rows, now);
+  if (!freshest) return "No plan usage has been reported for this account yet.";
+  switch (freshest.completeness) {
+    case "complete":
+      // We asked, Claude answered in full, and there were no plan windows in it
+      // (Team/Enterprise spend caps live on claude.ai).
+      return "Claude isn't reporting plan rate limits for this account.";
+    case "refused":
+      return "Claude declined to report plan rate limits for this account.";
+    case "partial":
+    default:
+      // Something was observed in passing, or the row predates the
+      // discriminant — either way we never had the full picture.
+      return "Plan usage for this account hasn't been fully reported yet.";
+  }
 }

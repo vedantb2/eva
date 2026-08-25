@@ -110,6 +110,7 @@ import type * as _migrations_removeSnapshotWarmupFields from "../_migrations/rem
 import type * as _migrations_repoSkills from "../_migrations/repoSkills.js";
 import type * as _prRecapWorkflow_finalizeOutcome from "../_prRecapWorkflow/finalizeOutcome.js";
 import type * as _prRecapWorkflow_prompts from "../_prRecapWorkflow/prompts.js";
+import type * as _prRecapWorkflow_recapState from "../_prRecapWorkflow/recapState.js";
 import type * as _prRecapWorkflow_staleDoc from "../_prRecapWorkflow/staleDoc.js";
 import type * as _prRecapWorkflow_start from "../_prRecapWorkflow/start.js";
 import type * as _projects_chatPrompt from "../_projects/chatPrompt.js";
@@ -154,6 +155,7 @@ import type * as _sandbox_runtime_daemonEntitySnapshot from "../_sandbox_runtime
 import type * as _sandbox_runtime_daemonPaths from "../_sandbox_runtime/daemonPaths.js";
 import type * as _sandbox_runtime_desktop from "../_sandbox_runtime/desktop.js";
 import type * as _sandbox_runtime_devServer from "../_sandbox_runtime/devServer.js";
+import type * as _sandbox_runtime_divergedPublish from "../_sandbox_runtime/divergedPublish.js";
 import type * as _sandbox_runtime_execution from "../_sandbox_runtime/execution.js";
 import type * as _sandbox_runtime_git from "../_sandbox_runtime/git.js";
 import type * as _sandbox_runtime_gitCredentials from "../_sandbox_runtime/gitCredentials.js";
@@ -165,6 +167,8 @@ import type * as _sandbox_runtime_previewProxy from "../_sandbox_runtime/preview
 import type * as _sandbox_runtime_previewRecovery from "../_sandbox_runtime/previewRecovery.js";
 import type * as _sandbox_runtime_resumeSandboxSteps from "../_sandbox_runtime/resumeSandboxSteps.js";
 import type * as _sandbox_runtime_runDevServer from "../_sandbox_runtime/runDevServer.js";
+import type * as _sandbox_runtime_sandboxErrors from "../_sandbox_runtime/sandboxErrors.js";
+import type * as _sandbox_runtime_sandboxFiles from "../_sandbox_runtime/sandboxFiles.js";
 import type * as _sandbox_runtime_services from "../_sandbox_runtime/services.js";
 import type * as _sandbox_runtime_sessions from "../_sandbox_runtime/sessions.js";
 import type * as _sandbox_runtime_snapshotStates from "../_sandbox_runtime/snapshotStates.js";
@@ -469,6 +473,7 @@ declare const fullApi: ApiFromModules<{
   "_migrations/repoSkills": typeof _migrations_repoSkills;
   "_prRecapWorkflow/finalizeOutcome": typeof _prRecapWorkflow_finalizeOutcome;
   "_prRecapWorkflow/prompts": typeof _prRecapWorkflow_prompts;
+  "_prRecapWorkflow/recapState": typeof _prRecapWorkflow_recapState;
   "_prRecapWorkflow/staleDoc": typeof _prRecapWorkflow_staleDoc;
   "_prRecapWorkflow/start": typeof _prRecapWorkflow_start;
   "_projects/chatPrompt": typeof _projects_chatPrompt;
@@ -513,6 +518,7 @@ declare const fullApi: ApiFromModules<{
   "_sandbox_runtime/daemonPaths": typeof _sandbox_runtime_daemonPaths;
   "_sandbox_runtime/desktop": typeof _sandbox_runtime_desktop;
   "_sandbox_runtime/devServer": typeof _sandbox_runtime_devServer;
+  "_sandbox_runtime/divergedPublish": typeof _sandbox_runtime_divergedPublish;
   "_sandbox_runtime/execution": typeof _sandbox_runtime_execution;
   "_sandbox_runtime/git": typeof _sandbox_runtime_git;
   "_sandbox_runtime/gitCredentials": typeof _sandbox_runtime_gitCredentials;
@@ -524,6 +530,8 @@ declare const fullApi: ApiFromModules<{
   "_sandbox_runtime/previewRecovery": typeof _sandbox_runtime_previewRecovery;
   "_sandbox_runtime/resumeSandboxSteps": typeof _sandbox_runtime_resumeSandboxSteps;
   "_sandbox_runtime/runDevServer": typeof _sandbox_runtime_runDevServer;
+  "_sandbox_runtime/sandboxErrors": typeof _sandbox_runtime_sandboxErrors;
+  "_sandbox_runtime/sandboxFiles": typeof _sandbox_runtime_sandboxFiles;
   "_sandbox_runtime/services": typeof _sandbox_runtime_services;
   "_sandbox_runtime/sessions": typeof _sandbox_runtime_sessions;
   "_sandbox_runtime/snapshotStates": typeof _sandbox_runtime_snapshotStates;

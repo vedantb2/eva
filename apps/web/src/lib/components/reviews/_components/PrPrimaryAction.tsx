@@ -234,14 +234,17 @@ function RevertAction({ overview }: { overview: PrOverview }) {
 
   const start = async () => {
     setStarting(true);
+    // Built before the `try`: expression-level control flow inside one bails
+    // the whole file out of the React Compiler.
+    let message = `Revert the changes pull request #${overview.number} ("${overview.title}") merged into \`${overview.baseRef}\`. Open a pull request with the revert.`;
+    if (sha !== null) {
+      message = `Revert merge commit \`${sha}\` (pull request #${overview.number}, "${overview.title}") on \`${overview.baseRef}\`. Use \`git revert -m 1 ${sha}\` if it is a merge commit, resolve any conflicts, then open a pull request with the revert.`;
+    }
     try {
       const { numId } = await createSession({
         repoId,
         title: `Revert #${overview.number}`,
-        message:
-          sha === null
-            ? `Revert the changes pull request #${overview.number} ("${overview.title}") merged into \`${overview.baseRef}\`. Open a pull request with the revert.`
-            : `Revert merge commit \`${sha}\` (pull request #${overview.number}, "${overview.title}") on \`${overview.baseRef}\`. Use \`git revert -m 1 ${sha}\` if it is a merge commit, resolve any conflicts, then open a pull request with the revert.`,
+        message,
         baseBranch: overview.baseRef,
       });
       await navigate({ to: `${basePath}/sessions/${numId}` });

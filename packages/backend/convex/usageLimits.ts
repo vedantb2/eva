@@ -45,6 +45,11 @@ const agentUsageLimitValidator = v.object({
  */
 type UsageWindow = NonNullable<Doc<"agentUsageLimits">["windows"]>[number];
 
+/** The stored discriminant. Derived from the row so the two cannot drift. */
+export type UsageLimitCompleteness = NonNullable<
+  Doc<"agentUsageLimits">["completeness"]
+>;
+
 /** Readings older than this are no longer evidence of the provider's state. */
 export const USAGE_LIMIT_READING_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
@@ -59,6 +64,20 @@ export function mergeUsageLimitWindows(
   return [...byKey.values()];
 }
 
+/**
+ * Whether a reading may replace the stored row wholesale. Only a complete
+ * provider response may: everything else has seen part of the picture, so it is
+ * merged. `snapshotComplete` is the pre-discriminant wire form of the same
+ * question, honoured for callback bundles that predate `completeness`.
+ */
+export function isAuthoritativeReading(
+  completeness: UsageLimitCompleteness | undefined,
+  snapshotComplete: boolean | undefined,
+): boolean {
+  if (completeness !== undefined) return completeness === "complete";
+  return snapshotComplete === true;
+}
+
 export function isUsageLimitReadingFresh(
   capturedAt: number,
   now: number,
@@ -69,8 +88,9 @@ export function isUsageLimitReadingFresh(
 export const report = authMutation({
   args: {
     ...agentUsageLimitFields,
-    /** True only after an authoritative provider `/usage` response. Older
-     * callback bundles omit it and therefore safely receive merge semantics. */
+    /** Superseded by `completeness`. Callback bundles baked before the
+     * discriminant still send this boolean, so it is still honoured; bundles
+     * that send neither safely receive merge semantics. */
     snapshotComplete: v.optional(v.boolean()),
   },
   returns: v.null(),
@@ -99,7 +119,7 @@ export const report = authMutation({
       .first();
     const { snapshotComplete, ...reading } = args;
     if (existing) {
-      if (snapshotComplete === true) {
+      if (isAuthoritativeReading(reading.completeness, snapshotComplete)) {
         await ctx.db.replace(existing._id, reading);
         return null;
       }
@@ -110,10 +130,16 @@ export const report = authMutation({
       const carriesReading =
         reading.windows !== undefined ||
         reading.status !== undefined ||
-        reading.subscriptionType !== undefined;
+        reading.subscriptionType !== undefined ||
+        reading.completeness !== undefined;
       if (!carriesReading) return null;
       await ctx.db.patch(existing._id, {
         capturedAt: reading.capturedAt,
+        // Describes this observation, so it is always overwritten — a later
+        // refusal must not keep claiming the earlier read was complete.
+        ...(reading.completeness === undefined
+          ? {}
+          : { completeness: reading.completeness }),
         ...(reading.subscriptionType === undefined
           ? {}
           : { subscriptionType: reading.subscriptionType }),
@@ -207,7 +233,15 @@ export const getByRepo = authQuery({
           // A status observed alongside windows expires when all of those
           // windows reset. Windowless status-only events remain until the row's
           // captured-at freshness limit above.
-          if (reportedWindows.length > 0) delete next.status;
+          //
+          // The discriminant goes with it: "complete" described a reading whose
+          // windows have all since reset, and leaving it would have the UI
+          // report that the provider has no plan windows at all. A reading that
+          // never carried windows keeps it — that is the case it exists for.
+          if (reportedWindows.length > 0) {
+            delete next.status;
+            delete next.completeness;
+          }
         }
       }
       // A row with no account ran on the shared team credential and belongs to

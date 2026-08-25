@@ -17,7 +17,11 @@ const launchProxySource = extractFunctionSource("async function launchProxy(");
 
 describe("preview proxy script delivery", () => {
   test("writes the script with the file API", () => {
-    expect(launchProxySource).toContain("sandbox.writeFile(scriptPath, script)");
+    // Via the shared helper — see sandboxScriptDeliveryContract.test.ts, which
+    // generalises this file's guarantee to every delivery path.
+    expect(launchProxySource).toContain(
+      "writeSandboxFile(sandbox, scriptPath, script)",
+    );
   });
 
   test("never embeds the script in an exec command", () => {

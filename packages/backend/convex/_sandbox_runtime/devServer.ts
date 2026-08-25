@@ -8,6 +8,7 @@ import {
   bootstrapVercelDocker,
   workspaceDirShell,
 } from "./helpers";
+import { writeSandboxFile } from "./sandboxFiles";
 import { ensureSwapFile } from "./swap";
 
 const SUPABASE_DUMP_PATH =
@@ -326,7 +327,7 @@ export async function launchDevServerInBackground(
     'export NODE_OPTIONS="--max-old-space-size=6144${NODE_OPTIONS:+ $NODE_OPTIONS}"',
     devCommand,
   ].join("\n");
-  await sandbox.writeFile("/tmp/eva-launch-devserver.sh", script);
+  await writeSandboxFile(sandbox, "/tmp/eva-launch-devserver.sh", script);
   await sandbox.execDetached(
     "chmod +x /tmp/eva-launch-devserver.sh && /tmp/eva-launch-devserver.sh >> /tmp/devserver.log 2>&1",
     { timeoutSeconds: 15 },

@@ -350,6 +350,28 @@ describe("the cursor daemon's per-turn ordering", () => {
     expect(watcher).toContain("PROMPT_POLL_FAST_WINDOW_MS");
   });
 
+  /**
+   * claimPendingTurn clears the staged prompt server-side, so a claim the
+   * daemon neither parks nor starts is a prompt the user never gets back. Only
+   * a same-turn restage is safe to drop, which is exactly what the shared
+   * guard decides — the inline `!turnActive || cancelInFlight` check missed the
+   * follow-up-turn case the claude daemon was fixed for (aa9b8e1c1).
+   */
+  test("a claim that cannot start now is parked through the shared guard", () => {
+    const watcher = daemon.slice(daemon.indexOf("function startClaimWatcher("));
+    const guardAt = watcher.indexOf("shouldParkClaimedTurn({");
+    const parkAt = watcher.indexOf("pendingClaimedTurn = turn;");
+    const discardAt = watcher.indexOf("cursor daemon: claim discarded");
+    expect(guardAt, "the park guard is gone").toBeGreaterThan(-1);
+    expect(parkAt, "the park moved out of the claim handler").toBeGreaterThan(
+      guardAt,
+    );
+    expect(discardAt, "the discard log moved").toBeGreaterThan(parkAt);
+    // One park site only: a second, ungated one is the regression itself.
+    expect(watcher.split("pendingClaimedTurn = turn;").length - 1).toBe(1);
+    expect(watcher).toContain("claimedLeaseTurnId: turn.turnLease?.turnId");
+  });
+
   test("the supervisor spawns one child per claimed turn", () => {
     const supervisorTurn = functionBody(
       daemon,

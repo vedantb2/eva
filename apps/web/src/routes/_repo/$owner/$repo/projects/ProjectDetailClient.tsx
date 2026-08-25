@@ -40,6 +40,8 @@ import { ProjectSandboxChatPanel } from "@/lib/components/projects/ProjectSandbo
 import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { SleepEvaButton } from "@/lib/components/sandbox/SleepEvaButton";
+import { SANDBOX_RAIL_WIDTH_PX } from "@/lib/components/sandbox/sandboxRail";
+import { SandboxEmptyRailFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
 import type { SandboxSurface } from "@/lib/components/sandbox/SandboxSurfaceTabs";
 import {
   SandboxWorkspace,
@@ -285,6 +287,8 @@ export function ProjectDetailClient({
     panes: SandboxPanesApi,
     owner: SandboxOwner,
     terminalPanel: TerminalPanelApi,
+    collapsed: boolean,
+    onToggle: () => void,
   ) =>
     canStartSandbox ||
     projectSandboxId ||
@@ -308,16 +312,18 @@ export function ProjectDetailClient({
           canStartSandbox && !isSandboxStopping ? handleStartSandbox : undefined
         }
         isSandboxStarting={isSandboxStarting}
+        collapsed={collapsed}
+        onToggle={onToggle}
       />
     ) : (
-      <div className="flex h-full items-center justify-center p-8">
+      <SandboxEmptyRailFrame collapsed={collapsed} onToggle={onToggle}>
         <div className="flex flex-col items-center gap-3 text-center">
           <IconTerminal2 size={32} className="text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
             Sandbox is not available for this project yet
           </p>
         </div>
-      </div>
+      </SandboxEmptyRailFrame>
     );
 
   const projectSandboxContent = (
@@ -335,17 +341,16 @@ export function ProjectDetailClient({
           leftDefaultSize="40%"
           leftMinWidthPx={350}
           rightMinWidthPx={300}
+          rightCollapsedSizePx={SANDBOX_RAIL_WIDTH_PX}
           defaultRightCollapsed={false}
           expandRightSignal={expandRightSignal}
           mobilePaneLabels={{ left: "Chat", right: "Sandbox" }}
-          leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
+          leftPanel={() => (
             <ProjectSandboxChatPanel
               projectId={projectId}
               isSandboxActive={isSandboxActive}
               isSandboxToggling={isSandboxStarting || isSandboxStopping}
               onOpenFile={openFile}
-              sandboxCollapsed={rightPanelCollapsed}
-              onToggleSandbox={onToggleRightPanel}
               onSandboxToggle={
                 canStartSandbox || isSandboxActive
                   ? (action) => {
@@ -356,7 +361,15 @@ export function ProjectDetailClient({
               }
             />
           )}
-          rightPanel={projectSandboxPanel(panes, owner, terminalPanel)}
+          rightPanel={({ rightPanelCollapsed, onToggleRightPanel }) =>
+            projectSandboxPanel(
+              panes,
+              owner,
+              terminalPanel,
+              rightPanelCollapsed,
+              onToggleRightPanel,
+            )
+          }
         />
       )}
     </SandboxWorkspace>

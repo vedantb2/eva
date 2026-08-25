@@ -21,26 +21,29 @@ function moveTabsPill(
   tab: HTMLElement,
   animate: boolean,
 ): void {
-  const left = tab.offsetLeft;
+  // Both axes on transform so a column list (sandbox rail) slides the same
+  // way a row does. `top` stayed a layout property and never tweened.
+  const x = tab.offsetLeft;
+  const y = tab.offsetTop;
   const width = tab.offsetWidth;
-  const top = tab.offsetTop;
   const height = tab.offsetHeight;
+  const transform = `translate(${x}px, ${y}px)`;
 
   if (!animate) {
     const previousTransition = pill.style.transition;
     pill.style.transition = "none";
-    pill.style.transform = `translateX(${left}px)`;
+    pill.style.top = "0px";
+    pill.style.transform = transform;
     pill.style.width = `${width}px`;
-    pill.style.top = `${top}px`;
     pill.style.height = `${height}px`;
     void pill.offsetWidth;
     pill.style.transition = previousTransition;
     return;
   }
 
-  pill.style.transform = `translateX(${left}px)`;
+  pill.style.top = "0px";
+  pill.style.transform = transform;
   pill.style.width = `${width}px`;
-  pill.style.top = `${top}px`;
   pill.style.height = `${height}px`;
 }
 

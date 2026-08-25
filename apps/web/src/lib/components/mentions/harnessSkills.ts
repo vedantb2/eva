@@ -1,4 +1,4 @@
-import { api, type AIProvider } from "@eva/backend";
+import type { api, AIProvider } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 
 /**

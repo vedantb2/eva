@@ -37,6 +37,11 @@ import { resolveTurnProviderAccountId } from "./_userProviderAccounts/defaults";
 import type { Doc, Id } from "./_generated/dataModel";
 import { TASK_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
 import {
+  delayedPublishFailureError,
+  orphanPlaceholderMessages,
+  resultTargetMessage,
+} from "./_sessions/resultTarget";
+import {
   maybeInsertModelHandoffAlert,
   prependModelHandoffContext,
 } from "./_shared/modelHandoff";
@@ -701,8 +706,19 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
 
     const result = await step.awaitEvent(agentTaskChatCompleteEvent);
 
-    let savedSuccess = result.success;
-    let savedError = result.error;
+    // Persist the assistant reply BEFORE publish. A hung/slow git push used to
+    // leave the UI on "Working…" and, when it failed, replace the answer with
+    // merge-conflict output the sandbox did not have (task 231). Publish
+    // failures become their own alert below.
+    await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
+      taskId: args.taskId,
+      success: result.success,
+      result: result.result,
+      error: result.error,
+      activityLog: result.activityLog,
+      model: args.model,
+      pendingQuestion: result.pendingQuestion,
+    });
 
     if (result.success && activeSandboxId && data.branchName) {
       try {
@@ -715,23 +731,20 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
           branchName: data.branchName,
         });
       } catch (error) {
-        savedSuccess = false;
-        savedError = `Chat completed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${error instanceof Error ? error.message : String(error)}`;
+        const publishError = `Chat completed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${error instanceof Error ? error.message : String(error)}`;
         console.error(
           `[agentTaskChatWorkflow] pushSandboxBranch failed taskId=${String(args.taskId)}: ${error instanceof Error ? error.message : String(error)}`,
         );
+        await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
+          taskId: args.taskId,
+          success: false,
+          result: result.result,
+          error: publishError,
+          activityLog: result.activityLog,
+          pendingQuestion: result.pendingQuestion,
+        });
       }
     }
-
-    await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
-      taskId: args.taskId,
-      success: savedSuccess,
-      result: result.result,
-      error: savedError,
-      activityLog: result.activityLog,
-      model: args.model,
-      pendingQuestion: result.pendingQuestion,
-    });
   },
 });
 
@@ -842,6 +855,20 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const publishError = delayedPublishFailureError(args.result, args.error);
+    if (publishError !== undefined) {
+      await ctx.db.insert("messages", {
+        parentId: args.taskId,
+        role: "assistant",
+        content: "Failed to publish task branch",
+        timestamp: Date.now(),
+        isSystemAlert: true,
+        errorDetail: publishError,
+      });
+      await ctx.db.patch(args.taskId, { updatedAt: Date.now() });
+      return null;
+    }
+
     const streamingEntityId = chatStreamEntityId(args.taskId);
     const streaming = await ctx.db
       .query("streamingActivity")
@@ -853,12 +880,13 @@ export const saveResult = internalMutation({
     const task = await ctx.db.get(args.taskId);
     if (!task) return null;
 
-    const last = await ctx.db
+    const recent = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.taskId))
       .order("desc")
-      .first();
-    if (last && last.role === "assistant" && last.isSyntheticTurn !== true) {
+      .take(20);
+    const last = resultTargetMessage(recent);
+    if (last) {
       const patch: {
         content: string;
         activityLog?: string;
@@ -879,6 +907,9 @@ export const saveResult = internalMutation({
         patch.model = normalizeAIModel(args.model);
       }
       await ctx.db.patch(last._id, patch);
+      for (const message of orphanPlaceholderMessages(recent, last)) {
+        await ctx.db.delete(message._id);
+      }
     }
 
     await ctx.db.patch(args.taskId, {

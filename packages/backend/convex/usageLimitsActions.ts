@@ -15,13 +15,14 @@ import { usageLimitProviderValidator } from "./validators";
  * inference path. A stopped sandbox cannot answer, and must not be exec'd
  * (Vercel `withResume` would wake it).
  *
- * Prewarm runs before the one-shot flag is set so a stale callback bundle
- * can upload and respawn before an old daemon drains the flag as a no-op.
+ * Prewarm may upload a newer callback and respawn. The refresh flag is set
+ * first and is not drained by claimPendingTurn, so an old process cannot eat
+ * it as a no-op; the new process still sees it after boot. The action clears
+ * the flag when it stops waiting so a failed lookup can retry until then.
  */
 
-const PREWARM_SETTLE_MS = 1_000;
 const POLL_INTERVAL_MS = 500;
-const POLL_ATTEMPTS = 40;
+const POLL_ATTEMPTS = 90;
 
 type RefreshFailure = "sandbox-idle" | "unavailable";
 
@@ -100,12 +101,6 @@ export const refresh = authAction({
       return { ok: false, reason: "sandbox-idle" };
     }
 
-    // Upload a stale callback (if any) then give the old process a beat to
-    // exit, then prewarm again so a cold sandbox actually launches.
-    await prewarmSurface(ctx, surfaceArgs);
-    await sleep(PREWARM_SETTLE_MS);
-    await prewarmSurface(ctx, surfaceArgs);
-
     const accountArg =
       args.providerAccountId === undefined
         ? {}
@@ -123,20 +118,28 @@ export const refresh = authAction({
     });
     if (!requested) return { ok: false, reason: "sandbox-idle" };
 
-    for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
-      await sleep(POLL_INTERVAL_MS);
-      const reading = await ctx.runQuery(
-        internal.usageLimits.getReadingInternal,
-        {
-          repoId: args.repoId,
-          provider: args.provider,
-          ...accountArg,
-        },
-      );
-      if (reading !== null && reading.capturedAt > beforeCapturedAt) {
-        return { ok: true };
+    try {
+      // May upload a stale callback and respawn. The flag is already set and
+      // survives claim polls, so the replacement daemon still sees it.
+      await prewarmSurface(ctx, surfaceArgs);
+
+      for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
+        await sleep(POLL_INTERVAL_MS);
+        const reading = await ctx.runQuery(
+          internal.usageLimits.getReadingInternal,
+          {
+            repoId: args.repoId,
+            provider: args.provider,
+            ...accountArg,
+          },
+        );
+        if (reading !== null && reading.capturedAt > beforeCapturedAt) {
+          return { ok: true };
+        }
       }
+      return { ok: false, reason: "unavailable" };
+    } finally {
+      await ctx.runMutation(api.usageLimits.clearRefresh, surfaceArgs);
     }
-    return { ok: false, reason: "unavailable" };
   },
 });

@@ -1085,13 +1085,20 @@ export const claimPendingTurn = authMutation({
         throw new Error("Not authorized");
     }
 
+    // Level-triggered: an old callback that does not read this field must not
+    // consume it. The refresh action clears `usageRefreshRequestedAt` when it
+    // stops waiting so a failed lookup can retry until then.
+    const usageRefreshRequested =
+      daemonState.usageRefreshRequestedAt !== undefined;
+
     // Withhold the turn while a new session's sandbox is still pulling the
     // latest base branch and reinstalling drifted deps (flag set at early-ready,
     // cleared when setup finishes). Returning an empty claim leaves pendingTurn
     // intact; the daemon keeps polling (45m idle budget) and claims the moment
     // the gate clears, so the agent never executes against a stale checkout.
+    // The usage flag is still returned: get_usage does not need a user turn.
     if (daemonState.sandboxSetupPending === true) {
-      return emptyClaim;
+      return { ...emptyClaim, usageRefreshRequested };
     }
 
     const stopTaskToolUseIds = daemonState.pendingTaskStops ?? [];
@@ -1107,16 +1114,6 @@ export const claimPendingTurn = authMutation({
     if (cancelRequested) {
       await ctx.db.patch(daemonState._id, { cancelRequestedAt: undefined });
       await ctx.db.patch(args.sessionId, { cancelRequestedAt: undefined });
-    }
-
-    // Drain like cancel: the chip sets this on an idle daemon, so gating on
-    // pendingTurn would strand the refresh until the next user message.
-    const usageRefreshRequested =
-      daemonState.usageRefreshRequestedAt !== undefined;
-    if (usageRefreshRequested) {
-      await ctx.db.patch(daemonState._id, {
-        usageRefreshRequestedAt: undefined,
-      });
     }
 
     if (!daemonState.pendingTurn) {

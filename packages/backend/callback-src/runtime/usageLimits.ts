@@ -12,6 +12,7 @@ import { callbackState as S } from "./state.js";
 
 /** Convex mutation that upserts the (repo, provider, account) usage-limit row. */
 const REPORT_MUTATION = "usageLimits:report";
+const NOTE_REFRESH_MUTATION = "usageLimits:noteRefreshAttempt";
 
 /**
  * A single retry only: this is best-effort telemetry reported alongside the
@@ -26,6 +27,9 @@ const REPORT_MAX_RETRIES = 1;
  * channel that never answers would otherwise hold a turn open indefinitely.
  */
 const USAGE_LOOKUP_TIMEOUT_MS = 5_000;
+
+/** On-demand chip refresh waits for SDK init, which a cold query can exceed. */
+const FORCE_USAGE_LOOKUP_TIMEOUT_MS = 20_000;
 
 /** A one-shot process may wait this long after delivering completion before its
  * hard exit. This covers the lookup timeout plus a small reporting allowance. */
@@ -90,6 +94,8 @@ export type ClaudeUsageResponseLike = {
       resets_at?: string | null;
     }[];
   } | null;
+  /** Convex/SDK control envelopes sometimes wrap the payload. */
+  value?: ClaudeUsageResponseLike | null;
 };
 
 type ClaudeUsageReportInput = {
@@ -248,6 +254,53 @@ export function readClaudeUsageWindows(
   return windows;
 }
 
+/** Control-channel payloads sometimes nest the reading under `value`. */
+export function unwrapUsagePayload(
+  response: ClaudeUsageResponseLike,
+): ClaudeUsageResponseLike {
+  const nested = response.value;
+  if (
+    nested !== null &&
+    nested !== undefined &&
+    (nested.rate_limits_available !== undefined ||
+      nested.rate_limits !== undefined ||
+      nested.subscription_type !== undefined)
+  ) {
+    return nested;
+  }
+  return response;
+}
+
+function usageAvailability(
+  payload: ClaudeUsageResponseLike,
+): boolean | null {
+  if (payload.rate_limits_available === true) return true;
+  if (payload.rate_limits_available === false) return false;
+  if (payload.rate_limits !== undefined && payload.rate_limits !== null) {
+    return true;
+  }
+  return null;
+}
+
+function noteDaemonRefresh(
+  captured: boolean,
+  available: boolean | null,
+  detail: string,
+): void {
+  void callConvexWithRetry(
+    "mutation",
+    NOTE_REFRESH_MUTATION,
+    {
+      captured,
+      detail,
+      ...(available === null ? {} : { available }),
+    },
+    REPORT_MAX_RETRIES,
+  ).catch(() => {
+    /* breadcrumb only */
+  });
+}
+
 /**
  * Reads the Agent SDK's EXPERIMENTAL plan-usage endpoint and merges what it
  * reports into the snapshot. The SDK states outright that this API may change or
@@ -257,25 +310,33 @@ export function readClaudeUsageWindows(
  */
 export async function captureClaudeUsage(
   readUsage: () => Promise<ClaudeUsageResponseLike | null>,
+  recordAttempt = false,
 ): Promise<boolean> {
   let timer: ReturnType<typeof setTimeout> | undefined;
+  const lookupTimeoutMs = recordAttempt
+    ? FORCE_USAGE_LOOKUP_TIMEOUT_MS
+    : USAGE_LOOKUP_TIMEOUT_MS;
   try {
     const response = await Promise.race([
       readUsage(),
       new Promise<"timeout">((resolve) => {
-        timer = setTimeout(() => resolve("timeout"), USAGE_LOOKUP_TIMEOUT_MS);
+        timer = setTimeout(() => resolve("timeout"), lookupTimeoutMs);
       }),
     ]);
     if (response === "timeout") {
       log("usage limits: claude usage lookup timed out");
+      if (recordAttempt) noteDaemonRefresh(false, null, "timeout");
       return false;
     }
-    if (!response) return false;
-    if (
-      response.rate_limits_available !== true &&
-      response.rate_limits_available !== false
-    ) {
+    if (!response) {
+      if (recordAttempt) noteDaemonRefresh(false, null, "null-response");
+      return false;
+    }
+    const payload = unwrapUsagePayload(response);
+    const available = usageAvailability(payload);
+    if (available === null) {
       log("usage limits: claude usage response omitted availability");
+      if (recordAttempt) noteDaemonRefresh(false, null, "omitted-availability");
       return false;
     }
     // A failed or not-yet-initialized SDK query can report `false` even for an
@@ -285,27 +346,36 @@ export async function captureClaudeUsage(
     // observed anything, still record a partial so the selected account gets a
     // row — Team/Enterprise seats often have no 5h/weekly windows, and staying
     // silent left the chip saying nothing had been reported.
-    if (response.rate_limits_available === false) {
+    if (available === false) {
       log(
         "usage limits: claude plan usage unavailable — preserving prior reading",
       );
       if (!S.usageLimitSnapshot) {
         S.usageLimitSnapshot = { completeness: "refused" };
       }
+      if (recordAttempt) {
+        noteDaemonRefresh(false, false, "rate-limits-unavailable");
+      }
       return false;
     }
     const snapshot: UsageLimitSnapshot = { completeness: "complete" };
-    const subscriptionType = readNonEmptyString(response.subscription_type);
+    const subscriptionType = readNonEmptyString(payload.subscription_type);
     if (subscriptionType) snapshot.subscriptionType = subscriptionType;
-    snapshot.windows = readClaudeUsageWindows(response);
+    snapshot.windows = readClaudeUsageWindows(payload);
     // A successful `/usage` read is authoritative. Replacing here drops windows
     // and status that vanished since the last turn instead of preserving them
     // for the lifetime of a warm daemon.
     S.usageLimitSnapshot = snapshot;
+    if (recordAttempt) {
+      noteDaemonRefresh(true, true, subscriptionType ?? "complete");
+    }
     return true;
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     log("usage limits: claude usage lookup failed — " + messageText);
+    if (recordAttempt) {
+      noteDaemonRefresh(false, null, "error:" + messageText.slice(0, 120));
+    }
     return false;
   } finally {
     if (timer !== undefined) clearTimeout(timer);
@@ -428,7 +498,10 @@ export async function reportUsageLimits(
 export async function captureAndReportClaudeUsage(
   input: ClaudeUsageReportInput,
 ): Promise<void> {
-  const captured = await captureClaudeUsage(input.readUsage);
+  const captured = await captureClaudeUsage(
+    input.readUsage,
+    input.force === true,
+  );
   captureClaudeUsageLimitError(input.error);
   if (input.force === true && !captured) return;
   await reportUsageLimits("claude", input.force === true);

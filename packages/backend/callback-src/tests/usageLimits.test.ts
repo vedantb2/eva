@@ -8,6 +8,7 @@ import {
   mergeClaudeRateLimitEvent,
   readClaudeUsageWindows,
   readIsoMs,
+  unwrapUsagePayload,
 } from "../runtime/usageLimits.js";
 
 beforeEach(() => {
@@ -302,4 +303,37 @@ test("buildUsageLimitReportArgs keys two accounts apart on one repo", () => {
     "providerAccountId" in
       buildUsageLimitReportArgs("repo-1", "claude", "", { ...snapshot }),
   ).toBe(false);
+});
+
+test("unwrapUsagePayload reads a nested control-channel value", () => {
+  const inner = {
+    rate_limits_available: true,
+    rate_limits: { five_hour: { utilization: 34 } },
+  };
+  expect(unwrapUsagePayload({ value: inner })).toEqual(inner);
+});
+
+test("a usage payload with windows and no availability flag still captures", async () => {
+  await captureClaudeUsage(async () => ({
+    subscription_type: "max",
+    rate_limits: { five_hour: { utilization: 34, resets_at: null } },
+  }));
+  expect(S.usageLimitSnapshot).toEqual({
+    completeness: "complete",
+    subscriptionType: "max",
+    windows: [{ key: "five_hour", label: "5h", utilization: 34 }],
+  });
+});
+
+test("a nested usage payload still captures", async () => {
+  await captureClaudeUsage(async () => ({
+    value: {
+      rate_limits_available: true,
+      rate_limits: { five_hour: { utilization: 21, resets_at: null } },
+    },
+  }));
+  expect(S.usageLimitSnapshot).toEqual({
+    completeness: "complete",
+    windows: [{ key: "five_hour", label: "5h", utilization: 21 }],
+  });
 });

@@ -63,7 +63,6 @@ import {
 import { callbackState as S } from "../runtime/state.js";
 import {
   captureAndReportClaudeUsage,
-  startClaudeUsageReport,
   type ClaudeUsageResponseLike,
 } from "../runtime/usageLimits.js";
 import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
@@ -220,6 +219,7 @@ const settledSubagentToolUseIds = new Set<string>();
 const unsettledBackgroundAgents = new Map<string, BackgroundAgentEntry>();
 const pendingAgentStops = new Set<string>();
 let currentAgentRunner: WarmRunner | null = null;
+let usageRefreshInFlight = false;
 
 function entityMutationArgs(
   fields: Record<string, JsonValue>,
@@ -1161,10 +1161,15 @@ function startClaimWatcher(agentRunner: WarmRunner): void {
         if (readCancelRequested(claimed)) {
           handleCancelRequested(agentRunner);
         }
-        if (readUsageRefreshRequested(claimed)) {
-          startClaudeUsageReport({
+        if (readUsageRefreshRequested(claimed) && !usageRefreshInFlight) {
+          usageRefreshInFlight = true;
+          log("daemon: usage refresh requested — reading SDK plan usage");
+          const report = captureAndReportClaudeUsage({
             readUsage: agentRunner.readUsage,
             force: true,
+          });
+          void report.finally(() => {
+            usageRefreshInFlight = false;
           });
         }
         const turn = readClaimedTurn(claimed);

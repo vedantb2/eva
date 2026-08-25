@@ -1544,7 +1544,15 @@ async function runPrewarmEntityDaemon(
           `[sandbox][execution] prewarmEntityDaemon: stale callback script — uploading bundle entityId=${entityIdStr}`,
         );
         await uploadCallbackScriptBundle(sandbox);
-        return { prewarmed: false };
+        // Disk now matches the expected fingerprint, so a follow-up probe
+        // would report "alive" while the old process is still running the
+        // previous bundle. Kill so this prewarm falls through to launch.
+        await execHandle(
+          sandbox,
+          buildKillEntityDaemonCmd(args.entityIdField, entityIdStr),
+          10,
+        );
+        return null;
       }
       return null;
     };

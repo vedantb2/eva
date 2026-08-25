@@ -1,5 +1,10 @@
 # Changelog
 
+## Plan-usage refresh keeps the flag until the daemon reports - 2026-08-25
+
+Clicking refresh set a one-shot flag that `claimPendingTurn` drained on the first poll, so an old callback — or a process that had just respawned and not yet finished SDK init — ate the request as a no-op. The flag now stays set until the refresh action stops waiting, a stale callback upload kills and relaunches the daemon, and `get_usage` is allowed to wait for SDK init. Eva's servers still never POST Messages.
+
+
 ## Plan-usage refresh uses the live Claude daemon - 2026-08-25
 
 The chip still has a refresh button. Eva's servers no longer POST `/v1/messages` (or GET `/usage`) with a stored setup-token to harvest rate-limit headers — that is the OpenCode-shaped third-party inference path. Clicking refresh asks the running Claude Agent SDK daemon to report via `usage_EXPERIMENTAL`, the same reading a turn already writes. A stopped sandbox is an informational "Wake Eva" toast, never a red 403/429, and never an exec that would resume the VM.

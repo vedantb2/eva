@@ -2581,8 +2581,10 @@ async function flushBackgroundShellQueue() {
 
 // callback-src/runtime/usageLimits.ts
 var REPORT_MUTATION = "usageLimits:report";
+var NOTE_REFRESH_MUTATION = "usageLimits:noteRefreshAttempt";
 var REPORT_MAX_RETRIES = 1;
 var USAGE_LOOKUP_TIMEOUT_MS = 5e3;
+var FORCE_USAGE_LOOKUP_TIMEOUT_MS = 2e4;
 var USAGE_REPORT_EXIT_GRACE_MS = 7e3;
 var USAGE_REPORT_REFRESH_MS = 6 * 60 * 60 * 1e3;
 var pendingClaudeUsageReport = null;
@@ -2692,42 +2694,87 @@ function readClaudeUsageWindows(response) {
   pushUsageWindow(windows, "overage", limits.overage);
   return windows;
 }
-async function captureClaudeUsage(readUsage) {
+function unwrapUsagePayload(response) {
+  const nested = response.value;
+  if (nested !== null && nested !== void 0 && (nested.rate_limits_available !== void 0 || nested.rate_limits !== void 0 || nested.subscription_type !== void 0)) {
+    return nested;
+  }
+  return response;
+}
+function usageAvailability(payload) {
+  if (payload.rate_limits_available === true) return true;
+  if (payload.rate_limits_available === false) return false;
+  if (payload.rate_limits !== void 0 && payload.rate_limits !== null) {
+    return true;
+  }
+  return null;
+}
+function noteDaemonRefresh(captured, available, detail) {
+  void callConvexWithRetry(
+    "mutation",
+    NOTE_REFRESH_MUTATION,
+    {
+      captured,
+      detail,
+      ...available === null ? {} : { available }
+    },
+    REPORT_MAX_RETRIES
+  ).catch(() => {
+  });
+}
+async function captureClaudeUsage(readUsage, recordAttempt = false) {
   let timer;
+  const lookupTimeoutMs = recordAttempt ? FORCE_USAGE_LOOKUP_TIMEOUT_MS : USAGE_LOOKUP_TIMEOUT_MS;
   try {
     const response = await Promise.race([
       readUsage(),
       new Promise((resolve) => {
-        timer = setTimeout(() => resolve("timeout"), USAGE_LOOKUP_TIMEOUT_MS);
+        timer = setTimeout(() => resolve("timeout"), lookupTimeoutMs);
       })
     ]);
     if (response === "timeout") {
       log("usage limits: claude usage lookup timed out");
+      if (recordAttempt) noteDaemonRefresh(false, null, "timeout");
       return false;
     }
-    if (!response) return false;
-    if (response.rate_limits_available !== true && response.rate_limits_available !== false) {
+    if (!response) {
+      if (recordAttempt) noteDaemonRefresh(false, null, "null-response");
+      return false;
+    }
+    const payload = unwrapUsagePayload(response);
+    const available = usageAvailability(payload);
+    if (available === null) {
       log("usage limits: claude usage response omitted availability");
+      if (recordAttempt) noteDaemonRefresh(false, null, "omitted-availability");
       return false;
     }
-    if (response.rate_limits_available === false) {
+    if (available === false) {
       log(
         "usage limits: claude plan usage unavailable \\u2014 preserving prior reading"
       );
       if (!callbackState.usageLimitSnapshot) {
         callbackState.usageLimitSnapshot = { completeness: "refused" };
       }
+      if (recordAttempt) {
+        noteDaemonRefresh(false, false, "rate-limits-unavailable");
+      }
       return false;
     }
     const snapshot = { completeness: "complete" };
-    const subscriptionType = readNonEmptyString(response.subscription_type);
+    const subscriptionType = readNonEmptyString(payload.subscription_type);
     if (subscriptionType) snapshot.subscriptionType = subscriptionType;
-    snapshot.windows = readClaudeUsageWindows(response);
+    snapshot.windows = readClaudeUsageWindows(payload);
     callbackState.usageLimitSnapshot = snapshot;
+    if (recordAttempt) {
+      noteDaemonRefresh(true, true, subscriptionType ?? "complete");
+    }
     return true;
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     log("usage limits: claude usage lookup failed \\u2014 " + messageText);
+    if (recordAttempt) {
+      noteDaemonRefresh(false, null, "error:" + messageText.slice(0, 120));
+    }
     return false;
   } finally {
     if (timer !== void 0) clearTimeout(timer);
@@ -2799,7 +2846,10 @@ async function reportUsageLimits(provider, force = false) {
   }
 }
 async function captureAndReportClaudeUsage(input) {
-  const captured = await captureClaudeUsage(input.readUsage);
+  const captured = await captureClaudeUsage(
+    input.readUsage,
+    input.force === true
+  );
   captureClaudeUsageLimitError(input.error);
   if (input.force === true && !captured) return;
   await reportUsageLimits("claude", input.force === true);
@@ -4618,6 +4668,14 @@ async function readSdkPlanUsage(handle) {
     log("usage limits: this SDK query handle exposes no usage method");
     return null;
   }
+  if (typeof handle.initializationResult === "function") {
+    try {
+      await handle.initializationResult();
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      log("usage limits: initialization wait failed \\u2014 " + messageText);
+    }
+  }
   return await handle.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET();
 }
 function globalNpmRoot() {
@@ -5391,6 +5449,7 @@ var settledSubagentToolUseIds = /* @__PURE__ */ new Set();
 var unsettledBackgroundAgents = /* @__PURE__ */ new Map();
 var pendingAgentStops = /* @__PURE__ */ new Set();
 var currentAgentRunner = null;
+var usageRefreshInFlight = false;
 function entityMutationArgs(fields) {
   return {
     [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
@@ -6096,10 +6155,15 @@ function startClaimWatcher(agentRunner) {
         if (readCancelRequested(claimed)) {
           handleCancelRequested(agentRunner);
         }
-        if (readUsageRefreshRequested(claimed)) {
-          startClaudeUsageReport({
+        if (readUsageRefreshRequested(claimed) && !usageRefreshInFlight) {
+          usageRefreshInFlight = true;
+          log("daemon: usage refresh requested \\u2014 reading SDK plan usage");
+          const report = captureAndReportClaudeUsage({
             readUsage: agentRunner.readUsage,
             force: true
+          });
+          void report.finally(() => {
+            usageRefreshInFlight = false;
           });
         }
         const turn = readClaimedTurn(claimed);

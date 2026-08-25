@@ -76,6 +76,14 @@ export async function readSdkPlanUsage(
     log("usage limits: this SDK query handle exposes no usage method");
     return null;
   }
+  if (typeof handle.initializationResult === "function") {
+    try {
+      await handle.initializationResult();
+    } catch (error) {
+      const messageText = error instanceof Error ? error.message : String(error);
+      log("usage limits: initialization wait failed — " + messageText);
+    }
+  }
   return await handle.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET();
 }
 

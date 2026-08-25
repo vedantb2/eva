@@ -377,9 +377,9 @@ export const getRefreshSurface = internalQuery({
 });
 
 /**
- * Arms the one-shot flag the live Claude daemon already polls. Returns false
- * when the sandbox is stopped so the action can toast "wake Eva" instead of
- * waiting for a report that will never arrive.
+ * Arms the level-triggered flag the live Claude daemon already polls. Returns
+ * false when the sandbox is stopped so the action can toast "wake Eva"
+ * instead of waiting for a report that will never arrive.
  */
 export const requestRefresh = authMutation({
   args: {
@@ -436,5 +436,67 @@ export const requestRefresh = authMutation({
     }
     await ctx.db.patch(target.taskId, { usageRefreshRequestedAt: now });
     return true;
+  },
+});
+
+/**
+ * Drops the refresh flag. The refresh action owns this so a failed lookup
+ * can retry until the action stops waiting. claimPendingTurn only *reads*
+ * the flag so an old callback cannot eat it.
+ */
+export const clearRefresh = authMutation({
+  args: refreshTargetArgs,
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const target = parseRefreshTarget(args);
+    if (target.kind === "session") {
+      const session = await ctx.db.get(target.sessionId);
+      if (!session) throw new Error("Session not found");
+      if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+        throw new Error("Not authorized");
+      }
+      await ensureSessionDaemonState(ctx, session);
+      await syncSessionDaemonState(ctx, session, {
+        usageRefreshRequestedAt: undefined,
+      });
+      return null;
+    }
+    if (target.kind === "project") {
+      const project = await ctx.db.get(target.projectId);
+      if (!project) throw new Error("Project not found");
+      if (!(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))) {
+        throw new Error("Not authorized");
+      }
+      await ctx.db.patch(target.projectId, {
+        usageRefreshRequestedAt: undefined,
+      });
+      return null;
+    }
+    const task = await ctx.db.get(target.taskId);
+    if (!task || !task.repoId) throw new Error("Task not found");
+    if (!(await hasRepoAccess(ctx.db, task.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    await ctx.db.patch(target.taskId, { usageRefreshRequestedAt: undefined });
+    return null;
+  },
+});
+
+/**
+ * Daemon breadcrumb so a failed on-demand refresh shows up in Convex logs
+ * instead of only `/tmp/callback-debug.log` on the VM.
+ */
+export const noteRefreshAttempt = authMutation({
+  args: {
+    captured: v.boolean(),
+    available: v.optional(v.union(v.boolean(), v.null())),
+    detail: v.string(),
+  },
+  returns: v.null(),
+  handler: async (_ctx, args) => {
+    console.log(
+      `[usageLimits] daemon refresh captured=${args.captured} available=${String(args.available ?? "omitted")} ${args.detail}`,
+    );
+    return null;
   },
 });

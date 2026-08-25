@@ -42,9 +42,8 @@ export function readCancelRequested(result: JsonValue): boolean {
 }
 
 /**
- * Reads the one-shot plan-usage refresh flag. Same drain-once contract as
- * cancel: the server clears `usageRefreshRequestedAt` when it returns `true`.
- * Missing (old servers) is `false`.
+ * Reads the plan-usage refresh flag. Level-triggered until the refresh
+ * action clears it. Missing (old servers) is `false`.
  */
 export function readUsageRefreshRequested(result: JsonValue): boolean {
   const payload = claimPayload(result);

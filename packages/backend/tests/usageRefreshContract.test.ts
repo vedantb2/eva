@@ -30,14 +30,22 @@ describe("a plan-usage refresh is not a third-party Messages probe", () => {
     expect(actionSource).not.toContain("User-Agent");
     expect(actionSource).not.toContain('from "node:https"');
     expect(actionSource).toContain("requestRefresh");
+    expect(actionSource).toContain("clearRefresh");
     expect(actionSource).toContain("prewarmDaemonNow");
     expect(actionSource).toContain("sandbox-idle");
   });
 
-  test("the live Claude daemon reports on the one-shot flag", () => {
+  test("the live Claude daemon reports on the level-triggered flag", () => {
     expect(daemonSource).toContain("readUsageRefreshRequested");
     expect(daemonSource).toContain("force: true");
-    expect(daemonSource).toContain("startClaudeUsageReport");
+    expect(daemonSource).toContain("captureAndReportClaudeUsage");
+    expect(daemonSource).not.toContain("usageLimits:clearRefresh");
+    expect(daemonSource).not.toContain("startClaudeUsageReport");
+    const claim = readSource(
+      join(backendDir, "convex/_sessions/workflow.ts"),
+    );
+    expect(claim).toContain("usageRefreshRequested");
+    expect(claim).not.toContain("usageRefreshRequestedAt: undefined");
   });
 
   test("a stopped sandbox is an informational toast, not a red error", () => {

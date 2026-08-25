@@ -77,13 +77,10 @@ export const claimPendingTurn = authMutation({
       await ctx.db.patch(args.projectId, { cancelRequestedAt: undefined });
     }
 
+    // Level-triggered until the refresh action clears it — old callbacks must
+    // not consume the chip's request as a no-op.
     const usageRefreshRequested =
       project.usageRefreshRequestedAt !== undefined;
-    if (usageRefreshRequested) {
-      await ctx.db.patch(args.projectId, {
-        usageRefreshRequestedAt: undefined,
-      });
-    }
 
     // Chat daemon only — never claim a turn while another workflow is the only
     // active consumer.

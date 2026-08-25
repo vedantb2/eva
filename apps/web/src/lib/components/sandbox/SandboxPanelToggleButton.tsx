@@ -42,9 +42,9 @@ export function SandboxPanelToggleButton({
             variant="soft"
             trueKey="expand"
             falseKey="collapse"
-            className="relative flex size-3.5 items-center justify-center"
-            whenTrue={<IconLayoutSidebarRightExpand className="size-3.5" />}
-            whenFalse={<IconLayoutSidebarRightCollapse className="size-3.5" />}
+            className="relative flex size-4 items-center justify-center"
+            whenTrue={<IconLayoutSidebarRightExpand className="size-4" />}
+            whenFalse={<IconLayoutSidebarRightCollapse className="size-4" />}
           />
         </Button>
       </TooltipTrigger>

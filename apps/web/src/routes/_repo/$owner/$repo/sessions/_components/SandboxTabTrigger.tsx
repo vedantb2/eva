@@ -57,7 +57,7 @@ const TAB_CLASS =
 const CLOSE_CLASS =
   "motion-press max-sm:hit-target flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground active:scale-[0.96]";
 
-const ICON_CLASS = "size-3.5 shrink-0";
+const ICON_CLASS = "size-4 shrink-0";
 
 function TabIcon({ icon }: { icon: SandboxTabIcon }) {
   if (icon.kind === "name") {
@@ -137,14 +137,11 @@ interface SandboxTabTriggerProps {
   tab: SandboxTabDescriptor;
   /** Icon-only, label moved into a tooltip — desktop rail, or a crowded mobile strip. */
   labelHidden?: boolean;
-  /** Fires on the already-selected tab (Radix will not emit onValueChange). */
-  onActiveClick?: () => void;
 }
 
 export function SandboxTabTrigger({
   tab,
   labelHidden = false,
-  onActiveClick,
 }: SandboxTabTriggerProps) {
   const overlayClose = labelHidden;
   const trigger = (
@@ -152,7 +149,6 @@ export function SandboxTabTrigger({
       value={tab.value}
       aria-label={labelHidden ? tab.label : undefined}
       className={cn(TAB_CLASS, overlayClose && "group relative")}
-      onClick={() => onActiveClick?.()}
     >
       <TabIcon icon={tab.icon} />
       {labelHidden ? null : tab.label}

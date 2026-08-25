@@ -179,36 +179,19 @@ export function SandboxTabBar({
   const iconOnly = !isMobile;
   const collapseLabels = !iconOnly && tabDescriptors.length > MAX_LABELLED_TABS;
 
-  const expandIfCollapsed = () => {
-    if (isMobile || !collapsed || !onToggle) return;
-    onToggle();
-  };
-
-  const selectTab = (tab: string) => {
-    onTabChange(tab);
-    expandIfCollapsed();
-  };
-
-  const handleNewPreview = () => {
-    onNewPreview();
-    expandIfCollapsed();
-  };
-
   const handleOpenEditor = () => {
     if (onOpenEditor) onOpenEditor();
     else onTabChange("editor");
-    expandIfCollapsed();
   };
 
   const handleOpenComputer = () => {
     if (onOpenComputer) onOpenComputer();
     else onTabChange("computer");
-    expandIfCollapsed();
   };
 
   useCycleSandboxTabHotkey({
     activeTab: resolvedTab,
-    onTabChange: selectTab,
+    onTabChange,
     enabledTabs,
     showPrdTab,
     showDesignsTab,
@@ -221,7 +204,7 @@ export function SandboxTabBar({
 
   useSandboxViewHotkeys({
     activeTab: resolvedTab,
-    onTabChange: selectTab,
+    onTabChange,
     showBrowserTab: tabs.some((tab) => tab.value === "browser"),
     enabled: hotkeysEnabled,
   });
@@ -237,10 +220,10 @@ export function SandboxTabBar({
     customTabs: visibleCustomTabs,
     consoleDock,
     terminalPanel,
-    onTabChange: selectTab,
+    onTabChange,
     onOpenEditor: handleOpenEditor,
     onOpenComputer: handleOpenComputer,
-    onNewPreview: handleNewPreview,
+    onNewPreview,
     newPreviewDisabled,
     simpleView,
   });
@@ -259,7 +242,7 @@ export function SandboxTabBar({
         <Tabs
           className="min-w-0 flex-1 md:flex md:min-h-0 md:w-full md:flex-col"
           value={resolvedTab}
-          onValueChange={selectTab}
+          onValueChange={onTabChange}
         >
           <TabsList className={TAB_LIST_CLASS}>
             {tabDescriptors.map((tab) => (
@@ -272,11 +255,6 @@ export function SandboxTabBar({
                     tab.value !== resolvedTab &&
                     isCollapsibleSandboxTab(tab))
                 }
-                onActiveClick={
-                  !isMobile && onToggle && tab.value === resolvedTab
-                    ? onToggle
-                    : undefined
-                }
               />
             ))}
           </TabsList>
@@ -287,9 +265,9 @@ export function SandboxTabBar({
             showDesktopItem={showDesktopItem}
             onOpenEditor={handleOpenEditor}
             onOpenComputer={handleOpenComputer}
-            onNewPreview={handleNewPreview}
+            onNewPreview={onNewPreview}
             newPreviewDisabled={newPreviewDisabled}
-            onTabChange={selectTab}
+            onTabChange={onTabChange}
             terminalPanel={terminalPanel}
           />
         )}
@@ -297,7 +275,7 @@ export function SandboxTabBar({
       <SandboxQuickOpenDialogs
         fileList={fileList}
         commands={commands}
-        onShowFiles={() => selectTab("files")}
+        onShowFiles={() => onTabChange("files")}
         hotkeysEnabled={hotkeysEnabled}
         filesEnabled={showFiles}
       />

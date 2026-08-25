@@ -102,8 +102,10 @@ export function ResizableSidebar({
   }
 
   return (
+    // No `id` — see `ResizablePanelLayout`. Two kept-alive session shells both
+    // render a file tree, and a shared group id makes the library resolve both
+    // to whichever mounted first.
     <Group
-      id={storageKey}
       orientation="horizontal"
       className="h-full min-h-0"
       onLayoutChanged={onLayoutChanged}

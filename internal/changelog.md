@@ -1,5 +1,9 @@
 # Changelog
 
+## Voice dictation transcripts get an AI polish pass - 2026-08-25
+
+Raw dictation landed in the composer verbatim — "um"s, stutters, and spoken self-corrections included — so voice was only usable for people willing to hand-edit the transcript. Stopping the mic now runs the dictated segment through a cheap gateway model that strips fillers, applies self-corrections, and reshapes long rambles into bullets (short asks stay sentences), then swaps the polished text into the composer with an Undo toast. Applies to all three mic buttons (chat gateway STT, web-speech fallback, quick task modal); short segments skip the round-trip, edits during dictation or polishing abandon the swap, and any failure keeps the raw transcript so words are never lost.
+
 ## Slider thumb sits on the track, not above the ticks - 2026-08-25
 
 The simple-view model ladder's knob was a dark hole on the white pill, with a tick through it, and it hung off the last step. Radix centers the thumb with inline `translateX(-50%)`; a Tailwind translate replaced that and shoved the disc past the end. The shared Slider now uses a 32px white raised disc (dark ring + drop shadow so it reads on zinc, colored accents, and light empty track), centers with margin, and keeps ticks behind it.

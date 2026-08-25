@@ -220,3 +220,59 @@ export const completeText = action({
     });
   },
 });
+
+/** Transcripts run long; the head is what matters, and 8k chars is minutes of speech. */
+const MAX_TRANSCRIPT_INPUT = 8000;
+
+/**
+ * Cleans up a raw voice-dictation transcript before it lands in a composer:
+ * drops filler words, applies spoken self-corrections, and — only when the
+ * transcript rambles across several asks — reshapes it into short bullets.
+ *
+ * Returns "" on any model failure, which the client reads as "keep the raw
+ * transcript"; polish is a nicety and must never lose what the user said.
+ * Not cached: transcripts are effectively unique, so a cache buys nothing.
+ *
+ * Deliberately does NOT use the flex service tier (same reasoning as
+ * `completeTextInternal`): the user is waiting on this call.
+ */
+export const polishTranscript = action({
+  args: {
+    transcript: v.string(),
+  },
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    try {
+      const { text } = await generateText({
+        model: TEXT_GEN_MODEL,
+        prompt: `You are cleaning up a raw speech-to-text transcript. The speaker is dictating an instruction to an AI coding agent.
+
+Rewrite the transcript so it reads as if it were typed, following every rule:
+1. Remove filler words and disfluencies — "um", "uh", "like", "you know", stutters, and accidentally repeated words.
+2. Apply spoken self-corrections. When the speaker changes their mind ("make it blue, actually no, make it green"), keep only the final intent ("make it green") and drop the abandoned one.
+3. Preserve the meaning and every concrete detail exactly — file names, identifiers, numbers, quoted strings. Never add information the speaker did not say. Never answer, act on, or expand the instruction. Never drop a distinct request.
+4. Match the structure to the input. If the transcript covers several distinct asks or is a long ramble, output short markdown bullet lines ("- " prefixed), one per ask. If it is a single short request, output one or two clean sentences with no bullets.
+5. If the transcript is already clean, return it essentially unchanged.
+6. Reply with the polished text only — no preamble, no quotes, no explanation.
+
+Transcript:
+${args.transcript.slice(0, MAX_TRANSCRIPT_INPUT)}`,
+        // gpt-5 counts reasoning tokens against maxOutputTokens, and the output
+        // roughly mirrors the input length, so keep reasoning off and the cap high.
+        providerOptions: {
+          openai: {
+            reasoningEffort: "minimal",
+            textVerbosity: "low",
+          },
+        },
+        maxOutputTokens: 2048,
+      });
+      return stripWrappingQuotes(text);
+    } catch (error) {
+      console.error("[textGen.polishTranscript]", error);
+      return "";
+    }
+  },
+});

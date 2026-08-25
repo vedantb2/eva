@@ -1,5 +1,9 @@
 # Changelog
 
+## Slider thumb sits on the track, not above the ticks - 2026-08-25
+
+The simple-view model ladder's knob was a dark hole on the white pill, with a tick through it, and it hung off the last step. Radix centers the thumb with inline `translateX(-50%)`; a Tailwind translate replaced that and shoved the disc past the end. The shared Slider now uses a 32px white raised disc (dark ring + drop shadow so it reads on zinc, colored accents, and light empty track), centers with margin, and keeps ticks behind it.
+
 ## Rebased branches no longer look like merge conflicts - 2026-08-25
 
 Rebasing a task/session branch onto a new base (onto `main` instead of `staging`) succeeded in the sandbox, then Eva's publish step merged the old remote history back in, conflicted, and replaced the agent's reply with those conflicts — which were not in the working tree. Publish now skips that merge when the unique remote tree looks rewritten, and task/project chat keep the answer and post a publish alert, matching sessions.

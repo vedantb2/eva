@@ -1,5 +1,17 @@
 # Changelog
 
+## Slider thumb sits on the track, not above the ticks - 2026-08-25
+
+The simple-view model ladder's knob was a dark hole on the white pill, with a tick through it, and it hung off the last step. Radix centers the thumb with inline `translateX(-50%)`; a Tailwind translate replaced that and shoved the disc past the end. The shared Slider now uses a 32px white raised disc (dark ring + drop shadow so it reads on zinc, colored accents, and light empty track), centers with margin, and keeps ticks behind it.
+
+## Rebased branches no longer look like merge conflicts - 2026-08-25
+
+Rebasing a task/session branch onto a new base (onto `main` instead of `staging`) succeeded in the sandbox, then Eva's publish step merged the old remote history back in, conflicted, and replaced the agent's reply with those conflicts — which were not in the working tree. Publish now skips that merge when the unique remote tree looks rewritten, and task/project chat keep the answer and post a publish alert, matching sessions.
+
+## Sandbox tabs become a persistent icon rail - 2026-08-25
+
+The right-panel sandbox used a horizontal labelled tab strip, and collapsing it hid the whole pane — so the restore control had to live in the chat header, and live signals (agent browsing, plan/designs ready) vanished. Desktop now uses a vertical icon rail: collapse hides the content, the rail stays, and clicking an icon expands onto that view. Mobile keeps the existing Chat/Sandbox switcher and horizontal tabs.
+
 ## CI now runs the suite, and reverts can no longer narrow the schema - 2026-08-25
 
 The repo had ~220 test files and no CI that ran them — husky is disabled and the only workflows were the review bot and the extension release, so a red `turnLifecycleContract` test shipped past two later commits unnoticed. `.github/workflows/ci.yml` now runs typecheck, oxlint, every package's vitest suite, the React Compiler bailout check, and a new schema-narrowing gate on every PR and push to main. The gate (`scripts/check-schema-narrowing.mjs`) diffs `schema.ts` and `tableFields.ts` against the merge base and fails when a field, table, or union member disappears without a `// schema-narrowing-ok: <migration>` marker backed by a real migration — the class of failure `git revert` caused on 24 Aug, which the gate reproduces and catches. The pre-existing red checks (14 oxlint errors, 3 new compiler bailouts, the motion-contract failure) were fixed rather than baselined, so the first run is green.

@@ -4,7 +4,7 @@ import { useShortcut } from "@/lib/hotkeys/useShortcut";
 import type { SandboxTab } from "@/lib/search-params";
 
 /**
- * Tab order matches `SandboxTabBar`'s always-visible row (Preview, Browser,
+ * Tab order matches `SandboxTabBar`'s always-visible rail (Preview, Browser,
  * Review). Editor / Computer are only cyclable when pinned from `+`.
  */
 const SANDBOX_TAB_BAR_ORDER: SandboxTab[] = ["preview", "browser", "review"];

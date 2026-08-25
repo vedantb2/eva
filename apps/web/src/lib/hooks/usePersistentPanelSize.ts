@@ -100,6 +100,21 @@ export function isMeasuredPanelSize(size: PanelSize): boolean {
 }
 
 /**
+ * Whether a measured panel is in its collapsed snap.
+ *
+ * `collapsedSizePx === 0` is the list/detail case: collapse is 0% of the group.
+ * Sandbox layouts snap to the icon-rail width instead, so percentage is a few
+ * percent rather than 0 and pixel size is the signal.
+ */
+export function isCollapsedPanelSize(
+  size: PanelSize,
+  collapsedSizePx: number,
+): boolean {
+  if (collapsedSizePx <= 0) return size.asPercentage === 0;
+  return size.inPixels <= collapsedSizePx + 1;
+}
+
+/**
  * A stored size, or the default when the stored string has no finite number in
  * it. Recovers panels whose stored width was written as `NaN%` before hidden
  * panels were filtered out; without this the group applies a `NaN` size on every

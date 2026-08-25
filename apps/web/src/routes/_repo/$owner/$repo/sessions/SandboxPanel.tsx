@@ -16,6 +16,7 @@ import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
+import { SandboxPanelFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
 import { useSeedChatDraft } from "@/lib/components/chat/useSeedChatDraft";
 import { useSessionAnnotationSend } from "./_components/useSessionAnnotationSend";
 import { catchMutationError } from "@/lib/utils/mutationToast";
@@ -54,6 +55,8 @@ interface SandboxPanelProps {
   agentBrowsingAt?: number;
   onStartSandbox?: () => void;
   isSandboxStarting?: boolean;
+  collapsed?: boolean;
+  onToggle?: () => void;
 }
 export function SandboxPanel({
   sessionId,
@@ -75,6 +78,8 @@ export function SandboxPanel({
   agentBrowsingAt,
   onStartSandbox,
   isSandboxStarting,
+  collapsed = false,
+  onToggle,
 }: SandboxPanelProps) {
   const simpleView = useSimpleView();
   const sessionIdStr = String(sessionId);
@@ -141,11 +146,15 @@ export function SandboxPanel({
   const enabledTabs = withBrowserTab(panes.enabledTabs);
   const previewUrl = preview.previewInfo?.url ?? null;
   return (
-    <div className="h-full flex flex-col">
-      <SandboxTabBar
-        className="px-2 py-2 sm:px-3 sm:py-3"
-        activeTab={activeTab}
-        onTabChange={onTabChange}
+    <SandboxPanelFrame
+      collapsed={collapsed}
+      tabBar={
+        <SandboxTabBar
+          className="px-2 py-2 sm:px-3 sm:py-3"
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+          collapsed={collapsed}
+          onToggle={onToggle}
         onNewPreview={() => {
           panes.handleNewPreview();
           onTabChange("preview");
@@ -170,8 +179,10 @@ export function SandboxPanel({
         fileList={fileList}
         consoleDock={panes.consoleDock}
         terminalPanel={terminalPanel}
-      />
-      <div className="flex-1 overflow-hidden bg-card">
+        />
+      }
+    >
+      <div className="h-full overflow-hidden">
         <div
           className={
             activeTab === "prd"
@@ -271,6 +282,6 @@ export function SandboxPanel({
           }}
         />
       </div>
-    </div>
+    </SandboxPanelFrame>
   );
 }

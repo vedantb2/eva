@@ -11,6 +11,7 @@ import { useShortcut } from "@/lib/hotkeys/useShortcut";
 import {
   Group,
   Panel,
+  type Layout,
   type PanelSize,
   Separator,
   usePanelRef,
@@ -27,24 +28,31 @@ import {
   LEFT_PANEL_ID,
   RIGHT_PANEL_ID,
   complementaryPercentage,
+  isCollapsedPanelSize,
   isMeasuredPanelSize,
+  panelPercentage,
   usePersistentPanelSize,
 } from "@/lib/hooks/usePersistentPanelSize";
 
-interface PanelContext {
+export interface PanelContext {
   rightPanelCollapsed: boolean;
   onToggleRightPanel: () => void;
 }
 
 interface ResizablePanelLayoutProps {
   leftPanel: (ctx: PanelContext) => ReactNode;
-  rightPanel: ReactNode;
+  rightPanel: (ctx: PanelContext) => ReactNode;
   leftDefaultSize: string;
   leftMinWidthPx: number;
   rightMinWidthPx: number;
   storageKey: string;
   /** Initial collapsed state of the right panel when there is no stored value. Defaults to true. */
   defaultRightCollapsed?: boolean;
+  /**
+   * Pixel width the right panel snaps to when collapsed. `0` hides it (list /
+   * detail). Sandbox layouts pass the icon-rail width so the rail stays visible.
+   */
+  rightCollapsedSizePx?: number;
   /**
    * Bump this value to force-expand the right panel (e.g. agent browser lock).
    * Only expands; never collapses.
@@ -63,6 +71,13 @@ interface ResizablePanelLayoutProps {
    * can name their panes ("Chat"/"Sandbox") should.
    */
   mobilePaneLabels?: MobilePaneLabels;
+  /**
+   * False for a layout that is mounted but not on screen. The collapse hotkey is
+   * a global listener, so every kept-alive session shell would otherwise toggle
+   * on one keypress — and a hidden group measures 0px, so its resize resolves to
+   * `NaN` and leaves that session's panel broken until remount.
+   */
+  hotkeyEnabled?: boolean;
 }
 
 const DEFAULT_RIGHT_PANEL_SIZE = "60%";
@@ -80,9 +95,11 @@ export function ResizablePanelLayout({
   rightMinWidthPx,
   storageKey,
   defaultRightCollapsed = true,
+  rightCollapsedSizePx = 0,
   expandRightSignal,
   collapseRightSignal,
   mobilePaneLabels = DEFAULT_MOBILE_PANE_LABELS,
+  hotkeyEnabled = true,
 }: ResizablePanelLayoutProps) {
   "use no memo";
   const rightPanelRef = usePanelRef();
@@ -107,17 +124,23 @@ export function ResizablePanelLayout({
   const isMobile = useMediaQuery("(max-width: 767px)");
   // Below `md` only one pane is on screen, so the layout always opens on the
   // left pane (chat / list) regardless of `defaultRightCollapsed` or the stored
-  // desktop preference — the right pane's own "back" control lives in the left
-  // pane at every call site, so opening on the right would trap the user.
+  // desktop preference. The switcher is the way back; opening on the right
+  // would trap the user.
   const [rightCollapsed, setRightCollapsed] = useState(() =>
     isMobile ? true : savedCollapsed,
   );
   // Seeded from storage so expanding after a reload returns to the dragged
   // width instead of the layout default.
   const lastExpandedSize = useRef<string>(savedRightSize);
+  // Last measured group width, used to ignore a rail-width snap as a persist.
+  const groupWidthPxRef = useRef(0);
   // Captured once for defaultSize — the stored flag does not change after mount
   const [initialCollapsed] = useState(savedCollapsed);
-  const rightDefaultSize = initialCollapsed ? "0%" : initialRightSize;
+  const rightDefaultSize = initialCollapsed
+    ? rightCollapsedSizePx > 0
+      ? `${rightCollapsedSizePx}px`
+      : "0%"
+    : initialRightSize;
   const restoredLeftSize = initialCollapsed
     ? "100%"
     : complementaryPercentage(initialRightSize, leftDefaultSize);
@@ -147,10 +170,14 @@ export function ResizablePanelLayout({
     }
   }, [isMobile, rightCollapsed, rightPanelRef]);
 
-  useShortcut("toggleSandboxPanel", (e) => {
-    e.preventDefault();
-    handleToggle();
-  });
+  useShortcut(
+    "toggleSandboxPanel",
+    (e) => {
+      e.preventDefault();
+      handleToggle();
+    },
+    { enabled: hotkeyEnabled },
+  );
 
   useEffect(() => {
     if (expandRightSignal === undefined || expandRightSignal === 0) return;
@@ -167,12 +194,28 @@ export function ResizablePanelLayout({
     // left this state disagreeing with the panel, so the toggle called
     // `collapse()` on an already-collapsed panel and looked dead until reload.
     if (!isMeasuredPanelSize(size)) return;
-    const collapsed = size.asPercentage === 0;
+    if (size.asPercentage > 0) {
+      groupWidthPxRef.current = size.inPixels / (size.asPercentage / 100);
+    }
+    const collapsed = isCollapsedPanelSize(size, rightCollapsedSizePx);
     if (!collapsed) {
       lastExpandedSize.current = `${size.asPercentage}%`;
     }
     setRightCollapsed(collapsed);
     setSavedCollapsed(collapsed);
+  };
+
+  const handleLayoutChanged = (layout: Layout) => {
+    // A rail-width snap is not a dragged width — persisting it would make the
+    // next expand restore to ~44px instead of the last real split.
+    if (rightCollapsedSizePx > 0 && groupWidthPxRef.current > 0) {
+      const pct = panelPercentage(layout, "right");
+      if (pct !== null) {
+        const rightPx = (pct / 100) * groupWidthPxRef.current;
+        if (rightPx <= rightCollapsedSizePx + 1) return;
+      }
+    }
+    onLayoutChanged(layout);
   };
 
   const ctx: PanelContext = {
@@ -186,9 +229,9 @@ export function ResizablePanelLayout({
     const panelRest = { opacity: 1, y: "0%" };
     const panelExit = { opacity: 0, y: "8%" };
 
-    // One pane at a time: the visible pane owns the full height. The switcher is
-    // always present because the call sites' own toggle lives inside the left
-    // pane, which is hidden while the right pane is showing.
+    // One pane at a time: the visible pane owns the full height. The switcher
+    // is the way back — the desktop collapse control lives on the sandbox rail,
+    // which is not on screen while the right pane is showing.
     return (
       <div className="flex h-full max-sm:min-h-0 flex-col">
         <MobilePaneSwitcher
@@ -221,7 +264,7 @@ export function ResizablePanelLayout({
                 exit={panelExit}
                 transition={panelTransition}
               >
-                {rightPanel}
+                {rightPanel(ctx)}
               </m.div>
             ) : null}
           </AnimatePresence>
@@ -230,12 +273,22 @@ export function ResizablePanelLayout({
     );
   }
 
+  const hideSeparator = rightCollapsed && rightCollapsedSizePx === 0;
+
   return (
+    // No `id`: the library keeps one global registry of mounted groups and
+    // resolves every lookup — imperative resize/collapse, the rendered
+    // flexGrow, the layout-change listener — to the *first* group with that id.
+    // Passing `storageKey` gave all three kept-alive session shells the id
+    // `sandbox-collapsed`, so the visible session drove the oldest hidden one:
+    // its 0px group turned a 44px collapse into 0% and the rail vanished, and
+    // expanding back was a no-op. The library's `useId` fallback is unique per
+    // instance, which is what a group id is for; only the *panel* ids have to
+    // be stable, and those stay explicit.
     <Group
-      id={storageKey}
       orientation="horizontal"
       className="h-full"
-      onLayoutChanged={onLayoutChanged}
+      onLayoutChanged={handleLayoutChanged}
     >
       <Panel
         id={LEFT_PANEL_ID}
@@ -247,7 +300,7 @@ export function ResizablePanelLayout({
       {/* The grab colour skips the transition so it lands on pointer-down
           instead of fading in 150ms behind the drag. */}
       <Separator
-        className={`w-px bg-border transition-colors hover:bg-primary/50 data-resize-handle-active:bg-primary data-resize-handle-active:transition-none ${rightCollapsed ? "hidden" : ""}`}
+        className={`w-px bg-border transition-colors hover:bg-primary/50 data-resize-handle-active:bg-primary data-resize-handle-active:transition-none ${hideSeparator ? "hidden" : ""}`}
       >
         <div className="flex items-center justify-center w-3 h-full -mx-1.5 relative z-10">
           <IconGripVertical className="w-4 h-4 text-muted-foreground/50" />
@@ -256,13 +309,13 @@ export function ResizablePanelLayout({
       <Panel
         id={RIGHT_PANEL_ID}
         collapsible
-        collapsedSize={0}
+        collapsedSize={rightCollapsedSizePx}
         defaultSize={rightDefaultSize}
         minSize={rightMinWidthPx}
         panelRef={rightPanelRef}
         onResize={handleResize}
       >
-        {rightPanel}
+        {rightPanel(ctx)}
       </Panel>
     </Group>
   );

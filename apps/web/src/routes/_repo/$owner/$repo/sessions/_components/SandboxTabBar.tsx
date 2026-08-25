@@ -3,15 +3,12 @@
 import {
   IconWorld,
   IconBrowser,
-  IconDeviceDesktop,
-  IconCode,
   IconGitPullRequest,
-  IconPlus,
-  IconTerminal2,
 } from "@tabler/icons-react";
 import type { Doc } from "@eva/backend";
 import { useCycleSandboxTabHotkey } from "@/lib/components/sandbox/useCycleSandboxTabHotkey";
 import { useSandboxViewHotkeys } from "@/lib/components/sandbox/useSandboxViewHotkeys";
+import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import type { SandboxTab } from "@/lib/search-params";
 import type { SandboxFileListApi } from "@/lib/components/sandbox/useSandboxFileList";
@@ -26,49 +23,30 @@ import {
   isSimpleViewHiddenSandboxTab,
   useSimpleView,
 } from "@/lib/hooks/useSimpleView";
-import {
-  cn,
-  Tabs,
-  TabsList,
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@eva/ui";
+import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
+import { cn, Tabs, TabsList } from "@eva/ui";
 import {
   isCollapsibleSandboxTab,
   SandboxTabTrigger,
 } from "./SandboxTabTrigger";
 import { buildSandboxTabDescriptors } from "./sandboxTabDescriptors";
+import { SandboxTabBarTools } from "./SandboxTabBarTools";
 
-/* Chips on the canvas, not folder tabs. The old bar drew a hairline under
-   itself and had the active trigger cover that 1px back with `-mb-px` +
-   `border-b-card`, a seam that then had to be re-patched with padding once the
-   list started scrolling its own overflow. The pane below is `bg-card` and the
-   bar sits on `--background`, so the tone step already separates them and the
-   hairline is redundant (see docs/eva-ui.md). */
-const TAB_BAR_CLASS = "flex shrink-0 items-center gap-1 px-1.5 py-1";
+/* Chips on the canvas, not folder tabs. Desktop becomes a vertical icon rail
+   (`md:flex-col`); mobile keeps this horizontal strip. The pane is `bg-card`
+   and the bar sits on `--background`, so the tone step separates them. */
+const TAB_BAR_CLASS =
+  "flex shrink-0 items-center gap-1 px-1.5 py-1 md:h-full md:w-11 md:flex-col md:items-center md:overflow-hidden md:px-1 md:py-1.5";
 
 /* `justify-start` matters: the primitive centres its list, and centred content
    that overflows spills past *both* edges while `scrollLeft` cannot go
-   negative — the leading tabs become unreachable. Scrolling is ungated here
-   because the primitive only scrolls `max-sm:`, which left the desktop strip
-   clipping its trailing tabs with no way to reach them. */
+   negative. Desktop is a column; the same sliding pill marks the active tab. */
 const TAB_LIST_CLASS =
-  "h-auto max-w-full justify-start gap-1 overflow-x-auto rounded-none border-0 bg-transparent p-0 shadow-none scrollbar-none max-sm:justify-start [&_.t-tabs-pill]:smooth-shadow-ring-xs";
-
-const ICON_BUTTON_CLASS =
-  "motion-press max-sm:hit-target flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-secondary hover:text-foreground active:scale-[0.96] disabled:pointer-events-none disabled:opacity-40";
+  "h-auto max-w-full justify-start gap-1 overflow-x-auto rounded-none border-0 bg-transparent p-0 shadow-none scrollbar-none max-sm:justify-start [&_.t-tabs-pill]:smooth-shadow-ring-xs md:max-w-none md:flex-col md:overflow-x-hidden md:overflow-y-auto";
 
 /**
- * Past this many tabs the inactive labels collapse to icon-only (label moves to
- * a tooltip). A session can show Preview, Browser, Review, Files, Plan, Designs,
- * Editor, Computer and any number of user-defined tabs at once, so the strip has
- * to compress rather than simply run off the edge. The active tab keeps its
- * label so the current pane is always named.
+ * Past this many tabs the inactive mobile labels collapse to icon-only (label
+ * moves to a tooltip). Desktop is always icon-only.
  */
 const MAX_LABELLED_TABS = 6;
 
@@ -114,12 +92,15 @@ interface SandboxTabBarProps {
   hotkeysEnabled?: boolean;
   /**
    * Extra classes on the bar itself. Sessions pass the chat-header padding so
-   * the two columns share a row height; task/project keep the tighter default.
+   * the two columns share a row height on mobile; desktop rail overrides it.
    */
   className?: string;
   fileList: SandboxFileListApi;
   consoleDock: ConsoleDockApi;
   terminalPanel: TerminalPanelApi;
+  /** Desktop: content pane is hidden; the rail stays. Ignored below `md`. */
+  collapsed?: boolean;
+  onToggle?: () => void;
 }
 
 const AGENT_BROWSING_LOCK_TTL_MS = 30 * 60 * 1000;
@@ -154,8 +135,11 @@ export function SandboxTabBar({
   fileList,
   consoleDock,
   terminalPanel,
+  collapsed = false,
+  onToggle,
 }: SandboxTabBarProps) {
   const simpleView = useSimpleView();
+  const isMobile = useMediaQuery("(max-width: 767px)");
   const tabs = enabledTabs
     ? allTabs.filter((tab) => enabledTabs.includes(tab.value))
     : allTabs.filter((tab) => tab.value !== "browser");
@@ -191,7 +175,18 @@ export function SandboxTabBar({
     hasDesignsContent,
     customTabs: visibleCustomTabs,
   });
-  const collapseLabels = tabDescriptors.length > MAX_LABELLED_TABS;
+  const iconOnly = !isMobile;
+  const collapseLabels = !iconOnly && tabDescriptors.length > MAX_LABELLED_TABS;
+
+  const handleOpenEditor = () => {
+    if (onOpenEditor) onOpenEditor();
+    else onTabChange("editor");
+  };
+
+  const handleOpenComputer = () => {
+    if (onOpenComputer) onOpenComputer();
+    else onTabChange("computer");
+  };
 
   useCycleSandboxTabHotkey({
     activeTab: resolvedTab,
@@ -225,8 +220,8 @@ export function SandboxTabBar({
     consoleDock,
     terminalPanel,
     onTabChange,
-    onOpenEditor,
-    onOpenComputer,
+    onOpenEditor: handleOpenEditor,
+    onOpenComputer: handleOpenComputer,
     onNewPreview,
     newPreviewDisabled,
     simpleView,
@@ -235,8 +230,16 @@ export function SandboxTabBar({
   return (
     <>
       <div className={cn(TAB_BAR_CLASS, className)}>
+        {onToggle ? (
+          <div className="hidden md:flex">
+            <SandboxPanelToggleButton
+              collapsed={collapsed}
+              onToggle={onToggle}
+            />
+          </div>
+        ) : null}
         <Tabs
-          className="min-w-0 flex-1"
+          className="min-w-0 flex-1 md:flex md:min-h-0 md:w-full md:flex-col"
           value={resolvedTab}
           onValueChange={onTabChange}
         >
@@ -246,82 +249,26 @@ export function SandboxTabBar({
                 key={tab.value}
                 tab={tab}
                 labelHidden={
-                  collapseLabels &&
-                  tab.value !== resolvedTab &&
-                  isCollapsibleSandboxTab(tab)
+                  iconOnly ||
+                  (collapseLabels &&
+                    tab.value !== resolvedTab &&
+                    isCollapsibleSandboxTab(tab))
                 }
               />
             ))}
           </TabsList>
         </Tabs>
-        {/* Outside Tabs so the menu isn't part of Radix tab focus/value sync. */}
         {simpleView ? null : (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <button
-                type="button"
-                className={ICON_BUTTON_CLASS}
-                aria-label="Open tab menu"
-              >
-                <IconPlus className="size-4" />
-              </button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start" className="min-w-40">
-              {showEditorItem ? (
-                <DropdownMenuItem
-                  onClick={() => {
-                    if (onOpenEditor) {
-                      onOpenEditor();
-                      return;
-                    }
-                    onTabChange("editor");
-                  }}
-                >
-                  <IconCode size={14} />
-                  Editor
-                </DropdownMenuItem>
-              ) : null}
-              {showDesktopItem ? (
-                <DropdownMenuItem
-                  onClick={() => {
-                    if (onOpenComputer) {
-                      onOpenComputer();
-                      return;
-                    }
-                    onTabChange("computer");
-                  }}
-                >
-                  <IconDeviceDesktop size={14} />
-                  Computer
-                </DropdownMenuItem>
-              ) : null}
-              <DropdownMenuItem
-                onClick={onNewPreview}
-                disabled={newPreviewDisabled}
-              >
-                <IconWorld size={14} />
-                New Preview
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-        {simpleView ? null : (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                aria-label="Toggle terminal panel"
-                aria-pressed={terminalPanel.expanded}
-                className={ICON_BUTTON_CLASS}
-                onClick={terminalPanel.toggle}
-              >
-                <IconTerminal2 className="size-4" />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="text-xs">
-              Toggle terminal panel
-            </TooltipContent>
-          </Tooltip>
+          <SandboxTabBarTools
+            showEditorItem={showEditorItem}
+            showDesktopItem={showDesktopItem}
+            onOpenEditor={handleOpenEditor}
+            onOpenComputer={handleOpenComputer}
+            onNewPreview={onNewPreview}
+            newPreviewDisabled={newPreviewDisabled}
+            onTabChange={onTabChange}
+            terminalPanel={terminalPanel}
+          />
         )}
       </div>
       <SandboxQuickOpenDialogs

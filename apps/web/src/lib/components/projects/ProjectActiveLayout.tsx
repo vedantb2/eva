@@ -176,7 +176,7 @@ export function ProjectActiveLayout({
             />
           </div>
         )}
-        rightPanel={
+        rightPanel={() => (
           <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
             {selectedTaskStatus === "loading" ? (
               <div className="flex h-full items-center justify-center">
@@ -205,7 +205,7 @@ export function ProjectActiveLayout({
               </div>
             )}
           </div>
-        }
+        )}
       />
       <QuickTaskModal
         isOpen={createTaskOpen}

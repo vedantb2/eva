@@ -27,6 +27,11 @@ import {
 import { isSandboxGoneError } from "./sandboxErrors";
 import { writeSandboxFile } from "./sandboxFiles";
 import { ensureGitCredentialHelper } from "./gitCredentials";
+import {
+  divergedPublishLooksLikeRewrite,
+  parseGitNameOnlyList,
+  remoteOnlyChangedFileCount,
+} from "./divergedPublish";
 import { ensureSwapFile } from "./swap";
 import {
   EVA_ENV_FILE,
@@ -1065,6 +1070,11 @@ export async function setupBranch(
  * conflicting on the base branch's own Mantine 9.3 bump — so a clean sandbox
  * merge could never publish, and every retry failed identically. A merge
  * conflicts only where the two tips genuinely touch the same lines.
+ *
+ * Skip that merge when the unique remote tree looks like a rewritten base
+ * (task 231, 25 Aug 2026): rebasing onto main left one local file against
+ * 1,272 remote-only staging commits, and merging the old tip back in
+ * conflicted inside publish while the sandbox stayed clean.
  */
 async function synchronizeBranchForPublish(
   sandbox: SandboxHandle,
@@ -1157,11 +1167,62 @@ async function synchronizeBranchForPublish(
     return { remoteExists: true };
   }
   if (/^[1-9]\d*\s+[1-9]\d*$/.test(divergence)) {
-    await execGitCommand(
-      sandbox,
-      `cd ${workspaceDir} && if ! git merge --no-edit ${quotedRemoteRef}; then git merge --abort; exit 1; fi`,
-      120,
+    const mergeBase = (
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git merge-base ${quotedRemoteRef} ${quotedLocalRef}`,
+        15,
+      )
+    ).trim();
+    const quotedMergeBase = quote([mergeBase]);
+    const localChanged = parseGitNameOnlyList(
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git diff --name-only ${quotedMergeBase} ${quotedLocalRef}`,
+        30,
+      ),
     );
+    const remoteChanged = parseGitNameOnlyList(
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git diff --name-only ${quotedMergeBase} ${quotedRemoteRef}`,
+        30,
+      ),
+    );
+    if (divergedPublishLooksLikeRewrite(localChanged, remoteChanged)) {
+      const remoteOnly = remoteOnlyChangedFileCount(
+        localChanged,
+        remoteChanged,
+      );
+      throw new Error(
+        `Refusing to merge origin/${branchName} into a rewritten local branch (${remoteOnly} remote-only files vs ${localChanged.length} local). Local work is intact and GitHub still has the old history. Updating the PR needs a force-push, and a base-branch retarget if you rebased onto a new base.`,
+      );
+    }
+    try {
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git merge --no-edit ${quotedRemoteRef}`,
+        120,
+      );
+    } catch (error) {
+      logGit(
+        `synchronizeBranchForPublish: merge origin/${branchName} failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      try {
+        await execGitCommand(
+          sandbox,
+          `cd ${workspaceDir} && git merge --abort`,
+          30,
+        );
+      } catch (abortError) {
+        logGit(
+          `synchronizeBranchForPublish: merge --abort failed: ${abortError instanceof Error ? abortError.message : String(abortError)}`,
+        );
+      }
+      throw new Error(
+        `Could not merge origin/${branchName} into the local branch. The sandbox was left clean — there are no conflict markers to resolve. If you rewrote history, force-push; if both sides committed, merge the remote branch in the sandbox and retry.`,
+      );
+    }
     return { remoteExists: true };
   }
   throw new Error(

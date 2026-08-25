@@ -86,18 +86,17 @@
   left: 0;
   height: 0;
   width: 0;
-  transform: translateX(0);
-  /* `top` and `height` are set, not transitioned: every tab in a list shares
-   * the same height and vertical position, so animating them only cost a
-   * layout pass per frame and could smear on resize. `width` stays — the pill
-   * has to match the tab it lands on, and scaling a rounded rect instead would
-   * distort the corner radius. */
+  transform: translate(0);
+  /* Position is `translate(x, y)` so the pill can slide in a row or a column.
+   * `width`/`height` stay — the pill has to match the tab it lands on, and
+   * scaling a rounded rect instead would distort the corner radius. */
   transition:
     transform var(--tabs-dur) var(--tabs-ease),
-    width var(--tabs-dur) var(--tabs-ease);
+    width var(--tabs-dur) var(--tabs-ease),
+    height var(--tabs-dur) var(--tabs-ease);
   z-index: 0;
   pointer-events: none;
-  will-change: transform, width;
+  will-change: transform, width, height;
 }
 
 @utility t-accordion-content {
@@ -203,6 +202,35 @@
     var(--motion-base), var(--motion-base), var(--motion-base),
     var(--motion-base), var(--motion-base);
   transition-timing-function: var(--motion-ease-out);
+}
+
+@utility t-slider {
+  /* Radix positions the thumb with an inline `transform: translateX(-50%)` on
+     an unstyled wrapper span. Do not set `translate` / `transform` here — that
+     replaces the inline transform and parks the knob past the end of the track.
+     Margin-top centers the 32px knob on the 20px pill without touching transform. */
+  & > span:has([role="slider"]) {
+    top: 50%;
+    z-index: 10;
+    display: block;
+    margin-top: -16px;
+    line-height: 0;
+  }
+}
+
+@utility t-slider-thumb {
+  /* Always a white raised disc, matching the mock in every theme. A dark ring
+     plus drop shadow is what keeps the circle readable when primary is
+     near-white (zinc) or the empty track is light — theme fill tokens vanish
+     on one side of the thumb. Uses Tailwind's shadow CSS variables so the
+     focus ring still composes. */
+  background-color: #fff;
+  --tw-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.16), 0 1px 2px rgb(0 0 0 / 0.18),
+    0 3px 8px rgb(0 0 0 / 0.14);
+  box-shadow:
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000),
+    var(--tw-shadow);
 }
 
 @utility t-switch-thumb {

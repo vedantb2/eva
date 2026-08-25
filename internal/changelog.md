@@ -1,5 +1,9 @@
 # Changelog
 
+## Sandbox start no longer dies on the preview proxy - 2026-08-25
+
+Bundling html2canvas into the preview proxy pushed the generated script past 200 KB, and the script was shipped as a heredoc inside the launch command. Linux caps one argument at 128 KB, so Vercel refused to start the shell ("argument list too long") and every session start failed with "Vercel preview proxy failed to start on port 3000". The script is now uploaded with the file API, the same way the callback runner already is.
+
 ## Preview device toolbar: aspect lock, rotate, screenshot - 2026-08-25
 
 The session preview only had a desktop/tablet/mobile width toggle, so phones were a narrow column that still used the panel's height. It now follows T3 Code's in-panel device chrome (not their miniplayer): Fill vs Responsive vs Chrome-catalog presets, width × height, aspect lock, rotate, and a screenshot that copies the live guest page. The hosted iframe keeps the requested CSS viewport and scales to fit the pane, so media queries match the device instead of the letterboxed box. html2canvas loads from the preview proxy only when you click screenshot, so every HTML page does not pay for it.

@@ -20,7 +20,7 @@ const RESOLVED_ID = `\0${VIRTUAL_ID}`;
  * names match the react exports exactly — the kebab JSONs drop icons like
  * Icon123/Icon2fa whose names don't round-trip through kebab-case.
  */
-function buildModuleSource(): string {
+export function buildTablerIconDataSource(): string {
   const require = createRequire(import.meta.url);
   const iconsDir = path.join(
     path.dirname(require.resolve("@tabler/icons-react/package.json")),
@@ -75,7 +75,7 @@ export function tablerIconData(): Plugin {
       filter: { id: /^\0virtual:tabler-icon-data$/ },
       handler(id) {
         if (id === RESOLVED_ID) {
-          cache ??= buildModuleSource();
+          cache ??= buildTablerIconDataSource();
           return cache;
         }
       },

@@ -1,7 +1,7 @@
 @import "tailwindcss";
 @import "shadow-plugin";
 
-@config '../tailwind.config.js';
+@config './tailwind.config.js';
 
 /* v4 changed the default border colour to `currentcolor`. The upgrade codemod
  * adds a gray-200 compatibility shim here; it is not needed, because the base

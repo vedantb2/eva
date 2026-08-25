@@ -1,5 +1,11 @@
 # Changelog
 
+## Preview annotations carry agentation-level detail, card shows the selected code - 2026-08-25
+
+The card also re-clamps itself: `PreviewAnnotationLayer` observes the mounted card with a `ResizeObserver` and repositions as the accordion animates open, replacing the guessed height constant that let an expanded card hang off the bottom of the panel.
+
+The sandbox preview's annotate mode captured a fixed slice of the clicked element (tag, selector, 10 computed styles, 3 React names); agentation's tool captures far more. The injected script (`preview-annotation-src/index.ts`, `SCRIPT_VERSION` → `stream-v17`) now also sends accessibility (role/aria/focusable), parent text, sibling summary, a full readable DOM path (crossing shadow roots), a tag-aware filtered styles summary, and viewport/DPR environment — all optional on the web parser so pre-v17 sandboxes keep working. The prompt to the agent includes the new lines; the chat display stays compact. The comment card gained an agentation-style accordion: the identity chips are now a Collapsible trigger revealing the element's actual `outerHTML` in a CodeBlock (copy button, display-only pretty print) plus a `prop: value` styles list. CSS-module hash suffixes are stripped from chip labels (underscore-only rule so `items-center` survives), with a raw-class fallback when the whole class is a hash.
+
 ## Voice dictation transcripts get an AI polish pass - 2026-08-25
 
 Raw dictation landed in the composer verbatim — "um"s, stutters, and spoken self-corrections included — so voice was only usable for people willing to hand-edit the transcript. Stopping the mic now runs the dictated segment through a cheap gateway model that strips fillers, applies self-corrections, and reshapes long rambles into bullets (short asks stay sentences), then swaps the polished text into the composer with an Undo toast. Applies to all three mic buttons (chat gateway STT, web-speech fallback, quick task modal); short segments skip the round-trip, edits during dictation or polishing abandon the swap, and any failure keeps the raw transcript so words are never lost.

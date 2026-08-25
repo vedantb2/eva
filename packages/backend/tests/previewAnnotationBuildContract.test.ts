@@ -60,6 +60,19 @@ describe("preview annotation bundle", () => {
     );
   });
 
+  test("ships the forensic context fields the annotation parser reads", () => {
+    for (const field of [
+      "accessibility",
+      "nearbyText",
+      "nearbyElements",
+      "fullPath",
+      "stylesSummary",
+      "devicePixelRatio",
+    ]) {
+      expect(generatedSource).toContain(field);
+    }
+  });
+
   test("vendors html2canvas for on-demand screenshot capture", () => {
     expect(html2canvasSource.length).toBeGreaterThan(50_000);
     expect(html2canvasSource).toContain(

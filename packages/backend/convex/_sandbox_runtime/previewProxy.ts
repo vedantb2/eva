@@ -28,7 +28,7 @@ export const VERCEL_EDITOR_INTERNAL_PORT = 18080;
 const HEALTH_PATH = "/__eva_preview_proxy/health";
 // Bump when the generated proxy script changes so already-running proxies from
 // an older deploy are detected as stale (via the health response) and relaunched.
-const SCRIPT_VERSION = "stream-v16";
+const SCRIPT_VERSION = "stream-v17";
 
 /** Values injected into the generated proxy script to drive the auth gate. */
 interface PreviewProxyAuthParams {

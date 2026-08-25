@@ -104,24 +104,32 @@ function TabCloseButton({
   }
   const onClose = tab.onClose;
   if (onClose === undefined) return null;
+  const closeLabel = `Close ${tab.label} tab`;
   return (
-    <button
-      type="button"
-      aria-label={`Close ${tab.label} tab`}
-      className={closeClass}
-      onClick={(event) => {
-        event.preventDefault();
-        event.stopPropagation();
-        onClose();
-      }}
-      onPointerDown={(event) => {
-        // Keep Radix Tabs from selecting the tab via the close hit-target.
-        event.preventDefault();
-        event.stopPropagation();
-      }}
-    >
-      <IconX className="size-3.5" />
-    </button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={closeLabel}
+          className={closeClass}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            onClose();
+          }}
+          onPointerDown={(event) => {
+            // Keep Radix Tabs from selecting the tab via the close hit-target.
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+        >
+          <IconX className="size-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side={overlay ? "left" : "bottom"} className="text-xs">
+        {closeLabel}
+      </TooltipContent>
+    </Tooltip>
   );
 }
 
@@ -162,11 +170,13 @@ export function SandboxTabTrigger({
       <TabCloseButton tab={tab} overlay={overlayClose} />
     </TabsTrigger>
   );
-  if (!labelHidden) return trigger;
   return (
     <Tooltip>
       <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-      <TooltipContent side="left" className="text-xs">
+      <TooltipContent
+        side={labelHidden ? "left" : "bottom"}
+        className="text-xs"
+      >
         {tab.label}
       </TooltipContent>
     </Tooltip>

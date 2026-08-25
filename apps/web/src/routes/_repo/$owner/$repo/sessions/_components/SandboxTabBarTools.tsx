@@ -41,15 +41,22 @@ export function SandboxTabBarTools({
   return (
     <div className="flex shrink-0 items-center gap-1 md:mt-auto md:flex-col">
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            className={SANDBOX_RAIL_ICON_BUTTON_CLASS}
-            aria-label="Open tab menu"
-          >
-            <IconPlus className="size-4" />
-          </button>
-        </DropdownMenuTrigger>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={SANDBOX_RAIL_ICON_BUTTON_CLASS}
+                aria-label="Open tab menu"
+              >
+                <IconPlus className="size-4" />
+              </button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-xs">
+            Open tab menu
+          </TooltipContent>
+        </Tooltip>
         <DropdownMenuContent align="start" className="min-w-40">
           {showEditorItem ? (
             <DropdownMenuItem

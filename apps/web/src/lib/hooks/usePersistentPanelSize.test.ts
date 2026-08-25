@@ -11,6 +11,7 @@ import {
   panelPercentage,
   RIGHT_PANEL_ID,
   TOP_PANEL_ID,
+  usableExpandedPanelSize,
   usableStoredSize,
 } from "./usePersistentPanelSize";
 
@@ -110,6 +111,23 @@ describe("isCollapsedPanelSize", () => {
       isCollapsedPanelSize({ asPercentage: 40, inPixels: 480 }, 44),
     ).toBe(false);
   });
+
+  /**
+   * The library stores collapse as a percentage. A sidebar/window resize can
+   * grow a 44px rail to ~80px without reaching minSize — that strip is still
+   * collapsed, not a split to restore.
+   */
+  it("treats the band between the rail and minSize as collapsed", () => {
+    expect(
+      isCollapsedPanelSize({ asPercentage: 6, inPixels: 80 }, 44, 300),
+    ).toBe(true);
+    expect(
+      isCollapsedPanelSize({ asPercentage: 25, inPixels: 300 }, 44, 300),
+    ).toBe(false);
+    expect(
+      isCollapsedPanelSize({ asPercentage: 40, inPixels: 480 }, 44, 300),
+    ).toBe(false);
+  });
 });
 
 describe("usableStoredSize", () => {
@@ -122,6 +140,21 @@ describe("usableStoredSize", () => {
   it("falls back when the stored size has no number in it", () => {
     expect(usableStoredSize("NaN%", "40%")).toBe("40%");
     expect(usableStoredSize("", "40%")).toBe("40%");
+  });
+});
+
+describe("usableExpandedPanelSize", () => {
+  it("keeps a real split", () => {
+    expect(usableExpandedPanelSize("60%", "40%", 300, 1200)).toBe("60%");
+  });
+
+  /** An inflated-rail percentage would resize the panel to tens of pixels. */
+  it("falls back when the stored width is below minSize", () => {
+    expect(usableExpandedPanelSize("4.4%", "60%", 300, 1200)).toBe("60%");
+  });
+
+  it("keeps the size when the group width is not known yet", () => {
+    expect(usableExpandedPanelSize("4.4%", "60%", 300, 0)).toBe("4.4%");
   });
 });
 
@@ -222,4 +255,25 @@ it.each([
     "utf8",
   );
   expect(consumer).not.toContain("id={storageKey}");
+});
+
+/**
+ * The toggle used to trust React's collapsed flag. After a group resize the
+ * rail could be 80px (not collapsed by the 44px check, not expanded by minSize)
+ * so the click called `collapse()` and did nothing — drag was the only way out.
+ * Reading `getSize()` and rejecting below-minSize restores as the expand width
+ * is the recovery.
+ */
+it("expands from the live panel size, not the mirrored collapsed flag", () => {
+  const consumer = readFileSync(
+    join(
+      dirname(fileURLToPath(import.meta.url)),
+      "../components/ResizablePanelLayout.tsx",
+    ),
+    "utf8",
+  );
+  expect(consumer).toContain("panel.getSize()");
+  expect(consumer).toContain("usableExpandedPanelSize(");
+  expect(consumer).toContain('groupResizeBehavior={');
+  expect(consumer).toContain('"preserve-pixel-size"');
 });

@@ -31,6 +31,7 @@ import {
   isCollapsedPanelSize,
   isMeasuredPanelSize,
   panelPercentage,
+  usableExpandedPanelSize,
   usePersistentPanelSize,
 } from "@/lib/hooks/usePersistentPanelSize";
 
@@ -155,6 +156,8 @@ export function ResizablePanelLayout({
     if (isMobile && collapseRightSignal !== undefined) setRightCollapsed(true);
   }
 
+  const railMinSizePx = rightCollapsedSizePx > 0 ? rightMinWidthPx : 0;
+
   const handleToggle = useCallback(() => {
     // Mobile layout has no Panel ref — toggle local state directly. It is not
     // persisted: which pane you were last looking at on a phone must not
@@ -163,12 +166,36 @@ export function ResizablePanelLayout({
       setRightCollapsed((prev) => !prev);
       return;
     }
-    if (rightCollapsed) {
-      rightPanelRef.current?.resize(lastExpandedSize.current);
-    } else {
-      rightPanelRef.current?.collapse();
+    const panel = rightPanelRef.current;
+    if (!panel) return;
+    // Read the live size rather than `rightCollapsed`. A group resize can
+    // inflate a collapsed rail past `collapsedSizePx` without reaching minSize,
+    // which used to flip that flag to "expanded" so this called `collapse()`
+    // on an already-collapsed panel (a no-op — drag was the only way back).
+    const size = panel.getSize();
+    const collapsed = isMeasuredPanelSize(size)
+      ? isCollapsedPanelSize(size, rightCollapsedSizePx, railMinSizePx)
+      : rightCollapsed;
+    if (collapsed) {
+      panel.resize(
+        usableExpandedPanelSize(
+          lastExpandedSize.current,
+          defaultRightSize,
+          railMinSizePx,
+          groupWidthPxRef.current,
+        ),
+      );
+      return;
     }
-  }, [isMobile, rightCollapsed, rightPanelRef]);
+    panel.collapse();
+  }, [
+    defaultRightSize,
+    isMobile,
+    railMinSizePx,
+    rightCollapsed,
+    rightCollapsedSizePx,
+    rightPanelRef,
+  ]);
 
   useShortcut(
     "toggleSandboxPanel",
@@ -185,8 +212,21 @@ export function ResizablePanelLayout({
       setRightCollapsed(false);
       return;
     }
-    rightPanelRef.current?.resize(lastExpandedSize.current);
-  }, [expandRightSignal, isMobile, rightPanelRef]);
+    rightPanelRef.current?.resize(
+      usableExpandedPanelSize(
+        lastExpandedSize.current,
+        defaultRightSize,
+        railMinSizePx,
+        groupWidthPxRef.current,
+      ),
+    );
+  }, [
+    defaultRightSize,
+    expandRightSignal,
+    isMobile,
+    railMinSizePx,
+    rightPanelRef,
+  ]);
 
   const handleResize = (size: PanelSize) => {
     // Hiding the panel (a kept-alive session shell going `display: none`) is not
@@ -197,7 +237,11 @@ export function ResizablePanelLayout({
     if (size.asPercentage > 0) {
       groupWidthPxRef.current = size.inPixels / (size.asPercentage / 100);
     }
-    const collapsed = isCollapsedPanelSize(size, rightCollapsedSizePx);
+    const collapsed = isCollapsedPanelSize(
+      size,
+      rightCollapsedSizePx,
+      railMinSizePx,
+    );
     if (!collapsed) {
       lastExpandedSize.current = `${size.asPercentage}%`;
     }
@@ -206,13 +250,14 @@ export function ResizablePanelLayout({
   };
 
   const handleLayoutChanged = (layout: Layout) => {
-    // A rail-width snap is not a dragged width — persisting it would make the
-    // next expand restore to ~44px instead of the last real split.
-    if (rightCollapsedSizePx > 0 && groupWidthPxRef.current > 0) {
+    // A rail-width snap — or the in-between strip a group resize can leave — is
+    // not a dragged width. Persisting it would make the next expand restore to
+    // tens of pixels instead of the last real split.
+    if (railMinSizePx > 0 && groupWidthPxRef.current > 0) {
       const pct = panelPercentage(layout, "right");
       if (pct !== null) {
         const rightPx = (pct / 100) * groupWidthPxRef.current;
-        if (rightPx <= rightCollapsedSizePx + 1) return;
+        if (rightPx < railMinSizePx) return;
       }
     }
     onLayoutChanged(layout);
@@ -297,8 +342,9 @@ export function ResizablePanelLayout({
       >
         {leftPanel(ctx)}
       </Panel>
-      {/* The grab colour skips the transition so it lands on pointer-down
-          instead of fading in 150ms behind the drag. */}
+      {/* z-10 so the grip sits above adjacent pane content. The sandbox rail
+          uses z-20 so a collapsed-rail click hits the toggle instead of
+          starting a drag. */}
       <Separator
         className={`w-px bg-border transition-colors hover:bg-primary/50 data-resize-handle-active:bg-primary data-resize-handle-active:transition-none ${hideSeparator ? "hidden" : ""}`}
       >
@@ -312,6 +358,13 @@ export function ResizablePanelLayout({
         collapsedSize={rightCollapsedSizePx}
         defaultSize={rightDefaultSize}
         minSize={rightMinWidthPx}
+        // Keep the rail at 44px (and an expanded sandbox at its dragged pixels)
+        // when the group width changes. The default relative behaviour turns a
+        // collapsed percentage into a wider strip, which is what made the
+        // toggle disagree with the panel.
+        groupResizeBehavior={
+          rightCollapsedSizePx > 0 ? "preserve-pixel-size" : undefined
+        }
         panelRef={rightPanelRef}
         onResize={handleResize}
       >

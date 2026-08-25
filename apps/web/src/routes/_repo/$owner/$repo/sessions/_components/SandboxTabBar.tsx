@@ -34,9 +34,11 @@ import { SandboxTabBarTools } from "./SandboxTabBarTools";
 
 /* Chips on the canvas, not folder tabs. Desktop becomes a vertical icon rail
    (`md:flex-col`); mobile keeps this horizontal strip. The pane is `bg-card`
-   and the bar sits on `--background`, so the tone step separates them. */
+   and the bar sits on `--background`, so the tone step separates them.
+   `md:z-20` stacks the rail above the splitter's overlapping hit target so the
+   collapse button still receives clicks when the panel is snapped to 44px. */
 const TAB_BAR_CLASS =
-  "flex shrink-0 items-center gap-1 px-1.5 py-1 md:h-full md:w-11 md:flex-col md:items-center md:overflow-hidden md:px-1 md:py-1.5";
+  "flex shrink-0 items-center gap-1 px-1.5 py-1 md:relative md:z-20 md:h-full md:w-11 md:flex-col md:items-center md:overflow-hidden md:px-1 md:py-1.5";
 
 /* `justify-start` matters: the primitive centres its list, and centred content
    that overflows spills past *both* edges while `scrollLeft` cannot go
@@ -178,19 +180,35 @@ export function SandboxTabBar({
   const iconOnly = !isMobile;
   const collapseLabels = !iconOnly && tabDescriptors.length > MAX_LABELLED_TABS;
 
+  const expandIfCollapsed = () => {
+    if (collapsed && onToggle) onToggle();
+  };
+
+  const handleTabChange = (tab: string) => {
+    onTabChange(tab);
+    expandIfCollapsed();
+  };
+
   const handleOpenEditor = () => {
     if (onOpenEditor) onOpenEditor();
     else onTabChange("editor");
+    expandIfCollapsed();
   };
 
   const handleOpenComputer = () => {
     if (onOpenComputer) onOpenComputer();
     else onTabChange("computer");
+    expandIfCollapsed();
+  };
+
+  const handleNewPreview = () => {
+    onNewPreview();
+    expandIfCollapsed();
   };
 
   useCycleSandboxTabHotkey({
     activeTab: resolvedTab,
-    onTabChange,
+    onTabChange: handleTabChange,
     enabledTabs,
     showPrdTab,
     showDesignsTab,
@@ -203,7 +221,7 @@ export function SandboxTabBar({
 
   useSandboxViewHotkeys({
     activeTab: resolvedTab,
-    onTabChange,
+    onTabChange: handleTabChange,
     showBrowserTab: tabs.some((tab) => tab.value === "browser"),
     enabled: hotkeysEnabled,
   });
@@ -219,10 +237,10 @@ export function SandboxTabBar({
     customTabs: visibleCustomTabs,
     consoleDock,
     terminalPanel,
-    onTabChange,
+    onTabChange: handleTabChange,
     onOpenEditor: handleOpenEditor,
     onOpenComputer: handleOpenComputer,
-    onNewPreview,
+    onNewPreview: handleNewPreview,
     newPreviewDisabled,
     simpleView,
   });
@@ -241,13 +259,18 @@ export function SandboxTabBar({
         <Tabs
           className="min-w-0 flex-1 md:flex md:min-h-0 md:w-full md:flex-col"
           value={resolvedTab}
-          onValueChange={onTabChange}
+          onValueChange={handleTabChange}
         >
           <TabsList className={TAB_LIST_CLASS}>
             {tabDescriptors.map((tab) => (
               <SandboxTabTrigger
                 key={tab.value}
                 tab={tab}
+                onReselect={
+                  collapsed && tab.value === resolvedTab
+                    ? expandIfCollapsed
+                    : undefined
+                }
                 labelHidden={
                   iconOnly ||
                   (collapseLabels &&
@@ -264,9 +287,9 @@ export function SandboxTabBar({
             showDesktopItem={showDesktopItem}
             onOpenEditor={handleOpenEditor}
             onOpenComputer={handleOpenComputer}
-            onNewPreview={onNewPreview}
+            onNewPreview={handleNewPreview}
             newPreviewDisabled={newPreviewDisabled}
-            onTabChange={onTabChange}
+            onTabChange={handleTabChange}
             terminalPanel={terminalPanel}
           />
         )}
@@ -274,7 +297,7 @@ export function SandboxTabBar({
       <SandboxQuickOpenDialogs
         fileList={fileList}
         commands={commands}
-        onShowFiles={() => onTabChange("files")}
+        onShowFiles={() => handleTabChange("files")}
         hotkeysEnabled={hotkeysEnabled}
         filesEnabled={showFiles}
       />

@@ -105,13 +105,20 @@ export function isMeasuredPanelSize(size: PanelSize): boolean {
  * `collapsedSizePx === 0` is the list/detail case: collapse is 0% of the group.
  * Sandbox layouts snap to the icon-rail width instead, so percentage is a few
  * percent rather than 0 and pixel size is the signal.
+ *
+ * `minSizePx` covers the band between the rail and `minSize`. The library stores
+ * collapse as a percentage, so a sidebar/window resize can grow a 44px rail to
+ * 80px without reaching the expanded minimum — that is still collapsed, not a
+ * split worth restoring.
  */
 export function isCollapsedPanelSize(
   size: PanelSize,
   collapsedSizePx: number,
+  minSizePx = 0,
 ): boolean {
   if (collapsedSizePx <= 0) return size.asPercentage === 0;
-  return size.inPixels <= collapsedSizePx + 1;
+  if (size.inPixels <= collapsedSizePx + 1) return true;
+  return minSizePx > collapsedSizePx && size.inPixels < minSizePx;
 }
 
 /**
@@ -122,6 +129,29 @@ export function isCollapsedPanelSize(
  */
 export function usableStoredSize(size: string, defaultSize: string): string {
   return Number.isFinite(parseFloat(size)) ? size : defaultSize;
+}
+
+/**
+ * The width to restore when expanding a rail panel.
+ *
+ * A group resize used to persist the inflated-rail percentage as if it were a
+ * real split. Feeding that to `resize()` looks like a no-op — the panel stays
+ * a strip, and the only way out is dragging. Fall back to the layout default
+ * when the stored width would land below `minSizePx`.
+ */
+export function usableExpandedPanelSize(
+  size: string,
+  defaultSize: string,
+  minSizePx: number,
+  groupWidthPx: number,
+): string {
+  const usable = usableStoredSize(size, defaultSize);
+  if (minSizePx <= 0 || groupWidthPx <= 0) return usable;
+  if (!usable.endsWith("%")) return usable;
+  const percentage = Number(usable.slice(0, -1));
+  if (!Number.isFinite(percentage)) return defaultSize;
+  const pixels = (percentage / 100) * groupWidthPx;
+  return pixels + 1 < minSizePx ? defaultSize : usable;
 }
 
 /**

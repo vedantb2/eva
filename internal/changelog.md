@@ -1,5 +1,9 @@
 # Changelog
 
+## Sandbox rail collapse toggle actually expands again - 2026-08-25
+
+The session sandbox icon-rail collapse button often did nothing, so the only way back was dragging the splitter. Two things stacked. The resize-handle hit target (`z-10`, overlapping 6px into the rail) sat on top of the toggle, so a click on the left of the button started a drag instead of a click. And `react-resizable-panels` stores collapse as a percentage: toggling the app sidebar or resizing the window grew a 44px rail to 80px, which the layout treated as expanded, so the next click called `collapse()` on an already-collapsed panel (a no-op) and saved that tiny percentage as the width to restore. The rail now stacks above the handle, collapse is anything below the panel minSize, expand falls back to the default split when the stored width would still be a strip, and the right panel keeps its pixel size across group resizes.
+
 ## Preview annotations carry agentation-level detail, card shows the selected code - 2026-08-25
 
 The card also re-clamps itself: `PreviewAnnotationLayer` observes the mounted card with a `ResizeObserver` and repositions as the accordion animates open, replacing the guessed height constant that let an expanded card hang off the bottom of the panel.

@@ -136,11 +136,18 @@ interface SandboxTabTriggerProps {
   tab: SandboxTabDescriptor;
   /** Icon-only, label moved into a tooltip — desktop rail, or a crowded mobile strip. */
   labelHidden?: boolean;
+  /**
+   * Fired on click when this tab is already selected. Radix skips
+   * `onValueChange` in that case, so a collapsed rail would otherwise ignore
+   * the click that should expand onto the current view.
+   */
+  onReselect?: () => void;
 }
 
 export function SandboxTabTrigger({
   tab,
   labelHidden = false,
+  onReselect,
 }: SandboxTabTriggerProps) {
   const overlayClose = labelHidden;
   const trigger = (
@@ -148,6 +155,7 @@ export function SandboxTabTrigger({
       value={tab.value}
       aria-label={labelHidden ? tab.label : undefined}
       className={cn(TAB_CLASS, overlayClose && "group relative")}
+      onClick={onReselect}
     >
       <TabIcon icon={tab.icon} />
       {labelHidden ? null : tab.label}

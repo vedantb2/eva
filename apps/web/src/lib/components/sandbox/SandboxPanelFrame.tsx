@@ -43,7 +43,7 @@ export function SandboxEmptyRailFrame({
 }) {
   return (
     <div className="flex h-full min-h-0 flex-col md:flex-row-reverse">
-      <div className="hidden h-full w-11 shrink-0 flex-col items-center py-1.5 md:flex">
+      <div className="relative z-20 hidden h-full w-11 shrink-0 flex-col items-center py-1.5 md:flex">
         <SandboxPanelToggleButton collapsed={collapsed} onToggle={onToggle} />
       </div>
       <div

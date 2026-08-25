@@ -58,9 +58,14 @@ export function QuickTaskHeaderActionsSlot() {
     return null;
   }
 
+  // Destructured, not `ref={slot.setActionsElement}`: React Compiler reads a
+  // member expression in a `ref` prop as a ref access during render and bails
+  // the whole file out of memoization.
+  const { setActionsElement } = slot;
+
   return (
     <div
-      ref={slot.setActionsElement}
+      ref={setActionsElement}
       className="flex shrink-0 items-center gap-1.5 sm:gap-2"
     />
   );
@@ -73,10 +78,9 @@ export function QuickTaskHeaderTitleSlot() {
     return null;
   }
 
+  const { setTitleAfterElement } = slot;
+
   return (
-    <div
-      ref={slot.setTitleAfterElement}
-      className="flex shrink-0 items-center"
-    />
+    <div ref={setTitleAfterElement} className="flex shrink-0 items-center" />
   );
 }

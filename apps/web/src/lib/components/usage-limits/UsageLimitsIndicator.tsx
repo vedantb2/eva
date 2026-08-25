@@ -3,7 +3,7 @@
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { Button, HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
+import { Button, Popover, PopoverContent, PopoverTrigger } from "@eva/ui";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
 import {
   chipSummary,
@@ -45,8 +45,10 @@ export function UsageLimitsIndicator({
   if (!summary && !accountScope) return null;
 
   return (
-    <HoverCard>
-      <HoverCardTrigger asChild>
+    // A popover rather than a hover card: the card now carries a refresh
+    // button, so it has to be reachable by click, keyboard and touch.
+    <Popover>
+      <PopoverTrigger asChild>
         <Button
           type="button"
           variant="ghost"
@@ -66,13 +68,15 @@ export function UsageLimitsIndicator({
             />
           )}
         </Button>
-      </HoverCardTrigger>
-      <HoverCardContent align="end" className="w-72 overflow-hidden p-0">
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 overflow-hidden p-0">
         <UsageLimitsDetails
+          repoId={repoId}
           rows={visibleRows}
-          emptyAccountLabel={accountScope?.accountLabel}
+          now={now}
+          accountScope={accountScope}
         />
-      </HoverCardContent>
-    </HoverCard>
+      </PopoverContent>
+    </Popover>
   );
 }

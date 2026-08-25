@@ -200,6 +200,23 @@ export function ChatPanel({
     );
   };
 
+  // Plan usage belongs to the credential this session runs on. The sticky value
+  // is undefined until the session document lands, and passing no scope then
+  // keeps the indicator hidden rather than briefly showing the team
+  // credential's numbers under a "Team" heading it is about to replace.
+  const usageAccountScope =
+    stickyProviderAccountId === undefined
+      ? undefined
+      : {
+          providerAccountId: stickyProviderAccountId,
+          accountLabel:
+            stickyProviderAccountId === null
+              ? "Team"
+              : (accounts.find(
+                  (account) => account.id === stickyProviderAccountId,
+                )?.label ?? "Selected account"),
+        };
+
   const hasSummary = Boolean(summary && summary.length > 0);
   const isStartupStreaming =
     isSandboxToggling && !isSandboxActive && !isSandboxStopping;
@@ -220,6 +237,7 @@ export function ChatPanel({
     permalinkPath,
     chatOnly,
     hideTitle,
+    usageAccountScope,
     onSandboxToggle,
     onOpenSummaryModal: () => setShowSummaryModal(true),
     onOpenReviewModal: () => setShowReviewModal(true),

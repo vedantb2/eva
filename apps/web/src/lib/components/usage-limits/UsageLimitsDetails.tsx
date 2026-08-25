@@ -1,4 +1,5 @@
 import { compactRelativeTime } from "@eva/shared/dates";
+import type { Id } from "@eva/backend";
 import {
   activeUsageStatus,
   emptyAccountUsageCopy,
@@ -8,13 +9,26 @@ import {
   sectionKey,
   toneForStatus,
   USAGE_READING_MAX_AGE_MS,
+  type UsageAccountScope,
   type UsageSnapshot,
 } from "./_utils";
 import { UsageProviderSection } from "./UsageProviderSection";
+import { UsageRefreshButton } from "./UsageRefreshButton";
 
 interface UsageLimitsDetailsProps {
+  repoId: Id<"githubRepos">;
   rows: readonly UsageSnapshot[];
-  emptyAccountLabel?: string;
+  /**
+   * One instant for the whole card, shared with the chip that opens it — both
+   * read the same minute clock, so they cannot disagree by a tick, and an open
+   * card's countdown ticks along with it.
+   */
+  now: number;
+  /**
+   * The credential this card is scoped to. Absent on an unscoped surface, which
+   * has no single account to refresh and so offers no refresh.
+   */
+  accountScope?: UsageAccountScope;
 }
 
 /**
@@ -23,13 +37,11 @@ interface UsageLimitsDetailsProps {
  * single footer stamped with the freshest reading of the lot.
  */
 export function UsageLimitsDetails({
+  repoId,
   rows,
-  emptyAccountLabel,
+  now,
+  accountScope,
 }: UsageLimitsDetailsProps) {
-  // One instant for the whole card, so its rows cannot disagree by a tick.
-  // Taken here, not at the trigger: the card mounts on hover-open, so the
-  // "resets in" countdown is fresh per open instead of frozen at first render.
-  const now = Date.now();
   const visibleRows = rows.filter(
     (row) =>
       now - row.capturedAt <= USAGE_READING_MAX_AGE_MS &&
@@ -37,14 +49,20 @@ export function UsageLimitsDetails({
         toneForStatus(activeUsageStatus(row, now)) !== "neutral"),
   );
   const capturedAt = newestCapturedAt(visibleRows);
+  const refresh = accountScope ? (
+    <UsageRefreshButton repoId={repoId} scope={accountScope} />
+  ) : undefined;
 
-  if (visibleRows.length === 0 && emptyAccountLabel) {
+  if (visibleRows.length === 0 && accountScope) {
     return (
-      <div className="space-y-1 p-3">
-        <p className="font-medium text-xs">{emptyAccountLabel}</p>
-        <p className="text-muted-foreground text-xs">
-          {emptyAccountUsageCopy(rows, now)}
-        </p>
+      <div className="flex items-start justify-between gap-2 p-3">
+        <div className="space-y-1">
+          <p className="font-medium text-xs">{accountScope.accountLabel}</p>
+          <p className="text-muted-foreground text-xs">
+            {emptyAccountUsageCopy(rows, now)}
+          </p>
+        </div>
+        {refresh}
       </div>
     );
   }
@@ -59,9 +77,12 @@ export function UsageLimitsDetails({
         />
       ))}
       {capturedAt !== undefined && (
-        <p className="bg-secondary p-3 text-muted-foreground text-xs">
-          updated {compactRelativeTime(capturedAt)} ago
-        </p>
+        <div className="flex items-center justify-between gap-2 bg-secondary py-1.5 pr-1.5 pl-3">
+          <p className="text-muted-foreground text-xs">
+            updated {compactRelativeTime(capturedAt)} ago
+          </p>
+          {refresh}
+        </div>
       )}
     </div>
   );

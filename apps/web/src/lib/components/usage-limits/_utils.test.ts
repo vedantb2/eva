@@ -73,6 +73,41 @@ test("windows with no utilisation are skipped, not drawn at zero", () => {
   expect(maxUtilization(claude({ windows: undefined }), NOW)).toBeUndefined();
 });
 
+test("a spend meter is shown but never stands in for plan headroom", () => {
+  // Extra usage bills money; it does not measure how close the plan is to
+  // refusing work, so a maxed-out meter must not become the headline number.
+  const snapshot = claude({
+    windows: [
+      { key: "five_hour", label: "5h", utilization: 20 },
+      { key: "overage", label: "Extra usage", utilization: 100 },
+      {
+        key: "seven_day_overage_included",
+        label: "Weekly (overage included)",
+        utilization: 97,
+      },
+    ],
+  });
+  expect(maxUtilization(snapshot, NOW)).toBe(20);
+  expect(chipSummary([snapshot], NOW)).toEqual({
+    label: "20%",
+    utilization: 20,
+    tone: "neutral",
+  });
+  // The rows themselves are untouched — the card still shows the spend.
+  expect(reportedWindows(snapshot, NOW)).toHaveLength(3);
+});
+
+test("a reading of nothing but spend has no headline to show", () => {
+  expect(
+    maxUtilization(
+      claude({
+        windows: [{ key: "overage", label: "Extra usage", utilization: 60 }],
+      }),
+      NOW,
+    ),
+  ).toBeUndefined();
+});
+
 test("the chip shows the tightest window across every account, not the freshest", () => {
   // Two Claude accounts on one repo. The newer row is the roomier one, so a
   // first-match chip would have understated how close the other is to refusal.
@@ -114,22 +149,13 @@ test("account-scoped usage never falls back to another credential", () => {
   const rows = [team, kezia];
 
   expect(
-    usageRowsForAccount(rows, {
-      providerAccountId: "account-kezia",
-      accountLabel: "Kezia",
-    }),
+    usageRowsForAccount(rows, { providerAccountId: "account-kezia" }),
   ).toEqual([kezia]);
+  expect(usageRowsForAccount(rows, { providerAccountId: null })).toEqual([
+    team,
+  ]);
   expect(
-    usageRowsForAccount(rows, {
-      providerAccountId: null,
-      accountLabel: "Team",
-    }),
-  ).toEqual([team]);
-  expect(
-    usageRowsForAccount([team], {
-      providerAccountId: "account-kezia",
-      accountLabel: "Kezia",
-    }),
+    usageRowsForAccount([team], { providerAccountId: "account-kezia" }),
   ).toEqual([]);
 });
 
@@ -268,11 +294,57 @@ test("account hover copy distinguishes never-reported from windowless", () => {
   );
   expect(
     emptyAccountUsageCopy(
-      [claude({ capturedAt: NOW - 2 * DAY, windows: [] })],
+      [
+        claude({
+          capturedAt: NOW - 2 * DAY,
+          windows: [],
+          completeness: "complete",
+        }),
+      ],
       NOW,
     ),
   ).toBe("No plan usage has been reported for this account yet.");
-  expect(emptyAccountUsageCopy([claude({ windows: [] })], NOW)).toBe(
-    "Claude isn't reporting plan rate limits for this account.",
-  );
+});
+
+test("account hover copy reads the reason off the row, not the clock", () => {
+  // Every row below is fresh and windowless — the timestamp cannot tell these
+  // three apart, which is why the reading carries the reason.
+  expect(
+    emptyAccountUsageCopy(
+      [claude({ windows: [], completeness: "complete" })],
+      NOW,
+    ),
+  ).toBe("Claude isn't reporting plan rate limits for this account.");
+  expect(
+    emptyAccountUsageCopy(
+      [claude({ windows: [], completeness: "refused" })],
+      NOW,
+    ),
+  ).toBe("Claude declined to report plan rate limits for this account.");
+  expect(
+    emptyAccountUsageCopy(
+      [claude({ windows: [], completeness: "partial" })],
+      NOW,
+    ),
+  ).toBe("Plan usage for this account hasn't been fully reported yet.");
+  // Rows written before the discriminant, and readings whose windows have all
+  // reset, claim nothing about the provider.
+  expect(
+    emptyAccountUsageCopy(
+      [claude({ windows: [], completeness: undefined })],
+      NOW,
+    ),
+  ).toBe("Plan usage for this account hasn't been fully reported yet.");
+});
+
+test("account hover copy follows the freshest reading", () => {
+  expect(
+    emptyAccountUsageCopy(
+      [
+        claude({ capturedAt: NOW - HOUR, completeness: "complete" }),
+        claude({ capturedAt: NOW - 60_000, completeness: "refused" }),
+      ],
+      NOW,
+    ),
+  ).toBe("Claude declined to report plan rate limits for this account.");
 });

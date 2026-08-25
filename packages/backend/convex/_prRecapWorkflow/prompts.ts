@@ -82,10 +82,6 @@ Output ONLY the markdown, then a line with the marker, then the HTML document. N
 ${params.diffText}`;
 }
 
-/** Stored on the recap doc when the model response is not a complete recap. */
-export const INCOMPLETE_PR_RECAP_ERROR =
-  "We couldn't generate a complete recap. Generate again to retry.";
-
 export type PrRecapParseFailure =
   | "missing_marker"
   | "invalid_markdown"

@@ -32,6 +32,7 @@ import {
   taskSandboxStatusValidator,
   taskStatusValidator,
   themeValidator,
+  usageLimitCompletenessValidator,
   usageLimitProviderValidator,
   usageLimitStatusValidator,
 } from "./enums";
@@ -1114,4 +1115,10 @@ export const agentUsageLimitFields = {
   subscriptionType: v.optional(v.string()),
   status: v.optional(usageLimitStatusValidator),
   windows: v.optional(v.array(usageLimitWindowValidator)),
+  /**
+   * What the latest observation covered, so a windowless row says why. Absent
+   * on rows written by callback bundles that predate the discriminant; readers
+   * treat that as "unknown", not as any of the three states.
+   */
+  completeness: v.optional(usageLimitCompletenessValidator),
 };

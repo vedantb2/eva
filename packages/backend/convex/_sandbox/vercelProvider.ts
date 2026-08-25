@@ -24,6 +24,8 @@
  */
 
 import { Sandbox } from "@vercel/sandbox";
+import { z } from "zod";
+import { SandboxProviderError } from "./provider";
 import type {
   CreateSnapshotParams,
   PreviewUrl,
@@ -132,6 +134,43 @@ function extractApiErrorDetail(e: unknown): string {
   } catch {
     return e instanceof Error ? e.message : String(e);
   }
+}
+
+/**
+ * The SDK's `APIError` (dist/api-client/api-error.ts) carries the raw fetch
+ * `Response`; its auth client throws `NotOk` (dist/auth/error.ts) with
+ * `response.statusCode`. Both are dropped by `JSON.stringify`, so the status
+ * has to be lifted out before the error is wrapped.
+ */
+const vercelApiErrorShape = z.object({
+  response: z.object({ status: z.number().int() }),
+});
+const vercelNotOkShape = z.object({
+  name: z.literal("NotOk"),
+  response: z.object({ statusCode: z.number().int() }),
+});
+
+/** Structured HTTP status from a thrown Vercel SDK error, when it has one. */
+function vercelHttpStatus(e: unknown): number | undefined {
+  const notOk = vercelNotOkShape.safeParse(e);
+  if (notOk.success) return notOk.data.response.statusCode;
+  const api = vercelApiErrorShape.safeParse(e);
+  if (api.success) return api.data.response.status;
+  return undefined;
+}
+
+/**
+ * Wraps a provider-client failure with eva's context while preserving the
+ * structured status. `message` may safely carry command text (it is only
+ * logged); `detail` stays limited to the provider's own response body, because
+ * that is the only field callers are allowed to pattern-match.
+ */
+function providerError(message: string, e: unknown): SandboxProviderError {
+  const detail = extractApiErrorDetail(e);
+  return new SandboxProviderError(`${message}: ${detail}`, {
+    httpStatus: vercelHttpStatus(e),
+    detail,
+  });
 }
 
 /** True when the Vercel command NDJSON stream died while the VM is still up. */
@@ -637,8 +676,9 @@ class VercelSandboxHandle implements SandboxHandle {
         // actual API response body — surface them so 400/422 failures are
         // diagnosable in Convex logs instead of just "Status code 4xx is not ok".
         const detail = extractApiErrorDetail(e);
-        lastError = new Error(
-          `vercel exec failed (cwd=${opts?.cwd ?? "(default)"}, cmd=${cmd.slice(0, 120)}): ${detail}`,
+        lastError = providerError(
+          `vercel exec failed (cwd=${opts?.cwd ?? "(default)"}, cmd=${cmd.slice(0, 120)})`,
+          e,
         );
         if (attempt < maxAttempts && isVercelCommandStreamClosed(detail)) {
           console.log(
@@ -715,6 +755,12 @@ class VercelSandboxHandle implements SandboxHandle {
     // so keep re-issuing until the session reports running or we time out.
     const deadline = Date.now() + timeoutSeconds * 1000;
     let lastError: string | null = null;
+    // Kept alongside `lastError` so the timeout below can be thrown as a
+    // structured provider error. Without it the reason the resume kept losing
+    // (a 404 for a deleted sandbox vs a 429 for a busy account) survived only
+    // as prose inside the timeout message, and callers had to guess by regex.
+    let lastErrorStatus: number | undefined;
+    let lastErrorDetail: string | null = null;
     while (Date.now() < deadline) {
       resolved = await this.resolveSessionStatus();
       if (
@@ -749,6 +795,8 @@ class VercelSandboxHandle implements SandboxHandle {
         if (observed === "running") return;
       } catch (e) {
         lastError = e instanceof Error ? e.message : String(e);
+        lastErrorStatus = vercelHttpStatus(e);
+        lastErrorDetail = extractApiErrorDetail(e);
         // SDK may reject resume while stop finishes even if listSessions lagged.
         if (
           lastError.includes("stopping") ||
@@ -769,8 +817,12 @@ class VercelSandboxHandle implements SandboxHandle {
       await new Promise((resolve) => setTimeout(resolve, 500));
       await this.refresh();
     }
-    throw new Error(
+    throw new SandboxProviderError(
       `vercel start: sandbox ${this.sandbox.name} did not reach running within ${timeoutSeconds}s (state: ${observed}${lastError ? `, last error: ${lastError}` : ""})`,
+      // No detail when no resume attempt actually failed: a bare deadline
+      // (still `starting`) is not evidence the sandbox is gone, and an empty
+      // detail cannot match anything.
+      { httpStatus: lastErrorStatus, detail: lastErrorDetail ?? "" },
     );
   }
   async extendTimeout(durationMs: number): Promise<void> {

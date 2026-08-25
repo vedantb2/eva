@@ -28,7 +28,7 @@ import { fetchWithTimeout, callConvexWithRetry } from "./http/convexClient.js";
 import { callbackState as S } from "./runtime/state.js";
 import {
   appendCurrentTurnLease,
-  setCurrentTurnLease,
+  endTurnOwnership,
 } from "./runtime/turnLease.js";
 import { waitForPendingClaudeUsageReport } from "./runtime/usageLimits.js";
 import { persistTurnWork } from "./runtime/turnPersist.js";
@@ -375,7 +375,7 @@ try {
 
   try {
     await deliverCompletionWithMedia(completionArgs);
-    setCurrentTurnLease(null);
+    endTurnOwnership();
     syncProviderStateToPersist("completion");
     await stopStreamingLoops();
     await waitForPendingClaudeUsageReport();

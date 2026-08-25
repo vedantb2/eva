@@ -25,6 +25,7 @@ import {
   KILL_PRIOR_AGENT_PROCESSES_CMD,
   sessionClaudeUuid,
 } from "./helpers";
+import { writeSandboxFile } from "./sandboxFiles";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
 import {
   buildDaemonAliveCheckCmd,
@@ -425,31 +426,38 @@ export const runBackgroundCommands = internalAction({
       cleanup.push("true");
       await execHandle(sandbox, cleanup.join("; "), 15);
       const logPath = `/tmp/bg-${i}.log`;
-      // Escape single quotes for the bash -lc payload.
-      // Write the command to a script file and launch THAT, rather than
-      // inlining it via `bash -lc '<command>'`: the inline form puts the whole
-      // command text into the wrapper shell's cmdline, so a user guard like
+      const scriptPath = `/tmp/bg-cmd-${i}.sh`;
+      // Run the command from a script file rather than inlining it via
+      // `bash -lc '<command>'`: the inline form puts the whole command text
+      // into the wrapper shell's cmdline, so a user guard like
       // `pgrep -f "[c]onvex dev" || npx convex dev` matches its own wrapper
       // (the unguarded "npx convex dev" launch text) and silently never starts
-      // the daemon. With a script file the cmdline is just the file path.
-      // Base64 transport also makes user quoting unbreakable.
+      // the daemon. With a script file the cmdline is just the file path, and
+      // user quoting cannot break out of anything.
       //
       // CarePulse local backends: plant glibc-safe binary + unset agent mode.
       // See convexLocalBackend.ts (anonymous mode rejects --local-backend-version).
       const scriptBody = isConvexCommand
         ? buildConvexBackgroundScriptBody(command)
         : command;
-      const cb64 = Buffer.from(scriptBody, "utf8").toString("base64");
-      // setsid + </dev/null fully detaches the daemon into its own session, so
-      // it survives the exec session teardown even when the user's command
-      // self-backgrounds. A trailing `&` would otherwise let bash -lc exit
-      // immediately, letting a process-group SIGTERM reach the daemon (nohup
-      // only blocks SIGHUP).
-      const launchCmd = `echo ${cb64} | base64 -d > /tmp/bg-cmd-${i}.sh && chmod +x /tmp/bg-cmd-${i}.sh && (setsid nohup bash -l /tmp/bg-cmd-${i}.sh </dev/null > ${logPath} 2>&1 & echo $! > /tmp/bg-${i}.pid) && echo LAUNCHED`;
       console.log(
         `[sandbox] runBackgroundCommands: launching: ${command} (log: ${logPath})`,
       );
       try {
+        // The file API, not `echo <base64> | base64 -d`. The command is
+        // repo-supplied and the Convex wrapper adds a multi-KB preamble, so an
+        // inline transport puts unbounded content (base64-inflated by 4/3) into
+        // one `bash -lc` argument — the same 128 KB MAX_ARG_STRLEN cliff that
+        // broke the preview proxy. writeFile has no such limit.
+        await writeSandboxFile(sandbox, scriptPath, scriptBody, {
+          executable: true,
+        });
+        // setsid + </dev/null fully detaches the daemon into its own session, so
+        // it survives the exec session teardown even when the user's command
+        // self-backgrounds. A trailing `&` would otherwise let bash -lc exit
+        // immediately, letting a process-group SIGTERM reach the daemon (nohup
+        // only blocks SIGHUP).
+        const launchCmd = `(setsid nohup bash -l ${scriptPath} </dev/null > ${logPath} 2>&1 & echo $! > /tmp/bg-${i}.pid) && echo LAUNCHED`;
         // Short timeout — we only wait for the shell to fork the daemon.
         await execHandle(sandbox, launchCmd, 10);
         launched += 1;

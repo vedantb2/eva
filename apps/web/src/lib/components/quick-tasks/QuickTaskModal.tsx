@@ -59,6 +59,7 @@ import {
 import { useShortcut } from "@/lib/hotkeys/useShortcut";
 import { ShortcutKbd } from "@/lib/components/ui/Kbd";
 import { useGatewayDictation } from "@/lib/hooks/useGatewayDictation";
+import { useTranscriptPolish } from "@/lib/hooks/useTranscriptPolish";
 import {
   DescriptionMentionEditor,
   type DescriptionMentionEditorHandle,
@@ -148,6 +149,10 @@ export function QuickTaskModal({
   const voiceEnabled = flags?.voiceDictation;
   const { isListening, isConnecting, toggle } =
     useGatewayDictation(setDescription);
+  const { isPolishing, handleToggle } = useTranscriptPolish({
+    value: description,
+    setInput: setDescription,
+  });
 
   // Seed the mention/skill maps from the initial draft's tokenized description
   // so that @-mention and /skill chips render correctly on deep-link open.
@@ -450,18 +455,20 @@ export function QuickTaskModal({
                     variant={
                       isListening && !isConnecting ? "destructive" : "secondary"
                     }
-                    onClick={() => toggle(description)}
-                    disabled={isLoading || isConnecting}
+                    onClick={() => handleToggle({ isListening, toggle })}
+                    disabled={isLoading || isConnecting || isPolishing}
                     className="h-8 w-8"
                     aria-label={
-                      isConnecting
-                        ? "Connecting microphone"
-                        : isListening
-                          ? "Stop voice input"
-                          : "Voice input"
+                      isPolishing
+                        ? "Polishing transcript"
+                        : isConnecting
+                          ? "Connecting microphone"
+                          : isListening
+                            ? "Stop voice input"
+                            : "Voice input"
                     }
                   >
-                    {isConnecting ? (
+                    {isConnecting || isPolishing ? (
                       <IconLoader2 size={14} className="animate-spin" />
                     ) : isListening ? (
                       <IconPlayerStop size={14} />
@@ -471,11 +478,13 @@ export function QuickTaskModal({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {isConnecting
-                    ? "Connecting…"
-                    : isListening
-                      ? "Stop recording"
-                      : "Voice input"}
+                  {isPolishing
+                    ? "Polishing…"
+                    : isConnecting
+                      ? "Connecting…"
+                      : isListening
+                        ? "Stop recording"
+                        : "Voice input"}
                 </TooltipContent>
               </Tooltip>
             ) : null}

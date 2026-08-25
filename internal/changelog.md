@@ -1,5 +1,9 @@
 # Changelog
 
+## Voice dictation transcripts get an AI polish pass - 2026-08-25
+
+Raw dictation landed in the composer verbatim — "um"s, stutters, and spoken self-corrections included — so voice was only usable for people willing to hand-edit the transcript. Stopping the mic now runs the dictated segment through a cheap gateway model that strips fillers, applies self-corrections, and reshapes long rambles into bullets (short asks stay sentences), then swaps the polished text into the composer with an Undo toast. Applies to all three mic buttons (chat gateway STT, web-speech fallback, quick task modal); short segments skip the round-trip, edits during dictation or polishing abandon the swap, and any failure keeps the raw transcript so words are never lost.
+
 ## Plan usage: per-account in sessions, refreshable, honest about its age - 2026-08-25
 
 The session header's plan-usage chip was unscoped, so it showed whichever account reported last rather than the one the session runs on — projects and quick tasks already scoped theirs. It now takes the session's selected credential, and stays hidden until the session document lands instead of flashing "Team".

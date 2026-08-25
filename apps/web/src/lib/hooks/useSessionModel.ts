@@ -32,7 +32,7 @@ export function useSessionModel(
   traits: StoredModelTraits;
   setTraits: (partial: Partial<StoredModelTraits>) => void;
   /** undefined while session loading — treat as Team until the query lands. */
-  providerAccountId: string | null | undefined;
+  providerAccountId: Id<"userProviderAccounts"> | null | undefined;
   setProviderAccountId: (
     providerAccountId: Id<"userProviderAccounts"> | null,
   ) => void;

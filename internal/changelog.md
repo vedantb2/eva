@@ -1,5 +1,13 @@
 # Changelog
 
+## Plan usage: per-account in sessions, refreshable, honest about its age - 2026-08-25
+
+The session header's plan-usage chip was unscoped, so it showed whichever account reported last rather than the one the session runs on — projects and quick tasks already scoped theirs. It now takes the session's selected credential, and stays hidden until the session document lands instead of flashing "Team".
+
+Four fixes behind it. A partial report carrying nothing (Claude answering "no rate limits available") re-stamped `capturedAt`, so hours-old numbers read "updated 1m ago" forever; a content-free report is now a no-op. A row for a provider account the viewer cannot run on was returned with only its label stripped — it is now dropped entirely. Extra-usage meters bill money rather than measure headroom, so they no longer set the headline percentage, though they still show as rows. The chip and the open card shared no clock, and the card froze at its first render; both now read the same minute clock.
+
+The card is a popover rather than a hover card, so it is reachable by click, keyboard and touch, and it carries a refresh button: a new `usageLimitsActions.refresh` action reads Claude's OAuth usage endpoint server-side with the scoped credential and stores an authoritative snapshot, so a reading can be pulled without running a turn.
+
 ## Slider thumb sits on the track, not above the ticks - 2026-08-25
 
 The simple-view model ladder's knob was a dark hole on the white pill, with a tick through it, and it hung off the last step. Radix centers the thumb with inline `translateX(-50%)`; a Tailwind translate replaced that and shoved the disc past the end. The shared Slider now uses a 32px white raised disc (dark ring + drop shadow so it reads on zinc, colored accents, and light empty track), centers with margin, and keeps ticks behind it.

@@ -1,5 +1,9 @@
 # Changelog
 
+## Plan-usage refresh no longer impersonates Claude Code - 2026-08-25
+
+On-demand refresh was sending `User-Agent: claude-code/…` and, when `/usage` 403'd a setup-token, a 1-token Messages call to harvest `anthropic-ratelimit-unified-*`. Both are gone. Refresh is the original Bearer GET to `/api/oauth/usage`. Setup-tokens still cannot read that endpoint (`user:profile`); the chip still updates after a real Claude turn via the Agent SDK. A 429 stays a rate-limit toast, not "Couldn't reach Claude".
+
 ## Cursor chats no longer show Claude plan usage - 2026-08-25
 
 The session header's plan-usage chip is a Claude reading. Cursor (and Codex/OpenCode) chats still carry a sticky account id or Team, so the chip painted Claude's percentages next to the wrong model picker. It now mounts only when the current model is Claude.

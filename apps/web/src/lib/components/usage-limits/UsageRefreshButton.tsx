@@ -13,10 +13,12 @@ import type { UsageAccountScope } from "./_utils";
  */
 const FAILURE_COPY: Record<string, string> = {
   "no-token": "This account has no Claude OAuth token connected.",
-  unauthorized: "Claude rejected the token. Reconnect the account in Settings.",
+  unauthorized:
+    "This Claude token can't read plan usage. Numbers still update after a turn.",
   unavailable: "Claude isn't reporting plan rate limits for this account.",
   network: "Couldn't reach Claude. Try again.",
-  "rate-limited": "Claude rate-limited the usage lookup. Try again in a moment.",
+  "rate-limited":
+    "Claude rate-limited the usage lookup. Numbers still update after a turn.",
 };
 
 const GENERIC_FAILURE = "Couldn't refresh plan usage.";

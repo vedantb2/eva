@@ -14,52 +14,35 @@ const buttonSource = readSource(
 );
 
 /**
- * Two distinct ways `/usage` fails for Eva's stored Claude credential:
- *
- * 1. Without `User-Agent: claude-code/…` Anthropic 429s immediately. Fetch
- *    runtimes may strip that header; `https.request` is what actually sends it.
- * 2. A setup-token (`sk-ant-oat…`, `user:inference`) 403s `/usage` even with
- *    the right UA. A 1-token Messages call still returns 5h/weekly windows on
- *    `anthropic-ratelimit-unified-*`.
- *
- * Neither of those is "Couldn't reach Claude".
+ * On-demand refresh is a Bearer GET to `/api/oauth/usage`. Impersonating
+ * Claude Code (User-Agent) or harvesting Messages rate-limit headers is how
+ * we got a reading out of a setup-token — and is also how we do not want to
+ * talk to Anthropic. A 429 is still its own failure, not "unreachable".
  */
 describe("a plan-usage refresh is not mistaken for an unreachable Claude", () => {
-  test("the request sends the OAuth beta and Claude Code User-Agent over https", () => {
-    expect(actionSource).toContain('from "node:https"');
-    expect(actionSource).toContain("https.request");
-    expect(actionSource).toContain('"anthropic-beta": CLAUDE_USAGE_BETA');
-    expect(actionSource).toContain('"User-Agent": CLAUDE_USAGE_USER_AGENT');
-    expect(actionSource).toContain("oauth-2025-04-20");
-    expect(actionSource).toContain("claude-code/");
+  test("the request is a Bearer GET to /usage, not Claude Code or Messages", () => {
+    expect(actionSource).toContain("https://api.anthropic.com/api/oauth/usage");
+    expect(actionSource).toContain("Authorization: `Bearer ${token}`");
+    expect(actionSource).not.toContain("claude-code/");
+    expect(actionSource).not.toContain("User-Agent");
+    expect(actionSource).not.toContain("v1/messages");
+    expect(actionSource).not.toContain("from \"node:https\"");
+    expect(actionSource).not.toContain("requestInferenceUsage");
+    expect(actionSource).not.toContain("claudeUsageBodyFromUnifiedHeaders");
   });
 
   test("HTTP 429 is its own failure, not network", () => {
-    const oauthAt = actionSource.indexOf("async function requestOauthUsage");
-    expect(oauthAt, "requestOauthUsage moved").toBeGreaterThan(-1);
-    const oauthBody = actionSource.slice(oauthAt);
-    const limitedAt = oauthBody.indexOf("response.status === 429");
-    const otherHttpAt = oauthBody.indexOf("if (!httpOk(response.status))");
-    expect(limitedAt, "the 429 branch moved").toBeGreaterThan(-1);
-    expect(otherHttpAt, "the catch-all HTTP branch moved").toBeGreaterThan(
-      limitedAt,
-    );
-    expect(oauthBody).toContain('kind: "rate-limited"');
-    expect(actionSource).toContain('reason: "rate-limited"');
-  });
-
-  test("a setup-token 403 still probes Messages unified headers", () => {
-    expect(actionSource).toContain("https://api.anthropic.com/v1/messages");
-    expect(actionSource).toContain("requestInferenceUsage");
-    expect(actionSource).toContain("claudeUsageBodyFromUnifiedHeaders");
     const fetchAt = actionSource.indexOf("async function fetchClaudeUsage");
     expect(fetchAt, "fetchClaudeUsage moved").toBeGreaterThan(-1);
     const fetchBody = actionSource.slice(fetchAt);
-    expect(fetchBody).toContain("requestOauthUsage");
-    expect(fetchBody).toContain("requestInferenceUsage");
-    expect(fetchBody.indexOf("requestInferenceUsage")).toBeGreaterThan(
-      fetchBody.indexOf("requestOauthUsage"),
+    const limitedAt = fetchBody.indexOf("response.status === 429");
+    const networkAt = fetchBody.indexOf("if (!response.ok)");
+    expect(limitedAt, "the 429 branch moved").toBeGreaterThan(-1);
+    expect(networkAt, "the catch-all HTTP branch moved").toBeGreaterThan(
+      limitedAt,
     );
+    expect(fetchBody).toContain('kind: "rate-limited"');
+    expect(actionSource).toContain('reason: "rate-limited"');
   });
 
   test("the toast copy names a rate limit rather than unreachability", () => {

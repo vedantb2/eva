@@ -55,9 +55,11 @@ export function UsageRefreshButton({ repoId, scope }: UsageRefreshButtonProps) {
       });
       setPending(false);
       reportOutcome(result);
-    } catch (error) {
+    } catch {
+      // A server throw carries Convex internals (request id, stack), which is
+      // not copy for a toast — every named failure already arrives as a reason.
       setPending(false);
-      toast.error(error instanceof Error ? error.message : GENERIC_FAILURE);
+      toast.error(GENERIC_FAILURE);
     }
   };
 

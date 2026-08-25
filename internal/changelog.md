@@ -1,5 +1,9 @@
 # Changelog
 
+## Cursor chats no longer show Claude plan usage - 2026-08-25
+
+The session header's plan-usage chip is a Claude reading. Cursor (and Codex/OpenCode) chats still carry a sticky account id or Team, so the chip painted Claude's percentages next to the wrong model picker. It now mounts only when the current model is Claude.
+
 ## Plan-usage refresh works with setup-tokens - 2026-08-25
 
 The chip's refresh button still failed after sending Claude Code's User-Agent: Eva stores `sk-ant-oat…` setup-tokens (`user:inference`), and `GET /api/oauth/usage` requires `user:profile`, so Anthropic answers 403. Refresh now falls back to a 1-token Messages call and reads `anthropic-ratelimit-unified-*` (the same 5h/weekly windows the sandbox already sees during a turn). The request goes out over `https.request` so User-Agent cannot be stripped.

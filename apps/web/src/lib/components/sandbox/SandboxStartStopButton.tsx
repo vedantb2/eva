@@ -88,7 +88,9 @@ export function SandboxChatHeaderActions({
 
   return (
     <div className="flex shrink-0 items-center justify-end gap-1 px-2 py-1">
-      <UsageLimitsIndicator repoId={repoId} accountScope={usageAccountScope} />
+      {usageAccountScope ? (
+        <UsageLimitsIndicator repoId={repoId} accountScope={usageAccountScope} />
+      ) : null}
       <SandboxStartStopButton
         isActive={isSandboxActive}
         isToggling={isSandboxToggling}

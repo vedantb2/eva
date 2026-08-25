@@ -55,10 +55,10 @@ interface SessionChatHeaderProps {
   /** Popover already titles the surface — omit the duplicate "Manager Ave". */
   hideTitle?: boolean;
   /**
-   * The credential this session runs on, so plan usage beside the model picker
-   * measures that account and not whichever one reported last. Absent while the
-   * session document is still loading — the indicator stays hidden rather than
-   * flashing the team credential's numbers.
+   * The Claude credential this session runs on. Absent while the session is
+   * still loading, and on Cursor/Codex/OpenCode chats which have no Claude
+   * plan windows — the chip stays unmounted rather than showing another
+   * provider's (or Team's) Claude numbers.
    */
   usageAccountScope?: UsageAccountScope;
   onSandboxToggle: (action: "start" | "stop") => void;
@@ -111,7 +111,9 @@ export function SessionChatHeader({
   const headerRight = (
     <>
       <EntityContextUsage repoId={repoId} entityId={sessionId} />
-      <UsageLimitsIndicator repoId={repoId} accountScope={usageAccountScope} />
+      {usageAccountScope ? (
+        <UsageLimitsIndicator repoId={repoId} accountScope={usageAccountScope} />
+      ) : null}
       <SandboxStartStopButton
         isActive={isSandboxActive}
         isToggling={isSandboxToggling}

@@ -14,6 +14,7 @@ import {
   type UsageSnapshot,
   usageRowsForAccount,
   worseTone,
+  claudeUsageAccountScope,
 } from "./_utils";
 
 const HOUR = 60 * 60 * 1000;
@@ -157,6 +158,14 @@ test("account-scoped usage never falls back to another credential", () => {
   expect(
     usageRowsForAccount([team], { providerAccountId: "account-kezia" }),
   ).toEqual([]);
+});
+
+test("plan-usage scope is omitted on non-Claude models", () => {
+  const team = { providerAccountId: null, accountLabel: "Team" };
+  expect(claudeUsageAccountScope("claude:sonnet", team)).toEqual(team);
+  expect(claudeUsageAccountScope("cursor:grok-4.6", team)).toBeUndefined();
+  expect(claudeUsageAccountScope("codex:gpt-5.5", team)).toBeUndefined();
+  expect(claudeUsageAccountScope("opencode:openai/gpt-5.4", team)).toBeUndefined();
 });
 
 test("a windowless rejection still colours a chip that has a number", () => {

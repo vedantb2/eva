@@ -17,16 +17,16 @@ import { useMinuteNow } from "./_useMinuteNow";
 
 interface UsageLimitsIndicatorProps {
   repoId: Id<"githubRepos">;
-  accountScope?: UsageAccountScope;
+  /** Always a Claude credential — callers omit this component otherwise. */
+  accountScope: UsageAccountScope;
 }
 
 /**
- * The agent's plan headroom, next to the context gauge it is a sibling of.
+ * The agent's Claude plan headroom, next to the context gauge it is a sibling of.
  *
- * Unscoped surfaces stay hidden until a reading exists. Account-aware sandbox
- * chats keep a quiet placeholder visible so switching credentials cannot leave
- * another account's stale percentage beside the model picker. Simple view hides
- * it for the same reason it hides the context gauge.
+ * Only mounted on Claude chats: other providers have no plan windows, and an
+ * unscoped read would show whichever Claude account last reported on the repo.
+ * Simple view hides it for the same reason it hides the context gauge.
  */
 export function UsageLimitsIndicator({
   repoId,
@@ -42,7 +42,6 @@ export function UsageLimitsIndicator({
   if (rows === undefined) return null;
   const visibleRows = usageRowsForAccount(rows, accountScope);
   const summary = chipSummary(visibleRows, now);
-  if (!summary && !accountScope) return null;
 
   return (
     // A popover rather than a hover card: the card now carries a refresh

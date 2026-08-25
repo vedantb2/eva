@@ -10,15 +10,20 @@ import { action, internalAction } from "./_generated/server";
 /** Cheap gateway model for session titles — one-line change later. */
 const TEXT_GEN_MODEL = "openai/gpt-5-nano";
 
+/** Trims, then strips one pair of wrapping quotes the model sometimes adds. */
+function stripWrappingQuotes(raw: string): string {
+  const text = raw.trim();
+  const wrappedDouble = text.startsWith('"') && text.endsWith('"');
+  const wrappedSingle = text.startsWith("'") && text.endsWith("'");
+  if ((wrappedDouble || wrappedSingle) && text.length >= 2) {
+    return text.slice(1, -1).trim();
+  }
+  return text;
+}
+
 /** Strips wrapping quotes the model sometimes adds around the title. */
 function cleanGeneratedTitle(raw: string): string {
-  let title = raw.trim();
-  const wrappedDouble = title.startsWith('"') && title.endsWith('"');
-  const wrappedSingle = title.startsWith("'") && title.endsWith("'");
-  if ((wrappedDouble || wrappedSingle) && title.length >= 2) {
-    title = title.slice(1, -1).trim();
-  }
-  return title;
+  return stripWrappingQuotes(raw);
 }
 
 /**

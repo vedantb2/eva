@@ -11,8 +11,10 @@ import {
 } from "./validators";
 import { decryptValue } from "./encryption";
 import { resolveAllEnvVars } from "./envVarResolver";
+import https from "node:https";
 import {
   claudeUsageBodySchema,
+  claudeUsageBodyFromUnifiedHeaders,
   hasPlanRateLimits,
   readClaudeUsageWindows,
   type ClaudeUsageBody,
@@ -24,6 +26,13 @@ import {
  * to report one. The card's refresh button calls this; everything else about
  * the feature still arrives from the sandbox.
  *
+ * `/usage` needs a `user:profile` OAuth token. The credential Eva stores for
+ * launches is a setup-token (`user:inference`), so that endpoint 403s; a
+ * 1-token Messages call still returns the 5h/weekly windows on response
+ * headers. The request is made with `https.request` so User-Agent actually
+ * leaves the process — fetch in some runtimes strips it, and Anthropic then
+ * 429s.
+ *
  * The reading is always taken with the credential the caller's surface is
  * scoped to — a connected account, or the shared team credential — and never
  * falls back from one to the other, because the whole point of the row is
@@ -31,15 +40,27 @@ import {
  */
 
 const CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
+const CLAUDE_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const USAGE_TIMEOUT_MS = 8_000;
 /** Required by the undocumented OAuth usage endpoint. */
 const CLAUDE_USAGE_BETA = "oauth-2025-04-20";
+const CLAUDE_API_VERSION = "2023-06-01";
 /**
- * The endpoint rate-limits by User-Agent. Node/undici's default (and a missing
- * UA) land in a bucket that 429s immediately; Claude Code's identifier is the
- * one the endpoint actually serves.
+ * The `/usage` endpoint rate-limits by User-Agent. Node/undici's default (and
+ * a missing UA) land in a bucket that 429s immediately; Claude Code's
+ * identifier is the one it actually serves. Sent via `https.request` so a
+ * fetch runtime cannot strip it as a forbidden header.
  */
 const CLAUDE_USAGE_USER_AGENT = "claude-code/2.1.72";
+/**
+ * Cheapest current Haiku id, then a versionless alias. The probe is a 1-token
+ * Messages call; model ids rot, so a 404 tries the next rather than failing
+ * the refresh.
+ */
+const USAGE_PROBE_MODELS = [
+  "claude-haiku-4-5-20251001",
+  "claude-haiku-4-5",
+] as const;
 
 type UsageProvider = Infer<typeof usageLimitProviderValidator>;
 
@@ -102,50 +123,209 @@ async function teamToken(
  * match the shape at all. The endpoint is undocumented, so a body that parses
  * is still only a candidate — see `hasPlanRateLimits`.
  */
-async function readUsageBody(
-  response: Response,
-): Promise<ClaudeUsageBody | null> {
-  const parsed = claudeUsageBodySchema.safeParse(
-    await response.json().catch(() => null),
-  );
-  if (!parsed.success) return null;
-  return parsed.data;
+function readUsageBody(text: string): ClaudeUsageBody | null {
+  try {
+    const parsed = claudeUsageBodySchema.safeParse(JSON.parse(text));
+    if (!parsed.success) return null;
+    return parsed.data;
+  } catch {
+    return null;
+  }
 }
 
-async function fetchClaudeUsage(token: string): Promise<UsageFetch> {
-  const response = await fetch(CLAUDE_USAGE_URL, {
+type HttpResult = {
+  status: number;
+  header: (name: string) => string | undefined;
+  text: string;
+};
+
+/**
+ * TLS request that actually sends `User-Agent`. Convex/undici `fetch` can drop
+ * it as a forbidden header, which is how `/usage` 429s a perfectly valid token.
+ */
+function requestHttps(input: {
+  url: string;
+  method: "GET" | "POST";
+  headers: Record<string, string>;
+  body?: string;
+}): Promise<HttpResult | null> {
+  return new Promise((resolve) => {
+    const url = new URL(input.url);
+    const req = https.request(
+      {
+        protocol: "https:",
+        hostname: url.hostname,
+        path: `${url.pathname}${url.search}`,
+        method: input.method,
+        headers: input.headers,
+      },
+      (res) => {
+        let text = "";
+        res.setEncoding("utf8");
+        res.on("data", (chunk) => {
+          text += String(chunk);
+        });
+        res.on("end", () => {
+          resolve({
+            status: res.statusCode ?? 0,
+            header: (name) => readNodeHeader(res.headers[name.toLowerCase()]),
+            text,
+          });
+        });
+      },
+    );
+    req.on("error", (error: Error) => {
+      console.warn("[usageLimits] Claude usage request failed", error.message);
+      resolve(null);
+    });
+    req.setTimeout(USAGE_TIMEOUT_MS, () => {
+      req.destroy();
+      console.warn("[usageLimits] Claude usage request failed", "timeout");
+      resolve(null);
+    });
+    if (input.body !== undefined) req.write(input.body);
+    req.end();
+  });
+}
+
+function readNodeHeader(
+  value: string | string[] | undefined,
+): string | undefined {
+  if (value === undefined) return undefined;
+  if (Array.isArray(value)) {
+    const first = value[0];
+    return first === undefined || first.length === 0 ? undefined : first;
+  }
+  return value.length === 0 ? undefined : value;
+}
+
+function credentialKind(token: string): string {
+  if (token.startsWith("sk-ant-oat")) return "oat";
+  if (token.startsWith("sk-ant-api")) return "api-key";
+  if (token.startsWith("sk-ant-sid")) return "session";
+  return "other";
+}
+
+function bodyKeys(body: ClaudeUsageBody): string {
+  return Object.keys(body).sort().join(",");
+}
+
+function usageHeaders(): Record<string, string> {
+  return {
+    "anthropic-beta": CLAUDE_USAGE_BETA,
+    "User-Agent": CLAUDE_USAGE_USER_AGENT,
+  };
+}
+
+async function requestOauthUsage(token: string): Promise<UsageFetch> {
+  const response = await requestHttps({
+    url: CLAUDE_USAGE_URL,
     method: "GET",
     headers: {
+      ...usageHeaders(),
       Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-      "anthropic-beta": CLAUDE_USAGE_BETA,
-      "User-Agent": CLAUDE_USAGE_USER_AGENT,
+      Accept: "application/json",
     },
-    signal: AbortSignal.timeout(USAGE_TIMEOUT_MS),
-  }).catch((error: Error) => {
-    console.warn("[usageLimits] Claude usage request failed", error.message);
-    return null;
   });
   if (response === null) return { kind: "network" };
-  // A rejected token is the one failure worth naming to the user: it is fixed
-  // by reconnecting the account, not by trying again.
   if (response.status === 401 || response.status === 403) {
+    console.warn(
+      `[usageLimits] /usage ${response.status} cred=${credentialKind(token)}`,
+    );
     return { kind: "unauthorized" };
   }
   if (response.status === 429) {
     console.warn("[usageLimits] Claude usage returned 429");
     return { kind: "rate-limited" };
   }
-  if (!response.ok) {
+  if (!httpOk(response.status)) {
     console.warn(`[usageLimits] Claude usage returned ${response.status}`);
     return { kind: "network" };
   }
-  const body = await readUsageBody(response);
+  const body = readUsageBody(response.text);
   if (body === null) {
     console.warn("[usageLimits] Claude usage body did not parse");
     return { kind: "network" };
   }
+  console.warn(
+    `[usageLimits] /usage 200 cred=${credentialKind(token)} keys=${bodyKeys(body)} windows=${readClaudeUsageWindows(body).length}`,
+  );
   return { kind: "body", body };
+}
+
+/**
+ * `/usage` needs `user:profile`. Eva's stored Claude credential is almost
+ * always a setup-token (`sk-ant-oat…`, `user:inference` only), which 403s
+ * that endpoint while still running turns. A 1-token Messages call returns
+ * the same 5h/weekly windows on `anthropic-ratelimit-unified-*`.
+ */
+async function requestInferenceUsage(token: string): Promise<UsageFetch> {
+  for (const model of USAGE_PROBE_MODELS) {
+    const body = JSON.stringify({
+      model,
+      max_tokens: 1,
+      messages: [{ role: "user", content: "." }],
+    });
+    const response = await requestHttps({
+      url: CLAUDE_MESSAGES_URL,
+      method: "POST",
+      headers: {
+        ...usageHeaders(),
+        Authorization: `Bearer ${token}`,
+        "anthropic-version": CLAUDE_API_VERSION,
+        "Content-Type": "application/json",
+        "Content-Length": String(Buffer.byteLength(body)),
+      },
+      body,
+    });
+    if (response === null) return { kind: "network" };
+    if (response.status === 404) continue;
+    if (response.status === 401 || response.status === 403) {
+      console.warn(
+        `[usageLimits] messages probe ${response.status} cred=${credentialKind(token)} model=${model}`,
+      );
+      return { kind: "unauthorized" };
+    }
+    if (response.status === 429) {
+      console.warn("[usageLimits] messages probe returned 429");
+      return { kind: "rate-limited" };
+    }
+    if (!httpOk(response.status)) {
+      console.warn(
+        `[usageLimits] messages probe returned ${response.status} model=${model}`,
+      );
+      return { kind: "network" };
+    }
+    const parsed = claudeUsageBodyFromUnifiedHeaders(response.header);
+    if (parsed === null) {
+      console.warn(
+        `[usageLimits] messages probe 200 had no unified rate-limit headers model=${model}`,
+      );
+      return { kind: "network" };
+    }
+    console.warn(
+      `[usageLimits] messages probe 200 cred=${credentialKind(token)} windows=${readClaudeUsageWindows(parsed).length}`,
+    );
+    return { kind: "body", body: parsed };
+  }
+  console.warn("[usageLimits] messages probe: no current Haiku model id");
+  return { kind: "network" };
+}
+
+function httpOk(status: number): boolean {
+  return status >= 200 && status < 300;
+}
+
+async function fetchClaudeUsage(token: string): Promise<UsageFetch> {
+  const usage = await requestOauthUsage(token);
+  if (usage.kind === "body" && hasPlanRateLimits(usage.body)) return usage;
+  const probe = await requestInferenceUsage(token);
+  if (probe.kind === "body" && hasPlanRateLimits(probe.body)) return probe;
+  if (usage.kind !== "body") return usage;
+  if (probe.kind === "unauthorized" || probe.kind === "rate-limited") {
+    return probe;
+  }
+  return usage;
 }
 
 /**

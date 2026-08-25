@@ -64,6 +64,16 @@ const scopedLimitSchema = z
   })
   .passthrough();
 
+const rateLimitsSchema = z
+  .object({
+    five_hour: windowSchema.nullish(),
+    seven_day: windowSchema.nullish(),
+    seven_day_oauth_apps: windowSchema.nullish(),
+    seven_day_opus: windowSchema.nullish(),
+    seven_day_sonnet: windowSchema.nullish(),
+  })
+  .passthrough();
+
 export const claudeUsageBodySchema = z
   .object({
     five_hour: windowSchema.nullish(),
@@ -71,6 +81,10 @@ export const claudeUsageBodySchema = z
     seven_day_oauth_apps: windowSchema.nullish(),
     seven_day_opus: windowSchema.nullish(),
     seven_day_sonnet: windowSchema.nullish(),
+    // The Agent SDK wraps the same windows under `rate_limits`. The raw
+    // `/usage` endpoint usually sends them at the top level; both shapes are
+    // accepted so a wrapper change cannot look like "Claude reported nothing".
+    rate_limits: rateLimitsSchema.nullish(),
     limits: z.array(scopedLimitSchema).nullish(),
   })
   .passthrough();
@@ -100,6 +114,83 @@ function isoToMs(value: string | null | undefined): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function msToIso(ms: number): string {
+  return new Date(ms).toISOString();
+}
+
+/** Suffixes on `anthropic-ratelimit-unified-<suffix>-*`. */
+const UNIFIED_HEADER_WINDOWS = [
+  { key: "five_hour", suffix: "5h" },
+  { key: "seven_day", suffix: "7d" },
+] as const;
+
+/**
+ * Plan windows from a Messages response's unified rate-limit headers.
+ *
+ * Setup-tokens (`sk-ant-oat…`, scope `user:inference`) cannot call `/usage`
+ * (`user:profile` required, HTTP 403). The same token's inference responses
+ * still carry 5h/weekly utilisation as a 0–1 fraction and a unix-seconds reset.
+ */
+export function readUnifiedRateLimitHeaders(
+  header: (name: string) => string | undefined,
+): UsageWindow[] {
+  const windows: UsageWindow[] = [];
+  for (const spec of UNIFIED_HEADER_WINDOWS) {
+    const utilization = fractionToPercent(
+      header(`anthropic-ratelimit-unified-${spec.suffix}-utilization`),
+    );
+    const resetsAt = unixSecondsToMs(
+      header(`anthropic-ratelimit-unified-${spec.suffix}-reset`),
+    );
+    pushWindow(
+      windows,
+      spec.key,
+      CLAUDE_WINDOW_LABELS[spec.key] ?? spec.key,
+      utilization,
+      resetsAt,
+    );
+  }
+  return windows;
+}
+
+/** The `/usage` body shape for windows read off inference headers. */
+export function claudeUsageBodyFromUnifiedHeaders(
+  header: (name: string) => string | undefined,
+): ClaudeUsageBody | null {
+  const windows = readUnifiedRateLimitHeaders(header);
+  if (windows.length === 0) return null;
+  const raw: Record<string, { utilization?: number; resets_at?: string }> = {};
+  for (const window of windows) {
+    raw[window.key] = {
+      ...(window.utilization === undefined
+        ? {}
+        : { utilization: window.utilization }),
+      ...(window.resetsAt === undefined
+        ? {}
+        : { resets_at: msToIso(window.resetsAt) }),
+    };
+  }
+  const parsed = claudeUsageBodySchema.safeParse(raw);
+  if (!parsed.success) return null;
+  return parsed.data;
+}
+
+function fractionToPercent(value: string | undefined): number | undefined {
+  if (value === undefined || value.length === 0) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return undefined;
+  // Two decimal places, matching `/usage`'s percent encoding (1.03, not
+  // 1.0299999998 from 0.0103 × 100).
+  return Math.round(parsed * 10_000) / 100;
+}
+
+function unixSecondsToMs(value: string | undefined): number | undefined {
+  if (value === undefined || value.length === 0) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return undefined;
+  return Math.round(parsed * 1000);
+}
+
 function pushWindow(
   windows: UsageWindow[],
   key: string,
@@ -126,8 +217,9 @@ function pushWindow(
  */
 export function readClaudeUsageWindows(body: ClaudeUsageBody): UsageWindow[] {
   const windows: UsageWindow[] = [];
+  const nested = body.rate_limits;
   for (const key of FIXED_WINDOW_KEYS) {
-    const entry = body[key];
+    const entry = body[key] ?? nested?.[key];
     if (entry === undefined || entry === null) continue;
     pushWindow(
       windows,

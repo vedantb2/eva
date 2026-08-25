@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import {
+  claudeUsageBodyFromUnifiedHeaders,
   claudeUsageBodySchema,
   hasPlanRateLimits,
   readClaudeUsageWindows,
@@ -41,6 +42,27 @@ describe("hasPlanRateLimits", () => {
         }),
       ),
     ).toBe(true);
+  });
+
+  test("a nested SDK-shaped body is still a usage report", () => {
+    expect(
+      hasPlanRateLimits(
+        parse({
+          rate_limits_available: true,
+          rate_limits: { five_hour: { utilization: 12 } },
+        }),
+      ),
+    ).toBe(true);
+    expect(
+      readClaudeUsageWindows(
+        parse({
+          rate_limits: {
+            seven_day: { utilization: 4 },
+            five_hour: { utilization: 12 },
+          },
+        }),
+      ).map((window) => window.key),
+    ).toEqual(["five_hour", "seven_day"]);
   });
 });
 
@@ -153,5 +175,39 @@ describe("readClaudeUsageWindows", () => {
         }),
       ).map((window) => window.key),
     ).toEqual(["five_hour"]);
+  });
+});
+
+describe("unified inference headers", () => {
+  test("a 0–1 fraction and unix-seconds reset become a percent window", () => {
+    const resetsAtMs = Date.UTC(2026, 7, 25, 12, 0, 0);
+    const headers: Record<string, string> = {
+      "anthropic-ratelimit-unified-5h-utilization": "0.01",
+      "anthropic-ratelimit-unified-5h-reset": String(resetsAtMs / 1000),
+      "anthropic-ratelimit-unified-7d-utilization": "0.63",
+      "anthropic-ratelimit-unified-7d-reset": String(resetsAtMs / 1000),
+    };
+    const body = claudeUsageBodyFromUnifiedHeaders((name) => headers[name]);
+    expect(body, "headers should produce a usage body").not.toBeNull();
+    if (body === null) return;
+    expect(hasPlanRateLimits(body)).toBe(true);
+    expect(readClaudeUsageWindows(body)).toEqual([
+      {
+        key: "five_hour",
+        label: "5h",
+        utilization: 1,
+        resetsAt: resetsAtMs,
+      },
+      {
+        key: "seven_day",
+        label: "Weekly (all models)",
+        utilization: 63,
+        resetsAt: resetsAtMs,
+      },
+    ]);
+  });
+
+  test("headers with no unified windows produce no body", () => {
+    expect(claudeUsageBodyFromUnifiedHeaders(() => undefined)).toBeNull();
   });
 });

@@ -1,5 +1,9 @@
 # Changelog
 
+## Plan-usage refresh works with setup-tokens - 2026-08-25
+
+The chip's refresh button still failed after sending Claude Code's User-Agent: Eva stores `sk-ant-oat…` setup-tokens (`user:inference`), and `GET /api/oauth/usage` requires `user:profile`, so Anthropic answers 403. Refresh now falls back to a 1-token Messages call and reads `anthropic-ratelimit-unified-*` (the same 5h/weekly windows the sandbox already sees during a turn). The request goes out over `https.request` so User-Agent cannot be stripped.
+
 ## Plan-usage refresh was 429'd, not unreachable - 2026-08-25
 
 The session header's refresh button toasted "Couldn't reach Claude" on every click. The server-side `GET /api/oauth/usage` call sent only a Bearer token, so Anthropic dumped it in the non-Claude-Code User-Agent bucket and answered 429 immediately — which we labelled `network`. The request now sends `anthropic-beta: oauth-2025-04-20` and `User-Agent: claude-code/…`; a real 429 is a distinct toast.

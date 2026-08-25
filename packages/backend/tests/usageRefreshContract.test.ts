@@ -14,35 +14,29 @@ const buttonSource = readSource(
 );
 
 /**
- * On-demand refresh is a Bearer GET to `/api/oauth/usage`. Impersonating
- * Claude Code (User-Agent) or harvesting Messages rate-limit headers is how
- * we got a reading out of a setup-token — and is also how we do not want to
- * talk to Anthropic. A 429 is still its own failure, not "unreachable".
+ * On-demand refresh has to work with Eva's setup-tokens. Impersonating Claude
+ * Code (User-Agent) is out. Harvesting Messages rate-limit headers is the
+ * published-API path that actually returns 5h/weekly windows. A 429 is still
+ * its own failure, not "unreachable".
  */
 describe("a plan-usage refresh is not mistaken for an unreachable Claude", () => {
-  test("the request is a Bearer GET to /usage, not Claude Code or Messages", () => {
+  test("refresh tries /usage then Messages, never Claude Code's User-Agent", () => {
     expect(actionSource).toContain("https://api.anthropic.com/api/oauth/usage");
+    expect(actionSource).toContain("https://api.anthropic.com/v1/messages");
     expect(actionSource).toContain("Authorization: `Bearer ${token}`");
+    expect(actionSource).toContain("requestInferenceUsage");
+    expect(actionSource).toContain("claudeUsageBodyFromUnifiedHeaders");
     expect(actionSource).not.toContain("claude-code/");
     expect(actionSource).not.toContain("User-Agent");
-    expect(actionSource).not.toContain("v1/messages");
-    expect(actionSource).not.toContain("from \"node:https\"");
-    expect(actionSource).not.toContain("requestInferenceUsage");
-    expect(actionSource).not.toContain("claudeUsageBodyFromUnifiedHeaders");
+    expect(actionSource).not.toContain('from "node:https"');
   });
 
   test("HTTP 429 is its own failure, not network", () => {
     const fetchAt = actionSource.indexOf("async function fetchClaudeUsage");
     expect(fetchAt, "fetchClaudeUsage moved").toBeGreaterThan(-1);
-    const fetchBody = actionSource.slice(fetchAt);
-    const limitedAt = fetchBody.indexOf("response.status === 429");
-    const networkAt = fetchBody.indexOf("if (!response.ok)");
-    expect(limitedAt, "the 429 branch moved").toBeGreaterThan(-1);
-    expect(networkAt, "the catch-all HTTP branch moved").toBeGreaterThan(
-      limitedAt,
-    );
-    expect(fetchBody).toContain('kind: "rate-limited"');
+    expect(actionSource).toContain('kind: "rate-limited"');
     expect(actionSource).toContain('reason: "rate-limited"');
+    expect(actionSource).toContain("status === 429");
   });
 
   test("the toast copy names a rate limit rather than unreachability", () => {
@@ -51,6 +45,14 @@ describe("a plan-usage refresh is not mistaken for an unreachable Claude", () =>
     expect(buttonSource).not.toMatch(
       /"rate-limited":\s*"Couldn't reach Claude/,
     );
+  });
+
+  test("the card still has a refresh control", () => {
+    const details = readSource(
+      join(webDir, "src/lib/components/usage-limits/UsageLimitsDetails.tsx"),
+    );
+    expect(details).toContain("UsageRefreshButton");
+    expect(buttonSource).toContain("usageLimitsActions.refresh");
   });
 });
 

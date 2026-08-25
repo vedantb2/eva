@@ -1,5 +1,9 @@
 # Changelog
 
+## Plan-usage refresh works without impersonating Claude Code - 2026-08-25
+
+The chip's refresh button is back. `GET /api/oauth/usage` still 403s a setup-token (`user:inference`, wants `user:profile`), so refresh then makes a 1-token Messages call and reads `anthropic-ratelimit-unified-*` — the same 5h/weekly windows a real turn already sees. No `User-Agent: claude-code/…`.
+
 ## Plan-usage refresh no longer impersonates Claude Code - 2026-08-25
 
 On-demand refresh was sending `User-Agent: claude-code/…` and, when `/usage` 403'd a setup-token, a 1-token Messages call to harvest `anthropic-ratelimit-unified-*`. Both are gone. Refresh is the original Bearer GET to `/api/oauth/usage`. Setup-tokens still cannot read that endpoint (`user:profile`); the chip still updates after a real Claude turn via the Agent SDK. A 429 stays a rate-limit toast, not "Couldn't reach Claude".

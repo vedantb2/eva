@@ -12,6 +12,7 @@ import {
 import { decryptValue } from "./encryption";
 import { resolveAllEnvVars } from "./envVarResolver";
 import {
+  claudeUsageBodyFromUnifiedHeaders,
   claudeUsageBodySchema,
   hasPlanRateLimits,
   readClaudeUsageWindows,
@@ -24,10 +25,11 @@ import {
  * to report one. The card's refresh button calls this; everything else about
  * the feature still arrives from the sandbox.
  *
- * This is a Bearer GET to `/api/oauth/usage` — no Claude Code User-Agent, no
- * dummy Messages call. Eva's stored credential is a setup-token
- * (`user:inference`); that endpoint wants `user:profile`, so refresh often
- * 403s. The chip still updates after a real Claude turn via the Agent SDK.
+ * `/usage` needs `user:profile`. Eva stores a setup-token (`user:inference`),
+ * so that endpoint 403s. A 1-token Messages call still returns the 5h/weekly
+ * windows on `anthropic-ratelimit-unified-*`. No Claude Code User-Agent: that
+ * was impersonation to dodge a 429 bucket. Messages is the published inference
+ * API the same token already uses for turns.
  *
  * The reading is always taken with the credential the caller's surface is
  * scoped to — a connected account, or the shared team credential — and never
@@ -36,7 +38,20 @@ import {
  */
 
 const CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
+const CLAUDE_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const USAGE_TIMEOUT_MS = 8_000;
+/** Required by OAuth tokens on Anthropic's HTTP API. */
+const CLAUDE_USAGE_BETA = "oauth-2025-04-20";
+const CLAUDE_API_VERSION = "2023-06-01";
+/**
+ * Cheapest current Haiku id, then a versionless alias. The probe is a 1-token
+ * Messages call; model ids rot, so a 404 tries the next rather than failing
+ * the refresh.
+ */
+const USAGE_PROBE_MODELS: readonly [
+  "claude-haiku-4-5-20251001",
+  "claude-haiku-4-5",
+] = ["claude-haiku-4-5-20251001", "claude-haiku-4-5"];
 
 type UsageProvider = Infer<typeof usageLimitProviderValidator>;
 
@@ -109,11 +124,27 @@ async function readUsageBody(
   return parsed.data;
 }
 
-async function fetchClaudeUsage(token: string): Promise<UsageFetch> {
+function headerFromFetch(
+  response: Response,
+): (name: string) => string | undefined {
+  return (name) => {
+    const value = response.headers.get(name);
+    return value === null || value.length === 0 ? undefined : value;
+  };
+}
+
+function httpFailureKind(status: number): UsageFetch | null {
+  if (status === 401 || status === 403) return { kind: "unauthorized" };
+  if (status === 429) return { kind: "rate-limited" };
+  return null;
+}
+
+async function requestOauthUsage(token: string): Promise<UsageFetch> {
   const response = await fetch(CLAUDE_USAGE_URL, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${token}`,
+      "anthropic-beta": CLAUDE_USAGE_BETA,
       "Content-Type": "application/json",
     },
     signal: AbortSignal.timeout(USAGE_TIMEOUT_MS),
@@ -122,14 +153,12 @@ async function fetchClaudeUsage(token: string): Promise<UsageFetch> {
     return null;
   });
   if (response === null) return { kind: "network" };
-  // A rejected token is the one failure worth naming to the user: it is fixed
-  // by reconnecting the account, not by trying again.
-  if (response.status === 401 || response.status === 403) {
-    return { kind: "unauthorized" };
-  }
-  if (response.status === 429) {
-    console.warn("[usageLimits] Claude usage returned 429");
-    return { kind: "rate-limited" };
+  const named = httpFailureKind(response.status);
+  if (named !== null) {
+    if (named.kind === "rate-limited") {
+      console.warn("[usageLimits] Claude usage returned 429");
+    }
+    return named;
   }
   if (!response.ok) {
     console.warn(`[usageLimits] Claude usage returned ${response.status}`);
@@ -141,6 +170,72 @@ async function fetchClaudeUsage(token: string): Promise<UsageFetch> {
     return { kind: "network" };
   }
   return { kind: "body", body };
+}
+
+/**
+ * `/usage` needs `user:profile`. Eva's stored Claude credential is almost
+ * always a setup-token (`sk-ant-oat…`, `user:inference` only), which 403s
+ * that endpoint while still running turns. A 1-token Messages call returns
+ * the same 5h/weekly windows on `anthropic-ratelimit-unified-*`.
+ */
+async function requestInferenceUsage(token: string): Promise<UsageFetch> {
+  for (const model of USAGE_PROBE_MODELS) {
+    const response = await fetch(CLAUDE_MESSAGES_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "anthropic-version": CLAUDE_API_VERSION,
+        "anthropic-beta": CLAUDE_USAGE_BETA,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: 1,
+        messages: [{ role: "user", content: "." }],
+      }),
+      signal: AbortSignal.timeout(USAGE_TIMEOUT_MS),
+    }).catch((error: Error) => {
+      console.warn("[usageLimits] messages probe failed", error.message);
+      return null;
+    });
+    if (response === null) return { kind: "network" };
+    if (response.status === 404) continue;
+    const named = httpFailureKind(response.status);
+    if (named !== null) {
+      if (named.kind === "rate-limited") {
+        console.warn("[usageLimits] messages probe returned 429");
+      }
+      return named;
+    }
+    if (!response.ok) {
+      console.warn(
+        `[usageLimits] messages probe returned ${response.status} model=${model}`,
+      );
+      return { kind: "network" };
+    }
+    const parsed = claudeUsageBodyFromUnifiedHeaders(headerFromFetch(response));
+    if (parsed === null) {
+      console.warn(
+        `[usageLimits] messages probe 200 had no unified rate-limit headers model=${model}`,
+      );
+      return { kind: "network" };
+    }
+    return { kind: "body", body: parsed };
+  }
+  console.warn("[usageLimits] messages probe: no current Haiku model id");
+  return { kind: "network" };
+}
+
+async function fetchClaudeUsage(token: string): Promise<UsageFetch> {
+  const usage = await requestOauthUsage(token);
+  if (usage.kind === "body" && hasPlanRateLimits(usage.body)) return usage;
+  const probe = await requestInferenceUsage(token);
+  if (probe.kind === "body" && hasPlanRateLimits(probe.body)) return probe;
+  if (usage.kind !== "body") return usage;
+  if (probe.kind === "unauthorized" || probe.kind === "rate-limited") {
+    return probe;
+  }
+  return usage;
 }
 
 /**

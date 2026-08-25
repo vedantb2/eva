@@ -1,257 +1,85 @@
-"use node";
-
-import { v, type Infer } from "convex/values";
+import { v } from "convex/values";
 import { api, internal } from "./_generated/api";
 import type { ActionCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { authAction, getActionRepoWithAccess } from "./functions";
-import {
-  PROVIDER_PRIMARY_AUTH_KEY,
-  usageLimitProviderValidator,
-} from "./validators";
-import { decryptValue } from "./encryption";
-import { resolveAllEnvVars } from "./envVarResolver";
-import {
-  claudeUsageBodyFromUnifiedHeaders,
-  claudeUsageBodySchema,
-  hasPlanRateLimits,
-  readClaudeUsageWindows,
-  type ClaudeUsageBody,
-  type UsageWindow,
-} from "./_usageLimits/claudeUsage";
+import { usageLimitProviderValidator } from "./validators";
 
 /**
- * Pulling a plan-usage reading on demand, rather than waiting for the next turn
- * to report one. The card's refresh button calls this; everything else about
- * the feature still arrives from the sandbox.
+ * On-demand plan-usage refresh. The chip's button calls this; the reading
+ * still comes from the live Claude Agent SDK daemon (`usage_EXPERIMENTAL`),
+ * the same path a turn already uses.
  *
- * `/usage` needs `user:profile`. Eva stores a setup-token (`user:inference`),
- * so that endpoint 403s. A 1-token Messages call still returns the 5h/weekly
- * windows on `anthropic-ratelimit-unified-*`. No Claude Code User-Agent: that
- * was impersonation to dodge a 429 bucket. Messages is the published inference
- * API the same token already uses for turns.
+ * Eva's servers must not POST `/v1/messages` with a stored setup-token just
+ * to harvest rate-limit headers — that is the OpenCode-shaped third-party
+ * inference path. A stopped sandbox cannot answer, and must not be exec'd
+ * (Vercel `withResume` would wake it).
  *
- * The reading is always taken with the credential the caller's surface is
- * scoped to — a connected account, or the shared team credential — and never
- * falls back from one to the other, because the whole point of the row is
- * whose plan it measures.
+ * Prewarm runs before the one-shot flag is set so a stale callback bundle
+ * can upload and respawn before an old daemon drains the flag as a no-op.
  */
 
-const CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
-const CLAUDE_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
-const USAGE_TIMEOUT_MS = 8_000;
-/** Required by OAuth tokens on Anthropic's HTTP API. */
-const CLAUDE_USAGE_BETA = "oauth-2025-04-20";
-const CLAUDE_API_VERSION = "2023-06-01";
-/**
- * Cheapest current Haiku id, then a versionless alias. The probe is a 1-token
- * Messages call; model ids rot, so a 404 tries the next rather than failing
- * the refresh.
- */
-const USAGE_PROBE_MODELS: readonly [
-  "claude-haiku-4-5-20251001",
-  "claude-haiku-4-5",
-] = ["claude-haiku-4-5-20251001", "claude-haiku-4-5"];
+const PREWARM_SETTLE_MS = 1_000;
+const POLL_INTERVAL_MS = 500;
+const POLL_ATTEMPTS = 40;
 
-type UsageProvider = Infer<typeof usageLimitProviderValidator>;
+type RefreshFailure = "sandbox-idle" | "unavailable";
 
-/** Why a refresh produced nothing, in the vocabulary the toast copy speaks. */
-type RefreshFailure =
-  | "no-token"
-  | "unauthorized"
-  | "network"
-  | "unavailable"
-  | "rate-limited";
+type RefreshTargetArgs = {
+  sessionId?: Id<"sessions">;
+  projectId?: Id<"projects">;
+  taskId?: Id<"agentTasks">;
+};
 
-type TokenLookup = { kind: "token"; token: string } | { kind: "missing" };
-
-type UsageFetch =
-  | { kind: "body"; body: ClaudeUsageBody }
-  | { kind: "unauthorized" }
-  | { kind: "network" }
-  | { kind: "rate-limited" };
-
-/**
- * The token for the account the refresh is scoped to. Throws when the account
- * is not one the caller may run on — a refresh on somebody else's credential is
- * not a degraded case to fall back from, it is a request that should not have
- * been made.
- */
-async function accountToken(
-  ctx: ActionCtx,
-  accountId: Id<"userProviderAccounts">,
-  provider: UsageProvider,
-  userId: Id<"users">,
-): Promise<TokenLookup> {
-  const account = await ctx.runQuery(
-    internal.userProviderAccounts.getForLaunchInternal,
-    { accountId, ownerUserId: userId },
-  );
-  if (account === null || account.provider !== provider) {
-    throw new Error("Provider account not found");
-  }
-  const entry = account.credentials.find(
-    (credential) => credential.key === PROVIDER_PRIMARY_AUTH_KEY[provider],
-  );
-  if (entry === undefined) return { kind: "missing" };
-  return { kind: "token", token: decryptValue(entry.value) };
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
-/** The shared team credential, from the same env vars a launch would inject. */
-async function teamToken(
-  ctx: ActionCtx,
-  repoId: Id<"githubRepos">,
-  provider: UsageProvider,
-): Promise<TokenLookup> {
-  const envVars = await resolveAllEnvVars(ctx, repoId);
-  const token = envVars[PROVIDER_PRIMARY_AUTH_KEY[provider]];
-  if (token === undefined || token.length === 0) return { kind: "missing" };
-  return { kind: "token", token };
-}
-
-/**
- * The body as a usage report, or null when the response was not JSON or did not
- * match the shape at all. The endpoint is undocumented, so a body that parses
- * is still only a candidate — see `hasPlanRateLimits`.
- */
-async function readUsageBody(
-  response: Response,
-): Promise<ClaudeUsageBody | null> {
-  const parsed = claudeUsageBodySchema.safeParse(
-    await response.json().catch(() => null),
-  );
-  if (!parsed.success) return null;
-  return parsed.data;
-}
-
-function headerFromFetch(
-  response: Response,
-): (name: string) => string | undefined {
-  return (name) => {
-    const value = response.headers.get(name);
-    return value === null || value.length === 0 ? undefined : value;
+function targetArgs(args: RefreshTargetArgs): RefreshTargetArgs {
+  return {
+    ...(args.sessionId === undefined ? {} : { sessionId: args.sessionId }),
+    ...(args.projectId === undefined ? {} : { projectId: args.projectId }),
+    ...(args.taskId === undefined ? {} : { taskId: args.taskId }),
   };
 }
 
-function httpFailureKind(status: number): UsageFetch | null {
-  if (status === 401 || status === 403) return { kind: "unauthorized" };
-  if (status === 429) return { kind: "rate-limited" };
-  return null;
-}
-
-async function requestOauthUsage(token: string): Promise<UsageFetch> {
-  const response = await fetch(CLAUDE_USAGE_URL, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "anthropic-beta": CLAUDE_USAGE_BETA,
-      "Content-Type": "application/json",
-    },
-    signal: AbortSignal.timeout(USAGE_TIMEOUT_MS),
-  }).catch((error: Error) => {
-    console.warn("[usageLimits] Claude usage request failed", error.message);
-    return null;
-  });
-  if (response === null) return { kind: "network" };
-  const named = httpFailureKind(response.status);
-  if (named !== null) {
-    if (named.kind === "rate-limited") {
-      console.warn("[usageLimits] Claude usage returned 429");
-    }
-    return named;
-  }
-  if (!response.ok) {
-    console.warn(`[usageLimits] Claude usage returned ${response.status}`);
-    return { kind: "network" };
-  }
-  const body = await readUsageBody(response);
-  if (body === null) {
-    console.warn("[usageLimits] Claude usage body did not parse");
-    return { kind: "network" };
-  }
-  return { kind: "body", body };
-}
-
-/**
- * `/usage` needs `user:profile`. Eva's stored Claude credential is almost
- * always a setup-token (`sk-ant-oat…`, `user:inference` only), which 403s
- * that endpoint while still running turns. A 1-token Messages call returns
- * the same 5h/weekly windows on `anthropic-ratelimit-unified-*`.
- */
-async function requestInferenceUsage(token: string): Promise<UsageFetch> {
-  for (const model of USAGE_PROBE_MODELS) {
-    const response = await fetch(CLAUDE_MESSAGES_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "anthropic-version": CLAUDE_API_VERSION,
-        "anthropic-beta": CLAUDE_USAGE_BETA,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 1,
-        messages: [{ role: "user", content: "." }],
-      }),
-      signal: AbortSignal.timeout(USAGE_TIMEOUT_MS),
-    }).catch((error: Error) => {
-      console.warn("[usageLimits] messages probe failed", error.message);
-      return null;
+async function prewarmSurface(
+  ctx: ActionCtx,
+  args: RefreshTargetArgs,
+): Promise<void> {
+  if (args.sessionId !== undefined) {
+    await ctx.runAction(api.sessionWorkflow.prewarmDaemonNow, {
+      sessionId: args.sessionId,
     });
-    if (response === null) return { kind: "network" };
-    if (response.status === 404) continue;
-    const named = httpFailureKind(response.status);
-    if (named !== null) {
-      if (named.kind === "rate-limited") {
-        console.warn("[usageLimits] messages probe returned 429");
-      }
-      return named;
-    }
-    if (!response.ok) {
-      console.warn(
-        `[usageLimits] messages probe returned ${response.status} model=${model}`,
-      );
-      return { kind: "network" };
-    }
-    const parsed = claudeUsageBodyFromUnifiedHeaders(headerFromFetch(response));
-    if (parsed === null) {
-      console.warn(
-        `[usageLimits] messages probe 200 had no unified rate-limit headers model=${model}`,
-      );
-      return { kind: "network" };
-    }
-    return { kind: "body", body: parsed };
+    return;
   }
-  console.warn("[usageLimits] messages probe: no current Haiku model id");
-  return { kind: "network" };
-}
-
-async function fetchClaudeUsage(token: string): Promise<UsageFetch> {
-  const usage = await requestOauthUsage(token);
-  if (usage.kind === "body" && hasPlanRateLimits(usage.body)) return usage;
-  const probe = await requestInferenceUsage(token);
-  if (probe.kind === "body" && hasPlanRateLimits(probe.body)) return probe;
-  if (usage.kind !== "body") return usage;
-  if (probe.kind === "unauthorized" || probe.kind === "rate-limited") {
-    return probe;
+  if (args.projectId !== undefined) {
+    await ctx.runAction(api.projectChatWorkflow.prewarmChatDaemonNow, {
+      projectId: args.projectId,
+    });
+    return;
   }
-  return usage;
+  if (args.taskId !== undefined) {
+    await ctx.runAction(api.agentTaskChatWorkflow.prewarmChatDaemonNow, {
+      taskId: args.taskId,
+    });
+  }
 }
 
 /**
- * Reads the provider's plan usage now and stores it as an authoritative
- * snapshot, so a card opened long after the last turn can be brought up to date
- * without running one.
- *
- * No status is reported: `/usage` returns numbers, not a verdict on whether the
- * plan would accept work, and the snapshot replaces the row — which is how a
- * stale "rejected" from an old turn gets cleared.
+ * Asks the live Claude daemon to report plan usage now, instead of waiting
+ * for the next turn. Stopped sandboxes return `sandbox-idle`.
  */
 export const refresh = authAction({
   args: {
     repoId: v.id("githubRepos"),
     provider: usageLimitProviderValidator,
     providerAccountId: v.optional(v.id("userProviderAccounts")),
+    sessionId: v.optional(v.id("sessions")),
+    projectId: v.optional(v.id("projects")),
+    taskId: v.optional(v.id("agentTasks")),
   },
   returns: v.object({ ok: v.boolean(), reason: v.optional(v.string()) }),
   handler: async (
@@ -259,51 +87,56 @@ export const refresh = authAction({
     args,
   ): Promise<{ ok: boolean; reason?: RefreshFailure }> => {
     await getActionRepoWithAccess(ctx, args.repoId);
-    const accountId = args.providerAccountId;
-    // A refresh is not a launch: the account's `lastUsedAt` stays where the
-    // last real turn left it.
-    const lookup =
-      accountId === undefined
-        ? await teamToken(ctx, args.repoId, args.provider)
-        : await accountToken(ctx, accountId, args.provider, ctx.userId);
-    if (lookup.kind === "missing") return { ok: false, reason: "no-token" };
-
-    const result = await fetchClaudeUsage(lookup.token);
-    if (result.kind === "unauthorized") {
-      return { ok: false, reason: "unauthorized" };
-    }
-    if (result.kind === "rate-limited") {
-      return { ok: false, reason: "rate-limited" };
-    }
-    if (result.kind === "network") return { ok: false, reason: "network" };
-    // An HTTP 200 error envelope parses cleanly against an all-optional shape,
-    // so reporting no rate limits at all is treated as no reading — writing it
-    // would replace a good row with an empty one.
-    if (!hasPlanRateLimits(result.body)) {
+    if (args.provider !== "claude") {
       return { ok: false, reason: "unavailable" };
     }
+    const surfaceArgs = targetArgs(args);
+    const surface = await ctx.runQuery(internal.usageLimits.getRefreshSurface, {
+      userId: ctx.userId,
+      repoId: args.repoId,
+      ...surfaceArgs,
+    });
+    if (surface === "idle") {
+      return { ok: false, reason: "sandbox-idle" };
+    }
 
-    const windows: UsageWindow[] = readClaudeUsageWindows(result.body);
+    // Upload a stale callback (if any) then give the old process a beat to
+    // exit, then prewarm again so a cold sandbox actually launches.
+    await prewarmSurface(ctx, surfaceArgs);
+    await sleep(PREWARM_SETTLE_MS);
+    await prewarmSurface(ctx, surfaceArgs);
+
     const accountArg =
-      accountId === undefined ? {} : { providerAccountId: accountId };
-    // `/usage` never names the plan, and this snapshot replaces the row, so the
-    // stored plan name is carried forward rather than dropped.
-    const stored = await ctx.runQuery(internal.usageLimits.getReadingInternal, {
+      args.providerAccountId === undefined
+        ? {}
+        : { providerAccountId: args.providerAccountId };
+    const before = await ctx.runQuery(internal.usageLimits.getReadingInternal, {
       repoId: args.repoId,
       provider: args.provider,
       ...accountArg,
     });
-    const subscriptionType = stored?.subscriptionType;
-    await ctx.runMutation(api.usageLimits.report, {
+    const beforeCapturedAt = before?.capturedAt ?? 0;
+
+    const requested = await ctx.runMutation(api.usageLimits.requestRefresh, {
       repoId: args.repoId,
-      provider: args.provider,
-      ...accountArg,
-      capturedAt: Date.now(),
-      snapshotComplete: true,
-      completeness: "complete",
-      windows,
-      ...(subscriptionType === undefined ? {} : { subscriptionType }),
+      ...surfaceArgs,
     });
-    return { ok: true };
+    if (!requested) return { ok: false, reason: "sandbox-idle" };
+
+    for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
+      await sleep(POLL_INTERVAL_MS);
+      const reading = await ctx.runQuery(
+        internal.usageLimits.getReadingInternal,
+        {
+          repoId: args.repoId,
+          provider: args.provider,
+          ...accountArg,
+        },
+      );
+      if (reading !== null && reading.capturedAt > beforeCapturedAt) {
+        return { ok: true };
+      }
+    }
+    return { ok: false, reason: "unavailable" };
   },
 });

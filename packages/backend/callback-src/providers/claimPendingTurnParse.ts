@@ -41,6 +41,17 @@ export function readCancelRequested(result: JsonValue): boolean {
   return payload.cancelRequested === true;
 }
 
+/**
+ * Reads the one-shot plan-usage refresh flag. Same drain-once contract as
+ * cancel: the server clears `usageRefreshRequestedAt` when it returns `true`.
+ * Missing (old servers) is `false`.
+ */
+export function readUsageRefreshRequested(result: JsonValue): boolean {
+  const payload = claimPayload(result);
+  if (!payload) return false;
+  return payload.usageRefreshRequested === true;
+}
+
 /** Reads the durable turn lease identity returned by claimPendingTurn. */
 export function readTurnLeaseIdentity(
   result: JsonValue,

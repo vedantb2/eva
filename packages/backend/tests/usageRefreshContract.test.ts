@@ -12,38 +12,39 @@ const actionSource = readSource(
 const buttonSource = readSource(
   join(webDir, "src/lib/components/usage-limits/UsageRefreshButton.tsx"),
 );
+const daemonSource = readSource(
+  join(backendDir, "callback-src/providers/claudeSdkDaemon.ts"),
+);
 
 /**
- * On-demand refresh has to work with Eva's setup-tokens. Impersonating Claude
- * Code (User-Agent) is out. Harvesting Messages rate-limit headers is the
- * published-API path that actually returns 5h/weekly windows. A 429 is still
- * its own failure, not "unreachable".
+ * On-demand refresh has to work with Eva's setup-tokens without Eva's servers
+ * calling Messages (the OpenCode-shaped path) or impersonating Claude Code.
+ * The live Agent SDK daemon reports; a stopped sandbox must not be woken.
  */
-describe("a plan-usage refresh is not mistaken for an unreachable Claude", () => {
-  test("refresh tries /usage then Messages, never Claude Code's User-Agent", () => {
-    expect(actionSource).toContain("https://api.anthropic.com/api/oauth/usage");
-    expect(actionSource).toContain("https://api.anthropic.com/v1/messages");
-    expect(actionSource).toContain("Authorization: `Bearer ${token}`");
-    expect(actionSource).toContain("requestInferenceUsage");
-    expect(actionSource).toContain("claudeUsageBodyFromUnifiedHeaders");
+describe("a plan-usage refresh is not a third-party Messages probe", () => {
+  test("refresh never calls Anthropic HTTP from Convex, never Claude Code's User-Agent", () => {
+    expect(actionSource).not.toContain("api.anthropic.com");
+    expect(actionSource).not.toContain("v1/messages");
+    expect(actionSource).not.toContain("requestInferenceUsage");
     expect(actionSource).not.toContain("claude-code/");
     expect(actionSource).not.toContain("User-Agent");
     expect(actionSource).not.toContain('from "node:https"');
+    expect(actionSource).toContain("requestRefresh");
+    expect(actionSource).toContain("prewarmDaemonNow");
+    expect(actionSource).toContain("sandbox-idle");
   });
 
-  test("HTTP 429 is its own failure, not network", () => {
-    const fetchAt = actionSource.indexOf("async function fetchClaudeUsage");
-    expect(fetchAt, "fetchClaudeUsage moved").toBeGreaterThan(-1);
-    expect(actionSource).toContain('kind: "rate-limited"');
-    expect(actionSource).toContain('reason: "rate-limited"');
-    expect(actionSource).toContain("status === 429");
+  test("the live Claude daemon reports on the one-shot flag", () => {
+    expect(daemonSource).toContain("readUsageRefreshRequested");
+    expect(daemonSource).toContain("force: true");
+    expect(daemonSource).toContain("startClaudeUsageReport");
   });
 
-  test("the toast copy names a rate limit rather than unreachability", () => {
-    expect(buttonSource).toContain('"rate-limited":');
-    expect(buttonSource).toContain("rate-limited the usage lookup");
-    expect(buttonSource).not.toMatch(
-      /"rate-limited":\s*"Couldn't reach Claude/,
+  test("a stopped sandbox is an informational toast, not a red error", () => {
+    expect(buttonSource).toContain('"sandbox-idle":');
+    expect(buttonSource).toContain("Wake Eva to refresh plan usage.");
+    expect(buttonSource).toMatch(
+      /if \(result\.reason === "sandbox-idle"\) \{\s*toast\(copy\);/,
     );
   });
 

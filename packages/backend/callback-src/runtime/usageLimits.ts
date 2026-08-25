@@ -49,9 +49,8 @@ export type UsageLimitProvider = "claude";
  * the `/usage` lookup names several) so a window's label never depends on which
  * source observed it first.
  *
- * Duplicated in `convex/_usageLimits/claudeUsage.ts`, which reads the same
- * endpoint server-side and cannot import this bundle — a label added here
- * belongs there too.
+ * Duplicated in `convex/_usageLimits/claudeUsage.ts`, which documents the
+ * same window keys — a label added here belongs there too.
  */
 const CLAUDE_WINDOW_LABELS: Record<string, string> = {
   five_hour: "5h",
@@ -96,6 +95,8 @@ export type ClaudeUsageResponseLike = {
 type ClaudeUsageReportInput = {
   readUsage: () => Promise<ClaudeUsageResponseLike | null>;
   error?: string;
+  /** Skip the unchanged-reading window so an on-demand chip refresh lands. */
+  force?: boolean;
 };
 
 function readFiniteNumber(value: JsonValue | undefined): number | undefined {
@@ -256,7 +257,7 @@ export function readClaudeUsageWindows(
  */
 export async function captureClaudeUsage(
   readUsage: () => Promise<ClaudeUsageResponseLike | null>,
-): Promise<void> {
+): Promise<boolean> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
     const response = await Promise.race([
@@ -267,15 +268,15 @@ export async function captureClaudeUsage(
     ]);
     if (response === "timeout") {
       log("usage limits: claude usage lookup timed out");
-      return;
+      return false;
     }
-    if (!response) return;
+    if (!response) return false;
     if (
       response.rate_limits_available !== true &&
       response.rate_limits_available !== false
     ) {
       log("usage limits: claude usage response omitted availability");
-      return;
+      return false;
     }
     // A failed or not-yet-initialized SDK query can report `false` even for an
     // OAuth account whose prior turn exposed plan windows. Treating that as an
@@ -291,7 +292,7 @@ export async function captureClaudeUsage(
       if (!S.usageLimitSnapshot) {
         S.usageLimitSnapshot = { completeness: "refused" };
       }
-      return;
+      return false;
     }
     const snapshot: UsageLimitSnapshot = { completeness: "complete" };
     const subscriptionType = readNonEmptyString(response.subscription_type);
@@ -301,9 +302,11 @@ export async function captureClaudeUsage(
     // and status that vanished since the last turn instead of preserving them
     // for the lifetime of a warm daemon.
     S.usageLimitSnapshot = snapshot;
+    return true;
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     log("usage limits: claude usage lookup failed — " + messageText);
+    return false;
   } finally {
     if (timer !== undefined) clearTimeout(timer);
   }
@@ -380,6 +383,7 @@ export function buildUsageLimitReportArgs(
  */
 export async function reportUsageLimits(
   provider: UsageLimitProvider,
+  force = false,
 ): Promise<void> {
   const snapshot = S.usageLimitSnapshot;
   if (!snapshot) return;
@@ -396,6 +400,7 @@ export async function reportUsageLimits(
   const fingerprint = JSON.stringify(args);
   const capturedAt = Date.now();
   if (
+    !force &&
     fingerprint === S.lastReportedUsageLimits &&
     capturedAt - S.lastReportedUsageLimitsAt < USAGE_REPORT_REFRESH_MS
   ) {
@@ -423,9 +428,10 @@ export async function reportUsageLimits(
 export async function captureAndReportClaudeUsage(
   input: ClaudeUsageReportInput,
 ): Promise<void> {
-  await captureClaudeUsage(input.readUsage);
+  const captured = await captureClaudeUsage(input.readUsage);
   captureClaudeUsageLimitError(input.error);
-  await reportUsageLimits("claude");
+  if (input.force === true && !captured) return;
+  await reportUsageLimits("claude", input.force === true);
 }
 
 /** Starts the one-shot report without delaying the user-visible completion. */

@@ -281,6 +281,7 @@ export function TaskSandboxChatPanel({
           providerAccountId,
           accountLabel: usageAccountLabel,
         })}
+        taskId={taskId}
       />
       <ChatBody
         repoId={repo._id}

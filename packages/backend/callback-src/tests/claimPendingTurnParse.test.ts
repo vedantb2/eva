@@ -3,6 +3,7 @@ import {
   readCancelRequested,
   readStopTaskToolUseIds,
   readTurnLeaseIdentity,
+  readUsageRefreshRequested,
 } from "../providers/claimPendingTurnParse.js";
 import type { JsonValue } from "../types.js";
 
@@ -62,6 +63,32 @@ describe("readCancelRequested", () => {
     for (const input of cases) {
       expect(readCancelRequested(input)).toBe(false);
     }
+  });
+});
+
+describe("readUsageRefreshRequested", () => {
+  test("reads a top-level refresh flag", () => {
+    expect(readUsageRefreshRequested({ usageRefreshRequested: true })).toBe(
+      true,
+    );
+  });
+
+  test("reads a refresh flag nested under the value envelope", () => {
+    expect(
+      readUsageRefreshRequested({ value: { usageRefreshRequested: true } }),
+    ).toBe(true);
+  });
+
+  test("a missing flag reads as no refresh", () => {
+    expect(readUsageRefreshRequested({ cancelRequested: true })).toBe(false);
+    expect(readUsageRefreshRequested({ value: {} })).toBe(false);
+    expect(readUsageRefreshRequested({})).toBe(false);
+  });
+
+  test("truthy non-boolean values do not count as a refresh", () => {
+    expect(
+      readUsageRefreshRequested({ usageRefreshRequested: "true" }),
+    ).toBe(false);
   });
 });
 

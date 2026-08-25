@@ -1035,6 +1035,7 @@ export const claimPendingTurn = authMutation({
       attachmentUrls: v.array(v.string()),
       stopTaskToolUseIds: v.array(v.string()),
       cancelRequested: v.boolean(),
+      usageRefreshRequested: v.boolean(),
     }),
     v.object({
       prompt: v.string(),
@@ -1044,6 +1045,7 @@ export const claimPendingTurn = authMutation({
       attachmentUrls: v.array(v.string()),
       stopTaskToolUseIds: v.array(v.string()),
       cancelRequested: v.boolean(),
+      usageRefreshRequested: v.boolean(),
     }),
   ),
   handler: async (ctx, args) => {
@@ -1053,12 +1055,14 @@ export const claimPendingTurn = authMutation({
       attachmentUrls: [],
       stopTaskToolUseIds: [],
       cancelRequested: false,
+      usageRefreshRequested: false,
     } satisfies {
       prompt: null;
       turnLifecycle: "legacy";
       attachmentUrls: string[];
       stopTaskToolUseIds: string[];
       cancelRequested: boolean;
+      usageRefreshRequested: boolean;
     };
     let daemonState = await ctx.db
       .query("sessionDaemonStates")
@@ -1105,8 +1109,23 @@ export const claimPendingTurn = authMutation({
       await ctx.db.patch(args.sessionId, { cancelRequestedAt: undefined });
     }
 
+    // Drain like cancel: the chip sets this on an idle daemon, so gating on
+    // pendingTurn would strand the refresh until the next user message.
+    const usageRefreshRequested =
+      daemonState.usageRefreshRequestedAt !== undefined;
+    if (usageRefreshRequested) {
+      await ctx.db.patch(daemonState._id, {
+        usageRefreshRequestedAt: undefined,
+      });
+    }
+
     if (!daemonState.pendingTurn) {
-      return { ...emptyClaim, stopTaskToolUseIds, cancelRequested };
+      return {
+        ...emptyClaim,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
     }
 
     const pendingModel = daemonState.pendingTurn.model;
@@ -1116,7 +1135,12 @@ export const claimPendingTurn = authMutation({
         console.log(
           `[sessionWorkflow] claimPendingTurn model mismatch sessionId=${args.sessionId} pending=${pendingModel} claim=${claimModel}`,
         );
-        return { ...emptyClaim, stopTaskToolUseIds, cancelRequested };
+        return {
+          ...emptyClaim,
+          stopTaskToolUseIds,
+          cancelRequested,
+          usageRefreshRequested,
+        };
       }
     }
 
@@ -1138,11 +1162,21 @@ export const claimPendingTurn = authMutation({
       if (!turn || !turn.open || turn.state === "running") {
         await ctx.db.patch(daemonState._id, { pendingTurn: undefined });
         await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
-        return { ...emptyClaim, stopTaskToolUseIds, cancelRequested };
+        return {
+          ...emptyClaim,
+          stopTaskToolUseIds,
+          cancelRequested,
+          usageRefreshRequested,
+        };
       }
       turnLease = await acquireTurnLease(ctx, turn, "running");
       if (turnLease === null) {
-        return { ...emptyClaim, stopTaskToolUseIds, cancelRequested };
+        return {
+          ...emptyClaim,
+          stopTaskToolUseIds,
+          cancelRequested,
+          usageRefreshRequested,
+        };
       }
     }
     await ctx.db.patch(daemonState._id, { pendingTurn: undefined });
@@ -1155,6 +1189,7 @@ export const claimPendingTurn = authMutation({
       attachmentUrls,
       stopTaskToolUseIds,
       cancelRequested,
+      usageRefreshRequested,
     };
     if (turnLease === null) {
       const turnLifecycle = "legacy" as const;

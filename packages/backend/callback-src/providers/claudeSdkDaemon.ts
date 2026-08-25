@@ -63,6 +63,7 @@ import {
 import { callbackState as S } from "../runtime/state.js";
 import {
   captureAndReportClaudeUsage,
+  startClaudeUsageReport,
   type ClaudeUsageResponseLike,
 } from "../runtime/usageLimits.js";
 import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
@@ -79,6 +80,7 @@ import {
   readCancelRequested,
   readStopTaskToolUseIds,
   readTurnLeaseIdentity,
+  readUsageRefreshRequested,
 } from "./claimPendingTurnParse.js";
 import {
   appendClaimedTurnCompletion,
@@ -1158,6 +1160,12 @@ function startClaimWatcher(agentRunner: WarmRunner): void {
         await dispatchPendingAgentStops(agentRunner);
         if (readCancelRequested(claimed)) {
           handleCancelRequested(agentRunner);
+        }
+        if (readUsageRefreshRequested(claimed)) {
+          startClaudeUsageReport({
+            readUsage: agentRunner.readUsage,
+            force: true,
+          });
         }
         const turn = readClaimedTurn(claimed);
         if (turn !== null) {

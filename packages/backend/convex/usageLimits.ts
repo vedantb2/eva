@@ -5,8 +5,12 @@ import {
   agentUsageLimitFields,
   usageLimitProviderValidator,
 } from "./validators";
-import type { Doc } from "./_generated/dataModel";
+import type { Doc, Id } from "./_generated/dataModel";
 import { isAccountUsableBy } from "./_userProviderAccounts/sharing";
+import {
+  ensureSessionDaemonState,
+  syncSessionDaemonState,
+} from "./_sessions/daemonState";
 
 /**
  * Agent plan usage limits. A sandbox turn captures how much of the provider's
@@ -161,11 +165,9 @@ export const report = authMutation({
 });
 
 /**
- * The stored row for one (repo, provider, account) triple, for the refresh
- * action. `/usage` reports windows but never names the plan, and an
- * authoritative refresh replaces the row — so the plan name has to be read back
- * and re-sent, or a refresh would silently drop "Max plan" from the heading.
- * Internal only; the action has already checked repo access.
+ * The stored row for one (repo, provider, account) triple. The refresh action
+ * waits until `capturedAt` moves past the pre-refresh value, which is how it
+ * knows the live daemon actually reported.
  */
 export const getReadingInternal = internalQuery({
   args: {
@@ -175,7 +177,10 @@ export const getReadingInternal = internalQuery({
   },
   returns: v.union(
     v.null(),
-    v.object({ subscriptionType: v.optional(v.string()) }),
+    v.object({
+      subscriptionType: v.optional(v.string()),
+      capturedAt: v.number(),
+    }),
   ),
   handler: async (ctx, args) => {
     const existing = await ctx.db
@@ -188,9 +193,12 @@ export const getReadingInternal = internalQuery({
       )
       .first();
     if (!existing) return null;
-    return existing.subscriptionType === undefined
-      ? {}
-      : { subscriptionType: existing.subscriptionType };
+    return {
+      capturedAt: existing.capturedAt,
+      ...(existing.subscriptionType === undefined
+        ? {}
+        : { subscriptionType: existing.subscriptionType }),
+    };
   },
 });
 
@@ -263,5 +271,170 @@ export const getByRepo = authQuery({
     }
     visible.sort((a, b) => b.capturedAt - a.capturedAt);
     return visible;
+  },
+});
+
+const refreshTargetArgs = {
+  sessionId: v.optional(v.id("sessions")),
+  projectId: v.optional(v.id("projects")),
+  taskId: v.optional(v.id("agentTasks")),
+};
+
+type RefreshTarget =
+  | { kind: "session"; sessionId: Id<"sessions"> }
+  | { kind: "project"; projectId: Id<"projects"> }
+  | { kind: "task"; taskId: Id<"agentTasks"> };
+
+function parseRefreshTarget(args: {
+  sessionId?: Id<"sessions">;
+  projectId?: Id<"projects">;
+  taskId?: Id<"agentTasks">;
+}): RefreshTarget {
+  if (
+    args.sessionId !== undefined &&
+    args.projectId === undefined &&
+    args.taskId === undefined
+  ) {
+    return { kind: "session", sessionId: args.sessionId };
+  }
+  if (
+    args.projectId !== undefined &&
+    args.sessionId === undefined &&
+    args.taskId === undefined
+  ) {
+    return { kind: "project", projectId: args.projectId };
+  }
+  if (
+    args.taskId !== undefined &&
+    args.sessionId === undefined &&
+    args.projectId === undefined
+  ) {
+    return { kind: "task", taskId: args.taskId };
+  }
+  throw new Error(
+    "Refresh needs exactly one of sessionId, projectId, or taskId",
+  );
+}
+
+function isStoppedSandbox(status: string | undefined): boolean {
+  return status === "closed" || status === "stopping";
+}
+
+/**
+ * Whether the chip's surface has a running sandbox that can answer a refresh.
+ * Stopped VMs must not be exec'd — Vercel `withResume` would wake them.
+ */
+export const getRefreshSurface = internalQuery({
+  args: {
+    userId: v.id("users"),
+    repoId: v.id("githubRepos"),
+    ...refreshTargetArgs,
+  },
+  returns: v.union(v.literal("idle"), v.literal("ready")),
+  handler: async (ctx, args) => {
+    const target = parseRefreshTarget(args);
+    if (target.kind === "session") {
+      const session = await ctx.db.get(target.sessionId);
+      if (!session || session.repoId !== args.repoId) {
+        throw new Error("Session not found");
+      }
+      if (!(await hasRepoAccess(ctx.db, session.repoId, args.userId))) {
+        throw new Error("Not authorized");
+      }
+      if (!session.sandboxId || isStoppedSandbox(session.status)) {
+        return "idle";
+      }
+      return "ready";
+    }
+    if (target.kind === "project") {
+      const project = await ctx.db.get(target.projectId);
+      if (!project || project.repoId !== args.repoId) {
+        throw new Error("Project not found");
+      }
+      if (!(await hasRepoAccess(ctx.db, project.repoId, args.userId))) {
+        throw new Error("Not authorized");
+      }
+      if (
+        !project.sandboxId ||
+        isStoppedSandbox(project.reviewProjectSandboxStatus)
+      ) {
+        return "idle";
+      }
+      return "ready";
+    }
+    const task = await ctx.db.get(target.taskId);
+    if (!task || task.repoId !== args.repoId) {
+      throw new Error("Task not found");
+    }
+    if (!(await hasRepoAccess(ctx.db, task.repoId, args.userId))) {
+      throw new Error("Not authorized");
+    }
+    if (!task.sandboxId || isStoppedSandbox(task.reviewTaskSandboxStatus)) {
+      return "idle";
+    }
+    return "ready";
+  },
+});
+
+/**
+ * Arms the one-shot flag the live Claude daemon already polls. Returns false
+ * when the sandbox is stopped so the action can toast "wake Eva" instead of
+ * waiting for a report that will never arrive.
+ */
+export const requestRefresh = authMutation({
+  args: {
+    repoId: v.id("githubRepos"),
+    ...refreshTargetArgs,
+  },
+  returns: v.boolean(),
+  handler: async (ctx, args) => {
+    const target = parseRefreshTarget(args);
+    const now = Date.now();
+    if (target.kind === "session") {
+      const session = await ctx.db.get(target.sessionId);
+      if (!session || session.repoId !== args.repoId) {
+        throw new Error("Session not found");
+      }
+      if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+        throw new Error("Not authorized");
+      }
+      if (!session.sandboxId || isStoppedSandbox(session.status)) {
+        return false;
+      }
+      await ensureSessionDaemonState(ctx, session);
+      await syncSessionDaemonState(ctx, session, {
+        usageRefreshRequestedAt: now,
+      });
+      return true;
+    }
+    if (target.kind === "project") {
+      const project = await ctx.db.get(target.projectId);
+      if (!project || project.repoId !== args.repoId) {
+        throw new Error("Project not found");
+      }
+      if (!(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))) {
+        throw new Error("Not authorized");
+      }
+      if (
+        !project.sandboxId ||
+        isStoppedSandbox(project.reviewProjectSandboxStatus)
+      ) {
+        return false;
+      }
+      await ctx.db.patch(target.projectId, { usageRefreshRequestedAt: now });
+      return true;
+    }
+    const task = await ctx.db.get(target.taskId);
+    if (!task || task.repoId !== args.repoId) {
+      throw new Error("Task not found");
+    }
+    if (!(await hasRepoAccess(ctx.db, task.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    if (!task.sandboxId || isStoppedSandbox(task.reviewTaskSandboxStatus)) {
+      return false;
+    }
+    await ctx.db.patch(target.taskId, { usageRefreshRequestedAt: now });
+    return true;
   },
 });

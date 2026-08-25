@@ -28,6 +28,19 @@ describe("plan-usage is not shown on a non-Claude chat", () => {
     expect(task).toContain("claudeUsageAccountScope(model");
   });
 
+  test("session, project, and task chats pass a refresh target into the chip", () => {
+    const header = readSource(
+      "routes/_repo/$owner/$repo/sessions/_components/SessionChatHeader.tsx",
+    );
+    const sandbox = readSource(
+      "lib/components/sandbox/SandboxStartStopButton.tsx",
+    );
+    expect(header).toContain("refreshTarget={{ sessionId }}");
+    expect(sandbox).toContain("projectId");
+    expect(sandbox).toContain("taskId");
+    expect(sandbox).toContain("refreshTarget={refreshTarget}");
+  });
+
   test("the chip is unmounted when there is no Claude scope", () => {
     const header = readSource(
       "routes/_repo/$owner/$repo/sessions/_components/SessionChatHeader.tsx",
@@ -37,7 +50,7 @@ describe("plan-usage is not shown on a non-Claude chat", () => {
     );
     expect(header).toContain("usageAccountScope ?");
     expect(header).toContain("<UsageLimitsIndicator");
-    expect(sandbox).toContain("usageAccountScope ?");
+    expect(sandbox).toContain("usageAccountScope && refreshTarget");
     expect(sandbox).toContain("<UsageLimitsIndicator");
   });
 });

@@ -226,6 +226,10 @@ export const sessionDaemonStateFields = {
   pendingTaskStops: v.optional(v.array(v.string())),
   cancelRequestedAt: v.optional(v.number()),
   sandboxSetupPending: v.optional(v.boolean()),
+  // One-shot: the usage chip asks the live Claude daemon to report plan
+  // windows via the Agent SDK. claimPendingTurn drains it the same way as
+  // cancelRequestedAt, so a mid-idle poll still notices.
+  usageRefreshRequestedAt: v.optional(v.number()),
 };
 
 export const chatDaemonEntityFields = {
@@ -238,6 +242,9 @@ export const chatDaemonEntityFields = {
   // unconditionally (even mid-turn, with no pendingTurn) so the daemon's poll
   // loop notices and aborts its in-flight SDK query.
   cancelRequestedAt: v.optional(v.number()),
+  // Same one-shot as sessionDaemonStates.usageRefreshRequestedAt, for project
+  // and task chat daemons.
+  usageRefreshRequestedAt: v.optional(v.number()),
 };
 
 export const agentTaskFields = {

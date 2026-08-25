@@ -112,7 +112,11 @@ export function SessionChatHeader({
     <>
       <EntityContextUsage repoId={repoId} entityId={sessionId} />
       {usageAccountScope ? (
-        <UsageLimitsIndicator repoId={repoId} accountScope={usageAccountScope} />
+        <UsageLimitsIndicator
+          repoId={repoId}
+          accountScope={usageAccountScope}
+          refreshTarget={{ sessionId }}
+        />
       ) : null}
       <SandboxStartStopButton
         isActive={isSandboxActive}

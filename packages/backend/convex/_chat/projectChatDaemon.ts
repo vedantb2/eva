@@ -28,12 +28,14 @@ const emptyClaimReturn = {
   attachmentUrls: [],
   stopTaskToolUseIds: [],
   cancelRequested: false,
+  usageRefreshRequested: false,
 } satisfies {
   prompt: null;
   turnLifecycle: "legacy";
   attachmentUrls: string[];
   stopTaskToolUseIds: string[];
   cancelRequested: boolean;
+  usageRefreshRequested: boolean;
 };
 
 /** Daemon-pull turn claim for project sandbox chat. */
@@ -48,6 +50,7 @@ export const claimPendingTurn = authMutation({
     attachmentUrls: v.array(v.string()),
     stopTaskToolUseIds: v.array(v.string()),
     cancelRequested: v.boolean(),
+    usageRefreshRequested: v.boolean(),
   }),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -74,21 +77,44 @@ export const claimPendingTurn = authMutation({
       await ctx.db.patch(args.projectId, { cancelRequestedAt: undefined });
     }
 
+    const usageRefreshRequested =
+      project.usageRefreshRequestedAt !== undefined;
+    if (usageRefreshRequested) {
+      await ctx.db.patch(args.projectId, {
+        usageRefreshRequestedAt: undefined,
+      });
+    }
+
     // Chat daemon only — never claim a turn while another workflow is the only
     // active consumer.
     if (!project.activeChatWorkflowId) {
-      return { ...emptyClaimReturn, stopTaskToolUseIds, cancelRequested };
+      return {
+        ...emptyClaimReturn,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
     }
 
     if (!project.pendingTurn) {
-      return { ...emptyClaimReturn, stopTaskToolUseIds, cancelRequested };
+      return {
+        ...emptyClaimReturn,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
     }
 
     const pendingModel = project.pendingTurn.model;
     if (pendingModel !== undefined) {
       const claimModel = normalizeAIModel(args.model);
       if (normalizeAIModel(pendingModel) !== claimModel) {
-        return { ...emptyClaimReturn, stopTaskToolUseIds, cancelRequested };
+        return {
+          ...emptyClaimReturn,
+          stopTaskToolUseIds,
+          cancelRequested,
+          usageRefreshRequested,
+        };
       }
     }
 
@@ -109,6 +135,7 @@ export const claimPendingTurn = authMutation({
       attachmentUrls,
       stopTaskToolUseIds,
       cancelRequested,
+      usageRefreshRequested,
     };
   },
 });

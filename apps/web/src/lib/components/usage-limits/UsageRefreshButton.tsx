@@ -12,27 +12,33 @@ import type { UsageAccountScope } from "./_utils";
  * different next move, which is the only reason they are distinguished at all.
  */
 const FAILURE_COPY: Record<string, string> = {
-  "no-token": "This account has no Claude OAuth token connected.",
-  unauthorized:
-    "This Claude token can't read plan usage. Numbers still update after a turn.",
+  "sandbox-idle": "Wake Eva to refresh plan usage.",
   unavailable: "Claude isn't reporting plan rate limits for this account.",
-  network: "Couldn't reach Claude. Try again.",
-  "rate-limited":
-    "Claude rate-limited the usage lookup. Numbers still update after a turn.",
 };
 
 const GENERIC_FAILURE = "Couldn't refresh plan usage.";
+
+/** The live daemon that will answer this refresh — one surface, never mixed. */
+export type UsageRefreshTarget =
+  | { sessionId: Id<"sessions"> }
+  | { projectId: Id<"projects"> }
+  | { taskId: Id<"agentTasks"> };
 
 interface UsageRefreshButtonProps {
   repoId: Id<"githubRepos">;
   /** The credential to read. Refreshing is per account, like the reading. */
   scope: UsageAccountScope;
+  target: UsageRefreshTarget;
 }
 
 function reportOutcome(result: { ok: boolean; reason?: string }): void {
   if (result.ok) return;
-  const copy = FAILURE_COPY[result.reason ?? ""];
-  toast.error(copy ?? GENERIC_FAILURE);
+  const copy = FAILURE_COPY[result.reason ?? ""] ?? GENERIC_FAILURE;
+  if (result.reason === "sandbox-idle") {
+    toast(copy);
+    return;
+  }
+  toast.error(copy);
 }
 
 /**
@@ -41,7 +47,11 @@ function reportOutcome(result: { ok: boolean; reason?: string }): void {
  * Nothing is invalidated on success: `getByRepo` is a live query, so the card
  * the button sits in updates itself the moment the row is written.
  */
-export function UsageRefreshButton({ repoId, scope }: UsageRefreshButtonProps) {
+export function UsageRefreshButton({
+  repoId,
+  scope,
+  target,
+}: UsageRefreshButtonProps) {
   const refresh = useAction(api.usageLimitsActions.refresh);
   const [pending, setPending] = useState(false);
 
@@ -55,6 +65,7 @@ export function UsageRefreshButton({ repoId, scope }: UsageRefreshButtonProps) {
         repoId,
         provider: "claude",
         ...accountArg,
+        ...target,
       });
       setPending(false);
       reportOutcome(result);

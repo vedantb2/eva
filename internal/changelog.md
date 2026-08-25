@@ -1,5 +1,9 @@
 # Changelog
 
+## Plan-usage refresh uses the live Claude daemon - 2026-08-25
+
+The chip still has a refresh button. Eva's servers no longer POST `/v1/messages` (or GET `/usage`) with a stored setup-token to harvest rate-limit headers — that is the OpenCode-shaped third-party inference path. Clicking refresh asks the running Claude Agent SDK daemon to report via `usage_EXPERIMENTAL`, the same reading a turn already writes. A stopped sandbox is an informational "Wake Eva" toast, never a red 403/429, and never an exec that would resume the VM.
+
 ## Plan-usage refresh works without impersonating Claude Code - 2026-08-25
 
 The chip's refresh button is back. `GET /api/oauth/usage` still 403s a setup-token (`user:inference`, wants `user:profile`), so refresh then makes a 1-token Messages call and reads `anthropic-ratelimit-unified-*` — the same 5h/weekly windows a real turn already sees. No `User-Agent: claude-code/…`.

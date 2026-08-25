@@ -2703,12 +2703,12 @@ async function captureClaudeUsage(readUsage) {
     ]);
     if (response === "timeout") {
       log("usage limits: claude usage lookup timed out");
-      return;
+      return false;
     }
-    if (!response) return;
+    if (!response) return false;
     if (response.rate_limits_available !== true && response.rate_limits_available !== false) {
       log("usage limits: claude usage response omitted availability");
-      return;
+      return false;
     }
     if (response.rate_limits_available === false) {
       log(
@@ -2717,16 +2717,18 @@ async function captureClaudeUsage(readUsage) {
       if (!callbackState.usageLimitSnapshot) {
         callbackState.usageLimitSnapshot = { completeness: "refused" };
       }
-      return;
+      return false;
     }
     const snapshot = { completeness: "complete" };
     const subscriptionType = readNonEmptyString(response.subscription_type);
     if (subscriptionType) snapshot.subscriptionType = subscriptionType;
     snapshot.windows = readClaudeUsageWindows(response);
     callbackState.usageLimitSnapshot = snapshot;
+    return true;
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     log("usage limits: claude usage lookup failed \\u2014 " + messageText);
+    return false;
   } finally {
     if (timer !== void 0) clearTimeout(timer);
   }
@@ -2762,7 +2764,7 @@ function buildUsageLimitReportArgs(repoId, provider, providerAccountId, snapshot
     ...snapshot.windows === void 0 ? {} : { windows: snapshot.windows.map(windowToJson) }
   };
 }
-async function reportUsageLimits(provider) {
+async function reportUsageLimits(provider, force = false) {
   const snapshot = callbackState.usageLimitSnapshot;
   if (!snapshot) return;
   if (!REPO_ID) {
@@ -2777,7 +2779,7 @@ async function reportUsageLimits(provider) {
   );
   const fingerprint = JSON.stringify(args);
   const capturedAt = Date.now();
-  if (fingerprint === callbackState.lastReportedUsageLimits && capturedAt - callbackState.lastReportedUsageLimitsAt < USAGE_REPORT_REFRESH_MS) {
+  if (!force && fingerprint === callbackState.lastReportedUsageLimits && capturedAt - callbackState.lastReportedUsageLimitsAt < USAGE_REPORT_REFRESH_MS) {
     return;
   }
   callbackState.lastReportedUsageLimits = fingerprint;
@@ -2797,9 +2799,10 @@ async function reportUsageLimits(provider) {
   }
 }
 async function captureAndReportClaudeUsage(input) {
-  await captureClaudeUsage(input.readUsage);
+  const captured = await captureClaudeUsage(input.readUsage);
   captureClaudeUsageLimitError(input.error);
-  await reportUsageLimits("claude");
+  if (input.force === true && !captured) return;
+  await reportUsageLimits("claude", input.force === true);
 }
 function startClaudeUsageReport(input) {
   const report = captureAndReportClaudeUsage(input);
@@ -5256,6 +5259,11 @@ function readCancelRequested(result) {
   if (!payload) return false;
   return payload.cancelRequested === true;
 }
+function readUsageRefreshRequested(result) {
+  const payload = claimPayload(result);
+  if (!payload) return false;
+  return payload.usageRefreshRequested === true;
+}
 function readTurnLeaseIdentity(result) {
   const payload = claimPayload(result);
   if (!payload) return null;
@@ -6087,6 +6095,12 @@ function startClaimWatcher(agentRunner) {
         await dispatchPendingAgentStops(agentRunner);
         if (readCancelRequested(claimed)) {
           handleCancelRequested(agentRunner);
+        }
+        if (readUsageRefreshRequested(claimed)) {
+          startClaudeUsageReport({
+            readUsage: agentRunner.readUsage,
+            force: true
+          });
         }
         const turn = readClaimedTurn(claimed);
         if (turn !== null) {

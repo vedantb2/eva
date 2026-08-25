@@ -3,14 +3,14 @@ import type { Infer } from "convex/values";
 import type { usageLimitWindowValidator } from "../validators";
 
 /**
- * Reading Claude's OAuth plan-usage endpoint (`GET /api/oauth/usage`).
+ * Reading Claude's OAuth plan-usage JSON (`GET /api/oauth/usage` and the
+ * Agent SDK's `rate_limits` wrapper).
  *
- * The sandbox captures the same numbers through the Agent SDK during a turn;
- * this is the server-side path, so the UI can pull a fresh reading without
- * waiting for one. The window keys, labels and display order are duplicated
- * from `callback-src/runtime/usageLimits.ts` — that is a separate esbuild
- * bundle which `convex/` cannot import — so a label added on one side belongs
- * on the other too.
+ * The sandbox captures the same numbers through the Agent SDK during a turn
+ * and on an on-demand chip refresh. Window keys, labels and display order are
+ * duplicated from `callback-src/runtime/usageLimits.ts` — that is a separate
+ * esbuild bundle which `convex/` cannot import — so a label added on one side
+ * belongs on the other too.
  *
  * The response is parsed rather than trusted: the endpoint is undocumented and
  * answers an expired or wrong-scope token with HTTP 200 carrying an error
@@ -112,86 +112,6 @@ function isoToMs(value: string | null | undefined): number | undefined {
   if (typeof value !== "string") return undefined;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : undefined;
-}
-
-function msToIso(ms: number): string {
-  return new Date(ms).toISOString();
-}
-
-/** Suffixes on `anthropic-ratelimit-unified-<suffix>-*`. */
-const UNIFIED_HEADER_WINDOWS: readonly {
-  key: "five_hour" | "seven_day";
-  suffix: "5h" | "7d";
-}[] = [
-  { key: "five_hour", suffix: "5h" },
-  { key: "seven_day", suffix: "7d" },
-];
-
-/**
- * Plan windows from a Messages response's unified rate-limit headers.
- *
- * Setup-tokens (`sk-ant-oat…`, scope `user:inference`) cannot call `/usage`
- * (`user:profile` required, HTTP 403). The same token's inference responses
- * still carry 5h/weekly utilisation as a 0–1 fraction and a unix-seconds reset.
- */
-export function readUnifiedRateLimitHeaders(
-  header: (name: string) => string | undefined,
-): UsageWindow[] {
-  const windows: UsageWindow[] = [];
-  for (const spec of UNIFIED_HEADER_WINDOWS) {
-    const utilization = fractionToPercent(
-      header(`anthropic-ratelimit-unified-${spec.suffix}-utilization`),
-    );
-    const resetsAt = unixSecondsToMs(
-      header(`anthropic-ratelimit-unified-${spec.suffix}-reset`),
-    );
-    pushWindow(
-      windows,
-      spec.key,
-      CLAUDE_WINDOW_LABELS[spec.key] ?? spec.key,
-      utilization,
-      resetsAt,
-    );
-  }
-  return windows;
-}
-
-/** The `/usage` body shape for windows read off inference headers. */
-export function claudeUsageBodyFromUnifiedHeaders(
-  header: (name: string) => string | undefined,
-): ClaudeUsageBody | null {
-  const windows = readUnifiedRateLimitHeaders(header);
-  if (windows.length === 0) return null;
-  const raw: Record<string, { utilization?: number; resets_at?: string }> = {};
-  for (const window of windows) {
-    raw[window.key] = {
-      ...(window.utilization === undefined
-        ? {}
-        : { utilization: window.utilization }),
-      ...(window.resetsAt === undefined
-        ? {}
-        : { resets_at: msToIso(window.resetsAt) }),
-    };
-  }
-  const parsed = claudeUsageBodySchema.safeParse(raw);
-  if (!parsed.success) return null;
-  return parsed.data;
-}
-
-function fractionToPercent(value: string | undefined): number | undefined {
-  if (value === undefined || value.length === 0) return undefined;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return undefined;
-  // Two decimal places, matching `/usage`'s percent encoding (1.03, not
-  // 1.0299999998 from 0.0103 × 100).
-  return Math.round(parsed * 10_000) / 100;
-}
-
-function unixSecondsToMs(value: string | undefined): number | undefined {
-  if (value === undefined || value.length === 0) return undefined;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return undefined;
-  return Math.round(parsed * 1000);
 }
 
 function pushWindow(

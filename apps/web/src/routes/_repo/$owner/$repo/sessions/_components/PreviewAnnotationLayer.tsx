@@ -11,7 +11,10 @@ import { AnnotationCommentCard } from "./AnnotationCommentCard";
 import { useAnnotationBridge } from "./useAnnotationBridge";
 
 const CARD_WIDTH = 320;
-const CARD_ESTIMATED_HEIGHT = 220;
+// Headroom for the details accordion: the collapsed card is ~220px, and the
+// code and styles panels are capped (max-h-40 / max-h-32) so an expanded card
+// pinned near the bottom edge still fits.
+const CARD_ESTIMATED_HEIGHT = 320;
 const CARD_GAP = 8;
 
 export function PreviewAnnotationLayer({

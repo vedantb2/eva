@@ -25,6 +25,27 @@ export interface PreviewAnnotationContext {
     borderRadius: string;
   };
   reactComponents: string[];
+  /**
+   * Everything below is optional on purpose: a sandbox booted before the
+   * enriched injected script shipped still posts the original payload, and a
+   * missing field must never reject the message.
+   */
+  /** Role / aria / focusability summary, e.g. `role="button", focusable`. */
+  accessibility?: string;
+  /** Trimmed text of the parent element. */
+  nearbyText?: string;
+  /** Sibling identifiers, e.g. `button "Save", div.row (7 total)`. */
+  nearbyElements?: string;
+  /** Readable ancestor path below `html`. */
+  fullPath?: string;
+  /** Tag-aware computed styles, e.g. `color: rgb(0, 0, 0); font-size: 14px`. */
+  stylesSummary?: string;
+  environment?: {
+    viewportWidth: number;
+    viewportHeight: number;
+    devicePixelRatio: number;
+    userAgent: string;
+  };
   pageUrl: string;
   pagePath: string;
   capturedAt: number;
@@ -98,6 +119,44 @@ function parseStyleString(styles: object, key: string): string {
   return typeof value === "string" ? value : "";
 }
 
+/**
+ * Fields the enriched injected script added. Older sandboxes still run the
+ * previous version, so a missing or wrong-typed key reads as absent rather than
+ * invalidating the whole message.
+ */
+function parseOptionalString(value: object, key: string): string | undefined {
+  if (!(key in value)) return undefined;
+  const entry = Reflect.get(value, key);
+  return typeof entry === "string" ? entry : undefined;
+}
+
+/** All four sub-fields must typecheck, or the environment is treated as absent. */
+function parseEnvironment(
+  value: object,
+): PreviewAnnotationContext["environment"] {
+  if (!("environment" in value)) return undefined;
+  const env = value.environment;
+  if (typeof env !== "object" || env === null) return undefined;
+  if (
+    !("viewportWidth" in env) ||
+    !("viewportHeight" in env) ||
+    !("devicePixelRatio" in env) ||
+    !("userAgent" in env) ||
+    typeof env.viewportWidth !== "number" ||
+    typeof env.viewportHeight !== "number" ||
+    typeof env.devicePixelRatio !== "number" ||
+    typeof env.userAgent !== "string"
+  ) {
+    return undefined;
+  }
+  return {
+    viewportWidth: env.viewportWidth,
+    viewportHeight: env.viewportHeight,
+    devicePixelRatio: env.devicePixelRatio,
+    userAgent: env.userAgent,
+  };
+}
+
 function parseContext(value: object): PreviewAnnotationContext | null {
   if (
     !("tagName" in value) ||
@@ -165,6 +224,12 @@ function parseContext(value: object): PreviewAnnotationContext | null {
       borderRadius: parseStyleString(styles, "borderRadius"),
     },
     reactComponents,
+    accessibility: parseOptionalString(value, "accessibility"),
+    nearbyText: parseOptionalString(value, "nearbyText"),
+    nearbyElements: parseOptionalString(value, "nearbyElements"),
+    fullPath: parseOptionalString(value, "fullPath"),
+    stylesSummary: parseOptionalString(value, "stylesSummary"),
+    environment: parseEnvironment(value),
     pageUrl: value.pageUrl,
     pagePath: value.pagePath,
     capturedAt: value.capturedAt,
@@ -214,8 +279,23 @@ export function parseAnnotationInbound(
   return null;
 }
 
-function elementChip(ctx: PreviewAnnotationContext): string {
-  const cls = ctx.classNames[0] ? `.${ctx.classNames[0]}` : "";
+/**
+ * Drops the build-time hash CSS Modules / styled-components append to a class
+ * (`Button_root__x7f2a` → `Button_root`), which is noise in a one-line chip.
+ * Underscore only — a hyphen rule would eat ordinary utility classes
+ * (`items-center` → `items`).
+ */
+export function cleanClassName(cls: string): string {
+  return cls.replace(/_[a-zA-Z0-9]{5,}$/, "");
+}
+
+/** One-line identity of the annotated element, e.g. `<button.primary>`. */
+export function elementChip(ctx: PreviewAnnotationContext): string {
+  const first = ctx.classNames[0];
+  // A class that is nothing but a hash strips to "", which would render
+  // "<div.>" — fall back to the raw class instead.
+  const cleaned = first ? cleanClassName(first) || first : "";
+  const cls = cleaned ? `.${cleaned}` : "";
   return `<${ctx.tagName}${cls}>`;
 }
 
@@ -248,7 +328,30 @@ export function buildAnnotationPrompt(
   if (ctx.textContent) {
     description += `- Text: ${ctx.textContent}\n`;
   }
-  description += `- Styles: color=${ctx.computedStyles.color}; background=${ctx.computedStyles.backgroundColor}; font=${ctx.computedStyles.fontSize}/${ctx.computedStyles.fontWeight} ${ctx.computedStyles.fontFamily}; display=${ctx.computedStyles.display}; position=${ctx.computedStyles.position}\n`;
+  if (ctx.accessibility) {
+    description += `- Accessibility: ${ctx.accessibility}\n`;
+  }
+  if (ctx.fullPath) {
+    description += `- Full path: \`${ctx.fullPath}\`\n`;
+  }
+  if (ctx.nearbyElements) {
+    description += `- Nearby: ${ctx.nearbyElements}\n`;
+  }
+  // The parent's text repeats the element's own when the element is the only
+  // child, and a duplicated line is pure noise in the prompt.
+  if (ctx.nearbyText && ctx.nearbyText !== ctx.textContent) {
+    description += `- Context text: ${ctx.nearbyText}\n`;
+  }
+  if (ctx.stylesSummary) {
+    description += `- Styles: ${ctx.stylesSummary}\n`;
+  } else {
+    description += `- Styles: color=${ctx.computedStyles.color}; background=${ctx.computedStyles.backgroundColor}; font=${ctx.computedStyles.fontSize}/${ctx.computedStyles.fontWeight} ${ctx.computedStyles.fontFamily}; display=${ctx.computedStyles.display}; position=${ctx.computedStyles.position}\n`;
+  }
+  if (ctx.environment) {
+    // userAgent stays out: several hundred characters of noise the agent
+    // cannot act on.
+    description += `- Environment: ${ctx.environment.viewportWidth}×${ctx.environment.viewportHeight} @${ctx.environment.devicePixelRatio}x\n`;
+  }
   description += `\n\`\`\`html\n${ctx.outerHTML}\n\`\`\``;
   return description;
 }

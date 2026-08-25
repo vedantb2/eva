@@ -1,5 +1,9 @@
 # Changelog
 
+## Preview annotations carry agentation-level detail, card shows the selected code - 2026-08-25
+
+The sandbox preview's annotate mode captured a fixed slice of the clicked element (tag, selector, 10 computed styles, 3 React names); agentation's tool captures far more. The injected script (`preview-annotation-src/index.ts`, `SCRIPT_VERSION` → `stream-v17`) now also sends accessibility (role/aria/focusable), parent text, sibling summary, a full readable DOM path (crossing shadow roots), a tag-aware filtered styles summary, and viewport/DPR environment — all optional on the web parser so pre-v17 sandboxes keep working. The prompt to the agent includes the new lines; the chat display stays compact. The comment card gained an agentation-style accordion: the identity chips are now a Collapsible trigger revealing the element's actual `outerHTML` in a CodeBlock (copy button, display-only pretty print) plus a `prop: value` styles list. CSS-module hash suffixes are stripped from chip labels (underscore-only rule so `items-center` survives), with a raw-class fallback when the whole class is a hash.
+
 ## Slider thumb sits on the track, not above the ticks - 2026-08-25
 
 The simple-view model ladder's knob was a dark hole on the white pill, with a tick through it, and it hung off the last step. Radix centers the thumb with inline `translateX(-50%)`; a Tailwind translate replaced that and shoved the disc past the end. The shared Slider now uses a 32px white raised disc (dark ring + drop shadow so it reads on zinc, colored accents, and light empty track), centers with margin, and keeps ticks behind it.

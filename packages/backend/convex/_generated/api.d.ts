@@ -213,6 +213,8 @@ import type * as _taskWorkflow_workflowDefinition from "../_taskWorkflow/workflo
 import type * as _userProviderAccounts_credentialSource from "../_userProviderAccounts/credentialSource.js";
 import type * as _userProviderAccounts_defaults from "../_userProviderAccounts/defaults.js";
 import type * as _userProviderAccounts_sharing from "../_userProviderAccounts/sharing.js";
+import type * as _users_directory from "../_users/directory.js";
+import type * as _users_lastSeen from "../_users/lastSeen.js";
 import type * as _validators_aiModels from "../_validators/aiModels.js";
 import type * as _validators_enums from "../_validators/enums.js";
 import type * as _validators_personalisation from "../_validators/personalisation.js";
@@ -568,6 +570,8 @@ declare const fullApi: ApiFromModules<{
   "_userProviderAccounts/credentialSource": typeof _userProviderAccounts_credentialSource;
   "_userProviderAccounts/defaults": typeof _userProviderAccounts_defaults;
   "_userProviderAccounts/sharing": typeof _userProviderAccounts_sharing;
+  "_users/directory": typeof _users_directory;
+  "_users/lastSeen": typeof _users_lastSeen;
   "_validators/aiModels": typeof _validators_aiModels;
   "_validators/enums": typeof _validators_enums;
   "_validators/personalisation": typeof _validators_personalisation;

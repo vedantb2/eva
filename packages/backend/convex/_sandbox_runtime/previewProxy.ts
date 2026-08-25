@@ -25,7 +25,6 @@ export const VERCEL_DESKTOP_INTERNAL_PORT = 16080;
 /** code-server listens here; auth proxy owns exposed 8080. */
 export const VERCEL_EDITOR_INTERNAL_PORT = 18080;
 const HEALTH_PATH = "/__eva_preview_proxy/health";
-const SCRIPT_MARKER = "EVA_PREVIEW_PROXY_SCRIPT";
 // Bump when the generated proxy script changes so already-running proxies from
 // an older deploy are detected as stale (via the health response) and relaunched.
 const SCRIPT_VERSION = "stream-v16";
@@ -940,10 +939,14 @@ async function launchProxy(
   const pidPath = `/tmp/eva-preview-proxy-${targetPort}.pid`;
   const logPath = `/tmp/eva-preview-proxy-${targetPort}.log`;
   const script = buildPreviewProxyScript(authParams);
+  // The script is written with the file API, not a heredoc inside the exec
+  // command. It embeds the vendored html2canvas bundle (~200 KB), which pushes
+  // the single `bash -lc` argument past Linux's 128 KB per-argument cap
+  // (MAX_ARG_STRLEN), so every launch died with "failed to start process:
+  // fork/exec /usr/bin/bash: argument list too long". writeFile has no such
+  // limit (the ~330 KB callback runner ships the same way).
+  await sandbox.writeFile(scriptPath, script);
   const command = [
-    `cat > '${scriptPath}' <<'${SCRIPT_MARKER}'`,
-    script,
-    SCRIPT_MARKER,
     `if [ -f '${pidPath}' ] && kill -0 "$(cat '${pidPath}')" 2>/dev/null; then kill "$(cat '${pidPath}')" 2>/dev/null || true; fi`,
     `if command -v fuser >/dev/null 2>&1; then fuser -k ${proxyPort}/tcp >/dev/null 2>&1 || true; fi`,
     `if command -v lsof >/dev/null 2>&1; then for p in $(lsof -ti :${proxyPort} 2>/dev/null || true); do kill "$p" 2>/dev/null || true; done; fi`,

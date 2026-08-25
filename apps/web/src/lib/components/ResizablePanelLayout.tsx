@@ -71,6 +71,13 @@ interface ResizablePanelLayoutProps {
    * can name their panes ("Chat"/"Sandbox") should.
    */
   mobilePaneLabels?: MobilePaneLabels;
+  /**
+   * False for a layout that is mounted but not on screen. The collapse hotkey is
+   * a global listener, so every kept-alive session shell would otherwise toggle
+   * on one keypress — and a hidden group measures 0px, so its resize resolves to
+   * `NaN` and leaves that session's panel broken until remount.
+   */
+  hotkeyEnabled?: boolean;
 }
 
 const DEFAULT_RIGHT_PANEL_SIZE = "60%";
@@ -92,6 +99,7 @@ export function ResizablePanelLayout({
   expandRightSignal,
   collapseRightSignal,
   mobilePaneLabels = DEFAULT_MOBILE_PANE_LABELS,
+  hotkeyEnabled = true,
 }: ResizablePanelLayoutProps) {
   "use no memo";
   const rightPanelRef = usePanelRef();
@@ -162,10 +170,14 @@ export function ResizablePanelLayout({
     }
   }, [isMobile, rightCollapsed, rightPanelRef]);
 
-  useShortcut("toggleSandboxPanel", (e) => {
-    e.preventDefault();
-    handleToggle();
-  });
+  useShortcut(
+    "toggleSandboxPanel",
+    (e) => {
+      e.preventDefault();
+      handleToggle();
+    },
+    { enabled: hotkeyEnabled },
+  );
 
   useEffect(() => {
     if (expandRightSignal === undefined || expandRightSignal === 0) return;
@@ -264,8 +276,16 @@ export function ResizablePanelLayout({
   const hideSeparator = rightCollapsed && rightCollapsedSizePx === 0;
 
   return (
+    // No `id`: the library keeps one global registry of mounted groups and
+    // resolves every lookup — imperative resize/collapse, the rendered
+    // flexGrow, the layout-change listener — to the *first* group with that id.
+    // Passing `storageKey` gave all three kept-alive session shells the id
+    // `sandbox-collapsed`, so the visible session drove the oldest hidden one:
+    // its 0px group turned a 44px collapse into 0% and the rail vanished, and
+    // expanding back was a no-op. The library's `useId` fallback is unique per
+    // instance, which is what a group id is for; only the *panel* ids have to
+    // be stable, and those stay explicit.
     <Group
-      id={storageKey}
       orientation="horizontal"
       className="h-full"
       onLayoutChanged={handleLayoutChanged}

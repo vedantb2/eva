@@ -203,3 +203,23 @@ it.each([
   );
   expect(consumer).toContain("if (!isMeasuredPanelSize(size)) return;");
 });
+
+/**
+ * The library keeps one global registry of mounted groups and resolves every
+ * lookup by id to the *first* match — imperative resize/collapse, the rendered
+ * flexGrow, the layout-change listener. Passing the (shared) `storageKey` as the
+ * group id meant the three kept-alive session shells all answered to
+ * `sandbox-collapsed`, so the visible session drove the oldest hidden one: its
+ * 0px group turned a 44px collapse into 0% (rail gone) and the re-expand was a
+ * no-op. Panel ids stay explicit; only the group id must be per-instance.
+ */
+it.each([
+  "../components/ResizablePanelLayout.tsx",
+  "../components/ResizableSidebar.tsx",
+])("gives each mounted group its own id in %s", (relativePath) => {
+  const consumer = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), relativePath),
+    "utf8",
+  );
+  expect(consumer).not.toContain("id={storageKey}");
+});

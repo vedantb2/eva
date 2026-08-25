@@ -1,5 +1,5 @@
 import type { FunctionReturnType } from "convex/server";
-import { type api } from "@eva/backend";
+import { type api, type Id } from "@eva/backend";
 
 /**
  * One account's latest reading, minus the fields only the table row carries.
@@ -15,8 +15,14 @@ export type UsageSnapshot = Omit<
 
 export type UsageWindow = NonNullable<UsageSnapshot["windows"]>[number];
 
+/**
+ * The one credential a surface's usage belongs to. Branded rather than a bare
+ * string because the refresh action reads the account with it — a surface that
+ * cannot name its account cannot ask for a reading either.
+ */
 export interface UsageAccountScope {
-  providerAccountId: string | null;
+  /** null is the shared team credential, which has no account row. */
+  providerAccountId: Id<"userProviderAccounts"> | null;
   accountLabel: string;
 }
 
@@ -78,14 +84,25 @@ export function reportedWindows(
   );
 }
 
+/**
+ * Windows that meter spend beyond the plan rather than headroom within it.
+ * They still earn a row in the card — money spent is worth seeing — but they
+ * are not a constraint, so a full overage meter must not colour the chip as if
+ * the plan were about to refuse work.
+ */
+const SPEND_METER_WINDOW_KEYS: ReadonlySet<string> = new Set([
+  "overage",
+  "seven_day_overage_included",
+]);
+
 /** The tightest constraint the snapshot reports, if it reports any. */
 export function maxUtilization(
   snapshot: UsageSnapshot,
   now: number,
 ): number | undefined {
-  const utilizations = reportedWindows(snapshot, now).map(
-    (window) => window.utilization ?? 0,
-  );
+  const utilizations = reportedWindows(snapshot, now)
+    .filter((window) => !SPEND_METER_WINDOW_KEYS.has(window.key))
+    .map((window) => window.utilization ?? 0);
   return utilizations.length === 0 ? undefined : Math.max(...utilizations);
 }
 
@@ -194,7 +211,8 @@ export function chipSummary(
 /** Only the selected credential's limits belong beside its model picker. */
 export function usageRowsForAccount<Row extends { providerAccountId?: string }>(
   rows: readonly Row[],
-  scope: UsageAccountScope | undefined,
+  /** Only the id is read here, so a `UsageAccountScope` is more than enough. */
+  scope: { providerAccountId: string | null } | undefined,
 ): Row[] {
   if (!scope) return [...rows];
   const providerAccountId = scope.providerAccountId ?? undefined;

@@ -48,6 +48,10 @@ export type UsageLimitProvider = "claude";
  * Claude capture paths (the `rate_limit_event` stream message names one window;
  * the `/usage` lookup names several) so a window's label never depends on which
  * source observed it first.
+ *
+ * Duplicated in `convex/_usageLimits/claudeUsage.ts`, which reads the same
+ * endpoint server-side and cannot import this bundle — a label added here
+ * belongs there too.
  */
 const CLAUDE_WINDOW_LABELS: Record<string, string> = {
   five_hour: "5h",

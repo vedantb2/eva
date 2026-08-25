@@ -21,7 +21,10 @@ import {
 } from "@tabler/icons-react";
 import type { Id } from "@eva/backend";
 import { EntityContextUsage } from "@/lib/components/context-usage";
-import { UsageLimitsIndicator } from "@/lib/components/usage-limits";
+import {
+  UsageLimitsIndicator,
+  type UsageAccountScope,
+} from "@/lib/components/usage-limits";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
 import { SandboxStartStopButton } from "@/lib/components/sandbox/SandboxStartStopButton";
@@ -53,6 +56,13 @@ interface SessionChatHeaderProps {
   chatOnly?: boolean;
   /** Popover already titles the surface — omit the duplicate "Manager Ave". */
   hideTitle?: boolean;
+  /**
+   * The credential this session runs on, so plan usage beside the model picker
+   * measures that account and not whichever one reported last. Absent while the
+   * session document is still loading — the indicator stays hidden rather than
+   * flashing the team credential's numbers.
+   */
+  usageAccountScope?: UsageAccountScope;
   onSandboxToggle: (action: "start" | "stop") => void;
   onToggleSandbox?: () => void;
   onOpenSummaryModal: () => void;
@@ -78,6 +88,7 @@ export function SessionChatHeader({
   permalinkPath,
   chatOnly = false,
   hideTitle = false,
+  usageAccountScope,
   onSandboxToggle,
   onToggleSandbox,
   onOpenSummaryModal,
@@ -105,7 +116,7 @@ export function SessionChatHeader({
   const headerRight = (
     <>
       <EntityContextUsage repoId={repoId} entityId={sessionId} />
-      <UsageLimitsIndicator repoId={repoId} />
+      <UsageLimitsIndicator repoId={repoId} accountScope={usageAccountScope} />
       <SandboxStartStopButton
         isActive={isSandboxActive}
         isToggling={isSandboxToggling}
@@ -114,11 +125,7 @@ export function SessionChatHeader({
       />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            size="icon-sm"
-            variant="secondary"
-            aria-label="More"
-          >
+          <Button size="icon-sm" variant="secondary" aria-label="More">
             <IconDots size={14} />
           </Button>
         </DropdownMenuTrigger>

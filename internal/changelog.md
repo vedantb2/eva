@@ -1,5 +1,13 @@
 # Changelog
 
+## Plan usage: per-account in sessions, refreshable, honest about its age - 2026-08-25
+
+The session header's plan-usage chip was unscoped, so it showed whichever account reported last rather than the one the session runs on — projects and quick tasks already scoped theirs. It now takes the session's selected credential, and stays hidden until the session document lands instead of flashing "Team".
+
+Four fixes behind it. A partial report carrying nothing (Claude answering "no rate limits available") re-stamped `capturedAt`, so hours-old numbers read "updated 1m ago" forever; a content-free report is now a no-op. A row for a provider account the viewer cannot run on was returned with only its label stripped — it is now dropped entirely. Extra-usage meters bill money rather than measure headroom, so they no longer set the headline percentage, though they still show as rows. The chip and the open card shared no clock, and the card froze at its first render; both now read the same minute clock.
+
+The card is a popover rather than a hover card, so it is reachable by click, keyboard and touch, and it carries a refresh button: a new `usageLimitsActions.refresh` action reads Claude's OAuth usage endpoint server-side with the scoped credential and stores an authoritative snapshot, so a reading can be pulled without running a turn.
+
 ## Resume no longer replaces a live sandbox after a dump error - 2026-08-25
 
 Opening a session whose Postgres dump was ahead of the live schema failed with `relation "X" does not exist`. Eva treated that SQL error as "sandbox gone", minted a second VM, and left the original running. Resume now skips the dump reload when public already has tables, only treats provider 404/snapshot-gone as unresumable, and refuses to create a replacement while the old id is still alive.

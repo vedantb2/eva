@@ -210,6 +210,7 @@ import type * as _taskWorkflow_uiImplementationPrompt from "../_taskWorkflow/uiI
 import type * as _taskWorkflow_urls from "../_taskWorkflow/urls.js";
 import type * as _taskWorkflow_watchdog from "../_taskWorkflow/watchdog.js";
 import type * as _taskWorkflow_workflowDefinition from "../_taskWorkflow/workflowDefinition.js";
+import type * as _usageLimits_claudeUsage from "../_usageLimits/claudeUsage.js";
 import type * as _userProviderAccounts_credentialSource from "../_userProviderAccounts/credentialSource.js";
 import type * as _userProviderAccounts_defaults from "../_userProviderAccounts/defaults.js";
 import type * as _userProviderAccounts_sharing from "../_userProviderAccounts/sharing.js";
@@ -351,6 +352,7 @@ import type * as today from "../today.js";
 import type * as transcription from "../transcription.js";
 import type * as turns from "../turns.js";
 import type * as usageLimits from "../usageLimits.js";
+import type * as usageLimitsActions from "../usageLimitsActions.js";
 import type * as userProviderAccounts from "../userProviderAccounts.js";
 import type * as userProviderAccountsActions from "../userProviderAccountsActions.js";
 import type * as users from "../users.js";
@@ -567,6 +569,7 @@ declare const fullApi: ApiFromModules<{
   "_taskWorkflow/urls": typeof _taskWorkflow_urls;
   "_taskWorkflow/watchdog": typeof _taskWorkflow_watchdog;
   "_taskWorkflow/workflowDefinition": typeof _taskWorkflow_workflowDefinition;
+  "_usageLimits/claudeUsage": typeof _usageLimits_claudeUsage;
   "_userProviderAccounts/credentialSource": typeof _userProviderAccounts_credentialSource;
   "_userProviderAccounts/defaults": typeof _userProviderAccounts_defaults;
   "_userProviderAccounts/sharing": typeof _userProviderAccounts_sharing;
@@ -708,6 +711,7 @@ declare const fullApi: ApiFromModules<{
   transcription: typeof transcription;
   turns: typeof turns;
   usageLimits: typeof usageLimits;
+  usageLimitsActions: typeof usageLimitsActions;
   userProviderAccounts: typeof userProviderAccounts;
   userProviderAccountsActions: typeof userProviderAccountsActions;
   users: typeof users;

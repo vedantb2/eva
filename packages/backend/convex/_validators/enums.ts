@@ -308,3 +308,22 @@ export const usageLimitStatusValidator = v.union(
   v.literal("allowed_warning"),
   v.literal("rejected"),
 );
+
+/**
+ * How much of the provider's plan state the latest observation actually
+ * covered. "no windows" has three different causes, and collapsing them into
+ * one absent-windows case is what made this feature wrong three times:
+ *
+ * - `complete`: an authoritative `/usage` response. Whatever it lists is the
+ *   whole picture, so the row is replaced and an empty list genuinely means the
+ *   plan has no windows (Team/Enterprise seats).
+ * - `partial`: observed in passing — a single `rate_limit_event` window, or a
+ *   refusal message. Merged into the stored row, never authoritative.
+ * - `refused`: the provider answered and declined to report plan limits
+ *   (`rate_limits_available: false`). Different from "we never asked".
+ */
+export const usageLimitCompletenessValidator = v.union(
+  v.literal("complete"),
+  v.literal("partial"),
+  v.literal("refused"),
+);

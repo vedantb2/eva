@@ -103,7 +103,7 @@ export const claimPendingTurn = authMutation({
       (url): url is string => url !== null,
     );
     await ctx.db.patch(args.taskId, { pendingTurn: undefined });
-    const turnLifecycle: "legacy" = "legacy";
+    const turnLifecycle = "legacy" as const;
     return {
       prompt,
       turnLifecycle,

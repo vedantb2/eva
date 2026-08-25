@@ -268,11 +268,57 @@ test("account hover copy distinguishes never-reported from windowless", () => {
   );
   expect(
     emptyAccountUsageCopy(
-      [claude({ capturedAt: NOW - 2 * DAY, windows: [] })],
+      [
+        claude({
+          capturedAt: NOW - 2 * DAY,
+          windows: [],
+          completeness: "complete",
+        }),
+      ],
       NOW,
     ),
   ).toBe("No plan usage has been reported for this account yet.");
-  expect(emptyAccountUsageCopy([claude({ windows: [] })], NOW)).toBe(
-    "Claude isn't reporting plan rate limits for this account.",
-  );
+});
+
+test("account hover copy reads the reason off the row, not the clock", () => {
+  // Every row below is fresh and windowless — the timestamp cannot tell these
+  // three apart, which is why the reading carries the reason.
+  expect(
+    emptyAccountUsageCopy(
+      [claude({ windows: [], completeness: "complete" })],
+      NOW,
+    ),
+  ).toBe("Claude isn't reporting plan rate limits for this account.");
+  expect(
+    emptyAccountUsageCopy(
+      [claude({ windows: [], completeness: "refused" })],
+      NOW,
+    ),
+  ).toBe("Claude declined to report plan rate limits for this account.");
+  expect(
+    emptyAccountUsageCopy(
+      [claude({ windows: [], completeness: "partial" })],
+      NOW,
+    ),
+  ).toBe("Plan usage for this account hasn't been fully reported yet.");
+  // Rows written before the discriminant, and readings whose windows have all
+  // reset, claim nothing about the provider.
+  expect(
+    emptyAccountUsageCopy(
+      [claude({ windows: [], completeness: undefined })],
+      NOW,
+    ),
+  ).toBe("Plan usage for this account hasn't been fully reported yet.");
+});
+
+test("account hover copy follows the freshest reading", () => {
+  expect(
+    emptyAccountUsageCopy(
+      [
+        claude({ capturedAt: NOW - HOUR, completeness: "complete" }),
+        claude({ capturedAt: NOW - 60_000, completeness: "refused" }),
+      ],
+      NOW,
+    ),
+  ).toBe("Claude declined to report plan rate limits for this account.");
 });

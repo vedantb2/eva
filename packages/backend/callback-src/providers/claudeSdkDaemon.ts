@@ -68,9 +68,9 @@ import {
 import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
 import {
+  beginTurnOwnership,
+  endTurnOwnership,
   getCurrentTurnLease,
-  setLegacyTurnHeartbeatActive,
-  setCurrentTurnLease,
 } from "../runtime/turnLease.js";
 import { log, readResponseJson } from "../utils.js";
 import type { JsonObject, JsonValue } from "../types.js";
@@ -971,7 +971,7 @@ async function failSyntheticTurn(error: string): Promise<void> {
         result: null,
         error,
         activityLog: serializeSteps(S.accumulatedSteps),
-        ...(turnLease ?? {}),
+        ...turnLease,
       }),
     );
   } catch {
@@ -979,8 +979,7 @@ async function failSyntheticTurn(error: string): Promise<void> {
   }
   endWatchedTurn();
   resetTurnState();
-  setLegacyTurnHeartbeatActive(false);
-  setCurrentTurnLease(null);
+  endTurnOwnership();
   supervisor.settleTurn();
   agentTurnOutput = "";
 }
@@ -1002,13 +1001,12 @@ async function ensureSyntheticTurn(): Promise<void> {
       return;
     }
     resetTurnState();
-    const syntheticTurnLease = readTurnLeaseIdentity(result);
-    setLegacyTurnHeartbeatActive(syntheticTurnLease === null);
-    setCurrentTurnLease(syntheticTurnLease);
+    // A synthetic turn owns the heartbeat without occupying the claim slot;
+    // a legacy synthetic turn carries no lease and must still heartbeat.
+    beginTurnOwnership("provider", readTurnLeaseIdentity(result));
     if (!supervisor.startTurn({ kind: "synthetic", messageId })) {
       log("daemon: synthetic turn opened after lifecycle moved; ignoring");
-      setLegacyTurnHeartbeatActive(false);
-      setCurrentTurnLease(null);
+      endTurnOwnership();
       return;
     }
     agentTurnStartedAt = Date.now();
@@ -1063,8 +1061,7 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
   syncClaudeStateToPersist("daemon-synthetic-turn");
   endWatchedTurn();
   resetTurnState();
-  setLegacyTurnHeartbeatActive(false);
-  setCurrentTurnLease(null);
+  endTurnOwnership();
   supervisor.settleTurn();
   agentTurnOutput = "";
   log("daemon: synthetic turn finalized success=" + success);
@@ -1620,7 +1617,7 @@ export async function runSdkDaemon(): Promise<void> {
         result: null,
         error: "Agent SDK daemon failed: " + messageText,
         activityLog: serializeSteps(S.accumulatedSteps),
-        ...(getCurrentTurnLease() ?? {}),
+        ...getCurrentTurnLease(),
       });
     } catch {
       /* ignore */

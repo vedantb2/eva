@@ -12,7 +12,6 @@ import {
   ensureSandboxRunning,
   ensureDockerDaemon,
   RESUME_READY_TIMEOUT_SECONDS,
-  isSandboxUnresumableMessage,
   errorMessage,
   sleep,
   workspaceDirShell,
@@ -26,6 +25,10 @@ import {
   copySandboxConfigFilesToWorkspace,
   SESSION_LIFECYCLE,
 } from "./git";
+import {
+  SandboxGoneError,
+  isSandboxGoneError,
+} from "./sandboxErrors";
 import { ensureGitCredentialHelper } from "./gitCredentials";
 import { ensureSwapFile } from "./swap";
 import type { SandboxClient, SandboxHandle } from "../_sandbox/provider";
@@ -287,15 +290,19 @@ async function resumeReusedSandbox(
   try {
     await handle.refresh();
   } catch (refreshErr) {
-    const msg =
-      refreshErr instanceof Error ? refreshErr.message : String(refreshErr);
-    if (isSandboxUnresumableMessage(msg)) {
-      throw new Error(`sandbox gone on refresh: ${msg}`);
+    // Rethrown as a typed verdict, not a prefixed string: the caller that
+    // decides whether to mint a replacement re-inspects this error, and a
+    // string prefix is exactly the signal that used to be forgeable by any
+    // command output that happened to be quoted into a message.
+    if (isSandboxGoneError(refreshErr)) {
+      throw new SandboxGoneError(
+        `sandbox gone on refresh: ${errorMessage(refreshErr, "refresh failed")}`,
+      );
     }
     throw refreshErr;
   }
   if (handle.state === "gone" || handle.state === "error") {
-    throw new Error(`sandbox unresumable state: ${handle.state}`);
+    throw new SandboxGoneError(`sandbox unresumable state: ${handle.state}`);
   }
   await ensureSandboxRunning(handle, {
     timeoutSeconds: RESUME_READY_TIMEOUT_SECONDS,
@@ -479,10 +486,6 @@ async function lockfileDrifted(
   return { node, python };
 }
 
-function isSandboxGoneMessage(message: string): boolean {
-  return isSandboxUnresumableMessage(message);
-}
-
 type TryReuseSandboxOptions = {
   fallbackOnPrepareError?: boolean;
 };
@@ -509,8 +512,7 @@ async function tryReuseSandboxWith<T>(
   try {
     sandbox = await get(existingSandboxId);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (isSandboxGoneMessage(message)) {
+    if (isSandboxGoneError(error)) {
       logSession(
         `${label} found missing sandbox ${existingSandboxId}; creating replacement`,
       );
@@ -522,10 +524,10 @@ async function tryReuseSandboxWith<T>(
   try {
     await prepareFn(sandbox);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error, "preparation failed");
     // Snapshot gone / resume deadline: fall through even when
     // fallbackOnPrepareError is false — otherwise sessions hang then hard-fail.
-    if (isSandboxGoneMessage(message)) {
+    if (isSandboxGoneError(error)) {
       logSession(
         `${label} found unresumable sandbox ${existingSandboxId}; creating replacement: ${message}`,
       );
@@ -556,9 +558,10 @@ async function refuseReplacementIfStillAlive(
   try {
     handle = await client.get(existingSandboxId);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (isSandboxUnresumableMessage(message)) return;
-    throw error instanceof Error ? error : new Error(message);
+    if (isSandboxGoneError(error)) return;
+    throw error instanceof Error
+      ? error
+      : new Error(errorMessage(error, "sandbox lookup failed"));
   }
   const classification = await handle.classifyForReconcile();
   if (classification !== "alive") return;

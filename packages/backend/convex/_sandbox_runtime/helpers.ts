@@ -9,6 +9,8 @@ import {
   resolveSandboxCredentialsOnly,
 } from "../envVarResolver";
 import type { SandboxClient, SandboxHandle } from "../_sandbox/provider";
+import { SandboxCommandFailedError } from "./sandboxErrors";
+import { writeSandboxFile } from "./sandboxFiles";
 import { getSandboxClient } from "../_sandbox/factory";
 import { launchScript } from "./launch";
 import { ensureSwapFile } from "./swap";
@@ -118,48 +120,6 @@ export const ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS = 600;
  */
 export const RESUME_READY_TIMEOUT_SECONDS = 180;
 
-/**
- * True when a resume error means the sandbox/snapshot record is gone — safe
- * to fall through to creating a replacement.
- *
- * Stay narrow. A command that ran *inside* the VM (Postgres `relation "X"
- * does not exist`, `command not found`, schema mismatch) is not evidence the
- * VM is gone. Matching those used to mint a second sandbox while the first
- * was still running. `execHandle` prefixes those as "Sandbox command failed".
- * A start timeout (`did not reach running`) is also not gone — the VM may
- * still be snapshotting or slow.
- */
-export function isSandboxUnresumableMessage(message: string): boolean {
-  const msg = message.toLowerCase();
-  if (msg.includes("sandbox command failed")) return false;
-
-  if (msg.includes("sandbox gone on refresh")) return true;
-  if (msg.includes("sandbox unresumable state")) return true;
-
-  if (msg.includes("status code 404") || msg.includes("status code 410")) {
-    return true;
-  }
-
-  if (
-    msg.includes("snapshot_not_found") ||
-    msg.includes("invalid_snapshot") ||
-    msg.includes("snapshot not found") ||
-    (msg.includes("snapshot") &&
-      (msg.includes("does not exist") || msg.includes("expired")))
-  ) {
-    return true;
-  }
-
-  return (
-    /\bsandbox\b.{0,80}\b(not found|does not exist|deleted|destroyed|archived|gone)\b/.test(
-      msg,
-    ) ||
-    /\b(not found|does not exist|deleted|destroyed|archived|gone)\b.{0,80}\bsandbox\b/.test(
-      msg,
-    )
-  );
-}
-
 const EXEC_CLIENT_TIMEOUT_BUFFER_MS = 15_000;
 
 /** Runs a command on a {@link SandboxHandle} and returns stdout, throwing on a non-zero exit. */
@@ -176,15 +136,19 @@ export async function execHandle(
     `exec (${timeout}s)`,
   );
   if (resp.exitCode !== 0) {
-    const output = resp.output?.trim();
+    const output = resp.output?.trim() ?? "";
     // The command prefix is the only clue when the provider discards output on
     // a kill (e.g. exit 143 = SIGTERM at timeout) — without it the failing exec
     // is unidentifiable in logs.
     const cmdHint = `cmd=${JSON.stringify(cmd.slice(0, 80))}`;
-    throw new Error(
+    // Typed, not a bare Error: the sandbox answered, so it is alive. The type
+    // is what stops its output (`relation "X" does not exist`) from ever being
+    // read as "the sandbox is gone". See sandboxErrors.ts.
+    throw new SandboxCommandFailedError(
       output
         ? `Sandbox command failed (exit ${resp.exitCode}): ${output}`
         : `Sandbox command failed with exit code ${resp.exitCode} (${cmdHint})`,
+      { exitCode: resp.exitCode, output },
     );
   }
   return resp.output;
@@ -291,7 +255,7 @@ export async function bootstrapVercelDocker(
   ].join("\n");
 
   try {
-    await sandbox.writeFile("/tmp/bootstrap-docker.sh", script);
+    await writeSandboxFile(sandbox, "/tmp/bootstrap-docker.sh", script);
     await execHandle(
       sandbox,
       "chmod +x /tmp/bootstrap-docker.sh && bash /tmp/bootstrap-docker.sh",

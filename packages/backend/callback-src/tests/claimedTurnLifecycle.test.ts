@@ -13,7 +13,7 @@ import {
 import {
   canSendTurnHeartbeat,
   getCurrentTurnLease,
-  setCurrentTurnLease,
+  getTurnOwnership,
 } from "../runtime/turnLease.js";
 import type { JsonObject } from "../types.js";
 
@@ -58,7 +58,7 @@ describe("the shared claimed-turn lifecycle", () => {
     expect(
       canSendTurnHeartbeat({
         claimMutation: "sessions:claimPendingTurn",
-        turnLease: getCurrentTurnLease(),
+        ownership: getTurnOwnership(),
       }),
     ).toBe(true);
     const completion: JsonObject = { success: true };
@@ -76,7 +76,7 @@ describe("the shared claimed-turn lifecycle", () => {
     expect(
       canSendTurnHeartbeat({
         claimMutation: "sessions:claimPendingTurn",
-        turnLease: getCurrentTurnLease(),
+        ownership: getTurnOwnership(),
       }),
     ).toBe(false);
   });
@@ -97,7 +97,7 @@ describe("the shared claimed-turn lifecycle", () => {
     expect(
       canSendTurnHeartbeat({
         claimMutation: "projectChatWorkflow:claimPendingTurn",
-        turnLease: getCurrentTurnLease(),
+        ownership: getTurnOwnership(),
       }),
     ).toBe(true);
     expect(completion).toEqual({ success: true });
@@ -106,12 +106,14 @@ describe("the shared claimed-turn lifecycle", () => {
     expect(
       canSendTurnHeartbeat({
         claimMutation: "projectChatWorkflow:claimPendingTurn",
-        turnLease: getCurrentTurnLease(),
+        ownership: getTurnOwnership(),
       }),
     ).toBe(false);
   });
 
-  test("keeps the claimed completion fence even if heartbeat state drifts", () => {
+  test("fences the completion from the same state that gates heartbeats", () => {
+    // The completion fence and the heartbeat gate used to be separate globals
+    // and drifted apart. One ownership state cannot disagree with itself.
     const turn = readClaimedTurn({
       prompt: "Fix it",
       turnLifecycle: "durable",
@@ -122,15 +124,31 @@ describe("the shared claimed-turn lifecycle", () => {
     if (turn === null) return;
 
     startClaimedTurn(turn);
-    setCurrentTurnLease(null);
+    const ownership = getTurnOwnership();
+    expect(ownership).toEqual({
+      status: "owned",
+      owner: "claim",
+      turnLease: { turnId: "turn-1", leaseGeneration: 2 },
+    });
     const completion: JsonObject = { success: false };
     appendClaimedTurnCompletion(completion);
-
     expect(completion).toEqual({
       success: false,
       turnId: "turn-1",
       leaseGeneration: 2,
     });
+
+    finishClaimedTurn();
+
+    expect(
+      canSendTurnHeartbeat({
+        claimMutation: "sessions:claimPendingTurn",
+        ownership: getTurnOwnership(),
+      }),
+    ).toBe(false);
+    expect(() => appendClaimedTurnCompletion({ success: false })).toThrow(
+      "Cannot complete a claimed turn before it starts",
+    );
   });
 
   test("does not allow overlapping claimed turns", () => {
@@ -155,6 +173,64 @@ describe("the shared claimed-turn lifecycle", () => {
     expect(() => appendClaimedTurnCompletion({ success: false })).toThrow(
       "Cannot complete a claimed turn before it starts",
     );
+  });
+});
+
+describe("canSendTurnHeartbeat follows claim ownership", () => {
+  const CLAIM = "sessionWorkflow:claimPendingTurn";
+
+  function claim(payload: JsonObject): void {
+    const turn = readClaimedTurn(payload);
+    expect(turn).not.toBeNull();
+    if (turn === null) return;
+    startClaimedTurn(turn);
+  }
+
+  function allowed(claimMutation: string | undefined): boolean {
+    return canSendTurnHeartbeat({
+      claimMutation,
+      ownership: getTurnOwnership(),
+    });
+  }
+
+  test("a one-shot job with no claim mutation always heartbeats", () => {
+    expect(allowed(undefined)).toBe(true);
+  });
+
+  test("an idle daemon that has claimed nothing stays silent", () => {
+    expect(allowed(CLAIM)).toBe(false);
+  });
+
+  test("a legacy claim heartbeats even though it carries no lease", () => {
+    claim({ prompt: "Legacy task chat", turnLifecycle: "legacy" });
+    expect(getCurrentTurnLease()).toBeNull();
+    expect(allowed(CLAIM)).toBe(true);
+  });
+
+  test("a durable claim heartbeats while it holds the lease", () => {
+    claim({
+      prompt: "Fix it",
+      turnLifecycle: "durable",
+      turnId: "turn-1",
+      leaseGeneration: 2,
+    });
+    expect(getCurrentTurnLease()).toEqual({
+      turnId: "turn-1",
+      leaseGeneration: 2,
+    });
+    expect(allowed(CLAIM)).toBe(true);
+  });
+
+  test("a durable claim goes silent again once the lease is released", () => {
+    claim({
+      prompt: "Fix it",
+      turnLifecycle: "durable",
+      turnId: "turn-1",
+      leaseGeneration: 2,
+    });
+    finishClaimedTurn();
+    expect(getCurrentTurnLease()).toBeNull();
+    expect(allowed(CLAIM)).toBe(false);
   });
 });
 
@@ -226,7 +302,7 @@ describe("persistent providers obey the same lifecycle contract", () => {
       expect(source).toContain("appendClaimedTurnCompletion(completionArgs)");
       expect(source).toContain("finishClaimedTurn()");
       expect(source).not.toContain("function readClaimedTurn(");
-      expect(source).not.toContain("setCurrentTurnLease(turn.turnLease)");
+      expect(source).not.toContain('beginTurnOwnership("claim"');
     });
   }
 });

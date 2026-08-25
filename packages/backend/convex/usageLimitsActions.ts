@@ -32,18 +32,32 @@ import {
 
 const CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
 const USAGE_TIMEOUT_MS = 8_000;
+/** Required by the undocumented OAuth usage endpoint. */
+const CLAUDE_USAGE_BETA = "oauth-2025-04-20";
+/**
+ * The endpoint rate-limits by User-Agent. Node/undici's default (and a missing
+ * UA) land in a bucket that 429s immediately; Claude Code's identifier is the
+ * one the endpoint actually serves.
+ */
+const CLAUDE_USAGE_USER_AGENT = "claude-code/2.1.72";
 
 type UsageProvider = Infer<typeof usageLimitProviderValidator>;
 
 /** Why a refresh produced nothing, in the vocabulary the toast copy speaks. */
-type RefreshFailure = "no-token" | "unauthorized" | "network" | "unavailable";
+type RefreshFailure =
+  | "no-token"
+  | "unauthorized"
+  | "network"
+  | "unavailable"
+  | "rate-limited";
 
 type TokenLookup = { kind: "token"; token: string } | { kind: "missing" };
 
 type UsageFetch =
   | { kind: "body"; body: ClaudeUsageBody }
   | { kind: "unauthorized" }
-  | { kind: "network" };
+  | { kind: "network" }
+  | { kind: "rate-limited" };
 
 /**
  * The token for the account the refresh is scoped to. Throws when the account
@@ -104,6 +118,8 @@ async function fetchClaudeUsage(token: string): Promise<UsageFetch> {
     headers: {
       Authorization: `Bearer ${token}`,
       "Content-Type": "application/json",
+      "anthropic-beta": CLAUDE_USAGE_BETA,
+      "User-Agent": CLAUDE_USAGE_USER_AGENT,
     },
     signal: AbortSignal.timeout(USAGE_TIMEOUT_MS),
   }).catch((error: Error) => {
@@ -115,6 +131,10 @@ async function fetchClaudeUsage(token: string): Promise<UsageFetch> {
   // by reconnecting the account, not by trying again.
   if (response.status === 401 || response.status === 403) {
     return { kind: "unauthorized" };
+  }
+  if (response.status === 429) {
+    console.warn("[usageLimits] Claude usage returned 429");
+    return { kind: "rate-limited" };
   }
   if (!response.ok) {
     console.warn(`[usageLimits] Claude usage returned ${response.status}`);
@@ -161,6 +181,9 @@ export const refresh = authAction({
     const result = await fetchClaudeUsage(lookup.token);
     if (result.kind === "unauthorized") {
       return { ok: false, reason: "unauthorized" };
+    }
+    if (result.kind === "rate-limited") {
+      return { ok: false, reason: "rate-limited" };
     }
     if (result.kind === "network") return { ok: false, reason: "network" };
     // An HTTP 200 error envelope parses cleanly against an all-optional shape,

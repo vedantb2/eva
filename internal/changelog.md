@@ -1,5 +1,13 @@
 # Changelog
 
+## Plan-usage refresh was 429'd, not unreachable - 2026-08-25
+
+The session header's refresh button toasted "Couldn't reach Claude" on every click. The server-side `GET /api/oauth/usage` call sent only a Bearer token, so Anthropic dumped it in the non-Claude-Code User-Agent bucket and answered 429 immediately — which we labelled `network`. The request now sends `anthropic-beta: oauth-2025-04-20` and `User-Agent: claude-code/…`; a real 429 is a distinct toast.
+
+## Closed sessions no longer get a late "startup unfinished" alert - 2026-08-25
+
+Stopping a session mid-reuse left `watchConvexReadiness` polling for 6 minutes, then `sandboxStartupWarning` posted "Sandbox startup unfinished — session left running" into a chat that was already closed (session 125). The copy was a lie: the session was not running, and Convex never came up because stop had already torn the VM down. The warning mutation now no-ops unless the session is still `active`, the watcher aborts when the session no longer owns the sandbox (or the VM is gone), and reuse start throws `SandboxStartAbortedError` before launching background daemons or the preview server if Stop has already landed.
+
 ## Sandbox rail collapse toggle actually expands again - 2026-08-25
 
 The session sandbox icon-rail collapse button often did nothing, so the only way back was dragging the splitter. Two things stacked. The resize-handle hit target (`z-10`, overlapping 6px into the rail) sat on top of the toggle, so a click on the left of the button started a drag instead of a click. And `react-resizable-panels` stores collapse as a percentage: toggling the app sidebar or resizing the window grew a 44px rail to 80px, which the layout treated as expanded, so the next click called `collapse()` on an already-collapsed panel (a no-op) and saved that tiny percentage as the width to restore. The rail now stacks above the handle, collapse is anything below the panel minSize, expand falls back to the default split when the stored width would still be a strip, and the right panel keeps its pixel size across group resizes.

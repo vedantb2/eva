@@ -50,6 +50,7 @@ import { ensureSwapFile } from "./swap";
 import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
 import { assertActionSandboxAccess } from "../functions";
+import { isSandboxGoneError } from "./sandboxErrors";
 
 /** True if anything is LISTEN on `port` (Vercel images often lack `ss`). */
 function portListenProbeCmd(port: number): string {
@@ -477,11 +478,22 @@ export const runBackgroundCommands = internalAction({
     // instead of blocking startup on a grep loop (which also used to die at
     // undici's 300s headersTimeout when run as a single long exec).
     if (launchedConvex) {
-      await ctx.scheduler.runAfter(0, internal.sandbox.watchConvexReadiness, {
-        sandboxId: args.sandboxId,
-        repoId: args.repoId,
-        sessionId: args.sessionId,
-      });
+      const sessionId = args.sessionId;
+      const stillWanted =
+        sessionId === undefined
+          ? true
+          : await sessionStillRunningSandbox(ctx, sessionId, args.sandboxId);
+      if (!stillWanted) {
+        console.log(
+          `[sandbox] runBackgroundCommands: skipping Convex readiness watch, session not running ${args.sandboxId}`,
+        );
+      } else {
+        await ctx.scheduler.runAfter(0, internal.sandbox.watchConvexReadiness, {
+          sandboxId: args.sandboxId,
+          repoId: args.repoId,
+          ...(sessionId === undefined ? {} : { sessionId }),
+        });
+      }
     }
 
     return {
@@ -495,6 +507,22 @@ export const runBackgroundCommands = internalAction({
 /** Poll cadence / budget for the fire-and-forget Convex readiness watcher. */
 const CONVEX_READY_POLL_INTERVAL_MS = 10_000;
 const CONVEX_READY_TIMEOUT_MS = 360_000;
+
+/** False once the user has stopped this session or it no longer owns the VM. */
+async function sessionStillRunningSandbox(
+  ctx: ActionCtx,
+  sessionId: Id<"sessions">,
+  sandboxId: string,
+): Promise<boolean> {
+  const session = await ctx.runQuery(internal.sessions.getInternal, {
+    id: sessionId,
+  });
+  return (
+    session !== null &&
+    session.status === "active" &&
+    session.sandboxId === sandboxId
+  );
+}
 
 /**
  * Fire-and-forget watcher for Convex background daemons. Polls each Convex
@@ -519,7 +547,29 @@ export const watchConvexReadiness = internalAction({
       .filter((i) => i >= 0);
     if (convexIndexes.length === 0) return null;
 
-    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    const sessionId = args.sessionId;
+    if (
+      sessionId !== undefined &&
+      !(await sessionStillRunningSandbox(ctx, sessionId, args.sandboxId))
+    ) {
+      console.log(
+        `[sandbox] watchConvexReadiness: aborted, session not running ${args.sandboxId}`,
+      );
+      return null;
+    }
+
+    let sandbox: SandboxHandle;
+    try {
+      sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    } catch (e) {
+      if (isSandboxGoneError(e)) {
+        console.log(
+          `[sandbox] watchConvexReadiness: sandbox gone, stopping (${args.sandboxId})`,
+        );
+        return null;
+      }
+      throw e;
+    }
     const logPaths = convexIndexes.map((i) => `/tmp/bg-${i}.log`);
     // One short exec per poll: ready only when every Convex log has the line.
     const probeCmd = [
@@ -533,6 +583,15 @@ export const watchConvexReadiness = internalAction({
 
     const startedAt = Date.now();
     while (Date.now() - startedAt < CONVEX_READY_TIMEOUT_MS) {
+      if (
+        sessionId !== undefined &&
+        !(await sessionStillRunningSandbox(ctx, sessionId, args.sandboxId))
+      ) {
+        console.log(
+          `[sandbox] watchConvexReadiness: aborted, session not running ${args.sandboxId}`,
+        );
+        return null;
+      }
       try {
         const result = (await execHandle(sandbox, probeCmd, 10)).trim();
         if (result === "yes") {
@@ -542,12 +601,28 @@ export const watchConvexReadiness = internalAction({
           return null;
         }
       } catch (e) {
+        if (isSandboxGoneError(e)) {
+          console.log(
+            `[sandbox] watchConvexReadiness: sandbox gone, stopping (${args.sandboxId})`,
+          );
+          return null;
+        }
         // Transient exec failures (resume races, stream closes) — keep polling.
         console.log(
           `[sandbox] watchConvexReadiness: probe failed, retrying: ${errorMessage(e, "probe failed")}`,
         );
       }
       await sleep(CONVEX_READY_POLL_INTERVAL_MS);
+    }
+
+    if (
+      sessionId !== undefined &&
+      !(await sessionStillRunningSandbox(ctx, sessionId, args.sandboxId))
+    ) {
+      console.log(
+        `[sandbox] watchConvexReadiness: timed out after stop, not warning (${args.sandboxId})`,
+      );
+      return null;
     }
 
     let logTail = "";
@@ -570,9 +645,9 @@ export const watchConvexReadiness = internalAction({
     console.error(
       `[sandbox] watchConvexReadiness: timed out (${args.sandboxId}): ${detail}`,
     );
-    if (args.sessionId) {
+    if (sessionId !== undefined) {
       await ctx.runMutation(internal.sessions.sandboxStartupWarning, {
-        sessionId: args.sessionId,
+        sessionId,
         error: detail,
       });
     }

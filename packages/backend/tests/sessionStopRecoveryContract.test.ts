@@ -217,6 +217,13 @@ describe("a startup failure after early-ready keeps the sandbox", () => {
     expect(warning).not.toContain(call);
   });
 
+  /** Session 125: stop raced reuse, the watcher posted this 6 minutes later. */
+  test("no-ops unless the session is still active", () => {
+    const guardAt = warning.indexOf('session.status !== "active"');
+    expect(guardAt, "the active-status guard moved").toBeGreaterThan(-1);
+    expect(guardAt).toBeLessThan(warning.indexOf('ctx.db.insert("messages"'));
+  });
+
   /** Its destructive sibling still exists — the two must not converge. */
   test("sandboxError still closes the session", () => {
     const body = definitionBody(sandboxSource, "sandboxError");
@@ -249,6 +256,53 @@ describe("a startup failure after early-ready keeps the sandbox", () => {
     const branch = startupSource.slice(guardAt, teardownAt);
     expect(branch).toContain("internal.sessions.sandboxStartupWarning");
     expect(branch).toContain("return null;");
+  });
+});
+
+/**
+ * Stop can land after early-ready. Reuse used to keep launching Convex and the
+ * preview server, then a 6-minute readiness watcher posted "startup unfinished"
+ * into the closed chat (session 125).
+ */
+describe("a stop that races reuse does not warn about unfinished startup", () => {
+  const executionSource = readSource("_sandbox_runtime/execution.ts");
+
+  test("the Convex readiness watcher stops once the session no longer owns the VM", () => {
+    const body = definitionBody(executionSource, "watchConvexReadiness");
+    expect(body).toContain("sessionStillRunningSandbox");
+    expect(body).toContain("isSandboxGoneError");
+    const warnAt = body.indexOf("internal.sessions.sandboxStartupWarning");
+    expect(warnAt, "the timeout warning moved").toBeGreaterThan(-1);
+    expect(
+      body.lastIndexOf("sessionStillRunningSandbox", warnAt),
+      "timeout must re-check ownership before warning",
+    ).toBeGreaterThan(-1);
+  });
+
+  test("reuse start aborts before launching daemons if stop was requested", () => {
+    const prepareAt = startupSource.indexOf(
+      '"reuseSessionSandbox.prepare"',
+    );
+    const backgroundAt = startupSource.indexOf(
+      '"reuseSessionSandbox.runBackgroundCommands"',
+    );
+    const launchAt = startupSource.indexOf(
+      '"reuseSessionSandbox.launchDevServer"',
+    );
+    expect(prepareAt, "reuse prepare step moved").toBeGreaterThan(-1);
+    expect(backgroundAt, "reuse background step moved").toBeGreaterThan(
+      prepareAt,
+    );
+    expect(launchAt, "reuse launch step moved").toBeGreaterThan(backgroundAt);
+    expect(startupSource).toContain("abortReuseIfSessionStopped");
+    expect(
+      startupSource.slice(prepareAt, backgroundAt),
+      "stop must abort before background commands",
+    ).toContain("abortReuseIfSessionStopped");
+    expect(
+      startupSource.slice(backgroundAt, launchAt),
+      "stop must abort before the preview server launch",
+    ).toContain("abortReuseIfSessionStopped");
   });
 });
 

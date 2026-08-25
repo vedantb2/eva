@@ -220,6 +220,23 @@ async function sessionStopRequested(
   );
 }
 
+/**
+ * Stop can land after early-ready and still leave reuse launching Convex and
+ * the preview server. Those steps used to keep going, then a 6-minute readiness
+ * watcher posted "startup unfinished" against the closed chat (session 125).
+ */
+async function abortReuseIfSessionStopped(
+  ctx: GenericActionCtx<DataModel>,
+  sessionId: Id<"sessions">,
+  sandboxId: string,
+): Promise<void> {
+  if (await sessionStopRequested(ctx, sessionId)) {
+    throw new SandboxStartAbortedError(
+      `reuse aborted: stop requested for sandbox ${sandboxId}`,
+    );
+  }
+}
+
 /** True once the user has requested this task's sandbox stop/close. */
 async function taskStopRequested(
   ctx: GenericActionCtx<DataModel>,
@@ -850,6 +867,11 @@ async function prepareSessionSandboxInternal(
               () => startDesktopWithChrome(handle),
             );
           }
+          await abortReuseIfSessionStopped(
+            ctx,
+            args.sessionId,
+            handle.id,
+          );
           await emitSessionProgress(
             ctx,
             args.sessionId,
@@ -911,6 +933,11 @@ async function prepareSessionSandboxInternal(
           if (devCommand !== undefined && devPort !== undefined) {
             const command = devCommand;
             const port = devPort;
+            await abortReuseIfSessionStopped(
+              ctx,
+              args.sessionId,
+              handle.id,
+            );
             await runLoggedSessionStep(
               "reuseSessionSandbox.launchDevServer",
               sandboxDetails,

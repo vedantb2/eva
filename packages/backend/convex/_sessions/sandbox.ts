@@ -514,6 +514,9 @@ export const sandboxStartupWarning = internalMutation({
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) return null;
+    // The copy says the session is still running. A stop that raced startup
+    // used to insert this row minutes later against a closed chat (session 125).
+    if (session.status !== "active") return null;
     // Step labels are prefixed onto the error by runLoggedSessionStep, so the
     // message can name what actually broke instead of a generic "unfinished".
     // Branch-checkout failures are recoverable (publish self-heals the branch),

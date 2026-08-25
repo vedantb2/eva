@@ -42,9 +42,9 @@ import { type SlashItem } from "@/lib/components/mentions";
 import { useComposerCompact } from "@/lib/components/chat/_components/useComposerCompact";
 
 const COMPACT_EDITOR =
-  "flex min-h-9 max-h-9 min-w-0 w-auto flex-1 items-center self-center overflow-hidden whitespace-nowrap! rounded-none px-1 py-2 text-left leading-5 scrollbar-none transition-[min-height,padding] duration-[var(--motion-base)] ease-[var(--motion-ease-out)] focus-visible:outline-hidden";
+  "flex min-h-9 max-h-9 min-w-0 w-auto flex-1 items-center self-center overflow-hidden whitespace-nowrap! rounded-none px-1 py-2 text-left leading-5 scrollbar-none transition-[min-height,padding] duration-[var(--motion-base)] focus-visible:outline-hidden";
 const EXPANDED_EDITOR =
-  "min-h-16 max-h-50 w-full self-stretch overflow-y-auto rounded-none px-4 pt-3.5 pb-1 text-left transition-[min-height,padding] duration-[var(--motion-base)] ease-[var(--motion-ease-out)] focus-visible:outline-hidden";
+  "min-h-16 max-h-50 w-full self-stretch overflow-y-auto rounded-none px-4 pt-3.5 pb-1 text-left transition-[min-height,padding] duration-[var(--motion-base)] focus-visible:outline-hidden";
 
 interface DataMenuItem {
   id: string;
@@ -201,7 +201,7 @@ export function ComposerInputChrome({
           inputGroupClassName={cn(
             // Height interpolates to/from `auto` so the conversation viewport
             // grows with the composer instead of jumping when the pill snaps.
-            "[interpolate-size:allow-keywords] transition-[color,box-shadow,border-color,border-radius,height] duration-[var(--motion-base)] ease-[var(--motion-ease-out)]",
+            "[interpolate-size:allow-keywords] transition-[color,box-shadow,border-color,border-radius,height] duration-[var(--motion-base)]",
             compact
               ? "h-12 items-center rounded-full py-1"
               : "h-auto rounded-surface",

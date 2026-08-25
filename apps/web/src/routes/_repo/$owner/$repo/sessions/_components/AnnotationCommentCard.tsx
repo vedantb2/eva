@@ -46,12 +46,18 @@ function styleLines(
 }
 
 export function AnnotationCommentCard({
+  cardRef,
   context,
   position,
   onSubmit,
   onCancel,
   isSubmitting,
 }: {
+  /**
+   * Hands the root node to `PreviewAnnotationLayer`, which observes its height
+   * so expanding the details accordion re-clamps the card into the panel.
+   */
+  cardRef: (node: HTMLDivElement | null) => void;
   context: PreviewAnnotationContext;
   position: { left: number; top: number };
   onSubmit: (feedback: string) => void;
@@ -79,6 +85,7 @@ export function AnnotationCommentCard({
 
   return (
     <div
+      ref={cardRef}
       // `w-80` is exactly a 320px viewport, so the card hung off the edge with
       // no gutter. The expression matches `CARD_WIDTH` clamping in
       // `PreviewAnnotationLayer` — keep the two in step.

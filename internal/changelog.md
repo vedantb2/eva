@@ -2,6 +2,8 @@
 
 ## Preview annotations carry agentation-level detail, card shows the selected code - 2026-08-25
 
+The card also re-clamps itself: `PreviewAnnotationLayer` observes the mounted card with a `ResizeObserver` and repositions as the accordion animates open, replacing the guessed height constant that let an expanded card hang off the bottom of the panel.
+
 The sandbox preview's annotate mode captured a fixed slice of the clicked element (tag, selector, 10 computed styles, 3 React names); agentation's tool captures far more. The injected script (`preview-annotation-src/index.ts`, `SCRIPT_VERSION` → `stream-v17`) now also sends accessibility (role/aria/focusable), parent text, sibling summary, a full readable DOM path (crossing shadow roots), a tag-aware filtered styles summary, and viewport/DPR environment — all optional on the web parser so pre-v17 sandboxes keep working. The prompt to the agent includes the new lines; the chat display stays compact. The comment card gained an agentation-style accordion: the identity chips are now a Collapsible trigger revealing the element's actual `outerHTML` in a CodeBlock (copy button, display-only pretty print) plus a `prop: value` styles list. CSS-module hash suffixes are stripped from chip labels (underscore-only rule so `items-center` survives), with a raw-class fallback when the whole class is a hash.
 
 ## Slider thumb sits on the track, not above the ticks - 2026-08-25

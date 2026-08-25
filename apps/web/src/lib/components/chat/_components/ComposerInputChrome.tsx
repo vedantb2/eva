@@ -31,7 +31,7 @@ import {
   type MentionTextareaHandle,
 } from "@/lib/components/chat/MentionTextarea";
 import { IconPlayerStop } from "@tabler/icons-react";
-import { useRef, type RefObject } from "react";
+import { useId, useRef, type RefObject } from "react";
 import type {
   AIModel,
   Id,
@@ -116,6 +116,12 @@ export function ComposerInputChrome({
   messageHistory: string[];
 }) {
   const { textInput, attachments } = usePromptInputController();
+  // `layoutId` is global unless a LayoutGroup namespaces it, and several
+  // composers stay mounted at once (cached session shells, Manager Ave). Two
+  // composers sharing an id put one in the follower slot of Motion's shared
+  // stack, which hides its tools (opacity 0) and flings them at the hidden
+  // lead's 0x0 box — the pill renders with no buttons.
+  const layoutScope = useId();
   const chromeRef = useRef<HTMLDivElement>(null);
   const pillWidthRef = useRef(0);
   const wasCompactRef = useRef(true);
@@ -202,7 +208,7 @@ export function ComposerInputChrome({
   );
 
   return (
-    <LayoutGroup>
+    <LayoutGroup id={layoutScope}>
       <div ref={chromeRef} className="min-w-0 w-full">
         <BorderBeam
           active={isExecuting}

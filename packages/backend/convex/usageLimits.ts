@@ -1,6 +1,10 @@
 import { v } from "convex/values";
 import { authMutation, authQuery, hasRepoAccess } from "./functions";
-import { agentUsageLimitFields } from "./validators";
+import { internalQuery } from "./_generated/server";
+import {
+  agentUsageLimitFields,
+  usageLimitProviderValidator,
+} from "./validators";
 import type { Doc } from "./_generated/dataModel";
 import { isAccountUsableBy } from "./_userProviderAccounts/sharing";
 
@@ -41,6 +45,11 @@ const agentUsageLimitValidator = v.object({
  */
 type UsageWindow = NonNullable<Doc<"agentUsageLimits">["windows"]>[number];
 
+/** The stored discriminant. Derived from the row so the two cannot drift. */
+export type UsageLimitCompleteness = NonNullable<
+  Doc<"agentUsageLimits">["completeness"]
+>;
+
 /** Readings older than this are no longer evidence of the provider's state. */
 export const USAGE_LIMIT_READING_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
@@ -55,6 +64,20 @@ export function mergeUsageLimitWindows(
   return [...byKey.values()];
 }
 
+/**
+ * Whether a reading may replace the stored row wholesale. Only a complete
+ * provider response may: everything else has seen part of the picture, so it is
+ * merged. `snapshotComplete` is the pre-discriminant wire form of the same
+ * question, honoured for callback bundles that predate `completeness`.
+ */
+export function isAuthoritativeReading(
+  completeness: UsageLimitCompleteness | undefined,
+  snapshotComplete: boolean | undefined,
+): boolean {
+  if (completeness !== undefined) return completeness === "complete";
+  return snapshotComplete === true;
+}
+
 export function isUsageLimitReadingFresh(
   capturedAt: number,
   now: number,
@@ -65,8 +88,9 @@ export function isUsageLimitReadingFresh(
 export const report = authMutation({
   args: {
     ...agentUsageLimitFields,
-    /** True only after an authoritative provider `/usage` response. Older
-     * callback bundles omit it and therefore safely receive merge semantics. */
+    /** Superseded by `completeness`. Callback bundles baked before the
+     * discriminant still send this boolean, so it is still honoured; bundles
+     * that send neither safely receive merge semantics. */
     snapshotComplete: v.optional(v.boolean()),
   },
   returns: v.null(),
@@ -95,12 +119,27 @@ export const report = authMutation({
       .first();
     const { snapshotComplete, ...reading } = args;
     if (existing) {
-      if (snapshotComplete === true) {
+      if (isAuthoritativeReading(reading.completeness, snapshotComplete)) {
         await ctx.db.replace(existing._id, reading);
         return null;
       }
+      // A partial report that observed nothing is not evidence of anything —
+      // re-stamping `capturedAt` for it would keep presenting hours-old numbers
+      // as "updated 1m ago" forever. Only a report that actually carries a
+      // reading moves the clock.
+      const carriesReading =
+        reading.windows !== undefined ||
+        reading.status !== undefined ||
+        reading.subscriptionType !== undefined ||
+        reading.completeness !== undefined;
+      if (!carriesReading) return null;
       await ctx.db.patch(existing._id, {
         capturedAt: reading.capturedAt,
+        // Describes this observation, so it is always overwritten — a later
+        // refusal must not keep claiming the earlier read was complete.
+        ...(reading.completeness === undefined
+          ? {}
+          : { completeness: reading.completeness }),
         ...(reading.subscriptionType === undefined
           ? {}
           : { subscriptionType: reading.subscriptionType }),
@@ -122,8 +161,47 @@ export const report = authMutation({
 });
 
 /**
+ * The stored row for one (repo, provider, account) triple, for the refresh
+ * action. `/usage` reports windows but never names the plan, and an
+ * authoritative refresh replaces the row — so the plan name has to be read back
+ * and re-sent, or a refresh would silently drop "Max plan" from the heading.
+ * Internal only; the action has already checked repo access.
+ */
+export const getReadingInternal = internalQuery({
+  args: {
+    repoId: v.id("githubRepos"),
+    provider: usageLimitProviderValidator,
+    providerAccountId: v.optional(v.id("userProviderAccounts")),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({ subscriptionType: v.optional(v.string()) }),
+  ),
+  handler: async (ctx, args) => {
+    const existing = await ctx.db
+      .query("agentUsageLimits")
+      .withIndex("by_repo_provider_account", (q) =>
+        q
+          .eq("repoId", args.repoId)
+          .eq("provider", args.provider)
+          .eq("providerAccountId", args.providerAccountId),
+      )
+      .first();
+    if (!existing) return null;
+    return existing.subscriptionType === undefined
+      ? {}
+      : { subscriptionType: existing.subscriptionType };
+  },
+});
+
+/**
  * Every account's latest reading for a repo, most recently captured first. One
  * provider can appear more than once — once per connected account it has run on.
+ *
+ * A row belonging to a provider account the caller may not run on is omitted
+ * entirely, not merely stripped of its label: plan headroom is a fact about
+ * somebody else's account. Rows with no account (the shared team credential)
+ * are visible to everyone with repo access.
  */
 export const getByRepo = authQuery({
   args: {
@@ -155,19 +233,32 @@ export const getByRepo = authQuery({
           // A status observed alongside windows expires when all of those
           // windows reset. Windowless status-only events remain until the row's
           // captured-at freshness limit above.
-          if (reportedWindows.length > 0) delete next.status;
+          //
+          // The discriminant goes with it: "complete" described a reading whose
+          // windows have all since reset, and leaving it would have the UI
+          // report that the provider has no plan windows at all. A reading that
+          // never carried windows keeps it — that is the case it exists for.
+          if (reportedWindows.length > 0) {
+            delete next.status;
+            delete next.completeness;
+          }
         }
       }
-      const account = next.providerAccountId
-        ? await ctx.db.get(next.providerAccountId)
-        : null;
-      const canNameAccount =
+      // A row with no account ran on the shared team credential and belongs to
+      // no one in particular, so anyone with repo access may see it.
+      const accountId = next.providerAccountId;
+      const account =
+        accountId === undefined ? null : await ctx.db.get(accountId);
+      const canSeeAccount =
         account !== null &&
         account.provider === next.provider &&
         (await isAccountUsableBy(ctx.db, account, ctx.userId));
+      // An account the caller cannot run on is one whose plan headroom is none
+      // of their business, so the row is dropped rather than anonymised.
+      if (accountId !== undefined && !canSeeAccount) continue;
       visible.push({
         ...next,
-        ...(canNameAccount && account ? { accountLabel: account.label } : {}),
+        ...(canSeeAccount && account ? { accountLabel: account.label } : {}),
       });
     }
     visible.sort((a, b) => b.capturedAt - a.capturedAt);

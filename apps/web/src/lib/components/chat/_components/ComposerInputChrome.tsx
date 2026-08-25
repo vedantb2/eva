@@ -31,7 +31,7 @@ import {
   type MentionTextareaHandle,
 } from "@/lib/components/chat/MentionTextarea";
 import { IconPlayerStop } from "@tabler/icons-react";
-import { useId, useRef, type RefObject } from "react";
+import { useId, type RefObject } from "react";
 import type {
   AIModel,
   Id,
@@ -39,17 +39,12 @@ import type {
   StoredModelTraits,
 } from "@eva/backend";
 import { type SlashItem } from "@/lib/components/mentions";
-import {
-  draftExceedsPillWidth,
-  editorOverflowsHorizontally,
-  isComposerCompact,
-  readEditorInnerWidth,
-} from "@/lib/components/chat/_components/composerCompact";
+import { useComposerCompact } from "@/lib/components/chat/_components/useComposerCompact";
 
 const COMPACT_EDITOR =
-  "flex min-h-9 max-h-9 min-w-0 w-auto flex-1 items-center self-center overflow-hidden whitespace-nowrap! rounded-none px-1 py-2 text-left leading-5 scrollbar-none transition-[min-height,padding] duration-[var(--motion-base)] ease-[var(--motion-ease-out)] focus-visible:outline-hidden";
+  "flex min-h-9 max-h-9 min-w-0 w-auto flex-1 items-center self-center overflow-hidden whitespace-nowrap! rounded-none px-1 py-2 text-left leading-5 scrollbar-none transition-[min-height,padding] duration-[var(--motion-base)] focus-visible:outline-hidden";
 const EXPANDED_EDITOR =
-  "min-h-16 max-h-50 w-full self-stretch overflow-y-auto rounded-none px-4 pt-3.5 pb-1 text-left transition-[min-height,padding] duration-[var(--motion-base)] ease-[var(--motion-ease-out)] focus-visible:outline-hidden";
+  "min-h-16 max-h-50 w-full self-stretch overflow-y-auto rounded-none px-4 pt-3.5 pb-1 text-left transition-[min-height,padding] duration-[var(--motion-base)] focus-visible:outline-hidden";
 
 interface DataMenuItem {
   id: string;
@@ -122,30 +117,10 @@ export function ComposerInputChrome({
   // stack, which hides its tools (opacity 0) and flings them at the hidden
   // lead's 0x0 box — the pill renders with no buttons.
   const layoutScope = useId();
-  const chromeRef = useRef<HTMLDivElement>(null);
-  const pillWidthRef = useRef(0);
-  const wasCompactRef = useRef(true);
-
-  const editorNode = chromeRef.current?.querySelector(
-    "[data-slot=input-group-control]",
-  );
-  const editor = editorNode instanceof HTMLElement ? editorNode : null;
-  const font = editor ? getComputedStyle(editor).font : "14px sans-serif";
-  if (editor && wasCompactRef.current) {
-    const inner = readEditorInnerWidth(editor);
-    if (inner > 0) pillWidthRef.current = inner;
-  }
-  const exceedsPill =
-    (editor !== null &&
-      wasCompactRef.current &&
-      editorOverflowsHorizontally(editor)) ||
-    draftExceedsPillWidth(textInput.value, pillWidthRef.current, font);
-  const compact = isComposerCompact({
+  const { chromeRef, compact } = useComposerCompact({
     value: textInput.value,
     fileCount: attachments.files.length,
-    exceedsPill,
   });
-  wasCompactRef.current = compact;
 
   const leftTools = (
     <m.div
@@ -226,7 +201,7 @@ export function ComposerInputChrome({
           inputGroupClassName={cn(
             // Height interpolates to/from `auto` so the conversation viewport
             // grows with the composer instead of jumping when the pill snaps.
-            "[interpolate-size:allow-keywords] transition-[color,box-shadow,border-color,border-radius,height] duration-[var(--motion-base)] ease-[var(--motion-ease-out)]",
+            "[interpolate-size:allow-keywords] transition-[color,box-shadow,border-color,border-radius,height] duration-[var(--motion-base)]",
             compact
               ? "h-12 items-center rounded-full py-1"
               : "h-auto rounded-surface",

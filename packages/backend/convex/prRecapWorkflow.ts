@@ -17,9 +17,9 @@ import {
 import { prepareSandboxSteps } from "./_sandbox_runtime/prepareSandboxSteps";
 import {
   buildPrRecapPrompt,
-  INCOMPLETE_PR_RECAP_ERROR,
   parsePrRecapOutput,
 } from "./_prRecapWorkflow/prompts";
+import { INCOMPLETE_PR_RECAP_ERROR } from "./_prRecapWorkflow/recapState";
 import {
   finalizePrRecapOutcome,
   type PrRecapOutcome,

@@ -27,7 +27,7 @@ function AveActiveDot() {
 }
 
 const GLYPH_LAYER =
-  "pointer-events-none absolute inset-0 flex items-center justify-center transition-[opacity,scale] duration-[var(--motion-fast)] ease-[var(--motion-ease-out)]";
+  "pointer-events-none absolute inset-0 flex items-center justify-center transition-[opacity,scale] duration-[var(--motion-fast)]";
 
 /**
  * The floating summon button, bottom-right of the signed-in shell. Closed, it

@@ -4,6 +4,14 @@
 
 Raw dictation landed in the composer verbatim — "um"s, stutters, and spoken self-corrections included — so voice was only usable for people willing to hand-edit the transcript. Stopping the mic now runs the dictated segment through a cheap gateway model that strips fillers, applies self-corrections, and reshapes long rambles into bullets (short asks stay sentences), then swaps the polished text into the composer with an Undo toast. Applies to all three mic buttons (chat gateway STT, web-speech fallback, quick task modal); short segments skip the round-trip, edits during dictation or polishing abandon the swap, and any failure keeps the raw transcript so words are never lost.
 
+## Plan usage: per-account in sessions, refreshable, honest about its age - 2026-08-25
+
+The session header's plan-usage chip was unscoped, so it showed whichever account reported last rather than the one the session runs on — projects and quick tasks already scoped theirs. It now takes the session's selected credential, and stays hidden until the session document lands instead of flashing "Team".
+
+Four fixes behind it. A partial report carrying nothing (Claude answering "no rate limits available") re-stamped `capturedAt`, so hours-old numbers read "updated 1m ago" forever; a content-free report is now a no-op. A row for a provider account the viewer cannot run on was returned with only its label stripped — it is now dropped entirely. Extra-usage meters bill money rather than measure headroom, so they no longer set the headline percentage, though they still show as rows. The chip and the open card shared no clock, and the card froze at its first render; both now read the same minute clock.
+
+The card is a popover rather than a hover card, so it is reachable by click, keyboard and touch, and it carries a refresh button: a new `usageLimitsActions.refresh` action reads Claude's OAuth usage endpoint server-side with the scoped credential and stores an authoritative snapshot, so a reading can be pulled without running a turn.
+
 ## Slider thumb sits on the track, not above the ticks - 2026-08-25
 
 The simple-view model ladder's knob was a dark hole on the white pill, with a tick through it, and it hung off the last step. Radix centers the thumb with inline `translateX(-50%)`; a Tailwind translate replaced that and shoved the disc past the end. The shared Slider now uses a 32px white raised disc (dark ring + drop shadow so it reads on zinc, colored accents, and light empty track), centers with margin, and keeps ticks behind it.
@@ -12,11 +20,31 @@ The simple-view model ladder's knob was a dark hole on the white pill, with a ti
 
 Rebasing a task/session branch onto a new base (onto `main` instead of `staging`) succeeded in the sandbox, then Eva's publish step merged the old remote history back in, conflicted, and replaced the agent's reply with those conflicts — which were not in the working tree. Publish now skips that merge when the unique remote tree looks rewritten, and task/project chat keep the answer and post a publish alert, matching sessions.
 
-
 ## Sandbox tabs become a persistent icon rail - 2026-08-25
 
 The right-panel sandbox used a horizontal labelled tab strip, and collapsing it hid the whole pane — so the restore control had to live in the chat header, and live signals (agent browsing, plan/designs ready) vanished. Desktop now uses a vertical icon rail: collapse hides the content, the rail stays, and clicking an icon expands onto that view. Mobile keeps the existing Chat/Sandbox switcher and horizontal tabs.
 
+## CI now runs the suite, and reverts can no longer narrow the schema - 2026-08-25
+
+The repo had ~220 test files and no CI that ran them — husky is disabled and the only workflows were the review bot and the extension release, so a red `turnLifecycleContract` test shipped past two later commits unnoticed. `.github/workflows/ci.yml` now runs typecheck, oxlint, every package's vitest suite, the React Compiler bailout check, and a new schema-narrowing gate on every PR and push to main. The gate (`scripts/check-schema-narrowing.mjs`) diffs `schema.ts` and `tableFields.ts` against the merge base and fails when a field, table, or union member disappears without a `// schema-narrowing-ok: <migration>` marker backed by a real migration — the class of failure `git revert` caused on 24 Aug, which the gate reproduces and catches. The pre-existing red checks (14 oxlint errors, 3 new compiler bailouts, the motion-contract failure) were fixed rather than baselined, so the first run is green.
+
+## Sandbox errors are typed; in-VM output can no longer condemn a live VM - 2026-08-25
+
+"Is this sandbox gone?" was a substring match over error messages, and the Vercel adapter destroyed the HTTP status while wrapping SDK errors (`JSON.stringify` of a fetch `Response` is `{}`), so prose was the only surviving signal — which is how a Postgres error from inside a healthy VM minted a duplicate sandbox. `classifySandboxError` now decides from structured signals: a `SandboxCommandFailedError` (the VM answered, so it is alive) returns before any text is read, provider HTTP status maps 404/410→gone and 5xx→transient, and the message fallback only ever runs over a tagged provider error's API detail, never command output. Script delivery into sandboxes is also centralised in `writeSandboxFile` — the background-command path shipped unbounded base64 through one exec argument, the same 128 KB cliff that broke the preview proxy — and a contract test allowlists the few remaining tiny heredocs.
+
+## Ready recaps must carry a walkthrough; usage readings say why they are empty - 2026-08-25
+
+`prRecapStatus: "ready"` never guaranteed the recap html arrived, so ready-with-no-walkthrough was storable and both recap views carried their own copy of the same defensive check. The write path now rejects it: a ready write without html is stored as an error, in `upsertPrRecapDoc` and in `patchPrRecapStatus`. The doc views, the PR panel's default tab and the Generate/Regenerate label all read one shared helper instead of re-deriving the state three ways.
+
+Usage limits were fixed three times because "no data", "the provider reported no windows" and "the provider declined to report" were one absent-windows case. The reading now carries a completeness discriminant — complete, partial or refused — from the callback runtime through the stored row to the hover copy, which switches on it instead of guessing from the row's timestamp. The pre-discriminant `snapshotComplete` boolean is still honoured for callback bundles baked before the change.
+
+## One ownership state per turn; Cursor parks follow-up prompts - 2026-08-25
+
+"Does this daemon own a turn" lived in three module globals (`activeClaimState`, `currentTurnLease`, `legacyTurnHeartbeatActive`) and had already drifted once: gating heartbeats on the lease alone silenced legacy daemons, and the boolean added to fix that could disagree with the claim state. It is now one `TurnOwnership` value in `turnLease.ts` — idle, or owned with a lease (durable) or without one (legacy). Behaviour is unchanged: cold daemons stay silent, legacy claims heartbeat, durable claims heartbeat only while they hold the lease.
+
+The Cursor daemon now routes claims through the shared `shouldParkClaimedTurn` guard that the Claude and Codex daemons use. Its inline `!turnActive || cancelInFlight` check discarded a follow-up send that arrived mid-turn, and `claimPendingTurn` clears that prompt server-side, so the message was lost.
+
+The turn-lifecycle contract test was asserting on source text that no longer existed. The gate, the terminal-lease parser, the lease-terminal exit decision and the turnStore fencing (generation bump, stale-generation rejection, no-op renewal skip) are now covered by behavioural tests instead of source greps.
 
 ## Resume no longer replaces a live sandbox after a dump error - 2026-08-25
 

@@ -996,9 +996,12 @@ export const saveResult = internalMutation({
     if (args.turnId !== undefined) {
       const turn = await ctx.db.get(args.turnId);
       if (turn) {
-        await closeTurn(ctx, turn, args.success ? "done" : "error", {
-          ...(args.error ? { error: args.error } : {}),
-        });
+        await closeTurn(
+          ctx,
+          turn,
+          args.success ? "done" : "error",
+          args.error ? { error: args.error } : {},
+        );
       }
     }
     await startNextQueuedSessionMessage(ctx, args.sessionId);
@@ -1154,10 +1157,10 @@ export const claimPendingTurn = authMutation({
       cancelRequested,
     };
     if (turnLease === null) {
-      const turnLifecycle: "legacy" = "legacy";
+      const turnLifecycle = "legacy" as const;
       return { ...claimedTurn, turnLifecycle };
     }
-    const turnLifecycle: "durable" = "durable";
+    const turnLifecycle = "durable" as const;
     return { ...claimedTurn, turnLifecycle, ...turnLease };
   },
 });

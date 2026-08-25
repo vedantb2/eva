@@ -3,6 +3,7 @@
 import type { JWK } from "jose";
 import type { SandboxHandle } from "../_sandbox/provider";
 import { execHandle } from "./helpers";
+import { writeSandboxFile } from "./sandboxFiles";
 import {
   PREVIEW_GRANT_AUDIENCE,
   PREVIEW_GRANT_ISSUER,
@@ -945,7 +946,7 @@ async function launchProxy(
   // (MAX_ARG_STRLEN), so every launch died with "failed to start process:
   // fork/exec /usr/bin/bash: argument list too long". writeFile has no such
   // limit (the ~330 KB callback runner ships the same way).
-  await sandbox.writeFile(scriptPath, script);
+  await writeSandboxFile(sandbox, scriptPath, script);
   const command = [
     `if [ -f '${pidPath}' ] && kill -0 "$(cat '${pidPath}')" 2>/dev/null; then kill "$(cat '${pidPath}')" 2>/dev/null || true; fi`,
     `if command -v fuser >/dev/null 2>&1; then fuser -k ${proxyPort}/tcp >/dev/null 2>&1 || true; fi`,

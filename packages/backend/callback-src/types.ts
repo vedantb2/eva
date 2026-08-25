@@ -79,15 +79,25 @@ export type UsageLimitWindow = {
 };
 
 /**
+ * What the latest observation covered. Mirrors `usageLimitCompletenessValidator`
+ * in the Convex validators, and travels with the reading so a windowless row can
+ * say WHY it has no windows:
+ *
+ * - `complete`: an authoritative `/usage` response — Convex replaces the row.
+ * - `partial`: a stream event or a refusal message — Convex merges it.
+ * - `refused`: the provider answered `rate_limits_available: false`, i.e. it
+ *   declined to report. Distinct from having reported nothing at all.
+ */
+export type UsageLimitCompleteness = "complete" | "partial" | "refused";
+
+/**
  * Plan usage-limit state observed during this run, upserted to Convex at the end
  * of every turn so the UI can show how much of the plan is left. Only providers
  * that expose real plan windows report here — Claude fills
  * `subscriptionType`/`status`/`windows`.
  */
 export type UsageLimitSnapshot = {
-  /** Whether the latest observation was a complete `/usage` response or only a
-   * stream event. Convex replaces complete snapshots and merges partial ones. */
-  completeness: "partial" | "complete";
+  completeness: UsageLimitCompleteness;
   subscriptionType?: string;
   status?: UsageLimitStatus;
   windows?: UsageLimitWindow[];

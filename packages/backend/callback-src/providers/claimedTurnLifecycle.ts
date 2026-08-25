@@ -1,7 +1,8 @@
 import type { JsonObject, JsonValue } from "../types.js";
 import {
-  setLegacyTurnHeartbeatActive,
-  setCurrentTurnLease,
+  beginTurnOwnership,
+  endTurnOwnership,
+  getTurnOwnership,
   type TurnLeaseIdentity,
 } from "../runtime/turnLease.js";
 import { readTurnLeaseIdentity } from "./claimPendingTurnParse.js";
@@ -20,17 +21,6 @@ export type ClaimedTurn =
       lifecycle: "durable";
       turnLease: TurnLeaseIdentity;
     });
-
-type ActiveClaimState =
-  | { status: "idle" }
-  | { status: "active"; lifecycle: "legacy" }
-  | {
-      status: "active";
-      lifecycle: "durable";
-      turnLease: TurnLeaseIdentity;
-    };
-
-let activeClaimState: ActiveClaimState = { status: "idle" };
 
 function claimPayload(result: JsonValue): JsonObject | null {
   if (typeof result !== "object" || result === null || Array.isArray(result)) {
@@ -82,40 +72,41 @@ export function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
   };
 }
 
-/** Installs ownership before provider execution or heartbeat emission begins. */
+/**
+ * Installs ownership before provider execution or heartbeat emission begins.
+ * Ownership is one shared fact (see `TurnOwnership`): a legacy claim owns the
+ * turn with no lease, a durable claim owns it with one.
+ */
 export function startClaimedTurn(turn: ClaimedTurn): void {
-  if (activeClaimState.status === "active") {
+  if (claimedTurnLifecycleStatus() === "active") {
     throw new Error("Cannot start a claimed turn while another claim is active");
   }
-  activeClaimState =
-    turn.lifecycle === "durable"
-      ? { status: "active", lifecycle: "durable", turnLease: turn.turnLease }
-      : { status: "active", lifecycle: "legacy" };
-  setLegacyTurnHeartbeatActive(turn.lifecycle === "legacy");
-  setCurrentTurnLease(turn.turnLease);
+  beginTurnOwnership("claim", turn.turnLease);
 }
 
 /** Fences every real-turn completion through the ownership installed at start. */
 export function appendClaimedTurnCompletion(args: JsonObject): void {
-  if (activeClaimState.status !== "active") {
+  const ownership = getTurnOwnership();
+  if (ownership.status !== "owned" || ownership.owner !== "claim") {
     throw new Error("Cannot complete a claimed turn before it starts");
   }
-  if (activeClaimState.lifecycle === "durable") {
-    args.turnId = activeClaimState.turnLease.turnId;
-    args.leaseGeneration = activeClaimState.turnLease.leaseGeneration;
+  if (ownership.turnLease !== null) {
+    args.turnId = ownership.turnLease.turnId;
+    args.leaseGeneration = ownership.turnLease.leaseGeneration;
   }
 }
 
 /** Clears ownership between turns in a warm provider process. */
 export function finishClaimedTurn(): void {
-  activeClaimState = { status: "idle" };
-  setLegacyTurnHeartbeatActive(false);
-  setCurrentTurnLease(null);
+  endTurnOwnership();
 }
 
 /** Test-only lifecycle view; carries no provider or prompt data. */
-export function claimedTurnLifecycleStatus(): ActiveClaimState["status"] {
-  return activeClaimState.status;
+export function claimedTurnLifecycleStatus(): "idle" | "active" {
+  const ownership = getTurnOwnership();
+  return ownership.status === "owned" && ownership.owner === "claim"
+    ? "active"
+    : "idle";
 }
 
 /**

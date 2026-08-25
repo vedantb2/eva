@@ -48,6 +48,10 @@ export type UsageLimitProvider = "claude";
  * Claude capture paths (the `rate_limit_event` stream message names one window;
  * the `/usage` lookup names several) so a window's label never depends on which
  * source observed it first.
+ *
+ * Duplicated in `convex/_usageLimits/claudeUsage.ts`, which reads the same
+ * endpoint server-side and cannot import this bundle — a label added here
+ * belongs there too.
  */
 const CLAUDE_WINDOW_LABELS: Record<string, string> = {
   five_hour: "5h",
@@ -285,7 +289,7 @@ export async function captureClaudeUsage(
         "usage limits: claude plan usage unavailable — preserving prior reading",
       );
       if (!S.usageLimitSnapshot) {
-        S.usageLimitSnapshot = { completeness: "partial" };
+        S.usageLimitSnapshot = { completeness: "refused" };
       }
       return;
     }
@@ -352,7 +356,10 @@ export function buildUsageLimitReportArgs(
   return {
     repoId,
     provider,
-    snapshotComplete: snapshot.completeness === "complete",
+    // Stored on the row so the UI can say why a reading has no windows. The
+    // server also reads it for merge-vs-replace, and still accepts the older
+    // `snapshotComplete` boolean from callback bundles baked before this.
+    completeness: snapshot.completeness,
     ...(providerAccountId ? { providerAccountId } : {}),
     ...(snapshot.subscriptionType === undefined
       ? {}
@@ -422,9 +429,7 @@ export async function captureAndReportClaudeUsage(
 }
 
 /** Starts the one-shot report without delaying the user-visible completion. */
-export function startClaudeUsageReport(
-  input: ClaudeUsageReportInput,
-): void {
+export function startClaudeUsageReport(input: ClaudeUsageReportInput): void {
   const report = captureAndReportClaudeUsage(input);
   pendingClaudeUsageReport = report;
   void report.finally(() => {

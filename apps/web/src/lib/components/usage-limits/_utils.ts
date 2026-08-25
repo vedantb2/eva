@@ -1,5 +1,5 @@
 import type { FunctionReturnType } from "convex/server";
-import { type api } from "@eva/backend";
+import { type api, type Id } from "@eva/backend";
 
 /**
  * One account's latest reading, minus the fields only the table row carries.
@@ -15,8 +15,14 @@ export type UsageSnapshot = Omit<
 
 export type UsageWindow = NonNullable<UsageSnapshot["windows"]>[number];
 
+/**
+ * The one credential a surface's usage belongs to. Branded rather than a bare
+ * string because the refresh action reads the account with it — a surface that
+ * cannot name its account cannot ask for a reading either.
+ */
 export interface UsageAccountScope {
-  providerAccountId: string | null;
+  /** null is the shared team credential, which has no account row. */
+  providerAccountId: Id<"userProviderAccounts"> | null;
   accountLabel: string;
 }
 
@@ -78,14 +84,25 @@ export function reportedWindows(
   );
 }
 
+/**
+ * Windows that meter spend beyond the plan rather than headroom within it.
+ * They still earn a row in the card — money spent is worth seeing — but they
+ * are not a constraint, so a full overage meter must not colour the chip as if
+ * the plan were about to refuse work.
+ */
+const SPEND_METER_WINDOW_KEYS: ReadonlySet<string> = new Set([
+  "overage",
+  "seven_day_overage_included",
+]);
+
 /** The tightest constraint the snapshot reports, if it reports any. */
 export function maxUtilization(
   snapshot: UsageSnapshot,
   now: number,
 ): number | undefined {
-  const utilizations = reportedWindows(snapshot, now).map(
-    (window) => window.utilization ?? 0,
-  );
+  const utilizations = reportedWindows(snapshot, now)
+    .filter((window) => !SPEND_METER_WINDOW_KEYS.has(window.key))
+    .map((window) => window.utilization ?? 0);
   return utilizations.length === 0 ? undefined : Math.max(...utilizations);
 }
 
@@ -194,7 +211,8 @@ export function chipSummary(
 /** Only the selected credential's limits belong beside its model picker. */
 export function usageRowsForAccount<Row extends { providerAccountId?: string }>(
   rows: readonly Row[],
-  scope: UsageAccountScope | undefined,
+  /** Only the id is read here, so a `UsageAccountScope` is more than enough. */
+  scope: { providerAccountId: string | null } | undefined,
 ): Row[] {
   if (!scope) return [...rows];
   const providerAccountId = scope.providerAccountId ?? undefined;
@@ -261,20 +279,47 @@ export function newestCapturedAt(
   );
 }
 
+/** The freshest reading for the account, or none within the freshness window. */
+function freshestReading(
+  rows: readonly UsageSnapshot[],
+  now: number,
+): UsageSnapshot | undefined {
+  let freshest: UsageSnapshot | undefined;
+  for (const row of rows) {
+    if (now - row.capturedAt > USAGE_READING_MAX_AGE_MS) continue;
+    if (freshest === undefined || row.capturedAt > freshest.capturedAt) {
+      freshest = row;
+    }
+  }
+  return freshest;
+}
+
 /**
- * Hover copy when the selected account has nothing to draw. A fresh row with
- * no windows means we asked and Claude has no plan rate limits to show
- * (Team/Enterprise spend caps live on claude.ai). No row at all still means
- * no turn has reported for this credential yet.
+ * Hover copy when the selected account has nothing to draw. Which of the
+ * several "nothing to draw" states we are in is reported by the row, not
+ * inferred here: a windowless reading used to be read off its timestamp, which
+ * could not tell "Claude has no plan windows" from "Claude declined to say".
+ *
+ * `completeness` is absent on rows written before the discriminant, and on a
+ * reading whose windows have all since reset.
  */
 export function emptyAccountUsageCopy(
   rows: readonly UsageSnapshot[],
   now: number,
 ): string {
-  const hasFreshReading = rows.some(
-    (row) => now - row.capturedAt <= USAGE_READING_MAX_AGE_MS,
-  );
-  return hasFreshReading
-    ? "Claude isn't reporting plan rate limits for this account."
-    : "No plan usage has been reported for this account yet.";
+  const freshest = freshestReading(rows, now);
+  if (!freshest) return "No plan usage has been reported for this account yet.";
+  switch (freshest.completeness) {
+    case "complete":
+      // We asked, Claude answered in full, and there were no plan windows in it
+      // (Team/Enterprise spend caps live on claude.ai).
+      return "Claude isn't reporting plan rate limits for this account.";
+    case "refused":
+      return "Claude declined to report plan rate limits for this account.";
+    case "partial":
+    default:
+      // Something was observed in passing, or the row predates the
+      // discriminant — either way we never had the full picture.
+      return "Plan usage for this account hasn't been fully reported yet.";
+  }
 }

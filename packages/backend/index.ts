@@ -5,6 +5,11 @@ export { api } from "./convex/_generated/api";
 export { GITHUB_AUTH_REQUIRED } from "./convex/_github/authErrors";
 export { DAILY_STANDUP_KEY } from "./convex/_automations/systemAutomations";
 export {
+  INCOMPLETE_PR_RECAP_MESSAGE,
+  isIncompleteReadyRecap,
+  isViewableRecap,
+} from "./convex/_prRecapWorkflow/recapState";
+export {
   AI_MODEL_OPTIONS,
   DEFAULT_AI_MODEL,
   CODEX_AUTH_ENV_KEYS,

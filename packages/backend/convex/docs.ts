@@ -26,6 +26,7 @@ import {
   docFields,
   evaluationStatusValidator,
 } from "./validators";
+import { resolvePrRecapWrite } from "./_prRecapWorkflow/recapState";
 import { prosemirrorSync } from "./prosemirrorSync";
 import { markdownToDocJson } from "./_docEditor/markdown";
 import { workflow } from "./workflowManager";
@@ -566,6 +567,14 @@ async function upsertPrRecapDocImpl(
       });
     }
     await prosemirrorSync.create(ctx, existing._id, markdownJson);
+    // The invariant is about the row that ends up stored, so it is checked
+    // against the html this write leaves behind — a preserved walkthrough
+    // included.
+    const resolved = resolvePrRecapWrite({
+      prRecapStatus: args.prRecapStatus,
+      html: args.html ?? existing.html,
+      prRecapError: args.prRecapError,
+    });
     await ctx.db.patch(existing._id, {
       title: args.title,
       content: args.content,
@@ -575,9 +584,8 @@ async function upsertPrRecapDocImpl(
       prUrl: args.prUrl,
       prNumber: args.prNumber,
       headSha: args.headSha,
-      prRecapStatus: args.prRecapStatus,
-      prRecapError:
-        args.prRecapStatus === "ready" ? undefined : args.prRecapError,
+      prRecapStatus: resolved.prRecapStatus,
+      prRecapError: resolved.prRecapError,
       // Only overwrite html when the agent produced one, so a failed regen does
       // not wipe a previously generated walkthrough.
       ...(args.html !== undefined ? { html: args.html } : {}),
@@ -589,6 +597,11 @@ async function upsertPrRecapDocImpl(
     return existing._id;
   }
 
+  const inserted = resolvePrRecapWrite({
+    prRecapStatus: args.prRecapStatus,
+    html: args.html,
+    prRecapError: args.prRecapError,
+  });
   const docId = await ctx.db.insert("docs", {
     repoId: docsRepoId,
     kind: "pr-recap",
@@ -598,8 +611,8 @@ async function upsertPrRecapDocImpl(
     prUrl: args.prUrl,
     prNumber: args.prNumber,
     headSha: args.headSha,
-    prRecapStatus: args.prRecapStatus,
-    prRecapError: args.prRecapError,
+    prRecapStatus: inserted.prRecapStatus,
+    prRecapError: inserted.prRecapError,
     ...(args.prRecapOrigin !== undefined
       ? { prRecapOrigin: args.prRecapOrigin }
       : {}),
@@ -643,6 +656,15 @@ export const patchPrRecapStatus = internalMutation({
     const doc = await ctx.db.get(args.docId);
     if (!doc) return null;
 
+    // A status patch carries no html, so "ready" is judged against the doc's
+    // stored walkthrough: without one the row would claim a recap it cannot
+    // show.
+    const resolved = resolvePrRecapWrite({
+      prRecapStatus: args.prRecapStatus,
+      html: doc.html,
+      prRecapError: args.prRecapError,
+    });
+
     const patch: {
       prRecapStatus: typeof args.prRecapStatus;
       prRecapError?: string;
@@ -650,12 +672,12 @@ export const patchPrRecapStatus = internalMutation({
       activeWorkflowId?: string;
       updatedAt: number;
     } = {
-      prRecapStatus: args.prRecapStatus,
+      prRecapStatus: resolved.prRecapStatus,
       updatedAt: Date.now(),
     };
 
-    if (args.prRecapError !== undefined) {
-      patch.prRecapError = args.prRecapError;
+    if (resolved.prRecapError !== undefined) {
+      patch.prRecapError = resolved.prRecapError;
     }
     if (args.headSha !== undefined) {
       patch.headSha = args.headSha;

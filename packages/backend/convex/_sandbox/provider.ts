@@ -271,3 +271,39 @@ export type SandboxCredentials = {
   teamId: string;
   projectId: string;
 };
+
+/**
+ * A failure of the *provider client itself* — the HTTP call to the sandbox API
+ * failed, not a command inside a sandbox.
+ *
+ * Adapters throw this instead of a bare `Error` so the structured part of the
+ * SDK's failure (HTTP status) survives being wrapped with eva's context. The
+ * SDK's own message is only the status line ("Status code 404 is not ok") and
+ * `JSON.stringify` drops a fetch `Response`, so without this the status was
+ * lost and the only remaining signal was substring-matching prose.
+ *
+ * This type is also the gate for message-based classification: only a
+ * `SandboxProviderError`'s {@link detail} may be pattern-matched, which is what
+ * makes it impossible for in-sandbox command output to be read as "the sandbox
+ * is gone". See `_sandbox_runtime/sandboxErrors.ts`.
+ */
+export class SandboxProviderError extends Error {
+  /** HTTP status from the provider API, when it reported one. */
+  readonly httpStatus: number | undefined;
+  /**
+   * The provider's own error text (API response body / SDK message). Never
+   * command stdout/stderr and never a caller-supplied command string — those
+   * belong in {@link Error.message}, which is not pattern-matched.
+   */
+  readonly detail: string;
+
+  constructor(
+    message: string,
+    options: { httpStatus?: number; detail: string },
+  ) {
+    super(message);
+    this.name = "SandboxProviderError";
+    this.httpStatus = options.httpStatus;
+    this.detail = options.detail;
+  }
+}

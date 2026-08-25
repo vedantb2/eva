@@ -1,5 +1,10 @@
 # Changelog
 
+## Rebased branches no longer look like merge conflicts - 2026-08-25
+
+Rebasing a task/session branch onto a new base (onto `main` instead of `staging`) succeeded in the sandbox, then Eva's publish step merged the old remote history back in, conflicted, and replaced the agent's reply with those conflicts — which were not in the working tree. Publish now skips that merge when the unique remote tree looks rewritten, and task/project chat keep the answer and post a publish alert, matching sessions.
+
+
 ## Sandbox tabs become a persistent icon rail - 2026-08-25
 
 The right-panel sandbox used a horizontal labelled tab strip, and collapsing it hid the whole pane — so the restore control had to live in the chat header, and live signals (agent browsing, plan/designs ready) vanished. Desktop now uses a vertical icon rail: collapse hides the content, the rail stays, and clicking an icon expands onto that view. Mobile keeps the existing Chat/Sandbox switcher and horizontal tabs.

@@ -10,6 +10,8 @@ const resultTarget = readSource("_sessions/resultTarget.ts");
 const sandboxExecution = readSource("_sandbox_runtime/execution.ts");
 const sandboxGit = readSource("_sandbox_runtime/git.ts");
 const sessionsSandbox = readSource("_sessions/sandbox.ts");
+const taskChatWorkflow = readSource("agentTaskChatWorkflow.ts");
+const projectChatWorkflow = readSource("projectChatWorkflow.ts");
 const turnPersist = readSource("../callback-src/runtime/turnPersist.ts");
 const claudeSdkDaemon = readSource(
   "../callback-src/providers/claudeSdkDaemon.ts",
@@ -90,12 +92,38 @@ describe("push failures reach their callers", () => {
  * sitting on "Working…" after the daemon has already finished (fix 27bef8e0).
  */
 describe("the reply is saved before the push", () => {
-  test("saveResult runs first", () => {
-    const saveAt = sessionWorkflow.indexOf(
+  test.each([
+    [
+      "session",
+      sessionWorkflow,
       "internal.sessionWorkflow.saveResult",
-    );
-    expect(saveAt, "saveResult moved or was renamed").toBeGreaterThan(-1);
-    expect(saveAt).toBeLessThan(sessionWorkflow.indexOf(PUSH_ACTION));
+      "sessionCompleteEvent",
+    ],
+    [
+      "task chat",
+      taskChatWorkflow,
+      "internal.agentTaskChatWorkflow.saveResult",
+      "agentTaskChatCompleteEvent",
+    ],
+    [
+      "project chat",
+      projectChatWorkflow,
+      "internal.projectChatWorkflow.saveResult",
+      "projectChatCompleteEvent",
+    ],
+  ] as const)("%s saves the completion result before the push", (
+    _label,
+    source,
+    saveFn,
+    completeEvent,
+  ) => {
+    const completeAt = source.indexOf(`awaitEvent(${completeEvent})`);
+    expect(completeAt, `${completeEvent} await moved`).toBeGreaterThan(-1);
+    const saveAt = source.indexOf(saveFn, completeAt);
+    const pushAt = source.indexOf(PUSH_ACTION, completeAt);
+    expect(saveAt, `${saveFn} after completion moved`).toBeGreaterThan(-1);
+    expect(pushAt, "push after completion moved").toBeGreaterThan(-1);
+    expect(saveAt).toBeLessThan(pushAt);
   });
 
   /**
@@ -106,14 +134,20 @@ describe("the reply is saved before the push", () => {
    */
   test("saveResult recognises the publish-failure message it is sent", () => {
     const marker = resultTarget.match(
-      /SESSION_PUBLISH_FAILURE_PREFIX =\s*"([^"]+)"/,
+      /PUBLISH_FAILURE_MARKER =\s*"([^"]+)"/,
     );
-    expect(marker, "the publish-failure prefix moved").not.toBeNull();
+    expect(marker, "the publish-failure marker moved").not.toBeNull();
     const prefix = marker?.[1] ?? "";
     expect(prefix.length).toBeGreaterThan(0);
-    const thrown = sessionWorkflow.match(/const publishError = `([^${]+)/);
-    expect(thrown, "the publish-failure message moved").not.toBeNull();
-    expect(thrown?.[1] ?? "").toContain(prefix);
+    for (const source of [
+      sessionWorkflow,
+      taskChatWorkflow,
+      projectChatWorkflow,
+    ]) {
+      const thrown = source.match(/const publishError = `([^${]+)/);
+      expect(thrown, "the publish-failure message moved").not.toBeNull();
+      expect(thrown?.[1] ?? "").toContain(prefix);
+    }
   });
 });
 
@@ -125,20 +159,31 @@ describe("the reply is saved before the push", () => {
  * activeWorkflowId (fix 60a9b977).
  */
 describe("a delayed publish failure cannot rewrite a newer turn", () => {
-  test("saveResult isolates the failure before touching turn state", () => {
-    const body = definitionBody(sessionWorkflow, "saveResult");
-    const guardAt = body.indexOf("delayedPublishFailureError(");
-    const clearAt = body.indexOf("clearStreamingActivity(");
-    const targetAt = body.indexOf("resultTargetMessage(");
-    expect(guardAt, "the publish-failure guard moved").toBeGreaterThan(-1);
-    expect(clearAt, "the streaming clear moved").toBeGreaterThan(-1);
-    expect(targetAt, "the result target lookup moved").toBeGreaterThan(-1);
-    expect(guardAt).toBeLessThan(clearAt);
-    expect(guardAt).toBeLessThan(targetAt);
-  });
+  test.each([
+    ["session", sessionWorkflow],
+    ["task chat", taskChatWorkflow],
+    ["project chat", projectChatWorkflow],
+  ] as const)(
+    "%s saveResult isolates the failure before touching turn state",
+    (_label, source) => {
+      const body = definitionBody(source, "saveResult");
+      const guardAt = body.indexOf("delayedPublishFailureError(");
+      const clearAt = body.indexOf("clearStreamingActivity(");
+      const targetAt = body.indexOf("resultTargetMessage(");
+      expect(guardAt, "the publish-failure guard moved").toBeGreaterThan(-1);
+      expect(clearAt, "the streaming clear moved").toBeGreaterThan(-1);
+      expect(targetAt, "the result target lookup moved").toBeGreaterThan(-1);
+      expect(guardAt).toBeLessThan(clearAt);
+      expect(guardAt).toBeLessThan(targetAt);
+    },
+  );
 
-  test("the failure becomes a standalone system alert", () => {
-    const body = definitionBody(sessionWorkflow, "saveResult");
+  test.each([
+    ["session", sessionWorkflow],
+    ["task chat", taskChatWorkflow],
+    ["project chat", projectChatWorkflow],
+  ] as const)("%s failure becomes a standalone system alert", (_label, source) => {
+    const body = definitionBody(source, "saveResult");
     const guard = body.slice(
       body.indexOf("delayedPublishFailureError("),
       body.indexOf("clearStreamingActivity("),
@@ -200,6 +245,17 @@ describe("session branch publication reconciles concurrent remote work", () => {
     expect(sync).toContain("git merge --abort");
     expect(sync).not.toContain("git rebase");
     expect(sync).toContain("git update-ref -d");
+    // A rewritten local branch (rebase onto a new base) must not merge the
+    // old remote tip back in (task 231). Classify before merging.
+    const rewriteAt = sync.indexOf("divergedPublishLooksLikeRewrite");
+    const mergeAt = sync.indexOf("git merge --no-edit ${quotedRemoteRef}");
+    expect(rewriteAt, "the rewrite classifier moved").toBeGreaterThan(-1);
+    expect(mergeAt, "the both-moved merge moved").toBeGreaterThan(-1);
+    expect(rewriteAt).toBeLessThan(mergeAt);
+    expect(sync).toContain("git merge-base");
+    expect(sync).toContain("git diff --name-only");
+    expect(sync).toContain("rewritten local branch");
+    expect(sync).toContain("no conflict markers to resolve");
 
     const push = functionBody(
       sandboxGit,
@@ -239,6 +295,13 @@ describe("session branch publication reconciles concurrent remote work", () => {
     expect(turnPersist).toContain('git(["merge", "--no-edit", remoteRef]');
     expect(turnPersist).toContain('git(["merge", "--abort"]');
     expect(turnPersist).not.toContain('"rebase"');
+    const rewriteAt = turnPersist.indexOf("divergedPublishLooksLikeRewrite");
+    const mergeAt = turnPersist.indexOf('git(["merge", "--no-edit", remoteRef]');
+    expect(rewriteAt, "the rewrite classifier moved").toBeGreaterThan(-1);
+    expect(mergeAt, "the both-moved merge moved").toBeGreaterThan(-1);
+    expect(rewriteAt).toBeLessThan(mergeAt);
+    expect(turnPersist).toContain('"merge-base"');
+    expect(turnPersist).toContain('"diff", "--name-only"');
     expect(syncAt).toBeGreaterThan(-1);
     expect(syncAt).toBeLessThan(gateAt);
     expect(gateAt).toBeLessThan(pushAt);

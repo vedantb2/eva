@@ -4943,6 +4943,30 @@ function git(args, timeoutMs = GIT_STEP_TIMEOUT_MS) {
   const out = ((result.stdout || "") + (result.stderr || "")).trim();
   return { ok: result.status === 0, out };
 }
+var REWRITE_REMOTE_ONLY_FILE_THRESHOLD = 20;
+function parseGitNameOnlyList(output) {
+  const names = [];
+  for (const line of output.split("\\n")) {
+    const name = line.trim();
+    if (name.length > 0) names.push(name);
+  }
+  return names;
+}
+function remoteOnlyChangedFileCount(localChangedFiles, remoteChangedFiles) {
+  const local = new Set(localChangedFiles);
+  let count = 0;
+  for (const file of remoteChangedFiles) {
+    if (!local.has(file)) count += 1;
+  }
+  return count;
+}
+function divergedPublishLooksLikeRewrite(localChangedFiles, remoteChangedFiles) {
+  const remoteOnly = remoteOnlyChangedFileCount(
+    localChangedFiles,
+    remoteChangedFiles
+  );
+  return remoteOnly > REWRITE_REMOTE_ONLY_FILE_THRESHOLD && remoteOnly > localChangedFiles.length;
+}
 function isMissingRemoteRef(message) {
   const lower = message.toLowerCase();
   return lower.includes("couldn't find remote ref") || lower.includes("could not find remote ref");
@@ -4996,6 +5020,22 @@ function synchronizeForPush(branch) {
     return { status: "failed" };
   }
   if (/^[1-9]\\d*\\s+[1-9]\\d*\$/.test(divergence.out)) {
+    const localRef = \`refs/heads/\${branch}\`;
+    const mergeBase = git(["merge-base", remoteRef, localRef]);
+    if (mergeBase.ok) {
+      const localChanged = parseGitNameOnlyList(
+        git(["diff", "--name-only", mergeBase.out, localRef]).out
+      );
+      const remoteChanged = parseGitNameOnlyList(
+        git(["diff", "--name-only", mergeBase.out, remoteRef]).out
+      );
+      if (divergedPublishLooksLikeRewrite(localChanged, remoteChanged)) {
+        log(
+          \`persistTurnWork: skipped merge \\u2014 rewritten local branch vs origin/\${branch}\`
+        );
+        return { status: "failed" };
+      }
+    }
     const merge = git(["merge", "--no-edit", remoteRef], PUSH_TIMEOUT_MS);
     if (merge.ok) {
       return { status: "ready", remoteExists: true };

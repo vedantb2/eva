@@ -34,8 +34,6 @@ interface TaskSandboxChatPanelProps {
   isSandboxToggling?: boolean;
   /** Opens the Files tab and loads this sandbox path in the file viewer. */
   onOpenFile?: (path: string) => void;
-  sandboxCollapsed?: boolean;
-  onToggleSandbox?: () => void;
   onSandboxToggle?: (action: "start" | "stop") => void;
 }
 
@@ -44,8 +42,6 @@ export function TaskSandboxChatPanel({
   isSandboxActive,
   isSandboxToggling = false,
   onOpenFile,
-  sandboxCollapsed,
-  onToggleSandbox,
   onSandboxToggle,
 }: TaskSandboxChatPanelProps) {
   const { repo, basePath } = useRepo();
@@ -279,8 +275,6 @@ export function TaskSandboxChatPanel({
         isSandboxActive={isSandboxActive}
         isSandboxToggling={isSandboxToggling}
         onSandboxToggle={onSandboxToggle}
-        sandboxCollapsed={sandboxCollapsed}
-        onToggleSandbox={onToggleSandbox}
         isAssistantResponding={isExecuting}
         usageAccountScope={{
           providerAccountId,

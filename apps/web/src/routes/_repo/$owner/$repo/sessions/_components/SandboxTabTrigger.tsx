@@ -41,7 +41,7 @@ export interface SandboxTabDescriptor {
   closeBlockedReason?: string;
 }
 
-/** A closable tab keeps its label — the close target needs the width. */
+/** A closable tab keeps its label on the mobile strip — the close target needs the width. */
 export function isCollapsibleSandboxTab(tab: SandboxTabDescriptor): boolean {
   return tab.onClose === undefined && tab.closeBlockedReason === undefined;
 }
@@ -49,12 +49,13 @@ export function isCollapsibleSandboxTab(tab: SandboxTabDescriptor): boolean {
 /* The chip: `TabsTrigger` already supplies `rounded-lg`, `motion-press`,
    `relative z-1` and the active text colour, and the active *fill* is the
    `TabsList` sliding pill gliding underneath. Only the resting/hover tones and
-   the tighter panel density belong here. */
+   the tighter panel density belong here. On the desktop rail the pill is hidden
+   and the trigger itself carries the active fill. */
 const TAB_CLASS =
-  "h-8 shrink-0 gap-1.5 px-2.5 text-xs data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-secondary data-[state=inactive]:hover:text-foreground";
+  "h-8 shrink-0 gap-1.5 px-2.5 text-xs data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-secondary data-[state=inactive]:hover:text-foreground md:w-8 md:justify-center md:px-0 md:data-[state=active]:bg-card";
 
 const CLOSE_CLASS =
-  "motion-press max-sm:hit-target -mr-1 ml-0.5 flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground active:scale-[0.96]";
+  "motion-press max-sm:hit-target flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground active:scale-[0.96]";
 
 const ICON_CLASS = "size-3.5 shrink-0";
 
@@ -66,24 +67,36 @@ function TabIcon({ icon }: { icon: SandboxTabIcon }) {
   return <Icon className={ICON_CLASS} />;
 }
 
-function TabCloseButton({ tab }: { tab: SandboxTabDescriptor }) {
+function TabCloseButton({
+  tab,
+  overlay,
+}: {
+  tab: SandboxTabDescriptor;
+  overlay: boolean;
+}) {
   const blockedReason = tab.closeBlockedReason;
+  const closeClass = overlay
+    ? cn(
+        CLOSE_CLASS,
+        "absolute -right-1 -top-1 size-4 rounded-full bg-card text-muted-foreground opacity-0 group-hover:opacity-100 hover:bg-muted hover:text-foreground",
+      )
+    : cn(CLOSE_CLASS, "-mr-1 ml-0.5");
   if (blockedReason !== undefined) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <span className="inline-flex">
+          <span className={overlay ? "contents" : "inline-flex"}>
             <button
               type="button"
               disabled
               aria-label={blockedReason}
-              className={cn(CLOSE_CLASS, "opacity-40")}
+              className={cn(closeClass, "opacity-40")}
             >
-              <IconX className="size-3.5" />
+              <IconX className="size-3" />
             </button>
           </span>
         </TooltipTrigger>
-        <TooltipContent side="bottom" className="text-xs">
+        <TooltipContent side={overlay ? "left" : "bottom"} className="text-xs">
           {blockedReason}
         </TooltipContent>
       </Tooltip>
@@ -95,7 +108,7 @@ function TabCloseButton({ tab }: { tab: SandboxTabDescriptor }) {
     <button
       type="button"
       aria-label={`Close ${tab.label} tab`}
-      className={CLOSE_CLASS}
+      className={closeClass}
       onClick={(event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -114,19 +127,24 @@ function TabCloseButton({ tab }: { tab: SandboxTabDescriptor }) {
 
 interface SandboxTabTriggerProps {
   tab: SandboxTabDescriptor;
-  /** Icon-only, label moved into a tooltip — set when the strip is crowded. */
+  /** Icon-only, label moved into a tooltip — desktop rail, or a crowded mobile strip. */
   labelHidden?: boolean;
+  /** Fires on the already-selected tab (Radix will not emit onValueChange). */
+  onActiveClick?: () => void;
 }
 
 export function SandboxTabTrigger({
   tab,
   labelHidden = false,
+  onActiveClick,
 }: SandboxTabTriggerProps) {
+  const overlayClose = labelHidden;
   const trigger = (
     <TabsTrigger
       value={tab.value}
       aria-label={labelHidden ? tab.label : undefined}
-      className={cn(TAB_CLASS, labelHidden && "w-7 justify-center px-0")}
+      className={cn(TAB_CLASS, overlayClose && "group relative")}
+      onClick={() => onActiveClick?.()}
     >
       <TabIcon icon={tab.icon} />
       {labelHidden ? null : tab.label}
@@ -135,19 +153,20 @@ export function SandboxTabTrigger({
           aria-label={tab.indicatorLabel}
           className={cn(
             "size-1.5 shrink-0 rounded-full bg-primary",
+            overlayClose && "absolute right-0.5 top-0.5",
             tab.indicator === "activity" &&
               "animate-pulse ring-2 ring-primary/30",
           )}
         />
       ) : null}
-      <TabCloseButton tab={tab} />
+      <TabCloseButton tab={tab} overlay={overlayClose} />
     </TabsTrigger>
   );
   if (!labelHidden) return trigger;
   return (
     <Tooltip>
       <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-      <TooltipContent side="bottom" className="text-xs">
+      <TooltipContent side="left" className="text-xs">
         {tab.label}
       </TooltipContent>
     </Tooltip>

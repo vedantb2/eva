@@ -30,6 +30,8 @@ import {
   SandboxWorkspace,
   type TerminalPanelApi,
 } from "@/lib/components/sandbox/SandboxWorkspace";
+import { SANDBOX_RAIL_WIDTH_PX } from "@/lib/components/sandbox/sandboxRail";
+import { SandboxEmptyRailFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
 import type { SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import { SandboxSurfaceTabs } from "@/lib/components/sandbox/SandboxSurfaceTabs";
 import {
@@ -209,6 +211,8 @@ export function TaskDetailInline({
     panes: SandboxPanesApi,
     owner: SandboxOwner,
     terminalPanel: TerminalPanelApi,
+    collapsed: boolean,
+    onToggle: () => void,
   ) =>
     task?.repoId && canViewSandbox ? (
       <TaskSandboxPanel
@@ -228,16 +232,18 @@ export function TaskDetailInline({
           canStartSandbox && !isSandboxStopping ? handleStartSandbox : undefined
         }
         isSandboxStarting={isSandboxStarting}
+        collapsed={collapsed}
+        onToggle={onToggle}
       />
     ) : (
-      <div className="flex h-full items-center justify-center p-8">
+      <SandboxEmptyRailFrame collapsed={collapsed} onToggle={onToggle}>
         <div className="flex flex-col items-center gap-3 text-center">
           <p className="text-sm text-muted-foreground">
             No sandbox for this task yet — it becomes available once the task
             has run
           </p>
         </div>
-      </div>
+      </SandboxEmptyRailFrame>
     );
 
   const sandboxContent = (
@@ -255,17 +261,16 @@ export function TaskDetailInline({
           leftDefaultSize="40%"
           leftMinWidthPx={350}
           rightMinWidthPx={300}
+          rightCollapsedSizePx={SANDBOX_RAIL_WIDTH_PX}
           defaultRightCollapsed={false}
           expandRightSignal={expandRightSignal}
           mobilePaneLabels={{ left: "Chat", right: "Sandbox" }}
-          leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
+          leftPanel={() => (
             <TaskSandboxChatPanel
               taskId={taskId}
               isSandboxActive={isSandboxActive}
               isSandboxToggling={isSandboxStarting || isSandboxStopping}
               onOpenFile={openFile}
-              sandboxCollapsed={rightPanelCollapsed}
-              onToggleSandbox={onToggleRightPanel}
               onSandboxToggle={
                 canStartSandbox || isSandboxActive
                   ? (action) => {
@@ -276,7 +281,15 @@ export function TaskDetailInline({
               }
             />
           )}
-          rightPanel={sandboxRightPanel(panes, owner, terminalPanel)}
+          rightPanel={({ rightPanelCollapsed, onToggleRightPanel }) =>
+            sandboxRightPanel(
+              panes,
+              owner,
+              terminalPanel,
+              rightPanelCollapsed,
+              onToggleRightPanel,
+            )
+          }
         />
       )}
     </SandboxWorkspace>

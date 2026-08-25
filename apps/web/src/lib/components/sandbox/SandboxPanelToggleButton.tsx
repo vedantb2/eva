@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, CrossfadeIcon } from "@eva/ui";
+import { Button, CrossfadeIcon, Tooltip, TooltipContent, TooltipTrigger } from "@eva/ui";
 import {
   IconLayoutSidebarRightCollapse,
   IconLayoutSidebarRightExpand,
@@ -8,7 +8,7 @@ import {
 import { formatForDisplay } from "@tanstack/react-hotkeys";
 import { useShortcutBinding } from "@/lib/hotkeys/useShortcut";
 
-/** Show/hide the right sandbox panel (same control sessions use). */
+/** Show/hide the sandbox content pane; the icon rail stays. */
 export function SandboxPanelToggleButton({
   collapsed,
   onToggle,
@@ -28,23 +28,29 @@ export function SandboxPanelToggleButton({
     : `${collapseLabel} (${hotkeyLabel})`;
 
   return (
-    <Button
-      size="icon-sm"
-      variant="secondary"
-      className="motion-press hover:scale-[1.01] active:scale-[0.96]"
-      onClick={onToggle}
-      title={label}
-      aria-label={label}
-    >
-      <CrossfadeIcon
-        show={collapsed}
-        variant="soft"
-        trueKey="expand"
-        falseKey="collapse"
-        className="relative flex size-3.5 items-center justify-center"
-        whenTrue={<IconLayoutSidebarRightExpand className="size-3.5" />}
-        whenFalse={<IconLayoutSidebarRightCollapse className="size-3.5" />}
-      />
-    </Button>
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          className="motion-press text-muted-foreground hover:bg-secondary hover:text-foreground active:scale-[0.96]"
+          onClick={onToggle}
+          aria-label={label}
+        >
+          <CrossfadeIcon
+            show={collapsed}
+            variant="soft"
+            trueKey="expand"
+            falseKey="collapse"
+            className="relative flex size-3.5 items-center justify-center"
+            whenTrue={<IconLayoutSidebarRightExpand className="size-3.5" />}
+            whenFalse={<IconLayoutSidebarRightCollapse className="size-3.5" />}
+          />
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="left" className="text-xs">
+        {label}
+      </TooltipContent>
+    </Tooltip>
   );
 }

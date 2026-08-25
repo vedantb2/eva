@@ -213,7 +213,7 @@ export function InboxClient() {
               )}
             </div>
           )}
-          rightPanel={
+          rightPanel={() => (
             <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
               <NotificationDetailPane
                 notification={selected}
@@ -221,7 +221,7 @@ export function InboxClient() {
                 onOpen={handleOpen}
               />
             </div>
-          }
+          )}
         />
       </div>
     </PageWrapper>

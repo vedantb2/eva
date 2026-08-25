@@ -14,6 +14,7 @@ import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
+import { SandboxPanelFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
 import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
@@ -41,6 +42,8 @@ interface TaskSandboxPanelProps {
   onTabChange: (tab: SandboxTab) => void;
   onStartSandbox?: () => void;
   isSandboxStarting?: boolean;
+  collapsed?: boolean;
+  onToggle?: () => void;
 }
 
 /**
@@ -66,6 +69,8 @@ export function TaskSandboxPanel({
   onTabChange,
   onStartSandbox,
   isSandboxStarting,
+  collapsed = false,
+  onToggle,
 }: TaskSandboxPanelProps) {
   const simpleView = useSimpleView();
   const taskIdStr = String(taskId);
@@ -119,10 +124,14 @@ export function TaskSandboxPanel({
   const enabledTabs = withBrowserTab(panes.enabledTabs);
 
   return (
-    <div className="h-full flex flex-col">
-      <SandboxTabBar
-        activeTab={tabBarValue}
-        onTabChange={handleTabChange}
+    <SandboxPanelFrame
+      collapsed={collapsed}
+      tabBar={
+        <SandboxTabBar
+          activeTab={tabBarValue}
+          onTabChange={handleTabChange}
+          collapsed={collapsed}
+          onToggle={onToggle}
         onNewPreview={() => {
           panes.handleNewPreview();
           onTabChange("preview");
@@ -141,8 +150,10 @@ export function TaskSandboxPanel({
         fileList={fileList}
         consoleDock={panes.consoleDock}
         terminalPanel={terminalPanel}
-      />
-      <div className="flex-1 overflow-hidden bg-card">
+        />
+      }
+    >
+      <div className="h-full overflow-hidden">
         <div className={!simpleView && tabBarValue === "files" ? "h-full min-h-0" : "hidden"}>
           <FilesPanel
             sandboxId={sandboxId}
@@ -183,6 +194,6 @@ export function TaskSandboxPanel({
           }}
         />
       </div>
-    </div>
+    </SandboxPanelFrame>
   );
 }

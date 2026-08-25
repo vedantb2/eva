@@ -71,7 +71,6 @@ interface ChatPanelProps {
   chatOnly?: boolean;
   /** Popover already titles the surface — omit the session-chat title. */
   hideTitle?: boolean;
-  onToggleSandbox?: () => void;
   /** Opens a file (by full sandbox path) in the File Viewer tab. */
   onOpenFile?: (path: string) => void;
   /** Opens the Diffs tab; optional repo-relative path scrolls to that file. */
@@ -107,7 +106,6 @@ export function ChatPanel({
   permalinkPath,
   chatOnly,
   hideTitle = false,
-  onToggleSandbox,
   onOpenFile,
   onViewDiff,
   onOpenPrdTab,
@@ -219,12 +217,10 @@ export function ChatPanel({
     isSandboxToggling,
     isAssistantResponding: isExecuting,
     deploymentStatus,
-    sandboxCollapsed,
     permalinkPath,
     chatOnly,
     hideTitle,
     onSandboxToggle,
-    onToggleSandbox,
     onOpenSummaryModal: () => setShowSummaryModal(true),
     onOpenReviewModal: () => setShowReviewModal(true),
     // Only Manager Ave can be reset: it is the one chat the user cannot simply

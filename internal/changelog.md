@@ -1,5 +1,10 @@
 # Changelog
 
+## Sandbox tabs become a persistent icon rail - 2026-08-25
+
+The right-panel sandbox used a horizontal labelled tab strip, and collapsing it hid the whole pane — so the restore control had to live in the chat header, and live signals (agent browsing, plan/designs ready) vanished. Desktop now uses a vertical icon rail: collapse hides the content, the rail stays, and clicking an icon expands onto that view. Mobile keeps the existing Chat/Sandbox switcher and horizontal tabs.
+
+
 ## Resume no longer replaces a live sandbox after a dump error - 2026-08-25
 
 Opening a session whose Postgres dump was ahead of the live schema failed with `relation "X" does not exist`. Eva treated that SQL error as "sandbox gone", minted a second VM, and left the original running. Resume now skips the dump reload when public already has tables, only treats provider 404/snapshot-gone as unresumable, and refuses to create a replacement while the old id is still alive.

@@ -23,7 +23,6 @@ import type { Id } from "@eva/backend";
 import { EntityContextUsage } from "@/lib/components/context-usage";
 import { UsageLimitsIndicator } from "@/lib/components/usage-limits";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
-import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
 import { SandboxStartStopButton } from "@/lib/components/sandbox/SandboxStartStopButton";
 import { SessionSwitcher } from "./SessionSwitcher";
 import { prStateIconClass } from "../_utils/-prStateIconClass";
@@ -42,7 +41,6 @@ interface SessionChatHeaderProps {
   /** True while the assistant holds the turn — hides the sleep button. */
   isAssistantResponding: boolean;
   deploymentStatus?: "queued" | "building" | "deployed" | "error";
-  sandboxCollapsed?: boolean;
   /** Canonical link to this session; omitted when the URL already is one. */
   permalinkPath?: string;
   /**
@@ -54,7 +52,6 @@ interface SessionChatHeaderProps {
   /** Popover already titles the surface — omit the duplicate "Manager Ave". */
   hideTitle?: boolean;
   onSandboxToggle: (action: "start" | "stop") => void;
-  onToggleSandbox?: () => void;
   onOpenSummaryModal: () => void;
   onOpenReviewModal: () => void;
   /** Manager Ave only: offers "Start new chat". Absent on ordinary sessions. */
@@ -74,12 +71,10 @@ export function SessionChatHeader({
   isSandboxToggling,
   isAssistantResponding,
   deploymentStatus,
-  sandboxCollapsed,
   permalinkPath,
   chatOnly = false,
   hideTitle = false,
   onSandboxToggle,
-  onToggleSandbox,
   onOpenSummaryModal,
   onOpenReviewModal,
   onOpenResetChatDialog,
@@ -187,12 +182,6 @@ export function SessionChatHeader({
           <CopyLinkMenuItem path={permalinkPath} />
         </DropdownMenuContent>
       </DropdownMenu>
-      {onToggleSandbox && (
-        <SandboxPanelToggleButton
-          collapsed={sandboxCollapsed === true}
-          onToggle={onToggleSandbox}
-        />
-      )}
     </>
   );
 

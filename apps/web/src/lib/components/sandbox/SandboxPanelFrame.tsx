@@ -1,0 +1,59 @@
+import type { ReactNode } from "react";
+import { cn } from "@eva/ui";
+import { SandboxPanelToggleButton } from "./SandboxPanelToggleButton";
+
+/**
+ * Desktop: tab rail on the left of the content. Collapsed hides the content
+ * (`md:hidden`) so the rail stays. Mobile: column, tab strip on top, content
+ * always shown — the pane switcher owns show/hide.
+ */
+export function SandboxPanelFrame({
+  collapsed,
+  tabBar,
+  children,
+}: {
+  collapsed: boolean;
+  tabBar: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex h-full min-h-0 flex-col md:flex-row">
+      {tabBar}
+      <div
+        className={cn(
+          "min-h-0 min-w-0 flex-1 overflow-hidden bg-card",
+          collapsed && "md:hidden",
+        )}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
+
+/** Empty sandbox pane: collapse control only, no tabs. */
+export function SandboxEmptyRailFrame({
+  collapsed,
+  onToggle,
+  children,
+}: {
+  collapsed: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <div className="flex h-full min-h-0 flex-col md:flex-row">
+      <div className="hidden h-full w-11 shrink-0 flex-col items-center py-1.5 md:flex">
+        <SandboxPanelToggleButton collapsed={collapsed} onToggle={onToggle} />
+      </div>
+      <div
+        className={cn(
+          "flex min-h-0 min-w-0 flex-1 items-center justify-center p-8",
+          collapsed && "md:hidden",
+        )}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}

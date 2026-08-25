@@ -6,6 +6,7 @@ import {
   BOTTOM_PANEL_ID,
   LEFT_PANEL_ID,
   complementaryPercentage,
+  isCollapsedPanelSize,
   isMeasuredPanelSize,
   panelPercentage,
   RIGHT_PANEL_ID,
@@ -85,6 +86,29 @@ describe("isMeasuredPanelSize", () => {
 
   it("accepts a laid-out panel", () => {
     expect(isMeasuredPanelSize({ asPercentage: 60, inPixels: 720 })).toBe(true);
+  });
+});
+
+describe("isCollapsedPanelSize", () => {
+  it("treats 0% as collapsed when there is no rail leftover", () => {
+    expect(
+      isCollapsedPanelSize({ asPercentage: 0, inPixels: 0 }, 0),
+    ).toBe(true);
+    expect(
+      isCollapsedPanelSize({ asPercentage: 60, inPixels: 720 }, 0),
+    ).toBe(false);
+  });
+
+  it("treats the rail width as collapsed, not 0%", () => {
+    expect(
+      isCollapsedPanelSize({ asPercentage: 3.4, inPixels: 44 }, 44),
+    ).toBe(true);
+    expect(
+      isCollapsedPanelSize({ asPercentage: 3.4, inPixels: 46 }, 44),
+    ).toBe(false);
+    expect(
+      isCollapsedPanelSize({ asPercentage: 40, inPixels: 480 }, 44),
+    ).toBe(false);
   });
 });
 

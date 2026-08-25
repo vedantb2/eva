@@ -8,6 +8,7 @@ import { SandboxPanel } from "./SandboxPanel";
 import { Spinner } from "@eva/ui";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { SandboxWorkspace } from "@/lib/components/sandbox/SandboxWorkspace";
+import { SANDBOX_RAIL_WIDTH_PX } from "@/lib/components/sandbox/sandboxRail";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PendingReviewCommentsProvider } from "@/lib/contexts/PendingReviewCommentsContext";
@@ -186,10 +187,7 @@ export function SessionDetailClient({
   // Archive + PR terminal states share the same UI gates; PR reopen clears lock.
   const isReadOnly = isArchived || isSessionPrReadOnly(session.prState);
 
-  const chatPanel = (
-    sandboxCollapsed?: boolean,
-    onToggleSandbox?: () => void,
-  ) => (
+  const chatPanel = (sandboxCollapsed?: boolean) => (
     <ChatPanel
       sessionId={sessionId}
       title={session.title}
@@ -222,7 +220,6 @@ export function SessionDetailClient({
           ? `${basePath}/sessions/${session.numId}`
           : undefined
       }
-      onToggleSandbox={onToggleSandbox}
       chatOnly={chatOnly}
       hideTitle={hideTitle}
       onOpenFile={chatOnly ? undefined : onOpenFile}
@@ -260,10 +257,10 @@ export function SessionDetailClient({
       >
         {(panes, owner, terminalPanel) => (
           <ResizablePanelLayout
-            leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) =>
-              chatPanel(rightPanelCollapsed, onToggleRightPanel)
+            leftPanel={({ rightPanelCollapsed }) =>
+              chatPanel(rightPanelCollapsed)
             }
-            rightPanel={
+            rightPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
               <SandboxPanel
                 sessionId={sessionId}
                 sandboxId={session.sandboxId}
@@ -292,11 +289,14 @@ export function SessionDetailClient({
                       }
                 }
                 isSandboxStarting={isSandboxStarting}
+                collapsed={rightPanelCollapsed}
+                onToggle={onToggleRightPanel}
               />
-            }
+            )}
             leftDefaultSize="40%"
             leftMinWidthPx={350}
             rightMinWidthPx={300}
+            rightCollapsedSizePx={SANDBOX_RAIL_WIDTH_PX}
             storageKey="sandbox-collapsed"
             expandRightSignal={expandRightSignal}
             mobilePaneLabels={{ left: "Chat", right: "Sandbox" }}

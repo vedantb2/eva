@@ -40,10 +40,9 @@ const TAB_BAR_CLASS =
 
 /* `justify-start` matters: the primitive centres its list, and centred content
    that overflows spills past *both* edges while `scrollLeft` cannot go
-   negative. Desktop is a column; the sliding pill is hidden there because
-   icon tiles use their own active fill. */
+   negative. Desktop is a column; the same sliding pill marks the active tab. */
 const TAB_LIST_CLASS =
-  "h-auto max-w-full justify-start gap-1 overflow-x-auto rounded-none border-0 bg-transparent p-0 shadow-none scrollbar-none max-sm:justify-start [&_.t-tabs-pill]:smooth-shadow-ring-xs md:max-w-none md:flex-col md:overflow-x-hidden md:overflow-y-auto md:[&_.t-tabs-pill]:hidden";
+  "h-auto max-w-full justify-start gap-1 overflow-x-auto rounded-none border-0 bg-transparent p-0 shadow-none scrollbar-none max-sm:justify-start [&_.t-tabs-pill]:smooth-shadow-ring-xs md:max-w-none md:flex-col md:overflow-x-hidden md:overflow-y-auto";
 
 /**
  * Past this many tabs the inactive mobile labels collapse to icon-only (label

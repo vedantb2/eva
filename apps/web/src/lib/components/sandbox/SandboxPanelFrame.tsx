@@ -3,9 +3,9 @@ import { cn } from "@eva/ui";
 import { SandboxPanelToggleButton } from "./SandboxPanelToggleButton";
 
 /**
- * Desktop: tab rail on the left of the content. Collapsed hides the content
- * (`md:hidden`) so the rail stays. Mobile: column, tab strip on top, content
- * always shown — the pane switcher owns show/hide.
+ * Desktop: tab rail on the right edge of the pane. Collapsed hides the
+ * content (`md:hidden`) so the rail stays. Mobile: column, tab strip on top,
+ * content always shown — the pane switcher owns show/hide.
  */
 export function SandboxPanelFrame({
   collapsed,
@@ -17,7 +17,7 @@ export function SandboxPanelFrame({
   children: ReactNode;
 }) {
   return (
-    <div className="flex h-full min-h-0 flex-col md:flex-row">
+    <div className="flex h-full min-h-0 flex-col md:flex-row-reverse">
       {tabBar}
       <div
         className={cn(
@@ -42,7 +42,7 @@ export function SandboxEmptyRailFrame({
   children: ReactNode;
 }) {
   return (
-    <div className="flex h-full min-h-0 flex-col md:flex-row">
+    <div className="flex h-full min-h-0 flex-col md:flex-row-reverse">
       <div className="hidden h-full w-11 shrink-0 flex-col items-center py-1.5 md:flex">
         <SandboxPanelToggleButton collapsed={collapsed} onToggle={onToggle} />
       </div>

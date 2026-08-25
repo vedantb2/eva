@@ -86,18 +86,17 @@
   left: 0;
   height: 0;
   width: 0;
-  transform: translateX(0);
-  /* `top` and `height` are set, not transitioned: every tab in a list shares
-   * the same height and vertical position, so animating them only cost a
-   * layout pass per frame and could smear on resize. `width` stays — the pill
-   * has to match the tab it lands on, and scaling a rounded rect instead would
-   * distort the corner radius. */
+  transform: translate(0);
+  /* Position is `translate(x, y)` so the pill can slide in a row or a column.
+   * `width`/`height` stay — the pill has to match the tab it lands on, and
+   * scaling a rounded rect instead would distort the corner radius. */
   transition:
     transform var(--tabs-dur) var(--tabs-ease),
-    width var(--tabs-dur) var(--tabs-ease);
+    width var(--tabs-dur) var(--tabs-ease),
+    height var(--tabs-dur) var(--tabs-ease);
   z-index: 0;
   pointer-events: none;
-  will-change: transform, width;
+  will-change: transform, width, height;
 }
 
 @utility t-accordion-content {

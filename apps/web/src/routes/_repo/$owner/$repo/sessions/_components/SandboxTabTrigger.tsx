@@ -49,10 +49,9 @@ export function isCollapsibleSandboxTab(tab: SandboxTabDescriptor): boolean {
 /* The chip: `TabsTrigger` already supplies `rounded-lg`, `motion-press`,
    `relative z-1` and the active text colour, and the active *fill* is the
    `TabsList` sliding pill gliding underneath. Only the resting/hover tones and
-   the tighter panel density belong here. On the desktop rail the pill is hidden
-   and the trigger itself carries the active fill. */
+   the tighter panel density belong here. */
 const TAB_CLASS =
-  "h-8 shrink-0 gap-1.5 px-2.5 text-xs data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-secondary data-[state=inactive]:hover:text-foreground md:w-8 md:justify-center md:px-0 md:data-[state=active]:bg-card";
+  "h-8 shrink-0 gap-1.5 px-2.5 text-xs data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:bg-secondary data-[state=inactive]:hover:text-foreground md:w-8 md:justify-center md:px-0";
 
 const CLOSE_CLASS =
   "motion-press max-sm:hit-target flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground active:scale-[0.96]";
@@ -168,7 +167,11 @@ export function SandboxTabTrigger({
   );
   return (
     <Tooltip>
-      <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+      <TooltipTrigger asChild>
+        {/* Span keeps Tooltip `data-state` off the trigger — Radix Tabs also
+            uses `data-state` for active/inactive. */}
+        <span className="inline-flex">{trigger}</span>
+      </TooltipTrigger>
       <TooltipContent
         side={labelHidden ? "left" : "bottom"}
         className="text-xs"

@@ -119,25 +119,44 @@ export const ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS = 600;
 export const RESUME_READY_TIMEOUT_SECONDS = 180;
 
 /**
- * True when a resume error means the sandbox/snapshot is unusable — safe to
- * fall through to creating a replacement. Stay narrow: do not match bare
- * "snapshot" (collides with the transient "snapshotting" stop state).
+ * True when a resume error means the sandbox/snapshot record is gone — safe
+ * to fall through to creating a replacement.
+ *
+ * Stay narrow. A command that ran *inside* the VM (Postgres `relation "X"
+ * does not exist`, `command not found`, schema mismatch) is not evidence the
+ * VM is gone. Matching those used to mint a second sandbox while the first
+ * was still running. `execHandle` prefixes those as "Sandbox command failed".
+ * A start timeout (`did not reach running`) is also not gone — the VM may
+ * still be snapshotting or slow.
  */
 export function isSandboxUnresumableMessage(message: string): boolean {
   const msg = message.toLowerCase();
-  return (
-    msg.includes("not found") ||
-    msg.includes("does not exist") ||
-    msg.includes("no such") ||
-    msg.includes("404") ||
-    msg.includes("deleted") ||
-    msg.includes("archived") ||
-    msg.includes("snapshot not found") ||
+  if (msg.includes("sandbox command failed")) return false;
+
+  if (msg.includes("sandbox gone on refresh")) return true;
+  if (msg.includes("sandbox unresumable state")) return true;
+
+  if (msg.includes("status code 404") || msg.includes("status code 410")) {
+    return true;
+  }
+
+  if (
     msg.includes("snapshot_not_found") ||
     msg.includes("invalid_snapshot") ||
-    msg.includes("snapshot does not exist") ||
-    (msg.includes("snapshot") && msg.includes("expired")) ||
-    msg.includes("did not reach running")
+    msg.includes("snapshot not found") ||
+    (msg.includes("snapshot") &&
+      (msg.includes("does not exist") || msg.includes("expired")))
+  ) {
+    return true;
+  }
+
+  return (
+    /\bsandbox\b.{0,80}\b(not found|does not exist|deleted|destroyed|archived|gone)\b/.test(
+      msg,
+    ) ||
+    /\b(not found|does not exist|deleted|destroyed|archived|gone)\b.{0,80}\bsandbox\b/.test(
+      msg,
+    )
   );
 }
 

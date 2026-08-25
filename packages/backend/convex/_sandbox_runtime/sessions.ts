@@ -543,6 +543,30 @@ async function tryReuseSandboxWith<T>(
   return sandbox;
 }
 
+/**
+ * After reuse returns null, refuse to mint a replacement while the old id is
+ * still a live VM. A false "sandbox gone" matcher used to orphan the original
+ * and leave two running boxes billed against the same session.
+ */
+async function refuseReplacementIfStillAlive(
+  client: SandboxClient,
+  existingSandboxId: string,
+): Promise<void> {
+  let handle: SandboxHandle;
+  try {
+    handle = await client.get(existingSandboxId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (isSandboxUnresumableMessage(message)) return;
+    throw error instanceof Error ? error : new Error(message);
+  }
+  const classification = await handle.classifyForReconcile();
+  if (classification !== "alive") return;
+  throw new Error(
+    `refusing to replace live sandbox ${existingSandboxId} after reuse failed`,
+  );
+}
+
 /** Reuse a provider-neutral sandbox handle by id (see {@link tryReuseSandboxWith}). */
 function tryReuseSandboxHandle(
   client: SandboxClient,
@@ -919,6 +943,9 @@ async function prepareSessionSandboxInternal(
       `prepareSessionSandboxInternal summary: elapsed=${formatDurationMsShort(Date.now() - startedAt)}, path=vercel-reuse, isNew=false, usedSnapshot=false (${actionDetails})`,
     );
     return reusedResult;
+  }
+  if (reuseId) {
+    await refuseReplacementIfStillAlive(client, reuseId);
   }
   completedSteps.push({
     type: "tool",
@@ -1825,6 +1852,9 @@ async function prepareTaskPreviewSandboxInternal(
   if (reused && reusedResult) {
     return reusedResult;
   }
+  if (reuseId) {
+    await refuseReplacementIfStillAlive(client, reuseId);
+  }
   completedSteps.push({
     type: "tool",
     label: "Checking existing sandbox...",
@@ -2295,6 +2325,9 @@ async function prepareProjectPreviewSandboxInternal(
   );
   if (reused && reusedResult) {
     return reusedResult;
+  }
+  if (reuseId) {
+    await refuseReplacementIfStillAlive(client, reuseId);
   }
   completedSteps.push({
     type: "tool",

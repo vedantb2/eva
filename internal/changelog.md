@@ -1,5 +1,9 @@
 # Changelog
 
+## Resume no longer replaces a live sandbox after a dump error - 2026-08-25
+
+Opening a session whose Postgres dump was ahead of the live schema failed with `relation "X" does not exist`. Eva treated that SQL error as "sandbox gone", minted a second VM, and left the original running. Resume now skips the dump reload when public already has tables, only treats provider 404/snapshot-gone as unresumable, and refuses to create a replacement while the old id is still alive.
+
 ## Sandbox start no longer dies on the preview proxy - 2026-08-25
 
 Bundling html2canvas into the preview proxy pushed the generated script past 200 KB, and the script was shipped as a heredoc inside the launch command. Linux caps one argument at 128 KB, so Vercel refused to start the shell ("argument list too long") and every session start failed with "Vercel preview proxy failed to start on port 3000". The script is now uploaded with the file API, the same way the callback runner already is.

@@ -231,10 +231,20 @@ export async function restoreSeededRuntimeState(
       "  sleep 1",
       "done",
       "docker exec supabase_db_web pg_isready -U postgres >/dev/null 2>&1",
-      `docker exec supabase_db_web psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "DO \\$\\$ DECLARE tables text; BEGIN SELECT string_agg(format('%I.%I', schemaname, tablename), ', ') INTO tables FROM pg_tables WHERE schemaname = 'public'; IF tables IS NOT NULL THEN EXECUTE 'TRUNCATE TABLE ' || tables || ' CASCADE'; END IF; END \\$\\$;" >/tmp/eva-supabase-db-web-truncate.log 2>&1 || { tail -120 /tmp/eva-supabase-db-web-truncate.log; exit 1; }`,
-      `gzip -dc ${SUPABASE_DUMP_PATH} | docker exec -i supabase_db_web psql -U postgres -d postgres -v ON_ERROR_STOP=1 >/tmp/eva-supabase-db-web-restore.log 2>&1 || { tail -120 /tmp/eva-supabase-db-web-restore.log; exit 1; }`,
-      `touch ${SUPABASE_RESTORE_MARKER}`,
-      'echo "restored supabase_db_web from seeded snapshot dump"',
+      // Resume wakes an already-populated Postgres. The skip marker lives in
+      // /tmp and does not survive Vercel stop, so a dump + no marker used to
+      // TRUNCATE public and reload — wiping session data and failing when the
+      // dump is ahead of the live schema (relation "X" does not exist).
+      'table_count=$(docker exec supabase_db_web psql -U postgres -d postgres -tAc "SELECT count(*) FROM pg_tables WHERE schemaname = \'public\'" | tr -d "[:space:]")',
+      'if [ "${table_count:-0}" -gt 0 ]; then',
+      '  echo "public schema already has tables; skipping seeded dump restore"',
+      `  touch ${SUPABASE_RESTORE_MARKER}`,
+      "else",
+      `  docker exec supabase_db_web psql -U postgres -d postgres -v ON_ERROR_STOP=1 -c "DO \\$\\$ DECLARE tables text; BEGIN SELECT string_agg(format('%I.%I', schemaname, tablename), ', ') INTO tables FROM pg_tables WHERE schemaname = 'public'; IF tables IS NOT NULL THEN EXECUTE 'TRUNCATE TABLE ' || tables || ' CASCADE'; END IF; END \\$\\$;" >/tmp/eva-supabase-db-web-truncate.log 2>&1 || { tail -120 /tmp/eva-supabase-db-web-truncate.log; exit 1; }`,
+      `  gzip -dc ${SUPABASE_DUMP_PATH} | docker exec -i supabase_db_web psql -U postgres -d postgres -v ON_ERROR_STOP=1 >/tmp/eva-supabase-db-web-restore.log 2>&1 || { tail -120 /tmp/eva-supabase-db-web-restore.log; exit 1; }`,
+      `  touch ${SUPABASE_RESTORE_MARKER}`,
+      '  echo "restored supabase_db_web from seeded snapshot dump"',
+      "fi",
       // Join with newlines, not "; ": the script contains if/elif/else/for
       // blocks, and "then; ", "else; ", "do; " are bash syntax errors
       // ("syntax error near unexpected token ';'"). Newlines terminate those

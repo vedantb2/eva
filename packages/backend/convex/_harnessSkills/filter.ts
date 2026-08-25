@@ -8,7 +8,7 @@
  */
 
 import type { Infer } from "convex/values";
-import { harnessSkillValidator } from "../_validators/tableFields";
+import type { harnessSkillValidator } from "../_validators/tableFields";
 
 /** The schema validator is the single source for reported and stored skills. */
 export type HarnessCatalogSkill = Infer<typeof harnessSkillValidator>;

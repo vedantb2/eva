@@ -1,5 +1,27 @@
 # Changelog
 
+## CI now runs the suite, and reverts can no longer narrow the schema - 2026-08-25
+
+The repo had ~220 test files and no CI that ran them — husky is disabled and the only workflows were the review bot and the extension release, so a red `turnLifecycleContract` test shipped past two later commits unnoticed. `.github/workflows/ci.yml` now runs typecheck, oxlint, every package's vitest suite, the React Compiler bailout check, and a new schema-narrowing gate on every PR and push to main. The gate (`scripts/check-schema-narrowing.mjs`) diffs `schema.ts` and `tableFields.ts` against the merge base and fails when a field, table, or union member disappears without a `// schema-narrowing-ok: <migration>` marker backed by a real migration — the class of failure `git revert` caused on 24 Aug, which the gate reproduces and catches. The pre-existing red checks (14 oxlint errors, 3 new compiler bailouts, the motion-contract failure) were fixed rather than baselined, so the first run is green.
+
+## Sandbox errors are typed; in-VM output can no longer condemn a live VM - 2026-08-25
+
+"Is this sandbox gone?" was a substring match over error messages, and the Vercel adapter destroyed the HTTP status while wrapping SDK errors (`JSON.stringify` of a fetch `Response` is `{}`), so prose was the only surviving signal — which is how a Postgres error from inside a healthy VM minted a duplicate sandbox. `classifySandboxError` now decides from structured signals: a `SandboxCommandFailedError` (the VM answered, so it is alive) returns before any text is read, provider HTTP status maps 404/410→gone and 5xx→transient, and the message fallback only ever runs over a tagged provider error's API detail, never command output. Script delivery into sandboxes is also centralised in `writeSandboxFile` — the background-command path shipped unbounded base64 through one exec argument, the same 128 KB cliff that broke the preview proxy — and a contract test allowlists the few remaining tiny heredocs.
+
+## Ready recaps must carry a walkthrough; usage readings say why they are empty - 2026-08-25
+
+`prRecapStatus: "ready"` never guaranteed the recap html arrived, so ready-with-no-walkthrough was storable and both recap views carried their own copy of the same defensive check. The write path now rejects it: a ready write without html is stored as an error, in `upsertPrRecapDoc` and in `patchPrRecapStatus`. The doc views, the PR panel's default tab and the Generate/Regenerate label all read one shared helper instead of re-deriving the state three ways.
+
+Usage limits were fixed three times because "no data", "the provider reported no windows" and "the provider declined to report" were one absent-windows case. The reading now carries a completeness discriminant — complete, partial or refused — from the callback runtime through the stored row to the hover copy, which switches on it instead of guessing from the row's timestamp. The pre-discriminant `snapshotComplete` boolean is still honoured for callback bundles baked before the change.
+
+## One ownership state per turn; Cursor parks follow-up prompts - 2026-08-25
+
+"Does this daemon own a turn" lived in three module globals (`activeClaimState`, `currentTurnLease`, `legacyTurnHeartbeatActive`) and had already drifted once: gating heartbeats on the lease alone silenced legacy daemons, and the boolean added to fix that could disagree with the claim state. It is now one `TurnOwnership` value in `turnLease.ts` — idle, or owned with a lease (durable) or without one (legacy). Behaviour is unchanged: cold daemons stay silent, legacy claims heartbeat, durable claims heartbeat only while they hold the lease.
+
+The Cursor daemon now routes claims through the shared `shouldParkClaimedTurn` guard that the Claude and Codex daemons use. Its inline `!turnActive || cancelInFlight` check discarded a follow-up send that arrived mid-turn, and `claimPendingTurn` clears that prompt server-side, so the message was lost.
+
+The turn-lifecycle contract test was asserting on source text that no longer existed. The gate, the terminal-lease parser, the lease-terminal exit decision and the turnStore fencing (generation bump, stale-generation rejection, no-op renewal skip) are now covered by behavioural tests instead of source greps.
+
 ## Resume no longer replaces a live sandbox after a dump error - 2026-08-25
 
 Opening a session whose Postgres dump was ahead of the live schema failed with `relation "X" does not exist`. Eva treated that SQL error as "sandbox gone", minted a second VM, and left the original running. Resume now skips the dump reload when public already has tables, only treats provider 404/snapshot-gone as unresumable, and refuses to create a replacement while the old id is still alive.

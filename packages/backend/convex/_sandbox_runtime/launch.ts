@@ -5,6 +5,7 @@ import { quote } from "shell-quote";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
 import type { AIProvider } from "../validators";
 import { execHandle, requireEnv } from "./helpers";
+import { writeSandboxFile } from "./sandboxFiles";
 import { streamingHeartbeatHmacMessage } from "./callbackAuth";
 import { entityDaemonPaths } from "./daemonPaths";
 import type { SandboxHandle } from "../_sandbox/provider";
@@ -254,8 +255,12 @@ export async function uploadCallbackScriptBundle(
   sandbox: SandboxHandle,
 ): Promise<void> {
   await Promise.all([
-    sandbox.writeFile("/tmp/run-design.mjs", CALLBACK_SCRIPT),
-    sandbox.writeFile("/tmp/eva-callback-fp", CALLBACK_SCRIPT_FINGERPRINT),
+    writeSandboxFile(sandbox, "/tmp/run-design.mjs", CALLBACK_SCRIPT),
+    writeSandboxFile(
+      sandbox,
+      "/tmp/eva-callback-fp",
+      CALLBACK_SCRIPT_FINGERPRINT,
+    ),
   ]);
 }
 
@@ -302,7 +307,7 @@ export async function launchScript(
     content: string,
     label: string,
   ): Promise<void> {
-    return sandbox.writeFile(path, content).then(() => {
+    return writeSandboxFile(sandbox, path, content).then(() => {
       console.log(
         `[sandbox][launchScript] ${label} uploaded in ${Date.now() - launchStartedAt}ms entityId=${entityId}`,
       );
@@ -463,7 +468,11 @@ export async function launchScript(
     // on images without passwordless sudo.
     'echo -600 | sudo -n tee "/proc/$(cat /tmp/run-design.pid)/oom_score_adj" >/dev/null 2>&1 || true',
   ].join("\n");
-  await sandbox.writeFile("/tmp/eva-launch-runner.sh", runnerLaunchScript);
+  await writeSandboxFile(
+    sandbox,
+    "/tmp/eva-launch-runner.sh",
+    runnerLaunchScript,
+  );
   // Use the provider-native detached path; waitForRunnerReady confirms the
   // backgrounded runner actually started.
   // Use handle.exec (not execHandle) so cwd stays at the Vercel default — the script

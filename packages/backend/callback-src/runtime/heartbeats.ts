@@ -25,8 +25,9 @@ import { flushBackgroundShellQueue } from "./backgroundShells.js";
 import { serializeSteps } from "../parse/stepBudget.js";
 import {
   canSendTurnHeartbeat,
-  getCurrentTurnLease,
+  decideTurnLeaseExit,
   getLeaseTerminalReason,
+  getTurnOwnership,
 } from "./turnLease.js";
 
 let flushInterval: ReturnType<typeof setInterval> | null = null;
@@ -37,7 +38,7 @@ let flushRequested = false;
 function ownsHeartbeatLease(): boolean {
   return canSendTurnHeartbeat({
     claimMutation: CLAIM_MUTATION,
-    turnLease: getCurrentTurnLease(),
+    ownership: getTurnOwnership(),
   });
 }
 
@@ -308,11 +309,14 @@ const LEASE_EXIT_GRACE_MS = 500;
 let leaseExitScheduled = false;
 
 function enforceTurnLease(): boolean {
-  const reason = getLeaseTerminalReason();
-  if (reason === null) return false;
-  if (leaseExitScheduled) return true;
+  const decision = decideTurnLeaseExit({
+    terminalReason: getLeaseTerminalReason(),
+    exitScheduled: leaseExitScheduled,
+  });
+  if (decision.action === "continue") return false;
+  if (decision.action === "wait") return true;
   leaseExitScheduled = true;
-  log("exiting: turn lease terminal (" + reason + ")");
+  log("exiting: turn lease terminal (" + decision.reason + ")");
   if (flushInterval) clearInterval(flushInterval);
   if (heartbeatInterval) clearInterval(heartbeatInterval);
   S.streamingLoopsStopped = true;

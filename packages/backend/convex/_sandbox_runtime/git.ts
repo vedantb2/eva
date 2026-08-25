@@ -16,7 +16,6 @@ import {
   RESUME_READY_TIMEOUT_SECONDS,
   bootstrapVercelDocker,
   ensureSandboxRunning,
-  isSandboxUnresumableMessage,
   sleep,
   withTimeout,
   workspaceDirShell,
@@ -25,6 +24,8 @@ import {
   detectPackageManager,
   installPythonDependenciesBestEffort,
 } from "./devServer";
+import { isSandboxGoneError } from "./sandboxErrors";
+import { writeSandboxFile } from "./sandboxFiles";
 import { ensureGitCredentialHelper } from "./gitCredentials";
 import { ensureSwapFile } from "./swap";
 import {
@@ -375,7 +376,8 @@ export async function createSandbox(
       }
       const token = await tokenPromise;
       await runLoggedGitStep("createSandbox.writeEvaEnv", sandbox.id, () =>
-        sandbox.writeFile(
+        writeSandboxFile(
+          sandbox,
           EVA_ENV_FILE,
           renderEvaEnvFile({
             VNC_RESOLUTION: "1920x1080",
@@ -1498,18 +1500,19 @@ export async function getOrCreateSandbox(
 }
 
 /**
- * Heuristic: does this error mean the sandbox is genuinely gone
- * (deleted, archived, expired) — i.e. safe to fall through to creating a new one?
+ * Does this error mean the sandbox is genuinely gone (deleted, archived,
+ * expired) — i.e. safe to fall through to creating a new one?
  *
- * We deliberately stay narrow. The previous implementation swallowed every
- * error and silently created a new sandbox, which orphaned the old one in
+ * Takes the error object, not its message: classification reads the provider's
+ * structured signals (HTTP status, error type) and only falls back to text for
+ * a tagged provider error. See `sandboxErrors.ts`. An earlier version swallowed
+ * every error and silently created a new sandbox, which orphaned the old one in
  * common races (e.g. user clicking Start while a stop is mid-flight — the
  * sandbox is in a transitional state, `start()` rejects, and we'd happily
  * burn a fresh sandbox + lose the old one's dev server / terminal state).
  */
-function isSandboxMissingError(err: Error | string): boolean {
-  const msg = err instanceof Error ? err.message : err;
-  return isSandboxUnresumableMessage(msg);
+function isSandboxMissingError(err: unknown): boolean {
+  return isSandboxGoneError(err);
 }
 
 /**
@@ -1541,11 +1544,7 @@ async function tryResumeSandbox(
       try {
         await sandbox.refresh();
       } catch (refreshErr) {
-        if (
-          isSandboxMissingError(
-            refreshErr instanceof Error ? refreshErr : String(refreshErr),
-          )
-        ) {
+        if (isSandboxMissingError(refreshErr)) {
           logGit(
             `getOrCreateSandbox: resume refresh says gone — will create new one (${refreshErr instanceof Error ? refreshErr.message : String(refreshErr)})`,
           );
@@ -1578,7 +1577,7 @@ async function tryResumeSandbox(
       }
       return sandbox;
     } catch (err) {
-      if (isSandboxMissingError(err instanceof Error ? err : String(err))) {
+      if (isSandboxMissingError(err)) {
         logGit(
           `getOrCreateSandbox: resume failed because sandbox is gone — will create new one (${err instanceof Error ? err.message : String(err)})`,
         );

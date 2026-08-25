@@ -14,40 +14,69 @@ export type LeaseTerminalReason =
   | "timeout"
   | "cancelled";
 
-let currentTurnLease: TurnLeaseIdentity | null =
-  TURN_ID !== null && TURN_LEASE_GENERATION !== null
-    ? { turnId: TURN_ID, leaseGeneration: TURN_LEASE_GENERATION }
-    : null;
-let legacyTurnHeartbeatActive = false;
-let terminalReason: LeaseTerminalReason | null = null;
-
-export function getCurrentTurnLease(): TurnLeaseIdentity | null {
-  return currentTurnLease;
-}
-
-/** Daemons must not heartbeat until claimPendingTurn grants turn ownership. */
-export function canSendTurnHeartbeat({
-  claimMutation,
-  turnLease,
-}: {
-  claimMutation: string | undefined;
-  turnLease: TurnLeaseIdentity | null;
-}): boolean {
-  return (
-    claimMutation === undefined ||
-    turnLease !== null ||
-    legacyTurnHeartbeatActive
-  );
-}
+/**
+ * Who installed the current ownership. Only a claim can be completed through
+ * `appendClaimedTurnCompletion`, and only a claim blocks a second claim from
+ * starting; a synthetic turn or the boot lease owns the heartbeat without
+ * occupying the claim slot.
+ */
+export type TurnOwner = "claim" | "provider";
 
 /**
- * Records ownership for an active legacy daemon turn. Legacy project/task
- * claims intentionally have no lease fence, so `null` alone cannot distinguish
- * an owned turn from an idle daemon that must not emit heartbeats.
+ * The single fact behind "does this process own a turn": ownership plus, for
+ * durable turns, the lease that fences its writes. A legacy claim owns a turn
+ * with no lease at all, so ownership cannot be inferred from the lease alone —
+ * doing that is what silenced legacy daemons (fix 56530596d).
  */
-export function setLegacyTurnHeartbeatActive(active: boolean): void {
-  legacyTurnHeartbeatActive = active;
-  if (active) terminalReason = null;
+export type TurnOwnership =
+  | { status: "idle" }
+  | {
+      status: "owned";
+      owner: TurnOwner;
+      turnLease: TurnLeaseIdentity | null;
+    };
+
+let turnOwnership: TurnOwnership =
+  TURN_ID !== null && TURN_LEASE_GENERATION !== null
+    ? {
+        status: "owned",
+        owner: "provider",
+        turnLease: { turnId: TURN_ID, leaseGeneration: TURN_LEASE_GENERATION },
+      }
+    : { status: "idle" };
+let terminalReason: LeaseTerminalReason | null = null;
+
+export function getTurnOwnership(): TurnOwnership {
+  return turnOwnership;
+}
+
+/** Installs ownership before execution or heartbeat emission begins. */
+export function beginTurnOwnership(
+  owner: TurnOwner,
+  turnLease: TurnLeaseIdentity | null,
+): void {
+  turnOwnership = { status: "owned", owner, turnLease };
+  terminalReason = null;
+}
+
+/** Clears ownership between turns in a warm provider process. */
+export function endTurnOwnership(): void {
+  turnOwnership = { status: "idle" };
+  terminalReason = null;
+}
+
+export function getCurrentTurnLease(): TurnLeaseIdentity | null {
+  return turnOwnership.status === "owned" ? turnOwnership.turnLease : null;
+}
+
+/** Daemons must not heartbeat until a claim grants turn ownership. */
+export function canSendTurnHeartbeat(input: {
+  claimMutation: string | undefined;
+  ownership: TurnOwnership;
+}): boolean {
+  return (
+    input.claimMutation === undefined || input.ownership.status === "owned"
+  );
 }
 
 /** Adds the current fence to any callback mutation payload when one is owned. */
@@ -58,19 +87,27 @@ export function appendCurrentTurnLease(args: JsonObject): void {
   args.leaseGeneration = identity.leaseGeneration;
 }
 
-export function setCurrentTurnLease(identity: TurnLeaseIdentity | null): void {
-  if (
-    currentTurnLease?.turnId === identity?.turnId &&
-    currentTurnLease?.leaseGeneration === identity?.leaseGeneration
-  ) {
-    return;
-  }
-  currentTurnLease = identity;
-  terminalReason = null;
-}
-
 export function getLeaseTerminalReason(): LeaseTerminalReason | null {
   return terminalReason;
+}
+
+export type TurnLeaseExitDecision =
+  | { action: "continue" }
+  | { action: "wait" }
+  | { action: "exit"; reason: LeaseTerminalReason };
+
+/**
+ * A terminal lease means a successor owns this turn, so this process must stop
+ * writing and exit. The scheduling latch is pure so the decision can be tested
+ * without a real `process.exit`.
+ */
+export function decideTurnLeaseExit(input: {
+  terminalReason: LeaseTerminalReason | null;
+  exitScheduled: boolean;
+}): TurnLeaseExitDecision {
+  if (input.terminalReason === null) return { action: "continue" };
+  if (input.exitScheduled) return { action: "wait" };
+  return { action: "exit", reason: input.terminalReason };
 }
 
 function parseTerminalReason(value: JsonValue): LeaseTerminalReason | null {
@@ -118,7 +155,7 @@ export function noteHeartbeatResponse(response: string | JsonValue): boolean {
     "turn lease terminal (" +
       terminalReason +
       ") turnId=" +
-      String(currentTurnLease?.turnId),
+      String(getCurrentTurnLease()?.turnId),
   );
   return true;
 }

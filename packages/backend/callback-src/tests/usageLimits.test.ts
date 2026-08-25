@@ -201,14 +201,16 @@ test("an unavailable usage read preserves the last observed plan windows", async
   });
 });
 
-test("an unavailable usage read seeds a partial instead of staying silent", async () => {
+test("an unavailable usage read records a refusal instead of staying silent", async () => {
   await captureClaudeUsage(async () => ({
     rate_limits_available: false,
     rate_limits: null,
   }));
-  // Partial so the account still gets a Convex row; complete+empty would wipe
-  // later windows if a subsequent turn treated this as authoritative.
-  expect(S.usageLimitSnapshot).toEqual({ completeness: "partial" });
+  // "refused" is its own state: the account still gets a Convex row and the UI
+  // can say Claude declined, rather than guessing from an empty window list.
+  // Not "complete" — that would wipe later windows if a subsequent turn treated
+  // this as authoritative.
+  expect(S.usageLimitSnapshot).toEqual({ completeness: "refused" });
 });
 
 test("a spend-limit result becomes a non-destructive rejected snapshot", () => {
@@ -250,7 +252,7 @@ test("buildUsageLimitReportArgs omits every field the snapshot did not observe",
     repoId: "repo-1",
     provider: "claude",
     providerAccountId: "account-1",
-    snapshotComplete: true,
+    completeness: "complete",
     subscriptionType: "max",
     status: "allowed",
     windows: [{ key: "five_hour", label: "5h", utilization: 12 }],
@@ -264,8 +266,18 @@ test("buildUsageLimitReportArgs omits every field the snapshot did not observe",
   ).toEqual({
     repoId: "repo-1",
     provider: "claude",
-    snapshotComplete: false,
+    completeness: "partial",
     status: "rejected",
+  });
+  // A refusal reaches the server as its own state, not as a partial.
+  expect(
+    buildUsageLimitReportArgs("repo-1", "claude", "", {
+      completeness: "refused",
+    }),
+  ).toEqual({
+    repoId: "repo-1",
+    provider: "claude",
+    completeness: "refused",
   });
 });
 

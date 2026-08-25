@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api, type Id } from "@eva/backend";
+import { api, isViewableRecap, type Id } from "@eva/backend";
 import type { ReviewTab } from "@/lib/search-params";
 import { prNumberFromGithubUrl } from "@/lib/githubPr";
 import { ReviewTabsPanel } from "@/lib/components/reviews/ReviewTabsPanel";
@@ -39,10 +39,10 @@ export function PrPanel({ prUrl, repoId, isActive }: PrPanelProps) {
     if (!prUrl) {
       setResolvedDefault("diffs");
     } else if (recapDoc !== undefined) {
+      // Only open on Recap when there is a walkthrough to show: a "ready" doc
+      // with no html would land the reader on an empty tab.
       setResolvedDefault(
-        recapDoc !== null && recapDoc.prRecapStatus === "ready"
-          ? "recap"
-          : "diffs",
+        recapDoc !== null && isViewableRecap(recapDoc) ? "recap" : "diffs",
       );
     }
   }

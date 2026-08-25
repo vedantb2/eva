@@ -154,6 +154,7 @@ import type * as _sandbox_runtime_daemonEntitySnapshot from "../_sandbox_runtime
 import type * as _sandbox_runtime_daemonPaths from "../_sandbox_runtime/daemonPaths.js";
 import type * as _sandbox_runtime_desktop from "../_sandbox_runtime/desktop.js";
 import type * as _sandbox_runtime_devServer from "../_sandbox_runtime/devServer.js";
+import type * as _sandbox_runtime_divergedPublish from "../_sandbox_runtime/divergedPublish.js";
 import type * as _sandbox_runtime_execution from "../_sandbox_runtime/execution.js";
 import type * as _sandbox_runtime_git from "../_sandbox_runtime/git.js";
 import type * as _sandbox_runtime_gitCredentials from "../_sandbox_runtime/gitCredentials.js";
@@ -511,6 +512,7 @@ declare const fullApi: ApiFromModules<{
   "_sandbox_runtime/daemonPaths": typeof _sandbox_runtime_daemonPaths;
   "_sandbox_runtime/desktop": typeof _sandbox_runtime_desktop;
   "_sandbox_runtime/devServer": typeof _sandbox_runtime_devServer;
+  "_sandbox_runtime/divergedPublish": typeof _sandbox_runtime_divergedPublish;
   "_sandbox_runtime/execution": typeof _sandbox_runtime_execution;
   "_sandbox_runtime/git": typeof _sandbox_runtime_git;
   "_sandbox_runtime/gitCredentials": typeof _sandbox_runtime_gitCredentials;

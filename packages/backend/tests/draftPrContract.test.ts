@@ -81,21 +81,25 @@ describe("the wait for a pushed branch fails fast when it is not ahead", () => {
     const successAt = body.indexOf("comparison.data.ahead_by > 0");
     expect(successAt, "the ahead check moved").toBeGreaterThan(-1);
     const throwAt = body.indexOf("is not ahead of", successAt);
-    const catchAt = body.indexOf("} catch (error) {", successAt);
+    const retryAt = body.indexOf("Effect.retry(", successAt);
     expect(throwAt, "the not-ahead throw moved").toBeGreaterThan(-1);
     expect(
       throwAt,
-      "the throw belongs in the try, not the handler",
-    ).toBeLessThan(catchAt);
+      "the throw belongs in the attempt, not the retry policy",
+    ).toBeLessThan(retryAt);
   });
 
-  /** Its own throw lands in its own catch, which must not swallow it. */
-  test("the handler rethrows it instead of retrying", () => {
-    const catchAt = body.indexOf("} catch (error) {");
-    const handler = body.slice(catchAt);
-    const guardAt = handler.indexOf('includes("is not ahead of")');
-    expect(guardAt, "the rethrow guard moved").toBeGreaterThan(-1);
-    expect(handler.indexOf("throw error;", guardAt)).toBeGreaterThan(guardAt);
+  /** Its own throw reaches its own retry policy, which must not swallow it. */
+  test("the retry policy refuses it instead of retrying", () => {
+    const whileAt = body.indexOf("while:");
+    expect(whileAt, "the retry predicate moved").toBeGreaterThan(-1);
+    expect(body.slice(whileAt), "the sentinel is retryable again").toContain(
+      "!isBranchNotAheadCompare(error)",
+    );
+    expect(
+      taskActions,
+      "the sentinel predicate no longer matches the throw",
+    ).toContain('includes("is not ahead of")');
   });
 
   test("a not-ahead branch skips the draft PR without alerting", () => {
@@ -148,7 +152,7 @@ describe("an existing pull request is adopted, not re-created", () => {
     const handlerAt = body.indexOf("isPullRequestAlreadyExistsError(error)");
     expect(handlerAt, "the already-exists handler moved").toBeGreaterThan(-1);
     const handler = body.slice(handlerAt);
-    const delays = handler.match(/for \(const delayMs of \[([\d, ]+)\]\)/);
+    const delays = handler.match(/retryAfterDelays\(\[([\d, ]+)\]\)/);
     expect(delays, "the re-lookup backoff moved").not.toBeNull();
     const parsed = (delays?.[1] ?? "").split(",").map((part) => Number(part));
     expect(parsed.length).toBeGreaterThan(1);

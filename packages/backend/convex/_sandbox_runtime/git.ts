@@ -1,8 +1,14 @@
 "use node";
 
 import type { GenericActionCtx } from "convex/server";
+import { Effect } from "effect";
 import { quote } from "shell-quote";
 import { formatDurationMsShort } from "@eva/shared/duration";
+import {
+  retryAfterDelays,
+  retryLinearBackoff,
+  runPromiseRethrowing,
+} from "../_effect/retry";
 import { getInstallationToken } from "../githubAuth";
 import { internal } from "../_generated/api";
 import type { DataModel } from "../_generated/dataModel";
@@ -16,7 +22,6 @@ import {
   RESUME_READY_TIMEOUT_SECONDS,
   bootstrapVercelDocker,
   ensureSandboxRunning,
-  sleep,
   withTimeout,
   workspaceDirShell,
 } from "./helpers";
@@ -270,33 +275,44 @@ async function retryGitNetworkOperation<T>(
   fn: () => Promise<T>,
   maxAttempts = 3,
 ): Promise<T> {
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      const result = await fn();
-      if (attempt > 1) {
-        logGit(
-          `${label} recovered on retry ${attempt}/${maxAttempts}${details ? ` (${details})` : ""}`,
-        );
-      }
-      return result;
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const shouldRetry =
-        attempt < maxAttempts && isRetryableGitNetworkError(message);
-      if (!shouldRetry) {
-        throw error;
-      }
-      const delayMs = 1000 * attempt;
-      logGit(
-        `${label} retrying in ${delayMs}ms after attempt ${attempt}/${maxAttempts}${details ? ` (${details})` : ""}: ${message}`,
-      );
-      await new Promise<void>((resolve) => {
-        setTimeout(resolve, delayMs);
-      });
-    }
-  }
-  throw new Error(
-    `${label} failed without returning a result${details ? ` (${details})` : ""}`,
+  let attempt = 0;
+  const runOnce = Effect.suspend(() => {
+    attempt += 1;
+    return Effect.tryPromise({ try: fn, catch: (error) => error });
+  });
+
+  return await runPromiseRethrowing(
+    runOnce.pipe(
+      Effect.tap(() =>
+        Effect.sync(() => {
+          if (attempt > 1) {
+            logGit(
+              `${label} recovered on retry ${attempt}/${maxAttempts}${details ? ` (${details})` : ""}`,
+            );
+          }
+        }),
+      ),
+      Effect.tapError((error) =>
+        Effect.sync(() => {
+          const message =
+            error instanceof Error ? error.message : String(error);
+          if (attempt >= maxAttempts || !isRetryableGitNetworkError(message)) {
+            return;
+          }
+          const delayMs = 1000 * attempt;
+          logGit(
+            `${label} retrying in ${delayMs}ms after attempt ${attempt}/${maxAttempts}${details ? ` (${details})` : ""}: ${message}`,
+          );
+        }),
+      ),
+      Effect.retry({
+        schedule: retryLinearBackoff(maxAttempts, 1000),
+        while: (error) =>
+          isRetryableGitNetworkError(
+            error instanceof Error ? error.message : String(error),
+          ),
+      }),
+    ),
   );
 }
 
@@ -1257,7 +1273,12 @@ export async function pushBranchToOrigin(
     ]);
     const repoUrl = bareGitHubRepoUrl(owner, name);
     const maxAttempts = opts?.retryAttempts ?? 2;
-    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    let attempt = 0;
+    // Everything up to the push runs through `Effect.promise`, so a failure
+    // there is a defect: it surfaces as-is instead of being retried, which is
+    // what the synchronize/gate steps did when they threw out of the old loop.
+    const resynchronize = Effect.promise(async () => {
+      attempt += 1;
       const { remoteExists } = await synchronizeBranchForPublish(
         sandbox,
         owner,
@@ -1286,39 +1307,62 @@ export async function pushBranchToOrigin(
           `pushBranchToOrigin: ahead-of-remote gate failed, pushing anyway (${details}): ${error instanceof Error ? error.message : String(error)}`,
         );
       }
-      if (unpushedCount === "0") {
-        logGit(
-          `pushBranchToOrigin: skipped — HEAD has no commits origin lacks (${details})`,
-        );
-        return { pushed: false, published: remoteExists };
-      }
+      return { remoteExists, hasUnpushedCommits: unpushedCount !== "0" };
+    });
 
-      try {
-        await execGitCommand(
-          sandbox,
-          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push -u origin ${quotedRefspec}`,
-          opts?.timeoutSeconds ?? 60,
-        );
-        return { pushed: true, published: true };
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        const shouldRetry =
-          attempt < maxAttempts &&
-          (isRetryableGitNetworkError(message) ||
-            isNonFastForwardPushError(message));
-        if (!shouldRetry) {
-          throw error;
-        }
-        const delayMs = 1000 * attempt;
-        logGit(
-          `pushBranchToOrigin: remote moved or push was transient; refetching in ${delayMs}ms after attempt ${attempt}/${maxAttempts} (${details}): ${message}`,
-        );
-        await new Promise<void>((resolve) => {
-          setTimeout(resolve, delayMs);
-        });
-      }
-    }
-    throw new Error(`pushBranchToOrigin exhausted retries (${details})`);
+    return await runPromiseRethrowing(
+      resynchronize.pipe(
+        Effect.flatMap(({ remoteExists, hasUnpushedCommits }) => {
+          if (!hasUnpushedCommits) {
+            logGit(
+              `pushBranchToOrigin: skipped — HEAD has no commits origin lacks (${details})`,
+            );
+            return Effect.succeed({ pushed: false, published: remoteExists });
+          }
+          return Effect.tryPromise({
+            try: () =>
+              execGitCommand(
+                sandbox,
+                `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push -u origin ${quotedRefspec}`,
+                opts?.timeoutSeconds ?? 60,
+              ),
+            catch: (error) => error,
+          }).pipe(
+            Effect.as({ pushed: true, published: true }),
+            Effect.tapError((error) =>
+              Effect.sync(() => {
+                const message =
+                  error instanceof Error ? error.message : String(error);
+                if (
+                  attempt >= maxAttempts ||
+                  !(
+                    isRetryableGitNetworkError(message) ||
+                    isNonFastForwardPushError(message)
+                  )
+                ) {
+                  return;
+                }
+                const delayMs = 1000 * attempt;
+                logGit(
+                  `pushBranchToOrigin: remote moved or push was transient; refetching in ${delayMs}ms after attempt ${attempt}/${maxAttempts} (${details}): ${message}`,
+                );
+              }),
+            ),
+          );
+        }),
+        Effect.retry({
+          schedule: retryLinearBackoff(maxAttempts, 1000),
+          while: (error) => {
+            const message =
+              error instanceof Error ? error.message : String(error);
+            return (
+              isRetryableGitNetworkError(message) ||
+              isNonFastForwardPushError(message)
+            );
+          },
+        }),
+      ),
+    );
   });
 }
 
@@ -1598,60 +1642,77 @@ async function tryResumeSandbox(
 ): Promise<SandboxHandle | null> {
   const maxAttempts = 4;
   const backoffMs = [2000, 4000, 8000];
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      if (onProgress) await onProgress("Resuming sandbox...");
-      const sandbox = await client.get(existingSandboxId);
-      try {
-        await sandbox.refresh();
-      } catch (refreshErr) {
-        if (isSandboxMissingError(refreshErr)) {
+  let attempt = 0;
+  const resumeOnce = Effect.suspend(() => {
+    attempt += 1;
+    return Effect.tryPromise({
+      try: async (): Promise<SandboxHandle | null> => {
+        if (onProgress) await onProgress("Resuming sandbox...");
+        const sandbox = await client.get(existingSandboxId);
+        try {
+          await sandbox.refresh();
+        } catch (refreshErr) {
+          if (isSandboxMissingError(refreshErr)) {
+            logGit(
+              `getOrCreateSandbox: resume refresh says gone — will create new one (${refreshErr instanceof Error ? refreshErr.message : String(refreshErr)})`,
+            );
+            return null;
+          }
+          throw refreshErr;
+        }
+        if (sandbox.state === "gone" || sandbox.state === "error") {
           logGit(
-            `getOrCreateSandbox: resume refresh says gone — will create new one (${refreshErr instanceof Error ? refreshErr.message : String(refreshErr)})`,
+            `getOrCreateSandbox: resume state=${sandbox.state} — will create new one`,
           );
           return null;
         }
-        throw refreshErr;
-      }
-      if (sandbox.state === "gone" || sandbox.state === "error") {
-        logGit(
-          `getOrCreateSandbox: resume state=${sandbox.state} — will create new one`,
-        );
-        return null;
-      }
-      await ensureSandboxRunning(sandbox, {
-        timeoutSeconds: RESUME_READY_TIMEOUT_SECONDS,
-        // Explicit user start (Start clicked / new run on a reused sandbox):
-        // wait out a stop still snapshotting and resume, instead of refusing.
-        resumeAfterStop: true,
-        onRestoring: onProgress
-          ? () => onProgress("Resuming sandbox...")
-          : undefined,
-      });
-      // Self-heal: rotate the per-sandbox secret and (re)install the helper on
-      // every resume so the in-sandbox `git pull` works without a stale token
-      // and so sandboxes that pre-date this change pick up the helper.
-      await ensureGitCredentialHelper(ctx, sandbox, installationId);
-      if (syncStrategy.mode !== "none") {
-        if (onProgress) await onProgress("Syncing repository...");
-        await syncRepo(sandbox, owner, name, syncStrategy);
-      }
-      return sandbox;
-    } catch (err) {
-      if (isSandboxMissingError(err)) {
-        logGit(
-          `getOrCreateSandbox: resume failed because sandbox is gone — will create new one (${err instanceof Error ? err.message : String(err)})`,
-        );
-        // Unresumable (missing snap / deadline): do not burn another 180s retry.
-        return null;
-      }
-      if (attempt === maxAttempts) throw err;
-      const delay = backoffMs[attempt - 1] ?? 8000;
-      logGit(
-        `getOrCreateSandbox: resume attempt ${attempt}/${maxAttempts} failed, retrying in ${delay}ms — ${err instanceof Error ? err.message : String(err)}`,
-      );
-      await sleep(delay);
-    }
-  }
-  return null;
+        await ensureSandboxRunning(sandbox, {
+          timeoutSeconds: RESUME_READY_TIMEOUT_SECONDS,
+          // Explicit user start (Start clicked / new run on a reused sandbox):
+          // wait out a stop still snapshotting and resume, instead of refusing.
+          resumeAfterStop: true,
+          onRestoring: onProgress
+            ? () => onProgress("Resuming sandbox...")
+            : undefined,
+        });
+        // Self-heal: rotate the per-sandbox secret and (re)install the helper on
+        // every resume so the in-sandbox `git pull` works without a stale token
+        // and so sandboxes that pre-date this change pick up the helper.
+        await ensureGitCredentialHelper(ctx, sandbox, installationId);
+        if (syncStrategy.mode !== "none") {
+          if (onProgress) await onProgress("Syncing repository...");
+          await syncRepo(sandbox, owner, name, syncStrategy);
+        }
+        return sandbox;
+      },
+      catch: (err) => err,
+    });
+  });
+
+  return await runPromiseRethrowing(
+    resumeOnce.pipe(
+      Effect.tapError((err) =>
+        Effect.sync(() => {
+          if (attempt >= maxAttempts || isSandboxMissingError(err)) return;
+          const delay = backoffMs[attempt - 1] ?? 8000;
+          logGit(
+            `getOrCreateSandbox: resume attempt ${attempt}/${maxAttempts} failed, retrying in ${delay}ms — ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }),
+      ),
+      Effect.retry({
+        schedule: retryAfterDelays(backoffMs),
+        while: (err) => !isSandboxMissingError(err),
+      }),
+      // Unresumable (missing snap / deadline): do not burn another 180s retry.
+      Effect.catchIf(isSandboxMissingError, (err) =>
+        Effect.sync(() => {
+          logGit(
+            `getOrCreateSandbox: resume failed because sandbox is gone — will create new one (${err instanceof Error ? err.message : String(err)})`,
+          );
+          return null;
+        }),
+      ),
+    ),
+  );
 }

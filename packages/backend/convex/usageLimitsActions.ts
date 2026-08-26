@@ -1,5 +1,7 @@
 import { v } from "convex/values";
+import { Duration, Effect } from "effect";
 import { api, internal } from "./_generated/api";
+import { runPromiseRethrowing } from "./_effect/retry";
 import type { ActionCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { authAction, getActionRepoWithAccess } from "./functions";
@@ -31,12 +33,6 @@ type RefreshTargetArgs = {
   projectId?: Id<"projects">;
   taskId?: Id<"agentTasks">;
 };
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
 
 function targetArgs(args: RefreshTargetArgs): RefreshTargetArgs {
   return {
@@ -123,21 +119,29 @@ export const refresh = authAction({
       // survives claim polls, so the replacement daemon still sees it.
       await prewarmSurface(ctx, surfaceArgs);
 
-      for (let attempt = 0; attempt < POLL_ATTEMPTS; attempt += 1) {
-        await sleep(POLL_INTERVAL_MS);
-        const reading = await ctx.runQuery(
-          internal.usageLimits.getReadingInternal,
-          {
-            repoId: args.repoId,
-            provider: args.provider,
-            ...accountArg,
-          },
-        );
-        if (reading !== null && reading.capturedAt > beforeCapturedAt) {
-          return { ok: true };
-        }
-      }
-      return { ok: false, reason: "unavailable" };
+      const pollOnce = Effect.zipRight(
+        Effect.sleep(Duration.millis(POLL_INTERVAL_MS)),
+        Effect.promise(async () => {
+          const reading = await ctx.runQuery(
+            internal.usageLimits.getReadingInternal,
+            {
+              repoId: args.repoId,
+              provider: args.provider,
+              ...accountArg,
+            },
+          );
+          return reading !== null && reading.capturedAt > beforeCapturedAt;
+        }),
+      );
+      const reported = await runPromiseRethrowing(
+        pollOnce.pipe(
+          Effect.repeat({
+            times: POLL_ATTEMPTS - 1,
+            until: (fresh) => fresh,
+          }),
+        ),
+      );
+      return reported ? { ok: true } : { ok: false, reason: "unavailable" };
     } finally {
       await ctx.runMutation(api.usageLimits.clearRefresh, surfaceArgs);
     }

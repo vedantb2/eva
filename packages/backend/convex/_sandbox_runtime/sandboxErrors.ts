@@ -26,6 +26,7 @@
  * than merely being excluded by a regex someone has to remember to maintain.
  */
 
+import { Data } from "effect";
 import { z } from "zod";
 import { SandboxProviderError } from "../_sandbox/provider";
 
@@ -67,33 +68,23 @@ export type SandboxErrorClassification = {
  * looks at any text, which is what keeps `relation "X" does not exist` from
  * condemning a running VM.
  */
-export class SandboxCommandFailedError extends Error {
-  readonly exitCode: number;
+export class SandboxCommandFailedError extends Data.TaggedError(
+  "SandboxCommandFailedError",
+)<{
+  message: string;
+  exitCode: number;
   /** Combined stdout/stderr, trimmed. Empty when the provider discarded it. */
-  readonly output: string;
-
-  constructor(
-    message: string,
-    details: { exitCode: number; output: string },
-  ) {
-    super(message);
-    this.name = "SandboxCommandFailedError";
-    this.exitCode = details.exitCode;
-    this.output = details.output;
-  }
-}
+  output: string;
+}> {}
 
 /**
  * eva has already concluded the sandbox is gone (a 404 on refresh, a `gone`
  * lifecycle state). Thrown so the verdict survives being re-thrown through a
  * layer instead of being re-derived from the rethrown message.
  */
-export class SandboxGoneError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "SandboxGoneError";
-  }
-}
+export class SandboxGoneError extends Data.TaggedError("SandboxGoneError")<{
+  message: string;
+}> {}
 
 /** APIError from `@vercel/sandbox`: `.response` is a fetch `Response`. */
 const apiErrorShape = z.object({

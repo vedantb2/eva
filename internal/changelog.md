@@ -1,5 +1,9 @@
 # Changelog
 
+## Effect adoption step 1: tagged errors + retry schedules - 2026-08-26
+
+First incremental slice of Effect in `@eva/backend` (`effect@3.22`), no framework buy-in. `SandboxProviderError` / `SandboxCommandFailedError` / `SandboxGoneError` are now `Data.TaggedError` classes (classifier semantics in `sandboxErrors.ts` untouched; `instanceof`, `name`, and `message` behave identically). The seven hand-rolled retry/backoff loops (vercel exec stream-closed retry, three git network/push/resume loops, PR adopt + head-wait waits, usage-limits polling) now run as Effect pipelines with shared schedules from `convex/_effect/retry.ts`. `runPromiseRethrowing` (`runPromiseExit` + `Cause.squash`) guarantees callers keep catching the original error object, never a `FiberFailure`. Attempt counts, delays, retry predicates, and log lines are preserved exactly; workflow-step retries (`workflowManager.ts`) untouched.
+
 ## Plan-usage refresh keeps the flag until the daemon reports - 2026-08-25
 
 Clicking refresh set a one-shot flag that `claimPendingTurn` drained on the first poll, so an old callback — or a process that had just respawned and not yet finished SDK init — ate the request as a no-op. The flag now stays set until the refresh action stops waiting, a stale callback upload kills and relaunches the daemon, and `get_usage` is allowed to wait for SDK init. Eva's servers still never POST Messages.

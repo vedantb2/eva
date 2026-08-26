@@ -144,12 +144,13 @@ export async function execHandle(
     // Typed, not a bare Error: the sandbox answered, so it is alive. The type
     // is what stops its output (`relation "X" does not exist`) from ever being
     // read as "the sandbox is gone". See sandboxErrors.ts.
-    throw new SandboxCommandFailedError(
-      output
+    throw new SandboxCommandFailedError({
+      message: output
         ? `Sandbox command failed (exit ${resp.exitCode}): ${output}`
         : `Sandbox command failed with exit code ${resp.exitCode} (${cmdHint})`,
-      { exitCode: resp.exitCode, output },
-    );
+      exitCode: resp.exitCode,
+      output,
+    });
   }
   return resp.output;
 }

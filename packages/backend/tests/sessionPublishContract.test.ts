@@ -326,13 +326,9 @@ describe("a turn that pushed nothing opens no pull request", () => {
 
   test("pushBranchToOrigin reports which of the two paths it took", () => {
     const body = pushBody();
-    const skipAt = body.indexOf(
-      "return { pushed: false, published: remoteExists };",
-    );
+    const skipAt = body.indexOf("{ pushed: false, published: remoteExists }");
     const pushAt = body.indexOf("git push");
-    const pushedAt = body.indexOf(
-      "return { pushed: true, published: true };",
-    );
+    const pushedAt = body.indexOf("{ pushed: true, published: true }");
     expect(skipAt, "the skip no longer reports itself").toBeGreaterThan(-1);
     expect(pushedAt, "the push no longer reports itself").toBeGreaterThan(-1);
     expect(skipAt, "the skip belongs before the push").toBeLessThan(pushAt);
@@ -540,10 +536,8 @@ describe("a callback-published session still opens its first pull request", () =
       "export async function pushBranchToOrigin(",
     );
     expect(body).toContain("refs/remotes/origin/${branchName}");
-    expect(body).toContain(
-      "return { pushed: false, published: remoteExists };",
-    );
-    expect(body).toContain("return { pushed: true, published: true };");
+    expect(body).toContain("{ pushed: false, published: remoteExists }");
+    expect(body).toContain("{ pushed: true, published: true }");
   });
 
   test("a published branch recovers only a missing session PR", () => {

@@ -1,6 +1,7 @@
 "use node";
 
 import { ConvexError, v } from "convex/values";
+import { Effect } from "effect";
 import { action, internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
@@ -15,6 +16,7 @@ import {
   buildProjectPrSections,
 } from "./prBody";
 import { buildEvaTaskUrl, buildEvaProjectUrl } from "./_taskWorkflow/urls";
+import { retryAfterDelays, runPromiseRethrowing } from "./_effect/retry";
 import {
   MAX_POLL_ATTEMPTS,
   POLL_INTERVAL_MS,
@@ -26,7 +28,8 @@ import {
 // Re-export URL builders for backwards compatibility
 export { buildEvaTaskUrl, buildEvaSessionUrl } from "./_taskWorkflow/urls";
 
-const PR_READY_WAIT_DELAYS_MS = [0, 1000, 2000, 4000, 8000, 12000, 16000];
+/** Waits between the seven compare attempts, so six gaps. */
+const PR_READY_RETRY_DELAYS_MS = [1000, 2000, 4000, 8000, 12000, 16000];
 
 type PullRequestCreateParams = {
   installationId: number;
@@ -47,12 +50,6 @@ type PullRequestRefreshParams = {
   branchName: string;
   body: string;
 };
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
 
 function buildTaskPullRequestBody(params: {
   repoOwner: string;
@@ -154,14 +151,19 @@ async function createPullRequestWithGitHub(
   } catch (error) {
     // Concurrent create or list lag: adopt the existing PR instead of failing.
     if (isPullRequestAlreadyExistsError(error)) {
-      for (const delayMs of [0, 1000, 2000]) {
-        if (delayMs > 0) {
-          await sleep(delayMs);
-        }
-        const raced = await findOpenPullRequestForBranch(args);
-        if (raced) {
-          return raced.url;
-        }
+      // A single immediate re-lookup would hit the same stale list, so back off
+      // between tries. `fromNullable` turns "still not listed" into the failure
+      // the retry schedule waits on; a lookup that itself throws is a defect and
+      // surfaces straight away.
+      const raced = await runPromiseRethrowing(
+        Effect.promise(() => findOpenPullRequestForBranch(args)).pipe(
+          Effect.flatMap(Effect.fromNullable),
+          Effect.retry(retryAfterDelays([1000, 2000])),
+          Effect.orElseSucceed(() => null),
+        ),
+      );
+      if (raced) {
+        return raced.url;
       }
     }
     throw error;
@@ -213,11 +215,8 @@ async function waitForPullRequestHead(params: {
   baseBranch: string;
 }): Promise<void> {
   let lastError = "";
-  for (const delayMs of PR_READY_WAIT_DELAYS_MS) {
-    if (delayMs > 0) {
-      await sleep(delayMs);
-    }
-    try {
+  const compareHead = Effect.tryPromise({
+    try: async () => {
       const comparison =
         await params.octokit.rest.repos.compareCommitsWithBasehead({
           owner: params.repoOwner,
@@ -233,18 +232,44 @@ async function waitForPullRequestHead(params: {
       throw new Error(
         `${params.branchName} is not ahead of ${params.baseBranch}: every commit on it is already in ${params.baseBranch}, or the run committed locally and its push to GitHub failed`,
       );
-    } catch (error) {
-      if (error instanceof Error && error.message.includes("is not ahead of")) {
-        throw error;
-      }
-      // Branch may not be visible yet right after push — keep retrying.
-      lastError =
-        error instanceof Error ? error.message : "GitHub compare failed";
-    }
-  }
-  throw new Error(
-    `GitHub did not report ${params.branchName} as ready for a pull request after branch push: ${lastError}`,
+    },
+    catch: (error) => error,
+  });
+
+  await runPromiseRethrowing(
+    compareHead.pipe(
+      Effect.tapError((error) =>
+        Effect.sync(() => {
+          if (isBranchNotAheadCompare(error)) return;
+          // Branch may not be visible yet right after push — keep retrying.
+          lastError =
+            error instanceof Error ? error.message : "GitHub compare failed";
+        }),
+      ),
+      Effect.retry({
+        schedule: retryAfterDelays(PR_READY_RETRY_DELAYS_MS),
+        while: (error) => !isBranchNotAheadCompare(error),
+      }),
+      Effect.catchIf(
+        (error) => !isBranchNotAheadCompare(error),
+        () =>
+          Effect.fail(
+            new Error(
+              `GitHub did not report ${params.branchName} as ready for a pull request after branch push: ${lastError}`,
+            ),
+          ),
+      ),
+    ),
   );
+}
+
+/**
+ * The sentinel `waitForPullRequestHead` raises when GitHub answered the compare
+ * and the branch is not ahead. Never retried: retrying a compare GitHub already
+ * answered cannot produce commits, so it has to surface on the first answer.
+ */
+function isBranchNotAheadCompare(error: unknown): boolean {
+  return error instanceof Error && error.message.includes("is not ahead of");
 }
 
 /**

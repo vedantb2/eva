@@ -179,6 +179,77 @@ export interface ChipSummary {
 }
 
 /**
+ * Anthropic's model-scoped weekly display name for the active Eva model, when
+ * one exists (Fable → "Fable"). Used to pick the chip bar's window.
+ */
+export function scopedWeeklyNameForModel(
+  model: string | null | undefined,
+): string | undefined {
+  if (!model) return undefined;
+  const lower = model.toLowerCase();
+  if (lower.includes("fable")) return "Fable";
+  if (lower.includes("opus")) return "Opus";
+  if (lower.includes("sonnet")) return "Sonnet";
+  return undefined;
+}
+
+function windowMatchesScopedName(windowKey: string, name: string): boolean {
+  if (name === "Opus" && windowKey === "seven_day_opus") return true;
+  if (name === "Sonnet" && windowKey === "seven_day_sonnet") return true;
+  if (!windowKey.startsWith("model_scoped:")) return false;
+  const scoped = windowKey.slice("model_scoped:".length);
+  return (
+    scoped === name ||
+    scoped.startsWith(`${name} `) ||
+    scoped.toLowerCase() === name.toLowerCase()
+  );
+}
+
+/**
+ * Chip bar for the open chat: the active account's reading, preferring the
+ * weekly window that meters the selected model (Weekly Fable on Fable, etc.).
+ * Falls back to that account's tightest window when the model has no scoped
+ * bucket (or none has been reported yet).
+ */
+export function chipSummaryForActive(
+  rows: readonly UsageSnapshot[],
+  now: number,
+  model: string | null | undefined,
+): ChipSummary | undefined {
+  const scopedName = scopedWeeklyNameForModel(model);
+  if (scopedName) {
+    let match: { utilization: number; tone: UsageTone } | undefined;
+    for (const row of rows) {
+      if (now - row.capturedAt > USAGE_READING_MAX_AGE_MS) continue;
+      for (const window of reportedWindows(row, now)) {
+        if (window.utilization === undefined) continue;
+        if (!windowMatchesScopedName(window.key, scopedName)) continue;
+        if (
+          match === undefined ||
+          window.utilization > match.utilization
+        ) {
+          match = {
+            utilization: window.utilization,
+            tone: worseTone(
+              toneForStatus(activeUsageStatus(row, now)),
+              toneForUtilization(window.utilization),
+            ),
+          };
+        }
+      }
+    }
+    if (match) {
+      return {
+        label: formatUtilization(match.utilization),
+        utilization: match.utilization,
+        tone: match.tone,
+      };
+    }
+  }
+  return chipSummary(rows, now);
+}
+
+/**
  * What the collapsed chip says: the plan windows, which are the real
  * constraint. A reading without any still matters when the provider flagged it,
  * and returning nothing is how the whole feature stays invisible until a turn

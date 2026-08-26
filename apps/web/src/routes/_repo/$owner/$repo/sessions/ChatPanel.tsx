@@ -13,7 +13,6 @@ import { ComposerPlanReadyBanner } from "./_components/ComposerPlanReadyBanner";
 import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
 import { BackgroundAgentsChip } from "./_components/BackgroundAgentsChip";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
-import { claudeUsageAccountScope } from "@/lib/components/usage-limits";
 import { SessionSummaryAccordion } from "./_components/SessionSummaryAccordion";
 import { SessionSummaryModal } from "./_components/SessionSummaryModal";
 import { SessionReviewModal } from "./_components/SessionReviewModal";
@@ -205,21 +204,13 @@ export function ChatPanel({
   const isStartupStreaming =
     isSandboxToggling && !isSandboxActive && !isSandboxStopping;
 
-  // Chip bar follows this Claude credential; the popover still lists every
-  // account. Omitted on Cursor/Codex so the bar does not show Claude % next to
-  // the wrong picker.
-  const usageAccountScope =
-    stickyProviderAccountId === undefined
-      ? undefined
-      : claudeUsageAccountScope(model, {
-          providerAccountId: stickyProviderAccountId,
-          accountLabel:
-            stickyProviderAccountId === null
-              ? "Team"
-              : (accounts.find(
-                  (account) => account.id === stickyProviderAccountId,
-                )?.label ?? "Selected account"),
-        });
+  const usageAccountLabel =
+    stickyProviderAccountId === null
+      ? "Team"
+      : stickyProviderAccountId === undefined
+        ? "Selected account"
+        : (accounts.find((account) => account.id === stickyProviderAccountId)
+            ?.label ?? "Selected account");
 
   const { headerLeft, headerRight } = SessionChatHeader({
     repoId: repo._id,
@@ -237,7 +228,9 @@ export function ChatPanel({
     permalinkPath,
     chatOnly,
     hideTitle,
-    usageAccountScope,
+    model,
+    providerAccountId: stickyProviderAccountId,
+    usageAccountLabel,
     onSandboxToggle,
     onOpenSummaryModal: () => setShowSummaryModal(true),
     onOpenReviewModal: () => setShowReviewModal(true),

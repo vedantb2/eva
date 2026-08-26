@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import {
   chipSummary,
+  chipSummaryForActive,
   emptyAccountUsageCopy,
   formatResetDistanceMs,
   maxUtilization,
@@ -9,6 +10,7 @@ import {
   providerHeading,
   reportedWindows,
   resetsInLabel,
+  scopedWeeklyNameForModel,
   sectionKey,
   toneForUtilization,
   type UsageSnapshot,
@@ -166,6 +168,31 @@ test("plan-usage chip scope is omitted on non-Claude models", () => {
   expect(claudeUsageAccountScope("cursor:grok-4.6", team)).toBeUndefined();
   expect(claudeUsageAccountScope("codex:gpt-5.5", team)).toBeUndefined();
   expect(claudeUsageAccountScope("opencode:openai/gpt-5.4", team)).toBeUndefined();
+});
+
+test("scoped weekly name follows the active Claude model", () => {
+  expect(scopedWeeklyNameForModel("claude:claude-fable-5")).toBe("Fable");
+  expect(scopedWeeklyNameForModel("claude:claude-opus-4-6")).toBe("Opus");
+  expect(scopedWeeklyNameForModel("claude:claude-sonnet-4-6")).toBe("Sonnet");
+  expect(scopedWeeklyNameForModel("cursor:grok-4.6")).toBeUndefined();
+});
+
+test("chip bar prefers Weekly (Fable) when the active model is Fable", () => {
+  const row = claude({
+    windows: [
+      { key: "five_hour", label: "5h", utilization: 90 },
+      { key: "seven_day", label: "Weekly (all models)", utilization: 40 },
+      { key: "model_scoped:Fable", label: "Weekly (Fable)", utilization: 12 },
+    ],
+  });
+  expect(chipSummaryForActive([row], NOW, "claude:claude-fable-5")).toEqual({
+    label: "12%",
+    utilization: 12,
+    tone: "neutral",
+  });
+  expect(chipSummaryForActive([row], NOW, "claude:claude-sonnet-4-6")?.utilization).toBe(
+    90,
+  );
 });
 
 test("a windowless rejection still colours a chip that has a number", () => {

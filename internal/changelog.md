@@ -1,5 +1,9 @@
 # Changelog
 
+## Plan-usage is one shared indicator - 2026-08-26
+
+Session/project/task headers all mount the same `UsageLimitsIndicator` with `model` + account. Only the chip bar changes (active account, preferring Weekly Fable on Fable); the popover always shows every account from the same `getByRepo` query so switching sessions cannot show different numbers.
+
 ## Plan-usage chip reads Weekly (Fable) from 7d_oi - 2026-08-26
 
 Messages-probe refresh only parsed `5h`/`7d`, so Weekly (Fable) never appeared. It now reads `anthropic-ratelimit-unified-7d_oi-*`, probes Fable first, accepts ISO `limits[].resets_at`, and the chip bar follows the active Claude account while the popover still lists every account.

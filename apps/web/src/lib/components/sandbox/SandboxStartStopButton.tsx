@@ -3,10 +3,7 @@
 import { Button, cn, Spinner } from "@eva/ui";
 import { IconPlayerPlay, IconPlayerStop } from "@tabler/icons-react";
 import type { Id } from "@eva/backend";
-import {
-  UsageLimitsIndicator,
-  type UsageAccountScope,
-} from "@/lib/components/usage-limits";
+import { UsageLimitsIndicator } from "@/lib/components/usage-limits";
 import { SleepControlTooltip } from "./SleepEvaButton";
 
 /**
@@ -75,14 +72,18 @@ export function SandboxChatHeaderActions({
   isSandboxToggling,
   onSandboxToggle,
   isAssistantResponding = false,
-  usageAccountScope,
+  model,
+  providerAccountId,
+  usageAccountLabel,
 }: {
   repoId: Id<"githubRepos">;
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
   onSandboxToggle?: (action: "start" | "stop") => void;
   isAssistantResponding?: boolean;
-  usageAccountScope?: UsageAccountScope;
+  model: string | null | undefined;
+  providerAccountId: Id<"userProviderAccounts"> | null | undefined;
+  usageAccountLabel: string;
 }) {
   if (!onSandboxToggle) return null;
 
@@ -90,7 +91,9 @@ export function SandboxChatHeaderActions({
     <div className="flex shrink-0 items-center justify-end gap-1 px-2 py-1">
       <UsageLimitsIndicator
         repoId={repoId}
-        accountScope={usageAccountScope}
+        model={model}
+        providerAccountId={providerAccountId}
+        accountLabel={usageAccountLabel}
       />
       <SandboxStartStopButton
         isActive={isSandboxActive}

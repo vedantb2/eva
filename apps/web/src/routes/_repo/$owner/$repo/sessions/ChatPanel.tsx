@@ -10,6 +10,11 @@ import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { ComposerPlanReadyBanner } from "./_components/ComposerPlanReadyBanner";
+import {
+  COMPACT_COMMAND,
+  ComposerCompactionBanner,
+  useCompactionBanner,
+} from "./_components/ComposerCompactionBanner";
 import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
 import { BackgroundAgentsChip } from "./_components/BackgroundAgentsChip";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
@@ -185,6 +190,23 @@ export function ChatPanel({
     messages,
   });
 
+  const compaction = useCompactionBanner({
+    repoId: repo._id,
+    sessionId,
+    model,
+    isExecuting,
+    isArchived: isReadOnly,
+  });
+
+  const handleCompact = () => {
+    // Mock mode must never spend a turn — it only fills the composer.
+    if (compaction?.isMock) {
+      void seedChatDraft(COMPACT_COMMAND);
+      return;
+    }
+    void handleSend(COMPACT_COMMAND, undefined, { skipReviewComments: true });
+  };
+
   const activeQuestion = useQuery(api.pendingQuestions.getActive, {
     entityId: sessionId,
   });
@@ -297,6 +319,13 @@ export function ChatPanel({
       />
       <BackgroundProcessesPanel sessionId={sessionId} />
       <PendingReviewCommentChips />
+      {compaction ? (
+        <ComposerCompactionBanner
+          usedTokens={compaction.usedTokens}
+          onCompact={handleCompact}
+          onDismiss={compaction.onDismiss}
+        />
+      ) : null}
       {showCompactPlanCard && planContent ? (
         <AnimatePresence initial={false}>
           <m.div

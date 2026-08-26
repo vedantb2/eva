@@ -1,5 +1,11 @@
 # Changelog
 
+## Compaction recommendation banner on session resume - 2026-08-26
+
+- Adopted t3code's "Resume with less context" offer: a dismissible banner above the composer when a Claude session is resumed sitting on ≥100k context tokens with the last turn ≥70 minutes old and nothing running. Shows the token figure from the newest `logs` row and a Compact action that sends the `/compact` harness built-in.
+- `handleSend` gained a `skipReviewComments` option so `/compact` reaches the harness verbatim without consuming pending review comments.
+- Dismissal ("Keep full history") is localStorage-keyed to the turn's `createdAt`, so a later turn re-offers. `?mockCompaction=1` demos the banner (mock Compact seeds the composer draft instead of sending).
+
 ## Subagent spawn CTA row in the chat timeline - 2026-08-26
 
 - Adopted t3code's inline spawn row: assistant turns that kicked off subagents get a slim clickable row under their activity — dot, robot icon, "Kicked off N subagents", "N working" (or "N failed"/"completed" once settled), optional "Σ 65.1k" token sum, "Open Agents ›" — that opens the existing Agents sandbox tab and expands the right pane.

@@ -93,6 +93,8 @@ test("expired leases are reconciled by a level-triggered cron", () => {
   const crons = source("../convex/crons.ts");
   expect(turns).toContain("turn.leaseExpiresAt >= Date.now()");
   expect(turns).toContain("internal.turns.finalizeExpired");
+  expect(turns).toContain("retryEmptyStalledSessionTurn");
+  expect(turns).toContain("lastLeaseWriteAt");
   expect(crons).toContain('"session turn lease reconcile"');
   expect(crons).toContain("internal.turns.reconcile");
 });

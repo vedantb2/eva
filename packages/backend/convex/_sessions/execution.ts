@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
-import { internalQuery, type MutationCtx } from "../_generated/server";
+import { internalMutation, internalQuery, type MutationCtx } from "../_generated/server";
 import { workflow, cancelTrackedWorkflow } from "../workflowManager";
 import { authAction, authMutation, hasRepoAccess } from "../functions";
 import {
@@ -25,6 +25,10 @@ import {
   closeTurnForWorkflow,
   openSessionTurn,
 } from "../_chat/turnStore";
+import {
+  countStallAlertsAfterLastUser,
+  shouldRetryEmptyStall,
+} from "../_chat/stallRetry";
 
 async function finalizeOpenSyntheticTurnOnCancel(
   ctx: MutationCtx,
@@ -37,6 +41,192 @@ async function finalizeOpenSyntheticTurnOnCancel(
     await finalizeCancelledAssistantMessage(ctx, syntheticMessage, streaming);
   }
 }
+
+async function stageAndStartSessionTurn(
+  ctx: MutationCtx,
+  params: {
+    session: Doc<"sessions">;
+    repo: Doc<"githubRepos">;
+    actingUserId: Id<"users">;
+    message: string;
+    model: Doc<"turns">["model"];
+    reasoningLevel?: Doc<"sessions">["lastReasoningLevel"];
+    thinkingEnabled?: boolean;
+    use1mContext?: boolean;
+    fastMode?: boolean;
+    providerAccountId?: Id<"userProviderAccounts">;
+    attachmentStorageIds?: Id<"_storage">[];
+  },
+): Promise<void> {
+  const stickyProviderAccountId = await resolveTurnProviderAccountId(ctx.db, {
+    requestedAccountId: params.providerAccountId,
+    ownerUserId: params.session.createdBy ?? params.session.userId,
+    model: params.model,
+    changePolicy: "owner-pool",
+  });
+  const credentialOwnerUserId =
+    params.session.createdBy ?? params.session.userId;
+
+  await clearStreamingActivity(ctx, String(params.session._id));
+
+  const placeholderMessageId = await ctx.db.insert("messages", {
+    parentId: params.session._id,
+    role: "assistant",
+    content: "",
+    timestamp: Date.now(),
+    activityLog: "",
+  });
+
+  const user = await ctx.db.get(params.actingUserId);
+  const { prompt } = await buildSessionPrompt(ctx, {
+    session: params.session,
+    repo: params.repo,
+    user,
+    message: params.message,
+    model: params.model,
+  });
+
+  const normalizedModel = normalizeAIModel(params.model);
+  const usesDaemonPull = usesChatDaemon(normalizedModel);
+  const turnId = await openSessionTurn(ctx, {
+    sessionId: params.session._id,
+    streamingEntityId: String(params.session._id),
+    placeholderMessageId,
+    prompt,
+    attachmentStorageIds: params.attachmentStorageIds,
+    model: normalizedModel,
+    sandboxId: params.session.sandboxId,
+    repoId: params.session.repoId,
+  });
+  const pendingTurn = usesDaemonPull
+    ? {
+        prompt,
+        requestedAt: Date.now(),
+        turnId,
+        attachmentStorageIds: params.attachmentStorageIds,
+        model: normalizedModel,
+      }
+    : undefined;
+  await ctx.db.patch(params.session._id, {
+    pendingTurn,
+    providerAccountId: stickyProviderAccountId,
+    lastModel: normalizedModel,
+    ...(params.reasoningLevel !== undefined
+      ? { lastReasoningLevel: params.reasoningLevel }
+      : {}),
+    ...(params.thinkingEnabled !== undefined
+      ? { lastThinkingEnabled: params.thinkingEnabled }
+      : {}),
+    ...(params.use1mContext !== undefined
+      ? { lastUse1mContext: params.use1mContext }
+      : {}),
+    ...(params.fastMode !== undefined ? { lastFastMode: params.fastMode } : {}),
+    updatedAt: Date.now(),
+  });
+  await syncSessionDaemonState(ctx, params.session, { pendingTurn });
+
+  if (usesDaemonPull && params.session.sandboxId) {
+    await ctx.scheduler.runAfter(0, internal.sandbox.prewarmSessionDaemon, {
+      sandboxId: params.session.sandboxId,
+      sessionId: params.session._id,
+      repoId: params.session.repoId,
+      userId: params.actingUserId,
+      model: normalizedModel,
+      reasoningLevel: params.reasoningLevel,
+      thinkingEnabled: params.thinkingEnabled,
+      use1mContext: params.use1mContext,
+      fastMode: params.fastMode,
+      ...sessionTurnTools(params.session.isOrchestrator),
+      providerAccountId: stickyProviderAccountId,
+      credentialOwnerUserId,
+      sessionPersistenceId: params.session._id,
+    });
+  }
+
+  const workflowId = await workflow.start(
+    ctx,
+    internal.sessionWorkflow.sessionExecuteWorkflow,
+    {
+      sessionId: params.session._id,
+      message: params.message,
+      model: params.model,
+      reasoningLevel: params.reasoningLevel,
+      thinkingEnabled: params.thinkingEnabled,
+      use1mContext: params.use1mContext,
+      fastMode: params.fastMode,
+      providerAccountId: stickyProviderAccountId,
+      credentialOwnerUserId,
+      userId: params.actingUserId,
+      installationId: params.repo.installationId,
+      turnId,
+    },
+  );
+
+  await bindTurnWorkflow(ctx, turnId, String(workflowId));
+  await trackSessionWorkflow(ctx, params.session._id, workflowId);
+}
+
+/**
+ * Restage the last user prompt after an empty stall so the question is not
+ * lost. No new user bubble — the original message stays, a new placeholder
+ * opens below the stall alert. One shot: a second stall of the same prompt
+ * stays failed.
+ */
+export const retryEmptyStalledSessionTurn = internalMutation({
+  args: {
+    sessionId: v.id("sessions"),
+    turnId: v.id("turns"),
+    sandboxStopped: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    const turn = await ctx.db.get(args.turnId);
+    if (!session || !turn) return null;
+
+    const messages = await ctx.db
+      .query("messages")
+      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
+      .order("desc")
+      .take(20);
+    const counted = countStallAlertsAfterLastUser(messages);
+    if (
+      !shouldRetryEmptyStall({
+        sandboxStopped: args.sandboxStopped,
+        hasActiveWorkflow: session.activeWorkflowId !== undefined,
+        stallAlertsAfterLastUser: counted.stallAlertsAfterLastUser,
+        lastUserContent: counted.lastUserContent,
+        hasSalvagedOutput: counted.hasSalvagedOutput,
+      })
+    ) {
+      return null;
+    }
+    const lastUserContent = counted.lastUserContent;
+    if (lastUserContent === undefined) return null;
+
+    const repo = await ctx.db.get(session.repoId);
+    if (!repo) return null;
+
+    const actingUserId = session.createdBy ?? session.userId;
+    await stageAndStartSessionTurn(ctx, {
+      session,
+      repo,
+      actingUserId,
+      message: lastUserContent,
+      model: turn.model,
+      reasoningLevel: session.lastReasoningLevel,
+      thinkingEnabled: session.lastThinkingEnabled,
+      use1mContext: session.lastUse1mContext,
+      fastMode: session.lastFastMode,
+      providerAccountId: session.providerAccountId,
+      attachmentStorageIds: turn.attachmentStorageIds,
+    });
+    console.log(
+      `[sessions] retryEmptyStalledSessionTurn sessionId=${args.sessionId} turnId=${args.turnId}`,
+    );
+    return null;
+  },
+});
 
 /** Frontend trigger to start a session execution workflow. */
 export const startExecute = authMutation({
@@ -68,35 +258,10 @@ export const startExecute = authMutation({
     const repo = await ctx.db.get(session.repoId);
     if (!repo) throw new Error("Repository not found");
 
-    const credentialOwnerUserId = session.createdBy ?? session.userId;
-    const stickyProviderAccountId = await resolveTurnProviderAccountId(ctx.db, {
-      requestedAccountId: args.providerAccountId,
-      ownerUserId: session.createdBy ?? session.userId,
-      model: args.model,
-      changePolicy: "owner-pool",
-    });
-
-    // Wipe any stale streaming row before staging the placeholder. The daemon
-    // sends its final reconcile heartbeat BEFORE the completion mutation (see
-    // finalizeTurn in callback-src/providers/claudeSdkDaemon.ts), so it no
-    // longer resurrects the row post-clear; this clear stays as defence in
-    // depth — old warm daemons, one-shot providers, and crashed turns can
-    // still leave a row holding the finished turn's reply/activity, which the
-    // new placeholder below would render as its own response.
-    await clearStreamingActivity(ctx, String(args.sessionId));
-
     // Daemon-pull dispatch: stage the turn for a warm daemon to claim in one
-    // poll instead of waiting on the workflow's durable step queue. We must
-    // reproduce, in this mutation, the exact side effects the workflow's first
-    // two steps used to do — insert the assistant placeholder and build the
-    // prompt — so the daemon runs precisely what the workflow would have handed
-    // it. The workflow still starts below (for cold-resume, completion,
-    // post-turn push/save, and cancellation); it simply no longer pushes the
-    // prompt (see sessionExecuteWorkflow), so the turn is never double-executed.
-    //
-    // The user row for this turn is already stored (the client sends addMessage
-    // first), so handoff detection sees it and posts its alert above the new
-    // placeholder rather than below the reply.
+    // poll instead of waiting on the workflow's durable step queue. The user
+    // row is already stored (the client sends addMessage first), so handoff
+    // detection sees it and posts its alert above the new placeholder.
     await maybeInsertModelHandoffAlert(
       ctx,
       args.sessionId,
@@ -104,109 +269,19 @@ export const startExecute = authMutation({
       session.provider,
     );
 
-    const placeholderMessageId = await ctx.db.insert("messages", {
-      parentId: args.sessionId,
-      role: "assistant",
-      content: "",
-      timestamp: Date.now(),
-      activityLog: "",
-    });
-
-    const user = await ctx.db.get(ctx.userId);
-    const { prompt } = await buildSessionPrompt(ctx, {
+    await stageAndStartSessionTurn(ctx, {
       session,
       repo,
-      user,
+      actingUserId: ctx.userId,
       message: args.message,
       model: args.model,
-    });
-
-    // One-shot providers receive the prompt in their launch payload; persistent
-    // chat providers atomically stage it for their sandbox-local daemon.
-    const normalizedModel = normalizeAIModel(args.model);
-    const usesDaemonPull = usesChatDaemon(normalizedModel);
-    const turnId = await openSessionTurn(ctx, {
-      sessionId: args.sessionId,
-      streamingEntityId: String(args.sessionId),
-      placeholderMessageId,
-      prompt,
+      reasoningLevel: args.reasoningLevel,
+      thinkingEnabled: args.thinkingEnabled,
+      use1mContext: args.use1mContext,
+      fastMode: args.fastMode,
+      providerAccountId: args.providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
-      model: normalizedModel,
-      sandboxId: session.sandboxId,
-      repoId: session.repoId,
     });
-    const pendingTurn = usesDaemonPull
-      ? {
-          prompt,
-          requestedAt: Date.now(),
-          turnId,
-          attachmentStorageIds: args.attachmentStorageIds,
-          model: normalizedModel,
-        }
-      : undefined;
-    await ctx.db.patch(args.sessionId, {
-      pendingTurn,
-      // Deliberately no cancelRequestedAt clear here: staging must never wipe
-      // an undrained cancel for a still-running turn (the daemon drains the
-      // flag via claimPendingTurn, and ignores it when no turn is active, so a
-      // stale flag is harmless — but a wiped one loses the interrupt).
-      // Persist the session owner's sticky account for page-open prewarm.
-      providerAccountId: stickyProviderAccountId,
-      lastModel: normalizedModel,
-      ...(args.reasoningLevel !== undefined
-        ? { lastReasoningLevel: args.reasoningLevel }
-        : {}),
-      ...(args.thinkingEnabled !== undefined
-        ? { lastThinkingEnabled: args.thinkingEnabled }
-        : {}),
-      ...(args.use1mContext !== undefined
-        ? { lastUse1mContext: args.use1mContext }
-        : {}),
-      ...(args.fastMode !== undefined ? { lastFastMode: args.fastMode } : {}),
-      updatedAt: Date.now(),
-    });
-    await syncSessionDaemonState(ctx, session, { pendingTurn });
-
-    // Ensure the provider's chat daemon exists to claim the staged prompt.
-    if (usesDaemonPull && session.sandboxId) {
-      await ctx.scheduler.runAfter(0, internal.sandbox.prewarmSessionDaemon, {
-        sandboxId: session.sandboxId,
-        sessionId: args.sessionId,
-        repoId: session.repoId,
-        userId: ctx.userId,
-        model: normalizedModel,
-        reasoningLevel: args.reasoningLevel,
-        thinkingEnabled: args.thinkingEnabled,
-        use1mContext: args.use1mContext,
-        fastMode: args.fastMode,
-        ...sessionTurnTools(session.isOrchestrator),
-        providerAccountId: stickyProviderAccountId,
-        credentialOwnerUserId,
-        sessionPersistenceId: args.sessionId,
-      });
-    }
-
-    const workflowId = await workflow.start(
-      ctx,
-      internal.sessionWorkflow.sessionExecuteWorkflow,
-      {
-        sessionId: args.sessionId,
-        message: args.message,
-        model: args.model,
-        reasoningLevel: args.reasoningLevel,
-        thinkingEnabled: args.thinkingEnabled,
-        use1mContext: args.use1mContext,
-        fastMode: args.fastMode,
-        providerAccountId: stickyProviderAccountId,
-        credentialOwnerUserId,
-        userId: ctx.userId,
-        installationId: repo.installationId,
-        turnId,
-      },
-    );
-
-    await bindTurnWorkflow(ctx, turnId, String(workflowId));
-    await trackSessionWorkflow(ctx, args.sessionId, workflowId);
 
     return null;
   },

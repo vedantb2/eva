@@ -20,7 +20,7 @@ The header chip no longer filters to the sticky session credential — every Cla
 
 - A claimed turn whose daemon died before any output (session 125: Zuza's Figma question after sandbox resume) dropped the prompt and told the user to send a new message. The next send is a different turn, so the original question was never answered.
 - `claimPendingTurn` now takes `acceptTurn`. Daemons pass false unless idle, so a follow-up no longer acquires the 2-minute running lease with nobody heartbeating it. Cancel/stop/usage still drain.
-- `finalizeExpired` restages the last user prompt once (no new user bubble) after an empty stall while the sandbox is up. A second stall of the same prompt stays failed.
+- `finalizeExpired` restages the last user prompt once (no new user bubble) after an empty stall while the sandbox is up. Retry runs after the stall alert is inserted, so the first failure already counts as 1; a second stall of the same prompt stays failed. Stalls that already streamed text or tool activity are not replayed.
 - Stall alert copy reports time since the last lease write, not time since expiry, and no longer guesses OOM.
 
 ## Plan-usage refresh uses Claude Code UA + Messages probe again - 2026-08-26

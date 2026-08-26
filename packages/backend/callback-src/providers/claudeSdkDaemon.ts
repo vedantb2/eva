@@ -1140,18 +1140,13 @@ function startClaimWatcher(agentRunner: WarmRunner): void {
         supervisor.stop();
         process.exit(0);
       }
-      // Completion already ran (lease cleared) but transcript persist still
-      // holds the supervisor in "finalizing". Claiming here acquires a fresh
-      // 2-minute running lease we cannot heartbeat yet — skip until idle.
-      if (supervisor.phase === "finalizing") {
-        await sleep(PROMPT_POLL_INTERVAL_MS);
-        continue;
-      }
+      const acceptTurn =
+        supervisor.phase === "idle" && supervisor.pendingClaim === null;
       try {
         const claimed = await callConvexWithRetry(
           "mutation",
           CLAIM_MUTATION ?? "",
-          entityMutationArgs({ model: MODEL }),
+          entityMutationArgs({ model: MODEL, acceptTurn }),
         );
         const stopIds = readStopTaskToolUseIds(claimed);
         for (const toolUseId of stopIds) {

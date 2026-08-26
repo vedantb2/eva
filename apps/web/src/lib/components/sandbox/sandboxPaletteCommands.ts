@@ -7,6 +7,7 @@ import {
   IconDeviceDesktop,
   IconFileText,
   IconPalette,
+  IconRobot,
   IconTerminal2,
   IconWorld,
 } from "@tabler/icons-react";
@@ -26,6 +27,7 @@ interface BuildSandboxPaletteCommandsArgs {
   activeTab: string;
   tabs: ReadonlyArray<SandboxCommandTab>;
   showFilesTab: boolean;
+  showAgentsTab: boolean;
   showPrdTab: boolean;
   showDesignsTab: boolean;
   showEditorItem: boolean;
@@ -46,6 +48,7 @@ export function buildSandboxPaletteCommands({
   activeTab,
   tabs,
   showFilesTab,
+  showAgentsTab,
   showPrdTab,
   showDesignsTab,
   showEditorItem,
@@ -75,6 +78,15 @@ export function buildSandboxPaletteCommands({
       keywords: "view tab tree repository",
       icon: IconFileText,
       run: () => onTabChange("files"),
+    });
+  }
+  if (showAgentsTab) {
+    commands.push({
+      id: "show-agents",
+      label: "Show Agents",
+      keywords: "view tab subagents background transcripts",
+      icon: IconRobot,
+      run: () => onTabChange("agents"),
     });
   }
   if (showPrdTab) {

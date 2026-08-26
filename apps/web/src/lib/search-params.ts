@@ -126,6 +126,7 @@ const sandboxTabs = [
   "computer",
   "review",
   "files",
+  "agents",
   "prd",
   "designs",
 ] as const;

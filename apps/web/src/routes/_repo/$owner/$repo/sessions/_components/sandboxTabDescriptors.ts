@@ -4,6 +4,7 @@ import {
   IconDeviceDesktop,
   IconFileText,
   IconPalette,
+  IconRobot,
 } from "@tabler/icons-react";
 import type { Doc } from "@eva/backend";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
@@ -21,6 +22,9 @@ interface BuildSandboxTabDescriptorsArgs {
   computerRunning: boolean;
   onCloseComputer: (() => void) | undefined;
   showFilesTab: boolean;
+  showAgentsTab: boolean;
+  /** True while any sub-agent is running — pulses the Agents tab dot. */
+  hasRunningAgents: boolean;
   showPrdTab: boolean;
   hasPrdContent: boolean;
   showDesignsTab: boolean;
@@ -44,6 +48,8 @@ export function buildSandboxTabDescriptors({
   computerRunning,
   onCloseComputer,
   showFilesTab,
+  showAgentsTab,
+  hasRunningAgents,
   showPrdTab,
   hasPrdContent,
   showDesignsTab,
@@ -87,6 +93,16 @@ export function buildSandboxTabDescriptors({
       value: "files",
       label: "Files",
       icon: { kind: "component", Icon: IconFileText },
+    });
+  }
+
+  if (showAgentsTab) {
+    descriptors.push({
+      value: "agents",
+      label: "Agents",
+      icon: { kind: "component", Icon: IconRobot },
+      indicator: hasRunningAgents ? "activity" : undefined,
+      indicatorLabel: hasRunningAgents ? "Agents running" : undefined,
     });
   }
 

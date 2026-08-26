@@ -1,10 +1,16 @@
 import { useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
-import { api, type Id, type SandboxOwner } from "@eva/backend";
+import {
+  api,
+  type BackgroundAgentEntry,
+  type Id,
+  type SandboxOwner,
+} from "@eva/backend";
 import { isSessionSandboxTab } from "@/lib/search-params";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
+import { SessionAgentsPanel } from "./_components/SessionAgentsPanel";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { DesignVariationsPanel } from "./_components/DesignVariationsPanel";
 import { FilesPanel } from "./FilesPanel";
@@ -16,6 +22,10 @@ import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
+import {
+  deriveSubagents,
+  subagentTone,
+} from "@/lib/components/sandbox/agentActivity";
 import { SandboxPanelFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
 import { useSeedChatDraft } from "@/lib/components/chat/useSeedChatDraft";
 import { useSessionAnnotationSend } from "./_components/useSessionAnnotationSend";
@@ -48,6 +58,10 @@ interface SandboxPanelProps {
   terminalPanel: TerminalPanelApi;
   planContent?: string;
   messages?: SessionDesignMessage[];
+  /** Sub-agent lifecycle entries from the session doc (Agents tab). */
+  backgroundAgents?: BackgroundAgentEntry[];
+  /** Live activity payload for the current turn (Agents tab live steps). */
+  streamingActivity?: string;
   isArchived?: boolean;
   /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
   activeTab: string;
@@ -72,6 +86,8 @@ export function SandboxPanel({
   terminalPanel,
   planContent,
   messages = [],
+  backgroundAgents,
+  streamingActivity,
   isArchived,
   activeTab,
   onTabChange,
@@ -95,6 +111,17 @@ export function SandboxPanel({
     typeof planContent === "string" && planContent.trim().length > 0;
   const hasDesignsContent = latestVariations.length > 0;
   const isDesignExecuting = isAssistantTurnInProgress(messages);
+  // Streaming payloads can outlive their turn; only fold them in while one runs.
+  const agents = deriveSubagents({
+    activityLogs: messages.map((m) => m.activityLog),
+    streamingActivity: isDesignExecuting ? streamingActivity : undefined,
+    backgroundAgents,
+    sandboxRunning: isActive,
+  });
+  const hasAgents = agents.length > 0;
+  const hasRunningAgents = agents.some(
+    (agent) => subagentTone(agent.status) === "active",
+  );
   // Sticky Preview path/port + console tail, keyed by the sandbox owner so all
   // three surfaces read and write this state through the same functions.
   const viewState = useQuery(api.sandboxPanes.getViewState, { owner });
@@ -166,6 +193,8 @@ export function SandboxPanel({
         showDesignsTab={hasDesignsContent}
         hasDesignsContent={hasDesignsContent}
         showFilesTab
+        showAgentsTab={hasAgents}
+        hasRunningAgents={hasRunningAgents}
         customTabs={simpleView ? undefined : customTabs}
         agentBrowsingAt={agentBrowsingAt}
         computerTabOpen={computerTabOpen}
@@ -240,6 +269,17 @@ export function SandboxPanel({
             repoId={repoId}
             isActive={isActive}
             fileList={fileList}
+          />
+        </div>
+        <div
+          className={
+            !simpleView && activeTab === "agents" ? "h-full min-h-0" : "hidden"
+          }
+        >
+          <SessionAgentsPanel
+            sessionId={sessionId}
+            agents={agents}
+            isReadOnly={isArchived === true}
           />
         </div>
         <SandboxPaneSlots

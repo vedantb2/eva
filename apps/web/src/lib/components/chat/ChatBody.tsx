@@ -12,6 +12,7 @@ import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { ChatMessage } from "@/lib/components/chat/ChatMessage";
 import { ChatQuestionDock } from "@/lib/components/chat/ChatQuestionDock";
 import { useChangedFilesExpansion } from "@/lib/components/chat/useChangedFilesExpansion";
+import { useAgentReplyChime } from "@/lib/components/chat/useAgentReplyChime";
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
@@ -246,6 +247,19 @@ export function ChatBody({
   const handoffBoundaryIds = findHandoffBoundaryIds(displayMessages);
 
   const currentUserId = useQuery(api.auth.me);
+
+  // The turn that just finished belongs to whoever sent the last user message.
+  // Unattributed rows (legacy / optimistic) count as own, matching how the
+  // transcript itself attributes them.
+  const lastUserMessage = displayMessages[lastUserMessageIndex];
+  useAgentReplyChime({
+    conversationId,
+    isExecuting,
+    isOwnTurn:
+      lastUserMessage === undefined ||
+      !isOtherUserChatMessage(lastUserMessage, currentUserId),
+  });
+
   const otherUserIds = otherUserIdsInChat(displayMessages, currentUserId);
   const users = useQuery(
     api.users.getMany,

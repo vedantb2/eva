@@ -1,19 +1,51 @@
-import { beforeEach, expect, test } from "vitest";
+import { beforeEach, expect, test, vi } from "vitest";
 import { callbackState as S, resetStateForTests } from "../runtime/state.js";
-import type { UsageLimitSnapshot } from "../types.js";
+import type {
+  ConvexCallType,
+  JsonObject,
+  JsonValue,
+  UsageLimitSnapshot,
+} from "../types.js";
 import {
   buildUsageLimitReportArgs,
   captureClaudeUsage,
   captureClaudeUsageLimitError,
+  type ClaudeUsageResponseLike,
   mergeClaudeRateLimitEvent,
   readClaudeUsageWindows,
   readIsoMs,
   unwrapUsagePayload,
 } from "../runtime/usageLimits.js";
 
+/**
+ * Breadcrumb mutations the module fires, captured instead of sent. Hoisted so
+ * the `vi.mock` factory below (which runs before the imports) can reach it.
+ */
+const convexCalls = vi.hoisted(() => {
+  const calls: { path: string; args: JsonObject }[] = [];
+  return calls;
+});
+
+vi.mock("../http/convexClient.js", () => ({
+  callConvexWithRetry: async (
+    _type: ConvexCallType,
+    path: string,
+    args: JsonObject,
+  ): Promise<JsonValue> => {
+    convexCalls.push({ path, args });
+    return null;
+  },
+}));
+
 beforeEach(() => {
   resetStateForTests();
+  convexCalls.length = 0;
 });
+
+/** A never-answering `/usage` lookup: the torn-down control channel. */
+function neverAnswers(): Promise<ClaudeUsageResponseLike | null> {
+  return new Promise<ClaudeUsageResponseLike | null>(() => {});
+}
 
 test("mergeClaudeRateLimitEvent labels the window and converts epoch seconds", () => {
   mergeClaudeRateLimitEvent({
@@ -336,4 +368,95 @@ test("a nested usage payload still captures", async () => {
     completeness: "complete",
     windows: [{ key: "five_hour", label: "5h", utilization: 21 }],
   });
+});
+
+test("unwrapUsagePayload keeps the outer reading when `value` carries none", () => {
+  // Envelopes carry other metadata under `value` too. Unwrapping on the mere
+  // presence of the key would throw away the reading sitting beside it.
+  const enveloped = {
+    rate_limits_available: true,
+    rate_limits: { five_hour: { utilization: 12, resets_at: null } },
+    value: {},
+  };
+  expect(unwrapUsagePayload(enveloped)).toBe(enveloped);
+  expect(unwrapUsagePayload({ value: null })).toEqual({ value: null });
+});
+
+/**
+ * The chip's refresh button asks a live daemon for a reading, and the SDK
+ * answers only once it has initialized — which a cold query routinely takes
+ * longer than the 5s budget a turn's best-effort telemetry gets. Sharing that
+ * budget is what made the button appear to do nothing.
+ */
+test("an unforced usage lookup gives up at the turn budget and says nothing", async () => {
+  vi.useFakeTimers();
+  try {
+    const capture = captureClaudeUsage(neverAnswers);
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(await capture).toBe(false);
+    // Turn telemetry is silent by design: no breadcrumb, no Convex write.
+    expect(convexCalls).toEqual([]);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("a forced refresh keeps waiting past the turn budget", async () => {
+  vi.useFakeTimers();
+  try {
+    const capture = captureClaudeUsage(
+      () =>
+        new Promise<ClaudeUsageResponseLike | null>((resolve) => {
+          setTimeout(
+            () =>
+              resolve({
+                rate_limits_available: true,
+                rate_limits: {
+                  five_hour: { utilization: 61, resets_at: null },
+                },
+              }),
+            9_000,
+          );
+        }),
+      true,
+    );
+
+    await vi.advanceTimersByTimeAsync(6_000);
+    // Past the unforced budget, and still waiting rather than reporting a miss.
+    expect(S.usageLimitSnapshot).toBeNull();
+
+    await vi.advanceTimersByTimeAsync(4_000);
+    expect(await capture).toBe(true);
+    expect(S.usageLimitSnapshot).toEqual({
+      completeness: "complete",
+      windows: [{ key: "five_hour", label: "5h", utilization: 61 }],
+    });
+    expect(convexCalls).toEqual([
+      {
+        path: "usageLimits:noteRefreshAttempt",
+        args: { captured: true, available: true, detail: "complete" },
+      },
+    ]);
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+test("a forced refresh that never answers leaves a breadcrumb", async () => {
+  vi.useFakeTimers();
+  try {
+    const capture = captureClaudeUsage(neverAnswers, true);
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(await capture).toBe(false);
+    // Without this the only record of a failed on-demand refresh was a log
+    // line on the VM, which nobody sees once the sandbox is gone.
+    expect(convexCalls).toEqual([
+      {
+        path: "usageLimits:noteRefreshAttempt",
+        args: { captured: false, detail: "timeout" },
+      },
+    ]);
+  } finally {
+    vi.useRealTimers();
+  }
 });

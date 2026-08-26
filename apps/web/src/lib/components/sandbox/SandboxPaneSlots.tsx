@@ -18,7 +18,6 @@ import {
   isSimpleViewHiddenSandboxTab,
   useSimpleView,
 } from "@/lib/hooks/useSimpleView";
-import { useMockAgentsRevealsTab } from "./mockAgents";
 
 interface SandboxPaneSlotsProps {
   /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
@@ -96,11 +95,8 @@ export function SandboxPaneSlots({
   onStickyTerminalHistoryTailChange,
 }: SandboxPaneSlotsProps) {
   const simpleView = useSimpleView();
-  // `?mockAgents=1` demo: `/agents` is not a pane slot, but resolving it to
-  // "preview" here would paint Preview underneath the Agents panel.
-  const mockRevealsTab = useMockAgentsRevealsTab(activeTab);
   const resolvedTab =
-    simpleView && isSimpleViewHiddenSandboxTab(activeTab) && !mockRevealsTab
+    simpleView && isSimpleViewHiddenSandboxTab(activeTab)
       ? "preview"
       : activeTab;
   const {

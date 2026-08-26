@@ -4,8 +4,6 @@ import { api, getAIModelProvider, type AIModel, type Id } from "@eva/backend";
 import { Button, cn } from "@eva/ui";
 import { IconArrowsDiagonalMinimize2 } from "@tabler/icons-react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { parseAsString, useQueryState } from "nuqs";
-import { useState } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { formatTokens, parseResultEvent } from "@/lib/utils/logs";
 
@@ -23,16 +21,9 @@ export const COMPACTION_RECOMMEND_IDLE_MINUTES = 70;
 /** Claude harness built-in; sent verbatim as a user message. */
 export const COMPACT_COMMAND = "/compact";
 
-/** Mock figure so `?mockCompaction=1` reproduces t3code's example copy. */
-const MOCK_USED_TOKENS = 142_300;
-
-const mockCompactionParser = parseAsString.withOptions({ history: "replace" });
-
 interface CompactionBannerState {
   /** Context occupancy of the newest completed turn. */
   usedTokens: number;
-  /** Mock clicks seed the composer instead of sending a turn. */
-  isMock: boolean;
   onDismiss: () => void;
 }
 
@@ -62,32 +53,19 @@ export function useCompactionBanner({
   isExecuting,
   isArchived,
 }: UseCompactionBannerParams): CompactionBannerState | null {
-  const [mockCompaction] = useQueryState("mockCompaction", mockCompactionParser);
-  const [mockDismissed, setMockDismissed] = useState(false);
   const [dismissedTurnAt, setDismissedTurnAt] = useLocalStorage<number | null>(
     `eva:compaction-dismissed:${sessionId}`,
     null,
   );
 
-  const mockEnabled =
-    mockCompaction !== null && mockCompaction !== "0" && mockCompaction !== "false";
   const isClaudeSession = getAIModelProvider(model) === "claude";
-  // Non-Claude sessions (and mock mode) pay nothing for the subscription.
+  // Non-Claude sessions pay nothing for the subscription.
   const logs = useQuery(
     api.logs.getByEntityId,
-    isClaudeSession && !mockEnabled && !isArchived
+    isClaudeSession && !isArchived
       ? { repoId, entityId: String(sessionId) }
       : "skip",
   );
-
-  if (mockEnabled) {
-    if (mockDismissed) return null;
-    return {
-      usedTokens: MOCK_USED_TOKENS,
-      isMock: true,
-      onDismiss: () => setMockDismissed(true),
-    };
-  }
 
   if (!isClaudeSession || isArchived || isExecuting) return null;
 
@@ -110,7 +88,6 @@ export function useCompactionBanner({
 
   return {
     usedTokens: parsed.contextUsedTokens,
-    isMock: false,
     onDismiss: () => setDismissedTurnAt(latest.createdAt),
   };
 }

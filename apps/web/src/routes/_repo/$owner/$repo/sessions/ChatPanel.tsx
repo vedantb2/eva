@@ -199,11 +199,6 @@ export function ChatPanel({
   });
 
   const handleCompact = () => {
-    // Mock mode must never spend a turn — it only fills the composer.
-    if (compaction?.isMock) {
-      void seedChatDraft(COMPACT_COMMAND);
-      return;
-    }
     void handleSend(COMPACT_COMMAND, undefined, { skipReviewComments: true });
   };
 

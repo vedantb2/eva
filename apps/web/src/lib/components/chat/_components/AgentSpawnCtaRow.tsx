@@ -10,8 +10,6 @@ import {
   subagentTone,
   type SubagentView,
 } from "@/lib/components/sandbox/agentActivity";
-import { MOCK_SUBAGENTS } from "@/lib/components/sandbox/mockAgents";
-import { formatTokens } from "@/lib/utils/logs";
 
 /**
  * What one assistant turn's sub-agent batch looks like from the timeline: how
@@ -23,12 +21,6 @@ export interface AgentSpawnSummary {
   working: number;
   failed: number;
   live: boolean;
-  /**
-   * Optional because Eva's sub-agent model carries no usage: `SubagentView` has
-   * no token field and nothing upstream reports one. Only the mock summary sets
-   * it, so real rows omit the `Σ` cluster entirely rather than render a zero.
-   */
-  totalTokens?: number;
 }
 
 /** Counts a roster into the flat shape the row renders. */
@@ -83,17 +75,6 @@ export function deriveAgentSpawnSummary({
 }
 
 /**
- * Demo/screenshot override: `?mockAgents=1` renders this summary on the last
- * assistant turn, whatever that turn really did. Counted from the same roster
- * the Agents tab shows under the param, so the two can never disagree. The only
- * path that shows the `Σ` cluster — see {@link AgentSpawnSummary.totalTokens}.
- */
-export const MOCK_AGENT_SPAWN_SUMMARY: AgentSpawnSummary = {
-  ...summariseSubagents(MOCK_SUBAGENTS),
-  totalTokens: 65_100,
-};
-
-/**
  * Slim anchored row under an assistant turn that kicked off sub-agents. Live
  * status is a snapshot, not a roster: the dot never animates and the row's only
  * job is to hand the user to the Agents tab.
@@ -105,7 +86,7 @@ export function AgentSpawnCtaRow({
   summary: AgentSpawnSummary;
   onOpen: () => void;
 }) {
-  const { count, working, failed, live, totalTokens } = summary;
+  const { count, working, failed, live } = summary;
   const plural = count === 1 ? "" : "s";
   const lead = live
     ? `Kicked off ${count} subagent${plural}`
@@ -144,9 +125,6 @@ export function AgentSpawnCtaRow({
           ) : null}
           {status}
         </span>
-        {totalTokens !== undefined && totalTokens > 0 ? (
-          <span className="tabular-nums">Σ {formatTokens(totalTokens)}</span>
-        ) : null}
         <span className="flex items-center text-primary">
           {live ? "Open Agents" : "View"}
           <IconChevronRight aria-hidden className="size-3" />

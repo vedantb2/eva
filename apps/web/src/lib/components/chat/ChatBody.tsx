@@ -24,7 +24,6 @@ import {
   type resolveTraitsForDisplay,
 } from "@eva/backend";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
-import { useMockAgentsEnabled } from "@/lib/components/sandbox/mockAgents";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import {
   buildJumpRailTicks,
@@ -185,7 +184,6 @@ export function ChatBody({
   // Simple view hides diffs and sandbox lifecycle banners. Quick task /
   // project / session all render through ChatBody, so this is the one gate.
   const simpleView = useSimpleView();
-  const mockAgents = useMockAgentsEnabled();
   const displayMessages = visibleChatMessages(messages, simpleView);
 
   const lastMessage = displayMessages[displayMessages.length - 1];
@@ -325,9 +323,6 @@ export function ChatBody({
         onOpenAgentsTab={onOpenAgentsTab}
         backgroundAgents={backgroundAgents}
         sandboxRunning={sandboxRunning}
-        mockAgentSpawn={
-          mockAgents && message._id === latestAssistantMessageId
-        }
       />
     );
   };

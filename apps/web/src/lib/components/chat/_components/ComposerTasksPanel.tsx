@@ -6,7 +6,6 @@ import {
   IconPointFilled,
   IconX,
 } from "@tabler/icons-react";
-import { parseAsString, useQueryState } from "nuqs";
 import { useState } from "react";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 
@@ -164,22 +163,6 @@ function TaskStepRow({ step }: { readonly step: ComposerTaskStep }) {
   );
 }
 
-/**
- * Demo/screenshot override: `?mockTasks=1` on any page that mounts the composer
- * renders this list instead of the live turn's todos.
- */
-const MOCK_TASK_STEPS: readonly ComposerTaskStep[] = [
-  { step: "Read the session route and composer chrome", status: "completed", durationMs: 4_200 },
-  { step: "Map streaming activity to todo steps", status: "completed", durationMs: 38_000 },
-  { step: "Add ComposerTasksPanel with segment bars", status: "completed", durationMs: 72_000 },
-  { step: "Thread turn id through ChatBody for dismissal", status: "completed", durationMs: 860 },
-  { step: "Wire the panel above the queued messages panel", status: "inProgress" },
-  { step: "Run tsc across apps/web", status: "pending" },
-  { step: "Write the changelog entry", status: "pending" },
-];
-
-const mockTasksParser = parseAsString.withOptions({ history: "replace" });
-
 interface ComposerTasksPanelProps {
   /** Task-list rows for the live turn. Empty hides the panel. */
   steps: readonly ComposerTaskStep[];
@@ -191,19 +174,15 @@ interface ComposerTasksPanelProps {
 }
 
 export function ComposerTasksPanel({ steps, turnId }: ComposerTasksPanelProps) {
-  const [mockTasks] = useQueryState("mockTasks", mockTasksParser);
   const [expanded, setExpanded] = useState(false);
   const [dismissedTurnId, setDismissedTurnId] = useState<string | null>(null);
 
-  const mockEnabled =
-    mockTasks !== null && mockTasks !== "0" && mockTasks !== "false";
-  const activeSteps = mockEnabled ? MOCK_TASK_STEPS : steps;
-  const turnKey = mockEnabled ? "mock" : (turnId ?? "current");
+  const turnKey = turnId ?? "current";
 
-  if (activeSteps.length === 0) return null;
+  if (steps.length === 0) return null;
   if (dismissedTurnId === turnKey) return null;
 
-  const progress = deriveProgress(activeSteps);
+  const progress = deriveProgress(steps);
   const allDone = progress.completedSteps >= progress.totalSteps;
   const label = `Tasks: ${progress.completedSteps} of ${progress.totalSteps} complete. Current task: ${progress.step}`;
 
@@ -237,7 +216,7 @@ export function ComposerTasksPanel({ steps, turnId }: ComposerTasksPanelProps) {
           >
             {progress.completedSteps}/{progress.totalSteps}
           </span>
-          {expanded ? null : <TaskSegments className="w-20" steps={activeSteps} />}
+          {expanded ? null : <TaskSegments className="w-20" steps={steps} />}
         </button>
         <Button
           size="icon-xs"
@@ -252,7 +231,7 @@ export function ComposerTasksPanel({ steps, turnId }: ComposerTasksPanelProps) {
       </div>
       {expanded ? (
         <div className="space-y-px px-3 pb-3" role="list">
-          {keyedTaskSteps(activeSteps).map(({ key, step }) => (
+          {keyedTaskSteps(steps).map(({ key, step }) => (
             <TaskStepRow key={key} step={step} />
           ))}
         </div>

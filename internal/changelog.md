@@ -4,19 +4,19 @@
 
 - Adopted t3code's "Resume with less context" offer: a dismissible banner above the composer when a Claude session is resumed sitting on ≥100k context tokens with the last turn ≥70 minutes old and nothing running. Shows the token figure from the newest `logs` row and a Compact action that sends the `/compact` harness built-in.
 - `handleSend` gained a `skipReviewComments` option so `/compact` reaches the harness verbatim without consuming pending review comments.
-- Dismissal ("Keep full history") is localStorage-keyed to the turn's `createdAt`, so a later turn re-offers. `?mockCompaction=1` demos the banner (mock Compact seeds the composer draft instead of sending).
+- Dismissal ("Keep full history") is localStorage-keyed to the turn's `createdAt`, so a later turn re-offers.
 
 ## Subagent spawn CTA row in the chat timeline - 2026-08-26
 
-- Adopted t3code's inline spawn row: assistant turns that kicked off subagents get a slim clickable row under their activity — dot, robot icon, "Kicked off N subagents", "N working" (or "N failed"/"completed" once settled), optional "Σ 65.1k" token sum, "Open Agents ›" — that opens the existing Agents sandbox tab and expands the right pane.
+- Adopted t3code's inline spawn row: assistant turns that kicked off subagents get a slim clickable row under their activity — dot, robot icon, "Kicked off N subagents", "N working" (or "N failed"/"completed" once settled), "Open Agents ›" — that opens the existing Agents sandbox tab and expands the right pane.
 - Summary folds the turn's own `subtask` steps via the Agents tab's `deriveSubagents`, with session-wide `backgroundAgents` narrowed to that turn's tool-use ids so each row reports only its own batch.
-- Eva's subagent model carries no token usage yet, so real rows omit the Σ cluster; `?mockAgents=1` demos the full row on the last assistant turn. Sessions surface only (tasks/projects have no Agents tab).
+- t3code's Σ token sum was dropped pending real usage data, since Eva's subagent model carries no token usage yet. Sessions surface only (tasks/projects have no Agents tab).
 
 ## Tasks progress panel above the composer - 2026-08-26
 
 - Adopted t3code's composer Tasks UI: a slim strip flush above the chat input showing the agent's task list — icon, "Tasks", current step, n/m count and per-step segment bars — expanding into a drawer with ✓/●/○ rows and durations, dismissible per turn.
 - Restyled for Eva: tone fill (`bg-muted/50`, `rounded-t-surface`) instead of t3code's bordered glass shoulder tab, Tabler icons, no banned hooks.
-- Real data comes from the streaming turn's `todos` activity step threaded via `ChatBody` → `ChatComposer`, so all chat surfaces get it; `?mockTasks=1` forces a 7-step mock list for demos.
+- Real data comes from the streaming turn's `todos` activity step threaded via `ChatBody` → `ChatComposer`, so all chat surfaces get it.
 
 ## Agents tab in session sandbox panel - 2026-08-26
 

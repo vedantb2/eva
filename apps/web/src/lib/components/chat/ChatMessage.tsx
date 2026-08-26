@@ -15,7 +15,6 @@ import { m } from "motion/react";
 import {
   AgentSpawnCtaRow,
   deriveAgentSpawnSummary,
-  MOCK_AGENT_SPAWN_SUMMARY,
 } from "@/lib/components/chat/_components/AgentSpawnCtaRow";
 import dayjs from "@eva/shared/dates";
 import { formatDuration } from "@eva/shared/duration";
@@ -120,8 +119,6 @@ interface ChatMessageProps {
   /** Entity-wide sub-agent lifecycle entries; narrowed to this turn's spawns. */
   backgroundAgents?: ReadonlyArray<BackgroundAgentEntry>;
   sandboxRunning?: boolean;
-  /** `?mockAgents=1` demo row — set on the last assistant turn only. */
-  mockAgentSpawn?: boolean;
 }
 
 export const ChatMessage = memo(function ChatMessage({
@@ -144,7 +141,6 @@ export const ChatMessage = memo(function ChatMessage({
   onOpenAgentsTab,
   backgroundAgents,
   sandboxRunning,
-  mockAgentSpawn = false,
 }: ChatMessageProps) {
   if (message.isSystemAlert) {
     return (
@@ -191,14 +187,12 @@ export const ChatMessage = memo(function ChatMessage({
   // Only surfaces with an Agents tab get the doorway to it.
   const agentSpawn = !onOpenAgentsTab
     ? null
-    : mockAgentSpawn
-      ? MOCK_AGENT_SPAWN_SUMMARY
-      : deriveAgentSpawnSummary({
-          activityLog: message.activityLog,
-          streamingActivity,
-          backgroundAgents,
-          sandboxRunning,
-        });
+    : deriveAgentSpawnSummary({
+        activityLog: message.activityLog,
+        streamingActivity,
+        backgroundAgents,
+        sandboxRunning,
+      });
   const agentSpawnRow =
     agentSpawn && onOpenAgentsTab ? (
       <AgentSpawnCtaRow summary={agentSpawn} onOpen={onOpenAgentsTab} />

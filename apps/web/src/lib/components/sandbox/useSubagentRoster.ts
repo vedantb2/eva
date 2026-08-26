@@ -1,8 +1,12 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api, type BackgroundAgentEntry, type Id } from "@eva/backend";
+import { api, type BackgroundAgentEntry } from "@eva/backend";
 import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
+import {
+  chatEntityKeys,
+  type ChatEntityRef,
+} from "@/lib/components/chat/sandboxChatSurface";
 import {
   deriveSubagents,
   subagentTone,
@@ -17,25 +21,21 @@ interface SubagentRoster {
 }
 
 /**
- * Agents-tab roster for the task and project sandbox panels. Sessions fold
- * theirs inside `SandboxPanel` from props the session shell already holds;
- * these two shells never query the chat transcript, so the panel subscribes
- * itself. Both queries are the ones the matching chat panel already runs with
- * the same arguments, so the cached client shares one subscription each.
+ * Agents-tab roster for every sandbox panel, folded from the chat transcript.
+ * Both queries are the ones the matching chat panel already runs with the same
+ * arguments, so the cached client shares one subscription each.
  */
 export function useSubagentRoster({
-  parentId,
-  streamingEntityId,
+  entity,
   backgroundAgents,
   sandboxRunning,
 }: {
-  /** Chat transcript owner — the task or project the sandbox belongs to. */
-  parentId: Id<"agentTasks"> | Id<"projects">;
-  /** `api.streaming.get` entity id for that surface's chat turn. */
-  streamingEntityId: string;
+  /** The session, task, or project the sandbox belongs to. */
+  entity: ChatEntityRef;
   backgroundAgents: BackgroundAgentEntry[] | undefined;
   sandboxRunning: boolean;
 }): SubagentRoster {
+  const { parentId, streamingEntityId } = chatEntityKeys(entity);
   const messages = useQuery(api.messages.listByParent, { parentId });
   const streaming = useQuery(api.streaming.get, {
     entityId: streamingEntityId,

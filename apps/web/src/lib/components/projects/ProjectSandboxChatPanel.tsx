@@ -21,7 +21,7 @@ import {
   COMPACT_COMMAND,
   ComposerCompactionBanner,
   useCompactionBanner,
-} from "@/routes/_repo/$owner/$repo/sessions/_components/ComposerCompactionBanner";
+} from "@/lib/components/chat/ComposerCompactionBanner";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,

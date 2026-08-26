@@ -23,7 +23,7 @@ import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { SandboxPanelFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
 import { useSubagentRoster } from "@/lib/components/sandbox/useSubagentRoster";
 import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
-import { ProjectAgentsPanel } from "./ProjectAgentsPanel";
+import { SandboxAgentsPanel } from "@/lib/components/sandbox/SandboxAgentsPanel";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 import { SimpleViewSandboxRedirect } from "@/lib/components/sandbox/SimpleViewSandboxRedirect";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
@@ -87,8 +87,7 @@ export function ProjectSandboxPanel({
   // Content-keyed Agents tab, folded from the chat transcript the project's
   // chat panel already subscribes to (same entity ids).
   const { agents, hasAgents, hasRunningAgents } = useSubagentRoster({
-    parentId: projectId,
-    streamingEntityId: `project-chat-${projectIdStr}`,
+    entity: { kind: "project", projectId },
     backgroundAgents,
     sandboxRunning: isActive,
   });
@@ -207,7 +206,10 @@ export function ProjectSandboxPanel({
               !simpleView && activeTab === "agents" ? "h-full min-h-0" : "hidden"
             }
           >
-            <ProjectAgentsPanel projectId={projectId} agents={agents} />
+            <SandboxAgentsPanel
+              entity={{ kind: "project", projectId }}
+              agents={agents}
+            />
           </div>
           <SandboxPaneSlots
             activeTab={activeTab}

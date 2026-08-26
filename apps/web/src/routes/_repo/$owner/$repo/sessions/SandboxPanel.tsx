@@ -10,7 +10,7 @@ import { isSessionSandboxTab } from "@/lib/search-params";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
-import { SessionAgentsPanel } from "./_components/SessionAgentsPanel";
+import { SandboxAgentsPanel } from "@/lib/components/sandbox/SandboxAgentsPanel";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { DesignVariationsPanel } from "./_components/DesignVariationsPanel";
 import { FilesPanel } from "./FilesPanel";
@@ -22,10 +22,7 @@ import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
 import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
-import {
-  deriveSubagents,
-  subagentTone,
-} from "@/lib/components/sandbox/agentActivity";
+import { useSubagentRoster } from "@/lib/components/sandbox/useSubagentRoster";
 import { SandboxPanelFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
 import { useSeedChatDraft } from "@/lib/components/chat/useSeedChatDraft";
 import { useSessionAnnotationSend } from "./_components/useSessionAnnotationSend";
@@ -60,8 +57,6 @@ interface SandboxPanelProps {
   messages?: SessionDesignMessage[];
   /** Sub-agent lifecycle entries from the session doc (Agents tab). */
   backgroundAgents?: BackgroundAgentEntry[];
-  /** Live activity payload for the current turn (Agents tab live steps). */
-  streamingActivity?: string;
   isArchived?: boolean;
   /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
   activeTab: string;
@@ -87,7 +82,6 @@ export function SandboxPanel({
   planContent,
   messages = [],
   backgroundAgents,
-  streamingActivity,
   isArchived,
   activeTab,
   onTabChange,
@@ -111,17 +105,11 @@ export function SandboxPanel({
     typeof planContent === "string" && planContent.trim().length > 0;
   const hasDesignsContent = latestVariations.length > 0;
   const isDesignExecuting = isAssistantTurnInProgress(messages);
-  // Streaming payloads can outlive their turn; only fold them in while one runs.
-  const agents = deriveSubagents({
-    activityLogs: messages.map((m) => m.activityLog),
-    streamingActivity: isDesignExecuting ? streamingActivity : undefined,
+  const { agents, hasAgents, hasRunningAgents } = useSubagentRoster({
+    entity: { kind: "session", sessionId },
     backgroundAgents,
     sandboxRunning: isActive,
   });
-  const hasAgents = agents.length > 0;
-  const hasRunningAgents = agents.some(
-    (agent) => subagentTone(agent.status) === "active",
-  );
   // Sticky Preview path/port + console tail, keyed by the sandbox owner so all
   // three surfaces read and write this state through the same functions.
   const viewState = useQuery(api.sandboxPanes.getViewState, { owner });
@@ -276,8 +264,8 @@ export function SandboxPanel({
             !simpleView && activeTab === "agents" ? "h-full min-h-0" : "hidden"
           }
         >
-          <SessionAgentsPanel
-            sessionId={sessionId}
+          <SandboxAgentsPanel
+            entity={{ kind: "session", sessionId }}
             agents={agents}
             isReadOnly={isArchived === true}
           />

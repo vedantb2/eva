@@ -14,7 +14,7 @@ import {
   COMPACT_COMMAND,
   ComposerCompactionBanner,
   useCompactionBanner,
-} from "./_components/ComposerCompactionBanner";
+} from "@/lib/components/chat/ComposerCompactionBanner";
 import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
 import { BackgroundAgentsChip } from "./_components/BackgroundAgentsChip";
 import { SessionChatHeader } from "./_components/SessionChatHeader";

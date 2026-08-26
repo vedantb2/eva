@@ -286,7 +286,6 @@ export function SessionDetailClient({
                 planContent={session.planContent}
                 messages={messages ?? []}
                 backgroundAgents={session.backgroundAgents}
-                streamingActivity={streaming?.currentActivity}
                 isArchived={isReadOnly}
                 activeTab={activeSandboxTab}
                 onTabChange={onSandboxTabChange}

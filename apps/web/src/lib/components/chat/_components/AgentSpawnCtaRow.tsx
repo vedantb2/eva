@@ -4,12 +4,13 @@ import {
   IconChevronRight,
   IconRobot,
 } from "@tabler/icons-react";
-import { parseAsString, useQueryState } from "nuqs";
 import type { BackgroundAgentEntry } from "@eva/backend";
 import {
   deriveSubagents,
   subagentTone,
+  type SubagentView,
 } from "@/lib/components/sandbox/agentActivity";
+import { MOCK_SUBAGENTS } from "@/lib/components/sandbox/mockAgents";
 import { formatTokens } from "@/lib/utils/logs";
 
 /**
@@ -28,6 +29,20 @@ export interface AgentSpawnSummary {
    * it, so real rows omit the `Σ` cluster entirely rather than render a zero.
    */
   totalTokens?: number;
+}
+
+/** Counts a roster into the flat shape the row renders. */
+function summariseSubagents(
+  roster: ReadonlyArray<SubagentView>,
+): AgentSpawnSummary {
+  let working = 0;
+  let failed = 0;
+  for (const agent of roster) {
+    const tone = subagentTone(agent.status);
+    if (tone === "active") working += 1;
+    else if (tone === "danger") failed += 1;
+  }
+  return { count: roster.length, working, failed, live: working > 0 };
 }
 
 /**
@@ -64,37 +79,19 @@ export function deriveAgentSpawnSummary({
     ),
     sandboxRunning,
   });
-
-  let working = 0;
-  let failed = 0;
-  for (const agent of roster) {
-    const tone = subagentTone(agent.status);
-    if (tone === "active") working += 1;
-    else if (tone === "danger") failed += 1;
-  }
-  return { count: roster.length, working, failed, live: working > 0 };
+  return summariseSubagents(roster);
 }
 
 /**
  * Demo/screenshot override: `?mockAgents=1` renders this summary on the last
- * assistant turn, whatever that turn really did. The only path that shows the
- * `Σ` cluster — see {@link AgentSpawnSummary.totalTokens}.
+ * assistant turn, whatever that turn really did. Counted from the same roster
+ * the Agents tab shows under the param, so the two can never disagree. The only
+ * path that shows the `Σ` cluster — see {@link AgentSpawnSummary.totalTokens}.
  */
 export const MOCK_AGENT_SPAWN_SUMMARY: AgentSpawnSummary = {
-  count: 3,
-  working: 1,
-  failed: 0,
-  live: true,
+  ...summariseSubagents(MOCK_SUBAGENTS),
   totalTokens: 65_100,
 };
-
-const mockAgentsParser = parseAsString.withOptions({ history: "replace" });
-
-/** True while `?mockAgents=1` (anything but absent / `0` / `false`) is set. */
-export function useMockAgentsEnabled(): boolean {
-  const [mockAgents] = useQueryState("mockAgents", mockAgentsParser);
-  return mockAgents !== null && mockAgents !== "0" && mockAgents !== "false";
-}
 
 /**
  * Slim anchored row under an assistant turn that kicked off sub-agents. Live

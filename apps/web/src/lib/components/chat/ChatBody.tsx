@@ -24,7 +24,7 @@ import {
   type resolveTraitsForDisplay,
 } from "@eva/backend";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
-import { useMockAgentsEnabled } from "@/lib/components/chat/_components/AgentSpawnCtaRow";
+import { useMockAgentsEnabled } from "@/lib/components/sandbox/mockAgents";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import {
   buildJumpRailTicks,

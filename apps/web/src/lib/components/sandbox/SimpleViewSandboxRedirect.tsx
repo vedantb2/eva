@@ -5,6 +5,7 @@ import {
   isSimpleViewHiddenSandboxTab,
   useSimpleView,
 } from "@/lib/hooks/useSimpleView";
+import { useMockAgentsRevealsTab } from "@/lib/components/sandbox/mockAgents";
 
 type SimpleViewSandboxRedirectTo =
   | "/$owner/$repo/sessions/$numId/$sandboxTab"
@@ -24,7 +25,11 @@ export function SimpleViewSandboxRedirect({
   params,
 }: SimpleViewSandboxRedirectProps) {
   const simpleView = useSimpleView();
-  if (!simpleView || !isSimpleViewHiddenSandboxTab(activeTab)) return null;
+  // `?mockAgents=1` demo: `/agents` must stick, or clicking the chat CTA row
+  // lands on Preview a beat later. No effect without the param.
+  const mockRevealsTab = useMockAgentsRevealsTab(activeTab);
+  if (!simpleView || mockRevealsTab) return null;
+  if (!isSimpleViewHiddenSandboxTab(activeTab)) return null;
   return (
     <Navigate
       to={to}

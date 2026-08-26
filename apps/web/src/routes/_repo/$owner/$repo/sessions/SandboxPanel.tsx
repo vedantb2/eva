@@ -26,6 +26,10 @@ import {
   deriveSubagents,
   subagentTone,
 } from "@/lib/components/sandbox/agentActivity";
+import {
+  MOCK_SUBAGENTS,
+  useMockAgentsEnabled,
+} from "@/lib/components/sandbox/mockAgents";
 import { SandboxPanelFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
 import { useSeedChatDraft } from "@/lib/components/chat/useSeedChatDraft";
 import { useSessionAnnotationSend } from "./_components/useSessionAnnotationSend";
@@ -98,6 +102,10 @@ export function SandboxPanel({
   onToggle,
 }: SandboxPanelProps) {
   const simpleView = useSimpleView();
+  // `?mockAgents=1` demo: a fixed roster stands in for the real fold, and the
+  // Agents tab is exempted from simple view's hiding so the chat CTA row leads
+  // somewhere. Both are inert without the param.
+  const mockAgents = useMockAgentsEnabled();
   const sessionIdStr = String(sessionId);
   const submitAnnotation = useSessionAnnotationSend(sessionId);
   const seedChatDraft = useSeedChatDraft({
@@ -112,12 +120,14 @@ export function SandboxPanel({
   const hasDesignsContent = latestVariations.length > 0;
   const isDesignExecuting = isAssistantTurnInProgress(messages);
   // Streaming payloads can outlive their turn; only fold them in while one runs.
-  const agents = deriveSubagents({
-    activityLogs: messages.map((m) => m.activityLog),
-    streamingActivity: isDesignExecuting ? streamingActivity : undefined,
-    backgroundAgents,
-    sandboxRunning: isActive,
-  });
+  const agents = mockAgents
+    ? MOCK_SUBAGENTS
+    : deriveSubagents({
+        activityLogs: messages.map((m) => m.activityLog),
+        streamingActivity: isDesignExecuting ? streamingActivity : undefined,
+        backgroundAgents,
+        sandboxRunning: isActive,
+      });
   const hasAgents = agents.length > 0;
   const hasRunningAgents = agents.some(
     (agent) => subagentTone(agent.status) === "active",
@@ -273,7 +283,9 @@ export function SandboxPanel({
         </div>
         <div
           className={
-            !simpleView && activeTab === "agents" ? "h-full min-h-0" : "hidden"
+            (!simpleView || mockAgents) && activeTab === "agents"
+              ? "h-full min-h-0"
+              : "hidden"
           }
         >
           <SessionAgentsPanel

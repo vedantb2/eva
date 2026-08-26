@@ -23,6 +23,10 @@ import {
   isSimpleViewHiddenSandboxTab,
   useSimpleView,
 } from "@/lib/hooks/useSimpleView";
+import {
+  useMockAgentsEnabled,
+  useMockAgentsRevealsTab,
+} from "@/lib/components/sandbox/mockAgents";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { cn, Tabs, TabsList } from "@eva/ui";
 import {
@@ -147,6 +151,10 @@ export function SandboxTabBar({
   onToggle,
 }: SandboxTabBarProps) {
   const simpleView = useSimpleView();
+  // `?mockAgents=1` demo only — keeps the Agents tab in the strip, and on the
+  // strip, when simple view would otherwise hide it and bounce to Preview.
+  const mockAgents = useMockAgentsEnabled();
+  const mockRevealsActiveTab = useMockAgentsRevealsTab(activeTab);
   const isMobile = useMediaQuery("(max-width: 767px)");
   const tabs = enabledTabs
     ? allTabs.filter((tab) => enabledTabs.includes(tab.value))
@@ -156,14 +164,16 @@ export function SandboxTabBar({
   const showEditorItem =
     !simpleView && (!enabledTabs || enabledTabs.includes("editor"));
   const resolvedTab =
-    simpleView && isSimpleViewHiddenSandboxTab(activeTab)
+    simpleView &&
+    isSimpleViewHiddenSandboxTab(activeTab) &&
+    !mockRevealsActiveTab
       ? "preview"
       : activeTab;
   const showComputerTab = showDesktopItem && computerTabOpen;
   const showEditorTab = showEditorItem && editorTabOpen;
 
   const showFiles = showFilesTab && !simpleView;
-  const showAgents = showAgentsTab && !simpleView;
+  const showAgents = showAgentsTab && (!simpleView || mockAgents);
   const visibleCustomTabs = simpleView ? [] : (customTabs ?? []);
   const customTabSlugs = visibleCustomTabs.map((tab) =>
     slugifyAppTabName(tab.name),

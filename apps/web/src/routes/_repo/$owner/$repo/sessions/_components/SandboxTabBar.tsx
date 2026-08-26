@@ -74,6 +74,10 @@ interface SandboxTabBarProps {
   hasDesignsContent?: boolean;
   /** Shows the File Viewer tab (sessions only). */
   showFilesTab?: boolean;
+  /** Shows the Agents tab (content-keyed: the entity has spawned sub-agents). */
+  showAgentsTab?: boolean;
+  /** True while any sub-agent is running — pulses the Agents tab dot. */
+  hasRunningAgents?: boolean;
   /** Subset of base tabs to render. Defaults to all four. */
   enabledTabs?: ReadonlyArray<SandboxTab>;
   /** User-defined tabs for this app; expected pre-filtered to enabled ones. */
@@ -122,6 +126,8 @@ export function SandboxTabBar({
   showDesignsTab = false,
   hasDesignsContent = false,
   showFilesTab = false,
+  showAgentsTab = false,
+  hasRunningAgents = false,
   enabledTabs,
   customTabs,
   agentBrowsingAt,
@@ -157,6 +163,7 @@ export function SandboxTabBar({
   const showEditorTab = showEditorItem && editorTabOpen;
 
   const showFiles = showFilesTab && !simpleView;
+  const showAgents = showAgentsTab && !simpleView;
   const visibleCustomTabs = simpleView ? [] : (customTabs ?? []);
   const customTabSlugs = visibleCustomTabs.map((tab) =>
     slugifyAppTabName(tab.name),
@@ -171,6 +178,8 @@ export function SandboxTabBar({
     computerRunning,
     onCloseComputer,
     showFilesTab: showFiles,
+    showAgentsTab: showAgents,
+    hasRunningAgents,
     showPrdTab,
     hasPrdContent,
     showDesignsTab,
@@ -213,6 +222,7 @@ export function SandboxTabBar({
     showPrdTab,
     showDesignsTab,
     showFilesTab: showFiles,
+    showAgentsTab: showAgents,
     customTabSlugs,
     showComputerTab,
     showEditorTab,
@@ -230,6 +240,7 @@ export function SandboxTabBar({
     activeTab: resolvedTab,
     tabs,
     showFilesTab: showFiles,
+    showAgentsTab: showAgents,
     showPrdTab,
     showDesignsTab,
     showEditorItem,

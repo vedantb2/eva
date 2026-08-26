@@ -1,5 +1,12 @@
 # Changelog
 
+## Agents tab in session sandbox panel - 2026-08-26
+
+- Sessions get an "Agents" sandbox tab (t3code-style roster) listing every sub-agent the session spawned, so subagent work is inspectable without hunting the chat timeline.
+- Each row shows status, background flag, step count and duration, and expands into the agent's transcript (its activity steps plus the captured tool result); running background agents can be stopped from the row.
+- Data is folded client-side from `message.activityLog` subtask/`parentToolUseId` steps, the live streaming payload, and the existing `backgroundAgents` lifecycle entries — no backend changes.
+- The tab is content-keyed (appears once agents exist), pulses while one runs, joins the tab cycle hotkey and command palette, and is hidden in simple view; entries stranded as "running" after a sandbox stops now read as stale.
+
 ## Plan-usage refresh keeps the flag until the daemon reports - 2026-08-25
 
 Clicking refresh set a one-shot flag that `claimPendingTurn` drained on the first poll, so an old callback — or a process that had just respawned and not yet finished SDK init — ate the request as a no-op. The flag now stays set until the refresh action stops waiting, a stale callback upload kills and relaunches the daemon, and `get_usage` is allowed to wait for SDK init. Eva's servers still never POST Messages.

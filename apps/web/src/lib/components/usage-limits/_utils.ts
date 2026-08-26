@@ -1,5 +1,5 @@
 import type { FunctionReturnType } from "convex/server";
-import { getAIModelProvider, type api, type Id } from "@eva/backend";
+import { type api, type Id } from "@eva/backend";
 
 /**
  * One account's latest reading, minus the fields only the table row carries.
@@ -24,19 +24,6 @@ export interface UsageAccountScope {
   /** null is the shared team credential, which has no account row. */
   providerAccountId: Id<"userProviderAccounts"> | null;
   accountLabel: string;
-}
-
-/**
- * Plan-usage is a Claude reading. Cursor/Codex/OpenCode chats still have a
- * sticky `providerAccountId` (often the last Claude account, or Team), and
- * scoping by that id would paint Claude's numbers beside the wrong picker.
- */
-export function claudeUsageAccountScope(
-  model: string | null | undefined,
-  scope: UsageAccountScope,
-): UsageAccountScope | undefined {
-  if (getAIModelProvider(model) !== "claude") return undefined;
-  return scope;
 }
 
 /** Utilisation at which a window stops reading as routine. */

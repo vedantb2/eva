@@ -30,11 +30,11 @@ import {
  * launches is a setup-token (`user:inference`), so that endpoint 403s; a
  * 1-token Messages call still returns the 5h/weekly windows on response
  * headers. The request is made with `https.request` so User-Agent actually
- * leaves the process — fetch in some runtimes strips it, and Anthropic then
+ * leaves the process ? fetch in some runtimes strips it, and Anthropic then
  * 429s.
  *
  * The reading is always taken with the credential the caller's surface is
- * scoped to — a connected account, or the shared team credential — and never
+ * scoped to ? a connected account, or the shared team credential ? and never
  * falls back from one to the other, because the whole point of the row is
  * whose plan it measures.
  */
@@ -75,14 +75,14 @@ type RefreshFailure =
 type TokenLookup = { kind: "token"; token: string } | { kind: "missing" };
 
 type UsageFetch =
-  | { kind: "body"; body: ClaudeUsageBody }
+  | { kind: "body"; body: ClaudeUsageBody; authoritative: boolean }
   | { kind: "unauthorized" }
   | { kind: "network" }
   | { kind: "rate-limited" };
 
 /**
  * The token for the account the refresh is scoped to. Throws when the account
- * is not one the caller may run on — a refresh on somebody else's credential is
+ * is not one the caller may run on ? a refresh on somebody else's credential is
  * not a degraded case to fall back from, it is a request that should not have
  * been made.
  */
@@ -121,7 +121,7 @@ async function teamToken(
 /**
  * The body as a usage report, or null when the response was not JSON or did not
  * match the shape at all. The endpoint is undocumented, so a body that parses
- * is still only a candidate — see `hasPlanRateLimits`.
+ * is still only a candidate ? see `hasPlanRateLimits`.
  */
 function readUsageBody(text: string): ClaudeUsageBody | null {
   try {
@@ -250,12 +250,12 @@ async function requestOauthUsage(token: string): Promise<UsageFetch> {
   console.warn(
     `[usageLimits] /usage 200 cred=${credentialKind(token)} keys=${bodyKeys(body)} windows=${readClaudeUsageWindows(body).length}`,
   );
-  return { kind: "body", body };
+  return { kind: "body", body, authoritative: true };
 }
 
 /**
  * `/usage` needs `user:profile`. Eva's stored Claude credential is almost
- * always a setup-token (`sk-ant-oat…`, `user:inference` only), which 403s
+ * always a setup-token (`sk-ant-oat?`, `user:inference` only), which 403s
  * that endpoint while still running turns. A 1-token Messages call returns
  * the same 5h/weekly windows on `anthropic-ratelimit-unified-*`.
  */
@@ -306,7 +306,9 @@ async function requestInferenceUsage(token: string): Promise<UsageFetch> {
     console.warn(
       `[usageLimits] messages probe 200 cred=${credentialKind(token)} windows=${readClaudeUsageWindows(parsed).length}`,
     );
-    return { kind: "body", body: parsed };
+    // Headers only carry five_hour + seven_day ? never model_scoped windows ?
+    // so this must merge, not replace, or Weekly (Fable) disappears on refresh.
+    return { kind: "body", body: parsed, authoritative: false };
   }
   console.warn("[usageLimits] messages probe: no current Haiku model id");
   return { kind: "network" };
@@ -334,7 +336,7 @@ async function fetchClaudeUsage(token: string): Promise<UsageFetch> {
  * without running one.
  *
  * No status is reported: `/usage` returns numbers, not a verdict on whether the
- * plan would accept work, and the snapshot replaces the row — which is how a
+ * plan would accept work, and the snapshot replaces the row ? which is how a
  * stale "rejected" from an old turn gets cleared.
  */
 export const refresh = authAction({
@@ -375,7 +377,7 @@ export const refresh = authAction({
     }
     if (result.kind === "network") return { ok: false, reason: "network" };
     // An HTTP 200 error envelope parses cleanly against an all-optional shape,
-    // so reporting no rate limits at all is treated as no reading — writing it
+    // so reporting no rate limits at all is treated as no reading ? writing it
     // would replace a good row with an empty one.
     if (!hasPlanRateLimits(result.body)) {
       return { ok: false, reason: "unavailable" };
@@ -392,13 +394,14 @@ export const refresh = authAction({
       ...accountArg,
     });
     const subscriptionType = stored?.subscriptionType;
+    const completeness = result.authoritative ? "complete" : "partial";
     await ctx.runMutation(api.usageLimits.report, {
       repoId: args.repoId,
       provider: args.provider,
       ...accountArg,
       capturedAt: Date.now(),
-      snapshotComplete: true,
-      completeness: "complete",
+      snapshotComplete: result.authoritative,
+      completeness,
       windows,
       ...(subscriptionType === undefined ? {} : { subscriptionType }),
     });

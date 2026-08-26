@@ -21,10 +21,7 @@ import {
 } from "@tabler/icons-react";
 import type { Id } from "@eva/backend";
 import { EntityContextUsage } from "@/lib/components/context-usage";
-import {
-  UsageLimitsIndicator,
-  type UsageAccountScope,
-} from "@/lib/components/usage-limits";
+import { UsageLimitsIndicator } from "@/lib/components/usage-limits";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { SandboxStartStopButton } from "@/lib/components/sandbox/SandboxStartStopButton";
 import { SessionSwitcher } from "./SessionSwitcher";
@@ -54,13 +51,6 @@ interface SessionChatHeaderProps {
   chatOnly?: boolean;
   /** Popover already titles the surface — omit the duplicate "Manager Ave". */
   hideTitle?: boolean;
-  /**
-   * The Claude credential this session runs on. Absent while the session is
-   * still loading, and on Cursor/Codex/OpenCode chats which have no Claude
-   * plan windows — the chip stays unmounted rather than showing another
-   * provider's (or Team's) Claude numbers.
-   */
-  usageAccountScope?: UsageAccountScope;
   onSandboxToggle: (action: "start" | "stop") => void;
   onOpenSummaryModal: () => void;
   onOpenReviewModal: () => void;
@@ -84,7 +74,6 @@ export function SessionChatHeader({
   permalinkPath,
   chatOnly = false,
   hideTitle = false,
-  usageAccountScope,
   onSandboxToggle,
   onOpenSummaryModal,
   onOpenReviewModal,
@@ -111,12 +100,7 @@ export function SessionChatHeader({
   const headerRight = (
     <>
       <EntityContextUsage repoId={repoId} entityId={sessionId} />
-      {usageAccountScope ? (
-        <UsageLimitsIndicator
-          repoId={repoId}
-          accountScope={usageAccountScope}
-        />
-      ) : null}
+      <UsageLimitsIndicator repoId={repoId} />
       <SandboxStartStopButton
         isActive={isSandboxActive}
         isToggling={isSandboxToggling}

@@ -10,12 +10,24 @@ function readSource(path: string): string {
 }
 
 /**
- * The header chip is Claude plan usage. Cursor/Codex chats still have a sticky
- * account id (or Team), and mounting the indicator anyway showed Claude's
- * numbers next to the wrong picker.
+ * Plan usage is every Claude account on the repo, not the sticky session
+ * credential — Cursor/Codex chats still show the chip.
  */
-describe("plan-usage is not shown on a non-Claude chat", () => {
-  test("session, project, and task chats go through claudeUsageAccountScope", () => {
+describe("plan-usage chip shows every Claude account", () => {
+  test("session and sandbox headers always mount the unscoped indicator", () => {
+    const header = readSource(
+      "routes/_repo/$owner/$repo/sessions/_components/SessionChatHeader.tsx",
+    );
+    const sandbox = readSource(
+      "lib/components/sandbox/SandboxStartStopButton.tsx",
+    );
+    expect(header).toContain("<UsageLimitsIndicator repoId={repoId} />");
+    expect(header).not.toContain("usageAccountScope");
+    expect(sandbox).toContain("<UsageLimitsIndicator repoId={repoId} />");
+    expect(sandbox).not.toContain("usageAccountScope");
+  });
+
+  test("session, project, and task chats no longer scope the chip to the sticky account", () => {
     const session = readSource(
       "routes/_repo/$owner/$repo/sessions/ChatPanel.tsx",
     );
@@ -23,21 +35,17 @@ describe("plan-usage is not shown on a non-Claude chat", () => {
       "lib/components/projects/ProjectSandboxChatPanel.tsx",
     );
     const task = readSource("lib/components/tasks/TaskSandboxChatPanel.tsx");
-    expect(session).toContain("claudeUsageAccountScope(model");
-    expect(project).toContain("claudeUsageAccountScope(model");
-    expect(task).toContain("claudeUsageAccountScope(model");
+    expect(session).not.toContain("claudeUsageAccountScope");
+    expect(project).not.toContain("claudeUsageAccountScope");
+    expect(task).not.toContain("claudeUsageAccountScope");
   });
 
-  test("the chip is unmounted when there is no Claude scope", () => {
-    const header = readSource(
-      "routes/_repo/$owner/$repo/sessions/_components/SessionChatHeader.tsx",
+  test("the indicator reads every row from getByRepo", () => {
+    const indicator = readSource(
+      "lib/components/usage-limits/UsageLimitsIndicator.tsx",
     );
-    const sandbox = readSource(
-      "lib/components/sandbox/SandboxStartStopButton.tsx",
-    );
-    expect(header).toContain("usageAccountScope ?");
-    expect(header).toContain("<UsageLimitsIndicator");
-    expect(sandbox).toContain("usageAccountScope ?");
-    expect(sandbox).toContain("<UsageLimitsIndicator");
+    expect(indicator).toContain("chipSummary(rows, now)");
+    expect(indicator).not.toContain("usageRowsForAccount");
+    expect(indicator).not.toContain("accountScope");
   });
 });

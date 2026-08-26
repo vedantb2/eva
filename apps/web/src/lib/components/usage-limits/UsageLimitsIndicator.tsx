@@ -5,33 +5,22 @@ import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@eva/ui";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
-import {
-  chipSummary,
-  usageRowsForAccount,
-  USAGE_TONE_TEXT_CLASS,
-  type UsageAccountScope,
-} from "./_utils";
+import { chipSummary, USAGE_TONE_TEXT_CLASS } from "./_utils";
 import { UsageBar } from "./UsageBar";
 import { UsageLimitsDetails } from "./UsageLimitsDetails";
 import { useMinuteNow } from "./_useMinuteNow";
 
 interface UsageLimitsIndicatorProps {
   repoId: Id<"githubRepos">;
-  /** Always a Claude credential — callers omit this component otherwise. */
-  accountScope: UsageAccountScope;
 }
 
 /**
- * The agent's Claude plan headroom, next to the context gauge it is a sibling of.
- *
- * Only mounted on Claude chats: other providers have no plan windows, and an
- * unscoped read would show whichever Claude account last reported on the repo.
- * Simple view hides it for the same reason it hides the context gauge.
+ * Every Claude account's plan headroom for this repo — not the sticky session
+ * credential. Mounted on session and sandbox headers regardless of which
+ * provider the open chat is running, so Cursor/Codex surfaces still show the
+ * Claude meters people care about. Simple view hides it with the context gauge.
  */
-export function UsageLimitsIndicator({
-  repoId,
-  accountScope,
-}: UsageLimitsIndicatorProps) {
+export function UsageLimitsIndicator({ repoId }: UsageLimitsIndicatorProps) {
   const simpleView = useSimpleView();
   const now = useMinuteNow();
   const rows = useQuery(
@@ -40,12 +29,11 @@ export function UsageLimitsIndicator({
   );
   if (simpleView) return null;
   if (rows === undefined) return null;
-  const visibleRows = usageRowsForAccount(rows, accountScope);
-  const summary = chipSummary(visibleRows, now);
+  const summary = chipSummary(rows, now);
 
   return (
-    // A popover rather than a hover card: the card now carries a refresh
-    // button, so it has to be reachable by click, keyboard and touch.
+    // A popover rather than a hover card: the card now carries refresh
+    // controls, so it has to be reachable by click, keyboard and touch.
     <Popover>
       <PopoverTrigger asChild>
         <Button
@@ -69,12 +57,7 @@ export function UsageLimitsIndicator({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 overflow-hidden p-0">
-        <UsageLimitsDetails
-          repoId={repoId}
-          rows={visibleRows}
-          now={now}
-          accountScope={accountScope}
-        />
+        <UsageLimitsDetails repoId={repoId} rows={rows} now={now} />
       </PopoverContent>
     </Popover>
   );

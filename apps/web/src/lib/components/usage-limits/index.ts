@@ -1,5 +1,2 @@
 export { UsageLimitsIndicator } from "./UsageLimitsIndicator";
-export {
-  claudeUsageAccountScope,
-  type UsageAccountScope,
-} from "./_utils";
+export { type UsageAccountScope } from "./_utils";

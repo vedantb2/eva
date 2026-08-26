@@ -1,5 +1,9 @@
 # Changelog
 
+## Plan-usage chip shows every Claude account - 2026-08-26
+
+The header chip no longer filters to the sticky session credential — every Claude account with a fresh reading appears in one card, with per-account refresh. Messages-probe refresh now merges (`completeness: partial`) so Weekly (Fable) and other model-scoped windows from a prior turn are not wiped.
+
 ## Empty stalled session turns retry once - 2026-08-26
 
 - A claimed turn whose daemon died before any output (session 125: Zuza's Figma question after sandbox resume) dropped the prompt and told the user to send a new message. The next send is a different turn, so the original question was never answered.

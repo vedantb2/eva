@@ -62,6 +62,15 @@ describe("a plan-usage refresh is not mistaken for an unreachable Claude", () =>
     );
   });
 
+  test("a Messages-header probe merges so model-scoped windows survive", () => {
+    expect(actionSource).toContain("authoritative: false");
+    expect(actionSource).toContain('authoritative: true');
+    expect(actionSource).toContain(
+      'const completeness = result.authoritative ? "complete" : "partial"',
+    );
+    expect(actionSource).toContain("snapshotComplete: result.authoritative");
+  });
+
   test("the toast copy names a rate limit rather than unreachability", () => {
     expect(buttonSource).toContain('"rate-limited":');
     expect(buttonSource).toContain("rate-limited the usage lookup");

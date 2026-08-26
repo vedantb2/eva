@@ -13,7 +13,6 @@ import { ComposerPlanReadyBanner } from "./_components/ComposerPlanReadyBanner";
 import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
 import { BackgroundAgentsChip } from "./_components/BackgroundAgentsChip";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
-import { claudeUsageAccountScope } from "@/lib/components/usage-limits";
 import { SessionSummaryAccordion } from "./_components/SessionSummaryAccordion";
 import { SessionSummaryModal } from "./_components/SessionSummaryModal";
 import { SessionReviewModal } from "./_components/SessionReviewModal";
@@ -201,23 +200,6 @@ export function ChatPanel({
     );
   };
 
-  // Plan usage belongs to the Claude credential this session runs on. Hidden
-  // until the session document lands (so Team cannot flash), and omitted on
-  // Cursor/Codex/OpenCode — those still carry a sticky account id that would
-  // otherwise paint Claude's numbers beside the wrong picker.
-  const usageAccountScope =
-    stickyProviderAccountId === undefined
-      ? undefined
-      : claudeUsageAccountScope(model, {
-          providerAccountId: stickyProviderAccountId,
-          accountLabel:
-            stickyProviderAccountId === null
-              ? "Team"
-              : (accounts.find(
-                  (account) => account.id === stickyProviderAccountId,
-                )?.label ?? "Selected account"),
-        });
-
   const hasSummary = Boolean(summary && summary.length > 0);
   const isStartupStreaming =
     isSandboxToggling && !isSandboxActive && !isSandboxStopping;
@@ -238,7 +220,6 @@ export function ChatPanel({
     permalinkPath,
     chatOnly,
     hideTitle,
-    usageAccountScope,
     onSandboxToggle,
     onOpenSummaryModal: () => setShowSummaryModal(true),
     onOpenReviewModal: () => setShowReviewModal(true),

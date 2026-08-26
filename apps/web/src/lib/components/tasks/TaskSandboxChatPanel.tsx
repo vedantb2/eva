@@ -20,7 +20,6 @@ import {
 } from "@/lib/components/tasks/firstRunChatTurn";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxChatHeaderActions } from "@/lib/components/sandbox/SandboxStartStopButton";
-import { claudeUsageAccountScope } from "@/lib/components/usage-limits";
 import { BackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
@@ -152,11 +151,6 @@ export function TaskSandboxChatPanel({
     currentUserId !== undefined &&
     task?.createdBy !== undefined &&
     currentUserId === task.createdBy;
-  const usageAccountLabel =
-    providerAccountId === null
-      ? "Team"
-      : (accounts.find((account) => account.id === providerAccountId)?.label ??
-        "Selected account");
 
   const draftSeed = useChatDraftSeed({
     kind: "taskChat" as const,
@@ -277,10 +271,6 @@ export function TaskSandboxChatPanel({
         isSandboxToggling={isSandboxToggling}
         onSandboxToggle={onSandboxToggle}
         isAssistantResponding={isExecuting}
-        usageAccountScope={claudeUsageAccountScope(model, {
-          providerAccountId,
-          accountLabel: usageAccountLabel,
-        })}
       />
       <ChatBody
         repoId={repo._id}

@@ -236,7 +236,6 @@ export function ProjectSandboxChatPanel({
           providerAccountId,
           accountLabel: usageAccountLabel,
         })}
-        projectId={projectId}
       />
       <ChatBody
         repoId={repo._id}

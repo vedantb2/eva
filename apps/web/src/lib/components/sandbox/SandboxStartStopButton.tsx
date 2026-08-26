@@ -76,8 +76,6 @@ export function SandboxChatHeaderActions({
   onSandboxToggle,
   isAssistantResponding = false,
   usageAccountScope,
-  projectId,
-  taskId,
 }: {
   repoId: Id<"githubRepos">;
   isSandboxActive: boolean;
@@ -85,26 +83,13 @@ export function SandboxChatHeaderActions({
   onSandboxToggle?: (action: "start" | "stop") => void;
   isAssistantResponding?: boolean;
   usageAccountScope?: UsageAccountScope;
-  projectId?: Id<"projects">;
-  taskId?: Id<"agentTasks">;
 }) {
   if (!onSandboxToggle) return null;
 
-  const refreshTarget =
-    projectId !== undefined
-      ? { projectId }
-      : taskId !== undefined
-        ? { taskId }
-        : undefined;
-
   return (
     <div className="flex shrink-0 items-center justify-end gap-1 px-2 py-1">
-      {usageAccountScope && refreshTarget ? (
-        <UsageLimitsIndicator
-          repoId={repoId}
-          accountScope={usageAccountScope}
-          refreshTarget={refreshTarget}
-        />
+      {usageAccountScope ? (
+        <UsageLimitsIndicator repoId={repoId} accountScope={usageAccountScope} />
       ) : null}
       <SandboxStartStopButton
         isActive={isSandboxActive}

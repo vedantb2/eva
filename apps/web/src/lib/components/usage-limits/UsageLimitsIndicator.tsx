@@ -14,14 +14,11 @@ import {
 import { UsageBar } from "./UsageBar";
 import { UsageLimitsDetails } from "./UsageLimitsDetails";
 import { useMinuteNow } from "./_useMinuteNow";
-import type { UsageRefreshTarget } from "./UsageRefreshButton";
 
 interface UsageLimitsIndicatorProps {
   repoId: Id<"githubRepos">;
   /** Always a Claude credential — callers omit this component otherwise. */
   accountScope: UsageAccountScope;
-  /** The live daemon that answers an on-demand refresh. */
-  refreshTarget: UsageRefreshTarget;
 }
 
 /**
@@ -34,7 +31,6 @@ interface UsageLimitsIndicatorProps {
 export function UsageLimitsIndicator({
   repoId,
   accountScope,
-  refreshTarget,
 }: UsageLimitsIndicatorProps) {
   const simpleView = useSimpleView();
   const now = useMinuteNow();
@@ -78,7 +74,6 @@ export function UsageLimitsIndicator({
           rows={visibleRows}
           now={now}
           accountScope={accountScope}
-          refreshTarget={refreshTarget}
         />
       </PopoverContent>
     </Popover>

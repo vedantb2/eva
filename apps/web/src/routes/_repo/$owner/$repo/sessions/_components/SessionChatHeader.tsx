@@ -115,7 +115,6 @@ export function SessionChatHeader({
         <UsageLimitsIndicator
           repoId={repoId}
           accountScope={usageAccountScope}
-          refreshTarget={{ sessionId }}
         />
       ) : null}
       <SandboxStartStopButton

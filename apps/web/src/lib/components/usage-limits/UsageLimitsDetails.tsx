@@ -13,10 +13,7 @@ import {
   type UsageSnapshot,
 } from "./_utils";
 import { UsageProviderSection } from "./UsageProviderSection";
-import {
-  UsageRefreshButton,
-  type UsageRefreshTarget,
-} from "./UsageRefreshButton";
+import { UsageRefreshButton } from "./UsageRefreshButton";
 
 interface UsageLimitsDetailsProps {
   repoId: Id<"githubRepos">;
@@ -32,8 +29,6 @@ interface UsageLimitsDetailsProps {
    * has no single account to refresh and so offers no refresh.
    */
   accountScope?: UsageAccountScope;
-  /** The live daemon that should report. Required for the refresh control. */
-  refreshTarget?: UsageRefreshTarget;
 }
 
 /**
@@ -46,7 +41,6 @@ export function UsageLimitsDetails({
   rows,
   now,
   accountScope,
-  refreshTarget,
 }: UsageLimitsDetailsProps) {
   const visibleRows = rows.filter(
     (row) =>
@@ -55,14 +49,9 @@ export function UsageLimitsDetails({
         toneForStatus(activeUsageStatus(row, now)) !== "neutral"),
   );
   const capturedAt = newestCapturedAt(visibleRows);
-  const refresh =
-    accountScope && refreshTarget ? (
-      <UsageRefreshButton
-        repoId={repoId}
-        scope={accountScope}
-        target={refreshTarget}
-      />
-    ) : undefined;
+  const refresh = accountScope ? (
+    <UsageRefreshButton repoId={repoId} scope={accountScope} />
+  ) : undefined;
 
   if (visibleRows.length === 0 && accountScope) {
     return (

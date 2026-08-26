@@ -13,7 +13,8 @@ type ExperimentalFlagKey =
   | "blurPid"
   | "voiceDictation"
   | "composerAutocomplete"
-  | "simpleView";
+  | "simpleView"
+  | "replyChime";
 
 export function ExperimentalSettingsClient() {
   const flags = useQuery(api.auth.getExperimentalFlags);
@@ -97,6 +98,17 @@ export function ExperimentalSettingsClient() {
                 toggle("composerAutocomplete", checked)
               }
               aria-label="Composer autocomplete"
+            />
+          }
+        />
+        <SettingsToggleRow
+          title="Reply chime"
+          description="Play the notification sound when the agent finishes replying to you. Only your turns chime, and only on this machine."
+          action={
+            <Switch
+              checked={flags.replyChime}
+              onCheckedChange={(checked) => toggle("replyChime", checked)}
+              aria-label="Reply chime"
             />
           }
         />

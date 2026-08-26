@@ -1,5 +1,11 @@
 # Changelog
 
+## Subagent spawn CTA row in the chat timeline - 2026-08-26
+
+- Adopted t3code's inline spawn row: assistant turns that kicked off subagents get a slim clickable row under their activity — dot, robot icon, "Kicked off N subagents", "N working" (or "N failed"/"completed" once settled), optional "Σ 65.1k" token sum, "Open Agents ›" — that opens the existing Agents sandbox tab and expands the right pane.
+- Summary folds the turn's own `subtask` steps via the Agents tab's `deriveSubagents`, with session-wide `backgroundAgents` narrowed to that turn's tool-use ids so each row reports only its own batch.
+- Eva's subagent model carries no token usage yet, so real rows omit the Σ cluster; `?mockAgents=1` demos the full row on the last assistant turn. Sessions surface only (tasks/projects have no Agents tab).
+
 ## Tasks progress panel above the composer - 2026-08-26
 
 - Adopted t3code's composer Tasks UI: a slim strip flush above the chat input showing the agent's task list — icon, "Tasks", current step, n/m count and per-step segment bars — expanding into a drawer with ✓/●/○ rows and durations, dismissible per turn.

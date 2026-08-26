@@ -78,6 +78,8 @@ interface ChatPanelProps {
   onViewDiff?: (repoRelativePath?: string) => void;
   /** Opens the PRD sandbox tab (used by the Plan Ready banner). */
   onOpenPrdTab?: () => void;
+  /** Opens the Agents sandbox tab (used by the sub-agent CTA row in the chat). */
+  onOpenAgentsTab?: () => void;
   backgroundAgents?: Doc<"sessions">["backgroundAgents"];
 }
 
@@ -110,6 +112,7 @@ export function ChatPanel({
   onOpenFile,
   onViewDiff,
   onOpenPrdTab,
+  onOpenAgentsTab,
   backgroundAgents,
 }: ChatPanelProps) {
   const { repo, basePath } = useRepo();
@@ -389,6 +392,9 @@ export function ChatPanel({
         onOpenFile={onOpenFile}
         onViewDiff={prUrl ? onViewDiff : undefined}
         hasPendingContext={hasPendingReviewComments}
+        onOpenAgentsTab={onOpenAgentsTab}
+        backgroundAgents={backgroundAgents}
+        sandboxRunning={isSandboxActive}
       />
       <SessionSummaryModal
         sessionId={sessionId}

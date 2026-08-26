@@ -18,11 +18,13 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   api,
   type AIModel,
+  type BackgroundAgentEntry,
   type Id,
   type StoredModelTraits,
   type resolveTraitsForDisplay,
 } from "@eva/backend";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
+import { useMockAgentsEnabled } from "@/lib/components/chat/_components/AgentSpawnCtaRow";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import {
   buildJumpRailTicks,
@@ -130,6 +132,15 @@ interface ChatBodyProps {
   onViewDiff?: (repoRelativePath?: string) => void;
   /** True when ephemeral diff review comments are queued for the next send. */
   hasPendingContext?: boolean;
+  /**
+   * Opens the Agents sandbox tab. Only sessions have one, so leaving this unset
+   * hides the sub-agent CTA row under assistant turns.
+   */
+  onOpenAgentsTab?: () => void;
+  /** Entity-wide sub-agent lifecycle entries, for the CTA row's live status. */
+  backgroundAgents?: ReadonlyArray<BackgroundAgentEntry>;
+  /** False lets stranded "running" sub-agents read as stale, not live. */
+  sandboxRunning?: boolean;
 }
 
 export function ChatBody({
@@ -167,10 +178,14 @@ export function ChatBody({
   onOpenFile,
   onViewDiff,
   hasPendingContext,
+  onOpenAgentsTab,
+  backgroundAgents,
+  sandboxRunning,
 }: ChatBodyProps) {
   // Simple view hides diffs and sandbox lifecycle banners. Quick task /
   // project / session all render through ChatBody, so this is the one gate.
   const simpleView = useSimpleView();
+  const mockAgents = useMockAgentsEnabled();
   const displayMessages = visibleChatMessages(messages, simpleView);
 
   const lastMessage = displayMessages[displayMessages.length - 1];
@@ -307,6 +322,12 @@ export function ChatBody({
         streamingContent={isStreamingTarget ? streamingContent : undefined}
         onOpenFile={onOpenFile}
         onViewDiff={onViewDiff}
+        onOpenAgentsTab={onOpenAgentsTab}
+        backgroundAgents={backgroundAgents}
+        sandboxRunning={sandboxRunning}
+        mockAgentSpawn={
+          mockAgents && message._id === latestAssistantMessageId
+        }
       />
     );
   };

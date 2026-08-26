@@ -368,6 +368,8 @@ export function ChatBody({
           onCancel={onCancel}
           beforeQueuedContent={beforeQueuedContent}
           preInputContent={preInputContent}
+          streamingActivity={streamingActivity}
+          streamingTurnId={streamingTargetId}
           draft={draft}
           isDraftLoading={isDraftLoading}
           hasPendingContext={hasPendingContext}

@@ -1,5 +1,11 @@
 # Changelog
 
+## Tasks progress panel above the composer - 2026-08-26
+
+- Adopted t3code's composer Tasks UI: a slim strip flush above the chat input showing the agent's task list — icon, "Tasks", current step, n/m count and per-step segment bars — expanding into a drawer with ✓/●/○ rows and durations, dismissible per turn.
+- Restyled for Eva: tone fill (`bg-muted/50`, `rounded-t-surface`) instead of t3code's bordered glass shoulder tab, Tabler icons, no banned hooks.
+- Real data comes from the streaming turn's `todos` activity step threaded via `ChatBody` → `ChatComposer`, so all chat surfaces get it; `?mockTasks=1` forces a 7-step mock list for demos.
+
 ## Agents tab in session sandbox panel - 2026-08-26
 
 - Sessions get an "Agents" sandbox tab (t3code-style roster) listing every sub-agent the session spawned, so subagent work is inspectable without hunting the chat timeline.

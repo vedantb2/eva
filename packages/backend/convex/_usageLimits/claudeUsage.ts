@@ -117,10 +117,6 @@ function isoToMs(value: string | null | undefined): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
-function msToIso(ms: number): string {
-  return new Date(ms).toISOString();
-}
-
 /** `limits[].resets_at` is either unix seconds or an ISO string. */
 function scopedResetsAtMs(
   value: number | string | null | undefined,
@@ -129,109 +125,6 @@ function scopedResetsAtMs(
     return Number.isFinite(value) ? Math.round(value * 1000) : undefined;
   }
   return isoToMs(value);
-}
-
-/**
- * Unified rate-limit claim suffixes on Messages responses.
- *
- * Fable's weekly cap is `7d_oi` (shunt / Claude Code statusline), not a third
- * `7d` header — omitting it is why refresh only ever stored 5h + weekly-all.
- */
-const UNIFIED_HEADER_WINDOWS = [
-  { key: "five_hour", suffix: "5h" },
-  { key: "seven_day", suffix: "7d" },
-  {
-    key: "model_scoped:Fable",
-    suffix: "7d_oi",
-    displayName: "Fable",
-  },
-] as const;
-
-/**
- * Plan windows from a Messages response's unified rate-limit headers.
- *
- * Setup-tokens (`sk-ant-oat…`, scope `user:inference`) cannot call `/usage`
- * (`user:profile` required, HTTP 403). The same token's inference responses
- * still carry 5h / weekly / Fable utilisation as a 0–1 fraction and a
- * unix-seconds reset.
- */
-export function readUnifiedRateLimitHeaders(
-  header: (name: string) => string | undefined,
-): UsageWindow[] {
-  const windows: UsageWindow[] = [];
-  for (const spec of UNIFIED_HEADER_WINDOWS) {
-    const utilization = fractionToPercent(
-      header(`anthropic-ratelimit-unified-${spec.suffix}-utilization`),
-    );
-    const resetsAt = unixSecondsToMs(
-      header(`anthropic-ratelimit-unified-${spec.suffix}-reset`),
-    );
-    const label =
-      "displayName" in spec
-        ? `Weekly (${spec.displayName})`
-        : (CLAUDE_WINDOW_LABELS[spec.key] ?? spec.key);
-    pushWindow(windows, spec.key, label, utilization, resetsAt);
-  }
-  return windows;
-}
-
-/** The `/usage` body shape for windows read off inference headers. */
-export function claudeUsageBodyFromUnifiedHeaders(
-  header: (name: string) => string | undefined,
-): ClaudeUsageBody | null {
-  const windows = readUnifiedRateLimitHeaders(header);
-  if (windows.length === 0) return null;
-  const raw: Record<string, unknown> = {};
-  const limits: Array<{
-    kind: string;
-    percent?: number;
-    resets_at?: number;
-    scope: { model: { display_name: string } };
-  }> = [];
-  for (const window of windows) {
-    if (window.key.startsWith("model_scoped:")) {
-      const name = window.key.slice("model_scoped:".length);
-      limits.push({
-        kind: "weekly_scoped",
-        ...(window.utilization === undefined
-          ? {}
-          : { percent: window.utilization }),
-        ...(window.resetsAt === undefined
-          ? {}
-          : { resets_at: window.resetsAt / 1000 }),
-        scope: { model: { display_name: name } },
-      });
-      continue;
-    }
-    raw[window.key] = {
-      ...(window.utilization === undefined
-        ? {}
-        : { utilization: window.utilization }),
-      ...(window.resetsAt === undefined
-        ? {}
-        : { resets_at: msToIso(window.resetsAt) }),
-    };
-  }
-  if (limits.length > 0) raw.limits = limits;
-  const parsed = claudeUsageBodySchema.safeParse(raw);
-  if (!parsed.success) return null;
-  return parsed.data;
-}
-
-function fractionToPercent(value: string | undefined): number | undefined {
-  if (value === undefined || value.length === 0) return undefined;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return undefined;
-  // Two decimal places, matching `/usage`'s percent encoding (1.03, not
-  // 1.0299999998 from 0.0103 × 100).
-  return Math.round(parsed * 10_000) / 100;
-}
-
-function unixSecondsToMs(value: string | undefined): number | undefined {
-  if (value === undefined || value.length === 0) return undefined;
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return undefined;
-  return Math.round(parsed * 1000);
 }
 
 function pushWindow(

@@ -14,7 +14,6 @@ import { resolveAllEnvVars } from "./envVarResolver";
 import https from "node:https";
 import {
   claudeUsageBodySchema,
-  claudeUsageBodyFromUnifiedHeaders,
   hasPlanRateLimits,
   readClaudeUsageWindows,
   type ClaudeUsageBody,
@@ -26,12 +25,10 @@ import {
  * to report one. The card's refresh button calls this; everything else about
  * the feature still arrives from the sandbox.
  *
- * `/usage` needs a `user:profile` OAuth token. The credential Eva stores for
- * launches is a setup-token (`user:inference`), so that endpoint 403s; a
- * 1-token Messages call still returns the 5h/weekly windows on response
- * headers. The request is made with `https.request` so User-Agent actually
- * leaves the process ? fetch in some runtimes strips it, and Anthropic then
- * 429s.
+ * Reads `GET /api/oauth/usage` with Claude Code's User-Agent via `https.request`
+ * so the header actually leaves the process ? fetch in some runtimes strips it,
+ * and Anthropic then 429s. Needs a token with `user:profile` (Claude Code OAuth);
+ * a setup-token (`user:inference` only) 403s and is reported as unauthorized.
  *
  * The reading is always taken with the credential the caller's surface is
  * scoped to ? a connected account, or the shared team credential ? and never
@@ -40,11 +37,9 @@ import {
  */
 
 const CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
-const CLAUDE_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const USAGE_TIMEOUT_MS = 8_000;
 /** Required by the undocumented OAuth usage endpoint. */
 const CLAUDE_USAGE_BETA = "oauth-2025-04-20";
-const CLAUDE_API_VERSION = "2023-06-01";
 /**
  * The `/usage` endpoint rate-limits by User-Agent. Node/undici's default (and
  * a missing UA) land in a bucket that 429s immediately; Claude Code's
@@ -52,18 +47,6 @@ const CLAUDE_API_VERSION = "2023-06-01";
  * fetch runtime cannot strip it as a forbidden header.
  */
 const CLAUDE_USAGE_USER_AGENT = "claude-code/2.1.72";
-/**
- * Cheapest current Haiku id, then a versionless alias. The probe is a 1-token
- * Messages call; model ids rot, so a 404 tries the next rather than failing
- * the refresh.
- */
-const USAGE_PROBE_MODELS = [
-  // Fable responses carry the `7d_oi` claim (Weekly Fable). Probe it first so a
-  // cheaper Haiku 200 without that header cannot short-circuit the refresh.
-  "claude-fable-5",
-  "claude-haiku-4-5-20251001",
-  "claude-haiku-4-5",
-] as const;
 
 type UsageProvider = Infer<typeof usageLimitProviderValidator>;
 
@@ -78,7 +61,7 @@ type RefreshFailure =
 type TokenLookup = { kind: "token"; token: string } | { kind: "missing" };
 
 type UsageFetch =
-  | { kind: "body"; body: ClaudeUsageBody; authoritative: boolean }
+  | { kind: "body"; body: ClaudeUsageBody }
   | { kind: "unauthorized" }
   | { kind: "network" }
   | { kind: "rate-limited" };
@@ -138,7 +121,6 @@ function readUsageBody(text: string): ClaudeUsageBody | null {
 
 type HttpResult = {
   status: number;
-  header: (name: string) => string | undefined;
   text: string;
 };
 
@@ -148,9 +130,8 @@ type HttpResult = {
  */
 function requestHttps(input: {
   url: string;
-  method: "GET" | "POST";
+  method: "GET";
   headers: Record<string, string>;
-  body?: string;
 }): Promise<HttpResult | null> {
   return new Promise((resolve) => {
     const url = new URL(input.url);
@@ -171,7 +152,6 @@ function requestHttps(input: {
         res.on("end", () => {
           resolve({
             status: res.statusCode ?? 0,
-            header: (name) => readNodeHeader(res.headers[name.toLowerCase()]),
             text,
           });
         });
@@ -186,20 +166,8 @@ function requestHttps(input: {
       console.warn("[usageLimits] Claude usage request failed", "timeout");
       resolve(null);
     });
-    if (input.body !== undefined) req.write(input.body);
     req.end();
   });
-}
-
-function readNodeHeader(
-  value: string | string[] | undefined,
-): string | undefined {
-  if (value === undefined) return undefined;
-  if (Array.isArray(value)) {
-    const first = value[0];
-    return first === undefined || first.length === 0 ? undefined : first;
-  }
-  return value.length === 0 ? undefined : value;
 }
 
 function credentialKind(token: string): string {
@@ -213,19 +181,17 @@ function bodyKeys(body: ClaudeUsageBody): string {
   return Object.keys(body).sort().join(",");
 }
 
-function usageHeaders(): Record<string, string> {
-  return {
-    "anthropic-beta": CLAUDE_USAGE_BETA,
-    "User-Agent": CLAUDE_USAGE_USER_AGENT,
-  };
+function httpOk(status: number): boolean {
+  return status >= 200 && status < 300;
 }
 
-async function requestOauthUsage(token: string): Promise<UsageFetch> {
+async function fetchClaudeUsage(token: string): Promise<UsageFetch> {
   const response = await requestHttps({
     url: CLAUDE_USAGE_URL,
     method: "GET",
     headers: {
-      ...usageHeaders(),
+      "anthropic-beta": CLAUDE_USAGE_BETA,
+      "User-Agent": CLAUDE_USAGE_USER_AGENT,
       Authorization: `Bearer ${token}`,
       Accept: "application/json",
     },
@@ -253,83 +219,7 @@ async function requestOauthUsage(token: string): Promise<UsageFetch> {
   console.warn(
     `[usageLimits] /usage 200 cred=${credentialKind(token)} keys=${bodyKeys(body)} windows=${readClaudeUsageWindows(body).length}`,
   );
-  return { kind: "body", body, authoritative: true };
-}
-
-/**
- * `/usage` needs `user:profile`. Eva's stored Claude credential is almost
- * always a setup-token (`sk-ant-oat?`, `user:inference` only), which 403s
- * that endpoint while still running turns. A 1-token Messages call returns
- * the same 5h/weekly windows on `anthropic-ratelimit-unified-*`.
- */
-async function requestInferenceUsage(token: string): Promise<UsageFetch> {
-  for (const model of USAGE_PROBE_MODELS) {
-    const body = JSON.stringify({
-      model,
-      max_tokens: 1,
-      messages: [{ role: "user", content: "." }],
-    });
-    const response = await requestHttps({
-      url: CLAUDE_MESSAGES_URL,
-      method: "POST",
-      headers: {
-        ...usageHeaders(),
-        Authorization: `Bearer ${token}`,
-        "anthropic-version": CLAUDE_API_VERSION,
-        "Content-Type": "application/json",
-        "Content-Length": String(Buffer.byteLength(body)),
-      },
-      body,
-    });
-    if (response === null) return { kind: "network" };
-    if (response.status === 404) continue;
-    if (response.status === 401 || response.status === 403) {
-      console.warn(
-        `[usageLimits] messages probe ${response.status} cred=${credentialKind(token)} model=${model}`,
-      );
-      return { kind: "unauthorized" };
-    }
-    if (response.status === 429) {
-      console.warn("[usageLimits] messages probe returned 429");
-      return { kind: "rate-limited" };
-    }
-    if (!httpOk(response.status)) {
-      console.warn(
-        `[usageLimits] messages probe returned ${response.status} model=${model}`,
-      );
-      return { kind: "network" };
-    }
-    const parsed = claudeUsageBodyFromUnifiedHeaders(response.header);
-    if (parsed === null) {
-      console.warn(
-        `[usageLimits] messages probe 200 had no unified rate-limit headers model=${model}`,
-      );
-      return { kind: "network" };
-    }
-    console.warn(
-      `[usageLimits] messages probe 200 cred=${credentialKind(token)} windows=${readClaudeUsageWindows(parsed).length}`,
-    );
-    // Headers carry five_hour, seven_day, and often 7d_oi (Weekly Fable).
-    return { kind: "body", body: parsed, authoritative: false };
-  }
-  console.warn("[usageLimits] messages probe: no current Haiku model id");
-  return { kind: "network" };
-}
-
-function httpOk(status: number): boolean {
-  return status >= 200 && status < 300;
-}
-
-async function fetchClaudeUsage(token: string): Promise<UsageFetch> {
-  const usage = await requestOauthUsage(token);
-  if (usage.kind === "body" && hasPlanRateLimits(usage.body)) return usage;
-  const probe = await requestInferenceUsage(token);
-  if (probe.kind === "body" && hasPlanRateLimits(probe.body)) return probe;
-  if (usage.kind !== "body") return usage;
-  if (probe.kind === "unauthorized" || probe.kind === "rate-limited") {
-    return probe;
-  }
-  return usage;
+  return { kind: "body", body };
 }
 
 /**
@@ -396,14 +286,13 @@ export const refresh = authAction({
       ...accountArg,
     });
     const subscriptionType = stored?.subscriptionType;
-    const completeness = result.authoritative ? "complete" : "partial";
     await ctx.runMutation(api.usageLimits.report, {
       repoId: args.repoId,
       provider: args.provider,
       ...accountArg,
       capturedAt: Date.now(),
-      snapshotComplete: result.authoritative,
-      completeness,
+      snapshotComplete: true,
+      completeness: "complete",
       windows,
       ...(subscriptionType === undefined ? {} : { subscriptionType }),
     });

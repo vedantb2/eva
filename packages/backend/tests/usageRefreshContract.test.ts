@@ -14,17 +14,11 @@ const buttonSource = readSource(
 );
 
 /**
- * Two distinct ways `/usage` fails for Eva's stored Claude credential:
- *
- * 1. Without `User-Agent: claude-code/…` Anthropic 429s immediately. Fetch
- *    runtimes may strip that header; `https.request` is what actually sends it.
- * 2. A setup-token (`sk-ant-oat…`, `user:inference`) 403s `/usage` even with
- *    the right UA. A 1-token Messages call still returns 5h/weekly windows on
- *    `anthropic-ratelimit-unified-*`.
- *
- * Neither of those is "Couldn't reach Claude".
+ * On-demand refresh is only `GET /api/oauth/usage` with Claude Code's
+ * User-Agent over `https.request`. No Messages probe, no setup-token header
+ * harvest ? those were the OpenCode-shaped third-party path.
  */
-describe("a plan-usage refresh is not mistaken for an unreachable Claude", () => {
+describe("plan-usage refresh uses only /api/oauth/usage", () => {
   test("the request sends the OAuth beta and Claude Code User-Agent over https", () => {
     expect(actionSource).toContain('from "node:https"');
     expect(actionSource).toContain("https.request");
@@ -32,43 +26,26 @@ describe("a plan-usage refresh is not mistaken for an unreachable Claude", () =>
     expect(actionSource).toContain('"User-Agent": CLAUDE_USAGE_USER_AGENT');
     expect(actionSource).toContain("oauth-2025-04-20");
     expect(actionSource).toContain("claude-code/");
+    expect(actionSource).toContain("https://api.anthropic.com/api/oauth/usage");
+  });
+
+  test("there is no Messages probe or setup-token fallback", () => {
+    expect(actionSource).not.toContain("v1/messages");
+    expect(actionSource).not.toContain("requestInferenceUsage");
+    expect(actionSource).not.toContain("USAGE_PROBE");
+    expect(actionSource).not.toContain("claudeUsageBodyFromUnifiedHeaders");
+    expect(actionSource).not.toContain("anthropic-ratelimit-unified");
   });
 
   test("HTTP 429 is its own failure, not network", () => {
-    const oauthAt = actionSource.indexOf("async function requestOauthUsage");
-    expect(oauthAt, "requestOauthUsage moved").toBeGreaterThan(-1);
-    const oauthBody = actionSource.slice(oauthAt);
-    const limitedAt = oauthBody.indexOf("response.status === 429");
-    const otherHttpAt = oauthBody.indexOf("if (!httpOk(response.status))");
-    expect(limitedAt, "the 429 branch moved").toBeGreaterThan(-1);
-    expect(otherHttpAt, "the catch-all HTTP branch moved").toBeGreaterThan(
-      limitedAt,
-    );
-    expect(oauthBody).toContain('kind: "rate-limited"');
+    expect(actionSource).toContain("response.status === 429");
+    expect(actionSource).toContain('kind: "rate-limited"');
     expect(actionSource).toContain('reason: "rate-limited"');
   });
 
-  test("a setup-token 403 still probes Messages unified headers", () => {
-    expect(actionSource).toContain("https://api.anthropic.com/v1/messages");
-    expect(actionSource).toContain("requestInferenceUsage");
-    expect(actionSource).toContain("claudeUsageBodyFromUnifiedHeaders");
-    const fetchAt = actionSource.indexOf("async function fetchClaudeUsage");
-    expect(fetchAt, "fetchClaudeUsage moved").toBeGreaterThan(-1);
-    const fetchBody = actionSource.slice(fetchAt);
-    expect(fetchBody).toContain("requestOauthUsage");
-    expect(fetchBody).toContain("requestInferenceUsage");
-    expect(fetchBody.indexOf("requestInferenceUsage")).toBeGreaterThan(
-      fetchBody.indexOf("requestOauthUsage"),
-    );
-  });
-
-  test("a Messages-header probe merges so model-scoped windows survive", () => {
-    expect(actionSource).toContain("authoritative: false");
-    expect(actionSource).toContain('authoritative: true');
-    expect(actionSource).toContain(
-      'const completeness = result.authoritative ? "complete" : "partial"',
-    );
-    expect(actionSource).toContain("snapshotComplete: result.authoritative");
+  test("a successful /usage read is stored as a complete snapshot", () => {
+    expect(actionSource).toContain('completeness: "complete"');
+    expect(actionSource).toContain("snapshotComplete: true");
   });
 
   test("the toast copy names a rate limit rather than unreachability", () => {

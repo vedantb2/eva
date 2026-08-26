@@ -1,5 +1,9 @@
 # Changelog
 
+## Plan-usage refresh is only /api/oauth/usage - 2026-08-26
+
+Dropped the setup-token Messages probe that harvested `anthropic-ratelimit-unified-*` headers. Manual refresh now calls Claude's OAuth usage endpoint only; a token without `user:profile` surfaces as unauthorized instead of a fake inference fallback.
+
 ## Plan-usage is one shared indicator - 2026-08-26
 
 Session/project/task headers all mount the same `UsageLimitsIndicator` with `model` + account. Only the chip bar changes (active account, preferring Weekly Fable on Fable); the popover always shows every account from the same `getByRepo` query so switching sessions cannot show different numbers.

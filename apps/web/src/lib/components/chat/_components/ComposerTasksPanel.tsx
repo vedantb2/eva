@@ -1,5 +1,11 @@
 import { Button, cn } from "@eva/ui";
-import { IconListCheck, IconX } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconCircle,
+  IconListCheck,
+  IconPointFilled,
+  IconX,
+} from "@tabler/icons-react";
 import { parseAsString, useQueryState } from "nuqs";
 import { useState } from "react";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
@@ -115,11 +121,11 @@ function TaskSegments({
 
 function TaskStepRow({ step }: { readonly step: ComposerTaskStep }) {
   return (
-    <div className="flex items-baseline gap-2 text-xs leading-5" role="listitem">
+    <div className="flex items-center gap-2 text-xs leading-5" role="listitem">
       <span
         aria-hidden
         className={cn(
-          "w-3 shrink-0 text-center font-mono text-[10px]",
+          "flex w-3 shrink-0 items-center justify-center",
           step.status === "completed"
             ? "text-success"
             : step.status === "inProgress"
@@ -127,11 +133,13 @@ function TaskStepRow({ step }: { readonly step: ComposerTaskStep }) {
               : "text-muted-foreground/40",
         )}
       >
-        {step.status === "completed"
-          ? "✓"
-          : step.status === "inProgress"
-            ? "●"
-            : "○"}
+        {step.status === "completed" ? (
+          <IconCheck className="size-3" />
+        ) : step.status === "inProgress" ? (
+          <IconPointFilled className="size-3" />
+        ) : (
+          <IconCircle className="size-2.5" />
+        )}
       </span>
       <span
         className={cn(

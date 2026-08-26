@@ -2637,22 +2637,34 @@ function ensureSnapshot() {
   callbackState.usageLimitSnapshot = created;
   return created;
 }
+function normalizeWindowKey(key) {
+  if (key === "seven_day_oi") return "model_scoped:Fable";
+  return key;
+}
+function labelForWindowKey(key) {
+  if (CLAUDE_WINDOW_LABELS[key]) return CLAUDE_WINDOW_LABELS[key];
+  if (key.startsWith("model_scoped:")) {
+    return \`Weekly (\${key.slice("model_scoped:".length)})\`;
+  }
+  return key;
+}
 function mergeClaudeRateLimitEvent(event) {
   const info = event.rate_limit_info;
   if (typeof info !== "object" || info === null || Array.isArray(info)) return;
   const status = readStatus(info.status);
-  const key = readNonEmptyString(info.rateLimitType);
-  if (!status && !key) return;
+  const rawKey = readNonEmptyString(info.rateLimitType);
+  if (!status && !rawKey) return;
   const snapshot = ensureSnapshot();
   snapshot.completeness = "partial";
   if (status) snapshot.status = status;
-  if (!key) return;
+  if (!rawKey) return;
+  const key = normalizeWindowKey(rawKey);
   const resetsAtSeconds = readFiniteNumber(info.resetsAt);
   mergeWindow(
     snapshot,
     buildWindow(
       key,
-      CLAUDE_WINDOW_LABELS[key] ?? key,
+      labelForWindowKey(key),
       readFiniteNumber(info.utilization),
       resetsAtSeconds === void 0 ? void 0 : Math.round(resetsAtSeconds * 1e3)
     )
@@ -6137,15 +6149,12 @@ function startClaimWatcher(agentRunner) {
         supervisor.stop();
         process.exit(0);
       }
-      if (supervisor.phase === "finalizing") {
-        await sleep2(PROMPT_POLL_INTERVAL_MS);
-        continue;
-      }
+      const acceptTurn = supervisor.phase === "idle" && supervisor.pendingClaim === null;
       try {
         const claimed = await callConvexWithRetry(
           "mutation",
           CLAIM_MUTATION ?? "",
-          entityMutationArgs({ model: MODEL })
+          entityMutationArgs({ model: MODEL, acceptTurn })
         );
         const stopIds = readStopTaskToolUseIds(claimed);
         for (const toolUseId of stopIds) {
@@ -6988,14 +6997,11 @@ async function runCodexAppServerDaemon() {
         const completion = processNotification(notification);
         if (completion) await completion;
       }
-      if (supervisor2.phase === "finalizing") {
-        await sleep3(POLL_INTERVAL_MS2);
-        continue;
-      }
+      const acceptTurn = supervisor2.phase === "idle" && supervisor2.pendingClaim === null;
       const claimed = await callConvexWithRetry(
         "mutation",
         CLAIM_MUTATION,
-        entityArgs({ model: MODEL })
+        entityArgs({ model: MODEL, acceptTurn })
       );
       const providerTurnId = supervisor2.currentTurn?.providerTurnId ?? "";
       if (readCancelRequested(claimed) && providerTurnId && supervisor2.beginCancellation()) {
@@ -7968,7 +7974,10 @@ function startClaimWatcher2() {
         const claimed = await callConvexWithRetry(
           "mutation",
           CLAIM_MUTATION ?? "",
-          entityMutationArgs2({ model: MODEL })
+          entityMutationArgs2({
+            model: MODEL,
+            acceptTurn: !turnActive2 && pendingClaimedTurn === null && !cancelInFlight
+          })
         );
         if (readCancelRequested(claimed)) handleCancelRequested2();
         const turn = readClaimedTurn(claimed);

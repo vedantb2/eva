@@ -58,6 +58,9 @@ const CLAUDE_USAGE_USER_AGENT = "claude-code/2.1.72";
  * the refresh.
  */
 const USAGE_PROBE_MODELS = [
+  // Fable responses carry the `7d_oi` claim (Weekly Fable). Probe it first so a
+  // cheaper Haiku 200 without that header cannot short-circuit the refresh.
+  "claude-fable-5",
   "claude-haiku-4-5-20251001",
   "claude-haiku-4-5",
 ] as const;
@@ -306,8 +309,7 @@ async function requestInferenceUsage(token: string): Promise<UsageFetch> {
     console.warn(
       `[usageLimits] messages probe 200 cred=${credentialKind(token)} windows=${readClaudeUsageWindows(parsed).length}`,
     );
-    // Headers only carry five_hour + seven_day ? never model_scoped windows ?
-    // so this must merge, not replace, or Weekly (Fable) disappears on refresh.
+    // Headers carry five_hour, seven_day, and often 7d_oi (Weekly Fable).
     return { kind: "body", body: parsed, authoritative: false };
   }
   console.warn("[usageLimits] messages probe: no current Haiku model id");

@@ -1,5 +1,9 @@
 # Changelog
 
+## Plan-usage chip reads Weekly (Fable) from 7d_oi - 2026-08-26
+
+Messages-probe refresh only parsed `5h`/`7d`, so Weekly (Fable) never appeared. It now reads `anthropic-ratelimit-unified-7d_oi-*`, probes Fable first, accepts ISO `limits[].resets_at`, and the chip bar follows the active Claude account while the popover still lists every account.
+
 ## Plan-usage chip shows every Claude account - 2026-08-26
 
 The header chip no longer filters to the sticky session credential — every Claude account with a fresh reading appears in one card, with per-account refresh. Messages-probe refresh now merges (`completeness: partial`) so Weekly (Fable) and other model-scoped windows from a prior turn are not wiped.

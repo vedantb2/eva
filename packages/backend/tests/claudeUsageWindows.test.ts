@@ -210,4 +210,64 @@ describe("unified inference headers", () => {
   test("headers with no unified windows produce no body", () => {
     expect(claudeUsageBodyFromUnifiedHeaders(() => undefined)).toBeNull();
   });
+
+  test("the 7d_oi claim becomes Weekly (Fable)", () => {
+    const resetsAtMs = Date.UTC(2026, 7, 25, 12, 0, 0);
+    const headers: Record<string, string> = {
+      "anthropic-ratelimit-unified-5h-utilization": "0.5",
+      "anthropic-ratelimit-unified-5h-reset": String(resetsAtMs / 1000),
+      "anthropic-ratelimit-unified-7d-utilization": "0.4",
+      "anthropic-ratelimit-unified-7d-reset": String(resetsAtMs / 1000),
+      "anthropic-ratelimit-unified-7d_oi-utilization": "0.12",
+      "anthropic-ratelimit-unified-7d_oi-reset": String(resetsAtMs / 1000),
+    };
+    const body = claudeUsageBodyFromUnifiedHeaders((name) => headers[name]);
+    expect(body, "headers should produce a usage body").not.toBeNull();
+    if (body === null) return;
+    expect(readClaudeUsageWindows(body)).toEqual([
+      {
+        key: "five_hour",
+        label: "5h",
+        utilization: 50,
+        resetsAt: resetsAtMs,
+      },
+      {
+        key: "seven_day",
+        label: "Weekly (all models)",
+        utilization: 40,
+        resetsAt: resetsAtMs,
+      },
+      {
+        key: "model_scoped:Fable",
+        label: "Weekly (Fable)",
+        utilization: 12,
+        resetsAt: resetsAtMs,
+      },
+    ]);
+  });
+
+  test("limits[].resets_at accepts an ISO string", () => {
+    const resetsAtMs = Date.UTC(2026, 7, 25, 12, 0, 0);
+    expect(
+      readClaudeUsageWindows(
+        parse({
+          limits: [
+            {
+              kind: "weekly_scoped",
+              percent: 54,
+              resets_at: new Date(resetsAtMs).toISOString(),
+              scope: { model: { display_name: "Fable" } },
+            },
+          ],
+        }),
+      ),
+    ).toEqual([
+      {
+        key: "model_scoped:Fable",
+        label: "Weekly (Fable)",
+        utilization: 54,
+        resetsAt: resetsAtMs,
+      },
+    ]);
+  });
 });

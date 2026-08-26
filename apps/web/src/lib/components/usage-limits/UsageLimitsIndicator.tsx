@@ -5,22 +5,35 @@ import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@eva/ui";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
-import { chipSummary, USAGE_TONE_TEXT_CLASS } from "./_utils";
+import {
+  chipSummary,
+  usageRowsForAccount,
+  USAGE_TONE_TEXT_CLASS,
+  type UsageAccountScope,
+} from "./_utils";
 import { UsageBar } from "./UsageBar";
 import { UsageLimitsDetails } from "./UsageLimitsDetails";
 import { useMinuteNow } from "./_useMinuteNow";
 
 interface UsageLimitsIndicatorProps {
   repoId: Id<"githubRepos">;
+  /**
+   * The credential the open chat is running on. Scopes the chip / bar only —
+   * the popover still lists every Claude account on the repo. Absent on
+   * Cursor/Codex chats (and while the sticky account is still loading).
+   */
+  accountScope?: UsageAccountScope;
 }
 
 /**
- * Every Claude account's plan headroom for this repo — not the sticky session
- * credential. Mounted on session and sandbox headers regardless of which
- * provider the open chat is running, so Cursor/Codex surfaces still show the
- * Claude meters people care about. Simple view hides it with the context gauge.
+ * Plan-usage chip for the open chat's Claude account, with a popover that
+ * shows every Claude account on the repo. Simple view hides it with the
+ * context gauge.
  */
-export function UsageLimitsIndicator({ repoId }: UsageLimitsIndicatorProps) {
+export function UsageLimitsIndicator({
+  repoId,
+  accountScope,
+}: UsageLimitsIndicatorProps) {
   const simpleView = useSimpleView();
   const now = useMinuteNow();
   const rows = useQuery(
@@ -29,7 +42,10 @@ export function UsageLimitsIndicator({ repoId }: UsageLimitsIndicatorProps) {
   );
   if (simpleView) return null;
   if (rows === undefined) return null;
-  const summary = chipSummary(rows, now);
+  const chipRows = accountScope
+    ? usageRowsForAccount(rows, accountScope)
+    : rows;
+  const summary = chipSummary(chipRows, now);
 
   return (
     // A popover rather than a hover card: the card now carries refresh

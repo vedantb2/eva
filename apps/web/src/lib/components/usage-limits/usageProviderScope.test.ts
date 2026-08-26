@@ -10,24 +10,12 @@ function readSource(path: string): string {
 }
 
 /**
- * Plan usage is every Claude account on the repo, not the sticky session
- * credential — Cursor/Codex chats still show the chip.
+ * Chip bar follows the sticky Claude credential; the popover lists every
+ * account. Cursor/Codex omit the scope so the bar does not show Claude % next
+ * to the wrong picker.
  */
-describe("plan-usage chip shows every Claude account", () => {
-  test("session and sandbox headers always mount the unscoped indicator", () => {
-    const header = readSource(
-      "routes/_repo/$owner/$repo/sessions/_components/SessionChatHeader.tsx",
-    );
-    const sandbox = readSource(
-      "lib/components/sandbox/SandboxStartStopButton.tsx",
-    );
-    expect(header).toContain("<UsageLimitsIndicator repoId={repoId} />");
-    expect(header).not.toContain("usageAccountScope");
-    expect(sandbox).toContain("<UsageLimitsIndicator repoId={repoId} />");
-    expect(sandbox).not.toContain("usageAccountScope");
-  });
-
-  test("session, project, and task chats no longer scope the chip to the sticky account", () => {
+describe("plan-usage chip bar vs popover scoping", () => {
+  test("session, project, and task chats pass a Claude account scope", () => {
     const session = readSource(
       "routes/_repo/$owner/$repo/sessions/ChatPanel.tsx",
     );
@@ -35,17 +23,19 @@ describe("plan-usage chip shows every Claude account", () => {
       "lib/components/projects/ProjectSandboxChatPanel.tsx",
     );
     const task = readSource("lib/components/tasks/TaskSandboxChatPanel.tsx");
-    expect(session).not.toContain("claudeUsageAccountScope");
-    expect(project).not.toContain("claudeUsageAccountScope");
-    expect(task).not.toContain("claudeUsageAccountScope");
+    expect(session).toContain("claudeUsageAccountScope(model");
+    expect(project).toContain("claudeUsageAccountScope(model");
+    expect(task).toContain("claudeUsageAccountScope(model");
   });
 
-  test("the indicator reads every row from getByRepo", () => {
+  test("the indicator scopes the chip but not the popover rows", () => {
     const indicator = readSource(
       "lib/components/usage-limits/UsageLimitsIndicator.tsx",
     );
-    expect(indicator).toContain("chipSummary(rows, now)");
-    expect(indicator).not.toContain("usageRowsForAccount");
-    expect(indicator).not.toContain("accountScope");
+    expect(indicator).toContain("usageRowsForAccount(rows, accountScope)");
+    expect(indicator).toContain("chipSummary(chipRows, now)");
+    expect(indicator).toContain(
+      "<UsageLimitsDetails repoId={repoId} rows={rows} now={now} />",
+    );
   });
 });

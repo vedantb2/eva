@@ -9,8 +9,8 @@ import type { usageLimitWindowValidator } from "../validators";
  * this is the server-side path, so the UI can pull a fresh reading without
  * waiting for one. The window keys, labels and display order are duplicated
  * from `callback-src/runtime/usageLimits.ts` — that is a separate esbuild
- * bundle which `convex/` cannot import — so a label added on one side belongs
- * on the other too.
+ * bundle which `convex/` cannot import — so a label added here belongs there
+ * too.
  *
  * The response is parsed rather than trusted: the endpoint is undocumented and
  * answers an expired or wrong-scope token with HTTP 200 carrying an error
@@ -41,7 +41,7 @@ const windowSchema = z
   .object({
     /** Percentage of the window consumed, 0-100. */
     utilization: z.number().nullish(),
-    /** ISO 8601 timestamp, unlike `limits[].resets_at` below. */
+    /** ISO 8601 timestamp, unlike some `limits[].resets_at` values below. */
     resets_at: z.string().nullish(),
   })
   .passthrough();
@@ -50,8 +50,11 @@ const scopedLimitSchema = z
   .object({
     kind: z.string().nullish(),
     percent: z.number().nullish(),
-    /** Epoch SECONDS here, unlike the fixed windows' ISO strings. */
-    resets_at: z.number().nullish(),
+    /**
+     * Epoch seconds on older payloads; ISO 8601 on current `/usage` responses.
+     * Both are accepted so a shape change cannot drop Weekly (Fable).
+     */
+    resets_at: z.union([z.number(), z.string()]).nullish(),
     scope: z
       .object({
         model: z
@@ -118,10 +121,30 @@ function msToIso(ms: number): string {
   return new Date(ms).toISOString();
 }
 
-/** Suffixes on `anthropic-ratelimit-unified-<suffix>-*`. */
+/** `limits[].resets_at` is either unix seconds or an ISO string. */
+function scopedResetsAtMs(
+  value: number | string | null | undefined,
+): number | undefined {
+  if (typeof value === "number") {
+    return Number.isFinite(value) ? Math.round(value * 1000) : undefined;
+  }
+  return isoToMs(value);
+}
+
+/**
+ * Unified rate-limit claim suffixes on Messages responses.
+ *
+ * Fable's weekly cap is `7d_oi` (shunt / Claude Code statusline), not a third
+ * `7d` header — omitting it is why refresh only ever stored 5h + weekly-all.
+ */
 const UNIFIED_HEADER_WINDOWS = [
   { key: "five_hour", suffix: "5h" },
   { key: "seven_day", suffix: "7d" },
+  {
+    key: "model_scoped:Fable",
+    suffix: "7d_oi",
+    displayName: "Fable",
+  },
 ] as const;
 
 /**
@@ -129,7 +152,8 @@ const UNIFIED_HEADER_WINDOWS = [
  *
  * Setup-tokens (`sk-ant-oat…`, scope `user:inference`) cannot call `/usage`
  * (`user:profile` required, HTTP 403). The same token's inference responses
- * still carry 5h/weekly utilisation as a 0–1 fraction and a unix-seconds reset.
+ * still carry 5h / weekly / Fable utilisation as a 0–1 fraction and a
+ * unix-seconds reset.
  */
 export function readUnifiedRateLimitHeaders(
   header: (name: string) => string | undefined,
@@ -142,13 +166,11 @@ export function readUnifiedRateLimitHeaders(
     const resetsAt = unixSecondsToMs(
       header(`anthropic-ratelimit-unified-${spec.suffix}-reset`),
     );
-    pushWindow(
-      windows,
-      spec.key,
-      CLAUDE_WINDOW_LABELS[spec.key] ?? spec.key,
-      utilization,
-      resetsAt,
-    );
+    const label =
+      "displayName" in spec
+        ? `Weekly (${spec.displayName})`
+        : (CLAUDE_WINDOW_LABELS[spec.key] ?? spec.key);
+    pushWindow(windows, spec.key, label, utilization, resetsAt);
   }
   return windows;
 }
@@ -159,8 +181,28 @@ export function claudeUsageBodyFromUnifiedHeaders(
 ): ClaudeUsageBody | null {
   const windows = readUnifiedRateLimitHeaders(header);
   if (windows.length === 0) return null;
-  const raw: Record<string, { utilization?: number; resets_at?: string }> = {};
+  const raw: Record<string, unknown> = {};
+  const limits: Array<{
+    kind: string;
+    percent?: number;
+    resets_at?: number;
+    scope: { model: { display_name: string } };
+  }> = [];
   for (const window of windows) {
+    if (window.key.startsWith("model_scoped:")) {
+      const name = window.key.slice("model_scoped:".length);
+      limits.push({
+        kind: "weekly_scoped",
+        ...(window.utilization === undefined
+          ? {}
+          : { percent: window.utilization }),
+        ...(window.resetsAt === undefined
+          ? {}
+          : { resets_at: window.resetsAt / 1000 }),
+        scope: { model: { display_name: name } },
+      });
+      continue;
+    }
     raw[window.key] = {
       ...(window.utilization === undefined
         ? {}
@@ -170,6 +212,7 @@ export function claudeUsageBodyFromUnifiedHeaders(
         : { resets_at: msToIso(window.resetsAt) }),
     };
   }
+  if (limits.length > 0) raw.limits = limits;
   const parsed = claudeUsageBodySchema.safeParse(raw);
   if (!parsed.success) return null;
   return parsed.data;
@@ -218,6 +261,7 @@ function pushWindow(
 export function readClaudeUsageWindows(body: ClaudeUsageBody): UsageWindow[] {
   const windows: UsageWindow[] = [];
   const nested = body.rate_limits;
+  const seen = new Set<string>();
   for (const key of FIXED_WINDOW_KEYS) {
     const entry = body[key] ?? nested?.[key];
     if (entry === undefined || entry === null) continue;
@@ -228,22 +272,45 @@ export function readClaudeUsageWindows(body: ClaudeUsageBody): UsageWindow[] {
       finiteOrUndefined(entry.utilization),
       isoToMs(entry.resets_at),
     );
+    seen.add(key);
   }
   for (const entry of body.limits ?? []) {
-    if (entry.kind !== "weekly_scoped") continue;
+    const kind = entry.kind;
+    // Newer `/usage` bodies leave the legacy five_hour / seven_day keys null
+    // and put the same numbers in `limits[]` as session / weekly_all.
+    if (kind === "session" && !seen.has("five_hour")) {
+      pushWindow(
+        windows,
+        "five_hour",
+        CLAUDE_WINDOW_LABELS.five_hour,
+        finiteOrUndefined(entry.percent),
+        scopedResetsAtMs(entry.resets_at),
+      );
+      seen.add("five_hour");
+      continue;
+    }
+    if (kind === "weekly_all" && !seen.has("seven_day")) {
+      pushWindow(
+        windows,
+        "seven_day",
+        CLAUDE_WINDOW_LABELS.seven_day,
+        finiteOrUndefined(entry.percent),
+        scopedResetsAtMs(entry.resets_at),
+      );
+      seen.add("seven_day");
+      continue;
+    }
+    if (kind !== "weekly_scoped") continue;
     const name = entry.scope?.model?.display_name?.trim();
     if (!name) continue;
-    const resetsAtSeconds = finiteOrUndefined(entry.resets_at);
     // Model-scoped entries are weekly windows too, so they are labelled like
-    // the fixed ones ("Weekly (Opus 5)") rather than by bare model name.
+    // the fixed ones ("Weekly (Fable)") rather than by bare model name.
     pushWindow(
       windows,
       `model_scoped:${name}`,
       `Weekly (${name})`,
       finiteOrUndefined(entry.percent),
-      resetsAtSeconds === undefined
-        ? undefined
-        : Math.round(resetsAtSeconds * 1000),
+      scopedResetsAtMs(entry.resets_at),
     );
   }
   return windows;

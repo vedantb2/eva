@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@eva/backend";
-import type { Id, SandboxOwner } from "@eva/backend";
+import type { BackgroundAgentEntry, Id, SandboxOwner } from "@eva/backend";
 import {
   isSessionSandboxTab,
   type SandboxTab,
@@ -21,7 +21,9 @@ import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { SandboxPanelFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
+import { useSubagentRoster } from "@/lib/components/sandbox/useSubagentRoster";
 import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
+import { ProjectAgentsPanel } from "./ProjectAgentsPanel";
 import { toInternalRepoHref } from "@/lib/utils/repoUrl";
 import { SimpleViewSandboxRedirect } from "@/lib/components/sandbox/SimpleViewSandboxRedirect";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
@@ -38,6 +40,8 @@ interface ProjectSandboxPanelProps {
   owner: SandboxOwner;
   panes: SandboxPanesApi;
   terminalPanel: TerminalPanelApi;
+  /** Sub-agent lifecycle entries from the project doc (Agents tab). */
+  backgroundAgents?: BackgroundAgentEntry[];
   sandboxTab: TaskRouteSandboxTab;
   onStartSandbox?: () => void;
   isSandboxStarting?: boolean;
@@ -57,6 +61,7 @@ export function ProjectSandboxPanel({
   owner,
   panes,
   terminalPanel,
+  backgroundAgents,
   sandboxTab,
   onStartSandbox,
   isSandboxStarting,
@@ -78,6 +83,15 @@ export function ProjectSandboxPanel({
   const releaseBrowserLock = useMutation(api.sandboxPanes.releaseBrowserLock);
 
   const activeTab: SandboxTab = sandboxTab;
+
+  // Content-keyed Agents tab, folded from the chat transcript the project's
+  // chat panel already subscribes to (same entity ids).
+  const { agents, hasAgents, hasRunningAgents } = useSubagentRoster({
+    parentId: projectId,
+    streamingEntityId: `project-chat-${projectIdStr}`,
+    backgroundAgents,
+    sandboxRunning: isActive,
+  });
 
   const navigateToSandboxTab = (tab: SandboxTab) => {
     if (tab === "prd" || !projectPathSegment) return;
@@ -163,6 +177,8 @@ export function ProjectSandboxPanel({
             newPreviewDisabled={panes.newPreviewDisabled}
             enabledTabs={enabledTabs}
             showFilesTab
+            showAgentsTab={hasAgents}
+            hasRunningAgents={hasRunningAgents}
             agentBrowsingAt={viewState?.agentBrowsingAt}
             computerTabOpen={computerTabOpen}
             computerRunning={computerRunning}
@@ -185,6 +201,13 @@ export function ProjectSandboxPanel({
               isActive={isActive}
               fileList={fileList}
             />
+          </div>
+          <div
+            className={
+              !simpleView && activeTab === "agents" ? "h-full min-h-0" : "hidden"
+            }
+          >
+            <ProjectAgentsPanel projectId={projectId} agents={agents} />
           </div>
           <SandboxPaneSlots
             activeTab={activeTab}

@@ -5,12 +5,13 @@
 - Adopted t3code's "Resume with less context" offer: a dismissible banner above the composer when a Claude session is resumed sitting on ≥100k context tokens with the last turn ≥70 minutes old and nothing running. Shows the token figure from the newest `logs` row and a Compact action that sends the `/compact` harness built-in.
 - `handleSend` gained a `skipReviewComments` option so `/compact` reaches the harness verbatim without consuming pending review comments.
 - Dismissal ("Keep full history") is localStorage-keyed to the turn's `createdAt`, so a later turn re-offers.
+- The hook takes a plain entity id, so task and project sandbox chats get the same offer (both write a completion log per turn); their send paths need no `skipReviewComments`, and a stopped sandbox counts as read-only.
 
 ## Subagent spawn CTA row in the chat timeline - 2026-08-26
 
 - Adopted t3code's inline spawn row: assistant turns that kicked off subagents get a slim clickable row under their activity — dot, robot icon, "Kicked off N subagents", "N working" (or "N failed"/"completed" once settled), "Open Agents ›" — that opens the existing Agents sandbox tab and expands the right pane.
 - Summary folds the turn's own `subtask` steps via the Agents tab's `deriveSubagents`, with session-wide `backgroundAgents` narrowed to that turn's tool-use ids so each row reports only its own batch.
-- t3code's Σ token sum was dropped pending real usage data, since Eva's subagent model carries no token usage yet. Sessions surface only (tasks/projects have no Agents tab).
+- t3code's Σ token sum was dropped pending real usage data, since Eva's subagent model carries no token usage yet. All three sandbox chats now have an Agents tab, so the row renders on sessions, tasks and projects.
 
 ## Tasks progress panel above the composer - 2026-08-26
 
@@ -21,6 +22,7 @@
 ## Agents tab in session sandbox panel - 2026-08-26
 
 - Sessions get an "Agents" sandbox tab (t3code-style roster) listing every sub-agent the session spawned, so subagent work is inspectable without hunting the chat timeline.
+- Task and project sandbox panels get the same tab (`agents` is now a valid route segment there), folding their roster from the chat transcript their chat panel already subscribes to and binding that entity's stop mutation.
 - Each row shows status, background flag, step count and duration, and expands into the agent's transcript (its activity steps plus the captured tool result); running background agents can be stopped from the row.
 - Data is folded client-side from `message.activityLog` subtask/`parentToolUseId` steps, the live streaming payload, and the existing `backgroundAgents` lifecycle entries — no backend changes.
 - The tab is content-keyed (appears once agents exist), pulses while one runs, joins the tab cycle hotkey and command palette, and is hidden in simple view; entries stranded as "running" after a sandbox stops now read as stale.

@@ -192,10 +192,10 @@ export function ChatPanel({
 
   const compaction = useCompactionBanner({
     repoId: repo._id,
-    sessionId,
+    entityId: String(sessionId),
     model,
     isExecuting,
-    isArchived: isReadOnly,
+    isReadOnly,
   });
 
   const handleCompact = () => {

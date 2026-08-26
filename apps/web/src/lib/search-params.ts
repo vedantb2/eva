@@ -171,6 +171,7 @@ const taskRouteSandboxTabs = [
   "computer",
   "review",
   "files",
+  "agents",
 ] as const;
 export type TaskRouteSandboxTab = (typeof taskRouteSandboxTabs)[number];
 

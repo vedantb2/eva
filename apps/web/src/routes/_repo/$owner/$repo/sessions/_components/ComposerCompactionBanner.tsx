@@ -29,16 +29,22 @@ interface CompactionBannerState {
 
 interface UseCompactionBannerParams {
   repoId: Id<"githubRepos">;
-  sessionId: Id<"sessions">;
-  /** The session's current model — only Claude has `/compact`. */
+  /**
+   * The chat's entity id as the `logs` rows carry it — `String(sessionId)`,
+   * `String(taskId)` or `String(projectId)`. All three surfaces write a
+   * completion log per turn, so all three can be offered the compaction.
+   */
+  entityId: string;
+  /** The chat's current model — only Claude has `/compact`. */
   model: AIModel;
   /** A running turn owns the context; never interrupt it with an offer. */
   isExecuting: boolean;
-  isArchived: boolean;
+  /** Archived, PR-terminal, or otherwise unable to send (stopped sandbox). */
+  isReadOnly: boolean;
 }
 
 /**
- * Decides whether to recommend compaction on resume. All of: Claude session,
+ * Decides whether to recommend compaction on resume. All of: Claude chat,
  * newest turn left >= 100k tokens in the window, that turn finished >= 70
  * minutes ago, nothing running, and the user has not waved this turn away.
  *
@@ -48,26 +54,24 @@ interface UseCompactionBannerParams {
  */
 export function useCompactionBanner({
   repoId,
-  sessionId,
+  entityId,
   model,
   isExecuting,
-  isArchived,
+  isReadOnly,
 }: UseCompactionBannerParams): CompactionBannerState | null {
   const [dismissedTurnAt, setDismissedTurnAt] = useLocalStorage<number | null>(
-    `eva:compaction-dismissed:${sessionId}`,
+    `eva:compaction-dismissed:${entityId}`,
     null,
   );
 
-  const isClaudeSession = getAIModelProvider(model) === "claude";
-  // Non-Claude sessions pay nothing for the subscription.
+  const isClaudeChat = getAIModelProvider(model) === "claude";
+  // Non-Claude chats pay nothing for the subscription.
   const logs = useQuery(
     api.logs.getByEntityId,
-    isClaudeSession && !isArchived
-      ? { repoId, entityId: String(sessionId) }
-      : "skip",
+    isClaudeChat && !isReadOnly ? { repoId, entityId } : "skip",
   );
 
-  if (!isClaudeSession || isArchived || isExecuting) return null;
+  if (!isClaudeChat || isReadOnly || isExecuting) return null;
 
   const latest = logs?.[0];
   if (!latest) return null;

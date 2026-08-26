@@ -22,6 +22,11 @@ import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxChatHeaderActions } from "@/lib/components/sandbox/SandboxStartStopButton";
 import { claudeUsageAccountScope } from "@/lib/components/usage-limits";
 import { BackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
+import {
+  COMPACT_COMMAND,
+  ComposerCompactionBanner,
+  useCompactionBanner,
+} from "@/routes/_repo/$owner/$repo/sessions/_components/ComposerCompactionBanner";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,
@@ -35,6 +40,8 @@ interface TaskSandboxChatPanelProps {
   isSandboxToggling?: boolean;
   /** Opens the Files tab and loads this sandbox path in the file viewer. */
   onOpenFile?: (path: string) => void;
+  /** Opens the Agents sandbox tab (used by the sub-agent CTA row in the chat). */
+  onOpenAgentsTab?: () => void;
   onSandboxToggle?: (action: "start" | "stop") => void;
 }
 
@@ -43,6 +50,7 @@ export function TaskSandboxChatPanel({
   isSandboxActive,
   isSandboxToggling = false,
   onOpenFile,
+  onOpenAgentsTab,
   onSandboxToggle,
 }: TaskSandboxChatPanelProps) {
   const { repo, basePath } = useRepo();
@@ -269,6 +277,21 @@ export function TaskSandboxChatPanel({
     await cancelExecution({ taskId });
   };
 
+  // A stopped sandbox cannot run `/compact`, so it counts as read-only here.
+  const compaction = useCompactionBanner({
+    repoId: repo._id,
+    entityId: String(taskId),
+    model,
+    isExecuting,
+    isReadOnly: !isSandboxActive,
+  });
+
+  // No review-comment append on this send path (sessions-only), so `/compact`
+  // already reaches the harness verbatim.
+  const handleCompact = () => {
+    void handleSend(COMPACT_COMMAND);
+  };
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
       <SandboxChatHeaderActions
@@ -319,16 +342,28 @@ export function TaskSandboxChatPanel({
         onSend={handleSend}
         onCancel={handleCancel}
         preInputContent={
-          <BackgroundAgentsChip
-            backgroundAgents={task?.backgroundAgents}
-            onRequestStop={async (toolUseId) => {
-              await requestStopBackgroundAgent({ taskId, toolUseId });
-            }}
-          />
+          <>
+            <BackgroundAgentsChip
+              backgroundAgents={task?.backgroundAgents}
+              onRequestStop={async (toolUseId) => {
+                await requestStopBackgroundAgent({ taskId, toolUseId });
+              }}
+            />
+            {compaction ? (
+              <ComposerCompactionBanner
+                usedTokens={compaction.usedTokens}
+                onCompact={handleCompact}
+                onDismiss={compaction.onDismiss}
+              />
+            ) : null}
+          </>
         }
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}
+        onOpenAgentsTab={onOpenAgentsTab}
+        backgroundAgents={task?.backgroundAgents}
+        sandboxRunning={isSandboxActive}
       />
     </div>
   );

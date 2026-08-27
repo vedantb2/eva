@@ -58,14 +58,29 @@ describe("no streaming write after completion is delivered", () => {
  * exists to render it.
  */
 describe("every turn start clears the streaming row first", () => {
-  test("startExecute clears before staging the placeholder", () => {
-    const body = definitionBody(sessionExecution, "startExecute");
+  // A session turn is staged in one place now — startExecute and the
+  // empty-stall retry both call the shared helper — so the ordering is that
+  // helper's property, not the mutation's.
+  test("the shared session stager clears before staging the placeholder", () => {
+    const body = functionBody(
+      sessionExecution,
+      "async function stageAndStartSessionTurn(",
+    );
     const clearAt = body.indexOf("clearStreamingActivity(");
     const placeholderAt = body.indexOf('ctx.db.insert("messages"');
     expect(clearAt, "the streaming clear moved").toBeGreaterThan(-1);
     expect(placeholderAt, "the placeholder insert moved").toBeGreaterThan(-1);
     expect(clearAt).toBeLessThan(placeholderAt);
   });
+
+  test.each(["startExecute", "retryEmptyStalledSessionTurn"])(
+    "%s stages through that helper rather than its own placeholder",
+    (name) => {
+      const body = definitionBody(sessionExecution, name);
+      expect(body).toContain("stageAndStartSessionTurn(ctx, {");
+      expect(body).not.toContain('ctx.db.insert("messages"');
+    },
+  );
 
   // The three startNextQueuedX functions are now thin config bindings onto one
   // shared dequeue (startNextQueuedChatMessage in convex/_queues/helpers.ts) —

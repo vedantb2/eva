@@ -10,6 +10,7 @@ import {
   mcpListUserRepos,
   repoRefLabel,
   textResult,
+  MCP_CLAUDE_MODELS,
   type McpCredentials,
   type RepoInfo,
 } from "./toolShared";
@@ -25,10 +26,10 @@ const agentIdArg = z
   .describe("The agent's Convex id, as returned by list_agents.");
 
 const modelArg = z
-  .enum(["opus", "sonnet", "haiku"])
+  .enum(MCP_CLAUDE_MODELS)
   .optional()
   .describe(
-    "Claude model. Sessions are locked to the provider they were created with, so omit this to reuse the agent's own model — passing a model from another provider is rejected.",
+    'Claude model ("opus", "sonnet", "haiku", or "fable"). Sessions are locked to the provider they were created with, so omit this to reuse the agent\'s own model — passing a model from another provider is rejected.',
   );
 
 /**
@@ -231,9 +232,11 @@ export function registerFleetTools(
         .describe("Session title. A title is generated if omitted."),
       message: z.string().describe("The first message to run in the session."),
       model: z
-        .enum(["opus", "sonnet", "haiku"])
+        .enum(MCP_CLAUDE_MODELS)
         .optional()
-        .describe("Claude model. Defaults to the platform default (sonnet)."),
+        .describe(
+          'Claude model ("opus", "sonnet", "haiku", or "fable"). Defaults to the platform default (sonnet).',
+        ),
       baseBranch: z
         .string()
         .optional()

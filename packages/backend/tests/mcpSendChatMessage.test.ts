@@ -6,11 +6,14 @@ import { describe, expect, test } from "vitest";
 import { internal } from "../convex/_generated/api";
 import schema from "../convex/schema";
 import { canonicalPrUrl } from "../convex/mcp/sessionRef";
+import { MCP_CLAUDE_MODELS } from "../convex/mcp/toolShared";
 import {
   buildChatMessageCalls,
   resolveAgentDelivery,
   type ChatTargetKind,
 } from "../convex/mcp/orchestratorDelivery";
+import { normalizeAIModel } from "../convex/_validators/aiModels";
+import { z } from "zod";
 
 const modules = import.meta.glob("../convex/**/*.ts");
 const testsDir = dirname(fileURLToPath(import.meta.url));
@@ -663,5 +666,66 @@ describe("MCP sends are badged; composer-typed messages are not", () => {
   test("the session and task composers never stamp the badge", () => {
     expect(sessionSend).not.toContain("sentViaOrchestrator");
     expect(taskSend).not.toContain("sentViaOrchestrator");
+  });
+});
+
+describe("user MCP accepts fable and runs it as Eva's Fable model", () => {
+  const tools = convexSource("mcp/tools.ts");
+  const orchestratorTools = convexSource("mcp/orchestratorTools.ts");
+  const nodeActions = convexSource("mcp/nodeActions.ts");
+  const schema = z.enum(MCP_CLAUDE_MODELS);
+
+  test("the shared MCP model enum accepts fable and rejects grok", () => {
+    expect([...MCP_CLAUDE_MODELS]).toEqual(["opus", "sonnet", "haiku", "fable"]);
+    expect(schema.parse("fable")).toBe("fable");
+    expect(schema.safeParse("grok").success).toBe(false);
+    expect(schema.safeParse("cursor:grok-4.6").success).toBe(false);
+    expect(schema.safeParse("claude:claude-fable-5").success).toBe(false);
+  });
+
+  test("every MCP tool with a Claude model picker uses that enum", () => {
+    expect(tools).not.toContain('.enum(["opus", "sonnet", "haiku"])');
+    expect(orchestratorTools).not.toContain('.enum(["opus", "sonnet", "haiku"])');
+    expect((tools.match(/enum\(MCP_CLAUDE_MODELS\)/g) ?? []).length).toBe(3);
+    expect((orchestratorTools.match(/enum\(MCP_CLAUDE_MODELS\)/g) ?? []).length).toBe(
+      2,
+    );
+  });
+
+  test("create_and_run_task persists fable as claude:claude-fable-5, not the repo default", () => {
+    const validator = nodeActions.slice(
+      nodeActions.indexOf("const mcpClaudeModelValidator"),
+      nodeActions.indexOf("export const createTask"),
+    );
+    const createTask = nodeActions.slice(
+      nodeActions.indexOf("export const createTask"),
+      nodeActions.indexOf("export const startTaskExecution"),
+    );
+    const createBatch = nodeActions.slice(
+      nodeActions.indexOf("export const createTasksBatch"),
+      nodeActions.indexOf("export const createEvaDoc"),
+    );
+    expect(validator).toContain('v.literal("fable")');
+    expect(createTask).toContain("mcpClaudeModelValidator");
+    expect(createTask).toContain("normalizeAIModel(model)");
+    expect(createTask).not.toContain("mutationArgs.model = model;");
+    expect(createBatch).toContain("normalizeAIModel(model)");
+    expect(createBatch).not.toContain("mutationArgs.model = model;");
+    expect(normalizeAIModel("fable")).toBe("claude:claude-fable-5");
+  });
+
+  test("create_session and send_chat_message also canonicalize fable", () => {
+    const createSession = nodeActions.slice(
+      nodeActions.indexOf("export const orchestratorCreateSession"),
+      nodeActions.indexOf("export const orchestratorSetWatch"),
+    );
+    expect(createSession).toContain("normalizeAIModel(model)");
+    expect(
+      resolveAgentDelivery({
+        isBusy: false,
+        requestedModel: "fable",
+        storedModel: "cursor:grok-4.6",
+      }).model,
+    ).toBe("claude:claude-fable-5");
   });
 });

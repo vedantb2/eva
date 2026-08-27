@@ -17,6 +17,8 @@ import {
   mcpGetContext,
   mcpListUserRepos,
   textResult,
+  MCP_CLAUDE_MODELS,
+  type McpClaudeModel,
   type McpCredentials,
   type RepoInfo,
 } from "./toolShared";
@@ -525,10 +527,10 @@ For schema discovery, query information_schema (e.g. "SELECT table_name FROM inf
         'Repo name (e.g. "eva" or "vvedantb/eva"). Resolved by matching against your connected repos.',
       ),
     model: z
-      .enum(["opus", "sonnet", "haiku"])
+      .enum(MCP_CLAUDE_MODELS)
       .optional()
       .describe(
-        "Claude model to use. If omitted, uses the repo's default model.",
+        'Claude model to use ("opus", "sonnet", "haiku", or "fable"). If omitted, uses the repo\'s default model.',
       ),
     baseBranch: z
       .string()
@@ -554,7 +556,7 @@ For schema discovery, query information_schema (e.g. "SELECT table_name FROM inf
     title: string;
     description: string;
     repoName: string;
-    model?: "opus" | "sonnet" | "haiku";
+    model?: McpClaudeModel;
     baseBranch?: string;
     app?: string;
     projectId?: string;
@@ -669,10 +671,10 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
           "If provided, creates a project with this title and assigns all tasks to it",
         ),
       model: z
-        .enum(["opus", "sonnet", "haiku"])
+        .enum(MCP_CLAUDE_MODELS)
         .optional()
         .describe(
-          "Claude model to use for all tasks. If omitted, uses the repo's default model.",
+          'Claude model to use for all tasks ("opus", "sonnet", "haiku", or "fable"). If omitted, uses the repo\'s default model.',
         ),
       baseBranch: z
         .string()
@@ -809,10 +811,10 @@ Name the chat by its Convex "id", by its GitHub "prUrl", or by "numId" plus "kin
           'App name within a monorepo (e.g. "web"). Used with repoName when a repo has multiple apps.',
         ),
       model: z
-        .enum(["opus", "sonnet", "haiku"])
+        .enum(MCP_CLAUDE_MODELS)
         .optional()
         .describe(
-          "Claude model for this turn. Omit to reuse the model that chat last ran on.",
+          'Claude model for this turn ("opus", "sonnet", "haiku", or "fable"). Omit to reuse the model that chat last ran on.',
         ),
     },
     async ({

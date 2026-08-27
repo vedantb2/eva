@@ -802,15 +802,20 @@ export const runTestQuery = internalAction({
   },
 });
 
+const mcpClaudeModelValidator = v.union(
+  v.literal("opus"),
+  v.literal("sonnet"),
+  v.literal("haiku"),
+  v.literal("fable"),
+);
+
 export const createTask = internalAction({
   args: {
     clerkUserId: v.string(),
     repoId: v.string(),
     title: v.string(),
     description: v.string(),
-    model: v.optional(
-      v.union(v.literal("opus"), v.literal("sonnet"), v.literal("haiku")),
-    ),
+    model: v.optional(mcpClaudeModelValidator),
     baseBranch: v.optional(v.string()),
     projectId: v.optional(v.string()),
   },
@@ -825,7 +830,7 @@ export const createTask = internalAction({
       title,
       description,
     };
-    if (model) mutationArgs.model = model;
+    if (model) mutationArgs.model = normalizeAIModel(model);
     if (baseBranch) mutationArgs.baseBranch = baseBranch;
     if (projectId) mutationArgs.projectId = projectId;
 
@@ -870,9 +875,7 @@ export const createTasksBatch = internalAction({
       }),
     ),
     projectTitle: v.optional(v.string()),
-    model: v.optional(
-      v.union(v.literal("opus"), v.literal("sonnet"), v.literal("haiku")),
-    ),
+    model: v.optional(mcpClaudeModelValidator),
     baseBranch: v.optional(v.string()),
   },
   returns: v.any(),
@@ -890,7 +893,7 @@ export const createTasksBatch = internalAction({
       })),
     };
     if (projectTitle) mutationArgs.projectTitle = projectTitle;
-    if (model) mutationArgs.model = model;
+    if (model) mutationArgs.model = normalizeAIModel(model);
     if (baseBranch) mutationArgs.baseBranch = baseBranch;
 
     const result = await runMutationAsUser(

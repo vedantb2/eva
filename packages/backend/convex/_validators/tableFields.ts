@@ -789,8 +789,8 @@ export const messageFields = {
   // `_shared/modelHandoff.ts`).
   model: v.optional(aiModelValidator),
   reasoningLevel: v.optional(reasoningLevelValidator),
-  // User-role message injected by the user's orchestrator (master) session via
-  // the send_agent_message MCP tool. Drives a "via master" badge in chat.
+  // User-role message injected via MCP (master session or user OAuth
+  // connector). Drives a "via MCP" badge in chat.
   sentViaOrchestrator: v.optional(v.boolean()),
   // User-role wake-up row inserted into the master session when a watched
   // child agent finishes. Drives distinct UI styling.

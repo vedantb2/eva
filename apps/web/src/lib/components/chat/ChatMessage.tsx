@@ -161,13 +161,14 @@ export const ChatMessage = memo(function ChatMessage({
       : (streamingContent ?? "");
   const copyPlain = copySource ? tokenizedToDisplayText(copySource) : undefined;
 
-  // Two orchestrator provenances, never both on one row: a child chat shows the
-  // turns Eva injected, Eva shows the wake-ups its children fired.
+  // Two MCP provenances, never both on one row: a child chat shows the turns
+  // posted from outside the composer, Eva shows the wake-ups its children fired.
   const isOrchestratorNotification = message.orchestratorNotification === true;
+  const sentViaMcp = message.sentViaOrchestrator === true;
   const orchestratorTag = isOrchestratorNotification
     ? "agent update"
-    : message.sentViaOrchestrator === true
-      ? "via Ave"
+    : sentViaMcp
+      ? "via MCP"
       : undefined;
 
   // Videos render as inline players; images collapse into one Twitter-style
@@ -255,9 +256,9 @@ export const ChatMessage = memo(function ChatMessage({
                     "group px-3 py-2 text-foreground",
                     isOtherUser
                       ? "bg-secondary group-[.is-user]:ml-0 group-[.is-user]:bg-secondary"
-                      : isOrchestratorNotification
-                        ? // Machine-authored wake-up, not something the user
-                          // typed — drop it a tone step off the accent bubble.
+                      : isOrchestratorNotification || sentViaMcp
+                        ? // Not typed in the Eva composer — drop it a tone
+                          // step off the accent bubble.
                           "rounded-surface bg-muted group-[.is-user]:bg-muted"
                         : "rounded-surface bg-primary/10 group-[.is-user]:bg-primary/10",
                   )}

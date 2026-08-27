@@ -2,7 +2,10 @@ import { type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { registerOrchestratorTools } from "./orchestratorTools";
+import {
+  registerFleetTools,
+  registerOrchestratorTools,
+} from "./orchestratorTools";
 import { buildEvaOrchestratorContent } from "../_systemSkills/evaOrchestrator";
 import { repoBasePath } from "../_githubRepos/helpers";
 import { canonicalPrUrl } from "./sessionRef";
@@ -14,6 +17,8 @@ import {
   mcpGetContext,
   mcpListUserRepos,
   textResult,
+  MCP_CLAUDE_MODELS,
+  type McpClaudeModel,
   type McpCredentials,
   type RepoInfo,
 } from "./toolShared";
@@ -522,10 +527,10 @@ For schema discovery, query information_schema (e.g. "SELECT table_name FROM inf
         'Repo name (e.g. "eva" or "vvedantb/eva"). Resolved by matching against your connected repos.',
       ),
     model: z
-      .enum(["opus", "sonnet", "haiku"])
+      .enum(MCP_CLAUDE_MODELS)
       .optional()
       .describe(
-        "Claude model to use. If omitted, uses the repo's default model.",
+        'Claude model to use ("opus", "sonnet", "haiku", or "fable"). If omitted, uses the repo\'s default model.',
       ),
     baseBranch: z
       .string()
@@ -551,7 +556,7 @@ For schema discovery, query information_schema (e.g. "SELECT table_name FROM inf
     title: string;
     description: string;
     repoName: string;
-    model?: "opus" | "sonnet" | "haiku";
+    model?: McpClaudeModel;
     baseBranch?: string;
     app?: string;
     projectId?: string;
@@ -666,10 +671,10 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
           "If provided, creates a project with this title and assigns all tasks to it",
         ),
       model: z
-        .enum(["opus", "sonnet", "haiku"])
+        .enum(MCP_CLAUDE_MODELS)
         .optional()
         .describe(
-          "Claude model to use for all tasks. If omitted, uses the repo's default model.",
+          'Claude model to use for all tasks ("opus", "sonnet", "haiku", or "fable"). If omitted, uses the repo\'s default model.',
         ),
       baseBranch: z
         .string()
@@ -806,10 +811,10 @@ Name the chat by its Convex "id", by its GitHub "prUrl", or by "numId" plus "kin
           'App name within a monorepo (e.g. "web"). Used with repoName when a repo has multiple apps.',
         ),
       model: z
-        .enum(["opus", "sonnet", "haiku"])
+        .enum(MCP_CLAUDE_MODELS)
         .optional()
         .describe(
-          "Claude model for this turn. Omit to reuse the model that chat last ran on.",
+          'Claude model for this turn ("opus", "sonnet", "haiku", or "fable"). Omit to reuse the model that chat last ran on.',
         ),
     },
     async ({
@@ -890,9 +895,9 @@ Name the chat by its Convex "id", by its GitHub "prUrl", or by "numId" plus "kin
           message,
           model,
           masterSessionId,
-          // Only the master's sends carry its badge; a user's own MCP client
-          // sends as the user.
-          sentViaOrchestrator: masterSessionId !== undefined,
+          // Any MCP send — master sandbox or user OAuth connector — stamps the
+          // "via MCP" chat badge so it is not mistaken for a composer-typed turn.
+          sentViaOrchestrator: true,
         },
       );
 
@@ -1362,8 +1367,13 @@ Do NOT use this instead of leaving files in recordings/ / screenshots/ for chat 
   );
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Orchestrator tools — only the user's master session gets these.
+  // Fleet tools — every MCP caller (OAuth connector included). Authz is the
+  // same hasRepoAccess checks the backing actions already run as the user.
+  // send_agent_message stays behind the orchestrator gate: it is the master
+  // speaking, and needs the master sandbox token.
   // ─────────────────────────────────────────────────────────────────────────────
+
+  registerFleetTools(server, credentials, ctx);
 
   if (isOrchestrator) {
     registerOrchestratorTools(server, credentials, ctx);

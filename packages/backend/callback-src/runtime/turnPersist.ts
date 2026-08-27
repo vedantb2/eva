@@ -177,6 +177,12 @@ function synchronizeForPush(branch: string): BranchSyncResult {
   return { status: "failed" };
 }
 
+/** True when every commit reachable from HEAD is already in `exclusion`. */
+function tipAlreadyPublished(exclusion: readonly string[]): boolean {
+  const unpushed = git(["rev-list", "--count", "HEAD", "--not", ...exclusion]);
+  return unpushed.ok && unpushed.out === "0";
+}
+
 /**
  * Makes the turn's work durable BEFORE the completion mutation is posted:
  * commits any uncommitted changes (safety net for agents that skipped the
@@ -223,6 +229,12 @@ export function persistTurnWork(): void {
     }
   }
 
+  // Cheap local answer first: synthetic turns finalize on every background-agent
+  // continuation, and the common case is a clean tree whose tip the tracking ref
+  // already contains. The tracking ref only ever lags behind origin, so a zero
+  // count here means origin genuinely has HEAD — no fetch or push needed.
+  if (tipAlreadyPublished([`refs/remotes/origin/${branch.out}`])) return;
+
   // The exact remote branch is refreshed below before the ahead-of-remote gate
   // and push, so a resumed sandbox cannot publish from a stale tracking ref.
   // Fully-qualified refspec, both sides. `HEAD` resolves through whatever the
@@ -239,14 +251,7 @@ export function persistTurnWork(): void {
     const exclusion = sync.remoteExists
       ? [`refs/remotes/origin/${branch.out}`]
       : ["--remotes=origin"];
-    const unpushed = git([
-      "rev-list",
-      "--count",
-      "HEAD",
-      "--not",
-      ...exclusion,
-    ]);
-    if (unpushed.ok && unpushed.out === "0") return;
+    if (tipAlreadyPublished(exclusion)) return;
 
     const push = git(["push", "origin", refspec], PUSH_TIMEOUT_MS);
     if (push.ok) {

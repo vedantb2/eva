@@ -232,6 +232,14 @@ export function SessionDetailClient({
               setExpandRightSignal((n) => n + 1);
             }
       }
+      onOpenAgentsTab={
+        chatOnly
+          ? undefined
+          : () => {
+              onSandboxTabChange("agents");
+              setExpandRightSignal((n) => n + 1);
+            }
+      }
       backgroundAgents={session.backgroundAgents}
     />
   );

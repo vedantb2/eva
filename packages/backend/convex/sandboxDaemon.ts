@@ -1,5 +1,6 @@
 export {
   readDaemonEntitySnapshot,
+  setDaemonClaimPause,
   reconcileStoppedSandboxStatus,
   claimDaemonLaunchLease,
   releaseDaemonLaunchLease,

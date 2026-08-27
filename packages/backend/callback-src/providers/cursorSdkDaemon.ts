@@ -433,6 +433,9 @@ async function finalizeTurn(attempt: ProviderAttemptResult): Promise<void> {
  */
 async function failTurnAndExit(error: string): Promise<never> {
   log("cursor daemon: failing turn — " + error);
+  // Durability BEFORE completion, as finalizeTurn does it: a failed turn's
+  // committed work is still the user's work and this process is about to exit.
+  persistTurnWork();
   try {
     const completionArgs = entityMutationArgs({
       success: false,
@@ -639,6 +642,9 @@ async function executeClaimedTurn(turn: ClaimedTurn): Promise<void> {
       await flushStreaming();
       for (const step of S.accumulatedSteps) step.status = "complete";
       if (await setFinalizingState()) return;
+      // Durability BEFORE completion, as finalizeTurn does it — the turn failed
+      // but anything it committed is still the user's work.
+      persistTurnWork();
       const completionArgs: Record<string, JsonValue> = {
         [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
         success: false,
@@ -687,6 +693,9 @@ async function reportCursorTurnWorkerFailure(
 ): Promise<void> {
   const error = cursorTurnWorkerFailureMessage(outcome);
   log("cursor daemon: " + error);
+  // The worker died too hard to publish its own work, so the supervisor does it
+  // from the same working tree — durability before the failure completion.
+  persistTurnWork();
   const completionArgs = entityMutationArgs({
     success: false,
     result: null,

@@ -51,6 +51,10 @@ import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from 
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
 import { assertActionSandboxAccess } from "../functions";
 import { isSandboxGoneError } from "./sandboxErrors";
+import {
+  shouldDeferDaemonRespawn,
+  type DaemonTurnSnapshot,
+} from "../_chat/daemonClaimPause";
 
 /** True if anything is LISTEN on `port` (Vercel images often lack `ss`). */
 function portListenProbeCmd(port: number): string {
@@ -1530,6 +1534,50 @@ async function runPrewarmEntityDaemon(
       return alive.trim().split("\n").pop()?.trim() ?? "cold";
     };
 
+    /**
+     * Runs `decide` with turn claims fenced off, so the daemon this prewarm is
+     * about to kill cannot claim a turn (and its 2-minute running lease)
+     * between the decision and the process dying. Always clears the fence.
+     */
+    const withClaimPaused = async (
+      decide: () => Promise<{ prewarmed: boolean } | null>,
+    ): Promise<{ prewarmed: boolean } | null> => {
+      const setPause = (paused: boolean) =>
+        ctx.runMutation(internal.sandboxDaemon.setDaemonClaimPause, {
+          entityTable: args.entityTable,
+          entityId: entityIdStr,
+          paused,
+        });
+      await setPause(true);
+      try {
+        return await decide();
+      } finally {
+        await setPause(false);
+      }
+    };
+
+    const readTurnSnapshot = async (): Promise<
+      DaemonTurnSnapshot & { pendingModel: string | undefined }
+    > => {
+      const snapshot = await ctx.runQuery(
+        internal.sandboxDaemon.readDaemonEntitySnapshot,
+        { entityTable: args.entityTable, entityId: entityIdStr },
+      );
+      return {
+        pendingTurnStaged: snapshot.pendingTurn !== undefined,
+        activeWorkflow: snapshot.activeWorkflow,
+        syntheticTurnMessageId: snapshot.syntheticTurnMessageId,
+        pendingModel: snapshot.pendingTurn?.model,
+      };
+    };
+
+    const killDaemon = () =>
+      execHandle(
+        sandbox,
+        buildKillEntityDaemonCmd(args.entityIdField, entityIdStr),
+        10,
+      );
+
     const settleIfReady = async (
       aliveState: string,
     ): Promise<{ prewarmed: boolean } | null> => {
@@ -1543,16 +1591,24 @@ async function runPrewarmEntityDaemon(
         console.log(
           `[sandbox][execution] prewarmEntityDaemon: stale callback script — uploading bundle entityId=${entityIdStr}`,
         );
+        // Safe before the mid-turn check: this only touches disk. The live
+        // daemon notices the new fingerprint and exits for respawn itself once
+        // its work settles (callbackScriptWentStaleOnDisk).
         await uploadCallbackScriptBundle(sandbox);
-        // Disk now matches the expected fingerprint, so a follow-up probe
-        // would report "alive" while the old process is still running the
-        // previous bundle. Kill so this prewarm falls through to launch.
-        await execHandle(
-          sandbox,
-          buildKillEntityDaemonCmd(args.entityIdField, entityIdStr),
-          10,
-        );
-        return null;
+        return await withClaimPaused(async () => {
+          const snapshot = await readTurnSnapshot();
+          if (shouldDeferDaemonRespawn(snapshot)) {
+            console.log(
+              `[sandbox][execution] prewarmEntityDaemon: stale callback script but mid-turn — deferring respawn entityId=${entityIdStr}`,
+            );
+            return { prewarmed: false };
+          }
+          // Disk now matches the expected fingerprint, so a follow-up probe
+          // would report "alive" while the old process is still running the
+          // previous bundle. Kill so this prewarm falls through to launch.
+          await killDaemon();
+          return null;
+        });
       }
       return null;
     };
@@ -1601,44 +1657,31 @@ async function runPrewarmEntityDaemon(
       const claimedReady = await settleIfReady(aliveState);
       if (claimedReady !== null) return claimedReady;
       if (aliveState === "optsmismatch") {
-        const snapshot = await ctx.runQuery(
-          internal.sandboxDaemon.readDaemonEntitySnapshot,
-          {
-            entityTable: args.entityTable,
-            entityId: entityIdStr,
-          },
-        );
-        const freshPending = snapshot.pendingTurn;
-        const activeWorkflow = snapshot.activeWorkflow;
-        const syntheticTurnMessageId = snapshot.syntheticTurnMessageId;
-        const midTurnNoPending =
-          freshPending === undefined &&
-          (activeWorkflow !== undefined ||
-            syntheticTurnMessageId !== undefined);
-        if (midTurnNoPending) {
+        const deferred = await withClaimPaused(async () => {
+          const snapshot = await readTurnSnapshot();
+          if (shouldDeferDaemonRespawn(snapshot)) {
+            console.log(
+              `[sandbox][execution] prewarmEntityDaemon: model/tools mismatch but mid-turn — deferring respawn entityId=${entityIdStr}`,
+            );
+            return { prewarmed: false };
+          }
+          const pendingModel = snapshot.pendingModel;
+          if (
+            pendingModel !== undefined &&
+            normalizeAIModel(pendingModel) !== normalizedModel
+          ) {
+            console.log(
+              `[sandbox][execution] prewarmEntityDaemon: pendingTurn targets different model — deferring respawn entityId=${entityIdStr} pending=${pendingModel} launch=${normalizedModel}`,
+            );
+            return { prewarmed: false };
+          }
           console.log(
-            `[sandbox][execution] prewarmEntityDaemon: model/tools mismatch but mid-turn — deferring respawn entityId=${entityIdStr}`,
+            `[sandbox][execution] prewarmEntityDaemon: model/tools changed — respawning entityId=${entityIdStr}`,
           );
-          return { prewarmed: false };
-        }
-        const pendingModel = freshPending?.model;
-        if (
-          pendingModel !== undefined &&
-          normalizeAIModel(pendingModel) !== normalizedModel
-        ) {
-          console.log(
-            `[sandbox][execution] prewarmEntityDaemon: pendingTurn targets different model — deferring respawn entityId=${entityIdStr} pending=${pendingModel} launch=${normalizedModel}`,
-          );
-          return { prewarmed: false };
-        }
-        console.log(
-          `[sandbox][execution] prewarmEntityDaemon: model/tools changed — respawning entityId=${entityIdStr}`,
-        );
-        await execHandle(
-          sandbox,
-          buildKillEntityDaemonCmd(args.entityIdField, entityIdStr),
-          10,
-        );
+          await killDaemon();
+          return null;
+        });
+        if (deferred !== null) return deferred;
       }
 
       await ensureSandboxRunning(sandbox, {

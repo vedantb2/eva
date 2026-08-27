@@ -131,13 +131,19 @@ describe("task chat provider account handoff", () => {
 
 describe("session chat provider account handoff", () => {
   test("the requested account is validated and becomes the staged turn account", () => {
+    // Sessions stage through one shared helper, so the resolution lives there;
+    // startExecute only has to hand the composer's pick to it unchanged.
     const startExecute = exportBody(sessionExecutionSource, "startExecute");
-    expect(startExecute).toContain("resolveTurnProviderAccountId(");
-    expect(startExecute).toContain('changePolicy: "owner-pool"');
-    expect(startExecute).toContain(
-      "providerAccountId: stickyProviderAccountId",
+    expect(startExecute).toContain("stageAndStartSessionTurn(ctx, {");
+    expect(startExecute).toContain("providerAccountId: args.providerAccountId");
+    const stager = functionBody(
+      sessionExecutionSource,
+      "stageAndStartSessionTurn",
     );
-    expect(startExecute).not.toContain(
+    expect(stager).toContain("resolveTurnProviderAccountId(");
+    expect(stager).toContain('changePolicy: "owner-pool"');
+    expect(stager).toContain("providerAccountId: stickyProviderAccountId");
+    expect(stager).not.toContain(
       "providerAccountId: session.providerAccountId",
     );
   });

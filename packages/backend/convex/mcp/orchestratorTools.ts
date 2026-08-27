@@ -32,20 +32,18 @@ const modelArg = z
   );
 
 /**
- * Tools that only the user's master ("orchestrator") session gets. They span
- * every repo the user can reach, so they deliberately skip the sandbox token's
- * single-repo pin: each backing action runs as the user against
- * authQuery/authMutation, and those hasRepoAccess checks are the enforcement.
+ * Shared by the user-MCP fleet tools and the master-only send_agent_message.
+ * Each backing action runs as the user against authQuery/authMutation, and
+ * those hasRepoAccess checks are the enforcement — the tools skip the sandbox
+ * token's single-repo pin so an OAuth connector can reach every agent the
+ * user can already reach in Eva.
  */
-export function registerOrchestratorTools(
-  server: McpServer,
-  credentials: McpCredentials,
-  ctx: ActionCtx,
-): void {
+function fleetHelpers(credentials: McpCredentials, ctx: ActionCtx) {
   const { clerkUserId, entityId, entityKind } = credentials;
 
-  /** The master's own session id, carried on its sandbox token. */
-  const masterSessionId = entityKind === "session" ? entityId : undefined;
+  /** The master's own session id, carried on its sandbox token when present. */
+  const tokenMasterSessionId =
+    entityKind === "session" ? entityId : undefined;
 
   async function resolveRepoScope(
     repoName: string | undefined,
@@ -58,6 +56,55 @@ export function registerOrchestratorTools(
     if ("isError" in matched) return matched;
     return { repos: [matched.repo] };
   }
+
+  /**
+   * Watch needs a live Manager Ave session to wake. The orchestrator sandbox
+   * token carries that id; a user OAuth token does not, so we look the user's
+   * Ave up instead. There is no way to wake the OAuth MCP client itself.
+   */
+  async function resolveWatchMasterSessionId(): Promise<
+    string | ReturnType<typeof errorResult>
+  > {
+    if (tokenMasterSessionId !== undefined) return tokenMasterSessionId;
+    const { userId } = await mcpGetContext(ctx, clerkUserId);
+    const masterSessionId = await ctx.runQuery(
+      internal.mcp.queries.getLiveOrchestratorSessionIdForUser,
+      { userId },
+    );
+    if (masterSessionId === null) {
+      return errorResult(
+        "No Manager Ave session to wake when this agent finishes. Open Manager Ave in Eva first, then retry — or poll get_agent_state. An OAuth MCP client cannot be woken the way the master sandbox can.",
+      );
+    }
+    return masterSessionId;
+  }
+
+  return {
+    clerkUserId,
+    entityId,
+    tokenMasterSessionId,
+    resolveRepoScope,
+    resolveWatchMasterSessionId,
+  };
+}
+
+/**
+ * Fleet tools every MCP caller gets: list/inspect/stop/create-session/watch.
+ * send_agent_message stays behind the orchestrator gate — it is the one tool
+ * that is defined as speaking *as the master session*.
+ */
+export function registerFleetTools(
+  server: McpServer,
+  credentials: McpCredentials,
+  ctx: ActionCtx,
+): void {
+  const {
+    clerkUserId,
+    entityId,
+    tokenMasterSessionId,
+    resolveRepoScope,
+    resolveWatchMasterSessionId,
+  } = fleetHelpers(credentials, ctx);
 
   // ───────────────────────────────────────────────────────────────────────────
   // list_agents
@@ -138,39 +185,6 @@ export function registerOrchestratorTools(
   );
 
   // ───────────────────────────────────────────────────────────────────────────
-  // send_agent_message
-  // ───────────────────────────────────────────────────────────────────────────
-
-  server.tool(
-    "send_agent_message",
-    `Send a chat message to another agent as yourself. If the agent is mid-turn the message is queued and runs when the current turn finishes; if it is idle a new turn starts immediately. Returns which of the two happened.
-
-The message is marked as sent via the master session, and the agent is registered so you are notified when it finishes.`,
-    {
-      kind: agentKindArg,
-      id: agentIdArg,
-      message: z.string().describe("The message to send to the agent."),
-      model: modelArg,
-    },
-    async ({ kind, id, message, model }) => {
-      await mcpGetContext(ctx, clerkUserId);
-      const result = await ctx.runAction(
-        internal.mcp.nodeActions.orchestratorSendMessage,
-        {
-          clerkUserId,
-          kind,
-          id,
-          message,
-          model,
-          masterSessionId,
-          sentViaOrchestrator: true,
-        },
-      );
-      return textResult({ kind, id, ...result });
-    },
-  );
-
-  // ───────────────────────────────────────────────────────────────────────────
   // stop_agent
   // ───────────────────────────────────────────────────────────────────────────
 
@@ -243,7 +257,7 @@ The message is marked as sent via the master session, and the agent is registere
           message,
           model,
           baseBranch,
-          masterSessionId,
+          masterSessionId: tokenMasterSessionId,
         },
       );
 
@@ -267,33 +281,22 @@ The message is marked as sent via the master session, and the agent is registere
   // watch_agent / unwatch_agent
   // ───────────────────────────────────────────────────────────────────────────
 
-  function requireMasterSession():
-    | { masterSessionId: string }
-    | ReturnType<typeof errorResult> {
-    if (masterSessionId === undefined) {
-      return errorResult(
-        "Watch tools require the master session's own sandbox token.",
-      );
-    }
-    return { masterSessionId };
-  }
-
   server.tool(
     "watch_agent",
-    "Subscribe to an agent so you are woken when it finishes its work. create_session, send_agent_message, and cross-repo task creation already do this for you — use this for agents you did not start.",
+    "Subscribe to an agent so Manager Ave is woken when it finishes its work. create_session, send_agent_message, and cross-repo task creation already do this for you — use this for agents you did not start. From a user MCP token this registers against your Manager Ave session, not the MCP client (which cannot be woken).",
     {
       kind: agentKindArg,
       id: agentIdArg,
     },
     async ({ kind, id }) => {
-      const master = requireMasterSession();
-      if ("isError" in master) return master;
+      const master = await resolveWatchMasterSessionId();
+      if (typeof master !== "string") return master;
       await mcpGetContext(ctx, clerkUserId);
       await ctx.runAction(internal.mcp.nodeActions.orchestratorSetWatch, {
         clerkUserId,
         kind,
         id,
-        masterSessionId: master.masterSessionId,
+        masterSessionId: master,
       });
       return textResult({ kind, id, watched: true });
     },
@@ -315,6 +318,54 @@ The message is marked as sent via the master session, and the agent is registere
         masterSessionId: undefined,
       });
       return textResult({ kind, id, watched: false });
+    },
+  );
+}
+
+/**
+ * Tools that only the user's master ("orchestrator") session gets.
+ * send_agent_message stays here because it is defined as the master speaking.
+ */
+export function registerOrchestratorTools(
+  server: McpServer,
+  credentials: McpCredentials,
+  ctx: ActionCtx,
+): void {
+  const { clerkUserId, tokenMasterSessionId } = fleetHelpers(
+    credentials,
+    ctx,
+  );
+
+  // ───────────────────────────────────────────────────────────────────────────
+  // send_agent_message
+  // ───────────────────────────────────────────────────────────────────────────
+
+  server.tool(
+    "send_agent_message",
+    `Send a chat message to another agent as yourself. If the agent is mid-turn the message is queued and runs when the current turn finishes; if it is idle a new turn starts immediately. Returns which of the two happened.
+
+The message is marked as sent via MCP, and the agent is registered so you are notified when it finishes.`,
+    {
+      kind: agentKindArg,
+      id: agentIdArg,
+      message: z.string().describe("The message to send to the agent."),
+      model: modelArg,
+    },
+    async ({ kind, id, message, model }) => {
+      await mcpGetContext(ctx, clerkUserId);
+      const result = await ctx.runAction(
+        internal.mcp.nodeActions.orchestratorSendMessage,
+        {
+          clerkUserId,
+          kind,
+          id,
+          message,
+          model,
+          masterSessionId: tokenMasterSessionId,
+          sentViaOrchestrator: true,
+        },
+      );
+      return textResult({ kind, id, ...result });
     },
   );
 }

@@ -209,7 +209,7 @@ export const addMessage = authMutation({
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     model: v.optional(aiModelValidator),
     reasoningLevel: v.optional(reasoningLevelValidator),
-    /** Set by the orchestrator's `send_agent_message` MCP tool. */
+    /** Set by MCP send_chat_message / send_agent_message. */
     sentViaOrchestrator: v.optional(v.boolean()),
   },
   returns: v.null(),

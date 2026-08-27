@@ -1281,11 +1281,35 @@ async function setWatchedByOrchestrator(
   );
 }
 
+const orchestratorSessionPointerSchema = z
+  .object({ sessionId: z.string() })
+  .nullable();
+
 /**
- * Implicit watch registration for create/send. A missing master id means "no
- * master to register" — never "clear this child's watch", which is what
- * `setWatchedByOrchestrator` would do and would silently drop the wake-up the
- * caller was promised. Mirrors `watchTaskAsOrchestrator` in tools.ts.
+ * Master sandbox token carries the id; a user OAuth token does not, so look
+ * up the user's live Manager Ave instead. Missing Ave means "nothing to
+ * wake" — never clear an existing watch.
+ */
+async function resolveWatchMasterSessionId(
+  clerkUserId: string,
+  tokenMasterSessionId: string | undefined,
+): Promise<string | undefined> {
+  if (tokenMasterSessionId !== undefined) return tokenMasterSessionId;
+  const pointer = orchestratorSessionPointerSchema.parse(
+    await runQueryAsUser(
+      getEvaConvexCloudUrl(),
+      clerkUserId,
+      "sessions:getOrchestratorSession",
+      {},
+    ),
+  );
+  return pointer?.sessionId;
+}
+
+/**
+ * Implicit watch registration for create/send. Looks up Manager Ave when the
+ * caller has no master sandbox token. Never clears an existing watch — that
+ * is what `setWatchedByOrchestrator` would do without a master id.
  */
 async function registerWatchIfMaster(
   clerkUserId: string,
@@ -1293,8 +1317,12 @@ async function registerWatchIfMaster(
   id: string,
   masterSessionId: string | undefined,
 ): Promise<void> {
-  if (masterSessionId === undefined) return;
-  await setWatchedByOrchestrator(clerkUserId, kind, id, masterSessionId);
+  const resolved = await resolveWatchMasterSessionId(
+    clerkUserId,
+    masterSessionId,
+  );
+  if (resolved === undefined) return;
+  await setWatchedByOrchestrator(clerkUserId, kind, id, resolved);
 }
 
 export const orchestratorListAgents = internalAction({
@@ -1539,9 +1567,9 @@ export const orchestratorSendMessage = internalAction({
     model: v.optional(v.string()),
     masterSessionId: v.optional(v.string()),
     /**
-     * True only when the master session is sending (drives the "via master"
-     * chat badge). A user's own MCP client sends as themselves, so it is false
-     * there and the message renders as an ordinary composer turn.
+     * Stamps the "via MCP" chat badge. True for every MCP send — master
+     * sandbox and user OAuth connector alike — so the row is not mistaken
+     * for a composer-typed turn.
      */
     sentViaOrchestrator: v.boolean(),
   },

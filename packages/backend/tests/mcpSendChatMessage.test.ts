@@ -498,20 +498,53 @@ describe("which tokens get which tools", () => {
     expect(orchestratorTools).not.toContain('"send_chat_message"');
   });
 
-  test("the orchestrator's fleet tools stay behind the gate", () => {
+  test("send_chat_message stamps the via-MCP badge for every caller", () => {
+    const start = tools.indexOf('"send_chat_message"');
+    const body = tools.slice(start, tools.indexOf('"create_eva_doc"'));
+    expect(body).toContain("sentViaOrchestrator: true");
+    expect(body).not.toContain(
+      "sentViaOrchestrator: masterSessionId !== undefined",
+    );
+  });
+
+  test("fleet tools are registered for every MCP caller", () => {
+    // registerFleetTools is called in tools.ts above the isOrchestrator gate,
+    // the same ordering that puts send_chat_message on an OAuth connector.
+    const fleet = tools.indexOf("registerFleetTools(server, credentials, ctx)");
+    const gate = tools.indexOf("if (isOrchestrator) {");
+    expect(fleet).toBeGreaterThan(-1);
+    expect(gate).toBeGreaterThan(fleet);
     for (const name of [
       '"list_agents"',
       '"get_agent_state"',
-      '"send_agent_message"',
       '"stop_agent"',
       '"create_session"',
       '"watch_agent"',
+      '"unwatch_agent"',
     ]) {
       expect(orchestratorTools).toContain(name);
-      expect(tools).not.toContain(name);
     }
+  });
+
+  test("send_agent_message stays behind the orchestrator gate", () => {
+    expect(orchestratorTools).toContain('"send_agent_message"');
+    expect(tools).not.toContain('"send_agent_message"');
+    const registerAt = tools.indexOf("registerOrchestratorTools(server");
+    const guardAt = tools.lastIndexOf("if (isOrchestrator) {", registerAt);
+    expect(registerAt).toBeGreaterThan(-1);
+    expect(guardAt).toBeGreaterThan(-1);
+    expect(tools.slice(guardAt, registerAt)).not.toContain("}");
     expect(tools).toContain(
       "if (isOrchestrator) {\n    registerOrchestratorTools(server, credentials, ctx);",
+    );
+  });
+
+  test("watch_agent does not require the master sandbox token", () => {
+    expect(orchestratorTools).not.toContain(
+      "Watch tools require the master session's own sandbox token.",
+    );
+    expect(orchestratorTools).toContain(
+      "getLiveOrchestratorSessionIdForUser",
     );
   });
 
@@ -522,5 +555,113 @@ describe("which tokens get which tools", () => {
     const send = body.indexOf("orchestratorSendMessage");
     expect(accessCheck).toBeGreaterThan(-1);
     expect(send).toBeGreaterThan(accessCheck);
+  });
+
+  test("get_agent_state refuses ids the caller cannot reach", () => {
+    const nodeActions = convexSource("mcp/nodeActions.ts");
+    const getState = nodeActions.slice(
+      nodeActions.indexOf("export const orchestratorGetAgentState"),
+      nodeActions.indexOf("export const orchestratorSendMessage"),
+    );
+    expect(getState).toContain(
+      "No ${kind} ${id} found, or you do not have access.",
+    );
+    expect(getState).toContain('"_sessions/queries:get"');
+    expect(getState).toContain('"_agentTasks/queries:get"');
+  });
+});
+
+describe("user-MCP watch resolves Manager Ave without a master token", () => {
+  test("the owner’s live Ave session is returned, a stranger’s is not", async () => {
+    const f = await fixture();
+    const aveId = await f.t.run(async (ctx) => {
+      const sessionId = await ctx.db.insert("sessions", {
+        repoId: f.repoId,
+        userId: f.ownerUserId,
+        title: "Manager Ave",
+        status: "active",
+        numId: 1,
+        isOrchestrator: true,
+      });
+      await ctx.db.patch(f.ownerUserId, { orchestratorSessionId: sessionId });
+      return sessionId;
+    });
+
+    expect(
+      await f.t.query(
+        internal.mcp.queries.getLiveOrchestratorSessionIdForUser,
+        { userId: f.ownerUserId },
+      ),
+    ).toBe(aveId);
+    expect(
+      await f.t.query(
+        internal.mcp.queries.getLiveOrchestratorSessionIdForUser,
+        { userId: f.strangerUserId },
+      ),
+    ).toBeNull();
+  });
+
+  test("an archived or unflagged session is not a live master", async () => {
+    const f = await fixture();
+    await f.t.run(async (ctx) => {
+      const sessionId = await ctx.db.insert("sessions", {
+        repoId: f.repoId,
+        userId: f.ownerUserId,
+        title: "Manager Ave",
+        status: "active",
+        numId: 1,
+        isOrchestrator: true,
+        archived: true,
+      });
+      await ctx.db.patch(f.ownerUserId, { orchestratorSessionId: sessionId });
+    });
+    expect(
+      await f.t.query(
+        internal.mcp.queries.getLiveOrchestratorSessionIdForUser,
+        { userId: f.ownerUserId },
+      ),
+    ).toBeNull();
+  });
+
+  test("a missing user id is rejected rather than guessed at", async () => {
+    const f = await fixture();
+    expect(
+      await f.t.query(
+        internal.mcp.queries.getLiveOrchestratorSessionIdForUser,
+        { userId: "not-an-id" },
+      ),
+    ).toBeNull();
+  });
+});
+
+describe("MCP sends are badged; composer-typed messages are not", () => {
+  const chatMessage = readFileSync(
+    join(testsDir, "../../apps/web/src/lib/components/chat/ChatMessage.tsx"),
+    "utf8",
+  );
+  const sessionSend = readFileSync(
+    join(
+      testsDir,
+      "../../apps/web/src/routes/_repo/$owner/$repo/sessions/_components/useSessionSend.ts",
+    ),
+    "utf8",
+  );
+  const taskSend = readFileSync(
+    join(
+      testsDir,
+      "../../apps/web/src/lib/components/tasks/TaskSandboxChatPanel.tsx",
+    ),
+    "utf8",
+  );
+
+  test("session chat chrome shows a via-MCP badge on stamped user rows", () => {
+    expect(chatMessage).toContain("sentViaOrchestrator === true");
+    expect(chatMessage).toContain('"via MCP"');
+    expect(chatMessage).not.toContain('"via Ave"');
+  });
+
+  test("the session and task composers never stamp the badge", () => {
+    expect(sessionSend).not.toContain("sentViaOrchestrator");
+    expect(taskSend).not.toContain("sentViaOrchestrator");
   });
 });

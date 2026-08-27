@@ -99,7 +99,7 @@ export function buildChatMessageCalls(input: {
   id: string;
   message: string;
   delivery: AgentDelivery;
-  /** Stamps the "via master" chat badge. True only for orchestrator sends. */
+  /** Stamps the "via MCP" chat badge. True for every MCP send. */
   sentViaOrchestrator: boolean;
 }): SessionMessageCall[] {
   const { kind, id, message, delivery, sentViaOrchestrator } = input;

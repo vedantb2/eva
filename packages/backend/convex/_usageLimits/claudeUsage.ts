@@ -3,7 +3,7 @@ import type { Infer } from "convex/values";
 import type { usageLimitWindowValidator } from "../validators";
 
 /**
- * Reading Claude's OAuth plan-usage endpoint (`GET /api/oauth/usage`).
+ * Turning Claude's plan-usage payloads into the windows the chip shows.
  *
  * The sandbox captures the same numbers through the Agent SDK during a turn;
  * this is the server-side path, so the UI can pull a fresh reading without
@@ -12,9 +12,17 @@ import type { usageLimitWindowValidator } from "../validators";
  * bundle which `convex/` cannot import — so a label added here belongs there
  * too.
  *
- * The response is parsed rather than trusted: the endpoint is undocumented and
- * answers an expired or wrong-scope token with HTTP 200 carrying an error
- * envelope instead of any of the window keys.
+ * `readClaudeUsageWindows` reads a `GET /api/oauth/usage` body. The refresh
+ * action no longer calls that endpoint (it 403s every setup-token Eva stores),
+ * and feeds it a body built from a Messages response's
+ * `anthropic-ratelimit-unified-*` headers instead — 5h, weekly-all and Fable,
+ * the only windows a `user:inference` token can report. The `/usage` shapes are
+ * still parsed here because that is what the payload is, and the endpoint is
+ * undocumented enough to have moved its numbers between them twice.
+ *
+ * A body is parsed rather than trusted: `/usage` answers an expired or
+ * wrong-scope token with HTTP 200 carrying an error envelope instead of any of
+ * the window keys.
  */
 
 export type UsageWindow = Infer<typeof usageLimitWindowValidator>;
@@ -142,6 +150,120 @@ function pushWindow(
     ...(utilization === undefined ? {} : { utilization }),
     ...(resetsAt === undefined ? {} : { resetsAt }),
   });
+}
+
+function msToIso(ms: number): string {
+  return new Date(ms).toISOString();
+}
+
+/**
+ * Unified rate-limit claim suffixes on Messages responses.
+ *
+ * Fable's weekly cap is `7d_oi` (shunt / Claude Code statusline), not a third
+ * `7d` header — omitting it is why refresh only ever stored 5h + weekly-all.
+ */
+const UNIFIED_HEADER_WINDOWS = [
+  { key: "five_hour", suffix: "5h" },
+  { key: "seven_day", suffix: "7d" },
+  {
+    key: "model_scoped:Fable",
+    suffix: "7d_oi",
+    displayName: "Fable",
+  },
+] as const;
+
+/**
+ * Plan windows from a Messages response's unified rate-limit headers.
+ *
+ * Setup-tokens (`sk-ant-oat…`, scope `user:inference`) cannot call `/usage`
+ * (`user:profile` required, HTTP 403). The same token's inference responses
+ * still carry 5h / weekly / Fable utilisation as a 0–1 fraction and a
+ * unix-seconds reset.
+ */
+export function readUnifiedRateLimitHeaders(
+  header: (name: string) => string | undefined,
+): UsageWindow[] {
+  const windows: UsageWindow[] = [];
+  for (const spec of UNIFIED_HEADER_WINDOWS) {
+    const utilization = fractionToPercent(
+      header(`anthropic-ratelimit-unified-${spec.suffix}-utilization`),
+    );
+    const resetsAt = unixSecondsToMs(
+      header(`anthropic-ratelimit-unified-${spec.suffix}-reset`),
+    );
+    const label =
+      "displayName" in spec
+        ? `Weekly (${spec.displayName})`
+        : (CLAUDE_WINDOW_LABELS[spec.key] ?? spec.key);
+    pushWindow(windows, spec.key, label, utilization, resetsAt);
+  }
+  return windows;
+}
+
+/** A `limits[]` entry as the header path writes one, before it is parsed. */
+type UnifiedScopedLimit = {
+  kind: string;
+  percent?: number;
+  resets_at?: number;
+  scope: { model: { display_name: string } };
+};
+
+/** The `/usage` body shape for windows read off inference headers. */
+export function claudeUsageBodyFromUnifiedHeaders(
+  header: (name: string) => string | undefined,
+): ClaudeUsageBody | null {
+  const windows = readUnifiedRateLimitHeaders(header);
+  if (windows.length === 0) return null;
+  const raw: Record<string, { utilization?: number; resets_at?: string }> = {};
+  const limits: UnifiedScopedLimit[] = [];
+  for (const window of windows) {
+    // A model-scoped header goes back through `limits[]` so the one place that
+    // labels per-model weeklies stays `readClaudeUsageWindows`.
+    if (window.key.startsWith("model_scoped:")) {
+      const name = window.key.slice("model_scoped:".length);
+      limits.push({
+        kind: "weekly_scoped",
+        ...(window.utilization === undefined
+          ? {}
+          : { percent: window.utilization }),
+        ...(window.resetsAt === undefined
+          ? {}
+          : { resets_at: window.resetsAt / 1000 }),
+        scope: { model: { display_name: name } },
+      });
+      continue;
+    }
+    raw[window.key] = {
+      ...(window.utilization === undefined
+        ? {}
+        : { utilization: window.utilization }),
+      ...(window.resetsAt === undefined
+        ? {}
+        : { resets_at: msToIso(window.resetsAt) }),
+    };
+  }
+  const parsed = claudeUsageBodySchema.safeParse({
+    ...raw,
+    ...(limits.length === 0 ? {} : { limits }),
+  });
+  if (!parsed.success) return null;
+  return parsed.data;
+}
+
+function fractionToPercent(value: string | undefined): number | undefined {
+  if (value === undefined || value.length === 0) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return undefined;
+  // Two decimal places, matching `/usage`'s percent encoding (1.03, not
+  // 1.0299999998 from 0.0103 × 100).
+  return Math.round(parsed * 10_000) / 100;
+}
+
+function unixSecondsToMs(value: string | undefined): number | undefined {
+  if (value === undefined || value.length === 0) return undefined;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return undefined;
+  return Math.round(parsed * 1000);
 }
 
 /**

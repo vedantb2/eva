@@ -1,5 +1,12 @@
 # Changelog
 
+## GitHub Actions no longer runs the checks - 2026-08-27
+
+- `.github/workflows/ci.yml` (job `typecheck / lint / test`) is deleted. It ran on every pull request and push to main, and its required check was what held automerge on Eva-opened PRs — a five-to-ten minute round trip on a repo where the agent that wrote the diff had already typechecked it in the sandbox.
+- The checks themselves are unchanged and still live in the repo: `pnpm typecheck`, `pnpm lint`, `pnpm -r --no-bail test`, `pnpm compiler:check`, `scripts/check-schema-narrowing.mjs`. Agents run them in the sandbox while they work, and `/preflight` bundles them for a person. `scripts/check-schema-narrowing.mjs` already falls back to the merge base locally when `GITHUB_BASE_REF` is absent, so the schema-narrowing gate works off Actions.
+- The other three workflows are untouched: `claude-code-review.yml`, `claude.yml`, `release-extension.yml`. None wrapped the CI job.
+- Branch protection on `main` may still list `typecheck / lint / test` as required. GitHub will now block those PRs forever waiting on a check that cannot report, so the rule has to be unrequired in repo settings — that cannot be done from the repo tree.
+
 ## Sandbox recording: ffmpeg's libjack repair actually repairs - 2026-08-27
 
 - `agent-browser record` produced nothing in sandboxes: SPAL's `ffmpeg` links against `libjack.so.0` without depending on anything that ships it, and the existing repair asked `dnf` for the `libjack.so.0()(64bit)` *capability*. AL2023 satisfies that with `pipewire-jack-audio-connection-kit-libs`, which installs the library into `/usr/lib64/pipewire-0.3/jack` — off the loader path. `dnf` exited 0, the `||`-chained fallbacks behind it never ran, and every sandbox from that snapshot had an ffmpeg that died on launch.

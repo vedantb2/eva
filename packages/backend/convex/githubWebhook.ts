@@ -9,6 +9,7 @@ import { preferPersistedSandboxId } from "./_sandbox/resolveExistingSandboxId";
 import { buildProjectBranchName } from "./_projects/helpers";
 import {
   deriveProjectPhaseFromPrEvent,
+  extractPrNumberFromUrl,
   isProjectReviewPhase,
 } from "./_projects/prSync";
 import { requestSessionSandboxStop } from "./_sessions/sandbox";
@@ -17,6 +18,7 @@ import {
   scheduleSessionSandboxGraceDelete,
   scheduleTaskSandboxGraceDelete,
 } from "./sandboxCleanup";
+import { createNotification } from "./notifications";
 
 const QUICK_TASK_BRANCH_PREFIX = "eva/task-";
 const PROJECT_BRANCH_PREFIX = "eva/project-";
@@ -83,6 +85,52 @@ function deriveSessionPrState(
     return draft ? "draft" : "open";
   }
   return null;
+}
+
+/** Inbox copy for a session auto-archived because its GitHub PR closed or merged. */
+export function sessionPrArchiveNotificationCopy(args: {
+  sessionTitle: string;
+  prUrl: string;
+  prNumber?: number;
+  merged: boolean;
+}): { title: string; message: string } {
+  const number = args.prNumber ?? extractPrNumberFromUrl(args.prUrl);
+  const prRef = number !== null ? `PR #${number}` : args.prUrl;
+  if (args.merged) {
+    return {
+      title: `${prRef} merged — "${args.sessionTitle}" archived`,
+      message: `Your session was archived because GitHub merged ${args.prUrl}.`,
+    };
+  }
+  return {
+    title: `${prRef} closed — "${args.sessionTitle}" archived`,
+    message: `Your session was archived because GitHub closed ${args.prUrl} without merging.`,
+  };
+}
+
+/** Inbox-only notice to the session owner. Never emails (see DIGEST_EXCLUDED_TYPES). */
+async function notifySessionOwnerOfPrArchive(
+  ctx: MutationCtx,
+  session: Doc<"sessions">,
+  nextState: "merged" | "closed",
+  prUrl: string,
+  prNumber: number | undefined,
+): Promise<void> {
+  const ownerUserId = session.createdBy ?? session.userId;
+  const copy = sessionPrArchiveNotificationCopy({
+    sessionTitle: session.title,
+    prUrl,
+    prNumber,
+    merged: nextState === "merged",
+  });
+  await createNotification(ctx, {
+    userId: ownerUserId,
+    type: "session_archived",
+    title: copy.title,
+    message: copy.message,
+    repoId: session.repoId,
+    sessionId: session._id,
+  });
 }
 
 /** Syncs a project's phase from GitHub draft/ready PR webhook events. */
@@ -169,6 +217,15 @@ export const handleSessionPrEvent = internalMutation({
         archived: true,
         prState: nextState,
       });
+      if (nextState === "merged" || nextState === "closed") {
+        await notifySessionOwnerOfPrArchive(
+          ctx,
+          session,
+          nextState,
+          args.prUrl,
+          args.prNumber,
+        );
+      }
     } else if (needsUnarchive) {
       await cancelSessionSandboxGraceDelete(ctx, session._id);
     }

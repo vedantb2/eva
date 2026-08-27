@@ -62,6 +62,8 @@ const DIGEST_EXCLUDED_TYPES: ReadonlySet<string> = new Set([
   // Change requests show in-app only — they re-run Eva, which is low-signal in
   // an email summary.
   "changes_requested",
+  // Session auto-archive on PR close/merge is inbox-only; never email.
+  "session_archived",
 ]);
 
 /** Builds a URL path for a repo, including app name for monorepo sub-apps. */

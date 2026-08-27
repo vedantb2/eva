@@ -126,6 +126,8 @@ export const notificationTypeValidator = v.union(
   v.literal("run_failed"),
   v.literal("rate_limit"),
   v.literal("system"),
+  // Inbox-only: session auto-archived because its GitHub PR closed or merged.
+  v.literal("session_archived"),
 );
 
 export const errorTypeValidator = v.union(

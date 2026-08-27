@@ -256,9 +256,18 @@ async function failTurnAndExit(error: string): Promise<never> {
   // Durability BEFORE completion, exactly as finalizeTurn does it: success and
   // durability are orthogonal. A turn that committed work (or left it dirty) and
   // then failed still produced the user's work, and this process is about to
-  // exit — nothing else will publish it, so a VM death erases it. Outside the
-  // try: persistTurnWork logs its own failures and never throws, and the
-  // completion below must post regardless.
+  // exit — nothing else will publish it, so a VM death erases it. The server's
+  // own push stays gated on success: only this process knows the worktree state
+  // at its death, and a post-failure server push would race the next turn's
+  // daemon. Outside the try: persistTurnWork logs its own failures and never
+  // throws, and the completion below must post regardless.
+  //
+  // This also runs on the watchdog's wedged-SDK path, so it delays the failure
+  // completion. Every git step is a spawnSync with a timeout (20s, 60s for
+  // fetch/merge/push), giving a hard worst case around 12 minutes on a hung
+  // network and milliseconds in the normal already-published case. Past ~5
+  // minutes the server's stall watchdog finalizes the turn instead — the same
+  // outcome for the user, with the work published either way.
   persistTurnWork();
   try {
     const completionArgs: JsonObject = {
@@ -1643,6 +1652,10 @@ export async function runSdkDaemon(): Promise<void> {
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     log("daemon: query failed — " + messageText);
+    // Durability BEFORE completion, as failTurnAndExit does it: the SDK stream
+    // died under a turn that may have committed work, and this daemon is
+    // shutting down through the finally block below.
+    persistTurnWork();
     try {
       await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
         [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",

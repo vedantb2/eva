@@ -400,6 +400,11 @@ try {
     process.exit(1);
   }
 } catch (err) {
+  // Durability BEFORE the failure completion, as the success path above does
+  // it: this process is about to exit, so nothing else publishes what the turn
+  // already committed. Best-effort — persistTurnWork logs and swallows every
+  // git failure, so the completion below always posts.
+  persistTurnWork();
   syncProviderStateToPersist("fatal-error");
   await stopStreamingLoops();
   writeDoneFile("fatal-error", {

@@ -16,6 +16,13 @@ const turnPersist = readSource("../callback-src/runtime/turnPersist.ts");
 const claudeSdkDaemon = readSource(
   "../callback-src/providers/claudeSdkDaemon.ts",
 );
+const cursorSdkDaemon = readSource(
+  "../callback-src/providers/cursorSdkDaemon.ts",
+);
+const codexAppServerDaemon = readSource(
+  "../callback-src/providers/codexAppServerDaemon.ts",
+);
+const oneShotRunner = readSource("../callback-src/index.ts");
 
 const PUSH_ACTION = "internal.sandbox.pushSandboxBranch";
 
@@ -36,8 +43,9 @@ describe("a successful turn always publishes", () => {
     expect(gated, "a clean tree is the normal success case").toEqual([]);
   });
 
-  test("the session push is conditioned only on the branch", () => {
+  test("the session push is conditioned only on mode, success and branch", () => {
     const condition = pushCondition(sessionWorkflow);
+    expect(condition).toContain("result.success");
     expect(condition).toContain("data.branchName");
     expect(condition).not.toContain("porcelain");
     expect(condition).not.toContain("isDirty");
@@ -47,57 +55,69 @@ describe("a successful turn always publishes", () => {
 /**
  * The counterpart to the above: success and durability are orthogonal. A turn
  * that committed work (or left it dirty) and then failed still produced the
- * user's work, and gating publication on success erased it whenever the VM died
- * — a hard death snapshots nothing and the next resume rolls the filesystem
- * back. Both halves have to be ungated: the daemon's pre-completion push (for
- * failures it reports itself) and the workflow's push (for a SIGKILLed daemon
- * that never reported anything).
+ * user's work, and losing it to a VM death is the same data loss — a hard death
+ * snapshots nothing and the next resume rolls the filesystem back.
+ *
+ * The daemon is the only place that can fix this. It alone knows the worktree
+ * state at the moment it dies, and the workflow push stays success-gated: a
+ * server push after a failure races the daemon prewarm respawns for the next
+ * turn, and it does not auto-commit, so it publishes nothing extra once the
+ * daemon has already persisted.
  */
 describe("a failed turn still publishes its work", () => {
   test.each([
     ["failTurnAndExit", "COMPLETION_MUTATION"],
     ["failSyntheticTurn", "COMPLETE_SYNTHETIC_TURN_MUTATION"],
-  ] as const)("%s persists before its completion", (fn, mutation) => {
+  ] as const)("claude %s persists before its completion", (fn, mutation) => {
     const body = functionBody(claudeSdkDaemon, `async function ${fn}(`);
-    const persistAt = body.indexOf("persistTurnWork();");
-    const completionAt = body.indexOf(mutation);
-    expect(persistAt, `${fn} lost its durability push`).toBeGreaterThan(-1);
-    expect(completionAt, `the ${fn} completion moved`).toBeGreaterThan(-1);
-    expect(persistAt).toBeLessThan(completionAt);
+    assertPersistsFirst(body, mutation, fn);
   });
 
-  /**
-   * The daemon can die too hard to run any of the above (SIGKILL on a runtime
-   * cap), and the workflow still finalizes the turn — so its push is the last
-   * chance to publish. pushBranchToOrigin no-ops when HEAD carries no commits
-   * origin lacks, so a failed chat-only turn still publishes nothing.
-   */
+  /** The SDK stream dying under a turn is reported by the daemon's pump. */
+  test("the claude pump failure persists before its completion", () => {
+    assertPersistsFirst(
+      blockAt(claudeSdkDaemon, 'log("daemon: query failed'),
+      "Agent SDK daemon failed: ",
+      "the claude message pump",
+    );
+  });
+
+  /** Cursor runs each turn in a disposable worker: three failure reporters. */
   test.each([
-    ["session", sessionWorkflow],
-    ["task chat", taskChatWorkflow],
-    ["project chat", projectChatWorkflow],
-  ] as const)("the %s workflow push is not success-gated", (_label, source) => {
-    expect(pushCondition(source)).not.toContain("result.success");
+    ["failTurnAndExit", "COMPLETION_MUTATION"],
+    ["executeClaimedTurn", "deliverCompletionWithMedia(completionArgs)"],
+    ["reportCursorTurnWorkerFailure", "COMPLETION_MUTATION"],
+  ] as const)("cursor %s persists before its completion", (fn, mutation) => {
+    const body = functionBody(cursorSdkDaemon, `async function ${fn}(`);
+    assertPersistsFirst(body, mutation, fn);
   });
 
   /**
-   * Only the push becomes unconditional. Publishing a failed turn's work keeps
-   * it recoverable; it must not also propose the branch as a change to review or
-   * deploy.
+   * Codex reports success and failure through one finalizeTurn, and the
+   * one-shot runner's fatal-error handler is the only completion its process
+   * posts when the provider throws on the way out.
    */
-  test("the session PR and deploy steps stay success-gated", () => {
-    const gateAt = sessionWorkflow.indexOf(
-      "if (pushSucceeded && result.success)",
+  test("codex finalizes both outcomes through the persisting path", () => {
+    const body = functionBody(
+      codexAppServerDaemon,
+      "async function failActiveTurn(",
     );
-    const prAt = sessionWorkflow.indexOf(
-      "internal.github.createDraftSessionPr",
+    expect(body, "codex failure stopped reusing finalizeTurn").toContain(
+      "finalizeTurn(false, error)",
     );
-    const deployAt = sessionWorkflow.indexOf(
-      "internal.sessionWorkflow.scheduleSessionDeploymentTracking",
+    assertPersistsFirst(
+      functionBody(codexAppServerDaemon, "async function finalizeTurn("),
+      "deliverCompletionWithMedia(completionArgs)",
+      "codex finalizeTurn",
     );
-    expect(gateAt, "the post-push success gate moved").toBeGreaterThan(-1);
-    expect(gateAt).toBeLessThan(deployAt);
-    expect(gateAt).toBeLessThan(prAt);
+  });
+
+  test("the one-shot fatal-error completion persists first", () => {
+    assertPersistsFirst(
+      blockAt(oneShotRunner, "} catch (err) {"),
+      'callConvexWithRetry("mutation", COMPLETION_MUTATION',
+      "the one-shot fatal-error handler",
+    );
   });
 });
 
@@ -451,13 +471,11 @@ describe("a turn that pushed nothing opens no pull request", () => {
  */
 describe("a callback-published session still opens its first pull request", () => {
   test("the Claude callback persists work before reporting completion", () => {
-    const persistAt = claudeSdkDaemon.indexOf("persistTurnWork();");
-    const completionAt = claudeSdkDaemon.indexOf(
+    assertPersistsFirst(
+      functionBody(claudeSdkDaemon, "async function finalizeTurn("),
       "await deliverCompletionWithMedia(completionArgs);",
+      "finalizeTurn",
     );
-    expect(persistAt, "the durability push moved").toBeGreaterThan(-1);
-    expect(completionAt, "the completion call moved").toBeGreaterThan(-1);
-    expect(persistAt).toBeLessThan(completionAt);
     expect(turnPersist).toContain('git(["push", "origin", refspec]');
   });
 
@@ -468,18 +486,11 @@ describe("a callback-published session still opens its first pull request", () =
    * in the sandbox until the next real turn happened to push it (prod, 27 Aug).
    */
   test("the synthetic-turn path persists before its completion", () => {
-    const body = functionBody(
-      claudeSdkDaemon,
-      "async function finalizeSyntheticTurn(",
+    assertPersistsFirst(
+      functionBody(claudeSdkDaemon, "async function finalizeSyntheticTurn("),
+      "COMPLETE_SYNTHETIC_TURN_MUTATION",
+      "finalizeSyntheticTurn",
     );
-    const persistAt = body.indexOf("persistTurnWork();");
-    const completionAt = body.indexOf("COMPLETE_SYNTHETIC_TURN_MUTATION");
-    expect(
-      persistAt,
-      "the synthetic durability push is missing",
-    ).toBeGreaterThan(-1);
-    expect(completionAt, "the synthetic completion moved").toBeGreaterThan(-1);
-    expect(persistAt).toBeLessThan(completionAt);
   });
 
   /**
@@ -656,6 +667,32 @@ function convexFiles(): string[] {
     .map((entry) => String(entry).replaceAll("\\", "/"))
     .filter((path) => path.endsWith(".ts"))
     .filter((path) => !path.includes("_generated"));
+}
+
+/**
+ * One catch/handler block, from `marker` to the `}` that closes it at that
+ * indentation. Bounded on purpose: an open-ended slice lets a persist call
+ * further down the file satisfy an assertion about this block.
+ */
+function blockAt(source: string, marker: string): string {
+  const startAt = source.indexOf(marker);
+  expect(startAt, `${marker} moved`).toBeGreaterThan(-1);
+  const indent = " ".repeat(startAt - source.lastIndexOf("\n", startAt) - 1);
+  const end = source.indexOf(`\n${indent}}`, startAt);
+  return source.slice(startAt, end < 0 ? undefined : end);
+}
+
+/** Durability before completion: the ordering every finalize path shares. */
+function assertPersistsFirst(
+  body: string,
+  completionMarker: string,
+  label: string,
+): void {
+  const persistAt = body.indexOf("persistTurnWork();");
+  const completionAt = body.indexOf(completionMarker);
+  expect(persistAt, `${label} lost its durability push`).toBeGreaterThan(-1);
+  expect(completionAt, `the ${label} completion moved`).toBeGreaterThan(-1);
+  expect(persistAt).toBeLessThan(completionAt);
 }
 
 /** The `if (…)` a workflow wraps its push step in. */

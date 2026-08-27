@@ -2,7 +2,7 @@
 
 ## Failed turns publish their work - 2026-08-27
 
-Success and durability are orthogonal: `failTurnAndExit`, `failSyntheticTurn`, the cancel-exit paths and Cursor's three failure paths now run `persistTurnWork()` before their completion, and the session/task/project chat workflows push whenever a branch exists instead of only on success. Draft PRs and deploy polling stay success-gated.
+Success and durability are orthogonal: every daemon failure path — Claude's `failTurnAndExit`/`failSyntheticTurn`, SDK-pump failure and cancel exits, Cursor's three failure reporters, the one-shot runner's fatal-error handler — now runs `persistTurnWork()` before its completion, so a turn that committed work and then failed cannot lose it to a VM death. Codex already routed both outcomes through `finalizeTurn`. The workflows' push stays success-gated: only the daemon knows the worktree state at its death.
 
 ## Prewarm daemon kills no longer orphan a turn lease - 2026-08-27
 

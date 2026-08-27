@@ -1,5 +1,13 @@
 # Changelog
 
+## Failed turns publish their work - 2026-08-27
+
+Success and durability are orthogonal: every daemon failure path — Claude's `failTurnAndExit`/`failSyntheticTurn`, SDK-pump failure and cancel exits, Cursor's three failure reporters, the one-shot runner's fatal-error handler — now runs `persistTurnWork()` before its completion, so a turn that committed work and then failed cannot lose it to a VM death. Codex already routed both outcomes through `finalizeTurn`. The workflows' push stays success-gated: only the daemon knows the worktree state at its death.
+
+## Prewarm daemon kills no longer orphan a turn lease - 2026-08-27
+
+`prewarmEntityDaemon` fences turn claims (`claimPausedUntil`, self-expiring) around every daemon kill and defers the stale-callback respawn mid-turn, so a doomed daemon can no longer claim a turn, take its 2-minute running lease, and die holding it ("Turn stalled"). Cancel, stop, and usage signals still drain while paused.
+
 ## Sandbox chat surfaces share one pre-input stack - 2026-08-26
 
 - New `ChatEntityRef` (session | task | project) with `chatEntityKeys` gives shared chat pieces one handle instead of an id-plus-flag per surface; `useStopBackgroundAgent` routes the stop mutation by entity kind.
@@ -9202,3 +9210,7 @@ Behavior per context:
 - Active legacy project/task turns now own their heartbeat window explicitly, so their tool events are parsed, streamed live, and retained in the completed activity log without letting idle daemons write stale state
 - Project and task usage chips now scope readings to the credential selected in the model picker; switching to Kezia can no longer leave Team's percentage visible, and an account without a reading gets an explicit no-data state
 - Added focused callback and UI regressions for in-flight flushes, single-writer heartbeats, and Team-versus-personal account isolation
+
+## Synthetic Turns Push Their Work Before Completing - 2026-08-27
+
+- `finalizeSyntheticTurn` now calls `persistTurnWork()` before the completion mutation, so work committed during a background-agent continuation reaches origin instead of waiting for the next real turn; `persistTurnWork` short-circuits on local refs when origin already has HEAD, so the extra call costs no fetch

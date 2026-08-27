@@ -17,6 +17,7 @@ import {
   startNextQueuedProjectChatMessage,
 } from "../_queues/helpers";
 import { PROJECT_CHAT_STREAM_PREFIX } from "../workflowWatchdog";
+import { isDaemonClaimPaused } from "./daemonClaimPause";
 
 function projectChatStreamEntityId(projectId: Id<"projects">): string {
   return `${PROJECT_CHAT_STREAM_PREFIX}${String(projectId)}`;
@@ -82,6 +83,23 @@ export const claimPendingTurn = authMutation({
     // not consume the chip's request as a no-op.
     const usageRefreshRequested =
       project.usageRefreshRequestedAt !== undefined;
+
+    // A prewarm is killing this daemon right now. See the session copy in
+    // `_sessions/workflow.ts`: claiming here strands the turn on a dying
+    // process. Placed after the drains so a cancel is never stranded.
+    if (
+      isDaemonClaimPaused({
+        claimPausedUntil: project.claimPausedUntil,
+        now: Date.now(),
+      })
+    ) {
+      return {
+        ...emptyClaimReturn,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
+    }
 
     // Chat daemon only — never claim a turn while another workflow is the only
     // active consumer.

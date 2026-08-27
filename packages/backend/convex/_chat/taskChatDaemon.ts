@@ -17,6 +17,7 @@ import {
   startNextQueuedTaskChatMessage,
 } from "../_queues/helpers";
 import { TASK_CHAT_STREAM_PREFIX } from "../workflowWatchdog";
+import { isDaemonClaimPaused } from "./daemonClaimPause";
 
 function taskChatStreamEntityId(taskId: Id<"agentTasks">): string {
   return `${TASK_CHAT_STREAM_PREFIX}${String(taskId)}`;
@@ -82,6 +83,23 @@ export const claimPendingTurn = authMutation({
     // Level-triggered until the refresh action clears it — old callbacks must
     // not consume the chip's request as a no-op.
     const usageRefreshRequested = task.usageRefreshRequestedAt !== undefined;
+
+    // A prewarm is killing this daemon right now. See the session copy in
+    // `_sessions/workflow.ts`: claiming here strands the turn on a dying
+    // process. Placed after the drains so a cancel is never stranded.
+    if (
+      isDaemonClaimPaused({
+        claimPausedUntil: task.claimPausedUntil,
+        now: Date.now(),
+      })
+    ) {
+      return {
+        ...emptyClaimReturn,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
+    }
 
     // Chat daemon only — never claim a turn while the main PR run workflow is
     // the only active consumer.

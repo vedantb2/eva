@@ -12,6 +12,7 @@ import {
   motionSpring,
 } from "@eva/ui";
 import { AveMark } from "@/lib/components/ave/AveMark";
+import { PANEL_POSITION_STYLE } from "@/lib/components/ave/useAveLauncherPosition";
 
 const AvePanelBody = lazy(() =>
   import("@/lib/components/ave/AvePanelBody").then((m) => ({
@@ -23,7 +24,10 @@ const HEADER_BUTTON_CLASS =
   "motion-press flex size-7 items-center justify-center rounded-md text-muted-foreground active:scale-[0.9] hover:bg-accent hover:text-foreground focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-ring/40";
 
 /**
- * Manager Ave's chat as a floating popover, anchored above the launcher button.
+ * Manager Ave's chat as a floating popover, anchored above the launcher button
+ * — including after the launcher has been dragged, since both read the same
+ * position custom properties. Its size lives in `PANEL_POSITION_STYLE` because
+ * the clamp that keeps it on screen has to be written in terms of it.
  *
  * Stays mounted once opened — `visible` only drives opacity/scale and a trailing
  * `visibility: hidden`, never an unmount — so minimizing keeps the conversation,
@@ -60,9 +64,10 @@ export function AvePanel({
             }
       }
       transition={motionSpring}
+      style={PANEL_POSITION_STYLE}
       className={cn(
-        "fixed right-4 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-50",
-        "flex h-[min(40rem,calc(100dvh-7rem))] w-[min(26rem,calc(100vw-2rem))] flex-col overflow-hidden",
+        "fixed z-50",
+        "flex flex-col overflow-hidden",
         "origin-bottom-right rounded-surface bg-popover/95 text-popover-foreground backdrop-blur-md smooth-shadow-ring-xl",
         visible ? null : "pointer-events-none",
       )}

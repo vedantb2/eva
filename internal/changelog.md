@@ -1,5 +1,12 @@
 # Changelog
 
+## Manager Ave's launcher can be dragged anywhere - 2026-08-27
+
+- The floating launcher is no longer pinned to the bottom-right: press and drag moves it, and where it lands is kept in localStorage (`eva:ave:launcher-offset`) as a distance from the bottom-right corner, so it stays in the corner it was parked in when the window grows.
+- The popover follows it. Both read the same `--ave-launcher-*` custom properties from a `display: contents` wrapper, so neither knows the other's geometry, and both `clamp()` themselves against the viewport in CSS — a spot saved on a wide monitor is pulled back on screen on a narrow one, with no resize listener and no re-render.
+- Dragging uses pointer capture on the button rather than window listeners, so there is nothing to tear down and nothing to leak on a missed drop. Travel under 4px stays a click, and the click the browser fires after a real drag is swallowed so a drop cannot open the panel.
+- `AveLauncherSurface` owns the position, keeping the per-pointer-move renders off the provider that wraps the whole app.
+
 ## Preview pages rewrite loopback Convex URLs - 2026-08-27
 
 A sandbox's local Convex backend mints absolute URLs from its own loopback origin, so `storage.generateUploadUrl()` / `storage.getUrl()` handed the user's browser `http://127.0.0.1:3210/…` addresses it cannot reach — file uploads from previews of guest Convex apps (reported on eProcurement) failed with a network error. The preview proxy's injected script now diverts fetch/XHR/WebSocket calls and `src`/`href` attributes that target loopback ports 3210/3211 onto the existing authenticated `/__convex` and `/__convex-site` prefixes of the page origin, skipping loopback-served pages (in-sandbox browsers). Covered by `previewProxyConvexLoopbackRewrite.test.ts`; `SCRIPT_VERSION` bumped to `stream-v18` so live proxies relaunch.

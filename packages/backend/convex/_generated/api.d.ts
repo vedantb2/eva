@@ -39,6 +39,7 @@ import type * as _automations_systemInstall from "../_automations/systemInstall.
 import type * as _automations_triggers from "../_automations/triggers.js";
 import type * as _chat_cancelledMessage from "../_chat/cancelledMessage.js";
 import type * as _chat_projectChatDaemon from "../_chat/projectChatDaemon.js";
+import type * as _chat_stallRetry from "../_chat/stallRetry.js";
 import type * as _chat_stallWatchdog from "../_chat/stallWatchdog.js";
 import type * as _chat_surfaceAdapters from "../_chat/surfaceAdapters.js";
 import type * as _chat_taskChatDaemon from "../_chat/taskChatDaemon.js";
@@ -402,6 +403,7 @@ declare const fullApi: ApiFromModules<{
   "_automations/triggers": typeof _automations_triggers;
   "_chat/cancelledMessage": typeof _chat_cancelledMessage;
   "_chat/projectChatDaemon": typeof _chat_projectChatDaemon;
+  "_chat/stallRetry": typeof _chat_stallRetry;
   "_chat/stallWatchdog": typeof _chat_stallWatchdog;
   "_chat/surfaceAdapters": typeof _chat_surfaceAdapters;
   "_chat/taskChatDaemon": typeof _chat_taskChatDaemon;

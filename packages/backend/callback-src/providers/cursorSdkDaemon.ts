@@ -534,7 +534,10 @@ function startClaimWatcher(): void {
         const claimed = await callConvexWithRetry(
           "mutation",
           CLAIM_MUTATION ?? "",
-          entityMutationArgs({ model: MODEL }),
+          entityMutationArgs({
+            model: MODEL,
+            acceptTurn: !turnActive && pendingClaimedTurn === null && !cancelInFlight,
+          }),
         );
         if (readCancelRequested(claimed)) handleCancelRequested();
         const turn = readClaimedTurn(claimed);

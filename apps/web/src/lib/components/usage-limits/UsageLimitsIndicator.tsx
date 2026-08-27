@@ -1,40 +1,46 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { api } from "@eva/backend";
-import type { Id } from "@eva/backend";
+import { api, type Id } from "@eva/backend";
 import { Button, Popover, PopoverContent, PopoverTrigger } from "@eva/ui";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
 import {
-  chipSummary,
+  chipSummaryForActive,
+  claudeUsageAccountScope,
   usageRowsForAccount,
   USAGE_TONE_TEXT_CLASS,
-  type UsageAccountScope,
 } from "./_utils";
 import { UsageBar } from "./UsageBar";
 import { UsageLimitsDetails } from "./UsageLimitsDetails";
 import { useMinuteNow } from "./_useMinuteNow";
-import type { UsageRefreshTarget } from "./UsageRefreshButton";
 
 interface UsageLimitsIndicatorProps {
   repoId: Id<"githubRepos">;
-  /** Always a Claude credential — callers omit this component otherwise. */
-  accountScope: UsageAccountScope;
-  /** The live daemon that answers an on-demand refresh. */
-  refreshTarget: UsageRefreshTarget;
+  /** Active chat model — scopes the chip bar (e.g. Fable → Weekly Fable %). */
+  model: string | null | undefined;
+  /**
+   * Sticky credential for this chat. `undefined` while still loading; `null` is
+   * Team. Only affects the chip bar — the popover always lists every account.
+   */
+  providerAccountId: Id<"userProviderAccounts"> | null | undefined;
+  accountLabel: string;
 }
 
 /**
- * The agent's Claude plan headroom, next to the context gauge it is a sibling of.
+ * The one plan-usage control for every chat surface.
  *
- * Only mounted on Claude chats: other providers have no plan windows, and an
- * unscoped read would show whichever Claude account last reported on the repo.
- * Simple view hides it for the same reason it hides the context gauge.
+ * - Chip / bar: the active Claude account, preferring the selected model's
+ *   weekly window when Anthropic reports one.
+ * - Popover: every Claude account on the repo — same query everywhere, so
+ *   switching sessions cannot show a different card of numbers.
+ *
+ * Simple view hides it with the context gauge.
  */
 export function UsageLimitsIndicator({
   repoId,
-  accountScope,
-  refreshTarget,
+  model,
+  providerAccountId,
+  accountLabel,
 }: UsageLimitsIndicatorProps) {
   const simpleView = useSimpleView();
   const now = useMinuteNow();
@@ -44,12 +50,20 @@ export function UsageLimitsIndicator({
   );
   if (simpleView) return null;
   if (rows === undefined) return null;
-  const visibleRows = usageRowsForAccount(rows, accountScope);
-  const summary = chipSummary(visibleRows, now);
+
+  const accountScope =
+    providerAccountId === undefined
+      ? undefined
+      : claudeUsageAccountScope(model, {
+          providerAccountId,
+          accountLabel,
+        });
+  const chipRows = accountScope
+    ? usageRowsForAccount(rows, accountScope)
+    : rows;
+  const summary = chipSummaryForActive(chipRows, now, model);
 
   return (
-    // A popover rather than a hover card: the card now carries a refresh
-    // button, so it has to be reachable by click, keyboard and touch.
     <Popover>
       <PopoverTrigger asChild>
         <Button
@@ -73,13 +87,7 @@ export function UsageLimitsIndicator({
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 overflow-hidden p-0">
-        <UsageLimitsDetails
-          repoId={repoId}
-          rows={visibleRows}
-          now={now}
-          accountScope={accountScope}
-          refreshTarget={refreshTarget}
-        />
+        <UsageLimitsDetails repoId={repoId} rows={rows} now={now} />
       </PopoverContent>
     </Popover>
   );

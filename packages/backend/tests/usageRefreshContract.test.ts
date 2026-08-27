@@ -12,56 +12,48 @@ const actionSource = readSource(
 const buttonSource = readSource(
   join(webDir, "src/lib/components/usage-limits/UsageRefreshButton.tsx"),
 );
-const daemonSource = readSource(
-  join(backendDir, "callback-src/providers/claudeSdkDaemon.ts"),
-);
 
 /**
- * On-demand refresh has to work with Eva's setup-tokens without Eva's servers
- * calling Messages (the OpenCode-shaped path) or impersonating Claude Code.
- * The live Agent SDK daemon reports; a stopped sandbox must not be woken.
+ * On-demand refresh is only `GET /api/oauth/usage` with Claude Code's
+ * User-Agent over `https.request`. No Messages probe, no setup-token header
+ * harvest ? those were the OpenCode-shaped third-party path.
  */
-describe("a plan-usage refresh is not a third-party Messages probe", () => {
-  test("refresh never calls Anthropic HTTP from Convex, never Claude Code's User-Agent", () => {
-    expect(actionSource).not.toContain("api.anthropic.com");
+describe("plan-usage refresh uses only /api/oauth/usage", () => {
+  test("the request sends the OAuth beta and Claude Code User-Agent over https", () => {
+    expect(actionSource).toContain('from "node:https"');
+    expect(actionSource).toContain("https.request");
+    expect(actionSource).toContain('"anthropic-beta": CLAUDE_USAGE_BETA');
+    expect(actionSource).toContain('"User-Agent": CLAUDE_USAGE_USER_AGENT');
+    expect(actionSource).toContain("oauth-2025-04-20");
+    expect(actionSource).toContain("claude-code/");
+    expect(actionSource).toContain("https://api.anthropic.com/api/oauth/usage");
+  });
+
+  test("there is no Messages probe or setup-token fallback", () => {
     expect(actionSource).not.toContain("v1/messages");
     expect(actionSource).not.toContain("requestInferenceUsage");
-    expect(actionSource).not.toContain("claude-code/");
-    expect(actionSource).not.toContain("User-Agent");
-    expect(actionSource).not.toContain('from "node:https"');
-    expect(actionSource).toContain("requestRefresh");
-    expect(actionSource).toContain("clearRefresh");
-    expect(actionSource).toContain("prewarmDaemonNow");
-    expect(actionSource).toContain("sandbox-idle");
+    expect(actionSource).not.toContain("USAGE_PROBE");
+    expect(actionSource).not.toContain("claudeUsageBodyFromUnifiedHeaders");
+    expect(actionSource).not.toContain("anthropic-ratelimit-unified");
   });
 
-  test("the live Claude daemon reports on the level-triggered flag", () => {
-    expect(daemonSource).toContain("readUsageRefreshRequested");
-    expect(daemonSource).toContain("force: true");
-    expect(daemonSource).toContain("captureAndReportClaudeUsage");
-    expect(daemonSource).not.toContain("usageLimits:clearRefresh");
-    expect(daemonSource).not.toContain("startClaudeUsageReport");
-    const claim = readSource(
-      join(backendDir, "convex/_sessions/workflow.ts"),
-    );
-    expect(claim).toContain("usageRefreshRequested");
-    expect(claim).not.toContain("usageRefreshRequestedAt: undefined");
+  test("HTTP 429 is its own failure, not network", () => {
+    expect(actionSource).toContain("response.status === 429");
+    expect(actionSource).toContain('kind: "rate-limited"');
+    expect(actionSource).toContain('reason: "rate-limited"');
   });
 
-  test("a stopped sandbox is an informational toast, not a red error", () => {
-    expect(buttonSource).toContain('"sandbox-idle":');
-    expect(buttonSource).toContain("Wake Eva to refresh plan usage.");
-    expect(buttonSource).toMatch(
-      /if \(result\.reason === "sandbox-idle"\) \{\s*toast\(copy\);/,
-    );
+  test("a successful /usage read is stored as a complete snapshot", () => {
+    expect(actionSource).toContain('completeness: "complete"');
+    expect(actionSource).toContain("snapshotComplete: true");
   });
 
-  test("the card still has a refresh control", () => {
-    const details = readSource(
-      join(webDir, "src/lib/components/usage-limits/UsageLimitsDetails.tsx"),
+  test("the toast copy names a rate limit rather than unreachability", () => {
+    expect(buttonSource).toContain('"rate-limited":');
+    expect(buttonSource).toContain("rate-limited the usage lookup");
+    expect(buttonSource).not.toMatch(
+      /"rate-limited":\s*"Couldn't reach Claude/,
     );
-    expect(details).toContain("UsageRefreshButton");
-    expect(buttonSource).toContain("usageLimitsActions.refresh");
   });
 });
 

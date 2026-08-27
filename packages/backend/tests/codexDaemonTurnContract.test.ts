@@ -58,8 +58,9 @@ describe("a same-turn restage is discarded; a follow-up turn is parked", () => {
     expect(source).toContain(DISCARD_LOG);
   });
 
-  test.each(surfaces)("finalizing does not acquire a lease (%s)", (_l, source) => {
-    expect(source).toContain('supervisor.phase === "finalizing"');
+  test.each(surfaces)("idle is the only phase that accepts a turn (%s)", (_l, source) => {
+    expect(source).toContain("acceptTurn");
+    expect(source).toContain('supervisor.phase === "idle"');
   });
 
   test("the claude daemon still carries the semantics codex mirrors", () => {
@@ -67,7 +68,7 @@ describe("a same-turn restage is discarded; a follow-up turn is parked", () => {
       "daemon: claim discarded while real turn active",
     );
     expect(claudeDaemonSource).toContain("shouldParkClaimedTurn");
-    expect(claudeDaemonSource).toContain('supervisor.phase === "finalizing"');
+    expect(claudeDaemonSource).toContain("acceptTurn");
   });
 });
 

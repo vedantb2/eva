@@ -14,7 +14,6 @@ import { SandboxChatPreInput } from "@/lib/components/chat/SandboxChatPreInput";
 import type { SandboxChatSurface } from "@/lib/components/chat/sandboxChatSurface";
 import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
-import { claudeUsageAccountScope } from "@/lib/components/usage-limits";
 import { SessionSummaryAccordion } from "./_components/SessionSummaryAccordion";
 import { SessionSummaryModal } from "./_components/SessionSummaryModal";
 import { SessionReviewModal } from "./_components/SessionReviewModal";
@@ -221,26 +220,17 @@ export function ChatPanel({
     );
   };
 
-  // Plan usage belongs to the Claude credential this session runs on. Hidden
-  // until the session document lands (so Team cannot flash), and omitted on
-  // Cursor/Codex/OpenCode — those still carry a sticky account id that would
-  // otherwise paint Claude's numbers beside the wrong picker.
-  const usageAccountScope =
-    stickyProviderAccountId === undefined
-      ? undefined
-      : claudeUsageAccountScope(model, {
-          providerAccountId: stickyProviderAccountId,
-          accountLabel:
-            stickyProviderAccountId === null
-              ? "Team"
-              : (accounts.find(
-                  (account) => account.id === stickyProviderAccountId,
-                )?.label ?? "Selected account"),
-        });
-
   const hasSummary = Boolean(summary && summary.length > 0);
   const isStartupStreaming =
     isSandboxToggling && !isSandboxActive && !isSandboxStopping;
+
+  const usageAccountLabel =
+    stickyProviderAccountId === null
+      ? "Team"
+      : stickyProviderAccountId === undefined
+        ? "Selected account"
+        : (accounts.find((account) => account.id === stickyProviderAccountId)
+            ?.label ?? "Selected account");
 
   const { headerLeft, headerRight } = SessionChatHeader({
     repoId: repo._id,
@@ -258,7 +248,9 @@ export function ChatPanel({
     permalinkPath,
     chatOnly,
     hideTitle,
-    usageAccountScope,
+    model,
+    providerAccountId: stickyProviderAccountId,
+    usageAccountLabel,
     onSandboxToggle,
     onOpenSummaryModal: () => setShowSummaryModal(true),
     onOpenReviewModal: () => setShowReviewModal(true),

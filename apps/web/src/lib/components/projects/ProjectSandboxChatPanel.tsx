@@ -15,7 +15,6 @@ import {
 import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxChatHeaderActions } from "@/lib/components/sandbox/SandboxStartStopButton";
-import { claudeUsageAccountScope } from "@/lib/components/usage-limits";
 import { SandboxChatPreInput } from "@/lib/components/chat/SandboxChatPreInput";
 import type { SandboxChatSurface } from "@/lib/components/chat/sandboxChatSurface";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -249,11 +248,9 @@ export function ProjectSandboxChatPanel({
         isSandboxToggling={isSandboxToggling}
         onSandboxToggle={onSandboxToggle}
         isAssistantResponding={isExecuting}
-        usageAccountScope={claudeUsageAccountScope(model, {
-          providerAccountId,
-          accountLabel: usageAccountLabel,
-        })}
-        projectId={projectId}
+        model={model}
+        providerAccountId={providerAccountId}
+        usageAccountLabel={usageAccountLabel}
       />
       <ChatBody
         repoId={repo._id}

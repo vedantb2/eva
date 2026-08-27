@@ -43,6 +43,7 @@ export const claimPendingTurn = authMutation({
   args: {
     taskId: v.id("agentTasks"),
     model: v.optional(aiModelValidator),
+    acceptTurn: v.optional(v.boolean()),
   },
   returns: v.object({
     prompt: v.union(v.string(), v.null()),
@@ -94,6 +95,15 @@ export const claimPendingTurn = authMutation({
     }
 
     if (!task.pendingTurn) {
+      return {
+        ...emptyClaimReturn,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
+    }
+
+    if (args.acceptTurn === false) {
       return {
         ...emptyClaimReturn,
         stopTaskToolUseIds,

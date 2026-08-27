@@ -104,6 +104,25 @@ test("mergeClaudeRateLimitEvent merges per window without clobbering the others"
   });
 });
 
+test("mergeClaudeRateLimitEvent maps seven_day_oi to Weekly (Fable)", () => {
+  mergeClaudeRateLimitEvent({
+    rate_limit_info: {
+      status: "allowed",
+      rateLimitType: "seven_day_oi",
+      utilization: 12,
+      resetsAt: 1_770_000_000,
+    },
+  });
+  expect(S.usageLimitSnapshot?.windows).toEqual([
+    {
+      key: "model_scoped:Fable",
+      label: "Weekly (Fable)",
+      utilization: 12,
+      resetsAt: 1_770_000_000_000,
+    },
+  ]);
+});
+
 test("mergeClaudeRateLimitEvent ignores payloads it cannot read", () => {
   mergeClaudeRateLimitEvent({ type: "rate_limit_event" });
   mergeClaudeRateLimitEvent({ rate_limit_info: "nope" });

@@ -370,6 +370,7 @@ describe("the cursor daemon's per-turn ordering", () => {
     // One park site only: a second, ungated one is the regression itself.
     expect(watcher.split("pendingClaimedTurn = turn;").length - 1).toBe(1);
     expect(watcher).toContain("claimedLeaseTurnId: turn.turnLease?.turnId");
+    expect(watcher).toContain("acceptTurn:");
   });
 
   test("the supervisor spawns one child per claimed turn", () => {

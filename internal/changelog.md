@@ -25,6 +25,33 @@
 - Restyled for Eva: tone fill (`bg-muted/50`, `rounded-t-surface`) instead of t3code's bordered glass shoulder tab, Tabler icons, no banned hooks.
 - Real data comes from the streaming turn's `todos` activity step threaded via `ChatBody` → `ChatComposer`, so all chat surfaces get it.
 
+## Plan-usage refresh is only /api/oauth/usage - 2026-08-26
+
+Dropped the setup-token Messages probe that harvested `anthropic-ratelimit-unified-*` headers. Manual refresh now calls Claude's OAuth usage endpoint only; a token without `user:profile` surfaces as unauthorized instead of a fake inference fallback.
+
+## Plan-usage is one shared indicator - 2026-08-26
+
+Session/project/task headers all mount the same `UsageLimitsIndicator` with `model` + account. Only the chip bar changes (active account, preferring Weekly Fable on Fable); the popover always shows every account from the same `getByRepo` query so switching sessions cannot show different numbers.
+
+## Plan-usage chip reads Weekly (Fable) from 7d_oi - 2026-08-26
+
+Messages-probe refresh only parsed `5h`/`7d`, so Weekly (Fable) never appeared. It now reads `anthropic-ratelimit-unified-7d_oi-*`, probes Fable first, accepts ISO `limits[].resets_at`, and the chip bar follows the active Claude account while the popover still lists every account.
+
+## Plan-usage chip shows every Claude account - 2026-08-26
+
+The header chip no longer filters to the sticky session credential — every Claude account with a fresh reading appears in one card, with per-account refresh. Messages-probe refresh now merges (`completeness: partial`) so Weekly (Fable) and other model-scoped windows from a prior turn are not wiped.
+
+## Empty stalled session turns retry once - 2026-08-26
+
+- A claimed turn whose daemon died before any output (session 125: Zuza's Figma question after sandbox resume) dropped the prompt and told the user to send a new message. The next send is a different turn, so the original question was never answered.
+- `claimPendingTurn` now takes `acceptTurn`. Daemons pass false unless idle, so a follow-up no longer acquires the 2-minute running lease with nobody heartbeating it. Cancel/stop/usage still drain.
+- `finalizeExpired` restages the last user prompt once (no new user bubble) after an empty stall while the sandbox is up. Retry runs after the stall alert is inserted, so the first failure already counts as 1; a second stall of the same prompt stays failed. Stalls that already streamed text or tool activity are not replayed.
+- Stall alert copy reports time since the last lease write, not time since expiry, and no longer guesses OOM.
+
+## Plan-usage refresh uses Claude Code UA + Messages probe again - 2026-08-26
+
+On-demand refresh is back on Convex HTTP: `GET /api/oauth/usage` with `User-Agent: claude-code/…` (via `https.request` so UA is not stripped), and on setup-token 403 a 1-token Messages call that reads `anthropic-ratelimit-unified-*`. Refresh no longer needs a live sandbox or daemon flag.
+
 ## Agents tab in session sandbox panel - 2026-08-26
 
 - Sessions get an "Agents" sandbox tab (t3code-style roster) listing every sub-agent the session spawned, so subagent work is inspectable without hunting the chat timeline.

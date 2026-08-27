@@ -1,5 +1,9 @@
 # Changelog
 
+## Preview pages rewrite loopback Convex URLs - 2026-08-27
+
+A sandbox's local Convex backend mints absolute URLs from its own loopback origin, so `storage.generateUploadUrl()` / `storage.getUrl()` handed the user's browser `http://127.0.0.1:3210/…` addresses it cannot reach — file uploads from previews of guest Convex apps (reported on eProcurement) failed with a network error. The preview proxy's injected script now diverts fetch/XHR/WebSocket calls and `src`/`href` attributes that target loopback ports 3210/3211 onto the existing authenticated `/__convex` and `/__convex-site` prefixes of the page origin, skipping loopback-served pages (in-sandbox browsers). Covered by `previewProxyConvexLoopbackRewrite.test.ts`; `SCRIPT_VERSION` bumped to `stream-v18` so live proxies relaunch.
+
 ## Failed turns publish their work - 2026-08-27
 
 Success and durability are orthogonal: every daemon failure path — Claude's `failTurnAndExit`/`failSyntheticTurn`, SDK-pump failure and cancel exits, Cursor's three failure reporters, the one-shot runner's fatal-error handler — now runs `persistTurnWork()` before its completion, so a turn that committed work and then failed cannot lose it to a VM death. Codex already routed both outcomes through `finalizeTurn`. The workflows' push stays success-gated: only the daemon knows the worktree state at its death.

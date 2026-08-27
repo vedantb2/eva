@@ -1,8 +1,10 @@
 import { describe, expect, test } from "vitest";
 import {
+  claudeUsageBodyFromUnifiedHeaders,
   claudeUsageBodySchema,
   hasPlanRateLimits,
   readClaudeUsageWindows,
+  readUnifiedRateLimitHeaders,
 } from "../convex/_usageLimits/claudeUsage";
 
 /** A literal response body, parsed the way the action parses a real one. */
@@ -174,6 +176,89 @@ describe("readClaudeUsageWindows", () => {
         }),
       ).map((window) => window.key),
     ).toEqual(["five_hour"]);
+  });
+});
+
+describe("unified inference headers", () => {
+  test("a 0–1 fraction and unix-seconds reset become a percent window", () => {
+    const resetsAtMs = Date.UTC(2026, 7, 25, 12, 0, 0);
+    const headers: Record<string, string> = {
+      "anthropic-ratelimit-unified-5h-utilization": "0.01",
+      "anthropic-ratelimit-unified-5h-reset": String(resetsAtMs / 1000),
+      "anthropic-ratelimit-unified-7d-utilization": "0.63",
+      "anthropic-ratelimit-unified-7d-reset": String(resetsAtMs / 1000),
+    };
+    const body = claudeUsageBodyFromUnifiedHeaders((name) => headers[name]);
+    expect(body, "headers should produce a usage body").not.toBeNull();
+    if (body === null) return;
+    expect(hasPlanRateLimits(body)).toBe(true);
+    expect(readClaudeUsageWindows(body)).toEqual([
+      {
+        key: "five_hour",
+        label: "5h",
+        utilization: 1,
+        resetsAt: resetsAtMs,
+      },
+      {
+        key: "seven_day",
+        label: "Weekly (all models)",
+        utilization: 63,
+        resetsAt: resetsAtMs,
+      },
+    ]);
+  });
+
+  test("the 7d_oi claim becomes Weekly (Fable)", () => {
+    // The chip bar picks the weekly window that meters the active model, so a
+    // Fable chat's refresh has to produce a `model_scoped:Fable` key.
+    const resetsAtMs = Date.UTC(2026, 7, 25, 12, 0, 0);
+    const headers: Record<string, string> = {
+      "anthropic-ratelimit-unified-5h-utilization": "0.5",
+      "anthropic-ratelimit-unified-5h-reset": String(resetsAtMs / 1000),
+      "anthropic-ratelimit-unified-7d-utilization": "0.4",
+      "anthropic-ratelimit-unified-7d-reset": String(resetsAtMs / 1000),
+      "anthropic-ratelimit-unified-7d_oi-utilization": "0.12",
+      "anthropic-ratelimit-unified-7d_oi-reset": String(resetsAtMs / 1000),
+    };
+    const body = claudeUsageBodyFromUnifiedHeaders((name) => headers[name]);
+    expect(body, "headers should produce a usage body").not.toBeNull();
+    if (body === null) return;
+    expect(readClaudeUsageWindows(body)).toEqual([
+      {
+        key: "five_hour",
+        label: "5h",
+        utilization: 50,
+        resetsAt: resetsAtMs,
+      },
+      {
+        key: "seven_day",
+        label: "Weekly (all models)",
+        utilization: 40,
+        resetsAt: resetsAtMs,
+      },
+      {
+        key: "model_scoped:Fable",
+        label: "Weekly (Fable)",
+        utilization: 12,
+        resetsAt: resetsAtMs,
+      },
+    ]);
+  });
+
+  test("the probe sees no weekly beyond all-models and Fable", () => {
+    // Which is why a probe reading is stored as a partial merge: replacing the
+    // row would drop the Opus/Sonnet weeklies only `/usage` reports.
+    expect(
+      readUnifiedRateLimitHeaders((name) =>
+        name.endsWith("-utilization") ? "0.5" : undefined,
+      ).map((window) => window.key),
+    ).toEqual(["five_hour", "seven_day", "model_scoped:Fable"]);
+  });
+
+  test("headers with no unified windows produce no body", () => {
+    expect(claudeUsageBodyFromUnifiedHeaders(() => undefined)).toBeNull();
+    expect(readUnifiedRateLimitHeaders(() => "")).toEqual([]);
+    expect(readUnifiedRateLimitHeaders(() => "not a number")).toEqual([]);
   });
 });
 

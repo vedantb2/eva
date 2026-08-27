@@ -9,16 +9,21 @@ const webDir = join(backendDir, "../../apps/web");
 const actionSource = readSource(
   join(backendDir, "convex/usageLimitsActions.ts"),
 );
+const claudeUsageSource = readSource(
+  join(backendDir, "convex/_usageLimits/claudeUsage.ts"),
+);
 const buttonSource = readSource(
   join(webDir, "src/lib/components/usage-limits/UsageRefreshButton.tsx"),
 );
 
 /**
- * On-demand refresh is only `GET /api/oauth/usage` with Claude Code's
- * User-Agent over `https.request`. No Messages probe, no setup-token header
- * harvest ? those were the OpenCode-shaped third-party path.
+ * On-demand refresh reads `GET /api/oauth/usage` first, with Claude Code's
+ * User-Agent over `https.request`, and falls back to a 1-token Messages probe
+ * when the stored credential lacks `user:profile`. The probe's headers name only
+ * 5h, weekly-all and Fable, so its reading must be merged rather than replace
+ * the row.
  */
-describe("plan-usage refresh uses only /api/oauth/usage", () => {
+describe("plan-usage refresh reads /api/oauth/usage then probes Messages", () => {
   test("the request sends the OAuth beta and Claude Code User-Agent over https", () => {
     expect(actionSource).toContain('from "node:https"');
     expect(actionSource).toContain("https.request");
@@ -29,12 +34,20 @@ describe("plan-usage refresh uses only /api/oauth/usage", () => {
     expect(actionSource).toContain("https://api.anthropic.com/api/oauth/usage");
   });
 
-  test("there is no Messages probe or setup-token fallback", () => {
-    expect(actionSource).not.toContain("v1/messages");
-    expect(actionSource).not.toContain("requestInferenceUsage");
-    expect(actionSource).not.toContain("USAGE_PROBE");
-    expect(actionSource).not.toContain("claudeUsageBodyFromUnifiedHeaders");
-    expect(actionSource).not.toContain("anthropic-ratelimit-unified");
+  test("/usage is tried before the probe", () => {
+    const usageAt = actionSource.indexOf("requestOauthUsage(token)");
+    const probeAt = actionSource.indexOf("requestInferenceUsage(token)");
+    expect(usageAt).toBeGreaterThan(-1);
+    expect(probeAt).toBeGreaterThan(usageAt);
+  });
+
+  test("the Messages probe fallback reads the unified rate-limit headers", () => {
+    expect(actionSource).toContain("https://api.anthropic.com/v1/messages");
+    expect(actionSource).toContain("requestInferenceUsage");
+    expect(actionSource).toContain("USAGE_PROBE_MODELS");
+    expect(actionSource).toContain("claudeUsageBodyFromUnifiedHeaders");
+    expect(actionSource).toContain("max_tokens: 1");
+    expect(claudeUsageSource).toContain("anthropic-ratelimit-unified");
   });
 
   test("HTTP 429 is its own failure, not network", () => {
@@ -43,9 +56,20 @@ describe("plan-usage refresh uses only /api/oauth/usage", () => {
     expect(actionSource).toContain('reason: "rate-limited"');
   });
 
-  test("a successful /usage read is stored as a complete snapshot", () => {
-    expect(actionSource).toContain('completeness: "complete"');
-    expect(actionSource).toContain("snapshotComplete: true");
+  test("a probe reading is stored partial; only /usage replaces the row", () => {
+    // Replacing on a probe reading would delete the Opus/Sonnet weeklies a real
+    // turn captured, because the headers name 5h, weekly-all and Fable alone.
+    expect(actionSource).toContain(
+      'completeness: authoritative ? "complete" : "partial"',
+    );
+    expect(actionSource).toContain('result.source === "oauth-usage"');
+    expect(actionSource).toContain(
+      "...(authoritative ? { snapshotComplete: true } : {})",
+    );
+    // Unconditional completeness or snapshotComplete would store the probe's
+    // two windows as the whole picture.
+    expect(actionSource).not.toMatch(/^\s*snapshotComplete: true,\s*$/m);
+    expect(actionSource).not.toMatch(/^\s*completeness: "complete",\s*$/m);
   });
 
   test("the toast copy names a rate limit rather than unreachability", () => {

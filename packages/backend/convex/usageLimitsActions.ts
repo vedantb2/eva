@@ -30,9 +30,10 @@ import {
  * window. It needs `user:profile`, and the credential Eva stores for launches is
  * usually a setup-token (`sk-ant-oat…`, `user:inference` only), which 403s it —
  * so an unauthorized or empty answer falls back to a 1-token Messages call and
- * reads the 5h/weekly-all windows off its `anthropic-ratelimit-unified-*`
- * headers. That fallback sees no per-model weeklies, so its reading is stored as
- * a partial merge rather than a replacing snapshot.
+ * reads the 5h, weekly-all and Fable weekly windows off its
+ * `anthropic-ratelimit-unified-*` headers. Those are the only claims the
+ * headers carry, so a probe reading is stored as a partial merge rather than a
+ * replacing snapshot.
  *
  * Both requests are made with `https.request` so User-Agent actually leaves the
  * process — fetch in some runtimes strips it, and Anthropic then 429s.
@@ -92,7 +93,7 @@ type UsageFetch =
 
 /**
  * The token for the account the refresh is scoped to. Throws when the account
- * is not one the caller may run on ? a refresh on somebody else's credential is
+ * is not one the caller may run on — a refresh on somebody else's credential is
  * not a degraded case to fall back from, it is a request that should not have
  * been made.
  */
@@ -131,7 +132,7 @@ async function teamToken(
 /**
  * The body as a usage report, or null when the response was not JSON or did not
  * match the shape at all. The endpoint is undocumented, so a body that parses
- * is still only a candidate ? see `hasPlanRateLimits`.
+ * is still only a candidate — see `hasPlanRateLimits`.
  */
 function readUsageBody(text: string): ClaudeUsageBody | null {
   try {
@@ -225,13 +226,20 @@ function httpOk(status: number): boolean {
   return status >= 200 && status < 300;
 }
 
-async function fetchClaudeUsage(token: string): Promise<UsageFetch> {
+/** Headers both endpoints need: the OAuth beta and a UA Anthropic serves. */
+function usageHeaders(): Record<string, string> {
+  return {
+    "anthropic-beta": CLAUDE_USAGE_BETA,
+    "User-Agent": CLAUDE_USAGE_USER_AGENT,
+  };
+}
+
+async function requestOauthUsage(token: string): Promise<UsageFetch> {
   const response = await requestHttps({
     url: CLAUDE_USAGE_URL,
     method: "GET",
     headers: {
-      "anthropic-beta": CLAUDE_USAGE_BETA,
-      "User-Agent": CLAUDE_USAGE_USER_AGENT,
+      ...usageHeaders(),
       Authorization: `Bearer ${token}`,
       Accept: "application/json",
     },
@@ -259,17 +267,92 @@ async function fetchClaudeUsage(token: string): Promise<UsageFetch> {
   console.warn(
     `[usageLimits] /usage 200 cred=${credentialKind(token)} keys=${bodyKeys(body)} windows=${readClaudeUsageWindows(body).length}`,
   );
-  return { kind: "body", body };
+  return { kind: "body", body, source: "oauth-usage" };
 }
 
 /**
- * Reads the provider's plan usage now and stores it as an authoritative
- * snapshot, so a card opened long after the last turn can be brought up to date
- * without running one.
+ * `/usage` needs `user:profile`. Eva's stored Claude credential is almost
+ * always a setup-token (`sk-ant-oat…`, `user:inference` only), which 403s
+ * that endpoint while still running turns. A 1-token Messages call returns the
+ * 5h, weekly-all and Fable weekly windows on `anthropic-ratelimit-unified-*`.
+ */
+async function requestInferenceUsage(token: string): Promise<UsageFetch> {
+  for (const model of USAGE_PROBE_MODELS) {
+    const body = JSON.stringify({
+      model,
+      max_tokens: 1,
+      messages: [{ role: "user", content: "." }],
+    });
+    const response = await requestHttps({
+      url: CLAUDE_MESSAGES_URL,
+      method: "POST",
+      headers: {
+        ...usageHeaders(),
+        Authorization: `Bearer ${token}`,
+        "anthropic-version": CLAUDE_API_VERSION,
+        "Content-Type": "application/json",
+        "Content-Length": String(Buffer.byteLength(body)),
+      },
+      body,
+    });
+    if (response === null) return { kind: "network" };
+    if (response.status === 404) continue;
+    if (response.status === 401 || response.status === 403) {
+      console.warn(
+        `[usageLimits] messages probe ${response.status} cred=${credentialKind(token)} model=${model}`,
+      );
+      return { kind: "unauthorized" };
+    }
+    if (response.status === 429) {
+      console.warn("[usageLimits] messages probe returned 429");
+      return { kind: "rate-limited" };
+    }
+    if (!httpOk(response.status)) {
+      console.warn(
+        `[usageLimits] messages probe returned ${response.status} model=${model}`,
+      );
+      return { kind: "network" };
+    }
+    const parsed = claudeUsageBodyFromUnifiedHeaders(response.header);
+    if (parsed === null) {
+      console.warn(
+        `[usageLimits] messages probe 200 had no unified rate-limit headers model=${model}`,
+      );
+      return { kind: "network" };
+    }
+    console.warn(
+      `[usageLimits] messages probe 200 cred=${credentialKind(token)} windows=${readClaudeUsageWindows(parsed).length}`,
+    );
+    return { kind: "body", body: parsed, source: "messages-probe" };
+  }
+  console.warn("[usageLimits] messages probe: no current Haiku model id");
+  return { kind: "network" };
+}
+
+async function fetchClaudeUsage(token: string): Promise<UsageFetch> {
+  const usage = await requestOauthUsage(token);
+  if (usage.kind === "body" && hasPlanRateLimits(usage.body)) return usage;
+  const probe = await requestInferenceUsage(token);
+  if (probe.kind === "body" && hasPlanRateLimits(probe.body)) return probe;
+  if (usage.kind !== "body") return usage;
+  // The probe exercises the scope the token actually has, so its refusal is the
+  // more informative one to report.
+  if (probe.kind === "unauthorized" || probe.kind === "rate-limited") {
+    return probe;
+  }
+  return usage;
+}
+
+/**
+ * Reads the provider's plan usage now, so a card opened long after the last turn
+ * can be brought up to date without running one.
  *
- * No status is reported: `/usage` returns numbers, not a verdict on whether the
- * plan would accept work, and the snapshot replaces the row ? which is how a
- * stale "rejected" from an old turn gets cleared.
+ * A `/usage` reading is authoritative and replaces the row, so vanished windows
+ * are cleared. A probe reading is not: its headers name only 5h, weekly-all and
+ * Fable, so replacing would delete the other weeklies a real turn captured.
+ *
+ * No status is reported either way: these endpoints return numbers, not a
+ * verdict on whether the plan would accept work.
  */
 export const refresh = authAction({
   args: {
@@ -309,7 +392,7 @@ export const refresh = authAction({
     }
     if (result.kind === "network") return { ok: false, reason: "network" };
     // An HTTP 200 error envelope parses cleanly against an all-optional shape,
-    // so reporting no rate limits at all is treated as no reading ? writing it
+    // so reporting no rate limits at all is treated as no reading — writing it
     // would replace a good row with an empty one.
     if (!hasPlanRateLimits(result.body)) {
       return { ok: false, reason: "unavailable" };
@@ -318,21 +401,25 @@ export const refresh = authAction({
     const windows: UsageWindow[] = readClaudeUsageWindows(result.body);
     const accountArg =
       accountId === undefined ? {} : { providerAccountId: accountId };
-    // `/usage` never names the plan, and this snapshot replaces the row, so the
-    // stored plan name is carried forward rather than dropped.
+    // Neither endpoint names the plan, so the stored plan name is carried
+    // forward rather than dropped.
     const stored = await ctx.runQuery(internal.usageLimits.getReadingInternal, {
       repoId: args.repoId,
       provider: args.provider,
       ...accountArg,
     });
     const subscriptionType = stored?.subscriptionType;
+    // Only `/usage` sees every window, so only it may replace the row. The
+    // probe's headers name 5h, weekly-all and Fable alone; stored as complete
+    // they would wipe the Opus/Sonnet weeklies a real turn captured.
+    const authoritative = result.source === "oauth-usage";
     await ctx.runMutation(api.usageLimits.report, {
       repoId: args.repoId,
       provider: args.provider,
       ...accountArg,
       capturedAt: Date.now(),
-      snapshotComplete: true,
-      completeness: "complete",
+      ...(authoritative ? { snapshotComplete: true } : {}),
+      completeness: authoritative ? "complete" : "partial",
       windows,
       ...(subscriptionType === undefined ? {} : { subscriptionType }),
     });

@@ -1,5 +1,9 @@
 # Changelog
 
+## Plan-usage refresh probes Messages when /usage 403s - 2026-08-27
+
+Manual refresh reads `GET /api/oauth/usage` first, then falls back to a 1-token Messages call when that endpoint is unauthorized or reports no windows — which is what a stored setup-token (`user:inference` only) always gets. The probe reads 5h, weekly-all and Weekly (Fable) (`7d_oi`) off `anthropic-ratelimit-unified-*`, so the chip bar still has the window that meters a Fable chat. Those are the only claims the headers carry, so a probe reading is stored as `completeness: "partial"` without `snapshotComplete`, merging instead of wiping the Opus/Sonnet weeklies a real turn captured.
+
 ## Plan-usage refresh is only /api/oauth/usage - 2026-08-26
 
 Dropped the setup-token Messages probe that harvested `anthropic-ratelimit-unified-*` headers. Manual refresh now calls Claude's OAuth usage endpoint only; a token without `user:profile` surfaces as unauthorized instead of a fake inference fallback.

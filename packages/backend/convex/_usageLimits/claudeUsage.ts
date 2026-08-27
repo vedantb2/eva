@@ -16,9 +16,9 @@ import type { usageLimitWindowValidator } from "../validators";
  * answers an expired or wrong-scope token with HTTP 200 carrying an error
  * envelope instead of any of the window keys.
  *
- * A Messages response's `anthropic-ratelimit-unified-*` headers carry the 5h and
- * weekly-all windows too, so they are read into the same body shape — that is
- * the only reading a `user:inference` token can produce.
+ * A Messages response's `anthropic-ratelimit-unified-*` headers carry the 5h,
+ * weekly-all and Fable weekly windows too, so they are read into the same body
+ * shape — that is the only reading a `user:inference` token can produce.
  */
 
 export type UsageWindow = Infer<typeof usageLimitWindowValidator>;
@@ -152,10 +152,20 @@ function msToIso(ms: number): string {
   return new Date(ms).toISOString();
 }
 
-/** Suffixes on `anthropic-ratelimit-unified-<suffix>-*`. */
+/**
+ * Unified rate-limit claim suffixes on Messages responses.
+ *
+ * Fable's weekly cap is `7d_oi` (shunt / Claude Code statusline), not a third
+ * `7d` header — omitting it is why refresh only ever stored 5h + weekly-all.
+ */
 const UNIFIED_HEADER_WINDOWS = [
   { key: "five_hour", suffix: "5h" },
   { key: "seven_day", suffix: "7d" },
+  {
+    key: "model_scoped:Fable",
+    suffix: "7d_oi",
+    displayName: "Fable",
+  },
 ] as const;
 
 /**
@@ -163,8 +173,8 @@ const UNIFIED_HEADER_WINDOWS = [
  *
  * Setup-tokens (`sk-ant-oat…`, scope `user:inference`) cannot call `/usage`
  * (`user:profile` required, HTTP 403). The same token's inference responses
- * still carry 5h/weekly utilisation as a 0–1 fraction and a unix-seconds reset.
- * Only those two windows: the per-model weeklies have no header form.
+ * still carry 5h / weekly / Fable utilisation as a 0–1 fraction and a
+ * unix-seconds reset.
  */
 export function readUnifiedRateLimitHeaders(
   header: (name: string) => string | undefined,
@@ -177,16 +187,22 @@ export function readUnifiedRateLimitHeaders(
     const resetsAt = unixSecondsToMs(
       header(`anthropic-ratelimit-unified-${spec.suffix}-reset`),
     );
-    pushWindow(
-      windows,
-      spec.key,
-      CLAUDE_WINDOW_LABELS[spec.key] ?? spec.key,
-      utilization,
-      resetsAt,
-    );
+    const label =
+      "displayName" in spec
+        ? `Weekly (${spec.displayName})`
+        : (CLAUDE_WINDOW_LABELS[spec.key] ?? spec.key);
+    pushWindow(windows, spec.key, label, utilization, resetsAt);
   }
   return windows;
 }
+
+/** A `limits[]` entry as the header path writes one, before it is parsed. */
+type UnifiedScopedLimit = {
+  kind: string;
+  percent?: number;
+  resets_at?: number;
+  scope: { model: { display_name: string } };
+};
 
 /** The `/usage` body shape for windows read off inference headers. */
 export function claudeUsageBodyFromUnifiedHeaders(
@@ -195,7 +211,24 @@ export function claudeUsageBodyFromUnifiedHeaders(
   const windows = readUnifiedRateLimitHeaders(header);
   if (windows.length === 0) return null;
   const raw: Record<string, { utilization?: number; resets_at?: string }> = {};
+  const limits: UnifiedScopedLimit[] = [];
   for (const window of windows) {
+    // A model-scoped header goes back through `limits[]` so the one place that
+    // labels per-model weeklies stays `readClaudeUsageWindows`.
+    if (window.key.startsWith("model_scoped:")) {
+      const name = window.key.slice("model_scoped:".length);
+      limits.push({
+        kind: "weekly_scoped",
+        ...(window.utilization === undefined
+          ? {}
+          : { percent: window.utilization }),
+        ...(window.resetsAt === undefined
+          ? {}
+          : { resets_at: window.resetsAt / 1000 }),
+        scope: { model: { display_name: name } },
+      });
+      continue;
+    }
     raw[window.key] = {
       ...(window.utilization === undefined
         ? {}
@@ -205,7 +238,10 @@ export function claudeUsageBodyFromUnifiedHeaders(
         : { resets_at: msToIso(window.resetsAt) }),
     };
   }
-  const parsed = claudeUsageBodySchema.safeParse(raw);
+  const parsed = claudeUsageBodySchema.safeParse({
+    ...raw,
+    ...(limits.length === 0 ? {} : { limits }),
+  });
   if (!parsed.success) return null;
   return parsed.data;
 }

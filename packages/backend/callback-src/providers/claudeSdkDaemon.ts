@@ -253,6 +253,22 @@ function endWatchedTurn(): void {
  */
 async function failTurnAndExit(error: string): Promise<never> {
   log("daemon: failing turn — " + error);
+  // Durability BEFORE completion, exactly as finalizeTurn does it: success and
+  // durability are orthogonal. A turn that committed work (or left it dirty) and
+  // then failed still produced the user's work, and this process is about to
+  // exit — nothing else will publish it, so a VM death erases it. The server's
+  // own push stays gated on success: only this process knows the worktree state
+  // at its death, and a post-failure server push would race the next turn's
+  // daemon. Outside the try: persistTurnWork logs its own failures and never
+  // throws, and the completion below must post regardless.
+  //
+  // This also runs on the watchdog's wedged-SDK path, so it delays the failure
+  // completion. Every git step is a spawnSync with a timeout (20s, 60s for
+  // fetch/merge/push), giving a hard worst case around 12 minutes on a hung
+  // network and milliseconds in the normal already-published case. Past ~5
+  // minutes the server's stall watchdog finalizes the turn instead — the same
+  // outcome for the user, with the work published either way.
+  persistTurnWork();
   try {
     const completionArgs: JsonObject = {
       [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
@@ -296,6 +312,10 @@ async function failTurnAndExit(error: string): Promise<never> {
  */
 async function exitWithoutCompletion(reason: string): Promise<void> {
   log("daemon: exiting without completion — " + reason);
+  // A cancelled turn can still have committed work, and this daemon is leaving
+  // for good. persistTurnWork only touches git — it posts no mutation — so it is
+  // safe on a turn the server has already finalized.
+  persistTurnWork();
   // Same ownership gate as failTurnAndExit: never delete a rival's pidfile.
   if (readDaemonPidFile() === process.pid) {
     try {
@@ -318,6 +338,9 @@ function startTurnWatchdog(): void {
         // here; it could resolve the NEXT turn's workflow event instead.
         // Force-exit so prewarm respawns a clean daemon for whatever is next.
         log("daemon: cancelled turn did not settle in time — exiting");
+        // Same reasoning as exitWithoutCompletion: publish the cancelled turn's
+        // work (git only, no mutation) before this process disappears.
+        persistTurnWork();
         process.exit(1);
       }
       return;
@@ -958,6 +981,10 @@ async function failSyntheticTurn(error: string): Promise<void> {
   }
   log("daemon: failing synthetic turn — " + error);
   const messageId = turn.messageId;
+  // Durability BEFORE completion, exactly as finalizeSyntheticTurn does it: a
+  // failed synthetic turn's committed work is still the user's work, and a
+  // synthetic turn has no workflow, so this is the only push it will ever get.
+  persistTurnWork();
   try {
     await flushStreaming();
     for (const step of S.accumulatedSteps) {
@@ -1051,6 +1078,13 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
     completionArgs.turnId = turnLease.turnId;
     completionArgs.leaseGeneration = turnLease.leaseGeneration;
   }
+  // Durability BEFORE completion, exactly as finalizeTurn does it: a synthetic
+  // turn has no workflow, so the server-side pushSandboxBranch step never runs
+  // for it and this is the ONLY push. Work committed here sat local for hours
+  // until the next real turn happened to push it. Ordering matters too — the
+  // completion may immediately dequeue the next message, and a VM death after
+  // that point erases anything not on origin (see turnPersist.ts).
+  persistTurnWork();
   await callConvexWithRetry(
     "mutation",
     COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
@@ -1618,6 +1652,10 @@ export async function runSdkDaemon(): Promise<void> {
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     log("daemon: query failed — " + messageText);
+    // Durability BEFORE completion, as failTurnAndExit does it: the SDK stream
+    // died under a turn that may have committed work, and this daemon is
+    // shutting down through the finally block below.
+    persistTurnWork();
     try {
       await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
         [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",

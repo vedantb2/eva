@@ -7,6 +7,7 @@ export type SessionDaemonPatch = Pick<
   | "pendingTaskStops"
   | "cancelRequestedAt"
   | "sandboxSetupPending"
+  | "claimPausedUntil"
 > & {
   usageRefreshRequestedAt?: number;
 };
@@ -46,6 +47,9 @@ export async function syncSessionDaemonState(
     usageRefreshRequestedAt: Object.hasOwn(patch, "usageRefreshRequestedAt")
       ? patch.usageRefreshRequestedAt
       : undefined,
+    claimPausedUntil: Object.hasOwn(patch, "claimPausedUntil")
+      ? patch.claimPausedUntil
+      : session.claimPausedUntil,
   });
 }
 

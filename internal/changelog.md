@@ -8,6 +8,18 @@
 - `buildSessionMessageCalls` now owns the "user row then `startExecute`, or one `enqueueMessage`" pairing for every MCP send path. It drops the dead `mode` argument those calls carried since sessions lost plan/edit mode — Convex rejects an argument no validator declares, so that leftover was failing the send outright. `create_session` carried the same stale argument.
 - The "via Ave" chat badge is now stamped only on master-session sends; a user's own MCP client sends as the user.
 
+## Plan-usage refresh is the Messages probe only - 2026-08-27
+
+Manual refresh is now one path: a 1-token `/v1/messages` call read for its `anthropic-ratelimit-unified-*` headers. `GET /api/oauth/usage` is dropped — Axiom shows it answering 403 to every credential Eva actually stores over 24–27 Aug (all setup-tokens, `user:inference` only), while the probe returned two windows on the same token, so trying it first only bought a wasted request and a misleading "rejected" toast. The probe reads 5h, weekly-all and Weekly (Fable) (`7d_oi`), so the chip bar still has the window that meters a Fable chat, and the reading is always stored as `completeness: "partial"` — never `snapshotComplete` — so it merges instead of wiping the Opus/Sonnet weeklies a real turn captured.
+
+## Failed turns publish their work - 2026-08-27
+
+Success and durability are orthogonal: every daemon failure path — Claude's `failTurnAndExit`/`failSyntheticTurn`, SDK-pump failure and cancel exits, Cursor's three failure reporters, the one-shot runner's fatal-error handler — now runs `persistTurnWork()` before its completion, so a turn that committed work and then failed cannot lose it to a VM death. Codex already routed both outcomes through `finalizeTurn`. The workflows' push stays success-gated: only the daemon knows the worktree state at its death.
+
+## Prewarm daemon kills no longer orphan a turn lease - 2026-08-27
+
+`prewarmEntityDaemon` fences turn claims (`claimPausedUntil`, self-expiring) around every daemon kill and defers the stale-callback respawn mid-turn, so a doomed daemon can no longer claim a turn, take its 2-minute running lease, and die holding it ("Turn stalled"). Cancel, stop, and usage signals still drain while paused.
+
 ## Sandbox chat surfaces share one pre-input stack - 2026-08-26
 
 - New `ChatEntityRef` (session | task | project) with `chatEntityKeys` gives shared chat pieces one handle instead of an id-plus-flag per surface; `useStopBackgroundAgent` routes the stop mutation by entity kind.
@@ -9210,3 +9222,7 @@ Behavior per context:
 - Active legacy project/task turns now own their heartbeat window explicitly, so their tool events are parsed, streamed live, and retained in the completed activity log without letting idle daemons write stale state
 - Project and task usage chips now scope readings to the credential selected in the model picker; switching to Kezia can no longer leave Team's percentage visible, and an account without a reading gets an explicit no-data state
 - Added focused callback and UI regressions for in-flight flushes, single-writer heartbeats, and Team-versus-personal account isolation
+
+## Synthetic Turns Push Their Work Before Completing - 2026-08-27
+
+- `finalizeSyntheticTurn` now calls `persistTurnWork()` before the completion mutation, so work committed during a background-agent continuation reaches origin instead of waiting for the next real turn; `persistTurnWork` short-circuits on local refs when origin already has HEAD, so the extra call costs no fetch

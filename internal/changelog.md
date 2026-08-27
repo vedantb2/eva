@@ -1,5 +1,9 @@
 # Changelog
 
+## Prewarm daemon kills no longer orphan a turn lease - 2026-08-27
+
+`prewarmEntityDaemon` fences turn claims (`claimPausedUntil`, self-expiring) around every daemon kill and defers the stale-callback respawn mid-turn, so a doomed daemon can no longer claim a turn, take its 2-minute running lease, and die holding it ("Turn stalled"). Cancel, stop, and usage signals still drain while paused.
+
 ## Plan-usage refresh is only /api/oauth/usage - 2026-08-26
 
 Dropped the setup-token Messages probe that harvested `anthropic-ratelimit-unified-*` headers. Manual refresh now calls Claude's OAuth usage endpoint only; a token without `user:profile` surfaces as unauthorized instead of a fake inference fallback.

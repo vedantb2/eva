@@ -41,6 +41,7 @@ import { finalizeCancelledAssistantMessage } from "../streaming";
 import { backgroundAgentEntryValidator } from "../_validators/tableFields";
 import { mergeBackgroundAgents } from "./backgroundAgents";
 import { prependModelHandoffContext } from "../_shared/modelHandoff";
+import { isDaemonClaimPaused } from "../_chat/daemonClaimPause";
 import {
   ensureSessionDaemonState,
   syncSessionDaemonState,
@@ -1117,6 +1118,26 @@ export const claimPendingTurn = authMutation({
     if (cancelRequested) {
       await ctx.db.patch(daemonState._id, { cancelRequestedAt: undefined });
       await ctx.db.patch(args.sessionId, { cancelRequestedAt: undefined });
+    }
+
+    // A prewarm is killing this daemon right now (stale callback bundle or a
+    // model/tools change). Handing it the turn in the milliseconds before the
+    // kill lands acquires the 2-minute running lease for a process that is
+    // already dying, and nothing heartbeats it — the "Turn stalled" alert of
+    // session 125. pendingTurn stays staged for the replacement daemon; the
+    // drains above still ran, so a cancel is never stranded by the pause.
+    if (
+      isDaemonClaimPaused({
+        claimPausedUntil: daemonState.claimPausedUntil,
+        now: Date.now(),
+      })
+    ) {
+      return {
+        ...emptyClaim,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
     }
 
     if (!daemonState.pendingTurn) {

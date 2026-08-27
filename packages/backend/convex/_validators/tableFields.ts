@@ -230,6 +230,9 @@ export const sessionDaemonStateFields = {
   // plan windows via the Agent SDK. claimPendingTurn returns it without
   // clearing; the refresh action clears it when it stops waiting.
   usageRefreshRequestedAt: v.optional(v.number()),
+  // Mirrors sessions.claimPausedUntil — the prewarm kill fence is read off
+  // this compact row on the 50ms claim poll.
+  claimPausedUntil: v.optional(v.number()),
 };
 
 export const chatDaemonEntityFields = {
@@ -245,6 +248,11 @@ export const chatDaemonEntityFields = {
   // Same level-triggered flag as sessionDaemonStates.usageRefreshRequestedAt,
   // for project and task chat daemons.
   usageRefreshRequestedAt: v.optional(v.number()),
+  // Self-expiring fence set by prewarm around a daemon kill. See
+  // `_chat/daemonClaimPause.ts`: while it is in the future claimPendingTurn
+  // hands back an empty claim so a dying daemon cannot take the turn (and its
+  // 2-minute running lease) with it.
+  claimPausedUntil: v.optional(v.number()),
 };
 
 export const agentTaskFields = {

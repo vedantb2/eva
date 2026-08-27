@@ -4,6 +4,8 @@ import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { registerOrchestratorTools } from "./orchestratorTools";
 import { buildEvaOrchestratorContent } from "../_systemSkills/evaOrchestrator";
+import { repoBasePath } from "../_githubRepos/helpers";
+import { canonicalPrUrl } from "./sessionRef";
 
 import {
   errorResult,
@@ -20,7 +22,6 @@ interface RepoCredentials {
   convexUrl: string;
   deployKey: string;
 }
-
 
 export function registerTools(
   server: McpServer,
@@ -126,7 +127,9 @@ export function registerTools(
   ): Promise<{ repoId: string } | ReturnType<typeof errorResult>> {
     if (ref.repoId) return { repoId: ref.repoId };
     if (!ref.repoName) {
-      return errorResult("Provide either repoId (from list_repos) or repoName.");
+      return errorResult(
+        "Provide either repoId (from list_repos) or repoName.",
+      );
     }
     const resolved = await resolveRepoByName(ref.repoName, ref.app, userId);
     if ("isError" in resolved) return resolved;
@@ -731,6 +734,188 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
         ...batchResult,
         taskCount: input.tasks.length,
         status: "created",
+      });
+    },
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // send_chat_message
+  //
+  // The one write tool that targets work already in flight. Every caller gets
+  // it — an OAuth connector, a sandbox token, the master session — because it
+  // grants nothing beyond what the user can already do in that chat: the
+  // repo-access check below is the same one the web mutations run.
+  //
+  // All three sandbox chat surfaces are reachable (session, quick task,
+  // project), because all three are somewhere a person can type in the app and
+  // all three run their turn on their own branch.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  /** Eva url segment for each chat surface, for the path echoed in the reply. */
+  const CHAT_PATH_SEGMENT = {
+    session: "sessions",
+    task: "quick-tasks",
+    project: "projects",
+  } as const;
+
+  server.tool(
+    "send_chat_message",
+    `Send a chat message into an EXISTING Eva session, quick task or project and run it there, exactly as typing in that chat does. Use this to carry on with a pull request Eva already opened. It never creates a new session, task or project.
+
+Name the chat by its Convex "id", by its GitHub "prUrl", or by "numId" plus "kind" and a repo. An idle chat starts its sandbox and runs the message straight away; one mid-turn queues it to run next. The reply says which happened.`,
+    {
+      message: z.string().describe("The message to post into the chat."),
+      id: z
+        .string()
+        .optional()
+        .describe(
+          "The Convex id of the session, quick task or project, if you already have it.",
+        ),
+      prUrl: z
+        .string()
+        .optional()
+        .describe(
+          'The pull request the session, task or project opened, e.g. "https://github.com/vvedantb/eva/pull/664".',
+        ),
+      numId: z
+        .number()
+        .optional()
+        .describe(
+          'The number in the Eva url (42 in ".../sessions/42"). Needs "kind" and repoName or repoId as well.',
+        ),
+      kind: z
+        .enum(["session", "task", "project"])
+        .optional()
+        .describe(
+          'Which surface to send to: "session", "task" (a quick task\'s sandbox chat) or "project" (a project\'s sandbox chat). Required with numId, since each numbers its own rows; otherwise it just narrows the search.',
+        ),
+      repoName: z
+        .string()
+        .optional()
+        .describe(
+          'Repo holding the chat (e.g. "eva" or "vvedantb/eva"). Used with numId.',
+        ),
+      repoId: z
+        .string()
+        .optional()
+        .describe("Repo id from list_repos, as an alternative to repoName."),
+      app: z
+        .string()
+        .optional()
+        .describe(
+          'App name within a monorepo (e.g. "web"). Used with repoName when a repo has multiple apps.',
+        ),
+      model: z
+        .enum(["opus", "sonnet", "haiku"])
+        .optional()
+        .describe(
+          "Claude model for this turn. Omit to reuse the model that chat last ran on.",
+        ),
+    },
+    async ({
+      message,
+      id,
+      prUrl,
+      numId,
+      kind,
+      repoName,
+      repoId,
+      app,
+      model,
+    }) => {
+      if (message.trim().length === 0) {
+        return errorResult("message cannot be empty.");
+      }
+      if (id === undefined && prUrl === undefined && numId === undefined) {
+        return errorResult(
+          'Name the chat to send to: pass "id", "prUrl", or "numId" with "kind" and "repoName".',
+        );
+      }
+      if (id === undefined && prUrl === undefined && kind === undefined) {
+        return errorResult(
+          'A numId needs "kind" too ("session", "task" or "project"): each numbers its own rows, so 42 alone is ambiguous.',
+        );
+      }
+
+      // Parsed here, not in the lookup, so a mistyped link gets a useful
+      // sentence instead of a bare "nothing found".
+      let canonicalPr: string | undefined;
+      if (prUrl !== undefined) {
+        const parsed = canonicalPrUrl(prUrl);
+        if (parsed === null) {
+          return errorResult(
+            'prUrl must be a GitHub pull request link, e.g. "https://github.com/vvedantb/eva/pull/664".',
+          );
+        }
+        canonicalPr = parsed;
+      }
+
+      const { userId } = await getContext();
+
+      // Only the numId path needs a repo — it is the one ref that is not
+      // unique on its own.
+      let scopeRepoId: string | undefined;
+      if (id === undefined && canonicalPr === undefined) {
+        const ref = await resolveRepoRef({ repoId, repoName, app }, userId);
+        if ("isError" in ref) return ref;
+        scopeRepoId = ref.repoId;
+      }
+
+      const target = await ctx.runQuery(
+        internal.mcp.queries.resolveChatTargetForUser,
+        { userId, kind, id, numId, prUrl: canonicalPr, repoId: scopeRepoId },
+      );
+      if (!target) {
+        return errorResult(
+          "Nothing matched that reference, or you do not have access to it. A PR opened by a quick task resolves to that task, not a session.",
+        );
+      }
+
+      // Re-checked against the token as well as the user: a sandbox token stays
+      // pinned to its own repo, so one sandbox cannot drive another repo's.
+      await assertRepoAccess(target.repoId, userId);
+
+      if (entityId !== undefined && target.targetId === entityId) {
+        return errorResult(
+          "That is this sandbox's own chat. Reply in your own turn instead of messaging yourself.",
+        );
+      }
+
+      const result = await ctx.runAction(
+        internal.mcp.nodeActions.orchestratorSendMessage,
+        {
+          clerkUserId,
+          kind: target.kind,
+          id: target.targetId,
+          message,
+          model,
+          masterSessionId,
+          // Only the master's sends carry its badge; a user's own MCP client
+          // sends as the user.
+          sentViaOrchestrator: masterSessionId !== undefined,
+        },
+      );
+
+      const basePath = repoBasePath({
+        owner: target.repoOwner,
+        name: target.repoName,
+        rootDirectory: target.repoRootDirectory,
+      });
+
+      return textResult({
+        kind: target.kind,
+        id: target.targetId,
+        numId: target.numId,
+        title: target.title,
+        repo: `${target.repoOwner}/${target.repoName}`,
+        path:
+          target.numId === undefined
+            ? undefined
+            : `${basePath}/${CHAT_PATH_SEGMENT[target.kind]}/${target.numId}`,
+        prUrl: target.prUrl,
+        branch: target.branchName,
+        delivered: result.delivered,
+        model: result.model,
       });
     },
   );

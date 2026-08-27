@@ -3,7 +3,7 @@ import type { Infer } from "convex/values";
 import type { usageLimitWindowValidator } from "../validators";
 
 /**
- * Reading Claude's OAuth plan-usage endpoint (`GET /api/oauth/usage`).
+ * Turning Claude's plan-usage payloads into the windows the chip shows.
  *
  * The sandbox captures the same numbers through the Agent SDK during a turn;
  * this is the server-side path, so the UI can pull a fresh reading without
@@ -12,13 +12,17 @@ import type { usageLimitWindowValidator } from "../validators";
  * bundle which `convex/` cannot import — so a label added here belongs there
  * too.
  *
- * The response is parsed rather than trusted: the endpoint is undocumented and
- * answers an expired or wrong-scope token with HTTP 200 carrying an error
- * envelope instead of any of the window keys.
+ * `readClaudeUsageWindows` reads a `GET /api/oauth/usage` body. The refresh
+ * action no longer calls that endpoint (it 403s every setup-token Eva stores),
+ * and feeds it a body built from a Messages response's
+ * `anthropic-ratelimit-unified-*` headers instead — 5h, weekly-all and Fable,
+ * the only windows a `user:inference` token can report. The `/usage` shapes are
+ * still parsed here because that is what the payload is, and the endpoint is
+ * undocumented enough to have moved its numbers between them twice.
  *
- * A Messages response's `anthropic-ratelimit-unified-*` headers carry the 5h,
- * weekly-all and Fable weekly windows too, so they are read into the same body
- * shape — that is the only reading a `user:inference` token can produce.
+ * A body is parsed rather than trusted: `/usage` answers an expired or
+ * wrong-scope token with HTTP 200 carrying an error envelope instead of any of
+ * the window keys.
  */
 
 export type UsageWindow = Infer<typeof usageLimitWindowValidator>;

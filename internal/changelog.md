@@ -1,8 +1,8 @@
 # Changelog
 
-## Plan-usage refresh probes Messages when /usage 403s - 2026-08-27
+## Plan-usage refresh is the Messages probe only - 2026-08-27
 
-Manual refresh reads `GET /api/oauth/usage` first, then falls back to a 1-token Messages call when that endpoint is unauthorized or reports no windows — which is what a stored setup-token (`user:inference` only) always gets. The probe reads 5h, weekly-all and Weekly (Fable) (`7d_oi`) off `anthropic-ratelimit-unified-*`, so the chip bar still has the window that meters a Fable chat. Those are the only claims the headers carry, so a probe reading is stored as `completeness: "partial"` without `snapshotComplete`, merging instead of wiping the Opus/Sonnet weeklies a real turn captured.
+Manual refresh is now one path: a 1-token `/v1/messages` call read for its `anthropic-ratelimit-unified-*` headers. `GET /api/oauth/usage` is dropped — Axiom shows it answering 403 to every credential Eva actually stores over 24–27 Aug (all setup-tokens, `user:inference` only), while the probe returned two windows on the same token, so trying it first only bought a wasted request and a misleading "rejected" toast. The probe reads 5h, weekly-all and Weekly (Fable) (`7d_oi`), so the chip bar still has the window that meters a Fable chat, and the reading is always stored as `completeness: "partial"` — never `snapshotComplete` — so it merges instead of wiping the Opus/Sonnet weeklies a real turn captured.
 
 ## Plan-usage refresh is only /api/oauth/usage - 2026-08-26
 

@@ -17,59 +17,56 @@ const buttonSource = readSource(
 );
 
 /**
- * On-demand refresh reads `GET /api/oauth/usage` first, with Claude Code's
- * User-Agent over `https.request`, and falls back to a 1-token Messages probe
- * when the stored credential lacks `user:profile`. The probe's headers name only
- * 5h, weekly-all and Fable, so its reading must be merged rather than replace
- * the row.
+ * On-demand refresh is one path: a 1-token Messages call read for its
+ * `anthropic-ratelimit-unified-*` headers, sent over `https.request` with the
+ * OAuth beta and Claude Code's User-Agent. `/api/oauth/usage` is gone — it 403s
+ * every setup-token Eva stores, which is the only credential kind it ever sees.
+ * The headers name three windows, so the reading is always merged.
  */
-describe("plan-usage refresh reads /api/oauth/usage then probes Messages", () => {
-  test("the request sends the OAuth beta and Claude Code User-Agent over https", () => {
+describe("plan-usage refresh is the Messages probe only", () => {
+  test("the probe posts to v1/messages with the OAuth beta and Claude Code UA", () => {
     expect(actionSource).toContain('from "node:https"');
     expect(actionSource).toContain("https.request");
+    expect(actionSource).toContain("https://api.anthropic.com/v1/messages");
     expect(actionSource).toContain('"anthropic-beta": CLAUDE_USAGE_BETA');
     expect(actionSource).toContain('"User-Agent": CLAUDE_USAGE_USER_AGENT');
     expect(actionSource).toContain("oauth-2025-04-20");
     expect(actionSource).toContain("claude-code/");
-    expect(actionSource).toContain("https://api.anthropic.com/api/oauth/usage");
-  });
-
-  test("/usage is tried before the probe", () => {
-    const usageAt = actionSource.indexOf("requestOauthUsage(token)");
-    const probeAt = actionSource.indexOf("requestInferenceUsage(token)");
-    expect(usageAt).toBeGreaterThan(-1);
-    expect(probeAt).toBeGreaterThan(usageAt);
-  });
-
-  test("the Messages probe fallback reads the unified rate-limit headers", () => {
-    expect(actionSource).toContain("https://api.anthropic.com/v1/messages");
-    expect(actionSource).toContain("requestInferenceUsage");
+    expect(actionSource).toContain("max_tokens: 1");
     expect(actionSource).toContain("USAGE_PROBE_MODELS");
     expect(actionSource).toContain("claudeUsageBodyFromUnifiedHeaders");
-    expect(actionSource).toContain("max_tokens: 1");
     expect(claudeUsageSource).toContain("anthropic-ratelimit-unified");
   });
 
-  test("HTTP 429 is its own failure, not network", () => {
+  test("the OAuth usage endpoint is not called at all", () => {
+    // Prod, 24-27 Aug: every `cred=oat` reading 403'd there. Trying it first
+    // only bought a wasted request and a misleading "rejected" toast.
+    expect(actionSource).not.toContain("api/oauth/usage");
+    expect(actionSource).not.toContain("requestOauthUsage");
+    expect(actionSource).not.toContain("CLAUDE_USAGE_URL");
+  });
+
+  test("a missing model id falls through to the next, not to failure", () => {
+    expect(actionSource).toContain("response.status === 404");
+    expect(actionSource).toContain("continue");
+  });
+
+  test("401/403 is unauthorized and HTTP 429 is its own failure", () => {
+    expect(actionSource).toContain(
+      "response.status === 401 || response.status === 403",
+    );
+    expect(actionSource).toContain('kind: "unauthorized"');
     expect(actionSource).toContain("response.status === 429");
     expect(actionSource).toContain('kind: "rate-limited"');
     expect(actionSource).toContain('reason: "rate-limited"');
   });
 
-  test("a probe reading is stored partial; only /usage replaces the row", () => {
-    // Replacing on a probe reading would delete the Opus/Sonnet weeklies a real
-    // turn captured, because the headers name 5h, weekly-all and Fable alone.
-    expect(actionSource).toContain(
-      'completeness: authoritative ? "complete" : "partial"',
-    );
-    expect(actionSource).toContain('result.source === "oauth-usage"');
-    expect(actionSource).toContain(
-      "...(authoritative ? { snapshotComplete: true } : {})",
-    );
-    // Unconditional completeness or snapshotComplete would store the probe's
-    // two windows as the whole picture.
-    expect(actionSource).not.toMatch(/^\s*snapshotComplete: true,\s*$/m);
-    expect(actionSource).not.toMatch(/^\s*completeness: "complete",\s*$/m);
+  test("the reading is always stored partial, never as a snapshot", () => {
+    // The probe sees 5h, weekly-all and Fable; a replacing write would delete
+    // the Opus/Sonnet weeklies a real turn captured.
+    expect(actionSource).toContain('completeness: "partial"');
+    expect(actionSource).not.toContain("snapshotComplete");
+    expect(actionSource).not.toContain('completeness: "complete"');
   });
 
   test("the toast copy names a rate limit rather than unreachability", () => {

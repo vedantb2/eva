@@ -226,6 +226,7 @@ export function TaskDetailInline({
         panes={panes}
         terminalPanel={terminalPanel}
         prUrl={latestPrUrl}
+        backgroundAgents={task.backgroundAgents}
         activeTab={activeSandboxTab}
         onTabChange={handleSandboxTabChange}
         onStartSandbox={
@@ -271,6 +272,10 @@ export function TaskDetailInline({
               isSandboxActive={isSandboxActive}
               isSandboxToggling={isSandboxStarting || isSandboxStopping}
               onOpenFile={openFile}
+              onOpenAgentsTab={() => {
+                handleSandboxTabChange("agents");
+                setExpandRightSignal((n) => n + 1);
+              }}
               onSandboxToggle={
                 canStartSandbox || isSandboxActive
                   ? (action) => {

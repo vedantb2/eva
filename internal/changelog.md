@@ -4,6 +4,10 @@
 
 A sandbox's local Convex backend mints absolute URLs from its own loopback origin, so `storage.generateUploadUrl()` / `storage.getUrl()` handed the user's browser `http://127.0.0.1:3210/…` addresses it cannot reach — file uploads from previews of guest Convex apps (reported on eProcurement) failed with a network error. The preview proxy's injected script now diverts fetch/XHR/WebSocket calls and `src`/`href` attributes that target loopback ports 3210/3211 onto the existing authenticated `/__convex` and `/__convex-site` prefixes of the page origin, skipping loopback-served pages (in-sandbox browsers). Covered by `previewProxyConvexLoopbackRewrite.test.ts`; `SCRIPT_VERSION` bumped to `stream-v18` so live proxies relaunch.
 
+## Plan-usage refresh is the Messages probe only - 2026-08-27
+
+Manual refresh is now one path: a 1-token `/v1/messages` call read for its `anthropic-ratelimit-unified-*` headers. `GET /api/oauth/usage` is dropped — Axiom shows it answering 403 to every credential Eva actually stores over 24–27 Aug (all setup-tokens, `user:inference` only), while the probe returned two windows on the same token, so trying it first only bought a wasted request and a misleading "rejected" toast. The probe reads 5h, weekly-all and Weekly (Fable) (`7d_oi`), so the chip bar still has the window that meters a Fable chat, and the reading is always stored as `completeness: "partial"` — never `snapshotComplete` — so it merges instead of wiping the Opus/Sonnet weeklies a real turn captured.
+
 ## Failed turns publish their work - 2026-08-27
 
 Success and durability are orthogonal: every daemon failure path — Claude's `failTurnAndExit`/`failSyntheticTurn`, SDK-pump failure and cancel exits, Cursor's three failure reporters, the one-shot runner's fatal-error handler — now runs `persistTurnWork()` before its completion, so a turn that committed work and then failed cannot lose it to a VM death. Codex already routed both outcomes through `finalizeTurn`. The workflows' push stays success-gated: only the daemon knows the worktree state at its death.

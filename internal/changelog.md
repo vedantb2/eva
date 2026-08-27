@@ -1,5 +1,9 @@
 # Changelog
 
+## Preview pages rewrite loopback Convex URLs - 2026-08-27
+
+A sandbox's local Convex backend mints absolute URLs from its own loopback origin, so `storage.generateUploadUrl()` / `storage.getUrl()` handed the user's browser `http://127.0.0.1:3210/…` addresses it cannot reach — file uploads from previews of guest Convex apps (reported on eProcurement) failed with a network error. The preview proxy's injected script now diverts fetch/XHR/WebSocket calls and `src`/`href` attributes that target loopback ports 3210/3211 onto the existing authenticated `/__convex` and `/__convex-site` prefixes of the page origin, skipping loopback-served pages (in-sandbox browsers). Covered by `previewProxyConvexLoopbackRewrite.test.ts`; `SCRIPT_VERSION` bumped to `stream-v18` so live proxies relaunch.
+
 ## Eva MCP can chat an existing session, task or project - 2026-08-27
 
 - New `send_chat_message` tool on the user MCP server (OAuth connectors, sandbox tokens and the master session all get it): posts a message into an existing chat and starts the turn on that entity's branch. Previously an external client could only `create_and_run_task`, which opens a new task instead of continuing the PR it was looking at.

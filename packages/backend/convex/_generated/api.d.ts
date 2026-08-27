@@ -282,6 +282,7 @@ import type * as mcp_orchestratorTools from "../mcp/orchestratorTools.js";
 import type * as mcp_postgres from "../mcp/postgres.js";
 import type * as mcp_queries from "../mcp/queries.js";
 import type * as mcp_routes from "../mcp/routes.js";
+import type * as mcp_sessionRef from "../mcp/sessionRef.js";
 import type * as mcp_supabase from "../mcp/supabase.js";
 import type * as mcp_toolShared from "../mcp/toolShared.js";
 import type * as mcp_tools from "../mcp/tools.js";
@@ -647,6 +648,7 @@ declare const fullApi: ApiFromModules<{
   "mcp/postgres": typeof mcp_postgres;
   "mcp/queries": typeof mcp_queries;
   "mcp/routes": typeof mcp_routes;
+  "mcp/sessionRef": typeof mcp_sessionRef;
   "mcp/supabase": typeof mcp_supabase;
   "mcp/toolShared": typeof mcp_toolShared;
   "mcp/tools": typeof mcp_tools;

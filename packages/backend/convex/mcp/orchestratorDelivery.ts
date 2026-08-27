@@ -27,3 +27,61 @@ export function resolveAgentDelivery(input: {
   const model = normalizeAIModel(input.requestedModel ?? input.storedModel);
   return input.isBusy ? { action: "queue", model } : { action: "start", model };
 }
+
+/** One mutation to run as the sending user, by Convex function path. */
+export interface SessionMessageCall {
+  fn: string;
+  args: Record<string, string | boolean>;
+}
+
+/**
+ * The mutations that put one message into an existing session's chat, in order.
+ * Shared by every MCP send path (master session and user token alike) so a
+ * message from outside the web app lands exactly as a composer send does — and
+ * never as a new task or session.
+ *
+ * `start` is two calls because `startExecute` only stages the assistant
+ * placeholder: the user row has to be inserted first or the turn runs with no
+ * visible prompt. `queue` is one, because the queue drain inserts the user row
+ * itself on dequeue.
+ */
+export function buildSessionMessageCalls(input: {
+  sessionId: string;
+  message: string;
+  delivery: AgentDelivery;
+  /** Stamps the "via master" chat badge. True only for orchestrator sends. */
+  sentViaOrchestrator: boolean;
+}): SessionMessageCall[] {
+  const { sessionId, message, delivery, sentViaOrchestrator } = input;
+
+  if (delivery.action === "queue") {
+    return [
+      {
+        fn: "_sessions/execution:enqueueMessage",
+        args: {
+          sessionId,
+          message,
+          model: delivery.model,
+          sentViaOrchestrator,
+        },
+      },
+    ];
+  }
+
+  return [
+    {
+      fn: "_sessions/mutations:addMessage",
+      args: {
+        id: sessionId,
+        role: "user",
+        content: message,
+        model: delivery.model,
+        sentViaOrchestrator,
+      },
+    },
+    {
+      fn: "_sessions/execution:startExecute",
+      args: { sessionId, message, model: delivery.model },
+    },
+  ];
+}

@@ -10,7 +10,10 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { registerTools } from "./tools";
 import { registerSupabaseTools } from "./supabase";
-import { resolveAgentDelivery } from "./orchestratorDelivery";
+import {
+  buildSessionMessageCalls,
+  resolveAgentDelivery,
+} from "./orchestratorDelivery";
 import { TASK_CHAT_STREAM_PREFIX } from "../_chat/surfaceAdapters";
 import { normalizeAIModel } from "../validators";
 
@@ -1200,7 +1203,6 @@ const sessionDocSchema = z.object({
   status: z.string(),
   updatedAt: z.number().optional(),
   lastModel: z.string().optional(),
-  lastMode: z.string().optional(),
   activeWorkflowId: z.string().optional(),
   deploymentUrl: z.string().optional(),
   deploymentStatus: z.string().optional(),
@@ -1475,6 +1477,12 @@ export const orchestratorSendMessage = internalAction({
     message: v.string(),
     model: v.optional(v.string()),
     masterSessionId: v.optional(v.string()),
+    /**
+     * True only when the master session is sending (drives the "via master"
+     * chat badge). A user's own MCP client sends as themselves, so it is false
+     * there and the message renders as an ordinary composer turn.
+     */
+    sentViaOrchestrator: v.boolean(),
   },
   returns: v.object({
     delivered: v.union(v.literal("started"), v.literal("queued")),
@@ -1482,7 +1490,15 @@ export const orchestratorSendMessage = internalAction({
   }),
   handler: async (
     _ctx,
-    { clerkUserId, kind, id, message, model, masterSessionId },
+    {
+      clerkUserId,
+      kind,
+      id,
+      message,
+      model,
+      masterSessionId,
+      sentViaOrchestrator,
+    },
   ) => {
     const convexUrl = getEvaConvexCloudUrl();
     const rawDoc = await runQueryAsUser(
@@ -1518,43 +1534,14 @@ export const orchestratorSendMessage = internalAction({
         requestedModel: model,
         storedModel: session.lastModel,
       });
-      const mode = session.lastMode ?? "edit";
-      if (delivery.action === "queue") {
-        // The queue drain inserts the user message row on dequeue.
-        await runMutationAsUser(
-          convexUrl,
-          clerkUserId,
-          "_sessions/execution:enqueueMessage",
-          {
-            sessionId: id,
-            message,
-            mode,
-            model: delivery.model,
-            sentViaOrchestrator: true,
-          },
-        );
-      } else {
-        // startExecute only stages the assistant placeholder, so the user row
-        // has to be inserted first (same pairing the web composer uses).
-        await runMutationAsUser(
-          convexUrl,
-          clerkUserId,
-          "_sessions/mutations:addMessage",
-          {
-            id,
-            role: "user",
-            content: message,
-            mode,
-            model: delivery.model,
-            sentViaOrchestrator: true,
-          },
-        );
-        await runMutationAsUser(
-          convexUrl,
-          clerkUserId,
-          "_sessions/execution:startExecute",
-          { sessionId: id, message, mode, model: delivery.model },
-        );
+      const calls = buildSessionMessageCalls({
+        sessionId: id,
+        message,
+        delivery,
+        sentViaOrchestrator,
+      });
+      for (const call of calls) {
+        await runMutationAsUser(convexUrl, clerkUserId, call.fn, call.args);
       }
       await registerWatchIfMaster(clerkUserId, kind, id, masterSessionId);
       const delivered: "queued" | "started" =
@@ -1578,7 +1565,7 @@ export const orchestratorSendMessage = internalAction({
           taskId: id,
           message,
           model: delivery.model,
-          sentViaOrchestrator: true,
+          sentViaOrchestrator,
         },
       );
     } else {
@@ -1591,7 +1578,7 @@ export const orchestratorSendMessage = internalAction({
           role: "user",
           content: message,
           model: delivery.model,
-          sentViaOrchestrator: true,
+          sentViaOrchestrator,
         },
       );
       await runMutationAsUser(
@@ -1663,7 +1650,6 @@ export const orchestratorCreateSession = internalAction({
     const createArgs: Record<string, JsonValue> = {
       repoId,
       message,
-      mode: "edit",
       model: normalizeAIModel(model),
       sentViaOrchestrator: true,
     };

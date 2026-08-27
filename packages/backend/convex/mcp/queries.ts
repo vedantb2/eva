@@ -1,7 +1,9 @@
-import { internalQuery } from "../_generated/server";
+import { internalQuery, type QueryCtx } from "../_generated/server";
 import { v } from "convex/values";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { listAutomationsForRepo } from "../_automations/helpers";
+import { hasRepoAccess } from "../functions";
+import { entityVisible } from "../numId";
 
 /** Checks whether a user has access to a repo (via ownership or team membership). */
 export const checkRepoAccessForUser = internalQuery({
@@ -71,6 +73,105 @@ export const listUserRepos = internalQuery({
       result.push(repo);
     }
     return result;
+  },
+});
+
+/**
+ * Finds the session an MCP caller named, before any access check. One ref wins
+ * at a time, in the order the caller is most likely to have been precise:
+ * explicit id, then PR link, then the per-repo number from the session URL.
+ */
+async function findSessionByRef(
+  ctx: QueryCtx,
+  ref: { sessionId?: string; prUrl?: string; numId?: number; repoId?: string },
+): Promise<Doc<"sessions"> | null> {
+  const { sessionId, prUrl, numId } = ref;
+
+  if (sessionId !== undefined) {
+    const id = ctx.db.normalizeId("sessions", sessionId);
+    return id ? await ctx.db.get(id) : null;
+  }
+
+  if (prUrl !== undefined) {
+    return await ctx.db
+      .query("sessions")
+      .withIndex("by_pr_url", (q) => q.eq("prUrl", prUrl))
+      .first();
+  }
+
+  if (numId !== undefined) {
+    // A numId is only unique inside its repo, so an unresolvable repo is a
+    // miss rather than a repo-wide scan.
+    const repoId = ref.repoId
+      ? ctx.db.normalizeId("githubRepos", ref.repoId)
+      : null;
+    if (!repoId) return null;
+    return await ctx.db
+      .query("sessions")
+      .withIndex("by_repo_and_numId", (q) =>
+        q.eq("repoId", repoId).eq("numId", numId),
+      )
+      .first();
+  }
+
+  return null;
+}
+
+/**
+ * Resolves a session the MCP user may act on, by Convex id, GitHub PR url, or
+ * per-repo numId. Returns null for "no such session" AND for "exists but this
+ * user cannot reach its repo" — the two are deliberately indistinguishable to
+ * the caller, so a stranger's session id leaks nothing.
+ *
+ * `prUrl` must already be canonical (see `mcp/sessionRef.ts`); the lookup is an
+ * exact index match.
+ */
+export const resolveSessionForUser = internalQuery({
+  args: {
+    userId: v.string(),
+    sessionId: v.optional(v.string()),
+    numId: v.optional(v.number()),
+    prUrl: v.optional(v.string()),
+    repoId: v.optional(v.string()),
+  },
+  returns: v.union(
+    v.null(),
+    v.object({
+      sessionId: v.id("sessions"),
+      numId: v.optional(v.number()),
+      title: v.string(),
+      status: v.string(),
+      prUrl: v.optional(v.string()),
+      branchName: v.optional(v.string()),
+      repoId: v.id("githubRepos"),
+      repoOwner: v.string(),
+      repoName: v.string(),
+      repoRootDirectory: v.optional(v.string()),
+    }),
+  ),
+  handler: async (ctx, args) => {
+    const userId = ctx.db.normalizeId("users", args.userId);
+    if (!userId) return null;
+
+    const session = entityVisible(await findSessionByRef(ctx, args));
+    if (!session) return null;
+    if (!(await hasRepoAccess(ctx.db, session.repoId, userId))) return null;
+
+    const repo = await ctx.db.get(session.repoId);
+    if (!repo) return null;
+
+    return {
+      sessionId: session._id,
+      numId: session.numId,
+      title: session.title,
+      status: session.status,
+      prUrl: session.prUrl,
+      branchName: session.branchName,
+      repoId: session.repoId,
+      repoOwner: repo.owner,
+      repoName: repo.name,
+      repoRootDirectory: repo.rootDirectory,
+    };
   },
 });
 

@@ -156,7 +156,15 @@ The message is marked as sent via the master session, and the agent is registere
       await mcpGetContext(ctx, clerkUserId);
       const result = await ctx.runAction(
         internal.mcp.nodeActions.orchestratorSendMessage,
-        { clerkUserId, kind, id, message, model, masterSessionId },
+        {
+          clerkUserId,
+          kind,
+          id,
+          message,
+          model,
+          masterSessionId,
+          sentViaOrchestrator: true,
+        },
       );
       return textResult({ kind, id, ...result });
     },

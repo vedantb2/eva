@@ -4,6 +4,8 @@ import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
 import { registerOrchestratorTools } from "./orchestratorTools";
 import { buildEvaOrchestratorContent } from "../_systemSkills/evaOrchestrator";
+import { repoBasePath } from "../_githubRepos/helpers";
+import { canonicalPrUrl } from "./sessionRef";
 
 import {
   errorResult,
@@ -731,6 +733,174 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
         ...batchResult,
         taskCount: input.tasks.length,
         status: "created",
+      });
+    },
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // send_session_message
+  //
+  // The one write tool that targets work already in flight. Every caller gets
+  // it — an OAuth connector, a sandbox token, the master session — because it
+  // grants nothing beyond what the user can already do in that session's chat:
+  // the repo-access check below is the same one the web mutations run.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  server.tool(
+    "send_session_message",
+    `Send a chat message into an EXISTING Eva session and run it there, exactly as typing in that session's chat does. Use this to carry on with a pull request Eva already opened. It never creates a new session or task.
+
+Name the session by its "sessionId", by its GitHub "prUrl", or by "numId" plus a repo. An idle session starts its sandbox and runs the message straight away; a session mid-turn queues it to run next. The reply says which happened.`,
+    {
+      message: z
+        .string()
+        .describe("The message to post into the session's chat."),
+      sessionId: z
+        .string()
+        .optional()
+        .describe("The session's Convex id, if you already have it."),
+      prUrl: z
+        .string()
+        .optional()
+        .describe(
+          'The pull request the session opened, e.g. "https://github.com/vvedantb/eva/pull/664".',
+        ),
+      numId: z
+        .number()
+        .optional()
+        .describe(
+          'The session number in its Eva url (42 in ".../sessions/42"). Needs repoName or repoId as well.',
+        ),
+      repoName: z
+        .string()
+        .optional()
+        .describe(
+          'Repo holding the session (e.g. "eva" or "vvedantb/eva"). Used with numId.',
+        ),
+      repoId: z
+        .string()
+        .optional()
+        .describe("Repo id from list_repos, as an alternative to repoName."),
+      app: z
+        .string()
+        .optional()
+        .describe(
+          'App name within a monorepo (e.g. "web"). Used with repoName when a repo has multiple apps.',
+        ),
+      model: z
+        .enum(["opus", "sonnet", "haiku"])
+        .optional()
+        .describe(
+          "Claude model for this turn. Omit to reuse the model the session last ran on.",
+        ),
+    },
+    async ({
+      message,
+      sessionId,
+      prUrl,
+      numId,
+      repoName,
+      repoId,
+      app,
+      model,
+    }) => {
+      if (message.trim().length === 0) {
+        return errorResult("message cannot be empty.");
+      }
+      if (
+        sessionId === undefined &&
+        prUrl === undefined &&
+        numId === undefined
+      ) {
+        return errorResult(
+          'Name the session to send to: pass "sessionId", "prUrl", or "numId" with "repoName".',
+        );
+      }
+
+      // Parsed here, not in the lookup, so a mistyped link gets a useful
+      // sentence instead of a bare "no session found".
+      let canonicalPr: string | undefined;
+      if (prUrl !== undefined) {
+        const parsed = canonicalPrUrl(prUrl);
+        if (parsed === null) {
+          return errorResult(
+            'prUrl must be a GitHub pull request link, e.g. "https://github.com/vvedantb/eva/pull/664".',
+          );
+        }
+        canonicalPr = parsed;
+      }
+
+      const { userId } = await getContext();
+
+      // Only the numId path needs a repo — it is the one ref that is not
+      // unique on its own.
+      let scopeRepoId: string | undefined;
+      if (sessionId === undefined && canonicalPr === undefined) {
+        const ref = await resolveRepoRef({ repoId, repoName, app }, userId);
+        if ("isError" in ref) return ref;
+        scopeRepoId = ref.repoId;
+      }
+
+      const session = await ctx.runQuery(
+        internal.mcp.queries.resolveSessionForUser,
+        {
+          userId,
+          sessionId,
+          numId,
+          prUrl: canonicalPr,
+          repoId: scopeRepoId,
+        },
+      );
+      if (!session) {
+        return errorResult(
+          "No session matched that reference, or you do not have access to it. Note that a PR opened by a quick task belongs to a task rather than a session.",
+        );
+      }
+
+      // Re-checked against the token as well as the user: a sandbox token stays
+      // pinned to its own repo, so one session cannot drive another repo's.
+      await assertRepoAccess(session.repoId, userId);
+
+      if (entityId !== undefined && session.sessionId === entityId) {
+        return errorResult(
+          "That is this session. Reply in your own turn instead of messaging yourself.",
+        );
+      }
+
+      const result = await ctx.runAction(
+        internal.mcp.nodeActions.orchestratorSendMessage,
+        {
+          clerkUserId,
+          kind: "session",
+          id: session.sessionId,
+          message,
+          model,
+          masterSessionId,
+          // Only the master's sends carry its badge; a user's own MCP client
+          // sends as the user.
+          sentViaOrchestrator: masterSessionId !== undefined,
+        },
+      );
+
+      const basePath = repoBasePath({
+        owner: session.repoOwner,
+        name: session.repoName,
+        rootDirectory: session.repoRootDirectory,
+      });
+
+      return textResult({
+        sessionId: session.sessionId,
+        numId: session.numId,
+        title: session.title,
+        repo: `${session.repoOwner}/${session.repoName}`,
+        path:
+          session.numId === undefined
+            ? undefined
+            : `${basePath}/sessions/${session.numId}`,
+        prUrl: session.prUrl,
+        branch: session.branchName,
+        delivered: result.delivered,
+        model: result.model,
       });
     },
   );

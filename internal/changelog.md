@@ -9180,3 +9180,7 @@ Behavior per context:
 - Active legacy project/task turns now own their heartbeat window explicitly, so their tool events are parsed, streamed live, and retained in the completed activity log without letting idle daemons write stale state
 - Project and task usage chips now scope readings to the credential selected in the model picker; switching to Kezia can no longer leave Team's percentage visible, and an account without a reading gets an explicit no-data state
 - Added focused callback and UI regressions for in-flight flushes, single-writer heartbeats, and Team-versus-personal account isolation
+
+## Synthetic Turns Push Their Work Before Completing - 2026-08-27
+
+- `finalizeSyntheticTurn` now calls `persistTurnWork()` before the completion mutation, so work committed during a background-agent continuation reaches origin instead of waiting for the next real turn; `persistTurnWork` short-circuits on local refs when origin already has HEAD, so the extra call costs no fetch

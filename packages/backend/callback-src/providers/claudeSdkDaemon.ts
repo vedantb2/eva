@@ -1051,6 +1051,13 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
     completionArgs.turnId = turnLease.turnId;
     completionArgs.leaseGeneration = turnLease.leaseGeneration;
   }
+  // Durability BEFORE completion, exactly as finalizeTurn does it: a synthetic
+  // turn has no workflow, so the server-side pushSandboxBranch step never runs
+  // for it and this is the ONLY push. Work committed here sat local for hours
+  // until the next real turn happened to push it. Ordering matters too — the
+  // completion may immediately dequeue the next message, and a VM death after
+  // that point erases anything not on origin (see turnPersist.ts).
+  persistTurnWork();
   await callConvexWithRetry(
     "mutation",
     COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",

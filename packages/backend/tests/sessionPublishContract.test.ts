@@ -289,7 +289,7 @@ describe("session branch publication reconciles concurrent remote work", () => {
 
   test("the pre-completion durability push follows the same protocol", () => {
     const syncAt = turnPersist.indexOf("synchronizeForPush(branch.out)");
-    const gateAt = turnPersist.indexOf('"rev-list",\n      "--count"');
+    const gateAt = turnPersist.indexOf("tipAlreadyPublished(exclusion)");
     const pushAt = turnPersist.indexOf('git(["push", "origin", refspec]');
     expect(turnPersist).toContain('"fetch",\n      "--no-tags"');
     expect(turnPersist).toContain('git(["merge", "--no-edit", remoteRef]');
@@ -406,6 +406,41 @@ describe("a callback-published session still opens its first pull request", () =
     expect(completionAt, "the completion call moved").toBeGreaterThan(-1);
     expect(persistAt).toBeLessThan(completionAt);
     expect(turnPersist).toContain('git(["push", "origin", refspec]');
+  });
+
+  /**
+   * Synthetic turns (background-agent continuations) have no workflow, so the
+   * server-side pushSandboxBranch step never runs for them and the daemon's own
+   * push is the ONLY one. Without it, work committed during a synthetic turn sat
+   * in the sandbox until the next real turn happened to push it (prod, 27 Aug).
+   */
+  test("the synthetic-turn path persists before its completion", () => {
+    const body = functionBody(
+      claudeSdkDaemon,
+      "async function finalizeSyntheticTurn(",
+    );
+    const persistAt = body.indexOf("persistTurnWork();");
+    const completionAt = body.indexOf("COMPLETE_SYNTHETIC_TURN_MUTATION");
+    expect(
+      persistAt,
+      "the synthetic durability push is missing",
+    ).toBeGreaterThan(-1);
+    expect(completionAt, "the synthetic completion moved").toBeGreaterThan(-1);
+    expect(persistAt).toBeLessThan(completionAt);
+  });
+
+  /**
+   * Synthetic turns finalize on every background-agent continuation, so the
+   * no-op case must be answered from local refs — a fetch per continuation is
+   * pure cost.
+   */
+  test("the durability push short-circuits before touching the network", () => {
+    const body = functionBody(turnPersist, "export function persistTurnWork(");
+    const guardAt = body.indexOf("tipAlreadyPublished([");
+    const fetchAt = body.indexOf("synchronizeForPush(");
+    expect(guardAt, "the local no-op guard is missing").toBeGreaterThan(-1);
+    expect(fetchAt, "the fetch/push step moved").toBeGreaterThan(-1);
+    expect(guardAt).toBeLessThan(fetchAt);
   });
 
   /**

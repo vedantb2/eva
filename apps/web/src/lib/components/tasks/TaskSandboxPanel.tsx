@@ -17,7 +17,7 @@ import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { SandboxPanelFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
 import { useSubagentRoster } from "@/lib/components/sandbox/useSubagentRoster";
 import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
-import { TaskAgentsPanel } from "./TaskAgentsPanel";
+import { SandboxAgentsPanel } from "@/lib/components/sandbox/SandboxAgentsPanel";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 interface TaskSandboxPanelProps {
@@ -183,7 +183,7 @@ export function TaskSandboxPanel({
             !simpleView && tabBarValue === "agents" ? "h-full min-h-0" : "hidden"
           }
         >
-          <TaskAgentsPanel taskId={taskId} agents={agents} />
+          <SandboxAgentsPanel entity={{ kind: "task", taskId }} agents={agents} />
         </div>
         <SandboxPaneSlots
           activeTab={tabBarValue}

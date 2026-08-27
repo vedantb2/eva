@@ -10,13 +10,9 @@ import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { ComposerPlanReadyBanner } from "./_components/ComposerPlanReadyBanner";
-import {
-  COMPACT_COMMAND,
-  ComposerCompactionBanner,
-  useCompactionBanner,
-} from "./_components/ComposerCompactionBanner";
+import { SandboxChatPreInput } from "@/lib/components/chat/SandboxChatPreInput";
+import type { SandboxChatSurface } from "@/lib/components/chat/sandboxChatSurface";
 import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
-import { BackgroundAgentsChip } from "./_components/BackgroundAgentsChip";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
 import { claudeUsageAccountScope } from "@/lib/components/usage-limits";
 import { SessionSummaryAccordion } from "./_components/SessionSummaryAccordion";
@@ -190,16 +186,20 @@ export function ChatPanel({
     messages,
   });
 
-  const compaction = useCompactionBanner({
+  const chatSurface: SandboxChatSurface = {
+    entity: { kind: "session", sessionId },
     repoId: repo._id,
-    entityId: String(sessionId),
     model,
     isExecuting,
     isReadOnly,
-  });
-
-  const handleCompact = () => {
-    void handleSend(COMPACT_COMMAND, undefined, { skipReviewComments: true });
+    // A stopped session sandbox still gets the offer: sending wakes it.
+    compactionReadOnly: isReadOnly,
+    backgroundAgents,
+    // Review comments are appended to normal sends; a slash command has to
+    // reach the harness verbatim.
+    onSendCommand: (command) => {
+      void handleSend(command, undefined, { skipReviewComments: true });
+    },
   };
 
   const activeQuestion = useQuery(api.pendingQuestions.getActive, {
@@ -306,48 +306,45 @@ export function ChatPanel({
   };
 
   const preInputContent = (
-    <>
-      <BackgroundAgentsChip
-        sessionId={sessionId}
-        backgroundAgents={backgroundAgents}
-        isReadOnly={isReadOnly}
-      />
-      <BackgroundProcessesPanel sessionId={sessionId} />
-      <PendingReviewCommentChips />
-      {compaction ? (
-        <ComposerCompactionBanner
-          usedTokens={compaction.usedTokens}
-          onCompact={handleCompact}
-          onDismiss={compaction.onDismiss}
-        />
-      ) : null}
-      {showCompactPlanCard && planContent ? (
-        <AnimatePresence initial={false}>
-          <m.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={motionBase}
-          >
-            <SessionPrdPlanView
-              sessionId={sessionId}
+    <SandboxChatPreInput
+      surface={chatSurface}
+      beforeBanner={
+        <>
+          <BackgroundProcessesPanel sessionId={sessionId} />
+          <PendingReviewCommentChips />
+        </>
+      }
+      afterBanner={
+        <>
+          {showCompactPlanCard && planContent ? (
+            <AnimatePresence initial={false}>
+              <m.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={motionBase}
+              >
+                <SessionPrdPlanView
+                  sessionId={sessionId}
+                  planContent={planContent}
+                  onApprovePlan={handleApprovePlan}
+                  variant="compact"
+                  isArchived={isReadOnly}
+                />
+              </m.div>
+            </AnimatePresence>
+          ) : null}
+          {showPlanReadyBanner && planContent ? (
+            <ComposerPlanReadyBanner
               planContent={planContent}
+              onViewPlan={handleViewPlan}
               onApprovePlan={handleApprovePlan}
-              variant="compact"
               isArchived={isReadOnly}
             />
-          </m.div>
-        </AnimatePresence>
-      ) : null}
-      {showPlanReadyBanner && planContent ? (
-        <ComposerPlanReadyBanner
-          planContent={planContent}
-          onViewPlan={handleViewPlan}
-          onApprovePlan={handleApprovePlan}
-          isArchived={isReadOnly}
-        />
-      ) : null}
-    </>
+          ) : null}
+        </>
+      }
+    />
   );
 
   const emptyStateTitle = isSandboxActive

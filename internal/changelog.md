@@ -1,5 +1,11 @@
 # Changelog
 
+## Sandbox chat surfaces share one pre-input stack - 2026-08-26
+
+- New `ChatEntityRef` (session | task | project) with `chatEntityKeys` gives shared chat pieces one handle instead of an id-plus-flag per surface; `useStopBackgroundAgent` routes the stop mutation by entity kind.
+- `SandboxChatPreInput` renders the pre-input stack (background-agents chip → surface banners → compaction offer) identically on all three chat panels, which now pass slots instead of hand-rolling the stack; `ComposerCompactionBanner` moved from the sessions route to `lib/components/chat`.
+- The three per-surface Agents-tab wrappers collapsed into one `SandboxAgentsPanel`; task/project stop failures now surface a toast instead of an unhandled rejection.
+
 ## Compaction recommendation banner on session resume - 2026-08-26
 
 - Adopted t3code's "Resume with less context" offer: a dismissible banner above the composer when a Claude session is resumed sitting on ≥100k context tokens with the last turn ≥70 minutes old and nothing running. Shows the token figure from the newest `logs` row and a Compact action that sends the `/compact` harness built-in.

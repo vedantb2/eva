@@ -16,12 +16,8 @@ import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxChatHeaderActions } from "@/lib/components/sandbox/SandboxStartStopButton";
 import { claudeUsageAccountScope } from "@/lib/components/usage-limits";
-import { BackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
-import {
-  COMPACT_COMMAND,
-  ComposerCompactionBanner,
-  useCompactionBanner,
-} from "@/routes/_repo/$owner/$repo/sessions/_components/ComposerCompactionBanner";
+import { SandboxChatPreInput } from "@/lib/components/chat/SandboxChatPreInput";
+import type { SandboxChatSurface } from "@/lib/components/chat/sandboxChatSurface";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,
@@ -64,9 +60,6 @@ export function ProjectSandboxChatPanel({
   const startExecute = useMutation(api.projectChatWorkflow.startExecute);
   const enqueueMessage = useMutation(api.projectChatWorkflow.enqueueMessage);
   const cancelExecution = useMutation(api.projectChatWorkflow.cancelExecution);
-  const requestStopBackgroundAgent = useMutation(
-    api.projectChatWorkflow.requestStopBackgroundAgent,
-  );
   const prewarmChatDaemonNow = useAction(
     api.projectChatWorkflow.prewarmChatDaemonNow,
   );
@@ -232,19 +225,20 @@ export function ProjectSandboxChatPanel({
     await cancelExecution({ projectId });
   };
 
-  // A stopped sandbox cannot run `/compact`, so it counts as read-only here.
-  const compaction = useCompactionBanner({
+  const chatSurface: SandboxChatSurface = {
+    entity: { kind: "project", projectId },
     repoId: repo._id,
-    entityId: String(projectId),
     model,
     isExecuting,
-    isReadOnly: !isSandboxActive,
-  });
-
-  // No review-comment append on this send path (sessions-only), so `/compact`
-  // already reaches the harness verbatim.
-  const handleCompact = () => {
-    void handleSend(COMPACT_COMMAND);
+    isReadOnly: false,
+    // A stopped sandbox cannot run `/compact`, so it counts as read-only here.
+    compactionReadOnly: !isSandboxActive,
+    backgroundAgents: project?.backgroundAgents,
+    // No review-comment append on this send path (sessions-only), so a slash
+    // command already reaches the harness verbatim.
+    onSendCommand: (command) => {
+      void handleSend(command);
+    },
   };
 
   return (
@@ -296,23 +290,7 @@ export function ProjectSandboxChatPanel({
         onTraitsChange={setTraits}
         onSend={handleSend}
         onCancel={handleCancel}
-        preInputContent={
-          <>
-            <BackgroundAgentsChip
-              backgroundAgents={project?.backgroundAgents}
-              onRequestStop={async (toolUseId) => {
-                await requestStopBackgroundAgent({ projectId, toolUseId });
-              }}
-            />
-            {compaction ? (
-              <ComposerCompactionBanner
-                usedTokens={compaction.usedTokens}
-                onCompact={handleCompact}
-                onDismiss={compaction.onDismiss}
-              />
-            ) : null}
-          </>
-        }
+        preInputContent={<SandboxChatPreInput surface={chatSurface} />}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}

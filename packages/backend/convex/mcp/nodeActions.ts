@@ -11,8 +11,10 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { registerTools } from "./tools";
 import { registerSupabaseTools } from "./supabase";
 import {
-  buildSessionMessageCalls,
+  buildChatMessageCalls,
   resolveAgentDelivery,
+  type AgentDelivery,
+  type ChatTargetKind,
 } from "./orchestratorDelivery";
 import { TASK_CHAT_STREAM_PREFIX } from "../_chat/surfaceAdapters";
 import { normalizeAIModel } from "../validators";
@@ -168,11 +170,7 @@ export const refreshToken = internalAction({
 
       const clerk = createClerkClient({ secretKey: getClerkSecretKey() });
       await clerk.users.getUser(claims.data.sub);
-      const tokens = await createOauthTokens(
-        claims.data.sub,
-        clientId,
-        secret,
-      );
+      const tokens = await createOauthTokens(claims.data.sub, clientId, secret);
 
       return refreshSuccess(tokens);
     } catch {
@@ -1140,6 +1138,25 @@ export const listArtifacts = internalAction({
 const agentKindValidator = v.union(v.literal("session"), v.literal("task"));
 type AgentKind = "session" | "task";
 
+/**
+ * Sending a message reaches one surface more than the fleet tools do: a
+ * project's sandbox chat. Listing, state and stop stay on `agentKindValidator`
+ * — the master session's fleet is sessions and tasks, and widening those would
+ * put projects on the orchestrator surface as a side effect.
+ */
+const chatKindValidator = v.union(
+  v.literal("session"),
+  v.literal("task"),
+  v.literal("project"),
+);
+
+/** The user-authorised read that proves the caller may reach each surface. */
+const CHAT_DOC_QUERY: Record<ChatTargetKind, string> = {
+  session: "_sessions/queries:get",
+  task: "_agentTasks/queries:get",
+  project: "_projects/queries:get",
+};
+
 const orchestratorAgentValidator = v.object({
   kind: agentKindValidator,
   id: v.string(),
@@ -1191,6 +1208,14 @@ const agentTaskSchema = z.object({
   lastChatModel: z.string().optional(),
   activeWorkflowId: z.string().optional(),
   activeChatWorkflowId: z.string().optional(),
+});
+
+/** Slim projection of a `projects` document (its chat mirrors a task's). */
+const projectDocSchema = z.object({
+  _id: z.string(),
+  activeChatWorkflowId: z.string().optional(),
+  model: z.string().optional(),
+  lastChatModel: z.string().optional(),
 });
 
 /** Slim projection of a `sessions` document. */
@@ -1469,10 +1494,46 @@ export const orchestratorGetAgentState = internalAction({
   },
 });
 
+/**
+ * Decides how a chat surface's own workflow slot answers "is this busy", and
+ * which model the turn falls back to. Each surface has a different slot: a
+ * session's single workflow, a task's chat slot (separate from its run), a
+ * project's chat slot (separate from build and spec workflows).
+ */
+function chatDelivery(
+  kind: ChatTargetKind,
+  rawDoc: unknown,
+  queuedAhead: number,
+  requestedModel: string | undefined,
+): AgentDelivery {
+  if (kind === "session") {
+    const session = sessionDocSchema.parse(rawDoc);
+    return resolveAgentDelivery({
+      isBusy: session.activeWorkflowId !== undefined || queuedAhead > 0,
+      requestedModel,
+      storedModel: session.lastModel,
+    });
+  }
+  if (kind === "task") {
+    const task = agentTaskSchema.parse(rawDoc);
+    return resolveAgentDelivery({
+      isBusy: task.activeChatWorkflowId !== undefined || queuedAhead > 0,
+      requestedModel,
+      storedModel: task.lastChatModel ?? task.model,
+    });
+  }
+  const project = projectDocSchema.parse(rawDoc);
+  return resolveAgentDelivery({
+    isBusy: project.activeChatWorkflowId !== undefined || queuedAhead > 0,
+    requestedModel,
+    storedModel: project.lastChatModel ?? project.model,
+  });
+}
+
 export const orchestratorSendMessage = internalAction({
   args: {
     clerkUserId: v.string(),
-    kind: agentKindValidator,
+    kind: chatKindValidator,
     id: v.string(),
     message: v.string(),
     model: v.optional(v.string()),
@@ -1504,7 +1565,7 @@ export const orchestratorSendMessage = internalAction({
     const rawDoc = await runQueryAsUser(
       convexUrl,
       clerkUserId,
-      kind === "session" ? "_sessions/queries:get" : "_agentTasks/queries:get",
+      CHAT_DOC_QUERY[kind],
       { id },
     );
     if (rawDoc === null) {
@@ -1527,68 +1588,22 @@ export const orchestratorSendMessage = internalAction({
         ),
       ).length;
 
-    if (kind === "session") {
-      const session = sessionDocSchema.parse(rawDoc);
-      const delivery = resolveAgentDelivery({
-        isBusy: session.activeWorkflowId !== undefined || queuedAhead > 0,
-        requestedModel: model,
-        storedModel: session.lastModel,
-      });
-      const calls = buildSessionMessageCalls({
-        sessionId: id,
-        message,
-        delivery,
-        sentViaOrchestrator,
-      });
-      for (const call of calls) {
-        await runMutationAsUser(convexUrl, clerkUserId, call.fn, call.args);
-      }
-      await registerWatchIfMaster(clerkUserId, kind, id, masterSessionId);
-      const delivered: "queued" | "started" =
-        delivery.action === "queue" ? "queued" : "started";
-      return { delivered, model: delivery.model };
+    const delivery = chatDelivery(kind, rawDoc, queuedAhead, model);
+    for (const call of buildChatMessageCalls({
+      kind,
+      id,
+      message,
+      delivery,
+      sentViaOrchestrator,
+    })) {
+      await runMutationAsUser(convexUrl, clerkUserId, call.fn, call.args);
     }
 
-    const task = agentTaskSchema.parse(rawDoc);
-    const delivery = resolveAgentDelivery({
-      // The chat surface has its own workflow slot, separate from a task run.
-      isBusy: task.activeChatWorkflowId !== undefined || queuedAhead > 0,
-      requestedModel: model,
-      storedModel: task.lastChatModel ?? task.model,
-    });
-    if (delivery.action === "queue") {
-      await runMutationAsUser(
-        convexUrl,
-        clerkUserId,
-        "agentTaskChatWorkflow:enqueueMessage",
-        {
-          taskId: id,
-          message,
-          model: delivery.model,
-          sentViaOrchestrator,
-        },
-      );
-    } else {
-      await runMutationAsUser(
-        convexUrl,
-        clerkUserId,
-        "agentTaskChatWorkflow:addMessage",
-        {
-          taskId: id,
-          role: "user",
-          content: message,
-          model: delivery.model,
-          sentViaOrchestrator,
-        },
-      );
-      await runMutationAsUser(
-        convexUrl,
-        clerkUserId,
-        "agentTaskChatWorkflow:startExecute",
-        { taskId: id, message, model: delivery.model },
-      );
+    // Only sessions and tasks can be watched: the master session's fleet tools
+    // never target a project, so there is no project watch pointer to set.
+    if (kind !== "project") {
+      await registerWatchIfMaster(clerkUserId, kind, id, masterSessionId);
     }
-    await registerWatchIfMaster(clerkUserId, kind, id, masterSessionId);
     const delivered: "queued" | "started" =
       delivery.action === "queue" ? "queued" : "started";
     return { delivered, model: delivery.model };

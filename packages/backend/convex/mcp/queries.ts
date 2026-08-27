@@ -77,59 +77,193 @@ export const listUserRepos = internalQuery({
 });
 
 /**
- * Finds the session an MCP caller named, before any access check. One ref wins
- * at a time, in the order the caller is most likely to have been precise:
- * explicit id, then PR link, then the per-repo number from the session URL.
+ * A chat an MCP caller named, before any access check. The three surfaces are
+ * separate tables, so the ref search yields a discriminated hit rather than a
+ * common document type.
  */
-async function findSessionByRef(
+type ChatTargetHit =
+  | { kind: "session"; doc: Doc<"sessions"> }
+  | { kind: "task"; doc: Doc<"agentTasks"> }
+  | { kind: "project"; doc: Doc<"projects"> };
+
+const chatTargetKindValidator = v.union(
+  v.literal("session"),
+  v.literal("task"),
+  v.literal("project"),
+);
+
+/** Kinds to search, in the order a bare reference most likely means. */
+const KIND_SEARCH_ORDER = ["session", "task", "project"] as const;
+
+function kindsToSearch(
+  kind: string | undefined,
+): readonly ("session" | "task" | "project")[] {
+  if (kind === undefined) return KIND_SEARCH_ORDER;
+  return KIND_SEARCH_ORDER.filter((candidate) => candidate === kind);
+}
+
+/**
+ * Loads a chat target by Convex id. A Convex id encodes its table, so
+ * `normalizeId` rejects an id from another table outright — trying each kind
+ * in turn is a lookup, not a guess.
+ */
+async function findById(
   ctx: QueryCtx,
-  ref: { sessionId?: string; prUrl?: string; numId?: number; repoId?: string },
-): Promise<Doc<"sessions"> | null> {
-  const { sessionId, prUrl, numId } = ref;
-
-  if (sessionId !== undefined) {
-    const id = ctx.db.normalizeId("sessions", sessionId);
-    return id ? await ctx.db.get(id) : null;
+  id: string,
+  kinds: readonly ("session" | "task" | "project")[],
+): Promise<ChatTargetHit | null> {
+  for (const kind of kinds) {
+    if (kind === "session") {
+      const sessionId = ctx.db.normalizeId("sessions", id);
+      const doc = sessionId ? await ctx.db.get(sessionId) : null;
+      if (doc) return { kind, doc };
+    } else if (kind === "task") {
+      const taskId = ctx.db.normalizeId("agentTasks", id);
+      const doc = taskId ? await ctx.db.get(taskId) : null;
+      if (doc) return { kind, doc };
+    } else {
+      const projectId = ctx.db.normalizeId("projects", id);
+      const doc = projectId ? await ctx.db.get(projectId) : null;
+      if (doc) return { kind, doc };
+    }
   }
+  return null;
+}
 
-  if (prUrl !== undefined) {
-    return await ctx.db
-      .query("sessions")
-      .withIndex("by_pr_url", (q) => q.eq("prUrl", prUrl))
-      .first();
+/**
+ * Finds the chat that opened a pull request. Sessions and projects hold their
+ * `prUrl` directly; a quick task's PR belongs to one of its runs, so that
+ * lookup goes through `agentRuns` and hands back the owning task.
+ */
+async function findByPrUrl(
+  ctx: QueryCtx,
+  prUrl: string,
+  kinds: readonly ("session" | "task" | "project")[],
+): Promise<ChatTargetHit | null> {
+  for (const kind of kinds) {
+    if (kind === "session") {
+      const doc = await ctx.db
+        .query("sessions")
+        .withIndex("by_pr_url", (q) => q.eq("prUrl", prUrl))
+        .first();
+      if (doc) return { kind, doc };
+    } else if (kind === "task") {
+      const run = await ctx.db
+        .query("agentRuns")
+        .withIndex("by_pr_url", (q) => q.eq("prUrl", prUrl))
+        .first();
+      const doc = run ? await ctx.db.get(run.taskId) : null;
+      if (doc) return { kind, doc };
+    } else {
+      const doc = await ctx.db
+        .query("projects")
+        .withIndex("by_pr_url", (q) => q.eq("prUrl", prUrl))
+        .first();
+      if (doc) return { kind, doc };
+    }
   }
+  return null;
+}
 
-  if (numId !== undefined) {
-    // A numId is only unique inside its repo, so an unresolvable repo is a
-    // miss rather than a repo-wide scan.
-    const repoId = ref.repoId
-      ? ctx.db.normalizeId("githubRepos", ref.repoId)
-      : null;
-    if (!repoId) return null;
-    return await ctx.db
+/**
+ * Finds a chat by the number in its Eva url. A numId is unique only inside one
+ * repo AND one kind (session 42 and task 42 both exist), so both must be
+ * known: an unresolvable repo is a miss rather than a repo-wide scan.
+ */
+async function findByNumId(
+  ctx: QueryCtx,
+  numId: number,
+  rawRepoId: string | undefined,
+  kinds: readonly ("session" | "task" | "project")[],
+): Promise<ChatTargetHit | null> {
+  const repoId = rawRepoId
+    ? ctx.db.normalizeId("githubRepos", rawRepoId)
+    : null;
+  if (!repoId || kinds.length !== 1) return null;
+  const [kind] = kinds;
+
+  if (kind === "session") {
+    const doc = await ctx.db
       .query("sessions")
       .withIndex("by_repo_and_numId", (q) =>
         q.eq("repoId", repoId).eq("numId", numId),
       )
       .first();
+    return doc ? { kind, doc } : null;
   }
+  if (kind === "task") {
+    const doc = await ctx.db
+      .query("agentTasks")
+      .withIndex("by_repo_and_numId", (q) =>
+        q.eq("repoId", repoId).eq("numId", numId),
+      )
+      .first();
+    return doc ? { kind, doc } : null;
+  }
+  const doc = await ctx.db
+    .query("projects")
+    .withIndex("by_repo_and_numId", (q) =>
+      q.eq("repoId", repoId).eq("numId", numId),
+    )
+    .first();
+  return doc ? { kind: "project", doc } : null;
+}
 
+/**
+ * Finds the chat an MCP caller named, before any access check. One ref wins at
+ * a time, in the order the caller is most likely to have been precise:
+ * explicit id, then PR link, then the per-repo number from the url.
+ */
+async function findChatTargetByRef(
+  ctx: QueryCtx,
+  ref: {
+    kind?: string;
+    id?: string;
+    prUrl?: string;
+    numId?: number;
+    repoId?: string;
+  },
+): Promise<ChatTargetHit | null> {
+  const kinds = kindsToSearch(ref.kind);
+  if (kinds.length === 0) return null;
+  if (ref.id !== undefined) return await findById(ctx, ref.id, kinds);
+  if (ref.prUrl !== undefined) return await findByPrUrl(ctx, ref.prUrl, kinds);
+  if (ref.numId !== undefined) {
+    return await findByNumId(ctx, ref.numId, ref.repoId, kinds);
+  }
+  return null;
+}
+
+/** The repo a hit belongs to. A task inherits its project's when it has none. */
+async function targetRepoId(
+  ctx: QueryCtx,
+  hit: ChatTargetHit,
+): Promise<Id<"githubRepos"> | null> {
+  if (hit.kind === "session" || hit.kind === "project") return hit.doc.repoId;
+  if (hit.doc.repoId) return hit.doc.repoId;
+  if (hit.doc.projectId) {
+    const project = await ctx.db.get(hit.doc.projectId);
+    return project?.repoId ?? null;
+  }
   return null;
 }
 
 /**
- * Resolves a session the MCP user may act on, by Convex id, GitHub PR url, or
- * per-repo numId. Returns null for "no such session" AND for "exists but this
- * user cannot reach its repo" — the two are deliberately indistinguishable to
- * the caller, so a stranger's session id leaks nothing.
+ * Resolves a chat the MCP user may act on — a session, a quick task's sandbox
+ * chat, or a project's sandbox chat — by Convex id, GitHub PR url, or per-repo
+ * numId. Returns null for "no such chat" AND for "exists but this user cannot
+ * reach its repo" — the two are deliberately indistinguishable to the caller,
+ * so a stranger's id leaks nothing.
  *
  * `prUrl` must already be canonical (see `mcp/sessionRef.ts`); the lookup is an
  * exact index match.
  */
-export const resolveSessionForUser = internalQuery({
+export const resolveChatTargetForUser = internalQuery({
   args: {
     userId: v.string(),
-    sessionId: v.optional(v.string()),
+    /** Restricts the search to one surface. Required alongside `numId`. */
+    kind: v.optional(chatTargetKindValidator),
+    id: v.optional(v.string()),
     numId: v.optional(v.number()),
     prUrl: v.optional(v.string()),
     repoId: v.optional(v.string()),
@@ -137,7 +271,8 @@ export const resolveSessionForUser = internalQuery({
   returns: v.union(
     v.null(),
     v.object({
-      sessionId: v.id("sessions"),
+      kind: chatTargetKindValidator,
+      targetId: v.string(),
       numId: v.optional(v.number()),
       title: v.string(),
       status: v.string(),
@@ -153,21 +288,29 @@ export const resolveSessionForUser = internalQuery({
     const userId = ctx.db.normalizeId("users", args.userId);
     if (!userId) return null;
 
-    const session = entityVisible(await findSessionByRef(ctx, args));
-    if (!session) return null;
-    if (!(await hasRepoAccess(ctx.db, session.repoId, userId))) return null;
+    const hit = await findChatTargetByRef(ctx, args);
+    if (!hit || !entityVisible(hit.doc)) return null;
 
-    const repo = await ctx.db.get(session.repoId);
+    const repoId = await targetRepoId(ctx, hit);
+    if (!repoId) return null;
+    if (!(await hasRepoAccess(ctx.db, repoId, userId))) return null;
+
+    const repo = await ctx.db.get(repoId);
     if (!repo) return null;
 
+    const doc = hit.doc;
     return {
-      sessionId: session._id,
-      numId: session.numId,
-      title: session.title,
-      status: session.status,
-      prUrl: session.prUrl,
-      branchName: session.branchName,
-      repoId: session.repoId,
+      kind: hit.kind,
+      targetId: doc._id,
+      numId: doc.numId,
+      title: doc.title,
+      // A project tracks a phase where the other two track a status; both
+      // answer the same "where is this up to" question for the caller.
+      status: hit.kind === "project" ? hit.doc.phase : hit.doc.status,
+      // Quick tasks keep their PR on the run that opened it, not on the task.
+      prUrl: hit.kind === "task" ? undefined : hit.doc.prUrl,
+      branchName: hit.kind === "task" ? undefined : hit.doc.branchName,
+      repoId,
       repoOwner: repo.owner,
       repoName: repo.name,
       repoRootDirectory: repo.rootDirectory,

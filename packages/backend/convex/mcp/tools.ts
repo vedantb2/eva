@@ -23,7 +23,6 @@ interface RepoCredentials {
   deployKey: string;
 }
 
-
 export function registerTools(
   server: McpServer,
   credentials: McpCredentials,
@@ -128,7 +127,9 @@ export function registerTools(
   ): Promise<{ repoId: string } | ReturnType<typeof errorResult>> {
     if (ref.repoId) return { repoId: ref.repoId };
     if (!ref.repoName) {
-      return errorResult("Provide either repoId (from list_repos) or repoName.");
+      return errorResult(
+        "Provide either repoId (from list_repos) or repoName.",
+      );
     }
     const resolved = await resolveRepoByName(ref.repoName, ref.app, userId);
     if ("isError" in resolved) return resolved;
@@ -738,44 +739,61 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
   );
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // send_session_message
+  // send_chat_message
   //
   // The one write tool that targets work already in flight. Every caller gets
   // it — an OAuth connector, a sandbox token, the master session — because it
-  // grants nothing beyond what the user can already do in that session's chat:
-  // the repo-access check below is the same one the web mutations run.
+  // grants nothing beyond what the user can already do in that chat: the
+  // repo-access check below is the same one the web mutations run.
+  //
+  // All three sandbox chat surfaces are reachable (session, quick task,
+  // project), because all three are somewhere a person can type in the app and
+  // all three run their turn on their own branch.
   // ─────────────────────────────────────────────────────────────────────────────
 
-  server.tool(
-    "send_session_message",
-    `Send a chat message into an EXISTING Eva session and run it there, exactly as typing in that session's chat does. Use this to carry on with a pull request Eva already opened. It never creates a new session or task.
+  /** Eva url segment for each chat surface, for the path echoed in the reply. */
+  const CHAT_PATH_SEGMENT = {
+    session: "sessions",
+    task: "quick-tasks",
+    project: "projects",
+  } as const;
 
-Name the session by its "sessionId", by its GitHub "prUrl", or by "numId" plus a repo. An idle session starts its sandbox and runs the message straight away; a session mid-turn queues it to run next. The reply says which happened.`,
+  server.tool(
+    "send_chat_message",
+    `Send a chat message into an EXISTING Eva session, quick task or project and run it there, exactly as typing in that chat does. Use this to carry on with a pull request Eva already opened. It never creates a new session, task or project.
+
+Name the chat by its Convex "id", by its GitHub "prUrl", or by "numId" plus "kind" and a repo. An idle chat starts its sandbox and runs the message straight away; one mid-turn queues it to run next. The reply says which happened.`,
     {
-      message: z
-        .string()
-        .describe("The message to post into the session's chat."),
-      sessionId: z
+      message: z.string().describe("The message to post into the chat."),
+      id: z
         .string()
         .optional()
-        .describe("The session's Convex id, if you already have it."),
+        .describe(
+          "The Convex id of the session, quick task or project, if you already have it.",
+        ),
       prUrl: z
         .string()
         .optional()
         .describe(
-          'The pull request the session opened, e.g. "https://github.com/vvedantb/eva/pull/664".',
+          'The pull request the session, task or project opened, e.g. "https://github.com/vvedantb/eva/pull/664".',
         ),
       numId: z
         .number()
         .optional()
         .describe(
-          'The session number in its Eva url (42 in ".../sessions/42"). Needs repoName or repoId as well.',
+          'The number in the Eva url (42 in ".../sessions/42"). Needs "kind" and repoName or repoId as well.',
+        ),
+      kind: z
+        .enum(["session", "task", "project"])
+        .optional()
+        .describe(
+          'Which surface to send to: "session", "task" (a quick task\'s sandbox chat) or "project" (a project\'s sandbox chat). Required with numId, since each numbers its own rows; otherwise it just narrows the search.',
         ),
       repoName: z
         .string()
         .optional()
         .describe(
-          'Repo holding the session (e.g. "eva" or "vvedantb/eva"). Used with numId.',
+          'Repo holding the chat (e.g. "eva" or "vvedantb/eva"). Used with numId.',
         ),
       repoId: z
         .string()
@@ -791,14 +809,15 @@ Name the session by its "sessionId", by its GitHub "prUrl", or by "numId" plus a
         .enum(["opus", "sonnet", "haiku"])
         .optional()
         .describe(
-          "Claude model for this turn. Omit to reuse the model the session last ran on.",
+          "Claude model for this turn. Omit to reuse the model that chat last ran on.",
         ),
     },
     async ({
       message,
-      sessionId,
+      id,
       prUrl,
       numId,
+      kind,
       repoName,
       repoId,
       app,
@@ -807,18 +826,19 @@ Name the session by its "sessionId", by its GitHub "prUrl", or by "numId" plus a
       if (message.trim().length === 0) {
         return errorResult("message cannot be empty.");
       }
-      if (
-        sessionId === undefined &&
-        prUrl === undefined &&
-        numId === undefined
-      ) {
+      if (id === undefined && prUrl === undefined && numId === undefined) {
         return errorResult(
-          'Name the session to send to: pass "sessionId", "prUrl", or "numId" with "repoName".',
+          'Name the chat to send to: pass "id", "prUrl", or "numId" with "kind" and "repoName".',
+        );
+      }
+      if (id === undefined && prUrl === undefined && kind === undefined) {
+        return errorResult(
+          'A numId needs "kind" too ("session", "task" or "project"): each numbers its own rows, so 42 alone is ambiguous.',
         );
       }
 
       // Parsed here, not in the lookup, so a mistyped link gets a useful
-      // sentence instead of a bare "no session found".
+      // sentence instead of a bare "nothing found".
       let canonicalPr: string | undefined;
       if (prUrl !== undefined) {
         const parsed = canonicalPrUrl(prUrl);
@@ -835,35 +855,29 @@ Name the session by its "sessionId", by its GitHub "prUrl", or by "numId" plus a
       // Only the numId path needs a repo — it is the one ref that is not
       // unique on its own.
       let scopeRepoId: string | undefined;
-      if (sessionId === undefined && canonicalPr === undefined) {
+      if (id === undefined && canonicalPr === undefined) {
         const ref = await resolveRepoRef({ repoId, repoName, app }, userId);
         if ("isError" in ref) return ref;
         scopeRepoId = ref.repoId;
       }
 
-      const session = await ctx.runQuery(
-        internal.mcp.queries.resolveSessionForUser,
-        {
-          userId,
-          sessionId,
-          numId,
-          prUrl: canonicalPr,
-          repoId: scopeRepoId,
-        },
+      const target = await ctx.runQuery(
+        internal.mcp.queries.resolveChatTargetForUser,
+        { userId, kind, id, numId, prUrl: canonicalPr, repoId: scopeRepoId },
       );
-      if (!session) {
+      if (!target) {
         return errorResult(
-          "No session matched that reference, or you do not have access to it. Note that a PR opened by a quick task belongs to a task rather than a session.",
+          "Nothing matched that reference, or you do not have access to it. A PR opened by a quick task resolves to that task, not a session.",
         );
       }
 
       // Re-checked against the token as well as the user: a sandbox token stays
-      // pinned to its own repo, so one session cannot drive another repo's.
-      await assertRepoAccess(session.repoId, userId);
+      // pinned to its own repo, so one sandbox cannot drive another repo's.
+      await assertRepoAccess(target.repoId, userId);
 
-      if (entityId !== undefined && session.sessionId === entityId) {
+      if (entityId !== undefined && target.targetId === entityId) {
         return errorResult(
-          "That is this session. Reply in your own turn instead of messaging yourself.",
+          "That is this sandbox's own chat. Reply in your own turn instead of messaging yourself.",
         );
       }
 
@@ -871,8 +885,8 @@ Name the session by its "sessionId", by its GitHub "prUrl", or by "numId" plus a
         internal.mcp.nodeActions.orchestratorSendMessage,
         {
           clerkUserId,
-          kind: "session",
-          id: session.sessionId,
+          kind: target.kind,
+          id: target.targetId,
           message,
           model,
           masterSessionId,
@@ -883,22 +897,23 @@ Name the session by its "sessionId", by its GitHub "prUrl", or by "numId" plus a
       );
 
       const basePath = repoBasePath({
-        owner: session.repoOwner,
-        name: session.repoName,
-        rootDirectory: session.repoRootDirectory,
+        owner: target.repoOwner,
+        name: target.repoName,
+        rootDirectory: target.repoRootDirectory,
       });
 
       return textResult({
-        sessionId: session.sessionId,
-        numId: session.numId,
-        title: session.title,
-        repo: `${session.repoOwner}/${session.repoName}`,
+        kind: target.kind,
+        id: target.targetId,
+        numId: target.numId,
+        title: target.title,
+        repo: `${target.repoOwner}/${target.repoName}`,
         path:
-          session.numId === undefined
+          target.numId === undefined
             ? undefined
-            : `${basePath}/sessions/${session.numId}`,
-        prUrl: session.prUrl,
-        branch: session.branchName,
+            : `${basePath}/${CHAT_PATH_SEGMENT[target.kind]}/${target.numId}`,
+        prUrl: target.prUrl,
+        branch: target.branchName,
         delivered: result.delivered,
         model: result.model,
       });

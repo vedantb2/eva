@@ -1,12 +1,13 @@
 # Changelog
 
-## Eva MCP can chat an existing session - 2026-08-27
+## Eva MCP can chat an existing session, task or project - 2026-08-27
 
-- New `send_session_message` tool on the user MCP server (OAuth connectors, sandbox tokens and the master session all get it): posts a message into an existing session's chat and starts the turn on that session's branch. Previously an external client could only `create_and_run_task`, which opens a new task instead of continuing the PR it was looking at.
-- The session is named by `sessionId`, its GitHub `prUrl` (review tails like `/files`, `?diff=`, `#comment` canonicalise to the stored `html_url`), or `numId` plus a repo. `internal.mcp.queries.resolveSessionForUser` does the lookup and returns null for both "no such session" and "no access", so a stranger's id leaks nothing; a sandbox token also stays pinned to its own repo, and a session cannot message itself.
-- Orchestrator-only tools (`list_agents`, `send_agent_message`, `stop_agent`, `create_session`, watch/unwatch) stay behind the `isOrchestrator` gate.
-- `buildSessionMessageCalls` now owns the "user row then `startExecute`, or one `enqueueMessage`" pairing for every MCP send path. It drops the dead `mode` argument those calls carried since sessions lost plan/edit mode — Convex rejects an argument no validator declares, so that leftover was failing the send outright. `create_session` carried the same stale argument.
-- The "via Ave" chat badge is now stamped only on master-session sends; a user's own MCP client sends as the user.
+- New `send_chat_message` tool on the user MCP server (OAuth connectors, sandbox tokens and the master session all get it): posts a message into an existing chat and starts the turn on that entity's branch. Previously an external client could only `create_and_run_task`, which opens a new task instead of continuing the PR it was looking at.
+- All three sandbox chat surfaces are reachable — a session, a quick task's chat and a project's chat — since each is somewhere a person can already type and each has its own workflow slot.
+- The target is named by Convex `id`, its GitHub `prUrl` (review tails like `/files`, `?diff=`, `#comment` canonicalise to the stored `html_url`; a task's PR is matched through the `agentRuns` row that opened it), or `numId` plus `kind` and a repo — all three tables number their own rows, so 42 alone is ambiguous. `internal.mcp.queries.resolveChatTargetForUser` does the lookup and returns null for both "no such row" and "no access", so a stranger's id leaks nothing; a sandbox token also stays pinned to its own repo, and a sandbox cannot message its own chat.
+- Orchestrator-only tools (`list_agents`, `send_agent_message`, `stop_agent`, `create_session`, watch/unwatch) stay behind the `isOrchestrator` gate, and their fleet stays sessions and tasks.
+- `buildChatMessageCalls` now owns the "user row then `startExecute`, or one `enqueueMessage`" pairing for every MCP send path and every surface, replacing the hand-rolled task branch. It drops the dead `mode` argument those calls carried since sessions lost plan/edit mode — Convex rejects an argument no validator declares, so that leftover was failing the send outright. `create_session` carried the same stale argument.
+- The "via Ave" chat badge is now stamped only on master-session sends; a user's own MCP client sends as the user. Project chat mutations declare no such flag, so none is passed there.
 
 ## Plan-usage refresh is the Messages probe only - 2026-08-27
 

@@ -4,7 +4,10 @@ import { v } from "convex/values";
 import { z } from "zod";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { resolveSandboxCredentials } from "./envVarResolver";
+import {
+  resolveSandboxCredentials,
+  tryResolveSandboxCredentials,
+} from "./envVarResolver";
 import { getInstallationToken } from "./githubAuth";
 import {
   buildConfigFileDownloadCommands,
@@ -692,12 +695,22 @@ export const pollSeedRun = internalAction({
  */
 export const createSeedPrepSandbox = internalAction({
   args: { repoId: v.id("githubRepos"), imageSnapshot: v.string() },
-  returns: v.object({ sandboxId: v.string() }),
-  handler: async (ctx, args): Promise<{ sandboxId: string }> => {
-    const { credentials, sandboxEnvVars } = await resolveSandboxCredentials(
-      ctx,
-      args.repoId,
-    );
+  returns: v.union(
+    v.object({ ok: v.literal(true), sandboxId: v.string() }),
+    v.object({ ok: v.literal(false), error: v.string() }),
+  ),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<
+    { ok: true; sandboxId: string } | { ok: false; error: string }
+  > => {
+    const resolved = await tryResolveSandboxCredentials(ctx, args.repoId);
+    if (!resolved.ok) {
+      console.warn(`[snapshot] createSeedPrepSandbox: ${resolved.error}`);
+      return { ok: false, error: resolved.error };
+    }
+    const { credentials, sandboxEnvVars } = resolved;
     const client = getSandboxClient(credentials);
     // Vercel snapshot IDs are `snap_*`. If a non-`snap_*` name is passed (e.g.
     // a stale/legacy value), fall back to a fresh sandbox (no snapshot source)
@@ -737,7 +750,7 @@ export const createSeedPrepSandbox = internalAction({
       // pre-baked into their base snapshot.
       true,
     );
-    return { sandboxId: sandbox.id };
+    return { ok: true, sandboxId: sandbox.id };
   },
 });
 

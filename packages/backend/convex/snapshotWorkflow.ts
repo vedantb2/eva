@@ -149,6 +149,15 @@ export const snapshotBuildWorkflow = workflow.define({
             { repoId: appRepoId, imageSnapshot: config.snapshotName },
             { retry: { maxAttempts: 4, initialBackoffMs: 15000, base: 2 } },
           );
+          if (!created.ok) {
+            await step.runMutation(internal.repoSnapshots.completeBuild, {
+              buildId: args.buildId,
+              status: "error",
+              logs: "",
+              error: created.error,
+            });
+            return;
+          }
           prepSandboxId = created.sandboxId;
 
           await step.runAction(
@@ -397,6 +406,10 @@ export const snapshotBuildWorkflow = workflow.define({
         { repoId: appRepoId, imageSnapshot: seedImageSnapshot },
         { retry: { maxAttempts: 4, initialBackoffMs: 15000, base: 2 } },
       );
+      if (!created.ok) {
+        await failBuild(created.error);
+        return;
+      }
       prepSandboxId = created.sandboxId;
 
       // Fresh refs for the detached script's hard reset (owns git auth).

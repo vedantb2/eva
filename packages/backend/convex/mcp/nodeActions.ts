@@ -12,7 +12,10 @@ import { registerTools } from "./tools";
 import { registerSupabaseTools } from "./supabase";
 import {
   buildChatMessageCalls,
+  decideTaskPreviewSandboxForChat,
   resolveAgentDelivery,
+  TASK_PREVIEW_SANDBOX_READY_POLL_MS,
+  TASK_PREVIEW_SANDBOX_READY_TIMEOUT_MS,
   type AgentDelivery,
   type ChatTargetKind,
 } from "./orchestratorDelivery";
@@ -1211,6 +1214,7 @@ const agentTaskSchema = z.object({
   lastChatModel: z.string().optional(),
   activeWorkflowId: z.string().optional(),
   activeChatWorkflowId: z.string().optional(),
+  reviewTaskSandboxStatus: z.string().optional(),
 });
 
 /** Slim projection of a `projects` document (its chat mirrors a task's). */
@@ -1525,6 +1529,70 @@ export const orchestratorGetAgentState = internalAction({
   },
 });
 
+async function delay(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * A completed quick task tears its preview sandbox down. MCP follow-up must
+ * start it (the same Start-button path) and wait until it is actually
+ * `active` — resuming the closed id in-place hangs the chat on
+ * "Resuming sandbox…".
+ */
+async function ensureTaskPreviewSandboxForMcpSend(
+  convexUrl: string,
+  clerkUserId: string,
+  taskId: string,
+  status: string | undefined,
+): Promise<void> {
+  const plan = decideTaskPreviewSandboxForChat(status);
+  if (plan === "run") return;
+
+  let started = false;
+  const start = async () => {
+    await runMutationAsUser(
+      convexUrl,
+      clerkUserId,
+      "agentTasks:startTaskSandbox",
+      { taskId },
+    );
+    started = true;
+  };
+
+  // `wait` is a start/stop already in flight. If that settles to `closed`,
+  // start once rather than failing the follow-up on a teardown race.
+  if (plan === "start") {
+    await start();
+  }
+  const deadline = Date.now() + TASK_PREVIEW_SANDBOX_READY_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const raw = await runQueryAsUser(
+      convexUrl,
+      clerkUserId,
+      "_agentTasks/queries:get",
+      { id: taskId },
+    );
+    if (raw === null) {
+      throw new Error(`No task ${taskId} found, or you do not have access.`);
+    }
+    const task = agentTaskSchema.parse(raw);
+    const next = decideTaskPreviewSandboxForChat(task.reviewTaskSandboxStatus);
+    if (next === "run") return;
+    if (next === "start") {
+      if (started) {
+        throw new Error(
+          "Task sandbox did not become ready. Start it from the sandbox panel and retry.",
+        );
+      }
+      await start();
+    }
+    await delay(TASK_PREVIEW_SANDBOX_READY_POLL_MS);
+  }
+  throw new Error(
+    "Timed out waiting for the task sandbox to start. Start it from the sandbox panel and retry.",
+  );
+}
+
 /**
  * Decides how a chat surface's own workflow slot answers "is this busy", and
  * which model the turn falls back to. Each surface has a different slot: a
@@ -1601,6 +1669,16 @@ export const orchestratorSendMessage = internalAction({
     );
     if (rawDoc === null) {
       throw new Error(`No ${kind} ${id} found, or you do not have access.`);
+    }
+
+    if (kind === "task") {
+      const task = agentTaskSchema.parse(rawDoc);
+      await ensureTaskPreviewSandboxForMcpSend(
+        convexUrl,
+        clerkUserId,
+        id,
+        task.reviewTaskSandboxStatus,
+      );
     }
 
     // A child with anything already queued is NOT idle, even with no workflow

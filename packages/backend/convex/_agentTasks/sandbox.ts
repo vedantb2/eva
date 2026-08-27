@@ -566,3 +566,34 @@ export const taskSandboxError = internalMutation({
     return null;
   },
 });
+
+/**
+ * Polls until a preview sandbox is `active` or has failed back to `closed`.
+ * Used when a start is already in flight so we do not kick off a second one.
+ */
+export const waitForTaskPreviewSandboxActive = internalAction({
+  args: {
+    taskId: v.id("agentTasks"),
+    timeoutMs: v.optional(v.number()),
+  },
+  returns: v.object({ ready: v.boolean() }),
+  handler: async (ctx, args) => {
+    const deadline = Date.now() + (args.timeoutMs ?? 240_000);
+    while (Date.now() < deadline) {
+      const task = await ctx.runQuery(internal.agentTasks.getInternal, {
+        id: args.taskId,
+      });
+      if (task?.reviewTaskSandboxStatus === "active") {
+        return { ready: true };
+      }
+      if (
+        task?.reviewTaskSandboxStatus === "closed" ||
+        task?.reviewTaskSandboxStatus === undefined
+      ) {
+        return { ready: false };
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2_000));
+    }
+    return { ready: false };
+  },
+});

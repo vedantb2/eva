@@ -637,22 +637,150 @@ describe("user-MCP watch resolves Manager Ave without a master token", () => {
   });
 });
 
+describe("MCP follow-up on a completed/closed-sandbox quick task", () => {
+  const nodeActions = convexSource("mcp/nodeActions.ts");
+  const taskChat = convexSource("agentTaskChatWorkflow.ts");
+
+  test("send_chat_message starts the preview sandbox and waits until it is active", () => {
+    const send = nodeActions.slice(
+      nodeActions.indexOf("export const orchestratorSendMessage"),
+      nodeActions.indexOf("export const orchestratorStopAgent"),
+    );
+    expect(send).toContain("kind === \"task\"");
+    expect(send).toContain("ensureTaskPreviewSandboxForMcpSend");
+    expect(send.indexOf("ensureTaskPreviewSandboxForMcpSend")).toBeLessThan(
+      send.indexOf("buildChatMessageCalls"),
+    );
+
+    const ensure = nodeActions.slice(
+      nodeActions.indexOf("async function ensureTaskPreviewSandboxForMcpSend"),
+      nodeActions.indexOf("function chatDelivery"),
+    );
+    expect(ensure).toContain("agentTasks:startTaskSandbox");
+    expect(ensure).toContain("decideTaskPreviewSandboxForChat");
+    expect(ensure).toContain("TASK_PREVIEW_SANDBOX_READY_TIMEOUT_MS");
+  });
+
+  test("startExecute does not prewarm a closed or stopping preview sandbox", () => {
+    const startExecute = taskChat.slice(
+      taskChat.indexOf("export const startExecute"),
+      taskChat.indexOf("export const enqueueMessage"),
+    );
+    expect(startExecute).toContain(
+      'task.reviewTaskSandboxStatus !== "closed"',
+    );
+    expect(startExecute).toContain(
+      'task.reviewTaskSandboxStatus !== "stopping"',
+    );
+  });
+
+  test("the chat workflow starts a closed sandbox instead of resuming it in place", () => {
+    const workflow = taskChat.slice(
+      taskChat.indexOf("export const agentTaskChatExecuteWorkflow"),
+      taskChat.indexOf("export const addAssistantPlaceholder"),
+    );
+    expect(workflow).toContain("decideTaskPreviewSandboxForChat");
+    expect(workflow).toContain("markTaskSandboxStartingForChat");
+    expect(workflow).toContain("startTaskPreviewSandbox");
+    expect(workflow).toContain("waitForTaskPreviewSandboxActive");
+    expect(workflow).toContain("sandboxRunning: data.sandboxStatus === \"active\"");
+    expect(workflow).not.toContain("sandboxRunning: false");
+  });
+
+  test("markTaskSandboxStartingForChat flips closed to starting so ready is accepted", async () => {
+    const f = await fixture();
+    const now = Date.now();
+    const taskId = await f.t.run(async (ctx) => {
+      return await ctx.db.insert("agentTasks", {
+        repoId: f.repoId,
+        title: "Closed sandbox follow-up",
+        status: "business_review",
+        numId: 470,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: f.ownerUserId,
+        sandboxId: "sbx_closed",
+        reviewTaskSandboxStatus: "closed",
+      });
+    });
+
+    await f.t.mutation(
+      internal.agentTaskChatWorkflow.markTaskSandboxStartingForChat,
+      { taskId },
+    );
+
+    const after = await f.t.run(async (ctx) => ctx.db.get(taskId));
+    expect(after?.reviewTaskSandboxStatus).toBe("starting");
+
+    const activity = await f.t.run(async (ctx) =>
+      ctx.db
+        .query("streamingActivity")
+        .withIndex("by_entity", (q) =>
+          q.eq("entityId", `task-sandbox-startup-${taskId}`),
+        )
+        .first(),
+    );
+    expect(activity?.currentActivity).toContain("Starting sandbox...");
+  });
+
+  test("waitForTaskPreviewSandboxActive is ready only when status is active", async () => {
+    const f = await fixture();
+    const now = Date.now();
+    const { closedId, activeId } = await f.t.run(async (ctx) => {
+      const closedId = await ctx.db.insert("agentTasks", {
+        repoId: f.repoId,
+        title: "Closed",
+        status: "business_review",
+        numId: 471,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: f.ownerUserId,
+        reviewTaskSandboxStatus: "closed",
+      });
+      const activeId = await ctx.db.insert("agentTasks", {
+        repoId: f.repoId,
+        title: "Active",
+        status: "business_review",
+        numId: 472,
+        createdAt: now,
+        updatedAt: now,
+        createdBy: f.ownerUserId,
+        reviewTaskSandboxStatus: "active",
+      });
+      return { closedId, activeId };
+    });
+
+    expect(
+      await f.t.action(
+        internal._agentTasks.sandbox.waitForTaskPreviewSandboxActive,
+        { taskId: closedId, timeoutMs: 1 },
+      ),
+    ).toEqual({ ready: false });
+    expect(
+      await f.t.action(
+        internal._agentTasks.sandbox.waitForTaskPreviewSandboxActive,
+        { taskId: activeId, timeoutMs: 1 },
+      ),
+    ).toEqual({ ready: true });
+  });
+});
+
 describe("MCP sends are badged; composer-typed messages are not", () => {
   const chatMessage = readFileSync(
-    join(testsDir, "../../apps/web/src/lib/components/chat/ChatMessage.tsx"),
+    join(testsDir, "../../../apps/web/src/lib/components/chat/ChatMessage.tsx"),
     "utf8",
   );
   const sessionSend = readFileSync(
     join(
       testsDir,
-      "../../apps/web/src/routes/_repo/$owner/$repo/sessions/_components/useSessionSend.ts",
+      "../../../apps/web/src/routes/_repo/$owner/$repo/sessions/_components/useSessionSend.ts",
     ),
     "utf8",
   );
   const taskSend = readFileSync(
     join(
       testsDir,
-      "../../apps/web/src/lib/components/tasks/TaskSandboxChatPanel.tsx",
+      "../../../apps/web/src/lib/components/tasks/TaskSandboxChatPanel.tsx",
     ),
     "utf8",
   );

@@ -29,6 +29,29 @@ export function resolveAgentDelivery(input: {
 }
 
 /**
+ * How a quick-task preview sandbox should be brought up before a chat turn.
+ *
+ * A completed task tears the preview sandbox down (`closed`). Resuming that
+ * id in-place hangs on "Resuming sandbox…"; the Start-button path
+ * (`startTaskSandbox` → `startTaskPreviewSandbox`) is the one that actually
+ * comes back. `starting`/`stopping` are in-flight — wait, don't kick off a
+ * second start.
+ */
+export type TaskPreviewSandboxChatPlan = "run" | "start" | "wait";
+
+export function decideTaskPreviewSandboxForChat(
+  status: string | undefined,
+): TaskPreviewSandboxChatPlan {
+  if (status === "active") return "run";
+  if (status === "starting" || status === "stopping") return "wait";
+  return "start";
+}
+
+/** MCP follow-up waits this long for a closed preview sandbox to become active. */
+export const TASK_PREVIEW_SANDBOX_READY_TIMEOUT_MS = 240_000;
+export const TASK_PREVIEW_SANDBOX_READY_POLL_MS = 2_000;
+
+/**
  * The three chat surfaces a message can be sent into: a session, a quick
  * task's sandbox chat, or a project's sandbox chat. Each is a separate
  * workflow slot, so "busy" means something different on each (see

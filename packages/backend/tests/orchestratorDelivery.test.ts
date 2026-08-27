@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { resolveAgentDelivery } from "../convex/mcp/orchestratorDelivery";
+import {
+  decideTaskPreviewSandboxForChat,
+  resolveAgentDelivery,
+} from "../convex/mcp/orchestratorDelivery";
 import { DEFAULT_AI_MODEL } from "../convex/_validators/aiModels";
 
 describe("resolveAgentDelivery", () => {
@@ -35,5 +38,22 @@ describe("resolveAgentDelivery", () => {
       resolveAgentDelivery({ isBusy: false, requestedModel: "not-a-model" })
         .model,
     ).toBe(DEFAULT_AI_MODEL);
+  });
+});
+
+describe("decideTaskPreviewSandboxForChat", () => {
+  it("runs when the preview sandbox is already active", () => {
+    expect(decideTaskPreviewSandboxForChat("active")).toBe("run");
+  });
+
+  it("waits out a start or stop already in flight", () => {
+    expect(decideTaskPreviewSandboxForChat("starting")).toBe("wait");
+    expect(decideTaskPreviewSandboxForChat("stopping")).toBe("wait");
+  });
+
+  it("starts when the sandbox is closed, missing, or unknown", () => {
+    expect(decideTaskPreviewSandboxForChat("closed")).toBe("start");
+    expect(decideTaskPreviewSandboxForChat(undefined)).toBe("start");
+    expect(decideTaskPreviewSandboxForChat("error")).toBe("start");
   });
 });

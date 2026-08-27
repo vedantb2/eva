@@ -136,6 +136,7 @@ import type * as _repoSnapshots_config from "../_repoSnapshots/config.js";
 import type * as _repoSnapshots_repoMetadata from "../_repoSnapshots/repoMetadata.js";
 import type * as _repoSnapshots_sanitizeSeededApps from "../_repoSnapshots/sanitizeSeededApps.js";
 import type * as _sandbox_factory from "../_sandbox/factory.js";
+import type * as _sandbox_ffmpegInstall from "../_sandbox/ffmpegInstall.js";
 import type * as _sandbox_owner from "../_sandbox/owner.js";
 import type * as _sandbox_provider from "../_sandbox/provider.js";
 import type * as _sandbox_resolveExistingSandboxId from "../_sandbox/resolveExistingSandboxId.js";
@@ -502,6 +503,7 @@ declare const fullApi: ApiFromModules<{
   "_repoSnapshots/repoMetadata": typeof _repoSnapshots_repoMetadata;
   "_repoSnapshots/sanitizeSeededApps": typeof _repoSnapshots_sanitizeSeededApps;
   "_sandbox/factory": typeof _sandbox_factory;
+  "_sandbox/ffmpegInstall": typeof _sandbox_ffmpegInstall;
   "_sandbox/owner": typeof _sandbox_owner;
   "_sandbox/provider": typeof _sandbox_provider;
   "_sandbox/resolveExistingSandboxId": typeof _sandbox_resolveExistingSandboxId;

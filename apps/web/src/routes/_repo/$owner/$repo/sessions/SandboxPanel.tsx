@@ -10,7 +10,7 @@ import { isSessionSandboxTab } from "@/lib/search-params";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
-import { SessionAgentsPanel } from "./_components/SessionAgentsPanel";
+import { SandboxAgentsPanel } from "@/lib/components/sandbox/SandboxAgentsPanel";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { DesignVariationsPanel } from "./_components/DesignVariationsPanel";
 import { FilesPanel } from "./FilesPanel";
@@ -276,8 +276,8 @@ export function SandboxPanel({
             !simpleView && activeTab === "agents" ? "h-full min-h-0" : "hidden"
           }
         >
-          <SessionAgentsPanel
-            sessionId={sessionId}
+          <SandboxAgentsPanel
+            entity={{ kind: "session", sessionId }}
             agents={agents}
             isReadOnly={isArchived === true}
           />

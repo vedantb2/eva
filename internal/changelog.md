@@ -8,6 +8,31 @@ Success and durability are orthogonal: every daemon failure path — Claude's `f
 
 `prewarmEntityDaemon` fences turn claims (`claimPausedUntil`, self-expiring) around every daemon kill and defers the stale-callback respawn mid-turn, so a doomed daemon can no longer claim a turn, take its 2-minute running lease, and die holding it ("Turn stalled"). Cancel, stop, and usage signals still drain while paused.
 
+## Sandbox chat surfaces share one pre-input stack - 2026-08-26
+
+- New `ChatEntityRef` (session | task | project) with `chatEntityKeys` gives shared chat pieces one handle instead of an id-plus-flag per surface; `useStopBackgroundAgent` routes the stop mutation by entity kind.
+- `SandboxChatPreInput` renders the pre-input stack (background-agents chip → surface banners → compaction offer) identically on all three chat panels, which now pass slots instead of hand-rolling the stack; `ComposerCompactionBanner` moved from the sessions route to `lib/components/chat`.
+- The three per-surface Agents-tab wrappers collapsed into one `SandboxAgentsPanel`; task/project stop failures now surface a toast instead of an unhandled rejection.
+
+## Compaction recommendation banner on session resume - 2026-08-26
+
+- Adopted t3code's "Resume with less context" offer: a dismissible banner above the composer when a Claude session is resumed sitting on ≥100k context tokens with the last turn ≥70 minutes old and nothing running. Shows the token figure from the newest `logs` row and a Compact action that sends the `/compact` harness built-in.
+- `handleSend` gained a `skipReviewComments` option so `/compact` reaches the harness verbatim without consuming pending review comments.
+- Dismissal ("Keep full history") is localStorage-keyed to the turn's `createdAt`, so a later turn re-offers.
+- The hook takes a plain entity id, so task and project sandbox chats get the same offer (both write a completion log per turn); their send paths need no `skipReviewComments`, and a stopped sandbox counts as read-only.
+
+## Subagent spawn CTA row in the chat timeline - 2026-08-26
+
+- Adopted t3code's inline spawn row: assistant turns that kicked off subagents get a slim clickable row under their activity — dot, robot icon, "Kicked off N subagents", "N working" (or "N failed"/"completed" once settled), "Open Agents ›" — that opens the existing Agents sandbox tab and expands the right pane.
+- Summary folds the turn's own `subtask` steps via the Agents tab's `deriveSubagents`, with session-wide `backgroundAgents` narrowed to that turn's tool-use ids so each row reports only its own batch.
+- t3code's Σ token sum was dropped pending real usage data, since Eva's subagent model carries no token usage yet. All three sandbox chats now have an Agents tab, so the row renders on sessions, tasks and projects.
+
+## Tasks progress panel above the composer - 2026-08-26
+
+- Adopted t3code's composer Tasks UI: a slim strip flush above the chat input showing the agent's task list — icon, "Tasks", current step, n/m count and per-step segment bars — expanding into a drawer with ✓/●/○ rows and durations, dismissible per turn.
+- Restyled for Eva: tone fill (`bg-muted/50`, `rounded-t-surface`) instead of t3code's bordered glass shoulder tab, Tabler icons, no banned hooks.
+- Real data comes from the streaming turn's `todos` activity step threaded via `ChatBody` → `ChatComposer`, so all chat surfaces get it.
+
 ## Plan-usage refresh is only /api/oauth/usage - 2026-08-26
 
 Dropped the setup-token Messages probe that harvested `anthropic-ratelimit-unified-*` headers. Manual refresh now calls Claude's OAuth usage endpoint only; a token without `user:profile` surfaces as unauthorized instead of a fake inference fallback.
@@ -38,6 +63,7 @@ On-demand refresh is back on Convex HTTP: `GET /api/oauth/usage` with `User-Agen
 ## Agents tab in session sandbox panel - 2026-08-26
 
 - Sessions get an "Agents" sandbox tab (t3code-style roster) listing every sub-agent the session spawned, so subagent work is inspectable without hunting the chat timeline.
+- Task and project sandbox panels get the same tab (`agents` is now a valid route segment there), folding their roster from the chat transcript their chat panel already subscribes to and binding that entity's stop mutation.
 - Each row shows status, background flag, step count and duration, and expands into the agent's transcript (its activity steps plus the captured tool result); running background agents can be stopped from the row.
 - Data is folded client-side from `message.activityLog` subtask/`parentToolUseId` steps, the live streaming payload, and the existing `backgroundAgents` lifecycle entries — no backend changes.
 - The tab is content-keyed (appears once agents exist), pulses while one runs, joins the tab cycle hotkey and command palette, and is hidden in simple view; entries stranded as "running" after a sandbox stops now read as stale.

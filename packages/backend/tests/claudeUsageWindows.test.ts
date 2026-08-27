@@ -177,6 +177,77 @@ describe("readClaudeUsageWindows", () => {
   });
 });
 
+/**
+ * Current `/usage` bodies null out the legacy `five_hour` / `seven_day` keys
+ * and report the same numbers as `limits[]` entries instead. Without this
+ * fallback a refresh stores only the model-scoped weeklies, so the chip loses
+ * the two windows that actually gate work.
+ */
+describe("limits[] stands in for the legacy top-level windows", () => {
+  test("session and weekly_all fill 5h and Weekly (all models)", () => {
+    const resetsAtMs = Date.UTC(2026, 7, 25, 12, 0, 0);
+    const windows = readClaudeUsageWindows(
+      parse({
+        five_hour: null,
+        seven_day: null,
+        limits: [
+          { kind: "session", percent: 61, resets_at: resetsAtMs / 1000 },
+          { kind: "weekly_all", percent: 23 },
+          {
+            kind: "weekly_scoped",
+            percent: 12,
+            scope: { model: { display_name: "Fable" } },
+          },
+        ],
+      }),
+    );
+    expect(windows).toEqual([
+      { key: "five_hour", label: "5h", utilization: 61, resetsAt: resetsAtMs },
+      { key: "seven_day", label: "Weekly (all models)", utilization: 23 },
+      { key: "model_scoped:Fable", label: "Weekly (Fable)", utilization: 12 },
+    ]);
+  });
+
+  test("a body carrying only limits[] is still a usage report", () => {
+    // Nothing at the top level, so `hasPlanRateLimits` has to read `limits[]`
+    // or a good stored row gets discarded as "Claude reported nothing".
+    expect(
+      hasPlanRateLimits(parse({ limits: [{ kind: "session", percent: 4 }] })),
+    ).toBe(true);
+  });
+
+  test("a top-level window wins over the same window in limits[]", () => {
+    // Both shapes in one body must not draw the window twice.
+    expect(
+      readClaudeUsageWindows(
+        parse({
+          five_hour: { utilization: 70 },
+          limits: [
+            { kind: "session", percent: 61 },
+            { kind: "weekly_all", percent: 23 },
+          ],
+        }),
+      ),
+    ).toEqual([
+      { key: "five_hour", label: "5h", utilization: 70 },
+      { key: "seven_day", label: "Weekly (all models)", utilization: 23 },
+    ]);
+  });
+
+  test("a repeated kind does not stack a second row on the same window", () => {
+    expect(
+      readClaudeUsageWindows(
+        parse({
+          limits: [
+            { kind: "session", percent: 61 },
+            { kind: "session", percent: 12 },
+          ],
+        }),
+      ),
+    ).toEqual([{ key: "five_hour", label: "5h", utilization: 61 }]);
+  });
+});
+
 describe("scoped limit resets", () => {
   test("limits[].resets_at accepts an ISO string", () => {
     const resetsAtMs = Date.UTC(2026, 7, 25, 12, 0, 0);

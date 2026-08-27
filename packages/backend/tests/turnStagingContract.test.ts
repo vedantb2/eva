@@ -29,8 +29,9 @@ const taskChatWorkflowSource = readFileSync(
 );
 
 /**
- * A turn is staged in two places: `startExecute` (a fresh send) and the
- * queued-message dequeue. Both must wipe `streamingActivity` first.
+ * A turn is staged in two places: the shared session stager (a fresh send, and
+ * the retry after an empty stall) and the queued-message dequeue. Both must
+ * wipe `streamingActivity` first.
  *
  * The daemon's post-completion reconcile heartbeat races the workflow's
  * `clearStreamingActivity` in `saveResult`. When the heartbeat lands last it
@@ -38,16 +39,19 @@ const taskChatWorkflowSource = readFileSync(
  * turn's placeholder flashes the previous turn's thinking trace. Clearing at
  * staging time makes the placeholder start clean whichever way the race lands.
  */
-test("startExecute clears streamingActivity before staging the placeholder", () => {
-  const clearAt = executionSource.indexOf(
-    "await clearStreamingActivity(ctx, String(args.sessionId));",
+test("staging a session turn clears streamingActivity before the placeholder", () => {
+  const stager = functionBody(
+    executionSource,
+    "async function stageAndStartSessionTurn(",
   );
-  const placeholderAt = executionSource.indexOf(
-    'await ctx.db.insert("messages"',
+  const clearAt = stager.indexOf(
+    "await clearStreamingActivity(ctx, String(params.session._id));",
   );
-  expect(clearAt, "startExecute must clear streamingActivity").toBeGreaterThan(
-    -1,
-  );
+  const placeholderAt = stager.indexOf('await ctx.db.insert("messages"');
+  expect(
+    clearAt,
+    "the session stager must clear streamingActivity",
+  ).toBeGreaterThan(-1);
   expect(placeholderAt).toBeGreaterThan(-1);
   expect(clearAt).toBeLessThan(placeholderAt);
 });

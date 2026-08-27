@@ -15,6 +15,7 @@ import {
   IconPlayerPlay,
   IconProgress,
   IconPencil,
+  IconArchive,
 } from "@tabler/icons-react";
 import { Avatar, AvatarFallback } from "@eva/ui";
 import type { BadgeProps } from "@eva/ui";
@@ -124,6 +125,13 @@ const typeConfig: Record<Notification["type"], NotificationAppearance> = {
     badgeVariant: "outline",
     iconBg: "bg-muted",
     iconColor: "text-muted-foreground",
+  },
+  session_archived: {
+    icon: IconArchive,
+    label: "Archived",
+    badgeVariant: "secondary",
+    iconBg: "bg-secondary",
+    iconColor: "text-secondary-foreground",
   },
 };
 

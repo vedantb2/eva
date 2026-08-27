@@ -532,8 +532,10 @@ export const sessionExecuteWorkflow = workflow.define({
     });
 
     // Eva owns publishing: the agent commits inside the sandbox but never
-    // pushes (see prompts.ts). Always attempt the push after a successful
-    // AGENT turn — matching project/task chat. Do NOT gate on
+    // pushes (see prompts.ts). Always attempt the push — success and durability
+    // are orthogonal, and this is the only publish left when the daemon died
+    // too hard to run its own (SIGKILL: no failure completion ran from the
+    // sandbox, yet this workflow still finalizes). Do NOT gate on
     // `git status --porcelain`: after a proper commit the tree is clean, so
     // that check skipped every publish and left commits stranded in the
     // sandbox. pushBranchToOrigin itself skips when HEAD has no commits
@@ -541,7 +543,7 @@ export const sessionExecuteWorkflow = workflow.define({
     let pushSucceeded = false;
     let pushedCommits = false;
     let branchPublished = false;
-    if (result.success && data.branchName) {
+    if (data.branchName) {
       try {
         const pushResult = await step.runAction(
           internal.sandbox.pushSandboxBranch,
@@ -562,20 +564,29 @@ export const sessionExecuteWorkflow = workflow.define({
         console.error(
           `[sessionWorkflow] pushSandboxBranch failed sessionId=${args.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
         );
-        await step.runMutation(internal.sessionWorkflow.saveResult, {
-          sessionId: args.sessionId,
-          ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
-          success: false,
-          result: result.result,
-          error: publishError,
-          activityLog: result.activityLog,
-          planContent,
-          pendingQuestion: result.pendingQuestion,
-        });
+        // Only a successful turn reports the publish failure to the user: on a
+        // failed turn `result` is null, so delayedPublishFailureError does not
+        // recognise this message and normal finalisation would overwrite the
+        // turn's own error with this publish one.
+        if (result.success) {
+          await step.runMutation(internal.sessionWorkflow.saveResult, {
+            sessionId: args.sessionId,
+            ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
+            success: false,
+            result: result.result,
+            error: publishError,
+            activityLog: result.activityLog,
+            planContent,
+            pendingQuestion: result.pendingQuestion,
+          });
+        }
       }
     }
 
-    if (pushSucceeded) {
+    // Only the push above is unconditional. Deploy polling and the draft PR stay
+    // success-gated: a failed turn's work is published so it cannot be lost, not
+    // proposed as a change to review or deploy.
+    if (pushSucceeded && result.success) {
       await step.runMutation(
         internal.sessionWorkflow.scheduleSessionDeploymentTracking,
         {

@@ -253,6 +253,13 @@ function endWatchedTurn(): void {
  */
 async function failTurnAndExit(error: string): Promise<never> {
   log("daemon: failing turn — " + error);
+  // Durability BEFORE completion, exactly as finalizeTurn does it: success and
+  // durability are orthogonal. A turn that committed work (or left it dirty) and
+  // then failed still produced the user's work, and this process is about to
+  // exit — nothing else will publish it, so a VM death erases it. Outside the
+  // try: persistTurnWork logs its own failures and never throws, and the
+  // completion below must post regardless.
+  persistTurnWork();
   try {
     const completionArgs: JsonObject = {
       [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
@@ -296,6 +303,10 @@ async function failTurnAndExit(error: string): Promise<never> {
  */
 async function exitWithoutCompletion(reason: string): Promise<void> {
   log("daemon: exiting without completion — " + reason);
+  // A cancelled turn can still have committed work, and this daemon is leaving
+  // for good. persistTurnWork only touches git — it posts no mutation — so it is
+  // safe on a turn the server has already finalized.
+  persistTurnWork();
   // Same ownership gate as failTurnAndExit: never delete a rival's pidfile.
   if (readDaemonPidFile() === process.pid) {
     try {
@@ -318,6 +329,9 @@ function startTurnWatchdog(): void {
         // here; it could resolve the NEXT turn's workflow event instead.
         // Force-exit so prewarm respawns a clean daemon for whatever is next.
         log("daemon: cancelled turn did not settle in time — exiting");
+        // Same reasoning as exitWithoutCompletion: publish the cancelled turn's
+        // work (git only, no mutation) before this process disappears.
+        persistTurnWork();
         process.exit(1);
       }
       return;
@@ -958,6 +972,10 @@ async function failSyntheticTurn(error: string): Promise<void> {
   }
   log("daemon: failing synthetic turn — " + error);
   const messageId = turn.messageId;
+  // Durability BEFORE completion, exactly as finalizeSyntheticTurn does it: a
+  // failed synthetic turn's committed work is still the user's work, and a
+  // synthetic turn has no workflow, so this is the only push it will ever get.
+  persistTurnWork();
   try {
     await flushStreaming();
     for (const step of S.accumulatedSteps) {

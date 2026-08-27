@@ -36,15 +36,68 @@ describe("a successful turn always publishes", () => {
     expect(gated, "a clean tree is the normal success case").toEqual([]);
   });
 
-  test("the session push is conditioned only on mode, success and branch", () => {
-    const condition = sessionWorkflow.slice(
-      sessionWorkflow.lastIndexOf("if (", sessionWorkflow.indexOf(PUSH_ACTION)),
-      sessionWorkflow.indexOf(PUSH_ACTION),
-    );
-    expect(condition).toContain("result.success");
+  test("the session push is conditioned only on the branch", () => {
+    const condition = pushCondition(sessionWorkflow);
     expect(condition).toContain("data.branchName");
     expect(condition).not.toContain("porcelain");
     expect(condition).not.toContain("isDirty");
+  });
+});
+
+/**
+ * The counterpart to the above: success and durability are orthogonal. A turn
+ * that committed work (or left it dirty) and then failed still produced the
+ * user's work, and gating publication on success erased it whenever the VM died
+ * — a hard death snapshots nothing and the next resume rolls the filesystem
+ * back. Both halves have to be ungated: the daemon's pre-completion push (for
+ * failures it reports itself) and the workflow's push (for a SIGKILLed daemon
+ * that never reported anything).
+ */
+describe("a failed turn still publishes its work", () => {
+  test.each([
+    ["failTurnAndExit", "COMPLETION_MUTATION"],
+    ["failSyntheticTurn", "COMPLETE_SYNTHETIC_TURN_MUTATION"],
+  ] as const)("%s persists before its completion", (fn, mutation) => {
+    const body = functionBody(claudeSdkDaemon, `async function ${fn}(`);
+    const persistAt = body.indexOf("persistTurnWork();");
+    const completionAt = body.indexOf(mutation);
+    expect(persistAt, `${fn} lost its durability push`).toBeGreaterThan(-1);
+    expect(completionAt, `the ${fn} completion moved`).toBeGreaterThan(-1);
+    expect(persistAt).toBeLessThan(completionAt);
+  });
+
+  /**
+   * The daemon can die too hard to run any of the above (SIGKILL on a runtime
+   * cap), and the workflow still finalizes the turn — so its push is the last
+   * chance to publish. pushBranchToOrigin no-ops when HEAD carries no commits
+   * origin lacks, so a failed chat-only turn still publishes nothing.
+   */
+  test.each([
+    ["session", sessionWorkflow],
+    ["task chat", taskChatWorkflow],
+    ["project chat", projectChatWorkflow],
+  ] as const)("the %s workflow push is not success-gated", (_label, source) => {
+    expect(pushCondition(source)).not.toContain("result.success");
+  });
+
+  /**
+   * Only the push becomes unconditional. Publishing a failed turn's work keeps
+   * it recoverable; it must not also propose the branch as a change to review or
+   * deploy.
+   */
+  test("the session PR and deploy steps stay success-gated", () => {
+    const gateAt = sessionWorkflow.indexOf(
+      "if (pushSucceeded && result.success)",
+    );
+    const prAt = sessionWorkflow.indexOf(
+      "internal.github.createDraftSessionPr",
+    );
+    const deployAt = sessionWorkflow.indexOf(
+      "internal.sessionWorkflow.scheduleSessionDeploymentTracking",
+    );
+    expect(gateAt, "the post-push success gate moved").toBeGreaterThan(-1);
+    expect(gateAt).toBeLessThan(deployAt);
+    expect(gateAt).toBeLessThan(prAt);
   });
 });
 
@@ -603,6 +656,13 @@ function convexFiles(): string[] {
     .map((entry) => String(entry).replaceAll("\\", "/"))
     .filter((path) => path.endsWith(".ts"))
     .filter((path) => !path.includes("_generated"));
+}
+
+/** The `if (…)` a workflow wraps its push step in. */
+function pushCondition(source: string): string {
+  const pushAt = source.indexOf(PUSH_ACTION);
+  expect(pushAt, "the push action moved").toBeGreaterThan(-1);
+  return source.slice(source.lastIndexOf("if (", pushAt), pushAt);
 }
 
 /** One top-level function, ending on the `\n}` that closes it at column 0. */

@@ -720,7 +720,11 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       pendingQuestion: result.pendingQuestion,
     });
 
-    if (result.success && activeSandboxId && data.branchName) {
+    // Not gated on success: a turn that failed after committing still produced
+    // the user's work, and this is the only publish left when the daemon died
+    // too hard to run its own. The push itself skips when HEAD carries no
+    // commits origin lacks, so a failed chat-only turn publishes nothing.
+    if (activeSandboxId && data.branchName) {
       try {
         await step.runAction(internal.sandbox.pushSandboxBranch, {
           sandboxId: activeSandboxId,
@@ -735,14 +739,20 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
         console.error(
           `[agentTaskChatWorkflow] pushSandboxBranch failed taskId=${String(args.taskId)}: ${error instanceof Error ? error.message : String(error)}`,
         );
-        await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
-          taskId: args.taskId,
-          success: false,
-          result: result.result,
-          error: publishError,
-          activityLog: result.activityLog,
-          pendingQuestion: result.pendingQuestion,
-        });
+        // Only a successful turn reports the publish failure to the user: on a
+        // failed turn `result` is null, so delayedPublishFailureError does not
+        // recognise this message and normal finalisation would overwrite the
+        // turn's own error with this publish one.
+        if (result.success) {
+          await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
+            taskId: args.taskId,
+            success: false,
+            result: result.result,
+            error: publishError,
+            activityLog: result.activityLog,
+            pendingQuestion: result.pendingQuestion,
+          });
+        }
       }
     }
   },

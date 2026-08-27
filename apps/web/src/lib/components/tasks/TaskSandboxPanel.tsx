@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@eva/backend";
-import type { Id, SandboxOwner } from "@eva/backend";
+import type { BackgroundAgentEntry, Id, SandboxOwner } from "@eva/backend";
 import { isSessionSandboxTab, type SandboxTab } from "@/lib/search-params";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
@@ -15,7 +15,9 @@ import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { SandboxPanelFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
+import { useSubagentRoster } from "@/lib/components/sandbox/useSubagentRoster";
 import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
+import { SandboxAgentsPanel } from "@/lib/components/sandbox/SandboxAgentsPanel";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 interface TaskSandboxPanelProps {
@@ -38,6 +40,8 @@ interface TaskSandboxPanelProps {
   panes: SandboxPanesApi;
   terminalPanel: TerminalPanelApi;
   prUrl?: string;
+  /** Sub-agent lifecycle entries from the task doc (Agents tab). */
+  backgroundAgents?: BackgroundAgentEntry[];
   activeTab: SandboxTab;
   onTabChange: (tab: SandboxTab) => void;
   onStartSandbox?: () => void;
@@ -65,6 +69,7 @@ export function TaskSandboxPanel({
   panes,
   terminalPanel,
   prUrl,
+  backgroundAgents,
   activeTab,
   onTabChange,
   onStartSandbox,
@@ -74,6 +79,15 @@ export function TaskSandboxPanel({
 }: TaskSandboxPanelProps) {
   const simpleView = useSimpleView();
   const taskIdStr = String(taskId);
+
+  // Content-keyed Agents tab, folded from the chat transcript the task's chat
+  // panel already subscribes to (same entity ids).
+  const { agents, hasAgents, hasRunningAgents } = useSubagentRoster({
+    parentId: taskId,
+    streamingEntityId: `task-chat-${taskIdStr}`,
+    backgroundAgents,
+    sandboxRunning: isActive,
+  });
 
   const viewState = useQuery(api.sandboxPanes.getViewState, { owner });
   const setPreviewPath = useMutation(api.sandboxPanes.setPreviewPath);
@@ -139,6 +153,8 @@ export function TaskSandboxPanel({
         newPreviewDisabled={panes.newPreviewDisabled}
         enabledTabs={enabledTabs}
         showFilesTab
+        showAgentsTab={hasAgents}
+        hasRunningAgents={hasRunningAgents}
         agentBrowsingAt={viewState?.agentBrowsingAt}
         computerTabOpen={computerTabOpen}
         computerRunning={computerRunning}
@@ -161,6 +177,13 @@ export function TaskSandboxPanel({
             isActive={isActive}
             fileList={fileList}
           />
+        </div>
+        <div
+          className={
+            !simpleView && tabBarValue === "agents" ? "h-full min-h-0" : "hidden"
+          }
+        >
+          <SandboxAgentsPanel entity={{ kind: "task", taskId }} agents={agents} />
         </div>
         <SandboxPaneSlots
           activeTab={tabBarValue}

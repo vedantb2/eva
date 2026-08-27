@@ -35,6 +35,10 @@ import { stripReviewCommentBlocks } from "@/lib/reviewComments";
 import { type MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
 import { useSkillSlashItems } from "@/lib/hooks/useSkillSlashItems";
 import { QueuedMessagesPanel } from "@/lib/components/QueuedMessagesPanel";
+import {
+  composerTaskStepsFromActivity,
+  ComposerTasksPanel,
+} from "@/lib/components/chat/_components/ComposerTasksPanel";
 import type { ChatBodyQueuedMessage } from "@/lib/components/chat/chatBodyUtils";
 import { useQueuedMessageMutations } from "@/lib/components/chat/useQueuedMessageMutations";
 
@@ -75,6 +79,10 @@ interface ChatComposerProps {
   onCancel: () => Promise<void>;
   beforeQueuedContent?: React.ReactNode;
   preInputContent?: React.ReactNode;
+  /** Live turn activity JSON — its todo snapshot feeds the Tasks panel. */
+  streamingActivity?: string;
+  /** Message id of the streaming turn; scopes Tasks-panel dismissal to it. */
+  streamingTurnId?: string;
   /** Optional left-side control on the under-input card (e.g. base branch). */
   underCardLeading?: React.ReactNode;
   draft?: ChatDraftSeed;
@@ -105,6 +113,8 @@ export function ChatComposer({
   onCancel,
   beforeQueuedContent,
   preInputContent,
+  streamingActivity,
+  streamingTurnId,
   underCardLeading,
   draft,
   localDraft,
@@ -173,6 +183,10 @@ export function ChatComposer({
         ) : null}
       </AnimatePresence>
       {preInputContent}
+      <ComposerTasksPanel
+        steps={composerTaskStepsFromActivity(streamingActivity)}
+        turnId={streamingTurnId}
+      />
       <QueuedMessagesPanel
         items={queuedMessageItems}
         renderContent={(content) => {

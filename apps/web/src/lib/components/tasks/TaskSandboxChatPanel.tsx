@@ -20,7 +20,8 @@ import {
 } from "@/lib/components/tasks/firstRunChatTurn";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxChatHeaderActions } from "@/lib/components/sandbox/SandboxStartStopButton";
-import { BackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
+import { SandboxChatPreInput } from "@/lib/components/chat/SandboxChatPreInput";
+import type { SandboxChatSurface } from "@/lib/components/chat/sandboxChatSurface";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,
@@ -34,6 +35,8 @@ interface TaskSandboxChatPanelProps {
   isSandboxToggling?: boolean;
   /** Opens the Files tab and loads this sandbox path in the file viewer. */
   onOpenFile?: (path: string) => void;
+  /** Opens the Agents sandbox tab (used by the sub-agent CTA row in the chat). */
+  onOpenAgentsTab?: () => void;
   onSandboxToggle?: (action: "start" | "stop") => void;
 }
 
@@ -42,6 +45,7 @@ export function TaskSandboxChatPanel({
   isSandboxActive,
   isSandboxToggling = false,
   onOpenFile,
+  onOpenAgentsTab,
   onSandboxToggle,
 }: TaskSandboxChatPanelProps) {
   const { repo, basePath } = useRepo();
@@ -125,9 +129,6 @@ export function TaskSandboxChatPanel({
       },
     );
   });
-  const requestStopBackgroundAgent = useMutation(
-    api.agentTaskChatWorkflow.requestStopBackgroundAgent,
-  );
 
   // Model + account stay on the task doc (shared with activity composer).
   // Traits are sticky on Convex like sessions (no localStorage).
@@ -268,6 +269,22 @@ export function TaskSandboxChatPanel({
     await cancelExecution({ taskId });
   };
 
+  const chatSurface: SandboxChatSurface = {
+    entity: { kind: "task", taskId },
+    repoId: repo._id,
+    model,
+    isExecuting,
+    isReadOnly: false,
+    // A stopped sandbox cannot run `/compact`, so it counts as read-only here.
+    compactionReadOnly: !isSandboxActive,
+    backgroundAgents: task?.backgroundAgents,
+    // No review-comment append on this send path (sessions-only), so a slash
+    // command already reaches the harness verbatim.
+    onSendCommand: (command) => {
+      void handleSend(command);
+    },
+  };
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
       <SandboxChatHeaderActions
@@ -315,17 +332,13 @@ export function TaskSandboxChatPanel({
         onTraitsChange={onTraitsChange}
         onSend={handleSend}
         onCancel={handleCancel}
-        preInputContent={
-          <BackgroundAgentsChip
-            backgroundAgents={task?.backgroundAgents}
-            onRequestStop={async (toolUseId) => {
-              await requestStopBackgroundAgent({ taskId, toolUseId });
-            }}
-          />
-        }
+        preInputContent={<SandboxChatPreInput surface={chatSurface} />}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}
+        onOpenAgentsTab={onOpenAgentsTab}
+        backgroundAgents={task?.backgroundAgents}
+        sandboxRunning={isSandboxActive}
       />
     </div>
   );

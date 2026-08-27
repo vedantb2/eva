@@ -13,6 +13,7 @@ import { decryptValue } from "./encryption";
 import { resolveAllEnvVars } from "./envVarResolver";
 import https from "node:https";
 import {
+  claudeUsageBodyFromUnifiedHeaders,
   claudeUsageBodySchema,
   hasPlanRateLimits,
   readClaudeUsageWindows,
@@ -25,21 +26,29 @@ import {
  * to report one. The card's refresh button calls this; everything else about
  * the feature still arrives from the sandbox.
  *
- * Reads `GET /api/oauth/usage` with Claude Code's User-Agent via `https.request`
- * so the header actually leaves the process ? fetch in some runtimes strips it,
- * and Anthropic then 429s. Needs a token with `user:profile` (Claude Code OAuth);
- * a setup-token (`user:inference` only) 403s and is reported as unauthorized.
+ * `GET /api/oauth/usage` is tried first: it is the only source that names every
+ * window. It needs `user:profile`, and the credential Eva stores for launches is
+ * usually a setup-token (`sk-ant-oat…`, `user:inference` only), which 403s it —
+ * so an unauthorized or empty answer falls back to a 1-token Messages call and
+ * reads the 5h/weekly-all windows off its `anthropic-ratelimit-unified-*`
+ * headers. That fallback sees no per-model weeklies, so its reading is stored as
+ * a partial merge rather than a replacing snapshot.
+ *
+ * Both requests are made with `https.request` so User-Agent actually leaves the
+ * process — fetch in some runtimes strips it, and Anthropic then 429s.
  *
  * The reading is always taken with the credential the caller's surface is
- * scoped to ? a connected account, or the shared team credential ? and never
+ * scoped to — a connected account, or the shared team credential — and never
  * falls back from one to the other, because the whole point of the row is
  * whose plan it measures.
  */
 
 const CLAUDE_USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
+const CLAUDE_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 const USAGE_TIMEOUT_MS = 8_000;
 /** Required by the undocumented OAuth usage endpoint. */
 const CLAUDE_USAGE_BETA = "oauth-2025-04-20";
+const CLAUDE_API_VERSION = "2023-06-01";
 /**
  * The `/usage` endpoint rate-limits by User-Agent. Node/undici's default (and
  * a missing UA) land in a bucket that 429s immediately; Claude Code's
@@ -47,6 +56,15 @@ const CLAUDE_USAGE_BETA = "oauth-2025-04-20";
  * fetch runtime cannot strip it as a forbidden header.
  */
 const CLAUDE_USAGE_USER_AGENT = "claude-code/2.1.72";
+/**
+ * Cheapest current Haiku id, then a versionless alias. The probe is a 1-token
+ * Messages call; model ids rot, so a 404 tries the next rather than failing
+ * the refresh.
+ */
+const USAGE_PROBE_MODELS = [
+  "claude-haiku-4-5-20251001",
+  "claude-haiku-4-5",
+] as const;
 
 type UsageProvider = Infer<typeof usageLimitProviderValidator>;
 
@@ -60,8 +78,14 @@ type RefreshFailure =
 
 type TokenLookup = { kind: "token"; token: string } | { kind: "missing" };
 
+/**
+ * Which endpoint produced a reading. Only `/usage` names every window, so the
+ * source decides whether the stored row may be replaced or must be merged.
+ */
+type UsageSource = "oauth-usage" | "messages-probe";
+
 type UsageFetch =
-  | { kind: "body"; body: ClaudeUsageBody }
+  | { kind: "body"; body: ClaudeUsageBody; source: UsageSource }
   | { kind: "unauthorized" }
   | { kind: "network" }
   | { kind: "rate-limited" };
@@ -121,6 +145,7 @@ function readUsageBody(text: string): ClaudeUsageBody | null {
 
 type HttpResult = {
   status: number;
+  header: (name: string) => string | undefined;
   text: string;
 };
 
@@ -130,8 +155,9 @@ type HttpResult = {
  */
 function requestHttps(input: {
   url: string;
-  method: "GET";
+  method: "GET" | "POST";
   headers: Record<string, string>;
+  body?: string;
 }): Promise<HttpResult | null> {
   return new Promise((resolve) => {
     const url = new URL(input.url);
@@ -152,6 +178,7 @@ function requestHttps(input: {
         res.on("end", () => {
           resolve({
             status: res.statusCode ?? 0,
+            header: (name) => readNodeHeader(res.headers[name.toLowerCase()]),
             text,
           });
         });
@@ -166,8 +193,21 @@ function requestHttps(input: {
       console.warn("[usageLimits] Claude usage request failed", "timeout");
       resolve(null);
     });
+    if (input.body !== undefined) req.write(input.body);
     req.end();
   });
+}
+
+/** A repeated header arrives as an array; only its first value is a reading. */
+function readNodeHeader(
+  value: string | string[] | undefined,
+): string | undefined {
+  if (value === undefined) return undefined;
+  if (Array.isArray(value)) {
+    const first = value[0];
+    return first === undefined || first.length === 0 ? undefined : first;
+  }
+  return value.length === 0 ? undefined : value;
 }
 
 function credentialKind(token: string): string {

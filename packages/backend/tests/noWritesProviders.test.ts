@@ -71,9 +71,7 @@ describe("Cursor translates the flag into disallowedTools", () => {
     // so pin that they do rather than that two literals exist.
     expect(cursor).toContain("const options: SdkAgentOptions = {");
     expect(cursor).toContain("sdk.Agent.create(options)");
-    expect(cursor).toContain(
-      "sdk.Agent.resume(sessionMode.sessionId, options)",
-    );
+    expect(cursor).toContain("sdk.Agent.resume(savedSessionId, options)");
   });
 });
 

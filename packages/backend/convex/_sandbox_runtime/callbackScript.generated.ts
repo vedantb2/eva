@@ -3794,6 +3794,15 @@ function cursorToolCallEvents(event) {
   }
   return [];
 }
+function cursorCompactionEventPhase(type) {
+  if (type === "summary-started" || type === "summary_started") {
+    return "started";
+  }
+  if (type === "summary-completed" || type === "summary_completed") {
+    return "completed";
+  }
+  return null;
+}
 var SILENT_EVENT_TYPES = /* @__PURE__ */ new Set([
   "user",
   "status",
@@ -3845,6 +3854,25 @@ function cursorEventToCanonical(event) {
   if (event.type === "result") {
     events.push({ kind: "mark_last_complete" });
     return events;
+  }
+  if (typeof event.type === "string") {
+    const compactionPhase = cursorCompactionEventPhase(event.type);
+    if (compactionPhase === "started") {
+      events.push({
+        kind: "update_thinking",
+        label: "Compacting context...",
+        detail: "Cursor is summarizing the conversation in place."
+      });
+      return events;
+    }
+    if (compactionPhase === "completed") {
+      events.push({
+        kind: "update_thinking",
+        label: "Context compacted",
+        detail: "The agent continues with its history summarized in place."
+      });
+      return events;
+    }
   }
   return events;
 }
@@ -5131,6 +5159,10 @@ function synchronizeForPush(branch) {
   log(\`persistTurnWork: unexpected divergence: \${divergence.out}\`);
   return { status: "failed" };
 }
+function tipAlreadyPublished(exclusion) {
+  const unpushed = git(["rev-list", "--count", "HEAD", "--not", ...exclusion]);
+  return unpushed.ok && unpushed.out === "0";
+}
 function persistTurnWork() {
   if (REQUIRE_TASK_COMMIT || RUN_ID) return;
   const startedAt = Date.now();
@@ -5156,19 +5188,13 @@ function persistTurnWork() {
       );
     }
   }
+  if (tipAlreadyPublished([\`refs/remotes/origin/\${branch.out}\`])) return;
   const refspec = \`refs/heads/\${branch.out}:refs/heads/\${branch.out}\`;
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     const sync = synchronizeForPush(branch.out);
     if (sync.status === "failed") return;
     const exclusion = sync.remoteExists ? [\`refs/remotes/origin/\${branch.out}\`] : ["--remotes=origin"];
-    const unpushed = git([
-      "rev-list",
-      "--count",
-      "HEAD",
-      "--not",
-      ...exclusion
-    ]);
-    if (unpushed.ok && unpushed.out === "0") return;
+    if (tipAlreadyPublished(exclusion)) return;
     const push = git(["push", "origin", refspec], PUSH_TIMEOUT_MS);
     if (push.ok) {
       log(
@@ -5481,6 +5507,7 @@ function endWatchedTurn() {
 }
 async function failTurnAndExit(error) {
   log("daemon: failing turn \\u2014 " + error);
+  persistTurnWork();
   try {
     const completionArgs = {
       [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
@@ -5509,6 +5536,7 @@ async function failTurnAndExit(error) {
 }
 async function exitWithoutCompletion(reason) {
   log("daemon: exiting without completion \\u2014 " + reason);
+  persistTurnWork();
   if (readDaemonPidFile() === process.pid) {
     try {
       unlinkSync(DAEMON_PID_FILE);
@@ -5523,6 +5551,7 @@ function startTurnWatchdog() {
     if (supervisor.isCancellationInFlight) {
       if (now - turnCancelRequestedAtMs > CANCEL_SETTLE_TIMEOUT_MS) {
         log("daemon: cancelled turn did not settle in time \\u2014 exiting");
+        persistTurnWork();
         process.exit(1);
       }
       return;
@@ -5991,6 +6020,7 @@ async function failSyntheticTurn(error) {
   }
   log("daemon: failing synthetic turn \\u2014 " + error);
   const messageId = turn.messageId;
+  persistTurnWork();
   try {
     await flushStreaming();
     for (const step of callbackState.accumulatedSteps) {
@@ -6079,6 +6109,7 @@ async function finalizeSyntheticTurn(output) {
     completionArgs.turnId = turnLease.turnId;
     completionArgs.leaseGeneration = turnLease.leaseGeneration;
   }
+  persistTurnWork();
   await callConvexWithRetry(
     "mutation",
     COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
@@ -6486,6 +6517,7 @@ async function runSdkDaemon() {
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     log("daemon: query failed \\u2014 " + messageText);
+    persistTurnWork();
     try {
       await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
         [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
@@ -7111,9 +7143,12 @@ function cursorEventHasVisibleActivity(type) {
   return type === "thinking" || type === "assistant" || type === "tool_call";
 }
 function cursorEventWaitTimeoutMs(args) {
-  if (args.toolInFlight) return MAX_TOTAL_RUNTIME_MS;
+  if (args.toolInFlight || args.compactionInFlight) return MAX_TOTAL_RUNTIME_MS;
   if (args.sawVisibleActivity) return CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS;
-  return Math.max(1, args.firstVisibleDeadlineAt - args.now);
+  return Math.max(
+    1,
+    args.lastEventAt + CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS - args.now
+  );
 }
 function cursorModeParams(model, fastMode, use1mContext) {
   const params = [];
@@ -7355,6 +7390,7 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
   );
   let attemptOutput = "";
   let lastMessageAt = Date.now();
+  let compactionInFlight = false;
   let timedOutForNoOutput = false;
   let timedOutForMaxRuntime = false;
   let sawResult = false;
@@ -7400,28 +7436,48 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     persistAgentId(created.agentId);
     return created;
   };
+  const resumeSavedAgent = async (savedSessionId) => {
+    updateThinkingStep(
+      "Restoring Cursor context...",
+      "Opening the saved agent..."
+    );
+    const resumed = await waitForCursorPhase({
+      task: sdk.Agent.resume(savedSessionId, options),
+      phase: "restoring saved context",
+      timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS
+    });
+    persistAgentId(resumed.agentId);
+    return resumed;
+  };
   let resumedExistingAgent = false;
   let agent;
   if (sessionMode.mode === "resume" && sessionMode.sessionId) {
     try {
-      updateThinkingStep(
-        "Restoring Cursor context...",
-        "Opening the saved agent..."
-      );
-      agent = await waitForCursorPhase({
-        task: sdk.Agent.resume(sessionMode.sessionId, options),
-        phase: "restoring saved context",
-        timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS
-      });
+      agent = await resumeSavedAgent(sessionMode.sessionId);
       resumedExistingAgent = true;
-      persistAgentId(agent.agentId);
     } catch (error) {
       const messageText = error instanceof Error ? error.message : String(error);
       log(
-        "runCursorSdkAttempt: resume failed \\u2014 starting a fresh agent (" + messageText + ")"
+        "runCursorSdkAttempt: resume failed \\u2014 retrying the saved agent (" + messageText + ")"
       );
       appendToRawLogFile("[sdk-retry] resume failed: " + messageText + "\\n");
-      agent = await createFreshAgent();
+      if (error instanceof Error && !isAgentNotFound(error)) {
+        try {
+          agent = await resumeSavedAgent(sessionMode.sessionId);
+          resumedExistingAgent = true;
+        } catch (retryError) {
+          const retryMessageText = retryError instanceof Error ? retryError.message : String(retryError);
+          log(
+            "runCursorSdkAttempt: resume retry failed \\u2014 starting a fresh agent (" + retryMessageText + ")"
+          );
+          appendToRawLogFile(
+            "[sdk-retry] resume retry failed: " + retryMessageText + "\\n"
+          );
+          agent = await createFreshAgent();
+        }
+      } else {
+        agent = await createFreshAgent();
+      }
     }
   } else {
     agent = await createFreshAgent();
@@ -7436,7 +7492,7 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
       cancelRun();
       return;
     }
-    if (callbackState.inFlightToolUses > 0) {
+    if (callbackState.inFlightToolUses > 0 || compactionInFlight) {
       lastMessageAt = now;
     }
     if (!sawResult && now - lastMessageAt > CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS) {
@@ -7481,7 +7537,8 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     updateThinkingStep("Waiting for Grok...", "The model is thinking...");
     const messages = run.stream()[Symbol.asyncIterator]();
     let sawVisibleActivity = false;
-    const firstVisibleDeadlineAt = Date.now() + CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS;
+    lastMessageAt = Date.now();
+    compactionInFlight = false;
     while (true) {
       const phase = sawVisibleActivity ? "waiting for the next model event" : "waiting for the first model event";
       const next = await waitForCursorPhase({
@@ -7489,9 +7546,10 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
         phase,
         timeoutMs: cursorEventWaitTimeoutMs({
           sawVisibleActivity,
-          firstVisibleDeadlineAt,
+          lastEventAt: lastMessageAt,
           now: Date.now(),
-          toolInFlight: callbackState.inFlightToolUses > 0
+          toolInFlight: callbackState.inFlightToolUses > 0,
+          compactionInFlight
         }),
         onTimeout: () => {
           timedOutForNoOutput = true;
@@ -7502,6 +7560,10 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
       const message = next.value;
       if (cursorEventHasVisibleActivity(message.type)) {
         sawVisibleActivity = true;
+      }
+      const compactionPhase = cursorCompactionEventPhase(message.type);
+      if (compactionPhase !== null) {
+        compactionInFlight = compactionPhase === "started";
       }
       lastMessageAt = Date.now();
       pushLine(JSON.stringify(message) + "\\n");
@@ -7570,31 +7632,57 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
       })
     );
   };
+  const resetForRecovery = (failedAgent) => {
+    try {
+      failedAgent.close();
+    } catch {
+    }
+    activeRun = null;
+    timedOutForNoOutput = false;
+    lastMessageAt = Date.now();
+    compactionInFlight = false;
+  };
   try {
     try {
       await runTurnWithRetries(agent, !resumedExistingAgent);
     } catch (error) {
       const retryStalledResume = error instanceof Error && shouldRetryStalledCursorResume(error);
-      if (resumedExistingAgent && error instanceof Error && (isAgentNotFound(error) || retryStalledResume)) {
-        log(
-          "runCursorSdkAttempt: resumed agent unusable \\u2014 retrying as a fresh agent (" + error.message + ")"
+      if (!resumedExistingAgent || !(error instanceof Error) || !(isAgentNotFound(error) || retryStalledResume)) {
+        throw error;
+      }
+      log(
+        "runCursorSdkAttempt: resumed agent run failed \\u2014 recovering (" + error.message + ")"
+      );
+      appendToRawLogFile("[sdk-retry] " + error.message + "\\n");
+      resetForRecovery(agent);
+      const savedSessionId = callbackState.activeCursorSessionId || sessionMode.sessionId;
+      let recoveredOnSameAgent = false;
+      if (retryStalledResume && savedSessionId) {
+        pushNoticeStep2(
+          "Retrying the saved Cursor agent",
+          "The run stalled before any output, so Eva reopened the same agent to keep its context."
         );
-        appendToRawLogFile("[sdk-retry] " + error.message + "\\n");
         try {
-          agent.close();
-        } catch {
+          agent = await resumeSavedAgent(savedSessionId);
+          await runTurnWithRetries(agent, false);
+          recoveredOnSameAgent = true;
+        } catch (retryError) {
+          const retryIsRecoverable = retryError instanceof Error && (isAgentNotFound(retryError) || shouldRetryStalledCursorResume(retryError) || retryError instanceof CursorPhaseTimeoutError && retryError.phase === "restoring saved context");
+          if (!retryIsRecoverable) throw retryError;
+          log(
+            "runCursorSdkAttempt: same-agent retry failed \\u2014 starting a fresh agent (" + retryError.message + ")"
+          );
+          appendToRawLogFile("[sdk-retry] " + retryError.message + "\\n");
+          resetForRecovery(agent);
         }
-        activeRun = null;
-        timedOutForNoOutput = false;
-        lastMessageAt = Date.now();
+      }
+      if (!recoveredOnSameAgent) {
         pushNoticeStep2(
           "Started a fresh Cursor agent",
-          retryStalledResume ? "The saved agent stopped responding, so Eva recovered with a clean context." : "The saved agent could not be restored, so Eva recovered with a clean context."
+          retryStalledResume ? "The saved agent stopped responding twice, so Eva recovered with a clean context." : "The saved agent could not be restored, so Eva recovered with a clean context."
         );
         agent = await createFreshAgent();
         await runTurnWithRetries(agent, true);
-      } else {
-        throw error;
       }
     }
   } catch (error) {
@@ -7891,6 +7979,7 @@ async function finalizeTurn3(attempt) {
 }
 async function failTurnAndExit2(error) {
   log("cursor daemon: failing turn \\u2014 " + error);
+  persistTurnWork();
   try {
     const completionArgs = entityMutationArgs2({
       success: false,
@@ -8058,6 +8147,7 @@ async function executeClaimedTurn(turn) {
       await flushStreaming();
       for (const step of callbackState.accumulatedSteps) step.status = "complete";
       if (await setFinalizingState()) return;
+      persistTurnWork();
       const completionArgs = {
         [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
         success: false,
@@ -8097,6 +8187,7 @@ async function runCursorTurnWorker() {
 async function reportCursorTurnWorkerFailure(outcome) {
   const error = cursorTurnWorkerFailureMessage(outcome);
   log("cursor daemon: " + error);
+  persistTurnWork();
   const completionArgs = entityMutationArgs2({
     success: false,
     result: null,
@@ -9879,6 +9970,7 @@ try {
     process.exit(1);
   }
 } catch (err) {
+  persistTurnWork();
   syncProviderStateToPersist("fatal-error");
   await stopStreamingLoops();
   writeDoneFile("fatal-error", {

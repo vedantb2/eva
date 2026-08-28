@@ -1,7 +1,11 @@
 import { expect, test } from "vitest";
 import { splitCursorModel } from "../config.js";
 import { cursorSdkToolToStep } from "../parse/toolSteps.js";
-import { probeCursorSdkToolResult } from "../providers/cursor.js";
+import {
+  cursorCompactionEventPhase,
+  cursorParseLine,
+  probeCursorSdkToolResult,
+} from "../providers/cursor.js";
 import {
   COST_LOOKUP_RETRY_DELAYS_MS,
   EMPTY_CURSOR_COST_SNAPSHOT,
@@ -55,7 +59,7 @@ test("Cursor SDK phases fail on a bounded deadline", async () => {
   expect(timedOut).toBe(true);
 });
 
-test("only a pre-output resumed Cursor stall rotates to a fresh agent", () => {
+test("only a pre-output resumed Cursor stall is safe to replay", () => {
   expect(
     shouldRetryStalledCursorResume(
       new CursorPhaseTimeoutError("starting the model run", 60_000),
@@ -88,38 +92,79 @@ test("Cursor silence policy distinguishes safe startup recovery from visible wor
   expect(
     cursorEventWaitTimeoutMs({
       sawVisibleActivity: false,
-      firstVisibleDeadlineAt: 61_000,
+      lastEventAt: 1_000,
       now: 1_000,
       toolInFlight: false,
+      compactionInFlight: false,
     }),
   ).toBe(60_000);
-  // Silent status/usage events do not reset the first-visible deadline.
+  // The pre-visible window rolls from the LAST event of any type: a stream
+  // still emitting lifecycle events (status, usage, summaries) is alive, so
+  // only total silence trips the stall — never a slow warm-up that talks.
   expect(
     cursorEventWaitTimeoutMs({
       sawVisibleActivity: false,
-      firstVisibleDeadlineAt: 61_000,
-      now: 31_000,
+      lastEventAt: 31_000,
+      now: 41_000,
       toolInFlight: false,
+      compactionInFlight: false,
     }),
-  ).toBe(30_000);
+  ).toBe(50_000);
   // Once reasoning/text/tools are visible, a normal one-minute model pause is
   // not fatal. A much longer safety bound still catches a genuinely dead run.
   expect(
     cursorEventWaitTimeoutMs({
       sawVisibleActivity: true,
-      firstVisibleDeadlineAt: 61_000,
+      lastEventAt: 1_000,
       now: 61_000,
       toolInFlight: false,
+      compactionInFlight: false,
     }),
   ).toBe(300_000);
   expect(
     cursorEventWaitTimeoutMs({
       sawVisibleActivity: true,
-      firstVisibleDeadlineAt: 61_000,
+      lastEventAt: 1_000,
       now: 61_000,
       toolInFlight: true,
+      compactionInFlight: false,
     }),
   ).toBeGreaterThan(300_000);
+  // An in-place compaction can outlast every silence budget; timing it out
+  // would replace the very agent the resume-always design exists to keep.
+  expect(
+    cursorEventWaitTimeoutMs({
+      sawVisibleActivity: false,
+      lastEventAt: 0,
+      now: 10_000_000,
+      toolInFlight: false,
+      compactionInFlight: true,
+    }),
+  ).toBeGreaterThan(300_000);
+});
+
+test("compaction lifecycle events are recognized and shown, never dropped", () => {
+  expect(cursorCompactionEventPhase("summary-started")).toBe("started");
+  expect(cursorCompactionEventPhase("summary_started")).toBe("started");
+  expect(cursorCompactionEventPhase("summary-completed")).toBe("completed");
+  expect(cursorCompactionEventPhase("summary_completed")).toBe("completed");
+  expect(cursorCompactionEventPhase("thinking")).toBeNull();
+  expect(cursorCompactionEventPhase("tool_use_summary")).toBeNull();
+
+  expect(cursorParseLine({ type: "summary-started" })).toEqual([
+    {
+      kind: "update_thinking",
+      label: "Compacting context...",
+      detail: "Cursor is summarizing the conversation in place.",
+    },
+  ]);
+  expect(cursorParseLine({ type: "summary-completed" })).toEqual([
+    {
+      kind: "update_thinking",
+      label: "Context compacted",
+      detail: "The agent continues with its history summarized in place.",
+    },
+  ]);
 });
 
 test("splitCursorModel separates base id and reasoning level", () => {

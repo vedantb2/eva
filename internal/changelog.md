@@ -1,5 +1,14 @@
 # Changelog
 
+## Cursor sessions keep one agent: compaction is liveness, stalls retry the same agent - 2026-08-28
+
+- Root cause from prod (carepulse-ts session 53, 28 Aug 2026): a resumed Cursor agent's run was killed after 60 seconds with no *visible* event and replaced by a fresh agent — "The saved agent stopped responding". An in-place SDK compaction (`summary-started` … `summary-completed`) emits no thinking/assistant/tool_call events while it runs, so it read as a stall, and the replacement agent lost the whole conversation context the resume-always design exists to keep.
+- The pre-visible silence window in `runCursorSdkAttempt` now rolls from the last SDK event of *any* type instead of being an absolute 60-second deadline, and an open compaction is exempted from every silence budget exactly like an in-flight tool (both the event-wait timeout and the health timer). Only total silence — no events at all — still reads as a stall; the 90-minute hard runtime cap is unchanged.
+- A genuinely stalled resume no longer jumps straight to a fresh agent: it reopens the *same* saved agent once ("Retrying the saved Cursor agent") and only a second failure, or a definitive `agent_not_found`, falls back to the one-time fresh agent. The turn-start `Agent.resume` failure path gets the same one retry, so a transient network blip cannot cost a session its agent's memory. Replay stays gated on `shouldRetryStalledCursorResume`, so nothing user-visible is ever replayed.
+- Compaction is now visible: `cursorParseLine` renders `summary-started`/`summary-completed` as "Compacting context…" / "Context compacted" instead of dropping them as unknown events. `cursorCompactionEventPhase` in `providers/cursor.ts` is the single classifier both the parser and the runner use.
+- Contracts pinned in `cursorSessionRotationContract.test.ts` (same-agent retry and compaction exemption must exist in source *and* the deployed bundle) and `toolSilenceWatchdogContract.test.ts` (cursor's watchdog exemption now includes `compactionInFlight`). Bundle regenerated.
+- Known gap, deliberately out of scope: when the fresh-agent last resort does fire, the replayed prompt carries no conversation digest — `buildSessionHandoff` still exists but session prompts stopped injecting it. Wiring it into the recovery path needs the callback to fetch history at recovery time; follow-up candidate.
+
 ## Eva MCP can list entities and drive their sandboxes - 2026-08-28
 
 - Four tools on the user MCP server, alongside `send_chat_message` and with the same audience and authorization: `list_entities`, `start_sandbox`, `stop_sandbox` and `cancel_queued_message`. An orchestrator could previously send into a chat but had no way to see what already existed, no way to shut the preview VM down afterwards, and no way to take back a follow-up it had queued.

@@ -18,6 +18,9 @@ import { z } from "zod";
 const modules = import.meta.glob("../convex/**/*.ts");
 const testsDir = dirname(fileURLToPath(import.meta.url));
 
+/** Loading the chat-workflow module graph costs seconds on a cold worker. */
+const TIMEOUT_MS = 30_000;
+
 function convexSource(path: string): string {
   return readFileSync(join(testsDir, "../convex", path), "utf8");
 }
@@ -554,10 +557,17 @@ describe("which tokens get which tools", () => {
   test("the send checks repo access before it sends", () => {
     const start = tools.indexOf('"send_chat_message"');
     const body = tools.slice(start, tools.indexOf('"create_eva_doc"'));
-    const accessCheck = body.indexOf("assertRepoAccess(target.repoId");
+    // Resolution and the access check moved into the shared entityRef leaf so
+    // every tool that acts on an existing chat runs the same two checks.
+    const resolve = body.indexOf("resolveEntityTarget(ref, userId)");
     const send = body.indexOf("orchestratorSendMessage");
-    expect(accessCheck).toBeGreaterThan(-1);
-    expect(send).toBeGreaterThan(accessCheck);
+    expect(resolve).toBeGreaterThan(-1);
+    expect(send).toBeGreaterThan(resolve);
+
+    const entityRef = convexSource("mcp/entityRef.ts");
+    const target = entityRef.indexOf("resolveChatTargetForUser");
+    const check = entityRef.indexOf("assertRepoAccess(target.repoId");
+    expect(check).toBeGreaterThan(target);
   });
 
   test("get_agent_state refuses ids the caller cannot reach", () => {
@@ -647,18 +657,22 @@ describe("MCP follow-up on a completed/closed-sandbox quick task", () => {
       nodeActions.indexOf("export const orchestratorStopAgent"),
     );
     expect(send).toContain("kind === \"task\"");
-    expect(send).toContain("ensureTaskPreviewSandboxForMcpSend");
-    expect(send.indexOf("ensureTaskPreviewSandboxForMcpSend")).toBeLessThan(
+    expect(send).toContain("ensureEntitySandboxActive");
+    expect(send.indexOf("ensureEntitySandboxActive")).toBeLessThan(
       send.indexOf("buildChatMessageCalls"),
     );
 
     const ensure = nodeActions.slice(
-      nodeActions.indexOf("async function ensureTaskPreviewSandboxForMcpSend"),
+      nodeActions.indexOf("async function ensureEntitySandboxActive"),
       nodeActions.indexOf("function chatDelivery"),
     );
-    expect(ensure).toContain("agentTasks:startTaskSandbox");
-    expect(ensure).toContain("decideTaskPreviewSandboxForChat");
+    expect(ensure).toContain("SANDBOX_SURFACES[kind]");
+    expect(ensure).toContain("decideSandboxStartPlan");
     expect(ensure).toContain("TASK_PREVIEW_SANDBOX_READY_TIMEOUT_MS");
+    // The Start-button mutation, not an in-place resume of the closed id.
+    expect(convexSource("mcp/orchestratorDelivery.ts")).toContain(
+      "agentTasks:startTaskSandbox",
+    );
   });
 
   test("startExecute does not prewarm a closed or stopping preview sandbox", () => {
@@ -679,7 +693,7 @@ describe("MCP follow-up on a completed/closed-sandbox quick task", () => {
       taskChat.indexOf("export const agentTaskChatExecuteWorkflow"),
       taskChat.indexOf("export const addAssistantPlaceholder"),
     );
-    expect(workflow).toContain("decideTaskPreviewSandboxForChat");
+    expect(workflow).toContain("decideSandboxStartPlan");
     expect(workflow).toContain("markTaskSandboxStartingForChat");
     expect(workflow).toContain("startTaskPreviewSandbox");
     expect(workflow).toContain("waitForTaskPreviewSandboxActive");
@@ -721,7 +735,7 @@ describe("MCP follow-up on a completed/closed-sandbox quick task", () => {
         .first(),
     );
     expect(activity?.currentActivity).toContain("Starting sandbox...");
-  });
+  }, TIMEOUT_MS);
 
   test("waitForTaskPreviewSandboxActive is ready only when status is active", async () => {
     const f = await fixture();

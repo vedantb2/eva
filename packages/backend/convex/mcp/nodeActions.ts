@@ -12,8 +12,10 @@ import { registerTools } from "./tools";
 import { registerSupabaseTools } from "./supabase";
 import {
   buildChatMessageCalls,
-  decideTaskPreviewSandboxForChat,
+  decideSandboxStartPlan,
   resolveAgentDelivery,
+  SANDBOX_STOP_SETTLE_TIMEOUT_MS,
+  SANDBOX_SURFACES,
   TASK_PREVIEW_SANDBOX_READY_POLL_MS,
   TASK_PREVIEW_SANDBOX_READY_TIMEOUT_MS,
   type AgentDelivery,
@@ -1220,7 +1222,10 @@ const agentTaskSchema = z.object({
 /** Slim projection of a `projects` document (its chat mirrors a task's). */
 const projectDocSchema = z.object({
   _id: z.string(),
+  activeWorkflowId: z.string().optional(),
+  activeBuildWorkflowId: z.string().optional(),
   activeChatWorkflowId: z.string().optional(),
+  reviewProjectSandboxStatus: z.string().optional(),
   model: z.string().optional(),
   lastChatModel: z.string().optional(),
 });
@@ -1534,54 +1539,80 @@ async function delay(ms: number): Promise<void> {
 }
 
 /**
- * A completed quick task tears its preview sandbox down. MCP follow-up must
- * start it (the same Start-button path) and wait until it is actually
- * `active` — resuming the closed id in-place hangs the chat on
- * "Resuming sandbox…".
+ * Reads one entity's preview sandbox state as the calling user, so the read
+ * doubles as the access check. Each surface parks that state somewhere
+ * different: a session in `status`, a task and a project in their own
+ * `review*SandboxStatus` field.
+ *
+ * Deliberately not "is a turn running" — that answer needs the `turns` table,
+ * which no per-entity read exposes (see `mcp.queries.entityIsExecuting`).
  */
-async function ensureTaskPreviewSandboxForMcpSend(
+async function readEntitySandboxStatus(
   convexUrl: string,
   clerkUserId: string,
-  taskId: string,
-  status: string | undefined,
-): Promise<void> {
-  const plan = decideTaskPreviewSandboxForChat(status);
-  if (plan === "run") return;
+  kind: ChatTargetKind,
+  id: string,
+): Promise<string> {
+  const raw = await runQueryAsUser(
+    convexUrl,
+    clerkUserId,
+    CHAT_DOC_QUERY[kind],
+    { id },
+  );
+  if (raw === null) {
+    throw new Error(`No ${kind} ${id} found, or you do not have access.`);
+  }
+  if (kind === "session") return sessionDocSchema.parse(raw).status;
+  if (kind === "task") {
+    return agentTaskSchema.parse(raw).reviewTaskSandboxStatus ?? "closed";
+  }
+  return projectDocSchema.parse(raw).reviewProjectSandboxStatus ?? "closed";
+}
 
+/**
+ * Brings one entity's preview sandbox up and waits until it is actually
+ * `active`. A completed entity tears its sandbox down, and resuming the closed
+ * id in-place hangs on "Resuming sandbox…", so this drives the same
+ * Start-button mutation the Eva UI does and then polls.
+ *
+ * Returns whether it had to issue a start; throws — rather than returning a
+ * half-started sandbox — when the VM never comes up.
+ */
+async function ensureEntitySandboxActive(
+  convexUrl: string,
+  clerkUserId: string,
+  kind: ChatTargetKind,
+  id: string,
+): Promise<{ startRequested: boolean }> {
+  const plan = decideSandboxStartPlan(
+    await readEntitySandboxStatus(convexUrl, clerkUserId, kind, id),
+  );
+  if (plan === "run") return { startRequested: false };
+
+  const surface = SANDBOX_SURFACES[kind];
   let started = false;
   const start = async () => {
-    await runMutationAsUser(
-      convexUrl,
-      clerkUserId,
-      "agentTasks:startTaskSandbox",
-      { taskId },
-    );
+    await runMutationAsUser(convexUrl, clerkUserId, surface.start, {
+      [surface.idArg]: id,
+    });
     started = true;
   };
 
   // `wait` is a start/stop already in flight. If that settles to `closed`,
-  // start once rather than failing the follow-up on a teardown race.
+  // start once rather than failing on a teardown race.
   if (plan === "start") {
     await start();
   }
   const deadline = Date.now() + TASK_PREVIEW_SANDBOX_READY_TIMEOUT_MS;
   while (Date.now() < deadline) {
-    const raw = await runQueryAsUser(
-      convexUrl,
-      clerkUserId,
-      "_agentTasks/queries:get",
-      { id: taskId },
+    const next = decideSandboxStartPlan(
+      await readEntitySandboxStatus(convexUrl, clerkUserId, kind, id),
     );
-    if (raw === null) {
-      throw new Error(`No task ${taskId} found, or you do not have access.`);
-    }
-    const task = agentTaskSchema.parse(raw);
-    const next = decideTaskPreviewSandboxForChat(task.reviewTaskSandboxStatus);
-    if (next === "run") return;
+    if (next === "run") return { startRequested: started };
     if (next === "start") {
       if (started) {
         throw new Error(
-          "Task sandbox did not become ready. Start it from the sandbox panel and retry.",
+          `The ${kind} sandbox did not become ready. Start it from the sandbox panel and retry.`,
         );
       }
       await start();
@@ -1589,7 +1620,7 @@ async function ensureTaskPreviewSandboxForMcpSend(
     await delay(TASK_PREVIEW_SANDBOX_READY_POLL_MS);
   }
   throw new Error(
-    "Timed out waiting for the task sandbox to start. Start it from the sandbox panel and retry.",
+    `Timed out waiting for the ${kind} sandbox to start. Start it from the sandbox panel and retry.`,
   );
 }
 
@@ -1672,13 +1703,7 @@ export const orchestratorSendMessage = internalAction({
     }
 
     if (kind === "task") {
-      const task = agentTaskSchema.parse(rawDoc);
-      await ensureTaskPreviewSandboxForMcpSend(
-        convexUrl,
-        clerkUserId,
-        id,
-        task.reviewTaskSandboxStatus,
-      );
+      await ensureEntitySandboxActive(convexUrl, clerkUserId, kind, id);
     }
 
     // A child with anything already queued is NOT idle, even with no workflow
@@ -1753,6 +1778,165 @@ export const orchestratorStopAgent = internalAction({
       { taskId: id },
     );
     return null;
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Preview sandbox start/stop and queued-message cancellation.
+//
+// Every write here is one the user can already make in the Eva UI, run through
+// the same public mutation as that button. None of them touch status or review
+// state — a person still owns where a task sits in the workflow.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const mcpStartEntitySandbox = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    kind: chatKindValidator,
+    id: v.string(),
+  },
+  returns: v.object({
+    sandboxStatus: v.string(),
+    startRequested: v.boolean(),
+  }),
+  handler: async (_ctx, { clerkUserId, kind, id }) => {
+    const { startRequested } = await ensureEntitySandboxActive(
+      getEvaConvexCloudUrl(),
+      clerkUserId,
+      kind,
+      id,
+    );
+    // ensureEntitySandboxActive only returns once the VM is up, so there is no
+    // "resuming" limbo to report back.
+    return { sandboxStatus: "active", startRequested };
+  },
+});
+
+export const mcpStopEntitySandbox = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    kind: chatKindValidator,
+    id: v.string(),
+  },
+  returns: v.object({
+    sandboxStatus: v.string(),
+    stopRequested: v.boolean(),
+  }),
+  handler: async (ctx, { clerkUserId, kind, id }) => {
+    const convexUrl = getEvaConvexCloudUrl();
+    // Reading the entity as the user is the access check, so it comes first —
+    // the turn lookup below runs on an id the caller has already proven.
+    const sandboxStatus = await readEntitySandboxStatus(
+      convexUrl,
+      clerkUserId,
+      kind,
+      id,
+    );
+
+    // Tearing the VM down mid-turn kills the turn. Stopping and cancelling are
+    // separate decisions, so this refuses rather than deciding for the caller.
+    const isExecuting = await ctx.runQuery(
+      internal.mcp.queries.entityIsExecuting,
+      { kind, id },
+    );
+    if (isExecuting) {
+      throw new Error(
+        `This ${kind} has a turn in flight. Wait for it to finish and stop again, or cancel it first with stop_agent.`,
+      );
+    }
+
+    if (sandboxStatus === "closed") {
+      return { sandboxStatus: "closed", stopRequested: false };
+    }
+
+    const surface = SANDBOX_SURFACES[kind];
+    await runMutationAsUser(convexUrl, clerkUserId, surface.stop, {
+      [surface.idArg]: id,
+    });
+
+    // Teardown finalizes in a scheduled action, so poll for the settled state
+    // rather than reporting "stopped" the instant the mutation returns.
+    const deadline = Date.now() + SANDBOX_STOP_SETTLE_TIMEOUT_MS;
+    let settled = "stopping";
+    while (Date.now() < deadline) {
+      await delay(TASK_PREVIEW_SANDBOX_READY_POLL_MS);
+      settled = await readEntitySandboxStatus(convexUrl, clerkUserId, kind, id);
+      if (settled !== "stopping") break;
+    }
+    // A still-`stopping` status is reported as-is: the stop was accepted and
+    // will finalize, and claiming "closed" here would be a guess.
+    return { sandboxStatus: settled, stopRequested: true };
+  },
+});
+
+const queuedMessageSchema = z.object({
+  _id: z.string(),
+  content: z.string(),
+  createdAt: z.number(),
+  order: z.number().optional(),
+});
+
+export const mcpCancelQueuedMessages = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    id: v.string(),
+    /** One queued message to drop. Omitted with `all`, which drops every one. */
+    queuedMessageId: v.optional(v.string()),
+    all: v.boolean(),
+  },
+  returns: v.object({
+    cancelled: v.array(v.object({ id: v.string(), content: v.string() })),
+    remaining: v.number(),
+  }),
+  handler: async (_ctx, { clerkUserId, id, queuedMessageId, all }) => {
+    const convexUrl = getEvaConvexCloudUrl();
+    const listQueue = async () =>
+      z
+        .array(queuedMessageSchema)
+        .parse(
+          await runQueryAsUser(
+            convexUrl,
+            clerkUserId,
+            "queuedMessages:listByParent",
+            { parentId: id },
+          ),
+        );
+
+    const queued = await listQueue();
+    let doomed = queued;
+    if (!all) {
+      const match = queued.find(
+        (message) => message._id === queuedMessageId,
+      );
+      if (!match) {
+        const pending = queued.map((message) => message._id).join(", ");
+        throw new Error(
+          queued.length === 0
+            ? "Nothing is queued on this chat. A turn already running is cancelled with stop_agent, not here."
+            : `No queued message ${queuedMessageId} on this chat. Pending ids: ${pending}`,
+        );
+      }
+      doomed = [match];
+    }
+
+    for (const message of doomed) {
+      await runMutationAsUser(convexUrl, clerkUserId, "queuedMessages:remove", {
+        id: message._id,
+      });
+    }
+
+    // Re-read rather than subtracting: the chat may have drained a message of
+    // its own while this action was deleting others. A drained message is also
+    // gone from the queue, which is why the tool tells the caller that a
+    // same-instant dequeue cannot be taken back.
+    const remaining = await listQueue();
+    const stillQueued = new Set(remaining.map((message) => message._id));
+    return {
+      cancelled: doomed
+        .filter((message) => !stillQueued.has(message._id))
+        .map((message) => ({ id: message._id, content: message.content })),
+      remaining: remaining.length,
+    };
   },
 });
 

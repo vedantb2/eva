@@ -1,6 +1,5 @@
 import { v } from "convex/values";
-import type { Doc, Id } from "../_generated/dataModel";
-import type { QueryCtx } from "../_generated/server";
+import type { Doc } from "../_generated/dataModel";
 import { authQuery, hasRepoAccess } from "../functions";
 import { entityVisible, filterActiveEntities } from "../numId";
 import { firstUserMessagePreview } from "../_messages/preview";
@@ -12,7 +11,10 @@ import {
   reasoningLevelValidator,
 } from "../validators";
 import { sessionValidator } from "./helpers";
-import { isLegacySessionExecuting } from "../_chat/turnProjection";
+import {
+  openSessionIdsForRepo,
+  sessionIsExecuting,
+} from "../_chat/turnProjection";
 
 /**
  * Sidebar list shape: omit heavy session fields (planContent, terminal tail,
@@ -93,24 +95,8 @@ function toSessionListItem(
     deploymentStatus: session.deploymentStatus,
     deploymentUrl: session.deploymentUrl,
     isOrchestrator: session.isOrchestrator,
-    isExecuting:
-      openSessionIds.has(String(session._id)) ||
-      isLegacySessionExecuting(session),
+    isExecuting: sessionIsExecuting(session, openSessionIds),
   };
-}
-
-/** One indexed query per list subscription, never one turn lookup per row. */
-async function openSessionIdsForRepo(
-  ctx: QueryCtx,
-  repoId: Id<"githubRepos">,
-): Promise<ReadonlySet<string>> {
-  const turns = await ctx.db
-    .query("turns")
-    .withIndex("by_repo_open", (q) =>
-      q.eq("repoId", repoId).eq("open", true),
-    )
-    .collect();
-  return new Set(turns.map((turn) => turn.entityId));
 }
 
 /** Sorts sessions by most recently updated (falling back to creation time). */
@@ -138,7 +124,7 @@ export const list = authQuery({
             .collect(),
         ),
       ),
-      openSessionIdsForRepo(ctx, args.repoId),
+      openSessionIdsForRepo(ctx.db, args.repoId),
     ]);
     const sessions = sessionGroups.flat();
     return sessions
@@ -163,7 +149,7 @@ export const listArchived = authQuery({
             .eq("deletedAt", undefined),
         )
         .collect(),
-      openSessionIdsForRepo(ctx, args.repoId),
+      openSessionIdsForRepo(ctx.db, args.repoId),
     ]);
     return sessions
       .sort(byMostRecentlyUpdated)

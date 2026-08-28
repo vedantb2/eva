@@ -2,7 +2,9 @@ import { describe, expect, test } from "vitest";
 import {
   divergedPublishLooksLikeRewrite,
   parseGitNameOnlyList,
+  publishErrorNeedsForcePush,
   remoteOnlyChangedFileCount,
+  rewrittenBranchPublishError,
   REWRITE_REMOTE_ONLY_FILE_THRESHOLD,
 } from "../convex/_sandbox_runtime/divergedPublish";
 
@@ -36,5 +38,29 @@ describe("divergedPublishLooksLikeRewrite", () => {
       ),
     ).toBe(true);
     expect(remoteOnlyChangedFileCount(["local.ts"], remote)).toBe(remote.length);
+  });
+});
+
+describe("publishErrorNeedsForcePush", () => {
+  test("matches the rewritten-branch refusal, including the workflow's prefixed form", () => {
+    const raw = rewrittenBranchPublishError("eva/session-abc", 290, 220);
+    expect(publishErrorNeedsForcePush(raw)).toBe(true);
+    // sessionWorkflow prefixes the git error before storing it as errorDetail.
+    expect(
+      publishErrorNeedsForcePush(
+        `Session completed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${raw}`,
+      ),
+    ).toBe(true);
+  });
+
+  test("does not match ambiguous diverged-publish failures where force-push could destroy work", () => {
+    expect(
+      publishErrorNeedsForcePush(
+        "Could not merge origin/eva/session-abc into the local branch. The sandbox was left clean — there are no conflict markers to resolve. If you rewrote history, force-push; if both sides committed, merge the remote branch in the sandbox and retry.",
+      ),
+    ).toBe(false);
+    expect(publishErrorNeedsForcePush("pushBranchToOrigin exhausted retries")).toBe(
+      false,
+    );
   });
 });

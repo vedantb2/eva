@@ -1,5 +1,17 @@
 # Changelog
 
+## Prompt-stash hotkey no longer opens the browser save dialog - 2026-08-28
+
+- `ComposerStash` gated its ⌘S registration with `enabled: composerFocused || open`, but the hotkey manager skips `preventDefault` entirely for disabled registrations — any ⌘S the focus heuristic missed (or pressed while the composer was disabled) fell through to the browser's save-file dialog. The registration is now always enabled and the focus/disabled gate lives inside the callback, so ⌘S is swallowed whenever a composer is mounted, while stashing still requires that composer to own focus — multiple mounted composers cannot all stash at once.
+
+## Guided force-push recovery for rewritten-branch publish refusals - 2026-08-28
+
+- When a session's publish fails with the rewritten-branch refusal (carepulse-ts session 53 today: 290 remote-only files vs 220 local after a rebase), the session chat now shows a "Publish blocked" banner above the composer with a confirm-then-force-push button, instead of leaving the user to run git in the sandbox by hand.
+- The refusal message moved into `divergedPublish.ts` (`rewrittenBranchPublishError`) next to a new `publishErrorNeedsForcePush` predicate exported through `@eva/backend`, so the banner's detection and the error's wording cannot drift apart. Only the rewrite refusal matches — the ambiguous "Could not merge origin/…" failure deliberately does not, because both sides may hold real commits there.
+- `PublishRecoveryBanner` shows only while the newest chat message is that refusal alert; the recovery's own outcome alert becomes the newest message and dismisses it with no extra state. Sandbox stopped → button disabled with a "wake the sandbox" hint.
+- Backend: `api.sessions.forcePushBranch` (authMutation, refuses non-`eva/` branches and inactive sandboxes) schedules `internal.sandbox.performForcePushBranch`, which runs `forcePushBranchToOrigin` — fetch the exact ref first, then push with `--force-with-lease` pinned to the refreshed remote-tracking ref, so a push racing in between aborts instead of being discarded. The outcome (success or failure) is posted into the chat via `postSystemAlert`.
+- Task and project chats surface the same refusal but have no banner yet — session chat was the reported case; the git helper and predicate are already surface-agnostic.
+
 ## Cursor sessions keep one agent: compaction is liveness, stalls retry the same agent - 2026-08-28
 
 - Root cause from prod (carepulse-ts session 53, 28 Aug 2026): a resumed Cursor agent's run was killed after 60 seconds with no *visible* event and replaced by a fresh agent — "The saved agent stopped responding". An in-place SDK compaction (`summary-started` … `summary-completed`) emits no thinking/assistant/tool_call events while it runs, so it read as a stall, and the replacement agent lost the whole conversation context the resume-always design exists to keep.

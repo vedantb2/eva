@@ -31,6 +31,7 @@ import {
   divergedPublishLooksLikeRewrite,
   parseGitNameOnlyList,
   remoteOnlyChangedFileCount,
+  rewrittenBranchPublishError,
 } from "./divergedPublish";
 import { ensureSwapFile } from "./swap";
 import {
@@ -1195,7 +1196,7 @@ async function synchronizeBranchForPublish(
         remoteChanged,
       );
       throw new Error(
-        `Refusing to merge origin/${branchName} into a rewritten local branch (${remoteOnly} remote-only files vs ${localChanged.length} local). Local work is intact and GitHub still has the old history. Updating the PR needs a force-push, and a base-branch retarget if you rebased onto a new base.`,
+        rewrittenBranchPublishError(branchName, remoteOnly, localChanged.length),
       );
     }
     try {
@@ -1319,6 +1320,60 @@ export async function pushBranchToOrigin(
       }
     }
     throw new Error(`pushBranchToOrigin exhausted retries (${details})`);
+  });
+}
+
+/**
+ * Replaces origin/<branch> with the sandbox's local branch — the user-confirmed
+ * recovery after synchronizeBranchForPublish refuses a rewritten local branch.
+ *
+ * `--force-with-lease` is pinned to the remote-tracking ref refreshed by the
+ * fetch below, so a push that landed between fetch and push aborts instead of
+ * being silently discarded. When the fetch reports the remote branch deleted,
+ * a plain push recreates it and no lease is needed.
+ */
+export async function forcePushBranchToOrigin(
+  sandbox: SandboxHandle,
+  owner: string,
+  name: string,
+  branchName: string,
+): Promise<void> {
+  if (!isSafeBranchName(branchName)) {
+    throw new Error(`Unsafe branch name: ${branchName}`);
+  }
+  const details = `${owner}/${name}, branch=${branchName}`;
+  await runLoggedGitStep("forcePushBranchToOrigin", details, async () => {
+    const workspaceDir = workspaceDirShell();
+    const quotedLocalRef = quote([`refs/heads/${branchName}`]);
+    const localBranchState = (
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && ((git show-ref --verify --quiet ${quotedLocalRef} && echo exists) || echo missing)`,
+        10,
+      )
+    ).trim();
+    if (localBranchState !== "exists") {
+      throw new Error(
+        `Cannot force-push ${branchName}: the branch does not exist in the sandbox`,
+      );
+    }
+    const fetched = await fetchBranchRefs(sandbox, owner, name, [branchName], {
+      prune: false,
+      timeoutSeconds: 60,
+      retryAttempts: 2,
+    });
+    const lease = fetched.includes(branchName)
+      ? `--force-with-lease=${quote([`refs/heads/${branchName}`])} `
+      : "";
+    const quotedRefspec = quote([
+      `refs/heads/${branchName}:refs/heads/${branchName}`,
+    ]);
+    const repoUrl = bareGitHubRepoUrl(owner, name);
+    await execGitCommand(
+      sandbox,
+      `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push ${lease}-u origin ${quotedRefspec}`,
+      90,
+    );
   });
 }
 

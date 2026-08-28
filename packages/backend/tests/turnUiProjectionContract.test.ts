@@ -12,9 +12,14 @@ test("session lists derive execution from open Turns with a versioned rollout br
   const projection = source(
     "packages/backend/convex/_chat/turnProjection.ts",
   );
-  expect(queries).toContain('.withIndex("by_repo_open"');
-  expect(queries).toContain('q.eq("repoId", repoId).eq("open", true)');
-  expect(queries).toContain("isLegacySessionExecuting(session)");
+  // The open-Turn lookup and the legacy bridge both live in the projection
+  // leaf now, so the MCP entity tools answer "is it running" the same way the
+  // sidebar does instead of keying off `activeWorkflowId` on their own.
+  expect(queries).toContain("sessionIsExecuting(session, openSessionIds)");
+  expect(queries).toContain("openSessionIdsForRepo(ctx.db, args.repoId)");
+  expect(projection).toContain('.withIndex("by_repo_open"');
+  expect(projection).toContain('q.eq("repoId", repoId).eq("open", true)');
+  expect(projection).toContain("isLegacySessionExecuting(session)");
   expect(projection).toContain("session.turnLifecycleVersion === undefined");
   expect(projection).toContain("session.activeWorkflowId !== undefined");
 });

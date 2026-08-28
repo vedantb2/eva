@@ -29,19 +29,23 @@ export function resolveAgentDelivery(input: {
 }
 
 /**
- * How a quick-task preview sandbox should be brought up before a chat turn.
+ * How a preview sandbox should be brought up before it is used.
  *
- * A completed task tears the preview sandbox down (`closed`). Resuming that
+ * A completed entity tears its preview sandbox down (`closed`). Resuming that
  * id in-place hangs on "Resuming sandbox…"; the Start-button path
- * (`startTaskSandbox` → `startTaskPreviewSandbox`) is the one that actually
- * comes back. `starting`/`stopping` are in-flight — wait, don't kick off a
- * second start.
+ * (`startTaskSandbox` → `startTaskPreviewSandbox`, and its session/project
+ * twins) is the one that actually comes back. `starting`/`stopping` are
+ * in-flight — wait, don't kick off a second start.
+ *
+ * All three surfaces share the same status vocabulary, so one decision covers
+ * them: a session's `status`, a task's `reviewTaskSandboxStatus` and a
+ * project's `reviewProjectSandboxStatus`.
  */
-export type TaskPreviewSandboxChatPlan = "run" | "start" | "wait";
+export type SandboxStartPlan = "run" | "start" | "wait";
 
-export function decideTaskPreviewSandboxForChat(
+export function decideSandboxStartPlan(
   status: string | undefined,
-): TaskPreviewSandboxChatPlan {
+): SandboxStartPlan {
   if (status === "active") return "run";
   if (status === "starting" || status === "stopping") return "wait";
   return "start";
@@ -50,6 +54,9 @@ export function decideTaskPreviewSandboxForChat(
 /** MCP follow-up waits this long for a closed preview sandbox to become active. */
 export const TASK_PREVIEW_SANDBOX_READY_TIMEOUT_MS = 240_000;
 export const TASK_PREVIEW_SANDBOX_READY_POLL_MS = 2_000;
+
+/** A stop is only tracked until the VM settles; past that the caller is told. */
+export const SANDBOX_STOP_SETTLE_TIMEOUT_MS = 120_000;
 
 /**
  * The three chat surfaces a message can be sent into: a session, a quick
@@ -105,6 +112,39 @@ const CHAT_SURFACES: Record<ChatTargetKind, ChatSurfaceMutations> = {
     orchestratorBadge: false,
   },
 };
+
+interface SandboxSurfaceMutations {
+  /** Argument name the surface's sandbox mutations use for its entity id. */
+  idArg: string;
+  /** The exact mutation behind the surface's Start button in the Eva UI. */
+  start: string;
+  /** …and behind its Stop button. */
+  stop: string;
+}
+
+/**
+ * Start/Stop for each surface's preview sandbox, as the web app calls them.
+ * Sessions carry their sandbox state in `status` itself; task and project
+ * preview sandboxes have their own `review*SandboxStatus` field.
+ */
+export const SANDBOX_SURFACES: Record<ChatTargetKind, SandboxSurfaceMutations> =
+  {
+    session: {
+      idArg: "sessionId",
+      start: "sessions:startSandbox",
+      stop: "sessions:stopSandbox",
+    },
+    task: {
+      idArg: "taskId",
+      start: "agentTasks:startTaskSandbox",
+      stop: "agentTasks:stopTaskSandbox",
+    },
+    project: {
+      idArg: "projectId",
+      start: "projects:startProjectSandbox",
+      stop: "projects:stopProjectSandbox",
+    },
+  };
 
 /**
  * The mutations that put one message into an existing chat, in order. Shared

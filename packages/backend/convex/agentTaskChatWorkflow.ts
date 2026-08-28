@@ -5,7 +5,7 @@ import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow, cancelTrackedWorkflow } from "./workflowManager";
 import { ensureSandboxStartedSteps } from "./_sandbox_runtime/resumeSandboxSteps";
-import { decideTaskPreviewSandboxForChat } from "./mcp/orchestratorDelivery";
+import { decideSandboxStartPlan } from "./mcp/orchestratorDelivery";
 import { authAction, authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
@@ -590,7 +590,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       },
     );
 
-    const sandboxPlan = decideTaskPreviewSandboxForChat(data.sandboxStatus);
+    const sandboxPlan = decideSandboxStartPlan(data.sandboxStatus);
     if (sandboxPlan !== "run") {
       if (sandboxPlan === "start") {
         await step.runMutation(
@@ -647,7 +647,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
           userId: args.userId,
         },
       );
-      if (decideTaskPreviewSandboxForChat(data.sandboxStatus) !== "run") {
+      if (decideSandboxStartPlan(data.sandboxStatus) !== "run") {
         await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
           taskId: args.taskId,
           success: false,

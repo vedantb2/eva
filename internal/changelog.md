@@ -1,5 +1,14 @@
 # Changelog
 
+## Eva MCP can list entities and drive their sandboxes - 2026-08-28
+
+- Four tools on the user MCP server, alongside `send_chat_message` and with the same audience and authorization: `list_entities`, `start_sandbox`, `stop_sandbox` and `cancel_queued_message`. An orchestrator could previously send into a chat but had no way to see what already existed, no way to shut the preview VM down afterwards, and no way to take back a follow-up it had queued.
+- `list_entities` pages sessions, quick tasks and projects together, newest activity first, filtered by kind, status and repo. Each row carries the ids the other tools accept plus `status`, `sandboxStatus`, `isExecuting` and `prUrl` (read off the run for a quick task). The scan budget is split evenly across (repo × kind), so a caller with six repos hears about all six rather than exhausting the budget on the first; anything the scan could not cover sets `truncated`.
+- `start_sandbox` and `stop_sandbox` drive exactly the mutations behind the Eva UI's Start/Stop buttons, via a new `SANDBOX_SURFACES` map. Start returns only once the VM is genuinely active or fails saying why — no "resuming sandbox" limbo. Stop refuses when a turn is in flight rather than killing it, and names `stop_agent` as the deliberate alternative.
+- Nothing here writes status, phase or review state. That stays a person's call, and `mcpEntityTools.test.ts` pins the absence: the three new actions name exactly two mutations directly, both on the queue.
+- "Is a turn running" now comes from one place. `openSessionIdsForRepo` / `sessionIsExecuting` moved into `_chat/turnProjection.ts`, so the new tools consult the open-Turn table like the sidebar does. Keying off `activeWorkflowId` alone — which a daemon-minted `/loop` continuation never sets — would have let `stop_sandbox` tear the VM down under a live turn.
+- Repo and chat reference resolution moved out of `mcp/tools.ts` into a shared `mcp/entityRef.ts` leaf, so every tool that acts on an existing entity runs the same two checks: the user reaches the repo, and a sandbox token has not wandered outside the repo it was minted for. `list_entities` respects that pin on the unfiltered path too.
+
 ## GitHub Actions no longer runs the checks - 2026-08-27
 
 - `.github/workflows/ci.yml` (job `typecheck / lint / test`) is deleted. It ran on every pull request and push to main, and its required check was what held automerge on Eva-opened PRs — a five-to-ten minute round trip on a repo where the agent that wrote the diff had already typechecked it in the sandbox.

@@ -3,17 +3,9 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import { usePromptInputController } from "@eva/ui";
 import { useDraftAutosave } from "@/lib/hooks/useDraftAutosave";
-import { tokenizedToEditable } from "@/lib/components/mentions";
+import { decideDraftPull, rememberOwnSave } from "./chatDraftPull";
 import type { MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
 import type { ChatDraftTarget } from "./useChatDraftSeed";
-
-/**
- * How many of this client's own saves to remember for the echo guard. The
- * subscription replays every server transition, so a burst of keystrokes can
- * still be arriving after the user has cleared the editor; anything in this
- * window is recognised as our own write rather than an external seed.
- */
-const ECHO_HISTORY_LIMIT = 64;
 
 interface ChatDraftSyncProps {
   target: ChatDraftTarget;
@@ -62,10 +54,10 @@ export function ChatDraftSync({
     // Whatever the editor holds is by definition not an external change. Record
     // it before saving so the pull effect can recognise the echo when the
     // subscription replays it.
-    savedContentsRef.current = [
-      ...savedContentsRef.current.slice(-(ECHO_HISTORY_LIMIT - 1)),
+    savedContentsRef.current = rememberOwnSave(
+      savedContentsRef.current,
       tokenized,
-    ];
+    );
 
     // On the first run the value will equal initialDisplay (seeded from the
     // persisted draft). Saving it back is a no-op on the server, but it wastes
@@ -87,27 +79,20 @@ export function ChatDraftSync({
   // initialDisplay is only needed for the mount-skip guard which uses a ref.
 
   useEffect(() => {
-    // undefined → still loading. null/empty → an external delete; the editor is
-    // not wiped mid-typing, and our own clear already emptied it locally.
-    if (remoteContent === undefined || remoteContent === null) return;
-    if (remoteContent.length === 0) return;
-    // Our own write coming back around, however late.
-    if (savedContentsRef.current.includes(remoteContent)) return;
-
-    const { displayText, mentionMap, skillMap } =
-      tokenizedToEditable(remoteContent);
-    const current = textInput.value;
-    if (displayText === current) return;
-    // Only ever additive: take the write when the editor is empty, or when it is
-    // the editor's own text with something appended — which is exactly what
-    // `useSeedChatDraft` writes. Anything else would delete characters the user
-    // typed, so it is left for the next mount to seed.
-    if (current.trim().length !== 0 && !displayText.startsWith(current)) return;
+    // Every guard — loading, external delete, echo, and the additive rule that
+    // stops a lagging row deleting characters mid-typing — lives in
+    // `decideDraftPull`, where it is unit-tested.
+    const decision = decideDraftPull({
+      remoteContent,
+      editorValue: textInput.value,
+      ownSaves: savedContentsRef.current,
+    });
+    if (!decision.apply) return;
 
     // Maps first: the chips for the incoming tokens must resolve before the
     // display text referencing them lands in the editor.
-    mentionRef.current?.addTokenMaps(mentionMap, skillMap);
-    textInput.setInput(displayText);
+    mentionRef.current?.addTokenMaps(decision.mentionMap, decision.skillMap);
+    textInput.setInput(decision.displayText);
     // The save effect fires on this value change and writes the same content
     // back — a server no-op, and it records the content as ours so the echo
     // cannot bounce back through here.

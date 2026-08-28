@@ -1,5 +1,13 @@
 # Changelog
 
+## Guided force-push recovery for rewritten-branch publish refusals - 2026-08-28
+
+- When a session's publish fails with the rewritten-branch refusal (carepulse-ts session 53 today: 290 remote-only files vs 220 local after a rebase), the session chat now shows a "Publish blocked" banner above the composer with a confirm-then-force-push button, instead of leaving the user to run git in the sandbox by hand.
+- The refusal message moved into `divergedPublish.ts` (`rewrittenBranchPublishError`) next to a new `publishErrorNeedsForcePush` predicate exported through `@eva/backend`, so the banner's detection and the error's wording cannot drift apart. Only the rewrite refusal matches — the ambiguous "Could not merge origin/…" failure deliberately does not, because both sides may hold real commits there.
+- `PublishRecoveryBanner` shows only while the newest chat message is that refusal alert; the recovery's own outcome alert becomes the newest message and dismisses it with no extra state. Sandbox stopped → button disabled with a "wake the sandbox" hint.
+- Backend: `api.sessions.forcePushBranch` (authMutation, refuses non-`eva/` branches and inactive sandboxes) schedules `internal.sandbox.performForcePushBranch`, which runs `forcePushBranchToOrigin` — fetch the exact ref first, then push with `--force-with-lease` pinned to the refreshed remote-tracking ref, so a push racing in between aborts instead of being discarded. The outcome (success or failure) is posted into the chat via `postSystemAlert`.
+- Task and project chats surface the same refusal but have no banner yet — session chat was the reported case; the git helper and predicate are already surface-agnostic.
+
 ## Eva MCP can list entities and drive their sandboxes - 2026-08-28
 
 - Four tools on the user MCP server, alongside `send_chat_message` and with the same audience and authorization: `list_entities`, `start_sandbox`, `stop_sandbox` and `cancel_queued_message`. An orchestrator could previously send into a chat but had no way to see what already existed, no way to shut the preview VM down afterwards, and no way to take back a follow-up it had queued.

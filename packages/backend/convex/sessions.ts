@@ -26,6 +26,7 @@ export {
   updateSandbox,
   clearSandbox,
   startSandbox,
+  forcePushBranch,
   stopSandbox,
   sandboxReady,
   clearSandboxSetupPending,

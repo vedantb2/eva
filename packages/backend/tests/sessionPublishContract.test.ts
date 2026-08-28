@@ -327,7 +327,9 @@ describe("session branch publication reconciles concurrent remote work", () => {
     expect(rewriteAt).toBeLessThan(mergeAt);
     expect(sync).toContain("git merge-base");
     expect(sync).toContain("git diff --name-only");
-    expect(sync).toContain("rewritten local branch");
+    // The refusal text lives in divergedPublish.ts next to
+    // publishErrorNeedsForcePush, so the web recovery banner cannot drift.
+    expect(sync).toContain("rewrittenBranchPublishError(");
     expect(sync).toContain("no conflict markers to resolve");
 
     const push = functionBody(

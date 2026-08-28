@@ -13,6 +13,7 @@ import { ComposerPlanReadyBanner } from "./_components/ComposerPlanReadyBanner";
 import { SandboxChatPreInput } from "@/lib/components/chat/SandboxChatPreInput";
 import type { SandboxChatSurface } from "@/lib/components/chat/sandboxChatSurface";
 import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
+import { PublishRecoveryBanner } from "./_components/PublishRecoveryBanner";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
 import { SessionSummaryAccordion } from "./_components/SessionSummaryAccordion";
 import { SessionSummaryModal } from "./_components/SessionSummaryModal";
@@ -303,6 +304,13 @@ export function ChatPanel({
       beforeBanner={
         <>
           <BackgroundProcessesPanel sessionId={sessionId} />
+          {!isReadOnly ? (
+            <PublishRecoveryBanner
+              sessionId={sessionId}
+              messages={messages}
+              isSandboxActive={isSandboxActive}
+            />
+          ) : null}
           <PendingReviewCommentChips />
         </>
       }

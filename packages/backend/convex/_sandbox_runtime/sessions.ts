@@ -7,6 +7,7 @@ import { internal } from "../_generated/api";
 import type { DataModel, Id, Doc } from "../_generated/dataModel";
 import {
   execHandle,
+  getSandboxHandle,
   resolveSandboxContext,
   resolveSandboxClientOnly,
   ensureSandboxRunning,
@@ -21,6 +22,7 @@ import {
   checkoutSessionBranch,
   createSandboxAndPrepareRepo,
   fetchBranchRefs,
+  forcePushBranchToOrigin,
   resolveBaseTarget,
   copySandboxConfigFilesToWorkspace,
   SESSION_LIFECYCLE,
@@ -1477,6 +1479,50 @@ async function prepareSessionSandboxInternal(
     throw setupError;
   }
 }
+
+/**
+ * Executes the user-confirmed force-push after a publish refused a rewritten
+ * local branch (see rewrittenBranchPublishError). The outcome lands in the
+ * session chat either way: the recovery banner that scheduled this has no
+ * other channel to report back on.
+ */
+export const performForcePushBranch = internalAction({
+  args: {
+    sessionId: v.id("sessions"),
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
+    repoOwner: v.string(),
+    repoName: v.string(),
+    branchName: v.string(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    try {
+      const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+      await forcePushBranchToOrigin(
+        sandbox,
+        args.repoOwner,
+        args.repoName,
+        args.branchName,
+      );
+      await ctx.runMutation(internal.sessionWorkflow.postSystemAlert, {
+        sessionId: args.sessionId,
+        content: "Force-pushed session branch to GitHub",
+      });
+    } catch (error) {
+      const errorDetail = errorMessage(error, "Force-push failed");
+      console.error(
+        `[sandbox][sessions] performForcePushBranch failed sessionId=${args.sessionId}: ${errorDetail}`,
+      );
+      await ctx.runMutation(internal.sessionWorkflow.postSystemAlert, {
+        sessionId: args.sessionId,
+        content: "Force-push failed",
+        errorDetail,
+      });
+    }
+    return null;
+  },
+});
 
 /** Starts a session sandbox end-to-end and notifies the session of readiness or error. */
 export const startSessionSandbox = internalAction({

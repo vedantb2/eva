@@ -28,6 +28,7 @@ import {
   normalizedCursorModel,
 } from "../config.js";
 import { evaMcpServers } from "../evaMcp.js";
+import { cursorCompactionEventPhase } from "./cursor.js";
 import { pushNoticeStep, updateThinkingStep } from "../parse/canonical.js";
 import { processRealtimeStdoutChunk } from "../parse/streamRouter.js";
 import {
@@ -57,7 +58,12 @@ const SDK_ENTRY_RELPATH = "/dist/esm/index.js";
 export const CURSOR_AGENT_SETUP_TIMEOUT_MS = 30_000;
 /** `Agent.send` only creates the run. A minute here is a wedged SDK session. */
 export const CURSOR_SEND_START_TIMEOUT_MS = 60_000;
-/** Before visible output, replaying once on a fresh agent is still safe. */
+/**
+ * Silence budget before the first visible event, rolling from the last SDK
+ * event of ANY type: a stream still emitting lifecycle events (status, usage,
+ * compaction summaries) is a live agent, not a stall. Only total silence
+ * trips it — and before visible output, replaying is still safe.
+ */
 export const CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS;
 /** Once output exists, allow long model pauses without replaying or aborting. */
 export const CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
@@ -128,13 +134,20 @@ export function cursorEventHasVisibleActivity(type: string): boolean {
 
 export function cursorEventWaitTimeoutMs(args: {
   sawVisibleActivity: boolean;
-  firstVisibleDeadlineAt: number;
+  lastEventAt: number;
   now: number;
   toolInFlight: boolean;
+  compactionInFlight: boolean;
 }): number {
-  if (args.toolInFlight) return MAX_TOTAL_RUNTIME_MS;
+  // An in-place compaction can outlast every silence budget and MUST NOT be
+  // mistaken for a hang: replacing a compacting agent is exactly the agent
+  // rotation the resume-always design exists to prevent.
+  if (args.toolInFlight || args.compactionInFlight) return MAX_TOTAL_RUNTIME_MS;
   if (args.sawVisibleActivity) return CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS;
-  return Math.max(1, args.firstVisibleDeadlineAt - args.now);
+  return Math.max(
+    1,
+    args.lastEventAt + CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS - args.now,
+  );
 }
 
 /** Official SDK types are erased from the standalone callback bundle. */
@@ -661,6 +674,7 @@ export async function runCursorSdkAttempt(
 
   let attemptOutput = "";
   let lastMessageAt = Date.now();
+  let compactionInFlight = false;
   let timedOutForNoOutput = false;
   let timedOutForMaxRuntime = false;
   let sawResult = false;
@@ -716,6 +730,20 @@ export async function runCursorSdkAttempt(
     return created;
   };
 
+  const resumeSavedAgent = async (savedSessionId: string): Promise<SdkAgent> => {
+    updateThinkingStep(
+      "Restoring Cursor context...",
+      "Opening the saved agent...",
+    );
+    const resumed = await waitForCursorPhase({
+      task: sdk.Agent.resume(savedSessionId, options),
+      phase: "restoring saved context",
+      timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS,
+    });
+    persistAgentId(resumed.agentId);
+    return resumed;
+  };
+
   // Resume with a catch-all self-heal: a persisted pre-migration CLI session
   // id (or a wiped/corrupt store) fails Agent.resume — degrade to a one-time
   // fresh agent instead of failing every future turn. Genuine environment
@@ -724,27 +752,43 @@ export async function runCursorSdkAttempt(
   let agent: SdkAgent;
   if (sessionMode.mode === "resume" && sessionMode.sessionId) {
     try {
-      updateThinkingStep(
-        "Restoring Cursor context...",
-        "Opening the saved agent...",
-      );
-      agent = await waitForCursorPhase({
-        task: sdk.Agent.resume(sessionMode.sessionId, options),
-        phase: "restoring saved context",
-        timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS,
-      });
+      agent = await resumeSavedAgent(sessionMode.sessionId);
       resumedExistingAgent = true;
-      persistAgentId(agent.agentId);
     } catch (error) {
       const messageText =
         error instanceof Error ? error.message : String(error);
       log(
-        "runCursorSdkAttempt: resume failed — starting a fresh agent (" +
+        "runCursorSdkAttempt: resume failed — retrying the saved agent (" +
           messageText +
           ")",
       );
       appendToRawLogFile("[sdk-retry] resume failed: " + messageText + "\n");
-      agent = await createFreshAgent();
+      // A transient resume failure must not cost the session its agent: try
+      // the same saved agent once more before the fresh-agent last resort.
+      // agent_not_found is definitive (the store no longer has it), so only
+      // that skips straight to fresh.
+      if (error instanceof Error && !isAgentNotFound(error)) {
+        try {
+          agent = await resumeSavedAgent(sessionMode.sessionId);
+          resumedExistingAgent = true;
+        } catch (retryError) {
+          const retryMessageText =
+            retryError instanceof Error
+              ? retryError.message
+              : String(retryError);
+          log(
+            "runCursorSdkAttempt: resume retry failed — starting a fresh agent (" +
+              retryMessageText +
+              ")",
+          );
+          appendToRawLogFile(
+            "[sdk-retry] resume retry failed: " + retryMessageText + "\n",
+          );
+          agent = await createFreshAgent();
+        }
+      } else {
+        agent = await createFreshAgent();
+      }
     }
   } else {
     agent = await createFreshAgent();
@@ -766,8 +810,9 @@ export async function runCursorSdkAttempt(
     // The SDK emits nothing between a tool call and its result, so a long
     // silent tool is indistinguishable from a hang by message silence alone:
     // while a tool is in flight only the hard runtime cap applies, and the
-    // silence clock restarts once the tool result lands.
-    if (S.inFlightToolUses > 0) {
+    // silence clock restarts once the tool result lands. An in-place
+    // compaction (summary-started .. summary-completed) is the same shape.
+    if (S.inFlightToolUses > 0 || compactionInFlight) {
       lastMessageAt = now;
     }
     if (
@@ -838,8 +883,11 @@ export async function runCursorSdkAttempt(
     updateThinkingStep("Waiting for Grok...", "The model is thinking...");
     const messages = run.stream()[Symbol.asyncIterator]();
     let sawVisibleActivity = false;
-    const firstVisibleDeadlineAt =
-      Date.now() + CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS;
+    // Rolling liveness clock: any received SDK event restarts the pre-visible
+    // window, so a resume that streams lifecycle events (status, compaction
+    // summaries) while it warms up is never misread as a stall.
+    lastMessageAt = Date.now();
+    compactionInFlight = false;
     while (true) {
       const phase: CursorPhase = sawVisibleActivity
         ? "waiting for the next model event"
@@ -849,9 +897,10 @@ export async function runCursorSdkAttempt(
         phase,
         timeoutMs: cursorEventWaitTimeoutMs({
           sawVisibleActivity,
-          firstVisibleDeadlineAt,
+          lastEventAt: lastMessageAt,
           now: Date.now(),
           toolInFlight: S.inFlightToolUses > 0,
+          compactionInFlight,
         }),
         onTimeout: () => {
           timedOutForNoOutput = true;
@@ -862,6 +911,10 @@ export async function runCursorSdkAttempt(
       const message = next.value;
       if (cursorEventHasVisibleActivity(message.type)) {
         sawVisibleActivity = true;
+      }
+      const compactionPhase = cursorCompactionEventPhase(message.type);
+      if (compactionPhase !== null) {
+        compactionInFlight = compactionPhase === "started";
       }
       lastMessageAt = Date.now();
       pushLine(JSON.stringify(message) + "\n");
@@ -954,44 +1007,85 @@ export async function runCursorSdkAttempt(
     );
   };
 
+  // Closes the failed agent and clears the attempt's stall bookkeeping so the
+  // next recovery attempt starts from a clean clock.
+  const resetForRecovery = (failedAgent: SdkAgent): void => {
+    try {
+      failedAgent.close();
+    } catch {
+      /* already closed */
+    }
+    activeRun = null;
+    timedOutForNoOutput = false;
+    lastMessageAt = Date.now();
+    compactionInFlight = false;
+  };
+
   try {
     try {
       await runTurnWithRetries(agent, !resumedExistingAgent);
     } catch (error) {
       // A resumed agent whose stored runs are unreadable can throw
-      // agent_not_found past resume (at send/stream/wait). Retry once fresh so
-      // a poisoned persisted id cannot fail every future turn.
+      // agent_not_found past resume (at send/stream/wait), and a resumed run
+      // can stall before its first event. Both recover — but the session's
+      // agent IS its memory, so a stall first reopens the SAME agent; only a
+      // definitive agent_not_found (or a second failure) falls back to a
+      // one-time fresh agent so a poisoned persisted id cannot fail every
+      // future turn.
       const retryStalledResume =
         error instanceof Error && shouldRetryStalledCursorResume(error);
       if (
-        resumedExistingAgent &&
-        error instanceof Error &&
-        (isAgentNotFound(error) || retryStalledResume)
+        !resumedExistingAgent ||
+        !(error instanceof Error) ||
+        !(isAgentNotFound(error) || retryStalledResume)
       ) {
-        log(
-          "runCursorSdkAttempt: resumed agent unusable — retrying as a fresh agent (" +
-            error.message +
-            ")",
+        throw error;
+      }
+      log(
+        "runCursorSdkAttempt: resumed agent run failed — recovering (" +
+          error.message +
+          ")",
+      );
+      appendToRawLogFile("[sdk-retry] " + error.message + "\n");
+      resetForRecovery(agent);
+
+      const savedSessionId = S.activeCursorSessionId || sessionMode.sessionId;
+      let recoveredOnSameAgent = false;
+      if (retryStalledResume && savedSessionId) {
+        pushNoticeStep(
+          "Retrying the saved Cursor agent",
+          "The run stalled before any output, so Eva reopened the same agent to keep its context.",
         );
-        appendToRawLogFile("[sdk-retry] " + error.message + "\n");
         try {
-          agent.close();
-        } catch {
-          /* already closed */
+          agent = await resumeSavedAgent(savedSessionId);
+          await runTurnWithRetries(agent, false);
+          recoveredOnSameAgent = true;
+        } catch (retryError) {
+          const retryIsRecoverable =
+            retryError instanceof Error &&
+            (isAgentNotFound(retryError) ||
+              shouldRetryStalledCursorResume(retryError) ||
+              (retryError instanceof CursorPhaseTimeoutError &&
+                retryError.phase === "restoring saved context"));
+          if (!retryIsRecoverable) throw retryError;
+          log(
+            "runCursorSdkAttempt: same-agent retry failed — starting a fresh agent (" +
+              retryError.message +
+              ")",
+          );
+          appendToRawLogFile("[sdk-retry] " + retryError.message + "\n");
+          resetForRecovery(agent);
         }
-        activeRun = null;
-        timedOutForNoOutput = false;
-        lastMessageAt = Date.now();
+      }
+      if (!recoveredOnSameAgent) {
         pushNoticeStep(
           "Started a fresh Cursor agent",
           retryStalledResume
-            ? "The saved agent stopped responding, so Eva recovered with a clean context."
+            ? "The saved agent stopped responding twice, so Eva recovered with a clean context."
             : "The saved agent could not be restored, so Eva recovered with a clean context.",
         );
         agent = await createFreshAgent();
         await runTurnWithRetries(agent, true);
-      } else {
-        throw error;
       }
     }
   } catch (error) {

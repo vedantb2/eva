@@ -98,8 +98,13 @@ function ComposerStashItem({
 
 /**
  * Footer pill + ⌘S stash/restore for the shared chat composer.
- * Hotkey is gated on composer focus (or open picker) so it does not steal
- * browser save from other fields on the page.
+ * The hotkey registration stays enabled whenever a composer is mounted and the
+ * focus/disabled gate lives inside the callback: `enabled: false` makes the
+ * hotkey manager skip preventDefault entirely, so gating via `enabled` let
+ * ⌘S fall through to the browser's save-file dialog. Browser save is never
+ * useful inside the app; acting on the stash still requires this composer to
+ * own focus (or its picker to be open), so multiple mounted composers don't
+ * all stash at once.
  */
 export function ComposerStash({
   repoId,
@@ -148,13 +153,12 @@ export function ComposerStash({
     };
   }, [open]);
 
-  const hotkeyEnabled = !disabled && (composerFocused || open);
-
   useShortcut(
     "stashDraft",
     (event) => {
       event.preventDefault();
       if (disabled) return;
+      if (!composerFocused && !open) return;
 
       const isEmpty =
         textInput.value.trim().length === 0 && attachments.files.length === 0;
@@ -167,7 +171,7 @@ export function ComposerStash({
         if (ok) setPulseKey((key) => key + 1);
       });
     },
-    { enabled: hotkeyEnabled, requireReset: true },
+    { requireReset: true },
   );
 
   const newestId = entries[0]?._id;

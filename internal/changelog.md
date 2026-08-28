@@ -1,5 +1,9 @@
 # Changelog
 
+## Prompt-stash hotkey no longer opens the browser save dialog - 2026-08-28
+
+- `ComposerStash` gated its ⌘S registration with `enabled: composerFocused || open`, but the hotkey manager skips `preventDefault` entirely for disabled registrations — any ⌘S the focus heuristic missed (or pressed while the composer was disabled) fell through to the browser's save-file dialog. The registration is now always enabled and the focus/disabled gate lives inside the callback, so ⌘S is swallowed whenever a composer is mounted, while stashing still requires that composer to own focus — multiple mounted composers cannot all stash at once.
+
 ## Guided force-push recovery for rewritten-branch publish refusals - 2026-08-28
 
 - When a session's publish fails with the rewritten-branch refusal (carepulse-ts session 53 today: 290 remote-only files vs 220 local after a rebase), the session chat now shows a "Publish blocked" banner above the composer with a confirm-then-force-push button, instead of leaving the user to run git in the sandbox by hand.

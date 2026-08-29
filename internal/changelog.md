@@ -1,5 +1,20 @@
 # Changelog
 
+## Editor and Computer are first-class sandbox rail tabs; sub-agent CTA row hidden in simple view - 2026-08-29
+
+- Editor and Computer moved out of the `+` dropdown into the vertical sandbox rail as always-present tabs (when the surface enables them), placed after the base tabs and before Files/Agents/Plan/Designs. The dropdown was a leftover from the horizontal strip's space constraints; with only "New Preview" left in it, the menu is gone and `+` triggers New Preview directly.
+- The whole pin/close machinery existed only to keep those two menu-opened tabs alive, so it is deleted: `useEditorTab`, `useComputerTab`, `usePinnedSandboxTab` (localStorage pin state), the descriptor close buttons, `isCollapsibleSandboxTab`, and the `onComputerRunningChange` → `onRunningChange` → `onStateChange` chain that blocked closing Computer while the desktop ran (moot with no close) — two `useEffect`s removed with it. Session, task and project panels all share `SandboxTabBar`, so one change covers all three; palette "Show Editor/Computer" commands now plain tab switches.
+- Availability gating unchanged: Editor/Computer still respect `enabledTabs` and are hidden in simple view; pane content was already mounted lazily behind CSS, so nothing starts code-server/VNC until visited.
+- Separately, the "Ran N subagents" CTA row no longer renders in simple view: `ChatBody` (the one funnel for all three chat surfaces) passes `onOpenAgentsTab` as undefined when `simpleView`, reusing the row's existing prop gate — correct because simple view also hides the Agents tab the row would open.
+
+## New sessions no longer default to a teammate's shared provider account - 2026-08-29
+
+- Root cause: the landing composer's mount effect picked the first provider-matching row from `listSelectable`, which mixes the viewer's accounts with teammates' shared ones sorted only by `updatedAt` desc — so a teammate's recently-touched shared credential silently won the default, and the effect overwrote the saved localStorage pick on every page load. This contradicted the backend's own policy (`_userProviderAccounts/defaults.ts`): shared accounts bill their owner and are explicit picks only.
+- Backend rows now carry `isOwn` (`accountListItemValidator`): `listAccountsFor` takes it per pool, so `list`, `listSelectable`, `listForTaskOwner`, `listForSessionOwner` all distinguish the pool owner's accounts from teammates' shares. `shared` alone could not — an own account can be shared too.
+- `defaultProviderAccountId` only considers `isOwn` accounts; new `providerAccountIdForModel` keeps the current pick across a model switch when the provider still matches, else falls back to the own-default. Both `NewSessionComposer` and `QuickTaskModal` use it on model change.
+- The composer's mount default now leaves a stored pick alone only when it resolves to an own account; a stored shared id is re-defaulted, because the old bug wrote shared ids into localStorage and a shared account is an explicit per-visit choice. Trade-off: an explicitly picked shared account does not survive a full reload (it never did — the old code clobbered every pick on mount).
+- Synthesized owner-account rows in `ProjectFieldsPanel`/`ProjectSandboxChatPanel` are `isOwn: false`, so they stay selectable but never auto-picked. Known gap: an explicit "Team" (null) pick is still indistinguishable from "never picked" in the composer localStorage schema, so it re-defaults on load; fixing that needs a schema flag.
+
 ## Inbox rows can be marked unread from a right-click menu - 2026-08-29
 
 - Inbox notification rows are now wrapped in the shared `ContextMenu` from `@eva/ui` (the same Radix trigger the sidebar session rows and chat bubbles use) with a single toggle item: "Mark as read" on unread rows, "Mark as unread" on read ones. Reading a notification was previously one-way — clicking a row marked it read and there was no way back, so anything triaged by accident was lost from the Unread tab.

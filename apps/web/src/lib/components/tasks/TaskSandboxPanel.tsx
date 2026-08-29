@@ -10,8 +10,6 @@ import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import { type SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
-import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
-import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { SandboxPanelFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
@@ -122,19 +120,6 @@ export function TaskSandboxPanel({
     onTabChange(tab);
   };
 
-  const {
-    computerTabOpen,
-    computerRunning,
-    setComputerRunning,
-    openComputer,
-    closeComputer,
-  } = useComputerTab(`task:${taskIdStr}`, tabBarValue, handleTabChange);
-  const { editorTabOpen, openEditor, closeEditor } = useEditorTab(
-    `task:${taskIdStr}`,
-    tabBarValue,
-    handleTabChange,
-  );
-
   const enabledTabs = withBrowserTab(panes.enabledTabs);
 
   return (
@@ -156,13 +141,6 @@ export function TaskSandboxPanel({
         showAgentsTab={hasAgents}
         hasRunningAgents={hasRunningAgents}
         agentBrowsingAt={viewState?.agentBrowsingAt}
-        computerTabOpen={computerTabOpen}
-        computerRunning={computerRunning}
-        onOpenComputer={openComputer}
-        onCloseComputer={closeComputer}
-        editorTabOpen={editorTabOpen}
-        onOpenEditor={openEditor}
-        onCloseEditor={closeEditor}
         fileList={fileList}
         consoleDock={panes.consoleDock}
         terminalPanel={terminalPanel}
@@ -200,7 +178,6 @@ export function TaskSandboxPanel({
           onReleaseBrowserLock={() => void releaseBrowserLock({ owner })}
           // Backend starts the app in the Console tmux session after startup.
           runConsoleDevCommandOnConnect={false}
-          onComputerRunningChange={setComputerRunning}
           onStartSandbox={onStartSandbox}
           isSandboxStarting={isSandboxStarting}
           stickyPreviewPath={viewState?.previewPath}

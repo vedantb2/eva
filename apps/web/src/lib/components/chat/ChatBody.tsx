@@ -181,8 +181,9 @@ export function ChatBody({
   backgroundAgents,
   sandboxRunning,
 }: ChatBodyProps) {
-  // Simple view hides diffs and sandbox lifecycle banners. Quick task /
-  // project / session all render through ChatBody, so this is the one gate.
+  // Simple view hides diffs, sandbox lifecycle banners, and — since it has no
+  // Agents tab to open — the sub-agent CTA row. Quick task / project / session
+  // all render through ChatBody, so this is the one gate.
   const simpleView = useSimpleView();
   const displayMessages = visibleChatMessages(messages, simpleView);
 
@@ -320,7 +321,7 @@ export function ChatBody({
         streamingContent={isStreamingTarget ? streamingContent : undefined}
         onOpenFile={onOpenFile}
         onViewDiff={onViewDiff}
-        onOpenAgentsTab={onOpenAgentsTab}
+        onOpenAgentsTab={simpleView ? undefined : onOpenAgentsTab}
         backgroundAgents={backgroundAgents}
         sandboxRunning={sandboxRunning}
       />

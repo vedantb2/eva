@@ -16,8 +16,6 @@ import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import { type SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
-import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
-import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import { SandboxPanelFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
@@ -131,19 +129,6 @@ export function ProjectSandboxPanel({
     navigateToSandboxTab(tab);
   };
 
-  const {
-    computerTabOpen,
-    computerRunning,
-    setComputerRunning,
-    openComputer,
-    closeComputer,
-  } = useComputerTab(`project:${projectIdStr}`, activeTab, handleTabChange);
-  const { editorTabOpen, openEditor, closeEditor } = useEditorTab(
-    `project:${projectIdStr}`,
-    activeTab,
-    handleTabChange,
-  );
-
   const enabledTabs = withBrowserTab(panes.enabledTabs);
   const { owner: ownerParam, repo: repoParam } = useParams({ strict: false });
 
@@ -180,13 +165,6 @@ export function ProjectSandboxPanel({
             showAgentsTab={hasAgents}
             hasRunningAgents={hasRunningAgents}
             agentBrowsingAt={viewState?.agentBrowsingAt}
-            computerTabOpen={computerTabOpen}
-            computerRunning={computerRunning}
-            onOpenComputer={openComputer}
-            onCloseComputer={closeComputer}
-            editorTabOpen={editorTabOpen}
-            onOpenEditor={openEditor}
-            onCloseEditor={closeEditor}
             fileList={fileList}
             consoleDock={panes.consoleDock}
             terminalPanel={terminalPanel}
@@ -224,7 +202,6 @@ export function ProjectSandboxPanel({
             onReleaseBrowserLock={() => void releaseBrowserLock({ owner })}
             // Backend starts the app in the Console tmux session after startup.
             runConsoleDevCommandOnConnect={false}
-            onComputerRunningChange={setComputerRunning}
             onStartSandbox={onStartSandbox}
             isSandboxStarting={isSandboxStarting}
             stickyPreviewPath={viewState?.previewPath}

@@ -18,8 +18,6 @@ import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import { type SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
-import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
-import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import {
@@ -142,18 +140,6 @@ export function SandboxPanel({
     },
   });
   const fileList = useSandboxFileList({ sandboxId, repoId, isActive });
-  const {
-    computerTabOpen,
-    computerRunning,
-    setComputerRunning,
-    openComputer,
-    closeComputer,
-  } = useComputerTab(`session:${sessionIdStr}`, activeTab, onTabChange);
-  const { editorTabOpen, openEditor, closeEditor } = useEditorTab(
-    `session:${sessionIdStr}`,
-    activeTab,
-    onTabChange,
-  );
   // User-defined tabs for this app, in display order, enabled only.
   const allCustomTabs = useQuery(api.appTabs.list, { repoId });
   const customTabs = (allCustomTabs ?? []).filter((tab) => tab.enabled);
@@ -197,13 +183,6 @@ export function SandboxPanel({
         hasRunningAgents={hasRunningAgents}
         customTabs={simpleView ? undefined : customTabs}
         agentBrowsingAt={agentBrowsingAt}
-        computerTabOpen={computerTabOpen}
-        computerRunning={computerRunning}
-        onOpenComputer={openComputer}
-        onCloseComputer={closeComputer}
-        editorTabOpen={editorTabOpen}
-        onOpenEditor={openEditor}
-        onCloseEditor={closeEditor}
         hotkeysEnabled={isRouteActive}
         fileList={fileList}
         consoleDock={panes.consoleDock}
@@ -304,7 +283,6 @@ export function SandboxPanel({
           }
           // Backend starts the app in the Console tmux session after startup.
           runConsoleDevCommandOnConnect={false}
-          onComputerRunningChange={setComputerRunning}
           onStartSandbox={onStartSandbox}
           isSandboxStarting={isSandboxStarting}
           onAnnotationSubmit={submitAnnotation}

@@ -52,6 +52,7 @@ function toModelAccounts(
         _id: Id<"userProviderAccounts">;
         provider: ModelAccount["provider"];
         label: string;
+        isOwn: boolean;
         updatedAt: number;
       }>
     | undefined,
@@ -66,6 +67,7 @@ function toModelAccounts(
     id: account._id,
     provider: account.provider,
     label: account.label,
+    isOwn: account.isOwn,
   }));
   const resolveId = (
     id: string | null,

@@ -40,7 +40,10 @@ import {
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 import { useBaseBranchState } from "@/lib/hooks/useBaseBranchState";
-import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
+import {
+  defaultProviderAccountId,
+  providerAccountIdForModel,
+} from "@/lib/utils/defaultProviderAccount";
 import { toRunTraitArgs } from "@/lib/utils/runTraits";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ModelSelectWithTraits } from "@/lib/components/ModelSelectWithTraits";
@@ -205,10 +208,13 @@ export function QuickTaskModal({
     ready: accountsReady,
   } = useProviderAccounts();
 
-  // Once accounts load, default to the creator's personal account for the
-  // selected model provider (Team when none match). Adjust during render.
+  // Once accounts load, default to the creator's own account for the selected
+  // model provider (Team when none match), leaving an existing pick that still
+  // resolves alone. Adjust during render.
   if (accountsReady && !accountDefaulted) {
-    setProviderAccountId(defaultProviderAccountId(accounts, model));
+    if (!accounts.some((account) => account.id === providerAccountId)) {
+      setProviderAccountId(defaultProviderAccountId(accounts, model));
+    }
     setAccountDefaulted(true);
   }
 
@@ -505,7 +511,9 @@ export function QuickTaskModal({
               options={modelOptions}
               onValueChange={(next) => {
                 setModel(next);
-                setProviderAccountId(defaultProviderAccountId(accounts, next));
+                setProviderAccountId(
+                  providerAccountIdForModel(accounts, providerAccountId, next),
+                );
               }}
               accounts={accounts}
               accountId={providerAccountId}

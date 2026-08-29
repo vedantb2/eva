@@ -30,7 +30,9 @@ export function SandboxChatPreInput({
   const { parentId } = chatEntityKeys(surface.entity);
   const requestStop = useStopBackgroundAgent(surface.entity);
   // Simple view hides agent internals (reasoning, tool detail) — the subagent
-  // chip is the same family of machinery.
+  // chip and the token-budget compaction offer are the same family of
+  // machinery. The hooks below still run unconditionally; only the render is
+  // gated.
   const simpleView = useSimpleView();
   const compaction = useCompactionBanner({
     repoId: surface.repoId,
@@ -50,7 +52,7 @@ export function SandboxChatPreInput({
         />
       )}
       {beforeBanner}
-      {compaction ? (
+      {compaction && !simpleView ? (
         <ComposerCompactionBanner
           usedTokens={compaction.usedTokens}
           onCompact={() => surface.onSendCommand(COMPACT_COMMAND)}

@@ -16,11 +16,7 @@ interface BuildSandboxTabDescriptorsArgs {
   baseTabs: ReadonlyArray<SandboxCommandTab>;
   showBrowserActivity: boolean;
   showEditorTab: boolean;
-  onCloseEditor: (() => void) | undefined;
   showComputerTab: boolean;
-  /** True while Computer is starting/running — closing it is blocked. */
-  computerRunning: boolean;
-  onCloseComputer: (() => void) | undefined;
   showFilesTab: boolean;
   showAgentsTab: boolean;
   /** True while any sub-agent is running — pulses the Agents tab dot. */
@@ -35,18 +31,15 @@ interface BuildSandboxTabDescriptorsArgs {
 /**
  * One ordered list for the whole strip. The bar used to hand-roll a
  * `TabsTrigger` per conditional tab — eight near-identical blocks that each had
- * to remember the icon size, the indicator dot and the close-button pointer
- * dance. Order here is the strip's order, and must stay in step with
- * `SANDBOX_TAB_BAR_ORDER` in `useCycleSandboxTabHotkey`.
+ * to remember the icon size and the indicator dot. Order here is the strip's
+ * order, and must stay in step with `SANDBOX_TAB_BAR_ORDER` in
+ * `useCycleSandboxTabHotkey`.
  */
 export function buildSandboxTabDescriptors({
   baseTabs,
   showBrowserActivity,
   showEditorTab,
-  onCloseEditor,
   showComputerTab,
-  computerRunning,
-  onCloseComputer,
   showFilesTab,
   showAgentsTab,
   hasRunningAgents,
@@ -72,7 +65,6 @@ export function buildSandboxTabDescriptors({
       value: "editor",
       label: "Editor",
       icon: { kind: "component", Icon: IconCode },
-      onClose: () => onCloseEditor?.(),
     });
   }
 
@@ -81,10 +73,6 @@ export function buildSandboxTabDescriptors({
       value: "computer",
       label: "Computer",
       icon: { kind: "component", Icon: IconDeviceDesktop },
-      onClose: computerRunning ? undefined : () => onCloseComputer?.(),
-      closeBlockedReason: computerRunning
-        ? "Stop Computer before closing this tab"
-        : undefined,
     });
   }
 

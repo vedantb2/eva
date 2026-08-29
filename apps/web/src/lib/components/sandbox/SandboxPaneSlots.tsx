@@ -47,8 +47,6 @@ interface SandboxPaneSlotsProps {
    * Defaults to true for tasks/projects.
    */
   runConsoleDevCommandOnConnect?: boolean;
-  /** Computer/Browser desktop starting or running — gates Computer tab close. */
-  onComputerRunningChange?: (running: boolean) => void;
   /** Preview empty state Start button when sandbox is stopped. */
   onStartSandbox?: () => void;
   isSandboxStarting?: boolean;
@@ -85,7 +83,6 @@ export function SandboxPaneSlots({
   agentBrowsingAt,
   onReleaseBrowserLock,
   runConsoleDevCommandOnConnect = true,
-  onComputerRunningChange,
   onStartSandbox,
   isSandboxStarting,
   onAnnotationSubmit,
@@ -237,7 +234,6 @@ export function SandboxPaneSlots({
             surface={resolvedTab === "browser" ? "browser" : "desktop"}
             agentBrowsingAt={agentBrowsingAt}
             onReleaseLock={onReleaseBrowserLock}
-            onRunningChange={onComputerRunningChange}
           />
         </SandboxPaneBoundary>
       </div>

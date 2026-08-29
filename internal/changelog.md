@@ -1,5 +1,12 @@
 # Changelog
 
+## Editor and Computer are first-class sandbox rail tabs; sub-agent CTA row hidden in simple view - 2026-08-29
+
+- Editor and Computer moved out of the `+` dropdown into the vertical sandbox rail as always-present tabs (when the surface enables them), placed after the base tabs and before Files/Agents/Plan/Designs. The dropdown was a leftover from the horizontal strip's space constraints; with only "New Preview" left in it, the menu is gone and `+` triggers New Preview directly.
+- The whole pin/close machinery existed only to keep those two menu-opened tabs alive, so it is deleted: `useEditorTab`, `useComputerTab`, `usePinnedSandboxTab` (localStorage pin state), the descriptor close buttons, `isCollapsibleSandboxTab`, and the `onComputerRunningChange` → `onRunningChange` → `onStateChange` chain that blocked closing Computer while the desktop ran (moot with no close) — two `useEffect`s removed with it. Session, task and project panels all share `SandboxTabBar`, so one change covers all three; palette "Show Editor/Computer" commands now plain tab switches.
+- Availability gating unchanged: Editor/Computer still respect `enabledTabs` and are hidden in simple view; pane content was already mounted lazily behind CSS, so nothing starts code-server/VNC until visited.
+- Separately, the "Ran N subagents" CTA row no longer renders in simple view: `ChatBody` (the one funnel for all three chat surfaces) passes `onOpenAgentsTab` as undefined when `simpleView`, reusing the row's existing prop gate — correct because simple view also hides the Agents tab the row would open.
+
 ## New sessions no longer default to a teammate's shared provider account - 2026-08-29
 
 - Root cause: the landing composer's mount effect picked the first provider-matching row from `listSelectable`, which mixes the viewer's accounts with teammates' shared ones sorted only by `updatedAt` desc — so a teammate's recently-touched shared credential silently won the default, and the effect overwrote the saved localStorage pick on every page load. This contradicted the backend's own policy (`_userProviderAccounts/defaults.ts`): shared accounts bill their owner and are explicit picks only.

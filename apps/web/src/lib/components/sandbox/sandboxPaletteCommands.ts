@@ -36,8 +36,6 @@ interface BuildSandboxPaletteCommandsArgs {
   consoleDock: ConsoleDockApi;
   terminalPanel: TerminalPanelApi;
   onTabChange: (tab: string) => void;
-  onOpenEditor: (() => void) | undefined;
-  onOpenComputer: (() => void) | undefined;
   onNewPreview: () => void;
   newPreviewDisabled: boolean;
   simpleView?: boolean;
@@ -57,8 +55,6 @@ export function buildSandboxPaletteCommands({
   consoleDock,
   terminalPanel,
   onTabChange,
-  onOpenEditor,
-  onOpenComputer,
   onNewPreview,
   newPreviewDisabled,
   simpleView = false,
@@ -113,13 +109,7 @@ export function buildSandboxPaletteCommands({
       label: "Show Editor",
       keywords: "view tab code vscode",
       icon: IconCode,
-      run: () => {
-        if (onOpenEditor) {
-          onOpenEditor();
-          return;
-        }
-        onTabChange("editor");
-      },
+      run: () => onTabChange("editor"),
     });
   }
   if (showDesktopItem) {
@@ -128,13 +118,7 @@ export function buildSandboxPaletteCommands({
       label: "Show Computer",
       keywords: "view tab desktop",
       icon: IconDeviceDesktop,
-      run: () => {
-        if (onOpenComputer) {
-          onOpenComputer();
-          return;
-        }
-        onTabChange("computer");
-      },
+      run: () => onTabChange("computer"),
     });
   }
   for (const tab of customTabs) {

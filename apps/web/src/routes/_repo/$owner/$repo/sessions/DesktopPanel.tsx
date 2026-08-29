@@ -5,7 +5,6 @@ import { IconDeviceDesktop } from "@tabler/icons-react";
 import { Button } from "@eva/ui";
 import {
   SandboxIframeService,
-  type SandboxIframeServiceState,
   type StartResult,
 } from "@/lib/components/sandbox/SandboxIframeService";
 
@@ -16,7 +15,7 @@ interface DesktopPanelProps {
   sandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
-  /** Browser tab vs Computer (`+`) — same surface, different idle copy. */
+  /** Browser tab vs Computer tab — same surface, different idle copy. */
   surface?: "browser" | "desktop";
   /** When fresh, shows the takeover overlay (session/task/project sandboxes). */
   agentBrowsingAt?: number;
@@ -25,8 +24,6 @@ interface DesktopPanelProps {
    * mutation, provided by the caller). Takeover overlay only renders when set.
    */
   onReleaseLock?: () => void;
-  /** True while Computer/Browser desktop is starting or running. */
-  onRunningChange?: (running: boolean) => void;
 }
 
 const SURFACE_COPY = {
@@ -92,7 +89,6 @@ export function DesktopPanel({
   surface = "desktop",
   agentBrowsingAt,
   onReleaseLock,
-  onRunningChange,
 }: DesktopPanelProps) {
   const copy = SURFACE_COPY[surface];
   const toggleDesktopServer = useAction(api.sandbox.toggleDesktopServer);
@@ -112,10 +108,6 @@ export function DesktopPanel({
   const handleReady = () => {
     if (!sandboxId) return;
     launchChromeInDesktop({ sandboxId, repoId }).catch(() => {});
-  };
-
-  const handleStateChange = (state: SandboxIframeServiceState) => {
-    onRunningChange?.(state === "starting" || state === "running");
   };
 
   const isAgentBrowsing = isAgentBrowsingActive(agentBrowsingAt);
@@ -156,7 +148,6 @@ export function DesktopPanel({
         loadFailedError={copy.loadFailedError}
         iframeAllow="clipboard-read; clipboard-write"
         autoStartKey={autoStartKey}
-        onStateChange={handleStateChange}
       />
       {showLockOverlay ? (
         <>

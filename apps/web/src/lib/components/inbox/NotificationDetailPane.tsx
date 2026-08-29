@@ -4,7 +4,11 @@ import { useEffect, useRef, useState } from "react";
 import { Button, Spinner } from "@eva/ui";
 import { IconArrowUpRight, IconInbox } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
-import { type Notification } from "@/lib/components/notifications/notification-config";
+import {
+  NotificationStatusIcon,
+  type Notification,
+} from "@/lib/components/notifications/notification-config";
+import { splitNotificationTitle } from "@/lib/components/notifications/notificationTitleParts";
 import { NotificationSourceAvatar } from "@/lib/components/inbox/NotificationRow";
 import {
   MarkdownMentionText,
@@ -104,17 +108,25 @@ export function NotificationDetailPane({
   }
 
   const sourceLabel = repo ? repoDisplayLabel(repo) : undefined;
+  const { subject, event } = splitNotificationTitle(notification);
 
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2.5">
         <NotificationSourceAvatar notification={notification} repo={repo} />
         <div className="flex min-w-0 flex-1 flex-col">
+          {/* Same split as the inbox row: the entity on top, what happened to
+          it underneath, so the header does not restate the list. */}
           <span className="truncate text-sm font-medium text-foreground">
-            {notification.title}
+            {subject}
           </span>
           <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-            {/* No type label here — the avatar badge already carries the type. */}
+            {event ? (
+              <>
+                {event}
+                <span aria-hidden>·</span>
+              </>
+            ) : null}
             {sourceLabel ? (
               <>
                 {sourceLabel}
@@ -127,6 +139,9 @@ export function NotificationDetailPane({
             />
           </span>
         </div>
+        {/* Status marker sits where the list's does: trailing, next to the time
+        and the row's one action. */}
+        <NotificationStatusIcon notification={notification} />
         {notification.href ? (
           <Button
             size="sm"
@@ -147,12 +162,10 @@ export function NotificationDetailPane({
           <div className="mx-auto w-full max-w-2xl space-y-4 px-6 py-6">
             <div className="space-y-1">
               <h2 className="text-lg font-semibold tracking-[-0.01em] text-balance text-foreground">
-                {notification.title}
+                {subject}
               </h2>
-              {notification.contextLabel ? (
-                <p className="text-sm text-muted-foreground">
-                  {notification.contextLabel}
-                </p>
+              {event ? (
+                <p className="text-sm text-muted-foreground">{event}</p>
               ) : null}
             </div>
             {notification.message ? (

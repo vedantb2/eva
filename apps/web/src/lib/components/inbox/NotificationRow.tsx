@@ -13,15 +13,18 @@ import { IconCheck, IconMail, IconMailOpened } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import {
-  getNotificationAppearance,
   NotificationIcon,
+  NotificationStatusIcon,
   type Notification,
 } from "@/lib/components/notifications/notification-config";
+import { splitNotificationTitle } from "@/lib/components/notifications/notificationTitleParts";
 import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
 
 /**
- * Repo logo with the notification type badged onto its corner. Falls back to
- * the plain type icon when the notification is not tied to a repo.
+ * The repo logo, and nothing else: the notification type moved to the trailing
+ * status column, where it can be scanned down the list rather than read at 11px
+ * off an avatar corner. Falls back to the plain type icon when the notification
+ * is not tied to a repo.
  */
 export function NotificationSourceAvatar({
   notification,
@@ -35,26 +38,18 @@ export function NotificationSourceAvatar({
   }
 
   const label = repoDisplayLabel(repo);
-  const appearance = getNotificationAppearance(notification);
-  const TypeIcon = appearance.icon;
 
   return (
-    <div className="relative size-7 shrink-0">
+    <div className="size-7 shrink-0">
       <RepoLogo
         logoUrl={repo.logoUrl}
         size={28}
         fallback={
-          <span className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border bg-muted text-xs font-semibold text-muted-foreground">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-xs font-semibold text-muted-foreground">
             {label.charAt(0).toUpperCase()}
           </span>
         }
       />
-      <span
-        className="absolute -bottom-1 -right-1 flex size-4 items-center justify-center rounded-md border border-border bg-card"
-        aria-hidden
-      >
-        <TypeIcon size={11} className={appearance.iconColor} />
-      </span>
     </div>
   );
 }
@@ -81,6 +76,11 @@ export function NotificationRow({
   const rowRef = useRef<HTMLDivElement>(null);
   const sourceLabel = repo ? repoDisplayLabel(repo) : undefined;
   const unread = !notification.read;
+  // Line one names the thing, line two says what happened to it. Falling back
+  // to the repo keeps a second line under subjects whose title carries no event
+  // phrase, so rows stay the same height down the list.
+  const { subject, event } = splitNotificationTitle(notification);
+  const detail = event ?? sourceLabel;
 
   // Keyboard stepping (arrow keys in the inbox) must keep the selected row in
   // view; nearest-block scrolling is a no-op when it is already visible.
@@ -118,11 +118,6 @@ export function NotificationRow({
             </span>
             <NotificationSourceAvatar notification={notification} repo={repo} />
             <div className="flex min-w-0 flex-1 flex-col">
-              {sourceLabel ? (
-                <span className="truncate text-xs text-muted-foreground">
-                  {sourceLabel}
-                </span>
-              ) : null}
               {/* Read rows drop to the muted tone rather than fading the whole row,
               so logos and timestamps stay legible. */}
               <span
@@ -133,20 +128,22 @@ export function NotificationRow({
                     : "text-muted-foreground",
                 )}
               >
-                {notification.title}
+                {subject}
               </span>
-              {notification.contextLabel ? (
+              {detail ? (
                 <span className="truncate text-xs leading-relaxed text-muted-foreground">
-                  {notification.contextLabel}
+                  {detail}
                 </span>
               ) : null}
             </div>
           </button>
-          {/* At `sm` and up this is exactly as it was: timestamp and Dismiss share
-          the trailing slot, and hovering an unread row swaps one for the other.
-          Below `sm` that swap is unusable — touch has no hover, so Dismiss was
-          unreachable — so there the button leaves the overlay, sits in flow next
-          to the timestamp as a 40px icon-only target, and the timestamp keeps its
+          {/* At `sm` and up the timestamp and Dismiss share one slot, and hovering
+          an unread row swaps one for the other. Dismiss is anchored at `right-11`
+          rather than the row edge so that swap happens beside the status icon
+          (16px icon + 16px row padding + the 12px row gap) instead of over it.
+          Below `sm` the swap is unusable — touch has no hover, so Dismiss was
+          unreachable — so there the button leaves the overlay, sits in flow after
+          the status icon as a 40px icon-only target, and the timestamp keeps its
           place. Both halves are `max-sm:`-scoped so the desktop row is untouched. */}
           <RelativeDateTime
             at={notification.createdAt}
@@ -155,6 +152,10 @@ export function NotificationRow({
               unread && "sm:group-hover:invisible",
             )}
           />
+          {/* Trailing status column, outside the Dismiss overlay's reach: the
+          type colour is what the eye runs down the list, so it stays put while
+          hovering swaps the timestamp beside it for Dismiss. */}
+          <NotificationStatusIcon notification={notification} />
           {unread ? (
             <Button
               size="sm"
@@ -162,7 +163,7 @@ export function NotificationRow({
               onClick={onMarkRead}
               title="Mark as read"
               aria-label="Mark as read"
-              className="absolute right-3 h-6 gap-1 px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 max-sm:static max-sm:size-10 max-sm:shrink-0 max-sm:gap-0 max-sm:p-0 max-sm:opacity-100"
+              className="absolute right-11 h-6 gap-1 px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 max-sm:static max-sm:size-10 max-sm:shrink-0 max-sm:gap-0 max-sm:p-0 max-sm:opacity-100"
             >
               <IconCheck size={14} />
               <span className="max-sm:hidden">Dismiss</span>

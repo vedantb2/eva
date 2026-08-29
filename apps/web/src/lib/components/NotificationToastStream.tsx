@@ -16,6 +16,7 @@ import {
   getNotificationAppearance,
   type Notification,
 } from "@/lib/components/notifications/notification-config";
+import { splitNotificationTitle } from "@/lib/components/notifications/notificationTitleParts";
 
 const TOAST_LIMIT = 4;
 const TOAST_TTL_MS = 9000;
@@ -154,6 +155,9 @@ export function NotificationToastStream() {
         {toasts.map((entry) => {
           const notification = entry.notification;
           const config = getNotificationAppearance(notification);
+          // Same two-line split as the inbox row, so a toast and the row it
+          // becomes read the same way.
+          const { subject, event } = splitNotificationTitle(notification);
           return (
             <m.div
               key={notification._id}
@@ -170,9 +174,16 @@ export function NotificationToastStream() {
                     <NotificationIcon notification={notification} />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium leading-snug">
-                          {notification.title}
-                        </p>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium leading-snug">
+                            {subject}
+                          </p>
+                          {event ? (
+                            <p className="text-xs leading-snug text-muted-foreground">
+                              {event}
+                            </p>
+                          ) : null}
+                        </div>
                         <Button
                           size="icon-xs"
                           variant="ghost"

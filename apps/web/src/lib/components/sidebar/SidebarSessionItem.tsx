@@ -71,6 +71,8 @@ interface SidebarSessionItemProps {
   onNavigate?: () => void;
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
+  /** Branch chosen at session creation, shown in the hover card. */
+  baseBranch?: string;
 }
 
 function SessionPrIcon({
@@ -144,6 +146,7 @@ export function SidebarSessionItem({
   onNavigate,
   prUrl,
   prState,
+  baseBranch,
 }: SidebarSessionItemProps) {
   const { settings } = useSessionsSidebarSettings();
   const isFolder = settings.layout === "folder";
@@ -221,6 +224,7 @@ export function SidebarSessionItem({
           sessionId={sessionId}
           createdAt={createdAt}
           userId={userId}
+          baseBranch={baseBranch}
         />
       </HoverCardContent>
     </HoverCard>

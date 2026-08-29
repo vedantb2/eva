@@ -49,6 +49,7 @@ export interface ChromeTabSession {
   isExecuting?: boolean;
   userId: Id<"users">;
   branchName?: string;
+  baseBranch?: string;
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
 }
@@ -325,6 +326,7 @@ export function SessionChromeTab({
           sessionId={session._id}
           createdAt={session._creationTime}
           userId={session.userId}
+          baseBranch={session.baseBranch}
         />
       </HoverCardContent>
     </HoverCard>

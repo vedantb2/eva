@@ -51,7 +51,7 @@ import type { SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import { ProjectContextUsage } from "@/lib/components/context-usage";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
-import { RepoSectionBreadcrumb } from "@/lib/components/RepoSectionBreadcrumb";
+import { ProjectBreadcrumb } from "./_components/ProjectBreadcrumb";
 
 import {
   IconGitPullRequest,
@@ -391,11 +391,7 @@ export function ProjectDetailClient({
   return (
     <PageWrapper
       title={
-        <RepoSectionBreadcrumb
-          sectionLabel="Projects"
-          onSectionClick={() => navigate({ to: `${basePath}/projects` })}
-          entityLabel={project.title}
-        />
+        <ProjectBreadcrumb projectId={project._id} title={project.title} />
       }
       /* Overview / Tasks / Sandbox live in the header — replaces the old
          Project|Sandbox surface switcher and the secondary tab strip. */

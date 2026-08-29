@@ -25,6 +25,7 @@ import {
 import { catchMutationError } from "@/lib/utils/mutationToast";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import { useSessionModel } from "@/lib/hooks/useSessionModel";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 import {
   useAvailableAiModels,
   useSessionOwnerProviderAccounts,
@@ -117,6 +118,7 @@ export function ChatPanel({
   backgroundAgents,
 }: ChatPanelProps) {
   const { repo, basePath } = useRepo();
+  const simpleView = useSimpleView();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showResetChatDialog, setShowResetChatDialog] = useState(false);
@@ -303,7 +305,9 @@ export function ChatPanel({
       surface={chatSurface}
       beforeBanner={
         <>
-          <BackgroundProcessesPanel sessionId={sessionId} />
+          {simpleView ? null : (
+            <BackgroundProcessesPanel sessionId={sessionId} />
+          )}
           {!isReadOnly ? (
             <PublishRecoveryBanner
               sessionId={sessionId}

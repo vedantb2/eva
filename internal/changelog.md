@@ -1,5 +1,12 @@
 # Changelog
 
+## Inbox rows can be marked unread from a right-click menu - 2026-08-29
+
+- Inbox notification rows are now wrapped in the shared `ContextMenu` from `@eva/ui` (the same Radix trigger the sidebar session rows and chat bubbles use) with a single toggle item: "Mark as read" on unread rows, "Mark as unread" on read ones. Reading a notification was previously one-way — clicking a row marked it read and there was no way back, so anything triaged by accident was lost from the Unread tab.
+- The menu lives inside `NotificationRow` wrapping the row shell, so `contextmenu` never reaches the row's select button: right-clicking neither selects the notification nor marks it read, and the hover-only Dismiss button and arrow-key stepping are untouched.
+- Backend: `notifications.markAsUnread` mirrors `markAsRead` (authMutation, refuses another user's notification, no-ops when already unread). Read state is the `read` boolean alone, so there is no timestamp to clear. It gets the same optimistic update as `markAsRead` in reverse — the row flips in place and the unread badge counts back up.
+- `markAsRead` calls from the inbox now go through `catchMutationError` like the rest of the view; the Dismiss button was previously firing a floating promise with no error toast.
+
 ## Prompt-stash hotkey no longer opens the browser save dialog - 2026-08-28
 
 - `ComposerStash` gated its ⌘S registration with `enabled: composerFocused || open`, but the hotkey manager skips `preventDefault` entirely for disabled registrations — any ⌘S the focus heuristic missed (or pressed while the composer was disabled) fell through to the browser's save-file dialog. The registration is now always enabled and the focus/disabled gate lives inside the callback, so ⌘S is swallowed whenever a composer is mounted, while stashing still requires that composer to own focus — multiple mounted composers cannot all stash at once.
@@ -9282,3 +9289,15 @@ Behavior per context:
 ## Synthetic Turns Push Their Work Before Completing - 2026-08-27
 
 - `finalizeSyntheticTurn` now calls `persistTurnWork()` before the completion mutation, so work committed during a background-agent continuation reaches origin instead of waiting for the next real turn; `persistTurnWork` short-circuits on local refs when origin already has HEAD, so the extra call costs no fetch
+
+## Comment Notifications Land on the Comment - 2026-08-29
+
+- `createNotification` takes an optional `commentId` and appends it to the resolved href as `?comment=<id>`, so a comment notification links to the comment rather than the top of a task that may have fifty of them. The id is also stored on the notification row (`v.union(v.id("taskComments"), v.id("docComments"))`, optional) — the href is a snapshot string, and the anchor is worth keeping in a field that survives it
+- Threaded through all six comment notification paths: reply, mention and subscriber fan-out for task comments and for doc comments. `notifySubscribers` / `notifyDocSubscribers` each gained the param, so a broadcast to twenty followers anchors as precisely as the reply to one. Every other notification type passes nothing and is unchanged
+- Rows written before the field exists carry no param, and every reader treats a missing anchor as "no anchor" — those notifications keep landing at the top of the page exactly as they did
+- `hrefToNavigateOptions` replaces the bare `toInternalRepoHref` at all three click-through sites (inbox, toast, embedded preview bridge). TanStack resolves `to` as a pathname and never splits a query out of it, so handing over `/o/r/quick-tasks/3?comment=abc` whole matched nothing — search has to be passed separately. The toast path was also skipping the `repo--app` rewrite entirely, which this fixes on the way past
+- Scroll and highlight run off a ref callback, not an effect: the comment list only renders once its query resolves, so the element mounting *is* the readiness signal, where an effect would have to watch loading state to know when to look. React re-invokes the callback when the anchor it closes over changes, which is exactly when a second notification for the same page should re-scroll; a ref guard keyed on the anchor value stops an unrelated re-render yanking the page back
+- The highlight is a fire-and-forget CSS animation (`t-anchor-flash`) rather than state plus a timer — it has a beginning and an end and nothing needs to turn it off. Held at full strength for the first third then faded, because the reader's eye arrives mid-scroll and a highlight already fading when the scroll settles is one they never see
+- One hook covers every task comment placement — root threads, replies, and the comment nested inside the run it triggered — because all three render through `CommentActivityItem`. A doc comment anchors its whole thread card, since a reply carries its own id but the card is what scrolls
+- Arriving at a doc from a comment notification opens the comments panel via lazy initial state, so it is open on the first paint instead of flashing shut. A comment that has since been resolved still sits behind the panel's Resolved filter
+- `comment` had to join the quick-tasks route's `validateSearch` (TanStack drops any key a route does not name) as an *optional* property — a required-but-undefined key would have forced all twelve `navigate({ search })` call sites under that route to restate it

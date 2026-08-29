@@ -10,6 +10,7 @@ import { IconX } from "@tabler/icons-react";
 import { AnimatePresence, m } from "motion/react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { playNotificationChime } from "@/lib/utils/notificationChime";
+import { hrefToNavigateOptions } from "@/lib/utils/repoUrl";
 import {
   NotificationIcon,
   getNotificationAppearance,
@@ -128,7 +129,9 @@ export function NotificationToastStream() {
     }
     dismissToast(notification._id);
     if (notification.href) {
-      navigate({ to: notification.href });
+      // Same treatment as the inbox: the `repo--app` rewrite plus the search
+      // split the router needs to see a comment anchor at all.
+      navigate(hrefToNavigateOptions(notification.href));
       return;
     }
     navigate({ to: "/inbox" });

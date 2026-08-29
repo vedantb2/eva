@@ -39,6 +39,7 @@ interface SessionItem {
   updatedAt?: number;
   sandboxId?: string;
   branchName?: string;
+  baseBranch?: string;
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
 }
@@ -108,6 +109,7 @@ export function SidebarSessionRow<T extends SessionItem>({
               onNavigate={onNavigate}
               prUrl={prUrl}
               prState={session.prState}
+              baseBranch={session.baseBranch}
             />
           </SharedLayoutNavSurface>
         </m.div>

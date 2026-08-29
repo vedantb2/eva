@@ -11,6 +11,8 @@ export {
   isViewableRecap,
 } from "./convex/_prRecapWorkflow/recapState";
 export {
+  COMMENT_ANCHOR_PARAM,
+  withCommentAnchor,
   AI_MODEL_OPTIONS,
   DEFAULT_AI_MODEL,
   CODEX_AUTH_ENV_KEYS,

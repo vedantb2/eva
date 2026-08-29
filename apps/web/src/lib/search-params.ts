@@ -298,6 +298,21 @@ export function parseDiffSearchFields(search: {
   };
 }
 
+/**
+ * The comment anchor a notification click-through carries. A route with a
+ * `validateSearch` drops any key it does not name, so every route a comment
+ * notification can land on has to spread this in — otherwise TanStack strips
+ * the param before nuqs ever sees it.
+ */
+export function parseCommentAnchorSearchField(search: { comment?: string }): {
+  comment?: string;
+} {
+  // Optional rather than `comment: string | undefined`: TanStack derives the
+  // route's search type from this return, and a required-but-undefined key
+  // would force every `navigate({ search })` under the route to restate it.
+  return typeof search.comment === "string" ? { comment: search.comment } : {};
+}
+
 export const designVariationParser = parseAsString
   .withDefault("0")
   .withOptions(tabOptions);
@@ -358,15 +373,24 @@ export function isAutomationTab(s: string): s is AutomationTab {
 
 export const AUTOMATION_DEFAULT_TAB: AutomationTab = "latest";
 
-const inboxFilters = ["all", "unread"] as const;
+export const inboxFilters = ["all", "unread"] as const;
 export type InboxFilter = (typeof inboxFilters)[number];
 export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
   .withDefault("all")
   .withOptions(searchOptions);
 
+export function isInboxFilter(s: string): s is InboxFilter {
+  return inboxFilters.some((filter) => filter === s);
+}
+
 // Selected notification id in the two-pane inbox, kept in the URL so the
 // selection survives reload and a notification can be linked directly.
 export const inboxSelectedParser = parseAsString.withOptions(searchOptions);
+
+// The comment a notification click-through is aimed at. Written by the backend
+// into the notification href (`?comment=<id>`), never by the UI, so it replaces
+// rather than pushes — going back should leave the page, not the highlight.
+export const commentAnchorParser = parseAsString.withOptions(searchOptions);
 
 const pullRequestListStates = ["open", "closed", "all"] as const;
 export type PullRequestListState = (typeof pullRequestListStates)[number];

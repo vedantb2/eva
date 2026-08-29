@@ -1,5 +1,13 @@
 # Changelog
 
+## New sessions no longer default to a teammate's shared provider account - 2026-08-29
+
+- Root cause: the landing composer's mount effect picked the first provider-matching row from `listSelectable`, which mixes the viewer's accounts with teammates' shared ones sorted only by `updatedAt` desc — so a teammate's recently-touched shared credential silently won the default, and the effect overwrote the saved localStorage pick on every page load. This contradicted the backend's own policy (`_userProviderAccounts/defaults.ts`): shared accounts bill their owner and are explicit picks only.
+- Backend rows now carry `isOwn` (`accountListItemValidator`): `listAccountsFor` takes it per pool, so `list`, `listSelectable`, `listForTaskOwner`, `listForSessionOwner` all distinguish the pool owner's accounts from teammates' shares. `shared` alone could not — an own account can be shared too.
+- `defaultProviderAccountId` only considers `isOwn` accounts; new `providerAccountIdForModel` keeps the current pick across a model switch when the provider still matches, else falls back to the own-default. Both `NewSessionComposer` and `QuickTaskModal` use it on model change.
+- The composer's mount default now leaves a stored pick alone only when it resolves to an own account; a stored shared id is re-defaulted, because the old bug wrote shared ids into localStorage and a shared account is an explicit per-visit choice. Trade-off: an explicitly picked shared account does not survive a full reload (it never did — the old code clobbered every pick on mount).
+- Synthesized owner-account rows in `ProjectFieldsPanel`/`ProjectSandboxChatPanel` are `isOwn: false`, so they stay selectable but never auto-picked. Known gap: an explicit "Team" (null) pick is still indistinguishable from "never picked" in the composer localStorage schema, so it re-defaults on load; fixing that needs a schema flag.
+
 ## Inbox rows can be marked unread from a right-click menu - 2026-08-29
 
 - Inbox notification rows are now wrapped in the shared `ContextMenu` from `@eva/ui` (the same Radix trigger the sidebar session rows and chat bubbles use) with a single toggle item: "Mark as read" on unread rows, "Mark as unread" on read ones. Reading a notification was previously one-way — clicking a row marked it read and there was no way back, so anything triaged by accident was lost from the Unread tab.

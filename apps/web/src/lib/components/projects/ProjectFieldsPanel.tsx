@@ -96,6 +96,9 @@ export function ProjectFieldsPanel({
             id: project.providerAccountId,
             provider: getAIModelProvider(currentModel),
             label: ownerAccountLabel,
+            // The project owner's account, shown to a collaborator: theirs, not
+            // the viewer's, so it must never be defaulted to.
+            isOwn: false,
           },
           ...accounts,
         ];

@@ -187,33 +187,33 @@ export function InboxClient() {
             <PageHeader
               title="Inbox"
               headerRight={
-                unreadCount > 0 ? (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      void catchMutationError(
-                        markAllAsRead(),
-                        "Couldn't mark all as read",
-                        "inbox-mark-all-read",
-                      );
-                    }}
-                    title="Mark all as read"
-                    aria-label="Mark all as read"
-                    className="h-7 text-xs text-muted-foreground"
-                  >
-                    <IconChecks size={14} />
-                    {/* The label is noise on narrow screens; the icon carries it. */}
-                    <span className="hidden sm:inline">Mark all read</span>
-                  </Button>
-                ) : null
-              }
-              toolbar={
-                <InboxFilterMenu
-                  filter={filter}
-                  unreadCount={unreadCount}
-                  onChange={setFilter}
-                />
+                <>
+                  {unreadCount > 0 ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        void catchMutationError(
+                          markAllAsRead(),
+                          "Couldn't mark all as read",
+                          "inbox-mark-all-read",
+                        );
+                      }}
+                      title="Mark all as read"
+                      aria-label="Mark all as read"
+                      className="h-7 text-xs text-muted-foreground"
+                    >
+                      <IconChecks size={14} />
+                      {/* The label is noise on narrow screens; the icon carries it. */}
+                      <span className="hidden sm:inline">Mark all read</span>
+                    </Button>
+                  ) : null}
+                  <InboxFilterMenu
+                    filter={filter}
+                    unreadCount={unreadCount}
+                    onChange={setFilter}
+                  />
+                </>
               }
             />
             {/* Region divider between the header and the notification list. */}

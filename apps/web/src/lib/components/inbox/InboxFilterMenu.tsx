@@ -59,7 +59,9 @@ export function InboxFilterMenu({
         <Button
           size="sm"
           variant="ghost"
-          className="gap-1.5 px-2"
+          // `h-7` to sit level with the Mark-all-read button beside it in the
+          // header cluster, which is sized the same way.
+          className="h-7 gap-1.5 px-2"
           aria-label={`Filter notifications: ${FILTER_LABELS[filter]}`}
         >
           <IconFilter size={16} />

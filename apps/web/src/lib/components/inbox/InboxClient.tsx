@@ -13,7 +13,7 @@ import { Button, Skeleton } from "@eva/ui";
 import { IconChecks, IconInbox } from "@tabler/icons-react";
 import { inboxFilterParser, inboxSelectedParser } from "@/lib/search-params";
 import { type Notification } from "@/lib/components/notifications/notification-config";
-import { InboxFilterTabs } from "@/lib/components/inbox/InboxFilterTabs";
+import { InboxFilterMenu } from "@/lib/components/inbox/InboxFilterMenu";
 import { NotificationList } from "@/lib/components/inbox/NotificationList";
 import { NotificationDetailPane } from "@/lib/components/inbox/NotificationDetailPane";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
@@ -209,7 +209,7 @@ export function InboxClient() {
                 ) : null
               }
               toolbar={
-                <InboxFilterTabs
+                <InboxFilterMenu
                   filter={filter}
                   unreadCount={unreadCount}
                   onChange={setFilter}

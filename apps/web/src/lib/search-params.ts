@@ -373,11 +373,15 @@ export function isAutomationTab(s: string): s is AutomationTab {
 
 export const AUTOMATION_DEFAULT_TAB: AutomationTab = "latest";
 
-const inboxFilters = ["all", "unread"] as const;
+export const inboxFilters = ["all", "unread"] as const;
 export type InboxFilter = (typeof inboxFilters)[number];
 export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
   .withDefault("all")
   .withOptions(searchOptions);
+
+export function isInboxFilter(s: string): s is InboxFilter {
+  return inboxFilters.some((filter) => filter === s);
+}
 
 // Selected notification id in the two-pane inbox, kept in the URL so the
 // selection survives reload and a notification can be linked directly.

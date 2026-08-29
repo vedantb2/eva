@@ -9,6 +9,7 @@ import {
 } from "./ComposerCompactionBanner";
 import { chatEntityKeys, type SandboxChatSurface } from "./sandboxChatSurface";
 import { useStopBackgroundAgent } from "./useStopBackgroundAgent";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 /**
  * The stack every sandbox chat renders above its composer: the background
@@ -28,6 +29,9 @@ export function SandboxChatPreInput({
 }) {
   const { parentId } = chatEntityKeys(surface.entity);
   const requestStop = useStopBackgroundAgent(surface.entity);
+  // Simple view hides agent internals (reasoning, tool detail) — the subagent
+  // chip is the same family of machinery.
+  const simpleView = useSimpleView();
   const compaction = useCompactionBanner({
     repoId: surface.repoId,
     entityId: String(parentId),
@@ -38,11 +42,13 @@ export function SandboxChatPreInput({
 
   return (
     <>
-      <BackgroundAgentsChip
-        backgroundAgents={surface.backgroundAgents}
-        isReadOnly={surface.isReadOnly}
-        onRequestStop={requestStop}
-      />
+      {simpleView ? null : (
+        <BackgroundAgentsChip
+          backgroundAgents={surface.backgroundAgents}
+          isReadOnly={surface.isReadOnly}
+          onRequestStop={requestStop}
+        />
+      )}
       {beforeBanner}
       {compaction ? (
         <ComposerCompactionBanner

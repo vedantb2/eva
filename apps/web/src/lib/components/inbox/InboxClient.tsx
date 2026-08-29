@@ -6,7 +6,8 @@ import { useMutation } from "convex/react";
 import { api, type Id } from "@eva/backend";
 import { useNavigate } from "@tanstack/react-router";
 import { useQueryState } from "nuqs";
-import { PageWrapper } from "@/lib/components/PageWrapper";
+import { PageHeader } from "@/lib/components/PageHeader";
+import { usePageTitleSync } from "@/lib/contexts/PageTitleContext";
 import { EmptyState } from "@/lib/components/ui/EmptyState";
 import { Button, Skeleton } from "@eva/ui";
 import { IconChecks, IconInbox } from "@tabler/icons-react";
@@ -16,7 +17,7 @@ import { InboxFilterTabs } from "@/lib/components/inbox/InboxFilterTabs";
 import { NotificationList } from "@/lib/components/inbox/NotificationList";
 import { NotificationDetailPane } from "@/lib/components/inbox/NotificationDetailPane";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
-import { toInternalRepoHref } from "@/lib/utils/repoUrl";
+import { hrefToNavigateOptions } from "@/lib/utils/repoUrl";
 import { catchMutationError } from "@/lib/utils/mutationToast";
 import type { RepoWithLogo } from "@/lib/utils/repoGrouping";
 
@@ -28,6 +29,7 @@ import type { RepoWithLogo } from "@/lib/utils/repoGrouping";
  */
 export function InboxClient() {
   const navigate = useNavigate();
+  usePageTitleSync("Inbox");
   const notifications = useQuery(api.notifications.list);
   const repos = useQuery(api.githubRepos.list, {});
   const unreadCount = useQuery(api.notifications.countUnread) ?? 0;
@@ -93,7 +95,9 @@ export function InboxClient() {
   };
 
   const handleOpen = (n: Notification) => {
-    if (n.href) navigate({ to: toInternalRepoHref(n.href) });
+    // Split rather than passed whole: a comment notification's href carries
+    // `?comment=<id>`, and the router resolves `to` as a pathname only.
+    if (n.href) navigate(hrefToNavigateOptions(n.href));
   };
 
   // Linear-style keys: arrows step the list, Enter opens the linked entity,
@@ -128,52 +132,53 @@ export function InboxClient() {
     return () => window.removeEventListener("keydown", onKeyDown);
   });
 
+  // The header sits inside the left pane rather than above both panes, so the
+  // detail pane (and the divider between them) runs the full viewport height.
   return (
-    <PageWrapper
-      title="Inbox"
-      fillHeight
-      childPadding={false}
-      headerRight={
-        unreadCount > 0 ? (
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              void catchMutationError(
-                markAllAsRead(),
-                "Couldn't mark all as read",
-                "inbox-mark-all-read",
-              );
-            }}
-            title="Mark all as read"
-            aria-label="Mark all as read"
-            className="h-7 text-xs text-muted-foreground"
-          >
-            <IconChecks size={14} />
-            {/* The label is noise on narrow screens; the icon carries it. */}
-            <span className="hidden sm:inline">Mark all read</span>
-          </Button>
-        ) : null
-      }
-      toolbar={
-        <InboxFilterTabs
-          filter={filter}
-          unreadCount={unreadCount}
-          onChange={setFilter}
-        />
-      }
-    >
-      {/* Region divider between the page header and the split panes. */}
-      <div className="min-h-0 flex-1 overflow-hidden border-t border-border">
-        <ResizablePanelLayout
-          storageKey="inbox-split"
-          leftDefaultSize="40%"
-          leftMinWidthPx={300}
-          rightMinWidthPx={360}
-          // The detail pane is the point of this view, so it starts open.
-          defaultRightCollapsed={false}
-          leftPanel={() => (
-            <div className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div className="flex-1 h-full min-h-0 overflow-hidden animate-in fade-in duration-300">
+      <ResizablePanelLayout
+        storageKey="inbox-split"
+        leftDefaultSize="40%"
+        leftMinWidthPx={300}
+        rightMinWidthPx={360}
+        // The detail pane is the point of this view, so it starts open.
+        defaultRightCollapsed={false}
+        leftPanel={() => (
+          <div className="flex h-full min-h-0 flex-col overflow-hidden">
+            <PageHeader
+              title="Inbox"
+              headerRight={
+                unreadCount > 0 ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      void catchMutationError(
+                        markAllAsRead(),
+                        "Couldn't mark all as read",
+                        "inbox-mark-all-read",
+                      );
+                    }}
+                    title="Mark all as read"
+                    aria-label="Mark all as read"
+                    className="h-7 text-xs text-muted-foreground"
+                  >
+                    <IconChecks size={14} />
+                    {/* The label is noise on narrow screens; the icon carries it. */}
+                    <span className="hidden sm:inline">Mark all read</span>
+                  </Button>
+                ) : null
+              }
+              toolbar={
+                <InboxFilterTabs
+                  filter={filter}
+                  unreadCount={unreadCount}
+                  onChange={setFilter}
+                />
+              }
+            />
+            {/* Region divider between the header and the notification list. */}
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden border-t border-border">
               {filtered === undefined ? (
                 <div
                   className="space-y-2 p-4"
@@ -212,18 +217,18 @@ export function InboxClient() {
                 </div>
               )}
             </div>
-          )}
-          rightPanel={() => (
-            <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-              <NotificationDetailPane
-                notification={selected}
-                repo={selectedRepo}
-                onOpen={handleOpen}
-              />
-            </div>
-          )}
-        />
-      </div>
-    </PageWrapper>
+          </div>
+        )}
+        rightPanel={() => (
+          <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
+            <NotificationDetailPane
+              notification={selected}
+              repo={selectedRepo}
+              onOpen={handleOpen}
+            />
+          </div>
+        )}
+      />
+    </div>
   );
 }

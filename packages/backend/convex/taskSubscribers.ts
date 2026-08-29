@@ -57,6 +57,9 @@ export async function notifySubscribers(
     message?: string;
     repoId?: Id<"githubRepos">;
     projectId?: Id<"projects">;
+    // Set when the event is a new comment, so each subscriber's click-through
+    // lands on that comment rather than the top of the task.
+    commentId?: Id<"taskComments">;
     actorId?: Id<"users">;
     alreadyNotified?: Set<string>;
   },
@@ -78,6 +81,7 @@ export async function notifySubscribers(
       repoId: params.repoId,
       projectId: params.projectId,
       taskId: params.taskId,
+      commentId: params.commentId,
     });
     notified.add(sub.userId);
   }

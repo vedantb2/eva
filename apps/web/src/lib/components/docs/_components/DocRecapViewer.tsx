@@ -12,6 +12,7 @@ import {
 } from "@eva/backend";
 import { entityPathSegment } from "@/lib/numId";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { useCommentAnchorId } from "@/lib/hooks/useCommentAnchor";
 import {
   canonicalizeRecapDocTab,
   type DocViewerTab,
@@ -69,7 +70,13 @@ export function DocRecapViewer({
     (c) => !c.parentId && c.resolvedAt === undefined,
   ).length;
   const [copied, setCopied] = useState(false);
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  // Arriving from a comment notification opens the panel the comment lives in;
+  // a plain visit still starts closed. Lazy initial state rather than an effect
+  // — the panel is open on the first paint, so nothing flashes shut.
+  const commentAnchorId = useCommentAnchorId();
+  const [commentsOpen, setCommentsOpen] = useState(
+    () => commentAnchorId !== null,
+  );
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [suggestionCount, setSuggestionCount] = useState(0);

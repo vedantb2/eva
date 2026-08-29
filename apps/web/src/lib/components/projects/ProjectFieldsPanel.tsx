@@ -23,8 +23,6 @@ import {
   IconUsers,
   IconUser,
   IconUserPlus,
-  IconCalendarEvent,
-  IconCalendarDue,
   IconGitBranch,
   IconInfoCircle,
 } from "@tabler/icons-react";
@@ -43,7 +41,7 @@ import {
 } from "@/lib/components/fields/FieldsSection";
 import { ProjectPhaseBadge } from "./ProjectPhaseBadge";
 import { ProjectPhaseSelect } from "./_components/ProjectPhaseSelect";
-import { ProjectDateField } from "./_components/ProjectDateField";
+import { ProjectDateRangeField } from "./_components/ProjectDateRangeField";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
 import {
   useAvailableAiModels,
@@ -308,22 +306,16 @@ export function ProjectFieldsPanel({
       </FieldsSection>
 
       <FieldsSection title="Dates">
-        <ProjectDateField
-          label="Start Date"
-          icon={IconCalendarEvent}
-          value={project.projectStartDate}
-          onChange={(date) =>
+        <ProjectDateRangeField
+          start={project.projectStartDate}
+          end={project.projectEndDate}
+          onStartChange={(date) =>
             updateProject({
               id: projectId,
               projectStartDate: date ?? undefined,
             })
           }
-        />
-        <ProjectDateField
-          label="End Date"
-          icon={IconCalendarDue}
-          value={project.projectEndDate}
-          onChange={(date) =>
+          onEndChange={(date) =>
             updateProject({ id: projectId, projectEndDate: date ?? undefined })
           }
         />

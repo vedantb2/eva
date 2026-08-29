@@ -1,8 +1,15 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { Button, cn } from "@eva/ui";
-import { IconCheck } from "@tabler/icons-react";
+import {
+  Button,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuTrigger,
+  cn,
+} from "@eva/ui";
+import { IconCheck, IconMail, IconMailOpened } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import {
@@ -58,6 +65,8 @@ interface NotificationRowProps {
   selected: boolean;
   onSelect: () => void;
   onMarkRead: () => void;
+  /** Right-click menu action: flips this row between read and unread. */
+  onToggleRead: () => void;
 }
 
 /** One inbox row. The parent list owns the border, so the row is padding only. */
@@ -67,6 +76,7 @@ export function NotificationRow({
   selected,
   onSelect,
   onMarkRead,
+  onToggleRead,
 }: NotificationRowProps) {
   const rowRef = useRef<HTMLDivElement>(null);
   const sourceLabel = repo ? repoDisplayLabel(repo) : undefined;
@@ -78,78 +88,94 @@ export function NotificationRow({
     if (selected) rowRef.current?.scrollIntoView({ block: "nearest" });
   }, [selected]);
 
+  // Right-click opens the menu instead of selecting: `contextmenu` does not
+  // fire the row button's `onClick`, so the notification is neither opened nor
+  // marked read on the way in. Hover affordances (Dismiss) are untouched — the
+  // trigger only clones the row shell.
   return (
-    <div
-      ref={rowRef}
-      className={cn(
-        "group relative flex items-center gap-3 px-4 transition-colors",
-        selected ? "bg-muted" : "hover:bg-muted/40",
-      )}
-    >
-      {/* Matches `ListRow`, which every comparable row in the app is built on
+    <ContextMenu>
+      <ContextMenuTrigger asChild>
+        <div
+          ref={rowRef}
+          className={cn(
+            "group relative flex items-center gap-3 px-4 transition-colors",
+            selected ? "bg-muted" : "hover:bg-muted/40",
+          )}
+        >
+          {/* Matches `ListRow`, which every comparable row in the app is built on
           and which presses at 0.99 — the inbox row was hand-rolled and so never
           picked it up. */}
-      <button
-        onClick={onSelect}
-        aria-current={selected ? "true" : undefined}
-        className="motion-press flex min-w-0 flex-1 items-center gap-3 py-3 text-left active:scale-[0.99] focus-visible:outline-hidden"
-      >
-        {/* Fixed-width dot slot so read and unread rows stay aligned. */}
-        <span className="flex w-1.5 shrink-0 justify-center" aria-hidden>
-          {unread ? (
-            <span className="size-1.5 rounded-full bg-primary" />
-          ) : null}
-        </span>
-        <NotificationSourceAvatar notification={notification} repo={repo} />
-        <div className="flex min-w-0 flex-1 flex-col">
-          {sourceLabel ? (
-            <span className="truncate text-xs text-muted-foreground">
-              {sourceLabel}
-            </span>
-          ) : null}
-          {/* Read rows drop to the muted tone rather than fading the whole row,
-              so logos and timestamps stay legible. */}
-          <span
-            className={cn(
-              "truncate text-sm",
-              unread ? "font-medium text-foreground" : "text-muted-foreground",
-            )}
+          <button
+            onClick={onSelect}
+            aria-current={selected ? "true" : undefined}
+            className="motion-press flex min-w-0 flex-1 items-center gap-3 py-3 text-left active:scale-[0.99] focus-visible:outline-hidden"
           >
-            {notification.title}
-          </span>
-          {notification.contextLabel ? (
-            <span className="truncate text-xs leading-relaxed text-muted-foreground">
-              {notification.contextLabel}
+            {/* Fixed-width dot slot so read and unread rows stay aligned. */}
+            <span className="flex w-1.5 shrink-0 justify-center" aria-hidden>
+              {unread ? (
+                <span className="size-1.5 rounded-full bg-primary" />
+              ) : null}
             </span>
-          ) : null}
-        </div>
-      </button>
-      {/* At `sm` and up this is exactly as it was: timestamp and Dismiss share
+            <NotificationSourceAvatar notification={notification} repo={repo} />
+            <div className="flex min-w-0 flex-1 flex-col">
+              {sourceLabel ? (
+                <span className="truncate text-xs text-muted-foreground">
+                  {sourceLabel}
+                </span>
+              ) : null}
+              {/* Read rows drop to the muted tone rather than fading the whole row,
+              so logos and timestamps stay legible. */}
+              <span
+                className={cn(
+                  "truncate text-sm",
+                  unread
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground",
+                )}
+              >
+                {notification.title}
+              </span>
+              {notification.contextLabel ? (
+                <span className="truncate text-xs leading-relaxed text-muted-foreground">
+                  {notification.contextLabel}
+                </span>
+              ) : null}
+            </div>
+          </button>
+          {/* At `sm` and up this is exactly as it was: timestamp and Dismiss share
           the trailing slot, and hovering an unread row swaps one for the other.
           Below `sm` that swap is unusable — touch has no hover, so Dismiss was
           unreachable — so there the button leaves the overlay, sits in flow next
           to the timestamp as a 40px icon-only target, and the timestamp keeps its
           place. Both halves are `max-sm:`-scoped so the desktop row is untouched. */}
-      <RelativeDateTime
-        at={notification.createdAt}
-        className={cn(
-          "shrink-0 text-xs tabular-nums text-muted-foreground",
-          unread && "sm:group-hover:invisible",
-        )}
-      />
-      {unread ? (
-        <Button
-          size="sm"
-          variant="ghost"
-          onClick={onMarkRead}
-          title="Mark as read"
-          aria-label="Mark as read"
-          className="absolute right-3 h-6 gap-1 px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 max-sm:static max-sm:size-10 max-sm:shrink-0 max-sm:gap-0 max-sm:p-0 max-sm:opacity-100"
-        >
-          <IconCheck size={14} />
-          <span className="max-sm:hidden">Dismiss</span>
-        </Button>
-      ) : null}
-    </div>
+          <RelativeDateTime
+            at={notification.createdAt}
+            className={cn(
+              "shrink-0 text-xs tabular-nums text-muted-foreground",
+              unread && "sm:group-hover:invisible",
+            )}
+          />
+          {unread ? (
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={onMarkRead}
+              title="Mark as read"
+              aria-label="Mark as read"
+              className="absolute right-3 h-6 gap-1 px-2 text-xs text-muted-foreground opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 max-sm:static max-sm:size-10 max-sm:shrink-0 max-sm:gap-0 max-sm:p-0 max-sm:opacity-100"
+            >
+              <IconCheck size={14} />
+              <span className="max-sm:hidden">Dismiss</span>
+            </Button>
+          ) : null}
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent className="w-48">
+        <ContextMenuItem onSelect={onToggleRead}>
+          {unread ? <IconMailOpened size={16} /> : <IconMail size={16} />}
+          {unread ? "Mark as read" : "Mark as unread"}
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
   );
 }

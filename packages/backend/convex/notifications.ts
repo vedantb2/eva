@@ -244,6 +244,24 @@ export const markAsRead = authMutation({
   },
 });
 
+/**
+ * Marks a single notification as unread again (inbox right-click menu). Read
+ * state is the `read` boolean alone — there is no timestamp to clear.
+ */
+export const markAsUnread = authMutation({
+  args: { id: v.id("notifications") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const notification = await ctx.db.get(args.id);
+    if (!notification || notification.userId !== ctx.userId)
+      throw new Error("Not found");
+    if (notification.read) {
+      await ctx.db.patch(args.id, { read: false });
+    }
+    return null;
+  },
+});
+
 /** Marks all unread notifications as read for the current user. */
 export const markAllAsRead = authMutation({
   args: {},

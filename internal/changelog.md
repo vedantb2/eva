@@ -1,5 +1,12 @@
 # Changelog
 
+## Inbox rows can be marked unread from a right-click menu - 2026-08-29
+
+- Inbox notification rows are now wrapped in the shared `ContextMenu` from `@eva/ui` (the same Radix trigger the sidebar session rows and chat bubbles use) with a single toggle item: "Mark as read" on unread rows, "Mark as unread" on read ones. Reading a notification was previously one-way — clicking a row marked it read and there was no way back, so anything triaged by accident was lost from the Unread tab.
+- The menu lives inside `NotificationRow` wrapping the row shell, so `contextmenu` never reaches the row's select button: right-clicking neither selects the notification nor marks it read, and the hover-only Dismiss button and arrow-key stepping are untouched.
+- Backend: `notifications.markAsUnread` mirrors `markAsRead` (authMutation, refuses another user's notification, no-ops when already unread). Read state is the `read` boolean alone, so there is no timestamp to clear. It gets the same optimistic update as `markAsRead` in reverse — the row flips in place and the unread badge counts back up.
+- `markAsRead` calls from the inbox now go through `catchMutationError` like the rest of the view; the Dismiss button was previously firing a floating promise with no error toast.
+
 ## Prompt-stash hotkey no longer opens the browser save dialog - 2026-08-28
 
 - `ComposerStash` gated its ⌘S registration with `enabled: composerFocused || open`, but the hotkey manager skips `preventDefault` entirely for disabled registrations — any ⌘S the focus heuristic missed (or pressed while the composer was disabled) fell through to the browser's save-file dialog. The registration is now always enabled and the focus/disabled gate lives inside the callback, so ⌘S is swallowed whenever a composer is mounted, while stashing still requires that composer to own focus — multiple mounted composers cannot all stash at once.

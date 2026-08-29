@@ -56,6 +56,22 @@ export function InboxClient() {
       );
     }
   });
+  const markAsUnread = useMutation(
+    api.notifications.markAsUnread,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.notifications.list, {});
+    if (current !== undefined) {
+      localStore.setQuery(
+        api.notifications.list,
+        {},
+        current.map((n) => (n._id === args.id ? { ...n, read: false } : n)),
+      );
+    }
+    const count = localStore.getQuery(api.notifications.countUnread, {});
+    if (count !== undefined) {
+      localStore.setQuery(api.notifications.countUnread, {}, count + 1);
+    }
+  });
   const markAllAsRead = useMutation(
     api.notifications.markAllAsRead,
   ).withOptimisticUpdate((localStore) => {
@@ -89,9 +105,32 @@ export function InboxClient() {
   const selectedRepo =
     selected?.repoId !== undefined ? repoById.get(selected.repoId) : undefined;
 
+  const handleMarkRead = (n: Notification) => {
+    void catchMutationError(
+      markAsRead({ id: n._id }),
+      "Couldn't mark as read",
+      "inbox-mark-read",
+    );
+  };
+
   const handleSelect = (n: Notification) => {
-    if (!n.read) markAsRead({ id: n._id });
+    if (!n.read) handleMarkRead(n);
     setSelectedId(n._id);
+  };
+
+  // Right-click toggle. Deliberately leaves selection alone: marking the open
+  // notification unread should not close the detail pane, and re-reading it
+  // only happens when the row is clicked again.
+  const handleToggleRead = (n: Notification) => {
+    if (n.read) {
+      void catchMutationError(
+        markAsUnread({ id: n._id }),
+        "Couldn't mark as unread",
+        "inbox-mark-unread",
+      );
+      return;
+    }
+    handleMarkRead(n);
   };
 
   const handleOpen = (n: Notification) => {
@@ -212,7 +251,8 @@ export function InboxClient() {
                     repoById={repoById}
                     selectedId={selectedId}
                     onSelect={handleSelect}
-                    onMarkRead={(n) => markAsRead({ id: n._id })}
+                    onMarkRead={handleMarkRead}
+                    onToggleRead={handleToggleRead}
                   />
                 </div>
               )}

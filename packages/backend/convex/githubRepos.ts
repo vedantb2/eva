@@ -1,6 +1,6 @@
 export {
   list,
-  listReposWithActiveSandboxes,
+  listActiveSandboxCounts,
   countActiveSessions,
   get,
   getAccessibleForAction,

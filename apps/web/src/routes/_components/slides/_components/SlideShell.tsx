@@ -129,7 +129,7 @@ interface SlideKickerProps {
 
 export function SlideKicker({ children }: SlideKickerProps) {
   return (
-    <p className="mb-4 text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
+    <p className="mb-4 text-xs font-medium uppercase tracking-[0.22em] text-foreground/60">
       {children}
     </p>
   );
@@ -159,7 +159,7 @@ interface SlideBodyProps {
 
 export function SlideBody({ children, className = "" }: SlideBodyProps) {
   return (
-    <p className={`text-lg leading-relaxed text-muted-foreground ${className}`}>
+    <p className={`text-lg leading-relaxed text-foreground/70 ${className}`}>
       {children}
     </p>
   );

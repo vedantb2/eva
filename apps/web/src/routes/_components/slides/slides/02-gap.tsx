@@ -18,7 +18,7 @@ export function Slide02Gap() {
         delay={0.15}
       />
       <SlideReveal step={2} delay={0.3}>
-        <p className="mt-10 max-w-2xl text-lg leading-relaxed text-muted-foreground">
+        <p className="mt-10 max-w-2xl text-lg leading-relaxed text-foreground/70">
           Your context is scattered across chat windows, browser tabs, and
           terminal sessions. Eva brings it together in one unified workspace.
         </p>

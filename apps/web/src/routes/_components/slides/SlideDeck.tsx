@@ -155,32 +155,6 @@ export function SlideDeck({
   const { Component, theme, id } = SLIDES[index];
   const showOrbs = id !== "00" && id !== "01";
 
-  useSyncExternalStore(
-    () => {
-      const root = document.documentElement;
-      const opposite = theme === "dark" ? "light" : "dark";
-      const enforce = () => {
-        if (
-          root.classList.contains(opposite) ||
-          !root.classList.contains(theme)
-        ) {
-          root.classList.remove("dark", "light");
-          root.classList.add(theme);
-        }
-      };
-      enforce();
-      const observer = new MutationObserver(enforce);
-      observer.observe(root, { attributes: true, attributeFilter: ["class"] });
-      return () => {
-        observer.disconnect();
-        root.classList.remove("dark", "light");
-        root.classList.add("dark");
-      };
-    },
-    () => theme,
-    () => theme,
-  );
-
   const variants = {
     enter: (dir: number) => ({
       opacity: 0,
@@ -209,7 +183,7 @@ export function SlideDeck({
 
       <div
         ref={stageAreaRef}
-        className={`relative flex min-w-0 flex-1 items-center justify-center overflow-hidden ${theme}`}
+        className="relative flex min-w-0 flex-1 items-center justify-center overflow-hidden bg-background"
       >
         <div
           style={{
@@ -218,43 +192,32 @@ export function SlideDeck({
             transform: `scale(${scale})`,
             transformOrigin: "center center",
           }}
-          className="relative shrink-0 cursor-pointer overflow-hidden"
+          className="relative shrink-0 cursor-pointer overflow-hidden rounded-lg"
           onClick={handleStageClick}
           role="presentation"
         >
-          <div
-            className="pointer-events-none absolute inset-0 transition-opacity duration-[1600ms] ease-in-out"
-            aria-hidden
-            style={{ opacity: showOrbs ? 1 : 0 }}
-          >
-            <motion.div
-              className={`absolute -left-44 -top-40 h-[560px] w-[560px] rounded-full blur-[110px] ${
-                theme === "dark"
-                  ? "bg-foreground opacity-[0.14]"
-                  : "bg-[#e3d5b8] opacity-[0.26]"
-              }`}
-              animate={{ x: [0, 70, 0], y: [0, 50, 0] }}
-              transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <motion.div
-              className={`absolute -bottom-52 -right-40 h-[640px] w-[640px] rounded-full blur-[120px] ${
-                theme === "dark"
-                  ? "bg-foreground opacity-[0.12]"
-                  : "bg-[#e8dcc4] opacity-[0.22]"
-              }`}
-              animate={{ x: [0, -80, 0], y: [0, -55, 0] }}
-              transition={{ duration: 28, repeat: Infinity, ease: "easeInOut" }}
-            />
-            <motion.div
-              className={`absolute left-[52%] top-[58%] h-[380px] w-[380px] rounded-full blur-[100px] ${
-                theme === "dark"
-                  ? "bg-foreground opacity-[0.09]"
-                  : "bg-[#e3d5b8] opacity-[0.16]"
-              }`}
-              animate={{ x: [0, 55, 0], y: [0, -65, 0] }}
-              transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
-            />
-          </div>
+          {showOrbs && (
+            <div
+              className="pointer-events-none absolute inset-0"
+              aria-hidden
+            >
+              <motion.div
+                className="absolute -left-44 -top-40 h-[560px] w-[560px] rounded-full bg-primary/5 blur-[110px]"
+                animate={{ x: [0, 70, 0], y: [0, 50, 0] }}
+                transition={{ duration: 22, repeat: Infinity, ease: "easeInOut" }}
+              />
+              <motion.div
+                className="absolute -bottom-52 -right-40 h-[640px] w-[640px] rounded-full bg-primary/4 blur-[120px]"
+                animate={{ x: [0, -80, 0], y: [0, -55, 0] }}
+                transition={{ duration: 28, repeat: Infinity, ease: "easeInOut" }}
+              />
+              <motion.div
+                className="absolute left-[52%] top-[58%] h-[380px] w-[380px] rounded-full bg-primary/3 blur-[100px]"
+                animate={{ x: [0, 55, 0], y: [0, -65, 0] }}
+                transition={{ duration: 18, repeat: Infinity, ease: "easeInOut" }}
+              />
+            </div>
+          )}
 
           <AnimatePresence custom={direction} mode="wait">
             <motion.div
@@ -275,14 +238,14 @@ export function SlideDeck({
           </AnimatePresence>
         </div>
 
-        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-0.5 bg-foreground/5">
+        <div className="pointer-events-none absolute bottom-0 left-0 right-0 h-0.5 bg-border">
           <div
             className="h-full bg-foreground/25 transition-[width] duration-300"
             style={{ width: `${progressPct}%` }}
           />
         </div>
 
-        <div className="pointer-events-none absolute bottom-3 right-4 font-mono text-xs tabular-nums text-muted/40">
+        <div className="pointer-events-none absolute bottom-3 right-4 font-mono text-xs tabular-nums text-muted-foreground/60">
           {slide} / {TOTAL}
         </div>
       </div>

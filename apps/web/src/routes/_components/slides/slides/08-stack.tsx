@@ -1,50 +1,48 @@
-import { use } from "react";
 import {
   SlideShell,
+  SlideReveal,
   SlideKicker,
+  SlideTitle,
   SlideStagger,
   SlideItem,
-  SlideReveal,
-  SlideStepContext,
+  SlideTag,
 } from "../_components/SlideShell";
-import { BlurWordsTitle } from "../_components/BlurWordsTitle";
-
-const STACK = [
-  { name: "React + Vite", desc: "Frontend" },
-  { name: "Convex", desc: "Real-time backend" },
-  { name: "Vercel", desc: "Sandboxes" },
-  { name: "Clerk", desc: "Auth" },
-  { name: "GitHub App", desc: "Repo access" },
-];
 
 export function Slide08Stack() {
-  const step = use(SlideStepContext);
-
   return (
-    <SlideShell>
-      <SlideKicker>Tech stack</SlideKicker>
-      <BlurWordsTitle lines={["Built on modern", "infrastructure."]} />
-
-      {step >= 1 && (
-        <SlideStagger className="mt-10 grid grid-cols-5 gap-4">
-          {STACK.map((s) => (
-            <SlideItem key={s.name}>
-              <div className="rounded-2xl bg-surface-secondary/60 p-4 text-center">
-                <p className="font-medium text-foreground">{s.name}</p>
-                <p className="mt-1 text-xs text-muted">{s.desc}</p>
-              </div>
-            </SlideItem>
-          ))}
-        </SlideStagger>
-      )}
-
-      {step >= 2 && (
-        <SlideReveal step={2} className="mt-8">
-          <p className="text-center text-lg font-medium text-foreground">
-            MIT open source
-          </p>
-        </SlideReveal>
-      )}
+    <SlideShell className="bg-background">
+      <SlideReveal>
+        <SlideKicker>Tech Stack</SlideKicker>
+      </SlideReveal>
+      <SlideReveal delay={0.1}>
+        <SlideTitle size="xl">Built on proven foundations</SlideTitle>
+      </SlideReveal>
+      <SlideStagger step={1} className="mt-10 flex flex-wrap gap-3">
+        <SlideItem>
+          <SlideTag>React</SlideTag>
+        </SlideItem>
+        <SlideItem>
+          <SlideTag>Vite</SlideTag>
+        </SlideItem>
+        <SlideItem>
+          <SlideTag>Convex</SlideTag>
+        </SlideItem>
+        <SlideItem>
+          <SlideTag>TailwindCSS</SlideTag>
+        </SlideItem>
+        <SlideItem>
+          <SlideTag>Clerk</SlideTag>
+        </SlideItem>
+        <SlideItem>
+          <SlideTag>GitHub App</SlideTag>
+        </SlideItem>
+        <SlideItem>
+          <SlideTag>Vercel Sandboxes</SlideTag>
+        </SlideItem>
+        <SlideItem>
+          <SlideTag>TypeScript</SlideTag>
+        </SlideItem>
+      </SlideStagger>
     </SlideShell>
   );
 }

@@ -9,7 +9,7 @@ import { motionBase } from "@eva/ui";
  */
 export const SlideStepContext = createContext<number>(0);
 
-/** Active slide theme — set by SlideDeck so children can theme-aware styling. */
+/** Active slide theme — set by SlideDeck so children can apply theme-aware styling. */
 export const SlideThemeContext = createContext<"dark" | "light">("light");
 
 const fadeUpVariants = {
@@ -129,7 +129,7 @@ interface SlideKickerProps {
 
 export function SlideKicker({ children }: SlideKickerProps) {
   return (
-    <p className="mb-4 text-xs font-medium uppercase tracking-[0.22em] text-muted">
+    <p className="mb-4 text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
       {children}
     </p>
   );
@@ -145,7 +145,7 @@ export function SlideTitle({ children, size = "2xl" }: SlideTitleProps) {
     size === "xl" ? "text-5xl" : size === "2xl" ? "text-6xl" : "text-7xl";
   return (
     <h1
-      className={`font-instrumentSerif ${sizeClass} font-normal leading-tight tracking-tight text-foreground`}
+      className={`font-sans ${sizeClass} font-semibold leading-tight tracking-tight text-foreground`}
     >
       {children}
     </h1>
@@ -159,7 +159,7 @@ interface SlideBodyProps {
 
 export function SlideBody({ children, className = "" }: SlideBodyProps) {
   return (
-    <p className={`text-lg leading-relaxed text-muted ${className}`}>
+    <p className={`text-lg leading-relaxed text-muted-foreground ${className}`}>
       {children}
     </p>
   );
@@ -198,7 +198,7 @@ interface SlideTagProps {
 
 export function SlideTag({ children }: SlideTagProps) {
   return (
-    <span className="inline-flex items-center rounded-full bg-surface-secondary px-3 py-1 text-xs font-medium text-foreground/70">
+    <span className="inline-flex items-center rounded-full bg-secondary px-3 py-1 text-xs font-medium text-secondary-foreground">
       {children}
     </span>
   );

@@ -19,7 +19,7 @@ interface PresentationControlsProps {
 }
 
 const PILL =
-  "inline-flex items-center gap-2 rounded-full bg-surface-secondary/90 px-3.5 py-2 text-sm text-foreground shadow-lg backdrop-blur";
+  "inline-flex items-center gap-2 rounded-full bg-card px-3.5 py-2 text-sm text-card-foreground shadow-lg backdrop-blur";
 
 export function PresentationControls({
   sync,
@@ -79,10 +79,10 @@ export function PresentationControls({
   } else if (sessionState === "notfound") {
     body = <div className={PILL}>Presentation not found</div>;
   } else if (sessionState === "loading") {
-    body = <div className={cn(PILL, "text-muted")}>Connecting…</div>;
+    body = <div className={cn(PILL, "text-muted-foreground")}>Connecting…</div>;
   } else if (mode === "private") {
     body = (
-      <div className="inline-flex items-center gap-2 rounded-full bg-surface-secondary/90 py-1 pl-3.5 pr-1 text-sm text-foreground shadow-lg backdrop-blur">
+      <div className="inline-flex items-center gap-2 rounded-full bg-card py-1 pl-3.5 pr-1 text-sm text-card-foreground shadow-lg backdrop-blur">
         <span>Viewing on your own</span>
         <Button size="sm" variant="secondary" onClick={sync.backToLive}>
           <IconArrowBackUp size={15} /> Back to live
@@ -92,7 +92,7 @@ export function PresentationControls({
   } else {
     body = (
       <div className={PILL}>
-        <IconEye size={15} className="text-muted" />
+        <IconEye size={15} className="text-muted-foreground" />
         Following · live
       </div>
     );

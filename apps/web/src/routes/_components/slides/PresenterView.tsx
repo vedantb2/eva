@@ -115,17 +115,17 @@ export function PresenterView({
   return (
     <PresentationDeckProvider value={deckContext}>
       <div className="flex h-screen flex-col bg-background text-foreground">
-        <header className="flex shrink-0 items-center gap-2 px-4 py-2.5">
-          <IconNotes size={18} className="shrink-0 text-muted" />
+        <header className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2.5">
+          <IconNotes size={18} className="shrink-0 text-muted-foreground" />
           <div className="min-w-0 flex-1">
-            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted">
+            <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Presenter view
             </p>
-            <p className="truncate text-sm font-medium">
+            <p className="truncate text-sm font-medium text-foreground">
               {current}. {slideTitle}
             </p>
           </div>
-          <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
+          <span className="shrink-0 font-mono text-xs tabular-nums text-muted-foreground">
             {current}/{TOTAL}
           </span>
         </header>
@@ -135,8 +135,8 @@ export function PresenterView({
             <SlideMiniPreview slideNumber={current} />
           </div>
 
-          <div className="flex w-1/2 min-w-0 flex-col bg-surface-secondary/40">
-            <p className="shrink-0 px-4 pb-2 pt-4 text-xs font-medium uppercase tracking-[0.14em] text-muted">
+          <div className="flex w-1/2 min-w-0 flex-col border-l border-border bg-muted/30">
+            <p className="shrink-0 px-4 pb-2 pt-4 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
               Script
             </p>
             <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-4">
@@ -145,7 +145,7 @@ export function PresenterView({
                   {notes}
                 </p>
               ) : (
-                <p className="text-sm leading-relaxed text-muted">
+                <p className="text-sm leading-relaxed text-muted-foreground">
                   No script for this slide — edit{" "}
                   <span className="font-mono text-xs">speakerNotes.ts</span>.
                 </p>
@@ -154,7 +154,7 @@ export function PresenterView({
           </div>
         </div>
 
-        <footer className="flex shrink-0 items-center justify-between gap-3 bg-surface-secondary/60 px-4 py-3">
+        <footer className="flex shrink-0 items-center justify-between gap-3 border-t border-border bg-muted/50 px-4 py-3">
           <Button
             size="sm"
             variant="secondary"
@@ -164,7 +164,7 @@ export function PresenterView({
             <IconChevronLeft size={16} />
             Back
           </Button>
-          <p className="text-center text-xs text-muted">
+          <p className="text-center text-xs text-muted-foreground">
             Arrow keys · Space to advance
           </p>
           <Button

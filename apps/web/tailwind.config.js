@@ -136,7 +136,6 @@ export const themeExtend = {
   fontFamily: {
     sans: ["var(--font-sans)"],
     mono: ["var(--font-mono)"],
-    instrumentSerif: ['"Instrument Serif"', "Georgia", "serif"],
   },
   // Do NOT add `transitionDuration.DEFAULT` / `transitionTimingFunction.DEFAULT`
   // here. A v3-config override of either one makes Tailwind v4 drop its own

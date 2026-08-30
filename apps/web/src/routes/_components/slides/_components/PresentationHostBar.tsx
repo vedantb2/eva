@@ -38,7 +38,7 @@ export function PresentationHostBar({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-2 rounded-full bg-surface-secondary/90 px-3.5 py-2 text-sm font-medium text-foreground shadow-lg backdrop-blur transition-[background-color] hover:bg-surface-tertiary"
+          className="inline-flex items-center gap-2 rounded-full bg-card px-3.5 py-2 text-sm font-medium text-card-foreground shadow-lg backdrop-blur transition-[background-color] hover:bg-secondary"
         >
           <span className="relative flex h-2 w-2">
             <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500/70" />
@@ -49,7 +49,7 @@ export function PresentationHostBar({
       </PopoverTrigger>
       <PopoverContent align="end" className="w-72 space-y-3">
         <div className="space-y-1.5">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted">
+          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             Share link
           </p>
           <div className="flex gap-2">
@@ -70,14 +70,14 @@ export function PresentationHostBar({
           </div>
         </div>
 
-        <p className="text-xs leading-relaxed text-muted">
+        <p className="text-xs leading-relaxed text-muted-foreground">
           Anyone with the link follows your slides live.
         </p>
 
         <Button
           variant="ghost"
           size="sm"
-          className="w-full justify-center text-danger hover:text-danger"
+          className="w-full justify-center text-destructive hover:text-destructive"
           onClick={() => void sync.stopSharing()}
         >
           <IconPlayerStop size={15} /> Stop sharing

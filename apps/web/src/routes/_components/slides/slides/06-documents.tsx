@@ -1,19 +1,33 @@
 import {
   SlideShell,
+  SlideReveal,
   SlideKicker,
-  SlideBody,
+  SlideTitle,
+  SlideBullets,
+  SlideStagger,
+  SlideItem,
 } from "../_components/SlideShell";
-import { BlurWordsTitle } from "../_components/BlurWordsTitle";
 
 export function Slide06Documents() {
   return (
-    <SlideShell>
-      <SlideKicker>Documents</SlideKicker>
-      <BlurWordsTitle lines={["Specs, notes, context.", "First-class."]} />
-      <SlideBody className="mt-6 max-w-2xl">
-        Eva reads your documents while working. No copy-pasting into prompts.
-        Write it once, the agent knows what you're building.
-      </SlideBody>
+    <SlideShell className="bg-background">
+      <SlideReveal>
+        <SlideKicker>Documents</SlideKicker>
+      </SlideReveal>
+      <SlideReveal delay={0.1}>
+        <SlideTitle>Structured context</SlideTitle>
+      </SlideReveal>
+      <SlideStagger step={1} delayChildren={0.2}>
+        <SlideItem>
+          <SlideBullets
+            items={[
+              "Attach PRDs, specs, and notes to any session",
+              "Markdown editor with live preview",
+              "Reference docs from prompts with @-mentions",
+            ]}
+          />
+        </SlideItem>
+      </SlideStagger>
     </SlideShell>
   );
 }

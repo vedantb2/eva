@@ -1,19 +1,33 @@
 import {
   SlideShell,
+  SlideReveal,
   SlideKicker,
-  SlideBody,
+  SlideTitle,
+  SlideBullets,
+  SlideStagger,
+  SlideItem,
 } from "../_components/SlideShell";
-import { BlurWordsTitle } from "../_components/BlurWordsTitle";
 
 export function Slide09GitHub() {
   return (
-    <SlideShell>
-      <SlideKicker>GitHub integration</SlideKicker>
-      <BlurWordsTitle lines={["Your repos.", "Your control."]} />
-      <SlideBody className="mt-6 max-w-2xl">
-        Eva connects via GitHub App. It clones your code, respects .gitignore,
-        and pushes to branches. You control what it can access.
-      </SlideBody>
+    <SlideShell className="bg-background">
+      <SlideReveal>
+        <SlideKicker>GitHub Integration</SlideKicker>
+      </SlideReveal>
+      <SlideReveal delay={0.1}>
+        <SlideTitle>Native GitHub flow</SlideTitle>
+      </SlideReveal>
+      <SlideStagger step={1} delayChildren={0.2}>
+        <SlideItem>
+          <SlideBullets
+            items={[
+              "GitHub App for secure repo access",
+              "Clone, branch, commit, push — all automated",
+              "Works with any GitHub org or personal account",
+            ]}
+          />
+        </SlideItem>
+      </SlideStagger>
     </SlideShell>
   );
 }

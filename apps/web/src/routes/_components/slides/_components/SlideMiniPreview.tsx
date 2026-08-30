@@ -29,7 +29,7 @@ export function SlideMiniPreview({
   const { Component, theme } = entry;
 
   useSyncExternalStore(
-    (onStoreChange) => {
+    () => {
       const el = containerRef.current;
       if (!el) return () => {};
       function measure() {
@@ -49,10 +49,12 @@ export function SlideMiniPreview({
 
   return (
     <div className="space-y-1.5">
-      {label ? <p className="text-xs font-medium text-muted">{label}</p> : null}
+      {label ? (
+        <p className="text-xs font-medium text-muted-foreground">{label}</p>
+      ) : null}
       <div
         ref={containerRef}
-        className={`relative aspect-video w-full overflow-hidden rounded-xl bg-background text-foreground ${theme}`}
+        className="relative aspect-video w-full overflow-hidden rounded-xl border border-border bg-background"
       >
         <div
           className="pointer-events-none absolute left-0 top-0 origin-top-left"

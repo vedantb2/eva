@@ -1,11 +1,10 @@
-import { useRef, useState } from "react";
+import { useRef, useState, useSyncExternalStore } from "react";
 import {
   IconLayoutSidebarLeftCollapse,
   IconLayoutSidebarLeftExpandFilled,
 } from "@tabler/icons-react";
 import { cn } from "@eva/ui";
 import { SLIDES } from "../slides/index";
-import { useSyncExternalStore } from "react";
 
 interface SlideOutlinePanelProps {
   slide: number;
@@ -22,7 +21,7 @@ export function SlideOutlinePanel({
   const activeRef = useRef<HTMLButtonElement>(null);
 
   useSyncExternalStore(
-    (cb) => {
+    () => {
       if (!open || hidden) return () => {};
       const id = requestAnimationFrame(() => {
         activeRef.current?.scrollIntoView({ block: "nearest" });
@@ -41,7 +40,7 @@ export function SlideOutlinePanel({
         <button
           type="button"
           onClick={() => setOpen(true)}
-          className="flex h-9 w-9 items-center justify-center rounded-lg text-muted transition-[background-color] hover:bg-surface-tertiary/50 hover:text-foreground"
+          className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-[background-color] hover:bg-secondary hover:text-foreground"
           aria-label="Show slide list"
         >
           <IconLayoutSidebarLeftExpandFilled size={18} stroke={1.5} />
@@ -51,15 +50,15 @@ export function SlideOutlinePanel({
   }
 
   return (
-    <aside className="flex w-56 shrink-0 flex-col bg-background lg:w-60">
+    <aside className="flex w-56 shrink-0 flex-col border-r border-border bg-background lg:w-60">
       <div className="flex items-center justify-between px-3 py-3">
-        <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted">
+        <p className="text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
           Slides
         </p>
         <button
           type="button"
           onClick={() => setOpen(false)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted transition-[background-color] hover:bg-surface-tertiary/50 hover:text-foreground"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-[background-color] hover:bg-secondary hover:text-foreground"
           aria-label="Hide slide list"
         >
           <IconLayoutSidebarLeftCollapse size={17} stroke={1.5} />
@@ -83,17 +82,15 @@ export function SlideOutlinePanel({
                   onClick={() => onNavigate(slideNumber)}
                   className={cn(
                     "flex w-full gap-2.5 rounded-xl px-2 py-2 text-left transition-[background-color]",
-                    isActive
-                      ? "bg-surface-tertiary"
-                      : "hover:bg-surface-tertiary/50",
+                    isActive ? "bg-secondary" : "hover:bg-secondary/50",
                   )}
                 >
                   <span
                     className={cn(
                       "relative flex aspect-video w-[4.5rem] shrink-0 items-center justify-center overflow-hidden rounded-lg",
                       entry.theme === "dark"
-                        ? "bg-foreground text-background"
-                        : "bg-surface-secondary text-foreground",
+                        ? "bg-zinc-800 text-zinc-100"
+                        : "bg-secondary text-foreground",
                     )}
                   >
                     <span className="font-mono text-[10px] tabular-nums opacity-60">
@@ -104,12 +101,12 @@ export function SlideOutlinePanel({
                     <span
                       className={cn(
                         "block truncate text-xs font-medium",
-                        isActive ? "text-foreground" : "text-muted",
+                        isActive ? "text-foreground" : "text-muted-foreground",
                       )}
                     >
                       {entry.title}
                     </span>
-                    <span className="mt-0.5 block font-mono text-[10px] tabular-nums text-muted/70">
+                    <span className="mt-0.5 block font-mono text-[10px] tabular-nums text-muted-foreground/70">
                       {entry.id}
                     </span>
                   </span>

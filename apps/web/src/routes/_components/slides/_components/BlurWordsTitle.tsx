@@ -12,7 +12,7 @@ function renderWord(word: string): ReactNode {
   const [, eva, trailing] = match;
   return (
     <>
-      <span className="font-medium">{eva}</span>
+      <span className="font-semibold">{eva}</span>
       {trailing}
     </>
   );
@@ -65,7 +65,7 @@ export function BlurWordsTitle({
 
   return (
     <motion.h1
-      className={`font-instrumentSerif ${sizeClass} font-normal leading-tight tracking-tight text-foreground`}
+      className={`font-sans ${sizeClass} font-semibold leading-tight tracking-tight text-foreground`}
       variants={containerVariants}
       initial="hidden"
       animate={isVisible ? "show" : "hidden"}

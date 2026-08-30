@@ -17,7 +17,7 @@ export function Slide03QuickTasks() {
       <SlideReveal delay={0.1}>
         <SlideTitle>Fire-and-forget prompts</SlideTitle>
       </SlideReveal>
-      <SlideStagger step={1} delayChildren={0.2}>
+      <SlideStagger step={0} delayChildren={0.3}>
         <SlideItem>
           <SlideBullets
             items={[

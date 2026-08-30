@@ -17,7 +17,7 @@ export function Slide05Projects() {
       <SlideReveal delay={0.1}>
         <SlideTitle>Organize your work</SlideTitle>
       </SlideReveal>
-      <SlideStagger step={1} delayChildren={0.2}>
+      <SlideStagger step={0} delayChildren={0.3}>
         <SlideItem>
           <SlideBullets
             items={[

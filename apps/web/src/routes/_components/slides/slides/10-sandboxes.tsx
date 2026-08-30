@@ -17,7 +17,7 @@ export function Slide10Sandboxes() {
       <SlideReveal delay={0.1}>
         <SlideTitle>Isolated execution</SlideTitle>
       </SlideReveal>
-      <SlideStagger step={1} delayChildren={0.2}>
+      <SlideStagger step={0} delayChildren={0.3}>
         <SlideItem>
           <SlideBullets
             items={[

@@ -37,7 +37,7 @@ export const SLIDES: SlideEntry[] = [
     title: "Title",
     theme: "dark",
     Component: Slide01Title,
-    steps: 1,
+    steps: 0,
   },
 
   // ── Act 2 · The problem + features (light) ───────────────────────────
@@ -46,28 +46,28 @@ export const SLIDES: SlideEntry[] = [
     title: "The gap",
     theme: "light",
     Component: Slide02Gap,
-    steps: 1,
+    steps: 0,
   },
   {
     id: "03",
     title: "Quick tasks",
     theme: "light",
     Component: Slide03QuickTasks,
-    steps: 1,
+    steps: 0,
   },
   {
     id: "04",
     title: "Sessions",
     theme: "light",
     Component: Slide04Sessions,
-    steps: 1,
+    steps: 0,
   },
   {
     id: "05",
     title: "Projects",
     theme: "light",
     Component: Slide05Projects,
-    steps: 1,
+    steps: 0,
   },
   {
     id: "06",
@@ -81,7 +81,7 @@ export const SLIDES: SlideEntry[] = [
     title: "GitHub flow",
     theme: "light",
     Component: Slide07PRs,
-    steps: 1,
+    steps: 0,
   },
 
   // ── Act 3 · Tech + how it works (light) ──────────────────────────────
@@ -90,8 +90,7 @@ export const SLIDES: SlideEntry[] = [
     title: "Tech stack",
     theme: "light",
     Component: Slide08Stack,
-    steps: 2,
-    staggerMs: 1200,
+    steps: 0,
   },
   {
     id: "09",
@@ -105,7 +104,7 @@ export const SLIDES: SlideEntry[] = [
     title: "Sandboxes",
     theme: "light",
     Component: Slide10Sandboxes,
-    steps: 1,
+    steps: 0,
   },
 
   // ── Act 4 · Key insight + demo + close (dark) ────────────────────────
@@ -128,6 +127,6 @@ export const SLIDES: SlideEntry[] = [
     title: "Closing",
     theme: "dark",
     Component: Slide13Closing,
-    steps: 1,
+    steps: 0,
   },
 ];

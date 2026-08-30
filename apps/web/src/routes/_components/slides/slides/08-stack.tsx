@@ -17,7 +17,7 @@ export function Slide08Stack() {
       <SlideReveal delay={0.1}>
         <SlideTitle size="xl">Built on proven foundations</SlideTitle>
       </SlideReveal>
-      <SlideStagger step={1} className="mt-10 flex flex-wrap gap-3">
+      <SlideStagger step={0} delayChildren={0.3} className="mt-10 flex flex-wrap gap-3">
         <SlideItem>
           <SlideTag>React</SlideTag>
         </SlideItem>

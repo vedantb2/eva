@@ -17,7 +17,7 @@ export function Slide04Sessions() {
       <SlideReveal delay={0.1}>
         <SlideTitle>Persistent pair-programming</SlideTitle>
       </SlideReveal>
-      <SlideStagger step={1} delayChildren={0.2}>
+      <SlideStagger step={0} delayChildren={0.3}>
         <SlideItem>
           <SlideBullets
             items={[

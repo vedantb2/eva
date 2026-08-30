@@ -14,10 +14,10 @@ export function Slide02Gap() {
       <BlurWordsTitle
         lines={["AI coding tools", "are siloed."]}
         size="2xl"
-        step={1}
+        step={0}
         delay={0.15}
       />
-      <SlideReveal step={2} delay={0.3}>
+      <SlideReveal step={0} delay={0.8}>
         <p className="mt-10 max-w-2xl text-lg leading-relaxed text-foreground/70">
           Your context is scattered across chat windows, browser tabs, and
           terminal sessions. Eva brings it together in one unified workspace.

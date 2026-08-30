@@ -17,7 +17,7 @@ export function Slide06Documents() {
       <SlideReveal delay={0.1}>
         <SlideTitle>Structured context</SlideTitle>
       </SlideReveal>
-      <SlideStagger step={1} delayChildren={0.2}>
+      <SlideStagger step={0} delayChildren={0.3}>
         <SlideItem>
           <SlideBullets
             items={[

@@ -8,6 +8,18 @@
 - `validateSandbox` attempts that stop+resume once on an unresponsive signal before reporting `healthy: false` (callers already recreate on unhealthy); other failures keep the old behavior.
 - `runBackgroundCommands` wraps the whole per-command body in one try/catch and classifies failures: per-command errors on a live VM continue as before; a wedged VM gets one stop+resume then a retry (never on the `onlyRestartDead` preview-heal path, which must not restart a VM mid-turn); a confirmed-dead or not-running VM aborts the remaining launches with the skip recorded in `errors` instead of cascading timeouts or throwing Uncaught. A provider 400 alone proves nothing and is confirmed with an `echo 1` probe, run only after the state check says `running` so it cannot lazily resume a stopped VM.
 
+## Session sandbox reuse recovers from an unresolved merge index - 2026-09-01
+
+- Reusing a session sandbox died with an uncaught `SandboxCommandFailedError` when a previous agent run left the VM mid-merge: every `git checkout` refused with "needs merge; error: you need to resolve your current index first", reuse could not fall back to a fresh VM (the old one was alive and `fallbackOnPrepareError: false` guards against orphaning it), and `sessionExecuteWorkflow` aborted (prod session n97ex5wm, 2026-09-01).
+- `checkoutSessionBranchWithRetry` now detects git's unresolved-index refusals (`isUnresolvedGitIndexError`: "needs merge", "resolve your current index first", "unmerged files", "MERGE_HEAD exists") and runs a one-shot `recoverUnresolvedGitIndex` before retrying: abort any in-progress merge/rebase/cherry-pick/revert (each gated on its `.git` marker), then reset unmerged index entries only if `git ls-files --unmerged` still reports any. Committed work survives; only the unfinished conflicted attempt is discarded.
+- Scoped tight: the recovery matcher runs once per checkout, and every other failure (auth, network, missing refs) throws exactly as before. Covers session, task, and project reuse plus fresh-create paths — all funnel through `checkoutSessionBranchWithRetry`.
+- Regression pins in `tests/sandboxReuseUnresolvedIndexContract.test.ts` keep the detector, the one-shot retry wiring, and the abort-before-reset ordering.
+
+## Fable 5 replaced by Fable 5.1 (`claude-fable-5-1`) - 2026-09-01
+
+- The Claude Fable model option now runs Anthropic's Fable 5.1, released 01 September 2026 (model ID `claude-fable-5-1`, per [platform.claude.com](https://platform.claude.com/docs/en/models/fable-5-1/overview)). Picker label updated to "Fable 5.1"; same reasoning traits (low–max, high default, ultrathink) and 1M context toggle as Fable 5.
+- `claude:claude-fable-5` follows the existing legacy pattern: still accepted by `aiModelValidator` so persisted sessions load, moved to `PersistedAIModel`, and `normalizeAIModel` maps it (plus `fable`/`claude:fable` aliases and bare IDs) to `claude:claude-fable-5-1`. The MCP `fable` alias and the simple-view ladder/`snapToSimpleViewLadder` therefore resolve to 5.1 automatically; the sandbox runner already just strips the `claude:` prefix, so no callback changes were needed.
+
 ## Editor and Computer are first-class sandbox rail tabs; sub-agent CTA row hidden in simple view - 2026-08-29
 
 - Editor and Computer moved out of the `+` dropdown into the vertical sandbox rail as always-present tabs (when the surface enables them), placed after the base tabs and before Files/Agents/Plan/Designs. The dropdown was a leftover from the horizontal strip's space constraints; with only "New Preview" left in it, the menu is gone and `+` triggers New Preview directly.

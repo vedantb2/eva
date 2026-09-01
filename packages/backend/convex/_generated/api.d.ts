@@ -55,6 +55,7 @@ import type * as _drafts_queries from "../_drafts/queries.js";
 import type * as _envVars_listDisplay from "../_envVars/listDisplay.js";
 import type * as _envVars_vercelCredentials from "../_envVars/vercelCredentials.js";
 import type * as _git_branchNames from "../_git/branchNames.js";
+import type * as _git_remoteRef from "../_git/remoteRef.js";
 import type * as _github_api from "../_github/api.js";
 import type * as _github_authErrors from "../_github/authErrors.js";
 import type * as _github_evaPrOwnership from "../_github/evaPrOwnership.js";
@@ -426,6 +427,7 @@ declare const fullApi: ApiFromModules<{
   "_envVars/listDisplay": typeof _envVars_listDisplay;
   "_envVars/vercelCredentials": typeof _envVars_vercelCredentials;
   "_git/branchNames": typeof _git_branchNames;
+  "_git/remoteRef": typeof _git_remoteRef;
   "_github/api": typeof _github_api;
   "_github/authErrors": typeof _github_authErrors;
   "_github/evaPrOwnership": typeof _github_evaPrOwnership;

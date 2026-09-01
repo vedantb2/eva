@@ -420,6 +420,9 @@ export function ChatPanel({
         onOpenAgentsTab={onOpenAgentsTab}
         backgroundAgents={backgroundAgents}
         sandboxRunning={isSandboxActive}
+        turnCheckpoint={
+          isReadOnly ? undefined : { sessionId, repoId: repo._id }
+        }
       />
       <SessionSummaryModal
         sessionId={sessionId}

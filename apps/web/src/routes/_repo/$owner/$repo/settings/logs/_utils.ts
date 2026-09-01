@@ -1,9 +1,5 @@
 import dayjs from "@eva/shared/dates";
-import {
-  parseResultEvent,
-  formatCost,
-  formatTokens,
-} from "@/lib/utils/logs";
+import { parseResultEvent, formatCost, formatTokens } from "@/lib/utils/logs";
 
 export { parseResultEvent, formatCost, formatTokens };
 
@@ -176,7 +172,10 @@ export function buildUsageSeries(
     if (index === undefined) continue;
     let series = byModel.get(bucket.model);
     if (!series) {
-      series = { data: new Array<number>(starts.length).fill(0), total: 0 };
+      series = {
+        data: Array.from({ length: starts.length }, () => 0),
+        total: 0,
+      };
       byModel.set(bucket.model, series);
     }
     series.data[index] = (series.data[index] ?? 0) + bucket.costUsd;

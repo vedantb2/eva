@@ -5,8 +5,17 @@ import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import { Skeleton } from "@eva/ui";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { timeRangeParser, searchParser, logViewParser } from "@/lib/search-params";
-import { getStartTime, DAY_MS, TIME_RANGE_LABELS } from "@/lib/components/analytics/timeRange";
+import {
+  timeRangeParser,
+  searchParser,
+  logViewParser,
+} from "@/lib/search-params";
+import {
+  getStartTime,
+  DAY_MS,
+  HOUR_MS,
+  TIME_RANGE_LABELS,
+} from "@/lib/components/analytics/timeRange";
 import { TimeRangeFilter } from "@/lib/components/analytics/TimeRangeFilter";
 import { useQuantizedNow } from "@/lib/hooks/useQuantizedNow";
 import { IconFileOff } from "@tabler/icons-react";
@@ -14,36 +23,47 @@ import { SettingsPage } from "@/lib/components/settings/SettingsPage";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 import { ToggleSearch } from "@/lib/components/ui/ToggleSearch";
-import {
-  groupLogsByType,
-  logTotals,
-  parseResultEvent,
-} from "./logs/_utils";
+import { groupLogsByType, logTotals, parseResultEvent } from "./logs/_utils";
 import { LogsPeriodSummary } from "./logs/_components/LogsPeriodSummary";
 import { LogsViewTabs } from "./logs/_components/LogsViewTabs";
 import { LogEntryGroup } from "./logs/_components/LogEntryGroup";
 import { ProjectSpendingGroup } from "./logs/_components/ProjectSpendingGroup";
+import { UsageOverviewView } from "./logs/_components/UsageOverviewView";
 
-export function LogsClient() {
+/**
+ * Settings → Usage. The Overview tab aggregates the denormalised usage columns
+ * server-side (`usage.summary`); the Type and Project tabs are the completion
+ * ledger, whose totals must match the overview for the same range.
+ */
+export function UsageClient() {
   const { repo } = useRepo();
   const [timeRange, setTimeRange] = useQueryState("range", timeRangeParser);
   const [searchQuery, setSearchQuery] = useQueryState("q", searchParser);
   const [logView, setLogView] = useQueryState("view", logViewParser);
 
-  const today = useQuantizedNow(DAY_MS);
-  const startTime = getStartTime(timeRange, today);
+  // Hourly for the 24h window so the current hour's bar fills in; daily otherwise.
+  const now = useQuantizedNow(timeRange === "24h" ? HOUR_MS : DAY_MS);
+  const startTime = getStartTime(timeRange, now);
   const query = (searchQuery ?? "").toLowerCase().trim();
   const periodTitle = TIME_RANGE_LABELS[timeRange];
 
-  const logs = useQuery(api.logs.listByRepo, {
-    repoId: repo._id,
-    startTime: startTime ?? undefined,
-  });
+  const isOverview = logView === "overview";
+  const isProjectView = logView === "project";
 
-  const projectLogs = useQuery(api.logs.listByProject, {
-    repoId: repo._id,
-    startTime: startTime ?? undefined,
-  });
+  // The ledger tabs own these subscriptions; the overview has its own query.
+  const logs = useQuery(
+    api.logs.listByRepo,
+    isOverview
+      ? "skip"
+      : { repoId: repo._id, startTime: startTime ?? undefined },
+  );
+
+  const projectLogs = useQuery(
+    api.logs.listByProject,
+    isProjectView
+      ? { repoId: repo._id, startTime: startTime ?? undefined }
+      : "skip",
+  );
 
   const filteredLogs = logs
     ? logs.filter((log) =>
@@ -78,7 +98,6 @@ export function LogsClient() {
         .sort((a, b) => b.totalCost - a.totalCost)
     : undefined;
 
-  const isProjectView = logView === "project";
   const isLoading = isProjectView
     ? projectGroups === undefined
     : filteredLogs === undefined;
@@ -95,7 +114,7 @@ export function LogsClient() {
 
   return (
     <SettingsPage
-      title="Logs"
+      title="Usage"
       headerRight={
         <TimeRangeFilter value={timeRange} onChange={setTimeRange} />
       }
@@ -103,16 +122,25 @@ export function LogsClient() {
         <div className="flex w-full min-w-0 flex-wrap items-center gap-2">
           <LogsViewTabs value={logView} onChange={setLogView} />
           <div className="ml-auto">
-            <ToggleSearch
-              value={searchQuery ?? ""}
-              onChange={setSearchQuery}
-              placeholder="Search"
-            />
+            {isOverview ? null : (
+              <ToggleSearch
+                value={searchQuery ?? ""}
+                onChange={setSearchQuery}
+                placeholder="Search"
+              />
+            )}
           </div>
         </div>
       }
     >
-      {isLoading ? (
+      {isOverview ? (
+        <UsageOverviewView
+          repoId={repo._id}
+          range={timeRange}
+          now={now}
+          title={periodTitle}
+        />
+      ) : isLoading ? (
         <>
           <section
             className="flex flex-col gap-1 px-4"

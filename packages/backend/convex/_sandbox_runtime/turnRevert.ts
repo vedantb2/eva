@@ -34,7 +34,7 @@ type RevertResult = Infer<typeof revertResultValidator>;
 export const revertSessionToTurn = action({
   args: {
     sessionId: v.id("sessions"),
-    messageId: v.id("messages"),
+    messageId: v.string(),
   },
   returns: revertResultValidator,
   handler: async (ctx, args): Promise<RevertResult> => {

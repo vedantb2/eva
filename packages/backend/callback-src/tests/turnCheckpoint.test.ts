@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import type { JsonObject } from "../types.js";
+import type * as callbackConfig from "../config.js";
 
 // A throwaway repo stands in for the sandbox workspace so the checkpoint reads
 // real shas without touching this checkout.
@@ -12,7 +13,7 @@ const workspace = vi.hoisted(() => {
 });
 
 vi.mock("../config.js", async (importOriginal) => {
-  const original = await importOriginal<typeof import("../config.js")>();
+  const original = await importOriginal<typeof callbackConfig>();
   return {
     ...original,
     RUN_ID: null,
@@ -22,11 +23,8 @@ vi.mock("../config.js", async (importOriginal) => {
   };
 });
 
-const {
-  appendTurnCheckpoint,
-  beginTurnCheckpoint,
-  resetTurnCheckpoint,
-} = await import("../runtime/turnCheckpoint.js");
+const { appendTurnCheckpoint, beginTurnCheckpoint, resetTurnCheckpoint } =
+  await import("../runtime/turnCheckpoint.js");
 
 function git(args: string[]): string {
   const result = spawnSync("git", ["-C", workspace.dir, ...args], {

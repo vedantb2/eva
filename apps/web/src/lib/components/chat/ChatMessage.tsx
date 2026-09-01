@@ -30,6 +30,10 @@ import { CollapsibleUserMessageBody } from "@/lib/components/chat/CollapsibleUse
 import { ChatMessageActions } from "@/lib/components/chat/ChatMessageActions";
 import { ChatMessageContextMenu } from "@/lib/components/chat/ChatMessageContextMenu";
 import {
+  useTurnCheckpointActions,
+  type TurnCheckpointContext,
+} from "@/lib/components/chat/_components/useTurnCheckpointActions";
+import {
   StreamingActivityDisplay,
   ActivityLogDisplay,
 } from "@/lib/components/StreamingActivityDisplay";
@@ -119,6 +123,11 @@ interface ChatMessageProps {
   /** Entity-wide sub-agent lifecycle entries; narrowed to this turn's spawns. */
   backgroundAgents?: ReadonlyArray<BackgroundAgentEntry>;
   sandboxRunning?: boolean;
+  /**
+   * Sessions only: enables "Diff this turn" / "Restore to before this turn"
+   * on assistant turns that carry checkpoint shas.
+   */
+  turnCheckpoint?: TurnCheckpointContext;
 }
 
 export const ChatMessage = memo(function ChatMessage({
@@ -141,7 +150,13 @@ export const ChatMessage = memo(function ChatMessage({
   onOpenAgentsTab,
   backgroundAgents,
   sandboxRunning,
+  turnCheckpoint,
 }: ChatMessageProps) {
+  const checkpoint = useTurnCheckpointActions({
+    message,
+    context: turnCheckpoint,
+    sandboxRunning: sandboxRunning === true,
+  });
   if (message.isSystemAlert) {
     return (
       <SystemAlertMessage
@@ -200,195 +215,202 @@ export const ChatMessage = memo(function ChatMessage({
     ) : null;
 
   return (
-    <ChatMessageContextMenu content={copySource}>
-      <m.div
-        data-message-id={message._id}
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={motionFast}
+    <>
+      <ChatMessageContextMenu
+        content={copySource}
+        extraItems={checkpoint.items}
       >
-        <AIMessage
-          from={message.role}
-          className={
-            isOtherUser ? "ml-0 mr-auto justify-start gap-1.5" : undefined
-          }
+        <m.div
+          data-message-id={message._id}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={motionFast}
         >
-          {message.role === "user" ? (
-            <div
-              className={cn(
-                "flex flex-col gap-0.5",
-                isOtherUser ? "items-start" : "items-end",
-              )}
-            >
-              {isOtherUser && senderFirstName ? (
-                <span
-                  data-pii
-                  className={cn(
-                    "text-[11px] font-medium text-muted-foreground",
-                    // Avatar (16) + gap (8) + bubble px-3 (12) → align with bubble text
-                    "pl-9",
-                  )}
-                >
-                  {senderFirstName}
-                </span>
-              ) : null}
-              {orchestratorTag ? (
-                <span
-                  className={cn(
-                    "rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground",
-                    isOtherUser ? "ml-9" : undefined,
-                  )}
-                >
-                  {orchestratorTag}
-                </span>
-              ) : null}
-              {/* min-w-0 stops the default `min-width: auto` on this flex item
+          <AIMessage
+            from={message.role}
+            className={
+              isOtherUser ? "ml-0 mr-auto justify-start gap-1.5" : undefined
+            }
+          >
+            {message.role === "user" ? (
+              <div
+                className={cn(
+                  "flex flex-col gap-0.5",
+                  isOtherUser ? "items-start" : "items-end",
+                )}
+              >
+                {isOtherUser && senderFirstName ? (
+                  <span
+                    data-pii
+                    className={cn(
+                      "text-[11px] font-medium text-muted-foreground",
+                      // Avatar (16) + gap (8) + bubble px-3 (12) → align with bubble text
+                      "pl-9",
+                    )}
+                  >
+                    {senderFirstName}
+                  </span>
+                ) : null}
+                {orchestratorTag ? (
+                  <span
+                    className={cn(
+                      "rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground",
+                      isOtherUser ? "ml-9" : undefined,
+                    )}
+                  >
+                    {orchestratorTag}
+                  </span>
+                ) : null}
+                {/* min-w-0 stops the default `min-width: auto` on this flex item
                   from letting one unbreakable token (a JWT, a long URL) stretch
                   the bubble past the message column. */}
-              <div className="flex min-w-0 max-w-full items-end gap-2">
-                {isOtherUser ? (
-                  <div className="shrink-0">
-                    <UserMessageAvatar userId={message.userId} />
-                  </div>
-                ) : null}
-                <MessageContent
-                  className={cn(
-                    "group px-3 py-2 text-foreground",
-                    isOtherUser
-                      ? "bg-secondary group-[.is-user]:ml-0 group-[.is-user]:bg-secondary"
-                      : isOrchestratorNotification || sentViaMcp
-                        ? // Not typed in the Eva composer — drop it a tone
-                          // step off the accent bubble.
-                          "rounded-surface bg-muted group-[.is-user]:bg-muted"
-                        : "rounded-surface bg-primary/10 group-[.is-user]:bg-primary/10",
-                  )}
-                  style={
-                    isOtherUser
-                      ? { borderRadius: otherUserBubbleRadius() }
-                      : undefined
-                  }
-                >
-                  <UserMessageBody
-                    message={message}
-                    repoBasePath={repoBasePath}
-                  />
-                </MessageContent>
-              </div>
-              {isHandoffBoundary && message.model !== undefined ? (
-                <HandoffModelChip
-                  model={message.model}
-                  className={isOtherUser ? "ml-6" : undefined}
-                />
-              ) : null}
-              <UserMessageMeta
-                align={isOtherUser ? "start" : "end"}
-                copyPlain={copyPlain}
-                timestamp={message.timestamp}
-                className={isOtherUser ? "pl-6" : undefined}
-              />
-            </div>
-          ) : (
-            <>
-              <MessageContent className="px-1 py-2">
-                {isStreamingPlaceholder ? (
-                  <>
-                    <StreamingActivityDisplay
-                      activity={streamingActivity}
-                      name="Eva"
-                      startedAt={message.timestamp}
-                      onOpenFile={onOpenFile}
-                    />
-                    {agentSpawnRow}
-                    {streamingContent ? (
-                      <MessageResponse className="prose prose-sm dark:prose-invert max-w-none mt-2 wrap-anywhere">
-                        {streamingContent}
-                      </MessageResponse>
-                    ) : null}
-                  </>
-                ) : (
-                  <>
-                    {message.activityLog && (
-                      <ActivityLogDisplay
-                        activityLog={message.activityLog}
-                        name="Eva"
-                        icon={EVA_ICON}
-                        startedAt={message.timestamp}
-                        finishedAt={message.finishedAt}
-                        finalText={message.content}
-                        onOpenFile={onOpenFile}
-                      />
-                    )}
-                    {agentSpawnRow}
-                    {/* wrap-anywhere: without it a long unbreakable token is
-                        silently clipped by MessageContent's overflow-hidden. */}
-                    <MessageResponse className="prose prose-sm dark:prose-invert max-w-none wrap-anywhere">
-                      {message.content}
-                    </MessageResponse>
-                    {showChangedFiles && changedFiles.length > 0 ? (
-                      <ChangedFilesCard
-                        files={changedFiles}
-                        isLatestAssistantTurn={isLatestAssistantTurn}
-                        expanded={changedFilesExpanded}
-                        onExpandedChange={(nextExpanded) =>
-                          onChangedFilesExpandedChange(
-                            message._id,
-                            nextExpanded,
-                          )
-                        }
-                        onOpenFile={onOpenFile}
-                        onViewDiff={onViewDiff}
-                      />
-                    ) : null}
-                    {videoMedia.map((entry, index) => (
-                      // Capped to the same width `ImageGalleryPreview` uses, so
-                      // a video and a screenshot in the same reply line up
-                      // instead of the video spanning the whole pane.
-                      <VideoPreview
-                        key={index}
-                        url={entry.url}
-                        className="max-w-lg"
-                      />
-                    ))}
-                    {imageMedia.length > 0 ? (
-                      <ImageGalleryPreview images={imageMedia} />
-                    ) : null}
-                  </>
-                )}
-              </MessageContent>
-              {turnModel || copyPlain ? (
-                <div className="reveal-on-hover transition-opacity mt-0.5 flex items-center gap-2">
-                  {turnModel ? (
-                    <MessageModelIcon
-                      model={turnModel}
-                      reasoningLevel={turnReasoningLevel}
-                      credentialSourceLabel={turnCredentialSourceLabel}
-                    />
+                <div className="flex min-w-0 max-w-full items-end gap-2">
+                  {isOtherUser ? (
+                    <div className="shrink-0">
+                      <UserMessageAvatar userId={message.userId} />
+                    </div>
                   ) : null}
-                  {copyPlain ? (
+                  <MessageContent
+                    className={cn(
+                      "group px-3 py-2 text-foreground",
+                      isOtherUser
+                        ? "bg-secondary group-[.is-user]:ml-0 group-[.is-user]:bg-secondary"
+                        : isOrchestratorNotification || sentViaMcp
+                          ? // Not typed in the Eva composer — drop it a tone
+                            // step off the accent bubble.
+                            "rounded-surface bg-muted group-[.is-user]:bg-muted"
+                          : "rounded-surface bg-primary/10 group-[.is-user]:bg-primary/10",
+                    )}
+                    style={
+                      isOtherUser
+                        ? { borderRadius: otherUserBubbleRadius() }
+                        : undefined
+                    }
+                  >
+                    <UserMessageBody
+                      message={message}
+                      repoBasePath={repoBasePath}
+                    />
+                  </MessageContent>
+                </div>
+                {isHandoffBoundary && message.model !== undefined ? (
+                  <HandoffModelChip
+                    model={message.model}
+                    className={isOtherUser ? "ml-6" : undefined}
+                  />
+                ) : null}
+                <UserMessageMeta
+                  align={isOtherUser ? "start" : "end"}
+                  copyPlain={copyPlain}
+                  timestamp={message.timestamp}
+                  className={isOtherUser ? "pl-6" : undefined}
+                />
+              </div>
+            ) : (
+              <>
+                <MessageContent className="px-1 py-2">
+                  {isStreamingPlaceholder ? (
                     <>
-                      <ChatMessageActions
-                        copyText={copyPlain}
-                        className="ml-0.5"
-                        revealOnHover={false}
+                      <StreamingActivityDisplay
+                        activity={streamingActivity}
+                        name="Eva"
+                        startedAt={message.timestamp}
+                        onOpenFile={onOpenFile}
                       />
-                      {message.finishedAt && message.timestamp ? (
-                        <span className="text-[11px] tabular-nums text-muted-foreground/60">
-                          {dayjs(message.timestamp).format("h:mm A")} ·{" "}
-                          {formatDuration(
-                            message.timestamp,
-                            message.finishedAt,
-                          )}
-                        </span>
+                      {agentSpawnRow}
+                      {streamingContent ? (
+                        <MessageResponse className="prose prose-sm dark:prose-invert max-w-none mt-2 wrap-anywhere">
+                          {streamingContent}
+                        </MessageResponse>
                       ) : null}
                     </>
-                  ) : null}
-                </div>
-              ) : null}
-            </>
-          )}
-        </AIMessage>
-      </m.div>
-    </ChatMessageContextMenu>
+                  ) : (
+                    <>
+                      {message.activityLog && (
+                        <ActivityLogDisplay
+                          activityLog={message.activityLog}
+                          name="Eva"
+                          icon={EVA_ICON}
+                          startedAt={message.timestamp}
+                          finishedAt={message.finishedAt}
+                          finalText={message.content}
+                          onOpenFile={onOpenFile}
+                        />
+                      )}
+                      {agentSpawnRow}
+                      {/* wrap-anywhere: without it a long unbreakable token is
+                        silently clipped by MessageContent's overflow-hidden. */}
+                      <MessageResponse className="prose prose-sm dark:prose-invert max-w-none wrap-anywhere">
+                        {message.content}
+                      </MessageResponse>
+                      {showChangedFiles && changedFiles.length > 0 ? (
+                        <ChangedFilesCard
+                          files={changedFiles}
+                          isLatestAssistantTurn={isLatestAssistantTurn}
+                          expanded={changedFilesExpanded}
+                          onExpandedChange={(nextExpanded) =>
+                            onChangedFilesExpandedChange(
+                              message._id,
+                              nextExpanded,
+                            )
+                          }
+                          onOpenFile={onOpenFile}
+                          onViewDiff={onViewDiff}
+                        />
+                      ) : null}
+                      {videoMedia.map((entry, index) => (
+                        // Capped to the same width `ImageGalleryPreview` uses, so
+                        // a video and a screenshot in the same reply line up
+                        // instead of the video spanning the whole pane.
+                        <VideoPreview
+                          key={index}
+                          url={entry.url}
+                          className="max-w-lg"
+                        />
+                      ))}
+                      {imageMedia.length > 0 ? (
+                        <ImageGalleryPreview images={imageMedia} />
+                      ) : null}
+                    </>
+                  )}
+                </MessageContent>
+                {turnModel || copyPlain || checkpoint.items.length > 0 ? (
+                  <div className="reveal-on-hover transition-opacity mt-0.5 flex items-center gap-2">
+                    {turnModel ? (
+                      <MessageModelIcon
+                        model={turnModel}
+                        reasoningLevel={turnReasoningLevel}
+                        credentialSourceLabel={turnCredentialSourceLabel}
+                      />
+                    ) : null}
+                    {copyPlain || checkpoint.items.length > 0 ? (
+                      <>
+                        <ChatMessageActions
+                          copyText={copyPlain}
+                          actions={checkpoint.items}
+                          className="ml-0.5"
+                          revealOnHover={false}
+                        />
+                        {message.finishedAt && message.timestamp ? (
+                          <span className="text-[11px] tabular-nums text-muted-foreground/60">
+                            {dayjs(message.timestamp).format("h:mm A")} ·{" "}
+                            {formatDuration(
+                              message.timestamp,
+                              message.finishedAt,
+                            )}
+                          </span>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
+                ) : null}
+              </>
+            )}
+          </AIMessage>
+        </m.div>
+      </ChatMessageContextMenu>
+      {checkpoint.dialogs}
+    </>
   );
 });
 

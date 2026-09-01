@@ -6,7 +6,6 @@ import { useAction } from "convex/react";
 import { api, type Id } from "@eva/backend";
 import {
   Dialog,
-  DialogBody,
   DialogContent,
   DialogDescription,
   DialogHeader,
@@ -14,14 +13,8 @@ import {
   DialogTrigger,
   Spinner,
 } from "@eva/ui";
-import {
-  DiffCountBar,
-  FileStatusChip,
-} from "@/lib/components/sandbox/DiffFileBadges";
-import { ReviewableFileDiff } from "@/lib/components/sandbox/ReviewableFileDiff";
-import { NoPendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
-import { useThemeMode } from "@/lib/hooks/useThemeMode";
 import { commitDiffQuery, prErrorMessage } from "@/lib/prReviewQueries";
+import { DiffEntriesDialogBody } from "./DiffEntriesDialogBody";
 import { shortSha, type PrCommit } from "./prOverviewMeta";
 
 /**
@@ -90,7 +83,6 @@ function CommitDiffBody({
   htmlUrl: string;
 }) {
   const getCommitDiff = useAction(api.github.getCommitDiff);
-  const { resolvedTheme } = useThemeMode();
   const query = useQuery(commitDiffQuery(getCommitDiff, repoId, sha));
 
   if (query.isPending) {
@@ -112,71 +104,27 @@ function CommitDiffBody({
   const { entries, truncated, additions, deletions, changedFiles } = query.data;
 
   return (
-    <DialogBody className="space-y-3">
-      <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-        <span>
-          {changedFiles} changed {changedFiles === 1 ? "file" : "files"}
-        </span>
-        <DiffCountBar additions={additions} deletions={deletions} />
-      </div>
-
-      {/* Read-only: these line numbers belong to the commit, so a review comment
-          drafted here would land on the wrong lines of the pull request diff. */}
-      <NoPendingReviewComments>
-        <div className="space-y-3">
-          {entries.map((entry) => (
-            <div
-              key={entry.path}
-              className="overflow-hidden rounded-md border border-border"
+    <DiffEntriesDialogBody
+      entries={entries}
+      additions={additions}
+      deletions={deletions}
+      changedFiles={changedFiles}
+      truncatedNotice={
+        truncated ? (
+          <p className="text-xs text-muted-foreground">
+            This commit is too large to show in full.{" "}
+            <a
+              href={htmlUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-foreground"
             >
-              <div className="flex min-w-0 items-center gap-2 border-b border-border bg-muted/40 px-3 py-2">
-                <span
-                  className="min-w-0 flex-1 truncate font-mono text-xs"
-                  title={entry.path}
-                >
-                  {entry.path}
-                </span>
-                <FileStatusChip status={entry.status} />
-                <DiffCountBar
-                  additions={entry.additions}
-                  deletions={entry.deletions}
-                />
-              </div>
-
-              {entry.binary || !entry.hasHunks ? (
-                <p className="px-3 py-4 text-xs text-muted-foreground">
-                  {entry.binary
-                    ? "Binary file not shown."
-                    : "No line changes in this file."}
-                </p>
-              ) : (
-                <ReviewableFileDiff
-                  patch={entry.patch}
-                  path={entry.path}
-                  diffView="unified"
-                  resolvedTheme={resolvedTheme}
-                  hideFileHeader
-                />
-              )}
-            </div>
-          ))}
-        </div>
-      </NoPendingReviewComments>
-
-      {truncated ? (
-        <p className="text-xs text-muted-foreground">
-          This commit is too large to show in full.{" "}
-          <a
-            href={htmlUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="underline hover:text-foreground"
-          >
-            View it on GitHub
-          </a>
-          .
-        </p>
-      ) : null}
-    </DialogBody>
+              View it on GitHub
+            </a>
+            .
+          </p>
+        ) : null
+      }
+    />
   );
 }

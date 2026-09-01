@@ -132,10 +132,7 @@ export function WebPreviewPanel({
   const viewportStorageKey = `${pathStorageKey}:viewport`;
   const [viewport, setViewport] = useSessionStorage<PreviewViewport>(
     viewportStorageKey,
-    readStoredPreviewViewport(
-      viewportStorageKey,
-      `${pathStorageKey}:device`,
-    ),
+    readStoredPreviewViewport(viewportStorageKey, `${pathStorageKey}:device`),
     {
       serializer: serializePreviewViewport,
       deserializer: parsePreviewViewport,
@@ -160,7 +157,9 @@ export function WebPreviewPanel({
     src: string | undefined;
   }>(() => ({
     key: srcKey,
-    src: previewInfo ? buildUrlWithPath(previewInfo.url, previewPath) : undefined,
+    src: previewInfo
+      ? buildUrlWithPath(previewInfo.url, previewPath)
+      : undefined,
   }));
   let iframeSrc = srcState.src;
   if (srcState.key !== srcKey) {
@@ -268,9 +267,7 @@ export function WebPreviewPanel({
         showAnnotationToggle={Boolean(onAnnotationSubmit)}
         popOut={popOut}
       />
-      {showPlaceholder ? (
-        <PreviewFloatingPlaceholder />
-      ) : viewport.mode !== "fill" ? (
+      {!showPlaceholder && viewport.mode !== "fill" ? (
         <PreviewDeviceToolbar
           viewport={viewport}
           aspectRatio={aspectRatio}
@@ -282,54 +279,59 @@ export function WebPreviewPanel({
           }}
         />
       ) : null}
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <PreviewViewportFrame
-          viewport={viewport}
-          aspectRatio={aspectRatio}
-          onResize={(size) =>
-            setViewport({
-              mode: "freeform",
-              width: size.width,
-              height: size.height,
-            })
-          }
-        >
-          <PersistentPreviewBody
-            entryKey={pathStorageKey}
-            group={`${sandboxId}:${port}`}
-            src={iframeSrc}
-            epoch={iframeKey}
-            covered={error !== null}
-            logicalSize={
-              viewport.mode === "fill"
-                ? null
-                : { width: viewport.width, height: viewport.height }
+      {showPlaceholder ? (
+        <PreviewFloatingPlaceholder />
+      ) : (
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <PreviewViewportFrame
+            viewport={viewport}
+            aspectRatio={aspectRatio}
+            onResize={(size) =>
+              setViewport({
+                mode: "freeform",
+                width: size.width,
+                height: size.height,
+              })
             }
-            loading={
-              isLoading && !previewInfo ? (
-                <div className="absolute inset-0 z-10 flex items-center justify-center bg-secondary">
-                  <Spinner size="lg" />
-                </div>
-              ) : error ? (
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                  <p className="text-sm text-destructive">{error}</p>
-                  <Button size="sm" variant="secondary" onClick={onRefresh}>
-                    <IconRefresh className="w-4 h-4" />
-                    Retry
-                  </Button>
-                </div>
-              ) : undefined
-            }
-          />
-        </PreviewViewportFrame>
-        {onAnnotationSubmit ? (
-          <PreviewAnnotationLayer
-            mode={annotationMode}
-            onModeChange={setAnnotationMode}
-            onSubmit={onAnnotationSubmit}
-          />
-        ) : null}
-      </div>
+          >
+            <PersistentPreviewBody
+              entryKey={pathStorageKey}
+              group={`${sandboxId}:${port}`}
+              src={iframeSrc}
+              epoch={iframeKey}
+              covered={error !== null}
+              miniPlayer={miniPlayerSource}
+              logicalSize={
+                viewport.mode === "fill"
+                  ? null
+                  : { width: viewport.width, height: viewport.height }
+              }
+              loading={
+                isLoading && !previewInfo ? (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-secondary">
+                    <Spinner size="lg" />
+                  </div>
+                ) : error ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                    <p className="text-sm text-destructive">{error}</p>
+                    <Button size="sm" variant="secondary" onClick={onRefresh}>
+                      <IconRefresh className="w-4 h-4" />
+                      Retry
+                    </Button>
+                  </div>
+                ) : undefined
+              }
+            />
+          </PreviewViewportFrame>
+          {onAnnotationSubmit ? (
+            <PreviewAnnotationLayer
+              mode={annotationMode}
+              onModeChange={setAnnotationMode}
+              onSubmit={onAnnotationSubmit}
+            />
+          ) : null}
+        </div>
+      )}
     </WebPreview>
   );
 }

@@ -270,12 +270,15 @@ const revertContextValidator = v.union(
 type RevertContext = Infer<typeof revertContextValidator>;
 
 export const getRevertContext = internalQuery({
-  args: { sessionId: v.id("sessions"), messageId: v.id("messages") },
+  // `messageId` is a plain string: the chat tree widens message ids so it can
+  // hold client-built synthetic turns, which never carry checkpoints anyway.
+  args: { sessionId: v.id("sessions"), messageId: v.string() },
   returns: revertContextValidator,
   handler: async (ctx, args): Promise<RevertContext> => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
-    const message = await ctx.db.get(args.messageId);
+    const messageId = ctx.db.normalizeId("messages", args.messageId);
+    const message = messageId === null ? null : await ctx.db.get(messageId);
     if (!message || message.parentId !== args.sessionId) {
       throw new Error("Message not found");
     }

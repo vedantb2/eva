@@ -36,6 +36,52 @@ var evaMcpServers = consumed.servers;
 var evaMcpWorkerHandoffEnv = consumed.workerHandoffEnv;
 var hasEvaMcpConfig = Object.keys(evaMcpServers).length > 0;
 
+// ../shared/src/modelPricing.ts
+var ANTHROPIC_PRICING_URL = "https://platform.claude.com/docs/en/about-claude/pricing";
+var ANTHROPIC_PRICING_AS_OF = "2026-09-01";
+function anthropicRow(inputPerMillion, cacheReadPerMillion, cacheWritePerMillion, outputPerMillion) {
+  return {
+    inputPerMillion,
+    cacheReadPerMillion,
+    cacheWritePerMillion,
+    outputPerMillion,
+    source: ANTHROPIC_PRICING_URL,
+    asOf: ANTHROPIC_PRICING_AS_OF
+  };
+}
+var CLAUDE_PRICING_PER_MILLION = {
+  "claude-fable-5-1": anthropicRow(10, 0.25, 12.5, 50),
+  "claude-mythos-5-1": anthropicRow(10, 0.25, 12.5, 50),
+  "claude-fable-5": anthropicRow(10, 1, 12.5, 50),
+  "claude-mythos-5": anthropicRow(10, 1, 12.5, 50),
+  "claude-opus-5": anthropicRow(5, 0.5, 6.25, 25),
+  "claude-opus-4-8": anthropicRow(5, 0.5, 6.25, 25),
+  "claude-opus-4-7": anthropicRow(5, 0.5, 6.25, 25),
+  "claude-opus-4-6": anthropicRow(5, 0.5, 6.25, 25),
+  "claude-opus-4-5": anthropicRow(5, 0.5, 6.25, 25),
+  "claude-sonnet-5": anthropicRow(2, 0.2, 2.5, 10),
+  "claude-sonnet-4-6": anthropicRow(3, 0.3, 3.75, 15),
+  "claude-sonnet-4-5": anthropicRow(3, 0.3, 3.75, 15),
+  "claude-haiku-4-5": anthropicRow(1, 0.1, 1.25, 5)
+};
+var CODEX_PRICING_PER_MILLION = {
+  // OpenAI API list prices (per 1M tokens).
+  "gpt-5.6-sol": { input: 5, cached: 0.5, output: 30 },
+  "gpt-5.6-terra": { input: 2, cached: 0.2, output: 12 },
+  "gpt-5.6-luna": { input: 0.2, cached: 0.02, output: 1.2 },
+  "gpt-5.5": { input: 5, cached: 0.5, output: 30 },
+  // Legacy — kept so in-flight sandboxes still cost-account correctly.
+  "gpt-5.5-pro": { input: 30, cached: 30, output: 180 },
+  "gpt-5.4": { input: 1.25, cached: 0.125, output: 10 },
+  "gpt-5.4-mini": { input: 0.25, cached: 0.025, output: 2 },
+  "gpt-5.3-codex": { input: 1.25, cached: 0.125, output: 10 },
+  "gpt-5.2-codex": { input: 1.25, cached: 0.125, output: 10 },
+  "gpt-5-codex": { input: 1.25, cached: 0.125, output: 10 }
+};
+var CLAUDE_KEYS_BY_LENGTH = Object.keys(CLAUDE_PRICING_PER_MILLION).sort(
+  (a, b) => b.length - a.length
+);
+
 // callback-src/config.ts
 var CONVEX_URL = process.env.CONVEX_URL;
 var CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
@@ -253,20 +299,6 @@ var TOOL_STEP_TYPES = /* @__PURE__ */ new Set([
   "question",
   "todos"
 ]);
-var CODEX_PRICING_PER_MILLION = {
-  // OpenAI API list prices (per 1M tokens).
-  "gpt-5.6-sol": { input: 5, cached: 0.5, output: 30 },
-  "gpt-5.6-terra": { input: 2, cached: 0.2, output: 12 },
-  "gpt-5.6-luna": { input: 0.2, cached: 0.02, output: 1.2 },
-  "gpt-5.5": { input: 5, cached: 0.5, output: 30 },
-  // Legacy — kept so in-flight sandboxes still cost-account correctly.
-  "gpt-5.5-pro": { input: 30, cached: 30, output: 180 },
-  "gpt-5.4": { input: 1.25, cached: 0.125, output: 10 },
-  "gpt-5.4-mini": { input: 0.25, cached: 0.025, output: 2 },
-  "gpt-5.3-codex": { input: 1.25, cached: 0.125, output: 10 },
-  "gpt-5.2-codex": { input: 1.25, cached: 0.125, output: 10 },
-  "gpt-5-codex": { input: 1.25, cached: 0.125, output: 10 }
-};
 var completedLabels = {
   "Preparing Claude session...": "Prepared Claude session",
   "Preparing Codex session...": "Prepared Codex session",
@@ -1876,6 +1908,32 @@ function mediaSearchDirs(workDir, rootDirectory) {
   };
 }
 
+// callback-src/runtime/turnCheckpoint.ts
+import { spawnSync as spawnSync2 } from "child_process";
+var turnStartSha = "";
+function beginTurnCheckpoint() {
+  turnStartSha = readGitHeadSha();
+}
+function resetTurnCheckpoint() {
+  turnStartSha = "";
+}
+function currentBranch() {
+  const result = spawnSync2(
+    "git",
+    ["-C", WORK_DIR, "rev-parse", "--abbrev-ref", "HEAD"],
+    { encoding: "utf8", timeout: 2e4 }
+  );
+  return result.status === 0 ? (result.stdout || "").trim() : "";
+}
+function appendTurnCheckpoint(args) {
+  if (RUN_ID || turnStartSha === "") return;
+  if (!currentBranch().startsWith("eva/")) return;
+  const afterSha = readGitHeadSha();
+  if (afterSha === "") return;
+  args.beforeSha = turnStartSha;
+  args.afterSha = afterSha;
+}
+
 // callback-src/runtime/completion.ts
 import {
   existsSync as existsSync3,
@@ -2188,6 +2246,7 @@ async function attachChatMediaIfAny(uploaded, target) {
   await callConvexWithRetry("action", "screenshots:attachMedia", mediaArgs, 3);
 }
 async function deliverCompletionWithMedia(completionArgs) {
+  appendTurnCheckpoint(completionArgs);
   await callConvexWithRetry(
     "mutation",
     COMPLETION_MUTATION ?? "",
@@ -5027,7 +5086,7 @@ async function materializeTurnAttachments(turn) {
 }
 
 // callback-src/runtime/turnPersist.ts
-import { spawnSync as spawnSync2 } from "child_process";
+import { spawnSync as spawnSync3 } from "child_process";
 var GIT_STEP_TIMEOUT_MS = 2e4;
 var PUSH_TIMEOUT_MS = 6e4;
 var COMMIT_ADD_ARGS = [
@@ -5047,7 +5106,7 @@ var COMMIT_ADD_ARGS = [
   ":!plan.md"
 ];
 function git(args, timeoutMs = GIT_STEP_TIMEOUT_MS) {
-  const result = spawnSync2("git", ["-C", WORK_DIR, ...args], {
+  const result = spawnSync3("git", ["-C", WORK_DIR, ...args], {
     encoding: "utf8",
     timeout: timeoutMs,
     env: { ...process.env, GIT_TERMINAL_PROMPT: "0" }
@@ -5416,6 +5475,7 @@ function startClaimedTurn(turn) {
     throw new Error("Cannot start a claimed turn while another claim is active");
   }
   beginTurnOwnership("claim", turn.turnLease);
+  beginTurnCheckpoint();
 }
 function appendClaimedTurnCompletion(args) {
   const ownership = getTurnOwnership();
@@ -5429,6 +5489,7 @@ function appendClaimedTurnCompletion(args) {
 }
 function finishClaimedTurn() {
   endTurnOwnership();
+  resetTurnCheckpoint();
 }
 function claimedTurnLifecycleStatus() {
   const ownership = getTurnOwnership();
@@ -5518,6 +5579,7 @@ async function failTurnAndExit(error) {
       ...RUN_ID ? { runId: RUN_ID } : {}
     };
     appendClaimedTurnCompletion(completionArgs);
+    appendTurnCheckpoint(completionArgs);
     await callConvexWithRetry(
       "mutation",
       COMPLETION_MUTATION ?? "",
@@ -6027,17 +6089,19 @@ async function failSyntheticTurn(error) {
       step.status = "complete";
     }
     const turnLease = getCurrentTurnLease();
+    const completionArgs = entityMutationArgs({
+      messageId,
+      success: false,
+      result: null,
+      error,
+      activityLog: serializeSteps(callbackState.accumulatedSteps),
+      ...turnLease
+    });
+    appendTurnCheckpoint(completionArgs);
     await callConvexWithRetry(
       "mutation",
       COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
-      entityMutationArgs({
-        messageId,
-        success: false,
-        result: null,
-        error,
-        activityLog: serializeSteps(callbackState.accumulatedSteps),
-        ...turnLease
-      })
+      completionArgs
     );
   } catch {
   }
@@ -6065,6 +6129,7 @@ async function ensureSyntheticTurn() {
     }
     resetTurnState();
     beginTurnOwnership("provider", readTurnLeaseIdentity(result));
+    beginTurnCheckpoint();
     if (!supervisor.startTurn({ kind: "synthetic", messageId })) {
       log("daemon: synthetic turn opened after lifecycle moved; ignoring");
       endTurnOwnership();
@@ -6110,6 +6175,7 @@ async function finalizeSyntheticTurn(output) {
     completionArgs.leaseGeneration = turnLease.leaseGeneration;
   }
   persistTurnWork();
+  appendTurnCheckpoint(completionArgs);
   await callConvexWithRetry(
     "mutation",
     COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
@@ -6519,14 +6585,20 @@ async function runSdkDaemon() {
     log("daemon: query failed \\u2014 " + messageText);
     persistTurnWork();
     try {
-      await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
+      const completionArgs = {
         [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
         success: false,
         result: null,
         error: "Agent SDK daemon failed: " + messageText,
         activityLog: serializeSteps(callbackState.accumulatedSteps),
         ...getCurrentTurnLease()
-      });
+      };
+      appendTurnCheckpoint(completionArgs);
+      await callConvexWithRetry(
+        "mutation",
+        COMPLETION_MUTATION ?? "",
+        completionArgs
+      );
     } catch {
     }
   } finally {
@@ -7991,6 +8063,7 @@ async function failTurnAndExit2(error) {
       ...RUN_ID ? { runId: RUN_ID } : {}
     });
     appendClaimedTurnCompletion(completionArgs);
+    appendTurnCheckpoint(completionArgs);
     await callConvexWithRetry(
       "mutation",
       COMPLETION_MUTATION ?? "",
@@ -8198,6 +8271,7 @@ async function reportCursorTurnWorkerFailure(outcome) {
     ...RUN_ID ? { runId: RUN_ID } : {}
   });
   appendClaimedTurnCompletion(completionArgs);
+  appendTurnCheckpoint(completionArgs);
   await callConvexWithRetry(
     "mutation",
     COMPLETION_MUTATION ?? "",
@@ -9846,6 +9920,7 @@ log(
   "entityId=" + ENTITY_ID + " provider=" + PROVIDER + " model=" + MODEL + " tools=" + ALLOWED_TOOLS + " sessionId=" + (process.env.CLAUDE_SESSION_ID || "none") + " mcp=" + (hasMcpConfig ? "yes" : "no")
 );
 try {
+  beginTurnCheckpoint();
   const taskCommitBaselineHead = REQUIRE_TASK_COMMIT ? readGitHeadSha() : "";
   if (REQUIRE_TASK_COMMIT) {
     log(
@@ -9987,6 +10062,7 @@ try {
   };
   if (RUN_ID) errorArgs.runId = RUN_ID;
   appendCurrentTurnLease(errorArgs);
+  appendTurnCheckpoint(errorArgs);
   try {
     await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", errorArgs);
   } catch {

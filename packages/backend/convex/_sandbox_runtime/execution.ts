@@ -393,6 +393,29 @@ async function classifyBackgroundLaunchFailure(
 }
 
 /**
+ * Shell lines reading `/tmp/bg-<i>.pid` into `$pid`, blanking it unless that
+ * process is still *our* daemon wrapper.
+ *
+ * Pid files are baked into seeded snapshots (the seed run writes them and /tmp
+ * survives restore — the same reason `/tmp/.startup-commands-done` works), so
+ * on a freshly restored VM the recorded number is from an earlier boot. Pids
+ * are dense on a fresh boot, so it can now belong to something unrelated and
+ * alive (dockerd, containerd, the eva daemon): trusting it made the heal skip a
+ * relaunch forever, and signalling its process group would take out that whole
+ * service. One /proc read settles it — the wrapper is `bash -l
+ * /tmp/bg-cmd-<i>.sh` after setsid/nohup exec, Convex wrapper included, so the
+ * script path must appear in its cmdline.
+ *
+ * A zombie has an empty cmdline and so never qualifies. That is the behaviour
+ * we already had (signalling a zombie did nothing), and the Convex `pkill`
+ * lines still reap any orphans it left behind.
+ */
+const ownedBgPidLines = (i: number): string[] => [
+  `pid=$(cat /tmp/bg-${i}.pid 2>/dev/null || true)`,
+  `if [ -n "$pid" ] && ! tr '\\0' ' ' < /proc/"$pid"/cmdline 2>/dev/null | grep -qF "/tmp/bg-cmd-${i}.sh"; then pid=; fi`,
+];
+
+/**
  * Launches background commands (long-running daemons like `npx convex dev`) on
  * a sandbox. Each command is detached via `nohup ... > /tmp/bg-<idx>.log 2>&1 &`
  * so the shell forks immediately without waiting for the daemon to exit.
@@ -470,7 +493,7 @@ export const runBackgroundCommands = internalAction({
             await execHandle(
               sandbox,
               [
-                `pid=$(cat /tmp/bg-${i}.pid 2>/dev/null || true)`,
+                ...ownedBgPidLines(i),
                 `if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then echo dead; exit 0; fi`,
                 `state=$(awk '{print $3}' /proc/"$pid"/stat 2>/dev/null || echo Z)`,
                 `if [ "$state" = "Z" ]; then echo dead; else echo alive; fi`,
@@ -496,9 +519,11 @@ export const runBackgroundCommands = internalAction({
         // relaunch truncated it they kept writing at the old offset (multi-KB
         // NUL hole in the log) and raced the new daemon (prod 2026-09-01). The
         // bare-pid fallback covers pid files from an older launch form, and the
-        // TERM → poll → KILL grace lets supabase/docker exit cleanly.
+        // TERM → poll → KILL grace lets supabase/docker exit cleanly. A pid
+        // that fails the ownership check leaves `$pid` empty, so a stale
+        // snapshot-baked file is only removed, never signalled.
         const cleanup = [
-          `pid=$(cat /tmp/bg-${i}.pid 2>/dev/null || true)`,
+          ...ownedBgPidLines(i),
           `if [ -n "$pid" ]; then kill -TERM -- -"$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true`,
           `for _ in 1 2 3 4; do kill -0 -- -"$pid" 2>/dev/null || kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done`,
           `kill -KILL -- -"$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true; fi`,

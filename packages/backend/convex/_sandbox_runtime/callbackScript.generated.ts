@@ -25540,35 +25540,20 @@ function mergeClaudeRateLimitEvent(event) {
   const info = event.rate_limit_info;
   if (typeof info !== "object" || info === null || Array.isArray(info)) return;
   const status = readStatus(info.status);
-<<<<<<< HEAD
-  const key = readNonEmptyString2(info.rateLimitType);
-  if (!status && !key) return;
-  const snapshot = ensureSnapshot();
-  snapshot.completeness = "partial";
-  if (status) snapshot.status = status;
-  if (!key) return;
-  const resetsAtSeconds = readFiniteNumber2(info.resetsAt);
-=======
-  const rawKey = readNonEmptyString(info.rateLimitType);
+  const rawKey = readNonEmptyString2(info.rateLimitType);
   if (!status && !rawKey) return;
   const snapshot = ensureSnapshot();
   snapshot.completeness = "partial";
   if (status) snapshot.status = status;
   if (!rawKey) return;
   const key = normalizeWindowKey(rawKey);
-  const resetsAtSeconds = readFiniteNumber(info.resetsAt);
->>>>>>> origin/main
+  const resetsAtSeconds = readFiniteNumber2(info.resetsAt);
   mergeWindow(
     snapshot,
     buildWindow(
       key,
-<<<<<<< HEAD
-      CLAUDE_WINDOW_LABELS[key] ?? key,
-      readFiniteNumber2(info.utilization),
-=======
       labelForWindowKey(key),
-      readFiniteNumber(info.utilization),
->>>>>>> origin/main
+      readFiniteNumber2(info.utilization),
       resetsAtSeconds === void 0 ? void 0 : Math.round(resetsAtSeconds * 1e3)
     )
   );
@@ -28170,24 +28155,10 @@ function persistTurnWork() {
   if (tipAlreadyPublished([\`refs/remotes/origin/\${branch.out}\`])) return;
   const refspec = \`refs/heads/\${branch.out}:refs/heads/\${branch.out}\`;
   for (let attempt = 1; attempt <= 2; attempt += 1) {
-<<<<<<< HEAD
     const sync4 = synchronizeForPush(branch.out);
     if (sync4.status === "failed") return;
     const exclusion = sync4.remoteExists ? [\`refs/remotes/origin/\${branch.out}\`] : ["--remotes=origin"];
-    const unpushed = git([
-      "rev-list",
-      "--count",
-      "HEAD",
-      "--not",
-      ...exclusion
-    ]);
-    if (unpushed.ok && unpushed.out === "0") return;
-=======
-    const sync = synchronizeForPush(branch.out);
-    if (sync.status === "failed") return;
-    const exclusion = sync.remoteExists ? [\`refs/remotes/origin/\${branch.out}\`] : ["--remotes=origin"];
     if (tipAlreadyPublished(exclusion)) return;
->>>>>>> origin/main
     const push = git(["push", "origin", refspec], PUSH_TIMEOUT_MS);
     if (push.ok) {
       log(
@@ -29173,14 +29144,7 @@ function startClaimWatcher(agentRunner) {
         supervisor.stop();
         process.exit(0);
       }
-<<<<<<< HEAD
-      if (supervisor.phase === "finalizing") {
-        await sleep3(PROMPT_POLL_INTERVAL_MS);
-        continue;
-      }
-=======
       const acceptTurn = supervisor.phase === "idle" && supervisor.pendingClaim === null;
->>>>>>> origin/main
       try {
         const claimed = await callConvexWithRetry(
           "mutation",
@@ -30029,14 +29993,7 @@ async function runCodexAppServerDaemon() {
         const completion = processNotification(notification);
         if (completion) await completion;
       }
-<<<<<<< HEAD
-      if (supervisor2.phase === "finalizing") {
-        await sleep4(POLL_INTERVAL_MS2);
-        continue;
-      }
-=======
       const acceptTurn = supervisor2.phase === "idle" && supervisor2.pendingClaim === null;
->>>>>>> origin/main
       const claimed = await callConvexWithRetry(
         "mutation",
         CLAIM_MUTATION,
@@ -30149,20 +30106,13 @@ function shouldRetryStalledCursorResume(error) {
 function cursorEventHasVisibleActivity(type) {
   return type === "thinking" || type === "assistant" || type === "tool_call";
 }
-<<<<<<< HEAD
 function cursorEventWaitTimeoutMs(args2) {
-  if (args2.toolInFlight) return MAX_TOTAL_RUNTIME_MS;
+  if (args2.toolInFlight || args2.compactionInFlight) return MAX_TOTAL_RUNTIME_MS;
   if (args2.sawVisibleActivity) return CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS;
-  return Math.max(1, args2.firstVisibleDeadlineAt - args2.now);
-=======
-function cursorEventWaitTimeoutMs(args) {
-  if (args.toolInFlight || args.compactionInFlight) return MAX_TOTAL_RUNTIME_MS;
-  if (args.sawVisibleActivity) return CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS;
   return Math.max(
     1,
-    args.lastEventAt + CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS - args.now
+    args2.lastEventAt + CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS - args2.now
   );
->>>>>>> origin/main
 }
 function cursorModeParams(model, fastMode, use1mContext) {
   const params = [];
@@ -30506,13 +30456,8 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
       cancelRun();
       return;
     }
-<<<<<<< HEAD
-    if (callbackState.inFlightToolUses > 0) {
-      lastMessageAt = now2;
-=======
     if (callbackState.inFlightToolUses > 0 || compactionInFlight) {
-      lastMessageAt = now;
->>>>>>> origin/main
+      lastMessageAt = now2;
     }
     if (!sawResult && now2 - lastMessageAt > CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS) {
       timedOutForNoOutput = true;

@@ -1,13 +1,7 @@
-<<<<<<< HEAD
-import { v } from "convex/values";
-import { Duration, Effect } from "effect";
-=======
 "use node";
 
 import { v, type Infer } from "convex/values";
->>>>>>> origin/main
 import { api, internal } from "./_generated/api";
-import { runPromiseRethrowing } from "./_effect/retry";
 import type { ActionCtx } from "./_generated/server";
 import type { Id } from "./_generated/dataModel";
 import { authAction, getActionRepoWithAccess } from "./functions";
@@ -137,14 +131,6 @@ type HttpResult = {
   header: (name: string) => string | undefined;
 };
 
-<<<<<<< HEAD
-function targetArgs(args: RefreshTargetArgs): RefreshTargetArgs {
-  return {
-    ...(args.sessionId === undefined ? {} : { sessionId: args.sessionId }),
-    ...(args.projectId === undefined ? {} : { projectId: args.projectId }),
-    ...(args.taskId === undefined ? {} : { taskId: args.taskId }),
-  };
-=======
 /**
  * TLS POST that actually sends `User-Agent`. Convex/undici `fetch` can drop it
  * as a forbidden header, which is how Anthropic 429s a perfectly valid token.
@@ -201,7 +187,6 @@ function readNodeHeader(
     return first === undefined || first.length === 0 ? undefined : first;
   }
   return value.length === 0 ? undefined : value;
->>>>>>> origin/main
 }
 
 function credentialKind(token: string): string {
@@ -360,42 +345,6 @@ export const refresh = authAction({
       windows,
       ...(subscriptionType === undefined ? {} : { subscriptionType }),
     });
-<<<<<<< HEAD
-    if (!requested) return { ok: false, reason: "sandbox-idle" };
-
-    try {
-      // May upload a stale callback and respawn. The flag is already set and
-      // survives claim polls, so the replacement daemon still sees it.
-      await prewarmSurface(ctx, surfaceArgs);
-
-      const pollOnce = Effect.zipRight(
-        Effect.sleep(Duration.millis(POLL_INTERVAL_MS)),
-        Effect.promise(async () => {
-          const reading = await ctx.runQuery(
-            internal.usageLimits.getReadingInternal,
-            {
-              repoId: args.repoId,
-              provider: args.provider,
-              ...accountArg,
-            },
-          );
-          return reading !== null && reading.capturedAt > beforeCapturedAt;
-        }),
-      );
-      const reported = await runPromiseRethrowing(
-        pollOnce.pipe(
-          Effect.repeat({
-            times: POLL_ATTEMPTS - 1,
-            until: (fresh) => fresh,
-          }),
-        ),
-      );
-      return reported ? { ok: true } : { ok: false, reason: "unavailable" };
-    } finally {
-      await ctx.runMutation(api.usageLimits.clearRefresh, surfaceArgs);
-    }
-=======
     return { ok: true };
->>>>>>> origin/main
   },
 });

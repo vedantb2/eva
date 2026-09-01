@@ -1,14 +1,13 @@
 # Changelog
 
-<<<<<<< HEAD
 ## Effect adoption step 2: Schema at the agent-stream boundary - 2026-08-26
 
 The callback script's parse layer (`callback-src/parse/`) narrowed untrusted provider-stream JSON with ad-hoc `typeof` checks. `sdkTaxonomy.ts`, `toolSteps.ts`, and `toolResultCapture.ts` now declare Effect Schemas (decoded with the non-throwing `decodeUnknownOption`) for every event/result shape, with a `lenient()` union so one bad field still yields the siblings the old code extracted — a malformed line can never throw or drop partial data it used to keep. Behavior verified byte-identical by differential fuzzing against the old implementations (~48k random payloads × 5 seeds, plus a 105-payload branch-coverage harness). Freeform tool-input sniffing and JsonValue union narrowing stay hand-rolled on purpose. Bundling effect grows the generated callback script 341KB → ~1.1MB; the build script now escapes control bytes so the generated file stays plain text for git.
 
 ## Effect adoption step 1: tagged errors + retry schedules - 2026-08-26
 
-First incremental slice of Effect in `@eva/backend` (`effect@3.22`), no framework buy-in. `SandboxProviderError` / `SandboxCommandFailedError` / `SandboxGoneError` are now `Data.TaggedError` classes (classifier semantics in `sandboxErrors.ts` untouched; `instanceof`, `name`, and `message` behave identically). The seven hand-rolled retry/backoff loops (vercel exec stream-closed retry, three git network/push/resume loops, PR adopt + head-wait waits, usage-limits polling) now run as Effect pipelines with shared schedules from `convex/_effect/retry.ts`. `runPromiseRethrowing` (`runPromiseExit` + `Cause.squash`) guarantees callers keep catching the original error object, never a `FiberFailure`. Attempt counts, delays, retry predicates, and log lines are preserved exactly; workflow-step retries (`workflowManager.ts`) untouched.
-=======
+First incremental slice of Effect in `@eva/backend` (`effect@3.22`), no framework buy-in. `SandboxProviderError` / `SandboxCommandFailedError` / `SandboxGoneError` are now `Data.TaggedError` classes (classifier semantics in `sandboxErrors.ts` untouched; `instanceof`, `name`, and `message` behave identically). The six hand-rolled retry/backoff loops (vercel exec stream-closed retry, three git network/push/resume loops, PR adopt + head-wait waits) now run as Effect pipelines with shared schedules from `convex/_effect/retry.ts`. `runPromiseRethrowing` (`runPromiseExit` + `Cause.squash`) guarantees callers keep catching the original error object, never a `FiberFailure`. Attempt counts, delays, retry predicates, and log lines are preserved exactly; workflow-step retries (`workflowManager.ts`) untouched.
+
 ## Background daemon cleanup kills the whole process group - 2026-09-01
 
 - `runBackgroundCommands` pre-launch cleanup now TERMs the daemon's process group (`kill -TERM -- -$pid`, bare-pid fallback), polls up to 2s for it to exit, then KILLs it — killing only the `setsid` leader orphaned its children (`supabase start`, docker), which kept writing into the truncated `/tmp/bg-<i>.log` and raced the relaunch (prod 2026-09-01, blush-lively-seahorse-K5DnYy).
@@ -209,7 +208,6 @@ On-demand refresh is back on Convex HTTP: `GET /api/oauth/usage` with `User-Agen
 - Each row shows status, background flag, step count and duration, and expands into the agent's transcript (its activity steps plus the captured tool result); running background agents can be stopped from the row.
 - Data is folded client-side from `message.activityLog` subtask/`parentToolUseId` steps, the live streaming payload, and the existing `backgroundAgents` lifecycle entries — no backend changes.
 - The tab is content-keyed (appears once agents exist), pulses while one runs, joins the tab cycle hotkey and command palette, and is hidden in simple view; entries stranded as "running" after a sandbox stops now read as stale.
->>>>>>> origin/main
 
 ## Plan-usage refresh keeps the flag until the daemon reports - 2026-08-25
 

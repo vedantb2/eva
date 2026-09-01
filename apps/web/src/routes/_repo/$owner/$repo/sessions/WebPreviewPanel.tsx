@@ -217,6 +217,30 @@ export function WebPreviewPanel({
     );
   }
 
+  // Manual pop-out: the pane hands its anchor to the mini-player and shows a
+  // placeholder until the preview comes back (one anchor per hosted iframe).
+  const popOut =
+    miniPlayerSource !== undefined && iframeSrc !== undefined
+      ? {
+          active: isFloating,
+          onToggle: () => {
+            if (isFloating) {
+              closePreviewMiniPlayer();
+              return;
+            }
+            openPreviewMiniPlayer({
+              ...miniPlayerSource,
+              entryKey: pathStorageKey,
+              group: `${sandboxId}:${port}`,
+              src: iframeSrc,
+              epoch: iframeKey,
+              mode: "manual",
+            });
+          },
+        }
+      : undefined;
+  const showPlaceholder = isFloating && floating.mode === "manual";
+
   return (
     <WebPreview
       ref={containerRef}
@@ -242,8 +266,11 @@ export function WebPreviewPanel({
         annotationMode={annotationMode}
         onAnnotationModeChange={setAnnotationMode}
         showAnnotationToggle={Boolean(onAnnotationSubmit)}
+        popOut={popOut}
       />
-      {viewport.mode !== "fill" ? (
+      {showPlaceholder ? (
+        <PreviewFloatingPlaceholder />
+      ) : viewport.mode !== "fill" ? (
         <PreviewDeviceToolbar
           viewport={viewport}
           aspectRatio={aspectRatio}

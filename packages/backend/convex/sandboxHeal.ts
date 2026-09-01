@@ -62,10 +62,11 @@ export const claim = internalMutation({
     // daemons itself. Healing now would launch them first (a fresh VM has no
     // pid files), and the lifecycle's own launch ~15s later kills those
     // wrappers, orphans their children and truncates the logs. Read after the
-    // rate-limit check so this costs one session row per interval at most, and
-    // return before stamping so the first poll after final-ready can heal
-    // immediately. Task/project sandboxes have no session row and are
-    // unaffected.
+    // rate-limit check so a healthy sandbox pays one session-row read per
+    // interval, and return before stamping so the first poll after final-ready
+    // heals immediately (during the ~1min startup window every tick reads the
+    // row — cheap, indexed). Task/project sandboxes have no session row and
+    // are unaffected.
     const session = await ctx.db
       .query("sessions")
       .withIndex("by_sandbox", (q) => q.eq("sandboxId", args.sandboxId))

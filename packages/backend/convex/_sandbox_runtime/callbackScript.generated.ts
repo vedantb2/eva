@@ -198,12 +198,12 @@ var codexReasoningEffort = PROVIDER === "codex" ? CODEX_REASONING_EFFORT[REASONI
 var codexFastMode = PROVIDER === "codex" && AI_FAST_MODE === "1";
 var cursorFastMode = PROVIDER === "cursor" && AI_FAST_MODE === "1";
 var cursorUse1mContext = PROVIDER === "cursor" && AI_CONTEXT_1M === "1";
+var claudeThinkingDisabled = AI_THINKING_ENABLED === "0" || PROVIDER === "claude" && REASONING_EFFORT === "off";
 function buildSettingsJson() {
   const settings = {
     attribution: { commit: "", pr: "" }
   };
-  const thinkingDisabled = AI_THINKING_ENABLED === "0" || PROVIDER === "claude" && REASONING_EFFORT === "off";
-  if (thinkingDisabled) {
+  if (claudeThinkingDisabled) {
     settings.alwaysThinkingEnabled = false;
   }
   return JSON.stringify(settings);
@@ -4806,6 +4806,7 @@ function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
     delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
   }
   const effortOption = claudeEffort === "low" || claudeEffort === "medium" || claudeEffort === "high" || claudeEffort === "xhigh" || claudeEffort === "max" ? { effort: claudeEffort } : {};
+  const thinkingOption = claudeThinkingDisabled ? {} : { thinking: { type: "adaptive", display: "summarized" } };
   return {
     cwd: WORK_DIR,
     model: normalizedClaudeModel,
@@ -4831,7 +4832,8 @@ function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
     ...sessionMode.mode === "resume" && sessionMode.sessionId ? { resume: sessionMode.sessionId } : {},
     extraArgs,
     ...Object.keys(evaMcpServers).length > 0 ? { mcpServers: evaMcpServers } : {},
-    ...effortOption
+    ...effortOption,
+    ...thinkingOption
   };
 }
 async function runClaudeSdkAttempt(sessionMode) {

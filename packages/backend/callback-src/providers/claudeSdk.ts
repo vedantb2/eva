@@ -19,6 +19,7 @@ import {
   SYSTEM_PROMPT,
   WORK_DIR,
   claudeEffort,
+  claudeThinkingDisabled,
   normalizedClaudeModel,
   settingsJson,
 } from "../config.js";
@@ -277,6 +278,17 @@ function buildSdkOptionsFromParts(
       ? { effort: claudeEffort }
       : {};
 
+  // Current models (Fable 5, Opus 5/4.8/4.7, Sonnet 5) default thinking
+  // display to "omitted": the API still thinks, but `thinking_delta` events
+  // stream empty text, so claudeParseLine's reasoning step never fills and
+  // the UI shows a long pause where Cursor/Codex show reasoning. Ask for
+  // API-side summaries explicitly. Thinking-off keeps the settings.json
+  // `alwaysThinkingEnabled: false` path — Fable 5 rejects an explicit
+  // `{ type: "disabled" }` with a 400, so never send that here.
+  const thinkingOption: Pick<SdkOptions, "thinking"> = claudeThinkingDisabled
+    ? {}
+    : { thinking: { type: "adaptive", display: "summarized" } };
+
   return {
     cwd: WORK_DIR,
     model: normalizedClaudeModel,
@@ -309,6 +321,7 @@ function buildSdkOptionsFromParts(
       ? { mcpServers: evaMcpServers }
       : {}),
     ...effortOption,
+    ...thinkingOption,
   };
 }
 

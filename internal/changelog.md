@@ -1,5 +1,13 @@
 # Changelog
 
+## Sandbox validate/background-launch paths recover from OOM-wedged VMs (exit 137, hung execs) - 2026-09-01
+
+- Root cause (prod, silver-strategic-buzzard, 2026-09-01 ~16:45 UTC): an OOM-wedged VM still reports `running` to Vercel, so `ensureSandboxRunning` no-ops on `start()` and its `echo 1` probe dies with exit 137; every path then cascaded — `runBackgroundCommands` burned a 25s client timeout (or a `Status code 400 is not ok`) per command, and its un-try/catch'd pid-check/cleanup execs threw the whole action Uncaught into scheduled callers and the preview heal.
+- New typed `SandboxExecTimeoutError` (same message wording, so setup-retry matchers are unchanged) plus `isSandboxUnresponsiveError` (exit 137 on cheap commands / client-side exec timeouts). Deliberately not `sandbox-gone`: the record exists, so the reaction is restart-or-unhealthy, never minting a replacement VM.
+- New `restartUnresponsiveSandbox` helper: stop (snapshots the disk) + resume, which also re-provisions swap. Gated on a fresh `running` state read so it can never resurrect a sandbox the user just stopped.
+- `validateSandbox` attempts that stop+resume once on an unresponsive signal before reporting `healthy: false` (callers already recreate on unhealthy); other failures keep the old behavior.
+- `runBackgroundCommands` wraps the whole per-command body in one try/catch and classifies failures: per-command errors on a live VM continue as before; a wedged VM gets one stop+resume then a retry (never on the `onlyRestartDead` preview-heal path, which must not restart a VM mid-turn); a confirmed-dead or not-running VM aborts the remaining launches with the skip recorded in `errors` instead of cascading timeouts or throwing Uncaught. A provider 400 alone proves nothing and is confirmed with an `echo 1` probe, run only after the state check says `running` so it cannot lazily resume a stopped VM.
+
 ## Editor and Computer are first-class sandbox rail tabs; sub-agent CTA row hidden in simple view - 2026-08-29
 
 - Editor and Computer moved out of the `+` dropdown into the vertical sandbox rail as always-present tabs (when the surface enables them), placed after the base tabs and before Files/Agents/Plan/Designs. The dropdown was a leftover from the horizontal strip's space constraints; with only "New Preview" left in it, the menu is gone and `+` triggers New Preview directly.

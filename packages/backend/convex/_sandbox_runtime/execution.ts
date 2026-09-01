@@ -1,7 +1,7 @@
 "use node";
 
 import { v, type Infer } from "convex/values";
-import type { SandboxHandle } from "../_sandbox/provider";
+import { SandboxProviderError, type SandboxHandle } from "../_sandbox/provider";
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { action, internalAction } from "../_generated/server";
@@ -24,6 +24,7 @@ import {
   signAndLaunchScript,
   KILL_PRIOR_AGENT_PROCESSES_CMD,
   sessionClaudeUuid,
+  restartUnresponsiveSandbox,
 } from "./helpers";
 import { writeSandboxFile } from "./sandboxFiles";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
@@ -50,7 +51,10 @@ import { ensureSwapFile } from "./swap";
 import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
 import { assertActionSandboxAccess } from "../functions";
-import { isSandboxGoneError } from "./sandboxErrors";
+import {
+  isSandboxGoneError,
+  isSandboxUnresponsiveError,
+} from "./sandboxErrors";
 import {
   shouldDeferDaemonRespawn,
   type DaemonTurnSnapshot,
@@ -165,14 +169,34 @@ export const validateSandbox = internalAction({
   },
   returns: v.object({ healthy: v.boolean() }),
   handler: async (ctx, args) => {
+    let sandbox: SandboxHandle | undefined;
     try {
-      const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+      sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
       // Start the sandbox if it's stopped (fast resume ~3-5s)
       await ensureSandboxRunning(sandbox, {
         timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
       });
       return { healthy: true };
     } catch (e) {
+      // Exit 137 on the `echo 1` probe / an exec that never answered: the VM
+      // reports running but cannot execute commands (OOM meltdown, dead guest
+      // agent). start() no-ops on a "running" VM, so re-validating as-is can
+      // never recover — stop+resume once, and only if that also fails report
+      // unhealthy so the caller falls back to recreating.
+      if (sandbox !== undefined && isSandboxUnresponsiveError(e)) {
+        console.warn(
+          `[sandbox] validateSandbox: sandbox ${args.sandboxId} is unresponsive (${errorMessage(e, "exec failed")}); attempting stop+resume`,
+        );
+        try {
+          await restartUnresponsiveSandbox(sandbox);
+          return { healthy: true };
+        } catch (restartError) {
+          console.warn(
+            `[sandbox] validateSandbox: stop+resume failed for ${args.sandboxId}: ${errorMessage(restartError, "restart failed")}; reporting unhealthy`,
+          );
+          return { healthy: false };
+        }
+      }
       console.error("Sandbox validation failed:", e);
       return { healthy: false };
     }
@@ -328,6 +352,47 @@ export const runStartupCommands = internalAction({
 });
 
 /**
+ * Classifies a failure from one of runBackgroundCommands' cheap launcher execs
+ * (pid check, cleanup, daemon fork — none run real work inline):
+ *
+ * - `"command-failed"` — the VM is fine; only this command lost. Record it and
+ *   carry on with the rest.
+ * - `"unresponsive"` — the provider says `running` but the VM cannot execute
+ *   (exit 137 / hung exec — OOM meltdown). Safe to stop+resume once.
+ * - `"not-running"` — the VM is stopped/stopping/gone. Launching or restarting
+ *   would either fail again or resurrect a sandbox the user just stopped, so
+ *   only abort.
+ *
+ * A provider 400 alone proves nothing (see sandboxErrors.ts) — but execs
+ * against a dead VM do surface as `Status code 400 is not ok`, so a 400 is
+ * confirmed with a trivial probe. The probe is only run after the state check
+ * says `running`, so it can never lazily resume a stopped VM.
+ */
+async function classifyBackgroundLaunchFailure(
+  sandbox: SandboxHandle,
+  error: unknown,
+): Promise<"command-failed" | "unresponsive" | "not-running"> {
+  const directSignal = isSandboxUnresponsiveError(error);
+  const providerBadRequest =
+    error instanceof SandboxProviderError && error.httpStatus === 400;
+  if (!directSignal && !providerBadRequest) return "command-failed";
+
+  try {
+    await sandbox.refresh();
+  } catch {
+    return "not-running";
+  }
+  if (sandbox.state !== "running") return "not-running";
+  if (directSignal) return "unresponsive";
+  try {
+    await execHandle(sandbox, "echo 1", 5);
+    return "command-failed";
+  } catch {
+    return "unresponsive";
+  }
+}
+
+/**
  * Launches background commands (long-running daemons like `npx convex dev`) on
  * a sandbox. Each command is detached via `nohup ... > /tmp/bg-<idx>.log 2>&1 &`
  * so the shell forks immediately without waiting for the daemon to exit.
@@ -386,69 +451,77 @@ export const runBackgroundCommands = internalAction({
     const errors: string[] = [];
     let launched = 0;
     let launchedConvex = false;
+    // One stop+resume per run: exit 137 / hung execs on these cheap launcher
+    // commands mean the VM itself is wedged (OOM meltdown, dead guest agent),
+    // and every further launch would cascade through the same 20s+ failure.
+    let restartAttempted = false;
     for (let i = 0; i < commands.length; i++) {
       const command = commands[i];
       const isConvexCommand = isConvexBackendCommand(command);
-      if (args.onlyRestartDead) {
-        // `kill -0` is true for zombies (state Z). After `npx convex dev`
-        // dies, a defunct bash PID left heal permanently skipping relaunch.
-        const alive = (
-          await execHandle(
-            sandbox,
-            [
-              `pid=$(cat /tmp/bg-${i}.pid 2>/dev/null || true)`,
-              `if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then echo dead; exit 0; fi`,
-              `state=$(awk '{print $3}' /proc/"$pid"/stat 2>/dev/null || echo Z)`,
-              `if [ "$state" = "Z" ]; then echo dead; else echo alive; fi`,
-            ].join("; "),
-            5,
-          )
-        ).trim();
-        if (alive === "alive") {
-          console.log(
-            `[sandbox] runBackgroundCommands: still alive, skip: ${command}`,
-          );
-          continue;
-        }
-      }
-      // Drop a stale pid / leftover Convex before (re)launch so a zombie or
-      // half-dead backend cannot keep :3210 / ExportInProgress wedged.
-      const cleanup = [
-        `pid=$(cat /tmp/bg-${i}.pid 2>/dev/null || true)`,
-        `if [ -n "$pid" ]; then kill -TERM "$pid" 2>/dev/null || true; kill -KILL "$pid" 2>/dev/null || true; fi`,
-        `rm -f /tmp/bg-${i}.pid`,
-      ];
-      if (isConvexCommand) {
-        // Use `[c]onvex` so pkill does not match this cleanup shell's cmdline.
-        cleanup.push(
-          `pkill -TERM -f '[c]onvex-local-backend' 2>/dev/null || true`,
-          `pkill -TERM -f '[c]onvex dev' 2>/dev/null || true`,
-          `sleep 1`,
-          `pkill -KILL -f '[c]onvex-local-backend' 2>/dev/null || true`,
-          `pkill -KILL -f '[c]onvex dev' 2>/dev/null || true`,
-        );
-      }
-      cleanup.push("true");
-      await execHandle(sandbox, cleanup.join("; "), 15);
-      const logPath = `/tmp/bg-${i}.log`;
-      const scriptPath = `/tmp/bg-cmd-${i}.sh`;
-      // Run the command from a script file rather than inlining it via
-      // `bash -lc '<command>'`: the inline form puts the whole command text
-      // into the wrapper shell's cmdline, so a user guard like
-      // `pgrep -f "[c]onvex dev" || npx convex dev` matches its own wrapper
-      // (the unguarded "npx convex dev" launch text) and silently never starts
-      // the daemon. With a script file the cmdline is just the file path, and
-      // user quoting cannot break out of anything.
-      //
-      // CarePulse local backends: plant glibc-safe binary + unset agent mode.
-      // See convexLocalBackend.ts (anonymous mode rejects --local-backend-version).
-      const scriptBody = isConvexCommand
-        ? buildConvexBackgroundScriptBody(command)
-        : command;
-      console.log(
-        `[sandbox] runBackgroundCommands: launching: ${command} (log: ${logPath})`,
-      );
+      // Everything per command runs in one try — including the pid check and
+      // cleanup execs, which used to throw uncaught out of the whole action
+      // (prod 2026-09-01: exit 137 on the heal pid check surfaced as an
+      // uncaught failure to every scheduled caller).
       try {
+        if (args.onlyRestartDead) {
+          // `kill -0` is true for zombies (state Z). After `npx convex dev`
+          // dies, a defunct bash PID left heal permanently skipping relaunch.
+          const alive = (
+            await execHandle(
+              sandbox,
+              [
+                `pid=$(cat /tmp/bg-${i}.pid 2>/dev/null || true)`,
+                `if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then echo dead; exit 0; fi`,
+                `state=$(awk '{print $3}' /proc/"$pid"/stat 2>/dev/null || echo Z)`,
+                `if [ "$state" = "Z" ]; then echo dead; else echo alive; fi`,
+              ].join("; "),
+              5,
+            )
+          ).trim();
+          if (alive === "alive") {
+            console.log(
+              `[sandbox] runBackgroundCommands: still alive, skip: ${command}`,
+            );
+            continue;
+          }
+        }
+        // Drop a stale pid / leftover Convex before (re)launch so a zombie or
+        // half-dead backend cannot keep :3210 / ExportInProgress wedged.
+        const cleanup = [
+          `pid=$(cat /tmp/bg-${i}.pid 2>/dev/null || true)`,
+          `if [ -n "$pid" ]; then kill -TERM "$pid" 2>/dev/null || true; kill -KILL "$pid" 2>/dev/null || true; fi`,
+          `rm -f /tmp/bg-${i}.pid`,
+        ];
+        if (isConvexCommand) {
+          // Use `[c]onvex` so pkill does not match this cleanup shell's cmdline.
+          cleanup.push(
+            `pkill -TERM -f '[c]onvex-local-backend' 2>/dev/null || true`,
+            `pkill -TERM -f '[c]onvex dev' 2>/dev/null || true`,
+            `sleep 1`,
+            `pkill -KILL -f '[c]onvex-local-backend' 2>/dev/null || true`,
+            `pkill -KILL -f '[c]onvex dev' 2>/dev/null || true`,
+          );
+        }
+        cleanup.push("true");
+        await execHandle(sandbox, cleanup.join("; "), 15);
+        const logPath = `/tmp/bg-${i}.log`;
+        const scriptPath = `/tmp/bg-cmd-${i}.sh`;
+        // Run the command from a script file rather than inlining it via
+        // `bash -lc '<command>'`: the inline form puts the whole command text
+        // into the wrapper shell's cmdline, so a user guard like
+        // `pgrep -f "[c]onvex dev" || npx convex dev` matches its own wrapper
+        // (the unguarded "npx convex dev" launch text) and silently never starts
+        // the daemon. With a script file the cmdline is just the file path, and
+        // user quoting cannot break out of anything.
+        //
+        // CarePulse local backends: plant glibc-safe binary + unset agent mode.
+        // See convexLocalBackend.ts (anonymous mode rejects --local-backend-version).
+        const scriptBody = isConvexCommand
+          ? buildConvexBackgroundScriptBody(command)
+          : command;
+        console.log(
+          `[sandbox] runBackgroundCommands: launching: ${command} (log: ${logPath})`,
+        );
         // The file API, not `echo <base64> | base64 -d`. The command is
         // repo-supplied and the Convex wrapper adds a multi-KB preamble, so an
         // inline transport puts unbounded content (base64-inflated by 4/3) into
@@ -468,12 +541,57 @@ export const runBackgroundCommands = internalAction({
         launched += 1;
         if (isConvexCommand) launchedConvex = true;
       } catch (e) {
+        const verdict = await classifyBackgroundLaunchFailure(sandbox, e);
+        if (
+          verdict === "unresponsive" &&
+          // The preview heal poll must never stop/resume a VM the user may be
+          // mid-turn in; it only reports, and the lifecycle paths recover.
+          !args.onlyRestartDead &&
+          !restartAttempted
+        ) {
+          restartAttempted = true;
+          console.warn(
+            `[sandbox] runBackgroundCommands: sandbox ${args.sandboxId} is unresponsive (${errorMessage(e, "exec failed")}); attempting stop+resume`,
+          );
+          try {
+            await restartUnresponsiveSandbox(sandbox);
+            // The stop killed every daemon launched earlier in this run —
+            // start over from the first command on the recovered VM. The
+            // cleanup step makes relaunching already-attempted commands
+            // idempotent.
+            errors.length = 0;
+            launched = 0;
+            launchedConvex = false;
+            i = -1;
+            continue;
+          } catch (restartError) {
+            console.warn(
+              `[sandbox] runBackgroundCommands: stop+resume failed for ${args.sandboxId}: ${errorMessage(restartError, "restart failed")}`,
+            );
+          }
+        }
         const msg = errorMessage(e, "command failed");
         console.error(
           `[sandbox] runBackgroundCommands: failed to launch: ${command}`,
           msg,
         );
         errors.push(`${command}: ${msg}`);
+        if (verdict !== "command-failed") {
+          // The VM cannot run commands (wedged, or no longer running). Stop
+          // cascading: record the skip and return a handled result — heal
+          // polls and scheduled restarts get `errors`, not an uncaught action
+          // failure, and no further 20s+ timeouts pile onto a dead VM.
+          const remaining = commands.length - i - 1;
+          if (remaining > 0) {
+            errors.push(
+              `${remaining} command(s) skipped: sandbox ${verdict === "unresponsive" ? "unresponsive" : "not running"}`,
+            );
+          }
+          console.warn(
+            `[sandbox] runBackgroundCommands: aborting launches on ${args.sandboxId} (${verdict}); ${remaining} command(s) skipped`,
+          );
+          break;
+        }
       }
     }
 

@@ -28,12 +28,14 @@ import {
   IconClipboard,
   IconExternalLink,
   IconFolder,
+  IconGitPullRequest,
   IconLink,
   IconPlayerPlay,
   IconTrash,
   IconUserPlus,
 } from "@tabler/icons-react";
 import { useMutation } from "convex/react";
+import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   statusConfig,
   TASK_STATUSES,
@@ -142,6 +144,12 @@ export function TaskCardMenuItems({
   const { options: accounts, resolveId: resolveAccountId } =
     useTaskOwnerProviderAccounts(id);
 
+  // The PR lives on the task's runs, not the task, and a card only needs it
+  // once the menu is open — Radix mounts menu content on demand, so this stays
+  // one query per opened menu rather than one per card on the board.
+  const runs = useQuery(api.agentRuns.listByTask, { taskId: id });
+  const latestPrUrl = runs?.find((run) => run.prUrl)?.prUrl;
+
   const isOwner =
     currentUserId !== undefined &&
     createdBy !== undefined &&
@@ -192,16 +200,28 @@ export function TaskCardMenuItems({
         </>
       )}
 
-      {href ? (
+      {href || latestPrUrl ? (
         <>
-          <Item
-            onSelect={() => {
-              window.open(href, "_blank");
-            }}
-          >
-            <IconExternalLink size={16} />
-            Open in new tab
-          </Item>
+          {href ? (
+            <Item
+              onSelect={() => {
+                window.open(href, "_blank");
+              }}
+            >
+              <IconExternalLink size={16} />
+              Open in new tab
+            </Item>
+          ) : null}
+          {latestPrUrl ? (
+            <Item
+              onSelect={() => {
+                window.open(latestPrUrl, "_blank", "noopener,noreferrer");
+              }}
+            >
+              <IconGitPullRequest size={16} />
+              View PR
+            </Item>
+          ) : null}
           <MenuSeparator />
         </>
       ) : null}

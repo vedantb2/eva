@@ -63,6 +63,23 @@ export const createSessionPr = action({
       });
     }
 
+    // Write the reviewer description here rather than on every push: this is
+    // the moment the work is offered for review, the diff is final, the
+    // session sandbox is normally still up, and it costs one model call per
+    // review instead of one per turn. Scheduled, not awaited, so the modal
+    // returns straight away — the action is best-effort, so a stopped sandbox
+    // just logs and leaves the static body in place.
+    if (session.sandboxId !== undefined) {
+      await ctx.scheduler.runAfter(0, internal.github.generatePrDescription, {
+        installationId: repo.installationId,
+        repoOwner: repo.owner,
+        repoName: repo.name,
+        prUrl,
+        sandboxId: session.sandboxId,
+        repoId: session.repoId,
+      });
+    }
+
     await ctx.runMutation(internal.sessions.setPrState, {
       id: args.sessionId,
       prState: "open",

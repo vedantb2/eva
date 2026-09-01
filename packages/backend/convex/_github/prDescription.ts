@@ -32,8 +32,9 @@ const EXEC_TIMEOUT_SECONDS = 240;
 /**
  * Writes the reviewer-facing description into a PR body from its diff, using
  * the Claude CLI on the run's own sandbox so it bills to the team's Claude
- * auth and needs no second provider. Called by the session and task workflows
- * right after their PR create/refresh, while the sandbox is still up.
+ * auth and needs no second provider. Called by the task workflow right after
+ * its PR create/refresh (while the sandbox is still up) and by a session's
+ * "Send for review" (`createSessionPr`).
  * Best-effort: every failure is logged and the static body stays in place, so
  * a missing token, a stopped sandbox or a killed CLI never blocks a PR.
  */

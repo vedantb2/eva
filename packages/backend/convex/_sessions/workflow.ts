@@ -597,30 +597,9 @@ export const sessionExecuteWorkflow = workflow.define({
       // false and still avoids the old compare-404 alerts.
       if (pushedCommits || (branchPublished && data.prUrl === undefined)) {
         try {
-          const prUrl = await step.runAction(
-            internal.github.createDraftSessionPr,
-            { sessionId: args.sessionId },
-          );
-          // The body's reviewer description is written from the PR diff by the
-          // Claude CLI on this same sandbox, so it follows every pushing turn.
-          // Best-effort: the action swallows its own failures, and a failed
-          // step is only logged — it is not a draft-PR failure.
-          if (prUrl !== null) {
-            try {
-              await step.runAction(internal.github.generatePrDescription, {
-                installationId: args.installationId,
-                repoOwner: data.repoOwner,
-                repoName: data.repoName,
-                prUrl,
-                sandboxId,
-                repoId: data.repoId,
-              });
-            } catch (error) {
-              console.error(
-                `[sessionWorkflow] generatePrDescription failed sessionId=${args.sessionId}: ${error instanceof Error ? error.message : String(error)}`,
-              );
-            }
-          }
+          await step.runAction(internal.github.createDraftSessionPr, {
+            sessionId: args.sessionId,
+          });
         } catch (error) {
           const errorDetail =
             error instanceof Error ? error.message : String(error);

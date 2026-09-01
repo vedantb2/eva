@@ -23,6 +23,8 @@ import {
   createSandboxAndPrepareRepo,
   fetchBranchRefs,
   forcePushBranchToOrigin,
+  isUnresolvedGitIndexError,
+  recoverUnresolvedGitIndex,
   resolveBaseTarget,
   copySandboxConfigFilesToWorkspace,
   SESSION_LIFECYCLE,
@@ -170,6 +172,11 @@ async function checkoutSessionBranchWithRetry(
   baseBranch: string,
 ): Promise<void> {
   const maxAttempts = 3;
+  // One-shot: a reused VM whose previous run died mid-merge refuses every
+  // checkout with "needs merge; resolve your current index first" — abort the
+  // stale operation and retry. If recovery does not clear it, the next failure
+  // throws as before; nothing else is reset away.
+  let recoveredUnresolvedIndex = false;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       await checkoutSessionBranch(sandbox, branchName, baseBranch);
@@ -181,6 +188,25 @@ async function checkoutSessionBranchWithRetry(
       return;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (
+        attempt < maxAttempts &&
+        !recoveredUnresolvedIndex &&
+        isUnresolvedGitIndexError(message)
+      ) {
+        recoveredUnresolvedIndex = true;
+        logSession(
+          `checkoutSessionBranchWithRetry recovering unresolved git index (attempt ${attempt}/${maxAttempts}, branch=${branchName}, base=${baseBranch}): ${message}`,
+        );
+        try {
+          await recoverUnresolvedGitIndex(sandbox);
+        } catch (recoverError) {
+          // Best-effort: the retried checkout below surfaces the real state.
+          logSession(
+            `checkoutSessionBranchWithRetry unresolved-index recovery failed (branch=${branchName}, base=${baseBranch}): ${errorMessage(recoverError, "recovery failed")}`,
+          );
+        }
+        continue;
+      }
       const canRetry =
         attempt < maxAttempts && isRetryableSessionGitError(message);
       if (!canRetry) {

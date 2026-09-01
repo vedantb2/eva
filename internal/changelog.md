@@ -1,5 +1,14 @@
 # Changelog
 
+## Background daemon cleanup kills the whole process group - 2026-09-01
+
+- `runBackgroundCommands` pre-launch cleanup now TERMs the daemon's process group (`kill -TERM -- -$pid`, bare-pid fallback), polls up to 2s for it to exit, then KILLs it — killing only the `setsid` leader orphaned its children (`supabase start`, docker), which kept writing into the truncated `/tmp/bg-<i>.log` and raced the relaunch (prod 2026-09-01, blush-lively-seahorse-K5DnYy).
+
+## Preview background heal no longer races session startup - 2026-09-01
+
+- New `sessions.sandboxServicesPending` flag, armed by both early-ready `sandboxReady` calls and cleared at final-ready (or in the start-failure safety net via `clearSandboxServicesPending`), makes `sandboxHeal.claim` refuse the slot while the lifecycle is still launching background/startup commands — the double launch was killing the first wrappers, orphaning children, truncating logs and firing a spurious "Sandbox startup unfinished" alert (prod session n97b02b6, 2026-09-01 19:03 UTC).
+- The gate lives inside `claim`, after its rate-limit check (so the session row is read at most once per 45s per sandbox, not on every ~2s poll tick) and before it stamps `lastHealAt` (so the first poll after final-ready heals rather than waiting out an interval). `getPreviewUrl` is unchanged: its existing `healClaimed` boolean already gates both `runBackgroundCommands` and `ensureSessionPreviewServices`.
+
 ## Sandbox validate/background-launch paths recover from OOM-wedged VMs (exit 137, hung execs) - 2026-09-01
 
 - Root cause (prod, silver-strategic-buzzard, 2026-09-01 ~16:45 UTC): an OOM-wedged VM still reports `running` to Vercel, so `ensureSandboxRunning` no-ops on `start()` and its `echo 1` probe dies with exit 137; every path then cascaded — `runBackgroundCommands` burned a 25s client timeout (or a `Status code 400 is not ok`) per command, and its un-try/catch'd pid-check/cleanup execs threw the whole action Uncaught into scheduled callers and the preview heal.

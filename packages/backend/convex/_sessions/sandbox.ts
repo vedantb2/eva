@@ -409,6 +409,10 @@ export const sandboxReady = internalMutation({
     // queued first turn until the base pull + dependency install finish. Final-
     // ready never passes it (setup has by then cleared the flag explicitly).
     markSetupPending: v.optional(v.boolean()),
+    // Set by every early-ready call: services (background + startup commands)
+    // are still coming up, so the Preview heal must not launch them itself.
+    // Final-ready omits it, which clears the flag.
+    markServicesPending: v.optional(v.boolean()),
     /** Existing sandbox id was unresumable; we created a fresh one. */
     resumeFellBack: v.optional(v.boolean()),
   },
@@ -466,6 +470,10 @@ export const sandboxReady = internalMutation({
       ...(args.devPort !== undefined ? { devPort: args.devPort } : {}),
       ...(args.devCommand !== undefined ? { devCommand: args.devCommand } : {}),
       ...(args.markSetupPending ? { sandboxSetupPending: true } : {}),
+      // Early-ready arms the Preview-heal gate; final-ready (which never passes
+      // the flag) always disarms it, so a heal can resume as soon as the
+      // lifecycle has launched services itself.
+      sandboxServicesPending: args.markServicesPending ? true : undefined,
     });
     if (args.markSetupPending) {
       await syncSessionDaemonState(ctx, session, {
@@ -497,6 +505,23 @@ export const clearSandboxSetupPending = internalMutation({
     await syncSessionDaemonState(ctx, session, {
       sandboxSetupPending: undefined,
     });
+    return null;
+  },
+});
+
+/**
+ * Releases the Preview-heal gate set by early-ready without a final-ready.
+ * Only the start failure path needs this: it deliberately leaves an active
+ * sandbox running, and a flag left armed would suppress the background heal on
+ * that sandbox forever. Idempotent.
+ */
+export const clearSandboxServicesPending = internalMutation({
+  args: { sessionId: v.id("sessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.sandboxServicesPending !== true) return null;
+    await ctx.db.patch(args.sessionId, { sandboxServicesPending: undefined });
     return null;
   },
 });

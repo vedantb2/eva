@@ -487,9 +487,21 @@ export const runBackgroundCommands = internalAction({
         }
         // Drop a stale pid / leftover Convex before (re)launch so a zombie or
         // half-dead backend cannot keep :3210 / ExportInProgress wedged.
+        //
+        // Kill the whole process group (`-- -$pid`), not just the recorded pid:
+        // the launch below uses `setsid`, so that pid is a session/group leader
+        // and the actual work (`pnpm start-db` → `supabase start` → docker CLI)
+        // lives in its group. Killing the leader alone left those children
+        // orphaned, still holding their fd to /tmp/bg-<i>.log — after the
+        // relaunch truncated it they kept writing at the old offset (multi-KB
+        // NUL hole in the log) and raced the new daemon (prod 2026-09-01). The
+        // bare-pid fallback covers pid files from an older launch form, and the
+        // TERM → poll → KILL grace lets supabase/docker exit cleanly.
         const cleanup = [
           `pid=$(cat /tmp/bg-${i}.pid 2>/dev/null || true)`,
-          `if [ -n "$pid" ]; then kill -TERM "$pid" 2>/dev/null || true; kill -KILL "$pid" 2>/dev/null || true; fi`,
+          `if [ -n "$pid" ]; then kill -TERM -- -"$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true`,
+          `for _ in 1 2 3 4; do kill -0 -- -"$pid" 2>/dev/null || kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done`,
+          `kill -KILL -- -"$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true; fi`,
           `rm -f /tmp/bg-${i}.pid`,
         ];
         if (isConvexCommand) {

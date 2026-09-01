@@ -111,9 +111,10 @@ export function claimedTurnLifecycleStatus(): "idle" | "active" {
 
 /**
  * Whether a just-claimed prompt should be parked for the run loop instead of
- * discarded. claimPendingTurn already cleared it server-side and (for durable
- * turns) acquired the 2-minute running lease, so discard is only safe for a
- * same-turn restage of the prompt already in flight.
+ * discarded. New daemons pass acceptTurn=false until idle, so claimPendingTurn
+ * leaves pendingTurn intact and this park path should not see a follow-up.
+ * Old sandboxes still acquire the 2-minute running lease on every claim, so
+ * discard is only safe for a same-turn restage of the prompt already in flight.
  *
  * A follow-up send during post-completion bookkeeping is a different turn:
  * finishClaimedTurn has already dropped the old lease, the supervisor is still

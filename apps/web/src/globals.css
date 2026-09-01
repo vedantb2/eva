@@ -129,6 +129,22 @@
   }
 }
 
+@utility t-anchor-flash {
+  /* Marks the one comment a notification click-through was aimed at, once the
+   * page has scrolled it into view. Deliberately a fire-and-forget animation
+   * rather than a state-driven `transition`: the highlight has a beginning and
+   * an end and nothing ever needs to turn it off, so no timer, no state, and
+   * nothing to clean up. Applying the class is what starts it, which is why the
+   * anchor arriving on an already-open page replays it.
+   *
+   * Ring rather than a background wash so it reads over both the `Surface` a
+   * root thread sits on and the bare row a reply gets, and inset so it never
+   * widens the row. Held at full strength for the first third, then faded — the
+   * reader's eye arrives mid-scroll, and a highlight that has already started
+   * fading by the time the scroll settles is one they never see. */
+  animation: t-anchor-flash 2.4s var(--motion-ease-out);
+}
+
 @utility rounded-surface {
   border-radius: clamp(0.75rem, var(--radius), 1.25rem);
 }
@@ -945,6 +961,18 @@
     }
     to {
       height: 0;
+    }
+  }
+
+  @keyframes t-anchor-flash {
+    0%,
+    35% {
+      box-shadow: inset 0 0 0 2px rgb(var(--ring) / 0.9);
+      background-color: rgb(var(--accent) / 0.45);
+    }
+    100% {
+      box-shadow: inset 0 0 0 2px rgb(var(--ring) / 0);
+      background-color: rgb(var(--accent) / 0);
     }
   }
 }

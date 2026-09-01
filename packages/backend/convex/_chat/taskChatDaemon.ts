@@ -17,6 +17,7 @@ import {
   startNextQueuedTaskChatMessage,
 } from "../_queues/helpers";
 import { TASK_CHAT_STREAM_PREFIX } from "../workflowWatchdog";
+import { isDaemonClaimPaused } from "./daemonClaimPause";
 
 function taskChatStreamEntityId(taskId: Id<"agentTasks">): string {
   return `${TASK_CHAT_STREAM_PREFIX}${String(taskId)}`;
@@ -43,6 +44,7 @@ export const claimPendingTurn = authMutation({
   args: {
     taskId: v.id("agentTasks"),
     model: v.optional(aiModelValidator),
+    acceptTurn: v.optional(v.boolean()),
   },
   returns: v.object({
     prompt: v.union(v.string(), v.null()),
@@ -82,6 +84,23 @@ export const claimPendingTurn = authMutation({
     // not consume the chip's request as a no-op.
     const usageRefreshRequested = task.usageRefreshRequestedAt !== undefined;
 
+    // A prewarm is killing this daemon right now. See the session copy in
+    // `_sessions/workflow.ts`: claiming here strands the turn on a dying
+    // process. Placed after the drains so a cancel is never stranded.
+    if (
+      isDaemonClaimPaused({
+        claimPausedUntil: task.claimPausedUntil,
+        now: Date.now(),
+      })
+    ) {
+      return {
+        ...emptyClaimReturn,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
+    }
+
     // Chat daemon only — never claim a turn while the main PR run workflow is
     // the only active consumer.
     if (!task.activeChatWorkflowId) {
@@ -94,6 +113,15 @@ export const claimPendingTurn = authMutation({
     }
 
     if (!task.pendingTurn) {
+      return {
+        ...emptyClaimReturn,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
+    }
+
+    if (args.acceptTurn === false) {
       return {
         ...emptyClaimReturn,
         stopTaskToolUseIds,

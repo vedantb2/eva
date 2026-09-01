@@ -7,6 +7,7 @@ import {
   IconDeviceDesktop,
   IconFileText,
   IconPalette,
+  IconRobot,
   IconTerminal2,
   IconWorld,
 } from "@tabler/icons-react";
@@ -26,6 +27,7 @@ interface BuildSandboxPaletteCommandsArgs {
   activeTab: string;
   tabs: ReadonlyArray<SandboxCommandTab>;
   showFilesTab: boolean;
+  showAgentsTab: boolean;
   showPrdTab: boolean;
   showDesignsTab: boolean;
   showEditorItem: boolean;
@@ -34,8 +36,6 @@ interface BuildSandboxPaletteCommandsArgs {
   consoleDock: ConsoleDockApi;
   terminalPanel: TerminalPanelApi;
   onTabChange: (tab: string) => void;
-  onOpenEditor: (() => void) | undefined;
-  onOpenComputer: (() => void) | undefined;
   onNewPreview: () => void;
   newPreviewDisabled: boolean;
   simpleView?: boolean;
@@ -46,6 +46,7 @@ export function buildSandboxPaletteCommands({
   activeTab,
   tabs,
   showFilesTab,
+  showAgentsTab,
   showPrdTab,
   showDesignsTab,
   showEditorItem,
@@ -54,8 +55,6 @@ export function buildSandboxPaletteCommands({
   consoleDock,
   terminalPanel,
   onTabChange,
-  onOpenEditor,
-  onOpenComputer,
   onNewPreview,
   newPreviewDisabled,
   simpleView = false,
@@ -75,6 +74,15 @@ export function buildSandboxPaletteCommands({
       keywords: "view tab tree repository",
       icon: IconFileText,
       run: () => onTabChange("files"),
+    });
+  }
+  if (showAgentsTab) {
+    commands.push({
+      id: "show-agents",
+      label: "Show Agents",
+      keywords: "view tab subagents background transcripts",
+      icon: IconRobot,
+      run: () => onTabChange("agents"),
     });
   }
   if (showPrdTab) {
@@ -101,13 +109,7 @@ export function buildSandboxPaletteCommands({
       label: "Show Editor",
       keywords: "view tab code vscode",
       icon: IconCode,
-      run: () => {
-        if (onOpenEditor) {
-          onOpenEditor();
-          return;
-        }
-        onTabChange("editor");
-      },
+      run: () => onTabChange("editor"),
     });
   }
   if (showDesktopItem) {
@@ -116,13 +118,7 @@ export function buildSandboxPaletteCommands({
       label: "Show Computer",
       keywords: "view tab desktop",
       icon: IconDeviceDesktop,
-      run: () => {
-        if (onOpenComputer) {
-          onOpenComputer();
-          return;
-        }
-        onTabChange("computer");
-      },
+      run: () => onTabChange("computer"),
     });
   }
   for (const tab of customTabs) {

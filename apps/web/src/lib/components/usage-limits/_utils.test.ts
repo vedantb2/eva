@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
 import {
   chipSummary,
+  chipSummaryForActive,
   emptyAccountUsageCopy,
   formatResetDistanceMs,
   maxUtilization,
@@ -9,6 +10,7 @@ import {
   providerHeading,
   reportedWindows,
   resetsInLabel,
+  scopedWeeklyNameForModel,
   sectionKey,
   toneForUtilization,
   type UsageSnapshot,
@@ -160,12 +162,101 @@ test("account-scoped usage never falls back to another credential", () => {
   ).toEqual([]);
 });
 
-test("plan-usage scope is omitted on non-Claude models", () => {
+test("plan-usage chip scope is omitted on non-Claude models", () => {
   const team = { providerAccountId: null, accountLabel: "Team" };
   expect(claudeUsageAccountScope("claude:sonnet", team)).toEqual(team);
   expect(claudeUsageAccountScope("cursor:grok-4.6", team)).toBeUndefined();
   expect(claudeUsageAccountScope("codex:gpt-5.5", team)).toBeUndefined();
   expect(claudeUsageAccountScope("opencode:openai/gpt-5.4", team)).toBeUndefined();
+});
+
+test("scoped weekly name follows the active Claude model", () => {
+  expect(scopedWeeklyNameForModel("claude:claude-fable-5")).toBe("Fable");
+  expect(scopedWeeklyNameForModel("claude:claude-opus-4-6")).toBe("Opus");
+  expect(scopedWeeklyNameForModel("claude:claude-sonnet-4-6")).toBe("Sonnet");
+  expect(scopedWeeklyNameForModel("cursor:grok-4.6")).toBeUndefined();
+});
+
+test("chip bar prefers Weekly (Fable) when the active model is Fable", () => {
+  const row = claude({
+    windows: [
+      { key: "five_hour", label: "5h", utilization: 90 },
+      { key: "seven_day", label: "Weekly (all models)", utilization: 40 },
+      { key: "model_scoped:Fable", label: "Weekly (Fable)", utilization: 12 },
+    ],
+  });
+  expect(chipSummaryForActive([row], NOW, "claude:claude-fable-5")).toEqual({
+    label: "12%",
+    utilization: 12,
+    tone: "neutral",
+  });
+  expect(chipSummaryForActive([row], NOW, "claude:claude-sonnet-4-6")?.utilization).toBe(
+    90,
+  );
+});
+
+test("the scoped bar matches Anthropic's versioned display name", () => {
+  // `/usage` names the window "Opus 5", not "Opus" — an exact-match lookup
+  // silently falls back to the tightest window instead of the model's own.
+  const row = claude({
+    windows: [
+      { key: "five_hour", label: "5h", utilization: 88 },
+      { key: "model_scoped:Opus 5", label: "Weekly (Opus 5)", utilization: 31 },
+    ],
+  });
+  expect(
+    chipSummaryForActive([row], NOW, "claude:claude-opus-4-6")?.utilization,
+  ).toBe(31);
+});
+
+test("the scoped bar also reads the fixed per-model weekly keys", () => {
+  // Opus and Sonnet arrive as their own top-level windows, not as model_scoped.
+  const row = claude({
+    windows: [
+      { key: "five_hour", label: "5h", utilization: 88 },
+      { key: "seven_day_opus", label: "Weekly (Opus)", utilization: 24 },
+      { key: "seven_day_sonnet", label: "Weekly (Sonnet)", utilization: 51 },
+    ],
+  });
+  expect(
+    chipSummaryForActive([row], NOW, "claude:claude-opus-4-6")?.utilization,
+  ).toBe(24);
+  expect(
+    chipSummaryForActive([row], NOW, "claude:claude-sonnet-4-6")?.utilization,
+  ).toBe(51);
+});
+
+test("a reading too old for the chip is too old for the scoped bar", () => {
+  // The scoped lookup runs before the plain chip, so it needs the same
+  // freshness gate or a day-old Fable number outlives every other reading.
+  const stale = claude({
+    capturedAt: NOW - DAY - 1,
+    windows: [
+      { key: "model_scoped:Fable", label: "Weekly (Fable)", utilization: 77 },
+    ],
+  });
+  expect(
+    chipSummaryForActive([stale], NOW, "claude:claude-fable-5"),
+  ).toBeUndefined();
+});
+
+test("an expired scoped window stops driving the bar", () => {
+  const row = claude({
+    windows: [
+      { key: "five_hour", label: "5h", utilization: 44 },
+      {
+        key: "model_scoped:Fable",
+        label: "Weekly (Fable)",
+        utilization: 99,
+        resetsAt: NOW - 1,
+      },
+    ],
+  });
+  expect(chipSummaryForActive([row], NOW, "claude:claude-fable-5")).toEqual({
+    label: "44%",
+    utilization: 44,
+    tone: "neutral",
+  });
 });
 
 test("a windowless rejection still colours a chip that has a number", () => {

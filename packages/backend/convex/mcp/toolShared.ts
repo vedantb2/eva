@@ -19,6 +19,14 @@ export function textResult(data: Record<string, unknown> | Array<unknown>) {
   };
 }
 
+/**
+ * Short Claude names the MCP tools advertise. `fable` is Eva's Fable model
+ * (`claude:claude-fable-5-1`); opus/sonnet/haiku keep their existing aliases.
+ * Kept as a tuple so every tool schema stays in lockstep.
+ */
+export const MCP_CLAUDE_MODELS = ["opus", "sonnet", "haiku", "fable"] as const;
+export type McpClaudeModel = (typeof MCP_CLAUDE_MODELS)[number];
+
 export interface McpCredentials {
   clerkUserId: string;
   scopedRepoId?: string;

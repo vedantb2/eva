@@ -22,6 +22,7 @@ import {
   findOpenSessionTurn,
   renewTurnLease,
 } from "./_chat/turnStore";
+import { turnLeaseDurationMs } from "./_chat/turnLease";
 import { turnStateValidator } from "./_validators/tableFields";
 import { isLegacySessionExecuting } from "./_chat/turnProjection";
 
@@ -270,13 +271,20 @@ export const finalizeExpired = internalMutation({
     if (!turn || !turn.open || turn.leaseExpiresAt >= Date.now()) return null;
     const sessionId = ctx.db.normalizeId("sessions", turn.entityId);
     const session = sessionId ? await ctx.db.get(sessionId) : null;
+    const leaseDurationMs = turnLeaseDurationMs(turn.state);
+    const lastLeaseWriteAt = turn.leaseExpiresAt - leaseDurationMs;
     const staleSeconds = Math.max(
       1,
-      Math.round((Date.now() - turn.leaseExpiresAt) / 1000),
+      Math.round((Date.now() - lastLeaseWriteAt) / 1000),
     );
+    const thresholdSeconds = Math.max(1, Math.round(leaseDurationMs / 1000));
     const alert = args.sandboxStopped
       ? sessionChatAdapter.alerts.sandboxStopped(staleSeconds)
-      : sessionChatAdapter.alerts.stalled(staleSeconds, turn.state, 120);
+      : sessionChatAdapter.alerts.stalled(
+          staleSeconds,
+          turn.state,
+          thresholdSeconds,
+        );
     if (sessionId && session && turn.workflowId !== undefined) {
       await finalizeStaleChatTurn(
         ctx,
@@ -303,6 +311,17 @@ export const finalizeExpired = internalMutation({
       await startNextQueuedSessionMessage(ctx, sessionId);
     }
     await closeTurn(ctx, turn, "error", { error: alert.text });
+    if (sessionId && !args.sandboxStopped) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal._sessions.execution.retryEmptyStalledSessionTurn,
+        {
+          sessionId,
+          turnId: args.turnId,
+          sandboxStopped: args.sandboxStopped,
+        },
+      );
+    }
     return null;
   },
 });

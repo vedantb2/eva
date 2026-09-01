@@ -66,6 +66,15 @@ function applyAddMessageOptimistically(
   ]);
 }
 
+export interface SessionSendOptions {
+  /**
+   * Skip appending the pending review comments to the prompt (and leave them
+   * pending). For harness built-ins like `/compact`, which must reach the
+   * harness as bare text.
+   */
+  skipReviewComments?: boolean;
+}
+
 interface UseSessionSendParams {
   sessionId: Id<"sessions">;
   model: AIModel;
@@ -113,11 +122,14 @@ export function useSessionSend({
   const handleSend = async (
     content: string,
     attachmentStorageIds?: Id<"_storage">[],
+    options?: SessionSendOptions,
   ) => {
-    const finalContent = appendReviewCommentsToPrompt(
-      content,
-      review?.comments ?? [],
-    );
+    // Harness commands go to the harness verbatim, and the pending comments are
+    // not consumed — so they must survive the send too.
+    const consumesReviewComments = options?.skipReviewComments !== true;
+    const finalContent = consumesReviewComments
+      ? appendReviewCommentsToPrompt(content, review?.comments ?? [])
+      : content;
     if (isExecuting) {
       await enqueueMessage({
         sessionId,
@@ -128,7 +140,7 @@ export function useSessionSend({
         providerAccountId: resolveAccountId(providerAccountId),
         attachmentStorageIds,
       });
-      review?.clear();
+      if (consumesReviewComments) review?.clear();
       return;
     }
     const accountId = resolveAccountId(providerAccountId);
@@ -162,7 +174,7 @@ export function useSessionSend({
         });
       })
       .finally(() => {
-        review?.clear();
+        if (consumesReviewComments) review?.clear();
       });
   };
 

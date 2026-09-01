@@ -1,5 +1,6 @@
 # Changelog
 
+<<<<<<< HEAD
 ## Effect adoption step 2: Schema at the agent-stream boundary - 2026-08-26
 
 The callback script's parse layer (`callback-src/parse/`) narrowed untrusted provider-stream JSON with ad-hoc `typeof` checks. `sdkTaxonomy.ts`, `toolSteps.ts`, and `toolResultCapture.ts` now declare Effect Schemas (decoded with the non-throwing `decodeUnknownOption`) for every event/result shape, with a `lenient()` union so one bad field still yields the siblings the old code extracted — a malformed line can never throw or drop partial data it used to keep. Behavior verified byte-identical by differential fuzzing against the old implementations (~48k random payloads × 5 seeds, plus a 105-payload branch-coverage harness). Freeform tool-input sniffing and JsonValue union narrowing stay hand-rolled on purpose. Bundling effect grows the generated callback script 341KB → ~1.1MB; the build script now escapes control bytes so the generated file stays plain text for git.
@@ -7,6 +8,208 @@ The callback script's parse layer (`callback-src/parse/`) narrowed untrusted pro
 ## Effect adoption step 1: tagged errors + retry schedules - 2026-08-26
 
 First incremental slice of Effect in `@eva/backend` (`effect@3.22`), no framework buy-in. `SandboxProviderError` / `SandboxCommandFailedError` / `SandboxGoneError` are now `Data.TaggedError` classes (classifier semantics in `sandboxErrors.ts` untouched; `instanceof`, `name`, and `message` behave identically). The seven hand-rolled retry/backoff loops (vercel exec stream-closed retry, three git network/push/resume loops, PR adopt + head-wait waits, usage-limits polling) now run as Effect pipelines with shared schedules from `convex/_effect/retry.ts`. `runPromiseRethrowing` (`runPromiseExit` + `Cause.squash`) guarantees callers keep catching the original error object, never a `FiberFailure`. Attempt counts, delays, retry predicates, and log lines are preserved exactly; workflow-step retries (`workflowManager.ts`) untouched.
+=======
+## Background daemon cleanup kills the whole process group - 2026-09-01
+
+- `runBackgroundCommands` pre-launch cleanup now TERMs the daemon's process group (`kill -TERM -- -$pid`, bare-pid fallback), polls up to 2s for it to exit, then KILLs it — killing only the `setsid` leader orphaned its children (`supabase start`, docker), which kept writing into the truncated `/tmp/bg-<i>.log` and raced the relaunch (prod 2026-09-01, blush-lively-seahorse-K5DnYy).
+
+## Preview background heal no longer races session startup - 2026-09-01
+
+- New `sessions.sandboxServicesPending` flag, armed by both early-ready `sandboxReady` calls and cleared at final-ready (or in the start-failure safety net via `clearSandboxServicesPending`), makes `sandboxHeal.claim` refuse the slot while the lifecycle is still launching background/startup commands — the double launch was killing the first wrappers, orphaning children, truncating logs and firing a spurious "Sandbox startup unfinished" alert (prod session n97b02b6, 2026-09-01 19:03 UTC).
+- The gate lives inside `claim`, after its rate-limit check (so the session row is read at most once per 45s per sandbox, not on every ~2s poll tick) and before it stamps `lastHealAt` (so the first poll after final-ready heals rather than waiting out an interval). `getPreviewUrl` is unchanged: its existing `healClaimed` boolean already gates both `runBackgroundCommands` and `ensureSessionPreviewServices`.
+
+## PR bodies get a diff-derived, show-me shaped description - 2026-09-01
+
+- Eva PR bodies were the task text (or, for sessions, the literal `_Summary will be generated before review_`, which nothing ever replaced because the summary only runs from the modal). Reviewers had to open the diff to learn anything. New `generatePrDescription` (`_github/prDescription.ts`) reads the PR's bounded diff and writes a reviewer-facing block: `### What changed` (1–2 sentences), `### Shape` (one code-shape visual chosen to fit — shallow file tree with per-entry comments, call-tree/control-flow `diff`, `ts` signatures, or component-tree `diff`, per the vendored `show-me` skill), and up to three `### Review notes`.
+- Generated on the run's own sandbox, not via an external provider: the action writes the prompt (diff included) to `/tmp` on the sandbox and runs `claude -p --model sonnet --allowedTools "" --max-turns 1` through `execHandle`, so it bills to the team's `CLAUDE_CODE_OAUTH_TOKEN` already baked into the sandbox env and needs no gateway key. If the team has no Claude auth the step logs and skips. `CLAUDE_FALLBACK_BIN_PATH` and `ensureClaudeCliAvailable` are now exported from `_sandbox_runtime/launch.ts` for this.
+- Quick tasks generate it as a separate workflow step right after the PR create/refresh in `_taskWorkflow/workflowDefinition.ts` (before the sandbox stop), in a try/catch that only logs. Sessions generate it when the user clicks "Send for review" (`createSessionPr`), scheduled with `runAfter(0)` so the modal does not block on the model — the review moment has the final diff, a normally-live sandbox, and one call per review. That replaces the original per-push workflow step, which only ever fired once (at draft-PR open) because the sandbox callback's push preempts the workflow's, leaving `pushedCommits` false on every later turn. Known trade-offs: a second `claude` process on the VM while it runs; a new session turn's `pkill -x claude` can kill it, in which case the static body stays.
+- The block lives between `<!-- eva-pr-description -->` markers and is inserted above the Eva footer by `insertPrDescription`, so `prBody.ts` still owns the static sections and re-runs replace rather than stack. The body is re-read just before writing so a concurrent refresh is not overwritten. Diff fetching is now the shared `fetchPullRequestDiff` (extracted from the recap `fetchPrDiff` action), same 500 KB / 100-file caps.
+- `createDraftSessionPr` drops the never-fulfilled placeholder; the Summary section appears only when a session summary exists. Tests in `tests/prDescription.test.ts` pin marker insertion/replacement, footer-only bodies, fence unwrapping/length bound, and prompt structure.
+
+## Claude sessions show reasoning again (thinking display was left at the API default) - 2026-09-01
+
+- Root cause: Cursor's SDK emits `thinking` messages unconditionally, but Claude only surfaces reasoning text when asked. On Fable 5 / Opus 5 / 4.8 / 4.7 / Sonnet 5 the API's `thinking.display` default is `omitted` (a silent change from Opus/Sonnet 4.6, where it was `summarized`), so `thinking_delta` events arrived with empty text. `claudeParseLine` already handled `thinking_delta` and `thinking` blocks correctly — it just never received any text, so the `reasoning` step stayed empty and the UI showed a long pause where Cursor shows "Thinking...".
+- `buildSdkOptionsFromParts` (callback-src/providers/claudeSdk.ts) now passes `thinking: { type: "adaptive", display: "summarized" }` unless the user turned thinking off. Thinking-off keeps the existing `--settings` `alwaysThinkingEnabled: false` path and sends no `thinking` option — Fable 5 rejects an explicit `{ type: "disabled" }` with a 400. `claudeThinkingDisabled` moved to config.ts so both consumers share one definition.
+- Regression pins in `callback-src/tests/canonical.test.ts`: a Claude `thinking_delta` routes to `update_reasoning`; an empty one emits nothing (the pre-fix symptom). Callback bundle regenerated.
+
+## Sandbox validate/background-launch paths recover from OOM-wedged VMs (exit 137, hung execs) - 2026-09-01
+
+- Root cause (prod, silver-strategic-buzzard, 2026-09-01 ~16:45 UTC): an OOM-wedged VM still reports `running` to Vercel, so `ensureSandboxRunning` no-ops on `start()` and its `echo 1` probe dies with exit 137; every path then cascaded — `runBackgroundCommands` burned a 25s client timeout (or a `Status code 400 is not ok`) per command, and its un-try/catch'd pid-check/cleanup execs threw the whole action Uncaught into scheduled callers and the preview heal.
+- New typed `SandboxExecTimeoutError` (same message wording, so setup-retry matchers are unchanged) plus `isSandboxUnresponsiveError` (exit 137 on cheap commands / client-side exec timeouts). Deliberately not `sandbox-gone`: the record exists, so the reaction is restart-or-unhealthy, never minting a replacement VM.
+- New `restartUnresponsiveSandbox` helper: stop (snapshots the disk) + resume, which also re-provisions swap. Gated on a fresh `running` state read so it can never resurrect a sandbox the user just stopped.
+- `validateSandbox` attempts that stop+resume once on an unresponsive signal before reporting `healthy: false` (callers already recreate on unhealthy); other failures keep the old behavior.
+- `runBackgroundCommands` wraps the whole per-command body in one try/catch and classifies failures: per-command errors on a live VM continue as before; a wedged VM gets one stop+resume then a retry (never on the `onlyRestartDead` preview-heal path, which must not restart a VM mid-turn); a confirmed-dead or not-running VM aborts the remaining launches with the skip recorded in `errors` instead of cascading timeouts or throwing Uncaught. A provider 400 alone proves nothing and is confirmed with an `echo 1` probe, run only after the state check says `running` so it cannot lazily resume a stopped VM.
+
+## Session sandbox reuse recovers from an unresolved merge index - 2026-09-01
+
+- Reusing a session sandbox died with an uncaught `SandboxCommandFailedError` when a previous agent run left the VM mid-merge: every `git checkout` refused with "needs merge; error: you need to resolve your current index first", reuse could not fall back to a fresh VM (the old one was alive and `fallbackOnPrepareError: false` guards against orphaning it), and `sessionExecuteWorkflow` aborted (prod session n97ex5wm, 2026-09-01).
+- `checkoutSessionBranchWithRetry` now detects git's unresolved-index refusals (`isUnresolvedGitIndexError`: "needs merge", "resolve your current index first", "unmerged files", "MERGE_HEAD exists") and runs a one-shot `recoverUnresolvedGitIndex` before retrying: abort any in-progress merge/rebase/cherry-pick/revert (each gated on its `.git` marker), then reset unmerged index entries only if `git ls-files --unmerged` still reports any. Committed work survives; only the unfinished conflicted attempt is discarded.
+- Scoped tight: the recovery matcher runs once per checkout, and every other failure (auth, network, missing refs) throws exactly as before. Covers session, task, and project reuse plus fresh-create paths — all funnel through `checkoutSessionBranchWithRetry`.
+- Regression pins in `tests/sandboxReuseUnresolvedIndexContract.test.ts` keep the detector, the one-shot retry wiring, and the abort-before-reset ordering.
+
+## Fable 5 replaced by Fable 5.1 (`claude-fable-5-1`) - 2026-09-01
+
+- The Claude Fable model option now runs Anthropic's Fable 5.1, released 01 September 2026 (model ID `claude-fable-5-1`, per [platform.claude.com](https://platform.claude.com/docs/en/models/fable-5-1/overview)). Picker label updated to "Fable 5.1"; same reasoning traits (low–max, high default, ultrathink) and 1M context toggle as Fable 5.
+- `claude:claude-fable-5` follows the existing legacy pattern: still accepted by `aiModelValidator` so persisted sessions load, moved to `PersistedAIModel`, and `normalizeAIModel` maps it (plus `fable`/`claude:fable` aliases and bare IDs) to `claude:claude-fable-5-1`. The MCP `fable` alias and the simple-view ladder/`snapToSimpleViewLadder` therefore resolve to 5.1 automatically; the sandbox runner already just strips the `claude:` prefix, so no callback changes were needed.
+
+## Editor and Computer are first-class sandbox rail tabs; sub-agent CTA row hidden in simple view - 2026-08-29
+
+- Editor and Computer moved out of the `+` dropdown into the vertical sandbox rail as always-present tabs (when the surface enables them), placed after the base tabs and before Files/Agents/Plan/Designs. The dropdown was a leftover from the horizontal strip's space constraints; with only "New Preview" left in it, the menu is gone and `+` triggers New Preview directly.
+- The whole pin/close machinery existed only to keep those two menu-opened tabs alive, so it is deleted: `useEditorTab`, `useComputerTab`, `usePinnedSandboxTab` (localStorage pin state), the descriptor close buttons, `isCollapsibleSandboxTab`, and the `onComputerRunningChange` → `onRunningChange` → `onStateChange` chain that blocked closing Computer while the desktop ran (moot with no close) — two `useEffect`s removed with it. Session, task and project panels all share `SandboxTabBar`, so one change covers all three; palette "Show Editor/Computer" commands now plain tab switches.
+- Availability gating unchanged: Editor/Computer still respect `enabledTabs` and are hidden in simple view; pane content was already mounted lazily behind CSS, so nothing starts code-server/VNC until visited.
+- Separately, the "Ran N subagents" CTA row no longer renders in simple view: `ChatBody` (the one funnel for all three chat surfaces) passes `onOpenAgentsTab` as undefined when `simpleView`, reusing the row's existing prop gate — correct because simple view also hides the Agents tab the row would open.
+
+## New sessions no longer default to a teammate's shared provider account - 2026-08-29
+
+- Root cause: the landing composer's mount effect picked the first provider-matching row from `listSelectable`, which mixes the viewer's accounts with teammates' shared ones sorted only by `updatedAt` desc — so a teammate's recently-touched shared credential silently won the default, and the effect overwrote the saved localStorage pick on every page load. This contradicted the backend's own policy (`_userProviderAccounts/defaults.ts`): shared accounts bill their owner and are explicit picks only.
+- Backend rows now carry `isOwn` (`accountListItemValidator`): `listAccountsFor` takes it per pool, so `list`, `listSelectable`, `listForTaskOwner`, `listForSessionOwner` all distinguish the pool owner's accounts from teammates' shares. `shared` alone could not — an own account can be shared too.
+- `defaultProviderAccountId` only considers `isOwn` accounts; new `providerAccountIdForModel` keeps the current pick across a model switch when the provider still matches, else falls back to the own-default. Both `NewSessionComposer` and `QuickTaskModal` use it on model change.
+- The composer's mount default now leaves a stored pick alone only when it resolves to an own account; a stored shared id is re-defaulted, because the old bug wrote shared ids into localStorage and a shared account is an explicit per-visit choice. Trade-off: an explicitly picked shared account does not survive a full reload (it never did — the old code clobbered every pick on mount).
+- Synthesized owner-account rows in `ProjectFieldsPanel`/`ProjectSandboxChatPanel` are `isOwn: false`, so they stay selectable but never auto-picked. Known gap: an explicit "Team" (null) pick is still indistinguishable from "never picked" in the composer localStorage schema, so it re-defaults on load; fixing that needs a schema flag.
+
+## Inbox rows can be marked unread from a right-click menu - 2026-08-29
+
+- Inbox notification rows are now wrapped in the shared `ContextMenu` from `@eva/ui` (the same Radix trigger the sidebar session rows and chat bubbles use) with a single toggle item: "Mark as read" on unread rows, "Mark as unread" on read ones. Reading a notification was previously one-way — clicking a row marked it read and there was no way back, so anything triaged by accident was lost from the Unread tab.
+- The menu lives inside `NotificationRow` wrapping the row shell, so `contextmenu` never reaches the row's select button: right-clicking neither selects the notification nor marks it read, and the hover-only Dismiss button and arrow-key stepping are untouched.
+- Backend: `notifications.markAsUnread` mirrors `markAsRead` (authMutation, refuses another user's notification, no-ops when already unread). Read state is the `read` boolean alone, so there is no timestamp to clear. It gets the same optimistic update as `markAsRead` in reverse — the row flips in place and the unread badge counts back up.
+- `markAsRead` calls from the inbox now go through `catchMutationError` like the rest of the view; the Dismiss button was previously firing a floating promise with no error toast.
+
+## Prompt-stash hotkey no longer opens the browser save dialog - 2026-08-28
+
+- `ComposerStash` gated its ⌘S registration with `enabled: composerFocused || open`, but the hotkey manager skips `preventDefault` entirely for disabled registrations — any ⌘S the focus heuristic missed (or pressed while the composer was disabled) fell through to the browser's save-file dialog. The registration is now always enabled and the focus/disabled gate lives inside the callback, so ⌘S is swallowed whenever a composer is mounted, while stashing still requires that composer to own focus — multiple mounted composers cannot all stash at once.
+
+## Guided force-push recovery for rewritten-branch publish refusals - 2026-08-28
+
+- When a session's publish fails with the rewritten-branch refusal (carepulse-ts session 53 today: 290 remote-only files vs 220 local after a rebase), the session chat now shows a "Publish blocked" banner above the composer with a confirm-then-force-push button, instead of leaving the user to run git in the sandbox by hand.
+- The refusal message moved into `divergedPublish.ts` (`rewrittenBranchPublishError`) next to a new `publishErrorNeedsForcePush` predicate exported through `@eva/backend`, so the banner's detection and the error's wording cannot drift apart. Only the rewrite refusal matches — the ambiguous "Could not merge origin/…" failure deliberately does not, because both sides may hold real commits there.
+- `PublishRecoveryBanner` shows only while the newest chat message is that refusal alert; the recovery's own outcome alert becomes the newest message and dismisses it with no extra state. Sandbox stopped → button disabled with a "wake the sandbox" hint.
+- Backend: `api.sessions.forcePushBranch` (authMutation, refuses non-`eva/` branches and inactive sandboxes) schedules `internal.sandbox.performForcePushBranch`, which runs `forcePushBranchToOrigin` — fetch the exact ref first, then push with `--force-with-lease` pinned to the refreshed remote-tracking ref, so a push racing in between aborts instead of being discarded. The outcome (success or failure) is posted into the chat via `postSystemAlert`.
+- Task and project chats surface the same refusal but have no banner yet — session chat was the reported case; the git helper and predicate are already surface-agnostic.
+
+## Cursor sessions keep one agent: compaction is liveness, stalls retry the same agent - 2026-08-28
+
+- Root cause from prod (carepulse-ts session 53, 28 Aug 2026): a resumed Cursor agent's run was killed after 60 seconds with no *visible* event and replaced by a fresh agent — "The saved agent stopped responding". An in-place SDK compaction (`summary-started` … `summary-completed`) emits no thinking/assistant/tool_call events while it runs, so it read as a stall, and the replacement agent lost the whole conversation context the resume-always design exists to keep.
+- The pre-visible silence window in `runCursorSdkAttempt` now rolls from the last SDK event of *any* type instead of being an absolute 60-second deadline, and an open compaction is exempted from every silence budget exactly like an in-flight tool (both the event-wait timeout and the health timer). Only total silence — no events at all — still reads as a stall; the 90-minute hard runtime cap is unchanged.
+- A genuinely stalled resume no longer jumps straight to a fresh agent: it reopens the *same* saved agent once ("Retrying the saved Cursor agent") and only a second failure, or a definitive `agent_not_found`, falls back to the one-time fresh agent. The turn-start `Agent.resume` failure path gets the same one retry, so a transient network blip cannot cost a session its agent's memory. Replay stays gated on `shouldRetryStalledCursorResume`, so nothing user-visible is ever replayed.
+- Compaction is now visible: `cursorParseLine` renders `summary-started`/`summary-completed` as "Compacting context…" / "Context compacted" instead of dropping them as unknown events. `cursorCompactionEventPhase` in `providers/cursor.ts` is the single classifier both the parser and the runner use.
+- Contracts pinned in `cursorSessionRotationContract.test.ts` (same-agent retry and compaction exemption must exist in source *and* the deployed bundle) and `toolSilenceWatchdogContract.test.ts` (cursor's watchdog exemption now includes `compactionInFlight`). Bundle regenerated.
+- Known gap, deliberately out of scope: when the fresh-agent last resort does fire, the replayed prompt carries no conversation digest — `buildSessionHandoff` still exists but session prompts stopped injecting it. Wiring it into the recovery path needs the callback to fetch history at recovery time; follow-up candidate.
+
+## Eva MCP can list entities and drive their sandboxes - 2026-08-28
+
+- Four tools on the user MCP server, alongside `send_chat_message` and with the same audience and authorization: `list_entities`, `start_sandbox`, `stop_sandbox` and `cancel_queued_message`. An orchestrator could previously send into a chat but had no way to see what already existed, no way to shut the preview VM down afterwards, and no way to take back a follow-up it had queued.
+- `list_entities` pages sessions, quick tasks and projects together, newest activity first, filtered by kind, status and repo. Each row carries the ids the other tools accept plus `status`, `sandboxStatus`, `isExecuting` and `prUrl` (read off the run for a quick task). The scan budget is split evenly across (repo × kind), so a caller with six repos hears about all six rather than exhausting the budget on the first; anything the scan could not cover sets `truncated`.
+- `start_sandbox` and `stop_sandbox` drive exactly the mutations behind the Eva UI's Start/Stop buttons, via a new `SANDBOX_SURFACES` map. Start returns only once the VM is genuinely active or fails saying why — no "resuming sandbox" limbo. Stop refuses when a turn is in flight rather than killing it, and names `stop_agent` as the deliberate alternative.
+- Nothing here writes status, phase or review state. That stays a person's call, and `mcpEntityTools.test.ts` pins the absence: the three new actions name exactly two mutations directly, both on the queue.
+- "Is a turn running" now comes from one place. `openSessionIdsForRepo` / `sessionIsExecuting` moved into `_chat/turnProjection.ts`, so the new tools consult the open-Turn table like the sidebar does. Keying off `activeWorkflowId` alone — which a daemon-minted `/loop` continuation never sets — would have let `stop_sandbox` tear the VM down under a live turn.
+- Repo and chat reference resolution moved out of `mcp/tools.ts` into a shared `mcp/entityRef.ts` leaf, so every tool that acts on an existing entity runs the same two checks: the user reaches the repo, and a sandbox token has not wandered outside the repo it was minted for. `list_entities` respects that pin on the unfiltered path too.
+
+## GitHub Actions no longer runs the checks - 2026-08-27
+
+- `.github/workflows/ci.yml` (job `typecheck / lint / test`) is deleted. It ran on every pull request and push to main, and its required check was what held automerge on Eva-opened PRs — a five-to-ten minute round trip on a repo where the agent that wrote the diff had already typechecked it in the sandbox.
+- The checks themselves are unchanged and still live in the repo: `pnpm typecheck`, `pnpm lint`, `pnpm -r --no-bail test`, `pnpm compiler:check`, `scripts/check-schema-narrowing.mjs`. Agents run them in the sandbox while they work, and `/preflight` bundles them for a person. `scripts/check-schema-narrowing.mjs` already falls back to the merge base locally when `GITHUB_BASE_REF` is absent, so the schema-narrowing gate works off Actions.
+- The other three workflows are untouched: `claude-code-review.yml`, `claude.yml`, `release-extension.yml`. None wrapped the CI job.
+- Branch protection on `main` may still list `typecheck / lint / test` as required. GitHub will now block those PRs forever waiting on a check that cannot report, so the rule has to be unrequired in repo settings — that cannot be done from the repo tree.
+
+## Sandbox recording: ffmpeg's libjack repair actually repairs - 2026-08-27
+
+- `agent-browser record` produced nothing in sandboxes: SPAL's `ffmpeg` links against `libjack.so.0` without depending on anything that ships it, and the existing repair asked `dnf` for the `libjack.so.0()(64bit)` *capability*. AL2023 satisfies that with `pipewire-jack-audio-connection-kit-libs`, which installs the library into `/usr/lib64/pipewire-0.3/jack` — off the loader path. `dnf` exited 0, the `||`-chained fallbacks behind it never ran, and every sandbox from that snapshot had an ffmpeg that died on launch.
+- Each install attempt is now re-gated on `ffmpeg -version` succeeding rather than on the previous `dnf` exit code, and real `jack-audio-connection-kit` (the only package that lands on the default loader path) is tried before the capability match. Last resort writes an `/etc/ld.so.conf.d` drop-in for pipewire's private copy and runs `ldconfig`.
+- The seed run and `VercelDesktop.start` now share one `FFMPEG_INSTALL_SCRIPT` instead of two hand-maintained copies that had already drifted. Desktop start still runs it before the health early-return and the `INSTALLED=1` guard, so existing snapshots get repaired rather than skipped.
+- `desktopFfmpegInstallContract.test.ts` covers the regression directly: no `||`-chained `dnf` attempts, ordering of the three package attempts, and the loader-path repair running only after all of them.
+
+## Manager Ave's launcher can be dragged anywhere - 2026-08-27
+
+- The floating launcher is no longer pinned to the bottom-right: press and drag moves it, and where it lands is kept in localStorage (`eva:ave:launcher-offset`) as a distance from the bottom-right corner, so it stays in the corner it was parked in when the window grows.
+- The popover follows it. Both read the same `--ave-launcher-*` custom properties from a `display: contents` wrapper, so neither knows the other's geometry, and both `clamp()` themselves against the viewport in CSS — a spot saved on a wide monitor is pulled back on screen on a narrow one, with no resize listener and no re-render.
+- Dragging uses pointer capture on the button rather than window listeners, so there is nothing to tear down and nothing to leak on a missed drop. Travel under 4px stays a click, and the click the browser fires after a real drag is swallowed so a drop cannot open the panel.
+- `AveLauncherSurface` owns the position, keeping the per-pointer-move renders off the provider that wraps the whole app.
+
+## Preview pages rewrite loopback Convex URLs - 2026-08-27
+
+A sandbox's local Convex backend mints absolute URLs from its own loopback origin, so `storage.generateUploadUrl()` / `storage.getUrl()` handed the user's browser `http://127.0.0.1:3210/…` addresses it cannot reach — file uploads from previews of guest Convex apps (reported on eProcurement) failed with a network error. The preview proxy's injected script now diverts fetch/XHR/WebSocket calls and `src`/`href` attributes that target loopback ports 3210/3211 onto the existing authenticated `/__convex` and `/__convex-site` prefixes of the page origin, skipping loopback-served pages (in-sandbox browsers). Covered by `previewProxyConvexLoopbackRewrite.test.ts`; `SCRIPT_VERSION` bumped to `stream-v18` so live proxies relaunch.
+
+## Eva MCP can chat an existing session, task or project - 2026-08-27
+
+- New `send_chat_message` tool on the user MCP server (OAuth connectors, sandbox tokens and the master session all get it): posts a message into an existing chat and starts the turn on that entity's branch. Previously an external client could only `create_and_run_task`, which opens a new task instead of continuing the PR it was looking at.
+- All three sandbox chat surfaces are reachable — a session, a quick task's chat and a project's chat — since each is somewhere a person can already type and each has its own workflow slot.
+- The target is named by Convex `id`, its GitHub `prUrl` (review tails like `/files`, `?diff=`, `#comment` canonicalise to the stored `html_url`; a task's PR is matched through the `agentRuns` row that opened it), or `numId` plus `kind` and a repo — all three tables number their own rows, so 42 alone is ambiguous. `internal.mcp.queries.resolveChatTargetForUser` does the lookup and returns null for both "no such row" and "no access", so a stranger's id leaks nothing; a sandbox token also stays pinned to its own repo, and a sandbox cannot message its own chat.
+- Orchestrator-only tools (`list_agents`, `send_agent_message`, `stop_agent`, `create_session`, watch/unwatch) stay behind the `isOrchestrator` gate, and their fleet stays sessions and tasks.
+- `buildChatMessageCalls` now owns the "user row then `startExecute`, or one `enqueueMessage`" pairing for every MCP send path and every surface, replacing the hand-rolled task branch. It drops the dead `mode` argument those calls carried since sessions lost plan/edit mode — Convex rejects an argument no validator declares, so that leftover was failing the send outright. `create_session` carried the same stale argument.
+- The "via Ave" chat badge is now stamped only on master-session sends; a user's own MCP client sends as the user. Project chat mutations declare no such flag, so none is passed there.
+
+## Plan-usage refresh is the Messages probe only - 2026-08-27
+
+Manual refresh is now one path: a 1-token `/v1/messages` call read for its `anthropic-ratelimit-unified-*` headers. `GET /api/oauth/usage` is dropped — Axiom shows it answering 403 to every credential Eva actually stores over 24–27 Aug (all setup-tokens, `user:inference` only), while the probe returned two windows on the same token, so trying it first only bought a wasted request and a misleading "rejected" toast. The probe reads 5h, weekly-all and Weekly (Fable) (`7d_oi`), so the chip bar still has the window that meters a Fable chat, and the reading is always stored as `completeness: "partial"` — never `snapshotComplete` — so it merges instead of wiping the Opus/Sonnet weeklies a real turn captured.
+
+## Failed turns publish their work - 2026-08-27
+
+Success and durability are orthogonal: every daemon failure path — Claude's `failTurnAndExit`/`failSyntheticTurn`, SDK-pump failure and cancel exits, Cursor's three failure reporters, the one-shot runner's fatal-error handler — now runs `persistTurnWork()` before its completion, so a turn that committed work and then failed cannot lose it to a VM death. Codex already routed both outcomes through `finalizeTurn`. The workflows' push stays success-gated: only the daemon knows the worktree state at its death.
+
+## Prewarm daemon kills no longer orphan a turn lease - 2026-08-27
+
+`prewarmEntityDaemon` fences turn claims (`claimPausedUntil`, self-expiring) around every daemon kill and defers the stale-callback respawn mid-turn, so a doomed daemon can no longer claim a turn, take its 2-minute running lease, and die holding it ("Turn stalled"). Cancel, stop, and usage signals still drain while paused.
+
+## Sandbox chat surfaces share one pre-input stack - 2026-08-26
+
+- New `ChatEntityRef` (session | task | project) with `chatEntityKeys` gives shared chat pieces one handle instead of an id-plus-flag per surface; `useStopBackgroundAgent` routes the stop mutation by entity kind.
+- `SandboxChatPreInput` renders the pre-input stack (background-agents chip → surface banners → compaction offer) identically on all three chat panels, which now pass slots instead of hand-rolling the stack; `ComposerCompactionBanner` moved from the sessions route to `lib/components/chat`.
+- The three per-surface Agents-tab wrappers collapsed into one `SandboxAgentsPanel`; task/project stop failures now surface a toast instead of an unhandled rejection.
+
+## Compaction recommendation banner on session resume - 2026-08-26
+
+- Adopted t3code's "Resume with less context" offer: a dismissible banner above the composer when a Claude session is resumed sitting on ≥100k context tokens with the last turn ≥70 minutes old and nothing running. Shows the token figure from the newest `logs` row and a Compact action that sends the `/compact` harness built-in.
+- `handleSend` gained a `skipReviewComments` option so `/compact` reaches the harness verbatim without consuming pending review comments.
+- Dismissal ("Keep full history") is localStorage-keyed to the turn's `createdAt`, so a later turn re-offers.
+- The hook takes a plain entity id, so task and project sandbox chats get the same offer (both write a completion log per turn); their send paths need no `skipReviewComments`, and a stopped sandbox counts as read-only.
+
+## Subagent spawn CTA row in the chat timeline - 2026-08-26
+
+- Adopted t3code's inline spawn row: assistant turns that kicked off subagents get a slim clickable row under their activity — dot, robot icon, "Kicked off N subagents", "N working" (or "N failed"/"completed" once settled), "Open Agents ›" — that opens the existing Agents sandbox tab and expands the right pane.
+- Summary folds the turn's own `subtask` steps via the Agents tab's `deriveSubagents`, with session-wide `backgroundAgents` narrowed to that turn's tool-use ids so each row reports only its own batch.
+- t3code's Σ token sum was dropped pending real usage data, since Eva's subagent model carries no token usage yet. All three sandbox chats now have an Agents tab, so the row renders on sessions, tasks and projects.
+
+## Tasks progress panel above the composer - 2026-08-26
+
+- Adopted t3code's composer Tasks UI: a slim strip flush above the chat input showing the agent's task list — icon, "Tasks", current step, n/m count and per-step segment bars — expanding into a drawer with ✓/●/○ rows and durations, dismissible per turn.
+- Restyled for Eva: tone fill (`bg-muted/50`, `rounded-t-surface`) instead of t3code's bordered glass shoulder tab, Tabler icons, no banned hooks.
+- Real data comes from the streaming turn's `todos` activity step threaded via `ChatBody` → `ChatComposer`, so all chat surfaces get it.
+
+## Plan-usage refresh is only /api/oauth/usage - 2026-08-26
+
+Dropped the setup-token Messages probe that harvested `anthropic-ratelimit-unified-*` headers. Manual refresh now calls Claude's OAuth usage endpoint only; a token without `user:profile` surfaces as unauthorized instead of a fake inference fallback.
+
+## Plan-usage is one shared indicator - 2026-08-26
+
+Session/project/task headers all mount the same `UsageLimitsIndicator` with `model` + account. Only the chip bar changes (active account, preferring Weekly Fable on Fable); the popover always shows every account from the same `getByRepo` query so switching sessions cannot show different numbers.
+
+## Plan-usage chip reads Weekly (Fable) from 7d_oi - 2026-08-26
+
+Messages-probe refresh only parsed `5h`/`7d`, so Weekly (Fable) never appeared. It now reads `anthropic-ratelimit-unified-7d_oi-*`, probes Fable first, accepts ISO `limits[].resets_at`, and the chip bar follows the active Claude account while the popover still lists every account.
+
+## Plan-usage chip shows every Claude account - 2026-08-26
+
+The header chip no longer filters to the sticky session credential — every Claude account with a fresh reading appears in one card, with per-account refresh. Messages-probe refresh now merges (`completeness: partial`) so Weekly (Fable) and other model-scoped windows from a prior turn are not wiped.
+
+## Empty stalled session turns retry once - 2026-08-26
+
+- A claimed turn whose daemon died before any output (session 125: Zuza's Figma question after sandbox resume) dropped the prompt and told the user to send a new message. The next send is a different turn, so the original question was never answered.
+- `claimPendingTurn` now takes `acceptTurn`. Daemons pass false unless idle, so a follow-up no longer acquires the 2-minute running lease with nobody heartbeating it. Cancel/stop/usage still drain.
+- `finalizeExpired` restages the last user prompt once (no new user bubble) after an empty stall while the sandbox is up. Retry runs after the stall alert is inserted, so the first failure already counts as 1; a second stall of the same prompt stays failed. Stalls that already streamed text or tool activity are not replayed.
+- Stall alert copy reports time since the last lease write, not time since expiry, and no longer guesses OOM.
+
+## Plan-usage refresh uses Claude Code UA + Messages probe again - 2026-08-26
+
+On-demand refresh is back on Convex HTTP: `GET /api/oauth/usage` with `User-Agent: claude-code/…` (via `https.request` so UA is not stripped), and on setup-token 403 a 1-token Messages call that reads `anthropic-ratelimit-unified-*`. Refresh no longer needs a live sandbox or daemon flag.
+
+## Agents tab in session sandbox panel - 2026-08-26
+
+- Sessions get an "Agents" sandbox tab (t3code-style roster) listing every sub-agent the session spawned, so subagent work is inspectable without hunting the chat timeline.
+- Task and project sandbox panels get the same tab (`agents` is now a valid route segment there), folding their roster from the chat transcript their chat panel already subscribes to and binding that entity's stop mutation.
+- Each row shows status, background flag, step count and duration, and expands into the agent's transcript (its activity steps plus the captured tool result); running background agents can be stopped from the row.
+- Data is folded client-side from `message.activityLog` subtask/`parentToolUseId` steps, the live streaming payload, and the existing `backgroundAgents` lifecycle entries — no backend changes.
+- The tab is content-keyed (appears once agents exist), pulses while one runs, joins the tab cycle hotkey and command palette, and is hidden in simple view; entries stranded as "running" after a sandbox stops now read as stale.
+>>>>>>> origin/main
 
 ## Plan-usage refresh keeps the flag until the daemon reports - 2026-08-25
 
@@ -9150,3 +9353,19 @@ Behavior per context:
 - Active legacy project/task turns now own their heartbeat window explicitly, so their tool events are parsed, streamed live, and retained in the completed activity log without letting idle daemons write stale state
 - Project and task usage chips now scope readings to the credential selected in the model picker; switching to Kezia can no longer leave Team's percentage visible, and an account without a reading gets an explicit no-data state
 - Added focused callback and UI regressions for in-flight flushes, single-writer heartbeats, and Team-versus-personal account isolation
+
+## Synthetic Turns Push Their Work Before Completing - 2026-08-27
+
+- `finalizeSyntheticTurn` now calls `persistTurnWork()` before the completion mutation, so work committed during a background-agent continuation reaches origin instead of waiting for the next real turn; `persistTurnWork` short-circuits on local refs when origin already has HEAD, so the extra call costs no fetch
+
+## Comment Notifications Land on the Comment - 2026-08-29
+
+- `createNotification` takes an optional `commentId` and appends it to the resolved href as `?comment=<id>`, so a comment notification links to the comment rather than the top of a task that may have fifty of them. The id is also stored on the notification row (`v.union(v.id("taskComments"), v.id("docComments"))`, optional) — the href is a snapshot string, and the anchor is worth keeping in a field that survives it
+- Threaded through all six comment notification paths: reply, mention and subscriber fan-out for task comments and for doc comments. `notifySubscribers` / `notifyDocSubscribers` each gained the param, so a broadcast to twenty followers anchors as precisely as the reply to one. Every other notification type passes nothing and is unchanged
+- Rows written before the field exists carry no param, and every reader treats a missing anchor as "no anchor" — those notifications keep landing at the top of the page exactly as they did
+- `hrefToNavigateOptions` replaces the bare `toInternalRepoHref` at all three click-through sites (inbox, toast, embedded preview bridge). TanStack resolves `to` as a pathname and never splits a query out of it, so handing over `/o/r/quick-tasks/3?comment=abc` whole matched nothing — search has to be passed separately. The toast path was also skipping the `repo--app` rewrite entirely, which this fixes on the way past
+- Scroll and highlight run off a ref callback, not an effect: the comment list only renders once its query resolves, so the element mounting *is* the readiness signal, where an effect would have to watch loading state to know when to look. React re-invokes the callback when the anchor it closes over changes, which is exactly when a second notification for the same page should re-scroll; a ref guard keyed on the anchor value stops an unrelated re-render yanking the page back
+- The highlight is a fire-and-forget CSS animation (`t-anchor-flash`) rather than state plus a timer — it has a beginning and an end and nothing needs to turn it off. Held at full strength for the first third then faded, because the reader's eye arrives mid-scroll and a highlight already fading when the scroll settles is one they never see
+- One hook covers every task comment placement — root threads, replies, and the comment nested inside the run it triggered — because all three render through `CommentActivityItem`. A doc comment anchors its whole thread card, since a reply carries its own id but the card is what scrolls
+- Arriving at a doc from a comment notification opens the comments panel via lazy initial state, so it is open on the first paint instead of flashing shut. A comment that has since been resolved still sits behind the panel's Resolved filter
+- `comment` had to join the quick-tasks route's `validateSearch` (TanStack drops any key a route does not name) as an *optional* property — a required-but-undefined key would have forced all twelve `navigate({ search })` call sites under that route to restate it

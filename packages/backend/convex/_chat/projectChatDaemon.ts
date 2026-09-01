@@ -17,6 +17,7 @@ import {
   startNextQueuedProjectChatMessage,
 } from "../_queues/helpers";
 import { PROJECT_CHAT_STREAM_PREFIX } from "../workflowWatchdog";
+import { isDaemonClaimPaused } from "./daemonClaimPause";
 
 function projectChatStreamEntityId(projectId: Id<"projects">): string {
   return `${PROJECT_CHAT_STREAM_PREFIX}${String(projectId)}`;
@@ -43,6 +44,7 @@ export const claimPendingTurn = authMutation({
   args: {
     projectId: v.id("projects"),
     model: v.optional(aiModelValidator),
+    acceptTurn: v.optional(v.boolean()),
   },
   returns: v.object({
     prompt: v.union(v.string(), v.null()),
@@ -82,6 +84,23 @@ export const claimPendingTurn = authMutation({
     const usageRefreshRequested =
       project.usageRefreshRequestedAt !== undefined;
 
+    // A prewarm is killing this daemon right now. See the session copy in
+    // `_sessions/workflow.ts`: claiming here strands the turn on a dying
+    // process. Placed after the drains so a cancel is never stranded.
+    if (
+      isDaemonClaimPaused({
+        claimPausedUntil: project.claimPausedUntil,
+        now: Date.now(),
+      })
+    ) {
+      return {
+        ...emptyClaimReturn,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
+    }
+
     // Chat daemon only — never claim a turn while another workflow is the only
     // active consumer.
     if (!project.activeChatWorkflowId) {
@@ -94,6 +113,15 @@ export const claimPendingTurn = authMutation({
     }
 
     if (!project.pendingTurn) {
+      return {
+        ...emptyClaimReturn,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
+    }
+
+    if (args.acceptTurn === false) {
       return {
         ...emptyClaimReturn,
         stopTaskToolUseIds,

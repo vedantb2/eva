@@ -21,7 +21,10 @@ import {
 } from "@/lib/hooks/useAvailableAiModels";
 import { useBaseBranchState } from "@/lib/hooks/useBaseBranchState";
 import { useNewSessionComposerState } from "@/lib/hooks/useNewSessionComposerState";
-import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
+import {
+  defaultProviderAccountId,
+  providerAccountIdForModel,
+} from "@/lib/utils/defaultProviderAccount";
 import { ComposerAppSwitcher } from "./ComposerAppSwitcher";
 
 /**
@@ -69,15 +72,32 @@ export function NewSessionComposer() {
   } = useProviderAccounts();
   const [accountDefaulted, setAccountDefaulted] = useState(false);
 
-  // Default account once the provider list is ready. Runs in an effect because
-  // setProviderAccountId writes to localStorage, which dispatches a sync event —
-  // doing that during render triggers React's event-handler-in-render error.
+  // Default the account once the provider list is ready, but only when the
+  // stored pick does not resolve to an OWN account — a saved own pick must
+  // survive a reload, while a stored shared id is re-defaulted (an earlier bug
+  // auto-saved teammates' shared accounts here, and a shared account is an
+  // explicit per-visit choice, never a persisted default). Runs in an effect
+  // because setProviderAccountId writes to localStorage, which dispatches a
+  // sync event — doing that during render triggers React's
+  // event-handler-in-render error.
   useEffect(() => {
     if (accountsReady && !accountDefaulted) {
-      setProviderAccountId(defaultProviderAccountId(accounts, model));
+      const storedResolvesToOwn = accounts.some(
+        (account) => account.id === providerAccountId && account.isOwn,
+      );
+      if (!storedResolvesToOwn) {
+        setProviderAccountId(defaultProviderAccountId(accounts, model));
+      }
       setAccountDefaulted(true);
     }
-  }, [accountsReady, accountDefaulted, accounts, model, setProviderAccountId]);
+  }, [
+    accountsReady,
+    accountDefaulted,
+    accounts,
+    model,
+    providerAccountId,
+    setProviderAccountId,
+  ]);
 
   const handleSend = async (
     content: string,
@@ -141,7 +161,9 @@ export function NewSessionComposer() {
           model={model}
           setModel={(next) => {
             setModel(next);
-            setProviderAccountId(defaultProviderAccountId(accounts, next));
+            setProviderAccountId(
+              providerAccountIdForModel(accounts, providerAccountId, next),
+            );
           }}
           modelOptions={modelOptions}
           accounts={accounts}

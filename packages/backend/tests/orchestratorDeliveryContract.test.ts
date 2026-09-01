@@ -28,15 +28,15 @@ describe("sentViaOrchestrator survives queueing", () => {
     const queuedFields = tableFields.slice(
       tableFields.indexOf("export const queuedMessageFields = {"),
     );
-    expect(queuedFields).toContain("sentViaOrchestrator: v.optional(v.boolean())");
+    expect(queuedFields).toContain(
+      "sentViaOrchestrator: v.optional(v.boolean())",
+    );
   });
 
   test("both enqueue mutations accept and persist it", () => {
     for (const source of [sessionExecution, taskChat]) {
       expect(source).toContain("sentViaOrchestrator: v.optional(v.boolean())");
-      expect(source).toContain(
-        "sentViaOrchestrator: args.sentViaOrchestrator",
-      );
+      expect(source).toContain("sentViaOrchestrator: args.sentViaOrchestrator");
     }
   });
 
@@ -49,9 +49,15 @@ describe("sentViaOrchestrator survives queueing", () => {
   });
 
   test("the tool sets it on every delivery path", () => {
-    // Idle (addMessage), busy (both enqueue variants), and create_session.
-    const sets = nodeActions.match(/sentViaOrchestrator: true/g);
-    expect(sets?.length).toBeGreaterThanOrEqual(4);
+    // Idle and busy paths for all three chat surfaces now come from one
+    // builder, so the flag is threaded into it rather than repeated per call.
+    // `create_session` is the only place nodeActions still hard-codes it.
+    expect(nodeActions).toContain("buildChatMessageCalls({");
+    expect(nodeActions).toContain("sentViaOrchestrator,");
+    expect(nodeActions).toContain("sentViaOrchestrator: true");
+    const delivery = readSource("mcp/orchestratorDelivery.ts");
+    const badges = delivery.match(/orchestratorBadge: true/g);
+    expect(badges?.length).toBe(2);
   });
 
   test("a session the orchestrator creates marks its first message", () => {
@@ -73,9 +79,10 @@ describe("queued work counts as busy", () => {
     expect(nodeActions).toContain("const queuedAhead");
   });
 
-  test("both surfaces fold it into isBusy", () => {
+  test("every chat surface folds it into isBusy", () => {
+    // Session, quick task chat, project chat.
     const folds = nodeActions.match(/queuedAhead > 0/g);
-    expect(folds?.length).toBe(2);
+    expect(folds?.length).toBe(3);
   });
 });
 
@@ -91,15 +98,11 @@ describe("the fleet list does not fetch whole task documents", () => {
 
   test("the slim projection exists and is what the tool calls", () => {
     expect(taskQueries).toContain("export const getActiveTasksSlim");
-    expect(nodeActions).toContain(
-      '"_agentTasks/queries:getActiveTasksSlim"',
-    );
+    expect(nodeActions).toContain('"_agentTasks/queries:getActiveTasksSlim"');
   });
 
   test("the fleet list no longer calls the full-document query", () => {
-    expect(nodeActions).not.toContain(
-      '"_agentTasks/queries:getActiveTasks"',
-    );
+    expect(nodeActions).not.toContain('"_agentTasks/queries:getActiveTasks"');
   });
 
   test("the projection omits the fields that made docs large", () => {

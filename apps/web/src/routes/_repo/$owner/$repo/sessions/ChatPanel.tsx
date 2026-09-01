@@ -10,10 +10,11 @@ import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { ComposerPlanReadyBanner } from "./_components/ComposerPlanReadyBanner";
+import { SandboxChatPreInput } from "@/lib/components/chat/SandboxChatPreInput";
+import type { SandboxChatSurface } from "@/lib/components/chat/sandboxChatSurface";
 import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
-import { BackgroundAgentsChip } from "./_components/BackgroundAgentsChip";
+import { PublishRecoveryBanner } from "./_components/PublishRecoveryBanner";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
-import { claudeUsageAccountScope } from "@/lib/components/usage-limits";
 import { SessionSummaryAccordion } from "./_components/SessionSummaryAccordion";
 import { SessionSummaryModal } from "./_components/SessionSummaryModal";
 import { SessionReviewModal } from "./_components/SessionReviewModal";
@@ -24,6 +25,7 @@ import {
 import { catchMutationError } from "@/lib/utils/mutationToast";
 import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import { useSessionModel } from "@/lib/hooks/useSessionModel";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 import {
   useAvailableAiModels,
   useSessionOwnerProviderAccounts,
@@ -78,6 +80,8 @@ interface ChatPanelProps {
   onViewDiff?: (repoRelativePath?: string) => void;
   /** Opens the PRD sandbox tab (used by the Plan Ready banner). */
   onOpenPrdTab?: () => void;
+  /** Opens the Agents sandbox tab (used by the sub-agent CTA row in the chat). */
+  onOpenAgentsTab?: () => void;
   backgroundAgents?: Doc<"sessions">["backgroundAgents"];
 }
 
@@ -110,9 +114,11 @@ export function ChatPanel({
   onOpenFile,
   onViewDiff,
   onOpenPrdTab,
+  onOpenAgentsTab,
   backgroundAgents,
 }: ChatPanelProps) {
   const { repo, basePath } = useRepo();
+  const simpleView = useSimpleView();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showResetChatDialog, setShowResetChatDialog] = useState(false);
@@ -182,6 +188,22 @@ export function ChatPanel({
     messages,
   });
 
+  const chatSurface: SandboxChatSurface = {
+    entity: { kind: "session", sessionId },
+    repoId: repo._id,
+    model,
+    isExecuting,
+    isReadOnly,
+    // A stopped session sandbox still gets the offer: sending wakes it.
+    compactionReadOnly: isReadOnly,
+    backgroundAgents,
+    // Review comments are appended to normal sends; a slash command has to
+    // reach the harness verbatim.
+    onSendCommand: (command) => {
+      void handleSend(command, undefined, { skipReviewComments: true });
+    },
+  };
+
   const activeQuestion = useQuery(api.pendingQuestions.getActive, {
     entityId: sessionId,
   });
@@ -201,26 +223,17 @@ export function ChatPanel({
     );
   };
 
-  // Plan usage belongs to the Claude credential this session runs on. Hidden
-  // until the session document lands (so Team cannot flash), and omitted on
-  // Cursor/Codex/OpenCode — those still carry a sticky account id that would
-  // otherwise paint Claude's numbers beside the wrong picker.
-  const usageAccountScope =
-    stickyProviderAccountId === undefined
-      ? undefined
-      : claudeUsageAccountScope(model, {
-          providerAccountId: stickyProviderAccountId,
-          accountLabel:
-            stickyProviderAccountId === null
-              ? "Team"
-              : (accounts.find(
-                  (account) => account.id === stickyProviderAccountId,
-                )?.label ?? "Selected account"),
-        });
-
   const hasSummary = Boolean(summary && summary.length > 0);
   const isStartupStreaming =
     isSandboxToggling && !isSandboxActive && !isSandboxStopping;
+
+  const usageAccountLabel =
+    stickyProviderAccountId === null
+      ? "Team"
+      : stickyProviderAccountId === undefined
+        ? "Selected account"
+        : (accounts.find((account) => account.id === stickyProviderAccountId)
+            ?.label ?? "Selected account");
 
   const { headerLeft, headerRight } = SessionChatHeader({
     repoId: repo._id,
@@ -238,7 +251,9 @@ export function ChatPanel({
     permalinkPath,
     chatOnly,
     hideTitle,
-    usageAccountScope,
+    model,
+    providerAccountId: stickyProviderAccountId,
+    usageAccountLabel,
     onSandboxToggle,
     onOpenSummaryModal: () => setShowSummaryModal(true),
     onOpenReviewModal: () => setShowReviewModal(true),
@@ -286,41 +301,54 @@ export function ChatPanel({
   };
 
   const preInputContent = (
-    <>
-      <BackgroundAgentsChip
-        sessionId={sessionId}
-        backgroundAgents={backgroundAgents}
-        isReadOnly={isReadOnly}
-      />
-      <BackgroundProcessesPanel sessionId={sessionId} />
-      <PendingReviewCommentChips />
-      {showCompactPlanCard && planContent ? (
-        <AnimatePresence initial={false}>
-          <m.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={motionBase}
-          >
-            <SessionPrdPlanView
+    <SandboxChatPreInput
+      surface={chatSurface}
+      beforeBanner={
+        <>
+          {simpleView ? null : (
+            <BackgroundProcessesPanel sessionId={sessionId} />
+          )}
+          {!isReadOnly ? (
+            <PublishRecoveryBanner
               sessionId={sessionId}
+              messages={messages}
+              isSandboxActive={isSandboxActive}
+            />
+          ) : null}
+          <PendingReviewCommentChips />
+        </>
+      }
+      afterBanner={
+        <>
+          {showCompactPlanCard && planContent ? (
+            <AnimatePresence initial={false}>
+              <m.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={motionBase}
+              >
+                <SessionPrdPlanView
+                  sessionId={sessionId}
+                  planContent={planContent}
+                  onApprovePlan={handleApprovePlan}
+                  variant="compact"
+                  isArchived={isReadOnly}
+                />
+              </m.div>
+            </AnimatePresence>
+          ) : null}
+          {showPlanReadyBanner && planContent ? (
+            <ComposerPlanReadyBanner
               planContent={planContent}
+              onViewPlan={handleViewPlan}
               onApprovePlan={handleApprovePlan}
-              variant="compact"
               isArchived={isReadOnly}
             />
-          </m.div>
-        </AnimatePresence>
-      ) : null}
-      {showPlanReadyBanner && planContent ? (
-        <ComposerPlanReadyBanner
-          planContent={planContent}
-          onViewPlan={handleViewPlan}
-          onApprovePlan={handleApprovePlan}
-          isArchived={isReadOnly}
-        />
-      ) : null}
-    </>
+          ) : null}
+        </>
+      }
+    />
   );
 
   const emptyStateTitle = isSandboxActive
@@ -389,6 +417,9 @@ export function ChatPanel({
         onOpenFile={onOpenFile}
         onViewDiff={prUrl ? onViewDiff : undefined}
         hasPendingContext={hasPendingReviewComments}
+        onOpenAgentsTab={onOpenAgentsTab}
+        backgroundAgents={backgroundAgents}
+        sandboxRunning={isSandboxActive}
       />
       <SessionSummaryModal
         sessionId={sessionId}

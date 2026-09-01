@@ -118,6 +118,14 @@ test("normalizeAIModel upgrades bare legacy claude aliases", () => {
   expect(normalizeAIModel("opus")).toBe("claude:opus");
   expect(normalizeAIModel("haiku")).toBe("claude:haiku");
   expect(normalizeAIModel("sonnet")).toBe("claude:sonnet");
+  expect(normalizeAIModel("fable")).toBe("claude:claude-fable-5-1");
+  expect(normalizeAIModel("claude:fable")).toBe("claude:claude-fable-5-1");
+  expect(normalizeAIModel("claude:claude-fable-5")).toBe(
+    "claude:claude-fable-5-1",
+  );
+  expect(normalizeAIModel("claude:claude-fable-5-1")).toBe(
+    "claude:claude-fable-5-1",
+  );
 });
 
 test("getAIModelProvider follows normalized model prefix", () => {

@@ -267,6 +267,11 @@ export const cursorFastMode = PROVIDER === "cursor" && AI_FAST_MODE === "1";
 export const cursorUse1mContext =
   PROVIDER === "cursor" && AI_CONTEXT_1M === "1";
 
+/** User turned thinking off (traits toggle or Claude effort "off"). */
+export const claudeThinkingDisabled =
+  AI_THINKING_ENABLED === "0" ||
+  (PROVIDER === "claude" && REASONING_EFFORT === "off");
+
 function buildSettingsJson(): string {
   const settings: {
     attribution: { commit: string; pr: string };
@@ -274,10 +279,7 @@ function buildSettingsJson(): string {
   } = {
     attribution: { commit: "", pr: "" },
   };
-  const thinkingDisabled =
-    AI_THINKING_ENABLED === "0" ||
-    (PROVIDER === "claude" && REASONING_EFFORT === "off");
-  if (thinkingDisabled) {
+  if (claudeThinkingDisabled) {
     settings.alwaysThinkingEnabled = false;
   }
   return JSON.stringify(settings);

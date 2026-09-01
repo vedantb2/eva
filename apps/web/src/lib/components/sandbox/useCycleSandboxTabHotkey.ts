@@ -5,13 +5,13 @@ import type { SandboxTab } from "@/lib/search-params";
 
 /**
  * Tab order matches `SandboxTabBar`'s always-visible rail (Preview, Browser,
- * Review). Editor / Computer are only cyclable when pinned from `+`.
+ * Review). Editor / Computer follow when the surface enables them.
  */
 const SANDBOX_TAB_BAR_ORDER: SandboxTab[] = ["preview", "browser", "review"];
 
 /**
  * Returns the Shift+Tab cycle order: enabled builtins, then Editor/Computer
- * when open, then File Viewer / PRD if shown, then custom tab slugs.
+ * when shown, then File Viewer / PRD if shown, then custom tab slugs.
  */
 function getCyclableSandboxTabs(
   enabledTabs?: ReadonlyArray<SandboxTab>,
@@ -21,6 +21,7 @@ function getCyclableSandboxTabs(
   showFilesTab?: boolean,
   showComputerTab?: boolean,
   showEditorTab?: boolean,
+  showAgentsTab?: boolean,
 ): string[] {
   const tabs = enabledTabs
     ? SANDBOX_TAB_BAR_ORDER.filter((tab) => enabledTabs.includes(tab))
@@ -30,7 +31,8 @@ function getCyclableSandboxTabs(
     ? [...withEditor, "computer"]
     : withEditor;
   const withFiles = showFilesTab ? [...withComputer, "files"] : withComputer;
-  const withPrd = showPrdTab ? [...withFiles, "prd"] : withFiles;
+  const withAgents = showAgentsTab ? [...withFiles, "agents"] : withFiles;
+  const withPrd = showPrdTab ? [...withAgents, "prd"] : withAgents;
   const withDesigns = showDesignsTab ? [...withPrd, "designs"] : withPrd;
   if (!customTabSlugs || customTabSlugs.length === 0) return withDesigns;
   return [...withDesigns, ...customTabSlugs];
@@ -47,6 +49,7 @@ export function useCycleSandboxTabHotkey({
   customTabSlugs,
   showComputerTab,
   showEditorTab,
+  showAgentsTab,
   enabled = true,
 }: {
   activeTab: string;
@@ -58,6 +61,7 @@ export function useCycleSandboxTabHotkey({
   customTabSlugs?: ReadonlyArray<string>;
   showComputerTab?: boolean;
   showEditorTab?: boolean;
+  showAgentsTab?: boolean;
   enabled?: boolean;
 }) {
   const cyclableTabs = getCyclableSandboxTabs(
@@ -68,6 +72,7 @@ export function useCycleSandboxTabHotkey({
     showFilesTab,
     showComputerTab,
     showEditorTab,
+    showAgentsTab,
   );
 
   useShortcut(

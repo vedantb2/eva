@@ -160,6 +160,29 @@ export function repoSectionHref(
   return section === null ? base : `${base}/${section}`;
 }
 
+/**
+ * Turn a stored href into the arguments TanStack `navigate` actually reads.
+ *
+ * The router never splits a query string out of `to` — it resolves the whole
+ * string as a pathname, so `/o/r/quick-tasks/3?comment=abc` matches nothing.
+ * Search has to be handed over separately, which is what this does, on top of
+ * the `repo--app` rewrite every stored href needs anyway.
+ */
+export function hrefToNavigateOptions(href: string): {
+  to: string;
+  search: Record<string, string>;
+} {
+  const internal = toInternalRepoHref(href);
+  const { pathname, suffix } = splitHref(internal);
+  if (!suffix.startsWith("?")) return { to: internal, search: {} };
+  const [query] = suffix.slice(1).split("#");
+  const search: Record<string, string> = {};
+  for (const [key, value] of new URLSearchParams(query)) {
+    search[key] = value;
+  }
+  return { to: pathname, search };
+}
+
 function splitHref(href: string): { pathname: string; suffix: string } {
   const qIdx = href.indexOf("?");
   const hIdx = href.indexOf("#");

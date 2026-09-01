@@ -28,7 +28,7 @@ export const VERCEL_EDITOR_INTERNAL_PORT = 18080;
 const HEALTH_PATH = "/__eva_preview_proxy/health";
 // Bump when the generated proxy script changes so already-running proxies from
 // an older deploy are detected as stale (via the health response) and relaunched.
-const SCRIPT_VERSION = "stream-v17";
+const SCRIPT_VERSION = "stream-v18";
 
 /** Values injected into the generated proxy script to drive the auth gate. */
 interface PreviewProxyAuthParams {
@@ -499,10 +499,137 @@ const injectedScript = "(" + function () {
   sendLocation();
 }.toString() + ")();";
 
+// The local Convex backend mints absolute URLs from its own loopback origin:
+// storage.generateUploadUrl() returns http://127.0.0.1:3210/api/storage/…,
+// and storage.getUrl() the same host — unreachable from the user's browser.
+// Apps only point their Convex *client* at /__convex, so backend-minted URLs
+// reach page code verbatim; this patch rewrites loopback Convex targets in
+// fetch/XHR/WebSocket onto the proxied prefixes of the page's own origin.
+const convexRewriteScript = "(" + function () {
+  const flag = "__evaConvexLoopbackRewrite";
+  if (window[flag]) return;
+  window[flag] = true;
+
+  function isLoopbackHost(hostname) {
+    return (
+      hostname === "127.0.0.1" ||
+      hostname === "localhost" ||
+      hostname === "[::1]"
+    );
+  }
+
+  // In-sandbox browsers (agent-browser, curl-driven checks) reach loopback
+  // directly; only pages served from a real preview origin need the rewrite.
+  if (isLoopbackHost(window.location.hostname)) return;
+
+  const PREFIX_BY_PORT = { 3210: "/__convex", 3211: "/__convex-site" };
+
+  function rewriteLoopbackConvexUrl(value) {
+    try {
+      const url = new URL(String(value), window.location.href);
+      if (!isLoopbackHost(url.hostname)) return null;
+      const prefix = PREFIX_BY_PORT[url.port];
+      if (!prefix) return null;
+      const base =
+        url.protocol === "ws:" || url.protocol === "wss:"
+          ? window.location.origin.replace(/^http/, "ws")
+          : window.location.origin;
+      return base + prefix + url.pathname + url.search;
+    } catch {
+      return null;
+    }
+  }
+
+  const originalFetch = window.fetch;
+  window.fetch = function (input, init) {
+    try {
+      if (typeof input === "string" || input instanceof URL) {
+        const rewritten = rewriteLoopbackConvexUrl(input);
+        if (rewritten !== null) return originalFetch.call(this, rewritten, init);
+      } else if (input instanceof Request) {
+        const rewritten = rewriteLoopbackConvexUrl(input.url);
+        if (rewritten !== null) {
+          return originalFetch.call(this, new Request(rewritten, input), init);
+        }
+      }
+    } catch {}
+    return originalFetch.apply(this, arguments);
+  };
+
+  const originalOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function () {
+    try {
+      const rewritten = rewriteLoopbackConvexUrl(arguments[1]);
+      if (rewritten !== null) arguments[1] = rewritten;
+    } catch {}
+    return originalOpen.apply(this, arguments);
+  };
+
+  const NativeWebSocket = window.WebSocket;
+  function PatchedWebSocket(url, protocols) {
+    const rewritten = rewriteLoopbackConvexUrl(url);
+    const target = rewritten !== null ? rewritten : url;
+    return protocols === undefined
+      ? new NativeWebSocket(target)
+      : new NativeWebSocket(target, protocols);
+  }
+  PatchedWebSocket.prototype = NativeWebSocket.prototype;
+  PatchedWebSocket.CONNECTING = NativeWebSocket.CONNECTING;
+  PatchedWebSocket.OPEN = NativeWebSocket.OPEN;
+  PatchedWebSocket.CLOSING = NativeWebSocket.CLOSING;
+  PatchedWebSocket.CLOSED = NativeWebSocket.CLOSED;
+  window.WebSocket = PatchedWebSocket;
+
+  // storage.getUrl() URLs land in the DOM (<img src>, <a href> download
+  // links) without going through fetch, so rewrite those attributes too.
+  function rewriteElementAttribute(element, name) {
+    if (!element.getAttribute) return;
+    const value = element.getAttribute(name);
+    if (!value || value.indexOf("http") !== 0) return;
+    const rewritten = rewriteLoopbackConvexUrl(value);
+    if (rewritten !== null && rewritten !== value) {
+      element.setAttribute(name, rewritten);
+    }
+  }
+
+  function rewriteTree(root) {
+    if (root.getAttribute) {
+      rewriteElementAttribute(root, "src");
+      rewriteElementAttribute(root, "href");
+    }
+    if (!root.querySelectorAll) return;
+    const nodes = root.querySelectorAll("[src], [href]");
+    for (let i = 0; i < nodes.length; i += 1) {
+      rewriteElementAttribute(nodes[i], "src");
+      rewriteElementAttribute(nodes[i], "href");
+    }
+  }
+
+  const observer = new MutationObserver(function (mutations) {
+    for (const mutation of mutations) {
+      if (mutation.type === "attributes") {
+        rewriteElementAttribute(mutation.target, mutation.attributeName);
+      } else {
+        for (const node of mutation.addedNodes) {
+          rewriteTree(node);
+        }
+      }
+    }
+  });
+  observer.observe(document.documentElement, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ["src", "href"],
+  });
+  rewriteTree(document);
+}.toString() + ")();";
+
 const ANNOTATION_SCRIPT = ${JSON.stringify(PREVIEW_ANNOTATION_SCRIPT)};
 
 function buildInjectionTag() {
-  const combined = injectedScript + "\n" + ANNOTATION_SCRIPT;
+  const combined =
+    convexRewriteScript + "\n" + injectedScript + "\n" + ANNOTATION_SCRIPT;
   const safeScript = combined.replace(/<\/script/gi, "<\\/script");
   return "<script data-eva-preview-nav-sync>" + safeScript + "</scr" + "ipt>";
 }

@@ -2,8 +2,18 @@ import { type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { registerOrchestratorTools } from "./orchestratorTools";
+import {
+  registerFleetTools,
+  registerOrchestratorTools,
+} from "./orchestratorTools";
+import { registerEntityTools } from "./entityTools";
 import { buildEvaOrchestratorContent } from "../_systemSkills/evaOrchestrator";
+import {
+  entityAccess,
+  entityRefArgs,
+  entitySummary,
+  repoRefArgs,
+} from "./entityRef";
 
 import {
   errorResult,
@@ -12,6 +22,8 @@ import {
   mcpGetContext,
   mcpListUserRepos,
   textResult,
+  MCP_CLAUDE_MODELS,
+  type McpClaudeModel,
   type McpCredentials,
   type RepoInfo,
 } from "./toolShared";
@@ -20,7 +32,6 @@ interface RepoCredentials {
   convexUrl: string;
   deployKey: string;
 }
-
 
 export function registerTools(
   server: McpServer,
@@ -34,33 +45,17 @@ export function registerTools(
   // Helper functions
   // ─────────────────────────────────────────────────────────────────────────────
 
+  // Repo and chat resolution live in the shared leaf so every tool that acts on
+  // an existing entity — here and in entityTools — runs the same access checks.
+  const { assertRepoAccess, resolveRepoRef, resolveEntityTarget } =
+    entityAccess(ctx, credentials);
+
   async function getContext(): Promise<{ deployKey: string; userId: string }> {
     return mcpGetContext(ctx, clerkUserId);
   }
 
   async function getUserRepos(userId: string): Promise<RepoInfo[]> {
     return mcpListUserRepos(ctx, userId);
-  }
-
-  async function assertRepoAccess(
-    repoId: string,
-    userId: string,
-  ): Promise<void> {
-    // The master session reaches every repo the user can reach, so the token's
-    // single-repo pin does not apply to it — the per-user check below does.
-    if (scopedRepoId && scopedRepoId !== repoId && !isOrchestrator) {
-      throw new Error(
-        "Access denied: this token is scoped to a different repository.",
-      );
-    }
-
-    const hasAccess = await ctx.runQuery(
-      internal.mcp.queries.checkRepoAccessForUser,
-      { repoId, userId },
-    );
-    if (!hasAccess) {
-      throw new Error("Access denied: you do not have access to this repo.");
-    }
   }
 
   async function resolveTargetWithAccess(
@@ -93,45 +88,6 @@ export function registerTools(
     .describe(
       'Which Convex deployment to query. "prod" (default) reads from PROD_CONVEX_URL/PROD_CONVEX_DEPLOY_KEY. "staging" reads from NEXT_PUBLIC_CONVEX_URL/CONVEX_DEPLOY_KEY.',
     );
-
-  /**
-   * Repo selector shared by the backend read tools. `repoId` is the normal
-   * path; `repoName` exists so the master session can name any connected repo
-   * without a list_repos round trip first.
-   */
-  const repoRefArgs = {
-    repoId: z
-      .string()
-      .optional()
-      .describe(
-        "Repo ID from list_repos, specifying which repo's database to query. Provide this or repoName.",
-      ),
-    repoName: z
-      .string()
-      .optional()
-      .describe(
-        'Repo name (e.g. "eva" or "vvedantb/eva"), as an alternative to repoId. Resolved against your connected repos.',
-      ),
-    app: z
-      .string()
-      .optional()
-      .describe(
-        'App name within a monorepo (e.g. "web"). Used with repoName when a repo has multiple apps.',
-      ),
-  };
-
-  async function resolveRepoRef(
-    ref: { repoId?: string; repoName?: string; app?: string },
-    userId: string,
-  ): Promise<{ repoId: string } | ReturnType<typeof errorResult>> {
-    if (ref.repoId) return { repoId: ref.repoId };
-    if (!ref.repoName) {
-      return errorResult("Provide either repoId (from list_repos) or repoName.");
-    }
-    const resolved = await resolveRepoByName(ref.repoName, ref.app, userId);
-    if ("isError" in resolved) return resolved;
-    return { repoId: resolved.repo.id };
-  }
 
   // ─────────────────────────────────────────────────────────────────────────────
   // list_repos
@@ -317,6 +273,7 @@ export function registerTools(
           code: `return await ctx.db.get(${JSON.stringify(id)});`,
         },
       );
+      if (!result.ok) return errorResult(result.error);
 
       const output: { document: unknown; logLines?: string[] } = {
         document: result.value,
@@ -370,6 +327,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
           code,
         },
       );
+      if (!result.ok) return errorResult(result.error);
 
       const output: { result: unknown; logLines?: string[] } = {
         result: result.value,
@@ -418,6 +376,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
           code: `const docs = await ctx.db.query(${JSON.stringify(table)}).collect(); return docs.length;`,
         },
       );
+      if (!result.ok) return errorResult(result.error);
 
       return textResult({ table, count: result.value });
     },
@@ -519,10 +478,10 @@ For schema discovery, query information_schema (e.g. "SELECT table_name FROM inf
         'Repo name (e.g. "eva" or "vvedantb/eva"). Resolved by matching against your connected repos.',
       ),
     model: z
-      .enum(["opus", "sonnet", "haiku"])
+      .enum(MCP_CLAUDE_MODELS)
       .optional()
       .describe(
-        "Claude model to use. If omitted, uses the repo's default model.",
+        'Claude model to use ("opus", "sonnet", "haiku", or "fable"). If omitted, uses the repo\'s default model.',
       ),
     baseBranch: z
       .string()
@@ -548,7 +507,7 @@ For schema discovery, query information_schema (e.g. "SELECT table_name FROM inf
     title: string;
     description: string;
     repoName: string;
-    model?: "opus" | "sonnet" | "haiku";
+    model?: McpClaudeModel;
     baseBranch?: string;
     app?: string;
     projectId?: string;
@@ -663,10 +622,10 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
           "If provided, creates a project with this title and assigns all tasks to it",
         ),
       model: z
-        .enum(["opus", "sonnet", "haiku"])
+        .enum(MCP_CLAUDE_MODELS)
         .optional()
         .describe(
-          "Claude model to use for all tasks. If omitted, uses the repo's default model.",
+          'Claude model to use for all tasks ("opus", "sonnet", "haiku", or "fable"). If omitted, uses the repo\'s default model.',
         ),
       baseBranch: z
         .string()
@@ -731,6 +690,75 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
         ...batchResult,
         taskCount: input.tasks.length,
         status: "created",
+      });
+    },
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // send_chat_message
+  //
+  // The one write tool that targets work already in flight. Every caller gets
+  // it — an OAuth connector, a sandbox token, the master session — because it
+  // grants nothing beyond what the user can already do in that chat: the
+  // repo-access check below is the same one the web mutations run.
+  //
+  // All three sandbox chat surfaces are reachable (session, quick task,
+  // project), because all three are somewhere a person can type in the app and
+  // all three run their turn on their own branch.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  server.tool(
+    "send_chat_message",
+    `Send a chat message into an EXISTING Eva session, quick task or project and run it there, exactly as typing in that chat does. Use this to carry on with a pull request Eva already opened. It never creates a new session, task or project.
+
+Name the chat by its Convex "id", by its GitHub "prUrl", or by "numId" plus "kind" and a repo. An idle chat starts its sandbox and runs the message straight away; one mid-turn queues it to run next. The reply says which happened.
+
+Sending wakes the chat's preview sandbox. Call stop_sandbox once you are done with it so the VM does not keep running.`,
+    {
+      message: z.string().describe("The message to post into the chat."),
+      ...entityRefArgs,
+      model: z
+        .enum(MCP_CLAUDE_MODELS)
+        .optional()
+        .describe(
+          'Claude model for this turn ("opus", "sonnet", "haiku", or "fable"). Omit to reuse the model that chat last ran on.',
+        ),
+    },
+    async ({ message, model, ...ref }) => {
+      if (message.trim().length === 0) {
+        return errorResult("message cannot be empty.");
+      }
+
+      const { userId } = await getContext();
+      const resolved = await resolveEntityTarget(ref, userId);
+      if ("isError" in resolved) return resolved;
+      const { target } = resolved;
+
+      if (entityId !== undefined && target.targetId === entityId) {
+        return errorResult(
+          "That is this sandbox's own chat. Reply in your own turn instead of messaging yourself.",
+        );
+      }
+
+      const result = await ctx.runAction(
+        internal.mcp.nodeActions.orchestratorSendMessage,
+        {
+          clerkUserId,
+          kind: target.kind,
+          id: target.targetId,
+          message,
+          model,
+          masterSessionId,
+          // Any MCP send — master sandbox or user OAuth connector — stamps the
+          // "via MCP" chat badge so it is not mistaken for a composer-typed turn.
+          sentViaOrchestrator: true,
+        },
+      );
+
+      return textResult({
+        ...entitySummary(target),
+        delivered: result.delivered,
+        model: result.model,
       });
     },
   );
@@ -1177,8 +1205,22 @@ Do NOT use this instead of leaving files in recordings/ / screenshots/ for chat 
   );
 
   // ─────────────────────────────────────────────────────────────────────────────
-  // Orchestrator tools — only the user's master session gets these.
+  // Fleet tools — every MCP caller (OAuth connector included). Authz is the
+  // same hasRepoAccess checks the backing actions already run as the user.
+  // send_agent_message stays behind the orchestrator gate: it is the master
+  // speaking, and needs the master sandbox token.
   // ─────────────────────────────────────────────────────────────────────────────
+
+  registerFleetTools(server, credentials, ctx);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Entity tools — list_entities, start_sandbox, stop_sandbox and
+  // cancel_queued_message. Same audience and same authz as send_chat_message:
+  // every caller gets them, and each one resolves its target through the
+  // shared repo-access check above.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  registerEntityTools(server, credentials, ctx);
 
   if (isOrchestrator) {
     registerOrchestratorTools(server, credentials, ctx);

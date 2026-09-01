@@ -41,6 +41,7 @@ import { finalizeCancelledAssistantMessage } from "../streaming";
 import { backgroundAgentEntryValidator } from "../_validators/tableFields";
 import { mergeBackgroundAgents } from "./backgroundAgents";
 import { prependModelHandoffContext } from "../_shared/modelHandoff";
+import { isDaemonClaimPaused } from "../_chat/daemonClaimPause";
 import {
   ensureSessionDaemonState,
   syncSessionDaemonState,
@@ -1025,6 +1026,9 @@ export const claimPendingTurn = authMutation({
   args: {
     sessionId: v.id("sessions"),
     model: v.optional(aiModelValidator),
+    // When false, drain cancel/stop/usage only. Old sandboxes omit this and
+    // keep acquiring the running lease (previous behaviour).
+    acceptTurn: v.optional(v.boolean()),
   },
   returns: v.union(
     v.object({
@@ -1116,7 +1120,39 @@ export const claimPendingTurn = authMutation({
       await ctx.db.patch(args.sessionId, { cancelRequestedAt: undefined });
     }
 
+    // A prewarm is killing this daemon right now (stale callback bundle or a
+    // model/tools change). Handing it the turn in the milliseconds before the
+    // kill lands acquires the 2-minute running lease for a process that is
+    // already dying, and nothing heartbeats it — the "Turn stalled" alert of
+    // session 125. pendingTurn stays staged for the replacement daemon; the
+    // drains above still ran, so a cancel is never stranded by the pause.
+    if (
+      isDaemonClaimPaused({
+        claimPausedUntil: daemonState.claimPausedUntil,
+        now: Date.now(),
+      })
+    ) {
+      return {
+        ...emptyClaim,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
+    }
+
     if (!daemonState.pendingTurn) {
+      return {
+        ...emptyClaim,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
+    }
+
+    // The daemon is not ready to start (still finalizing, synthetic open, or
+    // a real turn in flight). Leave pendingTurn so the 2-minute running lease
+    // is not acquired with nobody heartbeating it (session 65 / session 125).
+    if (args.acceptTurn === false) {
       return {
         ...emptyClaim,
         stopTaskToolUseIds,

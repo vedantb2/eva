@@ -283,6 +283,14 @@ const schema = defineSchema({
     // Set once this notification has been included in an email (instant send or
     // daily digest), so neither path emails the same notification twice.
     emailedAt: v.optional(v.number()),
+    // The comment this notification was generated from, when it came from one.
+    // Also encoded into `href` as `?comment=<id>` at creation; kept here as a
+    // field so the anchor survives independently of the href string. Absent on
+    // non-comment notifications and on every notification created before this
+    // field existed — those keep landing at the top of the target page.
+    commentId: v.optional(
+      v.union(v.id("taskComments"), v.id("docComments")),
+    ),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_read", ["userId", "read"])

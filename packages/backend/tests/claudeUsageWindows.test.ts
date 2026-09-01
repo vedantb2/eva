@@ -1,8 +1,10 @@
 import { describe, expect, test } from "vitest";
 import {
+  claudeUsageBodyFromUnifiedHeaders,
   claudeUsageBodySchema,
   hasPlanRateLimits,
   readClaudeUsageWindows,
+  readUnifiedRateLimitHeaders,
 } from "../convex/_usageLimits/claudeUsage";
 
 /** A literal response body, parsed the way the action parses a real one. */
@@ -174,5 +176,186 @@ describe("readClaudeUsageWindows", () => {
         }),
       ).map((window) => window.key),
     ).toEqual(["five_hour"]);
+  });
+});
+
+describe("unified inference headers", () => {
+  test("a 0–1 fraction and unix-seconds reset become a percent window", () => {
+    const resetsAtMs = Date.UTC(2026, 7, 25, 12, 0, 0);
+    const headers: Record<string, string> = {
+      "anthropic-ratelimit-unified-5h-utilization": "0.01",
+      "anthropic-ratelimit-unified-5h-reset": String(resetsAtMs / 1000),
+      "anthropic-ratelimit-unified-7d-utilization": "0.63",
+      "anthropic-ratelimit-unified-7d-reset": String(resetsAtMs / 1000),
+    };
+    const body = claudeUsageBodyFromUnifiedHeaders((name) => headers[name]);
+    expect(body, "headers should produce a usage body").not.toBeNull();
+    if (body === null) return;
+    expect(hasPlanRateLimits(body)).toBe(true);
+    expect(readClaudeUsageWindows(body)).toEqual([
+      {
+        key: "five_hour",
+        label: "5h",
+        utilization: 1,
+        resetsAt: resetsAtMs,
+      },
+      {
+        key: "seven_day",
+        label: "Weekly (all models)",
+        utilization: 63,
+        resetsAt: resetsAtMs,
+      },
+    ]);
+  });
+
+  test("the 7d_oi claim becomes Weekly (Fable)", () => {
+    // The chip bar picks the weekly window that meters the active model, so a
+    // Fable chat's refresh has to produce a `model_scoped:Fable` key.
+    const resetsAtMs = Date.UTC(2026, 7, 25, 12, 0, 0);
+    const headers: Record<string, string> = {
+      "anthropic-ratelimit-unified-5h-utilization": "0.5",
+      "anthropic-ratelimit-unified-5h-reset": String(resetsAtMs / 1000),
+      "anthropic-ratelimit-unified-7d-utilization": "0.4",
+      "anthropic-ratelimit-unified-7d-reset": String(resetsAtMs / 1000),
+      "anthropic-ratelimit-unified-7d_oi-utilization": "0.12",
+      "anthropic-ratelimit-unified-7d_oi-reset": String(resetsAtMs / 1000),
+    };
+    const body = claudeUsageBodyFromUnifiedHeaders((name) => headers[name]);
+    expect(body, "headers should produce a usage body").not.toBeNull();
+    if (body === null) return;
+    expect(readClaudeUsageWindows(body)).toEqual([
+      {
+        key: "five_hour",
+        label: "5h",
+        utilization: 50,
+        resetsAt: resetsAtMs,
+      },
+      {
+        key: "seven_day",
+        label: "Weekly (all models)",
+        utilization: 40,
+        resetsAt: resetsAtMs,
+      },
+      {
+        key: "model_scoped:Fable",
+        label: "Weekly (Fable)",
+        utilization: 12,
+        resetsAt: resetsAtMs,
+      },
+    ]);
+  });
+
+  test("the probe sees no weekly beyond all-models and Fable", () => {
+    // Which is why a probe reading is stored as a partial merge: replacing the
+    // row would drop the Opus/Sonnet weeklies only `/usage` reports.
+    expect(
+      readUnifiedRateLimitHeaders((name) =>
+        name.endsWith("-utilization") ? "0.5" : undefined,
+      ).map((window) => window.key),
+    ).toEqual(["five_hour", "seven_day", "model_scoped:Fable"]);
+  });
+
+  test("headers with no unified windows produce no body", () => {
+    expect(claudeUsageBodyFromUnifiedHeaders(() => undefined)).toBeNull();
+    expect(readUnifiedRateLimitHeaders(() => "")).toEqual([]);
+    expect(readUnifiedRateLimitHeaders(() => "not a number")).toEqual([]);
+  });
+});
+
+/**
+ * Current `/usage` bodies null out the legacy `five_hour` / `seven_day` keys
+ * and report the same numbers as `limits[]` entries instead. Without this
+ * fallback a refresh stores only the model-scoped weeklies, so the chip loses
+ * the two windows that actually gate work.
+ */
+describe("limits[] stands in for the legacy top-level windows", () => {
+  test("session and weekly_all fill 5h and Weekly (all models)", () => {
+    const resetsAtMs = Date.UTC(2026, 7, 25, 12, 0, 0);
+    const windows = readClaudeUsageWindows(
+      parse({
+        five_hour: null,
+        seven_day: null,
+        limits: [
+          { kind: "session", percent: 61, resets_at: resetsAtMs / 1000 },
+          { kind: "weekly_all", percent: 23 },
+          {
+            kind: "weekly_scoped",
+            percent: 12,
+            scope: { model: { display_name: "Fable" } },
+          },
+        ],
+      }),
+    );
+    expect(windows).toEqual([
+      { key: "five_hour", label: "5h", utilization: 61, resetsAt: resetsAtMs },
+      { key: "seven_day", label: "Weekly (all models)", utilization: 23 },
+      { key: "model_scoped:Fable", label: "Weekly (Fable)", utilization: 12 },
+    ]);
+  });
+
+  test("a body carrying only limits[] is still a usage report", () => {
+    // Nothing at the top level, so `hasPlanRateLimits` has to read `limits[]`
+    // or a good stored row gets discarded as "Claude reported nothing".
+    expect(
+      hasPlanRateLimits(parse({ limits: [{ kind: "session", percent: 4 }] })),
+    ).toBe(true);
+  });
+
+  test("a top-level window wins over the same window in limits[]", () => {
+    // Both shapes in one body must not draw the window twice.
+    expect(
+      readClaudeUsageWindows(
+        parse({
+          five_hour: { utilization: 70 },
+          limits: [
+            { kind: "session", percent: 61 },
+            { kind: "weekly_all", percent: 23 },
+          ],
+        }),
+      ),
+    ).toEqual([
+      { key: "five_hour", label: "5h", utilization: 70 },
+      { key: "seven_day", label: "Weekly (all models)", utilization: 23 },
+    ]);
+  });
+
+  test("a repeated kind does not stack a second row on the same window", () => {
+    expect(
+      readClaudeUsageWindows(
+        parse({
+          limits: [
+            { kind: "session", percent: 61 },
+            { kind: "session", percent: 12 },
+          ],
+        }),
+      ),
+    ).toEqual([{ key: "five_hour", label: "5h", utilization: 61 }]);
+  });
+});
+
+describe("scoped limit resets", () => {
+  test("limits[].resets_at accepts an ISO string", () => {
+    const resetsAtMs = Date.UTC(2026, 7, 25, 12, 0, 0);
+    expect(
+      readClaudeUsageWindows(
+        parse({
+          limits: [
+            {
+              kind: "weekly_scoped",
+              percent: 54,
+              resets_at: new Date(resetsAtMs).toISOString(),
+              scope: { model: { display_name: "Fable" } },
+            },
+          ],
+        }),
+      ),
+    ).toEqual([
+      {
+        key: "model_scoped:Fable",
+        label: "Weekly (Fable)",
+        utilization: 54,
+        resetsAt: resetsAtMs,
+      },
+    ]);
   });
 });

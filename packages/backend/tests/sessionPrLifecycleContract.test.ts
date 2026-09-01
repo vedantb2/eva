@@ -61,6 +61,14 @@ describe("session pull-request lifecycle", () => {
     expect(gate).toContain("args.prNumber !== undefined");
     expect(gate).toContain("args.mergeCommitSha !== undefined");
   });
+
+  test("a newly archived session notifies the owner in-app", () => {
+    const archiveAt = handler.indexOf("if (needsArchive) {");
+    const notifyAt = handler.indexOf("notifySessionOwnerOfPrArchive(");
+    expect(archiveAt).toBeGreaterThan(-1);
+    expect(notifyAt).toBeGreaterThan(archiveAt);
+    expect(handler.slice(archiveAt, notifyAt)).not.toContain("needsUnarchive");
+  });
 });
 
 describe("session archive closes a live PR", () => {

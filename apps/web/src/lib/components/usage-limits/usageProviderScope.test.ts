@@ -10,12 +10,26 @@ function readSource(path: string): string {
 }
 
 /**
- * The header chip is Claude plan usage. Cursor/Codex chats still have a sticky
- * account id (or Team), and mounting the indicator anyway showed Claude's
- * numbers next to the wrong picker.
+ * One `UsageLimitsIndicator` everywhere. Call sites pass model + account; only
+ * the chip bar changes. The popover always reads the same `getByRepo` rows.
  */
-describe("plan-usage is not shown on a non-Claude chat", () => {
-  test("session, project, and task chats go through claudeUsageAccountScope", () => {
+describe("plan-usage is one shared indicator", () => {
+  test("session, project, and task headers mount UsageLimitsIndicator with model + account", () => {
+    const header = readSource(
+      "routes/_repo/$owner/$repo/sessions/_components/SessionChatHeader.tsx",
+    );
+    const sandbox = readSource(
+      "lib/components/sandbox/SandboxStartStopButton.tsx",
+    );
+    expect(header).toContain("<UsageLimitsIndicator");
+    expect(header).toContain("model={model}");
+    expect(header).toContain("providerAccountId={providerAccountId}");
+    expect(sandbox).toContain("<UsageLimitsIndicator");
+    expect(sandbox).toContain("model={model}");
+    expect(sandbox).toContain("providerAccountId={providerAccountId}");
+  });
+
+  test("call sites do not pre-build UsageAccountScope", () => {
     const session = readSource(
       "routes/_repo/$owner/$repo/sessions/ChatPanel.tsx",
     );
@@ -23,34 +37,19 @@ describe("plan-usage is not shown on a non-Claude chat", () => {
       "lib/components/projects/ProjectSandboxChatPanel.tsx",
     );
     const task = readSource("lib/components/tasks/TaskSandboxChatPanel.tsx");
-    expect(session).toContain("claudeUsageAccountScope(model");
-    expect(project).toContain("claudeUsageAccountScope(model");
-    expect(task).toContain("claudeUsageAccountScope(model");
+    expect(session).not.toContain("claudeUsageAccountScope");
+    expect(project).not.toContain("claudeUsageAccountScope");
+    expect(task).not.toContain("claudeUsageAccountScope");
   });
 
-  test("session, project, and task chats pass a refresh target into the chip", () => {
-    const header = readSource(
-      "routes/_repo/$owner/$repo/sessions/_components/SessionChatHeader.tsx",
+  test("the indicator scopes the chip but always passes every row to the popover", () => {
+    const indicator = readSource(
+      "lib/components/usage-limits/UsageLimitsIndicator.tsx",
     );
-    const sandbox = readSource(
-      "lib/components/sandbox/SandboxStartStopButton.tsx",
+    expect(indicator).toContain("chipSummaryForActive(chipRows, now, model)");
+    expect(indicator).toContain(
+      "<UsageLimitsDetails repoId={repoId} rows={rows} now={now} />",
     );
-    expect(header).toContain("refreshTarget={{ sessionId }}");
-    expect(sandbox).toContain("projectId");
-    expect(sandbox).toContain("taskId");
-    expect(sandbox).toContain("refreshTarget={refreshTarget}");
-  });
-
-  test("the chip is unmounted when there is no Claude scope", () => {
-    const header = readSource(
-      "routes/_repo/$owner/$repo/sessions/_components/SessionChatHeader.tsx",
-    );
-    const sandbox = readSource(
-      "lib/components/sandbox/SandboxStartStopButton.tsx",
-    );
-    expect(header).toContain("usageAccountScope ?");
-    expect(header).toContain("<UsageLimitsIndicator");
-    expect(sandbox).toContain("usageAccountScope && refreshTarget");
-    expect(sandbox).toContain("<UsageLimitsIndicator");
+    expect(indicator).not.toContain("rows={chipRows}");
   });
 });

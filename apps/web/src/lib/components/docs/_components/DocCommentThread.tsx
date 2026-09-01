@@ -11,6 +11,7 @@ import { IconCheck, IconArrowBackUp } from "@tabler/icons-react";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { useState, useEffect, useRef } from "react";
 import { catchMutationError } from "@/lib/utils/mutationToast";
+import { useCommentAnchor } from "@/lib/hooks/useCommentAnchor";
 
 type DocComment = FunctionReturnType<typeof api.docComments.listByDoc>[number];
 
@@ -37,6 +38,11 @@ export function DocCommentThread({
   const [replyContent, setReplyContent] = useState("");
   const [isReplying, setIsReplying] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  // A notification for a reply carries the reply's id, but the whole thread
+  // renders as one card — so the card is what scrolls and flashes.
+  const { ref: anchorRef, isAnchored } = useCommentAnchor(root._id, (anchorId) =>
+    replies.some((reply) => reply._id === anchorId),
+  );
 
   const isResolved = root.resolvedAt !== undefined;
 
@@ -68,10 +74,15 @@ export function DocCommentThread({
 
   return (
     <div
-      ref={rootRef}
+      ref={(node) => {
+        rootRef.current = node;
+        anchorRef(node);
+      }}
+      data-comment-id={root._id}
       className={cn(
         "relative border-b border-border p-3 transition-colors",
         isActive && "bg-accent/50 ring-1 ring-inset ring-ring",
+        isAnchored && "t-anchor-flash",
       )}
     >
       {/* A real button stretched across the thread rather than `onClick` on the

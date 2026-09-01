@@ -34,31 +34,32 @@ async function userCanAccessRepo(
   return membership !== null;
 }
 
-/** True when this app has a live sandbox on a quick task or project. */
-async function repoHasActiveSandbox(
+/** How many live sandboxes this app has across quick tasks and projects. */
+async function repoActiveSandboxCount(
   db: GenericDatabaseReader<DataModel>,
   repoId: Id<"githubRepos">,
-): Promise<boolean> {
-  // Indexed existence checks (not full table scans): at most a handful of docs.
-  const activeProject = filterActiveEntities(
+): Promise<number> {
+  // Indexed reads (not full table scans): the index pins both repo and status,
+  // and the take caps a pathological app the way `countActiveSessions` does.
+  const activeProjects = filterActiveEntities(
     await db
       .query("projects")
       .withIndex("by_repo_and_sandbox_status", (q) =>
         q.eq("repoId", repoId).eq("reviewProjectSandboxStatus", "active"),
       )
-      .take(8),
-  ).find((p) => p.sandboxId !== undefined);
-  if (activeProject) return true;
+      .take(64),
+  ).filter((p) => p.sandboxId !== undefined);
 
-  const activeTask = filterActiveEntities(
+  const activeTasks = filterActiveEntities(
     await db
       .query("agentTasks")
       .withIndex("by_repo_and_sandbox_status", (q) =>
         q.eq("repoId", repoId).eq("reviewTaskSandboxStatus", "active"),
       )
-      .take(8),
-  ).find((t) => t.sandboxId !== undefined);
-  return activeTask !== undefined;
+      .take(64),
+  ).filter((t) => t.sandboxId !== undefined);
+
+  return activeProjects.length + activeTasks.length;
 }
 
 /** Attaches a resolved `logoUrl` (from `logoStorageId`) to each repo. */
@@ -93,21 +94,24 @@ export const list = authQuery({
 });
 
 /**
- * Repo/app ids that currently have an active sandbox on a quick task or
- * project. Used by the left rail to show a live indicator on app icons.
+ * How many active sandboxes (quick task or project) each app currently has.
+ * Used by the left rail to badge app icons with a live count. Apps with none
+ * are omitted, so the rail renders nothing for them.
  */
-export const listReposWithActiveSandboxes = authQuery({
+export const listActiveSandboxCounts = authQuery({
   args: {},
-  returns: v.array(v.id("githubRepos")),
+  returns: v.array(
+    v.object({ repoId: v.id("githubRepos"), count: v.number() }),
+  ),
   handler: async (ctx) => {
     const repos = await gatherAccessibleRepos(ctx.db, ctx.userId, false);
-    const flags = await Promise.all(
+    const counts = await Promise.all(
       repos.map(async (repo) => ({
-        id: repo._id,
-        active: await repoHasActiveSandbox(ctx.db, repo._id),
+        repoId: repo._id,
+        count: await repoActiveSandboxCount(ctx.db, repo._id),
       })),
     );
-    return flags.filter((f) => f.active).map((f) => f.id);
+    return counts.filter((entry) => entry.count > 0);
   },
 });
 

@@ -25,10 +25,7 @@ import {
 } from "@/lib/hooks/useSimpleView";
 import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { cn, Tabs, TabsList } from "@eva/ui";
-import {
-  isCollapsibleSandboxTab,
-  SandboxTabTrigger,
-} from "./SandboxTabTrigger";
+import { SandboxTabTrigger } from "./SandboxTabTrigger";
 import { buildSandboxTabDescriptors } from "./sandboxTabDescriptors";
 import { SandboxTabBarTools } from "./SandboxTabBarTools";
 
@@ -52,8 +49,9 @@ const TAB_LIST_CLASS =
  */
 const MAX_LABELLED_TABS = 6;
 
-// Editor and Computer stay in the `+` menu until opened; then they pin as
-// closable tabs. Browser is first-class (sessions) for watching agent Chrome.
+// Editor and Computer are appended by `buildSandboxTabDescriptors` when the
+// surface enables them. Browser is first-class (sessions) for watching agent
+// Chrome.
 const allTabs: ReadonlyArray<SandboxCommandTab> = [
   { value: "preview", label: "Preview", icon: IconWorld },
   { value: "browser", label: "Browser", icon: IconBrowser },
@@ -74,22 +72,16 @@ interface SandboxTabBarProps {
   hasDesignsContent?: boolean;
   /** Shows the File Viewer tab (sessions only). */
   showFilesTab?: boolean;
+  /** Shows the Agents tab (content-keyed: the entity has spawned sub-agents). */
+  showAgentsTab?: boolean;
+  /** True while any sub-agent is running — pulses the Agents tab dot. */
+  hasRunningAgents?: boolean;
   /** Subset of base tabs to render. Defaults to all four. */
   enabledTabs?: ReadonlyArray<SandboxTab>;
   /** User-defined tabs for this app; expected pre-filtered to enabled ones. */
   customTabs?: ReadonlyArray<Doc<"appTabs">>;
   /** When set (and fresh), shows a pulse on the Browser tab. */
   agentBrowsingAt?: number;
-  /** Computer tab pinned open from `+` (persists until closed). */
-  computerTabOpen?: boolean;
-  /** True while Computer is starting/running — close is disabled. */
-  computerRunning?: boolean;
-  onOpenComputer?: () => void;
-  onCloseComputer?: () => void;
-  /** Editor tab pinned open from `+` (persists until closed). */
-  editorTabOpen?: boolean;
-  onOpenEditor?: () => void;
-  onCloseEditor?: () => void;
   /** When false, view hotkeys are inert (inactive cached session shells). */
   hotkeysEnabled?: boolean;
   /**
@@ -122,16 +114,11 @@ export function SandboxTabBar({
   showDesignsTab = false,
   hasDesignsContent = false,
   showFilesTab = false,
+  showAgentsTab = false,
+  hasRunningAgents = false,
   enabledTabs,
   customTabs,
   agentBrowsingAt,
-  computerTabOpen = false,
-  computerRunning = false,
-  onOpenComputer,
-  onCloseComputer,
-  editorTabOpen = false,
-  onOpenEditor,
-  onCloseEditor,
   hotkeysEnabled = true,
   className,
   fileList,
@@ -153,10 +140,9 @@ export function SandboxTabBar({
     simpleView && isSimpleViewHiddenSandboxTab(activeTab)
       ? "preview"
       : activeTab;
-  const showComputerTab = showDesktopItem && computerTabOpen;
-  const showEditorTab = showEditorItem && editorTabOpen;
 
   const showFiles = showFilesTab && !simpleView;
+  const showAgents = showAgentsTab && !simpleView;
   const visibleCustomTabs = simpleView ? [] : (customTabs ?? []);
   const customTabSlugs = visibleCustomTabs.map((tab) =>
     slugifyAppTabName(tab.name),
@@ -165,12 +151,11 @@ export function SandboxTabBar({
   const tabDescriptors = buildSandboxTabDescriptors({
     baseTabs: tabs,
     showBrowserActivity: isAgentBrowsingActive(agentBrowsingAt),
-    showEditorTab,
-    onCloseEditor,
-    showComputerTab,
-    computerRunning,
-    onCloseComputer,
+    showEditorTab: showEditorItem,
+    showComputerTab: showDesktopItem,
     showFilesTab: showFiles,
+    showAgentsTab: showAgents,
+    hasRunningAgents,
     showPrdTab,
     hasPrdContent,
     showDesignsTab,
@@ -189,18 +174,6 @@ export function SandboxTabBar({
     expandIfCollapsed();
   };
 
-  const handleOpenEditor = () => {
-    if (onOpenEditor) onOpenEditor();
-    else onTabChange("editor");
-    expandIfCollapsed();
-  };
-
-  const handleOpenComputer = () => {
-    if (onOpenComputer) onOpenComputer();
-    else onTabChange("computer");
-    expandIfCollapsed();
-  };
-
   const handleNewPreview = () => {
     onNewPreview();
     expandIfCollapsed();
@@ -213,9 +186,10 @@ export function SandboxTabBar({
     showPrdTab,
     showDesignsTab,
     showFilesTab: showFiles,
+    showAgentsTab: showAgents,
     customTabSlugs,
-    showComputerTab,
-    showEditorTab,
+    showComputerTab: showDesktopItem,
+    showEditorTab: showEditorItem,
     enabled: hotkeysEnabled,
   });
 
@@ -230,6 +204,7 @@ export function SandboxTabBar({
     activeTab: resolvedTab,
     tabs,
     showFilesTab: showFiles,
+    showAgentsTab: showAgents,
     showPrdTab,
     showDesignsTab,
     showEditorItem,
@@ -238,8 +213,6 @@ export function SandboxTabBar({
     consoleDock,
     terminalPanel,
     onTabChange: handleTabChange,
-    onOpenEditor: handleOpenEditor,
-    onOpenComputer: handleOpenComputer,
     onNewPreview: handleNewPreview,
     newPreviewDisabled,
     simpleView,
@@ -272,10 +245,7 @@ export function SandboxTabBar({
                     : undefined
                 }
                 labelHidden={
-                  iconOnly ||
-                  (collapseLabels &&
-                    tab.value !== resolvedTab &&
-                    isCollapsibleSandboxTab(tab))
+                  iconOnly || (collapseLabels && tab.value !== resolvedTab)
                 }
               />
             ))}
@@ -283,13 +253,8 @@ export function SandboxTabBar({
         </Tabs>
         {simpleView ? null : (
           <SandboxTabBarTools
-            showEditorItem={showEditorItem}
-            showDesktopItem={showDesktopItem}
-            onOpenEditor={handleOpenEditor}
-            onOpenComputer={handleOpenComputer}
             onNewPreview={handleNewPreview}
             newPreviewDisabled={newPreviewDisabled}
-            onTabChange={handleTabChange}
             terminalPanel={terminalPanel}
           />
         )}

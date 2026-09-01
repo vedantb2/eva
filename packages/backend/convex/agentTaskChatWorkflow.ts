@@ -5,6 +5,7 @@ import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow, cancelTrackedWorkflow } from "./workflowManager";
 import { ensureSandboxStartedSteps } from "./_sandbox_runtime/resumeSandboxSteps";
+import { decideSandboxStartPlan } from "./mcp/orchestratorDelivery";
 import { authAction, authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
@@ -22,6 +23,8 @@ import {
   clearStreamingActivity,
   resolveTaskBranchName,
 } from "./_taskWorkflow/helpers";
+import { resolveTaskWorkflowBaseBranchForTask } from "./_taskWorkflow/resolveBaseBranch";
+import { seedSandboxStartupActivity } from "./_sandbox/startupActivity";
 import { finalizeCancelledAssistantMessage } from "./streaming";
 import { startNextQueuedTaskChatMessage } from "./_queues/helpers";
 import {
@@ -305,7 +308,13 @@ export const startExecute = authMutation({
       updatedAt: Date.now(),
     });
 
-    if (usesDaemonPull && task.sandboxId && task.repoId) {
+    if (
+      usesDaemonPull &&
+      task.sandboxId &&
+      task.repoId &&
+      task.reviewTaskSandboxStatus !== "closed" &&
+      task.reviewTaskSandboxStatus !== "stopping"
+    ) {
       await ctx.scheduler.runAfter(0, internal.sandbox.prewarmEntityDaemon, {
         sandboxId: task.sandboxId,
         repoId: task.repoId,
@@ -571,7 +580,7 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
       { taskId: args.taskId },
     );
 
-    const data = await step.runQuery(
+    let data = await step.runQuery(
       internal.agentTaskChatWorkflow.getChatData,
       {
         taskId: args.taskId,
@@ -580,6 +589,76 @@ export const agentTaskChatExecuteWorkflow = workflow.define({
         userId: args.userId,
       },
     );
+
+    const sandboxPlan = decideSandboxStartPlan(data.sandboxStatus);
+    if (sandboxPlan !== "run") {
+      if (sandboxPlan === "start") {
+        await step.runMutation(
+          internal.agentTaskChatWorkflow.markTaskSandboxStartingForChat,
+          { taskId: args.taskId },
+        );
+        try {
+          await step.runAction(internal.sandbox.startTaskPreviewSandbox, {
+            taskId: args.taskId,
+            existingSandboxId: data.sandboxId,
+            installationId: data.installationId,
+            repoOwner: data.repoOwner,
+            repoName: data.repoName,
+            branchName: `eva/task-${args.taskId}`,
+            baseBranch: data.baseBranch,
+            repoId: data.repoId,
+          });
+        } catch (error) {
+          await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
+            taskId: args.taskId,
+            success: false,
+            result: null,
+            error:
+              error instanceof Error
+                ? error.message
+                : "Task sandbox could not be started. Please retry.",
+            activityLog: null,
+          });
+          return;
+        }
+      } else {
+        const waited = await step.runAction(
+          internal._agentTasks.sandbox.waitForTaskPreviewSandboxActive,
+          { taskId: args.taskId },
+        );
+        if (!waited.ready) {
+          await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
+            taskId: args.taskId,
+            success: false,
+            result: null,
+            error:
+              "Task sandbox did not become ready. Start it from the sandbox panel and retry.",
+            activityLog: null,
+          });
+          return;
+        }
+      }
+      data = await step.runQuery(
+        internal.agentTaskChatWorkflow.getChatData,
+        {
+          taskId: args.taskId,
+          message: args.message,
+          model: args.model,
+          userId: args.userId,
+        },
+      );
+      if (decideSandboxStartPlan(data.sandboxStatus) !== "run") {
+        await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
+          taskId: args.taskId,
+          success: false,
+          result: null,
+          error:
+            "Task sandbox did not become ready. Start it from the sandbox panel and retry.",
+          activityLog: null,
+        });
+        return;
+      }
+    }
 
     if (!data.sandboxId) {
       await step.runMutation(internal.agentTaskChatWorkflow.saveResult, {
@@ -786,6 +865,31 @@ export const addAssistantPlaceholder = internalMutation({
   },
 });
 
+/**
+ * Flips a closed preview sandbox to `starting` so `taskSandboxReady` will
+ * accept the subsequent start. Without this, ready is ignored on `closed`
+ * and the chat stays on "Resuming sandbox…".
+ */
+export const markTaskSandboxStartingForChat = internalMutation({
+  args: { taskId: v.id("agentTasks") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const task = await ctx.db.get(args.taskId);
+    if (!task) throw new Error("Task not found");
+    if (task.reviewTaskSandboxStatus === "active") return null;
+    if (task.reviewTaskSandboxStatus === "starting") return null;
+    await ctx.db.patch(args.taskId, {
+      reviewTaskSandboxStatus: "starting",
+      updatedAt: Date.now(),
+    });
+    await seedSandboxStartupActivity(
+      ctx.db,
+      `task-sandbox-startup-${args.taskId}`,
+    );
+    return null;
+  },
+});
+
 /** Fetches task + repo data and builds the chat prompt. */
 export const getChatData = internalQuery({
   args: {
@@ -802,6 +906,7 @@ export const getChatData = internalQuery({
     repoId: v.id("githubRepos"),
     installationId: v.number(),
     branchName: v.string(),
+    baseBranch: v.string(),
     prompt: v.string(),
     model: aiModelValidator,
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
@@ -825,6 +930,11 @@ export const getChatData = internalQuery({
     );
 
     const branchName = await resolveTaskBranchName(ctx.db, task);
+    const baseBranch = await resolveTaskWorkflowBaseBranchForTask(
+      ctx.db,
+      task,
+      repo,
+    );
 
     return {
       sandboxId: task.sandboxId,
@@ -834,6 +944,7 @@ export const getChatData = internalQuery({
       repoId: task.repoId,
       installationId: repo.installationId,
       branchName,
+      baseBranch,
       prompt,
       model: normalizeAIModel(args.model),
       attachmentStorageIds,

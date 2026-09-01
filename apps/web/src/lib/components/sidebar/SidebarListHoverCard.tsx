@@ -7,6 +7,7 @@ import type { Id } from "@eva/backend";
 import { UserInitials } from "@eva/shared";
 import { compactRelativeTime } from "@eva/shared/dates";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
+import { IconGitBranch } from "@tabler/icons-react";
 
 function authorDisplayName(user: {
   firstName?: string | null;
@@ -94,6 +95,8 @@ interface SessionHoverCardBodyProps {
   preview?: string | null;
   createdAt: number;
   userId: Id<"users">;
+  /** Branch chosen at session creation. Absent on sessions predating the field. */
+  baseBranch?: string;
 }
 
 /**
@@ -106,6 +109,7 @@ export function SessionHoverCardBody({
   preview: previewProp,
   createdAt,
   userId,
+  baseBranch,
 }: SessionHoverCardBodyProps) {
   const fetchedPreview = useQuery(
     api.sessions.getFirstMessagePreview,
@@ -121,6 +125,17 @@ export function SessionHoverCardBody({
         <p className="mt-1 line-clamp-3 text-xs text-muted-foreground">
           {preview}
         </p>
+      ) : null}
+      {baseBranch ? (
+        <div
+          className="mt-3 flex min-w-0 items-center gap-1.5"
+          title={`Base branch: ${baseBranch}`}
+        >
+          <IconGitBranch size={12} className="shrink-0 text-muted-foreground" />
+          <span className="truncate text-xs text-muted-foreground">
+            {baseBranch}
+          </span>
+        </div>
       ) : null}
       <div className="mt-3 flex items-center justify-between gap-2">
         <HoverCardAuthor userId={userId} />

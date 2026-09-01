@@ -38,6 +38,8 @@ interface NotificationListProps {
   selectedId: string | null;
   onSelect: (notification: Notification) => void;
   onMarkRead: (notification: Notification) => void;
+  /** Right-click menu action: flips the row between read and unread. */
+  onToggleRead: (notification: Notification) => void;
 }
 
 /**
@@ -51,6 +53,7 @@ export function NotificationList({
   selectedId,
   onSelect,
   onMarkRead,
+  onToggleRead,
 }: NotificationListProps) {
   const groups = groupByDate(notifications);
 
@@ -88,6 +91,7 @@ export function NotificationList({
                   selected={n._id === selectedId}
                   onSelect={() => onSelect(n)}
                   onMarkRead={() => onMarkRead(n)}
+                  onToggleRead={() => onToggleRead(n)}
                 />
               </m.div>
             ))}

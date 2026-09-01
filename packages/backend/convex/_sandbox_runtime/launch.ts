@@ -28,7 +28,7 @@ export const CURSOR_PERSIST_VOLUME_MOUNT_PATH = "/home/eva/.cursor-persist";
 
 const CLAUDE_INSTALL_TIMEOUT_SECONDS = 300;
 const CLAUDE_FALLBACK_INSTALL_DIR = "/tmp/claude-cli";
-const CLAUDE_FALLBACK_BIN_PATH = `${CLAUDE_FALLBACK_INSTALL_DIR}/bin/claude`;
+export const CLAUDE_FALLBACK_BIN_PATH = `${CLAUDE_FALLBACK_INSTALL_DIR}/bin/claude`;
 const CODEX_INSTALL_TIMEOUT_SECONDS = 300;
 const CODEX_FALLBACK_INSTALL_DIR = "/tmp/codex-cli";
 const CODEX_FALLBACK_BIN_PATH = `${CODEX_FALLBACK_INSTALL_DIR}/bin/codex`;
@@ -120,7 +120,9 @@ function resolveConvexSiteUrl(convexCloudUrl: string): string {
 }
 
 /** Installs the Claude CLI globally if not already available on the sandbox. */
-async function ensureClaudeCliAvailable(sandbox: SandboxHandle): Promise<void> {
+export async function ensureClaudeCliAvailable(
+  sandbox: SandboxHandle,
+): Promise<void> {
   await execHandle(
     sandbox,
     `if ! command -v claude >/dev/null 2>&1 && [ ! -x ${quote([CLAUDE_FALLBACK_BIN_PATH])} ]; then npm install -g --prefix ${quote([CLAUDE_FALLBACK_INSTALL_DIR])} @anthropic-ai/claude-code; fi`,

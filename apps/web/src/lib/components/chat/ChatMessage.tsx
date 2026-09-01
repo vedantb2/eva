@@ -12,9 +12,17 @@ import {
 } from "@eva/ui";
 import { memo } from "react";
 import { m } from "motion/react";
+import {
+  AgentSpawnCtaRow,
+  deriveAgentSpawnSummary,
+} from "@/lib/components/chat/_components/AgentSpawnCtaRow";
 import dayjs from "@eva/shared/dates";
 import { formatDuration } from "@eva/shared/duration";
-import { findAIModelOption, getReasoningLevelLabel } from "@eva/backend";
+import {
+  findAIModelOption,
+  getReasoningLevelLabel,
+  type BackgroundAgentEntry,
+} from "@eva/backend";
 import { VideoPreview } from "@/lib/components/MediaPreview";
 import { ImageGalleryPreview } from "@/lib/components/MediaGallery";
 import { ReviewCommentMessage } from "@/lib/components/chat/ReviewCommentMessage";
@@ -103,6 +111,14 @@ interface ChatMessageProps {
   streamingContent?: string;
   onOpenFile?: (path: string) => void;
   onViewDiff?: (repoRelativePath?: string) => void;
+  /**
+   * Opens the Agents sandbox tab. Undefined on surfaces without one (tasks,
+   * projects), which also suppresses the sub-agent CTA row entirely.
+   */
+  onOpenAgentsTab?: () => void;
+  /** Entity-wide sub-agent lifecycle entries; narrowed to this turn's spawns. */
+  backgroundAgents?: ReadonlyArray<BackgroundAgentEntry>;
+  sandboxRunning?: boolean;
 }
 
 export const ChatMessage = memo(function ChatMessage({
@@ -122,6 +138,9 @@ export const ChatMessage = memo(function ChatMessage({
   streamingContent,
   onOpenFile,
   onViewDiff,
+  onOpenAgentsTab,
+  backgroundAgents,
+  sandboxRunning,
 }: ChatMessageProps) {
   if (message.isSystemAlert) {
     return (
@@ -142,13 +161,14 @@ export const ChatMessage = memo(function ChatMessage({
       : (streamingContent ?? "");
   const copyPlain = copySource ? tokenizedToDisplayText(copySource) : undefined;
 
-  // Two orchestrator provenances, never both on one row: a child chat shows the
-  // turns Eva injected, Eva shows the wake-ups its children fired.
+  // Two MCP provenances, never both on one row: a child chat shows the turns
+  // posted from outside the composer, Eva shows the wake-ups its children fired.
   const isOrchestratorNotification = message.orchestratorNotification === true;
+  const sentViaMcp = message.sentViaOrchestrator === true;
   const orchestratorTag = isOrchestratorNotification
     ? "agent update"
-    : message.sentViaOrchestrator === true
-      ? "via Ave"
+    : sentViaMcp
+      ? "via MCP"
       : undefined;
 
   // Videos render as inline players; images collapse into one Twitter-style
@@ -164,6 +184,20 @@ export const ChatMessage = memo(function ChatMessage({
       ? [{ url: entry.url }]
       : [],
   );
+
+  // Only surfaces with an Agents tab get the doorway to it.
+  const agentSpawn = !onOpenAgentsTab
+    ? null
+    : deriveAgentSpawnSummary({
+        activityLog: message.activityLog,
+        streamingActivity,
+        backgroundAgents,
+        sandboxRunning,
+      });
+  const agentSpawnRow =
+    agentSpawn && onOpenAgentsTab ? (
+      <AgentSpawnCtaRow summary={agentSpawn} onOpen={onOpenAgentsTab} />
+    ) : null;
 
   return (
     <ChatMessageContextMenu content={copySource}>
@@ -222,9 +256,9 @@ export const ChatMessage = memo(function ChatMessage({
                     "group px-3 py-2 text-foreground",
                     isOtherUser
                       ? "bg-secondary group-[.is-user]:ml-0 group-[.is-user]:bg-secondary"
-                      : isOrchestratorNotification
-                        ? // Machine-authored wake-up, not something the user
-                          // typed — drop it a tone step off the accent bubble.
+                      : isOrchestratorNotification || sentViaMcp
+                        ? // Not typed in the Eva composer — drop it a tone
+                          // step off the accent bubble.
                           "rounded-surface bg-muted group-[.is-user]:bg-muted"
                         : "rounded-surface bg-primary/10 group-[.is-user]:bg-primary/10",
                   )}
@@ -264,6 +298,7 @@ export const ChatMessage = memo(function ChatMessage({
                       startedAt={message.timestamp}
                       onOpenFile={onOpenFile}
                     />
+                    {agentSpawnRow}
                     {streamingContent ? (
                       <MessageResponse className="prose prose-sm dark:prose-invert max-w-none mt-2 wrap-anywhere">
                         {streamingContent}
@@ -283,6 +318,7 @@ export const ChatMessage = memo(function ChatMessage({
                         onOpenFile={onOpenFile}
                       />
                     )}
+                    {agentSpawnRow}
                     {/* wrap-anywhere: without it a long unbreakable token is
                         silently clipped by MessageContent's overflow-hidden. */}
                     <MessageResponse className="prose prose-sm dark:prose-invert max-w-none wrap-anywhere">

@@ -12,11 +12,13 @@ import { ChatComposer } from "@/lib/components/chat/ChatComposer";
 import { ChatMessage } from "@/lib/components/chat/ChatMessage";
 import { ChatQuestionDock } from "@/lib/components/chat/ChatQuestionDock";
 import { useChangedFilesExpansion } from "@/lib/components/chat/useChangedFilesExpansion";
+import { useAgentReplyChime } from "@/lib/components/chat/useAgentReplyChime";
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   api,
   type AIModel,
+  type BackgroundAgentEntry,
   type Id,
   type StoredModelTraits,
   type resolveTraitsForDisplay,
@@ -129,6 +131,15 @@ interface ChatBodyProps {
   onViewDiff?: (repoRelativePath?: string) => void;
   /** True when ephemeral diff review comments are queued for the next send. */
   hasPendingContext?: boolean;
+  /**
+   * Opens the Agents sandbox tab. Only sessions have one, so leaving this unset
+   * hides the sub-agent CTA row under assistant turns.
+   */
+  onOpenAgentsTab?: () => void;
+  /** Entity-wide sub-agent lifecycle entries, for the CTA row's live status. */
+  backgroundAgents?: ReadonlyArray<BackgroundAgentEntry>;
+  /** False lets stranded "running" sub-agents read as stale, not live. */
+  sandboxRunning?: boolean;
 }
 
 export function ChatBody({
@@ -166,9 +177,13 @@ export function ChatBody({
   onOpenFile,
   onViewDiff,
   hasPendingContext,
+  onOpenAgentsTab,
+  backgroundAgents,
+  sandboxRunning,
 }: ChatBodyProps) {
-  // Simple view hides diffs and sandbox lifecycle banners. Quick task /
-  // project / session all render through ChatBody, so this is the one gate.
+  // Simple view hides diffs, sandbox lifecycle banners, and — since it has no
+  // Agents tab to open — the sub-agent CTA row. Quick task / project / session
+  // all render through ChatBody, so this is the one gate.
   const simpleView = useSimpleView();
   const displayMessages = visibleChatMessages(messages, simpleView);
 
@@ -246,6 +261,19 @@ export function ChatBody({
   const handoffBoundaryIds = findHandoffBoundaryIds(displayMessages);
 
   const currentUserId = useQuery(api.auth.me);
+
+  // The turn that just finished belongs to whoever sent the last user message.
+  // Unattributed rows (legacy / optimistic) count as own, matching how the
+  // transcript itself attributes them.
+  const lastUserMessage = displayMessages[lastUserMessageIndex];
+  useAgentReplyChime({
+    conversationId,
+    isExecuting,
+    isOwnTurn:
+      lastUserMessage === undefined ||
+      !isOtherUserChatMessage(lastUserMessage, currentUserId),
+  });
+
   const otherUserIds = otherUserIdsInChat(displayMessages, currentUserId);
   const users = useQuery(
     api.users.getMany,
@@ -293,6 +321,9 @@ export function ChatBody({
         streamingContent={isStreamingTarget ? streamingContent : undefined}
         onOpenFile={onOpenFile}
         onViewDiff={onViewDiff}
+        onOpenAgentsTab={simpleView ? undefined : onOpenAgentsTab}
+        backgroundAgents={backgroundAgents}
+        sandboxRunning={sandboxRunning}
       />
     );
   };
@@ -354,6 +385,8 @@ export function ChatBody({
           onCancel={onCancel}
           beforeQueuedContent={beforeQueuedContent}
           preInputContent={preInputContent}
+          streamingActivity={streamingActivity}
+          streamingTurnId={streamingTargetId}
           draft={draft}
           isDraftLoading={isDraftLoading}
           hasPendingContext={hasPendingContext}

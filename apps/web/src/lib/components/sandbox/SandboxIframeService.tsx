@@ -91,8 +91,6 @@ interface SandboxIframeServiceProps {
    * the next signal instead of instantly restarting.
    */
   autoStartKey?: number;
-  /** Fires whenever the service state machine changes. */
-  onStateChange?: (state: SandboxIframeServiceState) => void;
 }
 
 /**
@@ -124,7 +122,6 @@ export function SandboxIframeService({
   loadFailedError,
   iframeAllow,
   autoStartKey,
-  onStateChange,
 }: SandboxIframeServiceProps) {
   // Scope the cache key by sandboxId — Vercel signed URLs embed the sandbox
   // ID in the domain, so a URL cached against a destroyed sandbox would
@@ -145,15 +142,6 @@ export function SandboxIframeService({
   const attempts = useRef(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const handledAutoStartKey = useRef<number | undefined>(undefined);
-  const onStateChangeRef = useRef(onStateChange);
-  useEffect(() => {
-    onStateChangeRef.current = onStateChange;
-  }, [onStateChange]);
-
-  useEffect(() => {
-    onStateChangeRef.current?.(state);
-  }, [state]);
-
   const refreshIframe = () => {
     setIframeKey((k) => k + 1);
   };

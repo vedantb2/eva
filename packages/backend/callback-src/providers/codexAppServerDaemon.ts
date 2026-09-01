@@ -501,18 +501,13 @@ export async function runCodexAppServerDaemon(): Promise<void> {
         if (completion) await completion;
       }
 
-      // Same window as the Claude daemon: completion has cleared the lease
-      // but persist still holds "finalizing". Do not acquire a 2-minute
-      // running lease we cannot heartbeat until idle.
-      if (supervisor.phase === "finalizing") {
-        await sleep(POLL_INTERVAL_MS);
-        continue;
-      }
+      const acceptTurn =
+        supervisor.phase === "idle" && supervisor.pendingClaim === null;
 
       const claimed = await callConvexWithRetry(
         "mutation",
         CLAIM_MUTATION,
-        entityArgs({ model: MODEL }),
+        entityArgs({ model: MODEL, acceptTurn }),
       );
       const providerTurnId = supervisor.currentTurn?.providerTurnId ?? "";
       if (

@@ -204,12 +204,12 @@ var codexReasoningEffort = PROVIDER === "codex" ? CODEX_REASONING_EFFORT[REASONI
 var codexFastMode = PROVIDER === "codex" && AI_FAST_MODE === "1";
 var cursorFastMode = PROVIDER === "cursor" && AI_FAST_MODE === "1";
 var cursorUse1mContext = PROVIDER === "cursor" && AI_CONTEXT_1M === "1";
+var claudeThinkingDisabled = AI_THINKING_ENABLED === "0" || PROVIDER === "claude" && REASONING_EFFORT === "off";
 function buildSettingsJson() {
   const settings = {
     attribution: { commit: "", pr: "" }
   };
-  const thinkingDisabled = AI_THINKING_ENABLED === "0" || PROVIDER === "claude" && REASONING_EFFORT === "off";
-  if (thinkingDisabled) {
+  if (claudeThinkingDisabled) {
     settings.alwaysThinkingEnabled = false;
   }
   return JSON.stringify(settings);
@@ -25525,10 +25525,22 @@ function ensureSnapshot() {
   callbackState.usageLimitSnapshot = created;
   return created;
 }
+function normalizeWindowKey(key) {
+  if (key === "seven_day_oi") return "model_scoped:Fable";
+  return key;
+}
+function labelForWindowKey(key) {
+  if (CLAUDE_WINDOW_LABELS[key]) return CLAUDE_WINDOW_LABELS[key];
+  if (key.startsWith("model_scoped:")) {
+    return \`Weekly (\${key.slice("model_scoped:".length)})\`;
+  }
+  return key;
+}
 function mergeClaudeRateLimitEvent(event) {
   const info = event.rate_limit_info;
   if (typeof info !== "object" || info === null || Array.isArray(info)) return;
   const status = readStatus(info.status);
+<<<<<<< HEAD
   const key = readNonEmptyString2(info.rateLimitType);
   if (!status && !key) return;
   const snapshot = ensureSnapshot();
@@ -25536,12 +25548,27 @@ function mergeClaudeRateLimitEvent(event) {
   if (status) snapshot.status = status;
   if (!key) return;
   const resetsAtSeconds = readFiniteNumber2(info.resetsAt);
+=======
+  const rawKey = readNonEmptyString(info.rateLimitType);
+  if (!status && !rawKey) return;
+  const snapshot = ensureSnapshot();
+  snapshot.completeness = "partial";
+  if (status) snapshot.status = status;
+  if (!rawKey) return;
+  const key = normalizeWindowKey(rawKey);
+  const resetsAtSeconds = readFiniteNumber(info.resetsAt);
+>>>>>>> origin/main
   mergeWindow(
     snapshot,
     buildWindow(
       key,
+<<<<<<< HEAD
       CLAUDE_WINDOW_LABELS[key] ?? key,
       readFiniteNumber2(info.utilization),
+=======
+      labelForWindowKey(key),
+      readFiniteNumber(info.utilization),
+>>>>>>> origin/main
       resetsAtSeconds === void 0 ? void 0 : Math.round(resetsAtSeconds * 1e3)
     )
   );
@@ -26744,6 +26771,15 @@ function cursorToolCallEvents(event) {
   }
   return [];
 }
+function cursorCompactionEventPhase(type) {
+  if (type === "summary-started" || type === "summary_started") {
+    return "started";
+  }
+  if (type === "summary-completed" || type === "summary_completed") {
+    return "completed";
+  }
+  return null;
+}
 var SILENT_EVENT_TYPES = /* @__PURE__ */ new Set([
   "user",
   "status",
@@ -26795,6 +26831,25 @@ function cursorEventToCanonical(event) {
   if (event.type === "result") {
     events.push({ kind: "mark_last_complete" });
     return events;
+  }
+  if (typeof event.type === "string") {
+    const compactionPhase = cursorCompactionEventPhase(event.type);
+    if (compactionPhase === "started") {
+      events.push({
+        kind: "update_thinking",
+        label: "Compacting context...",
+        detail: "Cursor is summarizing the conversation in place."
+      });
+      return events;
+    }
+    if (compactionPhase === "completed") {
+      events.push({
+        kind: "update_thinking",
+        label: "Context compacted",
+        detail: "The agent continues with its history summarized in place."
+      });
+      return events;
+    }
   }
   return events;
 }
@@ -27728,6 +27783,7 @@ function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
     delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
   }
   const effortOption = claudeEffort === "low" || claudeEffort === "medium" || claudeEffort === "high" || claudeEffort === "xhigh" || claudeEffort === "max" ? { effort: claudeEffort } : {};
+  const thinkingOption = claudeThinkingDisabled ? {} : { thinking: { type: "adaptive", display: "summarized" } };
   return {
     cwd: WORK_DIR,
     model: normalizedClaudeModel,
@@ -27753,7 +27809,8 @@ function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
     ...sessionMode.mode === "resume" && sessionMode.sessionId ? { resume: sessionMode.sessionId } : {},
     extraArgs,
     ...Object.keys(evaMcpServers).length > 0 ? { mcpServers: evaMcpServers } : {},
-    ...effortOption
+    ...effortOption,
+    ...thinkingOption
   };
 }
 async function runClaudeSdkAttempt(sessionMode) {
@@ -28081,6 +28138,10 @@ function synchronizeForPush(branch) {
   log(\`persistTurnWork: unexpected divergence: \${divergence.out}\`);
   return { status: "failed" };
 }
+function tipAlreadyPublished(exclusion) {
+  const unpushed = git(["rev-list", "--count", "HEAD", "--not", ...exclusion]);
+  return unpushed.ok && unpushed.out === "0";
+}
 function persistTurnWork() {
   if (REQUIRE_TASK_COMMIT || RUN_ID) return;
   const startedAt = Date.now();
@@ -28106,8 +28167,10 @@ function persistTurnWork() {
       );
     }
   }
+  if (tipAlreadyPublished([\`refs/remotes/origin/\${branch.out}\`])) return;
   const refspec = \`refs/heads/\${branch.out}:refs/heads/\${branch.out}\`;
   for (let attempt = 1; attempt <= 2; attempt += 1) {
+<<<<<<< HEAD
     const sync4 = synchronizeForPush(branch.out);
     if (sync4.status === "failed") return;
     const exclusion = sync4.remoteExists ? [\`refs/remotes/origin/\${branch.out}\`] : ["--remotes=origin"];
@@ -28119,6 +28182,12 @@ function persistTurnWork() {
       ...exclusion
     ]);
     if (unpushed.ok && unpushed.out === "0") return;
+=======
+    const sync = synchronizeForPush(branch.out);
+    if (sync.status === "failed") return;
+    const exclusion = sync.remoteExists ? [\`refs/remotes/origin/\${branch.out}\`] : ["--remotes=origin"];
+    if (tipAlreadyPublished(exclusion)) return;
+>>>>>>> origin/main
     const push = git(["push", "origin", refspec], PUSH_TIMEOUT_MS);
     if (push.ok) {
       log(
@@ -28431,6 +28500,7 @@ function endWatchedTurn() {
 }
 async function failTurnAndExit(error) {
   log("daemon: failing turn \\u2014 " + error);
+  persistTurnWork();
   try {
     const completionArgs = {
       [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
@@ -28459,6 +28529,7 @@ async function failTurnAndExit(error) {
 }
 async function exitWithoutCompletion(reason) {
   log("daemon: exiting without completion \\u2014 " + reason);
+  persistTurnWork();
   if (readDaemonPidFile() === process.pid) {
     try {
       unlinkSync(DAEMON_PID_FILE);
@@ -28473,6 +28544,7 @@ function startTurnWatchdog() {
     if (supervisor.isCancellationInFlight) {
       if (now2 - turnCancelRequestedAtMs > CANCEL_SETTLE_TIMEOUT_MS) {
         log("daemon: cancelled turn did not settle in time \\u2014 exiting");
+        persistTurnWork();
         process.exit(1);
       }
       return;
@@ -28941,6 +29013,7 @@ async function failSyntheticTurn(error) {
   }
   log("daemon: failing synthetic turn \\u2014 " + error);
   const messageId = turn.messageId;
+  persistTurnWork();
   try {
     await flushStreaming();
     for (const step3 of callbackState.accumulatedSteps) {
@@ -29029,6 +29102,7 @@ async function finalizeSyntheticTurn(output) {
     completionArgs.turnId = turnLease.turnId;
     completionArgs.leaseGeneration = turnLease.leaseGeneration;
   }
+  persistTurnWork();
   await callConvexWithRetry(
     "mutation",
     COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
@@ -29099,15 +29173,19 @@ function startClaimWatcher(agentRunner) {
         supervisor.stop();
         process.exit(0);
       }
+<<<<<<< HEAD
       if (supervisor.phase === "finalizing") {
         await sleep3(PROMPT_POLL_INTERVAL_MS);
         continue;
       }
+=======
+      const acceptTurn = supervisor.phase === "idle" && supervisor.pendingClaim === null;
+>>>>>>> origin/main
       try {
         const claimed = await callConvexWithRetry(
           "mutation",
           CLAIM_MUTATION ?? "",
-          entityMutationArgs({ model: MODEL })
+          entityMutationArgs({ model: MODEL, acceptTurn })
         );
         const stopIds = readStopTaskToolUseIds(claimed);
         for (const toolUseId of stopIds) {
@@ -29439,6 +29517,7 @@ async function runSdkDaemon() {
   } catch (error) {
     const messageText = error instanceof Error ? error.message : String(error);
     log("daemon: query failed \\u2014 " + messageText);
+    persistTurnWork();
     try {
       await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
         [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
@@ -29950,14 +30029,18 @@ async function runCodexAppServerDaemon() {
         const completion = processNotification(notification);
         if (completion) await completion;
       }
+<<<<<<< HEAD
       if (supervisor2.phase === "finalizing") {
         await sleep4(POLL_INTERVAL_MS2);
         continue;
       }
+=======
+      const acceptTurn = supervisor2.phase === "idle" && supervisor2.pendingClaim === null;
+>>>>>>> origin/main
       const claimed = await callConvexWithRetry(
         "mutation",
         CLAIM_MUTATION,
-        entityArgs({ model: MODEL })
+        entityArgs({ model: MODEL, acceptTurn })
       );
       const providerTurnId = supervisor2.currentTurn?.providerTurnId ?? "";
       if (readCancelRequested(claimed) && providerTurnId && supervisor2.beginCancellation()) {
@@ -30066,10 +30149,20 @@ function shouldRetryStalledCursorResume(error) {
 function cursorEventHasVisibleActivity(type) {
   return type === "thinking" || type === "assistant" || type === "tool_call";
 }
+<<<<<<< HEAD
 function cursorEventWaitTimeoutMs(args2) {
   if (args2.toolInFlight) return MAX_TOTAL_RUNTIME_MS;
   if (args2.sawVisibleActivity) return CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS;
   return Math.max(1, args2.firstVisibleDeadlineAt - args2.now);
+=======
+function cursorEventWaitTimeoutMs(args) {
+  if (args.toolInFlight || args.compactionInFlight) return MAX_TOTAL_RUNTIME_MS;
+  if (args.sawVisibleActivity) return CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS;
+  return Math.max(
+    1,
+    args.lastEventAt + CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS - args.now
+  );
+>>>>>>> origin/main
 }
 function cursorModeParams(model, fastMode, use1mContext) {
   const params = [];
@@ -30311,6 +30404,7 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
   );
   let attemptOutput = "";
   let lastMessageAt = Date.now();
+  let compactionInFlight = false;
   let timedOutForNoOutput = false;
   let timedOutForMaxRuntime = false;
   let sawResult = false;
@@ -30356,28 +30450,48 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     persistAgentId(created.agentId);
     return created;
   };
+  const resumeSavedAgent = async (savedSessionId) => {
+    updateThinkingStep(
+      "Restoring Cursor context...",
+      "Opening the saved agent..."
+    );
+    const resumed = await waitForCursorPhase({
+      task: sdk.Agent.resume(savedSessionId, options),
+      phase: "restoring saved context",
+      timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS
+    });
+    persistAgentId(resumed.agentId);
+    return resumed;
+  };
   let resumedExistingAgent = false;
   let agent;
   if (sessionMode.mode === "resume" && sessionMode.sessionId) {
     try {
-      updateThinkingStep(
-        "Restoring Cursor context...",
-        "Opening the saved agent..."
-      );
-      agent = await waitForCursorPhase({
-        task: sdk.Agent.resume(sessionMode.sessionId, options),
-        phase: "restoring saved context",
-        timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS
-      });
+      agent = await resumeSavedAgent(sessionMode.sessionId);
       resumedExistingAgent = true;
-      persistAgentId(agent.agentId);
     } catch (error) {
       const messageText = error instanceof Error ? error.message : String(error);
       log(
-        "runCursorSdkAttempt: resume failed \\u2014 starting a fresh agent (" + messageText + ")"
+        "runCursorSdkAttempt: resume failed \\u2014 retrying the saved agent (" + messageText + ")"
       );
       appendToRawLogFile("[sdk-retry] resume failed: " + messageText + "\\n");
-      agent = await createFreshAgent();
+      if (error instanceof Error && !isAgentNotFound(error)) {
+        try {
+          agent = await resumeSavedAgent(sessionMode.sessionId);
+          resumedExistingAgent = true;
+        } catch (retryError) {
+          const retryMessageText = retryError instanceof Error ? retryError.message : String(retryError);
+          log(
+            "runCursorSdkAttempt: resume retry failed \\u2014 starting a fresh agent (" + retryMessageText + ")"
+          );
+          appendToRawLogFile(
+            "[sdk-retry] resume retry failed: " + retryMessageText + "\\n"
+          );
+          agent = await createFreshAgent();
+        }
+      } else {
+        agent = await createFreshAgent();
+      }
     }
   } else {
     agent = await createFreshAgent();
@@ -30392,8 +30506,13 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
       cancelRun();
       return;
     }
+<<<<<<< HEAD
     if (callbackState.inFlightToolUses > 0) {
       lastMessageAt = now2;
+=======
+    if (callbackState.inFlightToolUses > 0 || compactionInFlight) {
+      lastMessageAt = now;
+>>>>>>> origin/main
     }
     if (!sawResult && now2 - lastMessageAt > CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS) {
       timedOutForNoOutput = true;
@@ -30437,7 +30556,8 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     updateThinkingStep("Waiting for Grok...", "The model is thinking...");
     const messages = run.stream()[Symbol.asyncIterator]();
     let sawVisibleActivity = false;
-    const firstVisibleDeadlineAt = Date.now() + CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS;
+    lastMessageAt = Date.now();
+    compactionInFlight = false;
     while (true) {
       const phase = sawVisibleActivity ? "waiting for the next model event" : "waiting for the first model event";
       const next = await waitForCursorPhase({
@@ -30445,9 +30565,10 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
         phase,
         timeoutMs: cursorEventWaitTimeoutMs({
           sawVisibleActivity,
-          firstVisibleDeadlineAt,
+          lastEventAt: lastMessageAt,
           now: Date.now(),
-          toolInFlight: callbackState.inFlightToolUses > 0
+          toolInFlight: callbackState.inFlightToolUses > 0,
+          compactionInFlight
         }),
         onTimeout: () => {
           timedOutForNoOutput = true;
@@ -30458,6 +30579,10 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
       const message = next.value;
       if (cursorEventHasVisibleActivity(message.type)) {
         sawVisibleActivity = true;
+      }
+      const compactionPhase = cursorCompactionEventPhase(message.type);
+      if (compactionPhase !== null) {
+        compactionInFlight = compactionPhase === "started";
       }
       lastMessageAt = Date.now();
       pushLine(JSON.stringify(message) + "\\n");
@@ -30526,31 +30651,57 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
       })
     );
   };
+  const resetForRecovery = (failedAgent) => {
+    try {
+      failedAgent.close();
+    } catch {
+    }
+    activeRun = null;
+    timedOutForNoOutput = false;
+    lastMessageAt = Date.now();
+    compactionInFlight = false;
+  };
   try {
     try {
       await runTurnWithRetries(agent, !resumedExistingAgent);
     } catch (error) {
       const retryStalledResume = error instanceof Error && shouldRetryStalledCursorResume(error);
-      if (resumedExistingAgent && error instanceof Error && (isAgentNotFound(error) || retryStalledResume)) {
-        log(
-          "runCursorSdkAttempt: resumed agent unusable \\u2014 retrying as a fresh agent (" + error.message + ")"
+      if (!resumedExistingAgent || !(error instanceof Error) || !(isAgentNotFound(error) || retryStalledResume)) {
+        throw error;
+      }
+      log(
+        "runCursorSdkAttempt: resumed agent run failed \\u2014 recovering (" + error.message + ")"
+      );
+      appendToRawLogFile("[sdk-retry] " + error.message + "\\n");
+      resetForRecovery(agent);
+      const savedSessionId = callbackState.activeCursorSessionId || sessionMode.sessionId;
+      let recoveredOnSameAgent = false;
+      if (retryStalledResume && savedSessionId) {
+        pushNoticeStep2(
+          "Retrying the saved Cursor agent",
+          "The run stalled before any output, so Eva reopened the same agent to keep its context."
         );
-        appendToRawLogFile("[sdk-retry] " + error.message + "\\n");
         try {
-          agent.close();
-        } catch {
+          agent = await resumeSavedAgent(savedSessionId);
+          await runTurnWithRetries(agent, false);
+          recoveredOnSameAgent = true;
+        } catch (retryError) {
+          const retryIsRecoverable = retryError instanceof Error && (isAgentNotFound(retryError) || shouldRetryStalledCursorResume(retryError) || retryError instanceof CursorPhaseTimeoutError && retryError.phase === "restoring saved context");
+          if (!retryIsRecoverable) throw retryError;
+          log(
+            "runCursorSdkAttempt: same-agent retry failed \\u2014 starting a fresh agent (" + retryError.message + ")"
+          );
+          appendToRawLogFile("[sdk-retry] " + retryError.message + "\\n");
+          resetForRecovery(agent);
         }
-        activeRun = null;
-        timedOutForNoOutput = false;
-        lastMessageAt = Date.now();
+      }
+      if (!recoveredOnSameAgent) {
         pushNoticeStep2(
           "Started a fresh Cursor agent",
-          retryStalledResume ? "The saved agent stopped responding, so Eva recovered with a clean context." : "The saved agent could not be restored, so Eva recovered with a clean context."
+          retryStalledResume ? "The saved agent stopped responding twice, so Eva recovered with a clean context." : "The saved agent could not be restored, so Eva recovered with a clean context."
         );
         agent = await createFreshAgent();
         await runTurnWithRetries(agent, true);
-      } else {
-        throw error;
       }
     }
   } catch (error) {
@@ -30847,6 +30998,7 @@ async function finalizeTurn3(attempt) {
 }
 async function failTurnAndExit2(error) {
   log("cursor daemon: failing turn \\u2014 " + error);
+  persistTurnWork();
   try {
     const completionArgs = entityMutationArgs2({
       success: false,
@@ -30930,7 +31082,10 @@ function startClaimWatcher2() {
         const claimed = await callConvexWithRetry(
           "mutation",
           CLAIM_MUTATION ?? "",
-          entityMutationArgs2({ model: MODEL })
+          entityMutationArgs2({
+            model: MODEL,
+            acceptTurn: !turnActive2 && pendingClaimedTurn === null && !cancelInFlight
+          })
         );
         if (readCancelRequested(claimed)) handleCancelRequested2();
         const turn = readClaimedTurn(claimed);
@@ -31011,6 +31166,7 @@ async function executeClaimedTurn(turn) {
       await flushStreaming();
       for (const step3 of callbackState.accumulatedSteps) step3.status = "complete";
       if (await setFinalizingState()) return;
+      persistTurnWork();
       const completionArgs = {
         [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
         success: false,
@@ -31050,6 +31206,7 @@ async function runCursorTurnWorker() {
 async function reportCursorTurnWorkerFailure(outcome) {
   const error = cursorTurnWorkerFailureMessage(outcome);
   log("cursor daemon: " + error);
+  persistTurnWork();
   const completionArgs = entityMutationArgs2({
     success: false,
     result: null,
@@ -32832,6 +32989,7 @@ try {
     process.exit(1);
   }
 } catch (err) {
+  persistTurnWork();
   syncProviderStateToPersist("fatal-error");
   await stopStreamingLoops();
   writeDoneFile("fatal-error", {

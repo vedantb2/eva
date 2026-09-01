@@ -29,6 +29,16 @@ const ATTACK_S = 0.012;
  */
 let sharedContext: AudioContext | null = null;
 
+/**
+ * Floor between chimes. Two sources can fire for the same moment — an agent
+ * turn finishing in the open chat, and the `task_complete` notification that
+ * lands right after it — and two overlapping copies of the same two-note chime
+ * read as a glitch rather than as two events.
+ */
+const MIN_INTERVAL_S = 1;
+
+let lastChimeAtS: number | null = null;
+
 function getAudioContext(): AudioContext | null {
   if (sharedContext) {
     return sharedContext;
@@ -66,6 +76,11 @@ export function playNotificationChime(): void {
   }
 
   const chimeStart = context.currentTime;
+  if (lastChimeAtS !== null && chimeStart - lastChimeAtS < MIN_INTERVAL_S) {
+    return;
+  }
+  lastChimeAtS = chimeStart;
+
   for (const note of NOTES) {
     const oscillator = context.createOscillator();
     const envelope = context.createGain();

@@ -24,6 +24,10 @@ const accountListItemValidator = v.object({
   label: v.string(),
   credentials: v.array(credentialValidator),
   shared: v.boolean(),
+  // Owned by the pool owner this list was built for (the viewer, or the task /
+  // session owner), as opposed to a teammate's shared account. Sharing is not
+  // enough to tell them apart: an own account can be shared too.
+  isOwn: v.boolean(),
   lastUsedAt: v.optional(v.number()),
   // First name of whoever last ran on it, omitted when that was the owner.
   lastUsedByName: v.optional(v.string()),
@@ -33,9 +37,15 @@ const accountListItemValidator = v.object({
 /**
  * One user's accounts with credential values masked, labelled with that user's
  * first name. Shared by every picker query so owner-scoped lists and the
- * viewer's own list cannot drift apart.
+ * viewer's own list cannot drift apart. `isOwn` says whether `userId` is the
+ * owner of the pool being built, so callers can keep teammates' shared accounts
+ * out of defaults.
  */
-async function listAccountsFor(ctx: QueryCtx, userId: Id<"users">) {
+async function listAccountsFor(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+  isOwn: boolean,
+) {
   const displayName =
     (await resolveUserDisplayFirstName(ctx.db, userId)) ?? "Personal";
   const rows = await ctx.db
@@ -60,6 +70,7 @@ async function listAccountsFor(ctx: QueryCtx, userId: Id<"users">) {
         value: "••••••",
       })),
       shared: row.shared === true,
+      isOwn,
       lastUsedAt: row.lastUsedAt,
       lastUsedByName:
         usedBy && usedBy !== userId ? names.get(usedBy) : undefined,
@@ -75,11 +86,11 @@ async function listAccountsFor(ctx: QueryCtx, userId: Id<"users">) {
  * teammate's credential by accident.
  */
 async function listSelectableAccountsFor(ctx: QueryCtx, ownerUserId: Id<"users">) {
-  const own = await listAccountsFor(ctx, ownerUserId);
+  const own = await listAccountsFor(ctx, ownerUserId, true);
   const teammates = await listTeammateUserIds(ctx.db, ownerUserId);
   const shared = [];
   for (const teammateId of teammates) {
-    const rows = await listAccountsFor(ctx, teammateId);
+    const rows = await listAccountsFor(ctx, teammateId, false);
     shared.push(...rows.filter((row) => row.shared));
   }
   return [...own, ...shared];
@@ -94,7 +105,7 @@ async function listSelectableAccountsFor(ctx: QueryCtx, ownerUserId: Id<"users">
 export const list = authQuery({
   args: {},
   returns: v.array(accountListItemValidator),
-  handler: async (ctx) => await listAccountsFor(ctx, ctx.userId),
+  handler: async (ctx) => await listAccountsFor(ctx, ctx.userId, true),
 });
 
 /**

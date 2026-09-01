@@ -230,6 +230,9 @@ export const sessionDaemonStateFields = {
   // plan windows via the Agent SDK. claimPendingTurn returns it without
   // clearing; the refresh action clears it when it stops waiting.
   usageRefreshRequestedAt: v.optional(v.number()),
+  // Mirrors sessions.claimPausedUntil — the prewarm kill fence is read off
+  // this compact row on the 50ms claim poll.
+  claimPausedUntil: v.optional(v.number()),
 };
 
 export const chatDaemonEntityFields = {
@@ -245,6 +248,11 @@ export const chatDaemonEntityFields = {
   // Same level-triggered flag as sessionDaemonStates.usageRefreshRequestedAt,
   // for project and task chat daemons.
   usageRefreshRequestedAt: v.optional(v.number()),
+  // Self-expiring fence set by prewarm around a daemon kill. See
+  // `_chat/daemonClaimPause.ts`: while it is in the future claimPendingTurn
+  // hands back an empty claim so a dying daemon cannot take the turn (and its
+  // 2-minute running lease) with it.
+  claimPausedUntil: v.optional(v.number()),
 };
 
 export const agentTaskFields = {
@@ -444,6 +452,11 @@ export const sessionFields = {
   // chat. `claimPendingTurn` withholds the queued first turn until this clears,
   // so the agent never runs against a stale snapshot checkout or baked modules.
   sandboxSetupPending: v.optional(v.boolean()),
+  // True from early-ready until final-ready, i.e. while the session lifecycle
+  // is still launching background/startup services. Gates the Preview poll's
+  // background heal so it never relaunches daemons the lifecycle is about to
+  // launch itself (double launch orphaned children and truncated logs).
+  sandboxServicesPending: v.optional(v.boolean()),
   // Persistent per-user master ("orchestrator") session. Set only at creation —
   // the sandbox token's orchestrator claim is minted at launch, never toggled.
   isOrchestrator: v.optional(v.boolean()),
@@ -781,8 +794,8 @@ export const messageFields = {
   // `_shared/modelHandoff.ts`).
   model: v.optional(aiModelValidator),
   reasoningLevel: v.optional(reasoningLevelValidator),
-  // User-role message injected by the user's orchestrator (master) session via
-  // the send_agent_message MCP tool. Drives a "via master" badge in chat.
+  // User-role message injected via MCP (master session or user OAuth
+  // connector). Drives a "via MCP" badge in chat.
   sentViaOrchestrator: v.optional(v.boolean()),
   // User-role wake-up row inserted into the master session when a watched
   // child agent finishes. Drives distinct UI styling.

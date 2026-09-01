@@ -51,7 +51,7 @@ import type { SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import { ProjectContextUsage } from "@/lib/components/context-usage";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
-import { RepoSectionBreadcrumb } from "@/lib/components/RepoSectionBreadcrumb";
+import { ProjectBreadcrumb } from "./_components/ProjectBreadcrumb";
 
 import {
   IconGitPullRequest,
@@ -198,6 +198,17 @@ export function ProjectDetailClient({
     // disable comment here makes React Compiler skip the whole file.
   }, [agentBrowsingAt, basePath, navigate, projectPathSegment]);
 
+  // Chat sub-agent CTA row → Agents tab + expand the sandbox pane (same shape
+  // as SessionDetailClient's onOpenAgentsTab; the tab is a route segment here).
+  const openAgentsTab = () => {
+    if (!projectPathSegment) return;
+    void navigate({
+      to: `${basePath}/projects/${projectPathSegment}/sandbox/agents`,
+      search: true,
+    });
+    setExpandRightSignal((n) => n + 1);
+  };
+
   const handleStopBuild = async () => {
     if (!project) return;
     setIsStoppingBuild(true);
@@ -307,6 +318,7 @@ export function ProjectDetailClient({
         owner={owner}
         panes={panes}
         terminalPanel={terminalPanel}
+        backgroundAgents={project.backgroundAgents}
         sandboxTab={tab}
         onStartSandbox={
           canStartSandbox && !isSandboxStopping ? handleStartSandbox : undefined
@@ -351,6 +363,7 @@ export function ProjectDetailClient({
               isSandboxActive={isSandboxActive}
               isSandboxToggling={isSandboxStarting || isSandboxStopping}
               onOpenFile={openFile}
+              onOpenAgentsTab={openAgentsTab}
               onSandboxToggle={
                 canStartSandbox || isSandboxActive
                   ? (action) => {
@@ -378,11 +391,7 @@ export function ProjectDetailClient({
   return (
     <PageWrapper
       title={
-        <RepoSectionBreadcrumb
-          sectionLabel="Projects"
-          onSectionClick={() => navigate({ to: `${basePath}/projects` })}
-          entityLabel={project.title}
-        />
+        <ProjectBreadcrumb projectId={project._id} title={project.title} />
       }
       /* Overview / Tasks / Sandbox live in the header — replaces the old
          Project|Sandbox surface switcher and the secondary tab strip. */

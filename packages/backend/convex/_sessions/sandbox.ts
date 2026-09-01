@@ -123,6 +123,47 @@ export const startSandbox = authMutation({
 });
 
 /**
+ * User-confirmed recovery for the rewritten-branch publish refusal: replaces
+ * origin/<branch> with the sandbox's local branch. Fire-and-forget — the
+ * scheduled action posts the outcome into the session chat as a system alert.
+ */
+export const forcePushBranch = authMutation({
+  args: { sessionId: v.id("sessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await getSessionWithAccess(
+      ctx.db,
+      args.sessionId,
+      ctx.userId,
+    );
+    if (session.status !== "active" || !session.sandboxId) {
+      throw new Error("Start the sandbox before force-pushing");
+    }
+    if (!session.branchName) {
+      throw new Error("Session has no branch to publish");
+    }
+    // Only eva-owned session branches may ever be rewritten on GitHub; a base
+    // branch must never be reachable through this path.
+    if (!session.branchName.startsWith("eva/")) {
+      throw new Error(
+        `Refusing to force-push non-session branch ${session.branchName}`,
+      );
+    }
+    const repo = await ctx.db.get(session.repoId);
+    if (!repo) throw new Error("Repository not found");
+    await ctx.scheduler.runAfter(0, internal.sandbox.performForcePushBranch, {
+      sessionId: args.sessionId,
+      sandboxId: session.sandboxId,
+      repoId: session.repoId,
+      repoOwner: repo.owner,
+      repoName: repo.name,
+      branchName: session.branchName,
+    });
+    return null;
+  },
+});
+
+/**
  * Shared stop path for the user Stop button and PR-terminal webhook auto-stop.
  * Marks the session `"stopping"` then schedules provider teardown.
  */
@@ -368,6 +409,10 @@ export const sandboxReady = internalMutation({
     // queued first turn until the base pull + dependency install finish. Final-
     // ready never passes it (setup has by then cleared the flag explicitly).
     markSetupPending: v.optional(v.boolean()),
+    // Set by every early-ready call: services (background + startup commands)
+    // are still coming up, so the Preview heal must not launch them itself.
+    // Final-ready omits it, which clears the flag.
+    markServicesPending: v.optional(v.boolean()),
     /** Existing sandbox id was unresumable; we created a fresh one. */
     resumeFellBack: v.optional(v.boolean()),
   },
@@ -425,6 +470,10 @@ export const sandboxReady = internalMutation({
       ...(args.devPort !== undefined ? { devPort: args.devPort } : {}),
       ...(args.devCommand !== undefined ? { devCommand: args.devCommand } : {}),
       ...(args.markSetupPending ? { sandboxSetupPending: true } : {}),
+      // Early-ready arms the Preview-heal gate; final-ready (which never passes
+      // the flag) always disarms it, so a heal can resume as soon as the
+      // lifecycle has launched services itself.
+      sandboxServicesPending: args.markServicesPending ? true : undefined,
     });
     if (args.markSetupPending) {
       await syncSessionDaemonState(ctx, session, {
@@ -456,6 +505,23 @@ export const clearSandboxSetupPending = internalMutation({
     await syncSessionDaemonState(ctx, session, {
       sandboxSetupPending: undefined,
     });
+    return null;
+  },
+});
+
+/**
+ * Releases the Preview-heal gate set by early-ready without a final-ready.
+ * Only the start failure path needs this: it deliberately leaves an active
+ * sandbox running, and a flag left armed would suppress the background heal on
+ * that sandbox forever. Idempotent.
+ */
+export const clearSandboxServicesPending = internalMutation({
+  args: { sessionId: v.id("sessions") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await ctx.db.get(args.sessionId);
+    if (!session || session.sandboxServicesPending !== true) return null;
+    await ctx.db.patch(args.sessionId, { sandboxServicesPending: undefined });
     return null;
   },
 });

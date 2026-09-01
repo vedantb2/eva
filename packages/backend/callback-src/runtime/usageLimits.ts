@@ -174,6 +174,20 @@ function ensureSnapshot(): UsageLimitSnapshot {
   return created;
 }
 
+/** Stream events name Fable as `seven_day_oi`; store it like the SDK `/usage` path. */
+function normalizeWindowKey(key: string): string {
+  if (key === "seven_day_oi") return "model_scoped:Fable";
+  return key;
+}
+
+function labelForWindowKey(key: string): string {
+  if (CLAUDE_WINDOW_LABELS[key]) return CLAUDE_WINDOW_LABELS[key];
+  if (key.startsWith("model_scoped:")) {
+    return `Weekly (${key.slice("model_scoped:".length)})`;
+  }
+  return key;
+}
+
 /**
  * Folds one Claude `rate_limit_event` stream message into the snapshot. The
  * event carries the plan-wide status plus exactly ONE window's utilization, so
@@ -183,12 +197,13 @@ export function mergeClaudeRateLimitEvent(event: JsonObject): void {
   const info = event.rate_limit_info;
   if (typeof info !== "object" || info === null || Array.isArray(info)) return;
   const status = readStatus(info.status);
-  const key = readNonEmptyString(info.rateLimitType);
-  if (!status && !key) return;
+  const rawKey = readNonEmptyString(info.rateLimitType);
+  if (!status && !rawKey) return;
   const snapshot = ensureSnapshot();
   snapshot.completeness = "partial";
   if (status) snapshot.status = status;
-  if (!key) return;
+  if (!rawKey) return;
+  const key = normalizeWindowKey(rawKey);
   // The stream event reports `resetsAt` in epoch SECONDS, unlike the `/usage`
   // lookup's ISO strings — normalize both to epoch ms here.
   const resetsAtSeconds = readFiniteNumber(info.resetsAt);
@@ -196,7 +211,7 @@ export function mergeClaudeRateLimitEvent(event: JsonObject): void {
     snapshot,
     buildWindow(
       key,
-      CLAUDE_WINDOW_LABELS[key] ?? key,
+      labelForWindowKey(key),
       readFiniteNumber(info.utilization),
       resetsAtSeconds === undefined
         ? undefined

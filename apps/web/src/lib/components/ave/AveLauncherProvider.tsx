@@ -2,9 +2,8 @@
 
 import { useState, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import { AveLauncherButton } from "@/lib/components/ave/AveLauncherButton";
 import { AveLauncherContext } from "@/lib/components/ave/aveLauncherContext";
-import { AvePanel } from "@/lib/components/ave/AvePanel";
+import { AveLauncherSurface } from "@/lib/components/ave/AveLauncherSurface";
 
 /**
  * `closed` has never been opened, so nothing chat-related exists yet;
@@ -12,10 +11,6 @@ import { AvePanel } from "@/lib/components/ave/AvePanel";
  * to survive being dismissed and re-summoned with its conversation intact.
  */
 type AvePanelState = "closed" | "open" | "minimized";
-
-function preloadAvePanelBody() {
-  void import("@/lib/components/ave/AvePanelBody");
-}
 
 interface AveLauncherProviderProps {
   children: ReactNode;
@@ -61,24 +56,13 @@ export function AveLauncherProvider({
     <AveLauncherContext.Provider value={value}>
       {children}
       {enabled ? (
-        <>
-          {panel === "closed" ? null : (
-            <AvePanel
-              visible={panel === "open" && !onAveRoute}
-              onMinimize={minimize}
-            />
-          )}
-          {onAveRoute ? null : (
-            <AveLauncherButton
-              isOpen={panel === "open"}
-              onIntent={preloadAvePanelBody}
-              onToggle={() => {
-                if (panel === "open") minimize();
-                else setPanel("open");
-              }}
-            />
-          )}
-        </>
+        <AveLauncherSurface
+          isOpen={panel === "open"}
+          isMounted={panel !== "closed"}
+          isHidden={onAveRoute}
+          onOpen={() => setPanel("open")}
+          onMinimize={minimize}
+        />
       ) : null}
     </AveLauncherContext.Provider>
   );

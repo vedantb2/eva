@@ -63,6 +63,23 @@ export const createSessionPr = action({
       });
     }
 
+    // Write the reviewer description here rather than on every push: this is
+    // the moment the work is offered for review, the diff is final, the
+    // session sandbox is normally still up, and it costs one model call per
+    // review instead of one per turn. Scheduled, not awaited, so the modal
+    // returns straight away — the action is best-effort, so a stopped sandbox
+    // just logs and leaves the static body in place.
+    if (session.sandboxId !== undefined) {
+      await ctx.scheduler.runAfter(0, internal.github.generatePrDescription, {
+        installationId: repo.installationId,
+        repoOwner: repo.owner,
+        repoName: repo.name,
+        prUrl,
+        sandboxId: session.sandboxId,
+        repoId: session.repoId,
+      });
+    }
+
     await ctx.runMutation(internal.sessions.setPrState, {
       id: args.sessionId,
       prState: "open",
@@ -99,10 +116,20 @@ export const createDraftSessionPr = internalAction({
       ? repo.rootDirectory.split("/").pop()
       : undefined;
 
-    const summaryContent: string =
+    // The reviewer-facing description is generated from the diff after the PR
+    // exists (`generatePrDescription`); the session summary is only included
+    // when the user has already produced one.
+    const sections =
       session.summary && session.summary.length > 0
-        ? session.summary.map((item: string) => `- ${item}`).join("\n")
-        : "_Summary will be generated before review_";
+        ? [
+            {
+              heading: "Summary",
+              content: session.summary
+                .map((item: string) => `- ${item}`)
+                .join("\n"),
+            },
+          ]
+        : [];
 
     const evaUrl = buildEvaSessionUrl(
       repo.owner,
@@ -122,10 +149,7 @@ export const createDraftSessionPr = internalAction({
           branchName: session.branchName,
           baseBranch: resolveSessionBaseBranch(session, repo),
           title: session.title,
-          body: buildPrBody(
-            [{ heading: "Summary", content: summaryContent }],
-            evaUrl,
-          ),
+          body: buildPrBody(sections, evaUrl),
           labels: ["eva", "session", "draft", ...(appLabel ? [appLabel] : [])],
           draft: true,
         },

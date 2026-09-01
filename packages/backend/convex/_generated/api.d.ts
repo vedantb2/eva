@@ -61,6 +61,8 @@ import type * as _github_authErrors from "../_github/authErrors.js";
 import type * as _github_evaPrOwnership from "../_github/evaPrOwnership.js";
 import type * as _github_helpers from "../_github/helpers.js";
 import type * as _github_prComments from "../_github/prComments.js";
+import type * as _github_prDescription from "../_github/prDescription.js";
+import type * as _github_prDescriptionPrompt from "../_github/prDescriptionPrompt.js";
 import type * as _github_prDiff from "../_github/prDiff.js";
 import type * as _github_prDiffFallback from "../_github/prDiffFallback.js";
 import type * as _github_prErrors from "../_github/prErrors.js";
@@ -434,6 +436,8 @@ declare const fullApi: ApiFromModules<{
   "_github/evaPrOwnership": typeof _github_evaPrOwnership;
   "_github/helpers": typeof _github_helpers;
   "_github/prComments": typeof _github_prComments;
+  "_github/prDescription": typeof _github_prDescription;
+  "_github/prDescriptionPrompt": typeof _github_prDescriptionPrompt;
   "_github/prDiff": typeof _github_prDiff;
   "_github/prDiffFallback": typeof _github_prDiffFallback;
   "_github/prErrors": typeof _github_prErrors;

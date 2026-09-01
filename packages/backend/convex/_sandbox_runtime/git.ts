@@ -747,6 +747,54 @@ async function pinBranchUpstream(
   }
 }
 
+/**
+ * Matches git's unresolved-index refusals: "<path>: needs merge", "error: you
+ * need to resolve your current index first", "you have unmerged files", and
+ * "MERGE_HEAD exists". Kept narrow on purpose — anything else (auth, network,
+ * missing refs) must keep failing loudly, not be reset away.
+ */
+export function isUnresolvedGitIndexError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("needs merge") ||
+    lower.includes("resolve your current index first") ||
+    lower.includes("unmerged files") ||
+    lower.includes("merge_head exists") ||
+    lower.includes("not concluded your merge")
+  );
+}
+
+/**
+ * Aborts a merge/rebase/cherry-pick/revert left in progress on a reused
+ * sandbox, then clears any unmerged entries still in the index. An agent run
+ * that dies mid-merge leaves the VM in this state, and every later checkout
+ * refuses with "needs merge; you need to resolve your current index first" —
+ * so session reuse could never start again on that box. Aborting restores the
+ * pre-operation HEAD: committed work survives; only the unfinished conflicted
+ * attempt is discarded.
+ */
+export async function recoverUnresolvedGitIndex(
+  sandbox: SandboxHandle,
+): Promise<void> {
+  const workspaceDir = workspaceDirShell();
+  await runLoggedGitStep("recoverUnresolvedGitIndex", WORKSPACE_DIR, () =>
+    execGitCommand(
+      sandbox,
+      [
+        `cd ${workspaceDir}`,
+        `if [ -f .git/MERGE_HEAD ]; then echo "aborting in-progress merge"; git merge --abort || true; fi`,
+        `if [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; then echo "aborting in-progress rebase"; git rebase --abort || true; fi`,
+        `if [ -f .git/CHERRY_PICK_HEAD ]; then echo "aborting in-progress cherry-pick"; git cherry-pick --abort || true; fi`,
+        `if [ -f .git/REVERT_HEAD ]; then echo "aborting in-progress revert"; git revert --abort || true; fi`,
+        // Unmerged entries can outlive the operation marker (or the abort);
+        // reset them so checkout can run again.
+        `if [ -n "$(git ls-files --unmerged)" ]; then echo "resetting unmerged index entries"; git reset --merge || git reset --hard HEAD; fi`,
+      ].join(" && "),
+      60,
+    ),
+  );
+}
+
 /** Checks out a session branch, creating it from a remote or base ref if needed. */
 export async function checkoutSessionBranch(
   sandbox: SandboxHandle,

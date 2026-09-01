@@ -25,20 +25,21 @@ describe("missing remote ref is a handled git outcome", () => {
   });
 
   test("recognises the typed sandbox command error, not a network failure", () => {
-    const missing = new SandboxCommandFailedError(
-      "Sandbox command failed (exit 128): fatal: couldn't find remote ref eva/automation-dead",
-      {
-        exitCode: 128,
-        output: "fatal: couldn't find remote ref eva/automation-dead",
-      },
-    );
+    const missing = new SandboxCommandFailedError({
+      message:
+        "Sandbox command failed (exit 128): fatal: couldn't find remote ref eva/automation-dead",
+      exitCode: 128,
+      output: "fatal: couldn't find remote ref eva/automation-dead",
+    });
     expect(isMissingRemoteRefFetchFailure(missing)).toBe(true);
     expect(
       isMissingRemoteRefFetchFailure(
-        new SandboxCommandFailedError(
-          "Sandbox command failed (exit 128): fatal: Authentication failed",
-          { exitCode: 128, output: "fatal: Authentication failed" },
-        ),
+        new SandboxCommandFailedError({
+          message:
+            "Sandbox command failed (exit 128): fatal: Authentication failed",
+          exitCode: 128,
+          output: "fatal: Authentication failed",
+        }),
       ),
     ).toBe(false);
   });

@@ -140,7 +140,7 @@ export async function execHandle(
     // Typed: a client-side timeout means the VM never answered — a
     // dead-sandbox signal for isSandboxUnresponsiveError, unlike a command
     // that ran and failed.
-    (message) => new SandboxExecTimeoutError(message),
+    (message) => new SandboxExecTimeoutError({ message }),
   );
   if (resp.exitCode !== 0) {
     const output = resp.output?.trim() ?? "";

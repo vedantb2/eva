@@ -93,12 +93,11 @@ export class SandboxGoneError extends Data.TaggedError("SandboxGoneError")<{
  * message keeps the exact `Sandbox exec (Ns) timed out after Nms` wording the
  * setup-retry matchers already key on.
  */
-export class SandboxExecTimeoutError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "SandboxExecTimeoutError";
-  }
-}
+export class SandboxExecTimeoutError extends Data.TaggedError(
+  "SandboxExecTimeoutError",
+)<{
+  message: string;
+}> {}
 
 /**
  * True when a failure from a CHEAP eva-issued command (liveness probe, pid

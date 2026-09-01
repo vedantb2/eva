@@ -206,18 +206,19 @@ describe("unresponsive-VM signals", () => {
   // timeouts from an OOM-wedged VM (silver-strategic-buzzard, 2026-09-01).
   // These mean "restart or report unhealthy", never "mint a replacement".
   test("exit 137 on a trivial command is unresponsive, never gone", () => {
-    const error = new SandboxCommandFailedError(
-      'Sandbox command failed with exit code 137 (cmd="echo 1")',
-      { exitCode: 137, output: "" },
-    );
+    const error = new SandboxCommandFailedError({
+      message: 'Sandbox command failed with exit code 137 (cmd="echo 1")',
+      exitCode: 137,
+      output: "",
+    });
     expect(isSandboxUnresponsiveError(error)).toBe(true);
     expect(isSandboxGoneError(error)).toBe(false);
   });
 
   test("a client-side exec timeout is unresponsive, never gone", () => {
-    const error = new SandboxExecTimeoutError(
-      "Sandbox exec (10s) timed out after 25000ms",
-    );
+    const error = new SandboxExecTimeoutError({
+      message: "Sandbox exec (10s) timed out after 25000ms",
+    });
     expect(isSandboxUnresponsiveError(error)).toBe(true);
     expect(isSandboxGoneError(error)).toBe(false);
   });
@@ -225,7 +226,8 @@ describe("unresponsive-VM signals", () => {
   test("ordinary command failures are not unresponsive", () => {
     expect(
       isSandboxUnresponsiveError(
-        new SandboxCommandFailedError("Sandbox command failed (exit 1): nope", {
+        new SandboxCommandFailedError({
+          message: "Sandbox command failed (exit 1): nope",
           exitCode: 1,
           output: "nope",
         }),

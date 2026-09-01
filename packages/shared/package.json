@@ -7,7 +7,9 @@
     ".": "./src/index.ts",
     "./dates": "./src/utils/dates.ts",
     "./duration": "./src/utils/duration.ts",
+    "./modelPricing": "./src/modelPricing.ts",
     "./parseActivitySteps": "./src/utils/parseActivitySteps.ts",
+    "./resultEvent": "./src/resultEvent.ts",
     "./uiTaskPrompt": "./src/uiTaskPrompt.ts"
   },
   "peerDependencies": {
@@ -17,7 +19,8 @@
     "convex-helpers": "0.1.114",
     "dayjs": ">=1.0.0",
     "facehash": ">=0.0.7",
-    "react": ">=19.0.0"
+    "react": ">=19.0.0",
+    "zod": ">=3.24.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0"

@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import type { Id } from "@eva/backend";
 import { cn, Spinner, Button, WebPreview } from "@eva/ui";
 import { useSessionStorage } from "usehooks-ts";
 import { IconPlayerPlay, IconRefresh, IconWorld } from "@tabler/icons-react";
@@ -11,8 +12,15 @@ import {
   useFullscreenElement,
   usePreviewIframeElement,
 } from "@/lib/components/sandbox/previewIframeHost";
+import {
+  closePreviewMiniPlayer,
+  openPreviewMiniPlayer,
+  usePreviewMiniPlayer,
+} from "@/lib/components/sandbox/previewMiniPlayerStore";
+import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
 import { PreviewAnnotationLayer } from "./_components/PreviewAnnotationLayer";
 import { PreviewDeviceToolbar } from "./_components/PreviewDeviceToolbar";
+import { PreviewFloatingPlaceholder } from "./_components/PreviewFloatingPlaceholder";
 import { PreviewPanelNavBar } from "./_components/PreviewPanelNavBar";
 import { PreviewViewportFrame } from "./_components/PreviewViewportFrame";
 import {
@@ -54,6 +62,15 @@ interface WebPreviewPanelProps {
    * annotation. When absent, the select-element toggle is hidden.
    */
   onAnnotationSubmit?: (display: string, full: string) => Promise<void>;
+  /**
+   * Session-only, set while this pane is the visible preview: lets it float
+   * into the mini-player when the user leaves the sessions area or pops it out.
+   */
+  miniPlayer?: {
+    sessionId: Id<"sessions">;
+    returnTo: string;
+    title: string;
+  };
 }
 
 export function WebPreviewPanel({
@@ -72,9 +89,18 @@ export function WebPreviewPanel({
   onStartSandbox,
   isSandboxStarting = false,
   onAnnotationSubmit,
+  miniPlayer,
 }: WebPreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [annotationMode, setAnnotationMode] = useState(false);
+  // The mini-player is a desktop affordance: on a phone there is no "beside".
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const floating = usePreviewMiniPlayer();
+  const isFloating = floating?.entryKey === pathStorageKey;
+  const miniPlayerSource =
+    miniPlayer !== undefined && isDesktop && sandboxId !== undefined
+      ? { ...miniPlayer, sandboxId }
+      : undefined;
   // The live iframe lives in the global PreviewIframeHost (fixed overlay),
   // so it survives route changes. Nav bar / annotation consumers get the
   // element via this subscription instead of an in-tree ref.
@@ -125,14 +151,24 @@ export function WebPreviewPanel({
 
   // iframeSrc is recomputed only at remount points (previewInfo change,
   // storage-key change, or iframeKey bump from a refresh). previewPath is
-  // intentionally excluded from deps so the src stays stable while the user
+  // intentionally NOT part of the key so the src stays stable while the user
   // navigates inside the iframe — otherwise we'd fight the iframe with
-  // declarative src updates.
-  const iframeSrc = useMemo(() => {
-    if (!previewInfo) return undefined;
-    return buildUrlWithPath(previewInfo.url, previewPath);
-    // eslint-disable-next-line react/exhaustive-deps
-  }, [previewInfo, pathStorageKey, iframeKey]);
+  // declarative src updates. Render-phase state adjustment, not useMemo.
+  const srcKey = `${previewInfo?.url ?? ""}|${pathStorageKey}|${iframeKey}`;
+  const [srcState, setSrcState] = useState<{
+    key: string;
+    src: string | undefined;
+  }>(() => ({
+    key: srcKey,
+    src: previewInfo ? buildUrlWithPath(previewInfo.url, previewPath) : undefined,
+  }));
+  let iframeSrc = srcState.src;
+  if (srcState.key !== srcKey) {
+    iframeSrc = previewInfo
+      ? buildUrlWithPath(previewInfo.url, previewPath)
+      : undefined;
+    setSrcState({ key: srcKey, src: iframeSrc });
+  }
 
   function handlePathChange(path: string) {
     const next = normalizePreviewPath(path);

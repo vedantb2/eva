@@ -30,6 +30,9 @@ import {
   IconClockHour4,
 } from "@tabler/icons-react";
 
+/** Stats aggregates by day, so the hourly "24h" range is not offered here. */
+const STATS_RANGES = ["7d", "30d", "90d", "all"] as const;
+
 /** Hours we credit back to a human for each task the agent completed. */
 const HOURS_SAVED_PER_TASK = 2;
 
@@ -78,7 +81,11 @@ export function StatsClient() {
       comfortable
       insetHeader
       headerRight={
-        <TimeRangeFilter value={timeRange} onChange={setTimeRange} />
+        <TimeRangeFilter
+          value={timeRange}
+          onChange={setTimeRange}
+          ranges={STATS_RANGES}
+        />
       }
     >
       {isLoading ? (

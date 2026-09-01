@@ -68,6 +68,10 @@ import {
 import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
 import {
+  appendTurnCheckpoint,
+  beginTurnCheckpoint,
+} from "../runtime/turnCheckpoint.js";
+import {
   beginTurnOwnership,
   endTurnOwnership,
   getCurrentTurnLease,
@@ -279,6 +283,7 @@ async function failTurnAndExit(error: string): Promise<never> {
       ...(RUN_ID ? { runId: RUN_ID } : {}),
     };
     appendClaimedTurnCompletion(completionArgs);
+    appendTurnCheckpoint(completionArgs);
     await callConvexWithRetry(
       "mutation",
       COMPLETION_MUTATION ?? "",
@@ -991,17 +996,19 @@ async function failSyntheticTurn(error: string): Promise<void> {
       step.status = "complete";
     }
     const turnLease = getCurrentTurnLease();
+    const completionArgs = entityMutationArgs({
+      messageId,
+      success: false,
+      result: null,
+      error,
+      activityLog: serializeSteps(S.accumulatedSteps),
+      ...turnLease,
+    });
+    appendTurnCheckpoint(completionArgs);
     await callConvexWithRetry(
       "mutation",
       COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
-      entityMutationArgs({
-        messageId,
-        success: false,
-        result: null,
-        error,
-        activityLog: serializeSteps(S.accumulatedSteps),
-        ...turnLease,
-      }),
+      completionArgs,
     );
   } catch {
     /* best-effort */
@@ -1033,6 +1040,7 @@ async function ensureSyntheticTurn(): Promise<void> {
     // A synthetic turn owns the heartbeat without occupying the claim slot;
     // a legacy synthetic turn carries no lease and must still heartbeat.
     beginTurnOwnership("provider", readTurnLeaseIdentity(result));
+    beginTurnCheckpoint();
     if (!supervisor.startTurn({ kind: "synthetic", messageId })) {
       log("daemon: synthetic turn opened after lifecycle moved; ignoring");
       endTurnOwnership();
@@ -1085,6 +1093,7 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
   // completion may immediately dequeue the next message, and a VM death after
   // that point erases anything not on origin (see turnPersist.ts).
   persistTurnWork();
+  appendTurnCheckpoint(completionArgs);
   await callConvexWithRetry(
     "mutation",
     COMPLETE_SYNTHETIC_TURN_MUTATION ?? "",
@@ -1657,14 +1666,20 @@ export async function runSdkDaemon(): Promise<void> {
     // shutting down through the finally block below.
     persistTurnWork();
     try {
-      await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", {
+      const completionArgs: JsonObject = {
         [ENTITY_ID_FIELD ?? "sessionId"]: ENTITY_ID ?? "",
         success: false,
         result: null,
         error: "Agent SDK daemon failed: " + messageText,
         activityLog: serializeSteps(S.accumulatedSteps),
         ...getCurrentTurnLease(),
-      });
+      };
+      appendTurnCheckpoint(completionArgs);
+      await callConvexWithRetry(
+        "mutation",
+        COMPLETION_MUTATION ?? "",
+        completionArgs,
+      );
     } catch {
       /* ignore */
     }

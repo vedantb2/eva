@@ -11,3 +11,7 @@ export {
   type TaskTag,
 } from "./taskTags";
 export { isUiImplementationTask } from "./uiTaskPrompt";
+export {
+  TITLE_REGENERATION_STALE_MS,
+  isTitleRegenerating,
+} from "./sessionTitle";

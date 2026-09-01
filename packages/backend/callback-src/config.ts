@@ -368,24 +368,9 @@ export const TOOL_STEP_TYPES = new Set([
   "todos",
 ]);
 
-export const CODEX_PRICING_PER_MILLION: Record<
-  string,
-  { input: number; cached: number; output: number }
-> = {
-  // OpenAI API list prices (per 1M tokens).
-  "gpt-5.6-sol": { input: 5.0, cached: 0.5, output: 30.0 },
-  "gpt-5.6-terra": { input: 2.0, cached: 0.2, output: 12.0 },
-  "gpt-5.6-luna": { input: 0.2, cached: 0.02, output: 1.2 },
-  "gpt-5.5": { input: 5.0, cached: 0.5, output: 30.0 },
-  // Legacy — kept so in-flight sandboxes still cost-account correctly.
-  "gpt-5.5-pro": { input: 30.0, cached: 30.0, output: 180.0 },
-
-  "gpt-5.4": { input: 1.25, cached: 0.125, output: 10.0 },
-  "gpt-5.4-mini": { input: 0.25, cached: 0.025, output: 2.0 },
-  "gpt-5.3-codex": { input: 1.25, cached: 0.125, output: 10.0 },
-  "gpt-5.2-codex": { input: 1.25, cached: 0.125, output: 10.0 },
-  "gpt-5-codex": { input: 1.25, cached: 0.125, output: 10.0 },
-};
+// Pricing lives in @eva/shared so the web Usage page and this bundle read
+// one table. Re-exported to keep `computeCodexCostUsd` imports unchanged.
+export { CODEX_PRICING_PER_MILLION } from "@eva/shared/modelPricing";
 
 export const completedLabels: Record<string, string> = {
   "Preparing Claude session...": "Prepared Claude session",

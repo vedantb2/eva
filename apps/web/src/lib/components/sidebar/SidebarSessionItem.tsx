@@ -58,6 +58,8 @@ function prStateIconColor(
 interface SidebarSessionItemProps {
   href: string;
   title: string;
+  /** "Regenerate title" is running — a muted hint sits beside the title. */
+  isRegeneratingTitle?: boolean;
   sessionId: Id<"sessions">;
   userId: Id<"users">;
   createdAt: number;
@@ -132,9 +134,28 @@ function SessionStatusLeading({
   );
 }
 
+/** Muted "Regenerating…" beside the title while a new one is being written. */
+export function TitleRegeneratingHint({
+  show,
+  className,
+}: {
+  show: boolean;
+  className?: string;
+}) {
+  if (!show) return null;
+  return (
+    <span
+      className={cn("shrink-0 text-[11px] text-muted-foreground", className)}
+    >
+      Regenerating…
+    </span>
+  );
+}
+
 export function SidebarSessionItem({
   href,
   title,
+  isRegeneratingTitle = false,
   sessionId,
   userId,
   createdAt,
@@ -180,6 +201,7 @@ export function SidebarSessionItem({
           <div className="flex min-w-0 items-center gap-2">
             {statusLeading}
             <MarqueeOnHover className={titleClass}>{title}</MarqueeOnHover>
+            <TitleRegeneratingHint show={isRegeneratingTitle} />
           </div>
           <div className="flex min-w-0 items-center gap-2 pl-4 opacity-60">
             <div className="min-w-0 flex-1">
@@ -198,6 +220,7 @@ export function SidebarSessionItem({
         <div className="flex min-w-0 items-center gap-2">
           {statusLeading}
           <MarqueeOnHover className={titleClass}>{title}</MarqueeOnHover>
+          <TitleRegeneratingHint show={isRegeneratingTitle} />
           <SessionPrIcon prUrl={prUrl} prState={prState} />
           <RelativeDateTime
             at={activityAt}

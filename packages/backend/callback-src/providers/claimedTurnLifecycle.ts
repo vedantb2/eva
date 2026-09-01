@@ -6,6 +6,10 @@ import {
   type TurnLeaseIdentity,
 } from "../runtime/turnLease.js";
 import { readTurnLeaseIdentity } from "./claimPendingTurnParse.js";
+import {
+  beginTurnCheckpoint,
+  resetTurnCheckpoint,
+} from "../runtime/turnCheckpoint.js";
 
 type ClaimedTurnBase = {
   prompt: string;
@@ -82,6 +86,7 @@ export function startClaimedTurn(turn: ClaimedTurn): void {
     throw new Error("Cannot start a claimed turn while another claim is active");
   }
   beginTurnOwnership("claim", turn.turnLease);
+  beginTurnCheckpoint();
 }
 
 /** Fences every real-turn completion through the ownership installed at start. */
@@ -99,6 +104,7 @@ export function appendClaimedTurnCompletion(args: JsonObject): void {
 /** Clears ownership between turns in a warm provider process. */
 export function finishClaimedTurn(): void {
   endTurnOwnership();
+  resetTurnCheckpoint();
 }
 
 /** Test-only lifecycle view; carries no provider or prompt data. */

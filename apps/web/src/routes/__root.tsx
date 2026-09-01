@@ -11,6 +11,7 @@ import { ClientProvider } from "@/lib/components/ClientProvider";
 import { AppToaster } from "@/lib/components/AppToaster";
 import { AppShell } from "@/lib/components/AppShell";
 import { PreviewIframeHost } from "@/lib/components/sandbox/previewIframeHost";
+import { PreviewMiniPlayer } from "@/lib/components/sandbox/PreviewMiniPlayer";
 import { ChangelogDialogGate } from "@/lib/components/ChangelogDialogGate";
 import { IS_EMBEDDED } from "@/lib/embed/embedded";
 import { EmbedNavigationBridge } from "@/lib/embed/EmbedNavigationBridge";
@@ -52,6 +53,9 @@ function RootComponent() {
         <AppShell>
           <Outlet />
         </AppShell>
+        {/* The floating preview window sits on the host's z layer and just
+            before it in DOM order, so the hosted iframe paints over its body. */}
+        <PreviewMiniPlayer />
         {/* Preview iframes survive ALL route changes by living here, outside
             the router. Mounted after AppShell so equal-z fixed layers paint
             above routed content; Radix portals (z-50) still stack above. */}

@@ -2,6 +2,15 @@
 
 import { useSyncExternalStore } from "react";
 import { cn, useWebPreview } from "@eva/ui";
+import {
+  armPreviewMiniPlayer,
+  disarmPreviewMiniPlayer,
+  dropPreviewMiniPlayerForSandbox,
+  notePreviewAnchorAttached,
+  notePreviewAnchorDetached,
+  type PreviewAnchorRole,
+  type PreviewMiniPlayerSource,
+} from "./previewMiniPlayerStore";
 
 /**
  * Global preview-iframe keep-alive.
@@ -74,12 +83,27 @@ const onElementByKey = new Map<
 >();
 const listeners = new Set<() => void>();
 let snapshot: ReadonlyArray<HostEntry> = [];
+/**
+ * True while the mini-player is being dragged or resized. Iframes swallow
+ * pointer events, so the hosted wrappers go inert until the gesture ends.
+ */
+let pointerLocked = false;
 
 function notify(): void {
   snapshot = Array.from(entries.values());
   for (const listener of listeners) {
     listener();
   }
+}
+
+export function setPreviewPointerLock(locked: boolean): void {
+  if (pointerLocked === locked) return;
+  pointerLocked = locked;
+  notify();
+}
+
+function getPointerLocked(): boolean {
+  return pointerLocked;
 }
 
 function subscribe(listener: () => void): () => void {
@@ -172,6 +196,13 @@ interface AttachOptions {
   logical: LogicalSize | null;
   /** Receives the live iframe element (panels wire it into iframeRef). */
   onElement: (el: HTMLIFrameElement | null) => void;
+  /** A pane anchor wins over an auto mini-player; a mini-player anchor does not. */
+  role: PreviewAnchorRole;
+  /**
+   * Pane only: float into the mini-player if this anchor detaches for good.
+   * Undefined disarms (pane hidden, collapsed, mobile, or nothing to show).
+   */
+  miniPlayer?: PreviewMiniPlayerSource;
 }
 
 /**
@@ -180,9 +211,11 @@ interface AttachOptions {
  */
 function attach(key: string, options: AttachOptions): (() => void) | undefined {
   const existing = entries.get(key);
+  notePreviewAnchorAttached(key, options.role);
 
   if (options.src === undefined) {
     // Loading or error state — the panel is showing an overlay there instead.
+    if (options.role === "panel") disarmPreviewMiniPlayer(key);
     if (existing !== undefined) {
       entries.set(key, { ...existing, anchor: null, rect: null });
       notify();
@@ -211,6 +244,20 @@ function attach(key: string, options: AttachOptions): (() => void) | undefined {
   const current = entries.get(key);
   options.onElement(current?.element ?? null);
 
+  if (options.role === "panel") {
+    if (options.miniPlayer !== undefined && current !== undefined) {
+      armPreviewMiniPlayer({
+        ...options.miniPlayer,
+        entryKey: key,
+        group: current.group,
+        src: current.src,
+        epoch: current.epoch,
+      });
+    } else {
+      disarmPreviewMiniPlayer(key);
+    }
+  }
+
   const observer = new ResizeObserver(() => {
     const entry = entries.get(key);
     if (entry === undefined || entry.anchor === null) return;
@@ -231,9 +278,12 @@ function attach(key: string, options: AttachOptions): (() => void) | undefined {
     }
     options.onElement(null);
     const entry = entries.get(key);
+    // Only the anchor that still owns the slot un-anchors it; a superseded
+    // anchor (pane took over from the mini-player) must not report a detach.
     if (entry !== undefined && entry.anchor === options.anchor) {
       entries.set(key, { ...entry, anchor: null, rect: null });
       notify();
+      notePreviewAnchorDetached(key);
     }
   };
 }
@@ -271,6 +321,7 @@ export function setPreviewMeta(group: string, meta: PreviewMeta): void {
 
 /** Sandbox stopped: every port's cached documents are dead weight — free them. */
 export function dropPreviewGroup(sandboxId: string): void {
+  dropPreviewMiniPlayerForSandbox(sandboxId);
   const prefix = `${sandboxId}:`;
   for (const key of Array.from(metaByGroup.keys())) {
     if (key.startsWith(prefix)) {
@@ -314,6 +365,7 @@ export function useFullscreenElement(): Element | null {
  */
 export function PreviewIframeHost() {
   const hosted = useSyncExternalStore(subscribe, getSnapshot);
+  const locked = useSyncExternalStore(subscribe, getPointerLocked);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-40">
@@ -334,7 +386,8 @@ export function PreviewIframeHost() {
           <div
             key={entry.key}
             className={cn(
-              "pointer-events-auto absolute overflow-hidden bg-background",
+              "absolute overflow-hidden bg-background",
+              locked ? "pointer-events-none" : "pointer-events-auto",
               entry.bordered && "border border-border",
               !visible && "hidden",
             )}
@@ -373,62 +426,101 @@ export function PreviewIframeHost() {
   );
 }
 
-interface PersistentPreviewBodyProps {
+interface PreviewAnchorProps {
   /** Stable placeholder identity — the panel's pathStorageKey. */
   entryKey: string;
   /** `${sandboxId}:${port}` for group eviction. */
   group: string;
   src: string | undefined;
   epoch: number;
-  /** True while an error overlay must show — hides the hosted iframe. */
-  covered: boolean;
   /** Guest CSS viewport; null = fill the placeholder. */
   logicalSize: { width: number; height: number } | null;
-  loading?: React.ReactNode;
+  role: PreviewAnchorRole;
+  /** Pane only — see {@link AttachOptions.miniPlayer}. */
+  miniPlayer?: PreviewMiniPlayerSource;
+  onElement?: (el: HTMLIFrameElement | null) => void;
 }
 
 /**
- * Drop-in replacement for WebPreviewBody: renders the measured placeholder
- * the host overlays, and wires the hosted iframe element into the enclosing
- * WebPreview's iframeRef so nav/history/annotation consumers keep working.
+ * The measured placeholder the host overlays its iframe on. Context-free so
+ * the mini-player can host the same entry without a WebPreview provider.
  *
  * The anchor div is keyed by everything the host reads at attach time, so a
  * change remounts it and re-runs the ref callback — an explicit update
- * channel that does not depend on closure identity.
+ * channel that does not depend on closure identity. A keyed remount is a
+ * detach + attach in one commit, which the mini-player store treats as no
+ * detach at all.
  */
-export function PersistentPreviewBody({
+export function PreviewAnchor({
   entryKey,
   group,
   src,
   epoch,
-  covered,
   logicalSize,
-  loading,
-}: PersistentPreviewBodyProps) {
-  const { iframeRef } = useWebPreview();
-  const effectiveSrc = covered ? undefined : src;
+  role,
+  miniPlayer,
+  onElement,
+}: PreviewAnchorProps) {
   const logicalKey = logicalSize
     ? `${logicalSize.width}x${logicalSize.height}`
     : "fill";
+  const armKey =
+    miniPlayer === undefined
+      ? "idle"
+      : `${miniPlayer.sessionId}:${miniPlayer.sandboxId}:${miniPlayer.returnTo}:${miniPlayer.title}`;
+
+  return (
+    <div
+      key={`${epoch}:${src ?? ""}:${logicalKey}:${armKey}`}
+      ref={(node) => {
+        if (node === null) return undefined;
+        return attach(entryKey, {
+          anchor: node,
+          group,
+          src,
+          epoch,
+          logical: logicalSize,
+          role,
+          miniPlayer,
+          onElement: onElement ?? (() => undefined),
+        });
+      }}
+      className="size-full"
+    />
+  );
+}
+
+interface PersistentPreviewBodyProps
+  extends Omit<PreviewAnchorProps, "role" | "src" | "onElement"> {
+  src: string | undefined;
+  /** True while an error overlay must show — hides the hosted iframe. */
+  covered: boolean;
+  loading?: React.ReactNode;
+}
+
+/**
+ * Drop-in replacement for WebPreviewBody: renders the pane's
+ * {@link PreviewAnchor} and wires the hosted iframe element into the
+ * enclosing WebPreview's iframeRef so nav/history/annotation consumers keep
+ * working.
+ */
+export function PersistentPreviewBody({
+  src,
+  covered,
+  loading,
+  ...anchor
+}: PersistentPreviewBodyProps) {
+  const { iframeRef } = useWebPreview();
 
   return (
     <div className="relative size-full min-h-0 overflow-hidden">
-      <div
-        key={`${epoch}:${effectiveSrc ?? ""}:${logicalKey}`}
-        ref={(node) => {
-          if (node === null) return undefined;
-          return attach(entryKey, {
-            anchor: node,
-            group,
-            src: effectiveSrc,
-            epoch,
-            logical: logicalSize,
-            onElement: (el) => {
-              iframeRef.current = el;
-            },
-          });
+      <PreviewAnchor
+        {...anchor}
+        src={covered ? undefined : src}
+        role="panel"
+        onElement={(el) => {
+          iframeRef.current = el;
         }}
-        className="size-full"
       />
       {loading}
     </div>

@@ -38,7 +38,7 @@ export const sortDirParser = parseAsStringLiteral(sortDirections)
   .withDefault("desc")
   .withOptions(searchOptions);
 
-const timeRanges = ["7d", "30d", "90d", "all"] as const;
+const timeRanges = ["24h", "7d", "30d", "90d", "all"] as const;
 export const timeRangeParser = parseAsStringLiteral(timeRanges)
   .withDefault("30d")
   .withOptions(searchOptions);
@@ -430,7 +430,7 @@ export const logEntityTypesParser = parseAsArrayOf(parseAsString)
   .withDefault([])
   .withOptions(searchOptions);
 
-const logViews = ["type", "project"] as const;
+const logViews = ["overview", "type", "project"] as const;
 export const logViewParser = parseAsStringLiteral(logViews)
-  .withDefault("type")
+  .withDefault("overview")
   .withOptions(searchOptions);

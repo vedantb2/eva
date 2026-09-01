@@ -50,4 +50,8 @@ export {
   clearPrUrlIfMatches,
   updateDeploymentStatus,
   applyGeneratedTitle,
+  getTitleContext,
+  markTitleRegenerating,
+  applyRegeneratedTitle,
+  getRevertContext,
 } from "./_sessions/internal";

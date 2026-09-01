@@ -376,6 +376,10 @@ export const sessionFields = {
   repoId: v.id("githubRepos"),
   userId: v.id("users"),
   title: v.string(),
+  // Set while "Regenerate title" runs so every sidebar shows the in-progress
+  // state live; cleared on success or failure. Clients treat a startedAt older
+  // than a couple of minutes as stale.
+  titleRegeneration: v.optional(v.object({ startedAt: v.number() })),
   branchName: v.optional(v.string()),
   // Base branch this session checks out from and creates its branch off of.
   // Chosen at creation (defaults to the repo default). Persisted so sandbox
@@ -751,6 +755,35 @@ export const automationRunFields = {
   findings: v.optional(v.array(automationFindingValidator)),
 };
 
+/**
+ * Usage columns denormalised from `rawResultEvent` at write time (see
+ * `_logs/usage.ts`) so the Usage page aggregates without parsing JSON blobs.
+ * Optional until the backfill migration has run; rows without a result event
+ * never get them.
+ */
+export const logUsageFields = {
+  costUsd: v.optional(v.number()),
+  model: v.optional(v.string()),
+  provider: v.optional(v.string()),
+  inputTokens: v.optional(v.number()),
+  outputTokens: v.optional(v.number()),
+  cacheReadTokens: v.optional(v.number()),
+  cacheCreationTokens: v.optional(v.number()),
+  durationMs: v.optional(v.number()),
+  contextWindow: v.optional(v.number()),
+};
+
+export const logFields = {
+  entityType: v.string(),
+  entityId: v.string(),
+  entityTitle: v.string(),
+  rawResultEvent: v.optional(v.string()),
+  repoId: v.id("githubRepos"),
+  projectId: v.optional(v.id("projects")),
+  createdAt: v.number(),
+  ...logUsageFields,
+};
+
 export const messageFields = {
   role: roleValidator,
   content: v.string(),
@@ -795,6 +828,12 @@ export const messageFields = {
   // User-role wake-up row inserted into the master session when a watched
   // child agent finishes. Drives distinct UI styling.
   orchestratorNotification: v.optional(v.boolean()),
+  // Turn checkpoint (assistant rows, sessions only): sandbox git HEAD when the
+  // turn started and after persistTurnWork committed/pushed at turn end. Equal
+  // shas mean the turn changed no code. Absent on turns from pre-checkpoint
+  // callback bundles and on task runs.
+  beforeSha: v.optional(v.string()),
+  afterSha: v.optional(v.string()),
 };
 
 export const queuedMessageFields = {

@@ -22,6 +22,7 @@ import { callConvexWithRetry, fetchWithTimeout } from "../http/convexClient.js";
 import { getCodexAgentMessageText } from "../parse/toolSteps.js";
 import { callbackState as S } from "../runtime/state.js";
 import { mediaSearchDirs } from "../runtime/sandboxMedia.js";
+import { appendTurnCheckpoint } from "../runtime/turnCheckpoint.js";
 import type { JsonObject, ResultEvent } from "../types.js";
 import { attemptElapsedMs, readResponseJson, tryParseJson } from "../utils.js";
 import {
@@ -511,6 +512,9 @@ async function attachChatMediaIfAny(
 export async function deliverCompletionWithMedia(
   completionArgs: JsonObject,
 ): Promise<void> {
+  // Every success path runs persistTurnWork() before this, so the checkpoint's
+  // afterSha is the pushed turn-end tip.
+  appendTurnCheckpoint(completionArgs);
   await callConvexWithRetry(
     "mutation",
     COMPLETION_MUTATION ?? "",

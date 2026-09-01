@@ -30,6 +30,8 @@ const sessionListItemValidator = v.object({
   repoId: v.id("githubRepos"),
   userId: v.id("users"),
   title: v.string(),
+  /** Set while "Regenerate title" is running; the sidebar disables the action and hints. */
+  titleRegeneration: v.optional(v.object({ startedAt: v.number() })),
   branchName: v.optional(v.string()),
   baseBranch: v.optional(v.string()),
   prUrl: v.optional(v.string()),
@@ -78,6 +80,7 @@ function toSessionListItem(
     repoId: session.repoId,
     userId: session.userId,
     title: session.title,
+    titleRegeneration: session.titleRegeneration,
     branchName: session.branchName,
     baseBranch: session.baseBranch,
     prUrl: session.prUrl,

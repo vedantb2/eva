@@ -1105,25 +1105,38 @@ export const backgroundProcessFields = {
 };
 
 /**
- * The latest plan usage-limit reading for one agent account on one repo,
- * captured in the sandbox at the end of every turn and upserted here (one row
- * per repo+provider+account). Each row is a whole snapshot, so a field the
- * provider stopped reporting disappears rather than going stale.
+ * The latest plan usage-limit reading for one agent credential, captured in the
+ * sandbox at the end of every turn and upserted here (one row per connected
+ * account, plus one per team for the shared credential). Each row is a whole
+ * snapshot, so a field the provider stopped reporting disappears rather than
+ * going stale.
  *
  * Plan windows only: Claude reports `subscriptionType`, `status` and `windows`
  * (5-hour, weekly, per-model). A provider that exposes no plan limits does not
  * belong here — its spend is the per-turn cost gauge's business.
  */
 export const agentUsageLimitFields = {
-  repoId: v.id("githubRepos"),
+  /**
+   * Legacy. Readings used to be keyed per repo, and the rows written then still
+   * name the repo they were reported on; new rows never set it. Nothing reads
+   * them — plan headroom is a fact about the credential, so a per-repo row was
+   * the same number filed under the wrong key — and they age out of the 24h
+   * freshness window on their own, so `report` just deletes any it walks past.
+   */
+  repoId: v.optional(v.id("githubRepos")),
   provider: usageLimitProviderValidator,
   /**
-   * The connected account the run authenticated as, when it ran on one. Plan
-   * limits are per account, so this is part of the row's identity: without it a
-   * second account's reading would overwrite the first. Absent when the run
-   * used the shared team credential from the sandbox environment.
+   * The connected account the run authenticated as. Plan limits are per
+   * account, so this is the row's identity: without it a second account's
+   * reading would overwrite the first. Absent on the team row below.
    */
   providerAccountId: v.optional(v.id("userProviderAccounts")),
+  /**
+   * The team whose shared credential (`CLAUDE_CODE_OAUTH_TOKEN`, from team or
+   * repo env vars) this reading measures. Set only on that row, and never
+   * alongside `providerAccountId`: a run authenticates as one or the other.
+   */
+  teamId: v.optional(v.id("teams")),
   /** Epoch ms the sandbox took this reading. */
   capturedAt: v.number(),
   /** claude.ai plan, e.g. "max". Absent for API-key sessions. */

@@ -1,5 +1,12 @@
 # Changelog
 
+## Plan usage is per credential, and the card lists every account you can run on - 2026-09-01
+
+- Readings are keyed by credential rather than by repo, so one account's plan headroom is the same fact on every repo, session, project and task it runs on. The old per-repo rows are no longer read and age out on their own.
+- The popover now lists every Claude credential the viewer can run on — their own accounts, teammates' shared ones, and the shared Team credential when the team has a `CLAUDE_CODE_OAUTH_TOKEN` (no token, no Team row) — in that order, whether or not each has reported yet. An account missing from the list read as "no limits" rather than "no reading"; a row with no reading now says so in a line of its own (`emptyAccountUsageCopy`), and its label is always shown because the label is what tells two of the same plan apart.
+- One refresh button in the card header replaces the per-row ones: `usageLimitsActions.refreshAll` reads every listed credential and reports per account, so failures toast as "Kezia: Claude rejected the token…" rather than anonymously. Refreshing a card that lists accounts with no reading is only useful as one click.
+- Frontend: `usageLimits.getByRepo` → `getForViewer` (entries of `{ providerAccountId?, accountLabel, reading | null }`, still freshness-gated and window-trimmed server-side). `_utils.ts` flattens entries to the snapshot shape the chip and tone helpers already read (`snapshotOf` / `snapshotsOf`); `sectionKey` and `orderedSections` are gone with the per-provider grouping they existed for. The chip bar is unchanged — still the active account's reading, preferring the selected model's weekly window.
+
 ## PR bodies get a diff-derived, show-me shaped description - 2026-09-01
 
 - Eva PR bodies were the task text (or, for sessions, the literal `_Summary will be generated before review_`, which nothing ever replaced because the summary only runs from the modal). Reviewers had to open the diff to learn anything. New `generatePrDescription` (`_github/prDescription.ts`) reads the PR's bounded diff and writes a reviewer-facing block: `### What changed` (1–2 sentences), `### Shape` (one code-shape visual chosen to fit — shallow file tree with per-entry comments, call-tree/control-flow `diff`, `ts` signatures, or component-tree `diff`, per the vendored `show-me` skill), and up to three `### Review notes`.

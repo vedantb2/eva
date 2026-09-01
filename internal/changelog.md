@@ -1,5 +1,11 @@
 # Changelog
 
+## Claude sessions show reasoning again (thinking display was left at the API default) - 2026-09-01
+
+- Root cause: Cursor's SDK emits `thinking` messages unconditionally, but Claude only surfaces reasoning text when asked. On Fable 5 / Opus 5 / 4.8 / 4.7 / Sonnet 5 the API's `thinking.display` default is `omitted` (a silent change from Opus/Sonnet 4.6, where it was `summarized`), so `thinking_delta` events arrived with empty text. `claudeParseLine` already handled `thinking_delta` and `thinking` blocks correctly — it just never received any text, so the `reasoning` step stayed empty and the UI showed a long pause where Cursor shows "Thinking...".
+- `buildSdkOptionsFromParts` (callback-src/providers/claudeSdk.ts) now passes `thinking: { type: "adaptive", display: "summarized" }` unless the user turned thinking off. Thinking-off keeps the existing `--settings` `alwaysThinkingEnabled: false` path and sends no `thinking` option — Fable 5 rejects an explicit `{ type: "disabled" }` with a 400. `claudeThinkingDisabled` moved to config.ts so both consumers share one definition.
+- Regression pins in `callback-src/tests/canonical.test.ts`: a Claude `thinking_delta` routes to `update_reasoning`; an empty one emits nothing (the pre-fix symptom). Callback bundle regenerated.
+
 ## Sandbox validate/background-launch paths recover from OOM-wedged VMs (exit 137, hung execs) - 2026-09-01
 
 - Root cause (prod, silver-strategic-buzzard, 2026-09-01 ~16:45 UTC): an OOM-wedged VM still reports `running` to Vercel, so `ensureSandboxRunning` no-ops on `start()` and its `echo 1` probe dies with exit 137; every path then cascaded — `runBackgroundCommands` burned a 25s client timeout (or a `Status code 400 is not ok`) per command, and its un-try/catch'd pid-check/cleanup execs threw the whole action Uncaught into scheduled callers and the preview heal.

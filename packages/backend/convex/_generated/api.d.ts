@@ -277,6 +277,7 @@ import type * as legacyIds from "../legacyIds.js";
 import type * as linearActions from "../linearActions.js";
 import type * as logs from "../logs.js";
 import type * as mcp_browserLock from "../mcp/browserLock.js";
+import type * as mcp_convexQueryLimits from "../mcp/convexQueryLimits.js";
 import type * as mcp_entityRef from "../mcp/entityRef.js";
 import type * as mcp_entityTools from "../mcp/entityTools.js";
 import type * as mcp_media from "../mcp/media.js";
@@ -649,6 +650,7 @@ declare const fullApi: ApiFromModules<{
   linearActions: typeof linearActions;
   logs: typeof logs;
   "mcp/browserLock": typeof mcp_browserLock;
+  "mcp/convexQueryLimits": typeof mcp_convexQueryLimits;
   "mcp/entityRef": typeof mcp_entityRef;
   "mcp/entityTools": typeof mcp_entityTools;
   "mcp/media": typeof mcp_media;

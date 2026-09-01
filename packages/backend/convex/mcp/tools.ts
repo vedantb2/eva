@@ -273,6 +273,7 @@ export function registerTools(
           code: `return await ctx.db.get(${JSON.stringify(id)});`,
         },
       );
+      if (!result.ok) return errorResult(result.error);
 
       const output: { document: unknown; logLines?: string[] } = {
         document: result.value,
@@ -326,6 +327,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
           code,
         },
       );
+      if (!result.ok) return errorResult(result.error);
 
       const output: { result: unknown; logLines?: string[] } = {
         result: result.value,
@@ -374,6 +376,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
           code: `const docs = await ctx.db.query(${JSON.stringify(table)}).collect(); return docs.length;`,
         },
       );
+      if (!result.ok) return errorResult(result.error);
 
       return textResult({ table, count: result.value });
     },

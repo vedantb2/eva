@@ -332,6 +332,26 @@ export const taskExecutionWorkflow = workflow.define({
       });
       runFinalized = true;
 
+      // Diff-derived PR description runs on the same sandbox, so it must go
+      // before the quick-task sandbox stop below. Best-effort: the static body
+      // is already in place and stays if this fails.
+      if (completionPrUrl && sandboxId) {
+        try {
+          await step.runAction(internal.github.generatePrDescription, {
+            installationId: args.installationId,
+            repoOwner: data.repoOwner,
+            repoName: data.repoName,
+            prUrl: completionPrUrl,
+            sandboxId,
+            repoId: args.repoId,
+          });
+        } catch (descriptionError) {
+          console.error(
+            `[task-workflow] run=${args.runId} generatePrDescription failed: ${descriptionError instanceof Error ? descriptionError.message : String(descriptionError)}`,
+          );
+        }
+      }
+
       if (!args.projectId && !finalSuccess) {
         try {
           await step.runMutation(

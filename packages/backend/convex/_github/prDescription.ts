@@ -1,9 +1,18 @@
 "use node";
 
-import { generateText } from "ai";
 import { v } from "convex/values";
+import { quote } from "shell-quote";
 import { internalAction } from "../_generated/server";
 import { getInstallationOctokit } from "../githubAuth";
+import { extractPrNumber } from "./helpers";
+import { resolveEnvVars } from "../envVarResolver";
+import { getAIProviderAvailability } from "../_validators/aiModels";
+import { execHandle, getSandboxHandle } from "../_sandbox_runtime/helpers";
+import { writeSandboxFile } from "../_sandbox_runtime/sandboxFiles";
+import {
+  CLAUDE_FALLBACK_BIN_PATH,
+  ensureClaudeCliAvailable,
+} from "../_sandbox_runtime/launch";
 import { fetchPullRequestDiff } from "./prRecapService";
 import {
   buildPrDescriptionPrompt,
@@ -12,32 +21,53 @@ import {
   stripPrDescription,
 } from "./prDescriptionPrompt";
 
-/** Gateway model for PR descriptions. Needs to read a diff and sketch its
- * shape, which the nano tier used for titles gets wrong too often. */
-const PR_DESCRIPTION_MODEL = "openai/gpt-5-mini";
+/** Claude CLI alias. Haiku (used for session summaries) misreads diffs when
+ * asked to sketch their shape; the description is one short call per push. */
+const PR_DESCRIPTION_MODEL = "sonnet";
+const PROMPT_PATH = "/tmp/eva-pr-description-prompt.txt";
+/** The diff is already in the prompt, so one model turn is the budget; the
+ * exec ceiling is generous because a cold CLI start can take a while. */
+const EXEC_TIMEOUT_SECONDS = 240;
 
 /**
- * Writes the reviewer-facing description into a PR body from its diff.
- * Scheduled after every PR create/refresh so the body follows the code rather
- * than the task text. Best-effort: failures are logged and the static body
- * stays in place, so a gateway outage never blocks a PR.
+ * Writes the reviewer-facing description into a PR body from its diff, using
+ * the Claude CLI on the run's own sandbox so it bills to the team's Claude
+ * auth and needs no second provider. Called by the session and task workflows
+ * right after their PR create/refresh, while the sandbox is still up.
+ * Best-effort: every failure is logged and the static body stays in place, so
+ * a missing token, a stopped sandbox or a killed CLI never blocks a PR.
  */
 export const generatePrDescription = internalAction({
   args: {
     installationId: v.number(),
     repoOwner: v.string(),
     repoName: v.string(),
-    prNumber: v.number(),
+    prUrl: v.string(),
+    sandboxId: v.string(),
+    repoId: v.id("githubRepos"),
   },
   returns: v.null(),
-  handler: async (_ctx, args) => {
-    const label = `${args.repoOwner}/${args.repoName}#${args.prNumber}`;
+  handler: async (ctx, args) => {
+    const prNumber = extractPrNumber(args.prUrl);
+    if (prNumber === null) {
+      console.error(`[pr-description] unrecognised PR url ${args.prUrl}`);
+      return null;
+    }
+    const label = `${args.repoOwner}/${args.repoName}#${prNumber}`;
     try {
+      const envVars = await resolveEnvVars(ctx, args.repoId);
+      if (!getAIProviderAvailability(Object.keys(envVars)).claude) {
+        console.log(
+          `[pr-description] ${label} skipped: no CLAUDE_CODE_OAUTH_TOKEN in sandbox env`,
+        );
+        return null;
+      }
+
       const octokit = await getInstallationOctokit(args.installationId);
       const target = {
         owner: args.repoOwner,
         repo: args.repoName,
-        prNumber: args.prNumber,
+        prNumber,
       };
       const { data: pr } = await octokit.rest.pulls.get({
         owner: target.owner,
@@ -50,22 +80,28 @@ export const generatePrDescription = internalAction({
         return null;
       }
 
-      const { text } = await generateText({
-        model: PR_DESCRIPTION_MODEL,
-        prompt: buildPrDescriptionPrompt({
-          prTitle: pr.title,
-          context: stripPrDescription(pr.body ?? ""),
-          diffText: diff.diffText,
-          changedFiles: diff.changedFiles,
-          additions: diff.additions,
-          deletions: diff.deletions,
-          truncated: diff.truncated,
-        }),
-        providerOptions: {
-          gateway: { serviceTier: "flex" },
-          openai: { reasoningEffort: "low" },
-        },
+      const prompt = buildPrDescriptionPrompt({
+        prTitle: pr.title,
+        context: stripPrDescription(pr.body ?? ""),
+        diffText: diff.diffText,
+        changedFiles: diff.changedFiles,
+        additions: diff.additions,
+        deletions: diff.deletions,
+        truncated: diff.truncated,
       });
+
+      const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+      await Promise.all([
+        ensureClaudeCliAvailable(sandbox),
+        writeSandboxFile(sandbox, PROMPT_PATH, prompt),
+      ]);
+      // Prompt goes in on stdin: it carries the whole diff, which is far past
+      // what belongs on a command line. No tools — the diff is the input.
+      const text = await execHandle(
+        sandbox,
+        `bin="$(command -v claude || echo ${quote([CLAUDE_FALLBACK_BIN_PATH])})"; "$bin" -p --model ${quote([PR_DESCRIPTION_MODEL])} --output-format text --allowedTools "" --max-turns 1 < ${quote([PROMPT_PATH])}`,
+        EXEC_TIMEOUT_SECONDS,
+      );
       const description = cleanPrDescription(text);
       if (description.length === 0) {
         console.error(`[pr-description] ${label} model returned empty text`);

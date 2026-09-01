@@ -1,5 +1,12 @@
 # Changelog
 
+## PR bodies get a diff-derived, show-me shaped description - 2026-09-01
+
+- Eva PR bodies were the task text (or, for sessions, the literal `_Summary will be generated before review_`, which nothing ever replaced because the summary only runs from the modal). Reviewers had to open the diff to learn anything. New `generatePrDescription` (`_github/prDescription.ts`) reads the PR's bounded diff and writes a reviewer-facing block: `### What changed` (1–2 sentences), `### Shape` (one code-shape visual chosen to fit — shallow file tree with per-entry comments, call-tree/control-flow `diff`, `ts` signatures, or component-tree `diff`, per the vendored `show-me` skill), and up to three `### Review notes`.
+- The block lives between `<!-- eva-pr-description -->` markers and is inserted above the Eva footer by `insertPrDescription`, so `prBody.ts` still owns the static sections and re-runs replace rather than stack. Scheduled (`runAfter(0)`) from all four PR write actions in `taskWorkflowActions.ts` — create, task create, task refresh, generic refresh — via one `schedulePrDescription` helper, so it covers sessions, quick tasks, projects and change-request runs without touching the workflows. The static body is the fallback: the model call is best-effort and logged, never blocks the PR step, and re-reads the body just before writing so a concurrent refresh is not overwritten.
+- Model is `openai/gpt-5-mini` on the AI Gateway flex tier (constant `PR_DESCRIPTION_MODEL`); the nano tier used for titles misreads diffs. Diff fetching is now the shared `fetchPullRequestDiff` (extracted from the recap `fetchPrDiff` action), same 500 KB / 100-file caps.
+- `createDraftSessionPr` drops the never-fulfilled placeholder; the Summary section appears only when a session summary exists. Tests in `tests/prDescription.test.ts` pin marker insertion/replacement, footer-only bodies, fence unwrapping/length bound, and prompt structure.
+
 ## Sandbox validate/background-launch paths recover from OOM-wedged VMs (exit 137, hung execs) - 2026-09-01
 
 - Root cause (prod, silver-strategic-buzzard, 2026-09-01 ~16:45 UTC): an OOM-wedged VM still reports `running` to Vercel, so `ensureSandboxRunning` no-ops on `start()` and its `echo 1` probe dies with exit 137; every path then cascaded — `runBackgroundCommands` burned a 25s client timeout (or a `Status code 400 is not ok`) per command, and its un-try/catch'd pid-check/cleanup execs threw the whole action Uncaught into scheduled callers and the preview heal.

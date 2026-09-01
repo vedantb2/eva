@@ -99,10 +99,20 @@ export const createDraftSessionPr = internalAction({
       ? repo.rootDirectory.split("/").pop()
       : undefined;
 
-    const summaryContent: string =
+    // The reviewer-facing description is generated from the diff after the PR
+    // exists (`generatePrDescription`); the session summary is only included
+    // when the user has already produced one.
+    const sections =
       session.summary && session.summary.length > 0
-        ? session.summary.map((item: string) => `- ${item}`).join("\n")
-        : "_Summary will be generated before review_";
+        ? [
+            {
+              heading: "Summary",
+              content: session.summary
+                .map((item: string) => `- ${item}`)
+                .join("\n"),
+            },
+          ]
+        : [];
 
     const evaUrl = buildEvaSessionUrl(
       repo.owner,
@@ -122,10 +132,7 @@ export const createDraftSessionPr = internalAction({
           branchName: session.branchName,
           baseBranch: resolveSessionBaseBranch(session, repo),
           title: session.title,
-          body: buildPrBody(
-            [{ heading: "Summary", content: summaryContent }],
-            evaUrl,
-          ),
+          body: buildPrBody(sections, evaUrl),
           labels: ["eva", "session", "draft", ...(appLabel ? [appLabel] : [])],
           draft: true,
         },

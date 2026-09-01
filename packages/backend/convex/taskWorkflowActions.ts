@@ -1,7 +1,7 @@
 "use node";
 
 import { ConvexError, v } from "convex/values";
-import { action, internalAction } from "./_generated/server";
+import { action, internalAction, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
@@ -51,6 +51,28 @@ type PullRequestRefreshParams = {
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, ms);
+  });
+}
+
+/** Queues the diff-based description for a PR that was just created or whose
+ * static body was just rewritten. Runs out of band so the PR step never waits
+ * on a model call; the static body is the fallback if generation fails. */
+async function schedulePrDescription(
+  ctx: ActionCtx,
+  params: {
+    installationId: number;
+    repoOwner: string;
+    repoName: string;
+    prUrl: string;
+  },
+): Promise<void> {
+  const prNumber = extractPrNumber(params.prUrl);
+  if (prNumber === null) return;
+  await ctx.scheduler.runAfter(0, internal.github.generatePrDescription, {
+    installationId: params.installationId,
+    repoOwner: params.repoOwner,
+    repoName: params.repoName,
+    prNumber,
   });
 }
 
@@ -418,8 +440,10 @@ export const createPullRequest = internalAction({
     draft: v.optional(v.boolean()),
   },
   returns: v.string(),
-  handler: async (_ctx, args): Promise<string> => {
-    return await createPullRequestWithGitHub(args);
+  handler: async (ctx, args): Promise<string> => {
+    const prUrl = await createPullRequestWithGitHub(args);
+    await schedulePrDescription(ctx, { ...args, prUrl });
+    return prUrl;
   },
 });
 
@@ -439,9 +463,9 @@ export const createTaskPullRequest = internalAction({
     draft: v.optional(v.boolean()),
   },
   returns: v.string(),
-  handler: async (_ctx, args): Promise<string> => {
+  handler: async (ctx, args): Promise<string> => {
     const isQuickTask = !args.projectId;
-    return await createPullRequestWithGitHub({
+    const prUrl = await createPullRequestWithGitHub({
       installationId: args.installationId,
       repoOwner: args.repoOwner,
       repoName: args.repoName,
@@ -463,6 +487,8 @@ export const createTaskPullRequest = internalAction({
       }),
       draft: args.draft,
     });
+    await schedulePrDescription(ctx, { ...args, prUrl });
+    return prUrl;
   },
 });
 
@@ -479,8 +505,8 @@ export const refreshTaskPullRequestBody = internalAction({
     changeRequests: v.array(v.string()),
   },
   returns: v.string(),
-  handler: async (_ctx, args): Promise<string> => {
-    return await refreshPullRequestBodyWithGitHub({
+  handler: async (ctx, args): Promise<string> => {
+    const prUrl = await refreshPullRequestBodyWithGitHub({
       installationId: args.installationId,
       repoOwner: args.repoOwner,
       repoName: args.repoName,
@@ -495,6 +521,8 @@ export const refreshTaskPullRequestBody = internalAction({
         changeRequests: args.changeRequests,
       }),
     });
+    await schedulePrDescription(ctx, { ...args, prUrl });
+    return prUrl;
   },
 });
 
@@ -735,8 +763,10 @@ export const refreshPullRequestBody = internalAction({
     body: v.string(),
   },
   returns: v.string(),
-  handler: async (_ctx, args) => {
-    return await refreshPullRequestBodyWithGitHub(args);
+  handler: async (ctx, args) => {
+    const prUrl = await refreshPullRequestBodyWithGitHub(args);
+    await schedulePrDescription(ctx, { ...args, prUrl });
+    return prUrl;
   },
 });
 

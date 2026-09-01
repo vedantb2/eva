@@ -1,5 +1,14 @@
 # Changelog
 
+## Background daemon cleanup kills the whole process group - 2026-09-01
+
+- `runBackgroundCommands` pre-launch cleanup now TERMs the daemon's process group (`kill -TERM -- -$pid`, bare-pid fallback), polls up to 2s for it to exit, then KILLs it — killing only the `setsid` leader orphaned its children (`supabase start`, docker), which kept writing into the truncated `/tmp/bg-<i>.log` and raced the relaunch (prod 2026-09-01, blush-lively-seahorse-K5DnYy).
+
+## Preview background heal no longer races session startup - 2026-09-01
+
+- New `sessions.sandboxServicesPending` flag, armed by both early-ready `sandboxReady` calls and cleared at final-ready (or in the start-failure safety net via `clearSandboxServicesPending`), makes `sandboxHeal.claim` refuse the slot while the lifecycle is still launching background/startup commands — the double launch was killing the first wrappers, orphaning children, truncating logs and firing a spurious "Sandbox startup unfinished" alert (prod session n97b02b6, 2026-09-01 19:03 UTC).
+- The gate lives inside `claim`, after its rate-limit check (so the session row is read at most once per 45s per sandbox, not on every ~2s poll tick) and before it stamps `lastHealAt` (so the first poll after final-ready heals rather than waiting out an interval). `getPreviewUrl` is unchanged: its existing `healClaimed` boolean already gates both `runBackgroundCommands` and `ensureSessionPreviewServices`.
+
 ## PR bodies get a diff-derived, show-me shaped description - 2026-09-01
 
 - Eva PR bodies were the task text (or, for sessions, the literal `_Summary will be generated before review_`, which nothing ever replaced because the summary only runs from the modal). Reviewers had to open the diff to learn anything. New `generatePrDescription` (`_github/prDescription.ts`) reads the PR's bounded diff and writes a reviewer-facing block: `### What changed` (1–2 sentences), `### Shape` (one code-shape visual chosen to fit — shallow file tree with per-entry comments, call-tree/control-flow `diff`, `ts` signatures, or component-tree `diff`, per the vendored `show-me` skill), and up to three `### Review notes`.

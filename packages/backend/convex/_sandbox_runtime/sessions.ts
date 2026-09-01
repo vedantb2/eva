@@ -861,6 +861,9 @@ async function prepareSessionSandboxInternal(
                     branchName: args.branchName,
                     isNew: false,
                     usedSnapshot: false,
+                    // Services are relaunched below; keep the Preview heal off
+                    // this sandbox until then so it cannot double-launch them.
+                    markServicesPending: true,
                   });
                 },
                 shouldAbort: () => sessionStopRequested(ctx, args.sessionId),
@@ -1077,6 +1080,9 @@ async function prepareSessionSandboxInternal(
             // Snapshot restores keep a stale checkout + baked modules; gate the
             // queued first turn until the base pull + install below finish.
             markSetupPending: Boolean(snapshotName),
+            // Background + startup commands have not run yet on this fresh VM;
+            // keep the Preview heal off it until final-ready clears the flag.
+            markServicesPending: true,
             ...(configured?.devPort !== undefined
               ? { devPort: configured.devPort }
               : {}),
@@ -1659,6 +1665,12 @@ export const startSessionSandbox = internalAction({
         console.warn(
           `[sandbox][sessions] startSessionSandbox failed after early-ready; keeping active sessionId=${args.sessionId} sandboxId=${sessionAfter.sandboxId}: ${failMessage}`,
         );
+        // Final-ready never ran, so the Preview-heal gate armed at early-ready
+        // would stay armed for the life of this sandbox and permanently
+        // suppress background-daemon healing on it.
+        await ctx.runMutation(internal.sessions.clearSandboxServicesPending, {
+          sessionId: args.sessionId,
+        });
         await ctx.runMutation(internal.sessions.sandboxStartupWarning, {
           sessionId: args.sessionId,
           error: failMessage,

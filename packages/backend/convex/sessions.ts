@@ -30,6 +30,7 @@ export {
   stopSandbox,
   sandboxReady,
   clearSandboxSetupPending,
+  clearSandboxServicesPending,
   sandboxError,
   sandboxStartupWarning,
 } from "./_sessions/sandbox";

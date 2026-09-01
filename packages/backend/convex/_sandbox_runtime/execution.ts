@@ -1300,11 +1300,26 @@ export const fetchBaseBranch = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
-    await fetchOrigin(sandbox, args.repoOwner, args.repoName, args.baseBranch, {
-      prune: false,
-      timeoutSeconds: 120,
-      retryAttempts: 2,
-    });
+    const result = await fetchOrigin(
+      sandbox,
+      args.repoOwner,
+      args.repoName,
+      args.baseBranch,
+      {
+        prune: false,
+        timeoutSeconds: 120,
+        retryAttempts: 2,
+      },
+    );
+    if (!result.fetched) {
+      // Deleted `eva/automation-*` refs and never-pushed task branches are
+      // expected. Returning here keeps Convex from recording status=failure
+      // plus an Uncaught SandboxCommandFailedError. Checkout/setup already
+      // falls back to local snapshot refs via resolveBaseTarget.
+      console.warn(
+        `[sandbox] fetchBaseBranch: remote ref ${args.baseBranch} is gone; continuing with local snapshot refs`,
+      );
+    }
     return null;
   },
 });

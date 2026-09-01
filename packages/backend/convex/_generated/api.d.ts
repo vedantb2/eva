@@ -53,6 +53,7 @@ import type * as _drafts_helpers from "../_drafts/helpers.js";
 import type * as _drafts_mutations from "../_drafts/mutations.js";
 import type * as _drafts_queries from "../_drafts/queries.js";
 import type * as _envVars_listDisplay from "../_envVars/listDisplay.js";
+import type * as _envVars_vercelCredentials from "../_envVars/vercelCredentials.js";
 import type * as _git_branchNames from "../_git/branchNames.js";
 import type * as _github_api from "../_github/api.js";
 import type * as _github_authErrors from "../_github/authErrors.js";
@@ -423,6 +424,7 @@ declare const fullApi: ApiFromModules<{
   "_drafts/mutations": typeof _drafts_mutations;
   "_drafts/queries": typeof _drafts_queries;
   "_envVars/listDisplay": typeof _envVars_listDisplay;
+  "_envVars/vercelCredentials": typeof _envVars_vercelCredentials;
   "_git/branchNames": typeof _git_branchNames;
   "_github/api": typeof _github_api;
   "_github/authErrors": typeof _github_authErrors;

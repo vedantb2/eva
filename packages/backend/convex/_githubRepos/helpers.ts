@@ -8,6 +8,7 @@ import { pickSandboxRepoId } from "./sandboxRepoPick";
 export {
   pickDefaultVisibleAppRepo,
   pickSandboxRepoId,
+  pickSnapshotCredentialRepoId,
   type AppRepoPickFields,
 } from "./sandboxRepoPick";
 

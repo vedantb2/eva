@@ -9,7 +9,10 @@ import {
   resolveSandboxCredentialsOnly,
 } from "../envVarResolver";
 import type { SandboxClient, SandboxHandle } from "../_sandbox/provider";
-import { SandboxCommandFailedError } from "./sandboxErrors";
+import {
+  SandboxCommandFailedError,
+  SandboxExecTimeoutError,
+} from "./sandboxErrors";
 import { writeSandboxFile } from "./sandboxFiles";
 import { getSandboxClient } from "../_sandbox/factory";
 import { launchScript } from "./launch";
@@ -134,6 +137,10 @@ export async function execHandle(
     handle.exec(cmd, { cwd, timeoutSeconds: timeout }),
     clientTimeoutMs,
     `exec (${timeout}s)`,
+    // Typed: a client-side timeout means the VM never answered — a
+    // dead-sandbox signal for isSandboxUnresponsiveError, unlike a command
+    // that ran and failed.
+    (message) => new SandboxExecTimeoutError(message),
   );
   if (resp.exitCode !== 0) {
     const output = resp.output?.trim() ?? "";
@@ -404,6 +411,40 @@ export async function ensureSandboxRunning(
   }
 }
 
+/**
+ * One-shot recovery for a VM the provider still reports `running` but that can
+ * no longer run commands — exit 137 on a trivial exec, or execs that never
+ * answer (OOM meltdown / dead guest agent; see isSandboxUnresponsiveError).
+ * {@link ensureSandboxRunning} cannot fix this: start() no-ops while the
+ * provider says running. The only way back is a full stop (which snapshots the
+ * disk) followed by a resume, which also re-provisions swap so the next memory
+ * spike has headroom.
+ *
+ * Refuses to touch a sandbox that is not currently `running`: a stopped or
+ * stopping VM was stopped on purpose, and resuming it here would resurrect a
+ * sandbox the user just stopped. `resumeAfterStop` is safe on the start
+ * because the stop being waited out is the one this recovery itself issued.
+ */
+export async function restartUnresponsiveSandbox(
+  sandbox: SandboxHandle,
+  options: { timeoutSeconds?: number } = {},
+): Promise<void> {
+  await sandbox.refresh();
+  if (sandbox.state !== "running") {
+    throw new Error(
+      `restartUnresponsiveSandbox: sandbox ${sandbox.id} is ${sandbox.state}, not running — refusing stop+resume`,
+    );
+  }
+  console.warn(
+    `[sandbox] restartUnresponsiveSandbox: stop+resume for unresponsive sandbox ${sandbox.id}`,
+  );
+  await sandbox.stop();
+  await ensureSandboxRunning(sandbox, {
+    timeoutSeconds: options.timeoutSeconds ?? RESUME_READY_TIMEOUT_SECONDS,
+    resumeAfterStop: true,
+  });
+}
+
 /** Returns the value of a required environment variable, throwing if missing. */
 export function requireEnv(name: string): string {
   const value = process.env[name];
@@ -425,11 +466,12 @@ export async function withTimeout<T>(
   promise: Promise<T>,
   ms: number,
   label: string,
+  makeError: (message: string) => Error = (message) => new Error(message),
 ): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(
-      () => reject(new Error(`Sandbox ${label} timed out after ${ms}ms`)),
+      () => reject(makeError(`Sandbox ${label} timed out after ${ms}ms`)),
       ms,
     );
   });

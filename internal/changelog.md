@@ -1,5 +1,10 @@
 # Changelog
 
+## Fable 5 replaced by Fable 5.1 (`claude-fable-5-1`) - 2026-09-01
+
+- The Claude Fable model option now runs Anthropic's Fable 5.1, released 01 September 2026 (model ID `claude-fable-5-1`, per [platform.claude.com](https://platform.claude.com/docs/en/models/fable-5-1/overview)). Picker label updated to "Fable 5.1"; same reasoning traits (low–max, high default, ultrathink) and 1M context toggle as Fable 5.
+- `claude:claude-fable-5` follows the existing legacy pattern: still accepted by `aiModelValidator` so persisted sessions load, moved to `PersistedAIModel`, and `normalizeAIModel` maps it (plus `fable`/`claude:fable` aliases and bare IDs) to `claude:claude-fable-5-1`. The MCP `fable` alias and the simple-view ladder/`snapToSimpleViewLadder` therefore resolve to 5.1 automatically; the sandbox runner already just strips the `claude:` prefix, so no callback changes were needed.
+
 ## Editor and Computer are first-class sandbox rail tabs; sub-agent CTA row hidden in simple view - 2026-08-29
 
 - Editor and Computer moved out of the `+` dropdown into the vertical sandbox rail as always-present tabs (when the surface enables them), placed after the base tabs and before Files/Agents/Plan/Designs. The dropdown was a leftover from the horizontal strip's space constraints; with only "New Preview" left in it, the menu is gone and `+` triggers New Preview directly.

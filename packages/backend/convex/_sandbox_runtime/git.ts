@@ -30,8 +30,10 @@ import { ensureGitCredentialHelper } from "./gitCredentials";
 import { isMissingRemoteRefFetchFailure } from "../_git/remoteRef";
 import {
   divergedPublishLooksLikeRewrite,
+  isEvaOwnedBranch,
   parseGitNameOnlyList,
   remoteOnlyChangedFileCount,
+  rewrittenBranchIsOwnHistory,
   rewrittenBranchPublishError,
 } from "./divergedPublish";
 import { ensureSwapFile } from "./swap";
@@ -246,11 +248,15 @@ function isRetryableGitNetworkError(message: string): boolean {
   );
 }
 
-/** A concurrent writer moved the same branch after our last fetch. */
+/**
+ * A concurrent writer moved the same branch after our last fetch. "stale info"
+ * is the `--force-with-lease` variant: the leased sha is no longer the tip.
+ */
 function isNonFastForwardPushError(message: string): boolean {
   const lower = message.toLowerCase();
   return (
     lower.includes("non-fast-forward") ||
+    lower.includes("stale info") ||
     lower.includes("fetch first") ||
     (lower.includes("[rejected]") && lower.includes("failed to push"))
   );
@@ -1113,6 +1119,42 @@ export async function setupBranch(
   });
 }
 
+type BranchPublishSync = {
+  remoteExists: boolean;
+  /**
+   * Set when the local branch rewrote history that origin still holds and the
+   * remote tip is provably the sandbox's own old tip. The push must then be
+   * leased on exactly this sha so anything that lands in between aborts it.
+   */
+  replaceRemoteTip?: string;
+};
+
+/**
+ * Every commit the local branch has ever pointed at in this sandbox. Empty when
+ * the branch has no reflog, which makes the caller refuse rather than guess.
+ */
+async function localBranchReflogShas(
+  sandbox: SandboxHandle,
+  branchName: string,
+): Promise<string[]> {
+  const workspaceDir = workspaceDirShell();
+  const quotedLocalRef = quote([`refs/heads/${branchName}`]);
+  try {
+    return parseGitNameOnlyList(
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git reflog show --format=%H ${quotedLocalRef}`,
+        15,
+      ),
+    );
+  } catch (error) {
+    logGit(
+      `localBranchReflogShas: no reflog for ${branchName}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return [];
+  }
+}
+
 /**
  * Refreshes the exact remote branch and makes the checked-out local branch a
  * safe fast-forward of it before publication.
@@ -1133,13 +1175,19 @@ export async function setupBranch(
  * (task 231, 25 Aug 2026): rebasing onto main left one local file against
  * 1,272 remote-only staging commits, and merging the old tip back in
  * conflicted inside publish while the sandbox stayed clean.
+ *
+ * A rewritten eva/ branch is published anyway — as a push leased on the exact
+ * remote tip — when that tip is in the local branch's reflog, i.e. the remote
+ * only holds history this sandbox itself used to have (task m57dve3m, 2 Sep
+ * 2026). Anything else on the remote keeps the refusal, so the caller can send
+ * the user a message that says why and what to do.
  */
 async function synchronizeBranchForPublish(
   sandbox: SandboxHandle,
   owner: string,
   name: string,
   branchName: string,
-): Promise<{ remoteExists: boolean }> {
+): Promise<BranchPublishSync> {
   if (!isSafeBranchName(branchName)) {
     throw new Error(`Unsafe branch name: ${branchName}`);
   }
@@ -1252,9 +1300,38 @@ async function synchronizeBranchForPublish(
         localChanged,
         remoteChanged,
       );
-      throw new Error(
-        rewrittenBranchPublishError(branchName, remoteOnly, localChanged.length),
+      if (!isEvaOwnedBranch(branchName)) {
+        throw new Error(
+          rewrittenBranchPublishError(
+            branchName,
+            remoteOnly,
+            localChanged.length,
+            "branch-not-eva-owned",
+          ),
+        );
+      }
+      const remoteTip = (
+        await execGitCommand(
+          sandbox,
+          `cd ${workspaceDir} && git rev-parse --verify ${quotedRemoteRef}`,
+          10,
+        )
+      ).trim();
+      const reflogShas = await localBranchReflogShas(sandbox, branchName);
+      if (!rewrittenBranchIsOwnHistory(remoteTip, reflogShas)) {
+        throw new Error(
+          rewrittenBranchPublishError(
+            branchName,
+            remoteOnly,
+            localChanged.length,
+            "remote-holds-foreign-commits",
+          ),
+        );
+      }
+      logGit(
+        `synchronizeBranchForPublish: origin/${branchName} tip ${remoteTip.slice(0, 7)} is in the local branch reflog; publishing the rewritten branch leased on it (${remoteOnly} remote-only files vs ${localChanged.length} local)`,
       );
+      return { remoteExists: true, replaceRemoteTip: remoteTip };
     }
     try {
       await execGitCommand(
@@ -1316,12 +1393,15 @@ export async function pushBranchToOrigin(
     const repoUrl = bareGitHubRepoUrl(owner, name);
     const maxAttempts = opts?.retryAttempts ?? 2;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      const { remoteExists } = await synchronizeBranchForPublish(
-        sandbox,
-        owner,
-        name,
-        branchName,
-      );
+      const { remoteExists, replaceRemoteTip } =
+        await synchronizeBranchForPublish(sandbox, owner, name, branchName);
+      // Never a bare --force: the lease names the exact remote sha the sync
+      // just verified as the sandbox's own old tip, so a commit that lands in
+      // between is rejected ("stale info") and the retry re-syncs against it.
+      const lease =
+        replaceRemoteTip === undefined
+          ? ""
+          : `--force-with-lease=${quote([`refs/heads/${branchName}:${replaceRemoteTip}`])} `;
 
       // A chat/Q&A turn has nothing to publish. Once the remote session branch
       // exists, compare to that exact ref; otherwise compare to all fetched
@@ -1354,7 +1434,7 @@ export async function pushBranchToOrigin(
       try {
         await execGitCommand(
           sandbox,
-          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push -u origin ${quotedRefspec}`,
+          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push ${lease}-u origin ${quotedRefspec}`,
           opts?.timeoutSeconds ?? 60,
         );
         return { pushed: true, published: true };

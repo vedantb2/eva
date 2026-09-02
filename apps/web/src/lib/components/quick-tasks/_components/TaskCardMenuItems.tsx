@@ -419,16 +419,21 @@ export function TaskCardMenuItems({
         <IconClipboard size={16} />
         Copy title
       </Item>
-      <Item
-        onSelect={() => {
-          navigator.clipboard.writeText(
-            window.location.origin + window.location.pathname,
-          );
-        }}
-      >
-        <IconLink size={16} />
-        Copy task link
-      </Item>
+      {href ? (
+        /*
+         * The card hosting this menu sits in a list or on the board, so the
+         * current pathname is that list — not the task. Copy the card's own
+         * href (already the public display-form path) instead.
+         */
+        <Item
+          onSelect={() => {
+            void navigator.clipboard.writeText(window.location.origin + href);
+          }}
+        >
+          <IconLink size={16} />
+          Copy task link
+        </Item>
+      ) : null}
 
       <MenuSeparator />
 

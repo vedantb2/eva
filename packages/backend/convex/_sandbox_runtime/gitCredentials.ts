@@ -22,11 +22,14 @@ const HELPER_CONFIG_PATH = `${HELPER_CONFIG_DIR}/git-credentials.env`;
 // install so git uses our credential helper instead of stale URL credentials.
 const KNOWN_REPO_DIRS = [WORKSPACE_DIR, LEGACY_WORKSPACE_DIR];
 
-// Bash credential helper. Git invokes it with `get` and supplies the host/proto
-// on stdin (which we discard — we only auth one installation). We POST the
-// per-sandbox bearer secret to the eva backend, which mints a fresh
-// installation token. A short file cache trims duplicate mints during a single
-// git operation (clone/fetch/push fan out into several helper invocations).
+// Bash credential helper. Git invokes it with `get` and supplies protocol, host
+// and (with `credential.useHttpPath`) the repository path on stdin. We forward
+// the path to the eva backend with the per-sandbox bearer secret, and it mints a
+// fresh token for that repository's GitHub App installation — a session's linked
+// repos may live under a different installation than the primary. A short file
+// cache, keyed by repository so tokens never cross installations, trims
+// duplicate mints during a single git operation (clone/fetch/push fan out into
+// several helper invocations).
 const HELPER_SCRIPT = `#!/usr/bin/env bash
 set -u
 
@@ -35,7 +38,24 @@ if [ "\${1:-}" != "get" ]; then
   exit 0
 fi
 
-cat >/dev/null 2>&1 || true
+REQ_HOST=""
+REQ_PATH=""
+while IFS= read -r line; do
+  case "$line" in
+    host=*) REQ_HOST="\${line#host=}" ;;
+    path=*) REQ_PATH="\${line#path=}" ;;
+  esac
+done
+
+# We only hold GitHub credentials; staying silent lets git try its other helpers.
+case "$REQ_HOST" in
+  ""|github.com|github.com:*) ;;
+  *) exit 0 ;;
+esac
+
+# Repo names cannot contain anything outside this set, so dropping the rest
+# keeps the JSON body below safe without a quoting pass.
+REQ_PATH=$(printf '%s' "$REQ_PATH" | tr -cd 'A-Za-z0-9._/-')
 
 CONFIG_FILE="${HELPER_CONFIG_PATH}"
 if [ ! -f "$CONFIG_FILE" ]; then

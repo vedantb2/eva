@@ -7,6 +7,7 @@ import {
 import { useAuth } from "@clerk/clerk-react";
 import { NuqsAdapter } from "nuqs/adapters/tanstack-router";
 import { Analytics } from "@vercel/analytics/react";
+import { TooltipProvider } from "@eva/ui";
 import { ClientProvider } from "@/lib/components/ClientProvider";
 import { AppToaster } from "@/lib/components/AppToaster";
 import { AppShell } from "@/lib/components/AppShell";
@@ -73,15 +74,22 @@ function RootComponent() {
     </>
   );
 
-  if (anonymousLanding) {
-    return app;
-  }
-
+  // One provider above everything, including the layers outside the app shell:
+  // the preview mini player, the What's New dialog and the routes without
+  // chrome (preview-auth, mcp/oauth) all render tooltips, and Radix throws
+  // outright when a Tooltip has no Provider above it. Context only — no DOM,
+  // so the anonymous landing pays nothing for it.
   return (
-    <ClientProvider>
-      {app}
-      {/* The What's New dialog belongs to the top-level window, not previews. */}
-      {IS_EMBEDDED ? null : <ChangelogDialogGate />}
-    </ClientProvider>
+    <TooltipProvider>
+      {anonymousLanding ? (
+        app
+      ) : (
+        <ClientProvider>
+          {app}
+          {/* The What's New dialog belongs to the top-level window, not previews. */}
+          {IS_EMBEDDED ? null : <ChangelogDialogGate />}
+        </ClientProvider>
+      )}
+    </TooltipProvider>
   );
 }

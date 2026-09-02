@@ -171,15 +171,15 @@ const schema = defineSchema({
     .index("by_repo_open", ["repoId", "open"])
     .index("by_open_lease", ["open", "leaseExpiresAt"])
     .index("by_workflow", ["workflowId"]),
-  // Latest agent plan usage-limit reading per (repo, provider, account),
-  // upserted by the sandbox callback at the end of every turn
-  // (usageLimits:report). Plan limits are per connected account, so a repo run
-  // on two Claude accounts keeps a row for each; the trailing optional id also
-  // carries the "shared team credential" row, whose account is absent.
-  agentUsageLimits: defineTable(agentUsageLimitFields).index(
-    "by_repo_provider_account",
-    ["repoId", "provider", "providerAccountId"],
-  ),
+  // Latest agent plan usage-limit reading per credential, upserted by the
+  // sandbox callback at the end of every turn (usageLimits:report). Plan limits
+  // belong to the credential, not the repo it ran on, so a user with two Claude
+  // accounts keeps a row for each and the shared team credential keeps one per
+  // team. Legacy per-repo rows still sit in the by_provider_account range and
+  // are filtered out on read — see `_usageLimits/rows.ts`.
+  agentUsageLimits: defineTable(agentUsageLimitFields)
+    .index("by_provider_account", ["provider", "providerAccountId"])
+    .index("by_provider_team", ["provider", "teamId"]),
   backgroundProcesses: defineTable(backgroundProcessFields)
     .index("by_session_and_status", ["sessionId", "status"])
     .index("by_session_and_key", ["sessionId", "key"]),

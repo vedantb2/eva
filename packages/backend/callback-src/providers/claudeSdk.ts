@@ -93,9 +93,40 @@ export async function readSdkPlanUsage(
   return await handle.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET();
 }
 
-/** Resolves the sandbox's global npm root once (e.g. /usr/lib/node_modules). */
-export function globalNpmRoot(): string {
-  return execSync("npm root -g", { encoding: "utf8" }).trim();
+/** Memoized: the warm daemon resolves pins repeatedly and `npm root -g` spawns a process. */
+let cachedGlobalNpmRoots: string[] | null = null;
+
+/**
+ * Every directory a globally installed package may live in, preferred first.
+ *
+ * The seed installs the agent toolchain with `sudo npm install -g` (see
+ * snapshotActions.ts), which lands in node's own prefix —
+ * `/vercel/runtimes/node24/lib/node_modules` on a Vercel sandbox. This callback
+ * runs as the unprivileged sandbox user, whose npm config points `npm root -g`
+ * at a per-user prefix (`~/.global/npm/lib/node_modules`) holding only pnpm, so
+ * probing `npm root -g` alone never saw the seeded toolchain: every fresh
+ * sandbox npm-installed the Agent SDK again (~4.6s on the daemon boot critical
+ * path) and reported the pinned global `claude` as version "unknown".
+ *
+ * Deriving the first root from `process.execPath` (node is `<prefix>/bin/node`)
+ * is independent of whichever user's npm config is in effect. The `npm root -g`
+ * answer stays as a second candidate for images that install elsewhere.
+ */
+export function globalNpmRoots(): string[] {
+  if (cachedGlobalNpmRoots !== null) return cachedGlobalNpmRoots;
+  const roots: string[] = [
+    dirname(dirname(process.execPath)) + "/lib/node_modules",
+  ];
+  try {
+    const npmRoot = execSync("npm root -g", { encoding: "utf8" }).trim();
+    if (npmRoot) roots.push(npmRoot);
+  } catch {
+    // No npm on PATH, or a broken npm config — the node-derived root still holds.
+  }
+  cachedGlobalNpmRoots = roots.filter(
+    (root, index) => roots.indexOf(root) === index,
+  );
+  return cachedGlobalNpmRoots;
 }
 
 /** User-writable fallback install location (persists in home across resumes). */
@@ -122,12 +153,13 @@ function installedPackageVersion(packageRoot: string): string | null {
 }
 
 /**
- * Absolute entry path for an agent SDK pinned to `version`, preferring the base
- * Image's global install and falling back to a one-time user-local prefix
- * install under the eva home (the callback runs as the unprivileged `eva` user,
- * so a global `npm i -g` fails with EACCES on the root-owned npm root).
+ * Absolute entry path for an agent SDK pinned to `version`, preferring a global
+ * install from the seed (see `globalNpmRoots` for why more than one root is
+ * searched) and falling back to a one-time user-local prefix install under the
+ * eva home (the callback runs as an unprivileged user, so a global `npm i -g`
+ * fails with EACCES on the root-owned npm root).
  *
- * Both roots are version-checked rather than merely tested for existence. The
+ * Every root is version-checked rather than merely tested for existence. The
  * seed guard in snapshotActions only asserts the package directory is present,
  * so a snapshot built before a pin moved keeps serving the old version forever.
  * That drift fails quietly instead of loudly: the stream parsers match one
@@ -140,16 +172,25 @@ export function resolvePinnedSdkEntry(pin: {
   version: string;
   entryRelPath: string;
 }): string {
-  const globalRoot = globalNpmRoot() + "/" + pin.packageName;
   const localRoot = SDK_LOCAL_PREFIX + "/node_modules/" + pin.packageName;
-  const globalVersion = installedPackageVersion(globalRoot);
-  if (globalVersion === pin.version) return globalRoot + pin.entryRelPath;
-  if (globalVersion !== null) {
+  // First root holding the exact pin wins; a drifted root is only reported once
+  // the search has failed everywhere, so a stale copy in one root stays quiet
+  // while another root serves the pin.
+  let driftedVersion: string | null = null;
+  for (const root of globalNpmRoots()) {
+    const globalRoot = root + "/" + pin.packageName;
+    const globalVersion = installedPackageVersion(globalRoot);
+    if (globalVersion === pin.version) return globalRoot + pin.entryRelPath;
+    if (globalVersion !== null && driftedVersion === null) {
+      driftedVersion = globalVersion;
+    }
+  }
+  if (driftedVersion !== null) {
     log(
       "sdk version drift: global " +
         pin.packageName +
         " is " +
-        globalVersion +
+        driftedVersion +
         ", need " +
         pin.version +
         "; falling back to the pinned user-local copy",
@@ -212,6 +253,18 @@ export async function loadSdk(): Promise<SdkModule> {
 const CLAUDE_CODE_PACKAGE = "@anthropic-ai/claude-code";
 
 /**
+ * Version of the globally installed CLI package, from the first candidate root
+ * that carries it at all (see `globalNpmRoots`), or null when no root has it.
+ */
+function globalClaudeCliVersion(): string | null {
+  for (const root of globalNpmRoots()) {
+    const version = installedPackageVersion(root + "/" + CLAUDE_CODE_PACKAGE);
+    if (version !== null) return version;
+  }
+  return null;
+}
+
+/**
  * Locates the claude CLI binary the SDK should drive.
  *
  * The image's global install wins only while it is at the pinned version
@@ -222,6 +275,12 @@ const CLAUDE_CODE_PACKAGE = "@anthropic-ai/claude-code";
  * ("does not support this model", or a process that exits before its first
  * message and reads as "ended without a reply"). Both roots are checked by
  * manifest, like resolvePinnedSdkEntry, so a stale fallback never wins either.
+ *
+ * The global check reads the manifest from every candidate root rather than
+ * `npm root -g` alone, because the seed's `sudo npm install -g` writes to node's
+ * prefix while this process runs as an unprivileged user with a per-user npm
+ * prefix — every fresh sandbox used to log the seeded, correctly pinned CLI as
+ * "cli version drift: global claude is unknown".
  */
 function claudeExecutablePath(): string {
   const pinned = process.env.CLAUDE_CLI_PINNED_VERSION || null;
@@ -233,9 +292,7 @@ function claudeExecutablePath(): string {
     globalBin = "";
   }
   if (globalBin) {
-    const globalVersion = installedPackageVersion(
-      globalNpmRoot() + "/" + CLAUDE_CODE_PACKAGE,
-    );
+    const globalVersion = globalClaudeCliVersion();
     if (pinned === null || globalVersion === pinned) return globalBin;
     log(
       "cli version drift: global claude is " +

@@ -135,6 +135,14 @@ function resolveConvexSiteUrl(convexCloudUrl: string): string {
  * pin is installed under the fallback prefix (user-writable; the global npm
  * root is root-owned), and the callback prefers it over a drifted global —
  * see `claudeExecutablePath` in callback-src/providers/claudeSdk.ts.
+ *
+ * Three roots are probed, because the seed installs with `sudo npm install -g`
+ * into node's own prefix (`/vercel/runtimes/node24/lib/node_modules`) while this
+ * command runs as the unprivileged sandbox user, whose `npm root -g` is a
+ * per-user prefix holding only pnpm. Testing `npm root -g` alone missed the
+ * seeded CLI, so every fresh sandbox reinstalled the pin (~2.5s on the launch
+ * critical path) despite already having it. Mirrors `globalNpmRoots()` in
+ * callback-src/providers/claudeSdk.ts.
  */
 export async function ensureClaudeCliAvailable(
   sandbox: SandboxHandle,
@@ -144,7 +152,10 @@ export async function ensureClaudeCliAvailable(
     sandbox,
     [
       `cli_version() { node -p "require(process.argv[1] + '/package.json').version" "$1" 2>/dev/null; }`,
-      `if [ "$(cli_version "$(npm root -g)/${CLAUDE_CODE_PACKAGE}")" != ${pinned} ] && [ "$(cli_version ${quote([CLAUDE_FALLBACK_PACKAGE_ROOT])})" != ${pinned} ]; then npm install -g --prefix ${quote([CLAUDE_FALLBACK_INSTALL_DIR])} @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}; fi`,
+      // node lives at `<prefix>/bin/node`, so its global modules are at
+      // `<prefix>/lib/node_modules` whatever the calling user's npm config says.
+      `node_root="$(dirname "$(dirname "$(command -v node)")")/lib/node_modules"`,
+      `if [ "$(cli_version "$node_root/${CLAUDE_CODE_PACKAGE}")" != ${pinned} ] && [ "$(cli_version "$(npm root -g)/${CLAUDE_CODE_PACKAGE}")" != ${pinned} ] && [ "$(cli_version ${quote([CLAUDE_FALLBACK_PACKAGE_ROOT])})" != ${pinned} ]; then npm install -g --prefix ${quote([CLAUDE_FALLBACK_INSTALL_DIR])} @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}; fi`,
     ].join("; "),
     CLAUDE_INSTALL_TIMEOUT_SECONDS,
   );

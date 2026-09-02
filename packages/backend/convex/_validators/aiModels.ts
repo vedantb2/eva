@@ -672,6 +672,31 @@ export function buildTraitsExecutionPayload(
   return payload;
 }
 
+/**
+ * Stored run traits (session/task/project `last*` fields) normalised exactly as
+ * the composer sends them, so every prewarm computes the same daemon opts
+ * signature as the turn path. Forwarding the stored values verbatim mismatches:
+ * a stored default level (e.g. Claude's "high") or a stored `fastMode: false`
+ * on a model without the Fast trait produce sig fragments the send path omits,
+ * so the warm daemon gets killed and respawned on every page open.
+ */
+export function launchTraitsFromStored(
+  model: string | null | undefined,
+  stored: {
+    reasoningLevel?: ReasoningLevel;
+    thinkingEnabled?: boolean;
+    use1mContext?: boolean;
+    fastMode?: boolean;
+  },
+): ModelTraitsExecutionArgs {
+  return buildTraitsExecutionPayload(model, {
+    effortLevel: stored.reasoningLevel,
+    thinkingEnabled: stored.thinkingEnabled,
+    use1mContext: stored.use1mContext,
+    fastMode: stored.fastMode,
+  });
+}
+
 /** Repo-config default traits, shaped for the composer traits menu. */
 export function storedTraitsFromRepoDefaults(repo: {
   defaultReasoningLevel?: ReasoningLevel;

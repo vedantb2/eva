@@ -73,15 +73,55 @@ describe("package alias table", () => {
   });
 
   /**
-   * Ubuntu 24.04 renamed several libraries for the 64-bit time_t ABI break.
-   * The pre-`t64` name has to stay as a later candidate so an older Ubuntu
-   * base (or a `vercel/sandbox/ubuntu` pinned to 22.04) still resolves.
+   * Ubuntu 24.04 renamed several libraries for the 64-bit time_t ABI break and
+   * 26.04 dropped some of those suffixes again, so the two releases disagree per
+   * package. Both spellings must stay listed — which one leads is decided by
+   * what the Phase 1 harness actually installed on the managed image, never by
+   * a rule of thumb.
    */
-  test("t64-renamed libraries keep their pre-rename fallback", () => {
-    for (const id of ["alsa", "cups-libs", "gtk3"]) {
+  test("libraries that were renamed across releases list both spellings", () => {
+    for (const id of ["alsa", "cups-libs", "gtk3", "at-spi2"]) {
       const apt = PACKAGE_ALIASES[id]?.apt ?? [];
       expect(apt.length, `${id} needs a fallback candidate`).toBeGreaterThan(1);
-      expect(apt[0]).toMatch(/t64$/);
+      expect(
+        apt.some((name) => name.endsWith("t64")),
+        `${id} must keep its t64 spelling as a candidate`,
+      ).toBe(true);
+    }
+  });
+
+  /**
+   * Verified against `vercel/sandbox/universal` (Ubuntu 26.04) by the Phase 1
+   * harness — these are the exact names apt resolved, not inferred ones. A
+   * change here means someone guessed; re-run the spike before trusting it.
+   */
+  test("primary apt names match what the managed image installed", () => {
+    const observed: Record<string, string> = {
+      docker: "docker.io",
+      procps: "procps",
+      psmisc: "psmisc",
+      "vnc-server": "tigervnc-standalone-server",
+      "vnc-common": "tigervnc-common",
+      "x11-utils": "x11-utils",
+      xterm: "xterm",
+      "dbus-x11": "dbus-x11",
+      gtk3: "libgtk-3-0",
+      nss: "libnss3",
+      alsa: "libasound2t64",
+      libxtst: "libxtst6",
+      "at-spi2": "libatspi2.0-0",
+      libdrm: "libdrm2",
+      libgbm: "libgbm1",
+      libxkbcommon: "libxkbcommon0",
+      libxdamage: "libxdamage1",
+      libxcomposite: "libxcomposite1",
+      libxrandr: "libxrandr2",
+      libxcursor: "libxcursor1",
+      libxinerama: "libxinerama1",
+      "cups-libs": "libcups2",
+    };
+    for (const [id, name] of Object.entries(observed)) {
+      expect(PACKAGE_ALIASES[id]?.apt[0], `${id} drifted`).toBe(name);
     }
   });
 

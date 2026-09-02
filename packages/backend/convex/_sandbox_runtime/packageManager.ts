@@ -58,6 +58,10 @@ export const PACKAGE_ALIASES: Record<
     apt: ["tigervnc-standalone-server", "tightvncserver"],
     dnf: ["tigervnc-server"],
   },
+  // Debian splits the shared data/config out of the server package; AL2023 ships
+  // it inside tigervnc-server, so the dnf side is the same package again (a
+  // second install of an installed package is a no-op).
+  "vnc-common": { apt: ["tigervnc-common"], dnf: ["tigervnc-server"] },
   "x11-utils": { apt: ["x11-utils"], dnf: ["xorg-x11-utils"] },
   "x11-xserver-utils": {
     apt: ["x11-xserver-utils"],
@@ -67,15 +71,18 @@ export const PACKAGE_ALIASES: Record<
   "dbus-x11": { apt: ["dbus-x11"], dnf: ["dbus-x11"] },
 
   // --- Chrome/Electron shared libraries ---
-  // Ubuntu 24.04+ renamed several of these for the 64-bit time_t ABI break;
-  // the pre-`t64` name is kept as the second candidate for older bases.
-  gtk3: { apt: ["libgtk-3-0t64", "libgtk-3-0"], dnf: ["gtk3"] },
+  // Primary apt names are the ones the Phase 1 harness actually installed on
+  // `vercel/sandbox/universal` (Ubuntu 26.04), not names inferred from docs.
+  // Ubuntu 24.04 renamed some of these for the 64-bit time_t ABI break and 26.04
+  // has since dropped several of those suffixes again, so where the two releases
+  // disagree the other spelling stays as a fallback candidate.
+  gtk3: { apt: ["libgtk-3-0", "libgtk-3-0t64"], dnf: ["gtk3"] },
   nss: { apt: ["libnss3"], dnf: ["nss"] },
   alsa: { apt: ["libasound2t64", "libasound2"], dnf: ["alsa-lib"] },
   libxtst: { apt: ["libxtst6"], dnf: ["libXtst"] },
   libxss: { apt: ["libxss1"], dnf: ["libXScrnSaver"] },
   "at-spi2": {
-    apt: ["at-spi2-core", "libatspi2.0-0t64", "libatspi2.0-0"],
+    apt: ["libatspi2.0-0", "libatspi2.0-0t64", "at-spi2-core"],
     dnf: ["at-spi2-core"],
   },
   libdrm: { apt: ["libdrm2"], dnf: ["libdrm"] },
@@ -86,7 +93,7 @@ export const PACKAGE_ALIASES: Record<
   libxrandr: { apt: ["libxrandr2"], dnf: ["libXrandr"] },
   libxcursor: { apt: ["libxcursor1"], dnf: ["libXcursor"] },
   libxinerama: { apt: ["libxinerama1"], dnf: ["libXinerama"] },
-  "cups-libs": { apt: ["libcups2t64", "libcups2"], dnf: ["cups-libs"] },
+  "cups-libs": { apt: ["libcups2", "libcups2t64"], dnf: ["cups-libs"] },
 };
 
 /** Package ids the seed toolchain stage needs before anything else runs. */
@@ -99,6 +106,7 @@ export const CORE_TOOLCHAIN_PACKAGES = [
   "procps",
   "psmisc",
   "vnc-server",
+  "vnc-common",
   "python3",
   "python3-pip",
   "x11-utils",

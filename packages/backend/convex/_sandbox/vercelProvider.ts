@@ -292,7 +292,7 @@ class VercelDesktop implements SandboxDesktop {
         "INSTALLED=0",
         'if command -v Xvnc >/dev/null 2>&1 && command -v websockify >/dev/null 2>&1 && [ -n "$NOVNC_DIR" ]; then INSTALLED=1; fi',
         'if [ "$INSTALLED" != "1" ]; then',
-        `  ${pkgInstall("vnc-server", "python3", "python3-pip", "x11-utils", "x11-xserver-utils", "xterm", "dbus-x11", "procps", "psmisc", "git")} || true`,
+        `  ${pkgInstall("vnc-server", "vnc-common", "python3", "python3-pip", "x11-utils", "x11-xserver-utils", "xterm", "dbus-x11", "procps", "psmisc", "git")} || true`,
         `  ${pkgInstall(...CHROME_RUNTIME_LIBRARY_PACKAGES)} || true`,
         "  sudo python3 -m pip install --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1",
         "  command -v websockify >/dev/null 2>&1 || sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify || true",

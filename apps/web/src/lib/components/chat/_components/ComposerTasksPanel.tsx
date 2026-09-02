@@ -187,9 +187,10 @@ export function ComposerTasksPanel({ steps, turnId }: ComposerTasksPanelProps) {
   const label = `Tasks: ${progress.completedSteps} of ${progress.totalSteps} complete. Current task: ${progress.step}`;
 
   return (
-    // Flush above the input card: same inset width and squared bottom as
-    // QueuedMessagesPanel so the stack reads as one surface.
-    <div className="mx-auto mb-0 w-[calc(100%-1.5rem)] rounded-b-none rounded-t-surface bg-muted/50">
+    // Flush above the input card. The dock in ComposerStash owns the inset, so
+    // this fills its column; the squared bottom matches QueuedMessagesPanel so
+    // the stack reads as one surface.
+    <div className="w-full rounded-b-none rounded-t-surface bg-muted/50">
       <div className="flex items-center gap-1 px-3 py-1.5">
         <button
           type="button"

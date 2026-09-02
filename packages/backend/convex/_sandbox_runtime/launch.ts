@@ -8,6 +8,7 @@ import { execHandle, requireEnv } from "./helpers";
 import { writeSandboxFile } from "./sandboxFiles";
 import { streamingHeartbeatHmacMessage } from "./callbackAuth";
 import { entityDaemonPaths } from "./daemonPaths";
+import { CLAUDE_CODE_VERSION } from "./claudeCliVersion";
 import type { SandboxHandle } from "../_sandbox/provider";
 import { CALLBACK_SCRIPT } from "./callbackScript";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
@@ -125,7 +126,7 @@ export async function ensureClaudeCliAvailable(
 ): Promise<void> {
   await execHandle(
     sandbox,
-    `if ! command -v claude >/dev/null 2>&1 && [ ! -x ${quote([CLAUDE_FALLBACK_BIN_PATH])} ]; then npm install -g --prefix ${quote([CLAUDE_FALLBACK_INSTALL_DIR])} @anthropic-ai/claude-code; fi`,
+    `if ! command -v claude >/dev/null 2>&1 && [ ! -x ${quote([CLAUDE_FALLBACK_BIN_PATH])} ]; then npm install -g --prefix ${quote([CLAUDE_FALLBACK_INSTALL_DIR])} @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}; fi`,
     CLAUDE_INSTALL_TIMEOUT_SECONDS,
   );
 }

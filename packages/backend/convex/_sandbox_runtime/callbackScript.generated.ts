@@ -4702,7 +4702,7 @@ function isZeroWorkTaskNotificationResult(message) {
 
 // callback-src/providers/claudeSdk.ts
 var SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
-var SDK_VERSION = "0.3.201";
+var SDK_VERSION = "0.3.258";
 async function readSdkPlanUsage(handle) {
   if (typeof handle.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET !== "function") {
     log("usage limits: this SDK query handle exposes no usage method");
@@ -4756,6 +4756,13 @@ function resolvePinnedSdkEntry(pin) {
     );
   }
   return localRoot + pin.entryRelPath;
+}
+function sdkMessageJson(serialized) {
+  const parsed = tryParseJson(serialized);
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+  return parsed;
 }
 async function loadSdk() {
   const mod = await import(resolvePinnedSdkEntry({
@@ -4890,14 +4897,15 @@ async function runClaudeSdkAttempt(sessionMode) {
   const consumeQuery = async () => {
     for await (const message of q) {
       lastMessageAt = Date.now();
-      if (isZeroWorkTaskNotificationResult(message)) {
+      const line = JSON.stringify(message) + "\\n";
+      const json = sdkMessageJson(line);
+      if (json !== null && isZeroWorkTaskNotificationResult(json)) {
         sawZeroWorkTaskNotification = true;
         log(
           "runClaudeSdkAttempt: ignored zero-work task notification result"
         );
         continue;
       }
-      const line = JSON.stringify(message) + "\\n";
       appendToRawLogFile(line);
       attemptOutput = trimBufferHead(attemptOutput + line);
       appendToRawOutput(line);
@@ -4905,8 +4913,8 @@ async function runClaudeSdkAttempt(sessionMode) {
       if (message.type === "result") {
         sawResult = true;
         resultIsError = message.is_error === true;
-        if (resultIsError && typeof message.result === "string") {
-          resultErrorMessage = message.result;
+        if (resultIsError) {
+          resultErrorMessage = message.subtype === "success" ? message.result : message.errors.join("\\n");
         }
       }
       if (timedOutForMaxRuntime || timedOutForNoOutput) break;
@@ -6389,11 +6397,10 @@ function createWarmAgentRunner(sdk, options) {
   void (async () => {
     try {
       for await (const raw of query) {
-        if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-          continue;
-        }
-        noteHarnessInitMessage(raw, query);
-        pending.push(raw);
+        const message = sdkMessageJson(JSON.stringify(raw));
+        if (message === null) continue;
+        noteHarnessInitMessage(message, query);
+        pending.push(message);
         wakeWaiters();
       }
     } catch (error) {

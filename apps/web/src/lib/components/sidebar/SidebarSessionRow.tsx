@@ -8,6 +8,7 @@ import {
   ContextMenuTrigger,
   motionFast,
 } from "@eva/ui";
+import { useState } from "react";
 import { entityPathSegment } from "@/lib/numId";
 import { SidebarSessionItem } from "@/lib/components/sidebar/SidebarSessionItem";
 import {
@@ -15,6 +16,8 @@ import {
   useIsRegeneratingTitle,
 } from "@/lib/components/sidebar/SessionMenuItems";
 import { SharedLayoutNavSurface } from "@/lib/components/sidebar/SharedLayoutNav";
+import { SessionReviewModal } from "@/routes/_repo/$owner/$repo/sessions/_components/SessionReviewModal";
+import { canSendSessionForReview } from "@/routes/_repo/$owner/$repo/sessions/_utils/sessionReadOnly";
 
 type SessionStatus = "active" | "starting" | "stopping" | "closed";
 
@@ -71,67 +74,89 @@ export function SidebarSessionRow<T extends SessionItem>({
   const href = pathSegment ? `${baseUrl}/${pathSegment}` : baseUrl;
   const isArchivedList = onUnarchive !== undefined;
   const isRegeneratingTitle = useIsRegeneratingTitle(session);
+  // Same gate the chat header uses, minus archived rows — an archived session
+  // is read-only, so opening its PR from here would be a dead end.
+  const canSendForReview = !isArchivedList && canSendSessionForReview(session);
+  // Row-local: the dialog belongs to this session and the row outlives it
+  // (unlike archive, which removes the row and so is owned by the sidebar).
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <m.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 8 }}
-          transition={motionFast}
-        >
-          <SharedLayoutNavSurface
-            itemId={session._id}
-            isActive={isSelected}
-            className="group mx-1 rounded-menu-item"
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <m.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={motionFast}
           >
-            <SidebarSessionItem
-              href={href}
-              title={session.title}
-              isRegeneratingTitle={isRegeneratingTitle}
-              sessionId={session._id}
-              userId={session.userId}
-              createdAt={session._creationTime}
-              updatedAt={session.updatedAt}
-              status={session.status}
-              isExecuting={session.isExecuting === true}
-              isOrchestrator={session.isOrchestrator === true}
-              isSelected={isSelected}
-              onNavigate={onNavigate}
-              prUrl={session.prUrl}
-              prState={session.prState}
-              baseBranch={session.baseBranch}
-            />
-          </SharedLayoutNavSurface>
-        </m.div>
-      </ContextMenuTrigger>
-      <ContextMenuContent onClick={(e) => e.stopPropagation()}>
-        <SessionMenuItems
-          session={session}
-          href={href}
-          isRegeneratingTitle={isRegeneratingTitle}
-          onRenameRequest={
-            !isArchivedList && onRename && onRenameRequest
-              ? () => onRenameRequest(session)
-              : undefined
-          }
-          onDuplicate={
-            !isArchivedList && onDuplicate
-              ? () => onDuplicate(session)
-              : undefined
-          }
-          onDuplicateNavigate={onDuplicateNavigate}
-          onUnarchive={
-            isArchivedList && onUnarchive ? () => onUnarchive(session) : undefined
-          }
-          onArchiveRequest={
-            !isArchivedList && onArchiveRequest
-              ? () => onArchiveRequest(session)
-              : undefined
-          }
+            <SharedLayoutNavSurface
+              itemId={session._id}
+              isActive={isSelected}
+              className="group mx-1 rounded-menu-item"
+            >
+              <SidebarSessionItem
+                href={href}
+                title={session.title}
+                isRegeneratingTitle={isRegeneratingTitle}
+                sessionId={session._id}
+                userId={session.userId}
+                createdAt={session._creationTime}
+                updatedAt={session.updatedAt}
+                status={session.status}
+                isExecuting={session.isExecuting === true}
+                isOrchestrator={session.isOrchestrator === true}
+                isSelected={isSelected}
+                onNavigate={onNavigate}
+                prUrl={session.prUrl}
+                prState={session.prState}
+                baseBranch={session.baseBranch}
+              />
+            </SharedLayoutNavSurface>
+          </m.div>
+        </ContextMenuTrigger>
+        <ContextMenuContent onClick={(e) => e.stopPropagation()}>
+          <SessionMenuItems
+            session={session}
+            href={href}
+            isRegeneratingTitle={isRegeneratingTitle}
+            onRenameRequest={
+              !isArchivedList && onRename && onRenameRequest
+                ? () => onRenameRequest(session)
+                : undefined
+            }
+            onDuplicate={
+              !isArchivedList && onDuplicate
+                ? () => onDuplicate(session)
+                : undefined
+            }
+            onDuplicateNavigate={onDuplicateNavigate}
+            onSendForReview={
+              canSendForReview ? () => setIsReviewOpen(true) : undefined
+            }
+            onUnarchive={
+              isArchivedList && onUnarchive
+                ? () => onUnarchive(session)
+                : undefined
+            }
+            onArchiveRequest={
+              !isArchivedList && onArchiveRequest
+                ? () => onArchiveRequest(session)
+                : undefined
+            }
+          />
+        </ContextMenuContent>
+      </ContextMenu>
+      {/* Sibling of the menu, not a child: Radix unmounts menu content on close,
+          which would tear the dialog down with it. */}
+      {canSendForReview ? (
+        <SessionReviewModal
+          sessionId={session._id}
+          open={isReviewOpen}
+          onClose={() => setIsReviewOpen(false)}
         />
-      </ContextMenuContent>
-    </ContextMenu>
+      ) : null}
+    </>
   );
 }

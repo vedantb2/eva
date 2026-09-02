@@ -11,7 +11,7 @@ describe("SIMPLE_VIEW_MODEL_LADDER", () => {
       "cursor:grok-4.5",
       "cursor:grok-4.6",
       "claude:opus",
-      "claude:claude-fable-5",
+      "claude:claude-fable-5-1",
     ]);
   });
 });
@@ -27,7 +27,10 @@ describe("snapToSimpleViewLadder", () => {
     expect(snapToSimpleViewLadder("claude:haiku")).toBe("claude:opus");
     expect(snapToSimpleViewLadder("claude:claude-opus-4-6")).toBe("claude:opus");
     expect(snapToSimpleViewLadder("claude:claude-fable-5")).toBe(
-      "claude:claude-fable-5",
+      "claude:claude-fable-5-1",
+    );
+    expect(snapToSimpleViewLadder("claude:claude-fable-5-1")).toBe(
+      "claude:claude-fable-5-1",
     );
   });
 

@@ -355,6 +355,43 @@ test("parseToCanonical cursor thinking event routes to update_reasoning", () => 
   });
 });
 
+test("parseToCanonical claude thinking_delta routes to update_reasoning", () => {
+  resetStateForTests();
+  const events = parseToCanonical(
+    {
+      type: "stream_event",
+      event: {
+        type: "content_block_delta",
+        index: 0,
+        delta: { type: "thinking_delta", thinking: "Weighing the two fixes." },
+      },
+    },
+    "claude",
+  );
+  expect(events).toEqual([
+    { kind: "update_reasoning", text: "Weighing the two fixes." },
+  ]);
+});
+
+// With `thinking.display` omitted, current models stream thinking blocks with
+// empty text — nothing must reach the reasoning step (claudeSdk.ts asks for
+// summaries explicitly so real text arrives instead).
+test("parseToCanonical claude empty thinking_delta emits nothing", () => {
+  resetStateForTests();
+  const events = parseToCanonical(
+    {
+      type: "stream_event",
+      event: {
+        type: "content_block_delta",
+        index: 0,
+        delta: { type: "thinking_delta", thinking: "" },
+      },
+    },
+    "claude",
+  );
+  expect(events).toEqual([]);
+});
+
 // Regression tests for the interleaved-thinking paragraph-break fix. With
 // interleaved thinking the model streams text → thinking → text inside one
 // message; consecutive text blocks used to clump ("design.Design settled.").

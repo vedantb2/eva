@@ -26,6 +26,7 @@ import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { SandboxStartStopButton } from "@/lib/components/sandbox/SandboxStartStopButton";
 import { SessionSwitcher } from "./SessionSwitcher";
 import { prStateIconClass } from "../_utils/-prStateIconClass";
+import { canSendSessionForReview } from "../_utils/sessionReadOnly";
 
 interface SessionChatHeaderProps {
   repoId: Id<"githubRepos">;
@@ -86,8 +87,12 @@ export function SessionChatHeader({
   onOpenReviewModal,
   onOpenResetChatDialog,
 }: SessionChatHeaderProps) {
-  const showSendForReview =
-    !chatOnly && branchName && (!prState || prState === "draft");
+  // `chatOnly` is Manager Ave, i.e. `session.isOrchestrator`.
+  const showSendForReview = canSendSessionForReview({
+    branchName,
+    prState,
+    isOrchestrator: chatOnly,
+  });
 
   // Manager Ave is one fixed session at its own URL, so there is nothing to
   // switch to and no repo to navigate up into — the switcher's dropdown would

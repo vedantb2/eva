@@ -27,6 +27,7 @@ import {
 import { isSandboxGoneError } from "./sandboxErrors";
 import { writeSandboxFile } from "./sandboxFiles";
 import { ensureGitCredentialHelper } from "./gitCredentials";
+import { isMissingRemoteRefFetchFailure } from "../_git/remoteRef";
 import {
   divergedPublishLooksLikeRewrite,
   parseGitNameOnlyList,
@@ -217,15 +218,6 @@ function normalizeBranchNames(branchNames: string[]): string[] {
 /** Git refuses whitespace in ref names; anything else is unsafe to inject. */
 function isSafeBranchName(branchName: string): boolean {
   return /^[^\s\\:?*[~^]+$/.test(branchName) && !branchName.includes("..");
-}
-
-/** Checks if an error message indicates a missing remote ref. */
-function isMissingRemoteRefError(message: string): boolean {
-  const lower = message.toLowerCase();
-  return (
-    lower.includes("couldn't find remote ref") ||
-    lower.includes("could not find remote ref")
-  );
 }
 
 function isRetryableGitNetworkError(message: string): boolean {
@@ -495,12 +487,21 @@ function bareGitHubRepoUrl(owner: string, name: string): string {
   return `https://github.com/${owner}/${name}.git`;
 }
 
+export type FetchOriginResult = {
+  /** False when a specific ref was requested and is gone on the remote. */
+  fetched: boolean;
+};
+
 /**
  * Fetches refs from the GitHub remote origin, optionally pruning stale refs.
  * Always fetches full history (no --depth) — shallow clones cause issues with rebasing, blame, and merges.
  *
  * Auth comes from the eva git credential helper installed at sandbox
  * bootstrap; the remote URL no longer carries a token.
+ *
+ * A missing specific ref (git exit 128 "couldn't find remote ref") is a
+ * handled outcome — deleted automation branches, never-pushed task branches —
+ * not a thrown command failure.
  */
 export async function fetchOrigin(
   sandbox: SandboxHandle,
@@ -512,27 +513,38 @@ export async function fetchOrigin(
     timeoutSeconds?: number;
     retryAttempts?: number;
   },
-): Promise<void> {
+): Promise<FetchOriginResult> {
   const details = `${owner}/${name}, ref=${ref ?? "all"}, prune=${
     opts?.prune === false ? "false" : "true"
   }`;
-  await runLoggedGitStep("fetchOrigin", details, async () => {
+  return await runLoggedGitStep("fetchOrigin", details, async () => {
     const repoUrl = bareGitHubRepoUrl(owner, name);
     const workspaceDir = workspaceDirShell();
     const pruneArg = opts?.prune === false ? "" : " --prune";
     const refArg = ref ? ` ${quote([ref])}` : "";
-    await retryGitNetworkOperation(
-      "fetchOrigin",
-      details,
-      async () => {
-        await execGitCommand(
-          sandbox,
-          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git fetch --no-tags${pruneArg} origin${refArg}`,
-          opts?.timeoutSeconds ?? 240,
+    try {
+      await retryGitNetworkOperation(
+        "fetchOrigin",
+        details,
+        async () => {
+          await execGitCommand(
+            sandbox,
+            `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git fetch --no-tags${pruneArg} origin${refArg}`,
+            opts?.timeoutSeconds ?? 240,
+          );
+        },
+        opts?.retryAttempts,
+      );
+      return { fetched: true };
+    } catch (error) {
+      if (ref && isMissingRemoteRefFetchFailure(error)) {
+        logGit(
+          `fetchOrigin: remote ref ${ref} is missing — continuing without it`,
         );
-      },
-      opts?.retryAttempts,
-    );
+        return { fetched: false };
+      }
+      throw error;
+    }
   });
 }
 
@@ -581,9 +593,7 @@ export async function fetchBranchRefs(
           );
           return normalized;
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          if (!isMissingRemoteRefError(message)) {
+          if (!isMissingRemoteRefFetchFailure(error)) {
             throw error;
           }
           const fetchedBranches: string[] = [];
@@ -599,8 +609,7 @@ export async function fetchBranchRefs(
                 fetchedBranches.push(fetchedBranch);
               }
             } catch (e) {
-              const msg = e instanceof Error ? e.message : String(e);
-              if (!isMissingRemoteRefError(msg)) {
+              if (!isMissingRemoteRefFetchFailure(e)) {
                 throw e;
               }
             }
@@ -736,6 +745,54 @@ async function pinBranchUpstream(
       `pinBranchUpstream: failed for ${branchName} (continuing): ${error instanceof Error ? error.message : String(error)}`,
     );
   }
+}
+
+/**
+ * Matches git's unresolved-index refusals: "<path>: needs merge", "error: you
+ * need to resolve your current index first", "you have unmerged files", and
+ * "MERGE_HEAD exists". Kept narrow on purpose — anything else (auth, network,
+ * missing refs) must keep failing loudly, not be reset away.
+ */
+export function isUnresolvedGitIndexError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("needs merge") ||
+    lower.includes("resolve your current index first") ||
+    lower.includes("unmerged files") ||
+    lower.includes("merge_head exists") ||
+    lower.includes("not concluded your merge")
+  );
+}
+
+/**
+ * Aborts a merge/rebase/cherry-pick/revert left in progress on a reused
+ * sandbox, then clears any unmerged entries still in the index. An agent run
+ * that dies mid-merge leaves the VM in this state, and every later checkout
+ * refuses with "needs merge; you need to resolve your current index first" —
+ * so session reuse could never start again on that box. Aborting restores the
+ * pre-operation HEAD: committed work survives; only the unfinished conflicted
+ * attempt is discarded.
+ */
+export async function recoverUnresolvedGitIndex(
+  sandbox: SandboxHandle,
+): Promise<void> {
+  const workspaceDir = workspaceDirShell();
+  await runLoggedGitStep("recoverUnresolvedGitIndex", WORKSPACE_DIR, () =>
+    execGitCommand(
+      sandbox,
+      [
+        `cd ${workspaceDir}`,
+        `if [ -f .git/MERGE_HEAD ]; then echo "aborting in-progress merge"; git merge --abort || true; fi`,
+        `if [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; then echo "aborting in-progress rebase"; git rebase --abort || true; fi`,
+        `if [ -f .git/CHERRY_PICK_HEAD ]; then echo "aborting in-progress cherry-pick"; git cherry-pick --abort || true; fi`,
+        `if [ -f .git/REVERT_HEAD ]; then echo "aborting in-progress revert"; git revert --abort || true; fi`,
+        // Unmerged entries can outlive the operation marker (or the abort);
+        // reset them so checkout can run again.
+        `if [ -n "$(git ls-files --unmerged)" ]; then echo "resetting unmerged index entries"; git reset --merge || git reset --hard HEAD; fi`,
+      ].join(" && "),
+      60,
+    ),
+  );
 }
 
 /** Checks out a session branch, creating it from a remote or base ref if needed. */

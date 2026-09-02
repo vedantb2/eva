@@ -3,15 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Button, Spinner } from "@eva/ui";
 import { IconArrowUpRight, IconInbox } from "@tabler/icons-react";
-import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import { type Notification } from "@/lib/components/notifications/notification-config";
-import { NotificationSourceAvatar } from "@/lib/components/inbox/NotificationRow";
+import { splitNotificationTitle } from "@/lib/components/notifications/notificationTitleParts";
 import {
   MarkdownMentionText,
   MARKDOWN_PROSE_CLASS,
 } from "@/lib/components/chat/MarkdownMentionText";
 import { embedReadyMessage } from "@/lib/embed/embedded";
-import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
+import { type RepoWithLogo } from "@/lib/utils/repoGrouping";
 import { repoHref, toInternalRepoHref } from "@/lib/utils/repoUrl";
 
 /**
@@ -82,10 +81,11 @@ interface NotificationDetailPaneProps {
 }
 
 /**
- * Right column of the two-pane inbox: a slim header naming the notification's
- * source and type, above the linked page rendered live in an embedded frame.
- * "Open" leaves the inbox for the full-window page. Notifications without a
- * link fall back to showing the notification's own message in full.
+ * Right column of the two-pane inbox: the linked page rendered live in an
+ * embedded frame, with no header — the list row already names the notification
+ * and the page names itself. "Open" floats over the frame and leaves the inbox
+ * for the full-window page (Enter does the same from the list). Notifications
+ * without a link fall back to showing the notification's own message in full.
  */
 export function NotificationDetailPane({
   notification,
@@ -103,56 +103,36 @@ export function NotificationDetailPane({
     );
   }
 
-  const sourceLabel = repo ? repoDisplayLabel(repo) : undefined;
+  const { subject, event } = splitNotificationTitle(notification);
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
-      <div className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-2.5">
-        <NotificationSourceAvatar notification={notification} repo={repo} />
-        <div className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-sm font-medium text-foreground">
-            {notification.title}
-          </span>
-          <span className="flex items-center gap-1 truncate text-xs text-muted-foreground">
-            {/* No type label here — the avatar badge already carries the type. */}
-            {sourceLabel ? (
-              <>
-                {sourceLabel}
-                <span aria-hidden>·</span>
-              </>
-            ) : null}
-            <RelativeDateTime
-              at={notification.createdAt}
-              className="text-xs"
-            />
-          </span>
-        </div>
-        {notification.href ? (
+    <div className="relative flex h-full min-h-0 flex-col overflow-hidden">
+      {notification.href ? (
+        <>
+          {/* The one action the header used to hold, floated over the frame's
+          corner. `bg-background` keeps it legible over whatever the embedded
+          page renders underneath. */}
           <Button
             size="sm"
             variant="outline"
             onClick={() => onOpen(notification)}
             title="Open as full page"
-            className="h-7 gap-1 text-xs"
+            className="absolute right-3 top-3 z-10 h-7 gap-1 bg-background text-xs"
           >
             Open
             <IconArrowUpRight size={14} />
           </Button>
-        ) : null}
-      </div>
-      {notification.href ? (
-        <NotificationPagePreview href={notification.href} />
+          <NotificationPagePreview href={notification.href} />
+        </>
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto scrollbar">
           <div className="mx-auto w-full max-w-2xl space-y-4 px-6 py-6">
             <div className="space-y-1">
               <h2 className="text-lg font-semibold tracking-[-0.01em] text-balance text-foreground">
-                {notification.title}
+                {subject}
               </h2>
-              {notification.contextLabel ? (
-                <p className="text-sm text-muted-foreground">
-                  {notification.contextLabel}
-                </p>
+              {event ? (
+                <p className="text-sm text-muted-foreground">{event}</p>
               ) : null}
             </div>
             {notification.message ? (

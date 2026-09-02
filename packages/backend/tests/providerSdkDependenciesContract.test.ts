@@ -18,11 +18,21 @@ const snapshotActions = readFileSync(
   join(testsDir, "../convex/snapshotActions.ts"),
   "utf8",
 );
+const claudeCliVersionModule = readFileSync(
+  join(testsDir, "../convex/_sandbox_runtime/claudeCliVersion.ts"),
+  "utf8",
+);
+const launchRuntime = readFileSync(
+  join(testsDir, "../convex/_sandbox_runtime/launch.ts"),
+  "utf8",
+);
+
+const CLAUDE_AGENT_SDK_PIN = "0.3.258";
 
 const sdkVersions = [
   {
     packageName: "@anthropic-ai/claude-agent-sdk",
-    version: "0.3.201",
+    version: CLAUDE_AGENT_SDK_PIN,
     versionConstant: "CLAUDE_AGENT_SDK_VERSION",
     loader: claudeLoader,
   },
@@ -69,6 +79,42 @@ test("new snapshots preinstall both provider SDKs at the loader versions", () =>
       `${sdk.packageName}@\${${sdk.versionConstant}}`,
     );
   }
+});
+
+test("sandboxes pin the Claude Code CLI to the agent SDK's own build", () => {
+  // The SDK spawns the globally installed `claude` binary and new models are
+  // gated on that binary's version, so an unpinned CLI leaves an old snapshot
+  // failing every turn with "does not support this model". Agent SDK 0.3.X
+  // ships CLI 2.1.X, hence the shared patch component.
+  const pinned = /CLAUDE_CODE_VERSION = "([^"]+)"/.exec(claudeCliVersionModule);
+  const cliVersion = pinned?.[1];
+  expect(cliVersion).toMatch(/^2\.1\.\d+$/);
+  expect(cliVersion?.split(".").at(2)).toBe(
+    CLAUDE_AGENT_SDK_PIN.split(".").at(2),
+  );
+
+  // One source of truth: the seed and the launch-time fallback both import it.
+  expect(snapshotActions).toContain(
+    'import { CLAUDE_CODE_VERSION } from "./_sandbox_runtime/claudeCliVersion"',
+  );
+  expect(launchRuntime).toContain(
+    'import { CLAUDE_CODE_VERSION } from "./claudeCliVersion"',
+  );
+
+  // Version-pinned install plus a version-pinned "already installed" guard, so
+  // a snapshot seeded with an older CLI reseeds instead of serving it forever.
+  expect(snapshotActions).toContain(
+    'globalPackageIsVersion("@anthropic-ai/claude-code", CLAUDE_CODE_VERSION)',
+  );
+  expect(snapshotActions).toContain(
+    "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}",
+  );
+  expect(launchRuntime).toContain(
+    "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}",
+  );
+  // No unpinned install survives anywhere.
+  expect(snapshotActions).not.toMatch(/@anthropic-ai\/claude-code(?![@"])/);
+  expect(launchRuntime).not.toMatch(/@anthropic-ai\/claude-code(?![@"])/);
 });
 
 test("both loaders resolve their pin through one version-aware helper", () => {

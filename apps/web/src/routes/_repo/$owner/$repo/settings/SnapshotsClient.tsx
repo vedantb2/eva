@@ -354,10 +354,11 @@ export function SnapshotsClient({
           </SettingsSection>
 
           <p className="text-xs leading-relaxed text-muted-foreground">
-            Requires Vercel Sandbox credentials in team or repo environment
-            variables: <code className="font-mono">VERCEL_TOKEN</code>,{" "}
-            <code className="font-mono">VERCEL_TEAM_ID</code>, and{" "}
-            <code className="font-mono">VERCEL_PROJECT_ID</code>.
+            Requires Vercel Sandbox credentials:{" "}
+            <code className="font-mono">VERCEL_TOKEN</code> and{" "}
+            <code className="font-mono">VERCEL_TEAM_ID</code> (team or repo),
+            and <code className="font-mono">VERCEL_PROJECT_ID</code> on this
+            app — not borrowed from a sibling repo.
           </p>
         </>
       ) : null}
@@ -460,6 +461,11 @@ export function SnapshotsClient({
                     ? " Also re-captures the optional seeded snapshot when apps have Stop Commands."
                     : " No seed file or Stop Commands required."}
                 </p>
+                {lastBuild?.status === "error" && lastBuild.error ? (
+                  <p className="text-xs leading-relaxed text-destructive">
+                    {lastBuild.error}
+                  </p>
+                ) : null}
               </SettingsSection>
               <SettingsSection
                 title="Images"

@@ -23,6 +23,7 @@ import {
 } from "./orchestratorDelivery";
 import { TASK_CHAT_STREAM_PREFIX } from "../_chat/surfaceAdapters";
 import { normalizeAIModel } from "../validators";
+import { formatConvexQueryError } from "./convexQueryLimits";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Environment Helpers
@@ -798,12 +799,32 @@ export const queryTable = internalAction({
   },
 });
 
+type TestQueryResult =
+  | { ok: true; value: JsonValue; logLines: string[] }
+  | { ok: false; error: string };
+
 export const runTestQuery = internalAction({
   args: { convexUrl: v.string(), deployKey: v.string(), code: v.string() },
-  returns: v.object({ value: v.any(), logLines: v.array(v.string()) }),
-  handler: async (_ctx, { convexUrl, deployKey, code }) => {
+  returns: v.union(
+    v.object({
+      ok: v.literal(true),
+      value: v.any(),
+      logLines: v.array(v.string()),
+    }),
+    v.object({ ok: v.literal(false), error: v.string() }),
+  ),
+  handler: async (
+    _ctx,
+    { convexUrl, deployKey, code },
+  ): Promise<TestQueryResult> => {
     const source = wrapQueryHandler(code);
-    return runTestQueryRemote(convexUrl, deployKey, source);
+    try {
+      const result = await runTestQueryRemote(convexUrl, deployKey, source);
+      return { ok: true, value: result.value, logLines: result.logLines };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { ok: false, error: formatConvexQueryError(message) };
+    }
   },
 });
 

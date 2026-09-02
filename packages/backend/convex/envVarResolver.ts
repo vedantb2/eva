@@ -6,6 +6,15 @@ import { internal } from "./_generated/api";
 import { decryptValue } from "./encryption";
 import { getAIModelProvider } from "./validators";
 import type { SandboxCredentials } from "./_sandbox/provider";
+import {
+  presentEnv,
+  selectVercelCredentials,
+  type VercelCredentialSelection,
+} from "./_envVars/vercelCredentials";
+import {
+  pickSnapshotCredentialRepoId,
+  type AppRepoPickFields,
+} from "./_githubRepos/sandboxRepoPick";
 
 /** Resolves and decrypts all env vars (team + repo), including sandbox-excluded ones. Repo vars override team vars. */
 export async function resolveAllEnvVars(
@@ -84,43 +93,119 @@ async function listMonorepoRepoIds(
   return [repoId, ...siblingIds.filter((id) => id !== repoId)];
 }
 
+async function loadSiblingRepoFields(
+  ctx: GenericActionCtx<DataModel>,
+  repoId: Id<"githubRepos">,
+): Promise<Array<AppRepoPickFields & { _id: Id<"githubRepos"> }>> {
+  const repoIds = await listMonorepoRepoIds(ctx, repoId);
+  const docs: Array<AppRepoPickFields & { _id: Id<"githubRepos"> }> = [];
+  for (const id of repoIds) {
+    const doc = await ctx.runQuery(internal.githubRepos.getInternal, { id });
+    if (doc) docs.push(doc);
+  }
+  return docs;
+}
+
 /**
  * Collects Vercel token/team from the target repo and monorepo siblings, but
- * VERCEL_PROJECT_ID only from the target repo. Sibling apps often share token +
- * team via team env vars, while each app has its own Vercel project — borrowing
- * a sibling's project id creates sandboxes under the wrong app.
+ * VERCEL_PROJECT_ID only from the target (or the root's picked app). Sibling
+ * apps often share token + team via team env vars, while each app has its own
+ * Vercel project — borrowing a sibling app's project id creates sandboxes
+ * under the wrong app.
  */
+async function selectVercelCredentialsForRepo(
+  ctx: GenericActionCtx<DataModel>,
+  repoId: Id<"githubRepos">,
+): Promise<{
+  credentialRepoId: Id<"githubRepos">;
+  selected: VercelCredentialSelection;
+}> {
+  let credentialRepoId = repoId;
+  let targetVars = await resolveAllEnvVars(ctx, repoId);
+
+  if (!presentEnv(targetVars.VERCEL_PROJECT_ID)) {
+    const siblings = await loadSiblingRepoFields(ctx, repoId);
+    credentialRepoId = await pickSnapshotCredentialRepoId(
+      repoId,
+      siblings,
+      async (id) => {
+        if (id === repoId) return false;
+        const vars = await resolveAllEnvVars(ctx, id);
+        return presentEnv(vars.VERCEL_PROJECT_ID) !== undefined;
+      },
+    );
+    if (credentialRepoId !== repoId) {
+      targetVars = await resolveAllEnvVars(ctx, credentialRepoId);
+    }
+  }
+
+  const siblingVarsList: Array<Record<string, string>> = [];
+  if (
+    !presentEnv(targetVars.VERCEL_TOKEN) ||
+    !presentEnv(targetVars.VERCEL_TEAM_ID)
+  ) {
+    const repoIds = await listMonorepoRepoIds(ctx, credentialRepoId);
+    for (const siblingId of repoIds) {
+      if (siblingId === credentialRepoId) continue;
+      siblingVarsList.push(await resolveAllEnvVars(ctx, siblingId));
+    }
+  }
+
+  return {
+    credentialRepoId,
+    selected: selectVercelCredentials(targetVars, siblingVarsList),
+  };
+}
+
 async function resolveVercelCredentialsForRepo(
   ctx: GenericActionCtx<DataModel>,
   repoId: Id<"githubRepos">,
 ): Promise<Extract<SandboxCredentials, { kind: "vercel" }>> {
-  const targetVars = await resolveAllEnvVars(ctx, repoId);
-  const projectId = targetVars.VERCEL_PROJECT_ID;
-  let token = targetVars.VERCEL_TOKEN;
-  let teamId = targetVars.VERCEL_TEAM_ID;
+  const { selected } = await selectVercelCredentialsForRepo(ctx, repoId);
+  if (!selected.ok) {
+    throw new Error(selected.message);
+  }
+  return {
+    kind: "vercel",
+    token: selected.token,
+    teamId: selected.teamId,
+    projectId: selected.projectId,
+  };
+}
 
-  if (!token || !teamId) {
-    const repoIds = await listMonorepoRepoIds(ctx, repoId);
-    for (const siblingId of repoIds) {
-      if (siblingId === repoId) continue;
-      const siblingVars = await resolveAllEnvVars(ctx, siblingId);
-      token = token ?? siblingVars.VERCEL_TOKEN;
-      teamId = teamId ?? siblingVars.VERCEL_TEAM_ID;
-      if (token && teamId) break;
+/**
+ * Same as resolveSandboxCredentials, but missing Vercel env is a returned
+ * error instead of a throw (so snapshot create does not log Uncaught Error).
+ */
+export async function tryResolveSandboxCredentials(
+  ctx: GenericActionCtx<DataModel>,
+  repoId: Id<"githubRepos">,
+): Promise<
+  | {
+      ok: true;
+      credentials: SandboxCredentials;
+      sandboxEnvVars: Record<string, string>;
     }
+  | { ok: false; error: string }
+> {
+  const { credentialRepoId, selected } = await selectVercelCredentialsForRepo(
+    ctx,
+    repoId,
+  );
+  if (!selected.ok) {
+    return { ok: false, error: selected.message };
   }
-
-  if (!token || !teamId || !projectId) {
-    const missing: string[] = [];
-    if (!token) missing.push("VERCEL_TOKEN");
-    if (!teamId) missing.push("VERCEL_TEAM_ID");
-    if (!projectId) missing.push("VERCEL_PROJECT_ID");
-    throw new Error(
-      `Vercel sandbox credentials missing: ${missing.join(", ")}. ` +
-        `VERCEL_PROJECT_ID must be set on this app repo (not borrowed from a sibling).`,
-    );
-  }
-  return { kind: "vercel", token, teamId, projectId };
+  const sandboxEnvVars = await resolveEnvVars(ctx, credentialRepoId);
+  return {
+    ok: true,
+    credentials: {
+      kind: "vercel",
+      token: selected.token,
+      teamId: selected.teamId,
+      projectId: selected.projectId,
+    },
+    sandboxEnvVars,
+  };
 }
 
 /**
@@ -149,11 +234,14 @@ export async function resolveSandboxCredentials(
   credentials: SandboxCredentials;
   sandboxEnvVars: Record<string, string>;
 }> {
-  const [credentials, sandboxEnvVars] = await Promise.all([
-    resolveVercelCredentialsForRepo(ctx, repoId),
-    resolveEnvVars(ctx, repoId),
-  ]);
-  return { credentials, sandboxEnvVars };
+  const resolved = await tryResolveSandboxCredentials(ctx, repoId);
+  if (!resolved.ok) {
+    throw new Error(resolved.error);
+  }
+  return {
+    credentials: resolved.credentials,
+    sandboxEnvVars: resolved.sandboxEnvVars,
+  };
 }
 
 /**

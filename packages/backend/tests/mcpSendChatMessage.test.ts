@@ -834,7 +834,7 @@ describe("user MCP accepts fable and runs it as Eva's Fable model", () => {
     );
   });
 
-  test("create_and_run_task persists fable as claude:claude-fable-5, not the repo default", () => {
+  test("create_and_run_task persists fable as claude:claude-fable-5-1, not the repo default", () => {
     const validator = nodeActions.slice(
       nodeActions.indexOf("const mcpClaudeModelValidator"),
       nodeActions.indexOf("export const createTask"),
@@ -853,7 +853,7 @@ describe("user MCP accepts fable and runs it as Eva's Fable model", () => {
     expect(createTask).not.toContain("mutationArgs.model = model;");
     expect(createBatch).toContain("normalizeAIModel(model)");
     expect(createBatch).not.toContain("mutationArgs.model = model;");
-    expect(normalizeAIModel("fable")).toBe("claude:claude-fable-5");
+    expect(normalizeAIModel("fable")).toBe("claude:claude-fable-5-1");
   });
 
   test("create_session and send_chat_message also canonicalize fable", () => {
@@ -868,6 +868,6 @@ describe("user MCP accepts fable and runs it as Eva's Fable model", () => {
         requestedModel: "fable",
         storedModel: "cursor:grok-4.6",
       }).model,
-    ).toBe("claude:claude-fable-5");
+    ).toBe("claude:claude-fable-5-1");
   });
 });

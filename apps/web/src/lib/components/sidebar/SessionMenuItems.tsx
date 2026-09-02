@@ -10,6 +10,7 @@ import {
   IconClipboard,
   IconCopy,
   IconExternalLink,
+  IconEye,
   IconGitBranch,
   IconLink,
   IconPencil,
@@ -47,6 +48,8 @@ interface SessionMenuItemsProps {
   /** Active list only — both are needed for Duplicate to show. */
   onDuplicate?: () => Promise<string>;
   onDuplicateNavigate?: (pathSegment: string) => void;
+  /** Sessions with a branch and no open PR yet — opens the review dialog. */
+  onSendForReview?: () => void;
   /** Active list: archive. Omit in archived list. */
   onArchiveRequest?: () => void;
   /** Archived list: unarchive. */
@@ -65,6 +68,7 @@ export function SessionMenuItems({
   onRenameRequest,
   onDuplicate,
   onDuplicateNavigate,
+  onSendForReview,
   onArchiveRequest,
   onUnarchive,
 }: SessionMenuItemsProps) {
@@ -145,6 +149,15 @@ export function SessionMenuItems({
           <IconExternalLink size={16} />
           Open PR
         </ContextMenuItem>
+      ) : null}
+      {onSendForReview ? (
+        <>
+          <ContextMenuSeparator />
+          <ContextMenuItem onSelect={onSendForReview}>
+            <IconEye size={16} className="text-status-code-review" />
+            Send for Review
+          </ContextMenuItem>
+        </>
       ) : null}
       {onUnarchive ? (
         <>

@@ -25,6 +25,26 @@ export function isSessionSidebarActive(session: {
 }
 
 /**
+ * "Send for Review" opens (or un-drafts) this session's PR, so it needs a
+ * branch to open one from and a PR that is not already out for review.
+ *
+ * Manager Ave never qualifies: it supervises other agents instead of building
+ * on its own branch, so the PR would carry no commits against base.
+ *
+ * Shared by the session chat header and the sessions sidebar row so the two
+ * entry points cannot offer the action under different conditions.
+ */
+export function canSendSessionForReview(session: {
+  branchName?: string;
+  prState?: SessionPrState;
+  isOrchestrator?: boolean;
+}): boolean {
+  if (session.isOrchestrator === true) return false;
+  if (!session.branchName) return false;
+  return session.prState === undefined || session.prState === "draft";
+}
+
+/**
  * Banner copy for session read-only. PR closed/merged wins over archive so the
  * user sees why the session locked (reopen on GitHub unlocks again).
  */

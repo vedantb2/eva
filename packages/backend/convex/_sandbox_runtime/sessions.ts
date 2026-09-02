@@ -23,6 +23,8 @@ import {
   createSandboxAndPrepareRepo,
   fetchBranchRefs,
   forcePushBranchToOrigin,
+  isUnresolvedGitIndexError,
+  recoverUnresolvedGitIndex,
   resolveBaseTarget,
   copySandboxConfigFilesToWorkspace,
   SESSION_LIFECYCLE,
@@ -170,6 +172,11 @@ async function checkoutSessionBranchWithRetry(
   baseBranch: string,
 ): Promise<void> {
   const maxAttempts = 3;
+  // One-shot: a reused VM whose previous run died mid-merge refuses every
+  // checkout with "needs merge; resolve your current index first" — abort the
+  // stale operation and retry. If recovery does not clear it, the next failure
+  // throws as before; nothing else is reset away.
+  let recoveredUnresolvedIndex = false;
   for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
     try {
       await checkoutSessionBranch(sandbox, branchName, baseBranch);
@@ -181,6 +188,25 @@ async function checkoutSessionBranchWithRetry(
       return;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (
+        attempt < maxAttempts &&
+        !recoveredUnresolvedIndex &&
+        isUnresolvedGitIndexError(message)
+      ) {
+        recoveredUnresolvedIndex = true;
+        logSession(
+          `checkoutSessionBranchWithRetry recovering unresolved git index (attempt ${attempt}/${maxAttempts}, branch=${branchName}, base=${baseBranch}): ${message}`,
+        );
+        try {
+          await recoverUnresolvedGitIndex(sandbox);
+        } catch (recoverError) {
+          // Best-effort: the retried checkout below surfaces the real state.
+          logSession(
+            `checkoutSessionBranchWithRetry unresolved-index recovery failed (branch=${branchName}, base=${baseBranch}): ${errorMessage(recoverError, "recovery failed")}`,
+          );
+        }
+        continue;
+      }
       const canRetry =
         attempt < maxAttempts && isRetryableSessionGitError(message);
       if (!canRetry) {
@@ -835,6 +861,9 @@ async function prepareSessionSandboxInternal(
                     branchName: args.branchName,
                     isNew: false,
                     usedSnapshot: false,
+                    // Services are relaunched below; keep the Preview heal off
+                    // this sandbox until then so it cannot double-launch them.
+                    markServicesPending: true,
                   });
                 },
                 shouldAbort: () => sessionStopRequested(ctx, args.sessionId),
@@ -1051,6 +1080,9 @@ async function prepareSessionSandboxInternal(
             // Snapshot restores keep a stale checkout + baked modules; gate the
             // queued first turn until the base pull + install below finish.
             markSetupPending: Boolean(snapshotName),
+            // Background + startup commands have not run yet on this fresh VM;
+            // keep the Preview heal off it until final-ready clears the flag.
+            markServicesPending: true,
             ...(configured?.devPort !== undefined
               ? { devPort: configured.devPort }
               : {}),
@@ -1633,6 +1665,12 @@ export const startSessionSandbox = internalAction({
         console.warn(
           `[sandbox][sessions] startSessionSandbox failed after early-ready; keeping active sessionId=${args.sessionId} sandboxId=${sessionAfter.sandboxId}: ${failMessage}`,
         );
+        // Final-ready never ran, so the Preview-heal gate armed at early-ready
+        // would stay armed for the life of this sandbox and permanently
+        // suppress background-daemon healing on it.
+        await ctx.runMutation(internal.sessions.clearSandboxServicesPending, {
+          sessionId: args.sessionId,
+        });
         await ctx.runMutation(internal.sessions.sandboxStartupWarning, {
           sessionId: args.sessionId,
           error: failMessage,

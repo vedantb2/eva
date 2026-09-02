@@ -19,6 +19,7 @@ import {
   SYSTEM_PROMPT,
   WORK_DIR,
   claudeEffort,
+  claudeThinkingDisabled,
   normalizedClaudeModel,
   settingsJson,
 } from "../config.js";
@@ -37,12 +38,16 @@ import {
   startClaudeUsageReport,
   type ClaudeUsageResponseLike,
 } from "../runtime/usageLimits.js";
-import type { ProviderAttemptResult, SessionMode } from "../types.js";
-import { log } from "../utils.js";
+import type {
+  JsonObject,
+  ProviderAttemptResult,
+  SessionMode,
+} from "../types.js";
+import { log, tryParseJson } from "../utils.js";
 import { isZeroWorkTaskNotificationResult } from "./claudeResult.js";
 
 const SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
-const SDK_VERSION = "0.3.201";
+const SDK_VERSION = "0.3.258";
 
 export type JsonLike =
   | string
@@ -173,6 +178,24 @@ export function resolvePinnedSdkEntry(pin: {
   return localRoot + pin.entryRelPath;
 }
 
+/**
+ * Narrows a serialized SDK message back into the JsonObject every parser
+ * downstream takes.
+ *
+ * The SDK's message types are not structurally JSON — `SDKAssistantMessage`
+ * carries an `@anthropic-ai/sdk` interface, so the union has no index
+ * signature — while `claudeParseLine` and the daemon's helpers read arbitrary
+ * keys off a JsonObject. Both callers already serialize each message for the
+ * raw log, so the round trip is the boundary rather than extra work.
+ */
+export function sdkMessageJson(serialized: string): JsonObject | null {
+  const parsed = tryParseJson(serialized);
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+  return parsed;
+}
+
 /** Imports the Agent SDK version this callback's parsers were written for. */
 export async function loadSdk(): Promise<SdkModule> {
   const mod: SdkModule = await import(
@@ -277,6 +300,17 @@ function buildSdkOptionsFromParts(
       ? { effort: claudeEffort }
       : {};
 
+  // Current models (Fable 5, Opus 5/4.8/4.7, Sonnet 5) default thinking
+  // display to "omitted": the API still thinks, but `thinking_delta` events
+  // stream empty text, so claudeParseLine's reasoning step never fills and
+  // the UI shows a long pause where Cursor/Codex show reasoning. Ask for
+  // API-side summaries explicitly. Thinking-off keeps the settings.json
+  // `alwaysThinkingEnabled: false` path — Fable 5 rejects an explicit
+  // `{ type: "disabled" }` with a 400, so never send that here.
+  const thinkingOption: Pick<SdkOptions, "thinking"> = claudeThinkingDisabled
+    ? {}
+    : { thinking: { type: "adaptive", display: "summarized" } };
+
   return {
     cwd: WORK_DIR,
     model: normalizedClaudeModel,
@@ -309,6 +343,7 @@ function buildSdkOptionsFromParts(
       ? { mcpServers: evaMcpServers }
       : {}),
     ...effortOption,
+    ...thinkingOption,
   };
 }
 
@@ -394,14 +429,15 @@ export async function runClaudeSdkAttempt(
   const consumeQuery = async (): Promise<void> => {
     for await (const message of q) {
       lastMessageAt = Date.now();
-      if (isZeroWorkTaskNotificationResult(message)) {
+      const line = JSON.stringify(message) + "\n";
+      const json = sdkMessageJson(line);
+      if (json !== null && isZeroWorkTaskNotificationResult(json)) {
         sawZeroWorkTaskNotification = true;
         log(
           "runClaudeSdkAttempt: ignored zero-work task notification result",
         );
         continue;
       }
-      const line = JSON.stringify(message) + "\n";
       appendToRawLogFile(line);
       attemptOutput = trimBufferHead(attemptOutput + line);
       appendToRawOutput(line);
@@ -409,8 +445,14 @@ export async function runClaudeSdkAttempt(
       if (message.type === "result") {
         sawResult = true;
         resultIsError = message.is_error === true;
-        if (resultIsError && typeof message.result === "string") {
-          resultErrorMessage = message.result;
+        if (resultIsError) {
+          // Only the "success" subtype carries `result` — it holds the error
+          // text when a turn ended on an API error. The error subtypes report
+          // through `errors` instead.
+          resultErrorMessage =
+            message.subtype === "success"
+              ? message.result
+              : message.errors.join("\n");
         }
       }
       if (timedOutForMaxRuntime || timedOutForNoOutput) break;

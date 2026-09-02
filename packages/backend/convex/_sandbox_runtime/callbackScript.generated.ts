@@ -244,12 +244,12 @@ var codexReasoningEffort = PROVIDER === "codex" ? CODEX_REASONING_EFFORT[REASONI
 var codexFastMode = PROVIDER === "codex" && AI_FAST_MODE === "1";
 var cursorFastMode = PROVIDER === "cursor" && AI_FAST_MODE === "1";
 var cursorUse1mContext = PROVIDER === "cursor" && AI_CONTEXT_1M === "1";
+var claudeThinkingDisabled = AI_THINKING_ENABLED === "0" || PROVIDER === "claude" && REASONING_EFFORT === "off";
 function buildSettingsJson() {
   const settings = {
     attribution: { commit: "", pr: "" }
   };
-  const thinkingDisabled = AI_THINKING_ENABLED === "0" || PROVIDER === "claude" && REASONING_EFFORT === "off";
-  if (thinkingDisabled) {
+  if (claudeThinkingDisabled) {
     settings.alwaysThinkingEnabled = false;
   }
   return JSON.stringify(settings);
@@ -4761,7 +4761,7 @@ function isZeroWorkTaskNotificationResult(message) {
 
 // callback-src/providers/claudeSdk.ts
 var SDK_PACKAGE = "@anthropic-ai/claude-agent-sdk";
-var SDK_VERSION = "0.3.201";
+var SDK_VERSION = "0.3.258";
 async function readSdkPlanUsage(handle) {
   if (typeof handle.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET !== "function") {
     log("usage limits: this SDK query handle exposes no usage method");
@@ -4816,6 +4816,13 @@ function resolvePinnedSdkEntry(pin) {
   }
   return localRoot + pin.entryRelPath;
 }
+function sdkMessageJson(serialized) {
+  const parsed = tryParseJson(serialized);
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+    return null;
+  }
+  return parsed;
+}
 async function loadSdk() {
   const mod = await import(resolvePinnedSdkEntry({
     packageName: SDK_PACKAGE,
@@ -4865,6 +4872,7 @@ function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
     delete env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS;
   }
   const effortOption = claudeEffort === "low" || claudeEffort === "medium" || claudeEffort === "high" || claudeEffort === "xhigh" || claudeEffort === "max" ? { effort: claudeEffort } : {};
+  const thinkingOption = claudeThinkingDisabled ? {} : { thinking: { type: "adaptive", display: "summarized" } };
   return {
     cwd: WORK_DIR,
     model: normalizedClaudeModel,
@@ -4890,7 +4898,8 @@ function buildSdkOptionsFromParts(sessionMode, extraArgs, tools = "agent") {
     ...sessionMode.mode === "resume" && sessionMode.sessionId ? { resume: sessionMode.sessionId } : {},
     extraArgs,
     ...Object.keys(evaMcpServers).length > 0 ? { mcpServers: evaMcpServers } : {},
-    ...effortOption
+    ...effortOption,
+    ...thinkingOption
   };
 }
 async function runClaudeSdkAttempt(sessionMode) {
@@ -4947,14 +4956,15 @@ async function runClaudeSdkAttempt(sessionMode) {
   const consumeQuery = async () => {
     for await (const message of q) {
       lastMessageAt = Date.now();
-      if (isZeroWorkTaskNotificationResult(message)) {
+      const line = JSON.stringify(message) + "\\n";
+      const json = sdkMessageJson(line);
+      if (json !== null && isZeroWorkTaskNotificationResult(json)) {
         sawZeroWorkTaskNotification = true;
         log(
           "runClaudeSdkAttempt: ignored zero-work task notification result"
         );
         continue;
       }
-      const line = JSON.stringify(message) + "\\n";
       appendToRawLogFile(line);
       attemptOutput = trimBufferHead(attemptOutput + line);
       appendToRawOutput(line);
@@ -4962,8 +4972,8 @@ async function runClaudeSdkAttempt(sessionMode) {
       if (message.type === "result") {
         sawResult = true;
         resultIsError = message.is_error === true;
-        if (resultIsError && typeof message.result === "string") {
-          resultErrorMessage = message.result;
+        if (resultIsError) {
+          resultErrorMessage = message.subtype === "success" ? message.result : message.errors.join("\\n");
         }
       }
       if (timedOutForMaxRuntime || timedOutForNoOutput) break;
@@ -6453,11 +6463,10 @@ function createWarmAgentRunner(sdk, options) {
   void (async () => {
     try {
       for await (const raw of query) {
-        if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-          continue;
-        }
-        noteHarnessInitMessage(raw, query);
-        pending.push(raw);
+        const message = sdkMessageJson(JSON.stringify(raw));
+        if (message === null) continue;
+        noteHarnessInitMessage(message, query);
+        pending.push(message);
         wakeWaiters();
       }
     } catch (error) {

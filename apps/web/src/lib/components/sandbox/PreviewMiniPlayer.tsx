@@ -35,7 +35,7 @@ export function PreviewMiniPlayer() {
 function PreviewMiniPlayerWindow({ entry }: { entry: PreviewMiniPlayerEntry }) {
   const navigate = useNavigate();
   const { style, moveHandlers, resizeHandlers, gesture } =
-    usePreviewMiniPlayerFrame();
+    usePreviewMiniPlayerFrame(entry.entryKey);
   // The session doc is the truth about whether this iframe still shows a live
   // sandbox; the pane that would normally notice has been unmounted.
   const session = useQuery(api.sessions.get, { id: entry.sessionId });

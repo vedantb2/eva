@@ -115,6 +115,23 @@ test("sandboxes pin the Claude Code CLI to the agent SDK's own build", () => {
   // No unpinned install survives anywhere.
   expect(snapshotActions).not.toMatch(/@anthropic-ai\/claude-code(?![@"])/);
   expect(launchRuntime).not.toMatch(/@anthropic-ai\/claude-code(?![@"])/);
+
+  // Launch-time provisioning is version-aware, not existence-only: a live
+  // sandbox whose global CLI predates the pin gets the pinned build under the
+  // fallback prefix, and the callback prefers that over the drifted global
+  // (session 62, 2026-09-02: a 14 Aug snapshot's 2.1.232 failed every Fable
+  // 5.1 turn while the guard only fired when `claude` was missing).
+  expect(launchRuntime).toContain("cli_version()");
+  expect(launchRuntime).toContain(
+    'CLAUDE_CLI_PINNED_VERSION=${quote([CLAUDE_CODE_VERSION])}',
+  );
+  expect(claudeLoader).toContain("process.env.CLAUDE_CLI_PINNED_VERSION");
+  expect(claudeLoader).toContain(
+    "if (pinned === null || globalVersion === pinned) return globalBin;",
+  );
+  expect(claudeLoader).toContain(
+    "if (pinned === null || fallbackVersion === pinned) return fallback;",
+  );
 });
 
 test("both loaders resolve their pin through one version-aware helper", () => {

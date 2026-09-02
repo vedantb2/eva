@@ -8,6 +8,7 @@ import {
   githubRepoValidator,
   githubRepoWithLogoValidator,
   pickDefaultVisibleAppRepo,
+  userCanAccessRepo,
 } from "./helpers";
 import {
   getAIProviderAvailability,
@@ -15,24 +16,6 @@ import {
 } from "../validators";
 import { filterActiveEntities } from "../numId";
 import { listTeammateUserIds } from "../_userProviderAccounts/sharing";
-
-/** True when the user connected the repo or shares its team. */
-async function userCanAccessRepo(
-  db: GenericDatabaseReader<DataModel>,
-  userId: Id<"users">,
-  repo: Doc<"githubRepos">,
-): Promise<boolean> {
-  if (repo.connectedBy === userId) return true;
-  const teamId = repo.teamId;
-  if (!teamId) return false;
-  const membership = await db
-    .query("teamMembers")
-    .withIndex("by_team_and_user", (q) =>
-      q.eq("teamId", teamId).eq("userId", userId),
-    )
-    .first();
-  return membership !== null;
-}
 
 /** How many live sandboxes this app has across quick tasks and projects. */
 async function repoActiveSandboxCount(

@@ -265,6 +265,8 @@ export const sessionSandboxStartupWorkflow = workflow.define({
     branchName: v.string(),
     baseBranch: v.string(),
     repoId: v.id("githubRepos"),
+    /** True when the session has `sessionRepos` rows to clone as well. */
+    hasLinkedRepos: v.optional(v.boolean()),
   },
   handler: async (step, args): Promise<void> => {
     await step.runAction(internal.sandbox.startSessionSandbox, {
@@ -276,6 +278,7 @@ export const sessionSandboxStartupWorkflow = workflow.define({
       branchName: args.branchName,
       baseBranch: args.baseBranch,
       repoId: args.repoId,
+      hasLinkedRepos: args.hasLinkedRepos,
     });
   },
 });

@@ -103,6 +103,7 @@ export const startSandbox = authMutation({
       branchName,
       baseBranch,
       repoId: session.repoId,
+      hasLinkedRepos: (session.linkedRepoCount ?? 0) > 0,
     };
     // Vercel: schedule the start action directly. Workflow step scheduling was
     // measured at ~6s before the first action ran.

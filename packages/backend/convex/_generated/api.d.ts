@@ -134,6 +134,7 @@ import type * as _pty_launchDevServerInVercelConsole from "../_pty/launchDevServ
 import type * as _pty_owners from "../_pty/owners.js";
 import type * as _pty_vercel from "../_pty/vercel.js";
 import type * as _queues_helpers from "../_queues/helpers.js";
+import type * as _repoGroups_validate from "../_repoGroups/validate.js";
 import type * as _repoSkills_content from "../_repoSkills/content.js";
 import type * as _repoSkills_decodeGitHubContent from "../_repoSkills/decodeGitHubContent.js";
 import type * as _repoSkills_skillMarkdown from "../_repoSkills/skillMarkdown.js";
@@ -170,6 +171,7 @@ import type * as _sandbox_runtime_divergedPublish from "../_sandbox_runtime/dive
 import type * as _sandbox_runtime_execution from "../_sandbox_runtime/execution.js";
 import type * as _sandbox_runtime_git from "../_sandbox_runtime/git.js";
 import type * as _sandbox_runtime_gitCredentials from "../_sandbox_runtime/gitCredentials.js";
+import type * as _sandbox_runtime_gitCredentialsPath from "../_sandbox_runtime/gitCredentialsPath.js";
 import type * as _sandbox_runtime_helpers from "../_sandbox_runtime/helpers.js";
 import type * as _sandbox_runtime_launch from "../_sandbox_runtime/launch.js";
 import type * as _sandbox_runtime_lifecycle from "../_sandbox_runtime/lifecycle.js";
@@ -186,6 +188,7 @@ import type * as _sandbox_runtime_snapshotStates from "../_sandbox_runtime/snaps
 import type * as _sandbox_runtime_swap from "../_sandbox_runtime/swap.js";
 import type * as _sandbox_runtime_turnRevert from "../_sandbox_runtime/turnRevert.js";
 import type * as _sandbox_runtime_vercelAppPorts from "../_sandbox_runtime/vercelAppPorts.js";
+import type * as _sandbox_runtime_workspaceLayout from "../_sandbox_runtime/workspaceLayout.js";
 import type * as _sessions_backgroundAgents from "../_sessions/backgroundAgents.js";
 import type * as _sessions_baseBranch from "../_sessions/baseBranch.js";
 import type * as _sessions_daemonState from "../_sessions/daemonState.js";
@@ -199,6 +202,7 @@ import type * as _sessions_prArchive from "../_sessions/prArchive.js";
 import type * as _sessions_prompts from "../_sessions/prompts.js";
 import type * as _sessions_pty from "../_sessions/pty.js";
 import type * as _sessions_queries from "../_sessions/queries.js";
+import type * as _sessions_repos from "../_sessions/repos.js";
 import type * as _sessions_resultTarget from "../_sessions/resultTarget.js";
 import type * as _sessions_sandbox from "../_sessions/sandbox.js";
 import type * as _sessions_workflow from "../_sessions/workflow.js";
@@ -332,6 +336,7 @@ import type * as pty from "../pty.js";
 import type * as queuedMessages from "../queuedMessages.js";
 import type * as repoEnvVars from "../repoEnvVars.js";
 import type * as repoEnvVarsActions from "../repoEnvVarsActions.js";
+import type * as repoGroups from "../repoGroups.js";
 import type * as repoSkills from "../repoSkills.js";
 import type * as repoSnapshots from "../repoSnapshots.js";
 import type * as repoSystemSkills from "../repoSystemSkills.js";
@@ -517,6 +522,7 @@ declare const fullApi: ApiFromModules<{
   "_pty/owners": typeof _pty_owners;
   "_pty/vercel": typeof _pty_vercel;
   "_queues/helpers": typeof _queues_helpers;
+  "_repoGroups/validate": typeof _repoGroups_validate;
   "_repoSkills/content": typeof _repoSkills_content;
   "_repoSkills/decodeGitHubContent": typeof _repoSkills_decodeGitHubContent;
   "_repoSkills/skillMarkdown": typeof _repoSkills_skillMarkdown;
@@ -553,6 +559,7 @@ declare const fullApi: ApiFromModules<{
   "_sandbox_runtime/execution": typeof _sandbox_runtime_execution;
   "_sandbox_runtime/git": typeof _sandbox_runtime_git;
   "_sandbox_runtime/gitCredentials": typeof _sandbox_runtime_gitCredentials;
+  "_sandbox_runtime/gitCredentialsPath": typeof _sandbox_runtime_gitCredentialsPath;
   "_sandbox_runtime/helpers": typeof _sandbox_runtime_helpers;
   "_sandbox_runtime/launch": typeof _sandbox_runtime_launch;
   "_sandbox_runtime/lifecycle": typeof _sandbox_runtime_lifecycle;
@@ -569,6 +576,7 @@ declare const fullApi: ApiFromModules<{
   "_sandbox_runtime/swap": typeof _sandbox_runtime_swap;
   "_sandbox_runtime/turnRevert": typeof _sandbox_runtime_turnRevert;
   "_sandbox_runtime/vercelAppPorts": typeof _sandbox_runtime_vercelAppPorts;
+  "_sandbox_runtime/workspaceLayout": typeof _sandbox_runtime_workspaceLayout;
   "_sessions/backgroundAgents": typeof _sessions_backgroundAgents;
   "_sessions/baseBranch": typeof _sessions_baseBranch;
   "_sessions/daemonState": typeof _sessions_daemonState;
@@ -582,6 +590,7 @@ declare const fullApi: ApiFromModules<{
   "_sessions/prompts": typeof _sessions_prompts;
   "_sessions/pty": typeof _sessions_pty;
   "_sessions/queries": typeof _sessions_queries;
+  "_sessions/repos": typeof _sessions_repos;
   "_sessions/resultTarget": typeof _sessions_resultTarget;
   "_sessions/sandbox": typeof _sessions_sandbox;
   "_sessions/workflow": typeof _sessions_workflow;
@@ -715,6 +724,7 @@ declare const fullApi: ApiFromModules<{
   queuedMessages: typeof queuedMessages;
   repoEnvVars: typeof repoEnvVars;
   repoEnvVarsActions: typeof repoEnvVarsActions;
+  repoGroups: typeof repoGroups;
   repoSkills: typeof repoSkills;
   repoSnapshots: typeof repoSnapshots;
   repoSystemSkills: typeof repoSystemSkills;

@@ -1567,11 +1567,17 @@ export const startSessionSandbox = internalAction({
     branchName: v.string(),
     baseBranch: v.string(),
     repoId: v.optional(v.id("githubRepos")),
+    /**
+     * True when the session also has `sessionRepos` rows to clone into
+     * `/tmp/workspace`. Accepted here so callers can pass it today; the clone
+     * behaviour itself is not implemented in this action yet.
+     */
+    hasLinkedRepos: v.optional(v.boolean()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     const actionStartedAt = Date.now();
-    const actionDetails = `sessionId=${args.sessionId}, repo=${args.repoOwner}/${args.repoName}, branch=${args.branchName}, base=${args.baseBranch}, existingSandboxId=${args.existingSandboxId ?? "none"}`;
+    const actionDetails = `sessionId=${args.sessionId}, repo=${args.repoOwner}/${args.repoName}, branch=${args.branchName}, base=${args.baseBranch}, existingSandboxId=${args.existingSandboxId ?? "none"}, linkedRepos=${args.hasLinkedRepos === true}`;
     logSession(`startSessionSandbox invoked (${actionDetails})`);
     try {
       if (!args.repoId) {

@@ -1,5 +1,5 @@
 import { spawnSync } from "child_process";
-import { RUN_ID, WORK_DIR } from "../config.js";
+import { ENTITY_ID_FIELD, RUN_ID, WORK_DIR } from "../config.js";
 import type { JsonObject } from "../types.js";
 import { readGitHeadSha } from "../utils.js";
 
@@ -36,8 +36,15 @@ function currentBranch(): string {
  * `persistTurnWork()` so `afterSha` includes the turn-end auto-commit. Skipped
  * for task runs and non-eva branches, mirroring persistTurnWork: those turns
  * have no session-owned commits to diff or restore.
+ *
+ * Sessions only: `sessionWorkflow:handleCompletion` is the one completion
+ * mutation that accepts the shas (messageFields.beforeSha). Task and project
+ * chat turns also run on `eva/` branches with no RUN_ID, so without this gate
+ * their completion payload carried an `afterSha` the Convex args validator
+ * rejected and the turn never finished (prod, 2026-09-02).
  */
 export function appendTurnCheckpoint(args: JsonObject): void {
+  if (ENTITY_ID_FIELD !== "sessionId") return;
   if (RUN_ID || turnStartSha === "") return;
   if (!currentBranch().startsWith("eva/")) return;
   const afterSha = readGitHeadSha();

@@ -9,7 +9,7 @@ import type * as callbackConfig from "../config.js";
 // A throwaway repo stands in for the sandbox workspace so the checkpoint reads
 // real shas without touching this checkout.
 const workspace = vi.hoisted(() => {
-  return { dir: "" };
+  return { dir: "", entityIdField: "sessionId" };
 });
 
 vi.mock("../config.js", async (importOriginal) => {
@@ -17,6 +17,9 @@ vi.mock("../config.js", async (importOriginal) => {
   return {
     ...original,
     RUN_ID: null,
+    get ENTITY_ID_FIELD() {
+      return workspace.entityIdField;
+    },
     get WORK_DIR() {
       return workspace.dir;
     },
@@ -55,6 +58,7 @@ beforeEach(() => {
 
 afterEach(() => {
   resetTurnCheckpoint();
+  workspace.entityIdField = "sessionId";
 });
 
 describe("appendTurnCheckpoint", () => {
@@ -80,6 +84,21 @@ describe("appendTurnCheckpoint", () => {
     const args: JsonObject = {};
     appendTurnCheckpoint(args);
     expect(args).toEqual({});
+  });
+
+  test("skips task and project chat turns, whose completion mutations reject the shas", () => {
+    // Task chat runs on eva/task-* with no RUN_ID, so branch and run checks
+    // alone let the shas through to agentTaskChatWorkflow:handleCompletion.
+    for (const entityIdField of ["taskId", "projectId"]) {
+      workspace.entityIdField = entityIdField;
+      commit("start " + entityIdField);
+      beginTurnCheckpoint();
+      commit("turn work " + entityIdField);
+      const args: JsonObject = { success: true };
+      appendTurnCheckpoint(args);
+      expect(args).toEqual({ success: true });
+      resetTurnCheckpoint();
+    }
   });
 
   test("skips non-eva branches", () => {

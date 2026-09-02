@@ -1,5 +1,13 @@
 # Changelog
 
+## Sandboxes pin the Claude Code CLI, unblocking claude-fable-5-1 - 2026-09-02
+
+- Root cause: the snapshot seed installed `@anthropic-ai/claude-code` unpinned and only reinstalled when the *agent SDK* pin drifted, so a snapshot seeded months ago kept serving CLI 2.1.246 forever. The Agent SDK spawns that global binary and new models are gated on its version, so every `claude-fable-5-1` turn failed with "Claude Code 2.1.246 does not support this model; version 2.1.251 or newer is required".
+- New `CLAUDE_CODE_VERSION` (`convex/_sandbox_runtime/claudeCliVersion.ts`, 2.1.258) is the single source of truth: `snapshotActions.ts` installs `@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}` and adds it to the `globalPackageIsVersion` guard (so older snapshots reseed), and `ensureClaudeCliAvailable`'s fallback install in `launch.ts` uses the same pin. It must track the agent SDK's own `claudeCodeVersion` — SDK 0.3.X ships CLI 2.1.X.
+- Agent SDK pin moved 0.3.201 → 0.3.258 (`snapshotActions.ts`, `callback-src/providers/claudeSdk.ts`, `package.json`, callback bundle regenerated). 0.3.201 shipped a broken `sdk.d.ts` (it referenced ~20 undeclared control-request types), so under `skipLibCheck` the whole SDK surface silently degraded to `any`; 0.3.258's types are well-formed and surfaced three real defects.
+- Fallout fixed, not papered over: `result` exists only on the `success` result subtype, so an errored turn now reads `errors` for its message instead of finding nothing; and SDK messages are no longer structurally JSON (an `@anthropic-ai/sdk` interface leaves the union without an index signature), so the new `sdkMessageJson` helper is the one boundary where the callback and the warm daemon re-read a serialized message as the `JsonObject` their parsers take.
+- `@anthropic-ai/claude-agent-sdk` (and its platform packages) joined `minimumReleaseAgeExclude` in `pnpm-workspace.yaml`: the 7-day soak would otherwise block every model launch behind a week of unusable sandboxes. `tests/providerSdkDependenciesContract.test.ts` now pins the CLI install, its version guard, the shared constant, and that the CLI patch component matches the SDK's.
+
 ## Background daemon cleanup kills the whole process group - 2026-09-01
 
 - `runBackgroundCommands` pre-launch cleanup now TERMs the daemon's process group (`kill -TERM -- -$pid`, bare-pid fallback), polls up to 2s for it to exit, then KILLs it — killing only the `setsid` leader orphaned its children (`supabase start`, docker), which kept writing into the truncated `/tmp/bg-<i>.log` and raced the relaunch (prod 2026-09-01, blush-lively-seahorse-K5DnYy).

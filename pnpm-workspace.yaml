@@ -13,3 +13,8 @@ minimumReleaseAgeExclude:
   # Same release: oxlint 1.79 is the first with the React Compiler lint rules.
   - oxlint
   - "@oxlint/*"
+  # The Agent SDK ships the Claude Code CLI it spawns, and new models are gated
+  # on that CLI's version, so a model launch is unusable until we pin the fresh
+  # release. A 7-day soak would leave every sandbox failing those turns.
+  - "@anthropic-ai/claude-agent-sdk"
+  - "@anthropic-ai/claude-agent-sdk-*"

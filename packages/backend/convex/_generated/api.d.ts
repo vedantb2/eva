@@ -157,6 +157,7 @@ import type * as _sandbox_runtime_bulkSnapshotRetention from "../_sandbox_runtim
 import type * as _sandbox_runtime_callbackAuth from "../_sandbox_runtime/callbackAuth.js";
 import type * as _sandbox_runtime_callbackScript from "../_sandbox_runtime/callbackScript.js";
 import type * as _sandbox_runtime_callbackScriptFingerprint from "../_sandbox_runtime/callbackScriptFingerprint.js";
+import type * as _sandbox_runtime_claudeCliVersion from "../_sandbox_runtime/claudeCliVersion.js";
 import type * as _sandbox_runtime_convexLocalBackend from "../_sandbox_runtime/convexLocalBackend.js";
 import type * as _sandbox_runtime_daemonEntitySnapshot from "../_sandbox_runtime/daemonEntitySnapshot.js";
 import type * as _sandbox_runtime_daemonPaths from "../_sandbox_runtime/daemonPaths.js";
@@ -532,6 +533,7 @@ declare const fullApi: ApiFromModules<{
   "_sandbox_runtime/callbackAuth": typeof _sandbox_runtime_callbackAuth;
   "_sandbox_runtime/callbackScript": typeof _sandbox_runtime_callbackScript;
   "_sandbox_runtime/callbackScriptFingerprint": typeof _sandbox_runtime_callbackScriptFingerprint;
+  "_sandbox_runtime/claudeCliVersion": typeof _sandbox_runtime_claudeCliVersion;
   "_sandbox_runtime/convexLocalBackend": typeof _sandbox_runtime_convexLocalBackend;
   "_sandbox_runtime/daemonEntitySnapshot": typeof _sandbox_runtime_daemonEntitySnapshot;
   "_sandbox_runtime/daemonPaths": typeof _sandbox_runtime_daemonPaths;

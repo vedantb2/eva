@@ -57,6 +57,7 @@ import {
   buildSdkOptions,
   loadSdk,
   readSdkPlanUsage,
+  sdkMessageJson,
   type SdkModule,
   type SdkUserMessage,
 } from "./claudeSdk.js";
@@ -1464,11 +1465,10 @@ function createWarmAgentRunner(
   void (async () => {
     try {
       for await (const raw of query) {
-        if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
-          continue;
-        }
-        noteHarnessInitMessage(raw, query);
-        pending.push(raw);
+        const message = sdkMessageJson(JSON.stringify(raw));
+        if (message === null) continue;
+        noteHarnessInitMessage(message, query);
+        pending.push(message);
         wakeWaiters();
       }
     } catch (error) {

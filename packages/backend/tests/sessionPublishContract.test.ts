@@ -342,7 +342,11 @@ describe("session branch publication reconciles concurrent remote work", () => {
     expect(syncAt).toBeGreaterThan(-1);
     expect(syncAt).toBeLessThan(gateAt);
     expect(gateAt).toBeLessThan(pushAt);
-    expect(push).toContain("isNonFastForwardPushError(message)");
+    // A rejected push retries after refetching, so the retry predicate must
+    // keep covering the concurrent-writer case as well as network blips.
+    expect(push).toContain('failure._tag === "GitNonFastForwardError"');
+    expect(push).toContain('failure._tag === "GitNetworkError"');
+    expect(push).toContain("while: isRetryablePushFailure");
   });
 
   test("resuming prefers a preserved local branch over a stale remote ref", () => {

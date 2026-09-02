@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
+import { GitHubBranchNotAhead } from "../convex/_github/githubErrors";
 import {
   isBranchNotAheadError,
   isPullRequestAlreadyExistsError,
@@ -55,11 +56,12 @@ describe("isBranchNotAheadError", () => {
    * site live in different files, so rewording the sentinel silently brings the
    * false alert back. The literal is read out of the source rather than copied.
    */
-  test("recognises the sentinel waitForPullRequestHead actually throws", () => {
-    const sentinel = thrownMessages(
+  test("recognises the sentinel waitForPullRequestHead actually raises", () => {
+    const sentinel = taggedErrorMessage(
       functionBody(taskActions, "async function waitForPullRequestHead("),
-    ).find((message) => !message.includes("did not report"));
-    expect(sentinel, "the not-ahead throw moved").toBeDefined();
+      "GitHubBranchNotAhead",
+    );
+    expect(sentinel, "the not-ahead sentinel moved").toBeDefined();
     expect(isBranchNotAheadError(new Error(sentinel ?? "")), sentinel).toBe(
       true,
     );
@@ -77,29 +79,40 @@ describe("the wait for a pushed branch fails fast when it is not ahead", () => {
     "async function waitForPullRequestHead(",
   );
 
-  test("throws on the first not-ahead compare", () => {
+  test("raises on the first not-ahead compare", () => {
     const successAt = body.indexOf("comparison.data.ahead_by > 0");
     expect(successAt, "the ahead check moved").toBeGreaterThan(-1);
-    const throwAt = body.indexOf("is not ahead of", successAt);
+    const raiseAt = body.indexOf("new GitHubBranchNotAhead(", successAt);
     const retryAt = body.indexOf("Effect.retry(", successAt);
-    expect(throwAt, "the not-ahead throw moved").toBeGreaterThan(-1);
+    expect(raiseAt, "the not-ahead sentinel moved").toBeGreaterThan(-1);
     expect(
-      throwAt,
-      "the throw belongs in the attempt, not the retry policy",
+      raiseAt,
+      "the sentinel belongs in the attempt, not the retry policy",
     ).toBeLessThan(retryAt);
   });
 
-  /** Its own throw reaches its own retry policy, which must not swallow it. */
+  /** Its own failure reaches its own retry policy, which must not swallow it. */
   test("the retry policy refuses it instead of retrying", () => {
     const whileAt = body.indexOf("while:");
     expect(whileAt, "the retry predicate moved").toBeGreaterThan(-1);
     expect(body.slice(whileAt), "the sentinel is retryable again").toContain(
-      "!isBranchNotAheadCompare(error)",
+      '_tag !== "GitHubBranchNotAhead"',
     );
-    expect(
-      taskActions,
-      "the sentinel predicate no longer matches the throw",
-    ).toContain('includes("is not ahead of")');
+  });
+
+  /**
+   * The wait raises a tagged failure but callers see it across a Convex action
+   * boundary, where only the message survives. `GitHubBranchNotAhead` has to
+   * stay an `Error` subclass carrying that message, not a plain payload.
+   */
+  test("the sentinel is still a message-carrying Error", () => {
+    const sentinel = new GitHubBranchNotAhead({
+      message: "eva/foo is not ahead of main",
+      cause: undefined,
+    });
+    expect(sentinel).toBeInstanceOf(Error);
+    expect(isBranchNotAheadError(sentinel)).toBe(true);
+    expect(isBranchNotAheadError(new Error(sentinel.message))).toBe(true);
   });
 
   test("a not-ahead branch skips the draft PR without alerting", () => {
@@ -149,7 +162,7 @@ describe("an existing pull request is adopted, not re-created", () => {
    * single immediate retry would hit the same stale list.
    */
   test("re-looks-up with backoff before giving up", () => {
-    const handlerAt = body.indexOf("isPullRequestAlreadyExistsError(error)");
+    const handlerAt = body.indexOf('_tag === "GitHubPullRequestAlreadyExists"');
     expect(handlerAt, "the already-exists handler moved").toBeGreaterThan(-1);
     const handler = body.slice(handlerAt);
     const delays = handler.match(/retryAfterDelays\(\[([\d, ]+)\]\)/);
@@ -162,7 +175,7 @@ describe("an existing pull request is adopted, not re-created", () => {
     ).toBeGreaterThan(0);
     expect(handler).toContain("findOpenPullRequestForBranch(args)");
     expect(handler, "an unadoptable failure still surfaces").toContain(
-      "throw error;",
+      "Effect.orElseFail(() => failure)",
     );
   });
 });
@@ -204,8 +217,20 @@ function definitionBody(source: string, name: string): string {
  */
 function thrownMessages(source: string): string[] {
   return [...source.matchAll(/new Error\(\s*`([^`]*)`/g)].map((match) =>
-    match[1].replace(/\$\{[^}]*\}/g, "x").replaceAll("\n", " "),
+    renderTemplate(match[1]),
   );
+}
+
+/** The `message:` a tagged error is constructed with, rendered the same way. */
+function taggedErrorMessage(source: string, tag: string): string | undefined {
+  const at = source.indexOf(`new ${tag}(`);
+  if (at < 0) return undefined;
+  const match = /message:\s*`([^`]*)`/.exec(source.slice(at));
+  return match ? renderTemplate(match[1]) : undefined;
+}
+
+function renderTemplate(literal: string): string {
+  return literal.replace(/\$\{[^}]*\}/g, "x").replaceAll("\n", " ");
 }
 
 function stripComments(source: string): string {

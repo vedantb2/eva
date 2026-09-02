@@ -8,7 +8,11 @@ import type { Id } from "./_generated/dataModel";
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { getInstallationOctokit } from "./githubAuth";
 import { extractPrNumber } from "./_github/helpers";
-import { isPullRequestAlreadyExistsError } from "./_github/prErrors";
+import {
+  GitHubBranchNotAhead,
+  githubRequest,
+  originalGitHubError,
+} from "./_github/githubErrors";
 import { getActionRepoWithAccess } from "./functions";
 import {
   buildPrBody,
@@ -42,6 +46,13 @@ type PullRequestCreateParams = {
   labels: string[];
   draft?: boolean;
 };
+
+/**
+ * A PR eva just created carries its number so labels can be added. One adopted
+ * after losing a create race does not: it already has the labels its own
+ * creation applied.
+ */
+type PullRequestOutcome = { url: string; createdNumber?: number };
 
 type PullRequestRefreshParams = {
   installationId: number;
@@ -134,57 +145,60 @@ async function createPullRequestWithGitHub(
     baseBranch,
   });
 
-  let prNumber: number;
-  let prUrl: string;
-  try {
-    const pr = await octokit.rest.pulls.create({
-      owner: args.repoOwner,
-      repo: args.repoName,
-      title: `Eva: ${args.title}`,
-      body: args.body,
-      head: args.branchName,
-      base: baseBranch,
-      draft: args.draft ?? false,
-    });
-    prNumber = pr.data.number;
-    prUrl = pr.data.html_url;
-  } catch (error) {
-    // Concurrent create or list lag: adopt the existing PR instead of failing.
-    if (isPullRequestAlreadyExistsError(error)) {
-      // A single immediate re-lookup would hit the same stale list, so back off
-      // between tries. `fromNullable` turns "still not listed" into the failure
-      // the retry schedule waits on; a lookup that itself throws is a defect and
-      // surfaces straight away.
-      const raced = await runPromiseRethrowing(
-        Effect.promise(() => findOpenPullRequestForBranch(args)).pipe(
-          Effect.flatMap(Effect.fromNullable),
-          Effect.retry(retryAfterDelays([1000, 2000])),
-          Effect.orElseSucceed(() => null),
-        ),
-      );
-      if (raced) {
-        return raced.url;
-      }
-    }
-    throw error;
-  }
+  const outcome = await runPromiseRethrowing(
+    githubRequest(() =>
+      octokit.rest.pulls.create({
+        owner: args.repoOwner,
+        repo: args.repoName,
+        title: `Eva: ${args.title}`,
+        body: args.body,
+        head: args.branchName,
+        base: baseBranch,
+        draft: args.draft ?? false,
+      }),
+    ).pipe(
+      Effect.map(
+        (pr): PullRequestOutcome => ({
+          url: pr.data.html_url,
+          createdNumber: pr.data.number,
+        }),
+      ),
+      // Concurrent create or list lag: adopt the existing PR instead of failing.
+      Effect.catchIf(
+        (failure) => failure._tag === "GitHubPullRequestAlreadyExists",
+        (failure) =>
+          // A single immediate re-lookup would hit the same stale list, so back
+          // off between tries. `fromNullable` turns "still not listed" into the
+          // failure the retry schedule waits on; a lookup that itself throws is
+          // a defect and surfaces straight away. Still not listed after the last
+          // try means there is nothing to adopt, so the create failure stands.
+          Effect.promise(() => findOpenPullRequestForBranch(args)).pipe(
+            Effect.flatMap(Effect.fromNullable),
+            Effect.retry(retryAfterDelays([1000, 2000])),
+            Effect.map((pr): PullRequestOutcome => ({ url: pr.url })),
+            Effect.orElseFail(() => failure),
+          ),
+      ),
+      Effect.mapError(originalGitHubError),
+    ),
+  );
 
-  if (args.labels.length > 0) {
+  if (outcome.createdNumber !== undefined && args.labels.length > 0) {
     try {
       await octokit.rest.issues.addLabels({
         owner: args.repoOwner,
         repo: args.repoName,
-        issue_number: prNumber,
+        issue_number: outcome.createdNumber,
         labels: args.labels,
       });
     } catch (labelError) {
       console.error(
-        `Failed to add labels to PR ${prUrl}: ${labelError instanceof Error ? labelError.message : String(labelError)}`,
+        `Failed to add labels to PR ${outcome.url}: ${labelError instanceof Error ? labelError.message : String(labelError)}`,
       );
     }
   }
 
-  return prUrl;
+  return outcome.url;
 }
 
 async function refreshPullRequestBodyWithGitHub(
@@ -215,43 +229,47 @@ async function waitForPullRequestHead(params: {
   baseBranch: string;
 }): Promise<void> {
   let lastError = "";
-  const compareHead = Effect.tryPromise({
-    try: async () => {
-      const comparison =
-        await params.octokit.rest.repos.compareCommitsWithBasehead({
-          owner: params.repoOwner,
-          repo: params.repoName,
-          basehead: `${params.baseBranch}...${params.branchName}`,
-          per_page: 1,
-        });
-      if (comparison.data.ahead_by > 0) {
-        return;
-      }
-      // Compare succeeded: GitHub sees both tips and head is not ahead.
-      // Retrying won't create commits — fail immediately (plan-only turns).
-      throw new Error(
-        `${params.branchName} is not ahead of ${params.baseBranch}: every commit on it is already in ${params.baseBranch}, or the run committed locally and its push to GitHub failed`,
-      );
-    },
-    catch: (error) => error,
-  });
+  const compareHead = githubRequest(() =>
+    params.octokit.rest.repos.compareCommitsWithBasehead({
+      owner: params.repoOwner,
+      repo: params.repoName,
+      basehead: `${params.baseBranch}...${params.branchName}`,
+      per_page: 1,
+    }),
+  ).pipe(
+    Effect.flatMap((comparison) =>
+      comparison.data.ahead_by > 0
+        ? Effect.void
+        : // Compare succeeded: GitHub sees both tips and head is not ahead.
+          // Retrying won't create commits — fail immediately (plan-only turns).
+          // The message is what callers past the action boundary match on, so
+          // it has to stay recognisable to `isBranchNotAheadError`.
+          Effect.fail(
+            new GitHubBranchNotAhead({
+              message: `${params.branchName} is not ahead of ${params.baseBranch}: every commit on it is already in ${params.baseBranch}, or the run committed locally and its push to GitHub failed`,
+              cause: undefined,
+            }),
+          ),
+    ),
+  );
 
   await runPromiseRethrowing(
     compareHead.pipe(
-      Effect.tapError((error) =>
+      Effect.tapError((failure) =>
         Effect.sync(() => {
-          if (isBranchNotAheadCompare(error)) return;
+          if (failure._tag === "GitHubBranchNotAhead") return;
           // Branch may not be visible yet right after push — keep retrying.
-          lastError =
-            error instanceof Error ? error.message : "GitHub compare failed";
+          lastError = failure.message || "GitHub compare failed";
         }),
       ),
       Effect.retry({
         schedule: retryAfterDelays(PR_READY_RETRY_DELAYS_MS),
-        while: (error) => !isBranchNotAheadCompare(error),
+        while: (failure) => failure._tag !== "GitHubBranchNotAhead",
       }),
+      // Only the sentinel survives, and it is thrown as itself: it carries the
+      // message, and its cause is Eva rather than GitHub.
       Effect.catchIf(
-        (error) => !isBranchNotAheadCompare(error),
+        (failure) => failure._tag !== "GitHubBranchNotAhead",
         () =>
           Effect.fail(
             new Error(
@@ -261,15 +279,6 @@ async function waitForPullRequestHead(params: {
       ),
     ),
   );
-}
-
-/**
- * The sentinel `waitForPullRequestHead` raises when GitHub answered the compare
- * and the branch is not ahead. Never retried: retrying a compare GitHub already
- * answered cannot produce commits, so it has to surface on the first answer.
- */
-function isBranchNotAheadCompare(error: unknown): boolean {
-  return error instanceof Error && error.message.includes("is not ahead of");
 }
 
 /**

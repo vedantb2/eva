@@ -32,7 +32,11 @@ import {
 import { isSandboxGoneError } from "./sandboxErrors";
 import { writeSandboxFile } from "./sandboxFiles";
 import { ensureGitCredentialHelper } from "./gitCredentials";
-import { isMissingRemoteRefFetchFailure } from "../_git/remoteRef";
+import {
+  classifyGitFailure,
+  type GitFailure,
+  isSandboxExecTimeout,
+} from "../_git/gitErrors";
 import {
   divergedPublishLooksLikeRewrite,
   parseGitNameOnlyList,
@@ -84,15 +88,6 @@ const NPM_INSTALL_TIMEOUT_SECONDS = 900;
 /** Logs a git-related message with a consistent prefix. */
 function logGit(message: string): void {
   console.log(`[sandbox][git] ${message}`);
-}
-
-/** Checks if an error message indicates a sandbox execution timeout. */
-function isSandboxExecTimeout(message: string): boolean {
-  const lower = message.toLowerCase();
-  return (
-    (lower.includes("sandbox exec") && lower.includes("timed out")) ||
-    lower.includes("command execution timeout")
-  );
 }
 
 /** Kills stale git processes and removes lock files after a timeout. */
@@ -225,42 +220,6 @@ function isSafeBranchName(branchName: string): boolean {
   return /^[^\s\\:?*[~^]+$/.test(branchName) && !branchName.includes("..");
 }
 
-function isRetryableGitNetworkError(message: string): boolean {
-  const lower = message.toLowerCase();
-  return (
-    isSandboxExecTimeout(message) ||
-    lower.includes("status code 502") ||
-    lower.includes("status code 503") ||
-    lower.includes("status code 504") ||
-    lower.includes("status code 401") ||
-    lower.includes("http 401") ||
-    lower.includes("authentication failed") ||
-    lower.includes("could not read username") ||
-    lower.includes("fetch failed") ||
-    lower.includes("econnreset") ||
-    lower.includes("econnrefused") ||
-    lower.includes("etimedout") ||
-    lower.includes("socket hang up") ||
-    lower.includes("gnutls recv error") ||
-    lower.includes("tls connection was non-properly terminated") ||
-    lower.includes("remote end hung up unexpectedly") ||
-    lower.includes("connection reset by peer") ||
-    lower.includes("rpc failed") ||
-    lower.includes("early eof") ||
-    lower.includes("http/2 stream")
-  );
-}
-
-/** A concurrent writer moved the same branch after our last fetch. */
-function isNonFastForwardPushError(message: string): boolean {
-  const lower = message.toLowerCase();
-  return (
-    lower.includes("non-fast-forward") ||
-    lower.includes("fetch first") ||
-    (lower.includes("[rejected]") && lower.includes("failed to push"))
-  );
-}
-
 /** Retries transient git network operations with short backoff. */
 async function retryGitNetworkOperation<T>(
   label: string,
@@ -271,7 +230,7 @@ async function retryGitNetworkOperation<T>(
   let attempt = 0;
   const runOnce = Effect.suspend(() => {
     attempt += 1;
-    return Effect.tryPromise({ try: fn, catch: (error) => error });
+    return Effect.tryPromise({ try: fn, catch: classifyGitFailure });
   });
 
   return await runPromiseRethrowing(
@@ -285,26 +244,24 @@ async function retryGitNetworkOperation<T>(
           }
         }),
       ),
-      Effect.tapError((error) =>
+      Effect.tapError((failure) =>
         Effect.sync(() => {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          if (attempt >= maxAttempts || !isRetryableGitNetworkError(message)) {
+          if (attempt >= maxAttempts || failure._tag !== "GitNetworkError") {
             return;
           }
           const delayMs = 1000 * attempt;
           logGit(
-            `${label} retrying in ${delayMs}ms after attempt ${attempt}/${maxAttempts}${details ? ` (${details})` : ""}: ${message}`,
+            `${label} retrying in ${delayMs}ms after attempt ${attempt}/${maxAttempts}${details ? ` (${details})` : ""}: ${failure.message}`,
           );
         }),
       ),
       Effect.retry({
         schedule: retryLinearBackoff(maxAttempts, 1000),
-        while: (error) =>
-          isRetryableGitNetworkError(
-            error instanceof Error ? error.message : String(error),
-          ),
+        while: (failure) => failure._tag === "GitNetworkError",
       }),
+      // Callers catch and ask `instanceof SandboxCommandFailedError`, so the
+      // edge rethrows the error the git command actually threw.
+      Effect.mapError((failure) => failure.cause),
     ),
   );
 }
@@ -553,7 +510,10 @@ export async function fetchOrigin(
       );
       return { fetched: true };
     } catch (error) {
-      if (ref && isMissingRemoteRefFetchFailure(error)) {
+      if (
+        ref &&
+        classifyGitFailure(error)._tag === "GitMissingRemoteRefError"
+      ) {
         logGit(
           `fetchOrigin: remote ref ${ref} is missing — continuing without it`,
         );
@@ -609,7 +569,7 @@ export async function fetchBranchRefs(
           );
           return normalized;
         } catch (error) {
-          if (!isMissingRemoteRefFetchFailure(error)) {
+          if (classifyGitFailure(error)._tag !== "GitMissingRemoteRefError") {
             throw error;
           }
           const fetchedBranches: string[] = [];
@@ -625,7 +585,7 @@ export async function fetchBranchRefs(
                 fetchedBranches.push(fetchedBranch);
               }
             } catch (e) {
-              if (!isMissingRemoteRefFetchFailure(e)) {
+              if (classifyGitFailure(e)._tag !== "GitMissingRemoteRefError") {
                 throw e;
               }
             }
@@ -1066,7 +1026,7 @@ export async function cloneAndSetupRepo(
         }
         const shouldRetry =
           attempt < maxCloneAttempts &&
-          isRetryableGitNetworkError(error.message);
+          classifyGitFailure(error)._tag === "GitNetworkError";
         if (!shouldRetry) {
           throw error;
         }
@@ -1331,6 +1291,11 @@ export async function pushBranchToOrigin(
     ]);
     const repoUrl = bareGitHubRepoUrl(owner, name);
     const maxAttempts = opts?.retryAttempts ?? 2;
+    // Two shapes deserve another attempt: a transient network blip, and a
+    // concurrent writer that moved the branch (resynchronize, then push again).
+    const isRetryablePushFailure = (failure: GitFailure): boolean =>
+      failure._tag === "GitNetworkError" ||
+      failure._tag === "GitNonFastForwardError";
     let attempt = 0;
     // Everything up to the push runs through `Effect.promise`, so a failure
     // there is a defect: it surfaces as-is instead of being retried, which is
@@ -1384,25 +1349,20 @@ export async function pushBranchToOrigin(
                 `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push -u origin ${quotedRefspec}`,
                 opts?.timeoutSeconds ?? 60,
               ),
-            catch: (error) => error,
+            catch: classifyGitFailure,
           }).pipe(
             Effect.as({ pushed: true, published: true }),
-            Effect.tapError((error) =>
+            Effect.tapError((failure) =>
               Effect.sync(() => {
-                const message =
-                  error instanceof Error ? error.message : String(error);
                 if (
                   attempt >= maxAttempts ||
-                  !(
-                    isRetryableGitNetworkError(message) ||
-                    isNonFastForwardPushError(message)
-                  )
+                  !isRetryablePushFailure(failure)
                 ) {
                   return;
                 }
                 const delayMs = 1000 * attempt;
                 logGit(
-                  `pushBranchToOrigin: remote moved or push was transient; refetching in ${delayMs}ms after attempt ${attempt}/${maxAttempts} (${details}): ${message}`,
+                  `pushBranchToOrigin: remote moved or push was transient; refetching in ${delayMs}ms after attempt ${attempt}/${maxAttempts} (${details}): ${failure.message}`,
                 );
               }),
             ),
@@ -1410,15 +1370,11 @@ export async function pushBranchToOrigin(
         }),
         Effect.retry({
           schedule: retryLinearBackoff(maxAttempts, 1000),
-          while: (error) => {
-            const message =
-              error instanceof Error ? error.message : String(error);
-            return (
-              isRetryableGitNetworkError(message) ||
-              isNonFastForwardPushError(message)
-            );
-          },
+          while: isRetryablePushFailure,
         }),
+        // Callers catch and ask `instanceof SandboxCommandFailedError`, so the
+        // edge rethrows the error the git command actually threw.
+        Effect.mapError((failure) => failure.cause),
       ),
     );
   });

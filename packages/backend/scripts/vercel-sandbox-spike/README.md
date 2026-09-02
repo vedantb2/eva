@@ -136,3 +136,9 @@ rewrite.
 `legacyWorkdirStillExists` decide the shape of the migration. If the AL2023
 restore fails, Phase 2 becomes repo-by-repo re-seeding rather than a library
 bump. All sandboxes are stopped on exit; snapshots persist until `cleanup.mjs`.
+
+Phase 2 is already implemented in the backend and gated behind
+`VERCEL_SANDBOX_IMAGE` (unset ⇒ today's AL2023 behaviour). This harness is the
+gate: see the "Phase 2 status" section of `MANAGED-IMAGE-RESULTS.md` for what to
+check before flipping it, and note that check 5's apt output is the ground truth
+for `PACKAGE_ALIASES` in `convex/_sandbox_runtime/packageManager.ts`.

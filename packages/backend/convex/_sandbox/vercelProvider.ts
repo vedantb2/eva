@@ -46,6 +46,15 @@ import {
 } from "./vercelSnapshotOptions";
 import { FFMPEG_INSTALL_SCRIPT } from "./ffmpegInstall";
 import { EVA_ENV_FILE } from "./vercelEnvFile";
+import {
+  describeVercelSandboxSource,
+  resolveVercelSandboxSource,
+} from "./vercelImage";
+import {
+  CHROME_RUNTIME_LIBRARY_PACKAGES,
+  PACKAGE_HELPER_SCRIPT,
+  pkgInstall,
+} from "../_sandbox_runtime/packageManager";
 
 export {
   EVA_ENV_FILE,
@@ -238,6 +247,8 @@ class VercelGit implements SandboxGit {
  * TigerVNC (Xvnc :1) + websockify + noVNC. Amazon Linux 2023 has no usable
  * window-manager packages (openbox/fluxbox/icewm are absent), so we follow the
  * GUI reference and run Chrome directly on the Xvnc display — no WM required.
+ * Ubuntu managed images do ship window managers, but the no-WM setup works on
+ * both, so it stays as the single path rather than branching by distro.
  *
  * Critical: long-running Xvnc/websockify MUST use native `detached: true`
  * (execDetached). Backgrounding with `setsid … &` OR plain `&` inside a
@@ -275,28 +286,19 @@ class VercelDesktop implements SandboxDesktop {
     // 1) Install + kill previous servers (sync).
     await this.handle.exec(
       [
+        PACKAGE_HELPER_SCRIPT,
         'NOVNC_DIR=""',
         "if [ -d /opt/novnc ]; then NOVNC_DIR=/opt/novnc; elif [ -d /opt/noVNC ]; then NOVNC_DIR=/opt/noVNC; fi",
         "INSTALLED=0",
         'if command -v Xvnc >/dev/null 2>&1 && command -v websockify >/dev/null 2>&1 && [ -n "$NOVNC_DIR" ]; then INSTALLED=1; fi',
         'if [ "$INSTALLED" != "1" ]; then',
-        "  sudo dnf install -y tigervnc-server python3 python3-pip xorg-x11-utils xterm dbus-x11 procps-ng psmisc git >/tmp/desktop-dnf.log 2>&1",
-        "  sudo dnf install -y gtk3 nss alsa-lib libXScrnSaver libXtst at-spi2-core libdrm mesa-libgbm libxkbcommon libXdamage libXcomposite libXrandr libXcursor libXinerama cups-libs >/tmp/desktop-gui-dnf.log 2>&1 || true",
+        `  ${pkgInstall("vnc-server", "vnc-common", "python3", "python3-pip", "x11-utils", "x11-xserver-utils", "xterm", "dbus-x11", "procps", "psmisc", "git")} || true`,
+        `  ${pkgInstall(...CHROME_RUNTIME_LIBRARY_PACKAGES)} || true`,
         "  sudo python3 -m pip install --break-system-packages websockify >/tmp/websockify-pip.log 2>&1 || python3 -m pip install --user websockify >/tmp/websockify-pip.log 2>&1",
         "  command -v websockify >/dev/null 2>&1 || sudo ln -sf $(python3 -m site --user-base)/bin/websockify /usr/local/bin/websockify || true",
         '  if [ -z "$NOVNC_DIR" ]; then sudo git clone --depth 1 https://github.com/novnc/noVNC.git /opt/novnc >/tmp/novnc-git.log 2>&1; NOVNC_DIR=/opt/novnc; fi',
         "fi",
-        "if ! command -v google-chrome-stable >/dev/null 2>&1 && ! command -v chromium >/dev/null 2>&1; then",
-        "  sudo tee /etc/yum.repos.d/google-chrome.repo >/dev/null <<'EOF'",
-        "[google-chrome]",
-        "name=google-chrome",
-        "baseurl=https://dl.google.com/linux/chrome/rpm/stable/x86_64",
-        "enabled=1",
-        "gpgcheck=1",
-        "gpgkey=https://dl.google.com/linux/linux_signing_key.pub",
-        "EOF",
-        "  sudo dnf install -y google-chrome-stable >/tmp/chrome-dnf.log 2>&1 || sudo dnf install -y chromium >/tmp/chromium-dnf.log 2>&1 || true",
-        "fi",
+        "eva_pkg_install_chrome || true",
         "mkdir -p /home/eva/.vnc /tmp",
         "sudo mkdir -p /tmp/.X11-unix && sudo chmod 1777 /tmp/.X11-unix",
         "pkill -9 -x Xvnc 2>/dev/null || true",
@@ -1064,6 +1066,15 @@ class VercelSandboxClient implements SandboxClient {
     // env is written to a file post-create (see EVA_ENV_FILE) rather than passed
     // here — Vercel's create-time env cap is 4 KB and eva's env exceeds it.
     const persistent = params.lifecycle.ephemeral !== true;
+    // Resolved once per create so the value in the log line and the value in the
+    // failure message are provably the same one that was sent.
+    //
+    // A caller-supplied VCR image (the orchestrator's ORCHESTRATOR_SANDBOX_IMAGE)
+    // is a deliberate per-sandbox choice and outranks the deployment-wide
+    // default that VERCEL_SANDBOX_IMAGE sets for everything else.
+    const freshSource = params.image
+      ? { image: params.image }
+      : resolveVercelSandboxSource();
     const base = {
       ...this.creds,
       // Vercel `timeout` is a HARD session cap, not Daytona's idle-stop timer.
@@ -1084,18 +1095,17 @@ class VercelSandboxClient implements SandboxClient {
             ...base,
             source: { type: "snapshot", snapshotId: params.snapshot },
           })
-        : params.image
-          ? // VCR image boot. `image` and the legacy `runtime` are mutually
-            // exclusive in the SDK types, hence the separate call.
-            await Sandbox.create({ ...base, image: params.image })
-          : await Sandbox.create({ ...base, runtime: "node24" });
+        : // One spread, not two calls: `image` and the legacy `runtime` are
+          // mutually exclusive in the SDK types, and freshSource is already a
+          // union carrying exactly one of them.
+          await Sandbox.create({ ...base, ...freshSource });
       console.log(
-        `[vercel] created sandbox=${sandbox.name} persistent=${persistent} sourceSnapshot=${params.snapshot ?? "none"} image=${params.image ?? "none"}`,
+        `[vercel] created sandbox=${sandbox.name} persistent=${persistent} sourceSnapshot=${params.snapshot ?? "none"} ${describeVercelSandboxSource(freshSource)}`,
       );
       // Env is NOT written here. writeFiles is the first sandbox I/O and absorbs
       // Vercel's first-command boot penalty (seconds–tens of seconds). Callers
       // (createSandbox) fire onSandboxAcquired first, then write EVA_ENV_FILE.
-      // Fresh node24 sandboxes don't include /tmp/repo. Every execHandle call
+      // Fresh sandboxes don't include /tmp/repo on any base image. Every execHandle call
       // defaults to that cwd (WORKSPACE_DIR = "/tmp/repo" in helpers.ts), so
       // any command with no explicit cwd returns HTTP 400 until the directory
       // exists. Pre-create it here so git config / ensureDockerDaemon calls in
@@ -1110,7 +1120,7 @@ class VercelSandboxClient implements SandboxClient {
       // params we sent (env values redacted) so a create failure is diagnosable.
       const detail = extractApiErrorDetail(e);
       throw new Error(
-        `vercel create failed (snapshot=${params.snapshot ?? "none"}, image=${params.image ?? "none"}, timeout=${base.timeout}, persistent=${base.persistent}, vcpus=${DEFAULT_VCPUS}, envKeys=[${Object.keys(params.envVars ?? {}).join(",")}], hasTags=${Boolean(params.lifecycle.labels)}): ${detail}`,
+        `vercel create failed (snapshot=${params.snapshot ?? "none"}, ${describeVercelSandboxSource(freshSource)}, timeout=${base.timeout}, persistent=${base.persistent}, vcpus=${DEFAULT_VCPUS}, envKeys=[${Object.keys(params.envVars ?? {}).join(",")}], hasTags=${Boolean(params.lifecycle.labels)}): ${detail}`,
       );
     }
   }

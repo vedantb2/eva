@@ -1,13 +1,63 @@
-# Phase 1 spike — Managed Images (Ubuntu): findings so far
+# Phase 1 spike — Managed Images (Ubuntu): results
 
-**Status: partially answered. Static findings below are complete; the live run is
-blocked on credentials.**
+**Status: RUN. All twelve verdict checks passed on 2026-09-02 against
+`@vercel/sandbox` 3.0.0 and `vercel/sandbox/universal` (Ubuntu 26.04 LTS).
+The AL2023-restore blocker is cleared. Phase 2 is implemented and still gated —
+see "Phase 2 status" below.**
 
-`managed-image-spike.mjs` needs `VERCEL_TOKEN` / `VERCEL_TEAM_ID` /
-`VERCEL_PROJECT_ID`. Those live in the Convex deployment env, not in a dev
-shell, so no live numbers were captured. Everything below comes from reading the
-installed `@vercel/sandbox@3.0.0` type declarations — enough to answer two of
-the three open questions and to de-risk the library bump.
+## Live verdict (2026-09-02, SDK 3.0.0)
+
+| Check                          | Result | Note                                                              |
+| ------------------------------ | ------ | ----------------------------------------------------------------- |
+| `legacyAl2023SnapshotRestores`  | ✅ true | **The blocker.** An AL2023 snapshot restores under v3 unchanged — marker survived, 157 ms. No re-seed needed. |
+| `bootNoSlower`                  | ✅ true | create 206 ms (AL2023) vs 277 ms (managed); first exec 102 vs 103 ms. |
+| `userIsUbuntu`                  | ✅ true | `Ubuntu 26.04 LTS`, image digest `sha256:0e3e3617…`.               |
+| `legacyWorkdirStillExists`      | ⚠️ **false** | `/vercel/sandbox` does **not** exist on the managed image — see "What differs" below. |
+| `workspaceMkdirOk`              | ✅ true | `/tmp/repo` is creatable, so eva's `WORKSPACE_DIR` is unaffected.  |
+| `ubuntuSnapshotRoundTrip`       | ✅ true | 1.35 GB captured in 5.5 s, restored in 249 ms.                     |
+| `ipv4EgressOk` / no IPv6        | ✅ true | IPv4 only, `gaiPrefersV4` true — matches eva's assumption.         |
+| `portUrlOk`                     | ✅ true | Per-port public URL served 200.                                    |
+| `detachedReattachOk`            | ✅ true | `detached` + `getCommand` unchanged.                               |
+| `sudoFlagOk`                    | ✅ true | Passwordless sudo on both images.                                  |
+| `ffmpegWithoutHacks`            | ✅ true | Plain `apt-get install ffmpeg` works — no SPAL repo, no libjack repair. |
+| `ghWithoutTarball`              | ✅ true | `gh` is preinstalled (2.97) and apt upgrades it to 2.99.           |
+
+## What differs between the two images
+
+|                | AL2023 (`runtime: node24`) | Ubuntu managed image |
+| -------------- | -------------------------- | -------------------- |
+| user           | `vercel-sandbox`            | `ubuntu`             |
+| `$HOME`        | `/home/vercel-sandbox`      | `/vercel`            |
+| default cwd    | `/vercel/sandbox`           | `/vercel`            |
+| `/vercel/sandbox` exists | yes             | **no**               |
+| relative writes land in | `/vercel/sandbox`  | `/vercel`            |
+
+Two consequences, both already handled:
+
+- `EVA_ENV_FILE` (`/vercel/sandbox/.eva-env.sh`) still works — the probe
+  confirmed `evaEnvFileWritable: true`, because `writeFiles` creates the parent
+  directory. `SOURCE_ENV` is `[ -f … ] &&`-guarded, so a missing file is inert.
+- The interactive-shell hook appended only to `/home/eva/.bashrc`, which is an
+  eva-created directory rather than any real user's home — nothing reads it on
+  either image. It now also targets `"$HOME/.bashrc"`.
+
+`/home/eva` itself is fine: the seed `sudo mkdir -p`s it and sudo is
+passwordless on both.
+
+## Already on the managed image (no install needed)
+
+`node 24.19`, `npm 11.17`, `pnpm 11.20`, `bun 1.3.14`, `git 2.53`,
+`git-lfs 3.7.1`, `jq 1.8.1`, `gh 2.97`, `python3 3.14`, `pip`, `curl`, `tar`,
+`gzip`, `vim` — plus `claude 2.1.224`, `codex 0.147.0` and `opencode 1.18.15`.
+Global npm prefix is `/vercel/.global/npm` and `/usr/local/bin` is writable, so
+eva's own global installs do not collide.
+
+Still missing and installed by eva: `gcc`, `g++`, `make`, `docker`, `ffmpeg`,
+the VNC stack, `xterm`, Chrome.
+
+## Static findings (from the v3 type declarations)
+
+Confirmed by the run above; kept for the reasoning.
 
 ## Answered without a live run (`@vercel/sandbox` 3.0.0 types)
 
@@ -28,21 +78,19 @@ breaking changes on any API eva uses. The risk is concentrated in the two
 environment facts only a live run can settle: the container user/home and
 whether AL2023 snapshots still restore.
 
-## Still requires a live run
+## The one thing the run did not settle
 
-| #   | Check                                   | Blocked on |
-| --- | --------------------------------------- | ---------- |
-| 1   | Boot time vs `runtime: "node24"`         | creds      |
-| 2   | `whoami` / `$HOME` / `/vercel/sandbox`   | creds      |
-| 3   | Ubuntu snapshot round-trip               | creds      |
-| 4   | **AL2023 snapshot restore under v3**     | creds      |
-| 5   | `apt-get` toolchain + which hacks die    | creds      |
-| 6   | IPv4-only networking                     | creds      |
-| 7   | `ports` / per-port public URL            | creds      |
-| Q1  | Preinstalled agent CLIs vs eva's own     | creds      |
+Check 4 passed against a snapshot the script created itself with the deprecated
+`runtime` property. It did **not** test a real eva seeded snapshot, because
+`SPIKE_LEGACY_SNAPSHOT_ID` was not set. A prod snapshot is far larger and was
+written by an older SDK, so re-run with
 
-The harness covers all of them in one command — see the README. It stops every
-sandbox it creates on exit.
+```bash
+SPIKE_LEGACY_SNAPSHOT_ID=snap_… pnpm managed-image-spike
+```
+
+before the flip if you want that conclusive for prod data. Every other check is
+answered above.
 
 ## Notes for whoever runs it
 
@@ -53,5 +101,46 @@ sandbox it creates on exit.
 - Pass `SPIKE_LEGACY_SNAPSHOT_ID=snap_...` (a real eva seeded snapshot) to make
   check 4 conclusive for prod data rather than only for a snapshot the script
   created itself.
-- Do **not** proceed to Phase 2 if `legacyAl2023SnapshotRestores` is false —
-  that turns a library bump into a repo-by-repo re-seed.
+- Do **not** flip `VERCEL_SANDBOX_IMAGE` if `legacyAl2023SnapshotRestores` is
+  false — that turns a library bump into a repo-by-repo re-seed.
+
+## Phase 2 status — implemented, flip gated
+
+Phase 2 is in the backend and is inert until you set one env var.
+
+| Step                                    | State                                                                                            |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| `@vercel/sandbox` 2.4.0 → 3.0.0          | Done. No call-site changes needed, as the type audit above predicted.                             |
+| `runtime` → `image` at create            | Done, behind `VERCEL_SANDBOX_IMAGE` (`convex/_sandbox/vercelImage.ts`). Unset ⇒ `runtime: "node24"`. |
+| dnf → distro-neutral installs            | Done. Every install goes through `convex/_sandbox_runtime/packageManager.ts`; a contract test fails the build on a direct `dnf install` / `apt-get install`. |
+| AL2023 workarounds dropped on Ubuntu     | Done, but kept for dnf: SPAL + libjack (ffmpeg), the gh yum repo, the Chrome `.repo` file, and the code-server `.rpm` all still run when the image is AL2023. |
+| Re-seed every repo                       | **Not needed** — that was the fallback if AL2023 snapshots stopped restoring, which check 4 still has to confirm.  |
+
+### Flipping it
+
+```bash
+# in the Convex deployment env, NOT a dev shell
+VERCEL_SANDBOX_IMAGE=vercel/sandbox/universal:<pinned-tag>
+```
+
+Pin a tag rather than using `universal` bare: `latest` moves under you, and a
+base-image change is exactly the kind of thing that should not arrive silently.
+Unset the variable to roll back — no code change, no re-seed.
+
+### Order of operations
+
+1. Run this harness (checks 1-7, Q1, Q3) against a throwaway project.
+2. If `legacyAl2023SnapshotRestores` is false, **stop** and re-plan; nothing
+   below is safe.
+3. ~~Reconcile check 5's output against `PACKAGE_ALIASES`~~ — **done**. The
+   primary apt name for every GUI library is now the one apt actually resolved
+   on Ubuntu 26.04, pinned by a contract test. Notable corrections against the
+   documentation-derived guesses: `libgtk-3-0` (not `…-0t64`), `libcups2` (not
+   `…2t64`), `libatspi2.0-0` (not `at-spi2-core`), and `tigervnc-common` is a
+   separate package from `tigervnc-standalone-server`. `libasound2t64` was the
+   one t64 guess that was right.
+4. ~~Confirm `userIsUbuntu` / `legacyWorkdirStillExists`~~ — **done**, see
+   "What differs" above. `/vercel/sandbox` is absent on the managed image but
+   `EVA_ENV_FILE` writes still work, and the `.bashrc` hook now follows `$HOME`.
+5. Set `VERCEL_SANDBOX_IMAGE` on one repo's deployment first and rebuild its
+   seed; only then roll out.

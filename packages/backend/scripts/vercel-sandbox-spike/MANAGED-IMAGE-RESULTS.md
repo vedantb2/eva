@@ -93,19 +93,31 @@ breaking changes on any API eva uses. The risk is concentrated in the two
 environment facts only a live run can settle: the container user/home and
 whether AL2023 snapshots still restore.
 
-## The one thing the run did not settle
+## Check 4 against real prod data — settled
 
-Check 4 passed against a snapshot the script created itself with the deprecated
-`runtime` property. It did **not** test a real eva seeded snapshot, because
-`SPIKE_LEGACY_SNAPSHOT_ID` was not set. A prod snapshot is far larger and was
-written by an older SDK, so re-run with
+The first run's check 4 restored a snapshot the script had made itself. A second
+run (same day) restored a **real prod snapshot**: cost-model-ts's base snapshot,
+2.75 GB, written 22 Jul 2026 by SDK **2.4.0** (what prod ran at the time),
+Amazon Linux 2023.11, with `/tmp/repo/.git` and `claude 2.1.217` baked in. It
+restored under SDK 3.0.0 in **8.1 s** (cold cache — the tiny self-made one took
+159 ms warm), booted as `vercel-sandbox`, and the repo was present. Nothing
+about the SDK that *wrote* a snapshot affects whether v3 can *restore* it.
 
-```bash
-SPIKE_LEGACY_SNAPSHOT_ID=snap_… pnpm managed-image-spike
-```
+Two things learned along the way, worth knowing before anyone repeats this:
 
-before the flip if you want that conclusive for prod data. Every other check is
-answered above.
+- **Snapshot visibility is team-scoped; restore is project-scoped.**
+  `Snapshot.get` returned the eva repo's snapshot from every project on the
+  team, but `Sandbox.create({ source: { type: "snapshot" } })` 404'd from any
+  project other than its owner. A 404 on restore therefore means "wrong
+  project", not "incompatible snapshot" — the harness's `prodSnapshot.ok: false`
+  reads identically for both, so check `Snapshot.get` first.
+- **eva runs one Vercel project per repo.** Each project's sandboxes carry a
+  single `eva.repoId` tag. To restore a repo's snapshot, use that repo's
+  `VERCEL_PROJECT_ID`, not any project on the team.
+
+Note the harness's `legacyAl2023SnapshotRestores` verdict is computed from the
+self-created snapshot only; read `snapshots.legacy.prodSnapshot` in the JSON for
+the prod answer.
 
 ## Notes for whoever runs it
 

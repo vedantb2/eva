@@ -96,7 +96,16 @@ export const PACKAGE_ALIASES: Record<
   "cups-libs": { apt: ["libcups2", "libcups2t64"], dnf: ["cups-libs"] },
 };
 
-/** Package ids the seed toolchain stage needs before anything else runs. */
+/**
+ * Package ids the seed toolchain stage needs before anything else runs.
+ *
+ * This list is FATAL to the seed (`SEEDRUN-FAILED:toolchain-packages`), so every
+ * dnf name in it must be one the AL2023 seed has already been installing for
+ * months — nothing new goes here on a guess. `vnc-common` is the one addition
+ * and its dnf side resolves to `tigervnc-server`, which was already present.
+ * Optional tooling (`x11-xserver-utils` for xsetroot's cosmetic background)
+ * lives in the soft-failing desktop-start install instead.
+ */
 export const CORE_TOOLCHAIN_PACKAGES = [
   "docker",
   "git",
@@ -110,7 +119,6 @@ export const CORE_TOOLCHAIN_PACKAGES = [
   "python3",
   "python3-pip",
   "x11-utils",
-  "x11-xserver-utils",
   "xterm",
   "dbus-x11",
   "gcc",
@@ -193,7 +201,7 @@ export const PACKAGE_HELPER_SCRIPT = [
   "  local mgr=$1 pkg=$2 cand",
   '  for cand in $(eva__pkg_candidates "$pkg" "$mgr"); do',
   '    if [ "$mgr" = apt ]; then',
-  `      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends "$cand" >>${PACKAGE_INSTALL_LOG} 2>&1 && return 0`,
+  `      sudo DEBIAN_FRONTEND=noninteractive apt-get install -y "$cand" >>${PACKAGE_INSTALL_LOG} 2>&1 && return 0`,
   "    else",
   `      sudo dnf install -y "$cand" >>${PACKAGE_INSTALL_LOG} 2>&1 && return 0`,
   "    fi",
@@ -203,6 +211,12 @@ export const PACKAGE_HELPER_SCRIPT = [
   "}",
   // Batch first (one transaction, far faster), then package-by-package so the
   // log names the exact id whose package drifted rather than just the group.
+  //
+  // Recommends are deliberately left ON for apt. The Phase 1 harness verified
+  // every name below with plain `apt-get install -y`; `--no-install-recommends`
+  // would trade a few hundred MB in a snapshot captured once for a toolchain
+  // that was never actually exercised in that shape (docker.io's cgroupfs/
+  // apparmor bits, for one).
   "eva_pkg_install() {",
   '  [ "$#" -gt 0 ] || return 0',
   '  local mgr pkg batch="" rc=0',
@@ -211,7 +225,7 @@ export const PACKAGE_HELPER_SCRIPT = [
   '  [ "$mgr" = apt ] && eva__pkg_apt_refresh',
   '  for pkg in "$@"; do batch="$batch $(eva__pkg_candidates "$pkg" "$mgr" | awk \'{print $1}\')"; done',
   '  if [ "$mgr" = apt ]; then',
-  `    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends $batch >>${PACKAGE_INSTALL_LOG} 2>&1 && return 0`,
+  `    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y $batch >>${PACKAGE_INSTALL_LOG} 2>&1 && return 0`,
   "  else",
   `    sudo dnf install -y $batch >>${PACKAGE_INSTALL_LOG} 2>&1 && return 0`,
   "  fi",

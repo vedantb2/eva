@@ -33,7 +33,7 @@ export const FFMPEG_INSTALL_SCRIPT = [
   // on Ubuntu they are only reached if apt already failed, where a
   // `dnf: command not found` absorbed by `|| true` is the correct fallback.
   "if ! ffmpeg -version >/dev/null 2>&1 && command -v apt-get >/dev/null 2>&1; then",
-  "  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg >/tmp/ffmpeg-apt.log 2>&1 || true",
+  "  sudo DEBIAN_FRONTEND=noninteractive apt-get install -y ffmpeg >/tmp/ffmpeg-apt.log 2>&1 || true",
   "fi",
   // Not in the core AL2023 repos — SPAL carries ffmpeg-free (VP8/VP9/WebM).
   "if ! ffmpeg -version >/dev/null 2>&1; then",

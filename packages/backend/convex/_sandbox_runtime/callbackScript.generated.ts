@@ -4779,8 +4779,21 @@ async function readSdkPlanUsage(handle) {
   }
   return await handle.usage_EXPERIMENTAL_MAY_CHANGE_DO_NOT_RELY_ON_THIS_API_YET();
 }
-function globalNpmRoot() {
-  return execSync("npm root -g", { encoding: "utf8" }).trim();
+var cachedGlobalNpmRoots = null;
+function globalNpmRoots() {
+  if (cachedGlobalNpmRoots !== null) return cachedGlobalNpmRoots;
+  const roots = [
+    dirname(dirname(process.execPath)) + "/lib/node_modules"
+  ];
+  try {
+    const npmRoot = execSync("npm root -g", { encoding: "utf8" }).trim();
+    if (npmRoot) roots.push(npmRoot);
+  } catch {
+  }
+  cachedGlobalNpmRoots = roots.filter(
+    (root, index) => roots.indexOf(root) === index
+  );
+  return cachedGlobalNpmRoots;
 }
 var SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
 function installedPackageVersion(packageRoot) {
@@ -4798,13 +4811,19 @@ function installedPackageVersion(packageRoot) {
   }
 }
 function resolvePinnedSdkEntry(pin) {
-  const globalRoot = globalNpmRoot() + "/" + pin.packageName;
   const localRoot = SDK_LOCAL_PREFIX + "/node_modules/" + pin.packageName;
-  const globalVersion = installedPackageVersion(globalRoot);
-  if (globalVersion === pin.version) return globalRoot + pin.entryRelPath;
-  if (globalVersion !== null) {
+  let driftedVersion = null;
+  for (const root of globalNpmRoots()) {
+    const globalRoot = root + "/" + pin.packageName;
+    const globalVersion = installedPackageVersion(globalRoot);
+    if (globalVersion === pin.version) return globalRoot + pin.entryRelPath;
+    if (globalVersion !== null && driftedVersion === null) {
+      driftedVersion = globalVersion;
+    }
+  }
+  if (driftedVersion !== null) {
     log(
-      "sdk version drift: global " + pin.packageName + " is " + globalVersion + ", need " + pin.version + "; falling back to the pinned user-local copy"
+      "sdk version drift: global " + pin.packageName + " is " + driftedVersion + ", need " + pin.version + "; falling back to the pinned user-local copy"
     );
   }
   if (installedPackageVersion(localRoot) !== pin.version) {
@@ -4834,6 +4853,13 @@ async function loadSdk() {
   return mod;
 }
 var CLAUDE_CODE_PACKAGE = "@anthropic-ai/claude-code";
+function globalClaudeCliVersion() {
+  for (const root of globalNpmRoots()) {
+    const version = installedPackageVersion(root + "/" + CLAUDE_CODE_PACKAGE);
+    if (version !== null) return version;
+  }
+  return null;
+}
 function claudeExecutablePath() {
   const pinned = process.env.CLAUDE_CLI_PINNED_VERSION || null;
   const fallback = process.env.CLAUDE_BIN_PATH || "";
@@ -4844,9 +4870,7 @@ function claudeExecutablePath() {
     globalBin = "";
   }
   if (globalBin) {
-    const globalVersion = installedPackageVersion(
-      globalNpmRoot() + "/" + CLAUDE_CODE_PACKAGE
-    );
+    const globalVersion = globalClaudeCliVersion();
     if (pinned === null || globalVersion === pinned) return globalBin;
     log(
       "cli version drift: global claude is " + (globalVersion ?? "unknown") + ", need " + pinned + "; preferring the pinned fallback install"

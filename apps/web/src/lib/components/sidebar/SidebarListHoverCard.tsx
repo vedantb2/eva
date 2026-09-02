@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { UserInitials } from "@eva/shared";
+import { UserInitials } from "@eva/shared/user-initials";
 import { compactRelativeTime } from "@eva/shared/dates";
 import { HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
 import { IconGitBranch } from "@tabler/icons-react";

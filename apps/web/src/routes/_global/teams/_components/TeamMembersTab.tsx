@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@eva/ui";
 import { IconTrash, IconUserPlus, IconUsers } from "@tabler/icons-react";
-import { UserInitials } from "@eva/shared";
+import { UserInitials } from "@eva/shared/user-initials";
 import { SettingsEmptyState } from "@/lib/components/settings/SettingsEmptyState";
 import {
   catchMutationError,

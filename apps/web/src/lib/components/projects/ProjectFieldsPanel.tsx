@@ -27,11 +27,8 @@ import {
   IconInfoCircle,
 } from "@tabler/icons-react";
 import dayjs from "@eva/shared/dates";
-import {
-  FALLBACK_GIT_BASE_BRANCH,
-  UserInitials,
-  getUserInitials,
-} from "@eva/shared";
+import { FALLBACK_GIT_BASE_BRANCH, getUserInitials } from "@eva/shared";
+import { UserInitials } from "@eva/shared/user-initials";
 import { Facehash } from "facehash";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {

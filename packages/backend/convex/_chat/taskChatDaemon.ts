@@ -19,6 +19,7 @@ import {
 } from "../_queues/helpers";
 import { TASK_CHAT_STREAM_PREFIX } from "../workflowWatchdog";
 import { isDaemonClaimPaused } from "./daemonClaimPause";
+import { pendingTurnAlreadyClaimed } from "./pendingTurnRestage";
 
 function taskChatStreamEntityId(taskId: Id<"agentTasks">): string {
   return `${TASK_CHAT_STREAM_PREFIX}${String(taskId)}`;
@@ -153,7 +154,13 @@ export const claimPendingTurn = authMutation({
     const attachmentUrls = resolvedUrls.filter(
       (url): url is string => url !== null,
     );
-    await ctx.db.patch(args.taskId, { pendingTurn: undefined });
+    // The stamp is what tells `ensurePendingTurn` this prompt left
+    // `pendingTurn` via a claim rather than a cancel. See
+    // `pendingTurnRestage.ts` for the duplicate-run incident it prevents.
+    await ctx.db.patch(args.taskId, {
+      pendingTurn: undefined,
+      pendingTurnClaimedAt: Date.now(),
+    });
     const turnLifecycle = "legacy" as const;
     return {
       prompt,
@@ -401,6 +408,17 @@ export const ensurePendingTurn = internalMutation({
       last.role !== "assistant" ||
       last.finishedAt !== undefined ||
       last.isSyntheticTurn === true
+    ) {
+      return null;
+    }
+    // An open placeholder also describes a turn the daemon has already claimed
+    // and is running. Re-staging there parks a duplicate prompt for the whole
+    // turn, which a prewarm-respawned daemon then runs a second time.
+    if (
+      pendingTurnAlreadyClaimed({
+        pendingTurnClaimedAt: task.pendingTurnClaimedAt,
+        placeholderTimestamp: last.timestamp,
+      })
     ) {
       return null;
     }

@@ -2,7 +2,7 @@
 
 import { forwardRef } from "react";
 import { useRepo } from "@/lib/contexts/RepoContext";
-import { UserProfileHoverCardBody } from "@eva/shared";
+import { UserProfileHoverCardBody } from "@eva/shared/user-initials";
 import { cn } from "@eva/ui";
 import {
   MentionEditor,

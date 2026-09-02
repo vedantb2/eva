@@ -5,6 +5,7 @@ import { workflow, cancelTrackedWorkflow } from "../workflowManager";
 import { authAction, authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
+  launchTraitsFromStored,
   normalizeAIModel,
   reasoningLevelValidator,
   usesChatDaemon,
@@ -214,10 +215,16 @@ export const retryEmptyStalledSessionTurn = internalMutation({
       actingUserId,
       message: lastUserContent,
       model: turn.model,
-      reasoningLevel: session.lastReasoningLevel,
-      thinkingEnabled: session.lastThinkingEnabled,
-      use1mContext: session.lastUse1mContext,
-      fastMode: session.lastFastMode,
+      // Normalise the sticky traits through the same helper the composer uses,
+      // so this restaged turn's opts sig matches a warm daemon's instead of
+      // killing it (a stored default level like "high" is omitted by the send
+      // path, so forwarding it verbatim reads as a change).
+      ...launchTraitsFromStored(normalizeAIModel(turn.model), {
+        reasoningLevel: session.lastReasoningLevel,
+        thinkingEnabled: session.lastThinkingEnabled,
+        use1mContext: session.lastUse1mContext,
+        fastMode: session.lastFastMode,
+      }),
       providerAccountId: session.providerAccountId,
       attachmentStorageIds: turn.attachmentStorageIds,
     });
@@ -311,22 +318,27 @@ export const prewarmDaemon = authMutation({
       throw new Error("Not authorized");
     // Match the turn path's launch options so the first real message does not
     // immediately optsmismatch-kill this daemon (which races with
-    // claimPendingTurn and leaves the chat stuck on Working). Traits must be
-    // forwarded for the same reason: the turn-path prewarm includes them in the
-    // opts sig, so omitting them here made every page-open prewarm mismatch a
-    // trait-launched daemon and kill+respawn it (each respawn window can
-    // duplicate daemons).
+    // claimPendingTurn and leaves the chat stuck on Working). The sticky traits
+    // must go through `launchTraitsFromStored` — the same normalisation the
+    // composer applies — because the send path omits defaults. Forwarding the
+    // stored values verbatim (e.g. reasoning "high", which is the Claude
+    // default, or `fastMode: false` on a model with no Fast trait) yields a
+    // different opts sig from the turn path and kill+respawns the warm daemon on
+    // every page open (each respawn window can duplicate daemons).
     const credentialOwnerUserId = session.createdBy ?? session.userId;
+    const normalizedModel = normalizeAIModel(session.lastModel);
     await ctx.scheduler.runAfter(0, internal.sandbox.prewarmSessionDaemon, {
       sandboxId: session.sandboxId,
       sessionId: args.sessionId,
       repoId: session.repoId,
       userId: session.userId,
-      model: normalizeAIModel(session.lastModel),
-      reasoningLevel: session.lastReasoningLevel,
-      thinkingEnabled: session.lastThinkingEnabled,
-      use1mContext: session.lastUse1mContext,
-      fastMode: session.lastFastMode,
+      model: normalizedModel,
+      ...launchTraitsFromStored(normalizedModel, {
+        reasoningLevel: session.lastReasoningLevel,
+        thinkingEnabled: session.lastThinkingEnabled,
+        use1mContext: session.lastUse1mContext,
+        fastMode: session.lastFastMode,
+      }),
       ...sessionTurnTools(session.isOrchestrator),
       providerAccountId: session.providerAccountId,
       credentialOwnerUserId,
@@ -404,16 +416,22 @@ export const getDaemonPrewarmData = internalQuery({
     ) {
       return null;
     }
+    const normalizedModel = normalizeAIModel(session.lastModel);
     return {
       sandboxId: session.sandboxId,
       repoId: session.repoId,
       ownerUserId: session.userId,
       credentialOwnerUserId: session.createdBy ?? session.userId,
-      model: normalizeAIModel(session.lastModel),
-      reasoningLevel: session.lastReasoningLevel,
-      thinkingEnabled: session.lastThinkingEnabled,
-      use1mContext: session.lastUse1mContext,
-      fastMode: session.lastFastMode,
+      model: normalizedModel,
+      // Normalised here, not in the caller: the traits must be exactly what the
+      // composer sends (defaults omitted) or the prewarm's opts sig differs from
+      // the turn path's and kills the warm daemon.
+      ...launchTraitsFromStored(normalizedModel, {
+        reasoningLevel: session.lastReasoningLevel,
+        thinkingEnabled: session.lastThinkingEnabled,
+        use1mContext: session.lastUse1mContext,
+        fastMode: session.lastFastMode,
+      }),
       providerAccountId: session.providerAccountId,
       isOrchestrator: session.isOrchestrator,
     };

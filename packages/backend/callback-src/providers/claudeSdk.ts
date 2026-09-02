@@ -1,5 +1,6 @@
 import { execSync } from "child_process";
 import { existsSync, readFileSync } from "fs";
+import { dirname } from "path";
 import type {
   CanUseTool,
   Options,
@@ -101,7 +102,7 @@ export function globalNpmRoot(): string {
 const SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
 
 /** Version recorded in `packageRoot`'s manifest, or null when unreadable. */
-function installedSdkVersion(packageRoot: string): string | null {
+function installedPackageVersion(packageRoot: string): string | null {
   try {
     const manifest: JsonLike = JSON.parse(
       readFileSync(packageRoot + "/package.json", "utf8"),
@@ -141,7 +142,7 @@ export function resolvePinnedSdkEntry(pin: {
 }): string {
   const globalRoot = globalNpmRoot() + "/" + pin.packageName;
   const localRoot = SDK_LOCAL_PREFIX + "/node_modules/" + pin.packageName;
-  const globalVersion = installedSdkVersion(globalRoot);
+  const globalVersion = installedPackageVersion(globalRoot);
   if (globalVersion === pin.version) return globalRoot + pin.entryRelPath;
   if (globalVersion !== null) {
     log(
@@ -154,7 +155,7 @@ export function resolvePinnedSdkEntry(pin: {
         "; falling back to the pinned user-local copy",
     );
   }
-  if (installedSdkVersion(localRoot) !== pin.version) {
+  if (installedPackageVersion(localRoot) !== pin.version) {
     log(
       "installing " +
         pin.packageName +
@@ -208,19 +209,58 @@ export async function loadSdk(): Promise<SdkModule> {
   return mod;
 }
 
+const CLAUDE_CODE_PACKAGE = "@anthropic-ai/claude-code";
+
 /**
- * Locates the claude CLI binary the SDK should drive: the image's global
- * install when it is on PATH, else the CLAUDE_BIN_PATH fallback install —
- * launch.ts provisions one under a /tmp prefix (not on PATH) when the
- * global is missing.
+ * Locates the claude CLI binary the SDK should drive.
+ *
+ * The image's global install wins only while it is at the pinned version
+ * (CLAUDE_CLI_PINNED_VERSION, set by launch.ts from claudeCliVersion.ts).
+ * Otherwise the CLAUDE_BIN_PATH fallback that launch.ts provisions at the pin
+ * is used. Models are gated on the CLI's own version, so preferring the global
+ * unconditionally left snapshots seeded with an older CLI failing every turn
+ * ("does not support this model", or a process that exits before its first
+ * message and reads as "ended without a reply"). Both roots are checked by
+ * manifest, like resolvePinnedSdkEntry, so a stale fallback never wins either.
  */
 function claudeExecutablePath(): string {
+  const pinned = process.env.CLAUDE_CLI_PINNED_VERSION || null;
+  const fallback = process.env.CLAUDE_BIN_PATH || "";
+  let globalBin = "";
   try {
-    return execSync("command -v claude", { encoding: "utf8" }).trim();
+    globalBin = execSync("command -v claude", { encoding: "utf8" }).trim();
   } catch {
-    const fallback = process.env.CLAUDE_BIN_PATH || "";
-    return fallback && existsSync(fallback) ? fallback : "claude";
+    globalBin = "";
   }
+  if (globalBin) {
+    const globalVersion = installedPackageVersion(
+      globalNpmRoot() + "/" + CLAUDE_CODE_PACKAGE,
+    );
+    if (pinned === null || globalVersion === pinned) return globalBin;
+    log(
+      "cli version drift: global claude is " +
+        (globalVersion ?? "unknown") +
+        ", need " +
+        pinned +
+        "; preferring the pinned fallback install",
+    );
+  }
+  if (fallback && existsSync(fallback)) {
+    // `<prefix>/bin/claude` → `<prefix>/lib/node_modules/<package>`.
+    const fallbackRoot =
+      dirname(dirname(fallback)) + "/lib/node_modules/" + CLAUDE_CODE_PACKAGE;
+    const fallbackVersion = installedPackageVersion(fallbackRoot);
+    if (pinned === null || fallbackVersion === pinned) return fallback;
+    log(
+      "cli version drift: fallback claude is " +
+        (fallbackVersion ?? "unknown") +
+        ", need " +
+        pinned +
+        "; no pinned binary available",
+    );
+    if (!globalBin) return fallback;
+  }
+  return globalBin || "claude";
 }
 
 function readPromptText(): string {

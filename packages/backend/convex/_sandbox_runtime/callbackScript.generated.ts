@@ -4678,6 +4678,7 @@ function appendToRawLogFile(text) {
 // callback-src/providers/claudeSdk.ts
 import { execSync } from "child_process";
 import { existsSync as existsSync6, readFileSync as readFileSync5 } from "fs";
+import { dirname } from "path";
 
 // callback-src/runtime/pendingQuestion.ts
 var POLL_INTERVAL_MS = 300;
@@ -4781,7 +4782,7 @@ function globalNpmRoot() {
   return execSync("npm root -g", { encoding: "utf8" }).trim();
 }
 var SDK_LOCAL_PREFIX = "/home/eva/.eva-agent-sdk";
-function installedSdkVersion(packageRoot) {
+function installedPackageVersion(packageRoot) {
   try {
     const manifest = JSON.parse(
       readFileSync5(packageRoot + "/package.json", "utf8")
@@ -4798,14 +4799,14 @@ function installedSdkVersion(packageRoot) {
 function resolvePinnedSdkEntry(pin) {
   const globalRoot = globalNpmRoot() + "/" + pin.packageName;
   const localRoot = SDK_LOCAL_PREFIX + "/node_modules/" + pin.packageName;
-  const globalVersion = installedSdkVersion(globalRoot);
+  const globalVersion = installedPackageVersion(globalRoot);
   if (globalVersion === pin.version) return globalRoot + pin.entryRelPath;
   if (globalVersion !== null) {
     log(
       "sdk version drift: global " + pin.packageName + " is " + globalVersion + ", need " + pin.version + "; falling back to the pinned user-local copy"
     );
   }
-  if (installedSdkVersion(localRoot) !== pin.version) {
+  if (installedPackageVersion(localRoot) !== pin.version) {
     log(
       "installing " + pin.packageName + "@" + pin.version + " to " + SDK_LOCAL_PREFIX
     );
@@ -4831,13 +4832,35 @@ async function loadSdk() {
   }));
   return mod;
 }
+var CLAUDE_CODE_PACKAGE = "@anthropic-ai/claude-code";
 function claudeExecutablePath() {
+  const pinned = process.env.CLAUDE_CLI_PINNED_VERSION || null;
+  const fallback = process.env.CLAUDE_BIN_PATH || "";
+  let globalBin = "";
   try {
-    return execSync("command -v claude", { encoding: "utf8" }).trim();
+    globalBin = execSync("command -v claude", { encoding: "utf8" }).trim();
   } catch {
-    const fallback = process.env.CLAUDE_BIN_PATH || "";
-    return fallback && existsSync6(fallback) ? fallback : "claude";
+    globalBin = "";
   }
+  if (globalBin) {
+    const globalVersion = installedPackageVersion(
+      globalNpmRoot() + "/" + CLAUDE_CODE_PACKAGE
+    );
+    if (pinned === null || globalVersion === pinned) return globalBin;
+    log(
+      "cli version drift: global claude is " + (globalVersion ?? "unknown") + ", need " + pinned + "; preferring the pinned fallback install"
+    );
+  }
+  if (fallback && existsSync6(fallback)) {
+    const fallbackRoot = dirname(dirname(fallback)) + "/lib/node_modules/" + CLAUDE_CODE_PACKAGE;
+    const fallbackVersion = installedPackageVersion(fallbackRoot);
+    if (pinned === null || fallbackVersion === pinned) return fallback;
+    log(
+      "cli version drift: fallback claude is " + (fallbackVersion ?? "unknown") + ", need " + pinned + "; no pinned binary available"
+    );
+    if (!globalBin) return fallback;
+  }
+  return globalBin || "claude";
 }
 function readPromptText() {
   return readFileSync5("/tmp/design-prompt.txt", "utf8");

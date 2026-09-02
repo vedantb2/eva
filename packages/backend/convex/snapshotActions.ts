@@ -42,6 +42,7 @@ import {
   CORE_TOOLCHAIN_PACKAGES,
   PACKAGE_HELPER_SCRIPT,
   pkgInstall,
+  sudoNpmInstallGlobal,
 } from "./_sandbox_runtime/packageManager";
 
 const SEED_PREP_LABEL_KEY = SANDBOX_TAG.purpose;
@@ -382,8 +383,13 @@ export const launchSeedRun = internalAction({
       "sudo mkdir -p /opt/git/etc",
       'sudo /usr/local/bin/git-lfs install --system || { echo "SEEDRUN-FAILED:git-lfs-filters"; exit 1; }',
       'sudo env GIT_CONFIG_SYSTEM=/etc/gitconfig /usr/local/bin/git-lfs install --system || { echo "SEEDRUN-FAILED:git-lfs-filters"; exit 1; }',
-      `command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && ${globalPackageIsVersion("@anthropic-ai/claude-code", CLAUDE_CODE_VERSION)} && ${globalPackageIsVersion("@anthropic-ai/claude-agent-sdk", CLAUDE_AGENT_SDK_VERSION)} && ${globalPackageIsVersion("@cursor/sdk", CURSOR_SDK_VERSION)} || sudo npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} @anthropic-ai/claude-agent-sdk@${CLAUDE_AGENT_SDK_VERSION} @openai/codex@0.146.0 agent-browser convex agentation-mcp@1.2.0 @cursor/sdk@${CURSOR_SDK_VERSION} || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }`,
-      `command -v opencode >/dev/null 2>&1 && ${globalPackageIsVersion("@opencode-ai/sdk", OPENCODE_VERSION)} || sudo npm install -g opencode-ai@${OPENCODE_VERSION} @opencode-ai/sdk@${OPENCODE_VERSION} || { echo "SEEDRUN-FAILED:opencode-cli"; exit 1; }`,
+      // Installed into the sandbox USER's global prefix (sudoNpmInstallGlobal),
+      // which is the root globalPackageIsVersion and every runtime resolver
+      // read from. The Ubuntu managed image preinstalls claude/codex/opencode
+      // there, so eva's pins must land in that same root to replace them —
+      // a plain `sudo npm install -g` would put them where nothing looks.
+      `command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && ${globalPackageIsVersion("@anthropic-ai/claude-code", CLAUDE_CODE_VERSION)} && ${globalPackageIsVersion("@anthropic-ai/claude-agent-sdk", CLAUDE_AGENT_SDK_VERSION)} && ${globalPackageIsVersion("@cursor/sdk", CURSOR_SDK_VERSION)} || ${sudoNpmInstallGlobal(`@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} @anthropic-ai/claude-agent-sdk@${CLAUDE_AGENT_SDK_VERSION} @openai/codex@0.146.0 agent-browser convex agentation-mcp@1.2.0 @cursor/sdk@${CURSOR_SDK_VERSION}`)} || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }`,
+      `command -v opencode >/dev/null 2>&1 && ${globalPackageIsVersion("@opencode-ai/sdk", OPENCODE_VERSION)} || ${sudoNpmInstallGlobal(`opencode-ai@${OPENCODE_VERSION} @opencode-ai/sdk@${OPENCODE_VERSION}`)} || { echo "SEEDRUN-FAILED:opencode-cli"; exit 1; }`,
       // code-server publishes one artifact per packaging format, and the two
       // asset names differ by more than the extension (`code-server_V_amd64.deb`
       // vs `code-server-V-amd64.rpm`), so the branch is on the filename rather

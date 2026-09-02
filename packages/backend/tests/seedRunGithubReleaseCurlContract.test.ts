@@ -90,7 +90,9 @@ describe("seed run GitHub release downloads survive direct-path failures", () =>
   });
 
   test("gh falls back to the official vendor repo if the tarball fails", () => {
-    const ghLine = [...seedRunCommands.matchAll(/^.*SEEDRUN-FAILED:gh-cli.*$/gm)]
+    const ghLine = [
+      ...seedRunCommands.matchAll(/^.*SEEDRUN-FAILED:gh-cli.*$/gm),
+    ]
       .map((match) => match[0])
       .at(0);
     if (ghLine === undefined) {
@@ -122,7 +124,7 @@ describe("seed run GitHub release downloads survive direct-path failures", () =>
 
   test("OpenCode is pinned separately from the other agent CLIs", () => {
     expect(seedRunCommands).toContain(
-      "sudo npm install -g opencode-ai@${OPENCODE_VERSION}",
+      "sudoNpmInstallGlobal(`opencode-ai@${OPENCODE_VERSION}",
     );
     // CLI and SDK are one release: the SDK is a generated client for the
     // server the CLI serves, so they must never drift apart.

@@ -9,6 +9,7 @@ import { writeSandboxFile } from "./sandboxFiles";
 import { streamingHeartbeatHmacMessage } from "./callbackAuth";
 import { entityDaemonPaths } from "./daemonPaths";
 import { CLAUDE_CODE_VERSION } from "./claudeCliVersion";
+import { USER_NPM_PREFIX_SHELL } from "./packageManager";
 import type { SandboxHandle } from "../_sandbox/provider";
 import { CALLBACK_SCRIPT } from "./callbackScript";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
@@ -234,7 +235,9 @@ async function ensureEvaToolingAvailable(
         "{ [ -d /home/eva ] || { sudo mkdir -p /home/eva/sandbox-config /home/eva/.eva-snapshot-state && sudo chmod -R 777 /home/eva; } || true; }",
         // Detached via setsid+nohup so the exec returns immediately and the
         // install survives it; the log file is the debugging breadcrumb.
-        "{ command -v agent-browser >/dev/null 2>&1 || sudo sh -c 'setsid nohup npm install -g agent-browser >/tmp/eva-tooling-install.log 2>&1 &' || true; }",
+        // Double-quoted `sh -c` body so the USER's `npm prefix -g` expands
+        // before sudo — inside the root shell it would resolve to root's.
+        `{ command -v agent-browser >/dev/null 2>&1 || sudo sh -c "setsid nohup npm install -g --prefix ${USER_NPM_PREFIX_SHELL} agent-browser >/tmp/eva-tooling-install.log 2>&1 &" || true; }`,
       ].join(" && "),
       EVA_TOOLING_PREP_TIMEOUT_SECONDS,
     );

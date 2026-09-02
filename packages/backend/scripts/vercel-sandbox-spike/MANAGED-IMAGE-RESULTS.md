@@ -55,6 +55,21 @@ eva's own global installs do not collide.
 Still missing and installed by eva: `gcc`, `g++`, `make`, `docker`, `ffmpeg`,
 the VNC stack, `xterm`, Chrome.
 
+### Q1 — preinstalled CLIs vs eva's pins: resolved
+
+The image's `claude`/`codex`/`opencode` live under the sandbox user's global npm
+prefix (`/vercel/.global/npm`). Every eva reader — the seed's idempotency check,
+`launch.ts`'s per-boot pin check, the callback's SDK resolvers — resolves
+`npm root -g` as that user, but the seed wrote with a plain `sudo npm install
+-g`, i.e. into **root's** prefix. On AL2023 both are `/usr/local` so it never
+showed; here the pins landed where nothing looked, the version check failed on
+every seed, and the image's versions won every turn.
+
+Fix: `sudoNpmInstallGlobal()` in `packageManager.ts` adds
+`--prefix "$(npm prefix -g)"`, expanded by the user's shell before `sudo`, so
+eva's pins replace the preinstalled packages in the same root. A contract test
+rejects any bare root-run `npm install -g`. On AL2023 this is a no-op.
+
 ## Static findings (from the v3 type declarations)
 
 Confirmed by the run above; kept for the reasoning.

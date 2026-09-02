@@ -44,6 +44,36 @@ describe("the preview heal is rate-limited per sandbox", () => {
     expect(ms).toBeGreaterThanOrEqual(30_000);
     expect(ms).toBeLessThanOrEqual(60_000);
   });
+
+  test("the claim skips a session that is still launching its services", () => {
+    const body = definitionBody(sandboxHeal, "claim");
+    const rateLimitAt = body.indexOf("BG_HEAL_MIN_INTERVAL_MS");
+    const rateLimitReturnAt = body.indexOf("return false", rateLimitAt);
+    const sessionQueryAt = body.indexOf('.query("sessions")');
+    const pendingAt = body.indexOf("sandboxServicesPending === true");
+    const patchAt = body.indexOf("ctx.db.patch(stamp._id, { lastHealAt");
+    const insertAt = body.indexOf('ctx.db.insert("sandboxHealStamps"');
+    expect(rateLimitReturnAt, "the rate-limit bail-out moved").toBeGreaterThan(
+      -1,
+    );
+    expect(sessionQueryAt, "the session lookup moved").toBeGreaterThan(-1);
+    expect(pendingAt, "the services-pending gate moved").toBeGreaterThan(-1);
+    expect(patchAt, "the stamp patch moved").toBeGreaterThan(-1);
+    expect(insertAt, "the stamp insert moved").toBeGreaterThan(-1);
+    expect(
+      body.indexOf('.withIndex("by_sandbox"', sessionQueryAt),
+    ).toBeGreaterThan(sessionQueryAt);
+    // After the rate limit: a healthy sandbox pays one session-row read per
+    // interval, not one per ~2s poll.
+    expect(rateLimitReturnAt).toBeLessThan(sessionQueryAt);
+    // Before either stamp write: the gate must not consume the interval slot,
+    // so the first poll after final-ready heals immediately.
+    const stampAt = Math.min(patchAt, insertAt);
+    expect(pendingAt).toBeLessThan(stampAt);
+    const gateReturnAt = body.indexOf("return false", pendingAt);
+    expect(gateReturnAt, "the gate stopped bailing out").toBeGreaterThan(-1);
+    expect(gateReturnAt).toBeLessThan(stampAt);
+  });
 });
 
 /** Comments name the very calls these rules rule out, so they have to go first. */

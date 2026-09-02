@@ -452,6 +452,11 @@ export const sessionFields = {
   // chat. `claimPendingTurn` withholds the queued first turn until this clears,
   // so the agent never runs against a stale snapshot checkout or baked modules.
   sandboxSetupPending: v.optional(v.boolean()),
+  // True from early-ready until final-ready, i.e. while the session lifecycle
+  // is still launching background/startup services. Gates the Preview poll's
+  // background heal so it never relaunches daemons the lifecycle is about to
+  // launch itself (double launch orphaned children and truncated logs).
+  sandboxServicesPending: v.optional(v.boolean()),
   // Persistent per-user master ("orchestrator") session. Set only at creation —
   // the sandbox token's orchestrator claim is minted at launch, never toggled.
   isOrchestrator: v.optional(v.boolean()),

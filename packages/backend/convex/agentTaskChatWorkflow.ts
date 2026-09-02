@@ -10,6 +10,7 @@ import { authAction, authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
   getAIModelProvider,
+  launchTraitsFromStored,
   reasoningLevelValidator,
   workflowCompleteValidator,
   normalizeAIModel,
@@ -532,6 +533,7 @@ export const cancelExecution = authMutation({
     const taskPatch: {
       activeChatWorkflowId?: undefined;
       pendingTurn?: undefined;
+      pendingTurnClaimedAt?: undefined;
       syntheticTurnMessageId?: undefined;
       updatedAt: number;
     } = { updatedAt: Date.now() };
@@ -550,6 +552,9 @@ export const cancelExecution = authMutation({
     }
     if (!newerTurnStaged && !newerWorkflowTracked) {
       taskPatch.syntheticTurnMessageId = undefined;
+      // This cancel owns the current turn and nothing newer has arrived, so the
+      // claim stamp is spent. See `_chat/pendingTurnRestage.ts`.
+      taskPatch.pendingTurnClaimedAt = undefined;
     }
 
     await ctx.db.patch(args.taskId, taskPatch);
@@ -1026,6 +1031,9 @@ export const saveResult = internalMutation({
 
     await ctx.db.patch(args.taskId, {
       activeChatWorkflowId: undefined,
+      // The turn is over, so the claim stamp has nothing left to vouch for.
+      // See `_chat/pendingTurnRestage.ts`.
+      pendingTurnClaimedAt: undefined,
       updatedAt: Date.now(),
     });
 
@@ -1055,8 +1063,14 @@ export const handleCompletion = authMutation({
       throw new Error("Not authorized");
     }
 
-    if (task.pendingTurn !== undefined) {
-      await ctx.db.patch(args.taskId, { pendingTurn: undefined });
+    if (
+      task.pendingTurn !== undefined ||
+      task.pendingTurnClaimedAt !== undefined
+    ) {
+      await ctx.db.patch(args.taskId, {
+        pendingTurn: undefined,
+        pendingTurnClaimedAt: undefined,
+      });
     }
 
     await sendCompletionEvent(
@@ -1105,6 +1119,7 @@ export const prewarmChatDaemon = authMutation({
     if (!(await hasRepoAccess(ctx.db, task.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
+    const normalizedModel = normalizeAIModel(task.lastChatModel ?? task.model);
     await ctx.scheduler.runAfter(0, internal.sandbox.prewarmEntityDaemon, {
       sandboxId: task.sandboxId,
       repoId: task.repoId,
@@ -1114,14 +1129,19 @@ export const prewarmChatDaemon = authMutation({
       entityIdField: "taskId",
       completionMutation: "agentTaskChatWorkflow:handleCompletion",
       ...TASK_CHAT_DAEMON_MUTATIONS,
-      model: normalizeAIModel(task.lastChatModel ?? task.model),
-      // Forward the sticky traits so the prewarm's opts sig matches the turn
-      // path — omitting them makes every page-open prewarm mismatch a
-      // trait-launched daemon and kill+respawn it (see sessions' prewarmDaemon).
-      reasoningLevel: task.lastReasoningLevel,
-      thinkingEnabled: task.lastThinkingEnabled,
-      use1mContext: task.lastUse1mContext,
-      fastMode: task.lastFastMode,
+      model: normalizedModel,
+      // Forward the sticky traits normalised through the same helper as the
+      // composer so the prewarm's opts sig matches the turn path. The send path
+      // omits defaults, so passing the stored values verbatim (e.g. reasoning
+      // "high", the Claude default, or `fastMode: false` on a model with no Fast
+      // trait) mismatches a trait-launched daemon and kill+respawns it on every
+      // page open (see sessions' prewarmDaemon).
+      ...launchTraitsFromStored(normalizedModel, {
+        reasoningLevel: task.lastReasoningLevel,
+        thinkingEnabled: task.lastThinkingEnabled,
+        use1mContext: task.lastUse1mContext,
+        fastMode: task.lastFastMode,
+      }),
       allowedTools: CHAT_ALLOWED_TOOLS,
       providerAccountId: task.providerAccountId,
       credentialOwnerUserId: task.createdBy,
@@ -1209,15 +1229,21 @@ export const getChatPrewarmData = internalQuery({
     ) {
       return null;
     }
+    const normalizedModel = normalizeAIModel(task.lastChatModel ?? task.model);
     return {
       sandboxId: task.sandboxId,
       repoId: task.repoId,
       ownerUserId: task.createdBy,
-      model: normalizeAIModel(task.lastChatModel ?? task.model),
-      reasoningLevel: task.lastReasoningLevel,
-      thinkingEnabled: task.lastThinkingEnabled,
-      use1mContext: task.lastUse1mContext,
-      fastMode: task.lastFastMode,
+      model: normalizedModel,
+      // Normalised here, not in the caller: the traits must be exactly what the
+      // composer sends (defaults omitted) or the prewarm's opts sig differs from
+      // the turn path's and kills the warm daemon.
+      ...launchTraitsFromStored(normalizedModel, {
+        reasoningLevel: task.lastReasoningLevel,
+        thinkingEnabled: task.lastThinkingEnabled,
+        use1mContext: task.lastUse1mContext,
+        fastMode: task.lastFastMode,
+      }),
       providerAccountId: task.providerAccountId,
     };
   },

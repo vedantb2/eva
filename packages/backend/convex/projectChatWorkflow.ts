@@ -9,6 +9,7 @@ import { authAction, authMutation, hasRepoAccess } from "./functions";
 import {
   aiModelValidator,
   getAIModelProvider,
+  launchTraitsFromStored,
   reasoningLevelValidator,
   workflowCompleteValidator,
   normalizeAIModel,
@@ -509,6 +510,7 @@ export const cancelExecution = authMutation({
     const projectPatch: {
       activeChatWorkflowId?: undefined;
       pendingTurn?: undefined;
+      pendingTurnClaimedAt?: undefined;
       syntheticTurnMessageId?: undefined;
       updatedAt: number;
     } = { updatedAt: Date.now() };
@@ -527,6 +529,9 @@ export const cancelExecution = authMutation({
     }
     if (!newerTurnStaged && !newerWorkflowTracked) {
       projectPatch.syntheticTurnMessageId = undefined;
+      // This cancel owns the current turn and nothing newer has arrived, so the
+      // claim stamp is spent. See `_chat/pendingTurnRestage.ts`.
+      projectPatch.pendingTurnClaimedAt = undefined;
     }
 
     await ctx.db.patch(args.projectId, projectPatch);
@@ -886,6 +891,9 @@ export const saveResult = internalMutation({
 
     await ctx.db.patch(args.projectId, {
       activeChatWorkflowId: undefined,
+      // The turn is over, so the claim stamp has nothing left to vouch for.
+      // See `_chat/pendingTurnRestage.ts`.
+      pendingTurnClaimedAt: undefined,
       updatedAt: Date.now(),
       lastSandboxActivity: Date.now(),
     });
@@ -915,8 +923,14 @@ export const handleCompletion = authMutation({
       throw new Error("Not authorized");
     }
 
-    if (project.pendingTurn !== undefined) {
-      await ctx.db.patch(args.projectId, { pendingTurn: undefined });
+    if (
+      project.pendingTurn !== undefined ||
+      project.pendingTurnClaimedAt !== undefined
+    ) {
+      await ctx.db.patch(args.projectId, {
+        pendingTurn: undefined,
+        pendingTurnClaimedAt: undefined,
+      });
     }
 
     await sendCompletionEvent(
@@ -965,6 +979,9 @@ export const prewarmChatDaemon = authMutation({
     if (!(await hasRepoAccess(ctx.db, project.repoId, ctx.userId))) {
       throw new Error("Not authorized");
     }
+    const normalizedModel = normalizeAIModel(
+      project.lastChatModel ?? project.model,
+    );
     await ctx.scheduler.runAfter(0, internal.sandbox.prewarmEntityDaemon, {
       sandboxId: project.sandboxId,
       repoId: project.repoId,
@@ -974,14 +991,19 @@ export const prewarmChatDaemon = authMutation({
       entityIdField: "projectId",
       completionMutation: "projectChatWorkflow:handleCompletion",
       ...PROJECT_CHAT_DAEMON_MUTATIONS,
-      model: normalizeAIModel(project.lastChatModel ?? project.model),
-      // Forward the sticky traits so the prewarm's opts sig matches the turn
-      // path — omitting them makes every page-open prewarm mismatch a
-      // trait-launched daemon and kill+respawn it (see sessions' prewarmDaemon).
-      reasoningLevel: project.lastReasoningLevel,
-      thinkingEnabled: project.lastThinkingEnabled,
-      use1mContext: project.lastUse1mContext,
-      fastMode: project.lastFastMode,
+      model: normalizedModel,
+      // Forward the sticky traits normalised through the same helper as the
+      // composer so the prewarm's opts sig matches the turn path. The send path
+      // omits defaults, so passing the stored values verbatim (e.g. reasoning
+      // "high", the Claude default, or `fastMode: false` on a model with no Fast
+      // trait) mismatches a trait-launched daemon and kill+respawns it on every
+      // page open (see sessions' prewarmDaemon).
+      ...launchTraitsFromStored(normalizedModel, {
+        reasoningLevel: project.lastReasoningLevel,
+        thinkingEnabled: project.lastThinkingEnabled,
+        use1mContext: project.lastUse1mContext,
+        fastMode: project.lastFastMode,
+      }),
       allowedTools: CHAT_ALLOWED_TOOLS,
       providerAccountId: project.providerAccountId,
       credentialOwnerUserId: project.userId,
@@ -1066,15 +1088,23 @@ export const getChatPrewarmData = internalQuery({
     ) {
       return null;
     }
+    const normalizedModel = normalizeAIModel(
+      project.lastChatModel ?? project.model,
+    );
     return {
       sandboxId: project.sandboxId,
       repoId: project.repoId,
       ownerUserId: project.userId,
-      model: normalizeAIModel(project.lastChatModel ?? project.model),
-      reasoningLevel: project.lastReasoningLevel,
-      thinkingEnabled: project.lastThinkingEnabled,
-      use1mContext: project.lastUse1mContext,
-      fastMode: project.lastFastMode,
+      model: normalizedModel,
+      // Normalised here, not in the caller: the traits must be exactly what the
+      // composer sends (defaults omitted) or the prewarm's opts sig differs from
+      // the turn path's and kills the warm daemon.
+      ...launchTraitsFromStored(normalizedModel, {
+        reasoningLevel: project.lastReasoningLevel,
+        thinkingEnabled: project.lastThinkingEnabled,
+        use1mContext: project.lastUse1mContext,
+        fastMode: project.lastFastMode,
+      }),
       providerAccountId: project.providerAccountId,
     };
   },

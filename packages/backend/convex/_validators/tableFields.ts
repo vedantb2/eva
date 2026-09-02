@@ -253,6 +253,13 @@ export const chatDaemonEntityFields = {
   // hands back an empty claim so a dying daemon cannot take the turn (and its
   // 2-minute running lease) with it.
   claimPausedUntil: v.optional(v.number()),
+  /**
+   * When the daemon last claimed `pendingTurn` (cleared when the turn
+   * finalizes). Lets the workflow's re-stage tell "claimed and running" from
+   * "wiped by a cancel race" — tasks/projects have no `turns` row to consult,
+   * unlike sessions. See `_chat/pendingTurnRestage.ts`.
+   */
+  pendingTurnClaimedAt: v.optional(v.number()),
 };
 
 export const agentTaskFields = {

@@ -56,6 +56,8 @@ export {
   listSandboxFiles,
 } from "./_sandbox_runtime/services";
 
+export { revertSessionToTurn } from "./_sandbox_runtime/turnRevert";
+
 export {
   reconcileBackgroundProcesses,
   killBackgroundProcess,

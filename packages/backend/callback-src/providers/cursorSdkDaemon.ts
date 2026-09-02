@@ -37,6 +37,7 @@ import {
 import { callbackState as S } from "../runtime/state.js";
 import { materializeTurnAttachments } from "../runtime/turnAttachments.js";
 import { persistTurnWork } from "../runtime/turnPersist.js";
+import { appendTurnCheckpoint } from "../runtime/turnCheckpoint.js";
 import { getCurrentTurnLease } from "../runtime/turnLease.js";
 import {
   prepareCursorSessionState,
@@ -447,6 +448,7 @@ async function failTurnAndExit(error: string): Promise<never> {
       ...(RUN_ID ? { runId: RUN_ID } : {}),
     });
     appendClaimedTurnCompletion(completionArgs);
+    appendTurnCheckpoint(completionArgs);
     await callConvexWithRetry(
       "mutation",
       COMPLETION_MUTATION ?? "",
@@ -706,6 +708,7 @@ async function reportCursorTurnWorkerFailure(
     ...(RUN_ID ? { runId: RUN_ID } : {}),
   });
   appendClaimedTurnCompletion(completionArgs);
+  appendTurnCheckpoint(completionArgs);
   await callConvexWithRetry(
     "mutation",
     COMPLETION_MUTATION ?? "",

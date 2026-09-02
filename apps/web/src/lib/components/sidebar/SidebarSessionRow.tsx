@@ -5,26 +5,16 @@ import type { Id } from "@eva/backend";
 import {
   ContextMenu,
   ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
   ContextMenuTrigger,
   motionFast,
-  toast,
 } from "@eva/ui";
-import {
-  IconArchive,
-  IconArchiveOff,
-  IconClipboard,
-  IconCopy,
-  IconExternalLink,
-  IconEye,
-  IconGitBranch,
-  IconLink,
-  IconPencil,
-} from "@tabler/icons-react";
 import { useState } from "react";
 import { entityPathSegment } from "@/lib/numId";
 import { SidebarSessionItem } from "@/lib/components/sidebar/SidebarSessionItem";
+import {
+  SessionMenuItems,
+  useIsRegeneratingTitle,
+} from "@/lib/components/sidebar/SessionMenuItems";
 import { SharedLayoutNavSurface } from "@/lib/components/sidebar/SharedLayoutNav";
 import { SessionReviewModal } from "@/routes/_repo/$owner/$repo/sessions/_components/SessionReviewModal";
 import { canSendSessionForReview } from "@/routes/_repo/$owner/$repo/sessions/_utils/sessionReadOnly";
@@ -37,6 +27,7 @@ interface SessionItem {
   _creationTime: number;
   userId: Id<"users">;
   title: string;
+  titleRegeneration?: { startedAt: number };
   status: SessionStatus;
   isExecuting?: boolean;
   isOrchestrator?: boolean;
@@ -82,8 +73,7 @@ export function SidebarSessionRow<T extends SessionItem>({
   const pathSegment = entityPathSegment(session);
   const href = pathSegment ? `${baseUrl}/${pathSegment}` : baseUrl;
   const isArchivedList = onUnarchive !== undefined;
-  const branchName = session.branchName;
-  const prUrl = session.prUrl;
+  const isRegeneratingTitle = useIsRegeneratingTitle(session);
   // Same gate the chat header uses, minus archived rows — an archived session
   // is read-only, so opening its PR from here would be a dead end.
   const canSendForReview = !isArchivedList && canSendSessionForReview(session);
@@ -109,6 +99,7 @@ export function SidebarSessionRow<T extends SessionItem>({
               <SidebarSessionItem
                 href={href}
                 title={session.title}
+                isRegeneratingTitle={isRegeneratingTitle}
                 sessionId={session._id}
                 userId={session.userId}
                 createdAt={session._creationTime}
@@ -118,7 +109,7 @@ export function SidebarSessionRow<T extends SessionItem>({
                 isOrchestrator={session.isOrchestrator === true}
                 isSelected={isSelected}
                 onNavigate={onNavigate}
-                prUrl={prUrl}
+                prUrl={session.prUrl}
                 prState={session.prState}
                 baseBranch={session.baseBranch}
               />
@@ -126,100 +117,39 @@ export function SidebarSessionRow<T extends SessionItem>({
           </m.div>
         </ContextMenuTrigger>
         <ContextMenuContent onClick={(e) => e.stopPropagation()}>
-          {!isArchivedList && onRename && onRenameRequest ? (
-            <ContextMenuItem onSelect={() => onRenameRequest(session)}>
-              <IconPencil size={16} />
-              Rename
-            </ContextMenuItem>
-          ) : null}
-          {!isArchivedList && onDuplicate && onDuplicateNavigate ? (
-            <ContextMenuItem
-              onSelect={() => {
-                void onDuplicate(session).then((newPathSegment) => {
-                  onDuplicateNavigate(newPathSegment);
-                });
-              }}
-            >
-              <IconCopy size={16} />
-              Duplicate
-            </ContextMenuItem>
-          ) : null}
-          <ContextMenuItem
-            onSelect={() => {
-              void navigator.clipboard.writeText(session.title);
-            }}
-          >
-            <IconClipboard size={16} />
-            Copy title
-          </ContextMenuItem>
-          <ContextMenuItem
-            onSelect={() => {
-              void navigator.clipboard.writeText(window.location.origin + href);
-            }}
-          >
-            <IconLink size={16} />
-            Copy link
-          </ContextMenuItem>
-          {branchName ? (
-            <ContextMenuItem
-              onSelect={() => {
-                void navigator.clipboard.writeText(branchName).then(() => {
-                  toast.success("Branch name copied");
-                });
-              }}
-            >
-              <IconGitBranch size={16} />
-              Copy branch name
-            </ContextMenuItem>
-          ) : null}
-          {prUrl ? (
-            <ContextMenuItem
-              onSelect={() => {
-                window.open(prUrl, "_blank", "noopener,noreferrer");
-              }}
-            >
-              <IconExternalLink size={16} />
-              Open PR
-            </ContextMenuItem>
-          ) : null}
-          {canSendForReview ? (
-            <>
-              <ContextMenuSeparator />
-              <ContextMenuItem onSelect={() => setIsReviewOpen(true)}>
-                <IconEye size={16} className="text-status-code-review" />
-                Send for Review
-              </ContextMenuItem>
-            </>
-          ) : null}
-          {isArchivedList && onUnarchive ? (
-            <>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                onSelect={() => {
-                  void onUnarchive(session);
-                }}
-              >
-                <IconArchiveOff size={16} />
-                Unarchive
-              </ContextMenuItem>
-            </>
-          ) : null}
-          {!isArchivedList && onArchiveRequest ? (
-            <>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                className="text-warning"
-                onSelect={() => onArchiveRequest(session)}
-              >
-                <IconArchive size={16} />
-                Archive
-              </ContextMenuItem>
-            </>
-          ) : null}
+          <SessionMenuItems
+            session={session}
+            href={href}
+            isRegeneratingTitle={isRegeneratingTitle}
+            onRenameRequest={
+              !isArchivedList && onRename && onRenameRequest
+                ? () => onRenameRequest(session)
+                : undefined
+            }
+            onDuplicate={
+              !isArchivedList && onDuplicate
+                ? () => onDuplicate(session)
+                : undefined
+            }
+            onDuplicateNavigate={onDuplicateNavigate}
+            onSendForReview={
+              canSendForReview ? () => setIsReviewOpen(true) : undefined
+            }
+            onUnarchive={
+              isArchivedList && onUnarchive
+                ? () => onUnarchive(session)
+                : undefined
+            }
+            onArchiveRequest={
+              !isArchivedList && onArchiveRequest
+                ? () => onArchiveRequest(session)
+                : undefined
+            }
+          />
         </ContextMenuContent>
       </ContextMenu>
       {/* Sibling of the menu, not a child: Radix unmounts menu content on close,
-        which would tear the dialog down with it. */}
+          which would tear the dialog down with it. */}
       {canSendForReview ? (
         <SessionReviewModal
           sessionId={session._id}

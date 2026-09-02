@@ -38,7 +38,7 @@ export const sortDirParser = parseAsStringLiteral(sortDirections)
   .withDefault("desc")
   .withOptions(searchOptions);
 
-const timeRanges = ["7d", "30d", "90d", "all"] as const;
+const timeRanges = ["24h", "7d", "30d", "90d", "all"] as const;
 export const timeRangeParser = parseAsStringLiteral(timeRanges)
   .withDefault("30d")
   .withOptions(searchOptions);
@@ -65,8 +65,12 @@ export const quickTaskSortDirParser =
   parseAsStringLiteral(sortDirections).withOptions(searchOptions);
 
 // Quick Tasks default to "all time" (unlike the generic timeRangeParser's
-// "30d" default used elsewhere), so it needs its own default.
-export const quickTaskTimeRangeParser = parseAsStringLiteral(timeRanges)
+// "30d" default used elsewhere) and have no hourly view, so they keep their
+// own vocabulary and default.
+const quickTaskTimeRanges = ["7d", "30d", "90d", "all"] as const;
+export const quickTaskTimeRangeParser = parseAsStringLiteral(
+  quickTaskTimeRanges,
+)
   .withDefault("all")
   .withOptions(searchOptions);
 
@@ -190,13 +194,7 @@ export function isTaskRouteSandboxTab(s: string): s is TaskRouteSandboxTab {
  * for the sake of two words nothing renders, so the labels moved and the slugs
  * stayed. `canonicalReviewTab` accepts the label-shaped spellings too.
  */
-const reviewTabs = [
-  "overview",
-  "commits",
-  "checks",
-  "diffs",
-  "recap",
-] as const;
+const reviewTabs = ["overview", "commits", "checks", "diffs", "recap"] as const;
 export type ReviewTab = (typeof reviewTabs)[number];
 export const REVIEW_DEFAULT_TAB: ReviewTab = "overview";
 
@@ -430,7 +428,7 @@ export const logEntityTypesParser = parseAsArrayOf(parseAsString)
   .withDefault([])
   .withOptions(searchOptions);
 
-const logViews = ["type", "project"] as const;
+const logViews = ["overview", "type", "project"] as const;
 export const logViewParser = parseAsStringLiteral(logViews)
-  .withDefault("type")
+  .withDefault("overview")
   .withOptions(searchOptions);

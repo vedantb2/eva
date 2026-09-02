@@ -16,6 +16,9 @@ export const workflowCompleteValidator = v.object({
   error: v.union(v.string(), v.null()),
   activityLog: v.union(v.string(), v.null()),
   pendingQuestion: v.optional(v.string()),
+  // Turn checkpoint shas (sessions only; see messageFields.beforeSha).
+  beforeSha: v.optional(v.string()),
+  afterSha: v.optional(v.string()),
 });
 
 export const evalResultValidator = v.object({

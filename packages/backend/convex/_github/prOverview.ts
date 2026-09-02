@@ -272,11 +272,12 @@ function derivePrStatus(
  * later "commented" review does not clear an earlier approval or change
  * request, so decisive states win and only then does recency decide.
  *
- * Takes timeline events and projects each survivor down to the sidebar shape:
- * an event carries a `body` that `pullRequestReviewValidator` does not declare,
- * and Convex rejects a returned object with an extra field.
+ * Takes review *events* (which carry `body` for the conversation timeline) but
+ * returns the sidebar shape, which does not — reviews are built as fresh
+ * objects here rather than reused, so a stray `body` field never reaches the
+ * `pullRequestReviewValidator` return validator.
  */
-function latestReviewPerAuthor(
+export function latestReviewPerAuthor(
   reviews: PullRequestReviewEvent[],
 ): PullRequestReview[] {
   const decisive = new Set(["APPROVED", "CHANGES_REQUESTED", "DISMISSED"]);
@@ -292,14 +293,16 @@ function latestReviewPerAuthor(
     if (currentIsDecisive && !nextIsDecisive) continue;
     byAuthor.set(review.authorLogin, review);
   }
-  return [...byAuthor.values()].map((review) => ({
-    id: review.id,
-    authorLogin: review.authorLogin,
-    authorAvatarUrl: review.authorAvatarUrl,
-    state: review.state,
-    submittedAt: review.submittedAt,
-    htmlUrl: review.htmlUrl,
-  }));
+  return [...byAuthor.values()].map(
+    ({ id, authorLogin, authorAvatarUrl, state, submittedAt, htmlUrl }) => ({
+      id,
+      authorLogin,
+      authorAvatarUrl,
+      state,
+      submittedAt,
+      htmlUrl,
+    }),
+  );
 }
 
 type InstallationOctokit = Awaited<ReturnType<typeof getInstallationOctokit>>;

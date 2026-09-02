@@ -8,6 +8,7 @@ import { buildProjectBranchName } from "../_projects/helpers";
 import { preferPersistedSandboxId } from "../_sandbox/resolveExistingSandboxId";
 import { isUsageLimitError, parseUsageLimitResetTime } from "./recovery";
 import { scheduleTaskOrchestratorNotify } from "../orchestratorShared";
+import { deriveLogUsage } from "../_logs/usage";
 
 export const llmJson = new LlmJson({ attemptCorrection: true });
 
@@ -250,5 +251,6 @@ export async function recordCompletionLog(
     repoId: params.repoId,
     projectId: params.projectId,
     createdAt: Date.now(),
+    ...deriveLogUsage(params.rawResultEvent),
   });
 }

@@ -69,6 +69,8 @@ interface SandboxPanelProps {
   isSandboxStarting?: boolean;
   collapsed?: boolean;
   onToggle?: () => void;
+  /** Lets the visible Preview float into the mini-player (Expand → returnTo). */
+  miniPlayer?: { returnTo: string; title: string };
 }
 export function SandboxPanel({
   sessionId,
@@ -94,6 +96,7 @@ export function SandboxPanel({
   isSandboxStarting,
   collapsed = false,
   onToggle,
+  miniPlayer,
 }: SandboxPanelProps) {
   const simpleView = useSimpleView();
   const sessionIdStr = String(sessionId);
@@ -168,25 +171,25 @@ export function SandboxPanel({
           onTabChange={onTabChange}
           collapsed={collapsed}
           onToggle={onToggle}
-        onNewPreview={() => {
-          panes.handleNewPreview();
-          onTabChange("preview");
-        }}
-        newPreviewDisabled={panes.newPreviewDisabled}
-        enabledTabs={enabledTabs}
-        showPrdTab={hasPlanContent}
-        hasPrdContent={hasPlanContent}
-        showDesignsTab={hasDesignsContent}
-        hasDesignsContent={hasDesignsContent}
-        showFilesTab
-        showAgentsTab={hasAgents}
-        hasRunningAgents={hasRunningAgents}
-        customTabs={simpleView ? undefined : customTabs}
-        agentBrowsingAt={agentBrowsingAt}
-        hotkeysEnabled={isRouteActive}
-        fileList={fileList}
-        consoleDock={panes.consoleDock}
-        terminalPanel={terminalPanel}
+          onNewPreview={() => {
+            panes.handleNewPreview();
+            onTabChange("preview");
+          }}
+          newPreviewDisabled={panes.newPreviewDisabled}
+          enabledTabs={enabledTabs}
+          showPrdTab={hasPlanContent}
+          hasPrdContent={hasPlanContent}
+          showDesignsTab={hasDesignsContent}
+          hasDesignsContent={hasDesignsContent}
+          showFilesTab
+          showAgentsTab={hasAgents}
+          hasRunningAgents={hasRunningAgents}
+          customTabs={simpleView ? undefined : customTabs}
+          agentBrowsingAt={agentBrowsingAt}
+          hotkeysEnabled={isRouteActive}
+          fileList={fileList}
+          consoleDock={panes.consoleDock}
+          terminalPanel={terminalPanel}
         />
       }
     >
@@ -242,7 +245,11 @@ export function SandboxPanel({
             }}
           />
         </div>
-        <div className={!simpleView && activeTab === "files" ? "h-full min-h-0" : "hidden"}>
+        <div
+          className={
+            !simpleView && activeTab === "files" ? "h-full min-h-0" : "hidden"
+          }
+        >
           <FilesPanel
             sandboxId={sandboxId}
             repoId={repoId}
@@ -286,6 +293,13 @@ export function SandboxPanel({
           onStartSandbox={onStartSandbox}
           isSandboxStarting={isSandboxStarting}
           onAnnotationSubmit={submitAnnotation}
+          // Only the session on screen may float; cached siblings and a
+          // collapsed rail keep their preview parked.
+          miniPlayer={
+            miniPlayer !== undefined && isRouteActive && !collapsed
+              ? { ...miniPlayer, sessionId }
+              : undefined
+          }
           stickyPreviewPath={viewState?.previewPath}
           onStickyPreviewPathChange={(path) => {
             void setPreviewPath({ owner, path });

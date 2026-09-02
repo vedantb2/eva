@@ -529,6 +529,8 @@ export const sessionExecuteWorkflow = workflow.define({
       model: args.model,
       planContent,
       pendingQuestion: result.pendingQuestion,
+      beforeSha: result.beforeSha,
+      afterSha: result.afterSha,
     });
 
     // Eva owns publishing: the agent commits inside the sandbox but never
@@ -880,6 +882,9 @@ export const saveResult = internalMutation({
     model: v.optional(aiModelValidator),
     planContent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
+    /** Turn checkpoint from the callback (see messageFields.beforeSha). */
+    beforeSha: v.optional(v.string()),
+    afterSha: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -934,6 +939,8 @@ export const saveResult = internalMutation({
       model?: Doc<"messages">["model"];
       isSystemAlert?: boolean;
       errorDetail?: string;
+      beforeSha?: string;
+      afterSha?: string;
       variations?: Array<{
         label: string;
         route?: string;
@@ -967,6 +974,10 @@ export const saveResult = internalMutation({
     }
     if (args.pendingQuestion) {
       patch.pendingQuestion = args.pendingQuestion;
+    }
+    if (args.beforeSha !== undefined && args.afterSha !== undefined) {
+      patch.beforeSha = args.beforeSha;
+      patch.afterSha = args.afterSha;
     }
     await ctx.db.patch(last._id, patch);
 
@@ -1514,6 +1525,8 @@ export const completeSyntheticTurn = authMutation({
     pendingQuestion: v.optional(v.string()),
     turnId: v.optional(v.string()),
     leaseGeneration: v.optional(v.number()),
+    beforeSha: v.optional(v.string()),
+    afterSha: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1554,6 +1567,8 @@ export const completeSyntheticTurn = authMutation({
       finishedAt: number;
       pendingQuestion?: string;
       model?: Doc<"messages">["model"];
+      beforeSha?: string;
+      afterSha?: string;
     } = {
       content: args.success
         ? args.result || "I couldn't process your message."
@@ -1565,6 +1580,10 @@ export const completeSyntheticTurn = authMutation({
     }
     if (args.pendingQuestion) {
       patch.pendingQuestion = args.pendingQuestion;
+    }
+    if (args.beforeSha !== undefined && args.afterSha !== undefined) {
+      patch.beforeSha = args.beforeSha;
+      patch.afterSha = args.afterSha;
     }
     // Drops the open-time stamp so a failed turn never becomes a checkpoint.
     if (!args.success) {
@@ -1658,6 +1677,8 @@ export const handleCompletion = authMutation({
     pendingQuestion: v.optional(v.string()),
     turnId: v.optional(v.string()),
     leaseGeneration: v.optional(v.number()),
+    beforeSha: v.optional(v.string()),
+    afterSha: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1698,6 +1719,8 @@ export const handleCompletion = authMutation({
         error: args.error,
         activityLog: args.activityLog,
         pendingQuestion: args.pendingQuestion,
+        beforeSha: args.beforeSha,
+        afterSha: args.afterSha,
       },
     );
 

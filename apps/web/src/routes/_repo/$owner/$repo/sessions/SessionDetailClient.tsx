@@ -301,6 +301,14 @@ export function SessionDetailClient({
                 isSandboxStarting={isSandboxStarting}
                 collapsed={rightPanelCollapsed}
                 onToggle={onToggleRightPanel}
+                miniPlayer={
+                  session.numId !== undefined
+                    ? {
+                        returnTo: `${basePath}/sessions/${session.numId}/preview`,
+                        title: session.title,
+                      }
+                    : undefined
+                }
               />
             )}
             leftDefaultSize="40%"

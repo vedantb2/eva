@@ -635,7 +635,7 @@ importers:
         version: 1.35.1(@clerk/clerk-react@5.61.6(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6)
       convex-helpers:
         specifier: 0.1.114
-        version: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.35.1(@clerk/clerk-react@5.61.6(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))(hono@4.12.25)(react@19.2.1)(typescript@5.9.3)(zod@4.4.3)
+        version: 0.1.114(@standard-schema/spec@1.1.0)(convex@1.35.1(@clerk/clerk-react@5.61.6(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))(hono@4.12.25)(react@19.2.1)(typescript@5.9.3)(zod@3.25.76)
       dayjs:
         specifier: '>=1.0.0'
         version: 1.11.20
@@ -645,6 +645,9 @@ importers:
       react:
         specifier: '>=19.0.0'
         version: 19.2.1
+      zod:
+        specifier: '>=3.24.0'
+        version: 3.25.76
     devDependencies:
       '@types/react':
         specifier: 19.0.10
@@ -14621,7 +14624,7 @@ snapshots:
 
   convert-source-map@2.0.0: {}
 
-  convex-helpers@0.1.114(@standard-schema/spec@1.1.0)(convex@1.35.1(@clerk/clerk-react@5.61.6(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))(hono@4.12.25)(react@19.2.1)(typescript@5.9.3)(zod@4.4.3):
+  convex-helpers@0.1.114(@standard-schema/spec@1.1.0)(convex@1.35.1(@clerk/clerk-react@5.61.6(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))(hono@4.12.25)(react@19.2.1)(typescript@5.9.3)(zod@3.25.76):
     dependencies:
       convex: 1.35.1(@clerk/clerk-react@5.61.6(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6)
     optionalDependencies:
@@ -14629,7 +14632,7 @@ snapshots:
       hono: 4.12.25
       react: 19.2.1
       typescript: 5.9.3
-      zod: 4.4.3
+      zod: 3.25.76
 
   convex-helpers@0.1.114(@standard-schema/spec@1.1.0)(convex@1.40.0(@clerk/clerk-react@5.61.6(react-dom@19.2.1(react@19.2.1))(react@19.2.1))(bufferutil@4.1.0)(react@19.2.1)(utf-8-validate@6.0.6))(hono@4.12.25)(react@19.2.1)(typescript@7.0.1-rc)(zod@3.25.76):
     dependencies:

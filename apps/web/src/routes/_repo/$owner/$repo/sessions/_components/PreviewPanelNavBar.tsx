@@ -7,7 +7,11 @@ import {
   WebPreviewNavigationButton,
   useWebPreview,
 } from "@eva/ui";
-import { IconClick, IconDevices } from "@tabler/icons-react";
+import {
+  IconClick,
+  IconDevices,
+  IconPictureInPicture,
+} from "@tabler/icons-react";
 import {
   PreviewNavBar,
   normalizePreviewPath,
@@ -36,6 +40,7 @@ export function PreviewPanelNavBar({
   annotationMode,
   onAnnotationModeChange,
   showAnnotationToggle,
+  popOut,
 }: {
   previewInfo: PreviewInfo | null;
   isLoading: boolean;
@@ -52,6 +57,8 @@ export function PreviewPanelNavBar({
   annotationMode: boolean;
   onAnnotationModeChange: (active: boolean) => void;
   showAnnotationToggle: boolean;
+  /** Sessions on desktop only: toggles the floating mini-player. */
+  popOut?: { active: boolean; onToggle: () => void };
 }) {
   const { iframeRef } = useWebPreview();
   const deviceActive = viewport.mode !== "fill";
@@ -70,6 +77,19 @@ export function PreviewPanelNavBar({
       >
         <IconDevices size={16} />
       </WebPreviewNavigationButton>
+      {popOut ? (
+        <WebPreviewNavigationButton
+          tooltip={popOut.active ? "Bring preview back" : "Pop out preview"}
+          aria-label={popOut.active ? "Bring preview back" : "Pop out preview"}
+          aria-pressed={popOut.active}
+          className={cn(
+            popOut.active && "bg-secondary text-primary hover:text-primary",
+          )}
+          onClick={popOut.onToggle}
+        >
+          <IconPictureInPicture size={16} />
+        </WebPreviewNavigationButton>
+      ) : null}
       <PreviewScreenshotButton iframeElement={iframeElement ?? null} />
       {showAnnotationToggle ? (
         <WebPreviewNavigationButton

@@ -51,6 +51,7 @@ import {
   sessionDaemonStateFields,
   turnFields,
   agentUsageLimitFields,
+  logFields,
 } from "./validators";
 
 const schema = defineSchema({
@@ -403,15 +404,7 @@ const schema = defineSchema({
     .index("by_automation_and_status", ["automationId", "status"])
     .index("by_repo", ["repoId"]),
 
-  logs: defineTable({
-    entityType: v.string(),
-    entityId: v.string(),
-    entityTitle: v.string(),
-    rawResultEvent: v.optional(v.string()),
-    repoId: v.id("githubRepos"),
-    projectId: v.optional(v.id("projects")),
-    createdAt: v.number(),
-  })
+  logs: defineTable(logFields)
     .index("by_repo", ["repoId"])
     .index("by_repo_and_created", ["repoId", "createdAt"])
     .index("by_entity_type", ["entityType"])

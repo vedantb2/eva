@@ -2,6 +2,7 @@ import { Migrations } from "@convex-dev/migrations";
 import { components } from "./_generated/api";
 import type { DataModel } from "./_generated/dataModel";
 import schema from "./schema";
+import { deriveLogUsage } from "./_logs/usage";
 
 /**
  * Convex Migrations component — batched online migrations with progress,
@@ -88,5 +89,16 @@ export const splitRepoSkillContent = dataMigrations.define({
       });
     }
     await ctx.db.patch(skill._id, { content: undefined });
+  },
+});
+
+/** Backfills denormalised usage columns on logs rows written before they existed. */
+export const backfillLogUsageFields = dataMigrations.define({
+  table: "logs",
+  migrateOne: async (_ctx, entry) => {
+    if (entry.costUsd !== undefined || !entry.rawResultEvent) return;
+    const usage = deriveLogUsage(entry.rawResultEvent);
+    if (usage.costUsd === undefined) return;
+    return usage;
   },
 });

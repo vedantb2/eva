@@ -32,6 +32,10 @@ import {
 } from "./runtime/turnLease.js";
 import { waitForPendingClaudeUsageReport } from "./runtime/usageLimits.js";
 import { persistTurnWork } from "./runtime/turnPersist.js";
+import {
+  appendTurnCheckpoint,
+  beginTurnCheckpoint,
+} from "./runtime/turnCheckpoint.js";
 import { materializeSystemSkills } from "./runtime/systemSkills.js";
 import {
   flushStreaming,
@@ -197,6 +201,7 @@ log(
 );
 
 try {
+  beginTurnCheckpoint();
   const taskCommitBaselineHead = REQUIRE_TASK_COMMIT ? readGitHeadSha() : "";
   if (REQUIRE_TASK_COMMIT) {
     log(
@@ -430,6 +435,7 @@ try {
   };
   if (RUN_ID) errorArgs.runId = RUN_ID;
   appendCurrentTurnLease(errorArgs);
+  appendTurnCheckpoint(errorArgs);
   try {
     await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", errorArgs);
   } catch {

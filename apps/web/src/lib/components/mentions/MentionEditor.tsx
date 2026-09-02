@@ -17,9 +17,11 @@ import {
   buildSkillPattern,
   extractEditableText,
   isEditorValueEmpty,
+  isInsertedTokenTrigger,
   normalizeMentionText,
   placeCursorAtEnd,
   renderEditorChipHtml,
+  type InsertedToken,
 } from "./mentionEditorUtils";
 import { MENTION_CHIP_CLASS, SKILL_CHIP_CLASS } from "./mentionChipStyles";
 import { countLinkUrls } from "./linkChipUtils";
@@ -317,6 +319,11 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   const triggerOpenRef = useRef(false);
   /** Set when the pending `value` change came from typing in the editor. */
   const editorTypedRef = useRef(false);
+  /**
+   * The chip the last accept inserted, so the trigger scan can tell it apart
+   * from a trigger the user is still typing. See `isInsertedTokenTrigger`.
+   */
+  const insertedTokenRef = useRef<InsertedToken | null>(null);
   const [popupPlacement, setPopupPlacement] =
     useState<MentionPopupPlacement | null>(null);
   const [mentionMap, setMentionMap] = useState<Map<string, string>>(() =>
@@ -455,6 +462,10 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     const visible = `${prefix}${item.label}`;
     const needsSpace = value.length > 0 && !/\s$/.test(value);
     const newValue = `${value}${needsSpace ? " " : ""}${visible} `;
+    insertedTokenRef.current = {
+      startIndex: value.length + (needsSpace ? 1 : 0),
+      token: visible,
+    };
     if (kind === "mention") {
       setMentionMap((prev) => {
         const next = new Map(prev);
@@ -537,6 +548,10 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     const before = value.slice(0, trigger.startIndex);
     const after = value.slice(trigger.startIndex + trigger.query.length + 1);
     const newValue = before + visible + " " + after;
+    insertedTokenRef.current = {
+      startIndex: trigger.startIndex,
+      token: visible,
+    };
     setMentionMap((prev) => {
       const next = new Map(prev);
       next.set(item.label, item.id);
@@ -552,6 +567,10 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     const before = value.slice(0, trigger.startIndex);
     const after = value.slice(trigger.startIndex + trigger.query.length + 1);
     const newValue = before + visible + " " + after;
+    insertedTokenRef.current = {
+      startIndex: trigger.startIndex,
+      token: visible,
+    };
     setSkillMap((prev) => {
       const next = new Map(prev);
       next.set(item.label, item.id);
@@ -580,7 +599,22 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       items.length > 0,
       slashItems.length > 0 || emptySlashContent !== undefined,
     );
-    if (!next) {
+    // Released only once the chip stops being there — a healthy accept leaves no
+    // trigger at all for a pass or two, so releasing on that would drop the
+    // guard before the keystroke it exists to catch.
+    const inserted = insertedTokenRef.current;
+    if (
+      inserted !== null &&
+      !value.startsWith(inserted.token, inserted.startIndex)
+    ) {
+      insertedTokenRef.current = null;
+    }
+    // The chip the last accept inserted is not a trigger the user is typing,
+    // even when it reads like one because its trailing space was lost.
+    const isChipEcho =
+      next !== null &&
+      isInsertedTokenTrigger(value, next.startIndex, insertedTokenRef.current);
+    if (next === null || isChipEcho) {
       triggerOpenRef.current = false;
       setTrigger((prev) => (prev.isOpen ? CLOSED_TRIGGER : prev));
       return;

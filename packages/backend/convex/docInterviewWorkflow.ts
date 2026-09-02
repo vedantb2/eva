@@ -5,7 +5,7 @@ import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation } from "./functions";
-import { workflowCompleteValidator } from "./validators";
+import { turnCheckpointArgs, workflowCompleteValidator } from "./validators";
 import { trackDocWorkflow } from "./workflowWatchdog";
 import { GENERATE_PROMPT, INTERVIEW_PROMPT } from "./prompts";
 import {
@@ -273,6 +273,7 @@ export const handleCompletion = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -426,6 +427,7 @@ export const handleGenerateCompletion = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {

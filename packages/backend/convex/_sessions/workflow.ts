@@ -12,6 +12,7 @@ import {
   workflowCompleteValidator,
   normalizeAIModel,
   sessionStatusValidator,
+  turnCheckpointArgs,
   usesChatDaemon,
 } from "../validators";
 import { resolveSessionBaseBranch } from "./baseBranch";
@@ -883,8 +884,7 @@ export const saveResult = internalMutation({
     planContent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
     /** Turn checkpoint from the callback (see messageFields.beforeSha). */
-    beforeSha: v.optional(v.string()),
-    afterSha: v.optional(v.string()),
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1525,8 +1525,7 @@ export const completeSyntheticTurn = authMutation({
     pendingQuestion: v.optional(v.string()),
     turnId: v.optional(v.string()),
     leaseGeneration: v.optional(v.number()),
-    beforeSha: v.optional(v.string()),
-    afterSha: v.optional(v.string()),
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1677,8 +1676,7 @@ export const handleCompletion = authMutation({
     pendingQuestion: v.optional(v.string()),
     turnId: v.optional(v.string()),
     leaseGeneration: v.optional(v.number()),
-    beforeSha: v.optional(v.string()),
-    afterSha: v.optional(v.string()),
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {

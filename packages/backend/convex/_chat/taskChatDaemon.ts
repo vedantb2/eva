@@ -6,6 +6,7 @@ import { authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
   normalizeAIModel,
+  turnCheckpointArgs,
   usesChatDaemon,
 } from "../validators";
 import { backgroundAgentEntryValidator } from "../_validators/tableFields";
@@ -277,6 +278,7 @@ export const completeSyntheticTurn = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     pendingQuestion: v.optional(v.string()),
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {

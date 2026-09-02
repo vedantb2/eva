@@ -6,7 +6,7 @@ import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow } from "./workflowManager";
 import { authMutation, hasRepoAccess } from "./functions";
-import { workflowCompleteValidator } from "./validators";
+import { turnCheckpointArgs, workflowCompleteValidator } from "./validators";
 import { trackEvaluationWorkflow } from "./workflowWatchdog";
 import {
   clearStreamingActivity,
@@ -449,6 +449,7 @@ export const handleCompletion = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -591,6 +592,7 @@ export const handleFixCompletion = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {

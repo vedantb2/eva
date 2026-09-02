@@ -15,6 +15,7 @@ import {
   normalizeAIModel,
   roleValidator,
   taskSandboxStatusValidator,
+  turnCheckpointArgs,
   usesChatDaemon,
 } from "./validators";
 import {
@@ -1043,6 +1044,7 @@ export const handleCompletion = authMutation({
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {

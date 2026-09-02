@@ -1926,6 +1926,7 @@ function currentBranch() {
   return result.status === 0 ? (result.stdout || "").trim() : "";
 }
 function appendTurnCheckpoint(args) {
+  if (ENTITY_ID_FIELD !== "sessionId") return;
   if (RUN_ID || turnStartSha === "") return;
   if (!currentBranch().startsWith("eva/")) return;
   const afterSha = readGitHeadSha();

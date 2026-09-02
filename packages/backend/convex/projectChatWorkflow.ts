@@ -904,6 +904,12 @@ export const handleCompletion = authMutation({
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
+    // Turn checkpoint shas are a session feature (messageFields.beforeSha) and
+    // are ignored here. Accepted so a warm daemon still on a callback bundle
+    // that stamped them on every eva/ branch cannot fail the whole completion
+    // with "Object contains extra field afterSha" (prod, 2026-09-02).
+    beforeSha: v.optional(v.string()),
+    afterSha: v.optional(v.string()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {

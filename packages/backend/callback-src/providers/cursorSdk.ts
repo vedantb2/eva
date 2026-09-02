@@ -56,6 +56,18 @@ const SDK_ENTRY_RELPATH = "/dist/esm/index.js";
 
 /** SDK setup should return a local handle quickly; model work happens later. */
 export const CURSOR_AGENT_SETUP_TIMEOUT_MS = 30_000;
+/**
+ * Env var the SDK reads inside `Agent.create`/`Agent.resume` instead of its own
+ * `listModels()` network call to validate the configured model id. Eva already
+ * fetches that same list in `resolveCursorModelSelection`, so it publishes the
+ * catalog here and agent setup then has no remote dependency left — the second,
+ * redundant round trip is what timed out on this deadline in prod.
+ *
+ * The name is undocumented in the SDK, so a contract test pins it against the
+ * pinned SDK bundle.
+ */
+export const CURSOR_SDK_LOCAL_MODEL_CATALOG_ENV =
+  "CURSOR_SDK_LOCAL_MODEL_CATALOG_JSON";
 /** `Agent.send` only creates the run. A minute here is a wedged SDK session. */
 export const CURSOR_SEND_START_TIMEOUT_MS = 60_000;
 /**
@@ -70,6 +82,7 @@ export const CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
 const CURSOR_RESULT_SETTLE_TIMEOUT_MS = 30_000;
 
 export type CursorPhase =
+  | "fetching the model list"
   | "creating a fresh agent"
   | "restoring saved context"
   | "starting the model run"
@@ -124,6 +137,18 @@ export function shouldRetryStalledCursorResume(error: Error): boolean {
     error instanceof CursorPhaseTimeoutError &&
     (error.phase === "starting the model run" ||
       error.phase === "waiting for the first model event")
+  );
+}
+
+/**
+ * A creation that never returned a handle has no context to lose, so reissuing
+ * it is always safe — and it is the last resort of a turn whose saved agent has
+ * already stalled twice, so one stalled create must not end the turn.
+ */
+export function shouldRetryStalledCursorCreate(error: Error): boolean {
+  return (
+    error instanceof CursorPhaseTimeoutError &&
+    error.phase === "creating a fresh agent"
   );
 }
 
@@ -273,6 +298,34 @@ function readPromptText(): string {
 }
 
 /**
+ * Serializes a fetched model list into the catalog JSON the SDK accepts, or
+ * `null` when the list cannot stand in for the SDK's own fetch. The SDK rejects
+ * a malformed catalog with a non-retryable error, so an empty list or an entry
+ * without a string `id` is dropped rather than published. Only `id` and
+ * `aliases` are kept — the SDK matches on nothing else, and the value lives in
+ * the environment of every child process the turn spawns.
+ */
+export function cursorModelCatalogJson(
+  models: ReadonlyArray<ModelListItem>,
+): string | null {
+  if (models.length === 0) return null;
+  const valid = models.every(
+    (entry) =>
+      entry !== null &&
+      typeof entry === "object" &&
+      typeof entry.id === "string",
+  );
+  if (!valid) return null;
+  return JSON.stringify(
+    models.map((entry) =>
+      Array.isArray(entry.aliases)
+        ? { id: entry.id, aliases: entry.aliases }
+        : { id: entry.id },
+    ),
+  );
+}
+
+/**
  * Builds the SDK ModelSelection for the configured eva model. Eva slugs bake a
  * reasoning level into the id (grok-4.5-low); the SDK's model list carries the
  * base id with reasoning exposed as a per-model parameter whose id is not
@@ -300,7 +353,19 @@ export async function resolveCursorModelSelection(
   try {
     const list = sdk.Cursor?.models?.list;
     if (list) {
-      const models = await list();
+      // The fetch had no deadline of its own, so a hung list could burn the
+      // whole turn before agent setup even started.
+      const models = await waitForCursorPhase({
+        task: list(),
+        phase: "fetching the model list",
+        timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS,
+      });
+      if (Array.isArray(models)) {
+        // Hand the SDK the list it would otherwise fetch again itself inside
+        // Agent.create/Agent.resume, so agent setup stays local.
+        const catalog = cursorModelCatalogJson(models);
+        if (catalog) process.env[CURSOR_SDK_LOCAL_MODEL_CATALOG_ENV] = catalog;
+      }
       model = Array.isArray(models)
         ? models.find(
             (entry) => entry && typeof entry === "object" && entry.id === base,
@@ -721,11 +786,29 @@ export async function runCursorSdkAttempt(
       "Starting a fresh Cursor agent...",
       "Creating a clean model context...",
     );
-    const created = await waitForCursorPhase({
-      task: sdk.Agent.create(options),
-      phase: "creating a fresh agent",
-      timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS,
-    });
+    const create = (): Promise<SdkAgent> =>
+      waitForCursorPhase({
+        task: sdk.Agent.create(options),
+        phase: "creating a fresh agent",
+        timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS,
+      });
+    let created: SdkAgent;
+    try {
+      created = await create();
+    } catch (error) {
+      // Creation is the last resort of a recovering turn, and a stalled create
+      // holds no context, so give it one more go before the turn dies.
+      if (!(error instanceof Error) || !shouldRetryStalledCursorCreate(error)) {
+        throw error;
+      }
+      log(
+        "runCursorSdkAttempt: fresh agent creation stalled — retrying once (" +
+          error.message +
+          ")",
+      );
+      appendToRawLogFile("[sdk-retry] " + error.message + "\n");
+      created = await create();
+    }
     persistAgentId(created.agentId);
     return created;
   };

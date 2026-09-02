@@ -13,6 +13,7 @@ import {
   RESOURCE_EXHAUSTED_RETRY_DELAYS_MS,
   attributeCursorTurnRawCents,
   cursorModeParams,
+  cursorModelCatalogJson,
   cursorEventHasVisibleActivity,
   cursorEventWaitTimeoutMs,
   cursorAgentStartupActivity,
@@ -21,6 +22,7 @@ import {
   readCursorCostSnapshot,
   resolveCursorTurnCostUsd,
   runTurnWithResourceExhaustedRetries,
+  shouldRetryStalledCursorCreate,
   shouldRetryStalledCursorResume,
   waitForCursorPhase,
   CursorPhaseTimeoutError,
@@ -80,6 +82,46 @@ test("only a pre-output resumed Cursor stall is safe to replay", () => {
       new CursorPhaseTimeoutError("finishing the model run", 30_000),
     ),
   ).toBe(false);
+});
+
+test("only a stalled Cursor creation is replayed as a creation", () => {
+  expect(
+    shouldRetryStalledCursorCreate(
+      new CursorPhaseTimeoutError("creating a fresh agent", 30_000),
+    ),
+  ).toBe(true);
+  expect(
+    shouldRetryStalledCursorCreate(
+      new CursorPhaseTimeoutError("restoring saved context", 30_000),
+    ),
+  ).toBe(false);
+  expect(
+    shouldRetryStalledCursorCreate(
+      new CursorPhaseTimeoutError("starting the model run", 60_000),
+    ),
+  ).toBe(false);
+  expect(shouldRetryStalledCursorCreate(new Error("agent_not_found"))).toBe(
+    false,
+  );
+});
+
+test("the Cursor model catalog keeps only the ids and aliases the SDK matches on", () => {
+  const json = cursorModelCatalogJson([
+    {
+      id: "grok-4.6",
+      displayName: "Grok 4.6",
+      aliases: ["grok"],
+      parameters: [{ id: "reasoning", values: [{ value: "high" }] }],
+    },
+    { id: "composer-2.5", displayName: "Composer 2.5" },
+  ]);
+  expect(json).not.toBeNull();
+  expect(JSON.parse(json ?? "[]")).toEqual([
+    { id: "grok-4.6", aliases: ["grok"] },
+    { id: "composer-2.5" },
+  ]);
+  // An empty list would make the SDK reject every model, non-retryably.
+  expect(cursorModelCatalogJson([])).toBeNull();
 });
 
 test("Cursor silence policy distinguishes safe startup recovery from visible work", () => {

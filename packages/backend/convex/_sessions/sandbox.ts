@@ -21,6 +21,7 @@ import { startNextQueuedSessionMessageAfterSandboxReady } from "../_queues/helpe
 import { settleOrphanedBackgroundAgents } from "./backgroundAgents";
 import { syncSessionDaemonState } from "./daemonState";
 import { STUCK_STOPPING_RECOVER_MS } from "../_sandbox/stopRecovery";
+import { isEvaOwnedBranch } from "../_sandbox_runtime/divergedPublish";
 
 /** Updates sandbox-related fields (sandbox ID, branch, PR URL) on a session. */
 export const updateSandbox = authMutation({
@@ -144,7 +145,7 @@ export const forcePushBranch = authMutation({
     }
     // Only eva-owned session branches may ever be rewritten on GitHub; a base
     // branch must never be reachable through this path.
-    if (!session.branchName.startsWith("eva/")) {
+    if (!isEvaOwnedBranch(session.branchName)) {
       throw new Error(
         `Refusing to force-push non-session branch ${session.branchName}`,
       );

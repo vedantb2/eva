@@ -7210,6 +7210,7 @@ var SDK_PACKAGE2 = "@cursor/sdk";
 var SDK_VERSION2 = "1.0.28";
 var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
 var CURSOR_AGENT_SETUP_TIMEOUT_MS = 3e4;
+var CURSOR_SDK_LOCAL_MODEL_CATALOG_ENV = "CURSOR_SDK_LOCAL_MODEL_CATALOG_JSON";
 var CURSOR_SEND_START_TIMEOUT_MS = 6e4;
 var CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS;
 var CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
@@ -7243,6 +7244,9 @@ async function waitForCursorPhase(args) {
 }
 function shouldRetryStalledCursorResume(error) {
   return error instanceof CursorPhaseTimeoutError && (error.phase === "starting the model run" || error.phase === "waiting for the first model event");
+}
+function shouldRetryStalledCursorCreate(error) {
+  return error instanceof CursorPhaseTimeoutError && error.phase === "creating a fresh agent";
 }
 function cursorEventHasVisibleActivity(type) {
   return type === "thinking" || type === "assistant" || type === "tool_call";
@@ -7299,6 +7303,18 @@ async function loadCursorSdk() {
 function readPromptText2() {
   return readFileSync8("/tmp/design-prompt.txt", "utf8");
 }
+function cursorModelCatalogJson(models) {
+  if (models.length === 0) return null;
+  const valid = models.every(
+    (entry) => entry !== null && typeof entry === "object" && typeof entry.id === "string"
+  );
+  if (!valid) return null;
+  return JSON.stringify(
+    models.map(
+      (entry) => Array.isArray(entry.aliases) ? { id: entry.id, aliases: entry.aliases } : { id: entry.id }
+    )
+  );
+}
 async function resolveCursorModelSelection(sdk) {
   const base = normalizedCursorModel;
   const level = cursorReasoningLevel;
@@ -7312,7 +7328,15 @@ async function resolveCursorModelSelection(sdk) {
   try {
     const list = sdk.Cursor?.models?.list;
     if (list) {
-      const models = await list();
+      const models = await waitForCursorPhase({
+        task: list(),
+        phase: "fetching the model list",
+        timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS
+      });
+      if (Array.isArray(models)) {
+        const catalog = cursorModelCatalogJson(models);
+        if (catalog) process.env[CURSOR_SDK_LOCAL_MODEL_CATALOG_ENV] = catalog;
+      }
       model = Array.isArray(models) ? models.find(
         (entry) => entry && typeof entry === "object" && entry.id === base
       ) : void 0;
@@ -7533,11 +7557,24 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
       "Starting a fresh Cursor agent...",
       "Creating a clean model context..."
     );
-    const created = await waitForCursorPhase({
+    const create = () => waitForCursorPhase({
       task: sdk.Agent.create(options),
       phase: "creating a fresh agent",
       timeoutMs: CURSOR_AGENT_SETUP_TIMEOUT_MS
     });
+    let created;
+    try {
+      created = await create();
+    } catch (error) {
+      if (!(error instanceof Error) || !shouldRetryStalledCursorCreate(error)) {
+        throw error;
+      }
+      log(
+        "runCursorSdkAttempt: fresh agent creation stalled \\u2014 retrying once (" + error.message + ")"
+      );
+      appendToRawLogFile("[sdk-retry] " + error.message + "\\n");
+      created = await create();
+    }
     persistAgentId(created.agentId);
     return created;
   };

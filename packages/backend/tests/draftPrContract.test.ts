@@ -1,9 +1,14 @@
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, test } from "vitest";
+import { ConvexError } from "convex/values";
+import { Effect } from "effect";
+import { describe, expect, test, vi } from "vitest";
+import { convexErrorPayloadSchema } from "@eva/shared/convexErrorPayload";
+import { runActionEffect } from "../convex/_effect/action";
 import { GitHubBranchNotAhead } from "../convex/_github/githubErrors";
 import {
+  classifyPrActionFailure,
   isBranchNotAheadError,
   isPullRequestAlreadyExistsError,
 } from "../convex/_github/prErrors";
@@ -179,6 +184,105 @@ describe("an existing pull request is adopted, not re-created", () => {
     );
   });
 });
+
+/**
+ * A manual "Create PR" that fails has to say why: production Convex redacts a
+ * thrown `Error` to "Server Error", so the reason used to be lost. The reason
+ * now travels as `ConvexError` data with the failure's tag on it, which is only
+ * true while the action runs through the runner rather than rethrowing a bare
+ * string payload.
+ */
+describe("a manual PR failure reaches the user with its tag", () => {
+  const body = definitionBody(taskActions, "createTaskPr");
+
+  test("createTaskPr runs its attempt through the runner", () => {
+    expect(body).toContain("runActionEffect(");
+    expect(body).toContain("visiblePrAttempt(");
+  });
+
+  test("no action throws a string-payload ConvexError any more", () => {
+    expect(
+      taskActions,
+      "a string payload gives the web nothing to branch on",
+    ).not.toContain("new ConvexError(");
+  });
+
+  test("the attempt classifies every failure into the error channel", () => {
+    const attempt = functionBody(taskActions, "function visiblePrAttempt<T>(");
+    expect(attempt).toContain("Effect.tryPromise(");
+    expect(attempt, "a defect would be redacted again").toContain(
+      "catch: classifyPrActionFailure",
+    );
+  });
+
+  /**
+   * The sentinel the compare step raises is the failure this whole path exists
+   * for — a plan-only turn asked for a PR by hand. It has to arrive tagged, not
+   * as prose the web would have to match.
+   */
+  test("a not-ahead branch crosses as its own tag", async () => {
+    const sentinel = new GitHubBranchNotAhead({
+      message: "eva/foo is not ahead of main",
+      cause: undefined,
+    });
+    const failure = classifyPrActionFailure(sentinel);
+    expect(failure._tag).toBe("GitHubBranchNotAhead");
+
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      const thrown = await runActionEffect(
+        Effect.fail(failure),
+        "pr createTaskPr task=abc",
+      ).catch((error: unknown) => error);
+      const payload = convexErrorPayloadSchema.parse(
+        thrown instanceof ConvexError ? thrown.data : undefined,
+      );
+      expect(payload).toEqual({
+        tag: "GitHubBranchNotAhead",
+        message: "eva/foo is not ahead of main",
+      });
+    } finally {
+      log.mockRestore();
+    }
+  });
+
+  /** GitHub failures worth branching on keep the tag the classifier gave them. */
+  test.each([
+    ["a rejected token", 401, "Bad credentials", "GitHubUnauthorized"],
+    ["an invisible repo", 404, "Not Found", "GitHubNotFound"],
+  ])("%s keeps its specific tag", (_label, status, message, tag) => {
+    expect(classifyPrActionFailure(withStatus(message, status))._tag).toBe(tag);
+  });
+
+  /**
+   * Everything the classifier has no specific answer for still has to stay
+   * visible, with the message the old helper would have shown — which was
+   * `error.message` for an `Error` and `String(error)` otherwise.
+   */
+  test.each([
+    ["not authenticated", new Error("Not authenticated"), "Not authenticated"],
+    [
+      "a missing base branch",
+      new Error("Base branch not found for repo"),
+      "Base branch not found for repo",
+    ],
+    ["a GitHub 500", withStatus("Server Error", 500), "Server Error"],
+    ["a string rejection", "boom", "boom"],
+  ])(
+    "%s becomes an unexpected failure with its message",
+    (_label, error, message) => {
+      const failure = classifyPrActionFailure(error);
+      expect(failure._tag).toBe("UnexpectedActionFailure");
+      expect(failure.message).toBe(message);
+    },
+  );
+});
+
+/** Octokit's `RequestError`: an `Error` carrying the HTTP status. */
+function withStatus(message: string, status: number): Error {
+  const error = new Error(message);
+  return Object.assign(error, { status });
+}
 
 /**
  * Comments name the very calls these rules rule out, so they have to go first.

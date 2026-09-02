@@ -18,11 +18,13 @@ convention — they are the reference implementation, not this document.
 - **Yes:** `"use node"` Convex actions and their helpers, `callback-src/`
   (sandbox-side Node program), pure modules under `convex/_git`, `convex/_github`,
   `convex/_effect`, `convex/_sandbox*`.
-- **Not yet:** V8-isolate Convex modules (queries, mutations, non-node actions).
-  A module that is not `"use node"` must not import `effect` at runtime
-  (`import type` is fine). Check the runtime import graph before adding an import
-  to a shared module — `convex/_sandbox/provider.ts` is reached by isolate
-  workflow modules and must stay `import type`-only from their side.
+- **Sparingly, and only via the runner:** V8-isolate Convex modules (queries,
+  mutations, non-node actions) may import `effect` when an action needs its
+  failures to reach the user through `runActionEffect` (see below). Each isolate
+  module that does so pays ~500KB of effect in its bundle (measured on
+  `convex/docs.ts`: 1.49MB → 2.02MB), so do not add `effect` to a shared
+  isolate module casually, and keep `convex/_sandbox/provider.ts` `import type`-only
+  from the workflow modules that reach it.
 - **Never:** `apps/web`, `packages/ui`, `@convex-dev/workflow` step retry policy
   (`convex/workflowManager.ts` owns durable retries; Effect `Schedule` is only for
   retries _inside_ a single action).
@@ -114,9 +116,30 @@ version.
 ## Adoption roadmap (for continuity)
 
 Done: (1) tagged sandbox errors + retry schedules, (2) Schema in
-`callback-src/parse/`, (3) git/GitHub failure classifiers. Next: (4) an
-`effectAction` wrapper over convex-helpers `authAction` mapping tagged errors →
-`ConvexError` with a `_tag` payload (first Effect in the V8 isolate — measure the
-bundle); (5) `callback-src/providers/*ParseLine` onto Schema. Migration to Effect
-v4 is deferred until a stable 4.1; the official `Effect-TS/skills` repo has an
-`effect-v3-to-v4` skill for that day.
+`callback-src/parse/`, (3) git/GitHub failure classifiers, (4) tagged errors
+across the Convex wire. Next: (5) `callback-src/providers/*ParseLine` onto
+Schema. Migration to Effect v4 is deferred until a stable 4.1; the official
+`Effect-TS/skills` repo has an `effect-v3-to-v4` skill for that day.
+
+## Making an action's failures visible to the user
+
+Production Convex redacts a thrown `Error` to "Server Error"; only
+`ConvexError.data` crosses the wire. Run the handler body through
+`runActionEffect(effect, label)` from `convex/_effect/action.ts`:
+
+- A **Fail** in the error channel (any `Data.TaggedError` with a `message`) is
+  logged and rethrown as `ConvexError({ tag: _tag, message })` — the contract is
+  `@eva/shared/convexErrorPayload` (`tag`, not `_tag`: Convex fields cannot start
+  with an underscore). The web reads it with `convexErrorMessage` /
+  `convexErrorTag` in `apps/web/src/lib/utils/convexErrorMessage.ts`.
+- A **Die** (defect) is rethrown unchanged and stays redacted. Make an outcome
+  visible by putting it in the error channel (`Effect.fail(new SomeTag({ message }))`
+  or `Effect.tryPromise({ catch: classifyX })`); leave infrastructure calls
+  (`ctx.runQuery` etc.) in `Effect.promise` so their failures stay defects.
+- Use a specific classifier when one exists (`classifyPrActionFailure` in
+  `_github/prErrors.ts`); `UnexpectedActionFailure` is the catch-all for a
+  failure that must be visible but has no specific tag.
+- There is deliberately no `customAction`-based `effectAction` wrapper: the
+  runner drops into any `action`/`authAction` handler as-is.
+- Any web caller that catches an action error must go through
+  `convexErrorMessage`, or a structured payload renders as a JSON blob.

@@ -52,6 +52,7 @@ import type * as _docEditor_markdown from "../_docEditor/markdown.js";
 import type * as _drafts_helpers from "../_drafts/helpers.js";
 import type * as _drafts_mutations from "../_drafts/mutations.js";
 import type * as _drafts_queries from "../_drafts/queries.js";
+import type * as _effect_action from "../_effect/action.js";
 import type * as _effect_retry from "../_effect/retry.js";
 import type * as _envVars_listDisplay from "../_envVars/listDisplay.js";
 import type * as _envVars_vercelCredentials from "../_envVars/vercelCredentials.js";
@@ -429,6 +430,7 @@ declare const fullApi: ApiFromModules<{
   "_drafts/helpers": typeof _drafts_helpers;
   "_drafts/mutations": typeof _drafts_mutations;
   "_drafts/queries": typeof _drafts_queries;
+  "_effect/action": typeof _effect_action;
   "_effect/retry": typeof _effect_retry;
   "_envVars/listDisplay": typeof _envVars_listDisplay;
   "_envVars/vercelCredentials": typeof _envVars_vercelCredentials;

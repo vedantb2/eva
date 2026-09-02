@@ -1,6 +1,6 @@
 import { ConvexError } from "convex/values";
 import { describe, expect, test } from "vitest";
-import { convexErrorMessage } from "./convexErrorMessage";
+import { convexErrorMessage, convexErrorTag } from "./convexErrorMessage";
 
 /**
  * Production Convex redacts the message of a plain `Error` to "Server Error",
@@ -9,7 +9,19 @@ import { convexErrorMessage } from "./convexErrorMessage";
  * failed. Only `ConvexError` data crosses the wire intact (fix aea40f89).
  */
 describe("convexErrorMessage", () => {
-  test("prefers the ConvexError data that survived the wire", () => {
+  test("reads the message out of a structured payload", () => {
+    expect(
+      convexErrorMessage(
+        new ConvexError({
+          tag: "GitHubBranchNotAhead",
+          message: "eva/task-12 is not ahead of staging",
+        }),
+        "Failed to create PR",
+      ),
+    ).toBe("eva/task-12 is not ahead of staging");
+  });
+
+  test("prefers the legacy string ConvexError data that survived the wire", () => {
     expect(
       convexErrorMessage(
         new ConvexError("eva/task-12 is not ahead of staging"),
@@ -31,5 +43,65 @@ describe("convexErrorMessage", () => {
     expect(convexErrorMessage(undefined, "Failed to create PR")).toBe(
       "Failed to create PR",
     );
+  });
+
+  /**
+   * Data that does not match the contract is not a payload, so these fall
+   * through to `Error.message` exactly as they did before payloads existed —
+   * `ConvexError` stringifies non-string data into its own message.
+   */
+  describe("data that is not a payload", () => {
+    test("an object missing message", () => {
+      expect(
+        convexErrorMessage(
+          new ConvexError({ tag: "GitHubBranchNotAhead" }),
+          "Failed to create PR",
+        ),
+      ).toBe('{"tag":"GitHubBranchNotAhead"}');
+    });
+
+    test("a number", () => {
+      expect(
+        convexErrorMessage(new ConvexError(42), "Failed to create PR"),
+      ).toBe("42");
+    });
+
+    test("an empty tag", () => {
+      expect(
+        convexErrorMessage(
+          new ConvexError({ tag: "", message: "Boom" }),
+          "Failed to create PR",
+        ),
+      ).toBe('{"tag":"","message":"Boom"}');
+    });
+  });
+});
+
+describe("convexErrorTag", () => {
+  test("reads the backend error's _tag off a structured payload", () => {
+    expect(
+      convexErrorTag(
+        new ConvexError({
+          tag: "GitHubBranchNotAhead",
+          message: "eva/task-12 is not ahead of staging",
+        }),
+      ),
+    ).toBe("GitHubBranchNotAhead");
+  });
+
+  test("is undefined for anything without a payload", () => {
+    expect(
+      convexErrorTag(new ConvexError("plain string data")),
+    ).toBeUndefined();
+    expect(
+      convexErrorTag(new ConvexError({ tag: "GitHubBranchNotAhead" })),
+    ).toBeUndefined();
+    expect(
+      convexErrorTag(new ConvexError({ tag: "", message: "Boom" })),
+    ).toBeUndefined();
+    expect(convexErrorTag(new ConvexError(42))).toBeUndefined();
+    expect(convexErrorTag(new Error("Not authenticated"))).toBeUndefined();
+    expect(convexErrorTag("boom")).toBeUndefined();
+    expect(convexErrorTag(undefined)).toBeUndefined();
   });
 });

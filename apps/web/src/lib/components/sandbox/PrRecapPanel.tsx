@@ -16,6 +16,7 @@ import {
   type StoredModelTraits,
 } from "@eva/backend";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
+import { convexErrorMessage } from "@/lib/utils/convexErrorMessage";
 import {
   ActivityTasks,
   Spinner,
@@ -93,9 +94,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
         ...toRunTraitArgs(traits),
       });
     } catch (error) {
-      setGenerateError(
-        error instanceof Error ? error.message : "Couldn't generate recap",
-      );
+      setGenerateError(convexErrorMessage(error, "Couldn't generate recap"));
     }
     setIsGenerating(false);
   };

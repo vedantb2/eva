@@ -47,6 +47,99 @@ export async function assertProviderAccountUsableBy(
   return providerAccountId;
 }
 
+type TurnProviderAccountBase = {
+  requestedAccountId: Id<"userProviderAccounts"> | undefined;
+  ownerUserId: Id<"users">;
+  model: string | undefined;
+};
+
+/**
+ * Team (undefined) stays Team. A concrete account that no longer matches the
+ * model's provider falls back to the owner's default for that provider — a
+ * cross-provider model switch must not run on the wrong provider's credential.
+ */
+async function reconcileUsableAccountForModel(
+  db: GenericDatabaseReader<DataModel>,
+  ownerUserId: Id<"users">,
+  model: string | undefined,
+  accountId: Id<"userProviderAccounts"> | undefined,
+): Promise<Id<"userProviderAccounts"> | undefined> {
+  if (accountId === undefined) return undefined;
+  return await reconcileProviderAccountForModel(
+    db,
+    ownerUserId,
+    model,
+    accountId,
+  );
+}
+
+/**
+ * Resolves the account a chat turn should run on. Project and task chat are
+ * owner-sticky: only the owner may point the turn at a different account.
+ * Session chat lets anyone with access pick from the owner's pool. Both then
+ * reconcile the provider, so switching model provider never throws — an
+ * automatic reconcile is not a collaborator changing the billed account.
+ */
+export async function resolveTurnProviderAccountId(
+  db: GenericDatabaseReader<DataModel>,
+  args:
+    | (TurnProviderAccountBase & {
+        changePolicy: "owner-only";
+        currentAccountId: Id<"userProviderAccounts"> | undefined;
+        senderUserId: Id<"users">;
+        ownerNoun: "project owner" | "task owner";
+      })
+    | (TurnProviderAccountBase & {
+        changePolicy: "owner-pool";
+      }),
+): Promise<Id<"userProviderAccounts"> | undefined> {
+  if (args.changePolicy === "owner-only") {
+    const requested = args.requestedAccountId;
+    if (requested === undefined) {
+      // The entity's stored account is server state, not a caller pick, so a
+      // stale id (owner deleted the account) degrades to the owner's default
+      // for this model rather than failing the turn.
+      return await reconcileUsableAccountForModel(
+        db,
+        args.ownerUserId,
+        args.model,
+        args.currentAccountId,
+      );
+    }
+    if (
+      args.senderUserId !== args.ownerUserId &&
+      requested !== args.currentAccountId
+    ) {
+      throw new Error(
+        `Only the ${args.ownerNoun} can change the provider account`,
+      );
+    }
+    const accountId = await assertProviderAccountUsableBy(
+      db,
+      requested,
+      args.ownerUserId,
+    );
+    return await reconcileUsableAccountForModel(
+      db,
+      args.ownerUserId,
+      args.model,
+      accountId,
+    );
+  }
+
+  const accountId = await assertProviderAccountUsableBy(
+    db,
+    args.requestedAccountId,
+    args.ownerUserId,
+  );
+  return await reconcileUsableAccountForModel(
+    db,
+    args.ownerUserId,
+    args.model,
+    accountId,
+  );
+}
+
 /**
  * When the model provider changes, keep the current account only if it still
  * matches; otherwise fall back to the owner's default for the new provider.

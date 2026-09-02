@@ -13,6 +13,7 @@ import {
 } from "../_queues/helpers";
 import type { WorkflowId } from "@convex-dev/workflow";
 import { syncSessionDaemonState } from "../_sessions/daemonState";
+import { STALL_ALERT_TEXT } from "./stallRetry";
 
 /** Streaming entityId prefix for project chat workflows. */
 export const PROJECT_CHAT_STREAM_PREFIX = "project-chat-";
@@ -101,8 +102,8 @@ function stalledAlert(
   thresholdSeconds: number,
 ): ChatAlert {
   return {
-    text: "Turn stalled: the agent process in the sandbox stopped responding.",
-    detail: `No heartbeat for ${staleSeconds}s (phase: ${phase}, threshold: ${thresholdSeconds}s). The agent process likely crashed (for example out of memory). The sandbox was preserved — any committed work is intact; send a new message to continue.`,
+    text: STALL_ALERT_TEXT,
+    detail: `No lease renewal for ${staleSeconds}s (phase: ${phase}, running lease: ${thresholdSeconds}s). The agent process stopped heartbeating. The sandbox was preserved — any committed work is intact. Eva retries an empty stalled prompt once.`,
   };
 }
 

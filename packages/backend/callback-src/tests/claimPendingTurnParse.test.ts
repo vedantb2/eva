@@ -2,6 +2,8 @@ import { describe, expect, test } from "vitest";
 import {
   readCancelRequested,
   readStopTaskToolUseIds,
+  readTurnLeaseIdentity,
+  readUsageRefreshRequested,
 } from "../providers/claimPendingTurnParse.js";
 import type { JsonValue } from "../types.js";
 
@@ -64,6 +66,32 @@ describe("readCancelRequested", () => {
   });
 });
 
+describe("readUsageRefreshRequested", () => {
+  test("reads a top-level refresh flag", () => {
+    expect(readUsageRefreshRequested({ usageRefreshRequested: true })).toBe(
+      true,
+    );
+  });
+
+  test("reads a refresh flag nested under the value envelope", () => {
+    expect(
+      readUsageRefreshRequested({ value: { usageRefreshRequested: true } }),
+    ).toBe(true);
+  });
+
+  test("a missing flag reads as no refresh", () => {
+    expect(readUsageRefreshRequested({ cancelRequested: true })).toBe(false);
+    expect(readUsageRefreshRequested({ value: {} })).toBe(false);
+    expect(readUsageRefreshRequested({})).toBe(false);
+  });
+
+  test("truthy non-boolean values do not count as a refresh", () => {
+    expect(
+      readUsageRefreshRequested({ usageRefreshRequested: "true" }),
+    ).toBe(false);
+  });
+});
+
 /**
  * Sibling reader sharing the exact same value-envelope unwrapping. Kept here so
  * a change to that shared shape can only pass if both readers still agree.
@@ -88,5 +116,28 @@ describe("readStopTaskToolUseIds", () => {
     ).toEqual(["a", "b"]);
     expect(readStopTaskToolUseIds({})).toEqual([]);
     expect(readStopTaskToolUseIds(null)).toEqual([]);
+  });
+});
+
+describe("readTurnLeaseIdentity", () => {
+  test("reads an exact lease identity from Convex's value envelope", () => {
+    expect(
+      readTurnLeaseIdentity({
+        value: { turnId: "turn-1", leaseGeneration: 4 },
+      }),
+    ).toEqual({ turnId: "turn-1", leaseGeneration: 4 });
+  });
+
+  test("rejects partial, non-integral, and non-positive identities", () => {
+    expect(readTurnLeaseIdentity({ turnId: "turn-1" })).toBeNull();
+    expect(
+      readTurnLeaseIdentity({ turnId: "turn-1", leaseGeneration: 1.5 }),
+    ).toBeNull();
+    expect(
+      readTurnLeaseIdentity({ turnId: "turn-1", leaseGeneration: 0 }),
+    ).toBeNull();
+    expect(
+      readTurnLeaseIdentity({ turnId: 1, leaseGeneration: 1 }),
+    ).toBeNull();
   });
 });

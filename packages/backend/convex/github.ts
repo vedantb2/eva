@@ -11,7 +11,14 @@ export {
 
 export { createSessionPr, createDraftSessionPr } from "./_github/prFlow";
 
-export { getPrDiff, getPrFileContents, getCommitDiff } from "./_github/prDiff";
+export { generatePrDescription } from "./_github/prDescription";
+
+export {
+  getPrDiff,
+  getPrFileContents,
+  getCommitDiff,
+  getCompareDiff,
+} from "./_github/prDiff";
 
 export { listPullRequests, getPullRequestHeader } from "./_github/pullRequests";
 
@@ -23,6 +30,13 @@ export {
 } from "./_github/prOverview";
 
 export { submitPrReview, addPrComment } from "./_github/prReview";
+
+export {
+  listPullRequestCandidates,
+  setPullRequestReviewers,
+  setPullRequestAssignees,
+  setPullRequestLabels,
+} from "./_github/prMeta";
 
 export { syncRepos } from "./_github/sync";
 

@@ -4,27 +4,23 @@ import {
   api,
   normalizeAIModel,
   type AIModel,
-  type AIProvider,
   type Id,
   type ReasoningLevel,
   type StoredModelTraits,
 } from "@eva/backend";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import {
-  normalizeMode,
-  type SessionMode,
-} from "@/lib/hooks/useSessionSettings";
+import { useProviderAccountHandoff } from "@/lib/hooks/useProviderAccountHandoff";
 
 /**
- * Session composer prefs backed by Convex (`sessions.lastModel` / `lastMode` /
- * trait fields / `providerAccountId`) as the source of truth. Read straight
- * off the live `sessions.get` query — no mirrored `useState` — so picks stay
- * sticky across reloads, tabs, and devices.
+ * Session composer prefs backed by Convex (`sessions.lastModel` / trait fields
+ * / `providerAccountId`) as the source of truth. Read straight off the live
+ * `sessions.get` query — no mirrored `useState` — so picks stay sticky across
+ * reloads, tabs, and devices.
  *
  * Changes go through sticky setters with optimistic patches. While the session
- * query is still loading the picker shows `defaultModel`, mode `"edit"`,
- * model-default traits, and Team account.
+ * query is still loading the picker shows `defaultModel`, model-default traits,
+ * and Team account.
  */
 export function useSessionModel(
   sessionId: Id<"sessions">,
@@ -32,25 +28,18 @@ export function useSessionModel(
 ): {
   model: AIModel;
   setModel: (model: AIModel) => void;
-  mode: SessionMode | undefined;
-  setMode: (mode: SessionMode) => void;
   /** Sticky traits from Convex; undefined fields use model defaults. */
   traits: StoredModelTraits;
   setTraits: (partial: Partial<StoredModelTraits>) => void;
   /** undefined while session loading — treat as Team until the query lands. */
-  providerAccountId: string | null | undefined;
+  providerAccountId: Id<"userProviderAccounts"> | null | undefined;
   setProviderAccountId: (
     providerAccountId: Id<"userProviderAccounts"> | null,
   ) => void;
-  /**
-   * Provider this session is pinned to; undefined while loading and on
-   * sessions created before the lock. Feed it to
-   * `getLockedProviderModelOptions` so the picker cannot offer a model the
-   * session mutations will reject.
-   */
-  lockedProvider: AIProvider | undefined;
+  isSwitchingAccount: boolean;
 } {
   const session = useQuery(api.sessions.get, { id: sessionId });
+  const prewarmDaemonNow = useAction(api.sessionWorkflow.prewarmDaemonNow);
   const setModelMutation = useMutation(
     api.sessions.setModel,
   ).withOptimisticUpdate((localStore, args) => {
@@ -60,17 +49,6 @@ export function useSessionModel(
       api.sessions.get,
       { id: args.id },
       { ...current, lastModel: args.model },
-    );
-  });
-  const setModeMutation = useMutation(
-    api.sessions.setMode,
-  ).withOptimisticUpdate((localStore, args) => {
-    const current = localStore.getQuery(api.sessions.get, { id: args.id });
-    if (!current) return;
-    localStore.setQuery(
-      api.sessions.get,
-      { id: args.id },
-      { ...current, lastMode: args.mode },
     );
   });
   const setProviderAccountIdMutation = useMutation(
@@ -88,6 +66,12 @@ export function useSessionModel(
       },
     );
   });
+  const { isSwitchingAccount, switchProviderAccount } =
+    useProviderAccountHandoff({
+      persist: (providerAccountId) =>
+        setProviderAccountIdMutation({ id: sessionId, providerAccountId }),
+      prewarm: () => prewarmDaemonNow({ sessionId }),
+    });
   const setTraitsMutation = useMutation(
     api.sessions.setTraits,
   ).withOptimisticUpdate((localStore, args) => {
@@ -121,10 +105,6 @@ export function useSessionModel(
     });
   };
 
-  const setMode = (mode: SessionMode) => {
-    void setModeMutation({ id: sessionId, mode });
-  };
-
   const setTraits = (partial: Partial<StoredModelTraits>) => {
     const reasoningLevel: ReasoningLevel | undefined = partial.effortLevel;
     void setTraitsMutation({
@@ -140,20 +120,9 @@ export function useSessionModel(
     });
   };
 
-  const setProviderAccountId = (
-    providerAccountId: Id<"userProviderAccounts"> | null,
-  ) => {
-    void setProviderAccountIdMutation({ id: sessionId, providerAccountId });
-  };
-
   return {
     model,
     setModel,
-    mode:
-      session?.lastMode !== undefined
-        ? normalizeMode(session.lastMode)
-        : undefined,
-    setMode,
     traits: {
       effortLevel: session?.lastReasoningLevel,
       thinkingEnabled: session?.lastThinkingEnabled,
@@ -163,7 +132,7 @@ export function useSessionModel(
     setTraits,
     providerAccountId:
       session === undefined ? undefined : (session?.providerAccountId ?? null),
-    setProviderAccountId,
-    lockedProvider: session?.provider,
+    setProviderAccountId: switchProviderAccount,
+    isSwitchingAccount,
   };
 }

@@ -5,25 +5,19 @@ import type { Id } from "@eva/backend";
 import {
   ContextMenu,
   ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuSeparator,
   ContextMenuTrigger,
   motionFast,
-  toast,
 } from "@eva/ui";
-import {
-  IconArchive,
-  IconArchiveOff,
-  IconClipboard,
-  IconCopy,
-  IconExternalLink,
-  IconGitBranch,
-  IconLink,
-  IconPencil,
-} from "@tabler/icons-react";
+import { useState } from "react";
 import { entityPathSegment } from "@/lib/numId";
 import { SidebarSessionItem } from "@/lib/components/sidebar/SidebarSessionItem";
+import {
+  SessionMenuItems,
+  useIsRegeneratingTitle,
+} from "@/lib/components/sidebar/SessionMenuItems";
 import { SharedLayoutNavSurface } from "@/lib/components/sidebar/SharedLayoutNav";
+import { SessionReviewModal } from "@/routes/_repo/$owner/$repo/sessions/_components/SessionReviewModal";
+import { canSendSessionForReview } from "@/routes/_repo/$owner/$repo/sessions/_utils/sessionReadOnly";
 
 type SessionStatus = "active" | "starting" | "stopping" | "closed";
 
@@ -33,11 +27,14 @@ interface SessionItem {
   _creationTime: number;
   userId: Id<"users">;
   title: string;
+  titleRegeneration?: { startedAt: number };
   status: SessionStatus;
   isExecuting?: boolean;
+  isOrchestrator?: boolean;
   updatedAt?: number;
   sandboxId?: string;
   branchName?: string;
+  baseBranch?: string;
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
 }
@@ -76,123 +73,90 @@ export function SidebarSessionRow<T extends SessionItem>({
   const pathSegment = entityPathSegment(session);
   const href = pathSegment ? `${baseUrl}/${pathSegment}` : baseUrl;
   const isArchivedList = onUnarchive !== undefined;
-  const branchName = session.branchName;
-  const prUrl = session.prUrl;
+  const isRegeneratingTitle = useIsRegeneratingTitle(session);
+  // Same gate the chat header uses, minus archived rows — an archived session
+  // is read-only, so opening its PR from here would be a dead end.
+  const canSendForReview = !isArchivedList && canSendSessionForReview(session);
+  // Row-local: the dialog belongs to this session and the row outlives it
+  // (unlike archive, which removes the row and so is owned by the sidebar).
+  const [isReviewOpen, setIsReviewOpen] = useState(false);
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <m.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: 8 }}
-          transition={motionFast}
-        >
-          <SharedLayoutNavSurface
-            itemId={session._id}
-            isActive={isSelected}
-            className="group mx-1 rounded-menu-item"
+    <>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
+          <m.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={motionFast}
           >
-            <SidebarSessionItem
-              href={href}
-              title={session.title}
-              sessionId={session._id}
-              userId={session.userId}
-              createdAt={session._creationTime}
-              updatedAt={session.updatedAt}
-              status={session.status}
-              isExecuting={session.isExecuting === true}
-              isSelected={isSelected}
-              onNavigate={onNavigate}
-              prUrl={prUrl}
-              prState={session.prState}
-            />
-          </SharedLayoutNavSurface>
-        </m.div>
-      </ContextMenuTrigger>
-      <ContextMenuContent onClick={(e) => e.stopPropagation()}>
-        {!isArchivedList && onRename && onRenameRequest ? (
-          <ContextMenuItem onSelect={() => onRenameRequest(session)}>
-            <IconPencil size={16} />
-            Rename
-          </ContextMenuItem>
-        ) : null}
-        {!isArchivedList && onDuplicate && onDuplicateNavigate ? (
-          <ContextMenuItem
-            onSelect={() => {
-              void onDuplicate(session).then((newPathSegment) => {
-                onDuplicateNavigate(newPathSegment);
-              });
-            }}
-          >
-            <IconCopy size={16} />
-            Duplicate
-          </ContextMenuItem>
-        ) : null}
-        <ContextMenuItem
-          onSelect={() => {
-            void navigator.clipboard.writeText(session.title);
-          }}
-        >
-          <IconClipboard size={16} />
-          Copy title
-        </ContextMenuItem>
-        <ContextMenuItem
-          onSelect={() => {
-            void navigator.clipboard.writeText(window.location.origin + href);
-          }}
-        >
-          <IconLink size={16} />
-          Copy link
-        </ContextMenuItem>
-        {branchName ? (
-          <ContextMenuItem
-            onSelect={() => {
-              void navigator.clipboard.writeText(branchName).then(() => {
-                toast.success("Branch name copied");
-              });
-            }}
-          >
-            <IconGitBranch size={16} />
-            Copy branch name
-          </ContextMenuItem>
-        ) : null}
-        {prUrl ? (
-          <ContextMenuItem
-            onSelect={() => {
-              window.open(prUrl, "_blank", "noopener,noreferrer");
-            }}
-          >
-            <IconExternalLink size={16} />
-            Open PR
-          </ContextMenuItem>
-        ) : null}
-        {isArchivedList && onUnarchive ? (
-          <>
-            <ContextMenuSeparator />
-            <ContextMenuItem
-              onSelect={() => {
-                void onUnarchive(session);
-              }}
+            <SharedLayoutNavSurface
+              itemId={session._id}
+              isActive={isSelected}
+              className="group mx-1 rounded-menu-item"
             >
-              <IconArchiveOff size={16} />
-              Unarchive
-            </ContextMenuItem>
-          </>
-        ) : null}
-        {!isArchivedList && onArchiveRequest ? (
-          <>
-            <ContextMenuSeparator />
-            <ContextMenuItem
-              className="text-warning"
-              onSelect={() => onArchiveRequest(session)}
-            >
-              <IconArchive size={16} />
-              Archive
-            </ContextMenuItem>
-          </>
-        ) : null}
-      </ContextMenuContent>
-    </ContextMenu>
+              <SidebarSessionItem
+                href={href}
+                title={session.title}
+                isRegeneratingTitle={isRegeneratingTitle}
+                sessionId={session._id}
+                userId={session.userId}
+                createdAt={session._creationTime}
+                updatedAt={session.updatedAt}
+                status={session.status}
+                isExecuting={session.isExecuting === true}
+                isOrchestrator={session.isOrchestrator === true}
+                isSelected={isSelected}
+                onNavigate={onNavigate}
+                prUrl={session.prUrl}
+                prState={session.prState}
+                baseBranch={session.baseBranch}
+              />
+            </SharedLayoutNavSurface>
+          </m.div>
+        </ContextMenuTrigger>
+        <ContextMenuContent onClick={(e) => e.stopPropagation()}>
+          <SessionMenuItems
+            session={session}
+            href={href}
+            isRegeneratingTitle={isRegeneratingTitle}
+            onRenameRequest={
+              !isArchivedList && onRename && onRenameRequest
+                ? () => onRenameRequest(session)
+                : undefined
+            }
+            onDuplicate={
+              !isArchivedList && onDuplicate
+                ? () => onDuplicate(session)
+                : undefined
+            }
+            onDuplicateNavigate={onDuplicateNavigate}
+            onSendForReview={
+              canSendForReview ? () => setIsReviewOpen(true) : undefined
+            }
+            onUnarchive={
+              isArchivedList && onUnarchive
+                ? () => onUnarchive(session)
+                : undefined
+            }
+            onArchiveRequest={
+              !isArchivedList && onArchiveRequest
+                ? () => onArchiveRequest(session)
+                : undefined
+            }
+          />
+        </ContextMenuContent>
+      </ContextMenu>
+      {/* Sibling of the menu, not a child: Radix unmounts menu content on close,
+          which would tear the dialog down with it. */}
+      {canSendForReview ? (
+        <SessionReviewModal
+          sessionId={session._id}
+          open={isReviewOpen}
+          onClose={() => setIsReviewOpen(false)}
+        />
+      ) : null}
+    </>
   );
 }

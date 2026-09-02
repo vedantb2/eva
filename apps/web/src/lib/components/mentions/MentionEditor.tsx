@@ -9,6 +9,7 @@ import {
   type Ref,
 } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence } from "motion/react";
 import { formatMentionToken } from "./mentionToken";
 import { formatSkillToken } from "./skillToken";
 import {
@@ -16,20 +17,28 @@ import {
   buildSkillPattern,
   extractEditableText,
   isEditorValueEmpty,
+  isInsertedTokenTrigger,
   normalizeMentionText,
   placeCursorAtEnd,
   renderEditorChipHtml,
+  type InsertedToken,
 } from "./mentionEditorUtils";
 import { MENTION_CHIP_CLASS, SKILL_CHIP_CLASS } from "./mentionChipStyles";
 import { countLinkUrls } from "./linkChipUtils";
-import { MentionPickerPopup } from "./MentionPickerPopup";
+import {
+  MentionPickerPopup,
+  type MentionPopupLayout,
+} from "./MentionPickerPopup";
+import { MentionRow, type MentionKind } from "./MentionRow";
 import {
   computeMentionPopupPlacement,
+  computePanelPopupPlacement,
   getSelectionAnchorRect,
   type MentionPopupPlacement,
 } from "./mentionPopupPosition";
-import { UserInitials, UserProfileHoverCardBody } from "@eva/shared";
-import type { Id } from "@eva/backend";
+import { cn } from "@eva/ui";
+import { UserProfileHoverCardBody } from "@eva/shared";
+import type { AIProvider, Id } from "@eva/backend";
 
 // The inline AI suggestion renders as an `::after` pseudo-element fed by
 // `data-suggestion`, mirroring how the placeholder uses `::before`. A pseudo-
@@ -42,8 +51,12 @@ export interface MentionItem<TId extends string = string> {
   id: TId;
   label: string;
   description?: string;
-  /** Type badge shown in the picker (e.g. Document, Session, Person). */
+  /** Type badge shown in the picker (e.g. Eva, Claude, Person). */
   badge?: string;
+  /** Provider badge identity, used to select its logo without matching text. */
+  provider?: AIProvider;
+  /** Data entity kind — the picker shows its icon in place of a kind badge. */
+  kind?: MentionKind;
   /**
    * Set when this item is a teammate rather than a data entity, so the picker
    * row shows their avatar. Same value as `id` for people items; kept separate
@@ -116,6 +129,12 @@ export interface MentionEditorProps<TItem extends MentionItem = MentionItem> {
   filterSlashItem?: (item: SlashItem, query: string) => boolean;
   filterItem?: (item: TItem, query: string) => boolean;
   emptySlashContent?: ReactNode;
+  /**
+   * `caret` (default) puts a compact list next to the caret. `panel` renders a
+   * full-width sheet above the nearest `[data-mention-popup-anchor]` ancestor
+   * (the composer card).
+   */
+  popupLayout?: MentionPopupLayout;
   mentionPopupTitle?: string;
   onMentionChipClick?: (id: string) => void;
   onSkillChipClick?: (id: string) => void;
@@ -159,80 +178,40 @@ const CLOSED_TRIGGER: TriggerState = {
   kind: "mention",
 };
 
-function previewOneLine(text: string, maxLength = 72): string {
-  const singleLine = text.replace(/\s+/g, " ").trim();
-  if (singleLine.length <= maxLength) return singleLine;
-  return `${singleLine.slice(0, maxLength - 1)}…`;
-}
-
-function renderMenuItemRow(
-  prefix: string,
-  label: string,
-  detail: string | null,
-  badge?: string,
-): ReactNode {
+function renderRow(prefix: "@" | "/", item: MentionItem): ReactNode {
   return (
-    <span className="flex min-w-0 w-full flex-col gap-0.5 overflow-hidden">
-      <span className="flex min-w-0 items-center gap-1.5">
-        <span className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden">
-          <span className="shrink-0 text-muted-foreground">{prefix}</span>
-          <span className="truncate">{label}</span>
-        </span>
-        {badge ? (
-          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
-            {badge}
-          </span>
-        ) : null}
-      </span>
-      {detail ? (
-        <span className="truncate text-xs text-muted-foreground">{detail}</span>
-      ) : null}
-    </span>
+    <MentionRow
+      prefix={prefix}
+      label={item.label}
+      description={item.description}
+      badge={item.badge}
+      provider={item.provider}
+      kind={item.kind}
+      personUserId={item.personUserId}
+    />
   );
 }
 
 function defaultRenderItem(item: MentionItem, _isSelected: boolean): ReactNode {
-  // People read better as an avatar + name than as an `@`-prefixed slug, and the
-  // name is PII so it carries `data-pii` for screenshot redaction.
-  if (item.personUserId !== undefined) {
-    return (
-      <span className="flex w-full min-w-0 items-center gap-2">
-        <UserInitials userId={item.personUserId} size="sm" hideLastSeen />
-        <span data-pii className="min-w-0 flex-1 truncate">
-          {item.label}
-        </span>
-        {item.badge ? (
-          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
-            {item.badge}
-          </span>
-        ) : null}
-      </span>
-    );
-  }
-  const detail = item.description ? previewOneLine(item.description) : null;
-  return renderMenuItemRow("@", item.label, detail, item.badge);
+  return renderRow("@", item);
 }
 
 function defaultRenderSlashItem(
   item: SlashItem,
   _isSelected: boolean,
 ): ReactNode {
-  const detail = item.description ? previewOneLine(item.description) : null;
-  return renderMenuItemRow("/", item.label, detail, item.badge);
+  return renderRow("/", item);
 }
 
-function defaultFilterSlashItem(item: SlashItem, query: string): boolean {
-  const q = query.toLowerCase();
-  if (item.label.toLowerCase().includes(q)) return true;
-  if (item.description?.toLowerCase().includes(q)) return true;
-  return false;
-}
-
-function defaultFilter(item: MentionItem, query: string): boolean {
-  const q = query.toLowerCase();
-  if (item.label.toLowerCase().includes(q)) return true;
-  if (item.description?.toLowerCase().includes(q)) return true;
-  return false;
+/**
+ * Substring match against the label or description. A query can never contain
+ * whitespace — a space ends the `@`/`/` trigger — so one substring is enough.
+ */
+function matchesQuery(item: MentionItem, query: string): boolean {
+  const needle = query.toLowerCase();
+  if (needle.length === 0) return true;
+  const haystack = `${item.label} ${item.description ?? ""}`.toLowerCase();
+  return haystack.includes(needle);
 }
 
 function isValidTrigger(value: string, triggerIndex: number): boolean {
@@ -303,9 +282,10 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
   onLargeTextPaste,
   renderItem = defaultRenderItem,
   renderSlashItem = defaultRenderSlashItem,
-  filterItem = defaultFilter,
-  filterSlashItem = defaultFilterSlashItem,
+  filterItem = matchesQuery,
+  filterSlashItem = matchesQuery,
   emptySlashContent,
+  popupLayout = "caret",
   mentionPopupTitle = "Data",
   onMentionChipClick,
   onSkillChipClick,
@@ -325,9 +305,15 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     mentionChipHoverCard ||
     renderMentionChipHoverCard !== undefined ||
     renderSkillChipHoverCard !== undefined;
+  const isPanel = popupLayout === "panel";
   const editorRef = useRef<HTMLDivElement>(null);
   const [trigger, setTrigger] = useState<TriggerState>(CLOSED_TRIGGER);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  /**
+   * The chip the last accept inserted, so the trigger scan can tell it apart
+   * from a trigger the user is still typing. See `isInsertedTokenTrigger`.
+   */
+  const insertedTokenRef = useRef<InsertedToken | null>(null);
   const [popupPlacement, setPopupPlacement] =
     useState<MentionPopupPlacement | null>(null);
   const [mentionMap, setMentionMap] = useState<Map<string, string>>(() =>
@@ -466,6 +452,10 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     const visible = `${prefix}${item.label}`;
     const needsSpace = value.length > 0 && !/\s$/.test(value);
     const newValue = `${value}${needsSpace ? " " : ""}${visible} `;
+    insertedTokenRef.current = {
+      startIndex: value.length + (needsSpace ? 1 : 0),
+      token: visible,
+    };
     if (kind === "mention") {
       setMentionMap((prev) => {
         const next = new Map(prev);
@@ -544,6 +534,10 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     const before = value.slice(0, trigger.startIndex);
     const after = value.slice(trigger.startIndex + trigger.query.length + 1);
     const newValue = before + visible + " " + after;
+    insertedTokenRef.current = {
+      startIndex: trigger.startIndex,
+      token: visible,
+    };
     setMentionMap((prev) => {
       const next = new Map(prev);
       next.set(item.label, item.id);
@@ -559,6 +553,10 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     const before = value.slice(0, trigger.startIndex);
     const after = value.slice(trigger.startIndex + trigger.query.length + 1);
     const newValue = before + visible + " " + after;
+    insertedTokenRef.current = {
+      startIndex: trigger.startIndex,
+      token: visible,
+    };
     setSkillMap((prev) => {
       const next = new Map(prev);
       next.set(item.label, item.id);
@@ -585,7 +583,22 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       items.length > 0,
       slashItems.length > 0 || emptySlashContent !== undefined,
     );
-    if (!next) {
+    // Released only once the chip stops being there — a healthy accept leaves no
+    // trigger at all for a pass or two, so releasing on that would drop the
+    // guard before the keystroke it exists to catch.
+    const inserted = insertedTokenRef.current;
+    if (
+      inserted !== null &&
+      !value.startsWith(inserted.token, inserted.startIndex)
+    ) {
+      insertedTokenRef.current = null;
+    }
+    // The chip the last accept inserted is not a trigger the user is typing,
+    // even when it reads like one because its trailing space was lost.
+    const isChipEcho =
+      next !== null &&
+      isInsertedTokenTrigger(value, next.startIndex, insertedTokenRef.current);
+    if (next === null || isChipEcho) {
       setTrigger((prev) => (prev.isOpen ? CLOSED_TRIGGER : prev));
       return;
     }
@@ -602,8 +615,14 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       requestAnimationFrame(() => {
         const el = editorRef.current;
         if (!el) return;
-        const anchor = getSelectionAnchorRect(el);
-        setPopupPlacement(computeMentionPopupPlacement(anchor));
+        const panelAnchor = isPanel
+          ? el.closest("[data-mention-popup-anchor]")
+          : null;
+        setPopupPlacement(
+          panelAnchor
+            ? computePanelPopupPlacement(panelAnchor.getBoundingClientRect())
+            : computeMentionPopupPlacement(getSelectionAnchorRect(el)),
+        );
       });
     };
     update();
@@ -613,7 +632,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       window.removeEventListener("scroll", update, true);
       window.removeEventListener("resize", update);
     };
-  }, [trigger.isOpen, trigger.query, trigger.startIndex, value]);
+  }, [trigger.isOpen, trigger.query, trigger.startIndex, value, isPanel]);
 
   const handleInput = () => {
     const el = editorRef.current;
@@ -624,6 +643,50 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
     }
   };
 
+  /**
+   * Arrow/Enter/Tab/Escape from the editor while the picker is open. The caret
+   * never leaves the editor — the picker has nothing focusable in it — so this
+   * is the only path that navigates the list.
+   */
+  const handlePickerKeyDown = (e: React.KeyboardEvent<HTMLElement>): boolean => {
+    if (!trigger.isOpen) return false;
+    if (popupItems.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedIndex((prev) =>
+          prev >= popupItems.length - 1 ? 0 : prev + 1,
+        );
+        return true;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedIndex((prev) =>
+          prev <= 0 ? popupItems.length - 1 : prev - 1,
+        );
+        return true;
+      }
+      if (e.key === "Enter") {
+        if (e.nativeEvent.isComposing) return true;
+        e.preventDefault();
+        e.stopPropagation();
+        insertActiveItem();
+        return true;
+      }
+      if (e.key === "Tab") {
+        e.preventDefault();
+        insertActiveItem();
+        return true;
+      }
+    }
+    if (e.key === "Escape") {
+      e.preventDefault();
+      closeTrigger();
+      editorRef.current?.focus();
+      return true;
+    }
+    return false;
+  };
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     const showEmptySlash =
       trigger.isOpen &&
@@ -631,40 +694,12 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
       popupItems.length === 0 &&
       emptySlashContent !== undefined;
 
-    if (trigger.isOpen && (popupItems.length > 0 || showEmptySlash)) {
-      if (popupItems.length > 0) {
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          setSelectedIndex((prev) =>
-            prev >= popupItems.length - 1 ? 0 : prev + 1,
-          );
-          return;
-        }
-        if (e.key === "ArrowUp") {
-          e.preventDefault();
-          setSelectedIndex((prev) =>
-            prev <= 0 ? popupItems.length - 1 : prev - 1,
-          );
-          return;
-        }
-        if (e.key === "Enter") {
-          if (e.nativeEvent.isComposing) return;
-          e.preventDefault();
-          e.stopPropagation();
-          insertActiveItem();
-          return;
-        }
-        if (e.key === "Tab") {
-          e.preventDefault();
-          insertActiveItem();
-          return;
-        }
-      }
-      if (e.key === "Escape") {
-        e.preventDefault();
-        closeTrigger();
-        return;
-      }
+    if (
+      trigger.isOpen &&
+      (popupItems.length > 0 || showEmptySlash) &&
+      handlePickerKeyDown(e)
+    ) {
+      return;
     }
 
     // Inline AI completion. Sits after the picker block so the picker keeps
@@ -873,37 +908,43 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
 
   const isEmpty = isEditorValueEmpty(value);
 
+  // Gated on the *unfiltered* list so a query that matches nothing shows "No
+  // matches" instead of unmounting the popup.
   const showPopup =
     trigger.isOpen &&
-    (popupItems.length > 0 ||
-      (trigger.kind === "slash" && emptySlashContent !== undefined));
+    (trigger.kind === "slash"
+      ? slashItems.length > 0 || emptySlashContent !== undefined
+      : items.length > 0);
 
   const popupTitle = trigger.kind === "slash" ? "Skills" : mentionPopupTitle;
+
+  const sharedPopupProps = {
+    title: popupTitle,
+    selectedIndex,
+  };
 
   const pickerPopup =
     showPopup && popupPlacement ? (
       trigger.kind === "slash" ? (
         <MentionPickerPopup
-          title={popupTitle}
+          key="slash"
+          {...sharedPopupProps}
           placement={popupPlacement}
           items={activeSlashItems}
-          selectedIndex={selectedIndex}
           renderItem={renderSlashItem}
           onSelectItem={insertSlashItem}
-          emptyContent={emptySlashContent}
-          query={trigger.query}
-          onRefocusEditor={() => editorRef.current?.focus()}
+          emptyContent={
+            slashItems.length === 0 ? emptySlashContent : undefined
+          }
         />
       ) : (
         <MentionPickerPopup
-          title={popupTitle}
+          key="mention"
+          {...sharedPopupProps}
           placement={popupPlacement}
           items={activeMentionItems}
-          selectedIndex={selectedIndex}
           renderItem={renderItem}
           onSelectItem={insertMentionItem}
-          query={trigger.query}
-          onRefocusEditor={() => editorRef.current?.focus()}
         />
       )
     ) : null;
@@ -953,11 +994,7 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         aria-multiline="true"
         aria-disabled={disabled ? "true" : undefined}
         aria-label={ariaLabel ?? placeholder ?? "Editor"}
-        className={
-          className
-            ? `${DEFAULT_EDITOR_CLASS} ${className}`
-            : DEFAULT_EDITOR_CLASS
-        }
+        className={cn(DEFAULT_EDITOR_CLASS, className)}
         onInput={disabled ? undefined : handleInput}
         onKeyDown={disabled ? undefined : handleKeyDown}
         onClick={disabled ? undefined : handleChipClick}
@@ -966,8 +1003,15 @@ export function MentionEditor<TItem extends MentionItem = MentionItem>({
         onBlur={disabled ? undefined : handleBlur}
         onPaste={disabled ? undefined : handlePaste}
       />
-      {pickerPopup && typeof document !== "undefined"
-        ? createPortal(pickerPopup, document.body)
+      {/* `AnimatePresence` is portalled unconditionally, with the popup as its
+          conditional child: gating the portal on `pickerPopup` would unmount the
+          presence boundary in the same commit that removes the popup, and the
+          exit animation would never run. */}
+      {typeof document !== "undefined"
+        ? createPortal(
+            <AnimatePresence>{pickerPopup}</AnimatePresence>,
+            document.body,
+          )
         : null}
       {chipHoverCard}
     </>

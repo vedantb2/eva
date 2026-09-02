@@ -1,16 +1,213 @@
 import { expect, test } from "vitest";
 import { splitCursorModel } from "../config.js";
 import { cursorSdkToolToStep } from "../parse/toolSteps.js";
-import { probeCursorSdkToolResult } from "../providers/cursor.js";
 import {
+  cursorCompactionEventPhase,
+  cursorParseLine,
+  probeCursorSdkToolResult,
+} from "../providers/cursor.js";
+import {
+  COST_LOOKUP_RETRY_DELAYS_MS,
+  EMPTY_CURSOR_COST_SNAPSHOT,
   RESOURCE_EXHAUSTED_CHAT_MESSAGE,
   RESOURCE_EXHAUSTED_RETRY_DELAYS_MS,
+  attributeCursorTurnRawCents,
   cursorModeParams,
+  cursorModelCatalogJson,
+  cursorEventHasVisibleActivity,
+  cursorEventWaitTimeoutMs,
+  cursorAgentStartupActivity,
   filterModeParamsByModel,
   isResourceExhaustedMessage,
+  readCursorCostSnapshot,
+  resolveCursorTurnCostUsd,
   runTurnWithResourceExhaustedRetries,
+  shouldRetryStalledCursorCreate,
+  shouldRetryStalledCursorResume,
+  waitForCursorPhase,
+  CursorPhaseTimeoutError,
+  type CursorCostSnapshot,
   type CursorTurnOutcome,
 } from "../providers/cursorSdk.js";
+
+test("Cursor startup activity says whether context is resumed or created", () => {
+  expect(
+    cursorAgentStartupActivity({ mode: "resume", sessionId: "agent-47" }),
+  ).toEqual({
+    label: "Resuming Cursor agent...",
+    detail: "Restoring saved context...",
+  });
+  expect(cursorAgentStartupActivity({ mode: "none", sessionId: null })).toEqual(
+    {
+      label: "Creating Cursor agent...",
+      detail: "Creating a new model context...",
+    },
+  );
+});
+
+test("Cursor SDK phases fail on a bounded deadline", async () => {
+  let timedOut = false;
+  const never = new Promise<string>(() => {});
+  await expect(
+    waitForCursorPhase({
+      task: never,
+      phase: "starting the model run",
+      timeoutMs: 5,
+      onTimeout: () => {
+        timedOut = true;
+      },
+    }),
+  ).rejects.toEqual(new CursorPhaseTimeoutError("starting the model run", 5));
+  expect(timedOut).toBe(true);
+});
+
+test("only a pre-output resumed Cursor stall is safe to replay", () => {
+  expect(
+    shouldRetryStalledCursorResume(
+      new CursorPhaseTimeoutError("starting the model run", 60_000),
+    ),
+  ).toBe(true);
+  expect(
+    shouldRetryStalledCursorResume(
+      new CursorPhaseTimeoutError("waiting for the first model event", 60_000),
+    ),
+  ).toBe(true);
+  expect(
+    shouldRetryStalledCursorResume(
+      new CursorPhaseTimeoutError("waiting for the next model event", 60_000),
+    ),
+  ).toBe(false);
+  expect(
+    shouldRetryStalledCursorResume(
+      new CursorPhaseTimeoutError("finishing the model run", 30_000),
+    ),
+  ).toBe(false);
+});
+
+test("only a stalled Cursor creation is replayed as a creation", () => {
+  expect(
+    shouldRetryStalledCursorCreate(
+      new CursorPhaseTimeoutError("creating a fresh agent", 30_000),
+    ),
+  ).toBe(true);
+  expect(
+    shouldRetryStalledCursorCreate(
+      new CursorPhaseTimeoutError("restoring saved context", 30_000),
+    ),
+  ).toBe(false);
+  expect(
+    shouldRetryStalledCursorCreate(
+      new CursorPhaseTimeoutError("starting the model run", 60_000),
+    ),
+  ).toBe(false);
+  expect(shouldRetryStalledCursorCreate(new Error("agent_not_found"))).toBe(
+    false,
+  );
+});
+
+test("the Cursor model catalog keeps only the ids and aliases the SDK matches on", () => {
+  const json = cursorModelCatalogJson([
+    {
+      id: "grok-4.6",
+      displayName: "Grok 4.6",
+      aliases: ["grok"],
+      parameters: [{ id: "reasoning", values: [{ value: "high" }] }],
+    },
+    { id: "composer-2.5", displayName: "Composer 2.5" },
+  ]);
+  expect(json).not.toBeNull();
+  expect(JSON.parse(json ?? "[]")).toEqual([
+    { id: "grok-4.6", aliases: ["grok"] },
+    { id: "composer-2.5" },
+  ]);
+  // An empty list would make the SDK reject every model, non-retryably.
+  expect(cursorModelCatalogJson([])).toBeNull();
+});
+
+test("Cursor silence policy distinguishes safe startup recovery from visible work", () => {
+  expect(cursorEventHasVisibleActivity("thinking")).toBe(true);
+  expect(cursorEventHasVisibleActivity("assistant")).toBe(true);
+  expect(cursorEventHasVisibleActivity("tool_call")).toBe(true);
+  expect(cursorEventHasVisibleActivity("status")).toBe(false);
+  expect(cursorEventHasVisibleActivity("usage")).toBe(false);
+
+  expect(
+    cursorEventWaitTimeoutMs({
+      sawVisibleActivity: false,
+      lastEventAt: 1_000,
+      now: 1_000,
+      toolInFlight: false,
+      compactionInFlight: false,
+    }),
+  ).toBe(60_000);
+  // The pre-visible window rolls from the LAST event of any type: a stream
+  // still emitting lifecycle events (status, usage, summaries) is alive, so
+  // only total silence trips the stall — never a slow warm-up that talks.
+  expect(
+    cursorEventWaitTimeoutMs({
+      sawVisibleActivity: false,
+      lastEventAt: 31_000,
+      now: 41_000,
+      toolInFlight: false,
+      compactionInFlight: false,
+    }),
+  ).toBe(50_000);
+  // Once reasoning/text/tools are visible, a normal one-minute model pause is
+  // not fatal. A much longer safety bound still catches a genuinely dead run.
+  expect(
+    cursorEventWaitTimeoutMs({
+      sawVisibleActivity: true,
+      lastEventAt: 1_000,
+      now: 61_000,
+      toolInFlight: false,
+      compactionInFlight: false,
+    }),
+  ).toBe(300_000);
+  expect(
+    cursorEventWaitTimeoutMs({
+      sawVisibleActivity: true,
+      lastEventAt: 1_000,
+      now: 61_000,
+      toolInFlight: true,
+      compactionInFlight: false,
+    }),
+  ).toBeGreaterThan(300_000);
+  // An in-place compaction can outlast every silence budget; timing it out
+  // would replace the very agent the resume-always design exists to keep.
+  expect(
+    cursorEventWaitTimeoutMs({
+      sawVisibleActivity: false,
+      lastEventAt: 0,
+      now: 10_000_000,
+      toolInFlight: false,
+      compactionInFlight: true,
+    }),
+  ).toBeGreaterThan(300_000);
+});
+
+test("compaction lifecycle events are recognized and shown, never dropped", () => {
+  expect(cursorCompactionEventPhase("summary-started")).toBe("started");
+  expect(cursorCompactionEventPhase("summary_started")).toBe("started");
+  expect(cursorCompactionEventPhase("summary-completed")).toBe("completed");
+  expect(cursorCompactionEventPhase("summary_completed")).toBe("completed");
+  expect(cursorCompactionEventPhase("thinking")).toBeNull();
+  expect(cursorCompactionEventPhase("tool_use_summary")).toBeNull();
+
+  expect(cursorParseLine({ type: "summary-started" })).toEqual([
+    {
+      kind: "update_thinking",
+      label: "Compacting context...",
+      detail: "Cursor is summarizing the conversation in place.",
+    },
+  ]);
+  expect(cursorParseLine({ type: "summary-completed" })).toEqual([
+    {
+      kind: "update_thinking",
+      label: "Context compacted",
+      detail: "The agent continues with its history summarized in place.",
+    },
+  ]);
+});
 
 test("splitCursorModel separates base id and reasoning level", () => {
   expect(splitCursorModel("grok-4.6-xhigh")).toEqual({
@@ -385,4 +582,207 @@ test("probeCursorSdkToolResult surfaces diffString and plain payloads", () => {
     exitCode: 0,
   });
   expect(plainObject?.output?.text).toBe("direct");
+});
+
+
+const tokens = {
+  inputTokens: 10,
+  outputTokens: 5,
+  cacheReadTokens: 0,
+  cacheWriteTokens: 0,
+  totalTokens: 15,
+};
+
+/** An `AgentUsage` as `agent.getUsage()` returns it for a local agent. */
+function agentUsage(
+  totalRawCents: number | null,
+  runs: [string, number | null][],
+) {
+  return {
+    usage: tokens,
+    ...(totalRawCents === null
+      ? {}
+      : { cost: { rawCostCents: totalRawCents, chargedCents: 0 } }),
+    runs: runs.map(([runId, rawCents]) => ({
+      runId,
+      usage: tokens,
+      ...(rawCents === null
+        ? {}
+        : { cost: { rawCostCents: rawCents, chargedCents: 0 } }),
+    })),
+  };
+}
+
+test("readCursorCostSnapshot normalizes AgentUsage and unreported cost", () => {
+  expect(readCursorCostSnapshot(agentUsage(7.5, [["uuid-a", 7.5]]))).toEqual({
+    totalRawCents: 7.5,
+    entries: [{ runId: "uuid-a", rawCents: 7.5 }],
+  });
+  // Cost absent on the totals and on a turn group both read as "not reported".
+  expect(readCursorCostSnapshot(agentUsage(null, [["uuid-a", null]]))).toEqual({
+    totalRawCents: null,
+    entries: [{ runId: "uuid-a", rawCents: null }],
+  });
+  // Nothing to read from is an empty snapshot, never a throw.
+  expect(readCursorCostSnapshot(undefined)).toEqual(EMPTY_CURSOR_COST_SNAPSHOT);
+  expect(readCursorCostSnapshot({ runs: "not-an-array" })).toEqual(
+    EMPTY_CURSOR_COST_SNAPSHOT,
+  );
+  // A group without a usage UUID cannot be diffed, so it is not an entry.
+  expect(readCursorCostSnapshot({ runs: [{ usage: tokens }] })).toEqual({
+    totalRawCents: null,
+    entries: [],
+  });
+});
+
+test("attributeCursorTurnRawCents charges only this turn's usage groups", () => {
+  const before = readCursorCostSnapshot(agentUsage(30, [["prior", 30]]));
+  const after = readCursorCostSnapshot(
+    agentUsage(42, [
+      ["prior", 30],
+      ["this-turn", 12],
+    ]),
+  );
+  expect(attributeCursorTurnRawCents(before, after)).toBe(12);
+
+  // A fresh agent starts from the empty baseline: everything is this turn's.
+  expect(
+    attributeCursorTurnRawCents(
+      EMPTY_CURSOR_COST_SNAPSHOT,
+      readCursorCostSnapshot(agentUsage(12, [["this-turn", 12]])),
+    ),
+  ).toBe(12);
+});
+
+test("attributeCursorTurnRawCents ignores a prior turn's late-landing cost", () => {
+  // The previous turn's group existed at snapshot time with no cost yet; its
+  // cost landing during this turn belongs to that turn, not to this one.
+  const before = readCursorCostSnapshot(agentUsage(null, [["prior", null]]));
+  const after = readCursorCostSnapshot(
+    agentUsage(30, [
+      ["prior", 30],
+      ["this-turn", null],
+    ]),
+  );
+  expect(attributeCursorTurnRawCents(before, after)).toBeNull();
+});
+
+test("attributeCursorTurnRawCents is null until this turn's cost lands", () => {
+  const before = readCursorCostSnapshot(agentUsage(30, [["prior", 30]]));
+  // The group exists but carries no cost yet — retry rather than report 0.
+  expect(
+    attributeCursorTurnRawCents(
+      before,
+      readCursorCostSnapshot(
+        agentUsage(30, [
+          ["prior", 30],
+          ["this-turn", null],
+        ]),
+      ),
+    ),
+  ).toBeNull();
+  // A reported 0 is an answer, not a gap: request-priced usage bills 0 raw.
+  expect(
+    attributeCursorTurnRawCents(
+      before,
+      readCursorCostSnapshot(
+        agentUsage(30, [
+          ["prior", 30],
+          ["this-turn", 0],
+        ]),
+      ),
+    ),
+  ).toBe(0);
+});
+
+test("attributeCursorTurnRawCents counts growth in the uuid-less remainder", () => {
+  // Local events the backend records without a usage UUID only ever move the
+  // totals, so the totals-minus-groups remainder is their only trace.
+  const before = readCursorCostSnapshot(agentUsage(30, [["prior", 30]]));
+  const after = readCursorCostSnapshot(
+    agentUsage(50, [
+      ["prior", 30],
+      ["this-turn", 12],
+    ]),
+  );
+  expect(attributeCursorTurnRawCents(before, after)).toBe(20);
+
+  // A shrinking remainder never becomes a negative charge.
+  expect(
+    attributeCursorTurnRawCents(
+      readCursorCostSnapshot(agentUsage(50, [["prior", 30]])),
+      readCursorCostSnapshot(agentUsage(40, [["prior", 30]])),
+    ),
+  ).toBeNull();
+});
+
+test("resolveCursorTurnCostUsd converts raw cents to dollars", async () => {
+  const usd = await resolveCursorTurnCostUsd({
+    before: EMPTY_CURSOR_COST_SNAPSHOT,
+    fetchAfter: async () =>
+      readCursorCostSnapshot(agentUsage(12.3456789, [["this-turn", 12.3456789]])),
+    sleep: async () => {},
+  });
+  expect(usd).toBe(0.123457);
+});
+
+test("resolveCursorTurnCostUsd polls while the backend lags, then gives up", async () => {
+  const delays: number[] = [];
+  let calls = 0;
+  const pending = await resolveCursorTurnCostUsd({
+    before: EMPTY_CURSOR_COST_SNAPSHOT,
+    fetchAfter: async () => {
+      calls++;
+      return readCursorCostSnapshot(agentUsage(null, [["this-turn", null]]));
+    },
+    sleep: async (delayMs) => delays.push(delayMs),
+  });
+  // Cost is eventually consistent, so a gap is not final until the budget is.
+  expect(calls).toBe(COST_LOOKUP_RETRY_DELAYS_MS.length + 1);
+  expect(delays).toEqual([...COST_LOOKUP_RETRY_DELAYS_MS]);
+  // Never fails the turn: a missing cost is simply omitted downstream.
+  expect(pending).toBeUndefined();
+
+  const lateDelays: number[] = [];
+  let lateCalls = 0;
+  const landed = await resolveCursorTurnCostUsd({
+    before: EMPTY_CURSOR_COST_SNAPSHOT,
+    fetchAfter: async () => {
+      lateCalls++;
+      return readCursorCostSnapshot(
+        agentUsage(null, [["this-turn", lateCalls > 1 ? 250 : null]]),
+      );
+    },
+    sleep: async (delayMs) => lateDelays.push(delayMs),
+  });
+  expect(lateCalls).toBe(2);
+  expect(lateDelays).toEqual([COST_LOOKUP_RETRY_DELAYS_MS[0]]);
+  expect(landed).toBe(2.5);
+});
+
+test("resolveCursorTurnCostUsd degrades to no cost when a lookup fails", async () => {
+  // A failed pre-send baseline on a resumed agent: charging the agent's whole
+  // history to this turn would be worse than reporting nothing.
+  const noBaseline: CursorCostSnapshot | null = null;
+  let calls = 0;
+  expect(
+    await resolveCursorTurnCostUsd({
+      before: noBaseline,
+      fetchAfter: async () => {
+        calls++;
+        return readCursorCostSnapshot(agentUsage(999, [["prior", 999]]));
+      },
+      sleep: async () => {},
+    }),
+  ).toBeUndefined();
+  expect(calls).toBe(0);
+
+  // Every post-run lookup throwing (wrapped by the caller into null) is a gap.
+  expect(
+    await resolveCursorTurnCostUsd({
+      before: EMPTY_CURSOR_COST_SNAPSHOT,
+      fetchAfter: async () => null,
+      sleep: async () => {},
+    }),
+  ).toBeUndefined();
 });

@@ -15,9 +15,23 @@ const queueHelpersSource = readFileSync(
   "utf8",
 );
 
+const sessionWorkflowSource = readFileSync(
+  join(testsDir, "../convex/_sessions/workflow.ts"),
+  "utf8",
+);
+const projectChatWorkflowSource = readFileSync(
+  join(testsDir, "../convex/projectChatWorkflow.ts"),
+  "utf8",
+);
+const taskChatWorkflowSource = readFileSync(
+  join(testsDir, "../convex/agentTaskChatWorkflow.ts"),
+  "utf8",
+);
+
 /**
- * A turn is staged in two places: `startExecute` (a fresh send) and the
- * queued-message dequeue. Both must wipe `streamingActivity` first.
+ * A turn is staged in two places: the shared session stager (a fresh send, and
+ * the retry after an empty stall) and the queued-message dequeue. Both must
+ * wipe `streamingActivity` first.
  *
  * The daemon's post-completion reconcile heartbeat races the workflow's
  * `clearStreamingActivity` in `saveResult`. When the heartbeat lands last it
@@ -25,16 +39,19 @@ const queueHelpersSource = readFileSync(
  * turn's placeholder flashes the previous turn's thinking trace. Clearing at
  * staging time makes the placeholder start clean whichever way the race lands.
  */
-test("startExecute clears streamingActivity before staging the placeholder", () => {
-  const clearAt = executionSource.indexOf(
-    "await clearStreamingActivity(ctx, String(args.sessionId));",
+test("staging a session turn clears streamingActivity before the placeholder", () => {
+  const stager = functionBody(
+    executionSource,
+    "async function stageAndStartSessionTurn(",
   );
-  const placeholderAt = executionSource.indexOf(
-    'await ctx.db.insert("messages"',
+  const clearAt = stager.indexOf(
+    "await clearStreamingActivity(ctx, String(params.session._id));",
   );
-  expect(clearAt, "startExecute must clear streamingActivity").toBeGreaterThan(
-    -1,
-  );
+  const placeholderAt = stager.indexOf('await ctx.db.insert("messages"');
+  expect(
+    clearAt,
+    "the session stager must clear streamingActivity",
+  ).toBeGreaterThan(-1);
   expect(placeholderAt).toBeGreaterThan(-1);
   expect(clearAt).toBeLessThan(placeholderAt);
 });
@@ -87,6 +104,37 @@ test.each([
 ])("$name's streamingEntityId uses the prefixed key", ({ name, prefix }) => {
   const body = configBody(queueHelpersSource, name);
   expect(body).toContain(`\`\${${prefix}}\${String(id)}\``);
+});
+
+/**
+ * A hard provider-worker crash cannot serialize its in-memory steps. The
+ * supervisor reports a null log, so saveResult must copy the last streaming
+ * snapshot before deleting that row; otherwise the error replaces every step
+ * the user already watched with an empty activity panel.
+ */
+test.each([
+  ["session", sessionWorkflowSource],
+  ["project chat", projectChatWorkflowSource],
+  ["task chat", taskChatWorkflowSource],
+])("%s saveResult preserves streamed activity after a worker crash", (_, source) => {
+  const body = functionBody(source, "export const saveResult = internalMutation({");
+  const readAt = body.indexOf('.query("streamingActivity")');
+  const fallbackAt = body.indexOf(
+    "args.activityLog || streaming?.currentActivity",
+  );
+  const clearAt = body.indexOf("await clearStreamingActivity(");
+  const patchAt = body.indexOf("patch.activityLog = activityLog");
+  expect(readAt, "saveResult no longer reads the live snapshot").toBeGreaterThan(
+    -1,
+  );
+  expect(fallbackAt, "null worker logs no longer fall back").toBeGreaterThan(-1);
+  expect(clearAt, "saveResult no longer clears streaming state").toBeGreaterThan(
+    -1,
+  );
+  expect(patchAt, "the preserved log is not persisted").toBeGreaterThan(-1);
+  expect(readAt).toBeLessThan(clearAt);
+  expect(fallbackAt).toBeLessThan(clearAt);
+  expect(clearAt).toBeLessThan(patchAt);
 });
 
 /**

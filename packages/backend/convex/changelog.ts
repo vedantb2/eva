@@ -70,7 +70,7 @@ export const getLatestChangelog = query({
 });
 
 /**
- * Every published changelog entry, newest first, for the `/changelog` page.
+ * Every published changelog entry, newest first, for the `/whats-new` page.
  * Plain query (like `getLatestChangelog`) so an unauthenticated render returns
  * an empty list rather than throwing while auth hydrates.
  */

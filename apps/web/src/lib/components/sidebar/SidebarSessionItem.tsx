@@ -10,7 +10,7 @@ import {
   HoverCardTrigger,
   LoadingState,
 } from "@eva/ui";
-import { IconGitPullRequest } from "@tabler/icons-react";
+import { IconGitPullRequest, IconSparkles } from "@tabler/icons-react";
 import {
   SANDBOX_STATUS_STYLES,
   type SandboxStatus,
@@ -58,6 +58,8 @@ function prStateIconColor(
 interface SidebarSessionItemProps {
   href: string;
   title: string;
+  /** "Regenerate title" is running — a muted hint sits beside the title. */
+  isRegeneratingTitle?: boolean;
   sessionId: Id<"sessions">;
   userId: Id<"users">;
   createdAt: number;
@@ -65,10 +67,14 @@ interface SidebarSessionItemProps {
   status: SandboxStatus;
   /** When true, Drive grid replaces the sandbox status dot (agent turn in flight). */
   isExecuting?: boolean;
+  /** The user's persistent orchestrator session — marked instead of dotted. */
+  isOrchestrator?: boolean;
   isSelected: boolean;
   onNavigate?: () => void;
   prUrl?: string;
   prState?: "draft" | "open" | "merged" | "closed";
+  /** Branch chosen at session creation, shown in the hover card. */
+  baseBranch?: string;
 }
 
 function SessionPrIcon({
@@ -97,15 +103,27 @@ function SessionStatusLeading({
   label,
   dotClassName,
   isExecuting,
+  isOrchestrator,
 }: {
   label: string;
   dotClassName: string;
   isExecuting: boolean;
+  isOrchestrator: boolean;
 }) {
   if (isExecuting) {
     return (
       <span className="flex shrink-0 items-center" title="Working">
         <LoadingState label="Working" variant="Drive" size="sm" iconOnly />
+      </span>
+    );
+  }
+  // Manager Ave is one persistent session per user rather than a piece of
+  // work, so it is marked instead of dotted: its sandbox status is not what the
+  // reader needs to tell it apart from the sessions around it.
+  if (isOrchestrator) {
+    return (
+      <span className="flex shrink-0 items-center" title="Manager Ave">
+        <IconSparkles size={12} className="shrink-0 text-sidebar-primary" />
       </span>
     );
   }
@@ -116,19 +134,40 @@ function SessionStatusLeading({
   );
 }
 
+/** Muted "Regenerating…" beside the title while a new one is being written. */
+export function TitleRegeneratingHint({
+  show,
+  className,
+}: {
+  show: boolean;
+  className?: string;
+}) {
+  if (!show) return null;
+  return (
+    <span
+      className={cn("shrink-0 text-[11px] text-muted-foreground", className)}
+    >
+      Regenerating…
+    </span>
+  );
+}
+
 export function SidebarSessionItem({
   href,
   title,
+  isRegeneratingTitle = false,
   sessionId,
   userId,
   createdAt,
   updatedAt,
   status,
   isExecuting = false,
+  isOrchestrator = false,
   isSelected,
   onNavigate,
   prUrl,
   prState,
+  baseBranch,
 }: SidebarSessionItemProps) {
   const { settings } = useSessionsSidebarSettings();
   const isFolder = settings.layout === "folder";
@@ -147,6 +186,7 @@ export function SidebarSessionItem({
       label={statusStyle.label}
       dotClassName={statusStyle.dot}
       isExecuting={isExecuting}
+      isOrchestrator={isOrchestrator}
     />
   );
 
@@ -161,6 +201,7 @@ export function SidebarSessionItem({
           <div className="flex min-w-0 items-center gap-2">
             {statusLeading}
             <MarqueeOnHover className={titleClass}>{title}</MarqueeOnHover>
+            <TitleRegeneratingHint show={isRegeneratingTitle} />
           </div>
           <div className="flex min-w-0 items-center gap-2 pl-4 opacity-60">
             <div className="min-w-0 flex-1">
@@ -179,6 +220,7 @@ export function SidebarSessionItem({
         <div className="flex min-w-0 items-center gap-2">
           {statusLeading}
           <MarqueeOnHover className={titleClass}>{title}</MarqueeOnHover>
+          <TitleRegeneratingHint show={isRegeneratingTitle} />
           <SessionPrIcon prUrl={prUrl} prState={prState} />
           <RelativeDateTime
             at={activityAt}
@@ -205,6 +247,7 @@ export function SidebarSessionItem({
           sessionId={sessionId}
           createdAt={createdAt}
           userId={userId}
+          baseBranch={baseBranch}
         />
       </HoverCardContent>
     </HoverCard>

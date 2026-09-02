@@ -7,13 +7,17 @@ import {
   WebPreviewNavigationButton,
   useWebPreview,
 } from "@eva/ui";
-import { IconClick } from "@tabler/icons-react";
+import {
+  IconClick,
+  IconDevices,
+  IconPictureInPicture,
+} from "@tabler/icons-react";
 import {
   PreviewNavBar,
   normalizePreviewPath,
 } from "@/lib/components/PreviewNavBar";
-import { PreviewDeviceToggle } from "./PreviewDeviceToggle";
-import type { PreviewDevice } from "../_utils/-previewAnnotation";
+import { PreviewScreenshotButton } from "./PreviewScreenshotButton";
+import type { PreviewViewport } from "../_utils/previewViewport";
 
 interface PreviewInfo {
   url: string;
@@ -31,41 +35,65 @@ export function PreviewPanelNavBar({
   onPortChange,
   previewPath,
   onPathChange,
-  device,
-  onDeviceChange,
+  viewport,
+  onToggleDevice,
   annotationMode,
   onAnnotationModeChange,
   showAnnotationToggle,
+  popOut,
 }: {
   previewInfo: PreviewInfo | null;
   isLoading: boolean;
   onRefresh: () => void;
   containerRef: RefObject<HTMLDivElement | null>;
-  /** Host-managed iframe element (PreviewIframeHost) — see PreviewNavBar. */
   iframeElement?: HTMLIFrameElement | null;
   onToggleFullscreen?: () => void;
   port: number;
   onPortChange: (port: number) => void;
   previewPath: string;
   onPathChange: (path: string) => void;
-  device: PreviewDevice;
-  onDeviceChange: (device: PreviewDevice) => void;
+  viewport: PreviewViewport;
+  onToggleDevice: () => void;
   annotationMode: boolean;
   onAnnotationModeChange: (active: boolean) => void;
   showAnnotationToggle: boolean;
+  /** Sessions on desktop only: toggles the floating mini-player. */
+  popOut?: { active: boolean; onToggle: () => void };
 }) {
   const { iframeRef } = useWebPreview();
+  const deviceActive = viewport.mode !== "fill";
 
   return (
-    // `WebPreviewNavigation` does not wrap by default, so the device toggle,
-    // the element picker and the URL bar overflowed a phone-width pane.
     <WebPreviewNavigation className="max-sm:flex-wrap gap-1">
-      <PreviewDeviceToggle value={device} onChange={onDeviceChange} />
+      <WebPreviewNavigationButton
+        tooltip={deviceActive ? "Fill panel" : "Show device toolbar"}
+        aria-label={deviceActive ? "Fill panel" : "Show device toolbar"}
+        aria-pressed={deviceActive}
+        className={cn(
+          "max-sm:hit-target",
+          deviceActive && "bg-secondary text-primary hover:text-primary",
+        )}
+        onClick={onToggleDevice}
+      >
+        <IconDevices size={16} />
+      </WebPreviewNavigationButton>
+      {popOut ? (
+        <WebPreviewNavigationButton
+          tooltip={popOut.active ? "Bring preview back" : "Pop out preview"}
+          aria-label={popOut.active ? "Bring preview back" : "Pop out preview"}
+          aria-pressed={popOut.active}
+          className={cn(
+            popOut.active && "bg-secondary text-primary hover:text-primary",
+          )}
+          onClick={popOut.onToggle}
+        >
+          <IconPictureInPicture size={16} />
+        </WebPreviewNavigationButton>
+      ) : null}
+      <PreviewScreenshotButton iframeElement={iframeElement ?? null} />
       {showAnnotationToggle ? (
         <WebPreviewNavigationButton
           tooltip={annotationMode ? "Cancel select element" : "Select element"}
-          // The tooltip is wired as `aria-describedby`, which is a description
-          // rather than a name.
           aria-label={
             annotationMode ? "Cancel select element" : "Select element"
           }

@@ -6,6 +6,7 @@ import { useAction } from "convex/react";
 import { api, type Id } from "@eva/backend";
 import { Button, Spinner, Textarea } from "@eva/ui";
 import { prErrorMessage } from "@/lib/prReviewQueries";
+import { prComposerId } from "./prComposerFocus";
 
 /**
  * GitHub's comment box at the foot of the conversation, so a reviewer can reply
@@ -49,6 +50,8 @@ export function PrCommentComposer({
     // above it would be the third thing on screen naming the same control.
     <div className="ml-11 space-y-2">
       <Textarea
+        // The header's Add comment control puts the cursor here from any tab.
+        id={prComposerId(prNumber)}
         className="min-h-20 text-sm"
         value={body}
         placeholder="Leave a comment"

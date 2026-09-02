@@ -15,7 +15,7 @@ import { HomeTeamsNav } from "@/lib/components/sidebar/_components/HomeTeamsNav"
 
 const HOME_NAV = [
   { name: "Artifacts", href: "/artifacts", icon: IconLayoutDashboard },
-  { name: "Changelog", href: "/changelog", icon: IconSparkles },
+  { name: "What's New", href: "/whats-new", icon: IconSparkles },
 ] as const;
 
 interface HomeSidebarProps {
@@ -25,8 +25,7 @@ interface HomeSidebarProps {
 
 /** Second sidebar column for the global home routes (see `HOME_ROOTS`). */
 export function HomeSidebar({ pathname, onNavigate }: HomeSidebarProps) {
-  const codebasesActive =
-    pathname === "/home" || pathname.startsWith("/home/");
+  const codebasesActive = pathname === "/home" || pathname.startsWith("/home/");
 
   return (
     <SharedLayoutNav layoutId="home-nav" className="space-y-1">

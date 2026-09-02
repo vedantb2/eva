@@ -14,6 +14,7 @@ import {
   useSpeechRecognition,
 } from "@eva/ui";
 import { useGatewayDictation } from "@/lib/hooks/useGatewayDictation";
+import { useTranscriptPolish } from "@/lib/hooks/useTranscriptPolish";
 
 /**
  * Mic control for chat composers. When voice dictation is enabled, streams
@@ -59,21 +60,24 @@ function GatewaySpeechButton({
   setInput: (value: string) => void;
 }) {
   const { isListening, isConnecting, toggle } = useGatewayDictation(setInput);
+  const { isPolishing, handleToggle } = useTranscriptPolish({ value, setInput });
 
   return (
     <PromptInputButton
       tooltip={
-        isConnecting
-          ? "Connecting…"
-          : isListening
-            ? "Stop recording"
-            : "Voice input"
+        isPolishing
+          ? "Polishing…"
+          : isConnecting
+            ? "Connecting…"
+            : isListening
+              ? "Stop recording"
+              : "Voice input"
       }
-      onClick={() => toggle(value)}
-      disabled={disabled || isConnecting}
+      onClick={() => handleToggle({ isListening, toggle })}
+      disabled={disabled || isConnecting || isPolishing}
       className={isListening && !isConnecting ? "text-destructive" : undefined}
     >
-      {isConnecting ? (
+      {isConnecting || isPolishing ? (
         <IconLoader2 className="size-4 animate-spin" />
       ) : isListening ? (
         <IconPlayerStop className="size-4" />
@@ -94,15 +98,24 @@ function WebSpeechButton({
   setInput: (value: string) => void;
 }) {
   const { isListening, toggle } = useSpeechRecognition(setInput);
+  const { isPolishing, handleToggle } = useTranscriptPolish({ value, setInput });
 
   return (
     <PromptInputButton
-      tooltip={isListening ? "Stop recording" : "Voice input"}
-      onClick={() => toggle(value)}
-      disabled={disabled}
+      tooltip={
+        isPolishing
+          ? "Polishing…"
+          : isListening
+            ? "Stop recording"
+            : "Voice input"
+      }
+      onClick={() => handleToggle({ isListening, toggle })}
+      disabled={disabled || isPolishing}
       className={isListening ? "text-destructive" : undefined}
     >
-      {isListening ? (
+      {isPolishing ? (
+        <IconLoader2 className="size-4 animate-spin" />
+      ) : isListening ? (
         <IconPlayerStop className="size-4" />
       ) : (
         <IconMicrophone className="size-4" />

@@ -41,6 +41,22 @@ interface EvaAnnotationContext {
     borderRadius: string;
   };
   reactComponents: string[];
+  /** Role / aria / focusability summary, e.g. `role="button", focusable`. */
+  accessibility: string;
+  /** Trimmed text of the parent element (<=150 chars). */
+  nearbyText: string;
+  /** Up to four sibling identifiers, e.g. `button "Save", div.row (7 total)`. */
+  nearbyElements: string;
+  /** Readable ancestor path below `html`, crossing shadow boundaries. */
+  fullPath: string;
+  /** Tag-aware computed styles, e.g. `color: rgb(0, 0, 0); font-size: 14px`. */
+  stylesSummary: string;
+  environment: {
+    viewportWidth: number;
+    viewportHeight: number;
+    devicePixelRatio: number;
+    userAgent: string;
+  };
   pageUrl: string;
   pagePath: string;
   capturedAt: number;
@@ -48,6 +64,51 @@ interface EvaAnnotationContext {
 
 function evaPreviewAnnotationScript(): void {
   const ATTR = "data-eva-annotate";
+  /** Computed values that carry no signal, so they never reach the agent. */
+  const STYLE_DEFAULTS = [
+    "rgba(0, 0, 0, 0)",
+    "rgb(0, 0, 0)",
+    "none",
+    "normal",
+    "auto",
+    "0px",
+    "static",
+    "visible",
+    "start",
+  ];
+  const TEXT_TAGS = [
+    "p",
+    "span",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "a",
+    "li",
+    "label",
+    "strong",
+    "em",
+    "td",
+    "th",
+  ];
+  const INPUT_TAGS = ["input", "select", "textarea"];
+  const MEDIA_TAGS = ["img", "video", "svg", "canvas"];
+  const CONTAINER_TAGS = [
+    "div",
+    "section",
+    "main",
+    "article",
+    "aside",
+    "header",
+    "footer",
+    "nav",
+    "ul",
+    "ol",
+    "form",
+  ];
+  const FOCUSABLE_SELECTOR = "a, button, input, select, textarea, [tabindex]";
   const root = document.documentElement;
   if (root.getAttribute(ATTR) === "1") {
     return;
@@ -91,7 +152,17 @@ function evaPreviewAnnotationScript(): void {
             height: number;
           } | null;
         }
-      | { type: "eva-preview-annotate-dismissed" },
+      | { type: "eva-preview-annotate-dismissed" }
+      | {
+          type: "eva-preview-screenshot";
+          requestId: string;
+          dataUrl: string;
+        }
+      | {
+          type: "eva-preview-screenshot-error";
+          requestId: string;
+          message: string;
+        },
   ): void {
     window.parent.postMessage(payload, parentOrigin);
   }
@@ -191,6 +262,169 @@ function evaPreviewAnnotationScript(): void {
     return names;
   }
 
+  /**
+   * Drops CSS-module hash suffixes: `card_a1b2c3` -> `card`. Underscore only —
+   * a hyphen rule would eat ordinary utility classes (`items-center` ->
+   * `items`).
+   */
+  function stripClassHash(className: string): string {
+    return className.replace(/_[a-zA-Z0-9]{5,}$/, "");
+  }
+
+  function firstMeaningfulClass(element: Element): string {
+    for (let i = 0; i < element.classList.length; i++) {
+      const raw = element.classList.item(i);
+      if (!raw) continue;
+      const stripped = stripClassHash(raw);
+      if (stripped.length >= 3) {
+        return stripped;
+      }
+    }
+    return "";
+  }
+
+  function describeAccessibility(element: Element): string {
+    const parts: string[] = [];
+    const role = element.getAttribute("role");
+    if (role) parts.push('role="' + role + '"');
+    const ariaLabel = element.getAttribute("aria-label");
+    if (ariaLabel) parts.push('aria-label="' + ariaLabel + '"');
+    const describedBy = element.getAttribute("aria-describedby");
+    if (describedBy) parts.push('aria-describedby="' + describedBy + '"');
+    const tabIndex = element.getAttribute("tabindex");
+    if (tabIndex) parts.push("tabindex=" + tabIndex);
+    if (element.getAttribute("aria-hidden") === "true") {
+      parts.push("aria-hidden");
+    }
+    if (element.matches(FOCUSABLE_SELECTOR)) {
+      parts.push("focusable");
+    }
+    return parts.join(", ");
+  }
+
+  function describeNearbyText(element: Element): string {
+    const parent = element.parentElement;
+    if (!parent) return "";
+    return (parent.textContent || "").replace(/\s+/g, " ").trim().slice(0, 150);
+  }
+
+  function describeSibling(element: Element): string {
+    const tag = element.tagName.toLowerCase();
+    const cls = firstMeaningfulClass(element);
+    let label = cls ? tag + "." + cls : tag;
+    if (tag === "button" || tag === "a") {
+      const text = (element.textContent || "").replace(/\s+/g, " ").trim();
+      if (text) {
+        label += ' "' + text.slice(0, 15) + '"';
+      }
+    }
+    return label;
+  }
+
+  function describeNearbyElements(element: Element): string {
+    const parent = element.parentElement;
+    if (!parent) return "";
+    const labels: string[] = [];
+    for (let i = 0; i < parent.children.length && labels.length < 4; i++) {
+      const child = parent.children.item(i);
+      if (!child || child === element) continue;
+      labels.push(describeSibling(child));
+    }
+    if (labels.length === 0) return "";
+    let summary = labels.join(", ");
+    if (parent.children.length > labels.length + 1) {
+      summary += " (" + parent.children.length + " total)";
+    }
+    return summary;
+  }
+
+  function pathSegment(element: Element): string {
+    const tag = element.tagName.toLowerCase();
+    if (element.id) {
+      return tag + "#" + element.id;
+    }
+    const cls = firstMeaningfulClass(element);
+    return cls ? tag + "." + cls : tag;
+  }
+
+  function buildFullPath(element: Element): string {
+    const parts: string[] = [];
+    let current: Element | null = element;
+    let crossedShadow = false;
+    while (current && current.tagName.toLowerCase() !== "html") {
+      parts.unshift((crossedShadow ? "⟨shadow⟩ " : "") + pathSegment(current));
+      crossedShadow = false;
+      const parent: Element | null = current.parentElement;
+      if (parent) {
+        current = parent;
+        continue;
+      }
+      const root = current.getRootNode();
+      if (root instanceof ShadowRoot) {
+        current = root.host;
+        crossedShadow = true;
+        continue;
+      }
+      current = null;
+    }
+    return parts.join(" > ");
+  }
+
+  function stylePropertiesFor(element: Element): string[] {
+    const tag = element.tagName.toLowerCase();
+    if (
+      tag === "button" ||
+      (tag === "a" && element.getAttribute("role") === "button")
+    ) {
+      return [
+        "background-color",
+        "color",
+        "padding",
+        "border-radius",
+        "font-size",
+      ];
+    }
+    if (TEXT_TAGS.indexOf(tag) !== -1) {
+      return [
+        "color",
+        "font-size",
+        "font-weight",
+        "font-family",
+        "line-height",
+      ];
+    }
+    if (INPUT_TAGS.indexOf(tag) !== -1) {
+      return [
+        "background-color",
+        "color",
+        "padding",
+        "border-radius",
+        "font-size",
+      ];
+    }
+    if (MEDIA_TAGS.indexOf(tag) !== -1) {
+      return ["width", "height", "object-fit", "border-radius"];
+    }
+    if (CONTAINER_TAGS.indexOf(tag) !== -1) {
+      return ["display", "padding", "margin", "gap", "background-color"];
+    }
+    return ["color", "font-size", "margin", "padding", "background-color"];
+  }
+
+  function describeStyles(element: Element): string {
+    const styles = window.getComputedStyle(element);
+    const properties = stylePropertiesFor(element);
+    const parts: string[] = [];
+    for (let i = 0; i < properties.length; i++) {
+      const property = properties[i];
+      if (!property) continue;
+      const value = styles.getPropertyValue(property).trim();
+      if (!value || STYLE_DEFAULTS.indexOf(value) !== -1) continue;
+      parts.push(property + ": " + value);
+    }
+    return parts.join("; ");
+  }
+
   function captureContext(element: HTMLElement): EvaAnnotationContext {
     const rect = element.getBoundingClientRect();
     const styles = window.getComputedStyle(element);
@@ -234,6 +468,17 @@ function evaPreviewAnnotationScript(): void {
         borderRadius: styles.borderRadius,
       },
       reactComponents: collectReactNames(element),
+      accessibility: describeAccessibility(element),
+      nearbyText: describeNearbyText(element),
+      nearbyElements: describeNearbyElements(element),
+      fullPath: buildFullPath(element),
+      stylesSummary: describeStyles(element),
+      environment: {
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        devicePixelRatio: window.devicePixelRatio,
+        userAgent: navigator.userAgent,
+      },
       pageUrl: window.location.href,
       pagePath: window.location.pathname + window.location.search,
       capturedAt: Date.now(),
@@ -271,9 +516,13 @@ function evaPreviewAnnotationScript(): void {
 
   function chipLabel(el: Element): string {
     const tag = el.tagName.toLowerCase();
+    const rawClass = el.classList.item(0);
+    // Fall back to the raw class when the strip consumes all of it (a class
+    // that is nothing but a hash), rather than rendering "<div.>".
+    const stripped = rawClass ? stripClassHash(rawClass) : "";
     const cls =
-      el instanceof HTMLElement && el.classList.length > 0
-        ? "." + el.classList[0]
+      el instanceof HTMLElement && rawClass
+        ? "." + (stripped || rawClass)
         : "";
     const react = collectReactNames(el);
     const reactPrefix = react[0] ? react[0] + " " : "";
@@ -374,6 +623,75 @@ function evaPreviewAnnotationScript(): void {
     scheduleRectReport();
   }
 
+  function restoreCaptureChrome(): void {
+    if (overlay) overlay.style.display = overlayDisplayForCapture;
+    if (labelEl) labelEl.style.display = labelDisplayForCapture;
+  }
+
+  let overlayDisplayForCapture = "";
+  let labelDisplayForCapture = "";
+
+  function loadHtml2Canvas(): Promise<void> {
+    if (typeof Reflect.get(window, "html2canvas") === "function") {
+      return Promise.resolve();
+    }
+    return new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      script.src = "/__eva_preview_proxy/html2canvas.js";
+      script.onload = () => {
+        if (typeof Reflect.get(window, "html2canvas") === "function") {
+          resolve();
+          return;
+        }
+        reject(new Error("Couldn't render this page as an image"));
+      };
+      script.onerror = () => {
+        reject(new Error("Couldn't render this page as an image"));
+      };
+      document.documentElement.appendChild(script);
+    });
+  }
+
+  function renderViewportCanvas(): Promise<HTMLCanvasElement> {
+    const html2canvas = Reflect.get(window, "html2canvas");
+    if (typeof html2canvas !== "function") {
+      return Promise.reject(new Error("Couldn't render this page as an image"));
+    }
+    const result = html2canvas.call(window, document.documentElement, {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      windowWidth: window.innerWidth,
+      windowHeight: window.innerHeight,
+      x: window.scrollX,
+      y: window.scrollY,
+      scrollX: -window.scrollX,
+      scrollY: -window.scrollY,
+      useCORS: true,
+      logging: false,
+      backgroundColor: null,
+    });
+    if (!(result instanceof Promise)) {
+      return Promise.reject(new Error("Couldn't render this page as an image"));
+    }
+    return result.then((canvas) => {
+      if (!(canvas instanceof HTMLCanvasElement)) {
+        throw new Error("Couldn't render this page as an image");
+      }
+      return canvas;
+    });
+  }
+
+  function captureViewport(): Promise<string> {
+    overlayDisplayForCapture = overlay?.style.display ?? "";
+    labelDisplayForCapture = labelEl?.style.display ?? "";
+    if (overlay) overlay.style.display = "none";
+    if (labelEl) labelEl.style.display = "none";
+    return loadHtml2Canvas()
+      .then(renderViewportCanvas)
+      .then((canvas) => canvas.toDataURL("image/png"))
+      .finally(restoreCaptureChrome);
+  }
+
   window.addEventListener("message", (event) => {
     if (parentOrigin !== "*" && event.origin !== parentOrigin) return;
     const data = event.data;
@@ -386,6 +704,25 @@ function evaPreviewAnnotationScript(): void {
     }
     if (type === "eva-preview-annotate-clear") {
       clearAll();
+      return;
+    }
+    if (type === "eva-preview-screenshot-capture") {
+      const requestId = Reflect.get(data, "requestId");
+      if (typeof requestId !== "string") return;
+      void captureViewport()
+        .then((dataUrl) => {
+          post({ type: "eva-preview-screenshot", requestId, dataUrl });
+        })
+        .catch((error) => {
+          post({
+            type: "eva-preview-screenshot-error",
+            requestId,
+            message:
+              error instanceof Error
+                ? error.message
+                : "Couldn't render this page as an image",
+          });
+        });
     }
   });
 

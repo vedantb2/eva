@@ -20,7 +20,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
   motionBase,
-  Skeleton,
   Tabs,
   TabsList,
   TabsTrigger,
@@ -51,7 +50,12 @@ import { ProjectsTimeline } from "@/lib/components/projects/ProjectsTimeline";
 import { ProjectsListView } from "@/lib/components/projects/ProjectsListView";
 import { ProjectsKanbanView } from "./_components/ProjectsKanbanView";
 import { ProjectDeleteDialog } from "./_components/ProjectDeleteDialog";
+import {
+  ProjectsListSkeleton,
+  ProjectsTimelineSkeleton,
+} from "./_components/ProjectsSkeletons";
 import { ActiveFiltersBar } from "./_components/ActiveFiltersBar";
+import { KanbanBoardSkeleton } from "@/lib/components/kanban/KanbanBoardSkeleton";
 import { withMutationToast } from "@/lib/utils/mutationToast";
 import {
   useProjectFilters,
@@ -387,20 +391,20 @@ export function ProjectsClient() {
             />
           )}
           {projects === undefined ? (
-            <div
-              className="flex flex-1 min-h-96 flex-col gap-3"
-              aria-busy="true"
-              aria-label="Loading projects"
-            >
-              <div className="flex flex-1 gap-3 overflow-hidden">
-                {Array.from({ length: 4 }).map((_, i) => (
-                  <Skeleton
-                    key={i}
-                    className="min-w-[220px] flex-1 border border-border"
-                  />
-                ))}
-              </div>
-            </div>
+            view === "kanban" ? (
+              <KanbanBoardSkeleton
+                columns={
+                  visiblePhases.size > 0
+                    ? visiblePhases.size
+                    : PROJECT_PHASES.length
+                }
+                aria-label="Loading projects"
+              />
+            ) : view === "timeline" ? (
+              <ProjectsTimelineSkeleton />
+            ) : (
+              <ProjectsListSkeleton />
+            )
           ) : projects.length === 0 ? (
             <div className="flex min-h-0 flex-1 items-center justify-center">
               <EmptyState

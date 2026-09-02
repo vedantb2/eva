@@ -13,9 +13,11 @@
     "ext:build": "pnpm --filter eva-assist-extension build",
     "ext:release": "npx tsx scripts/release-extension.ts",
     "lint": "oxlint -c .oxlintrc.json .",
-    "typecheck": "pnpm --filter @eva/web typecheck && pnpm --filter @eva/backend typecheck && pnpm --filter @eva/backend typecheck:callback",
+    "typecheck": "pnpm --filter @eva/web typecheck && pnpm --filter @eva/backend typecheck && pnpm --filter @eva/backend typecheck:callback && pnpm --filter @eva/backend typecheck:annotation",
     "compiler:check": "node scripts/compiler-check.mjs",
     "test:oxlint-plugin": "node --test scripts/oxlint-plugin-eva/test/rules.test.mjs",
+    "test:schema-narrowing": "node --test scripts/check-schema-narrowing.test.mjs",
+    "check:schema-narrowing": "node scripts/check-schema-narrowing.mjs",
     "deadcode": "knip",
     "prepare": "husky",
     "doctor": "npx react-doctor@latest",
@@ -66,11 +68,11 @@
     }
   },
   "devDependencies": {
-    "@oxlint/plugins": "1.77.0",
+    "@oxlint/plugins": "1.79.0",
     "husky": "^9.1.7",
     "knip": "6.27.0",
     "lint-staged": "^16.2.7",
-    "oxlint": "1.77.0",
+    "oxlint": "1.79.0",
     "prettier": "^3.8.1",
     "typescript": "^5.9.0"
   },

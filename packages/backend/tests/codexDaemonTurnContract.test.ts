@@ -30,16 +30,18 @@ const DISCARD_LOG =
 
 /**
  * claimPendingTurn clears the prompt server-side, so the daemon's only choices
- * are park or discard. A mid-turn claim is the workflow re-staging the prompt
- * this turn is already running — parking it replays the same prompt a second
- * time once the turn ends (fix 9e939568).
+ * are park or discard. A mid-turn claim of the SAME durable turn is the
+ * workflow re-staging the prompt this turn is already running — parking it
+ * replays the same prompt a second time once the turn ends (fix 9e939568).
+ * A follow-up send during finalizing is a different turn and must be parked
+ * (session 65 stalled when that claim was discarded with a live 2-minute lease).
  */
-describe("a codex claim arriving mid-turn is discarded, not parked", () => {
-  test.each(surfaces)("the park is gated on an idle turn (%s)", (_l, source) => {
+describe("a same-turn restage is discarded; a follow-up turn is parked", () => {
+  test.each(surfaces)("the park goes through shouldParkClaimedTurn (%s)", (_l, source) => {
     const block = codexClaimHandling(source);
-    const guardAt = block.indexOf("if (!activeTurnId || cancelInFlight)");
-    const parkAt = block.indexOf("pendingTurn = claimedTurn");
-    expect(guardAt, "the idle/cancel park guard moved").toBeGreaterThan(-1);
+    const guardAt = block.indexOf("shouldParkClaimedTurn(");
+    const parkAt = block.indexOf(".parkClaim(claimedTurn)");
+    expect(guardAt, "the park guard moved").toBeGreaterThan(-1);
     expect(parkAt, "the park moved out of the claim handler").toBeGreaterThan(
       guardAt,
     );
@@ -47,18 +49,26 @@ describe("a codex claim arriving mid-turn is discarded, not parked", () => {
 
   test.each(surfaces)("no unguarded park survives (%s)", (_label, source) => {
     // One park site only: a second, ungated one is the regression itself.
-    expect(occurrences(source, "pendingTurn = claimedTurn")).toBe(1);
+    expect(occurrences(codexClaimHandling(source), "parkClaim(claimedTurn)")).toBe(
+      1,
+    );
   });
 
   test.each(surfaces)("the discard is logged, not silent (%s)", (_l, source) => {
     expect(source).toContain(DISCARD_LOG);
   });
 
+  test.each(surfaces)("idle is the only phase that accepts a turn (%s)", (_l, source) => {
+    expect(source).toContain("acceptTurn");
+    expect(source).toContain('supervisor.phase === "idle"');
+  });
+
   test("the claude daemon still carries the semantics codex mirrors", () => {
     expect(claudeDaemonSource).toContain(
       "daemon: claim discarded while real turn active",
     );
-    expect(claudeDaemonSource).toContain("} else if (turnCancelInFlight) {");
+    expect(claudeDaemonSource).toContain("shouldParkClaimedTurn");
+    expect(claudeDaemonSource).toContain("acceptTurn");
   });
 });
 

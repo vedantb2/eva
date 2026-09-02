@@ -2,12 +2,17 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { expect, test } from "vitest";
-import { PACKAGE_HELPER_SCRIPT } from "../convex/_sandbox_runtime/packageManager";
+import { FFMPEG_INSTALL_SCRIPT } from "../convex/_sandbox/ffmpegInstall";
 
 const testsDir = dirname(fileURLToPath(import.meta.url));
 
 const vercelProviderSource = readFileSync(
   join(testsDir, "../convex/_sandbox/vercelProvider.ts"),
+  "utf8",
+);
+
+const snapshotActionsSource = readFileSync(
+  join(testsDir, "../convex/snapshotActions.ts"),
   "utf8",
 );
 
@@ -27,16 +32,10 @@ const desktopStartBody = (() => {
     .replace(/^\s*\/\/.*$/gm, "");
 })();
 
-/** `eva_pkg_install_ffmpeg`'s body, extracted from the shared bash helper. */
-const ffmpegHelperBody = (() => {
-  const startAt = PACKAGE_HELPER_SCRIPT.indexOf("eva_pkg_install_ffmpeg() {");
-  expect(
-    startAt,
-    "eva_pkg_install_ffmpeg moved or was renamed",
-  ).toBeGreaterThan(-1);
-  const endAt = PACKAGE_HELPER_SCRIPT.indexOf("\n}", startAt);
-  return PACKAGE_HELPER_SCRIPT.slice(startAt, endAt);
-})();
+/** Every `dnf` attempt in the script, in source order. */
+const installAttempts = FFMPEG_INSTALL_SCRIPT.split("\n").filter((line) =>
+  line.includes("dnf install"),
+);
 
 /**
  * `agent-browser record` needs ffmpeg to encode the WebM. Older snapshots bake
@@ -46,13 +45,13 @@ const ffmpegHelperBody = (() => {
  * The install has to come before either gate.
  */
 test("desktop start installs ffmpeg before the health gate and install guard", () => {
-  const ffmpegAt = desktopStartBody.indexOf("eva_pkg_install_ffmpeg");
+  const ffmpegAt = desktopStartBody.indexOf("FFMPEG_INSTALL_SCRIPT");
   expect(ffmpegAt, "desktop start must install ffmpeg").toBeGreaterThan(-1);
 
   const gates = [
     // Healthy stack → early return, skipping everything below.
     "if (healthy.exitCode === 0)",
-    // Already-installed VNC stack → the package block is skipped.
+    // Already-installed VNC stack → the dnf block is skipped.
     'if [ "$INSTALLED" != "1" ]; then',
   ];
   for (const gate of gates) {
@@ -65,56 +64,75 @@ test("desktop start installs ffmpeg before the health gate and install guard", (
   }
 });
 
-/** Soft-failing, so a package-manager hiccup cannot block desktop startup. */
-test("the ffmpeg install cannot block startup", () => {
-  const installAt = desktopStartBody.indexOf("eva_pkg_install_ffmpeg");
-  expect(
-    desktopStartBody.slice(installAt, installAt + 60),
-    "a failing install must not throw out of desktop startup",
-  ).toContain("|| true");
+/**
+ * Seed bakes the encoder into the snapshot; desktop start repairs snapshots
+ * taken before it did. Both must run the same script — the two hand-maintained
+ * copies drifted once, so a fix landed in one and not the other.
+ */
+test("seed and desktop start share one install script", () => {
+  expect(snapshotActionsSource).toContain("FFMPEG_INSTALL_SCRIPT");
+  expect(snapshotActionsSource).not.toContain("ffmpeg-free");
+  expect(vercelProviderSource).not.toContain("ffmpeg-free");
 });
 
-/**
- * Idempotence lives in the helper: it returns early when ffmpeg already runs,
- * so calling it on every desktop start is a no-op on a warm sandbox.
- */
+/** Soft-failing and idempotent, so a dnf hiccup cannot block desktop startup. */
+test("the ffmpeg install is idempotent and cannot block startup", () => {
+  expect(
+    FFMPEG_INSTALL_SCRIPT.startsWith("if ! ffmpeg -version"),
+    "the install must be gated so re-running is a no-op",
+  ).toBe(true);
+  for (const attempt of installAttempts) {
+    expect(attempt, "a failing dnf must not throw out of startup").toContain(
+      "|| true",
+    );
+  }
+});
+
 test("the health probe catches a present but unloadable ffmpeg binary", () => {
-  expect(
-    ffmpegHelperBody,
-    "`command -v ffmpeg` calls SPAL's broken binary healthy — gate on running it",
-  ).not.toContain("command -v ffmpeg");
-  expect(ffmpegHelperBody).toContain(
-    "ffmpeg -version >/dev/null 2>&1 && return 0",
-  );
+  expect(FFMPEG_INSTALL_SCRIPT).not.toContain("command -v ffmpeg");
 });
 
 /**
- * dnf-only repair path: SPAL's ffmpeg links against libjack.so.0 without
- * depending on the package that ships it. Ubuntu's ffmpeg has no such problem,
- * so the repair must stay inside the dnf branch.
+ * The libjack regression. `pipewire-jack-audio-connection-kit-libs` claims the
+ * `libjack.so.0()(64bit)` capability but installs the library off the loader
+ * path, so `dnf` exits 0 while ffmpeg still dies on launch. Chaining the next
+ * attempt behind `||` therefore skipped it, and the sandbox stayed broken.
+ * Each attempt must be re-gated on the binary actually running.
  */
-test("the dnf repair installs ffmpeg before its missing libjack dependency", () => {
-  const ffmpegInstallAt = ffmpegHelperBody.indexOf("ffmpeg-free");
-  const libjackInstallAt = ffmpegHelperBody.indexOf("libjack.so.0");
-  expect(ffmpegInstallAt).toBeGreaterThan(-1);
-  expect(libjackInstallAt).toBeGreaterThan(ffmpegInstallAt);
+test("each install attempt is gated on ffmpeg running, not on dnf's exit code", () => {
+  expect(installAttempts.length).toBeGreaterThan(1);
   expect(
-    ffmpegHelperBody.slice(libjackInstallAt, libjackInstallAt + 500),
-  ).toContain("|| true");
+    FFMPEG_INSTALL_SCRIPT.match(/if ! ffmpeg -version/g)?.length,
+    "every attempt needs its own `ffmpeg -version` gate",
+  ).toBeGreaterThanOrEqual(installAttempts.length - 1);
+  for (const attempt of installAttempts) {
+    expect(
+      attempt.includes("|| sudo dnf install"),
+      `chaining hides a dnf that "succeeds" without fixing ffmpeg: ${attempt}`,
+    ).toBe(false);
+  }
 });
 
-/** Ubuntu managed images get plain `ffmpeg` — no SPAL repo, no libjack repair. */
-test("the apt path installs ffmpeg directly", () => {
-  const aptBranchAt = ffmpegHelperBody.indexOf('if [ "$mgr" = apt ]');
-  const dnfBranchAt = ffmpegHelperBody.indexOf("  else");
-  expect(aptBranchAt).toBeGreaterThan(-1);
-  expect(dnfBranchAt).toBeGreaterThan(aptBranchAt);
-  const aptBranch = ffmpegHelperBody.slice(aptBranchAt, dnfBranchAt);
-  expect(aptBranch).toContain(
-    "apt-get install -y --no-install-recommends ffmpeg",
-  );
-  expect(aptBranch, "SPAL is an AL2023 repo").not.toContain("spal-release");
-  expect(aptBranch, "libjack is an AL2023-only defect").not.toContain(
-    "libjack",
-  );
+test("the repair installs ffmpeg, then real jack, then the capability match", () => {
+  const order = [
+    "ffmpeg-free",
+    "jack-audio-connection-kit",
+    '"libjack.so.0()(64bit)"',
+  ].map((needle) => FFMPEG_INSTALL_SCRIPT.indexOf(needle));
+  for (const at of order) expect(at).toBeGreaterThan(-1);
+  expect(order, "real jack is the only package that lands on the loader path").
+    toEqual([...order].sort((a, b) => a - b));
+});
+
+/** The shim pipewire hides in a private directory is the last resort. */
+test("the loader-path repair runs only after every package attempt", () => {
+  const ldconfigAt = FFMPEG_INSTALL_SCRIPT.indexOf("ldconfig");
+  expect(ldconfigAt).toBeGreaterThan(-1);
+  for (const attempt of installAttempts) {
+    expect(FFMPEG_INSTALL_SCRIPT.indexOf(attempt)).toBeLessThan(ldconfigAt);
+  }
+  expect(
+    FFMPEG_INSTALL_SCRIPT,
+    "do not write the drop-in when pipewire's shim is absent",
+  ).toContain("[ -e /usr/lib64/pipewire-0.3/jack/libjack.so.0 ]");
 });

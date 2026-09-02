@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  deriveActionGroupSummary,
   deriveReadableCommandDisplay,
   deriveStepRowPresentation,
   resolveCommandVisualKind,
@@ -173,7 +174,7 @@ describe("deriveStepRowPresentation", () => {
     });
   });
 
-  it("humanizes bash commands with command kind", () => {
+  it("humanizes bash commands into a readable verb + target", () => {
     expect(
       deriveStepRowPresentation(
         step({
@@ -185,7 +186,6 @@ describe("deriveStepRowPresentation", () => {
       ),
     ).toEqual({
       text: "Searched for tool call in web/src",
-      commandKind: "inspect",
     });
   });
 
@@ -201,7 +201,6 @@ describe("deriveStepRowPresentation", () => {
       ),
     ).toEqual({
       text: "Running in background pnpm dev --filter @eva/web",
-      commandKind: "terminal",
     });
   });
 
@@ -324,5 +323,34 @@ describe("deriveStepRowPresentation", () => {
         true,
       ),
     ).toEqual({ text: "Asking a question..." });
+  });
+});
+
+describe("deriveActionGroupSummary", () => {
+  it("lists each distinct kind of work once, in order", () => {
+    expect(
+      deriveActionGroupSummary([
+        step({ type: "tool", label: "Used tool" }),
+        step({ type: "edit", label: "Edited" }),
+        step({ type: "edit", label: "Edited" }),
+        step({ type: "bash", label: "Ran", detail: "ls" }),
+      ]),
+    ).toBe("Used tools, edited files, ran commands");
+  });
+
+  it("names the MCP server behind a tool call", () => {
+    expect(
+      deriveActionGroupSummary([
+        step({ type: "tool", label: "mcp__github__create_issue" }),
+      ]),
+    ).toBe("Used Github");
+  });
+
+  it("treats Codex file_change tools as edits", () => {
+    expect(
+      deriveActionGroupSummary([
+        step({ type: "tool", label: "File change", detail: "file_change" }),
+      ]),
+    ).toBe("Edited files");
   });
 });

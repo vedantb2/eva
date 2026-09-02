@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import {
   api,
   buildTraitsExecutionPayload,
@@ -13,15 +13,19 @@ import {
   type Id,
 } from "@eva/backend";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
+import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxChatHeaderActions } from "@/lib/components/sandbox/SandboxStartStopButton";
-import { BackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
+import { SandboxChatPreInput } from "@/lib/components/chat/SandboxChatPreInput";
+import type { SandboxChatSurface } from "@/lib/components/chat/sandboxChatSurface";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
+import { useProviderAccountHandoff } from "@/lib/hooks/useProviderAccountHandoff";
 import { projectStoredTraits, useSetProjectTraits } from "./useProjectTraits";
+import { useUpdateProject } from "./useUpdateProject";
 
 interface ProjectSandboxChatPanelProps {
   projectId: Id<"projects">;
@@ -29,8 +33,8 @@ interface ProjectSandboxChatPanelProps {
   isSandboxToggling?: boolean;
   /** Opens the Files tab and loads this sandbox path in the file viewer. */
   onOpenFile?: (path: string) => void;
-  sandboxCollapsed?: boolean;
-  onToggleSandbox?: () => void;
+  /** Opens the Agents sandbox tab (used by the sub-agent CTA row in the chat). */
+  onOpenAgentsTab?: () => void;
   onSandboxToggle?: (action: "start" | "stop") => void;
 }
 
@@ -39,8 +43,7 @@ export function ProjectSandboxChatPanel({
   isSandboxActive,
   isSandboxToggling = false,
   onOpenFile,
-  sandboxCollapsed,
-  onToggleSandbox,
+  onOpenAgentsTab,
   onSandboxToggle,
 }: ProjectSandboxChatPanelProps) {
   const { repo, basePath } = useRepo();
@@ -57,10 +60,16 @@ export function ProjectSandboxChatPanel({
   const startExecute = useMutation(api.projectChatWorkflow.startExecute);
   const enqueueMessage = useMutation(api.projectChatWorkflow.enqueueMessage);
   const cancelExecution = useMutation(api.projectChatWorkflow.cancelExecution);
-  const requestStopBackgroundAgent = useMutation(
-    api.projectChatWorkflow.requestStopBackgroundAgent,
+  const prewarmChatDaemonNow = useAction(
+    api.projectChatWorkflow.prewarmChatDaemonNow,
   );
-  const updateProject = useMutation(api.projects.update);
+  const updateProject = useUpdateProject(projectId);
+  const { isSwitchingAccount, switchProviderAccount } =
+    useProviderAccountHandoff({
+      persist: (providerAccountId) =>
+        updateProject({ id: projectId, providerAccountId }),
+      prewarm: () => prewarmChatDaemonNow({ projectId }),
+    });
   const setChatModelMutation = useMutation(
     api.projects.setChatModel,
   ).withOptimisticUpdate((localStore, args) => {
@@ -108,9 +117,17 @@ export function ProjectSandboxChatPanel({
             id: providerAccountId,
             provider: getAIModelProvider(model),
             label: ownerAccountLabel,
+            // The project owner's account, shown to a collaborator: theirs, not
+            // the viewer's, so it must never be defaulted to.
+            isOwn: false,
           },
           ...accounts,
         ];
+  const usageAccountLabel =
+    providerAccountId === null
+      ? "Team"
+      : (displayAccounts.find((account) => account.id === providerAccountId)
+          ?.label ?? "Selected account");
 
   const draftSeed = useChatDraftSeed({
     kind: "projectChat" as const,
@@ -150,17 +167,15 @@ export function ProjectSandboxChatPanel({
 
   const setProviderAccountId = (next: string | null) => {
     if (!isOwner) return;
-    void updateProject({
-      id: projectId,
-      providerAccountId: resolveAccountId(next) ?? null,
-    });
+    switchProviderAccount(resolveAccountId(next) ?? null);
   };
 
-  const lastMessage = messages?.[messages.length - 1];
-  const lastAssistantHasNoContent =
-    !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
+  // Server flag first; the message-shape fallback is the shared helper so a
+  // finished-but-empty bubble or a trailing system alert cannot pin the
+  // composer in "working" mode (same rule as useSessionSend).
   const isExecuting =
-    Boolean(project?.activeChatWorkflowId) || lastAssistantHasNoContent;
+    Boolean(project?.activeChatWorkflowId) ||
+    isAssistantTurnInProgress(messages ?? []);
 
   const handleSend = async (
     content: string,
@@ -214,14 +229,33 @@ export function ProjectSandboxChatPanel({
     await cancelExecution({ projectId });
   };
 
+  const chatSurface: SandboxChatSurface = {
+    entity: { kind: "project", projectId },
+    repoId: repo._id,
+    model,
+    isExecuting,
+    isReadOnly: false,
+    // A stopped sandbox cannot run `/compact`, so it counts as read-only here.
+    compactionReadOnly: !isSandboxActive,
+    backgroundAgents: project?.backgroundAgents,
+    // No review-comment append on this send path (sessions-only), so a slash
+    // command already reaches the harness verbatim.
+    onSendCommand: (command) => {
+      void handleSend(command);
+    },
+  };
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
       <SandboxChatHeaderActions
+        repoId={repo._id}
         isSandboxActive={isSandboxActive}
         isSandboxToggling={isSandboxToggling}
         onSandboxToggle={onSandboxToggle}
-        sandboxCollapsed={sandboxCollapsed}
-        onToggleSandbox={onToggleSandbox}
+        isAssistantResponding={isExecuting}
+        model={model}
+        providerAccountId={providerAccountId}
+        usageAccountLabel={usageAccountLabel}
       />
       <ChatBody
         repoId={repo._id}
@@ -235,11 +269,13 @@ export function ProjectSandboxChatPanel({
         blockingQuestion={activeQuestion ?? undefined}
         onAnswerBlockingQuestion={handleAnswerBlockingQuestion}
         isExecuting={isExecuting}
-        isInputDisabled={!isSandboxActive}
+        isInputDisabled={!isSandboxActive || isSwitchingAccount}
         placeholder={
           !isSandboxActive
             ? "Wake Eva up to chat..."
-            : "Ask Eva anything... / for skills · @ to mention"
+            : isSwitchingAccount
+              ? "Switching Claude account..."
+              : "Ask Eva anything... / for skills · @ to mention"
         }
         emptyStateTitle={
           isSandboxActive
@@ -256,17 +292,13 @@ export function ProjectSandboxChatPanel({
         onTraitsChange={setTraits}
         onSend={handleSend}
         onCancel={handleCancel}
-        preInputContent={
-          <BackgroundAgentsChip
-            backgroundAgents={project?.backgroundAgents}
-            onRequestStop={async (toolUseId) => {
-              await requestStopBackgroundAgent({ projectId, toolUseId });
-            }}
-          />
-        }
+        preInputContent={<SandboxChatPreInput surface={chatSurface} />}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}
+        onOpenAgentsTab={onOpenAgentsTab}
+        backgroundAgents={project?.backgroundAgents}
+        sandboxRunning={isSandboxActive}
       />
     </div>
   );

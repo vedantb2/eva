@@ -4,9 +4,22 @@ import usePresence from "@convex-dev/presence/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 
-const THROTTLE_MS = 50;
+const THROTTLE_MS = 150;
+/** Ignore jitter smaller than this share of the viewport (percent). */
+const MIN_MOVE_PCT = 0.25;
 /** Hide remote cursors that have not moved recently (presence can lag behind tab close). */
 const CURSOR_ACTIVE_MS = 45_000;
+
+export function cursorMovedEnough(
+  last: { x: number; y: number } | null,
+  next: { x: number; y: number },
+): boolean {
+  if (last === null) return true;
+  return (
+    Math.abs(next.x - last.x) >= MIN_MOVE_PCT ||
+    Math.abs(next.y - last.y) >= MIN_MOVE_PCT
+  );
+}
 
 interface CursorData {
   x: number;
@@ -46,6 +59,7 @@ export function useLiveCursors(
   const presenceState = usePresence(api.presence, roomId, userId);
   const updateCursor = useMutation(api.presence.updateCursor);
   const lastSentRef = useRef(0);
+  const lastPosRef = useRef<{ x: number; y: number } | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingRef = useRef<{ x: number; y: number } | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -56,6 +70,8 @@ export function useLiveCursors(
   }, []);
 
   const sendUpdate = (x: number, y: number) => {
+    if (!cursorMovedEnough(lastPosRef.current, { x, y })) return;
+    lastPosRef.current = { x, y };
     updateCursor({ roomId, x, y }).catch(console.error);
   };
 

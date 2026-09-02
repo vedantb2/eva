@@ -2,6 +2,7 @@ import { expect, test } from "vitest";
 import { opencodeParseLine } from "../providers/opencode.js";
 import {
   createPartEmitState,
+  ensureEvaMcpServers,
   opencodeErrorMessage,
   opencodeEventSessionId,
   opencodePartToCliLine,
@@ -10,7 +11,9 @@ import {
 } from "../providers/opencodeSdk.js";
 import type {
   OpencodeAssistantMessage,
+  OpencodeClientLike,
   OpencodeEvent,
+  OpencodeMcpRemoteConfig,
   OpencodePart,
 } from "../providers/opencodeSdkTypes.js";
 import type { JsonObject } from "../types.js";
@@ -273,4 +276,66 @@ test("opencodeErrorMessage prefers the server message, then the error name", () 
     "MessageOutputLengthError",
   );
   expect(opencodeErrorMessage(undefined)).toBe("");
+});
+
+function mcpClientStub(known: Record<string, { status: string } | undefined>): {
+  client: Pick<OpencodeClientLike, "mcp">;
+  added: Array<{ name: string; config: OpencodeMcpRemoteConfig }>;
+} {
+  const added: Array<{ name: string; config: OpencodeMcpRemoteConfig }> = [];
+  return {
+    added,
+    client: {
+      mcp: {
+        status: () => Promise.resolve({ data: known }),
+        add: (options) => {
+          added.push(options.body);
+          return Promise.resolve({
+            data: { [options.body.name]: { status: "connected" } },
+          });
+        },
+      },
+    },
+  };
+}
+
+test("ensureEvaMcpServers registers the eva server on the live opencode server", async () => {
+  const { client, added } = mcpClientStub({});
+
+  await ensureEvaMcpServers(client, {
+    eva: {
+      type: "http",
+      url: "https://example.convex.site/mcp",
+      headers: { Authorization: "Bearer token-123" },
+    },
+  });
+
+  expect(added).toEqual([
+    {
+      name: "eva",
+      config: {
+        type: "remote",
+        url: "https://example.convex.site/mcp",
+        headers: { Authorization: "Bearer token-123" },
+        enabled: true,
+      },
+    },
+  ]);
+});
+
+test("ensureEvaMcpServers skips servers the opencode server already knows", async () => {
+  const registered = mcpClientStub({ eva: { status: "connected" } });
+  await ensureEvaMcpServers(registered.client, {
+    eva: {
+      type: "http",
+      url: "https://example.convex.site/mcp",
+      headers: { Authorization: "Bearer token-123" },
+    },
+  });
+  expect(registered.added).toEqual([]);
+
+  // No MCP token in the environment means no status probe and no registration.
+  const unconfigured = mcpClientStub({});
+  await ensureEvaMcpServers(unconfigured.client, {});
+  expect(unconfigured.added).toEqual([]);
 });

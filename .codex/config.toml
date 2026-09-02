@@ -5,36 +5,3 @@ model_reasoning_effort = "high"
 
 [shell_environment_policy]
 inherit = "core"
-
-[shell_environment_policy.set]
-CLAUDE_CODE_DISABLE_1M_CONTEXT = "1"
-CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING = "1"
-ANTHROPIC_DEFAULT_OPUS_MODEL = "claude-opus-4-6"
-
-[mcp_servers.figma]
-command = "npx"
-args = [
-    "-y",
-    "figma-developer-mcp",
-    "--stdio",
-]
-env_vars = ["FIGMA_API_KEY"]
-
-[mcp_servers.linear]
-url = "https://mcp.linear.app/mcp"
-bearer_token_env_var = "LINEAR_API_KEY"
-
-[mcp_servers.axiom]
-url = "https://mcp.axiom.co/mcp"
-bearer_token_env_var = "AXIOM_MCP_PAT"
-env_http_headers = { "x-axiom-org-id" = "AXIOM_ORG_ID" }
-required = false
-default_tools_approval_mode = "approve"
-enabled_tools = [
-    "listDatasets",
-    "getDatasetSchema",
-    "queryApl",
-    "getSavedQueries",
-    "checkMonitors",
-    "getMonitorHistory",
-]

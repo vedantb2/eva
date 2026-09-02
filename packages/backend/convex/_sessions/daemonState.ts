@@ -7,7 +7,10 @@ export type SessionDaemonPatch = Pick<
   | "pendingTaskStops"
   | "cancelRequestedAt"
   | "sandboxSetupPending"
->;
+  | "claimPausedUntil"
+> & {
+  usageRefreshRequestedAt?: number;
+};
 
 /** Mirrors daemon-only session fields into the small row polled by warm agents. */
 export async function syncSessionDaemonState(
@@ -41,6 +44,12 @@ export async function syncSessionDaemonState(
     sandboxSetupPending: Object.hasOwn(patch, "sandboxSetupPending")
       ? patch.sandboxSetupPending
       : session.sandboxSetupPending,
+    usageRefreshRequestedAt: Object.hasOwn(patch, "usageRefreshRequestedAt")
+      ? patch.usageRefreshRequestedAt
+      : undefined,
+    claimPausedUntil: Object.hasOwn(patch, "claimPausedUntil")
+      ? patch.claimPausedUntil
+      : session.claimPausedUntil,
   });
 }
 

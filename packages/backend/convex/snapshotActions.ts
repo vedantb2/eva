@@ -4,7 +4,10 @@ import { v } from "convex/values";
 import { z } from "zod";
 import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { resolveSandboxCredentials } from "./envVarResolver";
+import {
+  resolveSandboxCredentials,
+  tryResolveSandboxCredentials,
+} from "./envVarResolver";
 import { getInstallationToken } from "./githubAuth";
 import {
   buildConfigFileDownloadCommands,
@@ -18,6 +21,7 @@ import {
   SESSION_LIFECYCLE,
 } from "./_sandbox_runtime/git";
 import { getSandboxClient } from "./_sandbox/factory";
+import { FFMPEG_INSTALL_SCRIPT } from "./_sandbox/ffmpegInstall";
 import {
   buildConvexBackgroundScriptBody,
   buildConvexPostSeedPushLines,
@@ -30,6 +34,7 @@ import {
   releaseSwapFile,
   resolveSwapConfig,
 } from "./_sandbox_runtime/swap";
+import { CLAUDE_CODE_VERSION } from "./_sandbox_runtime/claudeCliVersion";
 import { Sandbox, Snapshot } from "@vercel/sandbox";
 import { SANDBOX_TAG } from "./_sandbox/tags";
 import {
@@ -82,6 +87,25 @@ const CODE_SERVER_VERSION = "4.132.0";
 // made every fresh snapshot fail deterministically during postinstall. Mirror
 // any bump in callback-src/providers/opencodeSdk.ts (SDK_VERSION).
 const OPENCODE_VERSION = "1.18.16";
+// Mirror any bump in callback-src/providers/{claudeSdk,cursorSdk}.ts
+// (SDK_VERSION): the callback's stream parsers match one SDK release's message
+// shapes exactly. Bump CLAUDE_CODE_VERSION (_sandbox_runtime/claudeCliVersion)
+// alongside the agent SDK — 0.3.X ships the CLI it spawns, 2.1.X.
+const CLAUDE_AGENT_SDK_VERSION = "0.3.258";
+const CURSOR_SDK_VERSION = "1.0.28";
+
+/**
+ * Shell test that a globally installed package is at an exact version.
+ *
+ * Seeding used to test only that the package directory existed, so a snapshot
+ * built before a pin moved kept serving the stale SDK forever. That drift is
+ * silent rather than fatal: the callback's parsers drop every event they do not
+ * recognise, so the turn renders no activity at all while still returning its
+ * final answer.
+ */
+function globalPackageIsVersion(name: string, version: string): string {
+  return `[ "$(node -p "require('$(npm root -g)/${name}/package.json').version" 2>/dev/null)" = "${version}" ]`;
+}
 
 function shouldCaptureSupabaseState(commands: string[]): boolean {
   return commands.some((command) => {
@@ -318,11 +342,9 @@ export const launchSeedRun = internalAction({
       // npm install dies with `gyp ERR! not found: make`.
       `${pkgInstall(...CORE_TOOLCHAIN_PACKAGES)} || { echo "SEEDRUN-FAILED:toolchain-packages"; exit 1; }`,
       `${pkgInstall(...CHROME_RUNTIME_LIBRARY_PACKAGES)} || true`,
-      // ffmpeg for agent-browser WebM recording. Soft-fail so the seed still
-      // completes if a mirror is unavailable; see eva_pkg_install_ffmpeg for why
-      // the AL2023 path needs the SPAL repo and a libjack repair and Ubuntu's
-      // does not.
-      "eva_pkg_install_ffmpeg || true",
+      // ffmpeg for agent-browser WebM recording, baked into the seeded
+      // snapshot. Shared with the desktop-start repair so the two cannot drift.
+      FFMPEG_INSTALL_SCRIPT,
       'docker info >/dev/null 2>&1 || sudo setsid dockerd </dev/null >/tmp/dockerd.log 2>&1 & for i in $(seq 1 60); do docker info >/dev/null 2>&1 && break; sleep 1; done; sudo chmod 666 /var/run/docker.sock 2>/dev/null || true; docker info >/dev/null 2>&1 || { echo "SEEDRUN-FAILED:docker-start"; exit 1; }',
       'corepack enable || sudo corepack enable || { echo "SEEDRUN-FAILED:corepack"; exit 1; }',
       'corepack prepare pnpm@10.33.4 --activate || { echo "SEEDRUN-FAILED:pnpm"; exit 1; }',
@@ -360,8 +382,8 @@ export const launchSeedRun = internalAction({
       "sudo mkdir -p /opt/git/etc",
       'sudo /usr/local/bin/git-lfs install --system || { echo "SEEDRUN-FAILED:git-lfs-filters"; exit 1; }',
       'sudo env GIT_CONFIG_SYSTEM=/etc/gitconfig /usr/local/bin/git-lfs install --system || { echo "SEEDRUN-FAILED:git-lfs-filters"; exit 1; }',
-      'command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && [ -d "$(npm root -g)/@anthropic-ai/claude-agent-sdk" ] && [ -d "$(npm root -g)/@cursor/sdk" ] || sudo npm install -g @anthropic-ai/claude-code @anthropic-ai/claude-agent-sdk@0.3.201 @openai/codex@0.146.0 agent-browser convex agentation-mcp@1.2.0 @cursor/sdk@1.0.26 || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }',
-      `command -v opencode >/dev/null 2>&1 && [ -d "$(npm root -g)/@opencode-ai/sdk" ] || sudo npm install -g opencode-ai@${OPENCODE_VERSION} @opencode-ai/sdk@${OPENCODE_VERSION} || { echo "SEEDRUN-FAILED:opencode-cli"; exit 1; }`,
+      `command -v claude >/dev/null 2>&1 && command -v codex >/dev/null 2>&1 && ${globalPackageIsVersion("@anthropic-ai/claude-code", CLAUDE_CODE_VERSION)} && ${globalPackageIsVersion("@anthropic-ai/claude-agent-sdk", CLAUDE_AGENT_SDK_VERSION)} && ${globalPackageIsVersion("@cursor/sdk", CURSOR_SDK_VERSION)} || sudo npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION} @anthropic-ai/claude-agent-sdk@${CLAUDE_AGENT_SDK_VERSION} @openai/codex@0.146.0 agent-browser convex agentation-mcp@1.2.0 @cursor/sdk@${CURSOR_SDK_VERSION} || { echo "SEEDRUN-FAILED:agent-clis"; exit 1; }`,
+      `command -v opencode >/dev/null 2>&1 && ${globalPackageIsVersion("@opencode-ai/sdk", OPENCODE_VERSION)} || sudo npm install -g opencode-ai@${OPENCODE_VERSION} @opencode-ai/sdk@${OPENCODE_VERSION} || { echo "SEEDRUN-FAILED:opencode-cli"; exit 1; }`,
       // code-server publishes one artifact per packaging format, and the two
       // asset names differ by more than the extension (`code-server_V_amd64.deb`
       // vs `code-server-V-amd64.rpm`), so the branch is on the filename rather
@@ -680,12 +702,22 @@ export const pollSeedRun = internalAction({
  */
 export const createSeedPrepSandbox = internalAction({
   args: { repoId: v.id("githubRepos"), imageSnapshot: v.string() },
-  returns: v.object({ sandboxId: v.string() }),
-  handler: async (ctx, args): Promise<{ sandboxId: string }> => {
-    const { credentials, sandboxEnvVars } = await resolveSandboxCredentials(
-      ctx,
-      args.repoId,
-    );
+  returns: v.union(
+    v.object({ ok: v.literal(true), sandboxId: v.string() }),
+    v.object({ ok: v.literal(false), error: v.string() }),
+  ),
+  handler: async (
+    ctx,
+    args,
+  ): Promise<
+    { ok: true; sandboxId: string } | { ok: false; error: string }
+  > => {
+    const resolved = await tryResolveSandboxCredentials(ctx, args.repoId);
+    if (!resolved.ok) {
+      console.warn(`[snapshot] createSeedPrepSandbox: ${resolved.error}`);
+      return { ok: false, error: resolved.error };
+    }
+    const { credentials, sandboxEnvVars } = resolved;
     const client = getSandboxClient(credentials);
     // Vercel snapshot IDs are `snap_*`. If a non-`snap_*` name is passed (e.g.
     // a stale/legacy value), fall back to a fresh sandbox (no snapshot source)
@@ -725,7 +757,7 @@ export const createSeedPrepSandbox = internalAction({
       // pre-baked into their base snapshot.
       true,
     );
-    return { sandboxId: sandbox.id };
+    return { ok: true, sandboxId: sandbox.id };
   },
 });
 

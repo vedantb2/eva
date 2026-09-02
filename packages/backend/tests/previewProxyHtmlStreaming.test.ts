@@ -130,12 +130,13 @@ function createHarness(options: HarnessOptions = {}) {
   function upstream(
     headers: Record<string, string> = { "content-type": "text/html" },
   ): FakeUpstreamRes {
+    const piped: unknown[] = [];
     const res = Object.assign(new EventEmitter(), {
       headers,
       statusCode: 200,
       paused: 0,
       resumed: 0,
-      piped: [] as unknown[],
+      piped,
       pause() {
         res.paused += 1;
       },

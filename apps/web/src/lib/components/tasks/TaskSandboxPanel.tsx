@@ -3,18 +3,19 @@
 import { useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import { api } from "@eva/backend";
-import type { Id, SandboxOwner } from "@eva/backend";
+import type { BackgroundAgentEntry, Id, SandboxOwner } from "@eva/backend";
 import { isSessionSandboxTab, type SandboxTab } from "@/lib/search-params";
 import { SandboxTabBar } from "@/routes/_repo/$owner/$repo/sessions/_components/SandboxTabBar";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import { type SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
-import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
-import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
+import { SandboxPanelFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
+import { useSubagentRoster } from "@/lib/components/sandbox/useSubagentRoster";
 import { FilesPanel } from "@/routes/_repo/$owner/$repo/sessions/FilesPanel";
+import { SandboxAgentsPanel } from "@/lib/components/sandbox/SandboxAgentsPanel";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
 interface TaskSandboxPanelProps {
@@ -37,10 +38,14 @@ interface TaskSandboxPanelProps {
   panes: SandboxPanesApi;
   terminalPanel: TerminalPanelApi;
   prUrl?: string;
+  /** Sub-agent lifecycle entries from the task doc (Agents tab). */
+  backgroundAgents?: BackgroundAgentEntry[];
   activeTab: SandboxTab;
   onTabChange: (tab: SandboxTab) => void;
   onStartSandbox?: () => void;
   isSandboxStarting?: boolean;
+  collapsed?: boolean;
+  onToggle?: () => void;
 }
 
 /**
@@ -62,13 +67,25 @@ export function TaskSandboxPanel({
   panes,
   terminalPanel,
   prUrl,
+  backgroundAgents,
   activeTab,
   onTabChange,
   onStartSandbox,
   isSandboxStarting,
+  collapsed = false,
+  onToggle,
 }: TaskSandboxPanelProps) {
   const simpleView = useSimpleView();
   const taskIdStr = String(taskId);
+
+  // Content-keyed Agents tab, folded from the chat transcript the task's chat
+  // panel already subscribes to (same entity ids).
+  const { agents, hasAgents, hasRunningAgents } = useSubagentRoster({
+    parentId: taskId,
+    streamingEntityId: `task-chat-${taskIdStr}`,
+    backgroundAgents,
+    sandboxRunning: isActive,
+  });
 
   const viewState = useQuery(api.sandboxPanes.getViewState, { owner });
   const setPreviewPath = useMutation(api.sandboxPanes.setPreviewPath);
@@ -103,27 +120,17 @@ export function TaskSandboxPanel({
     onTabChange(tab);
   };
 
-  const {
-    computerTabOpen,
-    computerRunning,
-    setComputerRunning,
-    openComputer,
-    closeComputer,
-  } = useComputerTab(`task:${taskIdStr}`, tabBarValue, handleTabChange);
-  const { editorTabOpen, openEditor, closeEditor } = useEditorTab(
-    `task:${taskIdStr}`,
-    tabBarValue,
-    handleTabChange,
-  );
-
   const enabledTabs = withBrowserTab(panes.enabledTabs);
 
   return (
-    <div className="h-full flex flex-col">
-      <SandboxTabBar
-        compact
-        activeTab={tabBarValue}
-        onTabChange={handleTabChange}
+    <SandboxPanelFrame
+      collapsed={collapsed}
+      tabBar={
+        <SandboxTabBar
+          activeTab={tabBarValue}
+          onTabChange={handleTabChange}
+          collapsed={collapsed}
+          onToggle={onToggle}
         onNewPreview={() => {
           panes.handleNewPreview();
           onTabChange("preview");
@@ -131,19 +138,16 @@ export function TaskSandboxPanel({
         newPreviewDisabled={panes.newPreviewDisabled}
         enabledTabs={enabledTabs}
         showFilesTab
+        showAgentsTab={hasAgents}
+        hasRunningAgents={hasRunningAgents}
         agentBrowsingAt={viewState?.agentBrowsingAt}
-        computerTabOpen={computerTabOpen}
-        computerRunning={computerRunning}
-        onOpenComputer={openComputer}
-        onCloseComputer={closeComputer}
-        editorTabOpen={editorTabOpen}
-        onOpenEditor={openEditor}
-        onCloseEditor={closeEditor}
         fileList={fileList}
         consoleDock={panes.consoleDock}
         terminalPanel={terminalPanel}
-      />
-      <div className="flex-1 overflow-hidden bg-card">
+        />
+      }
+    >
+      <div className="h-full overflow-hidden">
         <div className={!simpleView && tabBarValue === "files" ? "h-full min-h-0" : "hidden"}>
           <FilesPanel
             sandboxId={sandboxId}
@@ -151,6 +155,13 @@ export function TaskSandboxPanel({
             isActive={isActive}
             fileList={fileList}
           />
+        </div>
+        <div
+          className={
+            !simpleView && tabBarValue === "agents" ? "h-full min-h-0" : "hidden"
+          }
+        >
+          <SandboxAgentsPanel entity={{ kind: "task", taskId }} agents={agents} />
         </div>
         <SandboxPaneSlots
           activeTab={tabBarValue}
@@ -167,7 +178,6 @@ export function TaskSandboxPanel({
           onReleaseBrowserLock={() => void releaseBrowserLock({ owner })}
           // Backend starts the app in the Console tmux session after startup.
           runConsoleDevCommandOnConnect={false}
-          onComputerRunningChange={setComputerRunning}
           onStartSandbox={onStartSandbox}
           isSandboxStarting={isSandboxStarting}
           stickyPreviewPath={viewState?.previewPath}
@@ -184,6 +194,6 @@ export function TaskSandboxPanel({
           }}
         />
       </div>
-    </div>
+    </SandboxPanelFrame>
   );
 }

@@ -22,8 +22,8 @@ import {
 import { useMutation } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { useBaseBranchState } from "@/lib/hooks/useBaseBranchState";
 import { useNavigate } from "@tanstack/react-router";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import {
@@ -79,10 +79,13 @@ export function NewProjectModal({
 }: NewProjectModalProps) {
   const { repo, basePath } = useRepo();
   const navigate = useNavigate();
-  const defaultBranch = repo?.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
+  const {
+    baseBranch,
+    setBaseBranch,
+    repoDefaultBranch: defaultBranch,
+  } = useBaseBranchState();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [baseBranch, setBaseBranch] = useState(defaultBranch);
   const [priority, setPriority] = useState<Priority | undefined>(undefined);
   const [skipPlanning, setSkipPlanning] = useState(defaultSkipPlanning);
   const [planningPickerOpen, setPlanningPickerOpen] = useState(false);

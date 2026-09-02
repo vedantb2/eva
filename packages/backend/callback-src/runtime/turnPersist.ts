@@ -21,6 +21,7 @@ const COMMIT_ADD_ARGS = [
   ":!*.mov",
   ":!screenshots/",
   ":!recordings/",
+  ":!plan.md",
 ];
 
 function git(
@@ -39,6 +40,44 @@ function git(
 type BranchSyncResult =
   | { status: "ready"; remoteExists: boolean }
   | { status: "failed" };
+
+/** Keep in sync with convex/_sandbox_runtime/divergedPublish.ts */
+const REWRITE_REMOTE_ONLY_FILE_THRESHOLD = 20;
+
+function parseGitNameOnlyList(output: string): string[] {
+  const names: string[] = [];
+  for (const line of output.split("\n")) {
+    const name = line.trim();
+    if (name.length > 0) names.push(name);
+  }
+  return names;
+}
+
+function remoteOnlyChangedFileCount(
+  localChangedFiles: readonly string[],
+  remoteChangedFiles: readonly string[],
+): number {
+  const local = new Set(localChangedFiles);
+  let count = 0;
+  for (const file of remoteChangedFiles) {
+    if (!local.has(file)) count += 1;
+  }
+  return count;
+}
+
+function divergedPublishLooksLikeRewrite(
+  localChangedFiles: readonly string[],
+  remoteChangedFiles: readonly string[],
+): boolean {
+  const remoteOnly = remoteOnlyChangedFileCount(
+    localChangedFiles,
+    remoteChangedFiles,
+  );
+  return (
+    remoteOnly > REWRITE_REMOTE_ONLY_FILE_THRESHOLD &&
+    remoteOnly > localChangedFiles.length
+  );
+}
 
 function isMissingRemoteRef(message: string): boolean {
   const lower = message.toLowerCase();
@@ -104,16 +143,44 @@ function synchronizeForPush(branch: string): BranchSyncResult {
     return { status: "failed" };
   }
   if (/^[1-9]\d*\s+[1-9]\d*$/.test(divergence.out)) {
-    const rebase = git(["rebase", remoteRef], PUSH_TIMEOUT_MS);
-    if (rebase.ok) {
+    // Merge, not rebase: a turn that merged the base branch in makes every
+    // base commit since the fork local-only, and a rebase replays all of them
+    // onto the remote tip (see synchronizeBranchForPublish in
+    // _sandbox_runtime/git.ts for the prod case this cost us).
+    // Skip that merge when the unique remote tree looks like a rewritten base
+    // (task 231): merging the old tip back in conflicts only inside publish.
+    const localRef = `refs/heads/${branch}`;
+    const mergeBase = git(["merge-base", remoteRef, localRef]);
+    if (mergeBase.ok) {
+      const localChanged = parseGitNameOnlyList(
+        git(["diff", "--name-only", mergeBase.out, localRef]).out,
+      );
+      const remoteChanged = parseGitNameOnlyList(
+        git(["diff", "--name-only", mergeBase.out, remoteRef]).out,
+      );
+      if (divergedPublishLooksLikeRewrite(localChanged, remoteChanged)) {
+        log(
+          `persistTurnWork: skipped merge — rewritten local branch vs origin/${branch}`,
+        );
+        return { status: "failed" };
+      }
+    }
+    const merge = git(["merge", "--no-edit", remoteRef], PUSH_TIMEOUT_MS);
+    if (merge.ok) {
       return { status: "ready", remoteExists: true };
     }
-    git(["rebase", "--abort"]);
-    log(`persistTurnWork: rebase failed: ${rebase.out.slice(0, 200)}`);
+    git(["merge", "--abort"]);
+    log(`persistTurnWork: merge failed: ${merge.out.slice(0, 200)}`);
     return { status: "failed" };
   }
   log(`persistTurnWork: unexpected divergence: ${divergence.out}`);
   return { status: "failed" };
+}
+
+/** True when every commit reachable from HEAD is already in `exclusion`. */
+function tipAlreadyPublished(exclusion: readonly string[]): boolean {
+  const unpushed = git(["rev-list", "--count", "HEAD", "--not", ...exclusion]);
+  return unpushed.ok && unpushed.out === "0";
 }
 
 /**
@@ -162,6 +229,12 @@ export function persistTurnWork(): void {
     }
   }
 
+  // Cheap local answer first: synthetic turns finalize on every background-agent
+  // continuation, and the common case is a clean tree whose tip the tracking ref
+  // already contains. The tracking ref only ever lags behind origin, so a zero
+  // count here means origin genuinely has HEAD — no fetch or push needed.
+  if (tipAlreadyPublished([`refs/remotes/origin/${branch.out}`])) return;
+
   // The exact remote branch is refreshed below before the ahead-of-remote gate
   // and push, so a resumed sandbox cannot publish from a stale tracking ref.
   // Fully-qualified refspec, both sides. `HEAD` resolves through whatever the
@@ -178,14 +251,7 @@ export function persistTurnWork(): void {
     const exclusion = sync.remoteExists
       ? [`refs/remotes/origin/${branch.out}`]
       : ["--remotes=origin"];
-    const unpushed = git([
-      "rev-list",
-      "--count",
-      "HEAD",
-      "--not",
-      ...exclusion,
-    ]);
-    if (unpushed.ok && unpushed.out === "0") return;
+    if (tipAlreadyPublished(exclusion)) return;
 
     const push = git(["push", "origin", refspec], PUSH_TIMEOUT_MS);
     if (push.ok) {

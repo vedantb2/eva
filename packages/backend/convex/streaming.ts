@@ -34,6 +34,17 @@ export async function finalizeCancelledAssistantMessage(
   });
 }
 
+/** Overlapping heartbeat + flush both bump lastUpdatedAt; 2s is far below the 5-minute stale threshold. */
+export const STREAMING_TOUCH_COALESCE_MS = 2_000;
+
+export function shouldCoalesceStreamingTouch(
+  lastUpdatedAt: number | undefined,
+  now: number,
+): boolean {
+  if (lastUpdatedAt === undefined) return false;
+  return now - lastUpdatedAt < STREAMING_TOUCH_COALESCE_MS;
+}
+
 const activityStateValidator = v.union(
   v.object({
     currentActivity: v.string(),
@@ -64,7 +75,7 @@ async function readStreamingActivity(ctx: QueryCtx, entityId: string) {
 }
 
 /** Updates or creates streaming activity state for an entity, only writing on actual changes. */
-async function upsertStreamingActivity(
+export async function upsertStreamingActivity(
   ctx: MutationCtx,
   args: {
     entityId: string;
@@ -91,7 +102,7 @@ async function upsertStreamingActivity(
         pendingQuestion: args.pendingQuestion,
         lastUpdatedAt: now,
       });
-    } else {
+    } else if (!shouldCoalesceStreamingTouch(existing.lastUpdatedAt, now)) {
       await ctx.db.patch(existing._id, {
         lastUpdatedAt: now,
       });
@@ -131,7 +142,7 @@ export const internalGet = internalQuery({
   handler: async (ctx, args) => readStreamingActivity(ctx, args.entityId),
 });
 
-async function touchStreamingEntity(
+export async function touchStreamingEntity(
   ctx: MutationCtx,
   entityId: string,
 ): Promise<boolean> {
@@ -147,6 +158,9 @@ async function touchStreamingEntity(
       currentContent: "",
       lastUpdatedAt: now,
     });
+    return true;
+  }
+  if (shouldCoalesceStreamingTouch(existing.lastUpdatedAt, now)) {
     return true;
   }
   await ctx.db.patch(existing._id, { lastUpdatedAt: now });

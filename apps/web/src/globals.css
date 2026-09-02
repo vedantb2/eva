@@ -23,6 +23,32 @@
   @apply ui-surface p-5 md:p-6;
 }
 
+@utility ui-skeleton {
+  /* Highlight sweep for loading placeholders. Transform on ::after so the
+   * band runs on the compositor while the page is busy fetching — the same
+   * reason <Shimmer/> left rAF. Overflow clips the band to the caller's
+   * radius; the fill stays `bg-muted` on the element itself.
+   *
+   * Stops sit at 20/50/80% so the sheen is a band, not a full-card wash.
+   * Light muted is already near white, so the peak has to be almost opaque
+   * to lift at all; dark uses a much thinner white. */
+  position: relative;
+  overflow: hidden;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(
+      90deg,
+      rgb(255 255 255 / 0) 20%,
+      light-dark(rgb(255 255 255 / 0.9), rgb(255 255 255 / 0.22)) 50%,
+      rgb(255 255 255 / 0) 80%
+    );
+    animation: skeleton-shimmer 2s linear infinite;
+    pointer-events: none;
+  }
+}
+
 @utility t-modal {
   /* transitions.dev — modal open / close. The dialog is always centered, so
    * .t-modal owns the centering transform (translate -50%) plus scale/fade. */
@@ -60,18 +86,17 @@
   left: 0;
   height: 0;
   width: 0;
-  transform: translateX(0);
-  /* `top` and `height` are set, not transitioned: every tab in a list shares
-   * the same height and vertical position, so animating them only cost a
-   * layout pass per frame and could smear on resize. `width` stays — the pill
-   * has to match the tab it lands on, and scaling a rounded rect instead would
-   * distort the corner radius. */
+  transform: translate(0);
+  /* Position is `translate(x, y)` so the pill can slide in a row or a column.
+   * `width`/`height` stay — the pill has to match the tab it lands on, and
+   * scaling a rounded rect instead would distort the corner radius. */
   transition:
     transform var(--tabs-dur) var(--tabs-ease),
-    width var(--tabs-dur) var(--tabs-ease);
+    width var(--tabs-dur) var(--tabs-ease),
+    height var(--tabs-dur) var(--tabs-ease);
   z-index: 0;
   pointer-events: none;
-  will-change: transform, width;
+  will-change: transform, width, height;
 }
 
 @utility t-accordion-content {
@@ -104,6 +129,22 @@
   }
 }
 
+@utility t-anchor-flash {
+  /* Marks the one comment a notification click-through was aimed at, once the
+   * page has scrolled it into view. Deliberately a fire-and-forget animation
+   * rather than a state-driven `transition`: the highlight has a beginning and
+   * an end and nothing ever needs to turn it off, so no timer, no state, and
+   * nothing to clean up. Applying the class is what starts it, which is why the
+   * anchor arriving on an already-open page replays it.
+   *
+   * Ring rather than a background wash so it reads over both the `Surface` a
+   * root thread sits on and the bare row a reply gets, and inset so it never
+   * widens the row. Held at full strength for the first third, then faded — the
+   * reader's eye arrives mid-scroll, and a highlight that has already started
+   * fading by the time the scroll settles is one they never see. */
+  animation: t-anchor-flash 2.4s var(--motion-ease-out);
+}
+
 @utility rounded-surface {
   border-radius: clamp(0.75rem, var(--radius), 1.25rem);
 }
@@ -130,37 +171,82 @@
   background-color: rgb(var(--app-shell));
 }
 
+/* `scale` / `translate` / `rotate` sit alongside `transform` in all three motion
+ * utilities for the reason spelled out on `motion-press` below: Tailwind v4's
+ * scale/translate/rotate utilities set the individual transform properties, and
+ * `transition-property: transform` does not match them. */
 @utility motion-base {
   transition-property:
-    color, background-color, border-color, box-shadow, transform, opacity;
+    color, background-color, border-color, box-shadow, transform, scale,
+    translate, rotate, opacity;
   transition-duration: var(--motion-base);
   transition-timing-function: var(--motion-ease-out);
 }
 
 @utility motion-emphasized {
-  transition-property: transform, opacity, box-shadow;
+  transition-property: transform, scale, translate, rotate, opacity, box-shadow;
   transition-duration: var(--motion-base);
   transition-timing-function: var(--motion-ease-emphasized);
 }
 
 @utility motion-press {
-  /* Covers colour as well as transform, because Tailwind's own
+  /* Covers colour as well as the transform properties, because Tailwind's own
    * `transition-colors` sits later in the generated sheet at the same
    * specificity — pairing the two silently replaced this whole declaration and
    * left `active:scale-*` snapping with no transition at all. A control that
    * presses almost always shifts colour on hover too, so one utility owns both
    * and call sites carry no separate `transition-*`.
    *
+   * `scale`, `translate` and `rotate` are listed as well as `transform`, and
+   * they are the ones that actually do the work: Tailwind v4 compiles
+   * `scale-[0.98]` to `scale: 0.98` and `translate-x-*` to `translate: …`, the
+   * individual transform properties from Transforms Level 2 — not to a
+   * `transform: scale(…)` shorthand. `transition-property: transform` matches
+   * the shorthand by name and nothing else, so on its own it animated a
+   * property every one of these call sites leaves at `none` while the press
+   * itself changed an untransitioned one. The whole house press was inert.
+   *
    * Per-property durations keep the house rule that colour trails the press:
-   * transform on `--motion-fast`, everything else on `--motion-base`. */
+   * the transform group on `--motion-fast`, everything else on
+   * `--motion-base`. */
   transition-property:
-    transform, color, background-color, border-color, box-shadow, opacity, fill,
-    stroke;
+    transform, scale, translate, rotate, color, background-color, border-color,
+    box-shadow, opacity, fill, stroke;
   transition-duration:
+    var(--motion-fast), var(--motion-fast), var(--motion-fast),
     var(--motion-fast), var(--motion-base), var(--motion-base),
     var(--motion-base), var(--motion-base), var(--motion-base),
     var(--motion-base), var(--motion-base);
   transition-timing-function: var(--motion-ease-out);
+}
+
+@utility t-slider {
+  /* Radix positions the thumb with an inline `transform: translateX(-50%)` on
+     an unstyled wrapper span. Do not set `translate` / `transform` here — that
+     replaces the inline transform and parks the knob past the end of the track.
+     Margin-top centers the 32px knob on the 20px pill without touching transform. */
+  & > span:has([role="slider"]) {
+    top: 50%;
+    z-index: 10;
+    display: block;
+    margin-top: -16px;
+    line-height: 0;
+  }
+}
+
+@utility t-slider-thumb {
+  /* Always a white raised disc, matching the mock in every theme. A dark ring
+     plus drop shadow is what keeps the circle readable when primary is
+     near-white (zinc) or the empty track is light — theme fill tokens vanish
+     on one side of the thumb. Uses Tailwind's shadow CSS variables so the
+     focus ring still composes. */
+  background-color: #fff;
+  --tw-shadow:
+    0 0 0 1px rgb(0 0 0 / 0.16), 0 1px 2px rgb(0 0 0 / 0.18),
+    0 3px 8px rgb(0 0 0 / 0.14);
+  box-shadow:
+    var(--tw-ring-offset-shadow, 0 0 #0000), var(--tw-ring-shadow, 0 0 #0000),
+    var(--tw-shadow);
 }
 
 @utility t-switch-thumb {
@@ -169,11 +255,18 @@
      easing symmetrically the way Tailwind's default does. No overshoot: a tap
      carries no momentum into the gesture, so a bounce here would be decoration.
      Colour trails on `--motion-base` and the plain out-curve — the knob should
-     arrive before it finishes changing colour, not with it. */
-  transition-property: transform, background-color;
-  transition-duration: var(--motion-fast), var(--motion-base);
+     arrive before it finishes changing colour, not with it.
+
+     `translate` is the property that carries the travel: the thumb moves with
+     `data-[state=checked]:translate-x-[18px]`, which Tailwind v4 compiles to
+     `translate: …`, so the curve above described a journey the knob was not
+     making — it teleported between the two walls. */
+  transition-property: transform, translate, background-color;
+  transition-duration:
+    var(--motion-fast), var(--motion-fast), var(--motion-base);
   transition-timing-function:
-    var(--motion-ease-emphasized), var(--motion-ease-out);
+    var(--motion-ease-emphasized), var(--motion-ease-emphasized),
+    var(--motion-ease-out);
 }
 
 @utility hit-target {
@@ -447,6 +540,9 @@
     initial-value: 0px;
   }
   @keyframes scroll-fade-top {
+    from {
+      --scroll-fade-top: 0px;
+    }
     to {
       --scroll-fade-top: 1.5rem;
     }
@@ -455,8 +551,14 @@
     from {
       --scroll-fade-bottom: 1.5rem;
     }
+    to {
+      --scroll-fade-bottom: 0px;
+    }
   }
   @keyframes scroll-fade-left {
+    from {
+      --scroll-fade-left: 0px;
+    }
     to {
       --scroll-fade-left: 1.5rem;
     }
@@ -464,6 +566,9 @@
   @keyframes scroll-fade-right {
     from {
       --scroll-fade-right: 1.5rem;
+    }
+    to {
+      --scroll-fade-right: 0px;
     }
   }
 }
@@ -858,6 +963,18 @@
       height: 0;
     }
   }
+
+  @keyframes t-anchor-flash {
+    0%,
+    35% {
+      box-shadow: inset 0 0 0 2px rgb(var(--ring) / 0.9);
+      background-color: rgb(var(--accent) / 0.45);
+    }
+    100% {
+      box-shadow: inset 0 0 0 2px rgb(var(--ring) / 0);
+      background-color: rgb(var(--accent) / 0);
+    }
+  }
 }
 
 @layer utilities {
@@ -880,6 +997,11 @@
  * registered properties declared near the top of this file, each driven
  * by its own range of the element's scroll timeline, so an edge only
  * fades while there is more content past it.
+ *
+ * Duration must be a non-zero time (`1ms`, stretched across the range by
+ * the timeline). The shorthand's initial duration is `0s`, which pins
+ * both animations at their end keyframes — a fade on every edge even
+ * when the list is flush with the top or bottom.
  *
  * `.scroll-fade` is the vertical (block) axis; `.scroll-fade-x` is the
  * horizontal (inline) axis — same recipe, used by the quick-task / project
@@ -905,11 +1027,11 @@
       transparent 100%
     );
     animation:
-      scroll-fade-top linear both,
-      scroll-fade-bottom linear both;
-    animation-timeline: scroll(self block);
+      scroll-fade-top 1ms linear both,
+      scroll-fade-bottom 1ms linear both;
+    animation-timeline: scroll(self y), scroll(self y);
     animation-range:
-      0 1.5rem,
+      0px 1.5rem,
       calc(100% - 1.5rem) 100%;
   }
 
@@ -922,11 +1044,11 @@
       transparent 100%
     );
     animation:
-      scroll-fade-left linear both,
-      scroll-fade-right linear both;
-    animation-timeline: scroll(self inline);
+      scroll-fade-left 1ms linear both,
+      scroll-fade-right 1ms linear both;
+    animation-timeline: scroll(self x), scroll(self x);
     animation-range:
-      0 1.5rem,
+      0px 1.5rem,
       calc(100% - 1.5rem) 100%;
   }
 }
@@ -1073,6 +1195,17 @@ html[data-blur-pid] [data-pii] {
   animation: beam-rotate var(--beam-duration) linear infinite;
 }
 
+/* The `steps(90)` cap below does NOT hold at 60Hz+, and layer isolation does
+ * not rescue it. The ring damages the frame every vsync, and the halo's blurred
+ * render pass is re-drawn with it: traced 720 `DirectRenderer::DrawRenderPass`
+ * over 360 frames with the ring on, versus 360 over 180 for the halo alone.
+ * `will-change: filter` on this layer plus `will-change: transform` on the
+ * spinning child was measured and rejected — the ratio stayed at 2 passes per
+ * frame on Chrome's GPU (SkiaRenderer) path, so cc never reused the undamaged
+ * filtered pass, and in software rendering the extra layers cost ~6% more
+ * compositor time. The remaining options all change how the glow looks
+ * (dropping it, or blurring inside the clip so it stops spilling outward), so
+ * this stays as-is pending a visual decision rather than being churned. */
 .beam-halo {
   position: absolute;
   inset: -1px;
@@ -1761,6 +1894,32 @@ html[data-blur-pid] [data-pii] {
   }
   100% {
     background-position: -200% 0;
+  }
+}
+
+/* <Shimmer/> (packages/ui) — the highlight sweep across text. Same start and
+ * end positions the motion/react version animated between, so the movement is
+ * unchanged; it just no longer costs a rAF callback and an inline style write
+ * per frame. `background-position` is still a paint property, so this repaints
+ * each frame — inherent to a background-clipped text sweep. */
+@keyframes shimmer-sweep {
+  from {
+    background-position: 100% center;
+  }
+  to {
+    background-position: 0% center;
+  }
+}
+
+/* <Skeleton/> — the highlight band. Percentages are of the pseudo, so
+ * -100% → 100% walks it fully off one edge and fully off the other; the
+ * jump back is invisible because both ends are clipped. */
+@keyframes skeleton-shimmer {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
   }
 }
 

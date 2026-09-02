@@ -6,7 +6,7 @@ import {
   IconCamera,
   IconFolders,
   IconSettings2,
-  IconReceipt2,
+  IconChartBar,
   IconPlug,
   IconTerminal2,
   IconSparkles,
@@ -59,7 +59,7 @@ export function SettingsSidebar({
       label: "Review",
       items: [
         { name: "MCP Config", href: `${baseUrl}/mcp-config`, icon: IconPlug },
-        { name: "Logs", href: `${baseUrl}/logs`, icon: IconReceipt2 },
+        { name: "Usage", href: `${baseUrl}/logs`, icon: IconChartBar },
       ],
     },
   ];

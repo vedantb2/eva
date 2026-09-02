@@ -111,6 +111,36 @@ describe("a live turn keeps its sandbox deadline ahead of the watchdog tick", ()
     expect(provider).toContain("extendTimeout(durationMs: number): Promise<void>");
     expect(vercelProvider).toContain("async extendTimeout(durationMs: number)");
   });
+
+  /**
+   * The create-time cap (below) is already the plan ceiling, and Vercel 400s any
+   * extension that would pass it. So an unconditional ask is a guaranteed
+   * rejection for the ~24h the deadline is far away — one scheduled action and
+   * one error line every 30s for the whole length of a live turn (prod,
+   * 2026-08-19). The gate is what makes the ask rare AND meaningful: only when
+   * the deadline falls inside the window the caller asked to keep clear.
+   */
+  test("the deadline is only pushed when it is actually near", () => {
+    const startAt = vercelProvider.indexOf(
+      "async extendTimeout(durationMs: number)",
+    );
+    const body = vercelProvider.slice(
+      startAt,
+      vercelProvider.indexOf("\n  async ", startAt + 1),
+    );
+    expect(
+      body,
+      "the gate must read the live session deadline, not a local guess",
+    ).toContain("this.sandbox.expiresAt");
+    expect(
+      body.match(/expiresAt\s*-\s*Date\.now\(\)\s*>\s*durationMs/),
+      "skip only while the deadline is further out than the window the caller wants covered",
+    ).not.toBeNull();
+    expect(
+      body,
+      "a near-deadline failure is the one worth reading, so it must carry the API body",
+    ).toContain("extractApiErrorDetail(e)");
+  });
 });
 
 /**

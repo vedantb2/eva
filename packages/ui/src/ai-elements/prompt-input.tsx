@@ -52,6 +52,7 @@ import { CrossfadeIconSlot } from "../ui/crossfade-icon";
 import { Spinner } from "../ui/spinner";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../ui/tooltip";
 import { cn } from "../utils/cn";
+import { CONTROL_RADIUS_CLASS } from "../utils/surface-radius";
 import {
   IconArrowUp,
   IconPhoto,
@@ -405,10 +406,13 @@ export type PromptInputProps = Omit<
     message: PromptInputMessage,
     event: FormEvent<HTMLFormElement>,
   ) => void | Promise<void>;
+  /** Merged onto the inner InputGroup (radius, density). */
+  inputGroupClassName?: string;
 };
 
 export const PromptInput = ({
   className,
+  inputGroupClassName,
   accept,
   multiple,
   globalDrop,
@@ -859,8 +863,9 @@ export const PromptInput = ({
             and moving the composer would fight the pointer. */}
         <InputGroup
           className={cn(
-            "overflow-hidden shadow-none transition-colors duration-[var(--motion-fast)]",
+            "overflow-hidden shadow-none transition-[color,box-shadow,border-color,border-radius] duration-[var(--motion-fast)]",
             isDragOver ? "border-primary bg-primary/5" : "border-border",
+            inputGroupClassName ?? CONTROL_RADIUS_CLASS,
           )}
         >
           {children}

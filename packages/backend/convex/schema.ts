@@ -26,9 +26,12 @@ import {
   repoSkillFields,
   repoSkillContentFields,
   repoSystemSkillFields,
+  harnessSkillCatalogFields,
+  harnessSkillReportTokenFields,
   sandboxGitCredentialsFields,
   appSettingsFields,
   userFields,
+  userPresenceFields,
   userProviderAccountFields,
   githubUserTokenFields,
   githubOauthStateFields,
@@ -46,12 +49,17 @@ import {
   backgroundProcessFields,
   snapshotBuildFields,
   sessionDaemonStateFields,
+  turnFields,
+  agentUsageLimitFields,
+  logFields,
 } from "./validators";
 
 const schema = defineSchema({
   users: defineTable(userFields)
     .index("by_clerk_id", ["clerkId"])
     .index("by_email", ["email"]),
+
+  userPresence: defineTable(userPresenceFields).index("by_user", ["userId"]),
 
   artifacts: defineTable(artifactFields)
     .index("by_team", ["boundTeamId"])
@@ -159,6 +167,20 @@ const schema = defineSchema({
     "by_session",
     ["sessionId"],
   ),
+  turns: defineTable(turnFields)
+    .index("by_entity_open", ["surface", "entityId", "open"])
+    .index("by_repo_open", ["repoId", "open"])
+    .index("by_open_lease", ["open", "leaseExpiresAt"])
+    .index("by_workflow", ["workflowId"]),
+  // Latest agent plan usage-limit reading per credential, upserted by the
+  // sandbox callback at the end of every turn (usageLimits:report). Plan limits
+  // belong to the credential, not the repo it ran on, so a user with two Claude
+  // accounts keeps a row for each and the shared team credential keeps one per
+  // team. Legacy per-repo rows still sit in the by_provider_account range and
+  // are filtered out on read — see `_usageLimits/rows.ts`.
+  agentUsageLimits: defineTable(agentUsageLimitFields)
+    .index("by_provider_account", ["provider", "providerAccountId"])
+    .index("by_provider_team", ["provider", "teamId"]),
   backgroundProcesses: defineTable(backgroundProcessFields)
     .index("by_session_and_status", ["sessionId", "status"])
     .index("by_session_and_key", ["sessionId", "key"]),
@@ -228,12 +250,6 @@ const schema = defineSchema({
   evaluationReports: defineTable(evaluationReportFields)
     .index("by_repo", ["repoId"])
     .index("by_doc", ["docId"]),
-  designPersonas: defineTable({
-    repoId: v.id("githubRepos"),
-    userId: v.id("users"),
-    name: v.string(),
-    prompt: v.string(),
-  }).index("by_repo", ["repoId"]),
   appTabs: defineTable(appTabFields).index("by_repo", ["repoId"]),
   repoSkills: defineTable(repoSkillFields)
     .index("by_repo", ["repoId"])
@@ -244,6 +260,13 @@ const schema = defineSchema({
   repoSystemSkills: defineTable(repoSystemSkillFields)
     .index("by_repo", ["repoId"])
     .index("by_repo_and_name", ["repoId", "name"]),
+  harnessSkillCatalogs: defineTable(harnessSkillCatalogFields).index(
+    "by_provider",
+    ["provider"],
+  ),
+  harnessSkillReportTokens: defineTable(harnessSkillReportTokenFields)
+    .index("by_token_hash", ["tokenHash"])
+    .index("by_expires_at", ["expiresAt"]),
   notifications: defineTable({
     userId: v.id("users"),
     type: notificationTypeValidator,
@@ -261,6 +284,14 @@ const schema = defineSchema({
     // Set once this notification has been included in an email (instant send or
     // daily digest), so neither path emails the same notification twice.
     emailedAt: v.optional(v.number()),
+    // The comment this notification was generated from, when it came from one.
+    // Also encoded into `href` as `?comment=<id>` at creation; kept here as a
+    // field so the anchor survives independently of the href string. Absent on
+    // non-comment notifications and on every notification created before this
+    // field existed — those keep landing at the top of the target page.
+    commentId: v.optional(
+      v.union(v.id("taskComments"), v.id("docComments")),
+    ),
   })
     .index("by_user", ["userId"])
     .index("by_user_and_read", ["userId", "read"])
@@ -373,15 +404,7 @@ const schema = defineSchema({
     .index("by_automation_and_status", ["automationId", "status"])
     .index("by_repo", ["repoId"]),
 
-  logs: defineTable({
-    entityType: v.string(),
-    entityId: v.string(),
-    entityTitle: v.string(),
-    rawResultEvent: v.optional(v.string()),
-    repoId: v.id("githubRepos"),
-    projectId: v.optional(v.id("projects")),
-    createdAt: v.number(),
-  })
+  logs: defineTable(logFields)
     .index("by_repo", ["repoId"])
     .index("by_repo_and_created", ["repoId", "createdAt"])
     .index("by_entity_type", ["entityType"])

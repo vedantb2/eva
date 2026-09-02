@@ -47,13 +47,13 @@ interface SandboxPaneSlotsProps {
    * Defaults to true for tasks/projects.
    */
   runConsoleDevCommandOnConnect?: boolean;
-  /** Computer/Browser desktop starting or running — gates Computer tab close. */
-  onComputerRunningChange?: (running: boolean) => void;
   /** Preview empty state Start button when sandbox is stopped. */
   onStartSandbox?: () => void;
   isSandboxStarting?: boolean;
   /** Session-only: preview select-element → chat submit. */
   onAnnotationSubmit?: (display: string, full: string) => Promise<void>;
+  /** Session-only: the visible preview may float into the mini-player. */
+  miniPlayer?: { sessionId: Id<"sessions">; returnTo: string; title: string };
   /** Session sticky Preview path from Convex. */
   stickyPreviewPath?: string;
   onStickyPreviewPathChange?: (path: string) => void;
@@ -85,10 +85,10 @@ export function SandboxPaneSlots({
   agentBrowsingAt,
   onReleaseBrowserLock,
   runConsoleDevCommandOnConnect = true,
-  onComputerRunningChange,
   onStartSandbox,
   isSandboxStarting,
   onAnnotationSubmit,
+  miniPlayer,
   stickyPreviewPath,
   onStickyPreviewPathChange,
   stickyTerminalHistoryTail,
@@ -163,6 +163,11 @@ export function SandboxPaneSlots({
               onStartSandbox={onStartSandbox}
               isSandboxStarting={isSandboxStarting}
               onAnnotationSubmit={onAnnotationSubmit}
+              miniPlayer={
+                resolvedTab === "preview" && resolvedPreviewActive === id
+                  ? miniPlayer
+                  : undefined
+              }
             />
           </div>
         ))}
@@ -237,7 +242,6 @@ export function SandboxPaneSlots({
             surface={resolvedTab === "browser" ? "browser" : "desktop"}
             agentBrowsingAt={agentBrowsingAt}
             onReleaseLock={onReleaseBrowserLock}
-            onRunningChange={onComputerRunningChange}
           />
         </SandboxPaneBoundary>
       </div>

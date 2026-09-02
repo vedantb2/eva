@@ -1,7 +1,9 @@
 import { useId } from "react";
 import cronstrue from "cronstrue";
 import { CronExpressionParser } from "cron-parser";
-import { Input, Surface } from "@eva/ui";
+import { Input } from "@eva/ui";
+import { SettingsSection } from "@/lib/components/settings/SettingsSection";
+import { SettingsField } from "@/lib/components/settings/SettingsField";
 
 function getOffsetMinutes(): number {
   return -new Date().getTimezoneOffset();
@@ -91,19 +93,23 @@ export function CronScheduleCard({
   const schedule = allowManual ? value : value || "";
 
   return (
-    <Surface density="none" className="p-3 space-y-4 sm:p-4">
-      <h3 className="text-sm font-medium">Cron Schedule</h3>
-      <div>
-        <label
-          htmlFor={fieldId}
-          className="mb-1.5 block text-xs font-medium text-muted-foreground"
-        >
-          Schedule (cron expression, your timezone)
-        </label>
+    <SettingsSection title="Cron Schedule">
+      <SettingsField
+        label="Schedule (cron expression, your timezone)"
+        htmlFor={fieldId}
+        description={
+          <>
+            Times are in your local timezone. Examples: <code>0 6 * * *</code>{" "}
+            (daily at 6am), <code>0 6 * * 1</code> (weekly Monday at 6am),{" "}
+            <code>0 */6 * * *</code> (every 6 hours)
+            {allowManual && ". Leave empty for manual only."}
+          </>
+        }
+      >
         <CronPreview schedule={schedule} allowManual={allowManual} />
         <Input
           id={fieldId}
-          className="h-8 text-xs font-mono text-center"
+          className="font-mono text-center"
           placeholder={
             allowManual ? "0 6 * * * (leave empty for manual)" : "0 6 * * *"
           }
@@ -124,15 +130,9 @@ export function CronScheduleCard({
             onBlurCommit?.(normalized);
           }}
         />
-        <p className="mt-1 text-[11px] text-muted-foreground">
-          Times are in your local timezone. Examples: <code>0 6 * * *</code>{" "}
-          (daily at 6am), <code>0 6 * * 1</code> (weekly Monday at 6am),{" "}
-          <code>0 */6 * * *</code> (every 6 hours)
-          {allowManual && ". Leave empty for manual only."}
-        </p>
-        <CronGuide />
-      </div>
-    </Surface>
+      </SettingsField>
+      <CronGuide />
+    </SettingsSection>
   );
 }
 

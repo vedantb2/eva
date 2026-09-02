@@ -16,15 +16,17 @@ import {
   IconDots,
   IconEye,
   IconGitPullRequest,
+  IconMessagePlus,
   IconSparkles,
 } from "@tabler/icons-react";
 import type { Id } from "@eva/backend";
 import { EntityContextUsage } from "@/lib/components/context-usage";
+import { UsageLimitsIndicator } from "@/lib/components/usage-limits";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
-import { SandboxPanelToggleButton } from "@/lib/components/sandbox/SandboxPanelToggleButton";
 import { SandboxStartStopButton } from "@/lib/components/sandbox/SandboxStartStopButton";
 import { SessionSwitcher } from "./SessionSwitcher";
 import { prStateIconClass } from "../_utils/-prStateIconClass";
+import { canSendSessionForReview } from "../_utils/sessionReadOnly";
 
 interface SessionChatHeaderProps {
   repoId: Id<"githubRepos">;
@@ -37,12 +39,28 @@ interface SessionChatHeaderProps {
   messageCount: number;
   isSandboxActive: boolean;
   isSandboxToggling: boolean;
+  /** True while the assistant holds the turn — hides the sleep button. */
+  isAssistantResponding: boolean;
   deploymentStatus?: "queued" | "building" | "deployed" | "error";
-  sandboxCollapsed?: boolean;
+  /** Canonical link to this session; omitted when the URL already is one. */
+  permalinkPath?: string;
+  /**
+   * Chat-only surface (Manager Ave). It supervises other agents instead of
+   * building on its own branch, so "Send for Review" would open a PR with no
+   * commits against base — a guaranteed failure, hidden rather than offered.
+   */
+  chatOnly?: boolean;
+  /** Popover already titles the surface — omit the duplicate "Manager Ave". */
+  hideTitle?: boolean;
+  /** Active model + sticky credential — only the chip bar cares. */
+  model: string | null | undefined;
+  providerAccountId: Id<"userProviderAccounts"> | null | undefined;
+  usageAccountLabel: string;
   onSandboxToggle: (action: "start" | "stop") => void;
-  onToggleSandbox?: () => void;
   onOpenSummaryModal: () => void;
   onOpenReviewModal: () => void;
+  /** Manager Ave only: offers "Start new chat". Absent on ordinary sessions. */
+  onOpenResetChatDialog?: () => void;
 }
 
 export function SessionChatHeader({
@@ -56,38 +74,78 @@ export function SessionChatHeader({
   messageCount,
   isSandboxActive,
   isSandboxToggling,
+  isAssistantResponding,
   deploymentStatus,
-  sandboxCollapsed,
+  permalinkPath,
+  chatOnly = false,
+  hideTitle = false,
+  model,
+  providerAccountId,
+  usageAccountLabel,
   onSandboxToggle,
-  onToggleSandbox,
   onOpenSummaryModal,
   onOpenReviewModal,
+  onOpenResetChatDialog,
 }: SessionChatHeaderProps) {
-  const showSendForReview = branchName && (!prState || prState === "draft");
+  // `chatOnly` is Manager Ave, i.e. `session.isOrchestrator`.
+  const showSendForReview = canSendSessionForReview({
+    branchName,
+    prState,
+    isOrchestrator: chatOnly,
+  });
 
-  const headerLeft = (
+  // Manager Ave is one fixed session at its own URL, so there is nothing to
+  // switch to and no repo to navigate up into — the switcher's dropdown would
+  // list other repos' sessions and its crumb would imply this chat belongs to
+  // the home repo, which is only where its sandbox happens to live. The
+  // popover already paints that title in its own chrome, so hide it there.
+  const headerLeft = chatOnly ? (
+    hideTitle ? undefined : (
+      <span className="truncate text-sm font-medium text-foreground">
+        {title}
+      </span>
+    )
+  ) : (
     <SessionSwitcher sessionId={sessionId} title={title} />
   );
 
   const headerRight = (
     <>
       <EntityContextUsage repoId={repoId} entityId={sessionId} />
+      <UsageLimitsIndicator
+        repoId={repoId}
+        model={model}
+        providerAccountId={providerAccountId}
+        accountLabel={usageAccountLabel}
+      />
       <SandboxStartStopButton
         isActive={isSandboxActive}
         isToggling={isSandboxToggling}
         onToggle={onSandboxToggle}
+        isAssistantResponding={isAssistantResponding}
       />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            size="icon-sm"
-            variant="secondary"
-            aria-label="More"
-          >
+          <Button size="icon-sm" variant="secondary" aria-label="More">
             <IconDots size={14} />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
+          {onOpenResetChatDialog && (
+            <>
+              {/* Disabled mid-turn: the reset retires this session, and the
+                  in-flight turn would finish writing into a chat the user can
+                  no longer reach. */}
+              <DropdownMenuItem
+                onClick={onOpenResetChatDialog}
+                disabled={isAssistantResponding}
+              >
+                <IconMessagePlus size={14} />
+                Start new chat
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+            </>
+          )}
           <DropdownMenuItem
             onClick={onOpenSummaryModal}
             disabled={!isSandboxActive || messageCount === 0}
@@ -134,15 +192,9 @@ export function SessionChatHeader({
             </DropdownMenuItem>
           )}
           <DropdownMenuSeparator />
-          <CopyLinkMenuItem />
+          <CopyLinkMenuItem path={permalinkPath} />
         </DropdownMenuContent>
       </DropdownMenu>
-      {onToggleSandbox && (
-        <SandboxPanelToggleButton
-          collapsed={sandboxCollapsed === true}
-          onToggle={onToggleSandbox}
-        />
-      )}
     </>
   );
 

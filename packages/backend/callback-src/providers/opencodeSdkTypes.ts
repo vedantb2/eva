@@ -131,7 +131,28 @@ type OpencodePromptBody = {
   parts: Array<{ type: "text"; text: string }>;
 };
 
+/** `McpRemoteConfig` — the streamable-HTTP half of opencode's `mcp` config. */
+export type OpencodeMcpRemoteConfig = {
+  type: "remote";
+  url: string;
+  headers: Record<string, string>;
+  enabled: boolean;
+};
+
+/** `McpStatus` union; every member carries the discriminant the runner reads. */
+type OpencodeMcpStatus = { status: string };
+
 export type OpencodeClientLike = {
+  mcp: {
+    status: () => Promise<
+      OpencodeResult<Record<string, OpencodeMcpStatus | undefined>>
+    >;
+    add: (options: {
+      body: { name: string; config: OpencodeMcpRemoteConfig };
+    }) => Promise<
+      OpencodeResult<Record<string, OpencodeMcpStatus | undefined>>
+    >;
+  };
   session: {
     create: () => Promise<OpencodeResult<OpencodeSession>>;
     get: (options: {

@@ -7,6 +7,9 @@ const backendDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const sessionPrompts = readSource("convex/_sessions/prompts.ts");
 const completion = readSource("callback-src/runtime/completion.ts");
+const claudeSdkDaemon = readSource(
+  "callback-src/providers/claudeSdkDaemon.ts",
+);
 const bundledScript = readSource(
   "convex/_sandbox_runtime/callbackScript.generated.ts",
 );
@@ -96,6 +99,30 @@ describe("the harvest archives posted files instead of deleting them", () => {
 
   test("the session prompt tells agents where posted captures live", () => {
     expect(sessionPrompts).toContain(".posted/");
+  });
+});
+
+/**
+ * Background-agent continuations are synthetic turns with their own assistant
+ * placeholder. They used to call the completion mutation directly, skipping
+ * the only function that uploads deliverable files. The exact message id also
+ * prevents a queued turn created by completion from stealing those captures.
+ */
+describe("synthetic Claude turns harvest media onto their own message", () => {
+  test.each([
+    ["callback source", claudeSdkDaemon],
+    ["deployed bundle", bundledScript],
+  ])("completion precedes an exact-target harvest (%s)", (_label, source) => {
+    const body = functionBody(source, "async function finalizeSyntheticTurn(");
+    const completionAt = body.indexOf("COMPLETE_SYNTHETIC_TURN_MUTATION");
+    const harvestAt = body.indexOf(
+      "await uploadAndAttachSandboxMedia({ messageId });",
+    );
+    expect(completionAt, "synthetic completion moved").toBeGreaterThan(-1);
+    expect(harvestAt, "the synthetic media harvest is missing").toBeGreaterThan(
+      -1,
+    );
+    expect(completionAt).toBeLessThan(harvestAt);
   });
 });
 

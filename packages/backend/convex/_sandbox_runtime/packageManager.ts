@@ -157,8 +157,9 @@ function renderAliasCase(): string {
 export const PACKAGE_INSTALL_LOG = "/tmp/eva-pkg-install.log";
 
 /**
- * Bash helper defining `eva_pkg_install`, `eva_pkg_install_ffmpeg`,
- * `eva_pkg_install_chrome` and `eva_pkg_manager`.
+ * Bash helper defining `eva_pkg_manager`, `eva_pkg_install`,
+ * `eva_pkg_file_ext` / `eva_pkg_install_file`, `eva_pkg_install_chrome` and
+ * `eva_pkg_install_gh`.
  *
  * Safe to emit more than once in the same shell (re-defining a function is a
  * no-op) and safe as a single element of a `join("; ")` array — the definition
@@ -224,26 +225,12 @@ export const PACKAGE_HELPER_SCRIPT = [
   `    sudo rpm -Uvh "$path" >>${PACKAGE_INSTALL_LOG} 2>&1`,
   "  fi",
   "}",
-  // ffmpeg powers `agent-browser record`. Ubuntu ships it in universe, so the
-  // whole AL2023 dance (SPAL third-party repo, then repairing the missing
-  // libjack.so.0 that SPAL's build links against but does not depend on) only
-  // runs on dnf. Gate on `ffmpeg -version`, never `command -v ffmpeg`: the SPAL
-  // binary can exist and still die on the missing shared object.
-  "eva_pkg_install_ffmpeg() {",
-  "  ffmpeg -version >/dev/null 2>&1 && return 0",
-  "  local mgr; mgr=$(eva_pkg_manager)",
-  '  if [ "$mgr" = apt ]; then',
-  "    eva__pkg_apt_refresh",
-  `    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ffmpeg >>${PACKAGE_INSTALL_LOG} 2>&1 || true`,
-  "  else",
-  `    sudo dnf install -y spal-release >>${PACKAGE_INSTALL_LOG} 2>&1 || true`,
-  `    ffmpeg -version >/dev/null 2>&1 || sudo dnf install -y ffmpeg-free >>${PACKAGE_INSTALL_LOG} 2>&1 || sudo dnf install -y ffmpeg >>${PACKAGE_INSTALL_LOG} 2>&1 || true`,
-  // Asked for by capability first: the providing package was renamed
-  // (jack-audio-connection-kit → …-libs) and differs by AL2023/SPAL revision.
-  `    ffmpeg -version >/dev/null 2>&1 || sudo dnf install -y "libjack.so.0()(64bit)" >>${PACKAGE_INSTALL_LOG} 2>&1 || sudo dnf install -y jack-audio-connection-kit-libs >>${PACKAGE_INSTALL_LOG} 2>&1 || sudo dnf install -y jack-audio-connection-kit >>${PACKAGE_INSTALL_LOG} 2>&1 || true`,
-  "  fi",
-  "  ffmpeg -version >/dev/null 2>&1",
-  "}",
+  // ffmpeg is deliberately NOT here — see _sandbox/ffmpegInstall.ts. Its every
+  // step has to be gated on the binary actually running rather than on the
+  // manager's exit code (AL2023's pipewire JACK shim claims the libjack
+  // capability and installs it off the loader path, so dnf exits 0 while ffmpeg
+  // still dies), which is the opposite of eva_pkg_install's contract.
+  //
   // Chrome is not in either distro's default repos, so each manager needs its
   // own vendor repo registered first. Chromium is the soft fallback.
   "eva_pkg_install_chrome() {",

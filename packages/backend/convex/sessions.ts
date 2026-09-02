@@ -13,7 +13,6 @@ export {
   updateStatus,
   update,
   setModel,
-  setMode,
   setProviderAccountId,
   setTraits,
   updateSummary,
@@ -21,19 +20,26 @@ export {
   unarchive,
   updatePlanContent,
   updateLastMessage,
-  selectVariation,
 } from "./_sessions/mutations";
 
 export {
   updateSandbox,
   clearSandbox,
   startSandbox,
+  forcePushBranch,
   stopSandbox,
   sandboxReady,
   clearSandboxSetupPending,
+  clearSandboxServicesPending,
   sandboxError,
   sandboxStartupWarning,
 } from "./_sessions/sandbox";
+
+export {
+  getOrchestratorSession,
+  ensureOrchestratorSession,
+  resetOrchestratorSession,
+} from "./_sessions/orchestrator";
 
 export { updatePtySession, updatePtySessionInternal } from "./_sessions/pty";
 
@@ -45,4 +51,8 @@ export {
   clearPrUrlIfMatches,
   updateDeploymentStatus,
   applyGeneratedTitle,
+  getTitleContext,
+  markTitleRegenerating,
+  applyRegeneratedTitle,
+  getRevertContext,
 } from "./_sessions/internal";

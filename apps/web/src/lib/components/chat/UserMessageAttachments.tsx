@@ -6,6 +6,7 @@ import {
   labelForAttachment,
 } from "@/lib/components/attachments/attachmentMeta";
 import { TextAttachmentModal } from "@/lib/components/attachments/TextAttachmentModal";
+import { ImageLightbox } from "@/lib/components/ImageLightbox";
 
 export type ChatAttachmentMeta = {
   url: string | null;
@@ -22,6 +23,7 @@ export function UserMessageAttachments({
     title: string;
     text: string;
   } | null>(null);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const resolved = (attachments ?? []).filter(
     (item): item is { url: string; contentType: string | null } =>
@@ -29,26 +31,34 @@ export function UserMessageAttachments({
   );
   if (resolved.length === 0 && viewer === null) return null;
 
+  // Only the images take part in the lightbox, so a thumb's gallery position is
+  // its index among images, not among all attachments.
+  const galleryImages = resolved
+    .filter((item) => isImageContentType(item.contentType))
+    .map((item) => ({ url: item.url, alt: "Attached image" }));
+
   return (
     <>
       {resolved.length > 0 ? (
         <div className="mb-2 flex flex-wrap gap-2">
           {resolved.map((item) => {
             if (isImageContentType(item.contentType)) {
+              const galleryIndex = galleryImages.findIndex(
+                (image) => image.url === item.url,
+              );
               return (
-                <a
+                <button
                   key={item.url}
-                  href={item.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block size-24 overflow-hidden rounded-surface border border-border bg-muted"
+                  type="button"
+                  onClick={() => setLightboxIndex(galleryIndex)}
+                  className="block size-24 cursor-pointer overflow-hidden rounded-surface border border-border bg-muted motion-press active:scale-[0.99]"
                 >
                   <img
                     src={item.url}
                     alt="Attached image"
-                    className="size-full object-cover"
+                    className="size-full object-cover transition-opacity hover:opacity-90"
                   />
-                </a>
+                </button>
               );
             }
             const FileIcon = iconForAttachment(undefined, item.contentType);
@@ -81,6 +91,13 @@ export function UserMessageAttachments({
           })}
         </div>
       ) : null}
+
+      <ImageLightbox
+        images={galleryImages}
+        index={lightboxIndex}
+        onIndexChange={setLightboxIndex}
+        onClose={() => setLightboxIndex(null)}
+      />
 
       {viewer ? (
         <TextAttachmentModal

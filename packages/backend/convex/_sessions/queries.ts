@@ -6,12 +6,15 @@ import { firstUserMessagePreview } from "../_messages/preview";
 import {
   deploymentStatusValidator,
   entityNumIdFields,
-  sessionModeValidator,
   sessionStatusValidator,
   aiModelValidator,
   reasoningLevelValidator,
 } from "../validators";
 import { sessionValidator } from "./helpers";
+import {
+  openSessionIdsForRepo,
+  sessionIsExecuting,
+} from "../_chat/turnProjection";
 
 /**
  * Sidebar list shape: omit heavy session fields (planContent, terminal tail,
@@ -27,6 +30,8 @@ const sessionListItemValidator = v.object({
   repoId: v.id("githubRepos"),
   userId: v.id("users"),
   title: v.string(),
+  /** Set while "Regenerate title" is running; the sidebar disables the action and hints. */
+  titleRegeneration: v.optional(v.object({ startedAt: v.number() })),
   branchName: v.optional(v.string()),
   baseBranch: v.optional(v.string()),
   prUrl: v.optional(v.string()),
@@ -48,19 +53,25 @@ const sessionListItemValidator = v.object({
   lastThinkingEnabled: v.optional(v.boolean()),
   lastUse1mContext: v.optional(v.boolean()),
   lastFastMode: v.optional(v.boolean()),
-  lastMode: v.optional(sessionModeValidator),
   deploymentStatus: v.optional(deploymentStatusValidator),
   deploymentUrl: v.optional(v.string()),
+  /** True for the user's persistent master session (badged in the sidebar). */
+  isOrchestrator: v.optional(v.boolean()),
   /**
-   * True while a chat turn workflow is tracked on the session. Same window as
-   * composer BorderBeam in practice (message-level isExecuting needs the open
-   * thread; list rows use this field instead of N+1 into messages).
+   * True while a turn is in flight — either a tracked chat workflow, or a
+   * daemon-minted continuation (`/loop`), which never gets an
+   * `activeWorkflowId`. Same window as composer BorderBeam in practice
+   * (message-level isExecuting needs the open thread; list rows use this field
+   * instead of N+1 into messages).
    */
   isExecuting: v.boolean(),
 });
 
 /** Maps a full session doc to the slim list payload. */
-function toSessionListItem(session: Doc<"sessions">) {
+function toSessionListItem(
+  session: Doc<"sessions">,
+  openSessionIds: ReadonlySet<string>,
+) {
   return {
     _id: session._id,
     _creationTime: session._creationTime,
@@ -69,6 +80,7 @@ function toSessionListItem(session: Doc<"sessions">) {
     repoId: session.repoId,
     userId: session.userId,
     title: session.title,
+    titleRegeneration: session.titleRegeneration,
     branchName: session.branchName,
     baseBranch: session.baseBranch,
     prUrl: session.prUrl,
@@ -83,10 +95,10 @@ function toSessionListItem(session: Doc<"sessions">) {
     lastThinkingEnabled: session.lastThinkingEnabled,
     lastUse1mContext: session.lastUse1mContext,
     lastFastMode: session.lastFastMode,
-    lastMode: session.lastMode,
     deploymentStatus: session.deploymentStatus,
     deploymentUrl: session.deploymentUrl,
-    isExecuting: session.activeWorkflowId !== undefined,
+    isOrchestrator: session.isOrchestrator,
+    isExecuting: sessionIsExecuting(session, openSessionIds),
   };
 }
 
@@ -101,21 +113,26 @@ export const list = authQuery({
   returns: v.array(sessionListItemValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const sessionGroups = await Promise.all(
-      [undefined, false].map((archived) =>
-        ctx.db
-          .query("sessions")
-          .withIndex("by_repo_archived_and_deleted", (q) =>
-            q
-              .eq("repoId", args.repoId)
-              .eq("archived", archived)
-              .eq("deletedAt", undefined),
-          )
-          .collect(),
+    const [sessionGroups, openSessionIds] = await Promise.all([
+      Promise.all(
+        [undefined, false].map((archived) =>
+          ctx.db
+            .query("sessions")
+            .withIndex("by_repo_archived_and_deleted", (q) =>
+              q
+                .eq("repoId", args.repoId)
+                .eq("archived", archived)
+                .eq("deletedAt", undefined),
+            )
+            .collect(),
+        ),
       ),
-    );
+      openSessionIdsForRepo(ctx.db, args.repoId),
+    ]);
     const sessions = sessionGroups.flat();
-    return sessions.sort(byMostRecentlyUpdated).map(toSessionListItem);
+    return sessions
+      .sort(byMostRecentlyUpdated)
+      .map((session) => toSessionListItem(session, openSessionIds));
   },
 });
 
@@ -125,16 +142,21 @@ export const listArchived = authQuery({
   returns: v.array(sessionListItemValidator),
   handler: async (ctx, args) => {
     if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
-    const sessions = await ctx.db
-      .query("sessions")
-      .withIndex("by_repo_archived_and_deleted", (q) =>
-        q
-          .eq("repoId", args.repoId)
-          .eq("archived", true)
-          .eq("deletedAt", undefined),
-      )
-      .collect();
-    return sessions.sort(byMostRecentlyUpdated).map(toSessionListItem);
+    const [sessions, openSessionIds] = await Promise.all([
+      ctx.db
+        .query("sessions")
+        .withIndex("by_repo_archived_and_deleted", (q) =>
+          q
+            .eq("repoId", args.repoId)
+            .eq("archived", true)
+            .eq("deletedAt", undefined),
+        )
+        .collect(),
+      openSessionIdsForRepo(ctx.db, args.repoId),
+    ]);
+    return sessions
+      .sort(byMostRecentlyUpdated)
+      .map((session) => toSessionListItem(session, openSessionIds));
   },
 });
 

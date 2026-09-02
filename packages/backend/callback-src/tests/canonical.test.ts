@@ -1,5 +1,10 @@
 import { test, expect } from "vitest";
-import { parseToCanonical, applyCanonicalEvents } from "../parse/canonical.js";
+import {
+  parseToCanonical,
+  applyCanonicalEvents,
+  updateThinkingStep,
+} from "../parse/canonical.js";
+import { buildStreamingPayload } from "../runtime/heartbeats.js";
 import {
   callbackState as S,
   getPendingQuestionForTest,
@@ -241,7 +246,39 @@ test("thinking push_step is transient and does not add activity steps", () => {
     },
   ]);
   expect(S.accumulatedSteps.length).toBe(0);
+  expect(JSON.parse(buildStreamingPayload())).toEqual([
+    {
+      type: "thinking",
+      label: "Finalizing response...",
+      status: "active",
+    },
+  ]);
   expect(S.lastStepType).toBe("thinking");
+  resetStateForTests();
+});
+
+test("real activity replaces the transient thinking heartbeat", () => {
+  resetStateForTests();
+  updateThinkingStep("Waiting for Grok...", "The model is thinking...");
+  expect(JSON.parse(buildStreamingPayload())).toEqual([
+    {
+      type: "thinking",
+      label: "Waiting for Grok...",
+      detail: "The model is thinking...",
+      status: "active",
+    },
+  ]);
+
+  applyCanonicalEvents([{ kind: "update_reasoning", text: "Inspecting code" }]);
+  expect(S.transientThinkingStep).toBeNull();
+  expect(JSON.parse(buildStreamingPayload())).toEqual([
+    {
+      type: "reasoning",
+      label: "Thinking...",
+      detail: "Inspecting code",
+      status: "active",
+    },
+  ]);
   resetStateForTests();
 });
 
@@ -316,6 +353,43 @@ test("parseToCanonical cursor thinking event routes to update_reasoning", () => 
     kind: "update_reasoning",
     text: "hmm let me see",
   });
+});
+
+test("parseToCanonical claude thinking_delta routes to update_reasoning", () => {
+  resetStateForTests();
+  const events = parseToCanonical(
+    {
+      type: "stream_event",
+      event: {
+        type: "content_block_delta",
+        index: 0,
+        delta: { type: "thinking_delta", thinking: "Weighing the two fixes." },
+      },
+    },
+    "claude",
+  );
+  expect(events).toEqual([
+    { kind: "update_reasoning", text: "Weighing the two fixes." },
+  ]);
+});
+
+// With `thinking.display` omitted, current models stream thinking blocks with
+// empty text — nothing must reach the reasoning step (claudeSdk.ts asks for
+// summaries explicitly so real text arrives instead).
+test("parseToCanonical claude empty thinking_delta emits nothing", () => {
+  resetStateForTests();
+  const events = parseToCanonical(
+    {
+      type: "stream_event",
+      event: {
+        type: "content_block_delta",
+        index: 0,
+        delta: { type: "thinking_delta", thinking: "" },
+      },
+    },
+    "claude",
+  );
+  expect(events).toEqual([]);
 });
 
 // Regression tests for the interleaved-thinking paragraph-break fix. With

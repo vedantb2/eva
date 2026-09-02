@@ -3,7 +3,7 @@ import type { Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
 
 export type PrRecapOutcome =
-  | { kind: "ready"; content: string; html?: string }
+  | { kind: "ready"; content: string; html: string }
   | { kind: "error"; message: string }
   | { kind: "skipped"; message: string };
 

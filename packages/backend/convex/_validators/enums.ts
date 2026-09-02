@@ -36,14 +36,6 @@ export const reactionTargetValidator = v.union(
   v.literal("description"),
 );
 
-export const sessionModeValidator = v.union(
-  v.literal("edit"),
-  v.literal("ask"),
-  v.literal("execute"),
-  v.literal("plan"),
-  v.literal("design"),
-);
-
 export const sessionStatusValidator = v.union(
   v.literal("active"),
   v.literal("starting"),
@@ -134,6 +126,8 @@ export const notificationTypeValidator = v.union(
   v.literal("run_failed"),
   v.literal("rate_limit"),
   v.literal("system"),
+  // Inbox-only: session auto-archived because its GitHub PR closed or merged.
+  v.literal("session_archived"),
 );
 
 export const errorTypeValidator = v.union(
@@ -299,4 +293,39 @@ export const backgroundProcessStatusValidator = v.union(
   v.literal("running"),
   v.literal("exited"),
   v.literal("killed"),
+);
+
+/**
+ * Agent provider whose plan usage limits eva tracks. Narrower than
+ * `aiProviderValidator` on purpose: only a provider that reports real plan
+ * windows can have a row, so the UI never has to handle a windowless one.
+ * Cursor is absent because it exposes no plan limits at all — its spend is the
+ * per-turn cost gauge's business, not this table's.
+ */
+export const usageLimitProviderValidator = v.literal("claude");
+
+/** Whether the plan currently allows requests, as reported by the agent SDK. */
+export const usageLimitStatusValidator = v.union(
+  v.literal("allowed"),
+  v.literal("allowed_warning"),
+  v.literal("rejected"),
+);
+
+/**
+ * How much of the provider's plan state the latest observation actually
+ * covered. "no windows" has three different causes, and collapsing them into
+ * one absent-windows case is what made this feature wrong three times:
+ *
+ * - `complete`: an authoritative `/usage` response. Whatever it lists is the
+ *   whole picture, so the row is replaced and an empty list genuinely means the
+ *   plan has no windows (Team/Enterprise seats).
+ * - `partial`: observed in passing — a single `rate_limit_event` window, or a
+ *   refusal message. Merged into the stored row, never authoritative.
+ * - `refused`: the provider answered and declined to report plan limits
+ *   (`rate_limits_available: false`). Different from "we never asked".
+ */
+export const usageLimitCompletenessValidator = v.union(
+  v.literal("complete"),
+  v.literal("partial"),
+  v.literal("refused"),
 );

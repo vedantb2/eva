@@ -11,10 +11,11 @@ export const generateUploadUrl = authMutation({
   },
 });
 
-/** Attaches uploaded media storage IDs (ordered) to the most recent message of a parent entity. */
+/** Attaches uploaded media to an exact message, or the latest for legacy callbacks. */
 export const attachMedia = authAction({
   args: {
     parentId: v.union(v.id("sessions"), v.id("projects"), v.id("agentTasks")),
+    messageId: v.optional(v.id("messages")),
     imageStorageId: v.optional(v.id("_storage")),
     videoStorageId: v.optional(v.id("_storage")),
     mediaStorageIds: v.optional(v.array(v.id("_storage"))),
@@ -23,6 +24,7 @@ export const attachMedia = authAction({
   handler: async (ctx, args) => {
     await ctx.runMutation(internal.messages.updateLastInternal, {
       parentId: args.parentId,
+      messageId: args.messageId,
       imageStorageId: args.imageStorageId,
       videoStorageId: args.videoStorageId,
       mediaStorageIds: args.mediaStorageIds,

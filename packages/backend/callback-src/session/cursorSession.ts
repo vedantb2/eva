@@ -33,6 +33,12 @@ function hydratePersistedCursorState(): void {
   store.hydratePersistedState("hydratePersistedCursorState");
 }
 
+/**
+ * Resume the saved Cursor agent whenever one exists. The SDK compacts a full
+ * window in place (`summary-started` / `summary-completed`); Eva used to spawn
+ * a new agent at ~160k tokens and the replacement forgot its own work.
+ * Unreadable stores still self-heal to a fresh agent inside `runCursorSdkAttempt`.
+ */
 export function prepareCursorSessionState(): SessionMode {
   updateThinkingStep(
     "Preparing Cursor session...",

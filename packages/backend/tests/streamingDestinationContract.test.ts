@@ -38,15 +38,18 @@ describe("warm daemons stream to the UI's entity key", () => {
   });
 
   test.each([
-    { name: "task chat", source: taskChatSource },
-    { name: "project chat", source: projectChatSource },
-  ])("every $name prewarm passes its prefixed stream id", ({ source }) => {
-    const calls = prewarmCalls(source);
-    expect(calls.length).toBe(3);
-    for (const call of calls) {
-      expect(call).toContain("streamingEntityId");
-    }
-  });
+    { name: "task chat", source: taskChatSource, expectedCalls: 4 },
+    { name: "project chat", source: projectChatSource, expectedCalls: 4 },
+  ])(
+    "every $name prewarm passes its prefixed stream id",
+    ({ source, expectedCalls }) => {
+      const calls = prewarmCalls(source);
+      expect(calls.length).toBe(expectedCalls);
+      for (const call of calls) {
+        expect(call).toContain("streamingEntityId");
+      }
+    },
+  );
 });
 
 test("complete provider events request an immediate activity drain", () => {
@@ -66,7 +69,7 @@ test("complete provider events request an immediate activity drain", () => {
 test("the generated callback preserves Cursor text delta semantics", () => {
   const cursorParser = functionBody(
     generatedCallbackSource,
-    "function cursorParseLine(",
+    "function cursorEventToCanonical(",
   );
   expect(cursorParser).toContain(
     'events.push({ kind: "stream_text_delta", text: block.text });',

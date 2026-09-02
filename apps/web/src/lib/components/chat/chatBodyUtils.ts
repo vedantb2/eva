@@ -1,4 +1,4 @@
-import { type Doc, type Id } from "@eva/backend";
+import { getAIModelProvider, type Doc } from "@eva/backend";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import { stripReviewCommentBlocks } from "@/lib/reviewComments";
@@ -8,7 +8,12 @@ import {
 } from "@/lib/components/chat/ChangedFilesCard";
 import { z } from "zod";
 
-export type ChatBodyMessage = Doc<"messages"> & {
+// `_id` is widened to `string` so callers can prepend client-built synthetic
+// turns (the quick task's first-run activity in the sandbox chat) without
+// forging a branded id. Real docs stay assignable; nothing in the chat tree
+// feeds `_id` back into Convex.
+export type ChatBodyMessage = Omit<Doc<"messages">, "_id"> & {
+  _id: string;
   media?: { url: string | null; contentType: string | null }[];
   /** @deprecated Prefer `attachments` — kept for optimistic/local messages. */
   attachmentUrls?: (string | null)[];
@@ -18,7 +23,49 @@ export type ChatBodyMessage = Doc<"messages"> & {
   }[];
 };
 
+/**
+ * User turns that switched provider: a stamped row whose provider differs from
+ * the previous stamped row's. Unstamped legacy turns (sent before model was
+ * recorded) are skipped entirely rather than treated as an unknown provider —
+ * otherwise the first stamped turn of every old conversation looks like a
+ * handoff. System alerts (the "Handed off from X to Y" rows) are skipped too.
+ */
+export function findHandoffBoundaryIds(
+  messages: ReadonlyArray<{
+    _id: string;
+    isSystemAlert?: boolean;
+    model?: ChatBodyMessage["model"];
+    role: ChatBodyMessage["role"];
+  }>,
+): Set<string> {
+  const boundaries = new Set<string>();
+  let previousProvider: string | undefined;
+
+  for (const message of messages) {
+    if (message.isSystemAlert) continue;
+    if (message.role !== "user" || message.model === undefined) continue;
+    const provider = getAIModelProvider(message.model);
+    if (previousProvider !== undefined && previousProvider !== provider) {
+      boundaries.add(message._id);
+    }
+    previousProvider = provider;
+  }
+  return boundaries;
+}
+
 export type ChatBodyQueuedMessage = Doc<"queuedMessages">;
+
+/**
+ * Simple view omits sandbox lifecycle / stall banners from the transcript.
+ * Rows stay in Convex; this only affects rendering, empty-state, and
+ * last-message targeting. Execution helpers already skip `isSystemAlert`.
+ */
+export function visibleChatMessages<
+  M extends Pick<ChatBodyMessage, "isSystemAlert">,
+>(messages: M[], hideSystemAlerts: boolean): M[] {
+  if (!hideSystemAlerts) return messages;
+  return messages.filter((message) => message.isSystemAlert !== true);
+}
 
 // Boundary schema for the pending-question JSON emitted by the agent. A
 // question with any malformed field (or option) is dropped via
@@ -58,10 +105,16 @@ export function firstNameFromUser(user: {
   return user.firstName?.trim() || user.fullName?.trim().split(" ")[0] || null;
 }
 
+type ChatUserAttribution = {
+  role: ChatBodyMessage["role"];
+  userId?: string;
+  isSystemAlert?: boolean;
+};
+
 /** Teammate user turn (not yours). Missing ids → treat as own to avoid layout flash. */
 export function isOtherUserChatMessage(
-  message: ChatBodyMessage,
-  currentUserId: Id<"users"> | undefined,
+  message: ChatUserAttribution,
+  currentUserId: string | undefined,
 ): boolean {
   return (
     !message.isSystemAlert &&
@@ -72,13 +125,35 @@ export function isOtherUserChatMessage(
   );
 }
 
-/** Streaming / questions / changed-files flags for an assistant row. */
-export function getAssistantTurnState(
-  message: ChatBodyMessage,
-  isLast: boolean,
-): {
+/** True when the transcript has a teammate bubble that needs a display name. */
+export function chatNeedsOtherUserDirectory(
+  messages: ReadonlyArray<ChatUserAttribution>,
+  currentUserId: string | undefined,
+): boolean {
+  return otherUserIdsInChat(messages, currentUserId).length > 0;
+}
+
+/** Sorted unique teammate ids that need a name lookup. Empty → skip the query. */
+export function otherUserIdsInChat<TUserId extends string>(
+  messages: ReadonlyArray<{
+    role: ChatBodyMessage["role"];
+    userId?: TUserId;
+    isSystemAlert?: boolean;
+  }>,
+  currentUserId: TUserId | undefined,
+): TUserId[] {
+  const ids = new Set<TUserId>();
+  for (const message of messages) {
+    if (!isOtherUserChatMessage(message, currentUserId)) continue;
+    if (message.userId === undefined) continue;
+    ids.add(message.userId);
+  }
+  return [...ids].sort();
+}
+
+/** Streaming / changed-files flags for an assistant row. */
+export function getAssistantTurnState(message: ChatBodyMessage): {
   isStreamingPlaceholder: boolean;
-  showQuestions: boolean;
   changedFiles: ChangedFile[];
 } {
   const isStreamingPlaceholder =
@@ -91,11 +166,7 @@ export function getAssistantTurnState(
     message.activityLog
       ? collectChangedFiles(parseActivitySteps(message.activityLog) ?? [])
       : [];
-  return {
-    isStreamingPlaceholder,
-    showQuestions: isStreamingPlaceholder || isLast,
-    changedFiles,
-  };
+  return { isStreamingPlaceholder, changedFiles };
 }
 
 /**

@@ -116,6 +116,33 @@ describe("resetting the turn resets the cursor with it", () => {
   });
 });
 
+describe("concurrent flushes share a complete drain", () => {
+  const heartbeats = readSource("runtime/heartbeats.ts");
+  const router = readSource("parse/streamRouter.ts");
+
+  test("a caller arriving during a flush awaits the active drain", () => {
+    const flush = functionBody(
+      heartbeats,
+      "export function flushStreaming(): Promise<void> {",
+    );
+    expect(flush).toContain("if (activeFlush) return activeFlush");
+    expect(flush).toContain("flushRequested = true");
+  });
+
+  test("the drain repeats when another event arrives in flight", () => {
+    const drain = functionBody(
+      heartbeats,
+      "async function drainRequestedFlushes(): Promise<void> {",
+    );
+    expect(drain).toContain("while (flushRequested)");
+  });
+
+  test("realtime parsing has one heartbeat writer", () => {
+    expect(router).not.toContain("sendStreamingHeartbeatUpdate");
+    expect(router).toContain("void flushStreaming()");
+  });
+});
+
 /** Comments name the very calls these rules rule out, so they have to go first. */
 function readSource(relativePath: string): string {
   return stripComments(

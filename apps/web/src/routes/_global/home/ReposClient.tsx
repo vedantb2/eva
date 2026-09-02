@@ -110,6 +110,7 @@ export function ReposClient() {
   return (
     <PageWrapper
       title="Codebases"
+      insetHeader
       headerRight={
         <div className="flex min-w-44 items-center justify-end gap-2">
           {(repos === undefined || hasRepos) && (

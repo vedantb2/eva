@@ -1,10 +1,17 @@
 import { v } from "convex/values";
 
+function tuple<const Values extends readonly [string, ...string[]]>(
+  ...values: Values
+): Values {
+  return values;
+}
+
+/** Canonical provider list for types, Convex validators, and Zod boundaries. */
+export const AI_PROVIDERS = tuple("claude", "codex", "opencode", "cursor");
+export type AIProvider = (typeof AI_PROVIDERS)[number];
+
 export const aiProviderValidator = v.union(
-  v.literal("claude"),
-  v.literal("codex"),
-  v.literal("opencode"),
-  v.literal("cursor"),
+  ...AI_PROVIDERS.map((provider) => v.literal(provider)),
 );
 
 export const aiModelValidator = v.union(
@@ -17,6 +24,9 @@ export const aiModelValidator = v.union(
   v.literal("claude:opusplan"),
   v.literal("claude:claude-opus-4-5-20251101"),
   v.literal("claude:claude-opus-4-6"),
+  v.literal("claude:claude-fable-5-1"),
+  // Legacy Fable 5 — still accepted so existing sessions can load;
+  // normalizeAIModel maps it to claude-fable-5-1.
   v.literal("claude:claude-fable-5"),
   v.literal("codex:gpt-5.6-sol"),
   v.literal("codex:gpt-5.6-terra"),
@@ -169,7 +179,6 @@ const CURSOR_REASONING_GPT55: ModelReasoningTraits = {
   default: "low",
 };
 
-export type AIProvider = "claude" | "codex" | "opencode" | "cursor";
 export type LegacyClaudeModel = "opus" | "sonnet" | "haiku";
 export type AIModel =
   | "claude:opus"
@@ -178,7 +187,7 @@ export type AIModel =
   | "claude:opusplan"
   | "claude:claude-opus-4-5-20251101"
   | "claude:claude-opus-4-6"
-  | "claude:claude-fable-5"
+  | "claude:claude-fable-5-1"
   | "codex:gpt-5.6-sol"
   | "codex:gpt-5.6-terra"
   | "codex:gpt-5.6-luna"
@@ -196,6 +205,7 @@ export type AIModel =
 export type PersistedAIModel =
   | AIModel
   | LegacyClaudeModel
+  | "claude:claude-fable-5"
   | "codex:gpt-5.6"
   | "codex:gpt-5.5-pro"
   | "codex:gpt-5.4"
@@ -280,9 +290,9 @@ export const AI_MODEL_OPTIONS: ReadonlyArray<AIModelOption> = [
     contextWindow1m: true,
   },
   {
-    id: "claude:claude-fable-5",
+    id: "claude:claude-fable-5-1",
     provider: "claude",
-    label: "Fable 5",
+    label: "Fable 5.1",
     requiresAuth: true,
     reasoning: CLAUDE_REASONING_FULL,
     contextWindow1m: true,
@@ -465,7 +475,9 @@ export function normalizeAIModel(model: string | null | undefined): AIModel {
     case "claude:fable":
     case "claude-fable-5":
     case "claude:claude-fable-5":
-      return "claude:claude-fable-5";
+    case "claude-fable-5-1":
+    case "claude:claude-fable-5-1":
+      return "claude:claude-fable-5-1";
     case "codex:gpt-5.6-sol":
       return "codex:gpt-5.6-sol";
     case "codex:gpt-5.6-terra":
@@ -542,7 +554,7 @@ export function getAIModelProvider(
 /** Interactive chat providers that keep one sandbox-local process alive across turns. */
 export function usesChatDaemon(model: string | null | undefined): boolean {
   const provider = getAIModelProvider(model);
-  return provider === "claude" || provider === "codex";
+  return provider === "claude" || provider === "codex" || provider === "cursor";
 }
 
 /**
@@ -738,16 +750,45 @@ export function getVisibleAIModelOptions(
  * Everything else stays selectable in the normal UI — this only trims the list.
  */
 const SIMPLE_VIEW_MODEL_IDS: ReadonlySet<AIModel> = new Set<AIModel>([
-  "claude:claude-fable-5",
+  "claude:claude-fable-5-1",
   "claude:opus",
   "claude:sonnet",
   "codex:gpt-5.6-sol",
   "codex:gpt-5.6-terra",
   "codex:gpt-5.6-luna",
   "cursor:grok-4.6",
+  "cursor:grok-4.5",
   "cursor:composer-2.5",
   "opencode:openai/gpt-5.4",
 ]);
+
+/**
+ * Capability ladder for the simple-view slider, cheapest → strongest.
+ * Advanced still lists the trimmed set above; this is only the five ticks.
+ */
+export const SIMPLE_VIEW_MODEL_LADDER: ReadonlyArray<AIModel> = [
+  "cursor:composer-2.5",
+  "cursor:grok-4.5",
+  "cursor:grok-4.6",
+  "claude:opus",
+  "claude:claude-fable-5-1",
+];
+
+/**
+ * Maps any current model onto a ladder tick so the slider has a position
+ * without rewriting the selection. Moving the thumb commits a ladder model.
+ */
+export function snapToSimpleViewLadder(model: string): AIModel {
+  const normalized = normalizeAIModel(model);
+  for (const step of SIMPLE_VIEW_MODEL_LADDER) {
+    if (step === normalized) return step;
+  }
+  if (normalized.includes("fable")) return "claude:claude-fable-5-1";
+  if (getAIModelProvider(normalized) === "claude") return "claude:opus";
+  if (normalized.includes("composer")) return "cursor:composer-2.5";
+  if (normalized.includes("grok-4.5")) return "cursor:grok-4.5";
+  return "cursor:grok-4.6";
+}
 
 /**
  * Trims the picker to the simple-view set. The current model is always kept so
@@ -762,40 +803,4 @@ export function getSimpleViewModelOptions(
     (option) =>
       SIMPLE_VIEW_MODEL_IDS.has(option.id) || option.id === normalizedCurrent,
   );
-}
-
-/**
- * A session is pinned to the provider of the model it was created with.
- *
- * Each agent CLI keeps its own resume state inside the sandbox, so switching
- * provider mid-session silently starts a fresh conversation with no history.
- * It also strands the run's credentials: the session uses the owner's account
- * for the model's provider, so a switch drops whichever account the session was
- * started on. Sessions created before the lock existed have no pinned provider
- * and keep the old free choice.
- */
-export function getLockedProviderModelOptions(
-  options: ReadonlyArray<AIModelOption>,
-  lockedProvider: AIProvider | null | undefined,
-): ReadonlyArray<AIModelOption> {
-  if (!lockedProvider) return options;
-  return options.filter((option) => option.provider === lockedProvider);
-}
-
-/**
- * Throws when `model` would move a pinned session onto another provider. Every
- * mutation that writes a session's model resolves through here so the picker's
- * filter cannot be bypassed by a stale tab or a direct call.
- */
-export function assertModelMatchesLockedProvider(
-  lockedProvider: AIProvider | null | undefined,
-  model: string | null | undefined,
-): void {
-  if (!lockedProvider) return;
-  const provider = getAIModelProvider(model);
-  if (provider !== lockedProvider) {
-    throw new Error(
-      `This session runs on ${lockedProvider}. Start a new session to use ${provider}.`,
-    );
-  }
 }

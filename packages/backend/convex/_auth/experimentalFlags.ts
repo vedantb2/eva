@@ -5,7 +5,8 @@ export type ExperimentalFlagKey =
   | "blurPid"
   | "voiceDictation"
   | "composerAutocomplete"
-  | "simpleView";
+  | "simpleView"
+  | "replyChime";
 
 export type ResolvedExperimentalFlags = {
   sessionTabs: boolean;
@@ -13,6 +14,7 @@ export type ResolvedExperimentalFlags = {
   voiceDictation: boolean;
   composerAutocomplete: boolean;
   simpleView: boolean;
+  replyChime: boolean;
 };
 
 /** Resolves experimental flags for a user. Missing / unset keys are false. */
@@ -26,5 +28,6 @@ export function resolveExperimentalFlags(
     voiceDictation: flags?.voiceDictation ?? false,
     composerAutocomplete: flags?.composerAutocomplete ?? false,
     simpleView: flags?.simpleView ?? false,
+    replyChime: flags?.replyChime ?? false,
   };
 }

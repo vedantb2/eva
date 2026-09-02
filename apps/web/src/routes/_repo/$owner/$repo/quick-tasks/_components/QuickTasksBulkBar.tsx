@@ -106,7 +106,10 @@ function BarButton({
       aria-label={action.label}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium transition-colors disabled:pointer-events-none disabled:opacity-30 ${
+      // `motion-press`, not `transition-colors`: the destructive Delete takes
+      // this same branch, so the highest-consequence control in the bar was the
+      // one with no acknowledgement at all before its confirm dialog appeared.
+      className={`motion-press inline-flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-sm font-medium active:scale-[0.96] disabled:pointer-events-none disabled:opacity-30 ${
         action.destructive
           ? "text-destructive hover:bg-destructive/10 hover:text-destructive"
           : "text-muted-foreground hover:bg-muted hover:text-foreground"

@@ -1,5 +1,6 @@
 import {
   createFileRoute,
+  Navigate,
   useParams,
   useRouterState,
 } from "@tanstack/react-router";
@@ -24,10 +25,10 @@ const SANDBOX_REVIEW_ROUTE_ID =
 const OVERVIEW_ROUTE_ID = "/_repo/$owner/$repo/projects/$numId/overview";
 
 /**
- * Project shell. Owns the whole detail page — header, tab strip and body — so
- * switching Overview/Tasks, opening a task or crossing into the sandbox swaps
- * the body only and leaves the header mounted. Every child route renders
- * `null`; they exist for their params and `beforeLoad` redirects.
+ * Project shell. Owns the whole detail page — header tabs and body — so
+ * switching Overview/Tasks/Sandbox, opening a task or crossing into the
+ * sandbox swaps the body only and leaves the header mounted. Every child
+ * route renders `null`; they exist for their params and `beforeLoad` redirects.
  */
 export const Route = createFileRoute("/_repo/$owner/$repo/projects/$numId")({
   staticData: { title: "Projects" },
@@ -63,16 +64,22 @@ function ProjectDetailShell() {
       ? params.detailTab
       : undefined;
 
+  // A legacy `$taskNumId` redirects on its own once the project segment is
+  // canonical — `replaceRouteIdSegment` only touches its own segment, so the two
+  // hops converge without either knowing about the other.
+  if (task.redirectTo !== null) {
+    return <Navigate to={task.redirectTo} search={true} replace />;
+  }
+
   return (
     <EntityNumIdGate
-      status={project.status}
-      convexId={project.convexId}
+      resolve={project}
       entityLabel="project"
       backTo={`${basePath}/projects`}
     >
-      {(projectId) => (
+      {(projectDoc) => (
         <ProjectDetailClient
-          projectId={projectId}
+          projectId={projectDoc._id}
           projectNumId={project.numId ?? undefined}
           surface={isSandboxSurface ? "sandbox" : "main"}
           mainTab={mainTab}

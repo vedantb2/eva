@@ -45,6 +45,7 @@ export * from "./ui/select";
 export * from "./ui/separator";
 export * from "./ui/sheet";
 export * from "./ui/skeleton";
+export * from "./ui/slider";
 export * from "./ui/sonner";
 export * from "./ui/spinner";
 export * from "./ui/surface";

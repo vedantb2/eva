@@ -6,7 +6,7 @@ import { z } from "zod";
 import type { ZodTypeAny } from "zod";
 import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { errorResult } from "./tools";
+import { errorResult } from "./toolShared";
 
 const SUPABASE_PREFIX = "supabase_";
 const TOOL_CACHE_TTL_MS = 10 * 60 * 1000;

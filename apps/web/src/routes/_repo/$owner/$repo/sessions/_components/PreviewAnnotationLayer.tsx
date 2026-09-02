@@ -11,6 +11,9 @@ import { AnnotationCommentCard } from "./AnnotationCommentCard";
 import { useAnnotationBridge } from "./useAnnotationBridge";
 
 const CARD_WIDTH = 320;
+// First-paint guess only, for the frame before the card exists to be measured.
+// It matches the collapsed card; every later frame uses the real height, so the
+// details accordion no longer needs headroom baked into this number.
 const CARD_ESTIMATED_HEIGHT = 220;
 const CARD_GAP = 8;
 
@@ -38,32 +41,63 @@ export function PreviewAnnotationLayer({
     left: number;
     top: number;
   } | null>(null);
+  // State, not a ref, so mounting the card re-runs the effect below and lets it
+  // measure the real element and start observing it.
+  const [cardEl, setCardEl] = useState<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
-    if (!pending || !layerRef.current || !iframeRef.current) {
+    const layer = layerRef.current;
+    const iframe = iframeRef.current;
+    if (!pending || !layer || !iframe) {
       setCardPosition(null);
       return;
     }
-    // Viewport coordinates: the card renders in a fixed body portal (z-50)
-    // because the preview iframe lives in the fixed z-40 host overlay — an
-    // in-panel absolute card would paint underneath it.
-    const layerRect = layerRef.current.getBoundingClientRect();
-    const iframeRect = iframeRef.current.getBoundingClientRect();
-    const left =
-      iframeRect.left + pending.rect.left + Math.min(pending.rect.width, 40);
-    const top =
-      iframeRect.top + pending.rect.top + pending.rect.height + CARD_GAP;
-    const minLeft = layerRect.left + 8;
-    // The card shrinks to `100vw - 2rem` on a narrow viewport, so clamping
-    // against a flat 320px would push it off the right edge on a phone.
-    const cardWidth = Math.min(CARD_WIDTH, window.innerWidth - 32);
-    const maxLeft = Math.max(minLeft, layerRect.right - cardWidth - 8);
-    const minTop = layerRect.top + 8;
-    const maxTop = Math.max(minTop, layerRect.bottom - CARD_ESTIMATED_HEIGHT);
-    setCardPosition({
-      left: Math.min(Math.max(minLeft, left), maxLeft),
-      top: Math.min(Math.max(minTop, top), maxTop),
-    });
-  }, [pending, iframeRef]);
+
+    function place(): void {
+      if (!pending || !layer || !iframe) return;
+      // Viewport coordinates: the card renders in a fixed body portal (z-50)
+      // because the preview iframe lives in the fixed z-40 host overlay — an
+      // in-panel absolute card would paint underneath it.
+      const layerRect = layer.getBoundingClientRect();
+      const iframeRect = iframe.getBoundingClientRect();
+      const left =
+        iframeRect.left + pending.rect.left + Math.min(pending.rect.width, 40);
+      const top =
+        iframeRect.top + pending.rect.top + pending.rect.height + CARD_GAP;
+      const minLeft = layerRect.left + 8;
+      // The card shrinks to `100vw - 2rem` on a narrow viewport, so clamping
+      // against a flat 320px would push it off the right edge on a phone.
+      const cardWidth = Math.min(CARD_WIDTH, window.innerWidth - 32);
+      const maxLeft = Math.max(minLeft, layerRect.right - cardWidth - 8);
+      const minTop = layerRect.top + 8;
+      // Real height once the card is mounted: opening the details accordion
+      // grows it well past any constant, and a stale guess pushes the buttons
+      // off the bottom of the panel.
+      const cardHeight = cardEl
+        ? cardEl.getBoundingClientRect().height
+        : CARD_ESTIMATED_HEIGHT;
+      const maxTop = Math.max(minTop, layerRect.bottom - cardHeight - 8);
+      const next = {
+        left: Math.min(Math.max(minLeft, left), maxLeft),
+        top: Math.min(Math.max(minTop, top), maxTop),
+      };
+      setCardPosition((prev) =>
+        prev && prev.left === next.left && prev.top === next.top ? prev : next,
+      );
+    }
+
+    place();
+
+    if (!cardEl) return;
+    // The accordion animates its height, so a single re-measure on toggle would
+    // read the collapsed value. Observing the card instead tracks it across the
+    // whole transition. Repositioning only writes left/top, never size, so this
+    // cannot feed itself.
+    const observer = new ResizeObserver(place);
+    observer.observe(cardEl);
+    return () => {
+      observer.disconnect();
+    };
+  }, [pending, iframeRef, cardEl]);
 
   return (
     <div ref={layerRef} className="pointer-events-none absolute inset-0 z-10">
@@ -71,6 +105,7 @@ export function PreviewAnnotationLayer({
         ? createPortal(
             <div className="pointer-events-none fixed inset-0 z-50">
               <AnnotationCommentCard
+                cardRef={setCardEl}
                 context={pending.context}
                 position={cardPosition}
                 isSubmitting={isSubmitting}

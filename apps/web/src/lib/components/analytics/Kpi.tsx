@@ -24,7 +24,7 @@ interface KpiProps {
    * "row": compact layout with the icon pill on the left and value + label on the right.
    */
   layout?: "stacked" | "row";
-  /** Bumps the value text size; used for primary cards in the row layout. */
+  /** Bumps the value text size; used for primary/hero cards in either layout. */
   size?: "default" | "lg";
 }
 
@@ -147,7 +147,12 @@ export function Kpi({
           )}
         </div>
         <div className="min-w-0">
-          <p className="text-3xl font-semibold tabular-nums tracking-tight text-foreground">
+          <p
+            className={cn(
+              "font-semibold tabular-nums tracking-tight text-foreground",
+              size === "lg" ? "text-4xl sm:text-5xl" : "text-3xl",
+            )}
+          >
             {value}
           </p>
           {subtitle && (

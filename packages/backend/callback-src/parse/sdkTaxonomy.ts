@@ -1,4 +1,5 @@
 import { callbackState as S } from "../runtime/state.js";
+import { mergeClaudeRateLimitEvent } from "../runtime/usageLimits.js";
 import type { CanonicalEvent, JsonObject, JsonValue } from "../types.js";
 import { log } from "../utils.js";
 
@@ -218,7 +219,15 @@ export function parseClaudeSdkTaxonomy(event: JsonObject): CanonicalEvent[] {
     return [];
   }
 
-  if (messageType === "auth_status" || messageType === "rate_limit_event") {
+  // Plan usage-limit state is captured into callback state and reported to
+  // Convex at turn end — it is account-level status, not turn activity, so it
+  // deliberately produces no timeline row.
+  if (messageType === "rate_limit_event") {
+    mergeClaudeRateLimitEvent(event);
+    return [];
+  }
+
+  if (messageType === "auth_status") {
     return [];
   }
 

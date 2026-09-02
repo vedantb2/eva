@@ -7,10 +7,12 @@ import { ensureSandboxStartedSteps } from "../_sandbox_runtime/resumeSandboxStep
 import { authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
+  DEFAULT_AI_MODEL,
   reasoningLevelValidator,
   workflowCompleteValidator,
   normalizeAIModel,
   sessionStatusValidator,
+  turnCheckpointArgs,
   usesChatDaemon,
 } from "../validators";
 import { resolveSessionBaseBranch } from "./baseBranch";
@@ -20,10 +22,13 @@ import {
   clearStreamingActivity,
   extractFirstJsonValue,
 } from "../_taskWorkflow/helpers";
-import { startNextQueuedSessionMessage } from "../_queues/helpers";
+import {
+  scheduleQueueDrainAfterBackgroundAgents,
+  startNextQueuedSessionMessage,
+} from "../_queues/helpers";
 import { resolveMessageTokens } from "../_mentions/resolveMessageTokens";
 import { buildCustomInstructionsBlock } from "../prompts";
-import { buildPlanPrompt, buildEditPrompt, buildDesignPrompt } from "./prompts";
+import { buildEditPrompt, buildOrchestratorPrompt } from "./prompts";
 import { z } from "zod";
 import {
   delayedPublishFailureError,
@@ -36,10 +41,20 @@ import type { Doc, Id } from "../_generated/dataModel";
 import { finalizeCancelledAssistantMessage } from "../streaming";
 import { backgroundAgentEntryValidator } from "../_validators/tableFields";
 import { mergeBackgroundAgents } from "./backgroundAgents";
+import { prependModelHandoffContext } from "../_shared/modelHandoff";
+import { isDaemonClaimPaused } from "../_chat/daemonClaimPause";
 import {
   ensureSessionDaemonState,
   syncSessionDaemonState,
 } from "./daemonState";
+import {
+  acquireTurnLease,
+  advanceTurn,
+  closeTurn,
+  findOpenSessionTurn,
+  openSessionTurn,
+  resolveCompletionTurn,
+} from "../_chat/turnStore";
 
 // --- Completion event ---
 
@@ -48,25 +63,65 @@ export const sessionCompleteEvent = defineEvent({
   validator: workflowCompleteValidator,
 });
 
-// --- Mode config ---
+// --- Turn config ---
 
-export const MODE_TOOLS: Record<"edit" | "plan" | "design", string> = {
-  edit: "Read,Write,Edit,Bash,Glob,Grep",
-  plan: "Read,Write,Glob,Grep",
-  design: "Read,Glob,Grep,Skill,Write,Edit,Bash",
+/**
+ * Tools every session turn may use. Skill is required so the harness can invoke
+ * Eva's system skills (eva-plan, eva-design, eva-ask, eva-capture, eva-audit), which is
+ * how planning and design work now that turn modes are gone.
+ */
+export const SESSION_TOOLS = "Read,Write,Edit,Bash,Glob,Grep,Skill";
+
+/**
+ * The master ("orchestrator") session's tools: `SESSION_TOOLS` minus Write and
+ * Edit. Manager Ave supervises agents and never implements, so the two tools
+ * that make implementation possible are withheld rather than merely discouraged
+ * — a prompt alone did not stop it. Bash stays: the supervision skill reads
+ * production logs and CI state through it (`npx convex logs`, `gh pr checks`),
+ * which is read-only in intent and enforced by prompt, not by tool list.
+ *
+ * This string is a Claude tool vocabulary and only the Claude SDK path reads it
+ * (`ALLOWED_TOOLS` in `callback-src/providers/claudeSdk.ts`). The other SDKs
+ * name their tools differently, so the cross-provider signal is the separate
+ * `noWrites` flag below rather than this list.
+ */
+export const ORCHESTRATOR_TOOLS = "Read,Bash,Glob,Grep,Skill";
+
+/** Launch config for a session's turns, derived once from what the session is. */
+export type SessionTurnTools = {
+  /** Claude-vocabulary allowlist; ignored by every other provider. */
+  allowedTools: string;
+  /**
+   * Provider-agnostic "this turn may not modify the workspace". Each SDK
+   * translates it into its own vocabulary — Cursor `disallowedTools`, Codex
+   * `sandboxMode: "read-only"` — so no provider has to understand Claude's
+   * tool names. Absent rather than `false` for a writing session: it is spread
+   * into launch args, and an omitted key keeps their opts signature unchanged.
+   */
+  noWrites?: true;
 };
 
-type SessionPromptMode = "edit" | "ask" | "execute" | "plan" | "design";
-
-/** Maps a session turn mode to the MODE_TOOLS key used for allowedTools. */
-export function resolveToolMode(
-  mode: SessionPromptMode,
-): keyof typeof MODE_TOOLS {
-  if (mode === "plan") return "plan";
-  if (mode === "design") return "design";
-  return "edit";
+/**
+ * Tools and write permission for a session's turns.
+ *
+ * One function returning both because both feed the warm-daemon opts signature
+ * (`buildDaemonOptsSig`): if a call site set one without the other, the daemon
+ * would either optsmismatch-kill and respawn every turn, or — worse — keep
+ * serving a warm process that still holds its write tools.
+ */
+export function sessionTurnTools(
+  isOrchestrator: boolean | undefined,
+): SessionTurnTools {
+  return isOrchestrator === true
+    ? { allowedTools: ORCHESTRATOR_TOOLS, noWrites: true }
+    : { allowedTools: SESSION_TOOLS };
 }
 
+/**
+ * The `eva-design` reply contract. `variations` must be present and non-empty:
+ * an all-optional schema matched a bare `{}` in an ordinary reply and turned it
+ * into an empty Designs tab.
+ */
 const designResultSchema = z.object({
   summary: z.string().optional(),
   variations: z
@@ -77,10 +132,10 @@ const designResultSchema = z.object({
         filePath: z.string().optional(),
       }),
     )
-    .optional(),
+    .min(1),
 });
 
-/** Parses design-turn JSON output from agent text. */
+/** Parses the design-variations JSON a turn may end with. */
 function parseDesignResult(
   text: string | null,
 ): z.infer<typeof designResultSchema> | null {
@@ -111,24 +166,15 @@ async function finalizeOpenSyntheticTurn(
   await ctx.db.patch(sessionId, { syntheticTurnMessageId: undefined });
 }
 
-// Accepts legacy "ask"/"execute" for in-flight queued messages — treated as "edit" in handlers
-export const sessionModeArgValidator = v.union(
-  v.literal("edit"),
-  v.literal("ask"),
-  v.literal("execute"),
-  v.literal("plan"),
-  v.literal("design"),
-);
-
 /**
- * Builds the mode-specific agent prompt for a session turn (doc `@` mentions
- * resolved, custom instructions + system prompt folded in). Shared single
- * source of truth so both the workflow's `getSessionData` query and the
- * daemon-pull `startExecute` mutation produce byte-identical prompts — the
- * daemon must run exactly what the workflow would have handed it, never a
- * second variant. Takes already-fetched session/repo/user docs so it works from
- * either a query or a mutation context (MutationCtx satisfies QueryCtx for the
- * read-only mention resolution).
+ * Builds the agent prompt for a session turn (doc `@` mentions resolved, custom
+ * instructions + system prompt folded in). Shared single source of truth so
+ * both the workflow's `getSessionData` query and the daemon-pull `startExecute`
+ * mutation produce byte-identical prompts — the daemon must run exactly what
+ * the workflow would have handed it, never a second variant. Takes
+ * already-fetched session/repo/user docs so it works from either a query or a
+ * mutation context (MutationCtx satisfies QueryCtx for the read-only mention
+ * resolution).
  */
 export async function buildSessionPrompt(
   ctx: QueryCtx,
@@ -137,9 +183,8 @@ export async function buildSessionPrompt(
     repo: Doc<"githubRepos">;
     user: Doc<"users"> | null;
     message: string;
-    mode: SessionPromptMode;
-    personaId?: Id<"designPersonas">;
-    numDesigns?: number;
+    /** Model this turn runs on; decides whether a handoff catch-up is needed. */
+    model: string;
   },
 ): Promise<{ prompt: string; branchName: string }> {
   const { session, repo, user } = args;
@@ -157,80 +202,53 @@ export async function buildSessionPrompt(
     session.repoId,
   );
 
-  let prompt: string;
-  if (args.mode === "plan") {
-    prompt = buildPlanPrompt(
-      { owner: repo.owner, name: repo.name },
-      session.planContent || "",
-      resolvedMessage,
-      rootDirectory,
-      customInstructionsBlock,
-      repo.systemPrompt,
+  // The master supervises rather than builds, so it gets none of the edit
+  // contract below — not the branch, not the commit line, not the repo system
+  // prompt (which is implementation guidance for the checked-out app).
+  if (session.isOrchestrator === true) {
+    let prompt = prefixBlock
+      ? `${prefixBlock}\n\n${buildOrchestratorPrompt(resolvedMessage, customInstructionsBlock)}`
+      : buildOrchestratorPrompt(resolvedMessage, customInstructionsBlock);
+    // Ave can switch providers mid-chat; catch the incoming CLI up the same way.
+    prompt = await prependModelHandoffContext(
+      ctx,
+      session._id,
+      args.model,
+      session.provider,
+      prompt,
     );
-  } else if (args.mode === "design") {
-    let persona: { name: string; prompt: string } | null = null;
-    if (args.personaId) {
-      const personaDoc = await ctx.db.get(args.personaId);
-      if (personaDoc) {
-        persona = { name: personaDoc.name, prompt: personaDoc.prompt };
-      }
-    }
-
-    const messages = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", session._id))
-      .collect();
-
-    let selectedBase: { label: string; filePath: string } | null = null;
-    if (session.selectedVariationIndex !== undefined) {
-      const lastAssistant = [...messages]
-        .reverse()
-        .find((m) => m.role === "assistant" && m.variations?.length);
-      if (lastAssistant?.variations) {
-        const variation =
-          lastAssistant.variations[session.selectedVariationIndex];
-        if (variation?.filePath) {
-          selectedBase = {
-            label: variation.label,
-            filePath: variation.filePath,
-          };
-        }
-      }
-    }
-
-    const conversationHistory = messages
-      .filter((m) => m.content)
-      .map((m) => ({ role: m.role, content: m.content }));
-
-    prompt = buildDesignPrompt(
-      { owner: repo.owner, name: repo.name },
-      resolvedMessage,
-      conversationHistory,
-      selectedBase,
-      persona,
-      rootDirectory,
-      args.numDesigns ?? 3,
-      customInstructionsBlock,
-    );
-  } else {
-    prompt = buildEditPrompt(
-      {
-        owner: repo.owner,
-        name: repo.name,
-        baseBranch: resolveSessionBaseBranch(session, repo),
-      },
-      branchName,
-      session.planContent || "",
-      resolvedMessage,
-      rootDirectory,
-      customInstructionsBlock,
-      repo.systemPrompt,
-      session.devPort ?? repo.devPort,
-    );
+    return { prompt, branchName };
   }
+
+  // The stored plan still feeds implementation turns, and gives `eva-plan` its
+  // iteration context after a sandbox is recreated without plan.md on disk.
+  // Cursor resumes the saved SDK agent; the Eva transcript is not stuffed
+  // in as a rotation handoff.
+  let prompt = buildEditPrompt(
+    {
+      owner: repo.owner,
+      name: repo.name,
+      baseBranch: resolveSessionBaseBranch(session, repo),
+    },
+    branchName,
+    session.planContent || "",
+    resolvedMessage,
+    rootDirectory,
+    customInstructionsBlock,
+    repo.systemPrompt,
+    session.devPort ?? repo.devPort,
+  );
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;
   }
+  // Last, so the catch-up block leads the whole prompt.
+  prompt = await prependModelHandoffContext(
+    ctx,
+    session._id,
+    args.model,
+    session.provider,
+    prompt,
+  );
   return { prompt, branchName };
 }
 
@@ -262,12 +280,11 @@ export const sessionSandboxStartupWorkflow = workflow.define({
   },
 });
 
-/** Runs a session message through the sandbox agent in the specified mode (ask/plan/execute). */
+/** Runs a session message through the sandbox agent. */
 export const sessionExecuteWorkflow = workflow.define({
   args: {
     sessionId: v.id("sessions"),
     message: v.string(),
-    mode: sessionModeArgValidator,
     model: aiModelValidator,
     reasoningLevel: v.optional(reasoningLevelValidator),
     thinkingEnabled: v.optional(v.boolean()),
@@ -275,25 +292,22 @@ export const sessionExecuteWorkflow = workflow.define({
     fastMode: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     credentialOwnerUserId: v.optional(v.id("users")),
-    personaId: v.optional(v.id("designPersonas")),
-    numDesigns: v.optional(v.number()),
     userId: v.id("users"),
     installationId: v.number(),
+    // Missing only for workflows that were already in flight at the durable
+    // Turn cutover. Every new start supplies this discriminator.
+    turnId: v.optional(v.id("turns")),
   },
   handler: async (step, args): Promise<void> => {
     await step.runMutation(internal.sessionWorkflow.addAssistantPlaceholder, {
       sessionId: args.sessionId,
-      mode: args.mode,
     });
 
     const data = await step.runQuery(internal.sessionWorkflow.getSessionData, {
       sessionId: args.sessionId,
       message: args.message,
-      mode: args.mode,
       model: args.model,
       userId: args.userId,
-      personaId: args.personaId,
-      numDesigns: args.numDesigns,
     });
 
     // Daemon-pull dispatch: the prompt is NOT pushed from here. `startExecute`
@@ -324,6 +338,7 @@ export const sessionExecuteWorkflow = workflow.define({
       } catch (error) {
         await step.runMutation(internal.sessionWorkflow.saveResult, {
           sessionId: args.sessionId,
+          ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
           success: false,
           result: null,
           error:
@@ -378,6 +393,16 @@ export const sessionExecuteWorkflow = workflow.define({
       throw new Error("sessionExecuteWorkflow: sandbox was not resolved");
     }
 
+    // Preserve the exact V1 journal for workflows started before the cutover:
+    // workflow steps are replayed by order, so even one new call would strand
+    // an in-flight execution with a journal mismatch.
+    if (args.turnId !== undefined) {
+      await step.runMutation(internal.turns.markLaunching, {
+        turnId: args.turnId,
+        sandboxId,
+      });
+    }
+
     // A cancel can race with startExecute and wipe pendingTurn while a daemon
     // workflow waits, so restage it before ensuring the warm process.
     if (usesChatDaemon(data.model)) {
@@ -401,7 +426,7 @@ export const sessionExecuteWorkflow = workflow.define({
         thinkingEnabled: args.thinkingEnabled,
         use1mContext: args.use1mContext,
         fastMode: args.fastMode,
-        allowedTools: data.allowedTools,
+        ...sessionTurnTools(data.isOrchestrator),
         providerAccountId: args.providerAccountId,
         credentialOwnerUserId: args.credentialOwnerUserId,
         sessionPersistenceId: args.sessionId,
@@ -412,6 +437,24 @@ export const sessionExecuteWorkflow = workflow.define({
       // empty placeholder (and activeWorkflowId) stuck on "Working…" until
       // the 2-hour backstop.
       try {
+        const turnLease =
+          args.turnId === undefined
+            ? null
+            : await step.runMutation(internal.turns.acquireOneShotLease, {
+                turnId: args.turnId,
+                sandboxId,
+              });
+        if (args.turnId !== undefined && turnLease === null) {
+          await step.runMutation(internal.sessionWorkflow.saveResult, {
+            sessionId: args.sessionId,
+            turnId: args.turnId,
+            success: false,
+            result: null,
+            error: "The turn no longer owns this session. Please retry.",
+            activityLog: null,
+          });
+          return;
+        }
         await step.runAction(internal.sandbox.launchOnExistingSandbox, {
           sandboxId,
           entityId: String(args.sessionId),
@@ -424,17 +467,24 @@ export const sessionExecuteWorkflow = workflow.define({
           thinkingEnabled: args.thinkingEnabled,
           use1mContext: args.use1mContext,
           fastMode: args.fastMode,
-          allowedTools: data.allowedTools,
+          ...sessionTurnTools(data.isOrchestrator),
           repoId: data.repoId,
           streamingEntityId: String(args.sessionId),
           sessionPersistenceId: args.sessionId,
           providerAccountId: args.providerAccountId,
           credentialOwnerUserId: args.credentialOwnerUserId,
           attachmentStorageIds: data.attachmentStorageIds,
+          ...(turnLease !== null
+            ? {
+                turnId: turnLease.turnId,
+                turnLeaseGeneration: turnLease.leaseGeneration,
+              }
+            : {}),
         });
       } catch (error) {
         await step.runMutation(internal.sessionWorkflow.saveResult, {
           sessionId: args.sessionId,
+          ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
           success: false,
           result: null,
           error:
@@ -449,9 +499,12 @@ export const sessionExecuteWorkflow = workflow.define({
 
     const result = await step.awaitEvent(sessionCompleteEvent);
 
+    // Content-keyed, not mode-keyed: any turn may have written plan.md (the
+    // `eva-plan` skill does), so harvest it on every success and let saveResult
+    // decide whether it actually changed.
     let planContent: string | undefined;
 
-    if (args.mode === "plan" && result.success && sandboxId) {
+    if (result.success && sandboxId) {
       const planRaw = await step.runAction(internal.sandbox.runSandboxCommand, {
         sandboxId,
         command: `cat ${WORKSPACE_DIR}/plan.md 2>/dev/null || cat ${LEGACY_WORKSPACE_DIR}/plan.md 2>/dev/null || echo ""`,
@@ -469,12 +522,16 @@ export const sessionExecuteWorkflow = workflow.define({
     // turns. Publish failures are patched onto the saved message below.
     await step.runMutation(internal.sessionWorkflow.saveResult, {
       sessionId: args.sessionId,
+      ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
       success: result.success,
       result: result.result,
       error: result.error,
       activityLog: result.activityLog,
+      model: args.model,
       planContent,
       pendingQuestion: result.pendingQuestion,
+      beforeSha: result.beforeSha,
+      afterSha: result.afterSha,
     });
 
     // Eva owns publishing: the agent commits inside the sandbox but never
@@ -487,7 +544,7 @@ export const sessionExecuteWorkflow = workflow.define({
     let pushSucceeded = false;
     let pushedCommits = false;
     let branchPublished = false;
-    if (args.mode !== "plan" && result.success && data.branchName) {
+    if (result.success && data.branchName) {
       try {
         const pushResult = await step.runAction(
           internal.sandbox.pushSandboxBranch,
@@ -510,6 +567,7 @@ export const sessionExecuteWorkflow = workflow.define({
         );
         await step.runMutation(internal.sessionWorkflow.saveResult, {
           sessionId: args.sessionId,
+          ...(args.turnId !== undefined ? { turnId: args.turnId } : {}),
           success: false,
           result: result.result,
           error: publishError,
@@ -661,6 +719,12 @@ export const clearStuckWorkingState = internalMutation({
     });
     if (session) {
       await syncSessionDaemonState(ctx, session, { pendingTurn: undefined });
+      const turn = await findOpenSessionTurn(ctx, args.sessionId);
+      if (turn) {
+        await closeTurn(ctx, turn, "error", {
+          error: "Turn state was cleared during recovery",
+        });
+      }
     }
     return { deletedPlaceholders, clearedStreaming: true };
   },
@@ -675,7 +739,6 @@ export const clearStuckWorkingState = internalMutation({
 export const addAssistantPlaceholder = internalMutation({
   args: {
     sessionId: v.id("sessions"),
-    mode: sessionModeArgValidator,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -707,7 +770,6 @@ export const addAssistantPlaceholder = internalMutation({
       role: "assistant",
       content: "",
       timestamp: Date.now(),
-      mode: args.mode,
       activityLog: "",
     });
     await ctx.db.patch(args.sessionId, { updatedAt: Date.now() });
@@ -715,16 +777,13 @@ export const addAssistantPlaceholder = internalMutation({
   },
 });
 
-/** Fetches session and repo data, builds the mode-specific prompt, and resolves branch/tools config. */
+/** Fetches session and repo data, builds the turn prompt, and resolves branch config. */
 export const getSessionData = internalQuery({
   args: {
     sessionId: v.id("sessions"),
     message: v.string(),
-    mode: sessionModeArgValidator,
     model: aiModelValidator,
     userId: v.id("users"),
-    personaId: v.optional(v.id("designPersonas")),
-    numDesigns: v.optional(v.number()),
   },
   returns: v.object({
     sandboxId: v.optional(v.string()),
@@ -736,10 +795,11 @@ export const getSessionData = internalQuery({
     branchName: v.optional(v.string()),
     prUrl: v.optional(v.string()),
     baseBranch: v.string(),
-    allowedTools: v.string(),
     model: aiModelValidator,
     deploymentProjectName: v.optional(v.string()),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    /** Selects the master's reduced tool set — see `sessionTurnTools`. */
+    isOrchestrator: v.optional(v.boolean()),
   }),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
@@ -754,9 +814,7 @@ export const getSessionData = internalQuery({
       repo,
       user,
       message: args.message,
-      mode: args.mode,
-      personaId: args.personaId,
-      numDesigns: args.numDesigns,
+      model: args.model,
     });
 
     // Input images attached to the triggering user message. Used to re-stage
@@ -779,10 +837,10 @@ export const getSessionData = internalQuery({
       branchName,
       prUrl: session.prUrl,
       baseBranch: resolveSessionBaseBranch(session, repo),
-      allowedTools: MODE_TOOLS[resolveToolMode(args.mode)],
       model: normalizeAIModel(args.model),
       deploymentProjectName: repo.deploymentProjectName,
       attachmentStorageIds: triggeringUserMessage?.attachmentStorageIds,
+      isOrchestrator: session.isOrchestrator,
     };
   },
 });
@@ -816,12 +874,17 @@ export const updateSandboxId = internalMutation({
 export const saveResult = internalMutation({
   args: {
     sessionId: v.id("sessions"),
+    turnId: v.optional(v.id("turns")),
     success: v.boolean(),
     result: v.union(v.string(), v.null()),
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
+    /** Stamped onto the reply on success, making it this provider's checkpoint. */
+    model: v.optional(aiModelValidator),
     planContent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
+    /** Turn checkpoint from the callback (see messageFields.beforeSha). */
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -846,6 +909,14 @@ export const saveResult = internalMutation({
       return null;
     }
 
+    // A disposable provider worker can die too hard to serialize its local
+    // steps (for example V8 heap OOM). Preserve the last durable streaming
+    // snapshot when its supervisor reports a null/empty activity log.
+    const streaming = await ctx.db
+      .query("streamingActivity")
+      .withIndex("by_entity", (q) => q.eq("entityId", String(args.sessionId)))
+      .first();
+    const activityLog = args.activityLog || streaming?.currentActivity;
     await clearStreamingActivity(ctx, String(args.sessionId));
 
     const recent = await ctx.db
@@ -856,17 +927,20 @@ export const saveResult = internalMutation({
     const last = resultTargetMessage(recent);
     if (!last) return null;
 
-    const isDesignTurn = last.mode === "design";
-    const designParsed =
-      isDesignTurn && args.success ? parseDesignResult(args.result) : null;
+    // Any successful turn may have ended with the eva-design JSON, so this is
+    // keyed on the reply's content rather than on what the turn was asked to do.
+    const designParsed = args.success ? parseDesignResult(args.result) : null;
 
     const patch: {
       content: string;
       activityLog?: string;
       finishedAt?: number;
       pendingQuestion?: string;
+      model?: Doc<"messages">["model"];
       isSystemAlert?: boolean;
       errorDetail?: string;
+      beforeSha?: string;
+      afterSha?: string;
       variations?: Array<{
         label: string;
         route?: string;
@@ -883,25 +957,27 @@ export const saveResult = internalMutation({
       isSystemAlert: undefined,
       errorDetail: undefined,
     };
-    if (designParsed?.variations) {
+    if (designParsed) {
       patch.variations = designParsed.variations.map((variation) => ({
         label: variation.label,
         route: variation.route,
         filePath: variation.filePath,
       }));
-    } else if (
-      isDesignTurn &&
-      args.success &&
-      args.result &&
-      designParsed === null
-    ) {
-      patch.content = args.result || "Failed to generate designs.";
     }
-    if (args.activityLog) {
-      patch.activityLog = args.activityLog;
+    if (activityLog) {
+      patch.activityLog = activityLog;
+    }
+    // Only a successful reply is a checkpoint: a failed turn's provider never
+    // saw the conversation, so it must not suppress a later catch-up.
+    if (args.success && args.model !== undefined) {
+      patch.model = normalizeAIModel(args.model);
     }
     if (args.pendingQuestion) {
       patch.pendingQuestion = args.pendingQuestion;
+    }
+    if (args.beforeSha !== undefined && args.afterSha !== undefined) {
+      patch.beforeSha = args.beforeSha;
+      patch.afterSha = args.afterSha;
     }
     await ctx.db.patch(last._id, patch);
 
@@ -922,10 +998,24 @@ export const saveResult = internalMutation({
       // Crash hygiene: drop stale soft-lock if the agent forgot browser_unlock.
       agentBrowsingAt: undefined,
     };
-    if (args.planContent) {
+    // plan.md is now harvested after every successful turn, so only write it
+    // back when it actually changed — an unchanged reread must not touch the
+    // session (and reorder nothing downstream of planContent).
+    if (args.planContent && args.planContent !== session.planContent) {
       sessionPatch.planContent = args.planContent;
     }
     await ctx.db.patch(args.sessionId, sessionPatch);
+    if (args.turnId !== undefined) {
+      const turn = await ctx.db.get(args.turnId);
+      if (turn) {
+        await closeTurn(
+          ctx,
+          turn,
+          args.success ? "done" : "error",
+          args.error ? { error: args.error } : {},
+        );
+      }
+    }
     await startNextQueuedSessionMessage(ctx, args.sessionId);
     return null;
   },
@@ -947,26 +1037,47 @@ export const claimPendingTurn = authMutation({
   args: {
     sessionId: v.id("sessions"),
     model: v.optional(aiModelValidator),
+    // When false, drain cancel/stop/usage only. Old sandboxes omit this and
+    // keep acquiring the running lease (previous behaviour).
+    acceptTurn: v.optional(v.boolean()),
   },
-  returns: v.object({
-    prompt: v.union(v.string(), v.null()),
-    // Resolved download URLs for this turn's input image attachments. The daemon
-    // fetches these and hands the agent local file paths before running the turn.
-    attachmentUrls: v.array(v.string()),
-    stopTaskToolUseIds: v.array(v.string()),
-    cancelRequested: v.boolean(),
-  }),
+  returns: v.union(
+    v.object({
+      prompt: v.union(v.string(), v.null()),
+      turnLifecycle: v.literal("legacy"),
+      // Resolved download URLs for this turn's input image attachments. The daemon
+      // fetches these and hands the agent local file paths before running the turn.
+      attachmentUrls: v.array(v.string()),
+      stopTaskToolUseIds: v.array(v.string()),
+      cancelRequested: v.boolean(),
+      usageRefreshRequested: v.boolean(),
+    }),
+    v.object({
+      prompt: v.string(),
+      turnLifecycle: v.literal("durable"),
+      turnId: v.id("turns"),
+      leaseGeneration: v.number(),
+      attachmentUrls: v.array(v.string()),
+      stopTaskToolUseIds: v.array(v.string()),
+      cancelRequested: v.boolean(),
+      usageRefreshRequested: v.boolean(),
+    }),
+  ),
   handler: async (ctx, args) => {
     const emptyClaim = {
       prompt: null,
+      turnLifecycle: "legacy",
       attachmentUrls: [],
       stopTaskToolUseIds: [],
       cancelRequested: false,
+      usageRefreshRequested: false,
     } satisfies {
       prompt: null;
+      turnLifecycle: "legacy";
       attachmentUrls: string[];
       stopTaskToolUseIds: string[];
       cancelRequested: boolean;
+      usageRefreshRequested: boolean;
     };
     let daemonState = await ctx.db
       .query("sessionDaemonStates")
@@ -989,13 +1100,20 @@ export const claimPendingTurn = authMutation({
         throw new Error("Not authorized");
     }
 
+    // Level-triggered: an old callback that does not read this field must not
+    // consume it. The refresh action clears `usageRefreshRequestedAt` when it
+    // stops waiting so a failed lookup can retry until then.
+    const usageRefreshRequested =
+      daemonState.usageRefreshRequestedAt !== undefined;
+
     // Withhold the turn while a new session's sandbox is still pulling the
     // latest base branch and reinstalling drifted deps (flag set at early-ready,
     // cleared when setup finishes). Returning an empty claim leaves pendingTurn
     // intact; the daemon keeps polling (45m idle budget) and claims the moment
     // the gate clears, so the agent never executes against a stale checkout.
+    // The usage flag is still returned: get_usage does not need a user turn.
     if (daemonState.sandboxSetupPending === true) {
-      return emptyClaim;
+      return { ...emptyClaim, usageRefreshRequested };
     }
 
     const stopTaskToolUseIds = daemonState.pendingTaskStops ?? [];
@@ -1013,8 +1131,45 @@ export const claimPendingTurn = authMutation({
       await ctx.db.patch(args.sessionId, { cancelRequestedAt: undefined });
     }
 
+    // A prewarm is killing this daemon right now (stale callback bundle or a
+    // model/tools change). Handing it the turn in the milliseconds before the
+    // kill lands acquires the 2-minute running lease for a process that is
+    // already dying, and nothing heartbeats it — the "Turn stalled" alert of
+    // session 125. pendingTurn stays staged for the replacement daemon; the
+    // drains above still ran, so a cancel is never stranded by the pause.
+    if (
+      isDaemonClaimPaused({
+        claimPausedUntil: daemonState.claimPausedUntil,
+        now: Date.now(),
+      })
+    ) {
+      return {
+        ...emptyClaim,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
+    }
+
     if (!daemonState.pendingTurn) {
-      return { ...emptyClaim, stopTaskToolUseIds, cancelRequested };
+      return {
+        ...emptyClaim,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
+    }
+
+    // The daemon is not ready to start (still finalizing, synthetic open, or
+    // a real turn in flight). Leave pendingTurn so the 2-minute running lease
+    // is not acquired with nobody heartbeating it (session 65 / session 125).
+    if (args.acceptTurn === false) {
+      return {
+        ...emptyClaim,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
     }
 
     const pendingModel = daemonState.pendingTurn.model;
@@ -1024,7 +1179,12 @@ export const claimPendingTurn = authMutation({
         console.log(
           `[sessionWorkflow] claimPendingTurn model mismatch sessionId=${args.sessionId} pending=${pendingModel} claim=${claimModel}`,
         );
-        return { ...emptyClaim, stopTaskToolUseIds, cancelRequested };
+        return {
+          ...emptyClaim,
+          stopTaskToolUseIds,
+          cancelRequested,
+          usageRefreshRequested,
+        };
       }
     }
 
@@ -1038,12 +1198,49 @@ export const claimPendingTurn = authMutation({
     const attachmentUrls = resolvedUrls.filter(
       (url): url is string => url !== null,
     );
+    let turnLease: { turnId: Id<"turns">; leaseGeneration: number } | null =
+      null;
+    const pendingTurnId = daemonState.pendingTurn.turnId;
+    if (pendingTurnId !== undefined) {
+      const turn = await ctx.db.get(pendingTurnId);
+      if (!turn || !turn.open || turn.state === "running") {
+        await ctx.db.patch(daemonState._id, { pendingTurn: undefined });
+        await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
+        return {
+          ...emptyClaim,
+          stopTaskToolUseIds,
+          cancelRequested,
+          usageRefreshRequested,
+        };
+      }
+      turnLease = await acquireTurnLease(ctx, turn, "running");
+      if (turnLease === null) {
+        return {
+          ...emptyClaim,
+          stopTaskToolUseIds,
+          cancelRequested,
+          usageRefreshRequested,
+        };
+      }
+    }
     await ctx.db.patch(daemonState._id, { pendingTurn: undefined });
     await ctx.db.patch(args.sessionId, { pendingTurn: undefined });
     console.log(
       `[sessionWorkflow] claimPendingTurn sessionId=${args.sessionId} claimWaitMs=${claimWaitMs} attachments=${attachmentUrls.length}`,
     );
-    return { prompt, attachmentUrls, stopTaskToolUseIds, cancelRequested };
+    const claimedTurn = {
+      prompt,
+      attachmentUrls,
+      stopTaskToolUseIds,
+      cancelRequested,
+      usageRefreshRequested,
+    };
+    if (turnLease === null) {
+      const turnLifecycle = "legacy" as const;
+      return { ...claimedTurn, turnLifecycle };
+    }
+    const turnLifecycle = "durable" as const;
+    return { ...claimedTurn, turnLifecycle, ...turnLease };
   },
 });
 
@@ -1061,13 +1258,21 @@ export const updateBackgroundAgents = authMutation({
       throw new Error("Not authorized");
     if (args.agents.length === 0) return null;
 
+    const backgroundAgents = mergeBackgroundAgents(
+      session.backgroundAgents,
+      args.agents,
+    );
     await ctx.db.patch(args.sessionId, {
-      backgroundAgents: mergeBackgroundAgents(
-        session.backgroundAgents,
-        args.agents,
-      ),
+      backgroundAgents,
       updatedAt: Date.now(),
     });
+    // Queued messages wait for these agents, so their settling is a queue
+    // release the session itself never signals otherwise.
+    await scheduleQueueDrainAfterBackgroundAgents(
+      ctx,
+      args.sessionId,
+      backgroundAgents,
+    );
     return null;
   },
 });
@@ -1121,6 +1326,8 @@ export const ensurePendingTurn = internalMutation({
       return null;
     }
 
+    const openTurn = await findOpenSessionTurn(ctx, args.sessionId);
+    if (openTurn && openTurn.state === "running") return null;
     const last = await ctx.db
       .query("messages")
       .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
@@ -1138,6 +1345,7 @@ export const ensurePendingTurn = internalMutation({
     const pendingTurn = {
       prompt: args.prompt,
       requestedAt: Date.now(),
+      ...(openTurn ? { turnId: openTurn._id } : {}),
       attachmentStorageIds: args.attachmentStorageIds,
       ...(args.model !== undefined
         ? { model: normalizeAIModel(args.model) }
@@ -1215,27 +1423,19 @@ export const restageOpenTurn = internalMutation({
       };
     }
     const user = await ctx.db.get(session.userId);
-    const rawMode = lastAssistant.mode ?? lastUser.mode ?? "edit";
-    const mode: SessionPromptMode =
-      rawMode === "plan" ||
-      rawMode === "design" ||
-      rawMode === "ask" ||
-      rawMode === "execute" ||
-      rawMode === "edit"
-        ? rawMode
-        : "edit";
     const { prompt } = await buildSessionPrompt(ctx, {
       session,
       repo,
       user,
       message: lastUser.content,
-      mode,
-      personaId: lastUser.personaId,
+      model: session.lastModel ?? lastUser.model ?? DEFAULT_AI_MODEL,
     });
 
+    const openTurn = await findOpenSessionTurn(ctx, args.sessionId);
     const pendingTurn = {
       prompt,
       requestedAt: Date.now(),
+      ...(openTurn ? { turnId: openTurn._id } : {}),
       attachmentStorageIds: lastUser.attachmentStorageIds,
       ...(session.lastModel !== undefined ? { model: session.lastModel } : {}),
     };
@@ -1256,14 +1456,25 @@ export const restageOpenTurn = internalMutation({
  * stale handler so a crashed daemon cannot leave an empty bubble forever.
  */
 export const openSyntheticTurn = authMutation({
-  args: { sessionId: v.id("sessions") },
-  returns: v.object({ messageId: v.id("messages") }),
+  args: {
+    sessionId: v.id("sessions"),
+    // The daemon's own model. Optional only for daemons launched before the
+    // field existed; those fall back to `session.lastModel`, which the picker
+    // can move mid-flight and may therefore mis-attribute the checkpoint.
+    model: v.optional(aiModelValidator),
+  },
+  returns: v.object({
+    messageId: v.id("messages"),
+    turnId: v.id("turns"),
+    leaseGeneration: v.number(),
+  }),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
 
+    const turnModel = normalizeAIModel(args.model ?? session.lastModel);
     const messageId = await ctx.db.insert("messages", {
       parentId: args.sessionId,
       role: "assistant",
@@ -1271,7 +1482,24 @@ export const openSyntheticTurn = authMutation({
       timestamp: Date.now(),
       activityLog: "",
       isSyntheticTurn: true,
+      // Stamped at open time because the daemon protocol carries no model on
+      // completion. Not yet a checkpoint — that needs `finishedAt` too — and
+      // `completeSyntheticTurn` clears it again if the turn fails.
+      model: turnModel,
     });
+    const turnId = await openSessionTurn(ctx, {
+      sessionId: args.sessionId,
+      streamingEntityId: String(args.sessionId),
+      placeholderMessageId: messageId,
+      prompt: "[synthetic continuation]",
+      model: turnModel,
+      sandboxId: session.sandboxId,
+      repoId: session.repoId,
+    });
+    const turn = await ctx.db.get(turnId);
+    if (!turn) throw new Error("Synthetic turn was not created");
+    const lease = await acquireTurnLease(ctx, turn, "running");
+    if (!lease) throw new Error("Synthetic turn lease was not acquired");
     await ctx.db.patch(args.sessionId, {
       syntheticTurnMessageId: messageId,
       updatedAt: Date.now(),
@@ -1281,7 +1509,7 @@ export const openSyntheticTurn = authMutation({
       internal.sessionWorkflow.handleStaleSyntheticTurn,
       { sessionId: args.sessionId, messageId },
     );
-    return { messageId };
+    return { messageId, ...lease };
   },
 });
 
@@ -1295,9 +1523,22 @@ export const completeSyntheticTurn = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     pendingQuestion: v.optional(v.string()),
+    turnId: v.optional(v.string()),
+    leaseGeneration: v.optional(v.number()),
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
+    const turnResolution = await resolveCompletionTurn(ctx, {
+      sessionId: args.sessionId,
+      turnId: args.turnId,
+      leaseGeneration: args.leaseGeneration,
+      placeholderMessageId: args.messageId,
+    });
+    if (turnResolution.status === "stale") return null;
+    if (turnResolution.status === "current") {
+      await advanceTurn(ctx, turnResolution.turn, "finalizing");
+    }
     await clearStreamingActivity(ctx, String(args.sessionId));
 
     const message = await ctx.db.get(args.messageId);
@@ -1310,6 +1551,11 @@ export const completeSyntheticTurn = authMutation({
         syntheticTurnMessageId: undefined,
         updatedAt: Date.now(),
       });
+      if (turnResolution.status === "current") {
+        await closeTurn(ctx, turnResolution.turn, "error", {
+          error: "Synthetic turn placeholder was no longer available",
+        });
+      }
       await startNextQueuedSessionMessage(ctx, args.sessionId);
       return null;
     }
@@ -1319,6 +1565,9 @@ export const completeSyntheticTurn = authMutation({
       activityLog?: string;
       finishedAt: number;
       pendingQuestion?: string;
+      model?: Doc<"messages">["model"];
+      beforeSha?: string;
+      afterSha?: string;
     } = {
       content: args.success
         ? args.result || "I couldn't process your message."
@@ -1331,6 +1580,14 @@ export const completeSyntheticTurn = authMutation({
     if (args.pendingQuestion) {
       patch.pendingQuestion = args.pendingQuestion;
     }
+    if (args.beforeSha !== undefined && args.afterSha !== undefined) {
+      patch.beforeSha = args.beforeSha;
+      patch.afterSha = args.afterSha;
+    }
+    // Drops the open-time stamp so a failed turn never becomes a checkpoint.
+    if (!args.success) {
+      patch.model = undefined;
+    }
     await ctx.db.patch(args.messageId, patch);
 
     await ctx.db.patch(args.sessionId, {
@@ -1338,6 +1595,14 @@ export const completeSyntheticTurn = authMutation({
       updatedAt: Date.now(),
       agentBrowsingAt: undefined,
     });
+    if (turnResolution.status === "current") {
+      await closeTurn(
+        ctx,
+        turnResolution.turn,
+        args.success ? "done" : "error",
+        args.error ? { error: args.error } : {},
+      );
+    }
     await startNextQueuedSessionMessage(ctx, args.sessionId);
     return null;
   },
@@ -1383,6 +1648,12 @@ export const handleStaleSyntheticTurn = internalMutation({
     }
 
     await finalizeCancelledAssistantMessage(ctx, message, streaming);
+    const openTurn = await findOpenSessionTurn(ctx, args.sessionId);
+    if (openTurn?.placeholderMessageId === args.messageId) {
+      await closeTurn(ctx, openTurn, "error", {
+        error: "Synthetic turn stopped reporting activity",
+      });
+    }
     await clearStreamingActivity(ctx, String(args.sessionId));
     await ctx.db.patch(args.sessionId, {
       syntheticTurnMessageId: undefined,
@@ -1403,6 +1674,9 @@ export const handleCompletion = authMutation({
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
     pendingQuestion: v.optional(v.string()),
+    turnId: v.optional(v.string()),
+    leaseGeneration: v.optional(v.number()),
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1411,6 +1685,16 @@ export const handleCompletion = authMutation({
     if (!session || !session.activeWorkflowId) return null;
     if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId)))
       throw new Error("Not authorized");
+
+    const turnResolution = await resolveCompletionTurn(ctx, {
+      sessionId: args.sessionId,
+      turnId: args.turnId,
+      leaseGeneration: args.leaseGeneration,
+    });
+    if (turnResolution.status === "stale") return null;
+    if (turnResolution.status === "current") {
+      await advanceTurn(ctx, turnResolution.turn, "finalizing");
+    }
 
     console.log(
       `[sessionWorkflow] handleCompletion received sessionId=${args.sessionId} success=${args.success} workflowId=${session.activeWorkflowId}`,
@@ -1433,6 +1717,8 @@ export const handleCompletion = authMutation({
         error: args.error,
         activityLog: args.activityLog,
         pendingQuestion: args.pendingQuestion,
+        beforeSha: args.beforeSha,
+        afterSha: args.afterSha,
       },
     );
 

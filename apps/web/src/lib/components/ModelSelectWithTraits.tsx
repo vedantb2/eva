@@ -4,6 +4,8 @@ import {
   getModelTraits,
   getReasoningLevelLabel,
   resolveTraitsForDisplay,
+  SIMPLE_VIEW_MODEL_LADDER,
+  snapToSimpleViewLadder,
   type AIModel,
   type StoredModelTraits,
 } from "@eva/backend";
@@ -37,15 +39,20 @@ function triggerTraitUi(
 
 type ModelSelectWithTraitsProps = Omit<
   ModelSelectProps<AIModel>,
-  "header" | "triggerSuffix" | "showFastIcon"
+  | "header"
+  | "triggerSuffix"
+  | "showFastIcon"
+  | "simpleLadder"
+  | "simpleLadderSnap"
 > & {
   traits?: StoredModelTraits;
   onTraitsChange?: (partial: StoredModelTraits) => void;
 };
 
 /**
- * One trigger for model + traits. Opening the picker lists models; capable
- * models also show trait pills above the list so switching either is one menu.
+ * One trigger for model + traits. Simple view opens a 5-step slider;
+ * Advanced (and the normal UI) lists models. Capable models also show
+ * trait pills above the list so switching either is one menu.
  */
 export function ModelSelectWithTraits({
   value,
@@ -80,6 +87,8 @@ export function ModelSelectWithTraits({
       triggerSuffix={traitsUi?.suffix}
       showFastIcon={traitsUi?.showFastIcon}
       header={traitsUi?.header}
+      simpleLadder={simpleView ? SIMPLE_VIEW_MODEL_LADDER : undefined}
+      simpleLadderSnap={simpleView ? snapToSimpleViewLadder(value) : undefined}
     />
   );
 }

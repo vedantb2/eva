@@ -11,6 +11,7 @@ import { variationValidator, messageFields } from "./validators";
 import {
   appendMediaStorageIds,
   messageMediaStorageIds,
+  messageNeedsUrlResolution,
 } from "./_messages/media";
 
 const parentIdValidator = messageFields.parentId;
@@ -58,8 +59,14 @@ async function resolveMessageUrls(
     .query("messages")
     .withIndex("by_parent", (q) => q.eq("parentId", parentId))
     .collect();
+  if (!messages.some(messageNeedsUrlResolution)) {
+    return messages;
+  }
   return Promise.all(
     messages.map(async (m) => {
+      if (!messageNeedsUrlResolution(m)) {
+        return m;
+      }
       const attachmentEntries = m.attachmentStorageIds
         ? await Promise.all(
             m.attachmentStorageIds.map(async (id) => {
@@ -112,10 +119,11 @@ export const listByParent = authQuery({
   },
 });
 
-/** Updates the most recent message for a parent (internal use, for streaming updates). */
+/** Updates an exact message when supplied, otherwise the latest legacy target. */
 export const updateLastInternal = internalMutation({
   args: {
     parentId: parentIdValidator,
+    messageId: v.optional(v.id("messages")),
     content: v.optional(v.string()),
     activityLog: v.optional(v.string()),
     variations: v.optional(v.array(variationValidator)),
@@ -128,12 +136,14 @@ export const updateLastInternal = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const last = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.parentId))
-      .order("desc")
-      .first();
-    if (!last) return null;
+    const target = args.messageId
+      ? await ctx.db.get(args.messageId)
+      : await ctx.db
+          .query("messages")
+          .withIndex("by_parent", (q) => q.eq("parentId", args.parentId))
+          .order("desc")
+          .first();
+    if (!target || target.parentId !== args.parentId) return null;
 
     const patch: {
       content?: string;
@@ -146,12 +156,12 @@ export const updateLastInternal = internalMutation({
     if (args.variations !== undefined) patch.variations = args.variations;
 
     // Accumulates within a turn, so a second capture cannot orphan the first.
-    const mediaStorageIds = appendMediaStorageIds(last.mediaStorageIds, args);
+    const mediaStorageIds = appendMediaStorageIds(target.mediaStorageIds, args);
     if (mediaStorageIds !== undefined) {
       patch.mediaStorageIds = mediaStorageIds;
     }
 
-    await ctx.db.patch(last._id, patch);
+    await ctx.db.patch(target._id, patch);
     return null;
   },
 });

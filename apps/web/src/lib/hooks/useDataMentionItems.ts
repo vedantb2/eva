@@ -15,6 +15,9 @@ export function useDataMentionItems(
     id: item.id,
     label: item.label,
     badge: item.badge,
+    // Drives the picker's leading icon. Assigning the backend union here is the
+    // guard: a new kind there fails to compile until it gets an icon.
+    kind: item.kind,
     ...(item.description !== undefined
       ? { description: item.description }
       : {}),

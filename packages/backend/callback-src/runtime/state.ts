@@ -1,5 +1,10 @@
 import type { WriteStream } from "fs";
-import type { JsonValue, ProgressStep, TodoItem } from "../types.js";
+import type {
+  JsonValue,
+  ProgressStep,
+  TodoItem,
+  UsageLimitSnapshot,
+} from "../types.js";
 
 function parsePriorStep(value: JsonValue): ProgressStep | null {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -112,6 +117,9 @@ type ClaudeSessionMode = "none" | "session" | "resume";
 
 type CallbackState = {
   accumulatedSteps: ProgressStep[];
+  /** Live-only provider status. Included in streaming heartbeats, never in the
+   * completed message activity log or PRIOR_STEPS. */
+  transientThinkingStep: ProgressStep | null;
   pendingQuestionData: string;
   lastStepType: string;
   rawOutput: string;
@@ -160,6 +168,16 @@ type CallbackState = {
    * to a blocking AskUserQuestion. Suspends the per-turn watchdog so a genuinely
    * waiting turn is never killed for producing no SDK messages. */
   awaitingQuestionAnswer: boolean;
+  /** Plan usage-limit state seen so far. Deliberately NOT per-turn: the plan
+   * windows describe the account, so a turn that observes nothing keeps the
+   * previous reading rather than reporting a blank row. */
+  usageLimitSnapshot: UsageLimitSnapshot | null;
+  /** Fingerprint of the last snapshot successfully reported to Convex, so an
+   * unchanged reading is not rewritten once per turn. */
+  lastReportedUsageLimits: string;
+  /** Time of that successful report. Unchanged readings are periodically
+   * refreshed so the server's stale-row cutoff reflects a live daemon. */
+  lastReportedUsageLimitsAt: number;
   doneFileWritten: boolean;
   flushInProgress: boolean;
   pingInProgress: boolean;
@@ -172,6 +190,7 @@ type CallbackState = {
 /** Single mutable runtime bag — ESM-safe cross-module mutations. */
 export const callbackState: CallbackState = {
   accumulatedSteps: [],
+  transientThinkingStep: null,
   pendingQuestionData: "",
   lastStepType: "",
   rawOutput: "",
@@ -208,6 +227,9 @@ export const callbackState: CallbackState = {
   cursorTerminalToolIds: new Set<string>(),
   todoState: [],
   awaitingQuestionAnswer: false,
+  usageLimitSnapshot: null,
+  lastReportedUsageLimits: "",
+  lastReportedUsageLimitsAt: 0,
   doneFileWritten: false,
   flushInProgress: false,
   pingInProgress: false,
@@ -269,6 +291,7 @@ export function assignRawLogStream(stream: WriteStream | null): void {
  * (session ids, todo state, raw-log stream) deliberately survive.
  */
 export function resetAttemptState(): void {
+  callbackState.transientThinkingStep = null;
   callbackState.realtimeOutputBuffer = "";
   callbackState.resultEventSeen = false;
   callbackState.waitingForFirstAssistantEvent = false;
@@ -287,6 +310,7 @@ export function resetAttemptState(): void {
 /** @internal test-only state resets */
 export function resetStateForTests(): void {
   callbackState.accumulatedSteps.length = 0;
+  callbackState.transientThinkingStep = null;
   callbackState.lastStepType = "";
   callbackState.pendingQuestionData = "";
   callbackState.fatalHeartbeatErrorMessage = "";
@@ -303,6 +327,9 @@ export function resetStateForTests(): void {
   callbackState.pendingParagraphBreak = false;
   callbackState.todoState.length = 0;
   callbackState.awaitingQuestionAnswer = false;
+  callbackState.usageLimitSnapshot = null;
+  callbackState.lastReportedUsageLimits = "";
+  callbackState.lastReportedUsageLimitsAt = 0;
 }
 
 export function setFatalHeartbeatForTest(message: string): void {

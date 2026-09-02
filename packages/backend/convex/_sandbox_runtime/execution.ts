@@ -1,7 +1,7 @@
 "use node";
 
 import { v, type Infer } from "convex/values";
-import type { SandboxHandle } from "../_sandbox/provider";
+import { SandboxProviderError, type SandboxHandle } from "../_sandbox/provider";
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { action, internalAction } from "../_generated/server";
@@ -24,7 +24,9 @@ import {
   signAndLaunchScript,
   KILL_PRIOR_AGENT_PROCESSES_CMD,
   sessionClaudeUuid,
+  restartUnresponsiveSandbox,
 } from "./helpers";
+import { writeSandboxFile } from "./sandboxFiles";
 import { CALLBACK_SCRIPT_FINGERPRINT } from "./callbackScriptFingerprint";
 import {
   buildDaemonAliveCheckCmd,
@@ -36,7 +38,10 @@ import {
   materializeAttachmentsToSandbox,
   buildAttachmentPromptNote,
 } from "./attachments";
-import { resolveSandboxCredentials } from "../envVarResolver";
+import {
+  resolveProviderAccountCredentialRevision,
+  resolveSandboxCredentials,
+} from "../envVarResolver";
 import {
   buildConvexBackgroundScriptBody,
   isConvexBackendCommand,
@@ -46,6 +51,14 @@ import { ensureSwapFile } from "./swap";
 import { restoreSeededRuntimeState as restoreSeededRuntimeStateInSandbox } from "./devServer";
 import { isDaytonaNetworkIssue } from "../_taskWorkflow/recovery";
 import { assertActionSandboxAccess } from "../functions";
+import {
+  isSandboxGoneError,
+  isSandboxUnresponsiveError,
+} from "./sandboxErrors";
+import {
+  shouldDeferDaemonRespawn,
+  type DaemonTurnSnapshot,
+} from "../_chat/daemonClaimPause";
 
 /** True if anything is LISTEN on `port` (Vercel images often lack `ss`). */
 function portListenProbeCmd(port: number): string {
@@ -116,6 +129,38 @@ const sessionPersistenceIdValidator = v.union(
   v.id("agentTasks"),
 );
 
+// Must outlast DAEMON_LAUNCH_LEASE_MS (30s in daemonEntitySnapshot.ts) so a
+// dead holder unblocks us at expiry, and long enough that a holder still
+// running docker bootstrap (~30s on Ave's Ubuntu image) can finish and
+// release. Losers then re-check alive / optsmismatch instead of giving up.
+const PREWARM_LAUNCH_LEASE_WAIT_MS = 90_000;
+const PREWARM_LAUNCH_LEASE_POLL_MS = 500;
+
+/**
+ * True when the sandbox being created belongs to a master (orchestrator)
+ * session, which boots from the Vercel managed image instead of the repo
+ * snapshot. Looked up lazily: only session-persisted flows can be one, so
+ * task/project/ephemeral paths never pay the query.
+ */
+async function isOrchestratorSandboxSession(
+  ctx: ActionCtx,
+  args: {
+    sessionPersistenceId?: Infer<typeof sessionPersistenceIdValidator>;
+    sessionPersistenceKind?: Infer<typeof sessionPersistenceKindValidator>;
+  },
+): Promise<boolean> {
+  if (
+    args.sessionPersistenceKind !== "sessions" ||
+    args.sessionPersistenceId === undefined
+  ) {
+    return false;
+  }
+  const session = await ctx.runQuery(internal.sessions.getInternal, {
+    id: args.sessionPersistenceId,
+  });
+  return session?.isOrchestrator === true;
+}
+
 /** Checks whether a sandbox is healthy, starting it if stopped. */
 export const validateSandbox = internalAction({
   args: {
@@ -124,14 +169,34 @@ export const validateSandbox = internalAction({
   },
   returns: v.object({ healthy: v.boolean() }),
   handler: async (ctx, args) => {
+    let sandbox: SandboxHandle | undefined;
     try {
-      const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+      sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
       // Start the sandbox if it's stopped (fast resume ~3-5s)
       await ensureSandboxRunning(sandbox, {
         timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
       });
       return { healthy: true };
     } catch (e) {
+      // Exit 137 on the `echo 1` probe / an exec that never answered: the VM
+      // reports running but cannot execute commands (OOM meltdown, dead guest
+      // agent). start() no-ops on a "running" VM, so re-validating as-is can
+      // never recover — stop+resume once, and only if that also fails report
+      // unhealthy so the caller falls back to recreating.
+      if (sandbox !== undefined && isSandboxUnresponsiveError(e)) {
+        console.warn(
+          `[sandbox] validateSandbox: sandbox ${args.sandboxId} is unresponsive (${errorMessage(e, "exec failed")}); attempting stop+resume`,
+        );
+        try {
+          await restartUnresponsiveSandbox(sandbox);
+          return { healthy: true };
+        } catch (restartError) {
+          console.warn(
+            `[sandbox] validateSandbox: stop+resume failed for ${args.sandboxId}: ${errorMessage(restartError, "restart failed")}; reporting unhealthy`,
+          );
+          return { healthy: false };
+        }
+      }
       console.error("Sandbox validation failed:", e);
       return { healthy: false };
     }
@@ -287,6 +352,70 @@ export const runStartupCommands = internalAction({
 });
 
 /**
+ * Classifies a failure from one of runBackgroundCommands' cheap launcher execs
+ * (pid check, cleanup, daemon fork — none run real work inline):
+ *
+ * - `"command-failed"` — the VM is fine; only this command lost. Record it and
+ *   carry on with the rest.
+ * - `"unresponsive"` — the provider says `running` but the VM cannot execute
+ *   (exit 137 / hung exec — OOM meltdown). Safe to stop+resume once.
+ * - `"not-running"` — the VM is stopped/stopping/gone. Launching or restarting
+ *   would either fail again or resurrect a sandbox the user just stopped, so
+ *   only abort.
+ *
+ * A provider 400 alone proves nothing (see sandboxErrors.ts) — but execs
+ * against a dead VM do surface as `Status code 400 is not ok`, so a 400 is
+ * confirmed with a trivial probe. The probe is only run after the state check
+ * says `running`, so it can never lazily resume a stopped VM.
+ */
+async function classifyBackgroundLaunchFailure(
+  sandbox: SandboxHandle,
+  error: unknown,
+): Promise<"command-failed" | "unresponsive" | "not-running"> {
+  const directSignal = isSandboxUnresponsiveError(error);
+  const providerBadRequest =
+    error instanceof SandboxProviderError && error.httpStatus === 400;
+  if (!directSignal && !providerBadRequest) return "command-failed";
+
+  try {
+    await sandbox.refresh();
+  } catch {
+    return "not-running";
+  }
+  if (sandbox.state !== "running") return "not-running";
+  if (directSignal) return "unresponsive";
+  try {
+    await execHandle(sandbox, "echo 1", 5);
+    return "command-failed";
+  } catch {
+    return "unresponsive";
+  }
+}
+
+/**
+ * Shell lines reading `/tmp/bg-<i>.pid` into `$pid`, blanking it unless that
+ * process is still *our* daemon wrapper.
+ *
+ * Pid files are baked into seeded snapshots (the seed run writes them and /tmp
+ * survives restore — the same reason `/tmp/.startup-commands-done` works), so
+ * on a freshly restored VM the recorded number is from an earlier boot. Pids
+ * are dense on a fresh boot, so it can now belong to something unrelated and
+ * alive (dockerd, containerd, the eva daemon): trusting it made the heal skip a
+ * relaunch forever, and signalling its process group would take out that whole
+ * service. One /proc read settles it — the wrapper is `bash -l
+ * /tmp/bg-cmd-<i>.sh` after setsid/nohup exec, Convex wrapper included, so the
+ * script path must appear in its cmdline.
+ *
+ * A zombie has an empty cmdline and so never qualifies. That is the behaviour
+ * we already had (signalling a zombie did nothing), and the Convex `pkill`
+ * lines still reap any orphans it left behind.
+ */
+const ownedBgPidLines = (i: number): string[] => [
+  `pid=$(cat /tmp/bg-${i}.pid 2>/dev/null || true)`,
+  `if [ -n "$pid" ] && ! tr '\\0' ' ' < /proc/"$pid"/cmdline 2>/dev/null | grep -qF "/tmp/bg-cmd-${i}.sh"; then pid=; fi`,
+];
+
+/**
  * Launches background commands (long-running daemons like `npx convex dev`) on
  * a sandbox. Each command is detached via `nohup ... > /tmp/bg-<idx>.log 2>&1 &`
  * so the shell forks immediately without waiting for the daemon to exit.
@@ -345,87 +474,161 @@ export const runBackgroundCommands = internalAction({
     const errors: string[] = [];
     let launched = 0;
     let launchedConvex = false;
+    // One stop+resume per run: exit 137 / hung execs on these cheap launcher
+    // commands mean the VM itself is wedged (OOM meltdown, dead guest agent),
+    // and every further launch would cascade through the same 20s+ failure.
+    let restartAttempted = false;
     for (let i = 0; i < commands.length; i++) {
       const command = commands[i];
       const isConvexCommand = isConvexBackendCommand(command);
-      if (args.onlyRestartDead) {
-        // `kill -0` is true for zombies (state Z). After `npx convex dev`
-        // dies, a defunct bash PID left heal permanently skipping relaunch.
-        const alive = (
-          await execHandle(
-            sandbox,
-            [
-              `pid=$(cat /tmp/bg-${i}.pid 2>/dev/null || true)`,
-              `if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then echo dead; exit 0; fi`,
-              `state=$(awk '{print $3}' /proc/"$pid"/stat 2>/dev/null || echo Z)`,
-              `if [ "$state" = "Z" ]; then echo dead; else echo alive; fi`,
-            ].join("; "),
-            5,
-          )
-        ).trim();
-        if (alive === "alive") {
-          console.log(
-            `[sandbox] runBackgroundCommands: still alive, skip: ${command}`,
-          );
-          continue;
-        }
-      }
-      // Drop a stale pid / leftover Convex before (re)launch so a zombie or
-      // half-dead backend cannot keep :3210 / ExportInProgress wedged.
-      const cleanup = [
-        `pid=$(cat /tmp/bg-${i}.pid 2>/dev/null || true)`,
-        `if [ -n "$pid" ]; then kill -TERM "$pid" 2>/dev/null || true; kill -KILL "$pid" 2>/dev/null || true; fi`,
-        `rm -f /tmp/bg-${i}.pid`,
-      ];
-      if (isConvexCommand) {
-        // Use `[c]onvex` so pkill does not match this cleanup shell's cmdline.
-        cleanup.push(
-          `pkill -TERM -f '[c]onvex-local-backend' 2>/dev/null || true`,
-          `pkill -TERM -f '[c]onvex dev' 2>/dev/null || true`,
-          `sleep 1`,
-          `pkill -KILL -f '[c]onvex-local-backend' 2>/dev/null || true`,
-          `pkill -KILL -f '[c]onvex dev' 2>/dev/null || true`,
-        );
-      }
-      cleanup.push("true");
-      await execHandle(sandbox, cleanup.join("; "), 15);
-      const logPath = `/tmp/bg-${i}.log`;
-      // Escape single quotes for the bash -lc payload.
-      // Write the command to a script file and launch THAT, rather than
-      // inlining it via `bash -lc '<command>'`: the inline form puts the whole
-      // command text into the wrapper shell's cmdline, so a user guard like
-      // `pgrep -f "[c]onvex dev" || npx convex dev` matches its own wrapper
-      // (the unguarded "npx convex dev" launch text) and silently never starts
-      // the daemon. With a script file the cmdline is just the file path.
-      // Base64 transport also makes user quoting unbreakable.
-      //
-      // CarePulse local backends: plant glibc-safe binary + unset agent mode.
-      // See convexLocalBackend.ts (anonymous mode rejects --local-backend-version).
-      const scriptBody = isConvexCommand
-        ? buildConvexBackgroundScriptBody(command)
-        : command;
-      const cb64 = Buffer.from(scriptBody, "utf8").toString("base64");
-      // setsid + </dev/null fully detaches the daemon into its own session, so
-      // it survives the exec session teardown even when the user's command
-      // self-backgrounds. A trailing `&` would otherwise let bash -lc exit
-      // immediately, letting a process-group SIGTERM reach the daemon (nohup
-      // only blocks SIGHUP).
-      const launchCmd = `echo ${cb64} | base64 -d > /tmp/bg-cmd-${i}.sh && chmod +x /tmp/bg-cmd-${i}.sh && (setsid nohup bash -l /tmp/bg-cmd-${i}.sh </dev/null > ${logPath} 2>&1 & echo $! > /tmp/bg-${i}.pid) && echo LAUNCHED`;
-      console.log(
-        `[sandbox] runBackgroundCommands: launching: ${command} (log: ${logPath})`,
-      );
+      // Everything per command runs in one try — including the pid check and
+      // cleanup execs, which used to throw uncaught out of the whole action
+      // (prod 2026-09-01: exit 137 on the heal pid check surfaced as an
+      // uncaught failure to every scheduled caller).
       try {
+        if (args.onlyRestartDead) {
+          // `kill -0` is true for zombies (state Z). After `npx convex dev`
+          // dies, a defunct bash PID left heal permanently skipping relaunch.
+          const alive = (
+            await execHandle(
+              sandbox,
+              [
+                ...ownedBgPidLines(i),
+                `if [ -z "$pid" ] || ! kill -0 "$pid" 2>/dev/null; then echo dead; exit 0; fi`,
+                `state=$(awk '{print $3}' /proc/"$pid"/stat 2>/dev/null || echo Z)`,
+                `if [ "$state" = "Z" ]; then echo dead; else echo alive; fi`,
+              ].join("; "),
+              5,
+            )
+          ).trim();
+          if (alive === "alive") {
+            console.log(
+              `[sandbox] runBackgroundCommands: still alive, skip: ${command}`,
+            );
+            continue;
+          }
+        }
+        // Drop a stale pid / leftover Convex before (re)launch so a zombie or
+        // half-dead backend cannot keep :3210 / ExportInProgress wedged.
+        //
+        // Kill the whole process group (`-- -$pid`), not just the recorded pid:
+        // the launch below uses `setsid`, so that pid is a session/group leader
+        // and the actual work (`pnpm start-db` → `supabase start` → docker CLI)
+        // lives in its group. Killing the leader alone left those children
+        // orphaned, still holding their fd to /tmp/bg-<i>.log — after the
+        // relaunch truncated it they kept writing at the old offset (multi-KB
+        // NUL hole in the log) and raced the new daemon (prod 2026-09-01). The
+        // bare-pid fallback covers pid files from an older launch form, and the
+        // TERM → poll → KILL grace lets supabase/docker exit cleanly. A pid
+        // that fails the ownership check leaves `$pid` empty, so a stale
+        // snapshot-baked file is only removed, never signalled.
+        const cleanup = [
+          ...ownedBgPidLines(i),
+          `if [ -n "$pid" ]; then kill -TERM -- -"$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null || true`,
+          `for _ in 1 2 3 4; do kill -0 -- -"$pid" 2>/dev/null || kill -0 "$pid" 2>/dev/null || break; sleep 0.5; done`,
+          `kill -KILL -- -"$pid" 2>/dev/null || kill -KILL "$pid" 2>/dev/null || true; fi`,
+          `rm -f /tmp/bg-${i}.pid`,
+        ];
+        if (isConvexCommand) {
+          // Use `[c]onvex` so pkill does not match this cleanup shell's cmdline.
+          cleanup.push(
+            `pkill -TERM -f '[c]onvex-local-backend' 2>/dev/null || true`,
+            `pkill -TERM -f '[c]onvex dev' 2>/dev/null || true`,
+            `sleep 1`,
+            `pkill -KILL -f '[c]onvex-local-backend' 2>/dev/null || true`,
+            `pkill -KILL -f '[c]onvex dev' 2>/dev/null || true`,
+          );
+        }
+        cleanup.push("true");
+        await execHandle(sandbox, cleanup.join("; "), 15);
+        const logPath = `/tmp/bg-${i}.log`;
+        const scriptPath = `/tmp/bg-cmd-${i}.sh`;
+        // Run the command from a script file rather than inlining it via
+        // `bash -lc '<command>'`: the inline form puts the whole command text
+        // into the wrapper shell's cmdline, so a user guard like
+        // `pgrep -f "[c]onvex dev" || npx convex dev` matches its own wrapper
+        // (the unguarded "npx convex dev" launch text) and silently never starts
+        // the daemon. With a script file the cmdline is just the file path, and
+        // user quoting cannot break out of anything.
+        //
+        // CarePulse local backends: plant glibc-safe binary + unset agent mode.
+        // See convexLocalBackend.ts (anonymous mode rejects --local-backend-version).
+        const scriptBody = isConvexCommand
+          ? buildConvexBackgroundScriptBody(command)
+          : command;
+        console.log(
+          `[sandbox] runBackgroundCommands: launching: ${command} (log: ${logPath})`,
+        );
+        // The file API, not `echo <base64> | base64 -d`. The command is
+        // repo-supplied and the Convex wrapper adds a multi-KB preamble, so an
+        // inline transport puts unbounded content (base64-inflated by 4/3) into
+        // one `bash -lc` argument — the same 128 KB MAX_ARG_STRLEN cliff that
+        // broke the preview proxy. writeFile has no such limit.
+        await writeSandboxFile(sandbox, scriptPath, scriptBody, {
+          executable: true,
+        });
+        // setsid + </dev/null fully detaches the daemon into its own session, so
+        // it survives the exec session teardown even when the user's command
+        // self-backgrounds. A trailing `&` would otherwise let bash -lc exit
+        // immediately, letting a process-group SIGTERM reach the daemon (nohup
+        // only blocks SIGHUP).
+        const launchCmd = `(setsid nohup bash -l ${scriptPath} </dev/null > ${logPath} 2>&1 & echo $! > /tmp/bg-${i}.pid) && echo LAUNCHED`;
         // Short timeout — we only wait for the shell to fork the daemon.
         await execHandle(sandbox, launchCmd, 10);
         launched += 1;
         if (isConvexCommand) launchedConvex = true;
       } catch (e) {
+        const verdict = await classifyBackgroundLaunchFailure(sandbox, e);
+        if (
+          verdict === "unresponsive" &&
+          // The preview heal poll must never stop/resume a VM the user may be
+          // mid-turn in; it only reports, and the lifecycle paths recover.
+          !args.onlyRestartDead &&
+          !restartAttempted
+        ) {
+          restartAttempted = true;
+          console.warn(
+            `[sandbox] runBackgroundCommands: sandbox ${args.sandboxId} is unresponsive (${errorMessage(e, "exec failed")}); attempting stop+resume`,
+          );
+          try {
+            await restartUnresponsiveSandbox(sandbox);
+            // The stop killed every daemon launched earlier in this run —
+            // start over from the first command on the recovered VM. The
+            // cleanup step makes relaunching already-attempted commands
+            // idempotent.
+            errors.length = 0;
+            launched = 0;
+            launchedConvex = false;
+            i = -1;
+            continue;
+          } catch (restartError) {
+            console.warn(
+              `[sandbox] runBackgroundCommands: stop+resume failed for ${args.sandboxId}: ${errorMessage(restartError, "restart failed")}`,
+            );
+          }
+        }
         const msg = errorMessage(e, "command failed");
         console.error(
           `[sandbox] runBackgroundCommands: failed to launch: ${command}`,
           msg,
         );
         errors.push(`${command}: ${msg}`);
+        if (verdict !== "command-failed") {
+          // The VM cannot run commands (wedged, or no longer running). Stop
+          // cascading: record the skip and return a handled result — heal
+          // polls and scheduled restarts get `errors`, not an uncaught action
+          // failure, and no further 20s+ timeouts pile onto a dead VM.
+          const remaining = commands.length - i - 1;
+          if (remaining > 0) {
+            errors.push(
+              `${remaining} command(s) skipped: sandbox ${verdict === "unresponsive" ? "unresponsive" : "not running"}`,
+            );
+          }
+          console.warn(
+            `[sandbox] runBackgroundCommands: aborting launches on ${args.sandboxId} (${verdict}); ${remaining} command(s) skipped`,
+          );
+          break;
+        }
       }
     }
 
@@ -434,11 +637,22 @@ export const runBackgroundCommands = internalAction({
     // instead of blocking startup on a grep loop (which also used to die at
     // undici's 300s headersTimeout when run as a single long exec).
     if (launchedConvex) {
-      await ctx.scheduler.runAfter(0, internal.sandbox.watchConvexReadiness, {
-        sandboxId: args.sandboxId,
-        repoId: args.repoId,
-        sessionId: args.sessionId,
-      });
+      const sessionId = args.sessionId;
+      const stillWanted =
+        sessionId === undefined
+          ? true
+          : await sessionStillRunningSandbox(ctx, sessionId, args.sandboxId);
+      if (!stillWanted) {
+        console.log(
+          `[sandbox] runBackgroundCommands: skipping Convex readiness watch, session not running ${args.sandboxId}`,
+        );
+      } else {
+        await ctx.scheduler.runAfter(0, internal.sandbox.watchConvexReadiness, {
+          sandboxId: args.sandboxId,
+          repoId: args.repoId,
+          ...(sessionId === undefined ? {} : { sessionId }),
+        });
+      }
     }
 
     return {
@@ -452,6 +666,22 @@ export const runBackgroundCommands = internalAction({
 /** Poll cadence / budget for the fire-and-forget Convex readiness watcher. */
 const CONVEX_READY_POLL_INTERVAL_MS = 10_000;
 const CONVEX_READY_TIMEOUT_MS = 360_000;
+
+/** False once the user has stopped this session or it no longer owns the VM. */
+async function sessionStillRunningSandbox(
+  ctx: ActionCtx,
+  sessionId: Id<"sessions">,
+  sandboxId: string,
+): Promise<boolean> {
+  const session = await ctx.runQuery(internal.sessions.getInternal, {
+    id: sessionId,
+  });
+  return (
+    session !== null &&
+    session.status === "active" &&
+    session.sandboxId === sandboxId
+  );
+}
 
 /**
  * Fire-and-forget watcher for Convex background daemons. Polls each Convex
@@ -476,7 +706,29 @@ export const watchConvexReadiness = internalAction({
       .filter((i) => i >= 0);
     if (convexIndexes.length === 0) return null;
 
-    const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    const sessionId = args.sessionId;
+    if (
+      sessionId !== undefined &&
+      !(await sessionStillRunningSandbox(ctx, sessionId, args.sandboxId))
+    ) {
+      console.log(
+        `[sandbox] watchConvexReadiness: aborted, session not running ${args.sandboxId}`,
+      );
+      return null;
+    }
+
+    let sandbox: SandboxHandle;
+    try {
+      sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
+    } catch (e) {
+      if (isSandboxGoneError(e)) {
+        console.log(
+          `[sandbox] watchConvexReadiness: sandbox gone, stopping (${args.sandboxId})`,
+        );
+        return null;
+      }
+      throw e;
+    }
     const logPaths = convexIndexes.map((i) => `/tmp/bg-${i}.log`);
     // One short exec per poll: ready only when every Convex log has the line.
     const probeCmd = [
@@ -490,6 +742,15 @@ export const watchConvexReadiness = internalAction({
 
     const startedAt = Date.now();
     while (Date.now() - startedAt < CONVEX_READY_TIMEOUT_MS) {
+      if (
+        sessionId !== undefined &&
+        !(await sessionStillRunningSandbox(ctx, sessionId, args.sandboxId))
+      ) {
+        console.log(
+          `[sandbox] watchConvexReadiness: aborted, session not running ${args.sandboxId}`,
+        );
+        return null;
+      }
       try {
         const result = (await execHandle(sandbox, probeCmd, 10)).trim();
         if (result === "yes") {
@@ -499,12 +760,28 @@ export const watchConvexReadiness = internalAction({
           return null;
         }
       } catch (e) {
+        if (isSandboxGoneError(e)) {
+          console.log(
+            `[sandbox] watchConvexReadiness: sandbox gone, stopping (${args.sandboxId})`,
+          );
+          return null;
+        }
         // Transient exec failures (resume races, stream closes) — keep polling.
         console.log(
           `[sandbox] watchConvexReadiness: probe failed, retrying: ${errorMessage(e, "probe failed")}`,
         );
       }
       await sleep(CONVEX_READY_POLL_INTERVAL_MS);
+    }
+
+    if (
+      sessionId !== undefined &&
+      !(await sessionStillRunningSandbox(ctx, sessionId, args.sandboxId))
+    ) {
+      console.log(
+        `[sandbox] watchConvexReadiness: timed out after stop, not warning (${args.sandboxId})`,
+      );
+      return null;
     }
 
     let logTail = "";
@@ -527,9 +804,9 @@ export const watchConvexReadiness = internalAction({
     console.error(
       `[sandbox] watchConvexReadiness: timed out (${args.sandboxId}): ${detail}`,
     );
-    if (args.sessionId) {
+    if (sessionId !== undefined) {
       await ctx.runMutation(internal.sessions.sandboxStartupWarning, {
-        sessionId: args.sessionId,
+        sessionId,
         error: detail,
       });
     }
@@ -836,11 +1113,15 @@ export const prepareSandbox = internalAction({
     console.log(
       `[sandbox] prepareSandbox: resolving context for repo=${args.repoOwner}/${args.repoName} repoId=${args.repoId} ephemeral=${args.ephemeral ?? false}`,
     );
-    const { client, sandboxEnvVars, snapshotName } =
-      await resolveSandboxContext(ctx, args.repoId);
+    // A master session whose sandbox died resumes through here, so the image
+    // override has to be resolved on this path too — otherwise it would fall
+    // back to a repo snapshot (or bare node24) instead of the managed image.
+    const isOrchestrator = await isOrchestratorSandboxSession(ctx, args);
+    const { client, sandboxEnvVars, snapshotName, image } =
+      await resolveSandboxContext(ctx, args.repoId, { isOrchestrator });
     const existingSandboxId = args.existingSandboxId;
     console.log(
-      `[sandbox] prepareSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, existingSandbox=${existingSandboxId ?? "none"}`,
+      `[sandbox] prepareSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, image=${image ?? "none"}, existingSandbox=${existingSandboxId ?? "none"}`,
     );
     let sandbox: SandboxHandle | undefined;
     let deleteSandboxOnFailure = false;
@@ -873,6 +1154,10 @@ export const prepareSandbox = internalAction({
             attachRunSandbox,
             emitProgress,
             { mode: "none" },
+            undefined,
+            isOrchestrator,
+            image,
+            isOrchestrator,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;
@@ -889,6 +1174,9 @@ export const prepareSandbox = internalAction({
             snapshotName,
             emitProgress,
             { mode: "none" },
+            isOrchestrator,
+            image,
+            isOrchestrator,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = prepared.isNew;
@@ -1013,11 +1301,14 @@ export const createOrResumeSandbox = internalAction({
     console.log(
       `[sandbox] createOrResumeSandbox: resolving context for repo=${args.repoOwner}/${args.repoName} repoId=${args.repoId} ephemeral=${args.ephemeral ?? false}`,
     );
-    const { client, sandboxEnvVars, snapshotName } =
-      await resolveSandboxContext(ctx, args.repoId);
+    // Same reason as prepareSandbox: a master session resuming after its
+    // sandbox died must land on the managed image, not a repo snapshot.
+    const isOrchestrator = await isOrchestratorSandboxSession(ctx, args);
+    const { client, sandboxEnvVars, snapshotName, image } =
+      await resolveSandboxContext(ctx, args.repoId, { isOrchestrator });
     const existingSandboxId = args.existingSandboxId;
     console.log(
-      `[sandbox] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, existingSandbox=${existingSandboxId ?? "none"}`,
+      `[sandbox] createOrResumeSandbox: context resolved in ${Date.now() - setupStartedAt}ms — snapshot=${snapshotName ?? "none"}, image=${image ?? "none"}, existingSandbox=${existingSandboxId ?? "none"}`,
     );
 
     let sandbox: SandboxHandle | undefined;
@@ -1052,6 +1343,10 @@ export const createOrResumeSandbox = internalAction({
             attachRunSandbox,
             emitProgress,
             { mode: "none" },
+            undefined,
+            isOrchestrator,
+            image,
+            isOrchestrator,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = true;
@@ -1069,6 +1364,9 @@ export const createOrResumeSandbox = internalAction({
             snapshotName,
             emitProgress,
             { mode: "none" },
+            isOrchestrator,
+            image,
+            isOrchestrator,
           );
           sandbox = prepared.sandbox;
           deleteSandboxOnFailure = prepared.isNew;
@@ -1157,11 +1455,26 @@ export const fetchBaseBranch = internalAction({
   returns: v.null(),
   handler: async (ctx, args) => {
     const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
-    await fetchOrigin(sandbox, args.repoOwner, args.repoName, args.baseBranch, {
-      prune: false,
-      timeoutSeconds: 120,
-      retryAttempts: 2,
-    });
+    const result = await fetchOrigin(
+      sandbox,
+      args.repoOwner,
+      args.repoName,
+      args.baseBranch,
+      {
+        prune: false,
+        timeoutSeconds: 120,
+        retryAttempts: 2,
+      },
+    );
+    if (!result.fetched) {
+      // Deleted `eva/automation-*` refs and never-pushed task branches are
+      // expected. Returning here keeps Convex from recording status=failure
+      // plus an Uncaught SandboxCommandFailedError. Checkout/setup already
+      // falls back to local snapshot refs via resolveBaseTarget.
+      console.warn(
+        `[sandbox] fetchBaseBranch: remote ref ${args.baseBranch} is gone; continuing with local snapshot refs`,
+      );
+    }
     return null;
   },
 });
@@ -1245,12 +1558,18 @@ function buildDaemonOptsSig(
   normalizedModel: string,
   allowedTools: string | undefined,
   providerAccountId: string | undefined,
+  providerAccountCredentialRevision: number | undefined,
   streamingEntityId: string,
   traits: TraitEnvInput,
+  noWrites?: boolean,
 ): string {
   const fastMode =
     traits.fastMode === undefined ? "" : traits.fastMode ? "1" : "0";
-  return `${normalizedModel}|${allowedTools ?? ""}|${traits.reasoningLevel ?? ""}|${traits.thinkingEnabled === false ? "0" : ""}|${traits.use1mContext === true ? "1" : ""}|${fastMode}|${providerAccountId ?? ""}|${streamingEntityId}`;
+  // `noWrites` is a suffix appended only when set, rather than another `|`
+  // field: a new field would change the signature of every writing session too
+  // and kill+respawn every warm daemon in the fleet on deploy, for no gain.
+  const readOnly = noWrites === true ? "|nowrites" : "";
+  return `${normalizedModel}|${allowedTools ?? ""}|${traits.reasoningLevel ?? ""}|${traits.thinkingEnabled === false ? "0" : ""}|${traits.use1mContext === true ? "1" : ""}|${fastMode}|${providerAccountId ?? ""}|${providerAccountCredentialRevision ?? ""}|${streamingEntityId}${readOnly}`;
 }
 
 function buildTraitEnvVars(traits: TraitEnvInput): Record<string, string> {
@@ -1287,12 +1606,19 @@ type PrewarmEntityDaemonBaseParams = {
   use1mContext?: boolean;
   fastMode?: boolean;
   allowedTools?: string;
+  noWrites?: boolean;
   providerAccountId?: Id<"userProviderAccounts">;
   credentialOwnerUserId?: Id<"users">;
   sessionPersistenceId?: Infer<typeof sessionPersistenceIdValidator>;
   streamingEntityId?: string;
   activeWorkflowField: "activeWorkflowId" | "activeChatWorkflowId";
   skipPrewarm?: boolean;
+  /**
+   * Manager Ave never runs repo services. Passing this through to
+   * `ensureSandboxRunning` keeps a lastModel prewarm from holding the launch
+   * lease across a 30s+ dockerd poll on the Ubuntu image (no `dnf`).
+   */
+  skipDocker?: boolean;
 };
 
 type PrewarmEntityDaemonParams = PrewarmEntityDaemonBaseParams & {
@@ -1347,10 +1673,19 @@ async function runPrewarmEntityDaemon(
       );
       return { prewarmed: false };
     }
+    const providerAccountCredentialRevision = args.providerAccountId
+      ? await resolveProviderAccountCredentialRevision(
+          ctx,
+          args.providerAccountId,
+          args.credentialOwnerUserId ?? args.userId,
+          normalizedModel,
+        )
+      : undefined;
     const optsSig = buildDaemonOptsSig(
       normalizedModel,
       args.allowedTools,
       args.providerAccountId,
+      providerAccountCredentialRevision,
       streamingEntityId,
       {
         reasoningLevel: args.reasoningLevel,
@@ -1358,84 +1693,170 @@ async function runPrewarmEntityDaemon(
         use1mContext: args.use1mContext,
         fastMode: args.fastMode,
       },
+      args.noWrites,
     );
-    const alive = await execHandle(
-      sandbox,
-      buildDaemonAliveCheckCmd(args.entityIdField, entityIdStr, fp, optsSig),
-      10,
-    );
-    const aliveState = alive.trim().split("\n").pop()?.trim() ?? "cold";
-    if (aliveState === "alive") {
-      console.log(
-        `[sandbox][execution] prewarmEntityDaemon: already warm entityId=${entityIdStr}`,
+    const probeAliveState = async (): Promise<string> => {
+      const alive = await execHandle(
+        sandbox,
+        buildDaemonAliveCheckCmd(args.entityIdField, entityIdStr, fp, optsSig),
+        10,
       );
-      return { prewarmed: false };
-    }
-    if (aliveState === "stale") {
-      console.log(
-        `[sandbox][execution] prewarmEntityDaemon: stale callback script — uploading bundle entityId=${entityIdStr}`,
+      return alive.trim().split("\n").pop()?.trim() ?? "cold";
+    };
+
+    /**
+     * Runs `decide` with turn claims fenced off, so the daemon this prewarm is
+     * about to kill cannot claim a turn (and its 2-minute running lease)
+     * between the decision and the process dying. Always clears the fence.
+     */
+    const withClaimPaused = async (
+      decide: () => Promise<{ prewarmed: boolean } | null>,
+    ): Promise<{ prewarmed: boolean } | null> => {
+      const setPause = (paused: boolean) =>
+        ctx.runMutation(internal.sandboxDaemon.setDaemonClaimPause, {
+          entityTable: args.entityTable,
+          entityId: entityIdStr,
+          paused,
+        });
+      await setPause(true);
+      try {
+        return await decide();
+      } finally {
+        await setPause(false);
+      }
+    };
+
+    const readTurnSnapshot = async (): Promise<
+      DaemonTurnSnapshot & { pendingModel: string | undefined }
+    > => {
+      const snapshot = await ctx.runQuery(
+        internal.sandboxDaemon.readDaemonEntitySnapshot,
+        { entityTable: args.entityTable, entityId: entityIdStr },
       );
-      await uploadCallbackScriptBundle(sandbox);
-      return { prewarmed: false };
-    }
+      return {
+        pendingTurnStaged: snapshot.pendingTurn !== undefined,
+        activeWorkflow: snapshot.activeWorkflow,
+        syntheticTurnMessageId: snapshot.syntheticTurnMessageId,
+        pendingModel: snapshot.pendingTurn?.model,
+      };
+    };
+
+    const killDaemon = () =>
+      execHandle(
+        sandbox,
+        buildKillEntityDaemonCmd(args.entityIdField, entityIdStr),
+        10,
+      );
+
+    const settleIfReady = async (
+      aliveState: string,
+    ): Promise<{ prewarmed: boolean } | null> => {
+      if (aliveState === "alive") {
+        console.log(
+          `[sandbox][execution] prewarmEntityDaemon: already warm entityId=${entityIdStr}`,
+        );
+        return { prewarmed: false };
+      }
+      if (aliveState === "stale") {
+        console.log(
+          `[sandbox][execution] prewarmEntityDaemon: stale callback script — uploading bundle entityId=${entityIdStr}`,
+        );
+        // Safe before the mid-turn check: this only touches disk. The live
+        // daemon notices the new fingerprint and exits for respawn itself once
+        // its work settles (callbackScriptWentStaleOnDisk).
+        await uploadCallbackScriptBundle(sandbox);
+        return await withClaimPaused(async () => {
+          const snapshot = await readTurnSnapshot();
+          if (shouldDeferDaemonRespawn(snapshot)) {
+            console.log(
+              `[sandbox][execution] prewarmEntityDaemon: stale callback script but mid-turn — deferring respawn entityId=${entityIdStr}`,
+            );
+            return { prewarmed: false };
+          }
+          // Disk now matches the expected fingerprint, so a follow-up probe
+          // would report "alive" while the old process is still running the
+          // previous bundle. Kill so this prewarm falls through to launch.
+          await killDaemon();
+          return null;
+        });
+      }
+      return null;
+    };
+
+    const initialReady = await settleIfReady(await probeAliveState());
+    if (initialReady !== null) return initialReady;
+
     // Single-flight the kill+launch: prewarm bursts (page opens, doc-patch
     // refires) all reach here seeing "cold" during the multi-second launch
     // window; only the lease claimant proceeds. The in-sandbox spawn flock is
     // the hard guarantee — this just stops losers paying a full launch.
-    const leased = await ctx.runMutation(
-      internal.sandboxDaemon.claimDaemonLaunchLease,
-      { entityId: entityIdStr },
-    );
+    //
+    // Losers used to return immediately. That stranded a pending-turn prewarm
+    // when page-open had already claimed the lease with a stale lastModel:
+    // send/workflow fire once, lose the race, and nothing retried, so the
+    // wrong daemon mismatch-polled claimPendingTurn until a later prewarm
+    // happened to run (observed: ~3 minutes on Manager Ave).
+    const claimLease = () =>
+      ctx.runMutation(internal.sandboxDaemon.claimDaemonLaunchLease, {
+        entityId: entityIdStr,
+      });
+    let leased = await claimLease();
     if (!leased) {
       console.log(
-        `[sandbox][execution] prewarmEntityDaemon: launch lease held — suppressing duplicate launch entityId=${entityIdStr}`,
+        `[sandbox][execution] prewarmEntityDaemon: launch lease held — waiting for in-flight launch entityId=${entityIdStr}`,
       );
-      return { prewarmed: false };
+      const waitDeadline = Date.now() + PREWARM_LAUNCH_LEASE_WAIT_MS;
+      while (!leased && Date.now() < waitDeadline) {
+        await sleep(PREWARM_LAUNCH_LEASE_POLL_MS);
+        const waitedReady = await settleIfReady(await probeAliveState());
+        if (waitedReady !== null) return waitedReady;
+        leased = await claimLease();
+      }
+      if (!leased) {
+        console.log(
+          `[sandbox][execution] prewarmEntityDaemon: launch lease held — giving up after ${Date.now() - startedAt}ms entityId=${entityIdStr}`,
+        );
+        return { prewarmed: false };
+      }
     }
     try {
+      // Re-probe after claiming: the holder may have finished as a different
+      // model during the wait, and the first probe is stale even on the
+      // no-wait path (TOCTOU between alive-check and lease).
+      const aliveState = await probeAliveState();
+      const claimedReady = await settleIfReady(aliveState);
+      if (claimedReady !== null) return claimedReady;
       if (aliveState === "optsmismatch") {
-        const snapshot = await ctx.runQuery(
-          internal.sandboxDaemon.readDaemonEntitySnapshot,
-          {
-            entityTable: args.entityTable,
-            entityId: entityIdStr,
-          },
-        );
-        const freshPending = snapshot.pendingTurn;
-        const activeWorkflow = snapshot.activeWorkflow;
-        const syntheticTurnMessageId = snapshot.syntheticTurnMessageId;
-        const midTurnNoPending =
-          freshPending === undefined &&
-          (activeWorkflow !== undefined ||
-            syntheticTurnMessageId !== undefined);
-        if (midTurnNoPending) {
+        const deferred = await withClaimPaused(async () => {
+          const snapshot = await readTurnSnapshot();
+          if (shouldDeferDaemonRespawn(snapshot)) {
+            console.log(
+              `[sandbox][execution] prewarmEntityDaemon: model/tools mismatch but mid-turn — deferring respawn entityId=${entityIdStr}`,
+            );
+            return { prewarmed: false };
+          }
+          const pendingModel = snapshot.pendingModel;
+          if (
+            pendingModel !== undefined &&
+            normalizeAIModel(pendingModel) !== normalizedModel
+          ) {
+            console.log(
+              `[sandbox][execution] prewarmEntityDaemon: pendingTurn targets different model — deferring respawn entityId=${entityIdStr} pending=${pendingModel} launch=${normalizedModel}`,
+            );
+            return { prewarmed: false };
+          }
           console.log(
-            `[sandbox][execution] prewarmEntityDaemon: model/tools mismatch but mid-turn — deferring respawn entityId=${entityIdStr}`,
+            `[sandbox][execution] prewarmEntityDaemon: model/tools changed — respawning entityId=${entityIdStr}`,
           );
-          return { prewarmed: false };
-        }
-        const pendingModel = freshPending?.model;
-        if (
-          pendingModel !== undefined &&
-          normalizeAIModel(pendingModel) !== normalizedModel
-        ) {
-          console.log(
-            `[sandbox][execution] prewarmEntityDaemon: pendingTurn targets different model — deferring respawn entityId=${entityIdStr} pending=${pendingModel} launch=${normalizedModel}`,
-          );
-          return { prewarmed: false };
-        }
-        console.log(
-          `[sandbox][execution] prewarmEntityDaemon: model/tools changed — respawning entityId=${entityIdStr}`,
-        );
-        await execHandle(
-          sandbox,
-          buildKillEntityDaemonCmd(args.entityIdField, entityIdStr),
-          10,
-        );
+          await killDaemon();
+          return null;
+        });
+        if (deferred !== null) return deferred;
       }
 
       await ensureSandboxRunning(sandbox, {
         timeoutSeconds: ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS,
+        skipDocker: args.skipDocker === true,
       });
 
       const claudeSessionId =
@@ -1456,6 +1877,7 @@ async function runPrewarmEntityDaemon(
         {
           model: normalizedModel,
           allowedTools: args.allowedTools,
+          noWrites: args.noWrites,
           claimMutation: args.claimMutation,
           openSyntheticTurnMutation: args.openSyntheticTurnMutation,
           completeSyntheticTurnMutation: args.completeSyntheticTurnMutation,
@@ -1516,6 +1938,8 @@ export const prewarmEntityDaemon = internalAction({
     use1mContext: v.optional(v.boolean()),
     fastMode: v.optional(v.boolean()),
     allowedTools: v.optional(v.string()),
+    /** Read-only turn: translated per SDK in the callback. See `sessionTurnTools`. */
+    noWrites: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     credentialOwnerUserId: v.optional(v.id("users")),
     sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
@@ -1676,6 +2100,8 @@ export const prewarmSessionDaemon = internalAction({
     use1mContext: v.optional(v.boolean()),
     fastMode: v.optional(v.boolean()),
     allowedTools: v.optional(v.string()),
+    /** Read-only turn: translated per SDK in the callback. See `sessionTurnTools`. */
+    noWrites: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     credentialOwnerUserId: v.optional(v.id("users")),
     sessionPersistenceId: v.optional(sessionPersistenceIdValidator),
@@ -1704,11 +2130,13 @@ export const prewarmSessionDaemon = internalAction({
       use1mContext: args.use1mContext,
       fastMode: args.fastMode,
       allowedTools: args.allowedTools,
+      noWrites: args.noWrites,
       providerAccountId: args.providerAccountId,
       credentialOwnerUserId: args.credentialOwnerUserId,
       sessionPersistenceId: args.sessionPersistenceId,
       activeWorkflowField: "activeWorkflowId",
       skipPrewarm,
+      skipDocker: session?.isOrchestrator === true,
       entityTable: "sessions",
     });
   },
@@ -1729,6 +2157,8 @@ export const launchOnExistingSandbox = internalAction({
     use1mContext: v.optional(v.boolean()),
     fastMode: v.optional(v.boolean()),
     allowedTools: v.optional(v.string()),
+    /** Read-only turn: translated per SDK in the callback. See `sessionTurnTools`. */
+    noWrites: v.optional(v.boolean()),
     systemPrompt: v.optional(v.string()),
     repoId: v.id("githubRepos"),
     streamingEntityId: v.optional(v.string()),
@@ -1739,6 +2169,8 @@ export const launchOnExistingSandbox = internalAction({
     /** Entity owner for personal-credential decrypt; defaults to `userId`. */
     credentialOwnerUserId: v.optional(v.id("users")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    turnId: v.optional(v.id("turns")),
+    turnLeaseGeneration: v.optional(v.number()),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -1781,6 +2213,10 @@ export const launchOnExistingSandbox = internalAction({
     if (args.requireTaskCommit === true) {
       extraEnvVars.REQUIRE_TASK_COMMIT = "true";
     }
+    if (args.turnId !== undefined && args.turnLeaseGeneration !== undefined) {
+      extraEnvVars.TURN_ID = String(args.turnId);
+      extraEnvVars.TURN_LEASE_GENERATION = String(args.turnLeaseGeneration);
+    }
     // Session-wide trait overrides. Only non-default values are sent from the UI;
     // the runner maps effort to each provider's native control (see config.ts).
     Object.assign(
@@ -1813,6 +2249,7 @@ export const launchOnExistingSandbox = internalAction({
       {
         model: normalizedModel,
         allowedTools: args.allowedTools,
+        noWrites: args.noWrites,
         systemPrompt: args.systemPrompt,
         extraEnvVars:
           Object.keys(extraEnvVars).length > 0 ? extraEnvVars : undefined,

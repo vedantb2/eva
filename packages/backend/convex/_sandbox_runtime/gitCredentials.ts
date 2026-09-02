@@ -11,6 +11,7 @@ import {
   requireEnv,
   WORKSPACE_DIR,
 } from "./helpers";
+import { writeSandboxFile } from "./sandboxFiles";
 
 const HELPER_SCRIPT_PATH = "/home/eva/.local/bin/git-credential-eva";
 const HELPER_CONFIG_DIR = "/home/eva/.config/eva";
@@ -119,8 +120,8 @@ export async function ensureGitCredentialHelper(
   const siteUrl = resolveConvexSiteUrl();
   const envFileContent = `EVA_SANDBOX_SECRET=${secret}\nCONVEX_SITE_URL=${siteUrl}\n`;
 
-  await sandbox.writeFile(HELPER_SCRIPT_PATH, HELPER_SCRIPT);
-  await sandbox.writeFile(HELPER_CONFIG_PATH, envFileContent);
+  await writeSandboxFile(sandbox, HELPER_SCRIPT_PATH, HELPER_SCRIPT);
+  await writeSandboxFile(sandbox, HELPER_CONFIG_PATH, envFileContent);
 
   // Legacy snapshots and pre-helper clones embed the installation token in
   // `remote.origin.url` (e.g. `https://x-access-token:ghs_xxx@github.com/...`).

@@ -2,6 +2,15 @@
 
 import { useSyncExternalStore } from "react";
 import { cn, useWebPreview } from "@eva/ui";
+import {
+  armPreviewMiniPlayer,
+  disarmPreviewMiniPlayer,
+  dropPreviewMiniPlayerForSandbox,
+  notePreviewAnchorAttached,
+  notePreviewAnchorDetached,
+  type PreviewAnchorRole,
+  type PreviewMiniPlayerSource,
+} from "./previewMiniPlayerStore";
 
 /**
  * Global preview-iframe keep-alive.
@@ -40,6 +49,11 @@ interface Rect {
   height: number;
 }
 
+interface LogicalSize {
+  width: number;
+  height: number;
+}
+
 interface HostEntry {
   /** Placeholder identity (pathStorageKey) — stable across remounts. */
   key: string;
@@ -51,6 +65,8 @@ interface HostEntry {
   anchor: HTMLElement | null;
   rect: Rect | null;
   element: HTMLIFrameElement | null;
+  /** Guest CSS viewport; null = fill the placeholder. */
+  logical: LogicalSize | null;
   /** Device emulation active — host wrapper draws the device edge borders. */
   bordered: boolean;
   attachedAt: number;
@@ -58,6 +74,23 @@ interface HostEntry {
 
 /** Hidden iframes keep running dev apps (HMR sockets, timers) — cap RAM. */
 const MAX_IFRAMES = 3;
+
+/**
+ * A mini-player drag or resize in flight, as offsets from the anchor's rect at
+ * press. Moving a window changes neither its size nor any scroll position, so
+ * nothing would tell the host to re-measure; and measuring after the fact
+ * paints the iframe a frame behind the window it sits in. The window publishes
+ * the offsets it is applying instead, and the overlay takes them in the same
+ * commit.
+ */
+export interface PreviewGesture {
+  /** Anchor being manipulated — every other overlay is unaffected. */
+  key: string;
+  dx: number;
+  dy: number;
+  dWidth: number;
+  dHeight: number;
+}
 
 const entries = new Map<string, HostEntry>();
 const metaByGroup = new Map<string, PreviewMeta>();
@@ -67,12 +100,55 @@ const onElementByKey = new Map<
 >();
 const listeners = new Set<() => void>();
 let snapshot: ReadonlyArray<HostEntry> = [];
+let gesture: PreviewGesture | null = null;
 
 function notify(): void {
   snapshot = Array.from(entries.values());
   for (const listener of listeners) {
     listener();
   }
+}
+
+export function setPreviewGesture(next: PreviewGesture): void {
+  gesture = next;
+  notify();
+}
+
+/**
+ * Ends the gesture on the next frame, once the released window has committed
+ * its final position: the offsets are dropped and the anchors re-measured in
+ * one notify, so no frame paints at the pre-gesture rect.
+ */
+export function endPreviewGesture(): void {
+  if (gesture === null) return;
+  requestAnimationFrame(() => {
+    if (gesture === null) return;
+    gesture = null;
+    for (const [key, entry] of entries) {
+      if (entry.anchor === null) continue;
+      entries.set(key, { ...entry, rect: measure(entry.anchor) });
+    }
+    notify();
+  });
+}
+
+function getPreviewGesture(): PreviewGesture | null {
+  return gesture;
+}
+
+/** The rect to paint at: the measured anchor, plus any live gesture offsets. */
+function overlayRect(
+  entry: HostEntry,
+  live: PreviewGesture | null,
+): Rect | null {
+  if (entry.rect === null) return null;
+  if (live === null || live.key !== entry.key) return entry.rect;
+  return {
+    top: entry.rect.top + live.dy,
+    left: entry.rect.left + live.dx,
+    width: entry.rect.width + live.dWidth,
+    height: entry.rect.height + live.dHeight,
+  };
 }
 
 function subscribe(listener: () => void): () => void {
@@ -108,6 +184,9 @@ function sameRect(a: Rect | null, b: Rect | null): boolean {
 
 /** Re-reads every anchored placeholder's rect; notifies only on change. */
 function remeasureAll(): void {
+  // Mid-gesture the anchor has already moved, so re-measuring it here would
+  // double-count the offsets the window is publishing.
+  if (gesture !== null) return;
   let changed = false;
   for (const [key, entry] of entries) {
     if (entry.anchor === null) continue;
@@ -162,9 +241,16 @@ interface AttachOptions {
   /** Undefined = nothing to show (loading/error) — hides any cached iframe. */
   src: string | undefined;
   epoch: number;
-  bordered: boolean;
+  logical: LogicalSize | null;
   /** Receives the live iframe element (panels wire it into iframeRef). */
   onElement: (el: HTMLIFrameElement | null) => void;
+  /** A pane anchor wins over an auto mini-player; a mini-player anchor does not. */
+  role: PreviewAnchorRole;
+  /**
+   * Pane only: float into the mini-player if this anchor detaches for good.
+   * Undefined disarms (pane hidden, collapsed, mobile, or nothing to show).
+   */
+  miniPlayer?: PreviewMiniPlayerSource;
 }
 
 /**
@@ -173,9 +259,11 @@ interface AttachOptions {
  */
 function attach(key: string, options: AttachOptions): (() => void) | undefined {
   const existing = entries.get(key);
+  notePreviewAnchorAttached(key, options.role);
 
   if (options.src === undefined) {
     // Loading or error state — the panel is showing an overlay there instead.
+    if (options.role === "panel") disarmPreviewMiniPlayer(key);
     if (existing !== undefined) {
       entries.set(key, { ...existing, anchor: null, rect: null });
       notify();
@@ -194,7 +282,8 @@ function attach(key: string, options: AttachOptions): (() => void) | undefined {
     anchor: options.anchor,
     rect: measure(options.anchor),
     element: sameEpoch ? existing.element : null,
-    bordered: options.bordered,
+    logical: options.logical,
+    bordered: options.logical !== null,
     attachedAt: Date.now(),
   });
   evictOverCap();
@@ -203,9 +292,25 @@ function attach(key: string, options: AttachOptions): (() => void) | undefined {
   const current = entries.get(key);
   options.onElement(current?.element ?? null);
 
+  if (options.role === "panel") {
+    if (options.miniPlayer !== undefined && current !== undefined) {
+      armPreviewMiniPlayer({
+        ...options.miniPlayer,
+        entryKey: key,
+        group: current.group,
+        src: current.src,
+        epoch: current.epoch,
+      });
+    } else {
+      disarmPreviewMiniPlayer(key);
+    }
+  }
+
   const observer = new ResizeObserver(() => {
     const entry = entries.get(key);
     if (entry === undefined || entry.anchor === null) return;
+    // See remeasureAll: a resize gesture already moves this rect by hand.
+    if (gesture !== null) return;
     const rect = measure(entry.anchor);
     if (sameRect(rect, entry.rect)) return;
     entries.set(key, { ...entry, rect });
@@ -223,9 +328,12 @@ function attach(key: string, options: AttachOptions): (() => void) | undefined {
     }
     options.onElement(null);
     const entry = entries.get(key);
+    // Only the anchor that still owns the slot un-anchors it; a superseded
+    // anchor (pane took over from the mini-player) must not report a detach.
     if (entry !== undefined && entry.anchor === options.anchor) {
       entries.set(key, { ...entry, anchor: null, rect: null });
       notify();
+      notePreviewAnchorDetached(key);
     }
   };
 }
@@ -263,6 +371,7 @@ export function setPreviewMeta(group: string, meta: PreviewMeta): void {
 
 /** Sandbox stopped: every port's cached documents are dead weight — free them. */
 export function dropPreviewGroup(sandboxId: string): void {
+  dropPreviewMiniPlayerForSandbox(sandboxId);
   const prefix = `${sandboxId}:`;
   for (const key of Array.from(metaByGroup.keys())) {
     if (key.startsWith(prefix)) {
@@ -306,29 +415,36 @@ export function useFullscreenElement(): Element | null {
  */
 export function PreviewIframeHost() {
   const hosted = useSyncExternalStore(subscribe, getSnapshot);
+  const live = useSyncExternalStore(subscribe, getPreviewGesture);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-40">
       {hosted.map((entry) => {
-        const visible =
-          entry.rect !== null &&
-          entry.rect.width > 0 &&
-          entry.rect.height > 0;
+        const rect = overlayRect(entry, live);
+        const visible = rect !== null && rect.width > 0 && rect.height > 0;
+        const logical = entry.logical;
+        const scale =
+          logical && rect
+            ? Math.min(rect.width / logical.width, rect.height / logical.height)
+            : 1;
         return (
           <div
             key={entry.key}
             className={cn(
-              "pointer-events-auto absolute overflow-hidden",
-              entry.bordered && "border-x border-border",
+              "absolute overflow-hidden bg-background",
+              // Iframes swallow pointer events, so every overlay goes inert
+              // for the duration of a gesture, not just the dragged one.
+              live !== null ? "pointer-events-none" : "pointer-events-auto",
+              entry.bordered && "border border-border",
               !visible && "hidden",
             )}
             style={
-              visible && entry.rect !== null
+              visible && rect !== null
                 ? {
-                    top: entry.rect.top,
-                    left: entry.rect.left,
-                    width: entry.rect.width,
-                    height: entry.rect.height,
+                    top: rect.top,
+                    left: rect.left,
+                    width: rect.width,
+                    height: rect.height,
                   }
                 : undefined
             }
@@ -338,7 +454,19 @@ export function PreviewIframeHost() {
               ref={iframeRefFor(entry.key)}
               src={entry.src}
               title="Preview"
-              className="size-full"
+              className={
+                logical ? "block border-0" : "block size-full border-0"
+              }
+              style={
+                logical
+                  ? {
+                      width: logical.width,
+                      height: logical.height,
+                      transform: `scale(${scale})`,
+                      transformOrigin: "top left",
+                    }
+                  : undefined
+              }
             />
           </div>
         );
@@ -347,64 +475,103 @@ export function PreviewIframeHost() {
   );
 }
 
-interface PersistentPreviewBodyProps {
+interface PreviewAnchorProps {
   /** Stable placeholder identity — the panel's pathStorageKey. */
   entryKey: string;
   /** `${sandboxId}:${port}` for group eviction. */
   group: string;
   src: string | undefined;
   epoch: number;
-  /** True while an error overlay must show — hides the hosted iframe. */
-  covered: boolean;
-  /** Device emulation width; undefined = fill. */
-  deviceWidth: number | undefined;
-  loading?: React.ReactNode;
+  /** Guest CSS viewport; null = fill the placeholder. */
+  logicalSize: { width: number; height: number } | null;
+  role: PreviewAnchorRole;
+  /** Pane only — see {@link AttachOptions.miniPlayer}. */
+  miniPlayer?: PreviewMiniPlayerSource;
+  onElement?: (el: HTMLIFrameElement | null) => void;
 }
 
 /**
- * Drop-in replacement for WebPreviewBody: renders the measured placeholder
- * the host overlays, and wires the hosted iframe element into the enclosing
- * WebPreview's iframeRef so nav/history/annotation consumers keep working.
+ * The measured placeholder the host overlays its iframe on. Context-free so
+ * the mini-player can host the same entry without a WebPreview provider.
  *
  * The anchor div is keyed by everything the host reads at attach time, so a
  * change remounts it and re-runs the ref callback — an explicit update
- * channel that does not depend on closure identity.
+ * channel that does not depend on closure identity. A keyed remount is a
+ * detach + attach in one commit, which the mini-player store treats as no
+ * detach at all.
  */
-export function PersistentPreviewBody({
+export function PreviewAnchor({
   entryKey,
   group,
   src,
   epoch,
-  covered,
-  deviceWidth,
-  loading,
-}: PersistentPreviewBodyProps) {
-  const { iframeRef } = useWebPreview();
-  const effectiveSrc = covered ? undefined : src;
+  logicalSize,
+  role,
+  miniPlayer,
+  onElement,
+}: PreviewAnchorProps) {
+  const logicalKey = logicalSize
+    ? `${logicalSize.width}x${logicalSize.height}`
+    : "fill";
+  const armKey =
+    miniPlayer === undefined
+      ? "idle"
+      : `${miniPlayer.sessionId}:${miniPlayer.sandboxId}:${miniPlayer.returnTo}:${miniPlayer.title}`;
 
   return (
-    <div className="flex-1 h-full relative overflow-hidden min-h-0">
-      <div
-        key={`${epoch}:${effectiveSrc ?? ""}:${deviceWidth ?? "fill"}`}
-        ref={(node) => {
-          if (node === null) return undefined;
-          return attach(entryKey, {
-            anchor: node,
-            group,
-            src: effectiveSrc,
-            epoch,
-            bordered: deviceWidth !== undefined,
-            onElement: (el) => {
-              iframeRef.current = el;
-            },
-          });
+    <div
+      key={`${epoch}:${src ?? ""}:${logicalKey}:${armKey}`}
+      ref={(node) => {
+        if (node === null) return undefined;
+        return attach(entryKey, {
+          anchor: node,
+          group,
+          src,
+          epoch,
+          logical: logicalSize,
+          role,
+          miniPlayer,
+          onElement: onElement ?? (() => undefined),
+        });
+      }}
+      className="size-full"
+    />
+  );
+}
+
+interface PersistentPreviewBodyProps extends Omit<
+  PreviewAnchorProps,
+  "role" | "src" | "onElement"
+> {
+  src: string | undefined;
+  /** True while an error overlay must show — hides the hosted iframe. */
+  covered: boolean;
+  loading?: React.ReactNode;
+}
+
+/**
+ * Drop-in replacement for WebPreviewBody: renders the pane's
+ * {@link PreviewAnchor} and wires the hosted iframe element into the
+ * enclosing WebPreview's iframeRef so nav/history/annotation consumers keep
+ * working.
+ */
+export function PersistentPreviewBody({
+  src,
+  covered,
+  loading,
+  ...anchor
+}: PersistentPreviewBodyProps) {
+  const { iframeRef } = useWebPreview();
+
+  return (
+    <div className="relative size-full min-h-0 overflow-hidden">
+      <PreviewAnchor
+        {...anchor}
+        src={covered ? undefined : src}
+        role="panel"
+        onElement={(el) => {
+          iframeRef.current = el;
         }}
-        className={cn("size-full", deviceWidth !== undefined && "mx-auto")}
-        style={
-          deviceWidth !== undefined
-            ? { width: deviceWidth, maxWidth: "100%" }
-            : undefined
-        }
       />
       {loading}
     </div>

@@ -15,8 +15,9 @@ import {
   IconPlayerPlay,
   IconProgress,
   IconPencil,
+  IconArchive,
 } from "@tabler/icons-react";
-import { Avatar, AvatarFallback } from "@eva/ui";
+import { Avatar, AvatarFallback, cn } from "@eva/ui";
 import type { BadgeProps } from "@eva/ui";
 import type { FunctionReturnType } from "convex/server";
 import type { api } from "@eva/backend";
@@ -125,6 +126,13 @@ const typeConfig: Record<Notification["type"], NotificationAppearance> = {
     iconBg: "bg-muted",
     iconColor: "text-muted-foreground",
   },
+  session_archived: {
+    icon: IconArchive,
+    label: "Archived",
+    badgeVariant: "secondary",
+    iconBg: "bg-secondary",
+    iconColor: "text-secondary-foreground",
+  },
 };
 
 /**
@@ -145,6 +153,36 @@ export function getNotificationAppearance(
     }
   }
   return typeConfig[notification.type];
+}
+
+/**
+ * The type marker as a bare coloured glyph, for the inbox's trailing status
+ * column: a green check for done, a red circle for failed, and so on. No
+ * container — it reads as a status, not as a second avatar.
+ */
+export function NotificationStatusIcon({
+  notification,
+  className,
+}: {
+  notification: Pick<Notification, "type" | "title" | "message">;
+  className?: string;
+}) {
+  const config = getNotificationAppearance(notification);
+  const Icon = config.icon;
+
+  return (
+    <span
+      role="img"
+      aria-label={config.label}
+      title={config.label}
+      className={cn(
+        "flex size-4 shrink-0 items-center justify-center",
+        className,
+      )}
+    >
+      <Icon size={16} className={config.iconColor} />
+    </span>
+  );
 }
 
 export function NotificationIcon({

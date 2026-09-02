@@ -7,7 +7,7 @@ import {
   toWorkflowId,
 } from "../workflowManager";
 import { authMutation, hasTaskAccess } from "../functions";
-import { aiModelValidator } from "../validators";
+import { aiModelValidator, turnCheckpointArgs } from "../validators";
 import { taskCompleteEvent } from "./events";
 import {
   clearStreamingActivity,
@@ -15,6 +15,7 @@ import {
   recordCompletionLog,
   sendCompletionEvent,
 } from "./helpers";
+import { scheduleTaskOrchestratorNotify } from "../orchestratorShared";
 import type { MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
 
@@ -60,6 +61,7 @@ export const handleCompletion = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -171,6 +173,9 @@ export const cancelExecution = authMutation({
         finishedAt: Date.now(),
       });
       await clearStreamingActivity(ctx, getTaskRunStreamingEntityId(run._id));
+      // The cancelled status is written here, not through finalizeRunStatus, so
+      // this is the one terminal transition that hook cannot see.
+      await scheduleTaskOrchestratorNotify(ctx, args.taskId, "cancelled");
 
       // workflow.cancel() aborts execution before the workflow's own sandbox
       // cleanup step runs, so we stop the execution sandbox here.

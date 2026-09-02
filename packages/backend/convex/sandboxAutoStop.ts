@@ -7,7 +7,7 @@ import {
 } from "./_generated/server";
 import { authMutation, authQuery } from "./functions";
 import { scheduleFinalizeStop } from "./_sessions/sandbox";
-import { scheduleFinalizeStopTask } from "./_agentTasks/sandbox";
+import { requestTaskSandboxStop } from "./_agentTasks/sandbox";
 import { scheduleFinalizeStopProject } from "./_projects/sandbox";
 
 const DAY_MS = 86_400_000;
@@ -176,27 +176,18 @@ export const listActiveSandboxes = internalQuery({
 });
 
 /**
- * Internal: stops one task preview sandbox. Mirrors the public `stopTaskSandbox`
- * mutation minus the auth check — sets `stopping` and schedules the existing
- * finalize action (sandbox stop → mark closed → event log). Re-validates state
- * so a sandbox a user restarted between the scan and this call is left alone.
+ * Internal: stops one task preview sandbox. Delegates to the shared
+ * `requestTaskSandboxStop` helper (same path as the Stop button, minus the auth
+ * check) and only re-validates `active` first, so a sandbox a user restarted
+ * between the scan and this call is left alone.
  */
 export const stopTask = internalMutation({
   args: { taskId: v.id("agentTasks") },
   returns: v.null(),
   handler: async (ctx, { taskId }) => {
     const task = await ctx.db.get(taskId);
-    if (!task || !task.sandboxId || !task.repoId) return null;
-    if (task.reviewTaskSandboxStatus !== "active") return null;
-    await scheduleFinalizeStopTask(ctx, {
-      taskId,
-      sandboxId: task.sandboxId,
-      repoId: task.repoId,
-    });
-    await ctx.db.patch(taskId, {
-      reviewTaskSandboxStatus: "stopping",
-      updatedAt: Date.now(),
-    });
+    if (!task || task.reviewTaskSandboxStatus !== "active") return null;
+    await requestTaskSandboxStop(ctx, taskId);
     return null;
   },
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "convex-helpers/react/cache/hooks";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import {
   api,
   buildTraitsExecutionPayload,
@@ -14,14 +14,21 @@ import {
   type StoredModelTraits,
 } from "@eva/backend";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
+import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
+import {
+  buildFirstRunChatTurn,
+  findFirstRunChatTurnRun,
+} from "@/lib/components/tasks/firstRunChatTurn";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxChatHeaderActions } from "@/lib/components/sandbox/SandboxStartStopButton";
-import { BackgroundAgentsChip } from "@/lib/components/chat/BackgroundAgentsChip";
+import { SandboxChatPreInput } from "@/lib/components/chat/SandboxChatPreInput";
+import type { SandboxChatSurface } from "@/lib/components/chat/sandboxChatSurface";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,
   useTaskOwnerProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
+import { useProviderAccountHandoff } from "@/lib/hooks/useProviderAccountHandoff";
 
 interface TaskSandboxChatPanelProps {
   taskId: Id<"agentTasks">;
@@ -29,8 +36,8 @@ interface TaskSandboxChatPanelProps {
   isSandboxToggling?: boolean;
   /** Opens the Files tab and loads this sandbox path in the file viewer. */
   onOpenFile?: (path: string) => void;
-  sandboxCollapsed?: boolean;
-  onToggleSandbox?: () => void;
+  /** Opens the Agents sandbox tab (used by the sub-agent CTA row in the chat). */
+  onOpenAgentsTab?: () => void;
   onSandboxToggle?: (action: "start" | "stop") => void;
 }
 
@@ -39,8 +46,7 @@ export function TaskSandboxChatPanel({
   isSandboxActive,
   isSandboxToggling = false,
   onOpenFile,
-  sandboxCollapsed,
-  onToggleSandbox,
+  onOpenAgentsTab,
   onSandboxToggle,
 }: TaskSandboxChatPanelProps) {
   const { repo, basePath } = useRepo();
@@ -53,6 +59,38 @@ export function TaskSandboxChatPanel({
     entityId: `task-chat-${taskId}`,
   });
 
+  // Quick tasks open the chat with the first run rendered as a normal turn:
+  // the task prompt as the user message, the run's activity log + summary as
+  // the assistant reply. The detail timeline hides that same run (see
+  // firstRunChatTurn.ts).
+  const isQuickTask = task != null && task.projectId === undefined;
+  const runs = useQuery(
+    api.agentRuns.listByTask,
+    isQuickTask ? { taskId } : "skip",
+  );
+  const firstRun = findFirstRunChatTurnRun(runs);
+  const firstRunActivityLog = useQuery(
+    api.agentRuns.getActivityLog,
+    firstRun ? { id: firstRun._id } : "skip",
+  );
+  const taskAttachments = useQuery(
+    api.agentTasks.listAttachments,
+    firstRun && (task?.attachmentStorageIds?.length ?? 0) > 0
+      ? { taskId }
+      : "skip",
+  );
+  const firstRunTurn =
+    task && firstRun && firstRunActivityLog !== undefined
+      ? buildFirstRunChatTurn({
+          task,
+          run: firstRun,
+          activityLog: firstRunActivityLog,
+          ...(taskAttachments !== undefined
+            ? { attachments: taskAttachments }
+            : {}),
+        })
+      : [];
+
   const addMessage = useMutation(api.agentTaskChatWorkflow.addMessage);
   const startExecute = useMutation(api.agentTaskChatWorkflow.startExecute);
   const enqueueMessage = useMutation(api.agentTaskChatWorkflow.enqueueMessage);
@@ -60,6 +98,15 @@ export function TaskSandboxChatPanel({
     api.agentTaskChatWorkflow.cancelExecution,
   );
   const updateTask = useMutation(api.agentTasks.update);
+  const prewarmChatDaemonNow = useAction(
+    api.agentTaskChatWorkflow.prewarmChatDaemonNow,
+  );
+  const { isSwitchingAccount, switchProviderAccount } =
+    useProviderAccountHandoff({
+      persist: (providerAccountId) =>
+        updateTask({ id: taskId, providerAccountId }),
+      prewarm: () => prewarmChatDaemonNow({ taskId }),
+    });
   const setTraitsMutation = useMutation(
     api.agentTasks.setTraits,
   ).withOptimisticUpdate((localStore, args) => {
@@ -83,9 +130,6 @@ export function TaskSandboxChatPanel({
       },
     );
   });
-  const requestStopBackgroundAgent = useMutation(
-    api.agentTaskChatWorkflow.requestStopBackgroundAgent,
-  );
 
   // Model + account stay on the task doc (shared with activity composer).
   // Traits are sticky on Convex like sessions (no localStorage).
@@ -109,6 +153,11 @@ export function TaskSandboxChatPanel({
     currentUserId !== undefined &&
     task?.createdBy !== undefined &&
     currentUserId === task.createdBy;
+  const usageAccountLabel =
+    providerAccountId === null
+      ? "Team"
+      : (accounts.find((account) => account.id === providerAccountId)?.label ??
+        "Selected account");
 
   const draftSeed = useChatDraftSeed({
     kind: "taskChat" as const,
@@ -160,17 +209,15 @@ export function TaskSandboxChatPanel({
 
   const setProviderAccountId = (next: string | null) => {
     if (!isOwner || !task) return;
-    void updateTask({
-      id: taskId,
-      providerAccountId: resolveAccountId(next) ?? null,
-    });
+    switchProviderAccount(resolveAccountId(next) ?? null);
   };
 
-  const lastMessage = messages?.[messages.length - 1];
-  const lastAssistantHasNoContent =
-    !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
+  // Server flag first; the message-shape fallback is the shared helper so a
+  // finished-but-empty bubble or a trailing system alert cannot pin the
+  // composer in "working" mode (same rule as useSessionSend).
   const isExecuting =
-    Boolean(task?.activeChatWorkflowId) || lastAssistantHasNoContent;
+    Boolean(task?.activeChatWorkflowId) ||
+    isAssistantTurnInProgress(messages ?? []);
 
   const handleSend = async (
     content: string,
@@ -224,20 +271,39 @@ export function TaskSandboxChatPanel({
     await cancelExecution({ taskId });
   };
 
+  const chatSurface: SandboxChatSurface = {
+    entity: { kind: "task", taskId },
+    repoId: repo._id,
+    model,
+    isExecuting,
+    isReadOnly: false,
+    // A stopped sandbox cannot run `/compact`, so it counts as read-only here.
+    compactionReadOnly: !isSandboxActive,
+    backgroundAgents: task?.backgroundAgents,
+    // No review-comment append on this send path (sessions-only), so a slash
+    // command already reaches the harness verbatim.
+    onSendCommand: (command) => {
+      void handleSend(command);
+    },
+  };
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
       <SandboxChatHeaderActions
+        repoId={repo._id}
         isSandboxActive={isSandboxActive}
         isSandboxToggling={isSandboxToggling}
         onSandboxToggle={onSandboxToggle}
-        sandboxCollapsed={sandboxCollapsed}
-        onToggleSandbox={onToggleSandbox}
+        isAssistantResponding={isExecuting}
+        model={model}
+        providerAccountId={providerAccountId}
+        usageAccountLabel={usageAccountLabel}
       />
       <ChatBody
         repoId={repo._id}
         repoBasePath={basePath}
         conversationId={taskId}
-        messages={messages ?? []}
+        messages={[...firstRunTurn, ...(messages ?? [])]}
         queuedMessages={queuedMessages ?? []}
         streamingActivity={streaming?.currentActivity}
         streamingContent={streaming?.currentContent}
@@ -245,11 +311,13 @@ export function TaskSandboxChatPanel({
         blockingQuestion={activeQuestion ?? undefined}
         onAnswerBlockingQuestion={handleAnswerBlockingQuestion}
         isExecuting={isExecuting}
-        isInputDisabled={!isSandboxActive}
+        isInputDisabled={!isSandboxActive || isSwitchingAccount}
         placeholder={
           !isSandboxActive
             ? "Wake Eva up to chat..."
-            : "Ask Eva anything... / for skills · @ to mention"
+            : isSwitchingAccount
+              ? "Switching Claude account..."
+              : "Ask Eva anything... / for skills · @ to mention"
         }
         emptyStateTitle={
           isSandboxActive
@@ -266,17 +334,13 @@ export function TaskSandboxChatPanel({
         onTraitsChange={onTraitsChange}
         onSend={handleSend}
         onCancel={handleCancel}
-        preInputContent={
-          <BackgroundAgentsChip
-            backgroundAgents={task?.backgroundAgents}
-            onRequestStop={async (toolUseId) => {
-              await requestStopBackgroundAgent({ taskId, toolUseId });
-            }}
-          />
-        }
+        preInputContent={<SandboxChatPreInput surface={chatSurface} />}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}
+        onOpenAgentsTab={onOpenAgentsTab}
+        backgroundAgents={task?.backgroundAgents}
+        sandboxRunning={isSandboxActive}
       />
     </div>
   );

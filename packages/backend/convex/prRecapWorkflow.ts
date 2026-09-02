@@ -8,6 +8,7 @@ import {
   workflowCompleteValidator,
   aiModelValidator,
   modelTraitsExecutionFields,
+  turnCheckpointArgs,
 } from "./validators";
 import {
   clearStreamingActivity,
@@ -19,6 +20,7 @@ import {
   buildPrRecapPrompt,
   parsePrRecapOutput,
 } from "./_prRecapWorkflow/prompts";
+import { INCOMPLETE_PR_RECAP_ERROR } from "./_prRecapWorkflow/recapState";
 import {
   finalizePrRecapOutcome,
   type PrRecapOutcome,
@@ -156,8 +158,19 @@ export const prRecapWorkflow = workflow.define({
         const result = await step.awaitEvent(prRecapCompleteEvent);
 
         if (result.success && result.result) {
-          const { markdown, html } = parsePrRecapOutput(result.result);
-          await finalize({ kind: "ready", content: markdown, html });
+          const parsed = parsePrRecapOutput(result.result);
+          if (!parsed.ok) {
+            await finalize({
+              kind: "error",
+              message: INCOMPLETE_PR_RECAP_ERROR,
+            });
+            return;
+          }
+          await finalize({
+            kind: "ready",
+            content: parsed.markdown,
+            html: parsed.html,
+          });
           if (
             args.consumeAgentCommentIds &&
             args.consumeAgentCommentIds.length > 0
@@ -238,6 +251,7 @@ export const handleCompletion = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     rawResultEvent: v.optional(v.string()),
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {

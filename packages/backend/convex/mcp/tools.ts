@@ -2,34 +2,31 @@ import { type McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import type { ActionCtx } from "../_generated/server";
 import { internal } from "../_generated/api";
+import {
+  registerFleetTools,
+  registerOrchestratorTools,
+} from "./orchestratorTools";
+import { registerEntityTools } from "./entityTools";
+import { buildEvaOrchestratorContent } from "../_systemSkills/evaOrchestrator";
+import {
+  entityAccess,
+  entityRefArgs,
+  entitySummary,
+  repoRefArgs,
+} from "./entityRef";
 
-export function errorResult(message: string) {
-  return {
-    content: [{ type: "text" as const, text: message }],
-    isError: true,
-  };
-}
-
-export function textResult(data: Record<string, unknown> | Array<unknown>) {
-  return {
-    content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
-  };
-}
-
-interface McpCredentials {
-  clerkUserId: string;
-  scopedRepoId?: string;
-  entityId?: string;
-  entityKind?: "session" | "task" | "project";
-}
-
-interface RepoInfo {
-  id: string;
-  owner: string;
-  name: string;
-  rootDirectory: string | null;
-  mcpRootPrompt: string | null;
-}
+import {
+  errorResult,
+  matchRepoByName,
+  repoRefLabel,
+  mcpGetContext,
+  mcpListUserRepos,
+  textResult,
+  MCP_CLAUDE_MODELS,
+  type McpClaudeModel,
+  type McpCredentials,
+  type RepoInfo,
+} from "./toolShared";
 
 interface RepoCredentials {
   convexUrl: string;
@@ -42,38 +39,23 @@ export function registerTools(
   ctx: ActionCtx,
 ): void {
   const { clerkUserId, scopedRepoId, entityId, entityKind } = credentials;
+  const isOrchestrator = credentials.isOrchestrator === true;
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Helper functions
   // ─────────────────────────────────────────────────────────────────────────────
 
+  // Repo and chat resolution live in the shared leaf so every tool that acts on
+  // an existing entity — here and in entityTools — runs the same access checks.
+  const { assertRepoAccess, resolveRepoRef, resolveEntityTarget } =
+    entityAccess(ctx, credentials);
+
   async function getContext(): Promise<{ deployKey: string; userId: string }> {
-    return ctx.runAction(internal.mcp.nodeActions.getContext, {
-      clerkUserId,
-    });
+    return mcpGetContext(ctx, clerkUserId);
   }
 
   async function getUserRepos(userId: string): Promise<RepoInfo[]> {
-    return ctx.runAction(internal.mcp.nodeActions.listUserRepos, { userId });
-  }
-
-  async function assertRepoAccess(
-    repoId: string,
-    userId: string,
-  ): Promise<void> {
-    if (scopedRepoId && scopedRepoId !== repoId) {
-      throw new Error(
-        "Access denied: this token is scoped to a different repository.",
-      );
-    }
-
-    const hasAccess = await ctx.runQuery(
-      internal.mcp.queries.checkRepoAccessForUser,
-      { repoId, userId },
-    );
-    if (!hasAccess) {
-      throw new Error("Access denied: you do not have access to this repo.");
-    }
+    return mcpListUserRepos(ctx, userId);
   }
 
   async function resolveTargetWithAccess(
@@ -167,17 +149,15 @@ export function registerTools(
     "list_tables",
     "List all tables in a repo's Convex deployment with their field definitions, indexes, and inferred shapes.",
     {
-      repoId: z
-        .string()
-        .describe(
-          "Repo ID from list_repos. Required to specify which repo's database to query.",
-        ),
+      ...repoRefArgs,
       environment: environmentArg,
     },
-    async ({ repoId, environment }) => {
+    async ({ repoId, repoName, app, environment }) => {
       const { deployKey, userId } = await getContext();
+      const ref = await resolveRepoRef({ repoId, repoName, app }, userId);
+      if ("isError" in ref) return ref;
       const target = await resolveTargetWithAccess(
-        repoId,
+        ref.repoId,
         deployKey,
         userId,
         environment,
@@ -214,17 +194,24 @@ export function registerTools(
         .string()
         .optional()
         .describe("Pagination cursor from a previous query"),
-      repoId: z
-        .string()
-        .describe(
-          "Repo ID from list_repos. Required to specify which repo's database to query.",
-        ),
+      ...repoRefArgs,
       environment: environmentArg,
     },
-    async ({ table, order, limit, cursor, repoId, environment }) => {
+    async ({
+      table,
+      order,
+      limit,
+      cursor,
+      repoId,
+      repoName,
+      app,
+      environment,
+    }) => {
       const { deployKey, userId } = await getContext();
+      const ref = await resolveRepoRef({ repoId, repoName, app }, userId);
+      if ("isError" in ref) return ref;
       const target = await resolveTargetWithAccess(
-        repoId,
+        ref.repoId,
         deployKey,
         userId,
         environment,
@@ -259,22 +246,20 @@ export function registerTools(
       id: z
         .string()
         .describe('The document ID (e.g. "j572abc123..." or "kd83xyz...")'),
-      repoId: z
-        .string()
-        .describe(
-          "Repo ID from list_repos. Required to specify which repo's database to query.",
-        ),
+      ...repoRefArgs,
       environment: environmentArg,
     },
-    async ({ id, repoId, environment }) => {
+    async ({ id, repoId, repoName, app, environment }) => {
       if (!/^[a-zA-Z0-9_]+$/.test(id)) {
         return errorResult(
           "Invalid document ID format. IDs should be alphanumeric.",
         );
       }
       const { deployKey, userId } = await getContext();
+      const ref = await resolveRepoRef({ repoId, repoName, app }, userId);
+      if ("isError" in ref) return ref;
       const target = await resolveTargetWithAccess(
-        repoId,
+        ref.repoId,
         deployKey,
         userId,
         environment,
@@ -288,6 +273,7 @@ export function registerTools(
           code: `return await ctx.db.get(${JSON.stringify(id)});`,
         },
       );
+      if (!result.ok) return errorResult(result.error);
 
       const output: { document: unknown; logLines?: string[] } = {
         document: result.value,
@@ -319,17 +305,15 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
         .describe(
           "The handler body code. Must return a value. Example: \"return await ctx.db.query('users').collect();\"",
         ),
-      repoId: z
-        .string()
-        .describe(
-          "Repo ID from list_repos. Required to specify which repo's database to query.",
-        ),
+      ...repoRefArgs,
       environment: environmentArg,
     },
-    async ({ code, repoId, environment }) => {
+    async ({ code, repoId, repoName, app, environment }) => {
       const { deployKey, userId } = await getContext();
+      const ref = await resolveRepoRef({ repoId, repoName, app }, userId);
+      if ("isError" in ref) return ref;
       const target = await resolveTargetWithAccess(
-        repoId,
+        ref.repoId,
         deployKey,
         userId,
         environment,
@@ -343,6 +327,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
           code,
         },
       );
+      if (!result.ok) return errorResult(result.error);
 
       const output: { result: unknown; logLines?: string[] } = {
         result: result.value,
@@ -364,22 +349,20 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
     "Count the total number of documents in a table.",
     {
       table: z.string().describe("Table name"),
-      repoId: z
-        .string()
-        .describe(
-          "Repo ID from list_repos. Required to specify which repo's database to query.",
-        ),
+      ...repoRefArgs,
       environment: environmentArg,
     },
-    async ({ table, repoId, environment }) => {
+    async ({ table, repoId, repoName, app, environment }) => {
       if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(table)) {
         return errorResult(
           "Invalid table name. Use alphanumeric characters and underscores.",
         );
       }
       const { deployKey, userId } = await getContext();
+      const ref = await resolveRepoRef({ repoId, repoName, app }, userId);
+      if ("isError" in ref) return ref;
       const target = await resolveTargetWithAccess(
-        repoId,
+        ref.repoId,
         deployKey,
         userId,
         environment,
@@ -393,6 +376,7 @@ Example: "const users = await ctx.db.query('users').collect(); return users.filt
           code: `const docs = await ctx.db.query(${JSON.stringify(table)}).collect(); return docs.length;`,
         },
       );
+      if (!result.ok) return errorResult(result.error);
 
       return textResult({ table, count: result.value });
     },
@@ -420,19 +404,17 @@ For schema discovery, query information_schema (e.g. "SELECT table_name FROM inf
         .max(1000)
         .default(100)
         .describe("Max rows to return (default 100, max 1000)."),
-      repoId: z
-        .string()
-        .describe(
-          "Repo ID from list_repos. Required to specify which repo's read replica to query.",
-        ),
+      ...repoRefArgs,
     },
-    async ({ sql, limit, repoId }) => {
+    async ({ sql, limit, repoId, repoName, app }) => {
       const { userId } = await getContext();
-      await assertRepoAccess(repoId, userId);
+      const ref = await resolveRepoRef({ repoId, repoName, app }, userId);
+      if ("isError" in ref) return ref;
+      await assertRepoAccess(ref.repoId, userId);
 
       const result = await ctx.runAction(
         internal.mcp.postgres.runPostgresQuery,
-        { repoId, sql, maxRows: limit },
+        { repoId: ref.repoId, sql, maxRows: limit },
       );
 
       if (!result.ok) {
@@ -462,56 +444,25 @@ For schema discovery, query information_schema (e.g. "SELECT table_name FROM inf
     app: string | undefined,
     userId: string,
   ): Promise<{ repo: RepoInfo } | ReturnType<typeof errorResult>> {
-    const repos = await getUserRepos(userId);
+    return matchRepoByName(await getUserRepos(userId), repoName, app);
+  }
 
-    const normalizedInput = repoName.toLowerCase();
-    const normalizedApp = app?.toLowerCase();
+  /** The master session's own id, carried on the orchestrator sandbox token. */
+  const masterSessionId =
+    isOrchestrator && entityKind === "session" ? entityId : undefined;
 
-    const nameMatches = repos.filter((r) => {
-      const fullName = `${r.owner}/${r.name}`.toLowerCase();
-      return (
-        fullName === normalizedInput || r.name.toLowerCase() === normalizedInput
-      );
+  /**
+   * Registers a task the master just created so it is woken when that task
+   * finishes. No-op for every non-orchestrator caller.
+   */
+  async function watchTaskAsOrchestrator(taskId: string): Promise<void> {
+    if (masterSessionId === undefined) return;
+    await ctx.runAction(internal.mcp.nodeActions.orchestratorSetWatch, {
+      clerkUserId,
+      kind: "task",
+      id: taskId,
+      masterSessionId,
     });
-
-    let repo: RepoInfo | undefined;
-    if (nameMatches.length === 0) {
-      repo = undefined;
-    } else if (nameMatches.length === 1) {
-      repo = nameMatches[0];
-    } else if (normalizedApp) {
-      repo = nameMatches.find((r) => {
-        if (!r.rootDirectory) return false;
-        const rootDir = r.rootDirectory.toLowerCase();
-        return (
-          rootDir === normalizedApp || rootDir.endsWith(`/${normalizedApp}`)
-        );
-      });
-      if (!repo) {
-        const apps = nameMatches
-          .map((r) => r.rootDirectory ?? "(root)")
-          .join(", ");
-        return errorResult(
-          `Multiple apps found for "${repoName}" but none matched app "${app}". Available apps: ${apps}`,
-        );
-      }
-    } else {
-      const apps = nameMatches
-        .map((r) => r.rootDirectory ?? "(root)")
-        .join(", ");
-      return errorResult(
-        `Multiple apps found for "${repoName}". Specify the "app" parameter to disambiguate. Available apps: ${apps}`,
-      );
-    }
-
-    if (!repo) {
-      const available = repos.map((r) => `${r.owner}/${r.name}`).join(", ");
-      return errorResult(
-        `Repo "${repoName}" not found. Your repos: ${available}`,
-      );
-    }
-
-    return { repo };
   }
 
   const taskArgs = {
@@ -527,10 +478,10 @@ For schema discovery, query information_schema (e.g. "SELECT table_name FROM inf
         'Repo name (e.g. "eva" or "vvedantb/eva"). Resolved by matching against your connected repos.',
       ),
     model: z
-      .enum(["opus", "sonnet", "haiku"])
+      .enum(MCP_CLAUDE_MODELS)
       .optional()
       .describe(
-        "Claude model to use. If omitted, uses the repo's default model.",
+        'Claude model to use ("opus", "sonnet", "haiku", or "fable"). If omitted, uses the repo\'s default model.',
       ),
     baseBranch: z
       .string()
@@ -556,7 +507,7 @@ For schema discovery, query information_schema (e.g. "SELECT table_name FROM inf
     title: string;
     description: string;
     repoName: string;
-    model?: "opus" | "sonnet" | "haiku";
+    model?: McpClaudeModel;
     baseBranch?: string;
     app?: string;
     projectId?: string;
@@ -581,6 +532,8 @@ For schema discovery, query information_schema (e.g. "SELECT table_name FROM inf
       baseBranch: input.baseBranch,
       projectId: input.projectId,
     });
+
+    await watchTaskAsOrchestrator(taskId);
 
     return { taskId, repoFullName: `${repo.owner}/${repo.name}` };
   }
@@ -669,10 +622,10 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
           "If provided, creates a project with this title and assigns all tasks to it",
         ),
       model: z
-        .enum(["opus", "sonnet", "haiku"])
+        .enum(MCP_CLAUDE_MODELS)
         .optional()
         .describe(
-          "Claude model to use for all tasks. If omitted, uses the repo's default model.",
+          'Claude model to use for all tasks ("opus", "sonnet", "haiku", or "fable"). If omitted, uses the repo\'s default model.',
         ),
       baseBranch: z
         .string()
@@ -723,11 +676,89 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
           ? { ...rawResult }
           : {};
 
+      const created = z
+        .object({ taskIds: z.array(z.string()) })
+        .safeParse(rawResult);
+      if (created.success) {
+        for (const taskId of created.data.taskIds) {
+          await watchTaskAsOrchestrator(taskId);
+        }
+      }
+
       return textResult({
-        repo: `${repo.owner}/${repo.name}`,
+        repo: repoRefLabel(repo),
         ...batchResult,
         taskCount: input.tasks.length,
         status: "created",
+      });
+    },
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // send_chat_message
+  //
+  // The one write tool that targets work already in flight. Every caller gets
+  // it — an OAuth connector, a sandbox token, the master session — because it
+  // grants nothing beyond what the user can already do in that chat: the
+  // repo-access check below is the same one the web mutations run.
+  //
+  // All three sandbox chat surfaces are reachable (session, quick task,
+  // project), because all three are somewhere a person can type in the app and
+  // all three run their turn on their own branch.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  server.tool(
+    "send_chat_message",
+    `Send a chat message into an EXISTING Eva session, quick task or project and run it there, exactly as typing in that chat does. Use this to carry on with a pull request Eva already opened. It never creates a new session, task or project.
+
+Name the chat by its Convex "id", by its GitHub "prUrl", or by "numId" plus "kind" and a repo. An idle chat starts its sandbox and runs the message straight away; one mid-turn queues it to run next. The reply says which happened.
+
+Sending wakes the chat's preview sandbox. Call stop_sandbox once you are done with it so the VM does not keep running.`,
+    {
+      message: z.string().describe("The message to post into the chat."),
+      ...entityRefArgs,
+      model: z
+        .enum(MCP_CLAUDE_MODELS)
+        .optional()
+        .describe(
+          'Claude model for this turn ("opus", "sonnet", "haiku", or "fable"). Omit to reuse the model that chat last ran on.',
+        ),
+    },
+    async ({ message, model, ...ref }) => {
+      if (message.trim().length === 0) {
+        return errorResult("message cannot be empty.");
+      }
+
+      const { userId } = await getContext();
+      const resolved = await resolveEntityTarget(ref, userId);
+      if ("isError" in resolved) return resolved;
+      const { target } = resolved;
+
+      if (entityId !== undefined && target.targetId === entityId) {
+        return errorResult(
+          "That is this sandbox's own chat. Reply in your own turn instead of messaging yourself.",
+        );
+      }
+
+      const result = await ctx.runAction(
+        internal.mcp.nodeActions.orchestratorSendMessage,
+        {
+          clerkUserId,
+          kind: target.kind,
+          id: target.targetId,
+          message,
+          model,
+          masterSessionId,
+          // Any MCP send — master sandbox or user OAuth connector — stamps the
+          // "via MCP" chat badge so it is not mistaken for a composer-typed turn.
+          sentViaOrchestrator: true,
+        },
+      );
+
+      return textResult({
+        ...entitySummary(target),
+        delivered: result.delivered,
+        model: result.model,
       });
     },
   );
@@ -772,7 +803,7 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
 
       return textResult({
         docId,
-        repo: `${repo.owner}/${repo.name}`,
+        repo: repoRefLabel(repo),
         title,
         status: "created",
       });
@@ -830,7 +861,7 @@ This creates 3 tasks where Build API depends on Setup DB schema, and Build UI de
         repoId: repo.id,
         kind,
       });
-      return textResult({ repo: `${repo.owner}/${repo.name}`, docs });
+      return textResult({ repo: repoRefLabel(repo), docs });
     },
   );
 
@@ -1111,7 +1142,7 @@ Do NOT use this instead of leaving files in recordings/ / screenshots/ for chat 
 
   server.tool(
     "get_skill",
-    "Fetch the instructions for an Eva system skill (e.g. eva-capture, eva-audit). The stub SKILL.md in .agents/skills points here so the instructions stay current and are tailored to this repo.",
+    "Fetch the instructions for an Eva system skill (e.g. eva-ask, eva-plan, eva-capture). The stub SKILL.md in .agents/skills points here so the instructions stay current and are tailored to this repo.",
     {
       name: z
         .string()
@@ -1130,6 +1161,16 @@ Do NOT use this instead of leaving files in recordings/ / screenshots/ for chat 
         ),
     },
     async ({ name, repoName, app }) => {
+      // The master's own skill is not repo-scoped and is never installed on a
+      // repo — the launch path ships its stub, so serve it off the token claim.
+      if (name === "eva-orchestrator" && isOrchestrator) {
+        return {
+          content: [
+            { type: "text" as const, text: buildEvaOrchestratorContent() },
+          ],
+        };
+      }
+
       const { userId } = await getContext();
 
       let repoId = scopedRepoId;
@@ -1162,4 +1203,26 @@ Do NOT use this instead of leaving files in recordings/ / screenshots/ for chat 
       };
     },
   );
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Fleet tools — every MCP caller (OAuth connector included). Authz is the
+  // same hasRepoAccess checks the backing actions already run as the user.
+  // send_agent_message stays behind the orchestrator gate: it is the master
+  // speaking, and needs the master sandbox token.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  registerFleetTools(server, credentials, ctx);
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // Entity tools — list_entities, start_sandbox, stop_sandbox and
+  // cancel_queued_message. Same audience and same authz as send_chat_message:
+  // every caller gets them, and each one resolves its target through the
+  // shared repo-access check above.
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  registerEntityTools(server, credentials, ctx);
+
+  if (isOrchestrator) {
+    registerOrchestratorTools(server, credentials, ctx);
+  }
 }

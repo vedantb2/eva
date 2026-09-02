@@ -94,6 +94,23 @@ describe("eva-capture content", () => {
   });
 });
 
+describe("eva-ask content", () => {
+  it("hydrates the repo and stays a chat-only tutor", () => {
+    const content = SYSTEM_SKILLS["eva-ask"].buildContent(hydration);
+    expect(content).toContain("acme/web");
+    expect(content).toContain("/tmp/repo/apps/site");
+    expect(content).toContain("Tutor, not a briefing");
+    expect(content).toContain("mermaid");
+    expect(content).toContain("Do not edit source files");
+    expect(content).toContain("eva-plan");
+  });
+
+  it("tells the harness not to auto-trigger", () => {
+    expect(SYSTEM_SKILLS["eva-ask"].description).toContain("never auto-trigger");
+    expect(SYSTEM_SKILLS["eva-ask"].description).not.toContain("\n");
+  });
+});
+
 describe("eva-audit content", () => {
   it("hydrates the base branch and renders the standard categories", () => {
     const content = SYSTEM_SKILLS["eva-audit"].buildContent(hydration);
@@ -108,5 +125,50 @@ describe("eva-audit content", () => {
     const content = SYSTEM_SKILLS["eva-audit"].buildContent(hydration);
     expect(content).toContain("markdown, not JSON");
     expect(content).toContain("offering to fix the findings");
+  });
+});
+
+describe("eva-orchestrator content", () => {
+  const content = SYSTEM_SKILLS["eva-orchestrator"].buildContent(hydration);
+
+  it("names every orchestrator-only tool", () => {
+    for (const tool of [
+      "list_agents",
+      "get_agent_state",
+      "send_agent_message",
+      "stop_agent",
+      "create_session",
+      "watch_agent",
+      "unwatch_agent",
+    ]) {
+      expect(content).toContain(tool);
+    }
+  });
+
+  it("describes the supervision loop and the status report", () => {
+    expect(content).toContain("[agent-notification]");
+    expect(content).toContain("One consolidated message per agent per round");
+    expect(content).toContain("| Agent | Repo | Status | Doing |");
+  });
+
+  it("reads production logs from the shell rather than a tool", () => {
+    expect(content).toContain("There is no log tool");
+    expect(content).toContain("npx convex logs");
+    expect(content).toContain("vercel logs");
+    expect(content).toContain("gh run view");
+  });
+
+  /**
+   * It is served without a repo install row, so it must not depend on one being
+   * hydrated — the same content goes to every master session.
+   */
+  it("is repo-agnostic", () => {
+    expect(content).toBe(
+      SYSTEM_SKILLS["eva-orchestrator"].buildContent({
+        owner: "other",
+        name: "repo",
+        baseBranch: "main",
+      }),
+    );
   });
 });

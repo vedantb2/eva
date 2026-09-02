@@ -14,7 +14,7 @@ interface ComposerPlanReadyBannerProps {
 
 /**
  * Slim "Plan Ready" strip above the composer when a PRD exists but the compact
- * plan card is not already mounted (e.g. Edit mode, or PRD sandbox tab open).
+ * plan card is not already mounted (i.e. the sandbox pane owns the PRD tab).
  */
 export function ComposerPlanReadyBanner({
   planContent,

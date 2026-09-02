@@ -1,5 +1,9 @@
 import { describe, expect, test } from "vitest";
-import { carryPreviewGrant, stripPreviewGrant } from "./previewGrant";
+import {
+  carryPreviewGrant,
+  stripPreviewGrant,
+  stripPreviewGrantFromPath,
+} from "./previewGrant";
 
 /**
  * The grant is a fresh bearer token on every getPreviewUrl call, so raw
@@ -42,6 +46,29 @@ describe("stripPreviewGrant", () => {
 
   test("returns non-URL input unchanged instead of throwing", () => {
     expect(stripPreviewGrant("not a url")).toBe("not a url");
+  });
+});
+
+describe("stripPreviewGrantFromPath", () => {
+  test("drops the grant and keeps the rest of the path", () => {
+    expect(
+      stripPreviewGrantFromPath(`/?tab=logs&${GRANT}=abc123#top`),
+    ).toBe("/?tab=logs#top");
+  });
+
+  test("leaves a path without a grant alone", () => {
+    expect(stripPreviewGrantFromPath("/dashboard?tab=logs")).toBe(
+      "/dashboard?tab=logs",
+    );
+  });
+
+  test("normalizes an empty or grant-only query to /", () => {
+    expect(stripPreviewGrantFromPath(`/?${GRANT}=abc`)).toBe("/");
+    expect(stripPreviewGrantFromPath("")).toBe("/");
+  });
+
+  test("adds a leading slash when missing", () => {
+    expect(stripPreviewGrantFromPath(`home?${GRANT}=abc`)).toBe("/home");
   });
 });
 

@@ -7,6 +7,7 @@ import {
   CONVEX_URL,
   ENTITY_ID,
   ENTITY_ID_FIELD,
+  IS_CURSOR_TURN_WORKER,
   MODEL,
   PROVIDER,
   READY_FILE,
@@ -19,9 +20,22 @@ import {
 } from "./config.js";
 import { runSdkDaemon } from "./providers/claudeSdkDaemon.js";
 import { runCodexAppServerDaemon } from "./providers/codexAppServerDaemon.js";
+import {
+  runCursorDaemon,
+  runCursorTurnWorker,
+} from "./providers/cursorSdkDaemon.js";
 import { fetchWithTimeout, callConvexWithRetry } from "./http/convexClient.js";
 import { callbackState as S } from "./runtime/state.js";
+import {
+  appendCurrentTurnLease,
+  endTurnOwnership,
+} from "./runtime/turnLease.js";
+import { waitForPendingClaudeUsageReport } from "./runtime/usageLimits.js";
 import { persistTurnWork } from "./runtime/turnPersist.js";
+import {
+  appendTurnCheckpoint,
+  beginTurnCheckpoint,
+} from "./runtime/turnCheckpoint.js";
 import { materializeSystemSkills } from "./runtime/systemSkills.js";
 import {
   flushStreaming,
@@ -43,6 +57,7 @@ import {
   runProviderAttempt,
   syncProviderStateToPersist,
 } from "./providers/attempts.js";
+import type { JsonObject } from "./types.js";
 import {
   hasNewTaskCommitSince,
   log,
@@ -50,6 +65,23 @@ import {
   readResponseJson,
 } from "./utils.js";
 import { serializeSteps } from "./parse/stepBudget.js";
+
+// Cursor chat turns run in disposable children so the SDK cannot retain heap
+// across messages. The lightweight parent daemon remains alive to claim turns
+// and process cancellation. Enter the worker before touching the parent's ready
+// marker or installing its process-exit bookkeeping.
+if (IS_CURSOR_TURN_WORKER) {
+  try {
+    await runCursorTurnWorker();
+    process.exit(0);
+  } catch (error) {
+    log(
+      "cursor turn worker failed: " +
+        (error instanceof Error ? error.message : String(error)),
+    );
+    process.exit(1);
+  }
+}
 
 process.on("exit", (code) => {
   writeDoneFile("unexpected-exit", {
@@ -93,6 +125,9 @@ if (CLAIM_MUTATION) {
   }
   if (PROVIDER === "codex") {
     await runCodexAppServerDaemon();
+  }
+  if (PROVIDER === "cursor") {
+    await runCursorDaemon();
   }
 }
 
@@ -166,6 +201,7 @@ log(
 );
 
 try {
+  beginTurnCheckpoint();
   const taskCommitBaselineHead = REQUIRE_TASK_COMMIT ? readGitHeadSha() : "";
   if (REQUIRE_TASK_COMMIT) {
     log(
@@ -207,7 +243,7 @@ try {
     log("skipping post-attempt sync because result-event sync already ran");
   }
 
-  await setFinalizingState();
+  if (await setFinalizingState()) process.exit(0);
 
   // Cursor can flush partial assistant text while a SIGTERM/SIGKILL is tearing
   // down the process. extractResultEvent deliberately falls back to that text,
@@ -321,7 +357,7 @@ try {
       S.accumulatedSteps.length,
   );
 
-  const completionArgs: Record<string, string | boolean | null> = {
+  const completionArgs: JsonObject = {
     [ENTITY_ID_FIELD ?? "entityId"]: ENTITY_ID ?? "",
     success: completionSuccess,
     result: finalResultEvent?.result ?? S.rawOutput,
@@ -335,6 +371,7 @@ try {
   if (S.pendingQuestionData) {
     completionArgs.pendingQuestion = S.pendingQuestionData;
   }
+  appendCurrentTurnLease(completionArgs);
 
   // Durability BEFORE completion: commit + push the turn's work so a VM death
   // after this point cannot erase it (no-op for task runs — the commit gate
@@ -343,8 +380,10 @@ try {
 
   try {
     await deliverCompletionWithMedia(completionArgs);
+    endTurnOwnership();
     syncProviderStateToPersist("completion");
     await stopStreamingLoops();
+    await waitForPendingClaudeUsageReport();
     writeDoneFile(completionSuccess ? "success" : "error", {
       exitCode: finalCode,
       error: errorValue,
@@ -366,12 +405,17 @@ try {
     process.exit(1);
   }
 } catch (err) {
+  // Durability BEFORE the failure completion, as the success path above does
+  // it: this process is about to exit, so nothing else publishes what the turn
+  // already committed. Best-effort — persistTurnWork logs and swallows every
+  // git failure, so the completion below always posts.
+  persistTurnWork();
   syncProviderStateToPersist("fatal-error");
   await stopStreamingLoops();
   writeDoneFile("fatal-error", {
     error: err instanceof Error ? err.message : String(err),
   });
-  const errorArgs: Record<string, string | boolean | null> = {
+  const errorArgs: JsonObject = {
     [ENTITY_ID_FIELD ?? "entityId"]: ENTITY_ID ?? "",
     success: false,
     result: null,
@@ -390,6 +434,8 @@ try {
     activityLog: serializeSteps(S.accumulatedSteps),
   };
   if (RUN_ID) errorArgs.runId = RUN_ID;
+  appendCurrentTurnLease(errorArgs);
+  appendTurnCheckpoint(errorArgs);
   try {
     await callConvexWithRetry("mutation", COMPLETION_MUTATION ?? "", errorArgs);
   } catch {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
@@ -31,12 +31,13 @@ import { RailSettingsMenu } from "@/lib/components/sidebar/RailSettingsMenu";
 import { SidebarUserMenu } from "@/lib/components/sidebar/SidebarUserMenu";
 import { QueryErrorBoundary } from "@/lib/components/QueryErrorBoundary";
 import { ShortcutKbd } from "@/lib/components/ui/Kbd";
+import { CountPop, countLabel } from "@/lib/components/ui/CountPop";
 import { railTileActiveClass } from "@/lib/components/sidebar/SharedLayoutNav";
 import { useSidebar } from "@/lib/contexts/SidebarContext";
 import { useSearch } from "@/lib/contexts/SearchContext";
 import { isHomePath } from "@/lib/components/sidebar/homePaths";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
-import { repoHref } from "@/lib/utils/repoUrl";
+import { repoSectionFromPath, repoSectionHref } from "@/lib/utils/repoUrl";
 import { repoTileColor } from "@/lib/utils/repoTileColor";
 import {
   appLeafName,
@@ -79,48 +80,58 @@ function railTileActive(active: boolean): string {
     : "border-transparent text-muted-foreground opacity-75 hover:bg-sidebar-accent/50 hover:opacity-100 hover:text-sidebar-foreground";
 }
 
-function formatCountLabel(count: number | undefined): string | null {
-  if (count === undefined || count <= 0) return null;
-  return count > 99 ? "99+" : String(count);
+/**
+ * Shape and placement of every count badge on a rail tile; the tone (unread vs
+ * live) is the caller's single extra class. Kept in one place so the unread
+ * dots, the sessions count and the per-app sandbox count cannot drift apart.
+ */
+const RAIL_BADGE_CLASS =
+  "absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold leading-none";
+
+/** Green: something is running right now (sessions, sandboxes). */
+const RAIL_BADGE_LIVE_CLASS = cn(RAIL_BADGE_CLASS, "bg-success text-white");
+
+/**
+ * The unread dot on a rail tile. One component for both counters — they were two
+ * byte-identical copies differing only in the query. The pop itself lives in
+ * `CountPop`, shared with the drafts pill and the running-sessions count.
+ */
+function RailUnreadBadge({ count }: { count: number | undefined }) {
+  return (
+    <CountPop
+      label={countLabel(count)}
+      className={cn(RAIL_BADGE_CLASS, "bg-primary text-primary-foreground")}
+    />
+  );
 }
 
 function InboxUnreadBadge() {
-  const unreadCount = useQuery(api.notifications.countUnread);
-  const unreadLabel = formatCountLabel(unreadCount);
-  if (!unreadLabel) return null;
-  return (
-    <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
-      {unreadLabel}
-    </span>
-  );
+  return <RailUnreadBadge count={useQuery(api.notifications.countUnread)} />;
 }
 
 function AutomationsUnreadBadge() {
-  const unreadCount = useQuery(api.automations.countUnreadAll);
-  const unreadLabel = formatCountLabel(unreadCount);
-  if (!unreadLabel) return null;
-  return (
-    <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground">
-      {unreadLabel}
-    </span>
-  );
+  return <RailUnreadBadge count={useQuery(api.automations.countUnreadAll)} />;
 }
 
-const EMPTY_SANDBOX_REPO_IDS = new Set<Id<"githubRepos">>();
+type SandboxCounts = ReadonlyMap<Id<"githubRepos">, number>;
+
+const EMPTY_SANDBOX_COUNTS: SandboxCounts = new Map();
 
 function RepoRailLiveData(props: RepoRailProps) {
   const activeSessionCount = useQuery(api.githubRepos.countActiveSessions);
-  const sandboxRepoIds = useQuery(api.githubRepos.listReposWithActiveSandboxes);
-  const activeSandboxRepoIds = useMemo(
-    () => new Set(sandboxRepoIds ?? []),
-    [sandboxRepoIds],
+  const sandboxCounts = useQuery(api.githubRepos.listActiveSandboxCounts);
+  const activeSandboxCounts: SandboxCounts = new Map(
+    (sandboxCounts ?? []).map((entry): [Id<"githubRepos">, number] => [
+      entry.repoId,
+      entry.count,
+    ]),
   );
 
   return (
     <RepoRailView
       {...props}
       activeSessionCount={activeSessionCount}
-      activeSandboxRepoIds={activeSandboxRepoIds}
+      activeSandboxCounts={activeSandboxCounts}
     />
   );
 }
@@ -143,7 +154,7 @@ export function RepoRail(props: RepoRailProps) {
         <RepoRailView
           {...props}
           activeSessionCount={undefined}
-          activeSandboxRepoIds={EMPTY_SANDBOX_REPO_IDS}
+          activeSandboxCounts={EMPTY_SANDBOX_COUNTS}
         />
       }
     >
@@ -154,7 +165,7 @@ export function RepoRail(props: RepoRailProps) {
 
 interface RepoRailViewProps extends RepoRailProps {
   activeSessionCount: number | undefined;
-  activeSandboxRepoIds: ReadonlySet<Id<"githubRepos">>;
+  activeSandboxCounts: SandboxCounts;
 }
 
 function RepoRailView({
@@ -167,7 +178,7 @@ function RepoRailView({
   userName,
   showSearch,
   activeSessionCount,
-  activeSandboxRepoIds,
+  activeSandboxCounts,
 }: RepoRailViewProps) {
   const { collapsed, setCollapsed, setSessionsNavMode } = useSidebar();
   const { openSearch } = useSearch();
@@ -191,12 +202,23 @@ function RepoRailView({
     pathname === "/automations" ||
     pathname.startsWith("/automations/") ||
     (pathParts.includes("automations") && pathParts[0] !== "automations");
-  const sessionsLabel = formatCountLabel(activeSessionCount);
+  const sessionsLabel = countLabel(activeSessionCount);
   const [renameRepo, setRenameRepo] = useState<RepoWithLogo | null>(null);
+  // Carry the section (Quick Tasks, Projects, …) across an app switch, but not
+  // the entity below it: task 204 belongs to the app you are leaving.
+  const currentSection = repoSectionFromPath(pathname);
+  // Plain `string`, not a template-literal type: `<Link to>` is a union of
+  // known route paths and rejects the narrowed form.
+  const railHref = (row: RepoWithLogo): string =>
+    repoSectionHref(row.owner, row.name, row.rootDirectory, currentSection);
 
   return (
     <div className="flex h-full w-16 shrink-0 flex-col items-center border-r border-sidebar-border bg-sidebar">
-      <RailAppHotkeys repos={repos} onNavigate={onNavigate} />
+      <RailAppHotkeys
+        repos={repos}
+        section={currentSection}
+        onNavigate={onNavigate}
+      />
       <div className="flex w-full flex-col items-center gap-1.5 px-0 pt-3">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -211,7 +233,7 @@ function RepoRailView({
               </span>
             </Link>
           </TooltipTrigger>
-          <TooltipContent side="right">Eva</TooltipContent>
+          <TooltipContent side="right">Home</TooltipContent>
         </Tooltip>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -252,17 +274,18 @@ function RepoRailView({
               )}
             >
               <SessionsIcon size={22} className="shrink-0" />
-              {sessionsLabel ? (
-                <span className="absolute -bottom-0.5 -right-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-success px-1 text-[10px] font-semibold leading-none text-white">
-                  {sessionsLabel}
-                </span>
-              ) : null}
+              <CountPop
+                label={sessionsLabel}
+                className={RAIL_BADGE_LIVE_CLASS}
+              />
             </Link>
           </TooltipTrigger>
           <TooltipContent side="right">
             {sessionsLabel ? `Sessions (${sessionsLabel})` : "Sessions"}
           </TooltipContent>
         </Tooltip>
+        {/* Manager Ave used to sit here. It now lives in the floating launcher
+            (`AveLauncherProvider`), which owns the orchestrator query too. */}
         <div className="h-px w-8 bg-sidebar-border" aria-hidden />
       </div>
       <div className="scrollbar scroll-fade flex w-full flex-1 flex-col items-center gap-1.5 overflow-y-auto py-2">
@@ -277,7 +300,8 @@ function RepoRailView({
             !automationsActive &&
             isRowActive(row, currentOwner, currentName, currentAppName);
           const tooltip = `${displayName} · ${row.owner}/${row.name}`;
-          const hasActiveSandbox = activeSandboxRepoIds.has(row._id);
+          const sandboxCount = activeSandboxCounts.get(row._id);
+          const sandboxLabel = countLabel(sandboxCount);
 
           return (
             <ContextMenu key={row._id}>
@@ -285,12 +309,14 @@ function RepoRailView({
                 <TooltipTrigger asChild>
                   <ContextMenuTrigger asChild>
                     <Link
-                      to={repoHref(row.owner, row.name, row.rootDirectory)}
+                      to={railHref(row)}
                       onClick={onNavigate}
                       aria-label={
-                        hasActiveSandbox
-                          ? `${tooltip}, sandbox active`
-                          : tooltip
+                        sandboxLabel === null
+                          ? tooltip
+                          : `${tooltip}, ${sandboxLabel} ${
+                              sandboxCount === 1 ? "sandbox" : "sandboxes"
+                            } active`
                       }
                       className={cn(
                         RAIL_TILE_CLASS,
@@ -315,12 +341,10 @@ function RepoRailView({
                           </span>
                         }
                       />
-                      {hasActiveSandbox ? (
-                        <span
-                          className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-success"
-                          aria-hidden
-                        />
-                      ) : null}
+                      <CountPop
+                        label={sandboxLabel}
+                        className={RAIL_BADGE_LIVE_CLASS}
+                      />
                     </Link>
                   </ContextMenuTrigger>
                 </TooltipTrigger>
@@ -357,26 +381,26 @@ function RepoRailView({
       ) : null}
       <div className="flex w-full flex-col items-center gap-1.5 border-t border-sidebar-border py-3">
         {simpleView ? null : (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Link
-              to="/automations"
-              onClick={onNavigate}
-              aria-label="Automations"
-              className={cn(
-                RAIL_TILE_CLASS,
-                "group",
-                railTileActive(automationsActive),
-              )}
-            >
-              <AutomationsIcon size={22} className="shrink-0" />
-              <QueryErrorBoundary>
-                <AutomationsUnreadBadge />
-              </QueryErrorBoundary>
-            </Link>
-          </TooltipTrigger>
-          <TooltipContent side="right">Automations</TooltipContent>
-        </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Link
+                to="/automations"
+                onClick={onNavigate}
+                aria-label="Automations"
+                className={cn(
+                  RAIL_TILE_CLASS,
+                  "group",
+                  railTileActive(automationsActive),
+                )}
+              >
+                <AutomationsIcon size={22} className="shrink-0" />
+                <QueryErrorBoundary>
+                  <AutomationsUnreadBadge />
+                </QueryErrorBoundary>
+              </Link>
+            </TooltipTrigger>
+            <TooltipContent side="right">Automations</TooltipContent>
+          </Tooltip>
         )}
         <Tooltip>
           <TooltipTrigger asChild>

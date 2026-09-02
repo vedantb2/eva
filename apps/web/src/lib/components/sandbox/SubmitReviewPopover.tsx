@@ -15,6 +15,7 @@ import {
 } from "@eva/ui";
 import { IconCheck, IconMessage, IconX } from "@tabler/icons-react";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
+import { verdictSuccessTitle } from "@/lib/components/reviews/_components/prVerdict";
 
 type ReviewEvent = "COMMENT" | "APPROVE" | "REQUEST_CHANGES";
 
@@ -89,19 +90,12 @@ export function SubmitReviewPopover({
         review.clear();
         setBody("");
         setOpen(false);
-        toast.success(
-          res.state === "APPROVED"
-            ? "Pull request approved"
-            : res.state === "CHANGES_REQUESTED"
-              ? "Changes requested"
-              : "Review posted",
-          {
-            description:
-              comments.length > 0
-                ? `${comments.length} inline comment${comments.length === 1 ? "" : "s"} posted to GitHub.`
-                : "Posted to GitHub.",
-          },
-        );
+        toast.success(verdictSuccessTitle(res.state), {
+          description:
+            comments.length > 0
+              ? `${comments.length} inline comment${comments.length === 1 ? "" : "s"} posted to GitHub.`
+              : "Posted to GitHub.",
+        });
       })
       .catch((cause: Error) => {
         setError(cause.message || "GitHub rejected the review.");

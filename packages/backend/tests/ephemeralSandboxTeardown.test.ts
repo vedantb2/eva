@@ -28,19 +28,25 @@ describe("every ephemeral sandbox is torn down by the workflow that made it", ()
    * was pasted into happened to use.
    */
   test("the full set of call sites is accounted for", () => {
+    // Compared as a sorted set: the scan walks files in directory order, so a
+    // call site moving between files (or a new file sorting earlier) reordered
+    // this list and failed the test with no call site having changed at all.
+    // Membership and classification are what this pins; order means nothing.
     expect(
-      sites.map((site) => `${site.id} ephemeral=${site.ephemeral}`),
-    ).toEqual([
-      "automationWorkflow.ts::automationExecutionWorkflow ephemeral=true",
-      "docInterviewWorkflow.ts::docInterviewWorkflow ephemeral=false",
-      "docInterviewWorkflow.ts::docGenerateWorkflow ephemeral=false",
-      "evaluationWorkflow.ts::evaluationWorkflow ephemeral=true",
-      "evaluationWorkflow.ts::fixWorkflow ephemeral=true",
-      "prRecapWorkflow.ts::prRecapWorkflow ephemeral=true",
-      "summarizeWorkflow.ts::summarizeSessionWorkflow ephemeral=false",
-      "testGenWorkflow.ts::testGenWorkflow ephemeral=true",
-      "_taskWorkflow/workflowDefinition.ts::taskExecutionWorkflow ephemeral=false",
-    ]);
+      sites.map((site) => `${site.id} ephemeral=${site.ephemeral}`).sort(),
+    ).toEqual(
+      [
+        "automationWorkflow.ts::automationExecutionWorkflow ephemeral=true",
+        "docInterviewWorkflow.ts::docInterviewWorkflow ephemeral=false",
+        "docInterviewWorkflow.ts::docGenerateWorkflow ephemeral=false",
+        "evaluationWorkflow.ts::evaluationWorkflow ephemeral=true",
+        "evaluationWorkflow.ts::fixWorkflow ephemeral=true",
+        "prRecapWorkflow.ts::prRecapWorkflow ephemeral=true",
+        "summarizeWorkflow.ts::summarizeSessionWorkflow ephemeral=false",
+        "testGenWorkflow.ts::testGenWorkflow ephemeral=true",
+        "_taskWorkflow/workflowDefinition.ts::taskExecutionWorkflow ephemeral=false",
+      ].sort(),
+    );
   });
 
   /** Both classes have to be populated or the rules below prove nothing. */
@@ -182,10 +188,15 @@ function ephemeralFlags(definition: string): boolean[] {
   return flags;
 }
 
+/**
+ * Sorted, because `readdirSync` returns filesystem order: the inventory below
+ * is an exact list, so an unsorted walk made it pass on one machine and fail on
+ * another with the same nine call sites in a different order.
+ */
 function convexSources(): string[] {
   const walk = (dir: string): string[] => {
     const found: string[] = [];
-    for (const entry of readdirSync(dir)) {
+    for (const entry of readdirSync(dir).toSorted()) {
       if (entry === "_generated") continue;
       const full = join(dir, entry);
       if (statSync(full).isDirectory()) found.push(...walk(full));

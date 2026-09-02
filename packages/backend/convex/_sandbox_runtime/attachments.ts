@@ -1,6 +1,7 @@
 import type { ActionCtx } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import type { SandboxHandle } from "../_sandbox/provider";
+import { writeSandboxFile } from "./sandboxFiles";
 
 /**
  * Delivering user-attached input files to the agent.
@@ -77,7 +78,7 @@ export async function materializeAttachmentsToSandbox(
       index,
       attachmentExtensionForMimeType(blob.type),
     );
-    await sandbox.writeFile(path, bytes);
+    await writeSandboxFile(sandbox, path, bytes);
     paths.push(path);
   }
   return paths;

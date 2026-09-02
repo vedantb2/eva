@@ -68,7 +68,9 @@ export function PromptInputSettings<TModel extends string>({
       <DropdownMenuTrigger asChild>
         <button
           className={cn(
-            "rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50",
+            // The composer's overflow trigger had no transition at all, while
+            // every other control in the same footer row presses.
+            "motion-press rounded-lg p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground active:scale-[0.92] disabled:opacity-50",
             className,
           )}
           disabled={disabled}

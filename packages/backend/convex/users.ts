@@ -2,6 +2,8 @@ import { v } from "convex/values";
 import { internalQuery } from "./_generated/server";
 import { roleUserValidator } from "./validators";
 import { authQuery } from "./functions";
+import { getUserPresenceRow, mergeLastSeen } from "./_users/lastSeen";
+import { collectDirectoryUserIds } from "./_users/directory";
 
 /** Returns the Clerk ID for a user (internal use only). */
 export const getInternal = internalQuery({
@@ -49,14 +51,18 @@ export const get = authQuery({
   handler: async (ctx, args) => {
     const user = await ctx.db.get(args.id);
     if (!user) return null;
+    const seen = mergeLastSeen(
+      await getUserPresenceRow(ctx.db, args.id),
+      user,
+    );
     return {
       firstName: user.firstName,
       lastName: user.lastName,
       fullName: user.fullName,
       email: user.email,
       role: user.role,
-      lastSeenAt: user.lastSeenAt,
-      lastSeenPath: user.lastSeenPath,
+      lastSeenAt: seen.lastSeenAt,
+      lastSeenPath: seen.lastSeenPath,
     };
   },
 });
@@ -145,13 +151,17 @@ export const listTeamWithMembers = authQuery({
       if (tm.userId === ctx.userId) continue;
       const user = await ctx.db.get(tm.userId);
       if (user) {
+        const seen = mergeLastSeen(
+          await getUserPresenceRow(ctx.db, tm.userId),
+          user,
+        );
         members.push({
           _id: user._id,
           firstName: user.firstName,
           lastName: user.lastName,
           fullName: user.fullName,
-          lastSeenAt: user.lastSeenAt,
-          lastSeenPath: user.lastSeenPath,
+          lastSeenAt: seen.lastSeenAt,
+          lastSeenPath: seen.lastSeenPath,
         });
       }
     }
@@ -173,26 +183,70 @@ export const listTeamWithMembers = authQuery({
   },
 });
 
-/** Lists all users in the system with their basic profile info. */
+const publicProfileValidator = v.object({
+  _id: v.id("users"),
+  firstName: v.optional(v.string()),
+  lastName: v.optional(v.string()),
+  fullName: v.optional(v.string()),
+  role: v.optional(roleUserValidator),
+});
+
+/** Teammates (and the caller) — not every user in the deployment. */
 export const listAll = authQuery({
   args: {},
-  returns: v.array(
-    v.object({
-      _id: v.id("users"),
-      firstName: v.optional(v.string()),
-      lastName: v.optional(v.string()),
-      fullName: v.optional(v.string()),
-      role: v.optional(roleUserValidator),
-    }),
-  ),
+  returns: v.array(publicProfileValidator),
   handler: async (ctx) => {
-    const users = await ctx.db.query("users").collect();
-    return users.map((u) => ({
-      _id: u._id,
-      firstName: u.firstName,
-      lastName: u.lastName,
-      fullName: u.fullName,
-      role: u.role,
-    }));
+    const memberships = await ctx.db
+      .query("teamMembers")
+      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
+      .collect();
+    const memberRows = [];
+    for (const membership of memberships) {
+      const rows = await ctx.db
+        .query("teamMembers")
+        .withIndex("by_team", (q) => q.eq("teamId", membership.teamId))
+        .collect();
+      memberRows.push(...rows);
+    }
+    const ids = collectDirectoryUserIds(ctx.userId, memberRows);
+    const profiles = [];
+    for (const id of ids) {
+      const user = await ctx.db.get(id);
+      if (!user) continue;
+      profiles.push({
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        fullName: user.fullName,
+        role: user.role,
+      });
+    }
+    return profiles;
+  },
+});
+
+/**
+ * Public profiles for specific users. Chat uses this instead of `listAll` so a
+ * lastSeenAt write on one user does not re-run every transcript's directory
+ * subscription.
+ */
+export const getMany = authQuery({
+  args: { ids: v.array(v.id("users")) },
+  returns: v.array(publicProfileValidator),
+  handler: async (ctx, args) => {
+    const uniqueIds = [...new Set(args.ids)];
+    const profiles = [];
+    for (const id of uniqueIds) {
+      const user = await ctx.db.get(id);
+      if (!user) continue;
+      profiles.push({
+        _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        fullName: user.fullName,
+        role: user.role,
+      });
+    }
+    return profiles;
   },
 });

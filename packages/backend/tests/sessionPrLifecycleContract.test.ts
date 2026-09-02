@@ -24,7 +24,9 @@ describe("session pull-request lifecycle", () => {
   });
 
   test("archives both terminal states and unarchives every live state", () => {
-    expect(handler).toContain("const isTerminal = nextState === \"merged\" || nextState === \"closed\"");
+    expect(handler).toContain(
+      'const isTerminal = nextState === "merged" || nextState === "closed"',
+    );
     expect(handler).toContain("archived: true");
     expect(handler).toContain("archived: false");
     expect(handler).toContain("prStateOnArchive: undefined");
@@ -59,6 +61,14 @@ describe("session pull-request lifecycle", () => {
     expect(gate).toContain("args.prNumber !== undefined");
     expect(gate).toContain("args.mergeCommitSha !== undefined");
   });
+
+  test("a newly archived session notifies the owner in-app", () => {
+    const archiveAt = handler.indexOf("if (needsArchive) {");
+    const notifyAt = handler.indexOf("notifySessionOwnerOfPrArchive(");
+    expect(archiveAt).toBeGreaterThan(-1);
+    expect(notifyAt).toBeGreaterThan(archiveAt);
+    expect(handler.slice(archiveAt, notifyAt)).not.toContain("needsUnarchive");
+  });
 });
 
 describe("session archive closes a live PR", () => {
@@ -73,12 +83,23 @@ describe("session archive closes a live PR", () => {
   );
   const archive = definitionBody(mutations, "archive");
   const unarchive = definitionBody(mutations, "unarchive");
+  // The archive body moved into a helper so `resetOrchestratorSession` retires
+  // the old master through the same path; the PR contract lives there now.
+  const archiveDoc = functionBody(
+    mutations,
+    "export async function archiveSessionDoc",
+  );
 
   test("archive closes open/draft PRs and remembers that state", () => {
-    expect(archive).toContain("livePrState(session.prState)");
-    expect(archive).toContain('kind: "close"');
-    expect(archive).toContain("prStateOnArchive: restorePrState");
-    expect(archive).not.toContain("reopenPullRequest");
+    expect(archiveDoc).toContain("livePrState(session.prState)");
+    expect(archiveDoc).toContain('kind: "close"');
+    expect(archiveDoc).toContain("prStateOnArchive: restorePrState");
+    expect(archiveDoc).not.toContain("reopenPullRequest");
+  });
+
+  test("the archive mutation has no second copy of that contract", () => {
+    expect(archive).toContain("archiveSessionDoc(ctx, session)");
+    expect(archive).not.toContain("livePrState(");
   });
 
   test("unarchive reopens only a PR Eva closed, skipping merged", () => {

@@ -10,7 +10,6 @@ import {
   storedTraitsFromRepoDefaults,
   type Id,
 } from "@eva/backend";
-import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import { toast } from "@eva/ui";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ChatComposer } from "@/lib/components/chat/ChatComposer";
@@ -20,10 +19,13 @@ import {
   useAvailableAiModels,
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
+import { useBaseBranchState } from "@/lib/hooks/useBaseBranchState";
 import { useNewSessionComposerState } from "@/lib/hooks/useNewSessionComposerState";
-import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
+import {
+  defaultProviderAccountId,
+  providerAccountIdForModel,
+} from "@/lib/utils/defaultProviderAccount";
 import { ComposerAppSwitcher } from "./ComposerAppSwitcher";
-import { SessionDesignComposerTools } from "./SessionDesignComposerTools";
 
 /**
  * Shared landing composer for repo home and `/sessions`: branding + prompt,
@@ -37,15 +39,11 @@ export function NewSessionComposer() {
   const firstName = user?.firstName?.trim();
   const createSession = useMutation(api.sessions.create);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [baseBranch, setBaseBranch] = useState(
-    repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH,
-  );
+  const { baseBranch, setBaseBranch } = useBaseBranchState();
 
   const defaultModel = normalizeAIModel(repo.defaultModel);
   const {
     draft: draftTokenized,
-    mode,
-    setMode,
     model,
     setModel,
     displayTraits,
@@ -55,15 +53,11 @@ export function NewSessionComposer() {
     setProviderAccountId,
     setDraft,
     clearDraft,
-    numDesigns,
-    setNumDesigns,
   } = useNewSessionComposerState(
     repo._id,
     defaultModel,
     storedTraitsFromRepoDefaults(repo),
   );
-  const [selectedPersonaId, setSelectedPersonaId] =
-    useState<Id<"designPersonas">>();
   const {
     displayText: draftDisplay,
     mentionMap: draftMentionMap,
@@ -78,15 +72,32 @@ export function NewSessionComposer() {
   } = useProviderAccounts();
   const [accountDefaulted, setAccountDefaulted] = useState(false);
 
-  // Default account once the provider list is ready. Runs in an effect because
-  // setProviderAccountId writes to localStorage, which dispatches a sync event —
-  // doing that during render triggers React's event-handler-in-render error.
+  // Default the account once the provider list is ready, but only when the
+  // stored pick does not resolve to an OWN account — a saved own pick must
+  // survive a reload, while a stored shared id is re-defaulted (an earlier bug
+  // auto-saved teammates' shared accounts here, and a shared account is an
+  // explicit per-visit choice, never a persisted default). Runs in an effect
+  // because setProviderAccountId writes to localStorage, which dispatches a
+  // sync event — doing that during render triggers React's
+  // event-handler-in-render error.
   useEffect(() => {
     if (accountsReady && !accountDefaulted) {
-      setProviderAccountId(defaultProviderAccountId(accounts, model));
+      const storedResolvesToOwn = accounts.some(
+        (account) => account.id === providerAccountId && account.isOwn,
+      );
+      if (!storedResolvesToOwn) {
+        setProviderAccountId(defaultProviderAccountId(accounts, model));
+      }
       setAccountDefaulted(true);
     }
-  }, [accountsReady, accountDefaulted, accounts, model, setProviderAccountId]);
+  }, [
+    accountsReady,
+    accountDefaulted,
+    accounts,
+    model,
+    providerAccountId,
+    setProviderAccountId,
+  ]);
 
   const handleSend = async (
     content: string,
@@ -96,17 +107,13 @@ export function NewSessionComposer() {
     // Resolved before the try: React Compiler bails on the whole file when a
     // nullish-coalescing expression sits inside a try/catch.
     const accountId = resolveAccountId(providerAccountId) ?? null;
-    const designArgs =
-      mode === "design" ? { personaId: selectedPersonaId, numDesigns } : {};
     try {
       const { numId } = await createSession({
         repoId: repo._id,
         message: content,
-        mode,
         model,
         baseBranch,
         ...executionTraits,
-        ...designArgs,
         // Snapshot resolved display traits (including model defaults) so the
         // new session's sticky Convex fields match the landing composer.
         reasoningLevel: displayTraits.effortLevel,
@@ -150,17 +157,13 @@ export function NewSessionComposer() {
           messageHistory={[]}
           isExecuting={false}
           isInputDisabled={isSubmitting}
-          placeholder={
-            mode === "plan"
-              ? "Describe what to plan... / for skills · @ to mention"
-              : mode === "design"
-                ? "Describe the UI to design... / for skills · @ to mention"
-                : "Ask Eva anything... / for skills · @ to mention"
-          }
+          placeholder="Ask Eva anything... / for skills · @ to mention"
           model={model}
           setModel={(next) => {
             setModel(next);
-            setProviderAccountId(defaultProviderAccountId(accounts, next));
+            setProviderAccountId(
+              providerAccountIdForModel(accounts, providerAccountId, next),
+            );
           }}
           modelOptions={modelOptions}
           accounts={accounts}
@@ -170,20 +173,6 @@ export function NewSessionComposer() {
           onTraitsChange={onTraitsChange}
           onSend={handleSend}
           onCancel={async () => {}}
-          toolsBefore={
-            mode === "design" ? (
-              <SessionDesignComposerTools
-                repoId={repo._id}
-                personaId={selectedPersonaId}
-                onPersonaChange={setSelectedPersonaId}
-                numDesigns={numDesigns}
-                onNumDesignsChange={setNumDesigns}
-                disabled={isSubmitting}
-              />
-            ) : null
-          }
-          mode={mode}
-          onModeChange={setMode}
           localDraft={{
             initialDisplay: draftDisplay,
             mentionMap: draftMentionMap,

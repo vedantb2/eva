@@ -1,5 +1,15 @@
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, test } from "vitest";
-import { findStreamingTargetMessage } from "./chatBodyUtils";
+import {
+  findHandoffBoundaryIds,
+  findStreamingTargetMessage,
+  visibleChatMessages,
+  chatNeedsOtherUserDirectory,
+  otherUserIdsInChat,
+  type ChatBodyMessage,
+} from "./chatBodyUtils";
 
 type TestMessage = {
   role: "user" | "assistant";
@@ -88,4 +98,122 @@ describe("findStreamingTargetMessage", () => {
     ];
     expect(findStreamingTargetMessage(messages)?.label).toBe("a1");
   });
+});
+
+describe("visibleChatMessages", () => {
+  test("returns the same array when not hiding", () => {
+    const messages = [user("u1"), alert("stopped")];
+    expect(visibleChatMessages(messages, false)).toBe(messages);
+  });
+
+  test("drops system alerts when hiding", () => {
+    const messages = [user("u1"), alert("stopped"), finished("a1")];
+    expect(visibleChatMessages(messages, true).map((m) => m.label)).toEqual([
+      "u1",
+      "a1",
+    ]);
+  });
+
+  test("an alerts-only transcript is empty when hiding", () => {
+    expect(visibleChatMessages([alert("started")], true)).toEqual([]);
+  });
+});
+
+describe("findHandoffBoundaryIds", () => {
+  // Typing `model` as the doc's union keeps these fixtures pinned to real ids.
+  const sent = (_id: string, model?: ChatBodyMessage["model"]) => ({
+    _id,
+    role: "user" as const,
+    ...(model !== undefined ? { model } : {}),
+  });
+  const reply = (_id: string) => ({ _id, role: "assistant" as const });
+  const handoffAlert = (_id: string) => ({
+    _id,
+    role: "assistant" as const,
+    isSystemAlert: true,
+  });
+
+  test("marks the provider switch, not model changes inside one provider", () => {
+    const boundaries = findHandoffBoundaryIds([
+      sent("one", "claude:sonnet"),
+      reply("reply-one"),
+      sent("two", "claude:opus"),
+      reply("reply-two"),
+      handoffAlert("alert"),
+      sent("three", "codex:gpt-5.6-sol"),
+    ]);
+
+    expect([...boundaries]).toEqual(["three"]);
+  });
+
+  test("unstamped legacy history followed by a stamped turn marks nothing", () => {
+    const boundaries = findHandoffBoundaryIds([
+      sent("legacy"),
+      reply("legacy-reply"),
+      sent("first-stamped", "codex:gpt-5.6-sol"),
+    ]);
+
+    expect([...boundaries]).toEqual([]);
+  });
+});
+
+describe("chatNeedsOtherUserDirectory", () => {
+  test("solo chats do not subscribe to the user directory", () => {
+    expect(
+      chatNeedsOtherUserDirectory(
+        [
+          { role: "user", userId: "me" },
+          { role: "assistant" },
+        ],
+        "me",
+      ),
+    ).toBe(false);
+  });
+
+  test("a teammate bubble needs the directory", () => {
+    expect(
+      chatNeedsOtherUserDirectory(
+        [
+          { role: "user", userId: "them" },
+          { role: "assistant" },
+        ],
+        "me",
+      ),
+    ).toBe(true);
+  });
+
+  test("unknown current user never needs the directory", () => {
+    expect(
+      chatNeedsOtherUserDirectory(
+        [{ role: "user", userId: "them" }],
+        undefined,
+      ),
+    ).toBe(false);
+  });
+});
+
+describe("otherUserIdsInChat", () => {
+  test("returns sorted unique teammate ids", () => {
+    expect(
+      otherUserIdsInChat(
+        [
+          { role: "user", userId: "me" },
+          { role: "user", userId: "zoe" },
+          { role: "assistant" },
+          { role: "user", userId: "ann" },
+          { role: "user", userId: "zoe" },
+        ],
+        "me",
+      ),
+    ).toEqual(["ann", "zoe"]);
+  });
+});
+
+test("ChatBody looks up other senders, not the whole user table", () => {
+  const chatBody = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "ChatBody.tsx"),
+    "utf8",
+  );
+  expect(chatBody).toContain("api.users.getMany");
+  expect(chatBody).not.toContain("api.users.listAll");
 });

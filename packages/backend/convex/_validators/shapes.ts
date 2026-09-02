@@ -10,12 +10,26 @@ import {
   roleValidator,
 } from "./enums";
 
+/**
+ * Turn checkpoint shas the sandbox callback stamps on every completion it posts
+ * (`callback-src/runtime/turnCheckpoint.ts`), whatever the surface. Every
+ * completion receiver must spread these into its args: a closed validator
+ * rejects the whole call with ArgumentValidationError, the reply is lost and
+ * the turn hangs on "Working…". Only sessions persist them
+ * (`messageFields.beforeSha`); other surfaces accept and ignore them.
+ */
+export const turnCheckpointArgs = {
+  beforeSha: v.optional(v.string()),
+  afterSha: v.optional(v.string()),
+};
+
 export const workflowCompleteValidator = v.object({
   success: v.boolean(),
   result: v.union(v.string(), v.null()),
   error: v.union(v.string(), v.null()),
   activityLog: v.union(v.string(), v.null()),
   pendingQuestion: v.optional(v.string()),
+  ...turnCheckpointArgs,
 });
 
 export const evalResultValidator = v.object({
@@ -114,6 +128,7 @@ export const experimentalFlagKeyValidator = v.union(
   v.literal("voiceDictation"),
   v.literal("composerAutocomplete"),
   v.literal("simpleView"),
+  v.literal("replyChime"),
 );
 
 /** Stored shape on `users.experimentalFlags` — missing key means off. */
@@ -123,6 +138,7 @@ export const experimentalFlagsFields = {
   voiceDictation: v.optional(v.boolean()),
   composerAutocomplete: v.optional(v.boolean()),
   simpleView: v.optional(v.boolean()),
+  replyChime: v.optional(v.boolean()),
 };
 
 export const experimentalFlagsValidator = v.object(experimentalFlagsFields);
@@ -134,5 +150,18 @@ export const resolvedExperimentalFlagsValidator = v.object({
   voiceDictation: v.boolean(),
   composerAutocomplete: v.boolean(),
   simpleView: v.boolean(),
+  replyChime: v.boolean(),
 });
 
+/**
+ * One plan usage window (Claude: 5-hour, weekly, per-model). `key` is the SDK's
+ * rate-limit type, or `model_scoped:<display name>` for a per-model bucket.
+ * `utilization` is a percentage 0-100 and `resetsAt` is epoch ms; either can be
+ * absent when the provider reported only the other.
+ */
+export const usageLimitWindowValidator = v.object({
+  key: v.string(),
+  label: v.string(),
+  utilization: v.optional(v.number()),
+  resetsAt: v.optional(v.number()),
+});

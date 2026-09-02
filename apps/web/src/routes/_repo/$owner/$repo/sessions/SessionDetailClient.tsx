@@ -8,14 +8,11 @@ import { SandboxPanel } from "./SandboxPanel";
 import { Spinner } from "@eva/ui";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { SandboxWorkspace } from "@/lib/components/sandbox/SandboxWorkspace";
+import { SANDBOX_RAIL_WIDTH_PX } from "@/lib/components/sandbox/sandboxRail";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { PendingReviewCommentsProvider } from "@/lib/contexts/PendingReviewCommentsContext";
 import { isSessionPrReadOnly } from "./_utils/sessionReadOnly";
-import {
-  normalizeMode,
-  type SessionMode,
-} from "@/lib/hooks/useSessionSettings";
 import { withMutationToast } from "@/lib/utils/mutationToast";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
 
@@ -26,6 +23,7 @@ export function SessionDetailClient({
   onOpenFile,
   onViewDiff,
   isRouteActive = true,
+  hideTitle = false,
 }: {
   sessionId: Id<"sessions">;
   /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
@@ -40,6 +38,8 @@ export function SessionDetailClient({
    * shown — Preview must not clear/refetch from sibling URL churn.
    */
   isRouteActive?: boolean;
+  /** Popover already titles the surface — omit the session-chat title. */
+  hideTitle?: boolean;
 }) {
   const { basePath, repo } = useRepo();
   const session = useQuery(api.sessions.get, { id: sessionId });
@@ -108,6 +108,11 @@ export function SessionDetailClient({
   const isSandboxStopping = session?.status === "stopping";
   const [isStopPending, setIsStopPending] = useState(false);
   const simpleView = useSimpleView();
+  // The Eva session drives other agents rather than editing its own checkout,
+  // so it gets the chat with no sandbox panel (no preview / computer / review
+  // tabs) — same tab-gating idea as simple view, one step further. This branch
+  // is what makes the session renderable inline at `/eva`.
+  const chatOnly = session?.isOrchestrator === true;
   const handleSandboxToggle = async (action: "start" | "stop") => {
     if (action === "start") {
       await withMutationToast(
@@ -136,7 +141,7 @@ export function SessionDetailClient({
   // Must stay above loading/null early returns — Phase 3 review comments
   // introduced this hook after them and tripped React #310 on session resolve.
   const openDiffsTab = () => {
-    if (simpleView) return;
+    if (simpleView || chatOnly) return;
     if (onViewDiff) {
       onViewDiff();
       return;
@@ -146,6 +151,8 @@ export function SessionDetailClient({
 
   // Auto-switch to Browser + expand sandbox panel on lock transition only
   // (undefined → set). Don't fight the user if they switch away mid-lock.
+  // Skipped for chatOnly: there is no sandbox panel to switch, and the tab
+  // change is a navigation — it would bounce Eva off its own `/eva` URL.
   const prevAgentBrowsingAt = useRef<number | undefined>(undefined);
   const [expandRightSignal, setExpandRightSignal] = useState(0);
   const agentBrowsingAt =
@@ -155,11 +162,11 @@ export function SessionDetailClient({
   useEffect(() => {
     const prev = prevAgentBrowsingAt.current;
     prevAgentBrowsingAt.current = agentBrowsingAt;
-    if (!isRouteActive) return;
+    if (!isRouteActive || chatOnly) return;
     if (agentBrowsingAt === undefined || prev !== undefined) return;
     onSandboxTabChange("browser");
     setExpandRightSignal((n) => n + 1);
-  }, [agentBrowsingAt, onSandboxTabChange, isRouteActive]);
+  }, [agentBrowsingAt, onSandboxTabChange, isRouteActive, chatOnly]);
 
   if (session === undefined) {
     return (
@@ -179,8 +186,71 @@ export function SessionDetailClient({
   const isArchived = session.archived === true;
   // Archive + PR terminal states share the same UI gates; PR reopen clears lock.
   const isReadOnly = isArchived || isSessionPrReadOnly(session.prState);
-  const stickyMode: SessionMode = normalizeMode(session.lastMode ?? "edit");
-  const selectedVariationIndex = session.selectedVariationIndex;
+
+  const chatPanel = (sandboxCollapsed?: boolean) => (
+    <ChatPanel
+      sessionId={sessionId}
+      title={session.title}
+      branchName={session.branchName}
+      prUrl={session.prUrl}
+      prState={session.prState}
+      summary={session.summary}
+      messages={messages ?? []}
+      queuedMessages={queuedMessages ?? []}
+      planContent={session.planContent}
+      streamingActivity={streaming?.currentActivity}
+      streamingContent={streaming?.currentContent}
+      streamingPendingQuestion={streaming?.pendingQuestion}
+      summaryStreamingActivity={summaryStreaming?.currentActivity}
+      startupStreamingActivity={startupStreaming?.currentActivity}
+      isSandboxActive={isSandboxActive}
+      isSandboxToggling={
+        isSandboxStarting || isSandboxStopping || isStopPending
+      }
+      isSandboxStopping={isSandboxStopping || isStopPending}
+      onSandboxToggle={handleSandboxToggle}
+      isArchived={isArchived}
+      isReadOnly={isReadOnly}
+      deploymentStatus={session.deploymentStatus}
+      sandboxCollapsed={sandboxCollapsed}
+      // chatOnly mounts inline at the per-user `/orchestrator`, so the current
+      // URL is not a link to *this* session — hand the header a real permalink.
+      permalinkPath={
+        chatOnly && session.numId !== undefined
+          ? `${basePath}/sessions/${session.numId}`
+          : undefined
+      }
+      chatOnly={chatOnly}
+      hideTitle={hideTitle}
+      onOpenFile={chatOnly ? undefined : onOpenFile}
+      onViewDiff={chatOnly ? undefined : onViewDiff}
+      onOpenPrdTab={
+        chatOnly
+          ? undefined
+          : () => {
+              onSandboxTabChange("prd");
+              setExpandRightSignal((n) => n + 1);
+            }
+      }
+      onOpenAgentsTab={
+        chatOnly
+          ? undefined
+          : () => {
+              onSandboxTabChange("agents");
+              setExpandRightSignal((n) => n + 1);
+            }
+      }
+      backgroundAgents={session.backgroundAgents}
+    />
+  );
+
+  if (chatOnly) {
+    return (
+      <PendingReviewCommentsProvider onOpenDiffsTab={openDiffsTab}>
+        <div className="flex min-h-0 flex-1">{chatPanel()}</div>
+      </PendingReviewCommentsProvider>
+    );
+  }
 
   return (
     <PendingReviewCommentsProvider onOpenDiffsTab={openDiffsTab}>
@@ -195,43 +265,10 @@ export function SessionDetailClient({
       >
         {(panes, owner, terminalPanel) => (
           <ResizablePanelLayout
-            leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
-              <ChatPanel
-                sessionId={sessionId}
-                title={session.title}
-                branchName={session.branchName}
-                prUrl={session.prUrl}
-                prState={session.prState}
-                summary={session.summary}
-                messages={messages ?? []}
-                queuedMessages={queuedMessages ?? []}
-                planContent={session.planContent}
-                streamingActivity={streaming?.currentActivity}
-                streamingContent={streaming?.currentContent}
-                streamingPendingQuestion={streaming?.pendingQuestion}
-                summaryStreamingActivity={summaryStreaming?.currentActivity}
-                startupStreamingActivity={startupStreaming?.currentActivity}
-                isSandboxActive={isSandboxActive}
-                isSandboxToggling={
-                  isSandboxStarting || isSandboxStopping || isStopPending
-                }
-                isSandboxStopping={isSandboxStopping || isStopPending}
-                onSandboxToggle={handleSandboxToggle}
-                isArchived={isArchived}
-                isReadOnly={isReadOnly}
-                deploymentStatus={session.deploymentStatus}
-                sandboxCollapsed={rightPanelCollapsed}
-                onToggleSandbox={onToggleRightPanel}
-                onOpenFile={onOpenFile}
-                onViewDiff={onViewDiff}
-                onOpenPrdTab={() => {
-                  onSandboxTabChange("prd");
-                  setExpandRightSignal((n) => n + 1);
-                }}
-                backgroundAgents={session.backgroundAgents}
-              />
-            )}
-            rightPanel={
+            leftPanel={({ rightPanelCollapsed }) =>
+              chatPanel(rightPanelCollapsed)
+            }
+            rightPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
               <SandboxPanel
                 sessionId={sessionId}
                 sandboxId={session.sandboxId}
@@ -248,8 +285,8 @@ export function SessionDetailClient({
                 terminalPanel={terminalPanel}
                 planContent={session.planContent}
                 messages={messages ?? []}
-                lastMode={stickyMode}
-                selectedVariationIndex={selectedVariationIndex}
+                backgroundAgents={session.backgroundAgents}
+                streamingActivity={streaming?.currentActivity}
                 isArchived={isReadOnly}
                 activeTab={activeSandboxTab}
                 onTabChange={onSandboxTabChange}
@@ -262,13 +299,25 @@ export function SessionDetailClient({
                       }
                 }
                 isSandboxStarting={isSandboxStarting}
+                collapsed={rightPanelCollapsed}
+                onToggle={onToggleRightPanel}
+                miniPlayer={
+                  session.numId !== undefined
+                    ? {
+                        returnTo: `${basePath}/sessions/${session.numId}/preview`,
+                        title: session.title,
+                      }
+                    : undefined
+                }
               />
-            }
+            )}
             leftDefaultSize="40%"
             leftMinWidthPx={350}
             rightMinWidthPx={300}
+            rightCollapsedSizePx={SANDBOX_RAIL_WIDTH_PX}
             storageKey="sandbox-collapsed"
             expandRightSignal={expandRightSignal}
+            hotkeyEnabled={isRouteActive}
             mobilePaneLabels={{ left: "Chat", right: "Sandbox" }}
           />
         )}

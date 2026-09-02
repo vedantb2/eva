@@ -6,7 +6,7 @@ import {
 import { v, type Infer } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internal } from "./_generated/api";
-import { notificationTypeValidator } from "./validators";
+import { notificationTypeValidator, withCommentAnchor } from "./validators";
 import { authQuery, authMutation } from "./functions";
 
 /** Max unread notifications shown per user in the daily digest email. */
@@ -62,6 +62,8 @@ const DIGEST_EXCLUDED_TYPES: ReadonlySet<string> = new Set([
   // Change requests show in-app only — they re-run Eva, which is low-signal in
   // an email summary.
   "changes_requested",
+  // Session auto-archive on PR close/merge is inbox-only; never email.
+  "session_archived",
 ]);
 
 /** Builds a URL path for a repo, including app name for monorepo sub-apps. */
@@ -89,6 +91,9 @@ export async function createNotification(
     taskId?: Id<"agentTasks">;
     docId?: Id<"docs">;
     sessionId?: Id<"sessions">;
+    // Set by the comment paths (task comments, doc comments). Anchors the
+    // click-through to the exact comment rather than the top of the page.
+    commentId?: Id<"taskComments"> | Id<"docComments">;
   },
 ) {
   const type = params.type ?? "system";
@@ -124,6 +129,13 @@ export async function createNotification(
     }
   }
 
+  // Anchor the click-through to the comment that caused the notification. Done
+  // after href resolution so it covers both the derived href and one passed in
+  // by the caller.
+  if (href && params.commentId) {
+    href = withCommentAnchor(href, params.commentId);
+  }
+
   // Snapshot a human-readable context label for the notification card, but only
   // for types whose title does not already name the entity.
   let contextLabel: string | undefined;
@@ -146,6 +158,7 @@ export async function createNotification(
     href,
     repoId: params.repoId,
     contextLabel,
+    commentId: params.commentId,
     read: false,
     createdAt: Date.now(),
   });
@@ -174,6 +187,7 @@ const notificationValidator = v.object({
   createdAt: v.number(),
   contextLabel: v.optional(v.string()),
   emailedAt: v.optional(v.number()),
+  commentId: v.optional(v.union(v.id("taskComments"), v.id("docComments"))),
 });
 
 /** Lists the 100 most recent notifications for the current user. */
@@ -225,6 +239,24 @@ export const markAsRead = authMutation({
       throw new Error("Not found");
     if (!notification.read) {
       await ctx.db.patch(args.id, { read: true });
+    }
+    return null;
+  },
+});
+
+/**
+ * Marks a single notification as unread again (inbox right-click menu). Read
+ * state is the `read` boolean alone — there is no timestamp to clear.
+ */
+export const markAsUnread = authMutation({
+  args: { id: v.id("notifications") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const notification = await ctx.db.get(args.id);
+    if (!notification || notification.userId !== ctx.userId)
+      throw new Error("Not found");
+    if (notification.read) {
+      await ctx.db.patch(args.id, { read: false });
     }
     return null;
   },

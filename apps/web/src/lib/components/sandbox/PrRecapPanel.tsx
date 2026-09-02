@@ -7,6 +7,9 @@ import { useAction } from "convex/react";
 import {
   api,
   DEFAULT_AI_MODEL,
+  INCOMPLETE_PR_RECAP_MESSAGE,
+  isIncompleteReadyRecap,
+  isViewableRecap,
   normalizeAIModel,
   type AIModel,
   type Id,
@@ -156,6 +159,10 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
   // Pending with no workflow behind it means the run died: show the failure and
   // re-enable Generate instead of spinning on a stale activity trail forever.
   const isStalled = isPending && recapDoc.activeWorkflowId === undefined;
+  // Older runs stored progress text as "ready" with no HTML walkthrough. The
+  // write path rejects that now; the shared helper keeps this view and the docs
+  // one reading those rows the same way.
+  const isIncompleteReady = isIncompleteReadyRecap(recapDoc);
   const docPath = entityPathSegment(recapDoc);
   const shortSha =
     recapDoc.headSha !== undefined ? recapDoc.headSha.slice(0, 7) : null;
@@ -218,9 +225,7 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
               isGenerating={isGenerating}
               disabled={isPending && !isStalled}
               variant="ghost"
-              label={
-                recapDoc.prRecapStatus === "ready" ? "Regenerate" : "Generate"
-              }
+              label={isViewableRecap(recapDoc) ? "Regenerate" : "Generate"}
             />
           </div>
         }
@@ -231,18 +236,24 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
         </TabsList>
       </TabsBar>
 
-      {isErrored || isStalled ? (
+      {isErrored || isStalled || isIncompleteReady ? (
         <div className="flex items-start gap-2 border-b border-border bg-destructive/5 px-3 py-2 text-sm text-destructive">
           <IconAlertTriangle size={16} className="mt-0.5 shrink-0" />
           <div className="min-w-0 flex-1">
             <p className="font-medium">
-              {isStalled ? "Recap stopped" : "Recap failed"}
+              {isStalled
+                ? "Recap stopped"
+                : isIncompleteReady
+                  ? "Recap incomplete"
+                  : "Recap failed"}
             </p>
             <p className="text-destructive/80">
               {isStalled
                 ? "Generation stopped before it finished. Generate again to retry."
-                : (recapDoc.prRecapError ??
-                  "Something went wrong generating the recap.")}
+                : isIncompleteReady
+                  ? INCOMPLETE_PR_RECAP_MESSAGE
+                  : (recapDoc.prRecapError ??
+                    "Something went wrong generating the recap.")}
             </p>
           </div>
         </div>
@@ -276,7 +287,9 @@ export function PrRecapPanel({ prUrl, repoId, recapDoc }: PrRecapPanelProps) {
             <HtmlPreviewFrame html={recapDoc.html} title="PR recap" />
           ) : (
             <p className="text-sm text-muted-foreground">
-              No recap yet. It is created the next time this review runs.
+              {isIncompleteReady || isErrored
+                ? INCOMPLETE_PR_RECAP_MESSAGE
+                : "No recap yet. It is created the next time this review runs."}
             </p>
           )
         ) : (

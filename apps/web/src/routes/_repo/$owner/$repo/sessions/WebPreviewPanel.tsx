@@ -1,4 +1,5 @@
-import { useMemo, useRef, useState } from "react";
+import { useRef, useState } from "react";
+import type { Id } from "@eva/backend";
 import { cn, Spinner, Button, WebPreview } from "@eva/ui";
 import { useSessionStorage } from "usehooks-ts";
 import { IconPlayerPlay, IconRefresh, IconWorld } from "@tabler/icons-react";
@@ -11,12 +12,25 @@ import {
   useFullscreenElement,
   usePreviewIframeElement,
 } from "@/lib/components/sandbox/previewIframeHost";
-import { PreviewAnnotationLayer } from "./_components/PreviewAnnotationLayer";
-import { PreviewPanelNavBar } from "./_components/PreviewPanelNavBar";
 import {
-  PREVIEW_DEVICE_WIDTHS,
-  type PreviewDevice,
-} from "./_utils/-previewAnnotation";
+  closePreviewMiniPlayer,
+  openPreviewMiniPlayer,
+  usePreviewMiniPlayer,
+} from "@/lib/components/sandbox/previewMiniPlayerStore";
+import { useMediaQuery } from "@/lib/hooks/useMediaQuery";
+import { PreviewAnnotationLayer } from "./_components/PreviewAnnotationLayer";
+import { PreviewDeviceToolbar } from "./_components/PreviewDeviceToolbar";
+import { PreviewFloatingPlaceholder } from "./_components/PreviewFloatingPlaceholder";
+import { PreviewPanelNavBar } from "./_components/PreviewPanelNavBar";
+import { PreviewViewportFrame } from "./_components/PreviewViewportFrame";
+import {
+  FILL_PREVIEW_VIEWPORT,
+  parsePreviewViewport,
+  readStoredPreviewViewport,
+  serializePreviewViewport,
+  snapshotFillViewport,
+  type PreviewViewport,
+} from "./_utils/previewViewport";
 
 interface PreviewInfo {
   url: string;
@@ -48,6 +62,15 @@ interface WebPreviewPanelProps {
    * annotation. When absent, the select-element toggle is hidden.
    */
   onAnnotationSubmit?: (display: string, full: string) => Promise<void>;
+  /**
+   * Session-only, set while this pane is the visible preview: lets it float
+   * into the mini-player when the user leaves the sessions area or pops it out.
+   */
+  miniPlayer?: {
+    sessionId: Id<"sessions">;
+    returnTo: string;
+    title: string;
+  };
 }
 
 export function WebPreviewPanel({
@@ -66,9 +89,18 @@ export function WebPreviewPanel({
   onStartSandbox,
   isSandboxStarting = false,
   onAnnotationSubmit,
+  miniPlayer,
 }: WebPreviewPanelProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [annotationMode, setAnnotationMode] = useState(false);
+  // The mini-player is a desktop affordance: on a phone there is no "beside".
+  const isDesktop = useMediaQuery("(min-width: 768px)");
+  const floating = usePreviewMiniPlayer();
+  const isFloating = floating?.entryKey === pathStorageKey;
+  const miniPlayerSource =
+    miniPlayer !== undefined && isDesktop && sandboxId !== undefined
+      ? { ...miniPlayer, sandboxId }
+      : undefined;
   // The live iframe lives in the global PreviewIframeHost (fixed overlay),
   // so it survives route changes. Nav bar / annotation consumers get the
   // element via this subscription instead of an in-tree ref.
@@ -97,22 +129,45 @@ export function WebPreviewPanel({
     serializer: (value) => value,
     deserializer: (value) => normalizePreviewPath(value),
   });
-  const [device, setDevice] = useSessionStorage<PreviewDevice>(
-    `${pathStorageKey}:device`,
-    "desktop",
+  const viewportStorageKey = `${pathStorageKey}:viewport`;
+  const [viewport, setViewport] = useSessionStorage<PreviewViewport>(
+    viewportStorageKey,
+    readStoredPreviewViewport(viewportStorageKey, `${pathStorageKey}:device`),
+    {
+      serializer: serializePreviewViewport,
+      deserializer: parsePreviewViewport,
+    },
   );
-  const previewPath = stickyPath ?? localPath;
+  const [aspectKey, setAspectKey] = useState(pathStorageKey);
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+  if (aspectKey !== pathStorageKey) {
+    setAspectKey(pathStorageKey);
+    setAspectRatio(null);
+  }
+  const previewPath = normalizePreviewPath(stickyPath ?? localPath);
 
   // iframeSrc is recomputed only at remount points (previewInfo change,
   // storage-key change, or iframeKey bump from a refresh). previewPath is
-  // intentionally excluded from deps so the src stays stable while the user
+  // intentionally NOT part of the key so the src stays stable while the user
   // navigates inside the iframe — otherwise we'd fight the iframe with
-  // declarative src updates.
-  const iframeSrc = useMemo(() => {
-    if (!previewInfo) return undefined;
-    return buildUrlWithPath(previewInfo.url, previewPath);
-    // eslint-disable-next-line react/exhaustive-deps
-  }, [previewInfo, pathStorageKey, iframeKey]);
+  // declarative src updates. Render-phase state adjustment, not useMemo.
+  const srcKey = `${previewInfo?.url ?? ""}|${pathStorageKey}|${iframeKey}`;
+  const [srcState, setSrcState] = useState<{
+    key: string;
+    src: string | undefined;
+  }>(() => ({
+    key: srcKey,
+    src: previewInfo
+      ? buildUrlWithPath(previewInfo.url, previewPath)
+      : undefined,
+  }));
+  let iframeSrc = srcState.src;
+  if (srcState.key !== srcKey) {
+    iframeSrc = previewInfo
+      ? buildUrlWithPath(previewInfo.url, previewPath)
+      : undefined;
+    setSrcState({ key: srcKey, src: iframeSrc });
+  }
 
   function handlePathChange(path: string) {
     const next = normalizePreviewPath(path);
@@ -146,8 +201,44 @@ export function WebPreviewPanel({
     );
   }
 
-  const deviceWidth =
-    device === "desktop" ? undefined : PREVIEW_DEVICE_WIDTHS[device];
+  function handleToggleDevice() {
+    if (viewport.mode !== "fill") {
+      setViewport(FILL_PREVIEW_VIEWPORT);
+      setAspectRatio(null);
+      return;
+    }
+    const rect = iframeElement?.getBoundingClientRect();
+    setViewport(
+      snapshotFillViewport({
+        width: rect?.width ?? 1280,
+        height: rect?.height ?? 800,
+      }),
+    );
+  }
+
+  // Manual pop-out: the pane hands its anchor to the mini-player and shows a
+  // placeholder until the preview comes back (one anchor per hosted iframe).
+  const popOut =
+    miniPlayerSource !== undefined && iframeSrc !== undefined
+      ? {
+          active: isFloating,
+          onToggle: () => {
+            if (isFloating) {
+              closePreviewMiniPlayer();
+              return;
+            }
+            openPreviewMiniPlayer({
+              ...miniPlayerSource,
+              entryKey: pathStorageKey,
+              group: `${sandboxId}:${port}`,
+              src: iframeSrc,
+              epoch: iframeKey,
+              mode: "manual",
+            });
+          },
+        }
+      : undefined;
+  const showPlaceholder = isFloating && floating.mode === "manual";
 
   return (
     <WebPreview
@@ -169,44 +260,78 @@ export function WebPreviewPanel({
         onPortChange={onPortChange}
         previewPath={previewPath}
         onPathChange={handlePathChange}
-        device={device}
-        onDeviceChange={setDevice}
+        viewport={viewport}
+        onToggleDevice={handleToggleDevice}
         annotationMode={annotationMode}
         onAnnotationModeChange={setAnnotationMode}
         showAnnotationToggle={Boolean(onAnnotationSubmit)}
+        popOut={popOut}
       />
-      <div className="relative flex min-h-0 flex-1 flex-col">
-        <PersistentPreviewBody
-          entryKey={pathStorageKey}
-          group={`${sandboxId}:${port}`}
-          src={iframeSrc}
-          epoch={iframeKey}
-          covered={error !== null}
-          deviceWidth={deviceWidth}
-          loading={
-            isLoading && !previewInfo ? (
-              <div className="absolute inset-0 flex items-center justify-center bg-secondary z-10">
-                <Spinner size="lg" />
-              </div>
-            ) : error ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
-                <p className="text-sm text-destructive">{error}</p>
-                <Button size="sm" variant="secondary" onClick={onRefresh}>
-                  <IconRefresh className="w-4 h-4" />
-                  Retry
-                </Button>
-              </div>
-            ) : undefined
-          }
+      {!showPlaceholder && viewport.mode !== "fill" ? (
+        <PreviewDeviceToolbar
+          viewport={viewport}
+          aspectRatio={aspectRatio}
+          onAspectRatioChange={setAspectRatio}
+          onChange={setViewport}
+          onFill={() => {
+            setViewport(FILL_PREVIEW_VIEWPORT);
+            setAspectRatio(null);
+          }}
         />
-        {onAnnotationSubmit ? (
-          <PreviewAnnotationLayer
-            mode={annotationMode}
-            onModeChange={setAnnotationMode}
-            onSubmit={onAnnotationSubmit}
-          />
-        ) : null}
-      </div>
+      ) : null}
+      {showPlaceholder ? (
+        <PreviewFloatingPlaceholder />
+      ) : (
+        <div className="relative flex min-h-0 flex-1 flex-col">
+          <PreviewViewportFrame
+            viewport={viewport}
+            aspectRatio={aspectRatio}
+            onResize={(size) =>
+              setViewport({
+                mode: "freeform",
+                width: size.width,
+                height: size.height,
+              })
+            }
+          >
+            <PersistentPreviewBody
+              entryKey={pathStorageKey}
+              group={`${sandboxId}:${port}`}
+              src={iframeSrc}
+              epoch={iframeKey}
+              covered={error !== null}
+              miniPlayer={miniPlayerSource}
+              logicalSize={
+                viewport.mode === "fill"
+                  ? null
+                  : { width: viewport.width, height: viewport.height }
+              }
+              loading={
+                isLoading && !previewInfo ? (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-secondary">
+                    <Spinner size="lg" />
+                  </div>
+                ) : error ? (
+                  <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                    <p className="text-sm text-destructive">{error}</p>
+                    <Button size="sm" variant="secondary" onClick={onRefresh}>
+                      <IconRefresh className="w-4 h-4" />
+                      Retry
+                    </Button>
+                  </div>
+                ) : undefined
+              }
+            />
+          </PreviewViewportFrame>
+          {onAnnotationSubmit ? (
+            <PreviewAnnotationLayer
+              mode={annotationMode}
+              onModeChange={setAnnotationMode}
+              onSubmit={onAnnotationSubmit}
+            />
+          ) : null}
+        </div>
+      )}
     </WebPreview>
   );
 }

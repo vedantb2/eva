@@ -11,11 +11,7 @@ function AutomationsLayout() {
 
   if (simpleView) {
     return (
-      <Navigate
-        to="/$owner/$repo/projects"
-        params={{ owner, repo }}
-        replace
-      />
+      <Navigate to="/$owner/$repo/projects" params={{ owner, repo }} replace />
     );
   }
 

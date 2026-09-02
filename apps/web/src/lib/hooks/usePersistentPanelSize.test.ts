@@ -6,10 +6,12 @@ import {
   BOTTOM_PANEL_ID,
   LEFT_PANEL_ID,
   complementaryPercentage,
+  isCollapsedPanelSize,
   isMeasuredPanelSize,
   panelPercentage,
   RIGHT_PANEL_ID,
   TOP_PANEL_ID,
+  usableExpandedPanelSize,
   usableStoredSize,
 } from "./usePersistentPanelSize";
 
@@ -88,6 +90,46 @@ describe("isMeasuredPanelSize", () => {
   });
 });
 
+describe("isCollapsedPanelSize", () => {
+  it("treats 0% as collapsed when there is no rail leftover", () => {
+    expect(
+      isCollapsedPanelSize({ asPercentage: 0, inPixels: 0 }, 0),
+    ).toBe(true);
+    expect(
+      isCollapsedPanelSize({ asPercentage: 60, inPixels: 720 }, 0),
+    ).toBe(false);
+  });
+
+  it("treats the rail width as collapsed, not 0%", () => {
+    expect(
+      isCollapsedPanelSize({ asPercentage: 3.4, inPixels: 44 }, 44),
+    ).toBe(true);
+    expect(
+      isCollapsedPanelSize({ asPercentage: 3.4, inPixels: 46 }, 44),
+    ).toBe(false);
+    expect(
+      isCollapsedPanelSize({ asPercentage: 40, inPixels: 480 }, 44),
+    ).toBe(false);
+  });
+
+  /**
+   * The library stores collapse as a percentage. A sidebar/window resize can
+   * grow a 44px rail to ~80px without reaching minSize — that strip is still
+   * collapsed, not a split to restore.
+   */
+  it("treats the band between the rail and minSize as collapsed", () => {
+    expect(
+      isCollapsedPanelSize({ asPercentage: 6, inPixels: 80 }, 44, 300),
+    ).toBe(true);
+    expect(
+      isCollapsedPanelSize({ asPercentage: 25, inPixels: 300 }, 44, 300),
+    ).toBe(false);
+    expect(
+      isCollapsedPanelSize({ asPercentage: 40, inPixels: 480 }, 44, 300),
+    ).toBe(false);
+  });
+});
+
 describe("usableStoredSize", () => {
   it("keeps a stored size", () => {
     expect(usableStoredSize("60%", "40%")).toBe("60%");
@@ -98,6 +140,21 @@ describe("usableStoredSize", () => {
   it("falls back when the stored size has no number in it", () => {
     expect(usableStoredSize("NaN%", "40%")).toBe("40%");
     expect(usableStoredSize("", "40%")).toBe("40%");
+  });
+});
+
+describe("usableExpandedPanelSize", () => {
+  it("keeps a real split", () => {
+    expect(usableExpandedPanelSize("60%", "40%", 300, 1200)).toBe("60%");
+  });
+
+  /** An inflated-rail percentage would resize the panel to tens of pixels. */
+  it("falls back when the stored width is below minSize", () => {
+    expect(usableExpandedPanelSize("4.4%", "60%", 300, 1200)).toBe("60%");
+  });
+
+  it("keeps the size when the group width is not known yet", () => {
+    expect(usableExpandedPanelSize("4.4%", "60%", 300, 0)).toBe("4.4%");
   });
 });
 
@@ -178,4 +235,45 @@ it.each([
     "utf8",
   );
   expect(consumer).toContain("if (!isMeasuredPanelSize(size)) return;");
+});
+
+/**
+ * The library keeps one global registry of mounted groups and resolves every
+ * lookup by id to the *first* match — imperative resize/collapse, the rendered
+ * flexGrow, the layout-change listener. Passing the (shared) `storageKey` as the
+ * group id meant the three kept-alive session shells all answered to
+ * `sandbox-collapsed`, so the visible session drove the oldest hidden one: its
+ * 0px group turned a 44px collapse into 0% (rail gone) and the re-expand was a
+ * no-op. Panel ids stay explicit; only the group id must be per-instance.
+ */
+it.each([
+  "../components/ResizablePanelLayout.tsx",
+  "../components/ResizableSidebar.tsx",
+])("gives each mounted group its own id in %s", (relativePath) => {
+  const consumer = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), relativePath),
+    "utf8",
+  );
+  expect(consumer).not.toContain("id={storageKey}");
+});
+
+/**
+ * The toggle used to trust React's collapsed flag. After a group resize the
+ * rail could be 80px (not collapsed by the 44px check, not expanded by minSize)
+ * so the click called `collapse()` and did nothing — drag was the only way out.
+ * Reading `getSize()` and rejecting below-minSize restores as the expand width
+ * is the recovery.
+ */
+it("expands from the live panel size, not the mirrored collapsed flag", () => {
+  const consumer = readFileSync(
+    join(
+      dirname(fileURLToPath(import.meta.url)),
+      "../components/ResizablePanelLayout.tsx",
+    ),
+    "utf8",
+  );
+  expect(consumer).toContain("panel.getSize()");
+  expect(consumer).toContain("usableExpandedPanelSize(");
+  expect(consumer).toContain('groupResizeBehavior={');
+  expect(consumer).toContain('"preserve-pixel-size"');
 });

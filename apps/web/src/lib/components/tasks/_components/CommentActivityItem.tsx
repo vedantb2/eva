@@ -14,11 +14,13 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  cn,
   toast,
 } from "@eva/ui";
 import { IconDots, IconPencil, IconTrash } from "@tabler/icons-react";
 import { mentionTokensToEditableText } from "@/lib/components/mentions/mentionToken";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { useCommentAnchor } from "@/lib/hooks/useCommentAnchor";
 import {
   MarkdownMentionText,
   MARKDOWN_PROSE_CLASS,
@@ -100,6 +102,10 @@ export function CommentActivityItem({
   const [editText, setEditText] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const editMentionRef = useRef<CommentMentionInputHandle>(null);
+  // Anchors a notification click-through. Every task comment renders through
+  // this component — root threads, replies, and the comment nested inside a run
+  // it triggered — so one hook here covers all three placements.
+  const { ref: anchorRef, isAnchored } = useCommentAnchor(comment._id);
 
   const updateComment = useMutation(
     api.taskComments.update,
@@ -155,7 +161,11 @@ export function CommentActivityItem({
   };
 
   return (
-    <div className="group">
+    <div
+      ref={anchorRef}
+      data-comment-id={comment._id}
+      className={cn("group", isAnchored && "rounded-surface t-anchor-flash")}
+    >
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           {comment.authorId ? (

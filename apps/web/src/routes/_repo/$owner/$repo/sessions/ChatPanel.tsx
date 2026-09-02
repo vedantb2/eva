@@ -1,14 +1,7 @@
-import {
-  api,
-  getLockedProviderModelOptions,
-  normalizeAIModel,
-  type Doc,
-  type Id,
-} from "@eva/backend";
+import { api, normalizeAIModel, type Doc, type Id } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { m, AnimatePresence } from "motion/react";
-import { useShortcut } from "@/lib/hotkeys/useShortcut";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { useRepo } from "@/lib/contexts/RepoContext";
@@ -17,10 +10,11 @@ import { ChatBody } from "@/lib/components/chat/ChatBody";
 import { StreamingActivityDisplay } from "@/lib/components/StreamingActivityDisplay";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { ComposerPlanReadyBanner } from "./_components/ComposerPlanReadyBanner";
+import { SandboxChatPreInput } from "@/lib/components/chat/SandboxChatPreInput";
+import type { SandboxChatSurface } from "@/lib/components/chat/sandboxChatSurface";
 import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel";
-import { BackgroundAgentsChip } from "./_components/BackgroundAgentsChip";
+import { PublishRecoveryBanner } from "./_components/PublishRecoveryBanner";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
-import { SessionDesignComposerTools } from "./_components/SessionDesignComposerTools";
 import { SessionSummaryAccordion } from "./_components/SessionSummaryAccordion";
 import { SessionSummaryModal } from "./_components/SessionSummaryModal";
 import { SessionReviewModal } from "./_components/SessionReviewModal";
@@ -29,19 +23,20 @@ import {
   type SessionMessage,
 } from "./_components/useSessionSend";
 import { catchMutationError } from "@/lib/utils/mutationToast";
-import {
-  useSessionSettings,
-  type SessionMode,
-} from "@/lib/hooks/useSessionSettings";
+import { useSessionSettings } from "@/lib/hooks/useSessionSettings";
 import { useSessionModel } from "@/lib/hooks/useSessionModel";
+import { useSimpleView } from "@/lib/hooks/useSimpleView";
 import {
   useAvailableAiModels,
   useSessionOwnerProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
+import { useSeedChatDraft } from "@/lib/components/chat/useSeedChatDraft";
 import { PendingReviewCommentChips } from "@/lib/components/chat/PendingReviewCommentChips";
+import { AveResetChatDialog } from "@/lib/components/ave/AveResetChatDialog";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
 import { getSessionReadOnlyMessage } from "./_utils/sessionReadOnly";
+import { APPROVE_PLAN_PROMPT } from "./_utils/composerPrompts";
 import { motionBase } from "@eva/ui";
 
 type QueuedSessionMessage = NonNullable<
@@ -73,17 +68,22 @@ interface ChatPanelProps {
   isReadOnly?: boolean;
   deploymentStatus?: "queued" | "building" | "deployed" | "error";
   sandboxCollapsed?: boolean;
-  onToggleSandbox?: () => void;
+  /** Canonical link to this session; omitted when the URL already is one. */
+  permalinkPath?: string;
+  /** Chat-only surface (the orchestrator): hides branch/PR affordances. */
+  chatOnly?: boolean;
+  /** Popover already titles the surface — omit the session-chat title. */
+  hideTitle?: boolean;
   /** Opens a file (by full sandbox path) in the File Viewer tab. */
   onOpenFile?: (path: string) => void;
   /** Opens the Diffs tab; optional repo-relative path scrolls to that file. */
   onViewDiff?: (repoRelativePath?: string) => void;
   /** Opens the PRD sandbox tab (used by the Plan Ready banner). */
   onOpenPrdTab?: () => void;
+  /** Opens the Agents sandbox tab (used by the sub-agent CTA row in the chat). */
+  onOpenAgentsTab?: () => void;
   backgroundAgents?: Doc<"sessions">["backgroundAgents"];
 }
-
-const AVAILABLE_MODES: SessionMode[] = ["edit", "plan", "design"];
 
 export function ChatPanel({
   sessionId,
@@ -108,39 +108,37 @@ export function ChatPanel({
   isReadOnly = false,
   deploymentStatus,
   sandboxCollapsed,
-  onToggleSandbox,
+  permalinkPath,
+  chatOnly,
+  hideTitle = false,
   onOpenFile,
   onViewDiff,
   onOpenPrdTab,
+  onOpenAgentsTab,
   backgroundAgents,
 }: ChatPanelProps) {
   const { repo, basePath } = useRepo();
+  const simpleView = useSimpleView();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
-  const [selectedPersonaId, setSelectedPersonaId] =
-    useState<Id<"designPersonas">>();
-  const [numDesigns, setNumDesigns] = useState(3);
+  const [showResetChatDialog, setShowResetChatDialog] = useState(false);
 
   const defaultModel = normalizeAIModel(repo.defaultModel);
   // The picker lists the session owner's accounts, not the viewer's — the turn
   // always runs on the owner's credentials.
   const { options: accounts, resolveId: resolveAccountId } =
     useSessionOwnerProviderAccounts(sessionId);
-  // Model + mode + traits + account are owned by Convex.
+  // Model + traits + account are owned by Convex.
   const {
     model,
     setModel,
-    mode: stickyMode,
-    setMode: setStickyMode,
     traits,
     setTraits,
     providerAccountId: stickyProviderAccountId,
     setProviderAccountId: setStickyProviderAccountId,
-    lockedProvider,
+    isSwitchingAccount,
   } = useSessionModel(sessionId, defaultModel);
   const {
-    mode,
-    setMode,
     displayTraits,
     executionTraits,
     onTraitsChange,
@@ -150,8 +148,6 @@ export function ChatPanel({
     defaultModel,
     model,
     onModelChange: setModel,
-    mode: stickyMode,
-    onModeChange: setStickyMode,
     traits,
     onTraitsPersist: setTraits,
     providerAccountId: stickyProviderAccountId,
@@ -161,22 +157,17 @@ export function ChatPanel({
       );
     },
   });
-  const { options: visibleModels } = useAvailableAiModels(repo._id, model);
-  // A session stays on the provider it started on, so the picker offers only
-  // that provider's models — and, since the rail derives its instances from
-  // these options, only that provider's accounts.
-  const modelOptions = getLockedProviderModelOptions(
-    visibleModels,
-    lockedProvider,
-  );
+  // Every visible model, across providers: a session may be moved onto another
+  // provider mid-conversation, and each pick carries the account it was made
+  // under so credentials follow the new provider.
+  const { options: modelOptions } = useAvailableAiModels(repo._id, model);
 
-  const draftSeed = useChatDraftSeed({
-    kind: "sessionChat" as const,
-    sessionId,
-  });
+  const draftTarget = { kind: "sessionChat" as const, sessionId };
+  const draftSeed = useChatDraftSeed(draftTarget);
+  const seedChatDraft = useSeedChatDraft(draftTarget);
   const draftBundle = draftSeed.isReady
     ? {
-        target: { kind: "sessionChat" as const, sessionId },
+        target: draftTarget,
         initialDisplay: draftSeed.initialDisplay,
         mentionMap: draftSeed.mentionMap,
         skillMap: draftSeed.skillMap,
@@ -186,16 +177,8 @@ export function ChatPanel({
   const review = usePendingReviewComments();
   const hasPendingReviewComments = (review?.comments.length ?? 0) > 0;
 
-  useShortcut("cycleSessionMode", (event) => {
-    event.preventDefault();
-    const currentIndex = AVAILABLE_MODES.indexOf(mode);
-    const nextIndex = (currentIndex + 1) % AVAILABLE_MODES.length;
-    setMode(AVAILABLE_MODES[nextIndex]);
-  });
-
   const { isExecuting, handleSend, handleCancel } = useSessionSend({
     sessionId,
-    mode,
     model,
     executionTraits,
     reasoningLevel: displayTraits.effortLevel,
@@ -203,9 +186,23 @@ export function ChatPanel({
     resolveAccountId,
     accounts,
     messages,
-    personaId: selectedPersonaId,
-    numDesigns,
   });
+
+  const chatSurface: SandboxChatSurface = {
+    entity: { kind: "session", sessionId },
+    repoId: repo._id,
+    model,
+    isExecuting,
+    isReadOnly,
+    // A stopped session sandbox still gets the offer: sending wakes it.
+    compactionReadOnly: isReadOnly,
+    backgroundAgents,
+    // Review comments are appended to normal sends; a slash command has to
+    // reach the harness verbatim.
+    onSendCommand: (command) => {
+      void handleSend(command, undefined, { skipReviewComments: true });
+    },
+  };
 
   const activeQuestion = useQuery(api.pendingQuestions.getActive, {
     entityId: sessionId,
@@ -230,6 +227,14 @@ export function ChatPanel({
   const isStartupStreaming =
     isSandboxToggling && !isSandboxActive && !isSandboxStopping;
 
+  const usageAccountLabel =
+    stickyProviderAccountId === null
+      ? "Team"
+      : stickyProviderAccountId === undefined
+        ? "Selected account"
+        : (accounts.find((account) => account.id === stickyProviderAccountId)
+            ?.label ?? "Selected account");
+
   const { headerLeft, headerRight } = SessionChatHeader({
     repoId: repo._id,
     sessionId,
@@ -241,12 +246,22 @@ export function ChatPanel({
     messageCount: messages.length,
     isSandboxActive,
     isSandboxToggling,
+    isAssistantResponding: isExecuting,
     deploymentStatus,
-    sandboxCollapsed,
+    permalinkPath,
+    chatOnly,
+    hideTitle,
+    model,
+    providerAccountId: stickyProviderAccountId,
+    usageAccountLabel,
     onSandboxToggle,
-    onToggleSandbox,
     onOpenSummaryModal: () => setShowSummaryModal(true),
     onOpenReviewModal: () => setShowReviewModal(true),
+    // Only Manager Ave can be reset: it is the one chat the user cannot simply
+    // replace by opening a new session.
+    onOpenResetChatDialog: chatOnly
+      ? () => setShowResetChatDialog(true)
+      : undefined,
   });
 
   const startupStreamingNode = (
@@ -271,72 +286,71 @@ export function ChatPanel({
 
   const hasPlanContent =
     typeof planContent === "string" && planContent.trim().length > 0;
-  // Compact card above composer only in plan mode with the sandbox collapsed.
-  const showCompactPlanCard =
-    mode === "plan" && hasPlanContent && sandboxCollapsed !== false;
+  // Compact card above the composer only while the sandbox pane is collapsed —
+  // otherwise the PRD tab owns the plan and the slim strip links to it.
+  const showCompactPlanCard = hasPlanContent && sandboxCollapsed !== false;
   // When the card is hidden but a plan exists, show a slim Plan Ready strip.
   const showPlanReadyBanner = hasPlanContent && !showCompactPlanCard;
 
   const handleApprovePlan = () => {
-    setMode("edit");
+    void seedChatDraft(APPROVE_PLAN_PROMPT);
   };
 
   const handleViewPlan = () => {
-    setMode("plan");
-    if (sandboxCollapsed === false) {
-      onOpenPrdTab?.();
-    }
+    onOpenPrdTab?.();
   };
 
   const preInputContent = (
-    <>
-      <BackgroundAgentsChip
-        sessionId={sessionId}
-        backgroundAgents={backgroundAgents}
-        isReadOnly={isReadOnly}
-      />
-      <BackgroundProcessesPanel sessionId={sessionId} />
-      <PendingReviewCommentChips />
-      {showCompactPlanCard && planContent ? (
-        <AnimatePresence initial={false}>
-          <m.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={motionBase}
-          >
-            <SessionPrdPlanView
+    <SandboxChatPreInput
+      surface={chatSurface}
+      beforeBanner={
+        <>
+          {simpleView ? null : (
+            <BackgroundProcessesPanel sessionId={sessionId} />
+          )}
+          {!isReadOnly ? (
+            <PublishRecoveryBanner
               sessionId={sessionId}
+              messages={messages}
+              isSandboxActive={isSandboxActive}
+            />
+          ) : null}
+          <PendingReviewCommentChips />
+        </>
+      }
+      afterBanner={
+        <>
+          {showCompactPlanCard && planContent ? (
+            <AnimatePresence initial={false}>
+              <m.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: 8 }}
+                transition={motionBase}
+              >
+                <SessionPrdPlanView
+                  sessionId={sessionId}
+                  planContent={planContent}
+                  onApprovePlan={handleApprovePlan}
+                  variant="compact"
+                  isArchived={isReadOnly}
+                />
+              </m.div>
+            </AnimatePresence>
+          ) : null}
+          {showPlanReadyBanner && planContent ? (
+            <ComposerPlanReadyBanner
               planContent={planContent}
+              onViewPlan={handleViewPlan}
               onApprovePlan={handleApprovePlan}
-              variant="compact"
               isArchived={isReadOnly}
             />
-          </m.div>
-        </AnimatePresence>
-      ) : null}
-      {showPlanReadyBanner && planContent ? (
-        <ComposerPlanReadyBanner
-          planContent={planContent}
-          onViewPlan={handleViewPlan}
-          onApprovePlan={handleApprovePlan}
-          isArchived={isReadOnly}
-        />
-      ) : null}
-    </>
+          ) : null}
+        </>
+      }
+    />
   );
 
-  const toolsBefore =
-    mode === "design" ? (
-      <SessionDesignComposerTools
-        repoId={repo._id}
-        personaId={selectedPersonaId}
-        onPersonaChange={setSelectedPersonaId}
-        numDesigns={numDesigns}
-        onNumDesignsChange={setNumDesigns}
-        disabled={!isSandboxActive || isReadOnly}
-      />
-    ) : null;
   const emptyStateTitle = isSandboxActive
     ? "No messages yet. Start the conversation!"
     : isSandboxStopping
@@ -347,11 +361,9 @@ export function ChatPanel({
 
   const placeholder = !isSandboxActive
     ? "Wake Eva up to begin chatting..."
-    : mode === "plan"
-      ? "Describe what to plan... / for skills · @ to mention"
-      : mode === "design"
-        ? "Describe the UI to design... / for skills · @ to mention"
-        : "Ask Eva anything... / for skills · @ to mention";
+    : isSwitchingAccount
+      ? "Switching Claude account..."
+      : "Ask Eva anything... / for skills · @ to mention";
 
   const readOnlyMessage = getSessionReadOnlyMessage({
     isArchived,
@@ -377,7 +389,7 @@ export function ChatPanel({
         blockingQuestion={activeQuestion ?? undefined}
         onAnswerBlockingQuestion={handleAnswerBlockingQuestion}
         isExecuting={isExecuting}
-        isInputDisabled={!isSandboxActive}
+        isInputDisabled={!isSandboxActive || isSwitchingAccount}
         isArchived={isReadOnly}
         placeholder={placeholder}
         emptyStateTitle={emptyStateTitle}
@@ -390,9 +402,6 @@ export function ChatPanel({
             summaryStreamingActivity={summaryStreamingActivity}
           />
         }
-        toolsBefore={toolsBefore}
-        mode={mode}
-        onModeChange={setMode}
         model={model}
         setModel={setModel}
         modelOptions={modelOptions}
@@ -408,6 +417,12 @@ export function ChatPanel({
         onOpenFile={onOpenFile}
         onViewDiff={prUrl ? onViewDiff : undefined}
         hasPendingContext={hasPendingReviewComments}
+        onOpenAgentsTab={onOpenAgentsTab}
+        backgroundAgents={backgroundAgents}
+        sandboxRunning={isSandboxActive}
+        turnCheckpoint={
+          isReadOnly ? undefined : { sessionId, repoId: repo._id }
+        }
       />
       <SessionSummaryModal
         sessionId={sessionId}
@@ -420,6 +435,12 @@ export function ChatPanel({
         open={showReviewModal}
         onClose={() => setShowReviewModal(false)}
       />
+      {chatOnly && (
+        <AveResetChatDialog
+          open={showResetChatDialog}
+          onOpenChange={setShowResetChatDialog}
+        />
+      )}
     </ChatPageWrapper>
   );
 }

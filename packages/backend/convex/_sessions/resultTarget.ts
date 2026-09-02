@@ -13,14 +13,15 @@ type AssistantReply = {
   finishedAt?: number;
 };
 
-const SESSION_PUBLISH_FAILURE_PREFIX =
-  "Session completed locally, but Eva could not publish";
+const PUBLISH_FAILURE_MARKER =
+  "but Eva could not publish the branch to GitHub";
 
 /**
  * A publish failure reported after the assistant reply was already saved.
  *
  * This is not another turn result: treating it as one can overwrite a newer
  * placeholder when the user sends again while the previous branch is pushing.
+ * Shared by session, task chat, and project chat (`Session`/`Chat` prefixes).
  */
 export function delayedPublishFailureError(
   result: string | null,
@@ -29,7 +30,7 @@ export function delayedPublishFailureError(
   if (
     result === null ||
     error === null ||
-    !error.startsWith(SESSION_PUBLISH_FAILURE_PREFIX)
+    !error.includes(PUBLISH_FAILURE_MARKER)
   ) {
     return undefined;
   }

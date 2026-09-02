@@ -5,3 +5,16 @@ packages:
 minimumReleaseAge: 10080
 minimumReleaseAgeExclude:
   - prettier
+  # Native (Rust) React Compiler landed 2026-08-18 and is what the web build
+  # runs; the 7-day soak would block installs until it ages in.
+  - "@vitejs/plugin-react"
+  - oxc-transform-react
+  - "@oxc-transform-react/*"
+  # Same release: oxlint 1.79 is the first with the React Compiler lint rules.
+  - oxlint
+  - "@oxlint/*"
+  # The Agent SDK ships the Claude Code CLI it spawns, and new models are gated
+  # on that CLI's version, so a model launch is unusable until we pin the fresh
+  # release. A 7-day soak would leave every sandbox failing those turns.
+  - "@anthropic-ai/claude-agent-sdk"
+  - "@anthropic-ai/claude-agent-sdk-*"

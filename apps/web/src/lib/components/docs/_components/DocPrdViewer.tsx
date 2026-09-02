@@ -10,6 +10,7 @@ import { api } from "@eva/backend";
 import { entityPathSegment } from "@/lib/numId";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { isDocViewerTab, type DocViewerTab } from "@/lib/search-params";
+import { useCommentAnchorId } from "@/lib/hooks/useCommentAnchor";
 import {
   ActivityTasks,
   Button,
@@ -90,7 +91,13 @@ export function DocPrdViewer({
   const [isTriggeringTestGen, setIsTriggeringTestGen] = useState(false);
   const [isStopping, setIsStopping] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  // Arriving from a comment notification opens the panel the comment lives in;
+  // a plain visit still starts closed. Lazy initial state rather than an effect
+  // — the panel is open on the first paint, so nothing flashes shut.
+  const commentAnchorId = useCommentAnchorId();
+  const [commentsOpen, setCommentsOpen] = useState(
+    () => commentAnchorId !== null,
+  );
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [suggestionCount, setSuggestionCount] = useState(0);

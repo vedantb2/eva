@@ -1,19 +1,24 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
   normalizeAIModel,
+  turnCheckpointArgs,
   usesChatDaemon,
 } from "../validators";
 import { backgroundAgentEntryValidator } from "../_validators/tableFields";
 import { mergeBackgroundAgents } from "../_sessions/backgroundAgents";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "../streaming";
-import { startNextQueuedProjectChatMessage } from "../_queues/helpers";
+import {
+  scheduleQueueDrainAfterBackgroundAgents,
+  startNextQueuedProjectChatMessage,
+} from "../_queues/helpers";
 import { PROJECT_CHAT_STREAM_PREFIX } from "../workflowWatchdog";
+import { isDaemonClaimPaused } from "./daemonClaimPause";
 
 function projectChatStreamEntityId(projectId: Id<"projects">): string {
   return `${PROJECT_CHAT_STREAM_PREFIX}${String(projectId)}`;
@@ -21,14 +26,18 @@ function projectChatStreamEntityId(projectId: Id<"projects">): string {
 
 const emptyClaimReturn = {
   prompt: null,
+  turnLifecycle: "legacy",
   attachmentUrls: [],
   stopTaskToolUseIds: [],
   cancelRequested: false,
+  usageRefreshRequested: false,
 } satisfies {
   prompt: null;
+  turnLifecycle: "legacy";
   attachmentUrls: string[];
   stopTaskToolUseIds: string[];
   cancelRequested: boolean;
+  usageRefreshRequested: boolean;
 };
 
 /** Daemon-pull turn claim for project sandbox chat. */
@@ -36,12 +45,15 @@ export const claimPendingTurn = authMutation({
   args: {
     projectId: v.id("projects"),
     model: v.optional(aiModelValidator),
+    acceptTurn: v.optional(v.boolean()),
   },
   returns: v.object({
     prompt: v.union(v.string(), v.null()),
+    turnLifecycle: v.literal("legacy"),
     attachmentUrls: v.array(v.string()),
     stopTaskToolUseIds: v.array(v.string()),
     cancelRequested: v.boolean(),
+    usageRefreshRequested: v.boolean(),
   }),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -68,21 +80,67 @@ export const claimPendingTurn = authMutation({
       await ctx.db.patch(args.projectId, { cancelRequestedAt: undefined });
     }
 
+    // Level-triggered until the refresh action clears it — old callbacks must
+    // not consume the chip's request as a no-op.
+    const usageRefreshRequested =
+      project.usageRefreshRequestedAt !== undefined;
+
+    // A prewarm is killing this daemon right now. See the session copy in
+    // `_sessions/workflow.ts`: claiming here strands the turn on a dying
+    // process. Placed after the drains so a cancel is never stranded.
+    if (
+      isDaemonClaimPaused({
+        claimPausedUntil: project.claimPausedUntil,
+        now: Date.now(),
+      })
+    ) {
+      return {
+        ...emptyClaimReturn,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
+    }
+
     // Chat daemon only — never claim a turn while another workflow is the only
     // active consumer.
     if (!project.activeChatWorkflowId) {
-      return { ...emptyClaimReturn, stopTaskToolUseIds, cancelRequested };
+      return {
+        ...emptyClaimReturn,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
     }
 
     if (!project.pendingTurn) {
-      return { ...emptyClaimReturn, stopTaskToolUseIds, cancelRequested };
+      return {
+        ...emptyClaimReturn,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
+    }
+
+    if (args.acceptTurn === false) {
+      return {
+        ...emptyClaimReturn,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
     }
 
     const pendingModel = project.pendingTurn.model;
     if (pendingModel !== undefined) {
       const claimModel = normalizeAIModel(args.model);
       if (normalizeAIModel(pendingModel) !== claimModel) {
-        return { ...emptyClaimReturn, stopTaskToolUseIds, cancelRequested };
+        return {
+          ...emptyClaimReturn,
+          stopTaskToolUseIds,
+          cancelRequested,
+          usageRefreshRequested,
+        };
       }
     }
 
@@ -96,7 +154,15 @@ export const claimPendingTurn = authMutation({
       (url): url is string => url !== null,
     );
     await ctx.db.patch(args.projectId, { pendingTurn: undefined });
-    return { prompt, attachmentUrls, stopTaskToolUseIds, cancelRequested };
+    const turnLifecycle = "legacy" as const;
+    return {
+      prompt,
+      turnLifecycle,
+      attachmentUrls,
+      stopTaskToolUseIds,
+      cancelRequested,
+      usageRefreshRequested,
+    };
   },
 });
 
@@ -113,14 +179,22 @@ export const updateBackgroundAgents = authMutation({
       throw new Error("Not authorized");
     }
     if (args.agents.length === 0) return null;
+    const backgroundAgents = mergeBackgroundAgents(
+      project.backgroundAgents,
+      args.agents,
+    );
     await ctx.db.patch(args.projectId, {
-      backgroundAgents: mergeBackgroundAgents(
-        project.backgroundAgents,
-        args.agents,
-      ),
+      backgroundAgents,
       updatedAt: Date.now(),
       lastSandboxActivity: Date.now(),
     });
+    // See the session copy: settling is the one queue release the surface
+    // never signals on its own.
+    await scheduleQueueDrainAfterBackgroundAgents(
+      ctx,
+      args.projectId,
+      backgroundAgents,
+    );
     return null;
   },
 });
@@ -148,7 +222,13 @@ export const requestStopBackgroundAgent = authMutation({
 });
 
 export const openSyntheticTurn = authMutation({
-  args: { projectId: v.id("projects") },
+  args: {
+    projectId: v.id("projects"),
+    // The daemon's own model. Optional only for daemons launched before the
+    // field existed; those fall back to the sticky pick, which the picker can
+    // move mid-flight and may therefore mis-attribute the checkpoint.
+    model: v.optional(aiModelValidator),
+  },
   returns: v.object({ messageId: v.id("messages") }),
   handler: async (ctx, args) => {
     const project = await ctx.db.get(args.projectId);
@@ -163,6 +243,12 @@ export const openSyntheticTurn = authMutation({
       timestamp: Date.now(),
       activityLog: "",
       isSyntheticTurn: true,
+      // Stamped at open time because the daemon protocol carries no model on
+      // completion. Not yet a checkpoint — that needs `finishedAt` too — and
+      // `completeSyntheticTurn` clears it again if the turn fails.
+      model: normalizeAIModel(
+        args.model ?? project.lastChatModel ?? project.model,
+      ),
     });
     await ctx.db.patch(args.projectId, {
       syntheticTurnMessageId: messageId,
@@ -187,6 +273,7 @@ export const completeSyntheticTurn = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     pendingQuestion: v.optional(v.string()),
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -214,6 +301,7 @@ export const completeSyntheticTurn = authMutation({
       activityLog?: string;
       finishedAt: number;
       pendingQuestion?: string;
+      model?: Doc<"messages">["model"];
     } = {
       content: args.success
         ? args.result || "I couldn't process your message."
@@ -222,6 +310,10 @@ export const completeSyntheticTurn = authMutation({
     };
     if (args.activityLog) patch.activityLog = args.activityLog;
     if (args.pendingQuestion) patch.pendingQuestion = args.pendingQuestion;
+    // Drops the open-time stamp so a failed turn never becomes a checkpoint.
+    if (!args.success) {
+      patch.model = undefined;
+    }
     await ctx.db.patch(args.messageId, patch);
 
     await ctx.db.patch(args.projectId, {

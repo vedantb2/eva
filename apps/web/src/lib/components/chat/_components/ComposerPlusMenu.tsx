@@ -6,8 +6,6 @@ import {
   PromptInputActionMenuContent,
   PromptInputActionMenuTrigger,
   DropdownMenuItem,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
@@ -20,27 +18,18 @@ import {
   IconPhoto,
   IconSparkles,
   IconDatabase,
-  IconRoute,
 } from "@tabler/icons-react";
-import type { SessionMode } from "@/lib/hooks/useSessionSettings";
-import {
-  isSessionMode,
-  SESSION_MODE_OPTIONS,
-} from "@/lib/sessionModeOptions";
-import { UserInitials } from "@eva/shared";
 import type { Id } from "@eva/backend";
 import type { MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
-import type { SlashItem } from "@/lib/components/mentions";
+import {
+  MentionRow,
+  type MentionKind,
+  type SlashItem,
+} from "@/lib/components/mentions";
 import {
   IMAGE_ATTACHMENT_ACCEPT,
   CHAT_ATTACHMENT_ACCEPT,
 } from "@/lib/components/chat/imageAttachments";
-
-function previewOneLine(text: string, maxLength = 72): string {
-  const singleLine = text.replace(/\s+/g, " ").trim();
-  if (singleLine.length <= maxLength) return singleLine;
-  return `${singleLine.slice(0, maxLength - 1)}…`;
-}
 
 function matchesQuery(
   query: string,
@@ -52,57 +41,6 @@ function matchesQuery(
   if (label.toLowerCase().includes(q)) return true;
   if (description?.toLowerCase().includes(q)) return true;
   return false;
-}
-
-/** Matches MentionEditor picker rows: `/` or `@` + title, badge, description. */
-function MentionMenuRow({
-  prefix,
-  label,
-  description,
-  badge,
-  personUserId,
-}: {
-  prefix: "/" | "@";
-  label: string;
-  description?: string;
-  badge?: string;
-  personUserId?: Id<"users">;
-}) {
-  if (personUserId !== undefined) {
-    return (
-      <span className="flex w-full min-w-0 items-center gap-2">
-        <UserInitials userId={personUserId} size="sm" hideLastSeen />
-        <span data-pii className="min-w-0 flex-1 truncate">
-          {label}
-        </span>
-        {badge ? (
-          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
-            {badge}
-          </span>
-        ) : null}
-      </span>
-    );
-  }
-
-  const detail = description ? previewOneLine(description) : null;
-  return (
-    <span className="flex min-w-0 w-full flex-col gap-0.5 overflow-hidden">
-      <span className="flex min-w-0 items-center gap-1.5">
-        <span className="flex min-w-0 flex-1 items-center gap-0.5 overflow-hidden">
-          <span className="shrink-0 text-muted-foreground">{prefix}</span>
-          <span className="truncate">{label}</span>
-        </span>
-        {badge ? (
-          <span className="shrink-0 rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-medium leading-none text-muted-foreground">
-            {badge}
-          </span>
-        ) : null}
-      </span>
-      {detail ? (
-        <span className="truncate text-xs text-muted-foreground">{detail}</span>
-      ) : null}
-    </span>
-  );
 }
 
 /** Sticky search field for plus-menu sublists (keeps typing out of Radix key handling). */
@@ -149,6 +87,8 @@ interface DataMenuItem {
   id: string;
   label: string;
   badge?: string;
+  provider?: SlashItem["provider"];
+  kind?: MentionKind;
   description?: string;
   personUserId?: Id<"users">;
 }
@@ -158,8 +98,8 @@ interface ComposerPlusMenuProps {
   /** Same `/` entries the editor's slash picker shows. */
   skillItems: SlashItem[];
   mentionRef: RefObject<MentionTextareaHandle | null>;
-  mode?: SessionMode;
-  onModeChange?: (mode: SessionMode) => void;
+  /** Circular muted plus, matching the compact ChatGPT-style composer. */
+  compact?: boolean;
 }
 
 /**
@@ -170,8 +110,7 @@ export function ComposerPlusMenu({
   dataItems,
   skillItems,
   mentionRef,
-  mode,
-  onModeChange,
+  compact = false,
 }: ComposerPlusMenuProps) {
   const attachments = usePromptInputAttachments();
   const [skillsQuery, setSkillsQuery] = useState("");
@@ -186,7 +125,14 @@ export function ComposerPlusMenu({
 
   return (
     <PromptInputActionMenu>
-      <PromptInputActionMenuTrigger aria-label="Add to message" />
+      <PromptInputActionMenuTrigger
+        aria-label="Add to message"
+        className={
+          compact
+            ? "size-8 shrink-0 rounded-full bg-muted text-foreground hover:bg-muted/80 hover:text-foreground"
+            : undefined
+        }
+      />
       <PromptInputActionMenuContent className="min-w-52">
         <DropdownMenuItem
           onSelect={(e) => {
@@ -213,38 +159,6 @@ export function ComposerPlusMenu({
 
         <DropdownMenuSeparator />
 
-        {mode !== undefined && onModeChange !== undefined ? (
-          <DropdownMenuSub>
-            <DropdownMenuSubTrigger>
-              <IconRoute className="mr-2 size-4" />
-              Modes
-            </DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="min-w-40">
-              <DropdownMenuRadioGroup
-                value={mode}
-                onValueChange={(value) => {
-                  if (isSessionMode(value)) {
-                    onModeChange(value);
-                  }
-                }}
-              >
-                {SESSION_MODE_OPTIONS.map((option) => {
-                  const ModeIcon = option.icon;
-                  return (
-                    <DropdownMenuRadioItem
-                      key={option.value}
-                      value={option.value}
-                    >
-                      <ModeIcon size={14} />
-                      {option.label}
-                    </DropdownMenuRadioItem>
-                  );
-                })}
-              </DropdownMenuRadioGroup>
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        ) : null}
-
         <DropdownMenuSub
           onOpenChange={(open) => {
             if (!open) setSkillsQuery("");
@@ -268,7 +182,9 @@ export function ComposerPlusMenu({
                 />
                 <div className="max-h-56 overflow-y-auto p-1.5">
                   {filteredSkills.length === 0 ? (
-                    <DropdownMenuItem disabled>No matching skills</DropdownMenuItem>
+                    <DropdownMenuItem disabled>
+                      No matching skills
+                    </DropdownMenuItem>
                   ) : (
                     filteredSkills.map((skill) => (
                       <DropdownMenuItem
@@ -278,11 +194,12 @@ export function ComposerPlusMenu({
                           mentionRef.current?.insertSkill(skill);
                         }}
                       >
-                        <MentionMenuRow
+                        <MentionRow
                           prefix="/"
                           label={skill.label}
                           description={skill.description}
                           badge={skill.badge}
+                          provider={skill.provider}
                         />
                       </DropdownMenuItem>
                     ))
@@ -316,7 +233,9 @@ export function ComposerPlusMenu({
                 />
                 <div className="max-h-56 overflow-y-auto p-1.5">
                   {filteredData.length === 0 ? (
-                    <DropdownMenuItem disabled>No matching data</DropdownMenuItem>
+                    <DropdownMenuItem disabled>
+                      No matching data
+                    </DropdownMenuItem>
                   ) : (
                     filteredData.map((item) => (
                       <DropdownMenuItem
@@ -328,15 +247,18 @@ export function ComposerPlusMenu({
                             label: item.label,
                             description: item.description,
                             badge: item.badge,
+                            kind: item.kind,
                             personUserId: item.personUserId,
                           });
                         }}
                       >
-                        <MentionMenuRow
+                        <MentionRow
                           prefix="@"
                           label={item.label}
                           description={item.description}
                           badge={item.badge}
+                          provider={item.provider}
+                          kind={item.kind}
                           personUserId={item.personUserId}
                         />
                       </DropdownMenuItem>

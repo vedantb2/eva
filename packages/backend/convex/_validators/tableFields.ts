@@ -23,7 +23,6 @@ import {
   runModeValidator,
   runStatusValidator,
   sandboxProviderKindValidator,
-  sessionModeValidator,
   sessionStatusValidator,
   snapshotBuildKindValidator,
   snapshotBuildStatusValidator,
@@ -33,6 +32,9 @@ import {
   taskSandboxStatusValidator,
   taskStatusValidator,
   themeValidator,
+  usageLimitCompletenessValidator,
+  usageLimitProviderValidator,
+  usageLimitStatusValidator,
 } from "./enums";
 import {
   automationFindingValidator,
@@ -42,6 +44,7 @@ import {
   experimentalFlagsValidator,
   logEntryValidator,
   terminalPaneValidator,
+  usageLimitWindowValidator,
   userFlowValidator,
   variationValidator,
 } from "./shapes";
@@ -59,6 +62,7 @@ export const userFields = {
   customTheme: v.optional(customThemeValidator),
   toolbarVisible: v.optional(v.boolean()),
   customInstructions: v.optional(v.string()),
+  /** Leftover; writers use `userPresence`. Readers merge until backfill. */
   lastSeenAt: v.optional(v.number()),
   lastSeenPath: v.optional(v.string()),
   lastChangelogDismissedAt: v.optional(v.number()),
@@ -68,6 +72,16 @@ export const userFields = {
   experimentalFlags: v.optional(experimentalFlagsValidator),
   /** Rebound keyboard shortcuts (settings → Shortcuts). Sparse: missing = default. */
   shortcutOverrides: v.optional(shortcutOverridesValidator),
+  // The user's single persistent orchestrator ("master") session. Absent until
+  // first opened; repointed if the master is archived/deleted and recreated.
+  orchestratorSessionId: v.optional(v.id("sessions")),
+};
+
+/** Heartbeat/path writes. Isolated so they do not invalidate `users` subscribers. */
+export const userPresenceFields = {
+  userId: v.id("users"),
+  lastSeenAt: v.optional(v.number()),
+  lastSeenPath: v.optional(v.string()),
 };
 
 // A user's own coding-agent login ("bring your own account"). Each row is one
@@ -160,13 +174,43 @@ export const backgroundAgentEntryValidator = v.object(
 
 export type BackgroundAgentEntry = Infer<typeof backgroundAgentEntryValidator>;
 
+export const turnStateValidator = v.union(
+  v.literal("staged"),
+  v.literal("launching"),
+  v.literal("running"),
+  v.literal("finalizing"),
+  v.literal("done"),
+  v.literal("error"),
+  v.literal("cancelled"),
+);
+
+export type TurnState = Infer<typeof turnStateValidator>;
+
+/** Durable ownership record for one session chat turn. */
+export const turnFields = {
+  surface: v.literal("session"),
+  entityId: v.string(),
+  streamingEntityId: v.string(),
+  state: turnStateValidator,
+  open: v.boolean(),
+  turnStartedAt: v.number(),
+  leaseExpiresAt: v.number(),
+  leaseGeneration: v.number(),
+  finishedAt: v.optional(v.number()),
+  error: v.optional(v.string()),
+  workflowId: v.optional(v.string()),
+  placeholderMessageId: v.optional(v.id("messages")),
+  prompt: v.optional(v.string()),
+  attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+  model: aiModelValidator,
+  sandboxId: v.optional(v.string()),
+  repoId: v.id("githubRepos"),
+};
+
 export const pendingTurnFields = {
   prompt: v.string(),
   requestedAt: v.number(),
-  // legacy field, no longer written — cleanup migration later
-  turnKind: v.optional(
-    v.union(v.literal("conversational"), v.literal("agent")),
-  ),
+  turnId: v.optional(v.id("turns")),
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   model: v.optional(aiModelValidator),
 };
@@ -182,6 +226,13 @@ export const sessionDaemonStateFields = {
   pendingTaskStops: v.optional(v.array(v.string())),
   cancelRequestedAt: v.optional(v.number()),
   sandboxSetupPending: v.optional(v.boolean()),
+  // Level-triggered: the usage chip asks the live Claude daemon to report
+  // plan windows via the Agent SDK. claimPendingTurn returns it without
+  // clearing; the refresh action clears it when it stops waiting.
+  usageRefreshRequestedAt: v.optional(v.number()),
+  // Mirrors sessions.claimPausedUntil — the prewarm kill fence is read off
+  // this compact row on the 50ms claim poll.
+  claimPausedUntil: v.optional(v.number()),
 };
 
 export const chatDaemonEntityFields = {
@@ -194,6 +245,14 @@ export const chatDaemonEntityFields = {
   // unconditionally (even mid-turn, with no pendingTurn) so the daemon's poll
   // loop notices and aborts its in-flight SDK query.
   cancelRequestedAt: v.optional(v.number()),
+  // Same level-triggered flag as sessionDaemonStates.usageRefreshRequestedAt,
+  // for project and task chat daemons.
+  usageRefreshRequestedAt: v.optional(v.number()),
+  // Self-expiring fence set by prewarm around a daemon kill. See
+  // `_chat/daemonClaimPause.ts`: while it is in the future claimPendingTurn
+  // hands back an empty claim so a dying daemon cannot take the turn (and its
+  // 2-minute running lease) with it.
+  claimPausedUntil: v.optional(v.number()),
 };
 
 export const agentTaskFields = {
@@ -272,6 +331,9 @@ export const agentTaskFields = {
   // Soft UX lock while the agent drives the shared desktop Chrome via
   // browser_lock/browser_unlock MCP tools (mirrors sessions.agentBrowsingAt).
   agentBrowsingAt: v.optional(v.number()),
+  // Orchestrator session watching this task for completion notifications
+  // (mirrors sessions.watchedByOrchestrator).
+  watchedByOrchestrator: v.optional(v.id("sessions")),
 };
 
 export const agentRunFields = {
@@ -314,6 +376,10 @@ export const sessionFields = {
   repoId: v.id("githubRepos"),
   userId: v.id("users"),
   title: v.string(),
+  // Set while "Regenerate title" runs so every sidebar shows the in-progress
+  // state live; cleared on success or failure. Clients treat a startedAt older
+  // than a couple of minutes as stale.
+  titleRegeneration: v.optional(v.object({ startedAt: v.number() })),
   branchName: v.optional(v.string()),
   // Base branch this session checks out from and creates its branch off of.
   // Chosen at creation (defaults to the repo default). Persisted so sandbox
@@ -342,15 +408,23 @@ export const sessionFields = {
   createdBy: v.optional(v.id("users")),
   planContent: v.optional(v.string()),
   activeWorkflowId: v.optional(v.string()),
+  /**
+   * Set the first time this session opens a durable Turn. Missing sessions may
+   * still have a pre-cutover workflow in flight, so projections temporarily
+   * consult the legacy workflow fields until this marker is written.
+   */
+  turnLifecycleVersion: v.optional(v.literal(2)),
   // The user provider account chosen for this session's runs (overriding the
   // team credential). Session-scoped so the page-open daemon prewarm — which
   // has no per-message context — still injects the right account. Absent = team
   // credential. Set by startExecute from the composer's picker.
   providerAccountId: v.optional(v.id("userProviderAccounts")),
-  // The AI provider this session is pinned to, taken from the model chosen at
-  // creation. The composer only offers this provider's models and every model
-  // write asserts against it — see `assertModelMatchesLockedProvider`. Absent
-  // on sessions created before the lock; those keep the old free choice.
+  // The AI provider the session started on, taken from the model chosen at
+  // creation. Not a lock — the composer can move a session onto any visible
+  // model, including another provider's. Read as the fallback "previous
+  // provider" when a turn's predecessor carries no model stamp, so unstamped
+  // history is not replayed to the provider that already holds it (see
+  // `_shared/modelHandoff.ts`). Absent on older sessions.
   provider: v.optional(aiProviderValidator),
   // Last model the user sent on this session. Page-open prewarm uses this so
   // the warm daemon matches the composer's picker instead of defaulting to sonnet.
@@ -363,8 +437,6 @@ export const sessionFields = {
   lastThinkingEnabled: v.optional(v.boolean()),
   lastUse1mContext: v.optional(v.boolean()),
   lastFastMode: v.optional(v.boolean()),
-  // Sticky composer mode (edit / plan). Absent → client default "edit".
-  lastMode: v.optional(sessionModeValidator),
   // Sticky Preview URL path for this session (e.g. "/dashboard"). Device
   // viewport stays tab-local; port reuses `devPort` below.
   previewPath: v.optional(v.string()),
@@ -384,14 +456,56 @@ export const sessionFields = {
   // chat. `claimPendingTurn` withholds the queued first turn until this clears,
   // so the agent never runs against a stale snapshot checkout or baked modules.
   sandboxSetupPending: v.optional(v.boolean()),
-  // Design mode: index of the variation the user selected as the refine base.
-  selectedVariationIndex: v.optional(v.number()),
+  // True from early-ready until final-ready, i.e. while the session lifecycle
+  // is still launching background/startup services. Gates the Preview poll's
+  // background heal so it never relaunches daemons the lifecycle is about to
+  // launch itself (double launch orphaned children and truncated logs).
+  sandboxServicesPending: v.optional(v.boolean()),
+  // Persistent per-user master ("orchestrator") session. Set only at creation —
+  // the sandbox token's orchestrator claim is minted at launch, never toggled.
+  isOrchestrator: v.optional(v.boolean()),
+  // Orchestrator session watching this one for completion notifications. Set
+  // implicitly when the master touches this session (send/create) or via
+  // watch_agent; cleared by unwatch_agent or when the master is gone.
+  watchedByOrchestrator: v.optional(v.id("sessions")),
 };
 
 export const syncSettingFields = {
   owner: v.string(),
   name: v.string(),
   enabled: v.boolean(),
+};
+
+/** One built-in slash command reported by a harness CLI's init handshake. */
+export const harnessSkillValidator = v.object({
+  name: v.string(),
+  description: v.string(),
+  argumentHint: v.optional(v.string()),
+});
+
+/**
+ * The built-in skill catalog a harness CLI ships with, one row per provider.
+ * Deliberately global rather than per repo: every sandbox boots from the same
+ * image, so the CLI build — and therefore its command list — is fleet-wide.
+ * Reported by the provider daemon at session start (see
+ * `harnessSkills.upsertForProvider`) and read by the composer's `/` picker,
+ * which falls back to a static list until the first sandbox reports.
+ */
+export const harnessSkillCatalogFields = {
+  provider: aiProviderValidator,
+  /** Harness CLI version the catalog was read from, e.g. "2.1.239". */
+  cliVersion: v.string(),
+  skills: v.array(harnessSkillValidator),
+  updatedAt: v.number(),
+};
+
+/** One short-lived, single-use credential for a sandbox catalog report. */
+export const harnessSkillReportTokenFields = {
+  tokenHash: v.string(),
+  provider: aiProviderValidator,
+  sandboxId: v.string(),
+  repoId: v.id("githubRepos"),
+  expiresAt: v.number(),
 };
 
 export const repoSkillFields = {
@@ -646,6 +760,35 @@ export const automationRunFields = {
   findings: v.optional(v.array(automationFindingValidator)),
 };
 
+/**
+ * Usage columns denormalised from `rawResultEvent` at write time (see
+ * `_logs/usage.ts`) so the Usage page aggregates without parsing JSON blobs.
+ * Optional until the backfill migration has run; rows without a result event
+ * never get them.
+ */
+export const logUsageFields = {
+  costUsd: v.optional(v.number()),
+  model: v.optional(v.string()),
+  provider: v.optional(v.string()),
+  inputTokens: v.optional(v.number()),
+  outputTokens: v.optional(v.number()),
+  cacheReadTokens: v.optional(v.number()),
+  cacheCreationTokens: v.optional(v.number()),
+  durationMs: v.optional(v.number()),
+  contextWindow: v.optional(v.number()),
+};
+
+export const logFields = {
+  entityType: v.string(),
+  entityId: v.string(),
+  entityTitle: v.string(),
+  rawResultEvent: v.optional(v.string()),
+  repoId: v.id("githubRepos"),
+  projectId: v.optional(v.id("projects")),
+  createdAt: v.number(),
+  ...logUsageFields,
+};
+
 export const messageFields = {
   role: roleValidator,
   content: v.string(),
@@ -654,14 +797,12 @@ export const messageFields = {
   activityLog: v.optional(v.string()),
   userId: v.optional(v.id("users")),
   parentId: v.union(v.id("sessions"), v.id("projects"), v.id("agentTasks")),
-  mode: v.optional(sessionModeValidator),
   // Client-generated id (crypto.randomUUID) set when a user message is sent
   // optimistically. Lets the client dedup its local pending row against the
   // server row once the reactive query delivers it.
   clientId: v.optional(v.string()),
   isSystemAlert: v.optional(v.boolean()),
   errorDetail: v.optional(v.string()),
-  personaId: v.optional(v.id("designPersonas")),
   variations: v.optional(v.array(variationValidator)),
   imageStorageId: v.optional(v.id("_storage")),
   videoStorageId: v.optional(v.id("_storage")),
@@ -679,10 +820,25 @@ export const messageFields = {
   // Snapshot of which credential powered this chat turn ("Team" or the
   // account label). Set on user messages at send/dequeue time.
   credentialSourceLabel: v.optional(v.string()),
-  // Model + effort chosen in the composer for this user turn. Snapshotted at
-  // send/dequeue so the chat can show a provider icon + tooltip later.
+  // User rows: model chosen in the composer, snapshotted at send/dequeue so the
+  // chat can show a provider icon + tooltip later. Assistant rows: the provider
+  // checkpoint, stamped on successful completion — everything after the last
+  // checkpoint for a provider is what a cross-provider catch-up replays (see
+  // `_shared/modelHandoff.ts`).
   model: v.optional(aiModelValidator),
   reasoningLevel: v.optional(reasoningLevelValidator),
+  // User-role message injected via MCP (master session or user OAuth
+  // connector). Drives a "via MCP" badge in chat.
+  sentViaOrchestrator: v.optional(v.boolean()),
+  // User-role wake-up row inserted into the master session when a watched
+  // child agent finishes. Drives distinct UI styling.
+  orchestratorNotification: v.optional(v.boolean()),
+  // Turn checkpoint (assistant rows, sessions only): sandbox git HEAD when the
+  // turn started and after persistTurnWork committed/pushed at turn end. Equal
+  // shas mean the turn changed no code. Absent on turns from pre-checkpoint
+  // callback bundles and on task runs.
+  beforeSha: v.optional(v.string()),
+  afterSha: v.optional(v.string()),
 };
 
 export const queuedMessageFields = {
@@ -696,7 +852,6 @@ export const queuedMessageFields = {
   // field deploys without a migration; legacy rows without it sort first.
   order: v.optional(v.number()),
   userId: v.id("users"),
-  mode: v.optional(sessionModeValidator),
   model: v.optional(aiModelValidator),
   // Carried alongside `model` so a queued message runs on the same user account
   // that was selected when it was enqueued.
@@ -706,10 +861,17 @@ export const queuedMessageFields = {
   use1mContext: v.optional(v.boolean()),
   fastMode: v.optional(v.boolean()),
   responseLength: v.optional(v.string()),
-  personaId: v.optional(v.id("designPersonas")),
-  numDesigns: v.optional(v.number()),
   // Carried from the composer through the queue to the started user message.
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+  // Set when a child-completion wake-up had to be queued because the master was
+  // busy. Copied onto the started user message so the row still renders as a
+  // notification rather than a plain user turn (mirrors
+  // messageFields.orchestratorNotification).
+  orchestratorNotification: v.optional(v.boolean()),
+  // Same idea for a message the orchestrator sent to a BUSY child: without it
+  // the "via orchestrator" badge was lost on exactly the messages that had to
+  // queue (mirrors messageFields.sentViaOrchestrator).
+  sentViaOrchestrator: v.optional(v.boolean()),
 };
 
 export const taskSandboxEventFields = {
@@ -984,4 +1146,51 @@ export const backgroundProcessFields = {
   status: backgroundProcessStatusValidator,
   startedAt: v.number(),
   exitedAt: v.optional(v.number()),
+};
+
+/**
+ * The latest plan usage-limit reading for one agent credential, captured in the
+ * sandbox at the end of every turn and upserted here (one row per connected
+ * account, plus one per team for the shared credential). Each row is a whole
+ * snapshot, so a field the provider stopped reporting disappears rather than
+ * going stale.
+ *
+ * Plan windows only: Claude reports `subscriptionType`, `status` and `windows`
+ * (5-hour, weekly, per-model). A provider that exposes no plan limits does not
+ * belong here — its spend is the per-turn cost gauge's business.
+ */
+export const agentUsageLimitFields = {
+  /**
+   * Legacy. Readings used to be keyed per repo, and the rows written then still
+   * name the repo they were reported on; new rows never set it. Nothing reads
+   * them — plan headroom is a fact about the credential, so a per-repo row was
+   * the same number filed under the wrong key — and they age out of the 24h
+   * freshness window on their own, so `report` just deletes any it walks past.
+   */
+  repoId: v.optional(v.id("githubRepos")),
+  provider: usageLimitProviderValidator,
+  /**
+   * The connected account the run authenticated as. Plan limits are per
+   * account, so this is the row's identity: without it a second account's
+   * reading would overwrite the first. Absent on the team row below.
+   */
+  providerAccountId: v.optional(v.id("userProviderAccounts")),
+  /**
+   * The team whose shared credential (`CLAUDE_CODE_OAUTH_TOKEN`, from team or
+   * repo env vars) this reading measures. Set only on that row, and never
+   * alongside `providerAccountId`: a run authenticates as one or the other.
+   */
+  teamId: v.optional(v.id("teams")),
+  /** Epoch ms the sandbox took this reading. */
+  capturedAt: v.number(),
+  /** claude.ai plan, e.g. "max". Absent for API-key sessions. */
+  subscriptionType: v.optional(v.string()),
+  status: v.optional(usageLimitStatusValidator),
+  windows: v.optional(v.array(usageLimitWindowValidator)),
+  /**
+   * What the latest observation covered, so a windowless row says why. Absent
+   * on rows written by callback bundles that predate the discriminant; readers
+   * treat that as "unknown", not as any of the three states.
+   */
+  completeness: v.optional(usageLimitCompletenessValidator),
 };

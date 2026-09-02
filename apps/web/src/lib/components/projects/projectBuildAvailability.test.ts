@@ -50,9 +50,10 @@ describe("build is offered only on phases that can still build", () => {
   it("the phase registry covers the whole union", () => {
     const configured = configuredPhases();
     // A scan that found nothing would satisfy the comparison below for free.
-    expect(configured.length, "phaseConfig keys no longer parse").toBeGreaterThan(
-      4,
-    );
+    expect(
+      configured.length,
+      "phaseConfig keys no longer parse",
+    ).toBeGreaterThan(4);
     expect(
       [...phaseList("PROJECT_PHASES")].sort(),
       "a new phase reached the union without joining PROJECT_PHASES",
@@ -77,10 +78,7 @@ describe("build is offered only on phases that can still build", () => {
   it("settled and pre-build phases are excluded", () => {
     const buildable = phaseList(BUILDABLE);
     for (const phase of ["draft", "finalized", "completed", "cancelled"]) {
-      expect(
-        buildable,
-        `${phase} must not offer a build`,
-      ).not.toContain(phase);
+      expect(buildable, `${phase} must not offer a build`).not.toContain(phase);
     }
   });
 
@@ -108,7 +106,10 @@ describe("the project header reads the allow-list", () => {
   it("gates both the build and stop-build controls on it", () => {
     const gateAt = detailSource.indexOf("{canBuildProject ? (");
     const buildAt = detailSource.indexOf("<SplitBuildButton");
-    const stopAt = detailSource.indexOf("Stop Build");
+    // Anchor the stop control on its aria-label, not its visible "Stop Build"
+    // text: the header's prose above the gate names the button too, and
+    // matching that comment read as a regression while the gate was intact.
+    const stopAt = detailSource.indexOf('aria-label="Stop build"');
     expect(gateAt, "the build gate moved").toBeGreaterThan(-1);
     expect(buildAt, "the build button moved").toBeGreaterThan(gateAt);
     expect(stopAt, "the stop-build button moved").toBeGreaterThan(gateAt);

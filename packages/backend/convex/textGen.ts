@@ -2,23 +2,30 @@
 
 import { ActionCache } from "@convex-dev/action-cache";
 import { generateText } from "ai";
-import { parseGeneratedTags } from "@eva/shared";
+import { isTitleRegenerating, parseGeneratedTags } from "@eva/shared";
 import { v } from "convex/values";
 import { components, internal } from "./_generated/api";
 import { action, internalAction } from "./_generated/server";
+import { getActionRepoWithAccess } from "./functions";
+import { buildTitleDigest } from "./_sessions/prompts";
 
 /** Cheap gateway model for session titles — one-line change later. */
 const TEXT_GEN_MODEL = "openai/gpt-5-nano";
 
+/** Trims, then strips one pair of wrapping quotes the model sometimes adds. */
+function stripWrappingQuotes(raw: string): string {
+  const text = raw.trim();
+  const wrappedDouble = text.startsWith('"') && text.endsWith('"');
+  const wrappedSingle = text.startsWith("'") && text.endsWith("'");
+  if ((wrappedDouble || wrappedSingle) && text.length >= 2) {
+    return text.slice(1, -1).trim();
+  }
+  return text;
+}
+
 /** Strips wrapping quotes the model sometimes adds around the title. */
 function cleanGeneratedTitle(raw: string): string {
-  let title = raw.trim();
-  const wrappedDouble = title.startsWith('"') && title.endsWith('"');
-  const wrappedSingle = title.startsWith("'") && title.endsWith("'");
-  if ((wrappedDouble || wrappedSingle) && title.length >= 2) {
-    title = title.slice(1, -1).trim();
-  }
-  return title;
+  return stripWrappingQuotes(raw);
 }
 
 /**
@@ -56,6 +63,67 @@ export const generateSessionTitle = internalAction({
       console.error("[textGen.generateSessionTitle]", error);
     }
     return null;
+  },
+});
+
+/**
+ * Re-titles a session from its whole conversation, on demand from the session
+ * context menu. Unlike `generateSessionTitle` this overwrites a manual title —
+ * the user asked for it — and runs while they wait, so failures surface as a
+ * toast rather than being swallowed. The in-progress flag is cleared on every
+ * exit so a crashed run cannot leave the action disabled.
+ */
+export const regenerateSessionTitle = action({
+  args: { sessionId: v.id("sessions") },
+  returns: v.object({ title: v.string() }),
+  handler: async (ctx, args): Promise<{ title: string }> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    const context = await ctx.runQuery(internal.sessions.getTitleContext, {
+      sessionId: args.sessionId,
+    });
+    if (!context) throw new Error("Session not found");
+    await getActionRepoWithAccess(ctx, context.repoId);
+    if (isTitleRegenerating(context.titleRegeneration, Date.now())) {
+      throw new Error("Title regeneration already running");
+    }
+    const digest = buildTitleDigest(context.messages);
+    if (!digest) throw new Error("Nothing to title yet");
+
+    await ctx.runMutation(internal.sessions.markTitleRegenerating, {
+      sessionId: args.sessionId,
+      startedAt: Date.now(),
+    });
+    let title: string;
+    try {
+      const { text } = await generateText({
+        model: TEXT_GEN_MODEL,
+        prompt: `Write a new title for this coding session based on the whole conversation below. The title should describe the work the session is about — not claim it is finished. 3-8 words, under 40 characters. Reply with the title only — plain text, no quotes, no trailing punctuation.
+
+Previous title: ${context.title}
+
+Conversation:
+${digest}`,
+        providerOptions: {
+          gateway: {
+            serviceTier: "flex",
+          },
+        },
+      });
+      title = cleanGeneratedTitle(text);
+    } catch (error) {
+      await ctx.runMutation(internal.sessions.applyRegeneratedTitle, {
+        sessionId: args.sessionId,
+        title: undefined,
+      });
+      throw error;
+    }
+    await ctx.runMutation(internal.sessions.applyRegeneratedTitle, {
+      sessionId: args.sessionId,
+      title,
+    });
+    if (!title) throw new Error("The model returned an empty title");
+    return { title };
   },
 });
 
@@ -213,5 +281,61 @@ export const completeText = action({
       text: args.text.slice(-MAX_COMPLETION_INPUT),
       contextHint: args.contextHint,
     });
+  },
+});
+
+/** Transcripts run long; the head is what matters, and 8k chars is minutes of speech. */
+const MAX_TRANSCRIPT_INPUT = 8000;
+
+/**
+ * Cleans up a raw voice-dictation transcript before it lands in a composer:
+ * drops filler words, applies spoken self-corrections, and — only when the
+ * transcript rambles across several asks — reshapes it into short bullets.
+ *
+ * Returns "" on any model failure, which the client reads as "keep the raw
+ * transcript"; polish is a nicety and must never lose what the user said.
+ * Not cached: transcripts are effectively unique, so a cache buys nothing.
+ *
+ * Deliberately does NOT use the flex service tier (same reasoning as
+ * `completeTextInternal`): the user is waiting on this call.
+ */
+export const polishTranscript = action({
+  args: {
+    transcript: v.string(),
+  },
+  returns: v.string(),
+  handler: async (ctx, args): Promise<string> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) throw new Error("Not authenticated");
+    try {
+      const { text } = await generateText({
+        model: TEXT_GEN_MODEL,
+        prompt: `You are cleaning up a raw speech-to-text transcript. The speaker is dictating an instruction to an AI coding agent.
+
+Rewrite the transcript so it reads as if it were typed, following every rule:
+1. Remove filler words and disfluencies — "um", "uh", "like", "you know", stutters, and accidentally repeated words.
+2. Apply spoken self-corrections. When the speaker changes their mind ("make it blue, actually no, make it green"), keep only the final intent ("make it green") and drop the abandoned one.
+3. Preserve the meaning and every concrete detail exactly — file names, identifiers, numbers, quoted strings. Never add information the speaker did not say. Never answer, act on, or expand the instruction. Never drop a distinct request.
+4. Match the structure to the input. If the transcript covers several distinct asks or is a long ramble, output short markdown bullet lines ("- " prefixed), one per ask. If it is a single short request, output one or two clean sentences with no bullets.
+5. If the transcript is already clean, return it essentially unchanged.
+6. Reply with the polished text only — no preamble, no quotes, no explanation.
+
+Transcript:
+${args.transcript.slice(0, MAX_TRANSCRIPT_INPUT)}`,
+        // gpt-5 counts reasoning tokens against maxOutputTokens, and the output
+        // roughly mirrors the input length, so keep reasoning off and the cap high.
+        providerOptions: {
+          openai: {
+            reasoningEffort: "minimal",
+            textVerbosity: "low",
+          },
+        },
+        maxOutputTokens: 2048,
+      });
+      return stripWrappingQuotes(text);
+    } catch (error) {
+      console.error("[textGen.polishTranscript]", error);
+      return "";
+    }
   },
 });

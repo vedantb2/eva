@@ -13,6 +13,11 @@ interface EvaIconProps {
    * readers do not announce the name twice.
    */
   label?: string | null;
+  /**
+   * Draw the backing disc. Off where the mark sits among line glyphs (the
+   * rail), since at ~22px the disc reads as a pale blob and swallows the star.
+   */
+  disc?: boolean;
 }
 
 /**
@@ -20,7 +25,12 @@ interface EvaIconProps {
  * surface it lands on. Full-bleed — the badge gutter is a favicon-only concern
  * (see `evaMark.ts`).
  */
-export function EvaIcon({ size = 20, className, label = "Eva" }: EvaIconProps) {
+export function EvaIcon({
+  size = 20,
+  className,
+  label = "Eva",
+  disc = true,
+}: EvaIconProps) {
   const a11y =
     label === null
       ? { "aria-hidden": true }
@@ -34,7 +44,9 @@ export function EvaIcon({ size = 20, className, label = "Eva" }: EvaIconProps) {
       className={className}
       {...a11y}
     >
-      <circle cx="256" cy="256" r="256" className="fill-card" />
+      {disc ? (
+        <circle cx="256" cy="256" r="256" className="fill-card" />
+      ) : null}
       <polygon points={EVA_MARK_TOP_POINTS} fill={EVA_MARK_PURPLE} />
       <polygon points={EVA_MARK_BOTTOM_POINTS} fill={EVA_MARK_BLUE} />
     </svg>

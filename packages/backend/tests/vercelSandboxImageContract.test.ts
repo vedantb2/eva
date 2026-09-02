@@ -97,10 +97,12 @@ test("snapshot restores never pass a base image", () => {
   );
   const createAt = source.indexOf("async create(params: SandboxCreateParams)");
   expect(createAt, "VercelSandboxClient.create moved").toBeGreaterThan(-1);
-  const body = source.slice(
-    createAt,
-    source.indexOf("\n  async get(", createAt),
-  );
+  // `//` comments stripped: the prose between the two branches names the very
+  // properties this asserts are absent, so a raw-text match reads the comment
+  // rather than the code.
+  const body = source
+    .slice(createAt, source.indexOf("\n  async get(", createAt))
+    .replace(/^\s*\/\/.*$/gm, "");
 
   const snapshotBranchAt = body.indexOf('source: { type: "snapshot"');
   const freshBranchAt = body.indexOf("...freshSource");
@@ -113,4 +115,25 @@ test("snapshot restores never pass a base image", () => {
     body.slice(snapshotBranchAt, freshBranchAt),
     "the snapshot branch must not carry runtime/image",
   ).not.toMatch(/freshSource|runtime:|image:/);
+});
+
+/**
+ * `params.image` is a deliberate per-sandbox choice — the orchestrator boots
+ * from ORCHESTRATOR_SANDBOX_IMAGE regardless of the deployment default — so it
+ * has to outrank VERCEL_SANDBOX_IMAGE rather than be overwritten by it.
+ */
+test("a caller-supplied image outranks the deployment default", () => {
+  const source = readFileSync(
+    join(testsDir, "../convex/_sandbox/vercelProvider.ts"),
+    "utf8",
+  ).replace(/^\s*\/\/.*$/gm, "");
+  const at = source.indexOf("const freshSource =");
+  expect(at, "freshSource moved or was renamed").toBeGreaterThan(-1);
+  const decl = source.slice(at, source.indexOf(";", at));
+  expect(decl).toContain("params.image");
+  expect(decl).toContain("resolveVercelSandboxSource()");
+  expect(
+    decl.indexOf("params.image"),
+    "the per-call image must be the ternary's condition, not its fallback",
+  ).toBeLessThan(decl.indexOf("resolveVercelSandboxSource()"));
 });

@@ -3,6 +3,7 @@ import {
   HEARTBEAT_FATAL_BURST,
   HEARTBEAT_FATAL_SLOW_COUNT,
   HEARTBEAT_FATAL_SLOW_WINDOW_MS,
+  CLAIM_MUTATION,
   READY_FILE,
   SCRIPT_STARTED_AT,
   STREAMING_ENTITY_ID,
@@ -22,12 +23,31 @@ import { writeFileSync } from "fs";
 import { callbackState as S } from "./state.js";
 import { flushBackgroundShellQueue } from "./backgroundShells.js";
 import { serializeSteps } from "../parse/stepBudget.js";
+import {
+  canSendTurnHeartbeat,
+  decideTurnLeaseExit,
+  getLeaseTerminalReason,
+  getTurnOwnership,
+} from "./turnLease.js";
 
 let flushInterval: ReturnType<typeof setInterval> | null = null;
 let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+let activeFlush: Promise<void> | null = null;
+let flushRequested = false;
+
+function ownsHeartbeatLease(): boolean {
+  return canSendTurnHeartbeat({
+    claimMutation: CLAIM_MUTATION,
+    ownership: getTurnOwnership(),
+  });
+}
 
 export function buildStreamingPayload(): string {
-  return serializeSteps(S.accumulatedSteps);
+  return serializeSteps(
+    S.transientThinkingStep
+      ? [...S.accumulatedSteps, S.transientThinkingStep]
+      : S.accumulatedSteps,
+  );
 }
 
 function markHeartbeatSuccess(payload: string): void {
@@ -100,6 +120,7 @@ function noteHeartbeatFailure(error: Error | string): void {
 export async function sendStreamingHeartbeatUpdate(
   payload: string,
 ): Promise<boolean> {
+  if (!ownsHeartbeatLease()) return true;
   try {
     await callStreamingHeartbeat(
       STREAMING_ENTITY_ID ?? "",
@@ -115,54 +136,83 @@ export async function sendStreamingHeartbeatUpdate(
   }
 }
 
-export async function flushStreaming(): Promise<void> {
-  if (S.flushInProgress) return;
-  if (S.rawOutput.length <= S.lastProcessed) {
-    // Still drain bg-shell registrations even when there is no new stream text.
+async function flushStreamingPass(): Promise<void> {
+  if (!ownsHeartbeatLease()) {
     void flushBackgroundShellQueue();
     return;
   }
-  S.flushInProgress = true;
-  try {
+
+  let hasNew = false;
+  if (S.rawOutput.length > S.lastProcessed) {
     const pending = S.rawOutput.slice(S.lastProcessed);
     const lastNewline = pending.lastIndexOf("\n");
-    if (lastNewline === -1) return;
-    S.lastProcessed += lastNewline + 1;
-    let hasNew = false;
-    for (const line of pending.slice(0, lastNewline).split("\n")) {
-      const clean = line.trim();
-      if (!clean) continue;
-      if (parseStreamEvent(clean)) {
-        hasNew = true;
-        S.parsedStreamEventCount++;
+    if (lastNewline >= 0) {
+      S.lastProcessed += lastNewline + 1;
+      for (const line of pending.slice(0, lastNewline).split("\n")) {
+        const clean = line.trim();
+        if (!clean) continue;
+        if (parseStreamEvent(clean)) {
+          hasNew = true;
+          S.parsedStreamEventCount++;
+        }
       }
     }
-    const contentChanged = S.currentStreamedContent !== S.lastSentContent;
-    if (hasNew || contentChanged) {
-      const payload = buildStreamingPayload();
-      if (payload === S.lastSentPayload && !contentChanged) {
-        return;
-      }
-      await sendStreamingHeartbeatUpdate(payload);
-    } else if (
-      S.inFlightToolUses > 0 &&
-      Date.now() - S.lastStreamingSentAt > 15_000
-    ) {
-      const entityId = STREAMING_ENTITY_ID ?? "";
-      if (entityId) {
-        await callStreamingHeartbeatTouch(entityId);
-        S.lastStreamingSentAt = Date.now();
-      }
+  }
+
+  const payload = buildStreamingPayload();
+  const contentChanged = S.currentStreamedContent !== S.lastSentContent;
+  const activityChanged = payload !== S.lastSentPayload;
+  if (hasNew || contentChanged || activityChanged) {
+    await sendStreamingHeartbeatUpdate(payload);
+  } else if (
+    S.inFlightToolUses > 0 &&
+    Date.now() - S.lastStreamingSentAt > 15_000
+  ) {
+    const entityId = STREAMING_ENTITY_ID ?? "";
+    if (entityId) {
+      await callStreamingHeartbeatTouch(entityId);
+      S.lastStreamingSentAt = Date.now();
     }
+  }
+
+  void flushBackgroundShellQueue();
+}
+
+async function drainRequestedFlushes(): Promise<void> {
+  S.flushInProgress = true;
+  try {
+    do {
+      flushRequested = false;
+      await flushStreamingPass();
+    } while (flushRequested);
   } finally {
     S.flushInProgress = false;
-    void flushBackgroundShellQueue();
   }
+}
+
+/**
+ * Coalesces concurrent parser flushes into one drain that every caller can
+ * await. A result event can arrive while an earlier heartbeat is still in
+ * flight; returning early in that case let finalization serialize the turn
+ * before its last tool events were parsed, and live updates could disappear.
+ */
+export function flushStreaming(): Promise<void> {
+  flushRequested = true;
+  if (activeFlush) return activeFlush;
+
+  const flush = drainRequestedFlushes();
+  activeFlush = flush;
+  const clearActiveFlush = () => {
+    if (activeFlush === flush) activeFlush = null;
+  };
+  void flush.then(clearActiveFlush, clearActiveFlush);
+  return flush;
 }
 
 const PING_STUCK_MS = 45_000;
 
 async function heartbeatPing(): Promise<void> {
+  if (!ownsHeartbeatLease()) return;
   if (
     S.pingInProgress &&
     S.pingStartedAt > 0 &&
@@ -186,6 +236,10 @@ async function heartbeatPing(): Promise<void> {
       await sendStreamingHeartbeatUpdate(buildStreamingPayload());
       return;
     }
+    if (S.transientThinkingStep) {
+      await sendStreamingHeartbeatUpdate(buildStreamingPayload());
+      return;
+    }
     const entityId = STREAMING_ENTITY_ID ?? "";
     if (!entityId) return;
     // Touch-only ping: keep watchdog heartbeats alive during long silent tool
@@ -203,6 +257,10 @@ async function heartbeatPing(): Promise<void> {
 }
 
 async function initialHeartbeat(): Promise<void> {
+  if (!ownsHeartbeatLease()) {
+    log("initialHeartbeat skipped: daemon is waiting to claim a turn");
+    return;
+  }
   const startedAt = Date.now();
   let attempt = 0;
   while (attempt <= 1) {
@@ -232,10 +290,10 @@ async function initialHeartbeat(): Promise<void> {
 
 export function startStreamingLoops(): void {
   flushInterval = setInterval(() => {
-    void flushStreaming();
+    void flushStreaming().then(enforceTurnLease);
   }, 150);
   heartbeatInterval = setInterval(() => {
-    void heartbeatPing();
+    void heartbeatPing().then(enforceTurnLease);
   }, 10000);
 }
 
@@ -247,7 +305,26 @@ export async function stopStreamingLoops(): Promise<void> {
   await flushStreaming();
 }
 
-export async function setFinalizingState(): Promise<void> {
+const LEASE_EXIT_GRACE_MS = 500;
+let leaseExitScheduled = false;
+
+function enforceTurnLease(): boolean {
+  const decision = decideTurnLeaseExit({
+    terminalReason: getLeaseTerminalReason(),
+    exitScheduled: leaseExitScheduled,
+  });
+  if (decision.action === "continue") return false;
+  if (decision.action === "wait") return true;
+  leaseExitScheduled = true;
+  log("exiting: turn lease terminal (" + decision.reason + ")");
+  if (flushInterval) clearInterval(flushInterval);
+  if (heartbeatInterval) clearInterval(heartbeatInterval);
+  S.streamingLoopsStopped = true;
+  setTimeout(() => process.exit(0), LEASE_EXIT_GRACE_MS).unref();
+  return true;
+}
+
+export async function setFinalizingState(): Promise<boolean> {
   // No "Finalizing response..." step — status filler isn't shown in the
   // activity flow; the response text itself is the signal.
   markLastComplete();
@@ -257,6 +334,7 @@ export async function setFinalizingState(): Promise<void> {
   } catch {
     /* ignore final heartbeat errors */
   }
+  return enforceTurnLease();
 }
 
 export async function runPreflightHeartbeat(): Promise<boolean> {

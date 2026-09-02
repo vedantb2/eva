@@ -5,9 +5,20 @@ export const CONVEX_URL = process.env.CONVEX_URL;
 export const CONVEX_SITE_URL = process.env.CONVEX_SITE_URL || CONVEX_URL;
 export const CONVEX_TOKEN = process.env.CONVEX_TOKEN;
 export const STREAMING_HMAC = process.env.STREAMING_HMAC || "";
+/** Short-lived, single-use credential for `/api/harness-skills/report`. */
+export const HARNESS_CATALOG_TOKEN = process.env.HARNESS_CATALOG_TOKEN || "";
+export const HARNESS_CATALOG_SANDBOX_ID =
+  process.env.HARNESS_CATALOG_SANDBOX_ID || "";
 export const ENTITY_ID = process.env.ENTITY_ID;
 export const STREAMING_ENTITY_ID = process.env.STREAMING_ENTITY_ID || ENTITY_ID;
 export const RUN_ID = process.env.RUN_ID || null;
+export const TURN_ID = process.env.TURN_ID || null;
+const parsedTurnLeaseGeneration = Number(process.env.TURN_LEASE_GENERATION);
+export const TURN_LEASE_GENERATION =
+  Number.isSafeInteger(parsedTurnLeaseGeneration) &&
+  parsedTurnLeaseGeneration > 0
+    ? parsedTurnLeaseGeneration
+    : null;
 export const ENTITY_ID_FIELD = process.env.ENTITY_ID_FIELD;
 /** App subdirectory (e.g. apps/eprocurement) — also scanned for agent media. */
 export const ROOT_DIRECTORY = process.env.ROOT_DIRECTORY || "";
@@ -27,6 +38,21 @@ export const MODEL =
   process.env.AI_MODEL || process.env.CLAUDE_MODEL || "claude:sonnet";
 export const ALLOWED_TOOLS = process.env.ALLOWED_TOOLS || "Read,Glob,Grep";
 /**
+ * This turn may not modify the workspace (set for Manager Ave, the master
+ * session, which supervises agents and never implements).
+ *
+ * Provider-agnostic on purpose: `ALLOWED_TOOLS` above is Claude's tool
+ * vocabulary and only `claudeSdk.ts` can read it, so every other adapter keys
+ * off this boolean and applies its own restriction — Cursor `disallowedTools`,
+ * Codex `sandboxMode: "read-only"`. On Claude and Cursor, shell and MCP stay
+ * fully available: the master reads production logs through the shell and
+ * orchestrates the fleet through MCP. Codex restricts at the sandbox instead of
+ * per tool, so see `codexSdk.ts` for what that does and does not guarantee.
+ * OpenCode has no restriction — its SDK is fetched at runtime and exposes no
+ * verified tool-permission option, so there the prompt is the only gate.
+ */
+export const NO_WRITES = process.env.EVA_NO_WRITES === "1";
+/**
  * Human-in-the-loop AskUserQuestion. The Agent SDK exposes the `canUseTool`
  * pause needed to block a turn on an answer, and only sessions currently wire the
  * answering UI — so this is gated to session runs. Elsewhere AskUserQuestion
@@ -44,6 +70,22 @@ export const CALLBACK_SCRIPT_FP = process.env.CALLBACK_SCRIPT_FP || "";
  * and respawn the daemon instead of reusing it with the wrong options.
  */
 export const DAEMON_OPTS_SIG = process.env.EVA_DAEMON_OPTS || "";
+/** Internal process-isolation handoff used by the Cursor daemon. */
+export const CURSOR_TURN_WORKER_PROMPT_FILE =
+  process.env.EVA_CURSOR_TURN_WORKER_PROMPT_FILE || "";
+export const CURSOR_TURN_WORKER_LIFECYCLE =
+  process.env.EVA_CURSOR_TURN_WORKER_LIFECYCLE || "";
+export const CURSOR_TURN_WORKER_TURN_ID =
+  process.env.EVA_CURSOR_TURN_WORKER_TURN_ID || "";
+const parsedCursorWorkerLeaseGeneration = Number(
+  process.env.EVA_CURSOR_TURN_WORKER_LEASE_GENERATION,
+);
+export const CURSOR_TURN_WORKER_LEASE_GENERATION = Number.isSafeInteger(
+  parsedCursorWorkerLeaseGeneration,
+)
+  ? parsedCursorWorkerLeaseGeneration
+  : 0;
+export const IS_CURSOR_TURN_WORKER = CURSOR_TURN_WORKER_PROMPT_FILE.length > 0;
 export const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "";
 export const WORK_DIR = existsSync("/tmp/repo")
   ? "/tmp/repo"
@@ -182,6 +224,15 @@ process.env.GH_NO_UPDATE_NOTIFIER = "1";
 
 export const REPO_ID = process.env.REPO_ID;
 
+/**
+ * The connected provider account whose credentials this run authenticated as.
+ * Set by the launcher only when an account override actually took effect, so an
+ * empty value means the run used the sandbox's shared team credential — which is
+ * exactly the attribution a usage-limit reading needs (plan limits are per
+ * account, and two accounts' readings must not overwrite each other).
+ */
+export const PROVIDER_ACCOUNT_ID = process.env.PROVIDER_ACCOUNT_ID || "";
+
 // --- Reasoning / thinking effort ---
 // `AI_REASONING_EFFORT` is the abstract level from the traits menu, sent only
 // when the user picks a non-default level. Mapped per provider below:
@@ -216,6 +267,11 @@ export const cursorFastMode = PROVIDER === "cursor" && AI_FAST_MODE === "1";
 export const cursorUse1mContext =
   PROVIDER === "cursor" && AI_CONTEXT_1M === "1";
 
+/** User turned thinking off (traits toggle or Claude effort "off"). */
+export const claudeThinkingDisabled =
+  AI_THINKING_ENABLED === "0" ||
+  (PROVIDER === "claude" && REASONING_EFFORT === "off");
+
 function buildSettingsJson(): string {
   const settings: {
     attribution: { commit: string; pr: string };
@@ -223,10 +279,7 @@ function buildSettingsJson(): string {
   } = {
     attribution: { commit: "", pr: "" },
   };
-  const thinkingDisabled =
-    AI_THINKING_ENABLED === "0" ||
-    (PROVIDER === "claude" && REASONING_EFFORT === "off");
-  if (thinkingDisabled) {
+  if (claudeThinkingDisabled) {
     settings.alwaysThinkingEnabled = false;
   }
   return JSON.stringify(settings);
@@ -317,24 +370,9 @@ export const TOOL_STEP_TYPES = new Set([
   "todos",
 ]);
 
-export const CODEX_PRICING_PER_MILLION: Record<
-  string,
-  { input: number; cached: number; output: number }
-> = {
-  // OpenAI API list prices (per 1M tokens).
-  "gpt-5.6-sol": { input: 5.0, cached: 0.5, output: 30.0 },
-  "gpt-5.6-terra": { input: 2.0, cached: 0.2, output: 12.0 },
-  "gpt-5.6-luna": { input: 0.2, cached: 0.02, output: 1.2 },
-  "gpt-5.5": { input: 5.0, cached: 0.5, output: 30.0 },
-  // Legacy — kept so in-flight sandboxes still cost-account correctly.
-  "gpt-5.5-pro": { input: 30.0, cached: 30.0, output: 180.0 },
-
-  "gpt-5.4": { input: 1.25, cached: 0.125, output: 10.0 },
-  "gpt-5.4-mini": { input: 0.25, cached: 0.025, output: 2.0 },
-  "gpt-5.3-codex": { input: 1.25, cached: 0.125, output: 10.0 },
-  "gpt-5.2-codex": { input: 1.25, cached: 0.125, output: 10.0 },
-  "gpt-5-codex": { input: 1.25, cached: 0.125, output: 10.0 },
-};
+// Pricing lives in @eva/shared so the web Usage page and this bundle read
+// one table. Re-exported to keep `computeCodexCostUsd` imports unchanged.
+export { CODEX_PRICING_PER_MILLION } from "@eva/shared/modelPricing";
 
 export const completedLabels: Record<string, string> = {
   "Preparing Claude session...": "Prepared Claude session",

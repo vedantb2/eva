@@ -3,6 +3,8 @@ import { z } from "zod";
 import { httpAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { SANDBOX_JWT_ISSUER } from "./sandboxAuthConfig";
+import { parseHarnessCatalogReport } from "./_harnessSkills/report";
+import { streamingHeartbeatHmacMessage } from "./_sandbox_runtime/callbackAuth";
 
 const http = httpRouter();
 
@@ -37,8 +39,11 @@ function verifyDeployKey(request: Request): boolean {
   return timingSafeEqual(auth, `Convex ${expected}`);
 }
 
-/** Computes the scoped streaming heartbeat HMAC for a single entity. */
-async function computeStreamingHmac(entityId: string): Promise<string | null> {
+/**
+ * Computes the scoped HMAC a launched sandbox must present for a heartbeat.
+ * The message is domain-separated from every other callback credential.
+ */
+async function computeScopedHmac(message: string): Promise<string | null> {
   const secret = process.env.ENCRYPTION_KEY;
   if (!secret) return null;
   const encoder = new TextEncoder();
@@ -49,9 +54,17 @@ async function computeStreamingHmac(entityId: string): Promise<string | null> {
     false,
     ["sign"],
   );
-  const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(entityId));
+  const sig = await crypto.subtle.sign("HMAC", key, encoder.encode(message));
   return Array.from(new Uint8Array(sig))
     .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function sha256Hex(value: string): Promise<string> {
+  const bytes = new TextEncoder().encode(value);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
 }
 
@@ -81,32 +94,113 @@ http.route({
       });
     }
 
-    const expected = await computeStreamingHmac(entityId);
+    const expected = await computeScopedHmac(
+      streamingHeartbeatHmacMessage(entityId),
+    );
     if (!expected) {
       return new Response("ENCRYPTION_KEY is not configured", {
         status: 500,
       });
     }
-    if (!timingSafeEqual(hmac, expected)) {
+    const validCurrent = timingSafeEqual(hmac, expected);
+    // Warm callbacks launched before domain separation still sign their raw
+    // entity id. Keep that narrow compatibility path, but never for the old
+    // catalog namespace whose credential caused the cross-route collision.
+    const legacyExpected = validCurrent
+      ? null
+      : await computeScopedHmac(entityId);
+    const validLegacy =
+      !entityId.startsWith("harness-catalog:") &&
+      legacyExpected !== null &&
+      timingSafeEqual(hmac, legacyExpected);
+    if (!validCurrent && !validLegacy) {
       return new Response("Invalid heartbeat signature", { status: 401 });
     }
 
-    if (touchOnly) {
-      await ctx.runMutation(internal.streaming.internalTouch, { entityId });
-    } else {
-      if (!currentActivity) {
-        return new Response("Missing required heartbeat fields", {
-          status: 400,
-        });
+    const turnId = params.get("turnId");
+    if (turnId !== null) {
+      const leaseGeneration = Number(params.get("leaseGeneration"));
+      if (!Number.isSafeInteger(leaseGeneration) || leaseGeneration <= 0) {
+        return new Response("Invalid turn lease generation", { status: 400 });
       }
-      await ctx.runMutation(internal.streaming.internalSet, {
+      const lease = await ctx.runMutation(internal.turns.heartbeat, {
+        turnId,
+        leaseGeneration,
         entityId,
-        currentActivity,
+        touchOnly,
+        currentActivity: currentActivity ?? undefined,
         currentContent: params.get("currentContent") ?? "",
         pendingQuestion: params.get("pendingQuestion") ?? undefined,
       });
+      return Response.json({ ok: true, lease });
     }
 
+    const accepted = await ctx.runMutation(internal.turns.legacyHeartbeat, {
+      entityId,
+      touchOnly,
+      currentActivity: currentActivity ?? undefined,
+      currentContent: params.get("currentContent") ?? "",
+      pendingQuestion: params.get("pendingQuestion") ?? undefined,
+    });
+    return Response.json({
+      ok: true,
+      accepted,
+      lease: accepted
+        ? null
+        : { status: "terminal", reason: "superseded" },
+    });
+  }),
+});
+
+/**
+ * Records the built-in slash-command catalog a sandbox's harness CLI ships
+ * with. A short-lived, single-use token is issued for one sandbox launch, so a
+ * value exposed to repo code cannot become a permanent fleet-wide write key.
+ */
+http.route({
+  path: "/api/harness-skills/report",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const params = new URLSearchParams(await request.text());
+    const provider = requiredFormValue(params, "provider");
+    const token = requiredFormValue(params, "token");
+    const sandboxId = requiredFormValue(params, "sandboxId");
+    const repoId = requiredFormValue(params, "repoId");
+    if (!provider || !token || !sandboxId || !repoId) {
+      return new Response("Missing required catalog report fields", {
+        status: 400,
+      });
+    }
+
+    const report = parseHarnessCatalogReport({
+      provider,
+      cliVersion: requiredFormValue(params, "cliVersion"),
+      skillsJson: requiredFormValue(params, "skills"),
+    });
+    if (!report) {
+      return new Response("Malformed catalog report", { status: 400 });
+    }
+
+    const authorized = await ctx.runMutation(
+      internal.harnessSkills.consumeReportToken,
+      {
+        tokenHash: await sha256Hex(token),
+        provider: report.provider,
+        sandboxId,
+        repoId,
+      },
+    );
+    if (!authorized) {
+      return new Response("Invalid or expired catalog report token", {
+        status: 401,
+      });
+    }
+
+    await ctx.runMutation(internal.harnessSkills.upsertForProvider, {
+      provider: report.provider,
+      cliVersion: report.cliVersion,
+      commands: report.commands,
+    });
     return Response.json({ ok: true });
   }),
 });

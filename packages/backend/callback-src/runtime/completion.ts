@@ -22,6 +22,7 @@ import { callConvexWithRetry, fetchWithTimeout } from "../http/convexClient.js";
 import { getCodexAgentMessageText } from "../parse/toolSteps.js";
 import { callbackState as S } from "../runtime/state.js";
 import { mediaSearchDirs } from "../runtime/sandboxMedia.js";
+import { appendTurnCheckpoint } from "../runtime/turnCheckpoint.js";
 import type { JsonObject, ResultEvent } from "../types.js";
 import { attemptElapsedMs, readResponseJson, tryParseJson } from "../utils.js";
 import {
@@ -491,12 +492,14 @@ async function uploadMediaFile(
 /** Attaches uploaded media to the chat message the turn just wrote. */
 async function attachChatMediaIfAny(
   uploaded: { storageId: string; fileName: string }[],
+  target: { messageId?: string },
 ): Promise<void> {
   if (uploaded.length === 0) return;
   const mediaArgs: JsonObject = {
     parentId: ENTITY_ID ?? "",
     mediaStorageIds: uploaded.map((item) => item.storageId),
   };
+  if (target.messageId) mediaArgs.messageId = target.messageId;
   await callConvexWithRetry("action", "screenshots:attachMedia", mediaArgs, 3);
 }
 
@@ -507,14 +510,17 @@ async function attachChatMediaIfAny(
  * message that was just written.
  */
 export async function deliverCompletionWithMedia(
-  completionArgs: Record<string, string | boolean | null>,
+  completionArgs: JsonObject,
 ): Promise<void> {
+  // Every success path runs persistTurnWork() before this, so the checkpoint's
+  // afterSha is the pushed turn-end tip.
+  appendTurnCheckpoint(completionArgs);
   await callConvexWithRetry(
     "mutation",
     COMPLETION_MUTATION ?? "",
     completionArgs,
   );
-  await uploadAndAttachSandboxMedia();
+  await uploadAndAttachSandboxMedia({});
 }
 
 /**
@@ -545,7 +551,9 @@ function archivePostedFile(dir: string, file: string): void {
   renameSync(dir + "/" + file, postedDir + "/" + file);
 }
 
-async function uploadAndAttachSandboxMedia(): Promise<void> {
+export async function uploadAndAttachSandboxMedia(
+  target: { messageId?: string },
+): Promise<void> {
   // Task runs (RUN_ID set) have no chat message to attach to — only chat turns
   // scan. Anything a run leaves behind is picked up by the next chat turn.
   if (RUN_ID) return;
@@ -612,7 +620,7 @@ async function uploadAndAttachSandboxMedia(): Promise<void> {
   }
 
   try {
-    await attachChatMediaIfAny(uploaded);
+    await attachChatMediaIfAny(uploaded, target);
   } catch (e) {
     console.error("Failed to attach sandbox media:", e);
   }

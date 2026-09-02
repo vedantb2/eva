@@ -14,6 +14,7 @@ import {
   UserMentionChip,
   LinkChip,
   isSkillTokenId,
+  isHarnessSkillTokenId,
   isChipLinkUrl,
   MENTION_CHIP_CLASS,
   SKILL_CHIP_CLASS,
@@ -191,6 +192,9 @@ export function MarkdownMentionText({
               e.stopPropagation();
               navigate({ to: `${repoBasePath}/settings/skills` });
             };
+            if (isHarnessSkillTokenId(id)) {
+              return <span className={SKILL_CHIP_CLASS}>/{label}</span>;
+            }
             if (isSkillTokenId(id)) {
               return (
                 <SkillMentionChip

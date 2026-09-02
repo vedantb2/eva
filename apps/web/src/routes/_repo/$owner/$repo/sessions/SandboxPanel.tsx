@@ -2,7 +2,7 @@ import { useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
 import {
   api,
-  normalizeAIModel,
+  type BackgroundAgentEntry,
   type Id,
   type SandboxOwner,
 } from "@eva/backend";
@@ -10,6 +10,7 @@ import { isSessionSandboxTab } from "@/lib/search-params";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
+import { SandboxAgentsPanel } from "@/lib/components/sandbox/SandboxAgentsPanel";
 import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
 import { DesignVariationsPanel } from "./_components/DesignVariationsPanel";
 import { FilesPanel } from "./FilesPanel";
@@ -17,12 +18,14 @@ import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import { type SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace";
 import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
-import { useComputerTab } from "@/lib/components/sandbox/useComputerTab";
-import { useEditorTab } from "@/lib/components/sandbox/useEditorTab";
 import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
-import { useSessionModel } from "@/lib/hooks/useSessionModel";
-import { useRepo } from "@/lib/contexts/RepoContext";
+import {
+  deriveSubagents,
+  subagentTone,
+} from "@/lib/components/sandbox/agentActivity";
+import { SandboxPanelFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
+import { useSeedChatDraft } from "@/lib/components/chat/useSeedChatDraft";
 import { useSessionAnnotationSend } from "./_components/useSessionAnnotationSend";
 import { catchMutationError } from "@/lib/utils/mutationToast";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
@@ -31,7 +34,10 @@ import {
   type SessionDesignMessage,
 } from "./_utils/designVariations";
 import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
-import type { SessionMode } from "@/lib/hooks/useSessionSettings";
+import {
+  APPROVE_PLAN_PROMPT,
+  designVariationPrompt,
+} from "./_utils/composerPrompts";
 interface SandboxPanelProps {
   sessionId: Id<"sessions">;
   sandboxId: string | undefined;
@@ -50,8 +56,10 @@ interface SandboxPanelProps {
   terminalPanel: TerminalPanelApi;
   planContent?: string;
   messages?: SessionDesignMessage[];
-  lastMode?: SessionMode;
-  selectedVariationIndex?: number;
+  /** Sub-agent lifecycle entries from the session doc (Agents tab). */
+  backgroundAgents?: BackgroundAgentEntry[];
+  /** Live activity payload for the current turn (Agents tab live steps). */
+  streamingActivity?: string;
   isArchived?: boolean;
   /** Builtin tab id (SandboxTab) or a custom tab's name slug. */
   activeTab: string;
@@ -59,6 +67,10 @@ interface SandboxPanelProps {
   agentBrowsingAt?: number;
   onStartSandbox?: () => void;
   isSandboxStarting?: boolean;
+  collapsed?: boolean;
+  onToggle?: () => void;
+  /** Lets the visible Preview float into the mini-player (Expand → returnTo). */
+  miniPlayer?: { returnTo: string; title: string };
 }
 export function SandboxPanel({
   sessionId,
@@ -74,28 +86,43 @@ export function SandboxPanel({
   terminalPanel,
   planContent,
   messages = [],
-  lastMode,
-  selectedVariationIndex,
+  backgroundAgents,
+  streamingActivity,
   isArchived,
   activeTab,
   onTabChange,
   agentBrowsingAt,
   onStartSandbox,
   isSandboxStarting,
+  collapsed = false,
+  onToggle,
+  miniPlayer,
 }: SandboxPanelProps) {
   const simpleView = useSimpleView();
-  const { repo } = useRepo();
   const sessionIdStr = String(sessionId);
-  const { setMode } = useSessionModel(
-    sessionId,
-    normalizeAIModel(repo.defaultModel),
-  );
   const submitAnnotation = useSessionAnnotationSend(sessionId);
-  const selectVariation = useMutation(api.sessions.selectVariation);
+  const seedChatDraft = useSeedChatDraft({
+    kind: "sessionChat",
+    sessionId,
+  });
   const latestVariations = getLatestVariations(messages);
-  const showDesignsTab = lastMode === "design" || latestVariations.length > 0;
+  // Both tabs are content-keyed: they appear once the session has produced the
+  // artefact they show, whatever prompt or skill produced it.
+  const hasPlanContent =
+    typeof planContent === "string" && planContent.trim().length > 0;
   const hasDesignsContent = latestVariations.length > 0;
   const isDesignExecuting = isAssistantTurnInProgress(messages);
+  // Streaming payloads can outlive their turn; only fold them in while one runs.
+  const agents = deriveSubagents({
+    activityLogs: messages.map((m) => m.activityLog),
+    streamingActivity: isDesignExecuting ? streamingActivity : undefined,
+    backgroundAgents,
+    sandboxRunning: isActive,
+  });
+  const hasAgents = agents.length > 0;
+  const hasRunningAgents = agents.some(
+    (agent) => subagentTone(agent.status) === "active",
+  );
   // Sticky Preview path/port + console tail, keyed by the sandbox owner so all
   // three surfaces read and write this state through the same functions.
   const viewState = useQuery(api.sandboxPanes.getViewState, { owner });
@@ -116,18 +143,6 @@ export function SandboxPanel({
     },
   });
   const fileList = useSandboxFileList({ sandboxId, repoId, isActive });
-  const {
-    computerTabOpen,
-    computerRunning,
-    setComputerRunning,
-    openComputer,
-    closeComputer,
-  } = useComputerTab(`session:${sessionIdStr}`, activeTab, onTabChange);
-  const { editorTabOpen, openEditor, closeEditor } = useEditorTab(
-    `session:${sessionIdStr}`,
-    activeTab,
-    onTabChange,
-  );
   // User-defined tabs for this app, in display order, enabled only.
   const allCustomTabs = useQuery(api.appTabs.list, { repoId });
   const customTabs = (allCustomTabs ?? []).filter((tab) => tab.enabled);
@@ -147,39 +162,38 @@ export function SandboxPanel({
   const enabledTabs = withBrowserTab(panes.enabledTabs);
   const previewUrl = preview.previewInfo?.url ?? null;
   return (
-    <div className="h-full flex flex-col">
-      <SandboxTabBar
-        compact
-        activeTab={activeTab}
-        onTabChange={onTabChange}
-        onNewPreview={() => {
-          panes.handleNewPreview();
-          onTabChange("preview");
-        }}
-        newPreviewDisabled={panes.newPreviewDisabled}
-        enabledTabs={enabledTabs}
-        showPrdTab
-        hasPrdContent={
-          typeof planContent === "string" && planContent.trim().length > 0
-        }
-        showDesignsTab={showDesignsTab}
-        hasDesignsContent={hasDesignsContent}
-        showFilesTab
-        customTabs={simpleView ? undefined : customTabs}
-        agentBrowsingAt={agentBrowsingAt}
-        computerTabOpen={computerTabOpen}
-        computerRunning={computerRunning}
-        onOpenComputer={openComputer}
-        onCloseComputer={closeComputer}
-        editorTabOpen={editorTabOpen}
-        onOpenEditor={openEditor}
-        onCloseEditor={closeEditor}
-        hotkeysEnabled={isRouteActive}
-        fileList={fileList}
-        consoleDock={panes.consoleDock}
-        terminalPanel={terminalPanel}
-      />
-      <div className="flex-1 overflow-hidden bg-card">
+    <SandboxPanelFrame
+      collapsed={collapsed}
+      tabBar={
+        <SandboxTabBar
+          className="px-2 py-2 sm:px-3 sm:py-3"
+          activeTab={activeTab}
+          onTabChange={onTabChange}
+          collapsed={collapsed}
+          onToggle={onToggle}
+          onNewPreview={() => {
+            panes.handleNewPreview();
+            onTabChange("preview");
+          }}
+          newPreviewDisabled={panes.newPreviewDisabled}
+          enabledTabs={enabledTabs}
+          showPrdTab={hasPlanContent}
+          hasPrdContent={hasPlanContent}
+          showDesignsTab={hasDesignsContent}
+          hasDesignsContent={hasDesignsContent}
+          showFilesTab
+          showAgentsTab={hasAgents}
+          hasRunningAgents={hasRunningAgents}
+          customTabs={simpleView ? undefined : customTabs}
+          agentBrowsingAt={agentBrowsingAt}
+          hotkeysEnabled={isRouteActive}
+          fileList={fileList}
+          consoleDock={panes.consoleDock}
+          terminalPanel={terminalPanel}
+        />
+      }
+    >
+      <div className="h-full overflow-hidden">
         <div
           className={
             activeTab === "prd"
@@ -191,7 +205,9 @@ export function SandboxPanel({
             <SessionPrdPlanView
               sessionId={sessionId}
               planContent={planContent}
-              onApprovePlan={() => setMode("edit")}
+              onApprovePlan={() => {
+                void seedChatDraft(APPROVE_PLAN_PROMPT);
+              }}
               variant="panel"
               isArchived={isArchived}
             />
@@ -201,8 +217,9 @@ export function SandboxPanel({
               <div className="max-w-md space-y-1">
                 <p className="text-sm font-medium">No plan yet</p>
                 <p className="text-sm text-muted-foreground">
-                  Switch the composer to Plan mode and describe what you want to
-                  build — the plan will appear here once generated.
+                  Run <span className="font-mono">/eva-plan</span> in the
+                  composer and describe what you want to build — the plan will
+                  appear here once generated.
                 </p>
               </div>
             </div>
@@ -221,20 +238,34 @@ export function SandboxPanel({
             isArchived={isArchived === true}
             isExecuting={isDesignExecuting}
             latestVariations={latestVariations}
-            selectedVariationIndex={selectedVariationIndex}
             isSandboxStarting={isSandboxStarting === true}
             onStartSandbox={() => onStartSandbox?.()}
-            onSelectVariation={(index) => {
-              void selectVariation({ id: sessionId, variationIndex: index });
+            onUseVariation={(letter, label) => {
+              void seedChatDraft(designVariationPrompt(letter, label));
             }}
           />
         </div>
-        <div className={!simpleView && activeTab === "files" ? "h-full min-h-0" : "hidden"}>
+        <div
+          className={
+            !simpleView && activeTab === "files" ? "h-full min-h-0" : "hidden"
+          }
+        >
           <FilesPanel
             sandboxId={sandboxId}
             repoId={repoId}
             isActive={isActive}
             fileList={fileList}
+          />
+        </div>
+        <div
+          className={
+            !simpleView && activeTab === "agents" ? "h-full min-h-0" : "hidden"
+          }
+        >
+          <SandboxAgentsPanel
+            entity={{ kind: "session", sessionId }}
+            agents={agents}
+            isReadOnly={isArchived === true}
           />
         </div>
         <SandboxPaneSlots
@@ -259,10 +290,16 @@ export function SandboxPanel({
           }
           // Backend starts the app in the Console tmux session after startup.
           runConsoleDevCommandOnConnect={false}
-          onComputerRunningChange={setComputerRunning}
           onStartSandbox={onStartSandbox}
           isSandboxStarting={isSandboxStarting}
           onAnnotationSubmit={submitAnnotation}
+          // Only the session on screen may float; cached siblings and a
+          // collapsed rail keep their preview parked.
+          miniPlayer={
+            miniPlayer !== undefined && isRouteActive && !collapsed
+              ? { ...miniPlayer, sessionId }
+              : undefined
+          }
           stickyPreviewPath={viewState?.previewPath}
           onStickyPreviewPathChange={(path) => {
             void setPreviewPath({ owner, path });
@@ -277,6 +314,6 @@ export function SandboxPanel({
           }}
         />
       </div>
-    </div>
+    </SandboxPanelFrame>
   );
 }

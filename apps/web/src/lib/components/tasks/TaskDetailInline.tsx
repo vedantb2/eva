@@ -5,7 +5,8 @@ import { createPortal } from "react-dom";
 import { useQueryState } from "nuqs";
 import { useMutation } from "convex/react";
 import { api, type Id, type SandboxOwner } from "@eva/backend";
-import { Badge } from "@eva/ui";
+import { Badge, cn } from "@eva/ui";
+import { MobilePaneSwitcher } from "@/lib/components/MobilePaneSwitcher";
 import { IconLoader2, IconClock } from "@tabler/icons-react";
 import dayjs from "@eva/shared/dates";
 import { useTaskDetail } from "./useTaskDetail";
@@ -23,12 +24,16 @@ import { StartupCommandsConfirmDialog } from "./_components/StartupCommandsConfi
 import { RunDevServerConfirmDialog } from "./_components/RunDevServerConfirmDialog";
 import { TaskSandboxPanel } from "./TaskSandboxPanel";
 import { TaskSandboxChatPanel } from "./TaskSandboxChatPanel";
+import { findFirstRunChatTurnRun } from "./firstRunChatTurn";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import {
   SandboxWorkspace,
   type TerminalPanelApi,
 } from "@/lib/components/sandbox/SandboxWorkspace";
+import { SANDBOX_RAIL_WIDTH_PX } from "@/lib/components/sandbox/sandboxRail";
+import { SandboxEmptyRailFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
 import type { SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
+import { SandboxSurfaceTabs } from "@/lib/components/sandbox/SandboxSurfaceTabs";
 import {
   fileViewerPathParser,
   isTaskRouteSandboxTab,
@@ -54,6 +59,8 @@ export function TaskDetailInline({
 }: TaskDetailInlineProps) {
   const [embeddedSandboxTab, setEmbeddedSandboxTab] =
     useState<SandboxTab>("preview");
+  /** Which detail pane is on screen below `md`; both show at `md` and up. */
+  const [showMobileProperties, setShowMobileProperties] = useState(false);
   const [, setFileViewerPath] = useQueryState("file", fileViewerPathParser);
   const quickTaskHeaderActionsSlot = useQuickTaskHeaderActionsSlot();
   const simpleView = useSimpleView();
@@ -109,7 +116,7 @@ export function TaskDetailInline({
     isSandboxStopping,
     handleStartSandbox,
     handleStopSandbox,
-    handleToggleSandboxView,
+    handleSelectSurface,
     handleRetryStartupCommands,
     isRetryingStartupCommands,
     handleRunDevServer,
@@ -184,6 +191,13 @@ export function TaskDetailInline({
   const isQuickTask = task.projectId === undefined;
   const isSandboxViewActive = showSandbox;
 
+  // A quick task's settled first run renders as the opening chat turn in the
+  // sandbox view instead of a timeline accordion (see firstRunChatTurn.ts).
+  const firstRunInChat = isQuickTask ? findFirstRunChatTurnRun(runs) : undefined;
+  const timelineRuns = firstRunInChat
+    ? runs?.filter((run) => run._id !== firstRunInChat._id)
+    : runs;
+
   const routeSandboxTab: TaskRouteSandboxTab =
     routing?.mode === "quick-sandbox" ? routing.quick.sandboxTab : "preview";
   const activeSandboxTab: SandboxTab =
@@ -197,6 +211,8 @@ export function TaskDetailInline({
     panes: SandboxPanesApi,
     owner: SandboxOwner,
     terminalPanel: TerminalPanelApi,
+    collapsed: boolean,
+    onToggle: () => void,
   ) =>
     task?.repoId && canViewSandbox ? (
       <TaskSandboxPanel
@@ -210,22 +226,25 @@ export function TaskDetailInline({
         panes={panes}
         terminalPanel={terminalPanel}
         prUrl={latestPrUrl}
+        backgroundAgents={task.backgroundAgents}
         activeTab={activeSandboxTab}
         onTabChange={handleSandboxTabChange}
         onStartSandbox={
           canStartSandbox && !isSandboxStopping ? handleStartSandbox : undefined
         }
         isSandboxStarting={isSandboxStarting}
+        collapsed={collapsed}
+        onToggle={onToggle}
       />
     ) : (
-      <div className="flex h-full items-center justify-center p-8">
+      <SandboxEmptyRailFrame collapsed={collapsed} onToggle={onToggle}>
         <div className="flex flex-col items-center gap-3 text-center">
           <p className="text-sm text-muted-foreground">
             No sandbox for this task yet — it becomes available once the task
             has run
           </p>
         </div>
-      </div>
+      </SandboxEmptyRailFrame>
     );
 
   const sandboxContent = (
@@ -243,17 +262,20 @@ export function TaskDetailInline({
           leftDefaultSize="40%"
           leftMinWidthPx={350}
           rightMinWidthPx={300}
+          rightCollapsedSizePx={SANDBOX_RAIL_WIDTH_PX}
           defaultRightCollapsed={false}
           expandRightSignal={expandRightSignal}
           mobilePaneLabels={{ left: "Chat", right: "Sandbox" }}
-          leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
+          leftPanel={() => (
             <TaskSandboxChatPanel
               taskId={taskId}
               isSandboxActive={isSandboxActive}
               isSandboxToggling={isSandboxStarting || isSandboxStopping}
               onOpenFile={openFile}
-              sandboxCollapsed={rightPanelCollapsed}
-              onToggleSandbox={onToggleRightPanel}
+              onOpenAgentsTab={() => {
+                handleSandboxTabChange("agents");
+                setExpandRightSignal((n) => n + 1);
+              }}
               onSandboxToggle={
                 canStartSandbox || isSandboxActive
                   ? (action) => {
@@ -264,7 +286,15 @@ export function TaskDetailInline({
               }
             />
           )}
-          rightPanel={sandboxRightPanel(panes, owner, terminalPanel)}
+          rightPanel={({ rightPanelCollapsed, onToggleRightPanel }) =>
+            sandboxRightPanel(
+              panes,
+              owner,
+              terminalPanel,
+              rightPanelCollapsed,
+              onToggleRightPanel,
+            )
+          }
         />
       )}
     </SandboxWorkspace>
@@ -273,9 +303,31 @@ export function TaskDetailInline({
   const detailContent = (
     <TaskReactionsProvider taskId={taskId}>
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* Below `md` the two columns stack, which buried Status / Priority /
+            Labels / Project under the whole (unbounded) activity timeline — on a
+            phone the only way to change a task's status was to scroll past every
+            run and comment. One pane at a time instead, same model the split
+            primitives use, following ProjectTabs' CSS-gated shape so desktop
+            keeps rendering both columns with no JS involved.
+            Local state, not a URL tab: on desktop both panes are on screen at
+            once, so there is nothing here worth linking to. */}
+        <div className="shrink-0 md:hidden">
+          <MobilePaneSwitcher
+            labels={{ left: "Overview", right: "Properties" }}
+            showingRight={showMobileProperties}
+            onSelect={(pane) => setShowMobileProperties(pane === "right")}
+          />
+        </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-hidden scrollbar md:overflow-hidden">
           <div className="flex min-h-0 flex-1 flex-col md:grid md:grid-cols-[14fr_6fr] md:grid-rows-1 md:overflow-hidden">
-            <div className="min-h-0 min-w-0 md:flex md:flex-1 md:flex-col md:overflow-hidden">
+            {/* Only one column is hidden at a time below `md`, and the scroller
+                above stays the single scroll owner for whichever is showing. */}
+            <div
+              className={cn(
+                "min-h-0 min-w-0 md:flex md:flex-1 md:flex-col md:overflow-hidden",
+                showMobileProperties && "max-md:hidden",
+              )}
+            >
               <div className="flex min-h-0 min-w-0 flex-col overflow-x-hidden md:flex-1 md:overflow-y-auto md:scrollbar">
                 <div className="flex min-h-0 flex-1 flex-col">
                   <div className="shrink-0 space-y-4 px-4 pt-4 md:px-6 md:pr-6 md:pt-5">
@@ -327,7 +379,7 @@ export function TaskDetailInline({
                       taskId={taskId}
                       createdAt={task.createdAt}
                       creatorUser={creatorUser}
-                      runs={runs}
+                      runs={timelineRuns}
                       comments={comments}
                       taskActivity={taskActivity}
                       users={users}
@@ -341,7 +393,14 @@ export function TaskDetailInline({
                 </div>
               </div>
             </div>
-            <div className="mt-6 flex shrink-0 flex-col min-w-0 overflow-x-hidden px-4 pb-4 md:mt-0 md:overflow-hidden md:px-0 md:pb-0 md:pl-8 md:pr-6 md:pt-5">
+            {/* `mt-6` is gone: it separated this from the overview when the two
+                stacked, and as its own pane it starts at the top instead. */}
+            <div
+              className={cn(
+                "flex min-w-0 shrink-0 flex-col overflow-x-hidden px-4 pb-4 max-md:pt-4 md:overflow-hidden md:px-0 md:pb-0 md:pl-8 md:pr-6 md:pt-5",
+                !showMobileProperties && "max-md:hidden",
+              )}
+            >
               <StatusFieldsSection
                 taskId={taskId}
                 task={task}
@@ -364,8 +423,11 @@ export function TaskDetailInline({
     </TaskReactionsProvider>
   );
 
+  const actionsSlotElement = quickTaskHeaderActionsSlot?.actionsElement;
+  const titleSlotElement = quickTaskHeaderActionsSlot?.titleAfterElement;
+
   const quickTaskHeaderActions =
-    isQuickTask && quickTaskHeaderActionsSlot?.slotElement ? (
+    isQuickTask && actionsSlotElement ? (
       <TaskFooter
         variant="header"
         taskId={taskId}
@@ -378,15 +440,12 @@ export function TaskDetailInline({
         executionError={executionError}
         isStarting={isStarting}
         canStartSandbox={canStartSandbox}
-        canViewSandbox={canViewSandbox}
         isSandboxActive={isSandboxActive}
-        isSandboxStarting={isSandboxStarting}
         isSandboxStopping={isSandboxStopping}
         isRetryingStartupCommands={isRetryingStartupCommands}
         canCreatePr={canCreatePr}
         isCreatingPr={isCreatingPr}
         onCreatePr={handleCreatePr}
-        onViewSandbox={handleToggleSandboxView}
         onStopSandbox={handleStopSandbox}
         isSandboxViewActive={isSandboxViewActive}
         onRunStartupCommands={() => setShowStartupCommandsConfirm(true)}
@@ -399,13 +458,27 @@ export function TaskDetailInline({
       />
     ) : null;
 
+  // Navigation, so it goes next to the breadcrumb rather than into the header's
+  // action cluster — same split as the project header.
+  const quickTaskSurfaceTabs =
+    isQuickTask && canViewSandbox && titleSlotElement ? (
+      <SandboxSurfaceTabs
+        mainLabel="Task"
+        surface={isSandboxViewActive ? "sandbox" : "main"}
+        isSandboxActive={isSandboxActive}
+        isSandboxStarting={isSandboxStarting}
+        isSandboxStopping={isSandboxStopping}
+        onSurfaceChange={handleSelectSurface}
+      />
+    ) : null;
+
   return (
     <>
-      {quickTaskHeaderActions && quickTaskHeaderActionsSlot?.slotElement
-        ? createPortal(
-            quickTaskHeaderActions,
-            quickTaskHeaderActionsSlot.slotElement,
-          )
+      {quickTaskHeaderActions && actionsSlotElement
+        ? createPortal(quickTaskHeaderActions, actionsSlotElement)
+        : null}
+      {quickTaskSurfaceTabs && titleSlotElement
+        ? createPortal(quickTaskSurfaceTabs, titleSlotElement)
         : null}
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
         {isSandboxViewActive ? (

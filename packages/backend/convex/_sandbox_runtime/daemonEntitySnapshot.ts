@@ -2,6 +2,8 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery } from "../_generated/server";
 import type { Id } from "../_generated/dataModel";
 import { pendingTurnValidator } from "../_validators/tableFields";
+import { DAEMON_CLAIM_PAUSE_MS } from "../_chat/daemonClaimPause";
+import { syncSessionDaemonState } from "../_sessions/daemonState";
 
 const emptyDaemonEntitySnapshot = {
   pendingTurn: undefined,
@@ -17,9 +19,11 @@ const DAEMON_LAUNCH_LEASE_MS = 30_000;
 
 /**
  * Single-flight claim for a warm-daemon launch. Convex mutations are
- * serializable, so exactly one concurrent caller wins. Losers skip the launch
- * entirely (no wasted token mint / bundle upload / node boot); the winner
- * releases via releaseDaemonLaunchLease when its launch settles.
+ * serializable, so exactly one concurrent caller wins. Prewarm losers wait
+ * for this lease to drop rather than skipping: a skip stranded the
+ * pending-turn model when page-open had already claimed with lastModel.
+ * The winner releases via releaseDaemonLaunchLease when its launch settles;
+ * the in-sandbox spawn flock still dedupes any launch that slips past it.
  */
 export const claimDaemonLaunchLease = internalMutation({
   args: { entityId: v.string() },
@@ -55,6 +59,53 @@ export const releaseDaemonLaunchLease = internalMutation({
       .withIndex("by_entity", (q) => q.eq("entityId", args.entityId))
       .unique();
     if (existing) await ctx.db.delete(existing._id);
+    return null;
+  },
+});
+
+/**
+ * Fences turn claims across a prewarm daemon kill. Prewarm sets this before it
+ * reads the entity's turn state, so the read is authoritative: no claim can
+ * slip in between the decision to kill and the process dying, which is what
+ * left a claimed turn's 2-minute lease with nobody heartbeating it. Prewarm
+ * clears it the moment the kill exec returns; the TTL only covers a prewarm
+ * that died mid-kill.
+ */
+export const setDaemonClaimPause = internalMutation({
+  args: {
+    entityTable: v.union(
+      v.literal("sessions"),
+      v.literal("agentTasks"),
+      v.literal("projects"),
+    ),
+    entityId: v.string(),
+    paused: v.boolean(),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const claimPausedUntil = args.paused
+      ? Date.now() + DAEMON_CLAIM_PAUSE_MS
+      : undefined;
+    if (args.entityTable === "sessions") {
+      const id = ctx.db.normalizeId("sessions", args.entityId);
+      if (!id) return null;
+      const session = await ctx.db.get(id);
+      if (!session) return null;
+      // Both copies: the claim poll reads the compact row, and the session doc
+      // is what a lazily-created row inherits from.
+      await syncSessionDaemonState(ctx, session, { claimPausedUntil });
+      await ctx.db.patch(id, { claimPausedUntil });
+      return null;
+    }
+    if (args.entityTable === "agentTasks") {
+      const id = ctx.db.normalizeId("agentTasks", args.entityId);
+      if (!id) return null;
+      await ctx.db.patch(id, { claimPausedUntil });
+      return null;
+    }
+    const id = ctx.db.normalizeId("projects", args.entityId);
+    if (!id) return null;
+    await ctx.db.patch(id, { claimPausedUntil });
     return null;
   },
 });

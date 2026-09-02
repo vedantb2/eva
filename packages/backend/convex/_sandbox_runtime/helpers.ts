@@ -1,5 +1,5 @@
 "use node";
-import { createHash } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import type { GenericActionCtx } from "convex/server";
 import type { DataModel, Id } from "../_generated/dataModel";
 import { internal } from "../_generated/api";
@@ -9,10 +9,17 @@ import {
   resolveSandboxCredentialsOnly,
 } from "../envVarResolver";
 import type { SandboxClient, SandboxHandle } from "../_sandbox/provider";
+import {
+  SandboxCommandFailedError,
+  SandboxExecTimeoutError,
+} from "./sandboxErrors";
+import { writeSandboxFile } from "./sandboxFiles";
 import { getSandboxClient } from "../_sandbox/factory";
 import { launchScript } from "./launch";
 import { ensureSwapFile } from "./swap";
 import { PACKAGE_HELPER_SCRIPT, pkgInstall } from "./packageManager";
+import { buildStubMarkdown, SYSTEM_SKILLS } from "../_systemSkills/registry";
+import { getAIModelProvider, normalizeAIModel } from "../validators";
 
 export const WORKSPACE_DIR = "/tmp/repo";
 export const LEGACY_WORKSPACE_DIR = "/workspace/repo";
@@ -26,7 +33,11 @@ export const KILL_PRIOR_AGENT_PROCESSES_CMD =
   // Only legacy `opencode run` turns, never `opencode serve`: since the SDK
   // migration the long-lived server is shared across turns and killing it here
   // would force a cold start (and a fresh port bind) on every single launch.
-  "pkill -f 'opencode run' 2>/dev/null || true; " +
+  // Bracketing keeps the regex from matching this command's own `bash -lc`
+  // wrapper, whose cmdline contains the pattern text — without it, pkill
+  // SIGTERMs the wrapping shell and the exec dies with exit 143 before
+  // reaching `true`.
+  "pkill -f '[o]pencode run' 2>/dev/null || true; " +
   "pkill -x cursor-agent 2>/dev/null || true; " +
   "true";
 
@@ -113,29 +124,6 @@ export const ARCHIVED_SANDBOX_READY_TIMEOUT_SECONDS = 600;
  */
 export const RESUME_READY_TIMEOUT_SECONDS = 180;
 
-/**
- * True when a resume error means the sandbox/snapshot is unusable — safe to
- * fall through to creating a replacement. Stay narrow: do not match bare
- * "snapshot" (collides with the transient "snapshotting" stop state).
- */
-export function isSandboxUnresumableMessage(message: string): boolean {
-  const msg = message.toLowerCase();
-  return (
-    msg.includes("not found") ||
-    msg.includes("does not exist") ||
-    msg.includes("no such") ||
-    msg.includes("404") ||
-    msg.includes("deleted") ||
-    msg.includes("archived") ||
-    msg.includes("snapshot not found") ||
-    msg.includes("snapshot_not_found") ||
-    msg.includes("invalid_snapshot") ||
-    msg.includes("snapshot does not exist") ||
-    (msg.includes("snapshot") && msg.includes("expired")) ||
-    msg.includes("did not reach running")
-  );
-}
-
 const EXEC_CLIENT_TIMEOUT_BUFFER_MS = 15_000;
 
 /** Runs a command on a {@link SandboxHandle} and returns stdout, throwing on a non-zero exit. */
@@ -150,13 +138,25 @@ export async function execHandle(
     handle.exec(cmd, { cwd, timeoutSeconds: timeout }),
     clientTimeoutMs,
     `exec (${timeout}s)`,
+    // Typed: a client-side timeout means the VM never answered — a
+    // dead-sandbox signal for isSandboxUnresponsiveError, unlike a command
+    // that ran and failed.
+    (message) => new SandboxExecTimeoutError(message),
   );
   if (resp.exitCode !== 0) {
-    const output = resp.output?.trim();
-    throw new Error(
+    const output = resp.output?.trim() ?? "";
+    // The command prefix is the only clue when the provider discards output on
+    // a kill (e.g. exit 143 = SIGTERM at timeout) — without it the failing exec
+    // is unidentifiable in logs.
+    const cmdHint = `cmd=${JSON.stringify(cmd.slice(0, 80))}`;
+    // Typed, not a bare Error: the sandbox answered, so it is alive. The type
+    // is what stops its output (`relation "X" does not exist`) from ever being
+    // read as "the sandbox is gone". See sandboxErrors.ts.
+    throw new SandboxCommandFailedError(
       output
         ? `Sandbox command failed (exit ${resp.exitCode}): ${output}`
-        : `Sandbox command failed with exit code ${resp.exitCode}`,
+        : `Sandbox command failed with exit code ${resp.exitCode} (${cmdHint})`,
+      { exitCode: resp.exitCode, output },
     );
   }
   return resp.output;
@@ -203,6 +203,7 @@ export async function ensureDockerDaemon(
       [
         PACKAGE_HELPER_SCRIPT,
         `command -v docker >/dev/null 2>&1 || ${pkgInstall("docker")} || true`,
+        "command -v docker >/dev/null 2>&1 || exit 1",
         "sudo pkill -9 containerd 2>/dev/null",
         "sudo pkill -9 dockerd 2>/dev/null",
         "sleep 1",
@@ -252,6 +253,7 @@ export async function bootstrapVercelDocker(
     'echo "bootstrap-docker:start"',
     PACKAGE_HELPER_SCRIPT,
     `command -v docker >/dev/null 2>&1 || ${pkgInstall("docker")}`,
+    'command -v docker >/dev/null 2>&1 || { echo "bootstrap-docker:no-binary"; exit 1; }',
     "sudo pkill -9 dockerd 2>/dev/null || true",
     "sudo pkill -9 containerd 2>/dev/null || true",
     "sudo rm -f /var/run/docker.pid /var/run/docker.sock /run/docker/containerd/containerd.pid /run/docker/containerd/containerd.sock /run/docker/containerd/containerd.sock.ttrpc /run/docker/containerd/containerd-debug.sock 2>/dev/null || true",
@@ -267,7 +269,7 @@ export async function bootstrapVercelDocker(
   ].join("\n");
 
   try {
-    await sandbox.writeFile("/tmp/bootstrap-docker.sh", script);
+    await writeSandboxFile(sandbox, "/tmp/bootstrap-docker.sh", script);
     await execHandle(
       sandbox,
       "chmod +x /tmp/bootstrap-docker.sh && bash /tmp/bootstrap-docker.sh",
@@ -416,6 +418,40 @@ export async function ensureSandboxRunning(
   }
 }
 
+/**
+ * One-shot recovery for a VM the provider still reports `running` but that can
+ * no longer run commands — exit 137 on a trivial exec, or execs that never
+ * answer (OOM meltdown / dead guest agent; see isSandboxUnresponsiveError).
+ * {@link ensureSandboxRunning} cannot fix this: start() no-ops while the
+ * provider says running. The only way back is a full stop (which snapshots the
+ * disk) followed by a resume, which also re-provisions swap so the next memory
+ * spike has headroom.
+ *
+ * Refuses to touch a sandbox that is not currently `running`: a stopped or
+ * stopping VM was stopped on purpose, and resuming it here would resurrect a
+ * sandbox the user just stopped. `resumeAfterStop` is safe on the start
+ * because the stop being waited out is the one this recovery itself issued.
+ */
+export async function restartUnresponsiveSandbox(
+  sandbox: SandboxHandle,
+  options: { timeoutSeconds?: number } = {},
+): Promise<void> {
+  await sandbox.refresh();
+  if (sandbox.state !== "running") {
+    throw new Error(
+      `restartUnresponsiveSandbox: sandbox ${sandbox.id} is ${sandbox.state}, not running — refusing stop+resume`,
+    );
+  }
+  console.warn(
+    `[sandbox] restartUnresponsiveSandbox: stop+resume for unresponsive sandbox ${sandbox.id}`,
+  );
+  await sandbox.stop();
+  await ensureSandboxRunning(sandbox, {
+    timeoutSeconds: options.timeoutSeconds ?? RESUME_READY_TIMEOUT_SECONDS,
+    resumeAfterStop: true,
+  });
+}
+
 /** Returns the value of a required environment variable, throwing if missing. */
 export function requireEnv(name: string): string {
   const value = process.env[name];
@@ -437,11 +473,12 @@ export async function withTimeout<T>(
   promise: Promise<T>,
   ms: number,
   label: string,
+  makeError: (message: string) => Error = (message) => new Error(message),
 ): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | undefined;
   const timeout = new Promise<never>((_resolve, reject) => {
     timer = setTimeout(
-      () => reject(new Error(`Sandbox ${label} timed out after ${ms}ms`)),
+      () => reject(makeError(`Sandbox ${label} timed out after ${ms}ms`)),
       ms,
     );
   });
@@ -495,14 +532,27 @@ export async function resolveSandboxClientOnly(
   return client;
 }
 
+/**
+ * Vercel-managed universal image: Ubuntu with Node 24, git, ripgrep and the
+ * claude-code / codex / opencode CLIs, patched nightly. The orchestrator boots
+ * from it so the master session never waits on (or drifts with) a per-repo
+ * snapshot build.
+ */
+export const ORCHESTRATOR_SANDBOX_IMAGE = "vercel/sandbox/universal:latest";
+
 /** Resolves the provider client, sandbox env vars, and snapshot name for a repo. */
 export async function resolveSandboxContext(
   ctx: GenericActionCtx<DataModel>,
   repoId: Id<"githubRepos">,
+  opts?: {
+    /** Orchestrator sessions boot from the managed image, not a repo snapshot. */
+    isOrchestrator?: boolean;
+  },
 ): Promise<{
   client: SandboxClient;
   sandboxEnvVars: Record<string, string>;
   snapshotName: string | undefined;
+  image: string | undefined;
 }> {
   const startedAt = Date.now();
   const { credentials, sandboxEnvVars } = await resolveSandboxCredentials(
@@ -510,18 +560,23 @@ export async function resolveSandboxContext(
     repoId,
   );
   const client = getSandboxClient(credentials);
-  const repoSnapshot = await ctx.runQuery(
-    internal.repoSnapshots.getRepoSnapshotName,
-    { repoId },
-  );
+  const isOrchestrator = opts?.isOrchestrator === true;
+  // Snapshot lookup is skipped entirely for the orchestrator: the image boot
+  // ignores it, and the query would only add latency to the master's start.
+  const repoSnapshot = isOrchestrator
+    ? null
+    : await ctx.runQuery(internal.repoSnapshots.getRepoSnapshotName, {
+        repoId,
+      });
   const snapshotName = repoSnapshot?.snapshotName;
   console.log(
-    `[sandbox] resolveSandboxContext repoId=${repoId} kind=${client.kind} elapsed=${Date.now() - startedAt}ms`,
+    `[sandbox] resolveSandboxContext repoId=${repoId} kind=${client.kind} orchestrator=${isOrchestrator} elapsed=${Date.now() - startedAt}ms`,
   );
   return {
     client,
     sandboxEnvVars: { ...sandboxEnvVars, REPO_ID: repoId },
     snapshotName,
+    image: isOrchestrator ? ORCHESTRATOR_SANDBOX_IMAGE : undefined,
   };
 }
 
@@ -548,6 +603,8 @@ export async function signAndLaunchScript(
   opts: {
     model?: string;
     allowedTools?: string;
+    /** Read-only turn: each provider SDK translates this into its own option. */
+    noWrites?: boolean;
     systemPrompt?: string;
     extraEnvVars?: Record<string, string>;
     claudeSessionId?: string;
@@ -572,9 +629,8 @@ export async function signAndLaunchScript(
   );
 
   // Layer the selected owner account's credentials last so they win over the
-  // team credential baked into the sandbox env. resolveProviderAccountCredentials
-  // returns {} (no override) if the account is missing, not owned by the entity
-  // owner, or the wrong provider for the model.
+  // team credential baked into the sandbox env. Explicit selections fail
+  // closed if they are unavailable or do not match the model.
   const credentialOwnerUserId = opts.credentialOwnerUserId ?? userId;
   let extraEnvVars = opts.extraEnvVars;
   if (opts.providerAccountId) {
@@ -585,12 +641,28 @@ export async function signAndLaunchScript(
       opts.model,
     );
     if (Object.keys(accountEnv).length > 0) {
-      extraEnvVars = { ...extraEnvVars, ...accountEnv };
+      extraEnvVars = {
+        ...extraEnvVars,
+        ...accountEnv,
+        // Attribution for the turn's usage-limit reading (usageLimits:report).
+        // Set only inside this branch: plan limits are per account, so a reading
+        // may only be attributed to the account whose credentials the run
+        // actually authenticated with — a fallback to the team credential
+        // reports no account and keeps its own row.
+        PROVIDER_ACCOUNT_ID: opts.providerAccountId,
+      };
       console.log(
         `[sandbox][launch] applied user provider account override entityId=${entityId} keys=${Object.keys(accountEnv).join(",")}`,
       );
     }
   }
+  // The orchestrator flag lives on the session, so it is resolved here — the
+  // single launch choke point — and minted into the MCP token as a claim.
+  const launchSession =
+    entityIdField === "sessionId"
+      ? await ctx.runQuery(internal.sessions.getInternal, { id: entityId })
+      : null;
+
   // Mint the sandbox auth token and MCP token in a single node action. This
   // replaces three separate runAction hops across two "use node" isolates, which
   // cold-started Node twice and dominated launch latency (~3s).
@@ -608,6 +680,7 @@ export async function signAndLaunchScript(
           : entityIdField === "projectId"
             ? { entityKind: "project" as const }
             : {}),
+      ...(launchSession?.isOrchestrator ? { isOrchestrator: true } : {}),
     },
   );
   console.log(
@@ -616,14 +689,46 @@ export async function signAndLaunchScript(
 
   const mcpBaseUrl = mcpToken ? (process.env.CONVEX_SITE_URL ?? "") : "";
 
+  // A catalog writer is deliberately short-lived and single-use. Unlike the
+  // old fleet-constant HMAC, reading one sandbox's env cannot grant permanent
+  // write access to the global composer catalog.
+  const provider = getAIModelProvider(normalizeAIModel(opts.model));
+  let harnessCatalogToken: string | undefined;
+  if (provider === "claude") {
+    harnessCatalogToken = randomBytes(32).toString("hex");
+    await ctx.runMutation(internal.harnessSkills.issueReportToken, {
+      tokenHash: createHash("sha256").update(harnessCatalogToken).digest("hex"),
+      provider,
+      sandboxId: sandbox.id,
+      repoId,
+      expiresAt: Date.now() + 10 * 60 * 1000,
+    });
+  }
+
   // System skills reach the agent as stub SKILL.md files in the checkout, and
   // the stubs are useless without the eva MCP server — so a launch with MCP
   // disabled ships an empty list, which prunes any leftovers.
-  const systemSkillStubs = mcpToken
+  const installedSkillStubs = mcpToken
     ? await ctx.runQuery(internal.repoSystemSkills.listStubsForLaunch, {
         repoId,
       })
     : [];
+  // The master's own skill skips the per-repo install gate — it belongs to the
+  // session, not to whichever repo the master happens to be checked out on.
+  // `get_skill` mirrors this bypass when it serves the content.
+  const orchestratorSkill = SYSTEM_SKILLS["eva-orchestrator"];
+  const systemSkillStubs =
+    mcpToken && launchSession?.isOrchestrator === true
+      ? [
+          ...installedSkillStubs.filter(
+            (stub) => stub.name !== orchestratorSkill.name,
+          ),
+          {
+            name: orchestratorSkill.name,
+            stub: buildStubMarkdown(orchestratorSkill),
+          },
+        ]
+      : installedSkillStubs;
 
   await launchScript(
     sandbox,
@@ -638,6 +743,7 @@ export async function signAndLaunchScript(
       mcpToken: mcpToken?.token,
       mcpBaseUrl,
       systemSkillsJson: JSON.stringify({ skills: systemSkillStubs }),
+      harnessCatalogToken,
     },
   );
   console.log(

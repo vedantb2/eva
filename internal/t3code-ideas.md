@@ -8,7 +8,7 @@ No conversational fast path; MCP attached unconditionally per thread (`apps/serv
 
 ## Eva already has (verified 2026-07-11 — don't re-adopt)
 
-AskUserQuestion option cards (`MultipleChoiceQuestion.tsx`); turn folding "Worked for Ns" (`packages/ui/src/ai-elements/activity-tasks.tsx:209`); skills slash-autocomplete (`MentionTextarea.tsx`); cumulative token/cost widget (`EntityContextUsage.tsx`); dev-port detection (`_daytona/devServer.ts:57`); PR recaps; plan mode via `MODE_TOOLS` allow-list.
+AskUserQuestion option cards (`MultipleChoiceQuestion.tsx`); turn folding "Worked for Ns" (`packages/ui/src/ai-elements/activity-tasks.tsx:209`); skills slash-autocomplete (`MentionTextarea.tsx`); cumulative token/cost widget (`EntityContextUsage.tsx`); dev-port detection (`_daytona/devServer.ts:57`); PR recaps; planning via the `eva-plan` system skill.
 
 ## A. MCP / Agent SDK
 

@@ -24,6 +24,8 @@
  */
 
 import { Sandbox } from "@vercel/sandbox";
+import { z } from "zod";
+import { SandboxProviderError } from "./provider";
 import type {
   CreateSnapshotParams,
   PreviewUrl,
@@ -42,6 +44,7 @@ import {
   KEEP_LAST_SNAPSHOTS,
   vercelSnapshotCreateOptions,
 } from "./vercelSnapshotOptions";
+import { FFMPEG_INSTALL_SCRIPT } from "./ffmpegInstall";
 import { EVA_ENV_FILE } from "./vercelEnvFile";
 import {
   describeVercelSandboxSource,
@@ -143,6 +146,43 @@ function extractApiErrorDetail(e: unknown): string {
   }
 }
 
+/**
+ * The SDK's `APIError` (dist/api-client/api-error.ts) carries the raw fetch
+ * `Response`; its auth client throws `NotOk` (dist/auth/error.ts) with
+ * `response.statusCode`. Both are dropped by `JSON.stringify`, so the status
+ * has to be lifted out before the error is wrapped.
+ */
+const vercelApiErrorShape = z.object({
+  response: z.object({ status: z.number().int() }),
+});
+const vercelNotOkShape = z.object({
+  name: z.literal("NotOk"),
+  response: z.object({ statusCode: z.number().int() }),
+});
+
+/** Structured HTTP status from a thrown Vercel SDK error, when it has one. */
+function vercelHttpStatus(e: unknown): number | undefined {
+  const notOk = vercelNotOkShape.safeParse(e);
+  if (notOk.success) return notOk.data.response.statusCode;
+  const api = vercelApiErrorShape.safeParse(e);
+  if (api.success) return api.data.response.status;
+  return undefined;
+}
+
+/**
+ * Wraps a provider-client failure with eva's context while preserving the
+ * structured status. `message` may safely carry command text (it is only
+ * logged); `detail` stays limited to the provider's own response body, because
+ * that is the only field callers are allowed to pattern-match.
+ */
+function providerError(message: string, e: unknown): SandboxProviderError {
+  const detail = extractApiErrorDetail(e);
+  return new SandboxProviderError(`${message}: ${detail}`, {
+    httpStatus: vercelHttpStatus(e),
+    detail,
+  });
+}
+
 /** True when the Vercel command NDJSON stream died while the VM is still up. */
 function isVercelCommandStreamClosed(detail: string): boolean {
   const lower = detail.toLowerCase();
@@ -223,17 +263,9 @@ class VercelDesktop implements SandboxDesktop {
     // ffmpeg: required by `agent-browser record` (WebM encode). Runs BEFORE the
     // health/install logic below because older snapshots bake the VNC stack but
     // not ffmpeg — both the healthy early-return and the INSTALLED=1 guard would
-    // skip it forever. Idempotent and soft-failing.
-    //
-    // The gate inside eva_pkg_install_ffmpeg runs `ffmpeg -version` rather than
-    // `command -v ffmpeg`: SPAL's ffmpeg links against libjack.so.0 without
-    // depending on the package that ships it, so AL2023 snapshots exist where
-    // the binary is present but every invocation dies with a
-    // missing-shared-object error. Only actually running it catches that.
-    await this.handle.exec(
-      [PACKAGE_HELPER_SCRIPT, "eva_pkg_install_ffmpeg || true"].join("\n"),
-      { timeoutSeconds: 180 },
-    );
+    // skip it forever, so a broken encoder would never get repaired.
+    // Idempotent and soft-failing; see FFMPEG_INSTALL_SCRIPT.
+    await this.handle.exec(FFMPEG_INSTALL_SCRIPT, { timeoutSeconds: 180 });
 
     // Idempotent: if a live (non-zombie) stack is already healthy, keep it.
     // Re-killing a working Xvnc mid-session blacks the Computer tab and races
@@ -628,8 +660,9 @@ class VercelSandboxHandle implements SandboxHandle {
         // actual API response body — surface them so 400/422 failures are
         // diagnosable in Convex logs instead of just "Status code 4xx is not ok".
         const detail = extractApiErrorDetail(e);
-        lastError = new Error(
-          `vercel exec failed (cwd=${opts?.cwd ?? "(default)"}, cmd=${cmd.slice(0, 120)}): ${detail}`,
+        lastError = providerError(
+          `vercel exec failed (cwd=${opts?.cwd ?? "(default)"}, cmd=${cmd.slice(0, 120)})`,
+          e,
         );
         if (attempt < maxAttempts && isVercelCommandStreamClosed(detail)) {
           console.log(
@@ -706,6 +739,12 @@ class VercelSandboxHandle implements SandboxHandle {
     // so keep re-issuing until the session reports running or we time out.
     const deadline = Date.now() + timeoutSeconds * 1000;
     let lastError: string | null = null;
+    // Kept alongside `lastError` so the timeout below can be thrown as a
+    // structured provider error. Without it the reason the resume kept losing
+    // (a 404 for a deleted sandbox vs a 429 for a busy account) survived only
+    // as prose inside the timeout message, and callers had to guess by regex.
+    let lastErrorStatus: number | undefined;
+    let lastErrorDetail: string | null = null;
     while (Date.now() < deadline) {
       resolved = await this.resolveSessionStatus();
       if (
@@ -740,6 +779,8 @@ class VercelSandboxHandle implements SandboxHandle {
         if (observed === "running") return;
       } catch (e) {
         lastError = e instanceof Error ? e.message : String(e);
+        lastErrorStatus = vercelHttpStatus(e);
+        lastErrorDetail = extractApiErrorDetail(e);
         // SDK may reject resume while stop finishes even if listSessions lagged.
         if (
           lastError.includes("stopping") ||
@@ -760,15 +801,38 @@ class VercelSandboxHandle implements SandboxHandle {
       await new Promise((resolve) => setTimeout(resolve, 500));
       await this.refresh();
     }
-    throw new Error(
+    throw new SandboxProviderError(
       `vercel start: sandbox ${this.sandbox.name} did not reach running within ${timeoutSeconds}s (state: ${observed}${lastError ? `, last error: ${lastError}` : ""})`,
+      // No detail when no resume attempt actually failed: a bare deadline
+      // (still `starting`) is not evidence the sandbox is gone, and an empty
+      // detail cannot match anything.
+      { httpStatus: lastErrorStatus, detail: lastErrorDetail ?? "" },
     );
   }
   async extendTimeout(durationMs: number): Promise<void> {
     // Pushes the hard session deadline out (capped by the plan's max runtime).
     // Called by the stall watchdog while a turn is active so live work is
     // never killed by the create-time `timeout` cap. Best-effort by contract.
-    await this.sandbox.extendTimeout(durationMs);
+    //
+    // Sessions are born at the plan ceiling (create floors `timeout` to 24h),
+    // and Vercel rejects any extension that would pass that ceiling — so while
+    // the deadline is still hours out, every ask is a guaranteed 400. Only ask
+    // once the deadline is actually inside the window the caller wants covered.
+    // Without this gate a single live turn burned one action + one 400 every
+    // 30s for the length of the turn (prod, 2026-08-19: extendSandboxDeadline
+    // logging "Status code 400 is not ok" for white-spiritual-cobra-vvQSfA on
+    // every watchdog tick).
+    const expiresAt = this.sandbox.expiresAt?.getTime();
+    if (expiresAt !== undefined && expiresAt - Date.now() > durationMs) return;
+    try {
+      await this.sandbox.extendTimeout(durationMs);
+    } catch (e) {
+      // The SDK's message is only the HTTP status; the caller swallows this, so
+      // the body is the sole record of WHY a real near-deadline extension lost.
+      throw new Error(
+        `vercel extendTimeout failed (sandbox=${this.sandbox.name}, durationMs=${durationMs}, sessionTimeout=${this.sandbox.timeout ?? "unknown"}, expiresAt=${expiresAt !== undefined ? new Date(expiresAt).toISOString() : "none"}): ${extractApiErrorDetail(e)}`,
+      );
+    }
   }
 
   async stop(): Promise<void> {
@@ -1004,7 +1068,13 @@ class VercelSandboxClient implements SandboxClient {
     const persistent = params.lifecycle.ephemeral !== true;
     // Resolved once per create so the value in the log line and the value in the
     // failure message are provably the same one that was sent.
-    const freshSource = resolveVercelSandboxSource();
+    //
+    // A caller-supplied VCR image (the orchestrator's ORCHESTRATOR_SANDBOX_IMAGE)
+    // is a deliberate per-sandbox choice and outranks the deployment-wide
+    // default that VERCEL_SANDBOX_IMAGE sets for everything else.
+    const freshSource = params.image
+      ? { image: params.image }
+      : resolveVercelSandboxSource();
     const base = {
       ...this.creds,
       // Vercel `timeout` is a HARD session cap, not Daytona's idle-stop timer.
@@ -1025,7 +1095,10 @@ class VercelSandboxClient implements SandboxClient {
             ...base,
             source: { type: "snapshot", snapshotId: params.snapshot },
           })
-        : await Sandbox.create({ ...base, ...freshSource });
+        : // One spread, not two calls: `image` and the legacy `runtime` are
+          // mutually exclusive in the SDK types, and freshSource is already a
+          // union carrying exactly one of them.
+          await Sandbox.create({ ...base, ...freshSource });
       console.log(
         `[vercel] created sandbox=${sandbox.name} persistent=${persistent} sourceSnapshot=${params.snapshot ?? "none"} ${describeVercelSandboxSource(freshSource)}`,
       );

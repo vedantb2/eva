@@ -12,22 +12,16 @@ import {
   type ReasoningLevel,
   type StoredModelTraits,
 } from "@eva/backend";
-import {
-  normalizeMode,
-  type SessionMode,
-} from "@/lib/hooks/useSessionSettings";
 
 /** Single localStorage blob for the landing composer (no session row yet). */
 export interface NewSessionComposerState {
   draft: string;
   model: AIModel;
-  mode: SessionMode;
   effortLevel?: ReasoningLevel;
   thinkingEnabled?: boolean;
   use1mContext?: boolean;
   fastMode?: boolean;
   providerAccountId: string | null;
-  numDesigns?: number;
 }
 
 const reasoningLevelSchema = z.enum([
@@ -42,13 +36,11 @@ const reasoningLevelSchema = z.enum([
 const composerStateSchema = z.object({
   draft: z.string().optional(),
   model: z.string().optional(),
-  mode: z.string().optional(),
   effortLevel: reasoningLevelSchema.optional(),
   thinkingEnabled: z.boolean().optional(),
   use1mContext: z.boolean().optional(),
   fastMode: z.boolean().optional(),
   providerAccountId: z.string().nullable().optional(),
-  numDesigns: z.number().int().min(1).max(5).optional(),
 });
 
 const storedOrLegacyDraftSchema = composerStateSchema.or(z.string());
@@ -72,13 +64,11 @@ function defaultState(
   return {
     draft: "",
     model: normalizeAIModel(defaultModel ?? DEFAULT_AI_MODEL),
-    mode: "edit",
     effortLevel: defaultTraits?.effortLevel,
     thinkingEnabled: defaultTraits?.thinkingEnabled,
     use1mContext: defaultTraits?.use1mContext,
     fastMode: defaultTraits?.fastMode,
     providerAccountId: null,
-    numDesigns: 3,
   };
 }
 
@@ -91,7 +81,6 @@ function normalizeStored(
   return {
     draft: value.draft ?? defaults.draft,
     model: normalizeAIModel(value.model ?? defaults.model),
-    mode: normalizeMode(value.mode ?? defaults.mode),
     effortLevel: value.effortLevel ?? defaults.effortLevel,
     thinkingEnabled: value.thinkingEnabled ?? defaults.thinkingEnabled,
     use1mContext: value.use1mContext ?? defaults.use1mContext,
@@ -100,7 +89,6 @@ function normalizeStored(
       value.providerAccountId === undefined
         ? defaults.providerAccountId
         : value.providerAccountId,
-    numDesigns: value.numDesigns ?? defaults.numDesigns,
   };
 }
 
@@ -166,7 +154,6 @@ function loadOrMigrate(
     {
       draft: legacyDraft?.draft ?? "",
       model: legacySettings?.model,
-      mode: legacySettings?.mode,
       effortLevel: legacySettings?.effortLevel,
       thinkingEnabled: legacySettings?.thinkingEnabled,
       use1mContext: legacySettings?.use1mContext,
@@ -200,8 +187,8 @@ function coerceState(
 }
 
 /**
- * Persists new-session landing composer state (draft, model, mode, traits,
- * account) in one localStorage object per repo.
+ * Persists new-session landing composer state (draft, model, traits, account)
+ * in one localStorage object per repo.
  */
 export function useNewSessionComposerState(
   repoId: Id<"githubRepos">,
@@ -236,7 +223,6 @@ export function useNewSessionComposerState(
   return {
     draft: normalized.draft,
     model: normalized.model,
-    mode: normalized.mode,
     providerAccountId: normalized.providerAccountId,
     displayTraits,
     executionTraits,
@@ -246,18 +232,11 @@ export function useNewSessionComposerState(
     setModel: (nextModel: AIModel) => {
       patch({ model: normalizeAIModel(nextModel) });
     },
-    setMode: (mode: SessionMode) => {
-      patch({ mode });
-    },
     onTraitsChange: (partial: Partial<StoredModelTraits>) => {
       patch(partial);
     },
     setProviderAccountId: (providerAccountId: string | null) => {
       patch({ providerAccountId });
-    },
-    numDesigns: normalized.numDesigns ?? 3,
-    setNumDesigns: (numDesigns: number) => {
-      patch({ numDesigns });
     },
     /** Clear only the prompt draft after a session is created; keep prefs. */
     clearDraft: () => {

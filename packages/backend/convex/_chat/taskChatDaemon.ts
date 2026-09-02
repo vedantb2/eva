@@ -1,19 +1,24 @@
 import { v } from "convex/values";
 import { internal } from "../_generated/api";
 import { internalMutation } from "../_generated/server";
-import type { Id } from "../_generated/dataModel";
+import type { Doc, Id } from "../_generated/dataModel";
 import { authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
   normalizeAIModel,
+  turnCheckpointArgs,
   usesChatDaemon,
 } from "../validators";
 import { backgroundAgentEntryValidator } from "../_validators/tableFields";
 import { mergeBackgroundAgents } from "../_sessions/backgroundAgents";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "../streaming";
-import { startNextQueuedTaskChatMessage } from "../_queues/helpers";
+import {
+  scheduleQueueDrainAfterBackgroundAgents,
+  startNextQueuedTaskChatMessage,
+} from "../_queues/helpers";
 import { TASK_CHAT_STREAM_PREFIX } from "../workflowWatchdog";
+import { isDaemonClaimPaused } from "./daemonClaimPause";
 
 function taskChatStreamEntityId(taskId: Id<"agentTasks">): string {
   return `${TASK_CHAT_STREAM_PREFIX}${String(taskId)}`;
@@ -21,14 +26,18 @@ function taskChatStreamEntityId(taskId: Id<"agentTasks">): string {
 
 const emptyClaimReturn = {
   prompt: null,
+  turnLifecycle: "legacy",
   attachmentUrls: [],
   stopTaskToolUseIds: [],
   cancelRequested: false,
+  usageRefreshRequested: false,
 } satisfies {
   prompt: null;
+  turnLifecycle: "legacy";
   attachmentUrls: string[];
   stopTaskToolUseIds: string[];
   cancelRequested: boolean;
+  usageRefreshRequested: boolean;
 };
 
 /** Daemon-pull turn claim for task sandbox chat (never the main run workflow). */
@@ -36,12 +45,15 @@ export const claimPendingTurn = authMutation({
   args: {
     taskId: v.id("agentTasks"),
     model: v.optional(aiModelValidator),
+    acceptTurn: v.optional(v.boolean()),
   },
   returns: v.object({
     prompt: v.union(v.string(), v.null()),
+    turnLifecycle: v.literal("legacy"),
     attachmentUrls: v.array(v.string()),
     stopTaskToolUseIds: v.array(v.string()),
     cancelRequested: v.boolean(),
+    usageRefreshRequested: v.boolean(),
   }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
@@ -69,21 +81,66 @@ export const claimPendingTurn = authMutation({
       await ctx.db.patch(args.taskId, { cancelRequestedAt: undefined });
     }
 
+    // Level-triggered until the refresh action clears it — old callbacks must
+    // not consume the chip's request as a no-op.
+    const usageRefreshRequested = task.usageRefreshRequestedAt !== undefined;
+
+    // A prewarm is killing this daemon right now. See the session copy in
+    // `_sessions/workflow.ts`: claiming here strands the turn on a dying
+    // process. Placed after the drains so a cancel is never stranded.
+    if (
+      isDaemonClaimPaused({
+        claimPausedUntil: task.claimPausedUntil,
+        now: Date.now(),
+      })
+    ) {
+      return {
+        ...emptyClaimReturn,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
+    }
+
     // Chat daemon only — never claim a turn while the main PR run workflow is
     // the only active consumer.
     if (!task.activeChatWorkflowId) {
-      return { ...emptyClaimReturn, stopTaskToolUseIds, cancelRequested };
+      return {
+        ...emptyClaimReturn,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
     }
 
     if (!task.pendingTurn) {
-      return { ...emptyClaimReturn, stopTaskToolUseIds, cancelRequested };
+      return {
+        ...emptyClaimReturn,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
+    }
+
+    if (args.acceptTurn === false) {
+      return {
+        ...emptyClaimReturn,
+        stopTaskToolUseIds,
+        cancelRequested,
+        usageRefreshRequested,
+      };
     }
 
     const pendingModel = task.pendingTurn.model;
     if (pendingModel !== undefined) {
       const claimModel = normalizeAIModel(args.model);
       if (normalizeAIModel(pendingModel) !== claimModel) {
-        return { ...emptyClaimReturn, stopTaskToolUseIds, cancelRequested };
+        return {
+          ...emptyClaimReturn,
+          stopTaskToolUseIds,
+          cancelRequested,
+          usageRefreshRequested,
+        };
       }
     }
 
@@ -97,7 +154,15 @@ export const claimPendingTurn = authMutation({
       (url): url is string => url !== null,
     );
     await ctx.db.patch(args.taskId, { pendingTurn: undefined });
-    return { prompt, attachmentUrls, stopTaskToolUseIds, cancelRequested };
+    const turnLifecycle = "legacy" as const;
+    return {
+      prompt,
+      turnLifecycle,
+      attachmentUrls,
+      stopTaskToolUseIds,
+      cancelRequested,
+      usageRefreshRequested,
+    };
   },
 });
 
@@ -117,13 +182,21 @@ export const updateBackgroundAgents = authMutation({
       throw new Error("Not authorized");
     }
     if (args.agents.length === 0) return null;
+    const backgroundAgents = mergeBackgroundAgents(
+      task.backgroundAgents,
+      args.agents,
+    );
     await ctx.db.patch(args.taskId, {
-      backgroundAgents: mergeBackgroundAgents(
-        task.backgroundAgents,
-        args.agents,
-      ),
+      backgroundAgents,
       updatedAt: Date.now(),
     });
+    // See the session copy: settling is the one queue release the surface
+    // never signals on its own.
+    await scheduleQueueDrainAfterBackgroundAgents(
+      ctx,
+      args.taskId,
+      backgroundAgents,
+    );
     return null;
   },
 });
@@ -154,7 +227,13 @@ export const requestStopBackgroundAgent = authMutation({
 });
 
 export const openSyntheticTurn = authMutation({
-  args: { taskId: v.id("agentTasks") },
+  args: {
+    taskId: v.id("agentTasks"),
+    // The daemon's own model. Optional only for daemons launched before the
+    // field existed; those fall back to the sticky pick, which the picker can
+    // move mid-flight and may therefore mis-attribute the checkpoint.
+    model: v.optional(aiModelValidator),
+  },
   returns: v.object({ messageId: v.id("messages") }),
   handler: async (ctx, args) => {
     const task = await ctx.db.get(args.taskId);
@@ -172,6 +251,10 @@ export const openSyntheticTurn = authMutation({
       timestamp: Date.now(),
       activityLog: "",
       isSyntheticTurn: true,
+      // Stamped at open time because the daemon protocol carries no model on
+      // completion. Not yet a checkpoint — that needs `finishedAt` too — and
+      // `completeSyntheticTurn` clears it again if the turn fails.
+      model: normalizeAIModel(args.model ?? task.lastChatModel ?? task.model),
     });
     await ctx.db.patch(args.taskId, {
       syntheticTurnMessageId: messageId,
@@ -195,6 +278,7 @@ export const completeSyntheticTurn = authMutation({
     error: v.union(v.string(), v.null()),
     activityLog: v.union(v.string(), v.null()),
     pendingQuestion: v.optional(v.string()),
+    ...turnCheckpointArgs,
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -219,6 +303,7 @@ export const completeSyntheticTurn = authMutation({
       activityLog?: string;
       finishedAt: number;
       pendingQuestion?: string;
+      model?: Doc<"messages">["model"];
     } = {
       content: args.success
         ? args.result || "I couldn't process your message."
@@ -227,6 +312,10 @@ export const completeSyntheticTurn = authMutation({
     };
     if (args.activityLog) patch.activityLog = args.activityLog;
     if (args.pendingQuestion) patch.pendingQuestion = args.pendingQuestion;
+    // Drops the open-time stamp so a failed turn never becomes a checkpoint.
+    if (!args.success) {
+      patch.model = undefined;
+    }
     await ctx.db.patch(args.messageId, patch);
 
     await ctx.db.patch(args.taskId, {

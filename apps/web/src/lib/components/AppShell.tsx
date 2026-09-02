@@ -1,5 +1,6 @@
 import { lazy, Suspense, type ReactNode } from "react";
 import { useMatches } from "@tanstack/react-router";
+import { IS_EMBEDDED } from "@/lib/embed/embedded";
 
 declare module "@tanstack/react-router" {
   interface StaticDataRouteOption {
@@ -36,7 +37,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <Suspense fallback={<div className="min-h-dvh bg-app-shell" />}>
-      <AppShellChrome>{children}</AppShellChrome>
+      {/* `embedded` is passed from the entry so the lazy chrome chunk does not
+          import `embedded.ts` (which also lives in the entry via `__root`) and
+          create an async-chunk → entry cycle. */}
+      <AppShellChrome embedded={IS_EMBEDDED}>{children}</AppShellChrome>
     </Suspense>
   );
 }

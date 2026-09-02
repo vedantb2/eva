@@ -271,6 +271,12 @@
       "skillPath": "skills/ship/SKILL.md",
       "computedHash": "e7b0999638b292f287b1316eb90c9458f012d8594e7c04e802bdb54eee385e94"
     },
+    "show-me": {
+      "source": "humanlayer/skills",
+      "sourceType": "github",
+      "skillPath": "plugins/show-me/skills/show-me/SKILL.md",
+      "computedHash": "de32a72f802801f08a84641b467f2c6306d35a58ce5e59ea607ac3a993a18c91"
+    },
     "stitch-design-taste": {
       "source": "Leonxlnx/taste-skill",
       "sourceType": "github",

@@ -10,6 +10,20 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { registerTools } from "./tools";
 import { registerSupabaseTools } from "./supabase";
+import {
+  buildChatMessageCalls,
+  decideSandboxStartPlan,
+  resolveAgentDelivery,
+  SANDBOX_STOP_SETTLE_TIMEOUT_MS,
+  SANDBOX_SURFACES,
+  TASK_PREVIEW_SANDBOX_READY_POLL_MS,
+  TASK_PREVIEW_SANDBOX_READY_TIMEOUT_MS,
+  type AgentDelivery,
+  type ChatTargetKind,
+} from "./orchestratorDelivery";
+import { TASK_CHAT_STREAM_PREFIX } from "../_chat/surfaceAdapters";
+import { normalizeAIModel } from "../validators";
+import { formatConvexQueryError } from "./convexQueryLimits";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Environment Helpers
@@ -53,6 +67,7 @@ const internalTokenClaims = z.object({
   repoId: z.string(),
   entityId: z.string().optional(),
   entityKind: z.enum(["session", "task", "project"]).optional(),
+  orchestrator: z.boolean().optional(),
 });
 
 type OauthTokens = {
@@ -161,11 +176,7 @@ export const refreshToken = internalAction({
 
       const clerk = createClerkClient({ secretKey: getClerkSecretKey() });
       await clerk.users.getUser(claims.data.sub);
-      const tokens = await createOauthTokens(
-        claims.data.sub,
-        clientId,
-        secret,
-      );
+      const tokens = await createOauthTokens(claims.data.sub, clientId, secret);
 
       return refreshSuccess(tokens);
     } catch {
@@ -184,6 +195,7 @@ export const verifyAccessToken = internalAction({
       entityKind: v.optional(
         v.union(v.literal("session"), v.literal("task"), v.literal("project")),
       ),
+      isOrchestrator: v.optional(v.boolean()),
     }),
     v.null(),
   ),
@@ -217,6 +229,7 @@ export const verifyAccessToken = internalAction({
           scopedRepoId: undefined,
           entityId: undefined,
           entityKind: undefined,
+          isOrchestrator: undefined,
         };
       }
       // OAuth payload missing sub — fall through to internal token
@@ -252,6 +265,9 @@ export const verifyAccessToken = internalAction({
           : {}),
         ...(claims.data.entityKind !== undefined
           ? { entityKind: claims.data.entityKind }
+          : {}),
+        ...(claims.data.orchestrator !== undefined
+          ? { isOrchestrator: claims.data.orchestrator }
           : {}),
       };
     } catch (err) {
@@ -350,8 +366,21 @@ function getBootstrapSecret(): string {
   return secret;
 }
 
-/** Eva's own Convex cloud URL (derived from the .convex.site HTTP URL). */
+/**
+ * Eva's own Convex API URL, used for the `runQueryAsUser`/`runMutationAsUser`
+ * calls below.
+ *
+ * Prefer `CONVEX_CLOUD_URL`, which every deployment sets and which is correct
+ * by construction. The `.convex.site` → `.convex.cloud` rewrite only works on
+ * hosted URLs: on a local or self-hosted backend the site URL is a plain
+ * `host:site-proxy-port` with no substring to replace, so the rewrite silently
+ * returned the site-proxy URL and every call 404'd ("No matching routes
+ * found") — the whole MCP tool layer was unusable against such deployments.
+ */
 function getEvaConvexCloudUrl(): string {
+  const configured =
+    process.env.EVA_PUBLIC_CONVEX_URL ?? process.env.CONVEX_CLOUD_URL;
+  if (configured) return configured;
   return getConvexSiteUrl().replace(".convex.site", ".convex.cloud");
 }
 
@@ -412,7 +441,7 @@ async function resolveUserByClerkId(
     return cached.userId;
   }
 
-  const convexUrl = getConvexSiteUrl().replace(".convex.site", ".convex.cloud");
+  const convexUrl = getEvaConvexCloudUrl();
   const source = wrapQueryHandler(
     `const user = await ctx.db.query("users").withIndex("by_clerk_id", q => q.eq("clerkId", ${JSON.stringify(clerkUserId)})).first();
     return user ? user._id : null;`,
@@ -536,10 +565,7 @@ export const getContext = internalAction({
     const deployKey = await getDeployKey();
     let userId = await resolveUserByClerkId(deployKey, clerkUserId);
     if (!userId) {
-      const convexUrl = getConvexSiteUrl().replace(
-        ".convex.site",
-        ".convex.cloud",
-      );
+      const convexUrl = getEvaConvexCloudUrl();
       userId = await ensureUserExists(convexUrl, clerkUserId);
     }
     return { deployKey, userId };
@@ -567,10 +593,7 @@ export const listUserRepos = internalAction({
   ),
   handler: async (_ctx, { userId }) => {
     const deployKey = await getDeployKey();
-    const convexUrl = getConvexSiteUrl().replace(
-      ".convex.site",
-      ".convex.cloud",
-    );
+    const convexUrl = getEvaConvexCloudUrl();
 
     const source = wrapQueryHandler(
       `const userId = ${JSON.stringify(userId)};
@@ -776,14 +799,41 @@ export const queryTable = internalAction({
   },
 });
 
+type TestQueryResult =
+  | { ok: true; value: JsonValue; logLines: string[] }
+  | { ok: false; error: string };
+
 export const runTestQuery = internalAction({
   args: { convexUrl: v.string(), deployKey: v.string(), code: v.string() },
-  returns: v.object({ value: v.any(), logLines: v.array(v.string()) }),
-  handler: async (_ctx, { convexUrl, deployKey, code }) => {
+  returns: v.union(
+    v.object({
+      ok: v.literal(true),
+      value: v.any(),
+      logLines: v.array(v.string()),
+    }),
+    v.object({ ok: v.literal(false), error: v.string() }),
+  ),
+  handler: async (
+    _ctx,
+    { convexUrl, deployKey, code },
+  ): Promise<TestQueryResult> => {
     const source = wrapQueryHandler(code);
-    return runTestQueryRemote(convexUrl, deployKey, source);
+    try {
+      const result = await runTestQueryRemote(convexUrl, deployKey, source);
+      return { ok: true, value: result.value, logLines: result.logLines };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      return { ok: false, error: formatConvexQueryError(message) };
+    }
   },
 });
+
+const mcpClaudeModelValidator = v.union(
+  v.literal("opus"),
+  v.literal("sonnet"),
+  v.literal("haiku"),
+  v.literal("fable"),
+);
 
 export const createTask = internalAction({
   args: {
@@ -791,9 +841,7 @@ export const createTask = internalAction({
     repoId: v.string(),
     title: v.string(),
     description: v.string(),
-    model: v.optional(
-      v.union(v.literal("opus"), v.literal("sonnet"), v.literal("haiku")),
-    ),
+    model: v.optional(mcpClaudeModelValidator),
     baseBranch: v.optional(v.string()),
     projectId: v.optional(v.string()),
   },
@@ -802,16 +850,13 @@ export const createTask = internalAction({
     _ctx,
     { clerkUserId, repoId, title, description, model, baseBranch, projectId },
   ) => {
-    const convexUrl = getConvexSiteUrl().replace(
-      ".convex.site",
-      ".convex.cloud",
-    );
+    const convexUrl = getEvaConvexCloudUrl();
     const mutationArgs: Record<string, JsonValue> = {
       repoId,
       title,
       description,
     };
-    if (model) mutationArgs.model = model;
+    if (model) mutationArgs.model = normalizeAIModel(model);
     if (baseBranch) mutationArgs.baseBranch = baseBranch;
     if (projectId) mutationArgs.projectId = projectId;
 
@@ -833,10 +878,7 @@ export const startTaskExecution = internalAction({
   args: { clerkUserId: v.string(), taskId: v.string() },
   returns: v.null(),
   handler: async (_ctx, { clerkUserId, taskId }) => {
-    const convexUrl = getConvexSiteUrl().replace(
-      ".convex.site",
-      ".convex.cloud",
-    );
+    const convexUrl = getEvaConvexCloudUrl();
     await runMutationAsUser(
       convexUrl,
       clerkUserId,
@@ -859,9 +901,7 @@ export const createTasksBatch = internalAction({
       }),
     ),
     projectTitle: v.optional(v.string()),
-    model: v.optional(
-      v.union(v.literal("opus"), v.literal("sonnet"), v.literal("haiku")),
-    ),
+    model: v.optional(mcpClaudeModelValidator),
     baseBranch: v.optional(v.string()),
   },
   returns: v.any(),
@@ -869,10 +909,7 @@ export const createTasksBatch = internalAction({
     _ctx,
     { clerkUserId, repoId, tasks, projectTitle, model, baseBranch },
   ) => {
-    const convexUrl = getConvexSiteUrl().replace(
-      ".convex.site",
-      ".convex.cloud",
-    );
+    const convexUrl = getEvaConvexCloudUrl();
     const mutationArgs: Record<string, JsonValue> = {
       repoId,
       tasks: tasks.map((t) => ({
@@ -882,7 +919,7 @@ export const createTasksBatch = internalAction({
       })),
     };
     if (projectTitle) mutationArgs.projectTitle = projectTitle;
-    if (model) mutationArgs.model = model;
+    if (model) mutationArgs.model = normalizeAIModel(model);
     if (baseBranch) mutationArgs.baseBranch = baseBranch;
 
     const result = await runMutationAsUser(
@@ -1118,6 +1155,869 @@ export const listArtifacts = internalAction({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Orchestrator actions (master session fleet control)
+//
+// Every call below goes through runQueryAsUser / runMutationAsUser, i.e. a
+// signed user JWT hitting authQuery/authMutation. Their hasRepoAccess checks
+// are the ONLY authorisation for orchestrator tools — unlike the repo-scoped
+// tools these deliberately skip the sandbox token's single-repo pin, so the
+// master can reach every agent the user can reach and nothing more.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const agentKindValidator = v.union(v.literal("session"), v.literal("task"));
+type AgentKind = "session" | "task";
+
+/**
+ * Sending a message reaches one surface more than the fleet tools do: a
+ * project's sandbox chat. Listing, state and stop stay on `agentKindValidator`
+ * — the master session's fleet is sessions and tasks, and widening those would
+ * put projects on the orchestrator surface as a side effect.
+ */
+const chatKindValidator = v.union(
+  v.literal("session"),
+  v.literal("task"),
+  v.literal("project"),
+);
+
+/** The user-authorised read that proves the caller may reach each surface. */
+const CHAT_DOC_QUERY: Record<ChatTargetKind, string> = {
+  session: "_sessions/queries:get",
+  task: "_agentTasks/queries:get",
+  project: "_projects/queries:get",
+};
+
+const orchestratorAgentValidator = v.object({
+  kind: agentKindValidator,
+  id: v.string(),
+  numId: v.optional(v.number()),
+  repo: v.string(),
+  title: v.string(),
+  status: v.string(),
+  isExecuting: v.boolean(),
+  model: v.optional(v.string()),
+  updatedAt: v.number(),
+});
+
+interface OrchestratorAgent {
+  kind: AgentKind;
+  id: string;
+  numId?: number;
+  repo: string;
+  title: string;
+  status: string;
+  isExecuting: boolean;
+  model?: string;
+  updatedAt: number;
+}
+
+/** Slim projection of `_sessions/queries:list` rows. */
+const sessionListItemSchema = z.object({
+  _id: z.string(),
+  _creationTime: z.number(),
+  numId: z.number().optional(),
+  repoId: z.string(),
+  title: z.string(),
+  status: z.string(),
+  updatedAt: z.number().optional(),
+  lastModel: z.string().optional(),
+  isExecuting: z.boolean(),
+  isOrchestrator: z.boolean().optional(),
+});
+
+/** Slim projection of an `agentTasks` document. */
+const agentTaskSchema = z.object({
+  _id: z.string(),
+  _creationTime: z.number(),
+  numId: z.number().optional(),
+  repoId: z.string().optional(),
+  title: z.string(),
+  status: z.string(),
+  updatedAt: z.number(),
+  model: z.string().optional(),
+  lastChatModel: z.string().optional(),
+  activeWorkflowId: z.string().optional(),
+  activeChatWorkflowId: z.string().optional(),
+  reviewTaskSandboxStatus: z.string().optional(),
+});
+
+/** Slim projection of a `projects` document (its chat mirrors a task's). */
+const projectDocSchema = z.object({
+  _id: z.string(),
+  activeWorkflowId: z.string().optional(),
+  activeBuildWorkflowId: z.string().optional(),
+  activeChatWorkflowId: z.string().optional(),
+  reviewProjectSandboxStatus: z.string().optional(),
+  model: z.string().optional(),
+  lastChatModel: z.string().optional(),
+});
+
+/** Slim projection of a `sessions` document. */
+const sessionDocSchema = z.object({
+  _id: z.string(),
+  _creationTime: z.number(),
+  numId: z.number().optional(),
+  repoId: z.string(),
+  title: z.string(),
+  status: z.string(),
+  updatedAt: z.number().optional(),
+  lastModel: z.string().optional(),
+  activeWorkflowId: z.string().optional(),
+  deploymentUrl: z.string().optional(),
+  deploymentStatus: z.string().optional(),
+});
+
+const streamingStateSchema = z
+  .object({
+    currentActivity: z.string(),
+    currentContent: z.string(),
+    pendingQuestion: z.string().optional(),
+  })
+  .nullable();
+
+const transcriptMessageSchema = z.object({
+  _creationTime: z.number(),
+  role: z.string(),
+  content: z.string(),
+  timestamp: z.number().optional(),
+});
+
+const createdSessionSchema = z.object({
+  sessionId: z.string(),
+  numId: z.number(),
+});
+
+/** Longest message body kept per transcript entry in `get_agent_state`. */
+const TRANSCRIPT_CHAR_LIMIT = 2000;
+
+/**
+ * Points a child session/task at the master session so a later completion can
+ * wake it, or clears the pointer when `masterSessionId` is omitted. Only
+ * `unwatch_agent` wants the clearing behaviour — implicit registration must go
+ * through `registerWatchIfMaster`.
+ */
+async function setWatchedByOrchestrator(
+  clerkUserId: string,
+  kind: AgentKind,
+  id: string,
+  masterSessionId: string | undefined,
+): Promise<void> {
+  const args: Record<string, JsonValue> =
+    kind === "session" ? { sessionId: id } : { taskId: id };
+  if (masterSessionId !== undefined) args.masterSessionId = masterSessionId;
+  await runMutationAsUser(
+    getEvaConvexCloudUrl(),
+    clerkUserId,
+    kind === "session"
+      ? "orchestratorWatch:setSessionWatchedBy"
+      : "orchestratorWatch:setTaskWatchedBy",
+    args,
+  );
+}
+
+const orchestratorSessionPointerSchema = z
+  .object({ sessionId: z.string() })
+  .nullable();
+
+/**
+ * Master sandbox token carries the id; a user OAuth token does not, so look
+ * up the user's live Manager Ave instead. Missing Ave means "nothing to
+ * wake" — never clear an existing watch.
+ */
+async function resolveWatchMasterSessionId(
+  clerkUserId: string,
+  tokenMasterSessionId: string | undefined,
+): Promise<string | undefined> {
+  if (tokenMasterSessionId !== undefined) return tokenMasterSessionId;
+  const pointer = orchestratorSessionPointerSchema.parse(
+    await runQueryAsUser(
+      getEvaConvexCloudUrl(),
+      clerkUserId,
+      "sessions:getOrchestratorSession",
+      {},
+    ),
+  );
+  return pointer?.sessionId;
+}
+
+/**
+ * Implicit watch registration for create/send. Looks up Manager Ave when the
+ * caller has no master sandbox token. Never clears an existing watch — that
+ * is what `setWatchedByOrchestrator` would do without a master id.
+ */
+async function registerWatchIfMaster(
+  clerkUserId: string,
+  kind: AgentKind,
+  id: string,
+  masterSessionId: string | undefined,
+): Promise<void> {
+  const resolved = await resolveWatchMasterSessionId(
+    clerkUserId,
+    masterSessionId,
+  );
+  if (resolved === undefined) return;
+  await setWatchedByOrchestrator(clerkUserId, kind, id, resolved);
+}
+
+export const orchestratorListAgents = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    repos: v.array(v.object({ id: v.string(), fullName: v.string() })),
+    includeIdle: v.boolean(),
+    excludeEntityId: v.optional(v.string()),
+  },
+  returns: v.array(orchestratorAgentValidator),
+  handler: async (
+    _ctx,
+    { clerkUserId, repos, includeIdle, excludeEntityId },
+  ): Promise<OrchestratorAgent[]> => {
+    const convexUrl = getEvaConvexCloudUrl();
+    const repoNameById = new Map(repos.map((r) => [r.id, r.fullName]));
+
+    const [sessionGroups, rawTasks] = await Promise.all([
+      Promise.all(
+        repos.map((repo) =>
+          runQueryAsUser(convexUrl, clerkUserId, "_sessions/queries:list", {
+            repoId: repo.id,
+          }),
+        ),
+      ),
+      // Already user-wide, so one call covers every repo. The slim projection
+      // keeps the fleet list cheap: full task docs measured up to 38KB each
+      // (backgroundAgents, description), all of it discarded below.
+      runQueryAsUser(
+        convexUrl,
+        clerkUserId,
+        "_agentTasks/queries:getActiveTasksSlim",
+        {},
+      ),
+    ]);
+
+    const agents: OrchestratorAgent[] = [];
+    for (const group of sessionGroups) {
+      for (const item of z.array(sessionListItemSchema).parse(group)) {
+        // Never list an orchestrator session. `_sessions/queries:list` is
+        // repo-scoped, so on a shared repo it also returns a teammate's master
+        // — and driving somebody else's supervisor is never intended. The
+        // caller's own id is excluded below, but that only covers itself.
+        if (item.isOrchestrator === true) continue;
+        agents.push({
+          kind: "session",
+          id: item._id,
+          numId: item.numId,
+          repo: repoNameById.get(item.repoId) ?? item.repoId,
+          title: item.title,
+          status: item.status,
+          isExecuting: item.isExecuting,
+          model: item.lastModel,
+          updatedAt: item.updatedAt ?? item._creationTime,
+        });
+      }
+    }
+    for (const task of z.array(agentTaskSchema).parse(rawTasks)) {
+      // Keep tasks inside the requested repo scope (all repos, or one).
+      if (task.repoId === undefined) continue;
+      const repoName = repoNameById.get(task.repoId);
+      if (repoName === undefined) continue;
+      agents.push({
+        kind: "task",
+        id: task._id,
+        numId: task.numId,
+        repo: repoName,
+        title: task.title,
+        status: task.status,
+        isExecuting:
+          task.activeWorkflowId !== undefined ||
+          task.activeChatWorkflowId !== undefined,
+        model: task.lastChatModel ?? task.model,
+        updatedAt: task.updatedAt,
+      });
+    }
+
+    return agents
+      .filter((agent) => agent.id !== excludeEntityId)
+      .filter((agent) => includeIdle || agent.isExecuting)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+  },
+});
+
+export const orchestratorGetAgentState = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    kind: agentKindValidator,
+    id: v.string(),
+    transcriptTail: v.number(),
+  },
+  returns: v.object({
+    kind: agentKindValidator,
+    id: v.string(),
+    numId: v.optional(v.number()),
+    title: v.string(),
+    status: v.string(),
+    isExecuting: v.boolean(),
+    model: v.optional(v.string()),
+    updatedAt: v.number(),
+    deploymentUrl: v.optional(v.string()),
+    deploymentStatus: v.optional(v.string()),
+    currentActivity: v.optional(v.string()),
+    currentContent: v.optional(v.string()),
+    pendingQuestion: v.optional(v.string()),
+    queuedMessageCount: v.number(),
+    transcript: v.array(
+      v.object({
+        role: v.string(),
+        content: v.string(),
+        timestamp: v.number(),
+        truncated: v.boolean(),
+      }),
+    ),
+  }),
+  handler: async (_ctx, { clerkUserId, kind, id, transcriptTail }) => {
+    const convexUrl = getEvaConvexCloudUrl();
+    const streamingEntityId =
+      kind === "session" ? id : `${TASK_CHAT_STREAM_PREFIX}${id}`;
+
+    // The access check runs first, on its own. `messages:listByParent` *throws*
+    // "Not authorized" while the entity read merely returns null, so in a
+    // Promise.all the raw throw won the race and the agent saw a stack instead
+    // of the sentence below.
+    const rawDoc = await runQueryAsUser(
+      convexUrl,
+      clerkUserId,
+      kind === "session" ? "_sessions/queries:get" : "_agentTasks/queries:get",
+      { id },
+    );
+    if (rawDoc === null) {
+      throw new Error(`No ${kind} ${id} found, or you do not have access.`);
+    }
+
+    const [rawStreaming, rawMessages, rawQueued] = await Promise.all([
+      runQueryAsUser(convexUrl, clerkUserId, "streaming:get", {
+        entityId: streamingEntityId,
+      }),
+      runQueryAsUser(convexUrl, clerkUserId, "messages:listByParent", {
+        parentId: id,
+      }),
+      runQueryAsUser(convexUrl, clerkUserId, "queuedMessages:listByParent", {
+        parentId: id,
+      }),
+    ]);
+
+    const streaming = streamingStateSchema.parse(rawStreaming);
+    const queuedMessageCount = z.array(z.unknown()).parse(rawQueued).length;
+    const messages = z.array(transcriptMessageSchema).parse(rawMessages);
+    const tail = transcriptTail > 0 ? messages.slice(-transcriptTail) : [];
+    const transcript = tail.map((message) => ({
+      role: message.role,
+      content: message.content.slice(0, TRANSCRIPT_CHAR_LIMIT),
+      timestamp: message.timestamp ?? message._creationTime,
+      truncated: message.content.length > TRANSCRIPT_CHAR_LIMIT,
+    }));
+
+    const common = {
+      kind,
+      id,
+      queuedMessageCount,
+      transcript,
+      currentActivity: streaming?.currentActivity,
+      currentContent: streaming?.currentContent,
+      pendingQuestion: streaming?.pendingQuestion,
+    };
+
+    if (kind === "session") {
+      const session = sessionDocSchema.parse(rawDoc);
+      return {
+        ...common,
+        numId: session.numId,
+        title: session.title,
+        status: session.status,
+        isExecuting: session.activeWorkflowId !== undefined,
+        model: session.lastModel,
+        updatedAt: session.updatedAt ?? session._creationTime,
+        deploymentUrl: session.deploymentUrl,
+        deploymentStatus: session.deploymentStatus,
+      };
+    }
+
+    const task = agentTaskSchema.parse(rawDoc);
+    return {
+      ...common,
+      numId: task.numId,
+      title: task.title,
+      status: task.status,
+      isExecuting:
+        task.activeWorkflowId !== undefined ||
+        task.activeChatWorkflowId !== undefined,
+      model: task.lastChatModel ?? task.model,
+      updatedAt: task.updatedAt,
+      deploymentUrl: undefined,
+      deploymentStatus: undefined,
+    };
+  },
+});
+
+async function delay(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Reads one entity's preview sandbox state as the calling user, so the read
+ * doubles as the access check. Each surface parks that state somewhere
+ * different: a session in `status`, a task and a project in their own
+ * `review*SandboxStatus` field.
+ *
+ * Deliberately not "is a turn running" — that answer needs the `turns` table,
+ * which no per-entity read exposes (see `mcp.queries.entityIsExecuting`).
+ */
+async function readEntitySandboxStatus(
+  convexUrl: string,
+  clerkUserId: string,
+  kind: ChatTargetKind,
+  id: string,
+): Promise<string> {
+  const raw = await runQueryAsUser(
+    convexUrl,
+    clerkUserId,
+    CHAT_DOC_QUERY[kind],
+    { id },
+  );
+  if (raw === null) {
+    throw new Error(`No ${kind} ${id} found, or you do not have access.`);
+  }
+  if (kind === "session") return sessionDocSchema.parse(raw).status;
+  if (kind === "task") {
+    return agentTaskSchema.parse(raw).reviewTaskSandboxStatus ?? "closed";
+  }
+  return projectDocSchema.parse(raw).reviewProjectSandboxStatus ?? "closed";
+}
+
+/**
+ * Brings one entity's preview sandbox up and waits until it is actually
+ * `active`. A completed entity tears its sandbox down, and resuming the closed
+ * id in-place hangs on "Resuming sandbox…", so this drives the same
+ * Start-button mutation the Eva UI does and then polls.
+ *
+ * Returns whether it had to issue a start; throws — rather than returning a
+ * half-started sandbox — when the VM never comes up.
+ */
+async function ensureEntitySandboxActive(
+  convexUrl: string,
+  clerkUserId: string,
+  kind: ChatTargetKind,
+  id: string,
+): Promise<{ startRequested: boolean }> {
+  const plan = decideSandboxStartPlan(
+    await readEntitySandboxStatus(convexUrl, clerkUserId, kind, id),
+  );
+  if (plan === "run") return { startRequested: false };
+
+  const surface = SANDBOX_SURFACES[kind];
+  let started = false;
+  const start = async () => {
+    await runMutationAsUser(convexUrl, clerkUserId, surface.start, {
+      [surface.idArg]: id,
+    });
+    started = true;
+  };
+
+  // `wait` is a start/stop already in flight. If that settles to `closed`,
+  // start once rather than failing on a teardown race.
+  if (plan === "start") {
+    await start();
+  }
+  const deadline = Date.now() + TASK_PREVIEW_SANDBOX_READY_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const next = decideSandboxStartPlan(
+      await readEntitySandboxStatus(convexUrl, clerkUserId, kind, id),
+    );
+    if (next === "run") return { startRequested: started };
+    if (next === "start") {
+      if (started) {
+        throw new Error(
+          `The ${kind} sandbox did not become ready. Start it from the sandbox panel and retry.`,
+        );
+      }
+      await start();
+    }
+    await delay(TASK_PREVIEW_SANDBOX_READY_POLL_MS);
+  }
+  throw new Error(
+    `Timed out waiting for the ${kind} sandbox to start. Start it from the sandbox panel and retry.`,
+  );
+}
+
+/**
+ * Decides how a chat surface's own workflow slot answers "is this busy", and
+ * which model the turn falls back to. Each surface has a different slot: a
+ * session's single workflow, a task's chat slot (separate from its run), a
+ * project's chat slot (separate from build and spec workflows).
+ */
+function chatDelivery(
+  kind: ChatTargetKind,
+  rawDoc: unknown,
+  queuedAhead: number,
+  requestedModel: string | undefined,
+): AgentDelivery {
+  if (kind === "session") {
+    const session = sessionDocSchema.parse(rawDoc);
+    return resolveAgentDelivery({
+      isBusy: session.activeWorkflowId !== undefined || queuedAhead > 0,
+      requestedModel,
+      storedModel: session.lastModel,
+    });
+  }
+  if (kind === "task") {
+    const task = agentTaskSchema.parse(rawDoc);
+    return resolveAgentDelivery({
+      isBusy: task.activeChatWorkflowId !== undefined || queuedAhead > 0,
+      requestedModel,
+      storedModel: task.lastChatModel ?? task.model,
+    });
+  }
+  const project = projectDocSchema.parse(rawDoc);
+  return resolveAgentDelivery({
+    isBusy: project.activeChatWorkflowId !== undefined || queuedAhead > 0,
+    requestedModel,
+    storedModel: project.lastChatModel ?? project.model,
+  });
+}
+
+export const orchestratorSendMessage = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    kind: chatKindValidator,
+    id: v.string(),
+    message: v.string(),
+    model: v.optional(v.string()),
+    masterSessionId: v.optional(v.string()),
+    /**
+     * Stamps the "via MCP" chat badge. True for every MCP send — master
+     * sandbox and user OAuth connector alike — so the row is not mistaken
+     * for a composer-typed turn.
+     */
+    sentViaOrchestrator: v.boolean(),
+  },
+  returns: v.object({
+    delivered: v.union(v.literal("started"), v.literal("queued")),
+    model: v.string(),
+  }),
+  handler: async (
+    _ctx,
+    {
+      clerkUserId,
+      kind,
+      id,
+      message,
+      model,
+      masterSessionId,
+      sentViaOrchestrator,
+    },
+  ) => {
+    const convexUrl = getEvaConvexCloudUrl();
+    const rawDoc = await runQueryAsUser(
+      convexUrl,
+      clerkUserId,
+      CHAT_DOC_QUERY[kind],
+      { id },
+    );
+    if (rawDoc === null) {
+      throw new Error(`No ${kind} ${id} found, or you do not have access.`);
+    }
+
+    if (kind === "task") {
+      await ensureEntitySandboxActive(convexUrl, clerkUserId, kind, id);
+    }
+
+    // A child with anything already queued is NOT idle, even with no workflow
+    // in flight: a brand-new session parks its first turn in the queue until
+    // its sandbox reports ready. Starting a turn then would run this message
+    // ahead of the one the child was created with (observed live: "probe
+    // second message" answered while "probe first message" sat queued).
+    const queuedAhead = z
+      .array(z.unknown())
+      .parse(
+        await runQueryAsUser(
+          convexUrl,
+          clerkUserId,
+          "queuedMessages:listByParent",
+          { parentId: id },
+        ),
+      ).length;
+
+    const delivery = chatDelivery(kind, rawDoc, queuedAhead, model);
+    for (const call of buildChatMessageCalls({
+      kind,
+      id,
+      message,
+      delivery,
+      sentViaOrchestrator,
+    })) {
+      await runMutationAsUser(convexUrl, clerkUserId, call.fn, call.args);
+    }
+
+    // Only sessions and tasks can be watched: the master session's fleet tools
+    // never target a project, so there is no project watch pointer to set.
+    if (kind !== "project") {
+      await registerWatchIfMaster(clerkUserId, kind, id, masterSessionId);
+    }
+    const delivered: "queued" | "started" =
+      delivery.action === "queue" ? "queued" : "started";
+    return { delivered, model: delivery.model };
+  },
+});
+
+export const orchestratorStopAgent = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    kind: agentKindValidator,
+    id: v.string(),
+  },
+  returns: v.null(),
+  handler: async (_ctx, { clerkUserId, kind, id }) => {
+    const convexUrl = getEvaConvexCloudUrl();
+    if (kind === "session") {
+      await runMutationAsUser(
+        convexUrl,
+        clerkUserId,
+        "_sessions/execution:cancelExecution",
+        { sessionId: id },
+      );
+      return null;
+    }
+    // A task has two independent workflow slots: its main run and its sandbox
+    // chat. Cancelling only the chat one reported success while a run kept
+    // going, so stop both — each cancel is a no-op when that slot is idle.
+    await runMutationAsUser(
+      convexUrl,
+      clerkUserId,
+      "agentTaskChatWorkflow:cancelExecution",
+      { taskId: id },
+    );
+    await runMutationAsUser(
+      convexUrl,
+      clerkUserId,
+      "_taskWorkflow/publicMutations:cancelExecution",
+      { taskId: id },
+    );
+    return null;
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Preview sandbox start/stop and queued-message cancellation.
+//
+// Every write here is one the user can already make in the Eva UI, run through
+// the same public mutation as that button. None of them touch status or review
+// state — a person still owns where a task sits in the workflow.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const mcpStartEntitySandbox = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    kind: chatKindValidator,
+    id: v.string(),
+  },
+  returns: v.object({
+    sandboxStatus: v.string(),
+    startRequested: v.boolean(),
+  }),
+  handler: async (_ctx, { clerkUserId, kind, id }) => {
+    const { startRequested } = await ensureEntitySandboxActive(
+      getEvaConvexCloudUrl(),
+      clerkUserId,
+      kind,
+      id,
+    );
+    // ensureEntitySandboxActive only returns once the VM is up, so there is no
+    // "resuming" limbo to report back.
+    return { sandboxStatus: "active", startRequested };
+  },
+});
+
+export const mcpStopEntitySandbox = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    kind: chatKindValidator,
+    id: v.string(),
+  },
+  returns: v.object({
+    sandboxStatus: v.string(),
+    stopRequested: v.boolean(),
+  }),
+  handler: async (ctx, { clerkUserId, kind, id }) => {
+    const convexUrl = getEvaConvexCloudUrl();
+    // Reading the entity as the user is the access check, so it comes first —
+    // the turn lookup below runs on an id the caller has already proven.
+    const sandboxStatus = await readEntitySandboxStatus(
+      convexUrl,
+      clerkUserId,
+      kind,
+      id,
+    );
+
+    // Tearing the VM down mid-turn kills the turn. Stopping and cancelling are
+    // separate decisions, so this refuses rather than deciding for the caller.
+    const isExecuting = await ctx.runQuery(
+      internal.mcp.queries.entityIsExecuting,
+      { kind, id },
+    );
+    if (isExecuting) {
+      throw new Error(
+        `This ${kind} has a turn in flight. Wait for it to finish and stop again, or cancel it first with stop_agent.`,
+      );
+    }
+
+    if (sandboxStatus === "closed") {
+      return { sandboxStatus: "closed", stopRequested: false };
+    }
+
+    const surface = SANDBOX_SURFACES[kind];
+    await runMutationAsUser(convexUrl, clerkUserId, surface.stop, {
+      [surface.idArg]: id,
+    });
+
+    // Teardown finalizes in a scheduled action, so poll for the settled state
+    // rather than reporting "stopped" the instant the mutation returns.
+    const deadline = Date.now() + SANDBOX_STOP_SETTLE_TIMEOUT_MS;
+    let settled = "stopping";
+    while (Date.now() < deadline) {
+      await delay(TASK_PREVIEW_SANDBOX_READY_POLL_MS);
+      settled = await readEntitySandboxStatus(convexUrl, clerkUserId, kind, id);
+      if (settled !== "stopping") break;
+    }
+    // A still-`stopping` status is reported as-is: the stop was accepted and
+    // will finalize, and claiming "closed" here would be a guess.
+    return { sandboxStatus: settled, stopRequested: true };
+  },
+});
+
+const queuedMessageSchema = z.object({
+  _id: z.string(),
+  content: z.string(),
+  createdAt: z.number(),
+  order: z.number().optional(),
+});
+
+export const mcpCancelQueuedMessages = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    id: v.string(),
+    /** One queued message to drop. Omitted with `all`, which drops every one. */
+    queuedMessageId: v.optional(v.string()),
+    all: v.boolean(),
+  },
+  returns: v.object({
+    cancelled: v.array(v.object({ id: v.string(), content: v.string() })),
+    remaining: v.number(),
+  }),
+  handler: async (_ctx, { clerkUserId, id, queuedMessageId, all }) => {
+    const convexUrl = getEvaConvexCloudUrl();
+    const listQueue = async () =>
+      z
+        .array(queuedMessageSchema)
+        .parse(
+          await runQueryAsUser(
+            convexUrl,
+            clerkUserId,
+            "queuedMessages:listByParent",
+            { parentId: id },
+          ),
+        );
+
+    const queued = await listQueue();
+    let doomed = queued;
+    if (!all) {
+      const match = queued.find(
+        (message) => message._id === queuedMessageId,
+      );
+      if (!match) {
+        const pending = queued.map((message) => message._id).join(", ");
+        throw new Error(
+          queued.length === 0
+            ? "Nothing is queued on this chat. A turn already running is cancelled with stop_agent, not here."
+            : `No queued message ${queuedMessageId} on this chat. Pending ids: ${pending}`,
+        );
+      }
+      doomed = [match];
+    }
+
+    for (const message of doomed) {
+      await runMutationAsUser(convexUrl, clerkUserId, "queuedMessages:remove", {
+        id: message._id,
+      });
+    }
+
+    // Re-read rather than subtracting: the chat may have drained a message of
+    // its own while this action was deleting others. A drained message is also
+    // gone from the queue, which is why the tool tells the caller that a
+    // same-instant dequeue cannot be taken back.
+    const remaining = await listQueue();
+    const stillQueued = new Set(remaining.map((message) => message._id));
+    return {
+      cancelled: doomed
+        .filter((message) => !stillQueued.has(message._id))
+        .map((message) => ({ id: message._id, content: message.content })),
+      remaining: remaining.length,
+    };
+  },
+});
+
+export const orchestratorCreateSession = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    repoId: v.string(),
+    title: v.optional(v.string()),
+    message: v.string(),
+    model: v.optional(v.string()),
+    baseBranch: v.optional(v.string()),
+    masterSessionId: v.optional(v.string()),
+  },
+  returns: v.object({ sessionId: v.string(), numId: v.number() }),
+  handler: async (
+    _ctx,
+    { clerkUserId, repoId, title, message, model, baseBranch, masterSessionId },
+  ) => {
+    const createArgs: Record<string, JsonValue> = {
+      repoId,
+      message,
+      model: normalizeAIModel(model),
+      sentViaOrchestrator: true,
+    };
+    if (title) createArgs.title = title;
+    if (baseBranch) createArgs.baseBranch = baseBranch;
+
+    const created = createdSessionSchema.parse(
+      await runMutationAsUser(
+        getEvaConvexCloudUrl(),
+        clerkUserId,
+        "_sessions/mutations:create",
+        createArgs,
+      ),
+    );
+    await registerWatchIfMaster(
+      clerkUserId,
+      "session",
+      created.sessionId,
+      masterSessionId,
+    );
+    return created;
+  },
+});
+
+export const orchestratorSetWatch = internalAction({
+  args: {
+    clerkUserId: v.string(),
+    kind: agentKindValidator,
+    id: v.string(),
+    masterSessionId: v.optional(v.string()),
+  },
+  returns: v.null(),
+  handler: async (_ctx, { clerkUserId, kind, id, masterSessionId }) => {
+    await setWatchedByOrchestrator(clerkUserId, kind, id, masterSessionId);
+    return null;
+  },
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Supabase Proxy Helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -1140,10 +2040,7 @@ export const resolveSupabaseToken = internalAction({
     if (!userId) return null;
 
     // Get repos and search for SUPABASE_ACCESS_TOKEN
-    const convexUrl = getConvexSiteUrl().replace(
-      ".convex.site",
-      ".convex.cloud",
-    );
+    const convexUrl = getEvaConvexCloudUrl();
     const source = wrapQueryHandler(
       `const userId = ${JSON.stringify(userId)};
       const memberships = await ctx.db.query("teamMembers").withIndex("by_user", q => q.eq("userId", userId)).collect();
@@ -1199,6 +2096,7 @@ export const handleMcpRequest = internalAction({
     entityKind: v.optional(
       v.union(v.literal("session"), v.literal("task"), v.literal("project")),
     ),
+    isOrchestrator: v.optional(v.boolean()),
     body: v.string(),
   },
   returns: v.object({
@@ -1207,7 +2105,7 @@ export const handleMcpRequest = internalAction({
   }),
   handler: async (
     ctx,
-    { clerkUserId, scopedRepoId, entityId, entityKind, body },
+    { clerkUserId, scopedRepoId, entityId, entityKind, isOrchestrator, body },
   ) => {
     try {
       const parsedBody = JSON.parse(body);
@@ -1220,7 +2118,13 @@ export const handleMcpRequest = internalAction({
 
       // Register tools with credentials (including optional scoped repo /
       // session entity for browser tools).
-      const credentials = { clerkUserId, scopedRepoId, entityId, entityKind };
+      const credentials = {
+        clerkUserId,
+        scopedRepoId,
+        entityId,
+        entityKind,
+        isOrchestrator,
+      };
       registerTools(server, credentials, ctx);
       try {
         await registerSupabaseTools(server, credentials, ctx);

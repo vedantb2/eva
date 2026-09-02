@@ -424,6 +424,7 @@ export const callTool = authAction({
             internal.mcp.nodeActions.runTestQuery,
             { convexUrl: t.convexUrl, deployKey: t.deployKey, code: a.code },
           );
+          if (!result.ok) return errorResult(result.error);
           return textResult(
             result.logLines.length > 0
               ? { result: result.value, logLines: result.logLines }
@@ -445,6 +446,7 @@ export const callTool = authAction({
               code: `return await ctx.db.get(${JSON.stringify(a.id)});`,
             },
           );
+          if (!result.ok) return errorResult(result.error);
           return textResult(
             result.logLines.length > 0
               ? { document: result.value, logLines: result.logLines }
@@ -466,6 +468,7 @@ export const callTool = authAction({
               code: `const docs = await ctx.db.query(${JSON.stringify(a.table)}).collect(); return docs.length;`,
             },
           );
+          if (!result.ok) return errorResult(result.error);
           return textResult({ table: a.table, count: result.value });
         }
 

@@ -12,6 +12,11 @@ import { convex } from "./lib/convex";
 import { DeploymentErrorFallback } from "./lib/components/DeploymentErrorFallback";
 import { MotionProvider } from "./lib/components/MotionProvider";
 import { isChunkLoadError } from "./lib/utils/isChunkLoadError";
+import {
+  claimStaleDeployReload,
+  reloadForStaleDeploy,
+  stripStaleDeployReloadParam,
+} from "./lib/utils/staleDeployReload";
 import { readSignedInHint } from "./lib/authHint";
 import { saveMcpOauthParamsFromUrl } from "./lib/mcpOauthStorage";
 import { migrateLegacyStorageKeys } from "./lib/migrateLegacyStorageKeys";
@@ -22,6 +27,7 @@ import "./globals.css";
 // Persist any in-flight MCP OAuth params before Clerk's session handshake
 // gets a chance to redirect us off `/mcp/oauth/authorize`. See
 // `mcpOauthStorage.ts` for the full flow.
+stripStaleDeployReloadParam();
 saveMcpOauthParamsFromUrl();
 
 // Moves persisted sandbox UI state off the legacy `conductor:` key prefix. Must
@@ -32,15 +38,40 @@ migrateLegacyStorageKeys();
 /**
  * Handles stale deployment detection: closes the Convex WebSocket to prevent
  * a cascade of "Not authenticated" server errors, then reloads the page.
+ *
+ * Claim before preventDefault. Vite's preload helper resolves the failed
+ * `import()` to `undefined` when `vite:preloadError` is canceled — React.lazy
+ * then crashes with `Cannot read properties of undefined (reading 'default')`.
+ * Preventing only after we win the cooldown keeps a refused claim from
+ * swallowing the rejection (and matches the index.html listener, which never
+ * cancels the event).
  */
 function handleStaleDeployment(event: Event) {
+  if (!claimStaleDeployReload()) return;
   event.preventDefault();
   try {
     convex.close();
   } catch {
     // WebSocket may already be closed
   }
-  window.location.reload();
+  reloadForStaleDeploy();
+}
+
+function isFailedHashedModule(target: EventTarget | null): boolean {
+  if (
+    !(target instanceof HTMLScriptElement) &&
+    !(target instanceof HTMLLinkElement)
+  ) {
+    return false;
+  }
+  if (target instanceof HTMLScriptElement && target.type !== "module") {
+    return false;
+  }
+  if (target instanceof HTMLLinkElement && target.rel !== "modulepreload") {
+    return false;
+  }
+  const url = target instanceof HTMLScriptElement ? target.src : target.href;
+  return url.includes("/assets/");
 }
 
 // After a new Vercel deployment, cached HTML may reference old chunk hashes that no longer exist.
@@ -49,11 +80,17 @@ window.addEventListener("vite:preloadError", handleStaleDeployment);
 
 // Catch chunk loading failures that bypass Vite's preload detection
 // (e.g. dynamic imports triggered by route navigation or lazy components).
-window.addEventListener("error", (event) => {
-  if (isChunkLoadError(event.error)) {
-    handleStaleDeployment(event);
-  }
-});
+// Resource-load errors (wrong MIME / 404 on <script type="module">) do not
+// bubble, so the listener must run in the capture phase.
+window.addEventListener(
+  "error",
+  (event) => {
+    if (isChunkLoadError(event.error) || isFailedHashedModule(event.target)) {
+      handleStaleDeployment(event);
+    }
+  },
+  true,
+);
 window.addEventListener("unhandledrejection", (event) => {
   if (isChunkLoadError(event.reason)) {
     handleStaleDeployment(event);
@@ -103,7 +140,11 @@ const hadSession = readSignedInHint();
 // anonymous landing never downloads it. Returning users need it immediately,
 // so start fetching now — it downloads in parallel with Clerk's handshake.
 if (hadSession) {
-  void import("@/lib/components/AppShellChrome");
+  void import("@/lib/components/AppShellChrome").catch((error: Error) => {
+    if (isChunkLoadError(error)) {
+      handleStaleDeployment(new Event("error"));
+    }
+  });
 }
 
 const rootElement = document.getElementById("root");

@@ -38,7 +38,7 @@ export const sortDirParser = parseAsStringLiteral(sortDirections)
   .withDefault("desc")
   .withOptions(searchOptions);
 
-const timeRanges = ["7d", "30d", "90d", "all"] as const;
+const timeRanges = ["24h", "7d", "30d", "90d", "all"] as const;
 export const timeRangeParser = parseAsStringLiteral(timeRanges)
   .withDefault("30d")
   .withOptions(searchOptions);
@@ -65,8 +65,12 @@ export const quickTaskSortDirParser =
   parseAsStringLiteral(sortDirections).withOptions(searchOptions);
 
 // Quick Tasks default to "all time" (unlike the generic timeRangeParser's
-// "30d" default used elsewhere), so it needs its own default.
-export const quickTaskTimeRangeParser = parseAsStringLiteral(timeRanges)
+// "30d" default used elsewhere) and have no hourly view, so they keep their
+// own vocabulary and default.
+const quickTaskTimeRanges = ["7d", "30d", "90d", "all"] as const;
+export const quickTaskTimeRangeParser = parseAsStringLiteral(
+  quickTaskTimeRanges,
+)
   .withDefault("all")
   .withOptions(searchOptions);
 
@@ -126,6 +130,7 @@ const sandboxTabs = [
   "computer",
   "review",
   "files",
+  "agents",
   "prd",
   "designs",
 ] as const;
@@ -170,6 +175,7 @@ const taskRouteSandboxTabs = [
   "computer",
   "review",
   "files",
+  "agents",
 ] as const;
 export type TaskRouteSandboxTab = (typeof taskRouteSandboxTabs)[number];
 
@@ -181,8 +187,14 @@ export function isTaskRouteSandboxTab(s: string): s is TaskRouteSandboxTab {
  * The review tab set, shared by the standalone Reviews page
  * (`/reviews/$prNumber/$reviewTab`) and the sandbox Review tab
  * (`…/review/$tab`). One union so the two surfaces cannot drift apart.
+ *
+ * The ids are URL slugs and outlive their labels: `overview` is presented as
+ * "Activity" and `diffs` as "Changes" (see `REVIEW_TAB_META`). Renaming the
+ * slugs would break every link anybody has pasted into a task or a PR comment
+ * for the sake of two words nothing renders, so the labels moved and the slugs
+ * stayed. `canonicalReviewTab` accepts the label-shaped spellings too.
  */
-const reviewTabs = ["overview", "diffs", "recap"] as const;
+const reviewTabs = ["overview", "commits", "checks", "diffs", "recap"] as const;
 export type ReviewTab = (typeof reviewTabs)[number];
 export const REVIEW_DEFAULT_TAB: ReviewTab = "overview";
 
@@ -190,9 +202,10 @@ export function isReviewTab(s: string): s is ReviewTab {
   return reviewTabs.some((tab) => tab === s);
 }
 
-/** Slugs the Diffs tab used to answer to, redirected to the canonical one. */
+/** Slugs a tab used to answer to, or is labelled as, redirected to canonical. */
 export function canonicalReviewTab(s: string): ReviewTab | undefined {
-  if (s === "diff") return "diffs";
+  if (s === "diff" || s === "changes") return "diffs";
+  if (s === "activity") return "overview";
   return isReviewTab(s) ? s : undefined;
 }
 
@@ -283,6 +296,21 @@ export function parseDiffSearchFields(search: {
   };
 }
 
+/**
+ * The comment anchor a notification click-through carries. A route with a
+ * `validateSearch` drops any key it does not name, so every route a comment
+ * notification can land on has to spread this in — otherwise TanStack strips
+ * the param before nuqs ever sees it.
+ */
+export function parseCommentAnchorSearchField(search: { comment?: string }): {
+  comment?: string;
+} {
+  // Optional rather than `comment: string | undefined`: TanStack derives the
+  // route's search type from this return, and a required-but-undefined key
+  // would force every `navigate({ search })` under the route to restate it.
+  return typeof search.comment === "string" ? { comment: search.comment } : {};
+}
+
 export const designVariationParser = parseAsString
   .withDefault("0")
   .withOptions(tabOptions);
@@ -343,11 +371,24 @@ export function isAutomationTab(s: string): s is AutomationTab {
 
 export const AUTOMATION_DEFAULT_TAB: AutomationTab = "latest";
 
-const inboxFilters = ["all", "unread"] as const;
+export const inboxFilters = ["all", "unread"] as const;
 export type InboxFilter = (typeof inboxFilters)[number];
 export const inboxFilterParser = parseAsStringLiteral(inboxFilters)
   .withDefault("all")
   .withOptions(searchOptions);
+
+export function isInboxFilter(s: string): s is InboxFilter {
+  return inboxFilters.some((filter) => filter === s);
+}
+
+// Selected notification id in the two-pane inbox, kept in the URL so the
+// selection survives reload and a notification can be linked directly.
+export const inboxSelectedParser = parseAsString.withOptions(searchOptions);
+
+// The comment a notification click-through is aimed at. Written by the backend
+// into the notification href (`?comment=<id>`), never by the UI, so it replaces
+// rather than pushes — going back should leave the page, not the highlight.
+export const commentAnchorParser = parseAsString.withOptions(searchOptions);
 
 const pullRequestListStates = ["open", "closed", "all"] as const;
 export type PullRequestListState = (typeof pullRequestListStates)[number];
@@ -387,7 +428,7 @@ export const logEntityTypesParser = parseAsArrayOf(parseAsString)
   .withDefault([])
   .withOptions(searchOptions);
 
-const logViews = ["type", "project"] as const;
+const logViews = ["overview", "type", "project"] as const;
 export const logViewParser = parseAsStringLiteral(logViews)
-  .withDefault("type")
+  .withDefault("overview")
   .withOptions(searchOptions);

@@ -154,11 +154,31 @@ function applyReasoningSnapshot(text: string): void {
   S.lastStepType = "thinking";
 }
 
-/** Thinking is a transient liveness signal, not a durable activity row. */
+/**
+ * Appends ONE already-finished activity row. Unlike `updateThinkingStep` this
+ * survives into the message's activityLog, so a one-off event the user must be
+ * able to see after the turn (a session rotation, say) leaves a trace instead of
+ * a vanished thinking line. Pushed directly rather than through
+ * `applyCanonicalEvents` so it never touches the in-flight tool counter.
+ */
+export function pushNoticeStep(label: string, detail?: string): void {
+  pushProgressStep({ type: "notice", label, detail, status: "complete" });
+}
+
+/** Thinking is streamed as liveness but never persisted in the final log. */
 export function updateThinkingStep(label: string, detail?: string): void {
-  void label;
-  void detail;
+  S.transientThinkingStep = {
+    type: "thinking",
+    label,
+    detail,
+    status: "active",
+  };
   S.lastStepType = "thinking";
+}
+
+/** Removes startup/thinking filler once durable activity or text begins. */
+export function clearThinkingStep(): void {
+  S.transientThinkingStep = null;
 }
 
 function shouldRecordProgressStep(step: ProgressStep): boolean {
@@ -210,6 +230,7 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         updateThinkingStep(ev.label, ev.detail);
         break;
       case "push_step":
+        clearThinkingStep();
         pushProgressStep(ev.step);
         if (shouldRecordProgressStep(ev.step)) {
           if (ev.trackingId) S.codexToolItemIds.add(ev.trackingId);
@@ -217,6 +238,7 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         }
         break;
       case "complete_tool":
+        clearThinkingStep();
         completeToolStep(ev.trackingId, ev.result);
         if (ev.trackingId !== undefined) {
           S.codexToolItemIds.delete(ev.trackingId);
@@ -226,14 +248,17 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         }
         break;
       case "mark_last_complete":
+        clearThinkingStep();
         markLastComplete();
         break;
       case "append_text":
+        clearThinkingStep();
         // A whole (non-streamed) assistant text block — always a boundary, so a
         // paragraph break separates it from any prior block.
         appendStreamedContent(ev.text, true);
         break;
       case "stream_text_delta":
+        clearThinkingStep();
         // Live provider token delta. Appends exactly like append_text but marks
         // the flag so Claude's FINAL assistant message duplicate is skipped
         // (see claudeParseLine dedup). The break is applied only on the first
@@ -258,18 +283,22 @@ export function applyCanonicalEvents(events: CanonicalEvent[]): boolean {
         S.pendingParagraphBreak = true;
         break;
       case "update_reasoning":
+        clearThinkingStep();
         applyReasoningSnapshot(ev.text);
         break;
       case "set_pending_question":
+        clearThinkingStep();
         S.pendingQuestionData = ev.data;
         break;
       case "set_todos":
+        clearThinkingStep();
         applyTodosSnapshot(ev.todos);
         break;
       case "set_codex_thread":
         S.activeCodexThreadId = ev.threadId;
         break;
       case "mark_first_assistant":
+        clearThinkingStep();
         S.waitingForFirstAssistantEvent = false;
         break;
     }

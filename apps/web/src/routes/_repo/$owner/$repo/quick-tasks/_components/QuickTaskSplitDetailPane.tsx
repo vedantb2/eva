@@ -16,9 +16,10 @@ interface QuickTaskSplitDetailPaneProps {
 }
 
 /**
- * Right pane of the list-view master/detail split. Task chrome (breadcrumb,
- * context usage, actions, prev/next) lives in the page header — same layout as
- * projects — so this pane is just the shared task body.
+ * Right pane of the list-view master/detail split. Task chrome (surface
+ * switcher, context usage, actions, prev/next) sits in
+ * {@link QuickTaskSplitDetailHeader} directly above, so this pane is just the
+ * shared task body.
  */
 export function QuickTaskSplitDetailPane({
   taskId,

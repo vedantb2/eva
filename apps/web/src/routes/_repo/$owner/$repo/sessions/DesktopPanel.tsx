@@ -2,9 +2,9 @@ import { useAction } from "convex/react";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
 import { IconDeviceDesktop } from "@tabler/icons-react";
+import { Button } from "@eva/ui";
 import {
   SandboxIframeService,
-  type SandboxIframeServiceState,
   type StartResult,
 } from "@/lib/components/sandbox/SandboxIframeService";
 
@@ -15,7 +15,7 @@ interface DesktopPanelProps {
   sandboxId: string | undefined;
   isActive: boolean;
   repoId: Id<"githubRepos">;
-  /** Browser tab vs Computer (`+`) — same surface, different idle copy. */
+  /** Browser tab vs Computer tab — same surface, different idle copy. */
   surface?: "browser" | "desktop";
   /** When fresh, shows the takeover overlay (session/task/project sandboxes). */
   agentBrowsingAt?: number;
@@ -24,8 +24,6 @@ interface DesktopPanelProps {
    * mutation, provided by the caller). Takeover overlay only renders when set.
    */
   onReleaseLock?: () => void;
-  /** True while Computer/Browser desktop is starting or running. */
-  onRunningChange?: (running: boolean) => void;
 }
 
 const SURFACE_COPY = {
@@ -91,7 +89,6 @@ export function DesktopPanel({
   surface = "desktop",
   agentBrowsingAt,
   onReleaseLock,
-  onRunningChange,
 }: DesktopPanelProps) {
   const copy = SURFACE_COPY[surface];
   const toggleDesktopServer = useAction(api.sandbox.toggleDesktopServer);
@@ -113,12 +110,14 @@ export function DesktopPanel({
     launchChromeInDesktop({ sandboxId, repoId }).catch(() => {});
   };
 
-  const handleStateChange = (state: SandboxIframeServiceState) => {
-    onRunningChange?.(state === "starting" || state === "running");
-  };
+  const isAgentBrowsing = isAgentBrowsingActive(agentBrowsingAt);
 
-  const showLockOverlay =
-    onReleaseLock !== undefined && isAgentBrowsingActive(agentBrowsingAt);
+  // The agent only takes the browsing lock after `browser_start`, so Chrome is
+  // already up — auto-start (start + readiness poll) instead of asking the user
+  // to press Start for something they can see is running.
+  const autoStartKey = isAgentBrowsing ? agentBrowsingAt : undefined;
+
+  const showLockOverlay = onReleaseLock !== undefined && isAgentBrowsing;
 
   const handleTakeControl = () => {
     onReleaseLock?.();
@@ -148,18 +147,30 @@ export function DesktopPanel({
         startFailedError={copy.startFailedError}
         loadFailedError={copy.loadFailedError}
         iframeAllow="clipboard-read; clipboard-write"
-        onStateChange={handleStateChange}
+        autoStartKey={autoStartKey}
       />
       {showLockOverlay ? (
-        <button
-          type="button"
-          onClick={handleTakeControl}
-          className="absolute inset-0 z-10 flex cursor-pointer flex-col items-center justify-center gap-2 bg-background/55 px-4 text-center backdrop-blur-[1px]"
-        >
-          <span className="rounded-md border border-border bg-card px-3 py-2 text-sm">
-            Agent is browsing — click to take control
-          </span>
-        </button>
+        <>
+          {/* Same language as FollowOverlay: an inset ring marks the surface as
+              driven by someone else, and this layer swallows clicks so a stray
+              tap cannot fight the agent for the cursor. Releasing the lock is
+              the pill button only. No scrim/blur — the agent's browsing has to
+              stay watchable. */}
+          <div className="absolute inset-0 z-10 cursor-not-allowed ring-[3px] ring-inset ring-primary/70" />
+          <div className="absolute top-3 left-1/2 z-20 -translate-x-1/2">
+            <div className="flex items-center gap-2 rounded-full bg-primary py-1.5 pr-1.5 pl-4 text-sm font-medium text-primary-foreground smooth-shadow-lg">
+              <span>Agent is browsing</span>
+              <Button
+                size="xs"
+                variant="secondary"
+                className="rounded-full"
+                onClick={handleTakeControl}
+              >
+                Take control
+              </Button>
+            </div>
+          </div>
+        </>
       ) : null}
     </div>
   );

@@ -14,6 +14,7 @@ export const KNOWN_REPO_SUB_PAGES = new Set([
   "settings",
   "testing-arena",
   "stats",
+  "today",
   "automations",
   "inbox",
   "drafts",
@@ -60,6 +61,15 @@ export function repoPublicHref(
   rootDirectory?: string,
 ): string {
   return repoHref(owner, name, rootDirectory);
+}
+
+/**
+ * Build the router's internal `$repo` param (`name` or `name--app`) for a repo
+ * that is not in the URL — e.g. mounting a repo-scoped tree from a global route.
+ */
+export function encodeRepoParam(name: string, rootDirectory?: string): string {
+  const appName = rootDirectory?.split("/").pop();
+  return appName ? `${name}--${appName}` : name;
 }
 
 /** Parse the router's internal `$repo` param (`name` or `name--app`). */
@@ -109,6 +119,68 @@ export function toDisplayRepoHref(href: string): string {
     }
   }
   return href;
+}
+
+/**
+ * Repo sections whose sidebar belongs to a global rail entry (one cross-repo
+ * panel) rather than to the app. Clicking an app tile means "show me this app",
+ * so these are never carried across — landing on them would leave the same
+ * global panel open and never reveal the app sidebar.
+ */
+const RAIL_GLOBAL_SECTIONS = new Set(["sessions", "automations"]);
+
+/**
+ * The repo section a path sits in (`quick-tasks`, `projects`, …), or null for a
+ * repo root, a non-repo path, or a section owned by a global rail entry.
+ * Anything below the section — entity ids, tabs, query, hash — is dropped, so
+ * switching apps keeps the view without carrying a task or session that belongs
+ * to the app you left. Accepts either URL form.
+ */
+export function repoSectionFromPath(pathname: string): string | null {
+  const { pathname: internal } = splitHref(toInternalRepoHref(pathname));
+  const segments = internal.split("/").filter(Boolean);
+  if (segments.length < 3) return null;
+  if (NON_REPO_PATH_PREFIXES.has(segments[0])) return null;
+  const section = segments[2];
+  if (RAIL_GLOBAL_SECTIONS.has(section)) return null;
+  return KNOWN_REPO_SUB_PAGES.has(section) ? section : null;
+}
+
+/**
+ * Public href for a repo, landing on `section` when one is given. Used by the
+ * rail so an app tile keeps the section you are already looking at.
+ */
+export function repoSectionHref(
+  owner: string,
+  name: string,
+  rootDirectory: string | undefined,
+  section: string | null,
+): string {
+  const base = repoHref(owner, name, rootDirectory);
+  return section === null ? base : `${base}/${section}`;
+}
+
+/**
+ * Turn a stored href into the arguments TanStack `navigate` actually reads.
+ *
+ * The router never splits a query string out of `to` — it resolves the whole
+ * string as a pathname, so `/o/r/quick-tasks/3?comment=abc` matches nothing.
+ * Search has to be handed over separately, which is what this does, on top of
+ * the `repo--app` rewrite every stored href needs anyway.
+ */
+export function hrefToNavigateOptions(href: string): {
+  to: string;
+  search: Record<string, string>;
+} {
+  const internal = toInternalRepoHref(href);
+  const { pathname, suffix } = splitHref(internal);
+  if (!suffix.startsWith("?")) return { to: internal, search: {} };
+  const [query] = suffix.slice(1).split("#");
+  const search: Record<string, string> = {};
+  for (const [key, value] of new URLSearchParams(query)) {
+    search[key] = value;
+  }
+  return { to: pathname, search };
 }
 
 function splitHref(href: string): { pathname: string; suffix: string } {

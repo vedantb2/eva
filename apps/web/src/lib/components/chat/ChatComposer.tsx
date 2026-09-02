@@ -1,34 +1,18 @@
 import {
-  BorderBeam,
-  Button,
   motionBase,
-  PromptInput,
-  PromptInputFooter,
   PromptInputProvider,
-  PromptInputSubmit,
-  PromptInputTools,
   toast,
   type ModelAccount,
   type ModelOption,
   type PromptInputMessage,
-  usePromptInputController,
 } from "@eva/ui";
-import { ModelSelectWithTraits } from "@/lib/components/ModelSelectWithTraits";
-import { ComposerSpeechButton } from "@/lib/components/chat/_components/ComposerSpeechButton";
-import {
-  MAX_CHAT_ATTACHMENTS,
-  MAX_CHAT_ATTACHMENT_BYTES,
-  CHAT_ATTACHMENT_ACCEPT,
-  chatAttachmentErrorMessage,
-  useUploadChatAttachments,
-  ChatAttachmentPreview,
-} from "@/lib/components/chat/imageAttachments";
+import { useUploadChatAttachments } from "@/lib/components/chat/imageAttachments";
 import { ChatDraftSync } from "@/lib/components/chat/ChatDraftSync";
 import { LocalChatDraftSync } from "@/lib/components/chat/LocalChatDraftSync";
 import type { ChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { ChatTypeToFocus } from "@/lib/components/chat/ChatTypeToFocus";
 import { ChatTypingLayer } from "@/lib/components/chat/ChatTypingLayer";
-import { ComposerPlusMenu } from "@/lib/components/chat/_components/ComposerPlusMenu";
+import { ComposerInputChrome } from "@/lib/components/chat/_components/ComposerInputChrome";
 import { ComposerStash } from "@/lib/components/chat/_components/ComposerStash";
 import { usePeopleMentionItems } from "@/lib/hooks/usePeopleMentionItems";
 import { useDataMentionItems } from "@/lib/hooks/useDataMentionItems";
@@ -36,7 +20,6 @@ import {
   mergeMentionItems,
   tokenizedToEditable,
 } from "@/lib/components/mentions";
-import { IconPlayerStop } from "@tabler/icons-react";
 import { useRef } from "react";
 import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -50,13 +33,13 @@ import {
 } from "@eva/backend";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
 import { stripReviewCommentBlocks } from "@/lib/reviewComments";
-import {
-  MentionTextarea,
-  type MentionTextareaHandle,
-} from "@/lib/components/chat/MentionTextarea";
+import { type MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
 import { useSkillSlashItems } from "@/lib/hooks/useSkillSlashItems";
-import type { SessionMode } from "@/lib/hooks/useSessionSettings";
 import { QueuedMessagesPanel } from "@/lib/components/QueuedMessagesPanel";
+import {
+  composerTaskStepsFromActivity,
+  ComposerTasksPanel,
+} from "@/lib/components/chat/_components/ComposerTasksPanel";
 import type { ChatBodyQueuedMessage } from "@/lib/components/chat/chatBodyUtils";
 import { useQueuedMessageMutations } from "@/lib/components/chat/useQueuedMessageMutations";
 
@@ -97,12 +80,12 @@ interface ChatComposerProps {
   onCancel: () => Promise<void>;
   beforeQueuedContent?: React.ReactNode;
   preInputContent?: React.ReactNode;
+  /** Live turn activity JSON — its todo snapshot feeds the Tasks panel. */
+  streamingActivity?: string;
+  /** Message id of the streaming turn; scopes Tasks-panel dismissal to it. */
+  streamingTurnId?: string;
   /** Optional left-side control on the under-input card (e.g. base branch). */
   underCardLeading?: React.ReactNode;
-  /** Optional left-side controls on the under-input card (e.g. design tools). */
-  toolsBefore?: React.ReactNode;
-  mode?: SessionMode;
-  onModeChange?: (mode: SessionMode) => void;
   draft?: ChatDraftSeed;
   /** Persist draft in localStorage when no Convex conversation exists yet. */
   localDraft?: LocalChatDraft;
@@ -131,10 +114,9 @@ export function ChatComposer({
   onCancel,
   beforeQueuedContent,
   preInputContent,
+  streamingActivity,
+  streamingTurnId,
   underCardLeading,
-  toolsBefore,
-  mode,
-  onModeChange,
   draft,
   localDraft,
   isDraftLoading,
@@ -202,175 +184,111 @@ export function ChatComposer({
         ) : null}
       </AnimatePresence>
       {preInputContent}
-      <QueuedMessagesPanel
-        items={queuedMessageItems}
-        renderContent={(content) => {
-          const stripped = stripReviewCommentBlocks(content);
-          const display = tokenizedToEditable(stripped.text).displayText;
-          const suffix =
-            stripped.reviewCommentCount > 0
-              ? ` · ${stripped.reviewCommentCount} review comment${stripped.reviewCommentCount === 1 ? "" : "s"}`
-              : "";
-          return (
-            <MessageMentionText
-              as="span"
-              text={`${display}${suffix}`}
-              repoBasePath={repoBasePath}
-              className="text-xs leading-4 text-foreground/90"
-            />
-          );
-        }}
-        onEdit={async (id, content) => {
-          await updateQueuedMessage({ id, content });
-        }}
-        onDelete={async (id) => {
-          await deleteQueuedMessage({ id });
-        }}
-        onReorder={async (orderedIds) => {
-          const parentId = queuedMessages[0]?.parentId;
-          if (!parentId) return;
-          await reorderQueuedMessages({ parentId, orderedIds });
-        }}
-      />
-      {/* Beam runs while the agent is replying — radius matches the input group. */}
-      <BorderBeam
-        active={isExecuting && !isDraftLoading}
-        colorVariant="colorful"
-        className="rounded-control"
-      >
-        {isDraftLoading ? (
-          // Placeholder that matches the input group's visual footprint.
-          // Keeps the layout stable while the draft query resolves, and
-          // prevents the PromptInputProvider from mounting with an empty
-          // initialInput before the persisted draft is known.
-          <div
-            aria-busy="true"
-            aria-label="Loading draft..."
-            className="pointer-events-none rounded-surface smooth-shadow-ring-lg bg-background opacity-50 min-h-18"
+      {isDraftLoading ? (
+        <div
+          aria-busy="true"
+          aria-label="Loading draft..."
+          className="pointer-events-none rounded-full bg-background opacity-50 min-h-12"
+        />
+      ) : (
+        <PromptInputProvider initialInput={seed?.initialDisplay}>
+          <ChatTypingLayer
+            roomId={`typing:chat:${conversationId}`}
+            userId={currentUserId}
           />
-        ) : (
-          <PromptInputProvider initialInput={seed?.initialDisplay}>
-            <ChatTypingLayer
-              roomId={`typing:chat:${conversationId}`}
-              userId={currentUserId}
+          <ChatTypeToFocus mentionRef={mentionRef} />
+          {draft && (
+            <ChatDraftSync
+              target={draft.target}
+              mentionRef={mentionRef}
+              initialDisplay={draft.initialDisplay}
             />
-            <ChatTypeToFocus mentionRef={mentionRef} />
-            {draft && (
-              <ChatDraftSync
-                target={draft.target}
-                mentionRef={mentionRef}
-                initialDisplay={draft.initialDisplay}
-              />
-            )}
-            {!draft && localDraft && (
-              <LocalChatDraftSync
-                mentionRef={mentionRef}
-                initialDisplay={localDraft.initialDisplay}
-                onSave={localDraft.onSave}
-              />
-            )}
-            <PromptInput
-              onSubmit={handlePromptSubmit}
-              accept={CHAT_ATTACHMENT_ACCEPT}
-              multiple
-              maxFiles={MAX_CHAT_ATTACHMENTS}
-              maxFileSize={MAX_CHAT_ATTACHMENT_BYTES}
-              onError={(err) => toast.error(chatAttachmentErrorMessage(err))}
-            >
-              <ChatAttachmentPreview />
-              <MentionTextarea
-                ref={mentionRef}
-                repoBasePath={repoBasePath}
-                repoId={repoId}
-                skillItems={skillItems}
-                skillsSettingsHref={`${repoBasePath}/settings/skills`}
-                placeholder={isExecuting ? "Add a follow-up..." : placeholder}
-                initialMentionMap={seed?.mentionMap}
-                initialSkillMap={seed?.skillMap}
-                history={messageHistory}
-                enableAttachmentPaste
-                completionContext={`a message instructing an AI coding agent working on the repository ${repoBasePath.replace(/^\//, "")}`}
-              />
-              {/* Wraps rather than squashing: the footer holds five controls and
-                  the chat pane goes down to 350px on desktop and a full phone
-                  width below `md`. No effect while everything fits. */}
-              <PromptInputFooter className="max-sm:gap-y-2 px-4 pb-4">
-                <PromptInputTools>
-                  <ComposerPlusMenu
-                    dataItems={plusDataItems}
-                    skillItems={skillItems}
-                    mentionRef={mentionRef}
-                    mode={mode}
-                    onModeChange={onModeChange}
-                  />
-                  {toolsBefore}
-                  <ComposerStash
-                    repoId={repoId}
-                    mentionRef={mentionRef}
-                    disabled={isInputDisabled}
-                  />
-                </PromptInputTools>
-                <div className="flex min-w-0 items-center gap-1">
-                  <ModelSelectWithTraits
-                    value={model}
-                    options={modelOptions}
-                    onValueChange={setModel}
-                    accounts={accounts}
-                    accountId={accountId}
-                    onAccountChange={onAccountChange}
-                    traits={displayTraits}
-                    onTraitsChange={onTraitsChange}
-                  />
-                  <ComposerSpeechButton disabled={isInputDisabled} />
-                  {isExecuting ? (
-                    <Button
-                      size="icon-sm"
-                      type="button"
-                      variant="destructive"
-                      onClick={onCancel}
-                      aria-label="Stop Eva"
-                      title="Stop Eva"
-                    >
-                      <IconPlayerStop className="size-4" />
-                    </Button>
-                  ) : null}
-                  <ChatBodySubmit
-                    disabled={isInputDisabled}
-                    isExecuting={isExecuting}
-                    hasPendingContext={hasPendingContext}
-                  />
-                </div>
-              </PromptInputFooter>
-            </PromptInput>
-          </PromptInputProvider>
-        )}
-      </BorderBeam>
+          )}
+          {!draft && localDraft && (
+            <LocalChatDraftSync
+              mentionRef={mentionRef}
+              initialDisplay={localDraft.initialDisplay}
+              onSave={localDraft.onSave}
+            />
+          )}
+          <ComposerStash
+            repoId={repoId}
+            mentionRef={mentionRef}
+            disabled={isInputDisabled}
+            panels={
+              <>
+                <ComposerTasksPanel
+                  steps={composerTaskStepsFromActivity(streamingActivity)}
+                  turnId={streamingTurnId}
+                />
+                <QueuedMessagesPanel
+                  items={queuedMessageItems}
+                  renderContent={(content) => {
+                    const stripped = stripReviewCommentBlocks(content);
+                    const display = tokenizedToEditable(
+                      stripped.text,
+                    ).displayText;
+                    const suffix =
+                      stripped.reviewCommentCount > 0
+                        ? ` · ${stripped.reviewCommentCount} review comment${stripped.reviewCommentCount === 1 ? "" : "s"}`
+                        : "";
+                    return (
+                      <MessageMentionText
+                        as="span"
+                        text={`${display}${suffix}`}
+                        repoBasePath={repoBasePath}
+                        className="text-xs leading-4 text-foreground/90"
+                      />
+                    );
+                  }}
+                  onEdit={async (id, content) => {
+                    await updateQueuedMessage({ id, content });
+                  }}
+                  onDelete={async (id) => {
+                    await deleteQueuedMessage({ id });
+                  }}
+                  onReorder={async (orderedIds) => {
+                    const parentId = queuedMessages[0]?.parentId;
+                    if (!parentId) return;
+                    await reorderQueuedMessages({ parentId, orderedIds });
+                  }}
+                />
+              </>
+            }
+          >
+            <ComposerInputChrome
+              repoId={repoId}
+              repoBasePath={repoBasePath}
+              mentionRef={mentionRef}
+              skillItems={skillItems}
+              plusDataItems={plusDataItems}
+              skillsSettingsHref={`${repoBasePath}/settings/skills`}
+              placeholder={isExecuting ? "Add a follow-up..." : placeholder}
+              isExecuting={isExecuting}
+              isInputDisabled={isInputDisabled}
+              hasPendingContext={hasPendingContext}
+              model={model}
+              setModel={setModel}
+              modelOptions={modelOptions}
+              accounts={accounts}
+              accountId={accountId}
+              onAccountChange={onAccountChange}
+              displayTraits={displayTraits}
+              onTraitsChange={onTraitsChange}
+              onPromptSubmit={handlePromptSubmit}
+              onCancel={onCancel}
+              seedMentionMap={seed?.mentionMap}
+              seedSkillMap={seed?.skillMap}
+              messageHistory={messageHistory}
+            />
+          </ComposerStash>
+        </PromptInputProvider>
+      )}
       {underCardLeading ? (
         <div className="mx-auto flex w-[calc(100%-1.5rem)] md:w-[calc(100%-2rem)] items-center rounded-b-surface bg-muted/70 px-2 py-1.5">
           <div className="min-w-0">{underCardLeading}</div>
         </div>
       ) : null}
     </div>
-  );
-}
-
-function ChatBodySubmit({
-  disabled,
-  isExecuting,
-  hasPendingContext,
-}: {
-  disabled: boolean;
-  isExecuting: boolean;
-  hasPendingContext: boolean;
-}) {
-  const { textInput, attachments } = usePromptInputController();
-  const isEmpty =
-    textInput.value.trim().length === 0 && attachments.files.length === 0;
-
-  return (
-    <PromptInputSubmit
-      disabled={disabled || (isEmpty && !hasPendingContext)}
-      title={isExecuting ? "Queue message" : "Send message"}
-    />
   );
 }

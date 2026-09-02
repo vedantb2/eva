@@ -9,21 +9,22 @@ import {
   IconExternalLink,
   IconMaximize,
 } from "@tabler/icons-react";
-import { stripPreviewGrant, carryPreviewGrant } from "@/lib/utils/previewGrant";
+import {
+  stripPreviewGrant,
+  carryPreviewGrant,
+} from "@/lib/utils/previewGrant";
+import { PreviewPathInput } from "./PreviewPathInput";
+import { normalizePreviewPath } from "./previewPathHistory";
+
+export { normalizePreviewPath };
 
 function getPathFromUrl(fullUrl: string): string {
   try {
-    const parsed = new URL(fullUrl);
+    const parsed = new URL(stripPreviewGrant(fullUrl));
     return parsed.pathname + parsed.search + parsed.hash;
   } catch {
     return "/";
   }
-}
-
-export function normalizePreviewPath(path: string): string {
-  const trimmed = path.trim();
-  if (!trimmed) return "/";
-  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }
 
 export function buildUrlWithPath(baseUrl: string, path: string): string {
@@ -236,10 +237,10 @@ export function PreviewNavBar({
     }
   }
 
-  function commitPath() {
+  function commitPath(path: string = pathInput) {
     const iframe = currentIframe();
     if (!iframe || !previewUrl) return;
-    const nextPath = normalizePreviewPath(pathInput);
+    const nextPath = normalizePreviewPath(path);
     setPathInput(nextPath);
     notifyPathChange(nextPath);
     iframe.src = buildUrlWithPath(previewUrl, nextPath);
@@ -298,18 +299,10 @@ export function PreviewNavBar({
           <IconRefresh className="w-3.5 h-3.5" />
         )}
       </WebPreviewNavigationButton>
-      <Input
-        // 16px below `sm` keeps iOS from zooming the page on focus; the compact
-        // 12px size is restored from `sm` up.
-        className="h-8 max-sm:min-w-0 flex-1 text-base sm:text-xs"
+      <PreviewPathInput
         value={pathInput}
-        onChange={(e) => setPathInput(e.target.value)}
-        onBlur={commitPath}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") commitPath();
-        }}
-        placeholder="/"
-        aria-label="Preview path"
+        onValueChange={setPathInput}
+        onCommit={commitPath}
       />
       <Input
         className="h-8 w-14 max-sm:shrink-0 text-base text-center px-1 sm:w-16 sm:text-xs"

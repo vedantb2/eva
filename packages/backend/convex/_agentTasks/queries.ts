@@ -1,7 +1,8 @@
 import { v } from "convex/values";
+import type { Infer } from "convex/values";
 import type { Doc, Id } from "../_generated/dataModel";
 import type { QueryCtx } from "../_generated/server";
-import { taskStatusValidator } from "../validators";
+import { aiModelValidator, taskStatusValidator } from "../validators";
 import { authQuery, hasRepoAccess, hasTaskAccess } from "../functions";
 import { entityVisible, filterActiveEntities } from "../numId";
 import { agentTaskValidator } from "./helpers";
@@ -141,10 +142,19 @@ export const getByNumId = authQuery({
 });
 
 /** Returns all non-draft, non-done tasks across accessible repos, sorted by most recently updated. */
-export const getActiveTasks = authQuery({
-  args: { repoId: v.optional(v.id("githubRepos")) },
-  returns: v.array(agentTaskValidator),
-  handler: async (ctx, args) => {
+/**
+ * Active tasks across every repo the user can reach (or one named repo). Shared
+ * by `getActiveTasks` and the slim orchestrator projection below so the scope
+ * rules — team repos plus connected repos, active statuses only — exist once.
+ */
+async function activeTasksForUser(
+  ctx: QueryCtx,
+  userId: Id<"users">,
+  repoId?: Id<"githubRepos">,
+): Promise<Array<Doc<"agentTasks">>> {
+  const args = { repoId };
+  const ctxUserId = userId;
+  {
     const activeStatuses = [
       "todo",
       "in_progress",
@@ -154,12 +164,12 @@ export const getActiveTasks = authQuery({
 
     let repoIds: Array<Id<"githubRepos">>;
     if (args.repoId) {
-      if (!(await hasRepoAccess(ctx.db, args.repoId, ctx.userId))) return [];
+      if (!(await hasRepoAccess(ctx.db, args.repoId, ctxUserId))) return [];
       repoIds = [args.repoId];
     } else {
       const memberships = await ctx.db
         .query("teamMembers")
-        .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
+        .withIndex("by_user", (q) => q.eq("userId", ctxUserId))
         .collect();
       const teamRepos = await Promise.all(
         memberships.map((m) =>
@@ -171,7 +181,7 @@ export const getActiveTasks = authQuery({
       );
       const connectedRepos = await ctx.db
         .query("githubRepos")
-        .withIndex("by_connected_by", (q) => q.eq("connectedBy", ctx.userId))
+        .withIndex("by_connected_by", (q) => q.eq("connectedBy", ctxUserId))
         .collect();
       const seen = new Set<string>();
       repoIds = [];
@@ -198,6 +208,58 @@ export const getActiveTasks = authQuery({
     return filterActiveEntities(taskArrays.flat()).sort(
       (a, b) => b.updatedAt - a.updatedAt,
     );
+  }
+}
+
+/** Active tasks for the user (or one repo), as full documents. */
+export const getActiveTasks = authQuery({
+  args: { repoId: v.optional(v.id("githubRepos")) },
+  returns: v.array(agentTaskValidator),
+  handler: async (ctx, args) =>
+    await activeTasksForUser(ctx, ctx.userId, args.repoId),
+});
+
+/**
+ * Fields the orchestrator's `list_agents` needs from a task — and nothing else.
+ *
+ * `getActiveTasks` returns whole documents, whose `backgroundAgents` and
+ * `description` measured up to 35KB and 8KB on real data; the fleet list keeps
+ * eight small fields and drops the rest, so a supervision round was moving
+ * hundreds of KB per call for no benefit.
+ */
+const orchestratorTaskValidator = v.object({
+  _id: v.id("agentTasks"),
+  _creationTime: v.number(),
+  numId: v.optional(v.number()),
+  repoId: v.optional(v.id("githubRepos")),
+  title: v.string(),
+  status: taskStatusValidator,
+  updatedAt: v.number(),
+  model: v.optional(aiModelValidator),
+  lastChatModel: v.optional(aiModelValidator),
+  activeWorkflowId: v.optional(v.string()),
+  activeChatWorkflowId: v.optional(v.string()),
+});
+
+/** Slim projection of {@link getActiveTasks} for the orchestrator fleet list. */
+export const getActiveTasksSlim = authQuery({
+  args: {},
+  returns: v.array(orchestratorTaskValidator),
+  handler: async (ctx): Promise<Array<Infer<typeof orchestratorTaskValidator>>> => {
+    const tasks = await activeTasksForUser(ctx, ctx.userId);
+    return tasks.map((task) => ({
+      _id: task._id,
+      _creationTime: task._creationTime,
+      numId: task.numId,
+      repoId: task.repoId,
+      title: task.title,
+      status: task.status,
+      updatedAt: task.updatedAt,
+      model: task.model,
+      lastChatModel: task.lastChatModel,
+      activeWorkflowId: task.activeWorkflowId,
+      activeChatWorkflowId: task.activeChatWorkflowId,
+    }));
   },
 });
 

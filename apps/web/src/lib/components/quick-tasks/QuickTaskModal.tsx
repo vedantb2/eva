@@ -33,14 +33,17 @@ import {
   type Id,
   type StoredModelTraits,
 } from "@eva/backend";
-import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import type { FunctionReturnType } from "convex/server";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import {
   useAvailableAiModels,
   useProviderAccounts,
 } from "@/lib/hooks/useAvailableAiModels";
-import { defaultProviderAccountId } from "@/lib/utils/defaultProviderAccount";
+import { useBaseBranchState } from "@/lib/hooks/useBaseBranchState";
+import {
+  defaultProviderAccountId,
+  providerAccountIdForModel,
+} from "@/lib/utils/defaultProviderAccount";
 import { toRunTraitArgs } from "@/lib/utils/runTraits";
 import { BranchSelect } from "@/lib/components/BranchSelect";
 import { ModelSelectWithTraits } from "@/lib/components/ModelSelectWithTraits";
@@ -59,6 +62,7 @@ import {
 import { useShortcut } from "@/lib/hotkeys/useShortcut";
 import { ShortcutKbd } from "@/lib/components/ui/Kbd";
 import { useGatewayDictation } from "@/lib/hooks/useGatewayDictation";
+import { useTranscriptPolish } from "@/lib/hooks/useTranscriptPolish";
 import {
   DescriptionMentionEditor,
   type DescriptionMentionEditorHandle,
@@ -112,15 +116,16 @@ export function QuickTaskModal({
   initialDraft,
 }: QuickTaskModalProps) {
   const { repo } = useRepo();
-  const defaultBranch = repo.defaultBaseBranch ?? FALLBACK_GIT_BASE_BRANCH;
+  const {
+    baseBranch,
+    setBaseBranch,
+    repoDefaultBranch: defaultBranch,
+  } = useBaseBranchState(initialDraft?.baseBranch);
   const [title, setTitle] = useState(initialDraft?.title ?? "");
   const [description, setDescription] = useState(() =>
     initialDraft
       ? tokenizedToEditable(initialDraft.description ?? "").displayText
       : "",
-  );
-  const [baseBranch, setBaseBranch] = useState(
-    initialDraft?.baseBranch ?? defaultBranch,
   );
   const [isLoading, setIsLoading] = useState(false);
   const [activeDraftId, setActiveDraftId] = useState<Id<"agentTasks"> | null>(
@@ -147,6 +152,10 @@ export function QuickTaskModal({
   const voiceEnabled = flags?.voiceDictation;
   const { isListening, isConnecting, toggle } =
     useGatewayDictation(setDescription);
+  const { isPolishing, handleToggle } = useTranscriptPolish({
+    value: description,
+    setInput: setDescription,
+  });
 
   // Seed the mention/skill maps from the initial draft's tokenized description
   // so that @-mention and /skill chips render correctly on deep-link open.
@@ -199,10 +208,13 @@ export function QuickTaskModal({
     ready: accountsReady,
   } = useProviderAccounts();
 
-  // Once accounts load, default to the creator's personal account for the
-  // selected model provider (Team when none match). Adjust during render.
+  // Once accounts load, default to the creator's own account for the selected
+  // model provider (Team when none match), leaving an existing pick that still
+  // resolves alone. Adjust during render.
   if (accountsReady && !accountDefaulted) {
-    setProviderAccountId(defaultProviderAccountId(accounts, model));
+    if (!accounts.some((account) => account.id === providerAccountId)) {
+      setProviderAccountId(defaultProviderAccountId(accounts, model));
+    }
     setAccountDefaulted(true);
   }
 
@@ -449,18 +461,20 @@ export function QuickTaskModal({
                     variant={
                       isListening && !isConnecting ? "destructive" : "secondary"
                     }
-                    onClick={() => toggle(description)}
-                    disabled={isLoading || isConnecting}
+                    onClick={() => handleToggle({ isListening, toggle })}
+                    disabled={isLoading || isConnecting || isPolishing}
                     className="h-8 w-8"
                     aria-label={
-                      isConnecting
-                        ? "Connecting microphone"
-                        : isListening
-                          ? "Stop voice input"
-                          : "Voice input"
+                      isPolishing
+                        ? "Polishing transcript"
+                        : isConnecting
+                          ? "Connecting microphone"
+                          : isListening
+                            ? "Stop voice input"
+                            : "Voice input"
                     }
                   >
-                    {isConnecting ? (
+                    {isConnecting || isPolishing ? (
                       <IconLoader2 size={14} className="animate-spin" />
                     ) : isListening ? (
                       <IconPlayerStop size={14} />
@@ -470,11 +484,13 @@ export function QuickTaskModal({
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {isConnecting
-                    ? "Connecting…"
-                    : isListening
-                      ? "Stop recording"
-                      : "Voice input"}
+                  {isPolishing
+                    ? "Polishing…"
+                    : isConnecting
+                      ? "Connecting…"
+                      : isListening
+                        ? "Stop recording"
+                        : "Voice input"}
                 </TooltipContent>
               </Tooltip>
             ) : null}
@@ -495,7 +511,9 @@ export function QuickTaskModal({
               options={modelOptions}
               onValueChange={(next) => {
                 setModel(next);
-                setProviderAccountId(defaultProviderAccountId(accounts, next));
+                setProviderAccountId(
+                  providerAccountIdForModel(accounts, providerAccountId, next),
+                );
               }}
               accounts={accounts}
               accountId={providerAccountId}

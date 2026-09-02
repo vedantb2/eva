@@ -13,7 +13,8 @@ type ExperimentalFlagKey =
   | "blurPid"
   | "voiceDictation"
   | "composerAutocomplete"
-  | "simpleView";
+  | "simpleView"
+  | "replyChime";
 
 export function ExperimentalSettingsClient() {
   const flags = useQuery(api.auth.getExperimentalFlags);
@@ -101,8 +102,19 @@ export function ExperimentalSettingsClient() {
           }
         />
         <SettingsToggleRow
+          title="Reply chime"
+          description="Play the notification sound when the agent finishes replying to you. Only your turns chime, and only on this machine."
+          action={
+            <Switch
+              checked={flags.replyChime}
+              onCheckedChange={(checked) => toggle("replyChime", checked)}
+              aria-label="Reply chime"
+            />
+          }
+        />
+        <SettingsToggleRow
           title="Simple view"
-          description="Hide reviews, diffs, tool activity steps, context usage, automations, model traits and older models, sandbox Files / Console / Editor / Computer / New Preview, repo settings entirely, global Sandboxes / Sync, and team Codebases / Env Variables. Chat plus Preview, Browser, Plan, and Designs."
+          description="Hide reviews, diffs, tool activity steps, sandbox system messages, context usage, automations, model traits and older models, sandbox Files / Console / Editor / Computer / New Preview, repo settings entirely, global Sandboxes / Sync, and team Codebases / Env Variables. Chat plus Preview, Browser, Plan, and Designs. The model picker becomes a five-step slider; Advanced restores the list."
           action={
             <Switch
               checked={flags.simpleView === true}

@@ -2,153 +2,205 @@ import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import {
   buildRootDirectoryInstruction,
   buildSystemPromptBlock,
-  getResponseLengthInstruction,
+  RESPONSE_LENGTH_INSTRUCTION,
 } from "../prompts";
-import { buildDesignSystemPrompt } from "../prompts/design";
 import { stripMentionTokens } from "../_mentions/resolveDocMentions";
 
-const VARIATION_STRATEGIES = [
-  "A: Clean/conventional — clarity, familiar patterns, straightforward navigation",
-  "B: Creative/bold — unconventional layout, striking hierarchy, unique interactions",
-  "C: Compact/efficient — high density, minimal chrome, space-efficient",
-  "D: Immersive/visual — full-screen imagery, rich motion, cinematic feel",
-  "E: Accessible/minimal — maximum legibility, highest contrast, simplified interactions",
-];
+/**
+ * Session chat no longer injects this block: Cursor resumes one agent and the
+ * SDK compacts in place. The helper remains for tests and any caller that
+ * still needs an explicit transcript digest.
+ */
+const HANDOFF_ENTRY_CHAR_CAP = 1_500;
+const HANDOFF_ASSISTANT_ENTRY_LIMIT = 3;
+const HANDOFF_TOTAL_CHAR_BUDGET = 24_000;
 
-/** Generates the Next.js router scaffold code for lazy-loading design variations. */
-function buildRouterScaffold(labels: string[]): string {
-  const entries = labels
-    .map((l) => `  ${l}: lazy(() => import('./variations/variation-${l}')),`)
-    .join("\n");
-  return `\`\`\`tsx
-'use client';
-import { lazy, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+type HandoffMessage = { role: string; content: string };
+type HandoffEntry = { isUser: boolean; line: string };
 
-const variations: Record<string, React.LazyExoticComponent<React.ComponentType>> = {
-${entries}
+function handoffElisionMarker(count: number): string {
+  return `[... ${count} earlier ${count === 1 ? "message" : "messages"} elided ...]`;
+}
+
+/** Renders the kept prefix, the elision marker, then the kept suffix. */
+function handoffLines(
+  entries: HandoffEntry[],
+  head: number,
+  tail: number,
+): string[] {
+  const elided = entries.length - head - tail;
+  return [
+    ...entries.slice(0, head).map((entry) => entry.line),
+    ...(elided > 0 ? [handoffElisionMarker(elided)] : []),
+    ...entries.slice(entries.length - tail).map((entry) => entry.line),
+  ];
+}
+
+function handoffCost(
+  entries: HandoffEntry[],
+  head: number,
+  tail: number,
+): number {
+  const lines = handoffLines(entries, head, tail);
+  if (lines.length === 0) return 0;
+  return (
+    lines.reduce((total, line) => total + line.length, 0) +
+    2 * (lines.length - 1)
+  );
+}
+
+/**
+ * Builds a chronological transcript digest: every user message plus the last
+ * few assistant messages, each capped, trimmed to a total character budget by
+ * dropping assistant entries first and then eliding the middle of the user
+ * history (earliest and latest messages always survive).
+ */
+export function buildSessionHandoff(history: HandoffMessage[]): string {
+  const all: HandoffEntry[] = [];
+  for (const message of history) {
+    const text = stripMentionTokens(message.content)
+      .slice(0, HANDOFF_ENTRY_CHAR_CAP)
+      .trim();
+    if (!text) continue;
+    const isUser = message.role === "user";
+    all.push({ isUser, line: `${isUser ? "User" : "Assistant"}: ${text}` });
+  }
+
+  const keptAssistants = new Set(
+    all
+      .flatMap((entry, index) => (entry.isUser ? [] : [index]))
+      .slice(-HANDOFF_ASSISTANT_ENTRY_LIMIT),
+  );
+  let entries = all.filter(
+    (entry, index) => entry.isUser || keptAssistants.has(index),
+  );
+
+  // Over budget: assistant summaries go first, oldest first.
+  while (
+    handoffCost(entries, entries.length, 0) > HANDOFF_TOTAL_CHAR_BUDGET &&
+    entries.some((entry) => !entry.isUser)
+  ) {
+    const oldestAssistant = entries.findIndex((entry) => !entry.isUser);
+    entries = [
+      ...entries.slice(0, oldestAssistant),
+      ...entries.slice(oldestAssistant + 1),
+    ];
+  }
+
+  let head = entries.length;
+  let tail = 0;
+  if (handoffCost(entries, head, tail) > HANDOFF_TOTAL_CHAR_BUDGET) {
+    // Still over: elide from the middle outwards, keeping both ends.
+    head = Math.ceil(entries.length / 2);
+    tail = entries.length - head;
+    while (
+      handoffCost(entries, head, tail) > HANDOFF_TOTAL_CHAR_BUDGET &&
+      head + tail > 2
+    ) {
+      if (head > tail) head -= 1;
+      else tail -= 1;
+    }
+  }
+
+  return handoffLines(entries, head, tail).join("\n\n");
+}
+
+type DigestMessage = { role: string; content: string; isSystemAlert?: boolean };
+type DigestOptions = { totalBudget: number; entryCap: number };
+
+const TITLE_DIGEST_DEFAULTS: DigestOptions = {
+  totalBudget: 8_000,
+  entryCap: 1_200,
 };
 
-export default function DesignPreview() {
-  const params = useSearchParams();
-  const v = params.get('v') || '${labels[0]}';
-  const Component = variations[v] || variations.${labels[0]};
-  return <Suspense fallback={<div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}><p>Loading...</p></div>}><Component /></Suspense>;
-}
-\`\`\``;
-}
-
-/** Builds the full design-mode turn prompt (persona, refine base, variation strategies). */
-export function buildDesignPrompt(
-  repo: { owner: string; name: string },
-  message: string,
-  conversationHistory: Array<{ role: string; content: string }>,
-  selectedBase: { label: string; filePath: string } | null,
-  persona: { name: string; prompt: string } | null,
-  rootDirectory: string,
-  numDesigns: number,
-  customInstructionsBlock: string,
+/**
+ * Builds a chronological conversation digest for re-titling a session. The
+ * first user message is always kept (it states the original ask); the rest is
+ * filled newest-first until the character budget is spent, so a long session
+ * reads as "what was asked" plus "where it ended up". System alerts and empty
+ * rows are skipped; every entry is capped.
+ */
+export function buildTitleDigest(
+  messages: DigestMessage[],
+  opts: DigestOptions = TITLE_DIGEST_DEFAULTS,
 ): string {
-  const labels = Array.from({ length: numDesigns }, (_, i) =>
-    String.fromCharCode(97 + i),
-  );
-  const labelsBracketed = `{${labels.join(",")}}`;
+  const entries: HandoffEntry[] = [];
+  for (const message of messages) {
+    if (message.isSystemAlert === true) continue;
+    const text = stripMentionTokens(message.content)
+      .slice(0, opts.entryCap)
+      .trim();
+    if (!text) continue;
+    const isUser = message.role === "user";
+    entries.push({ isUser, line: `${isUser ? "USER" : "ASSISTANT"}: ${text}` });
+  }
 
-  const history = conversationHistory
-    .filter((m) => m.content)
-    .slice(-6)
-    .map(
-      (m) =>
-        `${m.role === "user" ? "User" : "Assistant"}: ${stripMentionTokens(m.content)}`,
-    )
+  const pinnedIndex = entries.findIndex((entry) => entry.isUser);
+  const kept = new Set<number>();
+  let used = 0;
+  if (pinnedIndex !== -1) {
+    kept.add(pinnedIndex);
+    used = entries[pinnedIndex].line.length;
+  }
+
+  // Newest first: the tail of the conversation says what the work became.
+  for (let index = entries.length - 1; index >= 0; index -= 1) {
+    if (kept.has(index)) continue;
+    const cost = entries[index].line.length + (kept.size > 0 ? 2 : 0);
+    if (used + cost > opts.totalBudget) break;
+    kept.add(index);
+    used += cost;
+  }
+
+  return entries
+    .filter((_, index) => kept.has(index))
+    .map((entry) => entry.line)
     .join("\n\n");
-
-  const baseContext = selectedBase
-    ? `\n\n## Selected Base Design
-The user selected "${selectedBase.label}" as the base.
-Read the file at: ${selectedBase.filePath}
-IMPORTANT: Preserve the core layout structure, color choices, and interaction patterns from this base.
-Only change what the user explicitly requests. Create ${numDesigns} refined variations of THIS design.`
-    : "";
-
-  const personaContext = persona
-    ? `\n\n## Target Persona
-Name: ${persona.name}
-${persona.prompt}
-
-Design with this persona in mind — consider their goals, context, and preferences.`
-    : "";
-
-  const strategies = VARIATION_STRATEGIES.slice(0, numDesigns)
-    .map((s) => `- ${s}`)
-    .join("\n");
-
-  return `You are a UI/UX designer working on the ${repo.owner}/${repo.name} codebase.
-
-## Your Task
-Read the codebase to understand the existing design system, then write ${numDesigns} React component variation files based on the user's request.
-
-## Steps
-1. Invoke skills: /frontend-design, /interface-design, /web-design-guidelines
-2. Discover the project's design system:
-   - Read CLAUDE.md to understand the project
-   - Search for styling config files (e.g. tailwind.config.*, globals.css, theme.ts, stitches.config.*, styled-components theme, CSS custom properties, etc.)
-   - Read existing components to understand the styling approach, token naming, and visual patterns
-   - Identify the CSS/styling framework in use and its semantic tokens
-3. Check if app/design-preview/page.tsx exists. If not, create the router scaffold below
-4. Write ${numDesigns} variation files to app/design-preview/variations/variation-${labelsBracketed}.tsx using ONLY the project's own design tokens
-5. Output ONLY the JSON
-
-## Router Scaffold (create if missing)
-${buildRouterScaffold(labels)}
-
-## Variation Strategies
-${strategies}
-
-## Design System
-Use ONLY the project's own design tokens and theme system discovered in Step 2. NEVER use hardcoded colors, raw hex values, or default framework utility colors. Match the existing codebase's styling conventions exactly.
-
-## Design Rules
-- Realistic content (real names, dates, numbers) — never placeholder text
-- Clear visual hierarchy with consistent spacing using the project's spacing scale
-- Generous whitespace, responsive layouts
-
-## Previous Conversation
-${history || "None"}
-${baseContext}
-${personaContext}
-
-## User Request
-${message}
-
-## Output
-${buildDesignSystemPrompt(numDesigns)}${customInstructionsBlock}${buildRootDirectoryInstruction(rootDirectory)}`;
 }
 
-/** Builds a plan-mode prompt for creating or refining a plan.md document. */
-export function buildPlanPrompt(
-  repo: { owner: string; name: string },
-  existingPlan: string,
+/**
+ * Turn prompt for the master ("orchestrator") session — Manager Ave.
+ *
+ * Deliberately NOT `buildEditPrompt`. That prompt opens with "Do all work on
+ * <branch>" and hands over a `git commit` line, which is an instruction to
+ * implement; the master was receiving it on every turn and doing exactly what it
+ * said, delegating only when the user objected. The `eva-orchestrator` skill
+ * cannot correct that on its own — a skill is only in context once the agent
+ * invokes it, whereas this text prefixes every turn.
+ *
+ * No branch contract, no commit line, no dev-server or recording sections: the
+ * master's sandbox boots from the managed image with no repo services, so those
+ * sections only described things it must not do.
+ */
+export function buildOrchestratorPrompt(
   message: string,
-  rootDirectory: string,
   customInstructionsBlock: string,
-  systemPrompt: string | undefined,
 ): string {
-  // Same shape as Claude/Codex plan mode: explore, write an implementation
-  // plan, do not implement yet. Eva harvests plan.md into session.planContent.
-  return `Plan mode for ${repo.owner}/${repo.name}. Explore with Glob, Grep, Read.
+  return `${message}
 
-Current plan.md:
-${existingPlan || "None yet."}
+You are Manager Ave, the user's master session. You supervise other Eva agents; you never build anything yourself.
 
-User: ${message}
+## Never implement
+- Do not edit, create, or delete files. You have no Write and no Edit tool — attempting an edit wastes the turn.
+- Do not commit, push, open PRs, or change any branch. You have no branch of your own to work on.
+- Do not run builds, installs, tests, linters, formatters, code generators, or dev servers.
+- "Fix it", "add this", "change that" is never a request for you to do it. It is a request for you to hand it to an agent.
 
-Create/update plan.md with a detailed implementation plan: goal, approach, files to touch, steps, risks/open questions. Refine iteratively — don't rewrite unless asked.
+## Delegate instead
+Use the eva MCP tools. That is how the work gets done:
+- \`create_session\` — open a session in the right repo with the task as its first message. This is the default answer to any build request.
+- \`send_agent_message\` — give an existing agent more context, an answer, or a correction.
+- \`list_agents\` / \`get_agent_state\` — see what the fleet is doing before you speak for it.
+- \`stop_agent\` — cancel a runaway.
+Read \`eva-orchestrator\` (via \`get_skill\`) for the full supervision loop and the round report format.
 
-Rules:
-- ONLY write plan.md — no other files
-- Do NOT implement the plan
-- Do NOT commit or push${getResponseLengthInstruction("plan")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
+If the user asks for work and you are unsure which repo or how to split it, ask them — one short question — then delegate. Do not start it yourself while you wait.
+
+## What you may do
+- Read the codebase (Read, Glob, Grep) to understand a request well enough to brief an agent, or to answer a question directly.
+- Run read-only shell commands for diagnostics: \`timeout 60 npx convex logs --prod\`, \`gh pr checks\`, \`gh run view\`, \`vercel logs <deployment>\`, \`git log\`, \`git status\`. Prefix every command with a timeout.
+- The shell is for reading only. No \`git commit\`, no \`git push\`, no in-place edits (\`sed -i\`, \`>\` redirects into tracked files), no package installs.
+- Relay, summarise, and report: what each agent is doing, what finished, what needs the user.${RESPONSE_LENGTH_INSTRUCTION}${customInstructionsBlock}`;
 }
 
 /** Eva-specific session constraints; exploration is left to the claude_code factory preset. */
@@ -161,11 +213,16 @@ export function buildEditPrompt(
   customInstructionsBlock: string,
   systemPrompt: string | undefined,
   devPort?: number,
+  conversationHistory: Array<{ role: string; content: string }> = [],
 ): string {
   const commitMessage = message.slice(0, 50).replace(/"/g, '\\"');
   const baseBranch = repo.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
   const planContext = planContent
     ? `\n\nApproved plan:\n${planContent}\n\nFollow this plan when implementing.`
+    : "";
+  const handoff = buildSessionHandoff(conversationHistory);
+  const conversationContext = handoff
+    ? `\n\nPrior instructions from this session (handoff; may overlap provider memory). Earlier instructions still apply unless the user has since changed them — do not undo agreed work:\n${handoff}`
     : "";
   const devPortText =
     devPort !== undefined ? String(devPort) : "its configured dev port";
@@ -196,12 +253,12 @@ When the user asks for a recording, walkthrough video, or screenshot:
 6. For "each" or "all features" requests, first make a checklist naming every feature, then create one isolated deliverable per checklist item unless the user asks for a combined walkthrough. Do not finish until every checklist item has a non-empty file in the deliverable folder.
 7. A status update such as "recording now" is not a final answer. Finish the captures before replying, then list which attached file demonstrates each feature. If capture is impossible, report the concrete failure instead of promising future work.
 8. To embed a capture in a PR comment or Linear issue (GitHub/Linear cannot see chat attachments): eva MCP \`upload_media\` → curl the file to the returned uploadUrl → \`get_media_url\` for a permanent public link. Captures posted in earlier turns are still on disk under \`.posted/\` — upload those instead of recapturing.`;
-  return `${message}${planContext}${devServerSection}${browserSection}
+  return `${message}${planContext}${conversationContext}${devServerSection}${browserSection}
 
 Eva session (${repo.owner}/${repo.name}, branch "${branchName}"):
 - Do all work on "${branchName}". Do not commit or push to "${baseBranch}" or main unless the user asks for that explicitly. Fetching/merging/rebasing/pulling from "${baseBranch}" into this branch is allowed when the user asks.
-- If you change code: \`git add -A -- ':!*.png' ... ':!recordings/' && git diff --cached --quiet || git commit -m "task: ${commitMessage}"\`
+- If you change code: \`git add -A -- ':!*.png' ... ':!recordings/' ':!plan.md' && git diff --cached --quiet || git commit -m "task: ${commitMessage}"\`
 - Duplicate/extract PR (when the user asks to ship this session's work as a separate PR that merges independently): never push this branch's commits to another ref — identical SHAs make GitHub auto-merge this session's PR. Instead squash onto a fresh branch: \`git fetch origin && git checkout --no-track -b eva/dup-<short-slug> origin/${baseBranch} && git merge --squash ${branchName} && git commit -m "<summary>" && git push -u origin refs/heads/eva/dup-<short-slug>:refs/heads/eva/dup-<short-slug> && gh pr create --fill --base ${baseBranch} && git checkout ${branchName}\`. Always push by explicit refspec like that — never \`git push origin HEAD\` or a bare \`git push\`. Base on "${baseBranch}" unless the user names a different base branch. Resolve squash conflicts if any. After that PR merges, merge the base branch into ${branchName} before continuing.
 - Questions only: answer without unnecessary edits. No build/lint/test unless asked.
-- Never commit images/video. Minimal changes.${getResponseLengthInstruction("edit")}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
+- Never commit images/video or \`plan.md\`. Minimal changes.${RESPONSE_LENGTH_INSTRUCTION}${customInstructionsBlock}${buildSystemPromptBlock(systemPrompt)}${buildRootDirectoryInstruction(rootDirectory)}`;
 }

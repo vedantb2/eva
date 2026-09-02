@@ -5,11 +5,25 @@ import {
   CONVEX_SITE_URL,
   CONVEX_TOKEN,
   CONVEX_URL,
+  HARNESS_CATALOG_SANDBOX_ID,
+  HARNESS_CATALOG_TOKEN,
+  REPO_ID,
   STREAMING_HMAC,
   STREAMING_HEARTBEAT_MAX_RETRIES,
 } from "../config.js";
 import type { ConvexCallType, JsonObject, JsonValue } from "../types.js";
 import { readResponseJson } from "../utils.js";
+import {
+  getCurrentTurnLease,
+  noteHeartbeatResponse,
+} from "../runtime/turnLease.js";
+
+function appendTurnLease(body: URLSearchParams): void {
+  const identity = getCurrentTurnLease();
+  if (identity === null) return;
+  body.set("turnId", identity.turnId);
+  body.set("leaseGeneration", String(identity.leaseGeneration));
+}
 
 /** Wraps fetch with an AbortController timeout. */
 export async function fetchWithTimeout(
@@ -31,6 +45,72 @@ function buildRetryDelayMs(attempt: number): number {
   const exponential = Math.pow(2, attempt - 1) * CALLBACK_HTTP_RETRY_BASE_MS;
   const jitter = Math.floor(Math.random() * 500);
   return exponential + jitter;
+}
+
+/** Runs an HTTP callback, retrying with exponential backoff on failure. */
+async function withRetries<T>(
+  label: string,
+  maxRetries: number,
+  run: () => Promise<T>,
+  shouldRetry: (error: Error) => boolean = () => true,
+): Promise<T> {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await run();
+    } catch (e) {
+      const error = e instanceof Error ? e : new Error(String(e));
+      attempt++;
+      if (attempt > maxRetries || !shouldRetry(error)) throw e;
+      const delayMs = buildRetryDelayMs(attempt);
+      console.error(
+        label +
+          " attempt " +
+          attempt +
+          " failed, retrying in " +
+          delayMs +
+          "ms:",
+        String(e),
+      );
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+}
+
+export class HttpResponseError extends Error {
+  readonly status: number;
+
+  constructor(label: string, status: number, body: string) {
+    super(label + " failed: " + status + " " + body);
+    this.name = "HttpResponseError";
+    this.status = status;
+  }
+}
+
+/** Network failures and server errors may recover; deterministic 4xx do not. */
+export function shouldRetryHttpError(error: Error): boolean {
+  return !(error instanceof HttpResponseError) || error.status >= 500;
+}
+
+/**
+ * POSTs a signed form body to a Convex HTTP route. The routes authenticate the
+ * scoped HMAC in the body, not the sandbox's Convex identity token.
+ */
+async function postSignedForm(
+  url: string,
+  body: URLSearchParams,
+  label: string,
+): Promise<string> {
+  const res = await fetchWithTimeout(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+  });
+  if (!res.ok) {
+    const text = await res.text();
+    throw new HttpResponseError(label, res.status, text);
+  }
+  return res.text();
 }
 
 /** Calls a Convex mutation or action via HTTP API. */
@@ -65,27 +145,50 @@ export async function callConvexWithRetry(
   args: JsonObject,
   maxRetries: number = CALLBACK_HTTP_MAX_RETRIES,
 ): Promise<JsonValue> {
-  let attempt = 0;
-  while (true) {
-    try {
-      return await callConvex(type, path, args);
-    } catch (e) {
-      attempt++;
-      if (attempt > maxRetries) throw e;
-      const delayMs = buildRetryDelayMs(attempt);
-      console.error(
-        "callConvex(" +
-          type +
-          ") attempt " +
-          attempt +
-          " failed, retrying in " +
-          delayMs +
-          "ms:",
-        String(e),
-      );
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
+  return await withRetries("callConvex(" + type + ")", maxRetries, () =>
+    callConvex(type, path, args),
+  );
+}
+
+/** One built-in slash command as the harness CLI describes it. */
+export interface HarnessCommandReport {
+  name: string;
+  description: string;
+  argumentHint?: string;
+}
+
+/**
+ * Reports the harness CLI's built-in slash-command catalog. Returns null when
+ * the launcher injected no signature (older backend, or no ENCRYPTION_KEY) —
+ * the catalog is a nicety, so an unsigned daemon simply does not report.
+ */
+export async function callHarnessSkillCatalogReport(
+  provider: string,
+  cliVersion: string,
+  skills: readonly HarnessCommandReport[],
+): Promise<string | null> {
+  if (
+    !CONVEX_SITE_URL ||
+    !HARNESS_CATALOG_TOKEN ||
+    !HARNESS_CATALOG_SANDBOX_ID ||
+    !REPO_ID
+  ) {
+    return null;
   }
+  const url = CONVEX_SITE_URL + "/api/harness-skills/report";
+  const body = new URLSearchParams();
+  body.set("provider", provider);
+  body.set("cliVersion", cliVersion);
+  body.set("skills", JSON.stringify(skills));
+  body.set("token", HARNESS_CATALOG_TOKEN);
+  body.set("sandboxId", HARNESS_CATALOG_SANDBOX_ID);
+  body.set("repoId", REPO_ID);
+  return await withRetries(
+    "harness skill catalog report",
+    CALLBACK_HTTP_MAX_RETRIES,
+    () => postSignedForm(url, body, "Harness skill catalog report"),
+    shouldRetryHttpError,
+  );
 }
 
 /** Lightweight heartbeat that only bumps streamingActivity.lastUpdatedAt in Convex. */
@@ -97,24 +200,31 @@ async function callStreamingHeartbeatTouchOnce(
     body.set("entityId", entityId);
     body.set("hmac", STREAMING_HMAC);
     body.set("touchOnly", "1");
-    const res = await fetchWithTimeout(
+    appendTurnLease(body);
+    const response = await postSignedForm(
       CONVEX_SITE_URL + "/api/streaming/heartbeat",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body,
-      },
+      body,
+      "Streaming heartbeat touch",
     );
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(
-        "Streaming heartbeat touch failed: " + res.status + " " + text,
-      );
-    }
-    return res.text();
+    noteHeartbeatResponse(response);
+    return response;
   }
 
-  return await callConvex("mutation", "streaming:touch", { entityId });
+  const identity = getCurrentTurnLease();
+  const response =
+    identity === null
+      ? await callConvex("mutation", "turns:legacyHeartbeatFromCallback", {
+          entityId,
+          touchOnly: true,
+        })
+      : await callConvex("mutation", "turns:heartbeatFromCallback", {
+          entityId,
+          touchOnly: true,
+          turnId: identity.turnId,
+          leaseGeneration: identity.leaseGeneration,
+        });
+  noteHeartbeatResponse(response);
+  return response;
 }
 
 /** Sends one streaming heartbeat request through the scoped HMAC endpoint or legacy mutation fallback. */
@@ -130,33 +240,40 @@ async function callStreamingHeartbeatOnce(
     body.set("hmac", STREAMING_HMAC);
     body.set("currentActivity", currentActivity);
     body.set("currentContent", currentContent || "");
+    appendTurnLease(body);
     if (pendingQuestion) {
       body.set("pendingQuestion", pendingQuestion);
     }
-    const res = await fetchWithTimeout(
+    const response = await postSignedForm(
       CONVEX_SITE_URL + "/api/streaming/heartbeat",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body,
-      },
+      body,
+      "Streaming heartbeat",
     );
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error("Streaming heartbeat failed: " + res.status + " " + text);
-    }
-    return res.text();
+    noteHeartbeatResponse(response);
+    return response;
   }
 
   const args: JsonObject = {
     entityId,
+    touchOnly: false,
     currentActivity,
     currentContent,
   };
   if (pendingQuestion) {
     args.pendingQuestion = pendingQuestion;
   }
-  return await callConvex("mutation", "streaming:set", args);
+  const identity = getCurrentTurnLease();
+  const path =
+    identity === null
+      ? "turns:legacyHeartbeatFromCallback"
+      : "turns:heartbeatFromCallback";
+  if (identity !== null) {
+    args.turnId = identity.turnId;
+    args.leaseGeneration = identity.leaseGeneration;
+  }
+  const response = await callConvex("mutation", path, args);
+  noteHeartbeatResponse(response);
+  return response;
 }
 
 /** Sends a streaming heartbeat update with current activity and content. */
@@ -166,53 +283,26 @@ export async function callStreamingHeartbeat(
   currentContent: string,
   pendingQuestion?: string,
 ): Promise<string | JsonValue> {
-  let attempt = 0;
-  while (true) {
-    try {
-      return await callStreamingHeartbeatOnce(
+  return await withRetries(
+    "streaming heartbeat",
+    STREAMING_HEARTBEAT_MAX_RETRIES,
+    () =>
+      callStreamingHeartbeatOnce(
         entityId,
         currentActivity,
         currentContent,
         pendingQuestion,
-      );
-    } catch (e) {
-      attempt++;
-      if (attempt > STREAMING_HEARTBEAT_MAX_RETRIES) throw e;
-      const delayMs = buildRetryDelayMs(attempt);
-      console.error(
-        "streaming heartbeat attempt " +
-          attempt +
-          " failed, retrying in " +
-          delayMs +
-          "ms:",
-        String(e),
-      );
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
+      ),
+  );
 }
 
 /** Retries a lightweight touch heartbeat (no activity payload). */
 export async function callStreamingHeartbeatTouch(
   entityId: string,
 ): Promise<string | JsonValue> {
-  let attempt = 0;
-  while (true) {
-    try {
-      return await callStreamingHeartbeatTouchOnce(entityId);
-    } catch (e) {
-      attempt++;
-      if (attempt > STREAMING_HEARTBEAT_MAX_RETRIES) throw e;
-      const delayMs = buildRetryDelayMs(attempt);
-      console.error(
-        "streaming heartbeat touch attempt " +
-          attempt +
-          " failed, retrying in " +
-          delayMs +
-          "ms:",
-        String(e),
-      );
-      await new Promise((r) => setTimeout(r, delayMs));
-    }
-  }
+  return await withRetries(
+    "streaming heartbeat touch",
+    STREAMING_HEARTBEAT_MAX_RETRIES,
+    () => callStreamingHeartbeatTouchOnce(entityId),
+  );
 }

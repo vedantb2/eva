@@ -6,21 +6,25 @@ import { IconAlertTriangle } from "@tabler/icons-react";
 import type { PrOverviewState } from "./usePrOverview";
 import { PrCommentComposer } from "./_components/PrCommentComposer";
 import { PrDescriptionSection } from "./_components/PrDescriptionSection";
-import { PrMergeBox } from "./_components/PrMergeBox";
+import { PrLifecycleEventCard } from "./_components/PrLifecycleEventCard";
 import { PrMetaSidebar } from "./_components/PrMetaSidebar";
 import { PrTimeline } from "./_components/PrTimeline";
 
 /**
- * The Overview tab shared by the standalone Reviews page and the sandbox Review
- * tab: the metadata, the description, the conversation, and the merge decision, so
- * a review needs no trip to GitHub.
+ * The Activity tab shared by the standalone Reviews page and the sandbox Review
+ * tab: the metadata, the description, and the conversation, so a review needs no
+ * trip to GitHub.
  *
  * Conversation on the left, metadata in a column on the right, as on GitHub — but
  * no cards. This was a grid of six bordered blocks that gave the description, the
  * composer, the merge box, and a sidebar of empty sections the same visual weight,
  * so nothing led. Regions are named by a label and separated by whitespace instead;
- * the only boxes left are the two things that really are objects rather than prose:
- * the comment editor and the merge control.
+ * the only box left is the thing that really is an object rather than prose: the
+ * comment editor.
+ *
+ * The merge decision is not here. It used to close the column, which put the one
+ * irreversible control on the surface below a conversation of unbounded length;
+ * it lives in the header now, on screen from every tab.
  *
  * The payload is passed in rather than read here: the shared header above the tab
  * row shows the same overview, and one reader keeps the two in step.
@@ -68,11 +72,26 @@ export function ReviewOverviewPanel({
     <div className="@container h-full overflow-auto">
       {/* Capped for measure, not for the viewport: this holds agent-written
           markdown, and a description set across a 1600px page is unreadable. */}
-      <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-4 [@container(min-width:52rem)]:flex-row [@container(min-width:52rem)]:gap-8">
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4 [@container(min-width:52rem)]:flex-row [@container(min-width:52rem)]:gap-8">
         {/* First in the source so the metadata leads when it is a band across
             the top, and ordered back to the right once it is a column. */}
-        <PrMetaSidebar overview={overview} />
+        <PrMetaSidebar
+          repoId={repoId}
+          overview={overview}
+          refreshing={state.refreshing}
+          onRefresh={reload}
+        />
         <div className="min-w-0 flex-1 space-y-6 [@container(min-width:52rem)]:order-first">
+          {/* First, above even the description: "did this ship?" is the question a
+              reader opens a finished pull request with, and chronologically the
+              merge is the last thing that happened to it. Null while it is open —
+              nothing has happened to it yet. */}
+          {overview.status === "open" ? null : (
+            <PrLifecycleEventCard
+              status={overview.status}
+              overview={overview}
+            />
+          )}
           <PrDescriptionSection repoId={repoId} overview={overview} />
           <PrTimeline repoId={repoId} overview={overview} />
           <PrCommentComposer
@@ -80,7 +99,6 @@ export function ReviewOverviewPanel({
             prNumber={prNumber}
             onPosted={reload}
           />
-          <PrMergeBox repoId={repoId} overview={overview} onMerged={reload} />
         </div>
       </div>
     </div>

@@ -161,7 +161,12 @@ export function TeamDetailClient({
           row without shredding the description into one word per line. */}
       <div className="mb-4 flex flex-col items-start gap-3 rounded-surface bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-center gap-3">
-          <div className="relative max-sm:size-10 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+          {/* `size-10` is unconditional: it is this preview's only size, not a
+              mobile enlargement of a smaller desktop one. Gating it behind
+              `max-sm:` left the box unsized above 640px, and an indefinite
+              parent cannot resolve the `size-full` image inside — the banner
+              rendered at its intrinsic width and blew the row apart (f160d6423). */}
+          <div className="relative size-10 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
             {team.backgroundUrl ? (
               <img
                 src={team.backgroundUrl}

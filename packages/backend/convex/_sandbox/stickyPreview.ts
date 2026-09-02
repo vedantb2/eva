@@ -1,3 +1,5 @@
+import { PREVIEW_GRANT_PARAM } from "../previewGrantConfig";
+
 /** Shared sticky Preview path / console-tail helpers for sessions, tasks, projects. */
 
 /** Max lines kept in `*.terminalHistoryTail` (client also truncates). */
@@ -27,11 +29,18 @@ export function truncateTerminalHistoryTail(text: string): string {
     : byLines;
 }
 
-/** Normalize a Preview path to always start with `/`. */
+/** Normalize a Preview path to always start with `/` and never store a grant. */
 export function normalizeStickyPreviewPath(raw: string): string {
   const trimmed = raw.trim();
   if (trimmed.length === 0) return "/";
-  return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  const withSlash = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  try {
+    const parsed = new URL(withSlash, "https://eva.invalid");
+    parsed.searchParams.delete(PREVIEW_GRANT_PARAM);
+    return `${parsed.pathname}${parsed.search}${parsed.hash}` || "/";
+  } catch {
+    return withSlash;
+  }
 }
 
 /** Valid TCP port for Preview sticky `devPort`. */

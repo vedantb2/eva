@@ -13,6 +13,7 @@ import {
   codexFastMode,
   codexReasoningEffort,
 } from "../config.js";
+import { evaMcpServers, type HttpMcpServers } from "../evaMcp.js";
 import { updateThinkingStep } from "../parse/canonical.js";
 import { callbackState as S } from "../runtime/state.js";
 import type { SessionMode } from "../types.js";
@@ -55,10 +56,41 @@ function writeCodexFileIfConfigured(
   writeFileSync(CODEX_RUNTIME_HOME_DIR + "/" + fileName, value);
 }
 
+/**
+ * Eva's HTTP MCP server as `[mcp_servers.*]` sections.
+ *
+ * Codex only reads MCP config from `CODEX_HOME/config.toml`, and both codex
+ * paths point at the same CODEX_HOME (the SDK CLI and the app-server daemon,
+ * which spawns after this file is written), so this is the one wiring point for
+ * both. Table headers rather than dotted keys, appended last: a `[table]` in
+ * the preserved account config can then never capture these keys.
+ *
+ * The bearer token rides in the config file next to `auth.json` rather than in
+ * a `bearer_token_env_var`, because the callback deliberately scrubs the
+ * transport credentials out of the environment agent tools inherit.
+ */
+function codexMcpServerSections(servers: HttpMcpServers): string[] {
+  return Object.entries(servers).flatMap(([name, server]) => {
+    const headers = Object.entries(server.headers)
+      .map(
+        ([header, value]) =>
+          `${JSON.stringify(header)} = ${JSON.stringify(value)}`,
+      )
+      .join(", ");
+    return [
+      "",
+      `[mcp_servers.${JSON.stringify(name)}]`,
+      `url = ${JSON.stringify(server.url)}`,
+      `http_headers = { ${headers} }`,
+    ];
+  });
+}
+
 export function buildCodexRuntimeConfig(
   rawValue: string,
   encodedValue: string,
   fastMode = codexFastMode,
+  mcpServers = evaMcpServers,
 ): string {
   const configuredValue =
     rawValue || (encodedValue ? decodeBase64(encodedValue) : "");
@@ -91,6 +123,7 @@ export function buildCodexRuntimeConfig(
   if (normalizedPreservedLines.length > 0) {
     runtimeLines.push(...normalizedPreservedLines);
   }
+  runtimeLines.push(...codexMcpServerSections(mcpServers));
   return runtimeLines.join("\n") + "\n";
 }
 

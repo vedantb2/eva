@@ -43,7 +43,9 @@ export const QueueSectionTrigger = ({
   <CollapsibleTrigger asChild>
     <button
       className={cn(
-        "group flex w-full items-center rounded-md px-1 py-1 text-left text-xs font-medium text-muted-foreground transition-colors hover:text-foreground",
+        // `QueueItemAction` below delegates to `Button` and presses; this
+        // section header was the one control in the file that did not.
+        "group motion-press flex w-full items-center rounded-md px-1 py-1 text-left text-xs font-medium text-muted-foreground hover:text-foreground active:scale-[0.99]",
         className,
       )}
       type="button"

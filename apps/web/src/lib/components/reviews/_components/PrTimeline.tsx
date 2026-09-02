@@ -20,8 +20,10 @@ import { buildPrTimeline } from "./prTimelineItems";
  * vertical rail and the 32px gutter are owned here, so comments, review verdicts,
  * and commits all line up however they are composed.
  *
- * The description is not a row on this rail — it sits above the timeline in its
- * own collapsible section, so a long agent-written one cannot bury the replies.
+ * Neither the description nor the merge event is a row on this rail: both sit
+ * above it (see `ReviewOverviewPanel`), because a long agent-written description
+ * would bury the replies and the merge lands chronologically last when it is the
+ * first thing a reader wants to know.
  */
 export function PrTimeline({
   repoId,
@@ -62,13 +64,9 @@ export function PrTimeline({
               <TimelineRow
                 key={item.key}
                 gutter={
-                  <span className="flex size-8 items-center justify-center">
-                    {/* `ring-background` is the mask that breaks the rail behind
-                        the glyph, so the fill needs no outline of its own. */}
-                    <span className="flex size-6 items-center justify-center rounded-full bg-muted text-muted-foreground ring-2 ring-background">
-                      <IconGitCommit size={13} aria-hidden />
-                    </span>
-                  </span>
+                  <TimelineGlyph>
+                    <IconGitCommit size={13} aria-hidden />
+                  </TimelineGlyph>
                 }
               >
                 <PrCommitGroup repoId={repoId} commits={item.commits} />
@@ -178,6 +176,21 @@ function TimelineRow({
       <span className="relative z-1 shrink-0">{gutter}</span>
       <div className="min-w-0 flex-1">{children}</div>
     </li>
+  );
+}
+
+/**
+ * The gutter mark for an event with no author to show — a push, a merge, a close.
+ * `ring-background` is the mask that breaks the rail behind the glyph, so the
+ * fill needs no outline of its own.
+ */
+function TimelineGlyph({ children }: { children: ReactNode }) {
+  return (
+    <span className="flex size-8 items-center justify-center">
+      <span className="flex size-6 items-center justify-center rounded-full bg-muted text-muted-foreground ring-2 ring-background">
+        {children}
+      </span>
+    </span>
   );
 }
 

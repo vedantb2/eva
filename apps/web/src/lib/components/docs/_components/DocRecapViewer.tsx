@@ -5,9 +5,14 @@ import type { FunctionReturnType } from "convex/server";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { useNavigate } from "@tanstack/react-router";
-import { api } from "@eva/backend";
+import {
+  api,
+  INCOMPLETE_PR_RECAP_MESSAGE,
+  isIncompleteReadyRecap,
+} from "@eva/backend";
 import { entityPathSegment } from "@/lib/numId";
 import { useRepo } from "@/lib/contexts/RepoContext";
+import { useCommentAnchorId } from "@/lib/hooks/useCommentAnchor";
 import {
   canonicalizeRecapDocTab,
   type DocViewerTab,
@@ -65,7 +70,13 @@ export function DocRecapViewer({
     (c) => !c.parentId && c.resolvedAt === undefined,
   ).length;
   const [copied, setCopied] = useState(false);
-  const [commentsOpen, setCommentsOpen] = useState(false);
+  // Arriving from a comment notification opens the panel the comment lives in;
+  // a plain visit still starts closed. Lazy initial state rather than an effect
+  // — the panel is open on the first paint, so nothing flashes shut.
+  const commentAnchorId = useCommentAnchorId();
+  const [commentsOpen, setCommentsOpen] = useState(
+    () => commentAnchorId !== null,
+  );
   const [historyPanelOpen, setHistoryPanelOpen] = useState(false);
   const [suggestionsOpen, setSuggestionsOpen] = useState(false);
   const [suggestionCount, setSuggestionCount] = useState(0);
@@ -136,6 +147,9 @@ export function DocRecapViewer({
   const isRecapErrored = doc.prRecapStatus === "error";
   // Pending with no workflow behind it means the run died — see PrRecapPanel.
   const isRecapStalled = isRecapPending && doc.activeWorkflowId === undefined;
+  // Rows written before the write path enforced the invariant — see
+  // `recapState` in the backend, which both recap views share.
+  const isRecapIncompleteReady = isIncompleteReadyRecap(doc);
 
   const handleReviseRecap = async () => {
     setIsRevising(true);
@@ -225,6 +239,11 @@ export function DocRecapViewer({
           {isRecapStalled ? (
             <p className="mt-1 text-destructive">
               Generation stopped before it finished.
+            </p>
+          ) : null}
+          {isRecapIncompleteReady ? (
+            <p className="mt-1 text-destructive">
+              {INCOMPLETE_PR_RECAP_MESSAGE}
             </p>
           ) : null}
           {canReviseRecap ? (
@@ -328,8 +347,9 @@ export function DocRecapViewer({
             <HtmlPreviewFrame html={doc.html} title="PR recap" />
           ) : (
             <p className="text-sm text-muted-foreground">
-              No recap generated yet. It is created the next time this review
-              runs.
+              {isRecapIncompleteReady || isRecapErrored
+                ? INCOMPLETE_PR_RECAP_MESSAGE
+                : "No recap generated yet. It is created the next time this review runs."}
             </p>
           )}
         </TabsContent>

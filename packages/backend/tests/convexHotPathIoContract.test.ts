@@ -32,6 +32,7 @@ describe("measured Convex I/O hot paths stay on compact reads", () => {
       "_sessions/sandbox.ts",
       "_sessions/workflow.ts",
       "_chat/surfaceAdapters.ts",
+      "usageLimits.ts",
     ]) {
       expect(source(path), path).toContain("syncSessionDaemonState");
     }
@@ -70,6 +71,50 @@ describe("measured Convex I/O hot paths stay on compact reads", () => {
     expect(apply).toContain("content: undefined");
     expect(source("repoSkills.ts")).toContain('.query("repoSkillContents")');
     expect(source("dataMigrations.ts")).toContain("splitRepoSkillContent");
+  });
+
+  test("only the platform presence room owns lastSeenAt", () => {
+    expect(source("presence.ts")).toContain(
+      'const LAST_SEEN_ROOM_ID = "platform"',
+    );
+    const body = definitionBody("presence.ts", "heartbeat");
+    expect(body).toContain("roomId === LAST_SEEN_ROOM_ID");
+    expect(body).toContain("getUserPresenceRow");
+    expect(body).toContain("upsertUserPresence");
+    expect(body).not.toContain("patch(ctx.userId");
+  });
+
+  test("path and lastSeen writes stay off the users table", () => {
+    const updatePath = definitionBody("presence.ts", "updatePath");
+    expect(updatePath).toContain("getUserPresenceRow");
+    expect(updatePath).toContain("upsertUserPresence");
+    expect(updatePath).not.toContain("patch(ctx.userId");
+    expect(definitionBody("users.ts", "listAll")).not.toContain(
+      "getUserPresenceRow",
+    );
+    expect(source("schema.ts")).toContain("userPresence:");
+  });
+
+  test("listByParent skips storage URL work for text-only transcripts", () => {
+    expect(source("_messages/media.ts")).toContain(
+      "export function messageNeedsUrlResolution",
+    );
+    const messages = source("messages.ts");
+    expect(messages).toContain("messageNeedsUrlResolution");
+    expect(messages).toContain("messages.some(messageNeedsUrlResolution)");
+  });
+
+  test("users.getMany reads only the requested docs", () => {
+    const body = definitionBody("users.ts", "getMany");
+    expect(body).toContain("ctx.db.get(id)");
+    expect(body).not.toContain(".collect()");
+  });
+
+  test("listAll reads teammates, not every user", () => {
+    const body = definitionBody("users.ts", "listAll");
+    expect(body).toContain('query("teamMembers")');
+    expect(body).toContain("collectDirectoryUserIds");
+    expect(body).not.toContain('query("users")');
   });
 });
 

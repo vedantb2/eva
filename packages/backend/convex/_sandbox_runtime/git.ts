@@ -16,7 +16,6 @@ import {
   RESUME_READY_TIMEOUT_SECONDS,
   bootstrapVercelDocker,
   ensureSandboxRunning,
-  isSandboxUnresumableMessage,
   sleep,
   withTimeout,
   workspaceDirShell,
@@ -25,7 +24,18 @@ import {
   detectPackageManager,
   installPythonDependenciesBestEffort,
 } from "./devServer";
+import { isSandboxGoneError } from "./sandboxErrors";
+import { writeSandboxFile } from "./sandboxFiles";
 import { ensureGitCredentialHelper } from "./gitCredentials";
+import { isMissingRemoteRefFetchFailure } from "../_git/remoteRef";
+import {
+  divergedPublishLooksLikeRewrite,
+  isEvaOwnedBranch,
+  parseGitNameOnlyList,
+  remoteOnlyChangedFileCount,
+  rewrittenBranchIsOwnHistory,
+  rewrittenBranchPublishError,
+} from "./divergedPublish";
 import { ensureSwapFile } from "./swap";
 import { PACKAGE_HELPER_SCRIPT, pkgInstall } from "./packageManager";
 import {
@@ -213,15 +223,6 @@ function isSafeBranchName(branchName: string): boolean {
   return /^[^\s\\:?*[~^]+$/.test(branchName) && !branchName.includes("..");
 }
 
-/** Checks if an error message indicates a missing remote ref. */
-function isMissingRemoteRefError(message: string): boolean {
-  const lower = message.toLowerCase();
-  return (
-    lower.includes("couldn't find remote ref") ||
-    lower.includes("could not find remote ref")
-  );
-}
-
 function isRetryableGitNetworkError(message: string): boolean {
   const lower = message.toLowerCase();
   return (
@@ -248,11 +249,15 @@ function isRetryableGitNetworkError(message: string): boolean {
   );
 }
 
-/** A concurrent writer moved the same branch after our last fetch. */
+/**
+ * A concurrent writer moved the same branch after our last fetch. "stale info"
+ * is the `--force-with-lease` variant: the leased sha is no longer the tip.
+ */
 function isNonFastForwardPushError(message: string): boolean {
   const lower = message.toLowerCase();
   return (
     lower.includes("non-fast-forward") ||
+    lower.includes("stale info") ||
     lower.includes("fetch first") ||
     (lower.includes("[rejected]") && lower.includes("failed to push"))
   );
@@ -307,10 +312,20 @@ export async function createSandbox(
   // Those post-create steps absorb Vercel's first-command boot penalty
   // (seconds–tens of seconds); session UI should not wait on them.
   onSandboxAcquired?: (sandbox: SandboxHandle) => Promise<void>,
+  // Boot from a Vercel Container Registry image instead of the legacy runtime.
+  // Only read when there is no snapshot — a restore carries its own image.
+  image?: string,
+  /**
+   * Manager Ave never runs repo services, so installing and polling dockerd
+   * on the Ubuntu universal image is pure wait (dnf is missing, then 90s+60s
+   * of `docker info` loops). Skip it.
+   */
+  skipDocker = false,
 ): Promise<SandboxHandle> {
   const details = [
     `installation=${installationId}`,
     snapshotName ? `snapshot=${snapshotName}` : "snapshot=none",
+    image ? `image=${image}` : "image=none",
     lifecycle.ephemeral ? "ephemeral=true" : "ephemeral=false",
   ].join(", ");
   return await runLoggedGitStep("createSandbox", details, async () => {
@@ -328,6 +343,7 @@ export async function createSandbox(
 
     const sandbox = await client.create({
       snapshot: snapshotName,
+      image,
       ports: [...VERCEL_DEFAULT_EXPOSED_PORTS],
       envVars: {
         // VNC_RESOLUTION is read by the snapshot's ComputerUse plugin at startup
@@ -365,7 +381,8 @@ export async function createSandbox(
       }
       const token = await tokenPromise;
       await runLoggedGitStep("createSandbox.writeEvaEnv", sandbox.id, () =>
-        sandbox.writeFile(
+        writeSandboxFile(
+          sandbox,
           EVA_ENV_FILE,
           renderEvaEnvFile({
             VNC_RESOLUTION: "1920x1080",
@@ -447,9 +464,13 @@ export async function createSandbox(
       // since dockerd doesn't survive auto-stop. Already fast-paths on an
       // already-running daemon (`docker info` check first); the timing
       // wrapper just makes that fast path visible in logs instead of assumed.
-      await runLoggedGitStep("createSandbox.bootstrapDocker", sandbox.id, () =>
-        bootstrapVercelDocker(sandbox),
-      );
+      // Orchestrator: no containers, and the universal image has no docker
+      // binary — the bootstrap would sit in a 90s poll then another 60s.
+      if (!skipDocker) {
+        await runLoggedGitStep("createSandbox.bootstrapDocker", sandbox.id, () =>
+          bootstrapVercelDocker(sandbox),
+        );
+      }
 
       return sandbox;
     } catch (error) {
@@ -473,12 +494,21 @@ function bareGitHubRepoUrl(owner: string, name: string): string {
   return `https://github.com/${owner}/${name}.git`;
 }
 
+export type FetchOriginResult = {
+  /** False when a specific ref was requested and is gone on the remote. */
+  fetched: boolean;
+};
+
 /**
  * Fetches refs from the GitHub remote origin, optionally pruning stale refs.
  * Always fetches full history (no --depth) — shallow clones cause issues with rebasing, blame, and merges.
  *
  * Auth comes from the eva git credential helper installed at sandbox
  * bootstrap; the remote URL no longer carries a token.
+ *
+ * A missing specific ref (git exit 128 "couldn't find remote ref") is a
+ * handled outcome — deleted automation branches, never-pushed task branches —
+ * not a thrown command failure.
  */
 export async function fetchOrigin(
   sandbox: SandboxHandle,
@@ -490,27 +520,38 @@ export async function fetchOrigin(
     timeoutSeconds?: number;
     retryAttempts?: number;
   },
-): Promise<void> {
+): Promise<FetchOriginResult> {
   const details = `${owner}/${name}, ref=${ref ?? "all"}, prune=${
     opts?.prune === false ? "false" : "true"
   }`;
-  await runLoggedGitStep("fetchOrigin", details, async () => {
+  return await runLoggedGitStep("fetchOrigin", details, async () => {
     const repoUrl = bareGitHubRepoUrl(owner, name);
     const workspaceDir = workspaceDirShell();
     const pruneArg = opts?.prune === false ? "" : " --prune";
     const refArg = ref ? ` ${quote([ref])}` : "";
-    await retryGitNetworkOperation(
-      "fetchOrigin",
-      details,
-      async () => {
-        await execGitCommand(
-          sandbox,
-          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git fetch --no-tags${pruneArg} origin${refArg}`,
-          opts?.timeoutSeconds ?? 240,
+    try {
+      await retryGitNetworkOperation(
+        "fetchOrigin",
+        details,
+        async () => {
+          await execGitCommand(
+            sandbox,
+            `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git fetch --no-tags${pruneArg} origin${refArg}`,
+            opts?.timeoutSeconds ?? 240,
+          );
+        },
+        opts?.retryAttempts,
+      );
+      return { fetched: true };
+    } catch (error) {
+      if (ref && isMissingRemoteRefFetchFailure(error)) {
+        logGit(
+          `fetchOrigin: remote ref ${ref} is missing — continuing without it`,
         );
-      },
-      opts?.retryAttempts,
-    );
+        return { fetched: false };
+      }
+      throw error;
+    }
   });
 }
 
@@ -559,9 +600,7 @@ export async function fetchBranchRefs(
           );
           return normalized;
         } catch (error) {
-          const message =
-            error instanceof Error ? error.message : String(error);
-          if (!isMissingRemoteRefError(message)) {
+          if (!isMissingRemoteRefFetchFailure(error)) {
             throw error;
           }
           const fetchedBranches: string[] = [];
@@ -577,8 +616,7 @@ export async function fetchBranchRefs(
                 fetchedBranches.push(fetchedBranch);
               }
             } catch (e) {
-              const msg = e instanceof Error ? e.message : String(e);
-              if (!isMissingRemoteRefError(msg)) {
+              if (!isMissingRemoteRefFetchFailure(e)) {
                 throw e;
               }
             }
@@ -714,6 +752,54 @@ async function pinBranchUpstream(
       `pinBranchUpstream: failed for ${branchName} (continuing): ${error instanceof Error ? error.message : String(error)}`,
     );
   }
+}
+
+/**
+ * Matches git's unresolved-index refusals: "<path>: needs merge", "error: you
+ * need to resolve your current index first", "you have unmerged files", and
+ * "MERGE_HEAD exists". Kept narrow on purpose — anything else (auth, network,
+ * missing refs) must keep failing loudly, not be reset away.
+ */
+export function isUnresolvedGitIndexError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("needs merge") ||
+    lower.includes("resolve your current index first") ||
+    lower.includes("unmerged files") ||
+    lower.includes("merge_head exists") ||
+    lower.includes("not concluded your merge")
+  );
+}
+
+/**
+ * Aborts a merge/rebase/cherry-pick/revert left in progress on a reused
+ * sandbox, then clears any unmerged entries still in the index. An agent run
+ * that dies mid-merge leaves the VM in this state, and every later checkout
+ * refuses with "needs merge; you need to resolve your current index first" —
+ * so session reuse could never start again on that box. Aborting restores the
+ * pre-operation HEAD: committed work survives; only the unfinished conflicted
+ * attempt is discarded.
+ */
+export async function recoverUnresolvedGitIndex(
+  sandbox: SandboxHandle,
+): Promise<void> {
+  const workspaceDir = workspaceDirShell();
+  await runLoggedGitStep("recoverUnresolvedGitIndex", WORKSPACE_DIR, () =>
+    execGitCommand(
+      sandbox,
+      [
+        `cd ${workspaceDir}`,
+        `if [ -f .git/MERGE_HEAD ]; then echo "aborting in-progress merge"; git merge --abort || true; fi`,
+        `if [ -d .git/rebase-merge ] || [ -d .git/rebase-apply ]; then echo "aborting in-progress rebase"; git rebase --abort || true; fi`,
+        `if [ -f .git/CHERRY_PICK_HEAD ]; then echo "aborting in-progress cherry-pick"; git cherry-pick --abort || true; fi`,
+        `if [ -f .git/REVERT_HEAD ]; then echo "aborting in-progress revert"; git revert --abort || true; fi`,
+        // Unmerged entries can outlive the operation marker (or the abort);
+        // reset them so checkout can run again.
+        `if [ -n "$(git ls-files --unmerged)" ]; then echo "resetting unmerged index entries"; git reset --merge || git reset --hard HEAD; fi`,
+      ].join(" && "),
+      60,
+    ),
+  );
 }
 
 /** Checks out a session branch, creating it from a remote or base ref if needed. */
@@ -1034,20 +1120,75 @@ export async function setupBranch(
   });
 }
 
+type BranchPublishSync = {
+  remoteExists: boolean;
+  /**
+   * Set when the local branch rewrote history that origin still holds and the
+   * remote tip is provably the sandbox's own old tip. The push must then be
+   * leased on exactly this sha so anything that lands in between aborts it.
+   */
+  replaceRemoteTip?: string;
+};
+
+/**
+ * Every commit the local branch has ever pointed at in this sandbox. Empty when
+ * the branch has no reflog, which makes the caller refuse rather than guess.
+ */
+async function localBranchReflogShas(
+  sandbox: SandboxHandle,
+  branchName: string,
+): Promise<string[]> {
+  const workspaceDir = workspaceDirShell();
+  const quotedLocalRef = quote([`refs/heads/${branchName}`]);
+  try {
+    return parseGitNameOnlyList(
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git reflog show --format=%H ${quotedLocalRef}`,
+        15,
+      ),
+    );
+  } catch (error) {
+    logGit(
+      `localBranchReflogShas: no reflog for ${branchName}: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return [];
+  }
+}
+
 /**
  * Refreshes the exact remote branch and makes the checked-out local branch a
  * safe fast-forward of it before publication.
  *
- * Local-only commits are never reset away. When both sides moved, Git rebases
- * the local-only commits onto the fetched remote tip; a conflict is aborted so
- * the preserved sandbox remains in its original recoverable state.
+ * Local-only commits are never reset away. When both sides moved, Git merges
+ * the fetched remote tip into the local branch; a conflict is aborted so the
+ * preserved sandbox remains in its original recoverable state.
+ *
+ * Merge, not rebase: a turn that merges the base branch in (`git merge
+ * origin/staging`) makes every base commit since the fork local-only, and a
+ * rebase replays all of them onto the remote tip. Project 3 of
+ * evalucom/carepulse-ts (19 Aug 2026) hit exactly that — 302 replayed commits,
+ * conflicting on the base branch's own Mantine 9.3 bump — so a clean sandbox
+ * merge could never publish, and every retry failed identically. A merge
+ * conflicts only where the two tips genuinely touch the same lines.
+ *
+ * Skip that merge when the unique remote tree looks like a rewritten base
+ * (task 231, 25 Aug 2026): rebasing onto main left one local file against
+ * 1,272 remote-only staging commits, and merging the old tip back in
+ * conflicted inside publish while the sandbox stayed clean.
+ *
+ * A rewritten eva/ branch is published anyway — as a push leased on the exact
+ * remote tip — when that tip is in the local branch's reflog, i.e. the remote
+ * only holds history this sandbox itself used to have (task m57dve3m, 2 Sep
+ * 2026). Anything else on the remote keeps the refusal, so the caller can send
+ * the user a message that says why and what to do.
  */
 async function synchronizeBranchForPublish(
   sandbox: SandboxHandle,
   owner: string,
   name: string,
   branchName: string,
-): Promise<{ remoteExists: boolean }> {
+): Promise<BranchPublishSync> {
   if (!isSafeBranchName(branchName)) {
     throw new Error(`Unsafe branch name: ${branchName}`);
   }
@@ -1131,11 +1272,91 @@ async function synchronizeBranchForPublish(
     return { remoteExists: true };
   }
   if (/^[1-9]\d*\s+[1-9]\d*$/.test(divergence)) {
-    await execGitCommand(
-      sandbox,
-      `cd ${workspaceDir} && if ! git rebase ${quotedRemoteRef}; then git rebase --abort; exit 1; fi`,
-      120,
+    const mergeBase = (
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git merge-base ${quotedRemoteRef} ${quotedLocalRef}`,
+        15,
+      )
+    ).trim();
+    const quotedMergeBase = quote([mergeBase]);
+    const localChanged = parseGitNameOnlyList(
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git diff --name-only ${quotedMergeBase} ${quotedLocalRef}`,
+        30,
+      ),
     );
+    const remoteChanged = parseGitNameOnlyList(
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git diff --name-only ${quotedMergeBase} ${quotedRemoteRef}`,
+        30,
+      ),
+    );
+    if (divergedPublishLooksLikeRewrite(localChanged, remoteChanged)) {
+      const remoteOnly = remoteOnlyChangedFileCount(
+        localChanged,
+        remoteChanged,
+      );
+      if (!isEvaOwnedBranch(branchName)) {
+        throw new Error(
+          rewrittenBranchPublishError(
+            branchName,
+            remoteOnly,
+            localChanged.length,
+            "branch-not-eva-owned",
+          ),
+        );
+      }
+      const remoteTip = (
+        await execGitCommand(
+          sandbox,
+          `cd ${workspaceDir} && git rev-parse --verify ${quotedRemoteRef}`,
+          10,
+        )
+      ).trim();
+      const reflogShas = await localBranchReflogShas(sandbox, branchName);
+      if (!rewrittenBranchIsOwnHistory(remoteTip, reflogShas)) {
+        throw new Error(
+          rewrittenBranchPublishError(
+            branchName,
+            remoteOnly,
+            localChanged.length,
+            "remote-holds-foreign-commits",
+          ),
+        );
+      }
+      logGit(
+        `synchronizeBranchForPublish: origin/${branchName} tip ${remoteTip.slice(0, 7)} is in the local branch reflog; publishing the rewritten branch leased on it (${remoteOnly} remote-only files vs ${localChanged.length} local)`,
+      );
+      return { remoteExists: true, replaceRemoteTip: remoteTip };
+    }
+    try {
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && git merge --no-edit ${quotedRemoteRef}`,
+        120,
+      );
+    } catch (error) {
+      logGit(
+        `synchronizeBranchForPublish: merge origin/${branchName} failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      try {
+        await execGitCommand(
+          sandbox,
+          `cd ${workspaceDir} && git merge --abort`,
+          30,
+        );
+      } catch (abortError) {
+        logGit(
+          `synchronizeBranchForPublish: merge --abort failed: ${abortError instanceof Error ? abortError.message : String(abortError)}`,
+        );
+      }
+      throw new Error(
+        `Could not merge origin/${branchName} into the local branch. The sandbox was left clean — there are no conflict markers to resolve. If you rewrote history, force-push; if both sides committed, merge the remote branch in the sandbox and retry.`,
+      );
+    }
     return { remoteExists: true };
   }
   throw new Error(
@@ -1171,12 +1392,15 @@ export async function pushBranchToOrigin(
     const repoUrl = bareGitHubRepoUrl(owner, name);
     const maxAttempts = opts?.retryAttempts ?? 2;
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-      const { remoteExists } = await synchronizeBranchForPublish(
-        sandbox,
-        owner,
-        name,
-        branchName,
-      );
+      const { remoteExists, replaceRemoteTip } =
+        await synchronizeBranchForPublish(sandbox, owner, name, branchName);
+      // Never a bare --force: the lease names the exact remote sha the sync
+      // just verified as the sandbox's own old tip, so a commit that lands in
+      // between is rejected ("stale info") and the retry re-syncs against it.
+      const lease =
+        replaceRemoteTip === undefined
+          ? ""
+          : `--force-with-lease=${quote([`refs/heads/${branchName}:${replaceRemoteTip}`])} `;
 
       // A chat/Q&A turn has nothing to publish. Once the remote session branch
       // exists, compare to that exact ref; otherwise compare to all fetched
@@ -1209,7 +1433,7 @@ export async function pushBranchToOrigin(
       try {
         await execGitCommand(
           sandbox,
-          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push -u origin ${quotedRefspec}`,
+          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push ${lease}-u origin ${quotedRefspec}`,
           opts?.timeoutSeconds ?? 60,
         );
         return { pushed: true, published: true };
@@ -1232,6 +1456,60 @@ export async function pushBranchToOrigin(
       }
     }
     throw new Error(`pushBranchToOrigin exhausted retries (${details})`);
+  });
+}
+
+/**
+ * Replaces origin/<branch> with the sandbox's local branch — the user-confirmed
+ * recovery after synchronizeBranchForPublish refuses a rewritten local branch.
+ *
+ * `--force-with-lease` is pinned to the remote-tracking ref refreshed by the
+ * fetch below, so a push that landed between fetch and push aborts instead of
+ * being silently discarded. When the fetch reports the remote branch deleted,
+ * a plain push recreates it and no lease is needed.
+ */
+export async function forcePushBranchToOrigin(
+  sandbox: SandboxHandle,
+  owner: string,
+  name: string,
+  branchName: string,
+): Promise<void> {
+  if (!isSafeBranchName(branchName)) {
+    throw new Error(`Unsafe branch name: ${branchName}`);
+  }
+  const details = `${owner}/${name}, branch=${branchName}`;
+  await runLoggedGitStep("forcePushBranchToOrigin", details, async () => {
+    const workspaceDir = workspaceDirShell();
+    const quotedLocalRef = quote([`refs/heads/${branchName}`]);
+    const localBranchState = (
+      await execGitCommand(
+        sandbox,
+        `cd ${workspaceDir} && ((git show-ref --verify --quiet ${quotedLocalRef} && echo exists) || echo missing)`,
+        10,
+      )
+    ).trim();
+    if (localBranchState !== "exists") {
+      throw new Error(
+        `Cannot force-push ${branchName}: the branch does not exist in the sandbox`,
+      );
+    }
+    const fetched = await fetchBranchRefs(sandbox, owner, name, [branchName], {
+      prune: false,
+      timeoutSeconds: 60,
+      retryAttempts: 2,
+    });
+    const lease = fetched.includes(branchName)
+      ? `--force-with-lease=${quote([`refs/heads/${branchName}`])} `
+      : "";
+    const quotedRefspec = quote([
+      `refs/heads/${branchName}:refs/heads/${branchName}`,
+    ]);
+    const repoUrl = bareGitHubRepoUrl(owner, name);
+    await execGitCommand(
+      sandbox,
+      `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push ${lease}-u origin ${quotedRefspec}`,
+      90,
+    );
   });
 }
 
@@ -1294,10 +1572,15 @@ export async function createSandboxAndPrepareRepo(
   // and reliably trips Convex's 600s per-action ceiling on providers (Vercel)
   // that don't have it pre-baked into their base snapshot.
   skipInstallDeps = false,
+  // VCR image to boot from when there is no snapshot (orchestrator sessions use
+  // the Vercel-managed universal image). Threaded straight to createSandbox.
+  image?: string,
+  // Orchestrator: skip dockerd. See createSandbox.skipDocker.
+  skipDocker = false,
 ): Promise<{ sandbox: SandboxHandle; usedSnapshot: boolean }> {
   let sandbox: SandboxHandle | undefined;
   try {
-    const details = `${owner}/${name}, snapshot=${snapshotName ?? "none"}, syncStrategy=${syncStrategy.mode}`;
+    const details = `${owner}/${name}, snapshot=${snapshotName ?? "none"}, image=${image ?? "none"}, syncStrategy=${syncStrategy.mode}`;
     return await runLoggedGitStep(
       "createSandboxAndPrepareRepo",
       details,
@@ -1313,6 +1596,8 @@ export async function createSandboxAndPrepareRepo(
             effectiveSnapshot,
             readyTimeoutSeconds,
             onSandboxAcquired,
+            image,
+            skipDocker,
           );
         } catch (err) {
           if (effectiveSnapshot && isSnapshotUnusableError(err)) {
@@ -1330,6 +1615,8 @@ export async function createSandboxAndPrepareRepo(
               undefined,
               readyTimeoutSeconds,
               onSandboxAcquired,
+              image,
+              skipDocker,
             );
           } else {
             throw err;
@@ -1409,12 +1696,17 @@ export async function getOrCreateSandbox(
   snapshotName?: string,
   onProgress?: (label: string) => Promise<void>,
   syncStrategy: RepoSyncStrategy = { mode: "all" },
+  // Both only matter on the create fallback below — a resume reuses whatever the
+  // existing sandbox was built from. See createSandboxAndPrepareRepo.
+  skipInstallDeps = false,
+  image?: string,
+  skipDocker = false,
 ): Promise<{
   sandbox: SandboxHandle;
   isNew: boolean;
   resumeFellBack: boolean;
 }> {
-  const details = `${owner}/${name}, existingSandboxId=${existingSandboxId ?? "none"}, snapshot=${snapshotName ?? "none"}, syncStrategy=${syncStrategy.mode}`;
+  const details = `${owner}/${name}, existingSandboxId=${existingSandboxId ?? "none"}, snapshot=${snapshotName ?? "none"}, image=${image ?? "none"}, syncStrategy=${syncStrategy.mode}`;
   return await runLoggedGitStep("getOrCreateSandbox", details, async () => {
     if (existingSandboxId) {
       const resumed = await tryResumeSandbox(
@@ -1446,6 +1738,10 @@ export async function getOrCreateSandbox(
       undefined,
       onProgress,
       syncStrategy,
+      undefined,
+      skipInstallDeps,
+      image,
+      skipDocker,
     );
     return {
       sandbox,
@@ -1456,18 +1752,19 @@ export async function getOrCreateSandbox(
 }
 
 /**
- * Heuristic: does this error mean the sandbox is genuinely gone
- * (deleted, archived, expired) — i.e. safe to fall through to creating a new one?
+ * Does this error mean the sandbox is genuinely gone (deleted, archived,
+ * expired) — i.e. safe to fall through to creating a new one?
  *
- * We deliberately stay narrow. The previous implementation swallowed every
- * error and silently created a new sandbox, which orphaned the old one in
+ * Takes the error object, not its message: classification reads the provider's
+ * structured signals (HTTP status, error type) and only falls back to text for
+ * a tagged provider error. See `sandboxErrors.ts`. An earlier version swallowed
+ * every error and silently created a new sandbox, which orphaned the old one in
  * common races (e.g. user clicking Start while a stop is mid-flight — the
  * sandbox is in a transitional state, `start()` rejects, and we'd happily
  * burn a fresh sandbox + lose the old one's dev server / terminal state).
  */
-function isSandboxMissingError(err: Error | string): boolean {
-  const msg = err instanceof Error ? err.message : err;
-  return isSandboxUnresumableMessage(msg);
+function isSandboxMissingError(err: unknown): boolean {
+  return isSandboxGoneError(err);
 }
 
 /**
@@ -1499,11 +1796,7 @@ async function tryResumeSandbox(
       try {
         await sandbox.refresh();
       } catch (refreshErr) {
-        if (
-          isSandboxMissingError(
-            refreshErr instanceof Error ? refreshErr : String(refreshErr),
-          )
-        ) {
+        if (isSandboxMissingError(refreshErr)) {
           logGit(
             `getOrCreateSandbox: resume refresh says gone — will create new one (${refreshErr instanceof Error ? refreshErr.message : String(refreshErr)})`,
           );
@@ -1536,7 +1829,7 @@ async function tryResumeSandbox(
       }
       return sandbox;
     } catch (err) {
-      if (isSandboxMissingError(err instanceof Error ? err : String(err))) {
+      if (isSandboxMissingError(err)) {
         logGit(
           `getOrCreateSandbox: resume failed because sandbox is gone — will create new one (${err instanceof Error ? err.message : String(err)})`,
         );

@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useRef, useState, type ReactNode, type RefObject } from "react";
 import { useShortcut } from "@/lib/hotkeys/useShortcut";
 import { ShortcutKbd } from "@/lib/components/ui/Kbd";
 import { m } from "motion/react";
 import {
   Command,
   CommandEmpty,
-  CommandItem,
   CommandList,
   motionSpring,
   Popover,
@@ -15,100 +14,40 @@ import {
   PopoverContent,
   usePromptInputController,
 } from "@eva/ui";
-import { IconBookmark, IconX } from "@tabler/icons-react";
+import { IconBookmark, IconChevronDown } from "@tabler/icons-react";
 import type { Id } from "@eva/backend";
-import { relativeTime } from "@/lib/components/artifacts/_format";
-import { isImageContentType } from "@/lib/components/attachments/attachmentMeta";
-import { tokenizedToEditable } from "@/lib/components/mentions";
 import type { MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
-import {
-  useComposerStash,
-  type PromptStashEntry,
-} from "@/lib/components/chat/_components/useComposerStash";
-
-function previewSnippet(tokenized: string, maxLength = 90): string {
-  const { displayText } = tokenizedToEditable(tokenized);
-  const singleLine = displayText.replace(/\s+/g, " ").trim();
-  if (singleLine.length === 0) return "(attachments only)";
-  if (singleLine.length <= maxLength) return singleLine;
-  return `${singleLine.slice(0, maxLength - 1)}…`;
-}
-
-function ComposerStashItem({
-  entry,
-  onSelect,
-  onDelete,
-}: {
-  entry: PromptStashEntry;
-  onSelect: () => void;
-  onDelete: () => void;
-}) {
-  return (
-    <CommandItem
-      value={entry._id}
-      onSelect={onSelect}
-      className="group flex cursor-pointer items-start gap-2 aria-selected:bg-muted"
-    >
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm text-foreground">
-          {previewSnippet(entry.content)}
-        </p>
-        <div className="mt-1 flex items-center gap-2">
-          {entry.attachments.length > 0 ? (
-            <div className="flex items-center gap-1">
-              {entry.attachments.slice(0, 3).map((attachment) =>
-                isImageContentType(attachment.contentType) ? (
-                  <img
-                    key={attachment.url}
-                    src={attachment.url}
-                    alt=""
-                    className="size-8 rounded-surface border border-border object-cover"
-                  />
-                ) : (
-                  <span
-                    key={attachment.url}
-                    className="flex size-8 items-center justify-center rounded-surface border border-border bg-muted text-[10px] text-muted-foreground"
-                  >
-                    file
-                  </span>
-                ),
-              )}
-            </div>
-          ) : null}
-          <span className="text-xs text-muted-foreground">
-            {relativeTime(entry._creationTime)}
-          </span>
-        </div>
-      </div>
-      <button
-        type="button"
-        aria-label="Delete stash"
-        className="reveal-on-hover max-sm:hit-target shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-        onClick={(event) => {
-          event.stopPropagation();
-          onDelete();
-        }}
-        onPointerDown={(event) => event.stopPropagation()}
-      >
-        <IconX className="size-3.5" />
-      </button>
-    </CommandItem>
-  );
-}
+import { ComposerStashItem } from "@/lib/components/chat/_components/ComposerStashItem";
+import { useComposerStash } from "@/lib/components/chat/_components/useComposerStash";
 
 /**
- * Footer pill + ⌘S stash/restore for the shared chat composer.
- * Hotkey is gated on composer focus (or open picker) so it does not steal
- * browser save from other fields on the page.
+ * Shoulder tab + attached drawer for the composer's prompt stash, plus the
+ * dock the tasks/queued panels sit in. The tab rests on the input card's top
+ * edge beside those panels, and the drawer opens flush above the card by
+ * anchoring a popover to the input chrome this component wraps.
+ *
+ * The hotkey registration stays enabled whenever a composer is mounted and the
+ * focus/disabled gate lives inside the callback: `enabled: false` makes the
+ * hotkey manager skip preventDefault entirely, so gating via `enabled` let
+ * ⌘S fall through to the browser's save-file dialog. Browser save is never
+ * useful inside the app; acting on the stash still requires this composer to
+ * own focus (or its drawer to be open), so multiple mounted composers don't
+ * all stash at once.
  */
 export function ComposerStash({
   repoId,
   mentionRef,
   disabled,
+  panels,
+  children,
 }: {
   repoId: Id<"githubRepos">;
   mentionRef: RefObject<MentionTextareaHandle | null>;
   disabled: boolean;
+  /** Panels stacked flush above the input (tasks, queued messages). */
+  panels: ReactNode;
+  /** The composer input chrome the drawer anchors to. */
+  children: ReactNode;
 }) {
   const { textInput, attachments } = usePromptInputController();
   const { entries, stash, restore, removeEntry } = useComposerStash({
@@ -117,44 +56,19 @@ export function ComposerStash({
   });
 
   const [open, setOpen] = useState(false);
-  const [composerFocused, setComposerFocused] = useState(false);
   const [pulseKey, setPulseKey] = useState(0);
-  const anchorRef = useRef<HTMLSpanElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const tabRef = useRef<HTMLButtonElement>(null);
   const commandRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const form = anchorRef.current?.closest("form");
-    if (!form) return;
-
-    const onFocusIn = () => {
-      setComposerFocused(true);
-    };
-    const onFocusOut = () => {
-      requestAnimationFrame(() => {
-        if (open) return;
-        if (form.contains(document.activeElement)) {
-          setComposerFocused(true);
-          return;
-        }
-        setComposerFocused(false);
-      });
-    };
-
-    form.addEventListener("focusin", onFocusIn);
-    form.addEventListener("focusout", onFocusOut);
-    return () => {
-      form.removeEventListener("focusin", onFocusIn);
-      form.removeEventListener("focusout", onFocusOut);
-    };
-  }, [open]);
-
-  const hotkeyEnabled = !disabled && (composerFocused || open);
 
   useShortcut(
     "stashDraft",
     (event) => {
       event.preventDefault();
       if (disabled) return;
+      // The drawer is portaled, so while open the active element sits outside
+      // `rootRef` — hence the `open` short-circuit.
+      if (!open && !rootRef.current?.contains(document.activeElement)) return;
 
       const isEmpty =
         textInput.value.trim().length === 0 && attachments.files.length === 0;
@@ -167,44 +81,54 @@ export function ComposerStash({
         if (ok) setPulseKey((key) => key + 1);
       });
     },
-    { enabled: hotkeyEnabled, requireReset: true },
+    { requireReset: true },
   );
 
   const newestId = entries[0]?._id;
 
   return (
     <Popover open={open} onOpenChange={setOpen} modal={false}>
-      <PopoverAnchor asChild>
-        <span
-          ref={anchorRef}
-          className={
-            entries.length > 0
-              ? "inline-flex"
-              : "inline-flex size-0 overflow-hidden"
-          }
-        >
+      <div ref={rootRef} className="flex flex-col">
+        {/* Dock: panels column on the left, stash tab on the right, both
+            resting on the input card's top edge. The dock owns the inset, so
+            the panels inside it are full width. */}
+        <div className="mx-auto flex w-[calc(100%-1.5rem)] items-end gap-1">
+          <div className="flex min-w-0 flex-1 flex-col">{panels}</div>
           {entries.length > 0 ? (
-            <m.button
-              key={pulseKey}
+            <button
+              ref={tabRef}
               type="button"
-              initial={{ scale: 0.9 }}
-              animate={{ scale: 1 }}
-              transition={motionSpring}
-              className="max-sm:hit-target inline-flex h-7 items-center gap-1 rounded-md bg-muted px-2 text-xs text-muted-foreground hover:bg-muted/80 hover:text-foreground"
-              onClick={() => setOpen((prev) => !prev)}
-              title="Prompt stash"
+              aria-expanded={open}
               aria-label={`Prompt stash, ${entries.length} saved`}
+              title="Prompt stash"
+              className="motion-press inline-flex h-7 shrink-0 items-center gap-1.5 rounded-b-none rounded-t-surface bg-muted/50 px-2.5 text-xs text-muted-foreground hover:text-foreground active:scale-[0.98]"
+              // Keep composer focus when toggling from the input.
+              onPointerDown={(event) => event.preventDefault()}
+              onClick={() => setOpen((prev) => !prev)}
             >
-              <IconBookmark className="size-3.5" />
-              <span>{entries.length}</span>
-            </m.button>
+              <IconBookmark aria-hidden className="size-3.5" />
+              <span>Stash</span>
+              <m.span
+                key={pulseKey}
+                initial={{ opacity: 0, y: 2 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={motionSpring}
+                className="font-medium tabular-nums"
+              >
+                {entries.length}
+              </m.span>
+            </button>
           ) : null}
-        </span>
-      </PopoverAnchor>
+        </div>
+        <PopoverAnchor asChild>
+          <div>{children}</div>
+        </PopoverAnchor>
+      </div>
       <PopoverContent
         side="top"
-        align="start"
-        className="w-80 p-0"
+        align="center"
+        sideOffset={0}
+        className="w-[calc(var(--radix-popover-trigger-width)-1.5rem)] max-w-none rounded-b-none p-0"
         onOpenAutoFocus={(event) => {
           event.preventDefault();
           commandRef.current?.focus();
@@ -212,7 +136,35 @@ export function ComposerStash({
         onCloseAutoFocus={(event) => {
           event.preventDefault();
         }}
+        onEscapeKeyDown={() => mentionRef.current?.focus()}
+        onInteractOutside={(event) => {
+          // The tab toggles; letting dismiss also fire re-opens it on the same
+          // click.
+          if (
+            event.target instanceof Node &&
+            tabRef.current?.contains(event.target)
+          ) {
+            event.preventDefault();
+          }
+        }}
       >
+        <button
+          type="button"
+          aria-label="Close stash"
+          className="flex h-8 w-full items-center gap-2 px-3 text-xs text-muted-foreground hover:text-foreground"
+          onPointerDown={(event) => event.preventDefault()}
+          onClick={() => {
+            setOpen(false);
+            mentionRef.current?.focus();
+          }}
+        >
+          <IconBookmark aria-hidden className="size-3.5" />
+          <span>Stash</span>
+          <span className="ml-auto font-medium tabular-nums">
+            {entries.length}
+          </span>
+          <IconChevronDown aria-hidden className="size-3.5" />
+        </button>
         <Command
           ref={commandRef}
           shouldFilter={false}

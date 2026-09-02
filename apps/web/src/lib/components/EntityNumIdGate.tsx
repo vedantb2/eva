@@ -1,28 +1,37 @@
 "use client";
 
 import { Spinner } from "@eva/ui";
+import { Navigate } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 import { EntityNotFound } from "@/lib/components/EntityNotFound";
+import type { EntityResolveResult } from "@/lib/numId";
 
-export type EntityResolveStatus = "loading" | "not-found" | "ready";
-
-export function EntityNumIdGate<TId extends string>({
-  status,
-  convexId,
+/**
+ * Renders the four states of a numId route: legacy-id redirect, loading,
+ * not-found, and the resolved document. Every numId detail route funnels
+ * through here so the states stay identical across surfaces.
+ */
+export function EntityNumIdGate<TDoc extends { _id: string }>({
+  resolve,
   entityLabel,
   backTo,
   backLabel,
   children,
 }: {
-  status: EntityResolveStatus;
-  convexId: TId | null;
+  resolve: EntityResolveResult<TDoc>;
   /** Singular label for not-found copy, e.g. "task", "session". */
   entityLabel: string;
   backTo?: string;
   backLabel?: string;
-  children: (convexId: TId) => ReactNode;
+  children: (doc: TDoc) => ReactNode;
 }) {
-  if (status === "loading") {
+  // A pre-numId link (old notification href, PR body): swap the id for the
+  // canonical numId and replace history so Back does not bounce here again.
+  if (resolve.redirectTo !== null) {
+    return <Navigate to={resolve.redirectTo} search={true} replace />;
+  }
+
+  if (resolve.status === "loading") {
     return (
       <div className="flex h-full items-center justify-center">
         <Spinner size="lg" />
@@ -30,7 +39,7 @@ export function EntityNumIdGate<TId extends string>({
     );
   }
 
-  if (status === "not-found" || convexId === null) {
+  if (resolve.status === "not-found" || resolve.doc === null) {
     return (
       <EntityNotFound
         entityLabel={entityLabel}
@@ -40,5 +49,5 @@ export function EntityNumIdGate<TId extends string>({
     );
   }
 
-  return children(convexId);
+  return children(resolve.doc);
 }

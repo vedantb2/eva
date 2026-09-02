@@ -39,6 +39,10 @@ import { ProjectSandboxPanel } from "@/lib/components/projects/ProjectSandboxPan
 import { ProjectSandboxChatPanel } from "@/lib/components/projects/ProjectSandboxChatPanel";
 import { useProjectSandbox } from "@/lib/components/projects/useProjectSandbox";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
+import { SleepEvaButton } from "@/lib/components/sandbox/SleepEvaButton";
+import { SANDBOX_RAIL_WIDTH_PX } from "@/lib/components/sandbox/sandboxRail";
+import { SandboxEmptyRailFrame } from "@/lib/components/sandbox/SandboxPanelFrame";
+import type { SandboxSurface } from "@/lib/components/sandbox/SandboxSurfaceTabs";
 import {
   SandboxWorkspace,
   type TerminalPanelApi,
@@ -47,7 +51,7 @@ import type { SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import { ProjectContextUsage } from "@/lib/components/context-usage";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
-import { RepoSectionBreadcrumb } from "@/lib/components/RepoSectionBreadcrumb";
+import { ProjectBreadcrumb } from "./_components/ProjectBreadcrumb";
 
 import {
   IconGitPullRequest,
@@ -72,7 +76,7 @@ import { ResolveConfirmDialog } from "@/lib/components/tasks/_components/Resolve
 import { StartupCommandsConfirmDialog } from "@/lib/components/tasks/_components/StartupCommandsConfirmDialog";
 import type { TaskRouteSandboxTab } from "@/lib/search-params";
 import type { TaskDetailTab } from "@/lib/components/tasks/_components/task-detail-constants";
-import type { EntityResolveStatus } from "@/lib/components/EntityNumIdGate";
+import type { EntityResolveStatus } from "@/lib/numId";
 import { parseSpec } from "@/lib/utils/parseSpec";
 import { ProjectChatMessageList } from "@/lib/components/projects/ProjectChatMessageList";
 import { withMutationToast } from "@/lib/utils/mutationToast";
@@ -89,7 +93,7 @@ export function ProjectDetailClient({
 }: {
   projectId: Id<"projects">;
   projectNumId?: number;
-  surface: "main" | "sandbox";
+  surface: SandboxSurface;
   sandboxTab?: TaskRouteSandboxTab;
   /** Primary tab. `work` is the index route, so deep links keep working. */
   mainTab?: ProjectMainTab;
@@ -161,17 +165,6 @@ export function ProjectDetailClient({
 
   const projectPathSegment = entityPathSegment({ numId: projectNumId });
 
-  const toggleProjectSandboxView = () => {
-    if (!projectPathSegment) return;
-    if (isSandboxSurface) {
-      navigate({ to: `${basePath}/projects/${projectPathSegment}` });
-      return;
-    }
-    navigate({
-      to: `${basePath}/projects/${projectPathSegment}/sandbox/preview`,
-    });
-  };
-
   // Chat file chips → Files tab + `?file=` (same pattern as sessions).
   const openFile = (path: string) => {
     if (simpleView) return;
@@ -204,6 +197,17 @@ export function ProjectDetailClient({
     // Full deps are safe: the ref guard above makes re-runs no-ops, and a
     // disable comment here makes React Compiler skip the whole file.
   }, [agentBrowsingAt, basePath, navigate, projectPathSegment]);
+
+  // Chat sub-agent CTA row → Agents tab + expand the sandbox pane (same shape
+  // as SessionDetailClient's onOpenAgentsTab; the tab is a route segment here).
+  const openAgentsTab = () => {
+    if (!projectPathSegment) return;
+    void navigate({
+      to: `${basePath}/projects/${projectPathSegment}/sandbox/agents`,
+      search: true,
+    });
+    setExpandRightSignal((n) => n + 1);
+  };
 
   const handleStopBuild = async () => {
     if (!project) return;
@@ -286,17 +290,6 @@ export function ProjectDetailClient({
     showRetryStartupCommands || showRunBackgroundCommands;
   const hasPrLinkItems =
     canCreatePr || Boolean(project.prUrl) || hasDeployedPreview;
-  // Named once: the label is hidden below `sm`, where it becomes the button's
-  // accessible name instead.
-  const sandboxButtonLabel = isSandboxStopping
-    ? "Stopping..."
-    : isSandboxStarting && !isSandboxActive
-      ? "Starting..."
-      : isSandboxSurface
-        ? "Back to Tasks"
-        : isSandboxActive
-          ? "View Sandbox · Active"
-          : "View Sandbox";
 
   const tab = sandboxTab ?? "preview";
   // Always mount the sandbox panel when the project can have one so tabs
@@ -305,6 +298,8 @@ export function ProjectDetailClient({
     panes: SandboxPanesApi,
     owner: SandboxOwner,
     terminalPanel: TerminalPanelApi,
+    collapsed: boolean,
+    onToggle: () => void,
   ) =>
     canStartSandbox ||
     projectSandboxId ||
@@ -323,21 +318,24 @@ export function ProjectDetailClient({
         owner={owner}
         panes={panes}
         terminalPanel={terminalPanel}
+        backgroundAgents={project.backgroundAgents}
         sandboxTab={tab}
         onStartSandbox={
           canStartSandbox && !isSandboxStopping ? handleStartSandbox : undefined
         }
         isSandboxStarting={isSandboxStarting}
+        collapsed={collapsed}
+        onToggle={onToggle}
       />
     ) : (
-      <div className="flex h-full items-center justify-center p-8">
+      <SandboxEmptyRailFrame collapsed={collapsed} onToggle={onToggle}>
         <div className="flex flex-col items-center gap-3 text-center">
           <IconTerminal2 size={32} className="text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
             Sandbox is not available for this project yet
           </p>
         </div>
-      </div>
+      </SandboxEmptyRailFrame>
     );
 
   const projectSandboxContent = (
@@ -355,17 +353,17 @@ export function ProjectDetailClient({
           leftDefaultSize="40%"
           leftMinWidthPx={350}
           rightMinWidthPx={300}
+          rightCollapsedSizePx={SANDBOX_RAIL_WIDTH_PX}
           defaultRightCollapsed={false}
           expandRightSignal={expandRightSignal}
           mobilePaneLabels={{ left: "Chat", right: "Sandbox" }}
-          leftPanel={({ rightPanelCollapsed, onToggleRightPanel }) => (
+          leftPanel={() => (
             <ProjectSandboxChatPanel
               projectId={projectId}
               isSandboxActive={isSandboxActive}
               isSandboxToggling={isSandboxStarting || isSandboxStopping}
               onOpenFile={openFile}
-              sandboxCollapsed={rightPanelCollapsed}
-              onToggleSandbox={onToggleRightPanel}
+              onOpenAgentsTab={openAgentsTab}
               onSandboxToggle={
                 canStartSandbox || isSandboxActive
                   ? (action) => {
@@ -376,7 +374,15 @@ export function ProjectDetailClient({
               }
             />
           )}
-          rightPanel={projectSandboxPanel(panes, owner, terminalPanel)}
+          rightPanel={({ rightPanelCollapsed, onToggleRightPanel }) =>
+            projectSandboxPanel(
+              panes,
+              owner,
+              terminalPanel,
+              rightPanelCollapsed,
+              onToggleRightPanel,
+            )
+          }
         />
       )}
     </SandboxWorkspace>
@@ -385,24 +391,25 @@ export function ProjectDetailClient({
   return (
     <PageWrapper
       title={
-        <RepoSectionBreadcrumb
-          sectionLabel="Projects"
-          onSectionClick={() => navigate({ to: `${basePath}/projects` })}
-          entityLabel={project.title}
-        />
+        <ProjectBreadcrumb projectId={project._id} title={project.title} />
+      }
+      /* Overview / Tasks / Sandbox live in the header — replaces the old
+         Project|Sandbox surface switcher and the secondary tab strip. */
+      titleAfter={
+        projectPathSegment ? (
+          <ProjectMainTabs
+            projectHref={`${basePath}/projects/${projectPathSegment}`}
+            activeTab={isSandboxSurface ? "sandbox" : mainTab}
+            workTabLabel={isDraftOrFinalized ? "Plan" : "Tasks"}
+            showSandbox={canStartSandbox && !isDraftOrFinalized}
+            isSandboxActive={isSandboxActive}
+            isSandboxStarting={isSandboxStarting}
+            isSandboxStopping={isSandboxStopping}
+          />
+        ) : null
       }
       fillHeight
       childPadding={false}
-      /* Tab strip is detail-only — sandbox stays flush like sessions. */
-      tabs={
-        isSandboxSurface || !projectPathSegment ? undefined : (
-          <ProjectMainTabs
-            projectHref={`${basePath}/projects/${projectPathSegment}`}
-            activeTab={mainTab}
-            workTabLabel={isDraftOrFinalized ? "Plan" : "Tasks"}
-          />
-        )
-      }
       headerRight={
         !isDraftOrFinalized ? (
           <div className="flex max-sm:min-w-0 flex-col items-end gap-1">
@@ -525,46 +532,17 @@ export function ProjectDetailClient({
                   <CopyLinkMenuItem />
                 </DropdownMenuContent>
               </DropdownMenu>
-              {isSandboxActive && !isSandboxStopping ? (
-                <Button
-                  variant="destructive"
+              {/* Inert while a chat turn is in flight — see `SleepEvaButton`.
+                  A running build keeps its own confirmed "Stop Build", so it is
+                  not gated here. Hidden on the sandbox surface, which has its
+                  own stop control in the chat header. */}
+              {isSandboxActive && !isSandboxStopping && !isSandboxSurface ? (
+                <SleepEvaButton
+                  onStop={handleStopSandbox}
+                  isStopping={isSandboxStopping}
+                  blockedMidTurn={Boolean(project?.activeChatWorkflowId)}
                   size="sm"
-                  aria-label="Put Eva to sleep"
-                  onClick={handleStopSandbox}
-                  disabled={isSandboxStopping}
-                >
-                  <IconPlayerStop size={16} aria-hidden />
-                  <span className="hidden sm:inline">Put Eva to sleep</span>
-                </Button>
-              ) : null}
-              {canStartSandbox ? (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  aria-label={sandboxButtonLabel}
-                  onClick={toggleProjectSandboxView}
-                  disabled={isSandboxStopping}
-                  className={
-                    isSandboxSurface || isSandboxActive
-                      ? "border-success/35 bg-success/10 text-success hover:border-success/50 hover:bg-success/15 hover:text-success"
-                      : undefined
-                  }
-                >
-                  {(isSandboxStarting && !isSandboxActive) ||
-                  isSandboxStopping ? (
-                    <IconLoader2
-                      size={16}
-                      className="animate-spin"
-                      aria-hidden
-                    />
-                  ) : (
-                    <IconTerminal2 size={16} aria-hidden />
-                  )}
-                  {isSandboxActive && !isSandboxSurface && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                  )}
-                  <span className="hidden sm:inline">{sandboxButtonLabel}</span>
-                </Button>
+                />
               ) : null}
               {canBuildProject ? (
                 project.activeBuildWorkflowId ? (
@@ -644,7 +622,7 @@ export function ProjectDetailClient({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Build Project</DialogTitle>
+            <DialogTitle>Run Eva</DialogTitle>
           </DialogHeader>
           <div>
             <p className="text-muted-foreground">
@@ -791,10 +769,14 @@ function SplitBuildButton({
   // Hidden below `sm`, so it doubles as the button's accessible name there.
   const buildLabel = isScheduled
     ? dayjs(scheduledBuildAt).format("MMM D, h:mm A")
-    : "Build Project";
+    : "Run Eva";
 
+  // Halves cancel their own press so the wrapper scales as one unit — see the
+  // twin in `TaskFooter`. `motion-press` replaces a hand-listed
+  // `transition-[transform,background-color]` that named `transform` and so
+  // never matched the `scale` property `scale-[0.96]` compiles to.
   return (
-    <div className="group/split flex items-center transition-[transform,background-color] duration-[var(--motion-base)] active:scale-[0.96]">
+    <div className="group/split motion-press flex items-center active:scale-[0.96]">
       <Tooltip>
         <TooltipTrigger asChild>
           <div>

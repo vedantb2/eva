@@ -115,7 +115,7 @@ export function ChatAttachmentPreview() {
                       type="button"
                       aria-label="Remove attachment"
                       onClick={() => attachments.remove(file.id)}
-                      className="reveal-on-hover max-sm:hit-target absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-foreground hover:bg-background"
+                      className="reveal-on-hover max-sm:hit-target motion-press absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-foreground hover:bg-background active:scale-[0.88]"
                     >
                       <IconX className="size-3" />
                     </button>
@@ -168,7 +168,7 @@ export function ChatAttachmentPreview() {
                     type="button"
                     aria-label="Remove attachment"
                     onClick={() => attachments.remove(file.id)}
-                    className="reveal-on-hover max-sm:hit-target absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-foreground hover:bg-background"
+                    className="reveal-on-hover max-sm:hit-target motion-press absolute right-0.5 top-0.5 rounded-full bg-background/80 p-0.5 text-foreground hover:bg-background active:scale-[0.88]"
                   >
                     <IconX className="size-3" />
                   </button>

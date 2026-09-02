@@ -64,6 +64,45 @@ export type TodoItem = {
   status: "pending" | "in_progress" | "completed";
 };
 
+export type UsageLimitStatus = "allowed" | "allowed_warning" | "rejected";
+
+/**
+ * One plan usage window. `key` is the provider's window id (a Claude
+ * `rateLimitType`, or `model_scoped:<display name>`), `utilization` is a 0-100
+ * percentage and `resetsAt` is epoch ms.
+ */
+export type UsageLimitWindow = {
+  key: string;
+  label: string;
+  utilization?: number;
+  resetsAt?: number;
+};
+
+/**
+ * What the latest observation covered. Mirrors `usageLimitCompletenessValidator`
+ * in the Convex validators, and travels with the reading so a windowless row can
+ * say WHY it has no windows:
+ *
+ * - `complete`: an authoritative `/usage` response — Convex replaces the row.
+ * - `partial`: a stream event or a refusal message — Convex merges it.
+ * - `refused`: the provider answered `rate_limits_available: false`, i.e. it
+ *   declined to report. Distinct from having reported nothing at all.
+ */
+export type UsageLimitCompleteness = "complete" | "partial" | "refused";
+
+/**
+ * Plan usage-limit state observed during this run, upserted to Convex at the end
+ * of every turn so the UI can show how much of the plan is left. Only providers
+ * that expose real plan windows report here — Claude fills
+ * `subscriptionType`/`status`/`windows`.
+ */
+export type UsageLimitSnapshot = {
+  completeness: UsageLimitCompleteness;
+  subscriptionType?: string;
+  status?: UsageLimitStatus;
+  windows?: UsageLimitWindow[];
+};
+
 export type SessionMode = {
   mode: "none" | "session" | "resume";
   sessionId: string | null;

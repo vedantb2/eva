@@ -271,12 +271,16 @@ function derivePrStatus(
  * Collapse a review history into what GitHub shows: one row per reviewer. A
  * later "commented" review does not clear an earlier approval or change
  * request, so decisive states win and only then does recency decide.
+ *
+ * Takes timeline events and projects each survivor down to the sidebar shape:
+ * an event carries a `body` that `pullRequestReviewValidator` does not declare,
+ * and Convex rejects a returned object with an extra field.
  */
 function latestReviewPerAuthor(
-  reviews: PullRequestReview[],
+  reviews: PullRequestReviewEvent[],
 ): PullRequestReview[] {
   const decisive = new Set(["APPROVED", "CHANGES_REQUESTED", "DISMISSED"]);
-  const byAuthor = new Map<string, PullRequestReview>();
+  const byAuthor = new Map<string, PullRequestReviewEvent>();
   for (const review of reviews) {
     const current = byAuthor.get(review.authorLogin);
     if (!current) {
@@ -288,7 +292,14 @@ function latestReviewPerAuthor(
     if (currentIsDecisive && !nextIsDecisive) continue;
     byAuthor.set(review.authorLogin, review);
   }
-  return [...byAuthor.values()];
+  return [...byAuthor.values()].map((review) => ({
+    id: review.id,
+    authorLogin: review.authorLogin,
+    authorAvatarUrl: review.authorAvatarUrl,
+    state: review.state,
+    submittedAt: review.submittedAt,
+    htmlUrl: review.htmlUrl,
+  }));
 }
 
 type InstallationOctokit = Awaited<ReturnType<typeof getInstallationOctokit>>;

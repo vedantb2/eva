@@ -3,7 +3,7 @@
 import { useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import { useLocalStorage } from "usehooks-ts";
 import { z } from "zod";
-import { setPreviewPointerLock } from "./previewIframeHost";
+import { endPreviewGesture, setPreviewGesture } from "./previewIframeHost";
 
 /** Smallest gap kept between the window and a viewport edge. */
 const EDGE_GAP_PX = 8;
@@ -127,13 +127,17 @@ export interface PreviewMiniPlayerFrameApi {
  * Pointer capture rather than window listeners — the pressed element keeps
  * receiving move/up once captured, so nothing is subscribed or leaked. While a
  * gesture runs the hosted iframes go pointer-inert (they would otherwise eat
- * the events the moment the pointer crosses one).
+ * the events the moment the pointer crosses one) and the hosted overlay for
+ * this window follows the same offsets, since it sits outside this tree and
+ * cannot see the box move.
  *
  * The CSS `clamp()`s mean no resize listener: a frame saved on a wide monitor
  * is pulled back on screen by CSS on a narrow one, and grows back out when the
  * window does, with no effect and no re-render.
  */
-export function usePreviewMiniPlayerFrame(): PreviewMiniPlayerFrameApi {
+export function usePreviewMiniPlayerFrame(
+  entryKey: string,
+): PreviewMiniPlayerFrameApi {
   const [savedFrame, setSavedFrame] = useLocalStorage<PreviewMiniPlayerFrame>(
     STORAGE_KEY,
     DEFAULT_FRAME,
@@ -148,6 +152,27 @@ export function usePreviewMiniPlayerFrame(): PreviewMiniPlayerFrameApi {
   const gestureRef = useRef<GestureState | null>(null);
 
   const frame = live?.frame ?? savedFrame;
+
+  /**
+   * The offsets this frame applies to the window's box, published so the
+   * hosted iframe overlay moves with it in the same commit. Offsets are read
+   * from the bottom-right corner, so a growing offset pushes the box left and
+   * up — and growing the box moves its top-left the same way.
+   */
+  const publish = (
+    next: PreviewMiniPlayerFrame,
+    origin: PreviewMiniPlayerFrame,
+  ) => {
+    const dWidth = next.width - origin.width;
+    const dHeight = next.height - origin.height;
+    setPreviewGesture({
+      key: entryKey,
+      dx: origin.right - next.right - dWidth,
+      dy: origin.bottom - next.bottom - dHeight,
+      dWidth,
+      dHeight,
+    });
+  };
 
   const start = (kind: Gesture) => (event: PointerEvent<HTMLElement>) => {
     if (event.button !== 0) return;
@@ -164,7 +189,7 @@ export function usePreviewMiniPlayerFrame(): PreviewMiniPlayerFrameApi {
       viewport,
       moved: false,
     };
-    setPreviewPointerLock(true);
+    setPreviewGesture({ key: entryKey, dx: 0, dy: 0, dWidth: 0, dHeight: 0 });
   };
 
   const onPointerMove = (event: PointerEvent<HTMLElement>) => {
@@ -183,6 +208,7 @@ export function usePreviewMiniPlayerFrame(): PreviewMiniPlayerFrameApi {
         viewport,
       );
       setLive({ kind, frame: moved });
+      publish(moved, origin);
       return;
     }
     // Resize from the bottom-right corner: that corner follows the pointer
@@ -199,13 +225,14 @@ export function usePreviewMiniPlayerFrame(): PreviewMiniPlayerFrameApi {
       viewport,
     );
     setLive({ kind, frame: resized });
+    publish(resized, origin);
   };
 
   const end = (event: PointerEvent<HTMLElement>) => {
     const state = gestureRef.current;
     if (state === null || state.pointerId !== event.pointerId) return;
     gestureRef.current = null;
-    setPreviewPointerLock(false);
+    endPreviewGesture();
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }

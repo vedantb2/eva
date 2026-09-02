@@ -75,6 +75,23 @@ interface HostEntry {
 /** Hidden iframes keep running dev apps (HMR sockets, timers) — cap RAM. */
 const MAX_IFRAMES = 3;
 
+/**
+ * A mini-player drag or resize in flight, as offsets from the anchor's rect at
+ * press. Moving a window changes neither its size nor any scroll position, so
+ * nothing would tell the host to re-measure; and measuring after the fact
+ * paints the iframe a frame behind the window it sits in. The window publishes
+ * the offsets it is applying instead, and the overlay takes them in the same
+ * commit.
+ */
+export interface PreviewGesture {
+  /** Anchor being manipulated — every other overlay is unaffected. */
+  key: string;
+  dx: number;
+  dy: number;
+  dWidth: number;
+  dHeight: number;
+}
+
 const entries = new Map<string, HostEntry>();
 const metaByGroup = new Map<string, PreviewMeta>();
 const onElementByKey = new Map<
@@ -83,11 +100,7 @@ const onElementByKey = new Map<
 >();
 const listeners = new Set<() => void>();
 let snapshot: ReadonlyArray<HostEntry> = [];
-/**
- * True while the mini-player is being dragged or resized. Iframes swallow
- * pointer events, so the hosted wrappers go inert until the gesture ends.
- */
-let pointerLocked = false;
+let gesture: PreviewGesture | null = null;
 
 function notify(): void {
   snapshot = Array.from(entries.values());
@@ -96,14 +109,46 @@ function notify(): void {
   }
 }
 
-export function setPreviewPointerLock(locked: boolean): void {
-  if (pointerLocked === locked) return;
-  pointerLocked = locked;
+export function setPreviewGesture(next: PreviewGesture): void {
+  gesture = next;
   notify();
 }
 
-function getPointerLocked(): boolean {
-  return pointerLocked;
+/**
+ * Ends the gesture on the next frame, once the released window has committed
+ * its final position: the offsets are dropped and the anchors re-measured in
+ * one notify, so no frame paints at the pre-gesture rect.
+ */
+export function endPreviewGesture(): void {
+  if (gesture === null) return;
+  requestAnimationFrame(() => {
+    if (gesture === null) return;
+    gesture = null;
+    for (const [key, entry] of entries) {
+      if (entry.anchor === null) continue;
+      entries.set(key, { ...entry, rect: measure(entry.anchor) });
+    }
+    notify();
+  });
+}
+
+function getPreviewGesture(): PreviewGesture | null {
+  return gesture;
+}
+
+/** The rect to paint at: the measured anchor, plus any live gesture offsets. */
+function overlayRect(
+  entry: HostEntry,
+  live: PreviewGesture | null,
+): Rect | null {
+  if (entry.rect === null) return null;
+  if (live === null || live.key !== entry.key) return entry.rect;
+  return {
+    top: entry.rect.top + live.dy,
+    left: entry.rect.left + live.dx,
+    width: entry.rect.width + live.dWidth,
+    height: entry.rect.height + live.dHeight,
+  };
 }
 
 function subscribe(listener: () => void): () => void {
@@ -139,6 +184,9 @@ function sameRect(a: Rect | null, b: Rect | null): boolean {
 
 /** Re-reads every anchored placeholder's rect; notifies only on change. */
 function remeasureAll(): void {
+  // Mid-gesture the anchor has already moved, so re-measuring it here would
+  // double-count the offsets the window is publishing.
+  if (gesture !== null) return;
   let changed = false;
   for (const [key, entry] of entries) {
     if (entry.anchor === null) continue;
@@ -261,6 +309,8 @@ function attach(key: string, options: AttachOptions): (() => void) | undefined {
   const observer = new ResizeObserver(() => {
     const entry = entries.get(key);
     if (entry === undefined || entry.anchor === null) return;
+    // See remeasureAll: a resize gesture already moves this rect by hand.
+    if (gesture !== null) return;
     const rect = measure(entry.anchor);
     if (sameRect(rect, entry.rect)) return;
     entries.set(key, { ...entry, rect });
@@ -365,39 +415,36 @@ export function useFullscreenElement(): Element | null {
  */
 export function PreviewIframeHost() {
   const hosted = useSyncExternalStore(subscribe, getSnapshot);
-  const locked = useSyncExternalStore(subscribe, getPointerLocked);
+  const live = useSyncExternalStore(subscribe, getPreviewGesture);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-40">
       {hosted.map((entry) => {
-        const visible =
-          entry.rect !== null &&
-          entry.rect.width > 0 &&
-          entry.rect.height > 0;
+        const rect = overlayRect(entry, live);
+        const visible = rect !== null && rect.width > 0 && rect.height > 0;
         const logical = entry.logical;
         const scale =
-          logical && entry.rect
-            ? Math.min(
-                entry.rect.width / logical.width,
-                entry.rect.height / logical.height,
-              )
+          logical && rect
+            ? Math.min(rect.width / logical.width, rect.height / logical.height)
             : 1;
         return (
           <div
             key={entry.key}
             className={cn(
               "absolute overflow-hidden bg-background",
-              locked ? "pointer-events-none" : "pointer-events-auto",
+              // Iframes swallow pointer events, so every overlay goes inert
+              // for the duration of a gesture, not just the dragged one.
+              live !== null ? "pointer-events-none" : "pointer-events-auto",
               entry.bordered && "border border-border",
               !visible && "hidden",
             )}
             style={
-              visible && entry.rect !== null
+              visible && rect !== null
                 ? {
-                    top: entry.rect.top,
-                    left: entry.rect.left,
-                    width: entry.rect.width,
-                    height: entry.rect.height,
+                    top: rect.top,
+                    left: rect.left,
+                    width: rect.width,
+                    height: rect.height,
                   }
                 : undefined
             }
@@ -407,7 +454,9 @@ export function PreviewIframeHost() {
               ref={iframeRefFor(entry.key)}
               src={entry.src}
               title="Preview"
-              className={logical ? "block border-0" : "block size-full border-0"}
+              className={
+                logical ? "block border-0" : "block size-full border-0"
+              }
               style={
                 logical
                   ? {
@@ -490,8 +539,10 @@ export function PreviewAnchor({
   );
 }
 
-interface PersistentPreviewBodyProps
-  extends Omit<PreviewAnchorProps, "role" | "src" | "onElement"> {
+interface PersistentPreviewBodyProps extends Omit<
+  PreviewAnchorProps,
+  "role" | "src" | "onElement"
+> {
   src: string | undefined;
   /** True while an error overlay must show — hides the hosted iframe. */
   covered: boolean;

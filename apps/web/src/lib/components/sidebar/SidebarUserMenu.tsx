@@ -16,7 +16,7 @@ import {
   DialogFooter,
 } from "@eva/ui";
 import { useClerk } from "@clerk/clerk-react";
-import { UserInitials } from "@eva/shared";
+import { UserInitials } from "@eva/shared/user-initials";
 import {
   IconUserCog,
   IconLogout,

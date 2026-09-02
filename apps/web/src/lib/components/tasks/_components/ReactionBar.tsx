@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { cn, HoverCard, HoverCardContent, HoverCardTrigger } from "@eva/ui";
-import { UserInitials } from "@eva/shared";
+import { UserInitials } from "@eva/shared/user-initials";
 import { EmojiReactionPicker } from "./EmojiReactionPicker";
 import type { ReactionGroup } from "./TaskReactionsProvider";
 

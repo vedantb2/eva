@@ -19,7 +19,7 @@ import {
 } from "@eva/ui";
 import type { Id, api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
-import { UserInitials } from "@eva/shared";
+import { UserInitials } from "@eva/shared/user-initials";
 import {
   SANDBOX_STATUS_STYLES,
   type SandboxStatus,

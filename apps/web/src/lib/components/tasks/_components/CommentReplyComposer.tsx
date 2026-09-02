@@ -5,7 +5,7 @@ import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
-import { UserInitials } from "@eva/shared";
+import { UserInitials } from "@eva/shared/user-initials";
 import { toast } from "@eva/ui";
 import { tokenizedToEditable } from "@/lib/components/mentions";
 import {

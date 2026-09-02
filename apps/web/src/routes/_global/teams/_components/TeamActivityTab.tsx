@@ -5,7 +5,7 @@ import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { Button, Card, CardContent } from "@eva/ui";
 import { IconEye, IconEyeOff, IconUsers } from "@tabler/icons-react";
-import { UserInitials } from "@eva/shared";
+import { UserInitials } from "@eva/shared/user-initials";
 import { useFollow } from "@/lib/contexts/FollowContext";
 import { useQuantizedNow } from "@/lib/hooks/useQuantizedNow";
 import { describeLocation } from "../_utils";

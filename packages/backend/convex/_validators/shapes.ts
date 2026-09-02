@@ -10,15 +10,26 @@ import {
   roleValidator,
 } from "./enums";
 
+/**
+ * Turn checkpoint shas the sandbox callback stamps on every completion it posts
+ * (`callback-src/runtime/turnCheckpoint.ts`), whatever the surface. Every
+ * completion receiver must spread these into its args: a closed validator
+ * rejects the whole call with ArgumentValidationError, the reply is lost and
+ * the turn hangs on "Working…". Only sessions persist them
+ * (`messageFields.beforeSha`); other surfaces accept and ignore them.
+ */
+export const turnCheckpointArgs = {
+  beforeSha: v.optional(v.string()),
+  afterSha: v.optional(v.string()),
+};
+
 export const workflowCompleteValidator = v.object({
   success: v.boolean(),
   result: v.union(v.string(), v.null()),
   error: v.union(v.string(), v.null()),
   activityLog: v.union(v.string(), v.null()),
   pendingQuestion: v.optional(v.string()),
-  // Turn checkpoint shas (sessions only; see messageFields.beforeSha).
-  beforeSha: v.optional(v.string()),
-  afterSha: v.optional(v.string()),
+  ...turnCheckpointArgs,
 });
 
 export const evalResultValidator = v.object({

@@ -13,6 +13,7 @@ import {
   type Id,
 } from "@eva/backend";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
+import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { SandboxChatHeaderActions } from "@/lib/components/sandbox/SandboxStartStopButton";
 import { SandboxChatPreInput } from "@/lib/components/chat/SandboxChatPreInput";
@@ -169,11 +170,12 @@ export function ProjectSandboxChatPanel({
     switchProviderAccount(resolveAccountId(next) ?? null);
   };
 
-  const lastMessage = messages?.[messages.length - 1];
-  const lastAssistantHasNoContent =
-    !!lastMessage && lastMessage.role === "assistant" && !lastMessage.content;
+  // Server flag first; the message-shape fallback is the shared helper so a
+  // finished-but-empty bubble or a trailing system alert cannot pin the
+  // composer in "working" mode (same rule as useSessionSend).
   const isExecuting =
-    Boolean(project?.activeChatWorkflowId) || lastAssistantHasNoContent;
+    Boolean(project?.activeChatWorkflowId) ||
+    isAssistantTurnInProgress(messages ?? []);
 
   const handleSend = async (
     content: string,

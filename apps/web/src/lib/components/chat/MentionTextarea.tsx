@@ -5,7 +5,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex/react";
 import { usePromptInputController, usePromptInputAttachments } from "@eva/ui";
 import { api, type Id } from "@eva/backend";
-import { UserProfileHoverCardBody } from "@eva/shared";
+import { UserProfileHoverCardBody } from "@eva/shared/user-initials";
 import { attachPastedTextIfLarge } from "@/lib/components/attachments/attachmentMeta";
 import {
   MentionEditor,

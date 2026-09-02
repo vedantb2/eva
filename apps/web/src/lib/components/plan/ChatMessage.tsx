@@ -8,7 +8,7 @@ import {
   MessageResponse,
   motionFast,
 } from "@eva/ui";
-import { UserInitials } from "@eva/shared";
+import { UserInitials } from "@eva/shared/user-initials";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import dayjs from "@eva/shared/dates";
 import type { Id } from "@eva/backend";

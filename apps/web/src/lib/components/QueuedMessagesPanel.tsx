@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { Id } from "@eva/backend";
 import { findAIModelOption, getReasoningLevelLabel } from "@eva/backend";
-import { UserInitials } from "@eva/shared";
+import { UserInitials } from "@eva/shared/user-initials";
 import {
   Button,
   Dialog,

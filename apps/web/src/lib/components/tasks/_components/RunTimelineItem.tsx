@@ -21,7 +21,7 @@ import {
 } from "@eva/ui";
 import { IconLoader2, IconPlayerStop } from "@tabler/icons-react";
 import dayjs, { formatExactDateTime } from "@eva/shared/dates";
-import { UserInitials } from "@eva/shared";
+import { UserInitials } from "@eva/shared/user-initials";
 import { EvaIcon } from "@/lib/components/EvaIcon";
 import { RelativeDateTime } from "@/lib/components/RelativeDateTime";
 import type { FunctionReturnType } from "convex/server";

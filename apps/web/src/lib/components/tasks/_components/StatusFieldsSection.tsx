@@ -33,7 +33,8 @@ import {
   IconBrandVercelFilled,
   IconChevronDown,
 } from "@tabler/icons-react";
-import { UserInitials, getUserInitials } from "@eva/shared";
+import { getUserInitials } from "@eva/shared";
+import { UserInitials } from "@eva/shared/user-initials";
 import { Facehash } from "facehash";
 import {
   statusConfig,

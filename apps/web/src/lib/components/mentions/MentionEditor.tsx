@@ -37,7 +37,7 @@ import {
   type MentionPopupPlacement,
 } from "./mentionPopupPosition";
 import { cn } from "@eva/ui";
-import { UserProfileHoverCardBody } from "@eva/shared";
+import { UserProfileHoverCardBody } from "@eva/shared/user-initials";
 import type { AIProvider, Id } from "@eva/backend";
 
 // The inline AI suggestion renders as an `::after` pseudo-element fed by

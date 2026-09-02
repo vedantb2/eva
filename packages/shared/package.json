@@ -10,7 +10,8 @@
     "./modelPricing": "./src/modelPricing.ts",
     "./parseActivitySteps": "./src/utils/parseActivitySteps.ts",
     "./resultEvent": "./src/resultEvent.ts",
-    "./uiTaskPrompt": "./src/uiTaskPrompt.ts"
+    "./uiTaskPrompt": "./src/uiTaskPrompt.ts",
+    "./user-initials": "./src/components/user-initials.tsx"
   },
   "peerDependencies": {
     "@eva/backend": "workspace:*",

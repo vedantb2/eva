@@ -12,6 +12,7 @@ import {
   extractPrNumberFromUrl,
   isProjectReviewPhase,
 } from "./_projects/prSync";
+import { requestTaskSandboxStop } from "./_agentTasks/sandbox";
 import { requestSessionSandboxStop } from "./_sessions/sandbox";
 import {
   cancelSessionSandboxGraceDelete,
@@ -357,14 +358,26 @@ export const handlePrClosed = internalMutation({
         args.merged ? "merged" : "closed",
       );
 
-      // Quick tasks: grace-delete sandbox after death. Project tasks share the
-      // project sandbox (deleted immediately on merge below).
-      if (t.projectId === undefined && t.sandboxId) {
-        await scheduleTaskSandboxGraceDelete(ctx, {
-          ...t,
-          status: newStatus,
-          updatedAt: now,
-        });
+      // Quick tasks: a merged/closed PR makes the task read-only, so stop any
+      // live preview sandbox now (mirrors handleSessionPrEvent) and then
+      // grace-delete it. Project tasks share the project sandbox (deleted
+      // immediately on merge below).
+      if (t.projectId === undefined) {
+        if (
+          t.reviewTaskSandboxStatus === "active" ||
+          t.reviewTaskSandboxStatus === "starting" ||
+          t.reviewTaskSandboxStatus === "stopping" ||
+          t.sandboxId !== undefined
+        ) {
+          await requestTaskSandboxStop(ctx, t._id);
+        }
+        if (t.sandboxId) {
+          await scheduleTaskSandboxGraceDelete(ctx, {
+            ...t,
+            status: newStatus,
+            updatedAt: now,
+          });
+        }
       }
     }
 

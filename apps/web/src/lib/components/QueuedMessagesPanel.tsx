@@ -211,8 +211,9 @@ function SortableQueuedItem({
 
 /**
  * Pending-message queue flush above the composer on sandbox chat pages
- * (sessions, quick tasks, projects). Narrower inset bar with square bottom
- * corners so it blends into the input card — same idea as underCardLeading.
+ * (sessions, quick tasks, projects). Fills the dock column in ComposerStash
+ * (which insets it) with square bottom corners so it blends into the input
+ * card — same idea as underCardLeading.
  */
 export function QueuedMessagesPanel({
   items,
@@ -272,9 +273,10 @@ export function QueuedMessagesPanel({
 
   return (
     <>
-      {/* Flush above the composer: narrower inset bar, square bottom so it
-          blends into the input card (mirrors underCardLeading below). */}
-      <Queue className="mx-auto mb-0 w-[calc(100%-1.5rem)] rounded-b-none rounded-t-surface bg-muted/50 shadow-none">
+      {/* Flush above the composer: fills the dock column in ComposerStash,
+          which owns the inset, with a square bottom so it blends into the
+          input card (mirrors underCardLeading below). */}
+      <Queue className="w-full rounded-b-none rounded-t-surface bg-muted/50 shadow-none">
         <QueueSection defaultOpen>
           <QueueSectionTrigger>
             <QueueSectionLabel count={items.length} label={label} />

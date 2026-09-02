@@ -171,6 +171,15 @@ export const snapshotBuildKindValidator = v.union(
 
 export const sandboxProviderKindValidator = v.literal("vercel");
 
+// How the Eva MCP server exposes its tools to a repo's sandbox agents.
+// "flat" = one MCP tool per action (the default when unset). "code" = a single
+// `execute` tool running model-written JavaScript against the same actions,
+// plus `search_tools` for discovery.
+export const mcpToolModeValidator = v.union(
+  v.literal("flat"),
+  v.literal("code"),
+);
+
 export const teamMemberRoleValidator = v.union(
   v.literal("owner"),
   v.literal("member"),

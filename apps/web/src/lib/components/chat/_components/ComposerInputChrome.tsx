@@ -25,7 +25,6 @@ import {
   ChatAttachmentPreview,
 } from "@/lib/components/chat/imageAttachments";
 import { ComposerPlusMenu } from "@/lib/components/chat/_components/ComposerPlusMenu";
-import { ComposerStash } from "@/lib/components/chat/_components/ComposerStash";
 import {
   MentionTextarea,
   type MentionTextareaHandle,
@@ -138,11 +137,6 @@ export function ComposerInputChrome({
         skillItems={skillItems}
         mentionRef={mentionRef}
         compact={compact}
-      />
-      <ComposerStash
-        repoId={repoId}
-        mentionRef={mentionRef}
-        disabled={isInputDisabled}
       />
     </m.div>
   );

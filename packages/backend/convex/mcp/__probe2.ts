@@ -1,21 +1,26 @@
-import type { McpServer, ToolCallback } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { ShapeOutput } from "@modelcontextprotocol/sdk/server/zod-compat.js";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { z } from "zod";
 
+// Variant A: registerTool with a ZodObject input schema.
 export function a<Shape extends z.ZodRawShape>(
   server: McpServer,
   shape: Shape,
-  cb: ToolCallback<Shape>,
+  h: (args: z.output<z.ZodObject<Shape>>) => Promise<CallToolResult>,
 ) {
-  server.tool("n", "d", shape, cb);
+  const schema = z.object(shape);
+  server.registerTool("n", { description: "d", inputSchema: schema }, (args) =>
+    h(args),
+  );
 }
 
+// Variant B: server.tool with the shape erased, re-parsing in the callback.
 export function b<Shape extends z.ZodRawShape>(
   server: McpServer,
   shape: Shape,
-  h: (args: ShapeOutput<Shape>) => Promise<CallToolResult>,
+  h: (args: z.output<z.ZodObject<Shape>>) => Promise<CallToolResult>,
 ) {
-  const cb: ToolCallback<Shape> = (args) => h(args);
-  server.tool("n", "d", shape, cb);
+  const schema = z.object(shape);
+  const erased: z.ZodRawShape = shape;
+  server.tool("n", "d", erased, (args) => h(schema.parse(args)));
 }

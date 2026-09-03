@@ -1,11 +1,27 @@
-﻿import { repoHref } from "@/lib/utils/repoUrl";
-import type { RepoWithLogo } from "@/lib/utils/repoGrouping";
+﻿import { entityPathSegment } from "@/lib/numId";
+import { repoHref, toInternalRepoHref } from "@/lib/utils/repoUrl";
+
+/** The repo/app identity these path helpers read — `githubRepos.list` rows fit. */
+export interface RepoPathRef {
+  owner: string;
+  name: string;
+  rootDirectory?: string;
+}
+
+/**
+ * A sidebar session row. `linkedFrom` is set only on rows a repo sees through
+ * a linked checkout: the session's own (primary) repo owns its URL.
+ */
+export interface SessionRowRef {
+  numId?: number;
+  linkedFrom?: RepoPathRef;
+}
 
 /**
  * Base path(s) for a repo/app row. Public slash form plus internal `--` form
  * so path matching works against both `publicHref` and `location.pathname`.
  */
-export function repoBasePaths(repo: RepoWithLogo): string[] {
+export function repoBasePaths(repo: RepoPathRef): string[] {
   const slash = repoHref(repo.owner, repo.name, repo.rootDirectory);
   if (!repo.rootDirectory) return [slash];
   const leaf = repo.rootDirectory.split("/").pop();
@@ -15,29 +31,58 @@ export function repoBasePaths(repo: RepoWithLogo): string[] {
 }
 
 /** Sessions index URL for an app (`â€¦/sessions` composer landing). */
-export function repoSessionsIndexPath(repo: RepoWithLogo): string {
+export function repoSessionsIndexPath(repo: RepoPathRef): string {
   return `${repoHref(repo.owner, repo.name, repo.rootDirectory)}/sessions`;
 }
 
 /** Whether `pathname` is under this repo/app (any sub-page). */
-export function repoMatchesPath(repo: RepoWithLogo, pathname: string): boolean {
+export function repoMatchesPath(repo: RepoPathRef, pathname: string): boolean {
   return repoBasePaths(repo).some(
     (base) => pathname === base || pathname.startsWith(`${base}/`),
   );
 }
 
 /**
- * Whether `pathname` is this session under the app. Checks slash + `--`
- * bases â€” `location.pathname` is the router-internal form.
+ * The repo whose URL a row's session lives under. A row shown in this app's
+ * sidebar only because the session clones this repo still belongs to the
+ * session's primary repo, so its link and selection must resolve there.
  */
-export function sessionMatchesPath(
-  repo: RepoWithLogo,
-  pathSegment: string | null | undefined,
+function sessionRowRepo(
+  repo: RepoPathRef,
+  session: SessionRowRef,
+): RepoPathRef {
+  return session.linkedFrom ?? repo;
+}
+
+/**
+ * Router href for a session row, or the app's sessions index when the row has
+ * no numId yet. The single place a row's destination is decided â€” linked-in
+ * rows resolve under their primary repo, not the sidebar they appear in.
+ */
+export function sessionHrefForRow(
+  repo: RepoPathRef,
+  session: SessionRowRef,
+): string {
+  const owning = sessionRowRepo(repo, session);
+  const base = `${repoHref(owning.owner, owning.name, owning.rootDirectory)}/sessions`;
+  const segment = entityPathSegment(session);
+  return toInternalRepoHref(segment ? `${base}/${segment}` : base);
+}
+
+/**
+ * Whether `pathname` is this row's session. Checks slash + `--` bases â€”
+ * `location.pathname` is the router-internal form â€” under the same repo
+ * {@link sessionHrefForRow} links to.
+ */
+export function sessionRowMatchesPath(
+  repo: RepoPathRef,
+  session: SessionRowRef,
   pathname: string,
 ): boolean {
-  if (!pathSegment) return false;
-  return repoBasePaths(repo).some((base) => {
-    const href = `${base}/sessions/${pathSegment}`;
+  const segment = entityPathSegment(session);
+  if (!segment) return false;
+  return repoBasePaths(sessionRowRepo(repo, session)).some((base) => {
+    const href = `${base}/sessions/${segment}`;
     return pathname === href || pathname.startsWith(`${href}/`);
   });
 }

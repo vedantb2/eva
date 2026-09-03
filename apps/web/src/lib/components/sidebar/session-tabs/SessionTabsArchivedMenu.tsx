@@ -16,8 +16,11 @@ import {
 import { IconArchive, IconArchiveOff } from "@tabler/icons-react";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { RepoLogo } from "@/lib/components/RepoLogo";
-import { repoBasePaths } from "@/lib/components/sidebar/_utils/repoSessionPaths";
-import { entityPathSegment } from "@/lib/numId";
+import {
+  sessionHrefForRow,
+  sessionRowMatchesPath,
+  type RepoPathRef,
+} from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
 import {
   mutationError,

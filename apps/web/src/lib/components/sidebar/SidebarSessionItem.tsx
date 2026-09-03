@@ -21,14 +21,11 @@ import {
 } from "@/lib/components/sidebar/SidebarListHoverCard";
 import { MarqueeOnHover } from "@/lib/components/ui/MarqueeOnHover";
 import { useSessionsSidebarSettings } from "@/lib/components/sidebar/useSessionsSidebarSettings";
+import type { RepoPathRef } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
 
 /** Identity of a session's actual primary repo, for a row linked in from it. */
-export interface SessionLinkedFrom {
-  owner: string;
-  name: string;
-  rootDirectory?: string;
-}
+export type SessionLinkedFrom = RepoPathRef;
 
 function prStateLabel(
   state: "draft" | "open" | "merged" | "closed" | undefined,

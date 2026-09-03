@@ -864,6 +864,8 @@ export const getSessionData = internalQuery({
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
     /** Selects the master's reduced tool set — see `sessionTurnTools`. */
     isOrchestrator: v.optional(v.boolean()),
+    /** Non-zero for a multi-repo session — gates the linked publish step. */
+    linkedRepoCount: v.optional(v.number()),
   }),
   handler: async (ctx, args) => {
     const session = await ctx.db.get(args.sessionId);
@@ -905,6 +907,7 @@ export const getSessionData = internalQuery({
       deploymentProjectName: repo.deploymentProjectName,
       attachmentStorageIds: triggeringUserMessage?.attachmentStorageIds,
       isOrchestrator: session.isOrchestrator,
+      linkedRepoCount: session.linkedRepoCount,
     };
   },
 });

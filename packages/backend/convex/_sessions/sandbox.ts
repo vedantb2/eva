@@ -107,7 +107,12 @@ export const startSandbox = authMutation({
     };
     // Vercel: schedule the start action directly. Workflow step scheduling was
     // measured at ~6s before the first action ran.
-    if (reusableSandboxId) {
+    // Multi-repo sessions cannot take that shortcut: `startSessionSandbox`
+    // arms `sandboxSetupPending` for them and only the workflow's
+    // `prepareLinkedRepo` steps clear it again, so a direct schedule would
+    // leave the gate armed forever (and re-clone nothing when a failed resume
+    // falls back to a fresh sandbox).
+    if (reusableSandboxId && !startArgs.hasLinkedRepos) {
       await ctx.scheduler.runAfter(
         0,
         internal.sandbox.startSessionSandbox,

@@ -132,6 +132,7 @@ export const prepareLinkedRepo = internalAction({
             "/",
           )
         ).trim() === "yes";
+      const freshlyCloned = !hasGitDir;
       if (!hasGitDir) {
         await cloneRepoInto(
           sandbox,
@@ -241,7 +242,11 @@ export const prepareLinkedRepo = internalAction({
       // (launched earlier in `prepareSessionSandboxInternal`) never reaches
       // this repo since it wasn't cloned yet at that point — this is the
       // first point in the fresh-create flow where it can actually start.
-      if (row.devCommand && row.devPort !== undefined) {
+      // Only on a fresh clone: a resumed sandbox already relaunched every
+      // cloned row's server in `reuseSessionSandbox`, and
+      // `launchDevServerInVercelConsole` reuses an existing tmux session, so
+      // a second call would start a duplicate process in the same window.
+      if (freshlyCloned && row.devCommand && row.devPort !== undefined) {
         await launchLinkedRepoDevServerInVercelConsole(
           sandbox,
           `session-${args.sessionId}-${row.name}`,

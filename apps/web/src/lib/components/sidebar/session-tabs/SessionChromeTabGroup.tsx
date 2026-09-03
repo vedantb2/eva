@@ -9,7 +9,8 @@ import { Spinner, cn } from "@eva/ui";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import {
   repoBasePaths,
-  sessionMatchesPath,
+  sessionHrefForRow,
+  sessionRowMatchesPath,
 } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { sortSessionsForSidebar } from "@/lib/components/sidebar/_utils/sessionsSidebarSettings";
 import {
@@ -17,7 +18,6 @@ import {
   TAB_PREFERRED_WIDTH_REM,
 } from "@/lib/components/sidebar/session-tabs/SessionChromeTab";
 import { tabGroupColorForId } from "@/lib/components/sidebar/session-tabs/tabGroupColors";
-import { entityPathSegment } from "@/lib/numId";
 import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
 import { isSessionSidebarActive } from "@/routes/_repo/$owner/$repo/sessions/_utils/sessionReadOnly";
 import { catchMutationError } from "@/lib/utils/mutationToast";
@@ -65,15 +65,11 @@ export function SessionChromeTabGroup({
   const tabs = sortSessionsForSidebar(
     (sessions ?? []).filter(isSessionSidebarActive),
     "updated_at",
-  ).map((session) => {
-    const pathSegment = entityPathSegment(session);
-    const href = pathSegment ? `${baseUrl}/${pathSegment}` : baseUrl;
-    return {
-      session,
-      href,
-      isSelected: sessionMatchesPath(repo, pathSegment, pathname),
-    };
-  });
+  ).map((session) => ({
+    session,
+    href: sessionHrefForRow(repo, session),
+    isSelected: sessionRowMatchesPath(repo, session, pathname),
+  }));
 
   if (hideWhenEmpty && !isLoading && tabs.length === 0) {
     return null;

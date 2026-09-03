@@ -16,6 +16,7 @@ import {
 import { writeSandboxFile } from "./sandboxFiles";
 import { getSandboxClient } from "../_sandbox/factory";
 import { launchScript } from "./launch";
+import type { LinkedRepoEnvRow } from "./linkedReposEnv";
 import { ensureSwapFile } from "./swap";
 import { buildStubMarkdown, SYSTEM_SKILLS } from "../_systemSkills/registry";
 import { getAIModelProvider, normalizeAIModel } from "../validators";
@@ -670,6 +671,21 @@ export async function signAndLaunchScript(
       ? await ctx.runQuery(internal.sessions.getInternal, { id: entityId })
       : null;
 
+  // Same reasoning for the workspace description: every launch path (prewarm
+  // daemon, launch on an existing sandbox, relaunch/heal) comes through here,
+  // so resolving the linked clones once means the agent is told about the same
+  // workspace on all of them. Absent entirely for single-repo sessions.
+  // Annotated locally so this `runQuery` cannot feed a generated-api type
+  // cycle back into `_generated/api.d.ts`.
+  let linkedRepos: LinkedRepoEnvRow[] = [];
+  if (launchSession && (launchSession.linkedRepoCount ?? 0) > 0) {
+    const linkedRows: LinkedRepoEnvRow[] = await ctx.runQuery(
+      internal.sessions.listLinkedReposInternal,
+      { sessionId: launchSession._id },
+    );
+    linkedRepos = linkedRows;
+  }
+
   // Mint the sandbox auth token and MCP token in a single node action. This
   // replaces three separate runAction hops across two "use node" isolates, which
   // cold-started Node twice and dominated launch latency (~3s).
@@ -751,6 +767,7 @@ export async function signAndLaunchScript(
       mcpBaseUrl,
       systemSkillsJson: JSON.stringify({ skills: systemSkillStubs }),
       harnessCatalogToken,
+      ...(linkedRepos.length > 0 ? { linkedRepos } : {}),
     },
   );
   console.log(

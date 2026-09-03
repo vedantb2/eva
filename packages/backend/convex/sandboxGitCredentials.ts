@@ -13,14 +13,26 @@ export const upsertForSandbox = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const installationIds =
-      args.installationIds && args.installationIds.length > 0
-        ? Array.from(new Set(args.installationIds))
-        : undefined;
     const existing = await ctx.db
       .query("sandboxGitCredentials")
       .withIndex("by_sandbox_id", (q) => q.eq("sandboxId", args.sandboxId))
       .unique();
+    // Union, never replace. `ensureGitCredentialHelper` re-runs on every
+    // resume knowing only the primary installation, and once per linked repo
+    // knowing only that one — replacing here dropped a multi-repo session's
+    // other installations and `/api/git-credentials` then 403'd their pushes.
+    // A sandbox only ever serves one session, so the union can only ever hold
+    // that session's own repos.
+    const merged = Array.from(
+      new Set([
+        ...(existing?.installationIds ?? []),
+        ...(args.installationIds ?? []),
+        args.installationId,
+      ]),
+    );
+    // Single-repo sessions keep the field absent, as before multi-repo:
+    // `allowedInstallationIds` falls back to the scalar `installationId`.
+    const installationIds = merged.length > 1 ? merged : undefined;
     if (existing) {
       await ctx.db.patch(existing._id, {
         installationId: args.installationId,

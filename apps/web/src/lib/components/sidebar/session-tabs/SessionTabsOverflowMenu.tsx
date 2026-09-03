@@ -16,10 +16,11 @@ import { IconChevronDown, IconPlus } from "@tabler/icons-react";
 import { DynamicLink } from "@/lib/components/DynamicLink";
 import { RepoLogo } from "@/lib/components/RepoLogo";
 import {
-  repoBasePaths,
   repoSessionsIndexPath,
+  sessionHrefForRow,
+  sessionRowMatchesPath,
+  type RepoPathRef,
 } from "@/lib/components/sidebar/_utils/repoSessionPaths";
-import { entityPathSegment } from "@/lib/numId";
 import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
 
 export interface OverflowSession {
@@ -28,6 +29,8 @@ export interface OverflowSession {
   title: string;
   updatedAt?: number;
   _creationTime: number;
+  /** Linked-in row: the session's primary repo owns its URL. */
+  linkedFrom?: RepoPathRef;
 }
 
 export interface OverflowGroup {
@@ -76,7 +79,6 @@ export function SessionTabsOverflowMenu({
         ) : (
           allRepos.map((repo) => {
             const label = repoDisplayLabel(repo);
-            const baseUrl = `${repoBasePaths(repo)[0]}/sessions`;
             const sessions = sessionsByRepoId.get(repo._id) ?? [];
             return (
               <DropdownMenuSub key={repo._id}>
@@ -99,12 +101,12 @@ export function SessionTabsOverflowMenu({
                     </p>
                   ) : (
                     sessions.map((session) => {
-                      const pathSegment = entityPathSegment(session);
-                      const href = pathSegment
-                        ? `${baseUrl}/${pathSegment}`
-                        : baseUrl;
-                      const isSelected =
-                        pathname === href || pathname.startsWith(`${href}/`);
+                      const href = sessionHrefForRow(repo, session);
+                      const isSelected = sessionRowMatchesPath(
+                        repo,
+                        session,
+                        pathname,
+                      );
                       return (
                         <DropdownMenuItem key={session._id} asChild>
                           <DynamicLink

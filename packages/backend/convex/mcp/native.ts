@@ -3,6 +3,8 @@ import { internal } from "../_generated/api";
 import { z } from "zod";
 import { isAllowedOAuthRedirectUri } from "../_mcp/redirectUri";
 
+const mcpToolModeSchema = z.enum(["flat", "code"]);
+
 function getWebAppUrl(): string {
   const url = process.env.WEB_APP_URL;
   if (!url) throw new Error("WEB_APP_URL is not set in Convex env");
@@ -351,6 +353,15 @@ export const mcpHandler = httpAction(async (ctx, request) => {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
+  // Tool mode: `?mode=code` on the URL wins (external clients), then the
+  // sandbox token's claim (per-repo setting), then flat.
+  const requestedMode = mcpToolModeSchema.safeParse(
+    new URL(request.url).searchParams.get("mode"),
+  );
+  const toolMode = requestedMode.success
+    ? requestedMode.data
+    : credentials.toolMode;
+
   // Delegate to Node.js action for MCP protocol handling
   // The MCP SDK requires Node.js runtime
   const result = await ctx.runAction(
@@ -361,6 +372,7 @@ export const mcpHandler = httpAction(async (ctx, request) => {
       entityId: credentials.entityId,
       entityKind: credentials.entityKind,
       isOrchestrator: credentials.isOrchestrator,
+      toolMode,
       body: JSON.stringify(body),
     },
   );

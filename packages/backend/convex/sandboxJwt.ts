@@ -5,6 +5,7 @@ import { internalAction } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { importJWK, SignJWT } from "jose";
 import { SANDBOX_JWT_ISSUER } from "./sandboxAuthConfig";
+import { mcpToolModeValidator } from "./validators";
 
 /**
  * Mints BOTH sandbox-launch tokens in a single node action: the ES256 sandbox
@@ -33,6 +34,9 @@ export const mintSandboxSessionTokens = internalAction({
     // Marks the launch as the user's persistent orchestrator session, which
     // unlocks the extra orchestrator-only MCP tools.
     isOrchestrator: v.optional(v.boolean()),
+    // How the MCP server should expose its tools to this sandbox (the repo's
+    // setting). Carried as a token claim so the callback needs no new config.
+    toolMode: v.optional(mcpToolModeValidator),
   },
   returns: v.object({
     sandboxToken: v.string(),
@@ -89,6 +93,7 @@ export const mintSandboxSessionTokens = internalAction({
               ? { entityKind: args.entityKind }
               : {}),
             ...(args.isOrchestrator ? { orchestrator: true } : {}),
+            ...(args.toolMode !== undefined ? { toolMode: args.toolMode } : {}),
           })
             .setProtectedHeader({ alg: "HS256" })
             .setExpirationTime(`${expiresIn}s`)

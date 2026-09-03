@@ -419,14 +419,6 @@
   letter-spacing: -0.02em;
 }
 
-@utility landing-defer {
-  /* Skip layout of below-fold marketing sections. `auto` on the block size
-     reuses the last rendered height after the first reveal, so the estimate
-     does not keep shifting the scrollbar (CLS). */
-  content-visibility: auto;
-  contain-intrinsic-size: auto 36rem;
-}
-
 @utility landing-mock-body {
   max-height: min(32rem, 72dvh);
   overflow: hidden;

@@ -8,12 +8,9 @@ import { routeTree } from "./routeTree.gen";
 import { createAppHistory } from "./lib/history";
 import { toDisplayRepoHref, toInternalRepoHref } from "./lib/utils/repoUrl";
 import { clientEnv } from "./env/client";
+import { convex } from "./lib/convex";
 import { DeploymentErrorFallback } from "./lib/components/DeploymentErrorFallback";
 import { MotionProvider } from "./lib/components/MotionProvider";
-import {
-  prefetchPreviewChunksWhenIdle,
-  prefetchSignedInChunks,
-} from "./lib/prefetchSignedInChunks";
 import { isChunkLoadError } from "./lib/utils/isChunkLoadError";
 import {
   claimStaleDeployReload,
@@ -52,19 +49,11 @@ migrateLegacyStorageKeys();
 function handleStaleDeployment(event: Event) {
   if (!claimStaleDeployReload()) return;
   event.preventDefault();
-  // Close only if the signed-in tree already constructed the client. A static
-  // import of `./lib/convex` would put Convex on the anonymous landing graph.
-  void import("./lib/convex")
-    .then(({ convex }) => {
-      try {
-        convex.close();
-      } catch {
-        // WebSocket may already be closed
-      }
-    })
-    .catch(() => {
-      // Chunk never loaded (marketing visit) — reload still recovers.
-    });
+  try {
+    convex.close();
+  } catch {
+    // WebSocket may already be closed
+  }
   reloadForStaleDeploy();
 }
 
@@ -147,17 +136,15 @@ declare module "@tanstack/react-router" {
 // nothing — they have no session to restore.
 const hadSession = readSignedInHint();
 
-// The signed-in shell is a set of lazy chunks so the anonymous landing never
-// downloads Convex, the sidebar, or the preview host. Returning users need
-// them immediately, so start fetching now — in parallel with Clerk.
+// The app chrome (sidebar, spotlight search, hotkeys) is a lazy chunk so the
+// anonymous landing never downloads it. Returning users need it immediately,
+// so start fetching now — it downloads in parallel with Clerk's handshake.
 if (hadSession) {
-  const onChunkError = (error: Error) => {
+  void import("@/lib/components/AppShellChrome").catch((error: Error) => {
     if (isChunkLoadError(error)) {
       handleStaleDeployment(new Event("error"));
     }
-  };
-  prefetchSignedInChunks(onChunkError);
-  prefetchPreviewChunksWhenIdle(onChunkError);
+  });
 }
 
 const rootElement = document.getElementById("root");

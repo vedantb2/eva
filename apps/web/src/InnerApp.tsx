@@ -3,7 +3,6 @@ import { RouterProvider, type AnyRouter } from "@tanstack/react-router";
 import { useAuth } from "@clerk/clerk-react";
 import { AuthLoadingScreen } from "./lib/components/AuthLoadingScreen";
 import { writeSignedInHint } from "./lib/authHint";
-import { prefetchSignedInChunks } from "./lib/prefetchSignedInChunks";
 
 export function InnerApp({
   hadSession,
@@ -21,10 +20,9 @@ export function InnerApp({
     // cleared but a session exists), re-run route guards so `/` redirects to
     // /home the way a blocking boot would have.
     if (!hadSession && isSignedIn) {
-      prefetchSignedInChunks();
       void router.invalidate();
     }
-  }, [hadSession, isLoaded, isSignedIn, router]);
+  }, [isLoaded, isSignedIn]);
 
   // Returning signed-in users keep the previous behavior: hold paint until
   // the session is restored, so protected routes never flash the landing.

@@ -54,7 +54,7 @@ export function LandingSection({
     <section
       id={id}
       className={cn(
-        "landing-defer mx-auto w-full max-w-6xl scroll-mt-20 px-5 py-28 sm:px-8 sm:py-32 lg:px-10 lg:py-40",
+        "mx-auto w-full max-w-6xl scroll-mt-20 px-5 py-28 sm:px-8 sm:py-32 lg:px-10 lg:py-40",
         className,
       )}
     >

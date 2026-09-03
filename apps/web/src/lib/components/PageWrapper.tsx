@@ -19,14 +19,14 @@ export function PageWrapper({
   usePageTitleSync(title);
 
   return (
-    <div className="flex-1 h-full min-h-0 overflow-hidden">
+    <div className="flex-1 h-full min-h-0 overflow-hidden animate-in fade-in duration-300">
       <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <PageHeader {...header} />
         <div
           className={`flex-1 min-h-0 ${fillHeight ? "overflow-hidden flex flex-col" : "overflow-auto scrollbar"}`}
         >
           <div
-            className={`flex flex-col gap-4 ${childPadding ? (comfortable ? "p-4 pt-0 sm:px-6" : "p-3 pt-0 sm:px-4") : ""} ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
+            className={`flex flex-col gap-4 animate-in fade-in slide-in-from-bottom-1 duration-300 ${childPadding ? (comfortable ? "p-4 pt-0 sm:px-6" : "p-3 pt-0 sm:px-4") : ""} ${fillHeight ? "flex-1 min-h-0 overflow-hidden" : "min-h-full"}`}
           >
             {comfortable ? (
               <div

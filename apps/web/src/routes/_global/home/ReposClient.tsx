@@ -2,6 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useAction } from "convex/react";
 import { useState } from "react";
+import { AnimatePresence } from "motion/react";
 import { api } from "@eva/backend";
 import { PageWrapper } from "@/lib/components/PageWrapper";
 import { repoHref } from "@/lib/utils/repoUrl";
@@ -233,9 +234,11 @@ export function ReposClient() {
         <EmptyOnboarding connectUrl={buildConnectUrl(appSlug)} />
       ) : (
         <>
-          {!welcomeDismissed && (
-            <WelcomeBanner onDismiss={handleDismissWelcome} />
-          )}
+          <AnimatePresence initial={false}>
+            {!welcomeDismissed && (
+              <WelcomeBanner onDismiss={handleDismissWelcome} />
+            )}
+          </AnimatePresence>
           <div className="space-y-6">
             {groupNames.map((groupName) => (
               <RepoGroup

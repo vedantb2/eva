@@ -224,7 +224,7 @@ export function ProjectsTimeline({
   if (projects.length === 0) return null;
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 animate-in fade-in duration-300">
       <TimelineToolbar
         range={range}
         zoom={zoom}

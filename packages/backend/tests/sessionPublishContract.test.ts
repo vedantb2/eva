@@ -319,14 +319,14 @@ describe("session branch publication reconciles concurrent remote work", () => {
     expect(sync).not.toContain("git rebase");
     expect(sync).toContain("git update-ref -d");
     // A rewritten local branch (rebase onto a new base) must not merge the
-    // old remote tip back in (task 231). Classify before merging.
-    const rewriteAt = sync.indexOf("divergedPublishLooksLikeRewrite");
+    // old remote tip back in (task 231). The reflog decides that before the
+    // merge; file counts never do (quick task 220).
+    const rewriteAt = sync.indexOf("rewrittenBranchIsOwnHistory(");
     const mergeAt = sync.indexOf("git merge --no-edit ${quotedRemoteRef}");
-    expect(rewriteAt, "the rewrite classifier moved").toBeGreaterThan(-1);
+    expect(rewriteAt, "the own-history check moved").toBeGreaterThan(-1);
     expect(mergeAt, "the both-moved merge moved").toBeGreaterThan(-1);
     expect(rewriteAt).toBeLessThan(mergeAt);
-    expect(sync).toContain("git merge-base");
-    expect(sync).toContain("git diff --name-only");
+    expect(sync).not.toContain("git diff --name-only");
     // The refusal text lives in divergedPublish.ts next to
     // publishErrorNeedsForcePush, so the web recovery banner cannot drift.
     expect(sync).toContain("rewrittenBranchPublishError(");
@@ -370,13 +370,13 @@ describe("session branch publication reconciles concurrent remote work", () => {
     expect(turnPersist).toContain('git(["merge", "--no-edit", remoteRef]');
     expect(turnPersist).toContain('git(["merge", "--abort"]');
     expect(turnPersist).not.toContain('"rebase"');
-    const rewriteAt = turnPersist.indexOf("divergedPublishLooksLikeRewrite");
+    const rewriteAt = turnPersist.indexOf("localBranchRewroteOwnHistory(branch, remoteRef)");
     const mergeAt = turnPersist.indexOf('git(["merge", "--no-edit", remoteRef]');
-    expect(rewriteAt, "the rewrite classifier moved").toBeGreaterThan(-1);
+    expect(rewriteAt, "the own-history check moved").toBeGreaterThan(-1);
     expect(mergeAt, "the both-moved merge moved").toBeGreaterThan(-1);
     expect(rewriteAt).toBeLessThan(mergeAt);
-    expect(turnPersist).toContain('"merge-base"');
-    expect(turnPersist).toContain('"diff", "--name-only"');
+    expect(turnPersist).toContain('"reflog", "show", "--format=%H"');
+    expect(turnPersist).not.toContain('"diff", "--name-only"');
     expect(syncAt).toBeGreaterThan(-1);
     expect(syncAt).toBeLessThan(gateAt);
     expect(gateAt).toBeLessThan(pushAt);

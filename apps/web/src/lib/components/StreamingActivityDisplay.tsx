@@ -129,12 +129,10 @@ export function ActivityLogDisplay({
   const duration =
     startedAt && finishedAt ? formatDuration(startedAt, finishedAt) : undefined;
 
-  // Settled turn: keep the thinking blocks (collapsed), drop the tool rows,
-  // the "Worked for" wrapper and the raw-log fallback.
+  // Settled turn: the reply itself is the record. Thinking is live-only in
+  // simple view, so the whole log (including its reasoning) goes away here.
   if (simpleView) {
-    return (
-      <ActivityReasoningTrace steps={parseActivitySteps(activityLog) ?? []} />
-    );
+    return null;
   }
 
   const steps = parseActivitySteps(activityLog);

@@ -51,6 +51,20 @@ export function normalizeStep(step: ActivityStep): ActivityStep | null {
   return step;
 }
 
+/**
+ * Just the model's thinking, in turn order: reasoning steps that carry real
+ * text, with legacy `thinking`-typed rows remapped by {@link normalizeStep}.
+ * Simple view renders these and nothing else, so a step without detail is
+ * dropped — its disclosure would open onto an empty body.
+ */
+export function reasoningActivitySteps(steps: ActivityStep[]): ActivityStep[] {
+  return steps.flatMap((raw) => {
+    const step = normalizeStep(raw);
+    if (!step || step.type !== "reasoning") return [];
+    return step.detail?.trim() ? [step] : [];
+  });
+}
+
 /** Builds one row per normalized step (no consecutive-type merging). */
 function stepsToRows(steps: ActivityStep[]): ActivityRow[] {
   const rows: ActivityRow[] = [];
@@ -115,7 +129,10 @@ export function groupActivityRows(rows: ActivityRow[]): ActivitySegment[] {
  * type + path/command + occurrence in the list being keyed (never the visible
  * overflow slice — callers must pass the full-list index).
  */
-export function activityStepKey(step: ActivityStep, occurrence: number): string {
+export function activityStepKey(
+  step: ActivityStep,
+  occurrence: number,
+): string {
   const id = step.toolUseId;
   if (id !== undefined && id.length > 0) {
     return `id:${id}`;

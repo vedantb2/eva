@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import {
+  ActivityReasoningTrace,
   ActivityTasks,
   Reasoning,
   ReasoningTrigger,
@@ -61,9 +62,18 @@ export function StreamingActivityDisplay({
   const simpleView = useSimpleView();
   const elapsed = useElapsedSeconds(startedAt, isStreaming);
   if (simpleView) {
-    return isStreaming ? (
-      <SimpleViewWorkingStatus startedAt={startedAt} />
-    ) : null;
+    // Thinking is the one part of the timeline simple view keeps: the status
+    // line says it is working, the trace says what it is working through.
+    const trace = (
+      <ActivityReasoningTrace steps={parseActivitySteps(activity) ?? []} />
+    );
+    if (!isStreaming) return trace;
+    return (
+      <div className="space-y-1.5">
+        <SimpleViewWorkingStatus startedAt={startedAt} />
+        {trace}
+      </div>
+    );
   }
 
   const steps = parseActivitySteps(activity);
@@ -119,6 +129,8 @@ export function ActivityLogDisplay({
   const duration =
     startedAt && finishedAt ? formatDuration(startedAt, finishedAt) : undefined;
 
+  // Settled turn: the reply itself is the record. Thinking is live-only in
+  // simple view, so the whole log (including its reasoning) goes away here.
   if (simpleView) {
     return null;
   }

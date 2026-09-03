@@ -5,6 +5,10 @@ import { internal } from "./_generated/api";
 import { SANDBOX_JWT_ISSUER } from "./sandboxAuthConfig";
 import { parseHarnessCatalogReport } from "./_harnessSkills/report";
 import { streamingHeartbeatHmacMessage } from "./_sandbox_runtime/callbackAuth";
+import {
+  isInstallationAllowed,
+  parseRepoPath,
+} from "./_sandbox_runtime/gitCredentialsPath";
 
 const http = httpRouter();
 
@@ -278,6 +282,15 @@ function extractBearerSecret(request: Request): string | null {
   return secret.length > 0 ? secret : null;
 }
 
+/**
+ * Body the in-sandbox credential helper posts. `path` is git's `path=`
+ * component (e.g. `owner/name.git`), present once `credential.useHttpPath` is
+ * on; absent for an old baked helper script, which still gets a primary token.
+ * Any other shape (or unparsable JSON) degrades to `{}` rather than erroring —
+ * a malformed body must not break the credential handshake.
+ */
+const gitCredentialsRequestSchema = z.object({ path: z.string().optional() });
+
 http.route({
   path: "/api/git-credentials",
   method: "POST",
@@ -286,13 +299,43 @@ http.route({
     if (!secret) {
       return new Response("Unauthorized", { status: 401 });
     }
-    const installationId: number | null = await ctx.runQuery(
-      internal.sandboxGitCredentials.lookupInstallationBySecret,
+    const credential = await ctx.runQuery(
+      internal.sandboxGitCredentials.lookupCredentialBySecret,
       { secret },
     );
-    if (installationId === null) {
+    if (credential === null) {
       return new Response("Unauthorized", { status: 401 });
     }
+
+    let rawBody: unknown = {};
+    try {
+      rawBody = await request.json();
+    } catch {
+      rawBody = {};
+    }
+    const parsedBody = gitCredentialsRequestSchema.safeParse(rawBody);
+    const path = parsedBody.success ? parsedBody.data.path : undefined;
+
+    // No path (old baked helper scripts, or the primary's own fetch before
+    // `useHttpPath` rolled out): mint for the sandbox's primary installation.
+    let installationId = credential.installationId;
+    if (path) {
+      const repoPath = parseRepoPath(path);
+      const repoInstallationId: number | null = repoPath
+        ? await ctx.runQuery(
+            internal.githubRepos.getInstallationIdByOwnerAndName,
+            { owner: repoPath.owner, name: repoPath.name },
+          )
+        : null;
+      if (
+        repoInstallationId === null ||
+        !isInstallationAllowed(repoInstallationId, credential)
+      ) {
+        return new Response("Forbidden", { status: 403 });
+      }
+      installationId = repoInstallationId;
+    }
+
     const token: string = await ctx.runAction(
       internal.githubAuth.mintInstallationToken,
       { installationId },

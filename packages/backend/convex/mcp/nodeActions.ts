@@ -22,7 +22,7 @@ import {
   type ChatTargetKind,
 } from "./orchestratorDelivery";
 import { TASK_CHAT_STREAM_PREFIX } from "../_chat/surfaceAdapters";
-import { normalizeAIModel } from "../validators";
+import { normalizeAIModel, prStateValidator } from "../validators";
 import { formatConvexQueryError } from "./convexQueryLimits";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1264,6 +1264,7 @@ const sessionDocSchema = z.object({
   activeWorkflowId: z.string().optional(),
   deploymentUrl: z.string().optional(),
   deploymentStatus: z.string().optional(),
+  linkedRepoCount: z.number().optional(),
 });
 
 const streamingStateSchema = z
@@ -1470,8 +1471,20 @@ export const orchestratorGetAgentState = internalAction({
         truncated: v.boolean(),
       }),
     ),
+    /** Sessions only, and only when it has linked repos beside its primary. */
+    linkedRepos: v.optional(
+      v.array(
+        v.object({
+          repo: v.string(),
+          path: v.string(),
+          branch: v.string(),
+          prUrl: v.optional(v.string()),
+          prState: v.optional(prStateValidator),
+        }),
+      ),
+    ),
   }),
-  handler: async (_ctx, { clerkUserId, kind, id, transcriptTail }) => {
+  handler: async (ctx, { clerkUserId, kind, id, transcriptTail }) => {
     const convexUrl = getEvaConvexCloudUrl();
     const streamingEntityId =
       kind === "session" ? id : `${TASK_CHAT_STREAM_PREFIX}${id}`;
@@ -1525,6 +1538,12 @@ export const orchestratorGetAgentState = internalAction({
 
     if (kind === "session") {
       const session = sessionDocSchema.parse(rawDoc);
+      const linkedRepos =
+        session.linkedRepoCount !== undefined && session.linkedRepoCount > 0
+          ? await ctx.runQuery(internal.mcp.queries.sessionLinkedRepos, {
+              sessionId: id,
+            })
+          : undefined;
       return {
         ...common,
         numId: session.numId,
@@ -1535,6 +1554,7 @@ export const orchestratorGetAgentState = internalAction({
         updatedAt: session.updatedAt ?? session._creationTime,
         deploymentUrl: session.deploymentUrl,
         deploymentStatus: session.deploymentStatus,
+        linkedRepos,
       };
     }
 
@@ -1970,11 +1990,31 @@ export const orchestratorCreateSession = internalAction({
     model: v.optional(v.string()),
     baseBranch: v.optional(v.string()),
     masterSessionId: v.optional(v.string()),
+    /** Extra repos to clone beside `repoId`. Mutually exclusive with `repoGroupId`. */
+    linkedRepoIds: v.optional(v.array(v.string())),
+    /** Saved codebase group whose members prefill the selection. */
+    repoGroupId: v.optional(v.string()),
+    installDependencies: v.optional(v.boolean()),
   },
-  returns: v.object({ sessionId: v.string(), numId: v.number() }),
+  returns: v.object({
+    sessionId: v.string(),
+    numId: v.number(),
+    linkedRepos: v.array(v.object({ repo: v.string(), path: v.string() })),
+  }),
   handler: async (
-    _ctx,
-    { clerkUserId, repoId, title, message, model, baseBranch, masterSessionId },
+    ctx,
+    {
+      clerkUserId,
+      repoId,
+      title,
+      message,
+      model,
+      baseBranch,
+      masterSessionId,
+      linkedRepoIds,
+      repoGroupId,
+      installDependencies,
+    },
   ) => {
     const createArgs: Record<string, JsonValue> = {
       repoId,
@@ -1984,6 +2024,13 @@ export const orchestratorCreateSession = internalAction({
     };
     if (title) createArgs.title = title;
     if (baseBranch) createArgs.baseBranch = baseBranch;
+    if (linkedRepoIds && linkedRepoIds.length > 0) {
+      createArgs.linkedRepoIds = linkedRepoIds;
+    }
+    if (repoGroupId) createArgs.repoGroupId = repoGroupId;
+    if (installDependencies !== undefined) {
+      createArgs.installDependencies = installDependencies;
+    }
 
     const created = createdSessionSchema.parse(
       await runMutationAsUser(
@@ -1999,7 +2046,17 @@ export const orchestratorCreateSession = internalAction({
       created.sessionId,
       masterSessionId,
     );
-    return created;
+    const linkedRepos = await ctx.runQuery(
+      internal.mcp.queries.sessionLinkedRepos,
+      { sessionId: created.sessionId },
+    );
+    return {
+      ...created,
+      linkedRepos: linkedRepos.map((link) => ({
+        repo: link.repo,
+        path: link.path,
+      })),
+    };
   },
 });
 

@@ -445,6 +445,13 @@ export const listSandboxFiles = action({
   args: {
     sandboxId: v.string(),
     repoId: v.id("githubRepos"),
+    /**
+     * Lists a linked repo's checkout instead of the primary (multi-repo
+     * sessions) — an absolute sandbox path, e.g. `/tmp/workspace/<name>`.
+     * Omitted (or the primary's own path) keeps the existing
+     * `workspaceDirShell()` resolution, including the legacy-sandbox fallback.
+     */
+    rootPath: v.optional(v.string()),
   },
   returns: v.union(
     v.object({
@@ -467,8 +474,9 @@ export const listSandboxFiles = action({
 
     // Echo the resolved workspace root first so legacy `/workspace/repo`
     // sandboxes build correct absolute `?file=` paths. Keep default exec cwd.
+    const dir = args.rootPath ? quote([args.rootPath]) : workspaceDirShell();
     const script =
-      `d=${workspaceDirShell()}; ` +
+      `d=${dir}; ` +
       `printf '%s\\0' "$d"; ` +
       `git -C "$d" ls-files --cached --others --exclude-standard -z` +
       ` | head -z -n ${MAX_FILE_LIST_ENTRIES + 1}`;

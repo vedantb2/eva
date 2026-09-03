@@ -25,7 +25,7 @@ import {
   defaultProviderAccountId,
   providerAccountIdForModel,
 } from "@/lib/utils/defaultProviderAccount";
-import { ComposerAppSwitcher } from "./ComposerAppSwitcher";
+import { CodebasesPicker, useCodebasesSelection } from "./CodebasesPicker";
 
 /**
  * Shared landing composer for repo home and `/sessions`: branding + prompt,
@@ -40,6 +40,7 @@ export function NewSessionComposer() {
   const createSession = useMutation(api.sessions.create);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { baseBranch, setBaseBranch } = useBaseBranchState();
+  const codebases = useCodebasesSelection();
 
   const defaultModel = normalizeAIModel(repo.defaultModel);
   const {
@@ -122,8 +123,18 @@ export function NewSessionComposer() {
         fastMode: displayTraits.fastMode,
         providerAccountId: accountId,
         attachmentStorageIds,
+        // Only sent when the codebases picker actually links other repos —
+        // an empty array would still be a meaningful signal server-side.
+        ...(codebases.linkedRepoIds.length > 0
+          ? {
+              linkedRepoIds: codebases.linkedRepoIds,
+              repoGroupId: codebases.repoGroupId ?? undefined,
+              installDependencies: codebases.installDependencies,
+            }
+          : {}),
       });
       clearDraft();
+      codebases.clear();
       await navigate({ to: `${basePath}/sessions/${numId}` });
     } catch (error) {
       const message =
@@ -146,7 +157,7 @@ export function NewSessionComposer() {
               "What are we building for"
             )}
           </span>
-          <ComposerAppSwitcher />
+          <CodebasesPicker />
           <span>?</span>
         </h1>
         <ChatComposer

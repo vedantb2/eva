@@ -25,6 +25,7 @@ import { UsageLimitsIndicator } from "@/lib/components/usage-limits";
 import { CopyLinkMenuItem } from "@/lib/components/CopyLinkButton";
 import { SandboxStartStopButton } from "@/lib/components/sandbox/SandboxStartStopButton";
 import { SessionSwitcher } from "./SessionSwitcher";
+import { SessionRepoBadges } from "./SessionRepoBadges";
 import { prStateIconClass } from "../_utils/-prStateIconClass";
 import { canSendSessionForReview } from "../_utils/sessionReadOnly";
 
@@ -106,7 +107,10 @@ export function SessionChatHeader({
       </span>
     )
   ) : (
-    <SessionSwitcher sessionId={sessionId} title={title} />
+    <>
+      <SessionSwitcher sessionId={sessionId} title={title} />
+      <SessionRepoBadges sessionId={sessionId} />
+    </>
   );
 
   const headerRight = (

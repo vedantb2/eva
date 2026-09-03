@@ -95,7 +95,7 @@ export function registerTools(
 
   server.tool(
     "list_repos",
-    "List all GitHub repos you have access to. Call this first to discover available repos and their instructions for data routing (e.g. which backend to query for which data).",
+    'List all GitHub repos you have access to, plus your saved codebase groups. Call this first to discover available repos and their instructions for data routing (e.g. which backend to query for which data), and to find a "group" name for create_session\'s multi-repo session.',
     {},
     async () => {
       const { userId } = await getContext();
@@ -103,11 +103,13 @@ export function registerTools(
 
       // Advertise which repos have a Postgres read replica configured, so the
       // agent can pick a postgres_query target without probing each repo.
-      const replicaRepoIds = new Set(
-        await ctx.runQuery(internal.mcp.queries.reposWithPostgresReplica, {
+      const [replicaRepoIdList, savedGroups] = await Promise.all([
+        ctx.runQuery(internal.mcp.queries.reposWithPostgresReplica, {
           repoIds: repos.map((r) => r.id),
         }),
-      );
+        ctx.runQuery(internal.repoGroups.listForUserInternal, { userId }),
+      ]);
+      const replicaRepoIds = new Set(replicaRepoIdList);
 
       const repoList = repos.map((r) => ({
         id: r.id,
@@ -118,6 +120,20 @@ export function registerTools(
         ...(r.mcpRootPrompt ? { mcpRootPrompt: r.mcpRootPrompt } : {}),
       }));
 
+      // A group whose primary repo has since been deleted has nothing to open
+      // a multi-repo session against, so it is dropped rather than shown with
+      // a missing primary.
+      const groups = savedGroups.flatMap((g) => {
+        if (!g.primaryRepo) return [];
+        return [
+          {
+            name: g.name,
+            primary: `${g.primaryRepo.owner}/${g.primaryRepo.name}`,
+            linked: g.linkedRepos.map((r) => `${r.owner}/${r.name}`),
+          },
+        ];
+      });
+
       const rootPrompts = repos
         .filter((r) => r.mcpRootPrompt)
         .map(
@@ -125,10 +141,12 @@ export function registerTools(
             `[${r.owner}/${r.name}${r.rootDirectory ? ` (${r.rootDirectory})` : ""}]: ${r.mcpRootPrompt}`,
         );
 
+      const payload = { repos: repoList, groups };
+
       if (rootPrompts.length > 0) {
         return {
           content: [
-            { type: "text" as const, text: JSON.stringify(repoList, null, 2) },
+            { type: "text" as const, text: JSON.stringify(payload, null, 2) },
             {
               type: "text" as const,
               text: `\n---\nRepo instructions:\n${rootPrompts.join("\n")}`,
@@ -137,7 +155,7 @@ export function registerTools(
         };
       }
 
-      return textResult(repoList);
+      return textResult(payload);
     },
   );
 

@@ -224,6 +224,17 @@ export async function buildSessionPrompt(
   // iteration context after a sandbox is recreated without plan.md on disk.
   // Cursor resumes the saved SDK agent; the Eva transcript is not stuffed
   // in as a rotation handoff.
+  const linkedRepoRows = await ctx.db
+    .query("sessionRepos")
+    .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+    .collect();
+  const linkedRepos = linkedRepoRows.map((row) => ({
+    owner: row.owner,
+    name: row.name,
+    path: row.path,
+    branchName: row.branchName,
+    baseBranch: row.baseBranch,
+  }));
   let prompt = buildEditPrompt(
     {
       owner: repo.owner,
@@ -237,6 +248,8 @@ export async function buildSessionPrompt(
     customInstructionsBlock,
     repo.systemPrompt,
     session.devPort ?? repo.devPort,
+    [],
+    linkedRepos,
   );
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;
@@ -265,6 +278,8 @@ export const sessionSandboxStartupWorkflow = workflow.define({
     branchName: v.string(),
     baseBranch: v.string(),
     repoId: v.id("githubRepos"),
+    /** True when the session has `sessionRepos` rows to clone as well. */
+    hasLinkedRepos: v.optional(v.boolean()),
   },
   handler: async (step, args): Promise<void> => {
     await step.runAction(internal.sandbox.startSessionSandbox, {
@@ -276,6 +291,53 @@ export const sessionSandboxStartupWorkflow = workflow.define({
       branchName: args.branchName,
       baseBranch: args.baseBranch,
       repoId: args.repoId,
+      hasLinkedRepos: args.hasLinkedRepos,
+    });
+
+    if (args.hasLinkedRepos !== true) return;
+
+    // startSessionSandbox armed `sandboxSetupPending` instead of clearing it
+    // (see `prepareSessionSandboxInternal`) specifically so this step could
+    // clone/install every linked repo before the first turn runs. Whatever
+    // happens below, the gate must still come off — a linked repo that never
+    // finishes must not wedge the session forever.
+    const session = await step.runQuery(internal.sessions.getInternal, {
+      id: args.sessionId,
+    });
+    if (!session?.sandboxId) {
+      // startSessionSandbox failed before a sandbox existed (or the user
+      // stopped mid-start) — nothing to provision, and no gate was armed for
+      // a sandbox that was never created.
+      return;
+    }
+    const sandboxId = session.sandboxId;
+
+    const linkedRepos = await step.runQuery(
+      internal.sessions.listLinkedReposInternal,
+      { sessionId: args.sessionId },
+    );
+
+    for (const linkedRepo of linkedRepos) {
+      try {
+        await step.runAction(internal.sandbox.prepareLinkedRepo, {
+          sessionId: args.sessionId,
+          sessionRepoId: linkedRepo._id,
+          sandboxId,
+          repoId: args.repoId,
+        });
+      } catch (error) {
+        // Keep provisioning the rest — one repo failing to clone must not
+        // strand every other linked repo uncloned too.
+        await step.runMutation(internal.sessionWorkflow.postSystemAlert, {
+          sessionId: args.sessionId,
+          content: `Failed to prepare linked repo ${linkedRepo.name}`,
+          errorDetail: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    await step.runMutation(internal.sessions.clearSandboxSetupPending, {
+      sessionId: args.sessionId,
     });
   },
 });
@@ -532,6 +594,8 @@ export const sessionExecuteWorkflow = workflow.define({
       pendingQuestion: result.pendingQuestion,
       beforeSha: result.beforeSha,
       afterSha: result.afterSha,
+      beforeShas: result.beforeShas,
+      afterShas: result.afterShas,
     });
 
     // Eva owns publishing: the agent commits inside the sandbox but never
@@ -941,6 +1005,8 @@ export const saveResult = internalMutation({
       errorDetail?: string;
       beforeSha?: string;
       afterSha?: string;
+      beforeShas?: Array<{ path: string; sha: string }>;
+      afterShas?: Array<{ path: string; sha: string }>;
       variations?: Array<{
         label: string;
         route?: string;
@@ -978,6 +1044,10 @@ export const saveResult = internalMutation({
     if (args.beforeSha !== undefined && args.afterSha !== undefined) {
       patch.beforeSha = args.beforeSha;
       patch.afterSha = args.afterSha;
+    }
+    if (args.beforeShas !== undefined && args.afterShas !== undefined) {
+      patch.beforeShas = args.beforeShas;
+      patch.afterShas = args.afterShas;
     }
     await ctx.db.patch(last._id, patch);
 
@@ -1568,6 +1638,8 @@ export const completeSyntheticTurn = authMutation({
       model?: Doc<"messages">["model"];
       beforeSha?: string;
       afterSha?: string;
+      beforeShas?: Array<{ path: string; sha: string }>;
+      afterShas?: Array<{ path: string; sha: string }>;
     } = {
       content: args.success
         ? args.result || "I couldn't process your message."
@@ -1583,6 +1655,10 @@ export const completeSyntheticTurn = authMutation({
     if (args.beforeSha !== undefined && args.afterSha !== undefined) {
       patch.beforeSha = args.beforeSha;
       patch.afterSha = args.afterSha;
+    }
+    if (args.beforeShas !== undefined && args.afterShas !== undefined) {
+      patch.beforeShas = args.beforeShas;
+      patch.afterShas = args.afterShas;
     }
     // Drops the open-time stamp so a failed turn never becomes a checkpoint.
     if (!args.success) {
@@ -1719,6 +1795,8 @@ export const handleCompletion = authMutation({
         pendingQuestion: args.pendingQuestion,
         beforeSha: args.beforeSha,
         afterSha: args.afterSha,
+        beforeShas: args.beforeShas,
+        afterShas: args.afterShas,
       },
     );
 

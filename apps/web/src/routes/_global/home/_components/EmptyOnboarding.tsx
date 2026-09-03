@@ -1,5 +1,4 @@
-import { m } from "motion/react";
-import { Button, Card, CardContent, motionBase } from "@eva/ui";
+import { Button, Card, CardContent } from "@eva/ui";
 import { IconBrandGithub } from "@tabler/icons-react";
 import { PLATFORM_SECTIONS } from "@/lib/content/platformSections";
 
@@ -11,12 +10,7 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
   ];
 
   return (
-    <m.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={motionBase}
-      className="flex flex-col items-center px-4 py-12"
-    >
+    <div className="flex flex-col items-center px-4 py-12">
       <div className="mb-12 flex flex-wrap items-center justify-center gap-2">
         {steps.map((step, i) => (
           <div key={step.num} className="flex items-center gap-2">
@@ -82,13 +76,8 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
           What you&apos;ll get access to
         </p>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {PLATFORM_SECTIONS.map((section, index) => (
-            <m.div
-              key={section.label}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ ...motionBase, delay: 0.15 + index * 0.06 }}
-            >
+          {PLATFORM_SECTIONS.map((section) => (
+            <div key={section.label}>
               <Card className="ui-surface-strong h-full overflow-hidden">
                 <div className="h-px bg-linear-to-r from-primary/50 via-primary/20 to-transparent" />
                 <CardContent className="p-3">
@@ -101,10 +90,10 @@ export function EmptyOnboarding({ connectUrl }: { connectUrl: string }) {
                   </p>
                 </CardContent>
               </Card>
-            </m.div>
+            </div>
           ))}
         </div>
       </div>
-    </m.div>
+    </div>
   );
 }

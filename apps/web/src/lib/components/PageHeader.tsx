@@ -78,7 +78,7 @@ export function PageHeader({
               /* Capped short of the row's centre when `titleAfter` is
                  centred over it, so a long title truncates instead of
                  sliding under the absolutely positioned control. */
-              className={`min-w-0 flex-1 ${titleAfter ? "sm:max-w-[calc(75%-4rem)]" : ""} text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl animate-in fade-in slide-in-from-left-1 duration-300 ${isStringTitle ? "hidden whitespace-nowrap text-balance lg:block" : "overflow-hidden"}`}
+              className={`min-w-0 flex-1 ${titleAfter ? "sm:max-w-[calc(75%-4rem)]" : ""} text-base font-semibold tracking-[-0.02em] text-foreground sm:text-lg md:text-xl ${isStringTitle ? "hidden whitespace-nowrap text-balance lg:block" : "overflow-hidden"}`}
             >
               {title}
             </h1>
@@ -95,18 +95,18 @@ export function PageHeader({
           )}
         </div>
         {headerCenter && (
-          <div className="hidden min-w-0 justify-center md:flex animate-in fade-in duration-300">
+          <div className="hidden min-w-0 justify-center md:flex">
             <div className="w-full max-w-xl">{headerCenter}</div>
           </div>
         )}
         {hasHeaderRight ? (
-          <div className="flex min-h-10 max-sm:min-w-0 max-sm:flex-wrap items-center justify-end gap-1.5 sm:gap-2 justify-self-end animate-in fade-in slide-in-from-right-1 duration-300">
+          <div className="flex min-h-10 max-sm:min-w-0 max-sm:flex-wrap items-center justify-end gap-1.5 sm:gap-2 justify-self-end">
             {headerRight}
           </div>
         ) : null}
       </div>
       {headerCenter && (
-        <div className="mt-2 md:hidden animate-in fade-in duration-300">
+        <div className="mt-2 md:hidden">
           {headerCenter}
         </div>
       )}

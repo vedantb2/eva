@@ -24,6 +24,7 @@ export function RepoLogo({
       alt=""
       width={size}
       height={size}
+      decoding="async"
       className={cn(
         "shrink-0 rounded-md border border-border object-cover",
         className,

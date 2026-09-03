@@ -19,7 +19,7 @@ import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation } from "@tanstack/react-router";
 import { ThemeProvider } from "../contexts/ThemeContext";
 import { AuthLoadingScreen } from "./AuthLoadingScreen";
-import { WelcomeSetupDialog } from "./onboarding/WelcomeSetupDialog";
+import { WelcomeSetupDialogGate } from "./onboarding/WelcomeSetupDialogGate";
 import { convex } from "@/lib/convex";
 import { api } from "@eva/backend";
 import type { Id } from "@eva/backend";
@@ -142,7 +142,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
           {children}
           <BlurPidEffect />
           <PresenceHeartbeat />
-          <WelcomeSetupDialog />
+          <WelcomeSetupDialogGate />
         </ThemeProvider>
       </Authenticated>
     </>

@@ -1,7 +1,5 @@
 "use client";
 
-import { m, AnimatePresence } from "motion/react";
-import { motionFast, motionStagger } from "@eva/ui";
 import dayjs from "@eva/shared/dates";
 import { type Notification } from "@/lib/components/notifications/notification-config";
 import { NotificationRow } from "@/lib/components/inbox/NotificationRow";
@@ -46,6 +44,9 @@ interface NotificationListProps {
  * The left column of the two-pane inbox: notifications grouped by day with
  * sticky date headers, scrolling as one list. Selection is owned by the
  * parent so the detail pane and keyboard stepping share it.
+ *
+ * No enter-fade: staggered `opacity: 0` made Lighthouse treat the list as
+ * invisible until the last row finished, which is what inflated inbox LCP.
  */
 export function NotificationList({
   notifications,
@@ -58,15 +59,9 @@ export function NotificationList({
   const groups = groupByDate(notifications);
 
   return (
-    <AnimatePresence initial={false}>
+    <>
       {groups.map((group) => (
-        <m.div
-          key={group.label}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={motionFast}
-        >
+        <div key={group.label}>
           {/* Sticky so the day label stays readable while its rows scroll by. */}
           <div className="sticky top-0 z-10 border-b border-border bg-background px-4 py-1.5">
             <span className="text-xs font-medium text-muted-foreground">
@@ -74,30 +69,20 @@ export function NotificationList({
             </span>
           </div>
           <div className="divide-y divide-border">
-            {group.items.map((n, index) => (
-              <m.div
+            {group.items.map((n) => (
+              <NotificationRow
                 key={n._id}
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                transition={{
-                  ...motionFast,
-                  delay: motionStagger(index, 0.02, 0.1),
-                }}
-              >
-                <NotificationRow
-                  notification={n}
-                  repo={n.repoId ? repoById.get(n.repoId) : undefined}
-                  selected={n._id === selectedId}
-                  onSelect={() => onSelect(n)}
-                  onMarkRead={() => onMarkRead(n)}
-                  onToggleRead={() => onToggleRead(n)}
-                />
-              </m.div>
+                notification={n}
+                repo={n.repoId ? repoById.get(n.repoId) : undefined}
+                selected={n._id === selectedId}
+                onSelect={() => onSelect(n)}
+                onMarkRead={() => onMarkRead(n)}
+                onToggleRead={() => onToggleRead(n)}
+              />
             ))}
           </div>
-        </m.div>
+        </div>
       ))}
-    </AnimatePresence>
+    </>
   );
 }

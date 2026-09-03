@@ -53,7 +53,10 @@ export function LandingHero() {
 
       <m.div
         variants={HERO_CONTAINER}
-        initial="hidden"
+        // First paint must already be the shown state: `initial="hidden"`
+        // starts the headline and mock at opacity 0, so LCP waits on the
+        // stagger (the mock is the largest element in the viewport).
+        initial={false}
         animate="show"
         className="relative z-10 mx-auto w-full max-w-6xl px-5 pb-20 pt-16 sm:px-8 sm:pb-24 sm:pt-24 lg:px-10"
       >

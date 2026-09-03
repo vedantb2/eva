@@ -189,9 +189,10 @@ export function ChatBody({
   allowEmptySubmit,
   afterMessage,
 }: ChatBodyProps) {
-  // Simple view hides diffs, sandbox lifecycle banners, and — since it has no
-  // Agents tab to open — the sub-agent CTA row. Quick task / project / session
-  // all render through ChatBody, so this is the one gate.
+  // Sandbox start/stop/reconnect banners are always omitted. Simple view also
+  // hides remaining system alerts, diffs, and — since it has no Agents tab —
+  // the sub-agent CTA row. Quick task / project / session all render through
+  // ChatBody, so this is the one gate.
   const simpleView = useSimpleView();
   const displayMessages = visibleChatMessages(messages, simpleView);
 

@@ -5008,9 +5008,7 @@ async function runClaudeSdkAttempt(sessionMode) {
       const json = sdkMessageJson(line);
       if (json !== null && isZeroWorkTaskNotificationResult(json)) {
         sawZeroWorkTaskNotification = true;
-        log(
-          "runClaudeSdkAttempt: ignored zero-work task notification result"
-        );
+        log("runClaudeSdkAttempt: ignored zero-work task notification result");
         continue;
       }
       appendToRawLogFile(line);
@@ -5302,6 +5300,61 @@ function persistTurnWork() {
     );
     return;
   }
+}
+
+// callback-src/providers/githubToken.ts
+function tokenFromActionResponse(data) {
+  if (typeof data !== "object" || data === null || Array.isArray(data)) {
+    return null;
+  }
+  const value = data.value;
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return null;
+  }
+  return typeof value.token === "string" ? value.token : null;
+}
+async function fetchInstallationToken(params) {
+  try {
+    const fetchFn = params.fetchFn ?? fetchWithTimeout;
+    const response = await fetchFn(params.convexUrl + "/api/action", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: "Bearer " + params.convexToken
+      },
+      body: JSON.stringify({
+        path: "github:getInstallationTokenAction",
+        args: { repoId: params.repoId },
+        format: "json"
+      })
+    });
+    if (!response.ok) return { token: null };
+    const token = tokenFromActionResponse(await readResponseJson(response));
+    return token ? { token } : { token: null };
+  } catch {
+    return { token: null };
+  }
+}
+function applyGithubTokenToEnv(env, token) {
+  env.GITHUB_TOKEN = token;
+  env.GH_TOKEN = token;
+}
+async function ensureGithubToken(params) {
+  const convexUrl = params.convexUrl;
+  const convexToken = params.convexToken;
+  const repoId = params.repoId;
+  if (!convexUrl || !convexToken || !repoId) {
+    return { refreshed: false };
+  }
+  const result = await fetchInstallationToken({
+    convexUrl,
+    convexToken,
+    repoId,
+    fetchFn: params.fetchFn
+  });
+  if (result.token === null) return { refreshed: false };
+  applyGithubTokenToEnv(params.env ?? process.env, result.token);
+  return { refreshed: true };
 }
 
 // callback-src/runtime/daemonSupervisor.ts
@@ -5717,41 +5770,12 @@ function createPromptStream() {
   };
   return { push, iterable };
 }
-async function ensureGithubToken() {
-  if (!REPO_ID || !CONVEX_URL || !CONVEX_TOKEN) return;
-  try {
-    const res = await fetchWithTimeout(CONVEX_URL + "/api/action", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + CONVEX_TOKEN
-      },
-      body: JSON.stringify({
-        path: "github:getInstallationTokenAction",
-        args: { repoId: REPO_ID },
-        format: "json"
-      })
-    });
-    if (!res.ok) return;
-    const data = await readResponseJson(res);
-    const token = readGithubToken(data);
-    if (token) {
-      process.env.GITHUB_TOKEN = token;
-      process.env.GH_TOKEN = token;
-    }
-  } catch {
-  }
-}
-function readGithubToken(data) {
-  if (typeof data !== "object" || data === null || Array.isArray(data)) {
-    return null;
-  }
-  const value = data.value;
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return null;
-  }
-  const payload = value;
-  return typeof payload.token === "string" ? payload.token : null;
+async function refreshGithubToken() {
+  await ensureGithubToken({
+    convexUrl: CONVEX_URL,
+    convexToken: CONVEX_TOKEN,
+    repoId: REPO_ID
+  });
 }
 function resetTurnState() {
   callbackState.accumulatedSteps.length = 0;
@@ -6595,7 +6619,7 @@ async function runSdkDaemon() {
     process.exit(1);
   }
   startStreamingLoops();
-  await ensureGithubToken();
+  await refreshGithubToken();
   const sessionMode = prepareClaudeSessionState();
   const options = buildSdkOptions(sessionMode);
   const sdk = await loadSdk();
@@ -6986,30 +7010,12 @@ function processNotification(notification) {
     supervisor2.settleTurn();
   });
 }
-async function ensureGithubToken2() {
-  if (!REPO_ID || !CONVEX_URL || !CONVEX_TOKEN) return;
-  try {
-    const response = await fetchWithTimeout(CONVEX_URL + "/api/action", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + CONVEX_TOKEN
-      },
-      body: JSON.stringify({
-        path: "github:getInstallationTokenAction",
-        args: { repoId: REPO_ID },
-        format: "json"
-      })
-    });
-    if (!response.ok) return;
-    const payload = objectValue2(await readResponseJson(response) ?? null);
-    const token = stringField(payload.value, "token");
-    if (token) {
-      process.env.GITHUB_TOKEN = token;
-      process.env.GH_TOKEN = token;
-    }
-  } catch {
-  }
+async function refreshGithubToken2() {
+  await ensureGithubToken({
+    convexUrl: CONVEX_URL,
+    convexToken: CONVEX_TOKEN,
+    repoId: REPO_ID
+  });
 }
 async function establishThread(client, sessionMode) {
   if (sessionMode.sessionId) {
@@ -7105,7 +7111,7 @@ async function runCodexAppServerDaemon() {
   const preflightOk2 = await runPreflightHeartbeat();
   if (!preflightOk2) process.exit(1);
   startStreamingLoops();
-  await ensureGithubToken2();
+  await refreshGithubToken2();
   const client = new CodexAppServerClient();
   try {
     const sessionMode = prepareCodexSessionState();
@@ -8029,35 +8035,12 @@ function resetTurnState3() {
   callbackState.todoState.length = 0;
   callbackState.lastStepType = "thinking";
 }
-async function ensureGithubToken3() {
-  if (!REPO_ID || !CONVEX_URL || !CONVEX_TOKEN) return;
-  try {
-    const response = await fetchWithTimeout(CONVEX_URL + "/api/action", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + CONVEX_TOKEN
-      },
-      body: JSON.stringify({
-        path: "github:getInstallationTokenAction",
-        args: { repoId: REPO_ID },
-        format: "json"
-      })
-    });
-    if (!response.ok) return;
-    const data = await readResponseJson(response);
-    if (typeof data !== "object" || data === null || Array.isArray(data))
-      return;
-    const value = data.value;
-    if (typeof value !== "object" || value === null || Array.isArray(value)) {
-      return;
-    }
-    if (typeof value.token === "string") {
-      process.env.GITHUB_TOKEN = value.token;
-      process.env.GH_TOKEN = value.token;
-    }
-  } catch {
-  }
+async function refreshGithubToken3() {
+  await ensureGithubToken({
+    convexUrl: CONVEX_URL,
+    convexToken: CONVEX_TOKEN,
+    repoId: REPO_ID
+  });
 }
 function buildTurnCompletion(attempt) {
   const resultEvent = extractResultEvent(attempt.output);
@@ -8316,7 +8299,7 @@ async function runCursorTurnWorker() {
       throw new Error("Cursor turn worker preflight failed");
     }
     startStreamingLoops();
-    await ensureGithubToken3();
+    await refreshGithubToken3();
     await executeClaimedTurn(turn);
   } finally {
     await stopStreamingLoops();
@@ -8428,7 +8411,7 @@ async function runCursorDaemon() {
     log("cursor daemon: preflight failed");
     process.exit(1);
   }
-  await ensureGithubToken3();
+  await refreshGithubToken3();
   log(
     "runCursorDaemon started (entityId=" + (ENTITY_ID ?? "none") + ", model=" + MODEL + ")"
   );
@@ -9958,30 +9941,11 @@ for (const d of [WORK_DIR + "/screenshots", WORK_DIR + "/recordings"]) {
   } catch {
   }
 }
-if (REPO_ID && CONVEX_URL && CONVEX_TOKEN) {
-  try {
-    const res = await fetchWithTimeout(CONVEX_URL + "/api/action", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + CONVEX_TOKEN
-      },
-      body: JSON.stringify({
-        path: "github:getInstallationTokenAction",
-        args: { repoId: REPO_ID },
-        format: "json"
-      })
-    });
-    if (res.ok) {
-      const data = await readResponseJson(res);
-      if (data && typeof data === "object" && !Array.isArray(data) && data.value && typeof data.value === "object" && !Array.isArray(data.value) && typeof data.value.token === "string") {
-        process.env.GITHUB_TOKEN = data.value.token;
-        process.env.GH_TOKEN = data.value.token;
-      }
-    }
-  } catch {
-  }
-}
+await ensureGithubToken({
+  convexUrl: CONVEX_URL,
+  convexToken: CONVEX_TOKEN,
+  repoId: REPO_ID
+});
 log(
   "entityId=" + ENTITY_ID + " provider=" + PROVIDER + " model=" + MODEL + " tools=" + ALLOWED_TOOLS + " sessionId=" + (process.env.CLAUDE_SESSION_ID || "none") + " mcp=" + (hasMcpConfig ? "yes" : "no")
 );

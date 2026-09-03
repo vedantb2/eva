@@ -45,6 +45,7 @@ import { formatDelayedPublishFailureError } from "./_sessions/resultTarget";
 import {
   applyChatTurnResult,
   finalizeOpenSyntheticTurnOnCancel,
+  insertAssistantPlaceholderIfNeeded,
 } from "./_chat/chatResult";
 import {
   maybeInsertModelHandoffAlert,
@@ -729,30 +730,11 @@ export const addAssistantPlaceholder = internalMutation({
     const project = await ctx.db.get(args.projectId);
     if (!project) throw new Error("Project not found");
 
-    const recent = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.projectId))
-      .order("desc")
-      .take(5);
-    const lastTurnMessage = recent[0];
-    if (
-      lastTurnMessage &&
-      lastTurnMessage.role === "assistant" &&
-      lastTurnMessage.content === "" &&
-      lastTurnMessage.finishedAt === undefined &&
-      lastTurnMessage.isSyntheticTurn !== true
-    ) {
-      return null;
-    }
-
-    await ctx.db.insert("messages", {
+    await insertAssistantPlaceholderIfNeeded(ctx, {
       parentId: args.projectId,
-      role: "assistant",
-      content: "",
-      timestamp: Date.now(),
-      activityLog: "",
+      recentLimit: 5,
+      skipSystemAlerts: false,
     });
-    await ctx.db.patch(args.projectId, { updatedAt: Date.now() });
     return null;
   },
 });

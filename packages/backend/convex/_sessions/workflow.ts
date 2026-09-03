@@ -31,7 +31,11 @@ import { buildCustomInstructionsBlock } from "../prompts";
 import { buildEditPrompt, buildOrchestratorPrompt } from "./prompts";
 import { z } from "zod";
 import { formatDelayedPublishFailureError } from "./resultTarget";
-import { applyChatTurnResult } from "../_chat/chatResult";
+import {
+  applyChatTurnResult,
+  insertAssistantPlaceholderIfNeeded,
+} from "../_chat/chatResult";
+import { resolveStorageUrls } from "../_chat/storageUrls";
 import { isUnclaimedOpenTurn } from "./pendingTurnRecovery";
 import type { QueryCtx, MutationCtx } from "../_generated/server";
 import type { Doc, Id } from "../_generated/dataModel";
@@ -742,34 +746,13 @@ export const addAssistantPlaceholder = internalMutation({
     const session = await ctx.db.get(args.sessionId);
     if (!session) throw new Error("Session not found");
 
-    const recent = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.sessionId))
-      .order("desc")
-      .take(10);
     // Ignore system alerts (e.g. draft-PR failures) sitting on top — startExecute
     // may already have staged an empty placeholder underneath them.
-    const lastTurnMessage = recent.find(
-      (message) => message.isSystemAlert !== true,
-    );
-    if (
-      lastTurnMessage &&
-      lastTurnMessage.role === "assistant" &&
-      lastTurnMessage.content === "" &&
-      lastTurnMessage.finishedAt === undefined &&
-      lastTurnMessage.isSyntheticTurn !== true
-    ) {
-      return null;
-    }
-
-    await ctx.db.insert("messages", {
+    await insertAssistantPlaceholderIfNeeded(ctx, {
       parentId: args.sessionId,
-      role: "assistant",
-      content: "",
-      timestamp: Date.now(),
-      activityLog: "",
+      recentLimit: 10,
+      skipSystemAlerts: true,
     });
-    await ctx.db.patch(args.sessionId, { updatedAt: Date.now() });
     return null;
   },
 });
@@ -1138,13 +1121,9 @@ export const claimPendingTurn = authMutation({
 
     const prompt = daemonState.pendingTurn.prompt;
     const claimWaitMs = Date.now() - daemonState.pendingTurn.requestedAt;
-    const resolvedUrls = await Promise.all(
-      (daemonState.pendingTurn.attachmentStorageIds ?? []).map((id) =>
-        ctx.storage.getUrl(id),
-      ),
-    );
-    const attachmentUrls = resolvedUrls.filter(
-      (url): url is string => url !== null,
+    const attachmentUrls = await resolveStorageUrls(
+      (id) => ctx.storage.getUrl(id),
+      daemonState.pendingTurn.attachmentStorageIds,
     );
     let turnLease: { turnId: Id<"turns">; leaseGeneration: number } | null =
       null;

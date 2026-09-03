@@ -26,10 +26,7 @@ export type ChatResultParentId =
   | Id<"projects">
   | Id<"agentTasks">;
 
-export type ChatTurnResultOutcome =
-  | "publish-failure"
-  | "written"
-  | "no-target";
+export type ChatTurnResultOutcome = "publish-failure" | "written" | "no-target";
 
 /**
  * Inserts the standalone publish-failure alert and touches `updatedAt`.
@@ -178,6 +175,47 @@ export async function applyChatTurnResult(
 
   const last = await writeAssistantTurnResult(ctx, args.parentId, patch);
   return last ? "written" : "no-target";
+}
+
+/**
+ * Idempotent empty assistant bubble used as the streaming target. Session
+ * skips system alerts sitting on top of an already-staged placeholder;
+ * task/project chat look at the newest row only.
+ */
+export async function insertAssistantPlaceholderIfNeeded(
+  ctx: MutationCtx,
+  args: {
+    parentId: ChatResultParentId;
+    recentLimit: number;
+    skipSystemAlerts: boolean;
+  },
+): Promise<"existing" | "inserted"> {
+  const recent = await ctx.db
+    .query("messages")
+    .withIndex("by_parent", (q) => q.eq("parentId", args.parentId))
+    .order("desc")
+    .take(args.recentLimit);
+  const lastTurnMessage = args.skipSystemAlerts
+    ? recent.find((message) => message.isSystemAlert !== true)
+    : recent[0];
+  if (
+    lastTurnMessage &&
+    lastTurnMessage.role === "assistant" &&
+    lastTurnMessage.content === "" &&
+    lastTurnMessage.finishedAt === undefined &&
+    lastTurnMessage.isSyntheticTurn !== true
+  ) {
+    return "existing";
+  }
+  await ctx.db.insert("messages", {
+    parentId: args.parentId,
+    role: "assistant",
+    content: "",
+    timestamp: Date.now(),
+    activityLog: "",
+  });
+  await ctx.db.patch(args.parentId, { updatedAt: Date.now() });
+  return "inserted";
 }
 
 /** Close an unfinished `/loop` continuation bubble when the user hits stop. */

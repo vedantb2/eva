@@ -12,6 +12,7 @@ import {
   WORKSPACE_DIR,
 } from "./helpers";
 import { writeSandboxFile } from "./sandboxFiles";
+import { resolvePublicConvexSiteUrl } from "../_env/publicConvexUrls";
 
 const HELPER_SCRIPT_PATH = "/home/eva/.local/bin/git-credential-eva";
 const HELPER_CONFIG_DIR = "/home/eva/.config/eva";
@@ -90,10 +91,10 @@ printf 'username=x-access-token\\npassword=%s\\n' "$TOKEN"
 
 /** Resolves the public Convex site URL used by the in-sandbox credential helper. */
 function resolveConvexSiteUrl(): string {
-  const configured = process.env.CONVEX_SITE_URL;
-  if (configured) return configured;
-  const cloudUrl = requireEnv("CONVEX_CLOUD_URL");
-  return cloudUrl.replace(".convex.cloud", ".convex.site");
+  return (
+    resolvePublicConvexSiteUrl(process.env) ??
+    requireEnv("CONVEX_CLOUD_URL").replace(".convex.cloud", ".convex.site")
+  );
 }
 
 /**

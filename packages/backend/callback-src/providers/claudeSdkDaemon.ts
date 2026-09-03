@@ -27,7 +27,6 @@ import {
 import {
   callConvexWithRetry,
   callHarnessSkillCatalogReport,
-  fetchWithTimeout,
   type HarnessCommandReport,
 } from "../http/convexClient.js";
 import {
@@ -78,6 +77,7 @@ import {
   getCurrentTurnLease,
 } from "../runtime/turnLease.js";
 import { log, readResponseJson } from "../utils.js";
+import { ensureGithubToken } from "./githubToken.js";
 import type { JsonObject, JsonValue } from "../types.js";
 import { DaemonSupervisor } from "../runtime/daemonSupervisor.js";
 import {
@@ -439,43 +439,12 @@ function createPromptStream(): {
 }
 
 /** Sessions may push git commits; refresh the installation token like the one-shot path. */
-async function ensureGithubToken(): Promise<void> {
-  if (!REPO_ID || !CONVEX_URL || !CONVEX_TOKEN) return;
-  try {
-    const res = await fetchWithTimeout(CONVEX_URL + "/api/action", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: "Bearer " + CONVEX_TOKEN,
-      },
-      body: JSON.stringify({
-        path: "github:getInstallationTokenAction",
-        args: { repoId: REPO_ID },
-        format: "json",
-      }),
-    });
-    if (!res.ok) return;
-    const data = await readResponseJson(res);
-    const token = readGithubToken(data);
-    if (token) {
-      process.env.GITHUB_TOKEN = token;
-      process.env.GH_TOKEN = token;
-    }
-  } catch {
-    /* non-fatal */
-  }
-}
-
-function readGithubToken(data: JsonValue | null): string | null {
-  if (typeof data !== "object" || data === null || Array.isArray(data)) {
-    return null;
-  }
-  const value = data.value;
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return null;
-  }
-  const payload: JsonObject = value;
-  return typeof payload.token === "string" ? payload.token : null;
+async function refreshGithubToken(): Promise<void> {
+  await ensureGithubToken({
+    convexUrl: CONVEX_URL,
+    convexToken: CONVEX_TOKEN,
+    repoId: REPO_ID,
+  });
 }
 
 /** Clears the per-turn accumulators so the next turn starts clean on the same query. */
@@ -1632,7 +1601,7 @@ export async function runSdkDaemon(): Promise<void> {
     process.exit(1);
   }
   startStreamingLoops();
-  await ensureGithubToken();
+  await refreshGithubToken();
 
   // Session mode establishes/continues the Claude session id used for resume.
   const sessionMode = prepareClaudeSessionState();

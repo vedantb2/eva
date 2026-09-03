@@ -55,16 +55,35 @@ test("the three cancel paths share finalizeOpenSyntheticTurnOnCancel", () => {
     expect(source, `${label} lost the shared cancel helper`).toContain(
       "finalizeOpenSyntheticTurnOnCancel(",
     );
-    expect(
-      source,
-      `${label} grew a local copy of the helper`,
-    ).not.toMatch(
+    expect(source, `${label} grew a local copy of the helper`).not.toMatch(
       /async function finalizeOpenSyntheticTurnOnCancel\(/,
     );
   }
 });
 
 test("applyChatTurnResult is the only place that writes the reply patch", () => {
-  const matches = chatResult.match(/export async function writeAssistantTurnResult/g);
+  const matches = chatResult.match(
+    /export async function writeAssistantTurnResult/g,
+  );
   expect(matches).toHaveLength(1);
+});
+
+test("the three addAssistantPlaceholder handlers share insertAssistantPlaceholderIfNeeded", () => {
+  expect(chatResult).toContain(
+    "export async function insertAssistantPlaceholderIfNeeded(",
+  );
+  for (const [label, source] of SAVE_RESULT_SOURCES) {
+    const startAt = source.indexOf("export const addAssistantPlaceholder =");
+    expect(startAt, `${label} addAssistantPlaceholder moved`).toBeGreaterThan(
+      -1,
+    );
+    const endAt = source.indexOf("\n});", startAt);
+    const body = source.slice(startAt, endAt < 0 ? undefined : endAt);
+    expect(body, `${label} lost the shared placeholder helper`).toContain(
+      "insertAssistantPlaceholderIfNeeded(",
+    );
+    expect(body, `${label} grew a local placeholder insert`).not.toContain(
+      'ctx.db.insert("messages"',
+    );
+  }
 });

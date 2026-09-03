@@ -28,6 +28,7 @@ import { isSandboxGoneError } from "./sandboxErrors";
 import { writeSandboxFile } from "./sandboxFiles";
 import { ensureGitCredentialHelper } from "./gitCredentials";
 import { isMissingRemoteRefFetchFailure } from "../_git/remoteRef";
+import { gitRemoteAuthPrefix } from "./gitRemoteCommand";
 import {
   isEvaOwnedBranch,
   parseGitNameOnlyList,
@@ -464,8 +465,10 @@ export async function createSandbox(
       // Orchestrator: no containers, and the universal image has no docker
       // binary — the bootstrap would sit in a 90s poll then another 60s.
       if (!skipDocker) {
-        await runLoggedGitStep("createSandbox.bootstrapDocker", sandbox.id, () =>
-          bootstrapVercelDocker(sandbox),
+        await runLoggedGitStep(
+          "createSandbox.bootstrapDocker",
+          sandbox.id,
+          () => bootstrapVercelDocker(sandbox),
         );
       }
 
@@ -533,7 +536,7 @@ export async function fetchOrigin(
         async () => {
           await execGitCommand(
             sandbox,
-            `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git fetch --no-tags${pruneArg} origin${refArg}`,
+            `${gitRemoteAuthPrefix(workspaceDir, repoUrl)} git fetch --no-tags${pruneArg} origin${refArg}`,
             opts?.timeoutSeconds ?? 240,
           );
         },
@@ -584,7 +587,7 @@ export async function fetchBranchRefs(
       (b) => `+refs/heads/${b}:refs/remotes/origin/${b}`,
     );
     const refspecArgs = refspecs.map((r) => quote([r])).join(" ");
-    const setupAndFetch = `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git fetch --no-tags${pruneArg} origin`;
+    const setupAndFetch = `${gitRemoteAuthPrefix(workspaceDir, repoUrl)} git fetch --no-tags${pruneArg} origin`;
     return await retryGitNetworkOperation(
       "fetchBranchRefs",
       details,
@@ -1233,13 +1236,11 @@ async function synchronizeBranchForPublish(
     await pinBranchUpstream(sandbox, branchName);
   }
 
-  const fetched = await fetchBranchRefs(
-    sandbox,
-    owner,
-    name,
-    [branchName],
-    { prune: false, timeoutSeconds: 60, retryAttempts: 2 },
-  );
+  const fetched = await fetchBranchRefs(sandbox, owner, name, [branchName], {
+    prune: false,
+    timeoutSeconds: 60,
+    retryAttempts: 2,
+  });
   const remoteRefName = `refs/remotes/origin/${branchName}`;
   const quotedRemoteRef = quote([remoteRefName]);
   const quotedLocalRef = quote([`refs/heads/${branchName}`]);
@@ -1397,7 +1398,7 @@ export async function pushBranchToOrigin(
       try {
         await execGitCommand(
           sandbox,
-          `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push ${lease}-u origin ${quotedRefspec}`,
+          `${gitRemoteAuthPrefix(workspaceDir, repoUrl)} git push ${lease}-u origin ${quotedRefspec}`,
           opts?.timeoutSeconds ?? 60,
         );
         return { pushed: true, published: true };
@@ -1471,7 +1472,7 @@ export async function forcePushBranchToOrigin(
     const repoUrl = bareGitHubRepoUrl(owner, name);
     await execGitCommand(
       sandbox,
-      `cd ${workspaceDir} && git config --unset-all http.https://github.com/.extraheader 2>/dev/null; git remote set-url origin ${quote([repoUrl])} && GIT_TERMINAL_PROMPT=0 git push ${lease}-u origin ${quotedRefspec}`,
+      `${gitRemoteAuthPrefix(workspaceDir, repoUrl)} git push ${lease}-u origin ${quotedRefspec}`,
       90,
     );
   });

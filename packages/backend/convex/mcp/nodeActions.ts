@@ -24,6 +24,7 @@ import {
 import { TASK_CHAT_STREAM_PREFIX } from "../_chat/surfaceAdapters";
 import { normalizeAIModel } from "../validators";
 import { formatConvexQueryError } from "./convexQueryLimits";
+import { resolvePublicConvexCloudUrl } from "../_env/publicConvexUrls";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Environment Helpers
@@ -378,8 +379,7 @@ function getBootstrapSecret(): string {
  * found") — the whole MCP tool layer was unusable against such deployments.
  */
 function getEvaConvexCloudUrl(): string {
-  const configured =
-    process.env.EVA_PUBLIC_CONVEX_URL ?? process.env.CONVEX_CLOUD_URL;
+  const configured = resolvePublicConvexCloudUrl(process.env);
   if (configured) return configured;
   return getConvexSiteUrl().replace(".convex.site", ".convex.cloud");
 }
@@ -1974,9 +1974,7 @@ export const mcpCancelQueuedMessages = internalAction({
     const queued = await listQueue();
     let doomed = queued;
     if (!all) {
-      const match = queued.find(
-        (message) => message._id === queuedMessageId,
-      );
+      const match = queued.find((message) => message._id === queuedMessageId);
       if (!match) {
         const pending = queued.map((message) => message._id).join(", ");
         throw new Error(

@@ -59,7 +59,7 @@ import {
   IconPlayerStop,
   IconLoader2,
 } from "@tabler/icons-react";
-import { ComposerFormSubmitHotkey } from "@/lib/hotkeys/ComposerFormSubmitHotkey";
+import { useShortcut } from "@/lib/hotkeys/useShortcut";
 import { ShortcutKbd } from "@/lib/components/ui/Kbd";
 import { useGatewayDictation } from "@/lib/hooks/useGatewayDictation";
 import { useTranscriptPolish } from "@/lib/hooks/useTranscriptPolish";
@@ -364,16 +364,19 @@ export function QuickTaskModal({
 
   const canSubmit = !isLoading && !!title.trim() && !!displayBaseBranch;
 
+  useShortcut(
+    "submitComposerForm",
+    (e) => {
+      e.preventDefault();
+      if (canSubmit) {
+        handleSubmit();
+      }
+    },
+    { enabled: isOpen },
+  );
+
   return (
     <>
-      {isOpen && !isCreatingProject ? (
-        <ComposerFormSubmitHotkey
-          canSubmit={canSubmit}
-          onSubmit={() => {
-            void handleSubmit();
-          }}
-        />
-      ) : null}
       <Dialog
         open={isOpen}
         onOpenChange={(v) => {
@@ -759,14 +762,12 @@ export function QuickTaskModal({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      {isCreatingProject ? (
-        <NewProjectModal
-          isOpen
-          onClose={() => setIsCreatingProject(false)}
-          onCreated={(id) => setSelectedProjectId(id)}
-          defaultSkipPlanning
-        />
-      ) : null}
+      <NewProjectModal
+        isOpen={isCreatingProject}
+        onClose={() => setIsCreatingProject(false)}
+        onCreated={(id) => setSelectedProjectId(id)}
+        defaultSkipPlanning
+      />
     </>
   );
 }

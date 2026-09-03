@@ -32,7 +32,7 @@ import {
   IconSparkles,
   IconCheck,
 } from "@tabler/icons-react";
-import { ComposerFormSubmitHotkey } from "@/lib/hotkeys/ComposerFormSubmitHotkey";
+import { useShortcut } from "@/lib/hotkeys/useShortcut";
 import { ShortcutKbd } from "@/lib/components/ui/Kbd";
 import type { MarkdownEditorHandle } from "@/lib/components/tasks/_components/MarkdownEditor";
 import { PriorityPicker } from "@/lib/components/priority/PriorityPicker";
@@ -153,22 +153,24 @@ export function NewProjectModal({
     setIsLoading(false);
   };
 
+  useShortcut(
+    "submitComposerForm",
+    (e) => {
+      e.preventDefault();
+      if (canSubmit) {
+        handleSubmit();
+      }
+    },
+    { enabled: isOpen },
+  );
+
   return (
-    <>
-      {isOpen ? (
-        <ComposerFormSubmitHotkey
-          canSubmit={canSubmit}
-          onSubmit={() => {
-            void handleSubmit();
-          }}
-        />
-      ) : null}
-      <Dialog
-        open={isOpen}
-        onOpenChange={(v) => {
-          if (!v) handleClose();
-        }}
-      >
+    <Dialog
+      open={isOpen}
+      onOpenChange={(v) => {
+        if (!v) handleClose();
+      }}
+    >
       <DialogContent className="max-w-2xl gap-0 p-0">
         <div className="px-5 pt-5 pb-1">
           <Input
@@ -303,8 +305,7 @@ export function NewProjectModal({
             )}
           </Tooltip>
         </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+      </DialogContent>
+    </Dialog>
   );
 }

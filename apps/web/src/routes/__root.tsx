@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode } from "react";
+import { lazy, Suspense } from "react";
 import {
   createRootRouteWithContext,
   Outlet,
@@ -11,7 +11,6 @@ import { AppToaster } from "@/lib/components/AppToaster";
 import { AppShell } from "@/lib/components/AppShell";
 import { AuthLoadingScreen } from "@/lib/components/AuthLoadingScreen";
 import { DeferredAfterIdle } from "@/lib/components/DeferredAfterIdle";
-import { QueryErrorBoundary } from "@/lib/components/QueryErrorBoundary";
 import { IS_EMBEDDED } from "@/lib/embed/embedded";
 import { EmbedNavigationBridge } from "@/lib/embed/EmbedNavigationBridge";
 import { useDocumentTitle } from "@/lib/hooks/useDocumentTitle";
@@ -61,21 +60,8 @@ const PreviewMiniPlayer = lazy(() =>
 );
 
 const Analytics = lazy(() =>
-  import("@vercel/analytics/react")
-    .then((m) => ({ default: m.Analytics }))
-    .catch(() => ({ default: () => null })),
+  import("@vercel/analytics/react").then((m) => ({ default: m.Analytics })),
 );
-
-/** Idle islands must not take down the signed-in tree if their chunk 404s. */
-function IdleIsland({ children }: { children: ReactNode }) {
-  return (
-    <DeferredAfterIdle>
-      <QueryErrorBoundary fallback={null}>
-        <Suspense fallback={null}>{children}</Suspense>
-      </QueryErrorBoundary>
-    </DeferredAfterIdle>
-  );
-}
 
 function RootComponent() {
   useDocumentTitle();
@@ -101,19 +87,23 @@ function RootComponent() {
             module pulls Convex + the iframe keep-alive into the landing
             chunk if it is a static import. */}
         {isSignedIn ? (
-          <IdleIsland>
-            <PreviewMiniPlayer />
-            <PreviewIframeHost />
-          </IdleIsland>
+          <DeferredAfterIdle>
+            <Suspense fallback={null}>
+              <PreviewMiniPlayer />
+              <PreviewIframeHost />
+            </Suspense>
+          </DeferredAfterIdle>
         ) : null}
       </NuqsAdapter>
       {IS_EMBEDDED ? <EmbedNavigationBridge /> : null}
       <AppToaster />
       {/* No analytics from embedded documents: the host page already counts. */}
       {IS_EMBEDDED ? null : (
-        <IdleIsland>
-          <Analytics />
-        </IdleIsland>
+        <DeferredAfterIdle>
+          <Suspense fallback={null}>
+            <Analytics />
+          </Suspense>
+        </DeferredAfterIdle>
       )}
       {DevAgentation ? (
         <Suspense fallback={null}>
@@ -138,9 +128,11 @@ function RootComponent() {
             {app}
             {/* The What's New dialog belongs to the top-level window, not previews. */}
             {IS_EMBEDDED ? null : (
-              <IdleIsland>
-                <ChangelogDialogGate />
-              </IdleIsland>
+              <DeferredAfterIdle>
+                <Suspense fallback={null}>
+                  <ChangelogDialogGate />
+                </Suspense>
+              </DeferredAfterIdle>
             )}
           </ClientProvider>
         </Suspense>

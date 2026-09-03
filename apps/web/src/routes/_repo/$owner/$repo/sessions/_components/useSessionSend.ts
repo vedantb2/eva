@@ -77,6 +77,7 @@ export interface SessionSendOptions {
    * harness as bare text.
    */
   skipReviewComments?: boolean;
+  sourceProposedPlanId?: Id<"proposedPlans">;
 }
 
 interface UseSessionSendParams {
@@ -166,6 +167,9 @@ export function useSessionSend({
         reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
         providerAccountId: accountId,
         attachmentStorageIds,
+        ...(options?.sourceProposedPlanId !== undefined
+          ? { sourceProposedPlanId: options.sourceProposedPlanId }
+          : {}),
       }),
     ])
       .catch(async (error) => {

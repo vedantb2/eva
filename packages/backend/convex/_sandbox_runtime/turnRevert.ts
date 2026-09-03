@@ -8,6 +8,7 @@ import { getActionRepoWithAccess } from "../functions";
 import { pushBranchToOrigin } from "./git";
 import { errorMessage, execHandle, workspaceDirShell } from "./helpers";
 import { authorizedRunningHandle } from "./services";
+import { PRIMARY_REPO_DIR } from "./workspaceLayout";
 
 const revertResultValidator = v.union(
   v.object({

@@ -4,7 +4,6 @@ import type {
   AgentOptions,
   AgentUsage,
   Cursor,
-  JsonlLocalAgentStore,
   ModelListItem,
   ModelParameterValue,
   ModelSelection,
@@ -13,6 +12,7 @@ import type {
   TokenUsage,
   UsageCost,
 } from "@cursor/sdk";
+import type { SqliteLocalAgentStore } from "@cursor/sdk/sqlite";
 import {
   CURSOR_SDK_STORE_DIR,
   MAX_TOTAL_RUNTIME_MS,
@@ -52,6 +52,11 @@ const SDK_PACKAGE = "@cursor/sdk";
 const SDK_VERSION = "1.0.28";
 /** ESM entry inside the package (its exports map's `import` target). */
 const SDK_ENTRY_RELPATH = "/dist/esm/index.js";
+/**
+ * SQLite store entry (`@cursor/sdk/sqlite`). The package ships it apart from
+ * the main entry so importing the SDK does not load the sqlite driver.
+ */
+const SDK_SQLITE_ENTRY_RELPATH = "/dist/esm/sqlite.js";
 
 /** SDK setup should return a local handle quickly; model work happens later. */
 const CURSOR_AGENT_SETUP_TIMEOUT_MS = 30_000;
@@ -278,10 +283,14 @@ type SdkAgent = SDKAgent;
 type CursorSdkModule = {
   Agent: typeof Agent;
   Cursor: typeof Cursor;
-  JsonlLocalAgentStore: typeof JsonlLocalAgentStore;
+};
+
+type CursorSdkSqliteModule = {
+  SqliteLocalAgentStore: typeof SqliteLocalAgentStore;
 };
 
 let loadedSdk: CursorSdkModule | null = null;
+let loadedSdkSqlite: CursorSdkSqliteModule | null = null;
 
 /**
  * Imports the Cursor SDK version `cursorParseLine` was written against. Taking
@@ -302,6 +311,25 @@ async function loadCursorSdk(): Promise<CursorSdkModule> {
     })
   );
   loadedSdk = mod;
+  return mod;
+}
+
+/**
+ * Imports the same pinned SDK's separate sqlite entry. Kept apart from
+ * `loadCursorSdk` because the package ships it as its own export precisely so
+ * the main entry does not pull in the sqlite driver, and the two imports must
+ * stay independent for that to hold.
+ */
+async function loadCursorSdkSqlite(): Promise<CursorSdkSqliteModule> {
+  if (loadedSdkSqlite) return loadedSdkSqlite;
+  const mod: CursorSdkSqliteModule = await import(
+    resolvePinnedSdkEntry({
+      packageName: SDK_PACKAGE,
+      version: SDK_VERSION,
+      entryRelPath: SDK_SQLITE_ENTRY_RELPATH,
+    })
+  );
+  loadedSdkSqlite = mod;
   return mod;
 }
 
@@ -775,8 +803,25 @@ export async function runCursorSdkAttempt(
   });
 
   const sdk = await loadCursorSdk();
+  const sqlite = await loadCursorSdkSqlite();
   mkdirSync(CURSOR_SDK_STORE_DIR, { recursive: true });
-  const store = new sdk.JsonlLocalAgentStore(CURSOR_SDK_STORE_DIR);
+  // SQLite, not the SDK's JSONL store, because the JSONL store re-reads and
+  // re-parses the whole file on every `get` and rewrites it whole on every
+  // append, while a resumed `send()` hydrates the conversation one
+  // `checkpoints.get` per stored blob — 56 of them after a single 12-tool-call
+  // turn. Resume therefore cost time quadratic in conversation length and blew
+  // CURSOR_SEND_START_TIMEOUT_MS twice per turn after a heavy first turn
+  // (prod, 3 Sep 2026). In that reproduction the same resumed `send()` took
+  // 24 ms against SQLite, whose reads and appends stay constant-time.
+  //
+  // Legacy `*.ndjson` files left in this directory are ignored: an agent id
+  // saved before this change resumes as `agent_not_found` and the existing
+  // recovery starts a fresh agent once. Deliberately no migration — reading
+  // those files is the slow path being removed.
+  const store = await sqlite.SqliteLocalAgentStore.open({
+    workspaceRef: WORK_DIR,
+    stateRoot: CURSOR_SDK_STORE_DIR,
+  });
   const options: SdkAgentOptions = {
     apiKey: (process.env.CURSOR_API_KEY || "").trim(),
     model: await resolveCursorModelSelection(sdk),
@@ -1210,6 +1255,11 @@ export async function runCursorSdkAttempt(
     clearInterval(healthTimer);
     try {
       agent.close();
+    } catch {
+      /* already closed */
+    }
+    try {
+      await store.dispose();
     } catch {
       /* already closed */
     }

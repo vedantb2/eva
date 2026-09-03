@@ -194,8 +194,11 @@ export const CURSOR_LOCAL_STATE_FILE =
   CURSOR_RUNTIME_HOME_DIR + "/" + CURSOR_STATE_FILE;
 export const CURSOR_PERSIST_STATE_FILE =
   CURSOR_PERSIST_DIR + "/" + CURSOR_STATE_FILE;
-/** Cursor SDK JSONL agent store — on the persist volume so conversation state
- * (agents/runs/checkpoints) survives sandbox stop/resume. */
+/** State root for the Cursor SDK's SQLite agent store (`index.db` plus a
+ * per-agent `store.db`) — on the persist volume so conversation state
+ * (agents/runs/checkpoints) survives sandbox stop/resume. Sandboxes that ran
+ * the earlier JSONL store may still hold its `*.ndjson` files here; they are
+ * ignored. */
 export const CURSOR_SDK_STORE_DIR = CURSOR_PERSIST_DIR + "/sdk";
 const CLAUDE_SESSION_PROJECT_DIR = WORK_DIR.replace(/\//g, "-");
 export const CLAUDE_LOCAL_PROJECT_DIR =

@@ -7203,6 +7203,7 @@ import { mkdirSync as mkdirSync7, readFileSync as readFileSync8 } from "fs";
 var SDK_PACKAGE2 = "@cursor/sdk";
 var SDK_VERSION2 = "1.0.28";
 var SDK_ENTRY_RELPATH = "/dist/esm/index.js";
+var SDK_SQLITE_ENTRY_RELPATH = "/dist/esm/sqlite.js";
 var CURSOR_AGENT_SETUP_TIMEOUT_MS = 3e4;
 var CURSOR_SDK_LOCAL_MODEL_CATALOG_ENV = "CURSOR_SDK_LOCAL_MODEL_CATALOG_JSON";
 var CURSOR_SEND_START_TIMEOUT_MS = 6e4;
@@ -7287,6 +7288,7 @@ var CURSOR_WRITE_TOOLS = [
   "applyAgentDiff"
 ];
 var loadedSdk = null;
+var loadedSdkSqlite = null;
 async function loadCursorSdk() {
   if (loadedSdk) return loadedSdk;
   const mod = await import(resolvePinnedSdkEntry({
@@ -7295,6 +7297,16 @@ async function loadCursorSdk() {
     entryRelPath: SDK_ENTRY_RELPATH
   }));
   loadedSdk = mod;
+  return mod;
+}
+async function loadCursorSdkSqlite() {
+  if (loadedSdkSqlite) return loadedSdkSqlite;
+  const mod = await import(resolvePinnedSdkEntry({
+    packageName: SDK_PACKAGE2,
+    version: SDK_VERSION2,
+    entryRelPath: SDK_SQLITE_ENTRY_RELPATH
+  }));
+  loadedSdkSqlite = mod;
   return mod;
 }
 function readPromptText2() {
@@ -7535,8 +7547,12 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     cancelRun();
   });
   const sdk = await loadCursorSdk();
+  const sqlite = await loadCursorSdkSqlite();
   mkdirSync7(CURSOR_SDK_STORE_DIR, { recursive: true });
-  const store4 = new sdk.JsonlLocalAgentStore(CURSOR_SDK_STORE_DIR);
+  const store4 = await sqlite.SqliteLocalAgentStore.open({
+    workspaceRef: WORK_DIR,
+    stateRoot: CURSOR_SDK_STORE_DIR
+  });
   const options = {
     apiKey: (process.env.CURSOR_API_KEY || "").trim(),
     model: await resolveCursorModelSelection(sdk),
@@ -7854,6 +7870,10 @@ async function runCursorSdkAttempt(sessionMode, overrides = {}) {
     clearInterval(healthTimer);
     try {
       agent.close();
+    } catch {
+    }
+    try {
+      await store4.dispose();
     } catch {
     }
   }

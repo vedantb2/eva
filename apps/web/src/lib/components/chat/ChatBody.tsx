@@ -22,7 +22,6 @@ import {
   type BackgroundAgentEntry,
   type Id,
   type StoredModelTraits,
-  type InteractionMode,
   type resolveTraitsForDisplay,
 } from "@eva/backend";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
@@ -144,8 +143,6 @@ interface ChatBodyProps {
   sandboxRunning?: boolean;
   /** Sessions only: turn diff / restore actions on assistant messages. */
   turnCheckpoint?: TurnCheckpointContext;
-  interactionMode?: InteractionMode;
-  onInteractionModeChange?: (mode: InteractionMode) => void;
   allowEmptySubmit?: boolean;
   afterMessage?: (messageId: string) => ReactNode;
 }
@@ -189,8 +186,6 @@ export function ChatBody({
   backgroundAgents,
   sandboxRunning,
   turnCheckpoint,
-  interactionMode,
-  onInteractionModeChange,
   allowEmptySubmit,
   afterMessage,
 }: ChatBodyProps) {
@@ -408,8 +403,6 @@ export function ChatBody({
           draft={draft}
           isDraftLoading={isDraftLoading}
           hasPendingContext={hasPendingContext}
-          interactionMode={interactionMode}
-          onInteractionModeChange={onInteractionModeChange}
           allowEmptySubmit={allowEmptySubmit}
         />
       )}

@@ -39,8 +39,6 @@ import type {
 } from "@eva/backend";
 import { type SlashItem } from "@/lib/components/mentions";
 import { useComposerCompact } from "@/lib/components/chat/_components/useComposerCompact";
-import { ComposerInteractionModeToggle } from "@/lib/components/chat/_components/ComposerInteractionModeToggle";
-import type { InteractionMode } from "@eva/backend";
 
 // `whitespace-pre!` rather than `nowrap`: both keep the pill on one line, but
 // `nowrap` still collapses whitespace, and Chrome then eats the trailing space
@@ -85,8 +83,6 @@ export function ComposerInputChrome({
   seedMentionMap,
   seedSkillMap,
   messageHistory,
-  interactionMode,
-  onToggleInteractionMode,
   allowEmptySubmit,
 }: {
   repoId: Id<"githubRepos">;
@@ -117,8 +113,6 @@ export function ComposerInputChrome({
   seedMentionMap?: Map<string, string>;
   seedSkillMap?: Map<string, string>;
   messageHistory: string[];
-  interactionMode?: InteractionMode;
-  onToggleInteractionMode?: () => void;
   allowEmptySubmit?: boolean;
 }) {
   const { textInput, attachments } = usePromptInputController();
@@ -146,13 +140,6 @@ export function ComposerInputChrome({
         mentionRef={mentionRef}
         compact={compact}
       />
-      {onToggleInteractionMode && interactionMode ? (
-        <ComposerInteractionModeToggle
-          interactionMode={interactionMode}
-          onToggle={onToggleInteractionMode}
-          disabled={isInputDisabled}
-        />
-      ) : null}
     </m.div>
   );
 

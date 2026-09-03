@@ -45,18 +45,14 @@ import { getSessionReadOnlyMessage } from "./_utils/sessionReadOnly";
 import { APPROVE_PLAN_PROMPT } from "./_utils/composerPrompts";
 import { motionBase, toast } from "@eva/ui";
 import { ProposedPlanCard } from "./_components/ProposedPlanCard";
-import { ComposerPlanFollowUpBanner } from "./_components/ComposerPlanFollowUpBanner";
 import {
   buildPlanImplementationPrompt,
   buildPlanImplementationThreadTitle,
-  proposedPlanTitle,
-  resolvePlanFollowUpSubmission,
 } from "./_components/planExport";
 import {
   findLatestProposedPlan,
   hasActionableProposedPlan,
   proposedPlanForMessage,
-  shouldShowPlanFollowUpPrompt,
   type ProposedPlanRow,
 } from "./_components/proposedPlanLogic";
 
@@ -159,8 +155,6 @@ export function ChatPanel({
     providerAccountId: stickyProviderAccountId,
     setProviderAccountId: setStickyProviderAccountId,
     isSwitchingAccount,
-    interactionMode,
-    setInteractionMode,
   } = useSessionModel(sessionId, defaultModel);
   const {
     displayTraits,
@@ -210,7 +204,6 @@ export function ChatPanel({
     resolveAccountId,
     accounts,
     messages,
-    interactionMode,
   });
   const proposedPlans = useQuery(api.proposedPlans.listBySession, {
     sessionId,
@@ -222,14 +215,6 @@ export function ChatPanel({
   const actionablePlan = hasActionableProposedPlan(latestProposedPlan)
     ? latestProposedPlan
     : null;
-  const showPlanFollowUp = shouldShowPlanFollowUpPrompt({
-    pendingUserInputCount: 0,
-    interactionMode,
-    latestTurnSettled: !isExecuting,
-    hasActionableProposedPlan: actionablePlan !== null,
-    hasComposerAttachments: false,
-  });
-
   const chatSurface: SandboxChatSurface = {
     entity: { kind: "session", sessionId },
     repoId: repo._id,
@@ -333,27 +318,17 @@ export function ChatPanel({
   // otherwise the PRD tab owns the plan and the slim strip links to it.
   // Captured ExitPlanMode plans render inline in the transcript instead.
   const showCompactPlanCard =
-    hasPlanContent &&
-    !hasCapturedPlans &&
-    !showPlanFollowUp &&
-    sandboxCollapsed !== false;
+    hasPlanContent && !hasCapturedPlans && sandboxCollapsed !== false;
   // When the card is hidden but a plan exists, show a slim Plan Ready strip.
   const showPlanReadyBanner =
-    hasPlanContent &&
-    !hasCapturedPlans &&
-    !showCompactPlanCard &&
-    !showPlanFollowUp;
+    hasPlanContent && !hasCapturedPlans && !showCompactPlanCard;
 
   const implementPlan = (plan: ProposedPlanRow) => {
-    const followUp = resolvePlanFollowUpSubmission({
-      draftText: "",
-      planMarkdown: plan.planMarkdown,
-    });
-    setInteractionMode("default");
-    void handleSend(followUp.text, undefined, {
-      interactionMode: "default",
-      sourceProposedPlanId: plan._id,
-    });
+    void handleSend(
+      buildPlanImplementationPrompt(plan.planMarkdown),
+      undefined,
+      { sourceProposedPlanId: plan._id },
+    );
   };
 
   const handleApprovePlan = () => {
@@ -362,29 +337,6 @@ export function ChatPanel({
       return;
     }
     void seedChatDraft(APPROVE_PLAN_PROMPT);
-  };
-
-  const handleComposerSend = async (
-    content: string,
-    attachmentStorageIds?: Id<"_storage">[],
-  ) => {
-    if (showPlanFollowUp && actionablePlan) {
-      const followUp = resolvePlanFollowUpSubmission({
-        draftText: content,
-        planMarkdown: actionablePlan.planMarkdown,
-      });
-      if (followUp.interactionMode === "default") {
-        setInteractionMode("default");
-      }
-      await handleSend(followUp.text, attachmentStorageIds, {
-        interactionMode: followUp.interactionMode,
-        ...(followUp.interactionMode === "default"
-          ? { sourceProposedPlanId: actionablePlan._id }
-          : {}),
-      });
-      return;
-    }
-    await handleSend(content, attachmentStorageIds);
   };
 
   const handleImplementInNewSession = async (plan: ProposedPlanRow) => {
@@ -460,11 +412,6 @@ export function ChatPanel({
               </m.div>
             </AnimatePresence>
           ) : null}
-          {showPlanFollowUp && actionablePlan ? (
-            <ComposerPlanFollowUpBanner
-              planTitle={proposedPlanTitle(actionablePlan.planMarkdown)}
-            />
-          ) : null}
           {showPlanReadyBanner && planContent ? (
             <ComposerPlanReadyBanner
               planContent={planContent}
@@ -490,11 +437,7 @@ export function ChatPanel({
     ? "Wake Eva up to begin chatting..."
     : isSwitchingAccount
       ? "Switching Claude account..."
-      : interactionMode === "plan"
-        ? showPlanFollowUp
-          ? "Refine the plan, or send empty to implement…"
-          : "Describe what to plan… /plan to stay here"
-        : "Ask Eva anything... / for skills · @ to mention";
+      : "Ask Eva anything... / for skills · @ to mention";
 
   const readOnlyMessage = getSessionReadOnlyMessage({
     isArchived,
@@ -541,11 +484,8 @@ export function ChatPanel({
         onAccountChange={setProviderAccountId}
         displayTraits={displayTraits}
         onTraitsChange={onTraitsChange}
-        onSend={handleComposerSend}
+        onSend={handleSend}
         onCancel={handleCancel}
-        interactionMode={interactionMode}
-        onInteractionModeChange={setInteractionMode}
-        allowEmptySubmit={showPlanFollowUp}
         afterMessage={(messageId) => {
           const plan = proposedPlanForMessage(proposedPlans ?? [], messageId);
           if (!plan) return null;

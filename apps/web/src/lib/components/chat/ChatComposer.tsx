@@ -28,11 +28,9 @@ import {
   getAIModelProvider,
   type AIModel,
   type Id,
-  type InteractionMode,
   type ReasoningLevel,
   type StoredModelTraits,
 } from "@eva/backend";
-import { parseComposerModeSlash } from "@/lib/components/chat/planMode";
 import { MessageMentionText } from "@/lib/components/chat/MessageMentionText";
 import { stripReviewCommentBlocks } from "@/lib/reviewComments";
 import { type MentionTextareaHandle } from "@/lib/components/chat/MentionTextarea";
@@ -93,8 +91,6 @@ interface ChatComposerProps {
   localDraft?: LocalChatDraft;
   isDraftLoading?: boolean;
   hasPendingContext?: boolean;
-  interactionMode?: InteractionMode;
-  onInteractionModeChange?: (mode: InteractionMode) => void;
   allowEmptySubmit?: boolean;
 }
 
@@ -126,8 +122,6 @@ export function ChatComposer({
   localDraft,
   isDraftLoading,
   hasPendingContext = false,
-  interactionMode,
-  onInteractionModeChange,
   allowEmptySubmit = false,
 }: ChatComposerProps) {
   const skillItems = useSkillSlashItems(repoId, getAIModelProvider(model));
@@ -153,13 +147,6 @@ export function ChatComposer({
     const attachmentStorageIds = await uploadChatAttachments(files);
     if (files.length > 0 && attachmentStorageIds.length < files.length) {
       toast.error("Some attachments could not be uploaded.");
-    }
-    if (onInteractionModeChange) {
-      const slashMode = parseComposerModeSlash(visible);
-      if (slashMode !== null && files.length === 0) {
-        onInteractionModeChange(slashMode);
-        return;
-      }
     }
     if (
       !visible &&
@@ -300,15 +287,6 @@ export function ChatComposer({
               seedMentionMap={seed?.mentionMap}
               seedSkillMap={seed?.skillMap}
               messageHistory={messageHistory}
-              interactionMode={interactionMode}
-              onToggleInteractionMode={
-                onInteractionModeChange && interactionMode
-                  ? () =>
-                      onInteractionModeChange(
-                        interactionMode === "plan" ? "default" : "plan",
-                      )
-                  : undefined
-              }
               allowEmptySubmit={allowEmptySubmit}
             />
           </ComposerStash>

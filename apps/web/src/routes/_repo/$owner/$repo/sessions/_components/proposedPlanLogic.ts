@@ -29,22 +29,6 @@ export function hasActionableProposedPlan(
   return proposedPlan !== null && proposedPlan.implementedAt === undefined;
 }
 
-export function shouldShowPlanFollowUpPrompt(input: {
-  pendingUserInputCount: number;
-  interactionMode: "default" | "plan";
-  latestTurnSettled: boolean;
-  hasActionableProposedPlan: boolean;
-  hasComposerAttachments: boolean;
-}): boolean {
-  return (
-    input.pendingUserInputCount === 0 &&
-    input.interactionMode === "plan" &&
-    input.latestTurnSettled &&
-    input.hasActionableProposedPlan &&
-    !input.hasComposerAttachments
-  );
-}
-
 export function proposedPlanForMessage(
   proposedPlans: ReadonlyArray<ProposedPlanRow>,
   messageId: string,

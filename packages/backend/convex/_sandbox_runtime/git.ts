@@ -29,10 +29,8 @@ import { writeSandboxFile } from "./sandboxFiles";
 import { ensureGitCredentialHelper } from "./gitCredentials";
 import { isMissingRemoteRefFetchFailure } from "../_git/remoteRef";
 import {
-  divergedPublishLooksLikeRewrite,
   isEvaOwnedBranch,
   parseGitNameOnlyList,
-  remoteOnlyChangedFileCount,
   rewrittenBranchIsOwnHistory,
   rewrittenBranchPublishError,
 } from "./divergedPublish";
@@ -1131,7 +1129,7 @@ type BranchPublishSync = {
 
 /**
  * Every commit the local branch has ever pointed at in this sandbox. Empty when
- * the branch has no reflog, which makes the caller refuse rather than guess.
+ * the branch has no reflog, which makes the caller merge rather than force.
  */
 async function localBranchReflogShas(
   sandbox: SandboxHandle,
@@ -1171,16 +1169,19 @@ async function localBranchReflogShas(
  * merge could never publish, and every retry failed identically. A merge
  * conflicts only where the two tips genuinely touch the same lines.
  *
- * Skip that merge when the unique remote tree looks like a rewritten base
- * (task 231, 25 Aug 2026): rebasing onto main left one local file against
- * 1,272 remote-only staging commits, and merging the old tip back in
- * conflicted inside publish while the sandbox stayed clean.
+ * Skip that merge when the local branch rewrote its own history (task 231,
+ * 25 Aug 2026): rebasing onto main left one local file against 1,272
+ * remote-only staging commits, and merging the old tip back in conflicted
+ * inside publish while the sandbox stayed clean. A rewrite is recognised by
+ * the local branch's reflog holding the remote tip — the sandbox once had
+ * every remote commit and moved off them on purpose — and an eva/ branch is
+ * then published as a push leased on that exact tip.
  *
- * A rewritten eva/ branch is published anyway — as a push leased on the exact
- * remote tip — when that tip is in the local branch's reflog, i.e. the remote
- * only holds history this sandbox itself used to have (task m57dve3m, 2 Sep
- * 2026). Anything else on the remote keeps the refusal, so the caller can send
- * the user a message that says why and what to do.
+ * A remote tip the reflog never held was pushed by someone else, however many
+ * files it touched, and is merged in like any concurrent work. Quick task 220
+ * (evalucom/carepulse-ts, 2–3 Sep 2026) is why the file counts are not
+ * consulted: GitHub had gained 118 commits on the PR branch, the sandbox one,
+ * and a "many remote-only files" classifier refused twice what a merge fixed.
  */
 async function synchronizeBranchForPublish(
   sandbox: SandboxHandle,
@@ -1273,66 +1274,28 @@ async function synchronizeBranchForPublish(
     return { remoteExists: true };
   }
   if (/^[1-9]\d*\s+[1-9]\d*$/.test(divergence)) {
-    const mergeBase = (
+    // "<remote-only> <local-only>" commit counts, for the log and the error.
+    const [remoteOnlyCommits, localOnlyCommits] = divergence.split(/\s+/);
+    const remoteTip = (
       await execGitCommand(
         sandbox,
-        `cd ${workspaceDir} && git merge-base ${quotedRemoteRef} ${quotedLocalRef}`,
-        15,
+        `cd ${workspaceDir} && git rev-parse --verify ${quotedRemoteRef}`,
+        10,
       )
     ).trim();
-    const quotedMergeBase = quote([mergeBase]);
-    const localChanged = parseGitNameOnlyList(
-      await execGitCommand(
-        sandbox,
-        `cd ${workspaceDir} && git diff --name-only ${quotedMergeBase} ${quotedLocalRef}`,
-        30,
-      ),
-    );
-    const remoteChanged = parseGitNameOnlyList(
-      await execGitCommand(
-        sandbox,
-        `cd ${workspaceDir} && git diff --name-only ${quotedMergeBase} ${quotedRemoteRef}`,
-        30,
-      ),
-    );
-    if (divergedPublishLooksLikeRewrite(localChanged, remoteChanged)) {
-      const remoteOnly = remoteOnlyChangedFileCount(
-        localChanged,
-        remoteChanged,
-      );
+    const reflogShas = await localBranchReflogShas(sandbox, branchName);
+    if (rewrittenBranchIsOwnHistory(remoteTip, reflogShas)) {
       if (!isEvaOwnedBranch(branchName)) {
-        throw new Error(
-          rewrittenBranchPublishError(
-            branchName,
-            remoteOnly,
-            localChanged.length,
-            "branch-not-eva-owned",
-          ),
-        );
-      }
-      const remoteTip = (
-        await execGitCommand(
-          sandbox,
-          `cd ${workspaceDir} && git rev-parse --verify ${quotedRemoteRef}`,
-          10,
-        )
-      ).trim();
-      const reflogShas = await localBranchReflogShas(sandbox, branchName);
-      if (!rewrittenBranchIsOwnHistory(remoteTip, reflogShas)) {
-        throw new Error(
-          rewrittenBranchPublishError(
-            branchName,
-            remoteOnly,
-            localChanged.length,
-            "remote-holds-foreign-commits",
-          ),
-        );
+        throw new Error(rewrittenBranchPublishError(branchName));
       }
       logGit(
-        `synchronizeBranchForPublish: origin/${branchName} tip ${remoteTip.slice(0, 7)} is in the local branch reflog; publishing the rewritten branch leased on it (${remoteOnly} remote-only files vs ${localChanged.length} local)`,
+        `synchronizeBranchForPublish: origin/${branchName} tip ${remoteTip.slice(0, 7)} is in the local branch reflog (${reflogShas.length} entries); the local branch rewrote its own history — publishing leased on that tip (${remoteOnlyCommits} remote-only commits vs ${localOnlyCommits} local)`,
       );
       return { remoteExists: true, replaceRemoteTip: remoteTip };
     }
+    logGit(
+      `synchronizeBranchForPublish: origin/${branchName} tip ${remoteTip.slice(0, 7)} is not in the local branch reflog (${reflogShas.length} entries); merging its ${remoteOnlyCommits} remote-only commits into the ${localOnlyCommits} local`,
+    );
     try {
       await execGitCommand(
         sandbox,
@@ -1355,7 +1318,7 @@ async function synchronizeBranchForPublish(
         );
       }
       throw new Error(
-        `Could not merge origin/${branchName} into the local branch. The sandbox was left clean — there are no conflict markers to resolve. If you rewrote history, force-push; if both sides committed, merge the remote branch in the sandbox and retry.`,
+        `Could not merge origin/${branchName} (${remoteOnlyCommits} commits this sandbox never had) into the local branch (${localOnlyCommits} unpublished commits). The sandbox was left clean — there are no conflict markers to resolve. If you rewrote history, force-push; if both sides committed, merge the remote branch in the sandbox and retry.`,
       );
     }
     return { remoteExists: true };

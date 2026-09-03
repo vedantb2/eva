@@ -108,6 +108,13 @@ export const listRepos = authQuery({
   },
 });
 
+/** One linked repo's row by id, for the sandbox action that clones/prepares it. */
+export const getSessionRepoInternal = internalQuery({
+  args: { id: v.id("sessionRepos") },
+  returns: v.union(sessionRepoValidator, v.null()),
+  handler: async (ctx, args) => await ctx.db.get(args.id),
+});
+
 /** The session's linked repo rows, for sandbox clone/publish paths. */
 export const listLinkedReposInternal = internalQuery({
   args: { sessionId: v.id("sessions") },
@@ -117,6 +124,13 @@ export const listLinkedReposInternal = internalQuery({
       .query("sessionRepos")
       .withIndex("by_session", (q) => q.eq("sessionId", args.sessionId))
       .collect(),
+});
+
+/** One `sessionRepos` row by id, for callers (PR creation) that only hold the row id. */
+export const getSessionRepoInternal = internalQuery({
+  args: { id: v.id("sessionRepos") },
+  returns: v.union(sessionRepoValidator, v.null()),
+  handler: async (ctx, args) => await ctx.db.get(args.id),
 });
 
 /** Records clone completion or PR state for one linked repo. */

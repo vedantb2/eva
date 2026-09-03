@@ -10,6 +10,7 @@ export {
 export {
   listRepos,
   listLinkedReposInternal,
+  getSessionRepoInternal,
   patchSessionRepo,
   findSessionRepoByPrUrl,
 } from "./_sessions/repos";

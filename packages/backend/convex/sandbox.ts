@@ -33,6 +33,7 @@ export {
   checkoutBaseBranch,
   setupSandboxBranch,
   pushSandboxBranch,
+  pushLinkedRepoBranches,
   launchOnExistingSandbox,
   prewarmSessionDaemon,
   prewarmEntityDaemon,

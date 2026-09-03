@@ -71,7 +71,16 @@ if [ -z "\${EVA_SANDBOX_SECRET:-}" ] || [ -z "\${CONVEX_SITE_URL:-}" ]; then
   exit 1
 fi
 
-CACHE_FILE="/tmp/git-cred-cache"
+# A multi-repo session's linked repos can live under a different GitHub App
+# installation than the primary, so the cache is keyed by the repository path
+# git supplied — a cache hit for one repo must never serve another repo's
+# token. "default" covers the no-path case (old baked helper scripts).
+if [ -n "$REQ_PATH" ]; then
+  CACHE_KEY=$(printf '%s' "$REQ_PATH" | sha1sum | cut -c1-16)
+else
+  CACHE_KEY="default"
+fi
+CACHE_FILE="/tmp/git-cred-cache-$CACHE_KEY"
 CACHE_TTL_SECONDS=3000
 
 if [ -f "$CACHE_FILE" ]; then
@@ -87,10 +96,16 @@ if [ -f "$CACHE_FILE" ]; then
   fi
 fi
 
+if [ -n "$REQ_PATH" ]; then
+  BODY='{"path":"'"$REQ_PATH"'"}'
+else
+  BODY='{}'
+fi
+
 RESPONSE=$(curl -fsSL -X POST \\
   -H "Authorization: Bearer $EVA_SANDBOX_SECRET" \\
   -H "Content-Type: application/json" \\
-  --data '{}' \\
+  --data "$BODY" \\
   "$CONVEX_SITE_URL/api/git-credentials") || {
     echo "git-credential-eva: token fetch failed" >&2
     exit 1
@@ -124,16 +139,26 @@ function resolveConvexSiteUrl(): string {
  * fresh installation token on demand via the eva backend.
  *
  * Idempotent: re-running rotates the secret and re-writes the helper script.
+ *
+ * `extraInstallationIds` covers a multi-repo session's linked repos: each may
+ * belong to a different GitHub App installation than the primary, and the
+ * sandbox's credential row must allow-list all of them (see
+ * `gitCredentialsPath.ts`) or `/api/git-credentials` refuses to mint a token
+ * for the linked repo's path.
  */
 export async function ensureGitCredentialHelper(
   ctx: GenericActionCtx<DataModel>,
   sandbox: SandboxHandle,
   installationId: number,
+  extraInstallationIds: number[] = [],
 ): Promise<void> {
   const secret = randomBytes(32).toString("hex");
   await ctx.runMutation(internal.sandboxGitCredentials.upsertForSandbox, {
     sandboxId: sandbox.id,
     installationId,
+    installationIds: Array.from(
+      new Set([installationId, ...extraInstallationIds]),
+    ),
     secret,
   });
 
@@ -163,9 +188,13 @@ export async function ensureGitCredentialHelper(
       `chmod 600 ${HELPER_CONFIG_PATH}`,
       `chmod 755 ${HELPER_SCRIPT_PATH}`,
       // Stale cache from a prior secret/token must not be reused under the new secret.
-      `rm -f /tmp/git-cred-cache`,
+      `rm -f /tmp/git-cred-cache-*`,
       // Wipe any inherited URL-embedded token / extraheader before switching to the helper.
       `git config --global --unset-all http.https://github.com/.extraheader 2>/dev/null || true`,
+      // Sends the repository path to `/api/git-credentials` (git's `path=`
+      // component) so the helper can mint a token for a linked repo's own
+      // installation instead of always the primary's.
+      `git config --global credential.useHttpPath true`,
       // Reset credential.helper to exactly `''` + our helper. `--unset-all`
       // first so re-runs don't error with "credential.helper has multiple
       // values" — git's plain `config` refuses to overwrite a multi-valued

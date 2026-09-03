@@ -1,9 +1,11 @@
 import { FALLBACK_GIT_BASE_BRANCH } from "@eva/shared";
 import {
+  buildLinkedReposSection,
   buildRootDirectoryInstruction,
   buildSystemPromptBlock,
   RESPONSE_LENGTH_INSTRUCTION,
 } from "../prompts";
+import type { LinkedRepoPromptRow } from "../prompts";
 import { stripMentionTokens } from "../_mentions/resolveDocMentions";
 
 /**
@@ -214,6 +216,7 @@ export function buildEditPrompt(
   systemPrompt: string | undefined,
   devPort?: number,
   conversationHistory: Array<{ role: string; content: string }> = [],
+  linkedRepos: LinkedRepoPromptRow[] = [],
 ): string {
   const commitMessage = message.slice(0, 50).replace(/"/g, '\\"');
   const baseBranch = repo.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;

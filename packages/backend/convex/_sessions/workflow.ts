@@ -535,6 +535,8 @@ export const sessionExecuteWorkflow = workflow.define({
       pendingQuestion: result.pendingQuestion,
       beforeSha: result.beforeSha,
       afterSha: result.afterSha,
+      beforeShas: result.beforeShas,
+      afterShas: result.afterShas,
     });
 
     // Eva owns publishing: the agent commits inside the sandbox but never
@@ -944,6 +946,8 @@ export const saveResult = internalMutation({
       errorDetail?: string;
       beforeSha?: string;
       afterSha?: string;
+      beforeShas?: Array<{ path: string; sha: string }>;
+      afterShas?: Array<{ path: string; sha: string }>;
       variations?: Array<{
         label: string;
         route?: string;
@@ -981,6 +985,10 @@ export const saveResult = internalMutation({
     if (args.beforeSha !== undefined && args.afterSha !== undefined) {
       patch.beforeSha = args.beforeSha;
       patch.afterSha = args.afterSha;
+    }
+    if (args.beforeShas !== undefined && args.afterShas !== undefined) {
+      patch.beforeShas = args.beforeShas;
+      patch.afterShas = args.afterShas;
     }
     await ctx.db.patch(last._id, patch);
 
@@ -1571,6 +1579,8 @@ export const completeSyntheticTurn = authMutation({
       model?: Doc<"messages">["model"];
       beforeSha?: string;
       afterSha?: string;
+      beforeShas?: Array<{ path: string; sha: string }>;
+      afterShas?: Array<{ path: string; sha: string }>;
     } = {
       content: args.success
         ? args.result || "I couldn't process your message."
@@ -1586,6 +1596,10 @@ export const completeSyntheticTurn = authMutation({
     if (args.beforeSha !== undefined && args.afterSha !== undefined) {
       patch.beforeSha = args.beforeSha;
       patch.afterSha = args.afterSha;
+    }
+    if (args.beforeShas !== undefined && args.afterShas !== undefined) {
+      patch.beforeShas = args.beforeShas;
+      patch.afterShas = args.afterShas;
     }
     // Drops the open-time stamp so a failed turn never becomes a checkpoint.
     if (!args.success) {
@@ -1722,6 +1736,8 @@ export const handleCompletion = authMutation({
         pendingQuestion: args.pendingQuestion,
         beforeSha: args.beforeSha,
         afterSha: args.afterSha,
+        beforeShas: args.beforeShas,
+        afterShas: args.afterShas,
       },
     );
 

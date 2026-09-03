@@ -1526,17 +1526,38 @@ export const performForcePushBranch = internalAction({
     repoOwner: v.string(),
     repoName: v.string(),
     branchName: v.string(),
+    /** When set, force-push this linked repo's clone instead of the primary. */
+    sessionRepoId: v.optional(v.id("sessionRepos")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
     try {
       const sandbox = await getSandboxHandle(ctx, args.repoId, args.sandboxId);
-      await forcePushBranchToOrigin(
-        sandbox,
-        args.repoOwner,
-        args.repoName,
-        args.branchName,
-      );
+      let owner = args.repoOwner;
+      let name = args.repoName;
+      let branchName = args.branchName;
+      let workspaceDir: string | undefined;
+      if (args.sessionRepoId !== undefined) {
+        const linkedRepos = await ctx.runQuery(
+          internal.sessions.listLinkedReposInternal,
+          { sessionId: args.sessionId },
+        );
+        const linkedRepo = linkedRepos.find(
+          (row) => row._id === args.sessionRepoId,
+        );
+        if (!linkedRepo) {
+          throw new Error(
+            `Linked repo ${args.sessionRepoId} not found for force-push`,
+          );
+        }
+        owner = linkedRepo.owner;
+        name = linkedRepo.name;
+        branchName = linkedRepo.branchName;
+        workspaceDir = linkedRepo.path;
+      }
+      await forcePushBranchToOrigin(sandbox, owner, name, branchName, {
+        workspaceDir,
+      });
       await ctx.runMutation(internal.sessionWorkflow.postSystemAlert, {
         sessionId: args.sessionId,
         content: "Force-pushed session branch to GitHub",

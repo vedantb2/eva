@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import type { GenericDatabaseReader, StorageReader } from "convex/server";
+import { internalQuery } from "./_generated/server";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
 import { authMutation, authQuery, hasRepoAccess } from "./functions";
 import { userCanAccessRepo } from "./_githubRepos/helpers";
@@ -245,56 +246,77 @@ export const remove = authMutation({
 
 /**
  * Groups the caller created plus those belonging to their teams, each with its
- * member repos resolved so the picker needs no second query.
+ * member repos resolved so the picker needs no second query. Shared by the
+ * app's `listMine` and MCP's `listForUserInternal` so the access rule and the
+ * resolved shape have one home.
  */
+async function loadGroupsForUser(
+  db: GenericDatabaseReader<DataModel>,
+  storage: StorageReader,
+  userId: Id<"users">,
+) {
+  const memberships = await db
+    .query("teamMembers")
+    .withIndex("by_user", (q) => q.eq("userId", userId))
+    .collect();
+  const groupLists = await Promise.all([
+    db
+      .query("repoGroups")
+      .withIndex("by_created_by", (q) => q.eq("createdBy", userId))
+      .collect(),
+    ...memberships.map((membership) =>
+      db
+        .query("repoGroups")
+        .withIndex("by_team", (q) => q.eq("teamId", membership.teamId))
+        .collect(),
+    ),
+  ]);
+
+  const seen = new Set<string>();
+  const groups: Array<Doc<"repoGroups">> = [];
+  for (const group of groupLists.flat()) {
+    if (seen.has(String(group._id))) continue;
+    seen.add(String(group._id));
+    groups.push(group);
+  }
+
+  return await Promise.all(
+    groups.map(async (group) => {
+      const primaryDoc = await db.get(group.primaryRepoId);
+      const linkedDocs = await Promise.all(
+        group.linkedRepoIds.map((repoId) => db.get(repoId)),
+      );
+      return {
+        ...group,
+        primaryRepo: primaryDoc ? await toRepoSummary(storage, primaryDoc) : null,
+        linkedRepos: await Promise.all(
+          linkedDocs
+            .filter((repo): repo is Doc<"githubRepos"> => repo !== null)
+            .map((repo) => toRepoSummary(storage, repo)),
+        ),
+      };
+    }),
+  );
+}
+
 export const listMine = authQuery({
   args: {},
   returns: v.array(repoGroupWithMembersValidator),
-  handler: async (ctx) => {
-    const memberships = await ctx.db
-      .query("teamMembers")
-      .withIndex("by_user", (q) => q.eq("userId", ctx.userId))
-      .collect();
-    const groupLists = await Promise.all([
-      ctx.db
-        .query("repoGroups")
-        .withIndex("by_created_by", (q) => q.eq("createdBy", ctx.userId))
-        .collect(),
-      ...memberships.map((membership) =>
-        ctx.db
-          .query("repoGroups")
-          .withIndex("by_team", (q) => q.eq("teamId", membership.teamId))
-          .collect(),
-      ),
-    ]);
+  handler: async (ctx) => await loadGroupsForUser(ctx.db, ctx.storage, ctx.userId),
+});
 
-    const seen = new Set<string>();
-    const groups: Array<Doc<"repoGroups">> = [];
-    for (const group of groupLists.flat()) {
-      if (seen.has(String(group._id))) continue;
-      seen.add(String(group._id));
-      groups.push(group);
-    }
-
-    return await Promise.all(
-      groups.map(async (group) => {
-        const primaryDoc = await ctx.db.get(group.primaryRepoId);
-        const linkedDocs = await Promise.all(
-          group.linkedRepoIds.map((repoId) => ctx.db.get(repoId)),
-        );
-        return {
-          ...group,
-          primaryRepo: primaryDoc
-            ? await toRepoSummary(ctx.storage, primaryDoc)
-            : null,
-          linkedRepos: await Promise.all(
-            linkedDocs
-              .filter((repo): repo is Doc<"githubRepos"> => repo !== null)
-              .map((repo) => toRepoSummary(ctx.storage, repo)),
-          ),
-        };
-      }),
-    );
+/**
+ * Same groups as `listMine`, for the `list_repos` MCP tool. Takes a plain
+ * string since the MCP action layer only ever holds an untyped user id parsed
+ * off a JSON response.
+ */
+export const listForUserInternal = internalQuery({
+  args: { userId: v.string() },
+  returns: v.array(repoGroupWithMembersValidator),
+  handler: async (ctx, args) => {
+    const userId = ctx.db.normalizeId("users", args.userId);
+    if (!userId) return [];
+    return await loadGroupsForUser(ctx.db, ctx.storage, userId);
   },
 });
 

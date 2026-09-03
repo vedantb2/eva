@@ -329,6 +329,26 @@ export const listRepoIdsByOwnerAndName = internalQuery({
   },
 });
 
+/**
+ * Internal: the GitHub App installation id for a repo, by owner/name. Used by
+ * `/api/git-credentials` to check whether the requesting sandbox's allow-list
+ * covers the repo it is authenticating for. Monorepo sibling app rows share
+ * one GitHub repo, so the first match's installation applies to all of them.
+ */
+export const getInstallationIdByOwnerAndName = internalQuery({
+  args: { owner: v.string(), name: v.string() },
+  returns: v.union(v.number(), v.null()),
+  handler: async (ctx, args) => {
+    const repo = await ctx.db
+      .query("githubRepos")
+      .withIndex("by_owner_and_name", (q) =>
+        q.eq("owner", args.owner).eq("name", args.name),
+      )
+      .first();
+    return repo ? repo.installationId : null;
+  },
+});
+
 /** Lists sibling monorepo sub-apps for a given repo entry. */
 export const listSiblingApps = authQuery({
   args: { repoId: v.id("githubRepos") },

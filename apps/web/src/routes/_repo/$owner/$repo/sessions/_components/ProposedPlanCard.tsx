@@ -1,13 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   Badge,
   Button,
   cn,
   MessageResponse,
 } from "@eva/ui";
-import { IconCheck, IconCode, IconCopy, IconDownload } from "@tabler/icons-react";
+import {
+  IconCheck,
+  IconCode,
+  IconCopy,
+  IconDownload,
+  IconFileExport,
+  IconPencil,
+  IconX,
+} from "@tabler/icons-react";
+import { MarkdownEditor } from "@/lib/components/editor/MarkdownEditor";
 import {
   buildCollapsedProposedPlanPreviewMarkdown,
   buildProposedPlanMarkdownFilename,
@@ -22,6 +31,11 @@ export function ProposedPlanCard({
   implemented,
   onImplement,
   onImplementInNewSession,
+  onSave,
+  onSaveAsDocument,
+  saveAsDocumentLabel = "Save as Document",
+  isSaving,
+  isSavingDoc,
   isArchived,
   className,
 }: {
@@ -29,19 +43,28 @@ export function ProposedPlanCard({
   implemented: boolean;
   onImplement?: () => void;
   onImplementInNewSession?: () => void;
+  onSave?: (markdown: string) => Promise<void>;
+  onSaveAsDocument?: () => void;
+  saveAsDocumentLabel?: string;
+  isSaving?: boolean;
+  isSavingDoc?: boolean;
   isArchived?: boolean;
   className?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editKey, setEditKey] = useState(0);
+  const getMarkdownRef = useRef<() => string | null>(() => null);
   const title = proposedPlanTitle(planMarkdown) ?? "Proposed plan";
   const lineCount = planMarkdown.split("\n").length;
-  const canCollapse = planMarkdown.length > 900 || lineCount > 20;
+  const canCollapse = !editing && (planMarkdown.length > 900 || lineCount > 20);
   const displayed = stripDisplayedPlanMarkdown(planMarkdown);
   const collapsedPreview = canCollapse
     ? buildCollapsedProposedPlanPreviewMarkdown(planMarkdown, { maxLines: 10 })
     : null;
   const exportContents = normalizePlanMarkdownForExport(planMarkdown);
+  const canEdit = onSave !== undefined && !isArchived;
 
   const handleCopy = async () => {
     await navigator.clipboard.writeText(exportContents);
@@ -54,6 +77,28 @@ export function ProposedPlanCard({
       buildProposedPlanMarkdownFilename(planMarkdown),
       exportContents,
     );
+  };
+
+  const handleStartEdit = () => {
+    setEditing(true);
+    setExpanded(true);
+    setEditKey((key) => key + 1);
+  };
+
+  const handleCancelEdit = () => {
+    setEditing(false);
+  };
+
+  const handleSave = async () => {
+    if (!onSave) return;
+    const markdown = getMarkdownRef.current();
+    if (markdown === null) return;
+    try {
+      await onSave(markdown);
+      setEditing(false);
+    } catch {
+      return;
+    }
   };
 
   return (
@@ -99,46 +144,107 @@ export function ProposedPlanCard({
         </div>
       </div>
       <div className="mt-4">
-        <div className={cn("relative", canCollapse && !expanded && "max-h-64 overflow-hidden")}>
-          <div className={cn(canCollapse && !expanded && "max-h-64 overflow-hidden")}>
-            <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
-              {canCollapse && !expanded ? (collapsedPreview ?? "") : displayed}
-            </MessageResponse>
-          </div>
-          {canCollapse && !expanded ? (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-card via-card/80 to-transparent" />
-          ) : null}
-        </div>
-        {canCollapse ? (
-          <div className="mt-3 flex justify-center">
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setExpanded((value) => !value)}
+        {editing ? (
+          <MarkdownEditor
+            key={editKey}
+            initialMarkdown={planMarkdown}
+            onEditorReady={(getMarkdown) => {
+              getMarkdownRef.current = getMarkdown;
+            }}
+          />
+        ) : (
+          <>
+            <div
+              className={cn(
+                "relative",
+                canCollapse && !expanded && "max-h-64 overflow-hidden",
+              )}
             >
-              {expanded ? "Collapse plan" : "Expand plan"}
-            </Button>
-          </div>
-        ) : null}
+              <div
+                className={cn(
+                  canCollapse && !expanded && "max-h-64 overflow-hidden",
+                )}
+              >
+                <MessageResponse className="prose prose-sm dark:prose-invert max-w-none">
+                  {canCollapse && !expanded ? (collapsedPreview ?? "") : displayed}
+                </MessageResponse>
+              </div>
+              {canCollapse && !expanded ? (
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-linear-to-t from-card via-card/80 to-transparent" />
+              ) : null}
+            </div>
+            {canCollapse ? (
+              <div className="mt-3 flex justify-center">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setExpanded((value) => !value)}
+                >
+                  {expanded ? "Collapse plan" : "Expand plan"}
+                </Button>
+              </div>
+            ) : null}
+          </>
+        )}
       </div>
-      {!implemented && !isArchived && (onImplement || onImplementInNewSession) ? (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {onImplement ? (
+      {editing ||
+      canEdit ||
+      (onSaveAsDocument !== undefined && !isArchived) ||
+      (!implemented && !isArchived && (onImplement || onImplementInNewSession)) ? (
+      <div className="mt-4 flex flex-wrap gap-2">
+        {editing ? (
+          <>
             <Button
               size="sm"
-              className="bg-success text-success-foreground hover:bg-success/90"
-              onClick={onImplement}
+              variant="secondary"
+              disabled={isSaving}
+              onClick={handleCancelEdit}
             >
-              <IconCode className="size-3.5" />
-              Implement
+              <IconX className="size-3.5" />
+              Cancel
             </Button>
-          ) : null}
-          {onImplementInNewSession ? (
-            <Button size="sm" variant="secondary" onClick={onImplementInNewSession}>
-              Implement in new session
+            <Button size="sm" disabled={isSaving} onClick={() => void handleSave()}>
+              <IconCheck className="size-3.5" />
+              Save
             </Button>
-          ) : null}
-        </div>
+          </>
+        ) : (
+          <>
+            {canEdit ? (
+              <Button size="sm" variant="secondary" onClick={handleStartEdit}>
+                <IconPencil className="size-3.5" />
+                Edit
+              </Button>
+            ) : null}
+            {onSaveAsDocument && !isArchived ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={isSavingDoc}
+                onClick={onSaveAsDocument}
+              >
+                <IconFileExport className="size-3.5" />
+                {saveAsDocumentLabel}
+              </Button>
+            ) : null}
+            {!implemented && !isArchived && onImplement ? (
+              <Button
+                size="sm"
+                className="bg-success text-success-foreground hover:bg-success/90"
+                onClick={onImplement}
+              >
+                <IconCode className="size-3.5" />
+                Implement
+              </Button>
+            ) : null}
+            {!implemented && !isArchived && onImplementInNewSession ? (
+              <Button size="sm" variant="secondary" onClick={onImplementInNewSession}>
+                Implement in new session
+              </Button>
+            ) : null}
+          </>
+        )}
+      </div>
       ) : null}
     </div>
   );

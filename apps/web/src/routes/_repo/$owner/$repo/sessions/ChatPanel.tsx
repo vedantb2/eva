@@ -40,6 +40,7 @@ import { getSessionReadOnlyMessage } from "./_utils/sessionReadOnly";
 import { ProposedPlanCard } from "./_components/ProposedPlanCard";
 import { proposedPlanForMessage } from "./_components/proposedPlanLogic";
 import { useSessionPlanImplementation } from "./_components/useSessionPlanImplementation";
+import { useSessionPlanDocument } from "./_components/useSessionPlanDocument";
 
 type QueuedSessionMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
@@ -194,6 +195,13 @@ export function ChatPanel({
       sessionId,
       handleSend,
     });
+  const {
+    savePlan,
+    saveAsDocument,
+    saveAsDocumentLabel,
+    isSaving,
+    isSavingDoc,
+  } = useSessionPlanDocument(sessionId);
   const chatSurface: SandboxChatSurface = {
     entity: { kind: "session", sessionId },
     repoId: repo._id,
@@ -403,6 +411,11 @@ export function ChatPanel({
                     ? undefined
                     : () => void implementInNewSession(plan.planMarkdown, plan)
                 }
+                onSave={isReadOnly ? undefined : savePlan}
+                onSaveAsDocument={isReadOnly ? undefined : saveAsDocument}
+                saveAsDocumentLabel={saveAsDocumentLabel}
+                isSaving={isSaving}
+                isSavingDoc={isSavingDoc}
                 isArchived={isReadOnly}
               />
             );
@@ -426,6 +439,11 @@ export function ChatPanel({
                     ? undefined
                     : () => void implementInNewSession(planContentMarkdown)
                 }
+                onSave={isReadOnly ? undefined : savePlan}
+                onSaveAsDocument={isReadOnly ? undefined : saveAsDocument}
+                saveAsDocumentLabel={saveAsDocumentLabel}
+                isSaving={isSaving}
+                isSavingDoc={isSavingDoc}
                 isArchived={isReadOnly}
               />
             );

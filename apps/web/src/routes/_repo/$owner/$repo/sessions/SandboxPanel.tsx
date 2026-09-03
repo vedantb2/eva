@@ -13,6 +13,7 @@ import { SandboxTabBar } from "./_components/SandboxTabBar";
 import { SandboxAgentsPanel } from "@/lib/components/sandbox/SandboxAgentsPanel";
 import { ProposedPlanCard } from "./_components/ProposedPlanCard";
 import { useSessionPlanImplementation } from "./_components/useSessionPlanImplementation";
+import { useSessionPlanDocument } from "./_components/useSessionPlanDocument";
 import type { ProposedPlanRow } from "./_components/proposedPlanLogic";
 import { DesignVariationsPanel } from "./_components/DesignVariationsPanel";
 import { FilesPanel } from "./FilesPanel";
@@ -114,6 +115,13 @@ export function SandboxPanel({
         void seedChatDraft(content);
       },
     });
+  const {
+    savePlan,
+    saveAsDocument,
+    saveAsDocumentLabel,
+    isSaving,
+    isSavingDoc,
+  } = useSessionPlanDocument(sessionId);
   const latestVariations = getLatestVariations(messages);
   // Both tabs are content-keyed: they appear once the session has produced the
   // artefact they show, whatever prompt or skill produced it.
@@ -240,6 +248,11 @@ export function SandboxPanel({
                           capturedPlan ?? undefined,
                         )
                 }
+                onSave={isArchived ? undefined : savePlan}
+                onSaveAsDocument={isArchived ? undefined : saveAsDocument}
+                saveAsDocumentLabel={saveAsDocumentLabel}
+                isSaving={isSaving}
+                isSavingDoc={isSavingDoc}
                 isArchived={isArchived}
               />
             </div>

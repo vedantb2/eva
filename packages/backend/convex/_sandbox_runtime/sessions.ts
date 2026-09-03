@@ -16,6 +16,7 @@ import {
   errorMessage,
   sleep,
   workspaceDirShell,
+  WORKSPACE_DIR,
 } from "./helpers";
 import {
   setupBranch,
@@ -41,7 +42,10 @@ import {
   installPythonDependenciesBestEffort,
   startSessionServices,
 } from "./devServer";
-import { launchDevServerInVercelConsole } from "../_pty/launchDevServerInVercelConsole";
+import {
+  launchDevServerInVercelConsole,
+  launchLinkedRepoDevServerInVercelConsole,
+} from "../_pty/launchDevServerInVercelConsole";
 import { runStartupCommandsDirect } from "./execution";
 import { resolveVercelConsoleDevCommand } from "./vercelAppPorts";
 import type { GenericActionCtx } from "convex/server";
@@ -54,6 +58,12 @@ import { startDesktopWithChrome } from "./desktop";
  *
  * Eva launches `exec next|vite -p <listen>` so customer package.json `-p`
  * flags cannot bind the wrong port. Proxy owns 3000.
+ *
+ * `dir` defaults to the primary repo's workspace root; only the primary uses
+ * this path (framework auto-detection assumes `rootDir` is relative to it).
+ * A linked repo's dev server goes through
+ * `launchLinkedRepoDevServerInVercelConsole` instead, which skips detection
+ * entirely — linked repos always have an explicit `devCommand`.
  */
 export async function launchPreviewDevServer(
   handle: SandboxHandle,
@@ -61,6 +71,7 @@ export async function launchPreviewDevServer(
   devCommand: string,
   devPort: number,
   rootDir: string,
+  dir: string = WORKSPACE_DIR,
 ): Promise<void> {
   const resolved = await resolveVercelConsoleDevCommand(
     handle,
@@ -73,6 +84,7 @@ export async function launchPreviewDevServer(
     ownerKey,
     resolved.devCommand,
     resolved.listenPort,
+    dir,
   );
 }
 
@@ -1027,7 +1039,11 @@ async function prepareSessionSandboxInternal(
   const { sandboxEnvVars, snapshotName, image } = await runLoggedSessionStep(
     "resolveSessionSandboxContext",
     actionDetails,
-    () => resolveSandboxContext(ctx, args.repoId, { isOrchestrator }),
+    () =>
+      resolveSandboxContext(ctx, args.repoId, {
+        isOrchestrator,
+        repoGroupId: launchSession?.repoGroupId,
+      }),
   );
 
   if (reuseId) {

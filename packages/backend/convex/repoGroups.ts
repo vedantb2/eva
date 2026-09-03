@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import type { GenericDatabaseReader, StorageReader } from "convex/server";
 import { internalQuery } from "./_generated/server";
+import { internal } from "./_generated/api";
 import type { DataModel, Doc, Id } from "./_generated/dataModel";
 import { authMutation, authQuery, hasRepoAccess } from "./functions";
 import { userCanAccessRepo } from "./_githubRepos/helpers";
@@ -9,6 +10,19 @@ import {
   validateRepoGroupMembers,
   type RepoGroupMember,
 } from "./_repoGroups/validate";
+
+// Group seeded snapshots: fingerprint + isolate queries/mutations live in
+// `_repoGroups/snapshot.ts` (underscore-prefixed, excluded from Convex's
+// function discovery) and are re-exported here so they register under
+// `internal.repoGroups.*`, mirroring `_repoSnapshots/config.ts` → `repoSnapshots.ts`.
+export {
+  getGroupForBuild,
+  setGroupSeededSnapshot,
+  getGroupSnapshotForBoot,
+  listGroupsByPrimaryRepo,
+  listAllGroupSnapshotNames,
+  scheduleGroupRebuild,
+} from "./_repoGroups/snapshot";
 
 /**
  * Saved codebase groups: one primary repo plus the linked repos that should be
@@ -162,7 +176,7 @@ export const create = authMutation({
     );
     assertValidRepoGroupMembers(primary, linked);
 
-    return await ctx.db.insert("repoGroups", {
+    const groupId = await ctx.db.insert("repoGroups", {
       name,
       createdBy: ctx.userId,
       // Teammates of the primary repo's team see (and may use) the group.
@@ -174,6 +188,14 @@ export const create = authMutation({
         : {}),
       createdAt: Date.now(),
     });
+    // Best-effort background build — a no-op until the primary has its own
+    // seeded snapshot to boot from (buildGroupSnapshot checks and skips).
+    await ctx.scheduler.runAfter(
+      0,
+      internal.repoGroupsActions.buildGroupSnapshot,
+      { groupId },
+    );
+    return groupId;
   },
 });
 
@@ -196,6 +218,10 @@ export const update = authMutation({
       seededFingerprint?: undefined;
       updatedAt: number;
     } = { updatedAt: Date.now() };
+    // A seeded snapshot is only valid for the exact inputs it was built from —
+    // track whether anything the fingerprint covers actually changed so a
+    // rebuild is scheduled only when needed, not on every rename.
+    let inputsChanged = false;
 
     if (args.name !== undefined) {
       const name = args.name.trim();
@@ -216,19 +242,28 @@ export const update = authMutation({
       );
       assertValidRepoGroupMembers(primary, linked);
       patch.linkedRepoIds = args.linkedRepoIds;
-      // A seeded snapshot is only valid for the exact membership it was built
-      // from, so a changed group must build a new one.
       if (!sameMembership(group.linkedRepoIds, args.linkedRepoIds)) {
         patch.seededSnapshotName = undefined;
         patch.seededFingerprint = undefined;
+        inputsChanged = true;
       }
     }
 
     if (args.installDependencies !== undefined) {
       patch.installDependencies = args.installDependencies;
+      if ((group.installDependencies !== false) !== (args.installDependencies !== false)) {
+        inputsChanged = true;
+      }
     }
 
     await ctx.db.patch(args.id, patch);
+    if (inputsChanged) {
+      await ctx.scheduler.runAfter(
+        0,
+        internal.repoGroupsActions.buildGroupSnapshot,
+        { groupId: args.id },
+      );
+    }
     return null;
   },
 });
@@ -238,8 +273,34 @@ export const remove = authMutation({
   args: { id: v.id("repoGroups") },
   returns: v.null(),
   handler: async (ctx, args) => {
-    await getGroupWithAccess(ctx.db, args.id, ctx.userId);
+    const group = await getGroupWithAccess(ctx.db, args.id, ctx.userId);
+    if (group.seededSnapshotName) {
+      // Best-effort: `deleteSeededSnapshot` never throws on its own failures.
+      await ctx.scheduler.runAfter(
+        0,
+        internal.snapshotActions.deleteSeededSnapshot,
+        {
+          snapshotName: group.seededSnapshotName,
+          repoId: group.primaryRepoId,
+        },
+      );
+    }
     await ctx.db.delete(args.id);
+    return null;
+  },
+});
+
+/** Rebuilds a group's seeded snapshot on demand (e.g. after a manual retry). */
+export const rebuildSnapshot = authMutation({
+  args: { id: v.id("repoGroups") },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await getGroupWithAccess(ctx.db, args.id, ctx.userId);
+    await ctx.scheduler.runAfter(
+      0,
+      internal.repoGroupsActions.buildGroupSnapshot,
+      { groupId: args.id },
+    );
     return null;
   },
 });

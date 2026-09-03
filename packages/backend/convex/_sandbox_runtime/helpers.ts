@@ -540,6 +540,13 @@ export async function resolveSandboxContext(
   opts?: {
     /** Orchestrator sessions boot from the managed image, not a repo snapshot. */
     isOrchestrator?: boolean;
+    /**
+     * A multi-repo session's saved codebase group. When its seeded snapshot
+     * (primary + linked repos, deps installed) is still current for this
+     * primary repo, boot from it instead of the plain per-repo snapshot — see
+     * `getGroupSnapshotForBoot`.
+     */
+    repoGroupId?: Id<"repoGroups">;
   },
 ): Promise<{
   client: SandboxClient;
@@ -561,9 +568,16 @@ export async function resolveSandboxContext(
     : await ctx.runQuery(internal.repoSnapshots.getRepoSnapshotName, {
         repoId,
       });
-  const snapshotName = repoSnapshot?.snapshotName;
+  let snapshotName = repoSnapshot?.snapshotName;
+  if (!isOrchestrator && opts?.repoGroupId) {
+    const groupSnapshotName = await ctx.runQuery(
+      internal.repoGroups.getGroupSnapshotForBoot,
+      { groupId: opts.repoGroupId },
+    );
+    if (groupSnapshotName) snapshotName = groupSnapshotName;
+  }
   console.log(
-    `[sandbox] resolveSandboxContext repoId=${repoId} kind=${client.kind} orchestrator=${isOrchestrator} elapsed=${Date.now() - startedAt}ms`,
+    `[sandbox] resolveSandboxContext repoId=${repoId} kind=${client.kind} orchestrator=${isOrchestrator} repoGroupId=${opts?.repoGroupId ?? "none"} elapsed=${Date.now() - startedAt}ms`,
   );
   return {
     client,

@@ -237,6 +237,11 @@ export function buildTerminalHistoryKey(
   return `eva:terminal-history:${owner.kind}:${ownerId}:${sandboxId}:${ptyInstanceId}`;
 }
 
+/** One row from `sessions.listRepos` — the primary repo or a linked clone. */
+export type SessionRepoListItem = FunctionReturnType<
+  typeof api.sessions.listRepos
+>[number];
+
 // --- CodebasesPicker (multi-repo sessions) ------------------------------
 
 export type CodebaseRepoRow = FunctionReturnType<

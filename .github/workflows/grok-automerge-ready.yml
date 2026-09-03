@@ -1,0 +1,32 @@
+# Secrets required (add in GitHub Settings → Secrets):
+#   GROK_BOT_WEBHOOK_URL — Grok Bot webhook routine POST URL
+#   GROK_BOT_WEBHOOK_KEY — sender key used as Bearer token
+
+name: Wake Grok Automerge
+
+on:
+  pull_request:
+    types: [ready_for_review]
+
+jobs:
+  notify:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Send ready_for_review webhook
+        run: |
+          echo "Sending ready_for_review webhook for PR #${{ github.event.pull_request.number }}..."
+          curl -f -X POST "${{ secrets.GROK_BOT_WEBHOOK_URL }}" \
+            -H "Authorization: Bearer ${{ secrets.GROK_BOT_WEBHOOK_KEY }}" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "event": "ready_for_review",
+              "repo": "${{ github.repository }}",
+              "pr": ${{ github.event.pull_request.number }},
+              "title": ${{ toJSON(github.event.pull_request.title) }},
+              "html_url": "${{ github.event.pull_request.html_url }}",
+              "draft": false
+            }'
+          echo "Webhook sent successfully."

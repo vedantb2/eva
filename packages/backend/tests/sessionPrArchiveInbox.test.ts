@@ -75,7 +75,7 @@ describe("session PR archive inbox copy", () => {
     expect(
       sessionPrArchiveNotificationCopy({
         sessionTitle: SESSION_TITLE,
-        prs: [{ url: PR_URL, merged: false }],
+        prs: [{ url: PR_URL, prNumber: 664, merged: false }],
       }),
     ).toEqual({
       title: `PR #664 closed — "${SESSION_TITLE}" archived`,

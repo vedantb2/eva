@@ -43,6 +43,7 @@ import {
   evalIssueValidator,
   experimentalFlagsValidator,
   logEntryValidator,
+  repoShaValidator,
   terminalPaneValidator,
   usageLimitWindowValidator,
   userFlowValidator,
@@ -852,12 +853,6 @@ export const logFields = {
   createdAt: v.number(),
   ...logUsageFields,
 };
-
-/** Git HEAD of one checked-out repo, keyed by its sandbox path. */
-export const repoShaValidator = v.object({
-  path: v.string(),
-  sha: v.string(),
-});
 
 export const messageFields = {
   role: roleValidator,

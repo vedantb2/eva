@@ -1,6 +1,6 @@
 "use node";
 
-import { v } from "convex/values";
+import { v, type Infer } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { createClerkClient } from "@clerk/backend";
 import { jwtVerify, SignJWT, importJWK } from "jose";
@@ -23,6 +23,7 @@ import {
 } from "./orchestratorDelivery";
 import { TASK_CHAT_STREAM_PREFIX } from "../_chat/surfaceAdapters";
 import { normalizeAIModel, prStateValidator } from "../validators";
+import type { McpLinkedRepo } from "./queries";
 import { formatConvexQueryError } from "./convexQueryLimits";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1441,6 +1442,50 @@ export const orchestratorListAgents = internalAction({
   },
 });
 
+/**
+ * `get_agent_state`'s result. Named (rather than inline) so the handler can be
+ * annotated with its own shape: an action's registered type comes from the
+ * handler's *inferred* return type, so a handler that reads back through
+ * `internal` — as the session branch does for its linked repos — would
+ * otherwise make `internal` depend on itself.
+ */
+const orchestratorAgentStateValidator = v.object({
+  kind: agentKindValidator,
+  id: v.string(),
+  numId: v.optional(v.number()),
+  title: v.string(),
+  status: v.string(),
+  isExecuting: v.boolean(),
+  model: v.optional(v.string()),
+  updatedAt: v.number(),
+  deploymentUrl: v.optional(v.string()),
+  deploymentStatus: v.optional(v.string()),
+  currentActivity: v.optional(v.string()),
+  currentContent: v.optional(v.string()),
+  pendingQuestion: v.optional(v.string()),
+  queuedMessageCount: v.number(),
+  transcript: v.array(
+    v.object({
+      role: v.string(),
+      content: v.string(),
+      timestamp: v.number(),
+      truncated: v.boolean(),
+    }),
+  ),
+  /** Sessions only, and only when it has linked repos beside its primary. */
+  linkedRepos: v.optional(
+    v.array(
+      v.object({
+        repo: v.string(),
+        path: v.string(),
+        branch: v.string(),
+        prUrl: v.optional(v.string()),
+        prState: v.optional(prStateValidator),
+      }),
+    ),
+  ),
+});
+
 export const orchestratorGetAgentState = internalAction({
   args: {
     clerkUserId: v.string(),
@@ -1448,43 +1493,11 @@ export const orchestratorGetAgentState = internalAction({
     id: v.string(),
     transcriptTail: v.number(),
   },
-  returns: v.object({
-    kind: agentKindValidator,
-    id: v.string(),
-    numId: v.optional(v.number()),
-    title: v.string(),
-    status: v.string(),
-    isExecuting: v.boolean(),
-    model: v.optional(v.string()),
-    updatedAt: v.number(),
-    deploymentUrl: v.optional(v.string()),
-    deploymentStatus: v.optional(v.string()),
-    currentActivity: v.optional(v.string()),
-    currentContent: v.optional(v.string()),
-    pendingQuestion: v.optional(v.string()),
-    queuedMessageCount: v.number(),
-    transcript: v.array(
-      v.object({
-        role: v.string(),
-        content: v.string(),
-        timestamp: v.number(),
-        truncated: v.boolean(),
-      }),
-    ),
-    /** Sessions only, and only when it has linked repos beside its primary. */
-    linkedRepos: v.optional(
-      v.array(
-        v.object({
-          repo: v.string(),
-          path: v.string(),
-          branch: v.string(),
-          prUrl: v.optional(v.string()),
-          prState: v.optional(prStateValidator),
-        }),
-      ),
-    ),
-  }),
-  handler: async (ctx, { clerkUserId, kind, id, transcriptTail }) => {
+  returns: orchestratorAgentStateValidator,
+  handler: async (
+    ctx,
+    { clerkUserId, kind, id, transcriptTail },
+  ): Promise<Infer<typeof orchestratorAgentStateValidator>> => {
     const convexUrl = getEvaConvexCloudUrl();
     const streamingEntityId =
       kind === "session" ? id : `${TASK_CHAT_STREAM_PREFIX}${id}`;
@@ -1538,7 +1551,7 @@ export const orchestratorGetAgentState = internalAction({
 
     if (kind === "session") {
       const session = sessionDocSchema.parse(rawDoc);
-      const linkedRepos =
+      const linkedRepos: McpLinkedRepo[] | undefined =
         session.linkedRepoCount !== undefined && session.linkedRepoCount > 0
           ? await ctx.runQuery(internal.mcp.queries.sessionLinkedRepos, {
               sessionId: id,
@@ -2046,7 +2059,7 @@ export const orchestratorCreateSession = internalAction({
       created.sessionId,
       masterSessionId,
     );
-    const linkedRepos = await ctx.runQuery(
+    const linkedRepos: McpLinkedRepo[] = await ctx.runQuery(
       internal.mcp.queries.sessionLinkedRepos,
       { sessionId: created.sessionId },
     );

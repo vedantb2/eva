@@ -926,13 +926,15 @@ export const getLiveOrchestratorSessionIdForUser = internalQuery({
 });
 
 /** One extra repo cloned into a session's sandbox, as reported over MCP. */
-const mcpLinkedRepoValidator = v.object({
+export const mcpLinkedRepoValidator = v.object({
   repo: v.string(),
   path: v.string(),
   branch: v.string(),
   prUrl: v.optional(v.string()),
   prState: v.optional(prStateValidator),
 });
+
+export type McpLinkedRepo = Infer<typeof mcpLinkedRepoValidator>;
 
 /**
  * The linked repos cloned into one session's sandbox beside its primary, for
@@ -943,7 +945,7 @@ const mcpLinkedRepoValidator = v.object({
 export const sessionLinkedRepos = internalQuery({
   args: { sessionId: v.string() },
   returns: v.array(mcpLinkedRepoValidator),
-  handler: async (ctx, { sessionId }) => {
+  handler: async (ctx, { sessionId }): Promise<McpLinkedRepo[]> => {
     const id = ctx.db.normalizeId("sessions", sessionId);
     if (!id) return [];
     const links = await ctx.db

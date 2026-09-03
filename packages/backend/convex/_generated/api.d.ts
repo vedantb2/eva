@@ -134,6 +134,8 @@ import type * as _pty_launchDevServerInVercelConsole from "../_pty/launchDevServ
 import type * as _pty_owners from "../_pty/owners.js";
 import type * as _pty_vercel from "../_pty/vercel.js";
 import type * as _queues_helpers from "../_queues/helpers.js";
+import type * as _repoGroups_snapshot from "../_repoGroups/snapshot.js";
+import type * as _repoGroups_snapshotBuild from "../_repoGroups/snapshotBuild.js";
 import type * as _repoGroups_validate from "../_repoGroups/validate.js";
 import type * as _repoSkills_content from "../_repoSkills/content.js";
 import type * as _repoSkills_decodeGitHubContent from "../_repoSkills/decodeGitHubContent.js";
@@ -168,6 +170,7 @@ import type * as _sandbox_runtime_daemonPaths from "../_sandbox_runtime/daemonPa
 import type * as _sandbox_runtime_desktop from "../_sandbox_runtime/desktop.js";
 import type * as _sandbox_runtime_devServer from "../_sandbox_runtime/devServer.js";
 import type * as _sandbox_runtime_divergedPublish from "../_sandbox_runtime/divergedPublish.js";
+import type * as _sandbox_runtime_envFile from "../_sandbox_runtime/envFile.js";
 import type * as _sandbox_runtime_execution from "../_sandbox_runtime/execution.js";
 import type * as _sandbox_runtime_git from "../_sandbox_runtime/git.js";
 import type * as _sandbox_runtime_gitCredentials from "../_sandbox_runtime/gitCredentials.js";
@@ -175,6 +178,9 @@ import type * as _sandbox_runtime_gitCredentialsPath from "../_sandbox_runtime/g
 import type * as _sandbox_runtime_helpers from "../_sandbox_runtime/helpers.js";
 import type * as _sandbox_runtime_launch from "../_sandbox_runtime/launch.js";
 import type * as _sandbox_runtime_lifecycle from "../_sandbox_runtime/lifecycle.js";
+import type * as _sandbox_runtime_linkedRepoBranch from "../_sandbox_runtime/linkedRepoBranch.js";
+import type * as _sandbox_runtime_linkedRepos from "../_sandbox_runtime/linkedRepos.js";
+import type * as _sandbox_runtime_linkedReposEnv from "../_sandbox_runtime/linkedReposEnv.js";
 import type * as _sandbox_runtime_prepareSandboxSteps from "../_sandbox_runtime/prepareSandboxSteps.js";
 import type * as _sandbox_runtime_previewProxy from "../_sandbox_runtime/previewProxy.js";
 import type * as _sandbox_runtime_previewRecovery from "../_sandbox_runtime/previewRecovery.js";
@@ -337,6 +343,7 @@ import type * as queuedMessages from "../queuedMessages.js";
 import type * as repoEnvVars from "../repoEnvVars.js";
 import type * as repoEnvVarsActions from "../repoEnvVarsActions.js";
 import type * as repoGroups from "../repoGroups.js";
+import type * as repoGroupsActions from "../repoGroupsActions.js";
 import type * as repoSkills from "../repoSkills.js";
 import type * as repoSnapshots from "../repoSnapshots.js";
 import type * as repoSystemSkills from "../repoSystemSkills.js";
@@ -522,6 +529,8 @@ declare const fullApi: ApiFromModules<{
   "_pty/owners": typeof _pty_owners;
   "_pty/vercel": typeof _pty_vercel;
   "_queues/helpers": typeof _queues_helpers;
+  "_repoGroups/snapshot": typeof _repoGroups_snapshot;
+  "_repoGroups/snapshotBuild": typeof _repoGroups_snapshotBuild;
   "_repoGroups/validate": typeof _repoGroups_validate;
   "_repoSkills/content": typeof _repoSkills_content;
   "_repoSkills/decodeGitHubContent": typeof _repoSkills_decodeGitHubContent;
@@ -556,6 +565,7 @@ declare const fullApi: ApiFromModules<{
   "_sandbox_runtime/desktop": typeof _sandbox_runtime_desktop;
   "_sandbox_runtime/devServer": typeof _sandbox_runtime_devServer;
   "_sandbox_runtime/divergedPublish": typeof _sandbox_runtime_divergedPublish;
+  "_sandbox_runtime/envFile": typeof _sandbox_runtime_envFile;
   "_sandbox_runtime/execution": typeof _sandbox_runtime_execution;
   "_sandbox_runtime/git": typeof _sandbox_runtime_git;
   "_sandbox_runtime/gitCredentials": typeof _sandbox_runtime_gitCredentials;
@@ -563,6 +573,9 @@ declare const fullApi: ApiFromModules<{
   "_sandbox_runtime/helpers": typeof _sandbox_runtime_helpers;
   "_sandbox_runtime/launch": typeof _sandbox_runtime_launch;
   "_sandbox_runtime/lifecycle": typeof _sandbox_runtime_lifecycle;
+  "_sandbox_runtime/linkedRepoBranch": typeof _sandbox_runtime_linkedRepoBranch;
+  "_sandbox_runtime/linkedRepos": typeof _sandbox_runtime_linkedRepos;
+  "_sandbox_runtime/linkedReposEnv": typeof _sandbox_runtime_linkedReposEnv;
   "_sandbox_runtime/prepareSandboxSteps": typeof _sandbox_runtime_prepareSandboxSteps;
   "_sandbox_runtime/previewProxy": typeof _sandbox_runtime_previewProxy;
   "_sandbox_runtime/previewRecovery": typeof _sandbox_runtime_previewRecovery;
@@ -725,6 +738,7 @@ declare const fullApi: ApiFromModules<{
   repoEnvVars: typeof repoEnvVars;
   repoEnvVarsActions: typeof repoEnvVarsActions;
   repoGroups: typeof repoGroups;
+  repoGroupsActions: typeof repoGroupsActions;
   repoSkills: typeof repoSkills;
   repoSnapshots: typeof repoSnapshots;
   repoSystemSkills: typeof repoSystemSkills;

@@ -9,7 +9,12 @@ import {
   radiusValidator,
   roleValidator,
 } from "./enums";
-import { repoShaValidator } from "./tableFields";
+
+/** Git HEAD of one checked-out repo, keyed by its sandbox path. */
+export const repoShaValidator = v.object({
+  path: v.string(),
+  sha: v.string(),
+});
 
 /**
  * Turn checkpoint shas the sandbox callback stamps on every completion it posts

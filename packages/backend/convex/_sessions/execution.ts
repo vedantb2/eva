@@ -13,6 +13,7 @@ import {
 import { trackSessionWorkflow } from "../workflowWatchdog";
 import { clearStreamingActivity } from "../_taskWorkflow/helpers";
 import { finalizeCancelledAssistantMessage } from "../streaming";
+import { finalizeOpenSyntheticTurnOnCancel } from "../_chat/chatResult";
 import { syncSessionDaemonState } from "./daemonState";
 import { startNextQueuedSessionMessage } from "../_queues/helpers";
 import { buildSessionPrompt, sessionTurnTools } from "./workflow";
@@ -30,18 +31,6 @@ import {
   countStallAlertsAfterLastUser,
   shouldRetryEmptyStall,
 } from "../_chat/stallRetry";
-
-async function finalizeOpenSyntheticTurnOnCancel(
-  ctx: MutationCtx,
-  syntheticTurnMessageId: Id<"messages"> | undefined,
-  streaming: Doc<"streamingActivity"> | null,
-): Promise<void> {
-  if (syntheticTurnMessageId === undefined) return;
-  const syntheticMessage = await ctx.db.get(syntheticTurnMessageId);
-  if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
-    await finalizeCancelledAssistantMessage(ctx, syntheticMessage, streaming);
-  }
-}
 
 async function stageAndStartSessionTurn(
   ctx: MutationCtx,

@@ -1,6 +1,6 @@
 import { v } from "convex/values";
 import { internalMutation, internalQuery } from "./_generated/server";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
+import type { QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import { defineEvent } from "@convex-dev/workflow";
 import { workflow, cancelTrackedWorkflow } from "./workflowManager";
@@ -39,29 +39,17 @@ import { resolveMessageTokens } from "./_mentions/resolveMessageTokens";
 import { notifyChatMentions } from "./_mentions/notifyChatMentions";
 import { resolveCredentialSourceLabel } from "./_userProviderAccounts/credentialSource";
 import { resolveTurnProviderAccountId } from "./_userProviderAccounts/defaults";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import { PROJECT_CHAT_DAEMON_MUTATIONS } from "./_sandbox_runtime/daemonPaths";
+import { formatDelayedPublishFailureError } from "./_sessions/resultTarget";
 import {
-  delayedPublishFailureError,
-  orphanPlaceholderMessages,
-  resultTargetMessage,
-} from "./_sessions/resultTarget";
+  applyChatTurnResult,
+  finalizeOpenSyntheticTurnOnCancel,
+} from "./_chat/chatResult";
 import {
   maybeInsertModelHandoffAlert,
   prependModelHandoffContext,
 } from "./_shared/modelHandoff";
-
-async function finalizeOpenSyntheticTurnOnCancel(
-  ctx: MutationCtx,
-  syntheticTurnMessageId: Id<"messages"> | undefined,
-  streaming: Doc<"streamingActivity"> | null,
-): Promise<void> {
-  if (syntheticTurnMessageId === undefined) return;
-  const syntheticMessage = await ctx.db.get(syntheticTurnMessageId);
-  if (syntheticMessage && syntheticMessage.finishedAt === undefined) {
-    await finalizeCancelledAssistantMessage(ctx, syntheticMessage, streaming);
-  }
-}
 
 const CHAT_ALLOWED_TOOLS = "Read,Write,Edit,Bash,Glob,Grep";
 
@@ -714,7 +702,7 @@ export const projectChatExecuteWorkflow = workflow.define({
           branchName: data.branchName,
         });
       } catch (error) {
-        const publishError = `Chat completed locally, but Eva could not publish the branch to GitHub. The sandbox was preserved for recovery. ${error instanceof Error ? error.message : String(error)}`;
+        const publishError = formatDelayedPublishFailureError("chat", error);
         console.error(
           `[projectChatWorkflow] pushSandboxBranch failed projectId=${String(args.projectId)}: ${error instanceof Error ? error.message : String(error)}`,
         );
@@ -839,62 +827,21 @@ export const saveResult = internalMutation({
   },
   returns: v.null(),
   handler: async (ctx, args) => {
-    const publishError = delayedPublishFailureError(args.result, args.error);
-    if (publishError !== undefined) {
-      await ctx.db.insert("messages", {
-        parentId: args.projectId,
-        role: "assistant",
-        content: "Failed to publish project branch",
-        timestamp: Date.now(),
-        isSystemAlert: true,
-        errorDetail: publishError,
-      });
-      await ctx.db.patch(args.projectId, { updatedAt: Date.now() });
-      return null;
-    }
-
-    const streamingEntityId = chatStreamEntityId(args.projectId);
-    const streaming = await ctx.db
-      .query("streamingActivity")
-      .withIndex("by_entity", (q) => q.eq("entityId", streamingEntityId))
-      .first();
-    const activityLog = args.activityLog || streaming?.currentActivity;
-    await clearStreamingActivity(ctx, streamingEntityId);
-
     const project = await ctx.db.get(args.projectId);
     if (!project) return null;
 
-    const recent = await ctx.db
-      .query("messages")
-      .withIndex("by_parent", (q) => q.eq("parentId", args.projectId))
-      .order("desc")
-      .take(20);
-    const last = resultTargetMessage(recent);
-    if (last) {
-      const patch: {
-        content: string;
-        activityLog?: string;
-        finishedAt: number;
-        pendingQuestion?: string;
-        model?: Doc<"messages">["model"];
-      } = {
-        content: args.success
-          ? args.result || "I couldn't process your message."
-          : `Error: ${args.error || "Unknown error during execution."}`,
-        finishedAt: Date.now(),
-      };
-      if (activityLog) patch.activityLog = activityLog;
-      if (args.pendingQuestion) patch.pendingQuestion = args.pendingQuestion;
-      // Only a successful reply is a checkpoint: a failed turn's provider never
-      // saw the conversation, so it must not suppress a later catch-up.
-      if (args.success && args.model !== undefined) {
-        patch.model = normalizeAIModel(args.model);
-      }
-      await ctx.db.patch(last._id, patch);
-      for (const message of orphanPlaceholderMessages(recent, last)) {
-        await ctx.db.delete(message._id);
-      }
-    }
+    const outcome = await applyChatTurnResult(ctx, {
+      parentId: args.projectId,
+      streamingEntityId: chatStreamEntityId(args.projectId),
+      success: args.success,
+      result: args.result,
+      error: args.error,
+      activityLog: args.activityLog,
+      alertTitle: "Failed to publish project branch",
+      pendingQuestion: args.pendingQuestion,
+      model: args.model,
+    });
+    if (outcome === "publish-failure") return null;
 
     await ctx.db.patch(args.projectId, {
       activeChatWorkflowId: undefined,

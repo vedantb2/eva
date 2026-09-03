@@ -147,9 +147,6 @@ function parseDesignResult(
   return parsed.success ? parsed.data : null;
 }
 
-const WORKSPACE_DIR = "/tmp/repo";
-const LEGACY_WORKSPACE_DIR = "/workspace/repo";
-
 /** Finalizes and clears an open synthetic-turn placeholder on session hygiene paths. */
 async function finalizeOpenSyntheticTurn(
   ctx: MutationCtx,
@@ -1142,7 +1139,7 @@ export const claimPendingTurn = authMutation({
       stopTaskToolUseIds,
       cancelRequested,
       usageRefreshRequested,
-      interactionMode: "default",
+      interactionMode: "default" as const,
     };
     if (turnLease === null) {
       const turnLifecycle = "legacy" as const;
@@ -1259,7 +1256,7 @@ export const ensurePendingTurn = internalMutation({
       ...(args.model !== undefined
         ? { model: normalizeAIModel(args.model) }
         : {}),
-      interactionMode: "default",
+      interactionMode: "default" as const,
     };
     await ctx.db.patch(args.sessionId, {
       pendingTurn,
@@ -1348,7 +1345,7 @@ export const restageOpenTurn = internalMutation({
       ...(openTurn ? { turnId: openTurn._id } : {}),
       attachmentStorageIds: lastUser.attachmentStorageIds,
       ...(session.lastModel !== undefined ? { model: session.lastModel } : {}),
-      interactionMode: "default",
+      interactionMode: "default" as const,
     };
     await ctx.db.patch(args.sessionId, {
       pendingTurn,

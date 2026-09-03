@@ -107,7 +107,7 @@ async function stageAndStartSessionTurn(
         turnId,
         attachmentStorageIds: params.attachmentStorageIds,
         model: normalizedModel,
-        interactionMode: "default",
+        interactionMode: "default" as const,
       }
     : undefined;
   await ctx.db.patch(params.session._id, {

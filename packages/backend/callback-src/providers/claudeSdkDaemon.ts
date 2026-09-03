@@ -190,6 +190,8 @@ type WarmRunner = {
   interrupt: () => Promise<void>;
   /** Reads the SDK's experimental plan-usage data; null when unavailable. */
   readUsage: () => Promise<ClaudeUsageResponseLike | null>;
+  /** Claude-native plan mode. No-ops when the SDK handle lacks the method. */
+  setPermissionMode: (mode: "plan" | "default") => Promise<void>;
 };
 
 type BackgroundAgentEntry = {
@@ -1082,7 +1084,10 @@ async function finalizeSyntheticTurn(output: string): Promise<void> {
   log("daemon: synthetic turn finalized success=" + success);
 }
 
-function startRealAgentTurn(turn: ClaimedTurn, agentRunner: WarmRunner): void {
+async function startRealAgentTurn(
+  turn: ClaimedTurn,
+  agentRunner: WarmRunner,
+): Promise<void> {
   // Do not drain the agent pump here: buffered post-result / background-agent
   // messages must stay queued so the main loop can open a synthetic turn (or
   // attribute them into this real turn once it is live).
@@ -1096,6 +1101,7 @@ function startRealAgentTurn(turn: ClaimedTurn, agentRunner: WarmRunner): void {
   sawFirstMessageThisTurn = { value: false };
   sawAssistantThisTurn = { value: false };
   beginWatchedTurn();
+  await agentRunner.setPermissionMode("default");
   agentRunner.push(turn.prompt);
   S.activeAttemptStartedAt = agentTurnStartedAt;
   agentTurnOutput = "";
@@ -1228,7 +1234,7 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
     if (supervisor.currentTurn === null && supervisor.pendingClaim !== null) {
       const turn = supervisor.takeClaim();
       if (turn === null) continue;
-      startRealAgentTurn(turn, agentRunner);
+      await startRealAgentTurn(turn, agentRunner);
       continue;
     }
 
@@ -1375,7 +1381,7 @@ async function runDaemonMessagePump(agentRunner: WarmRunner): Promise<void> {
     if (supervisor.pendingClaim !== null && supervisor.currentTurn === null) {
       const parked = supervisor.takeClaim();
       if (parked === null) continue;
-      startRealAgentTurn(parked, agentRunner);
+      await startRealAgentTurn(parked, agentRunner);
     }
   }
 }
@@ -1495,6 +1501,22 @@ function createWarmAgentRunner(
     log("daemon: interrupt unavailable on SDK query handle");
   };
 
+  const setPermissionMode = async (
+    mode: "plan" | "default",
+  ): Promise<void> => {
+    if (typeof query.setPermissionMode !== "function") {
+      log("daemon: setPermissionMode unavailable on SDK query handle");
+      return;
+    }
+    try {
+      await query.setPermissionMode(mode === "plan" ? "plan" : "default");
+      log("daemon: permission mode set to " + mode);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log("daemon: setPermissionMode failed — " + message);
+    }
+  };
+
   const readUsage = (): Promise<ClaudeUsageResponseLike | null> =>
     readSdkPlanUsage(query);
 
@@ -1506,6 +1528,7 @@ function createWarmAgentRunner(
     stopTask,
     interrupt,
     readUsage,
+    setPermissionMode,
   };
 }
 

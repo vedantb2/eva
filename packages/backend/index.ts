@@ -32,6 +32,7 @@ export {
   storedTraitsFromRepoDefaults,
   type AIModel,
   type AIProvider,
+  type InteractionMode,
   type ReasoningLevel,
   type StoredModelTraits,
   type ModelTraitsExecutionArgs,

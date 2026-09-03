@@ -91,6 +91,7 @@ interface ChatComposerProps {
   localDraft?: LocalChatDraft;
   isDraftLoading?: boolean;
   hasPendingContext?: boolean;
+  allowEmptySubmit?: boolean;
 }
 
 export function ChatComposer({
@@ -121,6 +122,7 @@ export function ChatComposer({
   localDraft,
   isDraftLoading,
   hasPendingContext = false,
+  allowEmptySubmit = false,
 }: ChatComposerProps) {
   const skillItems = useSkillSlashItems(repoId, getAIModelProvider(model));
   const dataMentions = useDataMentionItems(repoId);
@@ -146,7 +148,12 @@ export function ChatComposer({
     if (files.length > 0 && attachmentStorageIds.length < files.length) {
       toast.error("Some attachments could not be uploaded.");
     }
-    if (!visible && attachmentStorageIds.length === 0 && !hasPendingContext) {
+    if (
+      !visible &&
+      attachmentStorageIds.length === 0 &&
+      !hasPendingContext &&
+      !allowEmptySubmit
+    ) {
       return;
     }
     const content = mentionRef.current?.tokenize(visible) ?? visible;
@@ -280,6 +287,7 @@ export function ChatComposer({
               seedMentionMap={seed?.mentionMap}
               seedSkillMap={seed?.skillMap}
               messageHistory={messageHistory}
+              allowEmptySubmit={allowEmptySubmit}
             />
           </ComposerStash>
         </PromptInputProvider>

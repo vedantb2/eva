@@ -14,6 +14,7 @@ import {
   sessionStatusValidator,
   turnCheckpointArgs,
   usesChatDaemon,
+  interactionModeValidator,
 } from "../validators";
 import { resolveSessionBaseBranch } from "./baseBranch";
 import {
@@ -221,10 +222,9 @@ export async function buildSessionPrompt(
     return { prompt, branchName };
   }
 
-  // The stored plan still feeds implementation turns, and gives `eva-plan` its
-  // iteration context after a sandbox is recreated without plan.md on disk.
   // Cursor resumes the saved SDK agent; the Eva transcript is not stuffed
-  // in as a rotation handoff.
+  // in as a rotation handoff. Session plan.md / planContent is not injected —
+  // that was the old Plan/Build mode contract.
   let prompt = buildEditPrompt(
     {
       owner: repo.owner,
@@ -232,12 +232,13 @@ export async function buildSessionPrompt(
       baseBranch: resolveSessionBaseBranch(session, repo),
     },
     branchName,
-    session.planContent || "",
+    "",
     resolvedMessage,
     rootDirectory,
     customInstructionsBlock,
     repo.systemPrompt,
     session.devPort ?? repo.devPort,
+    [],
   );
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;
@@ -500,23 +501,6 @@ export const sessionExecuteWorkflow = workflow.define({
 
     const result = await step.awaitEvent(sessionCompleteEvent);
 
-    // Content-keyed, not mode-keyed: any turn may have written plan.md (the
-    // `eva-plan` skill does), so harvest it on every success and let saveResult
-    // decide whether it actually changed.
-    let planContent: string | undefined;
-
-    if (result.success && sandboxId) {
-      const planRaw = await step.runAction(internal.sandbox.runSandboxCommand, {
-        sandboxId,
-        command: `cat ${WORKSPACE_DIR}/plan.md 2>/dev/null || cat ${LEGACY_WORKSPACE_DIR}/plan.md 2>/dev/null || echo ""`,
-        timeoutSeconds: 10,
-        repoId: data.repoId,
-      });
-      if (planRaw.trim()) {
-        planContent = planRaw.trim();
-      }
-    }
-
     // Persist the assistant reply BEFORE publish. A hung/slow git push used to
     // leave the UI on "Working…" forever even after the daemon had completed —
     // streamed tokens may also be empty for short conversational-ish agent
@@ -529,7 +513,6 @@ export const sessionExecuteWorkflow = workflow.define({
       error: result.error,
       activityLog: result.activityLog,
       model: args.model,
-      planContent,
       pendingQuestion: result.pendingQuestion,
       beforeSha: result.beforeSha,
       afterSha: result.afterSha,
@@ -573,7 +556,6 @@ export const sessionExecuteWorkflow = workflow.define({
           result: result.result,
           error: publishError,
           activityLog: result.activityLog,
-          planContent,
           pendingQuestion: result.pendingQuestion,
         });
       }
@@ -929,9 +911,6 @@ export const saveResult = internalMutation({
       // Crash hygiene: drop stale soft-lock if the agent forgot browser_unlock.
       agentBrowsingAt: undefined,
     };
-    // plan.md is now harvested after every successful turn, so only write it
-    // back when it actually changed — an unchanged reread must not touch the
-    // session (and reorder nothing downstream of planContent).
     if (args.planContent && args.planContent !== session.planContent) {
       sessionPatch.planContent = args.planContent;
     }
@@ -982,6 +961,7 @@ export const claimPendingTurn = authMutation({
       stopTaskToolUseIds: v.array(v.string()),
       cancelRequested: v.boolean(),
       usageRefreshRequested: v.boolean(),
+      interactionMode: v.optional(interactionModeValidator),
     }),
     v.object({
       prompt: v.string(),
@@ -992,6 +972,7 @@ export const claimPendingTurn = authMutation({
       stopTaskToolUseIds: v.array(v.string()),
       cancelRequested: v.boolean(),
       usageRefreshRequested: v.boolean(),
+      interactionMode: v.optional(interactionModeValidator),
     }),
   ),
   handler: async (ctx, args) => {
@@ -1161,6 +1142,7 @@ export const claimPendingTurn = authMutation({
       stopTaskToolUseIds,
       cancelRequested,
       usageRefreshRequested,
+      interactionMode: "default",
     };
     if (turnLease === null) {
       const turnLifecycle = "legacy" as const;
@@ -1277,6 +1259,7 @@ export const ensurePendingTurn = internalMutation({
       ...(args.model !== undefined
         ? { model: normalizeAIModel(args.model) }
         : {}),
+      interactionMode: "default",
     };
     await ctx.db.patch(args.sessionId, {
       pendingTurn,
@@ -1365,6 +1348,7 @@ export const restageOpenTurn = internalMutation({
       ...(openTurn ? { turnId: openTurn._id } : {}),
       attachmentStorageIds: lastUser.attachmentStorageIds,
       ...(session.lastModel !== undefined ? { model: session.lastModel } : {}),
+      interactionMode: "default",
     };
     await ctx.db.patch(args.sessionId, {
       pendingTurn,

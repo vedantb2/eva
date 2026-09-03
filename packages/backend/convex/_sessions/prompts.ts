@@ -5,7 +5,6 @@ import {
   RESPONSE_LENGTH_INSTRUCTION,
 } from "../prompts";
 import { stripMentionTokens } from "../_mentions/resolveDocMentions";
-
 /**
  * Session chat no longer injects this block: Cursor resumes one agent and the
  * SDK compacts in place. The helper remains for tests and any caller that
@@ -217,8 +216,10 @@ export function buildEditPrompt(
 ): string {
   const commitMessage = message.slice(0, 50).replace(/"/g, '\\"');
   const baseBranch = repo.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
+  // Task/project chat reuse this helper and pass spec/description as planContent.
+  // Sessions pass "" — leftover plan.md must not become an "Approved plan" block.
   const planContext = planContent
-    ? `\n\nApproved plan:\n${planContent}\n\nFollow this plan when implementing.`
+    ? `\n\nContext:\n${planContent}`
     : "";
   const handoff = buildSessionHandoff(conversationHistory);
   const conversationContext = handoff

@@ -35,9 +35,9 @@ const finished = (label: string, content = "done"): TestMessage => ({
   finishedAt: 1,
   label,
 });
-const alert = (label: string): TestMessage => ({
+const alert = (label: string, content = "Handed off"): TestMessage => ({
   role: "assistant",
-  content: "Sandbox stopped",
+  content,
   isSystemAlert: true,
   label,
 });
@@ -102,12 +102,31 @@ describe("findStreamingTargetMessage", () => {
 
 describe("visibleChatMessages", () => {
   test("returns the same array when not hiding", () => {
-    const messages = [user("u1"), alert("stopped")];
+    const messages = [user("u1"), alert("handoff")];
+    expect(visibleChatMessages(messages, false)).toBe(messages);
+  });
+
+  test("always drops sandbox start/stop/reconnect alerts", () => {
+    const messages = [
+      user("u1"),
+      alert("started", "Sandbox started"),
+      alert("stopped", "Sandbox stopped"),
+      alert("reconnected", "Sandbox reconnected"),
+      finished("a1"),
+    ];
+    expect(visibleChatMessages(messages, false).map((m) => m.label)).toEqual([
+      "u1",
+      "a1",
+    ]);
+  });
+
+  test("keeps failure alerts when not hiding all", () => {
+    const messages = [user("u1"), alert("fail", "Failed to start sandbox")];
     expect(visibleChatMessages(messages, false)).toBe(messages);
   });
 
   test("drops system alerts when hiding", () => {
-    const messages = [user("u1"), alert("stopped"), finished("a1")];
+    const messages = [user("u1"), alert("handoff"), finished("a1")];
     expect(visibleChatMessages(messages, true).map((m) => m.label)).toEqual([
       "u1",
       "a1",

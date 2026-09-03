@@ -1,5 +1,9 @@
 import { api } from "@eva/backend";
-import type { AIModel, Id, ModelTraitsExecutionArgs } from "@eva/backend";
+import type {
+  AIModel,
+  Id,
+  ModelTraitsExecutionArgs,
+} from "@eva/backend";
 import type { ModelAccount } from "@eva/ui";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -73,6 +77,7 @@ export interface SessionSendOptions {
    * harness as bare text.
    */
   skipReviewComments?: boolean;
+  sourceProposedPlanId?: Id<"proposedPlans">;
 }
 
 interface UseSessionSendParams {
@@ -162,6 +167,9 @@ export function useSessionSend({
         reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
         providerAccountId: accountId,
         attachmentStorageIds,
+        ...(options?.sourceProposedPlanId !== undefined
+          ? { sourceProposedPlanId: options.sourceProposedPlanId }
+          : {}),
       }),
     ])
       .catch(async (error) => {

@@ -3379,7 +3379,7 @@ function claudeParseLine(event) {
         });
         continue;
       }
-      if (block.name === "TodoRead" || block.name === "TaskGet" || block.name === "TaskList") {
+      if (block.name === "TodoRead" || block.name === "TaskGet" || block.name === "TaskList" || block.name === "ExitPlanMode") {
         continue;
       }
       const step = toolCallToStep(block.name, input);
@@ -5531,6 +5531,7 @@ function readClaimedTurn(result) {
   const attachmentUrls = Array.isArray(payload.attachmentUrls) ? payload.attachmentUrls.filter(
     (url) => typeof url === "string"
   ) : [];
+  const interactionMode = "default";
   const turnLease = readTurnLeaseIdentity(result);
   if (lifecycle === "durable" && turnLease === null) {
     throw new Error("Durable claimed turn did not include a lease identity");
@@ -5543,6 +5544,7 @@ function readClaimedTurn(result) {
       lifecycle: "durable",
       prompt: payload.prompt,
       attachmentUrls,
+      interactionMode,
       turnLease
     };
   }
@@ -5550,6 +5552,7 @@ function readClaimedTurn(result) {
     lifecycle: "legacy",
     prompt: payload.prompt,
     attachmentUrls,
+    interactionMode,
     turnLease: null
   };
 }
@@ -6244,7 +6247,7 @@ async function finalizeSyntheticTurn(output) {
   agentTurnOutput = "";
   log("daemon: synthetic turn finalized success=" + success);
 }
-function startRealAgentTurn(turn, agentRunner) {
+async function startRealAgentTurn(turn, agentRunner) {
   resetTurnState();
   if (!supervisor.startTurn({ kind: "real" })) {
     log("daemon: claimed turn could not enter running state");
@@ -6255,6 +6258,7 @@ function startRealAgentTurn(turn, agentRunner) {
   sawFirstMessageThisTurn = { value: false };
   sawAssistantThisTurn = { value: false };
   beginWatchedTurn();
+  await agentRunner.setPermissionMode("default");
   agentRunner.push(turn.prompt);
   callbackState.activeAttemptStartedAt = agentTurnStartedAt;
   agentTurnOutput = "";
@@ -6363,7 +6367,7 @@ async function runDaemonMessagePump(agentRunner) {
     if (supervisor.currentTurn === null && supervisor.pendingClaim !== null) {
       const turn = supervisor.takeClaim();
       if (turn === null) continue;
-      startRealAgentTurn(turn, agentRunner);
+      await startRealAgentTurn(turn, agentRunner);
       continue;
     }
     if (!supervisor.hasWork && unsettledBackgroundAgents.size === 0 && Date.now() - lastIdleActivityAtMs > IDLE_EXIT_MS) {
@@ -6466,7 +6470,7 @@ async function runDaemonMessagePump(agentRunner) {
     if (supervisor.pendingClaim !== null && supervisor.currentTurn === null) {
       const parked = supervisor.takeClaim();
       if (parked === null) continue;
-      startRealAgentTurn(parked, agentRunner);
+      await startRealAgentTurn(parked, agentRunner);
     }
   }
 }
@@ -6552,6 +6556,19 @@ function createWarmAgentRunner(sdk, options) {
     }
     log("daemon: interrupt unavailable on SDK query handle");
   };
+  const setPermissionMode = async (mode) => {
+    if (typeof query.setPermissionMode !== "function") {
+      log("daemon: setPermissionMode unavailable on SDK query handle");
+      return;
+    }
+    try {
+      await query.setPermissionMode(mode === "plan" ? "plan" : "default");
+      log("daemon: permission mode set to " + mode);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      log("daemon: setPermissionMode failed \\u2014 " + message);
+    }
+  };
   const readUsage = () => readSdkPlanUsage(query);
   return {
     push,
@@ -6560,7 +6577,8 @@ function createWarmAgentRunner(sdk, options) {
     hasPending,
     stopTask,
     interrupt,
-    readUsage
+    readUsage,
+    setPermissionMode
   };
 }
 function callbackScriptWentStaleOnDisk() {
@@ -7955,6 +7973,7 @@ function readCursorTurnWorkerClaim() {
       lifecycle: "legacy",
       prompt,
       attachmentUrls: [],
+      interactionMode: "default",
       turnLease: null
     };
   }
@@ -7965,6 +7984,7 @@ function readCursorTurnWorkerClaim() {
     lifecycle: "durable",
     prompt,
     attachmentUrls: [],
+    interactionMode: "default",
     turnLease: {
       turnId: CURSOR_TURN_WORKER_TURN_ID,
       leaseGeneration: CURSOR_TURN_WORKER_LEASE_GENERATION

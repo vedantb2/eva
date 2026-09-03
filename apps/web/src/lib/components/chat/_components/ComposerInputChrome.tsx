@@ -83,6 +83,7 @@ export function ComposerInputChrome({
   seedMentionMap,
   seedSkillMap,
   messageHistory,
+  allowEmptySubmit,
 }: {
   repoId: Id<"githubRepos">;
   repoBasePath: string;
@@ -112,6 +113,7 @@ export function ComposerInputChrome({
   seedMentionMap?: Map<string, string>;
   seedSkillMap?: Map<string, string>;
   messageHistory: string[];
+  allowEmptySubmit?: boolean;
 }) {
   const { textInput, attachments } = usePromptInputController();
   // `layoutId` is global unless a LayoutGroup namespaces it, and several
@@ -176,6 +178,7 @@ export function ComposerInputChrome({
         disabled={isInputDisabled}
         isExecuting={isExecuting}
         hasPendingContext={hasPendingContext}
+        allowEmptySubmit={allowEmptySubmit}
       />
     </m.div>
   );
@@ -253,10 +256,12 @@ function ChatBodySubmit({
   disabled,
   isExecuting,
   hasPendingContext,
+  allowEmptySubmit,
 }: {
   disabled: boolean;
   isExecuting: boolean;
   hasPendingContext: boolean;
+  allowEmptySubmit?: boolean;
 }) {
   const { textInput, attachments } = usePromptInputController();
   const isEmpty =
@@ -264,7 +269,9 @@ function ChatBodySubmit({
 
   return (
     <PromptInputSubmit
-      disabled={disabled || (isEmpty && !hasPendingContext)}
+      disabled={
+        disabled || (isEmpty && !hasPendingContext && !allowEmptySubmit)
+      }
       className="size-9"
       title={isExecuting ? "Queue message" : "Send message"}
     />

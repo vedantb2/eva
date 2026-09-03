@@ -6,12 +6,15 @@ import {
   type Id,
   type SandboxOwner,
 } from "@eva/backend";
-import { isSessionSandboxTab } from "@/lib/search-params";
+import { isSessionSandboxTab, sandboxTabIdFromParam } from "@/lib/search-params";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
 import { SandboxAgentsPanel } from "@/lib/components/sandbox/SandboxAgentsPanel";
-import { SessionPrdPlanView } from "./_components/SessionPrdPlanView";
+import { ProposedPlanCard } from "./_components/ProposedPlanCard";
+import { useSessionPlanImplementation } from "./_components/useSessionPlanImplementation";
+import { useSessionPlanDocument } from "./_components/useSessionPlanDocument";
+import type { ProposedPlanRow } from "./_components/proposedPlanLogic";
 import { DesignVariationsPanel } from "./_components/DesignVariationsPanel";
 import { FilesPanel } from "./FilesPanel";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
@@ -34,10 +37,7 @@ import {
   type SessionDesignMessage,
 } from "./_utils/designVariations";
 import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
-import {
-  APPROVE_PLAN_PROMPT,
-  designVariationPrompt,
-} from "./_utils/composerPrompts";
+import { designVariationPrompt } from "./_utils/composerPrompts";
 interface SandboxPanelProps {
   sessionId: Id<"sessions">;
   sandboxId: string | undefined;
@@ -105,11 +105,32 @@ export function SandboxPanel({
     kind: "sessionChat",
     sessionId,
   });
+  const proposedPlans = useQuery(api.proposedPlans.listBySession, {
+    sessionId,
+  });
+  const { implementPlan, implementPlanContent, implementInNewSession } =
+    useSessionPlanImplementation({
+      sessionId,
+      handleSend: (content) => {
+        void seedChatDraft(content);
+      },
+    });
+  const {
+    savePlan,
+    saveAsDocument,
+    saveAsDocumentLabel,
+    isSaving,
+    isSavingDoc,
+  } = useSessionPlanDocument(sessionId);
   const latestVariations = getLatestVariations(messages);
   // Both tabs are content-keyed: they appear once the session has produced the
   // artefact they show, whatever prompt or skill produced it.
   const hasPlanContent =
     typeof planContent === "string" && planContent.trim().length > 0;
+  const capturedPlan = hasPlanContent
+    ? matchingProposedPlan(proposedPlans ?? [], planContent ?? "")
+    : null;
+  const planImplemented = capturedPlan?.implementedAt !== undefined;
   const hasDesignsContent = latestVariations.length > 0;
   const isDesignExecuting = isAssistantTurnInProgress(messages);
   // Streaming payloads can outlive their turn; only fold them in while one runs.
@@ -149,13 +170,14 @@ export function SandboxPanel({
   // If the URL points at a custom tab that no longer exists (deleted / disabled /
   // renamed), fall back to preview. Wait for the query to load before deciding.
   useEffect(() => {
-    if (activeTab === "terminal") {
+    const tabId = sandboxTabIdFromParam(activeTab);
+    if (tabId === "terminal") {
       onTabChange("preview");
       return;
     }
-    if (isSessionSandboxTab(activeTab)) return;
+    if (isSessionSandboxTab(tabId)) return;
     if (allCustomTabs === undefined) return;
-    if (!customTabs.some((tab) => slugifyAppTabName(tab.name) === activeTab)) {
+    if (!customTabs.some((tab) => slugifyAppTabName(tab.name) === tabId)) {
       onTabChange("preview");
     }
   }, [activeTab, allCustomTabs, customTabs, onTabChange]);
@@ -202,15 +224,38 @@ export function SandboxPanel({
           }
         >
           {planContent ? (
-            <SessionPrdPlanView
-              sessionId={sessionId}
-              planContent={planContent}
-              onApprovePlan={() => {
-                void seedChatDraft(APPROVE_PLAN_PROMPT);
-              }}
-              variant="panel"
-              isArchived={isArchived}
-            />
+            <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-4">
+              <ProposedPlanCard
+                planMarkdown={planContent}
+                implemented={planImplemented}
+                onImplement={
+                  isArchived || planImplemented
+                    ? undefined
+                    : () => {
+                        if (capturedPlan) {
+                          implementPlan(capturedPlan);
+                          return;
+                        }
+                        implementPlanContent(planContent);
+                      }
+                }
+                onImplementInNewSession={
+                  isArchived || planImplemented
+                    ? undefined
+                    : () =>
+                        void implementInNewSession(
+                          planContent,
+                          capturedPlan ?? undefined,
+                        )
+                }
+                onSave={isArchived ? undefined : savePlan}
+                onSaveAsDocument={isArchived ? undefined : saveAsDocument}
+                saveAsDocumentLabel={saveAsDocumentLabel}
+                isSaving={isSaving}
+                isSavingDoc={isSavingDoc}
+                isArchived={isArchived}
+              />
+            </div>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
               <IconClipboardList className="h-10 w-10 text-muted-foreground/60" />
@@ -315,5 +360,15 @@ export function SandboxPanel({
         />
       </div>
     </SandboxPanelFrame>
+  );
+}
+
+function matchingProposedPlan(
+  proposedPlans: ReadonlyArray<ProposedPlanRow>,
+  planContent: string,
+): ProposedPlanRow | null {
+  const trimmed = planContent.trim();
+  return (
+    proposedPlans.find((plan) => plan.planMarkdown.trim() === trimmed) ?? null
   );
 }

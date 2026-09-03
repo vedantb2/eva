@@ -132,6 +132,7 @@ function readCursorTurnWorkerClaim(): ClaimedTurn {
       lifecycle: "legacy",
       prompt,
       attachmentUrls: [],
+      interactionMode: "default",
       turnLease: null,
     };
   }
@@ -146,6 +147,7 @@ function readCursorTurnWorkerClaim(): ClaimedTurn {
     lifecycle: "durable",
     prompt,
     attachmentUrls: [],
+    interactionMode: "default",
     turnLease: {
       turnId: CURSOR_TURN_WORKER_TURN_ID,
       leaseGeneration: CURSOR_TURN_WORKER_LEASE_GENERATION,

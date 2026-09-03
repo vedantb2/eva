@@ -9,22 +9,25 @@
  * clone + install cost for every linked repo on every fresh sandbox — see
  * `getGroupSnapshotForBoot` / `resolveSandboxContext`.
  *
- * cloneRepoInto / dir-aware detectPackageManager+installDependencies do not
- * exist yet on `_sandbox_runtime/git.ts` at the time this was written, so the
- * clone + install steps below are implemented directly with execHandle +
- * `sandbox.git.clone`, mirroring `cloneAndSetupRepo`'s approach rather than
- * calling it.
+ * The clone and install steps are the same ones a live session's
+ * `prepareLinkedRepo` runs (`cloneRepoInto` +
+ * `detectPackageManager`/`installDependencies`), so a repo that clones and
+ * installs in a session behaves identically when baked into a group snapshot.
  */
 import { v } from "convex/values";
 import { internalAction } from "../_generated/server";
 import { internal } from "../_generated/api";
-import { getInstallationToken } from "../githubAuth";
 import type { SandboxHandle } from "../_sandbox/provider";
 import { execHandle, resolveSandboxContext } from "../_sandbox_runtime/helpers";
 import {
+  cloneRepoInto,
   createSandboxAndPrepareRepo,
   EPHEMERAL_LIFECYCLE,
+  // Aliased: `installDependencies` is also this module's local name for the
+  // group's own install-or-not flag.
+  installDependencies as runDependencyInstall,
 } from "../_sandbox_runtime/git";
+import { detectPackageManager } from "../_sandbox_runtime/devServer";
 import {
   WORKSPACE_ROOT,
   linkedRepoDir,
@@ -46,61 +49,18 @@ const BUILDER_SANDBOX_READY_TIMEOUT_SECONDS = 180;
 const MAX_LINKED_REPOS_TO_INSTALL = 3;
 
 const CLONE_TIMEOUT_SECONDS = 300;
-const INSTALL_TIMEOUT_SECONDS = 600;
 
 function logBuild(message: string): void {
   console.log(`[repoGroups][snapshot] ${message}`);
 }
 
-/** Detects a Node package manager under `destDir` and runs its install, best-effort. */
-async function installLinkedRepoDependencies(
-  sandbox: SandboxHandle,
-  destDir: string,
-): Promise<void> {
-  const pm = (
-    await execHandle(
-      sandbox,
-      [
-        `if [ -f ${destDir}/pnpm-lock.yaml ]; then echo pnpm;`,
-        `elif [ -f ${destDir}/yarn.lock ]; then echo yarn;`,
-        `elif [ -f ${destDir}/package.json ]; then echo npm;`,
-        `else echo none; fi`,
-      ].join(" "),
-      10,
-      "/",
-    )
-  ).trim();
-  if (pm === "none") return;
-  if (pm === "pnpm") {
-    await execHandle(
-      sandbox,
-      `command -v pnpm >/dev/null 2>&1 || npm install -g pnpm; cd ${destDir} && pnpm install`,
-      INSTALL_TIMEOUT_SECONDS,
-      "/",
-    );
-  } else if (pm === "yarn") {
-    await execHandle(
-      sandbox,
-      `command -v yarn >/dev/null 2>&1 || npm install -g yarn; cd ${destDir} && yarn install`,
-      INSTALL_TIMEOUT_SECONDS,
-      "/",
-    );
-  } else {
-    await execHandle(
-      sandbox,
-      `cd ${destDir} && npm install`,
-      INSTALL_TIMEOUT_SECONDS,
-      "/",
-    );
-  }
-}
-
 /**
- * Clones one linked repo into `destDir` on `branch`, using a one-off
- * installation token (never persisted into the sandbox's global git
- * credential helper — this ephemeral builder is deleted right after the
- * capture). The token is stripped from the `origin` remote immediately after
- * cloning so it is never baked into the captured snapshot's filesystem.
+ * Clones one linked repo into `destDir` on `branch`. `cloneRepoInto` mints a
+ * one-off installation token and does not install the sandbox's global git
+ * credential helper, which is what this ephemeral builder wants — it is
+ * deleted right after the capture. The token is stripped from the `origin`
+ * remote immediately afterwards so it is never baked into the captured
+ * snapshot's filesystem.
  */
 async function cloneLinkedRepo(
   sandbox: SandboxHandle,
@@ -111,15 +71,8 @@ async function cloneLinkedRepo(
   destDir: string,
 ): Promise<void> {
   const repoUrl = `https://github.com/${owner}/${name}.git`;
-  const token = await getInstallationToken(installationId);
   logBuild(`cloning ${owner}/${name}@${branch} into ${destDir}`);
-  await execHandle(
-    sandbox,
-    `rm -rf ${destDir}`,
-    30,
-    "/",
-  );
-  await sandbox.git.clone(repoUrl, destDir, "x-access-token", token);
+  await cloneRepoInto(sandbox, installationId, owner, name, destDir);
   // Plain `git clone` fetches every branch as a remote-tracking ref, so the
   // target branch (if different from whatever HEAD defaulted to) is already
   // available locally — no second authenticated network call needed.
@@ -232,7 +185,11 @@ export const buildGroupSnapshot = internalAction({
           destDir,
         );
         if (installDependencies && !skipInstalls) {
-          await installLinkedRepoDependencies(sandbox, destDir);
+          const pm = await detectPackageManager(sandbox, "", destDir);
+          logBuild(
+            `group ${args.groupId}: installing ${repo.owner}/${repo.name} dependencies with ${pm}`,
+          );
+          await runDependencyInstall(sandbox, pm, destDir);
         }
       }
 

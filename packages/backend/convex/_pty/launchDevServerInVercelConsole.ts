@@ -139,6 +139,13 @@ export async function launchDevServerInVercelConsole(
  * There is no framework auto-detection here, unlike the primary's
  * `resolveVercelConsoleDevCommand` — a linked repo only ever gets a dev server
  * when its `sessionRepos` row has an explicit `devCommand` and `devPort`.
+ *
+ * `devPort` needs no registration at sandbox-create time: Vercel exposes a
+ * fixed four-port set (`VERCEL_DEFAULT_EXPOSED_PORTS`, all four already taken
+ * by the auth proxy, editor, desktop and Supabase) and every app port —
+ * including the primary's own — is reached through the in-sandbox navigation
+ * proxy on 3000 instead (`execution.ts`'s `ensurePreviewNavigationProxy`). So
+ * a linked repo's dev server just listens on its own internal port.
  */
 export async function launchLinkedRepoDevServerInVercelConsole(
   handle: SandboxHandle,

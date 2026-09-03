@@ -18,7 +18,10 @@ import { FilesPanel } from "./FilesPanel";
 import { SandboxPaneSlots } from "@/lib/components/sandbox/SandboxPaneSlots";
 import { type SandboxPanesApi } from "@/lib/components/sandbox/useSandboxPanes";
 import type { TerminalPanelApi } from "@/lib/components/sandbox/SandboxWorkspace";
-import { useSandboxPreview } from "@/lib/components/sandbox/useSandboxPreview";
+import {
+  DEFAULT_PREVIEW_PORT,
+  useSandboxPreview,
+} from "@/lib/components/sandbox/useSandboxPreview";
 import { useSandboxFileList } from "@/lib/components/sandbox/useSandboxFileList";
 import { withBrowserTab } from "@/lib/components/sandbox/withBrowserTab";
 import {
@@ -35,6 +38,7 @@ import {
   type SessionDesignMessage,
 } from "./_utils/designVariations";
 import { isAssistantTurnInProgress } from "@/lib/components/chat/chatBodyUtils";
+import { previewPortOptions } from "./_utils";
 import {
   APPROVE_PLAN_PROMPT,
   designVariationPrompt,
@@ -306,6 +310,12 @@ export function SandboxPanel({
           onStartSandbox={onStartSandbox}
           isSandboxStarting={isSandboxStarting}
           onAnnotationSubmit={submitAnnotation}
+          // Multi-repo sessions run a dev server per repo; the Preview port
+          // control offers each one instead of only the primary's.
+          previewPortOptions={previewPortOptions(
+            sessionRepos,
+            devPort ?? DEFAULT_PREVIEW_PORT,
+          )}
           // Only the session on screen may float; cached siblings and a
           // collapsed rail keep their preview parked.
           miniPlayer={

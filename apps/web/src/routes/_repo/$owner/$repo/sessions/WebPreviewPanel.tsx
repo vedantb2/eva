@@ -6,6 +6,7 @@ import { IconPlayerPlay, IconRefresh, IconWorld } from "@tabler/icons-react";
 import {
   buildUrlWithPath,
   normalizePreviewPath,
+  type PreviewPortOption,
 } from "@/lib/components/PreviewNavBar";
 import {
   PersistentPreviewBody,
@@ -47,6 +48,8 @@ interface WebPreviewPanelProps {
   onRefresh: () => void;
   port: number;
   onPortChange: (port: number) => void;
+  /** Multi-repo sessions: one dev-server port per checked-out repo. */
+  portOptions?: readonly PreviewPortOption[];
   pathStorageKey: string;
   /**
    * When set (sessions), Preview path is sticky on Convex. `undefined` while
@@ -83,6 +86,7 @@ export function WebPreviewPanel({
   onRefresh,
   port,
   onPortChange,
+  portOptions,
   pathStorageKey,
   stickyPath,
   onStickyPathChange,
@@ -258,6 +262,7 @@ export function WebPreviewPanel({
         onToggleFullscreen={toggleFullscreen}
         port={port}
         onPortChange={onPortChange}
+        portOptions={portOptions}
         previewPath={previewPath}
         onPathChange={handlePathChange}
         viewport={viewport}

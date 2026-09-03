@@ -655,11 +655,12 @@ type SessionSandboxPreparationArgs = {
   startDesktop: boolean;
   /**
    * True when the session also has `sessionRepos` rows to clone into
-   * `/tmp/workspace`. Only ever set on the fresh-create path (a resumed
-   * sandbox already has them from its first create) — gates the setup-pending
-   * flag so `sessionSandboxStartupWorkflow` can provision them before the
-   * first turn runs. Absent (`prepareSessionSandbox`, used by
-   * `sessionExecuteWorkflow`) behaves as false.
+   * `/tmp/workspace`. Set by both `startSandbox` paths (create and resume —
+   * a resume that falls through to a fresh sandbox has to re-clone them) so
+   * the setup-pending flag stays armed until
+   * `sessionSandboxStartupWorkflow` has provisioned every row. Absent
+   * (`prepareSessionSandbox`, used by `sessionExecuteWorkflow`) behaves as
+   * false: that path runs mid-session, long after provisioning.
    */
   hasLinkedRepos?: boolean;
 };
@@ -1657,8 +1658,10 @@ export const startSessionSandbox = internalAction({
     repoId: v.optional(v.id("githubRepos")),
     /**
      * True when the session also has `sessionRepos` rows to clone into
-     * `/tmp/workspace`. Accepted here so callers can pass it today; the clone
-     * behaviour itself is not implemented in this action yet.
+     * `/tmp/workspace`. This action does not clone them: it arms
+     * `sandboxSetupPending` and leaves it armed so the caller —
+     * `sessionSandboxStartupWorkflow` — can run `prepareLinkedRepo` per row
+     * and clear the gate once every row has been attempted.
      */
     hasLinkedRepos: v.optional(v.boolean()),
   },

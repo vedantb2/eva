@@ -1,6 +1,8 @@
 import type { Terminal } from "@xterm/xterm";
 import type { FunctionReturnType } from "convex/server";
 import type { api, Id } from "@eva/backend";
+import type { PreviewPortOption } from "@/lib/components/PreviewNavBar";
+import { repoDisplayLabel } from "@/lib/utils/repoGrouping";
 
 const MAX_TERMINAL_HISTORY_CHARS = 500_000;
 const FLUSH_DELAY_MS = 250;
@@ -241,6 +243,28 @@ export function buildTerminalHistoryKey(
 export type SessionRepoListItem = FunctionReturnType<
   typeof api.sessions.listRepos
 >[number];
+
+/**
+ * Dev-server ports the Preview port control offers, one per checked-out repo.
+ * Empty for a single-repo session, and for a multi-repo session whose linked
+ * clones declare no dev port of their own — there is nothing to choose between,
+ * so the port stays a plain input.
+ */
+export function previewPortOptions(
+  repos: readonly SessionRepoListItem[] | undefined,
+  primaryPort: number,
+): PreviewPortOption[] {
+  if (repos === undefined || repos.length <= 1) return [];
+  const options: PreviewPortOption[] = [];
+  const seenPorts = new Set<number>();
+  for (const repo of repos) {
+    const port = repo.kind === "primary" ? primaryPort : repo.devPort;
+    if (port === undefined || seenPorts.has(port)) continue;
+    seenPorts.add(port);
+    options.push({ port, label: `${repoDisplayLabel(repo)} · ${port}` });
+  }
+  return options.length > 1 ? options : [];
+}
 
 // --- CodebasesPicker (multi-repo sessions) ------------------------------
 

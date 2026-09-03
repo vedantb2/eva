@@ -1,10 +1,21 @@
 "use client";
 
 import { useState, useEffect, useRef, type RefObject } from "react";
-import { Input, Spinner, WebPreviewNavigationButton } from "@eva/ui";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Input,
+  Spinner,
+  WebPreviewNavigationButton,
+} from "@eva/ui";
 import {
   IconArrowLeft,
   IconArrowRight,
+  IconCheck,
+  IconChevronDown,
   IconRefresh,
   IconExternalLink,
   IconMaximize,
@@ -80,6 +91,16 @@ function stepIframeHistory(
   }
 }
 
+/**
+ * A named dev-server port the preview can switch to. Multi-repo sessions offer
+ * one per checked-out repo; a single-repo session passes none and the port
+ * stays a plain text input.
+ */
+export interface PreviewPortOption {
+  port: number;
+  label: string;
+}
+
 interface PreviewNavBarProps {
   previewUrl: string | null;
   iframeRef: RefObject<HTMLIFrameElement | null>;
@@ -96,6 +117,8 @@ interface PreviewNavBarProps {
   port: number;
   path?: string;
   onPortChange?: (port: number) => void;
+  /** Offered beside the port input; hidden when fewer than two are known. */
+  portOptions?: readonly PreviewPortOption[];
   defaultPath?: string;
   onPathChange?: (path: string) => void;
   isLoading?: boolean;
@@ -115,6 +138,7 @@ export function PreviewNavBar({
   port,
   path,
   onPortChange,
+  portOptions,
   defaultPath = "/",
   onPathChange,
   isLoading = false,
@@ -314,6 +338,33 @@ export function PreviewNavBar({
         }}
         aria-label="Preview port"
       />
+      {portOptions !== undefined && portOptions.length > 1 ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-8 w-6 shrink-0 p-0 hover:text-foreground"
+              aria-label="Choose a repository's dev server port"
+            >
+              <IconChevronDown className="w-3.5 h-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-44">
+            {portOptions.map((option) => (
+              <DropdownMenuItem
+                key={option.port}
+                onSelect={() => onPortChange?.(option.port)}
+              >
+                <span className="min-w-0 flex-1 truncate">{option.label}</span>
+                {option.port === port ? (
+                  <IconCheck className="ml-auto size-3.5 shrink-0 text-primary" />
+                ) : null}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : null}
       <WebPreviewNavigationButton
         tooltip="Open in new tab"
         disabled={!previewUrl}

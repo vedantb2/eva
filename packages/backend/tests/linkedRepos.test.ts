@@ -5,6 +5,7 @@ import {
   freshCloneCheckoutCommand,
   resumeCheckoutCommand,
 } from "../convex/_sandbox_runtime/linkedRepoBranch";
+import { revertTargets } from "../convex/_sandbox_runtime/turnRevert";
 
 describe("formatEnvFile", () => {
   test("returns an empty string for no vars", () => {
@@ -98,5 +99,42 @@ describe("branchExistsRemoteCommand", () => {
     ).toBe(
       "cd /tmp/workspace/carepulse-api && git ls-remote --heads origin eva/session-abc123",
     );
+  });
+});
+
+describe("revertTargets", () => {
+  test("uses every repo the turn checkpointed when beforeShas exists", () => {
+    expect(
+      revertTargets({
+        beforeSha: "primaryonly",
+        beforeShas: [
+          { path: "/tmp/repo", sha: "aaa" },
+          { path: "/tmp/workspace/carepulse-api", sha: "bbb" },
+        ],
+      }),
+    ).toEqual([
+      { path: "/tmp/repo", sha: "aaa" },
+      { path: "/tmp/workspace/carepulse-api", sha: "bbb" },
+    ]);
+  });
+
+  // Turns recorded before multi-repo checkpoints existed, and every
+  // single-repo session: `path: undefined` resolves to the primary's dir at
+  // exec time.
+  test("falls back to the scalar beforeSha for the primary repo", () => {
+    expect(revertTargets({ beforeSha: "aaa" })).toEqual([
+      { path: undefined, sha: "aaa" },
+    ]);
+  });
+
+  test("ignores an empty beforeShas array in favour of the scalar", () => {
+    expect(revertTargets({ beforeSha: "aaa", beforeShas: [] })).toEqual([
+      { path: undefined, sha: "aaa" },
+    ]);
+  });
+
+  test("returns nothing when the turn recorded no sha at all", () => {
+    expect(revertTargets({})).toEqual([]);
+    expect(revertTargets({ beforeShas: [] })).toEqual([]);
   });
 });

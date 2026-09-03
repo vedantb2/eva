@@ -307,13 +307,10 @@ http.route({
       return new Response("Unauthorized", { status: 401 });
     }
 
-    let rawBody: unknown = {};
-    try {
-      rawBody = await request.json();
-    } catch {
-      rawBody = {};
-    }
-    const parsedBody = gitCredentialsRequestSchema.safeParse(rawBody);
+    // Old baked helper scripts send an empty body; treat unparseable as `{}`.
+    const parsedBody = gitCredentialsRequestSchema.safeParse(
+      await request.json().catch(() => ({})),
+    );
     const path = parsedBody.success ? parsedBody.data.path : undefined;
 
     // No path (old baked helper scripts, or the primary's own fetch before

@@ -88,6 +88,17 @@ async function stageAndStartSessionTurn(
   });
 
   const normalizedModel = normalizeAIModel(params.model);
+  // Normalise exactly as the page-open prewarm does (`launchTraitsFromStored`
+  // in `prewarmDaemon` below): the composer can send a model default explicitly
+  // (e.g. reasoning "high", its display value), and forwarding it verbatim gives
+  // this turn's prewarm and the workflow's prewarm a different daemon opts sig
+  // from the page-open one — killing the daemon that was just booted.
+  const launchTraits = launchTraitsFromStored(normalizedModel, {
+    reasoningLevel: params.reasoningLevel,
+    thinkingEnabled: params.thinkingEnabled,
+    use1mContext: params.use1mContext,
+    fastMode: params.fastMode,
+  });
   const usesDaemonPull = usesChatDaemon(normalizedModel);
   const turnId = await openSessionTurn(ctx, {
     sessionId: params.session._id,
@@ -133,10 +144,7 @@ async function stageAndStartSessionTurn(
       repoId: params.session.repoId,
       userId: params.actingUserId,
       model: normalizedModel,
-      reasoningLevel: params.reasoningLevel,
-      thinkingEnabled: params.thinkingEnabled,
-      use1mContext: params.use1mContext,
-      fastMode: params.fastMode,
+      ...launchTraits,
       ...sessionTurnTools(params.session.isOrchestrator),
       providerAccountId: stickyProviderAccountId,
       credentialOwnerUserId,
@@ -151,10 +159,9 @@ async function stageAndStartSessionTurn(
       sessionId: params.session._id,
       message: params.message,
       model: params.model,
-      reasoningLevel: params.reasoningLevel,
-      thinkingEnabled: params.thinkingEnabled,
-      use1mContext: params.use1mContext,
-      fastMode: params.fastMode,
+      // Same normalisation as the prewarm above: the workflow forwards these
+      // straight back into `prewarmSessionDaemon`.
+      ...launchTraits,
       providerAccountId: stickyProviderAccountId,
       credentialOwnerUserId,
       userId: params.actingUserId,
@@ -215,16 +222,13 @@ export const retryEmptyStalledSessionTurn = internalMutation({
       actingUserId,
       message: lastUserContent,
       model: turn.model,
-      // Normalise the sticky traits through the same helper the composer uses,
-      // so this restaged turn's opts sig matches a warm daemon's instead of
-      // killing it (a stored default level like "high" is omitted by the send
-      // path, so forwarding it verbatim reads as a change).
-      ...launchTraitsFromStored(normalizeAIModel(turn.model), {
-        reasoningLevel: session.lastReasoningLevel,
-        thinkingEnabled: session.lastThinkingEnabled,
-        use1mContext: session.lastUse1mContext,
-        fastMode: session.lastFastMode,
-      }),
+      // Raw sticky traits: `stageAndStartSessionTurn` normalises them through
+      // `launchTraitsFromStored` before they reach any daemon launch, so this
+      // restaged turn's opts sig matches a warm daemon's instead of killing it.
+      reasoningLevel: session.lastReasoningLevel,
+      thinkingEnabled: session.lastThinkingEnabled,
+      use1mContext: session.lastUse1mContext,
+      fastMode: session.lastFastMode,
       providerAccountId: session.providerAccountId,
       attachmentStorageIds: turn.attachmentStorageIds,
     });

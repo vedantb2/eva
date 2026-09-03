@@ -27,7 +27,6 @@ export {
   getModelTraits,
   resolveTraitsForDisplay,
   buildTraitsExecutionPayload,
-  modelHasTraits,
   getReasoningLevelLabel,
   normalizeAIModel,
   storedTraitsFromRepoDefaults,

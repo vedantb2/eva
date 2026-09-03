@@ -2,7 +2,6 @@
 
 import { useState, type ReactNode } from "react";
 import { useRouterState } from "@tanstack/react-router";
-import { AveLauncherContext } from "@/lib/components/ave/aveLauncherContext";
 import { AveLauncherSurface } from "@/lib/components/ave/AveLauncherSurface";
 
 /**
@@ -16,8 +15,7 @@ interface AveLauncherProviderProps {
   children: ReactNode;
   /**
    * Embedded documents (the inbox preview pane) render content only — the host
-   * window already owns the launcher. The context stays mounted regardless so
-   * callers never have to know which surface they are on.
+   * window already owns the launcher.
    */
   enabled: boolean;
 }
@@ -46,14 +44,8 @@ export function AveLauncherProvider({
   const minimize = () =>
     setPanel((prev) => (prev === "closed" ? prev : "minimized"));
 
-  const value = {
-    isOpen: panel === "open",
-    open: () => setPanel("open"),
-    minimize,
-  };
-
   return (
-    <AveLauncherContext.Provider value={value}>
+    <>
       {children}
       {enabled ? (
         <AveLauncherSurface
@@ -64,6 +56,6 @@ export function AveLauncherProvider({
           onMinimize={minimize}
         />
       ) : null}
-    </AveLauncherContext.Provider>
+    </>
   );
 }

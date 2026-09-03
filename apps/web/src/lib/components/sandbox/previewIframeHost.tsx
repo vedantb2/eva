@@ -42,7 +42,8 @@ export interface PreviewMeta {
   epoch: number;
 }
 
-interface Rect {
+/** Viewport-relative box the host paints a hosted iframe into. */
+export interface Rect {
   top: number;
   left: number;
   width: number;
@@ -137,8 +138,8 @@ function getPreviewGesture(): PreviewGesture | null {
 }
 
 /** The rect to paint at: the measured anchor, plus any live gesture offsets. */
-function overlayRect(
-  entry: HostEntry,
+export function overlayRect(
+  entry: { key: string; rect: Rect | null },
   live: PreviewGesture | null,
 ): Rect | null {
   if (entry.rect === null) return null;

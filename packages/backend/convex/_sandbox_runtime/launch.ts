@@ -508,6 +508,17 @@ export async function launchScript(
     "/tmp/eva-launch-runner.sh",
     runnerLaunchScript,
   );
+  // Clear the previous runner's markers synchronously first. The detached
+  // launcher removes them too, but execDetached returns before the script runs,
+  // so the first ready poll could otherwise accept a dead predecessor's marker
+  // (observed in prod: a relaunch that lost the spawn flock with exit 217
+  // reported "runner ready" in 827ms, then no daemon ever polled
+  // claimPendingTurn and the session hung on "Working…").
+  await execHandle(
+    sandbox,
+    "rm -f /tmp/run-design.pid /tmp/run-design.ready /tmp/run-design.done",
+    5,
+  );
   // Use the provider-native detached path; waitForRunnerReady confirms the
   // backgrounded runner actually started.
   // Use handle.exec (not execHandle) so cwd stays at the Vercel default — the script

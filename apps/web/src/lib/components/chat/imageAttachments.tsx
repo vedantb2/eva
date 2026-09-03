@@ -34,7 +34,6 @@ export {
   chatAttachmentErrorMessage,
 } from "@/lib/components/attachments/attachmentMeta";
 
-export type { ChatAttachmentMeta } from "@/lib/components/chat/UserMessageAttachments";
 export { UserMessageAttachments };
 
 /**

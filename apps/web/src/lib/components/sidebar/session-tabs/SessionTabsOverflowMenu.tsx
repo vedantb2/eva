@@ -22,7 +22,7 @@ import {
 import { entityPathSegment } from "@/lib/numId";
 import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
 
-export interface OverflowSession {
+interface OverflowSession {
   _id: string;
   numId?: number;
   title: string;

@@ -606,9 +606,6 @@ importers:
       '@types/pg':
         specifier: ^8.20.0
         version: 8.20.0
-      '@types/shell-quote':
-        specifier: ^1.7.5
-        version: 1.7.5
       concurrently:
         specifier: ^9.1.2
         version: 9.2.1
@@ -5136,9 +5133,6 @@ packages:
 
   '@types/react@19.0.10':
     resolution: {integrity: sha512-JuRQ9KXLEjaUNjTWpzuR231Z2WpIwczOkBEIvbHNCzQefFIT0L8IqE6NV6ULLyC1SI/i234JnDoMkfg+RjQj2g==}
-
-  '@types/shell-quote@1.7.5':
-    resolution: {integrity: sha512-+UE8GAGRPbJVQDdxi16dgadcBfQ+KG2vgZhV1+3A1XmHbmwcdwhCUwIdy+d3pAGrbvgRoVSjeI9vOWyq376Yzw==}
 
   '@types/stack-utils@2.0.3':
     resolution: {integrity: sha512-9aEbYZ3TbYMznPdcdr3SmIrLXwC/AKZXQeCf9Pgao5CKb8CyHuEX5jzWPTkvregvhRJHcpRO6BFoGW9ycaOkYw==}
@@ -13842,8 +13836,6 @@ snapshots:
   '@types/react@19.0.10':
     dependencies:
       csstype: 3.2.3
-
-  '@types/shell-quote@1.7.5': {}
 
   '@types/stack-utils@2.0.3': {}
 

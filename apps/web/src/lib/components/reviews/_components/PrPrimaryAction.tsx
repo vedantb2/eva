@@ -30,9 +30,9 @@ import { useRepo } from "@/lib/contexts/RepoContext";
 import { mergeBlocker } from "./prMergeState";
 import type { PrOverview } from "./prOverviewMeta";
 
-export type MergeMethod = "merge" | "squash" | "rebase";
+type MergeMethod = "merge" | "squash" | "rebase";
 
-export const MERGE_METHODS: { value: MergeMethod; label: string }[] = [
+const MERGE_METHODS: { value: MergeMethod; label: string }[] = [
   { value: "squash", label: "Squash and merge" },
   { value: "merge", label: "Create a merge commit" },
   { value: "rebase", label: "Rebase and merge" },
@@ -268,10 +268,10 @@ function RevertAction({ overview }: { overview: PrOverview }) {
           <DialogHeader>
             <DialogTitle>Revert this pull request?</DialogTitle>
             <DialogDescription>
-              A merge cannot be undone through GitHub, so this starts a session on{" "}
-              <span className="font-mono">{overview.baseRef}</span> that writes
-              the revert and opens a pull request for it. Nothing changes until
-              that pull request is merged.
+              A merge cannot be undone through GitHub, so this starts a session
+              on <span className="font-mono">{overview.baseRef}</span> that
+              writes the revert and opens a pull request for it. Nothing changes
+              until that pull request is merged.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

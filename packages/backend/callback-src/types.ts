@@ -88,7 +88,7 @@ export type UsageLimitWindow = {
  * - `refused`: the provider answered `rate_limits_available: false`, i.e. it
  *   declined to report. Distinct from having reported nothing at all.
  */
-export type UsageLimitCompleteness = "complete" | "partial" | "refused";
+type UsageLimitCompleteness = "complete" | "partial" | "refused";
 
 /**
  * Plan usage-limit state observed during this run, upserted to Convex at the end

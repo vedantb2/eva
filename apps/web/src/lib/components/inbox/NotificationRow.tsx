@@ -26,7 +26,7 @@ import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
  * off an avatar corner. Falls back to the plain type icon when the notification
  * is not tied to a repo.
  */
-export function NotificationSourceAvatar({
+function NotificationSourceAvatar({
   notification,
   repo,
 }: {

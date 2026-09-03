@@ -27,7 +27,6 @@ export type {
   FontFamily,
   LetterSpacing,
   CustomTheme,
-  ResolvedCustomTheme,
 } from "@/lib/contexts/themeTokens";
 
 /** Next Light → Neutral → Dark → Light. System uses resolved appearance as the start. */

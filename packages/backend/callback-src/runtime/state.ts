@@ -332,14 +332,6 @@ export function resetStateForTests(): void {
   callbackState.lastReportedUsageLimitsAt = 0;
 }
 
-export function setFatalHeartbeatForTest(message: string): void {
-  callbackState.fatalHeartbeatErrorMessage = message;
-}
-
-export function setInFlightToolUsesForTest(n: number): void {
-  callbackState.inFlightToolUses = n;
-}
-
 export function getPendingQuestionForTest(): string {
   return callbackState.pendingQuestionData;
 }

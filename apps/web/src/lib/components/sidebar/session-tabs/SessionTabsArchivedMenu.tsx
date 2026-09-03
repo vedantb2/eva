@@ -19,12 +19,9 @@ import { RepoLogo } from "@/lib/components/RepoLogo";
 import { repoBasePaths } from "@/lib/components/sidebar/_utils/repoSessionPaths";
 import { entityPathSegment } from "@/lib/numId";
 import { repoDisplayLabel, type RepoWithLogo } from "@/lib/utils/repoGrouping";
-import {
-  mutationError,
-  mutationSuccess,
-} from "@/lib/utils/mutationToast";
+import { mutationError, mutationSuccess } from "@/lib/utils/mutationToast";
 
-export interface ArchivedMenuSession {
+interface ArchivedMenuSession {
   _id: Id<"sessions">;
   numId?: number;
   title: string;

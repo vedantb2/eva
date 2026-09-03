@@ -32,7 +32,7 @@ import type { TabGroupColor } from "@/lib/components/sidebar/session-tabs/tabGro
  */
 export const TAB_PREFERRED_WIDTH_REM = 14;
 
-export interface ChromeTabSession {
+interface ChromeTabSession {
   _id: Id<"sessions">;
   _creationTime: number;
   numId?: number;

@@ -72,7 +72,7 @@ const CLAUDE_WINDOW_LABELS: Record<string, string> = {
  * method cannot break this module's types; every value read is still guarded,
  * because the SDK documents the shape itself as unstable.
  */
-export type ClaudeUsageWindowLike = {
+type ClaudeUsageWindowLike = {
   utilization?: number | null;
   resets_at?: string | null;
 } | null;
@@ -286,9 +286,7 @@ export function unwrapUsagePayload(
   return response;
 }
 
-function usageAvailability(
-  payload: ClaudeUsageResponseLike,
-): boolean | null {
+function usageAvailability(payload: ClaudeUsageResponseLike): boolean | null {
   if (payload.rate_limits_available === true) return true;
   if (payload.rate_limits_available === false) return false;
   if (payload.rate_limits !== undefined && payload.rate_limits !== null) {
@@ -466,7 +464,7 @@ export function buildUsageLimitReportArgs(
  * failure is logged and swallowed. Unchanged readings are skipped between
  * periodic refreshes, keeping a live warm daemon from looking stale.
  */
-export async function reportUsageLimits(
+async function reportUsageLimits(
   provider: UsageLimitProvider,
   force = false,
 ): Promise<void> {

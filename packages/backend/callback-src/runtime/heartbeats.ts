@@ -117,9 +117,7 @@ function noteHeartbeatFailure(error: Error | string): void {
   }
 }
 
-export async function sendStreamingHeartbeatUpdate(
-  payload: string,
-): Promise<boolean> {
+async function sendStreamingHeartbeatUpdate(payload: string): Promise<boolean> {
   if (!ownsHeartbeatLease()) return true;
   try {
     await callStreamingHeartbeat(

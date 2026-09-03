@@ -35,7 +35,7 @@ import {
   usePersistentPanelSize,
 } from "@/lib/hooks/usePersistentPanelSize";
 
-export interface PanelContext {
+interface PanelContext {
   rightPanelCollapsed: boolean;
   onToggleRightPanel: () => void;
 }

@@ -5,7 +5,7 @@ export const PREVIEW_VIEWPORT_MAX = 3840;
 export const PREVIEW_VIEWPORT_MAX_AREA = 3840 * 2160;
 export const PREVIEW_VIEWPORT_RAIL_PX = 10;
 
-export const PREVIEW_VIEWPORT_PRESET_IDS = [
+const PREVIEW_VIEWPORT_PRESET_IDS = [
   "iphone-se",
   "iphone-xr",
   "iphone-12-pro",
@@ -185,16 +185,8 @@ export const PREVIEW_VIEWPORT_PRESETS: ReadonlyArray<PreviewViewportPreset> =
 export const FILL_PREVIEW_VIEWPORT: PreviewViewport = { mode: "fill" };
 
 const sizeSchema = z.object({
-  width: z
-    .number()
-    .int()
-    .min(PREVIEW_VIEWPORT_MIN)
-    .max(PREVIEW_VIEWPORT_MAX),
-  height: z
-    .number()
-    .int()
-    .min(PREVIEW_VIEWPORT_MIN)
-    .max(PREVIEW_VIEWPORT_MAX),
+  width: z.number().int().min(PREVIEW_VIEWPORT_MIN).max(PREVIEW_VIEWPORT_MAX),
+  height: z.number().int().min(PREVIEW_VIEWPORT_MIN).max(PREVIEW_VIEWPORT_MAX),
 });
 
 const previewViewportSchema = z.discriminatedUnion("mode", [
@@ -282,7 +274,7 @@ export function presetViewport(
   };
 }
 
-export function clampPreviewDimension(value: number): number {
+function clampPreviewDimension(value: number): number {
   if (!Number.isFinite(value)) return PREVIEW_VIEWPORT_MIN;
   return Math.min(
     PREVIEW_VIEWPORT_MAX,
@@ -328,12 +320,6 @@ export function rotatePreviewViewport(
     width: viewport.height,
     height: viewport.width,
   };
-}
-
-export function previewViewportAspectRatio(
-  viewport: SizedPreviewViewport,
-): number {
-  return viewport.width / viewport.height;
 }
 
 function resizeAtAspectRatio(
@@ -408,15 +394,6 @@ export function fittedPreviewContainStyle(logical: {
     width: `min(100cqw, ${logical.width}px, calc(100cqh * ${logical.width} / ${logical.height}))`,
     height: `min(100cqh, ${logical.height}px, calc(100cqw * ${logical.height} / ${logical.width}))`,
   };
-}
-
-export function previewViewportLabel(viewport: PreviewViewport): string {
-  if (viewport.mode === "fill") return "Fill panel";
-  if (viewport.mode === "preset") {
-    const preset = PRESET_DEFINITIONS[viewport.id];
-    return preset.label;
-  }
-  return "Responsive";
 }
 
 export function sizedPreviewViewport(

@@ -424,10 +424,6 @@ export function isTeamDetailTab(s: string): s is TeamDetailTab {
   return teamDetailTabs.some((tab) => tab === s);
 }
 
-export const logEntityTypesParser = parseAsArrayOf(parseAsString)
-  .withDefault([])
-  .withOptions(searchOptions);
-
 const logViews = ["overview", "type", "project"] as const;
 export const logViewParser = parseAsStringLiteral(logViews)
   .withDefault("overview")

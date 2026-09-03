@@ -5,7 +5,6 @@ import type {
   AgentUsage,
   Cursor,
   JsonlLocalAgentStore,
-  McpServerConfig,
   ModelListItem,
   ModelParameterValue,
   ModelSelection,
@@ -55,7 +54,7 @@ const SDK_VERSION = "1.0.28";
 const SDK_ENTRY_RELPATH = "/dist/esm/index.js";
 
 /** SDK setup should return a local handle quickly; model work happens later. */
-export const CURSOR_AGENT_SETUP_TIMEOUT_MS = 30_000;
+const CURSOR_AGENT_SETUP_TIMEOUT_MS = 30_000;
 /**
  * Env var the SDK reads inside `Agent.create`/`Agent.resume` instead of its own
  * `listModels()` network call to validate the configured model id. Eva already
@@ -69,16 +68,16 @@ export const CURSOR_AGENT_SETUP_TIMEOUT_MS = 30_000;
 export const CURSOR_SDK_LOCAL_MODEL_CATALOG_ENV =
   "CURSOR_SDK_LOCAL_MODEL_CATALOG_JSON";
 /** `Agent.send` only creates the run. A minute here is a wedged SDK session. */
-export const CURSOR_SEND_START_TIMEOUT_MS = 60_000;
+const CURSOR_SEND_START_TIMEOUT_MS = 60_000;
 /**
  * Silence budget before the first visible event, rolling from the last SDK
  * event of ANY type: a stream still emitting lifecycle events (status, usage,
  * compaction summaries) is a live agent, not a stall. Only total silence
  * trips it — and before visible output, replaying is still safe.
  */
-export const CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS;
+const CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS;
 /** Once output exists, allow long model pauses without replaying or aborting. */
-export const CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
+const CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
 const CURSOR_RESULT_SETTLE_TIMEOUT_MS = 30_000;
 
 export type CursorPhase =
@@ -176,7 +175,6 @@ export function cursorEventWaitTimeoutMs(args: {
 }
 
 /** Official SDK types are erased from the standalone callback bundle. */
-export type SdkMcpServerConfig = McpServerConfig;
 type SdkModelParameterValue = ModelParameterValue;
 type SdkModelSelection = ModelSelection;
 
@@ -263,7 +261,7 @@ type SdkUsageCost = UsageCost;
 type SdkRun = Run;
 type SdkAgent = SDKAgent;
 
-export type CursorSdkModule = {
+type CursorSdkModule = {
   Agent: typeof Agent;
   Cursor: typeof Cursor;
   JsonlLocalAgentStore: typeof JsonlLocalAgentStore;
@@ -277,7 +275,7 @@ let loadedSdk: CursorSdkModule | null = null;
  * 1.0.x message type names exactly, so a drifted SDK streams events it drops on
  * the floor and the turn renders as a bare "Working..." for its whole duration.
  */
-export async function loadCursorSdk(): Promise<CursorSdkModule> {
+async function loadCursorSdk(): Promise<CursorSdkModule> {
   // Memoized so the warm daemon pays the resolve (`npm root -g`, manifest
   // reads) and the import once for the whole session instead of once per turn.
   // The one-shot path calls this exactly once, so nothing changes there.
@@ -334,7 +332,7 @@ export function cursorModelCatalogJson(
  * A reasoning miss (no level, list unavailable, model/parameter absent) keeps
  * the base id and any explicitly selected Fast or context parameters.
  */
-export async function resolveCursorModelSelection(
+async function resolveCursorModelSelection(
   sdk: CursorSdkModule,
 ): Promise<SdkModelSelection> {
   const base = normalizedCursorModel;
@@ -813,7 +811,9 @@ export async function runCursorSdkAttempt(
     return created;
   };
 
-  const resumeSavedAgent = async (savedSessionId: string): Promise<SdkAgent> => {
+  const resumeSavedAgent = async (
+    savedSessionId: string,
+  ): Promise<SdkAgent> => {
     updateThinkingStep(
       "Restoring Cursor context...",
       "Opening the saved agent...",

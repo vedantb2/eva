@@ -35,8 +35,10 @@ import {
   type ActivitySegment,
   activityRowKey,
   activitySegmentKey,
+  activityStepKey,
   buildActivityRows,
   groupActivityRows,
+  reasoningActivitySteps,
 } from "./activity-tasks-utils";
 import {
   deriveActionGroupSummary,
@@ -176,6 +178,56 @@ function iconForStep(step: ActivityStep) {
   return (stepConfig[step.type] ?? stepConfig.tool).icon;
 }
 
+/**
+ * One thinking block behind a "Thought for Ns" trigger. Streaming steps open
+ * themselves so live thinking is readable as it lands, then auto-close.
+ */
+function ActivityReasoningDisclosure({ step }: { step: ActivityStep }) {
+  const thoughts = step.detail?.trim() ?? "";
+  const isActive = step.status === "active";
+  const seconds = step.durationMs
+    ? Math.max(1, Math.round(step.durationMs / 1000))
+    : undefined;
+  return (
+    <Reasoning
+      className="mb-0"
+      isStreaming={isActive}
+      defaultOpen={isActive}
+      duration={isActive ? undefined : seconds}
+    >
+      <ReasoningTrigger />
+      {thoughts ? <ReasoningContent>{thoughts}</ReasoningContent> : null}
+    </Reasoning>
+  );
+}
+
+/**
+ * A turn's thinking with the rest of the timeline dropped: no tool, file or
+ * todo rows, no overflow toggle, no "Worked for" wrapper. Simple view renders
+ * this in place of {@link ActivityTasks} so the model's reasoning stays
+ * visible while the mechanics stay hidden. Null when the turn never thought.
+ */
+export function ActivityReasoningTrace({
+  steps,
+  className,
+}: {
+  steps: ActivityStep[];
+  className?: string;
+}) {
+  const reasoning = reasoningActivitySteps(steps);
+  if (reasoning.length === 0) return null;
+  return (
+    <div className={cn("space-y-1.5 text-sm", className)}>
+      {reasoning.map((step, i) => (
+        <ActivityReasoningDisclosure
+          key={activityStepKey(step, i)}
+          step={step}
+        />
+      ))}
+    </div>
+  );
+}
+
 /** One per-call activity row with Synara-style humanized label. */
 function ActivityStepRow({
   row,
@@ -215,21 +267,7 @@ function ActivityStepRow({
   }
 
   if (step.type === "reasoning") {
-    const thoughts = step.detail?.trim() ?? "";
-    const seconds = step.durationMs
-      ? Math.max(1, Math.round(step.durationMs / 1000))
-      : undefined;
-    return (
-      <Reasoning
-        className="mb-0"
-        isStreaming={isActive}
-        defaultOpen={isActive}
-        duration={isActive ? undefined : seconds}
-      >
-        <ReasoningTrigger />
-        {thoughts ? <ReasoningContent>{thoughts}</ReasoningContent> : null}
-      </Reasoning>
-    );
+    return <ActivityReasoningDisclosure step={step} />;
   }
 
   const Icon = iconForStep(step);

@@ -6,7 +6,7 @@ import {
   type Id,
   type SandboxOwner,
 } from "@eva/backend";
-import { isSessionSandboxTab } from "@/lib/search-params";
+import { isSessionSandboxTab, sandboxTabIdFromParam } from "@/lib/search-params";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
@@ -162,13 +162,14 @@ export function SandboxPanel({
   // If the URL points at a custom tab that no longer exists (deleted / disabled /
   // renamed), fall back to preview. Wait for the query to load before deciding.
   useEffect(() => {
-    if (activeTab === "terminal") {
+    const tabId = sandboxTabIdFromParam(activeTab);
+    if (tabId === "terminal") {
       onTabChange("preview");
       return;
     }
-    if (isSessionSandboxTab(activeTab)) return;
+    if (isSessionSandboxTab(tabId)) return;
     if (allCustomTabs === undefined) return;
-    if (!customTabs.some((tab) => slugifyAppTabName(tab.name) === activeTab)) {
+    if (!customTabs.some((tab) => slugifyAppTabName(tab.name) === tabId)) {
       onTabChange("preview");
     }
   }, [activeTab, allCustomTabs, customTabs, onTabChange]);

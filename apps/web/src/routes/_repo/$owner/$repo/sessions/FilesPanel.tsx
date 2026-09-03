@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { useQueryState } from "nuqs";
 import type { Id } from "@eva/backend";
 import { Button, Spinner } from "@eva/ui";
@@ -37,7 +38,8 @@ export function FilesPanel({
   isActive,
   fileList,
 }: FilesPanelProps) {
-  const [file, setFile] = useQueryState("file", fileViewerPathParser);
+  const [file] = useQueryState("file", fileViewerPathParser);
+  const navigate = useNavigate();
   const { state: listState, isRefreshing, refresh } = fileList;
   const root = listState.kind === "loaded" ? listState.root : null;
   const selectedPath = deriveSelectedRelPath(file, root);
@@ -48,7 +50,12 @@ export function FilesPanel({
 
   const handleSelectFile = (relativePath: string) => {
     if (!root) return;
-    void setFile(`${root}/${relativePath}`);
+    // TanStack search object — not nuqs `setFile`. Nuqs concatenates
+    // `pathname + '?file=/abs/path'`, which lands in `$sandboxTab` and the
+    // unknown-tab fallback then sends the pane to Preview.
+    void navigate({
+      search: (prev) => ({ ...prev, file: `${root}/${relativePath}` }),
+    });
     setShowContentSignal((n) => n + 1);
   };
 

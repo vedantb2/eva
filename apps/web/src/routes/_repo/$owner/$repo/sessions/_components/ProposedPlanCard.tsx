@@ -23,12 +23,14 @@ export function ProposedPlanCard({
   onImplement,
   onImplementInNewSession,
   isArchived,
+  className,
 }: {
   planMarkdown: string;
   implemented: boolean;
   onImplement?: () => void;
   onImplementInNewSession?: () => void;
   isArchived?: boolean;
+  className?: string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -55,7 +57,12 @@ export function ProposedPlanCard({
   };
 
   return (
-    <div className="rounded-surface border border-border bg-card/70 p-4">
+    <div
+      className={cn(
+        "rounded-surface border border-border bg-card/70 p-4",
+        className,
+      )}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2">
           <Badge

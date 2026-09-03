@@ -8,7 +8,6 @@ import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
-import { useNavigate } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
@@ -39,15 +38,8 @@ import { AveResetChatDialog } from "@/lib/components/ave/AveResetChatDialog";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
 import { getSessionReadOnlyMessage } from "./_utils/sessionReadOnly";
 import { ProposedPlanCard } from "./_components/ProposedPlanCard";
-import {
-  buildPlanImplementationPrompt,
-  buildPlanImplementationThreadTitle,
-} from "./_components/planExport";
-import {
-  proposedPlanForMessage,
-  type ProposedPlanRow,
-} from "./_components/proposedPlanLogic";
-import { toast } from "@eva/ui";
+import { proposedPlanForMessage } from "./_components/proposedPlanLogic";
+import { useSessionPlanImplementation } from "./_components/useSessionPlanImplementation";
 
 type QueuedSessionMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
@@ -126,7 +118,6 @@ export function ChatPanel({
   backgroundAgents,
 }: ChatPanelProps) {
   const { repo, basePath } = useRepo();
-  const navigate = useNavigate();
   const simpleView = useSimpleView();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -198,9 +189,11 @@ export function ChatPanel({
   const proposedPlans = useQuery(api.proposedPlans.listBySession, {
     sessionId,
   });
-  const createSession = useMutation(api.sessions.create);
-  const markPlanImplemented = useMutation(api.proposedPlans.markImplemented);
-  const updatePlanContent = useMutation(api.sessions.updatePlanContent);
+  const { implementPlan, implementPlanContent, implementInNewSession } =
+    useSessionPlanImplementation({
+      sessionId,
+      handleSend,
+    });
   const chatSurface: SandboxChatSurface = {
     entity: { kind: "session", sessionId },
     repoId: repo._id,
@@ -311,50 +304,6 @@ export function ChatPanel({
       (plan) => plan.planMarkdown.trim() === planContentMarkdown.trim(),
     );
 
-  const implementPlan = (plan: ProposedPlanRow) => {
-    void handleSend(
-      buildPlanImplementationPrompt(plan.planMarkdown),
-      undefined,
-      { sourceProposedPlanId: plan._id },
-    );
-  };
-
-  const implementPlanContent = (markdown: string) => {
-    void handleSend(buildPlanImplementationPrompt(markdown));
-  };
-
-  const handleImplementInNewSession = async (planMarkdown: string, plan?: ProposedPlanRow) => {
-    try {
-      const { sessionId: nextSessionId, numId } = await createSession({
-        repoId: repo._id,
-        title: buildPlanImplementationThreadTitle(planMarkdown),
-        message: buildPlanImplementationPrompt(planMarkdown),
-        model,
-        ...executionTraits,
-        reasoningLevel: displayTraits.effortLevel,
-        thinkingEnabled: displayTraits.thinkingEnabled,
-        use1mContext: displayTraits.use1mContext,
-        fastMode: displayTraits.fastMode,
-        providerAccountId: resolveAccountId(providerAccountId) ?? null,
-      });
-      await updatePlanContent({
-        id: nextSessionId,
-        planContent: planMarkdown,
-      });
-      if (plan) {
-        await markPlanImplemented({
-          planId: plan._id,
-          implementationSessionId: nextSessionId,
-        });
-      }
-      await navigate({ to: `${basePath}/sessions/${numId}` });
-    } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : "Couldn't start new session",
-      );
-    }
-  };
-
   const preInputContent = (
     <SandboxChatPreInput
       surface={chatSurface}
@@ -452,7 +401,7 @@ export function ChatPanel({
                 onImplementInNewSession={
                   isReadOnly || plan.implementedAt !== undefined
                     ? undefined
-                    : () => void handleImplementInNewSession(plan.planMarkdown, plan)
+                    : () => void implementInNewSession(plan.planMarkdown, plan)
                 }
                 isArchived={isReadOnly}
               />
@@ -475,7 +424,7 @@ export function ChatPanel({
                 onImplementInNewSession={
                   isReadOnly
                     ? undefined
-                    : () => void handleImplementInNewSession(planContentMarkdown)
+                    : () => void implementInNewSession(planContentMarkdown)
                 }
                 isArchived={isReadOnly}
               />

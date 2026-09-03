@@ -301,7 +301,9 @@ export function ChatPanel({
   const capturedPlans = proposedPlans ?? [];
   const lastAssistantMessageId = [...messages]
     .toReversed()
-    .find((message) => message.role === "assistant")?._id;
+    .find(
+      (message) => message.role === "assistant" && message.isSystemAlert !== true,
+    )?._id;
   const planContentMarkdown =
     typeof planContent === "string" && planContent.trim().length > 0
       ? planContent

@@ -9,6 +9,7 @@ import type { SandboxHandle } from "../_sandbox/provider";
 import { internal } from "../_generated/api";
 import { resolveSandboxCredentials } from "../envVarResolver";
 import { execHandle, getSandboxHandle, workspaceDirShell } from "./helpers";
+import { WORKSPACE_ROOT } from "./workspaceLayout";
 import { launchChrome, startDesktopWithChrome } from "./desktop";
 import { VERCEL_EDITOR_INTERNAL_PORT } from "./previewProxy";
 import { assertActionSandboxAccess } from "../functions";
@@ -62,9 +63,21 @@ export const toggleCodeServer = action({
         `[code-server] Starting code-server on port ${listenPort}...`,
       );
       try {
+        // Multi-repo sessions create `/tmp/workspace` (linked clones plus a
+        // symlink to the primary); open that so every repo is in the editor
+        // tree. Single-repo sandboxes never have it and keep opening the repo.
+        const hasWorkspaceRoot =
+          (
+            await execHandle(
+              handle,
+              `test -d ${WORKSPACE_ROOT} && echo yes || echo no`,
+              5,
+            )
+          ).trim() === "yes";
+        const openDir = hasWorkspaceRoot ? WORKSPACE_ROOT : workspaceDirShell();
         // Native detached exec — `… &` inside sync runCommand zombies on Vercel.
         await handle.execDetached(
-          `code-server --port ${listenPort} --auth none --bind-addr ${bindAddr} ${workspaceDirShell()} > /tmp/code-server.log 2>&1`,
+          `code-server --port ${listenPort} --auth none --bind-addr ${bindAddr} ${openDir} > /tmp/code-server.log 2>&1`,
         );
 
         await new Promise((resolve) => setTimeout(resolve, 2000));

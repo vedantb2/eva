@@ -66,6 +66,17 @@ export function workspaceRepoName(path: string): string | null {
   return rest.slice(0, slash);
 }
 
+/**
+ * Checkout root a sandbox path belongs to when it is a linked repo
+ * (`/tmp/workspace/<name>` — the same value as `sessionRepos.path`), or `null`
+ * for the primary repo. Lets a file opened from the chat select the right root
+ * in the Files tab instead of listing the primary beside another repo's file.
+ */
+export function workspaceRootPath(path: string): string | null {
+  const repoName = workspaceRepoName(path);
+  return repoName === null ? null : `${WORKSPACE_PREFIX}${repoName}`;
+}
+
 function displayDir(dir: string, repoName: string | null): string {
   if (repoName) {
     const prefix = `${WORKSPACE_PREFIX}${repoName}/`;

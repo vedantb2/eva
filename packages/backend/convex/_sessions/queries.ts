@@ -73,6 +73,8 @@ const sessionListItemValidator = v.object({
    * sidebar can badge the row and link to it under the right app.
    */
   linkedFrom: v.optional(linkedFromValidator),
+  /** Number of linked repos cloned beside the primary (sidebar `+N` badge). */
+  linkedRepoCount: v.optional(v.number()),
 });
 
 /** Maps a full session doc to the slim list payload. */
@@ -83,6 +85,7 @@ function toSessionListItem(
 ) {
   return {
     linkedFrom,
+    linkedRepoCount: session.linkedRepoCount,
     _id: session._id,
     _creationTime: session._creationTime,
     numId: session.numId,

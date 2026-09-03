@@ -45,6 +45,8 @@ interface SessionItem {
    * primary repo, which owns its URL (see `sessionHrefForRow`).
    */
   linkedFrom?: RepoPathRef;
+  /** Linked repos cloned beside the primary; drives the `+N` badge. */
+  linkedRepoCount?: number;
 }
 
 interface SidebarSessionRowProps<T extends SessionItem> {
@@ -121,6 +123,7 @@ export function SidebarSessionRow<T extends SessionItem>({
                 prState={session.prState}
                 baseBranch={session.baseBranch}
                 linkedFrom={session.linkedFrom}
+                linkedRepoCount={session.linkedRepoCount}
               />
             </SharedLayoutNavSurface>
           </m.div>

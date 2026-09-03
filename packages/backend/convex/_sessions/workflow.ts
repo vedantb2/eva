@@ -224,6 +224,17 @@ export async function buildSessionPrompt(
   // iteration context after a sandbox is recreated without plan.md on disk.
   // Cursor resumes the saved SDK agent; the Eva transcript is not stuffed
   // in as a rotation handoff.
+  const linkedRepoRows = await ctx.db
+    .query("sessionRepos")
+    .withIndex("by_session", (q) => q.eq("sessionId", session._id))
+    .collect();
+  const linkedRepos = linkedRepoRows.map((row) => ({
+    owner: row.owner,
+    name: row.name,
+    path: row.path,
+    branchName: row.branchName,
+    baseBranch: row.baseBranch,
+  }));
   let prompt = buildEditPrompt(
     {
       owner: repo.owner,
@@ -237,6 +248,8 @@ export async function buildSessionPrompt(
     customInstructionsBlock,
     repo.systemPrompt,
     session.devPort ?? repo.devPort,
+    [],
+    linkedRepos,
   );
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;

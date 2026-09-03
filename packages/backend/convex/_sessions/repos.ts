@@ -126,13 +126,6 @@ export const listLinkedReposInternal = internalQuery({
       .collect(),
 });
 
-/** One `sessionRepos` row by id, for callers (PR creation) that only hold the row id. */
-export const getSessionRepoInternal = internalQuery({
-  args: { id: v.id("sessionRepos") },
-  returns: v.union(sessionRepoValidator, v.null()),
-  handler: async (ctx, args) => await ctx.db.get(args.id),
-});
-
 /** Records clone completion or PR state for one linked repo. */
 export const patchSessionRepo = internalMutation({
   args: {

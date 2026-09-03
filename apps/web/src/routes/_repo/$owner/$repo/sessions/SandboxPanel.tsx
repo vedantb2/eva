@@ -1,12 +1,13 @@
 import { useEffect } from "react";
 import { useMutation, useQuery } from "convex/react";
+import { useQueryState } from "nuqs";
 import {
   api,
   type BackgroundAgentEntry,
   type Id,
   type SandboxOwner,
 } from "@eva/backend";
-import { isSessionSandboxTab } from "@/lib/search-params";
+import { filesRootParser, isSessionSandboxTab } from "@/lib/search-params";
 import { slugifyAppTabName } from "@/lib/utils/appTabSlug";
 import { IconClipboardList } from "@tabler/icons-react";
 import { SandboxTabBar } from "./_components/SandboxTabBar";
@@ -142,7 +143,16 @@ export function SandboxPanel({
       void setPreviewPort({ owner, port });
     },
   });
-  const fileList = useSandboxFileList({ sandboxId, repoId, isActive });
+  // Multi-repo sessions: which checkout the Files tab browses. "" is the
+  // primary repo; a linked repo's `sessionRepos.path` otherwise.
+  const [filesRoot, setFilesRoot] = useQueryState("filesRoot", filesRootParser);
+  const sessionRepos = useQuery(api.sessions.listRepos, { sessionId });
+  const fileList = useSandboxFileList({
+    sandboxId,
+    repoId,
+    isActive,
+    rootPath: filesRoot || undefined,
+  });
   // User-defined tabs for this app, in display order, enabled only.
   const allCustomTabs = useQuery(api.appTabs.list, { repoId });
   const customTabs = (allCustomTabs ?? []).filter((tab) => tab.enabled);
@@ -255,6 +265,9 @@ export function SandboxPanel({
             repoId={repoId}
             isActive={isActive}
             fileList={fileList}
+            repos={sessionRepos}
+            activeRoot={filesRoot}
+            onRootChange={setFilesRoot}
           />
         </div>
         <div

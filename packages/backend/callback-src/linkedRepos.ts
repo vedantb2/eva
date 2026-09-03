@@ -1,4 +1,4 @@
-import { z } from "zod";
+import type { JsonValue } from "./types.js";
 
 /**
  * One linked repo clone for a multi-repo session: a full checkout at
@@ -14,15 +14,19 @@ export type LinkedRepo = {
   baseBranch: string;
 };
 
-const linkedRepoSchema = z.object({
-  owner: z.string(),
-  name: z.string(),
-  path: z.string(),
-  branchName: z.string(),
-  baseBranch: z.string(),
-});
-
-const linkedReposSchema = z.array(linkedRepoSchema);
+/** Narrows a parsed JSON array entry into `LinkedRepo` — all five fields required. */
+function isLinkedRepo(value: JsonValue): value is LinkedRepo {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+  return (
+    typeof value.owner === "string" &&
+    typeof value.name === "string" &&
+    typeof value.path === "string" &&
+    typeof value.branchName === "string" &&
+    typeof value.baseBranch === "string"
+  );
+}
 
 /**
  * Parses `EVA_LINKED_REPOS`, the JSON array of linked-repo descriptors the
@@ -33,11 +37,15 @@ const linkedReposSchema = z.array(linkedRepoSchema);
  * A missing value, invalid JSON, or a payload that does not match the
  * expected shape all degrade to an empty array (ordinary single-repo
  * behavior) rather than throwing — a bad launcher value must not crash the
- * daemon. Invalid JSON or shape is logged once, here, at parse time.
+ * daemon. Invalid JSON or shape is logged once, here, at parse time. Hand
+ * rolled rather than a schema library: five required string fields do not
+ * justify pulling zod into a bundle that ships to every sandbox.
  */
 export function parseLinkedReposEnv(raw: string | undefined): LinkedRepo[] {
   if (!raw) return [];
-  let parsed: unknown;
+  // JSON.parse's return type is `any`; assigning straight into the `JsonValue`
+  // boundary type below is the narrowing step (no cast).
+  let parsed: JsonValue;
   try {
     parsed = JSON.parse(raw);
   } catch {
@@ -46,14 +54,23 @@ export function parseLinkedReposEnv(raw: string | undefined): LinkedRepo[] {
     );
     return [];
   }
-  const result = linkedReposSchema.safeParse(parsed);
-  if (!result.success) {
+  if (!Array.isArray(parsed)) {
     console.error(
       "EVA_LINKED_REPOS: unexpected shape — ignoring, running single-repo",
     );
     return [];
   }
-  return result.data;
+  const repos: LinkedRepo[] = [];
+  for (const entry of parsed) {
+    if (!isLinkedRepo(entry)) {
+      console.error(
+        "EVA_LINKED_REPOS: unexpected shape — ignoring, running single-repo",
+      );
+      return [];
+    }
+    repos.push(entry);
+  }
+  return repos;
 }
 
 /**

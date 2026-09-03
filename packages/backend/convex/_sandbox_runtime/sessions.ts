@@ -641,6 +641,15 @@ type SessionSandboxPreparationArgs = {
   baseBranch: string;
   repoId: Id<"githubRepos">;
   startDesktop: boolean;
+  /**
+   * True when the session also has `sessionRepos` rows to clone into
+   * `/tmp/workspace`. Only ever set on the fresh-create path (a resumed
+   * sandbox already has them from its first create) — gates the setup-pending
+   * flag so `sessionSandboxStartupWorkflow` can provision them before the
+   * first turn runs. Absent (`prepareSessionSandbox`, used by
+   * `sessionExecuteWorkflow`) behaves as false.
+   */
+  hasLinkedRepos?: boolean;
 };
 
 type PreparedSessionSandbox = {
@@ -1079,7 +1088,11 @@ async function prepareSessionSandboxInternal(
             resumeFellBack: reuseId !== undefined,
             // Snapshot restores keep a stale checkout + baked modules; gate the
             // queued first turn until the base pull + install below finish.
-            markSetupPending: Boolean(snapshotName),
+            // Linked repos gate it too, regardless of snapshot — they still
+            // need to be cloned/installed after this action returns (see
+            // `sessionSandboxStartupWorkflow`), and the workflow — not this
+            // action — clears the gate once they're done.
+            markSetupPending: Boolean(snapshotName) || args.hasLinkedRepos === true,
             // Background + startup commands have not run yet on this fresh VM;
             // keep the Preview heal off it until final-ready clears the flag.
             markServicesPending: true,
@@ -1259,9 +1272,14 @@ async function prepareSessionSandboxInternal(
     // daemon can claim the queued first turn. Dev server / background / startup
     // commands below keep warming without blocking the agent. No-op when the
     // gate was never set (non-snapshot path).
-    await ctx.runMutation(internal.sessions.clearSandboxSetupPending, {
-      sessionId: args.sessionId,
-    });
+    // Linked repos: leave the gate set. `sessionSandboxStartupWorkflow` still
+    // has to clone/install every `sessionRepos` row after this action returns,
+    // and it — not this action — clears the gate once that finishes (or fails).
+    if (!args.hasLinkedRepos) {
+      await ctx.runMutation(internal.sessions.clearSandboxSetupPending, {
+        sessionId: args.sessionId,
+      });
+    }
 
     // Restore baked config files from /home/eva/sandbox-config into the workspace.
     // Skipped when usedSnapshot: createSandboxAndPrepareRepo already ran this
@@ -1629,6 +1647,7 @@ export const startSessionSandbox = internalAction({
         baseBranch: args.baseBranch,
         repoId: args.repoId,
         startDesktop: false,
+        hasLinkedRepos: args.hasLinkedRepos === true,
       });
       await runLoggedSessionStep(
         prepared.isNew

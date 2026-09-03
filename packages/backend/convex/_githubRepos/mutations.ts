@@ -5,11 +5,7 @@ import { internalMutation } from "../_generated/server";
 import type { DatabaseWriter } from "../_generated/server";
 import { authMutation, getRepoWithAccess, hasTeamAccess } from "../functions";
 import { normalizePath } from "../repoUtils";
-import {
-  aiModelValidator,
-  mcpToolModeValidator,
-  reasoningLevelValidator,
-} from "../validators";
+import { aiModelValidator, reasoningLevelValidator } from "../validators";
 import { findAllSiblingRepoIds } from "./helpers";
 
 /** Throws unless the user connected the repo or shares its team. */
@@ -460,32 +456,6 @@ export const updateMcpRootPrompt = authMutation({
     for (const siblingId of siblingIds) {
       await ctx.db.patch(siblingId, {
         mcpRootPrompt: args.mcpRootPrompt,
-      });
-    }
-    return null;
-  },
-});
-
-/**
- * Updates the MCP tool mode for a repo and all its siblings. Omitting
- * mcpToolMode clears the field, falling back to the default "flat" mode.
- */
-export const updateMcpToolMode = authMutation({
-  args: {
-    repoId: v.id("githubRepos"),
-    mcpToolMode: v.optional(mcpToolModeValidator),
-  },
-  returns: v.null(),
-  handler: async (ctx, args) => {
-    const repo = await ctx.db.get(args.repoId);
-    if (!repo) throw new Error("Repository not found");
-
-    await assertRepoWriteAccess(ctx.db, ctx.userId, repo);
-
-    const siblingIds = await findAllSiblingRepoIds(ctx.db, args.repoId);
-    for (const siblingId of siblingIds) {
-      await ctx.db.patch(siblingId, {
-        mcpToolMode: args.mcpToolMode,
       });
     }
     return null;

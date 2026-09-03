@@ -1,9 +1,10 @@
 "use node";
 /**
- * Code mode: the whole Eva tool catalog behind two MCP tools. `execute` runs
+ * Code mode: the whole Eva tool catalog behind two MCP tools. These two sit
+ * beside the flat tools rather than replacing them — `execute` runs
  * model-written JavaScript in the QuickJS sandbox with a `tools` proxy that
- * dispatches to the same `EvaTool` definitions flat mode mounts one by one;
- * `search_tools` (and `tools.search` inside a script) lets the model find
+ * dispatches to the same `EvaTool` definitions the flat mount exposes one by
+ * one; `search_tools` (and `tools.search` inside a script) lets the model find
  * names and schemas without every definition sitting in its context.
  */
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
@@ -130,6 +131,8 @@ function executeDescription(tools: readonly EvaTool[]): string {
   const limits = DEFAULT_EXECUTE_LIMITS;
   return [
     "Run JavaScript against Eva's tools in a sandbox and get the result back in one round trip. Use it to chain calls, loop over entities, filter or aggregate data before it reaches you, or run several reads in parallel with Promise.all.",
+    "",
+    "Every tool below is also exposed directly as an MCP tool. Prefer a direct call for one simple read; use execute when a task needs several calls, a loop, filtering, or aggregation.",
     "",
     "`code` is the body of an async function. Inside it:",
     "- `await tools.<name>({ ...args })` calls a tool and resolves to its parsed JSON result (a string for plain-text tools). Failures throw an Error carrying the tool's message, so try/catch works.",

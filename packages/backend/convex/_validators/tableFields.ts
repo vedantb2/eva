@@ -13,7 +13,6 @@ import {
   errorTypeValidator,
   evaluationStatusValidator,
   evalFixStatusValidator,
-  mcpToolModeValidator,
   phaseValidator,
   prRecapOriginValidator,
   prRecapStatusValidator,
@@ -615,7 +614,6 @@ export const githubRepoFields = {
   deploymentProjectName: v.optional(v.string()),
   domains: v.optional(v.array(v.string())),
   mcpRootPrompt: v.optional(v.string()),
-  mcpToolMode: v.optional(mcpToolModeValidator),
   startupCommands: v.optional(v.array(v.string())),
   backgroundCommands: v.optional(v.array(v.string())),
   // Clean-shutdown commands run before snapshotting a seeded sandbox so on-disk

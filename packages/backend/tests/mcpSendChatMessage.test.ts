@@ -580,6 +580,13 @@ describe("which tokens get which tools", () => {
     expect(getState).toContain('"_sessions/queries:get"');
     expect(getState).toContain('"_agentTasks/queries:get"');
   });
+
+  test("code-mode tools are mounted beside the flat tools, never instead of them", () => {
+    const nodeActions = convexSource("mcp/nodeActions.ts");
+    expect(nodeActions).toContain(
+      "mountFlat(server, [...allTools, ...codeModeTools(allTools)])",
+    );
+  });
 });
 
 describe("user-MCP watch resolves Manager Ave without a master token", () => {

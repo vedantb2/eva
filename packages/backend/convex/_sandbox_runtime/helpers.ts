@@ -659,20 +659,12 @@ export async function signAndLaunchScript(
   // Mint the sandbox auth token and MCP token in a single node action. This
   // replaces three separate runAction hops across two "use node" isolates, which
   // cold-started Node twice and dominated launch latency (~3s).
-  // The repo's MCP tool mode rides along as a token claim so the MCP server
-  // can mount flat tools or code mode without the callback knowing.
-  const launchRepo = await ctx.runQuery(internal.githubRepos.getInternal, {
-    id: repoId,
-  });
   const { sandboxToken, mcpToken } = await ctx.runAction(
     internal.sandboxJwt.mintSandboxSessionTokens,
     {
       userId,
       repoId,
       enableMcp: opts.enableMcp !== false,
-      ...(launchRepo?.mcpToolMode !== undefined
-        ? { toolMode: launchRepo.mcpToolMode }
-        : {}),
       entityId,
       ...(entityIdField === "sessionId"
         ? { entityKind: "session" as const }

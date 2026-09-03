@@ -12,7 +12,6 @@ import { buildTools } from "./tools";
 import { supabaseTools } from "./supabase";
 import { mountFlat, type EvaTool } from "./registry";
 import { codeModeTools } from "../_mcp/codeModeTools";
-import { mcpToolModeValidator } from "../validators";
 import {
   buildChatMessageCalls,
   decideSandboxStartPlan,
@@ -71,7 +70,6 @@ const internalTokenClaims = z.object({
   entityId: z.string().optional(),
   entityKind: z.enum(["session", "task", "project"]).optional(),
   orchestrator: z.boolean().optional(),
-  toolMode: z.enum(["flat", "code"]).optional(),
 });
 
 type OauthTokens = {
@@ -200,7 +198,6 @@ export const verifyAccessToken = internalAction({
         v.union(v.literal("session"), v.literal("task"), v.literal("project")),
       ),
       isOrchestrator: v.optional(v.boolean()),
-      toolMode: v.optional(mcpToolModeValidator),
     }),
     v.null(),
   ),
@@ -235,7 +232,6 @@ export const verifyAccessToken = internalAction({
           entityId: undefined,
           entityKind: undefined,
           isOrchestrator: undefined,
-          toolMode: undefined,
         };
       }
       // OAuth payload missing sub — fall through to internal token
@@ -274,9 +270,6 @@ export const verifyAccessToken = internalAction({
           : {}),
         ...(claims.data.orchestrator !== undefined
           ? { isOrchestrator: claims.data.orchestrator }
-          : {}),
-        ...(claims.data.toolMode !== undefined
-          ? { toolMode: claims.data.toolMode }
           : {}),
       };
     } catch (err) {
@@ -2104,7 +2097,6 @@ export const handleMcpRequest = internalAction({
       v.union(v.literal("session"), v.literal("task"), v.literal("project")),
     ),
     isOrchestrator: v.optional(v.boolean()),
-    toolMode: v.optional(mcpToolModeValidator),
     body: v.string(),
   },
   returns: v.object({
@@ -2113,15 +2105,7 @@ export const handleMcpRequest = internalAction({
   }),
   handler: async (
     ctx,
-    {
-      clerkUserId,
-      scopedRepoId,
-      entityId,
-      entityKind,
-      isOrchestrator,
-      toolMode,
-      body,
-    },
+    { clerkUserId, scopedRepoId, entityId, entityKind, isOrchestrator, body },
   ) => {
     try {
       const parsedBody = JSON.parse(body);
@@ -2152,12 +2136,9 @@ export const handleMcpRequest = internalAction({
         );
       }
       const allTools = [...tools, ...supabase];
-      // Code mode swaps the flat catalog for `execute` + `search_tools`, which
-      // dispatch to the same definitions from sandboxed JavaScript.
-      mountFlat(
-        server,
-        toolMode === "code" ? codeModeTools(allTools) : allTools,
-      );
+      // Code mode is additive: `execute` and `search_tools` sit beside the flat
+      // tools and dispatch to the same definitions.
+      mountFlat(server, [...allTools, ...codeModeTools(allTools)]);
 
       // Create transport in stateless mode with JSON responses (no SSE).
       // WebStandardStreamableHTTPServerTransport works with Web Standard

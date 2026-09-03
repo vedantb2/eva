@@ -27,6 +27,7 @@ import { SandboxStartStopButton } from "@/lib/components/sandbox/SandboxStartSto
 import { SessionSwitcher } from "./SessionSwitcher";
 import { prStateIconClass } from "../_utils/-prStateIconClass";
 import { canSendSessionForReview } from "../_utils/sessionReadOnly";
+import { ConfirmSkipHint, skipConfirmTitle } from "@/lib/confirm";
 
 interface SessionChatHeaderProps {
   repoId: Id<"githubRepos">;
@@ -139,9 +140,11 @@ export function SessionChatHeader({
               <DropdownMenuItem
                 onClick={onOpenResetChatDialog}
                 disabled={isAssistantResponding}
+                title={skipConfirmTitle("Start new chat")}
               >
                 <IconMessagePlus size={14} />
                 Start new chat
+                <ConfirmSkipHint />
               </DropdownMenuItem>
               <DropdownMenuSeparator />
             </>
@@ -149,17 +152,25 @@ export function SessionChatHeader({
           <DropdownMenuItem
             onClick={onOpenSummaryModal}
             disabled={!isSandboxActive || messageCount === 0}
+            title={skipConfirmTitle(
+              hasSummary ? "Regenerate Summary" : "Summarise Session",
+            )}
           >
             <IconSparkles size={14} />
             {hasSummary ? "Regenerate Summary" : "Summarise Session"}
+            <ConfirmSkipHint />
           </DropdownMenuItem>
           {(showSendForReview || deploymentStatus || prUrl) && (
             <DropdownMenuSeparator />
           )}
           {showSendForReview && (
-            <DropdownMenuItem onClick={onOpenReviewModal}>
+            <DropdownMenuItem
+              onClick={onOpenReviewModal}
+              title={skipConfirmTitle("Send for Review")}
+            >
               <IconEye size={14} className="text-status-code-review" />
               Send for Review
+              <ConfirmSkipHint />
             </DropdownMenuItem>
           )}
           {deploymentStatus && (

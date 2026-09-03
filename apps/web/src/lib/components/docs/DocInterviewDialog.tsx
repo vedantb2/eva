@@ -29,6 +29,12 @@ import { MultipleChoiceQuestion } from "@/lib/components/plan/MultipleChoiceQues
 import { ChatMessage } from "@/lib/components/plan/ChatMessage";
 import { parseActivitySteps } from "@eva/shared/parseActivitySteps";
 import { withMutationToast } from "@/lib/utils/mutationToast";
+import {
+  ConfirmSkipHint,
+  requestConfirm,
+  skipConfirmTitle,
+  useAltHeld,
+} from "@/lib/confirm";
 
 type Doc = NonNullable<FunctionReturnType<typeof api.docs.get>>;
 
@@ -97,6 +103,7 @@ export function DocInterviewDialog({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+  const altHeld = useAltHeld();
   const [dictation, setDictation] = useState("");
   const hasTriggeredRef = useRef(false);
   const hasSpeech = !!getSpeechRecognition();
@@ -394,11 +401,22 @@ export function DocInterviewDialog({
                 <Button
                   size="sm"
                   variant="destructive"
-                  onClick={() => setConfirmClear(true)}
+                  title={skipConfirmTitle("Clear")}
+                  onClick={(event) =>
+                    requestConfirm(
+                      altHeld,
+                      () => setConfirmClear(true),
+                      () => {
+                        void handleClear();
+                      },
+                      event,
+                    )
+                  }
                   disabled={isLoading || messages.length === 0}
                 >
                   <IconTrash size={16} />
                   Clear
+                  <ConfirmSkipHint />
                 </Button>
               </div>
             </div>

@@ -20,6 +20,7 @@ import {
   findModelOption,
 } from "@eva/ui";
 import { IconLoader2, IconPlayerStop } from "@tabler/icons-react";
+import { ConfirmSkipHint, skipConfirmTitle } from "@/lib/confirm";
 import dayjs, { formatExactDateTime } from "@eva/shared/dates";
 import { UserInitials } from "@eva/shared/user-initials";
 import { EvaIcon } from "@/lib/components/EvaIcon";
@@ -207,6 +208,7 @@ export function RunTimelineItem({
                       variant="destructive"
                       size="sm"
                       className="h-6 px-2 text-xs"
+                      title={skipConfirmTitle("Stop")}
                       onClick={(e) => {
                         e.stopPropagation();
                         onStopConfirm();
@@ -219,6 +221,7 @@ export function RunTimelineItem({
                         <IconPlayerStop size={14} />
                       )}
                       Stop
+                      <ConfirmSkipHint />
                     </Button>
                   </div>
                 </TooltipTrigger>

@@ -18,8 +18,14 @@ import { BackgroundProcessesPanel } from "./_components/BackgroundProcessesPanel
 import { PublishRecoveryBanner } from "./_components/PublishRecoveryBanner";
 import { SessionChatHeader } from "./_components/SessionChatHeader";
 import { SessionSummaryAccordion } from "./_components/SessionSummaryAccordion";
-import { SessionSummaryModal } from "./_components/SessionSummaryModal";
-import { SessionReviewModal } from "./_components/SessionReviewModal";
+import {
+  SessionSummaryModal,
+  useStartSessionSummary,
+} from "./_components/SessionSummaryModal";
+import {
+  SessionReviewModal,
+  useSendSessionForReview,
+} from "./_components/SessionReviewModal";
 import {
   useSessionSend,
   type SessionMessage,
@@ -34,7 +40,12 @@ import {
 } from "@/lib/hooks/useAvailableAiModels";
 import { useChatDraftSeed } from "@/lib/components/chat/useChatDraftSeed";
 import { PendingReviewCommentChips } from "@/lib/components/chat/PendingReviewCommentChips";
-import { AveResetChatDialog } from "@/lib/components/ave/AveResetChatDialog";
+import {
+  AveResetChatDialog,
+  useResetOrchestratorChat,
+} from "@/lib/components/ave/AveResetChatDialog";
+import { requestConfirm, useAltHeld } from "@/lib/confirm";
+import { toast } from "@eva/ui";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
 import { getSessionReadOnlyMessage } from "./_utils/sessionReadOnly";
 import { ProposedPlanCard } from "./_components/ProposedPlanCard";
@@ -123,6 +134,10 @@ export function ChatPanel({
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [showResetChatDialog, setShowResetChatDialog] = useState(false);
+  const altHeld = useAltHeld();
+  const { sendForReview } = useSendSessionForReview(sessionId);
+  const { startSummary } = useStartSessionSummary(sessionId);
+  const { reset: resetOrchestratorChat } = useResetOrchestratorChat();
 
   const defaultModel = normalizeAIModel(repo.defaultModel);
   // The picker lists the session owner's accounts, not the viewer's — the turn
@@ -269,12 +284,27 @@ export function ChatPanel({
     providerAccountId: stickyProviderAccountId,
     usageAccountLabel,
     onSandboxToggle,
-    onOpenSummaryModal: () => setShowSummaryModal(true),
-    onOpenReviewModal: () => setShowReviewModal(true),
+    onOpenSummaryModal: () =>
+      requestConfirm(altHeld, () => setShowSummaryModal(true), () => {
+        void startSummary();
+      }),
+    onOpenReviewModal: () =>
+      requestConfirm(altHeld, () => setShowReviewModal(true), () => {
+        void sendForReview().then((ok) => {
+          if (ok) toast.success("Sent to the team for review.");
+        });
+      }),
     // Only Manager Ave can be reset: it is the one chat the user cannot simply
     // replace by opening a new session.
     onOpenResetChatDialog: chatOnly
-      ? () => setShowResetChatDialog(true)
+      ? () =>
+          requestConfirm(
+            altHeld,
+            () => setShowResetChatDialog(true),
+            () => {
+              void resetOrchestratorChat();
+            },
+          )
       : undefined,
   });
 

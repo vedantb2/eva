@@ -34,6 +34,12 @@ import {
 import { SidebarListHoverCard } from "@/lib/components/sidebar/SidebarListHoverCard";
 import { entityPathSegment, routeNumIdFromPath } from "@/lib/numId";
 import {
+  ConfirmSkipHint,
+  requestConfirm,
+  skipConfirmTitle,
+  useAltHeld,
+} from "@/lib/confirm";
+import {
   mutationError,
   mutationSuccess,
 } from "@/lib/utils/mutationToast";
@@ -81,6 +87,7 @@ export function DocsSidebar({
     title: string;
   } | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const altHeld = useAltHeld();
   const [isUploading, setIsUploading] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [newDocTitle, setNewDocTitle] = useState("");
@@ -234,12 +241,14 @@ export function DocsSidebar({
     });
   };
 
-  const handleDelete = async () => {
-    if (!docToDelete) return;
+  const handleDelete = async (
+    target: { id: Id<"docs">; title: string } | null = docToDelete,
+  ) => {
+    if (!target) return;
     // Resolved before the try (it needs no await, and the guard above already
-    // proves docToDelete): React Compiler bails on the whole file when a
+    // proves target): React Compiler bails on the whole file when a
     // conditional or logical expression sits inside a try/catch.
-    const docToDeleteSegment = docs?.find((d) => d._id === docToDelete.id);
+    const docToDeleteSegment = docs?.find((d) => d._id === target.id);
     const deletePathSegment = docToDeleteSegment
       ? entityPathSegment(docToDeleteSegment)
       : null;
@@ -248,7 +257,7 @@ export function DocsSidebar({
       routeNumIdFromPath(pathname, `${basePath}/docs`) === deletePathSegment;
     setIsDeleting(true);
     try {
-      await removeDoc({ id: docToDelete.id });
+      await removeDoc({ id: target.id });
       mutationSuccess("Document deleted", "doc-delete");
       setDocToDelete(null);
       if (isViewing) {
@@ -341,12 +350,21 @@ export function DocsSidebar({
                     {doc.kind !== "pr-recap" ? (
                       <ContextMenuItem
                         className="text-destructive"
-                        onClick={() =>
-                          setDocToDelete({ id: doc._id, title: doc.title })
-                        }
+                        title={skipConfirmTitle("Delete")}
+                        onClick={() => {
+                          const target = { id: doc._id, title: doc.title };
+                          requestConfirm(
+                            altHeld,
+                            () => setDocToDelete(target),
+                            () => {
+                              void handleDelete(target);
+                            },
+                          );
+                        }}
                       >
                         <IconTrash size={16} />
                         Delete
+                        <ConfirmSkipHint />
                       </ContextMenuItem>
                     ) : null}
                   </ContextMenuContent>
@@ -489,7 +507,7 @@ export function DocsSidebar({
             </Button>
             <Button
               variant="destructive"
-              onClick={handleDelete}
+              onClick={() => void handleDelete()}
               disabled={isDeleting}
             >
               {isDeleting && <Spinner size="sm" />}

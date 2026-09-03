@@ -25,6 +25,11 @@ import {
   catchMutationError,
   withMutationToast,
 } from "@/lib/utils/mutationToast";
+import {
+  requestConfirm,
+  skipConfirmTitle,
+  useAltHeld,
+} from "@/lib/confirm";
 
 /**
  * Per-user "bring your own account" management. A user adds their own coding
@@ -44,6 +49,16 @@ export function AccountsClient() {
   const [deleteId, setDeleteId] = useState<Id<"userProviderAccounts"> | null>(
     null,
   );
+  const altHeld = useAltHeld();
+
+  const deleteAccount = (accountId: Id<"userProviderAccounts">) => {
+    void withMutationToast(
+      remove({ accountId }),
+      "Account deleted",
+      "Couldn't delete account",
+      "account-delete",
+    ).then(() => setDeleteId(null));
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -148,8 +163,15 @@ export function AccountsClient() {
                 <Button
                   size="icon-sm"
                   variant="ghost"
-                  onClick={() => setDeleteId(account._id)}
-                  title="Delete"
+                  onClick={(event) =>
+                    requestConfirm(
+                      altHeld,
+                      () => setDeleteId(account._id),
+                      () => deleteAccount(account._id),
+                      event,
+                    )
+                  }
+                  title={skipConfirmTitle("Delete")}
                   className="max-sm:size-10 text-destructive hover:text-destructive"
                 >
                   <IconTrash size={14} />
@@ -193,12 +215,7 @@ export function AccountsClient() {
               variant="destructive"
               onClick={() => {
                 if (!deleteId) return;
-                void withMutationToast(
-                  remove({ accountId: deleteId }),
-                  "Account deleted",
-                  "Couldn't delete account",
-                  "account-delete",
-                ).then(() => setDeleteId(null));
+                deleteAccount(deleteId);
               }}
             >
               Delete

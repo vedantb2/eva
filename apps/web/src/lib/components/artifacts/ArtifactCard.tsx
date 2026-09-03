@@ -26,6 +26,7 @@ import { relativeTime } from "./_format";
 import { withMutationToast } from "@/lib/utils/mutationToast";
 import { ArtifactCardMenuItems } from "./ArtifactCardMenuItems";
 import { CARD_KEBAB_CLASS } from "@/lib/components/ui/cardKebab";
+import { requestConfirm, useAltHeld } from "@/lib/confirm";
 
 type ArtifactRow = FunctionReturnType<typeof api.artifacts.listAll>[number];
 
@@ -34,6 +35,7 @@ export function ArtifactCard({ artifact }: { artifact: ArtifactRow }) {
   const navigate = useNavigate();
   const remove = useMutation(api.artifacts.remove);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const altHeld = useAltHeld();
 
   const openInNewTab = () =>
     window.open(`/artifacts/${artifact._id}`, "_blank", "noopener");
@@ -55,7 +57,10 @@ export function ArtifactCard({ artifact }: { artifact: ArtifactRow }) {
         params: { artifactId: artifact._id },
       }),
     onOpenInNewTab: openInNewTab,
-    onDelete: () => setConfirmDeleteOpen(true),
+    onDelete: () =>
+      requestConfirm(altHeld, () => setConfirmDeleteOpen(true), () => {
+        void onDelete();
+      }),
   };
 
   return (

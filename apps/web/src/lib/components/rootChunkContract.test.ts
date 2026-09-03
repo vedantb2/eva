@@ -28,6 +28,9 @@ test("the root route lazy-loads Convex, preview and changelog", () => {
     /import\s*\{[^}]*ChangelogDialogGate[^}]*\}\s*from/,
   );
   expect(root).not.toMatch(/from\s+"@vercel\/analytics\/react"/);
+  expect(root).toContain('import("@vercel/analytics/react")');
+  expect(root).toContain(".catch(() => ({ default: () => null }))");
+  expect(root).toContain("QueryErrorBoundary");
   expect(root).toContain('import("@/lib/components/ClientProvider")');
   expect(root).toContain('import("@/lib/components/sandbox/previewIframeHost")');
   expect(root).toContain('import("@/lib/components/sandbox/PreviewMiniPlayer")');

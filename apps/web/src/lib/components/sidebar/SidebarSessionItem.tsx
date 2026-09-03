@@ -243,10 +243,15 @@ export function SidebarSessionItem({
             {statusLeading}
             <MarqueeOnHover className={titleClass}>{title}</MarqueeOnHover>
             <TitleRegeneratingHint show={isRegeneratingTitle} />
+            <LinkedRepoCountBadge count={linkedRepoCount} />
           </div>
           <div className="flex min-w-0 items-center gap-2 pl-4 opacity-60">
             <div className="min-w-0 flex-1">
-              <SessionFolderAuthor userId={userId} />
+              {linkedFrom ? (
+                <LinkedFromHint linkedFrom={linkedFrom} />
+              ) : (
+                <SessionFolderAuthor userId={userId} />
+              )}
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
               <SessionPrIcon prUrl={prUrl} prState={prState} />
@@ -262,6 +267,8 @@ export function SidebarSessionItem({
           {statusLeading}
           <MarqueeOnHover className={titleClass}>{title}</MarqueeOnHover>
           <TitleRegeneratingHint show={isRegeneratingTitle} />
+          <LinkedRepoCountBadge count={linkedRepoCount} />
+          <LinkedFromHint linkedFrom={linkedFrom} />
           <SessionPrIcon prUrl={prUrl} prState={prState} />
           <RelativeDateTime
             at={activityAt}

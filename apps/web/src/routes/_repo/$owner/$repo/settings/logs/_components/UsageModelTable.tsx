@@ -1,7 +1,7 @@
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { formatCost, formatTokens, sharePercent } from "../_utils";
 
-export interface UsageModelRow {
+interface UsageModelRow {
   model: string;
   provider?: string;
   costUsd: number;

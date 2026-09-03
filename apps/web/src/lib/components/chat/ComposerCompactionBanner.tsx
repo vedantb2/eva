@@ -11,12 +11,12 @@ import { formatTokens, parseResultEvent } from "@/lib/utils/logs";
  * Adopted from t3code (`CLAUDE_RESUME_COMPACTION_TOKENS`): below this occupancy
  * a resumed session is cheap enough that compacting costs more than it saves.
  */
-export const COMPACTION_RECOMMEND_TOKENS = 100_000;
+const COMPACTION_RECOMMEND_TOKENS = 100_000;
 /**
  * Adopted from t3code (`CLAUDE_RESUME_COMPACTION_MINUTES`): the gap that marks
  * the context as "an older session" rather than the turn you just watched run.
  */
-export const COMPACTION_RECOMMEND_IDLE_MINUTES = 70;
+const COMPACTION_RECOMMEND_IDLE_MINUTES = 70;
 
 /** Claude harness built-in; sent verbatim as a user message. */
 export const COMPACT_COMMAND = "/compact";

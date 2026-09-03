@@ -14,7 +14,7 @@ import { TablerIconByName } from "@/lib/components/TablerIconByName";
  * different asks — `activity` pulses because it is live and stops on its own,
  * `content` sits still because it waits for the user to act.
  */
-export type SandboxTabIndicator = "activity" | "content";
+type SandboxTabIndicator = "activity" | "content";
 
 /**
  * Builtin tabs import their icon statically; user-defined tabs store a free-text
@@ -22,7 +22,7 @@ export type SandboxTabIndicator = "activity" | "content";
  * instead of asking the builder to wrap the name in a fresh component per
  * render, which would remount the icon on every keystroke elsewhere in the tree.
  */
-export type SandboxTabIcon =
+type SandboxTabIcon =
   | { kind: "component"; Icon: ComponentType<{ className?: string }> }
   | { kind: "name"; name: string };
 

@@ -1,13 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import {
-  Button,
-  cn,
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@eva/ui";
+import { Button, cn, Tooltip, TooltipContent, TooltipTrigger } from "@eva/ui";
 import { IconPlayerStop } from "@tabler/icons-react";
 
 /**
@@ -21,7 +15,7 @@ import { IconPlayerStop } from "@tabler/icons-react";
  * the header lost a button mid-turn and grew it back. It now stays put, inert,
  * and says why.
  */
-export const MID_TURN_SLEEP_HINT =
+const MID_TURN_SLEEP_HINT =
   "Eva is working — use Stop Eva in the composer first";
 
 /**

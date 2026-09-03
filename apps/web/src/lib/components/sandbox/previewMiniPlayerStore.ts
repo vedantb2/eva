@@ -19,7 +19,7 @@ import type { Id } from "@eva/backend";
  * because the unmount is precisely the moment it is needed.
  */
 
-export type PreviewMiniPlayerMode = "auto" | "manual";
+type PreviewMiniPlayerMode = "auto" | "manual";
 
 /** What the pane knows and the host does not: where the preview belongs. */
 export interface PreviewMiniPlayerSource {

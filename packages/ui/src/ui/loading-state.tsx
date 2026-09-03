@@ -186,5 +186,3 @@ export function LoadingState({
     </div>
   );
 }
-
-export default LoadingState;

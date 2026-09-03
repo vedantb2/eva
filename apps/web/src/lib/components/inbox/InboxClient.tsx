@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
 import { api, type Id } from "@eva/backend";
@@ -15,11 +15,16 @@ import { inboxFilterParser, inboxSelectedParser } from "@/lib/search-params";
 import { type Notification } from "@/lib/components/notifications/notification-config";
 import { InboxFilterMenu } from "@/lib/components/inbox/InboxFilterMenu";
 import { NotificationList } from "@/lib/components/inbox/NotificationList";
-import { NotificationDetailPane } from "@/lib/components/inbox/NotificationDetailPane";
 import { ResizablePanelLayout } from "@/lib/components/ResizablePanelLayout";
 import { hrefToNavigateOptions } from "@/lib/utils/repoUrl";
 import { catchMutationError } from "@/lib/utils/mutationToast";
 import type { RepoWithLogo } from "@/lib/utils/repoGrouping";
+
+const NotificationDetailPane = lazy(() =>
+  import("@/lib/components/inbox/NotificationDetailPane").then((m) => ({
+    default: m.NotificationDetailPane,
+  })),
+);
 
 /**
  * Two-pane inbox (Linear-style): the notification list on the left, the
@@ -261,11 +266,13 @@ export function InboxClient() {
         )}
         rightPanel={() => (
           <div className="flex h-full min-h-0 flex-col overflow-hidden bg-background">
-            <NotificationDetailPane
-              notification={selected}
-              repo={selectedRepo}
-              onOpen={handleOpen}
-            />
+            <Suspense fallback={null}>
+              <NotificationDetailPane
+                notification={selected}
+                repo={selectedRepo}
+                onOpen={handleOpen}
+              />
+            </Suspense>
           </div>
         )}
       />

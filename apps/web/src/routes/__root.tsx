@@ -10,6 +10,7 @@ import { TooltipProvider } from "@eva/ui";
 import { AppToaster } from "@/lib/components/AppToaster";
 import { AppShell } from "@/lib/components/AppShell";
 import { AuthLoadingScreen } from "@/lib/components/AuthLoadingScreen";
+import { DeferredAfterIdle } from "@/lib/components/DeferredAfterIdle";
 import { IS_EMBEDDED } from "@/lib/embed/embedded";
 import { EmbedNavigationBridge } from "@/lib/embed/EmbedNavigationBridge";
 import { useDocumentTitle } from "@/lib/hooks/useDocumentTitle";
@@ -86,19 +87,23 @@ function RootComponent() {
             module pulls Convex + the iframe keep-alive into the landing
             chunk if it is a static import. */}
         {isSignedIn ? (
-          <Suspense fallback={null}>
-            <PreviewMiniPlayer />
-            <PreviewIframeHost />
-          </Suspense>
+          <DeferredAfterIdle>
+            <Suspense fallback={null}>
+              <PreviewMiniPlayer />
+              <PreviewIframeHost />
+            </Suspense>
+          </DeferredAfterIdle>
         ) : null}
       </NuqsAdapter>
       {IS_EMBEDDED ? <EmbedNavigationBridge /> : null}
       <AppToaster />
       {/* No analytics from embedded documents: the host page already counts. */}
       {IS_EMBEDDED ? null : (
-        <Suspense fallback={null}>
-          <Analytics />
-        </Suspense>
+        <DeferredAfterIdle>
+          <Suspense fallback={null}>
+            <Analytics />
+          </Suspense>
+        </DeferredAfterIdle>
       )}
       {DevAgentation ? (
         <Suspense fallback={null}>
@@ -123,9 +128,11 @@ function RootComponent() {
             {app}
             {/* The What's New dialog belongs to the top-level window, not previews. */}
             {IS_EMBEDDED ? null : (
-              <Suspense fallback={null}>
-                <ChangelogDialogGate />
-              </Suspense>
+              <DeferredAfterIdle>
+                <Suspense fallback={null}>
+                  <ChangelogDialogGate />
+                </Suspense>
+              </DeferredAfterIdle>
             )}
           </ClientProvider>
         </Suspense>

@@ -10,7 +10,10 @@ import { toDisplayRepoHref, toInternalRepoHref } from "./lib/utils/repoUrl";
 import { clientEnv } from "./env/client";
 import { DeploymentErrorFallback } from "./lib/components/DeploymentErrorFallback";
 import { MotionProvider } from "./lib/components/MotionProvider";
-import { prefetchSignedInChunks } from "./lib/prefetchSignedInChunks";
+import {
+  prefetchPreviewChunksWhenIdle,
+  prefetchSignedInChunks,
+} from "./lib/prefetchSignedInChunks";
 import { isChunkLoadError } from "./lib/utils/isChunkLoadError";
 import {
   claimStaleDeployReload,
@@ -148,11 +151,13 @@ const hadSession = readSignedInHint();
 // downloads Convex, the sidebar, or the preview host. Returning users need
 // them immediately, so start fetching now — in parallel with Clerk.
 if (hadSession) {
-  prefetchSignedInChunks((error) => {
+  const onChunkError = (error: Error) => {
     if (isChunkLoadError(error)) {
       handleStaleDeployment(new Event("error"));
     }
-  });
+  };
+  prefetchSignedInChunks(onChunkError);
+  prefetchPreviewChunksWhenIdle(onChunkError);
 }
 
 const rootElement = document.getElementById("root");

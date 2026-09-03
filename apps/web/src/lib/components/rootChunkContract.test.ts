@@ -42,5 +42,11 @@ test("motion features are a separate async chunk", () => {
 test("returning users prefetch the signed-in shell, not just chrome", () => {
   expect(prefetch).toContain('import("@/lib/components/AppShellChrome")');
   expect(prefetch).toContain('import("@/lib/components/ClientProvider")');
-  expect(prefetch).toContain('import("@/lib/components/sandbox/previewIframeHost")');
+  // Preview host contends with home LCP — only after idle.
+  expect(prefetch).toContain("prefetchPreviewChunksWhenIdle");
+  const eager = prefetch.slice(
+    prefetch.indexOf("export function prefetchSignedInChunks"),
+    prefetch.indexOf("export function prefetchPreviewChunksWhenIdle"),
+  );
+  expect(eager).not.toContain("previewIframeHost");
 });

@@ -1,7 +1,6 @@
 import { useRef, useState } from "react";
 import { Link } from "@tanstack/react-router";
 import { useMutation } from "convex/react";
-import { m } from "motion/react";
 import { api } from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { repoHref } from "@/lib/utils/repoUrl";
@@ -20,8 +19,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-  motionBase,
-  motionStagger,
 } from "@eva/ui";
 import {
   IconBrandGithub,
@@ -35,11 +32,11 @@ export type Repo = FunctionReturnType<typeof api.githubRepos.list>[number];
 
 export function RepoCard({
   repo,
-  index,
   onManageApps,
 }: {
   repo: Repo;
-  index: number;
+  /** Kept so existing call sites that pass a stagger index still typecheck. */
+  index?: number;
   onManageApps: () => void;
 }) {
   const [renameOpen, setRenameOpen] = useState(false);
@@ -79,13 +76,7 @@ export function RepoCard({
   };
 
   return (
-    <m.div
-      key={repo._id}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: 10 }}
-      transition={{ ...motionBase, delay: motionStagger(index) }}
-    >
+    <div key={repo._id}>
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div className="group/card relative">
@@ -174,6 +165,6 @@ export function RepoCard({
         label={repo.label}
         fallbackName={appLeafName(repo)}
       />
-    </m.div>
+    </div>
   );
 }

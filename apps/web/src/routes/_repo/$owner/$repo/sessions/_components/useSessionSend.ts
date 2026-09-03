@@ -1,5 +1,10 @@
 import { api } from "@eva/backend";
-import type { AIModel, Id, ModelTraitsExecutionArgs } from "@eva/backend";
+import type {
+  AIModel,
+  Id,
+  InteractionMode,
+  ModelTraitsExecutionArgs,
+} from "@eva/backend";
 import type { ModelAccount } from "@eva/ui";
 import { useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -73,6 +78,8 @@ export interface SessionSendOptions {
    * harness as bare text.
    */
   skipReviewComments?: boolean;
+  interactionMode?: InteractionMode;
+  sourceProposedPlanId?: Id<"proposedPlans">;
 }
 
 interface UseSessionSendParams {
@@ -87,6 +94,7 @@ interface UseSessionSendParams {
   ) => Id<"userProviderAccounts"> | undefined;
   accounts: ReadonlyArray<ModelAccount>;
   messages: SessionMessage[];
+  interactionMode?: InteractionMode;
 }
 
 export function useSessionSend({
@@ -98,6 +106,7 @@ export function useSessionSend({
   resolveAccountId,
   accounts,
   messages,
+  interactionMode,
 }: UseSessionSendParams) {
   const review = usePendingReviewComments();
   const addMessage = useMutation(api.sessions.addMessage).withOptimisticUpdate(
@@ -130,6 +139,7 @@ export function useSessionSend({
     const finalContent = consumesReviewComments
       ? appendReviewCommentsToPrompt(content, review?.comments ?? [])
       : content;
+    const turnMode = options?.interactionMode ?? interactionMode;
     if (isExecuting) {
       await enqueueMessage({
         sessionId,
@@ -139,6 +149,7 @@ export function useSessionSend({
         reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
         providerAccountId: resolveAccountId(providerAccountId),
         attachmentStorageIds,
+        ...(turnMode !== undefined ? { interactionMode: turnMode } : {}),
       });
       if (consumesReviewComments) review?.clear();
       return;
@@ -162,6 +173,10 @@ export function useSessionSend({
         reasoningLevel: reasoningLevel ?? executionTraits.reasoningLevel,
         providerAccountId: accountId,
         attachmentStorageIds,
+        ...(turnMode !== undefined ? { interactionMode: turnMode } : {}),
+        ...(options?.sourceProposedPlanId !== undefined
+          ? { sourceProposedPlanId: options.sourceProposedPlanId }
+          : {}),
       }),
     ])
       .catch(async (error) => {

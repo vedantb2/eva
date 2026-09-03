@@ -11,9 +11,12 @@ import {
   resetTurnCheckpoint,
 } from "../runtime/turnCheckpoint.js";
 
+export type ClaimedInteractionMode = "default" | "plan";
+
 type ClaimedTurnBase = {
   prompt: string;
   attachmentUrls: string[];
+  interactionMode: ClaimedInteractionMode;
 };
 
 export type ClaimedTurn =
@@ -53,6 +56,8 @@ export function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
         (url): url is string => typeof url === "string",
       )
     : [];
+  const interactionMode: ClaimedInteractionMode =
+    payload.interactionMode === "plan" ? "plan" : "default";
   const turnLease = readTurnLeaseIdentity(result);
   if (lifecycle === "durable" && turnLease === null) {
     throw new Error("Durable claimed turn did not include a lease identity");
@@ -65,6 +70,7 @@ export function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
       lifecycle: "durable",
       prompt: payload.prompt,
       attachmentUrls,
+      interactionMode,
       turnLease,
     };
   }
@@ -72,6 +78,7 @@ export function readClaimedTurn(result: JsonValue): ClaimedTurn | null {
     lifecycle: "legacy",
     prompt: payload.prompt,
     attachmentUrls,
+    interactionMode,
     turnLease: null,
   };
 }

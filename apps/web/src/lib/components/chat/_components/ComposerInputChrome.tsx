@@ -39,6 +39,8 @@ import type {
 } from "@eva/backend";
 import { type SlashItem } from "@/lib/components/mentions";
 import { useComposerCompact } from "@/lib/components/chat/_components/useComposerCompact";
+import { ComposerInteractionModeToggle } from "@/lib/components/chat/_components/ComposerInteractionModeToggle";
+import type { InteractionMode } from "@eva/backend";
 
 // `whitespace-pre!` rather than `nowrap`: both keep the pill on one line, but
 // `nowrap` still collapses whitespace, and Chrome then eats the trailing space
@@ -83,6 +85,9 @@ export function ComposerInputChrome({
   seedMentionMap,
   seedSkillMap,
   messageHistory,
+  interactionMode,
+  onToggleInteractionMode,
+  allowEmptySubmit,
 }: {
   repoId: Id<"githubRepos">;
   repoBasePath: string;
@@ -112,6 +117,9 @@ export function ComposerInputChrome({
   seedMentionMap?: Map<string, string>;
   seedSkillMap?: Map<string, string>;
   messageHistory: string[];
+  interactionMode?: InteractionMode;
+  onToggleInteractionMode?: () => void;
+  allowEmptySubmit?: boolean;
 }) {
   const { textInput, attachments } = usePromptInputController();
   // `layoutId` is global unless a LayoutGroup namespaces it, and several
@@ -138,6 +146,13 @@ export function ComposerInputChrome({
         mentionRef={mentionRef}
         compact={compact}
       />
+      {onToggleInteractionMode && interactionMode ? (
+        <ComposerInteractionModeToggle
+          interactionMode={interactionMode}
+          onToggle={onToggleInteractionMode}
+          disabled={isInputDisabled}
+        />
+      ) : null}
     </m.div>
   );
 
@@ -176,6 +191,7 @@ export function ComposerInputChrome({
         disabled={isInputDisabled}
         isExecuting={isExecuting}
         hasPendingContext={hasPendingContext}
+        allowEmptySubmit={allowEmptySubmit}
       />
     </m.div>
   );
@@ -253,10 +269,12 @@ function ChatBodySubmit({
   disabled,
   isExecuting,
   hasPendingContext,
+  allowEmptySubmit,
 }: {
   disabled: boolean;
   isExecuting: boolean;
   hasPendingContext: boolean;
+  allowEmptySubmit?: boolean;
 }) {
   const { textInput, attachments } = usePromptInputController();
   const isEmpty =
@@ -264,7 +282,9 @@ function ChatBodySubmit({
 
   return (
     <PromptInputSubmit
-      disabled={disabled || (isEmpty && !hasPendingContext)}
+      disabled={
+        disabled || (isEmpty && !hasPendingContext && !allowEmptySubmit)
+      }
       className="size-9"
       title={isExecuting ? "Queue message" : "Send message"}
     />

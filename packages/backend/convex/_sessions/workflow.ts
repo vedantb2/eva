@@ -14,6 +14,7 @@ import {
   sessionStatusValidator,
   turnCheckpointArgs,
   usesChatDaemon,
+  interactionModeValidator,
 } from "../validators";
 import { resolveSessionBaseBranch } from "./baseBranch";
 import {
@@ -185,6 +186,7 @@ export async function buildSessionPrompt(
     message: string;
     /** Model this turn runs on; decides whether a handoff catch-up is needed. */
     model: string;
+    interactionMode?: Doc<"sessions">["lastInteractionMode"];
   },
 ): Promise<{ prompt: string; branchName: string }> {
   const { session, repo, user } = args;
@@ -237,6 +239,8 @@ export async function buildSessionPrompt(
     customInstructionsBlock,
     repo.systemPrompt,
     session.devPort ?? repo.devPort,
+    [],
+    args.interactionMode ?? session.lastInteractionMode ?? "default",
   );
   if (prefixBlock) {
     prompt = `${prefixBlock}\n\n${prompt}`;
@@ -1051,6 +1055,7 @@ export const claimPendingTurn = authMutation({
       stopTaskToolUseIds: v.array(v.string()),
       cancelRequested: v.boolean(),
       usageRefreshRequested: v.boolean(),
+      interactionMode: v.optional(interactionModeValidator),
     }),
     v.object({
       prompt: v.string(),
@@ -1061,6 +1066,7 @@ export const claimPendingTurn = authMutation({
       stopTaskToolUseIds: v.array(v.string()),
       cancelRequested: v.boolean(),
       usageRefreshRequested: v.boolean(),
+      interactionMode: v.optional(interactionModeValidator),
     }),
   ),
   handler: async (ctx, args) => {
@@ -1234,6 +1240,7 @@ export const claimPendingTurn = authMutation({
       stopTaskToolUseIds,
       cancelRequested,
       usageRefreshRequested,
+      interactionMode: daemonState.pendingTurn.interactionMode ?? "default",
     };
     if (turnLease === null) {
       const turnLifecycle = "legacy" as const;
@@ -1350,6 +1357,7 @@ export const ensurePendingTurn = internalMutation({
       ...(args.model !== undefined
         ? { model: normalizeAIModel(args.model) }
         : {}),
+      interactionMode: session.lastInteractionMode ?? "default",
     };
     await ctx.db.patch(args.sessionId, {
       pendingTurn,
@@ -1438,6 +1446,7 @@ export const restageOpenTurn = internalMutation({
       ...(openTurn ? { turnId: openTurn._id } : {}),
       attachmentStorageIds: lastUser.attachmentStorageIds,
       ...(session.lastModel !== undefined ? { model: session.lastModel } : {}),
+      interactionMode: session.lastInteractionMode ?? "default",
     };
     await ctx.db.patch(args.sessionId, {
       pendingTurn,

@@ -14,7 +14,7 @@ import type { TurnCheckpointContext } from "@/lib/components/chat/_components/us
 import { ChatQuestionDock } from "@/lib/components/chat/ChatQuestionDock";
 import { useChangedFilesExpansion } from "@/lib/components/chat/useChangedFilesExpansion";
 import { useAgentReplyChime } from "@/lib/components/chat/useAgentReplyChime";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import {
   api,
@@ -22,6 +22,7 @@ import {
   type BackgroundAgentEntry,
   type Id,
   type StoredModelTraits,
+  type InteractionMode,
   type resolveTraitsForDisplay,
 } from "@eva/backend";
 import { useSimpleView } from "@/lib/hooks/useSimpleView";
@@ -143,6 +144,10 @@ interface ChatBodyProps {
   sandboxRunning?: boolean;
   /** Sessions only: turn diff / restore actions on assistant messages. */
   turnCheckpoint?: TurnCheckpointContext;
+  interactionMode?: InteractionMode;
+  onInteractionModeChange?: (mode: InteractionMode) => void;
+  allowEmptySubmit?: boolean;
+  afterMessage?: (messageId: string) => ReactNode;
 }
 
 export function ChatBody({
@@ -184,6 +189,10 @@ export function ChatBody({
   backgroundAgents,
   sandboxRunning,
   turnCheckpoint,
+  interactionMode,
+  onInteractionModeChange,
+  allowEmptySubmit,
+  afterMessage,
 }: ChatBodyProps) {
   // Simple view hides diffs, sandbox lifecycle banners, and — since it has no
   // Agents tab to open — the sub-agent CTA row. Quick task / project / session
@@ -305,8 +314,8 @@ export function ChatBody({
         : undefined;
 
     return (
+      <div key={message._id} className="flex flex-col gap-3">
       <ChatMessage
-        key={message._id}
         message={message}
         repoBasePath={repoBasePath}
         isLatestAssistantTurn={message._id === latestAssistantMessageId}
@@ -330,6 +339,8 @@ export function ChatBody({
         sandboxRunning={sandboxRunning}
         turnCheckpoint={simpleView ? undefined : turnCheckpoint}
       />
+      {afterMessage?.(message._id)}
+      </div>
     );
   };
 
@@ -397,6 +408,9 @@ export function ChatBody({
           draft={draft}
           isDraftLoading={isDraftLoading}
           hasPendingContext={hasPendingContext}
+          interactionMode={interactionMode}
+          onInteractionModeChange={onInteractionModeChange}
+          allowEmptySubmit={allowEmptySubmit}
         />
       )}
     </>

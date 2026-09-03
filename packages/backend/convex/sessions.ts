@@ -13,6 +13,7 @@ export {
   updateStatus,
   update,
   setModel,
+  setInteractionMode,
   setProviderAccountId,
   setTraits,
   updateSummary,

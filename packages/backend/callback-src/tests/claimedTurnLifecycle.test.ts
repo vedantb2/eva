@@ -81,6 +81,18 @@ describe("the shared claimed-turn lifecycle", () => {
     ).toBe(false);
   });
 
+  test("carries interactionMode from the claim, defaulting to build", () => {
+    expect(
+      readClaimedTurn({
+        prompt: "Plan the checkout",
+        interactionMode: "plan",
+      }),
+    ).toMatchObject({ interactionMode: "plan" });
+    expect(readClaimedTurn({ prompt: "Ship it" })).toMatchObject({
+      interactionMode: "default",
+    });
+  });
+
   test("keeps explicitly legacy claims unfenced", () => {
     const turn = readClaimedTurn({
       prompt: "Legacy task chat",

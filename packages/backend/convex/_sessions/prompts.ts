@@ -5,6 +5,9 @@ import {
   RESPONSE_LENGTH_INSTRUCTION,
 } from "../prompts";
 import { stripMentionTokens } from "../_mentions/resolveDocMentions";
+import type { InteractionMode } from "../validators";
+
+const PLAN_MODE_PREAMBLE = `You are in plan mode. Explore the codebase with read-only tools and AskUserQuestion. When the plan is ready, call ExitPlanMode with the full plan markdown in the \`plan\` field. Do not implement or edit source files in this turn.`;
 
 /**
  * Session chat no longer injects this block: Cursor resumes one agent and the
@@ -214,12 +217,17 @@ export function buildEditPrompt(
   systemPrompt: string | undefined,
   devPort?: number,
   conversationHistory: Array<{ role: string; content: string }> = [],
+  interactionMode: InteractionMode = "default",
 ): string {
   const commitMessage = message.slice(0, 50).replace(/"/g, '\\"');
   const baseBranch = repo.baseBranch ?? FALLBACK_GIT_BASE_BRANCH;
+  const inPlanMode = interactionMode === "plan";
   const planContext = planContent
-    ? `\n\nApproved plan:\n${planContent}\n\nFollow this plan when implementing.`
+    ? inPlanMode
+      ? `\n\nCurrent plan (revise; do not implement):\n${planContent}`
+      : `\n\nApproved plan:\n${planContent}\n\nFollow this plan when implementing.`
     : "";
+  const planModePreamble = inPlanMode ? `${PLAN_MODE_PREAMBLE}\n\n` : "";
   const handoff = buildSessionHandoff(conversationHistory);
   const conversationContext = handoff
     ? `\n\nPrior instructions from this session (handoff; may overlap provider memory). Earlier instructions still apply unless the user has since changed them — do not undo agreed work:\n${handoff}`
@@ -253,7 +261,7 @@ When the user asks for a recording, walkthrough video, or screenshot:
 6. For "each" or "all features" requests, first make a checklist naming every feature, then create one isolated deliverable per checklist item unless the user asks for a combined walkthrough. Do not finish until every checklist item has a non-empty file in the deliverable folder.
 7. A status update such as "recording now" is not a final answer. Finish the captures before replying, then list which attached file demonstrates each feature. If capture is impossible, report the concrete failure instead of promising future work.
 8. To embed a capture in a PR comment or Linear issue (GitHub/Linear cannot see chat attachments): eva MCP \`upload_media\` → curl the file to the returned uploadUrl → \`get_media_url\` for a permanent public link. Captures posted in earlier turns are still on disk under \`.posted/\` — upload those instead of recapturing.`;
-  return `${message}${planContext}${conversationContext}${devServerSection}${browserSection}
+  return `${planModePreamble}${message}${planContext}${conversationContext}${devServerSection}${browserSection}
 
 Eva session (${repo.owner}/${repo.name}, branch "${branchName}"):
 - Do all work on "${branchName}". Do not commit or push to "${baseBranch}" or main unless the user asks for that explicitly. Fetching/merging/rebasing/pulling from "${baseBranch}" into this branch is allowed when the user asks.

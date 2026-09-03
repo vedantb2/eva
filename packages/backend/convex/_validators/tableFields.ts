@@ -24,6 +24,7 @@ import {
   runStatusValidator,
   sandboxProviderKindValidator,
   sessionStatusValidator,
+  interactionModeValidator,
   snapshotBuildKindValidator,
   snapshotBuildStatusValidator,
   snapshotBuildTriggerValidator,
@@ -213,6 +214,8 @@ export const pendingTurnFields = {
   turnId: v.optional(v.id("turns")),
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   model: v.optional(aiModelValidator),
+  /** Build vs plan; the daemon maps this onto Claude `setPermissionMode`. */
+  interactionMode: v.optional(interactionModeValidator),
 };
 
 export const pendingTurnValidator = v.optional(v.object(pendingTurnFields));
@@ -414,6 +417,8 @@ export const sessionFields = {
   summary: v.optional(v.array(v.string())),
   createdBy: v.optional(v.id("users")),
   planContent: v.optional(v.string()),
+  /** Sticky Plan/Build toggle. Absent sessions are Build. */
+  lastInteractionMode: v.optional(interactionModeValidator),
   activeWorkflowId: v.optional(v.string()),
   /**
    * Set the first time this session opens a durable Turn. Missing sessions may
@@ -868,6 +873,7 @@ export const queuedMessageFields = {
   use1mContext: v.optional(v.boolean()),
   fastMode: v.optional(v.boolean()),
   responseLength: v.optional(v.string()),
+  interactionMode: v.optional(interactionModeValidator),
   // Carried from the composer through the queue to the started user message.
   attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
   // Set when a child-completion wake-up had to be queued because the master was
@@ -1200,4 +1206,18 @@ export const agentUsageLimitFields = {
    * treat that as "unknown", not as any of the three states.
    */
   completeness: v.optional(usageLimitCompletenessValidator),
+};
+
+/** A captured ExitPlanMode plan, linked to the turn that proposed it. */
+export const proposedPlanFields = {
+  sessionId: v.id("sessions"),
+  turnId: v.optional(v.id("turns")),
+  messageId: v.optional(v.id("messages")),
+  planMarkdown: v.string(),
+  /** Dedup key: `tool:<toolUseId>` or `plan:<markdown>`. */
+  captureKey: v.string(),
+  implementedAt: v.optional(v.number()),
+  implementationSessionId: v.optional(v.id("sessions")),
+  createdAt: v.number(),
+  updatedAt: v.number(),
 };

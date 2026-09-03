@@ -1,9 +1,15 @@
-import { api, normalizeAIModel, type Doc, type Id } from "@eva/backend";
+import {
+  api,
+  normalizeAIModel,
+  type Doc,
+  type Id,
+} from "@eva/backend";
 import type { FunctionReturnType } from "convex/server";
 import { useState } from "react";
 import { m, AnimatePresence } from "motion/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
 import { useMutation } from "convex/react";
+import { useNavigate } from "@tanstack/react-router";
 import { useRepo } from "@/lib/contexts/RepoContext";
 import { ChatPageWrapper } from "@/lib/components/ChatPageWrapper";
 import { ChatBody } from "@/lib/components/chat/ChatBody";
@@ -37,7 +43,22 @@ import { AveResetChatDialog } from "@/lib/components/ave/AveResetChatDialog";
 import { usePendingReviewComments } from "@/lib/contexts/PendingReviewCommentsContext";
 import { getSessionReadOnlyMessage } from "./_utils/sessionReadOnly";
 import { APPROVE_PLAN_PROMPT } from "./_utils/composerPrompts";
-import { motionBase } from "@eva/ui";
+import { motionBase, toast } from "@eva/ui";
+import { ProposedPlanCard } from "./_components/ProposedPlanCard";
+import { ComposerPlanFollowUpBanner } from "./_components/ComposerPlanFollowUpBanner";
+import {
+  buildPlanImplementationPrompt,
+  buildPlanImplementationThreadTitle,
+  proposedPlanTitle,
+  resolvePlanFollowUpSubmission,
+} from "./_components/planExport";
+import {
+  findLatestProposedPlan,
+  hasActionableProposedPlan,
+  proposedPlanForMessage,
+  shouldShowPlanFollowUpPrompt,
+  type ProposedPlanRow,
+} from "./_components/proposedPlanLogic";
 
 type QueuedSessionMessage = NonNullable<
   FunctionReturnType<typeof api.queuedMessages.listByParent>
@@ -118,6 +139,7 @@ export function ChatPanel({
   backgroundAgents,
 }: ChatPanelProps) {
   const { repo, basePath } = useRepo();
+  const navigate = useNavigate();
   const simpleView = useSimpleView();
   const [showSummaryModal, setShowSummaryModal] = useState(false);
   const [showReviewModal, setShowReviewModal] = useState(false);
@@ -137,6 +159,8 @@ export function ChatPanel({
     providerAccountId: stickyProviderAccountId,
     setProviderAccountId: setStickyProviderAccountId,
     isSwitchingAccount,
+    interactionMode,
+    setInteractionMode,
   } = useSessionModel(sessionId, defaultModel);
   const {
     displayTraits,
@@ -186,6 +210,24 @@ export function ChatPanel({
     resolveAccountId,
     accounts,
     messages,
+    interactionMode,
+  });
+  const proposedPlans = useQuery(api.proposedPlans.listBySession, {
+    sessionId,
+  });
+  const createSession = useMutation(api.sessions.create);
+  const markPlanImplemented = useMutation(api.proposedPlans.markImplemented);
+  const updatePlanContent = useMutation(api.sessions.updatePlanContent);
+  const latestProposedPlan = findLatestProposedPlan(proposedPlans ?? []);
+  const actionablePlan = hasActionableProposedPlan(latestProposedPlan)
+    ? latestProposedPlan
+    : null;
+  const showPlanFollowUp = shouldShowPlanFollowUpPrompt({
+    pendingUserInputCount: 0,
+    interactionMode,
+    latestTurnSettled: !isExecuting,
+    hasActionableProposedPlan: actionablePlan !== null,
+    hasComposerAttachments: false,
   });
 
   const chatSurface: SandboxChatSurface = {
@@ -286,14 +328,94 @@ export function ChatPanel({
 
   const hasPlanContent =
     typeof planContent === "string" && planContent.trim().length > 0;
+  const hasCapturedPlans = (proposedPlans?.length ?? 0) > 0;
   // Compact card above the composer only while the sandbox pane is collapsed —
   // otherwise the PRD tab owns the plan and the slim strip links to it.
-  const showCompactPlanCard = hasPlanContent && sandboxCollapsed !== false;
+  // Captured ExitPlanMode plans render inline in the transcript instead.
+  const showCompactPlanCard =
+    hasPlanContent &&
+    !hasCapturedPlans &&
+    !showPlanFollowUp &&
+    sandboxCollapsed !== false;
   // When the card is hidden but a plan exists, show a slim Plan Ready strip.
-  const showPlanReadyBanner = hasPlanContent && !showCompactPlanCard;
+  const showPlanReadyBanner =
+    hasPlanContent &&
+    !hasCapturedPlans &&
+    !showCompactPlanCard &&
+    !showPlanFollowUp;
+
+  const implementPlan = (plan: ProposedPlanRow) => {
+    const followUp = resolvePlanFollowUpSubmission({
+      draftText: "",
+      planMarkdown: plan.planMarkdown,
+    });
+    setInteractionMode("default");
+    void handleSend(followUp.text, undefined, {
+      interactionMode: "default",
+      sourceProposedPlanId: plan._id,
+    });
+  };
 
   const handleApprovePlan = () => {
+    if (actionablePlan) {
+      implementPlan(actionablePlan);
+      return;
+    }
     void seedChatDraft(APPROVE_PLAN_PROMPT);
+  };
+
+  const handleComposerSend = async (
+    content: string,
+    attachmentStorageIds?: Id<"_storage">[],
+  ) => {
+    if (showPlanFollowUp && actionablePlan) {
+      const followUp = resolvePlanFollowUpSubmission({
+        draftText: content,
+        planMarkdown: actionablePlan.planMarkdown,
+      });
+      if (followUp.interactionMode === "default") {
+        setInteractionMode("default");
+      }
+      await handleSend(followUp.text, attachmentStorageIds, {
+        interactionMode: followUp.interactionMode,
+        ...(followUp.interactionMode === "default"
+          ? { sourceProposedPlanId: actionablePlan._id }
+          : {}),
+      });
+      return;
+    }
+    await handleSend(content, attachmentStorageIds);
+  };
+
+  const handleImplementInNewSession = async (plan: ProposedPlanRow) => {
+    try {
+      const { sessionId: nextSessionId, numId } = await createSession({
+        repoId: repo._id,
+        title: buildPlanImplementationThreadTitle(plan.planMarkdown),
+        message: buildPlanImplementationPrompt(plan.planMarkdown),
+        model,
+        ...executionTraits,
+        reasoningLevel: displayTraits.effortLevel,
+        thinkingEnabled: displayTraits.thinkingEnabled,
+        use1mContext: displayTraits.use1mContext,
+        fastMode: displayTraits.fastMode,
+        providerAccountId: resolveAccountId(providerAccountId) ?? null,
+        interactionMode: "default",
+      });
+      await updatePlanContent({
+        id: nextSessionId,
+        planContent: plan.planMarkdown,
+      });
+      await markPlanImplemented({
+        planId: plan._id,
+        implementationSessionId: nextSessionId,
+      });
+      await navigate({ to: `${basePath}/sessions/${numId}` });
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Couldn't start new session",
+      );
+    }
   };
 
   const handleViewPlan = () => {
@@ -338,6 +460,11 @@ export function ChatPanel({
               </m.div>
             </AnimatePresence>
           ) : null}
+          {showPlanFollowUp && actionablePlan ? (
+            <ComposerPlanFollowUpBanner
+              planTitle={proposedPlanTitle(actionablePlan.planMarkdown)}
+            />
+          ) : null}
           {showPlanReadyBanner && planContent ? (
             <ComposerPlanReadyBanner
               planContent={planContent}
@@ -363,7 +490,11 @@ export function ChatPanel({
     ? "Wake Eva up to begin chatting..."
     : isSwitchingAccount
       ? "Switching Claude account..."
-      : "Ask Eva anything... / for skills · @ to mention";
+      : interactionMode === "plan"
+        ? showPlanFollowUp
+          ? "Refine the plan, or send empty to implement…"
+          : "Describe what to plan… /plan to stay here"
+        : "Ask Eva anything... / for skills · @ to mention";
 
   const readOnlyMessage = getSessionReadOnlyMessage({
     isArchived,
@@ -410,8 +541,32 @@ export function ChatPanel({
         onAccountChange={setProviderAccountId}
         displayTraits={displayTraits}
         onTraitsChange={onTraitsChange}
-        onSend={handleSend}
+        onSend={handleComposerSend}
         onCancel={handleCancel}
+        interactionMode={interactionMode}
+        onInteractionModeChange={setInteractionMode}
+        allowEmptySubmit={showPlanFollowUp}
+        afterMessage={(messageId) => {
+          const plan = proposedPlanForMessage(proposedPlans ?? [], messageId);
+          if (!plan) return null;
+          return (
+            <ProposedPlanCard
+              planMarkdown={plan.planMarkdown}
+              implemented={plan.implementedAt !== undefined}
+              onImplement={
+                isReadOnly || plan.implementedAt !== undefined
+                  ? undefined
+                  : () => implementPlan(plan)
+              }
+              onImplementInNewSession={
+                isReadOnly || plan.implementedAt !== undefined
+                  ? undefined
+                  : () => void handleImplementInNewSession(plan)
+              }
+              isArchived={isReadOnly}
+            />
+          );
+        }}
         draft={draftBundle}
         isDraftLoading={!draftSeed.isReady}
         onOpenFile={onOpenFile}

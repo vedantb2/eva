@@ -7,6 +7,7 @@ import {
   type Id,
   type ReasoningLevel,
   type StoredModelTraits,
+  type InteractionMode,
 } from "@eva/backend";
 import { useAction, useMutation } from "convex/react";
 import { useQuery } from "convex-helpers/react/cache/hooks";
@@ -37,6 +38,8 @@ export function useSessionModel(
     providerAccountId: Id<"userProviderAccounts"> | null,
   ) => void;
   isSwitchingAccount: boolean;
+  interactionMode: InteractionMode;
+  setInteractionMode: (mode: InteractionMode) => void;
 } {
   const session = useQuery(api.sessions.get, { id: sessionId });
   const prewarmDaemonNow = useAction(api.sessionWorkflow.prewarmDaemonNow);
@@ -72,6 +75,17 @@ export function useSessionModel(
         setProviderAccountIdMutation({ id: sessionId, providerAccountId }),
       prewarm: () => prewarmDaemonNow({ sessionId }),
     });
+  const setInteractionModeMutation = useMutation(
+    api.sessions.setInteractionMode,
+  ).withOptimisticUpdate((localStore, args) => {
+    const current = localStore.getQuery(api.sessions.get, { id: args.id });
+    if (!current) return;
+    localStore.setQuery(
+      api.sessions.get,
+      { id: args.id },
+      { ...current, lastInteractionMode: args.interactionMode },
+    );
+  });
   const setTraitsMutation = useMutation(
     api.sessions.setTraits,
   ).withOptimisticUpdate((localStore, args) => {
@@ -134,5 +148,12 @@ export function useSessionModel(
       session === undefined ? undefined : (session?.providerAccountId ?? null),
     setProviderAccountId: switchProviderAccount,
     isSwitchingAccount,
+    interactionMode: session?.lastInteractionMode ?? "default",
+    setInteractionMode: (mode) => {
+      void setInteractionModeMutation({
+        id: sessionId,
+        interactionMode: mode,
+      });
+    },
   };
 }

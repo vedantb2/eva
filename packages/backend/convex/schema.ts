@@ -50,6 +50,7 @@ import {
   snapshotBuildFields,
   sessionDaemonStateFields,
   turnFields,
+  proposedPlanFields,
   agentUsageLimitFields,
   logFields,
 } from "./validators";
@@ -172,6 +173,10 @@ const schema = defineSchema({
     .index("by_repo_open", ["repoId", "open"])
     .index("by_open_lease", ["open", "leaseExpiresAt"])
     .index("by_workflow", ["workflowId"]),
+  proposedPlans: defineTable(proposedPlanFields)
+    .index("by_session", ["sessionId"])
+    .index("by_session_and_capture_key", ["sessionId", "captureKey"])
+    .index("by_message", ["messageId"]),
   // Latest agent plan usage-limit reading per credential, upserted by the
   // sandbox callback at the end of every turn (usageLimits:report). Plan limits
   // belong to the credential, not the repo it ran on, so a user with two Claude

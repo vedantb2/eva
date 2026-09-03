@@ -9,6 +9,7 @@ import {
   normalizeAIModel,
   storedTraitsFromRepoDefaults,
   type Id,
+  type InteractionMode,
 } from "@eva/backend";
 import { toast } from "@eva/ui";
 import { BranchSelect } from "@/lib/components/BranchSelect";
@@ -39,6 +40,8 @@ export function NewSessionComposer() {
   const firstName = user?.firstName?.trim();
   const createSession = useMutation(api.sessions.create);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [interactionMode, setInteractionMode] =
+    useState<InteractionMode>("default");
   const { baseBranch, setBaseBranch } = useBaseBranchState();
 
   const defaultModel = normalizeAIModel(repo.defaultModel);
@@ -122,6 +125,7 @@ export function NewSessionComposer() {
         fastMode: displayTraits.fastMode,
         providerAccountId: accountId,
         attachmentStorageIds,
+        interactionMode,
       });
       clearDraft();
       await navigate({ to: `${basePath}/sessions/${numId}` });
@@ -157,7 +161,11 @@ export function NewSessionComposer() {
           messageHistory={[]}
           isExecuting={false}
           isInputDisabled={isSubmitting}
-          placeholder="Ask Eva anything... / for skills · @ to mention"
+          placeholder={
+            interactionMode === "plan"
+              ? "Describe what to plan… /build to switch back"
+              : "Ask Eva anything... / for skills · @ to mention"
+          }
           model={model}
           setModel={(next) => {
             setModel(next);
@@ -173,6 +181,8 @@ export function NewSessionComposer() {
           onTraitsChange={onTraitsChange}
           onSend={handleSend}
           onCancel={async () => {}}
+          interactionMode={interactionMode}
+          onInteractionModeChange={setInteractionMode}
           localDraft={{
             initialDisplay: draftDisplay,
             mentionMap: draftMentionMap,

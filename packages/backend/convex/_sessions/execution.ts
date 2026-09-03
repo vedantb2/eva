@@ -5,6 +5,7 @@ import { workflow, cancelTrackedWorkflow } from "../workflowManager";
 import { authAction, authMutation, hasRepoAccess } from "../functions";
 import {
   aiModelValidator,
+  interactionModeValidator,
   launchTraitsFromStored,
   normalizeAIModel,
   reasoningLevelValidator,
@@ -57,6 +58,8 @@ async function stageAndStartSessionTurn(
     fastMode?: boolean;
     providerAccountId?: Id<"userProviderAccounts">;
     attachmentStorageIds?: Id<"_storage">[];
+    interactionMode?: Doc<"sessions">["lastInteractionMode"];
+    sourceProposedPlanId?: Id<"proposedPlans">;
   },
 ): Promise<void> {
   const stickyProviderAccountId = await resolveTurnProviderAccountId(ctx.db, {
@@ -79,12 +82,15 @@ async function stageAndStartSessionTurn(
   });
 
   const user = await ctx.db.get(params.actingUserId);
+  const interactionMode =
+    params.interactionMode ?? params.session.lastInteractionMode ?? "default";
   const { prompt } = await buildSessionPrompt(ctx, {
     session: params.session,
     repo: params.repo,
     user,
     message: params.message,
     model: params.model,
+    interactionMode,
   });
 
   const normalizedModel = normalizeAIModel(params.model);
@@ -117,12 +123,14 @@ async function stageAndStartSessionTurn(
         turnId,
         attachmentStorageIds: params.attachmentStorageIds,
         model: normalizedModel,
+        interactionMode,
       }
     : undefined;
   await ctx.db.patch(params.session._id, {
     pendingTurn,
     providerAccountId: stickyProviderAccountId,
     lastModel: normalizedModel,
+    lastInteractionMode: interactionMode,
     ...(params.reasoningLevel !== undefined
       ? { lastReasoningLevel: params.reasoningLevel }
       : {}),
@@ -251,6 +259,8 @@ export const startExecute = authMutation({
     fastMode: v.optional(v.boolean()),
     providerAccountId: v.optional(v.id("userProviderAccounts")),
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
+    interactionMode: v.optional(interactionModeValidator),
+    sourceProposedPlanId: v.optional(v.id("proposedPlans")),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -280,6 +290,18 @@ export const startExecute = authMutation({
       session.provider,
     );
 
+    if (args.sourceProposedPlanId !== undefined) {
+      const plan = await ctx.db.get(args.sourceProposedPlanId);
+      if (plan && plan.sessionId === args.sessionId) {
+        const now = Date.now();
+        await ctx.db.patch(args.sourceProposedPlanId, {
+          implementedAt: now,
+          implementationSessionId: args.sessionId,
+          updatedAt: now,
+        });
+      }
+    }
+
     await stageAndStartSessionTurn(ctx, {
       session,
       repo,
@@ -292,6 +314,8 @@ export const startExecute = authMutation({
       fastMode: args.fastMode,
       providerAccountId: args.providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
+      interactionMode: args.interactionMode,
+      sourceProposedPlanId: args.sourceProposedPlanId,
     });
 
     return null;
@@ -458,6 +482,7 @@ export const enqueueMessage = authMutation({
     attachmentStorageIds: v.optional(v.array(v.id("_storage"))),
     /** Set by the orchestrator's `send_agent_message` MCP tool. */
     sentViaOrchestrator: v.optional(v.boolean()),
+    interactionMode: v.optional(interactionModeValidator),
   },
   returns: v.null(),
   handler: async (ctx, args) => {
@@ -498,9 +523,15 @@ export const enqueueMessage = authMutation({
       providerAccountId,
       attachmentStorageIds: args.attachmentStorageIds,
       sentViaOrchestrator: args.sentViaOrchestrator,
+      ...(args.interactionMode !== undefined
+        ? { interactionMode: args.interactionMode }
+        : {}),
     });
     await ctx.db.patch(args.sessionId, {
       lastModel: args.model,
+      ...(args.interactionMode !== undefined
+        ? { lastInteractionMode: args.interactionMode }
+        : {}),
       providerAccountId,
       ...(args.reasoningLevel !== undefined
         ? { lastReasoningLevel: args.reasoningLevel }

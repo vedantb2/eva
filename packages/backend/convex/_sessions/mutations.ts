@@ -14,6 +14,7 @@ import {
   reasoningLevelValidator,
   roleValidator,
   sessionStatusValidator,
+  interactionModeValidator,
 } from "../validators";
 import { workflow } from "../workflowManager";
 import { resolveSessionBaseBranch } from "./baseBranch";
@@ -62,6 +63,7 @@ const createSessionArgs = v.object({
   isOrchestrator: v.optional(v.boolean()),
   /** Set when the orchestrator's `create_session` tool opened this session. */
   sentViaOrchestrator: v.optional(v.boolean()),
+  interactionMode: v.optional(interactionModeValidator),
 });
 
 type CreateSessionArgs = Infer<typeof createSessionArgs>;
@@ -127,6 +129,9 @@ export async function createSession(
     ...(args.isOrchestrator !== undefined
       ? { isOrchestrator: args.isOrchestrator }
       : {}),
+    ...(args.interactionMode !== undefined
+      ? { lastInteractionMode: args.interactionMode }
+      : {}),
   });
   const branchName = `eva/session-${sessionId}`;
   await ctx.db.patch(sessionId, { branchName });
@@ -165,6 +170,9 @@ export async function createSession(
       // A session the orchestrator created: its first message is master-sent
       // too, so it carries the same badge as anything sent later.
       sentViaOrchestrator: args.sentViaOrchestrator,
+      ...(args.interactionMode !== undefined
+        ? { interactionMode: args.interactionMode }
+        : {}),
     });
     // The first message queues directly rather than going through
     // startExecute, so its mentions are notified here instead.
@@ -274,6 +282,25 @@ export const setModel = authMutation({
       session.providerAccountId,
     );
     await ctx.db.patch(args.id, { lastModel: args.model, providerAccountId });
+    return null;
+  },
+});
+
+/** Sticky Plan/Build toggle. Does not bump updatedAt (same contract as setModel). */
+export const setInteractionMode = authMutation({
+  args: {
+    id: v.id("sessions"),
+    interactionMode: interactionModeValidator,
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    const session = await getSessionOrThrow(ctx.db, args.id);
+    if (!(await hasRepoAccess(ctx.db, session.repoId, ctx.userId))) {
+      throw new Error("Not authorized");
+    }
+    await ctx.db.patch(args.id, {
+      lastInteractionMode: args.interactionMode,
+    });
     return null;
   },
 });

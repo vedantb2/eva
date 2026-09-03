@@ -4,6 +4,10 @@ import { callbackState as S } from "./state.js";
 import type { JsonValue } from "../types.js";
 import type { JsonLike, SdkCanUseTool } from "../providers/claudeSdk.js";
 import { log } from "../utils.js";
+import {
+  exitPlanModeDenyResult,
+  maybeCaptureExitPlanModeTool,
+} from "./exitPlanMode.js";
 
 // How often the paused turn polls Convex for the user's answer. Matches the
 // daemon's turn-claim cadence — the model is idle while waiting, so this only
@@ -99,6 +103,15 @@ export function buildCanUseTool(): SdkCanUseTool {
         behavior: "allow",
         updatedInput: { ...input, run_in_background: false },
       };
+    }
+    if (
+      await maybeCaptureExitPlanModeTool(
+        toolName,
+        input,
+        typeof options.toolUseID === "string" ? options.toolUseID : undefined,
+      )
+    ) {
+      return exitPlanModeDenyResult();
     }
     if (toolName !== "AskUserQuestion") {
       return { behavior: "allow", updatedInput: input };

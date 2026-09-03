@@ -246,7 +246,7 @@ export async function bootstrapVercelDocker(
     "set -e",
     'echo "bootstrap-docker:start"',
     "command -v docker >/dev/null 2>&1 || sudo dnf install -y docker",
-    "command -v docker >/dev/null 2>&1 || { echo \"bootstrap-docker:no-binary\"; exit 1; }",
+    'command -v docker >/dev/null 2>&1 || { echo "bootstrap-docker:no-binary"; exit 1; }',
     "sudo pkill -9 dockerd 2>/dev/null || true",
     "sudo pkill -9 containerd 2>/dev/null || true",
     "sudo rm -f /var/run/docker.pid /var/run/docker.sock /run/docker/containerd/containerd.pid /run/docker/containerd/containerd.sock /run/docker/containerd/containerd.sock.ttrpc /run/docker/containerd/containerd-debug.sock 2>/dev/null || true",
@@ -659,12 +659,20 @@ export async function signAndLaunchScript(
   // Mint the sandbox auth token and MCP token in a single node action. This
   // replaces three separate runAction hops across two "use node" isolates, which
   // cold-started Node twice and dominated launch latency (~3s).
+  // The repo's MCP tool mode rides along as a token claim so the MCP server
+  // can mount flat tools or code mode without the callback knowing.
+  const launchRepo = await ctx.runQuery(internal.githubRepos.getInternal, {
+    id: repoId,
+  });
   const { sandboxToken, mcpToken } = await ctx.runAction(
     internal.sandboxJwt.mintSandboxSessionTokens,
     {
       userId,
       repoId,
       enableMcp: opts.enableMcp !== false,
+      ...(launchRepo?.mcpToolMode !== undefined
+        ? { toolMode: launchRepo.mcpToolMode }
+        : {}),
       entityId,
       ...(entityIdField === "sessionId"
         ? { entityKind: "session" as const }

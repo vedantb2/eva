@@ -16,14 +16,62 @@ import {
   DialogDescription,
   DialogBody,
   DialogFooter,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from "@eva/ui";
 import { IconPencil } from "@tabler/icons-react";
 import { SettingsSection } from "@/lib/components/settings/SettingsSection";
 import { withMutationToast } from "@/lib/utils/mutationToast";
 
+type McpToolMode = "flat" | "code";
+
+const TOOL_MODE_OPTIONS: ReadonlyArray<{
+  value: McpToolMode;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: "flat",
+    label: "Flat tools",
+    description: "Every Eva action is its own MCP tool. Default.",
+  },
+  {
+    value: "code",
+    label: "Code mode",
+    description:
+      "One execute tool runs JavaScript against the same actions in a sandbox, plus search_tools for discovery. Fewer round trips, less context.",
+  },
+];
+
 export function McpConfigClient() {
   const { repo, repoId } = useRepo();
   const updateMcpRootPrompt = useMutation(api.githubRepos.updateMcpRootPrompt);
+  const updateMcpToolMode = useMutation(api.githubRepos.updateMcpToolMode);
+
+  // The repo document is the source of truth; the select writes straight
+  // through and re-renders from the subscription.
+  const toolMode: McpToolMode = repo.mcpToolMode ?? "flat";
+  const toolModeOption =
+    TOOL_MODE_OPTIONS.find((option) => option.value === toolMode) ??
+    TOOL_MODE_OPTIONS[0];
+
+  const handleToolModeChange = (value: string) => {
+    const next = TOOL_MODE_OPTIONS.find((option) => option.value === value);
+    if (!next || next.value === toolMode) return;
+    // Rejections already surface as the error toast; nothing else to do here.
+    withMutationToast(
+      updateMcpToolMode({
+        repoId,
+        mcpToolMode: next.value === "flat" ? undefined : next.value,
+      }),
+      "Tool mode saved",
+      "Couldn't save tool mode",
+      "mcp-tool-mode-save",
+    ).catch(() => undefined);
+  };
 
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
@@ -127,6 +175,29 @@ export function McpConfigClient() {
             No root prompt configured. Select Edit to add one.
           </p>
         )}
+      </SettingsSection>
+
+      <SettingsSection
+        title="Tool mode"
+        description="How sandbox agents see the Eva MCP tools."
+        action={
+          <Select value={toolMode} onValueChange={handleToolModeChange}>
+            <SelectTrigger className="h-7 w-36 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TOOL_MODE_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        }
+      >
+        <p className="text-xs text-muted-foreground">
+          {toolModeOption.description}
+        </p>
       </SettingsSection>
     </SettingsPage>
   );

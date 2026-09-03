@@ -80,7 +80,7 @@ describe("orchestrator tools are registered only for the master", () => {
   });
 
   test("the single registration sits behind that flag", () => {
-    const registerAt = tools.indexOf("registerOrchestratorTools(server");
+    const registerAt = tools.indexOf("tools.push(...orchestratorTools(");
     expect(registerAt, "the registration moved").toBeGreaterThan(-1);
     const guardAt = tools.lastIndexOf("if (isOrchestrator) {", registerAt);
     expect(guardAt, "the registration escaped its guard").toBeGreaterThan(-1);
@@ -89,7 +89,7 @@ describe("orchestrator tools are registered only for the master", () => {
       "the guard must not close before the registration",
     ).not.toContain("}");
     expect(
-      tools.indexOf("registerOrchestratorTools(server", registerAt + 1),
+      tools.indexOf("tools.push(...orchestratorTools(", registerAt + 1),
       "a second registration would need its own guard",
     ).toBe(-1);
   });

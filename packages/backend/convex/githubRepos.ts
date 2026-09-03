@@ -26,6 +26,7 @@ export {
   createForInstallation,
   updateConfig,
   updateMcpRootPrompt,
+  updateMcpToolMode,
   toggleHidden,
   generateLogoUploadUrl,
   setLogo,

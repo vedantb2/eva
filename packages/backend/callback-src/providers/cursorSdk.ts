@@ -73,9 +73,13 @@ const CURSOR_SEND_START_TIMEOUT_MS = 60_000;
  * Silence budget before the first visible event, rolling from the last SDK
  * event of ANY type: a stream still emitting lifecycle events (status, usage,
  * compaction summaries) is a live agent, not a stall. Only total silence
- * trips it — and before visible output, replaying is still safe.
+ * trips it — and before visible output, replaying the SAME agent is still
+ * safe. Matches Claude's `NO_OUTPUT_TIMEOUT_MS × 5` silence kill: a resumed
+ * grok-4.6 xhigh turn routinely thinks (or silently compacts) for more than
+ * one minute before thinking/assistant/tool_call, and the old 60s budget
+ * false-triggered a replacement agent that wiped the session.
  */
-const CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS;
+const CURSOR_FIRST_VISIBLE_EVENT_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
 /** Once output exists, allow long model pauses without replaying or aborting. */
 const CURSOR_POST_EVENT_SILENCE_TIMEOUT_MS = NO_OUTPUT_TIMEOUT_MS * 5;
 const CURSOR_RESULT_SETTLE_TIMEOUT_MS = 30_000;
@@ -141,14 +145,24 @@ export function shouldRetryStalledCursorResume(error: Error): boolean {
 
 /**
  * A creation that never returned a handle has no context to lose, so reissuing
- * it is always safe — and it is the last resort of a turn whose saved agent has
- * already stalled twice, so one stalled create must not end the turn.
+ * it is always safe. Creation is only the first turn or a wiped store
+ * (`agent_not_found`); a stalled resume must never reach this path.
  */
 export function shouldRetryStalledCursorCreate(error: Error): boolean {
   return (
     error instanceof CursorPhaseTimeoutError &&
     error.phase === "creating a fresh agent"
   );
+}
+
+/**
+ * The persisted agent IS the session, the way Claude's `resume: sessionId`
+ * is. A replacement is only legal when the store no longer has that agent —
+ * any other error (including a pre-output stall) must keep the saved id so
+ * the next turn resumes it instead of minting a blank conversation.
+ */
+export function canReplaceCursorAgent(error: Error): boolean {
+  return isAgentNotFound(error);
 }
 
 /** SDK events that prove the user has seen model work and replay is unsafe. */
@@ -794,8 +808,8 @@ export async function runCursorSdkAttempt(
     try {
       created = await create();
     } catch (error) {
-      // Creation is the last resort of a recovering turn, and a stalled create
-      // holds no context, so give it one more go before the turn dies.
+      // First turn or a wiped store: a stalled create holds no context, so
+      // give it one more go before the turn dies.
       if (!(error instanceof Error) || !shouldRetryStalledCursorCreate(error)) {
         throw error;
       }
@@ -827,10 +841,12 @@ export async function runCursorSdkAttempt(
     return resumed;
   };
 
-  // Resume with a catch-all self-heal: a persisted pre-migration CLI session
-  // id (or a wiped/corrupt store) fails Agent.resume — degrade to a one-time
-  // fresh agent instead of failing every future turn. Genuine environment
-  // errors (bad key, bad model) re-throw identically from create and surface.
+  // Resume is Claude-shaped: the persisted agent id is the conversation.
+  // A wiped store (`agent_not_found`) is the only case that may mint a
+  // replacement — Cursor cannot reopen a missing id the way Claude retries
+  // `session` with the same id. Transient resume failures retry the SAME
+  // agent; they must not fall through to createFreshAgent, which would
+  // persist a blank id and make every later turn start over.
   let resumedExistingAgent = false;
   let agent: SdkAgent;
   if (sessionMode.mode === "resume" && sessionMode.sessionId) {
@@ -840,37 +856,43 @@ export async function runCursorSdkAttempt(
     } catch (error) {
       const messageText =
         error instanceof Error ? error.message : String(error);
-      log(
-        "runCursorSdkAttempt: resume failed — retrying the saved agent (" +
-          messageText +
-          ")",
-      );
-      appendToRawLogFile("[sdk-retry] resume failed: " + messageText + "\n");
-      // A transient resume failure must not cost the session its agent: try
-      // the same saved agent once more before the fresh-agent last resort.
-      // agent_not_found is definitive (the store no longer has it), so only
-      // that skips straight to fresh.
-      if (error instanceof Error && !isAgentNotFound(error)) {
+      if (error instanceof Error && canReplaceCursorAgent(error)) {
+        log(
+          "runCursorSdkAttempt: saved agent gone — starting a fresh agent (" +
+            messageText +
+            ")",
+        );
+        appendToRawLogFile("[sdk-retry] resume failed: " + messageText + "\n");
+        agent = await createFreshAgent();
+      } else {
+        log(
+          "runCursorSdkAttempt: resume failed — retrying the saved agent (" +
+            messageText +
+            ")",
+        );
+        appendToRawLogFile("[sdk-retry] resume failed: " + messageText + "\n");
         try {
           agent = await resumeSavedAgent(sessionMode.sessionId);
           resumedExistingAgent = true;
         } catch (retryError) {
-          const retryMessageText =
-            retryError instanceof Error
-              ? retryError.message
-              : String(retryError);
-          log(
-            "runCursorSdkAttempt: resume retry failed — starting a fresh agent (" +
-              retryMessageText +
-              ")",
-          );
-          appendToRawLogFile(
-            "[sdk-retry] resume retry failed: " + retryMessageText + "\n",
-          );
-          agent = await createFreshAgent();
+          if (
+            retryError instanceof Error &&
+            canReplaceCursorAgent(retryError)
+          ) {
+            const retryMessageText = retryError.message;
+            log(
+              "runCursorSdkAttempt: saved agent gone on retry — starting a fresh agent (" +
+                retryMessageText +
+                ")",
+            );
+            appendToRawLogFile(
+              "[sdk-retry] resume retry failed: " + retryMessageText + "\n",
+            );
+            agent = await createFreshAgent();
+          } else {
+            throw retryError;
+          }
         }
-      } else {
-        agent = await createFreshAgent();
       }
     }
   } else {
@@ -1110,31 +1132,38 @@ export async function runCursorSdkAttempt(
     } catch (error) {
       // A resumed agent whose stored runs are unreadable can throw
       // agent_not_found past resume (at send/stream/wait), and a resumed run
-      // can stall before its first event. Both recover — but the session's
-      // agent IS its memory, so a stall first reopens the SAME agent; only a
-      // definitive agent_not_found (or a second failure) falls back to a
-      // one-time fresh agent so a poisoned persisted id cannot fail every
-      // future turn.
-      const retryStalledResume =
-        error instanceof Error && shouldRetryStalledCursorResume(error);
-      if (
-        !resumedExistingAgent ||
-        !(error instanceof Error) ||
-        !(isAgentNotFound(error) || retryStalledResume)
-      ) {
+      // can stall before its first event. The session's agent IS its memory
+      // (Claude just resumes the same id and lets the model compact), so a
+      // stall reopens the SAME agent once. A second stall fails the turn
+      // instead of minting a blank replacement — persistAgentId on create
+      // would overwrite the saved id and every later turn would start over.
+      // Only a definitive agent_not_found may create: the store is gone.
+      if (!resumedExistingAgent || !(error instanceof Error)) {
         throw error;
       }
-      log(
-        "runCursorSdkAttempt: resumed agent run failed — recovering (" +
-          error.message +
-          ")",
-      );
-      appendToRawLogFile("[sdk-retry] " + error.message + "\n");
-      resetForRecovery(agent);
-
       const savedSessionId = S.activeCursorSessionId || sessionMode.sessionId;
-      let recoveredOnSameAgent = false;
-      if (retryStalledResume && savedSessionId) {
+      if (canReplaceCursorAgent(error)) {
+        log(
+          "runCursorSdkAttempt: saved agent gone mid-run — starting a fresh agent (" +
+            error.message +
+            ")",
+        );
+        appendToRawLogFile("[sdk-retry] " + error.message + "\n");
+        resetForRecovery(agent);
+        pushNoticeStep(
+          "Started a fresh Cursor agent",
+          "The saved agent could not be restored, so Eva recovered with a clean context.",
+        );
+        agent = await createFreshAgent();
+        await runTurnWithRetries(agent, true);
+      } else if (shouldRetryStalledCursorResume(error) && savedSessionId) {
+        log(
+          "runCursorSdkAttempt: resumed agent run stalled — retrying the same agent (" +
+            error.message +
+            ")",
+        );
+        appendToRawLogFile("[sdk-retry] " + error.message + "\n");
+        resetForRecovery(agent);
         pushNoticeStep(
           "Retrying the saved Cursor agent",
           "The run stalled before any output, so Eva reopened the same agent to keep its context.",
@@ -1142,33 +1171,30 @@ export async function runCursorSdkAttempt(
         try {
           agent = await resumeSavedAgent(savedSessionId);
           await runTurnWithRetries(agent, false);
-          recoveredOnSameAgent = true;
         } catch (retryError) {
-          const retryIsRecoverable =
+          if (
             retryError instanceof Error &&
-            (isAgentNotFound(retryError) ||
-              shouldRetryStalledCursorResume(retryError) ||
-              (retryError instanceof CursorPhaseTimeoutError &&
-                retryError.phase === "restoring saved context"));
-          if (!retryIsRecoverable) throw retryError;
-          log(
-            "runCursorSdkAttempt: same-agent retry failed — starting a fresh agent (" +
-              retryError.message +
-              ")",
-          );
-          appendToRawLogFile("[sdk-retry] " + retryError.message + "\n");
-          resetForRecovery(agent);
+            canReplaceCursorAgent(retryError)
+          ) {
+            log(
+              "runCursorSdkAttempt: saved agent gone on stall retry — starting a fresh agent (" +
+                retryError.message +
+                ")",
+            );
+            appendToRawLogFile("[sdk-retry] " + retryError.message + "\n");
+            resetForRecovery(agent);
+            pushNoticeStep(
+              "Started a fresh Cursor agent",
+              "The saved agent could not be restored, so Eva recovered with a clean context.",
+            );
+            agent = await createFreshAgent();
+            await runTurnWithRetries(agent, true);
+          } else {
+            throw retryError;
+          }
         }
-      }
-      if (!recoveredOnSameAgent) {
-        pushNoticeStep(
-          "Started a fresh Cursor agent",
-          retryStalledResume
-            ? "The saved agent stopped responding twice, so Eva recovered with a clean context."
-            : "The saved agent could not be restored, so Eva recovered with a clean context.",
-        );
-        agent = await createFreshAgent();
-        await runTurnWithRetries(agent, true);
+      } else {
+        throw error;
       }
     }
   } catch (error) {

@@ -37,6 +37,19 @@ const stageBody = (() => {
     .replace(/^\s*\/\/.*$/gm, "");
 })();
 
+/** Every index at which `anchor` occurs in `text`. */
+function anchorIndexes(text: string, anchor: string): readonly number[] {
+  const found: number[] = [];
+  for (
+    let at = text.indexOf(anchor);
+    at > -1;
+    at = text.indexOf(anchor, at + 1)
+  ) {
+    found.push(at);
+  }
+  return found;
+}
+
 /** The `{ … }` object literal that starts after `from`, brace-matched. */
 function braceBlock(text: string, from: number): string {
   expect(from, "the anchor this block hangs off is gone").toBeGreaterThan(-1);
@@ -58,6 +71,14 @@ const RAW_TRAIT_ARGS: readonly string[] = [
   "params.thinkingEnabled",
   "params.use1mContext",
   "params.fastMode",
+];
+
+/** What the task/project composers send straight into their `startExecute`. */
+const RAW_COMPOSER_ARGS: readonly string[] = [
+  "args.reasoningLevel",
+  "args.thinkingEnabled",
+  "args.use1mContext",
+  "args.fastMode",
 ];
 
 /**
@@ -121,23 +142,38 @@ describe("stageAndStartSessionTurn normalises launch traits once", () => {
   });
 });
 
+const occurrences = (text: string, needle: string): number =>
+  text.split(needle).length - 1;
+
 /**
- * `stageAndStartSessionTurn` is not the only door into
- * `sessionExecuteWorkflow`, and the workflow forwards whatever traits it is
- * given straight back into `prewarmSessionDaemon`. The queue drain reads the
- * composer's enqueued values (same display-value override as the send path) and
- * the orchestrator wake-up reads the sticky `last*` fields — both raw. Every
- * door has to normalise, or the warm daemon dies on that path instead.
+ * `stageAndStartSessionTurn` is not the only door into a chat workflow, and
+ * every one of these workflows forwards whatever traits it is given straight
+ * back into its `prewarm*Daemon`. The queue drains read the composer's enqueued
+ * values (same display-value override as the send path), the orchestrator
+ * wake-up reads the sticky `last*` fields, and the task/project `startExecute`
+ * mutations read the composer's args — all raw. Every door has to normalise, or
+ * the warm daemon dies on that path instead.
  */
-describe("every sessionExecuteWorkflow start normalises its launch traits", () => {
+describe("every chat workflow start normalises its launch traits", () => {
   const doors: Array<{
     label: string;
     path: string;
+    /** Workflow ref, specific enough to pick this door out of a file that
+     * starts several different workflows (the queue helpers start three). */
+    anchor: string;
+    /** Entity id the args must still carry, so the slice is the right one. */
+    entityField: string;
+    /** How the normalised traits reach the args: inlined helper call, or a
+     * spread of the `launchTraits` the handler computed once, above. */
+    spread: string;
     rawFields: readonly string[];
   }> = [
     {
-      label: "the queued-message drain",
+      label: "the session queued-message drain",
       path: "../convex/_queues/helpers.ts",
+      anchor: "internal.sessionWorkflow.sessionExecuteWorkflow",
+      entityField: "sessionId",
+      spread: "launchTraitsFromStored(",
       rawFields: [
         "next.reasoningLevel",
         "next.thinkingEnabled",
@@ -148,6 +184,9 @@ describe("every sessionExecuteWorkflow start normalises its launch traits", () =
     {
       label: "the orchestrator wake-up",
       path: "../convex/orchestratorNotify.ts",
+      anchor: "internal.sessionWorkflow.sessionExecuteWorkflow",
+      entityField: "sessionId",
+      spread: "launchTraitsFromStored(",
       rawFields: [
         "master.lastReasoningLevel",
         "master.lastThinkingEnabled",
@@ -155,24 +194,67 @@ describe("every sessionExecuteWorkflow start normalises its launch traits", () =
         "master.lastFastMode",
       ],
     },
+    {
+      label: "the task chat queued-message drain",
+      path: "../convex/_queues/helpers.ts",
+      anchor: "internal.agentTaskChatWorkflow.agentTaskChatExecuteWorkflow",
+      entityField: "taskId",
+      spread: "launchTraitsFromStored(",
+      rawFields: [
+        "next.reasoningLevel",
+        "next.thinkingEnabled",
+        "next.use1mContext",
+        "next.fastMode",
+      ],
+    },
+    {
+      label: "the project chat queued-message drain",
+      path: "../convex/_queues/helpers.ts",
+      anchor: "internal.projectChatWorkflow.projectChatExecuteWorkflow",
+      entityField: "projectId",
+      spread: "launchTraitsFromStored(",
+      rawFields: [
+        "next.reasoningLevel",
+        "next.thinkingEnabled",
+        "next.use1mContext",
+        "next.fastMode",
+      ],
+    },
+    {
+      label: "the task chat send path",
+      path: "../convex/agentTaskChatWorkflow.ts",
+      anchor: "internal.agentTaskChatWorkflow.agentTaskChatExecuteWorkflow",
+      entityField: "taskId",
+      spread: "...launchTraits",
+      rawFields: RAW_COMPOSER_ARGS,
+    },
+    {
+      label: "the project chat send path",
+      path: "../convex/projectChatWorkflow.ts",
+      anchor: "internal.projectChatWorkflow.projectChatExecuteWorkflow",
+      entityField: "projectId",
+      spread: "...launchTraits",
+      rawFields: RAW_COMPOSER_ARGS,
+    },
   ];
 
-  for (const { label, path, rawFields } of doors) {
+  for (const { label, path, anchor, entityField, spread, rawFields } of doors) {
     describe(label, () => {
       const text = source(path);
-      const startAt = text.indexOf(
-        "internal.sessionWorkflow.sessionExecuteWorkflow",
-      );
+      // Every occurrence, not just the first: a file may grow a second start
+      // through the same door, and that one has to normalise too.
       // Brace-matched rather than indentation-matched, so reformatting or
-      // moving the call deeper into a `try` cannot widen the slice.
-      const args = braceBlock(text, startAt);
+      // moving a call deeper into a `try` cannot widen the slice.
+      const argsList = anchorIndexes(text, anchor).map((at) =>
+        braceBlock(text, at),
+      );
 
       test("the workflow start is still here", () => {
         expect(
-          startAt,
-          "the sessionExecuteWorkflow start moved",
-        ).toBeGreaterThan(-1);
-        expect(args).toContain("sessionId");
+          argsList.length,
+          `${anchor} moved or was renamed`,
+        ).toBeGreaterThan(0);
+        for (const args of argsList) expect(args).toContain(entityField);
       });
 
       test("normalisation happens before the start", () => {
@@ -180,23 +262,84 @@ describe("every sessionExecuteWorkflow start normalises its launch traits", () =
           text.indexOf("launchTraitsFromStored("),
           "launchTraitsFromStored is the single helper every launch path shares",
         ).toBeGreaterThan(-1);
-        expect(args).toContain("launchTraitsFromStored(");
+        expect(argsList.length).toBeGreaterThan(0);
+        for (const args of argsList) expect(args).toContain(spread);
       });
 
       test("no raw trait field reaches the workflow args", () => {
-        // A raw field inside the launchTraitsFromStored( argument IS the
-        // normalisation; anywhere else in the args it is forwarded unnormalised.
-        const helperArgs = braceBlock(
-          args,
-          args.indexOf("launchTraitsFromStored("),
+        expect(argsList.length).toBeGreaterThan(0);
+        for (const args of argsList) {
+          // A raw field inside the launchTraitsFromStored( argument IS the
+          // normalisation; anywhere else in the args it is forwarded
+          // unnormalised. Doors that spread a precomputed `launchTraits` hold
+          // no helper call here, so every raw field must be absent.
+          const helperAt = args.indexOf("launchTraitsFromStored(");
+          const helperArgs = helperAt < 0 ? "" : braceBlock(args, helperAt);
+          for (const field of rawFields) {
+            expect(
+              occurrences(args, field),
+              `${field} is forwarded to the workflow outside launchTraitsFromStored`,
+            ).toBe(occurrences(helperArgs, field));
+          }
+        }
+      });
+    });
+  }
+});
+
+/**
+ * The send path prewarms the daemon itself, one scheduler tick before the
+ * workflow starts and prewarms it again. Both have to agree with the page-open
+ * prewarm's sig, so this call site needs the same normalisation the workflow
+ * args got — otherwise the turn's own prewarm kills the page-open daemon.
+ */
+describe("each chat startExecute prewarms with normalised traits", () => {
+  const handlers: Array<{ label: string; path: string }> = [
+    { label: "task chat", path: "../convex/agentTaskChatWorkflow.ts" },
+    { label: "project chat", path: "../convex/projectChatWorkflow.ts" },
+  ];
+
+  for (const { label, path } of handlers) {
+    describe(label, () => {
+      const text = source(path);
+      const handlerAt = text.indexOf("export const startExecute");
+      const nextExportAt = text.indexOf("\nexport ", handlerAt + 1);
+      const body = text.slice(
+        handlerAt,
+        nextExportAt < 0 ? undefined : nextExportAt,
+      );
+      const normaliseAt = body.indexOf("launchTraitsFromStored(");
+      const prewarmAt = body.indexOf("internal.sandbox.prewarmEntityDaemon");
+      const workflowStartAt = body.indexOf("workflow.start(");
+
+      test("startExecute still prewarms and starts a workflow", () => {
+        expect(handlerAt, "startExecute moved or was renamed").toBeGreaterThan(
+          -1,
         );
-        const occurrences = (text: string, needle: string): number =>
-          text.split(needle).length - 1;
-        for (const field of rawFields) {
+        expect(
+          prewarmAt,
+          "the turn prewarm scheduler call moved",
+        ).toBeGreaterThan(-1);
+        expect(workflowStartAt, "the workflow start moved").toBeGreaterThan(-1);
+      });
+
+      test("the traits are normalised before either call site", () => {
+        expect(
+          normaliseAt,
+          "launchTraitsFromStored is the single helper every prewarm must agree on",
+        ).toBeGreaterThan(-1);
+        expect(normaliseAt).toBeLessThan(prewarmAt);
+        expect(normaliseAt).toBeLessThan(workflowStartAt);
+      });
+
+      test("the prewarm spreads the normalised traits, raw args reach neither", () => {
+        const prewarmArgs = braceBlock(body, prewarmAt);
+        expect(prewarmArgs).toContain("...launchTraits");
+        for (const arg of RAW_COMPOSER_ARGS) {
           expect(
-            occurrences(args, field),
-            `${field} is forwarded to the workflow outside launchTraitsFromStored`,
-          ).toBe(occurrences(helperArgs, field));
+            prewarmArgs,
+            `${arg} reaches the turn prewarm unnormalised`,
+          ).not.toContain(arg);
         }
       });
     });

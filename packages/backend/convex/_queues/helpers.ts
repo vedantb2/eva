@@ -529,10 +529,19 @@ const projectChatQueueConfig: ChatQueueConfig<
         projectId: id,
         message: next.content,
         model: next.model ?? DEFAULT_AI_MODEL,
-        reasoningLevel: next.reasoningLevel,
-        thinkingEnabled: next.thinkingEnabled,
-        use1mContext: next.use1mContext,
-        fastMode: next.fastMode,
+        // Normalised, not forwarded raw: the composer enqueues model defaults
+        // explicitly (e.g. reasoning "high"), and the workflow feeds these
+        // straight into prewarmEntityDaemon — a raw default yields a different
+        // opts sig from the page-open prewarm and kills its daemon.
+        ...launchTraitsFromStored(
+          normalizeAIModel(next.model ?? DEFAULT_AI_MODEL),
+          {
+            reasoningLevel: next.reasoningLevel,
+            thinkingEnabled: next.thinkingEnabled,
+            use1mContext: next.use1mContext,
+            fastMode: next.fastMode,
+          },
+        ),
         providerAccountId: prepared.providerAccountId,
         credentialOwnerUserId: project.userId,
         userId: next.userId,
@@ -611,10 +620,19 @@ const taskChatQueueConfig: ChatQueueConfig<
         taskId: id,
         message: next.content,
         model: next.model ?? DEFAULT_AI_MODEL,
-        reasoningLevel: next.reasoningLevel,
-        thinkingEnabled: next.thinkingEnabled,
-        use1mContext: next.use1mContext,
-        fastMode: next.fastMode,
+        // Normalised, not forwarded raw: the composer enqueues model defaults
+        // explicitly (e.g. reasoning "high"), and the workflow feeds these
+        // straight into prewarmEntityDaemon — a raw default yields a different
+        // opts sig from the page-open prewarm and kills its daemon.
+        ...launchTraitsFromStored(
+          normalizeAIModel(next.model ?? DEFAULT_AI_MODEL),
+          {
+            reasoningLevel: next.reasoningLevel,
+            thinkingEnabled: next.thinkingEnabled,
+            use1mContext: next.use1mContext,
+            fastMode: next.fastMode,
+          },
+        ),
         providerAccountId: prepared.providerAccountId,
         credentialOwnerUserId: task.createdBy,
         userId: next.userId,

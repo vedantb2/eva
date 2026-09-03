@@ -31,7 +31,6 @@ export function Leaderboard({ entries }: LeaderboardProps) {
     <Widget
       title="Top contributors"
       subtitle="Who shipped the most PRs and tasks."
-      className="animate-in fade-in duration-300"
     >
       {entries.length === 0 ? (
         <div className="py-8 text-center text-muted-foreground">

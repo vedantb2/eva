@@ -174,7 +174,7 @@ export function InboxClient() {
   // The header sits inside the left pane rather than above both panes, so the
   // detail pane (and the divider between them) runs the full viewport height.
   return (
-    <div className="flex-1 h-full min-h-0 overflow-hidden animate-in fade-in duration-300">
+    <div className="flex-1 h-full min-h-0 overflow-hidden">
       <ResizablePanelLayout
         storageKey="inbox-split"
         leftDefaultSize="40%"

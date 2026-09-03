@@ -21,10 +21,11 @@ describe("handleStaleDeployment", () => {
     expect(claimAt).toBeLessThan(preventAt);
   });
 
-  test("the signed-in AppShellChrome prefetch catches chunk load failure", () => {
-    expect(mainSource).toContain(
-      'void import("@/lib/components/AppShellChrome").catch((error: Error) => {',
-    );
+  test("the signed-in shell prefetch catches chunk load failure", () => {
+    expect(mainSource).toContain("prefetchSignedInChunks((error) => {");
     expect(mainSource).toContain("isChunkLoadError(error)");
+    // A static Convex import would put the client on the anonymous landing graph.
+    expect(mainSource).not.toMatch(/import\s*\{[^}]*convex[^}]*\}\s*from\s*["']\.\/lib\/convex["']/);
+    expect(mainSource).toContain('void import("./lib/convex")');
   });
 });

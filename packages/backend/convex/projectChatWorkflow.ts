@@ -231,6 +231,17 @@ export const startExecute = authMutation({
     }
 
     const normalizedModel = normalizeAIModel(args.model);
+    // Normalise exactly as the page-open prewarm does (`launchTraitsFromStored`
+    // in `prewarmChatDaemon` below): the composer can send a model default
+    // explicitly (e.g. reasoning "high", its display value), and forwarding it
+    // verbatim gives this turn's prewarm and the workflow's prewarm a different
+    // daemon opts sig from the page-open one — killing the daemon just booted.
+    const launchTraits = launchTraitsFromStored(normalizedModel, {
+      reasoningLevel: args.reasoningLevel,
+      thinkingEnabled: args.thinkingEnabled,
+      use1mContext: args.use1mContext,
+      fastMode: args.fastMode,
+    });
     const providerAccountId = await resolveTurnProviderAccountId(ctx.db, {
       requestedAccountId: args.providerAccountId,
       ownerUserId: project.userId,
@@ -312,10 +323,7 @@ export const startExecute = authMutation({
         completionMutation: "projectChatWorkflow:handleCompletion",
         ...PROJECT_CHAT_DAEMON_MUTATIONS,
         model: normalizedModel,
-        reasoningLevel: args.reasoningLevel,
-        thinkingEnabled: args.thinkingEnabled,
-        use1mContext: args.use1mContext,
-        fastMode: args.fastMode,
+        ...launchTraits,
         allowedTools: CHAT_ALLOWED_TOOLS,
         providerAccountId,
         credentialOwnerUserId: project.userId,
@@ -333,10 +341,9 @@ export const startExecute = authMutation({
         projectId: args.projectId,
         message: args.message,
         model: args.model,
-        reasoningLevel: args.reasoningLevel,
-        thinkingEnabled: args.thinkingEnabled,
-        use1mContext: args.use1mContext,
-        fastMode: args.fastMode,
+        // Same normalisation as the prewarm above: the workflow forwards these
+        // straight back into `prewarmEntityDaemon`.
+        ...launchTraits,
         providerAccountId,
         credentialOwnerUserId: project.userId,
         userId: ctx.userId,

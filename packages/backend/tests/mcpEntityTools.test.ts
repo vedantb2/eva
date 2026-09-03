@@ -405,6 +405,31 @@ describe("start_sandbox and stop_sandbox drive the Eva Start/Stop buttons", () =
     expect(after?.reviewTaskSandboxStatus).toBe("closed");
   }, TIMEOUT_MS);
 
+  test("get_agent_state uses the same executing rule as stop and list", () => {
+    const nodeActions = convexSource("mcp/nodeActions.ts");
+    const getState = nodeActions.slice(
+      nodeActions.indexOf("export const orchestratorGetAgentState"),
+      nodeActions.indexOf("async function delay"),
+    );
+    expect(getState).toContain("internal.mcp.queries.entityIsExecuting");
+    expect(getState).not.toContain("session.activeWorkflowId !== undefined");
+  });
+
+  test("send treats a session /loop turn as busy", () => {
+    const nodeActions = convexSource("mcp/nodeActions.ts");
+    const send = nodeActions.slice(
+      nodeActions.indexOf("export const orchestratorSendMessage"),
+      nodeActions.indexOf("export const orchestratorStopAgent"),
+    );
+    expect(send).toContain("internal.mcp.queries.entityIsExecuting");
+    const delivery = nodeActions.slice(
+      nodeActions.indexOf("function chatDelivery"),
+      nodeActions.indexOf("export const orchestratorSendMessage"),
+    );
+    expect(delivery).toContain("sessionIsExecuting || queuedAhead > 0");
+    expect(delivery).not.toContain("session.activeWorkflowId");
+  });
+
   test("stop refuses to kill a turn that is already running", () => {
     const nodeActions = convexSource("mcp/nodeActions.ts");
     const stop = nodeActions.slice(
